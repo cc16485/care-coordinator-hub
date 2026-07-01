@@ -646,38 +646,58 @@ async function loadAllData(){
 // exact moment they most need to save an assessment. Rather than lose that
 // work, a failed save gets queued locally and retried automatically the
 // next time the browser comes back online (or the app reloads).
-async function persist(key){
+// Atomic per-item save via the upsert_app_data_item RPC (see
+// Supabase_Atomic_Write_Functions.sql) — Postgres locks just this row for
+// the duration of the call, so two coordinators saving at the same moment
+// queue up instead of one silently overwriting the other's write. Always
+// pass the specific record that changed; DATA[key] itself is only ever
+// used as the local in-memory copy for rendering.
+async function persist(key, item){
   if(!sb){ document.getElementById('syncPill').textContent = '⚠ Not connected'; return; }
+  if(!item){ console.warn('persist() called without an item for key', key, '— nothing sent.'); return; }
   document.getElementById('syncPill').textContent = '⏳ Saving…';
   try{
-    const { error } = await sb.from('app_data').upsert({ key, data: DATA[key] }, { onConflict: 'key' });
+    const { error } = await sb.rpc('upsert_app_data_item', { target_key: key, item });
     if(error) throw error;
     document.getElementById('syncPill').textContent = '☁ Synced';
-    clearPendingSync(key);
+    clearPendingSync(key, item.id);
   }catch(e){
-    queuePendingSync(key);
+    queuePendingSync(key, item);
     document.getElementById('syncPill').textContent = '🕓 Saved on this device — will sync when back online';
   }
 }
-function queuePendingSync(key){
+async function removeItem(key, itemId){
+  if(!sb){ document.getElementById('syncPill').textContent = '⚠ Not connected'; return; }
+  document.getElementById('syncPill').textContent = '⏳ Saving…';
+  try{
+    const { error } = await sb.rpc('delete_app_data_item', { target_key: key, item_id: itemId });
+    if(error) throw error;
+    document.getElementById('syncPill').textContent = '☁ Synced';
+  }catch(e){
+    document.getElementById('syncPill').textContent = '⚠ Delete failed — try again once back online';
+  }
+}
+function queuePendingSync(key, item){
   const pending = JSON.parse(localStorage.getItem('cch_pending_sync') || '{}');
-  pending[key] = { data: DATA[key], ts: new Date().toISOString() };
+  pending[key+':'+item.id] = { key, item, ts: new Date().toISOString() };
   localStorage.setItem('cch_pending_sync', JSON.stringify(pending));
 }
-function clearPendingSync(key){
+function clearPendingSync(key, itemId){
   const pending = JSON.parse(localStorage.getItem('cch_pending_sync') || '{}');
-  if(pending[key]){ delete pending[key]; localStorage.setItem('cch_pending_sync', JSON.stringify(pending)); }
+  const pk = key+':'+itemId;
+  if(pending[pk]){ delete pending[pk]; localStorage.setItem('cch_pending_sync', JSON.stringify(pending)); }
 }
 async function flushPendingSync(){
   if(!sb) return;
   const pending = JSON.parse(localStorage.getItem('cch_pending_sync') || '{}');
-  const keys = Object.keys(pending);
-  if(keys.length===0) return;
+  const pendingKeys = Object.keys(pending);
+  if(pendingKeys.length===0) return;
   document.getElementById('syncPill').textContent = '⏳ Syncing offline changes…';
-  for(const key of keys){
+  for(const pk of pendingKeys){
+    const entry = pending[pk];
     try{
-      const { error } = await sb.from('app_data').upsert({ key, data: pending[key].data }, { onConflict: 'key' });
-      if(!error) clearPendingSync(key);
+      const { error } = await sb.rpc('upsert_app_data_item', { target_key: entry.key, item: entry.item });
+      if(!error){ delete pending[pk]; localStorage.setItem('cch_pending_sync', JSON.stringify(pending)); }
     }catch(e){ /* still offline — will retry on the next 'online' event or reload */ }
   }
   const remaining = JSON.parse(localStorage.getItem('cch_pending_sync') || '{}');
@@ -780,14 +800,14 @@ async function saveLead(){
   };
   const idx = DATA.leads.findIndex(x=>x.id===id);
   if(idx>=0) DATA.leads[idx]=record; else DATA.leads.push(record);
-  await persist('leads');
+  await persist('leads', record);
   closeModal('leadModalBackdrop');
   renderLeads();
 }
 function scheduleAssessmentFromLead(leadId){
   const l = DATA.leads.find(x=>x.id===leadId);
   l.status = 'Assessment Scheduled';
-  persist('leads');
+  persist('leads', l);
   openAssessmentModal(null, l);
   switchTab('assessments');
 }
@@ -858,7 +878,7 @@ async function saveAssessment(){
   }
   const idx = DATA.care_assessments.findIndex(x=>x.id===id);
   if(idx>=0) DATA.care_assessments[idx]=record; else DATA.care_assessments.push(record);
-  await persist('care_assessments');
+  await persist('care_assessments', record);
   closeModal('assessmentModalBackdrop');
   renderAssessments();
 }
@@ -884,7 +904,7 @@ async function generateCarePlan(){
       })
     });
     a.status = 'Plan Drafted';
-    await persist('care_assessments');
+    await persist('care_assessments', a);
     alert('Sent to Zapier. The drafted care plan will appear in Supabase shortly — reopen this assessment (or refresh) to see it once the Zap finishes.');
   }catch(e){
     document.getElementById('assess_ai_summary_box').textContent = 'Could not reach the webhook. Check the URL in Settings.';
@@ -926,16 +946,16 @@ async function savePlan(pushToAxisCare){
   };
   const idx = DATA.care_plans.findIndex(x=>x.id===id);
   if(idx>=0) DATA.care_plans[idx]=record; else DATA.care_plans.push(record);
-  await persist('care_plans');
+  await persist('care_plans', record);
 
   if(pushToAxisCare){
     record.axiscare_synced = true;
     if(a){
       a.status = 'Pushed to AxisCare'; a.pushed_to_axiscare = true; a.pushed_at = new Date().toISOString();
       if(CONFIG.auto_clear_transcript){ a.transcript_text = ''; } // keep the link, drop the raw PHI-bearing text
-      await persist('care_assessments');
+      await persist('care_assessments', a);
     }
-    await persist('care_plans');
+    await persist('care_plans', record);
     await handOffToStaffingHub(a, record);
     alert(CONFIG.axiscare_token
       ? 'Pushed. Confirm the custom fields landed correctly on the client\'s AxisCare profile. Also added to Staffing Hub\'s scheduling queue.'
@@ -1045,7 +1065,7 @@ async function saveCheckin(){
   };
   const idx = DATA.client_checkins.findIndex(x=>x.id===id);
   if(idx>=0) DATA.client_checkins[idx]=record; else DATA.client_checkins.push(record);
-  await persist('client_checkins');
+  await persist('client_checkins', record);
   closeModal('checkinModalBackdrop');
   renderCheckins();
   if(record.escalated) alert('Marked as escalated — make sure Samantha knows (this hub does not auto-notify yet; wire a webhook in Settings if you want that).');
@@ -1118,17 +1138,22 @@ async function saveSupervisoryVisit(){
   };
   const idx = DATA.supervisory_visits.findIndex(x=>x.id===id);
   if(idx>=0) DATA.supervisory_visits[idx]=record; else DATA.supervisory_visits.push(record);
-  await persist('supervisory_visits');
+  await persist('supervisory_visits', record);
 
   // Mirror the date into Staffing Hub's caregivers blob, same record, two views.
+  // Uses the atomic upsert RPC too — Staffing Hub could be editing this same
+  // caregiver at the same moment, so this can't be a plain read-then-overwrite.
   try{
     const { data } = await sb.from('app_data').select('data').eq('key','caregivers').single();
     if(data && data.data){
-      const caregivers = data.data;
-      const cg = caregivers.find(g => (g.first && g.last && (g.first+' '+g.last)===record.caregiver_name) || g.axiscare_id===record.axiscare_caregiver_id);
-      if(cg){ cg.supv_date = record.visit_date; cg.supervisory_proof_link = record.proof_link; await sb.from('app_data').upsert({key:'caregivers', data: caregivers}, {onConflict:'key'}); }
+      const cg = data.data.find(g => (g.first && g.last && (g.first+' '+g.last)===record.caregiver_name) || g.axiscare_id===record.axiscare_caregiver_id);
+      if(cg){
+        cg.supv_date = record.visit_date;
+        cg.supervisory_proof_link = record.proof_link;
+        await sb.rpc('upsert_app_data_item', { target_key: 'caregivers', item: cg });
+      }
     }
-  }catch(e){ /* Staffing Hub table may not exist in this project yet — non-fatal */ }
+  }catch(e){ /* Staffing Hub table may not exist in this project yet, or its caregiver records use a different id shape — non-fatal */ }
 
   closeModal('supervisoryModalBackdrop');
   renderSupervisory();
@@ -1268,21 +1293,22 @@ async function addStaffMember(){
   const name = document.getElementById('new_staff_name').value.trim();
   if(!name){ alert('Enter a name first.'); return; }
   DATA.coordinator_staff = DATA.coordinator_staff || [];
-  DATA.coordinator_staff.push({
+  const newStaff = {
     id: uid(), name, role: document.getElementById('new_staff_role').value,
     notify_leads: document.getElementById('new_staff_notify_leads').checked,
     notify_checkins: document.getElementById('new_staff_notify_checkins').checked,
     notify_supervisory: document.getElementById('new_staff_notify_supervisory').checked,
     notify_careplan: document.getElementById('new_staff_notify_careplan').checked,
-  });
-  await persist('coordinator_staff');
+  };
+  DATA.coordinator_staff.push(newStaff);
+  await persist('coordinator_staff', newStaff);
   document.getElementById('new_staff_name').value = '';
   ['new_staff_notify_leads','new_staff_notify_checkins','new_staff_notify_supervisory','new_staff_notify_careplan'].forEach(id=>document.getElementById(id).checked=false);
   renderStaffList();
 }
 async function removeStaffMember(id){
   DATA.coordinator_staff = (DATA.coordinator_staff||[]).filter(s=>s.id!==id);
-  await persist('coordinator_staff');
+  await removeItem('coordinator_staff', id);
   renderStaffList();
 }
 function saveSettings(){
