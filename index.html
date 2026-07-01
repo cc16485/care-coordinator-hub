@@ -661,6 +661,10 @@ CONFIG.escalation_protocol = CONFIG.escalation_protocol || '1. Call the on-call 
 // Same Supabase project as Staffing Hub — shared backend, shared staff logins.
 CONFIG.supabase_url = CONFIG.supabase_url || 'https://zngsgedlsxinbygwmxwn.supabase.co';
 CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+// Fixed slug this hub checks against a signed-in user's app_metadata.hub_access.
+// Must exactly match this hub's row (id/slug "care_coordinator") in Team Hub's
+// hub_portals list — managed from Team Hub → Manage Team Access.
+const HUB_SLUG = 'care_coordinator';
 
 let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [] };
 let activeTab = 'leads';
@@ -678,6 +682,17 @@ function initSupabase(){
 initSupabase();
 
 /* ---------------- AUTH ---------------- */
+// Real access control lives in Supabase Auth's app_metadata.hub_access, set
+// only via Team Hub's Manage Team Access invite automation (service_role,
+// never the browser). A missing hub_access array means the account predates
+// this system — treat that as grandfathered in rather than denied, so this
+// never locks out the existing team on deploy. Restriction only starts once
+// an owner explicitly sets someone's portal access.
+function hasHubAccess(user){
+  const access = user && user.app_metadata && user.app_metadata.hub_access;
+  if(access === undefined || access === null) return true;
+  return Array.isArray(access) && access.includes(HUB_SLUG);
+}
 async function signIn(){
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
@@ -686,6 +701,12 @@ async function signIn(){
   if(!sb){ errEl.textContent = 'Connect Supabase in Settings first (ask your admin).'; errEl.style.display='block'; return; }
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if(error){ errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+  if(!hasHubAccess(data.user)){
+    await sb.auth.signOut();
+    errEl.textContent = "You don't have access to Care Coordinator's Hub. Contact your owner to be granted access.";
+    errEl.style.display = 'block';
+    return;
+  }
   document.getElementById('signinScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   await loadAllData();
@@ -1526,6 +1547,13 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ document.querySe
   if(sb){
     const { data:{ session } } = await sb.auth.getSession();
     if(session){
+      if(!hasHubAccess(session.user)){
+        await sb.auth.signOut();
+        const errEl = document.getElementById('loginError');
+        errEl.textContent = "You don't have access to Care Coordinator's Hub. Contact your owner to be granted access.";
+        errEl.style.display = 'block';
+        return;
+      }
       document.getElementById('signinScreen').style.display = 'none';
       document.getElementById('appScreen').style.display = 'block';
       await loadAllData();
