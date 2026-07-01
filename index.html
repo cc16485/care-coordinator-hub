@@ -115,7 +115,21 @@
   .lock-screen.open{display:flex;}
   .lock-card{background:#fff;border-radius:12px;padding:28px;width:300px;text-align:center;}
 
-  @media(max-width:720px){.modal .grid2{grid-template-columns:1fr;}}
+  @media(max-width:720px){
+    .modal .grid2{grid-template-columns:1fr;}
+    /* Coordinators fill these out one-handed, standing in a client's living
+       room — bigger tap targets and no iOS auto-zoom-on-focus. */
+    input,select,textarea{font-size:16px;padding:11px 12px;}
+    button.primary,button.secondary{padding:11px 16px;min-height:44px;}
+    .modal{padding:18px;max-width:100%;border-radius:0;min-height:100vh;}
+    .modal-actions{flex-direction:column-reverse;align-items:stretch;}
+    .modal-actions button{width:100%;}
+    header.topbar{flex-wrap:wrap;gap:8px;}
+    header.topbar input.search{max-width:none;flex:1 1 100%;order:3;}
+    nav.tabs button{padding:12px 12px;font-size:13px;}
+    table{font-size:12px;}
+    th,td{padding:8px;}
+  }
 </style>
 </head>
 <body>
@@ -154,6 +168,7 @@
     <button data-tab="assessments" onclick="switchTab('assessments')">🏠 Care Assessments</button>
     <button data-tab="checkins" onclick="switchTab('checkins')">💚 Client Check-ins</button>
     <button data-tab="supervisory" onclick="switchTab('supervisory')">🧑‍🤝‍🧑 Supervisory Visits</button>
+    <button data-tab="clients" onclick="switchTab('clients')">👤 Clients</button>
   </nav>
 
   <main>
@@ -245,6 +260,21 @@
       <div class="card"><div id="supervisoryTableWrap"></div></div>
     </section>
 
+    <!-- ===================== TAB: CLIENTS (roster / single view) ===================== -->
+    <section class="tabpanel" id="tab-clients">
+      <details class="guide">
+        <summary>📋 How This Tab Works — Step by Step ▼</summary>
+        <div class="guide-body">
+          <div class="guide-step"><span class="num">1</span>This tab is a read-only rollup — every other tab still owns its own data. It exists so you can see one client's whole story (lead → assessment → care plan → check-in history) without flipping between four tabs.</div>
+          <div class="guide-step"><span class="num">2</span>Click <b>View History</b> on any client to see their full timeline, including the satisfaction trend across all their check-ins.</div>
+          <div class="guide-step flag"><span class="num">!</span>Clients are matched by AxisCare Client ID when available, falling back to name. Keep that ID filled in on the Lead/Assessment/Check-in records so a client's history stays linked together correctly.</div>
+        </div>
+      </details>
+
+      <div class="toolbar" id="clientsFilters"></div>
+      <div class="card"><div id="clientsTableWrap"></div></div>
+    </section>
+
   </main>
 </div>
 
@@ -297,6 +327,10 @@
       <div><label>Visit Date</label><input type="date" id="assess_visit_date"></div>
       <div><label>Coordinator</label><input id="assess_coordinator"></div>
       <div style="grid-column:1/-1"><label>Address</label><input id="assess_address"></div>
+      <div>
+        <label>Payer</label>
+        <select id="assess_payer"><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>Other</option></select>
+      </div>
       <div>
         <label>Transcript Source</label>
         <select id="assess_transcript_source"><option>Otter</option><option>Fireflies</option><option>Other</option></select>
@@ -426,6 +460,27 @@
   </div>
 </div>
 
+<!-- ============================= CLIENT HISTORY MODAL (read-only rollup) ============================= -->
+<div class="modal-backdrop" id="clientHistoryModalBackdrop">
+  <div class="modal" style="max-width:680px;">
+    <h2 id="clientHistoryTitle">Client History</h2>
+    <div class="modal-sub" id="clientHistorySub"></div>
+
+    <div class="section-title">Lead</div>
+    <div class="ai-box" id="clientHistoryLead">No lead record on file.</div>
+
+    <div class="section-title">Care Assessment &amp; Plan</div>
+    <div class="ai-box" id="clientHistoryAssessment">No assessment on file.</div>
+
+    <div class="section-title">Check-in History</div>
+    <div id="clientHistoryCheckins"></div>
+
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeModal('clientHistoryModalBackdrop')">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============================= SETTINGS (passcode-gated) ============================= -->
 <div class="lock-screen" id="settingsLock">
   <div class="lock-card">
@@ -468,6 +523,14 @@
     </div>
 
     <div class="settings-section">
+      <h3>Transcript Retention</h3>
+      <p class="hint">Visit transcripts can contain medical detail. Once a care plan is pushed to AxisCare, the structured plan is the record of truth — the raw transcript doesn't need to stick around.</p>
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);">
+        <input type="checkbox" id="set_auto_clear_transcript" style="width:auto"> Auto-clear raw transcript text once a plan is pushed to AxisCare (keeps the transcript link, drops the pasted text)
+      </label>
+    </div>
+
+    <div class="settings-section">
       <h3>🔗 Lead Intake Webhook (Website Form → Hub)</h3>
       <p class="hint">Website form submissions POST here via Zapier, landing directly in the Leads tab. See Care_Coordinator_Zapier_Setup.md.</p>
       <div class="webhook-box"><code id="leadWebhookUrl">POST https://[your-project].supabase.co/rest/v1/app_data?key=eq.leads</code></div>
@@ -477,6 +540,26 @@
       <h3>🪄 Care Plan Generation Webhook (Hub → Zapier → AxisCare)</h3>
       <p class="hint">Fires when you click "Generate Care Plan." Zapier structures the transcript with AI and pushes the result back here and into AxisCare custom fields.</p>
       <label>Webhook URL</label><input id="set_careplan_webhook">
+    </div>
+
+    <div class="settings-section">
+      <h3>Staff &amp; Notifications</h3>
+      <p class="hint">Add coordinators and choose which automated alerts each person gets — used by the reminder Zap in Care_Coordinator_Zapier_Setup.md to decide who to email.</p>
+      <div id="staffListWrap"></div>
+      <div class="grid2" style="margin-top:10px;">
+        <div><label>Name</label><input id="new_staff_name"></div>
+        <div>
+          <label>Role</label>
+          <select id="new_staff_role"><option>Care Coordinator</option><option>Staffing Coordinator</option><option>Owner</option><option>Other</option></select>
+        </div>
+      </div>
+      <div class="checklist" style="margin:8px 0;">
+        <label><input type="checkbox" id="new_staff_notify_leads"> New lead alerts</label>
+        <label><input type="checkbox" id="new_staff_notify_checkins"> Overdue check-in alerts</label>
+        <label><input type="checkbox" id="new_staff_notify_supervisory"> Supervisory visit due alerts</label>
+        <label><input type="checkbox" id="new_staff_notify_careplan"> Care plan ready alerts</label>
+      </div>
+      <button class="secondary" onclick="addStaffMember()">+ Add Staff Member</button>
     </div>
 
     <div class="settings-section">
@@ -513,9 +596,9 @@ CONFIG.admin_passcode = CONFIG.admin_passcode || '';
 CONFIG.supabase_url = CONFIG.supabase_url || 'https://zngsgedlsxinbygwmxwn.supabase.co';
 CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [] };
 let activeTab = 'leads';
-let activeFilters = { leads: 'All', assessments: 'All', checkins: 'All', supervisory: 'All' };
+let activeFilters = { leads: 'All', assessments: 'All', checkins: 'All', supervisory: 'All', clients: 'All' };
 
 function uid(){ return 'id_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
 function today(){ return new Date().toISOString().slice(0,10); }
@@ -540,6 +623,7 @@ async function signIn(){
   document.getElementById('signinScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   await loadAllData();
+  await flushPendingSync();
   renderActiveTab();
 }
 async function signOut(){
@@ -551,19 +635,55 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
   }
   document.getElementById('syncPill').textContent = '☁ Synced';
 }
+// Coordinators are often in a client's home with spotty signal during the
+// exact moment they most need to save an assessment. Rather than lose that
+// work, a failed save gets queued locally and retried automatically the
+// next time the browser comes back online (or the app reloads).
 async function persist(key){
   if(!sb){ document.getElementById('syncPill').textContent = '⚠ Not connected'; return; }
   document.getElementById('syncPill').textContent = '⏳ Saving…';
-  const { error } = await sb.from('app_data').upsert({ key, data: DATA[key] }, { onConflict: 'key' });
-  document.getElementById('syncPill').textContent = error ? '⚠ Save failed' : '☁ Synced';
+  try{
+    const { error } = await sb.from('app_data').upsert({ key, data: DATA[key] }, { onConflict: 'key' });
+    if(error) throw error;
+    document.getElementById('syncPill').textContent = '☁ Synced';
+    clearPendingSync(key);
+  }catch(e){
+    queuePendingSync(key);
+    document.getElementById('syncPill').textContent = '🕓 Saved on this device — will sync when back online';
+  }
 }
+function queuePendingSync(key){
+  const pending = JSON.parse(localStorage.getItem('cch_pending_sync') || '{}');
+  pending[key] = { data: DATA[key], ts: new Date().toISOString() };
+  localStorage.setItem('cch_pending_sync', JSON.stringify(pending));
+}
+function clearPendingSync(key){
+  const pending = JSON.parse(localStorage.getItem('cch_pending_sync') || '{}');
+  if(pending[key]){ delete pending[key]; localStorage.setItem('cch_pending_sync', JSON.stringify(pending)); }
+}
+async function flushPendingSync(){
+  if(!sb) return;
+  const pending = JSON.parse(localStorage.getItem('cch_pending_sync') || '{}');
+  const keys = Object.keys(pending);
+  if(keys.length===0) return;
+  document.getElementById('syncPill').textContent = '⏳ Syncing offline changes…';
+  for(const key of keys){
+    try{
+      const { error } = await sb.from('app_data').upsert({ key, data: pending[key].data }, { onConflict: 'key' });
+      if(!error) clearPendingSync(key);
+    }catch(e){ /* still offline — will retry on the next 'online' event or reload */ }
+  }
+  const remaining = JSON.parse(localStorage.getItem('cch_pending_sync') || '{}');
+  document.getElementById('syncPill').textContent = Object.keys(remaining).length ? '🕓 Saved on this device — will sync when back online' : '☁ Synced';
+}
+window.addEventListener('online', flushPendingSync);
 
 /* ---------------- TABS ---------------- */
 function switchTab(tab){
@@ -578,6 +698,7 @@ function renderActiveTab(){
   if(activeTab==='assessments') renderAssessments();
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='supervisory') renderSupervisory();
+  if(activeTab==='clients') renderClients();
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
   const el = document.getElementById(containerId);
@@ -704,6 +825,7 @@ function openAssessmentModal(id, fromLead){
   document.getElementById('assess_visit_date').value = (a&&a.visit_date)||'';
   document.getElementById('assess_coordinator').value = (a&&a.coordinator)||'';
   document.getElementById('assess_address').value = (a&&a.address)||'';
+  document.getElementById('assess_payer').value = (a&&a.payer)||'Medicaid';
   document.getElementById('assess_transcript_source').value = (a&&a.transcript_source)||'Otter';
   document.getElementById('assess_transcript_link').value = (a&&a.transcript_link)||'';
   document.getElementById('assess_transcript_text').value = (a&&a.transcript_text)||'';
@@ -721,6 +843,7 @@ async function saveAssessment(){
     visit_date: document.getElementById('assess_visit_date').value,
     coordinator: document.getElementById('assess_coordinator').value.trim(),
     address: document.getElementById('assess_address').value.trim(),
+    payer: document.getElementById('assess_payer').value,
     transcript_source: document.getElementById('assess_transcript_source').value,
     transcript_link: document.getElementById('assess_transcript_link').value.trim(),
     transcript_text: document.getElementById('assess_transcript_text').value.trim(),
@@ -807,39 +930,77 @@ async function savePlan(pushToAxisCare){
 
   if(pushToAxisCare){
     record.axiscare_synced = true;
-    if(a){ a.status = 'Pushed to AxisCare'; a.pushed_to_axiscare = true; a.pushed_at = new Date().toISOString(); await persist('care_assessments'); }
+    if(a){
+      a.status = 'Pushed to AxisCare'; a.pushed_to_axiscare = true; a.pushed_at = new Date().toISOString();
+      if(CONFIG.auto_clear_transcript){ a.transcript_text = ''; } // keep the link, drop the raw PHI-bearing text
+      await persist('care_assessments');
+    }
     await persist('care_plans');
+    await handOffToStaffingHub(a, record);
     alert(CONFIG.axiscare_token
-      ? 'Pushed. Confirm the custom fields landed correctly on the client\'s AxisCare profile.'
-      : 'Saved — but no AxisCare API token is set in Settings, so nothing was actually sent to AxisCare yet. This only updated Supabase.');
+      ? 'Pushed. Confirm the custom fields landed correctly on the client\'s AxisCare profile. Also added to Staffing Hub\'s scheduling queue.'
+      : 'Saved — but no AxisCare API token is set in Settings, so nothing was actually sent to AxisCare yet. This only updated Supabase (including the Staffing Hub scheduling queue).');
   }
   closeModal('planModalBackdrop');
   renderAssessments();
 }
 
+/* Hands a finalized client off to Staffing Hub's own "New Clients — Needs
+   Scheduling" queue (the client_queue table Staffing Hub already reads from
+   via its AxisCare webhook). Writing here directly means the AxisCare Zap
+   isn't the only way a client can land in that queue — this codepath is
+   equally valid since it's the exact same table/shape. */
+async function handOffToStaffingHub(assessment, plan){
+  if(!sb || !assessment) return;
+  try{
+    await sb.from('client_queue').insert({
+      client_name: assessment.client_name,
+      start_date: plan.start_date || '',
+      auth_hours: plan.recommended_hours_per_week || '',
+      payer: assessment.payer || '',
+      schedule_notes: [plan.recommended_frequency, plan.services_recommended].filter(Boolean).join(' — '),
+      axiscare_client_id: assessment.axiscare_client_id || ''
+    });
+  }catch(e){ /* client_queue table may not exist yet in this project — non-fatal, Staffing Hub setup still pending */ }
+}
+
 /* ---------------- CLIENT CHECK-INS ---------------- */
+// True when a client's most recent (up to 3) satisfaction ratings have been
+// dropping check-in over check-in — surfaced so a slow slide doesn't get
+// missed just because no single check-in looked alarming on its own.
+function clientSatisfactionDeclining(clientName){
+  const history = DATA.client_checkins
+    .filter(c=>c.client_name===clientName && c.satisfaction_rating)
+    .sort((a,b)=> (a.checkin_date||'').localeCompare(b.checkin_date||''));
+  if(history.length < 2) return false;
+  const recent = history.slice(-3);
+  for(let i=1;i<recent.length;i++){ if(recent[i].satisfaction_rating >= recent[i-1].satisfaction_rating) return false; }
+  return true;
+}
 function renderCheckins(){
-  renderFilterPills('checkinsFilters', ['All','Due This Week','Overdue','Escalated'], activeFilters.checkins, 'checkins');
+  renderFilterPills('checkinsFilters', ['All','Due This Week','Overdue','Escalated','Declining Trend'], activeFilters.checkins, 'checkins');
   let rows = DATA.client_checkins.filter(c=>searchMatch(c.client_name));
   const f = activeFilters.checkins;
   if(f==='Overdue') rows = rows.filter(c=>c.next_checkin_due && c.next_checkin_due < today());
   else if(f==='Due This Week') rows = rows.filter(c=>c.next_checkin_due && daysBetween(today(),c.next_checkin_due)>=0 && daysBetween(today(),c.next_checkin_due)<=7);
   else if(f==='Escalated') rows = rows.filter(c=>c.escalated);
+  else if(f==='Declining Trend') rows = rows.filter(c=>clientSatisfactionDeclining(c.client_name));
 
   const wrap = document.getElementById('checkinsTableWrap');
   if(rows.length===0){ wrap.innerHTML='<div class="empty">No check-ins match.</div>'; return; }
   wrap.innerHTML = `<table><thead><tr>
     <th>Client</th><th>Last Check-in</th><th>Method</th><th>Satisfaction</th><th>Next Due</th><th>Coordinator</th><th>Actions</th>
-  </tr></thead><tbody>${rows.map(c=>`
-    <tr>
-      <td><b>${c.client_name||''}</b>${c.escalated?' <span class="badge bad">Escalated</span>':''}</td>
+  </tr></thead><tbody>${rows.map(c=>{
+    const declining = clientSatisfactionDeclining(c.client_name);
+    return `<tr>
+      <td><b>${c.client_name||''}</b>${c.escalated?' <span class="badge bad">Escalated</span>':''}${declining?' <span class="badge warn">📉 Declining</span>':''}</td>
       <td>${c.checkin_date||''}</td>
       <td>${c.method||''}</td>
       <td>${'⭐'.repeat(c.satisfaction_rating||0)}</td>
       <td>${c.next_checkin_due ? (c.next_checkin_due<today() ? '<span class="badge bad">'+c.next_checkin_due+'</span>' : c.next_checkin_due) : '—'}</td>
       <td>${c.coordinator||''}</td>
       <td><button class="linklike" onclick="openCheckinModal('${c.id}')">Edit</button></td>
-    </tr>`).join('')}</tbody></table>`;
+    </tr>`; }).join('')}</tbody></table>`;
 }
 function openCheckinModal(id){
   const c = id ? DATA.client_checkins.find(x=>x.id===id) : {};
@@ -973,6 +1134,97 @@ async function saveSupervisoryVisit(){
   renderSupervisory();
 }
 
+/* ---------------- CLIENTS (read-only roster across all tabs) ---------------- */
+// Builds one row per distinct client, matched by AxisCare client ID when
+// present (falling back to name) across leads, assessments, and check-ins.
+function getClientRoster(){
+  const byKey = new Map();
+  const keyFor = (axisId, name) => (axisId && axisId.trim()) ? 'ax:'+axisId.trim() : 'nm:'+(name||'').trim().toLowerCase();
+  const ensure = (axisId, name) => {
+    const key = keyFor(axisId, name);
+    if(!byKey.has(key)) byKey.set(key, { key, client_name: name||'(unnamed)', axiscare_client_id: axisId||'', lead:null, assessment:null, plan:null, checkins:[] });
+    const rec = byKey.get(key);
+    if(name && (!rec.client_name || rec.client_name==='(unnamed)')) rec.client_name = name;
+    if(axisId && !rec.axiscare_client_id) rec.axiscare_client_id = axisId;
+    return rec;
+  };
+  DATA.leads.filter(l=>l.status==='Converted').forEach(l=>{
+    const rec = ensure(l.axiscare_client_id, (l.first_name||'')+' '+(l.last_name||''));
+    rec.lead = l;
+  });
+  DATA.care_assessments.forEach(a=>{
+    const rec = ensure(a.axiscare_client_id, a.client_name);
+    if(!rec.assessment || (a.created_at||'') > (rec.assessment.created_at||'')) rec.assessment = a;
+  });
+  DATA.care_plans.forEach(p=>{
+    const assessment = DATA.care_assessments.find(a=>a.id===p.assessment_id);
+    const rec = ensure(assessment&&assessment.axiscare_client_id, p.client_name);
+    if(!rec.plan || (p.created_at||'') > (rec.plan.created_at||'')) rec.plan = p;
+  });
+  DATA.client_checkins.forEach(c=>{
+    const rec = ensure(c.axiscare_client_id, c.client_name);
+    rec.checkins.push(c);
+  });
+  return Array.from(byKey.values());
+}
+function renderClients(){
+  renderFilterPills('clientsFilters', ['All','Has Open Concern','Declining Trend','No Recent Check-in'], activeFilters.clients, 'clients');
+  let rows = getClientRoster().filter(r=>searchMatch(r.client_name));
+  const f = activeFilters.clients;
+  if(f==='Has Open Concern') rows = rows.filter(r=>r.checkins.some(c=>c.escalated));
+  else if(f==='Declining Trend') rows = rows.filter(r=>clientSatisfactionDeclining(r.client_name));
+  else if(f==='No Recent Check-in') rows = rows.filter(r=>r.checkins.length===0 || !r.checkins.some(c=>c.next_checkin_due && c.next_checkin_due>=today()));
+
+  const wrap = document.getElementById('clientsTableWrap');
+  if(rows.length===0){ wrap.innerHTML='<div class="empty">No clients yet — clients appear here once a lead is converted, an assessment is logged, or a check-in is recorded.</div>'; return; }
+  rows.sort((a,b)=>a.client_name.localeCompare(b.client_name));
+  wrap.innerHTML = `<table><thead><tr>
+    <th>Client</th><th>AxisCare ID</th><th>Payer</th><th>Assessment Status</th><th>Last Check-in</th><th>Actions</th>
+  </tr></thead><tbody>${rows.map(r=>{
+    const lastCheckin = r.checkins.slice().sort((a,b)=>(b.checkin_date||'').localeCompare(a.checkin_date||''))[0];
+    const declining = clientSatisfactionDeclining(r.client_name);
+    return `<tr>
+      <td><b>${r.client_name}</b>${declining?' <span class="badge warn">📉 Declining</span>':''}</td>
+      <td>${r.axiscare_client_id||'—'}</td>
+      <td>${(r.assessment&&r.assessment.payer)||'—'}</td>
+      <td>${r.assessment?statusBadge(r.assessment.status):'<span class="badge muted">No assessment</span>'}</td>
+      <td>${lastCheckin ? lastCheckin.checkin_date+' ('+'⭐'.repeat(lastCheckin.satisfaction_rating||0)+')' : '—'}</td>
+      <td><button class="linklike" onclick="openClientHistory('${r.key.replace(/'/g,"\\'")}')">View History</button></td>
+    </tr>`; }).join('')}</tbody></table>`;
+}
+function openClientHistory(key){
+  const rec = getClientRoster().find(r=>r.key===key);
+  if(!rec) return;
+  document.getElementById('clientHistoryTitle').textContent = rec.client_name;
+  document.getElementById('clientHistorySub').textContent = rec.axiscare_client_id ? 'AxisCare Client ID: '+rec.axiscare_client_id : 'No AxisCare Client ID on file yet';
+
+  const leadEl = document.getElementById('clientHistoryLead');
+  leadEl.textContent = rec.lead
+    ? `Source: ${rec.lead.source}${rec.lead.referral_source_name?' — '+rec.lead.referral_source_name:''}\nAssigned: ${rec.lead.assigned_coordinator||'—'}\nNotes: ${rec.lead.interest_notes||'—'}`
+    : 'No lead record on file.';
+
+  const assessEl = document.getElementById('clientHistoryAssessment');
+  if(rec.assessment){
+    let text = `Visit date: ${rec.assessment.visit_date||'—'}   Coordinator: ${rec.assessment.coordinator||'—'}   Status: ${rec.assessment.status}`;
+    if(rec.plan){
+      text += `\n\nADL needs: ${rec.plan.adl_needs||'—'}\nIADL needs: ${rec.plan.iadl_needs||'—'}\nRecommended: ${rec.plan.recommended_frequency||'—'}${rec.plan.recommended_hours_per_week?' ('+rec.plan.recommended_hours_per_week+' hrs/wk)':''}`;
+    } else {
+      text += '\n\nNo care plan drafted yet.';
+    }
+    assessEl.textContent = text;
+  } else {
+    assessEl.textContent = 'No assessment on file.';
+  }
+
+  const checkinsEl = document.getElementById('clientHistoryCheckins');
+  const sorted = rec.checkins.slice().sort((a,b)=>(b.checkin_date||'').localeCompare(a.checkin_date||''));
+  checkinsEl.innerHTML = sorted.length ? `<table><thead><tr><th>Date</th><th>Method</th><th>Satisfaction</th><th>Notes</th></tr></thead><tbody>${
+    sorted.map(c=>`<tr><td>${c.checkin_date||''}</td><td>${c.method||''}</td><td>${'⭐'.repeat(c.satisfaction_rating||0)}${c.escalated?' <span class="badge bad">Escalated</span>':''}</td><td style="max-width:220px">${c.concerns_raised||c.caregiver_feedback||'—'}</td></tr>`).join('')
+  }</tbody></table>` : '<div class="empty">No check-ins logged yet.</div>';
+
+  document.getElementById('clientHistoryModalBackdrop').classList.add('open');
+}
+
 /* ---------------- SETTINGS ---------------- */
 function openSettings(){
   if(!CONFIG.admin_passcode){ openSettingsModal(); return; }
@@ -994,9 +1246,44 @@ function openSettingsModal(){
   document.getElementById('set_axiscare_token').value = CONFIG.axiscare_token||'';
   document.getElementById('set_checkin_cadence').value = CONFIG.checkin_cadence||30;
   document.getElementById('set_supervisory_window').value = CONFIG.supervisory_window||60;
+  document.getElementById('set_auto_clear_transcript').checked = !!CONFIG.auto_clear_transcript;
   document.getElementById('set_careplan_webhook').value = CONFIG.careplan_webhook||'';
   if(CONFIG.supabase_url) document.getElementById('leadWebhookUrl').textContent = `POST ${CONFIG.supabase_url}/rest/v1/app_data?key=eq.leads`;
+  renderStaffList();
   document.getElementById('settingsModalBackdrop').classList.add('open');
+}
+function renderStaffList(){
+  const wrap = document.getElementById('staffListWrap');
+  if(!wrap) return;
+  const staff = DATA.coordinator_staff || [];
+  if(staff.length===0){ wrap.innerHTML = '<div class="empty" style="padding:14px;">No staff added yet.</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Name</th><th>Role</th><th>Notifications</th><th></th></tr></thead><tbody>${
+    staff.map(s=>{
+      const notifs = [s.notify_leads&&'Leads', s.notify_checkins&&'Check-ins', s.notify_supervisory&&'Supervisory', s.notify_careplan&&'Care Plans'].filter(Boolean).join(', ') || '—';
+      return `<tr><td>${s.name}</td><td>${s.role}</td><td>${notifs}</td><td><button class="linklike" onclick="removeStaffMember('${s.id}')">Remove</button></td></tr>`;
+    }).join('')
+  }</tbody></table>`;
+}
+async function addStaffMember(){
+  const name = document.getElementById('new_staff_name').value.trim();
+  if(!name){ alert('Enter a name first.'); return; }
+  DATA.coordinator_staff = DATA.coordinator_staff || [];
+  DATA.coordinator_staff.push({
+    id: uid(), name, role: document.getElementById('new_staff_role').value,
+    notify_leads: document.getElementById('new_staff_notify_leads').checked,
+    notify_checkins: document.getElementById('new_staff_notify_checkins').checked,
+    notify_supervisory: document.getElementById('new_staff_notify_supervisory').checked,
+    notify_careplan: document.getElementById('new_staff_notify_careplan').checked,
+  });
+  await persist('coordinator_staff');
+  document.getElementById('new_staff_name').value = '';
+  ['new_staff_notify_leads','new_staff_notify_checkins','new_staff_notify_supervisory','new_staff_notify_careplan'].forEach(id=>document.getElementById(id).checked=false);
+  renderStaffList();
+}
+async function removeStaffMember(id){
+  DATA.coordinator_staff = (DATA.coordinator_staff||[]).filter(s=>s.id!==id);
+  await persist('coordinator_staff');
+  renderStaffList();
 }
 function saveSettings(){
   const newCode = document.getElementById('set_new_passcode').value;
@@ -1008,6 +1295,7 @@ function saveSettings(){
   CONFIG.axiscare_token = document.getElementById('set_axiscare_token').value.trim();
   CONFIG.checkin_cadence = parseInt(document.getElementById('set_checkin_cadence').value||'30');
   CONFIG.supervisory_window = parseInt(document.getElementById('set_supervisory_window').value||'60');
+  CONFIG.auto_clear_transcript = document.getElementById('set_auto_clear_transcript').checked;
   CONFIG.careplan_webhook = document.getElementById('set_careplan_webhook').value.trim();
   if(newCode) CONFIG.admin_passcode = newCode;
   localStorage.setItem('cch_config', JSON.stringify(CONFIG));
@@ -1028,6 +1316,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ document.querySe
       document.getElementById('signinScreen').style.display = 'none';
       document.getElementById('appScreen').style.display = 'block';
       await loadAllData();
+      await flushPendingSync();
       renderActiveTab();
     }
   }
