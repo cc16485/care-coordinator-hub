@@ -503,7 +503,8 @@
    to AxisCare / Google Drive / email-text alerts.
    ========================================================================= */
 
-let supabase = null;
+let sb = null; // Supabase client instance — named `sb`, not `supabase`, to avoid colliding
+                // with the `supabase` global the CDN script above already declares.
 let CONFIG = JSON.parse(localStorage.getItem('cch_config') || '{}');
 CONFIG.checkin_cadence = CONFIG.checkin_cadence || 30;
 CONFIG.supervisory_window = CONFIG.supervisory_window || 60;
@@ -523,7 +524,7 @@ function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date
 
 function initSupabase(){
   if(!CONFIG.supabase_url || !CONFIG.supabase_anon_key) return;
-  supabase = window.supabase.createClient(CONFIG.supabase_url, CONFIG.supabase_anon_key);
+  sb = window.supabase.createClient(CONFIG.supabase_url, CONFIG.supabase_anon_key);
 }
 initSupabase();
 
@@ -533,8 +534,8 @@ async function signIn(){
   const password = document.getElementById('loginPassword').value;
   const errEl = document.getElementById('loginError');
   errEl.style.display = 'none';
-  if(!supabase){ errEl.textContent = 'Connect Supabase in Settings first (ask your admin).'; errEl.style.display='block'; return; }
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if(!sb){ errEl.textContent = 'Connect Supabase in Settings first (ask your admin).'; errEl.style.display='block'; return; }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if(error){ errEl.textContent = error.message; errEl.style.display = 'block'; return; }
   document.getElementById('signinScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
@@ -542,25 +543,25 @@ async function signIn(){
   renderActiveTab();
 }
 async function signOut(){
-  if(supabase) await supabase.auth.signOut();
+  if(sb) await sb.auth.signOut();
   document.getElementById('appScreen').style.display = 'none';
   document.getElementById('signinScreen').style.display = 'flex';
 }
 
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
-  if(!supabase) return;
+  if(!sb) return;
   const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits'];
   for(const key of keys){
-    const { data, error } = await supabase.from('app_data').select('data').eq('key', key).single();
+    const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
   }
   document.getElementById('syncPill').textContent = '☁ Synced';
 }
 async function persist(key){
-  if(!supabase){ document.getElementById('syncPill').textContent = '⚠ Not connected'; return; }
+  if(!sb){ document.getElementById('syncPill').textContent = '⚠ Not connected'; return; }
   document.getElementById('syncPill').textContent = '⏳ Saving…';
-  const { error } = await supabase.from('app_data').upsert({ key, data: DATA[key] }, { onConflict: 'key' });
+  const { error } = await sb.from('app_data').upsert({ key, data: DATA[key] }, { onConflict: 'key' });
   document.getElementById('syncPill').textContent = error ? '⚠ Save failed' : '☁ Synced';
 }
 
@@ -745,9 +746,15 @@ async function generateCarePlan(){
   const a = DATA.care_assessments.find(x=>x.id===id);
   document.getElementById('assess_ai_summary_box').textContent = 'Generating… this calls your Zapier webhook, which structures the transcript with AI. Check back in a minute, or watch the Zap run in Zapier.';
   try{
+    // Zapier's Catch Hook doesn't send back CORS headers that allow a
+    // browser to set Content-Type: application/json (triggers a blocked
+    // preflight). Sending as text/plain avoids the preflight — Zapier still
+    // reads and parses the raw JSON body fine. mode:'no-cors' means we can't
+    // read a response, but this is fire-and-forget anyway.
     await fetch(CONFIG.careplan_webhook, {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      mode: 'no-cors',
+      headers: {'Content-Type':'text/plain'},
       body: JSON.stringify({
         assessment_id: a.id, client_name: a.client_name, axiscare_client_id: a.axiscare_client_id,
         transcript_link: a.transcript_link, transcript_text: a.transcript_text
@@ -954,11 +961,11 @@ async function saveSupervisoryVisit(){
 
   // Mirror the date into Staffing Hub's caregivers blob, same record, two views.
   try{
-    const { data } = await supabase.from('app_data').select('data').eq('key','caregivers').single();
+    const { data } = await sb.from('app_data').select('data').eq('key','caregivers').single();
     if(data && data.data){
       const caregivers = data.data;
       const cg = caregivers.find(g => (g.first && g.last && (g.first+' '+g.last)===record.caregiver_name) || g.axiscare_id===record.axiscare_caregiver_id);
-      if(cg){ cg.supv_date = record.visit_date; cg.supervisory_proof_link = record.proof_link; await supabase.from('app_data').upsert({key:'caregivers', data: caregivers}, {onConflict:'key'}); }
+      if(cg){ cg.supv_date = record.visit_date; cg.supervisory_proof_link = record.proof_link; await sb.from('app_data').upsert({key:'caregivers', data: caregivers}, {onConflict:'key'}); }
     }
   }catch(e){ /* Staffing Hub table may not exist in this project yet — non-fatal */ }
 
@@ -1015,8 +1022,8 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ document.querySe
 
 /* ---------------- BOOT ---------------- */
 (async function boot(){
-  if(supabase){
-    const { data:{ session } } = await supabase.auth.getSession();
+  if(sb){
+    const { data:{ session } } = await sb.auth.getSession();
     if(session){
       document.getElementById('signinScreen').style.display = 'none';
       document.getElementById('appScreen').style.display = 'block';
