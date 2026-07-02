@@ -104,6 +104,18 @@
   .star-row{display:flex;gap:4px;font-size:20px;cursor:pointer;}
   .ai-box{background:#F8FAFC;border:1px dashed var(--border);border-radius:8px;padding:12px;font-size:13px;color:var(--text-muted);white-space:pre-wrap;}
 
+  /* ---- Intake form: radio groups, checkbox grids, script hints ---- */
+  .checkbox-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 14px;margin:6px 0 4px;}
+  .checkbox-grid label,.radio-group label{display:flex;align-items:center;gap:7px;font-weight:400;color:var(--text);font-size:13px;}
+  .checkbox-grid input[type=checkbox],.radio-group input[type=radio]{width:auto;}
+  .radio-group{display:flex;flex-wrap:wrap;gap:8px 18px;margin:6px 0 4px;}
+  .script-hint{display:flex;align-items:flex-start;gap:6px;background:var(--blue-bg);color:#1D4ED8;border-radius:6px;padding:8px 10px;font-size:12px;margin:4px 0 8px;line-height:1.4;}
+  .script-hint .ic{flex:0 0 auto;}
+  .conditional-box{display:none;background:var(--amber-bg);border:1px solid #FDE68A;border-radius:8px;padding:12px;margin-top:6px;}
+  .conditional-box.open{display:block;}
+  .conditional-box .section-title{margin-top:0;border-top:none;padding-top:0;color:var(--amber);}
+  .field-note{font-size:11px;color:var(--text-muted);margin-top:2px;}
+
   /* ---- Settings ---- */
   .settings-section{margin-bottom:24px;}
   .settings-section h3{font-size:14px;color:var(--navy);margin-bottom:6px;}
@@ -306,24 +318,167 @@
   </main>
 </div>
 
-<!-- ============================= LEAD MODAL ============================= -->
+<!-- ============================= LEAD MODAL (Initial Consultation) ============================= -->
 <div class="modal-backdrop" id="leadModalBackdrop">
-  <div class="modal">
+  <div class="modal" style="max-width:760px;">
     <h2 id="leadModalTitle">Add Lead</h2>
-    <div class="modal-sub">Capture the basics now — you can fill in more after the first call.</div>
+    <div class="modal-sub">Structured intake for the first call — fill in what you can as you go.</div>
     <input type="hidden" id="lead_id">
+
+    <div class="section-title" style="margin-top:0;border-top:none;padding-top:0;">Caller / Initiator Details</div>
     <div class="grid2">
-      <div><label>First Name</label><input id="lead_first_name"></div>
-      <div><label>Last Name</label><input id="lead_last_name"></div>
-      <div><label>Phone</label><input id="lead_phone"></div>
-      <div><label>Email</label><input id="lead_email"></div>
+      <div><label>Contact First Name</label><input id="lead_first_name"></div>
+      <div><label>Contact Last Name</label><input id="lead_last_name"></div>
+      <div><label>Contact Phone</label><input id="lead_phone"></div>
+      <div><label>Contact Email</label><input id="lead_email"></div>
+      <div><label>Relationship to Client</label><input id="lead_relationship" placeholder="Son, Friend, Case Manager, etc."></div>
       <div>
         <label>Source</label>
         <select id="lead_source">
           <option>Phone</option><option>Website</option><option>Referral</option><option>Other</option>
         </select>
       </div>
-      <div><label>Referral / source detail</label><input id="lead_referral_source_name" placeholder="e.g. Dr. Smith's office"></div>
+      <div style="grid-column:1/-1;"><label>Referred By</label><input id="lead_referral_source_name" placeholder="Doctor, hospital, friend, Facebook ad, etc."></div>
+    </div>
+
+    <div class="section-title">Client Information</div>
+    <div class="checklist" style="margin-bottom:6px;">
+      <label><input type="checkbox" id="lead_client_name_not_provided" onchange="toggleClientNameFields(this.checked)"> Client name not provided yet</label>
+    </div>
+    <div class="grid2" id="clientNameFields">
+      <div><label>Client First Name</label><input id="lead_client_first_name"></div>
+      <div><label>Client Last Name</label><input id="lead_client_last_name"></div>
+    </div>
+    <div class="grid2">
+      <div><label>Date of Birth</label><input type="date" id="lead_client_dob"></div>
+      <div>
+        <label>Gender</label>
+        <select id="lead_client_gender"><option value="">— Select —</option><option>Male</option><option>Female</option><option>Unknown</option></select>
+      </div>
+      <div style="grid-column:1/-1;"><label>Street Address</label><input id="lead_client_address"></div>
+      <div><label>City</label><input id="lead_client_city"></div>
+      <div><label>State</label><input id="lead_client_state" maxlength="2" style="text-transform:uppercase;"></div>
+      <div><label>ZIP</label><input id="lead_client_zip"></div>
+      <div><label>Client Phone</label><input id="lead_client_phone"></div>
+      <div>
+        <label>Marital Status</label>
+        <select id="lead_marital_status"><option value="">— Select —</option><option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option><option>Separated</option></select>
+      </div>
+      <div><label>Primary Language</label><input id="lead_language" placeholder="English, Spanish, etc."></div>
+    </div>
+
+    <div class="section-title">Quick Needs &amp; Urgency</div>
+    <label style="margin-top:0;">Urgency</label>
+    <div class="radio-group">
+      <label><input type="radio" name="lead_urgency" value="today"> Need care today</label>
+      <label><input type="radio" name="lead_urgency" value="48hours"> Within 48 hours</label>
+      <label><input type="radio" name="lead_urgency" value="7days"> Within 7 days</label>
+      <label><input type="radio" name="lead_urgency" value="researching"> Just researching</label>
+    </div>
+    <label>Quick Needs Assessment</label>
+    <div class="checkbox-grid" id="lead_needs_grid">
+      <label><input type="checkbox" value="personalCare"> Personal Care</label>
+      <label><input type="checkbox" value="dementia"> Dementia Care</label>
+      <label><input type="checkbox" value="transportation"> Transportation</label>
+      <label><input type="checkbox" value="housekeeping"> Housekeeping</label>
+      <label><input type="checkbox" value="respite"> Respite Care</label>
+      <label><input type="checkbox" value="overnight"> Overnight Care</label>
+      <label><input type="checkbox" value="liveIn"> Live-in Care</label>
+      <label><input type="checkbox" value="cds"> CDS</label>
+      <label><input type="checkbox" value="va"> VA</label>
+      <label><input type="checkbox" value="privatePay"> Private Pay</label>
+    </div>
+
+    <div class="section-title">Clinical &amp; Safety Assessment</div>
+    <div class="grid2">
+      <div>
+        <label style="margin-top:0;">Safety Flags</label>
+        <div class="script-hint"><span class="ic">💬</span><span>Script: "To make sure we send the right caregiver, are there any safety concerns we should be aware of, like fall risks?"</span></div>
+        <div class="checklist" id="lead_safety_grid">
+          <label><input type="checkbox" value="fallRisk"> Fall Risk</label>
+          <label><input type="checkbox" value="livesAlone"> Lives Alone</label>
+          <label><input type="checkbox" value="recentHospitalization"> Recent Hospitalization</label>
+        </div>
+      </div>
+      <div>
+        <label style="margin-top:0;">Mobility</label>
+        <div class="radio-group" style="flex-direction:column;gap:6px;">
+          <label><input type="radio" name="lead_mobility" value="independent"> Independent</label>
+          <label><input type="radio" name="lead_mobility" value="walker"> Walker</label>
+          <label><input type="radio" name="lead_mobility" value="wheelchair"> Wheelchair</label>
+          <label><input type="radio" name="lead_mobility" value="bedbound"> Bedbound</label>
+        </div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div>
+        <label>Personal Care Assistance</label>
+        <div class="checklist" id="lead_personal_care_grid">
+          <label><input type="checkbox" value="bathing"> Bathing</label>
+          <label><input type="checkbox" value="dressing"> Dressing</label>
+          <label><input type="checkbox" value="toileting"> Toileting</label>
+          <label><input type="checkbox" value="transfers"> Transfers</label>
+        </div>
+      </div>
+      <div>
+        <label>Medical Conditions</label>
+        <div class="script-hint"><span class="ic">💬</span><span>Empathy cue: "I know this can be a lot to manage. How long has [Client] been dealing with this?"</span></div>
+        <div class="checkbox-grid" id="lead_medical_conditions_grid" style="grid-template-columns:1fr 1fr;">
+          <label><input type="checkbox" value="dementia" onchange="toggleDementiaFollowUp()"> Dementia</label>
+          <label><input type="checkbox" value="alzheimers" onchange="toggleDementiaFollowUp()"> Alzheimer's</label>
+          <label><input type="checkbox" value="parkinsons"> Parkinson's</label>
+          <label><input type="checkbox" value="stroke"> Stroke</label>
+          <label><input type="checkbox" value="diabetes"> Diabetes</label>
+          <label><input type="checkbox" value="copd"> COPD</label>
+        </div>
+      </div>
+    </div>
+    <div class="conditional-box" id="dementiaFollowUpBox">
+      <div class="section-title">Dementia Follow-up</div>
+      <div class="field-note" style="margin-bottom:6px;">Since dementia/Alzheimer's was selected, please check any that apply:</div>
+      <div class="checklist" id="lead_dementia_follow_up_grid">
+        <label><input type="checkbox" value="wandering"> Wandering / Elopement Risk</label>
+        <label><input type="checkbox" value="aggression"> Aggression / Agitation</label>
+        <label><input type="checkbox" value="sundowning"> Sundowning</label>
+      </div>
+    </div>
+
+    <div class="section-title">Physician &amp; Additional Info</div>
+    <div class="grid2">
+      <div><label>Primary Care Physician</label><input id="lead_physician_name"></div>
+      <div><label>Physician Phone</label><input id="lead_physician_phone"></div>
+      <div style="grid-column:1/-1;"><label>Preferred Hospital</label><input id="lead_preferred_hospital"></div>
+    </div>
+    <label>Additional Medical Notes</label>
+    <textarea id="lead_medical_notes" rows="2" placeholder="Any other medical context not covered above…"></textarea>
+
+    <div class="section-title">Schedule &amp; Pricing</div>
+    <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;">
+      <div><label>Days Needed</label><input id="lead_days_needed" placeholder="e.g. Mon, Wed, Fri"></div>
+      <div><label>Times Needed</label><input id="lead_times_needed" placeholder="e.g. 9am - 1pm"></div>
+      <div><label>Total Hours/Week</label><input type="number" id="lead_number_of_hours" placeholder="e.g. 12"></div>
+    </div>
+    <label style="margin-top:14px;">Funding Source</label>
+    <div class="script-hint"><span class="ic">💬</span><span>Script: "Do you happen to know how you'll be paying for care, such as long-term care insurance or VA benefits?"</span></div>
+    <div class="radio-group">
+      <label><input type="radio" name="lead_funding_source" value="private"> Private Pay</label>
+      <label><input type="radio" name="lead_funding_source" value="ltc"> LTC Insurance</label>
+      <label><input type="radio" name="lead_funding_source" value="va"> VA</label>
+      <label><input type="radio" name="lead_funding_source" value="cds"> CDS</label>
+      <label><input type="radio" name="lead_funding_source" value="medicaid"> Medicaid Waiver</label>
+      <label><input type="radio" name="lead_funding_source" value="pace"> PACE</label>
+    </div>
+    <div class="grid2" style="margin-top:10px;align-items:center;">
+      <div class="checklist"><label><input type="checkbox" id="lead_price_quoted" onchange="togglePriceQuotedAmount(this.checked)"> Was a price quoted?</label></div>
+      <div id="quotedPriceAmountField" style="display:none;"><label style="margin-top:0;">Quoted Amount</label><input id="lead_quoted_price_amount" placeholder="e.g. $35/hr"></div>
+    </div>
+
+    <div class="section-title">Situation &amp; Call Notes</div>
+    <div class="script-hint"><span class="ic">💬</span><span>Script: "Can you tell me a little bit about the situation, what is going on, and how we can help?"</span></div>
+    <textarea id="lead_interest_notes" rows="3" placeholder="Who needs care, what kind, urgency, budget/payer..."></textarea>
+
+    <div class="section-title">Office Use</div>
+    <div class="grid2">
       <div>
         <label>Status</label>
         <select id="lead_status">
@@ -334,8 +489,7 @@
       <div><label>Follow-up Due</label><input type="date" id="lead_follow_up_due"></div>
       <div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
     </div>
-    <label>Call Notes / Care Needs</label>
-    <textarea id="lead_interest_notes" rows="3" placeholder="Who needs care, what kind, urgency, budget/payer..."></textarea>
+
     <div class="modal-actions">
       <button class="secondary" onclick="closeModal('leadModalBackdrop')">Cancel</button>
       <button class="primary" onclick="saveLead()">Save Lead</button>
@@ -824,19 +978,28 @@ function searchMatch(str){
 /* ---------------- LEADS ---------------- */
 function renderLeads(){
   renderFilterPills('leadsFilters', ['All','New','Contacted','Assessment Scheduled','Converted','Lost','Follow-up Due'], activeFilters.leads, 'leads');
-  let rows = DATA.leads.filter(l => searchMatch(`${l.first_name} ${l.last_name} ${l.phone} ${l.email}`));
+  let rows = DATA.leads.filter(l => searchMatch(`${l.first_name} ${l.last_name} ${l.phone} ${l.email} ${l.client_first_name||''} ${l.client_last_name||''} ${l.client_phone||''}`));
   const f = activeFilters.leads;
   if(f==='Follow-up Due') rows = rows.filter(l => l.follow_up_due && l.follow_up_due <= today());
   else if(f!=='All') rows = rows.filter(l => l.status === f);
 
   const wrap = document.getElementById('leadsTableWrap');
   if(rows.length===0){ wrap.innerHTML = '<div class="empty">No leads match.</div>'; return; }
+  const urgencyBadge = u => ({today:'<span class="badge bad">Today</span>',
+    '48hours':'<span class="badge warn">48 hrs</span>',
+    '7days':'<span class="badge new">7 days</span>',
+    researching:'<span class="badge muted">Researching</span>'}[u] || '');
   wrap.innerHTML = `<table><thead><tr>
-    <th>Lead</th><th>Phone</th><th>Source</th><th>Status</th><th>Follow-up Due</th><th>Coordinator</th><th>Actions</th>
-  </tr></thead><tbody>${rows.map(l => `
+    <th>Contact (Caller)</th><th>Client</th><th>Phone</th><th>Urgency</th><th>Source</th><th>Status</th><th>Follow-up Due</th><th>Coordinator</th><th>Actions</th>
+  </tr></thead><tbody>${rows.map(l => {
+    const clientName = l.client_name_not_provided ? '<span style="color:var(--text-muted);">Not provided</span>'
+      : (l.client_first_name||l.client_last_name) ? `${l.client_first_name||''} ${l.client_last_name||''}`.trim() : '—';
+    return `
     <tr>
-      <td><b>${l.first_name||''} ${l.last_name||''}</b><div style="color:var(--text-muted);font-size:11px;">${(l.interest_notes||'').slice(0,60)}</div></td>
+      <td><b>${l.first_name||''} ${l.last_name||''}</b>${l.relationship?`<div style="color:var(--text-muted);font-size:11px;">${l.relationship}</div>`:''}<div style="color:var(--text-muted);font-size:11px;">${(l.interest_notes||'').slice(0,60)}</div></td>
+      <td>${clientName}</td>
       <td>${l.phone||''}</td>
+      <td>${urgencyBadge(l.urgency)}</td>
       <td>${l.source||''}${l.referral_source_name? ' — '+l.referral_source_name:''}</td>
       <td>${statusBadge(l.status)}</td>
       <td>${l.follow_up_due ? (l.follow_up_due<=today()?'<span class="badge bad">'+l.follow_up_due+'</span>':l.follow_up_due) : '—'}</td>
@@ -845,12 +1008,38 @@ function renderLeads(){
         <button class="linklike" onclick="openLeadModal('${l.id}')">Edit</button>
         <button class="linklike" onclick="scheduleAssessmentFromLead('${l.id}')">Schedule Assessment</button>
       </td>
-    </tr>`).join('')}</tbody></table>`;
+    </tr>`;
+  }).join('')}</tbody></table>`;
 }
 function statusBadge(status){
   const map = { 'New':'new','Contacted':'warn','Assessment Scheduled':'warn','Converted':'ok','Lost':'muted',
     'Scheduled':'warn','Completed — Awaiting Plan':'warn','Plan Drafted':'new','Pushed to AxisCare':'ok' };
   return `<span class="badge ${map[status]||'muted'}">${status}</span>`;
+}
+/* -- checkbox-grid / radio-group helpers (used by the intake form) -- */
+function getCheckedValues(containerId){
+  return Array.from(document.querySelectorAll(`#${containerId} input[type=checkbox]:checked`)).map(el=>el.value);
+}
+function setCheckedValues(containerId, values){
+  const set = new Set(values||[]);
+  document.querySelectorAll(`#${containerId} input[type=checkbox]`).forEach(el=>{ el.checked = set.has(el.value); });
+}
+function getRadioValue(name){
+  const el = document.querySelector(`input[name="${name}"]:checked`);
+  return el ? el.value : '';
+}
+function setRadioValue(name, value){
+  document.querySelectorAll(`input[name="${name}"]`).forEach(el=>{ el.checked = (el.value === value); });
+}
+function toggleClientNameFields(hidden){
+  document.getElementById('clientNameFields').style.display = hidden ? 'none' : '';
+}
+function toggleDementiaFollowUp(){
+  const dementiaChecked = getCheckedValues('lead_medical_conditions_grid').some(v=>v==='dementia'||v==='alzheimers');
+  document.getElementById('dementiaFollowUpBox').classList.toggle('open', dementiaChecked);
+}
+function togglePriceQuotedAmount(checked){
+  document.getElementById('quotedPriceAmountField').style.display = checked ? '' : 'none';
 }
 function openLeadModal(id){
   const l = id ? DATA.leads.find(x=>x.id===id) : {};
@@ -860,8 +1049,46 @@ function openLeadModal(id){
   document.getElementById('lead_last_name').value = l.last_name||'';
   document.getElementById('lead_phone').value = l.phone||'';
   document.getElementById('lead_email').value = l.email||'';
+  document.getElementById('lead_relationship').value = l.relationship||'';
   document.getElementById('lead_source').value = l.source||'Phone';
   document.getElementById('lead_referral_source_name').value = l.referral_source_name||'';
+
+  document.getElementById('lead_client_name_not_provided').checked = !!l.client_name_not_provided;
+  toggleClientNameFields(!!l.client_name_not_provided);
+  document.getElementById('lead_client_first_name').value = l.client_first_name||'';
+  document.getElementById('lead_client_last_name').value = l.client_last_name||'';
+  document.getElementById('lead_client_dob').value = l.client_dob||'';
+  document.getElementById('lead_client_gender').value = l.client_gender||'';
+  document.getElementById('lead_client_address').value = l.client_address||'';
+  document.getElementById('lead_client_city').value = l.client_city||'';
+  document.getElementById('lead_client_state').value = l.client_state||'';
+  document.getElementById('lead_client_zip').value = l.client_zip||'';
+  document.getElementById('lead_client_phone').value = l.client_phone||'';
+  document.getElementById('lead_marital_status').value = l.marital_status||'';
+  document.getElementById('lead_language').value = l.language||'';
+
+  setRadioValue('lead_urgency', l.urgency||'');
+  setCheckedValues('lead_needs_grid', l.needs);
+  setCheckedValues('lead_safety_grid', l.safety);
+  setRadioValue('lead_mobility', l.mobility||'');
+  setCheckedValues('lead_personal_care_grid', l.personal_care);
+  setCheckedValues('lead_medical_conditions_grid', l.medical_conditions);
+  setCheckedValues('lead_dementia_follow_up_grid', l.dementia_follow_up);
+  toggleDementiaFollowUp();
+
+  document.getElementById('lead_physician_name').value = l.physician_name||'';
+  document.getElementById('lead_physician_phone').value = l.physician_phone||'';
+  document.getElementById('lead_preferred_hospital').value = l.preferred_hospital||'';
+  document.getElementById('lead_medical_notes').value = l.medical_notes||'';
+
+  document.getElementById('lead_days_needed').value = l.days_needed||'';
+  document.getElementById('lead_times_needed').value = l.times_needed||'';
+  document.getElementById('lead_number_of_hours').value = l.number_of_hours||'';
+  setRadioValue('lead_funding_source', l.funding_source||'');
+  document.getElementById('lead_price_quoted').checked = !!l.price_quoted;
+  togglePriceQuotedAmount(!!l.price_quoted);
+  document.getElementById('lead_quoted_price_amount').value = l.quoted_price_amount||'';
+
   document.getElementById('lead_status').value = l.status||'New';
   document.getElementById('lead_assigned_coordinator').value = l.assigned_coordinator||'';
   document.getElementById('lead_follow_up_due').value = l.follow_up_due||'';
@@ -877,8 +1104,43 @@ async function saveLead(){
     last_name: document.getElementById('lead_last_name').value.trim(),
     phone: document.getElementById('lead_phone').value.trim(),
     email: document.getElementById('lead_email').value.trim(),
+    relationship: document.getElementById('lead_relationship').value.trim(),
     source: document.getElementById('lead_source').value,
     referral_source_name: document.getElementById('lead_referral_source_name').value.trim(),
+
+    client_name_not_provided: document.getElementById('lead_client_name_not_provided').checked,
+    client_first_name: document.getElementById('lead_client_first_name').value.trim(),
+    client_last_name: document.getElementById('lead_client_last_name').value.trim(),
+    client_dob: document.getElementById('lead_client_dob').value,
+    client_gender: document.getElementById('lead_client_gender').value,
+    client_address: document.getElementById('lead_client_address').value.trim(),
+    client_city: document.getElementById('lead_client_city').value.trim(),
+    client_state: document.getElementById('lead_client_state').value.trim().toUpperCase(),
+    client_zip: document.getElementById('lead_client_zip').value.trim(),
+    client_phone: document.getElementById('lead_client_phone').value.trim(),
+    marital_status: document.getElementById('lead_marital_status').value,
+    language: document.getElementById('lead_language').value.trim(),
+
+    urgency: getRadioValue('lead_urgency'),
+    needs: getCheckedValues('lead_needs_grid'),
+    safety: getCheckedValues('lead_safety_grid'),
+    mobility: getRadioValue('lead_mobility'),
+    personal_care: getCheckedValues('lead_personal_care_grid'),
+    medical_conditions: getCheckedValues('lead_medical_conditions_grid'),
+    dementia_follow_up: getCheckedValues('lead_dementia_follow_up_grid'),
+
+    physician_name: document.getElementById('lead_physician_name').value.trim(),
+    physician_phone: document.getElementById('lead_physician_phone').value.trim(),
+    preferred_hospital: document.getElementById('lead_preferred_hospital').value.trim(),
+    medical_notes: document.getElementById('lead_medical_notes').value.trim(),
+
+    days_needed: document.getElementById('lead_days_needed').value.trim(),
+    times_needed: document.getElementById('lead_times_needed').value.trim(),
+    number_of_hours: document.getElementById('lead_number_of_hours').value.trim(),
+    funding_source: getRadioValue('lead_funding_source'),
+    price_quoted: document.getElementById('lead_price_quoted').checked,
+    quoted_price_amount: document.getElementById('lead_quoted_price_amount').value.trim(),
+
     status: document.getElementById('lead_status').value,
     assigned_coordinator: document.getElementById('lead_assigned_coordinator').value.trim(),
     follow_up_due: document.getElementById('lead_follow_up_due').value,
@@ -928,11 +1190,13 @@ function openAssessmentModal(id, fromLead){
   document.getElementById('assessmentModalTitle').textContent = id ? 'Edit Care Assessment' : 'Add Care Assessment';
   document.getElementById('assess_id').value = id||'';
   document.getElementById('assess_lead_id').value = (a&&a.lead_id) || (fromLead&&fromLead.id) || '';
-  document.getElementById('assess_client_name').value = (a&&a.client_name) || (fromLead? fromLead.first_name+' '+fromLead.last_name : '');
+  const leadClientName = fromLead && !fromLead.client_name_not_provided && (fromLead.client_first_name||fromLead.client_last_name)
+    ? `${fromLead.client_first_name||''} ${fromLead.client_last_name||''}`.trim() : '';
+  document.getElementById('assess_client_name').value = (a&&a.client_name) || leadClientName || (fromLead? `${fromLead.first_name} ${fromLead.last_name}` : '');
+  document.getElementById('assess_address').value = (a&&a.address) || (fromLead&&fromLead.client_address ? `${fromLead.client_address}${fromLead.client_city?', '+fromLead.client_city:''}${fromLead.client_state?', '+fromLead.client_state:''} ${fromLead.client_zip||''}`.trim() : '');
   document.getElementById('assess_axiscare_client_id').value = (a&&a.axiscare_client_id) || (fromLead&&fromLead.axiscare_client_id) || '';
   document.getElementById('assess_visit_date').value = (a&&a.visit_date)||'';
   document.getElementById('assess_coordinator').value = (a&&a.coordinator)||'';
-  document.getElementById('assess_address').value = (a&&a.address)||'';
   document.getElementById('assess_payer').value = (a&&a.payer)||'Medicaid';
   document.getElementById('assess_transcript_source').value = (a&&a.transcript_source)||'Otter';
   document.getElementById('assess_transcript_link').value = (a&&a.transcript_link)||'';
