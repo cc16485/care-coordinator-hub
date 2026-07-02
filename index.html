@@ -21,6 +21,11 @@
     --red:#DC2626;
     --red-bg:#FEE2E2;
     --blue-bg:#DBEAFE;
+    --blue:#1D4ED8;
+    --purple:#7C3AED;
+    --purple-bg:#EDE9FE;
+    --slate:#475569;
+    --slate-bg:#F1F5F9;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
@@ -116,6 +121,56 @@
   .conditional-box .section-title{margin-top:0;border-top:none;padding-top:0;color:var(--amber);}
   .field-note{font-size:11px;color:var(--text-muted);margin-top:2px;}
 
+  /* ---- Sub-tabs (within a tab, e.g. Leads: Pipeline / Post-Call / Follow-Up Queue) ---- */
+  .subtab-bar{display:flex;gap:4px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content;margin-bottom:16px;flex-wrap:wrap;}
+  .subtab{display:flex;align-items:center;gap:6px;background:none;border:none;padding:8px 14px;border-radius:7px;font-size:13px;font-weight:600;color:var(--text-muted);}
+  .subtab:hover{background:#F1F5F9;color:var(--text);}
+  .subtab.active{background:var(--navy);color:#fff;}
+  .subtab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:10px;font-size:10.5px;font-weight:700;}
+  .subtab-badge.amber{background:var(--amber-bg);color:var(--amber);}
+  .subtab-badge.red{background:var(--red-bg);color:var(--red);}
+  .subtab.active .subtab-badge{background:rgba(255,255,255,.25);color:#fff;}
+  .subtabpanel{display:none;}
+  .subtabpanel.active{display:block;}
+  .queue-item{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);}
+  .queue-item:last-child{border-bottom:none;}
+  .queue-item .qi-main{flex:1;min-width:0;}
+  .queue-item .qi-title{font-weight:600;font-size:13.5px;}
+  .queue-item .qi-sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
+  .queue-item .qi-acts{flex:0 0 auto;display:flex;gap:6px;}
+
+  /* ---- Follow-Up Queue branch dashboard ---- */
+  .branch-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;}
+  .branch-card{border-radius:10px;border:1.5px solid var(--border);padding:12px 14px;text-align:left;cursor:pointer;transition:opacity .12s;background:#fff;}
+  .branch-card:hover{opacity:.85;}
+  .branch-card.active{box-shadow:0 0 0 2px var(--navy) inset;}
+  .branch-card .bc-count{font-size:22px;font-weight:800;line-height:1;}
+  .branch-card .bc-label{font-size:12px;font-weight:700;margin-top:4px;}
+  .branch-card .bc-wait{font-size:11px;color:var(--text-muted);margin-top:2px;}
+  .branch-blue{background:var(--blue-bg);} .branch-blue .bc-count,.branch-blue .bc-label{color:var(--blue);}
+  .branch-amber{background:var(--amber-bg);} .branch-amber .bc-count,.branch-amber .bc-label{color:var(--amber);}
+  .branch-green{background:var(--green-bg);} .branch-green .bc-count,.branch-green .bc-label{color:var(--green);}
+  .branch-slate{background:var(--slate-bg);} .branch-slate .bc-count,.branch-slate .bc-label{color:var(--slate);}
+  .branch-purple{background:var(--purple-bg);} .branch-purple .bc-count,.branch-purple .bc-label{color:var(--purple);}
+  .branch-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;white-space:nowrap;}
+  .fq-toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
+  .fq-toolbar input[type=text]{max-width:220px;}
+  .fq-toolbar select{max-width:220px;}
+  .lead-card{border-bottom:1px solid var(--border);padding:14px 16px;cursor:pointer;display:flex;gap:12px;align-items:flex-start;}
+  .lead-card:hover{background:#FAFBFC;}
+  .lead-card:last-child{border-bottom:none;}
+  .lead-card .lc-icon{flex:0 0 auto;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .lead-card .lc-main{flex:1;min-width:0;}
+  .lead-card .lc-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;}
+  .lead-card .lc-name{font-weight:700;font-size:14px;}
+  .lead-card .lc-summary{font-size:12px;color:var(--text-muted);margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .lead-card .lc-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text-muted);}
+  .tag-chip{font-size:11px;background:#F1F5F9;color:var(--text-muted);padding:2px 8px;border-radius:10px;}
+  .detail-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;}
+  .detail-grid3 .dbox{background:#F8FAFC;border-radius:8px;padding:10px;}
+  .detail-grid3 .dbox .dlbl{font-size:11px;color:var(--text-muted);}
+  .detail-grid3 .dbox .dval{font-size:13px;font-weight:700;margin-top:2px;}
+
   /* ---- Settings ---- */
   .settings-section{margin-bottom:24px;}
   .settings-section h3{font-size:14px;color:var(--navy);margin-bottom:6px;}
@@ -202,12 +257,53 @@
         </div>
       </details>
 
-      <div class="toolbar" id="leadsFilters"></div>
-      <div class="toolbar">
-        <div class="spacer"></div>
-        <button class="primary" onclick="openLeadModal()">+ Add Lead</button>
+      <div class="subtab-bar">
+        <button class="subtab active" id="subtabBtn-pipeline" onclick="switchLeadsSubtab('pipeline')">👥 Pipeline</button>
+        <button class="subtab" id="subtabBtn-postcall" onclick="switchLeadsSubtab('postcall')">💬 Post-Call Follow-Up<span class="subtab-badge amber" id="subtabBadge-postcall" style="display:none;"></span></button>
+        <button class="subtab" id="subtabBtn-followupqueue" onclick="switchLeadsSubtab('followupqueue')">🔀 Follow-Up Queue<span class="subtab-badge red" id="subtabBadge-followupqueue" style="display:none;"></span></button>
       </div>
-      <div class="card"><div id="leadsTableWrap"></div></div>
+
+      <!-- ---- Sub-tab: Pipeline ---- -->
+      <div class="subtabpanel active" id="subtab-pipeline">
+        <div class="toolbar" id="leadsFilters"></div>
+        <div class="toolbar">
+          <div class="spacer"></div>
+          <button class="secondary" onclick="switchLeadsSubtab('followupqueue')">🔀 View Follow-Up Queue</button>
+          <button class="primary" onclick="openLeadModal()">+ Add Lead</button>
+        </div>
+        <div class="card"><div id="leadsTableWrap"></div></div>
+      </div>
+
+      <!-- ---- Sub-tab: Post-Call Follow-Up ---- -->
+      <div class="subtabpanel" id="subtab-postcall">
+        <div class="ai-box" style="margin-bottom:14px;">
+          <b>Manual tracking for now.</b> There's no automated call-transcript/AI-drafting pipeline wired up yet, so nothing here sends on its own — this is a place to log a follow-up message you're about to send (text/email) and track whether it's still a draft, approved, or delayed, so nothing falls through the cracks between calls. When a real transcript + AI-drafting source exists, it can populate this list automatically instead of manual entry.
+        </div>
+        <div class="toolbar">
+          <div class="spacer"></div>
+          <button class="primary" onclick="openFollowUpModal()">+ Log Follow-Up Draft</button>
+        </div>
+        <div class="card"><div id="postCallTableWrap"></div></div>
+      </div>
+
+      <!-- ---- Sub-tab: Follow-Up Queue ---- -->
+      <div class="subtabpanel" id="subtab-followupqueue">
+        <div class="toolbar" style="margin-bottom:14px;">
+          <div class="spacer"></div>
+          <span class="badge bad" id="fqStatOverdue" style="font-size:12px;">0 Overdue</span>
+          <span class="badge warn" id="fqStatPending" style="font-size:12px;">0 Pending</span>
+          <span class="badge ok" id="fqStatReady" style="font-size:12px;">0 Ready</span>
+        </div>
+        <div class="ai-box" style="margin-bottom:14px;">
+          <b>How this works:</b> branches are assigned manually right now (set "Follow-Up Branch" on a lead, from the Pipeline) — nothing here reads or scores your call notes automatically. Each branch has a default wait time; "Log contact today" on a lead auto-calculates its next follow-up date from that. When you're ready for real AI call-note analysis and drafting, that's a separate build (an AI service call has to run server-side, not in this page's JS).
+        </div>
+        <div class="branch-cards" id="followUpBranchCards"></div>
+        <div class="fq-toolbar">
+          <input type="text" id="fqSearchInput" placeholder="🔍 Search leads..." oninput="setFqSearch(this.value)">
+          <button class="secondary" onclick="setFqBranchFilter('all')" id="fqClearFilterBtn" style="display:none;">Clear branch filter</button>
+        </div>
+        <div class="card"><div id="followUpQueueWrap"></div></div>
+      </div>
     </section>
 
     <!-- ===================== TAB: CARE ASSESSMENTS ===================== -->
@@ -486,13 +582,79 @@
         </select>
       </div>
       <div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator"></div>
-      <div><label>Follow-up Due</label><input type="date" id="lead_follow_up_due"></div>
       <div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
+    </div>
+
+    <div class="section-title">Follow-Up Routing</div>
+    <div class="field-note" style="margin-bottom:8px;">Assigned manually for now — set the category that matches the call, and the follow-up date below can auto-fill from it.</div>
+    <div class="grid2">
+      <div>
+        <label>Follow-Up Branch</label>
+        <select id="lead_follow_up_branch" onchange="suggestFollowUpDue()">
+          <option value="">— Not sorted —</option>
+          <option value="call-back-next-week">Call Back Next Week (7d)</option>
+          <option value="family-decision">Family Decision Pending (5d)</option>
+          <option value="ready-to-start">Ready to Start (today)</option>
+          <option value="cold-lead">Cold Lead (30d)</option>
+          <option value="soft-check-in">Soft Check-In (3d)</option>
+        </select>
+      </div>
+      <div><label>Last Contacted</label><input type="date" id="lead_last_contacted_at" onchange="suggestFollowUpDue()"></div>
+      <div>
+        <label>Follow-up Due</label>
+        <input type="date" id="lead_follow_up_due">
+        <div class="field-note"><button type="button" class="linklike" style="padding:0;font-size:11px;" onclick="logContactToday()">📞 Log contact today &amp; auto-set this date</button></div>
+      </div>
+      <div><label>Intent Tags (optional, your own notes)</label><input id="lead_intent_tags" placeholder="e.g. ready to start, comparing agencies"></div>
     </div>
 
     <div class="modal-actions">
       <button class="secondary" onclick="closeModal('leadModalBackdrop')">Cancel</button>
       <button class="primary" onclick="saveLead()">Save Lead</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= POST-CALL FOLLOW-UP DRAFT MODAL ============================= -->
+<div class="modal-backdrop" id="followUpModalBackdrop">
+  <div class="modal">
+    <h2 id="followUpModalTitle">Log Follow-Up Draft</h2>
+    <div class="modal-sub">Track a message you're about to send — this doesn't send anything automatically.</div>
+    <input type="hidden" id="fu_id">
+    <div class="grid2">
+      <div style="grid-column:1/-1;">
+        <label>Lead</label>
+        <select id="fu_lead_id"></select>
+      </div>
+      <div>
+        <label>Channel</label>
+        <select id="fu_channel"><option>Text</option><option>Email</option><option>Phone Call</option></select>
+      </div>
+      <div>
+        <label>Status</label>
+        <select id="fu_status">
+          <option value="pending_approval">Pending Approval</option>
+          <option value="approved">Approved</option>
+          <option value="delayed">Delayed</option>
+          <option value="sent">Sent</option>
+        </select>
+      </div>
+    </div>
+    <label>Draft Message</label>
+    <textarea id="fu_draft_text" rows="4" placeholder="What you plan to say/send..."></textarea>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeModal('followUpModalBackdrop')">Cancel</button>
+      <button class="primary" onclick="saveFollowUp()">Save Draft</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================= FOLLOW-UP DETAIL MODAL ============================= -->
+<div class="modal-backdrop" id="fqDetailModalBackdrop">
+  <div class="modal" style="max-width:640px;">
+    <div id="fqDetailContent"></div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeModal('fqDetailModalBackdrop')">Close</button>
     </div>
   </div>
 </div>
@@ -820,8 +982,25 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [] };
 let activeTab = 'leads';
+let activeLeadsSubtab = 'pipeline';
+let fqBranchFilter = 'all';
+let fqSearch = '';
+
+/* -- Follow-up branch config (manually assigned — see note in Follow-Up Routing) -- */
+const BRANCH_CONFIG = {
+  'call-back-next-week': { label:'Call Back Next Week', color:'blue', icon:'📞', waitDays:7, description:"Contact requested a specific follow-up window." },
+  'family-decision':     { label:'Family Decision Pending', color:'amber', icon:'⏰', waitDays:5, description:"Thinking it over or involving family members." },
+  'ready-to-start':      { label:'Ready to Start', color:'green', icon:'✅', waitDays:0, description:"Expressed strong intent — immediate action." },
+  'cold-lead':           { label:'Cold Lead', color:'slate', icon:'⚠️', waitDays:30, description:"Expressed disinterest — low-touch nurture only." },
+  'soft-check-in':       { label:'Soft Check-In', color:'purple', icon:'💬', waitDays:3, description:"No strong intent signal — gentle check-in." },
+};
+function addDaysISO(dateStr, days){
+  const d = dateStr ? new Date(dateStr+'T00:00:00') : new Date();
+  d.setDate(d.getDate()+days);
+  return d.toISOString().slice(0,10);
+}
 let activeFilters = { leads: 'All', assessments: 'All', checkins: 'All', supervisory: 'All', clients: 'All', oncall: 'Current & Upcoming' };
 
 function uid(){ return 'id_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
@@ -876,7 +1055,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -976,7 +1155,27 @@ function searchMatch(str){
 }
 
 /* ---------------- LEADS ---------------- */
+function switchLeadsSubtab(name){
+  activeLeadsSubtab = name;
+  document.querySelectorAll('.subtab-bar .subtab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('subtabBtn-'+(name==='postcall'?'postcall':name==='followupqueue'?'followupqueue':'pipeline')).classList.add('active');
+  document.querySelectorAll('.subtabpanel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('subtab-'+(name==='postcall'?'postcall':name==='followupqueue'?'followupqueue':'pipeline')).classList.add('active');
+  if(name==='postcall') renderPostCallFollowups();
+  if(name==='followupqueue') renderFollowUpQueue();
+}
+function updateLeadsSubtabBadges(){
+  const pendingCount = DATA.post_call_followups.filter(f=>f.status==='pending_approval').length;
+  const overdueLeads = DATA.leads.filter(l=>l.follow_up_due && l.follow_up_due<=today() && l.status!=='Converted' && l.status!=='Lost').length;
+  const draftReadyCount = pendingCount; // same set feeds the queue's "draft-ready" bucket
+  const queueCount = overdueLeads + draftReadyCount;
+  const pcBadge = document.getElementById('subtabBadge-postcall');
+  const fqBadge = document.getElementById('subtabBadge-followupqueue');
+  pcBadge.textContent = pendingCount; pcBadge.style.display = pendingCount>0 ? '' : 'none';
+  fqBadge.textContent = queueCount; fqBadge.style.display = queueCount>0 ? '' : 'none';
+}
 function renderLeads(){
+  updateLeadsSubtabBadges();
   renderFilterPills('leadsFilters', ['All','New','Contacted','Assessment Scheduled','Converted','Lost','Follow-up Due'], activeFilters.leads, 'leads');
   let rows = DATA.leads.filter(l => searchMatch(`${l.first_name} ${l.last_name} ${l.phone} ${l.email} ${l.client_first_name||''} ${l.client_last_name||''} ${l.client_phone||''}`));
   const f = activeFilters.leads;
@@ -1041,6 +1240,16 @@ function toggleDementiaFollowUp(){
 function togglePriceQuotedAmount(checked){
   document.getElementById('quotedPriceAmountField').style.display = checked ? '' : 'none';
 }
+function suggestFollowUpDue(){
+  const branch = document.getElementById('lead_follow_up_branch').value;
+  const lastContacted = document.getElementById('lead_last_contacted_at').value;
+  if(!branch || !BRANCH_CONFIG[branch]) return;
+  document.getElementById('lead_follow_up_due').value = addDaysISO(lastContacted || today(), BRANCH_CONFIG[branch].waitDays);
+}
+function logContactToday(){
+  document.getElementById('lead_last_contacted_at').value = today();
+  suggestFollowUpDue();
+}
 function openLeadModal(id){
   const l = id ? DATA.leads.find(x=>x.id===id) : {};
   document.getElementById('leadModalTitle').textContent = id ? 'Edit Lead' : 'Add Lead';
@@ -1091,9 +1300,14 @@ function openLeadModal(id){
 
   document.getElementById('lead_status').value = l.status||'New';
   document.getElementById('lead_assigned_coordinator').value = l.assigned_coordinator||'';
-  document.getElementById('lead_follow_up_due').value = l.follow_up_due||'';
   document.getElementById('lead_axiscare_client_id').value = l.axiscare_client_id||'';
   document.getElementById('lead_interest_notes').value = l.interest_notes||'';
+
+  document.getElementById('lead_follow_up_branch').value = l.follow_up_branch||'';
+  document.getElementById('lead_last_contacted_at').value = l.last_contacted_at||'';
+  document.getElementById('lead_follow_up_due').value = l.follow_up_due||'';
+  document.getElementById('lead_intent_tags').value = (l.intent_tags||[]).join(', ');
+
   document.getElementById('leadModalBackdrop').classList.add('open');
 }
 async function saveLead(){
@@ -1143,9 +1357,14 @@ async function saveLead(){
 
     status: document.getElementById('lead_status').value,
     assigned_coordinator: document.getElementById('lead_assigned_coordinator').value.trim(),
-    follow_up_due: document.getElementById('lead_follow_up_due').value,
     axiscare_client_id: document.getElementById('lead_axiscare_client_id').value.trim(),
     interest_notes: document.getElementById('lead_interest_notes').value.trim(),
+
+    follow_up_branch: document.getElementById('lead_follow_up_branch').value,
+    last_contacted_at: document.getElementById('lead_last_contacted_at').value,
+    follow_up_due: document.getElementById('lead_follow_up_due').value,
+    intent_tags: document.getElementById('lead_intent_tags').value.split(',').map(s=>s.trim()).filter(Boolean),
+
     created_at: (DATA.leads.find(x=>x.id===id)||{}).created_at || new Date().toISOString(),
   };
   const idx = DATA.leads.findIndex(x=>x.id===id);
@@ -1153,6 +1372,7 @@ async function saveLead(){
   await persist('leads', record);
   closeModal('leadModalBackdrop');
   renderLeads();
+  if(activeLeadsSubtab==='followupqueue') renderFollowUpQueue();
 }
 function scheduleAssessmentFromLead(leadId){
   const l = DATA.leads.find(x=>x.id===leadId);
@@ -1160,6 +1380,227 @@ function scheduleAssessmentFromLead(leadId){
   persist('leads', l);
   openAssessmentModal(null, l);
   switchTab('assessments');
+}
+
+/* ---------------- POST-CALL FOLLOW-UP (manual tracking — see note in subtab-postcall) ---------------- */
+function leadDisplayName(l){
+  if(!l) return '(unknown lead)';
+  const client = !l.client_name_not_provided && (l.client_first_name||l.client_last_name)
+    ? `${l.client_first_name||''} ${l.client_last_name||''}`.trim() : '';
+  const contact = `${l.first_name||''} ${l.last_name||''}`.trim();
+  return client ? `${client} (via ${contact||'contact'})` : (contact || '(unnamed lead)');
+}
+function fuStatusBadge(status){
+  const map = { pending_approval:'warn', approved:'ok', delayed:'bad', sent:'muted' };
+  const label = { pending_approval:'Pending Approval', approved:'Approved', delayed:'Delayed', sent:'Sent' }[status] || status;
+  return `<span class="badge ${map[status]||'muted'}">${label}</span>`;
+}
+function renderPostCallFollowups(){
+  const wrap = document.getElementById('postCallTableWrap');
+  const rows = DATA.post_call_followups.slice().sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  if(rows.length===0){ wrap.innerHTML = '<div class="empty">No follow-up drafts logged yet.</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr>
+    <th>Lead</th><th>Channel</th><th>Draft</th><th>Status</th><th>Logged</th><th>Actions</th>
+  </tr></thead><tbody>${rows.map(f => {
+    const lead = DATA.leads.find(x=>x.id===f.lead_id);
+    return `<tr>
+      <td><b>${leadDisplayName(lead)}</b></td>
+      <td>${f.channel||''}</td>
+      <td style="max-width:320px;color:var(--text-muted);">${(f.draft_text||'').slice(0,140)}${(f.draft_text||'').length>140?'…':''}</td>
+      <td>${fuStatusBadge(f.status)}</td>
+      <td>${f.created_at ? f.created_at.slice(0,10) : ''}</td>
+      <td>
+        <button class="linklike" onclick="openFollowUpModal('${f.id}')">Edit</button>
+        ${f.status==='pending_approval' ? `<button class="linklike" onclick="approveFollowUp('${f.id}')">Approve</button><button class="linklike" onclick="delayFollowUp('${f.id}')">Delay</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+}
+function populateFollowUpLeadSelect(selectedId){
+  const sel = document.getElementById('fu_lead_id');
+  const openLeads = DATA.leads.filter(l=>l.status!=='Converted' && l.status!=='Lost')
+    .slice().sort((a,b)=>leadDisplayName(a).localeCompare(leadDisplayName(b)));
+  sel.innerHTML = '<option value="">— Select a lead —</option>' +
+    openLeads.map(l=>`<option value="${l.id}" ${l.id===selectedId?'selected':''}>${leadDisplayName(l)}</option>`).join('');
+}
+function openFollowUpModal(id, leadId){
+  const f = id ? DATA.post_call_followups.find(x=>x.id===id) : {};
+  document.getElementById('followUpModalTitle').textContent = id ? 'Edit Follow-Up Draft' : 'Log Follow-Up Draft';
+  document.getElementById('fu_id').value = id || '';
+  populateFollowUpLeadSelect((f&&f.lead_id) || leadId || '');
+  document.getElementById('fu_channel').value = (f&&f.channel) || 'Text';
+  document.getElementById('fu_status').value = (f&&f.status) || 'pending_approval';
+  document.getElementById('fu_draft_text').value = (f&&f.draft_text) || '';
+  document.getElementById('followUpModalBackdrop').classList.add('open');
+}
+async function saveFollowUp(){
+  const leadId = document.getElementById('fu_lead_id').value;
+  if(!leadId){ alert('Please select which lead this follow-up is for.'); return; }
+  const id = document.getElementById('fu_id').value || uid();
+  const record = {
+    id,
+    lead_id: leadId,
+    channel: document.getElementById('fu_channel').value,
+    status: document.getElementById('fu_status').value,
+    draft_text: document.getElementById('fu_draft_text').value.trim(),
+    created_at: (DATA.post_call_followups.find(x=>x.id===id)||{}).created_at || new Date().toISOString(),
+  };
+  const idx = DATA.post_call_followups.findIndex(x=>x.id===id);
+  if(idx>=0) DATA.post_call_followups[idx]=record; else DATA.post_call_followups.push(record);
+  await persist('post_call_followups', record);
+  closeModal('followUpModalBackdrop');
+  renderPostCallFollowups();
+  updateLeadsSubtabBadges();
+  if(activeLeadsSubtab==='followupqueue') renderFollowUpQueue();
+}
+async function approveFollowUp(id){
+  const f = DATA.post_call_followups.find(x=>x.id===id);
+  if(!f) return;
+  f.status = 'approved';
+  await persist('post_call_followups', f);
+  renderPostCallFollowups();
+  updateLeadsSubtabBadges();
+  if(activeLeadsSubtab==='followupqueue') renderFollowUpQueue();
+}
+async function delayFollowUp(id){
+  const f = DATA.post_call_followups.find(x=>x.id===id);
+  if(!f) return;
+  f.status = 'delayed';
+  await persist('post_call_followups', f);
+  renderPostCallFollowups();
+  updateLeadsSubtabBadges();
+  if(activeLeadsSubtab==='followupqueue') renderFollowUpQueue();
+}
+
+/* ---------------- FOLLOW-UP QUEUE (branch dashboard) ---------------- */
+function activeLeadsForQueue(){
+  return DATA.leads.filter(l => l.status!=='Converted' && l.status!=='Lost');
+}
+function branchCounts(){
+  const counts = {};
+  Object.keys(BRANCH_CONFIG).forEach(k=>counts[k]=0);
+  activeLeadsForQueue().forEach(l=>{ if(l.follow_up_branch && counts[l.follow_up_branch]!==undefined) counts[l.follow_up_branch]++; });
+  return counts;
+}
+function daysAgo(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(dateStr+'T00:00:00');
+  return Math.max(0, Math.round((new Date(today()+'T00:00:00') - d)/86400000));
+}
+function renderFollowUpQueue(){
+  renderFqStats();
+  renderBranchCards();
+  renderFollowUpQueueList();
+}
+function renderFqStats(){
+  const leads = activeLeadsForQueue();
+  const overdue = leads.filter(l=>l.follow_up_due && l.follow_up_due<=today()).length;
+  const pending = leads.filter(l=>l.follow_up_branch && !(l.follow_up_due && l.follow_up_due<=today())).length;
+  const ready = leads.filter(l=>l.follow_up_branch==='ready-to-start').length;
+  document.getElementById('fqStatOverdue').textContent = overdue + ' Overdue';
+  document.getElementById('fqStatPending').textContent = pending + ' Pending';
+  document.getElementById('fqStatReady').textContent = ready + ' Ready';
+}
+function renderBranchCards(){
+  const wrap = document.getElementById('followUpBranchCards');
+  const counts = branchCounts();
+  wrap.innerHTML = Object.entries(BRANCH_CONFIG).map(([key,cfg])=>`
+    <button class="branch-card branch-${cfg.color} ${fqBranchFilter===key?'active':''}" onclick="setFqBranchFilter('${key}')" type="button">
+      <div class="bc-count">${counts[key]}</div>
+      <div class="bc-label">${cfg.icon} ${cfg.label}</div>
+      <div class="bc-wait">${cfg.waitDays===0?'Immediate':cfg.waitDays+' day wait'}</div>
+    </button>`).join('');
+  document.getElementById('fqClearFilterBtn').style.display = fqBranchFilter==='all' ? 'none' : '';
+}
+function setFqBranchFilter(key){
+  fqBranchFilter = (fqBranchFilter===key) ? 'all' : key;
+  renderBranchCards();
+  renderFollowUpQueueList();
+}
+function setFqSearch(val){
+  fqSearch = (val||'').toLowerCase().trim();
+  renderFollowUpQueueList();
+}
+function renderFollowUpQueueList(){
+  const wrap = document.getElementById('followUpQueueWrap');
+  let leads = activeLeadsForQueue();
+  if(fqBranchFilter!=='all') leads = leads.filter(l=>l.follow_up_branch===fqBranchFilter);
+  if(fqSearch) leads = leads.filter(l => leadDisplayName(l).toLowerCase().includes(fqSearch) || (l.phone||'').includes(fqSearch) || (l.client_phone||'').includes(fqSearch));
+  // Only show leads actually in scope for the queue: sorted into a branch, or overdue on a plain follow-up date
+  leads = leads.filter(l => l.follow_up_branch || (l.follow_up_due && l.follow_up_due<=today()));
+  leads.sort((a,b)=>(a.follow_up_due||'9999-99-99').localeCompare(b.follow_up_due||'9999-99-99'));
+
+  if(leads.length===0){
+    wrap.innerHTML = '<div class="empty">Nothing matches right now. 🎉</div>';
+    return;
+  }
+  wrap.innerHTML = leads.map(l=>{
+    const cfg = BRANCH_CONFIG[l.follow_up_branch];
+    const isOverdue = l.follow_up_due && l.follow_up_due<=today();
+    const da = daysAgo(l.last_contacted_at);
+    const statusChip = isOverdue ? '<span class="badge bad">Overdue</span>' : '<span class="badge muted">Pending</span>';
+    const branchChip = cfg
+      ? `<span class="branch-chip branch-${cfg.color}">${cfg.icon} ${cfg.label}</span>`
+      : `<span class="branch-chip" style="background:#F1F5F9;color:var(--text-muted);">Not sorted</span>`;
+    return `
+    <div class="lead-card" onclick="openFollowUpDetail('${l.id}')">
+      <div class="lc-icon" style="background:${cfg?'var(--'+cfg.color+'-bg)':'#F1F5F9'};">${cfg?cfg.icon:'📋'}</div>
+      <div class="lc-main">
+        <div class="lc-top">
+          <span class="lc-name">${leadDisplayName(l)}</span>
+          ${statusChip}
+          ${branchChip}
+        </div>
+        <div class="lc-summary">${l.interest_notes||'No call notes logged yet.'}</div>
+        <div class="lc-meta">
+          <span>📞 ${l.phone||l.client_phone||'—'}</span>
+          <span>🕒 Last contact: ${l.last_contacted_at||'—'}${da!==null?' ('+da+'d ago)':''}</span>
+          <span>📅 Next action: <b>${l.follow_up_due||'—'}</b></span>
+        </div>
+        ${(l.intent_tags&&l.intent_tags.length) ? `<div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;">${l.intent_tags.map(t=>`<span class="tag-chip">"${t}"</span>`).join('')}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function openFollowUpDetail(leadId){
+  const l = DATA.leads.find(x=>x.id===leadId);
+  if(!l) return;
+  const cfg = BRANCH_CONFIG[l.follow_up_branch];
+  const draft = DATA.post_call_followups.filter(f=>f.lead_id===leadId).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''))[0];
+  const phone = l.phone || l.client_phone || '';
+  let html = `<h2 style="display:flex;align-items:center;gap:8px;">👤 ${leadDisplayName(l)} — Follow-Up Detail</h2>`;
+  if(cfg){
+    html += `<div style="border-radius:10px;padding:12px 14px;margin:10px 0;background:var(--${cfg.color}-bg);">
+      <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;color:var(--${cfg.color});">${cfg.icon} ${cfg.label}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">${cfg.description}</div>
+    </div>`;
+  } else {
+    html += `<div class="ai-box" style="margin:10px 0;">Not sorted into a follow-up branch yet — set one from Edit Lead.</div>`;
+  }
+  html += `<div class="section-title" style="margin-top:10px;">Last Call Summary</div>
+    <div class="ai-box">${l.interest_notes||'No call notes logged yet.'}</div>`;
+  if(l.intent_tags && l.intent_tags.length){
+    html += `<div class="section-title">Notes / Tags</div><div style="display:flex;gap:6px;flex-wrap:wrap;">${l.intent_tags.map(t=>`<span class="tag-chip">"${t}"</span>`).join('')}</div>`;
+  }
+  html += `<div class="detail-grid3" style="margin-top:16px;">
+    <div class="dbox"><div class="dlbl">Last Contacted</div><div class="dval">${l.last_contacted_at||'—'}</div></div>
+    <div class="dbox"><div class="dlbl">Next Action Due</div><div class="dval">${l.follow_up_due||'—'}</div></div>
+    <div class="dbox"><div class="dlbl">Status</div><div class="dval">${statusBadge(l.status)}</div></div>
+  </div>`;
+  html += `<div class="section-title">Follow-Up Draft</div>`;
+  if(draft){
+    html += `<div class="ai-box"><b>${draft.channel}</b> — ${fuStatusBadge(draft.status)}<br><br>"${draft.draft_text}"</div>
+      <div style="margin-top:8px;"><button class="linklike" onclick="closeModal('fqDetailModalBackdrop');openFollowUpModal('${draft.id}')">Edit this draft</button></div>`;
+  } else {
+    html += `<div class="ai-box">No follow-up draft logged for this lead yet.</div>
+      <div style="margin-top:8px;"><button class="linklike" onclick="closeModal('fqDetailModalBackdrop');openFollowUpModal(null,'${l.id}')">+ Log a follow-up draft</button></div>`;
+  }
+  html += `<div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;">
+    ${phone ? `<a class="primary" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;" href="tel:${phone}">📞 Call Now</a>` : ''}
+    <button class="secondary" onclick="closeModal('fqDetailModalBackdrop');openLeadModal('${l.id}')">✏️ Edit Lead</button>
+  </div>`;
+  document.getElementById('fqDetailContent').innerHTML = html;
+  document.getElementById('fqDetailModalBackdrop').classList.add('open');
 }
 
 /* ---------------- CARE ASSESSMENTS ---------------- */
