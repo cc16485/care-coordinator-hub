@@ -306,6 +306,7 @@
 <div class="toolbar" id="leadsFilters"></div>
 <div class="toolbar">
 <div class="spacer"></div>
+<div id="leadsDueBanner" style="display:none;background:var(--red-bg);border:1.5px solid #FCA5A5;color:var(--red);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:12px;cursor:pointer;" onclick="switchLeadsSubtab('followupqueue')"></div>
 <button class="secondary" onclick="switchLeadsSubtab('followupqueue')">🔀 View Follow-Up Queue</button>
 <button class="primary" onclick="openLeadModal()">+ Add Lead</button>
 </div>
@@ -492,7 +493,10 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
           <button class="secondary" onclick="openLeadModal(lpLead.id)">✏️ Edit intake form</button>
           <button class="secondary" onclick="scheduleAssessmentFromLead(lpLead.id)">📅 Schedule assessment</button>
+          <button class="secondary" onclick="lpPrintFacesheet()">🖨 Print facesheet</button>
+          <button class="primary" id="lp_convert_btn" onclick="lpConvertLead()">✅ Convert → AxisCare client</button>
         </div>
+        <div id="lp_converted" class="field-note" style="margin-top:8px;display:none;"></div>
       </div>
 
       <div class="card" style="padding:18px;margin-bottom:14px;">
@@ -1456,6 +1460,11 @@ function switchLeadsSubtab(name){
 function updateLeadsSubtabBadges(){
   const pendingCount = DATA.post_call_followups.filter(f=>f.status==='pending_approval').length;
   const overdueLeads = DATA.leads.filter(l=>l.follow_up_due && l.follow_up_due<=today() && l.status!=='Converted' && l.status!=='Lost').length;
+  const dueBanner = document.getElementById('leadsDueBanner');
+  if(dueBanner){
+    dueBanner.style.display = overdueLeads ? 'block' : 'none';
+    dueBanner.textContent = '⚠️ '+overdueLeads+' follow-up'+(overdueLeads===1?'':'s')+' due or overdue — click to open the Follow-Up Queue';
+  }
   const draftReadyCount = pendingCount; // same set feeds the queue's "draft-ready" bucket
   const queueCount = overdueLeads + draftReadyCount;
   const pcBadge = document.getElementById('subtabBadge-postcall');
@@ -1894,6 +1903,79 @@ function lpCopyAttrs(){
   navigator.clipboard.writeText(text).then(()=>alert('Checklist copied — paste it beside AxisCare and click down the Attributes screen.'));
 }
 
+/* ---- Convert: create the real AxisCare client + note, queue for scheduling ---- */
+async function lpConvertLead(){
+  const l = lpLead; if(!l) return;
+  if(!CONFIG.training_hub_key){ alert('Paste the Training Hub read key into ⚙️ Settings first.'); return; }
+  if(l.axiscare_client_id){ alert('This lead is already linked to AxisCare client #'+l.axiscare_client_id+'.'); return; }
+  const who = l.client_name_not_provided ? [l.first_name,l.last_name] : [l.client_first_name||l.first_name, l.client_last_name||l.last_name];
+  if(!confirm('Convert this lead?\n\nThis creates '+who.filter(Boolean).join(' ')+' as a real client in AxisCare (with the intake note + attributes checklist attached) and adds them to the Staffing Hub scheduling queue.')) return;
+  const btn = document.getElementById('lp_convert_btn');
+  btn.disabled=true; btn.textContent='Converting…';
+  try{
+    const r = await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
+      method:'POST',
+      headers:{ 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'Content-Type':'application/json' },
+      body: JSON.stringify({ key: CONFIG.training_hub_key, lead: l })
+    });
+    const data = await r.json().catch(()=>({}));
+    if(!r.ok || data.error) throw new Error(data.error||('convert failed ('+r.status+')'));
+    l.status = 'Converted';
+    l.axiscare_client_id = data.client_id;
+    l.converted_at = new Date().toISOString();
+    await persist('leads', l);
+    // Staffing Hub scheduling queue — same table its AxisCare webhook feeds.
+    try{
+      await sb.from('client_queue').insert({
+        client_name: who.filter(Boolean).join(' '),
+        payer: l.funding_source || '',
+        schedule_notes: (l.ai_needs_summary || l.interest_notes || '').slice(0,300),
+        axiscare_client_id: data.client_id,
+      });
+    }catch(e){ /* queue insert is best-effort */ }
+    renderLeadProfile(); renderLeads();
+    alert('Done! Client #'+data.client_id+' created in AxisCare'+(data.note_attached?' with the intake note attached':' (note could not attach — add it by hand)')+', and they\'re in the Staffing Hub scheduling queue.\n\nLast hand step: enter the attributes on their AxisCare profile (checklist is in the note).');
+  }catch(e){
+    alert('Could not convert: '+(e&&e.message?e.message:'error'));
+  }finally{
+    btn.disabled=false; btn.textContent='✅ Convert → AxisCare client';
+  }
+}
+
+/* ---- Printable facesheet for the in-home assessment visit ---- */
+function lpPrintFacesheet(){
+  const l = lpLead; if(!l) return;
+  const esc = escapeHtmlComms;
+  const client = l.client_name_not_provided ? '(not provided)' : [l.client_first_name,l.client_last_name].filter(Boolean).join(' ')||'(not provided)';
+  const attrs = l.client_attributes||{};
+  const attrRows = LP_ATTRS.map(a=>{
+    const v=attrs[a[0]];
+    return '<tr><td style="padding:4px 10px;border-bottom:1px solid #ddd;">'+a[1]+'</td><td style="padding:4px 10px;border-bottom:1px solid #ddd;font-weight:700;">'+(v==='yes'?'YES':v==='no'?'No':v==='preferred'?'Preferred':'—')+'</td></tr>';
+  }).join('');
+  const list = (label, arr) => (Array.isArray(arr)&&arr.length) ? '<p><b>'+label+':</b> '+arr.map(esc).join(', ')+'</p>' : '';
+  const w = window.open('','_blank');
+  w.document.write('<html><head><title>Facesheet — '+esc(client)+'</title></head>'
+    +'<body style="font-family:Arial,sans-serif;font-size:13px;color:#111;max-width:700px;margin:24px auto;">'
+    +'<h2 style="margin:0;">Caring Companions — Assessment Facesheet</h2>'
+    +'<p style="color:#555;margin:4px 0 16px;">Printed '+new Date().toLocaleDateString()+' · from the Care Coordinator\'s Hub</p>'
+    +'<h3 style="border-bottom:2px solid #0E3860;padding-bottom:4px;">Client</h3>'
+    +'<p><b>'+esc(client)+'</b>'+(l.client_dob?' · DOB '+esc(l.client_dob):'')+(l.client_gender?' · '+esc(l.client_gender):'')+'</p>'
+    +(l.client_address?'<p>'+esc([l.client_address,l.client_city,l.client_state,l.client_zip].filter(Boolean).join(', '))+'</p>':'')
+    +'<h3 style="border-bottom:2px solid #0E3860;padding-bottom:4px;">Contact</h3>'
+    +'<p><b>'+esc([l.first_name,l.last_name].filter(Boolean).join(' '))+'</b>'+(l.relationship?' ('+esc(l.relationship)+')':'')+(l.phone?' · '+esc(l.phone):'')+(l.email?' · '+esc(l.email):'')+'</p>'
+    +'<h3 style="border-bottom:2px solid #0E3860;padding-bottom:4px;">Needs picture</h3>'
+    +(l.ai_needs_summary?'<p>'+esc(l.ai_needs_summary)+'</p>':'')
+    +list('Flags', l.ai_care_flags)+list('Needs', l.needs)+list('Safety', l.safety)+list('Medical conditions', l.medical_conditions)
+    +(l.urgency?'<p><b>Urgency:</b> '+esc(l.urgency)+'</p>':'')
+    +(l.funding_source?'<p><b>Funding:</b> '+esc(l.funding_source)+'</p>':'')
+    +(l.interest_notes?'<h3 style="border-bottom:2px solid #0E3860;padding-bottom:4px;">Call notes</h3><p style="white-space:pre-wrap;">'+esc(l.interest_notes)+'</p>':'')
+    +'<h3 style="border-bottom:2px solid #0E3860;padding-bottom:4px;">Attributes</h3>'
+    +'<table style="border-collapse:collapse;font-size:12px;">'+attrRows+'</table>'
+    +'</body></html>');
+  w.document.close();
+  setTimeout(()=>w.print(), 300);
+}
+
 /* ---- Lead documents (Supabase Storage, shared project, bucket lead-docs) ---- */
 async function uploadLeadDoc(slot, input){
   const file = input.files && input.files[0]; input.value='';
@@ -1938,6 +2020,19 @@ function renderLeadDocs(){
 }
 
 async function saveLead(){
+  // Duplicate-catcher: a NEW lead whose phone matches an existing record is
+  // usually the same person calling again — offer the existing profile.
+  if(!document.getElementById('lead_id').value){
+    const digits = document.getElementById('lead_phone').value.replace(/\D/g,'').slice(-10);
+    if(digits.length===10){
+      const dup = DATA.leads.find(l=> (l.phone||'').replace(/\D/g,'').slice(-10)===digits);
+      if(dup && confirm('⚠️ This phone number already belongs to '+(dup.first_name||'')+' '+(dup.last_name||'')+' ('+(dup.status||'lead')+').\n\nOpen their existing profile instead of creating a duplicate?')){
+        closeModal('leadModalBackdrop');
+        openLeadProfile(dup.id);
+        return;
+      }
+    }
+  }
   const id = document.getElementById('lead_id').value || uid();
   const record = {
     id,
@@ -2904,7 +2999,7 @@ function openSettingsModal(){
   document.getElementById('set_auto_clear_transcript').checked = !!CONFIG.auto_clear_transcript;
   document.getElementById('set_careplan_webhook').value = CONFIG.careplan_webhook||'';
   document.getElementById('set_escalation_protocol').value = CONFIG.escalation_protocol||'';
-  if(CONFIG.supabase_url) document.getElementById('leadWebhookUrl').textContent = `POST ${CONFIG.supabase_url}/rest/v1/app_data?key=eq.leads`;
+  if(CONFIG.supabase_url) document.getElementById('leadWebhookUrl').textContent = `POST ${CONFIG.supabase_url}/functions/v1/lead-intake?token=cclead_b36832b06f2bb8d58b7d6302  (point the website form here — JSON or normal form posts both work)`;
   renderStaffList();
   document.getElementById('settingsModalBackdrop').classList.add('open');
 }
