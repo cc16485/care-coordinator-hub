@@ -30,7 +30,7 @@
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
   a{color:var(--navy);}
-  img.logo{height:42px;display:block;}
+  img.logo{height:42px;display:block;background:#fff;border-radius:8px;padding:3px 7px;}
   button{cursor:pointer;font-family:inherit;}
   input,select,textarea{font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;width:100%;background:#fff;color:var(--text);}
   label{font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin:10px 0 4px;}
@@ -41,7 +41,7 @@
 
   /* ---- Sign-in screen ---- */
   #signinScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--navy);}
-  .signin-card{background:#fff;border-radius:12px;padding:36px 32px;width:340px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.25);}
+  .signin-card{background:#fff;border-radius:12px;padding:36px 32px;width:100%;max-width:340px;margin:0 16px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.25);}
   .signin-card h1{font-size:20px;margin:16px 0 4px;color:var(--navy);}
   .signin-card p.sub{color:var(--text-muted);font-size:13px;margin:0 0 20px;}
   .signin-card button.primary{width:100%;margin-top:14px;}
@@ -191,11 +191,32 @@
     .modal{padding:18px;max-width:100%;border-radius:0;min-height:100vh;}
     .modal-actions{flex-direction:column-reverse;align-items:stretch;}
     .modal-actions button{width:100%;}
-    header.topbar{flex-wrap:wrap;gap:8px;}
-    header.topbar input.search{max-width:none;flex:1 1 100%;order:3;}
+
+    /* Top bar: two tidy rows (title+actions, then full-width search). */
+    header.topbar{flex-wrap:wrap;gap:8px;padding:10px 12px;}
+    header.topbar h1{font-size:15px;}
+    img.logo{height:28px;}
+    header.topbar .pill{font-size:11px;padding:4px 8px;}
+    header.topbar button.ghost,header.topbar a.ghost{padding:6px 9px;font-size:12px;white-space:nowrap;}
+    header.topbar input.search{max-width:none;flex:1 1 100%;order:10;}
+    .hide-sm{display:none !important;}
+
+    nav.tabs{-webkit-overflow-scrolling:touch;}
     nav.tabs button{padding:12px 12px;font-size:13px;}
+    main{padding:12px;}
+
+    /* Data tables: keep columns readable and swipe sideways instead of
+       crushing nine columns into a 375px screen. */
+    .card{overflow-x:auto;overflow-y:hidden;}
+    .card table{min-width:560px;}
     table{font-size:12px;}
     th,td{padding:8px;}
+
+    .checkbox-grid{grid-template-columns:1fr;}
+    .queue-item{flex-wrap:wrap;}
+    .queue-item .qi-acts{width:100%;justify-content:flex-end;}
+    .fq-toolbar input[type=text],.fq-toolbar select{max-width:none;flex:1 1 160px;}
+    .subtab-bar{width:100%;}
   }
 </style>
 </head>
@@ -230,7 +251,7 @@
     <a class="ghost" href="https://hub.mo-care.com" rel="noopener" title="Back to the Team Hub"
        style="text-decoration:none;display:inline-flex;align-items:center">🏠 Team Hub</a>
     <button class="ghost" onclick="openSettings()">⚙️ Settings</button>
-    <button class="ghost" onclick="alert('Use Supabase → Authentication to reset your password, or ask your admin.')">🔑 Reset Password</button>
+    <button class="ghost hide-sm" onclick="alert('Use Supabase → Authentication to reset your password, or ask your admin.')">🔑 Reset Password</button>
     <button class="ghost" onclick="signOut()">Sign Out</button>
   </header>
 
