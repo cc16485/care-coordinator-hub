@@ -583,6 +583,11 @@
         <div id="lp_ai_flags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
       </div>
 
+      <div class="card" style="padding:18px;margin-bottom:14px;">
+        <b style="font-size:14px;color:var(--navy);">🌱 Nurture (runs by itself)</b>
+        <div id="lp_nurture" style="margin-top:8px;font-size:13px;"></div>
+      </div>
+
       <div class="card" style="padding:18px;margin-bottom:14px;background:#FFFDF5;border-color:#FDE68A;">
         <b style="font-size:14px;color:var(--navy);">📋 AxisCare Attributes (client)</b>
         <div class="field-note" style="margin:4px 0 10px;">AxisCare's API can't set attributes — answer here, then copy the checklist and click down AxisCare's Attributes screen in the same order.</div>
@@ -1948,7 +1953,45 @@ function renderLeadProfile(){
   document.getElementById('lp_ai_flags').innerHTML = (l.ai_care_flags||[]).map(f=>
     '<span class="badge bad" style="background:var(--red-bg);">'+esc(f)+'</span>').join('');
   renderLpAttrs();
+  renderLpNurture();
   renderLeadDocs();
+}
+const NURTURE_INFO = {
+  not_ready: { name:'Not-ready-yet drip', steps:4, desc:'warm text day 3, helpful email day 10, check-in text day 21, note day 45' },
+  lost_reengage: { name:'90-day check-in', steps:1, desc:'one gentle text 90 days after the lead was lost' },
+};
+function renderLpNurture(){
+  const box=document.getElementById('lp_nurture'); const l=lpLead; if(!box||!l) return;
+  const esc=escapeHtmlComms;
+  if(l.nurture_sequence && !l.nurture_stopped_at){
+    const info=NURTURE_INFO[l.nurture_sequence]||{name:l.nurture_sequence,steps:'?'};
+    box.innerHTML='<div><span class="badge ok">Active — '+esc(info.name)+'</span></div>'
+      +'<div class="field-note" style="margin-top:6px;">Step '+((l.nurture_step||0))+' of '+info.steps+' sent'
+      +(l.nurture_last_sent_at?' · last '+String(l.nurture_last_sent_at).slice(0,10):'')
+      +'. Stops by itself the moment they reply or convert.</div>'
+      +'<button class="linklike" style="margin-top:6px;color:var(--red);" onclick="lpStopNurture()">■ Stop the sequence</button>';
+  } else if(l.nurture_stopped_at){
+    box.innerHTML='<div class="field-note">Previous sequence ended: '+esc(l.nurture_stop_reason||'stopped')+' ('+String(l.nurture_stopped_at).slice(0,10)+').</div>'
+      +'<button class="linklike" onclick="lpStartNurture(\'not_ready\')">🌱 Start the not-ready-yet drip again</button>';
+  } else {
+    box.innerHTML='<div class="field-note">Nothing running. If this family isn\'t ready yet, start the drip — 4 gentle, pre-written touches over 45 days that stop instantly if they reply.</div>'
+      +'<button class="secondary" style="margin-top:8px;" onclick="lpStartNurture(\'not_ready\')">🌱 Start not-ready-yet drip</button>'
+      +(l.status==='Lost'?' <button class="secondary" style="margin-top:8px;" onclick="lpStartNurture(\'lost_reengage\')">📆 Schedule 90-day check-in</button>':'');
+  }
+}
+async function lpStartNurture(seq){
+  const l=lpLead; if(!l) return;
+  if(!l.phone && !l.email){ alert('The lead needs a phone or email for a sequence to reach them.'); return; }
+  const info=NURTURE_INFO[seq];
+  if(!confirm('Start "'+info.name+'" for '+(l.first_name||'this lead')+'?\n\n('+info.desc+' — sent automatically each morning, stops the moment they reply or convert.)')) return;
+  l.nurture_sequence=seq; l.nurture_started_at=new Date().toISOString();
+  l.nurture_step=0; l.nurture_last_sent_at=null; l.nurture_stopped_at=null; l.nurture_stop_reason=null;
+  await persist('leads',l); renderLpNurture();
+}
+async function lpStopNurture(){
+  const l=lpLead; if(!l) return;
+  l.nurture_stopped_at=new Date().toISOString(); l.nurture_stop_reason='stopped by hand';
+  await persist('leads',l); renderLpNurture();
 }
 async function lpSetStatus(v){
   if(!lpLead) return;
@@ -1956,8 +1999,12 @@ async function lpSetStatus(v){
   if(v==='Lost' && !lpLead.lost_reason){
     const r = askLostReason();
     if(r){ lpLead.lost_reason = r; lpLead.lost_at = new Date().toISOString(); }
+    if((lpLead.phone||lpLead.email) && !lpLead.nurture_sequence && confirm('Schedule a gentle 90-day check-in text? (Circumstances change — it wins some of these back. Stops if they reply.)')){
+      lpLead.nurture_sequence='lost_reengage'; lpLead.nurture_started_at=new Date().toISOString();
+      lpLead.nurture_step=0; lpLead.nurture_stopped_at=null; lpLead.nurture_stop_reason=null;
+    }
   }
-  await persist('leads',lpLead); renderLeads&&renderLeads();
+  await persist('leads',lpLead); renderLeads&&renderLeads(); renderLpNurture();
 }
 async function lpAddTag(){
   const inp=document.getElementById('lp_tag_input'); const t=inp.value.trim(); if(!t||!lpLead) return;
