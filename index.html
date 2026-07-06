@@ -646,6 +646,29 @@
 <div><label>Intent Tags</label><input id="lead_intent_tags" placeholder="e.g. ready to start, comparing agencies"></div>
 </div>
 
+<div class="section-title">Communications</div>
+<div id="commsLocked" class="field-note" style="display:none;margin-bottom:6px;"></div>
+<div id="commsPanel" style="display:none;">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+    <a id="commsCallBtn" href="#" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;color:var(--text);background:#fff;">☎ Call</a>
+    <button type="button" class="secondary" onclick="logManualCall()">📝 Log a call</button>
+    <button type="button" class="secondary" onclick="refreshCommsTimeline(this)">↻ Refresh</button>
+  </div>
+  <div id="commsTimeline" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:10px;">
+    <div class="field-note">Loading conversation…</div>
+  </div>
+  <div style="display:flex;gap:6px;margin-top:8px;">
+    <input id="commsSmsInput" placeholder="Text this lead…" onkeydown="if(event.key==='Enter')sendLeadSms()">
+    <button type="button" class="primary" id="commsSmsBtn" onclick="sendLeadSms()" style="white-space:nowrap;">Send text</button>
+  </div>
+  <details style="margin-top:8px;">
+    <summary style="cursor:pointer;font-size:12.5px;font-weight:600;color:var(--navy);">✉️ Send an email instead</summary>
+    <input id="commsEmailSubject" placeholder="Subject" style="margin-top:8px;">
+    <textarea id="commsEmailBody" rows="4" placeholder="Email body… (sent with the standard Caring Companions styling)" style="margin-top:6px;"></textarea>
+    <button type="button" class="primary" id="commsEmailBtn" style="margin-top:6px;" onclick="sendLeadEmail()">Send email</button>
+  </details>
+</div>
+
 <div class="modal-actions">
 <button class="secondary" onclick="closeModal('leadModalBackdrop')">Cancel</button>
 <button class="primary" onclick="saveLead()">Save Lead</button>
@@ -952,6 +975,7 @@
 <p class="hint">Find your site number in your AxisCare URL: https://<b>XXXXX</b>.axiscare.com</p>
 <label>Site Number</label><input id="set_axiscare_site">
 <label>API Token (Admin → API Token in AxisCare)</label><input id="set_axiscare_token" type="password" placeholder="stored locally, never shared">
+<label>Training Hub read key (powers the lead Communications panel — ask Samantha)</label><input id="set_training_hub_key" type="password" placeholder="cchub_...">
 </div>
 
 <div class="settings-section">
@@ -1493,8 +1517,136 @@ function openLeadModal(id){
   document.getElementById('lead_follow_up_due').value = l.follow_up_due||'';
   document.getElementById('lead_intent_tags').value = (l.intent_tags||[]).join(', ');
 
+  initCommsPanel(id ? l : null);
   document.getElementById('leadModalBackdrop').classList.add('open');
 }
+
+/* ---------------- LEAD COMMUNICATIONS CENTER ----------------
+   Timeline of every text, email and call with this lead (via the secured
+   ghl-lead-comms function — GHL token stays server-side), plus send boxes
+   and a manual call log for calls made on the office line. */
+const COMMS_API = 'https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms';
+const COMMS_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkcXVqeGl5Y3ljd2hza3l2cndhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTg1NDgsImV4cCI6MjA5ODc5NDU0OH0.SFjAfj--b-tWrk8bMVLeM-tGwD8VBaPsEBtUAp5tPew';
+let commsLead = null;
+let commsRemote = [];
+
+function initCommsPanel(lead){
+  commsLead = lead;
+  commsRemote = [];
+  const locked = document.getElementById('commsLocked');
+  const panel = document.getElementById('commsPanel');
+  const lock = msg => { locked.textContent = msg; locked.style.display='block'; panel.style.display='none'; };
+  if(!lead){ lock('Save the lead first — then their texts, emails and calls appear here.'); return; }
+  if(!CONFIG.training_hub_key){ lock('Paste the Training Hub read key into ⚙️ Settings to turn this panel on.'); return; }
+  if(!lead.phone && !lead.email){ lock('Add a phone number or email for this lead to see and send messages.'); return; }
+  locked.style.display='none'; panel.style.display='block';
+  const call = document.getElementById('commsCallBtn');
+  if(lead.phone){ call.href = 'tel:' + lead.phone.replace(/[^0-9+]/g,''); call.style.display='inline-flex'; }
+  else { call.style.display='none'; }
+  document.getElementById('commsSmsInput').value='';
+  renderCommsTimeline();
+  refreshCommsTimeline();
+}
+async function commsCall(body){
+  const res = await fetch(COMMS_API, {
+    method:'POST',
+    headers:{ 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'Content-Type':'application/json' },
+    body: JSON.stringify(Object.assign({
+      key: CONFIG.training_hub_key,
+      phone: commsLead.phone||undefined,
+      email: commsLead.email||undefined,
+      first_name: commsLead.first_name||undefined,
+      last_name: commsLead.last_name||undefined,
+    }, body)),
+  });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok || data.error) throw new Error(data.error || ('request failed ('+res.status+')'));
+  return data;
+}
+async function refreshCommsTimeline(btn){
+  if(!commsLead) return;
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    const data = await commsCall({ action:'timeline' });
+    commsRemote = data.timeline||[];
+    renderCommsTimeline();
+  }catch(e){
+    document.getElementById('commsTimeline').innerHTML =
+      '<div class="field-note" style="color:var(--red);">Could not load the conversation: '+escapeHtmlComms(e.message)+'</div>';
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; }
+  }
+}
+function escapeHtmlComms(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function renderCommsTimeline(){
+  const box = document.getElementById('commsTimeline');
+  const manual = (commsLead && commsLead.comm_log ? commsLead.comm_log : []).map(n=>({
+    kind:'note', direction:'outbound', body:n.body, at:n.at, by:n.by }));
+  const items = commsRemote.concat(manual).sort((a,b)=>new Date(a.at)-new Date(b.at));
+  if(!items.length){
+    box.innerHTML = '<div class="field-note">No messages yet — texts and emails you send from here (and recorded calls, once the phone menu is live) will show up in order.</div>';
+    return;
+  }
+  const fmt = iso => { try{ return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } };
+  const icon = { sms:'💬', email:'✉️', call:'☎', voicemail:'🎙', note:'📝', other:'•' };
+  box.innerHTML = items.map(m=>{
+    const inbound = m.direction==='inbound';
+    const label = m.kind==='note' ? 'Logged call'+(m.by?(' — '+escapeHtmlComms(m.by)):'')
+      : m.kind==='call' ? ('Call'+(m.duration?(' · '+Math.round(m.duration/60)+' min'):''))
+      : m.kind==='email' && m.subject ? escapeHtmlComms(m.subject) : '';
+    return '<div style="align-self:'+(inbound?'flex-start':'flex-end')+';max-width:88%;background:'
+      +(m.kind==='note' ? 'var(--amber-bg)' : inbound ? '#fff' : 'var(--navy)')
+      +';color:'+(m.kind==='note' ? 'var(--text)' : inbound ? 'var(--text)' : '#fff')
+      +';border:1px solid '+(inbound||m.kind==='note'?'var(--border)':'var(--navy)')
+      +';border-radius:10px;padding:7px 10px;font-size:12.5px;white-space:pre-wrap;">'
+      +'<div style="font-size:10.5px;opacity:.7;margin-bottom:2px;">'+icon[m.kind]+' '+(label?label+' · ':'')+fmt(m.at)+'</div>'
+      +escapeHtmlComms(m.body)
+      +'</div>';
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+async function sendLeadSms(){
+  const input = document.getElementById('commsSmsInput');
+  const btn = document.getElementById('commsSmsBtn');
+  const text = input.value.trim();
+  if(!text || !commsLead) return;
+  if(!commsLead.phone){ alert('This lead has no phone number on file — add one and save first.'); return; }
+  btn.disabled=true; btn.textContent='Sending…';
+  try{
+    await commsCall({ action:'send_sms', message:text });
+    input.value='';
+    commsRemote.push({ kind:'sms', direction:'outbound', body:text, at:new Date().toISOString() });
+    renderCommsTimeline();
+  }catch(e){ alert('Could not send: '+e.message); }
+  finally{ btn.disabled=false; btn.textContent='Send text'; }
+}
+async function sendLeadEmail(){
+  const sub = document.getElementById('commsEmailSubject').value.trim();
+  const bodyEl = document.getElementById('commsEmailBody');
+  const btn = document.getElementById('commsEmailBtn');
+  if(!sub || !bodyEl.value.trim() || !commsLead) { alert('Subject and body are both needed.'); return; }
+  if(!commsLead.email){ alert('This lead has no email on file — add one and save first.'); return; }
+  btn.disabled=true; btn.textContent='Sending…';
+  try{
+    await commsCall({ action:'send_email', subject:sub, message:bodyEl.value.trim() });
+    commsRemote.push({ kind:'email', direction:'outbound', subject:sub, body:bodyEl.value.trim(), at:new Date().toISOString() });
+    bodyEl.value=''; document.getElementById('commsEmailSubject').value='';
+    renderCommsTimeline();
+  }catch(e){ alert('Could not send: '+e.message); }
+  finally{ btn.disabled=false; btn.textContent='Send email'; }
+}
+async function logManualCall(){
+  if(!commsLead) return;
+  const note = prompt('What happened on the call? (one or two lines)');
+  if(!note || !note.trim()) return;
+  let by = '';
+  try{ const { data:{ session } } = await sb.auth.getSession(); by = (session&&session.user&&session.user.email)||''; }catch(e){}
+  commsLead.comm_log = commsLead.comm_log||[];
+  commsLead.comm_log.push({ body: note.trim().slice(0,600), at: new Date().toISOString(), by });
+  await persist('leads', commsLead);
+  renderCommsTimeline();
+}
+
 async function saveLead(){
   const id = document.getElementById('lead_id').value || uid();
   const record = {
@@ -2456,6 +2608,7 @@ function openSettingsModal(){
   document.getElementById('set_supabase_anon_key').value = CONFIG.supabase_anon_key||'';
   document.getElementById('set_axiscare_site').value = CONFIG.axiscare_site||'';
   document.getElementById('set_axiscare_token').value = CONFIG.axiscare_token||'';
+  document.getElementById('set_training_hub_key').value = CONFIG.training_hub_key||'';
   document.getElementById('set_checkin_cadence').value = CONFIG.checkin_cadence||30;
   document.getElementById('set_supervisory_window').value = CONFIG.supervisory_window||60;
   document.getElementById('set_auto_clear_transcript').checked = !!CONFIG.auto_clear_transcript;
@@ -2509,6 +2662,7 @@ function saveSettings(){
   CONFIG.supabase_anon_key = document.getElementById('set_supabase_anon_key').value.trim();
   CONFIG.axiscare_site = document.getElementById('set_axiscare_site').value.trim();
   CONFIG.axiscare_token = document.getElementById('set_axiscare_token').value.trim();
+  CONFIG.training_hub_key = document.getElementById('set_training_hub_key').value.trim();
   CONFIG.checkin_cadence = parseInt(document.getElementById('set_checkin_cadence').value||'30');
   CONFIG.supervisory_window = parseInt(document.getElementById('set_supervisory_window').value||'60');
   CONFIG.auto_clear_transcript = document.getElementById('set_auto_clear_transcript').checked;
