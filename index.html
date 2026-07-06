@@ -3,15 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <title>Care Coordinator's Hub — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --navy:#0E3860;
-    --navy-dark:#092744;
-    --bg:#F4F6F8;
+    --navy:#123A5E;
+    --navy-dark:#0E2E4A;
+    --gold:#D9A63C;
+    --gold-text:#A9791A;
+    --bg:#EDF1F5;
     --card:#FFFFFF;
-    --border:#E2E8F0;
+    --border:#E1E7EE;
     --text:#1E293B;
     --text-muted:#64748B;
     --green:#15803D;
@@ -28,7 +31,7 @@
     --slate-bg:#F1F5F9;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  body{margin:0;font-family:'Public Sans',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
   a{color:var(--navy);}
   img.logo{height:42px;display:block;}
   /* Top bar sits on navy — render the logo as pure white there. The sign-in
@@ -50,20 +53,49 @@
   .signin-card button.primary{width:100%;margin-top:14px;}
   .signin-card .forgot{display:block;margin-top:12px;font-size:12px;}
 
-  /* ---- App shell ---- */
+  /* ---- App shell: fixed navy sidebar + light workspace (design handoff) ---- */
   #appScreen{display:none;}
-  header.topbar{background:var(--navy);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:16px;}
-  header.topbar h1{font-size:17px;margin:0;font-weight:600;flex:0 0 auto;}
+  #appScreen.on{display:flex;min-height:100vh;}
+  .sidenav{position:fixed;left:0;top:0;bottom:0;width:256px;background:var(--navy);display:flex;flex-direction:column;z-index:30;}
+  .sidenav-head{padding:18px 16px 16px;border-bottom:1px solid rgba(255,255,255,.10);}
+  .logo-card{background:#fff;border-radius:13px;padding:14px 16px;box-shadow:0 3px 10px rgba(0,0,0,.18);}
+  .logo-card img{width:100%;max-width:190px;display:block;margin:0 auto;}
+  .sidenav-eyebrow{text-align:center;font-size:10px;font-weight:800;letter-spacing:.11em;color:#8FB0CE;margin-top:10px;}
+  .sidenav-group{font-size:10.5px;font-weight:800;letter-spacing:.08em;color:#5E82A6;padding:16px 26px 4px;}
+  nav.tabs{flex:1;overflow-y:auto;display:flex;flex-direction:column;padding-bottom:10px;}
+  nav.tabs button{display:flex;align-items:center;gap:12px;background:none;border:none;text-align:left;margin:2px 12px;padding:10px 14px;border-radius:11px;font-size:14px;font-weight:600;color:#9FB6CC;white-space:nowrap;transition:background .15s;}
+  nav.tabs button .ni{width:20px;text-align:center;flex:0 0 auto;}
+  nav.tabs button:hover{background:rgba(255,255,255,.07);}
+  nav.tabs button.active{background:rgba(255,255,255,.12);color:#fff;box-shadow:inset 3px 0 0 var(--gold);}
+  .sidenav-user{display:flex;align-items:center;gap:10px;padding:14px 16px;border-top:1px solid rgba(255,255,255,.10);}
+  .su-avatar{width:34px;height:34px;border-radius:10px;background:var(--gold);color:var(--navy);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .appmain{flex:1;min-width:0;margin-left:256px;display:flex;flex-direction:column;}
+  header.topbar{height:66px;background:#FBFCFD;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 26px;position:sticky;top:0;z-index:20;}
   header.topbar .spacer{flex:1;}
-  header.topbar input.search{max-width:220px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;}
-  header.topbar input.search::placeholder{color:rgba(255,255,255,.6);}
-  header.topbar .pill{font-size:12px;background:rgba(255,255,255,.12);padding:5px 10px;border-radius:20px;}
-  header.topbar button.ghost{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;padding:6px 12px;border-radius:6px;font-size:13px;}
-  header.topbar button.ghost:hover{background:rgba(255,255,255,.1);}
+  header.topbar input.search{max-width:420px;height:40px;border-radius:10px;border:1px solid var(--border);background:#fff;color:var(--text);}
+  header.topbar .pill{font-size:12px;background:#fff;border:1px solid var(--border);color:var(--text-muted);padding:5px 10px;border-radius:20px;}
+  header.topbar .ghost{background:#fff;border:1px solid var(--border);color:var(--text);padding:9px 13px;border-radius:10px;font-size:13px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+  header.topbar .ghost:hover{background:#F5F8FB;}
+  header.topbar .addlead{background:var(--navy);color:#fff;border:none;height:40px;padding:0 16px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(18,58,94,.25);white-space:nowrap;}
+  header.topbar .addlead:hover{background:var(--navy-dark);}
 
-  nav.tabs{display:flex;gap:4px;background:#fff;padding:0 16px;border-bottom:1px solid var(--border);overflow-x:auto;}
-  nav.tabs button{background:none;border:none;padding:14px 16px;font-size:14px;font-weight:500;color:var(--text-muted);border-bottom:3px solid transparent;white-space:nowrap;}
-  nav.tabs button.active{color:var(--navy);border-bottom-color:var(--navy);}
+  /* KPI cards + pipeline tiles (Overview) */
+  .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
+  .kpi{background:#fff;border:1px solid #E4E9EF;border-radius:16px;padding:18px 18px 16px;box-shadow:0 1px 2px rgba(18,58,94,.04);}
+  .kpi .kl{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--text-muted);}
+  .kpi .kw{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  .kpi .kv{font-size:31px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);line-height:1;margin-top:8px;display:flex;align-items:baseline;gap:8px;}
+  .kpi .kt{font-size:12.5px;font-weight:700;}
+  .kpi .ks{font-size:12.5px;color:#8593A3;margin-top:6px;}
+  .stage-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .stage{border:1px solid #E7ECF2;border-radius:13px;padding:15px 16px;}
+  .stage .sl{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:var(--text);}
+  .stage .sl i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  .stage .sn{font-size:28px;font-weight:800;color:var(--navy);margin:6px 0;}
+  .stage .sb{height:6px;background:#fff;border-radius:999px;overflow:hidden;}
+  .stage .sb i{display:block;height:6px;border-radius:999px;}
+  .stage .sc{font-size:11.5px;color:#8593A3;margin-top:6px;}
+  @media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(2,1fr);}.stage-grid{grid-template-columns:repeat(2,1fr);}}
 
   main{padding:20px;max-width:1400px;margin:0 auto;}
   .tabpanel{display:none;}
@@ -196,6 +228,24 @@
   .lock-screen.open{display:flex;}
   .lock-card{background:#fff;border-radius:12px;padding:28px;width:300px;text-align:center;}
 
+  /* Phones/tablets: the sidebar becomes a swipeable top strip. */
+  @media(max-width:960px){
+    #appScreen.on{display:block;}
+    .appmain{margin-left:0;}
+    .sidenav{position:static;width:auto;}
+    .sidenav-head{padding:12px 14px;}
+    .logo-card{max-width:220px;margin:0 auto;padding:8px 12px;}
+    .logo-card img{max-width:150px;}
+    nav.tabs{flex-direction:row;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:4px 6px 10px;}
+    nav.tabs button{flex:0 0 auto;margin:2px 3px;padding:9px 12px;}
+    nav.tabs button.active{box-shadow:inset 0 -3px 0 var(--gold);}
+    .sidenav-group{display:none;}
+    .sidenav-user{padding:8px 14px;}
+    header.topbar{height:auto;flex-wrap:wrap;padding:10px 12px;gap:8px;}
+    header.topbar input.search{flex:1 1 100%;max-width:none;order:10;}
+    .kpi-grid{grid-template-columns:1fr 1fr;}
+    .stage-grid{grid-template-columns:1fr 1fr;}
+  }
   @media(max-width:720px){
     .modal .grid2{grid-template-columns:1fr;}
     /* Coordinators fill these out one-handed, standing in a client's living
@@ -254,42 +304,64 @@
 
 <!-- ============================= APP SHELL ============================= -->
 <div id="appScreen">
-  <header class="topbar">
-    <img class="logo" src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions">
-    <h1>Care Coordinator's Hub</h1>
-    <div class="spacer"></div>
-    <input class="search" id="globalSearch" placeholder="🔍 Search clients, leads, caregivers…" oninput="renderActiveTab()">
-    <span class="pill" id="syncPill">☁ Synced</span>
-    <a class="ghost" href="https://hub.mo-care.com/offer.html" rel="noopener" title="Just interviewed someone? Fill this out while it's fresh — it sends their welcome text and starts onboarding tracking"
-       style="text-decoration:none;display:inline-flex;align-items:center;background:#0D9488;border-color:#0D9488;font-weight:700">📋 Offer a Job</a>
-    <a class="ghost" href="https://hub.mo-care.com" rel="noopener" title="Back to the Team Hub"
-       style="text-decoration:none;display:inline-flex;align-items:center">🏠 Team Hub</a>
-    <button class="ghost" onclick="openSettings()">⚙️ Settings</button>
-    <button class="ghost" onclick="signOut()">Sign Out</button>
-  </header>
+  <aside class="sidenav">
+    <div class="sidenav-head">
+      <div class="logo-card"><img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions"></div>
+      <div class="sidenav-eyebrow">CARE COORDINATOR HUB</div>
+    </div>
+    <div class="sidenav-group">WORKSPACE</div>
+    <nav class="tabs" id="tabNav">
+      <button data-tab="today" class="active" onclick="switchTab('today')"><span class="ni">🏠</span>Overview<span class="subtab-badge red" id="todayBadge" style="display:none;margin-left:auto;"></span></button>
+      <button data-tab="leads" onclick="switchTab('leads')"><span class="ni">📞</span>Leads</button>
+      <button data-tab="referrers" onclick="switchTab('referrers')"><span class="ni">🤝</span>Referrers</button>
+      <button data-tab="assessments" onclick="switchTab('assessments')"><span class="ni">📋</span>Care Assessments</button>
+      <button data-tab="checkins" onclick="switchTab('checkins')"><span class="ni">💚</span>Client Check-ins</button>
+      <button data-tab="supervisory" onclick="switchTab('supervisory')"><span class="ni">🛡</span>Supervisory Visits</button>
+      <button data-tab="clients" onclick="switchTab('clients')"><span class="ni">👤</span>Clients</button>
+      <button data-tab="oncall" onclick="switchTab('oncall')"><span class="ni">🚨</span>On-Call</button>
+      <button data-tab="reports" onclick="switchTab('reports')"><span class="ni">📊</span>Reports</button>
+    </nav>
+    <div class="sidenav-user">
+      <span class="su-avatar" id="navAvatar">·</span>
+      <span style="min-width:0;"><b id="navUserName" style="display:block;font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Signed in</b>
+      <span style="font-size:11px;color:#8FB0CE;">Care Coordinator</span></span>
+      <button class="linklike" onclick="openSettings()" title="Settings" style="margin-left:auto;color:#9FB6CC;font-size:15px;">⚙️</button>
+    </div>
+  </aside>
 
-  <nav class="tabs" id="tabNav">
-    <button data-tab="today" class="active" onclick="switchTab('today')">📅 Today<span class="subtab-badge red" id="todayBadge" style="display:none;margin-left:6px;"></span></button>
-    <button data-tab="leads" onclick="switchTab('leads')">📞 Leads</button>
-    <button data-tab="referrers" onclick="switchTab('referrers')">🤝 Referral Sources</button>
-    <button data-tab="assessments" onclick="switchTab('assessments')">🏠 Care Assessments</button>
-    <button data-tab="checkins" onclick="switchTab('checkins')">💚 Client Check-ins</button>
-    <button data-tab="supervisory" onclick="switchTab('supervisory')">🧑‍🤝‍🧑 Supervisory Visits</button>
-    <button data-tab="clients" onclick="switchTab('clients')">👤 Clients</button>
-    <button data-tab="oncall" onclick="switchTab('oncall')">🚨 On-Call</button>
-    <button data-tab="reports" onclick="switchTab('reports')">📊 Reports</button>
-  </nav>
+  <div class="appmain">
+  <header class="topbar">
+    <input class="search" id="globalSearch" placeholder="🔍 Search leads, clients, referrers…" oninput="renderActiveTab()">
+    <div class="spacer"></div>
+    <span class="pill" id="syncPill">☁ Synced</span>
+    <a class="ghost" href="https://hub.mo-care.com/offer.html" rel="noopener" title="Just interviewed someone? Fill this out while it's fresh — it sends their welcome text and starts onboarding tracking">📋 Offer a Job</a>
+    <a class="ghost" href="https://hub.mo-care.com" rel="noopener" title="Back to the Team Hub">🏠 Team Hub</a>
+    <button class="ghost" onclick="signOut()">Sign Out</button>
+    <button class="addlead" onclick="openLeadModal()">＋ Add Lead</button>
+  </header>
 
   <main>
 
     <!-- ===================== TAB: LEADS ===================== -->
-    <!-- ===================== TAB: TODAY ===================== -->
+    <!-- ===================== TAB: TODAY / OVERVIEW ===================== -->
     <section class="tabpanel active" id="tab-today">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-        <h2 style="margin:0;font-size:18px;color:var(--navy);" id="todayHeading">Today</h2>
-        <span class="field-note" id="todaySub"></span>
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
+        <div>
+          <div id="todaySub" style="font-size:12.5px;font-weight:700;color:#2F6FB0;text-transform:uppercase;letter-spacing:.04em;"></div>
+          <h2 style="margin:2px 0 0;font-size:27px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);" id="todayHeading">Overview</h2>
+          <div class="field-note" id="todayHello" style="font-size:14px;margin-top:3px;"></div>
+        </div>
         <span style="flex:1;"></span>
         <button class="primary" onclick="openActivityModal()">＋ Schedule an activity</button>
+      </div>
+      <div class="kpi-grid" id="kpiGrid"></div>
+      <div class="card" style="padding:18px 20px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <b style="font-size:15.5px;font-weight:800;color:var(--navy);">Inquiry Pipeline (this month)</b>
+          <span style="flex:1;"></span>
+          <button class="linklike" onclick="switchTab('leads')">Open pipeline</button>
+        </div>
+        <div class="stage-grid" id="stageGrid"></div>
       </div>
       <div class="profile-grid" style="grid-template-columns:1fr 1fr;">
         <div>
@@ -655,6 +727,7 @@
   </div>
 </section>
 </main>
+  </div><!-- /.appmain -->
 </div>
 
 <!-- ============================= LEAD MODAL (Initial Consultation) ============================= -->
@@ -1396,14 +1469,14 @@ async function signIn(){
     return;
   }
   document.getElementById('signinScreen').style.display = 'none';
-  document.getElementById('appScreen').style.display = 'block';
+  document.getElementById('appScreen').classList.add('on'); initNavUser();
   await loadAllData();
   await flushPendingSync();
   renderActiveTab();
 }
 async function signOut(){
   if(sb) await sb.auth.signOut();
-  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('appScreen').classList.remove('on');
   document.getElementById('signinScreen').style.display = 'flex';
 }
 
@@ -2118,6 +2191,7 @@ function renderToday(){
   const noPlan = openLeads.filter(l=>l.status==='New'&&!l.follow_up_due);
   const doneToday = (DATA.activities||[]).filter(a=>a.done_at&&String(a.done_at).slice(0,10)===t);
   document.getElementById('todaySub').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  renderOverviewTop(overdueA.length+overdueL.length, dueA.length+dueL.length);
   document.getElementById('todayOverdue').innerHTML =
     (overdueA.map(a=>actRow(a,true)).join('')+overdueL.map(leadDueRow).join('')) || '<div class="field-note">Nothing overdue. 🎉</div>';
   document.getElementById('todayDue').innerHTML =
@@ -2138,6 +2212,57 @@ function leadNoPlanRow(l){
     +'<div class="field-note">'+esc((l.interest_notes||'').slice(0,60))+'</div></div>'
     +'<button class="linklike" onclick="openLeadProfile(\''+l.id+'\')">Open</button>'
     +'</div>';
+}
+/* Overview dashboard: live KPI cards + pipeline stage tiles (design handoff). */
+let navUserFirst='';
+async function initNavUser(){
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    const email=(session&&session.user&&session.user.email)||'';
+    const name=email.split('@')[0]||'';
+    navUserFirst=name?name[0].toUpperCase()+name.slice(1):'';
+    document.getElementById('navUserName').textContent = navUserFirst||'Signed in';
+    document.getElementById('navAvatar').textContent = (name.slice(0,2)||'CC').toUpperCase();
+  }catch(e){}
+}
+function renderOverviewTop(nOverdue,nDue){
+  const hr=new Date().getHours();
+  const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+  document.getElementById('todayHeading').textContent = greet+(navUserFirst?(', '+navUserFirst):'');
+  document.getElementById('todayHello').innerHTML =
+    'You have <b style="color:var(--gold-text);">'+(nOverdue+nDue)+' follow-up'+((nOverdue+nDue)===1?'':'s')+'</b> on today\'s list'
+    +(nOverdue?' — <b style="color:var(--red);">'+nOverdue+' overdue</b>':'')+'.';
+  const monthStart=new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+  const mIso=monthStart.toISOString();
+  const mLeads=DATA.leads.filter(l=>(l.created_at||'')>=mIso);
+  const newInq=mLeads.length;
+  const converted=DATA.leads.filter(l=>l.status==='Converted'&&(l.converted_at||l.created_at||'')>=mIso).length;
+  const openLeads=DATA.leads.filter(l=>l.status!=='Converted'&&l.status!=='Lost').length;
+  const t30=new Date(Date.now()-30*86400000).toISOString();
+  const quietOrgs=(DATA.referral_orgs||[]).filter(o=>{const la=orgLastTouch(o.id);return !la||la<t30;}).length;
+  const nurturing=DATA.leads.filter(l=>l.nurture_sequence&&!l.nurture_stopped_at).length;
+  const kpi=(label,val,trend,trendColor,sub,icon,wellBg,wellFg)=>
+    '<div class="kpi"><div class="kl"><span>'+label+'</span><span class="kw" style="background:'+wellBg+';color:'+wellFg+';">'+icon+'</span></div>'
+    +'<div class="kv">'+val+(trend?'<span class="kt" style="color:'+trendColor+';">'+trend+'</span>':'')+'</div>'
+    +'<div class="ks">'+sub+'</div></div>';
+  document.getElementById('kpiGrid').innerHTML =
+    kpi('New Inquiries (this month)',newInq,'','', (mLeads.filter(l=>l.source==='Referral').length)+' from referral sources','👤+','#E4EDF6','#2F6FB0')
+    +kpi('Follow-ups Due Today',nOverdue+nDue,(nOverdue?nOverdue+' overdue':''),'#A9791A','Calls, texts and drop-bys on the list','🕐','#F7ECCB','#A9791A')
+    +kpi('Starts of Care (this month)',converted,'','','Leads converted to AxisCare clients','🏠','#E1F1ED','#2E8577')
+    +kpi('Open Pipeline',openLeads,'','','Active inquiries being worked','📞','#E4EDF6','#123A5E')
+    +kpi('Nurture Running',nurturing,'','','Drips sending themselves each morning','🌱','#E7F3EC','#1F6D45')
+    +kpi('Referrers Gone Quiet',quietOrgs,(quietOrgs?'visit soon':''),'#A9791A','No touch in 30+ days','🤝','#F7ECCB','#A9791A');
+  const stages=[
+    ['New Inquiry', mLeads.filter(l=>l.status==='New').length, '#123A5E', '#F4F7FA'],
+    ['Contacted', mLeads.filter(l=>l.status==='Contacted').length, '#2F6FB0', '#F3F7FB'],
+    ['Assessment', mLeads.filter(l=>l.status==='Assessment Scheduled').length, '#D9A63C', '#FBF6EA'],
+    ['Start of Care', mLeads.filter(l=>l.status==='Converted').length, '#2E8577', '#F1F8F5'],
+  ];
+  const maxN=Math.max(1,...stages.map(s=>s[1]));
+  document.getElementById('stageGrid').innerHTML = stages.map(s=>
+    '<div class="stage" style="background:'+s[3]+';"><div class="sl"><i style="background:'+s[2]+';"></i>'+s[0]+'</div>'
+    +'<div class="sn">'+s[1]+'</div><div class="sb"><i style="width:'+Math.round(s[1]/maxN*100)+'%;background:'+s[2]+';"></i></div>'
+    +'<div class="sc">'+(newInq?Math.round(s[1]/newInq*100)+'% of inquiries':'—')+'</div></div>').join('');
 }
 async function markActivityDone(id){
   const a=(DATA.activities||[]).find(x=>x.id===id); if(!a) return;
@@ -3475,7 +3600,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ document.querySe
         return;
       }
       document.getElementById('signinScreen').style.display = 'none';
-      document.getElementById('appScreen').style.display = 'block';
+      document.getElementById('appScreen').classList.add('on'); initNavUser();
       await loadAllData();
       await flushPendingSync();
       renderActiveTab();
