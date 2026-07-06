@@ -318,7 +318,6 @@
       <button data-tab="checkins" onclick="switchTab('checkins')"><span class="ni">💚</span>Client Check-ins</button>
       <button data-tab="supervisory" onclick="switchTab('supervisory')"><span class="ni">🛡</span>Supervisory Visits</button>
       <button data-tab="clients" onclick="switchTab('clients')"><span class="ni">👤</span>Clients</button>
-      <button data-tab="oncall" onclick="switchTab('oncall')"><span class="ni">🚨</span>On-Call</button>
       <button data-tab="reports" onclick="switchTab('reports')"><span class="ni">📊</span>Reports</button>
     </nav>
     <div class="sidenav-user">
@@ -571,33 +570,6 @@
 
 <div class="toolbar" id="clientsFilters"></div>
 <div class="card"><div id="clientsTableWrap"></div></div>
-</section>
-
-<!-- ===================== TAB: ON-CALL ===================== -->
-<section class="tabpanel" id="tab-oncall">
-<details class="guide">
-<summary>📋 How This Tab Works — Step by Step ▼</summary>
-<div class="guide-body">
-<div class="guide-step"><span class="num">1</span>This is the quick reference for after-hours: who's on-call right now, how to reach them, and the escalation steps to follow.</div>
-<div class="guide-step"><span class="num">2</span>Add each week (or whatever rotation you use) as a row below — the coordinator whose date range covers today is automatically shown as "Currently On-Call" at the top.</div>
-<div class="guide-step"><span class="num">3</span>Edit the escalation protocol text in <b>Settings → After-Hours Escalation Protocol</b> — it's shared by the whole team, so keep it current.</div>
-<div class="guide-step flag"><span class="num">!</span>This is a reference tool, not a paging system — it doesn't call or text anyone automatically. Bookmark this tab on your phone for after-hours use.</div>
-</div>
-</details>
-
-<div class="card" id="onCallCurrentCard" style="margin-bottom:14px;"></div>
-
-<div class="card" style="margin-bottom:14px;">
-<div class="section-title" style="margin-top:0;">🚨 Escalation Protocol</div>
-<div id="onCallProtocolText" style="white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);"></div>
-</div>
-
-<div class="toolbar" id="oncallFilters"></div>
-<div class="toolbar">
-<div class="spacer"></div>
-<button class="primary" onclick="openOnCallModal()">+ Add On-Call Entry</button>
-</div>
-<div class="card"><div id="onCallTableWrap"></div></div>
 </section>
 
 <!-- ===================== TAB: REPORTS ===================== -->
@@ -1233,33 +1205,6 @@
 </div>
 </div>
 
-<!-- ============================= ON-CALL ENTRY MODAL ============================= -->
-<div class="modal-backdrop" id="onCallModalBackdrop">
-<div class="modal">
-<h2>On-Call Entry</h2>
-<input type="hidden" id="oc_id">
-<label>Coordinator</label>
-<select id="oc_staff_select" onchange="onCallStaffPicked()">
-<option value="">— Select from Staff list —</option>
-</select>
-<div class="grid2">
-<div><label>Name</label><input id="oc_name"></div>
-<div><label>Phone</label><input id="oc_phone" placeholder="(555) 555-5555"></div>
-</div>
-<div class="grid2">
-<div><label>Start Date</label><input type="date" id="oc_start_date"></div>
-<div><label>End Date</label><input type="date" id="oc_end_date"></div>
-</div>
-<label>Notes (optional)</label>
-<textarea id="oc_notes" rows="2" placeholder="e.g. backup contact, out-of-town coverage plan"></textarea>
-
-<div class="modal-actions">
-<button class="secondary" onclick="closeModal('onCallModalBackdrop')">Cancel</button>
-<button class="primary" onclick="saveOnCallEntry()">Save</button>
-</div>
-</div>
-</div>
-
 <!-- ============================= SETTINGS (passcode-gated) ============================= -->
 <div class="lock-screen" id="settingsLock">
 <div class="lock-card">
@@ -1348,7 +1293,7 @@
 
 <div class="settings-section">
 <h3>🚨 After-Hours Escalation Protocol</h3>
-<p class="hint">Shown at the top of the On-Call tab for anyone checking who to contact and what to do after hours. Keep this current — real names and numbers, not placeholders.</p>
+<p class="hint">Kept for reference (the On-Call tab was removed) — after-hours escalation steps live here if you ever want them surfaced again.</p>
 <textarea id="set_escalation_protocol" rows="4"></textarea>
 </div>
 
@@ -1409,7 +1354,7 @@ function addDaysISO(dateStr, days){
   d.setDate(d.getDate()+days);
   return d.toISOString().slice(0,10);
 }
-let activeFilters = { leads: 'All', assessments: 'All', checkins: 'All', supervisory: 'All', clients: 'All', oncall: 'Current & Upcoming' };
+let activeFilters = { leads: 'All', assessments: 'All', checkins: 'All', supervisory: 'All', clients: 'All' };
 
 function uid(){ return 'id_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
 function today(){ return new Date().toISOString().slice(0,10); }
@@ -1643,7 +1588,6 @@ function renderActiveTab(){
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='clients') renderClients();
-  if(activeTab==='oncall') renderOnCall();
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
   const el = document.getElementById(containerId);
@@ -3515,114 +3459,6 @@ function getCurrentOnCall(){
   // If more than one entry covers today (overlap/typo), prefer the most recently added.
   return matches.reduce((a,b) => (b.created_at||'') > (a.created_at||'') ? b : a);
 }
-function renderOnCall(){
-  const cardEl = document.getElementById('onCallCurrentCard');
-  const current = getCurrentOnCall();
-  if(current){
-    const telHref = 'tel:' + (current.phone||'').replace(/[^0-9+]/g,'');
-    cardEl.innerHTML = `
-      <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);">Currently On-Call</div>
-      <div style="font-size:22px;font-weight:800;color:var(--navy);margin:4px 0 2px;">${current.staff_name||'(no name)'}</div>
-      <div style="font-size:14px;color:var(--text);margin-bottom:10px;">${current.phone||'No phone on file'}${current.notes?' · '+current.notes:''}</div>
-      ${current.phone ? `<a class="primary" style="text-decoration:none;display:inline-block;padding:9px 16px;border-radius:8px;" href="${telHref}">☎ Call ${current.staff_name||''}</a>` : ''}
-    `;
-  } else {
-    cardEl.innerHTML = `
-      <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--red);">No One Currently Assigned</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">Add an on-call entry below that covers today's date.</div>
-    `;
-  }
-
-  document.getElementById('onCallProtocolText').textContent = CONFIG.escalation_protocol || '';
-
-  renderFilterPills('oncallFilters', ['All','Current & Upcoming','Past'], activeFilters.oncall, 'oncall');
-  const f = activeFilters.oncall;
-  const t = today();
-  let rows = (DATA.on_call_schedule||[]).slice();
-  if(f==='Current & Upcoming') rows = rows.filter(e => (e.end_date||'') >= t);
-  if(f==='Past') rows = rows.filter(e => (e.end_date||'') < t);
-  rows.sort((a,b) => (a.start_date||'').localeCompare(b.start_date||''));
-
-  const wrap = document.getElementById('onCallTableWrap');
-  if(rows.length===0){ wrap.innerHTML = '<div class="empty" style="padding:14px;">No on-call entries yet.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Coordinator</th><th>Phone</th><th>Start</th><th>End</th><th>Notes</th><th></th></tr></thead><tbody>${
-    rows.map(e=>{
-      const isCurrent = current && current.id===e.id;
-      return `<tr${isCurrent?' style="background:rgba(14,56,96,.06);"':''}>
-        <td>${e.staff_name||''}${isCurrent?' <span class="badge ok">Current</span>':''}</td>
-        <td>${e.phone||'—'}</td>
-        <td>${e.start_date||''}</td>
-        <td>${e.end_date||''}</td>
-        <td style="max-width:200px;">${e.notes||'—'}</td>
-        <td><button class="linklike" onclick="openOnCallModal('${e.id}')">Edit</button> · <button class="linklike" onclick="removeOnCallEntry('${e.id}')">Remove</button></td>
-      </tr>`;
-    }).join('')
-  }</tbody></table>`;
-}
-function populateOnCallStaffSelect(){
-  const sel = document.getElementById('oc_staff_select');
-  const staff = DATA.coordinator_staff || [];
-  sel.innerHTML = '<option value="">— Select from Staff list —</option>' +
-    staff.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-}
-function onCallStaffPicked(){
-  const sel = document.getElementById('oc_staff_select');
-  const staff = (DATA.coordinator_staff||[]).find(s=>s.id===sel.value);
-  if(staff){
-    document.getElementById('oc_name').value = staff.name || '';
-    document.getElementById('oc_phone').value = staff.phone || '';
-  }
-}
-function openOnCallModal(id){
-  populateOnCallStaffSelect();
-  document.getElementById('oc_staff_select').value = '';
-  if(id){
-    const e = DATA.on_call_schedule.find(x=>x.id===id);
-    if(!e) return;
-    document.getElementById('oc_id').value = e.id;
-    document.getElementById('oc_name').value = e.staff_name || '';
-    document.getElementById('oc_phone').value = e.phone || '';
-    document.getElementById('oc_start_date').value = e.start_date || '';
-    document.getElementById('oc_end_date').value = e.end_date || '';
-    document.getElementById('oc_notes').value = e.notes || '';
-  } else {
-    ['oc_id','oc_name','oc_phone','oc_start_date','oc_end_date','oc_notes'].forEach(id=>document.getElementById(id).value='');
-  }
-  document.getElementById('onCallModalBackdrop').classList.add('open');
-}
-async function saveOnCallEntry(){
-  const id = document.getElementById('oc_id').value || uid();
-  const existing = (DATA.on_call_schedule||[]).find(x=>x.id===id) || {};
-  const startDate = document.getElementById('oc_start_date').value;
-  const endDate = document.getElementById('oc_end_date').value;
-  const name = document.getElementById('oc_name').value.trim();
-  if(!name){ alert('Enter a coordinator name (or pick one from the Staff list).'); return; }
-  if(!startDate || !endDate){ alert('Set both a start and end date.'); return; }
-  if(endDate < startDate){ alert('End date is before the start date.'); return; }
-  const record = {
-    id,
-    staff_id: document.getElementById('oc_staff_select').value || existing.staff_id || '',
-    staff_name: name,
-    phone: document.getElementById('oc_phone').value.trim(),
-    start_date: startDate,
-    end_date: endDate,
-    notes: document.getElementById('oc_notes').value.trim(),
-    created_at: existing.created_at || new Date().toISOString(),
-  };
-  DATA.on_call_schedule = DATA.on_call_schedule || [];
-  const idx = DATA.on_call_schedule.findIndex(x=>x.id===id);
-  if(idx>=0) DATA.on_call_schedule[idx]=record; else DATA.on_call_schedule.push(record);
-  await persist('on_call_schedule', record);
-  closeModal('onCallModalBackdrop');
-  renderOnCall();
-}
-async function removeOnCallEntry(id){
-  if(!confirm('Remove this on-call entry?')) return;
-  DATA.on_call_schedule = (DATA.on_call_schedule||[]).filter(e=>e.id!==id);
-  await removeItem('on_call_schedule', id);
-  renderOnCall();
-}
-
 /* ---------------- SETTINGS ---------------- */
 function openSettings(){
   if(!CONFIG.admin_passcode){ openSettingsModal(); return; }
