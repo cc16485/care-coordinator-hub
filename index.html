@@ -269,18 +269,53 @@
   </header>
 
   <nav class="tabs" id="tabNav">
-    <button data-tab="leads" class="active" onclick="switchTab('leads')">📞 Leads</button>
+    <button data-tab="today" class="active" onclick="switchTab('today')">📅 Today<span class="subtab-badge red" id="todayBadge" style="display:none;margin-left:6px;"></span></button>
+    <button data-tab="leads" onclick="switchTab('leads')">📞 Leads</button>
+    <button data-tab="referrers" onclick="switchTab('referrers')">🤝 Referral Sources</button>
     <button data-tab="assessments" onclick="switchTab('assessments')">🏠 Care Assessments</button>
     <button data-tab="checkins" onclick="switchTab('checkins')">💚 Client Check-ins</button>
     <button data-tab="supervisory" onclick="switchTab('supervisory')">🧑‍🤝‍🧑 Supervisory Visits</button>
     <button data-tab="clients" onclick="switchTab('clients')">👤 Clients</button>
     <button data-tab="oncall" onclick="switchTab('oncall')">🚨 On-Call</button>
+    <button data-tab="reports" onclick="switchTab('reports')">📊 Reports</button>
   </nav>
 
   <main>
 
     <!-- ===================== TAB: LEADS ===================== -->
-    <section class="tabpanel active" id="tab-leads">
+    <!-- ===================== TAB: TODAY ===================== -->
+    <section class="tabpanel active" id="tab-today">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <h2 style="margin:0;font-size:18px;color:var(--navy);" id="todayHeading">Today</h2>
+        <span class="field-note" id="todaySub"></span>
+        <span style="flex:1;"></span>
+        <button class="primary" onclick="openActivityModal()">＋ Schedule an activity</button>
+      </div>
+      <div class="profile-grid" style="grid-template-columns:1fr 1fr;">
+        <div>
+          <div class="card" style="padding:16px;margin-bottom:14px;">
+            <b style="color:var(--red);font-size:14px;">⚠️ Overdue</b>
+            <div id="todayOverdue" style="margin-top:8px;"></div>
+          </div>
+          <div class="card" style="padding:16px;">
+            <b style="color:var(--amber);font-size:14px;">Due today</b>
+            <div id="todayDue" style="margin-top:8px;"></div>
+          </div>
+        </div>
+        <div>
+          <div class="card" style="padding:16px;margin-bottom:14px;">
+            <b style="color:var(--navy);font-size:14px;">🆕 New leads with no follow-up set</b>
+            <div id="todayNewLeads" style="margin-top:8px;"></div>
+          </div>
+          <div class="card" style="padding:16px;">
+            <b style="color:var(--green);font-size:14px;">✓ Completed today</b>
+            <div id="todayDone" style="margin-top:8px;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tabpanel" id="tab-leads">
       <details class="guide">
         <summary>📋 How This Tab Works — Step by Step ▼</summary>
         <div class="guide-body">
@@ -350,6 +385,25 @@
 </div>
 <div class="card"><div id="followUpQueueWrap"></div></div>
 </div>
+</section>
+
+<!-- ===================== TAB: REFERRAL SOURCES ===================== -->
+<section class="tabpanel" id="tab-referrers">
+  <details class="guide">
+    <summary>📋 How This Tab Works — Step by Step ▼</summary>
+    <div class="guide-body">
+      <div class="guide-step"><span class="num">1</span>Add every organization that can send you clients — hospitals, rehabs, skilled nursing, assisted living, physician offices, senior centers — and the key people there (discharge planners, social workers).</div>
+      <div class="guide-step"><span class="num">2</span><b>Log every touch</b>: drop-bys, calls, emails, lunches, events. Takes 10 seconds and builds your relationship history.</div>
+      <div class="guide-step"><span class="num">3</span>Always set a <b>next activity</b> when you log one — it lands on the 📅 Today tab so the relationship never goes quiet by accident.</div>
+      <div class="guide-step flag"><span class="num">!</span>Orgs with no touch in 30+ days get a <b>gone quiet</b> flag. On the Leads intake, choosing source "Referral" and typing the organization's name links the lead to it — that's how the referral counts and the Reports leaderboard work.</div>
+    </div>
+  </details>
+  <div class="toolbar">
+    <input id="refSearch" placeholder="🔍 Search organizations & people…" style="max-width:280px;" oninput="renderReferrers()">
+    <span class="spacer"></span>
+    <button class="primary" onclick="openOrgModal()">＋ Add organization</button>
+  </div>
+  <div id="referrersWrap"></div>
 </section>
 
 <!-- ===================== TAB: CARE ASSESSMENTS ===================== -->
@@ -457,6 +511,26 @@
 <div class="card"><div id="onCallTableWrap"></div></div>
 </section>
 
+<!-- ===================== TAB: REPORTS ===================== -->
+<section class="tabpanel" id="tab-reports">
+  <div class="toolbar">
+    <b style="font-size:16px;color:var(--navy);">📊 Reports</b>
+    <span class="spacer"></span>
+    <select id="reportRange" style="width:auto;" onchange="renderReports()">
+      <option value="30">Last 30 days</option>
+      <option value="90" selected>Last 90 days</option>
+      <option value="365">Last 12 months</option>
+      <option value="99999">All time</option>
+    </select>
+  </div>
+  <div class="profile-grid" style="grid-template-columns:1fr 1fr;">
+    <div class="card" style="padding:16px;"><b style="color:var(--navy);">Sales funnel</b><div id="repFunnel" style="margin-top:10px;"></div></div>
+    <div class="card" style="padding:16px;"><b style="color:var(--navy);">Lead sources</b><div id="repSources" style="margin-top:10px;"></div></div>
+    <div class="card" style="padding:16px;"><b style="color:var(--navy);">Why we lose leads</b><div id="repLost" style="margin-top:10px;"></div></div>
+    <div class="card" style="padding:16px;"><b style="color:var(--navy);">Referral source leaderboard</b><div id="repRefs" style="margin-top:10px;"></div></div>
+  </div>
+</section>
+
 <!-- ===================== LEAD PROFILE PAGE ===================== -->
 <section id="leadProfileView" style="display:none;">
   <button class="linklike" style="font-size:13px;margin-bottom:12px;" onclick="closeLeadProfile()">← Back to Leads</button>
@@ -494,6 +568,7 @@
           <button class="secondary" onclick="openLeadModal(lpLead.id)">✏️ Edit intake form</button>
           <button class="secondary" onclick="scheduleAssessmentFromLead(lpLead.id)">📅 Schedule assessment</button>
           <button class="secondary" onclick="lpPrintFacesheet()">🖨 Print facesheet</button>
+          <button class="secondary" onclick="openActivityModal(lpLead.id)">📅 Schedule activity</button>
           <button class="primary" id="lp_convert_btn" onclick="lpConvertLead()">✅ Convert → AxisCare client</button>
         </div>
         <div id="lp_converted" class="field-note" style="margin-top:8px;display:none;"></div>
@@ -780,6 +855,44 @@
 <div class="modal-actions">
 <button class="secondary" onclick="closeModal('leadModalBackdrop')">Cancel</button>
 <button class="primary" onclick="saveLead()">Save Lead</button>
+</div>
+</div>
+</div>
+
+<!-- ============================= ORG + ACTIVITY MODALS ============================= -->
+<div class="modal-backdrop" id="orgModalBackdrop">
+<div class="modal" style="max-width:480px;">
+<h2 id="orgModalTitle">Add Referral Organization</h2>
+<input type="hidden" id="org_id">
+<label>Organization name *</label><input id="org_name" placeholder="e.g. Cox Medical Center">
+<label>Type</label>
+<select id="org_type"><option>Hospital</option><option>Rehab / Skilled Nursing</option><option>Assisted Living</option><option>Physician Office</option><option>Hospice</option><option>Senior Center / Community</option><option>Other</option></select>
+<label>Key people (discharge planners, social workers…)</label><input id="org_people" placeholder="e.g. Molly Evans (DC planner), Ying B. (SW)">
+<label>Phone</label><input id="org_phone">
+<label>Notes</label><textarea id="org_notes" rows="2"></textarea>
+<div class="modal-actions">
+  <button class="secondary" onclick="closeModal('orgModalBackdrop')">Cancel</button>
+  <button class="primary" onclick="saveOrg()">Save</button>
+</div>
+</div>
+</div>
+
+<div class="modal-backdrop" id="activityModalBackdrop">
+<div class="modal" style="max-width:480px;">
+<h2>Schedule an Activity</h2>
+<p class="modal-sub">Lands on the 📅 Today tab when due (and in the 7 AM email).</p>
+<label>What *</label><input id="act_title" placeholder="e.g. Call Eleanor about start date · Drop by Cox rehab">
+<div class="grid2">
+  <div><label>Kind</label><select id="act_kind"><option value="call">☎ Call</option><option value="dropby">🏢 Drop-by</option><option value="email">✉️ Email</option><option value="other">Other</option></select></div>
+  <div><label>Due date *</label><input type="date" id="act_due"></div>
+</div>
+<div class="grid2">
+  <div><label>About a lead (optional)</label><select id="act_lead"></select></div>
+  <div><label>About a referral org (optional)</label><select id="act_org"></select></div>
+</div>
+<div class="modal-actions">
+  <button class="secondary" onclick="closeModal('activityModalBackdrop')">Cancel</button>
+  <button class="primary" onclick="saveActivity()">Schedule</button>
 </div>
 </div>
 </div>
@@ -1182,8 +1295,8 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [] };
-let activeTab = 'leads';
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [] };
+let activeTab = 'today';
 let activeLeadsSubtab = 'pipeline';
 let fqBranchFilter = 'all';
 let fqSearch = '';
@@ -1292,7 +1405,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -1427,6 +1540,9 @@ function switchTab(tab){
   renderActiveTab();
 }
 function renderActiveTab(){
+  if(activeTab==='today') renderToday();
+  if(activeTab==='referrers') renderReferrers();
+  if(activeTab==='reports') renderReports();
   if(activeTab==='leads') renderLeads();
   if(activeTab==='assessments') renderAssessments();
   if(activeTab==='checkins') renderCheckins();
@@ -1834,7 +1950,15 @@ function renderLeadProfile(){
   renderLpAttrs();
   renderLeadDocs();
 }
-async function lpSetStatus(v){ if(!lpLead) return; lpLead.status=v; await persist('leads',lpLead); renderLeads&&renderLeads(); }
+async function lpSetStatus(v){
+  if(!lpLead) return;
+  lpLead.status=v;
+  if(v==='Lost' && !lpLead.lost_reason){
+    const r = askLostReason();
+    if(r){ lpLead.lost_reason = r; lpLead.lost_at = new Date().toISOString(); }
+  }
+  await persist('leads',lpLead); renderLeads&&renderLeads();
+}
 async function lpAddTag(){
   const inp=document.getElementById('lp_tag_input'); const t=inp.value.trim(); if(!t||!lpLead) return;
   lpLead.intent_tags=(lpLead.intent_tags||[]); lpLead.intent_tags.push(t); inp.value='';
@@ -1901,6 +2025,225 @@ function lpCopyAttrs(){
         return (v==='yes'?'YES':v==='no'?'NO ':v==='preferred'?'PREF':'—  ')+' — '+a[1];
       }).join('\n');
   navigator.clipboard.writeText(text).then(()=>alert('Checklist copied — paste it beside AxisCare and click down the Attributes screen.'));
+}
+
+/* ================= CRM: TODAY / ACTIVITIES ================= */
+const ACT_ICON = { call:'☎', dropby:'🏢', email:'✉️', other:'•' };
+function actPhone(a){
+  if(a.lead_id){ const l=DATA.leads.find(x=>x.id===a.lead_id); return l&&l.phone; }
+  if(a.org_id){ const o=DATA.referral_orgs.find(x=>x.id===a.org_id); return o&&o.phone; }
+  return null;
+}
+function actAboutHtml(a){
+  const esc=escapeHtmlComms;
+  if(a.lead_id){ const l=DATA.leads.find(x=>x.id===a.lead_id);
+    return l?'<a href="#" onclick="openLeadProfile(\''+l.id+'\');return false;">'+esc((l.first_name||'')+' '+(l.last_name||''))+'</a>':''; }
+  if(a.org_id){ const o=DATA.referral_orgs.find(x=>x.id===a.org_id);
+    return o?'<a href="#" onclick="switchTab(\'referrers\');return false;">'+esc(o.name)+'</a>':''; }
+  return '';
+}
+function actRow(a, overdue){
+  const esc=escapeHtmlComms;
+  const ph=actPhone(a);
+  return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+    +'<span>'+(ACT_ICON[a.kind]||'•')+'</span>'
+    +'<div style="flex:1;min-width:0;"><b'+(overdue?' style="color:var(--red);"':'')+'>'+esc(a.title)+'</b>'
+    +'<div class="field-note">'+actAboutHtml(a)+(a.due?' · due '+a.due:'')+'</div></div>'
+    +(ph?'<a href="tel:'+String(ph).replace(/[^0-9+]/g,'')+'" class="linklike" style="text-decoration:none;">☎ Call</a>':'')
+    +'<button class="linklike" style="color:var(--green);font-weight:700;" onclick="markActivityDone(\''+a.id+'\')">✓ Done</button>'
+    +'</div>';
+}
+function leadDueRow(l){
+  const esc=escapeHtmlComms;
+  return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+    +'<span>📞</span><div style="flex:1;min-width:0;"><b>Follow up: '+esc((l.first_name||'')+' '+(l.last_name||''))+'</b>'
+    +'<div class="field-note">'+(l.follow_up_branch?esc(l.follow_up_branch)+' · ':'')+'due '+l.follow_up_due+'</div></div>'
+    +(l.phone?'<a href="tel:'+String(l.phone).replace(/[^0-9+]/g,'')+'" class="linklike" style="text-decoration:none;">☎ Call</a>':'')
+    +'<button class="linklike" onclick="openLeadProfile(\''+l.id+'\')">Open</button>'
+    +'</div>';
+}
+function renderToday(){
+  const t = today();
+  const acts = (DATA.activities||[]).filter(a=>!a.done_at);
+  const openLeads = DATA.leads.filter(l=>l.status!=='Converted'&&l.status!=='Lost');
+  const overdueA = acts.filter(a=>a.due&&a.due<t), dueA = acts.filter(a=>a.due===t);
+  const overdueL = openLeads.filter(l=>l.follow_up_due&&l.follow_up_due<t), dueL = openLeads.filter(l=>l.follow_up_due===t);
+  const noPlan = openLeads.filter(l=>l.status==='New'&&!l.follow_up_due);
+  const doneToday = (DATA.activities||[]).filter(a=>a.done_at&&String(a.done_at).slice(0,10)===t);
+  document.getElementById('todaySub').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  document.getElementById('todayOverdue').innerHTML =
+    (overdueA.map(a=>actRow(a,true)).join('')+overdueL.map(leadDueRow).join('')) || '<div class="field-note">Nothing overdue. 🎉</div>';
+  document.getElementById('todayDue').innerHTML =
+    (dueA.map(a=>actRow(a,false)).join('')+dueL.map(leadDueRow).join('')) || '<div class="field-note">Nothing due today.</div>';
+  document.getElementById('todayNewLeads').innerHTML =
+    noPlan.map(leadNoPlanRow).join('') || '<div class="field-note">Every new lead has a next step. 👍</div>';
+  document.getElementById('todayDone').innerHTML =
+    doneToday.map(a=>'<div style="padding:6px 0;font-size:13px;color:var(--text-muted);">✓ '+escapeHtmlComms(a.title)+(a.done_by?' — '+escapeHtmlComms(a.done_by):'')+'</div>').join('')
+    || '<div class="field-note">Nothing checked off yet today.</div>';
+  const badge = document.getElementById('todayBadge');
+  const n = overdueA.length+overdueL.length+dueA.length+dueL.length;
+  if(badge){ badge.style.display = n?'inline-flex':'none'; badge.textContent = n; }
+}
+function leadNoPlanRow(l){
+  const esc=escapeHtmlComms;
+  return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+    +'<span>🆕</span><div style="flex:1;min-width:0;"><b>'+esc((l.first_name||'')+' '+(l.last_name||''))+'</b>'
+    +'<div class="field-note">'+esc((l.interest_notes||'').slice(0,60))+'</div></div>'
+    +'<button class="linklike" onclick="openLeadProfile(\''+l.id+'\')">Open</button>'
+    +'</div>';
+}
+async function markActivityDone(id){
+  const a=(DATA.activities||[]).find(x=>x.id===id); if(!a) return;
+  let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
+  a.done_at=new Date().toISOString(); a.done_by=by;
+  await persist('activities',a);
+  renderToday();
+}
+function openActivityModal(leadId, orgId){
+  document.getElementById('act_title').value='';
+  document.getElementById('act_due').value=today();
+  const ls=document.getElementById('act_lead'), os=document.getElementById('act_org');
+  ls.innerHTML='<option value="">—</option>'+DATA.leads.filter(l=>l.status!=='Lost').map(l=>'<option value="'+l.id+'"'+(l.id===leadId?' selected':'')+'>'+escapeHtmlComms((l.first_name||'')+' '+(l.last_name||''))+'</option>').join('');
+  os.innerHTML='<option value="">—</option>'+(DATA.referral_orgs||[]).map(o=>'<option value="'+o.id+'"'+(o.id===orgId?' selected':'')+'>'+escapeHtmlComms(o.name)+'</option>').join('');
+  document.getElementById('activityModalBackdrop').classList.add('open');
+}
+async function saveActivity(){
+  const title=document.getElementById('act_title').value.trim();
+  const due=document.getElementById('act_due').value;
+  if(!title||!due){ alert('An activity needs a description and a due date.'); return; }
+  const a={ id:uid(), title, kind:document.getElementById('act_kind').value, due,
+    lead_id:document.getElementById('act_lead').value||null,
+    org_id:document.getElementById('act_org').value||null,
+    created_at:new Date().toISOString() };
+  DATA.activities=DATA.activities||[]; DATA.activities.push(a);
+  await persist('activities',a);
+  closeModal('activityModalBackdrop');
+  renderToday();
+}
+
+/* ================= CRM: REFERRAL SOURCES ================= */
+function openOrgModal(id){
+  const o=id?(DATA.referral_orgs||[]).find(x=>x.id===id):{};
+  document.getElementById('orgModalTitle').textContent=id?'Edit Organization':'Add Referral Organization';
+  document.getElementById('org_id').value=id||'';
+  document.getElementById('org_name').value=o.name||'';
+  document.getElementById('org_type').value=o.type||'Hospital';
+  document.getElementById('org_people').value=o.people||'';
+  document.getElementById('org_phone').value=o.phone||'';
+  document.getElementById('org_notes').value=o.notes||'';
+  document.getElementById('orgModalBackdrop').classList.add('open');
+}
+async function saveOrg(){
+  const name=document.getElementById('org_name').value.trim();
+  if(!name){ alert('The organization needs a name.'); return; }
+  const id=document.getElementById('org_id').value||uid();
+  const existing=(DATA.referral_orgs||[]).find(x=>x.id===id)||{};
+  const o=Object.assign({},existing,{ id, name,
+    type:document.getElementById('org_type').value,
+    people:document.getElementById('org_people').value.trim(),
+    phone:document.getElementById('org_phone').value.trim(),
+    notes:document.getElementById('org_notes').value.trim(),
+    created_at:existing.created_at||new Date().toISOString() });
+  DATA.referral_orgs=DATA.referral_orgs||[];
+  const i=DATA.referral_orgs.findIndex(x=>x.id===id);
+  if(i>=0) DATA.referral_orgs[i]=o; else DATA.referral_orgs.push(o);
+  await persist('referral_orgs',o);
+  closeModal('orgModalBackdrop');
+  renderReferrers();
+}
+function orgLastTouch(orgId){
+  const acts=(DATA.referral_activities||[]).filter(a=>a.org_id===orgId);
+  return acts.length?acts.map(a=>a.at).sort().pop():null;
+}
+function orgReferralCount(o){
+  const norm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const n=norm(o.name); if(!n) return 0;
+  return DATA.leads.filter(l=>norm(l.referral_source_name).includes(n)||n.includes(norm(l.referral_source_name)||'~')).length;
+}
+function renderReferrers(){
+  const esc=escapeHtmlComms;
+  const q=(document.getElementById('refSearch').value||'').toLowerCase();
+  const orgs=(DATA.referral_orgs||[]).filter(o=>!q||(o.name+' '+(o.people||'')).toLowerCase().includes(q));
+  const wrap=document.getElementById('referrersWrap');
+  if(!orgs.length){ wrap.innerHTML='<div class="card"><div class="empty">No referral organizations yet — add the hospitals, rehabs and offices that send (or should send) you clients.</div></div>'; return; }
+  const t30=new Date(Date.now()-30*86400000).toISOString();
+  wrap.innerHTML=orgs.map(o=>{
+    const last=orgLastTouch(o.id);
+    const quiet=!last||last<t30;
+    const refs=orgReferralCount(o);
+    const acts=(DATA.referral_activities||[]).filter(a=>a.org_id===o.id).sort((a,b)=>b.at<a.at?-1:1);
+    return '<div class="card" style="padding:14px 16px;margin-bottom:10px;">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+      +'<b style="font-size:14.5px;color:var(--navy);">'+esc(o.name)+'</b>'
+      +'<span class="tag-chip">'+esc(o.type||'')+'</span>'
+      +(refs?'<span class="badge ok">'+refs+' referral'+(refs===1?'':'s')+'</span>':'')
+      +(quiet?'<span class="badge bad">😴 gone quiet'+(last?' — last touch '+String(last).slice(0,10):' — never touched')+'</span>':'<span class="badge muted">last touch '+String(last).slice(0,10)+'</span>')
+      +'<span style="flex:1;"></span>'
+      +'<button class="linklike" onclick="openActivityModal(null,\''+o.id+'\')">📅 Schedule</button>'
+      +'<button class="linklike" onclick="openOrgModal(\''+o.id+'\')">Edit</button>'
+      +'</div>'
+      +(o.people?'<div class="field-note" style="margin-top:4px;">👥 '+esc(o.people)+'</div>':'')
+      +'<details style="margin-top:8px;"><summary style="cursor:pointer;font-size:12.5px;font-weight:600;color:var(--navy);">Activity log ('+acts.length+') &amp; log a touch</summary>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">'
+      +'<select id="ra_kind_'+o.id+'" style="width:auto;font-size:13px;"><option value="dropby">🏢 Drop-by</option><option value="call">☎ Call</option><option value="email">✉️ Email</option><option value="appointment">🤝 Appointment</option><option value="event">🎪 Event</option></select>'
+      +'<input id="ra_note_'+o.id+'" placeholder="Who you saw / what happened…" style="flex:1;min-width:180px;font-size:13px;">'
+      +'<button class="primary" onclick="logOrgActivity(\''+o.id+'\')">Log it</button>'
+      +'</div>'
+      +(acts.length?acts.slice(0,12).map(a=>'<div style="font-size:12.5px;padding:4px 0;color:var(--text);border-bottom:1px dashed var(--border);">'
+        +(ACT_ICON[a.kind]||'🤝')+' '+String(a.at).slice(0,10)+' — '+esc(a.note||a.kind)+(a.by?' <span style="color:var(--text-muted);">('+esc(a.by)+')</span>':'')+'</div>').join(''):'<div class="field-note">No touches logged yet.</div>')
+      +'</details></div>';
+  }).join('');
+}
+async function logOrgActivity(orgId){
+  const note=document.getElementById('ra_note_'+orgId).value.trim();
+  const kind=document.getElementById('ra_kind_'+orgId).value;
+  if(!note){ alert('Add a quick note about the touch.'); return; }
+  let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
+  const a={ id:uid(), org_id:orgId, kind, note, at:new Date().toISOString(), by };
+  DATA.referral_activities=DATA.referral_activities||[]; DATA.referral_activities.push(a);
+  await persist('referral_activities',a);
+  if(confirm('Logged! Schedule the NEXT touch with them now? (Keeps the relationship from going quiet.)')) openActivityModal(null,orgId);
+  renderReferrers();
+}
+
+/* ================= CRM: LOST REASONS + REPORTS ================= */
+const LOST_REASONS=['Price','Chose another agency','Not ready yet / timing','Went to a facility','Passed away','No response','Other'];
+function askLostReason(){
+  const pick=prompt('Why was this lead lost?\n'+LOST_REASONS.map((r,i)=>(i+1)+' — '+r).join('\n')+'\n\nType a number (or your own reason):');
+  if(pick==null) return null;
+  const n=parseInt(pick,10);
+  return (n>=1&&n<=LOST_REASONS.length)?LOST_REASONS[n-1]:(pick.trim()||'Other');
+}
+function renderReports(){
+  const esc=escapeHtmlComms;
+  const days=parseInt(document.getElementById('reportRange').value,10);
+  const cutoff=new Date(Date.now()-days*86400000).toISOString();
+  const leads=DATA.leads.filter(l=>(l.created_at||'')>=cutoff);
+  const total=leads.length;
+  const assessed=leads.filter(l=>['Assessment Scheduled','Converted'].includes(l.status)).length;
+  const converted=leads.filter(l=>l.status==='Converted').length;
+  const lost=leads.filter(l=>l.status==='Lost');
+  const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
+  const bar=(label,n,d,color)=>'<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:13px;"><span>'+label+'</span><b>'+n+' ('+pct(n,d)+')</b></div>'
+    +'<div style="background:#F1F5F9;border-radius:6px;height:10px;"><div style="width:'+(d?Math.max(2,Math.round(n/d*100)):0)+'%;background:'+color+';height:10px;border-radius:6px;"></div></div></div>';
+  document.getElementById('repFunnel').innerHTML = total
+    ? bar('New inquiries',total,total,'#3B82F6')+bar('→ Assessment scheduled',assessed,total,'#F59E0B')+bar('→ Converted to client',converted,total,'#15803D')
+      +'<div class="field-note">Leads created in the selected period. (Older leads that converted in the period aren\'t counted — this reads by inquiry date.)</div>'
+    : '<div class="field-note">No leads in this period'+(DATA.leads.length&&!DATA.leads.some(l=>l.created_at)?' — older leads saved before dates were tracked don\'t appear here':'')+'.</div>';
+  const bySrc={};
+  leads.forEach(l=>{ const s=l.source||'Unknown'; bySrc[s]=bySrc[s]||{n:0,c:0}; bySrc[s].n++; if(l.status==='Converted')bySrc[s].c++; });
+  document.getElementById('repSources').innerHTML = total
+    ? Object.entries(bySrc).sort((a,b)=>b[1].n-a[1].n).map(([s,v])=>'<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);"><span>'+esc(s)+'</span><span><b>'+v.n+'</b> leads · '+pct(v.c,v.n)+' converted</span></div>').join('')
+    : '<div class="field-note">No data yet.</div>';
+  const byReason={};
+  lost.forEach(l=>{ const r=l.lost_reason||'(no reason recorded)'; byReason[r]=(byReason[r]||0)+1; });
+  document.getElementById('repLost').innerHTML = lost.length
+    ? Object.entries(byReason).sort((a,b)=>b[1]-a[1]).map(([r,n])=>'<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);"><span>'+esc(r)+'</span><b>'+n+'</b></div>').join('')
+    : '<div class="field-note">No lost leads in this period — or none marked Lost yet.</div>';
+  const orgs=(DATA.referral_orgs||[]).map(o=>({name:o.name,n:orgReferralCount(o)})).filter(x=>x.n>0).sort((a,b)=>b.n-a.n);
+  document.getElementById('repRefs').innerHTML = orgs.length
+    ? orgs.slice(0,10).map((o,i)=>'<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);"><span>'+(i+1)+'. '+esc(o.name)+'</span><b>'+o.n+'</b></div>').join('')
+    : '<div class="field-note">No referral-linked leads yet — on intake, set source "Referral" and type the organization\'s name.</div>';
 }
 
 /* ---- Convert: create the real AxisCare client + note, queue for scheduling ---- */
@@ -2090,8 +2433,16 @@ async function saveLead(){
     created_at: (DATA.leads.find(x=>x.id===id)||{}).created_at || new Date().toISOString(),
   };
   const idx = DATA.leads.findIndex(x=>x.id===id);
-  if(idx>=0) DATA.leads[idx]=record; else DATA.leads.push(record);
-  await persist('leads', record);
+  // Merge over the existing record — the intake form doesn't know about
+  // profile-side fields (comm_log, AI summary, attributes, docs, AxisCare
+  // link) and must never wipe them.
+  const merged = Object.assign({}, idx>=0?DATA.leads[idx]:{}, record);
+  if(merged.status==='Lost' && !merged.lost_reason){
+    const r = askLostReason();
+    if(r){ merged.lost_reason = r; merged.lost_at = new Date().toISOString(); }
+  }
+  if(idx>=0) DATA.leads[idx]=merged; else DATA.leads.push(merged);
+  await persist('leads', merged);
   closeModal('leadModalBackdrop');
   renderLeads();
   if(activeLeadsSubtab==='followupqueue') renderFollowUpQueue();
