@@ -470,10 +470,27 @@
       <div class="guide-step flag"><span class="num">!</span>Orgs with no touch in 30+ days get a <b>gone quiet</b> flag. On the Leads intake, choosing source "Referral" and typing the organization's name links the lead to it — that's how the referral counts and the Reports leaderboard work.</div>
     </div>
   </details>
+  <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
+    <div>
+      <div style="font-size:12.5px;font-weight:700;color:#2F6FB0;text-transform:uppercase;letter-spacing:.04em;">Business Development</div>
+      <h2 style="margin:2px 0 0;font-size:27px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Referral Sources</h2>
+      <div class="field-note" id="refSub" style="font-size:14px;margin-top:3px;"></div>
+    </div>
+    <span style="flex:1;"></span>
+    <button class="primary" onclick="openOrgModal()">＋ Add organization</button>
+  </div>
+  <div class="kpi-grid" id="refKpis" style="grid-template-columns:repeat(4,1fr);"></div>
+  <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <b style="font-size:15.5px;font-weight:800;color:var(--navy);">📍 Due for Outreach</b>
+      <span class="field-note">longest-untouched first — keep these relationships warm</span>
+    </div>
+    <div id="refDueList"></div>
+  </div>
   <div class="toolbar">
+    <b style="font-size:15.5px;font-weight:800;color:var(--navy);">All organizations</b>
     <input id="refSearch" placeholder="🔍 Search organizations & people…" style="max-width:280px;" oninput="renderReferrers()">
     <span class="spacer"></span>
-    <button class="primary" onclick="openOrgModal()">＋ Add organization</button>
   </div>
   <div id="referrersWrap"></div>
 </section>
@@ -1681,32 +1698,55 @@ function renderLeads(){
     '7days':'<span class="badge new">7 days</span>',
     researching:'<span class="badge muted">Researching</span>'}[u] || '');
   wrap.innerHTML = `<table><thead><tr>
-    <th>Contact (Caller)</th><th>Client</th><th>Phone</th><th>Urgency</th><th>Source</th><th>Status</th><th>Follow-up Due</th><th>Coordinator</th><th>Actions</th>
+    <th>Lead</th><th>Client</th><th>Urgency</th><th>Source</th><th>Stage</th><th>Next Action</th><th>Actions</th>
   </tr></thead><tbody>${rows.map(l => {
     const clientName = l.client_name_not_provided ? '<span style="color:var(--text-muted);">Not provided</span>'
       : (l.client_first_name||l.client_last_name) ? `${l.client_first_name||''} ${l.client_last_name||''}`.trim() : '—';
     return `
-    <tr>
-      <td><b>${l.first_name||''} ${l.last_name||''}</b>${l.relationship?`<div style="color:var(--text-muted);font-size:11px;">${l.relationship}</div>`:''}<div style="color:var(--text-muted);font-size:11px;">${(l.interest_notes||'').slice(0,60)}</div></td>
+    <tr onclick="openLeadProfile('${l.id}')" style="cursor:pointer;">
+      <td><div style="display:flex;align-items:center;gap:10px;">
+        ${leadAvatar(l)}
+        <div style="min-width:0;"><b style="color:var(--navy);">${l.first_name||''} ${l.last_name||''}</b>
+        <div style="color:#8593A3;font-size:12px;">${l.relationship||l.phone||''}</div></div>
+      </div></td>
       <td>${clientName}</td>
-      <td>${l.phone||''}</td>
       <td>${urgencyBadge(l.urgency)}</td>
-      <td>${l.source||''}${l.referral_source_name? ' — '+l.referral_source_name:''}</td>
+      <td style="color:var(--text-muted);">${l.source||''}${l.referral_source_name? ' — '+l.referral_source_name:''}</td>
       <td>${statusBadge(l.status)}</td>
-      <td>${l.follow_up_due ? (l.follow_up_due<=today()?'<span class="badge bad">'+l.follow_up_due+'</span>':l.follow_up_due) : '—'}</td>
-      <td>${l.assigned_coordinator||''}</td>
-      <td>
-        <button class="linklike" style="font-weight:700;" onclick="openLeadProfile('${l.id}')">View Profile</button>
+      <td>${leadNextAction(l)}</td>
+      <td onclick="event.stopPropagation();">
+        <button class="linklike" style="font-weight:700;" onclick="openLeadProfile('${l.id}')">Profile</button>
         <button class="linklike" onclick="openLeadModal('${l.id}')">Edit</button>
-        <button class="linklike" onclick="scheduleAssessmentFromLead('${l.id}')">Schedule Assessment</button>
+        <button class="linklike" onclick="scheduleAssessmentFromLead('${l.id}')">Assess</button>
       </td>
     </tr>`;
   }).join('')}</tbody></table>`;
 }
+const AVATAR_COLORS=[['#E4EDF6','#1F517F'],['#E1F1ED','#1E6E60'],['#FBF1D6','#8A6412'],['#E7F3EC','#1F6D45'],['#F8E3E0','#A93226'],['#EEF1F5','#4A5568']];
+function leadAvatar(l){
+  const init=((l.first_name||' ')[0]+(l.last_name||' ')[0]).toUpperCase().trim()||'?';
+  const c=AVATAR_COLORS[(init.charCodeAt(0)||0)%AVATAR_COLORS.length];
+  return '<span style="width:36px;height:36px;border-radius:11px;background:'+c[0]+';color:'+c[1]+';font-weight:800;font-size:12.5px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;">'+init+'</span>';
+}
+function leadNextAction(l){
+  if(l.status==='Converted') return '<span style="color:#2E7D57;font-size:12.5px;font-weight:600;">✓ Started care</span>';
+  if(l.status==='Lost') return '<span style="color:#8593A3;font-size:12.5px;">— '+(l.lost_reason||'lost')+'</span>';
+  if(l.nurture_sequence && !l.nurture_stopped_at) return '<span style="color:#1F6D45;font-size:12.5px;font-weight:600;">🌱 Nurture running</span>';
+  if(l.follow_up_due){
+    const od = l.follow_up_due<=today();
+    return '<span style="color:'+(od?'var(--red)':'var(--gold-text)')+';font-size:12.5px;font-weight:700;">'+(od?'⚠ Overdue — ':'📞 ')+'follow up '+l.follow_up_due+'</span>';
+  }
+  if(l.status==='New') return '<span style="color:var(--red);font-size:12.5px;font-weight:700;">⚠ No next step set</span>';
+  return '<span style="color:#8593A3;font-size:12.5px;">—</span>';
+}
 function statusBadge(status){
-  const map = { 'New':'new','Contacted':'warn','Assessment Scheduled':'warn','Converted':'ok','Lost':'muted',
-    'Scheduled':'warn','Completed — Awaiting Plan':'warn','Plan Drafted':'new','Pushed to AxisCare':'ok' };
-  return `<span class="badge ${map[status]||'muted'}">${status}</span>`;
+  const map = {
+    'New':['#E4EDF6','#1F517F'], 'Contacted':['#EAF1F8','#2560A0'], 'Assessment Scheduled':['#FBF1D6','#8A6412'],
+    'Converted':['#E1F1ED','#1E6E60'], 'Lost':['#EEF1F5','#4A5568'],
+    'Scheduled':['#FBF1D6','#8A6412'], 'Completed — Awaiting Plan':['#FBF1D6','#8A6412'],
+    'Plan Drafted':['#E4EDF6','#1F517F'], 'Pushed to AxisCare':['#E1F1ED','#1E6E60'] };
+  const c = map[status]||['#EEF1F5','#4A5568'];
+  return `<span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700;background:${c[0]};color:${c[1]};white-space:nowrap;">${status}</span>`;
 }
 /* -- checkbox-grid / radio-group helpers (used by the intake form) -- */
 function getCheckedValues(containerId){
@@ -2334,6 +2374,7 @@ function orgReferralCount(o){
 }
 function renderReferrers(){
   const esc=escapeHtmlComms;
+  renderRefDashboard();
   const q=(document.getElementById('refSearch').value||'').toLowerCase();
   const orgs=(DATA.referral_orgs||[]).filter(o=>!q||(o.name+' '+(o.people||'')).toLowerCase().includes(q));
   const wrap=document.getElementById('referrersWrap');
@@ -2365,6 +2406,38 @@ function renderReferrers(){
         +(ACT_ICON[a.kind]||'🤝')+' '+String(a.at).slice(0,10)+' — '+esc(a.note||a.kind)+(a.by?' <span style="color:var(--text-muted);">('+esc(a.by)+')</span>':'')+'</div>').join(''):'<div class="field-note">No touches logged yet.</div>')
       +'</details></div>';
   }).join('');
+}
+function renderRefDashboard(){
+  const esc=escapeHtmlComms;
+  const orgs=DATA.referral_orgs||[];
+  document.getElementById('refSub').textContent = orgs.length+' referral source'+(orgs.length===1?'':'s')+' · Springfield & SW Missouri';
+  const monthStart=new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+  const mIso=monthStart.toISOString();
+  const newOrgs=orgs.filter(o=>(o.created_at||'')>=mIso).length;
+  const f2f=(DATA.referral_activities||[]).filter(a=>(a.at||'')>=mIso&&(a.kind==='dropby'||a.kind==='appointment'||a.kind==='event')).length;
+  const refLeads=DATA.leads.filter(l=>l.source==='Referral'&&(l.created_at||'')>=mIso).length;
+  const refStarts=DATA.leads.filter(l=>l.source==='Referral'&&l.status==='Converted'&&(l.converted_at||l.created_at||'')>=mIso).length;
+  const kpi=(label,val,sub,icon,wb,wf)=>'<div class="kpi"><div class="kl"><span>'+label+'</span><span class="kw" style="background:'+wb+';color:'+wf+';">'+icon+'</span></div>'
+    +'<div class="kv">'+val+'</div><div class="ks">'+sub+'</div></div>';
+  document.getElementById('refKpis').innerHTML =
+    kpi('New Referrers (this month)',newOrgs,'organizations added','👤+','#E4EDF6','#2F6FB0')
+    +kpi('Face-to-Face Visits',f2f,'drop-bys, appointments & events this month','👣','#F7ECCB','#A9791A')
+    +kpi('Referrals Received',refLeads,'leads with source "Referral" this month','📥','#E1F1ED','#2E8577')
+    +kpi('Starts from Referrals',refStarts,'referral leads converted this month','🏠','#E4EDF6','#123A5E');
+  const now=Date.now();
+  const due=orgs.map(o=>{
+    const last=orgLastTouch(o.id);
+    return {o, last, days: last?Math.floor((now-new Date(last).getTime())/86400000):9999};
+  }).filter(x=>x.days>=14).sort((a,b)=>b.days-a.days).slice(0,6);
+  document.getElementById('refDueList').innerHTML = due.length ? due.map(x=>
+    '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #EEF2F6;font-size:13px;">'
+    +leadAvatar({first_name:x.o.name,last_name:''})
+    +'<div style="flex:1;min-width:0;"><b style="color:var(--navy);">'+esc(x.o.name)+'</b>'
+    +'<div style="color:#8593A3;font-size:12px;">'+esc(x.o.type||'')+(x.o.people?' — '+esc(x.o.people):'')+'</div></div>'
+    +'<span style="font-weight:800;font-size:12px;color:'+(x.days>=30?'var(--red)':'var(--gold-text)')+';white-space:nowrap;">'+(x.days===9999?'never touched':x.days+'d ago')+'</span>'
+    +'<button class="linklike" onclick="openActivityModal(null,\''+x.o.id+'\')">📅 Schedule</button>'
+    +'</div>').join('')
+    : '<div class="field-note">Everyone\'s been touched in the last 2 weeks. 🎉</div>';
 }
 async function logOrgActivity(orgId){
   const note=document.getElementById('ra_note_'+orgId).value.trim();
@@ -3016,29 +3089,34 @@ async function saveAssessment(){
 async function generateCarePlan(){
   const id = document.getElementById('assess_id').value;
   if(!id){ alert('Save the assessment first so it has visit details on file.'); return; }
-  if(!CONFIG.careplan_webhook){ alert('No Care Plan webhook configured yet — set one up in Settings (see Care_Coordinator_Zapier_Setup.md).'); return; }
   const a = DATA.care_assessments.find(x=>x.id===id);
-  document.getElementById('assess_ai_summary_box').textContent = 'Generating… this calls your Zapier webhook, which structures the transcript with AI. Check back in a minute, or watch the Zap run in Zapier.';
+  const transcript = (document.getElementById('assess_transcript_text').value||a.transcript_text||'').trim();
+  if(!transcript){ alert('Paste the assessment transcript text first — the AI needs something to read. (A link alone isn\'t enough; paste the words.)'); return; }
+  const box = document.getElementById('assess_ai_summary_box');
+  box.textContent = '🤖 Reading the transcript and drafting the care plan… (10–20 seconds)';
   try{
-    // Zapier's Catch Hook doesn't send back CORS headers that allow a
-    // browser to set Content-Type: application/json (triggers a blocked
-    // preflight). Sending as text/plain avoids the preflight — Zapier still
-    // reads and parses the raw JSON body fine. mode:'no-cors' means we can't
-    // read a response, but this is fire-and-forget anyway.
-    await fetch(CONFIG.careplan_webhook, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: {'Content-Type':'text/plain'},
-      body: JSON.stringify({
-        assessment_id: a.id, client_name: a.client_name, axiscare_client_id: a.axiscare_client_id,
-        transcript_link: a.transcript_link, transcript_text: a.transcript_text
-      })
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session){ alert('Please sign in again.'); return; }
+    const r = await fetch(CONFIG.supabase_url+'/functions/v1/ai-draft-careplan',{
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
+      body: JSON.stringify({ transcript_text: transcript, client_name: a.client_name, visit_date: a.visit_date })
     });
+    const draft = await r.json();
+    if(!r.ok || draft.error) throw new Error(draft.error||('AI error ('+r.status+')'));
     a.status = 'Plan Drafted';
     await persist('care_assessments', a);
-    alert('Sent to Zapier. The drafted care plan will appear in Supabase shortly — reopen this assessment (or refresh) to see it once the Zap finishes.');
+    box.textContent = '✓ Draft ready — opening the care plan form. Review every field before saving: '+(draft.confidence_note||'');
+    closeModal('assessmentModalBackdrop');
+    openPlanForAssessment(id);
+    ['adl_needs','iadl_needs','medical_conditions','medications','safety_concerns','client_goals',
+     'services_recommended','recommended_frequency','recommended_hours_per_week'].forEach(k=>{
+      const el=document.getElementById('plan_'+k);
+      if(el && !el.value) el.value = draft[k]!=null ? String(draft[k]) : '';
+    });
+    renderAssessments();
   }catch(e){
-    document.getElementById('assess_ai_summary_box').textContent = 'Could not reach the webhook. Check the URL in Settings.';
+    box.textContent = 'Could not draft: '+(e&&e.message?e.message:'error')+' — you can still fill the plan by hand.';
   }
 }
 function openPlanForAssessment(assessmentId){
@@ -3088,9 +3166,29 @@ async function savePlan(pushToAxisCare){
     }
     await persist('care_plans', record);
     await handOffToStaffingHub(a, record);
-    alert(CONFIG.axiscare_token
-      ? 'Pushed. Confirm the custom fields landed correctly on the client\'s AxisCare profile. Also added to Staffing Hub\'s scheduling queue.'
-      : 'Saved — but no AxisCare API token is set in Settings, so nothing was actually sent to AxisCare yet. This only updated Supabase (including the Staffing Hub scheduling queue).');
+    // Real server-side push: the plan lands on the client's AxisCare profile
+    // as an important note (the API has no care-plan fields; a note is the
+    // honest vehicle). Token lives server-side — nothing in this browser.
+    if(a && a.axiscare_client_id && CONFIG.training_hub_key){
+      const planNote = 'CARE PLAN — '+(a.client_name||'')+' (assessment '+(a.visit_date||'')+')\n'
+        +['adl_needs','iadl_needs','medical_conditions','medications','safety_concerns','client_goals','services_recommended']
+          .filter(k=>record[k]).map(k=>k.replace(/_/g,' ').toUpperCase()+':\n'+record[k]).join('\n\n')
+        +'\n\nFREQUENCY: '+(record.recommended_frequency||'—')+' · HOURS/WEEK: '+(record.recommended_hours_per_week||'—')
+        +(record.start_date?' · START: '+record.start_date:'');
+      try{
+        const r = await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
+          method:'POST',
+          headers:{ 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'Content-Type':'application/json' },
+          body: JSON.stringify({ key: CONFIG.training_hub_key, action:'client_note', client_id: a.axiscare_client_id, note: planNote })
+        });
+        const res = await r.json().catch(()=>({}));
+        alert(r.ok && !res.error
+          ? 'Care plan attached to the client\'s AxisCare profile as an important note, and added to the Staffing Hub scheduling queue.'
+          : 'Saved here + Staffing Hub queue — but the AxisCare note failed: '+(res.error||'error')+'. Add it there by hand.');
+      }catch(e){ alert('Saved here + Staffing Hub queue — AxisCare push failed ('+e.message+'). Add the note by hand.'); }
+    } else {
+      alert('Saved + added to Staffing Hub\'s scheduling queue.'+(a&&!a.axiscare_client_id?' (No AxisCare client ID on the assessment yet — add it to push the plan note automatically.)':''));
+    }
   }
   closeModal('planModalBackdrop');
   renderAssessments();
@@ -3199,7 +3297,35 @@ async function saveCheckin(){
   await persist('client_checkins', record);
   closeModal('checkinModalBackdrop');
   renderCheckins();
-  if(record.escalated) alert('Marked as escalated — make sure Samantha knows (this hub does not auto-notify yet; wire a webhook in Settings if you want that).');
+  if(record.escalated && !existing.escalated) notifyEscalation(record);
+}
+
+/* Escalated check-in → text the staff flagged for check-in alerts + email
+   Samantha, through the same secured GHL functions the lead comms use. */
+async function notifyEscalation(c){
+  if(!CONFIG.training_hub_key){
+    alert('Marked as escalated — but automatic alerts need the Training Hub key in ⚙️ Settings. Tell Samantha directly.');
+    return;
+  }
+  const msg = '🚨 ESCALATED CHECK-IN — '+(c.client_name||'client')
+    +'\nConcern: '+((c.concerns_raised||c.caregiver_feedback||'(see hub)').slice(0,300))
+    +'\nSatisfaction: '+(c.satisfaction_rating||'?')+'/5 · by '+(c.coordinator||'coordinator')
+    +'\nOpen the CC Hub → Client Check-ins for the full record.';
+  const call = (body)=>fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
+    method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+    body:JSON.stringify(Object.assign({key:CONFIG.training_hub_key},body))}).then(r=>r.json()).catch(e=>({error:e.message}));
+  const sends=[];
+  (DATA.coordinator_staff||[]).filter(s=>s.notify_checkins&&s.phone).forEach(s=>{
+    sends.push(call({action:'send_sms',phone:s.phone,first_name:s.name||'Staff',message:msg}));
+  });
+  sends.push(call({action:'send_email',email:'samantha@mo-care.com',first_name:'Samantha',last_name:'Troutman',
+    subject:'🚨 Escalated check-in: '+(c.client_name||'client'),
+    message:msg}));
+  const results=await Promise.all(sends);
+  const ok=results.filter(r=>r&&r.status==='sent').length;
+  alert(ok
+    ? 'Escalation sent — '+ok+' alert'+(ok===1?'':'s')+' (text/email) went out automatically.'
+    : 'Escalation saved, but the alerts could not send ('+((results[0]&&results[0].error)||'error')+') — tell Samantha directly.');
 }
 
 /* ---------------- SUPERVISORY VISITS ---------------- */
