@@ -284,708 +284,749 @@
         </div>
       </details>
 
-      <div class="subtab-bar">
-        <button class="subtab active" id="subtabBtn-pipeline" onclick="switchLeadsSubtab('pipeline')">👥 Pipeline</button>
-        <button class="subtab" id="subtabBtn-postcall" onclick="switchLeadsSubtab('postcall')">💬 Post-Call Follow-Up<span class="subtab-badge amber" id="subtabBadge-postcall" style="display:none;"></span></button>
-        <button class="subtab" id="subtabBtn-followupqueue" onclick="switchLeadsSubtab('followupqueue')">🔀 Follow-Up Queue<span class="subtab-badge red" id="subtabBadge-followupqueue" style="display:none;"></span></button>
-      </div>
+<div class="subtab-bar">
+<button class="subtab active" id="subtabBtn-pipeline" onclick="switchLeadsSubtab('pipeline')">👥 Pipeline</button>
+<button class="subtab" id="subtabBtn-postcall" onclick="switchLeadsSubtab('postcall')">💬 Post-Call Follow-Up<span class="subtab-badge amber" id="subtabBadge-postcall" style="display:none;"></span></button>
+<button class="subtab" id="subtabBtn-followupqueue" onclick="switchLeadsSubtab('followupqueue')">🔀 Follow-Up Queue<span class="subtab-badge red" id="subtabBadge-followupqueue" style="display:none;"></span></button>
+</div>
 
-      <!-- ---- Sub-tab: Pipeline ---- -->
-      <div class="subtabpanel active" id="subtab-pipeline">
-        <div class="toolbar" id="leadsFilters"></div>
-        <div class="toolbar">
-          <div class="spacer"></div>
-          <button class="secondary" onclick="switchLeadsSubtab('followupqueue')">🔀 View Follow-Up Queue</button>
-          <button class="primary" onclick="openLeadModal()">+ Add Lead</button>
-        </div>
-        <div class="card"><div id="leadsTableWrap"></div></div>
-      </div>
+<!-- ---- Sub-tab: Pipeline ---- -->
+<div class="subtabpanel active" id="subtab-pipeline">
+<div class="toolbar" id="leadsFilters"></div>
+<div class="toolbar">
+<div class="spacer"></div>
+<button class="secondary" onclick="switchLeadsSubtab('followupqueue')">🔀 View Follow-Up Queue</button>
+<button class="primary" onclick="openLeadModal()">+ Add Lead</button>
+</div>
+<div class="card"><div id="leadsTableWrap"></div></div>
+</div>
 
-      <!-- ---- Sub-tab: Post-Call Follow-Up ---- -->
-      <div class="subtabpanel" id="subtab-postcall">
-        <div class="ai-box" style="margin-bottom:14px;">
-          <b>Manual tracking for now.</b> There's no automated call-transcript/AI-drafting pipeline wired up yet, so nothing here sends on its own — this is a place to log a follow-up message you're about to send (text/email) and track whether it's still a draft, approved, or delayed, so nothing falls through the cracks between calls. When a real transcript + AI-drafting source exists, it can populate this list automatically instead of manual entry.
-        </div>
-        <div class="toolbar">
-          <div class="spacer"></div>
-          <button class="primary" onclick="openFollowUpModal()">+ Log Follow-Up Draft</button>
-        </div>
-        <div class="card"><div id="postCallTableWrap"></div></div>
-      </div>
+<!-- ---- Sub-tab: Post-Call Follow-Up ---- -->
+<div class="subtabpanel" id="subtab-postcall">
+<div class="ai-box" style="margin-bottom:14px;">
+<b>How this works:</b> click <b>🤖 New AI Draft</b>, pick the lead, and AI reads that lead's call notes to draft an email + SMS follow-up for you to review. Nothing sends on its own — every draft sits here until you approve it and send it yourself, then mark it Sent so nothing falls through the cracks. You can also start a draft manually and skip AI entirely.
+</div>
+<div class="subtab-bar" id="postcallFilterBar" style="margin-bottom:14px;">
+<button class="subtab active" id="pcFilterBtn-all" onclick="setFuFilterStatus('all')">All Drafts</button>
+<button class="subtab" id="pcFilterBtn-pending_approval" onclick="setFuFilterStatus('pending_approval')">Pending Approval<span class="subtab-badge amber" id="pcFilterBadge-pending" style="display:none;"></span></button>
+<button class="subtab" id="pcFilterBtn-approved" onclick="setFuFilterStatus('approved')">Approved</button>
+<button class="subtab" id="pcFilterBtn-sent" onclick="setFuFilterStatus('sent')">Sent</button>
+</div>
+<div class="toolbar">
+<div class="spacer"></div>
+<button class="secondary" onclick="openFollowUpModal()">+ New Draft (Manual)</button>
+<button class="primary" onclick="openFollowUpModal()">🤖 New AI Draft</button>
+</div>
+<div class="card"><div id="postCallTableWrap"></div></div>
+</div>
 
-      <!-- ---- Sub-tab: Follow-Up Queue ---- -->
-      <div class="subtabpanel" id="subtab-followupqueue">
-        <div class="toolbar" style="margin-bottom:14px;">
-          <div class="spacer"></div>
-          <span class="badge bad" id="fqStatOverdue" style="font-size:12px;">0 Overdue</span>
-          <span class="badge warn" id="fqStatPending" style="font-size:12px;">0 Pending</span>
-          <span class="badge ok" id="fqStatReady" style="font-size:12px;">0 Ready</span>
-        </div>
-        <div class="ai-box" style="margin-bottom:14px;">
-          <b>How this works:</b> branches are assigned manually right now (set "Follow-Up Branch" on a lead, from the Pipeline) — nothing here reads or scores your call notes automatically. Each branch has a default wait time; "Log contact today" on a lead auto-calculates its next follow-up date from that. When you're ready for real AI call-note analysis and drafting, that's a separate build (an AI service call has to run server-side, not in this page's JS).
-        </div>
-        <div class="branch-cards" id="followUpBranchCards"></div>
-        <div class="fq-toolbar">
-          <input type="text" id="fqSearchInput" placeholder="🔍 Search leads..." oninput="setFqSearch(this.value)">
-          <button class="secondary" onclick="setFqBranchFilter('all')" id="fqClearFilterBtn" style="display:none;">Clear branch filter</button>
-        </div>
-        <div class="card"><div id="followUpQueueWrap"></div></div>
-      </div>
-    </section>
+<!-- ---- Sub-tab: Follow-Up Queue ---- -->
+<div class="subtabpanel" id="subtab-followupqueue">
+<div class="toolbar" style="margin-bottom:14px;">
+<div class="spacer"></div>
+<span class="badge bad" id="fqStatOverdue" style="font-size:12px;">0 Overdue</span>
+<span class="badge warn" id="fqStatPending" style="font-size:12px;">0 Pending</span>
+<span class="badge ok" id="fqStatReady" style="font-size:12px;">0 Ready</span>
+</div>
+<div class="ai-box" style="margin-bottom:14px;">
+<b>How this works:</b> open a lead and click <b>🤖 Suggest with AI</b> to have it read the call notes and suggest a branch + intent tags — you still review and save, nothing is applied silently. You can also set a branch manually. Each branch has a default wait time; "Log contact today" on a lead auto-calculates its next follow-up date from that.
+</div>
+<div class="branch-cards" id="followUpBranchCards"></div>
+<div class="fq-toolbar">
+<input type="text" id="fqSearchInput" placeholder="🔍 Search leads..." oninput="setFqSearch(this.value)">
+<button class="secondary" onclick="setFqBranchFilter('all')" id="fqClearFilterBtn" style="display:none;">Clear branch filter</button>
+</div>
+<div class="card"><div id="followUpQueueWrap"></div></div>
+</div>
+</section>
 
-    <!-- ===================== TAB: CARE ASSESSMENTS ===================== -->
-    <section class="tabpanel" id="tab-assessments">
-      <details class="guide">
-        <summary>📋 How This Tab Works — Step by Step ▼</summary>
-        <div class="guide-body">
-          <div class="guide-step"><span class="num">1</span>Schedule the in-home visit from a lead (or click <b>+ Add Assessment</b> directly for an existing client). Bring your phone with your transcription app (Otter, Fireflies, etc.) running during the visit.</div>
-          <div class="guide-step"><span class="num">2</span>After the visit, open the record and paste the <b>transcript link</b> (or the raw transcript text if you don't have a shareable link) into the assessment.</div>
-          <div class="guide-step"><span class="num">3</span>Click <b>🪄 Generate Care Plan</b>. This sends the transcript to the Care Plan webhook (set up in Settings), which structures it into ADLs/IADLs, medical needs, goals, and a recommended service schedule, and drafts the AxisCare custom fields.</div>
-          <div class="guide-step"><span class="num">4</span>Review the drafted plan in the <b>Care Plans</b> view — edit anything before it goes anywhere near AxisCare. You are always the final check, not the AI.</div>
-          <div class="guide-step"><span class="num">5</span>Once it looks right, click <b>📤 Push to AxisCare</b> — this writes the care plan into the client's AxisCare custom fields and creates/updates their profile.</div>
-          <div class="guide-step flag"><span class="num">!</span>AxisCare custom fields aren't finalized yet — see the <code>AxisCare_Care_Assessment_Fields_Setup.md</code> guide. Until those are created in AxisCare, pushes will save to Supabase but the AxisCare step will no-op.</div>
-        </div>
-      </details>
+<!-- ===================== TAB: CARE ASSESSMENTS ===================== -->
+<section class="tabpanel" id="tab-assessments">
+<details class="guide">
+<summary>📋 How This Tab Works — Step by Step ▼</summary>
+<div class="guide-body">
+<div class="guide-step"><span class="num">1</span>Schedule the in-home visit from a lead (or click <b>+ Add Assessment</b> directly for an existing client). Bring your phone with your transcription app (Otter, Fireflies, etc.) running during the visit.</div>
+<div class="guide-step"><span class="num">2</span>After the visit, open the record and paste the <b>transcript link</b> (or the raw transcript text if you don't have a shareable link) into the assessment.</div>
+<div class="guide-step"><span class="num">3</span>Click <b>🪄 Generate Care Plan</b>. This sends the transcript to the Care Plan webhook (set up in Settings), which structures it into ADLs/IADLs, medical needs, goals, and a recommended service schedule, and drafts the AxisCare custom fields.</div>
+<div class="guide-step"><span class="num">4</span>Review the drafted plan in the <b>Care Plans</b> view — edit anything before it goes anywhere near AxisCare. You are always the final check, not the AI.</div>
+<div class="guide-step"><span class="num">5</span>Once it looks right, click <b>📤 Push to AxisCare</b> — this writes the care plan into the client's AxisCare custom fields and creates/updates their profile.</div>
+<div class="guide-step flag"><span class="num">!</span>AxisCare custom fields aren't finalized yet — see the <code>AxisCare_Care_Assessment_Fields_Setup.md</code> guide. Until those are created in AxisCare, pushes will save to Supabase but the AxisCare step will no-op.</div>
+</div>
+</details>
 
-      <div class="toolbar" id="assessmentsFilters"></div>
-      <div class="toolbar">
-        <div class="spacer"></div>
-        <button class="primary" onclick="openAssessmentModal()">+ Add Assessment</button>
-      </div>
-      <div class="card"><div id="assessmentsTableWrap"></div></div>
-    </section>
+<div class="toolbar" id="assessmentsFilters"></div>
+<div class="toolbar">
+<div class="spacer"></div>
+<button class="primary" onclick="openAssessmentModal()">+ Add Assessment</button>
+</div>
+<div class="card"><div id="assessmentsTableWrap"></div></div>
+</section>
 
-    <!-- ===================== TAB: CLIENT CHECK-INS ===================== -->
-    <section class="tabpanel" id="tab-checkins">
-      <details class="guide">
-        <summary>📋 How This Tab Works — Step by Step ▼</summary>
-        <div class="guide-body">
-          <div class="guide-step"><span class="num">1</span>Every active client gets a check-in call (or visit) on the cadence set in Settings (default: every 30 days). The <b>Due This Week</b> and <b>Overdue</b> filters tell you who to call.</div>
-          <div class="guide-step"><span class="num">2</span>Log the check-in — how the client feels about their caregiver, any concerns, and a quick satisfaction rating.</div>
-          <div class="guide-step flag"><span class="num">!</span>If a client raises a real concern, toggle <b>Escalated</b> and notify Samantha. Don't let a concern sit in a check-in note unaddressed.</div>
-          <div class="guide-step"><span class="num">3</span>The next check-in due date is calculated automatically from today + your cadence setting — adjust it manually if a client needs closer attention.</div>
-        </div>
-      </details>
+<!-- ===================== TAB: CLIENT CHECK-INS ===================== -->
+<section class="tabpanel" id="tab-checkins">
+<details class="guide">
+<summary>📋 How This Tab Works — Step by Step ▼</summary>
+<div class="guide-body">
+<div class="guide-step"><span class="num">1</span>Every active client gets a check-in call (or visit) on the cadence set in Settings (default: every 30 days). The <b>Due This Week</b> and <b>Overdue</b> filters tell you who to call.</div>
+<div class="guide-step"><span class="num">2</span>Log the check-in — how the client feels about their caregiver, any concerns, and a quick satisfaction rating.</div>
+<div class="guide-step flag"><span class="num">!</span>If a client raises a real concern, toggle <b>Escalated</b> and notify Samantha. Don't let a concern sit in a check-in note unaddressed.</div>
+<div class="guide-step"><span class="num">3</span>The next check-in due date is calculated automatically from today + your cadence setting — adjust it manually if a client needs closer attention.</div>
+</div>
+</details>
 
-      <div class="toolbar" id="checkinsFilters"></div>
-      <div class="toolbar">
-        <div class="spacer"></div>
-        <button class="primary" onclick="openCheckinModal()">+ Log Check-in</button>
-      </div>
-      <div class="card"><div id="checkinsTableWrap"></div></div>
-    </section>
+<div class="toolbar" id="checkinsFilters"></div>
+<div class="toolbar">
+<div class="spacer"></div>
+<button class="primary" onclick="openCheckinModal()">+ Log Check-in</button>
+</div>
+<div class="card"><div id="checkinsTableWrap"></div></div>
+</section>
 
-    <!-- ===================== TAB: SUPERVISORY VISITS ===================== -->
-    <section class="tabpanel" id="tab-supervisory">
-      <details class="guide">
-        <summary>📋 How This Tab Works — Step by Step ▼</summary>
-        <div class="guide-body">
-          <div class="guide-step"><span class="num">1</span>Every caregiver needs a supervisory visit <b>at least once a year</b> for Medicaid compliance — a coordinator observes them in a client's home. Due date = last visit + 365 days.</div>
-          <div class="guide-step"><span class="num">2</span>Use the <b>Due Soon</b> and <b>Overdue</b> filters to plan your visits — Due Soon shows anyone within the window set in Settings (default 60 days).</div>
-          <div class="guide-step"><span class="num">3</span>During the visit, work through the checklist (punctuality, task completion against the care plan, client interaction, safety practices, EVV/documentation compliance) and rate overall performance.</div>
-          <div class="guide-step"><span class="num">4</span>Log a proof link (signed form, upload to Drive) — this is what an auditor will ask for.</div>
-          <div class="guide-step flag"><span class="num">!</span>Completing a visit here also updates the caregiver's "Last Supervisory Visit Date" in Staffing Hub's Active Compliance tab — same underlying caregiver record, two views.</div>
-        </div>
-      </details>
+<!-- ===================== TAB: SUPERVISORY VISITS ===================== -->
+<section class="tabpanel" id="tab-supervisory">
+<details class="guide">
+<summary>📋 How This Tab Works — Step by Step ▼</summary>
+<div class="guide-body">
+<div class="guide-step"><span class="num">1</span>Every caregiver needs a supervisory visit <b>at least once a year</b> for Medicaid compliance — a coordinator observes them in a client's home. Due date = last visit + 365 days.</div>
+<div class="guide-step"><span class="num">2</span>Use the <b>Due Soon</b> and <b>Overdue</b> filters to plan your visits — Due Soon shows anyone within the window set in Settings (default 60 days).</div>
+<div class="guide-step"><span class="num">3</span>During the visit, work through the checklist (punctuality, task completion against the care plan, client interaction, safety practices, EVV/documentation compliance) and rate overall performance.</div>
+<div class="guide-step"><span class="num">4</span>Log a proof link (signed form, upload to Drive) — this is what an auditor will ask for.</div>
+<div class="guide-step flag"><span class="num">!</span>Completing a visit here also updates the caregiver's "Last Supervisory Visit Date" in Staffing Hub's Active Compliance tab — same underlying caregiver record, two views.</div>
+</div>
+</details>
 
-      <div class="toolbar" id="supervisoryFilters"></div>
-      <div class="toolbar">
-        <div class="spacer"></div>
-        <button class="primary" onclick="openSupervisoryModal()">+ Log Supervisory Visit</button>
-      </div>
-      <div class="card"><div id="supervisoryTableWrap"></div></div>
-    </section>
+<div class="toolbar" id="supervisoryFilters"></div>
+<div class="toolbar">
+<div class="spacer"></div>
+<button class="primary" onclick="openSupervisoryModal()">+ Log Supervisory Visit</button>
+</div>
+<div class="card"><div id="supervisoryTableWrap"></div></div>
+</section>
 
-    <!-- ===================== TAB: CLIENTS (roster / single view) ===================== -->
-    <section class="tabpanel" id="tab-clients">
-      <details class="guide">
-        <summary>📋 How This Tab Works — Step by Step ▼</summary>
-        <div class="guide-body">
-          <div class="guide-step"><span class="num">1</span>This tab is a read-only rollup — every other tab still owns its own data. It exists so you can see one client's whole story (lead → assessment → care plan → check-in history) without flipping between four tabs.</div>
-          <div class="guide-step"><span class="num">2</span>Click <b>View History</b> on any client to see their full timeline, including the satisfaction trend across all their check-ins.</div>
-          <div class="guide-step flag"><span class="num">!</span>Clients are matched by AxisCare Client ID when available, falling back to name. Keep that ID filled in on the Lead/Assessment/Check-in records so a client's history stays linked together correctly.</div>
-        </div>
-      </details>
+<!-- ===================== TAB: CLIENTS (roster / single view) ===================== -->
+<section class="tabpanel" id="tab-clients">
+<details class="guide">
+<summary>📋 How This Tab Works — Step by Step ▼</summary>
+<div class="guide-body">
+<div class="guide-step"><span class="num">1</span>This tab is a read-only rollup — every other tab still owns its own data. It exists so you can see one client's whole story (lead → assessment → care plan → check-in history) without flipping between four tabs.</div>
+<div class="guide-step"><span class="num">2</span>Click <b>View History</b> on any client to see their full timeline, including the satisfaction trend across all their check-ins.</div>
+<div class="guide-step flag"><span class="num">!</span>Clients are matched by AxisCare Client ID when available, falling back to name. Keep that ID filled in on the Lead/Assessment/Check-in records so a client's history stays linked together correctly.</div>
+</div>
+</details>
 
-      <div class="toolbar" id="clientsFilters"></div>
-      <div class="card"><div id="clientsTableWrap"></div></div>
-    </section>
+<div class="toolbar" id="clientsFilters"></div>
+<div class="card"><div id="clientsTableWrap"></div></div>
+</section>
 
-    <!-- ===================== TAB: ON-CALL ===================== -->
-    <section class="tabpanel" id="tab-oncall">
-      <details class="guide">
-        <summary>📋 How This Tab Works — Step by Step ▼</summary>
-        <div class="guide-body">
-          <div class="guide-step"><span class="num">1</span>This is the quick reference for after-hours: who's on-call right now, how to reach them, and the escalation steps to follow.</div>
-          <div class="guide-step"><span class="num">2</span>Add each week (or whatever rotation you use) as a row below — the coordinator whose date range covers today is automatically shown as "Currently On-Call" at the top.</div>
-          <div class="guide-step"><span class="num">3</span>Edit the escalation protocol text in <b>Settings → After-Hours Escalation Protocol</b> — it's shared by the whole team, so keep it current.</div>
-          <div class="guide-step flag"><span class="num">!</span>This is a reference tool, not a paging system — it doesn't call or text anyone automatically. Bookmark this tab on your phone for after-hours use.</div>
-        </div>
-      </details>
+<!-- ===================== TAB: ON-CALL ===================== -->
+<section class="tabpanel" id="tab-oncall">
+<details class="guide">
+<summary>📋 How This Tab Works — Step by Step ▼</summary>
+<div class="guide-body">
+<div class="guide-step"><span class="num">1</span>This is the quick reference for after-hours: who's on-call right now, how to reach them, and the escalation steps to follow.</div>
+<div class="guide-step"><span class="num">2</span>Add each week (or whatever rotation you use) as a row below — the coordinator whose date range covers today is automatically shown as "Currently On-Call" at the top.</div>
+<div class="guide-step"><span class="num">3</span>Edit the escalation protocol text in <b>Settings → After-Hours Escalation Protocol</b> — it's shared by the whole team, so keep it current.</div>
+<div class="guide-step flag"><span class="num">!</span>This is a reference tool, not a paging system — it doesn't call or text anyone automatically. Bookmark this tab on your phone for after-hours use.</div>
+</div>
+</details>
 
-      <div class="card" id="onCallCurrentCard" style="margin-bottom:14px;"></div>
+<div class="card" id="onCallCurrentCard" style="margin-bottom:14px;"></div>
 
-      <div class="card" style="margin-bottom:14px;">
-        <div class="section-title" style="margin-top:0;">🚨 Escalation Protocol</div>
-        <div id="onCallProtocolText" style="white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);"></div>
-      </div>
+<div class="card" style="margin-bottom:14px;">
+<div class="section-title" style="margin-top:0;">🚨 Escalation Protocol</div>
+<div id="onCallProtocolText" style="white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);"></div>
+</div>
 
-      <div class="toolbar" id="oncallFilters"></div>
-      <div class="toolbar">
-        <div class="spacer"></div>
-        <button class="primary" onclick="openOnCallModal()">+ Add On-Call Entry</button>
-      </div>
-      <div class="card"><div id="onCallTableWrap"></div></div>
-    </section>
+<div class="toolbar" id="oncallFilters"></div>
+<div class="toolbar">
+<div class="spacer"></div>
+<button class="primary" onclick="openOnCallModal()">+ Add On-Call Entry</button>
+</div>
+<div class="card"><div id="onCallTableWrap"></div></div>
+</section>
 
-  </main>
+</main>
 </div>
 
 <!-- ============================= LEAD MODAL (Initial Consultation) ============================= -->
 <div class="modal-backdrop" id="leadModalBackdrop">
-  <div class="modal" style="max-width:760px;">
-    <h2 id="leadModalTitle">Add Lead</h2>
-    <div class="modal-sub">Structured intake for the first call — fill in what you can as you go.</div>
-    <input type="hidden" id="lead_id">
+<div class="modal" style="max-width:760px;">
+<h2 id="leadModalTitle">Add Lead</h2>
+<div class="modal-sub">Structured intake for the first call — fill in what you can as you go.</div>
+<input type="hidden" id="lead_id">
 
-    <div class="section-title" style="margin-top:0;border-top:none;padding-top:0;">Caller / Initiator Details</div>
-    <div class="grid2">
-      <div><label>Contact First Name</label><input id="lead_first_name"></div>
-      <div><label>Contact Last Name</label><input id="lead_last_name"></div>
-      <div><label>Contact Phone</label><input id="lead_phone"></div>
-      <div><label>Contact Email</label><input id="lead_email"></div>
-      <div><label>Relationship to Client</label><input id="lead_relationship" placeholder="Son, Friend, Case Manager, etc."></div>
-      <div>
-        <label>Source</label>
-        <select id="lead_source">
-          <option>Phone</option><option>Website</option><option>Referral</option><option>Other</option>
-        </select>
-      </div>
-      <div style="grid-column:1/-1;"><label>Referred By</label><input id="lead_referral_source_name" placeholder="Doctor, hospital, friend, Facebook ad, etc."></div>
-    </div>
+<div class="section-title" style="margin-top:0;border-top:none;padding-top:0;">Caller / Initiator Details</div>
+<div class="grid2">
+<div><label>Contact First Name</label><input id="lead_first_name"></div>
+<div><label>Contact Last Name</label><input id="lead_last_name"></div>
+<div><label>Contact Phone</label><input id="lead_phone"></div>
+<div><label>Contact Email</label><input id="lead_email"></div>
+<div><label>Relationship to Client</label><input id="lead_relationship" placeholder="Son, Friend, Case Manager, etc."></div>
+<div>
+<label>Source</label>
+<select id="lead_source">
+<option>Phone</option><option>Website</option><option>Referral</option><option>Other</option>
+</select>
+</div>
+<div style="grid-column:1/-1;"><label>Referred By</label><input id="lead_referral_source_name" placeholder="Doctor, hospital, friend, Facebook ad, etc."></div>
+</div>
 
-    <div class="section-title">Client Information</div>
-    <div class="checklist" style="margin-bottom:6px;">
-      <label><input type="checkbox" id="lead_client_name_not_provided" onchange="toggleClientNameFields(this.checked)"> Client name not provided yet</label>
-    </div>
-    <div class="grid2" id="clientNameFields">
-      <div><label>Client First Name</label><input id="lead_client_first_name"></div>
-      <div><label>Client Last Name</label><input id="lead_client_last_name"></div>
-    </div>
-    <div class="grid2">
-      <div><label>Date of Birth</label><input type="date" id="lead_client_dob"></div>
-      <div>
-        <label>Gender</label>
-        <select id="lead_client_gender"><option value="">— Select —</option><option>Male</option><option>Female</option><option>Unknown</option></select>
-      </div>
-      <div style="grid-column:1/-1;"><label>Street Address</label><input id="lead_client_address"></div>
-      <div><label>City</label><input id="lead_client_city"></div>
-      <div><label>State</label><input id="lead_client_state" maxlength="2" style="text-transform:uppercase;"></div>
-      <div><label>ZIP</label><input id="lead_client_zip"></div>
-      <div><label>Client Phone</label><input id="lead_client_phone"></div>
-      <div>
-        <label>Marital Status</label>
-        <select id="lead_marital_status"><option value="">— Select —</option><option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option><option>Separated</option></select>
-      </div>
-      <div><label>Primary Language</label><input id="lead_language" placeholder="English, Spanish, etc."></div>
-    </div>
+<div class="section-title">Client Information</div>
+<div class="checklist" style="margin-bottom:6px;">
+<label><input type="checkbox" id="lead_client_name_not_provided" onchange="toggleClientNameFields(this.checked)"> Client name not provided yet</label>
+</div>
+<div class="grid2" id="clientNameFields">
+<div><label>Client First Name</label><input id="lead_client_first_name"></div>
+<div><label>Client Last Name</label><input id="lead_client_last_name"></div>
+</div>
+<div class="grid2">
+<div><label>Date of Birth</label><input type="date" id="lead_client_dob"></div>
+<div>
+<label>Gender</label>
+<select id="lead_client_gender"><option value="">— Select —</option><option>Male</option><option>Female</option><option>Unknown</option></select>
+</div>
+<div style="grid-column:1/-1;"><label>Street Address</label><input id="lead_client_address"></div>
+<div><label>City</label><input id="lead_client_city"></div>
+<div><label>State</label><input id="lead_client_state" maxlength="2" style="text-transform:uppercase;"></div>
+<div><label>ZIP</label><input id="lead_client_zip"></div>
+<div><label>Client Phone</label><input id="lead_client_phone"></div>
+<div>
+<label>Marital Status</label>
+<select id="lead_marital_status"><option value="">— Select —</option><option>Single</option><option>Married</option><option>Widowed</option><option>Divorced</option><option>Separated</option></select>
+</div>
+<div><label>Primary Language</label><input id="lead_language" placeholder="English, Spanish, etc."></div>
+</div>
 
-    <div class="section-title">Quick Needs &amp; Urgency</div>
-    <label style="margin-top:0;">Urgency</label>
-    <div class="radio-group">
-      <label><input type="radio" name="lead_urgency" value="today"> Need care today</label>
-      <label><input type="radio" name="lead_urgency" value="48hours"> Within 48 hours</label>
-      <label><input type="radio" name="lead_urgency" value="7days"> Within 7 days</label>
-      <label><input type="radio" name="lead_urgency" value="researching"> Just researching</label>
-    </div>
-    <label>Quick Needs Assessment</label>
-    <div class="checkbox-grid" id="lead_needs_grid">
-      <label><input type="checkbox" value="personalCare"> Personal Care</label>
-      <label><input type="checkbox" value="dementia"> Dementia Care</label>
-      <label><input type="checkbox" value="transportation"> Transportation</label>
-      <label><input type="checkbox" value="housekeeping"> Housekeeping</label>
-      <label><input type="checkbox" value="respite"> Respite Care</label>
-      <label><input type="checkbox" value="overnight"> Overnight Care</label>
-      <label><input type="checkbox" value="liveIn"> Live-in Care</label>
-      <label><input type="checkbox" value="cds"> CDS</label>
-      <label><input type="checkbox" value="va"> VA</label>
-      <label><input type="checkbox" value="privatePay"> Private Pay</label>
-    </div>
+<div class="section-title">Quick Needs &amp; Urgency</div>
+<label style="margin-top:0;">Urgency</label>
+<div class="radio-group">
+<label><input type="radio" name="lead_urgency" value="today"> Need care today</label>
+<label><input type="radio" name="lead_urgency" value="48hours"> Within 48 hours</label>
+<label><input type="radio" name="lead_urgency" value="7days"> Within 7 days</label>
+<label><input type="radio" name="lead_urgency" value="researching"> Just researching</label>
+</div>
+<label>Quick Needs Assessment</label>
+<div class="checkbox-grid" id="lead_needs_grid">
+<label><input type="checkbox" value="personalCare"> Personal Care</label>
+<label><input type="checkbox" value="dementia"> Dementia Care</label>
+<label><input type="checkbox" value="transportation"> Transportation</label>
+<label><input type="checkbox" value="housekeeping"> Housekeeping</label>
+<label><input type="checkbox" value="respite"> Respite Care</label>
+<label><input type="checkbox" value="overnight"> Overnight Care</label>
+<label><input type="checkbox" value="liveIn"> Live-in Care</label>
+<label><input type="checkbox" value="cds"> CDS</label>
+<label><input type="checkbox" value="va"> VA</label>
+<label><input type="checkbox" value="privatePay"> Private Pay</label>
+</div>
 
-    <div class="section-title">Clinical &amp; Safety Assessment</div>
-    <div class="grid2">
-      <div>
-        <label style="margin-top:0;">Safety Flags</label>
-        <div class="script-hint"><span class="ic">💬</span><span>Script: "To make sure we send the right caregiver, are there any safety concerns we should be aware of, like fall risks?"</span></div>
-        <div class="checklist" id="lead_safety_grid">
-          <label><input type="checkbox" value="fallRisk"> Fall Risk</label>
-          <label><input type="checkbox" value="livesAlone"> Lives Alone</label>
-          <label><input type="checkbox" value="recentHospitalization"> Recent Hospitalization</label>
-        </div>
-      </div>
-      <div>
-        <label style="margin-top:0;">Mobility</label>
-        <div class="radio-group" style="flex-direction:column;gap:6px;">
-          <label><input type="radio" name="lead_mobility" value="independent"> Independent</label>
-          <label><input type="radio" name="lead_mobility" value="walker"> Walker</label>
-          <label><input type="radio" name="lead_mobility" value="wheelchair"> Wheelchair</label>
-          <label><input type="radio" name="lead_mobility" value="bedbound"> Bedbound</label>
-        </div>
-      </div>
-    </div>
-    <div class="grid2">
-      <div>
-        <label>Personal Care Assistance</label>
-        <div class="checklist" id="lead_personal_care_grid">
-          <label><input type="checkbox" value="bathing"> Bathing</label>
-          <label><input type="checkbox" value="dressing"> Dressing</label>
-          <label><input type="checkbox" value="toileting"> Toileting</label>
-          <label><input type="checkbox" value="transfers"> Transfers</label>
-        </div>
-      </div>
-      <div>
-        <label>Medical Conditions</label>
-        <div class="script-hint"><span class="ic">💬</span><span>Empathy cue: "I know this can be a lot to manage. How long has [Client] been dealing with this?"</span></div>
-        <div class="checkbox-grid" id="lead_medical_conditions_grid" style="grid-template-columns:1fr 1fr;">
-          <label><input type="checkbox" value="dementia" onchange="toggleDementiaFollowUp()"> Dementia</label>
-          <label><input type="checkbox" value="alzheimers" onchange="toggleDementiaFollowUp()"> Alzheimer's</label>
-          <label><input type="checkbox" value="parkinsons"> Parkinson's</label>
-          <label><input type="checkbox" value="stroke"> Stroke</label>
-          <label><input type="checkbox" value="diabetes"> Diabetes</label>
-          <label><input type="checkbox" value="copd"> COPD</label>
-        </div>
-      </div>
-    </div>
-    <div class="conditional-box" id="dementiaFollowUpBox">
-      <div class="section-title">Dementia Follow-up</div>
-      <div class="field-note" style="margin-bottom:6px;">Since dementia/Alzheimer's was selected, please check any that apply:</div>
-      <div class="checklist" id="lead_dementia_follow_up_grid">
-        <label><input type="checkbox" value="wandering"> Wandering / Elopement Risk</label>
-        <label><input type="checkbox" value="aggression"> Aggression / Agitation</label>
-        <label><input type="checkbox" value="sundowning"> Sundowning</label>
-      </div>
-    </div>
+<div class="section-title">Clinical &amp; Safety Assessment</div>
+<div class="grid2">
+<div>
+<label style="margin-top:0;">Safety Flags</label>
+<div class="script-hint"><span class="ic">💬</span><span>Script: "To make sure we send the right caregiver, are there any safety concerns we should be aware of, like fall risks?"</span></div>
+<div class="checklist" id="lead_safety_grid">
+<label><input type="checkbox" value="fallRisk"> Fall Risk</label>
+<label><input type="checkbox" value="livesAlone"> Lives Alone</label>
+<label><input type="checkbox" value="recentHospitalization"> Recent Hospitalization</label>
+</div>
+</div>
+<div>
+<label style="margin-top:0;">Mobility</label>
+<div class="radio-group" style="flex-direction:column;gap:6px;">
+<label><input type="radio" name="lead_mobility" value="independent"> Independent</label>
+<label><input type="radio" name="lead_mobility" value="walker"> Walker</label>
+<label><input type="radio" name="lead_mobility" value="wheelchair"> Wheelchair</label>
+<label><input type="radio" name="lead_mobility" value="bedbound"> Bedbound</label>
+</div>
+</div>
+</div>
+<div class="grid2">
+<div>
+<label>Personal Care Assistance</label>
+<div class="checklist" id="lead_personal_care_grid">
+<label><input type="checkbox" value="bathing"> Bathing</label>
+<label><input type="checkbox" value="dressing"> Dressing</label>
+<label><input type="checkbox" value="toileting"> Toileting</label>
+<label><input type="checkbox" value="transfers"> Transfers</label>
+</div>
+</div>
+<div>
+<label>Medical Conditions</label>
+<div class="script-hint"><span class="ic">💬</span><span>Empathy cue: "I know this can be a lot to manage. How long has [Client] been dealing with this?"</span></div>
+<div class="checkbox-grid" id="lead_medical_conditions_grid" style="grid-template-columns:1fr 1fr;">
+<label><input type="checkbox" value="dementia" onchange="toggleDementiaFollowUp()"> Dementia</label>
+<label><input type="checkbox" value="alzheimers" onchange="toggleDementiaFollowUp()"> Alzheimer's</label>
+<label><input type="checkbox" value="parkinsons"> Parkinson's</label>
+<label><input type="checkbox" value="stroke"> Stroke</label>
+<label><input type="checkbox" value="diabetes"> Diabetes</label>
+<label><input type="checkbox" value="copd"> COPD</label>
+</div>
+</div>
+</div>
+<div class="conditional-box" id="dementiaFollowUpBox">
+<div class="section-title">Dementia Follow-up</div>
+<div class="field-note" style="margin-bottom:6px;">Since dementia/Alzheimer's was selected, please check any that apply:</div>
+<div class="checklist" id="lead_dementia_follow_up_grid">
+<label><input type="checkbox" value="wandering"> Wandering / Elopement Risk</label>
+<label><input type="checkbox" value="aggression"> Aggression / Agitation</label>
+<label><input type="checkbox" value="sundowning"> Sundowning</label>
+</div>
+</div>
 
-    <div class="section-title">Physician &amp; Additional Info</div>
-    <div class="grid2">
-      <div><label>Primary Care Physician</label><input id="lead_physician_name"></div>
-      <div><label>Physician Phone</label><input id="lead_physician_phone"></div>
-      <div style="grid-column:1/-1;"><label>Preferred Hospital</label><input id="lead_preferred_hospital"></div>
-    </div>
-    <label>Additional Medical Notes</label>
-    <textarea id="lead_medical_notes" rows="2" placeholder="Any other medical context not covered above…"></textarea>
+<div class="section-title">Physician &amp; Additional Info</div>
+<div class="grid2">
+<div><label>Primary Care Physician</label><input id="lead_physician_name"></div>
+<div><label>Physician Phone</label><input id="lead_physician_phone"></div>
+<div style="grid-column:1/-1;"><label>Preferred Hospital</label><input id="lead_preferred_hospital"></div>
+</div>
+<label>Additional Medical Notes</label>
+<textarea id="lead_medical_notes" rows="2" placeholder="Any other medical context not covered above…"></textarea>
 
-    <div class="section-title">Schedule &amp; Pricing</div>
-    <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;">
-      <div><label>Days Needed</label><input id="lead_days_needed" placeholder="e.g. Mon, Wed, Fri"></div>
-      <div><label>Times Needed</label><input id="lead_times_needed" placeholder="e.g. 9am - 1pm"></div>
-      <div><label>Total Hours/Week</label><input type="number" id="lead_number_of_hours" placeholder="e.g. 12"></div>
-    </div>
-    <label style="margin-top:14px;">Funding Source</label>
-    <div class="script-hint"><span class="ic">💬</span><span>Script: "Do you happen to know how you'll be paying for care, such as long-term care insurance or VA benefits?"</span></div>
-    <div class="radio-group">
-      <label><input type="radio" name="lead_funding_source" value="private"> Private Pay</label>
-      <label><input type="radio" name="lead_funding_source" value="ltc"> LTC Insurance</label>
-      <label><input type="radio" name="lead_funding_source" value="va"> VA</label>
-      <label><input type="radio" name="lead_funding_source" value="cds"> CDS</label>
-      <label><input type="radio" name="lead_funding_source" value="medicaid"> Medicaid Waiver</label>
-      <label><input type="radio" name="lead_funding_source" value="pace"> PACE</label>
-    </div>
-    <div class="grid2" style="margin-top:10px;align-items:center;">
-      <div class="checklist"><label><input type="checkbox" id="lead_price_quoted" onchange="togglePriceQuotedAmount(this.checked)"> Was a price quoted?</label></div>
-      <div id="quotedPriceAmountField" style="display:none;"><label style="margin-top:0;">Quoted Amount</label><input id="lead_quoted_price_amount" placeholder="e.g. $35/hr"></div>
-    </div>
+<div class="section-title">Schedule &amp; Pricing</div>
+<div class="grid2" style="grid-template-columns:1fr 1fr 1fr;">
+<div><label>Days Needed</label><input id="lead_days_needed" placeholder="e.g. Mon, Wed, Fri"></div>
+<div><label>Times Needed</label><input id="lead_times_needed" placeholder="e.g. 9am - 1pm"></div>
+<div><label>Total Hours/Week</label><input type="number" id="lead_number_of_hours" placeholder="e.g. 12"></div>
+</div>
+<label style="margin-top:14px;">Funding Source</label>
+<div class="script-hint"><span class="ic">💬</span><span>Script: "Do you happen to know how you'll be paying for care, such as long-term care insurance or VA benefits?"</span></div>
+<div class="radio-group">
+<label><input type="radio" name="lead_funding_source" value="private"> Private Pay</label>
+<label><input type="radio" name="lead_funding_source" value="ltc"> LTC Insurance</label>
+<label><input type="radio" name="lead_funding_source" value="va"> VA</label>
+<label><input type="radio" name="lead_funding_source" value="cds"> CDS</label>
+<label><input type="radio" name="lead_funding_source" value="medicaid"> Medicaid Waiver</label>
+<label><input type="radio" name="lead_funding_source" value="pace"> PACE</label>
+</div>
+<div class="grid2" style="margin-top:10px;align-items:center;">
+<div class="checklist"><label><input type="checkbox" id="lead_price_quoted" onchange="togglePriceQuotedAmount(this.checked)"> Was a price quoted?</label></div>
+<div id="quotedPriceAmountField" style="display:none;"><label style="margin-top:0;">Quoted Amount</label><input id="lead_quoted_price_amount" placeholder="e.g. $35/hr"></div>
+</div>
 
-    <div class="section-title">Situation &amp; Call Notes</div>
-    <div class="script-hint"><span class="ic">💬</span><span>Script: "Can you tell me a little bit about the situation, what is going on, and how we can help?"</span></div>
-    <textarea id="lead_interest_notes" rows="3" placeholder="Who needs care, what kind, urgency, budget/payer..."></textarea>
+<div class="section-title">Situation &amp; Call Notes</div>
+<div class="script-hint"><span class="ic">💬</span><span>Script: "Can you tell me a little bit about the situation, what is going on, and how we can help?"</span></div>
+<textarea id="lead_interest_notes" rows="3" placeholder="Who needs care, what kind, urgency, budget/payer..."></textarea>
 
-    <div class="section-title">Office Use</div>
-    <div class="grid2">
-      <div>
-        <label>Status</label>
-        <select id="lead_status">
-          <option>New</option><option>Contacted</option><option>Assessment Scheduled</option><option>Converted</option><option>Lost</option>
-        </select>
-      </div>
-      <div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator"></div>
-      <div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
-    </div>
+<div class="section-title">Office Use</div>
+<div class="grid2">
+<div>
+<label>Status</label>
+<select id="lead_status">
+<option>New</option><option>Contacted</option><option>Assessment Scheduled</option><option>Converted</option><option>Lost</option>
+</select>
+</div>
+<div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator"></div>
+<div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
+</div>
 
-    <div class="section-title">Follow-Up Routing</div>
-    <div class="field-note" style="margin-bottom:8px;">Assigned manually for now — set the category that matches the call, and the follow-up date below can auto-fill from it.</div>
-    <div class="grid2">
-      <div>
-        <label>Follow-Up Branch</label>
-        <select id="lead_follow_up_branch" onchange="suggestFollowUpDue()">
-          <option value="">— Not sorted —</option>
-          <option value="call-back-next-week">Call Back Next Week (7d)</option>
-          <option value="family-decision">Family Decision Pending (5d)</option>
-          <option value="ready-to-start">Ready to Start (today)</option>
-          <option value="cold-lead">Cold Lead (30d)</option>
-          <option value="soft-check-in">Soft Check-In (3d)</option>
-        </select>
-      </div>
-      <div><label>Last Contacted</label><input type="date" id="lead_last_contacted_at" onchange="suggestFollowUpDue()"></div>
-      <div>
-        <label>Follow-up Due</label>
-        <input type="date" id="lead_follow_up_due">
-        <div class="field-note"><button type="button" class="linklike" style="padding:0;font-size:11px;" onclick="logContactToday()">📞 Log contact today &amp; auto-set this date</button></div>
-      </div>
-      <div><label>Intent Tags (optional, your own notes)</label><input id="lead_intent_tags" placeholder="e.g. ready to start, comparing agencies"></div>
-    </div>
+<div class="section-title">Follow-Up Routing</div>
+<div class="field-note" style="margin-bottom:8px;">Set the branch manually, or have AI read the call notes above and suggest one — either way, you save the final call.</div>
+<div style="margin-bottom:10px;">
+<button type="button" class="secondary" onclick="aiSuggestBranch()" id="aiSuggestBranchBtn">🤖 Suggest with AI</button>
+<span id="aiSuggestBranchStatus" class="field-note" style="display:inline-block;margin-left:8px;"></span>
+</div>
+<div class="grid2">
+<div>
+<label>Follow-Up Branch</label>
+<select id="lead_follow_up_branch" onchange="suggestFollowUpDue()">
+<option value="">— Not sorted —</option>
+<option value="call-back-next-week">Call Back Next Week (7d)</option>
+<option value="family-decision">Family Decision Pending (5d)</option>
+<option value="ready-to-start">Ready to Start (today)</option>
+<option value="cold-lead">Cold Lead (30d)</option>
+<option value="soft-check-in">Soft Check-In (3d)</option>
+</select>
+</div>
+<div><label>Last Contacted</label><input type="date" id="lead_last_contacted_at" onchange="suggestFollowUpDue()"></div>
+<div>
+<label>Follow-up Due</label>
+<input type="date" id="lead_follow_up_due">
+<div class="field-note"><button type="button" class="linklike" style="padding:0;font-size:11px;" onclick="logContactToday()">📞 Log contact today &amp; auto-set this date</button></div>
+</div>
+<div><label>Intent Tags</label><input id="lead_intent_tags" placeholder="e.g. ready to start, comparing agencies"></div>
+</div>
 
-    <div class="modal-actions">
-      <button class="secondary" onclick="closeModal('leadModalBackdrop')">Cancel</button>
-      <button class="primary" onclick="saveLead()">Save Lead</button>
-    </div>
-  </div>
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('leadModalBackdrop')">Cancel</button>
+<button class="primary" onclick="saveLead()">Save Lead</button>
+</div>
+</div>
 </div>
 
 <!-- ============================= POST-CALL FOLLOW-UP DRAFT MODAL ============================= -->
 <div class="modal-backdrop" id="followUpModalBackdrop">
-  <div class="modal">
-    <h2 id="followUpModalTitle">Log Follow-Up Draft</h2>
-    <div class="modal-sub">Track a message you're about to send — this doesn't send anything automatically.</div>
-    <input type="hidden" id="fu_id">
-    <div class="grid2">
-      <div style="grid-column:1/-1;">
-        <label>Lead</label>
-        <select id="fu_lead_id"></select>
-      </div>
-      <div>
-        <label>Channel</label>
-        <select id="fu_channel"><option>Text</option><option>Email</option><option>Phone Call</option></select>
-      </div>
-      <div>
-        <label>Status</label>
-        <select id="fu_status">
-          <option value="pending_approval">Pending Approval</option>
-          <option value="approved">Approved</option>
-          <option value="delayed">Delayed</option>
-          <option value="sent">Sent</option>
-        </select>
-      </div>
-    </div>
-    <label>Draft Message</label>
-    <textarea id="fu_draft_text" rows="4" placeholder="What you plan to say/send..."></textarea>
-    <div class="modal-actions">
-      <button class="secondary" onclick="closeModal('followUpModalBackdrop')">Cancel</button>
-      <button class="primary" onclick="saveFollowUp()">Save Draft</button>
-    </div>
-  </div>
+<div class="modal" style="max-width:660px;">
+<h2 id="followUpModalTitle">Follow-Up Draft</h2>
+<div class="modal-sub">Review before it goes out — nothing here sends automatically. Approve it, send it yourself (email/text/call), then mark it Sent.</div>
+<input type="hidden" id="fu_id">
+<input type="hidden" id="fu_ai_generated" value="false">
+<div class="grid2">
+<div>
+<label>Lead</label>
+<select id="fu_lead_id" onchange="renderFuCallSummaryBox(this.value)"></select>
+</div>
+<div>
+<label>Status</label>
+<select id="fu_status">
+<option value="pending_approval">Pending Approval</option>
+<option value="approved">Approved</option>
+<option value="modified">Modified</option>
+<option value="delayed">Delayed</option>
+<option value="sent">Sent</option>
+</select>
+</div>
+</div>
+
+<div id="fuCallSummaryBox" class="ai-box" style="display:none;margin:6px 0 10px;"></div>
+
+<div class="toolbar" style="margin-bottom:10px;">
+<button type="button" class="secondary" onclick="regenerateFollowUpDraft()" id="fuRegenerateBtn">🤖 Draft / Regenerate with AI</button>
+<div class="spacer"></div>
+</div>
+
+<div class="subtab-bar" style="margin-bottom:0;">
+<button type="button" class="subtab active" id="fuTabBtn-email" onclick="switchFuDraftTab('email')">📧 Email</button>
+<button type="button" class="subtab" id="fuTabBtn-sms" onclick="switchFuDraftTab('sms')">💬 SMS</button>
+</div>
+<div class="subtabpanel active" id="fuTab-email" style="padding-top:10px;">
+<label style="margin-top:0;">Subject</label>
+<input id="fu_email_subject">
+<label>Body</label>
+<textarea id="fu_email_body" rows="9" style="font-family:inherit;"></textarea>
+<div class="checklist" style="margin-top:6px;">
+<label><input type="checkbox" id="fu_attach_service_guide" checked> Service Guide attached</label>
+<label><input type="checkbox" id="fu_include_website" checked> Website link included</label>
+</div>
+</div>
+<div class="subtabpanel" id="fuTab-sms" style="padding-top:10px;">
+<label style="margin-top:0;">SMS Draft</label>
+<textarea id="fu_sms_draft" rows="5" oninput="updateFuSmsCharCount()"></textarea>
+<div class="field-note" id="fuSmsCharCount">0 characters</div>
+</div>
+
+<div class="grid2" style="margin-top:12px;">
+<div><label>Rate Discussed (optional)</label><input id="fu_rate_discussed" placeholder="e.g. $28/hr"></div>
+<div class="checklist" style="align-self:end;"><label><input type="checkbox" id="fu_email_collected_on_call"> Email was collected on this call</label></div>
+</div>
+
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('followUpModalBackdrop')">Cancel</button>
+<button class="secondary" onclick="saveFollowUp('approved')">Approve</button>
+<button class="secondary" onclick="saveFollowUp('sent')">Mark as Sent</button>
+<button class="primary" onclick="saveFollowUp()">Save Draft</button>
+</div>
+</div>
 </div>
 
 <!-- ============================= FOLLOW-UP DETAIL MODAL ============================= -->
 <div class="modal-backdrop" id="fqDetailModalBackdrop">
-  <div class="modal" style="max-width:640px;">
-    <div id="fqDetailContent"></div>
-    <div class="modal-actions">
-      <button class="secondary" onclick="closeModal('fqDetailModalBackdrop')">Close</button>
-    </div>
-  </div>
+<div class="modal" style="max-width:640px;">
+<div id="fqDetailContent"></div>
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('fqDetailModalBackdrop')">Close</button>
+</div>
+</div>
 </div>
 
 <!-- ============================= ASSESSMENT MODAL ============================= -->
 <div class="modal-backdrop" id="assessmentModalBackdrop">
-  <div class="modal">
-    <h2 id="assessmentModalTitle">Add Care Assessment</h2>
-    <input type="hidden" id="assess_id">
-    <input type="hidden" id="assess_lead_id">
-    <div class="grid2">
-      <div><label>Client Name</label><input id="assess_client_name"></div>
-      <div><label>AxisCare Client ID</label><input id="assess_axiscare_client_id"></div>
-      <div><label>Visit Date</label><input type="date" id="assess_visit_date"></div>
-      <div><label>Coordinator</label><input id="assess_coordinator"></div>
-      <div style="grid-column:1/-1"><label>Address</label><input id="assess_address"></div>
-      <div>
-        <label>Payer</label>
-        <select id="assess_payer"><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>Other</option></select>
-      </div>
-      <div>
-        <label>Transcript Source</label>
-        <select id="assess_transcript_source"><option>Otter</option><option>Fireflies</option><option>Other</option></select>
-      </div>
-      <div><label>Transcript Link</label><input id="assess_transcript_link" placeholder="https://otter.ai/..."></div>
-    </div>
-    <label>Or paste transcript text</label>
-    <textarea id="assess_transcript_text" rows="4" placeholder="Paste the raw transcript here if you don't have a shareable link"></textarea>
+<div class="modal">
+<h2 id="assessmentModalTitle">Add Care Assessment</h2>
+<input type="hidden" id="assess_id">
+<input type="hidden" id="assess_lead_id">
+<div class="grid2">
+<div><label>Client Name</label><input id="assess_client_name"></div>
+<div><label>AxisCare Client ID</label><input id="assess_axiscare_client_id"></div>
+<div><label>Visit Date</label><input type="date" id="assess_visit_date"></div>
+<div><label>Coordinator</label><input id="assess_coordinator"></div>
+<div style="grid-column:1/-1"><label>Address</label><input id="assess_address"></div>
+<div>
+<label>Payer</label>
+<select id="assess_payer"><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>Other</option></select>
+</div>
+<div>
+<label>Transcript Source</label>
+<select id="assess_transcript_source"><option>Otter</option><option>Fireflies</option><option>Other</option></select>
+</div>
+<div><label>Transcript Link</label><input id="assess_transcript_link" placeholder="https://otter.ai/..."></div>
+</div>
+<label>Or paste transcript text</label>
+<textarea id="assess_transcript_text" rows="4" placeholder="Paste the raw transcript here if you don't have a shareable link"></textarea>
 
-    <div class="section-title">AI-Drafted Summary</div>
-    <div class="ai-box" id="assess_ai_summary_box">No care plan generated yet. Save the visit details and transcript first, then click "Generate Care Plan."</div>
+<div class="section-title">AI-Drafted Summary</div>
+<div class="ai-box" id="assess_ai_summary_box">No care plan generated yet. Save the visit details and transcript first, then click "Generate Care Plan."</div>
 
-    <div class="modal-actions">
-      <button class="secondary" onclick="closeModal('assessmentModalBackdrop')">Cancel</button>
-      <button class="secondary" onclick="generateCarePlan()">🪄 Generate Care Plan</button>
-      <button class="primary" onclick="saveAssessment()">Save</button>
-    </div>
-  </div>
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('assessmentModalBackdrop')">Cancel</button>
+<button class="secondary" onclick="generateCarePlan()">🪄 Generate Care Plan</button>
+<button class="primary" onclick="saveAssessment()">Save</button>
+</div>
+</div>
 </div>
 
 <!-- ============================= CARE PLAN MODAL ============================= -->
 <div class="modal-backdrop" id="planModalBackdrop">
-  <div class="modal">
-    <h2>Care Plan</h2>
-    <div class="modal-sub" id="planModalClientLine"></div>
-    <input type="hidden" id="plan_id">
-    <input type="hidden" id="plan_assessment_id">
-    <div class="grid2">
-      <div style="grid-column:1/-1"><label>ADL Needs (bathing, dressing, toileting, mobility...)</label><textarea id="plan_adl_needs" rows="2"></textarea></div>
-      <div style="grid-column:1/-1"><label>IADL Needs (meals, housekeeping, transport, medication reminders...)</label><textarea id="plan_iadl_needs" rows="2"></textarea></div>
-      <div style="grid-column:1/-1"><label>Medical Conditions</label><textarea id="plan_medical_conditions" rows="2"></textarea></div>
-      <div style="grid-column:1/-1"><label>Medications</label><textarea id="plan_medications" rows="2"></textarea></div>
-      <div style="grid-column:1/-1"><label>Safety Concerns</label><textarea id="plan_safety_concerns" rows="2"></textarea></div>
-      <div style="grid-column:1/-1"><label>Client / Family Goals</label><textarea id="plan_client_goals" rows="2"></textarea></div>
-      <div style="grid-column:1/-1"><label>Recommended Services</label><textarea id="plan_services_recommended" rows="2"></textarea></div>
-      <div><label>Recommended Frequency</label><input id="plan_recommended_frequency" placeholder="e.g. 5x/week"></div>
-      <div><label>Recommended Hours/Week</label><input id="plan_recommended_hours_per_week" type="number"></div>
-      <div><label>Care Start Date</label><input type="date" id="plan_start_date"></div>
-      <div><label>Plan Review Date</label><input type="date" id="plan_review_date"></div>
-    </div>
-    <div class="modal-actions">
-      <button class="secondary" onclick="closeModal('planModalBackdrop')">Close</button>
-      <button class="secondary" onclick="savePlan(false)">Save Draft</button>
-      <button class="primary" onclick="savePlan(true)">📤 Save &amp; Push to AxisCare</button>
-    </div>
-  </div>
+<div class="modal">
+<h2>Care Plan</h2>
+<div class="modal-sub" id="planModalClientLine"></div>
+<input type="hidden" id="plan_id">
+<input type="hidden" id="plan_assessment_id">
+<div class="grid2">
+<div style="grid-column:1/-1"><label>ADL Needs (bathing, dressing, toileting, mobility...)</label><textarea id="plan_adl_needs" rows="2"></textarea></div>
+<div style="grid-column:1/-1"><label>IADL Needs (meals, housekeeping, transport, medication reminders...)</label><textarea id="plan_iadl_needs" rows="2"></textarea></div>
+<div style="grid-column:1/-1"><label>Medical Conditions</label><textarea id="plan_medical_conditions" rows="2"></textarea></div>
+<div style="grid-column:1/-1"><label>Medications</label><textarea id="plan_medications" rows="2"></textarea></div>
+<div style="grid-column:1/-1"><label>Safety Concerns</label><textarea id="plan_safety_concerns" rows="2"></textarea></div>
+<div style="grid-column:1/-1"><label>Client / Family Goals</label><textarea id="plan_client_goals" rows="2"></textarea></div>
+<div style="grid-column:1/-1"><label>Recommended Services</label><textarea id="plan_services_recommended" rows="2"></textarea></div>
+<div><label>Recommended Frequency</label><input id="plan_recommended_frequency" placeholder="e.g. 5x/week"></div>
+<div><label>Recommended Hours/Week</label><input id="plan_recommended_hours_per_week" type="number"></div>
+<div><label>Care Start Date</label><input type="date" id="plan_start_date"></div>
+<div><label>Plan Review Date</label><input type="date" id="plan_review_date"></div>
+</div>
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('planModalBackdrop')">Close</button>
+<button class="secondary" onclick="savePlan(false)">Save Draft</button>
+<button class="primary" onclick="savePlan(true)">📤 Save &amp; Push to AxisCare</button>
+</div>
+</div>
 </div>
 
 <!-- ============================= CHECK-IN MODAL ============================= -->
 <div class="modal-backdrop" id="checkinModalBackdrop">
-  <div class="modal">
-    <h2>Log Client Check-in</h2>
-    <input type="hidden" id="checkin_id">
-    <div class="grid2">
-      <div><label>Client Name</label><input id="checkin_client_name"></div>
-      <div><label>AxisCare Client ID</label><input id="checkin_axiscare_client_id"></div>
-      <div><label>Check-in Date</label><input type="date" id="checkin_date"></div>
-      <div>
-        <label>Method</label>
-        <select id="checkin_method"><option>Phone</option><option>In-Person</option><option>Text</option></select>
-      </div>
-      <div><label>Coordinator</label><input id="checkin_coordinator"></div>
-      <div><label>Next Check-in Due</label><input type="date" id="checkin_next_due"></div>
-    </div>
-    <label>Satisfaction</label>
-    <div class="star-row" id="checkinStars"></div>
-    <input type="hidden" id="checkin_satisfaction_rating" value="0">
-    <label>Caregiver Feedback</label>
-    <textarea id="checkin_caregiver_feedback" rows="2"></textarea>
-    <label>Concerns Raised</label>
-    <textarea id="checkin_concerns_raised" rows="2"></textarea>
-    <label>Resolution</label>
-    <textarea id="checkin_resolution" rows="2"></textarea>
-    <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);">
-      <input type="checkbox" id="checkin_escalated" style="width:auto"> Escalate to Samantha
-    </label>
-    <div class="modal-actions">
-      <button class="secondary" onclick="closeModal('checkinModalBackdrop')">Cancel</button>
-      <button class="primary" onclick="saveCheckin()">Save Check-in</button>
-    </div>
-  </div>
+<div class="modal">
+<h2>Log Client Check-in</h2>
+<input type="hidden" id="checkin_id">
+<div class="grid2">
+<div><label>Client Name</label><input id="checkin_client_name"></div>
+<div><label>AxisCare Client ID</label><input id="checkin_axiscare_client_id"></div>
+<div><label>Check-in Date</label><input type="date" id="checkin_date"></div>
+<div>
+<label>Method</label>
+<select id="checkin_method"><option>Phone</option><option>In-Person</option><option>Text</option></select>
+</div>
+<div><label>Coordinator</label><input id="checkin_coordinator"></div>
+<div><label>Next Check-in Due</label><input type="date" id="checkin_next_due"></div>
+</div>
+<label>Satisfaction</label>
+<div class="star-row" id="checkinStars"></div>
+<input type="hidden" id="checkin_satisfaction_rating" value="0">
+<label>Caregiver Feedback</label>
+<textarea id="checkin_caregiver_feedback" rows="2"></textarea>
+<label>Concerns Raised</label>
+<textarea id="checkin_concerns_raised" rows="2"></textarea>
+<label>Resolution</label>
+<textarea id="checkin_resolution" rows="2"></textarea>
+<label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);">
+<input type="checkbox" id="checkin_escalated" style="width:auto"> Escalate to Samantha
+</label>
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('checkinModalBackdrop')">Cancel</button>
+<button class="primary" onclick="saveCheckin()">Save Check-in</button>
+</div>
+</div>
 </div>
 
 <!-- ============================= SUPERVISORY VISIT MODAL ============================= -->
 <div class="modal-backdrop" id="supervisoryModalBackdrop">
-  <div class="modal">
-    <h2>Supervisory Visit</h2>
-    <div class="modal-sub">Generic checklist shown below — attach your official Missouri supervisory visit form to replace this with your exact fields.</div>
-    <input type="hidden" id="sv_id">
-    <div class="grid2">
-      <div><label>Caregiver Name</label><input id="sv_caregiver_name"></div>
-      <div><label>AxisCare Caregiver ID</label><input id="sv_axiscare_caregiver_id"></div>
-      <div><label>Client Observed</label><input id="sv_client_name"></div>
-      <div><label>Visit Date</label><input type="date" id="sv_visit_date"></div>
-      <div><label>Coordinator</label><input id="sv_coordinator"></div>
-      <div><label>Next Due Date</label><input type="date" id="sv_due_date"></div>
-    </div>
+<div class="modal">
+<h2>Supervisory Visit</h2>
+<div class="modal-sub">Generic checklist shown below — attach your official Missouri supervisory visit form to replace this with your exact fields.</div>
+<input type="hidden" id="sv_id">
+<div class="grid2">
+<div><label>Caregiver Name</label><input id="sv_caregiver_name"></div>
+<div><label>AxisCare Caregiver ID</label><input id="sv_axiscare_caregiver_id"></div>
+<div><label>Client Observed</label><input id="sv_client_name"></div>
+<div><label>Visit Date</label><input type="date" id="sv_visit_date"></div>
+<div><label>Coordinator</label><input id="sv_coordinator"></div>
+<div><label>Next Due Date</label><input type="date" id="sv_due_date"></div>
+</div>
 
-    <div class="section-title">Checklist</div>
-    <div class="checklist" id="sv_checklist">
-      <label><input type="checkbox" data-key="punctuality"> On time / appropriate notice given</label>
-      <label><input type="checkbox" data-key="appearance"> Appropriate appearance &amp; hygiene</label>
-      <label><input type="checkbox" data-key="task_completion"> Completing tasks per the client's care plan</label>
-      <label><input type="checkbox" data-key="client_interaction"> Respectful, attentive interaction with client</label>
-      <label><input type="checkbox" data-key="safety"> Following safe care practices</label>
-      <label><input type="checkbox" data-key="documentation"> EVV clock-in/out &amp; documentation compliant</label>
-    </div>
+<div class="section-title">Checklist</div>
+<div class="checklist" id="sv_checklist">
+<label><input type="checkbox" data-key="punctuality"> On time / appropriate notice given</label>
+<label><input type="checkbox" data-key="appearance"> Appropriate appearance &amp; hygiene</label>
+<label><input type="checkbox" data-key="task_completion"> Completing tasks per the client's care plan</label>
+<label><input type="checkbox" data-key="client_interaction"> Respectful, attentive interaction with client</label>
+<label><input type="checkbox" data-key="safety"> Following safe care practices</label>
+<label><input type="checkbox" data-key="documentation"> EVV clock-in/out &amp; documentation compliant</label>
+</div>
 
-    <label>Overall Performance Rating</label>
-    <select id="sv_performance_rating">
-      <option>Exceeds Expectations</option><option>Meets Expectations</option><option>Needs Improvement</option><option>Unsatisfactory</option>
-    </select>
-    <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);margin-top:10px;">
-      <input type="checkbox" id="sv_client_satisfaction_observed" style="width:auto"> Client expressed satisfaction with care during visit
-    </label>
-    <label>Concerns</label>
-    <textarea id="sv_concerns" rows="2"></textarea>
-    <label>Corrective Action (if any)</label>
-    <textarea id="sv_corrective_action" rows="2"></textarea>
-    <label>Proof Link (signed form in Google Drive)</label>
-    <input id="sv_proof_link" placeholder="https://drive.google.com/...">
+<label>Overall Performance Rating</label>
+<select id="sv_performance_rating">
+<option>Exceeds Expectations</option><option>Meets Expectations</option><option>Needs Improvement</option><option>Unsatisfactory</option>
+</select>
+<label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);margin-top:10px;">
+<input type="checkbox" id="sv_client_satisfaction_observed" style="width:auto"> Client expressed satisfaction with care during visit
+</label>
+<label>Concerns</label>
+<textarea id="sv_concerns" rows="2"></textarea>
+<label>Corrective Action (if any)</label>
+<textarea id="sv_corrective_action" rows="2"></textarea>
+<label>Proof Link (signed form in Google Drive)</label>
+<input id="sv_proof_link" placeholder="https://drive.google.com/...">
 
-    <div class="modal-actions">
-      <button class="secondary" onclick="closeModal('supervisoryModalBackdrop')">Cancel</button>
-      <button class="primary" onclick="saveSupervisoryVisit()">Save Visit</button>
-    </div>
-  </div>
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('supervisoryModalBackdrop')">Cancel</button>
+<button class="primary" onclick="saveSupervisoryVisit()">Save Visit</button>
+</div>
+</div>
 </div>
 
 <!-- ============================= CLIENT HISTORY MODAL (read-only rollup) ============================= -->
 <div class="modal-backdrop" id="clientHistoryModalBackdrop">
-  <div class="modal" style="max-width:680px;">
-    <h2 id="clientHistoryTitle">Client History</h2>
-    <div class="modal-sub" id="clientHistorySub"></div>
+<div class="modal" style="max-width:680px;">
+<h2 id="clientHistoryTitle">Client History</h2>
+<div class="modal-sub" id="clientHistorySub"></div>
 
-    <div class="section-title">Lead</div>
-    <div class="ai-box" id="clientHistoryLead">No lead record on file.</div>
+<div class="section-title">Lead</div>
+<div class="ai-box" id="clientHistoryLead">No lead record on file.</div>
 
-    <div class="section-title">Care Assessment &amp; Plan</div>
-    <div class="ai-box" id="clientHistoryAssessment">No assessment on file.</div>
+<div class="section-title">Care Assessment &amp; Plan</div>
+<div class="ai-box" id="clientHistoryAssessment">No assessment on file.</div>
 
-    <div class="section-title">Check-in History</div>
-    <div id="clientHistoryCheckins"></div>
+<div class="section-title">Check-in History</div>
+<div id="clientHistoryCheckins"></div>
 
-    <div class="modal-actions">
-      <button class="secondary" onclick="closeModal('clientHistoryModalBackdrop')">Close</button>
-    </div>
-  </div>
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('clientHistoryModalBackdrop')">Close</button>
+</div>
+</div>
 </div>
 
 <!-- ============================= ON-CALL ENTRY MODAL ============================= -->
 <div class="modal-backdrop" id="onCallModalBackdrop">
-  <div class="modal">
-    <h2>On-Call Entry</h2>
-    <input type="hidden" id="oc_id">
-    <label>Coordinator</label>
-    <select id="oc_staff_select" onchange="onCallStaffPicked()">
-      <option value="">— Select from Staff list —</option>
-    </select>
-    <div class="grid2">
-      <div><label>Name</label><input id="oc_name"></div>
-      <div><label>Phone</label><input id="oc_phone" placeholder="(555) 555-5555"></div>
-    </div>
-    <div class="grid2">
-      <div><label>Start Date</label><input type="date" id="oc_start_date"></div>
-      <div><label>End Date</label><input type="date" id="oc_end_date"></div>
-    </div>
-    <label>Notes (optional)</label>
-    <textarea id="oc_notes" rows="2" placeholder="e.g. backup contact, out-of-town coverage plan"></textarea>
+<div class="modal">
+<h2>On-Call Entry</h2>
+<input type="hidden" id="oc_id">
+<label>Coordinator</label>
+<select id="oc_staff_select" onchange="onCallStaffPicked()">
+<option value="">— Select from Staff list —</option>
+</select>
+<div class="grid2">
+<div><label>Name</label><input id="oc_name"></div>
+<div><label>Phone</label><input id="oc_phone" placeholder="(555) 555-5555"></div>
+</div>
+<div class="grid2">
+<div><label>Start Date</label><input type="date" id="oc_start_date"></div>
+<div><label>End Date</label><input type="date" id="oc_end_date"></div>
+</div>
+<label>Notes (optional)</label>
+<textarea id="oc_notes" rows="2" placeholder="e.g. backup contact, out-of-town coverage plan"></textarea>
 
-    <div class="modal-actions">
-      <button class="secondary" onclick="closeModal('onCallModalBackdrop')">Cancel</button>
-      <button class="primary" onclick="saveOnCallEntry()">Save</button>
-    </div>
-  </div>
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('onCallModalBackdrop')">Cancel</button>
+<button class="primary" onclick="saveOnCallEntry()">Save</button>
+</div>
+</div>
 </div>
 
 <!-- ============================= SETTINGS (passcode-gated) ============================= -->
 <div class="lock-screen" id="settingsLock">
-  <div class="lock-card">
-    <div style="font-size:28px;">🔒</div>
-    <h2 style="font-size:16px;margin:8px 0 4px;">Admin Access Required</h2>
-    <p style="font-size:12px;color:var(--text-muted);margin:0 0 14px;">Settings are restricted to admins only.</p>
-    <input type="password" id="settingsPasscodeInput" placeholder="Admin passcode">
-    <div id="settingsLockError" style="color:var(--red);font-size:12px;margin-top:8px;display:none;">Incorrect passcode.</div>
-    <div class="modal-actions" style="justify-content:center;">
-      <button class="secondary" onclick="closeModal('settingsLock')">Cancel</button>
-      <button class="primary" onclick="checkSettingsPasscode()">Enter</button>
-    </div>
-  </div>
+<div class="lock-card">
+<div style="font-size:28px;">🔒</div>
+<h2 style="font-size:16px;margin:8px 0 4px;">Admin Access Required</h2>
+<p style="font-size:12px;color:var(--text-muted);margin:0 0 14px;">Settings are restricted to admins only.</p>
+<input type="password" id="settingsPasscodeInput" placeholder="Admin passcode">
+<div id="settingsLockError" style="color:var(--red);font-size:12px;margin-top:8px;display:none;">Incorrect passcode.</div>
+<div class="modal-actions" style="justify-content:center;">
+<button class="secondary" onclick="closeModal('settingsLock')">Cancel</button>
+<button class="primary" onclick="checkSettingsPasscode()">Enter</button>
+</div>
+</div>
 </div>
 
 <div class="modal-backdrop" id="settingsModalBackdrop">
-  <div class="modal" style="max-width:720px;">
-    <h2>⚙️ Settings</h2>
+<div class="modal" style="max-width:720px;">
+<h2>⚙️ Settings</h2>
 
-    <div class="settings-section">
-      <h3>Supabase Connection</h3>
-      <p class="hint">Use the same project as Staffing Hub — coordinators sign in with the same accounts, and this hub's tables live alongside <code>caregivers</code> in <code>app_data</code>.</p>
-      <label>Project URL</label><input id="set_supabase_url" placeholder="https://abcdefghijkl.supabase.co">
-      <label>Anon / Public Key</label><input id="set_supabase_anon_key" placeholder="eyJ...">
-    </div>
-
-    <div class="settings-section">
-      <h3>AxisCare Integration</h3>
-      <p class="hint">Find your site number in your AxisCare URL: https://<b>XXXXX</b>.axiscare.com</p>
-      <label>Site Number</label><input id="set_axiscare_site">
-      <label>API Token (Admin → API Token in AxisCare)</label><input id="set_axiscare_token" type="password" placeholder="stored locally, never shared">
-    </div>
-
-    <div class="settings-section">
-      <h3>Cadences</h3>
-      <div class="grid2">
-        <div><label>Client check-in cadence (days)</label><input type="number" id="set_checkin_cadence" value="30"></div>
-        <div><label>Supervisory visit "due soon" window (days)</label><input type="number" id="set_supervisory_window" value="60"></div>
-      </div>
-    </div>
-
-    <div class="settings-section">
-      <h3>Transcript Retention</h3>
-      <p class="hint">Visit transcripts can contain medical detail. Once a care plan is pushed to AxisCare, the structured plan is the record of truth — the raw transcript doesn't need to stick around.</p>
-      <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);">
-        <input type="checkbox" id="set_auto_clear_transcript" style="width:auto"> Auto-clear raw transcript text once a plan is pushed to AxisCare (keeps the transcript link, drops the pasted text)
-      </label>
-    </div>
-
-    <div class="settings-section">
-      <h3>🔗 Lead Intake Webhook (Website Form → Hub)</h3>
-      <p class="hint">Website form submissions POST here via Zapier, landing directly in the Leads tab. See Care_Coordinator_Zapier_Setup.md.</p>
-      <div class="webhook-box"><code id="leadWebhookUrl">POST https://[your-project].supabase.co/rest/v1/app_data?key=eq.leads</code></div>
-    </div>
-
-    <div class="settings-section">
-      <h3>🪄 Care Plan Generation Webhook (Hub → Zapier → AxisCare)</h3>
-      <p class="hint">Fires when you click "Generate Care Plan." Zapier structures the transcript with AI and pushes the result back here and into AxisCare custom fields.</p>
-      <label>Webhook URL</label><input id="set_careplan_webhook">
-    </div>
-
-    <div class="settings-section">
-      <h3>Staff &amp; Notifications</h3>
-      <p class="hint">Add coordinators and choose which automated alerts each person gets — used by the reminder Zap in Care_Coordinator_Zapier_Setup.md to decide who to email.</p>
-      <div id="staffListWrap"></div>
-      <div class="grid2" style="margin-top:10px;">
-        <div><label>Name</label><input id="new_staff_name"></div>
-        <div>
-          <label>Role</label>
-          <select id="new_staff_role"><option>Care Coordinator</option><option>Staffing Coordinator</option><option>Owner</option><option>Other</option></select>
-        </div>
-      </div>
-      <div class="grid2">
-        <div><label>Phone</label><input id="new_staff_phone" placeholder="(555) 555-5555"></div>
-        <div></div>
-      </div>
-      <div class="checklist" style="margin:8px 0;">
-        <label><input type="checkbox" id="new_staff_notify_leads"> New lead alerts</label>
-        <label><input type="checkbox" id="new_staff_notify_checkins"> Overdue check-in alerts</label>
-        <label><input type="checkbox" id="new_staff_notify_supervisory"> Supervisory visit due alerts</label>
-        <label><input type="checkbox" id="new_staff_notify_careplan"> Care plan ready alerts</label>
-      </div>
-      <button class="secondary" onclick="addStaffMember()">+ Add Staff Member</button>
-    </div>
-
-    <div class="settings-section">
-      <h3>🚨 After-Hours Escalation Protocol</h3>
-      <p class="hint">Shown at the top of the On-Call tab for anyone checking who to contact and what to do after hours. Keep this current — real names and numbers, not placeholders.</p>
-      <textarea id="set_escalation_protocol" rows="4"></textarea>
-    </div>
-
-    <div class="settings-section">
-      <h3>Admin Passcode</h3>
-      <p class="hint">Keep this separate from staff login passwords.</p>
-      <div class="grid2">
-        <div><label>New Passcode</label><input type="password" id="set_new_passcode"></div>
-        <div><label>Confirm</label><input type="password" id="set_confirm_passcode"></div>
-      </div>
-    </div>
-
-    <div class="modal-actions">
-      <button class="secondary" onclick="closeModal('settingsModalBackdrop')">Cancel</button>
-      <button class="primary" onclick="saveSettings()">Save Settings</button>
-    </div>
-  </div>
+<div class="settings-section">
+<h3>Supabase Connection</h3>
+<p class="hint">Use the same project as Staffing Hub — coordinators sign in with the same accounts, and this hub's tables live alongside <code>caregivers</code> in <code>app_data</code>.</p>
+<label>Project URL</label><input id="set_supabase_url" placeholder="https://abcdefghijkl.supabase.co">
+<label>Anon / Public Key</label><input id="set_supabase_anon_key" placeholder="eyJ...">
 </div>
 
+<div class="settings-section">
+<h3>AxisCare Integration</h3>
+<p class="hint">Find your site number in your AxisCare URL: https://<b>XXXXX</b>.axiscare.com</p>
+<label>Site Number</label><input id="set_axiscare_site">
+<label>API Token (Admin → API Token in AxisCare)</label><input id="set_axiscare_token" type="password" placeholder="stored locally, never shared">
+</div>
+
+<div class="settings-section">
+<h3>Cadences</h3>
+<div class="grid2">
+<div><label>Client check-in cadence (days)</label><input type="number" id="set_checkin_cadence" value="30"></div>
+<div><label>Supervisory visit "due soon" window (days)</label><input type="number" id="set_supervisory_window" value="60"></div>
+</div>
+</div>
+
+<div class="settings-section">
+<h3>Transcript Retention</h3>
+<p class="hint">Visit transcripts can contain medical detail. Once a care plan is pushed to AxisCare, the structured plan is the record of truth — the raw transcript doesn't need to stick around.</p>
+<label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);">
+<input type="checkbox" id="set_auto_clear_transcript" style="width:auto"> Auto-clear raw transcript text once a plan is pushed to AxisCare (keeps the transcript link, drops the pasted text)
+</label>
+</div>
+
+<div class="settings-section">
+<h3>🔗 Lead Intake Webhook (Website Form → Hub)</h3>
+<p class="hint">Website form submissions POST here via Zapier, landing directly in the Leads tab. See Care_Coordinator_Zapier_Setup.md.</p>
+<div class="webhook-box"><code id="leadWebhookUrl">POST https://[your-project].supabase.co/rest/v1/app_data?key=eq.leads</code></div>
+</div>
+
+<div class="settings-section">
+<h3>🪄 Care Plan Generation Webhook (Hub → Zapier → AxisCare)</h3>
+<p class="hint">Fires when you click "Generate Care Plan." Zapier structures the transcript with AI and pushes the result back here and into AxisCare custom fields.</p>
+<label>Webhook URL</label><input id="set_careplan_webhook">
+</div>
+
+<div class="settings-section">
+<h3>Staff &amp; Notifications</h3>
+<p class="hint">Add coordinators and choose which automated alerts each person gets — used by the reminder Zap in Care_Coordinator_Zapier_Setup.md to decide who to email.</p>
+<div id="staffListWrap"></div>
+<div class="grid2" style="margin-top:10px;">
+<div><label>Name</label><input id="new_staff_name"></div>
+<div>
+<label>Role</label>
+<select id="new_staff_role"><option>Care Coordinator</option><option>Staffing Coordinator</option><option>Owner</option><option>Other</option></select>
+</div>
+</div>
+<div class="grid2">
+<div><label>Phone</label><input id="new_staff_phone" placeholder="(555) 555-5555"></div>
+<div></div>
+</div>
+<div class="checklist" style="margin:8px 0;">
+<label><input type="checkbox" id="new_staff_notify_leads"> New lead alerts</label>
+<label><input type="checkbox" id="new_staff_notify_checkins"> Overdue check-in alerts</label>
+<label><input type="checkbox" id="new_staff_notify_supervisory"> Supervisory visit due alerts</label>
+<label><input type="checkbox" id="new_staff_notify_careplan"> Care plan ready alerts</label>
+</div>
+<button class="secondary" onclick="addStaffMember()">+ Add Staff Member</button>
+</div>
+
+<div class="settings-section">
+<h3>🚨 After-Hours Escalation Protocol</h3>
+<p class="hint">Shown at the top of the On-Call tab for anyone checking who to contact and what to do after hours. Keep this current — real names and numbers, not placeholders.</p>
+<textarea id="set_escalation_protocol" rows="4"></textarea>
+</div>
+
+<div class="settings-section">
+<h3>Admin Passcode</h3>
+<p class="hint">Keep this separate from staff login passwords.</p>
+<div class="grid2">
+<div><label>New Passcode</label><input type="password" id="set_new_passcode"></div>
+<div><label>Confirm</label><input type="password" id="set_confirm_passcode"></div>
+</div>
+</div>
+
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('settingsModalBackdrop')">Cancel</button>
+<button class="primary" onclick="saveSettings()">Save Settings</button>
+</div>
+</div>
+</div>
 <script>
 /* =========================================================================
    Care Coordinator's Hub — app logic
@@ -1161,6 +1202,60 @@ async function removeItem(key, itemId){
     document.getElementById('syncPill').textContent = '⚠ Delete failed — try again once back online';
   }
 }
+
+/* -- Real AI (Supabase Edge Function → Anthropic Claude) --------------------
+   Calls the "ai-draft-followup" Edge Function (see
+   Supabase_Edge_Function_ai_draft_followup.ts for the deployable source and
+   setup steps). The Edge Function holds the ANTHROPIC_API_KEY secret
+   server-side — this page never sees or sends it — and authenticates the
+   caller using their own signed-in Supabase session token, exactly like
+   Staffing Hub's axiscare-push-note call. Until that function is deployed
+   (it needs an Anthropic API key added as a Supabase secret first), this
+   will fail with a clear error rather than silently doing nothing. */
+async function callAiDraftFollowup(leadId, mode){
+  const lead = DATA.leads.find(l=>l.id===leadId);
+  if(!lead){ alert('Save the lead first, then try AI drafting.'); return null; }
+  if(!lead.interest_notes || !lead.interest_notes.trim()){
+    alert('There are no call notes on this lead yet (Situation & Call Notes) — the AI needs something to read.');
+    return null;
+  }
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session || !session.access_token){ alert('Please sign in again.'); return null; }
+  const payload = {
+    mode, // 'branch' | 'draft' | 'both'
+    lead: {
+      first_name: lead.first_name, last_name: lead.last_name, relationship: lead.relationship,
+      client_first_name: lead.client_first_name, client_last_name: lead.client_last_name,
+      client_name_not_provided: lead.client_name_not_provided,
+      email: lead.email, phone: lead.phone,
+      urgency: lead.urgency, needs: lead.needs, safety: lead.safety, mobility: lead.mobility,
+      medical_conditions: lead.medical_conditions,
+      funding_source: lead.funding_source, price_quoted: lead.price_quoted, quoted_price_amount: lead.quoted_price_amount,
+      days_needed: lead.days_needed, times_needed: lead.times_needed, number_of_hours: lead.number_of_hours,
+      interest_notes: lead.interest_notes,
+    }
+  };
+  let res;
+  try{
+    res = await fetch(`${CONFIG.supabase_url}/functions/v1/ai-draft-followup`, {
+      method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`, 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
+  }catch(e){
+    alert('Could not reach the AI service. Check your connection and try again.');
+    return null;
+  }
+  if(!res.ok){
+    let msg = 'AI drafting failed (' + res.status + ').';
+    try{ const j = await res.json(); if(j && j.error) msg += ' ' + j.error; }catch(e){}
+    if(res.status===404) msg += ' The ai-draft-followup Edge Function may not be deployed yet — see Supabase_Edge_Function_ai_draft_followup.ts.';
+    alert(msg);
+    return null;
+  }
+  try{ return await res.json(); }
+  catch(e){ alert('AI service returned something unexpected.'); return null; }
+}
 function queuePendingSync(key, item){
   const pending = JSON.parse(localStorage.getItem('cch_pending_sync') || '{}');
   pending[key+':'+item.id] = { key, item, ts: new Date().toISOString() };
@@ -1314,6 +1409,32 @@ function logContactToday(){
   document.getElementById('lead_last_contacted_at').value = today();
   suggestFollowUpDue();
 }
+async function aiSuggestBranch(){
+  const id = document.getElementById('lead_id').value;
+  if(!id){ alert('Save this lead once first (even with just the basics), then AI suggestion will have a record to attach to.'); return; }
+  // Pull the notes straight from the open form, not just the last-saved DATA copy,
+  // so a suggestion reflects notes just typed in but not yet saved.
+  const liveNotes = document.getElementById('lead_interest_notes').value.trim();
+  const lead = DATA.leads.find(l=>l.id===id);
+  if(lead) lead.interest_notes = liveNotes || lead.interest_notes;
+  const statusEl = document.getElementById('aiSuggestBranchStatus');
+  const btn = document.getElementById('aiSuggestBranchBtn');
+  statusEl.textContent = '🤖 Reading call notes…';
+  btn.disabled = true;
+  const result = await callAiDraftFollowup(id, 'branch');
+  btn.disabled = false;
+  if(!result){ statusEl.textContent = ''; return; }
+  if(result.branch && BRANCH_CONFIG[result.branch]){
+    document.getElementById('lead_follow_up_branch').value = result.branch;
+    suggestFollowUpDue();
+  }
+  if(Array.isArray(result.intent_tags) && result.intent_tags.length){
+    const existing = document.getElementById('lead_intent_tags').value.split(',').map(s=>s.trim()).filter(Boolean);
+    const merged = Array.from(new Set([...existing, ...result.intent_tags]));
+    document.getElementById('lead_intent_tags').value = merged.join(', ');
+  }
+  statusEl.innerHTML = '✅ AI suggested — review before saving.' + (result.confidence_note ? ` <span style="color:var(--text-muted);">${result.confidence_note}</span>` : '');
+}
 function openLeadModal(id){
   const l = id ? DATA.leads.find(x=>x.id===id) : {};
   document.getElementById('leadModalTitle').textContent = id ? 'Edit Lead' : 'Add Lead';
@@ -1446,7 +1567,7 @@ function scheduleAssessmentFromLead(leadId){
   switchTab('assessments');
 }
 
-/* ---------------- POST-CALL FOLLOW-UP (manual tracking — see note in subtab-postcall) ---------------- */
+/* ---------------- POST-CALL FOLLOW-UP (AI-drafted, human-approved — see ai-box in subtab-postcall) ---------------- */
 function leadDisplayName(l){
   if(!l) return '(unknown lead)';
   const client = !l.client_name_not_provided && (l.client_first_name||l.client_last_name)
@@ -1455,30 +1576,50 @@ function leadDisplayName(l){
   return client ? `${client} (via ${contact||'contact'})` : (contact || '(unnamed lead)');
 }
 function fuStatusBadge(status){
-  const map = { pending_approval:'warn', approved:'ok', delayed:'bad', sent:'muted' };
-  const label = { pending_approval:'Pending Approval', approved:'Approved', delayed:'Delayed', sent:'Sent' }[status] || status;
+  const map = { pending_approval:'warn', approved:'ok', modified:'new', delayed:'bad', sent:'muted' };
+  const label = { pending_approval:'Pending Approval', approved:'Approved', modified:'Modified', delayed:'Delayed', sent:'Sent' }[status] || status;
   return `<span class="badge ${map[status]||'muted'}">${label}</span>`;
 }
+let fuFilterStatus = 'all';
+function setFuFilterStatus(s){ fuFilterStatus = s; renderPostCallFollowups(); }
 function renderPostCallFollowups(){
   const wrap = document.getElementById('postCallTableWrap');
-  const rows = DATA.post_call_followups.slice().sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
-  if(rows.length===0){ wrap.innerHTML = '<div class="empty">No follow-up drafts logged yet.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr>
-    <th>Lead</th><th>Channel</th><th>Draft</th><th>Status</th><th>Logged</th><th>Actions</th>
-  </tr></thead><tbody>${rows.map(f => {
+  const pendingCount = DATA.post_call_followups.filter(f=>f.status==='pending_approval').length;
+  document.querySelectorAll('#postcallFilterBar .subtab').forEach(b=>b.classList.remove('active'));
+  const activeBtn = document.getElementById('pcFilterBtn-'+fuFilterStatus);
+  if(activeBtn) activeBtn.classList.add('active');
+  const pendingBadge = document.getElementById('pcFilterBadge-pending');
+  pendingBadge.textContent = pendingCount; pendingBadge.style.display = pendingCount>0 ? '' : 'none';
+
+  let rows = DATA.post_call_followups.slice().sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  if(fuFilterStatus!=='all') rows = rows.filter(f=>f.status===fuFilterStatus);
+
+  if(rows.length===0){ wrap.innerHTML = '<div class="empty">No drafts in this category yet.</div>'; return; }
+  wrap.innerHTML = rows.map(f=>{
     const lead = DATA.leads.find(x=>x.id===f.lead_id);
-    return `<tr>
-      <td><b>${leadDisplayName(lead)}</b></td>
-      <td>${f.channel||''}</td>
-      <td style="max-width:320px;color:var(--text-muted);">${(f.draft_text||'').slice(0,140)}${(f.draft_text||'').length>140?'…':''}</td>
-      <td>${fuStatusBadge(f.status)}</td>
-      <td>${f.created_at ? f.created_at.slice(0,10) : ''}</td>
-      <td>
-        <button class="linklike" onclick="openFollowUpModal('${f.id}')">Edit</button>
+    return `
+    <div class="lead-card" onclick="openFollowUpModal('${f.id}')">
+      <div class="lc-icon" style="background:#EEF2FF;">${f.ai_generated?'🤖':'✍️'}</div>
+      <div class="lc-main">
+        <div class="lc-top">
+          <span class="lc-name">${leadDisplayName(lead)}</span>
+          ${fuStatusBadge(f.status)}
+          ${f.rate_discussed?`<span class="tag-chip" style="background:var(--green-bg);color:var(--green);">💲 ${f.rate_discussed}</span>`:''}
+          ${f.email_collected_on_call===false?`<span class="tag-chip" style="background:var(--amber-bg);color:var(--amber);">⚠️ No email on file</span>`:''}
+        </div>
+        <div class="lc-summary">${f.call_summary ? f.call_summary : 'No call summary saved with this draft.'}</div>
+        <div class="lc-meta">
+          <span>📧 ${f.email_subject||f.email_body?'Email drafted':'No email draft'}</span>
+          <span>💬 ${f.sms_draft?'SMS drafted':'No SMS draft'}</span>
+          <span>🕒 ${f.created_at?f.created_at.slice(0,10):''}</span>
+        </div>
+      </div>
+      <div style="flex:0 0 auto;display:flex;gap:6px;flex-wrap:wrap;align-self:center;" onclick="event.stopPropagation();">
         ${f.status==='pending_approval' ? `<button class="linklike" onclick="approveFollowUp('${f.id}')">Approve</button><button class="linklike" onclick="delayFollowUp('${f.id}')">Delay</button>` : ''}
-      </td>
-    </tr>`;
-  }).join('')}</tbody></table>`;
+        ${(f.status==='pending_approval'||f.status==='approved'||f.status==='modified') ? `<button class="linklike" onclick="markFollowUpSent('${f.id}')">Mark Sent</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 }
 function populateFollowUpLeadSelect(selectedId){
   const sel = document.getElementById('fu_lead_id');
@@ -1487,27 +1628,86 @@ function populateFollowUpLeadSelect(selectedId){
   sel.innerHTML = '<option value="">— Select a lead —</option>' +
     openLeads.map(l=>`<option value="${l.id}" ${l.id===selectedId?'selected':''}>${leadDisplayName(l)}</option>`).join('');
 }
+function switchFuDraftTab(name){
+  document.getElementById('fuTabBtn-email').classList.toggle('active', name==='email');
+  document.getElementById('fuTabBtn-sms').classList.toggle('active', name==='sms');
+  document.getElementById('fuTab-email').classList.toggle('active', name==='email');
+  document.getElementById('fuTab-sms').classList.toggle('active', name==='sms');
+}
+function updateFuSmsCharCount(){
+  const len = document.getElementById('fu_sms_draft').value.length;
+  document.getElementById('fuSmsCharCount').textContent = len + ' characters';
+}
+function renderFuCallSummaryBox(leadId){
+  const box = document.getElementById('fuCallSummaryBox');
+  const lead = DATA.leads.find(x=>x.id===leadId);
+  if(!lead || !lead.interest_notes){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = '';
+  box.innerHTML = `<b>Call Summary (from this lead's notes):</b><br>${lead.interest_notes}`;
+}
 function openFollowUpModal(id, leadId){
-  const f = id ? DATA.post_call_followups.find(x=>x.id===id) : {};
-  document.getElementById('followUpModalTitle').textContent = id ? 'Edit Follow-Up Draft' : 'Log Follow-Up Draft';
+  const f = id ? DATA.post_call_followups.find(x=>x.id===id) : null;
+  document.getElementById('followUpModalTitle').textContent = id ? 'Follow-Up Draft' : 'New Follow-Up Draft';
   document.getElementById('fu_id').value = id || '';
-  populateFollowUpLeadSelect((f&&f.lead_id) || leadId || '');
-  document.getElementById('fu_channel').value = (f&&f.channel) || 'Text';
-  document.getElementById('fu_status').value = (f&&f.status) || 'pending_approval';
-  document.getElementById('fu_draft_text').value = (f&&f.draft_text) || '';
+  document.getElementById('fu_ai_generated').value = (f && f.ai_generated) ? 'true' : 'false';
+  const initialLeadId = (f && f.lead_id) || leadId || '';
+  populateFollowUpLeadSelect(initialLeadId);
+  document.getElementById('fu_status').value = (f && f.status) || 'pending_approval';
+  document.getElementById('fu_email_subject').value = (f && f.email_subject) || '';
+  document.getElementById('fu_email_body').value = (f && f.email_body) || '';
+  document.getElementById('fu_sms_draft').value = (f && f.sms_draft) || '';
+  document.getElementById('fu_rate_discussed').value = (f && f.rate_discussed) || '';
+  document.getElementById('fu_email_collected_on_call').checked = !!(f && f.email_collected_on_call);
+  document.getElementById('fu_attach_service_guide').checked = f ? !!f.attach_service_guide : true;
+  document.getElementById('fu_include_website').checked = f ? !!f.include_website : true;
+  switchFuDraftTab('email');
+  updateFuSmsCharCount();
+  renderFuCallSummaryBox(initialLeadId);
   document.getElementById('followUpModalBackdrop').classList.add('open');
 }
-async function saveFollowUp(){
+async function regenerateFollowUpDraft(){
+  const leadId = document.getElementById('fu_lead_id').value;
+  if(!leadId){ alert('Select which lead this draft is for first.'); return; }
+  const btn = document.getElementById('fuRegenerateBtn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = '🤖 Thinking…';
+  const result = await callAiDraftFollowup(leadId, 'draft');
+  btn.disabled = false; btn.textContent = originalLabel;
+  if(!result) return;
+  if(result.email_subject) document.getElementById('fu_email_subject').value = result.email_subject;
+  if(result.email_body) document.getElementById('fu_email_body').value = result.email_body;
+  if(result.sms_draft) document.getElementById('fu_sms_draft').value = result.sms_draft;
+  if(result.rate_discussed) document.getElementById('fu_rate_discussed').value = result.rate_discussed;
+  if(typeof result.email_collected_on_call === 'boolean') document.getElementById('fu_email_collected_on_call').checked = result.email_collected_on_call;
+  document.getElementById('fu_attach_service_guide').checked = result.attach_service_guide !== false;
+  document.getElementById('fu_include_website').checked = result.include_website !== false;
+  document.getElementById('fu_ai_generated').value = 'true';
+  // A regenerate on an already-approved/sent draft should go back to review, not stay approved silently.
+  const statusSel = document.getElementById('fu_status');
+  if(statusSel.value==='approved' || statusSel.value==='sent') statusSel.value = 'modified';
+  updateFuSmsCharCount();
+  renderFuCallSummaryBox(leadId);
+}
+async function saveFollowUp(forceStatus){
   const leadId = document.getElementById('fu_lead_id').value;
   if(!leadId){ alert('Please select which lead this follow-up is for.'); return; }
   const id = document.getElementById('fu_id').value || uid();
+  const existing = DATA.post_call_followups.find(x=>x.id===id) || {};
+  const lead = DATA.leads.find(x=>x.id===leadId);
   const record = {
     id,
     lead_id: leadId,
-    channel: document.getElementById('fu_channel').value,
-    status: document.getElementById('fu_status').value,
-    draft_text: document.getElementById('fu_draft_text').value.trim(),
-    created_at: (DATA.post_call_followups.find(x=>x.id===id)||{}).created_at || new Date().toISOString(),
+    status: forceStatus || document.getElementById('fu_status').value,
+    call_summary: (lead && lead.interest_notes) || existing.call_summary || '',
+    email_subject: document.getElementById('fu_email_subject').value.trim(),
+    email_body: document.getElementById('fu_email_body').value.trim(),
+    sms_draft: document.getElementById('fu_sms_draft').value.trim(),
+    rate_discussed: document.getElementById('fu_rate_discussed').value.trim(),
+    email_collected_on_call: document.getElementById('fu_email_collected_on_call').checked,
+    attach_service_guide: document.getElementById('fu_attach_service_guide').checked,
+    include_website: document.getElementById('fu_include_website').checked,
+    ai_generated: document.getElementById('fu_ai_generated').value === 'true',
+    created_at: existing.created_at || new Date().toISOString(),
   };
   const idx = DATA.post_call_followups.findIndex(x=>x.id===id);
   if(idx>=0) DATA.post_call_followups[idx]=record; else DATA.post_call_followups.push(record);
@@ -1530,6 +1730,16 @@ async function delayFollowUp(id){
   const f = DATA.post_call_followups.find(x=>x.id===id);
   if(!f) return;
   f.status = 'delayed';
+  await persist('post_call_followups', f);
+  renderPostCallFollowups();
+  updateLeadsSubtabBadges();
+  if(activeLeadsSubtab==='followupqueue') renderFollowUpQueue();
+}
+async function markFollowUpSent(id){
+  const f = DATA.post_call_followups.find(x=>x.id===id);
+  if(!f) return;
+  if(!confirm('Mark this as sent? (This just updates the tracker — send the email/text yourself first.)')) return;
+  f.status = 'sent';
   await persist('post_call_followups', f);
   renderPostCallFollowups();
   updateLeadsSubtabBadges();
@@ -1653,11 +1863,15 @@ function openFollowUpDetail(leadId){
   </div>`;
   html += `<div class="section-title">Follow-Up Draft</div>`;
   if(draft){
-    html += `<div class="ai-box"><b>${draft.channel}</b> — ${fuStatusBadge(draft.status)}<br><br>"${draft.draft_text}"</div>
-      <div style="margin-top:8px;"><button class="linklike" onclick="closeModal('fqDetailModalBackdrop');openFollowUpModal('${draft.id}')">Edit this draft</button></div>`;
+    html += `<div class="ai-box">${fuStatusBadge(draft.status)} ${draft.ai_generated?'🤖 AI-drafted':'✍️ Manual'}<br><br>
+      ${draft.email_subject||draft.email_body?`<b>📧 ${draft.email_subject||'(no subject)'}</b><br>${(draft.email_body||'').slice(0,220)}${(draft.email_body||'').length>220?'…':''}<br><br>`:''}
+      ${draft.sms_draft?`<b>💬 SMS:</b> ${draft.sms_draft.slice(0,140)}${draft.sms_draft.length>140?'…':''}`:''}
+      ${(!draft.email_subject && !draft.email_body && !draft.sms_draft) ? 'Draft is empty — open it to write or generate one.' : ''}
+    </div>
+      <div style="margin-top:8px;"><button class="linklike" onclick="closeModal('fqDetailModalBackdrop');openFollowUpModal('${draft.id}')">Open this draft</button></div>`;
   } else {
     html += `<div class="ai-box">No follow-up draft logged for this lead yet.</div>
-      <div style="margin-top:8px;"><button class="linklike" onclick="closeModal('fqDetailModalBackdrop');openFollowUpModal(null,'${l.id}')">+ Log a follow-up draft</button></div>`;
+      <div style="margin-top:8px;"><button class="linklike" onclick="closeModal('fqDetailModalBackdrop');openFollowUpModal(null,'${l.id}')">🤖 Start a follow-up draft</button></div>`;
   }
   html += `<div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;">
     ${phone ? `<a class="primary" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;" href="tel:${phone}">📞 Call Now</a>` : ''}
