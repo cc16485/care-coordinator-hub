@@ -181,6 +181,17 @@
   .webhook-box{background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
   .webhook-box code{font-size:11px;word-break:break-all;}
 
+  /* ---- Lead profile page ---- */
+  .profile-grid{display:grid;grid-template-columns:360px 1fr;gap:16px;align-items:start;}
+  @media(max-width:960px){.profile-grid{grid-template-columns:1fr;}.lp-docslots{grid-template-columns:1fr !important;}}
+  .lp-attr-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px dashed #FDE68A;font-size:13px;}
+  .lp-attr-row:last-child{border-bottom:none;}
+  .lp-attr-opts{display:flex;gap:4px;flex:0 0 auto;}
+  .lp-attr-opts button{border:1px solid var(--border);background:#fff;border-radius:999px;font-size:11.5px;font-weight:700;padding:4px 10px;color:var(--text-muted);}
+  .lp-attr-opts button.on-yes{background:var(--green-bg);color:var(--green);border-color:var(--green);}
+  .lp-attr-opts button.on-no{background:var(--red-bg);color:var(--red);border-color:var(--red);}
+  .lp-attr-opts button.on-pref{background:var(--blue-bg);color:#1D4ED8;border-color:#93C5FD;}
+
   .lock-screen{position:fixed;inset:0;background:rgba(15,23,42,.6);display:none;align-items:center;justify-content:center;z-index:60;}
   .lock-screen.open{display:flex;}
   .lock-card{background:#fff;border-radius:12px;padding:28px;width:300px;text-align:center;}
@@ -445,6 +456,120 @@
 <div class="card"><div id="onCallTableWrap"></div></div>
 </section>
 
+<!-- ===================== LEAD PROFILE PAGE ===================== -->
+<section id="leadProfileView" style="display:none;">
+  <button class="linklike" style="font-size:13px;margin-bottom:12px;" onclick="closeLeadProfile()">← Back to Leads</button>
+  <div class="profile-grid">
+    <div><!-- LEFT COLUMN -->
+      <div class="card" style="padding:18px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <select id="lp_status" onchange="lpSetStatus(this.value)" style="width:auto;font-weight:600;">
+            <option>New</option><option>Contacted</option><option>Assessment Scheduled</option><option>Converted</option><option>Lost</option>
+          </select>
+          <span class="field-note" id="lp_id_label" style="margin-left:auto;"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div id="lp_avatar" style="width:52px;height:52px;border-radius:50%;background:var(--blue-bg);color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:0 0 auto;"></div>
+          <div style="min-width:0;">
+            <div id="lp_name" style="font-size:18px;font-weight:800;color:var(--navy);"></div>
+            <div id="lp_for" class="field-note"></div>
+          </div>
+        </div>
+        <div style="margin-top:12px;font-size:13.5px;line-height:2;">
+          <div id="lp_phone_row">📞 <a id="lp_phone" href="#"></a></div>
+          <div id="lp_email_row">✉️ <span id="lp_email"></span></div>
+        </div>
+        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;font-size:13px;">
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Urgency</span><b id="lp_urgency"></b></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Assigned</span><b id="lp_assigned"></b></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Follow-up due</span><b id="lp_due"></b></div>
+        </div>
+        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;">
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:6px;">Intent tags</div>
+          <div id="lp_tags" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+          <input id="lp_tag_input" placeholder="Add a tag + Enter" style="margin-top:8px;font-size:13px;" onkeydown="if(event.key==='Enter')lpAddTag()">
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+          <button class="secondary" onclick="openLeadModal(lpLead.id)">✏️ Edit intake form</button>
+          <button class="secondary" onclick="scheduleAssessmentFromLead(lpLead.id)">📅 Schedule assessment</button>
+        </div>
+      </div>
+
+      <div class="card" style="padding:18px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-size:14px;color:var(--navy);">✨ AI Needs Summary</b>
+          <button class="linklike" style="margin-left:auto;" id="lp_ai_btn" onclick="lpAiSummary()">🤖 Summarize</button>
+        </div>
+        <div id="lp_ai_summary" style="font-size:13px;line-height:1.6;margin-top:8px;color:var(--text);">No summary yet — click 🤖 Summarize and the AI reads the call notes.</div>
+        <div id="lp_ai_flags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+      </div>
+
+      <div class="card" style="padding:18px;margin-bottom:14px;background:#FFFDF5;border-color:#FDE68A;">
+        <b style="font-size:14px;color:var(--navy);">📋 AxisCare Attributes (client)</b>
+        <div class="field-note" style="margin:4px 0 10px;">AxisCare's API can't set attributes — answer here, then copy the checklist and click down AxisCare's Attributes screen in the same order.</div>
+        <div id="lp_attrs"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
+          <button class="secondary" onclick="lpCopyAttrs()">📋 Copy checklist</button>
+          <span id="lp_attr_entered"></span>
+        </div>
+      </div>
+    </div>
+
+    <div><!-- RIGHT COLUMN -->
+      <div class="card" style="padding:18px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="font-size:16px;color:var(--navy);">Communications</b>
+          <span style="flex:1;"></span>
+          <a id="commsCallBtn" href="#" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;color:var(--text);background:#fff;">☎ Call</a>
+          <button type="button" class="secondary" onclick="logManualCall()">📝 Log a call</button>
+          <button type="button" class="secondary" onclick="refreshCommsTimeline(this)">↻ Refresh</button>
+        </div>
+        <div id="commsLocked" class="field-note" style="display:none;margin-top:8px;"></div>
+        <div id="commsPanel" style="display:none;">
+          <div id="commsTabs" style="display:flex;gap:4px;margin:12px 0 8px;flex-wrap:wrap;">
+            <button class="filter-pill active" data-cf="all" onclick="lpCommsFilter('all',this)">All</button>
+            <button class="filter-pill" data-cf="sms" onclick="lpCommsFilter('sms',this)">💬 Texts</button>
+            <button class="filter-pill" data-cf="email" onclick="lpCommsFilter('email',this)">✉️ Emails</button>
+            <button class="filter-pill" data-cf="call" onclick="lpCommsFilter('call',this)">☎ Calls</button>
+            <button class="filter-pill" data-cf="note" onclick="lpCommsFilter('note',this)">📝 Notes</button>
+          </div>
+          <div id="commsTimeline" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:10px;">
+            <div class="field-note">Loading conversation…</div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <input id="commsSmsInput" placeholder="Text this lead…" onkeydown="if(event.key==='Enter')sendLeadSms()">
+            <button type="button" class="primary" id="commsSmsBtn" onclick="sendLeadSms()" style="white-space:nowrap;">Send text</button>
+          </div>
+          <details style="margin-top:8px;">
+            <summary style="cursor:pointer;font-size:12.5px;font-weight:600;color:var(--navy);">✉️ Send an email instead</summary>
+            <input id="commsEmailSubject" placeholder="Subject" style="margin-top:8px;">
+            <textarea id="commsEmailBody" rows="4" placeholder="Email body… (sent with the standard Caring Companions styling)" style="margin-top:6px;"></textarea>
+            <button type="button" class="primary" id="commsEmailBtn" style="margin-top:6px;" onclick="sendLeadEmail()">Send email</button>
+          </details>
+        </div>
+      </div>
+
+      <div class="card" style="padding:18px;">
+        <b style="font-size:16px;color:var(--navy);">Documents</b>
+        <div class="field-note" style="margin:4px 0 12px;">Stored securely on this lead's record. (AxisCare's API can't receive documents — attach there by hand if a copy is needed in AxisCare too.)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" class="lp-docslots">
+          <label style="border:1.5px dashed var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer;display:block;margin:0;font-weight:600;">
+            ⬆️ Upload EMOMED PDF<input type="file" style="display:none;" onchange="uploadLeadDoc('EMOMED',this)">
+            <span id="lp_doc_emomed" class="field-note" style="display:block;margin-top:4px;">Medicaid verification</span>
+          </label>
+          <label style="border:1.5px dashed var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer;display:block;margin:0;font-weight:600;">
+            ⬆️ Upload FUSION PDF<input type="file" style="display:none;" onchange="uploadLeadDoc('FUSION',this)">
+            <span id="lp_doc_fusion" class="field-note" style="display:block;margin-top:4px;">Referral proof</span>
+          </label>
+        </div>
+        <label style="border:1.5px dashed var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer;display:block;margin:10px 0 0;font-weight:600;">
+          ⬆️ Upload any other document<input type="file" style="display:none;" onchange="uploadLeadDoc('General',this)">
+        </label>
+        <div id="lp_docs" style="margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+</section>
 </main>
 </div>
 
@@ -646,28 +771,7 @@
 <div><label>Intent Tags</label><input id="lead_intent_tags" placeholder="e.g. ready to start, comparing agencies"></div>
 </div>
 
-<div class="section-title">Communications</div>
-<div id="commsLocked" class="field-note" style="display:none;margin-bottom:6px;"></div>
-<div id="commsPanel" style="display:none;">
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-    <a id="commsCallBtn" href="#" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;color:var(--text);background:#fff;">☎ Call</a>
-    <button type="button" class="secondary" onclick="logManualCall()">📝 Log a call</button>
-    <button type="button" class="secondary" onclick="refreshCommsTimeline(this)">↻ Refresh</button>
-  </div>
-  <div id="commsTimeline" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:10px;">
-    <div class="field-note">Loading conversation…</div>
-  </div>
-  <div style="display:flex;gap:6px;margin-top:8px;">
-    <input id="commsSmsInput" placeholder="Text this lead…" onkeydown="if(event.key==='Enter')sendLeadSms()">
-    <button type="button" class="primary" id="commsSmsBtn" onclick="sendLeadSms()" style="white-space:nowrap;">Send text</button>
-  </div>
-  <details style="margin-top:8px;">
-    <summary style="cursor:pointer;font-size:12.5px;font-weight:600;color:var(--navy);">✉️ Send an email instead</summary>
-    <input id="commsEmailSubject" placeholder="Subject" style="margin-top:8px;">
-    <textarea id="commsEmailBody" rows="4" placeholder="Email body… (sent with the standard Caring Companions styling)" style="margin-top:6px;"></textarea>
-    <button type="button" class="primary" id="commsEmailBtn" style="margin-top:6px;" onclick="sendLeadEmail()">Send email</button>
-  </details>
-</div>
+<div class="field-note" style="margin-top:14px;">💬 Texts, emails, calls and documents for this lead live on their profile page (Leads table → View Profile).</div>
 
 <div class="modal-actions">
 <button class="secondary" onclick="closeModal('leadModalBackdrop')">Cancel</button>
@@ -1310,6 +1414,8 @@ window.addEventListener('online', flushPendingSync);
 
 /* ---------------- TABS ---------------- */
 function switchTab(tab){
+  const lpv = document.getElementById('leadProfileView');
+  if(lpv) lpv.style.display='none';
   activeTab = tab;
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
@@ -1387,6 +1493,7 @@ function renderLeads(){
       <td>${l.follow_up_due ? (l.follow_up_due<=today()?'<span class="badge bad">'+l.follow_up_due+'</span>':l.follow_up_due) : '—'}</td>
       <td>${l.assigned_coordinator||''}</td>
       <td>
+        <button class="linklike" style="font-weight:700;" onclick="openLeadProfile('${l.id}')">View Profile</button>
         <button class="linklike" onclick="openLeadModal('${l.id}')">Edit</button>
         <button class="linklike" onclick="scheduleAssessmentFromLead('${l.id}')">Schedule Assessment</button>
       </td>
@@ -1517,7 +1624,6 @@ function openLeadModal(id){
   document.getElementById('lead_follow_up_due').value = l.follow_up_due||'';
   document.getElementById('lead_intent_tags').value = (l.intent_tags||[]).join(', ');
 
-  initCommsPanel(id ? l : null);
   document.getElementById('leadModalBackdrop').classList.add('open');
 }
 
@@ -1582,7 +1688,10 @@ function renderCommsTimeline(){
   const box = document.getElementById('commsTimeline');
   const manual = (commsLead && commsLead.comm_log ? commsLead.comm_log : []).map(n=>({
     kind:'note', direction:'outbound', body:n.body, at:n.at, by:n.by }));
-  const items = commsRemote.concat(manual).sort((a,b)=>new Date(a.at)-new Date(b.at));
+  let items = commsRemote.concat(manual).sort((a,b)=>new Date(a.at)-new Date(b.at));
+  if(typeof lpCommsKind!=='undefined' && lpCommsKind!=='all'){
+    items = items.filter(m=> lpCommsKind==='call' ? (m.kind==='call'||m.kind==='voicemail') : m.kind===lpCommsKind);
+  }
   if(!items.length){
     box.innerHTML = '<div class="field-note">No messages yet — texts and emails you send from here (and recorded calls, once the phone menu is live) will show up in order.</div>';
     return;
@@ -1645,6 +1754,187 @@ async function logManualCall(){
   commsLead.comm_log.push({ body: note.trim().slice(0,600), at: new Date().toISOString(), by });
   await persist('leads', commsLead);
   renderCommsTimeline();
+}
+
+/* ---------------- LEAD PROFILE PAGE ---------------- */
+const LP_ATTRS = [
+  ['alzheimers',"Alzheimer's Disease","Client has been diagnosed with Alzheimer's Disease.",false],
+  ['bed_bound','Bed Bound','Client is primarily bed bound.',false],
+  ['cats','Cats','Client has a cat in the home.',false],
+  ['dementia','Dementia','Client has been diagnosed with Dementia.',false],
+  ['dogs','Dogs','Client has a dog in the home.',false],
+  ['female_caregiver','Female Caregiver','Client prefers or requires a female caregiver.',true],
+  ['gait_belt','Gait Belt','Client requires gait belt assistance.',false],
+  ['hospice','Hospice','Client is receiving hospice or end-of-life services.',false],
+  ['hoyer_lift','Hoyer Lift','Client requires Hoyer lift experience.',false],
+  ['live_in','Live-In','Client requires live-in caregiving services.',false],
+  ['male_caregiver','Male Caregiver','Client prefers or requires a male caregiver.',true],
+  ['parkinsons',"Parkinson's Disease Experience","Client would benefit from a caregiver with Parkinson's experience.",true],
+  ['payor_medicaid','Payor - Medicaid','Client is (or will be) a Medicaid IHS client.',false],
+  ['payor_private_pay','Payor - Private Pay','Client is private pay.',false],
+  ['personal_care','Personal Care','Client needs hands-on help with bathing, dressing, grooming, toileting, or hygiene.',false],
+  ['smoking','Smoking','Client smokes in the home.',false],
+  ['spanish_speaking','Spanish Speaking','Client requires a Spanish-speaking caregiver.',true],
+  ['transportation','Transportation',"Client requires transportation in the caregiver's vehicle.",false],
+];
+let lpLead = null;
+let lpCommsKind = 'all';
+
+function openLeadProfile(id){
+  const lead = DATA.leads.find(l=>l.id===id);
+  if(!lead) return;
+  lpLead = lead;
+  lpCommsKind = 'all';
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('leadProfileView').style.display='block';
+  renderLeadProfile();
+  initCommsPanel(lead);
+  document.querySelectorAll('#commsTabs .filter-pill').forEach(b=>b.classList.toggle('active', b.dataset.cf==='all'));
+  window.scrollTo(0,0);
+}
+function closeLeadProfile(){
+  lpLead = null;
+  document.getElementById('leadProfileView').style.display='none';
+  const btn = document.querySelector('nav.tabs button[data-tab="leads"]');
+  if(btn) btn.classList.add('active');
+  switchTab('leads');
+}
+function renderLeadProfile(){
+  const l = lpLead; if(!l) return;
+  const esc = escapeHtmlComms;
+  const name = [l.first_name,l.last_name].filter(Boolean).join(' ')||'(no name)';
+  document.getElementById('lp_status').value = l.status||'New';
+  document.getElementById('lp_id_label').textContent = 'Lead · added '+String(l.created_at||'').slice(0,10);
+  document.getElementById('lp_avatar').textContent = ((l.first_name||' ')[0]+(l.last_name||' ')[0]).toUpperCase().trim()||'?';
+  document.getElementById('lp_name').textContent = name;
+  const client = l.client_name_not_provided ? '' : [l.client_first_name,l.client_last_name].filter(Boolean).join(' ');
+  document.getElementById('lp_for').textContent = client ? ('Inquiring for: '+client+(l.relationship?(' ('+l.relationship+')'):'')) : (l.relationship||'');
+  document.getElementById('lp_phone_row').style.display = l.phone?'block':'none';
+  const ph = document.getElementById('lp_phone'); ph.textContent = l.phone||''; ph.href = 'tel:'+String(l.phone||'').replace(/[^0-9+]/g,'');
+  document.getElementById('lp_email_row').style.display = l.email?'block':'none';
+  document.getElementById('lp_email').textContent = l.email||'';
+  document.getElementById('lp_urgency').textContent = l.urgency||'—';
+  document.getElementById('lp_assigned').textContent = l.assigned_coordinator||'—';
+  document.getElementById('lp_due').textContent = l.follow_up_due||'—';
+  document.getElementById('lp_tags').innerHTML = (l.intent_tags||[]).map((t,i)=>
+    '<span class="tag-chip">'+esc(t)+' <a href="#" onclick="lpRemoveTag('+i+');return false;" style="text-decoration:none;color:var(--text-muted);">✕</a></span>').join('')||'<span class="field-note">none yet</span>';
+  document.getElementById('lp_ai_summary').textContent = l.ai_needs_summary || 'No summary yet — click 🤖 Summarize and the AI reads the call notes.';
+  document.getElementById('lp_ai_flags').innerHTML = (l.ai_care_flags||[]).map(f=>
+    '<span class="badge bad" style="background:var(--red-bg);">'+esc(f)+'</span>').join('');
+  renderLpAttrs();
+  renderLeadDocs();
+}
+async function lpSetStatus(v){ if(!lpLead) return; lpLead.status=v; await persist('leads',lpLead); renderLeads&&renderLeads(); }
+async function lpAddTag(){
+  const inp=document.getElementById('lp_tag_input'); const t=inp.value.trim(); if(!t||!lpLead) return;
+  lpLead.intent_tags=(lpLead.intent_tags||[]); lpLead.intent_tags.push(t); inp.value='';
+  await persist('leads',lpLead); renderLeadProfile();
+}
+async function lpRemoveTag(i){ if(!lpLead) return; (lpLead.intent_tags||[]).splice(i,1); await persist('leads',lpLead); renderLeadProfile(); }
+async function lpAiSummary(){
+  if(!lpLead) return;
+  const btn=document.getElementById('lp_ai_btn');
+  btn.disabled=true; btn.textContent='🤖 Reading notes…';
+  try{
+    const result = await callAiDraftFollowup(lpLead.id,'summary');
+    if(result && result.needs_summary){
+      lpLead.ai_needs_summary = result.needs_summary;
+      lpLead.ai_care_flags = result.care_flags||[];
+      await persist('leads',lpLead);
+      renderLeadProfile();
+    }else if(result){ alert('The AI answered but without a summary — try again.'); }
+  } finally { btn.disabled=false; btn.textContent='🤖 Summarize'; }
+}
+function lpCommsFilter(kind, btn){
+  lpCommsKind = kind;
+  document.querySelectorAll('#commsTabs .filter-pill').forEach(b=>b.classList.toggle('active', b===btn));
+  renderCommsTimeline();
+}
+function renderLpAttrs(){
+  const box=document.getElementById('lp_attrs'); const l=lpLead; if(!box||!l) return;
+  const vals=l.client_attributes||{};
+  box.innerHTML = LP_ATTRS.map(a=>{
+    const v=vals[a[0]]||'';
+    return '<div class="lp-attr-row">'
+      +'<div class="lp-attr-opts">'
+      +'<button class="'+(v==='yes'?'on-yes':'')+'" onclick="lpSetAttr(\''+a[0]+'\',\'yes\')">Yes</button>'
+      +'<button class="'+(v==='no'?'on-no':'')+'" onclick="lpSetAttr(\''+a[0]+'\',\'no\')">No</button>'
+      +(a[3]?'<button class="'+(v==='preferred'?'on-pref':'')+'" onclick="lpSetAttr(\''+a[0]+'\',\'preferred\')">Pref</button>':'')
+      +'</div>'
+      +'<div style="min-width:0;"><b>'+a[1]+'</b><div class="field-note">'+a[2]+'</div></div>'
+      +'</div>';
+  }).join('');
+  const ent=document.getElementById('lp_attr_entered');
+  ent.innerHTML = l.attributes_entered_at
+    ? '<span class="badge ok">Entered in AxisCare ✓</span>'
+    : '<button class="linklike" onclick="lpMarkAttrsEntered()">☑ Mark entered in AxisCare</button>';
+}
+async function lpSetAttr(key,val){
+  if(!lpLead) return;
+  lpLead.client_attributes = lpLead.client_attributes||{};
+  lpLead.client_attributes[key] = (lpLead.client_attributes[key]===val) ? '' : val;
+  lpLead.attributes_entered_at = null; // answers changed — needs re-entry
+  await persist('leads',lpLead);
+  renderLpAttrs();
+}
+async function lpMarkAttrsEntered(){
+  if(!lpLead) return;
+  lpLead.attributes_entered_at = new Date().toISOString();
+  await persist('leads',lpLead);
+  renderLpAttrs();
+}
+function lpCopyAttrs(){
+  const vals=(lpLead&&lpLead.client_attributes)||{};
+  const text = 'AXISCARE ATTRIBUTES — '+((lpLead.first_name||'')+' '+(lpLead.last_name||'')).trim()+'\n'
+    + LP_ATTRS.map(a=>{
+        const v=vals[a[0]];
+        return (v==='yes'?'YES':v==='no'?'NO ':v==='preferred'?'PREF':'—  ')+' — '+a[1];
+      }).join('\n');
+  navigator.clipboard.writeText(text).then(()=>alert('Checklist copied — paste it beside AxisCare and click down the Attributes screen.'));
+}
+
+/* ---- Lead documents (Supabase Storage, shared project, bucket lead-docs) ---- */
+async function uploadLeadDoc(slot, input){
+  const file = input.files && input.files[0]; input.value='';
+  if(!file || !lpLead) return;
+  if(file.size > 20*1024*1024){ alert('That file is over 20 MB — please shrink it first.'); return; }
+  const path = lpLead.id+'/'+slot+'-'+Date.now()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+  const { error } = await sb.storage.from('lead-docs').upload(path, file);
+  if(error){ alert('Upload failed: '+error.message+(String(error.message).match(/bucket/i)?' — has the lead-docs SQL been run yet?':'')); return; }
+  lpLead.docs = lpLead.docs||[];
+  lpLead.docs.push({ slot, name:file.name, path, size:file.size, at:new Date().toISOString() });
+  await persist('leads',lpLead);
+  renderLeadDocs();
+}
+async function openLeadDoc(path){
+  const { data, error } = await sb.storage.from('lead-docs').createSignedUrl(path, 3600);
+  if(error||!data){ alert('Could not open the file: '+(error?error.message:'unknown')); return; }
+  window.open(data.signedUrl,'_blank','noopener');
+}
+async function deleteLeadDoc(path){
+  if(!lpLead || !confirm('Delete this document? This cannot be undone.')) return;
+  await sb.storage.from('lead-docs').remove([path]);
+  lpLead.docs = (lpLead.docs||[]).filter(d=>d.path!==path);
+  await persist('leads',lpLead);
+  renderLeadDocs();
+}
+function renderLeadDocs(){
+  const l=lpLead; if(!l) return;
+  const esc=escapeHtmlComms;
+  const docs=l.docs||[];
+  const em=docs.filter(d=>d.slot==='EMOMED').length, fu=docs.filter(d=>d.slot==='FUSION').length;
+  document.getElementById('lp_doc_emomed').textContent = em?('✓ '+em+' on file'):'Medicaid verification';
+  document.getElementById('lp_doc_fusion').textContent = fu?('✓ '+fu+' on file'):'Referral proof';
+  document.getElementById('lp_docs').innerHTML = docs.length ? docs.slice().reverse().map(d=>
+    '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+    +'<span style="flex:0 0 auto;">📄</span>'
+    +'<a href="#" onclick="openLeadDoc(\''+esc(d.path)+'\');return false;" style="font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(d.name)+'</a>'
+    +'<span class="tag-chip">'+esc(d.slot)+'</span>'
+    +'<span class="field-note" style="margin-left:auto;white-space:nowrap;">'+String(d.at||'').slice(0,10)+' · '+(d.size?Math.round(d.size/1024)+' KB':'')+'</span>'
+    +'<button class="linklike" onclick="deleteLeadDoc(\''+esc(d.path)+'\')">🗑</button>'
+    +'</div>').join('')
+    : '<div class="field-note">Nothing uploaded yet.</div>';
 }
 
 async function saveLead(){
