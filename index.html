@@ -313,6 +313,7 @@
     <nav class="tabs" id="tabNav">
       <button data-tab="today" class="active" onclick="switchTab('today')"><span class="ni">🏠</span>Overview<span class="subtab-badge red" id="todayBadge" style="display:none;margin-left:auto;"></span></button>
       <button data-tab="leads" onclick="switchTab('leads')"><span class="ni">📞</span>Leads</button>
+      <button data-tab="soc" onclick="switchTab('soc')"><span class="ni">🏥</span>Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;margin-left:auto;"></span></button>
       <button data-tab="referrers" onclick="switchTab('referrers')"><span class="ni">🤝</span>Referrers</button>
       <button data-tab="assessments" onclick="switchTab('assessments')"><span class="ni">📋</span>Care Assessments</button>
       <button data-tab="checkins" onclick="switchTab('checkins')"><span class="ni">💚</span>Client Check-ins</button>
@@ -323,7 +324,7 @@
     <div class="sidenav-user">
       <span class="su-avatar" id="navAvatar">·</span>
       <span style="min-width:0;"><b id="navUserName" style="display:block;font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Signed in</b>
-      <span style="font-size:11px;color:#8FB0CE;">Care Coordinator</span></span>
+      <span style="font-size:11px;color:#8FB0CE;" id="navUserRole">Care Coordinator</span></span>
       <button class="linklike" onclick="openSettings()" title="Settings" style="margin-left:auto;color:#9FB6CC;font-size:15px;">⚙️</button>
     </div>
   </aside>
@@ -333,6 +334,8 @@
     <input class="search" id="globalSearch" placeholder="🔍 Search leads, clients, referrers…" oninput="renderActiveTab()">
     <div class="spacer"></div>
     <span class="pill" id="syncPill">☁ Synced</span>
+    <button class="ghost" onclick="openStaffingModal()" title="Send a to-do or update to the Staffing Coordinator — scheduling issues, coverage gaps, caregiver changes">📨 Staffing</button>
+    <button class="ghost" onclick="openHandoffModal()" title="Ending your shift? Pass everything time-sensitive to the next coordinator">🔄 Hand off shift</button>
     <a class="ghost" href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" title="Augusta — recruiting, prescreening & interview scheduling">🌱 Augusta</a>
     <a class="ghost" href="https://hub.mo-care.com/offer.html" rel="noopener" title="Just interviewed someone? Fill this out while it's fresh — it sends their welcome text and starts onboarding tracking">📋 Offer a Job</a>
     <a class="ghost" href="https://hub.mo-care.com" rel="noopener" title="Back to the Team Hub">🏠 Team Hub</a>
@@ -354,6 +357,9 @@
         <span style="flex:1;"></span>
         <button class="primary" onclick="openActivityModal()">＋ Schedule an activity</button>
       </div>
+      <div id="handoffBanner"></div>
+      <div id="mgrStrip"></div>
+      <div id="coordMsgs"></div>
       <div class="kpi-grid" id="kpiGrid"></div>
       <div class="card" style="padding:18px 20px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -385,6 +391,33 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <!-- ===================== TAB: START OF CARE ===================== -->
+    <section class="tabpanel" id="tab-soc">
+      <details class="guide">
+        <summary>📋 How Start of Care Works — the three ways a Medicaid case arrives ▼</summary>
+        <div class="guide-body">
+          <div class="guide-step"><span class="num">A1</span><b>Brand-new referral</b> — the family calls us first and has never had HCBS services. We explain the program (DSDS decides eligibility, not us), get permission, and submit the referral in <b>FUSION</b>. DSDS assesses, and if approved, offers us the case.</div>
+          <div class="guide-step"><span class="num">A2</span><b>PCCP transfer</b> — they already have services but want to switch to us. We get consent and enter the PCCP request in FUSION; DSDS coordinates the transfer and sends the authorization (a new assessment usually isn't needed).</div>
+          <div class="guide-step"><span class="num">B</span><b>DSDS calls us</b> — the state offers us a case directly with the care plan and authorized hours. We decide whether we can staff it and notify DSDS.</div>
+          <div class="guide-step"><span class="num">→</span>From acceptance on, all three paths merge into the same start-of-care checklist, through to the 24–72 hour follow-up calls. The <b>evening coordinator</b> owns FUSION entry, authorizations and care-plan input; <b>daytime</b> owns the welcome call, caregiver match and scheduling.</div>
+        </div>
+      </details>
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Start of Care</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Every accepted case, from referral to first completed shift. Open the lead to check steps off.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="socFilters">
+        <button class="filter-pill active" data-sf="active" onclick="socFilter('active',this)">In progress</button>
+        <button class="filter-pill" data-sf="stuck" onclick="socFilter('stuck',this)">⚠ Stuck</button>
+        <button class="filter-pill" data-sf="evening" onclick="socFilter('evening',this)">Evening steps</button>
+        <button class="filter-pill" data-sf="day" onclick="socFilter('day',this)">Daytime steps</button>
+        <button class="filter-pill" data-sf="done" onclick="socFilter('done',this)">Completed</button>
+      </div>
+      <div id="socList"></div>
     </section>
 
     <section class="tabpanel" id="tab-leads">
@@ -631,6 +664,7 @@
           <button class="secondary" onclick="scheduleAssessmentFromLead(lpLead.id)">📅 Schedule assessment</button>
           <button class="secondary" onclick="lpPrintFacesheet()">🖨 Print facesheet</button>
           <button class="secondary" onclick="openActivityModal(lpLead.id)">📅 Schedule activity</button>
+          <button class="secondary" onclick="openStaffingModal(lpLead.id)">📨 Send to Staffing</button>
           <button class="primary" id="lp_convert_btn" onclick="lpConvertLead()">✅ Convert → AxisCare client</button>
         </div>
         <div id="lp_converted" class="field-note" style="margin-top:8px;display:none;"></div>
@@ -643,6 +677,15 @@
         </div>
         <div id="lp_ai_summary" style="font-size:13px;line-height:1.6;margin-top:8px;color:var(--text);">No summary yet — click 🤖 Summarize and the AI reads the call notes.</div>
         <div id="lp_ai_flags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
+      </div>
+
+      <div class="card" style="padding:18px;margin-bottom:14px;border-color:#BBD3E8;" id="lp_soc_card">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="font-size:14px;color:var(--navy);">🏥 Start of Care</b>
+          <span style="flex:1;"></span>
+          <span class="field-note" id="lp_soc_progress"></span>
+        </div>
+        <div id="lp_soc_body" style="margin-top:10px;"></div>
       </div>
 
       <div class="card" style="padding:18px;margin-bottom:14px;">
@@ -1221,6 +1264,48 @@
 </div>
 </div>
 
+<!-- ===================== SHIFT HANDOFF MODAL ===================== -->
+<div class="modal-backdrop" id="handoffModalBackdrop">
+<div class="modal" style="max-width:640px;">
+<h2>🔄 Hand off your shift</h2>
+<p class="hint" style="margin-top:2px;">Everything time-sensitive below was gathered automatically. Uncheck anything that shouldn't carry over, add a note where context helps, and add anything the lists missed. The next coordinator sees this the moment they open the hub.</p>
+<div id="handoffItems" style="max-height:340px;overflow-y:auto;margin:12px 0;"></div>
+<label>Anything else the next coordinator should know?</label>
+<textarea id="handoffGeneralNote" rows="2" placeholder="e.g. The Hendersons are deciding tonight — if they call, the quote we gave is $32/hr…"></textarea>
+<div style="display:flex;gap:8px;margin-top:8px;">
+<input id="handoffCustomItem" placeholder="Add an extra item… (+ Enter)" onkeydown="if(event.key==='Enter')addHandoffCustom()">
+<button class="secondary" onclick="addHandoffCustom()" style="white-space:nowrap;">＋ Add</button>
+</div>
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('handoffModalBackdrop')">Cancel</button>
+<button class="primary" onclick="postHandoff()">Post handoff</button>
+</div>
+</div>
+</div>
+
+<!-- ===================== SEND TO STAFFING MODAL ===================== -->
+<div class="modal-backdrop" id="staffingModalBackdrop">
+<div class="modal" style="max-width:640px;">
+<h2>📨 Send to the Staffing Coordinator</h2>
+<p class="hint" style="margin-top:2px;">Took a call that's really a scheduling matter? Send it over — it lands in the Staffing Hub instantly, stamped from you, and you'll see here when it's done.</p>
+<div class="grid2" style="margin-top:10px;">
+<div><label>What is it?</label>
+<select id="stask_kind"><option value="todo">To-do — needs action</option><option value="update">Update — just so they know</option></select></div>
+<div><label>How urgent?</label>
+<select id="stask_urgency"><option>Today</option><option selected>This week</option><option>When you can</option></select></div>
+</div>
+<label>Who is it about? <span style="font-weight:400;color:var(--text-muted);">(client, caregiver, or lead — optional)</span></label>
+<input id="stask_about" placeholder="e.g. Mrs. Henderson / caregiver Dana W.">
+<label>The message</label>
+<textarea id="stask_message" rows="3" placeholder="e.g. Daughter called — Tuesday caregiver can't come anymore, needs coverage arranged by next week."></textarea>
+<div id="staskSentList" style="margin-top:14px;"></div>
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('staffingModalBackdrop')">Close</button>
+<button class="primary" onclick="sendStaffingTask()">Send to Staffing</button>
+</div>
+</div>
+</div>
+
 <div class="modal-backdrop" id="settingsModalBackdrop">
 <div class="modal" style="max-width:720px;">
 <h2>⚙️ Settings</h2>
@@ -1270,13 +1355,24 @@
 
 <div class="settings-section">
 <h3>Staff &amp; Notifications</h3>
-<p class="hint">Add coordinators and choose which automated alerts each person gets — used by the reminder Zap in Care_Coordinator_Zapier_Setup.md to decide who to email.</p>
+<p class="hint">Add each coordinator with the <b>email they sign in with</b> — that's how the hub knows who's who: it shapes their view, stamps their work, and routes shift handoffs. Samantha's account always sees everything.</p>
 <div id="staffListWrap"></div>
 <div class="grid2" style="margin-top:10px;">
 <div><label>Name</label><input id="new_staff_name"></div>
 <div>
 <label>Role</label>
 <select id="new_staff_role"><option>Care Coordinator</option><option>Staffing Coordinator</option><option>Owner</option><option>Other</option></select>
+</div>
+</div>
+<div class="grid2">
+<div><label>Sign-in email</label><input id="new_staff_email" placeholder="name@mo-care.com"></div>
+<div>
+<label>Shift</label>
+<select id="new_staff_shift">
+<option value="day">Daytime (M–F 8am–2pm)</option>
+<option value="evening">Evening (5–9pm) — Medicaid start-of-care</option>
+<option value="manager">Manager / after-hours (sees everything)</option>
+</select>
 </div>
 </div>
 <div class="grid2">
@@ -1336,7 +1432,10 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [] };
+/* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
+   shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
+let ME = { email:'', name:'', shift:'day' };
 let activeTab = 'today';
 let activeLeadsSubtab = 'pipeline';
 let fqBranchFilter = 'all';
@@ -1446,12 +1545,27 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
   }
   document.getElementById('syncPill').textContent = '☁ Synced';
+  await resolveMe();
+}
+async function resolveMe(){
+  let email='';
+  try{ const { data:{ session } } = await sb.auth.getSession(); email=((session&&session.user&&session.user.email)||'').toLowerCase(); }catch(e){}
+  const staff=(DATA.coordinator_staff||[]).find(s=>(s.email||'').toLowerCase()===email && email);
+  ME = {
+    email,
+    name: (staff&&staff.name) || navUserFirst || (email.split('@')[0]||''),
+    shift: email==='samantha@mo-care.com' ? 'manager' : ((staff&&staff.shift)||'day'),
+  };
+  const roleEl=document.getElementById('navUserRole');
+  if(roleEl) roleEl.textContent = ME.shift==='manager'?'Manager · sees everything':ME.shift==='evening'?'Evening · Start of Care':'Care Coordinator';
+  // The evening coordinator's work lives in Start of Care — land them there.
+  if(ME.shift==='evening' && !window._landedOnce){ window._landedOnce=true; switchTab('soc'); }
 }
 // Coordinators are often in a client's home with spotty signal during the
 // exact moment they most need to save an assessment. Rather than lose that
@@ -1589,6 +1703,7 @@ function renderActiveTab(){
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='clients') renderClients();
+  if(activeTab==='soc') renderSocTab();
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
   const el = document.getElementById(containerId);
@@ -2013,6 +2128,7 @@ function renderLeadProfile(){
   renderLpAttrs();
   renderLpNurture();
   renderLeadDocs();
+  renderLpSoc();
 }
 const NURTURE_INFO = {
   not_ready: { name:'Not-ready-yet drip', steps:4, desc:'warm text day 3, helpful email day 10, check-in text day 21, note day 45' },
@@ -2189,6 +2305,10 @@ function renderToday(){
   const badge = document.getElementById('todayBadge');
   const n = overdueA.length+overdueL.length+dueA.length+dueL.length;
   if(badge){ badge.style.display = n?'inline-flex':'none'; badge.textContent = n; }
+  renderHandoffBanner();
+  renderMgrStrip();
+  renderCoordMsgs();
+  updateSocBadge();
 }
 function leadNoPlanRow(l){
   const esc=escapeHtmlComms;
@@ -3494,10 +3614,11 @@ function renderStaffList(){
   if(!wrap) return;
   const staff = DATA.coordinator_staff || [];
   if(staff.length===0){ wrap.innerHTML = '<div class="empty" style="padding:14px;">No staff added yet.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>Notifications</th><th></th></tr></thead><tbody>${
+  const shiftLabel = s => s.shift==='evening'?'Evening 5–9':s.shift==='manager'?'Manager':s.shift==='day'?'Day 8–2':'—';
+  wrap.innerHTML = `<table><thead><tr><th>Name</th><th>Sign-in email</th><th>Shift</th><th>Phone</th><th>Notifications</th><th></th></tr></thead><tbody>${
     staff.map(s=>{
       const notifs = [s.notify_leads&&'Leads', s.notify_checkins&&'Check-ins', s.notify_supervisory&&'Supervisory', s.notify_careplan&&'Care Plans'].filter(Boolean).join(', ') || '—';
-      return `<tr><td>${s.name}</td><td>${s.role}</td><td>${s.phone||'—'}</td><td>${notifs}</td><td><button class="linklike" onclick="removeStaffMember('${s.id}')">Remove</button></td></tr>`;
+      return `<tr><td>${s.name}</td><td>${s.email||'—'}</td><td>${shiftLabel(s)}</td><td>${s.phone||'—'}</td><td>${notifs}</td><td><button class="linklike" onclick="removeStaffMember('${s.id}')">Remove</button></td></tr>`;
     }).join('')
   }</tbody></table>`;
 }
@@ -3507,6 +3628,8 @@ async function addStaffMember(){
   DATA.coordinator_staff = DATA.coordinator_staff || [];
   const newStaff = {
     id: uid(), name, role: document.getElementById('new_staff_role').value,
+    email: document.getElementById('new_staff_email').value.trim().toLowerCase(),
+    shift: document.getElementById('new_staff_shift').value,
     phone: document.getElementById('new_staff_phone').value.trim(),
     notify_leads: document.getElementById('new_staff_notify_leads').checked,
     notify_checkins: document.getElementById('new_staff_notify_checkins').checked,
@@ -3516,6 +3639,7 @@ async function addStaffMember(){
   DATA.coordinator_staff.push(newStaff);
   await persist('coordinator_staff', newStaff);
   document.getElementById('new_staff_name').value = '';
+  document.getElementById('new_staff_email').value = '';
   document.getElementById('new_staff_phone').value = '';
   ['new_staff_notify_leads','new_staff_notify_checkins','new_staff_notify_supervisory','new_staff_notify_careplan'].forEach(id=>document.getElementById(id).checked=false);
   renderStaffList();
@@ -3551,6 +3675,370 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ document.querySelectorAll('.modal-backdrop.open, .lock-screen.open').forEach(m=>m.classList.remove('open')); }});
 
 /* ---------------- BOOT ---------------- */
+/* =========================================================================
+   COORDINATOR SYSTEM — shift handoffs, Medicaid Start of Care pipeline,
+   Send-to-Staffing messenger, and Samantha's manager strip.
+   Data lives in app_data keys: 'handoffs', 'staffing_tasks'; the SOC
+   checklist lives on each lead as lead.soc. Roles come from ME (resolveMe).
+   ========================================================================= */
+
+/* ---------------- Start of Care templates (from Samantha's MO HCBS SOP) --- */
+const SOC_PATHWAYS = {
+  A1: { label:'New Medicaid referral — we submit to FUSION', steps:[
+    ['Intake call — situation, county, active Medicaid, current help, safety concerns','day'],
+    ['Explain HCBS program & that DSDS decides eligibility (not us); get permission to submit the referral','day'],
+    ['Collect demographics — name, DOB, Medicaid #, address, phone, county, diagnosis, living situation, emergency contact, needs, referring source','day'],
+    ['Enter the referral in FUSION','evening'],
+    ['DSDS assessment — state contacts participant, in-home assessment, eligibility & authorized units','state'],
+    ['DSDS offers us the case — accept and confirm','day'],
+  ]},
+  A2: { label:'PCCP — switching to us from another agency', steps:[
+    ['Intake call — why they\'re switching; explain the provider-change process','day'],
+    ['Get the participant\'s consent for the PCCP request','day'],
+    ['Enter the PCCP request in FUSION','evening'],
+    ['DSDS confirms with the participant & coordinates the transfer','state'],
+    ['Authorization & care plan received from DSDS','evening'],
+  ]},
+  B: { label:'DSDS offered us the case directly', steps:[
+    ['Review the referral — care plan, authorized hours, demographics, case manager info','day'],
+    ['Confirm we can staff it & notify DSDS we accept','day'],
+  ]},
+  PP: { label:'Private pay', steps:[
+    ['In-home assessment scheduled & completed','day'],
+    ['Service agreement signed','day'],
+  ]},
+};
+const SOC_MERGED = [
+  ['Review the authorization & DSDS care plan','evening','med'],
+  ['Enter the authorization in AxisCare','evening','med'],
+  ['Enter the care plan & caregiver instructions in AxisCare','evening','all'],
+  ['Welcome call — welcome them and verify information','day','all'],
+  ['RN assessment / agency admission visit (if required)','day','med'],
+  ['Home safety assessment','day','all'],
+  ['Match with the right caregiver','day','all'],
+  ['Schedule services in AxisCare & verify EVV readiness','day','all'],
+  ['First shift completed within the required timeframe','day','all'],
+  ['24–72 hour follow-up calls — participant AND caregiver','day','all'],
+  ['Notify the DSDS case manager services began; set ongoing supervision & QA cadence','evening','med'],
+];
+function socBuildSteps(pathway){
+  const pre=(SOC_PATHWAYS[pathway]||SOC_PATHWAYS.A1).steps.map((s,i)=>({id:'p'+i,label:s[0],role:s[1]}));
+  const merged=SOC_MERGED.filter(s=>pathway==='PP'?s[2]==='all':true).map((s,i)=>({id:'m'+i,label:s[0],role:s[1]}));
+  return pre.concat(merged);
+}
+const socRoleChip = r => r==='evening'
+  ? '<span class="tag-chip" style="background:#EDE4F5;color:#6B4B9E;">Evening</span>'
+  : r==='state' ? '<span class="tag-chip" style="background:#EEF1F4;color:#5B6B7A;">DSDS</span>'
+  : '<span class="tag-chip" style="background:#E4EDF6;color:#2F6FB0;">Daytime</span>';
+function socCurrentStep(soc){ return (soc.steps||[]).find(s=>!s.done_at)||null; }
+function socWaitingDays(soc){
+  const cur=socCurrentStep(soc); if(!cur) return 0;
+  const done=(soc.steps||[]).filter(s=>s.done_at).map(s=>s.done_at).sort();
+  const since=done.length?done[done.length-1]:soc.started_at;
+  return Math.floor((Date.now()-new Date(since).getTime())/86400000);
+}
+function socIsStuck(soc){
+  const cur=socCurrentStep(soc); if(!cur) return false;
+  return socWaitingDays(soc) > (cur.role==='state'?14:3);
+}
+
+/* ---- SOC card on the lead profile ---- */
+function renderLpSoc(){
+  const body=document.getElementById('lp_soc_body'), prog=document.getElementById('lp_soc_progress');
+  if(!body||!lpLead) return;
+  const esc=escapeHtmlComms, l=lpLead;
+  if(!l.soc){
+    prog.textContent='';
+    body.innerHTML =
+      '<div class="field-note" style="margin-bottom:8px;">They said yes? Pick how this case is arriving and the right checklist opens — FUSION, authorizations and care-plan entry route to the evening coordinator automatically.</div>'
+      +'<select id="lp_soc_pathway" style="width:100%;">'
+      +Object.entries(SOC_PATHWAYS).map(([k,p])=>'<option value="'+k+'"'+(k==='A1'?' selected':'')+'>'+esc(p.label)+'</option>').join('')
+      +'</select>'
+      +'<button class="primary" style="margin-top:8px;" onclick="socStart()">▶ Begin Start of Care</button>';
+    return;
+  }
+  const soc=l.soc, total=soc.steps.length, done=soc.steps.filter(s=>s.done_at).length;
+  prog.textContent = done+' of '+total+' steps'+(done===total?' — complete 🎉':'');
+  const cur=socCurrentStep(soc);
+  const stuck=socIsStuck(soc);
+  body.innerHTML =
+    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">'
+    +'<span class="tag-chip" style="background:#E1F1ED;color:#2E8577;">'+esc((SOC_PATHWAYS[soc.pathway]||{}).label||soc.pathway)+'</span>'
+    +(stuck?'<span class="tag-chip" style="background:var(--red-bg);color:var(--red);">⚠ waiting '+socWaitingDays(soc)+' days on the current step</span>':'')
+    +'</div>'
+    +'<div style="height:6px;background:#EDF1F5;border-radius:99px;overflow:hidden;margin-bottom:10px;"><i style="display:block;height:100%;width:'+Math.round(done/total*100)+'%;background:var(--green);"></i></div>'
+    +soc.steps.map((s,i)=>{
+      const isCur=cur&&s.id===cur.id;
+      return '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:8px;font-size:13px;'+(isCur?'background:#F4F9F6;border:1px solid #CBE3D4;':'')+'">'
+        +'<input type="checkbox" style="width:auto;margin-top:2px;" '+(s.done_at?'checked':'')+' onchange="socToggleStep('+i+',this.checked)">'
+        +'<div style="flex:1;min-width:0;'+(s.done_at?'color:var(--text-muted);':'')+'">'
+        +esc(s.label)
+        +(s.done_at?'<div class="field-note">✓ '+new Date(s.done_at).toLocaleDateString()+(s.done_by?' — '+esc(s.done_by):'')+'</div>':'')
+        +(s.note?'<div class="field-note">📝 '+esc(s.note)+'</div>':'')
+        +'</div>'
+        +socRoleChip(s.role)
+        +'<button class="linklike" style="font-size:12px;" onclick="socStepNote('+i+')" title="Add a note to this step">📝</button>'
+        +'</div>';
+    }).join('')
+    +'<div style="margin-top:8px;"><button class="linklike" style="font-size:12px;color:var(--text-muted);" onclick="socRemove()">Remove checklist (started by mistake)</button></div>';
+}
+async function socStart(){
+  if(!lpLead) return;
+  const pathway=document.getElementById('lp_soc_pathway').value;
+  lpLead.soc={ pathway, started_at:new Date().toISOString(), started_by:ME.name||ME.email, steps:socBuildSteps(pathway) };
+  await persist('leads', lpLead);
+  renderLpSoc(); updateSocBadge();
+}
+async function socToggleStep(i,checked){
+  if(!lpLead||!lpLead.soc) return;
+  const s=lpLead.soc.steps[i]; if(!s) return;
+  s.done_at=checked?new Date().toISOString():null;
+  s.done_by=checked?(ME.name||ME.email):null;
+  await persist('leads', lpLead);
+  renderLpSoc(); updateSocBadge();
+}
+async function socStepNote(i){
+  if(!lpLead||!lpLead.soc) return;
+  const s=lpLead.soc.steps[i]; if(!s) return;
+  const v=prompt('Note for: '+s.label, s.note||'');
+  if(v===null) return;
+  s.note=v.trim();
+  await persist('leads', lpLead);
+  renderLpSoc();
+}
+async function socRemove(){
+  if(!lpLead||!lpLead.soc) return;
+  if(!confirm('Remove the Start of Care checklist from this lead? (Only for checklists started by mistake — progress is deleted.)')) return;
+  delete lpLead.soc;
+  await persist('leads', lpLead);
+  renderLpSoc(); updateSocBadge();
+}
+
+/* ---- SOC tab (the queue) ---- */
+let socActiveFilter='active';
+function socFilter(f,btn){
+  socActiveFilter=f;
+  document.querySelectorAll('#socFilters .filter-pill').forEach(b=>b.classList.toggle('active',b===btn));
+  renderSocTab();
+}
+function renderSocTab(){
+  const wrap=document.getElementById('socList'); if(!wrap) return;
+  const esc=escapeHtmlComms;
+  let rows=DATA.leads.filter(l=>l.soc);
+  if(socActiveFilter==='done') rows=rows.filter(l=>!socCurrentStep(l.soc));
+  else{
+    rows=rows.filter(l=>socCurrentStep(l.soc));
+    if(socActiveFilter==='stuck') rows=rows.filter(l=>socIsStuck(l.soc));
+    if(socActiveFilter==='evening') rows=rows.filter(l=>socCurrentStep(l.soc).role==='evening');
+    if(socActiveFilter==='day') rows=rows.filter(l=>socCurrentStep(l.soc).role==='day');
+  }
+  rows.sort((a,b)=>(socIsStuck(b.soc)?1:0)-(socIsStuck(a.soc)?1:0) || socWaitingDays(b.soc)-socWaitingDays(a.soc));
+  if(!rows.length){
+    wrap.innerHTML='<div class="card" style="padding:22px;text-align:center;color:var(--text-muted);">'
+      +(socActiveFilter==='done'?'No completed starts of care yet.':'Nothing here — when a lead says yes, open their profile and click <b>▶ Begin Start of Care</b>.')+'</div>';
+    return;
+  }
+  wrap.innerHTML=rows.map(l=>{
+    const soc=l.soc, total=soc.steps.length, done=soc.steps.filter(s=>s.done_at).length;
+    const cur=socCurrentStep(soc), stuck=socIsStuck(soc), wd=socWaitingDays(soc);
+    return '<div class="card" style="padding:14px 16px;margin-bottom:10px;'+(stuck?'border-color:#E8B4B4;background:#FFFBFA;':'')+'">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+      +'<b style="color:var(--navy);">'+esc((l.first_name||'')+' '+(l.last_name||''))+'</b>'
+      +'<span class="tag-chip" style="background:#E1F1ED;color:#2E8577;">'+esc((SOC_PATHWAYS[soc.pathway]||{}).label||soc.pathway)+'</span>'
+      +'<span style="flex:1;"></span>'
+      +'<span class="field-note">'+done+'/'+total+'</span>'
+      +'<button class="linklike" onclick="openLeadProfile(\''+l.id+'\')">Open</button>'
+      +'</div>'
+      +'<div style="height:5px;background:#EDF1F5;border-radius:99px;overflow:hidden;margin:8px 0;"><i style="display:block;height:100%;width:'+Math.round(done/total*100)+'%;background:'+(stuck?'var(--red)':'var(--green)')+';"></i></div>'
+      +(cur
+        ?'<div style="display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap;">'
+          +(stuck?'<span style="color:var(--red);font-weight:700;">⚠</span>':'<span>→</span>')
+          +'<span style="flex:1;min-width:0;">'+esc(cur.label)+'</span>'+socRoleChip(cur.role)
+          +'<span class="field-note">'+(wd?wd+' day'+(wd===1?'':'s')+' on this step':'started today')+'</span></div>'
+        :'<div style="font-size:13px;color:var(--green);font-weight:600;">✓ Complete — services running'+(l.status!=='Converted'?' (mark the lead Converted if you haven\'t)':'')+'</div>')
+      +'</div>';
+  }).join('');
+}
+function updateSocBadge(){
+  const b=document.getElementById('socBadge'); if(!b) return;
+  const stuck=DATA.leads.filter(l=>l.soc&&socCurrentStep(l.soc)&&socIsStuck(l.soc)).length;
+  b.style.display=stuck?'inline-flex':'none'; b.textContent=stuck;
+}
+
+/* ---------------- Shift handoffs ---------------- */
+function gatherHandoffItems(){
+  const t=today(), items=[], esc=escapeHtmlComms;
+  const openLeads=DATA.leads.filter(l=>l.status!=='Converted'&&l.status!=='Lost');
+  openLeads.filter(l=>l.status==='New'&&!l.follow_up_due).forEach(l=>items.push({type:'lead',ref:l.id,label:'🆕 New lead not yet worked: '+(l.first_name||'')+' '+(l.last_name||'')}));
+  openLeads.filter(l=>l.follow_up_due&&l.follow_up_due<=t).forEach(l=>items.push({type:'lead',ref:l.id,label:'📞 Follow-up '+(l.follow_up_due<t?'OVERDUE':'due today')+': '+(l.first_name||'')+' '+(l.last_name||'')}));
+  (DATA.activities||[]).filter(a=>!a.done_at&&a.due&&a.due<=t).forEach(a=>items.push({type:'activity',ref:a.id,label:'🕐 '+a.title}));
+  DATA.leads.filter(l=>l.soc&&socCurrentStep(l.soc)&&socIsStuck(l.soc)).forEach(l=>items.push({type:'lead',ref:l.id,label:'🏥 Start of Care waiting '+socWaitingDays(l.soc)+' days: '+(l.first_name||'')+' '+(l.last_name||'')+' — '+socCurrentStep(l.soc).label}));
+  // Anything the previous shift passed on that never got finished rolls forward.
+  const prev=latestHandoff();
+  if(prev) (prev.items||[]).filter(it=>!it.done_at&&it.type==='custom').forEach(it=>items.push({type:'custom',ref:'',label:it.label,note:it.note,carried:true}));
+  return items;
+}
+let handoffDraft=[];
+function openHandoffModal(){
+  handoffDraft=gatherHandoffItems().map((it,i)=>Object.assign({include:true,i},it));
+  renderHandoffDraft();
+  document.getElementById('handoffGeneralNote').value='';
+  document.getElementById('handoffModalBackdrop').classList.add('open');
+}
+function renderHandoffDraft(){
+  const esc=escapeHtmlComms;
+  document.getElementById('handoffItems').innerHTML = handoffDraft.length ? handoffDraft.map((it,i)=>
+    '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border);font-size:13px;">'
+    +'<input type="checkbox" style="width:auto;margin-top:2px;" '+(it.include?'checked':'')+' onchange="handoffDraft['+i+'].include=this.checked">'
+    +'<div style="flex:1;min-width:0;">'+esc(it.label)+(it.carried?' <span class="tag-chip" style="background:#F7ECCB;color:#A9791A;">carried from last shift</span>':'')
+    +'<input placeholder="Add context for the next coordinator… (optional)" value="'+esc(it.note||'')+'" oninput="handoffDraft['+i+'].note=this.value" style="margin-top:4px;font-size:12.5px;">'
+    +'</div></div>').join('')
+    : '<div class="field-note" style="padding:10px 4px;">Nothing time-sensitive is open right now — you can still add items below or just leave a note.</div>';
+}
+function addHandoffCustom(){
+  const inp=document.getElementById('handoffCustomItem');
+  const v=inp.value.trim(); if(!v) return;
+  handoffDraft.push({type:'custom',ref:'',label:v,include:true,note:''});
+  inp.value=''; renderHandoffDraft();
+}
+function latestHandoff(){
+  const hs=(DATA.handoffs||[]).slice().sort((a,b)=>(b.posted_at||'').localeCompare(a.posted_at||''));
+  return hs[0]||null;
+}
+async function postHandoff(){
+  const items=handoffDraft.filter(it=>it.include).map(it=>({id:uid(),type:it.type,ref:it.ref,label:it.label,note:(it.note||'').trim(),done_at:null,done_by:null}));
+  const note=document.getElementById('handoffGeneralNote').value.trim();
+  if(!items.length&&!note){ alert('Nothing to hand off — add an item or a note first.'); return; }
+  const h={ id:uid(), posted_at:new Date().toISOString(), from_email:ME.email, from_name:ME.name||ME.email, shift:ME.shift, items, general_note:note, ack_by:null, ack_at:null };
+  DATA.handoffs=DATA.handoffs||[]; DATA.handoffs.push(h);
+  await persist('handoffs',h);
+  closeModal('handoffModalBackdrop');
+  renderHandoffBanner();
+  alert('Handoff posted ✓ — the next coordinator will see it the moment they open the hub.');
+}
+function renderHandoffBanner(){
+  const wrap=document.getElementById('handoffBanner'); if(!wrap) return;
+  const esc=escapeHtmlComms, h=latestHandoff();
+  // Show while it has open items (or is unacknowledged), to everyone except its poster.
+  if(!h || h.from_email===ME.email || (h.ack_at && !(h.items||[]).some(it=>!it.done_at))){ wrap.innerHTML=''; return; }
+  const open=(h.items||[]).filter(it=>!it.done_at);
+  wrap.innerHTML =
+    '<div class="card" style="padding:16px 18px;margin-bottom:16px;border-color:#D8C8A8;background:#FFFDF5;">'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+    +'<b style="color:var(--navy);font-size:15px;">🔄 Handoff from '+esc(h.from_name)+'</b>'
+    +'<span class="field-note">'+new Date(h.posted_at).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'})+'</span>'
+    +'<span style="flex:1;"></span>'
+    +(!h.ack_at?'<button class="primary" onclick="ackHandoff(\''+h.id+'\')">Got it — I\'m on</button>':'<span class="tag-chip" style="background:#E1F1ED;color:#2E8577;">✓ acknowledged by '+esc(h.ack_by||'')+'</span>')
+    +'</div>'
+    +(h.general_note?'<div style="font-size:13.5px;margin-top:8px;padding:8px 10px;background:#FBF6EA;border-radius:8px;">📝 '+esc(h.general_note)+'</div>':'')
+    +(h.items||[]).map((it,i)=>
+      '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+      +'<input type="checkbox" style="width:auto;margin-top:2px;" '+(it.done_at?'checked':'')+' onchange="handoffItemDone(\''+h.id+'\','+i+',this.checked)">'
+      +'<div style="flex:1;min-width:0;'+(it.done_at?'color:var(--text-muted);text-decoration:line-through;':'')+'">'+esc(it.label)
+      +(it.note?'<div class="field-note" style="text-decoration:none;">📝 '+esc(it.note)+'</div>':'')+'</div>'
+      +(it.type==='lead'&&it.ref?'<button class="linklike" onclick="openLeadProfile(\''+it.ref+'\')">Open</button>':'')
+      +'</div>').join('')
+    +'</div>';
+}
+async function ackHandoff(id){
+  const h=(DATA.handoffs||[]).find(x=>x.id===id); if(!h) return;
+  h.ack_by=ME.name||ME.email; h.ack_at=new Date().toISOString();
+  await persist('handoffs',h); renderHandoffBanner();
+}
+async function handoffItemDone(hid,i,checked){
+  const h=(DATA.handoffs||[]).find(x=>x.id===hid); if(!h||!h.items[i]) return;
+  h.items[i].done_at=checked?new Date().toISOString():null;
+  h.items[i].done_by=checked?(ME.name||ME.email):null;
+  await persist('handoffs',h); renderHandoffBanner();
+}
+
+/* ---------------- Send to Staffing ---------------- */
+let staskLeadId=null;
+function openStaffingModal(leadId){
+  staskLeadId=leadId||null;
+  const l=leadId?DATA.leads.find(x=>x.id===leadId):null;
+  document.getElementById('stask_about').value=l?((l.client_first_name||l.first_name||'')+' '+(l.client_last_name||l.last_name||'')).trim():'';
+  document.getElementById('stask_message').value='';
+  renderStaskSent();
+  document.getElementById('staffingModalBackdrop').classList.add('open');
+}
+async function sendStaffingTask(){
+  const message=document.getElementById('stask_message').value.trim();
+  if(!message){ alert('Write the message first.'); return; }
+  const t={ id:uid(), direction:'to_staffing', kind:document.getElementById('stask_kind').value,
+    urgency:document.getElementById('stask_urgency').value,
+    about:document.getElementById('stask_about').value.trim(), lead_id:staskLeadId,
+    message, created_at:new Date().toISOString(), from_name:ME.name||ME.email, from_email:ME.email,
+    status:'open', done_at:null, done_by:null, reply:'' };
+  DATA.staffing_tasks=DATA.staffing_tasks||[]; DATA.staffing_tasks.push(t);
+  await persist('staffing_tasks',t);
+  document.getElementById('stask_message').value='';
+  renderStaskSent();
+}
+function renderStaskSent(){
+  const esc=escapeHtmlComms;
+  const mine=(DATA.staffing_tasks||[]).filter(t=>t.direction==='to_staffing').sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')).slice(0,8);
+  document.getElementById('staskSentList').innerHTML = mine.length
+    ? '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">RECENTLY SENT</div>'+mine.map(t=>
+      '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;">'
+      +'<span>'+(t.status==='done'?'✅':'⏳')+'</span>'
+      +'<div style="flex:1;min-width:0;">'+(t.about?'<b>'+esc(t.about)+'</b> — ':'')+esc(t.message)
+      +'<div class="field-note">'+esc(t.from_name)+' · '+new Date(t.created_at).toLocaleDateString()
+      +(t.status==='done'?' · done by '+esc(t.done_by||'staffing'):' · waiting')
+      +(t.reply?' · 💬 '+esc(t.reply):'')+'</div></div></div>').join('')
+    : '';
+}
+function renderCoordMsgs(){
+  const wrap=document.getElementById('coordMsgs'); if(!wrap) return;
+  const esc=escapeHtmlComms;
+  const open=(DATA.staffing_tasks||[]).filter(t=>t.direction==='to_coordinators'&&t.status==='open');
+  wrap.innerHTML = open.length
+    ? '<div class="card" style="padding:14px 18px;margin-bottom:16px;border-color:#BBD3E8;background:#F7FAFD;">'
+      +'<b style="color:var(--navy);font-size:14px;">📨 From the Staffing Coordinator</b>'
+      +open.map(t=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+        +'<span>'+(t.kind==='todo'?'☑️':'ℹ️')+'</span>'
+        +'<div style="flex:1;min-width:0;">'+(t.about?'<b>'+esc(t.about)+'</b> — ':'')+esc(t.message)
+        +'<div class="field-note">'+esc(t.from_name||'Staffing')+' · '+esc(t.urgency||'')+'</div></div>'
+        +'<button class="linklike" onclick="coordMsgDone(\''+t.id+'\')">Done ✓</button></div>').join('')
+      +'</div>'
+    : '';
+}
+async function coordMsgDone(id){
+  const t=(DATA.staffing_tasks||[]).find(x=>x.id===id); if(!t) return;
+  t.status='done'; t.done_at=new Date().toISOString(); t.done_by=ME.name||ME.email;
+  await persist('staffing_tasks',t); renderCoordMsgs();
+}
+
+/* ---------------- Samantha's manager strip ---------------- */
+function renderMgrStrip(){
+  const wrap=document.getElementById('mgrStrip'); if(!wrap) return;
+  if(ME.shift!=='manager'){ wrap.innerHTML=''; return; }
+  const esc=escapeHtmlComms, t=today(), rows=[];
+  const h=latestHandoff();
+  if(h && !h.ack_at && h.from_email!==ME.email)
+    rows.push(['🔄','Handoff from '+esc(h.from_name)+' hasn\'t been acknowledged yet','switchTab(\'today\')']);
+  DATA.leads.filter(l=>l.soc&&socCurrentStep(l.soc)&&socIsStuck(l.soc)).forEach(l=>
+    rows.push(['🏥',esc((l.first_name||'')+' '+(l.last_name||''))+' — Start of Care stuck '+socWaitingDays(l.soc)+' days on: '+esc(socCurrentStep(l.soc).label),'openLeadProfile(\''+l.id+'\')']));
+  const fourHrs=new Date(Date.now()-4*3600000).toISOString();
+  DATA.leads.filter(l=>l.status==='New'&&!l.follow_up_due&&(l.created_at||'')<fourHrs).forEach(l=>
+    rows.push(['🆕',esc((l.first_name||'')+' '+(l.last_name||''))+' — new lead, no one has set a next step ('+new Date(l.created_at).toLocaleString('en-US',{weekday:'short',hour:'numeric'})+')','openLeadProfile(\''+l.id+'\')']));
+  const dayAgo=new Date(Date.now()-24*3600000).toISOString();
+  const staleStaffing=(DATA.staffing_tasks||[]).filter(x=>x.status==='open'&&(x.created_at||'')<dayAgo);
+  if(staleStaffing.length)
+    rows.push(['📨',staleStaffing.length+' staffing request'+(staleStaffing.length===1?'':'s')+' open more than a day','openStaffingModal()']);
+  const nOverdue=DATA.leads.filter(l=>l.status!=='Converted'&&l.status!=='Lost'&&l.follow_up_due&&l.follow_up_due<t).length
+    +(DATA.activities||[]).filter(a=>!a.done_at&&a.due&&a.due<t).length;
+  if(nOverdue>=3) rows.push(['⚠️',nOverdue+' follow-ups are overdue across the team','switchTab(\'today\')']);
+  wrap.innerHTML = rows.length
+    ? '<div class="card" style="padding:14px 18px;margin-bottom:16px;border-color:#E8B4B4;background:#FFFBFA;">'
+      +'<b style="color:var(--red);font-size:14px;">🚨 Where you may need to jump in</b>'
+      +rows.map(r=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+        +'<span>'+r[0]+'</span><span style="flex:1;min-width:0;">'+r[1]+'</span>'
+        +'<button class="linklike" onclick="'+r[2]+'">Look</button></div>').join('')
+      +'</div>'
+    : '';
+}
+
 (async function boot(){
   if(sb){
     const { data:{ session } } = await sb.auth.getSession();
