@@ -81,6 +81,10 @@
 
   /* KPI cards + pipeline tiles (Overview) */
   .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
+  .navgrp-toggle{display:flex;align-items:center;width:100%;background:none;border:none;cursor:pointer;font-family:inherit;font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#5E82A6;padding:14px 26px 4px;}
+  .navgrp-toggle::after{content:'▾';margin-left:auto;font-size:11px;transition:transform .15s;}
+  .navgrp.closed .navgrp-toggle::after{transform:rotate(-90deg);}
+  .navgrp.closed .navgrp-body{display:none;}
   .morewrap{position:relative;}
   .moremenu{display:none;position:absolute;right:0;top:calc(100% + 8px);width:340px;max-width:90vw;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 48px rgba(18,58,94,.18);padding:6px;z-index:60;}
   .moremenu.open{display:block;}
@@ -332,19 +336,35 @@
     </div>
     <nav class="tabs" id="tabNav">
       <button data-tab="today" class="active" onclick="switchTab('today')"><span class="ni">🏠</span>Overview<span class="subtab-badge red" id="todayBadge" style="display:none;margin-left:auto;"></span></button>
-      <div class="sidenav-group">🌱 GROW — new clients in</div>
-      <button data-tab="leads" onclick="switchTab('leads')"><span class="ni">📞</span>Leads</button>
-      <button data-tab="assessments" onclick="switchTab('assessments')"><span class="ni">📋</span>Care Assessments</button>
-      <button data-tab="soc" onclick="switchTab('soc')"><span class="ni">🏥</span>Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;margin-left:auto;"></span></button>
-      <button data-tab="referrers" onclick="switchTab('referrers')"><span class="ni">🤝</span>Referrers</button>
-      <div class="sidenav-group">💚 CLIENTS — keep &amp; care</div>
-      <button data-tab="clients" onclick="switchTab('clients')"><span class="ni">👤</span>All Clients</button>
-      <button data-tab="checkins" onclick="switchTab('checkins')"><span class="ni">💚</span>Client Check-ins</button>
-      <button data-tab="supervisory" onclick="switchTab('supervisory')"><span class="ni">🛡</span>Supervisory Visits</button>
-      <div class="sidenav-group">🤝 TEAM</div>
-      <button data-tab="comms" onclick="switchTab('comms')"><span class="ni">💬</span>Communication<span class="subtab-badge red" id="commsTabBadge" style="display:none;margin-left:auto;"></span></button>
-      <div class="sidenav-group">📊 INSIGHT</div>
-      <button data-tab="reports" onclick="switchTab('reports')"><span class="ni">📊</span>Reports</button>
+      <div class="navgrp" data-g="grow">
+        <button class="navgrp-toggle" onclick="toggleNavGroup('grow')">🌱 Grow</button>
+        <div class="navgrp-body" id="grp-grow">
+          <button data-tab="leads" onclick="switchTab('leads')"><span class="ni">📞</span>Leads</button>
+          <button data-tab="assessments" onclick="switchTab('assessments')"><span class="ni">📋</span>Care Assessments</button>
+          <button data-tab="soc" onclick="switchTab('soc')"><span class="ni">🏥</span>Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;margin-left:auto;"></span></button>
+          <button data-tab="referrers" onclick="switchTab('referrers')"><span class="ni">🤝</span>Referrers</button>
+        </div>
+      </div>
+      <div class="navgrp" data-g="clients">
+        <button class="navgrp-toggle" onclick="toggleNavGroup('clients')">💚 Clients</button>
+        <div class="navgrp-body" id="grp-clients">
+          <button data-tab="clients" onclick="switchTab('clients')"><span class="ni">👤</span>All Clients</button>
+          <button data-tab="checkins" onclick="switchTab('checkins')"><span class="ni">💚</span>Client Check-ins</button>
+          <button data-tab="supervisory" onclick="switchTab('supervisory')"><span class="ni">🛡</span>Supervisory Visits</button>
+        </div>
+      </div>
+      <div class="navgrp" data-g="team">
+        <button class="navgrp-toggle" onclick="toggleNavGroup('team')">🤝 Team</button>
+        <div class="navgrp-body" id="grp-team">
+          <button data-tab="comms" onclick="switchTab('comms')"><span class="ni">💬</span>Communication<span class="subtab-badge red" id="commsTabBadge" style="display:none;margin-left:auto;"></span></button>
+        </div>
+      </div>
+      <div class="navgrp" data-g="insight">
+        <button class="navgrp-toggle" onclick="toggleNavGroup('insight')">📊 Insight</button>
+        <div class="navgrp-body" id="grp-insight">
+          <button data-tab="reports" onclick="switchTab('reports')"><span class="ni">📊</span>Reports</button>
+        </div>
+      </div>
     </nav>
     <div class="sidenav-user">
       <span class="su-avatar" id="navAvatar">·</span>
@@ -1794,6 +1814,19 @@ async function flushPendingSync(){
 }
 window.addEventListener('online', flushPendingSync);
 
+/* ---------------- Collapsible sidebar groups ---------------- */
+function toggleNavGroup(g){
+  const el=document.querySelector('.navgrp[data-g="'+g+'"]'); if(!el) return;
+  el.classList.toggle('closed');
+  localStorage.setItem('cch_nav_'+g, el.classList.contains('closed')?'closed':'open');
+}
+function initNavGroups(){
+  document.querySelectorAll('.navgrp').forEach(el=>{
+    if(localStorage.getItem('cch_nav_'+el.dataset.g)==='closed') el.classList.add('closed');
+  });
+}
+initNavGroups();
+
 /* ---------------- More menu ---------------- */
 function toggleMoreMenu(e){ e.stopPropagation(); document.getElementById('moreMenu').classList.toggle('open'); }
 function closeMoreMenu(){ document.getElementById('moreMenu').classList.remove('open'); }
@@ -1805,6 +1838,10 @@ function switchTab(tab){
   if(lpv) lpv.style.display='none';
   activeTab = tab;
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  // Landing on a tab inside a collapsed group pops the group open.
+  const activeBtn=document.querySelector('nav.tabs button[data-tab="'+tab+'"]');
+  const grp=activeBtn&&activeBtn.closest('.navgrp');
+  if(grp&&grp.classList.contains('closed')){ grp.classList.remove('closed'); localStorage.setItem('cch_nav_'+grp.dataset.g,'open'); }
   document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   renderActiveTab();
