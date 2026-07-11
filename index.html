@@ -81,6 +81,13 @@
 
   /* KPI cards + pipeline tiles (Overview) */
   .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
+  .morewrap{position:relative;}
+  .moremenu{display:none;position:absolute;right:0;top:calc(100% + 8px);width:340px;max-width:90vw;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 48px rgba(18,58,94,.18);padding:6px;z-index:60;}
+  .moremenu.open{display:block;}
+  .moremenu a,.moremenu button{display:block;width:100%;text-align:left;background:none;border:none;border-radius:8px;padding:10px 12px;cursor:pointer;text-decoration:none;color:var(--text);font-family:inherit;}
+  .moremenu a:hover,.moremenu button:hover{background:#F4F7FA;}
+  .moremenu b{display:block;font-size:13.5px;color:var(--navy);}
+  .moremenu span{display:block;font-size:11.5px;color:var(--text-muted);line-height:1.45;margin-top:1px;}
   .mission-label{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin:2px 0 10px;display:flex;align-items:center;gap:10px;}
   .mission-label::after{content:'';flex:1;height:1px;background:var(--border);}
   .goal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
@@ -323,16 +330,18 @@
       <div class="logo-card"><img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions"></div>
       <div class="sidenav-eyebrow">CARE COORDINATOR HUB</div>
     </div>
-    <div class="sidenav-group">WORKSPACE</div>
     <nav class="tabs" id="tabNav">
       <button data-tab="today" class="active" onclick="switchTab('today')"><span class="ni">🏠</span>Overview<span class="subtab-badge red" id="todayBadge" style="display:none;margin-left:auto;"></span></button>
+      <div class="sidenav-group">🌱 GROW — new clients in</div>
       <button data-tab="leads" onclick="switchTab('leads')"><span class="ni">📞</span>Leads</button>
+      <button data-tab="assessments" onclick="switchTab('assessments')"><span class="ni">📋</span>Care Assessments</button>
       <button data-tab="soc" onclick="switchTab('soc')"><span class="ni">🏥</span>Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;margin-left:auto;"></span></button>
       <button data-tab="referrers" onclick="switchTab('referrers')"><span class="ni">🤝</span>Referrers</button>
-      <button data-tab="assessments" onclick="switchTab('assessments')"><span class="ni">📋</span>Care Assessments</button>
+      <div class="sidenav-group">💚 CLIENTS — keep &amp; care</div>
+      <button data-tab="clients" onclick="switchTab('clients')"><span class="ni">👤</span>All Clients</button>
       <button data-tab="checkins" onclick="switchTab('checkins')"><span class="ni">💚</span>Client Check-ins</button>
       <button data-tab="supervisory" onclick="switchTab('supervisory')"><span class="ni">🛡</span>Supervisory Visits</button>
-      <button data-tab="clients" onclick="switchTab('clients')"><span class="ni">👤</span>Clients</button>
+      <div class="sidenav-group">📊 INSIGHT</div>
       <button data-tab="reports" onclick="switchTab('reports')"><span class="ni">📊</span>Reports</button>
     </nav>
     <div class="sidenav-user">
@@ -348,13 +357,19 @@
     <input class="search" id="globalSearch" placeholder="🔍 Search leads, clients, referrers…" oninput="renderActiveTab()">
     <div class="spacer"></div>
     <span class="pill" id="syncPill">☁ Synced</span>
-    <button class="ghost" onclick="openStaffingModal()" title="Send a to-do or update to the Staffing Coordinator — scheduling issues, coverage gaps, caregiver changes">📨 Staffing</button>
-    <button class="ghost" onclick="openHandoffModal()" title="Ending your shift? Pass everything time-sensitive to the next coordinator">🔄 Hand off shift</button>
-    <a class="ghost" href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" title="Augusta — recruiting, prescreening & interview scheduling">🌱 Augusta</a>
-    <a class="ghost" href="https://hub.mo-care.com/offer.html" rel="noopener" title="Just interviewed someone? Fill this out while it's fresh — it sends their welcome text and starts onboarding tracking">📋 Offer a Job</a>
-    <a class="ghost" href="https://hub.mo-care.com" rel="noopener" title="Back to the Team Hub">🏠 Team Hub</a>
-    <button class="ghost" onclick="signOut()">Sign Out</button>
+    <button class="ghost" onclick="openHandoffModal()" title="Ending your shift? Pass everything time-sensitive to the next coordinator">🔄 End my shift</button>
     <button class="addlead" onclick="openLeadModal()">＋ Add Lead</button>
+    <div class="morewrap">
+      <button class="ghost" onclick="toggleMoreMenu(event)">⋯ More</button>
+      <div class="moremenu" id="moreMenu">
+        <button onclick="closeMoreMenu();openStaffingModal()"><b>📨 Message Staffing</b><span>Scheduling issue? Coverage gap? Send it to the Staffing Coordinator as a tracked to-do.</span></button>
+        <button onclick="closeMoreMenu();ccmtgSolo()"><b>🎥 Request a meeting</b><span>With Samantha, staffing, or the whole team — video with screen share, right in the browser.</span></button>
+        <a href="https://hub.mo-care.com/offer.html" rel="noopener"><b>📋 Offer a Job</b><span>Just interviewed a caregiver? Fill this out while it's fresh — it sends their welcome text and starts onboarding.</span></a>
+        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener"><b>🌱 Augusta (recruiting)</b><span>Applicants, prescreening &amp; interview scheduling — opens the Augusta site.</span></a>
+        <a href="https://hub.mo-care.com" rel="noopener"><b>🏠 Team Hub</b><span>The front door — links to every hub.</span></a>
+        <button onclick="signOut()"><b>Sign Out</b><span></span></button>
+      </div>
+    </div>
   </header>
 
   <main>
@@ -1734,6 +1749,11 @@ async function flushPendingSync(){
   document.getElementById('syncPill').textContent = Object.keys(remaining).length ? '🕓 Saved on this device — will sync when back online' : '☁ Synced';
 }
 window.addEventListener('online', flushPendingSync);
+
+/* ---------------- More menu ---------------- */
+function toggleMoreMenu(e){ e.stopPropagation(); document.getElementById('moreMenu').classList.toggle('open'); }
+function closeMoreMenu(){ document.getElementById('moreMenu').classList.remove('open'); }
+document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
 function switchTab(tab){
@@ -4212,6 +4232,7 @@ function renderMeetingsCc(){
 /* "🎥 Meeting" button in the Overview header: opens the request form inside
    the attention card (creating the Meetings section if it's empty today). */
 function ccmtgSolo(){
+  if(activeTab!=='today') switchTab('today'); // the form lives on the Overview
   window._ccmtgWantForm=true;
   renderMeetingsCc();
   window._ccmtgWantForm=false;
