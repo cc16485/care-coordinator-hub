@@ -506,8 +506,16 @@
         <button class="secondary" onclick="ccmtgSolo()">🎥 Request a meeting</button>
       </div>
       <div class="card" style="padding:18px;margin-bottom:16px;">
-        <b style="font-size:14px;color:var(--navy);">📨 Send to the Staffing Coordinator</b>
+        <b style="font-size:14px;color:var(--navy);">📨 Send a message</b>
         <div class="grid2" style="margin-top:10px;">
+          <div><label>Send to</label>
+          <select id="pg_to">
+            <option value="staffing">The Staffing Coordinator</option>
+            <option value="owners">The Owners (Samantha &amp; Zach)</option>
+          </select></div>
+          <div></div>
+        </div>
+        <div class="grid2">
           <div><label>What kind of request?</label>
           <select id="pg_kind" onchange="pgKindUi()">
             <option value="coverage">🕐 Coverage gap / call-out</option>
@@ -4169,17 +4177,21 @@ function renderStaskSent(){
 function renderCoordMsgs(){
   const wrap=document.getElementById('coordMsgs'); if(!wrap) return;
   const esc=escapeHtmlComms;
+  const row=t=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+    +'<span>'+(t.kind==='todo'?'☑️':'ℹ️')+'</span>'
+    +'<div style="flex:1;min-width:0;">'+(t.about?'<b>'+esc(t.about)+'</b> — ':'')+esc(t.message)
+    +'<div class="field-note">'+esc(t.from_name||'')+' · '+esc(t.urgency||'')+'</div></div>'
+    +'<button class="linklike" onclick="coordMsgDone(\''+t.id+'\')">Done ✓</button></div>';
   const open=(DATA.staffing_tasks||[]).filter(t=>t.direction==='to_coordinators'&&t.status==='open');
-  wrap.innerHTML = open.length
-    ? '<details class="attx"><summary>📨 From the Staffing Coordinator<span class="cnt">'+open.length+'</span></summary>'
-      +'<div class="attbody">'
-      +open.map(t=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">'
-        +'<span>'+(t.kind==='todo'?'☑️':'ℹ️')+'</span>'
-        +'<div style="flex:1;min-width:0;">'+(t.about?'<b>'+esc(t.about)+'</b> — ':'')+esc(t.message)
-        +'<div class="field-note">'+esc(t.from_name||'Staffing')+' · '+esc(t.urgency||'')+'</div></div>'
-        +'<button class="linklike" onclick="coordMsgDone(\''+t.id+'\')">Done ✓</button></div>').join('')
-      +'</div></details>'
-    : '';
+  const forOwners=DISC_APPROVERS.includes(ME.email)
+    ? (DATA.staffing_tasks||[]).filter(t=>t.direction==='to_owners'&&t.status==='open') : [];
+  wrap.innerHTML =
+    (open.length
+      ? '<details class="attx"><summary>📨 From the Staffing Coordinator<span class="cnt">'+open.length+'</span></summary>'
+        +'<div class="attbody">'+open.map(row).join('')+'</div></details>' : '')
+    +(forOwners.length
+      ? '<details class="attx" open><summary>🏛️ Sent to the Owners<span class="cnt">'+forOwners.length+'</span></summary>'
+        +'<div class="attbody">'+forOwners.map(row).join('')+'</div></details>' : '');
   updateAttnCard();
 }
 async function coordMsgDone(id){
@@ -4430,7 +4442,7 @@ async function sendStaffingFromPage(){
     if(!document.getElementById('pg_about').value.trim()){ alert('A do-not-return needs the client\'s name.'); return; }
     if(!caregiver){ alert('A do-not-return needs the caregiver\'s name — it goes on the permanent log.'); return; }
   }
-  const t={ id:uid(), direction:'to_staffing', kind,
+  const t={ id:uid(), direction:document.getElementById('pg_to').value==='owners'?'to_owners':'to_staffing', kind,
     urgency:document.getElementById('pg_urgency').value,
     about:document.getElementById('pg_about').value.trim(), caregiver:kind==='dnr'?caregiver:'', lead_id:null,
     message, created_at:new Date().toISOString(), from_name:ME.name||ME.email, from_email:ME.email,
@@ -4447,27 +4459,29 @@ function renderCommsPage(){
   const fmt=iso=>{ try{ return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } };
   const all=(DATA.staffing_tasks||[]).slice().sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
   if(!all.length){ wrap.innerHTML='<div class="field-note">No messages yet — the first one you send appears here, permanently.</div>'; updateCommsTabBadge(); return; }
+  const DIR_LABEL={to_staffing:'→ Staffing',to_coordinators:'→ Coordinators',to_owners:'→ Owners'};
   wrap.innerHTML=all.map(t=>{
-    const toStaffing=t.direction==='to_staffing';
+    const outgoing=t.from_email===ME.email||t.direction==='to_staffing'||t.direction==='to_owners';
+    const canDone=t.status==='open'&&(t.direction==='to_coordinators'||(t.direction==='to_owners'&&DISC_APPROVERS.includes(ME.email)));
     return '<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:flex-start;">'
-      +'<span style="font-size:16px;">'+(toStaffing?'📤':'📥')+'</span>'
+      +'<span style="font-size:16px;">'+(t.direction==='to_coordinators'?'📥':'📤')+'</span>'
       +'<div style="flex:1;min-width:0;">'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
-      +'<b>'+esc(t.from_name||'')+'</b><span class="field-note">'+(toStaffing?'→ Staffing':'→ Coordinators')+'</span>'
+      +'<b>'+esc(t.from_name||'')+'</b><span class="field-note">'+(DIR_LABEL[t.direction]||'')+'</span>'
       +'<span class="tag-chip" style="background:#EDF1F5;color:#33414D;">'+(PG_KIND_LABEL[t.kind]||t.kind)+'</span>'
       +(t.urgency?'<span class="field-note">'+esc(t.urgency)+'</span>':'')+'</div>'
       +'<div style="margin-top:2px;">'+(t.about?'<b>'+esc(t.about)+'</b>'+(t.caregiver?' / '+esc(t.caregiver):'')+' — ':'')+esc(t.message||'')+'</div>'
       +'<div class="field-note" style="margin-top:2px;">'+fmt(t.created_at)
       +(t.status==='done'?' · ✅ done by '+esc(t.done_by||'')+(t.done_at?' '+fmt(t.done_at):'')+(t.reply?' · 💬 “'+esc(t.reply)+'”':''):' · ⏳ open')+'</div>'
       +'</div>'
-      +(!toStaffing&&t.status==='open'?'<button class="linklike" onclick="coordMsgDone(\''+t.id+'\');renderCommsPage()">Done ✓</button>':'')
+      +(canDone?'<button class="linklike" onclick="coordMsgDone(\''+t.id+'\');renderCommsPage()">Done ✓</button>':'')
       +'</div>';
   }).join('');
   updateCommsTabBadge();
 }
 function updateCommsTabBadge(){
   const b=document.getElementById('commsTabBadge'); if(!b) return;
-  const n=(DATA.staffing_tasks||[]).filter(t=>t.direction==='to_coordinators'&&t.status==='open').length;
+  const n=(DATA.staffing_tasks||[]).filter(t=>t.status==='open'&&(t.direction==='to_coordinators'||(t.direction==='to_owners'&&DISC_APPROVERS.includes(ME.email)))).length;
   b.style.display=n?'inline-flex':'none'; b.textContent=n;
 }
 
@@ -4485,7 +4499,7 @@ function renderCommLog(){
     (h.items||[]).filter(it=>it.done_at).forEach(it=>ev.push({at:it.done_at,icon:'☑️',text:'<b>'+esc(it.done_by||'')+'</b> completed handoff item: '+esc(it.label),status:''}));
   });
   (DATA.staffing_tasks||[]).forEach(t=>{
-    const dir=t.direction==='to_staffing'?'→ Staffing':'→ Coordinators';
+    const dir=t.direction==='to_staffing'?'→ Staffing':t.direction==='to_owners'?'→ Owners':'→ Coordinators';
     ev.push({at:t.created_at,icon:'📨',text:'<b>'+esc(t.from_name||'')+'</b> '+dir+': '+(t.about?'<b>'+esc(t.about)+'</b> — ':'')+esc(t.message||''),
       status:t.status==='done'?'✓ done by '+esc(t.done_by||'')+(t.done_at?' '+fmt(t.done_at):'')+(t.reply?' · 💬 “'+esc(t.reply)+'”':''):'⏳ open'});
   });
