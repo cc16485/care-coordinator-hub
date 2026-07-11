@@ -81,6 +81,10 @@
 
   /* KPI cards + pipeline tiles (Overview) */
   .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
+  .mission-label{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin:2px 0 10px;display:flex;align-items:center;gap:10px;}
+  .mission-label::after{content:'';flex:1;height:1px;background:var(--border);}
+  .goal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
+  @media(max-width:1100px){.goal-grid{grid-template-columns:1fr;}}
   /* Needs-attention digest: one calm card, slim expandable rows */
   .attx{border-bottom:1px solid var(--border);}
   .attx:last-child, .attsec:last-child{border-bottom:none;}
@@ -370,19 +374,15 @@
       </div>
       <div class="card" id="attnCard" style="padding:2px 18px;margin-bottom:16px;display:none;">
         <div id="handoffBanner"></div>
+        <div id="careAlerts"></div>
         <div id="mgrStrip"></div>
         <div id="approvalsCard"></div>
         <div id="coordMsgs"></div>
         <div id="meetingsCard"></div>
       </div>
+      <div class="mission-label" style="color:#1F6D45;">🌱 Grow the agency</div>
+      <div id="goalsRow"></div>
       <div class="kpi-grid" id="kpiGrid"></div>
-      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <b style="font-size:14px;color:var(--navy);">📜 Communication Log</b>
-          <span class="field-note">permanent record — every handoff, staffing request and meeting stays here; nothing can be deleted or cleared</span>
-        </div>
-        <div id="commLog" style="margin-top:8px;"></div>
-      </div>
       <div class="card" style="padding:18px 20px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <b style="font-size:15.5px;font-weight:800;color:var(--navy);">Inquiry Pipeline (this month)</b>
@@ -412,6 +412,22 @@
             <div id="todayDone" style="margin-top:8px;"></div>
           </div>
         </div>
+      </div>
+
+      <div class="mission-label" style="color:#B23B3B;margin-top:20px;">💚 Keep clients happy · quality of care high</div>
+      <div class="kpi-grid" id="careKpis"></div>
+      <div class="card" style="padding:16px;margin-bottom:16px;">
+        <b style="color:var(--navy);font-size:14px;">💚 Clients needing love</b>
+        <div class="field-note" style="margin:2px 0 6px;">A kept client is worth more than a new lead — this list is how they stay.</div>
+        <div id="careQueue"></div>
+      </div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="font-size:14px;color:var(--navy);">📜 Communication Log</b>
+          <span class="field-note">permanent record — every handoff, staffing request and meeting stays here; nothing can be deleted or cleared</span>
+        </div>
+        <div id="commLog" style="margin-top:8px;"></div>
       </div>
     </section>
 
@@ -1580,7 +1596,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2345,6 +2361,10 @@ function renderToday(){
   renderApprovalsCc();
   renderCoordMsgs();
   renderMeetingsCc();
+  renderCareAlerts();
+  renderGoals();
+  renderCareKpis();
+  renderCareQueue();
   renderCommLog();
   updateSocBadge();
 }
@@ -4197,6 +4217,100 @@ function ccmtgSolo(){
   window._ccmtgWantForm=false;
   const d=document.getElementById('mtgDetails'); if(d){ d.open=true; d.scrollIntoView({behavior:'smooth',block:'center'}); }
   const t=document.getElementById('ccmtg_topic'); if(t) t.focus();
+}
+
+/* ---------------- The two-mission dashboard: GROW + KEEP ----------------
+   The care coordinator's job in one sentence (Samantha's): grow the agency,
+   keep current clients happy, keep quality of care high. Goals are shared
+   settings ('cc_goals'); the care side is computed from check-ins,
+   supervisory visits and converted clients. */
+function ccGoals(){
+  const g=(DATA.cc_goals||[]).find(x=>x.id==='main');
+  return Object.assign({inquiries:12, starts:4, ref_week:5}, g||{});
+}
+async function editCcGoals(){
+  const g=ccGoals();
+  const a=prompt('Monthly goal — NEW INQUIRIES:',g.inquiries); if(a===null) return;
+  const b=prompt('Monthly goal — NEW CLIENTS (starts of care):',g.starts); if(b===null) return;
+  const c=prompt('Weekly goal — REFERRAL-SOURCE TOUCHES (visits, calls, drop-bys):',g.ref_week); if(c===null) return;
+  const item={id:'main', inquiries:+a||12, starts:+b||4, ref_week:+c||5};
+  DATA.cc_goals=[item];
+  await persist('cc_goals',item);
+  renderGoals();
+}
+function renderGoals(){
+  const wrap=document.getElementById('goalsRow'); if(!wrap) return;
+  const g=ccGoals();
+  const mStart=new Date(); mStart.setDate(1); mStart.setHours(0,0,0,0);
+  const mIso=mStart.toISOString();
+  const wkStart=new Date(); wkStart.setDate(wkStart.getDate()-((wkStart.getDay()+6)%7)); wkStart.setHours(0,0,0,0);
+  const inq=DATA.leads.filter(l=>(l.created_at||'')>=mIso).length;
+  const starts=DATA.leads.filter(l=>l.status==='Converted'&&(l.converted_at||l.created_at||'')>=mIso).length;
+  const touches=(DATA.referral_activities||[]).filter(a=>(a.at||'')>=wkStart.toISOString()).length;
+  const tile=(label,val,goal,sub)=>{
+    const pct=goal?Math.min(100,Math.round(val/goal*100)):0;
+    const doneC=pct>=100?'var(--green)':'#2F6FB0';
+    return '<div class="kpi"><div class="kl"><span>'+label+'</span>'+(pct>=100?'<span>🎉</span>':'')+'</div>'
+      +'<div class="kv">'+val+'<span style="font-size:15px;font-weight:600;color:var(--text-muted);"> / '+goal+'</span></div>'
+      +'<div style="height:7px;background:#EDF1F5;border-radius:99px;overflow:hidden;margin:6px 0 4px;"><i style="display:block;height:100%;width:'+pct+'%;background:'+doneC+';"></i></div>'
+      +'<div class="ks">'+sub+'</div></div>';
+  };
+  wrap.innerHTML='<div class="goal-grid">'
+    +tile('🎯 New inquiries — goal',inq,g.inquiries,'this month')
+    +tile('🎯 New clients — goal',starts,g.starts,'starts of care this month')
+    +tile('🎯 Referral touches — goal',touches,g.ref_week,'visits/calls/drop-bys this week')
+    +'</div>'
+    +(ME.shift==='manager'?'<div style="text-align:right;margin:-10px 0 10px;"><button class="linklike" style="font-size:12px;" onclick="editCcGoals()">adjust goals</button></div>':'');
+}
+function careStats(){
+  const t=today();
+  const overdueCk=(DATA.client_checkins||[]).filter(c=>c.next_checkin_due&&c.next_checkin_due<t);
+  const escalated=(DATA.client_checkins||[]).filter(c=>c.escalated);
+  const svOver=(DATA.supervisory_visits||[]).filter(v=>v.due_date&&v.due_date<t);
+  const d30=new Date(Date.now()-30*86400000).toISOString();
+  const newStarts=DATA.leads.filter(l=>l.status==='Converted'&&(l.converted_at||'')>=d30);
+  return {overdueCk,escalated,svOver,newStarts};
+}
+function renderCareKpis(){
+  const wrap=document.getElementById('careKpis'); if(!wrap) return;
+  const s=careStats();
+  const kpi=(label,val,sub,icon,bg,fg,alert)=>
+    '<div class="kpi" style="cursor:pointer;'+(alert&&val>0?'border-color:#E8B4B4;':'')+'" onclick="switchTab(\''+(label.includes('Supervisory')?'supervisory':label.includes('30')?'clients':'checkins')+'\')">'
+    +'<div class="kl"><span>'+label+'</span><span class="kw" style="background:'+bg+';color:'+fg+';">'+icon+'</span></div>'
+    +'<div class="kv"'+(alert&&val>0?' style="color:var(--red);"':'')+'>'+val+'</div><div class="ks">'+sub+'</div></div>';
+  wrap.innerHTML=
+    kpi('Check-ins Overdue',s.overdueCk.length,'A quiet client is a leaving client — call them','💚','#FDE8E8','#B23B3B',true)
+    +kpi('Escalated Concerns',s.escalated.length,'Raised by a client, not yet resolved','🚨','#FDE8E8','#B23B3B',true)
+    +kpi('Supervisory Visits Overdue',s.svOver.length,'Quality-of-care proof for the state','🛡','#F7ECCB','#A9791A',true)
+    +kpi('New Clients — first 30 days',s.newStarts.length,'Highest cancel risk — extra attention now','🌟','#E1F1ED','#2E8577',false);
+}
+function renderCareQueue(){
+  const wrap=document.getElementById('careQueue'); if(!wrap) return;
+  const esc=escapeHtmlComms, t=today(), s=careStats(), rows=[];
+  s.escalated.forEach(c=>rows.push(['🚨','<b>'+esc(c.client_name||'')+'</b> — escalated concern'+(c.concerns_raised?': '+esc(String(c.concerns_raised).slice(0,70)):''),'checkins']));
+  s.overdueCk.forEach(c=>rows.push(['💚','<b>'+esc(c.client_name||'')+'</b> — check-in '+daysBetween(c.next_checkin_due,t)+' days overdue','checkins']));
+  s.svOver.forEach(v=>rows.push(['🛡','<b>'+esc(v.client_name||'')+'</b> — supervisory visit overdue','supervisory']));
+  s.newStarts.forEach(l=>rows.push(['🌟','<b>'+esc((l.client_first_name||l.first_name||'')+' '+(l.client_last_name||l.last_name||''))+'</b> — new client ('+(l.converted_at?daysBetween(l.converted_at.slice(0,10),t):'?')+' days in) — check in weekly','checkins']));
+  wrap.innerHTML = rows.length
+    ? rows.slice(0,10).map(r=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+      +'<span>'+r[0]+'</span><span style="flex:1;min-width:0;">'+r[1]+'</span>'
+      +'<button class="linklike" onclick="switchTab(\''+r[2]+'\')">Open</button></div>').join('')
+      +(rows.length>10?'<div class="field-note" style="margin-top:4px;">+'+(rows.length-10)+' more — see the Check-ins and Supervisory tabs</div>':'')
+    : '<div class="field-note">Every client is checked in, visited, and settled. That\'s the quality bar. 💚</div>';
+}
+function renderCareAlerts(){
+  const wrap=document.getElementById('careAlerts'); if(!wrap) return;
+  const esc=escapeHtmlComms;
+  const escd=(DATA.client_checkins||[]).filter(c=>c.escalated);
+  wrap.innerHTML = escd.length
+    ? '<div class="attsec">'
+      +'<div style="font-size:13.5px;font-weight:700;color:var(--red);padding-bottom:4px;">🚨 Escalated client concerns — a client raised something real</div>'
+      +escd.map(c=>'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;">'
+        +'<span>💚</span><span style="flex:1;min-width:0;"><b>'+esc(c.client_name||'')+'</b>'+(c.concerns_raised?' — '+esc(String(c.concerns_raised).slice(0,90)):'')+'</span>'
+        +'<button class="linklike" onclick="switchTab(\'checkins\')">Open</button></div>').join('')
+      +'</div>'
+    : '';
+  updateAttnCard();
 }
 
 /* ---------------- Communication Log — the audit trail ----------------
