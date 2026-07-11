@@ -1296,6 +1296,7 @@
 <option value="dnr">🚫 Do NOT send this caregiver back</option>
 <option value="hours">➕ Add / change hours</option>
 <option value="schedule">📅 Schedule change</option>
+<option value="attendance">⏰ Attendance issue (late / no-show / call-in)</option>
 <option value="todo">☑️ Other to-do — needs action</option>
 <option value="update">ℹ️ Update — just so they know</option>
 </select></div>
@@ -1558,7 +1559,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -4151,6 +4152,12 @@ function renderMgrStrip(){
   const esc=escapeHtmlComms, t=today(), rows=[];
   if(_openShifts && _openShifts.count)
     rows.push(['🔴',_openShifts.count+' open shift'+(_openShifts.count===1?'':'s')+' in AxisCare over the next 2 weeks'+(_openShifts.urgent?' — <b style="color:var(--red);">'+_openShifts.urgent+' within 48 hours</b>':''),'window.open(\'https://sc.mo-care.com\',\'_blank\')']);
+  // Attendance discipline needing HER decision (she makes all final calls).
+  const ncnsPending=(DATA.attendance_events||[]).filter(e=>e.type==='ncns'&&!e.action_id);
+  ncnsPending.forEach(e=>rows.push(['🚨',esc(e.caregiver)+' — no-call/no-show on '+esc(e.shift_date)+' (immediate termination review per Handbook 2U)','window.open(\'https://sc.mo-care.com\',\'_blank\')']));
+  const wuDrafts=(DATA.discipline_actions||[]).filter(a=>a.status==='draft');
+  if(wuDrafts.length)
+    rows.push(['📝',wuDrafts.length+' corrective-action notice'+(wuDrafts.length===1?'':'s')+' drafted, awaiting your approval before issue','window.open(\'https://sc.mo-care.com\',\'_blank\')']);
   const h=latestHandoff();
   if(h && !h.ack_at && h.from_email!==ME.email)
     rows.push(['🔄','Handoff from '+esc(h.from_name)+' hasn\'t been acknowledged yet','switchTab(\'today\')']);
