@@ -1289,13 +1289,25 @@
 <h2>📨 Send to the Staffing Coordinator</h2>
 <p class="hint" style="margin-top:2px;">Took a call that's really a scheduling matter? Send it over — it lands in the Staffing Hub instantly, stamped from you, and you'll see here when it's done.</p>
 <div class="grid2" style="margin-top:10px;">
-<div><label>What is it?</label>
-<select id="stask_kind"><option value="todo">To-do — needs action</option><option value="update">Update — just so they know</option></select></div>
+<div><label>What kind of request?</label>
+<select id="stask_kind" onchange="staskKindUi()">
+<option value="coverage">🕐 Coverage gap / call-out</option>
+<option value="dnr">🚫 Do NOT send this caregiver back</option>
+<option value="hours">➕ Add / change hours</option>
+<option value="schedule">📅 Schedule change</option>
+<option value="todo">☑️ Other to-do — needs action</option>
+<option value="update">ℹ️ Update — just so they know</option>
+</select></div>
 <div><label>How urgent?</label>
 <select id="stask_urgency"><option>Today</option><option selected>This week</option><option>When you can</option></select></div>
 </div>
-<label>Who is it about? <span style="font-weight:400;color:var(--text-muted);">(client, caregiver, or lead — optional)</span></label>
-<input id="stask_about" placeholder="e.g. Mrs. Henderson / caregiver Dana W.">
+<label>Which client is it about?</label>
+<input id="stask_about" placeholder="e.g. Mrs. Henderson">
+<div id="stask_cg_wrap" style="display:none;">
+<label>Which caregiver must not return? <span style="font-weight:400;color:var(--text-muted);">(goes on the permanent Do-Not-Return log)</span></label>
+<input id="stask_caregiver" placeholder="Caregiver's full name">
+</div>
+<div id="stask_hours_hint" style="display:none;font-size:12.5px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:8px 10px;margin-top:8px;color:#92400E;">💡 If this is a <b>Medicaid</b> client, more hours than DSDS authorized won't be paid — staffing will check the authorized units first, and if it's over, the evening coordinator requests a reassessment from the DSDS case manager.</div>
 <label>The message</label>
 <textarea id="stask_message" rows="3" placeholder="e.g. Daughter called — Tuesday caregiver can't come anymore, needs coverage arranged by next week."></textarea>
 <div id="staskSentList" style="margin-top:14px;"></div>
@@ -3954,20 +3966,33 @@ async function handoffItemDone(hid,i,checked){
 
 /* ---------------- Send to Staffing ---------------- */
 let staskLeadId=null;
+function staskKindUi(){
+  const k=document.getElementById('stask_kind').value;
+  document.getElementById('stask_cg_wrap').style.display = k==='dnr'?'block':'none';
+  document.getElementById('stask_hours_hint').style.display = k==='hours'?'block':'none';
+}
 function openStaffingModal(leadId){
   staskLeadId=leadId||null;
   const l=leadId?DATA.leads.find(x=>x.id===leadId):null;
   document.getElementById('stask_about').value=l?((l.client_first_name||l.first_name||'')+' '+(l.client_last_name||l.last_name||'')).trim():'';
   document.getElementById('stask_message').value='';
+  document.getElementById('stask_caregiver').value='';
+  staskKindUi();
   renderStaskSent();
   document.getElementById('staffingModalBackdrop').classList.add('open');
 }
 async function sendStaffingTask(){
   const message=document.getElementById('stask_message').value.trim();
   if(!message){ alert('Write the message first.'); return; }
-  const t={ id:uid(), direction:'to_staffing', kind:document.getElementById('stask_kind').value,
+  const kind=document.getElementById('stask_kind').value;
+  const caregiver=document.getElementById('stask_caregiver').value.trim();
+  if(kind==='dnr'){
+    if(!document.getElementById('stask_about').value.trim()){ alert('A do-not-return needs the client\'s name.'); return; }
+    if(!caregiver){ alert('A do-not-return needs the caregiver\'s name — it goes on the permanent log.'); return; }
+  }
+  const t={ id:uid(), direction:'to_staffing', kind,
     urgency:document.getElementById('stask_urgency').value,
-    about:document.getElementById('stask_about').value.trim(), lead_id:staskLeadId,
+    about:document.getElementById('stask_about').value.trim(), caregiver:kind==='dnr'?caregiver:'', lead_id:staskLeadId,
     message, created_at:new Date().toISOString(), from_name:ME.name||ME.email, from_email:ME.email,
     status:'open', done_at:null, done_by:null, reply:'' };
   DATA.staffing_tasks=DATA.staffing_tasks||[]; DATA.staffing_tasks.push(t);
@@ -4010,10 +4035,30 @@ async function coordMsgDone(id){
 }
 
 /* ---------------- Samantha's manager strip ---------------- */
+let _openShifts; // undefined = not fetched, null = unavailable, else {count,urgent}
+async function loadOpenShiftsForStrip(){
+  if(_openShifts!==undefined || !CONFIG.training_hub_key){ return; }
+  _openShifts=null;
+  try{
+    const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
+      method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+      body:JSON.stringify({key:CONFIG.training_hub_key,days:14})});
+    const d=await r.json();
+    if(!d.error){
+      const now=Date.now();
+      const urgent=(d.open||[]).filter(s=>(new Date(s.date+'T'+(s.start||'23:59')).getTime()-now)<=48*3600000).length;
+      _openShifts={count:d.open_count||0,urgent};
+      renderMgrStrip();
+    }
+  }catch(e){ /* strip simply omits the row */ }
+}
 function renderMgrStrip(){
   const wrap=document.getElementById('mgrStrip'); if(!wrap) return;
   if(ME.shift!=='manager'){ wrap.innerHTML=''; return; }
+  loadOpenShiftsForStrip();
   const esc=escapeHtmlComms, t=today(), rows=[];
+  if(_openShifts && _openShifts.count)
+    rows.push(['🔴',_openShifts.count+' open shift'+(_openShifts.count===1?'':'s')+' in AxisCare over the next 2 weeks'+(_openShifts.urgent?' — <b style="color:var(--red);">'+_openShifts.urgent+' within 48 hours</b>':''),'window.open(\'https://sc.mo-care.com\',\'_blank\')']);
   const h=latestHandoff();
   if(h && !h.ack_at && h.from_email!==ME.email)
     rows.push(['🔄','Handoff from '+esc(h.from_name)+' hasn\'t been acknowledged yet','switchTab(\'today\')']);
