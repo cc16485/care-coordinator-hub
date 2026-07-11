@@ -376,6 +376,13 @@
         <div id="meetingsCard"></div>
       </div>
       <div class="kpi-grid" id="kpiGrid"></div>
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="font-size:14px;color:var(--navy);">📜 Communication Log</b>
+          <span class="field-note">permanent record — every handoff, staffing request and meeting stays here; nothing can be deleted or cleared</span>
+        </div>
+        <div id="commLog" style="margin-top:8px;"></div>
+      </div>
       <div class="card" style="padding:18px 20px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <b style="font-size:15.5px;font-weight:800;color:var(--navy);">Inquiry Pipeline (this month)</b>
@@ -2338,6 +2345,7 @@ function renderToday(){
   renderApprovalsCc();
   renderCoordMsgs();
   renderMeetingsCc();
+  renderCommLog();
   updateSocBadge();
 }
 function leadNoPlanRow(l){
@@ -4189,6 +4197,43 @@ function ccmtgSolo(){
   window._ccmtgWantForm=false;
   const d=document.getElementById('mtgDetails'); if(d){ d.open=true; d.scrollIntoView({behavior:'smooth',block:'center'}); }
   const t=document.getElementById('ccmtg_topic'); if(t) t.focus();
+}
+
+/* ---------------- Communication Log — the audit trail ----------------
+   A read-only ledger derived from the records themselves (handoffs,
+   staffing_tasks, meetings are never deleted). Marking something done
+   changes its status here — it never removes it. */
+function renderCommLog(){
+  const box=document.getElementById('commLog'); if(!box) return;
+  const esc=escapeHtmlComms, ev=[];
+  const fmt=iso=>{ try{ return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } };
+  (DATA.handoffs||[]).forEach(h=>{
+    ev.push({at:h.posted_at,icon:'🔄',text:'<b>'+esc(h.from_name)+'</b> posted a shift handoff — '+(h.items||[]).length+' item'+((h.items||[]).length===1?'':'s')+(h.general_note?' · “'+esc(h.general_note)+'”':''),
+      status:h.ack_at?'✓ acknowledged by '+esc(h.ack_by||'')+' '+fmt(h.ack_at):'⏳ not acknowledged yet'});
+    (h.items||[]).filter(it=>it.done_at).forEach(it=>ev.push({at:it.done_at,icon:'☑️',text:'<b>'+esc(it.done_by||'')+'</b> completed handoff item: '+esc(it.label),status:''}));
+  });
+  (DATA.staffing_tasks||[]).forEach(t=>{
+    const dir=t.direction==='to_staffing'?'→ Staffing':'→ Coordinators';
+    ev.push({at:t.created_at,icon:'📨',text:'<b>'+esc(t.from_name||'')+'</b> '+dir+': '+(t.about?'<b>'+esc(t.about)+'</b> — ':'')+esc(t.message||''),
+      status:t.status==='done'?'✓ done by '+esc(t.done_by||'')+(t.done_at?' '+fmt(t.done_at):'')+(t.reply?' · 💬 “'+esc(t.reply)+'”':''):'⏳ open'});
+  });
+  (DATA.meetings||[]).forEach(m=>{
+    ev.push({at:m.created_at,icon:'🎥',text:'<b>'+esc(m.requested_by_name||'')+'</b> requested a meeting with '+esc((MTG_WHO[m.with]||m.with))+': '+esc(m.topic||''),
+      status:m.status==='accepted'?'✓ accepted by '+esc(m.accepted_by||'')+' · 🗓 '+esc(m.scheduled_for||''):m.status==='done'?'✓ held':m.status==='declined'?'↩ '+esc(m.declined_reason||'another time suggested'):'⏳ waiting for an answer'});
+  });
+  ev.sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+  if(!ev.length){ box.innerHTML='<div class="field-note">Nothing logged yet — every handoff, staffing request and meeting will appear here, permanently.</div>'; return; }
+  const row=e=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;">'
+    +'<span>'+e.icon+'</span>'
+    +'<div style="flex:1;min-width:0;">'+e.text
+    +(e.status?'<div class="field-note">'+e.status+'</div>':'')+'</div>'
+    +'<span class="field-note" style="white-space:nowrap;">'+fmt(e.at)+'</span></div>';
+  const RECENT=8;
+  box.innerHTML = ev.slice(0,RECENT).map(row).join('')
+    +(ev.length>RECENT
+      ?'<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:12.5px;font-weight:600;color:var(--navy);">Show the full history ('+ev.length+' entries)</summary>'
+        +'<div style="max-height:380px;overflow-y:auto;">'+ev.slice(RECENT,500).map(row).join('')+'</div></details>'
+      :'');
 }
 
 /* ---------------- Samantha's manager strip ---------------- */
