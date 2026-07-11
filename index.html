@@ -81,6 +81,16 @@
 
   /* KPI cards + pipeline tiles (Overview) */
   .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
+  /* Needs-attention digest: one calm card, slim expandable rows */
+  .attx{border-bottom:1px solid var(--border);}
+  .attx:last-child, .attsec:last-child{border-bottom:none;}
+  .attx summary{list-style:none;display:flex;align-items:center;gap:8px;padding:13px 0;cursor:pointer;font-weight:700;font-size:13.5px;color:var(--navy);}
+  .attx summary::-webkit-details-marker{display:none;}
+  .attx summary::after{content:'▾';margin-left:auto;color:var(--text-muted);font-size:12px;transition:transform .15s;}
+  .attx[open] summary::after{transform:rotate(180deg);}
+  .attx .cnt{background:var(--red);color:#fff;border-radius:999px;font-size:11px;font-weight:800;padding:1px 8px;}
+  .attx .attbody{padding:0 0 14px;}
+  .attsec{padding:11px 0;border-bottom:1px solid var(--border);}
   .kpi{background:#fff;border:1px solid #E4E9EF;border-radius:16px;padding:18px 18px 16px;box-shadow:0 1px 2px rgba(18,58,94,.04);}
   .kpi .kl{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--text-muted);}
   .kpi .kw{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;}
@@ -355,13 +365,16 @@
           <div class="field-note" id="todayHello" style="font-size:14px;margin-top:3px;"></div>
         </div>
         <span style="flex:1;"></span>
+        <button class="secondary" onclick="ccmtgSolo()">🎥 Meeting</button>
         <button class="primary" onclick="openActivityModal()">＋ Schedule an activity</button>
       </div>
-      <div id="handoffBanner"></div>
-      <div id="mgrStrip"></div>
-      <div id="approvalsCard"></div>
-      <div id="coordMsgs"></div>
-      <div id="meetingsCard"></div>
+      <div class="card" id="attnCard" style="padding:2px 18px;margin-bottom:16px;display:none;">
+        <div id="handoffBanner"></div>
+        <div id="mgrStrip"></div>
+        <div id="approvalsCard"></div>
+        <div id="coordMsgs"></div>
+        <div id="meetingsCard"></div>
+      </div>
       <div class="kpi-grid" id="kpiGrid"></div>
       <div class="card" style="padding:18px 20px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -3937,17 +3950,15 @@ function renderHandoffBanner(){
   const wrap=document.getElementById('handoffBanner'); if(!wrap) return;
   const esc=escapeHtmlComms, h=latestHandoff();
   // Show while it has open items (or is unacknowledged), to everyone except its poster.
-  if(!h || h.from_email===ME.email || (h.ack_at && !(h.items||[]).some(it=>!it.done_at))){ wrap.innerHTML=''; return; }
+  if(!h || h.from_email===ME.email || (h.ack_at && !(h.items||[]).some(it=>!it.done_at))){ wrap.innerHTML=''; updateAttnCard(); return; }
   const open=(h.items||[]).filter(it=>!it.done_at);
   wrap.innerHTML =
-    '<div class="card" style="padding:16px 18px;margin-bottom:16px;border-color:#D8C8A8;background:#FFFDF5;">'
-    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-    +'<b style="color:var(--navy);font-size:15px;">🔄 Handoff from '+esc(h.from_name)+'</b>'
-    +'<span class="field-note">'+new Date(h.posted_at).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'})+'</span>'
-    +'<span style="flex:1;"></span>'
-    +(!h.ack_at?'<button class="primary" onclick="ackHandoff(\''+h.id+'\')">Got it — I\'m on</button>':'<span class="tag-chip" style="background:#E1F1ED;color:#2E8577;">✓ acknowledged by '+esc(h.ack_by||'')+'</span>')
-    +'</div>'
-    +(h.general_note?'<div style="font-size:13.5px;margin-top:8px;padding:8px 10px;background:#FBF6EA;border-radius:8px;">📝 '+esc(h.general_note)+'</div>':'')
+    '<details class="attx"'+(!h.ack_at?' open':'')+'><summary>🔄 Handoff from '+esc(h.from_name)
+    +'<span class="field-note" style="font-weight:400;">'+new Date(h.posted_at).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'})+'</span>'
+    +(open.length?'<span class="cnt">'+open.length+'</span>':'')+'</summary>'
+    +'<div class="attbody">'
+    +(!h.ack_at?'<button class="primary" style="margin-bottom:8px;" onclick="ackHandoff(\''+h.id+'\')">Got it — I\'m on</button>':'<span class="tag-chip" style="background:#E1F1ED;color:#2E8577;">✓ acknowledged by '+esc(h.ack_by||'')+'</span>')
+    +(h.general_note?'<div style="font-size:13.5px;margin:8px 0;padding:8px 10px;background:#FBF6EA;border-radius:8px;">📝 '+esc(h.general_note)+'</div>':'')
     +(h.items||[]).map((it,i)=>
       '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">'
       +'<input type="checkbox" style="width:auto;margin-top:2px;" '+(it.done_at?'checked':'')+' onchange="handoffItemDone(\''+h.id+'\','+i+',this.checked)">'
@@ -3955,7 +3966,13 @@ function renderHandoffBanner(){
       +(it.note?'<div class="field-note" style="text-decoration:none;">📝 '+esc(it.note)+'</div>':'')+'</div>'
       +(it.type==='lead'&&it.ref?'<button class="linklike" onclick="openLeadProfile(\''+it.ref+'\')">Open</button>':'')
       +'</div>').join('')
-    +'</div>';
+    +'</div></details>';
+  updateAttnCard();
+}
+function updateAttnCard(){
+  const c=document.getElementById('attnCard'); if(!c) return;
+  const any=[...c.children].some(d=>d.innerHTML.trim());
+  c.style.display=any?'block':'none';
 }
 async function ackHandoff(id){
   const h=(DATA.handoffs||[]).find(x=>x.id===id); if(!h) return;
@@ -4023,15 +4040,16 @@ function renderCoordMsgs(){
   const esc=escapeHtmlComms;
   const open=(DATA.staffing_tasks||[]).filter(t=>t.direction==='to_coordinators'&&t.status==='open');
   wrap.innerHTML = open.length
-    ? '<div class="card" style="padding:14px 18px;margin-bottom:16px;border-color:#BBD3E8;background:#F7FAFD;">'
-      +'<b style="color:var(--navy);font-size:14px;">📨 From the Staffing Coordinator</b>'
+    ? '<details class="attx"><summary>📨 From the Staffing Coordinator<span class="cnt">'+open.length+'</span></summary>'
+      +'<div class="attbody">'
       +open.map(t=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">'
         +'<span>'+(t.kind==='todo'?'☑️':'ℹ️')+'</span>'
         +'<div style="flex:1;min-width:0;">'+(t.about?'<b>'+esc(t.about)+'</b> — ':'')+esc(t.message)
         +'<div class="field-note">'+esc(t.from_name||'Staffing')+' · '+esc(t.urgency||'')+'</div></div>'
         +'<button class="linklike" onclick="coordMsgDone(\''+t.id+'\')">Done ✓</button></div>').join('')
-      +'</div>'
+      +'</div></details>'
     : '';
+  updateAttnCard();
 }
 async function coordMsgDone(id){
   const t=(DATA.staffing_tasks||[]).find(x=>x.id===id); if(!t) return;
@@ -4046,12 +4064,12 @@ const DISC_APPROVERS=['samantha@mo-care.com','zach@mo-care.com'];
 function renderApprovalsCc(){
   const wrap=document.getElementById('approvalsCard'); if(!wrap) return;
   const esc=escapeHtmlComms;
-  if(!DISC_APPROVERS.includes(ME.email)){ wrap.innerHTML=''; return; }
+  if(!DISC_APPROVERS.includes(ME.email)){ wrap.innerHTML=''; updateAttnCard(); return; }
   const pending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
-  if(!pending.length){ wrap.innerHTML=''; return; }
-  wrap.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:16px;border-color:#E8B4B4;background:#FFFBFA;">'
-    +'<b style="color:var(--navy);font-size:14px;">📝 Corrective actions awaiting approval</b>'
-    +'<div class="field-note" style="margin-top:2px;">Only you and '+(ME.email==='zach@mo-care.com'?'Samantha':'Zach')+' can approve discipline. Read the whole notice first; your name goes on the approval.</div>'
+  if(!pending.length){ wrap.innerHTML=''; updateAttnCard(); return; }
+  wrap.innerHTML='<details class="attx" id="approvalsDetails"><summary>📝 Write-ups awaiting your approval<span class="cnt">'+pending.length+'</span></summary>'
+    +'<div class="attbody">'
+    +'<div class="field-note" style="margin-bottom:4px;">Only you and '+(ME.email==='zach@mo-care.com'?'Samantha':'Zach')+' can approve discipline. Read the whole notice first; your name goes on the approval.</div>'
     +pending.map(a=>'<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
       +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;">'
       +'<b>'+esc(a.caregiver)+'</b><span class="tag-chip" style="background:var(--red-bg);color:var(--red);">'+esc(a.level)+'</span>'
@@ -4062,7 +4080,8 @@ function renderApprovalsCc(){
       +'<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:12px;color:var(--text-muted);">Read the full notice</summary>'
       +'<pre style="white-space:pre-wrap;font-size:11.5px;line-height:1.5;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;max-height:320px;overflow-y:auto;">'+esc(a.body||'')+'</pre></details>'
       +'</div>').join('')
-    +'</div>';
+    +'</div></details>';
+  updateAttnCard();
 }
 async function approveWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
@@ -4130,8 +4149,9 @@ function renderMeetingsCc(){
   const upcoming=M.filter(m=>m.status==='accepted'&&mtgInvolvesMeCc(m));
   const mine=M.filter(m=>m.status==='requested'&&m.requested_by_role===myMtgRole());
   const recentDeclined=M.filter(m=>m.status==='declined'&&m.requested_by_role===myMtgRole()).slice(-2);
-  if(!inc.length&&!upcoming.length&&!mine.length&&!recentDeclined.length){
-    wrap.innerHTML='<div style="margin-bottom:16px;"><button class="linklike" onclick="ccmtgSolo()">🎥 Request a meeting…</button></div>';
+  if(!inc.length&&!upcoming.length&&!mine.length&&!recentDeclined.length&&!window._ccmtgWantForm){
+    wrap.innerHTML='';
+    updateAttnCard();
     return;
   }
   const row=(m,inner)=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap;">'
@@ -4140,9 +4160,11 @@ function renderMeetingsCc(){
     +(m.scheduled_for?' · 🗓 <b>'+esc(m.scheduled_for)+'</b>':m.when_pref?' · suggested: '+esc(m.when_pref):'')+'</div></div>'
     +inner+'</div>';
   wrap.innerHTML=
-    '<div class="card" style="padding:14px 18px;margin-bottom:16px;border-color:#CBE3D4;">'
-    +'<div style="display:flex;align-items:center;gap:8px;"><b style="color:var(--navy);font-size:14px;">🎥 Meetings</b><span style="flex:1;"></span><button class="linklike" onclick="toggleCcMtgForm()">＋ Request a meeting</button></div>'
-    +'<div id="ccmtgForm" style="display:none;margin-top:10px;padding:10px;background:#F8FAF9;border-radius:8px;">'
+    '<details class="attx" id="mtgDetails"'+((inc.length||window._ccmtgWantForm)?' open':'')+'><summary>🎥 Meetings'+(inc.length?'<span class="cnt">'+inc.length+'</span>':'')
+    +(upcoming.length?'<span class="field-note" style="font-weight:400;">'+upcoming.length+' upcoming</span>':'')+'</summary>'
+    +'<div class="attbody">'
+    +'<div style="display:flex;"><span style="flex:1;"></span><button class="linklike" onclick="toggleCcMtgForm()">＋ Request a meeting</button></div>'
+    +'<div id="ccmtgForm" style="display:'+(window._ccmtgWantForm?'block':'none')+';margin-top:6px;padding:10px;background:#F8FAF9;border-radius:8px;">'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
     +'<select id="ccmtg_with" style="width:auto;"><option value="staffing">With the Staffing Coordinator</option>'+(ME.shift==='manager'?'<option value="care">With the Care Coordinators</option>':'<option value="samantha">With Samantha</option>')+'<option value="team">Whole team</option></select>'
     +'<input id="ccmtg_topic" placeholder="What\'s it about?" style="flex:1;min-width:180px;">'
@@ -4156,19 +4178,17 @@ function renderMeetingsCc(){
       +'<button class="linklike" style="font-size:12px;" onclick="doneMeetingCc(\''+m.id+'\')">Mark done</button>')).join(''):'')
     +(mine.length?mine.map(m=>row(m,'<span class="field-note">⏳ waiting for an answer</span>')).join(''):'')
     +(recentDeclined.length?recentDeclined.map(m=>row(m,'<span style="font-size:12px;color:var(--amber);">↩ '+esc(m.declined_reason||'didn\'t work — try another time')+'</span>')).join(''):'')
-    +'</div>';
+    +'</div></details>';
+  updateAttnCard();
 }
+/* "🎥 Meeting" button in the Overview header: opens the request form inside
+   the attention card (creating the Meetings section if it's empty today). */
 function ccmtgSolo(){
-  const wrap=document.getElementById('meetingsCard');
-  wrap.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:16px;border-color:#CBE3D4;">'
-    +'<b style="color:var(--navy);font-size:14px;">🎥 Request a meeting</b>'
-    +'<div id="ccmtgForm" style="margin-top:10px;padding:10px;background:#F8FAF9;border-radius:8px;">'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-    +'<select id="ccmtg_with" style="width:auto;"><option value="staffing">With the Staffing Coordinator</option>'+(ME.shift==='manager'?'<option value="care">With the Care Coordinators</option>':'<option value="samantha">With Samantha</option>')+'<option value="team">Whole team</option></select>'
-    +'<input id="ccmtg_topic" placeholder="What\'s it about?" style="flex:1;min-width:180px;">'
-    +'<input id="ccmtg_when" placeholder="When works? (e.g. tomorrow 2pm)" style="min-width:180px;">'
-    +'<button class="primary" onclick="requestMeetingCc()">Request</button>'
-    +'<button class="secondary" onclick="renderMeetingsCc()">Cancel</button></div></div></div>';
+  window._ccmtgWantForm=true;
+  renderMeetingsCc();
+  window._ccmtgWantForm=false;
+  const d=document.getElementById('mtgDetails'); if(d){ d.open=true; d.scrollIntoView({behavior:'smooth',block:'center'}); }
+  const t=document.getElementById('ccmtg_topic'); if(t) t.focus();
 }
 
 /* ---------------- Samantha's manager strip ---------------- */
@@ -4201,7 +4221,7 @@ function renderMgrStrip(){
   ncnsPending.forEach(e=>rows.push(['🚨',esc(e.caregiver)+' — no-call/no-show on '+esc(e.shift_date)+' (immediate termination review per Handbook 2U)','window.open(\'https://sc.mo-care.com\',\'_blank\')']));
   const wuPending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
   if(wuPending.length)
-    rows.push(['📝',wuPending.length+' corrective-action notice'+(wuPending.length===1?'':'s')+' awaiting approval'+(wuPending.some(a=>a.level==='Termination Review')?' — <b style="color:var(--red);">a termination review needs YOU</b>':' (coordinators can approve these)')+' — card below','renderApprovalsCc()']);
+    rows.push(['📝',wuPending.length+' write-up'+(wuPending.length===1?'':'s')+' awaiting your approval'+(wuPending.some(a=>a.level==='Termination Review')?' — <b style="color:var(--red);">including a termination review</b>':''),'var d=document.getElementById(\'approvalsDetails\');if(d)d.open=true;d&&d.scrollIntoView({behavior:\'smooth\'})']);
   const h=latestHandoff();
   if(h && !h.ack_at && h.from_email!==ME.email)
     rows.push(['🔄','Handoff from '+esc(h.from_name)+' hasn\'t been acknowledged yet','switchTab(\'today\')']);
@@ -4218,13 +4238,14 @@ function renderMgrStrip(){
     +(DATA.activities||[]).filter(a=>!a.done_at&&a.due&&a.due<t).length;
   if(nOverdue>=3) rows.push(['⚠️',nOverdue+' follow-ups are overdue across the team','switchTab(\'today\')']);
   wrap.innerHTML = rows.length
-    ? '<div class="card" style="padding:14px 18px;margin-bottom:16px;border-color:#E8B4B4;background:#FFFBFA;">'
-      +'<b style="color:var(--red);font-size:14px;">🚨 Where you may need to jump in</b>'
-      +rows.map(r=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+    ? '<div class="attsec">'
+      +'<div style="font-size:13.5px;font-weight:700;color:var(--red);padding-bottom:4px;">🚨 Where you may need to jump in</div>'
+      +rows.map(r=>'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;">'
         +'<span>'+r[0]+'</span><span style="flex:1;min-width:0;">'+r[1]+'</span>'
         +'<button class="linklike" onclick="'+r[2]+'">Look</button></div>').join('')
       +'</div>'
     : '';
+  updateAttnCard();
 }
 
 (async function boot(){
