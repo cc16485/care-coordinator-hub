@@ -360,6 +360,7 @@
       <div id="handoffBanner"></div>
       <div id="mgrStrip"></div>
       <div id="coordMsgs"></div>
+      <div id="meetingsCard"></div>
       <div class="kpi-grid" id="kpiGrid"></div>
       <div class="card" style="padding:18px 20px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -1444,7 +1445,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -1557,7 +1558,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2320,6 +2321,7 @@ function renderToday(){
   renderHandoffBanner();
   renderMgrStrip();
   renderCoordMsgs();
+  renderMeetingsCc();
   updateSocBadge();
 }
 function leadNoPlanRow(l){
@@ -4032,6 +4034,96 @@ async function coordMsgDone(id){
   const t=(DATA.staffing_tasks||[]).find(x=>x.id===id); if(!t) return;
   t.status='done'; t.done_at=new Date().toISOString(); t.done_by=ME.name||ME.email;
   await persist('staffing_tasks',t); renderCoordMsgs();
+}
+
+/* ---------------- Meetings (shared 'meetings' key — Staffing Hub reads the
+   same list; either side requests, the other accepts, both get the same
+   Jitsi video room with screen sharing built in) ---------------- */
+const MTG_WHO={samantha:'Samantha',care:'the Care Coordinators',staffing:'the Staffing Coordinator',team:'the whole team'};
+function myMtgRole(){ return ME.shift==='manager'?'samantha':'care'; }
+function myMtgAudiences(){ return ME.shift==='manager'?['samantha','care','team']:['care','team']; }
+function mtgIncomingCc(m){ return m.status==='requested' && m.requested_by_role!==myMtgRole() && myMtgAudiences().includes(m.with); }
+function mtgInvolvesMeCc(m){ return m.requested_by_role===myMtgRole() || myMtgAudiences().includes(m.with); }
+async function requestMeetingCc(){
+  const topic=document.getElementById('ccmtg_topic').value.trim();
+  if(!topic){ alert('Say what the meeting is about first.'); return; }
+  const m={ id:uid(), room:'CaringCompanions-'+Math.random().toString(36).slice(2,10),
+    with:document.getElementById('ccmtg_with').value, topic,
+    when_pref:document.getElementById('ccmtg_when').value.trim(),
+    requested_by_name:ME.name||ME.email, requested_by_email:ME.email, requested_by_role:myMtgRole(),
+    status:'requested', scheduled_for:'', accepted_by:'', declined_reason:'', created_at:new Date().toISOString() };
+  DATA.meetings=DATA.meetings||[]; DATA.meetings.push(m);
+  await persist('meetings',m);
+  document.getElementById('ccmtg_topic').value=''; document.getElementById('ccmtg_when').value='';
+  document.getElementById('ccmtgForm').style.display='none';
+  renderMeetingsCc();
+}
+async function acceptMeetingCc(id){
+  const m=(DATA.meetings||[]).find(x=>x.id===id); if(!m) return;
+  const when=prompt('When is the meeting? (both hubs will show this)', m.when_pref||''); if(when===null) return;
+  m.status='accepted'; m.scheduled_for=when.trim()||m.when_pref||'time TBD'; m.accepted_by=ME.name||ME.email;
+  await persist('meetings',m); renderMeetingsCc();
+}
+async function declineMeetingCc(id){
+  const m=(DATA.meetings||[]).find(x=>x.id===id); if(!m) return;
+  const why=prompt('Suggest another time or say why it doesn\'t work (they\'ll see this):',''); if(why===null) return;
+  m.status='declined'; m.declined_reason=why.trim();
+  await persist('meetings',m); renderMeetingsCc();
+}
+async function doneMeetingCc(id){
+  const m=(DATA.meetings||[]).find(x=>x.id===id); if(!m) return;
+  m.status='done'; await persist('meetings',m); renderMeetingsCc();
+}
+function toggleCcMtgForm(){
+  const f=document.getElementById('ccmtgForm');
+  f.style.display=f.style.display==='none'?'block':'none';
+}
+function renderMeetingsCc(){
+  const wrap=document.getElementById('meetingsCard'); if(!wrap) return;
+  const esc=escapeHtmlComms, M=DATA.meetings||[];
+  const inc=M.filter(mtgIncomingCc);
+  const upcoming=M.filter(m=>m.status==='accepted'&&mtgInvolvesMeCc(m));
+  const mine=M.filter(m=>m.status==='requested'&&m.requested_by_role===myMtgRole());
+  const recentDeclined=M.filter(m=>m.status==='declined'&&m.requested_by_role===myMtgRole()).slice(-2);
+  if(!inc.length&&!upcoming.length&&!mine.length&&!recentDeclined.length){
+    wrap.innerHTML='<div style="margin-bottom:16px;"><button class="linklike" onclick="ccmtgSolo()">🎥 Request a meeting…</button></div>';
+    return;
+  }
+  const row=(m,inner)=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap;">'
+    +'<div style="flex:1;min-width:200px;"><b>'+esc(m.topic)+'</b>'
+    +'<div class="field-note">'+esc(m.requested_by_name)+' → '+esc(MTG_WHO[m.with]||m.with)
+    +(m.scheduled_for?' · 🗓 <b>'+esc(m.scheduled_for)+'</b>':m.when_pref?' · suggested: '+esc(m.when_pref):'')+'</div></div>'
+    +inner+'</div>';
+  wrap.innerHTML=
+    '<div class="card" style="padding:14px 18px;margin-bottom:16px;border-color:#CBE3D4;">'
+    +'<div style="display:flex;align-items:center;gap:8px;"><b style="color:var(--navy);font-size:14px;">🎥 Meetings</b><span style="flex:1;"></span><button class="linklike" onclick="toggleCcMtgForm()">＋ Request a meeting</button></div>'
+    +'<div id="ccmtgForm" style="display:none;margin-top:10px;padding:10px;background:#F8FAF9;border-radius:8px;">'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    +'<select id="ccmtg_with" style="width:auto;"><option value="staffing">With the Staffing Coordinator</option>'+(ME.shift==='manager'?'<option value="care">With the Care Coordinators</option>':'<option value="samantha">With Samantha</option>')+'<option value="team">Whole team</option></select>'
+    +'<input id="ccmtg_topic" placeholder="What\'s it about?" style="flex:1;min-width:180px;">'
+    +'<input id="ccmtg_when" placeholder="When works? (e.g. tomorrow 2pm)" style="min-width:180px;">'
+    +'<button class="primary" onclick="requestMeetingCc()">Request</button></div></div>'
+    +(inc.length?inc.map(m=>row(m,
+      '<button class="primary" style="padding:6px 12px;font-size:12.5px;" onclick="acceptMeetingCc(\''+m.id+'\')">✓ Accept & set time</button>'
+      +'<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="declineMeetingCc(\''+m.id+'\')">Suggest another time</button>')).join(''):'')
+    +(upcoming.length?upcoming.map(m=>row(m,
+      '<a href="https://meet.jit.si/'+encodeURIComponent(m.room)+'" target="_blank" rel="noopener" style="background:#16a34a;color:#fff;border-radius:7px;padding:6px 14px;font-size:12.5px;font-weight:700;text-decoration:none;">🎥 Join Video</a>'
+      +'<button class="linklike" style="font-size:12px;" onclick="doneMeetingCc(\''+m.id+'\')">Mark done</button>')).join(''):'')
+    +(mine.length?mine.map(m=>row(m,'<span class="field-note">⏳ waiting for an answer</span>')).join(''):'')
+    +(recentDeclined.length?recentDeclined.map(m=>row(m,'<span style="font-size:12px;color:var(--amber);">↩ '+esc(m.declined_reason||'didn\'t work — try another time')+'</span>')).join(''):'')
+    +'</div>';
+}
+function ccmtgSolo(){
+  const wrap=document.getElementById('meetingsCard');
+  wrap.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:16px;border-color:#CBE3D4;">'
+    +'<b style="color:var(--navy);font-size:14px;">🎥 Request a meeting</b>'
+    +'<div id="ccmtgForm" style="margin-top:10px;padding:10px;background:#F8FAF9;border-radius:8px;">'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    +'<select id="ccmtg_with" style="width:auto;"><option value="staffing">With the Staffing Coordinator</option>'+(ME.shift==='manager'?'<option value="care">With the Care Coordinators</option>':'<option value="samantha">With Samantha</option>')+'<option value="team">Whole team</option></select>'
+    +'<input id="ccmtg_topic" placeholder="What\'s it about?" style="flex:1;min-width:180px;">'
+    +'<input id="ccmtg_when" placeholder="When works? (e.g. tomorrow 2pm)" style="min-width:180px;">'
+    +'<button class="primary" onclick="requestMeetingCc()">Request</button>'
+    +'<button class="secondary" onclick="renderMeetingsCc()">Cancel</button></div></div></div>';
 }
 
 /* ---------------- Samantha's manager strip ---------------- */
