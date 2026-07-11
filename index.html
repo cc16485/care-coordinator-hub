@@ -1575,7 +1575,7 @@ async function resolveMe(){
   ME = {
     email,
     name: (staff&&staff.name) || navUserFirst || (email.split('@')[0]||''),
-    shift: email==='samantha@mo-care.com' ? 'manager' : ((staff&&staff.shift)||'day'),
+    shift: (email==='samantha@mo-care.com'||email==='zach@mo-care.com') ? 'manager' : ((staff&&staff.shift)||'day'),
   };
   const roleEl=document.getElementById('navUserRole');
   if(roleEl) roleEl.textContent = ME.shift==='manager'?'Manager · sees everything':ME.shift==='evening'?'Evening · Start of Care':'Care Coordinator';
@@ -4039,38 +4039,34 @@ async function coordMsgDone(id){
   await persist('staffing_tasks',t); renderCoordMsgs();
 }
 
-/* ---------------- Corrective-action approvals — staffing drafts the notice,
-   a CARE COORDINATOR approves or sends it back here (they supervise the
-   caregivers working with their clients); TERMINATION REVIEWS are held for
-   Samantha alone — she makes all final termination decisions. ------------ */
+/* ---------------- Corrective-action approvals (FOUNDERS ONLY) — staffing
+   drafts the notice; only Samantha or Zach may approve any discipline,
+   warnings and terminations alike (her decision Jul 11 2026). ------------ */
+const DISC_APPROVERS=['samantha@mo-care.com','zach@mo-care.com'];
 function renderApprovalsCc(){
   const wrap=document.getElementById('approvalsCard'); if(!wrap) return;
   const esc=escapeHtmlComms;
+  if(!DISC_APPROVERS.includes(ME.email)){ wrap.innerHTML=''; return; }
   const pending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
   if(!pending.length){ wrap.innerHTML=''; return; }
   wrap.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:16px;border-color:#E8B4B4;background:#FFFBFA;">'
     +'<b style="color:var(--navy);font-size:14px;">📝 Corrective actions awaiting approval</b>'
-    +'<div class="field-note" style="margin-top:2px;">Staffing drafted these — approve or send back with a note. Read the whole notice first; your name goes on the approval.</div>'
-    +pending.map(a=>{
-      const termHeld = a.level==='Termination Review' && ME.shift!=='manager';
-      return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
+    +'<div class="field-note" style="margin-top:2px;">Only you and '+(ME.email==='zach@mo-care.com'?'Samantha':'Zach')+' can approve discipline. Read the whole notice first; your name goes on the approval.</div>'
+    +pending.map(a=>'<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
       +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;">'
       +'<b>'+esc(a.caregiver)+'</b><span class="tag-chip" style="background:var(--red-bg);color:var(--red);">'+esc(a.level)+'</span>'
       +'<span class="field-note" style="flex:1;min-width:160px;">'+esc(a.reason||'')+'</span>'
-      +(termHeld
-        ?'<span class="field-note" style="color:var(--amber);">🔒 waiting for Samantha — termination decisions are hers</span>'
-        :'<button class="primary" style="padding:6px 12px;font-size:12.5px;" onclick="approveWriteupCc(\''+a.id+'\')">✓ Approve</button>'
-          +'<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="rejectWriteupCc(\''+a.id+'\')">↩ Send back</button>')
+      +'<button class="primary" style="padding:6px 12px;font-size:12.5px;" onclick="approveWriteupCc(\''+a.id+'\')">✓ Approve</button>'
+      +'<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="rejectWriteupCc(\''+a.id+'\')">↩ Send back</button>'
       +'</div>'
       +'<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:12px;color:var(--text-muted);">Read the full notice</summary>'
       +'<pre style="white-space:pre-wrap;font-size:11.5px;line-height:1.5;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;max-height:320px;overflow-y:auto;">'+esc(a.body||'')+'</pre></details>'
-      +'</div>';
-    }).join('')
+      +'</div>').join('')
     +'</div>';
 }
 async function approveWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
-  if(a.level==='Termination Review' && ME.shift!=='manager'){ alert('Termination reviews wait for Samantha — she makes all final termination decisions.'); return; }
+  if(!DISC_APPROVERS.includes(ME.email)){ alert('Only Samantha or Zach can approve discipline.'); return; }
   if(!confirm('Approve this '+a.level+' for '+a.caregiver+'? Your name ('+(ME.name||ME.email)+') goes on the approval, and staffing will print, review and issue it.')) return;
   a.status='approved'; a.approved_by=ME.name||ME.email; a.approved_at=new Date().toISOString();
   await persist('discipline_actions',a);
@@ -4078,6 +4074,7 @@ async function approveWriteupCc(id){
 }
 async function rejectWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
+  if(!DISC_APPROVERS.includes(ME.email)){ alert('Only Samantha or Zach can act on discipline.'); return; }
   const why=prompt('Tell staffing what to change (they\'ll see this on the draft):',''); if(why===null) return;
   a.status='draft'; a.reject_note=why.trim()||'needs changes';
   await persist('discipline_actions',a);
