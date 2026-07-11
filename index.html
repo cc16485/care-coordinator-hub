@@ -4138,7 +4138,7 @@ async function loadOpenShiftsForStrip(){
     const d=await r.json();
     if(!d.error){
       const now=Date.now();
-      const urgent=(d.open||[]).filter(s=>(new Date(s.date+'T'+(s.start||'23:59')).getTime()-now)<=48*3600000).length;
+      const urgent=(d.open||[]).filter(s=>(new Date(s.date+'T'+(s.start24||'23:59')).getTime()-now)<=48*3600000).length;
       _openShifts={count:d.open_count||0,urgent};
       renderMgrStrip();
     }
