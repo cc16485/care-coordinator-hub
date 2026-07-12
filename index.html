@@ -4782,26 +4782,30 @@ async function submitJobOffer(){
 function joPreviewMsgs(){
   const esc=escapeHtmlComms;
   const first=(document.getElementById('jo_first').value.trim()||'[First name]');
-  const by=(document.getElementById('jo_by').value.trim()||'Our care team');
-  const pos=document.getElementById('jo_position').value;
   document.getElementById('jo_prev_sms').textContent=
-    'Hi '+first+' — this is Caring Companions. '+by+' just offered you a position. Welcome! 🎉\n'
-    +"So you know every message is really us, here's what happens next:\n"
-    +'1) Viventium, our payroll partner, will text/email your official offer & onboarding paperwork — that link is safe to open.\n'
-    +'2) This number will text you about references, your background check, and booking your orientation.\n'
-    +"3) Save our office number: (417) 234-8494. Once you're on the team, that's the one number you'll use to reach us.\n"
-    +'— Caring Companions';
+    'Hi '+first+'! Congratulations, and welcome to Caring Companions! 🎉\n'
+    +"We're excited to begin the onboarding process with you.\n\n"
+    +'Your next step is to watch your email for a message from Viventium, our secure onboarding system. It will contain your official job offer and the first portion of your onboarding paperwork.\n\n'
+    +'Please complete it as soon as possible. This paperwork gives us permission to begin your background check and contact your professional references.\n\n'
+    +"Once your background check and references have been successfully completed, we'll contact you to schedule your paid new employee orientation.\n\n"
+    +"📞 Please save our office number: (417) 234-8494. This is our main office number and the one you'll use to call or text us if you have any questions.\n\n"
+    +'Welcome to the Caring Companions team!';
   document.getElementById('jo_prev_email').innerHTML=
-    '<b style="color:#0E3860;">Welcome to Caring Companions, '+esc(first)+'!</b>'
-    +'<p style="margin:6px 0;">'+esc(by)+' just offered you a position as a <b>'+esc(pos)+'</b> — we\'re excited to have you.</p>'
-    +'<p style="margin:6px 0;"><b>So you know every message is really us, here\'s your onboarding roadmap:</b></p>'
-    +'<ol style="margin:6px 0 6px 18px;padding:0;">'
-    +'<li><b>Viventium</b> (our payroll &amp; onboarding partner) will text and email your official offer and new-hire paperwork. That link is safe to open — please complete it promptly.</li>'
-    +'<li><b>Our training number</b> will text you about your references, background check, and booking your orientation.</li>'
-    +'<li><b>Save our office number: (417) 234-8494.</b> Once you\'re on the team, that\'s the one number to call or text for anything.</li>'
-    +'</ol>'
-    +'<p style="margin:6px 0;">Questions at any point? Call or text the office at (417) 234-8494.</p>'
-    +'<p style="margin:6px 0;color:#57606a;">— The Caring Companions team</p>';
+    '<p style="margin:4px 0;">Hi '+esc(first)+',</p>'
+    +'<p style="margin:4px 0;"><b>Congratulations, and welcome to Caring Companions!</b></p>'
+    +'<p style="margin:4px 0;">We\'re excited to officially begin the onboarding process and look forward to having you on our team.</p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0E3860;">Step 1: Complete Your Initial Onboarding Paperwork</b></p>'
+    +'<p style="margin:4px 0;">Please watch your email for a message from <b>Viventium</b>, our secure onboarding system. This email will include your official job offer and the first portion of your onboarding paperwork.</p>'
+    +'<p style="margin:4px 0;">Please complete this paperwork as soon as possible. It provides the authorization we need to begin your background check and contact your professional references. We can\'t move forward with the hiring process until this step is complete.</p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0E3860;">Step 2: Background Check &amp; Reference Checks</b></p>'
+    +'<p style="margin:4px 0;">Once you\'ve completed your onboarding paperwork, we\'ll begin your background check and contact your professional references.</p>'
+    +'<p style="margin:4px 0;">We\'ll let you know as soon as everything has been successfully completed.</p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0E3860;">Step 3: Schedule Your Paid Orientation</b></p>'
+    +'<p style="margin:4px 0;">After your background check and references have been completed, we\'ll contact you to schedule your paid new employee orientation and discuss the next steps before your first day.</p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0E3860;">Save Our Office Number</b></p>'
+    +'<p style="margin:4px 0;">Please save our office number: <b>(417) 234-8494</b>.<br>This is our main office number and the one you\'ll use to call or text us if you have questions during the onboarding process or after you join our team.</p>'
+    +'<p style="margin:4px 0;">We\'re excited to welcome you to Caring Companions and look forward to working with you!</p>'
+    +'<p style="margin:4px 0;color:#57606a;">Warmly,<br><br>The Caring Companions Team<br>(417) 234-8494</p>';
 }
 function joCopyViv(btn){
   navigator.clipboard.writeText(document.getElementById('jo_viv').textContent||'').then(()=>{ btn.textContent='✓ Copied'; setTimeout(()=>{btn.textContent='📋 Copy for Viventium';},1800); });
