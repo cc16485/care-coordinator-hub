@@ -365,11 +365,11 @@
     <span class="pill" id="syncPill">☁ Synced</span>
     <button class="ghost" onclick="openHandoffModal()" title="Ending your shift? Pass everything time-sensitive to the next coordinator">🔄 End my shift</button>
     <button class="addlead" onclick="openLeadModal()">＋ Add Lead</button>
-    <span style="display:flex;align-items:center;gap:8px;padding:3px 10px 3px 4px;border:1px solid var(--border);border-radius:999px;background:#fff;">
+    <span id="userChip" onclick="chipSettings()" style="display:flex;align-items:center;gap:8px;padding:3px 10px 3px 4px;border:1px solid var(--border);border-radius:999px;background:#fff;">
       <span class="su-avatar" id="navAvatar">·</span>
       <span style="min-width:0;line-height:1.15;"><b id="navUserName" style="display:block;font-size:12px;color:var(--navy);white-space:nowrap;">Signed in</b><span style="font-size:10px;color:var(--text-muted);white-space:nowrap;" id="navUserRole">Care Coordinator</span></span>
+      <span id="chipGear" title="Settings" style="display:none;font-size:13px;">⚙️</span>
     </span>
-    <button class="ghost" onclick="openSettings()" title="Settings">⚙️</button>
     <button class="ghost" onclick="signOut()">Sign Out</button>
   </header>
 
@@ -1831,6 +1831,10 @@ async function resolveMe(){
   };
   const roleEl=document.getElementById('navUserRole');
   if(roleEl) roleEl.textContent = ME.shift==='manager'?'Manager · sees everything':ME.shift==='evening'?'Evening · Start of Care':'Care Coordinator';
+  const gear=document.getElementById('chipGear'), chip=document.getElementById('userChip');
+  const isOwner=DISC_APPROVERS.includes(ME.email);
+  if(gear) gear.style.display=isOwner?'inline':'none';
+  if(chip) chip.style.cursor=isOwner?'pointer':'default';
   // The evening coordinator's work lives in Start of Care — land them there.
   if(ME.shift==='evening' && !window._landedOnce){ window._landedOnce=true; switchTab('soc'); }
 }
@@ -3891,7 +3895,15 @@ function getCurrentOnCall(){
   return matches.reduce((a,b) => (b.created_at||'') > (a.created_at||'') ? b : a);
 }
 /* ---------------- SETTINGS ---------------- */
+function chipSettings(){
+  if(!DISC_APPROVERS.includes(ME.email)) return; // coordinators: chip is just their name
+  openSettings();
+}
 function openSettings(){
+  // Settings are Samantha & Zach's — coordinators shouldn't change keys,
+  // cadences, staff roles or goals. (UI gate; ask Claude for true
+  // database-level per-role locks when the team grows.)
+  if(!DISC_APPROVERS.includes(ME.email)){ alert('Settings are managed by Samantha & Zach — ask them if something needs changing.'); return; }
   if(!CONFIG.admin_passcode){ openSettingsModal(); return; }
   document.getElementById('settingsLock').classList.add('open');
 }
