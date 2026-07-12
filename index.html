@@ -4247,26 +4247,48 @@ function renderHandoffBanner(){
   // items), from anyone but me — day coordinators AND the Staffing Hub
   // both post here for the evening/after-hours coordinator.
   const active=(DATA.handoffs||[])
-    .filter(h=>h.from_email!==ME.email && (!h.ack_at || (h.items||[]).some(it=>!it.done_at)))
+    .filter(h=>h.from_email!==ME.email && (!h.ack_at || (h.items||[]).some(it=>!it.done_at&&!it.returned_at)))
     .sort((a,b)=>(b.posted_at||'').localeCompare(a.posted_at||''));
-  if(!active.length){ wrap.innerHTML=''; updateAttnCard(); return; }
+  const mineReturned=(DATA.handoffs||[]).flatMap(h=>(h.items||[]).map((it,i)=>({h,it,i})))
+    .filter(x=>x.h.from_email===ME.email && x.it.returned_at && !x.it.done_at);
+  if(!active.length && !mineReturned.length){ wrap.innerHTML=''; updateAttnCard(); return; }
   wrap.innerHTML = active.map(h=>{
-    const open=(h.items||[]).filter(it=>!it.done_at);
+    const open=(h.items||[]).filter(it=>!it.done_at&&!it.returned_at);
     return '<details class="attx"'+((!h.ack_at||open.length)?' open':'')+'><summary>🔄 Handoff from '+esc(h.from_name)
     +'<span class="field-note" style="font-weight:400;">'+new Date(h.posted_at).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'})+'</span>'
     +(open.length?'<span class="cnt">'+open.length+'</span>':'')+'</summary>'
     +'<div class="attbody">'
     +(!h.ack_at?'<button class="primary" style="margin-bottom:8px;" onclick="ackHandoff(\''+h.id+'\')">Got it — I\'m on</button>':'<span class="tag-chip" style="background:#E1F1ED;color:#2E8577;">✓ acknowledged by '+esc(h.ack_by||'')+'</span>')
     +(h.general_note?'<div style="font-size:13.5px;margin:8px 0;padding:8px 10px;background:#FBF6EA;border-radius:8px;">📝 '+esc(h.general_note)+'</div>':'')
-    +(h.items||[]).map((it,i)=>
-      '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">'
-      +'<input type="checkbox" style="width:auto;margin-top:2px;" '+(it.done_at?'checked':'')+' onchange="handoffItemDone(\''+h.id+'\','+i+',this.checked)">'
-      +'<div style="flex:1;min-width:0;'+(it.done_at?'color:var(--text-muted);text-decoration:line-through;':'')+'">'+esc(it.label)
-      +(it.note?'<div class="field-note" style="text-decoration:none;">📝 '+esc(it.note)+'</div>':'')+'</div>'
+    +(h.items||[]).map((it,i)=>{
+      const state=it.done_at?'done':it.returned_at?'returned':'open';
+      return '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+      +'<span>'+(state==='done'?'✅':state==='returned'?'↩':'▫️')+'</span>'
+      +'<div style="flex:1;min-width:0;'+(state==='done'?'color:var(--text-muted);':'')+'">'+esc(it.label)
+      +(it.note?'<div class="field-note">📝 '+esc(it.note)+'</div>':'')
+      +(state==='done'?'<div class="field-note">✓ '+esc(it.done_by||'')+(it.done_note?' — “'+esc(it.done_note)+'”':'')+'</div>':'')
+      +(state==='returned'?'<div class="field-note" style="color:var(--amber);">↩ sent back to '+esc(h.from_name)+' — “'+esc(it.return_note||'')+'”</div>':'')
+      +'</div>'
+      +(state==='open'
+        ?'<button class="linklike" onclick="handoffItemDone(\''+h.id+'\','+i+')">✓ Done</button>'
+         +'<button class="linklike" style="color:var(--amber);" onclick="handoffItemReturn(\''+h.id+'\','+i+')">↩ Send back</button>'
+        :'')
       +(it.type==='lead'&&it.ref?'<button class="linklike" onclick="openLeadProfile(\''+it.ref+'\')">Open</button>':'')
-      +'</div>').join('')
+      +'</div>';}).join('')
     +'</div></details>';
   }).join('');
+  // Items sent back on handoffs *I* posted come home as my tasks.
+  const mine=mineReturned;
+  if(mine.length){
+    wrap.innerHTML+='<details class="attx" open><summary>↩ Sent back to you from your handoff<span class="cnt">'+mine.length+'</span></summary>'
+      +'<div class="attbody">'
+      +mine.map(x=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+        +'<span>↩</span><div style="flex:1;min-width:0;">'+esc(x.it.label)
+        +'<div class="field-note" style="color:var(--amber);">'+esc(x.it.returned_by||'')+': “'+esc(x.it.return_note||'')+'” — it\'s yours again</div></div>'
+        +'<button class="linklike" onclick="handoffItemDone(\''+x.h.id+'\','+x.i+')">✓ Resolved</button>'
+        +'</div>').join('')
+      +'</div></details>';
+  }
   updateAttnCard();
 }
 function updateAttnCard(){
@@ -4279,11 +4301,24 @@ async function ackHandoff(id){
   h.ack_by=ME.name||ME.email; h.ack_at=new Date().toISOString();
   await persist('handoffs',h); renderHandoffBanner();
 }
-async function handoffItemDone(hid,i,checked){
+async function handoffItemDone(hid,i){
   const h=(DATA.handoffs||[]).find(x=>x.id===hid); if(!h||!h.items[i]) return;
-  h.items[i].done_at=checked?new Date().toISOString():null;
-  h.items[i].done_by=checked?(ME.name||ME.email):null;
-  await persist('handoffs',h); renderHandoffBanner();
+  const note=prompt('Done ✓ — any note for '+(h.from_email===ME.email?'the record':h.from_name)+'? (how it went, what they said — optional)','');
+  if(note===null) return;
+  h.items[i].done_at=new Date().toISOString();
+  h.items[i].done_by=ME.name||ME.email;
+  if(note.trim()) h.items[i].done_note=note.trim();
+  await persist('handoffs',h); renderHandoffBanner(); renderCommLog();
+}
+async function handoffItemReturn(hid,i){
+  const h=(DATA.handoffs||[]).find(x=>x.id===hid); if(!h||!h.items[i]) return;
+  const note=prompt('Send it back to '+h.from_name+' — why / what\'s left? (they\'ll see this as their task)','');
+  if(note===null) return;
+  if(!note.trim()){ alert('A send-back needs a note so they know what happened.'); return; }
+  h.items[i].returned_at=new Date().toISOString();
+  h.items[i].returned_by=ME.name||ME.email;
+  h.items[i].return_note=note.trim();
+  await persist('handoffs',h); renderHandoffBanner(); renderCommLog();
 }
 
 /* ---------------- Send to Staffing ---------------- */
@@ -4871,7 +4906,8 @@ function renderCommLog(){
   (DATA.handoffs||[]).forEach(h=>{
     ev.push({at:h.posted_at,icon:'🔄',text:'<b>'+esc(h.from_name)+'</b> posted a shift handoff — '+(h.items||[]).length+' item'+((h.items||[]).length===1?'':'s')+(h.general_note?' · “'+esc(h.general_note)+'”':''),
       status:h.ack_at?'✓ acknowledged by '+esc(h.ack_by||'')+' '+fmt(h.ack_at):'⏳ not acknowledged yet'});
-    (h.items||[]).filter(it=>it.done_at).forEach(it=>ev.push({at:it.done_at,icon:'☑️',text:'<b>'+esc(it.done_by||'')+'</b> completed handoff item: '+esc(it.label),status:''}));
+    (h.items||[]).filter(it=>it.done_at).forEach(it=>ev.push({at:it.done_at,icon:'☑️',text:'<b>'+esc(it.done_by||'')+'</b> completed handoff item: '+esc(it.label)+(it.done_note?' — “'+esc(it.done_note)+'”':''),status:''}));
+    (h.items||[]).filter(it=>it.returned_at).forEach(it=>ev.push({at:it.returned_at,icon:'↩',text:'<b>'+esc(it.returned_by||'')+'</b> sent a handoff item back to <b>'+esc(h.from_name)+'</b>: '+esc(it.label)+' — “'+esc(it.return_note||'')+'”',status:it.done_at?'✓ resolved by '+esc(it.done_by||''):'⏳ back with '+esc(h.from_name)}));
   });
   (DATA.staffing_tasks||[]).forEach(t=>{
     const dir=t.direction==='to_staffing'?'→ Staffing':t.direction==='to_owners'?'→ Owners':'→ Coordinators';
