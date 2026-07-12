@@ -591,14 +591,25 @@
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Interviews &amp; Job Offers</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Every offer you've made and where it stands in onboarding — staffing works the checklist; you watch it move.</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Interviews are scheduled &amp; listed in <b>Augusta</b> (they also sync to your Google Calendar). After the in-person interview, make the offer right here.</div>
         </div>
         <span style="flex:1;"></span>
-        <a class="primary" href="https://hub.mo-care.com/offer.html" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;padding:10px 16px;border-radius:8px;font-size:13.5px;font-weight:700;">📋 Offer a Job</a>
+        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#2E8577;color:#fff;">🌱 Open Augusta — today's interviews ↗</a>
       </div>
+
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+          <b style="font-size:14px;color:var(--navy);">📋 Offer a Job — fill it out while the interview is fresh</b>
+          <span class="field-note">sends their welcome text &amp; starts onboarding tracking</span>
+          <span style="flex:1;"></span>
+          <a class="linklike" href="https://hub.mo-care.com/offer.html" target="_blank" rel="noopener" style="font-size:12px;">open in its own tab ↗</a>
+        </div>
+        <iframe src="https://hub.mo-care.com/offer.html" title="Offer a Job" style="display:block;width:100%;height:1100px;border:none;background:#fff;" loading="lazy"></iframe>
+      </div>
+
       <div class="card" style="padding:18px;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <b style="font-size:14px;color:var(--navy);">Recent offers</b>
+          <b style="font-size:14px;color:var(--navy);">Recent offers — where each one stands</b>
           <span style="flex:1;"></span>
           <button class="secondary" onclick="renderInterviews(this)">↻ Refresh</button>
         </div>
