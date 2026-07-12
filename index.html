@@ -114,6 +114,9 @@
   .attx:last-child, .attsec:last-child{border-bottom:none;}
   .attx summary{list-style:none;display:flex;align-items:center;gap:8px;padding:13px 0;cursor:pointer;font-weight:700;font-size:13.5px;color:var(--navy);}
   .attx summary::-webkit-details-marker{display:none;}
+  #joDetails summary::-webkit-details-marker{display:none;}
+  #joDetails[open] .jo-chev::after{content:'';}
+  #joDetails[open] .jo-chev{visibility:hidden;}
   .attx summary::after{content:'▾';margin-left:auto;color:var(--text-muted);font-size:12px;transition:transform .15s;}
   .attx[open] summary::after{transform:rotate(180deg);}
   .attx .cnt{background:var(--red);color:#fff;border-radius:999px;font-size:11px;font-weight:800;padding:1px 8px;}
@@ -597,9 +600,15 @@
         <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#2E8577;color:#fff;">🌱 Open Augusta — today's interviews ↗</a>
       </div>
 
-      <div class="card" style="padding:18px;margin-bottom:16px;" id="joCard">
+      <div class="card" style="padding:0 18px;margin-bottom:16px;" id="joCard">
+        <details id="joDetails" ontoggle="if(this.open)joInit()">
+        <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px 0;">
+          <b style="font-size:15px;color:var(--navy);">📋 Offer a Job — fill it out while the interview is fresh</b>
+          <span class="field-note">tap to open the form</span>
+          <span style="margin-left:auto;color:var(--text-muted);font-size:13px;" class="jo-chev">▾ expand</span>
+        </summary>
+        <div style="padding-bottom:18px;">
         <div id="joForm">
-        <b style="font-size:15px;color:var(--navy);">📋 Offer a Job — fill it out while the interview is fresh</b>
         <div class="field-note" style="margin:2px 0 8px;">Sends their welcome roadmap text &amp; email, creates the AxisCare applicant with the interview note, and starts onboarding tracking in the Staffing Hub. <b>Remember: they must also be added to Viventium</b> — the copy block after sending makes that a 10-second paste.</div>
         <details style="margin:0 0 12px;" ontoggle="if(this.open)joPreviewMsgs()">
           <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);text-decoration:underline;">👀 See exactly what the text &amp; email will say</summary>
@@ -661,6 +670,8 @@
           </div>
           <button class="secondary" style="margin-top:12px;" onclick="joReset()">＋ Offer another job</button>
         </div>
+        </div>
+        </details>
       </div>
 
       <div class="card" style="padding:18px;">
