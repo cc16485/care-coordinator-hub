@@ -399,7 +399,10 @@
     <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')">🛡 Supervisory Visits</div>
   </div>
   <div class="fsubbar" id="fsub-team">
-    <div class="fpill" data-tab="comms" onclick="switchTab('comms')">💬 Communication<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')">📥 Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="comms" onclick="switchTab('comms')">📤 Send a Message</div>
+    <div class="fpill" data-tab="meetings" onclick="switchTab('meetings')">🎥 Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')">🤝 Interviews</div>
   </div>
   <div class="fsubbar" id="fsub-insight">
     <div class="fpill" data-tab="reports" onclick="switchTab('reports')">📊 Reports</div>
@@ -553,6 +556,53 @@
       <div class="card" style="padding:18px;">
         <b style="font-size:14px;color:var(--navy);">The conversation — both directions, permanent</b>
         <div id="commsPageHistory" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
+    <!-- ===================== TAB: INBOX ===================== -->
+    <section class="tabpanel" id="tab-inbox">
+      <div style="margin-bottom:14px;">
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Inbox</h2>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Messages sent to the coordinators (and to the Owners, if that's you). Done items stay on the record below.</div>
+      </div>
+      <div class="card" style="padding:18px;"><div id="inboxList"></div></div>
+    </section>
+
+    <!-- ===================== TAB: MEETINGS ===================== -->
+    <section class="tabpanel" id="tab-meetings">
+      <div style="margin-bottom:14px;">
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Meetings</h2>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Request a meeting — when it's accepted, both sides get a Join Video button. Camera, mic and screen sharing run in the browser; nothing to install.</div>
+      </div>
+      <div class="card" style="padding:18px;margin-bottom:16px;">
+        <b style="font-size:14px;color:var(--navy);">＋ Request a meeting</b>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <select id="mpg_with" style="width:auto;"></select>
+          <input id="mpg_topic" placeholder="What's it about?" style="flex:1;min-width:180px;">
+          <input id="mpg_when" placeholder="When works? (e.g. tomorrow 2pm)" style="min-width:180px;">
+          <button class="primary" onclick="requestMeetingPage()">Request</button>
+        </div>
+      </div>
+      <div class="card" style="padding:18px;"><div id="meetingsPageList"></div></div>
+    </section>
+
+    <!-- ===================== TAB: INTERVIEWS ===================== -->
+    <section class="tabpanel" id="tab-interviews">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Interviews &amp; Job Offers</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Every offer you've made and where it stands in onboarding — staffing works the checklist; you watch it move.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <a class="primary" href="https://hub.mo-care.com/offer.html" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;padding:10px 16px;border-radius:8px;font-size:13.5px;font-weight:700;">📋 Offer a Job</a>
+      </div>
+      <div class="card" style="padding:18px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-size:14px;color:var(--navy);">Recent offers</b>
+          <span style="flex:1;"></span>
+          <button class="secondary" onclick="renderInterviews(this)">↻ Refresh</button>
+        </div>
+        <div id="interviewsList" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
       </div>
     </section>
 
@@ -1852,7 +1902,7 @@ function closeMoreMenu(){ document.getElementById('moreMenu').classList.remove('
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers'],clients:['clients','checkins','supervisory'],team:['comms'],insight:['reports']};
+const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports']};
 function ccGroupOf(tab){ for(const g in CC_GROUPS) if(CC_GROUPS[g].includes(tab)) return g; return 'today'; }
 function ccGroupClick(g){
   const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
@@ -1883,6 +1933,9 @@ function renderActiveTab(){
   if(activeTab==='clients') renderClients();
   if(activeTab==='soc') renderSocTab();
   if(activeTab==='comms') renderCommsPage();
+  if(activeTab==='inbox') renderInboxCc();
+  if(activeTab==='meetings') renderMeetingsPage();
+  if(activeTab==='interviews') renderInterviews();
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
   const el = document.getElementById(containerId);
@@ -4513,6 +4566,99 @@ function updateCommsTabBadge(){
   b.style.display=n?'inline-flex':'none'; b.textContent=n;
   const g=document.getElementById('gb-team');
   if(g){ g.style.display=n?'inline-flex':'none'; g.textContent=n; }
+}
+
+/* ---------------- Inbox tab (incoming messages) ---------------- */
+function renderInboxCc(){
+  const box=document.getElementById('inboxList'); if(!box) return;
+  const esc=escapeHtmlComms;
+  const fmt=iso=>{ try{ return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } };
+  const mine=(DATA.staffing_tasks||[]).filter(t=>t.direction==='to_coordinators'||(t.direction==='to_owners'&&DISC_APPROVERS.includes(ME.email)))
+    .sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  const open=mine.filter(t=>t.status==='open'), done=mine.filter(t=>t.status==='done').slice(0,20);
+  const row=t=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13.5px;">'
+    +'<span>'+(t.direction==='to_owners'?'🏛️':(t.kind==='todo'?'☑️':'ℹ️'))+'</span>'
+    +'<div style="flex:1;min-width:0;">'+(t.about?'<b>'+esc(t.about)+'</b> — ':'')+esc(t.message||'')
+    +'<div class="field-note">'+esc(t.from_name||'')+' · '+esc(t.urgency||'')+' · '+fmt(t.created_at)
+    +(t.status==='done'?' · ✅ done by '+esc(t.done_by||'')+(t.reply?' · 💬 “'+esc(t.reply)+'”':''):'')+'</div></div>'
+    +(t.status==='open'?'<button class="linklike" onclick="coordMsgDone(\''+t.id+'\');renderInboxCc()">Done ✓</button>':'')
+    +'</div>';
+  box.innerHTML=(open.length
+      ? '<div style="font-size:12px;font-weight:800;color:var(--red);margin-bottom:4px;">NEEDS ATTENTION ('+open.length+')</div>'+open.map(row).join('')
+      : '<div class="field-note">📥 Nothing waiting. 🎉</div>')
+    +(done.length?'<div style="font-size:12px;font-weight:800;color:var(--text-muted);margin:14px 0 4px;">RECENTLY COMPLETED</div>'+done.map(row).join(''):'');
+}
+
+/* ---------------- Meetings tab (full page) ---------------- */
+function requestMeetingPage(){
+  const topic=document.getElementById('mpg_topic').value.trim();
+  if(!topic){ alert('Say what the meeting is about first.'); return; }
+  const m={ id:uid(), room:'CaringCompanions-'+Math.random().toString(36).slice(2,10),
+    with:document.getElementById('mpg_with').value, topic,
+    when_pref:document.getElementById('mpg_when').value.trim(),
+    requested_by_name:ME.name||ME.email, requested_by_email:ME.email, requested_by_role:myMtgRole(),
+    status:'requested', scheduled_for:'', accepted_by:'', declined_reason:'', created_at:new Date().toISOString() };
+  DATA.meetings=DATA.meetings||[]; DATA.meetings.push(m);
+  persist('meetings',m).then(()=>{ document.getElementById('mpg_topic').value=''; document.getElementById('mpg_when').value=''; renderMeetingsPage(); renderMeetingsCc(); });
+}
+function renderMeetingsPage(){
+  const box=document.getElementById('meetingsPageList'); if(!box) return;
+  const sel=document.getElementById('mpg_with');
+  if(sel&&!sel.options.length)
+    sel.innerHTML='<option value="staffing">With the Staffing Coordinator</option>'+(ME.shift==='manager'?'<option value="care">With the Care Coordinators</option>':'<option value="samantha">With Samantha</option>')+'<option value="team">Whole team</option>';
+  const esc=escapeHtmlComms, M=DATA.meetings||[];
+  const inc=M.filter(mtgIncomingCc);
+  const upcoming=M.filter(m=>m.status==='accepted'&&mtgInvolvesMeCc(m));
+  const mine=M.filter(m=>m.status==='requested'&&m.requested_by_role===myMtgRole());
+  const recent=M.filter(m=>(m.status==='declined'||m.status==='done')&&mtgInvolvesMeCc(m)).slice(-6).reverse();
+  const row=(m,inner)=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'
+    +'<div style="flex:1;min-width:200px;"><b>'+esc(m.topic)+'</b>'
+    +'<div class="field-note">'+esc(m.requested_by_name)+' → '+esc(MTG_WHO[m.with]||m.with)
+    +(m.scheduled_for?' · 🗓 <b>'+esc(m.scheduled_for)+'</b>':m.when_pref?' · suggested: '+esc(m.when_pref):'')+'</div></div>'
+    +inner+'</div>';
+  const secHdr=s=>'<div style="font-size:12px;font-weight:800;color:var(--text-muted);margin:12px 0 2px;">'+s+'</div>';
+  box.innerHTML=
+    (inc.length?secHdr('📥 REQUESTS FOR YOU')+inc.map(m=>row(m,
+      '<button class="primary" style="padding:6px 12px;font-size:12.5px;" onclick="acceptMeetingCc(\''+m.id+'\');renderMeetingsPage()">✓ Accept & set time</button>'
+      +'<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="declineMeetingCc(\''+m.id+'\');renderMeetingsPage()">Suggest another time</button>')).join(''):'')
+    +(upcoming.length?secHdr('🎥 UPCOMING — JOIN WHEN IT\'S TIME')+upcoming.map(m=>row(m,
+      '<a href="https://meet.jit.si/'+encodeURIComponent(m.room)+'" target="_blank" rel="noopener" style="background:#16a34a;color:#fff;border-radius:7px;padding:6px 14px;font-size:12.5px;font-weight:700;text-decoration:none;">🎥 Join Video</a>'
+      +'<button class="linklike" style="font-size:12px;" onclick="doneMeetingCc(\''+m.id+'\');renderMeetingsPage()">Mark done</button>')).join(''):'')
+    +(mine.length?secHdr('⏳ WAITING FOR AN ANSWER')+mine.map(m=>row(m,'<span class="field-note">requested '+new Date(m.created_at).toLocaleDateString()+'</span>')).join(''):'')
+    +(recent.length?secHdr('RECENT')+recent.map(m=>row(m,
+      m.status==='declined'?'<span style="font-size:12px;color:var(--amber);">↩ '+esc(m.declined_reason||'another time suggested')+'</span>':'<span style="font-size:12px;color:var(--green);">✓ held</span>')).join(''):'')
+    ||'<div class="field-note">No meetings yet — request one above.</div>';
+  const b=document.getElementById('mtgTabBadge');
+  if(b){ b.style.display=inc.length?'inline-flex':'none'; b.textContent=inc.length; }
+}
+
+/* ---------------- Interviews tab (job offers, read-only view) ---------------- */
+async function renderInterviews(btn){
+  const box=document.getElementById('interviewsList'); if(!box) return;
+  const key=(CONFIG.training_hub_key||'').trim();
+  if(!key){ box.innerHTML='<div class="field-note">Paste the Training Hub read key into ⚙️ Settings to see offer statuses here. You can still make offers with the button above.</div>'; return; }
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/rest/v1/rpc/hub_job_offers',{
+      method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+      body:JSON.stringify({p_key:key})});
+    const data=await r.json();
+    if(!Array.isArray(data)) throw new Error((data&&data.error)||'unexpected response');
+    const esc=escapeHtmlComms;
+    const chip=(ok,label)=>'<span class="tag-chip" style="background:'+(ok?'#E1F1ED;color:#2E8577':'#F7ECCB;color:#A9791A')+';">'+(ok?'✓ ':'⏳ ')+label+'</span>';
+    box.innerHTML=data.length?data.map(o=>
+      '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;">'
+      +'<b>'+esc(o.name||'')+'</b><span class="field-note">'+esc(o.position||'')+(o.pay_rate?' · $'+o.pay_rate+'/hr':'')+' · interviewed '+esc(o.interview_date||'')+(o.offered_by?' by '+esc(o.offered_by):'')+'</span></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">'
+      +chip(!!o.welcome_sent_at||!!o.created_at,'Welcome sent')
+      +chip(!!o.attributes_entered_at,'AxisCare attributes')
+      +chip(!!o.viventium_entered_at,'Viventium')
+      +chip(!!o.step1_done_at,'Step 1 paperwork')
+      +'</div></div>').join('')
+      :'<div class="field-note">No offers yet — after an interview, click 📋 Offer a Job above.</div>';
+  }catch(e){ box.innerHTML='<div class="field-note" style="color:var(--red);">Could not load offers: '+String(e&&e.message||'error')+'</div>'; }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 
 /* ---------------- Communication Log — the audit trail ----------------
