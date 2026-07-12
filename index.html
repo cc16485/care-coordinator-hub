@@ -69,7 +69,17 @@
   nav.tabs button.active{background:rgba(255,255,255,.12);color:#fff;box-shadow:inset 3px 0 0 var(--gold);}
   .sidenav-user{display:flex;align-items:center;gap:10px;padding:14px 16px;border-top:1px solid rgba(255,255,255,.10);}
   .su-avatar{width:34px;height:34px;border-radius:10px;background:var(--gold);color:var(--navy);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
-  .appmain{flex:1;min-width:0;margin-left:256px;display:flex;flex-direction:column;}
+  .appmain{flex:1;min-width:0;display:flex;flex-direction:column;}
+  /* Folder tabs (matches the Staffing Hub) */
+  .fbar{display:flex;align-items:flex-end;padding:12px 26px 0;background:#fff;gap:6px;border-bottom:1.5px solid var(--navy);overflow-x:auto;}
+  .ftab{padding:8px 18px;border-radius:11px 11px 0 0;font-size:13.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--navy);border-bottom:none;color:var(--navy);background:#fff;transition:.15s;white-space:nowrap;display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+  .ftab:hover{background:#EFF5FA;}
+  .ftab.active{background:var(--bg);font-weight:800;margin-bottom:-1.5px;border-bottom:1.5px solid var(--bg);padding-top:11px;box-shadow:inset 0 3px 0 var(--gold);}
+  .fsubbar{display:none;gap:6px;padding:11px 26px 10px;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto;}
+  .fsubbar.on{display:flex;}
+  .fpill{display:flex;align-items:center;gap:8px;border-radius:999px;padding:6px 16px;font-size:12.5px;font-weight:700;border:1.5px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer;white-space:nowrap;flex:0 0 auto;}
+  .fpill:hover{background:#EFF5FA;}
+  .fpill.active{background:var(--navy);color:#fff;}
   header.topbar{height:66px;background:#FBFCFD;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 26px;position:sticky;top:0;z-index:20;}
   header.topbar .spacer{flex:1;}
   header.topbar input.search{max-width:420px;height:40px;border-radius:10px;border:1px solid var(--border);background:#fff;color:var(--text);}
@@ -329,58 +339,24 @@
 
 <!-- ============================= APP SHELL ============================= -->
 <div id="appScreen">
-  <aside class="sidenav">
-    <div class="sidenav-head">
-      <div class="logo-card"><img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions"></div>
-      <div class="sidenav-eyebrow">CARE COORDINATOR HUB</div>
-    </div>
-    <nav class="tabs" id="tabNav">
-      <button data-tab="today" class="active" onclick="switchTab('today')"><span class="ni">🏠</span>Overview<span class="subtab-badge red" id="todayBadge" style="display:none;margin-left:auto;"></span></button>
-      <div class="navgrp" data-g="grow">
-        <button class="navgrp-toggle" onclick="toggleNavGroup('grow')">🌱 Grow</button>
-        <div class="navgrp-body" id="grp-grow">
-          <button data-tab="leads" onclick="switchTab('leads')"><span class="ni">📞</span>Leads</button>
-          <button data-tab="assessments" onclick="switchTab('assessments')"><span class="ni">📋</span>Care Assessments</button>
-          <button data-tab="soc" onclick="switchTab('soc')"><span class="ni">🏥</span>Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;margin-left:auto;"></span></button>
-          <button data-tab="referrers" onclick="switchTab('referrers')"><span class="ni">🤝</span>Referrers</button>
-        </div>
-      </div>
-      <div class="navgrp" data-g="clients">
-        <button class="navgrp-toggle" onclick="toggleNavGroup('clients')">💚 Clients</button>
-        <div class="navgrp-body" id="grp-clients">
-          <button data-tab="clients" onclick="switchTab('clients')"><span class="ni">👤</span>All Clients</button>
-          <button data-tab="checkins" onclick="switchTab('checkins')"><span class="ni">💚</span>Client Check-ins</button>
-          <button data-tab="supervisory" onclick="switchTab('supervisory')"><span class="ni">🛡</span>Supervisory Visits</button>
-        </div>
-      </div>
-      <div class="navgrp" data-g="team">
-        <button class="navgrp-toggle" onclick="toggleNavGroup('team')">🤝 Team</button>
-        <div class="navgrp-body" id="grp-team">
-          <button data-tab="comms" onclick="switchTab('comms')"><span class="ni">💬</span>Communication<span class="subtab-badge red" id="commsTabBadge" style="display:none;margin-left:auto;"></span></button>
-        </div>
-      </div>
-      <div class="navgrp" data-g="insight">
-        <button class="navgrp-toggle" onclick="toggleNavGroup('insight')">📊 Insight</button>
-        <div class="navgrp-body" id="grp-insight">
-          <button data-tab="reports" onclick="switchTab('reports')"><span class="ni">📊</span>Reports</button>
-        </div>
-      </div>
-    </nav>
-    <div class="sidenav-user">
-      <span class="su-avatar" id="navAvatar">·</span>
-      <span style="min-width:0;"><b id="navUserName" style="display:block;font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Signed in</b>
-      <span style="font-size:11px;color:#8FB0CE;" id="navUserRole">Care Coordinator</span></span>
-      <button class="linklike" onclick="openSettings()" title="Settings" style="margin-left:auto;color:#9FB6CC;font-size:15px;">⚙️</button>
-    </div>
-  </aside>
 
   <div class="appmain">
   <header class="topbar">
+    <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions" style="height:42px;flex:0 0 auto;">
+    <div style="line-height:1.15;margin-right:4px;">
+      <b style="font-size:14.5px;color:var(--navy);white-space:nowrap;">Care Coordinator Hub</b>
+      <div class="field-note" id="fbarDate" style="font-size:11px;"></div>
+    </div>
     <input class="search" id="globalSearch" placeholder="🔍 Search leads, clients, referrers…" oninput="renderActiveTab()">
     <div class="spacer"></div>
     <span class="pill" id="syncPill">☁ Synced</span>
     <button class="ghost" onclick="openHandoffModal()" title="Ending your shift? Pass everything time-sensitive to the next coordinator">🔄 End my shift</button>
     <button class="addlead" onclick="openLeadModal()">＋ Add Lead</button>
+    <span style="display:flex;align-items:center;gap:8px;padding:3px 10px 3px 4px;border:1px solid var(--border);border-radius:999px;background:#fff;">
+      <span class="su-avatar" id="navAvatar">·</span>
+      <span style="min-width:0;line-height:1.15;"><b id="navUserName" style="display:block;font-size:12px;color:var(--navy);white-space:nowrap;">Signed in</b><span style="font-size:10px;color:var(--text-muted);white-space:nowrap;" id="navUserRole">Care Coordinator</span></span>
+    </span>
+    <button class="ghost" onclick="openSettings()" title="Settings">⚙️</button>
     <div class="morewrap">
       <button class="ghost" onclick="toggleMoreMenu(event)">⋯ More</button>
       <div class="moremenu" id="moreMenu">
@@ -393,6 +369,31 @@
       </div>
     </div>
   </header>
+
+  <div class="fbar" id="fbar">
+    <div class="ftab active" data-g="today" onclick="switchTab('today')">🏠 Overview<span class="subtab-badge red" id="todayBadge" style="display:none;"></span></div>
+    <div class="ftab" data-g="grow" onclick="ccGroupClick('grow')">🌱 Grow<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
+    <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')">💚 Clients</div>
+    <div class="ftab" data-g="team" onclick="ccGroupClick('team')">🤝 Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
+    <div class="ftab" data-g="insight" onclick="ccGroupClick('insight')">📊 Insight</div>
+  </div>
+  <div class="fsubbar" id="fsub-grow">
+    <div class="fpill" data-tab="leads" onclick="switchTab('leads')">📞 Leads</div>
+    <div class="fpill" data-tab="assessments" onclick="switchTab('assessments')">📋 Care Assessments</div>
+    <div class="fpill" data-tab="soc" onclick="switchTab('soc')">🏥 Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="referrers" onclick="switchTab('referrers')">🤝 Referrers</div>
+  </div>
+  <div class="fsubbar" id="fsub-clients">
+    <div class="fpill" data-tab="clients" onclick="switchTab('clients')">👤 All Clients</div>
+    <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')">💚 Client Check-ins</div>
+    <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')">🛡 Supervisory Visits</div>
+  </div>
+  <div class="fsubbar" id="fsub-team">
+    <div class="fpill" data-tab="comms" onclick="switchTab('comms')">💬 Communication<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
+  </div>
+  <div class="fsubbar" id="fsub-insight">
+    <div class="fpill" data-tab="reports" onclick="switchTab('reports')">📊 Reports</div>
+  </div>
 
   <main>
 
@@ -1841,15 +1842,21 @@ function closeMoreMenu(){ document.getElementById('moreMenu').classList.remove('
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
+const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers'],clients:['clients','checkins','supervisory'],team:['comms'],insight:['reports']};
+function ccGroupOf(tab){ for(const g in CC_GROUPS) if(CC_GROUPS[g].includes(tab)) return g; return 'today'; }
+function ccGroupClick(g){
+  const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
+  switchTab(tabs.includes(last)?last:tabs[0]);
+}
 function switchTab(tab){
   const lpv = document.getElementById('leadProfileView');
   if(lpv) lpv.style.display='none';
   activeTab = tab;
-  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  // Landing on a tab inside a collapsed group pops the group open.
-  const activeBtn=document.querySelector('nav.tabs button[data-tab="'+tab+'"]');
-  const grp=activeBtn&&activeBtn.closest('.navgrp');
-  if(grp&&grp.classList.contains('closed')){ grp.classList.remove('closed'); localStorage.setItem('cch_nav_'+grp.dataset.g,'open'); }
+  const g=ccGroupOf(tab);
+  document.querySelectorAll('.fbar .ftab').forEach(b=>b.classList.toggle('active',b.dataset.g===g));
+  document.querySelectorAll('.fsubbar').forEach(s=>s.classList.toggle('on',s.id==='fsub-'+g));
+  document.querySelectorAll('.fsubbar .fpill').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  if(g!=='today') localStorage.setItem('cch_last_'+g,tab);
   document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   renderActiveTab();
@@ -2497,6 +2504,8 @@ async function initNavUser(){
     navUserFirst=name?name[0].toUpperCase()+name.slice(1):'';
     document.getElementById('navUserName').textContent = navUserFirst||'Signed in';
     document.getElementById('navAvatar').textContent = (name.slice(0,2)||'CC').toUpperCase();
+    const fd=document.getElementById('fbarDate');
+    if(fd) fd.textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   }catch(e){}
 }
 function renderOverviewTop(nOverdue,nDue){
@@ -4032,6 +4041,8 @@ function updateSocBadge(){
   const b=document.getElementById('socBadge'); if(!b) return;
   const stuck=DATA.leads.filter(l=>l.soc&&socCurrentStep(l.soc)&&socIsStuck(l.soc)).length;
   b.style.display=stuck?'inline-flex':'none'; b.textContent=stuck;
+  const g=document.getElementById('gb-grow');
+  if(g){ g.style.display=stuck?'inline-flex':'none'; g.textContent=stuck; }
 }
 
 /* ---------------- Shift handoffs ---------------- */
@@ -4489,6 +4500,8 @@ function updateCommsTabBadge(){
   const b=document.getElementById('commsTabBadge'); if(!b) return;
   const n=(DATA.staffing_tasks||[]).filter(t=>t.status==='open'&&(t.direction==='to_coordinators'||(t.direction==='to_owners'&&DISC_APPROVERS.includes(ME.email)))).length;
   b.style.display=n?'inline-flex':'none'; b.textContent=n;
+  const g=document.getElementById('gb-team');
+  if(g){ g.style.display=n?'inline-flex':'none'; g.textContent=n; }
 }
 
 /* ---------------- Communication Log — the audit trail ----------------
