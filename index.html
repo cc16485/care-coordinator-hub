@@ -68,7 +68,7 @@
   nav.tabs button:hover{background:rgba(255,255,255,.07);}
   nav.tabs button.active{background:rgba(255,255,255,.12);color:#fff;box-shadow:inset 3px 0 0 var(--gold);}
   .sidenav-user{display:flex;align-items:center;gap:10px;padding:14px 16px;border-top:1px solid rgba(255,255,255,.10);}
-  .su-avatar{width:34px;height:34px;border-radius:10px;background:var(--gold);color:var(--navy);font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .su-avatar{width:34px;height:34px;border-radius:10px;background:#3EC8BE;color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
   .appmain{flex:1;min-width:0;display:flex;flex-direction:column;}
   /* Folder tabs (matches the Staffing Hub) */
   .fbar{display:flex;align-items:flex-end;padding:12px 26px 0;background:#fff;gap:6px;border-bottom:1.5px solid var(--navy);overflow-x:auto;}
@@ -4252,7 +4252,7 @@ function renderHandoffBanner(){
   if(!active.length){ wrap.innerHTML=''; updateAttnCard(); return; }
   wrap.innerHTML = active.map(h=>{
     const open=(h.items||[]).filter(it=>!it.done_at);
-    return '<details class="attx"'+(!h.ack_at?' open':'')+'><summary>🔄 Handoff from '+esc(h.from_name)
+    return '<details class="attx"'+((!h.ack_at||open.length)?' open':'')+'><summary>🔄 Handoff from '+esc(h.from_name)
     +'<span class="field-note" style="font-weight:400;">'+new Date(h.posted_at).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'})+'</span>'
     +(open.length?'<span class="cnt">'+open.length+'</span>':'')+'</summary>'
     +'<div class="attbody">'
