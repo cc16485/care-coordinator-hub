@@ -4087,12 +4087,17 @@ async function postHandoff(){
 }
 function renderHandoffBanner(){
   const wrap=document.getElementById('handoffBanner'); if(!wrap) return;
-  const esc=escapeHtmlComms, h=latestHandoff();
-  // Show while it has open items (or is unacknowledged), to everyone except its poster.
-  if(!h || h.from_email===ME.email || (h.ack_at && !(h.items||[]).some(it=>!it.done_at))){ wrap.innerHTML=''; updateAttnCard(); return; }
-  const open=(h.items||[]).filter(it=>!it.done_at);
-  wrap.innerHTML =
-    '<details class="attx"'+(!h.ack_at?' open':'')+'><summary>🔄 Handoff from '+esc(h.from_name)
+  const esc=escapeHtmlComms;
+  // Every handoff still needing attention (unacknowledged or with open
+  // items), from anyone but me — day coordinators AND the Staffing Hub
+  // both post here for the evening/after-hours coordinator.
+  const active=(DATA.handoffs||[])
+    .filter(h=>h.from_email!==ME.email && (!h.ack_at || (h.items||[]).some(it=>!it.done_at)))
+    .sort((a,b)=>(b.posted_at||'').localeCompare(a.posted_at||''));
+  if(!active.length){ wrap.innerHTML=''; updateAttnCard(); return; }
+  wrap.innerHTML = active.map(h=>{
+    const open=(h.items||[]).filter(it=>!it.done_at);
+    return '<details class="attx"'+(!h.ack_at?' open':'')+'><summary>🔄 Handoff from '+esc(h.from_name)
     +'<span class="field-note" style="font-weight:400;">'+new Date(h.posted_at).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'})+'</span>'
     +(open.length?'<span class="cnt">'+open.length+'</span>':'')+'</summary>'
     +'<div class="attbody">'
@@ -4106,6 +4111,7 @@ function renderHandoffBanner(){
       +(it.type==='lead'&&it.ref?'<button class="linklike" onclick="openLeadProfile(\''+it.ref+'\')">Open</button>':'')
       +'</div>').join('')
     +'</div></details>';
+  }).join('');
   updateAttnCard();
 }
 function updateAttnCard(){
@@ -4553,9 +4559,8 @@ function renderMgrStrip(){
   const wuPending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
   if(wuPending.length)
     rows.push(['📝',wuPending.length+' write-up'+(wuPending.length===1?'':'s')+' awaiting your approval'+(wuPending.some(a=>a.level==='Termination Review')?' — <b style="color:var(--red);">including a termination review</b>':''),'var d=document.getElementById(\'approvalsDetails\');if(d)d.open=true;d&&d.scrollIntoView({behavior:\'smooth\'})']);
-  const h=latestHandoff();
-  if(h && !h.ack_at && h.from_email!==ME.email)
-    rows.push(['🔄','Handoff from '+esc(h.from_name)+' hasn\'t been acknowledged yet','switchTab(\'today\')']);
+  (DATA.handoffs||[]).filter(h=>!h.ack_at&&h.from_email!==ME.email).forEach(h=>
+    rows.push(['🔄','Handoff from '+esc(h.from_name)+' hasn\'t been acknowledged yet','switchTab(\'today\')']));
   DATA.leads.filter(l=>l.soc&&socCurrentStep(l.soc)&&socIsStuck(l.soc)).forEach(l=>
     rows.push(['🏥',esc((l.first_name||'')+' '+(l.last_name||''))+' — Start of Care stuck '+socWaitingDays(l.soc)+' days on: '+esc(socCurrentStep(l.soc).label),'openLeadProfile(\''+l.id+'\')']));
   const fourHrs=new Date(Date.now()-4*3600000).toISOString();
