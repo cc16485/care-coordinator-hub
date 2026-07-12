@@ -370,17 +370,7 @@
       <span style="min-width:0;line-height:1.15;"><b id="navUserName" style="display:block;font-size:12px;color:var(--navy);white-space:nowrap;">Signed in</b><span style="font-size:10px;color:var(--text-muted);white-space:nowrap;" id="navUserRole">Care Coordinator</span></span>
     </span>
     <button class="ghost" onclick="openSettings()" title="Settings">⚙️</button>
-    <div class="morewrap">
-      <button class="ghost" onclick="toggleMoreMenu(event)">⋯ More</button>
-      <div class="moremenu" id="moreMenu">
-        <button onclick="closeMoreMenu();switchTab('comms')"><b>📨 Message Staffing</b><span>Scheduling issue? Coverage gap? Send it to the Staffing Coordinator as a tracked to-do — opens the 💬 Communication page.</span></button>
-        <button onclick="closeMoreMenu();ccmtgSolo()"><b>🎥 Request a meeting</b><span>With Samantha, staffing, or the whole team — video with screen share, right in the browser.</span></button>
-        <button onclick="closeMoreMenu();switchTab('interviews')"><b>📋 Offer a Job</b><span>Just interviewed a caregiver? The form lives on the 🤝 Interviews tab — fill it out while it's fresh.</span></button>
-        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener"><b>🌱 Augusta (recruiting)</b><span>Applicants, prescreening &amp; interview scheduling — opens the Augusta site.</span></a>
-        <a href="https://hub.mo-care.com" rel="noopener"><b>🏠 Team Hub</b><span>The front door — links to every hub.</span></a>
-        <button onclick="signOut()"><b>Sign Out</b><span></span></button>
-      </div>
-    </div>
+    <button class="ghost" onclick="signOut()">Sign Out</button>
   </header>
 
   <div class="fbar" id="fbar">
@@ -1975,8 +1965,8 @@ function initNavGroups(){
 initNavGroups();
 
 /* ---------------- More menu ---------------- */
-function toggleMoreMenu(e){ e.stopPropagation(); document.getElementById('moreMenu').classList.toggle('open'); }
-function closeMoreMenu(){ document.getElementById('moreMenu').classList.remove('open'); }
+function toggleMoreMenu(e){ e.stopPropagation(); const m=document.getElementById('moreMenu'); if(m) m.classList.toggle('open'); }
+function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.classList.remove('open'); }
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
