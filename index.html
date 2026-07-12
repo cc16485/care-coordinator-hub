@@ -600,7 +600,24 @@
       <div class="card" style="padding:18px;margin-bottom:16px;" id="joCard">
         <div id="joForm">
         <b style="font-size:15px;color:var(--navy);">📋 Offer a Job — fill it out while the interview is fresh</b>
-        <div class="field-note" style="margin:2px 0 12px;">Sends their welcome roadmap text &amp; email, creates the AxisCare applicant with the interview note, and starts onboarding tracking in the Staffing Hub. <b>Remember: they must also be added to Viventium</b> — the copy block after sending makes that a 10-second paste.</div>
+        <div class="field-note" style="margin:2px 0 8px;">Sends their welcome roadmap text &amp; email, creates the AxisCare applicant with the interview note, and starts onboarding tracking in the Staffing Hub. <b>Remember: they must also be added to Viventium</b> — the copy block after sending makes that a 10-second paste.</div>
+        <details style="margin:0 0 12px;" ontoggle="if(this.open)joPreviewMsgs()">
+          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);text-decoration:underline;">👀 See exactly what the text &amp; email will say</summary>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:10px;">
+            <div>
+              <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">💬 The text message</div>
+              <div id="jo_prev_sms" style="background:#E8F0E9;border-radius:14px 14px 14px 4px;padding:12px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;"></div>
+            </div>
+            <div>
+              <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">✉️ The email</div>
+              <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+                <div style="background:#F4F7FA;padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);"><b>Subject:</b> Welcome to Caring Companions — here's what happens next</div>
+                <div id="jo_prev_email" style="padding:12px 14px;font-size:13px;line-height:1.65;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="field-note" style="margin-top:8px;">Both go out from the agency's GoHighLevel number — the same thread all their onboarding texts use. Replies land in the Staffing Hub's 💬 Automation Replies inbox.</div>
+        </details>
         <div class="grid2">
           <div><label>First name *</label><input id="jo_first" autocomplete="off"></div>
           <div><label>Last name *</label><input id="jo_last" autocomplete="off"></div>
@@ -4761,6 +4778,30 @@ async function submitJobOffer(){
     err.textContent='Could not send: '+(e&&e.message?e.message:'error'); err.style.display='block';
     btn.disabled=false; btn.textContent='Send offer — welcome text goes out now';
   }
+}
+function joPreviewMsgs(){
+  const esc=escapeHtmlComms;
+  const first=(document.getElementById('jo_first').value.trim()||'[First name]');
+  const by=(document.getElementById('jo_by').value.trim()||'Our care team');
+  const pos=document.getElementById('jo_position').value;
+  document.getElementById('jo_prev_sms').textContent=
+    'Hi '+first+' — this is Caring Companions. '+by+' just offered you a position. Welcome! 🎉\n'
+    +"So you know every message is really us, here's what happens next:\n"
+    +'1) Viventium, our payroll partner, will text/email your official offer & onboarding paperwork — that link is safe to open.\n'
+    +'2) This number will text you about references, your background check, and booking your orientation.\n'
+    +"3) Save our office number: (417) 234-8494. Once you're on the team, that's the one number you'll use to reach us.\n"
+    +'— Caring Companions';
+  document.getElementById('jo_prev_email').innerHTML=
+    '<b style="color:#0E3860;">Welcome to Caring Companions, '+esc(first)+'!</b>'
+    +'<p style="margin:6px 0;">'+esc(by)+' just offered you a position as a <b>'+esc(pos)+'</b> — we\'re excited to have you.</p>'
+    +'<p style="margin:6px 0;"><b>So you know every message is really us, here\'s your onboarding roadmap:</b></p>'
+    +'<ol style="margin:6px 0 6px 18px;padding:0;">'
+    +'<li><b>Viventium</b> (our payroll &amp; onboarding partner) will text and email your official offer and new-hire paperwork. That link is safe to open — please complete it promptly.</li>'
+    +'<li><b>Our training number</b> will text you about your references, background check, and booking your orientation.</li>'
+    +'<li><b>Save our office number: (417) 234-8494.</b> Once you\'re on the team, that\'s the one number to call or text for anything.</li>'
+    +'</ol>'
+    +'<p style="margin:6px 0;">Questions at any point? Call or text the office at (417) 234-8494.</p>'
+    +'<p style="margin:6px 0;color:#57606a;">— The Caring Companions team</p>';
 }
 function joCopyViv(btn){
   navigator.clipboard.writeText(document.getElementById('jo_viv').textContent||'').then(()=>{ btn.textContent='✓ Copied'; setTimeout(()=>{btn.textContent='📋 Copy for Viventium';},1800); });
