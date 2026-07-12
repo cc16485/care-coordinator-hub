@@ -597,14 +597,53 @@
         <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#2E8577;color:#fff;">🌱 Open Augusta — today's interviews ↗</a>
       </div>
 
-      <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
-          <b style="font-size:14px;color:var(--navy);">📋 Offer a Job — fill it out while the interview is fresh</b>
-          <span class="field-note">sends their welcome text &amp; starts onboarding tracking</span>
-          <span style="flex:1;"></span>
-          <a class="linklike" href="https://hub.mo-care.com/offer.html" target="_blank" rel="noopener" style="font-size:12px;">open in its own tab ↗</a>
+      <div class="card" style="padding:18px;margin-bottom:16px;" id="joCard">
+        <div id="joForm">
+        <b style="font-size:15px;color:var(--navy);">📋 Offer a Job — fill it out while the interview is fresh</b>
+        <div class="field-note" style="margin:2px 0 12px;">Sends their welcome roadmap text &amp; email, creates the AxisCare applicant with the interview note, and starts onboarding tracking in the Staffing Hub. <b>Remember: they must also be added to Viventium</b> — the copy block after sending makes that a 10-second paste.</div>
+        <div class="grid2">
+          <div><label>First name *</label><input id="jo_first" autocomplete="off"></div>
+          <div><label>Last name *</label><input id="jo_last" autocomplete="off"></div>
         </div>
-        <iframe src="https://hub.mo-care.com/offer.html" title="Offer a Job" style="display:block;width:100%;height:1100px;border:none;background:#fff;" loading="lazy"></iframe>
+        <div class="grid2">
+          <div><label>Mobile phone</label><input id="jo_phone" inputmode="tel" placeholder="(417) 555-0123"></div>
+          <div><label>Email</label><input id="jo_email" inputmode="email" placeholder="name@email.com"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Position</label><select id="jo_position"><option>Caregiver</option><option>CNA</option><option>Nurse (LPN/RN)</option><option>Office</option></select></div>
+          <div><label>Interview date</label><input id="jo_date" type="date"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Interviewed / offered by</label><input id="jo_by" placeholder="Your name"></div>
+          <div><label>Hourly rate discussed ($)</label><input id="jo_rate" inputmode="decimal" placeholder="e.g. 15.50"></div>
+        </div>
+        <label>Suggested level of care <span style="font-weight:400;color:var(--text-muted);">(confirmed later, after references)</span></label>
+        <div id="jo_lvl" style="display:flex;gap:8px;margin:4px 0 10px;">
+          <button type="button" class="secondary" data-l="1" onclick="joLevelPick(1)">Level 1 — companion</button>
+          <button type="button" class="secondary" data-l="2" onclick="joLevelPick(2)">Level 2 — personal care</button>
+          <button type="button" class="secondary" data-l="3" onclick="joLevelPick(3)">Level 3 — advanced</button>
+        </div>
+        <label>Availability</label><input id="jo_avail" placeholder="e.g. Mon–Fri days, every other weekend, up to 30 hrs">
+        <label>Experience</label><textarea id="jo_exp" rows="2" placeholder="Past caregiving/CNA work, facilities, years, special skills…"></textarea>
+        <label>Personality / fit</label><textarea id="jo_pers" rows="2" placeholder="How they came across, client types they'd suit…"></textarea>
+        <label>Anything else</label><textarea id="jo_notes" rows="2" placeholder="Start-date hopes, references given, questions they asked…"></textarea>
+        <label style="margin-top:8px;">Caregiver attributes <span style="font-weight:400;color:var(--text-muted);">(staffing types these into AxisCare — default Yes, flip the No's)</span></label>
+        <div id="jo_attrs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px;margin-top:6px;"></div>
+        <div id="jo_err" style="display:none;color:var(--red);font-size:13px;margin-top:10px;"></div>
+        <button class="primary" id="jo_send" style="margin-top:14px;" onclick="submitJobOffer()">Send offer — welcome text goes out now</button>
+        </div>
+        <div id="joDone" style="display:none;">
+          <b style="font-size:16px;color:var(--green);">✅ Offer sent</b>
+          <div id="jo_done_name" style="font-size:14.5px;font-weight:700;margin:6px 0;"></div>
+          <div id="jo_steps" style="font-size:13px;line-height:1.9;"></div>
+          <div style="margin-top:12px;padding:12px;background:#FFFDF5;border:1px solid #FDE68A;border-radius:8px;">
+            <b style="font-size:13px;">⚠ Now add them to VIVENTIUM</b>
+            <div class="field-note">Without Viventium they can't get onboarding paperwork. Copy this block and paste into the Viventium new-hire screen:</div>
+            <pre id="jo_viv" style="white-space:pre-wrap;font-size:12px;background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px;"></pre>
+            <button class="secondary" onclick="joCopyViv(this)">📋 Copy for Viventium</button>
+          </div>
+          <button class="secondary" style="margin-top:12px;" onclick="joReset()">＋ Offer another job</button>
+        </div>
       </div>
 
       <div class="card" style="padding:18px;">
@@ -1946,7 +1985,7 @@ function renderActiveTab(){
   if(activeTab==='comms') renderCommsPage();
   if(activeTab==='inbox') renderInboxCc();
   if(activeTab==='meetings') renderMeetingsPage();
-  if(activeTab==='interviews') renderInterviews();
+  if(activeTab==='interviews'){ joInit(); renderInterviews(); }
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
   const el = document.getElementById(containerId);
@@ -4641,6 +4680,97 @@ function renderMeetingsPage(){
     ||'<div class="field-note">No meetings yet — request one above.</div>';
   const b=document.getElementById('mtgTabBadge');
   if(b){ b.style.display=inc.length?'inline-flex':'none'; b.textContent=inc.length; }
+}
+
+/* ---------------- Native Offer-a-Job form (lives here now, not the Team Hub;
+   uses the coordinator's existing sign-in + the hub key from Settings) ------ */
+const JO_ATTRS=[
+  ['alzheimers',"Alzheimer's Disease"],['bed_bound','Bed Bound'],['cats','Cats'],
+  ['dementia','Dementia'],['dogs','Dogs'],['female_caregiver','Female Caregiver'],
+  ['gait_belt','Gait Belt'],['hospice','Hospice'],['hoyer_lift','Hoyer Lift'],
+  ['live_in','Live-In'],['male_caregiver','Male Caregiver'],['parkinsons',"Parkinson's Experience"],
+  ['payor_medicaid','Payor - Medicaid'],['payor_private_pay','Payor - Private Pay'],
+  ['personal_care','Personal Care'],['smoking','Smoking'],
+  ['spanish_speaking','Spanish Speaking'],['transportation','Transportation'],
+];
+const joState={}; JO_ATTRS.forEach(a=>joState[a[0]]=true);
+let joLevel=null, joInited=false;
+function joInit(){
+  if(!joInited){
+    joInited=true;
+    document.getElementById('jo_attrs').innerHTML=JO_ATTRS.map(a=>
+      '<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12.5px;">'
+      +'<span style="flex:1;">'+a[1]+'</span>'
+      +'<button type="button" class="jo-yes" data-k="'+a[0]+'" onclick="joSetAttr(\''+a[0]+'\',true,this)" style="border:1px solid var(--green);background:var(--green-bg);color:var(--green);border-radius:6px;padding:2px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">Yes</button>'
+      +'<button type="button" class="jo-no" data-k="'+a[0]+'" onclick="joSetAttr(\''+a[0]+'\',false,this)" style="border:1px solid var(--border);background:#fff;color:var(--text-muted);border-radius:6px;padding:2px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">No</button>'
+      +'</div>').join('');
+  }
+  if(!document.getElementById('jo_date').value) document.getElementById('jo_date').value=today();
+  if(!document.getElementById('jo_by').value && ME.name) document.getElementById('jo_by').value=ME.name;
+}
+function joSetAttr(k,v,btn){
+  joState[k]=v;
+  const wrap=btn.parentElement;
+  const yes=wrap.querySelector('.jo-yes'), no=wrap.querySelector('.jo-no');
+  yes.style.background=v?'var(--green-bg)':'#fff'; yes.style.color=v?'var(--green)':'var(--text-muted)'; yes.style.borderColor=v?'var(--green)':'var(--border)';
+  no.style.background=v?'#fff':'var(--red-bg)'; no.style.color=v?'var(--text-muted)':'var(--red)'; no.style.borderColor=v?'var(--border)':'var(--red)';
+}
+function joLevelPick(l){
+  joLevel = joLevel===l?null:l;
+  document.querySelectorAll('#jo_lvl button').forEach(b=>{
+    const on=Number(b.dataset.l)===joLevel;
+    b.style.background=on?'var(--navy)':''; b.style.color=on?'#fff':'';
+  });
+}
+function joNormPhone(p){ const d=String(p||'').replace(/\D/g,''); if(d.length===10) return '+1'+d; if(d.length===11&&d[0]==='1') return '+'+d; return p?String(p).trim():''; }
+async function submitJobOffer(){
+  const err=document.getElementById('jo_err'); err.style.display='none';
+  const g=id=>document.getElementById(id).value.trim();
+  const first=g('jo_first'), last=g('jo_last');
+  if(!first||!last){ err.textContent='First and last name are required.'; err.style.display='block'; return; }
+  const phone=joNormPhone(g('jo_phone')), email=g('jo_email');
+  if(!phone&&!email){ err.textContent='Add a mobile phone or an email so the welcome message can reach them.'; err.style.display='block'; return; }
+  const key=(CONFIG.training_hub_key||'').trim();
+  if(!key){ err.textContent='The Training Hub key is missing — paste it into ⚙️ Settings first (ask Samantha).'; err.style.display='block'; return; }
+  const rate=parseFloat(g('jo_rate').replace(/[^0-9.]/g,''));
+  const offer={ first_name:first,last_name:last,phone:phone||null,email:email||null,
+    position:g('jo_position'),interview_date:g('jo_date')||null,offered_by:g('jo_by')||null,
+    pay_rate:isFinite(rate)&&rate>0?rate:null, level_suggested:joLevel,
+    availability:g('jo_avail')||null,experience:g('jo_exp')||null,
+    personality:g('jo_pers')||null,notes:g('jo_notes')||null, attributes:joState };
+  const btn=document.getElementById('jo_send');
+  btn.disabled=true; btn.textContent='Sending…';
+  try{
+    const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/job-offer',{
+      method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+      body:JSON.stringify({key,offer})});
+    const res=await r.json();
+    if(!r.ok||res.error) throw new Error(res.error||('save failed ('+r.status+')'));
+    document.getElementById('joForm').style.display='none';
+    document.getElementById('joDone').style.display='block';
+    document.getElementById('jo_done_name').textContent=first+' '+last+' — '+offer.position+(offer.pay_rate?(' at $'+offer.pay_rate.toFixed(2)+'/hr'):'');
+    const steps=[];
+    steps.push(res.sms?'✓ Welcome roadmap TEXT sent — they know Viventium is coming next':(offer.phone?'! Text did not send — mention the roadmap to them directly':'! No phone given — no text sent'));
+    steps.push(res.email?'✓ Welcome roadmap EMAIL sent':(offer.email?'! Email did not send':'! No email given — no email sent'));
+    steps.push(res.axiscare?'✓ Created in AxisCare as an Applicant with the interview note':'! AxisCare: '+(res.axiscare_error||'not pushed')+' — the record is saved either way');
+    steps.push('✓ Interview record saved — staffing sees the attribute checklist');
+    document.getElementById('jo_steps').innerHTML=steps.map(s=>'<div style="color:'+(s[0]==='✓'?'var(--green)':'var(--amber)')+';">'+escapeHtmlComms(s)+'</div>').join('');
+    document.getElementById('jo_viv').textContent=['First name: '+first,'Last name: '+last,'Mobile: '+(offer.phone||'—'),'Email: '+(offer.email||'—'),'Position: '+offer.position,'Pay rate: '+(offer.pay_rate?('$'+offer.pay_rate.toFixed(2)+'/hr'):'—'),'Offer date: '+(offer.interview_date||today()),'Offered by: '+(offer.offered_by||'—')].join('\n');
+    renderInterviews();
+  }catch(e){
+    err.textContent='Could not send: '+(e&&e.message?e.message:'error'); err.style.display='block';
+    btn.disabled=false; btn.textContent='Send offer — welcome text goes out now';
+  }
+}
+function joCopyViv(btn){
+  navigator.clipboard.writeText(document.getElementById('jo_viv').textContent||'').then(()=>{ btn.textContent='✓ Copied'; setTimeout(()=>{btn.textContent='📋 Copy for Viventium';},1800); });
+}
+function joReset(){
+  document.getElementById('joDone').style.display='none';
+  document.getElementById('joForm').style.display='block';
+  ['jo_first','jo_last','jo_phone','jo_email','jo_rate','jo_avail','jo_exp','jo_pers','jo_notes'].forEach(id=>document.getElementById(id).value='');
+  JO_ATTRS.forEach(a=>joState[a[0]]=true); joInited=false; joLevel=null; joInit();
+  const btn=document.getElementById('jo_send'); btn.disabled=false; btn.textContent='Send offer — welcome text goes out now';
 }
 
 /* ---------------- Interviews tab (job offers, read-only view) ---------------- */
