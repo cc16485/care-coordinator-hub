@@ -96,6 +96,9 @@
   .navgrp.closed .navgrp-toggle::after{transform:rotate(-90deg);}
   .navgrp.closed .navgrp-body{display:none;}
   .morewrap{position:relative;}
+  @media(max-width:960px){
+    .moremenu{position:fixed;left:12px;right:12px;top:auto;width:auto;max-width:none;}
+  }
   .moremenu{display:none;position:absolute;right:0;top:calc(100% + 8px);width:340px;max-width:90vw;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 48px rgba(18,58,94,.18);padding:6px;z-index:60;}
   .moremenu.open{display:block;}
   .moremenu a,.moremenu button{display:block;width:100%;text-align:left;background:none;border:none;border-radius:8px;padding:10px 12px;cursor:pointer;text-decoration:none;color:var(--text);font-family:inherit;}
@@ -267,6 +270,13 @@
   @media(max-width:960px){
     #appScreen.on{display:block;}
     .appmain{margin-left:0;}
+    .fbar{padding:10px 10px 0;gap:4px;}
+    .ftab{padding:7px 12px;font-size:12.5px;}
+    .ftab.active{padding-top:10px;}
+    .fsubbar{padding:9px 10px;}
+    header.topbar img{height:34px;}
+    #fbarDate{display:none;}
+    header.topbar #navUserRole{display:none;}
     .sidenav{position:static;width:auto;}
     .sidenav-head{padding:12px 14px;}
     .logo-card{max-width:220px;margin:0 auto;padding:8px 12px;}
@@ -1851,6 +1861,7 @@ function ccGroupClick(g){
 function switchTab(tab){
   const lpv = document.getElementById('leadProfileView');
   if(lpv) lpv.style.display='none';
+  if(typeof closeMoreMenu==='function') closeMoreMenu();
   activeTab = tab;
   const g=ccGroupOf(tab);
   document.querySelectorAll('.fbar .ftab').forEach(b=>b.classList.toggle('active',b.dataset.g===g));
