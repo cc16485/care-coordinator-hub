@@ -600,9 +600,9 @@
         </summary>
         <div style="padding-bottom:18px;">
         <div id="joForm">
-        <div class="field-note" style="margin:2px 0 8px;">Sends their welcome roadmap text &amp; email, creates the AxisCare applicant with the interview note, and starts onboarding tracking in the Staffing Hub. <b>Remember: they must also be added to Viventium</b> — the copy block after sending makes that a 10-second paste.</div>
+        <div class="field-note" style="margin:2px 0 8px;">Creates the AxisCare applicant with the interview note and starts onboarding tracking in the Staffing Hub. <b>No message goes to the applicant yet</b> — their welcome text &amp; email send automatically when the Staffing Coordinator enters them in Viventium, so "watch for the Viventium email" arrives right as that email goes out.</div>
         <details style="margin:0 0 12px;" ontoggle="if(this.open)joPreviewMsgs()">
-          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);text-decoration:underline;">👀 See exactly what the text &amp; email will say</summary>
+          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);text-decoration:underline;">👀 See exactly what the text &amp; email will say (sent at the Viventium step, not now)</summary>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:10px;">
             <div>
               <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">💬 The text message</div>
@@ -647,15 +647,15 @@
         <label style="margin-top:8px;">Caregiver attributes <span style="font-weight:400;color:var(--text-muted);">(staffing types these into AxisCare — default Yes, flip the No's)</span></label>
         <div id="jo_attrs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px;margin-top:6px;"></div>
         <div id="jo_err" style="display:none;color:var(--red);font-size:13px;margin-top:10px;"></div>
-        <button class="primary" id="jo_send" style="margin-top:14px;" onclick="submitJobOffer()">Send offer — welcome text goes out now</button>
+        <button class="primary" id="jo_send" style="margin-top:14px;" onclick="submitJobOffer()">Save offer — sends to Staffing to start onboarding</button>
         </div>
         <div id="joDone" style="display:none;">
-          <b style="font-size:16px;color:var(--green);">✅ Offer sent</b>
+          <b style="font-size:16px;color:var(--green);">✅ Offer saved — Staffing takes it from here</b>
           <div id="jo_done_name" style="font-size:14.5px;font-weight:700;margin:6px 0;"></div>
           <div id="jo_steps" style="font-size:13px;line-height:1.9;"></div>
           <div style="margin-top:12px;padding:12px;background:#FFFDF5;border:1px solid #FDE68A;border-radius:8px;">
-            <b style="font-size:13px;">⚠ Now add them to VIVENTIUM</b>
-            <div class="field-note">Without Viventium they can't get onboarding paperwork. Copy this block and paste into the Viventium new-hire screen:</div>
+            <b style="font-size:13px;">Next: the Staffing Coordinator enters them in Viventium</b>
+            <div class="field-note">That's the step that sends their welcome text &amp; email and their onboarding paperwork. The details below are on their Staffing Hub record too — copy them only if you're doing the Viventium entry yourself:</div>
             <pre id="jo_viv" style="white-space:pre-wrap;font-size:12px;background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px;"></pre>
             <button class="secondary" onclick="joCopyViv(this)">📋 Copy for Viventium</button>
           </div>
@@ -4815,16 +4815,15 @@ async function submitJobOffer(){
     document.getElementById('joDone').style.display='block';
     document.getElementById('jo_done_name').textContent=first+' '+last+' — '+offer.position+(offer.pay_rate?(' at $'+offer.pay_rate.toFixed(2)+'/hr'):'');
     const steps=[];
-    steps.push(res.sms?'✓ Welcome roadmap TEXT sent — they know Viventium is coming next':(offer.phone?'! Text did not send — mention the roadmap to them directly':'! No phone given — no text sent'));
-    steps.push(res.email?'✓ Welcome roadmap EMAIL sent':(offer.email?'! Email did not send':'! No email given — no email sent'));
+    steps.push('✓ Interview record saved — it\'s now in the Staffing Hub\'s New Offers queue');
     steps.push(res.axiscare?'✓ Created in AxisCare as an Applicant with the interview note':'! AxisCare: '+(res.axiscare_error||'not pushed')+' — the record is saved either way');
-    steps.push('✓ Interview record saved — staffing sees the attribute checklist');
+    steps.push('✓ Welcome text + email are queued — they send automatically when Staffing enters '+first+' in Viventium (so the "watch for the Viventium email" message lands right as that email goes out)');
     document.getElementById('jo_steps').innerHTML=steps.map(s=>'<div style="color:'+(s[0]==='✓'?'var(--green)':'var(--amber)')+';">'+escapeHtmlComms(s)+'</div>').join('');
     document.getElementById('jo_viv').textContent=['First name: '+first,'Last name: '+last,'Mobile: '+(offer.phone||'—'),'Email: '+(offer.email||'—'),'Position: '+offer.position,'Pay rate: '+(offer.pay_rate?('$'+offer.pay_rate.toFixed(2)+'/hr'):'—'),'Offer date: '+(offer.interview_date||today()),'Offered by: '+(offer.offered_by||'—')].join('\n');
     renderInterviews();
   }catch(e){
     err.textContent='Could not send: '+(e&&e.message?e.message:'error'); err.style.display='block';
-    btn.disabled=false; btn.textContent='Send offer — welcome text goes out now';
+    btn.disabled=false; btn.textContent='Save offer — sends to Staffing to start onboarding';
   }
 }
 function joPreviewMsgs(){
@@ -4863,7 +4862,7 @@ function joReset(){
   document.getElementById('joForm').style.display='block';
   ['jo_first','jo_last','jo_phone','jo_email','jo_rate','jo_avail','jo_exp','jo_pers','jo_notes'].forEach(id=>document.getElementById(id).value='');
   JO_ATTRS.forEach(a=>joState[a[0]]=true); joInited=false; joLevel=null; joInit();
-  const btn=document.getElementById('jo_send'); btn.disabled=false; btn.textContent='Send offer — welcome text goes out now';
+  const btn=document.getElementById('jo_send'); btn.disabled=false; btn.textContent='Save offer — sends to Staffing to start onboarding';
 }
 
 /* ---------------- Interviews tab (job offers, read-only view) ---------------- */
