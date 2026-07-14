@@ -627,8 +627,19 @@
           <div><label>Email</label><input id="jo_email" inputmode="email" placeholder="name@email.com"></div>
         </div>
         <div class="grid2">
-          <div><label>Position</label><select id="jo_position"><option>Caregiver</option><option>CNA</option><option>Nurse (LPN/RN)</option><option>Office</option></select></div>
+          <div><label>Position</label><select id="jo_position" onchange="joSyncPlan()"><option>Caregiver</option><option>CNA</option><option>Nurse (LPN/RN)</option><option>Office</option></select></div>
           <div><label>Interview date</label><input id="jo_date" type="date"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Viventium onboarding workflow <span style="font-weight:400;color:var(--text-muted);">(which plan staffing assigns)</span></label>
+            <select id="jo_plan">
+              <option>Caregiver onboarding</option>
+              <option>CNA onboarding</option>
+              <option>Nurse (LPN/RN) onboarding</option>
+              <option>Office / admin onboarding</option>
+            </select>
+          </div>
+          <div></div>
         </div>
         <div class="grid2">
           <div><label>Interviewed / offered by</label><input id="jo_by" placeholder="Your name"></div>
@@ -4799,7 +4810,7 @@ async function submitJobOffer(){
   if(!key){ err.textContent='The Training Hub key is missing — paste it into ⚙️ Settings first (ask Samantha).'; err.style.display='block'; return; }
   const rate=parseFloat(g('jo_rate').replace(/[^0-9.]/g,''));
   const offer={ first_name:first,last_name:last,phone:phone||null,email:email||null,
-    position:g('jo_position'),interview_date:g('jo_date')||null,offered_by:g('jo_by')||null,
+    position:g('jo_position'),onboarding_plan:g('jo_plan')||null,interview_date:g('jo_date')||null,offered_by:g('jo_by')||null,
     pay_rate:isFinite(rate)&&rate>0?rate:null, level_suggested:joLevel,
     availability:g('jo_avail')||null,experience:g('jo_exp')||null,
     personality:g('jo_pers')||null,notes:g('jo_notes')||null, attributes:joState };
@@ -4819,7 +4830,7 @@ async function submitJobOffer(){
     steps.push(res.axiscare?'✓ Created in AxisCare as an Applicant with the interview note':'! AxisCare: '+(res.axiscare_error||'not pushed')+' — the record is saved either way');
     steps.push('✓ Welcome text + email are queued — they send automatically when Staffing enters '+first+' in Viventium (so the "watch for the Viventium email" message lands right as that email goes out)');
     document.getElementById('jo_steps').innerHTML=steps.map(s=>'<div style="color:'+(s[0]==='✓'?'var(--green)':'var(--amber)')+';">'+escapeHtmlComms(s)+'</div>').join('');
-    document.getElementById('jo_viv').textContent=['First name: '+first,'Last name: '+last,'Mobile: '+(offer.phone||'—'),'Email: '+(offer.email||'—'),'Position: '+offer.position,'Pay rate: '+(offer.pay_rate?('$'+offer.pay_rate.toFixed(2)+'/hr'):'—'),'Offer date: '+(offer.interview_date||today()),'Offered by: '+(offer.offered_by||'—')].join('\n');
+    document.getElementById('jo_viv').textContent=['First name: '+first,'Last name: '+last,'Mobile: '+(offer.phone||'—'),'Email: '+(offer.email||'—'),'Position: '+offer.position,'Onboarding plan: '+(offer.onboarding_plan||'—'),'Pay rate: '+(offer.pay_rate?('$'+offer.pay_rate.toFixed(2)+'/hr'):'—'),'Offer date: '+(offer.interview_date||today()),'Offered by: '+(offer.offered_by||'—')].join('\n');
     renderInterviews();
   }catch(e){
     err.textContent='Could not send: '+(e&&e.message?e.message:'error'); err.style.display='block';
@@ -4857,10 +4868,18 @@ function joPreviewMsgs(){
 function joCopyViv(btn){
   navigator.clipboard.writeText(document.getElementById('jo_viv').textContent||'').then(()=>{ btn.textContent='✓ Copied'; setTimeout(()=>{btn.textContent='📋 Copy for Viventium';},1800); });
 }
+// Position picked → pre-select the matching Viventium workflow (still editable).
+function joSyncPlan(){
+  const pos=document.getElementById('jo_position').value;
+  const map={'Caregiver':'Caregiver onboarding','CNA':'CNA onboarding','Nurse (LPN/RN)':'Nurse (LPN/RN) onboarding','Office':'Office / admin onboarding'};
+  const sel=document.getElementById('jo_plan');
+  if(sel&&map[pos]) sel.value=map[pos];
+}
 function joReset(){
   document.getElementById('joDone').style.display='none';
   document.getElementById('joForm').style.display='block';
   ['jo_first','jo_last','jo_phone','jo_email','jo_rate','jo_avail','jo_exp','jo_pers','jo_notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('jo_position').value='Caregiver'; joSyncPlan();
   JO_ATTRS.forEach(a=>joState[a[0]]=true); joInited=false; joLevel=null; joInit();
   const btn=document.getElementById('jo_send'); btn.disabled=false; btn.textContent='Save offer — sends to Staffing to start onboarding';
 }
