@@ -633,11 +633,9 @@
         <div class="grid2">
           <div><label>Viventium onboarding workflow <span style="font-weight:400;color:var(--text-muted);">(which plan staffing assigns)</span></label>
             <select id="jo_plan">
-              <option>Caregiver onboarding</option>
-              <option>CNA onboarding</option>
-              <option>Nurse (LPN/RN) onboarding</option>
-              <option>Office / admin onboarding</option>
+              <option>Default (Default)</option>
             </select>
+            <div class="field-note" style="margin-top:2px;">Viventium currently has one plan. When role-specific plans are built there, they get added here — tell Claude the exact names.</div>
           </div>
           <div></div>
         </div>
@@ -4862,10 +4860,12 @@ function joPreviewMsgs(){
     +'<p style="margin:4px 0;">We\'re excited to welcome you to Caring Companions and look forward to working with you!</p>'
     +'<p style="margin:4px 0;color:#57606a;">Warmly,<br><br>The Caring Companions Team<br>(417) 234-8494</p>';
 }
-// Position picked → pre-select the matching Viventium workflow (still editable).
+// Position picked → pre-select the matching Viventium workflow. Her Viventium
+// has a single plan today ("Default (Default)" — screenshot Jul 13 2026), so
+// the map is empty; add entries when she builds role-specific plans there.
 function joSyncPlan(){
   const pos=document.getElementById('jo_position').value;
-  const map={'Caregiver':'Caregiver onboarding','CNA':'CNA onboarding','Nurse (LPN/RN)':'Nurse (LPN/RN) onboarding','Office':'Office / admin onboarding'};
+  const map={};
   const sel=document.getElementById('jo_plan');
   if(sel&&map[pos]) sel.value=map[pos];
 }
