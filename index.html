@@ -666,9 +666,7 @@
           <div id="jo_steps" style="font-size:13px;line-height:1.9;"></div>
           <div style="margin-top:12px;padding:12px;background:#FFFDF5;border:1px solid #FDE68A;border-radius:8px;">
             <b style="font-size:13px;">Next: the Staffing Coordinator enters them in Viventium</b>
-            <div class="field-note">That's the step that sends their welcome text &amp; email and their onboarding paperwork. The details below are on their Staffing Hub record too — copy them only if you're doing the Viventium entry yourself:</div>
-            <pre id="jo_viv" style="white-space:pre-wrap;font-size:12px;background:#fff;border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px;"></pre>
-            <button class="secondary" onclick="joCopyViv(this)">📋 Copy for Viventium</button>
+            <div class="field-note">That's the step that sends their welcome text &amp; email and their onboarding paperwork. Everything you entered here shows on their Staffing Hub record as a field-by-field Viventium entry sheet — nothing else for you to do.</div>
           </div>
           <button class="secondary" style="margin-top:12px;" onclick="joReset()">＋ Offer another job</button>
         </div>
@@ -4830,7 +4828,6 @@ async function submitJobOffer(){
     steps.push(res.axiscare?'✓ Created in AxisCare as an Applicant with the interview note':'! AxisCare: '+(res.axiscare_error||'not pushed')+' — the record is saved either way');
     steps.push('✓ Welcome text + email are queued — they send automatically when Staffing enters '+first+' in Viventium (so the "watch for the Viventium email" message lands right as that email goes out)');
     document.getElementById('jo_steps').innerHTML=steps.map(s=>'<div style="color:'+(s[0]==='✓'?'var(--green)':'var(--amber)')+';">'+escapeHtmlComms(s)+'</div>').join('');
-    document.getElementById('jo_viv').textContent=['First name: '+first,'Last name: '+last,'Mobile: '+(offer.phone||'—'),'Email: '+(offer.email||'—'),'Position: '+offer.position,'Onboarding plan: '+(offer.onboarding_plan||'—'),'Pay rate: '+(offer.pay_rate?('$'+offer.pay_rate.toFixed(2)+'/hr'):'—'),'Offer date: '+(offer.interview_date||today()),'Offered by: '+(offer.offered_by||'—')].join('\n');
     renderInterviews();
   }catch(e){
     err.textContent='Could not send: '+(e&&e.message?e.message:'error'); err.style.display='block';
@@ -4864,9 +4861,6 @@ function joPreviewMsgs(){
     +'<p style="margin:4px 0;">Please save our office number: <b>(417) 234-8494</b>.<br>This is our main office number and the one you\'ll use to call or text us if you have questions during the onboarding process or after you join our team.</p>'
     +'<p style="margin:4px 0;">We\'re excited to welcome you to Caring Companions and look forward to working with you!</p>'
     +'<p style="margin:4px 0;color:#57606a;">Warmly,<br><br>The Caring Companions Team<br>(417) 234-8494</p>';
-}
-function joCopyViv(btn){
-  navigator.clipboard.writeText(document.getElementById('jo_viv').textContent||'').then(()=>{ btn.textContent='✓ Copied'; setTimeout(()=>{btn.textContent='📋 Copy for Viventium';},1800); });
 }
 // Position picked → pre-select the matching Viventium workflow (still editable).
 function joSyncPlan(){
