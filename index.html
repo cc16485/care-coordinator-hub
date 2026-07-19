@@ -387,6 +387,7 @@
     <div class="fpill" data-tab="soc" onclick="switchTab('soc')">🏥 Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="referrers" onclick="switchTab('referrers')">🤝 Referrers</div>
     <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')">📚 Playbook</div>
+    <div class="fpill" data-tab="ltcpolicy" onclick="switchTab('ltcpolicy')">🛡 LTC Policy</div>
   </div>
   <div class="fsubbar" id="fsub-clients">
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')">👤 All Clients</div>
@@ -1130,6 +1131,170 @@
 </section>
 
 <!-- ===================== TAB: PLAYBOOK ===================== -->
+<section class="tabpanel" id="tab-ltcpolicy">
+  <style>
+    #tab-ltcpolicy .ltc-wrap{max-width:920px;}
+    #tab-ltcpolicy h2.ltc-h{font-size:22px;margin:0 0 4px;color:var(--navy);}
+    #tab-ltcpolicy .ltc-sub{color:var(--text-muted);font-size:14px;margin:0 0 20px;max-width:72ch;}
+    #tab-ltcpolicy .ltc-sub a{color:var(--navy);font-weight:600;}
+    #tab-ltcpolicy .ltc-sec{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin:0 0 16px;box-shadow:0 1px 2px rgba(16,24,40,.03);}
+    #tab-ltcpolicy .ltc-sec>h3{font-size:16px;color:var(--navy);margin:0 0 4px;display:flex;align-items:center;gap:8px;}
+    #tab-ltcpolicy .ltc-sec .hint{color:var(--text-muted);font-size:13px;margin:0 0 14px;line-height:1.55;}
+    #tab-ltcpolicy .ltc-input{width:100%;border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:14px;font-family:inherit;color:var(--text);margin:0 0 10px;box-sizing:border-box;background:#fff;}
+    #tab-ltcpolicy .ltc-ta{width:100%;border:1px solid var(--border);border-radius:9px;padding:11px 13px;font-size:13.5px;font-family:inherit;color:var(--text);resize:vertical;box-sizing:border-box;background:#fff;line-height:1.5;}
+    #tab-ltcpolicy .ltc-input:focus,#tab-ltcpolicy .ltc-ta:focus{outline:none;border-color:var(--navy);}
+    #tab-ltcpolicy .ltc-btnrow{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 0;}
+    #tab-ltcpolicy .ltc-btn{background:var(--navy);color:#fff;border:none;border-radius:9px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer;}
+    #tab-ltcpolicy .ltc-btn:hover{filter:brightness(1.08);}
+    #tab-ltcpolicy .ltc-btn:disabled{opacity:.55;cursor:default;}
+    #tab-ltcpolicy .ltc-btn.ghost{background:#fff;color:var(--navy);border:1.5px solid var(--navy);}
+    #tab-ltcpolicy .ltc-result{display:none;margin:16px 0 0;border-top:1px solid var(--border);padding-top:16px;}
+    #tab-ltcpolicy .ltc-warn{background:var(--amber-bg);color:var(--amber);border-radius:9px;padding:11px 14px;font-size:13px;font-weight:600;}
+    #tab-ltcpolicy .ltc-copied{background:var(--green-bg);color:var(--green);border-radius:9px;padding:11px 14px;font-size:13px;font-weight:600;margin:0 0 12px;}
+    #tab-ltcpolicy table.ltc-kv{width:100%;border-collapse:collapse;font-size:13.5px;margin:2px 0 12px;}
+    #tab-ltcpolicy table.ltc-kv td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
+    #tab-ltcpolicy table.ltc-kv td:first-child{color:var(--text-muted);font-weight:600;width:42%;}
+    #tab-ltcpolicy table.ltc-kv td:last-child{color:var(--text);font-weight:600;}
+    #tab-ltcpolicy .ltc-block{margin:0 0 14px;}
+    #tab-ltcpolicy .ltc-block h4{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--navy);margin:0 0 6px;}
+    #tab-ltcpolicy .ltc-block p{font-size:13.5px;line-height:1.6;color:var(--text);margin:0 0 6px;}
+    #tab-ltcpolicy .ltc-block li{font-size:13.5px;line-height:1.55;color:var(--text);margin:0 0 4px;}
+    #tab-ltcpolicy .ltc-flag li{color:var(--amber);}
+    #tab-ltcpolicy ol.ltc-steps{margin:0;padding:0 0 0 4px;counter-reset:s;list-style:none;}
+    #tab-ltcpolicy ol.ltc-steps>li{position:relative;padding:0 0 14px 40px;margin:0;font-size:13.5px;line-height:1.6;color:var(--text);}
+    #tab-ltcpolicy ol.ltc-steps>li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+    #tab-ltcpolicy ol.ltc-steps>li b{color:var(--navy);}
+    #tab-ltcpolicy .ltc-tip{background:var(--blue-bg);color:var(--blue);border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.5;margin:6px 0 0;}
+  </style>
+  <div class="ltc-wrap">
+    <h2 class="ltc-h">🛡 LTC Insurance Policy</h2>
+    <p class="ltc-sub">Paste a client's long-term care policy and get an instant, plain-English breakdown, then set it up as a payor in AxisCare. <a href="https://guide.mo-care.com/long-term-care-insurance.html" target="_blank" rel="noopener">See the family-facing LTC page &#8599;</a></p>
+
+    <div class="ltc-sec">
+      <h3>&#128196; AI policy analyzer</h3>
+      <p class="hint">Paste the policy or its benefits/summary pages. The AI pulls out the elimination period, daily &amp; lifetime limits, benefit triggers, whether home care from an agency is covered, and what it all means for the client. Tip: on a PDF, select all (Ctrl/Cmd&#8209;A), copy, and paste here.</p>
+      <input id="ltcClientName" class="ltc-input" placeholder="Client name (optional, for the write-up)">
+      <textarea id="ltcPolicyText" class="ltc-ta" rows="9" placeholder="Paste the policy text or benefits summary here…"></textarea>
+      <div class="ltc-btnrow">
+        <button id="ltcAnalyzeBtn" class="ltc-btn" onclick="ltcAnalyze()">Analyze policy</button>
+        <button class="ltc-btn ghost" onclick="ltcCopyPrompt()">Copy expert prompt for Claude</button>
+      </div>
+      <div id="ltcResult" class="ltc-result"></div>
+    </div>
+
+    <div class="ltc-sec">
+      <h3>&#9881;&#65039; Set up LTC insurance as a payor in AxisCare</h3>
+      <p class="hint">General flow, exact menu labels vary by AxisCare setup. Confirm as you go.</p>
+      <div class="ltc-tip" style="margin:0 0 14px;">&#128179; <b>First, confirm how the client wants to pay:</b><br>
+        <b>1. Assignment of benefits</b> (direct billing) &mdash; the client signs an assignment and we bill the LTC carrier directly; they pay nothing out of pocket within policy limits. Set the <b>LTC company as the payer</b>.<br>
+        <b>2. Private pay + reimbursement</b> &mdash; the client pays us at our rate and we give them paid invoices to submit to their carrier. Bill the client as <b>Private Pay</b>; use the LTC payer only to track the daily/lifetime limits.</div>
+      <ol class="ltc-steps">
+        <li><b>Create the payer.</b> Settings / Admin &rarr; <b>Payers</b> (or Payers &amp; Bill Rates) &rarr; <b>Add Payer</b>. Name it clearly, e.g. <b>&ldquo;Genworth &ndash; LTC Insurance&rdquo;</b>, and set the type to Private Insurance / Long&#8209;Term Care.</li>
+        <li><b>Set the bill rate.</b> Enter your agency rate (hourly or per&#8209;visit) for this payer so invoices calculate correctly. If the carrier reimburses a fixed daily amount, still bill your true rate, the policy&rsquo;s daily max is tracked in the authorization (next step).</li>
+        <li><b>Add the payer to the client.</b> Open the client &rarr; <b>Payers / Authorizations</b> &rarr; add the LTC payer. Set effective dates and enter the policy&rsquo;s <b>daily or monthly maximum</b> as the authorization cap so AxisCare warns you before a visit exceeds coverage.</li>
+        <li><b>Handle the elimination period.</b> AxisCare won&rsquo;t track the waiting period for you. Keep the client on <b>Private Pay</b> until the elimination period is satisfied (note the satisfied date), then switch the primary payer to the LTC payer from that date forward.</li>
+        <li><b>Turn on direct billing / assignment.</b> If the carrier pays the agency, add the carrier&rsquo;s billing address to the payer and attach the required documents (signed plan of care, assignment of benefits, caregiver visit logs).</li>
+        <li><b>Invoice &amp; submit.</b> Generate the payer invoice, then export the <b>visit logs / EVV records</b> the carrier requires and submit with the claim form. Most carriers want these monthly.</li>
+      </ol>
+      <div class="ltc-tip">&#128161; Match the AxisCare authorization cap to the policy&rsquo;s daily/monthly max, and re&#8209;check the lifetime benefit pool every few months so care never outpaces coverage without a heads&#8209;up to the family.</div>
+    </div>
+
+    <div class="ltc-sec">
+      <h3>&#9989; Our claim process (quick reference)</h3>
+      <ol class="ltc-steps">
+        <li><b>Free policy review.</b> Get the policy or benefits letter, run it through the analyzer above.</li>
+        <li><b>Verify benefits with the carrier.</b> Call with the client to confirm elimination period, daily max, and requirements in writing.</li>
+        <li><b>Assessment &amp; plan of care.</b> Arrange the professional assessment and plan of care the carrier requires.</li>
+        <li><b>File the claim.</b> Submit claim forms plus caregiver logs and invoices.</li>
+        <li><b>Care begins, bill the carrier.</b> Start care on schedule and bill directly, keeping documentation current.</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+  function ltcBuildPrompt(txt, client){
+    return "You are a senior long-term care (LTC) insurance claims specialist at a home care agency. "
+      + "Read the LTC policy or benefits summary below and give a care coordinator (not an insurance expert) a clear breakdown.\n\n"
+      + "Extract and state each of these (if a value is not in the text, write \"Not stated — confirm with carrier\"; never invent numbers):\n"
+      + "• Carrier / insurer and policy number\n"
+      + "• Tax-qualified policy? (yes/no/unknown)\n"
+      + "• Elimination period: number of days, calendar days vs service days, one-time or per-claim\n"
+      + "• Home care benefit: daily maximum and/or monthly maximum ($), and whether care from a licensed home care AGENCY is covered (not just facilities)\n"
+      + "• Benefit period / duration and the lifetime maximum or benefit pool ($)\n"
+      + "• Benefit triggers: how many of the 6 ADLs are required, and whether cognitive impairment alone qualifies\n"
+      + "• Inflation protection (type, if any)\n"
+      + "• Waiver of premium once on claim (yes/no)\n"
+      + "• Can benefits be assigned / paid directly to the agency?\n"
+      + "• Key exclusions or limitations to watch for\n\n"
+      + "Then give:\n"
+      + "1) A plain-English 3-4 sentence summary of what this policy will realistically pay for home care.\n"
+      + "2) RED FLAGS / missing info the coordinator must confirm with the carrier.\n"
+      + "3) The exact next steps to open the claim.\n\n"
+      + (client ? ("Client: " + client + "\n\n") : "")
+      + "POLICY TEXT:\n<<<\n" + txt + "\n>>>";
+  }
+  function ltcCopyPrompt(){
+    var txt=(document.getElementById('ltcPolicyText').value||'').trim();
+    var client=(document.getElementById('ltcClientName').value||'').trim();
+    var out=document.getElementById('ltcResult');
+    if(txt.length<40){ out.innerHTML='<div class="ltc-warn">Paste the policy text first (at least a paragraph).</div>'; out.style.display='block'; return; }
+    var prompt=ltcBuildPrompt(txt, client);
+    (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(prompt) : Promise.reject())
+      .then(function(){ out.innerHTML='<div class="ltc-copied">✓ Expert prompt copied. Paste it into Claude (or claude.ai) and it will return the full breakdown.</div>'; out.style.display='block'; })
+      .catch(function(){
+        out.innerHTML='<div class="ltc-block"><h4>Copy this prompt into Claude</h4><textarea class="ltc-ta" rows="6" onclick="this.select()">'+prompt.replace(/</g,'&lt;')+'</textarea></div>';
+        out.style.display='block';
+      });
+  }
+  function ltcAnalyze(){
+    var txt=(document.getElementById('ltcPolicyText').value||'').trim();
+    var client=(document.getElementById('ltcClientName').value||'').trim();
+    var out=document.getElementById('ltcResult');
+    var btn=document.getElementById('ltcAnalyzeBtn');
+    if(txt.length<40){ out.innerHTML='<div class="ltc-warn">Paste the policy text first (at least a paragraph).</div>'; out.style.display='block'; return; }
+    var haveEndpoint=(typeof CONFIG!=='undefined' && CONFIG && CONFIG.supabase_url) && (typeof session!=='undefined' && session && session.access_token);
+    if(!haveEndpoint){ ltcCopyPrompt(); return; }
+    btn.disabled=true; btn.textContent='Analyzing…'; out.style.display='none';
+    fetch(CONFIG.supabase_url+'/functions/v1/ai-ltc-policy', {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
+      body: JSON.stringify({ policy_text: txt, client_name: client })
+    }).then(function(res){ if(!res.ok) throw new Error(res.status); return res.json(); })
+      .then(function(data){ ltcRenderResult(data); btn.disabled=false; btn.textContent='Analyze policy'; })
+      .catch(function(){
+        btn.disabled=false; btn.textContent='Analyze policy';
+        ltcCopyPrompt();
+        var note=document.createElement('div'); note.className='ltc-tip';
+        note.innerHTML='One-click AI isn’t connected yet (the <b>ai-ltc-policy</b> Edge Function needs deploying). I’ve copied the expert prompt so you can run it in Claude now.';
+        document.getElementById('ltcResult').appendChild(note);
+      });
+  }
+  function ltcRenderResult(data){
+    var out=document.getElementById('ltcResult');
+    if(data && typeof data.markdown==='string' && !data.fields){
+      out.innerHTML='<div class="ltc-block">'+data.markdown.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>')+'</div>'; out.style.display='block'; return;
+    }
+    var f=(data&&data.fields)||data||{};
+    function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+    var rows=[
+      ['Carrier / insurer', f.carrier],['Policy number', f.policy_number],['Tax-qualified', f.tax_qualified],
+      ['Elimination period', f.elimination_period],['Daily maximum', f.daily_maximum],['Monthly maximum', f.monthly_maximum],
+      ['Benefit period', f.benefit_period],['Lifetime max / pool', f.lifetime_maximum],
+      ['Home care agency covered', f.home_care_covered],['Benefit triggers', f.benefit_triggers],
+      ['Inflation protection', f.inflation_protection],['Waiver of premium', f.waiver_of_premium],['Direct billing / assignment', f.assignment_of_benefits]
+    ].filter(function(r){ return r[1]!=null && r[1]!==''; });
+    var html='';
+    if(rows.length){ html+='<table class="ltc-kv">'+rows.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td></tr>';}).join('')+'</table>'; }
+    if(f.summary){ html+='<div class="ltc-block"><h4>What this means</h4><p>'+esc(f.summary)+'</p></div>'; }
+    if(f.exclusions && f.exclusions.length){ html+='<div class="ltc-block"><h4>Exclusions / limits</h4><ul>'+f.exclusions.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>'; }
+    if(f.red_flags && f.red_flags.length){ html+='<div class="ltc-block ltc-flag"><h4>Confirm with carrier</h4><ul>'+f.red_flags.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>'; }
+    if(f.next_steps && f.next_steps.length){ html+='<div class="ltc-block"><h4>Next steps</h4><ul>'+f.next_steps.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>'; }
+    out.innerHTML= html || '<div class="ltc-warn">The AI returned an unexpected shape. Try the &ldquo;Copy expert prompt&rdquo; button instead.</div>';
+    out.style.display='block';
+  }
+  </script>
+</section>
+
 <section class="tabpanel" id="tab-playbook">
   <style>
     #tab-playbook .pb2-wrap{max-width:960px;}
@@ -2188,7 +2353,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],settings:['settings']};
 function ccGroupOf(tab){ for(const g in CC_GROUPS) if(CC_GROUPS[g].includes(tab)) return g; return 'today'; }
 function ccGroupClick(g){
   const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
