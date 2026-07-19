@@ -386,6 +386,7 @@
     <div class="fpill" data-tab="assessments" onclick="switchTab('assessments')">📋 Care Assessments</div>
     <div class="fpill" data-tab="soc" onclick="switchTab('soc')">🏥 Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="referrers" onclick="switchTab('referrers')">🤝 Referrers</div>
+    <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')">📚 Playbook</div>
   </div>
   <div class="fsubbar" id="fsub-clients">
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')">👤 All Clients</div>
@@ -1125,6 +1126,206 @@
         <div id="lp_docs" style="margin-top:12px;"></div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ===================== TAB: PLAYBOOK ===================== -->
+<section class="tabpanel" id="tab-playbook">
+  <style>
+    #tab-playbook .pb2-wrap{max-width:960px;}
+    #tab-playbook h2.pb2-h{font-size:22px;margin:0 0 4px;color:var(--navy);}
+    #tab-playbook .pb2-sub{color:var(--text-muted);font-size:14px;margin:0 0 16px;max-width:70ch;}
+    #tab-playbook .pb2-nav{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 20px;}
+    #tab-playbook .pb2-nav a{font-size:12.5px;font-weight:600;color:var(--navy);background:var(--card);border:1px solid var(--border);border-radius:999px;padding:6px 13px;text-decoration:none;}
+    #tab-playbook .pb2-nav a:hover{border-color:var(--gold);}
+    #tab-playbook .pb2-sec{margin:0 0 26px;}
+    #tab-playbook .pb2-sec>h3{font-size:16px;color:var(--navy);margin:0 0 4px;display:flex;align-items:center;gap:8px;}
+    #tab-playbook .pb2-sec>.hint{color:var(--text-muted);font-size:13px;margin:0 0 12px;}
+    #tab-playbook .pb2-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:0 0 10px;box-shadow:0 1px 2px rgba(16,24,40,.03);}
+    #tab-playbook details.pb2-card>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:700;color:var(--text);font-size:15px;}
+    #tab-playbook details.pb2-card>summary::-webkit-details-marker{display:none;}
+    #tab-playbook details.pb2-card>summary .chev{color:var(--gold-text);font-size:13px;transition:transform .15s ease;}
+    #tab-playbook details.pb2-card[open]>summary .chev{transform:rotate(90deg);}
+    #tab-playbook details.pb2-card[open]>summary{margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:11px;}
+    #tab-playbook .pb2-tag{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:5px;vertical-align:middle;margin-left:6px;}
+    #tab-playbook .t-green{color:var(--green);background:var(--green-bg);}
+    #tab-playbook .t-blue{color:var(--blue);background:var(--blue-bg);}
+    #tab-playbook .t-amber{color:var(--amber);background:var(--amber-bg);}
+    #tab-playbook .t-purple{color:var(--purple);background:var(--purple-bg);}
+    #tab-playbook .t-slate{color:var(--slate);background:var(--slate-bg);}
+    #tab-playbook .pb2-kv{margin:10px 0 0;font-size:13.5px;line-height:1.6;color:var(--text);}
+    #tab-playbook .pb2-kv b{color:var(--navy);}
+    #tab-playbook .pb2-rate{width:100%;border-collapse:collapse;margin:6px 0 2px;font-size:13.5px;}
+    #tab-playbook .pb2-rate td{padding:7px 10px;border-bottom:1px solid var(--border);}
+    #tab-playbook .pb2-rate td:last-child{text-align:right;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums;white-space:nowrap;}
+    #tab-playbook .pb2-rate tr:last-child td{border-bottom:none;}
+    #tab-playbook .pb2-flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 4px;}
+    #tab-playbook .pb2-flow .step{background:var(--slate-bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--text);}
+    #tab-playbook .pb2-flow .arr{color:var(--text-muted);font-weight:700;}
+    #tab-playbook .pb2-script{background:#F8FAFC;border-left:3px solid var(--gold);border-radius:0 8px 8px 0;padding:12px 15px;margin:10px 0;font-size:13.5px;line-height:1.62;color:var(--text);}
+    #tab-playbook .pb2-script .who{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gold-text);margin-bottom:5px;}
+    #tab-playbook .pb2-math{background:var(--navy);color:#fff;border-radius:12px;padding:16px 18px;margin:12px 0;font-size:14px;line-height:1.65;}
+    #tab-playbook .pb2-math b{color:var(--gold);}
+    #tab-playbook ul.pb2-list{margin:8px 0 0;padding-left:18px;font-size:13.5px;line-height:1.65;color:var(--text);}
+    #tab-playbook ul.pb2-list li{margin-bottom:5px;}
+    #tab-playbook .pb2-note{font-size:12.5px;color:var(--text-muted);font-style:italic;margin-top:8px;}
+  </style>
+
+  <div class="pb2-wrap">
+    <h2 class="pb2-h">📚 Coordinator Playbook</h2>
+    <p class="pb2-sub">Everything you need to answer a family's questions with confidence — how every payor works, the intake process for each, and word-for-word scripts for selling blended care. When in doubt, verify eligibility before promising anything.</p>
+    <div class="pb2-nav">
+      <a href="#pb-payors">Payors</a>
+      <a href="#pb-process">Intake process</a>
+      <a href="#pb-scripts">Sales scripts</a>
+      <a href="#pb-blended">Blended care</a>
+      <a href="#pb-objections">Objections</a>
+    </div>
+
+    <!-- PAYORS -->
+    <div class="pb2-sec" id="pb-payors">
+      <h3>How families pay</h3>
+      <p class="hint">Tap a payor to expand. Every family fits one — or a blend — of these five.</p>
+
+      <details class="pb2-card" open>
+        <summary>Private Pay <span class="pb2-tag t-green">Fastest start</span> <span class="chev">▸</span></summary>
+        <table class="pb2-rate">
+          <tr><td>Wellness Care</td><td>from $30/hr</td></tr>
+          <tr><td>Personal Care</td><td>from $32/hr</td></tr>
+          <tr><td>Advanced Care</td><td>from $34/hr</td></tr>
+          <tr><td>24-Hour Care</td><td>$28–$32/hr</td></tr>
+          <tr><td>Live-In Care</td><td>$450/day*</td></tr>
+          <tr><td>HomeTogether virtual check-ins</td><td>from $75/mo</td></tr>
+        </table>
+        <p class="pb2-note">*Live-In includes a $25/day caregiver meal fee. These are the only published rates — quote them exactly, never invent others.</p>
+        <p class="pb2-kv"><b>Best for:</b> families who need to start now with no eligibility wait, want flexibility, or don't qualify for a program. <b>Lead with:</b> our caregivers are screened, insured W-2 employees, backed by 24/7 support and backup coverage.</p>
+      </details>
+
+      <details class="pb2-card">
+        <summary>Medicaid — MO HealthNet HCBS <span class="pb2-tag t-blue">$0 to family</span> <span class="chev">▸</span></summary>
+        <p class="pb2-kv"><b>What it is:</b> Missouri's Home &amp; Community-Based Services pay for personal-care hours at home so seniors avoid a nursing facility. Two ways to receive it — the <b>Agency Model</b> (we employ and send the caregiver) or <b>Consumer-Directed Services (CDS)</b>, where the client directs their own attendant (often a family member) and we handle the management/fiscal side.</p>
+        <p class="pb2-kv"><b>Who qualifies:</b> MO HealthNet (Medicaid) eligible · age 63+ or an adult with a disability · and meets nursing-facility <b>level of care</b> confirmed by the state's in-home assessment.</p>
+        <p class="pb2-kv"><b>Covers:</b> authorized personal-care / ADL hours (bathing, dressing, mobility, meals). <b>Does not cover:</b> room &amp; board, or hours beyond the authorized units.</p>
+        <p class="pb2-kv"><b>Watch out:</b> care is capped at the <b>authorized units</b> — anything above that isn't reimbursed. Confirm remaining units before scheduling.</p>
+      </details>
+
+      <details class="pb2-card">
+        <summary>Veterans (VA) <span class="pb2-tag t-purple">Underused — always ask</span> <span class="chev">▸</span></summary>
+        <p class="pb2-kv">Two very different paths — know which one you're on:</p>
+        <ul class="pb2-list">
+          <li><b>Aid &amp; Attendance</b> — an increased monthly VA pension for wartime veterans (or surviving spouses) who need help with daily activities. The family uses that money to pay us <b>privately</b>. Start by connecting them to a Veterans Service Officer to apply.</li>
+          <li><b>VA-authorized home care</b> (Homemaker/Home Health Aide, Veteran-Directed Care, Community Care) — the VA <b>authorizes and pays the agency directly</b>. You must have the VA referral/authorization <b>before</b> care starts.</li>
+        </ul>
+        <p class="pb2-kv"><b>Always ask:</b> "Did your loved one serve in the military?" It's the most-missed source of funding.</p>
+      </details>
+
+      <details class="pb2-card">
+        <summary>Medicare GUIDE (dementia respite) <span class="pb2-tag t-amber">75 hrs/yr</span> <span class="chev">▸</span></summary>
+        <p class="pb2-kv"><b>What it is:</b> Medicare's GUIDE program covers up to <b>75 hours/year of in-home respite</b> for people with dementia — and we're an approved provider who bills Medicare directly.</p>
+        <p class="pb2-kv"><b>Who qualifies:</b> Original Medicare (Parts A &amp; B) · documented dementia diagnosis · not living in a long-term facility · not on hospice or certain Medicare Advantage plans.</p>
+        <p class="pb2-kv"><b>Process &amp; limits:</b> we check eligibility, coordinate approval with our GUIDE partner (typically 7–20 days), then care can begin. Respite hours only; they reset each program year and don't roll over. Full detail lives on the public <a href="https://guide.mo-care.com/medicare-guide.html" target="_blank" rel="noopener">Medicare GUIDE page</a>.</p>
+      </details>
+
+      <details class="pb2-card">
+        <summary>Long-Term Care (LTC) Insurance <span class="pb2-tag t-slate">Verify first</span> <span class="chev">▸</span></summary>
+        <p class="pb2-kv"><b>What it is:</b> a private policy that reimburses home care once the person qualifies. Benefits vary wildly by policy — <b>never promise coverage before you read the policy.</b></p>
+        <p class="pb2-kv"><b>Check these five things:</b></p>
+        <ul class="pb2-list">
+          <li><b>Benefit trigger</b> — usually needs help with 2+ ADLs or has cognitive impairment (confirmed by our assessment).</li>
+          <li><b>Elimination period</b> — days the family pays out of pocket before benefits start (often 30–90 days).</li>
+          <li><b>Benefit amount</b> — the daily or monthly maximum the policy pays.</li>
+          <li><b>Agency requirement</b> — many require a licensed agency and a written plan of care (we provide both).</li>
+          <li><b>Reimbursement vs. direct bill</b> — the family may pay us and get reimbursed, or we bill the insurer.</li>
+        </ul>
+      </details>
+    </div>
+
+    <!-- PROCESS -->
+    <div class="pb2-sec" id="pb-process">
+      <h3>The intake process (every lead)</h3>
+      <p class="hint">The hub tabs walk you through each step — this is the shape of it.</p>
+      <div class="pb2-card">
+        <div class="pb2-flow">
+          <span class="step">1 · Lead</span><span class="arr">→</span>
+          <span class="step">2 · Identify payor</span><span class="arr">→</span>
+          <span class="step">3 · Assessment</span><span class="arr">→</span>
+          <span class="step">4 · Verify / authorize</span><span class="arr">→</span>
+          <span class="step">5 · Start of Care</span><span class="arr">→</span>
+          <span class="step">6 · Ongoing</span>
+        </div>
+        <ul class="pb2-list">
+          <li><b>Identify payor early.</b> On the first call, find out how they plan to pay — and always screen for Medicaid, VA, and a dementia diagnosis (GUIDE) even if they lead with private pay. It's the difference between an affordable plan and a lost family.</li>
+          <li><b>Verify before you promise.</b> For Medicaid, confirm level-of-care + authorized units. For VA-paid and LTC, get the authorization or policy details in hand <em>before</em> the start date.</li>
+          <li><b>Assessment sets the plan.</b> The in-home Care Assessment drives the care plan and satisfies documentation for LTC and GUIDE.</li>
+          <li><b>Start of Care</b> is where private pay can begin same/next day — one of our biggest advantages. Say so.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <div class="pb2-sec" id="pb-scripts">
+      <h3>Sales scripts</h3>
+      <p class="hint">Say it warm, not salesy. You're relieving stress, not closing a deal.</p>
+
+      <div class="pb2-card">
+        <p class="pb2-kv" style="margin-top:0"><b>Discovery questions</b> — ask these before pitching anything:</p>
+        <ul class="pb2-list">
+          <li>"Tell me what a hard day looks like right now for you and your mom/dad."</li>
+          <li>"What's prompting the call today — was there a fall, a hospital stay, or just a slow build?"</li>
+          <li>"Who's helping right now, and how are <em>you</em> holding up?"</li>
+          <li>"Did your loved one ever serve in the military?" &nbsp;·&nbsp; "Are they on Medicaid, or do you think they might qualify?"</li>
+          <li>"Has a doctor mentioned memory issues or a dementia diagnosis?" <span class="pb2-note" style="display:inline">(opens the GUIDE benefit)</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- BLENDED CARE -->
+    <div class="pb2-sec" id="pb-blended">
+      <h3>Selling blended care <span class="pb2-tag t-green">Your best tool</span></h3>
+      <p class="hint">In-home hours + HomeTogether virtual check-ins = whole-day coverage for closer to half the cost. This wins the families who think they can't afford care.</p>
+
+      <div class="pb2-math">
+        <b>The math that changes the conversation:</b><br>
+        A family thinks they need <b>8 hours/day</b> of hands-on care → 8 × $32 = <b>~$7,600/mo</b>. Out of reach for most.<br><br>
+        Blend it: <b>4 hours</b> of morning Personal Care (bathing, meals, getting the day started) = ~$3,900/mo, <b>plus HomeTogether at $75/mo</b> for eyes-on wellness checks and video visits the rest of the day.<br><br>
+        → <b>Whole-day peace of mind for roughly half the cost — and Mom is never truly alone.</b>
+      </div>
+
+      <div class="pb2-script">
+        <span class="who">Blended-care pitch</span>
+        "I hear you — around-the-clock hands-on care adds up fast, and most families can't sustain it. Here's how a lot of our families make it work and actually feel <em>safer</em>: we put a caregiver in the home for the hours that matter most — usually mornings, for bathing, meals, and getting the day going. Then HomeTogether keeps a gentle eye on things the rest of the day, right through the TV — video check-ins and wellness awareness, nothing complicated for your mom to use. You get coverage across the whole day for closer to half the cost of full in-home hours. Could I show you what that would look like around your mom's routine?"
+      </div>
+      <p class="pb2-note">HomeTogether is simple for the senior (works through the TV they already use), reduces isolation, and gives the family alerts and check-ins between caregiver visits. It's the natural add-on to every in-home plan.</p>
+    </div>
+
+    <!-- OBJECTIONS -->
+    <div class="pb2-sec" id="pb-objections">
+      <h3>Handling objections</h3>
+      <p class="hint">Agree, reframe, offer a next step. Never argue.</p>
+
+      <details class="pb2-card">
+        <summary>"It's too expensive." <span class="chev">▸</span></summary>
+        <div class="pb2-script"><span class="who">Say</span>"Totally fair — let's not start with full days. Most families begin with just the hours that relieve the most stress and add HomeTogether so there's coverage the rest of the day for $75 a month. Let's also make sure we've checked every source that could help pay — Medicaid, VA benefits, and, if there's a dementia diagnosis, Medicare respite. Can I run those with you? It's free to find out."</div>
+      </details>
+      <details class="pb2-card">
+        <summary>"Doesn't Medicare pay for this?" <span class="chev">▸</span></summary>
+        <div class="pb2-script"><span class="who">Say</span>"Great question. Regular Medicare doesn't cover ongoing personal care at home — that catches a lot of families off guard. But there are real options: if there's a dementia diagnosis, Medicare's GUIDE program covers respite hours and we're an approved provider. And many families qualify for Medicaid or VA benefits. Let's see which fits — I'll help you check at no cost."</div>
+      </details>
+      <details class="pb2-card">
+        <summary>"We're not ready yet." <span class="chev">▸</span></summary>
+        <div class="pb2-script"><span class="who">Say</span>"That's completely understandable, and there's no pressure. A lot of families start small — even a few hours a week, or just HomeTogether for peace of mind — so support is already in place before there's a crisis. Would it help if I did a free assessment now, so you have a plan ready the moment you need it?"</div>
+      </details>
+      <details class="pb2-card">
+        <summary>"I can take care of Mom myself." <span class="chev">▸</span></summary>
+        <div class="pb2-script"><span class="who">Say</span>"You clearly love her, and no one will ever replace that. This is about protecting <em>you</em> too — burnout is real, and even a few respite hours or HomeTogether checking in keeps you from carrying it all alone. Think of us as backup for the moments you can't be there. Want to start with just a little and see how it feels?"</div>
+      </details>
+      <details class="pb2-card">
+        <summary>"Let me talk to the family / think about it." <span class="chev">▸</span></summary>
+        <div class="pb2-script"><span class="who">Say</span>"Of course — this is a family decision. Let me make it easy: I'll email a simple summary with the plan and the costs so everyone's looking at the same thing. Could we put a quick call on the calendar for after you've talked, so I can answer their questions directly? What day works?"</div>
+      </details>
+    </div>
+
+    <p class="pb2-note" style="margin-top:22px;">Rates and program rules change — confirm current details with Samantha before quoting anything unusual. Payor eligibility must always be verified before care is promised.</p>
   </div>
 </section>
 </main>
@@ -1987,7 +2188,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],settings:['settings']};
 function ccGroupOf(tab){ for(const g in CC_GROUPS) if(CC_GROUPS[g].includes(tab)) return g; return 'today'; }
 function ccGroupClick(g){
   const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
