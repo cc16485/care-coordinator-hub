@@ -1212,6 +1212,7 @@
     <p class="cmp-sub">Your designed email library, ready to send. Pick an audience, open an email to preview it exactly as it will arrive, choose recipients, and send a test to yourself first. Everything goes out through GoHighLevel and lands in each contact's timeline.</p>
   </div>
   <div class="cmp-browse" id="cmpBrowse">
+    <div id="cmpAutopilot" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:0 0 16px;"></div>
     <div class="cmp-auds" id="cmpAuds"></div>
     <div class="cmp-grid" id="cmpGrid"></div>
     <div class="cmp-log" id="cmpLog"></div>
@@ -2198,7 +2199,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2311,7 +2312,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2694,8 +2695,49 @@ const CAMPAIGN_ENDPOINT='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/c
 const CMP_AUDS=[['monthly','📅 Monthly calendar'],['referrers','🤝 Referral partners'],['clients','💚 Current clients'],['caregivers','🧑‍⚕️ Our caregivers']];
 let cmpAud='monthly', cmpKey=null, cmpSending=false;
 function cmpLib(){ return (typeof CC_EMAIL_LIBRARY!=='undefined')?CC_EMAIL_LIBRARY:[]; }
+const CMP_WINDOWS={'Early January':['01-02','01-08'],'Late January':['01-20','01-26'],'Feb 7–13':['02-07','02-13'],'Late February':['02-20','02-26'],'Early March':['03-02','03-08'],'Mid March':['03-12','03-18'],'Early April':['04-02','04-08'],'Late April':['04-20','04-26'],'May 4–10':['05-04','05-10'],'Late May':['05-20','05-26'],'June 8–14':['06-08','06-14'],'Mid–Late June':['06-17','06-23'],'June 30–July 3':['06-30','07-03'],'Mid July':['07-12','07-18'],'Early August':['08-02','08-08'],'Late August':['08-20','08-26'],'Early September':['09-02','09-08'],'Late September':['09-20','09-26'],'Early–Mid October':['10-05','10-12'],'Late October':['10-20','10-26'],'Nov 10–18':['11-10','11-18'],'Around Nov 11':['11-09','11-12'],'Dec 15–22':['12-15','12-22'],'Dec 27–31':['12-27','12-31'],'January · Q1':['01-08','01-15'],'April · Q2':['04-08','04-15'],'July · Q3':['07-08','07-15'],'October · Q4':['10-08','10-15'],'Nov 20–27':['11-20','11-27'],'Dec 18–24':['12-18','12-24'],'Caregiver Appreciation Week':['05-11','05-17'],'Early November':['11-02','11-08'],'Early December':['12-02','12-08']};
+function cmpSettings(){ return (DATA.campaign_settings||[]).find(x=>x.id==='settings')||{id:'settings',enabled:false,aud_monthly:true,aud_clients:false,aud_caregivers:false,daily_cap:150}; }
+function cmpDueSoon(days){
+  const now=new Date(); const out=[];
+  for(const e of cmpLib()){
+    if(e.aud==='referrers') continue;
+    const w=CMP_WINDOWS[e.when]; if(!w) continue;
+    const start=new Date(now.getFullYear()+'-'+w[0]+'T12:00:00');
+    const diff=(start-now)/86400000;
+    if(diff>=-5&&diff<=days) out.push({e,start});
+  }
+  return out.sort((a,b)=>a.start-b.start);
+}
+function renderAutopilot(){
+  const el=document.getElementById('cmpAutopilot'); if(!el) return;
+  const cfg=cmpSettings();
+  const due=cmpDueSoon(30);
+  el.innerHTML=
+  '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'+
+    '<div style="font-weight:800;color:var(--navy);font-size:15px;">🤖 Autopilot</div>'+
+    '<label style="display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700;color:'+(cfg.enabled?'#227a46':'var(--text-muted)')+';cursor:pointer;"><input type="checkbox" id="apOn" '+(cfg.enabled?'checked':'')+' onchange="apSave()"> '+(cfg.enabled?'ON, sending on schedule':'OFF, nothing sends automatically')+'</label>'+
+    '<span style="border-left:1px solid var(--border);padding-left:14px;font-size:13px;color:var(--text-muted);">Audiences:</span>'+
+    '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apM" '+(cfg.aud_monthly?'checked':'')+' onchange="apSave()"> Leads (monthly)</label>'+
+    '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apC" '+(cfg.aud_clients?'checked':'')+' onchange="apSave()"> Clients</label>'+
+    '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apG" '+(cfg.aud_caregivers?'checked':'')+' onchange="apSave()"> Caregivers</label>'+
+  '</div>'+
+  '<div style="font-size:12.5px;color:var(--text-muted);margin-top:10px;">Runs every morning. Each email sends once per year at most, skips do-not-contact people, and emails you a summary after every run. Referral-partner emails stay manual.</div>'+
+  (due.length?'<div style="margin-top:10px;font-size:13px;"><b style="color:var(--navy);">Coming up:</b> '+due.slice(0,4).map(d=>'<span style="display:inline-block;background:var(--amber-bg,#FFF4DE);color:#8a5a1a;border-radius:999px;padding:3px 10px;margin:2px 4px 0 0;">'+tkEsc(d.e.when)+' · '+tkEsc(d.e.subj.slice(0,42))+(d.e.subj.length>42?'…':'')+'</span>').join('')+'</div>':'');
+}
+async function apSave(){
+  const item={id:'settings',
+    enabled:document.getElementById('apOn').checked,
+    aud_monthly:document.getElementById('apM').checked,
+    aud_clients:document.getElementById('apC').checked,
+    aud_caregivers:document.getElementById('apG').checked,
+    daily_cap:150, updated_at:new Date().toISOString()};
+  DATA.campaign_settings=[item];
+  try{ await persist('campaign_settings', item); }catch(e){}
+  renderAutopilot();
+}
 function renderCampaigns(){
   const auds=document.getElementById('cmpAuds'); if(!auds) return;
+  renderAutopilot();
   document.getElementById('cmpBrowse').classList.remove('off');
   document.getElementById('cmpDetail').classList.remove('on');
   auds.innerHTML=CMP_AUDS.map(a=>'<button class="cmp-aud '+(cmpAud===a[0]?'active':'')+'" onclick="cmpAud=\''+a[0]+'\';renderCampaigns()">'+a[1]+'</button>').join('');
