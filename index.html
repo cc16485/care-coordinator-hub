@@ -381,7 +381,7 @@
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')">🤝 Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
     <div class="ftab" data-g="insight" onclick="ccGroupClick('insight')">📊 Insight</div>
     <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')">🏡 HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
-    <div class="ftab" data-g="campaigns" onclick="switchTab('campaigns')">🎯 Campaigns</div>
+    <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')">🎯 Campaigns<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')">⚙️ Settings</div>
   </div>
   <div class="fsubbar" id="fsub-grow">
@@ -409,6 +409,10 @@
   <div class="fsubbar" id="fsub-htorders">
     <div class="fpill" data-tab="htorders" onclick="switchTab('htorders')">📦 Orders<span class="subtab-badge red" id="htOrdPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="htsupport" onclick="switchTab('htsupport')">🎫 Support<span class="subtab-badge red" id="tkPillBadge" style="display:none;"></span></div>
+  </div>
+  <div class="fsubbar" id="fsub-campaigns">
+    <div class="fpill" data-tab="campaigns" onclick="switchTab('campaigns')">🎯 Campaigns</div>
+    <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')">⭐ Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
   </div>
 
   <main>
@@ -1171,6 +1175,27 @@
   <div id="htOrdersList"></div>
 </section>
 
+<section class="tabpanel" id="tab-feedback">
+  <style>
+    #tab-feedback h2{font-size:22px;margin:0 0 4px;color:var(--navy);}
+    #tab-feedback .fb-sub{color:var(--text-muted);font-size:14px;margin:0 0 16px;max-width:76ch;}
+    #tab-feedback .fb-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:0 0 12px;box-shadow:0 1px 2px rgba(16,24,40,.03);}
+    #tab-feedback .fb-card.unseen{border-left:4px solid #F0A63A;}
+    #tab-feedback .fb-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+    #tab-feedback .fb-stars{color:#F0A63A;font-size:19px;letter-spacing:2px;white-space:nowrap;}
+    #tab-feedback .fb-name{font-weight:700;color:var(--navy);}
+    #tab-feedback .fb-who{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;background:var(--slate-bg);color:var(--slate);border-radius:999px;padding:3px 10px;}
+    #tab-feedback .fb-low{background:var(--red-bg);color:var(--red);}
+    #tab-feedback .fb-when{margin-left:auto;color:var(--text-muted);font-size:12.5px;white-space:nowrap;}
+    #tab-feedback .fb-msg{font-size:14.5px;line-height:1.55;color:var(--text);white-space:pre-wrap;margin:6px 0 0;}
+    #tab-feedback .fb-meta{color:var(--text-muted);font-size:13px;margin-top:8px;}
+    #tab-feedback .fb-actions{margin-top:10px;display:flex;gap:8px;}
+  </style>
+  <h2>⭐ Feedback</h2>
+  <p class="fb-sub">Star check-ins from clients, families and caregivers, plus Caregiver of the Year nominations. Everything here also landed in your email the moment it was sent.</p>
+  <div style="margin:0 0 14px;"><button class="btn btn-secondary" onclick="fbSeenAll()">Mark all as seen</button></div>
+  <div id="fbList"></div>
+</section>
 <section class="tabpanel" id="tab-campaigns">
   <style>
     #tab-campaigns .cmp-head h2{font-size:22px;margin:0 0 4px;color:var(--navy);}
@@ -2199,7 +2224,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2312,7 +2337,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2476,7 +2501,36 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders','htsupport'],campaigns:['campaigns'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders','htsupport'],campaigns:['campaigns','feedback'],settings:['settings']};
+function renderFeedback(){
+  const el=document.getElementById('fbList'); if(!el) return;
+  const rows=(DATA.feedback||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+  if(!rows.length){ el.innerHTML='<div class="fb-card" style="color:var(--text-muted);">Nothing yet. When someone taps a star in one of your emails, or sends a Caregiver of the Year nomination, it shows up here.</div>'; return; }
+  el.innerHTML=rows.map(f=>{
+    const stars=f.kind==='nomination'?'🏆':'★★★★★'.slice(0,f.rating||0)+'<span style="color:var(--border);">'+'★★★★★'.slice(0,5-(f.rating||0))+'</span>';
+    const low=f.kind==='rating'&&(f.rating||0)<=3;
+    const when=f.at?new Date(f.at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+    return '<div class="fb-card'+(f.seen?'':' unseen')+'">'
+      +'<div class="fb-top"><span class="fb-stars">'+stars+'</span>'
+      +'<span class="fb-name">'+esc(f.kind==='nomination'?('Nomination: '+(f.caregiver||'(unnamed)')):(f.name||'No name given'))+'</span>'
+      +'<span class="fb-who'+(low?' fb-low':'')+'">'+esc(low?'needs a call':(f.who||''))+'</span>'
+      +(f.partial?'<span class="fb-who">star tap only</span>':'')
+      +'<span class="fb-when">'+when+'</span></div>'
+      +(f.message?'<div class="fb-msg">'+esc(f.message)+'</div>':'')
+      +((f.name&&f.kind==='nomination')?'<div class="fb-meta">Nominated by '+esc(f.name)+'</div>':'')
+      +(f.contact?'<div class="fb-meta">Contact: '+esc(f.contact)+'</div>':'')
+      +'<div class="fb-actions">'+(f.seen?'':'<button class="btn btn-secondary" onclick="fbSeen(\''+f.id+'\')">Mark seen</button>')
+      +'<button class="btn btn-secondary" onclick="fbDelete(\''+f.id+'\')">Delete</button></div></div>';
+  }).join('');
+  fbBadges();
+}
+async function fbSeen(id){ const f=(DATA.feedback||[]).find(x=>x.id===id); if(!f) return; f.seen=true; await persist('feedback',f); renderFeedback(); }
+async function fbSeenAll(){ for(const f of (DATA.feedback||[])){ if(!f.seen){ f.seen=true; await persist('feedback',f); } } renderFeedback(); }
+async function fbDelete(id){ if(!confirm('Delete this feedback entry?')) return; await removeItem('feedback', id); DATA.feedback=(DATA.feedback||[]).filter(x=>x.id!==id); renderFeedback(); }
+function fbBadges(){
+  const n=(DATA.feedback||[]).filter(f=>!f.seen).length;
+  for(const id of ['fbBadge','fbPillBadge']){ const b=document.getElementById(id); if(b){ b.textContent=n; b.style.display=n?'':'none'; } }
+}
 function ccGroupOf(tab){ for(const g in CC_GROUPS) if(CC_GROUPS[g].includes(tab)) return g; return 'today'; }
 function ccGroupClick(g){
   const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
@@ -2515,7 +2569,8 @@ function renderActiveTab(){
   if(activeTab==='htorders') renderHTOrders();
   if(activeTab==='htsupport') renderTickets();
   if(activeTab==='campaigns') renderCampaigns();
-  updateHTBadge();
+  if(activeTab==='feedback') renderFeedback();
+  updateHTBadge(); fbBadges();
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
   const el = document.getElementById(containerId);
