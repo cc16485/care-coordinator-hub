@@ -2593,6 +2593,11 @@ function ticketCard(t){
     '<p class="tk-meta">From <b>'+tkEsc(t.name||'(no name)')+'</b> &lt;'+tkEsc(t.email||'')+'&gt;'+(t.phone?' · '+tkEsc(t.phone):'')+
     (t.site?' · via '+tkEsc(t.site):'')+(t.page?' · page '+tkEsc(t.page):'')+'</p>'+
     '<div class="tk-msg">'+tkEsc(t.message||'')+'</div>'+
+    ((t.thread&&t.thread.length)?t.thread.map(function(m){
+      return '<div class="tk-msg" style="border-left:3px solid var(--navy);margin-top:8px;">'+
+        '<div style="font-size:12px;color:var(--text-muted);font-weight:700;margin-bottom:4px;">↩ Reply from '+tkEsc(m.from||'')+' · '+tkWhen(m.at)+'</div>'+
+        tkEsc(m.text||'')+'</div>';
+    }).join(''):'')+
     '<div class="tk-actions">'+
     '<a class="tk-reply" href="mailto:'+encodeURIComponent(t.email||'')+'?subject='+replySubject+'&body='+replyBody+'" onclick="tkMarkOpen(\''+t.id+'\')">Reply by email</a>'+
     statusSel+
