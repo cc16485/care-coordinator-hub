@@ -379,6 +379,7 @@
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')">💚 Clients</div>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')">🤝 Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
     <div class="ftab" data-g="insight" onclick="ccGroupClick('insight')">📊 Insight</div>
+    <div class="ftab" data-g="htorders" onclick="switchTab('htorders')">🏡 HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')">⚙️ Settings</div>
   </div>
   <div class="fsubbar" id="fsub-grow">
@@ -1131,6 +1132,39 @@
 </section>
 
 <!-- ===================== TAB: PLAYBOOK ===================== -->
+<!-- ===================== TAB: HOMETOGETHER ORDERS ===================== -->
+<section class="tabpanel" id="tab-htorders">
+  <style>
+    #tab-htorders .hto-head h2{font-size:22px;margin:0 0 4px;color:var(--navy);}
+    #tab-htorders .hto-sub{color:var(--text-muted);font-size:14px;margin:0 0 16px;max-width:76ch;line-height:1.55;}
+    #tab-htorders .ht-card{background:var(--card);border:1px solid var(--border);border-radius:14px;margin:0 0 12px;box-shadow:0 1px 2px rgba(16,24,40,.03);overflow:hidden;}
+    #tab-htorders .ht-card>summary{list-style:none;cursor:pointer;padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    #tab-htorders .ht-card>summary::-webkit-details-marker{display:none;}
+    #tab-htorders .ht-card>summary:hover{background:rgba(16,24,40,.02);}
+    #tab-htorders .ht-when{font-size:12px;color:var(--text-muted);min-width:60px;}
+    #tab-htorders .ht-name{font-weight:700;color:var(--navy);font-size:15.5px;}
+    #tab-htorders .ht-sub{color:var(--text-muted);font-size:13.5px;flex:1;min-width:150px;}
+    #tab-htorders .ht-body{padding:2px 18px 18px;border-top:1px solid var(--border);}
+    #tab-htorders .ht-sec{margin:16px 0 0;}
+    #tab-htorders .ht-sec>h4{font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--navy);margin:0 0 8px;}
+    #tab-htorders .ht-row{display:flex;gap:8px;font-size:14px;margin:0 0 5px;line-height:1.5;}
+    #tab-htorders .ht-row .k{color:var(--text-muted);min-width:150px;flex:0 0 150px;font-weight:600;}
+    #tab-htorders .ht-row .v{color:var(--text);white-space:pre-wrap;}
+    #tab-htorders .ht-know{background:#FBEFE0;border:1px solid #F0DBBE;border-radius:12px;padding:14px 16px;margin-top:16px;}
+    #tab-htorders .ht-know>h4{color:#7a5410;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px;}
+    #tab-htorders .ht-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding-top:14px;border-top:1px dashed var(--border);}
+    #tab-htorders .ht-actions select{border:1px solid var(--border);border-radius:8px;padding:7px 10px;font:inherit;background:#fff;color:var(--text);}
+    #tab-htorders .ht-del{margin-left:auto;background:none;border:none;color:#b23b2e;font-weight:600;cursor:pointer;font-size:13px;}
+    #tab-htorders .ht-del:hover{text-decoration:underline;}
+  </style>
+  <div class="hto-head">
+    <h2>🏡 HomeTogether Orders</h2>
+    <p class="hto-sub">Every order from the HomeTogether website lands here automatically, the shipping details, emergency contacts, care preferences, and a personal profile of the senior so a caregiver's very first virtual visit already feels like time with a friend. Click any order to open it.</p>
+  </div>
+  <div id="htOrdersFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
+  <div id="htOrdersList"></div>
+</section>
+
 <section class="tabpanel" id="tab-ltcpolicy">
   <style>
     #tab-ltcpolicy .ltc-wrap{max-width:920px;}
@@ -2076,7 +2110,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2189,7 +2223,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2353,7 +2387,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders'],settings:['settings']};
 function ccGroupOf(tab){ for(const g in CC_GROUPS) if(CC_GROUPS[g].includes(tab)) return g; return 'today'; }
 function ccGroupClick(g){
   const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
@@ -2389,6 +2423,8 @@ function renderActiveTab(){
   if(activeTab==='meetings') renderMeetingsPage();
   if(activeTab==='interviews'){ joInit(); renderInterviews(); }
   if(activeTab==='settings') fillSettingsPanel();
+  if(activeTab==='htorders') renderHTOrders();
+  updateHTBadge();
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
   const el = document.getElementById(containerId);
@@ -2401,6 +2437,111 @@ function searchMatch(str){
   const q = (document.getElementById('globalSearch').value || '').toLowerCase().trim();
   if(!q) return true;
   return (str||'').toLowerCase().includes(q);
+}
+
+/* ---------------- HOMETOGETHER ORDERS ---------------- */
+const HT_STATUSES = ['New order','Contacted','Shipped','Active','Cancelled'];
+function htStatusClass(s){
+  if(s==='Shipped'||s==='Active') return 'ok';
+  if(s==='Cancelled') return 'bad';
+  return 'warn'; // New order / Contacted
+}
+function htRow(k,v){ if(v==null||String(v).trim()===''){ return ''; } return `<div class="ht-row"><span class="k">${escapeHtmlComms(k)}</span><span class="v">${escapeHtmlComms(v)}</span></div>`; }
+function htArrRow(k,a){ if(!a||!a.length){ return ''; } return htRow(k, a.join(', ')); }
+function htWhen(iso){ if(!iso){ return ''; } const d=new Date(iso); if(isNaN(d.getTime())){ return ''; } return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+function htJoin(){ return Array.prototype.slice.call(arguments).filter(function(x){return x&&String(x).trim();}).join(' '); }
+
+function htOrderCard(o){
+  const name = o.senior_preferred || o.senior_name || '(senior)';
+  const st = o.status || 'New order';
+  const ship = [o.ship_city, o.ship_state].filter(Boolean).join(', ');
+  const summary =
+    `<span class="ht-when">${htWhen(o.created_at)}</span>`+
+    `<span class="ht-name">${escapeHtmlComms(name)}</span>`+
+    `<span class="ht-sub">for ${escapeHtmlComms(o.buyer_name||'—')}${ship?' · '+escapeHtmlComms(ship):''}</span>`+
+    `<span class="badge ${htStatusClass(st)}">${escapeHtmlComms(st)}</span>`;
+
+  const contact =
+    htRow('Setting up', htJoin(o.buyer_name, o.buyer_relationship&&('('+o.buyer_relationship+')')))+
+    htRow('Phone', o.buyer_phone)+ htRow('Email', o.buyer_email)+ htRow('Best contact', o.buyer_reach);
+
+  const senior =
+    htRow('Senior', htJoin(o.senior_name, o.senior_preferred&&('“'+o.senior_preferred+'”')))+
+    htRow('Age', o.senior_age)+ htRow('Home phone', o.senior_phone)+
+    htRow('Ship to', [o.ship_street, ship, o.ship_zip].filter(Boolean).join(', '))+
+    htRow('Living', o.living)+ htRow('Wi‑Fi', o.wifi)+ htRow('TV / HDMI', o.tv_hdmi);
+
+  const emerg =
+    htRow('Emergency 1', htJoin(o.emergency1_name, o.emergency1_rel&&('('+o.emergency1_rel+')'), o.emergency1_phone))+
+    htRow('Emergency 2', htJoin(o.emergency2_name, o.emergency2_phone))+
+    htRow('Doctor', htJoin(o.doctor_name, o.doctor_phone))+
+    htRow('Approved callers', o.approved_callers);
+
+  const care =
+    htArrRow('Visits include', o.care_tasks)+ htArrRow('Best times', o.visit_times)+
+    htRow('Calls answer', o.call_answer)+ htRow('Medications', o.medications)+
+    htRow('Health notes', o.health_notes)+ htRow('Allergies', o.allergies);
+
+  const know =
+    htRow('Interests', o.interests)+ htRow('Work / life', o.work_life)+
+    htRow('Family & pets', o.family_pets)+ htRow('Roots', o.roots)+ htRow('Faith', o.faith)+
+    htRow('Favorites', o.favorites)+ htRow('Loves talking about', o.loves_talking_about)+
+    htRow('Gently avoid', o.avoid_topics)+ htRow('Anything else', o.anything_else);
+
+  const statusSel = `<select onchange="htSetStatus('${o.id}', this.value)">`+
+    HT_STATUSES.map(s=>`<option ${s===st?'selected':''}>${s}</option>`).join('')+`</select>`;
+
+  return `<details class="ht-card">
+    <summary>${summary}</summary>
+    <div class="ht-body">
+      <div class="ht-sec"><h4>Who's setting it up</h4>${contact||'<div class="ht-row"><span class="v">—</span></div>'}</div>
+      <div class="ht-sec"><h4>Who it's for &amp; shipping</h4>${senior}</div>
+      ${emerg.trim()?`<div class="ht-sec"><h4>Emergency &amp; care contacts</h4>${emerg}</div>`:''}
+      ${care.trim()?`<div class="ht-sec"><h4>Care &amp; daily visits</h4>${care}</div>`:''}
+      ${know.trim()?`<div class="ht-know"><h4>💛 Getting to know ${escapeHtmlComms(name)}</h4>${know}</div>`:''}
+      <div class="ht-actions">
+        <span style="font-size:13px;color:var(--text-muted);font-weight:600;">Status</span>
+        ${statusSel}
+        <button class="ht-del" onclick="htDeleteOrder('${o.id}')">Delete order</button>
+      </div>
+    </div>
+  </details>`;
+}
+
+function renderHTOrders(){
+  const list = document.getElementById('htOrdersList');
+  if(!list){ return; }
+  if(!activeFilters.htorders){ activeFilters.htorders='All'; }
+  renderFilterPills('htOrdersFilters', ['All'].concat(HT_STATUSES), activeFilters.htorders, 'htorders');
+  let rows = (DATA.hometogether_orders||[]).slice().filter(o=>
+    searchMatch([o.senior_name,o.senior_preferred,o.buyer_name,o.buyer_phone,o.buyer_email,o.ship_city,o.ship_state].join(' ')));
+  const f = activeFilters.htorders;
+  if(f && f!=='All'){ rows = rows.filter(o => (o.status||'New order')===f); }
+  rows.sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  if(!rows.length){
+    list.innerHTML = '<div class="card" style="text-align:center;color:var(--text-muted);padding:30px;">No orders'+(f&&f!=='All'?' with status “'+f+'”':' yet')+'. New HomeTogether orders from the website appear here automatically.</div>';
+    return;
+  }
+  list.innerHTML = rows.map(htOrderCard).join('');
+}
+
+function updateHTBadge(){
+  const b=document.getElementById('htBadge'); if(!b){ return; }
+  const n=(DATA.hometogether_orders||[]).filter(o=>(o.status||'New order')==='New order').length;
+  b.style.display = n ? 'inline-block' : 'none'; b.textContent = n;
+}
+
+async function htSetStatus(id, status){
+  const o=(DATA.hometogether_orders||[]).find(x=>x.id===id); if(!o){ return; }
+  o.status=status;
+  await persist('hometogether_orders', o);
+  renderHTOrders(); updateHTBadge();
+}
+async function htDeleteOrder(id){
+  if(!confirm('Delete this HomeTogether order? This cannot be undone.')){ return; }
+  await removeItem('hometogether_orders', id);
+  DATA.hometogether_orders = (DATA.hometogether_orders||[]).filter(x=>x.id!==id);
+  renderHTOrders(); updateHTBadge();
 }
 
 /* ---------------- LEADS ---------------- */
