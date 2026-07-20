@@ -1276,6 +1276,62 @@
   </div>
   <div id="tkFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
   <div id="tkList"></div>
+
+  <details style="background:var(--card);border:1px solid var(--border);border-radius:14px;margin:18px 0 0;">
+    <summary style="cursor:pointer;padding:14px 18px;font-weight:700;color:var(--navy);">📦 Device return emails (cancellation flow)</summary>
+    <div style="padding:2px 18px 18px;font-size:14px;line-height:1.6;color:var(--text);">
+      <p style="color:var(--text-muted);margin:0 0 12px;">When someone cancels HomeTogether: send #1 right away with the prepaid label. If the device hasn't arrived, #2 goes out around day 14 and #3 around day 25. The $300 fee only ever applies after all three, and it's waived the moment the device shows up.</p>
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:0 0 10px;">
+        <b>1 · Right after cancellation</b> <button class="btn btn-secondary" style="float:right;" onclick="fbCopyTpl(this,'rt1')">Copy</button>
+        <pre id="rt1" style="white-space:pre-wrap;font-family:inherit;margin:8px 0 0;color:var(--text-muted);">Subject: Your HomeTogether return label (prepaid, takes 5 minutes)
+
+Hi {First},
+
+Your cancellation is all set, no further charges. The only thing left is sending the Wellness Hub home to us, and we've made it easy:
+
+1. Put the Wellness Hub, remote, and cables in any sturdy box
+2. Print the attached prepaid label and stick it on (no postage needed)
+3. Drop it off at any carrier location within 30 days
+
+That's it. We'll email you a confirmation the moment it arrives and your account will be fully closed.
+
+Thank you for letting us be part of your family's story, truly.
+
+Warmly,
+The HomeTogether team</pre>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:0 0 10px;">
+        <b>2 · Day 14 nudge</b> <button class="btn btn-secondary" style="float:right;" onclick="fbCopyTpl(this,'rt2')">Copy</button>
+        <pre id="rt2" style="white-space:pre-wrap;font-family:inherit;margin:8px 0 0;color:var(--text-muted);">Subject: Friendly reminder: your HomeTogether return label
+
+Hi {First},
+
+Just a gentle nudge, we haven't received the Wellness Hub yet. No worries at all, life gets busy!
+
+Your prepaid label is attached again. Any sturdy box works, and any carrier location will take it, no postage needed.
+
+If the label gives you any trouble, or the box already shipped, just reply to this email and we'll sort it out.
+
+Warmly,
+The HomeTogether team</pre>
+      </div>
+      <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+        <b>3 · Day 25 final notice</b> <button class="btn btn-secondary" style="float:right;" onclick="fbCopyTpl(this,'rt3')">Copy</button>
+        <pre id="rt3" style="white-space:pre-wrap;font-family:inherit;margin:8px 0 0;color:var(--text-muted);">Subject: Heads up: device return needed by {date} to avoid the $300 fee
+
+Hi {First},
+
+We want to make sure this doesn't cost you anything: the Wellness Hub needs to be dropped off by {date} (30 days after your cancellation). After that date, the $300 device replacement fee from our Terms of Service applies to the card on file.
+
+The good news: dropping it off any time before then means no fee at all, and if it's already on its way, you can ignore this note entirely.
+
+Your prepaid label is attached one more time. Questions or a hiccup with shipping? Just reply, we're happy to help.
+
+Warmly,
+The HomeTogether team</pre>
+      </div>
+    </div>
+  </details>
 </section>
 
 <section class="tabpanel" id="tab-ltcpolicy">
@@ -2738,6 +2794,11 @@ async function tkSetStatus(id, status){
 function tkMarkOpen(id){
   const t=(DATA.ht_tickets||[]).find(x=>x.id===id);
   if(t && (t.status||'New')==='New'){ tkSetStatus(id,'Open'); }
+}
+function fbCopyTpl(btn,id){
+  navigator.clipboard.writeText(document.getElementById(id).textContent).then(function(){
+    btn.textContent='Copied!'; setTimeout(function(){ btn.textContent='Copy'; },1500);
+  });
 }
 async function tkDelete(id){
   if(!confirm('Delete this support ticket? This cannot be undone.')){ return; }
