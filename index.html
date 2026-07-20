@@ -331,6 +331,7 @@
     .fq-toolbar input[type=text],.fq-toolbar select{max-width:none;flex:1 1 160px;}
     .subtab-bar{width:100%;}
   }
+.navi{width:1.05em;height:1.05em;vertical-align:-0.16em;display:inline-block;}
 </style>
 </head>
 <body>
@@ -375,44 +376,44 @@
   </header>
 
   <div class="fbar" id="fbar">
-    <div class="ftab active" data-g="today" onclick="switchTab('today')">🏠 Overview<span class="subtab-badge red" id="todayBadge" style="display:none;"></span></div>
-    <div class="ftab" data-g="grow" onclick="ccGroupClick('grow')">🌱 Grow<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
-    <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')">💚 Clients</div>
-    <div class="ftab" data-g="team" onclick="ccGroupClick('team')">🤝 Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
-    <div class="ftab" data-g="insight" onclick="ccGroupClick('insight')">📊 Insight</div>
-    <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')">🏡 HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
-    <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')">🎯 Campaigns<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
-    <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')">⚙️ Settings</div>
+    <div class="ftab active" data-g="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> Overview<span class="subtab-badge red" id="todayBadge" style="display:none;"></span></div>
+    <div class="ftab" data-g="grow" onclick="ccGroupClick('grow')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Grow<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
+    <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
+    <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
+    <div class="ftab" data-g="insight" onclick="ccGroupClick('insight')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Insight</div>
+    <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
+    <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
+    <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-gear"/></svg> Settings</div>
   </div>
   <div class="fsubbar" id="fsub-grow">
-    <div class="fpill" data-tab="leads" onclick="switchTab('leads')">📞 Leads</div>
-    <div class="fpill" data-tab="assessments" onclick="switchTab('assessments')">📋 Care Assessments</div>
-    <div class="fpill" data-tab="soc" onclick="switchTab('soc')">🏥 Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;"></span></div>
-    <div class="fpill" data-tab="referrers" onclick="switchTab('referrers')">🤝 Referrers</div>
-    <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')">📚 Playbook</div>
-    <div class="fpill" data-tab="ltcpolicy" onclick="switchTab('ltcpolicy')">🛡 LTC Policy</div>
+    <div class="fpill" data-tab="leads" onclick="switchTab('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
+    <div class="fpill" data-tab="assessments" onclick="switchTab('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Assessments</div>
+    <div class="fpill" data-tab="soc" onclick="switchTab('soc')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="referrers" onclick="switchTab('referrers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Referrers</div>
+    <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
+    <div class="fpill" data-tab="ltcpolicy" onclick="switchTab('ltcpolicy')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> LTC Policy</div>
   </div>
   <div class="fsubbar" id="fsub-clients">
-    <div class="fpill" data-tab="clients" onclick="switchTab('clients')">👤 All Clients</div>
-    <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')">💚 Client Check-ins</div>
-    <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')">🛡 Supervisory Visits</div>
+    <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> All Clients</div>
+    <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
+    <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
   </div>
   <div class="fsubbar" id="fsub-team">
-    <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')">📥 Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
-    <div class="fpill" data-tab="comms" onclick="switchTab('comms')">📤 Send a Message</div>
-    <div class="fpill" data-tab="meetings" onclick="switchTab('meetings')">🎥 Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
-    <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')">🤝 Interviews</div>
+    <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="comms" onclick="switchTab('comms')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Send a Message</div>
+    <div class="fpill" data-tab="meetings" onclick="switchTab('meetings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
   </div>
   <div class="fsubbar" id="fsub-insight">
-    <div class="fpill" data-tab="reports" onclick="switchTab('reports')">📊 Reports</div>
+    <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
   </div>
   <div class="fsubbar" id="fsub-htorders">
-    <div class="fpill" data-tab="htorders" onclick="switchTab('htorders')">📦 Orders<span class="subtab-badge red" id="htOrdPillBadge" style="display:none;"></span></div>
-    <div class="fpill" data-tab="htsupport" onclick="switchTab('htsupport')">🎫 Support<span class="subtab-badge red" id="tkPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="htorders" onclick="switchTab('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Orders<span class="subtab-badge red" id="htOrdPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="htsupport" onclick="switchTab('htsupport')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-ticket"/></svg> Support<span class="subtab-badge red" id="tkPillBadge" style="display:none;"></span></div>
   </div>
   <div class="fsubbar" id="fsub-campaigns">
-    <div class="fpill" data-tab="campaigns" onclick="switchTab('campaigns')">🎯 Campaigns</div>
-    <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')">⭐ Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="campaigns" onclick="switchTab('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns</div>
+    <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
   </div>
 
   <main>
@@ -990,7 +991,7 @@
 <!-- ===================== TAB: REPORTS ===================== -->
 <section class="tabpanel" id="tab-reports">
   <div class="toolbar">
-    <b style="font-size:16px;color:var(--navy);">📊 Reports</b>
+    <b style="font-size:16px;color:var(--navy);"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</b>
     <span class="spacer"></span>
     <select id="reportRange" style="width:auto;" onchange="renderReports()">
       <option value="30">Last 30 days</option>
@@ -1062,7 +1063,7 @@
 
       <div class="card" style="padding:18px;margin-bottom:14px;border-color:#BBD3E8;" id="lp_soc_card">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <b style="font-size:14px;color:var(--navy);">🏥 Start of Care</b>
+          <b style="font-size:14px;color:var(--navy);"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Start of Care</b>
           <span style="flex:1;"></span>
           <span class="field-note" id="lp_soc_progress"></span>
         </div>
@@ -1191,7 +1192,7 @@
     #tab-feedback .fb-meta{color:var(--text-muted);font-size:13px;margin-top:8px;}
     #tab-feedback .fb-actions{margin-top:10px;display:flex;gap:8px;}
   </style>
-  <h2>⭐ Feedback</h2>
+  <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Feedback</h2>
   <p class="fb-sub">Star check-ins from clients, families and caregivers, plus Caregiver of the Year nominations. Everything here also landed in your email the moment it was sent.</p>
   <div style="margin:0 0 14px;"><button class="btn btn-secondary" onclick="fbSeenAll()">Mark all as seen</button></div>
   <div id="fbList"></div>
@@ -1233,7 +1234,7 @@
     #tab-campaigns .cmp-log th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);}
   </style>
   <div class="cmp-head">
-    <h2>🎯 Campaigns</h2>
+    <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns</h2>
     <p class="cmp-sub">Your designed email library, ready to send. Pick an audience, open an email to preview it exactly as it will arrive, choose recipients, and send a test to yourself first. Everything goes out through GoHighLevel and lands in each contact's timeline.</p>
   </div>
   <div class="cmp-browse" id="cmpBrowse">
