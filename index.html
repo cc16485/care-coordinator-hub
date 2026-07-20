@@ -2692,11 +2692,11 @@ async function tkDelete(id){
 
 /* ---------------- CAMPAIGNS (Samantha's email library) ---------------- */
 const CAMPAIGN_ENDPOINT='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/campaign-send?token=htorder_078070ed7c3e8e7619e567dcfaddfc400e43147a';
-const CMP_AUDS=[['monthly','📅 Monthly calendar'],['referrers','🤝 Referral partners'],['clients','💚 Current clients'],['caregivers','🧑‍⚕️ Our caregivers']];
+const CMP_AUDS=[['monthly','📅 Monthly calendar'],['referrers','🤝 Referral partners'],['clients','💚 Current clients'],['client_contacts','👨‍👩‍👧 Client family contacts'],['caregivers','🧑‍⚕️ Our caregivers']];
 let cmpAud='monthly', cmpKey=null, cmpSending=false;
 function cmpLib(){ return (typeof CC_EMAIL_LIBRARY!=='undefined')?CC_EMAIL_LIBRARY:[]; }
 const CMP_WINDOWS={'Early January':['01-02','01-08'],'Late January':['01-20','01-26'],'Feb 7–13':['02-07','02-13'],'Late February':['02-20','02-26'],'Early March':['03-02','03-08'],'Mid March':['03-12','03-18'],'Early April':['04-02','04-08'],'Late April':['04-20','04-26'],'May 4–10':['05-04','05-10'],'Late May':['05-20','05-26'],'June 8–14':['06-08','06-14'],'Mid–Late June':['06-17','06-23'],'June 30–July 3':['06-30','07-03'],'Mid July':['07-12','07-18'],'Early August':['08-02','08-08'],'Late August':['08-20','08-26'],'Early September':['09-02','09-08'],'Late September':['09-20','09-26'],'Early–Mid October':['10-05','10-12'],'Late October':['10-20','10-26'],'Nov 10–18':['11-10','11-18'],'Around Nov 11':['11-09','11-12'],'Dec 15–22':['12-15','12-22'],'Dec 27–31':['12-27','12-31'],'January · Q1':['01-08','01-15'],'April · Q2':['04-08','04-15'],'July · Q3':['07-08','07-15'],'October · Q4':['10-08','10-15'],'Nov 20–27':['11-20','11-27'],'Dec 18–24':['12-18','12-24'],'Caregiver Appreciation Week':['05-11','05-17'],'Early November':['11-02','11-08'],'Early December':['12-02','12-08']};
-function cmpSettings(){ return (DATA.campaign_settings||[]).find(x=>x.id==='settings')||{id:'settings',enabled:false,aud_monthly:true,aud_clients:false,aud_caregivers:false,daily_cap:150}; }
+function cmpSettings(){ return (DATA.campaign_settings||[]).find(x=>x.id==='settings')||{id:'settings',enabled:false,aud_monthly:true,aud_clients:false,aud_client_contacts:false,aud_caregivers:false,daily_cap:150}; }
 function cmpDueSoon(days){
   const now=new Date(); const out=[];
   for(const e of cmpLib()){
@@ -2719,6 +2719,7 @@ function renderAutopilot(){
     '<span style="border-left:1px solid var(--border);padding-left:14px;font-size:13px;color:var(--text-muted);">Audiences:</span>'+
     '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apM" '+(cfg.aud_monthly?'checked':'')+' onchange="apSave()"> Leads (monthly)</label>'+
     '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apC" '+(cfg.aud_clients?'checked':'')+' onchange="apSave()"> Clients</label>'+
+    '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apF" '+(cfg.aud_client_contacts?'checked':'')+' onchange="apSave()"> Client contacts</label>'+
     '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apG" '+(cfg.aud_caregivers?'checked':'')+' onchange="apSave()"> Caregivers</label>'+
   '</div>'+
   '<div style="font-size:12.5px;color:var(--text-muted);margin-top:10px;">Runs every morning. Each email sends once per year at most, skips do-not-contact people, and emails you a summary after every run. Referral-partner emails stay manual.</div>'+
@@ -2729,6 +2730,7 @@ async function apSave(){
     enabled:document.getElementById('apOn').checked,
     aud_monthly:document.getElementById('apM').checked,
     aud_clients:document.getElementById('apC').checked,
+    aud_client_contacts:document.getElementById('apF').checked,
     aud_caregivers:document.getElementById('apG').checked,
     daily_cap:150, updated_at:new Date().toISOString()};
   DATA.campaign_settings=[item];
@@ -2767,6 +2769,9 @@ function openCampaign(key){
       '<option value="leads_open">Leads · open (not converted or lost)</option>'+
       '<option value="leads_all">Leads · everyone with an email</option>'+
       '<option value="leads_lost">Leads · lost / went quiet</option>'+
+      '<option value="ax_clients">AxisCare · active clients</option>'+
+      '<option value="ax_contacts">AxisCare · client family contacts</option>'+
+      '<option value="ax_caregivers">AxisCare · caregivers</option>'+
       '<option value="orgs">Referral partners (orgs with an email)</option>'+
       '<option value="caregivers">Caregivers (our team)</option>'+
       '<option value="manual">Manual list (paste below)</option>'+
@@ -2796,6 +2801,13 @@ async function cmpRecipients(){
     try{
       const { data } = await sb.from('app_data').select('data').eq('key','caregivers').single();
       out=((data&&data.data)||[]).filter(c=>c.email).map(c=>({email:c.email,name:c.name||((c.first_name||'')+' '+(c.last_name||'')).trim()}));
+    }catch(e){ out=[]; }
+  }
+  if(src==='ax_clients'||src==='ax_contacts'||src==='ax_caregivers'){
+    const map={ax_clients:'clients',ax_contacts:'client_contacts',ax_caregivers:'caregivers'};
+    try{
+      const r=await fetch(CAMPAIGN_ENDPOINT.replace('campaign-send','campaign-auto')+'&resolve='+map[src],{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+      const d=await r.json(); out=(d.recipients||[]);
     }catch(e){ out=[]; }
   }
   if(src==='manual'){
