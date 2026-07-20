@@ -381,6 +381,7 @@
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')">🤝 Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
     <div class="ftab" data-g="insight" onclick="ccGroupClick('insight')">📊 Insight</div>
     <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')">🏡 HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
+    <div class="ftab" data-g="campaigns" onclick="switchTab('campaigns')">🎯 Campaigns</div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')">⚙️ Settings</div>
   </div>
   <div class="fsubbar" id="fsub-grow">
@@ -1170,6 +1171,54 @@
   <div id="htOrdersList"></div>
 </section>
 
+<section class="tabpanel" id="tab-campaigns">
+  <style>
+    #tab-campaigns .cmp-head h2{font-size:22px;margin:0 0 4px;color:var(--navy);}
+    #tab-campaigns .cmp-sub{color:var(--text-muted);font-size:14px;margin:0 0 16px;max-width:76ch;}
+    #tab-campaigns .cmp-auds{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;}
+    #tab-campaigns .cmp-aud{border:1px solid var(--border);background:var(--card);border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:700;cursor:pointer;color:var(--text-muted);}
+    #tab-campaigns .cmp-aud.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+    #tab-campaigns .cmp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;}
+    #tab-campaigns .cmp-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;box-shadow:0 1px 2px rgba(16,24,40,.03);}
+    #tab-campaigns .cmp-card:hover{border-color:var(--navy);}
+    #tab-campaigns .cmp-when{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+    #tab-campaigns .cmp-subj{font-weight:700;font-size:14.5px;color:var(--text);line-height:1.4;}
+    #tab-campaigns .cmp-meta{font-size:12px;color:var(--text-muted);margin-top:6px;}
+    #tab-campaigns .cmp-detail{display:none;}
+    #tab-campaigns .cmp-detail.on{display:block;}
+    #tab-campaigns .cmp-browse.off{display:none;}
+    #tab-campaigns .cmp-two{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start;}
+    @media(max-width:980px){#tab-campaigns .cmp-two{grid-template-columns:1fr;}}
+    #tab-campaigns .cmp-preview{background:#e7e9ec;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+    #tab-campaigns .cmp-preview iframe{width:100%;height:640px;border:0;display:block;background:#e7e9ec;}
+    #tab-campaigns .cmp-side{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:sticky;top:80px;}
+    #tab-campaigns .cmp-side h4{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--navy);}
+    #tab-campaigns .cmp-side select,#tab-campaigns .cmp-side textarea{width:100%;border:1px solid var(--border);border-radius:9px;padding:9px 11px;font:inherit;font-size:13.5px;background:#fff;color:var(--text);box-sizing:border-box;}
+    #tab-campaigns .cmp-count{font-size:13px;color:var(--text-muted);margin:10px 0;}
+    #tab-campaigns .cmp-count b{color:var(--text);}
+    #tab-campaigns .cmp-btn{width:100%;border:none;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;}
+    #tab-campaigns .cmp-btn.test{background:#fff;color:var(--navy);border:1.5px solid var(--navy);}
+    #tab-campaigns .cmp-btn.send{background:var(--navy);color:#fff;}
+    #tab-campaigns .cmp-btn:disabled{opacity:.55;cursor:default;}
+    #tab-campaigns .cmp-status{font-size:13px;margin-top:10px;color:var(--text-muted);white-space:pre-wrap;}
+    #tab-campaigns .cmp-back{background:none;border:none;color:var(--navy);font-weight:700;font-size:14px;cursor:pointer;padding:6px 0;margin-bottom:10px;}
+    #tab-campaigns .cmp-log{margin-top:22px;}
+    #tab-campaigns .cmp-log table{width:100%;border-collapse:collapse;font-size:13px;}
+    #tab-campaigns .cmp-log td,#tab-campaigns .cmp-log th{padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;}
+    #tab-campaigns .cmp-log th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);}
+  </style>
+  <div class="cmp-head">
+    <h2>🎯 Campaigns</h2>
+    <p class="cmp-sub">Your designed email library, ready to send. Pick an audience, open an email to preview it exactly as it will arrive, choose recipients, and send a test to yourself first. Everything goes out through GoHighLevel and lands in each contact's timeline.</p>
+  </div>
+  <div class="cmp-browse" id="cmpBrowse">
+    <div class="cmp-auds" id="cmpAuds"></div>
+    <div class="cmp-grid" id="cmpGrid"></div>
+    <div class="cmp-log" id="cmpLog"></div>
+  </div>
+  <div class="cmp-detail" id="cmpDetail"></div>
+</section>
+
 <section class="tabpanel" id="tab-htsupport">
   <style>
     #tab-htsupport .tk-head h2{font-size:22px;margin:0 0 4px;color:var(--navy);}
@@ -1785,6 +1834,7 @@
 <select id="org_type"><option>Hospital</option><option>Rehab / Skilled Nursing</option><option>Assisted Living</option><option>Physician Office</option><option>Hospice</option><option>Senior Center / Community</option><option>Other</option></select>
 <label>Key people (discharge planners, social workers…)</label><input id="org_people" placeholder="e.g. Molly Evans (DC planner), Ying B. (SW)">
 <label>Phone</label><input id="org_phone">
+<label>Email (for campaigns)</label><input id="org_email" type="email" placeholder="e.g. referrals@coxhealth.com">
 <label>Notes</label><textarea id="org_notes" rows="2"></textarea>
 <div class="modal-actions">
   <button class="secondary" onclick="closeModal('orgModalBackdrop')">Cancel</button>
@@ -2124,6 +2174,7 @@
 </div>
 </div>
 
+<script src="email-library.js"></script>
 <script>
 /* =========================================================================
    Care Coordinator's Hub — app logic
@@ -2147,7 +2198,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2260,7 +2311,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2424,7 +2475,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders','htsupport'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders','htsupport'],campaigns:['campaigns'],settings:['settings']};
 function ccGroupOf(tab){ for(const g in CC_GROUPS) if(CC_GROUPS[g].includes(tab)) return g; return 'today'; }
 function ccGroupClick(g){
   const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
@@ -2462,6 +2513,7 @@ function renderActiveTab(){
   if(activeTab==='settings') fillSettingsPanel();
   if(activeTab==='htorders') renderHTOrders();
   if(activeTab==='htsupport') renderTickets();
+  if(activeTab==='campaigns') renderCampaigns();
   updateHTBadge();
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
@@ -2635,6 +2687,126 @@ async function tkDelete(id){
   await removeItem('ht_tickets', id);
   DATA.ht_tickets = (DATA.ht_tickets||[]).filter(x=>x.id!==id);
   renderTickets(); updateHTBadge();
+}
+
+/* ---------------- CAMPAIGNS (Samantha's email library) ---------------- */
+const CAMPAIGN_ENDPOINT='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/campaign-send?token=htorder_078070ed7c3e8e7619e567dcfaddfc400e43147a';
+const CMP_AUDS=[['monthly','📅 Monthly calendar'],['referrers','🤝 Referral partners'],['clients','💚 Current clients'],['caregivers','🧑‍⚕️ Our caregivers']];
+let cmpAud='monthly', cmpKey=null, cmpSending=false;
+function cmpLib(){ return (typeof CC_EMAIL_LIBRARY!=='undefined')?CC_EMAIL_LIBRARY:[]; }
+function renderCampaigns(){
+  const auds=document.getElementById('cmpAuds'); if(!auds) return;
+  document.getElementById('cmpBrowse').classList.remove('off');
+  document.getElementById('cmpDetail').classList.remove('on');
+  auds.innerHTML=CMP_AUDS.map(a=>'<button class="cmp-aud '+(cmpAud===a[0]?'active':'')+'" onclick="cmpAud=\''+a[0]+'\';renderCampaigns()">'+a[1]+'</button>').join('');
+  const list=cmpLib().filter(e=>e.aud===cmpAud);
+  document.getElementById('cmpGrid').innerHTML=list.map(e=>
+    '<div class="cmp-card" onclick="openCampaign(\''+e.key+'\')">'+
+    '<div class="cmp-when" style="color:'+tkEsc(e.ac)+'">'+tkEsc(e.when||'')+(e.seg?' · '+tkEsc(e.seg):'')+'</div>'+
+    '<div class="cmp-subj">'+tkEsc(e.subj)+'</div>'+
+    '<div class="cmp-meta">'+tkEsc(e.cat||'')+(e.variant?' · '+tkEsc(e.variant):'')+'</div></div>').join('');
+  const log=(DATA.campaign_log||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||'')).slice(0,15);
+  document.getElementById('cmpLog').innerHTML = log.length ?
+    '<h3 style="font-size:15px;color:var(--navy);margin:26px 0 8px;">Recent sends</h3><table><tr><th>When</th><th>Email</th><th>Audience</th><th>Sent</th></tr>'+
+    log.map(l=>'<tr><td>'+tkWhen(l.at)+'</td><td>'+tkEsc(l.subj)+'</td><td>'+tkEsc(l.source)+'</td><td>'+l.sent+(l.failed?' ('+l.failed+' failed)':'')+'</td></tr>').join('')+'</table>' : '';
+}
+function openCampaign(key){
+  const e=cmpLib().find(x=>x.key===key); if(!e) return;
+  cmpKey=key;
+  document.getElementById('cmpBrowse').classList.add('off');
+  const d=document.getElementById('cmpDetail'); d.classList.add('on');
+  const segHint=(e.aud==='referrers'&&e.seg)?'<div class="cmp-count">Written for: <b>'+tkEsc(e.seg)+'</b> contacts.</div>':'';
+  d.innerHTML='<button class="cmp-back" onclick="renderCampaigns()">← Back to library</button>'+
+  '<div class="cmp-two"><div class="cmp-preview"><iframe id="cmpFrame"></iframe></div>'+
+  '<aside class="cmp-side">'+
+    '<h4>Send "'+tkEsc(e.subj).slice(0,60)+'"</h4>'+segHint+
+    '<label style="font-size:12px;font-weight:700;color:var(--text-muted);">Recipients</label>'+
+    '<select id="cmpSource" onchange="cmpCount()">'+
+      '<option value="leads_open">Leads · open (not converted or lost)</option>'+
+      '<option value="leads_all">Leads · everyone with an email</option>'+
+      '<option value="leads_lost">Leads · lost / went quiet</option>'+
+      '<option value="orgs">Referral partners (orgs with an email)</option>'+
+      '<option value="caregivers">Caregivers (our team)</option>'+
+      '<option value="manual">Manual list (paste below)</option>'+
+    '</select>'+
+    '<textarea id="cmpManual" rows="4" placeholder="One per line: email, Name" style="display:none;margin-top:8px;" oninput="cmpCount()"></textarea>'+
+    '<div class="cmp-count" id="cmpCountLine">…</div>'+
+    '<button class="cmp-btn test" id="cmpTestBtn" onclick="cmpTest()">Send a test to me first</button>'+
+    '<button class="cmp-btn send" id="cmpSendBtn" onclick="cmpSend()">Send to recipients</button>'+
+    '<div class="cmp-status" id="cmpStatus"></div>'+
+  '</aside></div>';
+  document.getElementById('cmpFrame').srcdoc=ccBuildEmailHTML(e);
+  document.getElementById('cmpSource').onchange=function(){
+    document.getElementById('cmpManual').style.display=this.value==='manual'?'block':'none';
+    cmpCount();
+  };
+  cmpCount();
+}
+async function cmpRecipients(){
+  const src=document.getElementById('cmpSource').value;
+  let out=[];
+  const leadName=l=>((l.first_name||'')+' '+(l.last_name||'')).trim();
+  if(src==='leads_all') out=(DATA.leads||[]).filter(l=>l.email).map(l=>({email:l.email,name:leadName(l)}));
+  if(src==='leads_open') out=(DATA.leads||[]).filter(l=>l.email&&l.status!=='Converted'&&l.status!=='Lost').map(l=>({email:l.email,name:leadName(l)}));
+  if(src==='leads_lost') out=(DATA.leads||[]).filter(l=>l.email&&l.status==='Lost').map(l=>({email:l.email,name:leadName(l)}));
+  if(src==='orgs') out=(DATA.referral_orgs||[]).filter(o=>o.email).map(o=>({email:o.email,name:o.people||o.name||''}));
+  if(src==='caregivers'){
+    try{
+      const { data } = await sb.from('app_data').select('data').eq('key','caregivers').single();
+      out=((data&&data.data)||[]).filter(c=>c.email).map(c=>({email:c.email,name:c.name||((c.first_name||'')+' '+(c.last_name||'')).trim()}));
+    }catch(e){ out=[]; }
+  }
+  if(src==='manual'){
+    out=document.getElementById('cmpManual').value.split('\n').map(function(line){
+      const m=line.split(',');
+      const email=(m[0]||'').trim(); const name=(m[1]||'').trim();
+      return email.includes('@')?{email,name}:null;
+    }).filter(Boolean);
+  }
+  const seen={}; return out.filter(r=>{const k=r.email.toLowerCase(); if(seen[k])return false; seen[k]=true; return true;});
+}
+async function cmpCount(){
+  const r=await cmpRecipients();
+  const el=document.getElementById('cmpCountLine');
+  if(el) el.innerHTML='<b>'+r.length+'</b> recipient'+(r.length===1?'':'s')+' with an email address.';
+}
+async function cmpCall(subject, html, recipients){
+  const res=await fetch(CAMPAIGN_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({subject,html,recipients,campaign:cmpKey})});
+  return res.json();
+}
+async function cmpTest(){
+  const e=cmpLib().find(x=>x.key===cmpKey); if(!e||cmpSending) return;
+  cmpSending=true; const st=document.getElementById('cmpStatus'); st.textContent='Sending test to '+ME.email+'…';
+  try{
+    const r=await cmpCall(e.subj, ccBuildEmailHTML(e), [{email:ME.email,name:'Samantha'}]);
+    st.textContent=r.sent?'✓ Test sent to '+ME.email+'. Check your inbox (it lands via GoHighLevel).':'Test failed: '+JSON.stringify(r.results||r);
+  }catch(err){ st.textContent='Test failed: '+err; }
+  cmpSending=false;
+}
+async function cmpSend(){
+  const e=cmpLib().find(x=>x.key===cmpKey); if(!e||cmpSending) return;
+  const recipients=await cmpRecipients();
+  if(!recipients.length){ alert('No recipients with email addresses in that group yet.'); return; }
+  if(!confirm('Send "'+e.subj+'" to '+recipients.length+' recipient'+(recipients.length===1?'':'s')+'?\n\nThis sends real email through GoHighLevel.')) return;
+  cmpSending=true;
+  const st=document.getElementById('cmpStatus');
+  const html=ccBuildEmailHTML(e);
+  let sent=0, failed=0;
+  for(let i=0;i<recipients.length;i+=20){
+    const batch=recipients.slice(i,i+20);
+    st.textContent='Sending '+(i+1)+'–'+Math.min(i+20,recipients.length)+' of '+recipients.length+'…';
+    try{
+      const r=await cmpCall(e.subj, html, batch);
+      sent+=r.sent||0; failed+=(r.failed||batch.length-(r.sent||0));
+    }catch(err){ failed+=batch.length; }
+  }
+  st.textContent='✓ Done. Sent '+sent+(failed?', '+failed+' failed.':'.');
+  const src=document.getElementById('cmpSource'); const srcLabel=src.options[src.selectedIndex].text;
+  const logItem={id:uid(), at:new Date().toISOString(), key:cmpKey, subj:e.subj, source:srcLabel, sent, failed, by:(ME&&ME.email)||''};
+  DATA.campaign_log=DATA.campaign_log||[]; DATA.campaign_log.push(logItem);
+  try{ await persist('campaign_log', logItem); }catch(e2){}
+  cmpSending=false;
 }
 
 async function htSetStatus(id, status){
@@ -3349,6 +3521,7 @@ function openOrgModal(id){
   document.getElementById('org_type').value=o.type||'Hospital';
   document.getElementById('org_people').value=o.people||'';
   document.getElementById('org_phone').value=o.phone||'';
+  document.getElementById('org_email').value=o.email||'';
   document.getElementById('org_notes').value=o.notes||'';
   document.getElementById('orgModalBackdrop').classList.add('open');
 }
@@ -3361,6 +3534,7 @@ async function saveOrg(){
     type:document.getElementById('org_type').value,
     people:document.getElementById('org_people').value.trim(),
     phone:document.getElementById('org_phone').value.trim(),
+    email:document.getElementById('org_email').value.trim(),
     notes:document.getElementById('org_notes').value.trim(),
     created_at:existing.created_at||new Date().toISOString() });
   DATA.referral_orgs=DATA.referral_orgs||[];
