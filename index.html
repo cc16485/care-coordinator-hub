@@ -1175,6 +1175,18 @@
   <div id="htOrdersFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
   <div id="htOrdersList"></div>
 
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;margin:18px 0 0;padding:16px 18px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+      <b style="color:var(--navy);font-size:16px;">🖥 Device tracker</b>
+      <span id="dvChips" style="display:flex;gap:8px;flex-wrap:wrap;"></span>
+    </div>
+    <div id="dvReorder" style="display:none;background:var(--amber-bg);color:var(--amber);border-radius:9px;padding:9px 13px;font-size:13.5px;font-weight:600;margin:0 0 10px;">Shelf is getting low. Place the next Vantiva order: help.homesight.care → Submit Request → Order Request (minimum 2 Hubs).</div>
+    <div id="dvList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+      <input id="dvSerial" placeholder="Serial number (white sticker on the bottom)" style="flex:1;min-width:220px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-size:14px;">
+      <button class="btn btn-secondary" onclick="dvAdd()">+ Add device to shelf</button>
+    </div>
+  </div>
   <details style="background:var(--card);border:1px solid var(--border);border-radius:14px;margin:18px 0 0;">
     <summary style="cursor:pointer;padding:14px 18px;font-weight:700;color:var(--navy);">📋 New-order runbook: ship a HomeTogether device</summary>
     <div style="padding:2px 18px 18px;font-size:14px;line-height:1.65;color:var(--text);">
@@ -2301,7 +2313,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2414,7 +2426,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2644,6 +2656,7 @@ function renderActiveTab(){
   if(activeTab==='interviews'){ joInit(); renderInterviews(); }
   if(activeTab==='settings') fillSettingsPanel();
   if(activeTab==='htorders') renderHTOrders();
+  if(activeTab==='htorders') renderDevices();
   if(activeTab==='htsupport') renderTickets();
   if(activeTab==='campaigns') renderCampaigns();
   if(activeTab==='feedback') renderFeedback();
@@ -2820,6 +2833,60 @@ function fbCopyTpl(btn,id){
     btn.textContent='Copied!'; setTimeout(function(){ btn.textContent='Copy'; },1500);
   });
 }
+const DV_STATUSES={shelf:['On the shelf','#DCFCE7','#15803D'],customer:['With customer','#DBEAFE','#1D4ED8'],return_pending:['Return pending','#FEF3C7','#B45309'],received:['Received, needs purge','#EDE9FE','#7C3AED']};
+function dvFmt(d){ return d? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''; }
+function renderDevices(){
+  const el=document.getElementById('dvList'); if(!el) return;
+  const rows=(DATA.ht_devices||[]).slice().sort((a,b)=>(a.serial||'').localeCompare(b.serial||''));
+  const shelf=rows.filter(d=>d.status==='shelf').length;
+  const withC=rows.filter(d=>d.status==='customer').length;
+  const pend=rows.filter(d=>d.status==='return_pending');
+  const today=new Date().toISOString().slice(0,10);
+  const overdue=pend.filter(d=>(d.return_due||'')<today).length;
+  const chip=(t,bg,fg)=>'<span style="background:'+bg+';color:'+fg+';border-radius:999px;padding:3px 11px;font-size:12px;font-weight:700;">'+t+'</span>';
+  document.getElementById('dvChips').innerHTML=
+    chip(shelf+' on shelf','#DCFCE7','#15803D')+chip(withC+' with customers','#DBEAFE','#1D4ED8')
+    +(pend.length?chip(pend.length+' return'+(pend.length>1?'s':'')+' pending','#FEF3C7','#B45309'):'')
+    +(overdue?chip(overdue+' OVERDUE','#FEE2E2','#DC2626'):'');
+  document.getElementById('dvReorder').style.display=(rows.length&&shelf<=3)?'block':'none';
+  if(!rows.length){ el.innerHTML='<div style="color:var(--text-muted);font-size:14px;">No devices yet. Add each Wellness Hub on your shelf by its serial number (white sticker on the bottom), you have 6 to enter.</div>'; return; }
+  el.innerHTML=rows.map(d=>{
+    const st=DV_STATUSES[d.status]||DV_STATUSES.shelf;
+    const od=d.status==='return_pending'&&(d.return_due||'')<today;
+    let acts='';
+    if(d.status==='shelf') acts='<button class="btn btn-secondary" onclick="dvAssign(\''+d.id+'\')">Assign to customer</button>';
+    if(d.status==='customer') acts='<button class="btn btn-secondary" onclick="dvReturnPending(\''+d.id+'\')">Customer cancelled</button>';
+    if(d.status==='return_pending') acts='<button class="btn btn-secondary" onclick="dvReceived(\''+d.id+'\')">Device received</button>';
+    if(d.status==='received') acts='<button class="btn btn-secondary" onclick="dvShelf(\''+d.id+'\')">Purged, back on shelf</button>';
+    return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid var(--border);border-left:4px solid '+(od?'#DC2626':st[2])+';border-radius:10px;padding:10px 14px;">'
+      +'<b style="font-family:monospace;font-size:13.5px;color:var(--navy);">'+esc(d.serial)+'</b>'
+      +'<span style="background:'+st[1]+';color:'+st[2]+';border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:700;text-transform:uppercase;">'+st[0]+'</span>'
+      +(d.customer?'<span style="font-size:13.5px;color:var(--text);">'+esc(d.customer)+'</span>':'')
+      +(d.status==='return_pending'?'<span style="font-size:12.5px;color:'+(od?'#DC2626':'var(--text-muted)')+';font-weight:'+(od?'700':'400')+';">due back '+dvFmt(d.return_due)+(od?' — OVERDUE, $300 fee applies':'')+'</span>':'')
+      +'<span style="margin-left:auto;display:flex;gap:6px;">'+acts
+      +'<button class="btn btn-secondary" onclick="dvDelete(\''+d.id+'\')" title="Remove">✕</button></span></div>';
+  }).join('');
+}
+async function dvSave(d){ d.updated_at=new Date().toISOString(); await persist('ht_devices',d); renderDevices(); }
+async function dvAdd(){
+  const inp=document.getElementById('dvSerial'); const sn=(inp.value||'').trim(); if(!sn) return;
+  if((DATA.ht_devices||[]).some(x=>(x.serial||'').toLowerCase()===sn.toLowerCase())){ alert('That serial is already in the tracker.'); return; }
+  const d={id:crypto.randomUUID(),serial:sn,status:'shelf',customer:'',created_at:new Date().toISOString()};
+  DATA.ht_devices=DATA.ht_devices||[]; DATA.ht_devices.push(d); inp.value=''; await dvSave(d);
+}
+async function dvAssign(id){ const d=(DATA.ht_devices||[]).find(x=>x.id===id); if(!d) return;
+  const who=prompt("Customer name (as on the order):"); if(!who) return;
+  d.status='customer'; d.customer=who.trim(); d.assigned_at=new Date().toISOString(); d.return_due=''; await dvSave(d); }
+async function dvReturnPending(id){ const d=(DATA.ht_devices||[]).find(x=>x.id===id); if(!d) return;
+  const due=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
+  d.status='return_pending'; d.return_due=due; await dvSave(d);
+  alert('Return window started, due back '+dvFmt(due)+'. Send return email #1 (templates in the Support tab).'); }
+async function dvReceived(id){ const d=(DATA.ht_devices||[]).find(x=>x.id===id); if(!d) return;
+  d.status='received'; await dvSave(d); }
+async function dvShelf(id){ const d=(DATA.ht_devices||[]).find(x=>x.id===id); if(!d) return;
+  d.status='shelf'; d.customer=''; d.return_due=''; await dvSave(d); }
+async function dvDelete(id){ if(!confirm('Remove this device from the tracker?')) return;
+  await removeItem('ht_devices', id); DATA.ht_devices=(DATA.ht_devices||[]).filter(x=>x.id!==id); renderDevices(); }
 async function tkDelete(id){
   if(!confirm('Delete this support ticket? This cannot be undone.')){ return; }
   await removeItem('ht_tickets', id);
