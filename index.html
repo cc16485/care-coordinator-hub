@@ -9,15 +9,15 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --navy:#123A5E;
-    --navy-dark:#0E2E4A;
-    --gold:#D9A63C;
-    --gold-text:#A9791A;
-    --bg:#EDF1F5;
+    --navy:#0D365F;
+    --navy-dark:#092647;
+    --gold:#F0A63A;
+    --gold-text:#C17A12;
+    --bg:#faf9f6;
     --card:#FFFFFF;
-    --border:#E1E7EE;
-    --text:#1E293B;
-    --text-muted:#64748B;
+    --border:#e4e1d8;
+    --text:#16283a;
+    --text-muted:#55677a;
     --green:#15803D;
     --green-bg:#DCFCE7;
     --amber:#B45309;
@@ -69,13 +69,13 @@
   nav.tabs button:hover{background:rgba(255,255,255,.07);}
   nav.tabs button.active{background:rgba(255,255,255,.12);color:#fff;box-shadow:inset 3px 0 0 var(--gold);}
   .sidenav-user{display:flex;align-items:center;gap:10px;padding:14px 16px;border-top:1px solid rgba(255,255,255,.10);}
-  .su-avatar{width:34px;height:34px;border-radius:10px;background:#3EC8BE;color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .su-avatar{width:34px;height:34px;border-radius:10px;background:#8FD1C7;color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
   .appmain{flex:1;min-width:0;display:flex;flex-direction:column;}
   /* Folder tabs (matches the Staffing Hub) */
   .fbar{display:flex;align-items:flex-end;padding:12px 26px 0;background:#fff;gap:6px;border-bottom:1.5px solid var(--navy);overflow-x:auto;}
   .ftab{padding:8px 18px;border-radius:11px 11px 0 0;font-size:13.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--navy);border-bottom:none;color:var(--navy);background:#fff;transition:.15s;white-space:nowrap;display:flex;align-items:center;gap:8px;flex:0 0 auto;}
   .ftab:hover{background:#EFF5FA;}
-  .ftab.active{background:var(--bg);font-weight:800;margin-bottom:-1.5px;border-bottom:1.5px solid var(--bg);padding-top:11px;box-shadow:inset 0 3px 0 #3EC8BE;}
+  .ftab.active{background:var(--bg);font-weight:800;margin-bottom:-1.5px;border-bottom:1.5px solid var(--bg);padding-top:11px;box-shadow:inset 0 3px 0 #8FD1C7;}
   .fsubbar{display:none;gap:6px;padding:11px 26px 10px;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto;}
   .fsubbar.on{display:flex;}
   .fpill{display:flex;align-items:center;gap:8px;border-radius:999px;padding:6px 16px;font-size:12.5px;font-weight:700;border:1.5px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer;white-space:nowrap;flex:0 0 auto;}
@@ -597,7 +597,7 @@
           <div class="field-note" style="font-size:13.5px;margin-top:3px;">Interviews are scheduled &amp; listed in <b>Augusta</b> (they also sync to your Google Calendar). After the in-person interview, make the offer right here.</div>
         </div>
         <span style="flex:1;"></span>
-        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#2E8577;color:#fff;">🌱 Open Augusta — today's interviews ↗</a>
+        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">🌱 Open Augusta — today's interviews ↗</a>
       </div>
 
       <div class="card" style="padding:0 18px;margin-bottom:16px;" id="joCard">
@@ -2261,12 +2261,12 @@ function showSetNewPassword(){
   d.id='pwResetOverlay';
   d.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.78);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
   d.innerHTML='<div style="background:#fff;border-radius:14px;padding:26px;width:100%;max-width:360px;font-family:inherit">'
-    +'<h2 style="margin:0 0 6px;color:#0E3860;font-size:18px">Set a new password</h2>'
-    +'<p style="margin:0 0 14px;font-size:13px;color:#64748B">Your email link signed you in — now choose a new password.</p>'
-    +'<input id="pwNew1" type="password" placeholder="New password (8+ characters)" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:16px;margin-bottom:8px;font-family:inherit">'
-    +'<input id="pwNew2" type="password" placeholder="Type it again" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #E2E8F0;border-radius:8px;font-size:16px;margin-bottom:10px;font-family:inherit">'
+    +'<h2 style="margin:0 0 6px;color:#0D365F;font-size:18px">Set a new password</h2>'
+    +'<p style="margin:0 0 14px;font-size:13px;color:#55677a">Your email link signed you in — now choose a new password.</p>'
+    +'<input id="pwNew1" type="password" placeholder="New password (8+ characters)" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #e4e1d8;border-radius:8px;font-size:16px;margin-bottom:8px;font-family:inherit">'
+    +'<input id="pwNew2" type="password" placeholder="Type it again" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #e4e1d8;border-radius:8px;font-size:16px;margin-bottom:10px;font-family:inherit">'
     +'<div id="pwErr" style="display:none;color:#DC2626;font-size:12.5px;margin-bottom:10px"></div>'
-    +'<button id="pwSaveBtn" style="width:100%;background:#0E3860;color:#fff;border:none;padding:12px;border-radius:999px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Save new password</button>'
+    +'<button id="pwSaveBtn" style="width:100%;background:#0D365F;color:#fff;border:none;padding:12px;border-radius:999px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Save new password</button>'
     +'</div>';
   document.body.appendChild(d);
   document.getElementById('pwSaveBtn').onclick=async function(){
@@ -3520,16 +3520,16 @@ function renderOverviewTop(nOverdue,nDue){
     +'<div class="ks">'+sub+'</div></div>';
   document.getElementById('kpiGrid').innerHTML =
     kpi('New Inquiries (this month)',newInq,'','', (mLeads.filter(l=>l.source==='Referral').length)+' from referral sources','👤+','#E4EDF6','#2F6FB0')
-    +kpi('Follow-ups Due Today',nOverdue+nDue,(nOverdue?nOverdue+' overdue':''),'#A9791A','Calls, texts and drop-bys on the list','🕐','#F7ECCB','#A9791A')
-    +kpi('Starts of Care (this month)',converted,'','','Leads converted to AxisCare clients','🏠','#E1F1ED','#2E8577')
-    +kpi('Open Pipeline',openLeads,'','','Active inquiries being worked','📞','#E4EDF6','#123A5E')
+    +kpi('Follow-ups Due Today',nOverdue+nDue,(nOverdue?nOverdue+' overdue':''),'#C17A12','Calls, texts and drop-bys on the list','🕐','#F7ECCB','#C17A12')
+    +kpi('Starts of Care (this month)',converted,'','','Leads converted to AxisCare clients','🏠','#E1F1ED','#1F7A8C')
+    +kpi('Open Pipeline',openLeads,'','','Active inquiries being worked','📞','#E4EDF6','#0D365F')
     +kpi('Nurture Running',nurturing,'','','Drips sending themselves each morning','🌱','#E7F3EC','#1F6D45')
-    +kpi('Referrers Gone Quiet',quietOrgs,(quietOrgs?'visit soon':''),'#A9791A','No touch in 30+ days','🤝','#F7ECCB','#A9791A');
+    +kpi('Referrers Gone Quiet',quietOrgs,(quietOrgs?'visit soon':''),'#C17A12','No touch in 30+ days','🤝','#F7ECCB','#C17A12');
   const stages=[
-    ['New Inquiry', mLeads.filter(l=>l.status==='New').length, '#123A5E', '#F4F7FA'],
+    ['New Inquiry', mLeads.filter(l=>l.status==='New').length, '#0D365F', '#F4F7FA'],
     ['Contacted', mLeads.filter(l=>l.status==='Contacted').length, '#2F6FB0', '#F3F7FB'],
-    ['Assessment', mLeads.filter(l=>l.status==='Assessment Scheduled').length, '#D9A63C', '#FBF6EA'],
-    ['Start of Care', mLeads.filter(l=>l.status==='Converted').length, '#2E8577', '#F1F8F5'],
+    ['Assessment', mLeads.filter(l=>l.status==='Assessment Scheduled').length, '#F0A63A', '#FBF6EA'],
+    ['Start of Care', mLeads.filter(l=>l.status==='Converted').length, '#1F7A8C', '#F1F8F5'],
   ];
   const maxN=Math.max(1,...stages.map(s=>s[1]));
   document.getElementById('stageGrid').innerHTML = stages.map(s=>
@@ -3656,9 +3656,9 @@ function renderRefDashboard(){
     +'<div class="kv">'+val+'</div><div class="ks">'+sub+'</div></div>';
   document.getElementById('refKpis').innerHTML =
     kpi('New Referrers (this month)',newOrgs,'organizations added','👤+','#E4EDF6','#2F6FB0')
-    +kpi('Face-to-Face Visits',f2f,'drop-bys, appointments & events this month','👣','#F7ECCB','#A9791A')
-    +kpi('Referrals Received',refLeads,'leads with source "Referral" this month','📥','#E1F1ED','#2E8577')
-    +kpi('Starts from Referrals',refStarts,'referral leads converted this month','🏠','#E4EDF6','#123A5E');
+    +kpi('Face-to-Face Visits',f2f,'drop-bys, appointments & events this month','👣','#F7ECCB','#C17A12')
+    +kpi('Referrals Received',refLeads,'leads with source "Referral" this month','📥','#E1F1ED','#1F7A8C')
+    +kpi('Starts from Referrals',refStarts,'referral leads converted this month','🏠','#E4EDF6','#0D365F');
   const now=Date.now();
   const due=orgs.map(o=>{
     const last=orgLastTouch(o.id);
@@ -3781,18 +3781,18 @@ function lpPrintFacesheet(){
     +'<body style="font-family:Arial,sans-serif;font-size:13px;color:#111;max-width:700px;margin:24px auto;">'
     +'<h2 style="margin:0;">Caring Companions — Assessment Facesheet</h2>'
     +'<p style="color:#555;margin:4px 0 16px;">Printed '+new Date().toLocaleDateString()+' · from the Care Coordinator\'s Hub</p>'
-    +'<h3 style="border-bottom:2px solid #0E3860;padding-bottom:4px;">Client</h3>'
+    +'<h3 style="border-bottom:2px solid #0D365F;padding-bottom:4px;">Client</h3>'
     +'<p><b>'+esc(client)+'</b>'+(l.client_dob?' · DOB '+esc(l.client_dob):'')+(l.client_gender?' · '+esc(l.client_gender):'')+'</p>'
     +(l.client_address?'<p>'+esc([l.client_address,l.client_city,l.client_state,l.client_zip].filter(Boolean).join(', '))+'</p>':'')
-    +'<h3 style="border-bottom:2px solid #0E3860;padding-bottom:4px;">Contact</h3>'
+    +'<h3 style="border-bottom:2px solid #0D365F;padding-bottom:4px;">Contact</h3>'
     +'<p><b>'+esc([l.first_name,l.last_name].filter(Boolean).join(' '))+'</b>'+(l.relationship?' ('+esc(l.relationship)+')':'')+(l.phone?' · '+esc(l.phone):'')+(l.email?' · '+esc(l.email):'')+'</p>'
-    +'<h3 style="border-bottom:2px solid #0E3860;padding-bottom:4px;">Needs picture</h3>'
+    +'<h3 style="border-bottom:2px solid #0D365F;padding-bottom:4px;">Needs picture</h3>'
     +(l.ai_needs_summary?'<p>'+esc(l.ai_needs_summary)+'</p>':'')
     +list('Flags', l.ai_care_flags)+list('Needs', l.needs)+list('Safety', l.safety)+list('Medical conditions', l.medical_conditions)
     +(l.urgency?'<p><b>Urgency:</b> '+esc(l.urgency)+'</p>':'')
     +(l.funding_source?'<p><b>Funding:</b> '+esc(l.funding_source)+'</p>':'')
-    +(l.interest_notes?'<h3 style="border-bottom:2px solid #0E3860;padding-bottom:4px;">Call notes</h3><p style="white-space:pre-wrap;">'+esc(l.interest_notes)+'</p>':'')
-    +'<h3 style="border-bottom:2px solid #0E3860;padding-bottom:4px;">Attributes</h3>'
+    +(l.interest_notes?'<h3 style="border-bottom:2px solid #0D365F;padding-bottom:4px;">Call notes</h3><p style="white-space:pre-wrap;">'+esc(l.interest_notes)+'</p>':'')
+    +'<h3 style="border-bottom:2px solid #0D365F;padding-bottom:4px;">Attributes</h3>'
     +'<table style="border-collapse:collapse;font-size:12px;">'+attrRows+'</table>'
     +'</body></html>');
   w.document.close();
@@ -4933,10 +4933,10 @@ function renderLpSoc(){
   const stuck=socIsStuck(soc);
   body.innerHTML =
     '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">'
-    +'<span class="tag-chip" style="background:#E1F1ED;color:#2E8577;">'+esc((SOC_PATHWAYS[soc.pathway]||{}).label||soc.pathway)+'</span>'
+    +'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">'+esc((SOC_PATHWAYS[soc.pathway]||{}).label||soc.pathway)+'</span>'
     +(stuck?'<span class="tag-chip" style="background:var(--red-bg);color:var(--red);">⚠ waiting '+socWaitingDays(soc)+' days on the current step</span>':'')
     +'</div>'
-    +'<div style="height:6px;background:#EDF1F5;border-radius:99px;overflow:hidden;margin-bottom:10px;"><i style="display:block;height:100%;width:'+Math.round(done/total*100)+'%;background:var(--green);"></i></div>'
+    +'<div style="height:6px;background:#faf9f6;border-radius:99px;overflow:hidden;margin-bottom:10px;"><i style="display:block;height:100%;width:'+Math.round(done/total*100)+'%;background:var(--green);"></i></div>'
     +soc.steps.map((s,i)=>{
       const isCur=cur&&s.id===cur.id;
       return '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:8px;font-size:13px;'+(isCur?'background:#F4F9F6;border:1px solid #CBE3D4;':'')+'">'
@@ -5014,12 +5014,12 @@ function renderSocTab(){
     return '<div class="card" style="padding:14px 16px;margin-bottom:10px;'+(stuck?'border-color:#E8B4B4;background:#FFFBFA;':'')+'">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
       +'<b style="color:var(--navy);">'+esc((l.first_name||'')+' '+(l.last_name||''))+'</b>'
-      +'<span class="tag-chip" style="background:#E1F1ED;color:#2E8577;">'+esc((SOC_PATHWAYS[soc.pathway]||{}).label||soc.pathway)+'</span>'
+      +'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">'+esc((SOC_PATHWAYS[soc.pathway]||{}).label||soc.pathway)+'</span>'
       +'<span style="flex:1;"></span>'
       +'<span class="field-note">'+done+'/'+total+'</span>'
       +'<button class="linklike" onclick="openLeadProfile(\''+l.id+'\')">Open</button>'
       +'</div>'
-      +'<div style="height:5px;background:#EDF1F5;border-radius:99px;overflow:hidden;margin:8px 0;"><i style="display:block;height:100%;width:'+Math.round(done/total*100)+'%;background:'+(stuck?'var(--red)':'var(--green)')+';"></i></div>'
+      +'<div style="height:5px;background:#faf9f6;border-radius:99px;overflow:hidden;margin:8px 0;"><i style="display:block;height:100%;width:'+Math.round(done/total*100)+'%;background:'+(stuck?'var(--red)':'var(--green)')+';"></i></div>'
       +(cur
         ?'<div style="display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap;">'
           +(stuck?'<span style="color:var(--red);font-weight:700;">⚠</span>':'<span>→</span>')
@@ -5062,7 +5062,7 @@ function renderHandoffDraft(){
   document.getElementById('handoffItems').innerHTML = handoffDraft.length ? handoffDraft.map((it,i)=>
     '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border);font-size:13px;">'
     +'<input type="checkbox" style="width:auto;margin-top:2px;" '+(it.include?'checked':'')+' onchange="handoffDraft['+i+'].include=this.checked">'
-    +'<div style="flex:1;min-width:0;">'+esc(it.label)+(it.carried?' <span class="tag-chip" style="background:#F7ECCB;color:#A9791A;">carried from last shift</span>':'')
+    +'<div style="flex:1;min-width:0;">'+esc(it.label)+(it.carried?' <span class="tag-chip" style="background:#F7ECCB;color:#C17A12;">carried from last shift</span>':'')
     +'<input placeholder="Add context for the next coordinator… (optional)" value="'+esc(it.note||'')+'" oninput="handoffDraft['+i+'].note=this.value" style="margin-top:4px;font-size:12.5px;">'
     +'</div></div>').join('')
     : '<div class="field-note" style="padding:10px 4px;">Nothing time-sensitive is open right now — you can still add items below or just leave a note.</div>';
@@ -5106,7 +5106,7 @@ function renderHandoffBanner(){
     +'<span class="field-note" style="font-weight:400;">'+new Date(h.posted_at).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'})+'</span>'
     +(open.length?'<span class="cnt">'+open.length+'</span>':'')+'</summary>'
     +'<div class="attbody">'
-    +(!h.ack_at?'<button class="primary" style="margin-bottom:8px;" onclick="ackHandoff(\''+h.id+'\')">Got it — I\'m on</button>':'<span class="tag-chip" style="background:#E1F1ED;color:#2E8577;">✓ acknowledged by '+esc(h.ack_by||'')+'</span>')
+    +(!h.ack_at?'<button class="primary" style="margin-bottom:8px;" onclick="ackHandoff(\''+h.id+'\')">Got it — I\'m on</button>':'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">✓ acknowledged by '+esc(h.ack_by||'')+'</span>')
     +(h.general_note?'<div style="font-size:13.5px;margin:8px 0;padding:8px 10px;background:#FBF6EA;border-radius:8px;">📝 '+esc(h.general_note)+'</div>':'')
     +(h.items||[]).map((it,i)=>{
       const state=it.done_at?'done':it.returned_at?'returned':'open';
@@ -5412,7 +5412,7 @@ function renderGoals(){
     const doneC=pct>=100?'var(--green)':'#2F6FB0';
     return '<div class="kpi"><div class="kl"><span>'+label+'</span>'+(pct>=100?'<span>🎉</span>':'')+'</div>'
       +'<div class="kv">'+val+'<span style="font-size:15px;font-weight:600;color:var(--text-muted);"> / '+goal+'</span></div>'
-      +'<div style="height:7px;background:#EDF1F5;border-radius:99px;overflow:hidden;margin:6px 0 4px;"><i style="display:block;height:100%;width:'+pct+'%;background:'+doneC+';"></i></div>'
+      +'<div style="height:7px;background:#faf9f6;border-radius:99px;overflow:hidden;margin:6px 0 4px;"><i style="display:block;height:100%;width:'+pct+'%;background:'+doneC+';"></i></div>'
       +'<div class="ks">'+sub+'</div></div>';
   };
   wrap.innerHTML='<div class="goal-grid">'
@@ -5441,8 +5441,8 @@ function renderCareKpis(){
   wrap.innerHTML=
     kpi('Check-ins Overdue',s.overdueCk.length,'A quiet client is a leaving client — call them','💚','#FDE8E8','#B23B3B',true)
     +kpi('Escalated Concerns',s.escalated.length,'Raised by a client, not yet resolved','🚨','#FDE8E8','#B23B3B',true)
-    +kpi('Supervisory Visits Overdue',s.svOver.length,'Quality-of-care proof for the state','🛡','#F7ECCB','#A9791A',true)
-    +kpi('New Clients — first 30 days',s.newStarts.length,'Highest cancel risk — extra attention now','🌟','#E1F1ED','#2E8577',false);
+    +kpi('Supervisory Visits Overdue',s.svOver.length,'Quality-of-care proof for the state','🛡','#F7ECCB','#C17A12',true)
+    +kpi('New Clients — first 30 days',s.newStarts.length,'Highest cancel risk — extra attention now','🌟','#E1F1ED','#1F7A8C',false);
 }
 function renderCareQueue(){
   const wrap=document.getElementById('careQueue'); if(!wrap) return;
@@ -5512,7 +5512,7 @@ function renderCommsPage(){
       +'<div style="flex:1;min-width:0;">'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
       +'<b>'+esc(t.from_name||'')+'</b><span class="field-note">'+(DIR_LABEL[t.direction]||'')+'</span>'
-      +'<span class="tag-chip" style="background:#EDF1F5;color:#33414D;">'+(PG_KIND_LABEL[t.kind]||t.kind)+'</span>'
+      +'<span class="tag-chip" style="background:#faf9f6;color:#33414D;">'+(PG_KIND_LABEL[t.kind]||t.kind)+'</span>'
       +(t.urgency?'<span class="field-note">'+esc(t.urgency)+'</span>':'')+'</div>'
       +'<div style="margin-top:2px;">'+(t.about?'<b>'+esc(t.about)+'</b>'+(t.caregiver?' / '+esc(t.caregiver):'')+' — ':'')+esc(t.message||'')+'</div>'
       +'<div class="field-note" style="margin-top:2px;">'+fmt(t.created_at)
@@ -5688,15 +5688,15 @@ function joPreviewMsgs(){
     '<p style="margin:4px 0;">Hi '+esc(first)+',</p>'
     +'<p style="margin:4px 0;"><b>Congratulations, and welcome to Caring Companions!</b></p>'
     +'<p style="margin:4px 0;">We\'re excited to officially begin the onboarding process and look forward to having you on our team.</p>'
-    +'<p style="margin:8px 0 2px;"><b style="color:#0E3860;">Step 1: Complete Your Initial Onboarding Paperwork</b></p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 1: Complete Your Initial Onboarding Paperwork</b></p>'
     +'<p style="margin:4px 0;">Please watch your email for a message from <b>Viventium</b>, our secure onboarding system. This email will include your official job offer and the first portion of your onboarding paperwork.</p>'
     +'<p style="margin:4px 0;">Please complete this paperwork as soon as possible. It provides the authorization we need to begin your background check and contact your professional references. We can\'t move forward with the hiring process until this step is complete.</p>'
-    +'<p style="margin:8px 0 2px;"><b style="color:#0E3860;">Step 2: Background Check &amp; Reference Checks</b></p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 2: Background Check &amp; Reference Checks</b></p>'
     +'<p style="margin:4px 0;">Once you\'ve completed your onboarding paperwork, we\'ll begin your background check and contact your professional references.</p>'
     +'<p style="margin:4px 0;">We\'ll let you know as soon as everything has been successfully completed.</p>'
-    +'<p style="margin:8px 0 2px;"><b style="color:#0E3860;">Step 3: Schedule Your Paid Orientation</b></p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 3: Schedule Your Paid Orientation</b></p>'
     +'<p style="margin:4px 0;">After your background check and references have been completed, we\'ll contact you to schedule your paid new employee orientation and discuss the next steps before your first day.</p>'
-    +'<p style="margin:8px 0 2px;"><b style="color:#0E3860;">Save Our Office Number</b></p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Save Our Office Number</b></p>'
     +'<p style="margin:4px 0;">Please save our office number: <b>(417) 234-8494</b>.<br>This is our main office number and the one you\'ll use to call or text us if you have questions during the onboarding process or after you join our team.</p>'
     +'<p style="margin:4px 0;">We\'re excited to welcome you to Caring Companions and look forward to working with you!</p>'
     +'<p style="margin:4px 0;color:#57606a;">Warmly,<br><br>The Caring Companions Team<br>(417) 234-8494</p>';
@@ -5732,7 +5732,7 @@ async function renderInterviews(btn){
     const data=await r.json();
     if(!Array.isArray(data)) throw new Error((data&&data.error)||'unexpected response');
     const esc=escapeHtmlComms;
-    const chip=(ok,label)=>'<span class="tag-chip" style="background:'+(ok?'#E1F1ED;color:#2E8577':'#F7ECCB;color:#A9791A')+';">'+(ok?'✓ ':'⏳ ')+label+'</span>';
+    const chip=(ok,label)=>'<span class="tag-chip" style="background:'+(ok?'#E1F1ED;color:#1F7A8C':'#F7ECCB;color:#C17A12')+';">'+(ok?'✓ ':'⏳ ')+label+'</span>';
     box.innerHTML=data.length?data.map(o=>
       '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
       +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;">'
