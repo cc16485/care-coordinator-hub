@@ -380,7 +380,7 @@
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')">💚 Clients</div>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')">🤝 Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
     <div class="ftab" data-g="insight" onclick="ccGroupClick('insight')">📊 Insight</div>
-    <div class="ftab" data-g="htorders" onclick="switchTab('htorders')">🏡 HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
+    <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')">🏡 HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')">⚙️ Settings</div>
   </div>
   <div class="fsubbar" id="fsub-grow">
@@ -404,6 +404,10 @@
   </div>
   <div class="fsubbar" id="fsub-insight">
     <div class="fpill" data-tab="reports" onclick="switchTab('reports')">📊 Reports</div>
+  </div>
+  <div class="fsubbar" id="fsub-htorders">
+    <div class="fpill" data-tab="htorders" onclick="switchTab('htorders')">📦 Orders<span class="subtab-badge red" id="htOrdPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="htsupport" onclick="switchTab('htsupport')">🎫 Support<span class="subtab-badge red" id="tkPillBadge" style="display:none;"></span></div>
   </div>
 
   <main>
@@ -1164,6 +1168,38 @@
   </div>
   <div id="htOrdersFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
   <div id="htOrdersList"></div>
+</section>
+
+<section class="tabpanel" id="tab-htsupport">
+  <style>
+    #tab-htsupport .tk-head h2{font-size:22px;margin:0 0 4px;color:var(--navy);}
+    #tab-htsupport .tk-sub{color:var(--text-muted);font-size:14px;margin:0 0 18px;max-width:72ch;}
+    #tab-htsupport details.tk{background:var(--card);border:1px solid var(--border);border-radius:14px;margin:0 0 12px;box-shadow:0 1px 2px rgba(16,24,40,.03);}
+    #tab-htsupport details.tk>summary{list-style:none;cursor:pointer;padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    #tab-htsupport details.tk>summary::-webkit-details-marker{display:none;}
+    #tab-htsupport .tk-no{font-weight:800;color:var(--navy);font-size:14px;white-space:nowrap;}
+    #tab-htsupport .tk-topic{font-weight:700;font-size:14.5px;color:var(--text);}
+    #tab-htsupport .tk-who{color:var(--text-muted);font-size:13px;}
+    #tab-htsupport .tk-when{margin-left:auto;color:var(--text-muted);font-size:12.5px;white-space:nowrap;}
+    #tab-htsupport .tk-pill{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;border-radius:999px;padding:3px 9px;white-space:nowrap;}
+    #tab-htsupport .tk-pill.s-New{background:#FDE8E8;color:#B23B2E;}
+    #tab-htsupport .tk-pill.s-Open{background:#FFF4DE;color:#8a5a1a;}
+    #tab-htsupport .tk-pill.s-Waiting{background:#E8F0FE;color:#2b5aa5;}
+    #tab-htsupport .tk-pill.s-Solved{background:#E6F4EA;color:#227a46;}
+    #tab-htsupport .tk-body{padding:2px 18px 16px;border-top:1px solid var(--border);}
+    #tab-htsupport .tk-msg{background:#F7F8FA;border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:14px;white-space:pre-wrap;line-height:1.55;margin:12px 0;}
+    #tab-htsupport .tk-meta{font-size:13px;color:var(--text-muted);margin:0 0 4px;}
+    #tab-htsupport .tk-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);}
+    #tab-htsupport .tk-actions select{border:1px solid var(--border);border-radius:8px;padding:7px 10px;font:inherit;background:#fff;color:var(--text);}
+    #tab-htsupport .tk-reply{background:var(--navy);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-size:13.5px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block;}
+    #tab-htsupport .tk-del{margin-left:auto;background:none;border:none;color:#b23b2e;font-weight:600;cursor:pointer;font-size:13px;}
+  </style>
+  <div class="tk-head">
+    <h2>🎫 HomeTogether Support</h2>
+    <p class="tk-sub">Every "Submit a request" from the HomeTogether websites lands here. Open a ticket, click Reply to answer by email (the ticket number stays in the subject so the thread is easy to find), and set the status so nothing slips.</p>
+  </div>
+  <div id="tkFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
+  <div id="tkList"></div>
 </section>
 
 <section class="tabpanel" id="tab-ltcpolicy">
@@ -2111,7 +2147,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2224,7 +2260,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2388,7 +2424,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders','htsupport'],settings:['settings']};
 function ccGroupOf(tab){ for(const g in CC_GROUPS) if(CC_GROUPS[g].includes(tab)) return g; return 'today'; }
 function ccGroupClick(g){
   const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
@@ -2425,6 +2461,7 @@ function renderActiveTab(){
   if(activeTab==='interviews'){ joInit(); renderInterviews(); }
   if(activeTab==='settings') fillSettingsPanel();
   if(activeTab==='htorders') renderHTOrders();
+  if(activeTab==='htsupport') renderTickets();
   updateHTBadge();
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
@@ -2527,9 +2564,72 @@ function renderHTOrders(){
 }
 
 function updateHTBadge(){
-  const b=document.getElementById('htBadge'); if(!b){ return; }
-  const n=(DATA.hometogether_orders||[]).filter(o=>(o.status||'New order')==='New order').length;
-  b.style.display = n ? 'inline-block' : 'none'; b.textContent = n;
+  const nOrd=(DATA.hometogether_orders||[]).filter(o=>(o.status||'New order')==='New order').length;
+  const nTk=(DATA.ht_tickets||[]).filter(t=>(t.status||'New')==='New').length;
+  const set=(id,n)=>{ const b=document.getElementById(id); if(b){ b.style.display = n ? 'inline-block' : 'none'; b.textContent = n; } };
+  set('htBadge', nOrd + nTk);
+  set('htOrdPillBadge', nOrd);
+  set('tkPillBadge', nTk);
+}
+
+/* ---------------- HOMETOGETHER SUPPORT TICKETS ---------------- */
+const TK_STATUSES = ['New','Open','Waiting','Solved'];
+function tkEsc(v){ return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function tkWhen(iso){ try{ return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}catch(e){ return ''; } }
+function ticketCard(t){
+  const st = t.status || 'New';
+  const statusSel = '<label style="font-size:13px;color:var(--text-muted);font-weight:600;">Status '+
+    '<select onchange="tkSetStatus(\''+t.id+'\', this.value)">'+
+    TK_STATUSES.map(s=>'<option'+(s===st?' selected':'')+'>'+s+'</option>').join('')+'</select></label>';
+  const replySubject = encodeURIComponent('Re: '+(t.topic||'Your HomeTogether request')+' ['+(t.ticket_no||'')+']');
+  const replyBody = encodeURIComponent('Hi '+((t.name||'').split(' ')[0]||'there')+',\n\n\n\nWarmly,\nSamantha\nHomeTogether Support\nsupport@tryhometogether.com');
+  return '<details class="tk"><summary>'+
+    '<span class="tk-no">'+tkEsc(t.ticket_no||'Ticket')+'</span>'+
+    '<span class="tk-pill s-'+tkEsc(st)+'">'+tkEsc(st)+'</span>'+
+    '<span class="tk-topic">'+tkEsc(t.topic||'General question')+'</span>'+
+    '<span class="tk-who">'+tkEsc(t.name||'(no name)')+' · '+tkEsc(t.email||'')+'</span>'+
+    '<span class="tk-when">'+tkWhen(t.created_at)+'</span>'+
+    '</summary><div class="tk-body">'+
+    '<p class="tk-meta">From <b>'+tkEsc(t.name||'(no name)')+'</b> &lt;'+tkEsc(t.email||'')+'&gt;'+(t.phone?' · '+tkEsc(t.phone):'')+
+    (t.site?' · via '+tkEsc(t.site):'')+(t.page?' · page '+tkEsc(t.page):'')+'</p>'+
+    '<div class="tk-msg">'+tkEsc(t.message||'')+'</div>'+
+    '<div class="tk-actions">'+
+    '<a class="tk-reply" href="mailto:'+encodeURIComponent(t.email||'')+'?subject='+replySubject+'&body='+replyBody+'" onclick="tkMarkOpen(\''+t.id+'\')">Reply by email</a>'+
+    statusSel+
+    '<button class="tk-del" onclick="tkDelete(\''+t.id+'\')">Delete ticket</button>'+
+    '</div></div></details>';
+}
+function renderTickets(){
+  const list = document.getElementById('tkList');
+  if(!list){ return; }
+  if(!activeFilters.htsupport){ activeFilters.htsupport='All'; }
+  renderFilterPills('tkFilters', ['All'].concat(TK_STATUSES), activeFilters.htsupport, 'htsupport');
+  let rows = (DATA.ht_tickets||[]).slice().filter(t=>
+    searchMatch([t.ticket_no,t.name,t.email,t.topic,t.message].join(' ')));
+  const f = activeFilters.htsupport;
+  if(f && f!=='All'){ rows = rows.filter(t => (t.status||'New')===f); }
+  rows.sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+  if(!rows.length){
+    list.innerHTML = '<div class="card" style="text-align:center;color:var(--text-muted);padding:30px;">No support requests'+(f&&f!=='All'?' with status “'+f+'”':' yet')+'. New requests from the HomeTogether sites appear here automatically.</div>';
+    return;
+  }
+  list.innerHTML = rows.map(ticketCard).join('');
+}
+async function tkSetStatus(id, status){
+  const t=(DATA.ht_tickets||[]).find(x=>x.id===id); if(!t){ return; }
+  t.status=status; t.updated_at=new Date().toISOString();
+  await persist('ht_tickets', t);
+  renderTickets(); updateHTBadge();
+}
+function tkMarkOpen(id){
+  const t=(DATA.ht_tickets||[]).find(x=>x.id===id);
+  if(t && (t.status||'New')==='New'){ tkSetStatus(id,'Open'); }
+}
+async function tkDelete(id){
+  if(!confirm('Delete this support ticket? This cannot be undone.')){ return; }
+  await removeItem('ht_tickets', id);
+  DATA.ht_tickets = (DATA.ht_tickets||[]).filter(x=>x.id!==id);
+  renderTickets(); updateHTBadge();
 }
 
 async function htSetStatus(id, status){
