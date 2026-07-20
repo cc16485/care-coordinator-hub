@@ -1174,6 +1174,26 @@
   </div>
   <div id="htOrdersFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
   <div id="htOrdersList"></div>
+
+  <details style="background:var(--card);border:1px solid var(--border);border-radius:14px;margin:18px 0 0;">
+    <summary style="cursor:pointer;padding:14px 18px;font-weight:700;color:var(--navy);">📋 New-order runbook: ship a HomeTogether device</summary>
+    <div style="padding:2px 18px 18px;font-size:14px;line-height:1.65;color:var(--text);">
+      <p style="color:var(--text-muted);margin:0 0 10px;"><b>Golden rule: assign the Hub in the HomeSight Care Portal BEFORE it ships.</b> An unassigned Hub will not set itself up when the family plugs it in.</p>
+      <ol style="margin:0 0 12px 20px;">
+        <li><b>Order arrives</b> (this tab + Stripe email). Note their shipping address and any add-ons.</li>
+        <li><b>Care Portal &rarr; Accounts &rarr; Add:</b> create the senior's account. First/last name, language <b>English (en-US)</b>, <b>Imperial</b> units, their <b>ZIP code</b> (powers the weather on their TV), <b>Central</b> time zone.</li>
+        <li><b>Open the account &rarr; Assign Wellness Hub:</b> pick a Hub from the shelf by serial number (white sticker on the bottom). Icon turns from red to black when assigned.</li>
+        <li><b>Write the serial on the order</b> here in the hub, that serial is how we track the device for returns.</li>
+        <li><b>Add-ons:</b> channels are on by default (included). If they bought sensors / LTE / health readings, enable those modules on the account and pack the extra hardware.</li>
+        <li><b>Invite the family:</b> add their family contacts on the account, each gets a welcome email to register for the app and portal. Do this now so the app works the day the box arrives.</li>
+        <li><b>Box and ship:</b> Hub, remote (batteries in), HDMI cable, quick-start sheet. Same-day if ordered by early afternoon.</li>
+        <li><b>They plug it in:</b> Hub connects to Wi-Fi, registers with the cloud, updates itself, and their account comes alive. Offer the setup phone call from the order email.</li>
+        <li><b>If they bought caregiver visits:</b> coordinator calls within one business day to lock standing times, then schedule the recurring calls in the Care Portal.</li>
+      </ol>
+      <p style="color:var(--text-muted);margin:0 0 6px;"><b>When a customer cancels:</b> send the return-label email (templates in 🎫 Support), and when the device comes back: Care Portal &rarr; set deployment status to not deployed, purge the unit with their tools, back on the shelf for the next customer.</p>
+      <p style="color:var(--text-muted);margin:0;"><b>Reorder devices</b> when the shelf drops to ~3 spares: help.homesight.care &rarr; Submit Request &rarr; Order Request (min 2 Hubs; SIM choice T-Mobile or AT&T; ships to our office).</p>
+    </div>
+  </details>
 </section>
 
 <section class="tabpanel" id="tab-feedback">
