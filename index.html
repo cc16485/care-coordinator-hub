@@ -2853,6 +2853,7 @@ function renderHtLocal(){
       +(c.work_history?'<p class="hl-meta"><b>Work history:</b> <span style="white-space:pre-wrap;">'+esc(c.work_history)+'</span></p>':'')
       +((c.ref1&&c.ref1.name)?'<p class="hl-meta"><b>Ref 1:</b> '+esc(c.ref1.name)+' · <a href="tel:'+esc(c.ref1.phone||'')+'">'+esc(c.ref1.phone||'')+'</a>'+(c.ref1.rel?' · '+esc(c.ref1.rel):'')+'</p>':'')
       +((c.ref2&&c.ref2.name)?'<p class="hl-meta"><b>Ref 2:</b> '+esc(c.ref2.name)+' · <a href="tel:'+esc(c.ref2.phone||'')+'">'+esc(c.ref2.phone||'')+'</a>'+(c.ref2.rel?' · '+esc(c.ref2.rel):'')+'</p>':'')
+      +(c.logistics?'<p class="hl-meta"><b>Logistics:</b> license '+(c.logistics.license?'✓':'✗')+' · transport '+(c.logistics.transport?'✓':'✗')+' · insurance '+(c.logistics.insurance?'✓':'✗')+(c.logistics.hours?' · ~'+esc(c.logistics.hours)+' hrs/wk':'')+(c.logistics.start?' · start '+esc(c.logistics.start):'')+(c.logistics.pets?' · pets: '+esc(c.logistics.pets):'')+(c.logistics.smoke?' · smoke: '+esc(c.logistics.smoke):'')+'</p>':'')
       +(c.consents?'<p class="hl-meta" style="color:#15803d;">✍️ Signed application: background check authorized · references may be contacted by us and by families</p>':'<p class="hl-meta" style="color:#b45309;">No signed consents (applied before the application form). Get verbal permission before sharing references.</p>')
       +(c.oig_result==='clear'?'<p class="hl-meta" style="color:#15803d;">✓ OIG exclusion screen: clear (free federal list, checked automatically)</p>':'')
       +(c.oig_result==='review'?'<p class="hl-meta" style="color:#b91c1c;font-weight:700;">⚠ OIG screen: possible NAME match — verify at <a href="https://exclusions.oig.hhs.gov" target="_blank" rel="noopener">exclusions.oig.hhs.gov</a> (name matches are usually a different person)</p>':'')
@@ -2860,7 +2861,7 @@ function renderHtLocal(){
       +(c.checkr_result==='clear'?'<p class="hl-meta" style="color:#15803d;font-weight:700;">✓ Background check clear</p>':'')
       +(c.paid_at&&!c.checkr_result?'<p class="hl-meta" style="color:#1a56db;font-weight:700;">💳 Check paid '+new Date(c.paid_at).toLocaleDateString('en-US')+(c.checkr_candidate_id?' · Checkr in progress':' · order in Checkr if not auto-sent')+'</p>':'')
       +(!c.paid_at&&!c.checkr_result&&!c.consider?'<p class="hl-meta" style="color:#6b7280;">○ Background check not yet completed (optional up front; send the link when a family is interested)</p>':'')
-      +(c.interview_done&&c.interview?'<div class="hl-meta" style="margin-top:6px;padding:10px 12px;background:var(--panel,#f3f6fa);border-radius:8px;"><b style="color:#15803d;">🎙️ AI interview completed</b>'+(c.interview.durationSec?' · '+Math.round(c.interview.durationSec/60)+' min':'')+(c.interview.recordingUrl?' · <a href="'+esc(c.interview.recordingUrl)+'" target="_blank" rel="noopener">▶ Listen</a>':'')+(c.interview.summary?'<div style="margin-top:6px;color:var(--text-muted);white-space:pre-wrap;">'+esc(c.interview.summary)+'</div>':'')+(c.interview.transcript?'<details style="margin-top:6px;"><summary style="cursor:pointer;">Full transcript</summary><div style="margin-top:6px;color:var(--text-muted);white-space:pre-wrap;max-height:220px;overflow:auto;">'+esc(c.interview.transcript)+'</div></details>':'')+'</div>':'<p class="hl-meta" style="color:#6b7280;">○ AI interview not yet completed</p>')
+      +(c.interview_done&&c.interview?'<div class="hl-meta" style="margin-top:6px;padding:10px 12px;background:var(--panel,#f3f6fa);border-radius:8px;"><b style="color:#15803d;">🎙️ AI interview completed</b>'+(c.interview.durationSec?' · '+Math.round(c.interview.durationSec/60)+' min':'')+(c.interview.recordingUrl?' · <a href="'+esc(c.interview.recordingUrl)+'" target="_blank" rel="noopener">▶ Listen</a>':'')+(c.interview.summary?'<div style="margin-top:6px;color:var(--text-muted);white-space:pre-wrap;">'+esc(c.interview.summary)+'</div>':'')+hlRubric(c.interview.rubric)+(c.interview.transcript?'<details style="margin-top:6px;"><summary style="cursor:pointer;">Full transcript</summary><div style="margin-top:6px;color:var(--text-muted);white-space:pre-wrap;max-height:220px;overflow:auto;">'+esc(c.interview.transcript)+'</div></details>':'')+'</div>':'<p class="hl-meta" style="color:#6b7280;">○ AI interview not yet completed</p>')
       +'<div class="hl-actions">Status: <select onchange="hlSetStatus(\'local_caregivers\',\''+c.id+'\',this.value)">'
       +HL_CG_STATUSES.map(function(st){return '<option'+(st===(c.status||'applied')?' selected':'')+'>'+st+'</option>';}).join('')+'</select>'
       +((!c.paid_at&&c.email)?'<button class="btn btn-primary" onclick="hlPayLink(\''+c.id+'\',this,true)">🎉 Family interested → send check link</button><button class="btn btn-secondary" onclick="hlPayLink(\''+c.id+'\',this,false)">Send standard check link</button>':'')
@@ -2889,6 +2890,23 @@ function renderHtLocal(){
       +'</div>';
   }).join(''):'<div class="hl-card" style="color:var(--text-muted);">No family requests yet.</div>';
   hlBadges();
+}
+function hlRubric(r){
+  if(!r||typeof r!=='object') return '';
+  var labels={communication:'Communication',compassion:'Compassion',reliability:'Reliability',caregiving_experience:'Experience',safety_judgment:'Safety judgment',dementia_readiness:'Dementia readiness',professional_boundaries:'Boundaries',overall_fit:'Overall fit'};
+  var rt=r.ratings||{};
+  var chips=Object.keys(labels).filter(function(k){return rt[k]!=null;}).map(function(k){
+    var v=Number(rt[k])||0, col=v>=4?'#15803d':(v>=3?'#b45309':'#b91c1c');
+    return '<span style="display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,'+col+' 12%,transparent);color:'+col+';font-weight:700;font-size:12px;">'+labels[k]+' '+v+'/5</span>';
+  }).join('');
+  var dm={advance:['Advance','#15803d'],advance_with_conditions:['Advance with conditions','#b45309'],keep_for_future:['Keep for a future opening','#6b7280'],do_not_advance:['Do not advance','#b91c1c'],needs_review:['Needs review','#b45309']};
+  var d=dm[r.suggested_decision]||null;
+  var rows=[['Strengths',r.strengths],['Concerns',r.concerns],['Training needs',r.training_needs],['Best client match',r.recommended_client]].filter(function(x){return x[1];}).map(function(x){
+    return '<div style="margin-top:4px;"><b style="color:var(--text);">'+x[0]+':</b> <span style="color:var(--text-muted);">'+esc(x[1])+'</span></div>';
+  }).join('');
+  return '<details style="margin-top:8px;"><summary style="cursor:pointer;font-weight:700;">AI evaluation'+(d?' · <span style="color:'+d[1]+'">'+d[0]+'</span>':'')+'</summary>'
+    +'<div style="margin-top:6px;">'+(chips?'<div style="margin-bottom:4px;">'+chips+'</div>':'')+rows
+    +'<div style="margin-top:6px;color:var(--text-muted);font-size:11.5px;">AI suggestion from the interview transcript. Your judgment decides; never decline on this alone.</div></div></details>';
 }
 const HL_EP='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/ht-local?token=htorder_078070ed7c3e8e7619e567dcfaddfc400e43147a';
 async function hlPayLink(id,btn,fam){
