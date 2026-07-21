@@ -387,6 +387,7 @@
   </div>
   <div class="fsubbar" id="fsub-grow">
     <div class="fpill" data-tab="leads" onclick="switchTab('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
+    <div class="fpill" data-tab="bookings" onclick="switchTab('bookings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Bookings<span class="subtab-badge red" id="bkgPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="assessments" onclick="switchTab('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Assessments</div>
     <div class="fpill" data-tab="soc" onclick="switchTab('soc')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="referrers" onclick="switchTab('referrers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Referrers</div>
@@ -1228,6 +1229,46 @@
   <p class="fb-sub">Star check-ins from clients, families and caregivers, plus Caregiver of the Year nominations. Everything here also landed in your email the moment it was sent.</p>
   <div style="margin:0 0 14px;"><button class="btn btn-secondary" onclick="fbSeenAll()">Mark all as seen</button></div>
   <div id="fbList"></div>
+</section>
+<section class="tabpanel" id="tab-bookings">
+  <style>
+    #tab-bookings h2{font-size:22px;margin:0 0 4px;color:var(--navy);}
+    #tab-bookings .bkg-sub{color:var(--text-muted);font-size:14px;margin:0 0 16px;max-width:76ch;}
+    #tab-bookings .bkg-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:0 0 12px;box-shadow:0 1px 2px rgba(16,24,40,.03);}
+    #tab-bookings .bkg-card.unseen{border-left:4px solid #F0A63A;}
+    #tab-bookings .bkg-card.cancelled{opacity:.55;}
+    #tab-bookings .bkg-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+    #tab-bookings .bkg-when{font-weight:700;color:var(--navy);font-size:15.5px;}
+    #tab-bookings .bkg-type{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-radius:999px;padding:3px 10px;background:#EAF4F6;color:#1F7A8C;}
+    #tab-bookings .bkg-type.home{background:var(--amber-bg);color:var(--amber);}
+    #tab-bookings .bkg-ago{margin-left:auto;color:var(--text-muted);font-size:12.5px;white-space:nowrap;}
+    #tab-bookings .bkg-meta{font-size:14px;color:var(--text);margin:4px 0 0;line-height:1.6;}
+    #tab-bookings .bkg-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
+    #tab-bookings .bkg-set{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-top:22px;}
+    #tab-bookings .bkg-set label{display:block;font-size:12.5px;font-weight:700;color:var(--text-muted);margin:12px 0 4px;}
+    #tab-bookings .bkg-set input,#tab-bookings .bkg-set textarea,#tab-bookings .bkg-set select{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;font-family:inherit;background:#fff;color:var(--text);}
+    #tab-bookings .bkg-hrow{display:flex;align-items:center;gap:8px;margin:5px 0;}
+    #tab-bookings .bkg-hrow span{width:40px;font-size:13px;font-weight:700;color:var(--text-muted);}
+    #tab-bookings .bkg-hrow input[type=time]{width:110px;}
+  </style>
+  <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Consultation Bookings</h2>
+  <p class="bkg-sub">Consultations booked on mo-care.com/book. The public calendar only offers times that are open here AND free on the connected Google Calendars below, so a family can never double-book a coordinator.</p>
+  <div id="bkgList"></div>
+  <div class="bkg-set">
+    <h3 style="font-size:16px;margin:0 0 2px;color:var(--navy);">Scheduler settings</h3>
+    <p style="font-size:13px;color:var(--text-muted);margin:0 0 8px;">Times are Central. Changes apply to the public calendar the moment you save.</p>
+    <label>Bookable hours</label>
+    <div id="bkgHours"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+      <div><label>Slot length</label><select id="bkgSlotMin"><option value="20">20 minutes</option><option value="30" selected>30 minutes</option><option value="45">45 minutes</option><option value="60">60 minutes</option></select></div>
+      <div><label>Minimum notice (hours)</label><input id="bkgLead" type="number" min="0" max="72" value="3"></div>
+      <div><label>Days offered ahead</label><input id="bkgAhead" type="number" min="3" max="30" value="14"></div>
+    </div>
+    <label>Coordinators' Google Calendars (one per line: <code>Name | secret iCal address</code>)</label>
+    <textarea id="bkgCals" rows="3" placeholder="Samantha | https://calendar.google.com/calendar/ical/…/basic.ics"></textarea>
+    <p style="font-size:12.5px;color:var(--text-muted);margin:6px 0 0;">In Google Calendar: Settings &rarr; your calendar &rarr; "Integrate calendar" &rarr; copy the <b>Secret address in iCal format</b> and paste it here. Busy events on that calendar automatically block the public scheduler. Keep these links private, treat them like a password.</p>
+    <div style="margin-top:14px;"><button class="btn btn-primary" onclick="bkgSaveSettings()">Save scheduler settings</button> <span id="bkgSaveMsg" style="font-size:13px;color:var(--green,#1a7f4b);font-weight:700;"></span></div>
+  </div>
 </section>
 <section class="tabpanel" id="tab-campaigns">
   <style>
@@ -2313,7 +2354,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2426,7 +2467,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2590,7 +2631,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders','htsupport'],campaigns:['campaigns','feedback'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders','htsupport'],campaigns:['campaigns','feedback'],settings:['settings']};
 function renderFeedback(){
   const el=document.getElementById('fbList'); if(!el) return;
   const rows=(DATA.feedback||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
@@ -2620,6 +2661,93 @@ function fbBadges(){
   const n=(DATA.feedback||[]).filter(f=>!f.seen).length;
   for(const id of ['fbBadge','fbPillBadge']){ const b=document.getElementById(id); if(b){ b.textContent=n; b.style.display=n?'':'none'; } }
 }
+// Global esc — renderFeedback and renderBookings both use it (escapeHtmlComms
+// hoists, so this is safe to define here).
+function esc(s){ return escapeHtmlComms(s); }
+const BKG_DAYS=[['1','Mon'],['2','Tue'],['3','Wed'],['4','Thu'],['5','Fri'],['6','Sat'],['0','Sun']];
+function bkgSettings(){
+  const it=(DATA.booking_settings||[]).find(x=>x.id==='settings');
+  return it||{id:'settings',timezone:'America/Chicago',slot_minutes:30,lead_hours:3,days_ahead:14,hours:{1:[['09:00','16:00']],2:[['09:00','16:00']],3:[['09:00','16:00']],4:[['09:00','16:00']],5:[['09:00','16:00']]},calendars:[]};
+}
+function bkgBadges(){
+  const now=Date.now();
+  const n=(DATA.consult_bookings||[]).filter(b=>!b.seen&&b.status!=='cancelled'&&Date.parse(b.start||'')>now-86400000).length;
+  const b=document.getElementById('bkgPillBadge'); if(b){ b.textContent=n; b.style.display=n?'':'none'; }
+}
+function renderBookings(){
+  const el=document.getElementById('bkgList'); if(!el) return;
+  const now=Date.now();
+  const rows=(DATA.consult_bookings||[]).slice().sort((a,b)=>(a.start||'').localeCompare(b.start||''));
+  const upcoming=rows.filter(b=>Date.parse(b.end||b.start||'')>=now);
+  const past=rows.filter(b=>Date.parse(b.end||b.start||'')<now);
+  const card=b=>{
+    const when=b.start?new Date(b.start).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'(no time)';
+    const home=b.type==='home';
+    return '<div class="bkg-card'+(b.seen?'':' unseen')+(b.status==='cancelled'?' cancelled':'')+'">'
+      +'<div class="bkg-top"><span class="bkg-when">'+when+'</span>'
+      +'<span class="bkg-type'+(home?' home':'')+'">'+(home?'In-home visit':'Phone call')+'</span>'
+      +(b.status==='cancelled'?'<span class="bkg-type" style="background:var(--red-bg);color:var(--red);">Cancelled</span>':'')
+      +'<span class="bkg-ago">booked '+(b.at?new Date(b.at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'')+'</span></div>'
+      +'<p class="bkg-meta"><b>'+esc(b.name||'')+'</b> &middot; <a href="tel:'+esc(b.phone||'')+'">'+esc(b.phone||'')+'</a>'+(b.email?' &middot; '+esc(b.email):'')+'</p>'
+      +(b.notes?'<p class="bkg-meta" style="white-space:pre-wrap;">'+esc(b.notes)+'</p>':'')
+      +'<div class="bkg-actions">'
+      +(b.seen?'':'<button class="btn btn-secondary" onclick="bkgSeen(\''+b.id+'\')">Mark seen</button>')
+      +(b.status!=='cancelled'&&Date.parse(b.start||'')>now?'<button class="btn btn-secondary" onclick="bkgCancel(\''+b.id+'\')">Cancel booking</button>':'')
+      +'<button class="btn btn-secondary" onclick="bkgDelete(\''+b.id+'\')">Delete</button></div></div>';
+  };
+  let html='';
+  html+=upcoming.length?upcoming.map(card).join(''):'<div class="bkg-card" style="color:var(--text-muted);">No upcoming consultations booked online yet. Share mo-care.com/book.html and they\'ll appear here.</div>';
+  if(past.length) html+='<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13.5px;color:var(--text-muted);font-weight:700;">Past ('+past.length+')</summary>'+past.slice(-20).reverse().map(card).join('')+'</details>';
+  el.innerHTML=html;
+  bkgFillSettings(); bkgBadges();
+}
+function bkgFillSettings(){
+  const st=bkgSettings();
+  const hoursEl=document.getElementById('bkgHours'); if(!hoursEl) return;
+  if(!hoursEl.dataset.built){
+    hoursEl.innerHTML=BKG_DAYS.map(([n,lab])=>'<div class="bkg-hrow"><input type="checkbox" id="bkgOn'+n+'" style="width:auto;"> <span>'+lab+'</span> <input type="time" id="bkgS'+n+'"> <span style="width:14px;text-align:center;">to</span> <input type="time" id="bkgE'+n+'"></div>').join('');
+    hoursEl.dataset.built='1';
+  }
+  for(const [n] of BKG_DAYS){
+    const win=(st.hours&&st.hours[n]&&st.hours[n][0])||null;
+    document.getElementById('bkgOn'+n).checked=!!win;
+    document.getElementById('bkgS'+n).value=win?win[0]:'09:00';
+    document.getElementById('bkgE'+n).value=win?win[1]:'16:00';
+  }
+  document.getElementById('bkgSlotMin').value=String(st.slot_minutes||30);
+  document.getElementById('bkgLead').value=st.lead_hours!=null?st.lead_hours:3;
+  document.getElementById('bkgAhead').value=st.days_ahead||14;
+  document.getElementById('bkgCals').value=(st.calendars||[]).map(c=>(c.name||'Coordinator')+' | '+c.url).join('\n');
+}
+async function bkgSaveSettings(){
+  const st=bkgSettings();
+  const hours={};
+  for(const [n] of BKG_DAYS){
+    if(!document.getElementById('bkgOn'+n).checked) continue;
+    const a=document.getElementById('bkgS'+n).value, b=document.getElementById('bkgE'+n).value;
+    if(a&&b&&a<b) hours[n]=[[a,b]];
+  }
+  st.hours=hours;
+  st.slot_minutes=parseInt(document.getElementById('bkgSlotMin').value,10)||30;
+  st.lead_hours=Math.max(0,parseInt(document.getElementById('bkgLead').value,10)||0);
+  st.days_ahead=Math.min(30,Math.max(3,parseInt(document.getElementById('bkgAhead').value,10)||14));
+  st.calendars=document.getElementById('bkgCals').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+    const i=l.indexOf('|');
+    return i<0?{name:'Coordinator',url:l.trim()}:{name:l.slice(0,i).trim()||'Coordinator',url:l.slice(i+1).trim()};
+  }).filter(c=>/^https:\/\//.test(c.url));
+  st.updated_at=new Date().toISOString();
+  await persist('booking_settings',st);
+  const i=(DATA.booking_settings||[]).findIndex(x=>x.id==='settings');
+  if(i<0){ DATA.booking_settings=DATA.booking_settings||[]; DATA.booking_settings.push(st); } else DATA.booking_settings[i]=st;
+  const m=document.getElementById('bkgSaveMsg'); m.textContent='Saved \u2713 live on the public calendar now'; setTimeout(()=>{m.textContent='';},4000);
+}
+async function bkgSeen(id){ const b=(DATA.consult_bookings||[]).find(x=>x.id===id); if(!b) return; b.seen=true; await persist('consult_bookings',b); renderBookings(); }
+async function bkgCancel(id){
+  const b=(DATA.consult_bookings||[]).find(x=>x.id===id); if(!b) return;
+  if(!confirm('Cancel this consultation? Remember to call '+(b.name||'the family')+' at '+(b.phone||'their number')+' so they are not left waiting.')) return;
+  b.status='cancelled'; b.seen=true; await persist('consult_bookings',b); renderBookings();
+}
+async function bkgDelete(id){ if(!confirm('Delete this booking entry?')) return; await removeItem('consult_bookings', id); DATA.consult_bookings=(DATA.consult_bookings||[]).filter(x=>x.id!==id); renderBookings(); }
 function ccGroupOf(tab){ for(const g in CC_GROUPS) if(CC_GROUPS[g].includes(tab)) return g; return 'today'; }
 function ccGroupClick(g){
   const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
@@ -2645,6 +2773,7 @@ function renderActiveTab(){
   if(activeTab==='referrers') renderReferrers();
   if(activeTab==='reports') renderReports();
   if(activeTab==='leads') renderLeads();
+  if(activeTab==='bookings') renderBookings();
   if(activeTab==='assessments') renderAssessments();
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='supervisory') renderSupervisory();
@@ -2660,7 +2789,7 @@ function renderActiveTab(){
   if(activeTab==='htsupport') renderTickets();
   if(activeTab==='campaigns') renderCampaigns();
   if(activeTab==='feedback') renderFeedback();
-  updateHTBadge(); fbBadges();
+  updateHTBadge(); fbBadges(); bkgBadges();
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
   const el = document.getElementById(containerId);
