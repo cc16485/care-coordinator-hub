@@ -1252,7 +1252,7 @@
     #tab-bookings .bkg-hrow input[type=time]{width:110px;}
   </style>
   <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Consultation Bookings</h2>
-  <p class="bkg-sub">Consultations booked on mo-care.com/book. The public calendar only offers times that are open here AND free on the connected Google Calendars below, so a family can never double-book a coordinator.</p>
+  <p class="bkg-sub">Consultations booked on mo-care.com/book. The public calendar only offers times that are open here AND free on the connected Google Calendars below, so a family can never double-book a coordinator. Orientation sessions from the Staffing Hub block this calendar automatically too.</p>
   <div id="bkgList"></div>
   <div class="bkg-set">
     <h3 style="font-size:16px;margin:0 0 2px;color:var(--navy);">Scheduler settings</h3>
@@ -2354,7 +2354,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2467,7 +2467,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2696,6 +2696,19 @@ function renderBookings(){
       +'<button class="btn btn-secondary" onclick="bkgDelete(\''+b.id+'\')">Delete</button></div></div>';
   };
   let html='';
+  const orient=(DATA.orient_sessions||[]).filter(o=>o&&o.date&&o.status!=='cancelled'&&new Date(o.date+'T23:59:59')>=new Date()).sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
+  if(orient.length){
+    html+='<p style="font-size:12.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin:0 0 8px;">Orientation sessions (block this calendar)</p>';
+    html+=orient.slice(0,6).map(o=>{
+      const when=new Date(o.date+'T'+(o.time||'10:00')).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+      const spots=(o.bookings||[]).length+'/'+(o.capacity||'?');
+      return '<div class="bkg-card" style="border-left:4px solid #54BDB8;"><div class="bkg-top"><span class="bkg-when">'+when+'</span>'
+        +'<span class="bkg-type" style="background:#dff3f2;color:#1F7A8C;">Orientation &middot; '+spots+' booked</span>'
+        +(o.facilitator?'<span class="bkg-ago">run by '+esc(o.facilitator)+'</span>':'')
+        +'</div><p class="bkg-meta">Managed in the Staffing Hub &rarr; Orientations. Consultations can\'t be booked during this time.</p></div>';
+    }).join('');
+    html+='<p style="font-size:12.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin:14px 0 8px;">Consultations</p>';
+  }
   html+=upcoming.length?upcoming.map(card).join(''):'<div class="bkg-card" style="color:var(--text-muted);">No upcoming consultations booked online yet. Share mo-care.com/book.html and they\'ll appear here.</div>';
   if(past.length) html+='<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13.5px;color:var(--text-muted);font-weight:700;">Past ('+past.length+')</summary>'+past.slice(-20).reverse().map(card).join('')+'</details>';
   el.innerHTML=html;
