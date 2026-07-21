@@ -2850,12 +2850,19 @@ function renderHtLocal(){
       +((c.skills||[]).length?'<p class="hl-meta"><b>Skills:</b> '+esc((c.skills||[]).join(', '))+'</p>':'')
       +((c.certs||[]).length?'<p class="hl-meta"><b>Certs:</b> '+esc((c.certs||[]).join(', '))+'</p>':'')
       +(c.bio?'<p class="hl-meta" style="white-space:pre-wrap;color:var(--text-muted);">'+esc(c.bio)+'</p>':'')
+      +(c.work_history?'<p class="hl-meta"><b>Work history:</b> <span style="white-space:pre-wrap;">'+esc(c.work_history)+'</span></p>':'')
+      +((c.ref1&&c.ref1.name)?'<p class="hl-meta"><b>Ref 1:</b> '+esc(c.ref1.name)+' · <a href="tel:'+esc(c.ref1.phone||'')+'">'+esc(c.ref1.phone||'')+'</a>'+(c.ref1.rel?' · '+esc(c.ref1.rel):'')+'</p>':'')
+      +((c.ref2&&c.ref2.name)?'<p class="hl-meta"><b>Ref 2:</b> '+esc(c.ref2.name)+' · <a href="tel:'+esc(c.ref2.phone||'')+'">'+esc(c.ref2.phone||'')+'</a>'+(c.ref2.rel?' · '+esc(c.ref2.rel):'')+'</p>':'')
+      +(c.consents?'<p class="hl-meta" style="color:#15803d;">✍️ Signed application: background check authorized · references may be contacted by us and by families</p>':'<p class="hl-meta" style="color:#b45309;">No signed consents (applied before the application form). Get verbal permission before sharing references.</p>')
+      +(c.oig_result==='clear'?'<p class="hl-meta" style="color:#15803d;">✓ OIG exclusion screen: clear (free federal list, checked automatically)</p>':'')
+      +(c.oig_result==='review'?'<p class="hl-meta" style="color:#b91c1c;font-weight:700;">⚠ OIG screen: possible NAME match — verify at <a href="https://exclusions.oig.hhs.gov" target="_blank" rel="noopener">exclusions.oig.hhs.gov</a> (name matches are usually a different person)</p>':'')
       +(c.consider?'<p class="hl-meta" style="color:#b91c1c;font-weight:700;">⚠ Background check: CONSIDER — review in Checkr before any decision (FCRA adverse-action applies).</p>':'')
       +(c.checkr_result==='clear'?'<p class="hl-meta" style="color:#15803d;font-weight:700;">✓ Background check clear</p>':'')
       +(c.paid_at&&!c.checkr_result?'<p class="hl-meta" style="color:#1a56db;font-weight:700;">💳 Check paid '+new Date(c.paid_at).toLocaleDateString('en-US')+(c.checkr_candidate_id?' · Checkr in progress':' · order in Checkr if not auto-sent')+'</p>':'')
       +'<div class="hl-actions">Status: <select onchange="hlSetStatus(\'local_caregivers\',\''+c.id+'\',this.value)">'
       +HL_CG_STATUSES.map(function(st){return '<option'+(st===(c.status||'applied')?' selected':'')+'>'+st+'</option>';}).join('')+'</select>'
       +((!c.paid_at&&c.email)?'<button class="btn btn-primary" onclick="hlPayLink(\''+c.id+'\',this)">Send $45 check payment link</button>':'')
+      +(!c.oig_checked?'<button class="btn btn-secondary" onclick="hlOig(\''+c.id+'\',this)">Run free OIG screen</button>':'')
       +(c.seen?'':'<button class="btn btn-secondary" onclick="hlSeen(\'local_caregivers\',\''+c.id+'\')">Mark seen</button>')
       +'<button class="btn btn-secondary" onclick="hlDelete(\'local_caregivers\',\''+c.id+'\')">Delete</button></div>'
       +'<textarea placeholder="Team notes (interview date, check results, matched with…)" onchange="hlNote(\'local_caregivers\',\''+c.id+'\',this.value)">'+esc(c.notes||'')+'</textarea>'
@@ -2892,6 +2899,16 @@ async function hlPayLink(id,btn){
     else alert('Could not send: '+((d&&d.error)||'unknown error'));
   }catch(e){ alert('Could not send: '+e); }
   renderHtLocal();
+}
+async function hlOig(id,btn){
+  btn.disabled=true; btn.textContent='Checking…';
+  try{
+    const r=await fetch(HL_EP,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'oig',caregiver_id:id})});
+    const d=await r.json();
+    if(d&&d.ok){ await loadAllData(); renderHtLocal(); return; }
+    alert('Screen failed: '+((d&&d.error)||'unknown'));
+  }catch(e){ alert('Screen failed: '+e); }
+  btn.disabled=false; btn.textContent='Run free OIG screen';
 }
 async function hlSetStatus(key,id,st){ const x=(DATA[key]||[]).find(i=>i.id===id); if(!x) return; x.status=st; x.seen=true; await persist(key,x); renderHtLocal(); }
 async function hlSeen(key,id){ const x=(DATA[key]||[]).find(i=>i.id===id); if(!x) return; x.seen=true; await persist(key,x); renderHtLocal(); }
