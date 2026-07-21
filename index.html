@@ -2859,9 +2859,10 @@ function renderHtLocal(){
       +(c.consider?'<p class="hl-meta" style="color:#b91c1c;font-weight:700;">⚠ Background check: CONSIDER — review in Checkr before any decision (FCRA adverse-action applies).</p>':'')
       +(c.checkr_result==='clear'?'<p class="hl-meta" style="color:#15803d;font-weight:700;">✓ Background check clear</p>':'')
       +(c.paid_at&&!c.checkr_result?'<p class="hl-meta" style="color:#1a56db;font-weight:700;">💳 Check paid '+new Date(c.paid_at).toLocaleDateString('en-US')+(c.checkr_candidate_id?' · Checkr in progress':' · order in Checkr if not auto-sent')+'</p>':'')
+      +(!c.paid_at&&!c.checkr_result&&!c.consider?'<p class="hl-meta" style="color:#6b7280;">○ Background check not yet completed (optional up front; send the link when a family is interested)</p>':'')
       +'<div class="hl-actions">Status: <select onchange="hlSetStatus(\'local_caregivers\',\''+c.id+'\',this.value)">'
       +HL_CG_STATUSES.map(function(st){return '<option'+(st===(c.status||'applied')?' selected':'')+'>'+st+'</option>';}).join('')+'</select>'
-      +((!c.paid_at&&c.email)?'<button class="btn btn-primary" onclick="hlPayLink(\''+c.id+'\',this)">Send $45 check payment link</button>':'')
+      +((!c.paid_at&&c.email)?'<button class="btn btn-primary" onclick="hlPayLink(\''+c.id+'\',this,true)">🎉 Family interested → send check link</button><button class="btn btn-secondary" onclick="hlPayLink(\''+c.id+'\',this,false)">Send standard check link</button>':'')
       +(!c.oig_checked?'<button class="btn btn-secondary" onclick="hlOig(\''+c.id+'\',this)">Run free OIG screen</button>':'')
       +(c.seen?'':'<button class="btn btn-secondary" onclick="hlSeen(\'local_caregivers\',\''+c.id+'\')">Mark seen</button>')
       +'<button class="btn btn-secondary" onclick="hlDelete(\'local_caregivers\',\''+c.id+'\')">Delete</button></div>'
@@ -2889,11 +2890,11 @@ function renderHtLocal(){
   hlBadges();
 }
 const HL_EP='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/ht-local?token=htorder_078070ed7c3e8e7619e567dcfaddfc400e43147a';
-async function hlPayLink(id,btn){
-  if(!confirm('Email this caregiver a $45 Stripe payment link for their background check?')) return;
+async function hlPayLink(id,btn,fam){
+  if(!confirm(fam?'Send the "a family wants to move forward with you" email with the $45 payment link?':'Email this caregiver a standard $45 payment link for their background check?')) return;
   btn.disabled=true; btn.textContent='Sending…';
   try{
-    const r=await fetch(HL_EP,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'paylink',caregiver_id:id})});
+    const r=await fetch(HL_EP,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'paylink',caregiver_id:id,family_interested:!!fam})});
     const d=await r.json();
     if(d&&d.ok){ const c=(DATA.local_caregivers||[]).find(x=>x.id===id); if(c){ c.status='background check'; c.pay_link_sent=new Date().toISOString(); } alert('Payment link emailed. When they pay, Checkr is ordered automatically and status updates itself.'); }
     else alert('Could not send: '+((d&&d.error)||'unknown error'));
