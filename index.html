@@ -1288,6 +1288,14 @@
   </style>
   <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Caregivers Corner</h2>
   <p class="cm-sub">The support community on mo-care.com/caregivers-corner. Nothing goes public until you approve it here. Replies you post from this tab appear with a "Caring Companions" badge.</p>
+  <div class="cm-card" style="border-left:4px solid #54BDB8;">
+    <p style="font-weight:700;color:var(--navy);margin:0 0 4px;">Post a pinned prompt</p>
+    <p style="font-size:13px;color:var(--text-muted);margin:0 0 10px;">A standing conversation-starter that sits at the top of the Corner (e.g. "Wednesday Wins: tell us one thing that went right this week"). Goes live instantly with the Caring Companions badge.</p>
+    <input type="text" id="cmPromptTitle" placeholder="Prompt title" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;font-family:inherit;margin-bottom:8px;">
+    <textarea id="cmPromptBody" placeholder="The invitation itself…"></textarea>
+    <div class="cm-actions"><button class="btn btn-primary" onclick="cmPinPrompt()">Pin to the Corner</button></div>
+  </div>
+  <p class="cm-lab">Waiting for review</p>
   <div id="cmPending"></div>
   <p class="cm-lab">Live on the site</p>
   <div id="cmLive"></div>
@@ -2827,11 +2835,11 @@ function renderCommunity(){
   const live=document.getElementById('cmLive');
   const approved=posts.filter(p=>p.status==='approved');
   live.innerHTML=approved.length?approved.map(function(p){
-    return '<div class="cm-card"><div class="cm-top"><span class="cm-nm">'+esc(p.name||'')+'</span><span style="font-size:12px;color:var(--text-muted);">♥ '+(p.hearts||0)+' · '+((p.replies||[]).filter(r=>r.status==='approved').length)+' replies</span><span class="cm-when">'+cmWhen(p.at)+'</span></div>'
+    return '<div class="cm-card"><div class="cm-top">'+(p.pinned?'<span style="background:#fdf3e2;color:#C17A12;border-radius:999px;font-size:10.5px;font-weight:700;padding:2px 9px;text-transform:uppercase;">Pinned</span>':'')+'<span class="cm-nm">'+esc(p.name||'')+'</span><span style="font-size:12px;color:var(--text-muted);">♥ '+(p.hearts||0)+' · '+((p.replies||[]).filter(r=>r.status==='approved').length)+' replies</span><span class="cm-when">'+cmWhen(p.at)+'</span></div>' 
       +(p.title?'<p style="font-weight:600;margin:2px 0 0;">'+esc(p.title)+'</p>':'')
       +'<p class="cm-bd">'+esc(p.body||'')+'</p>'
       +'<textarea id="cmR-'+p.id+'" placeholder="Reply as Caring Companions… (goes live immediately with the badge)"></textarea>'
-      +'<div class="cm-actions"><button class="btn btn-primary" onclick="cmTeamReply(\''+p.id+'\')">Reply as team</button><button class="btn btn-secondary" onclick="cmRemovePost(\''+p.id+'\')">Take down</button></div></div>';
+      +'<div class="cm-actions"><button class="btn btn-primary" onclick="cmTeamReply(\''+p.id+'\')">Reply as team</button><button class="btn btn-secondary" onclick="cmRemovePost(\''+p.id+'\')">Take down</button>'+(p.pinned?'<button class="btn btn-secondary" onclick="cmUnpin(\''+p.id+'\')">Unpin</button>':'')+'</div></div>';
   }).join(''):'<div class="cm-card" style="color:var(--text-muted);">Nothing live yet. Approve a post above and it appears on the site instantly.</div>';
   const evs=(DATA.corner_events||[]).slice().sort((a,b)=>((a.date||'')+(a.time||'')).localeCompare((b.date||'')+(b.time||'')));
   document.getElementById('cmEvents').innerHTML=evs.length?evs.map(function(e){
@@ -2841,14 +2849,27 @@ function renderCommunity(){
 }
 async function cmApprovePost(id){ const p=(DATA.corner_posts||[]).find(x=>x.id===id); if(!p) return; p.status='approved'; p.seen=true; await persist('corner_posts',p); renderCommunity(); }
 async function cmRemovePost(id){ const p=(DATA.corner_posts||[]).find(x=>x.id===id); if(!p) return; if(!confirm('Remove this post'+(p.status==='approved'?' from the public site':'')+'?')) return; p.status='removed'; await persist('corner_posts',p); renderCommunity(); }
-async function cmApproveReply(pid,rid){ const p=(DATA.corner_posts||[]).find(x=>x.id===pid); if(!p) return; const r=(p.replies||[]).find(x=>x.id===rid); if(!r) return; r.status='approved'; p.pending_replies=(p.replies||[]).some(x=>x.status==='pending'&&x.id!==rid); await persist('corner_posts',p); renderCommunity(); }
+const CM_EP='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/cc-corner?token=htorder_078070ed7c3e8e7619e567dcfaddfc400e43147a';
+function cmNotify(pid,rid){ try{ fetch(CM_EP,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'notify',post_id:pid,reply_id:rid})}); }catch(e){} }
+async function cmApproveReply(pid,rid){ const p=(DATA.corner_posts||[]).find(x=>x.id===pid); if(!p) return; const r=(p.replies||[]).find(x=>x.id===rid); if(!r) return; r.status='approved'; p.pending_replies=(p.replies||[]).some(x=>x.status==='pending'&&x.id!==rid); await persist('corner_posts',p); cmNotify(pid,rid); renderCommunity(); }
+async function cmPinPrompt(){
+  const title=document.getElementById('cmPromptTitle').value.trim(), body=document.getElementById('cmPromptBody').value.trim();
+  if(!title&&!body){ alert('Write the prompt first.'); return; }
+  const item={ id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())), at:new Date().toISOString(), name:'Caring Companions', title:title, body:body||title, email:'', status:'approved', pinned:true, team:true, hearts:0, replies:[], seen:true };
+  DATA.corner_posts=DATA.corner_posts||[]; DATA.corner_posts.push(item);
+  await persist('corner_posts',item);
+  document.getElementById('cmPromptTitle').value=''; document.getElementById('cmPromptBody').value='';
+  renderCommunity();
+}
+async function cmUnpin(id){ const p=(DATA.corner_posts||[]).find(x=>x.id===id); if(!p) return; p.pinned=false; await persist('corner_posts',p); renderCommunity(); }
 async function cmRemoveReply(pid,rid){ const p=(DATA.corner_posts||[]).find(x=>x.id===pid); if(!p) return; const r=(p.replies||[]).find(x=>x.id===rid); if(!r) return; r.status='removed'; await persist('corner_posts',p); renderCommunity(); }
 async function cmTeamReply(pid){
   const p=(DATA.corner_posts||[]).find(x=>x.id===pid); if(!p) return;
   const ta=document.getElementById('cmR-'+pid); const body=(ta.value||'').trim(); if(!body) return;
   p.replies=p.replies||[];
-  p.replies.push({ id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())), at:new Date().toISOString(), name:(ME&&ME.name)||'Caring Companions', body:body, status:'approved', team:true });
-  await persist('corner_posts',p); renderCommunity();
+  const rid=(crypto.randomUUID?crypto.randomUUID():String(Date.now()));
+  p.replies.push({ id:rid, at:new Date().toISOString(), name:(ME&&ME.name)||'Caring Companions', body:body, status:'approved', team:true });
+  await persist('corner_posts',p); cmNotify(pid,rid); renderCommunity();
 }
 async function cmAddEvent(){
   const date=document.getElementById('cmEvDate').value, title=document.getElementById('cmEvTitle').value.trim();
