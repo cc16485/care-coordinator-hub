@@ -411,6 +411,7 @@
   <div class="fsubbar" id="fsub-htorders">
     <div class="fpill" data-tab="htorders" onclick="switchTab('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Orders<span class="subtab-badge red" id="htOrdPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="htsupport" onclick="switchTab('htsupport')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-ticket"/></svg> Support<span class="subtab-badge red" id="tkPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="htlocal" onclick="switchTab('htlocal')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Local<span class="subtab-badge red" id="hlPillBadge" style="display:none;"></span></div>
   </div>
   <div class="fsubbar" id="fsub-campaigns">
     <div class="fpill" data-tab="campaigns" onclick="switchTab('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns</div>
@@ -1311,6 +1312,29 @@
     </div>
     <div id="cmEvents" style="margin-top:12px;"></div>
   </div>
+</section>
+<section class="tabpanel" id="tab-htlocal">
+  <style>
+    #tab-htlocal h2{font-size:22px;margin:0 0 4px;color:var(--navy);}
+    #tab-htlocal .hl-sub{color:var(--text-muted);font-size:14px;margin:0 0 16px;max-width:80ch;}
+    #tab-htlocal .hl-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:0 0 12px;box-shadow:0 1px 2px rgba(16,24,40,.03);}
+    #tab-htlocal .hl-card.unseen{border-left:4px solid #F0A63A;}
+    #tab-htlocal .hl-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
+    #tab-htlocal .hl-nm{font-weight:700;color:var(--navy);font-size:15px;}
+    #tab-htlocal .hl-st{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-radius:999px;padding:3px 10px;}
+    #tab-htlocal .hl-when{margin-left:auto;color:var(--text-muted);font-size:12.5px;}
+    #tab-htlocal .hl-meta{font-size:13.5px;color:var(--text);margin:2px 0 0;line-height:1.6;}
+    #tab-htlocal .hl-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    #tab-htlocal .hl-lab{font-size:12.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin:18px 0 8px;}
+    #tab-htlocal textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;min-height:44px;margin-top:8px;}
+    #tab-htlocal select{padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;}
+  </style>
+  <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> HomeTogether Local</h2>
+  <p class="hl-sub">Concierge matching. Caregivers apply and families request at tryhometogether.com/local; you interview + background-check caregivers, then personally introduce matches by phone or email. Nothing is ever public.</p>
+  <p class="hl-lab">Caregiver applications</p>
+  <div id="hlCaregivers"></div>
+  <p class="hl-lab">Family requests</p>
+  <div id="hlFamilies"></div>
 </section>
 <section class="tabpanel" id="tab-campaigns">
   <style>
@@ -2396,7 +2420,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [] };
+let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2509,7 +2533,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2673,7 +2697,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders','htsupport'],campaigns:['campaigns','feedback','community'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community'],settings:['settings']};
 function renderFeedback(){
   const el=document.getElementById('fbList'); if(!el) return;
   const rows=(DATA.feedback||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
@@ -2803,6 +2827,60 @@ async function bkgCancel(id){
   b.status='cancelled'; b.seen=true; await persist('consult_bookings',b); renderBookings();
 }
 async function bkgDelete(id){ if(!confirm('Delete this booking entry?')) return; await removeItem('consult_bookings', id); DATA.consult_bookings=(DATA.consult_bookings||[]).filter(x=>x.id!==id); renderBookings(); }
+var HL_CG_STATUSES=['applied','interviewing','background check','active','declined'];
+var HL_FAM_STATUSES=['new','matching','introduced','closed'];
+function hlStatusColor(st){
+  return {applied:'background:var(--amber-bg);color:var(--amber);', interviewing:'background:#e8f0fe;color:#1a56db;', 'background check':'background:#ede9fe;color:#6d28d9;', active:'background:#dcfce7;color:#15803d;', declined:'background:#f3f4f6;color:#6b7280;', 'new':'background:var(--amber-bg);color:var(--amber);', matching:'background:#e8f0fe;color:#1a56db;', introduced:'background:#dcfce7;color:#15803d;', closed:'background:#f3f4f6;color:#6b7280;'}[st]||'background:#f3f4f6;color:#6b7280;';
+}
+function hlBadges(){
+  const n=(DATA.local_caregivers||[]).filter(x=>!x.seen).length+(DATA.local_families||[]).filter(x=>!x.seen).length;
+  const b=document.getElementById('hlPillBadge'); if(b){ b.textContent=n; b.style.display=n?'':'none'; }
+}
+function hlWhen(iso){ return iso?new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):''; }
+function renderHtLocal(){
+  const cg=document.getElementById('hlCaregivers'); if(!cg) return;
+  const cgs=(DATA.local_caregivers||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+  cg.innerHTML=cgs.length?cgs.map(function(c){
+    return '<div class="hl-card'+(c.seen?'':' unseen')+'">'
+      +'<div class="hl-top"><span class="hl-nm">'+esc(c.name||'')+'</span>'
+      +'<span class="hl-st" style="'+hlStatusColor(c.status)+'">'+esc(c.status||'applied')+'</span>'
+      +'<span class="hl-when">'+hlWhen(c.at)+'</span></div>'
+      +'<p class="hl-meta">'+esc(c.city||'')+(c.years?' · '+esc(c.years)+' yrs':'')+(c.rate?' · '+esc(c.rate)+'/hr':'')+(c.area?' · serves '+esc(c.area):'')+'</p>'
+      +'<p class="hl-meta"><a href="tel:'+esc(c.phone||'')+'">'+esc(c.phone||'')+'</a>'+(c.email?' · <a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>':'')+'</p>'
+      +((c.skills||[]).length?'<p class="hl-meta"><b>Skills:</b> '+esc((c.skills||[]).join(', '))+'</p>':'')
+      +((c.certs||[]).length?'<p class="hl-meta"><b>Certs:</b> '+esc((c.certs||[]).join(', '))+'</p>':'')
+      +(c.bio?'<p class="hl-meta" style="white-space:pre-wrap;color:var(--text-muted);">'+esc(c.bio)+'</p>':'')
+      +'<div class="hl-actions">Status: <select onchange="hlSetStatus(\'local_caregivers\',\''+c.id+'\',this.value)">'
+      +HL_CG_STATUSES.map(function(st){return '<option'+(st===(c.status||'applied')?' selected':'')+'>'+st+'</option>';}).join('')+'</select>'
+      +(c.seen?'':'<button class="btn btn-secondary" onclick="hlSeen(\'local_caregivers\',\''+c.id+'\')">Mark seen</button>')
+      +'<button class="btn btn-secondary" onclick="hlDelete(\'local_caregivers\',\''+c.id+'\')">Delete</button></div>'
+      +'<textarea placeholder="Team notes (interview date, check results, matched with…)" onchange="hlNote(\'local_caregivers\',\''+c.id+'\',this.value)">'+esc(c.notes||'')+'</textarea>'
+      +'</div>';
+  }).join(''):'<div class="hl-card" style="color:var(--text-muted);">No caregiver applications yet. Share tryhometogether.com/local#join with good caregivers you know.</div>';
+  const fm=document.getElementById('hlFamilies');
+  const fms=(DATA.local_families||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+  fm.innerHTML=fms.length?fms.map(function(f){
+    return '<div class="hl-card'+(f.seen?'':' unseen')+'">'
+      +'<div class="hl-top"><span class="hl-nm">'+esc(f.name||'')+'</span>'
+      +'<span class="hl-st" style="'+hlStatusColor(f.status)+'">'+esc(f.status||'new')+'</span>'
+      +'<span class="hl-when">'+hlWhen(f.at)+'</span></div>'
+      +'<p class="hl-meta">'+esc(f.zip||'')+(f.who?' · care for '+esc(f.who):'')+(f.freq?' · '+esc(f.freq):'')+'</p>'
+      +((f.care||[]).length?'<p class="hl-meta"><b>Needs:</b> '+esc((f.care||[]).join(', '))+'</p>':'')
+      +'<p class="hl-meta"><a href="tel:'+esc(f.phone||'')+'">'+esc(f.phone||'')+'</a>'+(f.email?' · <a href="mailto:'+esc(f.email)+'">'+esc(f.email)+'</a>':'')+'</p>'
+      +(f.notes?'<p class="hl-meta" style="color:var(--text-muted);">'+esc(f.notes)+'</p>':'')
+      +'<div class="hl-actions">Status: <select onchange="hlSetStatus(\'local_families\',\''+f.id+'\',this.value)">'
+      +HL_FAM_STATUSES.map(function(st){return '<option'+(st===(f.status||'new')?' selected':'')+'>'+st+'</option>';}).join('')+'</select>'
+      +(f.seen?'':'<button class="btn btn-secondary" onclick="hlSeen(\'local_families\',\''+f.id+'\')">Mark seen</button>')
+      +'<button class="btn btn-secondary" onclick="hlDelete(\'local_families\',\''+f.id+'\')">Delete</button></div>'
+      +'<textarea placeholder="Team notes (called, introduced to…, outcome)" onchange="hlNote(\'local_families\',\''+f.id+'\',this.value)">'+esc(f.team_notes||'')+'</textarea>'
+      +'</div>';
+  }).join(''):'<div class="hl-card" style="color:var(--text-muted);">No family requests yet.</div>';
+  hlBadges();
+}
+async function hlSetStatus(key,id,st){ const x=(DATA[key]||[]).find(i=>i.id===id); if(!x) return; x.status=st; x.seen=true; await persist(key,x); renderHtLocal(); }
+async function hlSeen(key,id){ const x=(DATA[key]||[]).find(i=>i.id===id); if(!x) return; x.seen=true; await persist(key,x); renderHtLocal(); }
+async function hlNote(key,id,v){ const x=(DATA[key]||[]).find(i=>i.id===id); if(!x) return; if(key==='local_families') x.team_notes=v; else x.notes=v; await persist(key,x); }
+async function hlDelete(key,id){ if(!confirm('Delete this entry?')) return; await removeItem(key,id); DATA[key]=(DATA[key]||[]).filter(i=>i.id!==id); renderHtLocal(); }
 function cmBadges(){
   var n=0;
   (DATA.corner_posts||[]).forEach(function(p){
@@ -2908,6 +2986,7 @@ function renderActiveTab(){
   if(activeTab==='leads') renderLeads();
   if(activeTab==='bookings') renderBookings();
   if(activeTab==='community') renderCommunity();
+  if(activeTab==='htlocal') renderHtLocal();
   if(activeTab==='assessments') renderAssessments();
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='supervisory') renderSupervisory();
@@ -2923,7 +3002,7 @@ function renderActiveTab(){
   if(activeTab==='htsupport') renderTickets();
   if(activeTab==='campaigns') renderCampaigns();
   if(activeTab==='feedback') renderFeedback();
-  updateHTBadge(); fbBadges(); bkgBadges(); cmBadges();
+  updateHTBadge(); fbBadges(); bkgBadges(); cmBadges(); hlBadges();
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
   const el = document.getElementById(containerId);
