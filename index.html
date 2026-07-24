@@ -831,9 +831,8 @@
       </details>
 
 <div class="subtab-bar">
-<button class="subtab active" id="subtabBtn-pipeline" onclick="switchLeadsSubtab('pipeline')">👥 Pipeline</button>
-<button class="subtab" id="subtabBtn-postcall" onclick="switchLeadsSubtab('postcall')">💬 Post-Call Follow-Up<span class="subtab-badge amber" id="subtabBadge-postcall" style="display:none;"></span></button>
-<button class="subtab" id="subtabBtn-followupqueue" onclick="switchLeadsSubtab('followupqueue')">🔀 Follow-Up Queue<span class="subtab-badge red" id="subtabBadge-followupqueue" style="display:none;"></span></button>
+<button class="subtab active" id="subtabBtn-pipeline" onclick="switchLeadsSubtab('pipeline')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Pipeline</button>
+<button class="subtab" id="subtabBtn-followups" onclick="switchLeadsSubtab('followups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Follow-ups<span class="subtab-badge red" id="subtabBadge-followups" style="display:none;"></span></button>
 </div>
 
 <!-- ---- Sub-tab: Pipeline ---- -->
@@ -841,49 +840,41 @@
 <div class="toolbar" id="leadsFilters"></div>
 <div class="toolbar">
 <div class="spacer"></div>
-<div id="leadsDueBanner" style="display:none;background:var(--red-bg);border:1.5px solid #FCA5A5;color:var(--red);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:12px;cursor:pointer;" onclick="switchLeadsSubtab('followupqueue')"></div>
-<button class="secondary" onclick="switchLeadsSubtab('followupqueue')">🔀 View Follow-Up Queue</button>
+<div id="leadsDueBanner" style="display:none;background:var(--red-bg);border:1.5px solid #FCA5A5;color:var(--red);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:12px;cursor:pointer;" onclick="switchLeadsSubtab('followups')"></div>
+<button class="secondary" onclick="switchLeadsSubtab('followups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> View Follow-ups</button>
 <button class="primary" onclick="openLeadModal()">+ Add Lead</button>
 </div>
 <div class="card"><div id="leadsTableWrap"></div></div>
 </div>
 
-<!-- ---- Sub-tab: Post-Call Follow-Up ---- -->
-<div class="subtabpanel" id="subtab-postcall">
-<div class="ai-box" style="margin-bottom:14px;">
-<b>How this works:</b> click <b>🤖 New AI Draft</b>, pick the lead, and AI reads that lead's call notes to draft an email + SMS follow-up for you to review. Nothing sends on its own — every draft sits here until you approve it and send it yourself, then mark it Sent so nothing falls through the cracks. You can also start a draft manually and skip AI entirely.
+<!-- ---- Sub-tab: Follow-ups (queue + drafts, merged) ---- -->
+<div class="subtabpanel" id="subtab-followups">
+<div class="toolbar" style="margin-bottom:14px;">
+<div class="spacer"></div>
+<span class="badge bad" id="fqStatOverdue" style="font-size:12px;">0 Overdue</span>
+<span class="badge warn" id="fqStatPending" style="font-size:12px;">0 Pending</span>
+<span class="badge ok" id="fqStatReady" style="font-size:12px;">0 Ready</span>
+<button class="secondary" onclick="openFollowUpModal()">+ Manual draft</button>
+<button class="primary" onclick="openFollowUpModal()"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> New AI draft</button>
 </div>
+<div class="ai-box" style="margin-bottom:14px;">
+<b>How this works:</b> this is your one list of everyone who needs a follow-up, sorted by when they're due. A lead with an AI-drafted recap shows a <b>Review draft</b> button — open it, approve it, send it, then mark it sent so nothing falls through the cracks. Use the branch cards to filter by follow-up type. "Log contact today" on a lead sets its next follow-up date automatically.
+</div>
+<div class="branch-cards" id="followUpBranchCards"></div>
+<div class="fq-toolbar">
+<input type="text" id="fqSearchInput" placeholder="Search leads..." oninput="setFqSearch(this.value)">
+<button class="secondary" onclick="setFqBranchFilter('all')" id="fqClearFilterBtn" style="display:none;">Clear branch filter</button>
+</div>
+<div class="card"><div id="followUpQueueWrap"></div></div>
+<details class="guide" style="margin-top:16px;"><summary>All drafts — pending, approved, and sent</summary><div class="guide-body" style="margin-top:10px;">
 <div class="subtab-bar" id="postcallFilterBar" style="margin-bottom:14px;">
 <button class="subtab active" id="pcFilterBtn-all" onclick="setFuFilterStatus('all')">All Drafts</button>
 <button class="subtab" id="pcFilterBtn-pending_approval" onclick="setFuFilterStatus('pending_approval')">Pending Approval<span class="subtab-badge amber" id="pcFilterBadge-pending" style="display:none;"></span></button>
 <button class="subtab" id="pcFilterBtn-approved" onclick="setFuFilterStatus('approved')">Approved</button>
 <button class="subtab" id="pcFilterBtn-sent" onclick="setFuFilterStatus('sent')">Sent</button>
 </div>
-<div class="toolbar">
-<div class="spacer"></div>
-<button class="secondary" onclick="openFollowUpModal()">+ New Draft (Manual)</button>
-<button class="primary" onclick="openFollowUpModal()">🤖 New AI Draft</button>
-</div>
 <div class="card"><div id="postCallTableWrap"></div></div>
-</div>
-
-<!-- ---- Sub-tab: Follow-Up Queue ---- -->
-<div class="subtabpanel" id="subtab-followupqueue">
-<div class="toolbar" style="margin-bottom:14px;">
-<div class="spacer"></div>
-<span class="badge bad" id="fqStatOverdue" style="font-size:12px;">0 Overdue</span>
-<span class="badge warn" id="fqStatPending" style="font-size:12px;">0 Pending</span>
-<span class="badge ok" id="fqStatReady" style="font-size:12px;">0 Ready</span>
-</div>
-<div class="ai-box" style="margin-bottom:14px;">
-<b>How this works:</b> open a lead and click <b>🤖 Suggest with AI</b> to have it read the call notes and suggest a branch + intent tags — you still review and save, nothing is applied silently. You can also set a branch manually. Each branch has a default wait time; "Log contact today" on a lead auto-calculates its next follow-up date from that.
-</div>
-<div class="branch-cards" id="followUpBranchCards"></div>
-<div class="fq-toolbar">
-<input type="text" id="fqSearchInput" placeholder="🔍 Search leads..." oninput="setFqSearch(this.value)">
-<button class="secondary" onclick="setFqBranchFilter('all')" id="fqClearFilterBtn" style="display:none;">Clear branch filter</button>
-</div>
-<div class="card"><div id="followUpQueueWrap"></div></div>
+</div></details>
 </div>
 </section>
 
@@ -3488,13 +3479,13 @@ async function htDeleteOrder(id){
 
 /* ---------------- LEADS ---------------- */
 function switchLeadsSubtab(name){
+  if(name==='postcall'||name==='followupqueue') name='followups';
   activeLeadsSubtab = name;
-  document.querySelectorAll('.subtab-bar .subtab').forEach(b=>b.classList.remove('active'));
-  document.getElementById('subtabBtn-'+(name==='postcall'?'postcall':name==='followupqueue'?'followupqueue':'pipeline')).classList.add('active');
-  document.querySelectorAll('.subtabpanel').forEach(p=>p.classList.remove('active'));
-  document.getElementById('subtab-'+(name==='postcall'?'postcall':name==='followupqueue'?'followupqueue':'pipeline')).classList.add('active');
-  if(name==='postcall') renderPostCallFollowups();
-  if(name==='followupqueue') renderFollowUpQueue();
+  document.querySelectorAll('#tab-leads > .subtab-bar .subtab').forEach(b=>b.classList.remove('active'));
+  const _sb = document.getElementById('subtabBtn-'+(name==='followups'?'followups':'pipeline')); if(_sb) _sb.classList.add('active');
+  document.querySelectorAll('#tab-leads > .subtabpanel').forEach(p=>p.classList.remove('active'));
+  const _sp = document.getElementById('subtab-'+(name==='followups'?'followups':'pipeline')); if(_sp) _sp.classList.add('active');
+  if(name==='followups'){ renderFollowUpQueue(); renderPostCallFollowups(); }
 }
 function updateLeadsSubtabBadges(){
   const pendingCount = DATA.post_call_followups.filter(f=>f.status==='pending_approval').length;
@@ -3502,14 +3493,12 @@ function updateLeadsSubtabBadges(){
   const dueBanner = document.getElementById('leadsDueBanner');
   if(dueBanner){
     dueBanner.style.display = overdueLeads ? 'block' : 'none';
-    dueBanner.textContent = '⚠️ '+overdueLeads+' follow-up'+(overdueLeads===1?'':'s')+' due or overdue — click to open the Follow-Up Queue';
+    dueBanner.textContent = overdueLeads+' follow-up'+(overdueLeads===1?'':'s')+' due or overdue. Click to open Follow-ups.';
   }
   const draftReadyCount = pendingCount; // same set feeds the queue's "draft-ready" bucket
   const queueCount = overdueLeads + draftReadyCount;
-  const pcBadge = document.getElementById('subtabBadge-postcall');
-  const fqBadge = document.getElementById('subtabBadge-followupqueue');
-  pcBadge.textContent = pendingCount; pcBadge.style.display = pendingCount>0 ? '' : 'none';
-  fqBadge.textContent = queueCount; fqBadge.style.display = queueCount>0 ? '' : 'none';
+  const fBadge = document.getElementById('subtabBadge-followups');
+  if(fBadge){ fBadge.textContent = queueCount; fBadge.style.display = queueCount>0 ? '' : 'none'; }
 }
 function renderLeads(){
   updateLeadsSubtabBadges();
@@ -4590,7 +4579,7 @@ async function saveLead(){
   await persist('leads', merged);
   closeModal('leadModalBackdrop');
   renderLeads();
-  if(activeLeadsSubtab==='followupqueue') renderFollowUpQueue();
+  if(activeLeadsSubtab==='followups') renderFollowUpQueue();
 }
 function scheduleAssessmentFromLead(leadId){
   const l = DATA.leads.find(x=>x.id===leadId);
@@ -4748,7 +4737,7 @@ async function saveFollowUp(forceStatus){
   closeModal('followUpModalBackdrop');
   renderPostCallFollowups();
   updateLeadsSubtabBadges();
-  if(activeLeadsSubtab==='followupqueue') renderFollowUpQueue();
+  if(activeLeadsSubtab==='followups') renderFollowUpQueue();
 }
 async function approveFollowUp(id){
   const f = DATA.post_call_followups.find(x=>x.id===id);
@@ -4757,7 +4746,7 @@ async function approveFollowUp(id){
   await persist('post_call_followups', f);
   renderPostCallFollowups();
   updateLeadsSubtabBadges();
-  if(activeLeadsSubtab==='followupqueue') renderFollowUpQueue();
+  if(activeLeadsSubtab==='followups') renderFollowUpQueue();
 }
 async function delayFollowUp(id){
   const f = DATA.post_call_followups.find(x=>x.id===id);
@@ -4766,7 +4755,7 @@ async function delayFollowUp(id){
   await persist('post_call_followups', f);
   renderPostCallFollowups();
   updateLeadsSubtabBadges();
-  if(activeLeadsSubtab==='followupqueue') renderFollowUpQueue();
+  if(activeLeadsSubtab==='followups') renderFollowUpQueue();
 }
 async function markFollowUpSent(id){
   const f = DATA.post_call_followups.find(x=>x.id===id);
@@ -4776,7 +4765,7 @@ async function markFollowUpSent(id){
   await persist('post_call_followups', f);
   renderPostCallFollowups();
   updateLeadsSubtabBadges();
-  if(activeLeadsSubtab==='followupqueue') renderFollowUpQueue();
+  if(activeLeadsSubtab==='followups') renderFollowUpQueue();
 }
 
 /* ---------------- FOLLOW-UP QUEUE (branch dashboard) ---------------- */
@@ -4849,6 +4838,9 @@ function renderFollowUpQueueList(){
     const branchChip = cfg
       ? `<span class="branch-chip branch-${cfg.color}">${cfg.icon} ${cfg.label}</span>`
       : `<span class="branch-chip" style="background:#F1F5F9;color:var(--text-muted);">Not sorted</span>`;
+    const pdraft = DATA.post_call_followups.find(f=>f.lead_id===l.id && f.status==='pending_approval');
+    const draftChip = pdraft ? '<span class="badge warn">Draft ready</span>' : '';
+    const ph = l.phone||l.client_phone||'';
     return `
     <div class="lead-card" onclick="openFollowUpDetail('${l.id}')">
       <div class="lc-icon" style="background:${cfg?'var(--'+cfg.color+'-bg)':'#F1F5F9'};">${cfg?cfg.icon:'📋'}</div>
@@ -4857,14 +4849,20 @@ function renderFollowUpQueueList(){
           <span class="lc-name">${leadDisplayName(l)}</span>
           ${statusChip}
           ${branchChip}
+          ${draftChip}
         </div>
         <div class="lc-summary">${l.interest_notes||'No call notes logged yet.'}</div>
         <div class="lc-meta">
-          <span>📞 ${l.phone||l.client_phone||'—'}</span>
+          <span>📞 ${ph||'—'}</span>
           <span>🕒 Last contact: ${l.last_contacted_at||'—'}${da!==null?' ('+da+'d ago)':''}</span>
           <span>📅 Next action: <b>${l.follow_up_due||'—'}</b></span>
         </div>
         ${(l.intent_tags&&l.intent_tags.length) ? `<div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;">${l.intent_tags.map(t=>`<span class="tag-chip">"${t}"</span>`).join('')}</div>` : ''}
+        <div style="margin-top:9px;display:flex;gap:12px;align-items:center;">
+          ${pdraft ? `<button class="linklike" style="font-weight:700;color:var(--gold-text);" onclick="event.stopPropagation();openFollowUpModal('${pdraft.id}')">Review draft</button>` : ''}
+          ${ph ? `<a href="tel:${ph.replace(/[^0-9+]/g,'')}" class="linklike" style="text-decoration:none;" onclick="event.stopPropagation();">Call</a>` : ''}
+          <button class="linklike" onclick="event.stopPropagation();openFollowUpDetail('${l.id}')">Details</button>
+        </div>
       </div>
     </div>`;
   }).join('');
