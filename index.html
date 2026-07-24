@@ -434,6 +434,14 @@
         <button class="secondary" onclick="ccmtgSolo()">🎥 Meeting</button>
         <button class="primary" onclick="openActivityModal()">＋ Schedule an activity</button>
       </div>
+      <div class="card" id="myDayCard" style="padding:15px 18px 9px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <svg style="width:21px;height:21px;flex:none;" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg>
+          <b style="font-size:16px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Today's priorities</b>
+          <span class="field-note" id="myDayCount" style="font-size:12px;"></span>
+        </div>
+        <div id="myDayList"></div>
+      </div>
       <div class="card" id="attnCard" style="padding:2px 18px;margin-bottom:16px;display:none;">
         <div id="handoffBanner"></div>
         <div id="careAlerts"></div>
@@ -453,6 +461,7 @@
         </div>
         <div class="stage-grid" id="stageGrid"></div>
       </div>
+      <details class="guide" style="margin-bottom:16px;"><summary>Full breakdown — overdue, due today, new leads, completed</summary><div class="guide-body" style="margin-top:10px;">
       <div class="profile-grid" style="grid-template-columns:1fr 1fr;">
         <div>
           <div class="card" style="padding:16px;margin-bottom:14px;">
@@ -475,6 +484,7 @@
           </div>
         </div>
       </div>
+      </div></details>
 
       <div class="mission-label" style="color:#B23B3B;margin-top:20px;">💚 Keep clients happy · quality of care high</div>
       <div class="kpi-grid" id="careKpis"></div>
@@ -4051,6 +4061,7 @@ function renderToday(){
   const doneToday = (DATA.activities||[]).filter(a=>a.done_at&&String(a.done_at).slice(0,10)===t);
   document.getElementById('todaySub').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   renderOverviewTop(overdueA.length+overdueL.length, dueA.length+dueL.length);
+  renderMyDay();
   document.getElementById('todayOverdue').innerHTML =
     (overdueA.map(a=>actRow(a,true)).join('')+overdueL.map(leadDueRow).join('')) || '<div class="field-note">Nothing overdue. 🎉</div>';
   document.getElementById('todayDue').innerHTML =
@@ -4083,6 +4094,60 @@ function leadNoPlanRow(l){
     +'<div class="field-note">'+esc((l.interest_notes||'').slice(0,60))+'</div></div>'
     +'<button class="linklike" onclick="openLeadProfile(\''+l.id+'\')">Open</button>'
     +'</div>';
+}
+function myDayRow(color, iconId, title, sub, tag, tagColor, tagBg, callPhone, actionLabel, actionJs){
+  const tel = callPhone ? '<a href="tel:'+String(callPhone).replace(/[^0-9+]/g,'')+'" class="linklike" style="text-decoration:none;white-space:nowrap;font-size:13px;">Call</a>' : '';
+  return '<div style="display:flex;align-items:center;gap:11px;font-size:13px;background:#fff;border:1px solid var(--border);border-left:3px solid '+color+';border-radius:9px;padding:9px 13px;margin-bottom:8px;">'
+    +'<svg style="width:22px;height:22px;flex:none;" aria-hidden="true"><use href="icons.svg#'+iconId+'"/></svg>'
+    +'<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+title+'</div>'
+    +'<div class="field-note" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+sub+'</div></div>'
+    +'<span style="font-size:10.5px;font-weight:800;color:'+tagColor+';background:'+tagBg+';padding:3px 8px;border-radius:6px;white-space:nowrap;letter-spacing:.02em;">'+tag+'</span>'
+    +tel
+    +'<button class="linklike" style="white-space:nowrap;" onclick="'+actionJs+'">'+actionLabel+'</button>'
+    +'</div>';
+}
+function renderMyDay(){
+  const host = document.getElementById('myDayList'); if(!host) return;
+  const esc = escapeHtmlComms, t = today();
+  const openLeads = DATA.leads.filter(l=>l.status!=='Converted'&&l.status!=='Lost');
+  const acts = (DATA.activities||[]).filter(a=>!a.done_at);
+  let cs = {}; try { cs = careStats()||{}; } catch(e){ cs = {}; }
+  const nm = l=>esc(((l.first_name||'')+' '+(l.last_name||'')).trim()||'(no name)');
+  const rows = [];
+  (cs.escalated||[]).forEach(c=>rows.push(myDayRow('var(--red)','i-heart',
+    esc(c.client_name||'Client')+': escalated concern',
+    esc(String(c.concerns_raised||'Needs attention').slice(0,64)),
+    'ESCALATED','var(--red)','var(--red-bg)','',"Open","switchTab('checkins')")));
+  openLeads.filter(l=>l.follow_up_due&&l.follow_up_due<t).forEach(l=>rows.push(myDayRow('var(--red)','i-phone',
+    'Call '+nm(l),'Follow-up was due '+l.follow_up_due,'OVERDUE','var(--red)','var(--red-bg)',l.phone,'Open',"openLeadProfile('"+l.id+"')")));
+  acts.filter(a=>a.due&&a.due<t).forEach(a=>rows.push(myDayRow('var(--red)','i-calendar',
+    esc(a.title||'Task'),'Was due '+a.due,'OVERDUE','var(--red)','var(--red-bg)',actPhone(a),'Done',"markActivityDone('"+a.id+"')")));
+  (cs.overdueCk||[]).forEach(c=>rows.push(myDayRow('var(--red)','i-heart',
+    esc(c.client_name||'Client')+' check-in',(daysBetween(c.next_checkin_due,t))+' days overdue',
+    'CARE','var(--red)','var(--red-bg)','','Open',"switchTab('checkins')")));
+  (DATA.post_call_followups||[]).filter(f=>f.status==='pending_approval').forEach(f=>{
+    const lead = DATA.leads.find(l=>l.id===f.lead_id);
+    rows.push(myDayRow('var(--gold)','i-chat','Approve recap for '+(lead?nm(lead):'a lead'),
+      esc(String(f.call_summary||f.email_subject||'AI drafted an email and text').slice(0,64)),
+      'AI DRAFT','var(--gold-text)','var(--amber-bg)','','Review',"openFollowUpModal('"+f.id+"')"));
+  });
+  openLeads.filter(l=>l.follow_up_due===t).forEach(l=>rows.push(myDayRow('var(--gold)','i-phone',
+    'Follow up with '+nm(l),'Due today'+(l.follow_up_branch?' · '+esc(l.follow_up_branch):''),
+    'DUE TODAY','var(--gold-text)','var(--amber-bg)',l.phone,'Open',"openLeadProfile('"+l.id+"')")));
+  acts.filter(a=>a.due===t).forEach(a=>rows.push(myDayRow('var(--gold)','i-calendar',
+    esc(a.title||'Task'),'Due today','DUE TODAY','var(--gold-text)','var(--amber-bg)',actPhone(a),'Done',"markActivityDone('"+a.id+"')")));
+  openLeads.filter(l=>l.status==='New'&&!l.follow_up_due).forEach(l=>rows.push(myDayRow('var(--navy)','i-person',
+    'New lead: '+nm(l),esc(String(l.interest_notes||l.source||'No follow-up set yet').slice(0,64)),
+    'NEW','var(--navy)','#EAF1F8','',"Set plan","openLeadProfile('"+l.id+"')")));
+  const CAP = 12;
+  const count = document.getElementById('myDayCount');
+  if(!rows.length){
+    host.innerHTML = '<div style="display:flex;align-items:center;gap:9px;padding:12px 4px;color:var(--green);font-size:13.5px;font-weight:700;"><svg style="width:20px;height:20px;flex:none;" aria-hidden="true"><use href="icons.svg#i-heart"/></svg>You are all caught up. Nothing needs you right now.</div>';
+    if(count) count.textContent='';
+    return;
+  }
+  host.innerHTML = rows.slice(0,CAP).join('') + (rows.length>CAP?'<div class="field-note" style="margin-top:6px;">+'+(rows.length-CAP)+' more in the full breakdown below.</div>':'');
+  if(count) count.textContent = rows.length+(rows.length===1?' thing needs you':' things need you');
 }
 /* Overview dashboard: live KPI cards + pipeline stage tiles (design handoff). */
 let navUserFirst='';
