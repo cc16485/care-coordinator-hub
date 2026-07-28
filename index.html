@@ -618,6 +618,26 @@
         <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">🌱 Open Augusta — today's interviews ↗</a>
       </div>
 
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">📅 Booked interviews — from your Google Calendars</b>
+          <span class="field-note">Augusta books them straight onto each coordinator's calendar</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="renderCalInterviews(true,this)">↻ Refresh</button>
+        </div>
+        <div id="calInterviews" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
+        <details style="margin-top:12px;">
+          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">⚙ Connect a coordinator's calendar</summary>
+          <div class="field-note" style="margin:8px 0;">In Google Calendar on a computer: gear → <b>Settings</b> → click your calendar in the left list → scroll to <b>Integrate calendar</b> → copy the <b>Secret address in iCal format</b> (ends in <code>basic.ics</code>) and paste it here. Only events with “interview” in the title or notes show up, so personal appointments stay private.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="calName" placeholder="Coordinator name" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+            <input id="calUrl" placeholder="Secret iCal address (…basic.ics)" style="flex:1;min-width:240px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+            <button class="addlead" onclick="calConnAdd()">Add calendar</button>
+          </div>
+          <div id="calConnList" style="margin-top:8px;"></div>
+        </details>
+      </div>
+
       <div class="card" style="padding:0 18px;margin-bottom:16px;" id="joCard">
         <details id="joDetails" ontoggle="if(this.open)joInit()">
         <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px 0;">
@@ -2534,7 +2554,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families'];
+  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -3049,7 +3069,7 @@ function renderActiveTab(){
   if(activeTab==='comms') renderCommsPage();
   if(activeTab==='inbox') renderInboxCc();
   if(activeTab==='meetings') renderMeetingsPage();
-  if(activeTab==='interviews'){ joInit(); renderInterviews(); }
+  if(activeTab==='interviews'){ joInit(); renderInterviews(); renderCalInterviews(); }
   if(activeTab==='settings') fillSettingsPanel();
   if(activeTab==='htorders') renderHTOrders();
   if(activeTab==='htorders') renderDevices();
@@ -6409,6 +6429,120 @@ async function renderInterviews(btn){
       :'<div class="field-note">No offers yet — after an interview, click 📋 Offer a Job above.</div>';
   }catch(e){ box.innerHTML='<div class="field-note" style="color:var(--red);">Could not load offers: '+String(e&&e.message||'error')+'</div>'; }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+
+/* ---------------- Booked interviews (Augusta → Google Calendar) ----------------
+   Coordinators connect their calendar's secret iCal address once; the
+   interview-feed edge function fetches and filters the events server-side.
+   Complete/decline outcomes live in app_data 'interview_outcomes'. */
+let CAL_FEED=null, CAL_FEED_AT=0;
+async function renderCalInterviews(force,btn){
+  const box=document.getElementById('calInterviews'); if(!box) return;
+  renderCalConnList();
+  if(!(DATA.interview_calendars||[]).length){
+    box.innerHTML='<div class="field-note">No calendars connected yet — open “⚙ Connect a coordinator\'s calendar” below and paste your secret iCal address once.</div>';
+    return;
+  }
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    if(force||!CAL_FEED||Date.now()-CAL_FEED_AT>5*60*1000){
+      const { data:{ session } } = await sb.auth.getSession();
+      const r=await fetch(CONFIG.supabase_url+'/functions/v1/interview-feed',{
+        method:'POST',
+        headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json', 'apikey':CONFIG.supabase_anon_key },
+        body:'{}' });
+      const data=await r.json();
+      if(!r.ok) throw new Error(data.error||'feed error');
+      CAL_FEED=data; CAL_FEED_AT=Date.now();
+    }
+    const esc=escapeHtmlComms;
+    const outcomes=DATA.interview_outcomes||[];
+    const fmtEv=e=>{
+      if(e.all_day) return new Date(e.start+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+      return new Date(e.start).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    };
+    box.innerHTML=(CAL_FEED.calendars||[]).map(c=>{
+      let inner;
+      if(c.error) inner='<div class="field-note" style="color:var(--red);">'+esc(c.error)+' — check the iCal address below.</div>';
+      else if(!(c.events||[]).length) inner='<div class="field-note">No interviews on this calendar in the next 30 days.</div>';
+      else inner=c.events.map(e=>{
+        const past=new Date(e.start).getTime()<Date.now();
+        const o=outcomes.find(x=>x.uid===e.uid);
+        const oid='ivo_'+btoa(unescape(encodeURIComponent(e.uid))).replace(/[^a-zA-Z0-9]/g,'').slice(0,40);
+        const cand=(e.title||'').replace(/interview( with|:|-)?/i,'').trim();
+        let right;
+        if(o){
+          right=(o.outcome==='offer'
+            ?'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">✓ Offer made'+(o.by?' · '+esc(o.by):'')+'</span>'
+            :'<span class="tag-chip" style="background:#FDE8E8;color:#B23B2E;">🚫 Declined'+(o.reason?' — '+esc(o.reason):'')+'</span>')
+            +' <button class="ghost" style="font-size:11px;padding:2px 8px;" onclick="ivClearOutcome(\''+o.id+'\')">✕ undo</button>';
+        }else{
+          right='<button class="addlead" style="font-size:12px;padding:5px 12px;" onclick="ivOffer(\''+oid+'\',\''+esc(e.uid).replace(/'/g,"\\'")+'\',\''+esc(cand).replace(/'/g,"\\'")+'\',\''+(e.all_day?e.start:String(e.start).slice(0,10))+'\')">📋 Make the offer</button>'
+            +' <button class="ghost" style="font-size:12px;padding:5px 12px;" onclick="ivDecline(\''+oid+'\',\''+esc(e.uid).replace(/'/g,"\\'")+'\',\''+esc(cand).replace(/'/g,"\\'")+'\')">🚫 Decline</button>';
+        }
+        return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border);">'
+          +'<span style="font-size:12.5px;font-weight:700;color:'+(past?'var(--text-muted)':'var(--navy)')+';white-space:nowrap;">'+fmtEv(e)+'</span>'
+          +'<span style="font-size:13.5px;">'+esc(e.title||'(untitled)')+'</span>'
+          +(e.location?'<span class="field-note">📍 '+esc(e.location)+'</span>':'')
+          +'<span style="flex:1;"></span>'+right+'</div>';
+      }).join('');
+      return '<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;">'+esc(c.name)+'</div>'+inner+'</div>';
+    }).join('')||'<div class="field-note">Nothing to show.</div>';
+  }catch(e){
+    box.innerHTML='<div class="field-note" style="color:var(--red);">Could not load calendars: '+String(e&&e.message||'error')+'</div>';
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+async function ivOffer(oid,uid,cand,date){
+  // open the offer form pre-filled, then record the outcome
+  const d=document.getElementById('joDetails'); if(d) d.open=true;
+  joInit();
+  const parts=(cand||'').split(/\s+/);
+  const f=document.getElementById('jo_first'), l=document.getElementById('jo_last');
+  if(f&&!f.value&&parts[0]) f.value=parts[0];
+  if(l&&!l.value&&parts.length>1) l.value=parts.slice(1).join(' ');
+  const dt=document.getElementById('jo_date'); if(dt&&date) dt.value=date;
+  const rec={id:oid,uid:uid,outcome:'offer',by:ME.name||ME.email||'',at:new Date().toISOString()};
+  DATA.interview_outcomes=(DATA.interview_outcomes||[]).filter(x=>x.id!==oid).concat([rec]);
+  await persist('interview_outcomes',rec);
+  renderCalInterviews();
+  if(d) d.scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function ivDecline(oid,uid,cand){
+  const reason=prompt('Declining '+(cand||'this candidate')+' — quick reason? (optional)')||'';
+  const rec={id:oid,uid:uid,outcome:'declined',reason:reason.slice(0,200),by:ME.name||ME.email||'',at:new Date().toISOString()};
+  DATA.interview_outcomes=(DATA.interview_outcomes||[]).filter(x=>x.id!==oid).concat([rec]);
+  await persist('interview_outcomes',rec);
+  renderCalInterviews();
+}
+async function ivClearOutcome(id){
+  await removeItem('interview_outcomes',id);
+  DATA.interview_outcomes=(DATA.interview_outcomes||[]).filter(x=>x.id!==id);
+  renderCalInterviews();
+}
+function renderCalConnList(){
+  const el=document.getElementById('calConnList'); if(!el) return;
+  const esc=escapeHtmlComms;
+  el.innerHTML=(DATA.interview_calendars||[]).map(c=>
+    '<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;">'
+    +'<b>'+esc(c.name||'')+'</b><span class="field-note" style="overflow:hidden;text-overflow:ellipsis;max-width:340px;">'+esc((c.ics_url||'').slice(0,60))+'…</span>'
+    +'<button class="ghost" style="font-size:11px;padding:2px 8px;" onclick="calConnRemove(\''+c.id+'\')">Remove</button></div>').join('')
+    ||'<div class="field-note">No calendars added yet.</div>';
+}
+async function calConnAdd(){
+  const name=(document.getElementById('calName').value||'').trim();
+  const url=(document.getElementById('calUrl').value||'').trim();
+  if(!name||!/^https:\/\/.+\.ics/i.test(url)){ alert('Add a name and a valid secret iCal address (it ends in basic.ics).'); return; }
+  const rec={id:'ivc_'+Date.now(),name:name,ics_url:url,added_by:ME.email||'',added_at:new Date().toISOString()};
+  DATA.interview_calendars=(DATA.interview_calendars||[]).concat([rec]);
+  await persist('interview_calendars',rec);
+  document.getElementById('calName').value=''; document.getElementById('calUrl').value='';
+  renderCalInterviews(true);
+}
+async function calConnRemove(id){
+  if(!confirm('Remove this calendar from the interviews list?')) return;
+  await removeItem('interview_calendars',id);
+  DATA.interview_calendars=(DATA.interview_calendars||[]).filter(x=>x.id!==id);
+  renderCalInterviews(true);
 }
 
 /* ---------------- Communication Log — the audit trail ----------------
