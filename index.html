@@ -359,7 +359,7 @@
   <header class="topbar">
     <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions" style="height:42px;flex:0 0 auto;">
     <div style="line-height:1.15;margin-right:4px;">
-      <b style="font-size:14.5px;color:var(--navy);white-space:nowrap;">Leads, Clients &amp; Care</b>
+      <b id="ccSectionTitle" style="font-size:14.5px;color:var(--navy);white-space:nowrap;">Leads, Clients &amp; Care</b>
       <div class="field-note" id="fbarDate" style="font-size:11px;"></div>
     </div>
     <input class="search" id="globalSearch" placeholder="🔍 Search leads, clients, referrers…" oninput="renderActiveTab()">
@@ -3170,8 +3170,29 @@ function ccGroupClick(g){
   const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
   switchTab(tabs.includes(last)?last:tabs[0]);
 }
+/* This one file also serves several sidebar entries — Leads, Clients & Care,
+   Interviews, Phone, Needs Attention, HomeTogether, Campaigns. A fixed title is
+   wrong for most of them, so the header names the section you're in. */
+const CC_SECTION_TITLES = {
+  today:'Overview', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
+  soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
+  ltcpolicy:'LTC Policies', clients:'Clients &amp; Care', checkins:'Client Check-ins',
+  supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
+  meetings:'Meetings', interviews:'Interviews', ops:'Needs Attention', calls:'Phone',
+  reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
+  htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
+  community:'Community', settings:'Settings',
+};
+function ccSetSectionTitle(tab){
+  const el=document.getElementById('ccSectionTitle');
+  if(el) el.innerHTML = CC_SECTION_TITLES[tab] || 'Leads, Clients &amp; Care';
+  const t=String(CC_SECTION_TITLES[tab]||'').replace(/&amp;/g,'&');
+  if(t) document.title = t+' — Caring Companions';
+}
+
 function switchTab(tab){
   if(tab==='settings' && !DISC_APPROVERS.includes(ME.email)){ alert('Settings are managed by Samantha & Zach.'); return; }
+  ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
   if(lpv) lpv.style.display='none';
   if(typeof closeMoreMenu==='function') closeMoreMenu();
