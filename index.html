@@ -7074,6 +7074,33 @@ html.embedded .topbar{ padding-top:6px; padding-bottom:6px; }
 /* Focused section mode (deep-linked from a GHL sidebar item): GHL navigates
    between sections, so hide the hub's own section bar; keep the sub-tabs. */
 html.embedded.focused .fbar{ display:none; }
+
+/* ── Sit like a native GoHighLevel page ──────────────────────────────────────
+   Measured off a real GHL page (2026-07-29): page title 18px/500, tab row on
+   #fdfdfd with a 2px #dfdfdf rule under it, tab labels 13px/500, ~10px side
+   padding. We match that typography and rhythm so the hub stops looking bolted
+   on. We deliberately do NOT copy GHL's filled pills — those are the loudest
+   thing on their pages and the tab row is the one element that got worse when
+   the theme changed. Underline instead: same structure, quieter.
+   Standalone (outside GHL) is untouched. */
+html.embedded .topbar{ background:#fdfdfd; }
+html.embedded .topbar .search{ display:none; }          /* GHL has its own search */
+html.embedded .topbar > div:first-of-type b{ font-size:18px; font-weight:500; }
+
+html.embedded .fsubbar{
+  background:#fdfdfd; border-bottom:2px solid #dfdfdf;
+  padding:0 2px; gap:0; border-radius:0;
+}
+html.embedded .fsubbar .fpill{
+  font-size:13px; font-weight:500; border-radius:0; background:none; border:none;
+  color:var(--text-muted); padding:7px 10px 6px; margin:0;
+  border-bottom:2px solid transparent; transition:none;
+}
+html.embedded .fsubbar .fpill:hover{ background:none; color:var(--navy); }
+html.embedded .fsubbar .fpill.active{
+  background:none; color:var(--navy); border-bottom-color:var(--teal, #54BDB8);
+}
+html.embedded .fsubbar .fpill .navi{ opacity:.75; }
 </style>
 </body>
 </html>
