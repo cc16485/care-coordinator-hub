@@ -626,6 +626,12 @@
         <button class="ghost" onclick="renderOps(this)">↻ Refresh</button>
       </div>
 
+      <!-- The system says what it is actually doing. A safety net that quietly
+           stopped working looks identical to one that has nothing to catch. -->
+      <div class="card" id="opsStatusCard" style="padding:14px 18px;margin-bottom:16px;display:none;">
+        <div id="opsStatusBody" style="font-size:13.5px;"></div>
+      </div>
+
       <div class="card ops-callback-card" style="padding:16px 18px;margin-bottom:16px;border-left:4px solid #B23B2E;display:none;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
           <b style="font-size:15px;color:var(--navy);">Missed calls waiting on a callback</b>
@@ -2513,7 +2519,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2626,7 +2632,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -6628,6 +6634,37 @@ function opsRenderCallbacks(){
   opsBadges();
 }
 
+/* Honest status. Capture, assignment and chasing are three separate things and
+   any of them can be off while the others look fine. Say which. */
+function opsRenderStatus(){
+  const card=document.getElementById('opsStatusCard'), body=document.getElementById('opsStatusBody');
+  if(!card||!body) return;
+  const staff=(DATA.coordinator_staff||[]).filter(s=>s.name||s.email);
+  const withPhone=staff.filter(s=>s.phone).length;
+  const cfg=DATA.ops_settings||{};
+  const chasing=!!cfg.live && (withPhone>0 || !!cfg.fallback_phone);
+
+  const problems=[];
+  if(!staff.length)      problems.push('No one is on the staff list yet, so calls can\'t be assigned to anybody. Add your coordinators in Settings.');
+  else if(!withPhone)    problems.push('Nobody on the staff list has a phone number, so no one can be texted about a missed call. Add numbers in Settings.');
+  if(!cfg.live)          problems.push('Chasing is switched off. Missed calls are still captured and listed here, but nobody gets texted when one sits too long.');
+
+  if(!problems.length){
+    card.style.display='block';
+    card.style.borderLeft='4px solid #1F7A8C';
+    body.innerHTML='<b style="color:var(--navy);">Everything is on.</b> '
+      +'Missed calls are captured automatically, assigned to a person, and whoever owns one gets a text if it sits too long.';
+    return;
+  }
+  card.style.display='block';
+  card.style.borderLeft='4px solid #C17A12';
+  body.innerHTML='<b style="color:var(--navy);">Partly set up.</b> Missed calls are being captured and listed, but:'
+    +'<ul style="margin:.5rem 0 0 1.1rem;padding:0;">'
+    +problems.map(p=>'<li style="margin-bottom:.25rem;">'+p+'</li>').join('')
+    +'</ul>'
+    +(chasing?'':'');
+}
+
 /* The Operations tab: same items, standalone, behind its own sidebar link.
    Loads the call feed itself so it works when opened directly via #ops. */
 async function renderOps(btn){
@@ -6637,6 +6674,7 @@ async function renderOps(btn){
     opsReconcileCalls();
   }catch(e){ /* still show whatever is already saved */ }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+  opsRenderStatus();
   opsRenderCallbacks();
 }
 
