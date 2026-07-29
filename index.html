@@ -380,6 +380,7 @@
     <div class="ftab" data-g="grow" onclick="ccGroupClick('grow')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Grow<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
+    <div class="ftab" data-g="phone" onclick="ccGroupClick('phone')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Phone</div>
     <div class="ftab" data-g="insight" onclick="ccGroupClick('insight')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Insight</div>
     <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
     <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
@@ -404,6 +405,9 @@
     <div class="fpill" data-tab="comms" onclick="switchTab('comms')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Send a Message</div>
     <div class="fpill" data-tab="meetings" onclick="switchTab('meetings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
+  </div>
+  <div class="fsubbar" id="fsub-phone">
+    <div class="fpill" data-tab="calls" onclick="switchTab('calls')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Calls</div>
   </div>
   <div class="fsubbar" id="fsub-insight">
     <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
@@ -605,6 +609,30 @@
         </div>
       </div>
       <div class="card" style="padding:18px;"><div id="meetingsPageList"></div></div>
+    </section>
+
+    <!-- ===================== TAB: CALLS ===================== -->
+    <section class="tabpanel" id="tab-calls">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Phone Calls</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Every call in and out of the office line, newest first. Recordings play right here.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <button class="ghost" id="callsRefreshBtn" onclick="renderCalls(true,this)">↻ Refresh</button>
+      </div>
+
+      <div class="card" style="padding:16px 18px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <button class="fpill callfilter active" data-f="all"      onclick="callsFilter('all',this)">All</button>
+          <button class="fpill callfilter" data-f="inbound"  onclick="callsFilter('inbound',this)">Incoming</button>
+          <button class="fpill callfilter" data-f="outbound" onclick="callsFilter('outbound',this)">Outgoing</button>
+          <button class="fpill callfilter" data-f="missed"   onclick="callsFilter('missed',this)">Missed</button>
+          <span style="flex:1;"></span>
+          <span class="field-note" id="callsMeta"></span>
+        </div>
+        <div id="callsList"><div class="field-note">Loading…</div></div>
+      </div>
     </section>
 
     <!-- ===================== TAB: INTERVIEWS ===================== -->
@@ -2718,7 +2746,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],insight:['reports'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],phone:['calls'],insight:['reports'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community'],settings:['settings']};
 function renderFeedback(){
   const el=document.getElementById('fbList'); if(!el) return;
   const rows=(DATA.feedback||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
@@ -3070,6 +3098,7 @@ function renderActiveTab(){
   if(activeTab==='inbox') renderInboxCc();
   if(activeTab==='meetings') renderMeetingsPage();
   if(activeTab==='interviews'){ joInit(); renderInterviews(); renderCalInterviews(); }
+  if(activeTab==='calls') renderCalls();
   if(activeTab==='settings') fillSettingsPanel();
   if(activeTab==='htorders') renderHTOrders();
   if(activeTab==='htorders') renderDevices();
@@ -6429,6 +6458,135 @@ async function renderInterviews(btn){
       :'<div class="field-note">No offers yet — after an interview, click 📋 Offer a Job above.</div>';
   }catch(e){ box.innerHTML='<div class="field-note" style="color:var(--red);">Could not load offers: '+String(e&&e.message||'error')+'</div>'; }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+
+/* ---------------- Phone calls (GoHighLevel) ----------------
+   GHL has no "list all calls" endpoint, so the calls-feed edge function walks
+   recent conversations server-side and pulls the call records out. Recordings
+   are proxied through the same function so the GHL token never reaches the
+   browser — we fetch the audio with our own session and play it from a blob. */
+let CALLS_FEED=null, CALLS_AT=0, CALLS_FILTER='all';
+const GHL_LOC='Recp0AhyMh8lrtKJ9kaj';
+
+function callsFmtDur(s){
+  if(!s || s<=0) return '';
+  const m=Math.floor(s/60), r=s%60;
+  return m+':'+String(r).padStart(2,'0');
+}
+function callsFmtWhen(iso){
+  if(!iso) return '';
+  const d=new Date(iso), now=new Date();
+  const sameDay=d.toDateString()===now.toDateString();
+  const t=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  if(sameDay) return 'Today '+t;
+  const yest=new Date(now); yest.setDate(yest.getDate()-1);
+  if(d.toDateString()===yest.toDateString()) return 'Yesterday '+t;
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+t;
+}
+function callsFmtPhone(p){
+  const dgt=String(p||'').replace(/\D/g,'').replace(/^1/,'');
+  return dgt.length===10 ? '('+dgt.slice(0,3)+') '+dgt.slice(3,6)+'-'+dgt.slice(6) : (p||'');
+}
+function callsIsMissed(c){
+  const s=String(c.status||'').toLowerCase();
+  return s.includes('no-answer')||s.includes('busy')||s.includes('failed')||s.includes('canceled')||!c.duration;
+}
+
+function callsFilter(f, btn){
+  CALLS_FILTER=f;
+  document.querySelectorAll('.callfilter').forEach(b=>b.classList.toggle('active', b===btn));
+  callsPaint();
+}
+
+function callsPaint(){
+  const box=document.getElementById('callsList'); if(!box) return;
+  const esc=escapeHtmlComms;
+  let rows=(CALLS_FEED&&CALLS_FEED.calls)||[];
+  if(CALLS_FILTER==='inbound')  rows=rows.filter(c=>c.direction==='inbound');
+  if(CALLS_FILTER==='outbound') rows=rows.filter(c=>c.direction==='outbound');
+  if(CALLS_FILTER==='missed')   rows=rows.filter(callsIsMissed);
+
+  const meta=document.getElementById('callsMeta');
+  if(meta) meta.textContent = CALLS_FEED&&CALLS_FEED.generated_at
+    ? rows.length+' call'+(rows.length===1?'':'s')+' · updated '+callsFmtWhen(CALLS_FEED.generated_at)
+    : '';
+
+  if(!rows.length){
+    box.innerHTML='<div class="field-note">No calls to show'+(CALLS_FILTER==='all'?' yet.':' with that filter.')+'</div>';
+    return;
+  }
+
+  box.innerHTML=rows.map(c=>{
+    const missed=callsIsMissed(c);
+    const arrow=c.direction==='inbound'
+      ? '<span title="Incoming" style="color:'+(missed?'#B23B2E':'#1F7A8C')+';font-weight:800;">↓</span>'
+      : '<span title="Outgoing" style="color:var(--text-muted);font-weight:800;">↑</span>';
+    const dur=missed
+      ? '<span class="tag-chip" style="background:#FDE8E8;color:#B23B2E;">Missed</span>'
+      : '<span class="field-note">'+callsFmtDur(c.duration)+'</span>';
+    const play=c.has_recording
+      ? '<button class="ghost" style="font-size:12px;padding:4px 10px;" onclick="callsPlay(\''+c.id+'\',this)">▶ Recording</button>'
+      : '';
+    const open='<a class="ghost" style="font-size:12px;padding:4px 10px;text-decoration:none;" target="_blank" rel="noopener" href="https://app.hirecara.com/v2/location/'+GHL_LOC+'/contacts/detail/'+encodeURIComponent(c.contact_id)+'">Open ↗</a>';
+    return '<div style="padding:9px 0;border-bottom:1px solid var(--border);">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+      +arrow
+      +'<span style="font-size:13.5px;font-weight:700;color:var(--navy);min-width:150px;">'+esc(c.name||'Unknown caller')+'</span>'
+      +'<span class="field-note">'+esc(callsFmtPhone(c.phone))+'</span>'
+      +'<span style="flex:1;"></span>'
+      +dur
+      +'<span class="field-note" style="white-space:nowrap;">'+esc(callsFmtWhen(c.at))+'</span>'
+      +play+open
+      +'</div>'
+      +'<div id="rec-'+c.id+'" style="display:none;"></div>'
+      +'</div>';
+  }).join('');
+}
+
+async function renderCalls(force, btn){
+  const box=document.getElementById('callsList'); if(!box) return;
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    if(force||!CALLS_FEED||Date.now()-CALLS_AT>5*60*1000){
+      const { data:{ session } } = await sb.auth.getSession();
+      const r=await fetch(CONFIG.supabase_url+'/functions/v1/calls-feed',{
+        method:'POST',
+        headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json', 'apikey':CONFIG.supabase_anon_key },
+        body: JSON.stringify(force?{refresh:true}:{}) });
+      const data=await r.json();
+      if(!r.ok) throw new Error(data.error||'calls feed error');
+      CALLS_FEED=data; CALLS_AT=Date.now();
+    }
+    callsPaint();
+  }catch(e){
+    box.innerHTML='<div class="field-note" style="color:var(--red);">Could not load calls: '+String(e&&e.message||'error')+'</div>';
+  }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+
+async function callsPlay(id, btn){
+  const holder=document.getElementById('rec-'+id); if(!holder) return;
+  if(holder.dataset.loaded){
+    holder.style.display = holder.style.display==='none' ? 'block' : 'none';
+    return;
+  }
+  const label=btn.textContent;
+  btn.disabled=true; btn.textContent='Loading…';
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    const r=await fetch(CONFIG.supabase_url+'/functions/v1/calls-feed',{
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json', 'apikey':CONFIG.supabase_anon_key },
+      body: JSON.stringify({recording:id}) });
+    if(!r.ok) throw new Error('no recording');
+    const blob=await r.blob();
+    holder.innerHTML='<audio controls autoplay style="width:100%;margin-top:8px;" src="'+URL.createObjectURL(blob)+'"></audio>';
+    holder.dataset.loaded='1'; holder.style.display='block';
+    btn.textContent=label;
+  }catch(e){
+    btn.textContent='No recording';
+  }
+  finally{ btn.disabled=false; }
 }
 
 /* ---------------- Booked interviews (Augusta → Google Calendar) ----------------
