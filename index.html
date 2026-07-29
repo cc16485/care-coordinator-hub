@@ -623,7 +623,55 @@
           <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everything open right now, with a name on it. Nothing here disappears on its own.</div>
         </div>
         <span style="flex:1;"></span>
+        <button class="addlead" onclick="opsToggleAdd()">＋ Add something</button>
         <button class="ghost" onclick="renderOps(this)">↻ Refresh</button>
+      </div>
+
+      <!-- Raise something by hand. Deliberately spare: a title, a person, a
+           when. Anything needing discussion is a conversation, not a queue item. -->
+      <div class="card" id="opsAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+          <b style="font-size:15px;color:var(--navy);">Add something to the queue</b>
+          <span class="field-note">Only things one person must do by a time. Anything else, just talk to them.</span>
+        </div>
+        <div class="grid2" style="gap:10px;">
+          <div><label>What needs doing</label>
+            <input id="opsNewTitle" placeholder="Run a background re-check on Dana"></div>
+          <div><label>Who owns it</label>
+            <select id="opsNewOwner"></select></div>
+        </div>
+        <div class="grid2" style="gap:10px;margin-top:10px;">
+          <div><label>Kind</label>
+            <select id="opsNewKind">
+              <option value="request">Request</option>
+              <option value="client_issue">Client issue</option>
+              <option value="staffing_issue">Staffing issue</option>
+            </select></div>
+          <div><label>How soon</label>
+            <select id="opsNewUrgency">
+              <option value="normal">When you can</option>
+              <option value="today">Today</option>
+              <option value="urgent">Urgent, within the hour</option>
+            </select></div>
+        </div>
+        <div style="margin-top:10px;"><label>Which client, if any</label>
+          <input id="opsNewAbout" placeholder="Optional"></div>
+        <div style="margin-top:10px;"><label>Anything they need to know</label>
+          <textarea id="opsNewDetail" rows="2" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;" placeholder="Optional"></textarea></div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <button class="addlead" onclick="opsAdd()">Add to the queue</button>
+          <button class="ghost" onclick="opsToggleAdd()">Cancel</button>
+        </div>
+      </div>
+
+      <div class="card" id="opsQueueCard" style="padding:16px 18px;margin-bottom:16px;display:none;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+          <b style="font-size:15px;color:var(--navy);">Open right now</b>
+          <span class="field-note" id="opsQueueMeta"></span>
+          <span style="flex:1;"></span>
+          <span class="field-note">Most overdue first</span>
+        </div>
+        <div id="opsQueueList"></div>
       </div>
 
       <!-- The system says what it is actually doing. A safety net that quietly
@@ -632,13 +680,10 @@
         <div id="opsStatusBody" style="font-size:13.5px;"></div>
       </div>
 
-      <div class="card ops-callback-card" style="padding:16px 18px;margin-bottom:16px;border-left:4px solid #B23B2E;display:none;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-          <b style="font-size:15px;color:var(--navy);">Missed calls waiting on a callback</b>
-          <span class="field-note">Oldest first. Closes automatically only if we call them back and connect.</span>
-        </div>
-        <div class="ops-callback-list"></div>
-      </div>
+      <!-- Missed calls used to have their own card here. They're in the queue
+           above now, alongside everything else, which is the whole point: one
+           list answering "what is open and who has it". The Calls tab still
+           shows them on their own, in context. -->
 
       <div class="card" id="opsAllClear" style="padding:22px 18px;display:none;">
         <div class="field-note" style="font-size:14px;">Nothing open. Everything that came in has been handled.</div>
@@ -646,8 +691,11 @@
 
       <div class="card" style="padding:14px 18px;">
         <div class="field-note" style="font-size:12.5px;">
-          <b>Coming next:</b> unanswered texts, new website leads, client issues and staffing problems all land here too,
-          and anything left too long escalates to the on-call coordinator instead of waiting to be noticed.
+          <b>What belongs here:</b> anything one named person has to do by a time. Missed calls arrive on their own;
+          use <b>Add something</b> for the rest. If it just needs a chat, go and have the chat.
+          The count on the tab is what is <b>overdue</b>, not everything open, so a red number always means something is late.
+          <br><b>Coming next:</b> unanswered texts and new website leads landing here automatically, and anything
+          left too long texting the person who owns it instead of waiting to be noticed.
         </div>
       </div>
     </section>
@@ -6558,20 +6606,46 @@ function opsReconcileCalls(){
   touched.forEach(i=>persist('ops_items', i));
 }
 
-function opsOpenCallbacks(){
+/* What may go in this queue: something a NAMED person must do by a TIME.
+   Anything else is a conversation, and you all work in the same office. The
+   moment this becomes a general to-do list the red badge stops meaning
+   "something is late" and everyone learns to ignore it. */
+const OPS_KINDS = {
+  missed_call:    { label:'Missed call',   hours:1  },
+  request:        { label:'Request',       hours:72 },
+  client_issue:   { label:'Client issue',  hours:24 },
+  staffing_issue: { label:'Staffing',      hours:24 },
+};
+// Urgency overrides the default window for anything raised by hand.
+const OPS_URGENCY = { urgent:1, today:8, normal:null };
+
+function opsDueFor(kind, urgency, fromISO){
+  const base = (OPS_KINDS[kind]||{}).hours || 24;
+  const hrs  = OPS_URGENCY[urgency] || base;
+  return new Date(new Date(fromISO||Date.now()).getTime() + hrs*3600*1000).toISOString();
+}
+
+function opsOpen(kind){
   return (DATA.ops_items||[])
-    .filter(i=>i.kind==='missed_call' && i.status==='open')
-    .sort((a,b)=>String(a.created_at||'').localeCompare(String(b.created_at||'')));
+    .filter(i=>i.status==='open' && (!kind || i.kind===kind))
+    .sort((a,b)=>String(a.due||a.created_at||'').localeCompare(String(b.due||b.created_at||'')));
+}
+function opsOpenCallbacks(){ return opsOpen('missed_call'); }
+function opsOverdue(){
+  const now=Date.now();
+  return opsOpen().filter(i=>i.due && Date.parse(i.due) < now);
 }
 
 function opsBadges(){
-  const n = opsOpenCallbacks().length;
+  // Deliberately OVERDUE, not open. A count of everything open only ever grows
+  // and becomes wallpaper; a count of what is late stays worth reacting to.
+  const late = opsOverdue().length;
   ['gb-ops','gb-phone'].forEach(id=>{
     const b=document.getElementById(id);
-    if(b){ b.style.display = n ? 'inline-block' : 'none'; b.textContent = n; }
+    if(b){ b.style.display = late ? 'inline-block' : 'none'; b.textContent = late; }
   });
   const clear=document.getElementById('opsAllClear');
-  if(clear) clear.style.display = n ? 'none' : 'block';
+  if(clear) clear.style.display = opsOpen().length ? 'none' : 'block';
 }
 
 function opsStaffOptions(sel){
@@ -6588,18 +6662,18 @@ async function opsAssign(id, val){
   const s=(DATA.coordinator_staff||[]).find(x=>(x.email||x.name)===val);
   it.owner=val; it.owner_name=s?(s.name||s.email):'';
   await persist('ops_items', it);
-  opsRenderCallbacks();
+  opsRenderCallbacks(); opsRenderQueue();
 }
 
 async function opsClose(id){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
-  const note=prompt('Close this callback. What happened? (optional)','');
+  const note=prompt('Close this. What happened? (optional)','');
   if(note===null) return;                       // cancelled — leave it open
   it.status='done'; it.closed_at=new Date().toISOString();
   it.closed_by=(typeof ME!=='undefined'&&ME.email)?ME.email:'';
   it.close_note=note||'';
   await persist('ops_items', it);
-  opsRenderCallbacks(); opsBadges();
+  opsRenderCallbacks(); opsRenderQueue(); opsBadges();
 }
 
 function opsRenderCallbacks(){
@@ -6616,22 +6690,84 @@ function opsRenderCallbacks(){
     opsBadges(); return;
   }
 
-  const html=rows.map(i=>{
-    const overdue = i.due && new Date(i.due).getTime() < Date.now();
-    const waited  = callsFmtWhen(i.created_at);
-    return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--border);">'
-      +'<span style="font-size:13.5px;font-weight:700;color:var(--navy);min-width:190px;">'+esc(i.title)+'</span>'
-      +'<span class="field-note">'+esc(callsFmtPhone(i.phone))+'</span>'
-      +(overdue?'<span class="tag-chip" style="background:#FDE8E8;color:#B23B2E;">Overdue</span>':'')
-      +'<span class="field-note">'+esc(waited)+'</span>'
-      +'<span style="flex:1;"></span>'
-      +'<select onchange="opsAssign(\''+i.id+'\',this.value)" style="font-size:12px;padding:4px 8px;border:1.5px solid var(--border);border-radius:7px;">'
-        +opsStaffOptions(i.owner||'')+'</select>'
-      +'<button class="addlead" style="font-size:12px;padding:5px 12px;" onclick="opsClose(\''+i.id+'\')">✓ Done</button>'
-      +'</div>';
-  }).join('');
+  const html=rows.map(i=>opsRow(i,false)).join('');
   boxes.forEach(b=>{ b.innerHTML=html; });
   opsBadges();
+}
+
+/* One row, used by both the Calls tab (missed calls in context) and the queue
+   on Needs Attention (everything). showKind adds the type label, which only
+   makes sense in the mixed list. */
+function opsRow(i, showKind){
+  const esc=escapeHtmlComms;
+  const overdue = i.due && new Date(i.due).getTime() < Date.now();
+  const kind = OPS_KINDS[i.kind] || { label:i.kind||'Item' };
+  const sub = [ i.phone ? callsFmtPhone(i.phone) : '', i.about ? 'Client: '+i.about : '',
+                i.caregiver ? 'Caregiver: '+i.caregiver : '' ].filter(Boolean).join(' · ');
+  return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
+    +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+    +(showKind?'<span class="tag-chip" style="background:#EAF1F5;color:var(--navy);">'+esc(kind.label)+'</span>':'')
+    +'<span style="font-size:13.5px;font-weight:700;color:var(--navy);min-width:180px;">'+esc(i.title||'')+'</span>'
+    +(sub?'<span class="field-note">'+esc(sub)+'</span>':'')
+    +(overdue?'<span class="tag-chip" style="background:#FDE8E8;color:#B23B2E;">Overdue</span>':'')
+    +'<span class="field-note">'+esc(callsFmtWhen(i.created_at))+'</span>'
+    +'<span style="flex:1;"></span>'
+    +'<select onchange="opsAssign(\''+i.id+'\',this.value)" style="font-size:12px;padding:4px 8px;border:1.5px solid var(--border);border-radius:7px;width:150px;flex:0 0 auto;">'
+      +opsStaffOptions(i.owner||'')+'</select>'
+    +'<button class="addlead" style="font-size:12px;padding:5px 12px;flex:0 0 auto;" onclick="opsClose(\''+i.id+'\')">✓ Done</button>'
+    +'</div>'
+    +(i.detail?'<div class="field-note" style="margin-top:4px;white-space:pre-wrap;">'+esc(i.detail)+'</div>':'')
+    +(i.created_by?'<div class="field-note" style="margin-top:2px;">Raised by '+esc(i.created_by)+'</div>':'')
+    +'<div id="rec-'+i.id+'" style="display:none;"></div>'
+    +'</div>';
+}
+
+/* The queue on Needs Attention: everything open, whatever raised it. */
+function opsRenderQueue(){
+  const box=document.getElementById('opsQueueList'); if(!box) return;
+  const rows=opsOpen();
+  document.getElementById('opsQueueCard').style.display = rows.length ? 'block' : 'none';
+  const late=opsOverdue().length;
+  const meta=document.getElementById('opsQueueMeta');
+  if(meta) meta.textContent = rows.length+' open'+(late?', '+late+' overdue':', none overdue');
+  box.innerHTML = rows.map(i=>opsRow(i,true)).join('');
+  opsBadges();
+}
+
+/* Raise something by hand. Same queue as the automatic captures, because it is
+   the same shape of thing: one named owner, a time it is due, closed on
+   purpose. Owner is a PERSON — sending to "the staffing coordinator" is how
+   work ends up belonging to nobody. */
+async function opsAdd(){
+  const kind = document.getElementById('opsNewKind').value;
+  const owner = document.getElementById('opsNewOwner').value;
+  const urgency = document.getElementById('opsNewUrgency').value;
+  const title = document.getElementById('opsNewTitle').value.trim();
+  const detail = document.getElementById('opsNewDetail').value.trim();
+  const about = document.getElementById('opsNewAbout').value.trim();
+  if(!title){ alert('Give it a short title so people can scan the list.'); return; }
+  if(!owner){ alert('Pick who owns this. Work assigned to everybody gets done by nobody.'); return; }
+  const s=(DATA.coordinator_staff||[]).find(x=>(x.email||x.name)===owner);
+  const now=new Date().toISOString();
+  const it={ id:'ops_'+Date.now().toString(36), kind, title, detail, about,
+    urgency, status:'open', created_at:now, due:opsDueFor(kind,urgency,now),
+    owner, owner_name:s?(s.name||s.email):'',
+    created_by:(typeof ME!=='undefined'&&ME.name)?ME.name:((typeof ME!=='undefined'&&ME.email)||''),
+    opened_by:'person' };
+  DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(it);
+  await persist('ops_items', it);
+  ['opsNewTitle','opsNewDetail','opsNewAbout'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('opsAddWrap').style.display='none';
+  opsRenderQueue(); opsRenderCallbacks();
+}
+function opsToggleAdd(){
+  const w=document.getElementById('opsAddWrap');
+  const showing = w.style.display!=='none';
+  w.style.display = showing ? 'none' : 'block';
+  if(!showing){
+    document.getElementById('opsNewOwner').innerHTML=opsStaffOptions('');
+    document.getElementById('opsNewTitle').focus();
+  }
 }
 
 /* Honest status. Capture, assignment and chasing are three separate things and
@@ -6676,6 +6812,7 @@ async function renderOps(btn){
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
   opsRenderStatus();
   opsRenderCallbacks();
+  opsRenderQueue();
 }
 
 /* ---------------- Phone calls (GoHighLevel) ----------------
