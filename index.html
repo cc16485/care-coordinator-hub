@@ -694,8 +694,9 @@
           <b>What belongs here:</b> anything one named person has to do by a time. Missed calls arrive on their own;
           use <b>Add something</b> for the rest. If it just needs a chat, go and have the chat.
           The count on the tab is what is <b>overdue</b>, not everything open, so a red number always means something is late.
-          <br><b>Coming next:</b> unanswered texts and new website leads landing here automatically, and anything
-          left too long texting the person who owns it instead of waiting to be noticed.
+          <br><b>Arriving on their own:</b> missed calls, and new leads that nobody has answered yet. A lead closes
+          itself the moment anyone contacts them, so this only ever lists people still waiting.
+          <br><b>Coming next:</b> unanswered texts, caregiver call-offs and orientation no-shows.
         </div>
       </div>
     </section>
@@ -6614,6 +6615,7 @@ function opsReconcileCalls(){
    "something is late" and everyone learns to ignore it. */
 const OPS_KINDS = {
   missed_call:    { label:'Missed call',   hours:1  },
+  new_lead:       { label:'New lead',      hours:4  },
   request:        { label:'Request',       hours:72 },
   client_issue:   { label:'Client issue',  hours:24 },
   staffing_issue: { label:'Staffing',      hours:24 },
@@ -6625,6 +6627,52 @@ function opsDueFor(kind, urgency, fromISO){
   const base = (OPS_KINDS[kind]||{}).hours || 24;
   const hrs  = OPS_URGENCY[urgency] || base;
   return new Date(new Date(fromISO||Date.now()).getTime() + hrs*3600*1000).toISOString();
+}
+
+/* New leads nobody has answered yet. Her words: leads falling through the
+   cracks is the number one problem, so an enquiry becomes an item the moment it
+   arrives, with a four hour clock. It shows up straight away rather than only
+   once it's late, so someone can claim it before the clock matters.
+   Closes itself as soon as anyone actually makes contact — a queue that still
+   lists leads you already rang is a queue people stop believing. */
+function opsLeadUntouched(l){
+  return !l.last_contacted_at
+      && !((l.comm_log||[]).length)
+      && (l.status||'New')==='New';
+}
+
+function opsReconcileLeads(){
+  DATA.ops_items = DATA.ops_items || [];
+  const existing = new Map(DATA.ops_items.filter(i=>i.kind==='new_lead').map(i=>[i.source_id,i]));
+  const touched = new Map();
+
+  (DATA.leads||[]).forEach(l=>{
+    const id = String(l.id||''); if(!id) return;
+    const created = l.created_at || new Date().toISOString();
+    let it = existing.get(id);
+
+    if(!it && opsLeadUntouched(l)){
+      const who = [l.first_name, l.last_name].filter(Boolean).join(' ').trim() || '(no name given)';
+      it = { id:'ops_lead_'+id, kind:'new_lead', source_id:id,
+             title:'New lead: '+who,
+             detail:(l.interest_notes||'').slice(0,300),
+             phone:l.phone||'', about:'', urgency:'normal',
+             status:'open', created_at:created,
+             due:opsDueFor('new_lead','normal',created),
+             owner:l.assigned_coordinator||'', owner_name:'', opened_by:'system' };
+      DATA.ops_items.push(it); existing.set(id,it); touched.set(it.id,it);
+    }
+
+    if(it && it.status==='open' && !opsLeadUntouched(l)){
+      it.status='done'; it.closed_at=new Date().toISOString(); it.closed_by='system';
+      it.auto_closed_reason = l.last_contacted_at
+        ? 'Contacted '+l.last_contacted_at
+        : ((l.status && l.status!=='New') ? 'Moved to '+l.status : 'Contact logged');
+      touched.set(it.id,it);
+    }
+  });
+
+  touched.forEach(i=>persist('ops_items', i));
 }
 
 function opsOpen(kind){
@@ -6807,6 +6855,7 @@ async function renderOps(btn){
   try{
     if(!CALLS_FEED || Date.now()-CALLS_AT>5*60*1000) await callsFetch(!!btn);
     opsReconcileCalls();
+    opsReconcileLeads();
   }catch(e){ /* still show whatever is already saved */ }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
   opsRenderStatus();
@@ -6915,6 +6964,7 @@ async function renderCalls(force, btn){
   try{
     if(force||!CALLS_FEED||Date.now()-CALLS_AT>5*60*1000) await callsFetch(force);
     opsReconcileCalls();
+    opsReconcileLeads();
     opsRenderCallbacks();
     callsPaint();
   }catch(e){
