@@ -6640,6 +6640,7 @@ function opsReconcileCalls(){
 const OPS_KINDS = {
   missed_call:    { label:'Missed call',   hours:1  },
   new_lead:       { label:'New lead',      hours:4  },
+  discipline:     { label:'Approval',      hours:24 },
   request:        { label:'Request',       hours:72 },
   client_issue:   { label:'Client issue',  hours:24 },
   staffing_issue: { label:'Staffing',      hours:24 },
@@ -6699,9 +6700,68 @@ function opsReconcileLeads(){
   touched.forEach(i=>persist('ops_items', i));
 }
 
+/* Some queue items are about a person's employment. Those are visible only to
+   the owners and to whoever raised it — everyone else sees nothing at all, not
+   a redacted row, because in an office this size "something sensitive exists
+   about someone" is itself the leak.
+   The gate lives in opsOpen() on purpose. Every display path — the queue, the
+   badges, the overdue count, the status card — reads through here, so there is
+   no second place to remember. */
+function opsCanSee(i){
+  if(!i || !i.sensitive) return true;
+  const meEmail=(typeof ME!=='undefined' && ME.email) ? ME.email.toLowerCase() : '';
+  if(meEmail && typeof DISC_APPROVERS!=='undefined' && DISC_APPROVERS.includes(meEmail)) return true;
+  const raised=String(i.created_by_email||i.created_by||'').toLowerCase();
+  const meKey=String(opsMeKey()||'').toLowerCase();
+  return !!meEmail && (raised===meEmail || (!!meKey && raised===meKey));
+}
+
+/* A coordinator raises a write-up, an owner approves it before it is sent.
+   Until now that sat in a panel the owners only saw if they happened to open
+   the tab, and the coordinator who raised it got nothing back at all — no
+   approved, no declined. People stop raising things when that happens, which
+   is worse than the original problem.
+   One item covers both readings: the owners see something to approve, the
+   person who raised it sees it is still waiting. Marked sensitive, so nobody
+   else sees it exists. */
+function opsReconcileDiscipline(){
+  DATA.ops_items = DATA.ops_items || [];
+  const existing = new Map(DATA.ops_items.filter(i=>i.kind==='discipline').map(i=>[i.source_id,i]));
+  const touched = new Map();
+
+  (DATA.discipline_actions||[]).forEach(a=>{
+    const id=String(a.id||''); if(!id) return;
+    const pending = a.status==='pending_approval';
+    let it = existing.get(id);
+
+    if(pending && !it){
+      const at = a.sent_for_approval_at || new Date().toISOString();
+      it = { id:'ops_disc_'+id, kind:'discipline', source_id:id, sensitive:true,
+             title:'Write-up for '+(a.caregiver||'a caregiver')+' needs approval',
+             detail:(a.level? a.level+'. ':'')+'Raised by '+(a.created_by||'a coordinator')
+                    +'. Nothing is sent until an owner approves it.',
+             created_by:a.created_by||'', created_by_email:a.created_by_email||a.created_by||'',
+             urgency:'today', status:'open', created_at:at,
+             due:opsDueFor('discipline','today',at),
+             owner:'', owner_name:'', opened_by:'system' };
+      DATA.ops_items.push(it); existing.set(id,it); touched.set(it.id,it);
+    }
+
+    if(it && it.status==='open' && !pending){
+      it.status='done'; it.closed_at=new Date().toISOString(); it.closed_by='system';
+      it.auto_closed_reason = a.status==='approved'
+        ? 'Approved'+(a.approved_by?' by '+a.approved_by:'')
+        : (a.reject_note ? 'Sent back to the coordinator' : 'No longer waiting ('+(a.status||'closed')+')');
+      touched.set(it.id,it);
+    }
+  });
+
+  touched.forEach(i=>persist('ops_items', i));
+}
+
 function opsOpen(kind){
   return (DATA.ops_items||[])
-    .filter(i=>i.status==='open' && (!kind || i.kind===kind))
+    .filter(i=>i.status==='open' && (!kind || i.kind===kind) && opsCanSee(i))
     .sort((a,b)=>String(a.due||a.created_at||'').localeCompare(String(b.due||b.created_at||'')));
 }
 function opsOpenCallbacks(){ return opsOpen('missed_call'); }
@@ -6932,6 +6992,7 @@ async function renderOps(btn){
     if(!CALLS_FEED || Date.now()-CALLS_AT>5*60*1000) await callsFetch(!!btn);
     opsReconcileCalls();
     opsReconcileLeads();
+    opsReconcileDiscipline();
   }catch(e){ /* still show whatever is already saved */ }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
   opsRenderStatus();
@@ -7041,6 +7102,7 @@ async function renderCalls(force, btn){
     if(force||!CALLS_FEED||Date.now()-CALLS_AT>5*60*1000) await callsFetch(force);
     opsReconcileCalls();
     opsReconcileLeads();
+    opsReconcileDiscipline();
     opsRenderCallbacks();
     callsPaint();
   }catch(e){
