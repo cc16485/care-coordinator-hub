@@ -711,13 +711,15 @@
         <button class="ghost" id="callsRefreshBtn" onclick="renderCalls(true,this)">↻ Refresh</button>
       </div>
 
-      <!-- Operations Inbox, first slice: nothing here clears itself. -->
-      <div class="card ops-callback-card" style="padding:16px 18px;margin-bottom:16px;border-left:4px solid #B23B2E;display:none;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-          <b style="font-size:15px;color:var(--navy);">Needs a callback</b>
-          <span class="field-note">Oldest first. These stay here until someone closes them.</span>
+      <!-- The callback list used to sit here as well as in Needs Attention.
+           Two sidebar entries showing the same open work is the clutter we're
+           trying to remove, so this page is now just the call log: look
+           something up, play a recording. Open work lives in one place. -->
+      <div class="card" id="callsQueuePointer" style="padding:12px 18px;margin-bottom:16px;display:none;">
+        <div class="field-note" style="font-size:13px;">
+          <b style="color:var(--navy);" id="callsQueueCount"></b>
+          <a href="#ops" onclick="switchTab('ops');return false;" style="color:var(--teal);font-weight:600;">Open Needs Attention →</a>
         </div>
-        <div class="ops-callback-list"></div>
       </div>
 
       <div class="card" style="padding:16px 18px;">
@@ -6676,22 +6678,19 @@ async function opsClose(id){
   opsRenderCallbacks(); opsRenderQueue(); opsBadges();
 }
 
+/* The Calls tab is the call log, nothing more. It used to carry the callback
+   list too, which meant two sidebar entries showed the same open work. All it
+   does now is say how many callbacks are waiting and point at the one place
+   they live. */
 function opsRenderCallbacks(){
-  // Painted into every container that asks for it — the Calls tab shows it in
-  // context, the Operations tab is the standalone view behind its own nav link.
-  const cards=document.querySelectorAll('.ops-callback-card');
-  const boxes=document.querySelectorAll('.ops-callback-list');
-  if(!boxes.length) return;
-  const esc=escapeHtmlComms;
-  const rows=opsOpenCallbacks();
-  cards.forEach(c=>{ c.style.display = rows.length ? 'block' : 'none'; });
-  if(!rows.length){
-    boxes.forEach(b=>{ b.innerHTML = b.dataset.empty || ''; });
-    opsBadges(); return;
-  }
-
-  const html=rows.map(i=>opsRow(i,false)).join('');
-  boxes.forEach(b=>{ b.innerHTML=html; });
+  const card=document.getElementById('callsQueuePointer');
+  const count=document.getElementById('callsQueueCount');
+  if(!card||!count){ opsBadges(); return; }
+  const n=opsOpenCallbacks().length;
+  card.style.display = n ? 'block' : 'none';
+  count.textContent = n===1
+    ? '1 missed call is still waiting on a callback. '
+    : n+' missed calls are still waiting on a callback. ';
   opsBadges();
 }
 
