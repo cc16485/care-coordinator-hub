@@ -667,6 +667,9 @@
       <div class="card" id="opsQueueCard" style="padding:16px 18px;margin-bottom:16px;display:none;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
           <b style="font-size:15px;color:var(--navy);">Open right now</b>
+          <button class="fpill opsscope active" onclick="opsSetScope('mine',this)">Mine</button>
+          <button class="fpill opsscope" onclick="opsSetScope('unassigned',this)">Unclaimed</button>
+          <button class="fpill opsscope" onclick="opsSetScope('all',this)">Everyone</button>
           <span class="field-note" id="opsQueueMeta"></span>
           <span style="flex:1;"></span>
           <span class="field-note">Most overdue first</span>
@@ -6689,7 +6692,14 @@ function opsOverdue(){
 function opsBadges(){
   // Deliberately OVERDUE, not open. A count of everything open only ever grows
   // and becomes wallpaper; a count of what is late stays worth reacting to.
-  const late = opsOverdue().length;
+  // And deliberately YOURS or NOBODY'S: a badge that nags you about work
+  // someone else already owns is noise, but late work with no name on it has
+  // to nag somebody or it is exactly what falls through.
+  const me=String(opsMeKey()||'').toLowerCase();
+  const late = opsOverdue().filter(i=>{
+    const owner=(i.owner||'').toLowerCase();
+    return !owner || (me && owner===me);
+  }).length;
   ['gb-ops','gb-phone'].forEach(id=>{
     const b=document.getElementById(id);
     if(b){ b.style.display = late ? 'inline-block' : 'none'; b.textContent = late; }
@@ -6769,14 +6779,59 @@ function opsRow(i, showKind){
     +'</div>';
 }
 
+/* Whose work is this? The old hubs answered that by accident: the hub you
+   opened was the filter, so it showed roughly a care coordinator's work.
+   Ownership by name is more precise, but only if the page actually uses it —
+   otherwise everyone sees everyone's list and it's LESS clear than before.
+   So this defaults to Mine. Everyone else's is one click away, which is the
+   transparency, but the thing you open shows what you should be doing. */
+let OPS_SCOPE = 'mine';
+function opsMeKey(){
+  const me=(typeof ME!=='undefined' && ME.email) ? ME.email.toLowerCase() : '';
+  const s=(DATA.coordinator_staff||[]).find(x=>(x.email||'').toLowerCase()===me && me);
+  return s ? (s.email||s.name) : me;
+}
+function opsScopeFilter(rows){
+  const me=opsMeKey();
+  if(OPS_SCOPE==='unassigned') return rows.filter(i=>!i.owner);
+  if(OPS_SCOPE==='mine')       return rows.filter(i=>(i.owner||'').toLowerCase()===String(me).toLowerCase() && me);
+  return rows;
+}
+function opsSetScope(s, btn){
+  OPS_SCOPE=s;
+  document.querySelectorAll('.opsscope').forEach(b=>b.classList.toggle('active', b===btn));
+  opsRenderQueue();
+}
+
 /* The queue on Needs Attention: everything open, whatever raised it. */
 function opsRenderQueue(){
   const box=document.getElementById('opsQueueList'); if(!box) return;
-  const rows=opsOpen();
-  document.getElementById('opsQueueCard').style.display = rows.length ? 'block' : 'none';
-  const late=opsOverdue().length;
+  const all=opsOpen();
+  const rows=opsScopeFilter(all);
+  // Keep the card up whenever anything is open, even if none of it is yours —
+  // otherwise "nothing assigned to me" looks identical to "nothing to do".
+  document.getElementById('opsQueueCard').style.display = all.length ? 'block' : 'none';
+
+  const now=Date.now();
+  const late=rows.filter(i=>i.due && Date.parse(i.due)<now).length;
   const meta=document.getElementById('opsQueueMeta');
-  if(meta) meta.textContent = rows.length+' open'+(late?', '+late+' overdue':', none overdue');
+  if(meta){
+    const scopeWord = OPS_SCOPE==='mine' ? 'yours' : (OPS_SCOPE==='unassigned' ? 'unclaimed' : 'open');
+    meta.textContent = OPS_SCOPE==='all'
+      ? all.length+' open'+(late?', '+late+' overdue':', none overdue')
+      : rows.length+' '+scopeWord+' of '+all.length+' open'+(late?', '+late+' overdue':'');
+  }
+
+  if(!rows.length){
+    box.innerHTML = '<div class="field-note" style="padding:6px 0;">'
+      + (OPS_SCOPE==='mine'
+          ? 'Nothing is assigned to you right now. '+all.length+' open across the office, and anything unclaimed is worth a look.'
+          : OPS_SCOPE==='unassigned'
+            ? 'Everything open has someone\'s name on it.'
+            : 'Nothing open.')
+      + '</div>';
+    opsBadges(); return;
+  }
   box.innerHTML = rows.map(i=>opsRow(i,true)).join('');
   opsBadges();
 }
