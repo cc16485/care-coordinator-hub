@@ -380,6 +380,7 @@
     <div class="ftab" data-g="grow" onclick="ccGroupClick('grow')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Grow<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
+    <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
     <div class="ftab" data-g="ops" onclick="ccGroupClick('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention<span class="subtab-badge red" id="gb-ops" style="display:none;"></span></div>
     <div class="ftab" data-g="phone" onclick="ccGroupClick('phone')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Phone<span class="subtab-badge red" id="gb-phone" style="display:none;"></span></div>
     <div class="ftab" data-g="insight" onclick="ccGroupClick('insight')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Insight</div>
@@ -405,7 +406,10 @@
     <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="comms" onclick="switchTab('comms')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Send a Message</div>
     <div class="fpill" data-tab="meetings" onclick="switchTab('meetings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
+  </div>
+  <div class="fsubbar" id="fsub-interviews">
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
+    <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Offer a Job</div>
   </div>
   <div class="fsubbar" id="fsub-ops">
     <div class="fpill" data-tab="ops" onclick="switchTab('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention</div>
@@ -743,8 +747,8 @@
     <section class="tabpanel" id="tab-interviews">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Interviews &amp; Job Offers</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Interviews are scheduled &amp; listed in <b>Augusta</b> (they also sync to your Google Calendar). After the in-person interview, make the offer right here.</div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Interviews</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Interviews are scheduled &amp; listed in <b>Augusta</b> (they also sync to your Google Calendar). Once someone is a good fit, use the <b>Offer a Job</b> tab.</div>
         </div>
         <span style="flex:1;"></span>
         <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">🌱 Open Augusta — today's interviews ↗</a>
@@ -770,8 +774,16 @@
         </details>
       </div>
 
+</section>
+
+    <!-- ===================== TAB: OFFER A JOB ===================== -->
+    <section class="tabpanel" id="tab-offers">
+      <div style="margin-bottom:14px;">
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Offer a Job</h2>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Fill this out while the interview is fresh. Creates the AxisCare applicant and starts onboarding tracking.</div>
+      </div>
       <div class="card" style="padding:0 18px;margin-bottom:16px;" id="joCard">
-        <details id="joDetails" ontoggle="if(this.open)joInit()">
+        <details id="joDetails" open ontoggle="if(this.open)joInit()">
         <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px 0;">
           <b style="font-size:15px;color:var(--navy);">📋 Offer a Job — fill it out while the interview is fresh</b>
           <span class="field-note">tap to open the form</span>
@@ -859,6 +871,7 @@
         </div>
         <div id="interviewsList" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
       </div>
+    
     </section>
 
     <!-- ===================== TAB: SETTINGS (owners only) ===================== -->
@@ -2850,7 +2863,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],ops:['ops'],phone:['calls'],insight:['reports'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings'],interviews:['interviews','offers'],ops:['ops'],phone:['calls'],insight:['reports'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community'],settings:['settings']};
 function renderFeedback(){
   const el=document.getElementById('fbList'); if(!el) return;
   const rows=(DATA.feedback||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
@@ -3178,7 +3191,7 @@ const CC_SECTION_TITLES = {
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Clients &amp; Care', checkins:'Client Check-ins',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  meetings:'Meetings', interviews:'Interviews', ops:'Needs Attention', calls:'Phone',
+  meetings:'Meetings', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -3222,7 +3235,8 @@ function renderActiveTab(){
   if(activeTab==='comms') renderCommsPage();
   if(activeTab==='inbox') renderInboxCc();
   if(activeTab==='meetings') renderMeetingsPage();
-  if(activeTab==='interviews'){ joInit(); renderInterviews(); renderCalInterviews(); }
+  if(activeTab==='interviews'){ renderCalInterviews(); }
+  if(activeTab==='offers'){ joInit(); renderInterviews(); }
   if(activeTab==='calls') renderCalls();
   if(activeTab==='ops') renderOps();
   if(activeTab==='settings') fillSettingsPanel();
@@ -7198,8 +7212,9 @@ async function renderCalInterviews(force,btn){
   }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 async function ivOffer(oid,uid,cand,date){
-  // open the offer form pre-filled, then record the outcome
-  const d=document.getElementById('joDetails'); if(d) d.open=true;
+  // Offer a Job now lives on its own tab (was an accordion inside Interviews).
+  // Switch there, then prefill.
+  switchTab('offers');
   joInit();
   const parts=(cand||'').split(/\s+/);
   const f=document.getElementById('jo_first'), l=document.getElementById('jo_last');
@@ -7209,8 +7224,7 @@ async function ivOffer(oid,uid,cand,date){
   const rec={id:oid,uid:uid,outcome:'offer',by:ME.name||ME.email||'',at:new Date().toISOString()};
   DATA.interview_outcomes=(DATA.interview_outcomes||[]).filter(x=>x.id!==oid).concat([rec]);
   await persist('interview_outcomes',rec);
-  renderCalInterviews();
-  if(d) d.scrollIntoView({behavior:'smooth',block:'start'});
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 async function ivDecline(oid,uid,cand){
   const reason=prompt('Declining '+(cand||'this candidate')+' — quick reason? (optional)')||'';
