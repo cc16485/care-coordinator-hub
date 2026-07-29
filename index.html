@@ -380,7 +380,8 @@
     <div class="ftab" data-g="grow" onclick="ccGroupClick('grow')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Grow<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
-    <div class="ftab" data-g="phone" onclick="ccGroupClick('phone')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Phone</div>
+    <div class="ftab" data-g="ops" onclick="ccGroupClick('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention<span class="subtab-badge red" id="gb-ops" style="display:none;"></span></div>
+    <div class="ftab" data-g="phone" onclick="ccGroupClick('phone')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Phone<span class="subtab-badge red" id="gb-phone" style="display:none;"></span></div>
     <div class="ftab" data-g="insight" onclick="ccGroupClick('insight')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Insight</div>
     <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
     <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
@@ -405,6 +406,9 @@
     <div class="fpill" data-tab="comms" onclick="switchTab('comms')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Send a Message</div>
     <div class="fpill" data-tab="meetings" onclick="switchTab('meetings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
+  </div>
+  <div class="fsubbar" id="fsub-ops">
+    <div class="fpill" data-tab="ops" onclick="switchTab('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention</div>
   </div>
   <div class="fsubbar" id="fsub-phone">
     <div class="fpill" data-tab="calls" onclick="switchTab('calls')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Calls</div>
@@ -611,6 +615,37 @@
       <div class="card" style="padding:18px;"><div id="meetingsPageList"></div></div>
     </section>
 
+    <!-- ===================== TAB: OPERATIONS INBOX ===================== -->
+    <section class="tabpanel" id="tab-ops">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Needs Attention</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everything open right now, with a name on it. Nothing here disappears on its own.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <button class="ghost" onclick="renderOps(this)">↻ Refresh</button>
+      </div>
+
+      <div class="card ops-callback-card" style="padding:16px 18px;margin-bottom:16px;border-left:4px solid #B23B2E;display:none;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+          <b style="font-size:15px;color:var(--navy);">Missed calls waiting on a callback</b>
+          <span class="field-note">Oldest first. Closes automatically only if we call them back and connect.</span>
+        </div>
+        <div class="ops-callback-list"></div>
+      </div>
+
+      <div class="card" id="opsAllClear" style="padding:22px 18px;display:none;">
+        <div class="field-note" style="font-size:14px;">Nothing open. Everything that came in has been handled.</div>
+      </div>
+
+      <div class="card" style="padding:14px 18px;">
+        <div class="field-note" style="font-size:12.5px;">
+          <b>Coming next:</b> unanswered texts, new website leads, client issues and staffing problems all land here too,
+          and anything left too long escalates to the on-call coordinator instead of waiting to be noticed.
+        </div>
+      </div>
+    </section>
+
     <!-- ===================== TAB: CALLS ===================== -->
     <section class="tabpanel" id="tab-calls">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
@@ -620,6 +655,15 @@
         </div>
         <span style="flex:1;"></span>
         <button class="ghost" id="callsRefreshBtn" onclick="renderCalls(true,this)">↻ Refresh</button>
+      </div>
+
+      <!-- Operations Inbox, first slice: nothing here clears itself. -->
+      <div class="card ops-callback-card" style="padding:16px 18px;margin-bottom:16px;border-left:4px solid #B23B2E;display:none;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+          <b style="font-size:15px;color:var(--navy);">Needs a callback</b>
+          <span class="field-note">Oldest first. These stay here until someone closes them.</span>
+        </div>
+        <div class="ops-callback-list"></div>
       </div>
 
       <div class="card" style="padding:16px 18px;">
@@ -2469,7 +2513,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [] };
+let DATA = { ops_items: [], leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2582,7 +2626,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes'];
+  const keys = ['ops_items','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -2746,7 +2790,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],phone:['calls'],insight:['reports'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','interviews'],ops:['ops'],phone:['calls'],insight:['reports'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community'],settings:['settings']};
 function renderFeedback(){
   const el=document.getElementById('fbList'); if(!el) return;
   const rows=(DATA.feedback||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
@@ -3099,6 +3143,7 @@ function renderActiveTab(){
   if(activeTab==='meetings') renderMeetingsPage();
   if(activeTab==='interviews'){ joInit(); renderInterviews(); renderCalInterviews(); }
   if(activeTab==='calls') renderCalls();
+  if(activeTab==='ops') renderOps();
   if(activeTab==='settings') fillSettingsPanel();
   if(activeTab==='htorders') renderHTOrders();
   if(activeTab==='htorders') renderDevices();
@@ -6460,6 +6505,141 @@ async function renderInterviews(btn){
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 
+/* ---------------- Operations Inbox (first slice: missed calls) ----------------
+   The pattern every feeder will follow: captured automatically, one named
+   owner, an explicit close, and it never clears itself. Reconciliation runs
+   in the browser like mergePendingBookings does, so app_data has exactly one
+   writer. Time-based escalation needs a scheduled function and is NOT here
+   yet — this guarantees nothing is *lost*, not that anyone is chased. */
+const OPS_CALLBACK_HOURS = 1;   // how soon an inbound miss should be returned
+
+function opsDigits(p){ return String(p||'').replace(/\D/g,'').replace(/^1/,''); }
+
+function opsReconcileCalls(){
+  if(!CALLS_FEED || !Array.isArray(CALLS_FEED.calls)) return;
+  DATA.ops_items = DATA.ops_items || [];
+  const calls = CALLS_FEED.calls;
+  const existing = new Map(DATA.ops_items.filter(i=>i.kind==='missed_call').map(i=>[i.source_id,i]));
+  const touched = new Map();
+
+  calls.forEach(c=>{
+    // Only an unanswered INBOUND call leaves someone waiting on us.
+    if(c.direction!=='inbound' || !callsIsMissed(c)) return;
+    let it = existing.get(c.id);
+    if(!it){
+      it = { id:'ops_'+c.id, kind:'missed_call', source_id:c.id,
+             title:'Missed call from '+(c.name||'Unknown caller'),
+             phone:c.phone||'', contact_id:c.contact_id||'',
+             status:'open', created_at:c.at||new Date().toISOString(),
+             due:new Date(new Date(c.at||Date.now()).getTime()+OPS_CALLBACK_HOURS*3600*1000).toISOString(),
+             opened_by:'system', owner:'', owner_name:'' };
+      DATA.ops_items.push(it); existing.set(c.id,it); touched.set(it.id,it);
+    }
+    // If we rang them back afterwards and actually connected, close it out —
+    // otherwise the list fills with items people already handled and they
+    // learn to ignore it, which defeats the whole point.
+    if(it.status==='open'){
+      const back = calls.find(x=> x.direction==='outbound' && x.duration>0
+        && opsDigits(x.phone)===opsDigits(c.phone) && String(x.at)>String(c.at));
+      if(back){
+        it.status='done'; it.closed_at=back.at; it.closed_by='system';
+        it.auto_closed_reason='Called back '+callsFmtWhen(back.at);
+        touched.set(it.id,it);
+      }
+    }
+  });
+
+  touched.forEach(i=>persist('ops_items', i));
+}
+
+function opsOpenCallbacks(){
+  return (DATA.ops_items||[])
+    .filter(i=>i.kind==='missed_call' && i.status==='open')
+    .sort((a,b)=>String(a.created_at||'').localeCompare(String(b.created_at||'')));
+}
+
+function opsBadges(){
+  const n = opsOpenCallbacks().length;
+  ['gb-ops','gb-phone'].forEach(id=>{
+    const b=document.getElementById(id);
+    if(b){ b.style.display = n ? 'inline-block' : 'none'; b.textContent = n; }
+  });
+  const clear=document.getElementById('opsAllClear');
+  if(clear) clear.style.display = n ? 'none' : 'block';
+}
+
+function opsStaffOptions(sel){
+  const esc=escapeHtmlComms;
+  const staff=(DATA.coordinator_staff||[]).filter(s=>s.name||s.email);
+  return '<option value="">Unassigned</option>'+staff.map(s=>{
+    const key=(s.email||s.name||'');
+    return '<option value="'+esc(key)+'"'+(key===sel?' selected':'')+'>'+esc(s.name||s.email)+'</option>';
+  }).join('');
+}
+
+async function opsAssign(id, val){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  const s=(DATA.coordinator_staff||[]).find(x=>(x.email||x.name)===val);
+  it.owner=val; it.owner_name=s?(s.name||s.email):'';
+  await persist('ops_items', it);
+  opsRenderCallbacks();
+}
+
+async function opsClose(id){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  const note=prompt('Close this callback. What happened? (optional)','');
+  if(note===null) return;                       // cancelled — leave it open
+  it.status='done'; it.closed_at=new Date().toISOString();
+  it.closed_by=(typeof ME!=='undefined'&&ME.email)?ME.email:'';
+  it.close_note=note||'';
+  await persist('ops_items', it);
+  opsRenderCallbacks(); opsBadges();
+}
+
+function opsRenderCallbacks(){
+  // Painted into every container that asks for it — the Calls tab shows it in
+  // context, the Operations tab is the standalone view behind its own nav link.
+  const cards=document.querySelectorAll('.ops-callback-card');
+  const boxes=document.querySelectorAll('.ops-callback-list');
+  if(!boxes.length) return;
+  const esc=escapeHtmlComms;
+  const rows=opsOpenCallbacks();
+  cards.forEach(c=>{ c.style.display = rows.length ? 'block' : 'none'; });
+  if(!rows.length){
+    boxes.forEach(b=>{ b.innerHTML = b.dataset.empty || ''; });
+    opsBadges(); return;
+  }
+
+  const html=rows.map(i=>{
+    const overdue = i.due && new Date(i.due).getTime() < Date.now();
+    const waited  = callsFmtWhen(i.created_at);
+    return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--border);">'
+      +'<span style="font-size:13.5px;font-weight:700;color:var(--navy);min-width:190px;">'+esc(i.title)+'</span>'
+      +'<span class="field-note">'+esc(callsFmtPhone(i.phone))+'</span>'
+      +(overdue?'<span class="tag-chip" style="background:#FDE8E8;color:#B23B2E;">Overdue</span>':'')
+      +'<span class="field-note">'+esc(waited)+'</span>'
+      +'<span style="flex:1;"></span>'
+      +'<select onchange="opsAssign(\''+i.id+'\',this.value)" style="font-size:12px;padding:4px 8px;border:1.5px solid var(--border);border-radius:7px;">'
+        +opsStaffOptions(i.owner||'')+'</select>'
+      +'<button class="addlead" style="font-size:12px;padding:5px 12px;" onclick="opsClose(\''+i.id+'\')">✓ Done</button>'
+      +'</div>';
+  }).join('');
+  boxes.forEach(b=>{ b.innerHTML=html; });
+  opsBadges();
+}
+
+/* The Operations tab: same items, standalone, behind its own sidebar link.
+   Loads the call feed itself so it works when opened directly via #ops. */
+async function renderOps(btn){
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    if(!CALLS_FEED || Date.now()-CALLS_AT>5*60*1000) await callsFetch(!!btn);
+    opsReconcileCalls();
+  }catch(e){ /* still show whatever is already saved */ }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+  opsRenderCallbacks();
+}
+
 /* ---------------- Phone calls (GoHighLevel) ----------------
    GHL has no "list all calls" endpoint, so the calls-feed edge function walks
    recent conversations server-side and pulls the call records out. Recordings
@@ -6543,20 +6723,25 @@ function callsPaint(){
   }).join('');
 }
 
+async function callsFetch(force){
+  const { data:{ session } } = await sb.auth.getSession();
+  const r=await fetch(CONFIG.supabase_url+'/functions/v1/calls-feed',{
+    method:'POST',
+    headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json', 'apikey':CONFIG.supabase_anon_key },
+    body: JSON.stringify(force?{refresh:true}:{}) });
+  const data=await r.json();
+  if(!r.ok) throw new Error(data.error||'calls feed error');
+  CALLS_FEED=data; CALLS_AT=Date.now();
+  return data;
+}
+
 async function renderCalls(force, btn){
   const box=document.getElementById('callsList'); if(!box) return;
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
-    if(force||!CALLS_FEED||Date.now()-CALLS_AT>5*60*1000){
-      const { data:{ session } } = await sb.auth.getSession();
-      const r=await fetch(CONFIG.supabase_url+'/functions/v1/calls-feed',{
-        method:'POST',
-        headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json', 'apikey':CONFIG.supabase_anon_key },
-        body: JSON.stringify(force?{refresh:true}:{}) });
-      const data=await r.json();
-      if(!r.ok) throw new Error(data.error||'calls feed error');
-      CALLS_FEED=data; CALLS_AT=Date.now();
-    }
+    if(force||!CALLS_FEED||Date.now()-CALLS_AT>5*60*1000) await callsFetch(force);
+    opsReconcileCalls();
+    opsRenderCallbacks();
     callsPaint();
   }catch(e){
     box.innerHTML='<div class="field-note" style="color:var(--red);">Could not load calls: '+String(e&&e.message||'error')+'</div>';
