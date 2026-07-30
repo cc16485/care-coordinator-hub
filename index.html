@@ -389,12 +389,10 @@
     <div class="ftab" data-g="grow" onclick="ccGroupClick('grow')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Grow<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
-    <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
+    <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Hiring</div>
     <div class="ftab" data-g="ops" onclick="ccGroupClick('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention<span class="subtab-badge red" id="gb-ops" style="display:none;"></span></div>
-    <div class="ftab" data-g="phone" onclick="ccGroupClick('phone')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Phone<span class="subtab-badge red" id="gb-phone" style="display:none;"></span></div>
-    <div class="ftab" data-g="insight" onclick="ccGroupClick('insight')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Insight</div>
     <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
-    <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
+    <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Marketing<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-gear"/></svg> Settings</div>
   </div>
   <div class="fsubbar" id="fsub-grow">
@@ -415,19 +413,13 @@
     <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="comms" onclick="switchTab('comms')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Send a Message</div>
     <div class="fpill" data-tab="meetings" onclick="switchTab('meetings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
-  </div>
+  <div class="fpill" data-tab="calls" onclick="switchTab('calls')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Calls</div></div>
   <div class="fsubbar" id="fsub-interviews">
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
     <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Offer a Job</div>
   </div>
   <div class="fsubbar" id="fsub-ops">
     <div class="fpill" data-tab="ops" onclick="switchTab('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention</div>
-  </div>
-  <div class="fsubbar" id="fsub-phone">
-    <div class="fpill" data-tab="calls" onclick="switchTab('calls')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Calls</div>
-  </div>
-  <div class="fsubbar" id="fsub-insight">
-    <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
   </div>
   <div class="fsubbar" id="fsub-htorders">
     <div class="fpill" data-tab="htorders" onclick="switchTab('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Orders<span class="subtab-badge red" id="htOrdPillBadge" style="display:none;"></span></div>
@@ -438,7 +430,7 @@
     <div class="fpill" data-tab="campaigns" onclick="switchTab('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns</div>
     <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="community" onclick="switchTab('community')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Community<span class="subtab-badge red" id="cmPillBadge" style="display:none;"></span></div>
-  </div>
+  <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div></div>
 
   <main>
 
@@ -2872,7 +2864,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings'],interviews:['interviews','offers'],ops:['ops'],phone:['calls'],insight:['reports'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['interviews','offers'],ops:['ops'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community','reports'],settings:['settings']};
 function renderFeedback(){
   const el=document.getElementById('fbList'); if(!el) return;
   const rows=(DATA.feedback||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
