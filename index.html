@@ -72,7 +72,16 @@
   .su-avatar{width:34px;height:34px;border-radius:10px;background:#8FD1C7;color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
   .appmain{flex:1;min-width:0;display:flex;flex-direction:column;}
   /* Folder tabs (matches the Staffing Hub) */
-  .fbar{display:flex;align-items:flex-end;padding:12px 26px 0;background:#fff;gap:6px;border-bottom:1.5px solid var(--navy);overflow-x:auto;}
+  /* Matches the CDS hub: navy shelf, white tabs, active tab lifts out into the
+   page so the sub-bar beneath reads as part of that group. */
+.topbar img{background:#fff;border-radius:10px;padding:5px 9px}
+.topbar, .topbar span, .topbar h1{color:#fff}
+.topbar .ghost{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff}
+.topbar .ghost:hover{background:rgba(255,255,255,.25)}
+.fbar .ftab{background:transparent;border-color:transparent;color:rgba(255,255,255,.75)}
+.fbar .ftab:hover{background:rgba(255,255,255,.12);color:#fff}
+.fbar .ftab.active{background:var(--bg);border-color:transparent;color:var(--navy)}
+.fbar{display:flex;align-items:flex-end;padding:12px 26px 0;background:var(--navy);gap:6px;border-bottom:0;overflow-x:auto;}
   .ftab{padding:8px 18px;border-radius:11px 11px 0 0;font-size:13.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--navy);border-bottom:none;color:var(--navy);background:#fff;transition:.15s;white-space:nowrap;display:flex;align-items:center;gap:8px;flex:0 0 auto;}
   .ftab:hover{background:#EFF5FA;}
   .ftab.active{background:var(--bg);font-weight:800;margin-bottom:-1.5px;border-bottom:1.5px solid var(--bg);padding-top:11px;box-shadow:inset 0 3px 0 #8FD1C7;}
@@ -81,7 +90,7 @@
   .fpill{display:flex;align-items:center;gap:8px;border-radius:999px;padding:6px 16px;font-size:12.5px;font-weight:700;border:1.5px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer;white-space:nowrap;flex:0 0 auto;}
   .fpill:hover{background:#EFF5FA;}
   .fpill.active{background:var(--navy);color:#fff;}
-  header.topbar{height:66px;background:#FBFCFD;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 26px;position:sticky;top:0;z-index:20;}
+  header.topbar{height:66px;background:var(--navy);color:#fff;border-bottom:0;display:flex;align-items:center;gap:12px;padding:0 26px;position:sticky;top:0;z-index:20;}
   header.topbar .spacer{flex:1;}
   header.topbar input.search{max-width:420px;height:40px;border-radius:10px;border:1px solid var(--border);background:#fff;color:var(--text);}
   header.topbar .pill{font-size:12px;background:#fff;border:1px solid var(--border);color:var(--text-muted);padding:5px 10px;border-radius:20px;}
