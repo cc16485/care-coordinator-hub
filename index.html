@@ -757,6 +757,14 @@
       </div>
 
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">💵 Approved hourly rates</b>
+          <span class="field-note">Use these in the job description. Do not invent a number.</span>
+        </div>
+        <div id="payRatesBody" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
+      </div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
         <b style="font-size:15px;color:var(--navy);">1. Check what is already posted</b>
         <div class="field-note" style="margin-top:4px;">Do this <b>before</b> you create anything. Augusta warns against duplicate postings with the same title and location, and a duplicate splits your applicants across two posts.</div>
         <ol style="margin:10px 0 0;padding-left:20px;font-size:13.5px;line-height:1.75;">
@@ -775,7 +783,7 @@
           <div style="margin-bottom:8px;"><b>Service area map.</b> Click <b>Draw Service Area</b>, outline the area, then <b>Turn Off Drawing</b>. For a specific client, draw their <b>general</b> area only. <span style="color:var(--danger,#C0392B);font-weight:700;">Never put a client's name, street or exact address in a posting.</span> The map is only a picture for candidates; it does not change who qualifies.</div>
           <div style="margin-bottom:8px;"><b>Posting zip code.</b> The zip for the city where you want the job to show up on Google and Indeed. This is separate from the map and separate from geo-qualification.</div>
           <div style="margin-bottom:8px;"><b>Photos and testimonials.</b> Real photos of our caregivers and team, not stock images.</div>
-          <div style="margin-bottom:8px;"><b>Description.</b> Say the schedule, the responsibilities, the requirements, the pay and benefits, and why someone would want to work here. Use the current approved pay range &mdash; if you are not certain what it is, ask before you post rather than guessing.</div>
+          <div style="margin-bottom:8px;"><b>Description.</b> Say the schedule, the responsibilities, the requirements, the pay and benefits, and why someone would want to work here. Use the approved hourly rates shown at the top of this page. If the rate you need is not listed there, ask before you post rather than guessing.</div>
           <div style="margin-bottom:8px;"><b>Indeed source tag.</b> Short and specific: <i>Overnight</i>, <i>Weekend</i>, <i>CNA</i>, a town name. This is what shows in the <b>Channel</b> column, so it is how we tell which posting an applicant actually came from.</div>
           <div><b>Publish.</b> Turn on <b>Enable Job Publishing</b>, then <b>Create Smart Post</b>. It goes to our website and Google for Jobs, and to Indeed if that connection is on.</div>
         </div>
@@ -2647,7 +2655,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -2760,7 +2768,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -3258,6 +3266,108 @@ const CC_SECTION_TITLES = {
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
 };
+/* ---------- Approved hourly pay rates ----------
+   One saved record, id 'rates', in the pay_rates key. Only the people in
+   DISC_APPROVERS can edit; everyone else sees the same figures read-only,
+   so coordinators writing a job post are never guessing at pay. */
+const PAY_ROLES = [
+  { k:'caregiver', label:'Caregiver' },
+  { k:'cna',       label:'CNA (current license)' },
+  { k:'lpn',       label:'LPN' },
+  { k:'rn',        label:'RN' }
+];
+function payRatesRec(){
+  return (DATA.pay_rates||[]).find(x=>x.id==='rates')
+      || { id:'rates', rates:{}, note:'', updated_at:'', updated_by:'' };
+}
+function payMoney(v){
+  const n = parseFloat(v);
+  return (v===''||v===null||v===undefined||isNaN(n)) ? '' : '$'+n.toFixed(2);
+}
+function payRangeText(r){
+  const lo = payMoney(r && r.min), hi = payMoney(r && r.max);
+  if(lo && hi && lo!==hi) return lo+' to '+hi+' /hr';
+  if(lo) return lo+' /hr';
+  if(hi) return hi+' /hr';
+  return 'not set';
+}
+function renderPayRates(){
+  const wrap = document.getElementById('payRatesBody'); if(!wrap) return;
+  const rec = payRatesRec();
+  const canEdit = DISC_APPROVERS.includes(ME.email);
+  const stamp = rec.updated_at
+    ? '<div class="field-note" style="margin-top:10px;">Last saved by '+esc(rec.updated_by||'someone')
+      +' on '+new Date(rec.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+'.</div>'
+    : '<div class="field-note" style="margin-top:10px;">Nothing saved yet.</div>';
+
+  if(!canEdit){
+    wrap.innerHTML =
+      '<table style="width:100%;border-collapse:collapse;font-size:13.5px;">'
+      + PAY_ROLES.map(function(role){
+          return '<tr><td style="padding:7px 0;border-top:1px solid var(--border);font-weight:600;">'+esc(role.label)+'</td>'
+               + '<td style="padding:7px 0;border-top:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums;">'
+               + esc(payRangeText((rec.rates||{})[role.k])) + '</td></tr>';
+        }).join('')
+      + '</table>'
+      + (rec.note ? '<div class="field-note" style="margin-top:10px;">'+esc(rec.note)+'</div>' : '')
+      + stamp
+      + '<div class="field-note" style="margin-top:6px;">Only Samantha and Zach can change these. If a rate looks wrong, ask before you post.</div>';
+    return;
+  }
+
+  wrap.innerHTML =
+    '<table style="width:100%;border-collapse:collapse;font-size:13.5px;">'
+    + '<tr><td></td><td style="text-align:center;padding-bottom:4px;" class="field-note">Rate</td>'
+    + '<td style="text-align:center;padding-bottom:4px;" class="field-note">Up to (optional)</td></tr>'
+    + PAY_ROLES.map(function(role){
+        const r = (rec.rates||{})[role.k] || {};
+        const cell = function(which, val){
+          return '<td style="padding:5px 0 5px 8px;border-top:1px solid var(--border);text-align:right;">'
+               + '<input id="pay-'+role.k+'-'+which+'" type="number" step="0.25" min="0" inputmode="decimal" '
+               + 'value="'+esc(val===undefined||val===null?'':String(val))+'" placeholder="—" '
+               + 'style="width:96px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;'
+               + 'font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;"></td>';
+        };
+        return '<tr><td style="padding:5px 0;border-top:1px solid var(--border);font-weight:600;">'+esc(role.label)+'</td>'
+             + cell('min', r.min) + cell('max', r.max) + '</tr>';
+      }).join('')
+    + '</table>'
+    + '<div style="margin-top:10px;">'
+    + '<input id="payNote" value="'+esc(rec.note||'')+'" placeholder="Note for coordinators, e.g. weekend differential, or when a rate needs approval"'
+    + ' style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;"></div>'
+    + '<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+    + '<button class="addlead" onclick="savePayRates(this)">Save rates</button>'
+    + '<span id="paySaved" class="field-note"></span></div>'
+    + stamp;
+}
+async function savePayRates(btn){
+  const rec = { id:'rates', rates:{}, note:'', updated_at:new Date().toISOString(), updated_by:(ME.email||'') };
+  let bad = '';
+  PAY_ROLES.forEach(function(role){
+    const get = function(which){
+      const el = document.getElementById('pay-'+role.k+'-'+which);
+      const raw = el ? el.value.trim() : '';
+      if(raw==='') return null;
+      const n = parseFloat(raw);
+      if(isNaN(n) || n < 0){ bad = role.label; return null; }
+      return Math.round(n*100)/100;
+    };
+    const min = get('min'), max = get('max');
+    if(min!==null && max!==null && max < min) bad = role.label + ' (the top of the range is below the rate)';
+    if(min!==null || max!==null) rec.rates[role.k] = { min:min, max:max };
+  });
+  if(bad){ alert('Check the amount for '+bad+'.'); return; }
+  const noteEl = document.getElementById('payNote');
+  rec.note = noteEl ? noteEl.value.trim() : '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  await persist('pay_rates', rec);
+  const i = (DATA.pay_rates||[]).findIndex(x=>x.id==='rates');
+  if(i < 0){ DATA.pay_rates = DATA.pay_rates||[]; DATA.pay_rates.push(rec); } else DATA.pay_rates[i] = rec;
+  renderPayRates();
+  const saved = document.getElementById('paySaved');
+  if(saved) saved.textContent = 'Saved.';
+}
+
 function ccSetSectionTitle(tab){
   const el=document.getElementById('ccSectionTitle');
   if(el) el.innerHTML = CC_SECTION_TITLES[tab] || 'Leads, Clients &amp; Care';
@@ -3282,6 +3392,7 @@ function switchTab(tab){
   renderActiveTab();
 }
 function renderActiveTab(){
+  if(activeTab==='recruit') renderPayRates();
   if(activeTab==='today') renderToday();
   if(activeTab==='referrers') renderReferrers();
   if(activeTab==='reports') renderReports();
