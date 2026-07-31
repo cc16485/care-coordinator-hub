@@ -117,8 +117,8 @@ function showSetNewPassword(){
   };
 }
 
-document.getElementById('pwd').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-document.getElementById('login-email').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('pwd').focus();});
+document.getElementById('pwd')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+document.getElementById('login-email')?.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('pwd').focus();});
 
 // Auto-restore session on page load
 (async ()=>{
@@ -3686,9 +3686,9 @@ function pushAxisCareStatus(type, data){
 
 function closeModal(id){ document.getElementById(id).classList.remove('open'); editingOB=null; editingCG=null; editingOrient=null; editScope='single'; pendingEditId=null; pendingDeleteId=null; pendingCancelSessId=null; pendingCancelBookingIdx=null; }
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) closeModal(o.id); }));
-document.getElementById('or-date').addEventListener('change',()=>{ if(document.getElementById('or-recur').value!=='none') updateRecurPreview(); });
-document.getElementById('or-recur-count').addEventListener('change', updateRecurPreview);
-document.getElementById('or-recur-end-date').addEventListener('change', updateRecurPreview);
+document.getElementById('or-date')?.addEventListener('change',()=>{ if(document.getElementById('or-recur').value!=='none') updateRecurPreview(); });
+document.getElementById('or-recur-count')?.addEventListener('change', updateRecurPreview);
+document.getElementById('or-recur-end-date')?.addEventListener('change', updateRecurPreview);
 
 // ── ORIENTATIONS ──────────────────────────────────────────────────────
 const ORIENT_ADDR = '1331 N Stewart Ave Ste B, Springfield MO 65802';
@@ -5515,6 +5515,6 @@ function renderEVVCorrections() {
 }
 
 /* the only things the panels' handlers need */
-window.SCX = {acFilter, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, logAttEvent, obFilter, openCGModal, openImportModal, openNewWriteup, openOrientModal, renderAC, renderOB, renderTR, saveAttSettings, saveOrientSettings, scanClockins, setPastView, syncFromTrainingHub, toggleACSelectAll, toggleGuide, trFilter, updateOrientGenPreview};
+window.SCX = {acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderOB, renderTR, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
 window.dispatchEvent(new Event('scx-ready'));
 })();
