@@ -1319,6 +1319,7 @@ const OFFER_ATTRS=[
 let OFFERS=[];
 async function loadOffers(btn){
   const box=document.getElementById('offersList');
+  if(!box) return; /* New Offers stayed in the Staffing hub */
   const key=(appSettings.training_hub_key||'').trim();
   if(!key){ box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings → Training Hub first.</div>'; return; }
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
