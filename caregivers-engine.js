@@ -4,6 +4,15 @@
    different things. Its data layer travels with it unchanged, so these tabs
    read and write exactly what they did before the move. */
 (function(){
+/* The Staffing hub boots by hiding its login screen and showing its app
+   shell. Neither exists here, and the resulting TypeError killed the boot
+   before it ever loaded any data. Assignment cannot be optional-chained,
+   so the handful of ids its boot path writes to are created hidden. */
+['login-screen','app','hdr-date','err','settingsBtn','sync-status'].forEach(function(id){
+  if(document.getElementById(id)) return;
+  var d=document.createElement('div'); d.id=id; d.style.display='none';
+  document.body.appendChild(d);
+});
 
 // ── SUPABASE CLIENT (must be first) ───────────────────────────────────
 const SB_URL  = 'https://zngsgedlsxinbygwmxwn.supabase.co';
