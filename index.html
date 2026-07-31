@@ -9199,10 +9199,10 @@ function renderMgrStrip(){
   loadOpenShiftsForStrip();
   const esc=escapeHtmlComms, t=today(), rows=[];
   if(_openShifts && _openShifts.count)
-    rows.push(['🔴',_openShifts.count+' open shift'+(_openShifts.count===1?'':'s')+' in AxisCare over the next 2 weeks'+(_openShifts.urgent?' — <b style="color:var(--red);">'+_openShifts.urgent+' within 48 hours</b>':''),'window.open(\'https://sc.mo-care.com\',\'_blank\')']);
+    rows.push(['🔴',_openShifts.count+' open shift'+(_openShifts.count===1?'':'s')+' in AxisCare over the next 2 weeks'+(_openShifts.urgent?' — <b style="color:var(--red);">'+_openShifts.urgent+' within 48 hours</b>':''),'switchTab(\'coverage\')']);
   // Attendance discipline needing HER decision (she makes all final calls).
   const ncnsPending=(DATA.attendance_events||[]).filter(e=>e.type==='ncns'&&!e.action_id);
-  ncnsPending.forEach(e=>rows.push(['🚨',esc(e.caregiver)+' — no-call/no-show on '+esc(e.shift_date)+' (immediate termination review per Handbook 2U)','window.open(\'https://sc.mo-care.com\',\'_blank\')']));
+  ncnsPending.forEach(e=>rows.push(['🚨',esc(e.caregiver)+' — no-call/no-show on '+esc(e.shift_date)+' (immediate termination review per Handbook 2U)','switchTab(\'cgattendance\')']));
   const wuPending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
   if(wuPending.length)
     rows.push(['📝',wuPending.length+' write-up'+(wuPending.length===1?'':'s')+' awaiting your approval'+(wuPending.some(a=>a.level==='Termination Review')?' — <b style="color:var(--red);">including a termination review</b>':''),'var d=document.getElementById(\'approvalsDetails\');if(d)d.open=true;d&&d.scrollIntoView({behavior:\'smooth\'})']);
