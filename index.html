@@ -95,6 +95,8 @@
 .tab-bar .tab.gtab.active{background:var(--bg);border-color:transparent transparent var(--bg) transparent;color:var(--navy)}
 .tab.active{background:var(--bg);color:var(--navy);font-weight:800;font-size:.84rem;margin-bottom:-1.5px;border-bottom:1.5px solid var(--bg);padding:.75rem 1.5rem .6rem;opacity:1;box-shadow:inset 0 3px 0 var(--turq)}
 .subbar .tab.active{background:var(--navy);color:#fff;border:1px solid var(--navy);padding-top:.35rem}
+/* ── Tab panels ── */
+.panel{display:none;padding:1.5rem;max-width:1600px;margin:0 auto}
 .panel.active{display:block}
 /* ── Stats bar ── */
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1.5rem}
@@ -177,6 +179,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   box-shadow:0 -3px 8px -2px rgba(0,0,0,.28) !important;
   position:relative !important;
   z-index:2 !important;}
+  .tabpanel > .panel{display:block !important;}
   /* Third level: Leads / Marketing / Playbook each open their own strip.
      Deliberately quieter than .fpill so the hierarchy reads at a glance. */
   .fsubbar2{display:none;gap:6px;padding:8px 26px;background:var(--card);
@@ -848,7 +851,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
     <!-- ===================== TAB: INTERVIEWS ===================== -->
     <!-- ===== CAREGIVERS: Background &amp; References (moved from Staffing hub) ===== -->
-    <section class="tabpanel" id="tab-cgbackground">
+<section class="tabpanel" id="tab-cgbackground">
+    <div class="panel" id="panel-onboarding">
 
       <!-- Tab Guide -->
       <div class="tab-guide">
@@ -898,12 +902,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div class="empty" id="ob-empty" style="display:none">No candidates match.</div>
       </div>
       <div id="ob-stats-panel" style="display:none;padding:.25rem 0 1rem"></div>
-    </section>
+    </div>
 
     <!-- ═══════════════════════════════ TRAINING ════════════════════════════════ -->
+</section>
 
     <!-- ===== CAREGIVERS: Orientations (moved from Staffing hub) ===== -->
-    <section class="tabpanel" id="tab-cgorient">
+<section class="tabpanel" id="tab-cgorient">
+    <div class="panel" id="panel-orientations">
 
       <div class="tab-guide">
         <div class="tab-guide-hdr" onclick="SCX.toggleGuide('orient')">
@@ -1042,12 +1048,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div id="or-sessions-list"></div>
         </div>
       </div>
-    </section>
+    </div>
 
     <!-- ══════════════════════════════ SCHEDULING ══════════════════════════════ -->
+</section>
 
     <!-- ===== CAREGIVERS: Training (moved from Staffing hub) ===== -->
-    <section class="tabpanel" id="tab-cgtraining">
+<section class="tabpanel" id="tab-cgtraining">
+    <div class="panel" id="panel-training">
       <div class="tab-guide">
         <div class="tab-guide-hdr" onclick="SCX.toggleGuide('training')">
           <span class="tab-guide-title">📋 How This Tab Works — Step by Step</span>
@@ -1091,12 +1099,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </table>
         <div class="empty" id="tr-empty" style="display:none">No caregivers match.</div>
       </div>
-    </section>
+    </div>
 
     <!-- ═══════════════════════════════ ACTIVE COMPLIANCE ════════════════════════ -->
+</section>
 
     <!-- ===== CAREGIVERS: Active Compliance (moved from Staffing hub) ===== -->
-    <section class="tabpanel" id="tab-cgcompliance">
+<section class="tabpanel" id="tab-cgcompliance">
+    <div class="panel" id="panel-compliance">
       <div class="tab-guide">
         <div class="tab-guide-hdr" onclick="SCX.toggleGuide('compliance')">
           <span class="tab-guide-title">📋 How This Tab Works — Step by Step</span>
@@ -1151,12 +1161,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </table>
         <div class="empty" id="ac-empty" style="display:none">No caregivers match.</div>
       </div>
-    </section>
+    </div>
 
     <!-- ══════════════════════════════ ORIENTATIONS ══════════════════════════════ -->
+</section>
 
     <!-- ===== CAREGIVERS: Attendance (moved from Staffing hub) ===== -->
-    <section class="tabpanel" id="tab-cgattendance">
+<section class="tabpanel" id="tab-cgattendance">
+    <div class="panel" id="panel-attendance">
       <div class="tab-guide">
         <div class="tab-guide-hdr" onclick="SCX.toggleGuide('attendance')">
           <span class="tab-guide-title">📋 How This Tab Works — Step by Step</span>
@@ -1221,10 +1233,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div id="att-scan-results"></div>
         </div>
       </div>
-    </section>
+    </div>
+</section>
 
     <!-- ===== CAREGIVERS: Write-Ups (moved from Staffing hub) ===== -->
-    <section class="tabpanel" id="tab-cgwriteups">
+<section class="tabpanel" id="tab-cgwriteups">
+    <div class="panel" id="panel-writeups">
       <div style="padding:1.2rem 1.5rem 2rem">
         <div style="display:flex;align-items:flex-end;gap:.7rem;flex-wrap:wrap;margin-bottom:1rem">
           <div>
@@ -1236,7 +1250,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div id="wuList"></div>
       </div>
-    </section>
+    </div>
+</section>
 
 <div class="overlay" id="staffhandoff-modal">
   <div class="modal" style="max-width:640px">
