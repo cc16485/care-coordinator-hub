@@ -9336,7 +9336,12 @@ function renderNurseVisits(){
      leaves the whole section bar showing, which is how "all the tabs appear on
      the Phone page" happens, so every retired name gets an alias here. */
   var CC_HASH_ALIAS = { grow:'clients', phone:'calls', 'clients-care':'clients',
-                        carecoordinator:'clients', 'care-coordinator':'clients' };
+                        carecoordinator:'clients', 'care-coordinator':'clients',
+                        /* 2026-07-31 sidebar restructure: the GHL links use the
+                           section's plain name; each maps to its internal group. */
+                        caregivers:'interviews', growth:'campaigns',
+                        communication:'team', hiring:'interviews',
+                        marketing:'campaigns' };
   function applyHash(){
     var h=(location.hash||'').replace(/^#/,'').toLowerCase(); if(!h) return false;
     if(CC_HASH_ALIAS[h]) h=CC_HASH_ALIAS[h];
