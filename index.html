@@ -2627,6 +2627,40 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div id="cq-list"><div style="color:var(--text-muted);font-size:.85rem">Loading…</div></div>
 </section>
 
+<!-- ===================== TAB: STATE SUBMISSIONS (Medicaid IHS) ========
+     Modeled on the CDS hub's State Submission Tracker (2026-08-01): every
+     Medicaid IHS lead submitted to DSDS/DHSS, aged by days-since-submission
+     so no referral quietly dies waiting on the state. Data lives on the
+     lead records themselves (dcn / county / state_submitted / state_status)
+     — this tab is a lens over Leads, not a second list. -->
+<section class="tabpanel" id="tab-statesubs">
+<details class="guide">
+<summary>📋 How This Tab Works — State Submissions ▼</summary>
+<div class="guide-body">
+<div class="guide-step"><span class="num">1</span>When a Medicaid In-Home Services lead is referred to the state, record it on the lead: open the lead, fill in the <b>Medicaid IHS — State Submission</b> block (DCN, county, submitted date, status). The lead then appears here automatically.</div>
+<div class="guide-step"><span class="num">2</span>The state's pace is slow and silent, so this board ages every submission: <b>blue</b> is recently submitted, <b>amber at 10 days</b> means follow up soon, <b>red at 21 days</b> means call DSDS now. A referral with no submitted date shows red until it's actually sent.</div>
+<div class="guide-step"><span class="num">3</span>After each follow-up call, update the status and set the next <b>follow-up due</b> date on the lead. When the state authorizes, set the status to <b>Authorized</b>, then run the normal conversion: AxisCare setup, and they land in New Clients for scheduling.</div>
+<div class="guide-step flag"><span class="num">!</span>CDS-only towns and pure CDS inquiries don't belong here, refer those to caringcds.com and track them in the CDS hub's own submission tracker.</div>
+</div>
+</details>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;gap:.6rem;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:.6rem">
+    <span style="font-size:1.1rem">🏛️</span>
+    <div>
+      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Referrals Pending State Authorization</div>
+      <div style="font-size:.72rem;color:var(--text-muted)">Submitted to DSDS/DHSS and waiting. Follow up every 1–2 weeks; the day counter keeps score.</div>
+    </div>
+  </div>
+</div>
+<div id="statesubs-pending"></div>
+
+<div style="margin-top:1.5rem;padding-bottom:2rem">
+  <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">Recently resolved</div>
+  <div id="statesubs-resolved"></div>
+</div>
+</section>
+
 <!-- ===================== TAB: CARE MATCH CHECK-INS =====================
      Moved from the Staffing hub's "Client Check-Ins" tab on 2026-07-31 and
      renamed so it stops sharing a name with the monthly Client Check-ins.
@@ -3846,6 +3880,25 @@ The HomeTogether team</pre>
 <div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
 </div>
 
+<div class="section-title">Medicaid IHS — State Submission</div>
+<div class="field-note" style="margin-bottom:8px;">Only for Medicaid In-Home Services leads: track the referral through DSDS/DHSS. Filling in a submitted date puts this lead on the State Submissions tracker with follow-up aging.</div>
+<div class="grid2">
+<div><label>DCN (Medicaid number)</label><input id="lead_dcn" placeholder="8-digit DCN"></div>
+<div><label>County</label><input id="lead_county" placeholder="e.g. Greene"></div>
+<div><label>Submitted to State</label><input type="date" id="lead_state_submitted"></div>
+<div>
+<label>State Status</label>
+<select id="lead_state_status">
+<option value="">— not a state submission —</option>
+<option value="not_submitted">Not yet submitted</option>
+<option value="submitted">Submitted — awaiting assessment</option>
+<option value="assessed">Assessment done — awaiting authorization</option>
+<option value="authorized">✅ Authorized</option>
+<option value="denied">Denied / withdrawn</option>
+</select>
+</div>
+</div>
+
 <div class="section-title">Follow-Up Routing</div>
 <div class="field-note" style="margin-bottom:8px;">Set the branch manually, or have AI read the call notes above and suggest one — either way, you save the final call.</div>
 <div style="margin-bottom:10px;">
@@ -4535,7 +4588,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clientqueue','clients','checkins','carematch','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clientqueue','statesubs','clients','checkins','carematch','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -4545,7 +4598,8 @@ const CC_SUBTABS = {
                {t:'bookings',    l:'Bookings',         i:'i-calendar'},
                {t:'assessments', l:'Care Assessments', i:'i-clipboard'},
                {t:'soc',         l:'Start of Care',    i:'i-hospital'},
-               {t:'clientqueue', l:'New Clients',      i:'i-family'} ],
+               {t:'clientqueue', l:'New Clients',      i:'i-family'},
+               {t:'statesubs',   l:'State Submissions', i:'i-doc'} ],
 };
 /* page -> parent, derived so the two can never drift apart */
 const CC_PARENT_OF = (() => {
@@ -4943,6 +4997,7 @@ const CC_SECTION_TITLES = {
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', sops:'SOP Library',
   clientqueue:'New Clients — Needs Scheduling',
+  statesubs:'State Submissions — Medicaid IHS',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Coverage Help', nursevisits:'Nurse Visits',
@@ -5097,6 +5152,7 @@ function renderActiveTab(){
   if(activeTab==='carematch') cmRenderAll();
   if(activeTab==='sops') sopRender();
   if(activeTab==='clientqueue') cqRender();
+  if(activeTab==='statesubs') renderStateSubs();
   if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='clients') renderClients();
   if(activeTab==='soc') renderSocTab();
@@ -5734,6 +5790,10 @@ function openLeadModal(id){
   document.getElementById('lead_status').value = l.status||'New';
   document.getElementById('lead_assigned_coordinator').value = l.assigned_coordinator||'';
   document.getElementById('lead_axiscare_client_id').value = l.axiscare_client_id||'';
+  document.getElementById('lead_dcn').value = l.dcn||'';
+  document.getElementById('lead_county').value = l.county||'';
+  document.getElementById('lead_state_submitted').value = l.state_submitted||'';
+  document.getElementById('lead_state_status').value = l.state_status||'';
   document.getElementById('lead_interest_notes').value = l.interest_notes||'';
 
   document.getElementById('lead_follow_up_branch').value = l.follow_up_branch||'';
@@ -6614,6 +6674,10 @@ async function saveLead(){
     status: document.getElementById('lead_status').value,
     assigned_coordinator: document.getElementById('lead_assigned_coordinator').value.trim(),
     axiscare_client_id: document.getElementById('lead_axiscare_client_id').value.trim(),
+    dcn: document.getElementById('lead_dcn').value.trim(),
+    county: document.getElementById('lead_county').value.trim(),
+    state_submitted: document.getElementById('lead_state_submitted').value,
+    state_status: document.getElementById('lead_state_status').value,
     interest_notes: document.getElementById('lead_interest_notes').value.trim(),
 
     follow_up_branch: document.getElementById('lead_follow_up_branch').value,
@@ -9551,6 +9615,58 @@ function renderNurseVisits(){
 }
 </script>
 <script>
+/* ── STATE SUBMISSIONS (Medicaid IHS) ─────────────────────────────────
+   A lens over DATA.leads: any lead with a state_status or a submitted
+   date (or Medicaid funding) shows here, aged CDS-tracker style. */
+(function(){
+  const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const STATUS={not_submitted:'Not yet submitted',submitted:'Submitted — awaiting assessment',
+    assessed:'Assessment done — awaiting authorization',authorized:'✅ Authorized',denied:'Denied / withdrawn'};
+  const nameOf=l=>{
+    const client=((l.client_first_name||'')+' '+(l.client_last_name||'')).trim();
+    const caller=((l.first_name||'')+' '+(l.last_name||'')).trim();
+    return client||caller||'(no name)';
+  };
+  window.renderStateSubs=function(){
+    const pendBox=document.getElementById('statesubs-pending'), doneBox=document.getElementById('statesubs-resolved');
+    if(!pendBox) return;
+    const all=(DATA.leads||[]).filter(l=>(l.state_status||l.state_submitted||l.funding_source==='medicaid') && l.status!=='Lost');
+    const pending=all.filter(l=>!['authorized','denied'].includes(l.state_status||''));
+    const resolved=all.filter(l=>['authorized','denied'].includes(l.state_status||''))
+      .sort((a,b)=>String(b.state_submitted||'').localeCompare(String(a.state_submitted||''))).slice(0,10);
+    const now=Date.now(), t=new Date().toISOString().slice(0,10);
+    if(!pending.length){
+      pendBox.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">No pending state submissions. Medicaid IHS leads appear here once their State Submission block is filled in on the lead.</div>';
+    } else {
+      pendBox.innerHTML=pending
+        .sort((a,b)=>String(a.state_submitted||'').localeCompare(String(b.state_submitted||'')))
+        .map(l=>{
+          const sub=l.state_submitted||null;
+          const days=sub?Math.floor((now-new Date(sub+'T12:00:00').getTime())/86400000):null;
+          const color=days===null?'#DC2626':days>21?'#DC2626':days>10?'#B45309':'#1B4E82';
+          const note=days===null?'⚠ Not yet submitted':days>21?'⚠ '+days+' days — follow up urgently':days>10?days+' days — follow up soon':days+' days in';
+          const fu=l.follow_up_due?(l.follow_up_due<t?'<b style="color:#DC2626">⚠ OVERDUE: '+E(l.follow_up_due)+'</b>':E(l.follow_up_due)):'not set';
+          return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+color+';border-radius:10px;padding:.65rem 1rem;margin-bottom:.45rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">'
+            +'<div style="min-width:56px;text-align:center"><div style="font-size:1.05rem;font-weight:800;color:'+color+'">'+(days===null?'NEW':days+'d')+'</div><div style="font-size:.6rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">IHS</div></div>'
+            +'<div style="flex:1;min-width:220px"><b style="font-size:.88rem">'+E(nameOf(l))+'</b>'+(l.county?' <span style="color:var(--text-muted)">— '+E(l.county)+'</span>':'')
+            +'<div style="font-size:.72rem;color:var(--text-muted)">'+(l.dcn?'DCN '+E(l.dcn)+' · ':'')+(sub?'submitted '+E(sub)+' · ':'')+E(STATUS[l.state_status]||'Needs submitting')+' · follow-up: '+fu+'</div></div>'
+            +'<span style="font-size:.72rem;font-weight:700;color:'+color+'">'+note+'</span>'
+            +'<button class="primary" style="font-size:.72rem" onclick="openLeadModal(\''+E(l.id)+'\')">Update</button>'
+            +'</div>';
+        }).join('');
+    }
+    if(doneBox){
+      doneBox.innerHTML=resolved.length?resolved.map(l=>
+        '<div style="font-size:.8rem;padding:.35rem 0;border-bottom:1px solid var(--border)">'
+        +(l.state_status==='authorized'?'✅ ':'✕ ')+'<b>'+E(nameOf(l))+'</b>'
+        +' — '+E(STATUS[l.state_status]||'')+(l.state_submitted?' · submitted '+E(l.state_submitted):'')
+        +' <a href="#" style="font-size:.72rem" onclick="openLeadModal(\''+E(l.id)+'\');return false;">open</a></div>').join('')
+        :'<div style="font-size:.8rem;color:var(--text-muted)">Nothing resolved yet.</div>';
+    }
+  };
+})();
+</script>
+<script>
 /* ── COVERAGE: OPEN SHIFTS BOARD ──────────────────────────────────────
    Moved from the Staffing hub's Scheduling tab (2026-07-31). Same edge
    function the manager strip uses; the full board lives here now because
@@ -10184,7 +10300,7 @@ function renderNurseVisits(){
                         caregivers:'interviews', growth:'campaigns',
                         communication:'team', hiring:'interviews',
                         marketing:'campaigns', newclients:'clientqueue',
-                        scheduling:'clientqueue' };
+                        scheduling:'clientqueue', statesubmissions:'statesubs' };
   function applyHash(){
     var h=(location.hash||'').replace(/^#/,'').toLowerCase(); if(!h) return false;
     if(CC_HASH_ALIAS[h]) h=CC_HASH_ALIAS[h];
