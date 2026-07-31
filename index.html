@@ -80,7 +80,7 @@
 .topbar .ghost:hover{background:rgba(255,255,255,.25)}
 .fbar .ftab{background:transparent;border-color:transparent;color:rgba(255,255,255,.75)}
 .fbar .ftab:hover{background:rgba(255,255,255,.12);color:#fff}
-.fbar .ftab.active{background:var(--bg);border-color:transparent;color:var(--navy)}
+.fbar .ftab.active{background:var(--bg);border-color:transparent transparent var(--bg) transparent;color:var(--navy)}
 .fbar{display:flex;align-items:flex-end;padding:12px 26px 0;background:var(--navy);gap:6px;border-bottom:0;overflow-x:auto;}
   .ftab{padding:8px 18px;border-radius:11px 11px 0 0;font-size:13.5px;font-weight:700;cursor:pointer;border:1.5px solid var(--navy);border-bottom:none;color:var(--navy);background:#fff;transition:.15s;white-space:nowrap;display:flex;align-items:center;gap:8px;flex:0 0 auto;}
   .ftab:hover{background:#EFF5FA;}
@@ -7440,6 +7440,22 @@ html.embedded .fsubbar .fpill.active{
   background:none; color:var(--navy); border-bottom-color:var(--teal, #54BDB8);
 }
 html.embedded .fsubbar .fpill .navi{ opacity:.75; }
+
+/* ── Embedded in GoHighLevel: give it the same folder tabs as standalone ──
+   The embed had been flattening everything to #fdfdfd with grey text and a
+   hairline underline, so none of the navy reached the person actually using it
+   inside GHL. Appended at the end so it wins on order, not on !important. */
+html.embedded .topbar{background:var(--navy) !important;}
+html.embedded .topbar,html.embedded .topbar *{color:#fff !important;}
+html.embedded .fsubbar{background:var(--navy) !important;border-bottom:0 !important;
+  padding:8px 14px 0 !important;gap:4px !important;border-radius:0 !important;align-items:flex-end !important;}
+html.embedded .fsubbar .fpill{font-size:13px !important;font-weight:600 !important;
+  border-radius:9px 9px 0 0 !important;background:transparent !important;border:0 !important;
+  color:rgba(255,255,255,.78) !important;padding:8px 16px !important;}
+html.embedded .fsubbar .fpill:hover{background:rgba(255,255,255,.12) !important;color:#fff !important;}
+html.embedded .fsubbar .fpill.active{background:var(--bg) !important;color:var(--navy) !important;
+  font-weight:800 !important;border-bottom:0 !important;margin-bottom:-1px !important;}
+html.embedded .fsubbar .fpill .navi{opacity:1 !important;}
 </style>
 </body>
 </html>
