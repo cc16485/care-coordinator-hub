@@ -494,6 +494,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="ftab" data-g="nursing" onclick="ccGroupClick('nursing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nursing<span class="subtab-badge red" id="gb-nursing" style="display:none;"></span></div>
     <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
     <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Growth<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
+    <div class="ftab" data-g="sops" onclick="ccGroupClick('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> SOPs</div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-gear"/></svg> Settings</div>
   </div>
   <div class="fsubbar" id="fsub-clients">
@@ -534,10 +535,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-campaigns">
     <div class="fpill" data-tab="campaigns" onclick="switchTab('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns</div>
     <div class="fpill" data-tab="referrers" onclick="switchTab('referrers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Referrers</div>
-    <div class="fpill" data-parent="playbook" onclick="ccParentClick('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
+    <div class="fpill" data-tab="ltcpolicy" onclick="switchTab('ltcpolicy')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> LTC Policy</div>
     <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="community" onclick="switchTab('community')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Community<span class="subtab-badge red" id="cmPillBadge" style="display:none;"></span></div>
   <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div></div>
+
+  <div class="fsubbar" id="fsub-sops">
+    <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Library</div>
+    <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
+  </div>
 
   <!-- Third level. Only appears when the active tab belongs to a parent
        (Leads, Marketing, Playbook). Rendered by ccRenderSub2(). -->
@@ -2691,6 +2697,79 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="card"><div id="clientsTableWrap"></div></div>
 </section>
 
+<!-- ===================== TAB: SOP LIBRARY =====================
+     One place that answers "how do we do things here." Documents live in the
+     shared app_data key 'sop_library' (NOT in this public file — some SOPs
+     are deliberately kept out of git); owners add or edit them right on the
+     page. The library also surfaces the SOPs that live elsewhere: the
+     escalation protocol from Settings, the Staffing hub's SOP doc links,
+     and pointers to the Playbook and the in-tab guides. -->
+<section class="tabpanel" id="tab-sops">
+<details class="guide">
+<summary>📋 How This Tab Works — the SOP Library ▼</summary>
+<div class="guide-body">
+<div class="guide-step"><span class="num">1</span>This is the one place that answers "how do we do things here." Every standard operating procedure either lives on this page or is linked from it, so a new hire or a covering coordinator never has to know which hub grew the answer.</div>
+<div class="guide-step"><span class="num">2</span><b>Documents</b> are stored privately in the hub's database, not in the website code. Samantha and Zach can add one with <b>+ Add SOP</b>: give it a title and paste the document text (Markdown headings, lists, and tables all render properly).</div>
+<div class="guide-step"><span class="num">3</span>Instructions for using each tab stay <b>on that tab</b>, in the "How This Tab Works" guide at the top. This library is for the procedures that span tabs or hubs.</div>
+<div class="guide-step flag"><span class="num">!</span>If a procedure changes, update it here the same day. An SOP that says the old way is worse than no SOP at all.</div>
+</div>
+</details>
+
+<div id="sop-viewer" style="display:none">
+  <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem;flex-wrap:wrap">
+    <button class="primary" style="font-size:.78rem" onclick="sopCloseDoc()">← Back to the library</button>
+    <span id="sop-viewer-meta" style="font-size:.75rem;color:var(--text-muted)"></span>
+    <span class="spacer" style="flex:1"></span>
+    <button id="sop-edit-btn" style="display:none;font-size:.78rem" onclick="sopEditDoc()">✎ Edit</button>
+  </div>
+  <div class="card" style="padding:1.25rem 1.5rem"><div id="sop-viewer-body"></div></div>
+</div>
+
+<div id="sop-editor" style="display:none">
+  <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem">
+    <div style="font-size:.92rem;font-weight:700;color:var(--navy);margin-bottom:.6rem" id="sop-editor-title">Add an SOP</div>
+    <div style="margin-bottom:.6rem"><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Title</label><input id="sop-ed-title" type="text" placeholder="e.g. Corrective Action &amp; Employee Discipline"></div>
+    <div style="margin-bottom:.6rem"><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Document (paste Markdown or plain text)</label><textarea id="sop-ed-body" rows="16" style="resize:vertical;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></textarea></div>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+      <button class="primary" onclick="sopSaveDoc()">Save SOP ✓</button>
+      <button onclick="sopCancelEdit()">Cancel</button>
+      <span class="spacer" style="flex:1"></span>
+      <button id="sop-delete-btn" style="display:none;color:#b91c1c" onclick="sopDeleteDoc()">Delete this SOP</button>
+    </div>
+  </div>
+</div>
+
+<div id="sop-index">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;flex-wrap:wrap;gap:.6rem">
+    <div>
+      <div style="font-size:.95rem;font-weight:700;color:var(--navy)">📚 Standard Operating Procedures</div>
+      <div style="font-size:.74rem;color:var(--text-muted)">Stored privately in the hub. Everyone can read; Samantha and Zach can edit.</div>
+    </div>
+    <button class="primary" id="sop-add-btn" style="display:none" onclick="sopNewDoc()">+ Add SOP</button>
+  </div>
+  <div id="sop-doc-list" style="margin-bottom:1.5rem"></div>
+
+  <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">🚨 After-Hours Escalation Protocol</div>
+  <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.5rem">
+    <div id="sop-escalation" style="white-space:pre-wrap;font-size:.85rem;line-height:1.6"></div>
+    <div class="hint" style="margin-top:.6rem">Owners edit this text in ⚙️ Settings → After-Hours Escalation Protocol.</div>
+  </div>
+
+  <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">📘 Staffing SOP documents</div>
+  <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.5rem">
+    <div id="sop-staffing-links" style="font-size:.85rem;line-height:2"><span style="color:var(--text-muted)">Loading…</span></div>
+    <div class="hint" style="margin-top:.4rem">These links are set in the Staffing hub's Scheduling tab (the ✎ next to each SOP) and shared to both hubs.</div>
+  </div>
+
+  <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">Also part of the library</div>
+  <div class="card" style="padding:1rem 1.25rem;margin-bottom:2rem;font-size:.85rem;line-height:2">
+    <div>📚 <a href="#" onclick="switchTab('playbook');return false"><b>Coordinator Playbook</b></a> — payors, the intake process, sales scripts, objection handling. The next pill over.</div>
+    <div>🛡️ <a href="#" onclick="switchTab('ltcpolicy');return false"><b>LTC claim process</b></a> — lives with the LTC Policy tools under Growth.</div>
+    <div>📋 <b>"How This Tab Works" guides</b> — at the top of every tab in every hub, instructions stay where the work happens.</div>
+  </div>
+</div>
+</section>
+
 <!-- ===================== TAB: REPORTS ===================== -->
 <section class="tabpanel" id="tab-reports">
   <div class="toolbar">
@@ -4120,7 +4199,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], sop_library: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -4233,7 +4312,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','coverage_cases','nurse_clients','nurse_visits'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','coverage_cases','nurse_clients','nurse_visits','sop_library'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -4399,7 +4478,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clients','checkins','carematch','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','playbook','ltcpolicy','feedback','community','reports'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clients','checkins','carematch','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -4409,8 +4488,6 @@ const CC_SUBTABS = {
                {t:'bookings',    l:'Bookings',         i:'i-calendar'},
                {t:'assessments', l:'Care Assessments', i:'i-clipboard'},
                {t:'soc',         l:'Start of Care',    i:'i-hospital'} ],
-  playbook:  [ {t:'playbook',    l:'Playbook',         i:'i-book'},
-               {t:'ltcpolicy',   l:'LTC Policy',       i:'i-shield'} ]
 };
 /* page -> parent, derived so the two can never drift apart */
 const CC_PARENT_OF = (() => {
@@ -4806,7 +4883,7 @@ const CC_SECTION_TITLES = {
   today:'Overview', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins',
+  carematch:'Care Match Check-ins', sops:'SOP Library',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Coverage Help', nursevisits:'Nurse Visits',
@@ -4959,6 +5036,7 @@ function renderActiveTab(){
   if(activeTab==='assessments') renderAssessments();
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='carematch') cmRenderAll();
+  if(activeTab==='sops') sopRender();
   if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='clients') renderClients();
   if(activeTab==='soc') renderSocTab();
@@ -9413,6 +9491,162 @@ function renderNurseVisits(){
 }
 </script>
 <script>
+/* ── SOP LIBRARY ──────────────────────────────────────────────────────
+   Documents live in app_data key 'sop_library' as {id,title,body,updated_at,
+   updated_by} — in the database, not in this file, because some SOPs are
+   deliberately kept out of the public repo. Everyone signed in can read;
+   only DISC_APPROVERS (Samantha & Zach) see the add/edit/delete controls.
+   The RLS on app_data is what actually protects the content; the button
+   gating is just tidiness. Markdown rendering is a small local converter:
+   headings, bold/italic, inline code, fenced blocks, tables, lists, rules. */
+(function(){
+  const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  /* ME and DISC_APPROVERS are top-level let/const — not window properties —
+     so they must be referenced directly (this script runs after both). */
+  const isOwner=()=>{ try{ return DISC_APPROVERS.includes(ME.email); }catch(e){ return false; } };
+  const docs=()=>(DATA.sop_library||[]).slice().sort((a,b)=>String(a.title||'').localeCompare(String(b.title||'')));
+  let openId=null, editId=null, staffingLinks=null;
+
+  function inline(s){
+    return E(s)
+      .replace(/`([^`]+)`/g,'<code style="background:#F3EDE3;border-radius:4px;padding:1px 5px;font-size:.92em">$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')
+      .replace(/\*([^*]+)\*/g,'<i>$1</i>');
+  }
+  function mdToHtml(md){
+    const lines=String(md||'').replace(/\r\n/g,'\n').split('\n');
+    const out=[]; let i=0, inCode=false, code=[], list=null;
+    const flushList=()=>{ if(list){ out.push('<'+list.tag+' style="margin:6px 0 10px;padding-left:22px;font-size:.86rem;line-height:1.65">'+list.items.map(x=>'<li>'+x+'</li>').join('')+'</'+list.tag+'>'); list=null; } };
+    while(i<lines.length){
+      const L=lines[i];
+      if(/^```/.test(L)){ if(inCode){ out.push('<pre style="background:#0D365F;color:#FAF9F6;border-radius:10px;padding:12px 15px;font-size:11.5px;line-height:1.5;overflow-x:auto">'+E(code.join('\n'))+'</pre>'); code=[]; } else flushList(); inCode=!inCode; i++; continue; }
+      if(inCode){ code.push(L); i++; continue; }
+      if(/^\s*\|/.test(L)){
+        flushList();
+        const rows=[]; while(i<lines.length && /^\s*\|/.test(lines[i])){ rows.push(lines[i]); i++; }
+        const cells=r=>r.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(c=>inline(c.trim()));
+        const body=rows.filter(r=>!/^\s*\|[\s:|-]+\|?\s*$/.test(r));
+        if(body.length){
+          const [head,...rest]=body;
+          out.push('<div style="overflow-x:auto"><table style="border-collapse:collapse;margin:8px 0 12px;font-size:.82rem;min-width:60%">'
+            +'<thead><tr>'+cells(head).map(c=>'<th style="text-align:left;border-bottom:2px solid var(--border);padding:6px 10px;color:var(--navy)">'+c+'</th>').join('')+'</tr></thead>'
+            +'<tbody>'+rest.map(r=>'<tr>'+cells(r).map(c=>'<td style="border-bottom:1px solid var(--border);padding:6px 10px;vertical-align:top">'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>');
+        }
+        continue;
+      }
+      let m;
+      if((m=L.match(/^(#{1,4})\s+(.*)/))){ flushList(); const n=m[1].length; const sz=n===1?'1.15rem':n===2?'1.02rem':'.92rem'; out.push('<div style="font-size:'+sz+';font-weight:700;color:var(--navy);margin:'+(n===1?'4px':'16px')+' 0 6px">'+inline(m[2])+'</div>'); }
+      else if(/^\s*---+\s*$/.test(L)){ flushList(); out.push('<hr style="border:none;border-top:1px solid var(--border);margin:14px 0">'); }
+      else if((m=L.match(/^\s*[-*]\s+(.*)/))){ if(!list||list.tag!=='ul'){ flushList(); list={tag:'ul',items:[]}; } list.items.push(inline(m[1])); }
+      else if((m=L.match(/^\s*\d+\.\s+(.*)/))){ if(!list||list.tag!=='ol'){ flushList(); list={tag:'ol',items:[]}; } list.items.push(inline(m[1])); }
+      else if(L.trim()===''){ flushList(); }
+      else { flushList(); out.push('<div style="font-size:.86rem;line-height:1.65;margin:0 0 8px">'+inline(L)+'</div>'); }
+      i++;
+    }
+    if(inCode&&code.length) out.push('<pre style="background:#0D365F;color:#FAF9F6;border-radius:10px;padding:12px 15px;font-size:11.5px;line-height:1.5;overflow-x:auto">'+E(code.join('\n'))+'</pre>');
+    flushList();
+    return out.join('');
+  }
+
+  function show(which){
+    document.getElementById('sop-index').style.display  = which==='index' ?'':'none';
+    document.getElementById('sop-viewer').style.display = which==='viewer'?'':'none';
+    document.getElementById('sop-editor').style.display = which==='editor'?'':'none';
+  }
+  function renderList(){
+    const box=document.getElementById('sop-doc-list'); if(!box) return;
+    const list=docs();
+    if(!list.length){
+      box.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">No documents yet. '
+        +(isOwner()?'Click <b>+ Add SOP</b> and paste the first one in — the Corrective Action SOP is the one waiting for a home.':'Samantha or Zach will add the first documents here.')+'</div>';
+      return;
+    }
+    box.innerHTML=list.map(d=>'<div class="card" style="padding:.75rem 1.1rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">'
+      +'<div style="flex:1;min-width:220px"><a href="#" style="font-weight:700;font-size:.9rem" onclick="sopOpenDoc(\''+E(d.id)+'\');return false;">'+E(d.title||'(untitled)')+'</a>'
+      +'<div style="font-size:.7rem;color:var(--text-muted)">updated '+E(String(d.updated_at||'').slice(0,10))+(d.updated_by?' by '+E(d.updated_by):'')+'</div></div>'
+      +'<button class="primary" style="font-size:.72rem" onclick="sopOpenDoc(\''+E(d.id)+'\')">Open</button>'
+      +'</div>').join('');
+  }
+  async function renderStaffingLinks(){
+    const box=document.getElementById('sop-staffing-links'); if(!box) return;
+    if(staffingLinks===null){
+      try{
+        const { data } = await sb.from('app_data').select('data').eq('key','settings').single();
+        staffingLinks=(data&&data.data)||{};
+      }catch(e){ staffingLinks={}; }
+    }
+    const items=[
+      ['sop_onboarding','Onboarding &amp; Compliance SOP'],
+      ['sop_scheduling','Scheduling SOP'],
+      ['sop_communication','Communication SOP'],
+      ['sop_role','Staffing Coordinator Job Description &amp; Duties'],
+    ];
+    box.innerHTML=items.map(([k,label])=>{
+      const url=String(staffingLinks[k]||'').trim();
+      return url
+        ? '<div>📘 <a href="'+E(url)+'" target="_blank" rel="noopener"><b>'+label+'</b></a></div>'
+        : '<div style="color:var(--text-muted)">📘 '+label+' — not linked yet (add it in the Staffing hub → Scheduling)</div>';
+    }).join('');
+  }
+
+  window.sopRender=function(){
+    show('index'); openId=null; editId=null;
+    document.getElementById('sop-add-btn').style.display=isOwner()?'':'none';
+    document.getElementById('sop-escalation').textContent=(CONFIG.escalation_protocol||'').trim()||'Not written yet — owners can add it in ⚙️ Settings.';
+    renderList(); renderStaffingLinks();
+  };
+  window.sopOpenDoc=function(id){
+    const d=docs().find(x=>x.id===id); if(!d) return;
+    openId=id;
+    document.getElementById('sop-viewer-body').innerHTML=mdToHtml(d.body);
+    document.getElementById('sop-viewer-meta').textContent=(d.title||'')+' · updated '+String(d.updated_at||'').slice(0,10)+(d.updated_by?' by '+d.updated_by:'');
+    document.getElementById('sop-edit-btn').style.display=isOwner()?'':'none';
+    show('viewer'); window.scrollTo(0,0);
+  };
+  window.sopCloseDoc=function(){ sopRender(); };
+  window.sopNewDoc=function(){
+    if(!isOwner()) return;
+    editId=null;
+    document.getElementById('sop-editor-title').textContent='Add an SOP';
+    document.getElementById('sop-ed-title').value=''; document.getElementById('sop-ed-body').value='';
+    document.getElementById('sop-delete-btn').style.display='none';
+    show('editor');
+  };
+  window.sopEditDoc=function(){
+    if(!isOwner()||!openId) return;
+    const d=docs().find(x=>x.id===openId); if(!d) return;
+    editId=openId;
+    document.getElementById('sop-editor-title').textContent='Edit: '+(d.title||'');
+    document.getElementById('sop-ed-title').value=d.title||''; document.getElementById('sop-ed-body').value=d.body||'';
+    document.getElementById('sop-delete-btn').style.display='';
+    show('editor');
+  };
+  window.sopCancelEdit=function(){ if(editId){ sopOpenDoc(editId); } else sopRender(); };
+  window.sopSaveDoc=async function(){
+    if(!isOwner()) return;
+    const title=document.getElementById('sop-ed-title').value.trim();
+    const body=document.getElementById('sop-ed-body').value;
+    if(!title){ alert('Give the SOP a title.'); return; }
+    if(!body.trim()){ alert('Paste the document text.'); return; }
+    const d={ id: editId || ('sop'+Date.now()), title, body,
+      updated_at:new Date().toISOString(), updated_by:(typeof ME!=='undefined'&&ME.name)||'owner' };
+    const idx=(DATA.sop_library||[]).findIndex(x=>x.id===d.id);
+    if(idx>=0){ d.created_at=DATA.sop_library[idx].created_at||d.updated_at; DATA.sop_library[idx]=d; }
+    else { d.created_at=d.updated_at; DATA.sop_library.push(d); }
+    await persist('sop_library', d);
+    sopOpenDoc(d.id);
+  };
+  window.sopDeleteDoc=async function(){
+    if(!isOwner()||!editId) return;
+    const d=docs().find(x=>x.id===editId); if(!d) return;
+    if(!confirm('Delete "'+(d.title||'')+'" from the library?\n\nThis removes it for everyone.')) return;
+    DATA.sop_library=(DATA.sop_library||[]).filter(x=>x.id!==editId);
+    await removeItem('sop_library', editId);
+    editId=null; openId=null; sopRender();
+  };
+})();
+</script>
+<script>
 /* ── CARE MATCH CHECK-INS ─────────────────────────────────────────────
    Moved from the Staffing hub's "Client Check-Ins" tab (2026-07-31), renamed
    so it stops sharing a name with this hub's monthly Client Check-ins.
@@ -9429,7 +9663,7 @@ function renderNurseVisits(){
   const A=s=>"'"+String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;')+"'";
   const all=()=>(DATA.client_checkins||[]).filter(e=>e.client&&e.caregiver);
   const pairKey=(c,g)=>String(c||'').trim().toLowerCase()+'|'+String(g||'').trim().toLowerCase();
-  const me=()=>(((window.ME&&ME.email)||'').split('@')[0])||'coordinator';
+  const me=()=>{ try{ return (ME.email||'').split('@')[0]||'coordinator'; }catch(e){ return 'coordinator'; } };
   let PAIRS=null, loadedOnce=false;
 
   // Two calls per match, then done: (1) after the FIRST shift together,
