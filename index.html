@@ -491,6 +491,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
     <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Hiring</div>
     <div class="ftab" data-g="ops" onclick="ccGroupClick('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention<span class="subtab-badge red" id="gb-ops" style="display:none;"></span></div>
+    <div class="ftab" data-g="nursing" onclick="ccGroupClick('nursing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nursing<span class="subtab-badge red" id="gb-nursing" style="display:none;"></span></div>
     <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
     <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Marketing<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-gear"/></svg> Settings</div>
@@ -521,6 +522,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   </div>
   <div class="fsubbar" id="fsub-ops">
     <div class="fpill" data-tab="ops" onclick="switchTab('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention</div>
+    <div class="fpill" data-tab="coverage" onclick="switchTab('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Coverage Help<span class="subtab-badge red" id="covPillBadge" style="display:none;"></span></div>
+  </div>
+  <div class="fsubbar" id="fsub-nursing">
+    <div class="fpill" data-tab="nursevisits" onclick="switchTab('nursevisits')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nurse Visits</div>
   </div>
   <div class="fsubbar" id="fsub-htorders">
     <div class="fpill" data-tab="htorders" onclick="switchTab('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Orders<span class="subtab-badge red" id="htOrdPillBadge" style="display:none;"></span></div>
@@ -538,6 +543,92 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar2" id="fsub2"></div>
 
   <main>
+
+    <!-- ===================== TAB: COVERAGE HELP =====================
+         AxisCare owns scheduling and pushes open shifts to its app with its
+         own matching. This tab is the layer AxisCare does not have: when a
+         shift is NOT filling on its own, it becomes a case here — who was
+         asked, when, by what channel, what they said, how long it has been
+         open, and how it ended. Micro-states, not pending/done. -->
+    <section class="tabpanel" id="tab-coverage">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Coverage Help</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">AxisCare posts the shift to the caregiver app. When it is not filling on its own, open a case here so the chase is visible: who has been asked, what they said, and how long the shift has been uncovered.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <button class="addlead" onclick="covToggleAdd()">＋ Open a coverage case</button>
+      </div>
+
+      <div class="card" id="covAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
+        <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:8px;">
+          <input id="covClient" placeholder="Client name">
+          <input id="covDate" type="date">
+          <input id="covTime" placeholder="Shift time, e.g. 10a–6p">
+          <select id="covReason"><option value="calloff">Call-off</option><option value="open">Open shift</option><option value="new">New client</option></select>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="covNote" placeholder="Anything the person filling this needs to know" style="flex:1;min-width:220px;">
+          <button class="addlead" onclick="covAdd()">Open case</button>
+        </div>
+        <div class="field-note" style="margin-top:8px;">Only open a case when the shift needs chasing. If the AxisCare app fills it on its own, it never needs to be here.</div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <button class="fb active" id="covFilterOpen" onclick="covFilter('open',this)">Open</button>
+        <button class="fb" id="covFilterDone" onclick="covFilter('done',this)">Resolved</button>
+        <button class="fb" onclick="covFilter('all',this)">All</button>
+      </div>
+      <div id="covList"></div>
+    </section>
+
+    <!-- ===================== TAB: NURSE VISITS =====================
+         Two flexible-but-mandatory visit types for Medicaid clients:
+         GHEs (two, in state-assigned months, usually ~6 months apart) and
+         weekly medication visits. The nurse schedules directly with the
+         client — PRN, their own calendar. The hub only tracks due-ness, so
+         freedom for the nurse never becomes a missed window for the agency. -->
+    <section class="tabpanel" id="tab-nursevisits">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Nurse Visits</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">GHEs land in their state-assigned months and medication visits happen weekly — <b>when</b> in the month or week is between you and the client. Call them, set a time that suits you both, log it here.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <button class="addlead" onclick="nvToggleAdd()">＋ Add a client</button>
+      </div>
+
+      <div class="card" id="nvAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
+        <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:8px;">
+          <input id="nvName" placeholder="Client name">
+          <input id="nvPhone" placeholder="Phone">
+          <input id="nvGhe1" type="month" title="First GHE month">
+          <input id="nvGhe2" type="month" title="Second GHE month">
+        </div>
+        <div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <label style="font-size:13px;display:flex;gap:6px;align-items:center;"><input type="checkbox" id="nvWeekly" checked> Weekly medication visits</label>
+          <input id="nvNotes" placeholder="Notes: meds location, pets, parking…" style="flex:1;min-width:200px;">
+          <button class="addlead" onclick="nvAdd()">Add client</button>
+        </div>
+        <div class="field-note" style="margin-top:8px;">The GHE months come from the state paperwork when the client comes on. Enter them once and this page does the remembering.</div>
+      </div>
+
+      <div id="nvDueNow" style="margin-bottom:16px;"></div>
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <b style="font-size:15px;color:var(--navy);">🩺 GHEs — general health evaluations</b>
+        <div class="field-note" style="margin-top:3px;">Green is done, amber is this month, red is a missed window. Anything red is a compliance problem, not a scheduling preference.</div>
+        <div id="nvGheList" style="margin-top:10px;"></div>
+      </div>
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <b style="font-size:15px;color:var(--navy);">💊 Weekly medication visits</b>
+        <div class="field-note" style="margin-top:3px;">One per calendar week per client. "Last seen" is the number that matters.</div>
+        <div id="nvMedsList" style="margin-top:10px;"></div>
+      </div>
+      <div class="card" style="padding:16px 18px;">
+        <b style="font-size:15px;color:var(--navy);">Visit history</b>
+        <div id="nvHistory" style="margin-top:10px;"></div>
+      </div>
+    </section>
 
     <!-- ===================== TAB: LEADS ===================== -->
     <!-- ===================== TAB: TODAY / OVERVIEW ===================== -->
@@ -3947,7 +4038,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -4060,7 +4151,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','coverage_cases','nurse_clients','nurse_visits'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -4226,7 +4317,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clients','checkins','supervisory','referrers','playbook','ltcpolicy'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community','reports'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clients','checkins','supervisory','referrers','playbook','ltcpolicy'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community','reports'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -4636,6 +4727,7 @@ const CC_SECTION_TITLES = {
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
+  coverage:'Coverage Help', nursevisits:'Nurse Visits',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -4773,6 +4865,8 @@ function switchTab(tab){
 }
 function renderActiveTab(){
   if(activeTab==='recruit') renderPayRates();
+  if(activeTab==='coverage') renderCoverage();
+  if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='today') renderToday();
   if(activeTab==='referrers') renderReferrers();
   if(activeTab==='reports') renderReports();
@@ -8930,6 +9024,298 @@ function renderMgrStrip(){
     }
   }
 })();
+</script>
+<script>
+/* ================================================================
+   COVERAGE HELP — the escalation layer AxisCare does not have.
+   A case records the chase for a shift that is not filling itself:
+   every ask gets a channel, a timestamp and a response state, and a
+   resolved case collapses into one honest summary line.
+   ================================================================ */
+let covFilterVal='open';
+function covToggleAdd(){ const w=document.getElementById('covAddWrap'); w.style.display=w.style.display==='none'?'block':'none'; }
+function covFilter(f,btn){ covFilterVal=f;
+  document.querySelectorAll('#tab-coverage .fb').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active'); renderCoverage(); }
+function covAgo(iso){
+  if(!iso) return '';
+  const m=Math.max(0,Math.round((Date.now()-new Date(iso).getTime())/60000));
+  if(m<60) return m+'m'; const h=Math.floor(m/60);
+  if(h<24) return h+'h '+(m%60)+'m'; return Math.floor(h/24)+'d '+(h%24)+'h';
+}
+async function covAdd(){
+  const client=document.getElementById('covClient').value.trim();
+  if(!client){ alert('Whose shift is it?'); return; }
+  const c={ id:uid(), client,
+    shift_date:document.getElementById('covDate').value||today(),
+    shift_time:document.getElementById('covTime').value.trim(),
+    reason:document.getElementById('covReason').value,
+    note:document.getElementById('covNote').value.trim(),
+    status:'open', asked:[],
+    opened_at:new Date().toISOString(),
+    opened_by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'',
+    resolved_at:null, resolved_how:null, covered_by:null };
+  DATA.coverage_cases=DATA.coverage_cases||[]; DATA.coverage_cases.push(c);
+  await persist('coverage_cases',c);
+  ['covClient','covTime','covNote'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('covAddWrap').style.display='none';
+  renderCoverage();
+}
+async function covAsk(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  const name=prompt('Who did you ask?'); if(!name||!name.trim()) return;
+  const how=prompt('How? text / call / axiscare app','text')||'text';
+  c.asked=c.asked||[];
+  c.asked.push({ id:uid(), name:name.trim(), channel:how.trim().toLowerCase(),
+                 at:new Date().toISOString(), state:'waiting', replied_at:null });
+  await persist('coverage_cases',c); renderCoverage();
+}
+async function covAskState(cid,aid,state){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===cid); if(!c) return;
+  const a=(c.asked||[]).find(x=>x.id===aid); if(!a) return;
+  a.state=state; a.replied_at=new Date().toISOString();
+  await persist('coverage_cases',c);
+  if(state==='yes' && c.status==='open' &&
+     confirm(a.name+' said yes — mark the shift covered by them?')){ covResolve(cid,'covered',a.name); return; }
+  renderCoverage();
+}
+async function covResolve(id,how,byName){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  let by=byName;
+  if(how==='covered' && !by){ by=prompt('Covered by whom?'); if(!by||!by.trim()) return; by=by.trim(); }
+  c.status='done'; c.resolved_how=how; c.covered_by=by||null;
+  c.resolved_at=new Date().toISOString();
+  await persist('coverage_cases',c); renderCoverage();
+}
+async function covReopen(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  c.status='open'; c.resolved_how=null; c.covered_by=null; c.resolved_at=null;
+  await persist('coverage_cases',c); renderCoverage();
+}
+function covSummary(c){
+  const n=(c.asked||[]).length, r=(c.asked||[]).filter(a=>a.state!=='waiting').length;
+  const dur=covAgo(c.opened_at)||'0m';
+  if(c.resolved_how==='covered')
+    return 'Covered in '+covDur(c)+' — '+n+' asked, '+r+' replied. Assigned: '+esc(c.covered_by||'?')+'.';
+  if(c.resolved_how==='uncovered') return 'Closed uncovered after '+covDur(c)+' — '+n+' asked, '+r+' replied.';
+  return 'Open '+dur+' — '+n+' asked, '+r+' replied.';
+}
+function covDur(c){
+  if(!c.resolved_at) return covAgo(c.opened_at);
+  const m=Math.max(0,Math.round((new Date(c.resolved_at)-new Date(c.opened_at))/60000));
+  if(m<60) return m+'m'; const h=Math.floor(m/60);
+  if(h<24) return h+'h '+(m%60)+'m'; return Math.floor(h/24)+'d';
+}
+const COV_STATE_UI={ waiting:['⏳ waiting','#94681D'], yes:['✅ yes','#1E8449'],
+                     no:['✖ no','#C0392B'], noanswer:['📵 no answer','#8A7F70'] };
+function renderCoverage(){
+  const box=document.getElementById('covList'); if(!box) return;
+  let list=(DATA.coverage_cases||[]).slice().sort((a,b)=>(b.opened_at||'').localeCompare(a.opened_at||''));
+  if(covFilterVal==='open') list=list.filter(c=>c.status==='open');
+  if(covFilterVal==='done') list=list.filter(c=>c.status!=='open');
+  // badge: open cases, red because an uncovered shift is late by definition
+  const openN=(DATA.coverage_cases||[]).filter(c=>c.status==='open').length;
+  const b=document.getElementById('covPillBadge');
+  if(b){ b.style.display=openN?'inline-block':'none'; b.textContent=openN; }
+  if(!list.length){
+    box.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);font-size:13.5px;">'+
+      (covFilterVal==='open'?'No open coverage cases. That is the goal state.':'Nothing here yet.')+'</div>';
+    return;
+  }
+  const R={calloff:'Call-off',open:'Open shift',new:'New client'};
+  box.innerHTML=list.map(c=>{
+    const open=c.status==='open';
+    const age=open?'<span style="font-weight:800;color:'+(covAgo(c.opened_at).includes('d')?'#C0392B':'#94681D')+';">open '+covAgo(c.opened_at)+'</span>':'';
+    const askRows=(c.asked||[]).map(a=>{
+      const [lbl,col]=COV_STATE_UI[a.state]||COV_STATE_UI.waiting;
+      const acts=(open&&a.state==='waiting')
+        ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'yes\')">yes</button>'
+          +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'no\')">no</button>'
+          +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'noanswer\')">no answer</button>'
+        : '';
+      return '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-top:1px solid var(--border);font-size:13px;">'
+        +'<b>'+esc(a.name)+'</b><span class="field-note">'+esc(a.channel)+' · asked '+covAgo(a.at)+' ago</span>'
+        +'<span style="color:'+col+';font-weight:700;">'+lbl+'</span>'
+        +(a.replied_at&&a.state!=='waiting'?'<span class="field-note">('+covAgo(a.replied_at)+' ago)</span>':'')
+        +'<span style="flex:1;"></span>'+acts+'</div>';
+    }).join('');
+    return '<div class="card" style="padding:16px 18px;margin-bottom:12px;'+(open?'border-left:4px solid #C0392B;':'')+'">'
+      +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
+      +'<b style="font-size:15.5px;color:var(--navy);">'+esc(c.client)+'</b>'
+      +'<span class="field-note">'+esc(c.shift_date||'')+' '+esc(c.shift_time||'')+' · '+(R[c.reason]||c.reason)+'</span>'
+      +age+'<span style="flex:1;"></span>'
+      +(open
+        ? '<button class="ghost" onclick="covAsk(\''+c.id+'\')">＋ I asked someone</button>'
+          +'<button class="addlead" onclick="covResolve(\''+c.id+'\',\'covered\')">Covered ✓</button>'
+          +'<button class="ghost" onclick="covResolve(\''+c.id+'\',\'uncovered\')">Close uncovered</button>'
+        : '<button class="ghost" onclick="covReopen(\''+c.id+'\')">Reopen</button>')
+      +'</div>'
+      +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
+      +'<div style="margin-top:9px;">'+(askRows||'<div class="field-note" style="padding:4px 0;">Nobody logged as asked yet.</div>')+'</div>'
+      +'<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px;font-weight:600;color:'
+        +(c.resolved_how==='covered'?'#1E8449':c.resolved_how==='uncovered'?'#C0392B':'var(--text-muted)')+';">'
+      +covSummary(c)+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+/* ================================================================
+   NURSE VISITS — GHEs in state-assigned months + weekly medication
+   visits, scheduled by the nurse directly with the client. The hub
+   tracks due-ness only; the calendar belongs to the nurse.
+   ================================================================ */
+function nvToggleAdd(){ const w=document.getElementById('nvAddWrap'); w.style.display=w.style.display==='none'?'block':'none'; }
+function nvMonth(){ return new Date().toISOString().slice(0,7); }
+function nvWeekStart(d){
+  const x=d?new Date(d):new Date(); const day=(x.getDay()+6)%7;   // Monday start
+  x.setDate(x.getDate()-day); return x.toISOString().slice(0,10);
+}
+async function nvAdd(){
+  const name=document.getElementById('nvName').value.trim();
+  if(!name){ alert('Client name first.'); return; }
+  const c={ id:uid(), name,
+    phone:document.getElementById('nvPhone').value.trim(),
+    ghe1:document.getElementById('nvGhe1').value||null,
+    ghe2:document.getElementById('nvGhe2').value||null,
+    weekly_meds:document.getElementById('nvWeekly').checked,
+    notes:document.getElementById('nvNotes').value.trim(),
+    active:true, added_at:new Date().toISOString(),
+    added_by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'' };
+  DATA.nurse_clients=DATA.nurse_clients||[]; DATA.nurse_clients.push(c);
+  await persist('nurse_clients',c);
+  ['nvName','nvPhone','nvNotes'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('nvAddWrap').style.display='none';
+  renderNurseVisits();
+}
+async function nvDeactivate(id){
+  const c=(DATA.nurse_clients||[]).find(x=>x.id===id); if(!c) return;
+  if(!confirm('Remove '+c.name+' from the visit board? History is kept.')) return;
+  c.active=false; await persist('nurse_clients',c); renderNurseVisits();
+}
+function nvVisitsFor(cid,type){
+  return (DATA.nurse_visits||[]).filter(v=>v.client_id===cid&&v.type===type);
+}
+function nvGheState(c,which){
+  const month=c[which]; if(!month) return null;
+  const done=nvVisitsFor(c.id,which).find(v=>v.status==='completed');
+  const sched=nvVisitsFor(c.id,which).find(v=>v.status==='scheduled');
+  if(done) return {s:'done',lbl:'✓ done '+(done.completed_on||'').slice(0,10),col:'#1E8449',bg:'#EAF6EE'};
+  if(sched) return {s:'scheduled',lbl:'📅 booked '+(sched.scheduled_for||''),col:'#1B4E82',bg:'#EDF3FA'};
+  const now=nvMonth();
+  if(month<now)  return {s:'overdue',lbl:'⚠ window was '+month,col:'#C0392B',bg:'#FDEEEC'};
+  if(month===now)return {s:'due',lbl:'due this month',col:'#94681D',bg:'#FBF3E2'};
+  return {s:'upcoming',lbl:'window '+month,col:'#6E6559',bg:'transparent'};
+}
+async function nvSchedule(cid,type){
+  const when=prompt('Scheduled for (YYYY-MM-DD)',today()); if(!when) return;
+  const v={ id:uid(), client_id:cid, type, status:'scheduled',
+    scheduled_for:when.trim(), scheduled_at:new Date().toISOString(),
+    by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'', completed_on:null, note:'' };
+  DATA.nurse_visits=DATA.nurse_visits||[]; DATA.nurse_visits.push(v);
+  await persist('nurse_visits',v); renderNurseVisits();
+}
+async function nvComplete(cid,type){
+  const sched=nvVisitsFor(cid,type).find(v=>v.status==='scheduled');
+  const note=prompt('Anything to note from the visit? (optional)')||'';
+  const on=today();
+  if(sched){
+    sched.status='completed'; sched.completed_on=on; sched.note=note;
+    sched.completed_at=new Date().toISOString();
+    sched.week=nvWeekStart(on);
+    await persist('nurse_visits',sched);
+  }else{
+    const v={ id:uid(), client_id:cid, type, status:'completed',
+      scheduled_for:null, scheduled_at:null, completed_on:on, week:nvWeekStart(on),
+      completed_at:new Date().toISOString(),
+      by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'', note };
+    DATA.nurse_visits=DATA.nurse_visits||[]; DATA.nurse_visits.push(v);
+    await persist('nurse_visits',v);
+  }
+  renderNurseVisits();
+}
+function renderNurseVisits(){
+  const ghe=document.getElementById('nvGheList'); if(!ghe) return;
+  const clients=(DATA.nurse_clients||[]).filter(c=>c.active!==false);
+  const nameOf=id=>{ const c=(DATA.nurse_clients||[]).find(x=>x.id===id); return c?c.name:'?'; };
+  const phoneBit=c=>c.phone?' · <a href="tel:'+esc(c.phone)+'" style="color:var(--navy);font-weight:700;">'+esc(c.phone)+'</a>':'';
+
+  // GHE table
+  ghe.innerHTML=clients.filter(c=>c.ghe1||c.ghe2).map(c=>{
+    const cells=['ghe1','ghe2'].map(w=>{
+      const st=nvGheState(c,w);
+      if(!st) return '<td style="padding:8px;border-top:1px solid var(--border);" class="field-note">—</td>';
+      const act=(st.s==='done')?'' :
+        '<div style="margin-top:4px;display:flex;gap:6px;">'
+        +(st.s!=='scheduled'?'<button class="ghost" style="padding:2px 9px;font-size:11.5px;" onclick="nvSchedule(\''+c.id+'\',\''+w+'\')">book</button>':'')
+        +'<button class="ghost" style="padding:2px 9px;font-size:11.5px;" onclick="nvComplete(\''+c.id+'\',\''+w+'\')">done</button></div>';
+      return '<td style="padding:8px;border-top:1px solid var(--border);background:'+st.bg+';">'
+        +'<span style="color:'+st.col+';font-weight:700;font-size:12.5px;">'+st.lbl+'</span>'+act+'</td>';
+    }).join('');
+    return '<tr><td style="padding:8px;border-top:1px solid var(--border);"><b>'+esc(c.name)+'</b>'+phoneBit(c)
+      +(c.notes?'<div class="field-note">'+esc(c.notes)+'</div>':'')
+      +'</td>'+cells
+      +'<td style="padding:8px;border-top:1px solid var(--border);text-align:right;"><button class="ghost" style="padding:2px 8px;font-size:11px;" onclick="nvDeactivate(\''+c.id+'\')">remove</button></td></tr>';
+  }).join('') || '<div class="field-note">No clients with GHE windows yet. Add one above.</div>';
+  if(ghe.innerHTML.startsWith('<tr')) ghe.innerHTML=
+    '<table style="width:100%;border-collapse:collapse;font-size:13.5px;">'
+    +'<tr class="field-note"><td style="padding:4px 8px;">Client</td><td style="padding:4px 8px;">GHE 1</td><td style="padding:4px 8px;">GHE 2</td><td></td></tr>'
+    +ghe.innerHTML+'</table>';
+
+  // weekly meds
+  const meds=document.getElementById('nvMedsList');
+  const thisWeek=nvWeekStart();
+  meds.innerHTML=clients.filter(c=>c.weekly_meds).map(c=>{
+    const done=(DATA.nurse_visits||[]).filter(v=>v.client_id===c.id&&v.type==='meds'&&v.status==='completed')
+      .sort((a,b)=>(b.completed_on||'').localeCompare(a.completed_on||''));
+    const last=done[0]||null;
+    const daysAgo=last?Math.round((Date.now()-new Date(last.completed_on))/86400000):null;
+    const thisWeekDone=!!done.find(v=>(v.week||nvWeekStart(v.completed_on))===thisWeek);
+    const st=thisWeekDone?{lbl:'✓ seen this week',col:'#1E8449'}
+      :(daysAgo===null?{lbl:'never visited',col:'#C0392B'}
+      : daysAgo>9?{lbl:'⚠ '+daysAgo+' days since last visit',col:'#C0392B'}
+      : {lbl:'due this week — last seen '+daysAgo+'d ago',col:'#94681D'});
+    return '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'
+      +'<b>'+esc(c.name)+'</b>'+phoneBit(c)
+      +'<span style="color:'+st.col+';font-weight:700;">'+st.lbl+'</span>'
+      +'<span style="flex:1;"></span>'
+      +(thisWeekDone?'':'<button class="addlead" style="padding:4px 12px;font-size:12px;" onclick="nvComplete(\''+c.id+'\',\'meds\')">Log this week&#39;s visit</button>')
+      +'</div>';
+  }).join('') || '<div class="field-note">No clients on weekly medication visits.</div>';
+
+  // due-now strip
+  const strip=document.getElementById('nvDueNow');
+  const dueGhe=clients.flatMap(c=>['ghe1','ghe2'].map(w=>({c,w,st:nvGheState(c,w)})))
+    .filter(x=>x.st&&(x.st.s==='due'||x.st.s==='overdue'));
+  const dueMeds=clients.filter(c=>c.weekly_meds).filter(c=>{
+    const done=(DATA.nurse_visits||[]).filter(v=>v.client_id===c.id&&v.type==='meds'&&v.status==='completed');
+    return !done.find(v=>(v.week||nvWeekStart(v.completed_on))===thisWeek);
+  });
+  const nb=document.getElementById('gb-nursing');
+  const urgent=dueGhe.filter(x=>x.st.s==='overdue').length;
+  if(nb){ nb.style.display=urgent?'inline-block':'none'; nb.textContent=urgent; }
+  strip.innerHTML=(dueGhe.length||dueMeds.length)
+    ? '<div class="card" style="padding:14px 18px;border-left:4px solid #F0A830;">'
+      +'<b style="font-size:14px;color:var(--navy);">Needs a call this week</b>'
+      +'<div style="margin-top:6px;font-size:13.5px;line-height:1.8;">'
+      +dueGhe.map(x=>'• <b>'+esc(x.c.name)+'</b> — GHE '+(x.st.s==='overdue'?'<span style="color:#C0392B;font-weight:700;">window missed ('+esc(x.c[x.w])+')</span>':'due this month')).join('<br>')
+      +(dueGhe.length&&dueMeds.length?'<br>':'')
+      +dueMeds.map(c=>'• <b>'+esc(c.name)+'</b> — medication visit not yet done this week').join('<br>')
+      +'</div></div>'
+    : '';
+
+  // history
+  const hist=document.getElementById('nvHistory');
+  const T={ghe1:'GHE 1',ghe2:'GHE 2',meds:'Med visit'};
+  const rows=(DATA.nurse_visits||[]).slice()
+    .sort((a,b)=>String(b.completed_on||b.scheduled_for||'').localeCompare(String(a.completed_on||a.scheduled_for||''))).slice(0,40);
+  hist.innerHTML=rows.map(v=>'<div style="display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--border);font-size:13px;">'
+    +'<span style="min-width:88px;" class="field-note">'+esc((v.completed_on||v.scheduled_for||'').slice(0,10))+'</span>'
+    +'<b>'+esc(nameOf(v.client_id))+'</b><span>'+ (T[v.type]||v.type) +'</span>'
+    +'<span style="font-weight:700;color:'+(v.status==='completed'?'#1E8449':'#1B4E82')+';">'+(v.status==='completed'?'completed':'scheduled')+'</span>'
+    +(v.by?'<span class="field-note">by '+esc(v.by)+'</span>':'')
+    +(v.note?'<span class="field-note">— '+esc(v.note)+'</span>':'')
+    +'</div>').join('') || '<div class="field-note">No visits logged yet.</div>';
+}
 </script>
 <script>
 /* GHL embed polish + hash deep links (#clients, #htorders, #leads, ...) */
