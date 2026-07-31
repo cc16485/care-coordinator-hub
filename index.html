@@ -89,6 +89,75 @@
   .fpill{display:flex;align-items:center;gap:8px;border-radius:999px;padding:6px 16px;font-size:12.5px;font-weight:700;border:1.5px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer;white-space:nowrap;flex:0 0 auto;}
   .fpill:hover{background:#EFF5FA;}
   .fpill.active{background:var(--navy);color:#fff;}
+  /* ---- styles carried over with the caregiver panels ---- */
+.tab-bar .tab.gtab.active{background:var(--bg);border-color:transparent transparent var(--bg) transparent;color:var(--navy)}
+.tab.active{background:var(--bg);color:var(--navy);font-weight:800;font-size:.84rem;margin-bottom:-1.5px;border-bottom:1.5px solid var(--bg);padding:.75rem 1.5rem .6rem;opacity:1;box-shadow:inset 0 3px 0 var(--turq)}
+.subbar .tab.active{background:var(--navy);color:#fff;border:1px solid var(--navy);padding-top:.35rem}
+.panel.active{display:block}
+/* ── Stats bar ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1.5rem}
+/* ── Controls ── */
+.controls{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap}
+.controls input[type=text]{padding:.45rem .9rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:.85rem;width:190px}
+.controls input:focus{outline:none;border-color:var(--teal)}
+.fb{padding:.4rem .8rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:.78rem;cursor:pointer;background:var(--white);color:var(--navy);font-weight:500}
+.fb.active,.fb:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+.add-btn{margin-left:auto;padding:.45rem 1rem;background:var(--teal);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
+/* ── Table ── */
+.tbl-wrap{background:var(--white);border-radius:12px;box-shadow:0 2px 12px rgba(14,56,96,.07);overflow-x:auto}
+.empty{text-align:center;padding:3rem;color:var(--gray)}
+/* ── Orientation Calendar ── */
+.or-layout{display:grid;grid-template-columns:300px 1fr;gap:1.25rem;align-items:start}
+.cal-card{background:var(--white);border-radius:12px;box-shadow:0 2px 12px rgba(14,56,96,.07);overflow:hidden;margin-bottom:.75rem}
+.cal-hdr{background:var(--navy);color:#fff;padding:.8rem 1rem;display:flex;align-items:center;justify-content:space-between}
+.cal-hdr h3{font-size:.88rem;font-weight:700;margin:0}
+.cal-nav-btn{background:none;border:none;color:#fff;font-size:1.1rem;cursor:pointer;padding:.15rem .4rem;opacity:.7;border-radius:4px;transition:.15s}
+.cal-nav-btn:hover{opacity:1;background:rgba(255,255,255,.15)}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:.62rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.03em;padding:.5rem .5rem .2rem}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;padding:.3rem .5rem .6rem}
+.or-sessions-panel{background:var(--white);border-radius:12px;box-shadow:0 2px 12px rgba(14,56,96,.07);overflow:hidden}
+.or-sessions-hdr{padding:.85rem 1.1rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.or-sessions-hdr h3{font-size:.88rem;font-weight:700;color:var(--navy);margin:0}
+.past-sess-toggle{display:flex;gap:.3rem;margin-bottom:.6rem;padding:.5rem .75rem;background:var(--bg);border-radius:8px}
+.pts-btn{flex:1;padding:.3rem .6rem;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:.75rem;font-weight:600;cursor:pointer;background:var(--white);color:var(--navy);transition:.12s}
+.pts-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+/* ── Tab Guide (collapsible how-it-works) ── */
+.tab-guide{border:1.5px solid var(--teal);border-radius:10px;margin-bottom:1.1rem;overflow:hidden}
+.tab-guide-hdr{display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;background:#f0fffe;cursor:pointer;user-select:none}
+.tab-guide-hdr:hover{background:#e4f8f7}
+.tab-guide-title{font-size:.78rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.05em}
+.tab-guide-arrow{font-size:.8rem;color:var(--teal);transition:transform .2s}
+.tab-guide-arrow.open{transform:rotate(180deg)}
+.tab-guide-body{display:none;padding:.85rem 1rem 1rem;background:#fff}
+.tab-guide-body.open{display:block}
+.guide-step{display:flex;gap:.7rem;margin-bottom:.7rem;align-items:flex-start}
+.guide-step:last-child{margin-bottom:0}
+.guide-step-num{flex-shrink:0;width:1.5rem;height:1.5rem;border-radius:50%;background:var(--navy);color:#fff;font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:.05rem}
+.guide-step-body{font-size:.79rem;color:var(--navy);line-height:1.55}
+.guide-step-body strong{color:var(--navy)}
+.guide-step-body .tip{display:block;font-size:.72rem;color:var(--gray);margin-top:.2rem}
+.guide-section-lbl{font-size:.68rem;font-weight:700;color:var(--teal);text-transform:uppercase;letter-spacing:.06em;margin:.75rem 0 .4rem;border-top:1px solid var(--border);padding-top:.55rem}
+html.embedded .subbar .tab.active{background:none; color:var(--navy); border:none;
+  border-bottom:2px solid var(--teal, #54BDB8); padding-top:7px;}
+html.embedded .subbar .tab.active{background:var(--bg) !important;color:var(--navy) !important;
+  font-weight:800 !important;border:0 !important;margin-bottom:-1px !important;}
+html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !important;              /* same as the page = pulled forward */
+  color:#0D365F !important;
+  font-weight:800 !important;
+  padding-top:11px !important;                /* taller than its neighbours */
+  padding-bottom:9px !important;
+  margin-bottom:-1px !important;              /* seals to the content below */
+  box-shadow:0 -3px 8px -2px rgba(0,0,0,.28) !important;         /* lifted */
+  position:relative !important;
+  z-index:2 !important;}
+.tab-bar .tab.gtab.active{background:#FAF9F6 !important;
+  color:#0D365F !important;
+  font-weight:800 !important;
+  padding-top:12px !important;
+  margin-bottom:-1px !important;
+  box-shadow:0 -3px 8px -2px rgba(0,0,0,.28) !important;
+  position:relative !important;
+  z-index:2 !important;}
   /* Third level: Leads / Marketing / Playbook each open their own strip.
      Deliberately quieter than .fpill so the hierarchy reads at a glance. */
   .fsubbar2{display:none;gap:6px;padding:8px 26px;background:var(--card);
@@ -421,6 +490,12 @@
     <div class="fpill" data-tab="recruit" onclick="switchTab('recruit')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Recruit</div>
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
     <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Offer a Job</div>
+    <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Background &amp; References</div>
+    <div class="fpill" data-tab="cgorient" onclick="switchTab('cgorient')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Orientations</div>
+    <div class="fpill" data-tab="cgtraining" onclick="switchTab('cgtraining')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training</div>
+    <div class="fpill" data-tab="cgcompliance" onclick="switchTab('cgcompliance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Active Compliance</div>
+    <div class="fpill" data-tab="cgattendance" onclick="switchTab('cgattendance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Attendance</div>
+    <div class="fpill" data-tab="cgwriteups" onclick="switchTab('cgwriteups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> Write-Ups</div>
   </div>
   <div class="fsubbar" id="fsub-ops">
     <div class="fpill" data-tab="ops" onclick="switchTab('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention</div>
@@ -753,6 +828,403 @@
     </section>
 
     <!-- ===================== TAB: INTERVIEWS ===================== -->
+    <!-- ===== CAREGIVERS: Background &amp; References (moved from Staffing hub) ===== -->
+    <section class="tabpanel" id="tab-cgbackground">
+
+      <!-- Tab Guide -->
+      <div class="tab-guide">
+        <div class="tab-guide-hdr" onclick="SCX.toggleGuide('ob')">
+          <span class="tab-guide-title">📋 How This Tab Works — Step by Step</span>
+          <span class="tab-guide-arrow" id="guide-arrow-ob">▼</span>
+        </div>
+        <div class="tab-guide-body" id="guide-body-ob">
+          <div class="guide-section-lbl" style="border-top:none;padding-top:0;margin-top:0">How candidates get here</div>
+          <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">Candidate completes their application in <strong>Viventium</strong>. This triggers an email to Gmail and automatically adds them to this tab.<span class="tip">If a candidate doesn't appear, check that Viventium sent the notification and manually add them using "+ Add Candidate."</span></div></div>
+          <div class="guide-section-lbl">Your checklist for each candidate</div>
+          <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body"><strong>Run OIG Exclusion Check</strong> — click the OIG button on their row. Must be clear before proceeding.<span class="tip">You can also run a batch OIG check for all pending candidates at once using the Batch OIG button.</span></div></div>
+          <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>Order FCSR Background Check</strong> — done manually through FCSR. Log the date ordered and mark clear/failed when results arrive.</div></div>
+          <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body"><strong>Send Reference Forms</strong> — click "Send Refs" to email the reference form link to each reference the candidate listed. Requires 2 positive references.<span class="tip">Reference form URL: mo-care.com/reference-form — responses are auto-scored and appear in the candidate record.</span></div></div>
+          <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body"><strong>Fingerprint</strong> — schedule if required. Log the date completed.</div></div>
+          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">Once <strong>OIG ✅ + FCSR ✅ + 2 Refs ✅</strong>, the candidate's status automatically changes to <strong>Ready for Orientation</strong>. Notify the team to book them into an orientation session.</div></div>
+          <div class="guide-step"><div class="guide-step-num">7</div><div class="guide-step-body">If any check fails, status moves to <strong>Needs Review</strong>. Document the reason and determine next steps with management.</div></div>
+          <div class="guide-section-lbl">Processing Stats</div>
+          <div class="guide-step"><div class="guide-step-num">📊</div><div class="guide-step-body">Use the <strong>Stats</strong> filter button to see how long each candidate is taking — we aim to get applicants to orientation as fast as possible.</div></div>
+        </div>
+      </div>
+
+      <div class="stats" id="ob-stats"></div>
+      <div class="controls">
+        <input type="text" placeholder="Search candidate..." oninput="SCX.renderOB()">
+        <button class="fb active" onclick="SCX.obFilter('all',this)">All</button>
+        <button class="fb" onclick="SCX.obFilter('ready',this)">✅ Ready for Orientation</button>
+        <button class="fb" onclick="SCX.obFilter('refs',this)">📋 Awaiting References</button>
+        <button class="fb" onclick="SCX.obFilter('bg',this)">🔍 Pending Background Check</button>
+        <button class="fb" onclick="SCX.obFilter('review',this)">⚠️ Needs Review</button>
+        <button class="fb" onclick="SCX.obFilter('not_hired',this)" style="color:#ef4444;border-color:#fca5a5">🚫 Not Hired</button>
+        <button class="fb" onclick="SCX.obFilter('stats',this)" style="margin-left:auto">📊 Processing Stats</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Candidate</th>
+            <th>Ref 1</th><th>Ref 2</th><th>Ref 3</th><th>Ref 4</th>
+            <th>OIG Check</th>
+            <th>EDL Check</th>
+            <th>FCSR BG</th>
+            <th>Fingerprint BG</th>
+            <th>Status</th><th style="min-width:120px">Actions</th>
+          </tr></thead>
+          <tbody id="ob-tbody"></tbody>
+        </table>
+        <div class="empty" id="ob-empty" style="display:none">No candidates match.</div>
+      </div>
+      <div id="ob-stats-panel" style="display:none;padding:.25rem 0 1rem"></div>
+    </div>
+
+    <!-- ═══════════════════════════════ TRAINING ════════════════════════════════ -->
+</section>
+
+    <!-- ===== CAREGIVERS: Orientations (moved from Staffing hub) ===== -->
+    <section class="tabpanel" id="tab-cgorient">
+
+      <div class="tab-guide">
+        <div class="tab-guide-hdr" onclick="SCX.toggleGuide('orient')">
+          <span class="tab-guide-title">📋 How This Tab Works — Step by Step</span>
+          <span class="tab-guide-arrow" id="guide-arrow-orient">▼</span>
+        </div>
+        <div class="tab-guide-body" id="guide-body-orient">
+          <div class="guide-section-lbl" style="border-top:none;padding-top:0;margin-top:0">Scheduling a session</div>
+          <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">Click <strong>+ Add Session</strong> to create an orientation. Set the date, start time (default 10am), capacity, location, and who is running it (facilitator + role).<span class="tip">The session will automatically sync to Google Calendar and create a shift in AxisCare if those webhooks are configured in Settings.</span></div></div>
+          <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body">To schedule repeating sessions, use the <strong>Repeat</strong> dropdown (weekly, biweekly, or monthly). The hub creates all sessions in one step and tags them as a series.</div></div>
+          <div class="guide-section-lbl">Booking candidates in</div>
+          <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body">Once a candidate is <strong>Ready for Orientation</strong> in the Background &amp; References tab, click <strong>🔗 Copy Booking Link</strong> on a session and send it to them. They pick their preferred time from a self-serve page.<span class="tip">Or click <strong>+ Add Booking</strong> to manually add a candidate (useful for phone/text bookings).</span></div></div>
+          <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body">Session capacity fills up automatically. A <strong>FULL</strong> badge appears when there are no open spots.</div></div>
+          <div class="guide-section-lbl">Day of orientation</div>
+          <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body">After the session, switch to <strong>Past Sessions &amp; Attendance</strong> and mark each attendee: ✅ Attended, 🚫 No-Show, 📅 Rescheduled, or ❌ Canceled.</div></div>
+          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">For anyone who <strong>Attended</strong>, click the <strong>🎓 Promote</strong> button to move them into the Active Compliance tab as a new caregiver.</div></div>
+          <div class="guide-step"><div class="guide-step-num">7</div><div class="guide-step-body">For <strong>No-Shows</strong>, follow up and rebook them into the next available session using a new booking link.</div></div>
+        </div>
+      </div>
+
+      <!-- ── Ready for Orientation Queue ──────────────────────────────── -->
+      <div id="orient-ready-queue" style="margin-bottom:1rem"></div>
+
+      <!-- ── Orientation Settings (collapsible, Augusta-inspired) ──────── -->
+      <div class="tab-guide" style="margin-bottom:1rem">
+        <div class="tab-guide-hdr" onclick="SCX.toggleGuide('orient-cfg')">
+          <span class="tab-guide-title">⚙️ Orientation Settings — Schedule &amp; Defaults</span>
+          <span class="tab-guide-arrow" id="guide-arrow-orient-cfg">▼</span>
+        </div>
+        <div class="tab-guide-body" id="guide-body-orient-cfg">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
+
+            <!-- LEFT: Weekly Recurring Schedule -->
+            <div>
+              <div style="font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Recurring Weekly Schedule</div>
+              <div id="orient-schedule-days" style="display:flex;flex-direction:column;gap:0">
+                <!-- Rows rendered by initOrientSettings() -->
+              </div>
+              <div style="margin-top:1.1rem">
+                <div style="font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Generate Sessions</div>
+                <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+                  <select id="orient-gen-weeks" onchange="SCX.updateOrientGenPreview()" style="padding:.32rem .6rem;border:1.5px solid var(--border);border-radius:7px;font-size:.8rem;font-family:inherit">
+                    <option value="4">Next 4 weeks</option>
+                    <option value="8" selected>Next 8 weeks</option>
+                    <option value="12">Next 12 weeks</option>
+                    <option value="16">Next 16 weeks</option>
+                  </select>
+                  <button onclick="SCX.generateOrientSessions()" style="padding:.32rem .95rem;background:var(--navy);color:#fff;border:none;border-radius:7px;font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit">Generate Sessions</button>
+                </div>
+                <div id="orient-gen-preview" style="font-size:.72rem;color:var(--gray);margin-top:.4rem;line-height:1.5"></div>
+              </div>
+            </div>
+
+            <!-- RIGHT: Session Defaults -->
+            <div>
+              <div style="font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Session Defaults</div>
+              <div style="display:flex;flex-direction:column;gap:.7rem">
+                <div>
+                  <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Duration</label>
+                  <select id="orient-cfg-duration" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit">
+                    <option value="1">1 hour</option>
+                    <option value="1.5">1.5 hours</option>
+                    <option value="2" selected>2 hours</option>
+                    <option value="2.5">2.5 hours</option>
+                    <option value="3">3 hours</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Max Capacity (per session)</label>
+                  <select id="orient-cfg-capacity" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit">
+                    <option value="2">2 people</option>
+                    <option value="3">3 people</option>
+                    <option value="4">4 people</option>
+                    <option value="5">5 people</option>
+                    <option value="6" selected>6 people</option>
+                    <option value="8">8 people</option>
+                    <option value="10">10 people</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Default Facilitator</label>
+                  <input type="text" id="orient-cfg-facilitator" placeholder="e.g. Samantha" list="facilitator-list" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit;box-sizing:border-box">
+                </div>
+                <div>
+                  <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Location</label>
+                  <div style="display:flex;gap:.85rem;margin-bottom:.4rem">
+                    <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer">
+                      <input type="radio" name="orient-cfg-loc" value="inperson" checked style="accent-color:var(--navy)"> In-Person
+                    </label>
+                    <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer">
+                      <input type="radio" name="orient-cfg-loc" value="remote" style="accent-color:var(--navy)"> Remote
+                    </label>
+                  </div>
+                  <input type="text" id="orient-cfg-address" value="1331 N Stewart Ave Ste B, Springfield MO 65802" placeholder="Location address" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit;box-sizing:border-box">
+                </div>
+              </div>
+              <div style="margin-top:1rem;display:flex;justify-content:flex-end">
+                <button onclick="SCX.saveOrientSettings()" id="orient-cfg-save-btn" style="padding:.38rem 1.1rem;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit">Save Settings</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="or-layout">
+        <!-- Left: Calendar -->
+        <div>
+          <div class="cal-card">
+            <div class="cal-hdr">
+              <button class="cal-nav-btn" onclick="SCX.calPrev()">‹</button>
+              <h3 id="cal-month-label">June 2026</h3>
+              <button class="cal-nav-btn" onclick="SCX.calNext()">›</button>
+            </div>
+            <div class="cal-dow"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>
+            <div class="cal-days" id="cal-days"></div>
+          </div>
+          <div style="font-size:.72rem;color:var(--gray);text-align:center;margin-top:.25rem">Click a highlighted day to view its sessions</div>
+          <div class="stats" id="or-stats" style="margin-top:.75rem;margin-bottom:0;grid-template-columns:1fr 1fr"></div>
+        </div>
+
+        <!-- Right: Sessions list -->
+        <div class="or-sessions-panel">
+          <div class="or-sessions-hdr">
+            <h3 id="or-list-title">All Upcoming Sessions</h3>
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+              <span id="or-session-count" style="font-size:.75rem;color:var(--gray)"></span>
+              <button class="add-btn" style="padding:.3rem .7rem;font-size:.75rem" onclick="SCX.openOrientModal()">+ Add Session</button>
+              <button class="add-btn" style="padding:.3rem .7rem;font-size:.75rem;background:var(--teal)" onclick="SCX.gcalSyncAll()" title="Create/update all upcoming sessions in Google Calendar">📅 Sync to GCal</button>
+            </div>
+          </div>
+          <div class="past-sess-toggle" style="border-bottom:1px solid var(--border);border-radius:0;padding:.5rem .85rem">
+            <button id="pts-upcoming" class="pts-btn active" onclick="SCX.setPastView(false)">📅 Upcoming</button>
+            <button id="pts-past" class="pts-btn" onclick="SCX.setPastView(true)">📋 Past Sessions &amp; Attendance</button>
+          </div>
+          <div id="or-sessions-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════ SCHEDULING ══════════════════════════════ -->
+</section>
+
+    <!-- ===== CAREGIVERS: Training (moved from Staffing hub) ===== -->
+    <section class="tabpanel" id="tab-cgtraining">
+      <div class="tab-guide">
+        <div class="tab-guide-hdr" onclick="SCX.toggleGuide('training')">
+          <span class="tab-guide-title">📋 How This Tab Works — Step by Step</span>
+          <span class="tab-guide-arrow" id="guide-arrow-training">▼</span>
+        </div>
+        <div class="tab-guide-body" id="guide-body-training">
+          <div class="guide-section-lbl" style="border-top:none;padding-top:0;margin-top:0">How caregivers get here</div>
+          <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">Caregivers appear here after completing orientation and being <strong>promoted</strong> from the Orientations tab. You can also add them manually with <strong>+ Add Caregiver</strong>.</div></div>
+          <div class="guide-section-lbl">Training milestones to track</div>
+          <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body"><strong>Agency Orientation + ALZ Training</strong> (6 hrs total) — must be completed before the caregiver can be scheduled with their first client.</div></div>
+          <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>First Client Contact</strong> — log the date the caregiver was first scheduled with a client. This starts the 30-day OJT clock.</div></div>
+          <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body"><strong>OJT In-Home + Online</strong> (12 hrs total) — must be completed within 30 days of first client contact. The <strong>30-Day Training Due</strong> filter highlights anyone approaching or past this deadline.</div></div>
+          <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body"><strong>Annual 5-Hour Training</strong> — required every year starting year 2. Use the <strong>Annual Due</strong> filter to see who is coming up.</div></div>
+          <div class="guide-section-lbl">Flags to watch</div>
+          <div class="guide-step"><div class="guide-step-num">⛔</div><div class="guide-step-body">The <strong>Client Contact Blocked</strong> filter shows caregivers who have not completed their orientation/ALZ training and should NOT yet be scheduled with clients.</div></div>
+        </div>
+      </div>
+      <div id="train-alert"></div>
+      <div class="stats" id="tr-stats"></div>
+      <div class="controls">
+        <input type="text" placeholder="Search caregiver..." oninput="SCX.renderTR()">
+        <button class="fb active" onclick="SCX.trFilter('all',this)">All</button>
+        <button class="fb" onclick="SCX.trFilter('blocked',this)">⛔ Client Contact Blocked</button>
+        <button class="fb" onclick="SCX.trFilter('ojt-due',this)">30-Day Training Due</button>
+        <button class="fb" onclick="SCX.trFilter('annual-due',this)">Annual Due</button>
+        <button class="fb" onclick="SCX.syncFromTrainingHub(this)" title="Pull completion dates, hire dates and first-contact dates straight from training.mo-care.com">☁ Sync from Training Hub</button>
+        <a class="fb" href="https://training.mo-care.com" target="_blank" rel="noopener" title="Open the Training Hub — caregiver training dashboard" style="text-decoration:none;background:rgba(255,198,113,.35);font-weight:700">🎓 Open Training Hub ↗</a>
+        <button class="add-btn" onclick="SCX.openCGModal('training')">+ Add Caregiver</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Caregiver</th><th>Hire Date</th>
+            <th>Agency Orientation + ALZ <span style="font-weight:400;opacity:.7">6hr — cleared to schedule</span></th>
+            <th>First Client Contact</th>
+            <th>OJT In-Home + Online <span style="font-weight:400;opacity:.7">6hr — all 12hr due within 30 days</span></th>
+            <th>Annual 5hr <span style="font-weight:400;opacity:.7">yr 2+</span></th>
+            <th>Overall</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="tr-tbody"></tbody>
+        </table>
+        <div class="empty" id="tr-empty" style="display:none">No caregivers match.</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════ ACTIVE COMPLIANCE ════════════════════════ -->
+</section>
+
+    <!-- ===== CAREGIVERS: Active Compliance (moved from Staffing hub) ===== -->
+    <section class="tabpanel" id="tab-cgcompliance">
+      <div class="tab-guide">
+        <div class="tab-guide-hdr" onclick="SCX.toggleGuide('compliance')">
+          <span class="tab-guide-title">📋 How This Tab Works — Step by Step</span>
+          <span class="tab-guide-arrow" id="guide-arrow-compliance">▼</span>
+        </div>
+        <div class="tab-guide-body" id="guide-body-compliance">
+          <div class="guide-section-lbl" style="border-top:none;padding-top:0;margin-top:0">Ongoing compliance checks</div>
+          <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">This tab tracks all <strong>active caregivers</strong> for recurring compliance requirements. Three checks must stay current: <strong>OIG Exclusion</strong>, <strong>EDL</strong>, and <strong>FCSR Background Check</strong>.</div></div>
+          <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body">Use the <strong>🔍 Batch OIG Check</strong> button to run the OIG exclusion check on all caregivers at once. This should be done regularly (monthly at minimum).<span class="tip">OIG only requires first and last name — no SSN or date of birth needed.</span></div></div>
+          <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body">Use the <strong>Overdue</strong> and <strong>Due Soon</strong> filters to prioritize who needs attention. Red = overdue, yellow = coming up within 30 days.</div></div>
+          <div class="guide-section-lbl">Supervisory visits &amp; performance reviews</div>
+          <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body">Log <strong>Supervisory Visit</strong> dates and <strong>Performance Review</strong> dates in each caregiver's record. These are required for Medicaid compliance audits.</div></div>
+          <div class="guide-section-lbl">Import / Export</div>
+          <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body">Use <strong>📥 Export CSV</strong> to download your full caregiver list for reporting. Use <strong>⬆ Import CSV</strong> to bulk-upload caregivers using the provided template.</div></div>
+        </div>
+      </div>
+      <div class="stats" id="ac-stats"></div>
+      <div class="controls">
+        <input type="text" placeholder="Search caregiver..." oninput="SCX.renderAC()">
+        <button class="fb active" onclick="SCX.acFilter('all',this)">All</button>
+        <button class="fb" onclick="SCX.acFilter('overdue',this)">Overdue</button>
+        <button class="fb" onclick="SCX.acFilter('duesoon',this)">Due Soon</button>
+        <button class="fb" onclick="SCX.acFilter('current',this)">All Current</button>
+        <button class="add-btn" onclick="SCX.batchOIGCheck()" style="background:var(--teal)">🔍 Batch OIG Check</button>
+        <button class="add-btn" onclick="SCX.exportComplianceCSV()" style="background:var(--navy)">📥 Export CSV</button>
+        <button class="add-btn" onclick="SCX.downloadCSVTemplate()" style="background:var(--navy)">📋 CSV Template</button>
+        <button class="add-btn" onclick="SCX.openImportModal()" style="background:#7c3aed">⬆ Import CSV</button>
+        <button class="add-btn" onclick="SCX.openCGModal('compliance')">+ Add Caregiver</button>
+        <input type="file" id="csv-file-input" accept=".csv" style="display:none" onchange="SCX.handleCSVFile(event)">
+      </div>
+      <div id="ac-bulk-bar" style="background:var(--navy);padding:.6rem 1rem;border-radius:8px 8px 0 0;align-items:center;gap:.75rem;flex-wrap:wrap;display:none">
+        <span id="ac-bulk-count" style="color:#fff;font-size:.82rem;font-weight:600;min-width:80px"></span>
+        <button onclick="SCX.bulkMarkCheck('oig')" style="padding:.32rem .75rem;background:var(--teal);color:#fff;border:none;border-radius:6px;font-size:.78rem;cursor:pointer;font-family:inherit;font-weight:600">✔ OIG Checked Today</button>
+        <button onclick="SCX.bulkMarkCheck('edl')" style="padding:.32rem .75rem;background:var(--teal);color:#fff;border:none;border-radius:6px;font-size:.78rem;cursor:pointer;font-family:inherit;font-weight:600">✔ EDL Checked Today</button>
+        <button onclick="SCX.bulkMarkCheck('fcsr')" style="padding:.32rem .75rem;background:var(--teal);color:#fff;border:none;border-radius:6px;font-size:.78rem;cursor:pointer;font-family:inherit;font-weight:600">✔ FCSR Checked Today</button>
+        <button onclick="acSelected.clear();SCX.renderAC();" style="padding:.32rem .75rem;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;font-size:.78rem;cursor:pointer;font-family:inherit">Clear</button>
+      </div>
+      <div class="tbl-wrap" id="ac-tbl-wrap">
+        <table>
+          <thead><tr>
+            <th style="width:36px"><input type="checkbox" id="ac-chk-all" onchange="SCX.toggleACSelectAll(this.checked)" style="accent-color:var(--teal);cursor:pointer"></th>
+            <th>Caregiver</th>
+            <th>OIG <span style="font-weight:400;opacity:.7">90 days</span></th>
+            <th>EDL <span style="font-weight:400;opacity:.7">90 days</span></th>
+            <th>FCSR <span style="font-weight:400;opacity:.7">annual</span></th>
+            <th>Fingerprint BG</th>
+            <th>Supervisory Visit <span style="font-weight:400;opacity:.7">annual</span></th>
+            <th>Performance Review <span style="font-weight:400;opacity:.7">annual</span></th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="ac-tbody"></tbody>
+        </table>
+        <div class="empty" id="ac-empty" style="display:none">No caregivers match.</div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════ ORIENTATIONS ══════════════════════════════ -->
+</section>
+
+    <!-- ===== CAREGIVERS: Attendance (moved from Staffing hub) ===== -->
+    <section class="tabpanel" id="tab-cgattendance">
+      <div class="tab-guide">
+        <div class="tab-guide-hdr" onclick="SCX.toggleGuide('attendance')">
+          <span class="tab-guide-title">📋 How This Tab Works — Step by Step</span>
+          <span class="tab-guide-arrow" id="guide-arrow-attendance">▼</span>
+        </div>
+        <div class="tab-guide-body" id="guide-body-attendance">
+          <ol style="margin:.4rem 0 .6rem;padding-left:1.3rem;line-height:1.7;font-size:.85rem">
+            <li><b>Log every attendance event the moment it happens</b> — a call-in (the hub computes the notice automatically; less than 4 hours = write-up required per Handbook 2U), a tardy, or a no-call/no-show (immediate termination review per 2U — Samantha is alerted and makes the final call).</li>
+            <li>The hub counts events per caregiver and applies the corrective-action ladder from Handbook 2V the same way every time: Verbal Warning → Written Warning → Final Written Warning → Termination Review.</li>
+            <li>When a write-up is due, the caregiver's card shows a red button — click it and the <b>document is drafted for you</b> with the facts, dates, history and policy language. Print it, review it with the caregiver in person, have them sign (a signature confirms receipt, not agreement), then <b>Mark issued</b> and file the signed copy in Viventium.</li>
+            <li>Every write-up — warning or termination — is <b>approved by Samantha or Zach</b> (the owners) before it can be issued. Nobody else can approve discipline.</li>
+          </ol>
+        </div>
+      </div>
+      <div style="padding:0 1.5rem 2rem">
+        <div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;background:#fff;border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem;margin-bottom:1rem">
+          <span style="font-size:.78rem;color:var(--gray)">Attendance write-ups draft themselves from the cards below. Everything else lives on the</span>
+          <a href="#" onclick="SCX.gotoTab('writeups');return false" style="font-size:.8rem;font-weight:700;color:var(--navy)">Write-Ups tab →</a>
+        </div>
+        <details style="margin-bottom:1rem">
+          <summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:var(--navy)">⚙️ Policy thresholds (editable — the ladder applies these consistently)</summary>
+          <div style="display:flex;gap:.9rem;flex-wrap:wrap;align-items:end;background:#fff;border:1px solid var(--border);border-radius:10px;padding:.8rem 1rem;margin-top:.5rem;font-size:.78rem">
+            <label>Notice required (hrs)<br><input type="number" id="att-set-notice" style="width:70px"></label>
+            <label>Call-ins before write-up<br><input type="number" id="att-set-ccount" style="width:70px"></label>
+            <label>…within (days)<br><input type="number" id="att-set-cwin" style="width:70px"></label>
+            <label>Tardy grace (min)<br><input type="number" id="att-set-grace" style="width:70px"></label>
+            <label>Tardies before write-up<br><input type="number" id="att-set-tcount" style="width:70px"></label>
+            <label>…within (days)<br><input type="number" id="att-set-twin" style="width:70px"></label>
+            <label>Warnings count back (months)<br><input type="number" id="att-set-look" style="width:70px"></label>
+            <button class="fb" onclick="SCX.saveAttSettings()">Save</button>
+          </div>
+        </details>
+
+        <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;margin-bottom:1rem">
+          <div style="font-weight:700;font-size:.9rem;margin-bottom:.5rem">➕ Log an attendance event</div>
+          <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+            <select id="att-type" onchange="SCX.attTypeUi()" style="font-size:.85rem">
+              <option value="callin">📞 Call-in (can't make the shift)</option>
+              <option value="tardy">🕐 Tardy (arrived late)</option>
+              <option value="ncns">🚨 No-call / no-show</option>
+            </select>
+            <input id="att-cg" list="att-cg-list" placeholder="Caregiver name" style="min-width:170px;font-size:.85rem">
+            <datalist id="att-cg-list"></datalist>
+            <label style="font-size:.78rem;font-weight:600">Shift <input type="date" id="att-shift-date" style="font-size:.85rem"> <input type="time" id="att-shift-time" style="font-size:.85rem"></label>
+            <label style="font-size:.78rem;font-weight:600" id="att-called-wrap">They called at <input type="datetime-local" id="att-called-at" style="font-size:.85rem"></label>
+            <label style="font-size:.78rem;font-weight:600;display:none" id="att-late-wrap">Minutes late <input type="number" id="att-late-min" style="width:80px;font-size:.85rem"></label>
+            <input id="att-note" placeholder="Reason / note (optional)" style="flex:1;min-width:160px;font-size:.85rem">
+            <button class="fb" onclick="SCX.logAttEvent()">Log it</button>
+          </div>
+          <div id="att-log-hint" style="font-size:.75rem;color:#6E6559;margin-top:.45rem"></div>
+        </div>
+
+        <div id="att-roster"><div style="color:#A89C8B;font-size:.85rem">No attendance events logged yet — the record starts with the first log.</div></div>
+
+        <div style="margin-top:1.25rem">
+          <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem">
+            <span style="font-size:1rem">🔎</span>
+            <div style="font-size:.85rem;font-weight:700;color:var(--navy)">Scan AxisCare clock-ins (last 7 days)</div>
+            <button onclick="SCX.scanClockins(this)" style="margin-left:auto;padding:.32rem .75rem;background:var(--teal);color:#fff;border:none;border-radius:7px;font-size:.75rem;font-weight:600;cursor:pointer;font-family:inherit">Run scan</button>
+          </div>
+          <div style="font-size:.72rem;color:#6E6559;margin-bottom:.5rem">ℹ️ Caregivers aren't clocking in through AxisCare yet, so shifts show "no clock-in" even when they were there — treat results as leads to check, not facts. Once the team moves to AxisCare EVV, this scan becomes automatic tardiness detection.</div>
+          <div id="att-scan-results"></div>
+        </div>
+      </div>
+    </div>
+</section>
+
+    <!-- ===== CAREGIVERS: Write-Ups (moved from Staffing hub) ===== -->
+    <section class="tabpanel" id="tab-cgwriteups">
+      <div style="padding:1.2rem 1.5rem 2rem">
+        <div style="display:flex;align-items:flex-end;gap:.7rem;flex-wrap:wrap;margin-bottom:1rem">
+          <div>
+            <h2 style="margin:0;font-size:1.15rem;color:var(--navy)">Write-Ups</h2>
+            <div style="font-size:.78rem;color:var(--gray);margin-top:.2rem">Every corrective action and what stage it is at. Samantha or Zach approve before anything is issued.</div>
+          </div>
+          <span style="flex:1"></span>
+          <button class="fb" onclick="SCX.openNewWriteup()">📝 Start a write-up</button>
+        </div>
+        <div id="wuList"></div>
+      </div>
+    </div>
+</section>
+
     <!-- ===================== TAB: RECRUIT ===================== -->
     <section class="tabpanel" id="tab-recruit">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
@@ -2942,7 +3414,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clients','checkins','supervisory','referrers','playbook','ltcpolicy'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers'],ops:['ops'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community','reports'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clients','checkins','supervisory','referrers','playbook','ltcpolicy'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community','reports'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -2969,6 +3441,48 @@ function ccParentClick(p){
   const hit = kids.find(k => k.t === last);
   switchTab(hit ? hit.t : kids[0].t);
 }
+
+/* ---------- Caregiver panels: load the engine on first use ----------
+   The engine is 330KB. Downloading it for someone who only ever opens Leads
+   would be rude, so it is fetched the first time a Caregivers tab is opened
+   and never again. Until it lands the panel shows a loading line rather than
+   dead buttons. */
+const SCX_TABS = ['cgbackground', 'cgorient', 'cgtraining', 'cgcompliance', 'cgattendance', 'cgwriteups'];
+let scxState = 'idle';
+function scxEnsure(tab){
+  if(!SCX_TABS.includes(tab)) return;
+  if(scxState === 'ready'){ scxRender(tab); return; }
+  const panel = document.getElementById('tab-'+tab);
+  if(panel && scxState === 'idle'){
+    const note = document.createElement('div');
+    note.id = 'scxLoading';
+    note.className = 'field-note';
+    note.style.cssText = 'padding:14px 2px;';
+    note.textContent = 'Loading…';
+    panel.prepend(note);
+  }
+  if(scxState !== 'idle') return;
+  scxState = 'loading';
+  window.addEventListener('scx-ready', function(){
+    scxState = 'ready';
+    document.getElementById('scxLoading')?.remove();
+    scxRender(activeTab);
+  }, { once:true });
+  const s = document.createElement('script');
+  s.src = 'caregivers-engine.js?v=' + Date.now();
+  s.onerror = function(){
+    scxState = 'idle';
+    const n = document.getElementById('scxLoading');
+    if(n) n.textContent = 'That section could not load. Refresh the page and try again.';
+  };
+  document.head.appendChild(s);
+}
+function scxRender(tab){
+  if(!window.SCX) return;
+  const fn = { cgbackground:'acFilter', cgorient:'acFilter', cgtraining:'renderTR', cgcompliance:'acFilter', cgattendance:'acFilter', cgwriteups:'acFilter' }[tab];
+  try{ if(fn && SCX[fn]) SCX[fn](); }catch(e){ console.warn('caregiver panel render:', e); }
+}
+
 function ccRenderSub2(tab){
   const bar = document.getElementById('fsub2'); if(!bar) return;
   const parent = CC_PARENT_OF[tab];
@@ -3303,6 +3817,7 @@ function ccGroupClick(g){
    Interviews, Phone, Needs Attention, HomeTogether, Campaigns. A fixed title is
    wrong for most of them, so the header names the section you're in. */
 const CC_SECTION_TITLES = {
+  cgbackground:'Background & References', cgorient:'Orientations', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups',
   recruit:'Recruit',
   today:'Overview', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
@@ -3438,6 +3953,7 @@ function switchTab(tab){
     b.classList.toggle('active', b.dataset.tab===tab || (!!parentOf && b.dataset.parent===parentOf));
   });
   ccRenderSub2(tab);
+  scxEnsure(tab);
   if(g!=='today') localStorage.setItem('cch_last_'+g,tab);
   document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
