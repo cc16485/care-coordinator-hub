@@ -803,7 +803,7 @@
             <div>
               <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">✉️ The email</div>
               <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
-                <div style="background:#F4F7FA;padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);"><b>Subject:</b> Welcome to Caring Companions — here's what happens next</div>
+                <div style="background:#FAF9F6;padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);"><b>Subject:</b> Welcome to Caring Companions — here's what happens next</div>
                 <div id="jo_prev_email" style="padding:12px 14px;font-size:13px;line-height:1.65;"></div>
               </div>
             </div>
@@ -1274,7 +1274,7 @@
             <button class="filter-pill" data-cf="call" onclick="lpCommsFilter('call',this)">☎ Calls</button>
             <button class="filter-pill" data-cf="note" onclick="lpCommsFilter('note',this)">📝 Notes</button>
           </div>
-          <div id="commsTimeline" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:10px;">
+          <div id="commsTimeline" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;background:#FAF9F6;border:1px solid var(--border);border-radius:8px;padding:10px;">
             <div class="field-note">Loading conversation…</div>
           </div>
           <div style="display:flex;gap:6px;margin-top:8px;">
@@ -2650,7 +2650,7 @@ function showSetNewPassword(){
   d.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.78);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
   d.innerHTML='<div style="background:#fff;border-radius:14px;padding:26px;width:100%;max-width:360px;font-family:inherit">'
     +'<h2 style="margin:0 0 6px;color:#0D365F;font-size:18px">Set a new password</h2>'
-    +'<p style="margin:0 0 14px;font-size:13px;color:#55677a">Your email link signed you in — now choose a new password.</p>'
+    +'<p style="margin:0 0 14px;font-size:13px;color:#6E6559">Your email link signed you in — now choose a new password.</p>'
     +'<input id="pwNew1" type="password" placeholder="New password (8+ characters)" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #e4e1d8;border-radius:8px;font-size:16px;margin-bottom:8px;font-family:inherit">'
     +'<input id="pwNew2" type="password" placeholder="Type it again" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #e4e1d8;border-radius:8px;font-size:16px;margin-bottom:10px;font-family:inherit">'
     +'<div id="pwErr" style="display:none;color:#DC2626;font-size:12.5px;margin-bottom:10px"></div>'
@@ -2997,7 +2997,7 @@ async function bkgDelete(id){ if(!confirm('Delete this booking entry?')) return;
 var HL_CG_STATUSES=['applied','interviewing','background check','active','declined'];
 var HL_FAM_STATUSES=['new','matching','introduced','closed'];
 function hlStatusColor(st){
-  return {applied:'background:var(--amber-bg);color:var(--amber);', interviewing:'background:#e8f0fe;color:#1a56db;', 'background check':'background:#ede9fe;color:#6d28d9;', active:'background:#dcfce7;color:#15803d;', declined:'background:#f3f4f6;color:#6b7280;', 'new':'background:var(--amber-bg);color:var(--amber);', matching:'background:#e8f0fe;color:#1a56db;', introduced:'background:#dcfce7;color:#15803d;', closed:'background:#f3f4f6;color:#6b7280;'}[st]||'background:#f3f4f6;color:#6b7280;';
+  return {applied:'background:var(--amber-bg);color:var(--amber);', interviewing:'background:#e8f0fe;color:#1a56db;', 'background check':'background:#ede9fe;color:#6d28d9;', active:'background:#dcfce7;color:#15803d;', declined:'background:#FAF9F6;color:#8A7F70;', 'new':'background:var(--amber-bg);color:var(--amber);', matching:'background:#e8f0fe;color:#1a56db;', introduced:'background:#dcfce7;color:#15803d;', closed:'background:#FAF9F6;color:#8A7F70;'}[st]||'background:#FAF9F6;color:#8A7F70;';
 }
 function hlBadges(){
   const n=(DATA.local_caregivers||[]).filter(x=>!x.seen).length+(DATA.local_families||[]).filter(x=>!x.seen).length;
@@ -3027,8 +3027,8 @@ function renderHtLocal(){
       +(c.consider?'<p class="hl-meta" style="color:#b91c1c;font-weight:700;">⚠ Background check: CONSIDER — review in Checkr before any decision (FCRA adverse-action applies).</p>':'')
       +(c.checkr_result==='clear'?'<p class="hl-meta" style="color:#15803d;font-weight:700;">✓ Background check clear</p>':'')
       +(c.paid_at&&!c.checkr_result?'<p class="hl-meta" style="color:#1a56db;font-weight:700;">💳 Check paid '+new Date(c.paid_at).toLocaleDateString('en-US')+(c.checkr_candidate_id?' · Checkr in progress':' · order in Checkr if not auto-sent')+'</p>':'')
-      +(!c.paid_at&&!c.checkr_result&&!c.consider?'<p class="hl-meta" style="color:#6b7280;">○ Background check not yet completed (optional up front; send the link when a family is interested)</p>':'')
-      +(c.interview_done&&c.interview?'<div class="hl-meta" style="margin-top:6px;padding:10px 12px;background:var(--panel,#f3f6fa);border-radius:8px;"><b style="color:#15803d;">🎙️ AI interview completed</b>'+(c.interview.durationSec?' · '+Math.round(c.interview.durationSec/60)+' min':'')+(c.interview.recordingUrl?' · <a href="'+esc(c.interview.recordingUrl)+'" target="_blank" rel="noopener">▶ Listen</a>':'')+(c.interview.summary?'<div style="margin-top:6px;color:var(--text-muted);white-space:pre-wrap;">'+esc(c.interview.summary)+'</div>':'')+hlRubric(c.interview.rubric)+(c.interview.transcript?'<details style="margin-top:6px;"><summary style="cursor:pointer;">Full transcript</summary><div style="margin-top:6px;color:var(--text-muted);white-space:pre-wrap;max-height:220px;overflow:auto;">'+esc(c.interview.transcript)+'</div></details>':'')+'</div>':'<p class="hl-meta" style="color:#6b7280;">○ AI interview not yet completed</p>')
+      +(!c.paid_at&&!c.checkr_result&&!c.consider?'<p class="hl-meta" style="color:#8A7F70;">○ Background check not yet completed (optional up front; send the link when a family is interested)</p>':'')
+      +(c.interview_done&&c.interview?'<div class="hl-meta" style="margin-top:6px;padding:10px 12px;background:var(--panel,#FAF9F6);border-radius:8px;"><b style="color:#15803d;">🎙️ AI interview completed</b>'+(c.interview.durationSec?' · '+Math.round(c.interview.durationSec/60)+' min':'')+(c.interview.recordingUrl?' · <a href="'+esc(c.interview.recordingUrl)+'" target="_blank" rel="noopener">▶ Listen</a>':'')+(c.interview.summary?'<div style="margin-top:6px;color:var(--text-muted);white-space:pre-wrap;">'+esc(c.interview.summary)+'</div>':'')+hlRubric(c.interview.rubric)+(c.interview.transcript?'<details style="margin-top:6px;"><summary style="cursor:pointer;">Full transcript</summary><div style="margin-top:6px;color:var(--text-muted);white-space:pre-wrap;max-height:220px;overflow:auto;">'+esc(c.interview.transcript)+'</div></details>':'')+'</div>':'<p class="hl-meta" style="color:#8A7F70;">○ AI interview not yet completed</p>')
       +'<div class="hl-actions">Status: <select onchange="hlSetStatus(\'local_caregivers\',\''+c.id+'\',this.value)">'
       +HL_CG_STATUSES.map(function(st){return '<option'+(st===(c.status||'applied')?' selected':'')+'>'+st+'</option>';}).join('')+'</select>'
       +((!c.paid_at&&c.email)?'<button class="btn btn-primary" onclick="hlPayLink(\''+c.id+'\',this,true)">🎉 Family interested → send check link</button><button class="btn btn-secondary" onclick="hlPayLink(\''+c.id+'\',this,false)">Send standard check link</button>':'')
@@ -3066,7 +3066,7 @@ function hlRubric(r){
     var v=Number(rt[k])||0, col=v>=4?'#15803d':(v>=3?'#b45309':'#b91c1c');
     return '<span style="display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,'+col+' 12%,transparent);color:'+col+';font-weight:700;font-size:12px;">'+labels[k]+' '+v+'/5</span>';
   }).join('');
-  var dm={advance:['Advance','#15803d'],advance_with_conditions:['Advance with conditions','#b45309'],keep_for_future:['Keep for a future opening','#6b7280'],do_not_advance:['Do not advance','#b91c1c'],needs_review:['Needs review','#b45309']};
+  var dm={advance:['Advance','#15803d'],advance_with_conditions:['Advance with conditions','#b45309'],keep_for_future:['Keep for a future opening','#8A7F70'],do_not_advance:['Do not advance','#b91c1c'],needs_review:['Needs review','#b45309']};
   var d=dm[r.suggested_decision]||null;
   var rows=[['Strengths',r.strengths],['Concerns',r.concerns],['Training needs',r.training_needs],['Best client match',r.recommended_client]].filter(function(x){return x[1];}).map(function(x){
     return '<div style="margin-top:4px;"><b style="color:var(--text);">'+x[0]+':</b> <span style="color:var(--text-muted);">'+esc(x[1])+'</span></div>';
@@ -3714,7 +3714,7 @@ function renderLeads(){
       <td><div style="display:flex;align-items:center;gap:10px;">
         ${leadAvatar(l)}
         <div style="min-width:0;"><b style="color:var(--navy);">${l.first_name||''} ${l.last_name||''}</b>
-        <div style="color:#8593A3;font-size:12px;">${l.relationship||l.phone||''}</div></div>
+        <div style="color:#8A7F70;font-size:12px;">${l.relationship||l.phone||''}</div></div>
       </div></td>
       <td>${clientName}</td>
       <td>${urgencyBadge(l.urgency)}</td>
@@ -3729,7 +3729,7 @@ function renderLeads(){
     </tr>`;
   }).join('')}</tbody></table>`;
 }
-const AVATAR_COLORS=[['#E4EDF6','#1F517F'],['#E1F1ED','#1E6E60'],['#FBF1D6','#8A6412'],['#E7F3EC','#1F6D45'],['#F8E3E0','#A93226'],['#EEF1F5','#4A5568']];
+const AVATAR_COLORS=[['#E4EDF6','#1F517F'],['#E1F1ED','#1E6E60'],['#FBF1D6','#8A6412'],['#E7F3EC','#1F6D45'],['#F8E3E0','#A93226'],['#F3EDE3','#6E6559']];
 function leadAvatar(l){
   const init=((l.first_name||' ')[0]+(l.last_name||' ')[0]).toUpperCase().trim()||'?';
   const c=AVATAR_COLORS[(init.charCodeAt(0)||0)%AVATAR_COLORS.length];
@@ -3737,22 +3737,22 @@ function leadAvatar(l){
 }
 function leadNextAction(l){
   if(l.status==='Converted') return '<span style="color:#2E7D57;font-size:12.5px;font-weight:600;">✓ Started care</span>';
-  if(l.status==='Lost') return '<span style="color:#8593A3;font-size:12.5px;">— '+(l.lost_reason||'lost')+'</span>';
+  if(l.status==='Lost') return '<span style="color:#8A7F70;font-size:12.5px;">— '+(l.lost_reason||'lost')+'</span>';
   if(l.nurture_sequence && !l.nurture_stopped_at) return '<span style="color:#1F6D45;font-size:12.5px;font-weight:600;">🌱 Nurture running</span>';
   if(l.follow_up_due){
     const od = l.follow_up_due<=today();
     return '<span style="color:'+(od?'var(--red)':'var(--gold-text)')+';font-size:12.5px;font-weight:700;">'+(od?'⚠ Overdue — ':'📞 ')+'follow up '+l.follow_up_due+'</span>';
   }
   if(l.status==='New') return '<span style="color:var(--red);font-size:12.5px;font-weight:700;">⚠ No next step set</span>';
-  return '<span style="color:#8593A3;font-size:12.5px;">—</span>';
+  return '<span style="color:#8A7F70;font-size:12.5px;">—</span>';
 }
 function statusBadge(status){
   const map = {
     'New':['#E4EDF6','#1F517F'], 'Contacted':['#EAF1F8','#2560A0'], 'Assessment Scheduled':['#FBF1D6','#8A6412'],
-    'Converted':['#E1F1ED','#1E6E60'], 'Lost':['#EEF1F5','#4A5568'],
+    'Converted':['#E1F1ED','#1E6E60'], 'Lost':['#F3EDE3','#6E6559'],
     'Scheduled':['#FBF1D6','#8A6412'], 'Completed — Awaiting Plan':['#FBF1D6','#8A6412'],
     'Plan Drafted':['#E4EDF6','#1F517F'], 'Pushed to AxisCare':['#E1F1ED','#1E6E60'] };
-  const c = map[status]||['#EEF1F5','#4A5568'];
+  const c = map[status]||['#F3EDE3','#6E6559'];
   return `<span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700;background:${c[0]};color:${c[1]};white-space:nowrap;">${status}</span>`;
 }
 /* -- checkbox-grid / radio-group helpers (used by the intake form) -- */
@@ -4370,7 +4370,7 @@ function renderOverviewTop(nOverdue,nDue){
     +kpi('Nurture Running',nurturing,'','','Drips sending themselves each morning','🌱','#E7F3EC','#1F6D45')
     +kpi('Referrers Gone Quiet',quietOrgs,(quietOrgs?'visit soon':''),'#C17A12','No touch in 30+ days','🤝','#F7ECCB','#C17A12');
   const stages=[
-    ['New Inquiry', mLeads.filter(l=>l.status==='New').length, '#0D365F', '#F4F7FA'],
+    ['New Inquiry', mLeads.filter(l=>l.status==='New').length, '#0D365F', '#FAF9F6'],
     ['Contacted', mLeads.filter(l=>l.status==='Contacted').length, '#2F6FB0', '#F3F7FB'],
     ['Assessment', mLeads.filter(l=>l.status==='Assessment Scheduled').length, '#F0A63A', '#FBF6EA'],
     ['Start of Care', mLeads.filter(l=>l.status==='Converted').length, '#1F7A8C', '#F1F8F5'],
@@ -4509,10 +4509,10 @@ function renderRefDashboard(){
     return {o, last, days: last?Math.floor((now-new Date(last).getTime())/86400000):9999};
   }).filter(x=>x.days>=14).sort((a,b)=>b.days-a.days).slice(0,6);
   document.getElementById('refDueList').innerHTML = due.length ? due.map(x=>
-    '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #EEF2F6;font-size:13px;">'
+    '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #FAF9F6;font-size:13px;">'
     +leadAvatar({first_name:x.o.name,last_name:''})
     +'<div style="flex:1;min-width:0;"><b style="color:var(--navy);">'+esc(x.o.name)+'</b>'
-    +'<div style="color:#8593A3;font-size:12px;">'+esc(x.o.type||'')+(x.o.people?' — '+esc(x.o.people):'')+'</div></div>'
+    +'<div style="color:#8A7F70;font-size:12px;">'+esc(x.o.type||'')+(x.o.people?' — '+esc(x.o.people):'')+'</div></div>'
     +'<span style="font-weight:800;font-size:12px;color:'+(x.days>=30?'var(--red)':'var(--gold-text)')+';white-space:nowrap;">'+(x.days===9999?'never touched':x.days+'d ago')+'</span>'
     +'<button class="linklike" onclick="openActivityModal(null,\''+x.o.id+'\')">📅 Schedule</button>'
     +'</div>').join('')
@@ -4549,7 +4549,7 @@ function renderReports(){
   const lost=leads.filter(l=>l.status==='Lost');
   const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
   const bar=(label,n,d,color)=>'<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:13px;"><span>'+label+'</span><b>'+n+' ('+pct(n,d)+')</b></div>'
-    +'<div style="background:#F1F5F9;border-radius:6px;height:10px;"><div style="width:'+(d?Math.max(2,Math.round(n/d*100)):0)+'%;background:'+color+';height:10px;border-radius:6px;"></div></div></div>';
+    +'<div style="background:#FAF9F6;border-radius:6px;height:10px;"><div style="width:'+(d?Math.max(2,Math.round(n/d*100)):0)+'%;background:'+color+';height:10px;border-radius:6px;"></div></div></div>';
   document.getElementById('repFunnel').innerHTML = total
     ? bar('New inquiries',total,total,'#3B82F6')+bar('→ Assessment scheduled',assessed,total,'#F59E0B')+bar('→ Converted to client',converted,total,'#15803D')
       +'<div class="field-note">Leads created in the selected period. (Older leads that converted in the period aren\'t counted — this reads by inquiry date.)</div>'
@@ -5027,13 +5027,13 @@ function renderFollowUpQueueList(){
     const statusChip = isOverdue ? '<span class="badge bad">Overdue</span>' : '<span class="badge muted">Pending</span>';
     const branchChip = cfg
       ? `<span class="branch-chip branch-${cfg.color}">${cfg.icon} ${cfg.label}</span>`
-      : `<span class="branch-chip" style="background:#F1F5F9;color:var(--text-muted);">Not sorted</span>`;
+      : `<span class="branch-chip" style="background:#FAF9F6;color:var(--text-muted);">Not sorted</span>`;
     const pdraft = DATA.post_call_followups.find(f=>f.lead_id===l.id && f.status==='pending_approval');
     const draftChip = pdraft ? '<span class="badge warn">Draft ready</span>' : '';
     const ph = l.phone||l.client_phone||'';
     return `
     <div class="lead-card" onclick="openFollowUpDetail('${l.id}')">
-      <div class="lc-icon" style="background:${cfg?'var(--'+cfg.color+'-bg)':'#F1F5F9'};">${cfg?cfg.icon:'📋'}</div>
+      <div class="lc-icon" style="background:${cfg?'var(--'+cfg.color+'-bg)':'#FAF9F6'};">${cfg?cfg.icon:'📋'}</div>
       <div class="lc-main">
         <div class="lc-top">
           <span class="lc-name">${leadDisplayName(l)}</span>
@@ -5751,7 +5751,7 @@ function socBuildSteps(pathway){
 }
 const socRoleChip = r => r==='evening'
   ? '<span class="tag-chip" style="background:#EDE4F5;color:#6B4B9E;">Evening</span>'
-  : r==='state' ? '<span class="tag-chip" style="background:#EEF1F4;color:#5B6B7A;">DSDS</span>'
+  : r==='state' ? '<span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">DSDS</span>'
   : '<span class="tag-chip" style="background:#E4EDF6;color:#2F6FB0;">Daytime</span>';
 function socCurrentStep(soc){ return (soc.steps||[]).find(s=>!s.done_at)||null; }
 function socWaitingDays(soc){
@@ -6365,7 +6365,7 @@ function renderCommsPage(){
       +'<div style="flex:1;min-width:0;">'
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
       +'<b>'+esc(t.from_name||'')+'</b><span class="field-note">'+(DIR_LABEL[t.direction]||'')+'</span>'
-      +'<span class="tag-chip" style="background:#faf9f6;color:#33414D;">'+(PG_KIND_LABEL[t.kind]||t.kind)+'</span>'
+      +'<span class="tag-chip" style="background:#faf9f6;color:#3A342C;">'+(PG_KIND_LABEL[t.kind]||t.kind)+'</span>'
       +(t.urgency?'<span class="field-note">'+esc(t.urgency)+'</span>':'')+'</div>'
       +'<div style="margin-top:2px;">'+(t.about?'<b>'+esc(t.about)+'</b>'+(t.caregiver?' / '+esc(t.caregiver):'')+' — ':'')+esc(t.message||'')+'</div>'
       +'<div class="field-note" style="margin-top:2px;">'+fmt(t.created_at)
@@ -6552,7 +6552,7 @@ function joPreviewMsgs(){
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Save Our Office Number</b></p>'
     +'<p style="margin:4px 0;">Please save our office number: <b>(417) 234-8494</b>.<br>This is our main office number and the one you\'ll use to call or text us if you have questions during the onboarding process or after you join our team.</p>'
     +'<p style="margin:4px 0;">We\'re excited to welcome you to Caring Companions and look forward to working with you!</p>'
-    +'<p style="margin:4px 0;color:#57606a;">Warmly,<br><br>The Caring Companions Team<br>(417) 234-8494</p>';
+    +'<p style="margin:4px 0;color:#6E6559;">Warmly,<br><br>The Caring Companions Team<br>(417) 234-8494</p>';
 }
 // Position picked → pre-select the matching Viventium workflow. Her Viventium
 // has a single plan today ("Default (Default)" — screenshot Jul 13 2026), so
@@ -6859,7 +6859,7 @@ function opsRow(i, showKind){
                 i.caregiver ? 'Caregiver: '+i.caregiver : '' ].filter(Boolean).join(' · ');
   return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
     +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
-    +(showKind?'<span class="tag-chip" style="background:#EAF1F5;color:var(--navy);">'+esc(kind.label)+'</span>':'')
+    +(showKind?'<span class="tag-chip" style="background:#F3EDE3;color:var(--navy);">'+esc(kind.label)+'</span>':'')
     +'<span style="font-size:13.5px;font-weight:700;color:var(--navy);min-width:180px;">'+esc(i.title||'')+'</span>'
     +(sub?'<span class="field-note">'+esc(sub)+'</span>':'')
     +(overdue?'<span class="tag-chip" style="background:#FDE8E8;color:#B23B2E;">Overdue</span>':'')
