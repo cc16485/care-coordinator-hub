@@ -414,6 +414,7 @@
     <div class="fpill" data-tab="meetings" onclick="switchTab('meetings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
   <div class="fpill" data-tab="calls" onclick="switchTab('calls')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Calls</div></div>
   <div class="fsubbar" id="fsub-interviews">
+    <div class="fpill" data-tab="recruit" onclick="switchTab('recruit')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Recruit</div>
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
     <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Offer a Job</div>
   </div>
@@ -740,6 +741,66 @@
           <span class="field-note" id="callsMeta"></span>
         </div>
         <div id="callsList"><div class="field-note">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- ===================== TAB: INTERVIEWS ===================== -->
+    <!-- ===================== TAB: RECRUIT ===================== -->
+    <section class="tabpanel" id="tab-recruit">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Recruit</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Our job postings live in <b>Augusta</b>. <b>Staffing Coordinators and Care Coordinators can both check what is posted and post a position when one is needed</b> &mdash; you do not need to wait for approval to fill a shift you are already short on.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">🌱 Open Augusta ↗</a>
+      </div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
+        <b style="font-size:15px;color:var(--navy);">1. Check what is already posted</b>
+        <div class="field-note" style="margin-top:4px;">Do this <b>before</b> you create anything. Augusta warns against duplicate postings with the same title and location, and a duplicate splits your applicants across two posts.</div>
+        <ol style="margin:10px 0 0;padding-left:20px;font-size:13.5px;line-height:1.75;">
+          <li>Open Augusta and log in.</li>
+          <li>Click <b>Smart Posts</b>. Everything currently live is listed there.</li>
+          <li>Check the <b>title</b> and the <b>posting zip code</b> of each one. Two posts can look different and still be the same job to Indeed.</li>
+          <li>If a suitable post already exists, use it. Send applicants to it rather than making a second one.</li>
+        </ol>
+      </div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
+        <b style="font-size:15px;color:var(--navy);">2. Post a position</b>
+        <div class="field-note" style="margin-top:4px;">In Augusta: <b>Smart Posts &rarr; New Smart Post</b>. To reuse a post that worked, click the <b>Copy</b> icon on it instead of starting blank.</div>
+        <div style="margin-top:10px;font-size:13.5px;line-height:1.75;">
+          <div style="margin-bottom:8px;"><b>Job title.</b> Plain and searchable. <i>Caregiver</i>, <i>Full-Time Caregiver</i>, <i>Overnight Caregiver</i>, <i>Weekend Caregiver</i>. No promotional wording, no emojis, no extra punctuation. If the title could breach Indeed's rules, Augusta flags it and suggests a safer one &mdash; take the suggestion.</div>
+          <div style="margin-bottom:8px;"><b>Service area map.</b> Click <b>Draw Service Area</b>, outline the area, then <b>Turn Off Drawing</b>. For a specific client, draw their <b>general</b> area only. <span style="color:var(--danger,#C0392B);font-weight:700;">Never put a client's name, street or exact address in a posting.</span> The map is only a picture for candidates; it does not change who qualifies.</div>
+          <div style="margin-bottom:8px;"><b>Posting zip code.</b> The zip for the city where you want the job to show up on Google and Indeed. This is separate from the map and separate from geo-qualification.</div>
+          <div style="margin-bottom:8px;"><b>Photos and testimonials.</b> Real photos of our caregivers and team, not stock images.</div>
+          <div style="margin-bottom:8px;"><b>Description.</b> Say the schedule, the responsibilities, the requirements, the pay and benefits, and why someone would want to work here. Use the current approved pay range &mdash; if you are not certain what it is, ask before you post rather than guessing.</div>
+          <div style="margin-bottom:8px;"><b>Indeed source tag.</b> Short and specific: <i>Overnight</i>, <i>Weekend</i>, <i>CNA</i>, a town name. This is what shows in the <b>Channel</b> column, so it is how we tell which posting an applicant actually came from.</div>
+          <div><b>Publish.</b> Turn on <b>Enable Job Publishing</b>, then <b>Create Smart Post</b>. It goes to our website and Google for Jobs, and to Indeed if that connection is on.</div>
+        </div>
+        <div class="field-note" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">Then open our Careers page and look at the live post. Check the title, the location, the description and the apply button all look right. A posting nobody can apply to is worse than no posting.</div>
+      </div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
+        <b style="font-size:15px;color:var(--navy);">3. Keep it current</b>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:13.5px;line-height:1.75;">
+          <li><b>Take a post down once the position is filled.</b> Leaving it up wastes applicants' time and ours, and it makes our numbers meaningless.</li>
+          <li>If the shift, the area or the pay changes, edit the post the same day.</li>
+          <li>Do not create a second post with the same title and location as an existing one.</li>
+        </ul>
+      </div>
+
+      <div class="card" style="padding:16px 18px;">
+        <b style="font-size:15px;color:var(--navy);">Augusta's own instructions</b>
+        <div class="field-note" style="margin-top:4px;">The steps above are ours. These are Augusta's, and they are kept up to date by Augusta.</div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="https://support.augusta.care/hc/en-us/articles/30724343100173-Augusta-Smart-Posts-How-to-Create-a-Job-Posting" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">How to create a job posting ↗</a>
+          <a href="https://support.augusta.care/hc/en-us/sections/14935526061837-Smart-Posts" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">All Smart Posts articles ↗</a>
+          <a href="https://support.augusta.care/hc/en-us/articles/35002024075789-Indeed-Integration" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">Indeed integration ↗</a>
+          <a href="https://support.augusta.care/hc/en-us" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">Augusta help centre ↗</a>
+        </div>
+        <div class="field-note" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">Stuck on something Augusta owns? Email <b>hello@augusta.care</b> or call <b>(256) 676-9483</b>, 6:00am&ndash;5:00pm Pacific, Monday to Friday. Anything about our pay, our clients or which shifts to advertise is ours, not theirs &mdash; ask internally.</div>
       </div>
     </section>
 
@@ -2863,7 +2924,7 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['interviews','offers'],ops:['ops'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community','reports'],settings:['settings']};
+const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers'],ops:['ops'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community','reports'],settings:['settings']};
 function renderFeedback(){
   const el=document.getElementById('fbList'); if(!el) return;
   const rows=(DATA.feedback||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
@@ -3187,6 +3248,7 @@ function ccGroupClick(g){
    Interviews, Phone, Needs Attention, HomeTogether, Campaigns. A fixed title is
    wrong for most of them, so the header names the section you're in. */
 const CC_SECTION_TITLES = {
+  recruit:'Recruit',
   today:'Overview', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Clients &amp; Care', checkins:'Client Check-ins',
