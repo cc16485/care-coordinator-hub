@@ -89,6 +89,17 @@
   .fpill{display:flex;align-items:center;gap:8px;border-radius:999px;padding:6px 16px;font-size:12.5px;font-weight:700;border:1.5px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer;white-space:nowrap;flex:0 0 auto;}
   .fpill:hover{background:#EFF5FA;}
   .fpill.active{background:var(--navy);color:#fff;}
+  /* Third level: Leads / Marketing / Playbook each open their own strip.
+     Deliberately quieter than .fpill so the hierarchy reads at a glance. */
+  .fsubbar2{display:none;gap:6px;padding:8px 26px;background:var(--card);
+            border-bottom:1px solid var(--border);overflow-x:auto;}
+  .fsubbar2.on{display:flex;}
+  .fpill2{display:flex;align-items:center;gap:7px;border-radius:999px;padding:5px 13px;
+          font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;
+          color:var(--text-muted);cursor:pointer;white-space:nowrap;flex:0 0 auto;}
+  .fpill2:hover{color:var(--navy);border-color:var(--navy);}
+  .fpill2.active{background:#F7E9D2;border-color:#F0A830;color:var(--navy);}
+  .fpill2 .navi{width:13px;height:13px;}
   header.topbar{height:66px;background:var(--navy);color:#fff;border-bottom:0;display:flex;align-items:center;gap:12px;padding:0 26px;position:sticky;top:0;z-index:20;}
   header.topbar .spacer{flex:1;}
   header.topbar input.search{max-width:420px;height:40px;border-radius:10px;border:1px solid var(--border);background:#fff;color:var(--text);}
@@ -385,8 +396,7 @@
 
   <div class="fbar" id="fbar">
     <div class="ftab active" data-g="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> Overview<span class="subtab-badge red" id="todayBadge" style="display:none;"></span></div>
-    <div class="ftab" data-g="grow" onclick="ccGroupClick('grow')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Grow<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
-    <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
+    <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Care Coordinator<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
     <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Hiring</div>
     <div class="ftab" data-g="ops" onclick="ccGroupClick('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention<span class="subtab-badge red" id="gb-ops" style="display:none;"></span></div>
@@ -394,19 +404,13 @@
     <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Marketing<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-gear"/></svg> Settings</div>
   </div>
-  <div class="fsubbar" id="fsub-grow">
-    <div class="fpill" data-tab="leads" onclick="switchTab('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
-    <div class="fpill" data-tab="bookings" onclick="switchTab('bookings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Bookings<span class="subtab-badge red" id="bkgPillBadge" style="display:none;"></span></div>
-    <div class="fpill" data-tab="assessments" onclick="switchTab('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Assessments</div>
-    <div class="fpill" data-tab="soc" onclick="switchTab('soc')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Start of Care<span class="subtab-badge red" id="socBadge" style="display:none;"></span></div>
-    <div class="fpill" data-tab="referrers" onclick="switchTab('referrers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Referrers</div>
-    <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
-    <div class="fpill" data-tab="ltcpolicy" onclick="switchTab('ltcpolicy')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> LTC Policy</div>
-  </div>
   <div class="fsubbar" id="fsub-clients">
+    <div class="fpill" data-parent="leads" onclick="ccParentClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads<span class="subtab-badge red" id="bkgPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> All Clients</div>
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
     <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
+    <div class="fpill" data-parent="marketing" onclick="ccParentClick('marketing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Marketing</div>
+    <div class="fpill" data-parent="playbook" onclick="ccParentClick('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
   </div>
   <div class="fsubbar" id="fsub-team">
     <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
@@ -431,6 +435,10 @@
     <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="community" onclick="switchTab('community')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Community<span class="subtab-badge red" id="cmPillBadge" style="display:none;"></span></div>
   <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div></div>
+
+  <!-- Third level. Only appears when the active tab belongs to a parent
+       (Leads, Marketing, Playbook). Rendered by ccRenderSub2(). -->
+  <div class="fsubbar2" id="fsub2"></div>
 
   <main>
 
@@ -2932,7 +2940,46 @@ function closeMoreMenu(){ const m=document.getElementById('moreMenu'); if(m) m.c
 document.addEventListener('click', e=>{ const m=document.getElementById('moreMenu'); if(m&&m.classList.contains('open')&&!e.target.closest('.morewrap')) m.classList.remove('open'); });
 
 /* ---------------- TABS ---------------- */
-const CC_GROUPS={today:['today'],grow:['leads','bookings','assessments','soc','referrers','playbook','ltcpolicy'],clients:['clients','checkins','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers'],ops:['ops'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community','reports'],settings:['settings']};
+/* The old "Grow" section is gone; everything it held now lives under Care
+   Coordinator, nested one level deeper. Order here is the order of the pills. */
+const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clients','checkins','supervisory','referrers','playbook','ltcpolicy'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers'],ops:['ops'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community','reports'],settings:['settings']};
+
+/* ---------- Third navigation level ----------
+   Three pills on the Care Coordinator bar are parents rather than pages.
+   Clicking one opens its first child and reveals the strip beneath. */
+const CC_SUBTABS = {
+  leads:     [ {t:'leads',       l:'Leads',            i:'i-phone'},
+               {t:'bookings',    l:'Bookings',         i:'i-calendar'},
+               {t:'assessments', l:'Care Assessments', i:'i-clipboard'},
+               {t:'soc',         l:'Start of Care',    i:'i-hospital'} ],
+  marketing: [ {t:'referrers',   l:'Referrers',        i:'i-handshake'} ],
+  playbook:  [ {t:'playbook',    l:'Playbook',         i:'i-book'},
+               {t:'ltcpolicy',   l:'LTC Policy',       i:'i-shield'} ]
+};
+/* page -> parent, derived so the two can never drift apart */
+const CC_PARENT_OF = (() => {
+  const m = {};
+  for (const p in CC_SUBTABS) CC_SUBTABS[p].forEach(c => { m[c.t] = p; });
+  return m;
+})();
+function ccParentClick(p){
+  const kids = CC_SUBTABS[p] || [];
+  if(!kids.length) return;
+  const last = localStorage.getItem('cch_lastsub_'+p);
+  const hit = kids.find(k => k.t === last);
+  switchTab(hit ? hit.t : kids[0].t);
+}
+function ccRenderSub2(tab){
+  const bar = document.getElementById('fsub2'); if(!bar) return;
+  const parent = CC_PARENT_OF[tab];
+  if(!parent){ bar.classList.remove('on'); bar.innerHTML=''; return; }
+  localStorage.setItem('cch_lastsub_'+parent, tab);
+  bar.innerHTML = CC_SUBTABS[parent].map(function(k){
+    return '<div class="fpill2'+(k.t===tab?' active':'')+'" data-tab="'+k.t+'" onclick="switchTab(\''+k.t+'\')">'
+         + '<svg class="navi" aria-hidden="true"><use href="icons.svg#'+k.i+'"/></svg> '+k.l+'</div>';
+  }).join('');
+  bar.classList.add('on');
+}
 function renderFeedback(){
   const el=document.getElementById('fbList'); if(!el) return;
   const rows=(DATA.feedback||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
@@ -3259,7 +3306,7 @@ const CC_SECTION_TITLES = {
   recruit:'Recruit',
   today:'Overview', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
-  ltcpolicy:'LTC Policies', clients:'Clients &amp; Care', checkins:'Client Check-ins',
+  ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
@@ -3385,7 +3432,12 @@ function switchTab(tab){
   const g=ccGroupOf(tab);
   document.querySelectorAll('.fbar .ftab').forEach(b=>b.classList.toggle('active',b.dataset.g===g));
   document.querySelectorAll('.fsubbar').forEach(s=>s.classList.toggle('on',s.id==='fsub-'+g));
-  document.querySelectorAll('.fsubbar .fpill').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  const parentOf = CC_PARENT_OF[tab] || null;
+  document.querySelectorAll('.fsubbar .fpill').forEach(b=>{
+    // a pill is active either because it IS this tab, or because it parents it
+    b.classList.toggle('active', b.dataset.tab===tab || (!!parentOf && b.dataset.parent===parentOf));
+  });
+  ccRenderSub2(tab);
   if(g!=='today') localStorage.setItem('cch_last_'+g,tab);
   document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
@@ -7556,8 +7608,14 @@ function renderMgrStrip(){
 (function(){
   var emb=false; try{ emb=(window.self!==window.top); }catch(e){ emb=true; }
   if(emb||/[?&]embed=1/.test(location.search)) document.documentElement.classList.add('embedded');
+  /* Old sidebar links keep working after a restructure. An unrecognised hash
+     leaves the whole section bar showing, which is how "all the tabs appear on
+     the Phone page" happens, so every retired name gets an alias here. */
+  var CC_HASH_ALIAS = { grow:'clients', phone:'calls', 'clients-care':'clients',
+                        carecoordinator:'clients', 'care-coordinator':'clients' };
   function applyHash(){
     var h=(location.hash||'').replace(/^#/,'').toLowerCase(); if(!h) return false;
+    if(CC_HASH_ALIAS[h]) h=CC_HASH_ALIAS[h];
     var ok=false;
     try{
       if(typeof CC_GROUPS!=='undefined' && CC_GROUPS[h]){ ccGroupClick(h); ok=true; }
