@@ -570,6 +570,21 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="addlead" onclick="covToggleAdd()">＋ Open a coverage case</button>
       </div>
 
+      <!-- Open Shifts board — moved in from the Staffing hub's Scheduling tab
+           2026-07-31. Live from AxisCare via the same edge function the
+           manager strip uses; shifts are FILLED in AxisCare, this board just
+           makes sure nothing uncovered goes unseen. -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:.6rem;flex-wrap:wrap">
+          <div>
+            <div style="font-size:.92rem;font-weight:700;color:var(--navy)">🔴 Open Shifts — next 14 days <span id="covShiftsCount" style="color:#DC2626"></span></div>
+            <div style="font-size:.72rem;color:var(--text-muted)">Live from AxisCare: every scheduled visit with no caregiver assigned. Fill them in AxisCare; open a case below for any that aren't filling on their own.</div>
+          </div>
+          <button class="primary" style="font-size:.75rem" onclick="covLoadShifts(this)">↻ Refresh</button>
+        </div>
+        <div id="covShiftsBoard"><div style="color:var(--text-muted);font-size:.85rem">Loading open shifts…</div></div>
+      </div>
+
       <div class="card" id="covAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
         <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:8px;">
           <input id="covClient" placeholder="Client name">
@@ -2583,6 +2598,35 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="card"><div id="checkinsTableWrap"></div></div>
 </section>
 
+<!-- ===================== TAB: NEW CLIENTS (needs scheduling) ==========
+     Moved from the Staffing hub's "Open Shifts & New Clients" tab
+     2026-07-31: the last stage of intake, so it lives under Leads.
+     Data is the client_queue TABLE (not app_data) — Zapier inserts a row
+     when a new client is added in AxisCare, so the feed is untouched. -->
+<section class="tabpanel" id="tab-clientqueue">
+<details class="guide">
+<summary>📋 How This Tab Works — New Clients, Needs Scheduling ▼</summary>
+<div class="guide-body">
+<div class="guide-step"><span class="num">1</span>When a new client is added in AxisCare, they appear here automatically (via Zapier) needing their first caregiver. This is the last stage of intake: the lead converted, the assessment is done, and now someone has to actually be in their home.</div>
+<div class="guide-step"><span class="num">2</span>Each client card is a four-step checklist, in order: assign a caregiver in AxisCare, call and brief the caregiver, call the client to confirm, then enter the schedule in AxisCare. Call notes are required on both calls, they're what saves you when anyone asks "what was agreed."</div>
+<div class="guide-step"><span class="num">3</span>When all four steps and both notes are done, <b>Mark Scheduling Complete</b>. That also pushes a scheduling summary note onto the client's AxisCare profile automatically.</div>
+<div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation + ALZ Training before their first client, check the Caregivers section before scheduling anyone new. And always check the Do-Not-Return log (Care Match Check-ins tab) before assigning.</div>
+</div>
+</details>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;gap:.6rem;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:.6rem">
+    <span style="font-size:1.1rem">🏠</span>
+    <div>
+      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">New Clients — Needs Scheduling</div>
+      <div style="font-size:.72rem;color:var(--text-muted)">Populated automatically when a new client is added in AxisCare via Zapier.</div>
+    </div>
+  </div>
+  <button class="primary" style="font-size:.75rem" onclick="cqRender(true)">↻ Refresh</button>
+</div>
+<div id="cq-list"><div style="color:var(--text-muted);font-size:.85rem">Loading…</div></div>
+</section>
+
 <!-- ===================== TAB: CARE MATCH CHECK-INS =====================
      Moved from the Staffing hub's "Client Check-Ins" tab on 2026-07-31 and
      renamed so it stops sharing a name with the monthly Client Check-ins.
@@ -2658,6 +2702,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     </div>
   </div>
   <div id="ci-history"><div style="color:var(--text-muted);font-size:.85rem">No check-ins logged yet — the first one appears here.</div></div>
+</div>
+
+<!-- Do-Not-Return Log — moved in from the Staffing hub's Scheduling tab
+     2026-07-31; exclusions logged on check-ins land here. Permanent. -->
+<div style="margin-top:.5rem;padding:0 0 2rem">
+  <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.65rem">
+    <span style="font-size:1.1rem">🚫</span>
+    <div>
+      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Do-Not-Return Log <span style="font-weight:500;color:var(--text-muted);font-size:.75rem">— permanent record</span></div>
+      <div style="font-size:.72rem;color:var(--text-muted)">Every client request that a caregiver not come back. Check this before assigning anyone. Entries can't be deleted — enter each one as a client-caregiver exclusion in AxisCare so the schedule physically can't pair them.</div>
+    </div>
+  </div>
+  <div id="ci-dnr-list"><div style="color:var(--text-muted);font-size:.85rem">Nothing on the log.</div></div>
 </div>
 </section>
 
@@ -4199,7 +4256,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], sop_library: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], sop_library: [], dnr_log: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -4312,7 +4369,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','coverage_cases','nurse_clients','nurse_visits','sop_library'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','coverage_cases','nurse_clients','nurse_visits','sop_library','dnr_log'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -4478,7 +4535,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clients','checkins','carematch','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clientqueue','clients','checkins','carematch','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -4487,7 +4544,8 @@ const CC_SUBTABS = {
   leads:     [ {t:'leads',       l:'Leads',            i:'i-phone'},
                {t:'bookings',    l:'Bookings',         i:'i-calendar'},
                {t:'assessments', l:'Care Assessments', i:'i-clipboard'},
-               {t:'soc',         l:'Start of Care',    i:'i-hospital'} ],
+               {t:'soc',         l:'Start of Care',    i:'i-hospital'},
+               {t:'clientqueue', l:'New Clients',      i:'i-family'} ],
 };
 /* page -> parent, derived so the two can never drift apart */
 const CC_PARENT_OF = (() => {
@@ -4884,6 +4942,7 @@ const CC_SECTION_TITLES = {
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', sops:'SOP Library',
+  clientqueue:'New Clients — Needs Scheduling',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Coverage Help', nursevisits:'Nurse Visits',
@@ -5024,7 +5083,7 @@ function switchTab(tab){
 }
 function renderActiveTab(){
   if(activeTab==='recruit') renderPayRates();
-  if(activeTab==='coverage') renderCoverage();
+  if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='today') renderToday();
   if(activeTab==='referrers') renderReferrers();
@@ -5037,6 +5096,7 @@ function renderActiveTab(){
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='carematch') cmRenderAll();
   if(activeTab==='sops') sopRender();
+  if(activeTab==='clientqueue') cqRender();
   if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='clients') renderClients();
   if(activeTab==='soc') renderSocTab();
@@ -9491,6 +9551,260 @@ function renderNurseVisits(){
 }
 </script>
 <script>
+/* ── COVERAGE: OPEN SHIFTS BOARD ──────────────────────────────────────
+   Moved from the Staffing hub's Scheduling tab (2026-07-31). Same edge
+   function the manager strip uses; the full board lives here now because
+   Coverage Help is where an unfilled shift becomes someone's problem. */
+(function(){
+  const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  let SHIFTS=null, loadedOnce=false;
+  async function load(btn){
+    const box=document.getElementById('covShiftsBoard'); if(!box) return;
+    const k=(CONFIG.training_hub_key||'').trim();
+    if(!k){ box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings to turn the board on.</div>'; return; }
+    if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+    try{
+      const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
+        method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+        body:JSON.stringify({key:k, days:14})});
+      const data=await r.json();
+      if(data.error){
+        SHIFTS=null;
+        box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">'+E(String(data.error).includes('403')
+          ?'AxisCare said no (403) — the API token needs "Visits" read permission. In AxisCare, edit the API token and check Visits, then refresh.'
+          :'Could not load open shifts: '+data.error)+'</div>';
+        return;
+      }
+      SHIFTS=data.open||[];
+      render();
+    }catch(e){ box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not reach the open-shifts service — check your connection.</div>'; }
+    finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+  }
+  function render(){
+    const box=document.getElementById('covShiftsBoard'); if(!box||SHIFTS===null) return;
+    const cnt=document.getElementById('covShiftsCount');
+    if(!SHIFTS.length){
+      if(cnt) cnt.textContent='';
+      box.innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:.75rem 1rem;font-size:.85rem;color:#166534">✅ No open shifts in the next 14 days — everything is covered.</div>';
+      return;
+    }
+    if(cnt) cnt.textContent='('+SHIFTS.length+')';
+    const now=Date.now();
+    const fmt=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    box.innerHTML=SHIFTS.map(s=>{
+      const hrs=(new Date(s.date+'T'+(s.start24||'23:59')).getTime()-now)/3600000;
+      const color=hrs<=48?'#DC2626':hrs<=168?'#B45309':'#6E6559';
+      const tag=hrs<=48?'⚠ within 48 hours':hrs<=168?'this week':'';
+      return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+color+';border-radius:10px;padding:.6rem 1rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">'
+        +'<b style="min-width:130px">'+E(s.client)+'</b>'
+        +'<span style="font-size:.85rem">'+fmt(s.date)+(s.start?' · '+E(s.start)+(s.end?'–'+E(s.end):''):'')+'</span>'
+        +(tag?'<span style="font-size:.72rem;font-weight:700;color:'+color+'">'+tag+'</span>':'')
+        +'<span style="margin-left:auto;font-size:.72rem;color:var(--text-muted)">fill in AxisCare ↗</span>'
+        +'</div>';
+    }).join('');
+  }
+  window.covLoadShifts=load;
+  window.covShiftsEnsure=function(){ if(!loadedOnce){ loadedOnce=true; load(); } else render(); };
+})();
+</script>
+<script>
+/* ── NEW CLIENTS — NEEDS SCHEDULING ───────────────────────────────────
+   Moved from the Staffing hub's "Open Shifts & New Clients" tab
+   (2026-07-31) into the client lifecycle under Leads. Reads and writes
+   the client_queue TABLE directly (not app_data) — the Zapier feed that
+   inserts a row when a client is added in AxisCare is untouched, and the
+   axiscare-push-note edge function still stamps the client's profile on
+   completion. Ported near-verbatim; cq* handlers exposed for the HTML. */
+(function(){
+  const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  let QUEUE=null;
+  const expanded=new Set();
+  function saveError(error){
+    alert('⚠️ Could not save to the client queue: ' + error.message +
+      '\n\nIf this mentions a missing column, run fix-scheduling-and-bookings.sql in the Supabase SQL Editor.');
+  }
+  async function loadQueue(){
+    const el=document.getElementById('cq-list');
+    try{
+      const { data, error } = await sb.from('client_queue').select('*').order('added_at',{ascending:false});
+      if(error) throw error;
+      QUEUE=data||[];
+    }catch(e){
+      QUEUE=QUEUE||[];
+      if(el) el.innerHTML='<div style="background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:.75rem 1rem;font-size:.82rem;color:#b91c1c">❌ Could not load the client queue: <b>'+E(e.message||'')+'</b></div>';
+      return false;
+    }
+    return true;
+  }
+  window.cqRender=async function(force){
+    if(QUEUE===null||force===true){ if(!(await loadQueue())) return; }
+    renderQueue();
+  };
+  function renderQueue(){
+    const el=document.getElementById('cq-list'); if(!el) return;
+    const all=QUEUE||[];
+    const pending=all.filter(c=>c.status!=='complete');
+    const completed=all.filter(c=>c.status==='complete');
+    let html='';
+    if(!pending.length){
+      html+='<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:1.25rem;text-align:center;color:#166534;font-size:.82rem;margin-bottom:.75rem">✅ No pending clients — all scheduled!'
+        +'<div style="font-size:.7rem;margin-top:.3rem;color:var(--text-muted)">New clients appear here automatically when added in AxisCare via Zapier. <a href="#" onclick="cqAddManual();return false">Or add one manually →</a></div></div>';
+    } else {
+      html+=pending.map(card).join('');
+      html+='<div style="font-size:.7rem;color:var(--text-muted);text-align:right;margin-bottom:.5rem"><a href="#" onclick="cqAddManual();return false">+ Add client manually</a></div>';
+    }
+    if(completed.length){
+      html+='<div style="border:1.5px solid #d1fae5;border-radius:10px;overflow:hidden;margin-top:.5rem">'
+        +'<div id="cq-done-hdr" style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .9rem;background:#f0fdf4;cursor:pointer;user-select:none">'
+        +'<span style="font-size:.77rem;font-weight:700;color:#166534">✅ Completed ('+completed.length+')</span><span style="font-size:.72rem;color:#166534">▼</span></div>'
+        +'<div id="cq-done-body" style="display:none;padding:.65rem .9rem">'
+        +completed.map(c=>'<div style="display:flex;align-items:center;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid #d1fae5;font-size:.78rem;color:var(--navy)">'
+          +'<div><span style="font-weight:600">'+E(c.client_name)+'</span>'
+          +(c.caregiver_assigned_name?'<span style="color:var(--text-muted);margin-left:.5rem">→ '+E(c.caregiver_assigned_name)+'</span>':'')
+          +(c.payer?'<span style="font-size:.68rem;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:.1rem .35rem;margin-left:.35rem">'+E(c.payer)+'</span>':'')+'</div>'
+          +'<div style="display:flex;align-items:center;gap:.5rem">'
+          +'<span style="font-size:.7rem;color:var(--text-muted)">'+(c.completed_at?new Date(c.completed_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'')+'</span>'
+          +'<button onclick="cqDelete(\''+E(c.id)+'\')" style="background:none;border:none;cursor:pointer;font-size:.78rem;color:#ccc;padding:.1rem .25rem" title="Remove">✕</button>'
+          +'</div></div>').join('')
+        +'</div></div>';
+    }
+    el.innerHTML=html;
+    const hdr=document.getElementById('cq-done-hdr'), body=document.getElementById('cq-done-body');
+    if(hdr&&body) hdr.onclick=()=>{ body.style.display=body.style.display==='block'?'none':'block'; };
+  }
+  window.cqToggle=function(id){
+    if(expanded.has(id)) expanded.delete(id); else expanded.add(id);
+    const body=document.getElementById('cq-body-'+id), arrow=document.getElementById('cq-arrow-'+id);
+    if(body) body.style.display=expanded.has(id)?'block':'none';
+    if(arrow) arrow.textContent=expanded.has(id)?'▲':'▼';
+  };
+  function card(c){
+    const allChecked=c.caregiver_assigned&&c.caregiver_called&&c.client_called&&c.schedule_added;
+    const notesOk=(c.caregiver_call_notes||'').trim()&&(c.client_call_notes||'').trim();
+    const canComplete=allChecked&&notesOk;
+    const progress=[c.caregiver_assigned,c.caregiver_called,c.client_called,c.schedule_added].filter(Boolean).length;
+    const dateLabel=c.start_date?new Date(c.start_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'TBD';
+    if(progress>0&&progress<4&&!expanded.has(c.id)) expanded.add(c.id);
+    if(allChecked&&!notesOk&&!expanded.has(c.id)) expanded.add(c.id);
+    const isOpen=expanded.has(c.id);
+    const fmtTs=ts=>ts?new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
+    const steps=[c.caregiver_assigned,c.caregiver_called,c.client_called,c.schedule_added];
+    const stepLabels=['Assigned','CG Called','Client Called','Scheduled'];
+    const stepDots=steps.map((done,i)=>'<span title="'+stepLabels[i]+'" style="display:inline-flex;align-items:center;justify-content:center;width:1.2rem;height:1.2rem;border-radius:50%;font-size:.62rem;font-weight:700;background:'+(done?'#22c55e':'#F3EDE3')+';color:'+(done?'#fff':'#A89C8B')+'">'+(done?'✓':(i+1))+'</span>').join('');
+    const borderColor=canComplete?'#fde68a':allChecked&&!notesOk?'#fca5a5':progress>0?'#86efac':'#F3EDE3';
+    const cgNotes=c.caregiver_called?'<div style="margin-top:.45rem" onclick="event.stopPropagation()">'
+      +(c.caregiver_called_at?'<div style="font-size:.67rem;color:var(--text-muted);margin-bottom:.25rem">✓ Completed '+fmtTs(c.caregiver_called_at)+'</div>':'')
+      +'<textarea rows="2" placeholder="Required — notes from caregiver call (confirmed schedule, any concerns…)" onblur="cqNotes(\''+E(c.id)+'\',\'caregiver_call_notes\',this.value)" style="width:100%;padding:.35rem .55rem;border:1.5px solid '+((c.caregiver_call_notes||'').trim()?'#86efac':'#fca5a5')+';border-radius:6px;font-family:inherit;font-size:.74rem;resize:vertical;box-sizing:border-box;background:#fff">'+E(c.caregiver_call_notes||'')+'</textarea>'
+      +(!(c.caregiver_call_notes||'').trim()?'<div style="font-size:.68rem;color:#dc2626;margin-top:.15rem">⚠ Notes required</div>':'')+'</div>':'';
+    const clNotes=c.client_called?'<div style="margin-top:.45rem" onclick="event.stopPropagation()">'
+      +(c.client_called_at?'<div style="font-size:.67rem;color:var(--text-muted);margin-bottom:.25rem">✓ Completed '+fmtTs(c.client_called_at)+'</div>':'')
+      +'<textarea rows="2" placeholder="Required — notes from client call (schedule confirmed, client reaction, anything to flag…)" onblur="cqNotes(\''+E(c.id)+'\',\'client_call_notes\',this.value)" style="width:100%;padding:.35rem .55rem;border:1.5px solid '+((c.client_call_notes||'').trim()?'#86efac':'#fca5a5')+';border-radius:6px;font-family:inherit;font-size:.74rem;resize:vertical;box-sizing:border-box;background:#fff">'+E(c.client_call_notes||'')+'</textarea>'
+      +(!(c.client_call_notes||'').trim()?'<div style="font-size:.68rem;color:#dc2626;margin-top:.15rem">⚠ Notes required</div>':'')+'</div>':'';
+    return '<div style="background:#fff;border:2px solid '+borderColor+';border-radius:10px;margin-bottom:.5rem;overflow:hidden">'
+      +'<div onclick="cqToggle(\''+E(c.id)+'\')" style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;cursor:pointer;user-select:none;'+(isOpen?'border-bottom:1.5px solid #FAF9F6':'')+'">'
+      +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">'
+      +'<span style="font-size:.88rem;font-weight:700;color:var(--navy);white-space:nowrap">'+E(c.client_name)+'</span>'
+      +(c.payer?'<span style="font-size:.65rem;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:.1rem .35rem;font-weight:600;white-space:nowrap">'+E(c.payer)+'</span>':'')
+      +(c.auth_hours?'<span style="font-size:.65rem;background:#f0fdf4;color:#166534;border-radius:4px;padding:.1rem .35rem;font-weight:600;white-space:nowrap">'+E(c.auth_hours)+'</span>':'')
+      +'<span style="font-size:.65rem;color:var(--text-muted);white-space:nowrap">Start: '+dateLabel+'</span></div>'
+      +(c.caregiver_assigned_name?'<div style="font-size:.7rem;color:#166534;margin-top:.15rem">👤 '+E(c.caregiver_assigned_name)+'</div>':'')+'</div>'
+      +'<div style="display:flex;align-items:center;gap:.5rem;flex-shrink:0"><div style="display:flex;gap:.2rem">'+stepDots+'</div>'
+      +'<span style="font-size:.7rem;font-weight:700;color:'+(progress===4?'#22c55e':'#92400e')+';background:'+(progress===4?'#f0fdf4':'#fff7ed')+';border-radius:5px;padding:.15rem .45rem;white-space:nowrap">'+progress+'/4</span>'
+      +'<button onclick="event.stopPropagation();cqDelete(\''+E(c.id)+'\')" style="background:none;border:none;cursor:pointer;font-size:.8rem;color:#E8E2D8;padding:.1rem .25rem;line-height:1" title="Remove">✕</button>'
+      +'<span id="cq-arrow-'+E(c.id)+'" style="font-size:.65rem;color:var(--text-muted);min-width:.7rem;text-align:center">'+(isOpen?'▲':'▼')+'</span></div></div>'
+      +'<div id="cq-body-'+E(c.id)+'" style="display:'+(isOpen?'block':'none')+';padding:.75rem .9rem">'
+      +(c.schedule_notes?'<div style="font-size:.74rem;color:#92400e;margin-bottom:.6rem;background:#fff7ed;border-radius:5px;padding:.25rem .5rem">📋 '+E(c.schedule_notes)+'</div>':'')
+      +(c.axiscare_client_id?'<div style="font-size:.68rem;color:var(--text-muted);margin-bottom:.5rem">AxisCare ID: '+E(c.axiscare_client_id)+'</div>':'')
+      +'<div style="display:flex;flex-direction:column;gap:.5rem">'
+      +'<label style="display:flex;align-items:flex-start;gap:.65rem;cursor:pointer;padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(c.caregiver_assigned?'#86efac':'var(--border)')+';background:'+(c.caregiver_assigned?'#f0fdf4':'#fafafa')+'">'
+      +'<input type="checkbox" '+(c.caregiver_assigned?'checked':'')+' onchange="cqStep(\''+E(c.id)+'\',\'caregiver_assigned\',this.checked)" style="margin-top:.15rem;accent-color:#22c55e;width:1rem;height:1rem;flex-shrink:0">'
+      +'<div style="flex:1"><div style="font-size:.8rem;font-weight:600;color:var(--navy)'+(c.caregiver_assigned?';text-decoration:line-through;opacity:.55':'')+'">Caregiver assigned in AxisCare</div>'
+      +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">Match and assign a caregiver to this client\'s shifts in AxisCare.</div>'
+      +(c.caregiver_assigned&&!c.caregiver_assigned_name?'<input type="text" placeholder="Enter caregiver name…" onblur="cqCgName(\''+E(c.id)+'\',this.value)" onclick="event.stopPropagation()" style="margin-top:.3rem;width:100%;padding:.3rem .55rem;border:1.5px solid #86efac;border-radius:6px;font-family:inherit;font-size:.75rem;background:#fff;box-sizing:border-box">':'')
+      +(c.caregiver_assigned_name?'<div style="font-size:.73rem;font-weight:600;color:#166534;margin-top:.2rem">👤 '+E(c.caregiver_assigned_name)+'</div>':'')
+      +(c.caregiver_assigned&&c.caregiver_assigned_at?'<div style="font-size:.67rem;color:var(--text-muted);margin-top:.15rem">✓ '+fmtTs(c.caregiver_assigned_at)+'</div>':'')+'</div></label>'
+      +'<div style="padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(c.caregiver_called?'#86efac':'var(--border)')+';background:'+(c.caregiver_called?'#f0fdf4':'#fafafa')+(!c.caregiver_assigned?';opacity:.4':'')+'">'
+      +'<label style="display:flex;align-items:flex-start;gap:.65rem;'+(!c.caregiver_assigned?'cursor:not-allowed':'cursor:pointer')+'">'
+      +'<input type="checkbox" '+(c.caregiver_called?'checked':'')+' '+(!c.caregiver_assigned?'disabled':'')+' onchange="cqStep(\''+E(c.id)+'\',\'caregiver_called\',this.checked)" style="margin-top:.15rem;accent-color:#22c55e;width:1rem;height:1rem;flex-shrink:0">'
+      +'<div><div style="font-size:.8rem;font-weight:600;color:var(--navy)'+(c.caregiver_called?';text-decoration:line-through;opacity:.55':'')+'">Called &amp; briefed '+E(c.caregiver_assigned_name||'assigned caregiver')+'</div>'
+      +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">Introduce the client, review care plan and schedule, confirm start date.</div></div></label>'+cgNotes+'</div>'
+      +'<div style="padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(c.client_called?'#86efac':'var(--border)')+';background:'+(c.client_called?'#f0fdf4':'#fafafa')+(!c.caregiver_assigned?';opacity:.4':'')+'">'
+      +'<label style="display:flex;align-items:flex-start;gap:.65rem;'+(!c.caregiver_assigned?'cursor:not-allowed':'cursor:pointer')+'">'
+      +'<input type="checkbox" '+(c.client_called?'checked':'')+' '+(!c.caregiver_assigned?'disabled':'')+' onchange="cqStep(\''+E(c.id)+'\',\'client_called\',this.checked)" style="margin-top:.15rem;accent-color:#22c55e;width:1rem;height:1rem;flex-shrink:0">'
+      +'<div><div style="font-size:.8rem;font-weight:600;color:var(--navy)'+(c.client_called?';text-decoration:line-through;opacity:.55':'')+'">Called '+E(c.client_name)+' &amp; confirmed schedule</div>'
+      +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">Share caregiver\'s name, confirm start date and days/times of care.</div></div></label>'+clNotes+'</div>'
+      +'<label style="display:flex;align-items:flex-start;gap:.65rem;'+(!c.client_called?'opacity:.4;cursor:not-allowed':'cursor:pointer')+';padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(c.schedule_added?'#86efac':'var(--border)')+';background:'+(c.schedule_added?'#f0fdf4':'#fafafa')+'">'
+      +'<input type="checkbox" '+(c.schedule_added?'checked':'')+' '+(!c.client_called?'disabled':'')+' onchange="cqStep(\''+E(c.id)+'\',\'schedule_added\',this.checked)" style="margin-top:.15rem;accent-color:#22c55e;width:1rem;height:1rem;flex-shrink:0">'
+      +'<div><div style="font-size:.8rem;font-weight:600;color:var(--navy)'+(c.schedule_added?';text-decoration:line-through;opacity:.55':'')+'">Added schedule into AxisCare</div>'
+      +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">Enter the confirmed shift schedule in AxisCare so it appears on the caregiver\'s calendar.</div>'
+      +(c.schedule_added&&c.schedule_added_at?'<div style="font-size:.67rem;color:var(--text-muted);margin-top:.15rem">✓ '+fmtTs(c.schedule_added_at)+'</div>':'')+'</div></label>'
+      +'</div>'
+      +(allChecked&&!notesOk?'<div style="margin-top:.65rem;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:.5rem .75rem;font-size:.78rem;color:#dc2626">⚠ Please add call notes for steps 2 and 3 before marking complete.</div>':'')
+      +(canComplete?'<div style="margin-top:.65rem"><button onclick="cqComplete(\''+E(c.id)+'\')" style="padding:.4rem 1rem;background:#22c55e;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer">✅ Mark Scheduling Complete</button></div>':'')
+      +'</div></div>';
+  }
+  window.cqStep=async function(id,field,value){
+    const item=(QUEUE||[]).find(c=>c.id===id);
+    const tsField=field+'_at', tsValue=value?new Date().toISOString():null;
+    if(item){ item[field]=value; item[tsField]=tsValue; }
+    renderQueue();
+    const { error } = await sb.from('client_queue').update({ [field]:value, [tsField]:tsValue }).eq('id',id);
+    if(error) saveError(error);
+  };
+  window.cqNotes=async function(id,field,value){
+    const item=(QUEUE||[]).find(c=>c.id===id);
+    if(item) item[field]=value;
+    renderQueue();
+    const { error } = await sb.from('client_queue').update({ [field]:value }).eq('id',id);
+    if(error) saveError(error);
+  };
+  window.cqCgName=async function(id,name){
+    if(!name.trim()) return;
+    const item=(QUEUE||[]).find(c=>c.id===id);
+    if(item) item.caregiver_assigned_name=name.trim();
+    renderQueue();
+    const { error } = await sb.from('client_queue').update({ caregiver_assigned_name:name.trim() }).eq('id',id);
+    if(error) saveError(error);
+  };
+  window.cqComplete=async function(id){
+    const { data:{ user } } = await sb.auth.getUser();
+    const { data:{ session } } = await sb.auth.getSession();
+    const now=new Date().toISOString();
+    const item=(QUEUE||[]).find(c=>c.id===id);
+    if(item){ item.status='complete'; item.completed_at=now; item.completed_by=(user&&user.email)||''; }
+    renderQueue();
+    const { error } = await sb.from('client_queue').update({ status:'complete', completed_at:now, completed_by:(user&&user.email)||'' }).eq('id',id);
+    if(error) saveError(error);
+    if(item&&item.axiscare_client_id&&session&&session.access_token){
+      try{
+        const res=await fetch('https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/axiscare-push-note',{
+          method:'POST',
+          headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
+          body:JSON.stringify({ client_queue_id:id })});
+        const data=await res.json();
+        if(!data.success) console.warn('AxisCare note push failed:', data.error);
+      }catch(e){ console.warn('AxisCare note push error:', e); }
+    }
+  };
+  window.cqDelete=async function(id){
+    if(!confirm('Remove this client from the queue?')) return;
+    QUEUE=(QUEUE||[]).filter(c=>c.id!==id);
+    renderQueue();
+    await sb.from('client_queue').delete().eq('id',id);
+  };
+  window.cqAddManual=async function(){
+    const name=prompt('Client name:');
+    if(!name) return;
+    const payload={ client_name:name.trim(), client_address:'', start_date:null, auth_hours:'', payer:'',
+      schedule_notes:'', axiscare_client_id:'', caregiver_assigned:false, caregiver_called:false,
+      client_called:false, schedule_added:false, caregiver_call_notes:'', client_call_notes:'', status:'pending' };
+    const { data:inserted, error } = await sb.from('client_queue').insert([payload]).select();
+    if(error){ saveError(error); return; }
+    if(inserted){ QUEUE=QUEUE||[]; QUEUE.unshift(inserted[0]); renderQueue(); }
+  };
+})();
+</script>
+<script>
 /* ── SOP LIBRARY ──────────────────────────────────────────────────────
    Documents live in app_data key 'sop_library' as {id,title,body,updated_at,
    updated_by} — in the database, not in this file, because some SOPs are
@@ -9746,7 +10060,9 @@ function renderNurseVisits(){
     if(excl){
       const entry={ id:'dnr'+Date.now(), client, caregiver, reason:notes,
         requested_by:(spoke||client)+' (check-in call)', requested_at:e.at, logged_at:e.at, logged_by:who, axiscare_entered:false, task_id:e.id };
+      DATA.dnr_log.push(entry);
       await persist('dnr_log', entry);
+      renderDnr();
       alert('Added to the permanent Do-Not-Return log ✓\n\nNow enter it in AxisCare too: open '+client+' → Caregiver Exclusions → add '+caregiver+' — that\'s what physically blocks the schedule from pairing them.');
     }
     if(fav){
@@ -9822,7 +10138,29 @@ function renderNurseVisits(){
     renderHistory(); renderPairs();
   }
 
-  window.cmRenderAll=function(){ renderHistory(); renderPairs(); if(!loadedOnce){ loadedOnce=true; loadPairs(); } };
+  // Do-Not-Return log — shared app_data key 'dnr_log'; the Staffing hub's
+  // Coordinator Requests flow writes the same records.
+  function renderDnr(){
+    const box=document.getElementById('ci-dnr-list'); if(!box) return;
+    const list=DATA.dnr_log||[];
+    if(!list.length){ box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">Nothing on the log.</div>'; return; }
+    box.innerHTML=list.slice().sort((a,b)=>String(b.logged_at).localeCompare(String(a.logged_at))).map(e=>
+      '<div style="background:#fff;border:1px solid #fecaca;border-left:4px solid #DC2626;border-radius:10px;padding:.6rem 1rem;margin-bottom:.4rem;font-size:.85rem">'
+      +'<b>'+E(e.caregiver||'(caregiver)')+'</b> must not return to <b>'+E(e.client||'(client)')+'</b>'
+      +(e.reason?' — '+E(e.reason):'')
+      +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem">requested by '+E(e.requested_by||'—')
+      +' · logged '+new Date(e.logged_at).toLocaleDateString()+' by '+E(e.logged_by||'—')
+      +(e.axiscare_entered?' · ✅ exclusion entered in AxisCare':' · ⚠ <a href="#" onclick="cmDnrMark(\''+E(e.id)+'\');return false;">mark exclusion entered in AxisCare</a>')
+      +'</div></div>').join('');
+  }
+  window.cmDnrMark=async function(id){
+    const e=(DATA.dnr_log||[]).find(x=>x.id===id); if(!e) return;
+    e.axiscare_entered=true;
+    await persist('dnr_log', e);
+    renderDnr();
+  };
+
+  window.cmRenderAll=function(){ renderHistory(); renderPairs(); renderDnr(); if(!loadedOnce){ loadedOnce=true; loadPairs(); } };
   window.cmLoadPairs=loadPairs;
   window.cmPrefill=prefill;
   window.cmSave=save;
@@ -9845,7 +10183,8 @@ function renderNurseVisits(){
                            section's plain name; each maps to its internal group. */
                         caregivers:'interviews', growth:'campaigns',
                         communication:'team', hiring:'interviews',
-                        marketing:'campaigns' };
+                        marketing:'campaigns', newclients:'clientqueue',
+                        scheduling:'clientqueue' };
   function applyHash(){
     var h=(location.hash||'').replace(/^#/,'').toLowerCase(); if(!h) return false;
     if(CC_HASH_ALIAS[h]) h=CC_HASH_ALIAS[h];
