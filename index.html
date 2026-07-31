@@ -9167,8 +9167,15 @@ function renderCoverage(){
 function nvToggleAdd(){ const w=document.getElementById('nvAddWrap'); w.style.display=w.style.display==='none'?'block':'none'; }
 function nvMonth(){ return new Date().toISOString().slice(0,7); }
 function nvWeekStart(d){
-  const x=d?new Date(d):new Date(); const day=(x.getDay()+6)%7;   // Monday start
-  x.setDate(x.getDate()-day); return x.toISOString().slice(0,10);
+  // Parse date-only strings as LOCAL, not UTC. new Date('2026-07-31') is UTC
+  // midnight, which is the previous evening in Missouri, so weeks computed
+  // from it land one day off and a visit logged today reads as last week.
+  let x;
+  if(d){ const p=String(d).slice(0,10).split('-'); x=new Date(+p[0],+p[1]-1,+p[2]); }
+  else x=new Date();
+  const day=(x.getDay()+6)%7;   // Monday start
+  x.setDate(x.getDate()-day);
+  return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
 }
 async function nvAdd(){
   const name=document.getElementById('nvName').value.trim();
