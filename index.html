@@ -500,6 +500,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-parent="leads" onclick="ccParentClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads<span class="subtab-badge red" id="bkgPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
+    <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
     <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
     <div class="fpill" data-parent="marketing" onclick="ccParentClick('marketing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Marketing</div>
     <div class="fpill" data-parent="playbook" onclick="ccParentClick('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
@@ -2576,6 +2577,84 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="card"><div id="checkinsTableWrap"></div></div>
 </section>
 
+<!-- ===================== TAB: CARE MATCH CHECK-INS =====================
+     Moved from the Staffing hub's "Client Check-Ins" tab on 2026-07-31 and
+     renamed so it stops sharing a name with the monthly Client Check-ins.
+     Same records, same shared storage — the Staffing hub copy still works. -->
+<section class="tabpanel" id="tab-carematch">
+<details class="guide">
+<summary>📋 How This Tab Works — Care Match Check-in Calls ▼</summary>
+<div class="guide-body">
+<div class="guide-step"><span class="num">💛</span><b>Why this tab exists:</b> a client will almost never call to complain about a caregiver, especially a fill-in. They just quietly get unhappy, and we find out when they leave. A 2-minute call after a shift catches it while it's fixable, and catches the wins too. This is not the monthly wellness rhythm next door in Client Check-ins: this tab tracks one specific client and caregiver match, two calls per match, then done. Every call ends in one of three outcomes:</div>
+<div class="guide-step"><span class="num">⭐</span><b>Favorite:</b> the client loved them. Mark the caregiver as a preferred caregiver on the client's AxisCare profile so scheduling pairs them first from now on. A fill-in who clicks is a long-term match found for free.</div>
+<div class="guide-step"><span class="num">💬</span><b>Coaching:</b> something small ("she likes the dishes hand-dried," "he wants the TV on for lunch"). Pass it to the caregiver kindly, it's a preference, not a write-up, and put it on their AxisCare record with one click below so it's never lost. Small coaching is what turns a fine match into a favorite.</div>
+<div class="guide-step"><span class="num">🚫</span><b>Exclusion:</b> the client doesn't want them back. Logging it here puts it straight on the permanent Do-Not-Return log, then enter the exclusion in AxisCare so the schedule physically can't pair them again.</div>
+<div class="guide-step"><span class="num">1</span><b>After the first shift:</b> any caregiver whose first visit with a client was in the last two weeks gets a call within a day or two. These are the calls that save clients.</div>
+<div class="guide-step"><span class="num">2</span><b>One good-fit follow-up about a month later:</b> "still going well with ___?" If yes, that match is set: no more scheduled calls. Only a 🚩 concerns call brings a pair back on the list (re-check about a week later to make sure it got fixed). Long-standing match from before this tab existed? Click "known good match ✓" on its row instead of calling, it clears without a call.</div>
+<div class="guide-step"><span class="num">☎️</span>A script that works: <i>"Hi, this is ___ from Caring Companions, just checking in. How did things go with [caregiver] this week? Anything they could do differently that would make it even better?"</i> That last question is where the gold is.</div>
+</div>
+</details>
+
+<!-- Who to call (live from AxisCare visits) -->
+<div style="margin-bottom:1.25rem">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;gap:.6rem;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:.6rem">
+      <span style="font-size:1.1rem">💛</span>
+      <div>
+        <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Who to call — every caregiver in a client's home, last 60 days</div>
+        <div style="font-size:.72rem;color:var(--text-muted)">Live from AxisCare visits. Two calls per match: 🆕 first-shift call, then a good-fit follow-up a month later. After that a pair only comes back if a call raised concerns.</div>
+      </div>
+    </div>
+    <button class="primary" style="font-size:.78rem" onclick="cmLoadPairs(this)">↻ Refresh</button>
+  </div>
+  <div id="ci-pairs-board"><div style="color:var(--text-muted);font-size:.85rem">Loading recent client–caregiver matches…</div></div>
+</div>
+
+<!-- Log a check-in -->
+<div id="ci-form" class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem">
+  <div style="font-size:.92rem;font-weight:700;color:var(--navy);margin-bottom:.6rem">📞 Log a check-in call</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.6rem;margin-bottom:.6rem">
+    <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Client</label><input id="ci-client" type="text" placeholder="Client name"></div>
+    <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Caregiver</label><input id="ci-caregiver" type="text" placeholder="Caregiver name"></div>
+    <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Spoke with</label><input id="ci-spoke" type="text" placeholder="Client / daughter / son…"></div>
+  </div>
+  <div style="margin-bottom:.6rem">
+    <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">How's it going with this caregiver?</label>
+    <select id="ci-rating" style="max-width:340px;display:block">
+      <option value="">— pick one —</option>
+      <option value="love">⭐ They love them</option>
+      <option value="good">👍 Going fine</option>
+      <option value="concern">🚩 Some concerns</option>
+    </select>
+  </div>
+  <div style="margin-bottom:.6rem">
+    <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">What they said</label>
+    <textarea id="ci-notes" rows="2" placeholder="In their words — the good, the small stuff, anything off" style="resize:vertical"></textarea>
+  </div>
+  <div style="margin-bottom:.6rem">
+    <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">💬 Small thing to pass along to the caregiver (optional)</label>
+    <textarea id="ci-coaching" rows="2" placeholder="e.g. Mrs. K likes the dishes hand-dried and put away, not left in the rack" style="resize:vertical"></textarea>
+  </div>
+  <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-bottom:.8rem;font-size:.82rem">
+    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="ci-fav" style="width:auto"> ⭐ Make this caregiver a favorite for this client</label>
+    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer;color:#b91c1c"><input type="checkbox" id="ci-excl" style="width:auto"> 🚫 Client doesn't want them back (goes on the permanent Do-Not-Return log)</label>
+  </div>
+  <button class="primary" onclick="cmSave()">Save check-in ✓</button>
+</div>
+
+<!-- History (permanent) -->
+<div style="margin-top:1.25rem;padding:0 0 2rem">
+  <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.65rem">
+    <span style="font-size:1.1rem">📒</span>
+    <div>
+      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Check-in history <span style="font-weight:500;color:var(--text-muted);font-size:.75rem">— permanent record</span></div>
+      <div style="font-size:.72rem;color:var(--text-muted)">Every call, what the client said, and what we did about it. Feeds favorites, coaching notes, and the Do-Not-Return log.</div>
+    </div>
+  </div>
+  <div id="ci-history"><div style="color:var(--text-muted);font-size:.85rem">No check-ins logged yet — the first one appears here.</div></div>
+</div>
+</section>
+
 <!-- ===================== TAB: SUPERVISORY VISITS ===================== -->
 <section class="tabpanel" id="tab-supervisory">
 <details class="guide">
@@ -4320,7 +4399,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clients','checkins','supervisory','referrers','playbook','ltcpolicy'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community','reports'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clients','checkins','carematch','supervisory','referrers','playbook','ltcpolicy'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','feedback','community','reports'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -4728,6 +4807,7 @@ const CC_SECTION_TITLES = {
   today:'Overview', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
+  carematch:'Care Match Check-ins',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Coverage Help', nursevisits:'Nurse Visits',
@@ -4879,6 +4959,7 @@ function renderActiveTab(){
   if(activeTab==='htlocal') renderHtLocal();
   if(activeTab==='assessments') renderAssessments();
   if(activeTab==='checkins') renderCheckins();
+  if(activeTab==='carematch') cmRenderAll();
   if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='clients') renderClients();
   if(activeTab==='soc') renderSocTab();
@@ -6965,7 +7046,9 @@ function clientSatisfactionDeclining(clientName){
 }
 function renderCheckins(){
   renderFilterPills('checkinsFilters', ['All','Due This Week','Overdue','Escalated','Declining Trend'], activeFilters.checkins, 'checkins');
-  let rows = DATA.client_checkins.filter(c=>searchMatch(c.client_name));
+  /* .client_name guard: the shared 'client_checkins' key also holds the Care
+     Match records (shaped .client/.caregiver) — they render in their own tab */
+  let rows = DATA.client_checkins.filter(c=>c.client_name && searchMatch(c.client_name));
   const f = activeFilters.checkins;
   if(f==='Overdue') rows = rows.filter(c=>c.next_checkin_due && c.next_checkin_due < today());
   else if(f==='Due This Week') rows = rows.filter(c=>c.next_checkin_due && daysBetween(today(),c.next_checkin_due)>=0 && daysBetween(today(),c.next_checkin_due)<=7);
@@ -7181,6 +7264,9 @@ function getClientRoster(){
     if(!rec.plan || (p.created_at||'') > (rec.plan.created_at||'')) rec.plan = p;
   });
   DATA.client_checkins.forEach(c=>{
+    // Care Match records (shaped .client/.caregiver, no .client_name) used to
+    // land here as "(unnamed)" roster rows — they belong to their own tab.
+    if(!c.client_name) return;
     const rec = ensure(c.axiscare_client_id, c.client_name);
     rec.checkins.push(c);
   });
@@ -9326,6 +9412,191 @@ function renderNurseVisits(){
     +(v.note?'<span class="field-note">— '+esc(v.note)+'</span>':'')
     +'</div>').join('') || '<div class="field-note">No visits logged yet.</div>';
 }
+</script>
+<script>
+/* ── CARE MATCH CHECK-INS ─────────────────────────────────────────────
+   Moved from the Staffing hub's "Client Check-Ins" tab (2026-07-31), renamed
+   so it stops sharing a name with this hub's monthly Client Check-ins.
+
+   Storage is the SHARED app_data key 'client_checkins': the Staffing hub
+   still reads and writes the same records, so both hubs stay in step until
+   Stage 2 retires its copy. The two record shapes tell the tabs apart —
+   these records carry .client/.caregiver, the monthly ones .client_name.
+   Wrapped in an IIFE because both hubs define renderCheckins/saveCheckin
+   (same collision that forced the caregivers engine wrap); only the cm*
+   handlers the panel's HTML calls are exposed on window. */
+(function(){
+  const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const A=s=>"'"+String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;')+"'";
+  const all=()=>(DATA.client_checkins||[]).filter(e=>e.client&&e.caregiver);
+  const pairKey=(c,g)=>String(c||'').trim().toLowerCase()+'|'+String(g||'').trim().toLowerCase();
+  const me=()=>(((window.ME&&ME.email)||'').split('@')[0])||'coordinator';
+  let PAIRS=null, loadedOnce=false;
+
+  // Two calls per match, then done: (1) after the FIRST shift together,
+  // (2) a good-fit follow-up about a month later. Only exception: a call that
+  // turned up concerns gets re-checked after a week until a later call is clear.
+  function pairInfo(p){
+    const daysAgo=iso=>(Date.now()-new Date(iso).getTime())/86400000;
+    const newPair=daysAgo(p.first_date+'T12:00:00')<=14;
+    const k=pairKey(p.client,p.caregiver);
+    const mine=all().filter(e=>pairKey(e.client,e.caregiver)===k).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+    const last=mine.length?mine[mine.length-1]:null;
+    let due=null; // 'first' | 'concern' | 'fit' | null
+    if(!last) due='first';
+    else if(last.rating==='concern'&&daysAgo(last.at)>=7) due='concern';
+    else if(mine.length===1&&!last.skip&&daysAgo(last.at)>=30&&String(p.last_date)>=String(last.at).slice(0,10)) due='fit';
+    return {newPair,last,count:mine.length,due,dueNow:due==='concern'||(due==='first'&&newPair)};
+  }
+  async function loadPairs(btn){
+    const box=document.getElementById('ci-pairs-board');
+    const k=(CONFIG.training_hub_key||'').trim();
+    if(!k){ if(box) box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings to turn this board on.</div>'; return; }
+    if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+    try{
+      const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
+        method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+        body:JSON.stringify({key:k, mode:'pairs', days:60})});
+      const data=await r.json();
+      if(data.error){ PAIRS=null; if(box) box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not load matches: '+E(data.error)+'</div>'; return; }
+      PAIRS=data.pairs||[];
+      renderPairs();
+    }catch(e){ if(box) box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not reach the visits service — check your connection.</div>'; }
+    finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+  }
+  function renderPairs(){
+    const box=document.getElementById('ci-pairs-board'); if(!box||PAIRS===null) return;
+    if(!PAIRS.length){ box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">No completed visits found in the last 60 days.</div>'; return; }
+    const fmt=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const rank=i=>i.due==='concern'?0:i.due==='first'&&i.newPair?1:i.due==='first'?2:i.due==='fit'?3:4;
+    const rows=PAIRS.map(p=>({p,i:pairInfo(p)}))
+      .sort((a,b)=>rank(a.i)-rank(b.i)||String(b.p.last_date).localeCompare(String(a.p.last_date)));
+    const RATE={love:'⭐',good:'👍',concern:'🚩'};
+    box.innerHTML=rows.map(({p,i})=>{
+      const border=i.due==='concern'?'#DC2626':i.due==='first'?(i.newPair?'#DC2626':'#B45309'):i.due==='fit'?'#B45309':'#16a34a';
+      const tag=i.due==='concern'?'<span style="font-size:.7rem;font-weight:800;color:#DC2626">🚩 concerns on '+fmt(String(i.last.at).slice(0,10))+' — check it got fixed</span>'
+        :i.due==='first'&&i.newPair?'<span style="font-size:.7rem;font-weight:800;color:#DC2626">🆕 first shift '+fmt(p.first_date)+' — call them</span>'
+        :i.due==='first'?'<span style="font-size:.7rem;font-weight:700;color:#B45309">first check-in still to do</span>'
+        :i.due==='fit'?'<span style="font-size:.7rem;font-weight:700;color:#B45309">good-fit follow-up — first call was '+fmt(String(i.last.at).slice(0,10))+'</span>'
+        :i.count>=2?'<span style="font-size:.7rem;font-weight:700;color:#166534">✓ good fit confirmed — no more calls needed</span>'
+        :i.last&&i.last.skip?'<span style="font-size:.7rem;font-weight:700;color:#166534">✓ known good match</span>'
+        :i.last?'<span style="font-size:.7rem;font-weight:700;color:#166534">✓ checked in '+fmt(String(i.last.at).slice(0,10))+' '+(RATE[i.last.rating]||'')+'</span>':'';
+      const skip=i.due==='first'?'<a href="#" style="font-size:.68rem;color:var(--text-muted)" onclick="cmSkip('+A(p.client)+','+A(p.caregiver)+');return false;" title="No call needed — logs it as an established match">known good match ✓</a>':'';
+      return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+border+';border-radius:10px;padding:.55rem 1rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">'
+        +'<div style="flex:1;min-width:220px"><b style="font-size:.85rem">'+E(p.client)+'</b> <span style="color:var(--text-muted)">×</span> <b style="font-size:.85rem">'+E(p.caregiver)+'</b>'
+        +'<div style="font-size:.7rem;color:var(--text-muted)">'+p.visits+' shift'+(p.visits===1?'':'s')+' · '+p.hours+' hrs · last '+fmt(p.last_date)+'</div></div>'
+        +tag+skip
+        +(i.due?'<button class="primary" style="font-size:.72rem" onclick="cmPrefill('+A(p.client)+','+A(p.caregiver)+')">📞 Log check-in</button>':'')
+        +'</div>';
+    }).join('');
+  }
+  function prefill(client,caregiver){
+    const c=document.getElementById('ci-client'), g=document.getElementById('ci-caregiver');
+    if(c) c.value=client; if(g) g.value=caregiver;
+    const f=document.getElementById('ci-form'); if(f) f.scrollIntoView({behavior:'smooth',block:'start'});
+    const s=document.getElementById('ci-spoke'); if(s) setTimeout(()=>s.focus(),350);
+  }
+  async function save(){
+    const val=id=>(document.getElementById(id)?document.getElementById(id).value.trim():'');
+    const client=val('ci-client'), caregiver=val('ci-caregiver'), spoke=val('ci-spoke');
+    const rating=val('ci-rating'), notes=val('ci-notes'), coaching=val('ci-coaching');
+    const fav=document.getElementById('ci-fav').checked, excl=document.getElementById('ci-excl').checked;
+    if(!client||!caregiver){ alert('Client and caregiver names are both needed.'); return; }
+    if(!rating){ alert('Pick how it\'s going — ⭐ 👍 or 🚩.'); return; }
+    if(excl&&!notes){ alert('For a do-not-return, write what the client said in "What they said" — it goes on the permanent log.'); return; }
+    const who=me();
+    const e={ id:'ci'+Date.now()+Math.random().toString(36).slice(2,6), client, caregiver, spoke_with:spoke, rating, notes, coaching,
+      want_favorite:fav, want_exclusion:excl, at:new Date().toISOString(), by:who,
+      fav_ax_done:false, coach_ax_noted:false, coach_ax_error:'' };
+    DATA.client_checkins.push(e);
+    await persist('client_checkins', e);
+    if(excl){
+      const entry={ id:'dnr'+Date.now(), client, caregiver, reason:notes,
+        requested_by:(spoke||client)+' (check-in call)', requested_at:e.at, logged_at:e.at, logged_by:who, axiscare_entered:false, task_id:e.id };
+      await persist('dnr_log', entry);
+      alert('Added to the permanent Do-Not-Return log ✓\n\nNow enter it in AxisCare too: open '+client+' → Caregiver Exclusions → add '+caregiver+' — that\'s what physically blocks the schedule from pairing them.');
+    }
+    if(fav){
+      alert('⭐ Nice find. Make it stick in AxisCare: open '+client+'\'s profile and mark '+caregiver+' as a preferred caregiver so scheduling pairs them first. Then click "mark done" on the entry below.');
+    }
+    ['ci-client','ci-caregiver','ci-spoke','ci-rating','ci-notes','ci-coaching'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('ci-fav').checked=false; document.getElementById('ci-excl').checked=false;
+    renderHistory(); renderPairs();
+  }
+  function renderHistory(){
+    const box=document.getElementById('ci-history'); if(!box) return;
+    const list=all();
+    if(!list.length){ box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">No check-ins logged yet — the first one appears here.</div>'; return; }
+    const RATE={love:['⭐','#16a34a','They love them'],good:['👍','#2F6FB0','Going fine'],concern:['🚩','#DC2626','Some concerns']};
+    box.innerHTML=list.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,40).map(e=>{
+      const rm=RATE[e.rating]||RATE.good;
+      let extra='';
+      if(e.coaching){
+        extra+='<div style="font-size:.78rem;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:6px;padding:.35rem .6rem;margin-top:.35rem">💬 Pass along: “'+E(e.coaching)+'” — '
+          +(e.coach_ax_noted?'✅ on the caregiver\'s AxisCare record'
+            :'<a href="#" onclick="cmPushCoach(\''+e.id+'\');return false;">put it on the caregiver\'s AxisCare record</a>'
+             +(e.coach_ax_error?' <span style="color:#b91c1c">(last try failed: '+E(e.coach_ax_error)+')</span>':''))
+          +'</div>';
+      }
+      if(e.want_favorite){
+        extra+='<div style="font-size:.78rem;margin-top:.35rem">⭐ Favorite — '
+          +(e.fav_ax_done?'✅ marked preferred in AxisCare':'⚠ <a href="#" onclick="cmMarkFav(\''+e.id+'\');return false;">mark done once set as preferred caregiver in AxisCare</a>')+'</div>';
+      }
+      if(e.want_exclusion) extra+='<div style="font-size:.78rem;margin-top:.35rem;color:#b91c1c">🚫 On the Do-Not-Return log</div>';
+      return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+rm[1]+';border-radius:10px;padding:.65rem 1rem;margin-bottom:.45rem;font-size:.85rem">'
+        +'<b>'+E(e.client)+'</b> <span style="color:var(--text-muted)">×</span> <b>'+E(e.caregiver)+'</b>'
+        +' — '+rm[0]+' '+rm[2]
+        +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem">'+new Date(e.at).toLocaleDateString('en-US',{month:'short',day:'numeric'})
+        +(e.skip?' · marked established — no call needed':(e.spoke_with?' · spoke with '+E(e.spoke_with):''))+' · by '+E(e.by||'')+'</div>'
+        +(e.notes?'<div style="font-size:.8rem;color:#3A342C;margin-top:.3rem">“'+E(e.notes)+'”</div>':'')
+        +extra+'</div>';
+    }).join('');
+  }
+  async function markFav(id){
+    const e=all().find(x=>x.id===id); if(!e) return;
+    e.fav_ax_done=true;
+    await persist('client_checkins', e);
+    renderHistory();
+  }
+  async function pushCoach(id){
+    const e=all().find(x=>x.id===id); if(!e) return;
+    const k=(CONFIG.training_hub_key||'').trim();
+    if(!k){ alert('Paste the Training Hub read key into ⚙️ Settings first.'); return; }
+    const noteText='CLIENT PREFERENCE — from a check-in call ('+String(e.at).slice(0,10)+')\n'
+      +'Client: '+e.client+(e.spoke_with?' (spoke with '+e.spoke_with+')':'')+'\n'
+      +'“'+e.coaching+'”\n'
+      +'Passed along as friendly coaching so the match stays strong. — '+(e.by||'coordinator');
+    try{
+      const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
+        method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+        body:JSON.stringify({key:k, action:'caregiver_note', caregiver_name:e.caregiver, note:noteText})});
+      const d=await r.json();
+      if(d.error) throw new Error(d.error);
+      e.coach_ax_noted=true; e.coach_ax_error='';
+    }catch(err){ e.coach_ax_noted=false; e.coach_ax_error=(err&&err.message)||'failed'; }
+    await persist('client_checkins', e);
+    renderHistory();
+    if(e.coach_ax_noted) alert('✅ Noted on '+e.caregiver+'\'s AxisCare record.\n\nRemember to also tell them directly — a quick friendly text or call lands better than a note they might not see.');
+    else alert('Could not attach the AxisCare note: '+e.coach_ax_error);
+  }
+  async function skip(client,caregiver){
+    if(!confirm('Mark '+client+' × '+caregiver+' as an established match that\'s already known to be good?\n\nNo call needed — it logs a ✓ and this pair won\'t come up for calls again.')) return;
+    const e={ id:'ci'+Date.now()+Math.random().toString(36).slice(2,6), client, caregiver, spoke_with:'', rating:'good',
+      notes:'Marked as an established match — no call needed.', coaching:'', want_favorite:false, want_exclusion:false,
+      at:new Date().toISOString(), by:me(), skip:true, fav_ax_done:false, coach_ax_noted:false, coach_ax_error:'' };
+    DATA.client_checkins.push(e);
+    await persist('client_checkins', e);
+    renderHistory(); renderPairs();
+  }
+
+  window.cmRenderAll=function(){ renderHistory(); renderPairs(); if(!loadedOnce){ loadedOnce=true; loadPairs(); } };
+  window.cmLoadPairs=loadPairs;
+  window.cmPrefill=prefill;
+  window.cmSave=save;
+  window.cmSkip=skip;
+  window.cmMarkFav=markFav;
+  window.cmPushCoach=pushCoach;
+})();
 </script>
 <script>
 /* GHL embed polish + hash deep links (#clients, #htorders, #leads, ...) */
