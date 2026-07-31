@@ -4291,7 +4291,7 @@ function scxEnsure(tab){
 }
 function scxRender(tab){
   if(!window.SCX) return;
-  const fn = { cgbackground:'acFilter', cgorient:'acFilter', cgtraining:'renderTR', cgcompliance:'acFilter', cgattendance:'acFilter', cgwriteups:'acFilter' }[tab];
+  const fn = { cgbackground:'renderOB', cgorient:'renderOrientations', cgtraining:'renderTR', cgcompliance:'renderAC', cgattendance:'renderAttendance', cgwriteups:'renderWriteups' }[tab];
   try{ if(fn && SCX[fn]) SCX[fn](); }catch(e){ console.warn('caregiver panel render:', e); }
 }
 
