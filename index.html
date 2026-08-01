@@ -513,7 +513,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
     <div class="fpill" data-tab="careplans" onclick="switchTab('careplans')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Plans</div>
-    <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
     <span style="flex:1"></span>
     <!-- One hub, one truth, a lens per person: filters Leads, State
          Submissions, Check-ins, and Active Clients to one coordinator's
@@ -535,6 +534,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="cgcompliance" onclick="switchTab('cgcompliance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Active Compliance</div>
     <div class="fpill" data-tab="cgattendance" onclick="switchTab('cgattendance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Attendance</div>
     <div class="fpill" data-tab="cgwriteups" onclick="switchTab('cgwriteups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> Write-Ups</div>
+    <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
   </div>
   <div class="fsubbar" id="fsub-ops">
     <div class="fpill" data-tab="ops" onclick="switchTab('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention</div>
@@ -4326,6 +4326,12 @@ The HomeTogether team</pre>
 <div class="section-title">Check-in History</div>
 <div id="clientHistoryCheckins"></div>
 
+<div class="section-title">Care Plan Reviews</div>
+<div id="clientHistoryCarePlans"></div>
+
+<div class="section-title">Care Match Calls</div>
+<div id="clientHistoryCareMatch"></div>
+
 <div class="modal-actions">
 <button class="secondary" onclick="closeModal('clientHistoryModalBackdrop')">Close</button>
 </div>
@@ -4705,7 +4711,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook','teamsched'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups','supervisory'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook','teamsched'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -4826,6 +4832,32 @@ function bkgBadges(){
   const n=(DATA.consult_bookings||[]).filter(b=>!b.seen&&b.status!=='cancelled'&&Date.parse(b.start||'')>now-86400000).length;
   const b=document.getElementById('bkgPillBadge'); if(b){ b.textContent=n; b.style.display=n?'':'none'; }
 }
+/* Bookings were an island: a consult booked online had no wire to the lead
+   pipeline. Every booking card now finds its lead by phone or email, or
+   creates one prefilled from the booking. */
+function bkgFindLead(b){
+  const d=String(b.phone||'').replace(/\D/g,'').slice(-10);
+  const em=String(b.email||'').toLowerCase();
+  return (DATA.leads||[]).find(l=>
+    (d.length===10&&String(l.phone||'').replace(/\D/g,'').slice(-10)===d) ||
+    (em&&String(l.email||'').toLowerCase()===em)) || null;
+}
+async function bkgMakeLead(id){
+  const b=(DATA.consult_bookings||[]).find(x=>x.id===id); if(!b) return;
+  const ex=bkgFindLead(b);
+  if(ex){ openLeadProfile(ex.id); return; }
+  const parts=String(b.name||'').trim().split(' ');
+  const rec={ id:uid(), first_name:parts[0]||'', last_name:parts.slice(1).join(' '),
+    phone:b.phone||'', email:b.email||'', source:'Website', status:'Contacted',
+    interest_notes:'Booked a '+(b.type==='home'?'home visit':'phone consult')
+      +(b.start?' for '+new Date(b.start).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'')
+      +(b.notes?'\n'+b.notes:''),
+    intent_tags:[], created_at:new Date().toISOString() };
+  DATA.leads.push(rec);
+  await persist('leads', rec);
+  renderBookings();
+  openLeadModal(rec.id);
+}
 function renderBookings(){
   const el=document.getElementById('bkgList'); if(!el) return;
   const now=Date.now();
@@ -4843,6 +4875,9 @@ function renderBookings(){
       +'<p class="bkg-meta"><b>'+esc(b.name||'')+'</b> &middot; <a href="tel:'+esc(b.phone||'')+'">'+esc(b.phone||'')+'</a>'+(b.email?' &middot; '+esc(b.email):'')+'</p>'
       +(b.notes?'<p class="bkg-meta" style="white-space:pre-wrap;">'+esc(b.notes)+'</p>':'')
       +'<div class="bkg-actions">'
+      +(function(){ const ml=bkgFindLead(b);
+          return ml?'<button class="btn btn-secondary" onclick="openLeadProfile(\''+ml.id+'\')">👤 Open their lead</button>'
+                   :'<button class="btn btn-secondary" onclick="bkgMakeLead(\''+b.id+'\')">➕ Make a lead</button>'; })()
       +(b.seen?'':'<button class="btn btn-secondary" onclick="bkgSeen(\''+b.id+'\')">Mark seen</button>')
       +(b.status!=='cancelled'&&Date.parse(b.start||'')>now?'<button class="btn btn-secondary" onclick="bkgCancel(\''+b.id+'\')">Cancel booking</button>':'')
       +'<button class="btn btn-secondary" onclick="bkgDelete(\''+b.id+'\')">Delete</button></div></div>';
@@ -7743,6 +7778,30 @@ function openClientHistory(key){
     sorted.map(c=>`<tr><td>${c.checkin_date||''}</td><td>${c.method||''}</td><td>${'⭐'.repeat(c.satisfaction_rating||0)}${c.escalated?' <span class="badge bad">Escalated</span>':''}</td><td style="max-width:220px">${c.concerns_raised||c.caregiver_feedback||'—'}</td></tr>`).join('')
   }</tbody></table>` : '<div class="empty">No check-ins logged yet.</div>';
 
+  // The full client story: care plan reviews and match calls join the
+  // timeline, so this modal answers "what's the whole picture" alone.
+  const esc2=escapeHtmlComms, nk=s=>String(s||'').trim().toLowerCase();
+  const cprs=(DATA.care_plan_reviews||[]).filter(r=>r.kind==='review'
+      &&((rec.axiscare_client_id&&String(r.axiscare_client_id)===String(rec.axiscare_client_id))||nk(r.client_name)===nk(rec.client_name)))
+    .sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  const LVL={1:'L1 · Wellness',2:'L2 · Personal Care',3:'L3 · Advanced Care'};
+  document.getElementById('clientHistoryCarePlans').innerHTML = cprs.length
+    ? '<table><thead><tr><th>Date</th><th>Method</th><th>Level</th><th>Changes</th><th>Plan updated</th></tr></thead><tbody>'
+      +cprs.map(r=>'<tr><td>'+String(r.at).slice(0,10)+'</td><td>'+esc2(r.method||'')+'</td><td>'+(LVL[r.care_level]||'—')+'</td>'
+        +'<td>'+((r.flags||[]).map(esc2).join(', ')||'none')+'</td>'
+        +'<td>'+(r.changes_needed?(r.plan_updated?'✅':'<span class="badge bad">not yet</span>'):'—')+'</td></tr>').join('')
+      +'</tbody></table>'
+    : '<div class="empty">No care plan reviews yet.</div>';
+  const cms=(DATA.client_checkins||[]).filter(c=>c.client&&c.caregiver&&nk(c.client)===nk(rec.client_name))
+    .sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  const RATE2={love:'⭐ They love them',good:'👍 Going fine',concern:'🚩 Concerns'};
+  document.getElementById('clientHistoryCareMatch').innerHTML = cms.length
+    ? '<table><thead><tr><th>Date</th><th>Caregiver</th><th>How it went</th><th>Outcome</th></tr></thead><tbody>'
+      +cms.map(c=>'<tr><td>'+String(c.at).slice(0,10)+'</td><td>'+esc2(c.caregiver||'')+'</td><td>'+(RATE2[c.rating]||esc2(c.rating||''))+'</td>'
+        +'<td>'+(c.want_exclusion?'🚫 Do-Not-Return':c.want_favorite?'⭐ Favorite':c.coaching?'💬 Coaching passed':'—')+'</td></tr>').join('')
+      +'</tbody></table>'
+    : '<div class="empty">No match calls yet.</div>';
+
   document.getElementById('clientHistoryModalBackdrop').classList.add('open');
 }
 
@@ -10226,9 +10285,37 @@ function renderNurseVisits(){
     return true;
   }
   window.cqRender=async function(force){
-    if(QUEUE===null||force===true){ if(!(await loadQueue())) return; }
+    if(QUEUE===null||force===true){ if(!(await loadQueue())) return; autoConvertLeads(); }
     renderQueue();
   };
+  /* The Zapier handoff knows when a lead became a real AxisCare client —
+     so the lead record shouldn't wait on a human to notice. Any queue row
+     matching exactly ONE open lead (by AxisCare id, else by normalized
+     name) flips that lead to Converted and stamps the id. Ambiguity means
+     a human decides, so 0 or 2+ matches are left alone. */
+  async function autoConvertLeads(){
+    const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');
+    let flipped=0;
+    for(const row of QUEUE||[]){
+      if(!row.client_name) continue;
+      const rn=norm(row.client_name);
+      const open=(DATA.leads||[]).filter(l=>l.status!=='Converted'&&l.status!=='Lost');
+      let matches=row.axiscare_client_id
+        ? open.filter(l=>l.axiscare_client_id&&String(l.axiscare_client_id)===String(row.axiscare_client_id))
+        : [];
+      if(!matches.length) matches=open.filter(l=>
+        norm((l.client_first_name||'')+(l.client_last_name||''))===rn ||
+        norm((l.first_name||'')+(l.last_name||''))===rn);
+      if(matches.length!==1) continue;
+      const l=matches[0];
+      l.status='Converted';
+      l.converted_at=l.converted_at||new Date().toISOString();
+      if(row.axiscare_client_id&&!l.axiscare_client_id) l.axiscare_client_id=String(row.axiscare_client_id);
+      await persist('leads', l);
+      flipped++;
+    }
+    if(flipped){ try{ if(activeTab==='leads') renderLeads(); }catch(e){} }
+  }
   function renderQueue(){
     const el=document.getElementById('cq-list'); if(!el) return;
     const all=QUEUE||[];
