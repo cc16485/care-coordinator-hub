@@ -3912,6 +3912,7 @@ The HomeTogether team</pre>
           <div class="ckpt-cue">Fill in what you hear instead of interrogating. City is all you need on a first call, the full address fold only opens when they book the assessment. The clinical section stays folded too unless they bring it up.</div>
           <div class="ckpt-slot" data-sec="leadSecClient"></div>
           <div class="ckpt-slot" data-sec="leadSecNeeds"></div>
+          <div class="ckpt-slot" data-sec="leadSecLevel"></div>
           <div class="ckpt-slot" data-sec="leadSecClinical"></div>
         </section>
 
@@ -4046,6 +4047,32 @@ The HomeTogether team</pre>
 <label><input type="checkbox" value="va"> VA</label>
 <label><input type="checkbox" value="privatePay"> Private Pay</label>
 </div>
+</div>
+
+<div id="leadSecLevel">
+<div class="section-title">Which Level? Ask These</div>
+<div class="script-hint"><span class="ic">💬</span><span>"How's their mobility? Do they use a walker, a wheelchair, or a gait belt?"</span></div>
+<div class="script-hint"><span class="ic">💬</span><span>"If they need help getting up or transferring, can they bear their own weight and pivot?"</span></div>
+<div class="script-hint"><span class="ic">💬</span><span>"Do they need help with personal care, like bathing, dressing, or getting to the bathroom?"</span></div>
+<div class="grid2">
+<div>
+<label style="margin-top:0;">Can they bear weight &amp; pivot?</label>
+<div class="radio-group">
+<label><input type="radio" name="lead_weight_bearing" value="yes"> Yes</label>
+<label><input type="radio" name="lead_weight_bearing" value="no"> No</label>
+<label><input type="radio" name="lead_weight_bearing" value="unsure"> Not sure</label>
+</div>
+</div>
+<div>
+<label style="margin-top:0;">Likely care level</label>
+<div class="radio-group">
+<label><input type="radio" name="lead_level_estimate" value="1"> Level 1</label>
+<label><input type="radio" name="lead_level_estimate" value="2"> Level 2</label>
+<label><input type="radio" name="lead_level_estimate" value="3"> Level 3</label>
+</div>
+</div>
+</div>
+<div class="field-note">No hands-on help = Level 1 · hands-on personal care and they can bear weight = Level 2 · can't bear weight or pivot, lift transfers, or dementia care = Level 3. The rates for each level are in the side panel.</div>
 </div>
 
 <div id="leadSecPayor">
@@ -6104,6 +6131,8 @@ function openLeadModal(id){
 
   setRadioValue('lead_urgency', l.urgency||'');
   setCheckedValues('lead_needs_grid', l.needs);
+  setRadioValue('lead_weight_bearing', l.weight_bearing||'');
+  setRadioValue('lead_level_estimate', l.level_estimate||'');
   setCheckedValues('lead_safety_grid', l.safety);
   setRadioValue('lead_mobility', l.mobility||'');
   setCheckedValues('lead_personal_care_grid', l.personal_care);
@@ -7099,6 +7128,8 @@ async function saveLead(){
 
     urgency: getRadioValue('lead_urgency'),
     needs: getCheckedValues('lead_needs_grid'),
+    weight_bearing: getRadioValue('lead_weight_bearing'),
+    level_estimate: getRadioValue('lead_level_estimate'),
     safety: getCheckedValues('lead_safety_grid'),
     mobility: getRadioValue('lead_mobility'),
     personal_care: getCheckedValues('lead_personal_care_grid'),
