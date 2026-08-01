@@ -6336,13 +6336,22 @@ function leadAvatar(l){
   const c=AVATAR_COLORS[(init.charCodeAt(0)||0)%AVATAR_COLORS.length];
   return '<span style="width:36px;height:36px;border-radius:11px;background:'+c[0]+';color:'+c[1]+';font-weight:800;font-size:12.5px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;">'+init+'</span>';
 }
+/* Call dispositions write contact_attempts and bad_number from the phone, so a
+   lead nobody can reach stops looking identical to one nobody has called. */
+function leadAttemptChip(l){
+  const n=Number(l.contact_attempts)||0;
+  if(l.bad_number) return ' <span class="badge bad" style="font-size:10px;">bad number</span>';
+  if(!n) return '';
+  return ' <span class="badge '+(n>=3?'bad':'warn')+'" style="font-size:10px;">'
+    +(l.last_attempt_kind==='voicemail'?'vm':'no answer')+' ×'+n+'</span>';
+}
 function leadNextAction(l){
   if(l.status==='Converted') return '<span style="color:#2E7D57;font-size:12.5px;font-weight:600;">✓ Started care</span>';
   if(l.status==='Lost') return '<span style="color:#8A7F70;font-size:12.5px;">— '+(l.lost_reason||'lost')+'</span>';
   if(l.nurture_sequence && !l.nurture_stopped_at) return '<span style="color:#1F6D45;font-size:12.5px;font-weight:600;">🌱 Nurture running</span>';
   if(l.follow_up_due){
     const od = l.follow_up_due<=today();
-    return '<span style="color:'+(od?'var(--red)':'var(--gold-text)')+';font-size:12.5px;font-weight:700;">'+(od?'⚠ Overdue — ':'📞 ')+'follow up '+l.follow_up_due+'</span>';
+    return '<span style="color:'+(od?'var(--red)':'var(--gold-text)')+';font-size:12.5px;font-weight:700;">'+(od?'⚠ Overdue — ':'📞 ')+'follow up '+l.follow_up_due+'</span>'+leadAttemptChip(l);
   }
   if(l.status==='New') return '<span style="color:var(--red);font-size:12.5px;font-weight:700;">⚠ No next step set</span>';
   return '<span style="color:#8A7F70;font-size:12.5px;">—</span>';
