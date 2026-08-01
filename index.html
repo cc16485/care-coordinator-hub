@@ -3928,9 +3928,9 @@ The HomeTogether team</pre>
         </section>
 
         <section class="ckpt-stage" id="ckptStage7">
-          <div class="ckpt-stagehead"><span class="ckpt-num">7</span><h3>Close: book the assessment</h3></div>
-          <div class="script-hint"><span class="ic">💬</span><span>"The next step is a free in-home assessment, that's where we meet [client] and build the care plan together. I have [day] at [time] or [day] at [time], which works better?"</span></div>
-          <div class="ckpt-cue">Book it while you have them, a call that ends without a next step goes cold. Then set the follow-up branch so the queue keeps chasing this lead, not your memory.</div>
+          <div class="ckpt-stagehead"><span class="ckpt-num">7</span><h3 id="ckptCloseTitle">Close: book the assessment</h3></div>
+          <div class="script-hint"><span class="ic">💬</span><span id="ckptCloseScript">"The next step is a free in-home assessment, that's where we meet [client] and build the care plan together. I have [day] at [time] or [day] at [time], which works better?"</span></div>
+          <div class="ckpt-cue" id="ckptCloseCue">Book it while you have them, a call that ends without a next step goes cold. Then set the follow-up branch so the queue keeps chasing this lead, not your memory.</div>
           <div class="ckpt-slot" data-sec="leadSecOffice"></div>
           <div class="ckpt-slot" data-sec="leadSecRouting"></div>
           <div class="modal-actions" style="margin-top:16px;">
@@ -4187,6 +4187,7 @@ The HomeTogether team</pre>
 <option value="call-back-next-week">Call Back Next Week (7d)</option>
 <option value="family-decision">Family Decision Pending (5d)</option>
 <option value="ready-to-start">Ready to Start (today)</option>
+<option value="staffing-check">Staffing Check Callback (today)</option>
 <option value="cold-lead">Cold Lead (30d)</option>
 <option value="soft-check-in">Soft Check-In (3d)</option>
 </select>
@@ -4608,6 +4609,7 @@ const BRANCH_CONFIG = {
   'call-back-next-week': { label:'Call Back Next Week', color:'blue', icon:'📞', waitDays:7, description:"Contact requested a specific follow-up window." },
   'family-decision':     { label:'Family Decision Pending', color:'amber', icon:'⏰', waitDays:5, description:"Thinking it over or involving family members." },
   'ready-to-start':      { label:'Ready to Start', color:'green', icon:'✅', waitDays:0, description:"Expressed strong intent — immediate action." },
+  'staffing-check':      { label:'Staffing Check Callback', color:'amber', icon:'📋', waitDays:0, description:"Medicaid/CDS: read the notes, then call back the same day." },
   'cold-lead':           { label:'Cold Lead', color:'slate', icon:'⚠️', waitDays:30, description:"Expressed disinterest — low-touch nurture only." },
   'soft-check-in':       { label:'Soft Check-In', color:'purple', icon:'💬', waitDays:3, description:"No strong intent signal — gentle check-in." },
 };
@@ -6981,11 +6983,28 @@ function leadPayorUI(){
     private:'💰 <b>Private Pay → Krystal\'s book.</b> Quote from the current rate sheet, track it below, and offer the free in-home assessment as the next step.',
     ltc:'📄 <b>LTC insurance → Krystal\'s book.</b> Get the carrier and policy number if they have it handy — the LTC Policy tab reads the policy and sets it up as a payor. Bills private-side until benefits kick in.',
     va:'🎖️ <b>VA → Angiel\'s book.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
-    medicaid:'🏛️ <b>Medicaid IHS → Angiel\'s book.</b> Get the DCN and county on this call — the State Submission block just opened below, and this lead will ride the State Submissions tracker until DSDS authorizes.',
+    medicaid:'🏛️ <b>Medicaid IHS → Angiel\'s book.</b> Minimum to get started: client <b>first name, last name, and DOB</b>. Get the DCN and county too if you can — the State Submission block just opened below, and this lead will ride the State Submissions tracker until DSDS authorizes. <b>Do not commit on this call:</b> tell them we\'ll make sure we can staff it and get back to them ASAP, then <b>read the notes before taking them</b> and call back.',
     pace:'🧩 <b>PACE → Krystal\'s book.</b> Services flow through their PACE organization — capture the org name in the call notes.',
-    cds:'↪️ <b>CDS → Angiel.</b> CDS is the sister company, but Angiel does the intake herself. If she\'s in, warm-transfer now. If not, take name and number and save this lead, it lands in her book for the callback. She runs the intake on the CDS side (caringcds.com · <b>(417) 218-2888</b>), then marks this lead <b>Lost</b> with reason "Referred to CDS" so the CC pipeline stays clean.'
+    cds:'↪️ <b>CDS → Angiel.</b> CDS is the sister company, but Angiel does the intake herself. If she\'s in, warm-transfer now. If not, get the minimum to start: client <b>first name, last name, and DOB</b> plus a callback number, and save this lead, it lands in her book. <b>Do not commit on this call:</b> tell them we\'ll make sure we can staff it and get back to them ASAP, then <b>read the notes before taking them</b>. She runs the intake on the CDS side (caringcds.com · <b>(417) 218-2888</b>), then marks this lead <b>Lost</b> with reason "Referred to CDS" so the CC pipeline stays clean.'
   };
   hint.innerHTML = v&&H[v] ? '<div class="payor-note'+(v==='cds'?' refer':'')+'">'+H[v]+'</div>' : '';
+  // The Guided Call close stage flips with the payor: Medicaid and CDS never
+  // get committed to on the phone — staffing is confirmed off-call first
+  // (read the notes, then call back). Everyone else books the assessment live.
+  const ct=document.getElementById('ckptCloseTitle'),
+        cs=document.getElementById('ckptCloseScript'),
+        cc2=document.getElementById('ckptCloseCue');
+  if(ct&&cs&&cc2){
+    if(v==='medicaid'||v==='cds'){
+      ct.textContent='Close: check first, call back';
+      cs.textContent='"Let me make sure I have the basics: [client]\'s first and last name and date of birth. I want to be certain we can staff this the right way, so give me a little time to check and I will call you back as soon as possible today."';
+      cc2.textContent='We can almost always staff it. The pause is deliberate: read the notes BEFORE taking a new Medicaid or CDS client, that is where the red flags show up. Set the branch to Staffing Check Callback so the same-day callback sits on the board, not in your head.';
+    } else {
+      ct.textContent='Close: book the assessment';
+      cs.textContent='"The next step is a free in-home assessment, that\'s where we meet [client] and build the care plan together. I have [day] at [time] or [day] at [time], which works better?"';
+      cc2.textContent='Book it while you have them, a call that ends without a next step goes cold. Then set the follow-up branch so the queue keeps chasing this lead, not your memory.';
+    }
+  }
 }
 
 /* "Viewing" lens — filter the client lifecycle to one coordinator's book.
