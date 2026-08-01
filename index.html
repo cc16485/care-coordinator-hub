@@ -4609,7 +4609,7 @@ const BRANCH_CONFIG = {
   'call-back-next-week': { label:'Call Back Next Week', color:'blue', icon:'📞', waitDays:7, description:"Contact requested a specific follow-up window." },
   'family-decision':     { label:'Family Decision Pending', color:'amber', icon:'⏰', waitDays:5, description:"Thinking it over or involving family members." },
   'ready-to-start':      { label:'Ready to Start', color:'green', icon:'✅', waitDays:0, description:"Expressed strong intent — immediate action." },
-  'staffing-check':      { label:'Staffing Check Callback', color:'amber', icon:'📋', waitDays:0, description:"Medicaid/CDS: read the notes, then call back the same day." },
+  'staffing-check':      { label:'Staffing Check Callback', color:'amber', icon:'📋', waitDays:0, description:"Medicaid IHS: read the notes, then call back the same day." },
   'cold-lead':           { label:'Cold Lead', color:'slate', icon:'⚠️', waitDays:30, description:"Expressed disinterest — low-touch nurture only." },
   'soft-check-in':       { label:'Soft Check-In', color:'purple', icon:'💬', waitDays:3, description:"No strong intent signal — gentle check-in." },
 };
@@ -6985,20 +6985,24 @@ function leadPayorUI(){
     va:'🎖️ <b>VA → Angiel\'s book.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
     medicaid:'🏛️ <b>Medicaid IHS → Angiel\'s book.</b> Minimum to get started: client <b>first name, last name, and DOB</b>. Get the DCN and county too if you can — the State Submission block just opened below, and this lead will ride the State Submissions tracker until DSDS authorizes. <b>Do not commit on this call:</b> tell them we\'ll make sure we can staff it and get back to them ASAP, then <b>read the notes before taking them</b> and call back.',
     pace:'🧩 <b>PACE → Krystal\'s book.</b> Services flow through their PACE organization — capture the org name in the call notes.',
-    cds:'↪️ <b>CDS → Angiel.</b> CDS is the sister company, but Angiel does the intake herself. If she\'s in, warm-transfer now. If not, get the minimum to start: client <b>first name, last name, and DOB</b> plus a callback number, and save this lead, it lands in her book. <b>Do not commit on this call:</b> tell them we\'ll make sure we can staff it and get back to them ASAP, then <b>read the notes before taking them</b>. She runs the intake on the CDS side (caringcds.com · <b>(417) 218-2888</b>), then marks this lead <b>Lost</b> with reason "Referred to CDS" so the CC pipeline stays clean.'
+    cds:'↪️ <b>CDS → Angiel.</b> CDS is the sister company, but Angiel does the intake herself. If she\'s in, warm-transfer now. If not, take name and number and save this lead, it lands in her book for the callback. She runs the intake on the CDS side (caringcds.com · <b>(417) 218-2888</b>), then marks this lead <b>Lost</b> with reason "Referred to CDS" so the CC pipeline stays clean.'
   };
   hint.innerHTML = v&&H[v] ? '<div class="payor-note'+(v==='cds'?' refer':'')+'">'+H[v]+'</div>' : '';
-  // The Guided Call close stage flips with the payor: Medicaid and CDS never
-  // get committed to on the phone — staffing is confirmed off-call first
+  // The Guided Call close stage flips with the payor: Medicaid IHS never
+  // gets committed to on the phone — staffing is confirmed off-call first
   // (read the notes, then call back). Everyone else books the assessment live.
   const ct=document.getElementById('ckptCloseTitle'),
         cs=document.getElementById('ckptCloseScript'),
         cc2=document.getElementById('ckptCloseCue');
   if(ct&&cs&&cc2){
-    if(v==='medicaid'||v==='cds'){
+    if(v==='medicaid'){
       ct.textContent='Close: check first, call back';
       cs.textContent='"Let me make sure I have the basics: [client]\'s first and last name and date of birth. I want to be certain we can staff this the right way, so give me a little time to check and I will call you back as soon as possible today."';
-      cc2.textContent='We can almost always staff it. The pause is deliberate: read the notes BEFORE taking a new Medicaid or CDS client, that is where the red flags show up. Set the branch to Staffing Check Callback so the same-day callback sits on the board, not in your head.';
+      cc2.textContent='We can almost always staff it. The pause is deliberate: read the notes BEFORE taking a new Medicaid IHS client, that is where the red flags show up. Set the branch to Staffing Check Callback so the same-day callback sits on the board, not in your head.';
+    } else if(v==='cds'){
+      ct.textContent='Close: hand off to Angiel';
+      cs.textContent='"You\'ve reached the right family of companies. Angiel handles our CDS program, let me connect you with her now." (Or, if she\'s out: "I\'ll have Angiel call you back today. What\'s the best number?")';
+      cc2.textContent='Warm-transfer if Angiel is in; otherwise save the lead, it lands in her book for the callback. No assessment gets booked here, the intake runs on the CDS side.';
     } else {
       ct.textContent='Close: book the assessment';
       cs.textContent='"The next step is a free in-home assessment, that\'s where we meet [client] and build the care plan together. I have [day] at [time] or [day] at [time], which works better?"';
