@@ -306,6 +306,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .conditional-box{display:none;background:var(--amber-bg);border:1px solid #FDE68A;border-radius:8px;padding:12px;margin-top:6px;}
   .conditional-box.open{display:block;}
   .conditional-box .section-title{margin-top:0;border-top:none;padding-top:0;color:var(--amber);}
+  /* Lead form: deep sections fold away so a live call only shows what the
+     call needs; the payor choice re-shapes the rest of the form. */
+  details.lead-collapse{margin-top:14px;border-top:1px solid var(--border);padding-top:12px;}
+  details.lead-collapse>summary{cursor:pointer;list-style:none;font-size:12px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:7px;}
+  details.lead-collapse>summary::-webkit-details-marker{display:none;}
+  details.lead-collapse>summary::before{content:'▸';transition:transform .15s ease;}
+  details.lead-collapse[open]>summary::before{transform:rotate(90deg);}
+  details.lead-collapse>summary .fn{font-weight:500;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11.5px;}
+  #leadPayorHint .payor-note{background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.55;margin-top:8px;}
+  #leadPayorHint .payor-note.refer{background:#FDE8E8;border-color:#F5B5B5;}
   .field-note{font-size:11px;color:var(--text-muted);margin-top:2px;}
 
   /* ---- Sub-tabs (within a tab, e.g. Leads: Pipeline / Post-Call / Follow-Up Queue) ---- */
@@ -3875,7 +3885,41 @@ The HomeTogether team</pre>
 <label><input type="checkbox" value="privatePay"> Private Pay</label>
 </div>
 
-<div class="section-title">Clinical &amp; Safety Assessment</div>
+<div class="section-title">How They'll Pay — steers the rest of the call</div>
+<div class="script-hint"><span class="ic">💬</span><span>Script: "Do you happen to know how you'll be paying for care, such as long-term care insurance or VA benefits?"</span></div>
+<div class="radio-group">
+<label><input type="radio" name="lead_funding_source" value="private" onchange="leadPayorUI()"> Private Pay</label>
+<label><input type="radio" name="lead_funding_source" value="ltc" onchange="leadPayorUI()"> LTC Insurance</label>
+<label><input type="radio" name="lead_funding_source" value="va" onchange="leadPayorUI()"> VA</label>
+<label><input type="radio" name="lead_funding_source" value="cds" onchange="leadPayorUI()"> CDS</label>
+<label><input type="radio" name="lead_funding_source" value="medicaid" onchange="leadPayorUI()"> Medicaid (IHS)</label>
+<label><input type="radio" name="lead_funding_source" value="pace" onchange="leadPayorUI()"> PACE</label>
+</div>
+<div id="leadPayorHint"></div>
+
+<div id="leadStateBlock" style="display:none">
+<div class="section-title">Medicaid IHS — State Submission</div>
+<div class="field-note" style="margin-bottom:8px;">Get the DCN and county on this call if you can. Filling in a submitted date puts this lead on the State Submissions tracker with follow-up aging.</div>
+<div class="grid2">
+<div><label>DCN (Medicaid number)</label><input id="lead_dcn" placeholder="8-digit DCN"></div>
+<div><label>County</label><input id="lead_county" placeholder="e.g. Greene"></div>
+<div><label>Submitted to State</label><input type="date" id="lead_state_submitted"></div>
+<div>
+<label>State Status</label>
+<select id="lead_state_status">
+<option value="">— not a state submission —</option>
+<option value="not_submitted">Not yet submitted</option>
+<option value="submitted">Submitted — awaiting assessment</option>
+<option value="assessed">Assessment done — awaiting authorization</option>
+<option value="authorized">✅ Authorized</option>
+<option value="denied">Denied / withdrawn</option>
+</select>
+</div>
+</div>
+</div>
+
+<details class="lead-collapse">
+<summary>Clinical &amp; Safety Assessment <span class="fn">— optional on a quick call; the in-home assessment fills the rest</span></summary>
 <div class="grid2">
 <div>
 <label style="margin-top:0;">Safety Flags</label>
@@ -3928,8 +3972,10 @@ The HomeTogether team</pre>
 <label><input type="checkbox" value="sundowning"> Sundowning</label>
 </div>
 </div>
+</details>
 
-<div class="section-title">Physician &amp; Additional Info</div>
+<details class="lead-collapse">
+<summary>Physician &amp; Additional Info <span class="fn">— fill when they have it handy</span></summary>
 <div class="grid2">
 <div><label>Primary Care Physician</label><input id="lead_physician_name"></div>
 <div><label>Physician Phone</label><input id="lead_physician_phone"></div>
@@ -3937,24 +3983,15 @@ The HomeTogether team</pre>
 </div>
 <label>Additional Medical Notes</label>
 <textarea id="lead_medical_notes" rows="2" placeholder="Any other medical context not covered above…"></textarea>
+</details>
 
-<div class="section-title">Schedule &amp; Pricing</div>
+<div class="section-title">Schedule</div>
 <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;">
 <div><label>Days Needed</label><input id="lead_days_needed" placeholder="e.g. Mon, Wed, Fri"></div>
 <div><label>Times Needed</label><input id="lead_times_needed" placeholder="e.g. 9am - 1pm"></div>
 <div><label>Total Hours/Week</label><input type="number" id="lead_number_of_hours" placeholder="e.g. 12"></div>
 </div>
-<label style="margin-top:14px;">Funding Source</label>
-<div class="script-hint"><span class="ic">💬</span><span>Script: "Do you happen to know how you'll be paying for care, such as long-term care insurance or VA benefits?"</span></div>
-<div class="radio-group">
-<label><input type="radio" name="lead_funding_source" value="private"> Private Pay</label>
-<label><input type="radio" name="lead_funding_source" value="ltc"> LTC Insurance</label>
-<label><input type="radio" name="lead_funding_source" value="va"> VA</label>
-<label><input type="radio" name="lead_funding_source" value="cds"> CDS</label>
-<label><input type="radio" name="lead_funding_source" value="medicaid"> Medicaid Waiver</label>
-<label><input type="radio" name="lead_funding_source" value="pace"> PACE</label>
-</div>
-<div class="grid2" style="margin-top:10px;align-items:center;">
+<div class="grid2" id="leadPriceRow" style="margin-top:10px;align-items:center;">
 <div class="checklist"><label><input type="checkbox" id="lead_price_quoted" onchange="togglePriceQuotedAmount(this.checked)"> Was a price quoted?</label></div>
 <div id="quotedPriceAmountField" style="display:none;"><label style="margin-top:0;">Quoted Amount</label><input id="lead_quoted_price_amount" placeholder="e.g. $35/hr"></div>
 </div>
@@ -3975,24 +4012,8 @@ The HomeTogether team</pre>
 <div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
 </div>
 
-<div class="section-title">Medicaid IHS — State Submission</div>
-<div class="field-note" style="margin-bottom:8px;">Only for Medicaid In-Home Services leads: track the referral through DSDS/DHSS. Filling in a submitted date puts this lead on the State Submissions tracker with follow-up aging.</div>
-<div class="grid2">
-<div><label>DCN (Medicaid number)</label><input id="lead_dcn" placeholder="8-digit DCN"></div>
-<div><label>County</label><input id="lead_county" placeholder="e.g. Greene"></div>
-<div><label>Submitted to State</label><input type="date" id="lead_state_submitted"></div>
-<div>
-<label>State Status</label>
-<select id="lead_state_status">
-<option value="">— not a state submission —</option>
-<option value="not_submitted">Not yet submitted</option>
-<option value="submitted">Submitted — awaiting assessment</option>
-<option value="assessed">Assessment done — awaiting authorization</option>
-<option value="authorized">✅ Authorized</option>
-<option value="denied">Denied / withdrawn</option>
-</select>
-</div>
-</div>
+<!-- The Medicaid IHS state-submission block now lives up in the payor
+     section (#leadStateBlock) and appears only when Medicaid is chosen. -->
 
 <div class="section-title">Follow-Up Routing</div>
 <div class="field-note" style="margin-bottom:8px;">Set the branch manually, or have AI read the call notes above and suggest one — either way, you save the final call.</div>
@@ -5898,6 +5919,7 @@ function openLeadModal(id){
   document.getElementById('lead_follow_up_due').value = l.follow_up_due||'';
   document.getElementById('lead_intent_tags').value = (l.intent_tags||[]).join(', ');
 
+  leadPayorUI();
   document.getElementById('leadModalBackdrop').classList.add('open');
 }
 
@@ -6743,6 +6765,27 @@ function renderLeadDocs(){
    this only pre-fills the Assigned Coordinator when it's left blank. When
    the Medicaid+VA book grows enough to split, update this map. */
 const PAYER_COORDINATOR={ private:'Krystal', ltc:'Krystal', va:'Angiel', medicaid:'Angiel', pace:'Angiel' };
+
+/* The payor choice re-shapes the lead form: Medicaid opens the state block,
+   private-side payors show pricing, CDS throws the refer-out banner. */
+function leadPayorUI(){
+  const v=getRadioValue('lead_funding_source');
+  const sb2=document.getElementById('leadStateBlock');
+  if(sb2) sb2.style.display = v==='medicaid' ? '' : 'none';
+  const pr=document.getElementById('leadPriceRow');
+  if(pr) pr.style.display = (v===''||v==='private'||v==='ltc') ? '' : 'none';
+  const hint=document.getElementById('leadPayorHint');
+  if(!hint) return;
+  const H={
+    private:'💰 <b>Private Pay → Krystal\'s book.</b> Quote from the current rate sheet, track it below, and offer the free in-home assessment as the next step.',
+    ltc:'📄 <b>LTC insurance → Krystal\'s book.</b> Get the carrier and policy number if they have it handy — the LTC Policy tab reads the policy and sets it up as a payor. Bills private-side until benefits kick in.',
+    va:'🎖️ <b>VA → Angiel\'s book.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
+    medicaid:'🏛️ <b>Medicaid IHS → Angiel\'s book.</b> Get the DCN and county on this call — the State Submission block just opened below, and this lead will ride the State Submissions tracker until DSDS authorizes.',
+    pace:'🧩 <b>PACE → Angiel\'s book.</b> Services flow through their PACE organization — capture the org name in the call notes.',
+    cds:'↪️ <b>CDS is the other company — refer, don\'t intake.</b> Warm-handoff to Caring Companions CDS: <b>(417) 218-2888</b> · caringcds.com. Take name and number, make the connection, then mark this lead <b>Lost</b> with reason "Referred to CDS."'
+  };
+  hint.innerHTML = v&&H[v] ? '<div class="payor-note'+(v==='cds'?' refer':'')+'">'+H[v]+'</div>' : '';
+}
 
 /* "Viewing" lens — filter the client lifecycle to one coordinator's book.
    Records with no coordinator on them only appear under Everyone, which is
