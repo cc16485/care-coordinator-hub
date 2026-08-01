@@ -502,6 +502,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
+    <div class="fpill" data-tab="careplans" onclick="switchTab('careplans')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Plans</div>
     <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
     <span style="flex:1"></span>
     <!-- One hub, one truth, a lens per person: filters Leads, State
@@ -2771,6 +2772,65 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </section>
 
+<!-- ===================== TAB: CARE PLAN REVIEWS =======================
+     Built 2026-08-01 after two real stale-plan catches: a client's plan
+     still said walker after she'd declined to a Hoyer lift, and a live-in
+     converted to hourly with awake-overnight now required. Every active
+     client's plan gets reviewed monthly (visit, phone, or caregiver check),
+     the caregivers actually on the shifts get asked directly, and every
+     client carries a care Level so acuity changes are named, not vibes. -->
+<section class="tabpanel" id="tab-careplans">
+<details class="guide">
+<summary>📋 How This Tab Works — Monthly Care Plan Reviews ▼</summary>
+<div class="guide-body">
+<div class="guide-step"><span class="num">💡</span><b>Why this exists:</b> clients decline faster than paperwork. A fill-in caregiver who walks in trusting a plan that says "walker" when the client now needs a Hoyer lift is a safety incident waiting to happen. So every active client's care plan gets confirmed <b>every 30 days</b>, no exceptions.</div>
+<div class="guide-step"><span class="num">1</span><b>Work the board top-down.</b> Overdue and never-reviewed clients float to the top in red. A review can be an in-person visit, a phone call with the client or family, or a caregiver check, whichever fits the month, as long as someone who has actually seen the client confirms the plan.</div>
+<div class="guide-step"><span class="num">2</span><b>Ask the people on the shifts.</b> "Ask caregivers" lists every caregiver who worked with that client in the last 60 days (live from AxisCare) and texts them the check question with one click. They see the decline first, weeks before anyone in the office does.</div>
+<div class="guide-step"><span class="num">3</span><b>Log what you learned and set the Level.</b> Every client is Level 1 (Wellness), Level 2 (Personal Care), or Level 3 (Advanced Care). If anything changed, mobility, overnight expectations, meds, equipment, flag it. A changed answer isn't done until the plan in AxisCare is actually updated, the board holds a red "plan not updated yet" until you mark it.</div>
+<div class="guide-step flag"><span class="num">!</span>A Level change is a scheduling event, not just paperwork: a Level 3 client needs Level 3-capable caregivers on every shift, including fill-ins. When you bump a level, tell scheduling the same day.</div>
+</div>
+</details>
+
+<div id="cp-form" class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem;display:none">
+  <div style="font-size:.92rem;font-weight:700;color:var(--navy);margin-bottom:.6rem">📝 Log a care plan review — <span id="cp-form-client"></span></div>
+  <input type="hidden" id="cp-client-name"><input type="hidden" id="cp-axis-id"><input type="hidden" id="cp-client-key">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.6rem;margin-bottom:.6rem">
+    <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">How was it reviewed?</label>
+      <select id="cp-method"><option value="visit">In-person visit</option><option value="phone">Phone with client / family</option><option value="caregiver">Caregiver check</option></select></div>
+    <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Care Level (right now)</label>
+      <select id="cp-level"><option value="">— set the level —</option><option value="1">Level 1 · Wellness</option><option value="2">Level 2 · Personal Care</option><option value="3">Level 3 · Advanced Care</option></select></div>
+    <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Next review due</label><input type="date" id="cp-next-due"></div>
+  </div>
+  <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">What changed? (check everything that applies)</label>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin:.35rem 0 .6rem;font-size:.82rem">
+    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="cpf-none" style="width:auto"> ✅ No changes — plan still accurate</label>
+    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="cpf-mobility" style="width:auto"> 🦽 Mobility / transfers</label>
+    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="cpf-schedule" style="width:auto"> 🌙 Schedule / overnight expectations</label>
+    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="cpf-meds" style="width:auto"> 💊 Diet / meds</label>
+    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="cpf-home" style="width:auto"> 🏠 Home / equipment</label>
+  </div>
+  <div style="margin-bottom:.6rem">
+    <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">What you learned (from the visit, the family, or the caregivers)</label>
+    <textarea id="cp-findings" rows="3" placeholder="e.g. Daughter confirms Mom stopped using the walker two weeks ago, transfers now need the Hoyer. Overnight caregiver must stay awake on the couch, not sleep in the spare room." style="resize:vertical"></textarea>
+  </div>
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+    <button class="primary" onclick="cpSave()">Save review ✓</button>
+    <button onclick="cpCloseForm()">Cancel</button>
+  </div>
+</div>
+
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;gap:.6rem;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:.6rem">
+    <span style="font-size:1.1rem">🗂️</span>
+    <div>
+      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Every active client, every plan, every 30 days</div>
+      <div style="font-size:.72rem;color:var(--text-muted)">Red means overdue or never reviewed. A flagged change stays red until the plan in AxisCare is actually updated.</div>
+    </div>
+  </div>
+</div>
+<div id="cp-board" style="padding-bottom:2rem"><div style="color:var(--text-muted);font-size:.85rem">Loading…</div></div>
+</section>
+
 <!-- ===================== TAB: SUPERVISORY VISITS ===================== -->
 <section class="tabpanel" id="tab-supervisory">
 <details class="guide">
@@ -4328,7 +4388,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], sop_library: [], dnr_log: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], sop_library: [], dnr_log: [], care_plan_reviews: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -4441,7 +4501,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','coverage_cases','nurse_clients','nurse_visits','sop_library','dnr_log'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','coverage_cases','nurse_clients','nurse_visits','sop_library','dnr_log','care_plan_reviews'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -4607,18 +4667,18 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','bookings','assessments','soc','clientqueue','statesubs','clients','checkins','carematch','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
    Clicking one opens its first child and reveals the strip beneath. */
 const CC_SUBTABS = {
   leads:     [ {t:'leads',       l:'Leads',            i:'i-phone'},
+               {t:'statesubs',   l:'State Submissions', i:'i-doc'},
                {t:'bookings',    l:'Bookings',         i:'i-calendar'},
                {t:'assessments', l:'Care Assessments', i:'i-clipboard'},
                {t:'soc',         l:'Start of Care',    i:'i-hospital'},
-               {t:'clientqueue', l:'New Clients',      i:'i-family'},
-               {t:'statesubs',   l:'State Submissions', i:'i-doc'} ],
+               {t:'clientqueue', l:'New Clients',      i:'i-family'} ],
 };
 /* page -> parent, derived so the two can never drift apart */
 const CC_PARENT_OF = (() => {
@@ -5016,7 +5076,7 @@ const CC_SECTION_TITLES = {
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', sops:'SOP Library',
   clientqueue:'New Clients — Needs Scheduling',
-  statesubs:'State Submissions — Medicaid IHS',
+  statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Coverage Help', nursevisits:'Nurse Visits',
@@ -5173,6 +5233,7 @@ function renderActiveTab(){
   if(activeTab==='sops') sopRender();
   if(activeTab==='clientqueue') cqRender();
   if(activeTab==='statesubs') renderStateSubs();
+  if(activeTab==='careplans') cpRender();
   if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='clients') renderClients();
   if(activeTab==='soc') renderSocTab();
@@ -9361,6 +9422,10 @@ function renderMgrStrip(){
     if(behind.length)
       rows.push(['🚗','Field visits behind pace this week: '+behind.map(r=>esc(r.name)+' '+r.count+'/2').join(' · ')+' — the community blocks only work if they happen','switchTab(\'referrers\')']);
   }catch(e){}
+  try{
+    const cpN=(typeof cpOverdueCount==='function')?cpOverdueCount():0;
+    if(cpN) rows.push(['🗂️',cpN+' care plan'+(cpN===1?'':'s')+' overdue for monthly review or flagged but not yet updated in AxisCare','switchTab(\'careplans\')']);
+  }catch(e){}
   const wuPending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
   if(wuPending.length)
     rows.push(['📝',wuPending.length+' write-up'+(wuPending.length===1?'':'s')+' awaiting your approval'+(wuPending.some(a=>a.level==='Termination Review')?' — <b style="color:var(--red);">including a termination review</b>':''),'var d=document.getElementById(\'approvalsDetails\');if(d)d.open=true;d&&d.scrollIntoView({behavior:\'smooth\'})']);
@@ -9707,6 +9772,217 @@ function renderNurseVisits(){
     +(v.note?'<span class="field-note">— '+esc(v.note)+'</span>':'')
     +'</div>').join('') || '<div class="field-note">No visits logged yet.</div>';
 }
+</script>
+<script>
+/* ── CARE PLAN REVIEWS ────────────────────────────────────────────────
+   Monthly confirmation that every plan still matches the client, with the
+   caregivers on the shifts asked directly (pairs live from AxisCare, the
+   same feed Care Match uses) and a care Level (1 Wellness / 2 Personal
+   Care / 3 Advanced Care) kept current. Records in app_data key
+   'care_plan_reviews': kind 'review' events + kind 'ask' log entries.
+   Caregiver phones come from the shared 'caregivers' app_data key; texts
+   go out through the same secured GHL function the escalation alerts use. */
+(function(){
+  const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const LEVELS={1:['Level 1 · Wellness','#1E8449','#E7F5EC'],2:['Level 2 · Personal Care','#B45309','#FCEED6'],3:['Level 3 · Advanced Care','#DC2626','#FDE8E8']};
+  const METHODS={visit:'in-person visit',phone:'phone call',caregiver:'caregiver check'};
+  const today=()=>new Date().toISOString().slice(0,10);
+  const keyFor=(axisId,name)=>(axisId&&String(axisId).trim())?'ax:'+String(axisId).trim():'nm:'+String(name||'').trim().toLowerCase();
+  let PAIRS=null, CG_PHONES=null, openAsk=null;
+
+  const reviews=()=>(DATA.care_plan_reviews||[]).filter(r=>r.kind==='review');
+  const asks=()=>(DATA.care_plan_reviews||[]).filter(r=>r.kind==='ask');
+
+  function clientRows(ignoreView){
+    const map=new Map();
+    getClientRoster().forEach(r=>{
+      if(!ignoreView && !ccViewMatch((r.lead&&r.lead.assigned_coordinator)||(r.checkins&&r.checkins.length?r.checkins[r.checkins.length-1].coordinator:''))) return;
+      map.set(r.key,{key:r.key,name:r.client_name,axisId:r.axiscare_client_id,latest:null});
+    });
+    reviews().forEach(rv=>{
+      const k=rv.client_key||keyFor(rv.axiscare_client_id,rv.client_name);
+      if(!map.has(k)){ if(ignoreView||!CC_VIEW_AS) map.set(k,{key:k,name:rv.client_name,axisId:rv.axiscare_client_id||'',latest:null}); else return; }
+      const c=map.get(k); if(c && (!c.latest||String(rv.at)>String(c.latest.at))) c.latest=rv;
+    });
+    const t=today();
+    return [...map.values()].map(c=>{
+      const due=c.latest?(c.latest.next_due||''):'';
+      const overdue=!c.latest||(due&&due<t);
+      const pendingUpdate=c.latest&&c.latest.changes_needed&&!c.latest.plan_updated;
+      return Object.assign(c,{due,overdue,pendingUpdate});
+    }).sort((a,b)=>(b.overdue?1:0)-(a.overdue?1:0)||(b.pendingUpdate?1:0)-(a.pendingUpdate?1:0)||String(a.due||'0000').localeCompare(String(b.due||'0000')));
+  }
+
+  window.cpRender=function(){
+    const box=document.getElementById('cp-board'); if(!box) return;
+    const rows=clientRows();
+    if(!rows.length){ box.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">No active clients on the board yet. Clients appear as leads convert'+(CC_VIEW_AS?' (viewing '+E(CC_VIEW_AS)+' only)':'')+'.</div>'; return; }
+    const t=today(), recentAsks=asks().filter(a=>(a.at||'').slice(0,10)>=new Date(Date.now()-7*86400000).toISOString().slice(0,10));
+    box.innerHTML=rows.map(c=>{
+      const lv=c.latest&&LEVELS[c.latest.care_level];
+      const lvChip=lv?'<span style="font-size:.66rem;font-weight:800;color:'+lv[1]+';background:'+lv[2]+';border-radius:5px;padding:.15rem .45rem;white-space:nowrap">'+lv[0]+'</span>'
+        :'<span style="font-size:.66rem;font-weight:700;color:var(--text-muted);background:#F3EDE3;border-radius:5px;padding:.15rem .45rem;white-space:nowrap">no level set</span>';
+      const border=c.pendingUpdate?'#DC2626':c.overdue?'#DC2626':'#1E8449';
+      const lastTxt=c.latest?('reviewed '+String(c.latest.at).slice(0,10)+' ('+(METHODS[c.latest.method]||c.latest.method)+') by '+E(c.latest.by||'')):'never reviewed';
+      const dueTxt=c.latest?(c.due?(c.due<t?'<b style="color:#DC2626">⚠ due '+E(c.due)+'</b>':'next due '+E(c.due)):'no due date'):'<b style="color:#DC2626">⚠ needs its first review</b>';
+      const askedN=recentAsks.filter(a=>(a.client_key||'')===c.key).length;
+      const pend=c.pendingUpdate?'<div style="font-size:.72rem;color:#DC2626;font-weight:700;margin-top:.2rem">🔴 Changes flagged — plan in AxisCare not updated yet · <a href="#" onclick="cpMarkUpdated(\''+E(c.latest.id)+'\');return false;">mark plan updated ✓</a></div>':'';
+      const findings=c.latest&&c.latest.findings?'<div style="font-size:.74rem;color:#3A342C;margin-top:.25rem">“'+E(String(c.latest.findings).slice(0,160))+(c.latest.findings.length>160?'…':'')+'”</div>':'';
+      return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+border+';border-radius:10px;padding:.7rem 1rem;margin-bottom:.5rem">'
+        +'<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">'
+        +'<div style="flex:1;min-width:220px"><b style="font-size:.9rem">'+E(c.name)+'</b> '+lvChip
+        +'<div style="font-size:.72rem;color:var(--text-muted)">'+lastTxt+' · '+dueTxt+(askedN?' · 💬 '+askedN+' caregiver'+(askedN===1?'':'s')+' asked this week':'')+'</div>'+findings+pend+'</div>'
+        +'<button style="font-size:.72rem" onclick="cpAsk(\''+E(c.key)+'\')">💬 Ask caregivers</button>'
+        +'<button class="primary" style="font-size:.72rem" onclick="cpOpenForm(\''+E(c.key)+'\')">📝 Log review</button>'
+        +'</div>'
+        +'<div id="cp-ask-'+E(c.key)+'" style="display:none;margin-top:.6rem;border-top:1px solid var(--border);padding-top:.55rem"></div>'
+        +'</div>';
+    }).join('');
+    if(openAsk) renderAskInto(openAsk);
+  };
+
+  window.cpOpenForm=function(key){
+    const c=clientRows().find(x=>x.key===key); if(!c) return;
+    document.getElementById('cp-form').style.display='';
+    document.getElementById('cp-form-client').textContent=c.name;
+    document.getElementById('cp-client-name').value=c.name;
+    document.getElementById('cp-axis-id').value=c.axisId||'';
+    document.getElementById('cp-client-key').value=c.key;
+    document.getElementById('cp-method').value='phone';
+    document.getElementById('cp-level').value=(c.latest&&c.latest.care_level)||'';
+    const d=new Date(Date.now()+30*86400000);
+    document.getElementById('cp-next-due').value=d.toISOString().slice(0,10);
+    ['cpf-none','cpf-mobility','cpf-schedule','cpf-meds','cpf-home'].forEach(id=>document.getElementById(id).checked=false);
+    document.getElementById('cp-findings').value='';
+    document.getElementById('cp-form').scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  window.cpCloseForm=function(){ document.getElementById('cp-form').style.display='none'; };
+
+  window.cpSave=async function(){
+    const name=document.getElementById('cp-client-name').value;
+    const flags=['mobility','schedule','meds','home'].filter(f=>document.getElementById('cpf-'+f).checked);
+    const none=document.getElementById('cpf-none').checked;
+    if(!none&&!flags.length){ alert('Check "No changes" or flag what changed — one or the other.'); return; }
+    if(none&&flags.length){ alert('"No changes" and a changed flag can\'t both be true — pick one.'); return; }
+    const level=document.getElementById('cp-level').value;
+    if(!level){ alert('Set the client\'s care Level — it\'s part of every review.'); return; }
+    const findings=document.getElementById('cp-findings').value.trim();
+    if(flags.length&&!findings){ alert('Describe what changed — that text becomes the AxisCare note and the plan correction.'); return; }
+    let by=''; try{ by=(ME&&ME.name)||''; }catch(e){}
+    const rv={ kind:'review', id:'cpr'+Date.now(), client_key:document.getElementById('cp-client-key').value,
+      client_name:name, axiscare_client_id:document.getElementById('cp-axis-id').value,
+      at:new Date().toISOString(), method:document.getElementById('cp-method').value,
+      care_level:parseInt(level), flags, changes_needed:flags.length>0, plan_updated:false,
+      findings, next_due:document.getElementById('cp-next-due').value, by };
+    DATA.care_plan_reviews.push(rv);
+    await persist('care_plan_reviews', rv);
+    if(rv.changes_needed){
+      if(rv.axiscare_client_id&&CONFIG.training_hub_key){
+        try{
+          const note='CARE PLAN REVIEW — changes flagged ('+rv.at.slice(0,10)+')\n'
+            +'Level: '+(LEVELS[rv.care_level]?LEVELS[rv.care_level][0]:rv.care_level)+'\n'
+            +'Changed: '+rv.flags.join(', ')+'\n'+findings+'\n— '+(by||'coordinator')+', Caring Companions hub';
+          await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
+            method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+            body:JSON.stringify({key:CONFIG.training_hub_key, action:'client_note', client_id:rv.axiscare_client_id, note})});
+        }catch(e){}
+      }
+      alert('Saved, and the changes are flagged. ✍️ Now update the actual care plan in AxisCare (and tell scheduling if the Level moved) — then click "mark plan updated ✓" on the card. It stays red until you do.');
+    }
+    cpCloseForm(); cpRender();
+  };
+
+  window.cpMarkUpdated=async function(id){
+    const rv=reviews().find(r=>r.id===id); if(!rv) return;
+    rv.plan_updated=true; rv.plan_updated_at=new Date().toISOString();
+    await persist('care_plan_reviews', rv);
+    cpRender();
+  };
+
+  async function loadPairs(){
+    if(PAIRS!==null) return;
+    const k=(CONFIG.training_hub_key||'').trim(); if(!k){ PAIRS=[]; return; }
+    try{
+      const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
+        method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+        body:JSON.stringify({key:k, mode:'pairs', days:60})});
+      const d=await r.json(); PAIRS=d.pairs||[];
+    }catch(e){ PAIRS=[]; }
+  }
+  async function loadCgPhones(){
+    if(CG_PHONES!==null) return;
+    CG_PHONES={};
+    try{
+      const { data } = await sb.from('app_data').select('data').eq('key','caregivers').single();
+      ((data&&data.data)||[]).forEach(c=>{
+        const nm=((c.first||'')+' '+(c.last||'')).trim().toLowerCase();
+        if(nm&&c.phone) CG_PHONES[nm]=c.phone;
+      });
+    }catch(e){}
+  }
+  window.cpAsk=async function(key){
+    const el=document.getElementById('cp-ask-'+key); if(!el) return;
+    if(openAsk===key){ el.style.display='none'; openAsk=null; return; }
+    openAsk=key;
+    el.style.display=''; el.innerHTML='<span style="font-size:.8rem;color:var(--text-muted)">Loading this client\'s caregivers from AxisCare…</span>';
+    await loadPairs(); await loadCgPhones();
+    renderAskInto(key);
+  };
+  function renderAskInto(key){
+    const el=document.getElementById('cp-ask-'+key); if(!el) return;
+    el.style.display='';
+    const c=clientRows().find(x=>x.key===key); if(!c) return;
+    const mine=(PAIRS||[]).filter(p=>String(p.client||'').trim().toLowerCase()===String(c.name||'').trim().toLowerCase());
+    if(!(CONFIG.training_hub_key||'').trim()){ el.innerHTML='<span style="font-size:.8rem;color:#b45309">Paste the Training Hub read key into ⚙️ Settings to load caregivers.</span>'; return; }
+    if(!mine.length){ el.innerHTML='<span style="font-size:.8rem;color:var(--text-muted)">No completed visits found for this client in the last 60 days (name must match AxisCare exactly).</span>'; return; }
+    const asked=asks().filter(a=>(a.client_key||'')===key);
+    el.innerHTML='<div style="font-size:.72rem;font-weight:700;color:var(--text-muted);margin-bottom:.35rem">Caregivers on '+E(c.name)+'\'s shifts, last 60 days — one tap asks the care plan question:</div>'
+      +mine.map(p=>{
+        const cg=String(p.caregiver||'').trim();
+        const phone=CG_PHONES[cg.toLowerCase()]||'';
+        const lastAsk=asked.filter(a=>a.caregiver===cg).sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0];
+        const askedNote=lastAsk?'<span style="font-size:.68rem;color:#1E8449">✓ asked '+String(lastAsk.at).slice(0,10)+'</span>':'';
+        return '<div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;flex-wrap:wrap;font-size:.82rem">'
+          +'<b style="min-width:150px">'+E(cg)+'</b>'
+          +'<span style="font-size:.7rem;color:var(--text-muted)">'+p.visits+' shift'+(p.visits===1?'':'s')+' · last '+E(p.last_date||'')+'</span>'
+          +askedNote
+          +'<span style="flex:1"></span>'
+          +(phone?'<button class="primary" style="font-size:.7rem" onclick="cpTextCg(\''+E(key)+'\','+A2(cg)+','+A2(phone)+','+A2(c.name)+')">📱 Text the check</button>'
+                 :'<button style="font-size:.7rem" onclick="cpCopyAsk('+A2(cg)+','+A2(c.name)+',\''+E(key)+'\')" title="No phone on file in the hub — copies the message to paste anywhere">📋 Copy ask</button>')
+          +'</div>';
+      }).join('');
+  }
+  function A2(s){ return "'"+String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;')+"'"; }
+  function askText(cgFirst,client){
+    return 'Hi '+cgFirst+'! Quick care plan check for '+client+'. Does the plan still match what you see on shift? Transfers and mobility (walker, wheelchair, Hoyer)? Overnight expectations? Meals or meds changes? Reply here with anything that\'s different. Takes a minute and keeps everyone safe. Thank you! — Caring Companions';
+  }
+  async function logAsk(key,client,cg,via){
+    let by=''; try{ by=(ME&&ME.name)||''; }catch(e){}
+    const a={ kind:'ask', id:'cpa'+Date.now()+Math.random().toString(36).slice(2,5), client_key:key, client_name:client, caregiver:cg, via, at:new Date().toISOString(), by };
+    DATA.care_plan_reviews.push(a);
+    await persist('care_plan_reviews', a);
+  }
+  window.cpTextCg=async function(key,cg,phone,client){
+    const first=cg.split(' ')[0]||cg;
+    try{
+      const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
+        method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+        body:JSON.stringify({key:CONFIG.training_hub_key, action:'send_sms', phone, first_name:first, message:askText(first,client)})});
+      const d=await r.json();
+      if(d&&d.status==='sent'){ await logAsk(key,client,cg,'sms'); renderAskInto(key); cpRender(); }
+      else alert('Could not send: '+((d&&d.error)||'unknown error')+'\n\nUse 📋 Copy ask instead and send it from your phone.');
+    }catch(e){ alert('Could not reach the messaging service — check your connection.'); }
+  };
+  window.cpCopyAsk=async function(cg,client,key){
+    const first=cg.split(' ')[0]||cg;
+    try{ await navigator.clipboard.writeText(askText(first,client)); }catch(e){}
+    await logAsk(key,client,cg,'manual');
+    alert('Message copied — paste it into a text to '+cg+'. Logged as asked.');
+    renderAskInto(key); cpRender();
+  };
+  // Lens-independent: the manager strip counts every book's overdue plans.
+  window.cpOverdueCount=function(){ try{ return clientRows(true).filter(c=>c.overdue||c.pendingUpdate).length; }catch(e){ return 0; } };
+})();
 </script>
 <script>
 /* ── STATE SUBMISSIONS (Medicaid IHS) ─────────────────────────────────
