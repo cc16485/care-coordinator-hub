@@ -3909,7 +3909,7 @@ The HomeTogether team</pre>
         <section class="ckpt-stage" id="ckptStage3">
           <div class="ckpt-stagehead"><span class="ckpt-num">3</span><h3>Who needs care</h3></div>
           <div class="script-hint"><span class="ic">💬</span><span>"Who would we be caring for? Tell me a little about them."</span></div>
-          <div class="ckpt-cue">Fill in what you hear instead of interrogating. Address and birthday can wait for the close if trust is still building. The clinical section stays folded unless they bring it up.</div>
+          <div class="ckpt-cue">Fill in what you hear instead of interrogating. City is all you need on a first call, the full address fold only opens when they book the assessment. The clinical section stays folded too unless they bring it up.</div>
           <div class="ckpt-slot" data-sec="leadSecClient"></div>
           <div class="ckpt-slot" data-sec="leadSecNeeds"></div>
           <div class="ckpt-slot" data-sec="leadSecClinical"></div>
@@ -3938,7 +3938,7 @@ The HomeTogether team</pre>
         <section class="ckpt-stage" id="ckptStage7">
           <div class="ckpt-stagehead"><span class="ckpt-num">7</span><h3 id="ckptCloseTitle">Close: book the assessment</h3></div>
           <div class="script-hint"><span class="ic">💬</span><span id="ckptCloseScript">"The next step is a free in-home assessment, that's where we meet [client] and build the care plan together. I have [day] at [time] or [day] at [time], which works better?"</span></div>
-          <div class="ckpt-cue" id="ckptCloseCue">Book it while you have them, a call that ends without a next step goes cold. Then set the follow-up branch so the queue keeps chasing this lead, not your memory.</div>
+          <div class="ckpt-cue" id="ckptCloseCue">Book it while you have them, a call that ends without a next step goes cold. Booking it? Now get the full street address, the fold is up in Who needs care. Then set the follow-up branch so the queue keeps chasing this lead, not your memory.</div>
           <div class="ckpt-slot" data-sec="leadSecOffice"></div>
           <div class="ckpt-slot" data-sec="leadSecRouting"></div>
           <div class="modal-actions" style="margin-top:16px;">
@@ -4003,10 +4003,7 @@ The HomeTogether team</pre>
 <label>Gender</label>
 <select id="lead_client_gender"><option value="">— Select —</option><option>Male</option><option>Female</option><option>Unknown</option></select>
 </div>
-<div style="grid-column:1/-1;"><label>Street Address</label><input id="lead_client_address"></div>
 <div><label>City</label><input id="lead_client_city"></div>
-<div><label>State</label><input id="lead_client_state" maxlength="2" style="text-transform:uppercase;"></div>
-<div><label>ZIP</label><input id="lead_client_zip"></div>
 <div><label>Client Phone</label><input id="lead_client_phone"></div>
 <div>
 <label>Marital Status</label>
@@ -4014,6 +4011,14 @@ The HomeTogether team</pre>
 </div>
 <div><label>Primary Language</label><input id="lead_language" placeholder="English, Spanish, etc."></div>
 </div>
+<details class="lead-collapse" id="leadAddrFold">
+<summary>Full address <span class="fn">city is enough on a first call, the rest comes when they book the assessment</span></summary>
+<div class="grid2">
+<div style="grid-column:1/-1;"><label>Street Address</label><input id="lead_client_address"></div>
+<div><label>State</label><input id="lead_client_state" maxlength="2" style="text-transform:uppercase;"></div>
+<div><label>ZIP</label><input id="lead_client_zip"></div>
+</div>
+</details>
 </div>
 
 <div id="leadSecUrgency">
@@ -6084,6 +6089,10 @@ function openLeadModal(id){
   document.getElementById('lead_client_first_name').value = l.client_first_name||'';
   document.getElementById('lead_client_last_name').value = l.client_last_name||'';
   document.getElementById('lead_client_dob').value = l.client_dob||'';
+  // Full address stays folded on a first call (city is enough); pop it open
+  // when this lead already has one so edits never hide saved data.
+  const af=document.getElementById('leadAddrFold');
+  if(af) af.open = !!(l.client_address||l.client_state||l.client_zip);
   document.getElementById('lead_client_gender').value = l.client_gender||'';
   document.getElementById('lead_client_address').value = l.client_address||'';
   document.getElementById('lead_client_city').value = l.client_city||'';
@@ -7016,7 +7025,7 @@ function leadPayorUI(){
     } else {
       ct.textContent='Close: book the assessment';
       cs.textContent='"The next step is a free in-home assessment, that\'s where we meet [client] and build the care plan together. I have [day] at [time] or [day] at [time], which works better?"';
-      cc2.textContent='Book it while you have them, a call that ends without a next step goes cold. Then set the follow-up branch so the queue keeps chasing this lead, not your memory.';
+      cc2.textContent='Book it while you have them, a call that ends without a next step goes cold. Booking it? Now get the full street address, the fold is up in Who needs care. Then set the follow-up branch so the queue keeps chasing this lead, not your memory.';
     }
   }
 }
