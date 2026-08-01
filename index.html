@@ -3972,18 +3972,16 @@ The HomeTogether team</pre>
 <label><input type="checkbox" value="sundowning"> Sundowning</label>
 </div>
 </div>
+<label>Additional Medical Notes</label>
+<textarea id="lead_medical_notes" rows="2" placeholder="Anything medical they volunteered — oxygen, hospice, a recent fall…"></textarea>
 </details>
 
-<details class="lead-collapse">
-<summary>Physician &amp; Additional Info <span class="fn">— fill when they have it handy</span></summary>
-<div class="grid2">
-<div><label>Primary Care Physician</label><input id="lead_physician_name"></div>
-<div><label>Physician Phone</label><input id="lead_physician_phone"></div>
-<div style="grid-column:1/-1;"><label>Preferred Hospital</label><input id="lead_preferred_hospital"></div>
-</div>
-<label>Additional Medical Notes</label>
-<textarea id="lead_medical_notes" rows="2" placeholder="Any other medical context not covered above…"></textarea>
-</details>
+<!-- Physician & hospital are ASSESSMENT-visit questions, not first-call
+     questions (Samantha, 2026-08-01: "no one asks for physician info in an
+     initial call!"). They now live on the Care Assessment form; these hidden
+     fields keep older leads' saved values flowing through edit-and-save, and
+     the assessment form pre-fills from them. -->
+<input type="hidden" id="lead_physician_name"><input type="hidden" id="lead_physician_phone"><input type="hidden" id="lead_preferred_hospital">
 
 <div class="section-title">Schedule</div>
 <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;">
@@ -4177,6 +4175,9 @@ The HomeTogether team</pre>
 <div><label>Visit Date</label><input type="date" id="assess_visit_date"></div>
 <div><label>Coordinator</label><input id="assess_coordinator"></div>
 <div style="grid-column:1/-1"><label>Address</label><input id="assess_address"></div>
+<div><label>Primary Care Physician</label><input id="assess_physician_name"></div>
+<div><label>Physician Phone</label><input id="assess_physician_phone"></div>
+<div style="grid-column:1/-1"><label>Preferred Hospital</label><input id="assess_preferred_hospital"></div>
 <div>
 <label>Payer</label>
 <select id="assess_payer"><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>Other</option></select>
@@ -7272,6 +7273,11 @@ function openAssessmentModal(id, fromLead){
   document.getElementById('assess_axiscare_client_id').value = (a&&a.axiscare_client_id) || (fromLead&&fromLead.axiscare_client_id) || '';
   document.getElementById('assess_visit_date').value = (a&&a.visit_date)||'';
   document.getElementById('assess_coordinator').value = (a&&a.coordinator)||'';
+  // Physician info moved here from the lead form — old leads that captured it
+  // hand it forward automatically.
+  document.getElementById('assess_physician_name').value = (a&&a.physician_name) || (fromLead&&fromLead.physician_name) || '';
+  document.getElementById('assess_physician_phone').value = (a&&a.physician_phone) || (fromLead&&fromLead.physician_phone) || '';
+  document.getElementById('assess_preferred_hospital').value = (a&&a.preferred_hospital) || (fromLead&&fromLead.preferred_hospital) || '';
   document.getElementById('assess_payer').value = (a&&a.payer)||'Medicaid';
   document.getElementById('assess_transcript_source').value = (a&&a.transcript_source)||'Otter';
   document.getElementById('assess_transcript_link').value = (a&&a.transcript_link)||'';
@@ -7290,6 +7296,9 @@ async function saveAssessment(){
     visit_date: document.getElementById('assess_visit_date').value,
     coordinator: document.getElementById('assess_coordinator').value.trim(),
     address: document.getElementById('assess_address').value.trim(),
+    physician_name: document.getElementById('assess_physician_name').value.trim(),
+    physician_phone: document.getElementById('assess_physician_phone').value.trim(),
+    preferred_hospital: document.getElementById('assess_preferred_hospital').value.trim(),
     payer: document.getElementById('assess_payer').value,
     transcript_source: document.getElementById('assess_transcript_source').value,
     transcript_link: document.getElementById('assess_transcript_link').value.trim(),
