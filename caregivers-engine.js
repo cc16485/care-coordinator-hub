@@ -50,7 +50,7 @@ async function showApp(){
   loadClientQueue();
   mergePendingBookings();
   intakeReconcile();
-  refReconcile();
+  refReconcile().then(markScreeningCleared);
   loadOffers(); // fills the New Offers tab + red badge count
 }
 
@@ -1548,6 +1548,25 @@ async function askReferences(candId, btn){
 /* Answers coming home. Same shape a phone call produces, so the rest of the
    pipeline cannot tell the difference and Ready for Orientation still means
    what it always meant. */
+/* Screening clearing is not a box anyone should have to tick. The moment a
+   candidate reaches Ready for Orientation, every check has come back clean and
+   two references are positive, which is exactly what "your screening cleared"
+   means. Stamping it here is what lets the nightly job delete their social
+   security number, which is what we promised them on the form. */
+async function markScreeningCleared(){
+  const done = candidates.filter(c =>
+    c.intake_id && !c.screening_cleared_stamped && obDeriveStatus(c) === 'Ready for Orientation');
+  if (!done.length) return;
+  for (const c of done) {
+    try {
+      const { error } = await sb.from('hire_intake')
+        .update({ screening_cleared_at: new Date().toISOString() })
+        .eq('id', c.intake_id);
+      if (!error) c.screening_cleared_stamped = true;
+    } catch (e) { /* try again next pass */ }
+  }
+  saveCandidates();
+}
 async function refReconcile(){
   let rows = [];
   try {
@@ -1619,9 +1638,10 @@ async function intakeReconcile(){
         addedAt: new Date().toISOString(),
       };
       if (offer) { c.offer_id = String(offer.id); c.position = offer.position || ''; }
+      c.intake_id = r.id;
       candidates.push(c);
       made++;
-    } else { filled++; }
+    } else { filled++; if (!c.intake_id) c.intake_id = r.id; }
 
     // What they told us wins over blanks, never over something already recorded.
     if (!c.oos) c.oos = r.lived_outside_mo ? 'yes' : 'no';
@@ -5920,6 +5940,7 @@ window.offerToCandidate = offerToCandidate;
 window.intakeReconcile = intakeReconcile;
 window.askReferences = askReferences;
 window.refReconcile = refReconcile;
+window.markScreeningCleared = markScreeningCleared;
 window.offerCopyLink = offerCopyLink;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
