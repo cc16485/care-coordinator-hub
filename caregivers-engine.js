@@ -50,6 +50,7 @@ async function showApp(){
   loadClientQueue();
   mergePendingBookings();
   intakeReconcile();
+  refReconcile();
   loadOffers(); // fills the New Offers tab + red badge count
 }
 
@@ -1479,6 +1480,109 @@ function offerCopyLink(btn, url){
    the same shape as mergePendingBookings, which keeps the browser as the only
    writer of app_data. Idempotent: each intake row is stamped with the
    candidate it produced, so a second pass does nothing. */
+/* ---- Reference requests -------------------------------------------------
+   The five questions the office asks on the phone, asked of the reference
+   directly instead. A typed answer and a called answer score identically,
+   because both end up in the same r{n}_manual shape through scoreManualRef.
+   Nothing here replaces the phone: it just stops the phone being the only way. */
+async function askReferences(candId, btn){
+  const c = candidates.find(x => x.id === candId);
+  if (!c) return;
+  const slots = [1,2,3,4]
+    .map(n => ({ n, name: c['r'+n+'n'], phone: c['r'+n+'_phone'], email: c['r'+n+'_email'], rel: c['r'+n+'_rel'], status: c['r'+n+'s'] }))
+    .filter(r => r.name && (r.phone || r.email) && r.status === 'Pending');
+  if (!slots.length) {
+    alert('No references on this candidate are waiting on an answer.\n\nAdd their names and numbers first, or they have all come back already.');
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Setting up…'; }
+
+  let rows = [];
+  try {
+    const { data, error } = await sb.from('reference_requests').insert(
+      slots.map(r => ({
+        candidate_id: c.id, slot: r.n, candidate_name: (c.first + ' ' + c.last).trim(),
+        ref_name: r.name || null, ref_phone: r.phone || null, ref_email: r.email || null,
+        ref_relationship: r.rel || null, sent_at: new Date().toISOString(),
+      }))).select();
+    if (error) throw error;
+    rows = data || [];
+  } catch (e) {
+    alert('Could not set those up: ' + ((e && e.message) || 'error') +
+      '\n\nIf this mentions a missing table, run reference-requests.sql in the Supabase SQL editor.');
+    if (btn) { btn.disabled = false; btn.textContent = '📨 Ask references'; }
+    return;
+  }
+
+  const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const cname = (c.first + ' ' + c.last).trim();
+  const body = rows.map(r => {
+    const url = 'https://cc.mo-care.com/reference.html?r=' + encodeURIComponent(r.id)
+      + '&c=' + encodeURIComponent(cname)
+      + '&n=' + encodeURIComponent(r.ref_name || '')
+      + (r.ref_relationship ? '&rel=' + encodeURIComponent(r.ref_relationship) : '');
+    const msg = 'Hi ' + (r.ref_name || 'there') + ", this is Caring Companions In-Home Senior Care. "
+      + cname + ' listed you as a reference for a caregiving job. Five quick questions, about two minutes: '
+      + url + ' Thank you!';
+    const digits = String(r.ref_phone || '').replace(/[^0-9+]/g, '');
+    return '<div style="border-top:1px solid #e4e1d8;padding:.6rem 0">'
+      + '<b style="font-size:.86rem;color:#0D365F">' + esc(r.ref_name || 'Reference ' + r.slot) + '</b>'
+      + '<div style="display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.4rem">'
+      + (digits ? '<a class="fb" style="text-decoration:none" href="sms:' + esc(digits) + '&body=' + encodeURIComponent(msg) + '">💬 Text</a>' : '')
+      + (r.ref_email ? '<a class="fb" style="text-decoration:none" href="mailto:' + esc(r.ref_email) + '?subject=' + encodeURIComponent('A quick reference for ' + cname) + '&body=' + encodeURIComponent(msg) + '">✉️ Email</a>' : '')
+      + '<button class="fb" onclick="offerCopyLink(this,\'' + esc(url) + '\')">📋 Copy link</button>'
+      + '</div></div>';
+  }).join('');
+
+  const host = document.getElementById('askRefsBox');
+  if (host) {
+    host.style.display = 'block';
+    host.innerHTML = '<b style="color:#0D365F">Send these to ' + esc(cname) + "'s references</b>"
+      + '<div style="font-size:.78rem;color:#6E6559;margin:.2rem 0 .3rem">Their answers come straight back here and score themselves. '
+      + 'Each link works once.</div>' + body;
+    host.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '📨 Ask references'; }
+}
+
+/* Answers coming home. Same shape a phone call produces, so the rest of the
+   pipeline cannot tell the difference and Ready for Orientation still means
+   what it always meant. */
+async function refReconcile(){
+  let rows = [];
+  try {
+    const { data, error } = await sb.from('reference_requests').select('*')
+      .not('responded_at', 'is', null).is('merged_at', null).limit(50);
+    if (error) return;
+    rows = data || [];
+  } catch (e) { return; }
+  if (!rows.length) return;
+
+  let merged = 0;
+  for (const r of rows) {
+    const c = candidates.find(x => x.id === r.candidate_id);
+    if (!c) continue;
+    const n = r.slot;
+    c['r'+n+'n'] = c['r'+n+'n'] || r.ref_name || r.responder_name || '';
+    c['r'+n+'_manual'] = {
+      staff: 'answered by the reference', via: 'Online form',
+      date: String(r.responded_at || '').slice(0,10),
+      name: r.responder_name || r.ref_name || '',
+      type: '', relationship: r.ref_relationship || '', how_long: r.how_long || '',
+      recommend: r.recommend || '', reliability: r.reliability || '',
+      interpersonal: r.interpersonal || '', honesty: r.honesty || '',
+      concerns: r.concerns || '', notes: r.notes || '',
+    };
+    c['r'+n+'s'] = scoreManualRef(r.recommend, r.reliability, r.interpersonal, r.honesty, r.concerns) || 'Pending';
+    merged++;
+    try { await sb.from('reference_requests').update({ merged_at: new Date().toISOString() }).eq('id', r.id); }
+    catch (e) { /* correct locally already; it will retry next pass */ }
+  }
+  if (merged) {
+    saveCandidates();
+    try { renderOB(); renderAlerts(); } catch (e) {}
+  }
+}
 async function intakeReconcile(){
   let rows = [];
   try {
@@ -3303,6 +3407,7 @@ function renderOB(){
         ${c.not_hired?`<button class="ibtn" onclick="reactivateOB(${c.id})" style="color:var(--teal);border-color:var(--teal)" title="Reactivate candidate">↩ Reactivate</button>`:`
         ${st==='Ready for Orientation'&&!c.invite_sent?`<button class="ibtn" style="background:var(--teal);color:#fff;border-color:var(--teal);font-weight:600;padding:.28rem .65rem;" onclick="openInviteModal(${c.id})">📅 Invite</button>`:''}
         ${st==='Ready for Orientation'&&c.invite_sent?`<button class="ibtn" style="color:var(--teal);border-color:var(--teal);" onclick="openInviteModal(${c.id})">📅 Re-send</button>`:''}
+        ${[1,2,3,4].some(n=>c['r'+n+'n']&&c['r'+n+'s']==='Pending')?`<button class="ibtn" onclick="askReferences(${c.id},this)" title="Send each reference a two-minute form">📨 Ask refs</button>`:''}
         ${[1,2,3,4].some(n=>c['r'+n+'_manual'])?`<button class="ibtn" onclick="refReport(${c.id})" title="Reference check record for the personnel file">📄 Refs</button>`:''}
         <button class="ibtn" onclick="openOBModal(${c.id})">✏️</button>
         <button class="ibtn" onclick="openNotHireModal(${c.id})" style="color:#ef4444;border-color:#fca5a5" title="Not moving forward">🚫</button>`}
@@ -5813,6 +5918,8 @@ window.refReport = refReport;
 window.offerStartLink = offerStartLink;
 window.offerToCandidate = offerToCandidate;
 window.intakeReconcile = intakeReconcile;
+window.askReferences = askReferences;
+window.refReconcile = refReconcile;
 window.offerCopyLink = offerCopyLink;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
