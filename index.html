@@ -212,6 +212,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .tp-chip.alert b{color:#FFD9D9;}
   .tp-chip.ok{opacity:.7;cursor:default;}
   @media(max-width:1000px){#topbarPulse{display:none;}}
+  /* The chip is a white island on the navy band: pin its text colors with
+     !important so no navy-band rule (like `.topbar span{color:#fff}`) can
+     ever wash the name out again, in any embed. */
+  header.topbar #navUserName{color:var(--navy) !important;}
+  header.topbar #navUserRole{color:var(--text-muted) !important;}
 
   /* KPI cards + pipeline tiles (Overview) */
   .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
@@ -558,10 +563,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span class="pill" id="syncPill">☁ Synced</span>
     <button class="ghost" onclick="openHandoffModal()" title="Ending your shift? Pass everything time-sensitive to the next coordinator">🔄 End my shift</button>
     <button class="addlead" onclick="openCallCockpit()">＋ Add Lead</button>
-    <span id="userChip" onclick="chipSettings()" style="display:flex;align-items:center;gap:8px;padding:3px 10px 3px 4px;border:1px solid var(--border);border-radius:999px;background:#fff;">
+    <span id="userChip" style="display:flex;align-items:center;gap:8px;padding:3px 12px 3px 4px;border:1px solid var(--border);border-radius:999px;background:#fff;flex:0 0 auto;">
       <span class="su-avatar" id="navAvatar">·</span>
-      <span style="min-width:0;line-height:1.15;"><b id="navUserName" style="display:block;font-size:12px;color:var(--navy);white-space:nowrap;">Signed in</b><span style="font-size:10px;color:var(--text-muted);white-space:nowrap;" id="navUserRole">Care Coordinator</span></span>
-      <span id="chipGear" title="Settings" style="display:none;font-size:13px;">⚙️</span>
+      <span style="line-height:1.15;"><b id="navUserName" style="display:block;font-size:12.5px;white-space:nowrap;">Signed in</b><span id="navUserRole" style="font-size:10px;white-space:nowrap;">Care Coordinator</span></span>
     </span>
     <button class="ghost" onclick="signOut()">Sign Out</button>
   </header>
@@ -583,7 +587,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
-    <div class="fpill" data-tab="careplans" onclick="switchTab('careplans')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Plans</div>
+    <div class="fpill" data-tab="careplans" onclick="switchTab('careplans')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Plan Reviews</div>
     <span style="flex:1"></span>
     <!-- One hub, one truth, a lens per person: filters Leads, State
          Submissions, Check-ins, and Active Clients to one coordinator's
@@ -4786,10 +4790,9 @@ async function resolveMe(){
   };
   const roleEl=document.getElementById('navUserRole');
   if(roleEl) roleEl.textContent = ME.shift==='manager'?'Manager · sees everything':ME.shift==='evening'?'Evening · Start of Care':'Care Coordinator';
-  const gear=document.getElementById('chipGear'), chip=document.getElementById('userChip');
+  // The chip is just who's signed in — Settings lives in its own tab (and
+  // the sidebar), shown to owners below. The old gear shortcut is gone.
   const isOwner=DISC_APPROVERS.includes(ME.email);
-  if(gear) gear.style.display=isOwner?'inline':'none';
-  if(chip) chip.style.cursor=isOwner?'pointer':'default';
   const sft=document.getElementById('settingsFtab');
   if(sft) sft.style.display=isOwner?'flex':'none';
   // The evening coordinator's work lives in Start of Care — land them there.
@@ -8324,10 +8327,6 @@ function getCurrentOnCall(){
   return matches.reduce((a,b) => (b.created_at||'') > (a.created_at||'') ? b : a);
 }
 /* ---------------- SETTINGS ---------------- */
-function chipSettings(){
-  if(!DISC_APPROVERS.includes(ME.email)) return; // coordinators: chip is just their name
-  switchTab('settings');
-}
 function openSettings(){ switchTab('settings'); } // owners-only guard lives in switchTab
 function checkSettingsPasscode(){
   const val = document.getElementById('settingsPasscodeInput').value;
