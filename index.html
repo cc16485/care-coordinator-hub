@@ -336,11 +336,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .ckpt-railbtn:hover{background:#FAF9F6;color:var(--text);}
   .ckpt-railbtn.active{background:var(--blue-bg);color:#1D4ED8;}
   .ckpt-dot{flex:0 0 22px;height:22px;border-radius:50%;background:#fff;border:1.5px solid var(--border);color:var(--text-muted);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;}
-  .ckpt-railbtn.done .ckpt-dot{background:var(--green);border-color:var(--green);color:#fff;font-size:0;}
+  .ckpt-railbtn.done .ckpt-dot{background:var(--gold);border-color:var(--gold);color:#fff;font-size:0;}
   .ckpt-railbtn.done .ckpt-dot::before{content:'✓';font-size:12px;}
   .ckpt-progress{margin-top:auto;padding:10px 10px 4px;font-size:11px;color:var(--text-muted);}
   .ckpt-progressbar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px;}
-  .ckpt-progressbar i{display:block;height:100%;background:var(--green);width:0;transition:width .25s ease;}
+  .ckpt-progressbar i{display:block;height:100%;background:var(--gold);width:0;transition:width .25s ease;}
+  .ckpt-rate-row{border-top:1px solid var(--border);padding:7px 0;font-size:12.5px;}
+  .ckpt-rate-row:first-child{border-top:none;}
+  .ckpt-rate-top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .ckpt-rate-top span{font-weight:700;color:var(--gold-text);white-space:nowrap;}
+  .ckpt-rate-inc{font-size:11.5px;color:var(--text-muted);line-height:1.45;margin-top:2px;}
   .ckpt-main{position:relative;overflow-y:auto;padding:18px 22px 70px;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start;}
   .ckpt-stages{min-width:0;}
   .ckpt-stage{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px 18px;margin-bottom:14px;scroll-margin-top:12px;}
@@ -3945,6 +3950,8 @@ The HomeTogether team</pre>
         <div class="ckpt-noteshead">While you listen</div>
         <div class="ckpt-slot" data-sec="leadSecNotes"></div>
         <div class="field-note" style="margin-top:8px;">These notes feed the AI branch suggestion and the follow-up drafts. Their own words beat a summary.</div>
+        <div class="ckpt-noteshead" style="margin-top:18px;">Rate card</div>
+        <div id="ckptRatesBody"></div>
       </aside>
     </div>
   </div>
@@ -4595,7 +4602,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], sop_library: [], dnr_log: [], care_plan_reviews: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], sop_library: [], dnr_log: [], care_plan_reviews: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -4709,7 +4716,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','coverage_cases','nurse_clients','nurse_visits','sop_library','dnr_log','care_plan_reviews'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','sop_library','dnr_log','care_plan_reviews'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -6980,10 +6987,10 @@ function leadPayorUI(){
   const hint=document.getElementById('leadPayorHint');
   if(!hint) return;
   const H={
-    private:'💰 <b>Private Pay → Krystal\'s book.</b> Quote from the current rate sheet, track it below, and offer the free in-home assessment as the next step.',
+    private:'💰 <b>Private Pay → Krystal\'s book.</b> Quote from the rate card in the side panel (levels and what each includes), track it below, and offer the free in-home assessment as the next step.',
     ltc:'📄 <b>LTC insurance → Krystal\'s book.</b> Get the carrier and policy number if they have it handy — the LTC Policy tab reads the policy and sets it up as a payor. Bills private-side until benefits kick in.',
     va:'🎖️ <b>VA → Angiel\'s book.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
-    medicaid:'🏛️ <b>Medicaid IHS → Angiel\'s book.</b> Minimum to get started: client <b>first name, last name, and DOB</b>. Get the DCN and county too if you can — the State Submission block just opened below, and this lead will ride the State Submissions tracker until DSDS authorizes. <b>Do not commit on this call:</b> tell them we\'ll make sure we can staff it and get back to them ASAP, then <b>read the notes before taking them</b> and call back.',
+    medicaid:'🏛️ <b>Medicaid IHS → Angiel\'s book.</b> First ask: <b>"Has [client] ever received in-home services through Medicaid before, or is this brand new?"</b> If they\'re new, walk them through the two options and the difference: <b>IHS</b>, we hire, train, and send the caregiver and handle everything, or <b>CDS</b>, they choose their own caregiver, often a family member who is already helping, and our sister company handles enrollment and payroll. If they pick CDS, switch the payor above to CDS. Staying IHS: minimum to get started is client <b>first name, last name, and DOB</b>. Get the DCN and county too if you can, the State Submission block just opened below and this lead rides the State Submissions tracker until DSDS authorizes. <b>Do not commit on this call:</b> tell them we\'ll make sure we can staff it and get back to them ASAP, then <b>read the notes before taking them</b> and call back.',
     pace:'🧩 <b>PACE → Krystal\'s book.</b> Services flow through their PACE organization — capture the org name in the call notes.',
     cds:'↪️ <b>CDS → Angiel.</b> CDS is the sister company, but Angiel does the intake herself. If she\'s in, warm-transfer now. If not, take name and number and save this lead, it lands in her book for the callback. She runs the intake on the CDS side (caringcds.com · <b>(417) 218-2888</b>), then marks this lead <b>Lost</b> with reason "Referred to CDS" so the CC pipeline stays clean.'
   };
@@ -7187,6 +7194,7 @@ function openCallCockpit(){
   clearInterval(ckptTimerInt);
   ckptTimerInt=setInterval(ckptTick,1000); ckptTick();
   ckptRenderRail();
+  ckptRenderRates();
   const main=document.getElementById('ckptMain'); main.scrollTop=0; ckptSpy();
   setTimeout(()=>{ const f=document.getElementById('lead_first_name'); if(f) f.focus({preventScroll:true}); },60);
 }
@@ -7230,6 +7238,65 @@ async function ckptSave(book){
   ckptTeardown();                     // fields keep their values; saveLead reads by id
   await saveLead();
   if(book) scheduleAssessmentFromLead(id);
+}
+/* ---------- Client rate card (Guided Call side panel) ----------
+   Same deal as the caregiver pay rates: one shared record, id 'rates', in
+   the client_rates key. Only DISC_APPROVERS (Samantha & Zach) can edit;
+   coordinators read the same figures on every machine, so nobody quotes
+   from memory. Levels follow her Care Levels system. */
+const CARE_RATE_LEVELS=[
+  {k:'l1', label:'Level 1 · Wellness',      ph:'Companionship, meal prep, light housekeeping, errands and rides'},
+  {k:'l2', label:'Level 2 · Personal Care', ph:'Everything in Wellness plus bathing, dressing, toileting, transfers'},
+  {k:'l3', label:'Level 3 · Advanced Care', ph:'Everything in Personal Care plus dementia care, lift or two-person transfers, complex needs'},
+];
+function clientRatesRec(){
+  return (DATA.client_rates||[]).find(x=>x.id==='rates')
+      || { id:'rates', levels:{}, note:'', updated_at:'', updated_by:'' };
+}
+function ckptRenderRates(edit){
+  const box=document.getElementById('ckptRatesBody'); if(!box) return;
+  const rec=clientRatesRec();
+  const canEdit=DISC_APPROVERS.includes(ME.email);
+  if(edit && canEdit){
+    box.innerHTML = CARE_RATE_LEVELS.map(L=>{
+      const r=(rec.levels||{})[L.k]||{};
+      return '<div class="ckpt-rate-row">'
+        +'<div class="ckpt-rate-top"><b>'+L.label+'</b>'
+        +'<input id="crate-'+L.k+'" value="'+esc(r.rate||'')+'" placeholder="$/hr" style="width:90px;padding:6px 8px;font-size:12.5px;text-align:right;"></div>'
+        +'<textarea id="cinc-'+L.k+'" rows="2" placeholder="'+esc(L.ph)+'" style="font-size:12px;margin-top:4px;">'+esc(r.includes||'')+'</textarea>'
+        +'</div>';
+    }).join('')
+    +'<input id="crateNote" value="'+esc(rec.note||'')+'" placeholder="Note, e.g. overnight or weekend differential" style="font-size:12px;margin-top:6px;">'
+    +'<div style="display:flex;gap:8px;margin-top:8px;">'
+    +'<button class="primary" style="font-size:12px;" onclick="ckptSaveRates(this)">Save rates</button>'
+    +'<button class="secondary" style="font-size:12px;" onclick="ckptRenderRates()">Cancel</button></div>';
+    return;
+  }
+  box.innerHTML = CARE_RATE_LEVELS.map(L=>{
+    const r=(rec.levels||{})[L.k]||{};
+    return '<div class="ckpt-rate-row">'
+      +'<div class="ckpt-rate-top"><b>'+esc(L.label)+'</b><span>'+(r.rate?esc(r.rate):'not set')+'</span></div>'
+      +(r.includes?'<div class="ckpt-rate-inc">'+esc(r.includes)+'</div>':'')
+      +'</div>';
+  }).join('')
+  +(rec.note?'<div class="field-note" style="margin-top:6px;">'+esc(rec.note)+'</div>':'')
+  +(canEdit
+    ? '<button class="linklike" style="padding:4px 0;" onclick="ckptRenderRates(true)">✏️ Edit rates</button>'
+    : '<div class="field-note" style="margin-top:6px;">Only Samantha and Zach can change these. If a rate looks wrong, ask before you quote.</div>');
+}
+async function ckptSaveRates(btn){
+  const rec={ id:'rates', levels:{}, note:(document.getElementById('crateNote').value||'').trim(),
+              updated_at:new Date().toISOString(), updated_by:(ME.email||'') };
+  CARE_RATE_LEVELS.forEach(L=>{
+    const rate=(document.getElementById('crate-'+L.k).value||'').trim();
+    const inc=(document.getElementById('cinc-'+L.k).value||'').trim();
+    if(rate||inc) rec.levels[L.k]={ rate:rate, includes:inc };
+  });
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  await persist('client_rates', rec);
+  const i=(DATA.client_rates||[]).findIndex(x=>x.id==='rates');
+  if(i<0){ DATA.client_rates=DATA.client_rates||[]; DATA.client_rates.push(rec); } else DATA.client_rates[i]=rec;
+  ckptRenderRates();
 }
 function ckptRenderRail(){
   const rail=document.getElementById('ckptRail'); if(!rail) return;
