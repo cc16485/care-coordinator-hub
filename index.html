@@ -2824,7 +2824,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span style="font-size:1.1rem">🗂️</span>
     <div>
       <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Every active client, every plan, every 30 days</div>
-      <div style="font-size:.72rem;color:var(--text-muted)">Red means overdue or never reviewed. A flagged change stays red until the plan in AxisCare is actually updated.</div>
+      <div style="font-size:.72rem;color:var(--text-muted)">Pulled live from AxisCare (every client with a completed visit in the last 60 days). Red means overdue or never reviewed; a flagged change stays red until the plan in AxisCare is actually updated.</div>
     </div>
   </div>
 </div>
@@ -9793,37 +9793,71 @@ function renderNurseVisits(){
   const reviews=()=>(DATA.care_plan_reviews||[]).filter(r=>r.kind==='review');
   const asks=()=>(DATA.care_plan_reviews||[]).filter(r=>r.kind==='ask');
 
+  /* The client list comes from AXISCARE, the system of record: every client
+     with a completed visit in the last 60 days (the pairs feed carries real
+     client ids). The hub roster then merges in on top — it supplies the
+     coordinator for the Viewing lens and catches on-hold clients with no
+     recent visits, who still deserve a review. */
   function clientRows(ignoreView){
-    const map=new Map();
+    const map=new Map(), nameIdx=new Map();
+    const nk=s=>String(s||'').trim().toLowerCase();
+    (PAIRS||[]).forEach(p=>{
+      if(!p.client_id) return;
+      const k='ax:'+p.client_id;
+      if(!map.has(k)){ map.set(k,{key:k,name:p.client,axisId:String(p.client_id),latest:null,lastVisit:p.last_date||'',coord:'',fromAxis:true}); nameIdx.set(nk(p.client),k); }
+      else { const c=map.get(k); if(String(p.last_date||'')>String(c.lastVisit||'')) c.lastVisit=p.last_date; }
+    });
     getClientRoster().forEach(r=>{
-      if(!ignoreView && !ccViewMatch((r.lead&&r.lead.assigned_coordinator)||(r.checkins&&r.checkins.length?r.checkins[r.checkins.length-1].coordinator:''))) return;
-      map.set(r.key,{key:r.key,name:r.client_name,axisId:r.axiscare_client_id,latest:null});
+      const coord=(r.lead&&r.lead.assigned_coordinator)||(r.checkins&&r.checkins.length?r.checkins[r.checkins.length-1].coordinator:'');
+      let k=r.axiscare_client_id?'ax:'+String(r.axiscare_client_id).trim():null;
+      if(!k||!map.has(k)) k=nameIdx.get(nk(r.client_name))||k;
+      if(k&&map.has(k)){ const c=map.get(k); if(!c.coord) c.coord=coord; if(!c.axisId&&r.axiscare_client_id) c.axisId=r.axiscare_client_id; return; }
+      map.set(r.key,{key:r.key,name:r.client_name,axisId:r.axiscare_client_id||'',latest:null,lastVisit:'',coord,fromAxis:false});
+      nameIdx.set(nk(r.client_name),r.key);
     });
     reviews().forEach(rv=>{
-      const k=rv.client_key||keyFor(rv.axiscare_client_id,rv.client_name);
-      if(!map.has(k)){ if(ignoreView||!CC_VIEW_AS) map.set(k,{key:k,name:rv.client_name,axisId:rv.axiscare_client_id||'',latest:null}); else return; }
+      let k=rv.client_key&&map.has(rv.client_key)?rv.client_key:null;
+      if(!k){ const axk=rv.axiscare_client_id?'ax:'+String(rv.axiscare_client_id).trim():null;
+              k=(axk&&map.has(axk))?axk:nameIdx.get(nk(rv.client_name)); }
+      if(!k||!map.has(k)){
+        k=rv.client_key||keyFor(rv.axiscare_client_id,rv.client_name);
+        if(!map.has(k)){ map.set(k,{key:k,name:rv.client_name,axisId:rv.axiscare_client_id||'',latest:null,lastVisit:'',coord:'',fromAxis:false}); nameIdx.set(nk(rv.client_name),k); }
+      }
       const c=map.get(k); if(c && (!c.latest||String(rv.at)>String(c.latest.at))) c.latest=rv;
     });
     const t=today();
-    return [...map.values()].map(c=>{
-      const due=c.latest?(c.latest.next_due||''):'';
-      const overdue=!c.latest||(due&&due<t);
-      const pendingUpdate=c.latest&&c.latest.changes_needed&&!c.latest.plan_updated;
-      return Object.assign(c,{due,overdue,pendingUpdate});
-    }).sort((a,b)=>(b.overdue?1:0)-(a.overdue?1:0)||(b.pendingUpdate?1:0)-(a.pendingUpdate?1:0)||String(a.due||'0000').localeCompare(String(b.due||'0000')));
+    return [...map.values()]
+      .filter(c=>ignoreView||ccViewMatch(c.coord))
+      .map(c=>{
+        const due=c.latest?(c.latest.next_due||''):'';
+        const overdue=!c.latest||(due&&due<t);
+        const pendingUpdate=c.latest&&c.latest.changes_needed&&!c.latest.plan_updated;
+        return Object.assign(c,{due,overdue,pendingUpdate});
+      }).sort((a,b)=>(b.overdue?1:0)-(a.overdue?1:0)||(b.pendingUpdate?1:0)-(a.pendingUpdate?1:0)||String(a.due||'0000').localeCompare(String(b.due||'0000')));
   }
 
   window.cpRender=function(){
     const box=document.getElementById('cp-board'); if(!box) return;
+    if(PAIRS===null&&(CONFIG.training_hub_key||'').trim()){
+      loadPairs().then(()=>{ try{ if(activeTab==='careplans') cpRender(); }catch(e){} });
+    }
     const rows=clientRows();
-    if(!rows.length){ box.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">No active clients on the board yet. Clients appear as leads convert'+(CC_VIEW_AS?' (viewing '+E(CC_VIEW_AS)+' only)':'')+'.</div>'; return; }
+    if(!rows.length){
+      box.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">'
+        +(PAIRS===null?'Loading active clients from AxisCare…'
+          :(CONFIG.training_hub_key||'').trim()?'No clients found — no completed AxisCare visits in the last 60 days'+(CC_VIEW_AS?' for '+E(CC_VIEW_AS)+'\'s book (unassigned clients show under Everyone)':'')+'.'
+          :'Paste the Training Hub read key into ⚙️ Settings to pull active clients from AxisCare.')
+        +'</div>';
+      return;
+    }
     const t=today(), recentAsks=asks().filter(a=>(a.at||'').slice(0,10)>=new Date(Date.now()-7*86400000).toISOString().slice(0,10));
     box.innerHTML=rows.map(c=>{
       const lv=c.latest&&LEVELS[c.latest.care_level];
       const lvChip=lv?'<span style="font-size:.66rem;font-weight:800;color:'+lv[1]+';background:'+lv[2]+';border-radius:5px;padding:.15rem .45rem;white-space:nowrap">'+lv[0]+'</span>'
         :'<span style="font-size:.66rem;font-weight:700;color:var(--text-muted);background:#F3EDE3;border-radius:5px;padding:.15rem .45rem;white-space:nowrap">no level set</span>';
       const border=c.pendingUpdate?'#DC2626':c.overdue?'#DC2626':'#1E8449';
-      const lastTxt=c.latest?('reviewed '+String(c.latest.at).slice(0,10)+' ('+(METHODS[c.latest.method]||c.latest.method)+') by '+E(c.latest.by||'')):'never reviewed';
+      const lastTxt=(c.latest?('reviewed '+String(c.latest.at).slice(0,10)+' ('+(METHODS[c.latest.method]||c.latest.method)+') by '+E(c.latest.by||'')):'never reviewed')
+        +(c.lastVisit?' · last AxisCare visit '+E(c.lastVisit):(c.fromAxis?'':' · <span style="color:#B45309">no AxisCare visits in 60 days</span>'));
       const dueTxt=c.latest?(c.due?(c.due<t?'<b style="color:#DC2626">⚠ due '+E(c.due)+'</b>':'next due '+E(c.due)):'no due date'):'<b style="color:#DC2626">⚠ needs its first review</b>';
       const askedN=recentAsks.filter(a=>(a.client_key||'')===c.key).length;
       const pend=c.pendingUpdate?'<div style="font-size:.72rem;color:#DC2626;font-weight:700;margin-top:.2rem">🔴 Changes flagged — plan in AxisCare not updated yet · <a href="#" onclick="cpMarkUpdated(\''+E(c.latest.id)+'\');return false;">mark plan updated ✓</a></div>':'';
@@ -9932,9 +9966,10 @@ function renderNurseVisits(){
     const el=document.getElementById('cp-ask-'+key); if(!el) return;
     el.style.display='';
     const c=clientRows().find(x=>x.key===key); if(!c) return;
-    const mine=(PAIRS||[]).filter(p=>String(p.client||'').trim().toLowerCase()===String(c.name||'').trim().toLowerCase());
+    const mine=(PAIRS||[]).filter(p=> c.axisId ? String(p.client_id)===String(c.axisId)
+      : String(p.client||'').trim().toLowerCase()===String(c.name||'').trim().toLowerCase());
     if(!(CONFIG.training_hub_key||'').trim()){ el.innerHTML='<span style="font-size:.8rem;color:#b45309">Paste the Training Hub read key into ⚙️ Settings to load caregivers.</span>'; return; }
-    if(!mine.length){ el.innerHTML='<span style="font-size:.8rem;color:var(--text-muted)">No completed visits found for this client in the last 60 days (name must match AxisCare exactly).</span>'; return; }
+    if(!mine.length){ el.innerHTML='<span style="font-size:.8rem;color:var(--text-muted)">No completed visits found for this client in the last 60 days.</span>'; return; }
     const asked=asks().filter(a=>(a.client_key||'')===key);
     el.innerHTML='<div style="font-size:.72rem;font-weight:700;color:var(--text-muted);margin-bottom:.35rem">Caregivers on '+E(c.name)+'\'s shifts, last 60 days — one tap asks the care plan question:</div>'
       +mine.map(p=>{
