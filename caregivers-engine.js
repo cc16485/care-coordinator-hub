@@ -1376,6 +1376,13 @@ function renderOffers(){
       (o.personality?'<div><b>Personality/fit:</b> '+esc(o.personality)+'</div>':'')+
       (o.notes?'<div><b>Notes:</b> '+esc(o.notes)+'</div>':'')+
       '</div>'+
+      '<div style="display:flex;gap:.6rem;align-items:center;margin-top:.7rem;flex-wrap:wrap;font-size:.82rem;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.5rem .7rem">'+
+      '<b style="color:#0D365F">Send their start link:</b>'+
+      '<span style="color:#6E6559;font-size:.76rem">references and screening details, so checks start today</span>'+
+      '<span style="flex:1"></span>'+
+      '<button class="fb" onclick="offerStartLink(\''+esc(o.id)+'\',this)">📲 Send</button>'+
+      '</div>'+
+      '<div id="sl_'+esc(o.id)+'" style="display:none;margin-top:.4rem;background:#fff;border:1px solid #e4e1d8;border-radius:8px;padding:.6rem .7rem;font-size:.8rem"></div>'+
       '<div style="display:flex;gap:.6rem;align-items:center;margin-top:.7rem;flex-wrap:wrap;font-size:.82rem;background:#FAF9F6;border:1px solid #e4e1d8;border-radius:8px;padding:.5rem .7rem">'+
       '<b style="color:#0D365F">Viventium:</b>'+
       '<span style="background:#EDE9FE;color:#5B21B6;border-radius:999px;padding:.12rem .6rem;font-size:.72rem;font-weight:700">plan: '+esc(o.onboarding_plan||'Default (Default)')+'</span>'+
@@ -1405,7 +1412,7 @@ function renderOffers(){
       '</select></label>'+
       '<span style="color:#A89C8B">(confirm from verified experience + references)</span>'+
       '</div>'+
-      '<details style="margin-top:.7rem"><summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:#5B21B6">📝 Viventium entry sheet — every field in screen order, copy one at a time</summary>'+
+      '<details style="margin-top:.7rem"'+(o.viventium_entered_at?'':' open')+'><summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:#5B21B6">📝 Viventium entry sheet — every field in screen order, copy one at a time</summary>'+
       '<div style="max-width:520px;margin-top:.4rem;background:#FBFAFF;border:1px solid #EDE9FE;border-radius:8px;padding:.6rem .8rem">'+vivSheet(o)+'</div></details>'+
       '<details style="margin-top:.5rem"><summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:#0D365F">AxisCare attribute answers — same order as the Attributes screen</summary>'+
       '<div style="max-width:420px;margin-top:.4rem">'+attrHtml+'</div></details>'+
@@ -1419,6 +1426,42 @@ async function offerUpdate(id, payload){
     body:JSON.stringify(Object.assign({p_key:key,p_id:id},payload))});
   const data=await r.json();
   if(!data||data.error||data.ok===false) throw new Error((data&&data.error)||'update failed');
+}
+/* The candidate's start link. Prefilled from the offer so they are not asked
+   for anything we already know, and offered three ways out because the
+   coordinator might be on a phone in a parking lot or at a desk. */
+function offerStartLink(id, btn){
+  const o = OFFERS.find(x => String(x.id) === String(id));
+  if (!o) return;
+  const box = document.getElementById('sl_' + id);
+  if (!box) return;
+  if (box.style.display === 'block') { box.style.display = 'none'; return; }
+  const q = new URLSearchParams();
+  if (o.first_name) q.set('first', o.first_name);
+  if (o.last_name)  q.set('last',  o.last_name);
+  if (o.phone)      q.set('phone', o.phone);
+  if (o.email)      q.set('email', o.email);
+  const url = 'https://cc.mo-care.com/start.html?' + q.toString();
+  const first = o.first_name || 'there';
+  const msg = 'Hi ' + first + ", it's Caring Companions! We would love to bring you onto the team. "
+            + 'One quick step before your offer letter goes out: ' + url
+            + ' It takes about two minutes and lets us start your reference checks today.';
+  const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const digits = String(o.phone || '').replace(/[^0-9+]/g, '');
+  box.style.display = 'block';
+  box.innerHTML =
+    '<div style="font-weight:700;color:#0D365F;margin-bottom:.35rem">Their link</div>'
+    + '<div style="word-break:break-all;background:#FAF9F6;border-radius:6px;padding:.4rem .5rem;font-size:.74rem;margin-bottom:.5rem">' + esc(url) + '</div>'
+    + '<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">'
+    + (digits ? '<a class="fb" style="text-decoration:none" href="sms:' + esc(digits) + '&body=' + encodeURIComponent(msg) + '">💬 Text it</a>' : '<span style="color:#b45309;font-size:.76rem">No phone on this offer</span>')
+    + (o.email ? '<a class="fb" style="text-decoration:none" href="mailto:' + esc(o.email) + '?subject=' + encodeURIComponent('Getting you started at Caring Companions') + '&body=' + encodeURIComponent(msg) + '">✉️ Email it</a>' : '')
+    + '<button class="fb" onclick="offerCopyLink(this,\'' + esc(url) + '\')">📋 Copy link</button>'
+    + '</div>';
+}
+function offerCopyLink(btn, url){
+  const done = () => { const t = btn.textContent; btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = t, 1600); };
+  if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, () => prompt('Copy this link:', url));
+  else prompt('Copy this link:', url);
 }
 async function markOfferEntered(id,btn){
   if(btn){btn.disabled=true;btn.textContent='Saving…';}
@@ -5613,6 +5656,8 @@ window.SCX = {loadOffers, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;
 window.refReport = refReport;
+window.offerStartLink = offerStartLink;
+window.offerCopyLink = offerCopyLink;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
 window.markOfferStep1 = markOfferStep1;
