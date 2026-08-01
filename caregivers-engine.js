@@ -49,6 +49,7 @@ async function showApp(){
   renderAll();
   loadClientQueue();
   mergePendingBookings();
+  intakeReconcile();
   loadOffers(); // fills the New Offers tab + red badge count
 }
 
@@ -1471,6 +1472,82 @@ function offerCopyLink(btn, url){
 /* Hand an offer over to Background & References. Everything we already know
    comes with it, including the references and the out-of-state answer from
    their start link, so nobody retypes a person who exists one tab away. */
+/* ---- Start-link submissions become candidates on their own ---------------
+   Finishing the start link IS the signal that background checks should begin,
+   so waiting for someone to press a button afterwards just adds a step that
+   can be forgotten. Runs on load and whenever Background & References opens,
+   the same shape as mergePendingBookings, which keeps the browser as the only
+   writer of app_data. Idempotent: each intake row is stamped with the
+   candidate it produced, so a second pass does nothing. */
+async function intakeReconcile(){
+  let rows = [];
+  try {
+    const { data, error } = await sb.from('hire_intake').select('*')
+      .is('candidate_id', null).order('created_at', { ascending: true }).limit(50);
+    if (error) return;                     // table not created yet
+    rows = data || [];
+  } catch (e) { return; }
+  if (!rows.length) return;
+
+  const digits = t => String(t || '').replace(/\D/g, '').slice(-10);
+  let made = 0, filled = 0;
+
+  for (const r of rows) {
+    const refs = Array.isArray(r.refs) ? r.refs : [];
+    let c = candidates.find(x =>
+      (digits(x.phone) && digits(x.phone) === digits(r.phone)) ||
+      (x.email && r.email && x.email.toLowerCase() === String(r.email).toLowerCase()) ||
+      ((x.first || '').toLowerCase() === String(r.first_name || '').toLowerCase() &&
+       (x.last  || '').toLowerCase() === String(r.last_name  || '').toLowerCase()));
+
+    if (!c) {
+      const offer = OFFERS.find(o =>
+        (digits(o.phone) && digits(o.phone) === digits(r.phone)) ||
+        (o.email && r.email && String(o.email).toLowerCase() === String(r.email).toLowerCase()));
+      c = {
+        id: obId++,
+        first: r.first_name || '', last: r.last_name || '',
+        phone: r.phone || '', email: r.email || '',
+        oig: 'Pending', edl: 'Pending', fcsr: 'Pending',
+        r1s: 'Pending', r2s: 'Pending', r3s: 'Pending', r4s: 'Pending',
+        invite_sent: false, invite_sent_date: '',
+        notes: 'Started from their own start link.',
+        addedAt: new Date().toISOString(),
+      };
+      if (offer) { c.offer_id = String(offer.id); c.position = offer.position || ''; }
+      candidates.push(c);
+      made++;
+    } else { filled++; }
+
+    // What they told us wins over blanks, never over something already recorded.
+    if (!c.oos) c.oos = r.lived_outside_mo ? 'yes' : 'no';
+    if (r.lived_outside_mo && (!c.fp || c.fp === 'N/A')) c.fp = 'Required';
+    if (r.previous_names && !c.previous_names) c.previous_names = r.previous_names;
+    refs.slice(0, 4).forEach((ref, i) => {
+      const n = i + 1;
+      if (!c['r' + n + 'n']) {
+        c['r' + n + 'n'] = ref.name || '';
+        c['r' + n + '_phone'] = ref.phone || '';
+        c['r' + n + '_email'] = ref.email || '';
+        c['r' + n + '_rel'] = ref.relationship || '';
+      }
+    });
+
+    try {
+      await sb.from('hire_intake')
+        .update({ candidate_id: c.id, seen_at: new Date().toISOString() })
+        .eq('id', r.id);
+    } catch (e) { /* the record is already correct locally; try again next pass */ }
+  }
+
+  saveCandidates();
+  try { renderOB(); renderAlerts(); } catch (e) {}
+  if (made) {
+    const n = document.getElementById('intakeNote');
+    if (n) { n.textContent = made + (made === 1 ? ' new candidate' : ' new candidates') +
+      ' arrived from their start link and ' + (made === 1 ? 'is' : 'are') + ' ready for checks.'; n.style.display = ''; }
+  }
+}
 async function offerToCandidate(offerId, btn){
   const o = OFFERS.find(x => String(x.id) === String(offerId));
   if (!o) return;
@@ -5735,6 +5812,7 @@ window.loadOffers = loadOffers;
 window.refReport = refReport;
 window.offerStartLink = offerStartLink;
 window.offerToCandidate = offerToCandidate;
+window.intakeReconcile = intakeReconcile;
 window.offerCopyLink = offerCopyLink;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
