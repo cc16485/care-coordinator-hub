@@ -261,6 +261,27 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .nvcase{border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;}
   .nvcase.open{background:var(--amber-bg);border-color:#FDE68A;}
   .nvcase-row{display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:13px;flex-wrap:wrap;margin-top:4px;}
+  .np-slotwrap{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .np-slot{display:inline-flex;gap:4px;}
+  .np-slot select,.np-slot input{width:auto;font-size:12px;padding:4px 6px;}
+  /* Phone pass: a PRN nurse works from a driveway, and the GHE form is the
+     one page that must survive a 375px screen. */
+  @media(max-width:720px){
+    .ghe-grid3{grid-template-columns:1fr;}
+    .ghe-sigrow{grid-template-columns:1fr;}
+    canvas.ghe-sig{max-width:100%;}
+    .ghe-body{padding:14px 12px 50px;}
+    .ghe-head{gap:6px;padding:8px 12px;}
+    .ghe-head button{flex:1 1 auto;font-size:12.5px;padding:8px 10px;}
+    .ghe-head .ghe-total-chip{order:-1;}
+    .ghe-row{padding:8px 10px;}
+    .ghe-row b{flex:0 0 40px;}
+    .ghe-scored-fields > div{min-width:100%;}
+    .nvcase-row{align-items:flex-start;gap:6px 8px;}
+    .nvcase-row > b{flex:1 1 100%;}
+    .np-slotwrap{flex:1 1 100%;}
+    .nvcase-row button,.nvcase-row .addlead{flex:1 1 auto;text-align:center;}
+  }
   /* Nurse mode: a nurse sign-in sees the portal and nothing else */
   html.nursemode .fbar,html.nursemode .fsubbar,html.nursemode #fsub2,
   html.nursemode header.topbar .addlead,html.nursemode #topbarPulse,
@@ -673,6 +694,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   </div>
   <div class="fsubbar" id="fsub-nursing">
     <div class="fpill" data-tab="nursevisits" onclick="switchTab('nursevisits')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nurse Visits</div>
+    <div class="fpill" data-tab="nurseportal" onclick="switchTab('nurseportal')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Nurse Portal</div>
   </div>
   <div class="fsubbar" id="fsub-htorders">
     <div class="fpill" data-tab="htorders" onclick="switchTab('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Orders<span class="subtab-badge red" id="htOrdPillBadge" style="display:none;"></span></div>
@@ -850,6 +872,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div style="margin-bottom:14px;">
         <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Nurse Portal</h2>
         <div class="field-note" id="npHello" style="font-size:13.5px;margin-top:3px;"></div>
+      </div>
+      <div class="card" id="npPreviewBar" style="display:none;padding:12px 16px;margin-bottom:16px;background:var(--amber-bg);border-color:#FDE68A;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13.5px;">
+          <b style="color:var(--amber);">👀 Preview</b>
+          <span>This is exactly what a nurse sees when they sign in. Viewing as</span>
+          <select id="npPreviewPick" onchange="npSetPreview(this.value)" style="width:auto;"></select>
+          <span class="field-note" style="flex:1;min-width:180px;">Buttons here really work, so anything you claim or log is saved to that nurse.</span>
+        </div>
       </div>
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <b style="font-size:15px;color:var(--navy);">My caseload</b>
@@ -5180,7 +5210,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups','supervisory'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook','teamsched'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups','supervisory'],ops:['ops','coverage'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook','teamsched'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -5621,7 +5651,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
-  coverage:'Coverage Help', nursevisits:'Nurse Visits',
+  coverage:'Coverage Help', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -5786,6 +5816,7 @@ function renderActiveTab(){
   if(activeTab==='recruit') renderPayRates();
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
   if(activeTab==='nursevisits') renderNurseVisits();
+  if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today') renderToday();
   if(activeTab==='referrers') renderReferrers();
   if(activeTab==='reports') renderReports();
@@ -10796,8 +10827,12 @@ function nvRenderCaseloads(){
       +mine.map(c=>{
         const flags=nvClientFlags(c);
         const needs=[c.weekly_meds?'weekly meds':'',(c.ghe1||c.ghe2)?'GHE':''].filter(Boolean).join(' + ')||'no set needs';
+        const slot=nvSlotText(c);
         return '<div class="nvcase-row"><b>'+esc(c.name)+'</b><span class="field-note">'+esc(needs)+'</span>'
           +flags.map(f=>'<span class="badge '+(f.includes('missed')?'bad':'warn')+'">'+f+'</span>').join('')
+          +(key?(slot
+              ?'<span class="badge ok">🕐 '+esc(slot)+'</span>'
+              :'<span class="badge warn">no visit time set</span>'):'')
           +'<span style="flex:1;"></span>'
           +'<select onchange="nvAssign(\''+c.id+'\',this.value)" style="width:auto;font-size:12px;padding:4px 6px;">'
           +'<option value="">Open — unclaimed</option>'
@@ -10823,18 +10858,68 @@ function nurseMe(){
   if((DATA.coordinator_staff||[]).some(s=>String(s.email||'').toLowerCase()===ME.email)) return null;
   return (DATA.nurse_staff||[]).find(s=>String(s.email||'').toLowerCase()===ME.email)||null;
 }
+/* Owners and coordinators can open the portal to see exactly what a nurse
+   sees — pick whose eyes to look through. Real nurses skip all of this. */
+let npPreviewAs='';
+function npIdentity(){
+  return nurseMe() || (DATA.nurse_staff||[]).find(s=>s.name===npPreviewAs) || (DATA.nurse_staff||[])[0] || null;
+}
+function npSetPreview(name){ npPreviewAs=name; nursePortalRender(); }
 function nurseModeCheck(){
   const me=nurseMe();
   if(!me){ document.documentElement.classList.remove('nursemode'); return; }
   document.documentElement.classList.add('nursemode');
   document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
   const t=document.getElementById('tab-nurseportal'); if(t) t.classList.add('active');
+  ccSetSectionTitle('nurseportal');
   nursePortalRender(me);
 }
+/* The nurse sets her own standing slot — this is the "I called them and we
+   agreed on Tuesdays at 10" record the RN needs and the office never brokers. */
+const NP_DAYS=['','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+function nvFmtTime(t){
+  const m=/^(\d{1,2}):(\d{2})/.exec(t||''); if(!m) return t||'';
+  let h=+m[1]; const ap=h>=12?'PM':'AM'; h=h%12||12;
+  return h+':'+m[2]+' '+ap;
+}
+function nvSlotText(c){
+  const t=c.visit_time?nvFmtTime(c.visit_time):'';
+  return [c.visit_day?c.visit_day+'s':'',t].filter(Boolean).join(' ');
+}
+async function npSetSlot(id,day,time){
+  const c=(DATA.nurse_clients||[]).find(x=>x.id===id); if(!c) return;
+  if(day!==null) c.visit_day=day;
+  if(time!==null) c.visit_time=time;
+  c.slot_set_by=((npIdentity()||{}).name)||ME.name||ME.email||'';
+  c.slot_set_at=new Date().toISOString();
+  await persist('nurse_clients',c);
+  nursePortalRender();
+  if(activeTab==='nursevisits') renderNurseVisits();
+}
+function npSlotCell(c){
+  return '<span class="np-slot"><select onchange="npSetSlot(\''+c.id+'\',this.value,null)">'
+    +NP_DAYS.map(d=>'<option value="'+d+'"'+((c.visit_day||'')===d?' selected':'')+'>'+(d||'day…')+'</option>').join('')
+    +'</select><input type="time" value="'+esc(c.visit_time||'')+'" onchange="npSetSlot(\''+c.id+'\',null,this.value)"></span>';
+}
 function nursePortalRender(me){
-  me=me||nurseMe(); if(!me) return;
+  me=me||npIdentity();
+  const real=nurseMe();
+  const bar=document.getElementById('npPreviewBar');
+  if(bar){
+    if(real||!me){ bar.style.display='none'; }
+    else{
+      bar.style.display='';
+      const pick=document.getElementById('npPreviewPick');
+      pick.innerHTML=(DATA.nurse_staff||[]).map(s=>'<option'+(s.name===me.name?' selected':'')+'>'+esc(s.name)+'</option>').join('');
+    }
+  }
   const hello=document.getElementById('npHello');
-  if(hello) hello.textContent='Signed in as '+me.name+' ('+(me.cred||'nurse')+'). Claim a client, call them, set your time together.';
+  if(!me){
+    if(hello) hello.textContent='No nurses on the license list yet — add one on Nurse Visits and their portal appears here.';
+    ['npMine','npOpen','npGhe'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML='<div class="field-note">Nothing to show yet.</div>'; });
+    return;
+  }
+  if(hello) hello.textContent=(real?'Signed in as ':'Previewing ')+me.name+' ('+(me.cred||'nurse')+'). Claim a client, call them, set your time together.';
   const clients=(DATA.nurse_clients||[]).filter(c=>c.active!==false);
   const mine=clients.filter(c=>c.assigned_nurse===me.name);
   const open=clients.filter(c=>!String(c.assigned_nurse||'').trim());
@@ -10845,7 +10930,9 @@ function nursePortalRender(me){
     const flags=nvClientFlags(c);
     return '<div class="nvcase-row"><b>'+esc(c.name)+'</b><span class="field-note">'+esc(needs(c))+'</span>'
       +flags.map(f=>'<span class="badge '+(f.includes('missed')?'bad':'warn')+'">'+f+'</span>').join('')
-      +'<span style="flex:1;"></span>'+tel(c)
+      +'<span style="flex:1;"></span>'
+      +'<span class="np-slotwrap"><span class="field-note">My standing visit:</span>'+npSlotCell(c)+'</span>'
+      +tel(c)
       +'<button class="secondary" style="font-size:12px;" onclick="gheNewFor(\''+c.id+'\')">📋 GHE form</button>'
       +(c.weekly_meds?'<button class="secondary" style="font-size:12px;" onclick="nvComplete(\''+c.id+'\',\'meds\')">✓ Log med visit</button>':'')
       +'</div>';
@@ -10866,8 +10953,11 @@ function nursePortalRender(me){
   }).join('')||'<div class="field-note">No GHE forms yet.</div>';
 }
 async function npClaim(id){
-  const me=nurseMe(); if(!me) return;
-  if(!confirm('Claim this client? You call them and set the day and time together.')) return;
+  const me=npIdentity(); if(!me) return;
+  const mine=!!nurseMe();
+  if(!confirm(mine
+    ? 'Claim this client? You call them and set the day and time together.'
+    : 'Claim this client for '+me.name+'? (You are previewing their portal — this really assigns them.)')) return;
   await nvAssign(id,me.name);
   nursePortalRender();
 }
