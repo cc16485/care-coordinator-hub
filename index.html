@@ -2398,9 +2398,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 
 <div class="settings-section">
-<h3>🔗 Lead Intake Webhook (Website Form → Hub)</h3>
-<p class="hint">Website form submissions POST here via Zapier, landing directly in the Leads tab. See Care_Coordinator_Zapier_Setup.md.</p>
-<div class="webhook-box"><code id="leadWebhookUrl">POST https://[your-project].supabase.co/rest/v1/app_data?key=eq.leads</code></div>
+<h3>🔗 Lead Intake (Website Form → Hub)</h3>
+<p class="hint">Every mo-care.com form posts to the token-gated <code>lead-intake</code> Edge Function (see assets/forms.js in the website repo) and lands in the Leads tab with source "Website" — verified end to end 2026-08-01. No Zapier involved. An earlier note here showed a raw database URL; that path was closed in the July security hardening and was never the real one.</p>
+<div class="webhook-box"><code id="leadWebhookUrl">POST https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/lead-intake?token=cclead_…</code></div>
 </div>
 
 <div class="settings-section">
