@@ -261,6 +261,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .nvcase{border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;}
   .nvcase.open{background:var(--amber-bg);border-color:#FDE68A;}
   .nvcase-row{display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:13px;flex-wrap:wrap;margin-top:4px;}
+  /* Nurse mode: a nurse sign-in sees the portal and nothing else */
+  html.nursemode .fbar,html.nursemode .fsubbar,html.nursemode #fsub2,
+  html.nursemode header.topbar .addlead,html.nursemode #topbarPulse,
+  html.nursemode header.topbar input.search,html.nursemode header.topbar .ghost:not([onclick*="signOut"]){display:none !important;}
   @media print{
     body.ghe-printing > *:not(#gheView){display:none !important;}
     #gheView{display:block !important;position:static !important;}
@@ -814,13 +818,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <button class="secondary" onclick="nsToggleAdd()">＋ Add a license</button>
         </div>
         <div id="nsAddWrap" style="display:none;margin-top:10px;">
-          <div style="display:grid;grid-template-columns:1.2fr .7fr 1fr 1fr;gap:8px;">
+          <div style="display:grid;grid-template-columns:1.2fr .7fr 1fr;gap:8px;">
             <input id="nsName" placeholder="Nurse name">
             <select id="nsCred"><option>RN</option><option>LPN</option></select>
             <input id="nsLicense" placeholder="License #">
             <input id="nsExpires" type="date" title="Expires">
+            <input id="nsEmail" placeholder="Email (their hub sign-in)">
+            <input id="nsGhlId" placeholder="GHL user id (from their GHL user page)">
           </div>
           <div style="margin-top:8px;"><button class="addlead" onclick="nsAdd()">Save license</button></div>
+          <div class="field-note" style="margin-top:6px;">Email unlocks their Nurse Portal sign-in. The GHL user id makes claiming a client auto-assign that contact to them in GHL, so their phone app shows only their own clients.</div>
         </div>
         <div id="nsList" style="margin-top:10px;"></div>
       </div>
@@ -832,6 +839,30 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="card" style="padding:16px 18px;">
         <b style="font-size:15px;color:var(--navy);">Visit history</b>
         <div id="nvHistory" style="margin-top:10px;"></div>
+      </div>
+    </section>
+
+    <!-- ===================== NURSE PORTAL (what a PRN nurse sees) =====================
+         A nurse email from the license list signs in and gets ONLY this:
+         claim from the pool, work her caseload, do her GHE forms. Interface
+         scoping, not a vault — acceptable inside the care team. -->
+    <section class="tabpanel" id="tab-nurseportal">
+      <div style="margin-bottom:14px;">
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Nurse Portal</h2>
+        <div class="field-note" id="npHello" style="font-size:13.5px;margin-top:3px;"></div>
+      </div>
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <b style="font-size:15px;color:var(--navy);">My caseload</b>
+        <div id="npMine" style="margin-top:10px;"></div>
+      </div>
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <b style="font-size:15px;color:var(--navy);">🟡 Open clients — claim one</b>
+        <div class="field-note" style="margin-top:3px;">Claim it, then call the client and set your day and time together. The office is not the go-between.</div>
+        <div id="npOpen" style="margin-top:10px;"></div>
+      </div>
+      <div class="card" style="padding:16px 18px;">
+        <b style="font-size:15px;color:var(--navy);">My GHE forms</b>
+        <div id="npGhe" style="margin-top:10px;"></div>
       </div>
     </section>
 
@@ -5751,6 +5782,7 @@ function ccRenderPulse(){
 function renderActiveTab(){
   ccRenderViewAs();
   ccRenderPulse();
+  nurseModeCheck();
   if(activeTab==='recruit') renderPayRates();
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
   if(activeTab==='nursevisits') renderNurseVisits();
@@ -10675,10 +10707,10 @@ function gheRenderCards(){
 function nsToggleAdd(){ const w=document.getElementById('nsAddWrap'); w.style.display=w.style.display==='none'?'block':'none'; }
 async function nsAdd(){
   const name=gheV('nsName'); if(!name){ alert('Name the nurse first.'); return; }
-  const rec={ id:uid(), name, cred:document.getElementById('nsCred').value, license:gheV('nsLicense'), expires:gheV('nsExpires'), created_at:new Date().toISOString() };
+  const rec={ id:uid(), name, cred:document.getElementById('nsCred').value, license:gheV('nsLicense'), expires:gheV('nsExpires'), email:gheV('nsEmail').toLowerCase(), ghl_user_id:gheV('nsGhlId'), created_at:new Date().toISOString() };
   DATA.nurse_staff=DATA.nurse_staff||[]; DATA.nurse_staff.push(rec);
   await persist('nurse_staff',rec);
-  ['nsName','nsLicense','nsExpires'].forEach(id=>gheSet(id,''));
+  ['nsName','nsLicense','nsExpires','nsEmail','nsGhlId'].forEach(id=>gheSet(id,''));
   nsToggleAdd(); nsRender();
 }
 async function nsDelete(id){ if(!confirm('Remove this license entry?')) return; await removeItem('nurse_staff',id); DATA.nurse_staff=(DATA.nurse_staff||[]).filter(x=>x.id!==id); nsRender(); }
@@ -10691,7 +10723,8 @@ function nsRender(){
     const state=!s.expires?['no date','muted']:(s.expires<t?['EXPIRED','bad']:(s.expires<=soon?['expires soon','warn']:['current','ok']));
     return '<div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">'
       +'<b style="flex:0 0 160px;">'+esc(s.name)+'</b><span class="badge muted">'+esc(s.cred||'')+'</span>'
-      +'<span style="color:var(--text-muted);">'+esc(s.license||'')+'</span><span style="flex:1;"></span>'
+      +'<span style="color:var(--text-muted);">'+esc(s.license||'')+'</span>'
+      +'<span style="color:var(--text-muted);font-size:12px;">'+esc(s.email||'')+(s.ghl_user_id?' · GHL ✓':'')+'</span><span style="flex:1;"></span>'
       +'<span>'+esc(s.expires||'')+'</span><span class="badge '+state[1]+'">'+state[0]+'</span>'
       +'<button class="linklike" onclick="nsDelete(\''+s.id+'\')">remove</button></div>';
   }).join('');
@@ -10711,6 +10744,27 @@ async function nvAssign(id,name){
   const c=(DATA.nurse_clients||[]).find(x=>x.id===id); if(!c) return;
   c.assigned_nurse=name;
   await persist('nurse_clients',c); renderNurseVisits();
+  nvGhlSync(c,name);
+}
+/* Mirror the claim into GHL: the client's contact gets the nurse as its
+   assigned user, so a nurse on "assigned data only" sees and calls exactly
+   her own clients from the GHL phone app. Fire-and-forget; a failure only
+   warns, it never blocks the claim. */
+const NURSE_ASSIGN_API='https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-nurse-assign';
+async function nvGhlSync(c,nurseName){
+  try{
+    if(!CONFIG.training_hub_key || !c.phone) return;   // nothing to sync with
+    const nurse=(DATA.nurse_staff||[]).find(s=>s.name===nurseName);
+    if(nurseName && !(nurse&&nurse.ghl_user_id)) return; // no GHL id on file yet
+    const res=await fetch(NURSE_ASSIGN_API,{
+      method:'POST',
+      headers:{ 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'Content-Type':'application/json' },
+      body:JSON.stringify({ key:CONFIG.training_hub_key, phone:c.phone, client_name:c.name,
+                            ghl_user_id:(nurse&&nurse.ghl_user_id)||'' }),
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok||data.error) alert('Heads up: the claim saved, but assigning this client to '+(nurseName||'nobody')+' in GHL failed: '+(data.error||res.status));
+  }catch(e){ console.warn('GHL nurse assign sync:', e); }
 }
 function nvClientFlags(c){
   const flags=[];
@@ -10758,6 +10812,64 @@ function gheNewFor(clientId){
   if(!c){ gheNew(); return; }
   gheNew(c.name);
   if(c.assigned_nurse) gheSet('ghe_nurse',c.assigned_nurse);
+}
+/* ---------------- Nurse Portal ----------------
+   A sign-in whose email is on the nurse license list (and isn't an owner
+   or office coordinator) gets the portal instead of the hub: the open
+   pool to claim from, her caseload, her GHE forms. */
+function nurseMe(){
+  if(!ME.email) return null;
+  if(DISC_APPROVERS.includes(ME.email)) return null;
+  if((DATA.coordinator_staff||[]).some(s=>String(s.email||'').toLowerCase()===ME.email)) return null;
+  return (DATA.nurse_staff||[]).find(s=>String(s.email||'').toLowerCase()===ME.email)||null;
+}
+function nurseModeCheck(){
+  const me=nurseMe();
+  if(!me){ document.documentElement.classList.remove('nursemode'); return; }
+  document.documentElement.classList.add('nursemode');
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+  const t=document.getElementById('tab-nurseportal'); if(t) t.classList.add('active');
+  nursePortalRender(me);
+}
+function nursePortalRender(me){
+  me=me||nurseMe(); if(!me) return;
+  const hello=document.getElementById('npHello');
+  if(hello) hello.textContent='Signed in as '+me.name+' ('+(me.cred||'nurse')+'). Claim a client, call them, set your time together.';
+  const clients=(DATA.nurse_clients||[]).filter(c=>c.active!==false);
+  const mine=clients.filter(c=>c.assigned_nurse===me.name);
+  const open=clients.filter(c=>!String(c.assigned_nurse||'').trim());
+  const tel=c=>c.phone?'<a class="addlead" style="padding:5px 14px;font-size:12px;text-decoration:none;" href="tel:'+esc(String(c.phone).replace(/[^0-9+]/g,''))+'">📞 Call</a>':'';
+  const needs=c=>[c.weekly_meds?'weekly meds':'',(c.ghe1||c.ghe2)?'GHE ('+[c.ghe1,c.ghe2].filter(Boolean).join(', ')+')':''].filter(Boolean).join(' + ')||'no set needs';
+  const mineBox=document.getElementById('npMine');
+  if(mineBox) mineBox.innerHTML=mine.map(c=>{
+    const flags=nvClientFlags(c);
+    return '<div class="nvcase-row"><b>'+esc(c.name)+'</b><span class="field-note">'+esc(needs(c))+'</span>'
+      +flags.map(f=>'<span class="badge '+(f.includes('missed')?'bad':'warn')+'">'+f+'</span>').join('')
+      +'<span style="flex:1;"></span>'+tel(c)
+      +'<button class="secondary" style="font-size:12px;" onclick="gheNewFor(\''+c.id+'\')">📋 GHE form</button>'
+      +(c.weekly_meds?'<button class="secondary" style="font-size:12px;" onclick="nvComplete(\''+c.id+'\',\'meds\')">✓ Log med visit</button>':'')
+      +'</div>';
+  }).join('')||'<div class="field-note">No clients yet. Claim one below.</div>';
+  const openBox=document.getElementById('npOpen');
+  if(openBox) openBox.innerHTML=open.map(c=>
+    '<div class="nvcase-row"><b>'+esc(c.name)+'</b><span class="field-note">'+esc(needs(c))+'</span>'
+    +'<span style="flex:1;"></span><button class="addlead" style="font-size:12px;padding:6px 14px;" onclick="npClaim(\''+c.id+'\')">Claim this client</button></div>'
+  ).join('')||'<div class="field-note">Nothing open right now.</div>';
+  const gheBox=document.getElementById('npGhe');
+  const myNames=new Set(mine.map(c=>c.name));
+  const forms=(DATA.ghe_forms||[]).filter(g=>g.nurse===me.name||myNames.has(g.client));
+  if(gheBox) gheBox.innerHTML=forms.map(g=>{
+    const st=GHE_STATUS[g.status||'draft']||GHE_STATUS.draft;
+    return '<div class="nvcase-row"><b>'+esc(g.client||'(no name)')+'</b><span class="field-note">'+esc(g.visit_date||'')+'</span>'
+      +'<span class="badge '+st[1]+'">'+st[0]+'</span><span style="flex:1;"></span>'
+      +'<button class="linklike" onclick="gheOpen(\''+g.id+'\')">Open</button></div>';
+  }).join('')||'<div class="field-note">No GHE forms yet.</div>';
+}
+async function npClaim(id){
+  const me=nurseMe(); if(!me) return;
+  if(!confirm('Claim this client? You call them and set the day and time together.')) return;
+  await nvAssign(id,me.name);
+  nursePortalRender();
 }
 function renderNurseVisits(){
   gheRenderCards(); nsRender(); nvNurseOptions(); nvRenderCaseloads();
