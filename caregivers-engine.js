@@ -1392,8 +1392,8 @@ function renderOffers(){
         ? '<span style="color:#15803D;font-weight:700">Step 1 paperwork done ✓</span>'
         : (o.viventium_entered_at
             ? '<button class="fb" onclick="markOfferStep1(\''+esc(o.id)+'\',this)">☑ Step 1 done (got the notification)</button>'+
-              '<span style="color:#A89C8B">auto-reminders to them every 3 days'+
-              (o.step1_reminder_count?(' · '+o.step1_reminder_count+' sent'):'')+'</span>'
+              '<span style="color:#A89C8B">Viventium reminds them every 2 days'+
+              (o.step1_alerted_at?' · flagged as stalled':'')+'</span>'
             : '<span style="color:#A89C8B">waiting on Viventium entry</span>'))+
       '</div>'+
       '<div style="display:flex;gap:1rem;align-items:center;margin-top:.7rem;flex-wrap:wrap;font-size:.82rem">'+
