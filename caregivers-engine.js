@@ -49,7 +49,7 @@ async function showApp(){
   renderAll();
   loadClientQueue();
   mergePendingBookings();
-  intakeReconcile();
+  intakeReconcile().then(autoAskReferences);
   refReconcile().then(markScreeningCleared);
   loadOffers(); // fills the New Offers tab + red badge count
 }
@@ -1487,6 +1487,41 @@ function offerCopyLink(btn, url){
    directly instead. A typed answer and a called answer score identically,
    because both end up in the same r{n}_manual shape through scoreManualRef.
    Nothing here replaces the phone: it just stops the phone being the only way. */
+/* Creating the request rows is the half that can happen on its own; showing
+   the links is the half that needs a person looking at the screen. */
+async function createRefRequests(c){
+  const slots = [1,2,3,4]
+    .map(n => ({ n, name: c['r'+n+'n'], phone: c['r'+n+'_phone'], email: c['r'+n+'_email'], rel: c['r'+n+'_rel'], status: c['r'+n+'s'] }))
+    .filter(r => r.name && (r.phone || r.email) && r.status === 'Pending');
+  if (!slots.length) return [];
+  let existing = [];
+  try {
+    const { data } = await sb.from('reference_requests').select('slot').eq('candidate_id', c.id);
+    existing = (data || []).map(r => r.slot);
+  } catch (e) { return []; }
+  const wanted = slots.filter(r => !existing.includes(r.n));
+  if (!wanted.length) return [];
+  const { data, error } = await sb.from('reference_requests').insert(
+    wanted.map(r => ({
+      candidate_id: c.id, slot: r.n, candidate_name: (c.first + ' ' + c.last).trim(),
+      ref_name: r.name || null, ref_phone: r.phone || null, ref_email: r.email || null,
+      ref_relationship: r.rel || null, sent_at: new Date().toISOString(),
+    }))).select();
+  if (error) throw error;
+  return data || [];
+}
+
+/* References arriving from a start link is the signal to ask them, so the ask
+   happens by itself. Anything already asked is skipped, so this is safe to run
+   as often as the tab is opened. */
+async function autoAskReferences(){
+  const waiting = candidates.filter(c =>
+    !c.not_hired && [1,2,3,4].some(n => c['r'+n+'n'] && (c['r'+n+'_phone'] || c['r'+n+'_email']) && c['r'+n+'s'] === 'Pending'));
+  for (const c of waiting) {
+    try { await createRefRequests(c); } catch (e) { /* table may not exist yet */ }
+  }
+}
+
 async function askReferences(candId, btn){
   const c = candidates.find(x => x.id === candId);
   if (!c) return;
@@ -1501,12 +1536,9 @@ async function askReferences(candId, btn){
 
   let rows = [];
   try {
-    const { data, error } = await sb.from('reference_requests').insert(
-      slots.map(r => ({
-        candidate_id: c.id, slot: r.n, candidate_name: (c.first + ' ' + c.last).trim(),
-        ref_name: r.name || null, ref_phone: r.phone || null, ref_email: r.email || null,
-        ref_relationship: r.rel || null, sent_at: new Date().toISOString(),
-      }))).select();
+    await createRefRequests(c);                       // fills any gaps
+    const { data, error } = await sb.from('reference_requests')
+      .select('*').eq('candidate_id', c.id).is('responded_at', null);
     if (error) throw error;
     rows = data || [];
   } catch (e) {
@@ -5941,6 +5973,7 @@ window.offerStartLink = offerStartLink;
 window.offerToCandidate = offerToCandidate;
 window.intakeReconcile = intakeReconcile;
 window.askReferences = askReferences;
+window.autoAskReferences = autoAskReferences;
 window.refReconcile = refReconcile;
 window.markScreeningCleared = markScreeningCleared;
 window.offerCopyLink = offerCopyLink;
