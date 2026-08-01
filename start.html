@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Let's get you started — Caring Companions</title>
+<!--
+  Public new-hire intake. Sent right after the interview, before the Viventium
+  offer packet, because reference checks are the slowest part of hiring and
+  there is no reason for them to wait on paperwork.
+
+  Writes to hire_intake as anon (insert only, never reads back). The SSN column
+  is unreadable to anyone but the service role — see hire-intake.sql.
+-->
+<style>
+  :root{ --navy:#0D365F; --navy-dark:#092647; --gold:#F0A63A; --gold-text:#C17A12;
+         --bg:#faf9f6; --card:#fff; --border:#e4e1d8; --text:#16283a; --muted:#6E6559;
+         --green:#15803D; --red:#B00020; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:'Public Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+       line-height:1.55;-webkit-text-size-adjust:100%;}
+  .wrap{max-width:620px;margin:0 auto;padding:22px 18px 60px;}
+  header{text-align:center;padding:10px 0 6px;}
+  header img{height:56px;}
+  h1{font-size:26px;line-height:1.25;color:var(--navy);margin:16px 0 6px;letter-spacing:-.02em;}
+  .lede{font-size:16px;color:var(--text);margin:0 0 6px;}
+  .why{background:#FFF7ED;border:1px solid #FCD9A8;border-radius:10px;padding:12px 14px;
+       font-size:14.5px;margin:16px 0 22px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+        padding:18px;margin-bottom:16px;}
+  h2{font-size:16px;color:var(--navy);margin:0 0 2px;}
+  .sub{font-size:13px;color:var(--muted);margin:0 0 12px;}
+  label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:12px 0 4px;}
+  input,select,textarea{width:100%;font:inherit;font-size:16px;padding:11px 12px;
+       border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;}
+  .row > div{flex:1;min-width:140px;}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:4px;}
+  .refbox{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#FCFBF8;}
+  .refbox b{font-size:13.5px;color:var(--navy);}
+  .tip{background:#F0F7F4;border-left:3px solid #8FD1C7;padding:10px 12px;border-radius:0 8px 8px 0;
+       font-size:14px;margin:14px 0 0;}
+  .consent{font-size:14.5px;background:#FAF9F6;border:1px solid var(--border);border-radius:10px;padding:14px;}
+  .secure{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--muted);margin-top:8px;}
+  button.go{width:100%;background:var(--gold);color:#122F52;border:0;border-radius:10px;
+        padding:16px;font-size:17px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:8px;}
+  button.go:disabled{opacity:.6;cursor:default;}
+  .err{color:var(--red);font-size:14px;margin-top:10px;display:none;}
+  .done{display:none;text-align:center;padding:24px 6px;}
+  .done h1{margin-top:4px;}
+  .check{width:56px;height:56px;border-radius:50%;background:#DCFCE7;color:var(--green);
+         font-size:30px;line-height:56px;margin:0 auto;}
+  .foot{text-align:center;font-size:13px;color:var(--muted);margin-top:26px;}
+  a{color:var(--navy);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions">
+  </header>
+
+  <!-- ============ FORM ============ -->
+  <div id="formView">
+    <h1 id="greeting">We would love to have you.</h1>
+    <p class="lede">Your official offer letter and new-hire paperwork are on their way. Before they land, there is one quick thing.</p>
+
+    <div class="why">
+      <b>Reference checks are the slowest part of hiring</b>, so we start them the same day.
+      Give us the go-ahead below and tell us who to call, and we will get moving while your
+      paperwork is being prepared. This takes about two minutes.
+    </div>
+
+    <div class="card">
+      <h2>About you</h2>
+      <p class="sub">This has to match your legal name and records.</p>
+      <div class="row">
+        <div><label for="first">First name</label><input id="first" autocomplete="given-name"></div>
+        <div><label for="last">Last name</label><input id="last" autocomplete="family-name"></div>
+      </div>
+      <label for="prev">Any previous names</label>
+      <input id="prev" placeholder="Maiden name, former married name, or leave blank">
+      <div class="hint">The registry search checks these too, so a blank here can slow things down.</div>
+      <div class="row">
+        <div><label for="dob">Date of birth</label><input id="dob" type="date" autocomplete="bday"></div>
+        <div><label for="phone">Cell phone</label><input id="phone" type="tel" autocomplete="tel"></div>
+      </div>
+      <label for="email">Email</label><input id="email" type="email" autocomplete="email">
+    </div>
+
+    <div class="card">
+      <h2>Where you live</h2>
+      <p class="sub">Your current home address.</p>
+      <label for="addr">Street address</label><input id="addr" autocomplete="street-address">
+      <div class="row">
+        <div><label for="city">City</label><input id="city" autocomplete="address-level2"></div>
+        <div style="max-width:100px;"><label for="state">State</label><input id="state" maxlength="2" value="MO" style="text-transform:uppercase"></div>
+        <div style="max-width:130px;"><label for="zip">ZIP</label><input id="zip" inputmode="numeric" autocomplete="postal-code"></div>
+      </div>
+      <label for="oos">Have you lived outside Missouri at any time in the last 5 years?</label>
+      <select id="oos" onchange="oosUI()">
+        <option value="">Choose one</option>
+        <option value="no">No, Missouri the whole time</option>
+        <option value="yes">Yes, I lived in another state</option>
+      </select>
+      <div id="oosWrap" style="display:none;">
+        <label for="states">Which states, and roughly when?</label>
+        <input id="states" placeholder="e.g. Arkansas, 2022 to 2024">
+        <div class="hint">Living out of state means Missouri also requires a fingerprint background check. We will set that up for you and cover it, it just adds a step.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Background screening</h2>
+      <p class="sub">Missouri requires this for everyone who works in a client's home.</p>
+      <label for="ssn">Social security number</label>
+      <input id="ssn" inputmode="numeric" autocomplete="off" placeholder="000-00-0000" maxlength="11" oninput="ssnFmt(this)">
+      <div class="secure">
+        <span>🔒</span>
+        <span>Used only to run your Family Care Safety Registry screening. It is stored so that
+        only the office can retrieve it, never shown back inside our system, and deleted once your
+        screening clears. If you would rather give it to us in person at orientation, leave it blank
+        and we will collect it then.</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Your references</h2>
+      <p class="sub">Two is enough to get started. Three or four is better and usually faster.</p>
+      <div id="refs"></div>
+      <button type="button" onclick="addRef()" style="background:none;border:1px dashed var(--border);border-radius:8px;padding:10px;width:100%;font:inherit;font-size:14px;color:var(--navy);cursor:pointer;">+ Add another reference</button>
+      <div class="tip">Give your references a heads-up that we will reach out. One text from you and they answer, which is usually the difference between starting this week and starting next week.</div>
+    </div>
+
+    <div class="card">
+      <h2>Your permission</h2>
+      <div class="consent" id="consentBox">
+        I give Caring Companions In-Home Senior Care permission to contact the people I listed
+        above about my work history and character, and to run the background screenings required
+        for in-home care in Missouri, including the Family Care Safety Registry. I confirm the
+        information on this form is true and complete to the best of my knowledge.
+      </div>
+      <label for="sig">Type your full name to sign</label>
+      <input id="sig" autocomplete="off" placeholder="Your full legal name">
+      <div class="hint">Signed <span id="todayTxt"></span>. You will get a copy of this by email, and you can ask us for it any time.</div>
+      <button class="go" id="submitBtn" onclick="submitForm()">Send this in and get started</button>
+      <div class="err" id="err"></div>
+    </div>
+
+    <p class="foot">Questions? Call or text the office at <a href="tel:+14172348494">(417) 234-8494</a>.</p>
+  </div>
+
+  <!-- ============ DONE ============ -->
+  <div class="done" id="doneView">
+    <div class="check">✓</div>
+    <h1 id="thanks">Thank you.</h1>
+    <p class="lede">We are reaching out to your references now.</p>
+    <div class="why" style="text-align:left;">
+      Next, watch for an email from <b>Viventium</b> with your official offer letter and new-hire
+      paperwork. It usually arrives within a day. Finishing that is what lets us book your
+      orientation.
+    </div>
+    <p id="fpNote" style="display:none;font-size:14.5px;background:#F0F7F4;border-radius:10px;padding:12px 14px;text-align:left;">
+      Because you have lived outside Missouri in the last five years, we will also set up a
+      fingerprint appointment for you. Someone from the office will call with the details.
+    </p>
+    <button class="go" style="max-width:320px;margin:18px auto 0;" onclick="printCopy()">📄 Download a copy of what I signed</button>
+    <p class="foot">Questions? Call or text <a href="tel:+14172348494">(417) 234-8494</a>.</p>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+
+const P = new URLSearchParams(location.search);
+const g = id => document.getElementById(id);
+const val = id => (g(id).value || '').trim();
+const todayLong = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+g('todayTxt').textContent = todayLong;
+
+// Prefill from the link the office sends.
+['first','last','phone','email'].forEach(k => { if (P.get(k)) g(k).value = P.get(k); });
+if (P.get('first')) {
+  g('greeting').textContent = 'We would love to have you, ' + P.get('first') + '.';
+  g('thanks').textContent = 'Thank you, ' + P.get('first') + '.';
+}
+
+function oosUI(){ g('oosWrap').style.display = g('oos').value === 'yes' ? 'block' : 'none'; }
+function ssnFmt(el){
+  const d = el.value.replace(/\D/g,'').slice(0,9);
+  el.value = d.length > 5 ? d.slice(0,3)+'-'+d.slice(3,5)+'-'+d.slice(5)
+           : d.length > 3 ? d.slice(0,3)+'-'+d.slice(3) : d;
+}
+
+let refCount = 0;
+function addRef(){
+  refCount++;
+  const d = document.createElement('div');
+  d.className = 'refbox';
+  d.innerHTML =
+    '<b>Reference ' + refCount + '</b>' +
+    '<label>Their name</label><input class="rname">' +
+    '<label>How do they know you?</label><input class="rrel" placeholder="Former supervisor, coworker, client family">' +
+    '<div class="row"><div><label>Phone</label><input class="rphone" type="tel"></div>' +
+    '<div><label>Email (if you have it)</label><input class="remail" type="email"></div></div>';
+  g('refs').appendChild(d);
+}
+addRef(); addRef();
+
+function collectRefs(){
+  return [...document.querySelectorAll('.refbox')].map(b => ({
+    name: b.querySelector('.rname').value.trim(),
+    relationship: b.querySelector('.rrel').value.trim(),
+    phone: b.querySelector('.rphone').value.trim(),
+    email: b.querySelector('.remail').value.trim(),
+  })).filter(r => r.name && (r.phone || r.email));
+}
+
+let SIGNED = null;
+
+async function submitForm(){
+  const err = g('err');
+  const refs = collectRefs();
+  const problems = [];
+  if (!val('first') || !val('last')) problems.push('your first and last name');
+  if (!val('dob')) problems.push('your date of birth');
+  if (!g('oos').value) problems.push('whether you have lived outside Missouri');
+  if (refs.length < 2) problems.push('at least two references with a phone or email');
+  if (!val('sig')) problems.push('your typed signature');
+  if (problems.length) {
+    err.textContent = 'Still needed: ' + problems.join(', ') + '.';
+    err.style.display = 'block';
+    err.scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
+  const btn = g('submitBtn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  err.style.display = 'none';
+
+  const row = {
+    first_name: val('first'), last_name: val('last'), previous_names: val('prev') || null,
+    dob: val('dob') || null, phone: val('phone') || null, email: val('email') || null,
+    address: val('addr') || null, city: val('city') || null,
+    state: (val('state') || '').toUpperCase() || null, zip: val('zip') || null,
+    ssn: val('ssn').replace(/\D/g,'') || null,
+    lived_outside_mo: g('oos').value === 'yes',
+    states_lived: val('states') || null,
+    refs, signature_name: val('sig'),
+    consent_text: g('consentBox').textContent.replace(/\s+/g,' ').trim(),
+  };
+  try {
+    const { error } = await sb.from('hire_intake').insert(row);
+    if (error) throw error;
+    SIGNED = row;
+    g('formView').style.display = 'none';
+    g('doneView').style.display = 'block';
+    if (row.lived_outside_mo) g('fpNote').style.display = 'block';
+    window.scrollTo(0,0);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Send this in and get started';
+    err.textContent = 'Something went wrong sending that. Please call or text the office at (417) 234-8494 and we will take it over the phone.';
+    err.style.display = 'block';
+    console.error(e);
+  }
+}
+
+/* Their copy of what they signed. Deliberately leaves the social security
+   number out — they know their own, and a PDF in a downloads folder is the
+   last place it should live. */
+function printCopy(){
+  if (!SIGNED) return;
+  const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const r = SIGNED;
+  const refRows = (r.refs || []).map((x,i) =>
+    '<tr><th>Reference ' + (i+1) + '</th><td>' + esc(x.name) +
+    (x.relationship ? ' <span style="color:#6E6559">(' + esc(x.relationship) + ')</span>' : '') +
+    (x.phone ? ' &middot; ' + esc(x.phone) : '') + (x.email ? ' &middot; ' + esc(x.email) : '') +
+    '</td></tr>').join('');
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>Authorization - ' +
+    esc(r.first_name + ' ' + r.last_name) + '</title><style>' +
+    'body{font-family:Georgia,serif;color:#16283a;max-width:720px;margin:30px auto;padding:0 26px;line-height:1.55;}' +
+    'h1{font-size:19px;color:#0D365F;margin:0;} .sub{color:#6E6559;font-size:13px;margin:2px 0 18px;}' +
+    'table{width:100%;border-collapse:collapse;font-size:14px;margin:14px 0;}' +
+    'th{text-align:left;width:150px;color:#6E6559;font-size:12.5px;padding:4px 10px 4px 0;vertical-align:top;}' +
+    'td{padding:4px 0;vertical-align:top;} tr{border-bottom:1px solid #f0ede6;}' +
+    '.consent{background:#faf9f6;border:1px solid #e4e1d8;border-radius:8px;padding:14px;font-size:14px;margin:18px 0;}' +
+    '.sig{border-top:1px solid #16283a;display:inline-block;padding-top:5px;margin-top:6px;font-size:17px;font-family:Georgia,serif;}' +
+    'footer{margin-top:26px;border-top:1px solid #e4e1d8;padding-top:8px;font-size:12px;color:#6E6559;}' +
+    '@media print{body{margin:0;} @page{margin:16mm;}}' +
+    '</style></head><body>' +
+    '<h1>Caring Companions In-Home Senior Care</h1>' +
+    '<div class="sub">Reference &amp; Background Screening Authorization</div>' +
+    '<table>' +
+    '<tr><th>Name</th><td>' + esc(r.first_name + ' ' + r.last_name) + '</td></tr>' +
+    (r.previous_names ? '<tr><th>Previous names</th><td>' + esc(r.previous_names) + '</td></tr>' : '') +
+    (r.dob ? '<tr><th>Date of birth</th><td>' + esc(r.dob) + '</td></tr>' : '') +
+    '<tr><th>Address</th><td>' + esc([r.address, r.city, r.state, r.zip].filter(Boolean).join(', ')) + '</td></tr>' +
+    '<tr><th>Contact</th><td>' + esc([r.phone, r.email].filter(Boolean).join(' · ')) + '</td></tr>' +
+    '<tr><th>Lived outside MO<br>in last 5 years</th><td>' + (r.lived_outside_mo ? 'Yes' + (r.states_lived ? ' — ' + esc(r.states_lived) : '') + '<br><i>Fingerprint screening required</i>' : 'No') + '</td></tr>' +
+    refRows + '</table>' +
+    '<div class="consent">' + esc(r.consent_text) + '</div>' +
+    '<div><span class="sig">' + esc(r.signature_name) + '</span><br>' +
+    '<span style="font-size:12.5px;color:#6E6559">Signed electronically on ' + todayLong + '</span></div>' +
+    '<footer>A social security number was collected separately for the Family Care Safety Registry ' +
+    'screening and is deliberately not reproduced on this copy.</footer>' +
+    '</body></html>';
+  const w = window.open('', '_blank');
+  if (!w) { alert('Your browser blocked the popup. Allow popups and tap the button again.'); return; }
+  w.document.write(html); w.document.close();
+  setTimeout(() => { try { w.focus(); w.print(); } catch(e){} }, 400);
+}
+</script>
+</body>
+</html>
