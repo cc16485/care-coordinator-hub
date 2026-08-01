@@ -2568,7 +2568,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div><label>Email</label><input id="jo_email" inputmode="email" placeholder="name@email.com"></div>
         </div>
         <div class="grid2">
-          <div><label>Position</label><select id="jo_position" onchange="joSyncPlan()"><option>Caregiver</option><option>CNA</option><option>Nurse (LPN/RN)</option><option>Office</option></select></div>
+          <div><label>Position</label><select id="jo_position" onchange="joSyncPlan()"><option>Caregiver</option><option>Live-In Caregiver</option><option>CNA</option><option>LPN</option><option>RN</option><option>Office</option></select></div>
           <div><label>Interview date</label><input id="jo_date" type="date"></div>
         </div>
         <div class="grid2">
@@ -9518,11 +9518,24 @@ function joPreviewMsgs(){
 // Position picked → pre-select the matching Viventium workflow. Her Viventium
 // has a single plan today ("Default (Default)" — screenshot Jul 13 2026), so
 // the map is empty; add entries when she builds role-specific plans there.
+/* Position picks the Viventium onboarding plan, which is what decides WHICH
+   offer letter and job description the new hire receives. Fill this map with
+   the exact plan names once they exist in Viventium — until then every
+   position falls through to Default, which is the current behaviour. */
+const JO_PLAN_BY_POSITION = {
+  // 'Caregiver':         'Caregiver (Default)',
+  // 'Live-In Caregiver': 'Live-In Caregiver',
+  // 'CNA':               'CNA',
+  // 'LPN':               'LPN',
+  // 'RN':                'RN',
+};
 function joSyncPlan(){
   const pos=document.getElementById('jo_position').value;
-  const map={};
   const sel=document.getElementById('jo_plan');
-  if(sel&&map[pos]) sel.value=map[pos];
+  const want=JO_PLAN_BY_POSITION[pos];
+  if(!sel||!want) return;
+  const match=[...sel.options].find(o=>o.value===want||o.textContent.trim()===want);
+  if(match) sel.value=match.value;
 }
 function joReset(){
   document.getElementById('joDone').style.display='none';
