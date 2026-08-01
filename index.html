@@ -3939,7 +3939,7 @@ The HomeTogether team</pre>
         <section class="ckpt-stage" id="ckptStage7">
           <div class="ckpt-stagehead"><span class="ckpt-num">7</span><h3 id="ckptCloseTitle">Close: book the assessment</h3></div>
           <div class="script-hint"><span class="ic">💬</span><span id="ckptCloseScript">"The next step is a free in-home assessment, that's where we meet [client] and build the care plan together. I have [day] at [time] or [day] at [time], which works better?"</span></div>
-          <div class="ckpt-cue" id="ckptCloseCue">Book it while you have them, a call that ends without a next step goes cold. Booking it? Now get the full street address, the fold is up in Who needs care. Then set the follow-up branch so the queue keeps chasing this lead, not your memory.</div>
+          <div class="ckpt-cue" id="ckptCloseCue">Book it while you have them, a call that ends without a next step goes cold. Booking it? Now get the full street address, the fold is up in Who needs care. No caller email yet? Ask once more so you can send what you talked about. Then set the follow-up branch so the queue keeps chasing this lead, not your memory.</div>
           <div class="ckpt-slot" data-sec="leadSecOffice"></div>
           <div class="ckpt-slot" data-sec="leadSecRouting"></div>
           <div class="modal-actions" style="margin-top:16px;">
@@ -3987,10 +3987,12 @@ The HomeTogether team</pre>
 </div>
 <div style="grid-column:1/-1;"><label>Referred By</label><input id="lead_referral_source_name" placeholder="Doctor, hospital, friend, Facebook ad, etc."></div>
 </div>
+<div class="script-hint"><span class="ic">💬</span><span>Try hard for the email: "What's the best email for you? That way I can send over everything we talk about today, so you have it all in writing."</span></div>
 </div>
 
 <div id="leadSecClient">
 <div class="section-title">Client Information</div>
+<div class="script-hint"><span class="ic">💬</span><span>They'll often just say Mom, Dad, or my mother-in-law. Ask anyway: "And what's Mom's name? Just so I save everything from our call under her name, that way if you call back and want to move forward we won't have to start over."</span></div>
 <div class="checklist" style="margin-bottom:6px;">
 <label><input type="checkbox" id="lead_client_name_not_provided" onchange="toggleClientNameFields(this.checked)"> Client name not provided yet</label>
 </div>
@@ -7046,7 +7048,7 @@ function leadPayorUI(){
     if(v==='medicaid'){
       ct.textContent='Close: check first, call back';
       cs.textContent='"Let me make sure I have the basics: [client]\'s first and last name and date of birth. I want to be certain we can staff this the right way, so give me a little time to check and I will call you back as soon as possible today."';
-      cc2.textContent='We can almost always staff it. The pause is deliberate: read the notes BEFORE taking a new Medicaid IHS client, that is where the red flags show up. Set the branch to Staffing Check Callback so the same-day callback sits on the board, not in your head.';
+      cc2.textContent='We can almost always staff it. The pause is deliberate: read the notes BEFORE taking a new Medicaid IHS client, that is where the red flags show up. No caller email yet? Ask once more so you can send what you talked about. Set the branch to Staffing Check Callback so the same-day callback sits on the board, not in your head.';
     } else if(v==='cds'){
       ct.textContent='Close: hand off to Angiel';
       cs.textContent='"You\'ve reached the right family of companies. Angiel handles our CDS program, let me connect you with her now." (Or, if she\'s out: "I\'ll have Angiel call you back today. What\'s the best number?")';
@@ -7054,7 +7056,7 @@ function leadPayorUI(){
     } else {
       ct.textContent='Close: book the assessment';
       cs.textContent='"The next step is a free in-home assessment, that\'s where we meet [client] and build the care plan together. I have [day] at [time] or [day] at [time], which works better?"';
-      cc2.textContent='Book it while you have them, a call that ends without a next step goes cold. Booking it? Now get the full street address, the fold is up in Who needs care. Then set the follow-up branch so the queue keeps chasing this lead, not your memory.';
+      cc2.textContent='Book it while you have them, a call that ends without a next step goes cold. Booking it? Now get the full street address, the fold is up in Who needs care. No caller email yet? Ask once more so you can send what you talked about. Then set the follow-up branch so the queue keeps chasing this lead, not your memory.';
     }
   }
 }
