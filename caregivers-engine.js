@@ -1320,8 +1320,8 @@ let OFFERS=[];
 async function loadOffers(btn){
   const box=document.getElementById('offersList');
   if(!box) return; /* New Offers stayed in the Staffing hub */
-  const key=(appSettings.training_hub_key||'').trim();
-  if(!key){ box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings → Training Hub first.</div>'; return; }
+  const key=(appSettings.training_hub_key || (typeof CONFIG!=='undefined' && CONFIG.training_hub_key) || '').trim();
+  if(!key){ box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings first.</div>'; return; }
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/rest/v1/rpc/hub_job_offers',{
@@ -5525,6 +5525,14 @@ function renderEVVCorrections() {
 }
 
 /* the only things the panels' handlers need */
-window.SCX = {acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+window.SCX = {loadOffers, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+/* The offer cards are built with inline onclick handlers, so these have to be
+   reachable as globals, not just through SCX. */
+window.loadOffers = loadOffers;
+window.markOfferEntered = markOfferEntered;
+window.markOfferViventium = markOfferViventium;
+window.markOfferStep1 = markOfferStep1;
+window.sendOfferWelcome = sendOfferWelcome;
+window.confirmOfferLevel = confirmOfferLevel;
 window.dispatchEvent(new Event('scx-ready'));
 })();

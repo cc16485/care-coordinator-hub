@@ -2511,9 +2511,26 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
     <!-- ===================== TAB: OFFER A JOB ===================== -->
     <section class="tabpanel" id="tab-offers">
-      <div style="margin-bottom:14px;">
-        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Offer a Job</h2>
-        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Fill this out while the interview is fresh. Creates the AxisCare applicant and starts onboarding tracking.</div>
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Offer a Job</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Make the offer while the interview is fresh, then finish the onboarding right here. Nothing gets handed to another hub.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <a class="ghost" href="https://hcm.viventium.com/apps/account/viventium/login?ReturnUrl=%2Fapps%2Fviventium" target="_blank" rel="noopener">🔗 Open Viventium</a>
+        <button class="ghost" onclick="ccLoadOffers(this)">↻ Refresh</button>
+      </div>
+
+      <!-- The onboarding cards used to live only in the Staffing hub, which
+           meant whoever made the offer had to go somewhere else to finish it.
+           They render here now; the engine supplies them. -->
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">Offers waiting on you</b>
+          <span class="subtab-badge red" id="offersBadge" style="display:none;"></span>
+          <span class="field-note">AxisCare attributes, Viventium entry, welcome message, Step 1 paperwork. All of it here.</span>
+        </div>
+        <div id="offersList" style="margin-top:10px;"></div>
       </div>
       <div class="card" style="padding:0 18px;margin-bottom:16px;" id="joCard">
         <details id="joDetails" open ontoggle="if(this.open)joInit()">
@@ -2524,7 +2541,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </summary>
         <div style="padding-bottom:18px;">
         <div id="joForm">
-        <div class="field-note" style="margin:2px 0 8px;">Creates the AxisCare applicant with the interview note and starts onboarding tracking in the Staffing Hub. <b>No message goes to the applicant yet</b> — their welcome text &amp; email send automatically when the Staffing Coordinator enters them in Viventium, so "watch for the Viventium email" arrives right as that email goes out.</div>
+        <div class="field-note" style="margin:2px 0 8px;">Creates the AxisCare applicant with the interview note and starts onboarding tracking. <b>No message goes to the applicant yet</b> — their welcome text &amp; email send when you mark them entered in Viventium on the card above, so "watch for the Viventium email" arrives right as that email goes out.</div>
         <details style="margin:0 0 12px;" ontoggle="if(this.open)joPreviewMsgs()">
           <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);text-decoration:underline;">👀 See exactly what the text &amp; email will say (sent at the Viventium step, not now)</summary>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:10px;">
@@ -2580,7 +2597,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <label style="margin-top:8px;">Caregiver attributes <span style="font-weight:400;color:var(--text-muted);">(staffing types these into AxisCare — default Yes, flip the No's)</span></label>
         <div id="jo_attrs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px;margin-top:6px;"></div>
         <div id="jo_err" style="display:none;color:var(--red);font-size:13px;margin-top:10px;"></div>
-        <button class="primary" id="jo_send" style="margin-top:14px;" onclick="submitJobOffer()">Save offer — sends to Staffing to start onboarding</button>
+        <button class="primary" id="jo_send" style="margin-top:14px;" onclick="submitJobOffer()">Save offer — starts onboarding</button>
         </div>
         <div id="joDone" style="display:none;">
           <b style="font-size:16px;color:var(--green);">✅ Offer saved — Staffing takes it from here</b>
@@ -5242,7 +5259,7 @@ function ccParentClick(p){
    would be rude, so it is fetched the first time a Caregivers tab is opened
    and never again. Until it lands the panel shows a loading line rather than
    dead buttons. */
-const SCX_TABS = ['cgbackground', 'cgorient', 'cgtraining', 'cgcompliance', 'cgattendance', 'cgwriteups'];
+const SCX_TABS = ['cgbackground', 'cgorient', 'cgtraining', 'cgcompliance', 'cgattendance', 'cgwriteups', 'offers'];
 let scxState = 'idle';
 function scxEnsure(tab){
   if(!SCX_TABS.includes(tab)) return;
@@ -5274,7 +5291,7 @@ function scxEnsure(tab){
 }
 function scxRender(tab){
   if(!window.SCX) return;
-  const fn = { cgbackground:'renderOB', cgorient:'renderOrientations', cgtraining:'renderTR', cgcompliance:'renderAC', cgattendance:'renderAttendance', cgwriteups:'renderWriteups' }[tab];
+  const fn = { cgbackground:'renderOB', cgorient:'renderOrientations', cgtraining:'renderTR', cgcompliance:'renderAC', cgattendance:'renderAttendance', cgwriteups:'renderWriteups', offers:'loadOffers' }[tab];
   try{ if(fn && SCX[fn]) SCX[fn](); }catch(e){ console.warn('caregiver panel render:', e); }
 }
 
@@ -9399,6 +9416,12 @@ const JO_ATTRS=[
 ];
 const joState={}; JO_ATTRS.forEach(a=>joState[a[0]]=true);
 let joLevel=null, joInited=false;
+/* The offer cards come from the caregiver engine, which is lazy-loaded. Safe to
+   call before it arrives — scxEnsure renders once it lands. */
+function ccLoadOffers(btn){
+  if(window.SCX && SCX.loadOffers) SCX.loadOffers(btn);
+  else scxEnsure('offers');
+}
 function joInit(){
   if(!joInited){
     joInited=true;
@@ -9461,7 +9484,7 @@ async function submitJobOffer(){
     renderInterviews();
   }catch(e){
     err.textContent='Could not send: '+(e&&e.message?e.message:'error'); err.style.display='block';
-    btn.disabled=false; btn.textContent='Save offer — sends to Staffing to start onboarding';
+    btn.disabled=false; btn.textContent='Save offer — starts onboarding';
   }
 }
 function joPreviewMsgs(){
@@ -9507,7 +9530,7 @@ function joReset(){
   ['jo_first','jo_last','jo_phone','jo_email','jo_rate','jo_avail','jo_exp','jo_pers','jo_notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('jo_position').value='Caregiver'; joSyncPlan();
   JO_ATTRS.forEach(a=>joState[a[0]]=true); joInited=false; joLevel=null; joInit();
-  const btn=document.getElementById('jo_send'); btn.disabled=false; btn.textContent='Save offer — sends to Staffing to start onboarding';
+  const btn=document.getElementById('jo_send'); btn.disabled=false; btn.textContent='Save offer — starts onboarding';
 }
 
 /* ---------------- Interviews tab (job offers, read-only view) ---------------- */
