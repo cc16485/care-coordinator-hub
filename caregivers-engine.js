@@ -3106,6 +3106,7 @@ function renderOB(){
         ${c.not_hired?`<button class="ibtn" onclick="reactivateOB(${c.id})" style="color:var(--teal);border-color:var(--teal)" title="Reactivate candidate">↩ Reactivate</button>`:`
         ${st==='Ready for Orientation'&&!c.invite_sent?`<button class="ibtn" style="background:var(--teal);color:#fff;border-color:var(--teal);font-weight:600;padding:.28rem .65rem;" onclick="openInviteModal(${c.id})">📅 Invite</button>`:''}
         ${st==='Ready for Orientation'&&c.invite_sent?`<button class="ibtn" style="color:var(--teal);border-color:var(--teal);" onclick="openInviteModal(${c.id})">📅 Re-send</button>`:''}
+        ${[1,2,3,4].some(n=>c['r'+n+'_manual'])?`<button class="ibtn" onclick="refReport(${c.id})" title="Reference check record for the personnel file">📄 Refs</button>`:''}
         <button class="ibtn" onclick="openOBModal(${c.id})">✏️</button>
         <button class="ibtn" onclick="openNotHireModal(${c.id})" style="color:#ef4444;border-color:#fca5a5" title="Not moving forward">🚫</button>`}
       </div></td>
@@ -3599,6 +3600,88 @@ function openManualRef(candidateId, slot){
   g('mref-notes').value=existing.notes||'';
   updateMrefPreview();
   document.getElementById('manual-ref-modal').classList.add('open');
+}
+/* ---- Reference check record (printable) --------------------------------
+   Viventium holds the personnel file, so a finished reference check has to
+   leave here as a document. Opens a self-contained page and prints it, which
+   means no hub styling bleeds into what gets uploaded, and the file is proof
+   in its own right: who was asked, what they said, who collected it, when. */
+const REF_LABELS = {
+  recommend:    ['Would you rehire / recommend?', {yes:'Yes, without reservation', reservations:'Yes, with reservations', no:'No'}],
+  reliability:  ['Reliability and attendance', {}],
+  interpersonal:['Interpersonal skills', {}],
+  honesty:      ['Honesty and trustworthiness', {}],
+  concerns:     ['Any concerns raised?', {none:'None', minor:'Minor', serious:'Serious'}],
+};
+function refReport(idOrRecord){
+  const c = (idOrRecord && typeof idOrRecord === 'object')
+    ? idOrRecord
+    : candidates.find(x => x.id === idOrRecord);
+  if (!c) return;
+  const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const slots = [1,2,3,4].map(n => ({ n, name: c['r'+n+'n'], status: c['r'+n+'s'], phone: c['r'+n+'_phone'], email: c['r'+n+'_email'], m: c['r'+n+'_manual'] }))
+                         .filter(r => r.name || (r.m && r.m.name));
+  if (!slots.length) { alert('No references recorded for this candidate yet.'); return; }
+
+  const answer = (m, k) => {
+    const [label, map] = REF_LABELS[k];
+    const raw = m ? m[k] : '';
+    return '<tr><th>' + label + '</th><td>' + (raw ? esc(map[raw] || raw) : '<i>not recorded</i>') + '</td></tr>';
+  };
+  const block = r => {
+    const m = r.m || {};
+    const tone = r.status === 'Positive' ? '#15803D' : r.status === 'Negative' ? '#B00020' : r.status === 'Conditional' ? '#B45309' : '#6E6559';
+    return '<section>'
+      + '<h2>Reference ' + r.n + ': ' + esc(m.name || r.name || '') + ''
+      + '<span style="float:right;color:' + tone + '">' + esc(r.status || 'Pending') + '</span></h2>'
+      + '<table class="meta">'
+      + '<tr><th>Relationship</th><td>' + esc(m.relationship || '') + '</td>'
+      + '<th>Known for</th><td>' + esc(m.how_long || '') + '</td></tr>'
+      + '<tr><th>Contact</th><td>' + esc(r.phone || '') + (r.email ? ' · ' + esc(r.email) : '') + '</td>'
+      + '<th>Type</th><td>' + esc(m.type || '') + '</td></tr>'
+      + '<tr><th>Contacted on</th><td>' + esc(m.date || '') + '</td>'
+      + '<th>Method</th><td>' + esc(m.via || '') + '</td></tr>'
+      + '<tr><th>Collected by</th><td colspan="3">' + esc(m.staff || '') + '</td></tr>'
+      + '</table>'
+      + '<table class="ans">' + Object.keys(REF_LABELS).map(k => answer(m, k)).join('') + '</table>'
+      + (m.notes ? '<p class="notes"><b>Notes:</b> ' + esc(m.notes) + '</p>' : '')
+      + '</section>';
+  };
+
+  const today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+  const html = '<!doctype html><html><head><meta charset="utf-8">'
+    + '<title>Reference Checks - ' + esc(c.first + ' ' + c.last) + '</title><style>'
+    + 'body{font-family:Georgia,serif;color:#16283a;max-width:780px;margin:28px auto;padding:0 26px;line-height:1.5;}'
+    + 'h1{font-size:20px;margin:0;color:#0D365F;} .sub{color:#6E6559;font-size:13px;margin:2px 0 18px;}'
+    + '.who{border:1px solid #d8d3c8;border-radius:6px;padding:10px 14px;margin-bottom:18px;font-size:14px;}'
+    + 'section{border-top:2px solid #0D365F;margin-top:20px;padding-top:8px;break-inside:avoid;}'
+    + 'h2{font-size:15px;color:#0D365F;margin:0 0 8px;}'
+    + 'table{width:100%;border-collapse:collapse;font-size:13.5px;margin-bottom:8px;}'
+    + 'table.meta th{width:88px;} table.ans th{width:52%;}'
+    + 'th{text-align:left;font-weight:700;color:#6E6559;font-size:12px;padding:3px 6px 3px 0;vertical-align:top;}'
+    + 'td{padding:3px 12px 3px 0;vertical-align:top;}'
+    + 'table.ans tr{border-bottom:1px solid #efece4;}'
+    + '.notes{font-size:13.5px;background:#faf9f6;border-left:3px solid #d8d3c8;padding:6px 10px;margin:6px 0 0;}'
+    + 'footer{margin-top:26px;border-top:1px solid #d8d3c8;padding-top:8px;font-size:12px;color:#6E6559;}'
+    + '@media print{body{margin:0;} @page{margin:14mm;}}'
+    + '</style></head><body>'
+    + '<h1>Caring Companions In-Home Senior Care</h1>'
+    + '<div class="sub">Reference Check Record</div>'
+    + '<div class="who"><b>' + esc(c.first + ' ' + c.last) + '</b>'
+    + (c.phone ? ' &middot; ' + esc(c.phone) : '') + (c.email ? ' &middot; ' + esc(c.email) : '')
+    + '<br><span style="color:#6E6559;font-size:13px;">'
+    + (c.addedAt ? 'Candidate added ' + esc(String(c.addedAt).slice(0,10)) + ' &middot; ' : '')
+    + slots.filter(r => r.status === 'Positive').length + ' of ' + slots.length + ' references positive</span></div>'
+    + slots.map(block).join('')
+    + '<footer>Prepared from the Caring Companions hiring record on ' + today + '. '
+    + 'References were contacted under the signed Reference Check and Authorization on file.</footer>'
+    + '</body></html>';
+
+  const w = window.open('', '_blank');
+  if (!w) { alert('Your browser blocked the popup. Allow popups for this site, then try again.'); return; }
+  w.document.write(html); w.document.close();
+  w.onload = () => { w.focus(); w.print(); };
+  setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 400);
 }
 function saveManualRef(){
   const g=k=>document.getElementById(k).value;
@@ -5529,6 +5612,7 @@ window.SCX = {loadOffers, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi
 /* The offer cards are built with inline onclick handlers, so these have to be
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;
+window.refReport = refReport;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
 window.markOfferStep1 = markOfferStep1;
