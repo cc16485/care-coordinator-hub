@@ -549,6 +549,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-sops">
     <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Library</div>
     <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
+    <div class="fpill" data-tab="teamsched" onclick="switchTab('teamsched')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Team Schedule</div>
   </div>
 
   <!-- Third level. Only appears when the active tab belongs to a parent
@@ -2934,10 +2935,25 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">Also part of the library</div>
   <div class="card" style="padding:1rem 1.25rem;margin-bottom:2rem;font-size:.85rem;line-height:2">
     <div>📚 <a href="#" onclick="switchTab('playbook');return false"><b>Coordinator Playbook</b></a> — payors, the intake process, sales scripts, objection handling. The next pill over.</div>
+    <div>🗓️ <a href="#" onclick="switchTab('teamsched');return false"><b>Team Weekly Schedule</b></a> — who's on, who's in the field, the coordinator books, and the field expectation in writing.</div>
     <div>🛡️ <a href="#" onclick="switchTab('ltcpolicy');return false"><b>LTC claim process</b></a> — lives with the LTC Policy tools under Growth.</div>
     <div>📋 <b>"How This Tab Works" guides</b> — at the top of every tab in every hub, instructions stay where the work happens.</div>
   </div>
 </div>
+</section>
+
+<!-- ===================== TAB: TEAM WEEKLY SCHEDULE ====================
+     The coordinator weekly rhythm one-pager (hours, coordinator books,
+     field blocks, the written field expectation) lives at
+     team-schedule.html in this repo — THAT file is the one to edit; this
+     tab just frames it, and the same page prints as the office copy. -->
+<section class="tabpanel" id="tab-teamsched">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem">
+    <div style="font-size:.74rem;color:var(--text-muted)">The standing weekly rhythm for Krystal, Angiel, and Samantha. This page is the office copy — if the schedule changes, this is what changes.</div>
+    <a href="team-schedule.html" target="_blank" rel="noopener" class="primary" style="font-size:.75rem;text-decoration:none;padding:6px 12px;border-radius:8px;background:var(--navy);color:#fff">🖨 Open full page / print ↗</a>
+  </div>
+  <iframe src="team-schedule.html" title="Team Weekly Schedule" style="width:100%;border:1px solid var(--border);border-radius:12px;background:#FAF9F6;height:2400px"
+    onload="try{this.style.height=(this.contentDocument.body.scrollHeight+50)+'px';}catch(e){}"></iframe>
 </section>
 
 <!-- ===================== TAB: REPORTS ===================== -->
@@ -4667,7 +4683,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans','supervisory'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups'],ops:['ops','coverage'],nursing:['nursevisits'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook','teamsched'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -5074,7 +5090,7 @@ const CC_SECTION_TITLES = {
   today:'Overview', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', sops:'SOP Library',
+  carematch:'Care Match Check-ins', sops:'SOP Library', teamsched:'Team Weekly Schedule',
   clientqueue:'New Clients — Needs Scheduling',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',

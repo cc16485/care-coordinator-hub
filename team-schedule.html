@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Care Team Weekly Rhythm</title>
+<style>
+  :root{
+    --navy:#0D365F; --teal:#54BDB8; --honey:#F0A830;
+    --cream:#FAF9F6; --border:#E8E2D8; --muted:#6E6559;
+    --teal-soft:#E4F4F3; --honey-soft:#FCEED6; --navy-soft:#E3EAF2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Poppins','Segoe UI',system-ui,sans-serif;background:var(--cream);color:#3A342C;padding:28px 24px;font-size:14px;}
+  h1{color:var(--navy);font-size:22px;letter-spacing:-.01em;}
+  .sub{color:var(--muted);font-size:12.5px;margin:4px 0 18px;}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;font-size:12px;font-weight:600;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .dot{width:12px;height:12px;border-radius:4px;display:inline-block;}
+  table{border-collapse:collapse;width:100%;background:#fff;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  th{background:var(--navy);color:#fff;padding:8px 6px;font-size:12px;letter-spacing:.03em;}
+  th.hour{width:70px;}
+  td{border:1px solid var(--border);padding:5px 6px;vertical-align:top;height:44px;font-size:11px;}
+  td .who{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:2px;}
+  .chip{display:inline-block;border-radius:5px;padding:1px 6px;font-weight:700;font-size:10.5px;color:#fff;}
+  .k{background:var(--teal);} .a{background:var(--honey);color:#5a3c00;} .s{background:var(--navy);}
+  .hourcell{font-weight:700;color:var(--navy);font-size:11px;background:var(--cream);white-space:nowrap;}
+  .act{color:var(--muted);font-size:10.5px;line-height:1.35;}
+  .field{background:var(--honey-soft);}
+  .huddle{background:var(--navy-soft);}
+  .fieldK{background:var(--teal-soft);}
+  .closed{color:#B9AE9D;text-align:center;font-size:10px;}
+  h2{color:var(--navy);font-size:15px;margin:26px 0 8px;}
+  .lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;}
+  .lane{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+  .lane h3{font-size:13.5px;margin-bottom:2px;}
+  .lane .hours{font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600;}
+  .lane ul{padding-left:16px;font-size:12px;line-height:1.7;}
+  .lane.k h3{color:#2C8A85;} .lane.a h3{color:#B07514;} .lane.s h3{color:var(--navy);}
+  .lane.k{border-top:4px solid var(--teal);} .lane.a{border-top:4px solid var(--honey);} .lane.s{border-top:4px solid var(--navy);}
+  .rule{margin-top:20px;background:#fff;border:1px solid var(--border);border-left:4px solid var(--honey);border-radius:10px;padding:10px 14px;font-size:12.5px;line-height:1.6;}
+  @media print{ body{padding:10px;} .rule{page-break-inside:avoid;} }
+</style>
+</head>
+<body>
+
+<h1>Caring Companions, Care Team Weekly Rhythm</h1>
+<div class="sub">Monday to Friday. Office phones are covered every minute of 8am to 5pm. Field time never leaves the office empty. Draft for review, effective when Samantha says so.</div>
+
+<div class="legend">
+  <span><span class="dot" style="background:var(--teal)"></span> Krystal, Care Coordinator &mdash; Private Pay &amp; LTC (8a&ndash;2p)</span>
+  <span><span class="dot" style="background:var(--honey)"></span> Angiel, Care Coordinator &mdash; Medicaid &amp; VA (12p&ndash;5p)</span>
+  <span><span class="dot" style="background:var(--navy)"></span> Samantha, Owner (10/11a&ndash;4p)</span>
+  <span><span class="dot" style="background:var(--honey-soft);border:1px solid var(--honey)"></span> field / community</span>
+  <span><span class="dot" style="background:var(--navy-soft);border:1px solid var(--navy)"></span> huddle</span>
+</div>
+
+<table>
+  <tr><th class="hour">Time</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th></tr>
+
+  <tr>
+    <td class="hourcell">8 &ndash; 10</td>
+    <td><div class="who"><span class="chip k">K</span></div><div class="act">Morning sweep: overnight Needs Attention, new leads called back, first-shift Care Match calls</div></td>
+    <td><div class="who"><span class="chip k">K</span></div><div class="act">Morning sweep</div></td>
+    <td><div class="who"><span class="chip k">K</span></div><div class="act">Morning sweep</div></td>
+    <td><div class="who"><span class="chip k">K</span></div><div class="act">Morning sweep</div></td>
+    <td><div class="who"><span class="chip k">K</span></div><div class="act">Morning sweep</div></td>
+  </tr>
+
+  <tr>
+    <td class="hourcell">10 &ndash; 11</td>
+    <td colspan="5"><div class="who"><span class="chip k">K</span><span class="chip s">S</span></div><div class="act">Krystal continues the board &middot; Samantha's planning hour (morning playbook, daily brief)</div></td>
+  </tr>
+
+  <tr>
+    <td class="hourcell">11 &ndash; 12</td>
+    <td colspan="5"><div class="who"><span class="chip k">K</span><span class="chip s">S</span></div><div class="act">Assessments &amp; client check-in calls &middot; Samantha in office (CEO work)</div></td>
+  </tr>
+
+  <tr>
+    <td class="hourcell">12 &ndash; 2</td>
+    <td class="huddle"><div class="who"><span class="chip k">K</span><span class="chip a">A</span><span class="chip s">S</span></div><div class="act"><b>Growth huddle (12&ndash;1)</b>: pick the week's referral routes from the Referrers tab, review State Submissions reds, week plan. Then shared board.</div></td>
+    <td class="fieldK"><div class="who"><span class="chip k">K</span> field <span class="chip a">A</span><span class="chip s">S</span> office</div><div class="act"><b>Krystal: community route</b> (private-pay referrers), heads home from the field</div></td>
+    <td><div class="who"><span class="chip k">K</span><span class="chip a">A</span><span class="chip s">S</span></div><div class="act">Overlap: supervisory visits / two-person work &middot; handoff-free shared board</div></td>
+    <td class="fieldK"><div class="who"><span class="chip k">K</span> field <span class="chip a">A</span><span class="chip s">S</span> office</div><div class="act"><b>Krystal: community route</b></div></td>
+    <td><div class="who"><span class="chip k">K</span><span class="chip a">A</span><span class="chip s">S</span></div><div class="act">Overlap: catch-up, supervisory visits, week's loose ends</div></td>
+  </tr>
+
+  <tr>
+    <td class="hourcell">2 &ndash; 4</td>
+    <td><div class="who"><span class="chip a">A</span><span class="chip s">S</span></div><div class="act">Follow-ups due, State Submissions chase calls, New Clients checklists</div></td>
+    <td><div class="who"><span class="chip a">A</span><span class="chip s">S</span></div><div class="act">Follow-ups &amp; New Clients</div></td>
+    <td class="field"><div class="who"><span class="chip a">A</span> field <span class="chip s">S</span> office</div><div class="act"><b>Angiel: community route</b> (Medicaid &amp; VA sources) &middot; Samantha covers phones</div></td>
+    <td><div class="who"><span class="chip a">A</span><span class="chip s">S</span></div><div class="act">Follow-ups &amp; New Clients</div></td>
+    <td class="field"><div class="who"><span class="chip a">A</span> field <span class="chip s">S</span> office</div><div class="act"><b>Angiel: community route</b> &middot; Samantha covers phones</div></td>
+  </tr>
+
+  <tr>
+    <td class="hourcell">4 &ndash; 5</td>
+    <td colspan="5"><div class="who"><span class="chip a">A</span></div><div class="act">End of day: Needs Attention left empty, tomorrow's follow-ups set, visit notes logged in Referrers</div></td>
+  </tr>
+</table>
+
+<h2>Each person's week at a glance</h2>
+<div class="lanes">
+  <div class="lane k">
+    <h3>Krystal &mdash; Private Pay &amp; LTC book</h3>
+    <div class="hours">Mon&ndash;Fri 8am&ndash;2pm &middot; field Tue &amp; Thu 12&ndash;2</div>
+    <ul>
+      <li>Her clients: every Private Pay and LTC-insurance lead, client, and family. The hub auto-assigns them to her.</li>
+      <li>Owns the morning: overnight queue, lead callbacks, first-shift Care Match calls</li>
+      <li>Client check-ins and assessment scheduling before noon</li>
+      <li>Field route Tue/Thu: private-pay referral sources (discharge planners, home health, assisted living, physician offices), logged in Referrers same day</li>
+    </ul>
+  </div>
+  <div class="lane a">
+    <h3>Angiel &mdash; Medicaid &amp; VA book</h3>
+    <div class="hours">Mon&ndash;Fri 12pm&ndash;5pm &middot; field Wed &amp; Fri 2&ndash;4</div>
+    <ul>
+      <li>Her clients: every Medicaid IHS, VA, and PACE lead and client. The hub auto-assigns them to her.</li>
+      <li>The State Submissions board is hers: every DSDS referral chased weekly until authorized</li>
+      <li>Afternoon rhythm: follow-ups due, New Clients scheduling checklists, Needs Attention at zero by 5</li>
+      <li>Field route Wed/Fri: Medicaid &amp; VA sources (DSDS case managers, veteran service officers, senior centers), logged same day</li>
+    </ul>
+  </div>
+  <div class="lane s">
+    <h3>Samantha</h3>
+    <div class="hours">Mon&ndash;Fri ~10/11am&ndash;4pm</div>
+    <ul>
+      <li>10&ndash;11: planning hour (morning playbook &amp; daily brief)</li>
+      <li>Monday 12&ndash;1: leads the growth huddle</li>
+      <li>Wed &amp; Fri 2&ndash;4: phone coverage while Angiel is out (exception handling, not reception, CEO work continues)</li>
+      <li>Owner work: approvals, escalations, growth</li>
+    </ul>
+  </div>
+</div>
+
+<div class="rule">
+  <b>The one rule that makes this work:</b> the board is the handoff. Nobody briefs anybody at shift change. Every record shows its stage, its notes, and its next follow-up date in the hub, so whoever is on works whatever is sitting in the queues. Ownership is a label, never a wall, and everyone sees everything. In practice: your book is yours to drive, but whoever is on shift answers for every client while they're on, a Private Pay family calling at 3pm gets helped by Angiel, then Krystal picks it up from the notes tomorrow.
+  <div style="margin-top:8px;font-size:12px;color:var(--muted);"><b>Growth plan:</b> when the Medicaid and VA books get big enough, they split, one coordinator for each. The payer-based structure is built for that day: the map just gains a name.</div>
+</div>
+
+<h2>The field expectation, in writing</h2>
+<div class="rule" style="border-left-color:#DC2626;">
+  We get busy and the marketing is the first thing that gets skipped. So the field blocks are not a goal, they are part of the job, the same as answering the phone:
+  <ul style="margin:8px 0 0 18px;line-height:1.7;">
+    <li><b>Two field blocks each, every week, at the set times.</b> They are appointments with the business. Treat them like client visits.</li>
+    <li><b>Only Samantha can cancel a block</b>, and a canceled block gets rescheduled inside the same week, never skipped. "It got busy" moves a block, it does not delete it.</li>
+    <li><b>Every visit is logged in the hub's Referrers tab before the shift ends.</b> A visit that is not logged did not happen.</li>
+    <li><b>The scoreboard keeps the score, not memory.</b> The Referrers page shows each person's count against 2, all week. From Wednesday on, anyone behind pace shows up red on Samantha's screen automatically.</li>
+    <li><b>Monday's huddle opens with last week's numbers, out loud.</b> One short week is life. A pattern is a conversation.</li>
+  </ul>
+</div>
+
+</body>
+</html>
