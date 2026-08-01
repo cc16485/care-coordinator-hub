@@ -1380,10 +1380,12 @@ function renderOffers(){
       (o.notes?'<div><b>Notes:</b> '+esc(o.notes)+'</div>':'')+
       '</div>'+
       '<div style="display:flex;gap:.6rem;align-items:center;margin-top:.7rem;flex-wrap:wrap;font-size:.82rem;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.5rem .7rem">'+
-      '<b style="color:#0D365F">Send their start link:</b>'+
-      '<span style="color:#6E6559;font-size:.76rem">references and screening details, so checks start today</span>'+
+      '<b style="color:#0D365F">Start link:</b>'+
+      (o.start_link_sent_at
+        ? '<span style="color:#15803D;font-weight:700;font-size:.78rem">sent automatically when you saved the offer ✓</span>'
+        : '<span style="color:#B45309;font-size:.78rem">not sent yet — send it so reference checks can start</span>')+
       '<span style="flex:1"></span>'+
-      '<button class="fb" onclick="offerStartLink(\''+esc(o.id)+'\',this)">📲 Send</button>'+
+      '<button class="fb" onclick="offerStartLink(\''+esc(o.id)+'\',this)">'+(o.start_link_sent_at?'📲 Send again':'📲 Send')+'</button>'+
       '</div>'+
       '<div id="sl_'+esc(o.id)+'" style="display:none;margin-top:.4rem;background:#fff;border:1px solid #e4e1d8;border-radius:8px;padding:.6rem .7rem;font-size:.8rem"></div>'+
       '<div style="display:flex;gap:.6rem;align-items:center;margin-top:.7rem;flex-wrap:wrap;font-size:.82rem;background:#FAF9F6;border:1px solid #e4e1d8;border-radius:8px;padding:.5rem .7rem">'+
