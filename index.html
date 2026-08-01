@@ -2663,7 +2663,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <details class="guide">
 <summary>📋 How This Tab Works — Step by Step ▼</summary>
 <div class="guide-body">
-<div class="guide-step"><span class="num">1</span>Every active client gets a check-in call (or visit) on the cadence set in Settings (default: every 30 days). The <b>Due This Week</b> and <b>Overdue</b> filters tell you who to call.</div>
+<div class="guide-step"><span class="num">1</span>Every active client gets a check-in call (or visit) on the cadence set in Settings (default: every 30 days). The <b>Due This Week</b> and <b>Overdue</b> filters tell you who to call. <b>This board is Angiel's</b>, new check-ins default to her; anyone can log one they happen to take.</div>
 <div class="guide-step"><span class="num">2</span>Log the check-in — how the client feels about their caregiver, any concerns, and a quick satisfaction rating.</div>
 <div class="guide-step flag"><span class="num">!</span>If a client raises a real concern, toggle <b>Escalated</b> and notify Samantha. Don't let a concern sit in a check-in note unaddressed.</div>
 <div class="guide-step"><span class="num">3</span>The next check-in due date is calculated automatically from today + your cadence setting — adjust it manually if a client needs closer attention.</div>
@@ -2720,7 +2720,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-step"><span class="num">1</span>When a Medicaid In-Home Services lead is referred to the state, record it on the lead: open the lead, fill in the <b>Medicaid IHS — State Submission</b> block (DCN, county, submitted date, status). The lead then appears here automatically.</div>
 <div class="guide-step"><span class="num">2</span>The state's pace is slow and silent, so this board ages every submission: <b>blue</b> is recently submitted, <b>amber at 10 days</b> means follow up soon, <b>red at 21 days</b> means call DSDS now. A referral with no submitted date shows red until it's actually sent.</div>
 <div class="guide-step"><span class="num">3</span>After each follow-up call, update the status and set the next <b>follow-up due</b> date on the lead. When the state authorizes, set the status to <b>Authorized</b>, then run the normal conversion: AxisCare setup, and they land in New Clients for scheduling.</div>
-<div class="guide-step flag"><span class="num">!</span>This board belongs to <b>Angiel</b> (the Medicaid &amp; VA coordinator) — chasing these submissions is part of the afternoon rhythm. CDS-only towns and pure CDS inquiries don't belong here, refer those to caringcds.com and track them in the CDS hub's own submission tracker.</div>
+<div class="guide-step flag"><span class="num">!</span>This board belongs to <b>Angiel</b> (the Medicaid &amp; VA coordinator) — chasing these submissions is part of the afternoon rhythm. CDS-only towns and pure CDS inquiries still don't belong here: Angiel does those intakes too, but on the CDS side, and they ride the CDS hub's own submission tracker.</div>
 </div>
 </details>
 
@@ -4163,7 +4163,7 @@ The HomeTogether team</pre>
 <option>New</option><option>Contacted</option><option>Assessment Scheduled</option><option>Converted</option><option>Lost</option>
 </select>
 </div>
-<div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator" placeholder="auto-fills from funding source"><div class="field-note" style="font-size:10.5px;margin-top:2px;">Private Pay &amp; LTC → Krystal · Medicaid, VA &amp; PACE → Angiel. Auto-fills when blank; override any time.</div></div>
+<div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator" placeholder="auto-fills from funding source"><div class="field-note" style="font-size:10.5px;margin-top:2px;">Private Pay, LTC &amp; PACE → Krystal · Medicaid, VA &amp; CDS → Angiel. Auto-fills when blank; override any time.</div></div>
 <div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
 </div>
 
@@ -6958,11 +6958,14 @@ function renderLeadDocs(){
 }
 
 /* Coordinator books are split by PAYER (Samantha, 2026-08-01): Krystal owns
-   Private Pay (and LTC, which bills private-side); Angiel owns Medicaid, VA
-   (and PACE, a Medicaid program). Ownership stays a label, never a wall —
+   Private Pay, LTC (bills private-side) and PACE (her call, 2026-08-02);
+   Angiel owns Medicaid and VA. Ownership stays a label, never a wall —
    this only pre-fills the Assigned Coordinator when it's left blank. When
-   the Medicaid+VA book grows enough to split, update this map. */
-const PAYER_COORDINATOR={ private:'Krystal', ltc:'Krystal', va:'Angiel', medicaid:'Angiel', pace:'Angiel' };
+   the Medicaid+VA book grows enough to split, update this map.
+   2026-08-02: Angiel also does the CDS intakes (the record still lives on
+   the CDS side; assigning her here just puts the callback in her book)
+   and owns the monthly client check-ins. */
+const PAYER_COORDINATOR={ private:'Krystal', ltc:'Krystal', pace:'Krystal', va:'Angiel', medicaid:'Angiel', cds:'Angiel' };
 
 /* The payor choice re-shapes the lead form: Medicaid opens the state block,
    private-side payors show pricing, CDS throws the refer-out banner. */
@@ -6979,8 +6982,8 @@ function leadPayorUI(){
     ltc:'📄 <b>LTC insurance → Krystal\'s book.</b> Get the carrier and policy number if they have it handy — the LTC Policy tab reads the policy and sets it up as a payor. Bills private-side until benefits kick in.',
     va:'🎖️ <b>VA → Angiel\'s book.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
     medicaid:'🏛️ <b>Medicaid IHS → Angiel\'s book.</b> Get the DCN and county on this call — the State Submission block just opened below, and this lead will ride the State Submissions tracker until DSDS authorizes.',
-    pace:'🧩 <b>PACE → Angiel\'s book.</b> Services flow through their PACE organization — capture the org name in the call notes.',
-    cds:'↪️ <b>CDS is the other company — refer, don\'t intake.</b> Warm-handoff to Caring Companions CDS: <b>(417) 218-2888</b> · caringcds.com. Take name and number, make the connection, then mark this lead <b>Lost</b> with reason "Referred to CDS."'
+    pace:'🧩 <b>PACE → Krystal\'s book.</b> Services flow through their PACE organization — capture the org name in the call notes.',
+    cds:'↪️ <b>CDS → Angiel.</b> CDS is the sister company, but Angiel does the intake herself. If she\'s in, warm-transfer now. If not, take name and number and save this lead, it lands in her book for the callback. She runs the intake on the CDS side (caringcds.com · <b>(417) 218-2888</b>), then marks this lead <b>Lost</b> with reason "Referred to CDS" so the CC pipeline stays clean.'
   };
   hint.innerHTML = v&&H[v] ? '<div class="payor-note'+(v==='cds'?' refer':'')+'">'+H[v]+'</div>' : '';
 }
@@ -7822,7 +7825,9 @@ function openCheckinModal(id){
   document.getElementById('checkin_axiscare_client_id').value = (c&&c.axiscare_client_id)||'';
   document.getElementById('checkin_date').value = (c&&c.checkin_date)||today();
   document.getElementById('checkin_method').value = (c&&c.method)||'Phone';
-  document.getElementById('checkin_coordinator').value = (c&&c.coordinator)||'';
+  // Monthly check-ins are Angiel's (Samantha, 2026-08-02) — new logs default
+  // to her; the field stays editable for the odd one someone else takes.
+  document.getElementById('checkin_coordinator').value = (c&&c.coordinator)||(id?'':'Angiel');
   document.getElementById('checkin_next_due').value = (c&&c.next_checkin_due)||addDays(today(), CONFIG.checkin_cadence);
   document.getElementById('checkin_caregiver_feedback').value = (c&&c.caregiver_feedback)||'';
   document.getElementById('checkin_concerns_raised').value = (c&&c.concerns_raised)||'';
