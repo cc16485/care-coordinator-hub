@@ -217,6 +217,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
      ever wash the name out again, in any embed. */
   header.topbar #navUserName{color:var(--navy) !important;}
   header.topbar #navUserRole{color:var(--text-muted) !important;}
+  /* Needs Attention add-form: three tidy columns instead of a field per
+     screenful (grid2 only grids inside modals/cockpit, so this page needs
+     its own grid). */
+  .ops-add-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 14px;align-items:end;}
+  .ops-add-grid label{margin-top:8px;}
+  @media(max-width:900px){.ops-add-grid{grid-template-columns:1fr;}}
 
   /* KPI cards + pipeline tiles (Overview) */
   .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
@@ -952,13 +958,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <b style="font-size:15px;color:var(--navy);">Add something to the queue</b>
           <span class="field-note">Only things one person must do by a time. Anything else, just talk to them.</span>
         </div>
-        <div class="grid2" style="gap:10px;">
-          <div><label>What needs doing</label>
+        <div class="ops-add-grid">
+          <div style="grid-column:span 2;"><label>What needs doing</label>
             <input id="opsNewTitle" placeholder="Run a background re-check on Dana"></div>
           <div><label>Who owns it</label>
             <select id="opsNewOwner"></select></div>
-        </div>
-        <div class="grid2" style="gap:10px;margin-top:10px;">
           <div><label>Kind</label>
             <select id="opsNewKind">
               <option value="request">Request</option>
@@ -971,11 +975,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
               <option value="today">Today</option>
               <option value="urgent">Urgent, within the hour</option>
             </select></div>
+          <div><label>Which client, if any</label>
+            <input id="opsNewAbout" placeholder="Optional"></div>
+          <div style="grid-column:1/-1;"><label>Anything they need to know</label>
+            <textarea id="opsNewDetail" rows="2" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;" placeholder="Optional"></textarea></div>
         </div>
-        <div style="margin-top:10px;"><label>Which client, if any</label>
-          <input id="opsNewAbout" placeholder="Optional"></div>
-        <div style="margin-top:10px;"><label>Anything they need to know</label>
-          <textarea id="opsNewDetail" rows="2" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;" placeholder="Optional"></textarea></div>
         <div style="margin-top:12px;display:flex;gap:8px;">
           <button class="addlead" onclick="opsAdd()">Add to the queue</button>
           <button class="ghost" onclick="opsToggleAdd()">Cancel</button>
