@@ -1319,9 +1319,10 @@ const OFFER_ATTRS=[
 let OFFERS=[];
 async function loadOffers(btn){
   const box=document.getElementById('offersList');
-  if(!box) return; /* New Offers stayed in the Staffing hub */
+  /* Fetch even with no panel on screen: Background & References reads OFFERS
+     to show Step 1 status without keeping a second copy of it. */
   const key=(appSettings.training_hub_key || (typeof CONFIG!=='undefined' && CONFIG.training_hub_key) || '').trim();
-  if(!key){ box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings first.</div>'; return; }
+  if(!key){ if(box) box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings first.</div>'; return; }
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/rest/v1/rpc/hub_job_offers',{
@@ -1330,9 +1331,9 @@ async function loadOffers(btn){
     const data=await r.json();
     if(!Array.isArray(data)) throw new Error((data&&data.error)||'unexpected response');
     OFFERS=data;
-    renderOffers();
+    if(box) renderOffers();
     updateOffersBadge();
-  }catch(e){ box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not load offers: '+(e&&e.message?e.message:'error')+'</div>'; }
+  }catch(e){ if(box) box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not load offers: '+(e&&e.message?e.message:'error')+'</div>'; }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 function updateOffersBadge(){
@@ -1403,6 +1404,10 @@ function renderOffers(){
               (o.step1_alerted_at?' · flagged as stalled':'')+'</span>'
             : '<span style="color:#A89C8B">waiting on Viventium entry</span>'))+
       '</div>'+
+      '<div style="display:flex;gap:.6rem;align-items:center;margin-top:.5rem;flex-wrap:wrap">'+
+      '<button class="fb" onclick="offerToCandidate(\''+esc(o.id)+'\',this)">➡️ Start background &amp; references</button>'+
+      '<span style="color:#6E6559;font-size:.76rem">moves them across with their references already filled in</span>'+
+      '</div>'+
       '<div style="display:flex;gap:1rem;align-items:center;margin-top:.7rem;flex-wrap:wrap;font-size:.82rem">'+
       '<span><b>Level of care:</b> suggested '+(o.level_suggested||'—')+' at interview</span>'+
       '<label style="display:flex;align-items:center;gap:.4rem">confirmed:'+
@@ -1462,6 +1467,77 @@ function offerCopyLink(btn, url){
   const done = () => { const t = btn.textContent; btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = t, 1600); };
   if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, () => prompt('Copy this link:', url));
   else prompt('Copy this link:', url);
+}
+/* Hand an offer over to Background & References. Everything we already know
+   comes with it, including the references and the out-of-state answer from
+   their start link, so nobody retypes a person who exists one tab away. */
+async function offerToCandidate(offerId, btn){
+  const o = OFFERS.find(x => String(x.id) === String(offerId));
+  if (!o) return;
+  const digits = t => String(t || '').replace(/\D/g, '').slice(-10);
+  const dupe = candidates.find(c =>
+    (digits(c.phone) && digits(c.phone) === digits(o.phone)) ||
+    ((c.first || '').toLowerCase() === String(o.first_name || '').toLowerCase() &&
+     (c.last  || '').toLowerCase() === String(o.last_name  || '').toLowerCase()));
+  if (dupe) {
+    alert(dupe.first + ' ' + dupe.last + ' is already in Background & References.');
+    gotoTab('onboarding'); return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Moving…'; }
+
+  // Their start-link submission, if it has landed yet.
+  let intake = null;
+  try {
+    const { data } = await sb.from('hire_intake').select('*')
+      .order('created_at', { ascending: false }).limit(50);
+    intake = (data || []).find(r =>
+      (digits(r.phone) && digits(r.phone) === digits(o.phone)) ||
+      (r.email && o.email && String(r.email).toLowerCase() === String(o.email).toLowerCase())) || null;
+  } catch (e) { /* table may not exist yet — carry on without it */ }
+
+  const rec = {
+    id: obId++,
+    first: o.first_name || '', last: o.last_name || '',
+    phone: o.phone || '', email: o.email || '',
+    oos: intake ? (intake.lived_outside_mo ? 'yes' : 'no') : '',
+    fp: (intake && intake.lived_outside_mo) ? 'Required' : 'N/A',
+    oig: 'Pending', edl: 'Pending', fcsr: 'Pending',
+    r1s: 'Pending', r2s: 'Pending', r3s: 'Pending', r4s: 'Pending',
+    offer_id: String(o.id),
+    position: o.position || '',
+    notes: 'From the job offer' + (o.offered_by ? ' by ' + o.offered_by : '') +
+           (o.interview_date ? ', interviewed ' + o.interview_date : '') + '.',
+    invite_sent: false, invite_sent_date: '',
+    addedAt: new Date().toISOString(),
+  };
+  (intake && Array.isArray(intake.refs) ? intake.refs : []).slice(0, 4).forEach((r, i) => {
+    const n = i + 1;
+    rec['r' + n + 'n'] = r.name || '';
+    rec['r' + n + '_phone'] = r.phone || '';
+    rec['r' + n + '_email'] = r.email || '';
+    rec['r' + n + '_rel'] = r.relationship || '';
+  });
+  candidates.push(rec);
+  saveCandidates();
+  renderOB(); renderAlerts();
+  gotoTab('onboarding');
+  const gotRefs = (intake && (intake.refs || []).length) || 0;
+  alert(rec.first + ' ' + rec.last + ' is now in Background & References.\n\n' +
+    (gotRefs ? gotRefs + ' reference' + (gotRefs === 1 ? '' : 's') + ' came across from their start link.'
+             : 'No start-link submission found yet, so references are still blank.') +
+    (rec.fp === 'Required' ? '\nThey lived outside Missouri, so a fingerprint check is required.' : ''));
+}
+
+/* Step 1 is Viventium's paperwork and it is what gates orientation, so it
+   belongs in front of whoever is working the checks. Reads the real offer
+   record rather than a second copy that could drift out of step. */
+function step1Chip(c){
+  if (!c.offer_id) return '';
+  const o = OFFERS.find(x => String(x.id) === String(c.offer_id));
+  if (!o) return '';
+  return o.step1_done_at
+    ? '<span class="badge" style="background:#DCFCE7;color:#15803D;font-size:.62rem">&#10003; Step 1 done</span>'
+    : '<button class="ibtn" style="font-size:.62rem;padding:.16rem .5rem;color:#B45309;border-color:#FCD9A8" onclick="event.stopPropagation();markOfferStep1(\'' + c.offer_id + '\',this)">Step 1 pending</button>';
 }
 async function markOfferEntered(id,btn){
   if(btn){btn.disabled=true;btn.textContent='Saving…';}
@@ -3142,6 +3218,7 @@ function renderOB(){
           ${c.not_hired_date?`<span class="sub" style="color:var(--gray)">${fmtD(c.not_hired_date)}</span>`:''}
         `:`
           <span class="badge ${stBadge}">${st}</span>
+          ${step1Chip(c)?`<br><span style="display:inline-block;margin-top:4px;">${step1Chip(c)}</span>`:''}
           ${c.invite_sent?`<br><span class="badge" style="margin-top:4px;background:#e0faf9;color:#0e7490;font-size:.62rem">✉️ Invited ${fmtD(c.invite_sent_date)}</span>`:''}
         `}
       </td>
@@ -5657,6 +5734,7 @@ window.SCX = {loadOffers, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi
 window.loadOffers = loadOffers;
 window.refReport = refReport;
 window.offerStartLink = offerStartLink;
+window.offerToCandidate = offerToCandidate;
 window.offerCopyLink = offerCopyLink;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
