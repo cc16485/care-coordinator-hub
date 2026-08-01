@@ -230,6 +230,46 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .standup-row b{flex:0 0 130px;color:var(--navy);}
   .standup-row .su-closed{flex:1;min-width:150px;color:var(--text-muted);}
   .standup-row > span:nth-of-type(2),.standup-row > span:nth-of-type(3){flex:0 0 118px;}
+  /* ---- GHE form takeover (digital MO 580-2985) ---- */
+  #gheView{display:none;position:fixed;inset:0;background:var(--bg);z-index:46;flex-direction:column;}
+  #gheView.open{display:flex;}
+  .ghe-head{display:flex;align-items:center;gap:10px;padding:10px 18px;background:var(--navy);color:#fff;flex-wrap:wrap;}
+  .ghe-total-chip{background:rgba(255,255,255,.16);border-radius:6px;padding:3px 10px;font-size:13px;}
+  .ghe-total-chip b{color:var(--gold);font-size:15px;}
+  .ghe-body{flex:1;overflow-y:auto;padding:18px 24px 60px;max-width:980px;width:100%;margin:0 auto;background:#fff;}
+  .ghe-sec{background:var(--navy);color:#fff;font-size:13px;font-weight:800;letter-spacing:.03em;padding:7px 12px;border-radius:6px;margin:18px 0 8px;}
+  .ghe-sec span{color:var(--gold);font-size:15px;}
+  .ghe-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 12px;}
+  .ghe-scored{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;}
+  .ghe-scored-title{background:#EEF2F7;font-weight:800;font-size:12.5px;letter-spacing:.03em;padding:6px 12px;color:var(--navy);}
+  .ghe-scored-intro{font-size:12px;color:var(--text-muted);padding:6px 12px;border-bottom:1px solid var(--border);line-height:1.45;}
+  .ghe-scored-fields{display:flex;gap:10px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--border);}
+  .ghe-scored-fields label{margin:0 0 2px;}
+  .ghe-scored-fields > div{flex:1;min-width:160px;}
+  .ghe-row{display:flex;align-items:flex-start;gap:10px;padding:6px 12px;border-top:1px solid var(--border);font-size:13px;line-height:1.4;}
+  .ghe-row:first-of-type{border-top:none;}
+  .ghe-row b{flex:0 0 46px;text-align:right;font-variant-numeric:tabular-nums;}
+  .ghe-row input[type=radio]{width:auto;margin-top:2px;}
+  .ghe-comment{display:flex;gap:8px;align-items:center;padding:6px 12px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text-muted);}
+  .ghe-yn{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13.5px;padding:6px 0;}
+  .ghe-yn label{display:flex;align-items:center;gap:5px;margin:0;font-weight:400;font-size:13px;color:var(--text);}
+  .ghe-yn input[type=radio]{width:auto;}
+  .ghe-yn input:not([type=radio]){flex:1;min-width:160px;}
+  .ghe-sigrow{display:grid;grid-template-columns:1fr 200px;gap:12px;align-items:end;margin-bottom:8px;}
+  canvas.ghe-sig{border:1px solid var(--border);border-radius:8px;background:#fff;width:100%;max-width:420px;height:90px;touch-action:none;display:block;}
+  .ghe-status-chip{display:inline-block;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700;}
+  .nvcase{border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:8px;}
+  .nvcase.open{background:var(--amber-bg);border-color:#FDE68A;}
+  .nvcase-row{display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:13px;flex-wrap:wrap;margin-top:4px;}
+  @media print{
+    body.ghe-printing > *:not(#gheView){display:none !important;}
+    #gheView{display:block !important;position:static !important;}
+    .ghe-noprint,.ghe-head{display:none !important;}
+    .ghe-body{overflow:visible !important;max-width:none;padding:0;}
+    .ghe-sec{background:#0D365F !important;color:#fff !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .ghe-scored{break-inside:avoid;}
+    .ghe-sigrow{break-inside:avoid;}
+  }
 
   /* KPI cards + pipeline tiles (Overview) */
   .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
@@ -728,11 +768,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
 
       <div class="card" id="nvAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
-        <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:8px;">
+        <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1fr;gap:8px;">
           <input id="nvName" placeholder="Client name">
           <input id="nvPhone" placeholder="Phone">
           <input id="nvGhe1" type="month" title="First GHE month">
           <input id="nvGhe2" type="month" title="Second GHE month">
+          <select id="nvNurse" title="Assigned nurse"></select>
         </div>
         <div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
           <label style="font-size:13px;display:flex;gap:6px;align-items:center;"><input type="checkbox" id="nvWeekly" checked> Weekly medication visits</label>
@@ -747,6 +788,41 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <b style="font-size:15px;color:var(--navy);">🩺 GHEs — general health evaluations</b>
         <div class="field-note" style="margin-top:3px;">Green is done, amber is this month, red is a missed window. Anything red is a compliance problem, not a scheduling preference.</div>
         <div id="nvGheList" style="margin-top:10px;"></div>
+      </div>
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">👩‍⚕️ Caseloads — RN oversight</b>
+          <span class="field-note">Every client with nurse needs, grouped by their nurse. Open clients are waiting for a PRN nurse to claim them. Red means that caseload needs the RN's attention.</span>
+        </div>
+        <div id="nvCaseloads" style="margin-top:10px;"></div>
+      </div>
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">📋 GHE forms — digital MO 580-2985</b>
+          <span class="field-note">The nurse completes, signs, and marks it Ready for Fusion. The Medicaid care coordinator uploads it into Fusion and flips it to Uploaded. Getting the GHE done in its month is the coordinator's chase; doing it is the nurse's.</span>
+          <span style="flex:1;"></span>
+          <button class="addlead" onclick="gheNew()">＋ Start a GHE</button>
+        </div>
+        <div id="gheCounters" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;"></div>
+        <div id="gheList" style="margin-top:10px;"></div>
+      </div>
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">🪪 Nurse licenses</b>
+          <span class="field-note">Expiration tracking. Amber at 60 days out, red when expired.</span>
+          <span style="flex:1;"></span>
+          <button class="secondary" onclick="nsToggleAdd()">＋ Add a license</button>
+        </div>
+        <div id="nsAddWrap" style="display:none;margin-top:10px;">
+          <div style="display:grid;grid-template-columns:1.2fr .7fr 1fr 1fr;gap:8px;">
+            <input id="nsName" placeholder="Nurse name">
+            <select id="nsCred"><option>RN</option><option>LPN</option></select>
+            <input id="nsLicense" placeholder="License #">
+            <input id="nsExpires" type="date" title="Expires">
+          </div>
+          <div style="margin-top:8px;"><button class="addlead" onclick="nsAdd()">Save license</button></div>
+        </div>
+        <div id="nsList" style="margin-top:10px;"></div>
       </div>
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <b style="font-size:15px;color:var(--navy);">💊 Weekly medication visits</b>
@@ -3916,6 +3992,135 @@ The HomeTogether team</pre>
   </div><!-- /.appmain -->
 </div>
 
+<!-- ============================= GHE FORM (digital MO 580-2985) =============================
+     Full-page takeover for the semi-annual General Health Evaluation. The
+     scored Level of Care sections are GENERATED from GHE_SECTIONS in the
+     JS so the point math and the markup can never drift apart. Print goes
+     through the browser's print-to-PDF for the Fusion upload.
+     ⚠ Compliance doc: Samantha proofreads section A and any wording against
+     the paper MO 580-2985 (9-2025) before the team relies on it. -->
+<div id="gheView">
+  <div class="ghe-head ghe-noprint">
+    <b style="font-size:15px;white-space:nowrap;">📋 GHE — General Health Evaluation</b>
+    <span class="ghe-total-chip">Total: <b id="gheTotalChip">0</b></span>
+    <select id="ghe_status" style="width:auto;font-size:12.5px;padding:6px 9px;">
+      <option value="draft">Draft</option>
+      <option value="rn_review">Awaiting RN review</option>
+      <option value="ready">Ready for Fusion</option>
+      <option value="uploaded">Uploaded to Fusion</option>
+    </select>
+    <span style="flex:1;"></span>
+    <button class="secondary" onclick="gheClose()">Close</button>
+    <button class="secondary" onclick="ghePrint()">🖨 Print / PDF for Fusion</button>
+    <button class="primary" onclick="gheSave(this)">Save Visit Record</button>
+  </div>
+  <div class="ghe-body">
+    <input type="hidden" id="ghe_id">
+    <div class="ghe-sec">A: PARTICIPANT INFORMATION</div>
+    <div class="ghe-grid3">
+      <div><label>Participant Name</label><input id="ghe_client"></div>
+      <div><label>DCN (Medicaid number)</label><input id="ghe_dcn"></div>
+      <div><label>Date of Birth</label><input type="date" id="ghe_dob"></div>
+      <div><label>Phone</label><input id="ghe_phone"></div>
+      <div style="grid-column:span 2;"><label>Address</label><input id="ghe_address"></div>
+      <div><label>County</label><input id="ghe_county"></div>
+      <div><label>Date of Visit</label><input type="date" id="ghe_visit_date"></div>
+    </div>
+    <div class="ghe-sec">B: PROVIDER NURSE INFORMATION</div>
+    <div class="ghe-grid3">
+      <div><label>Name of Provider Nurse (Last, First, MI)</label><input id="ghe_nurse"></div>
+      <div><label>Name of Provider</label><input id="ghe_provider" value="Caring Companions"></div>
+      <div><label>Provider Phone Number</label><input id="ghe_provider_phone"></div>
+    </div>
+    <div class="ghe-sec">C: REASON FOR NURSE VISIT</div>
+    <div class="checklist" id="ghe_reason_grid" style="gap:4px;display:flex;flex-direction:column;">
+      <label><input type="checkbox" value="ghe"> General Health Evaluation (Semi-Annual Nurse Visits)</label>
+      <label><input type="checkbox" value="train_apc"> Train Advanced Personal Care</label>
+      <label><input type="checkbox" value="eval_apc"> Evaluate/Review Advanced Personal Care</label>
+      <label><input type="checkbox" value="six_apc"> Six (6) Month Review Advanced Personal Care</label>
+      <label><input type="checkbox" value="sig_change"> Significant Change <input id="ghe_sig_change_exp" placeholder="Explain…" style="width:auto;flex:1;"></label>
+      <label><input type="checkbox" value="dsds"> Request from DSDS <input id="ghe_dsds_exp" placeholder="Explain…" style="width:auto;flex:1;"></label>
+      <label><input type="checkbox" value="other"> Other <input id="ghe_other_exp" placeholder="Explain…" style="width:auto;flex:1;"></label>
+    </div>
+    <div class="ghe-sec">D: HEALTH CARE INFORMATION</div>
+    <label style="margin-top:6px;">Primary Health Care Providers</label>
+    <div class="ghe-grid3">
+      <div><input id="ghe_prov1" placeholder="Provider"></div><div><input id="ghe_prov1_role" placeholder="Role"></div><div><input id="ghe_prov1_phone" placeholder="Phone"></div>
+      <div><input id="ghe_prov2" placeholder="Provider"></div><div><input id="ghe_prov2_role" placeholder="Role"></div><div><input id="ghe_prov2_phone" placeholder="Phone"></div>
+      <div><input id="ghe_prov3" placeholder="Provider"></div><div><input id="ghe_prov3_role" placeholder="Role"></div><div><input id="ghe_prov3_phone" placeholder="Phone"></div>
+    </div>
+    <label>Current Diagnoses/Concerns</label><textarea id="ghe_diagnoses" rows="2"></textarea>
+    <label>Recent Hospitalizations, Surgeries, or Procedures</label><textarea id="ghe_hospitalizations" rows="2"></textarea>
+    <label>Any Additional Health Information</label><textarea id="ghe_health_info" rows="2"></textarea>
+    <div class="ghe-sec">E: ALLERGIES AND VITAL SIGNS</div>
+    <label>Allergies</label><input id="ghe_allergies">
+    <div class="ghe-grid3">
+      <div><label>Temperature</label><input id="ghe_temp"></div>
+      <div><label>Heart Rate</label><input id="ghe_hr"></div>
+      <div><label>Respirations</label><input id="ghe_resp"></div>
+      <div><label>Blood Pressure</label><input id="ghe_bp"></div>
+      <div><label>Blood Glucose</label><input id="ghe_glucose"></div>
+      <div><label>A1C</label><input id="ghe_a1c"></div>
+    </div>
+    <div class="ghe-sec">F: CARDIOPULMONARY ASSESSMENT</div>
+    <div class="checkbox-grid" id="ghe_cardio_grid">
+      <label><input type="checkbox" value="cabg"> Coronary Artery Bypass</label>
+      <label><input type="checkbox" value="pitting_edema"> Pitting Edema</label>
+      <label><input type="checkbox" value="pedal_pulse"> Pedal Pulse</label>
+      <label><input type="checkbox" value="central_line"> Central Line</label>
+      <label><input type="checkbox" value="hypertension"> Hypertension</label>
+      <label><input type="checkbox" value="chest_pains"> Chest Pains</label>
+      <label><input type="checkbox" value="pacemaker"> Pacemaker</label>
+      <label><input type="checkbox" value="compression_hose"> Compression Hose — Class: <input id="ghe_hose_class" style="width:70px;"></label>
+    </div>
+    <div class="ghe-sec">G: INTEGUMENTARY ASSESSMENT</div>
+    <div class="radio-group">
+      <label><input type="radio" name="ghe_integ" value="none"> No Concerns</label>
+      <label><input type="radio" name="ghe_integ" value="concerns"> Concerns (indicate any skin tears, abrasions, wounds, decubitus ulcers, etc.)</label>
+    </div>
+    <textarea id="ghe_integ_notes" rows="2" placeholder="Describe any skin concerns and location…"></textarea>
+    <div class="ghe-sec">H: LEVEL OF CARE DETERMINATION</div>
+    <div id="gheScoredHost"></div>
+    <label>Needs assistance with the following: (indicate what help is needed and who is currently helping)</label>
+    <textarea id="ghe_needs_assist" rows="3"></textarea>
+    <div class="ghe-sec" style="display:flex;justify-content:space-between;">TOTAL SCORE <span id="gheTotalBar">0</span></div>
+    <div class="ghe-sec">I: CURRENT AUTHORIZATION REVIEW</div>
+    <div class="ghe-yn">Was the Care Plan Discussed with the Participant?
+      <label><input type="radio" name="ghe_yn_discussed" value="yes"> Yes</label><label><input type="radio" name="ghe_yn_discussed" value="no"> No</label></div>
+    <div class="ghe-yn">Authorized Services Adequately Meet the Needs of the Participant?
+      <label><input type="radio" name="ghe_yn_adequate" value="yes"> Yes</label><label><input type="radio" name="ghe_yn_adequate" value="no"> No</label>
+      <input id="ghe_adequate_exp" placeholder="Explain…"></div>
+    <div class="ghe-yn">Does the Aide Have the Ability to Perform Tasks as Assigned?
+      <label><input type="radio" name="ghe_yn_aide" value="yes"> Yes</label><label><input type="radio" name="ghe_yn_aide" value="no"> No</label></div>
+    <div class="ghe-yn">Does the participant need a care plan change?
+      <label><input type="radio" name="ghe_yn_plan_change" value="yes"> Yes</label><label><input type="radio" name="ghe_yn_plan_change" value="no"> No</label>
+      <input id="ghe_plan_change_exp" placeholder="Explain…"></div>
+    <div class="ghe-yn">Recent change in informal help?
+      <label><input type="radio" name="ghe_yn_informal" value="yes"> Yes</label><label><input type="radio" name="ghe_yn_informal" value="no"> No</label>
+      <input id="ghe_informal_exp" placeholder="Explain…"></div>
+    <label style="text-align:center;display:block;font-size:13px;margin-top:12px;">Safety/Emergency Plan</label>
+    <div class="ghe-yn">Emergency Back-up Plan: <input id="ghe_backup" style="flex:1;">
+      Risk: <label><input type="radio" name="ghe_risk" value="1"> 1 High</label>
+      <label><input type="radio" name="ghe_risk" value="2"> 2 Medium</label>
+      <label><input type="radio" name="ghe_risk" value="3"> 3 Low</label></div>
+    <label>Directions to locate, safety concerns in the home, or additional comments:</label>
+    <textarea id="ghe_directions" rows="2"></textarea>
+    <div class="ghe-sec">J: VETERAN HISTORY</div>
+    <div class="ghe-yn" style="display:block;">Have you ever served on active duty in the Armed Forces of the United States and separated from such service under conditions other than dishonorable?
+      <label><input type="radio" name="ghe_yn_vet" value="yes"> Yes</label><label><input type="radio" name="ghe_yn_vet" value="no"> No</label></div>
+    <div class="ghe-yn" style="display:block;">If yes to the question above, would you like to receive information regarding the agency's veteran services?
+      <label><input type="radio" name="ghe_yn_vet_info" value="yes"> Yes</label><label><input type="radio" name="ghe_yn_vet_info" value="no"> No</label></div>
+    <div class="ghe-sec">SIGNATURES</div>
+    <div class="ghe-sigrow"><div><label>Nurse Signature</label><canvas class="ghe-sig" id="ghe_sig_nurse" width="420" height="90"></canvas><button class="linklike ghe-noprint" onclick="gheSigClear('ghe_sig_nurse')">clear</button></div>
+      <div><label>Date</label><input type="date" id="ghe_sig_nurse_date"></div></div>
+    <div class="ghe-sigrow"><div><label>Participant Signature</label><canvas class="ghe-sig" id="ghe_sig_part" width="420" height="90"></canvas><button class="linklike ghe-noprint" onclick="gheSigClear('ghe_sig_part')">clear</button></div>
+      <div><label>Date</label><input type="date" id="ghe_sig_part_date"></div></div>
+    <div class="ghe-sigrow"><div><label>Supervisory Nurse/Physician Signature</label><canvas class="ghe-sig" id="ghe_sig_sup" width="420" height="90"></canvas><button class="linklike ghe-noprint" onclick="gheSigClear('ghe_sig_sup')">clear</button></div>
+      <div><label>Date</label><input type="date" id="ghe_sig_sup_date"></div></div>
+    <div class="field-note" style="text-align:center;margin:16px 0 30px;">MO 580-2985 (9-2025) — Distribution: Provider, DSDS</div>
+  </div>
+</div>
+
 <!-- ============================= GUIDED CALL COCKPIT =============================
      Full-page takeover for taking a new-lead call. It owns NO form fields:
      on open it borrows the lead modal's leadSec* blocks into the ckpt-slot
@@ -4665,7 +4870,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], sop_library: [], dnr_log: [], care_plan_reviews: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -4779,7 +4984,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','sop_library','dnr_log','care_plan_reviews'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -5539,6 +5744,8 @@ function ccRenderPulse(){
   if(fu) chips.push('<span class="tp-chip alert" onclick="switchTab(\'leads\');switchLeadsSubtab(\'followups\')" title="Lead follow-ups due or overdue — click to open the queue"><b>'+fu+'</b> follow-up'+(fu===1?'':'s')+' due</span>');
   if(late) chips.push('<span class="tp-chip alert" onclick="switchTab(\'ops\')" title="Late in Needs Attention, yours or nobody\'s"><b>'+late+'</b> late in Needs Attention</span>');
   if(ci) chips.push('<span class="tp-chip" onclick="switchTab(\'checkins\')" title="Client check-ins past due"><b>'+ci+'</b> check-in'+(ci===1?'':'s')+' overdue</span>');
+  const gr=(DATA.ghe_forms||[]).filter(g=>g.status==='ready').length;
+  if(gr) chips.push('<span class="tp-chip" onclick="switchTab(\'nursevisits\')" title="Completed GHEs waiting for the coordinator\'s Fusion upload"><b>'+gr+'</b> GHE'+(gr===1?'':'s')+' ready for Fusion</span>');
   box.innerHTML = chips.length ? chips.join('') : '<span class="tp-chip ok">✓ Caught up</span>';
 }
 function renderActiveTab(){
@@ -10208,6 +10415,7 @@ async function nvAdd(){
     ghe1:document.getElementById('nvGhe1').value||null,
     ghe2:document.getElementById('nvGhe2').value||null,
     weekly_meds:document.getElementById('nvWeekly').checked,
+    assigned_nurse:(document.getElementById('nvNurse')||{}).value||'',
     notes:document.getElementById('nvNotes').value.trim(),
     active:true, added_at:new Date().toISOString(),
     added_by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'' };
@@ -10263,7 +10471,296 @@ async function nvComplete(cid,type){
   }
   renderNurseVisits();
 }
+/* ---------------- GHE FORM (digital MO 580-2985) ----------------
+   Ported from her Base44 build. One config drives the scored Level of Care
+   sections; row wording transcribed from the state form as shown in her
+   Base44 screenshots. Records live in shared key 'ghe_forms' with a status
+   pipeline: draft → rn_review → ready → uploaded. */
+const GHE_SECTIONS=[
+ {k:'behavioral',t:'BEHAVIORAL',intro:'Determine if applicant receives monitoring for mental condition, exhibits mood/behavior symptoms, or exhibits psychiatric conditions.',rows:[
+  [0,'Stable mental condition AND no mood or behavior symptoms observed AND no reported psychiatric conditions'],
+  [3,'Stable mental condition monitored by physician OR behavior symptoms exhibited in past but not currently present OR psychiatric conditions exhibited in past, but not recently present'],
+  [6,'Unstable mental condition monitored by physician OR behavior symptoms are currently exhibited or psychiatric conditions are recently exhibited'],
+  [9,'Unstable mental condition monitored by physician AND behavior symptoms are currently exhibited OR psychiatric conditions are currently exhibited']]},
+ {k:'cognition',t:'COGNITION',intro:'Determine if applicant has issues with cognitive skills for daily decision making, memory, disorganized thinking, or ability to understand/be understood.',rows:[
+  [0,'No issues with cognition AND no issues with memory, mental function, or ability to be understood/understand others'],
+  [3,'Displays difficulty making decisions in new situations OR occasionally requires supervision AND has issues with memory, mental function, or ability to be understood/understand others'],
+  [6,'Displays consistent unsafe/poor decision making requiring reminders, cues or supervision at all times AND has issues with memory, mental function, or ability to be understood/understand others'],
+  [9,'Rarely or never has capability to make decisions OR displays consistent unsafe/poor decision making requiring total supervision AND rarely or never understood/able to understand others'],
+  [18,'TRIGGER: No discernible consciousness, coma']]},
+ {k:'mobility',t:'MOBILITY',intro:'Determine primary mode of locomotion and amount of assistance needed with locomotion and bed mobility.',rows:[
+  [0,'No assistance needed OR only set up or supervision needed'],
+  [3,'Limited or moderate assistance needed, i.e. applicant performs more than 50% of tasks independently'],
+  [6,'Maximum assistance needed, i.e. needs two (2) or more individuals or more than 50% weight-bearing assistance OR total dependent for bed mobility'],
+  [18,'TRIGGER: Applicant is bedbound OR totally dependent on others for locomotion']]},
+ {k:'eating',t:'EATING',fields:[['ghe_diet','Diet Ordered by Physician']],rows:[
+  [0,'No assistance needed AND no physician ordered diet'],
+  [3,'Physician ordered therapeutic diet OR set up, supervision, or limited assistance needed with eating'],
+  [6,'Moderate assistance needed with eating, i.e. applicant performs more than 50% of the task independently'],
+  [9,'Maximum assistance needed with eating, i.e. applicant requires an individual to perform more than 50% for assistance'],
+  [18,'TRIGGER: Totally dependent on others']]},
+ {k:'toileting',t:'TOILETING',intro:'Includes actual use of toilet room (or commode, bedpan, or urinal), transferring on/off toilet, cleansing self, adjusting clothes, managing catheters/ostomies, and managing incontinence episodes.',rows:[
+  [0,'No assistance needed OR only set up or supervision needed'],
+  [3,'Limited or moderate assistance needed, i.e. applicant performs more than 50% of tasks independently'],
+  [6,'Maximum assistance needed, i.e. needs two (2) or more individuals, or more than 50% of weight-bearing assistance'],
+  [9,'Total dependence on others']]},
+ {k:'bathing',t:'BATHING',rows:[
+  [0,'No assistance needed OR only set up or supervision needed'],
+  [3,'Limited or moderate assistance needed, i.e. applicant performs more than 50% of tasks independently'],
+  [6,'Maximum assistance, i.e. requires two (2) or more individuals, more than 50% of weight-bearing assistance OR total dependence on others']]},
+ {k:'dressing',t:'DRESSING AND GROOMING',rows:[
+  [0,'No assistance needed OR only set up or supervision needed'],
+  [3,'Limited or moderate assistance needed, i.e. applicant performs more than 50% of tasks independently'],
+  [6,'Maximum assistance, i.e. requires two (2) or more individuals, more than 50% of weight-bearing assistance OR total dependence on others']]},
+ {k:'rehab',t:'REHABILITATIVE SERVICES',fields:[['ghe_rehab_type','Type of Physician-Ordered Rehabilitative Services and Frequency']],rows:[
+  [0,'None of the above therapies ordered'],
+  [3,'Any of the above therapies ordered 1 time per week'],
+  [6,'Any of the above therapies ordered 2-3 times per week'],
+  [9,'Any of the above therapies ordered 4 or more times per week']]},
+ {k:'treatments',t:'TREATMENTS',intro:'Catheter/Ostomy care, alternate modes of nutrition (tube feeding, TPN), suctioning, ventilator/respirator, wound care (skin must be broken).',fields:[['ghe_treat_type','Type of Treatment/Comment']],rows:[
+  [0,'None of the above treatments were ordered by the physician'],
+  [6,'One or more of the above treatments was ordered by the physician requiring daily attention']]},
+ {k:'mealprep',t:'MEAL PREPARATION',rows:[
+  [0,'No assistance needed OR only set up or supervision needed'],
+  [3,'Limited or moderate assistance needed, i.e. applicant performs more than 50% of tasks'],
+  [6,'Maximum assistance, i.e. an individual performs more than 50% of tasks for the applicant OR total dependence on others']]},
+ {k:'medmgmt',t:'MEDICATION MANAGEMENT',rows:[
+  [0,'No assistance needed'],
+  [3,'Set up help needed OR supervision needed OR limited or moderate assistance needed, i.e. applicant performs more than 50% of tasks'],
+  [6,'Maximum assistance needed, i.e. an individual performs more than 50% of tasks for the applicant OR total dependence on others']]},
+ {k:'safety',t:'SAFETY',intro:'Vision impairment, falling, problems with balance. Also considers institutionalization in last 5 years and age ≥75.',fields:[['ghe_last_fall','Date of Last Fall'],['ghe_inst_type','Type of Institutionalization'],['ghe_inst_date','Timeframe/Date Admitted']],rows:[
+  [0,'No difficulty or some difficulty with vision AND no falls in last 90 days AND no recent problems with balance'],
+  [3,'Severe difficulty with vision OR has fallen in last 90 days OR has current problems with balance OR preliminary score of 0 AND Age OR Institutionalization'],
+  [6,'No vision OR has fallen in last 90 days AND has current problems with balance OR Preliminary score of 0 AND Age AND Institutionalization OR Preliminary score of 3 AND Age AND Institutionalization'],
+  [9,'Preliminary score of 6 AND Institutionalization'],
+  [18,'TRIGGER: Preliminary score of 6 AND Age OR Preliminary Score of 3 AND Age AND Institutionalization']]},
+];
+const GHE_STATUS={draft:['Draft','muted'],rn_review:['Awaiting RN review','warn'],ready:['Ready for Fusion','new'],uploaded:['Uploaded to Fusion','ok']};
+function gheV(id){ const el=document.getElementById(id); return el?String(el.value||'').trim():''; }
+function gheSet(id,v){ const el=document.getElementById(id); if(el) el.value=v==null?'':v; }
+function gheRenderScored(){
+  const host=document.getElementById('gheScoredHost'); if(!host||host.dataset.built) return;
+  host.innerHTML=GHE_SECTIONS.map(s=>
+    '<div class="ghe-scored"><div class="ghe-scored-title">'+s.t+'</div>'
+    +(s.intro?'<div class="ghe-scored-intro">'+s.intro+'</div>':'')
+    +(s.fields?'<div class="ghe-scored-fields">'+s.fields.map(f=>'<div><label>'+f[1]+'</label><input id="'+f[0]+'"></div>').join('')+'</div>':'')
+    +'<div class="ghe-comment">COMMENT: <input id="ghe_c_'+s.k+'" placeholder="Optional comment…" style="flex:1;font-weight:400;"></div>'
+    +s.rows.map(r=>'<label class="ghe-row"><input type="radio" name="ghe_s_'+s.k+'" value="'+r[0]+'" onchange="gheTotal()"><b>'+r[0]+' pts</b><span>'+r[1]+'</span></label>').join('')
+    +'</div>').join('');
+  host.dataset.built='1';
+}
+function gheTotal(){
+  let t=0;
+  GHE_SECTIONS.forEach(s=>{ const v=getRadioValue('ghe_s_'+s.k); if(v) t+=parseInt(v,10)||0; });
+  const c=document.getElementById('gheTotalChip'), b=document.getElementById('gheTotalBar');
+  if(c) c.textContent=t; if(b) b.textContent=t;
+  return t;
+}
+/* signature pads — plain canvas, mouse + touch */
+const GHE_SIGS=['ghe_sig_nurse','ghe_sig_part','ghe_sig_sup'];
+let gheSigWired=false;
+function gheWireSigs(){
+  if(gheSigWired) return; gheSigWired=true;
+  GHE_SIGS.forEach(id=>{
+    const cv=document.getElementById(id); if(!cv) return;
+    const ctx=cv.getContext('2d'); let down=false;
+    const pos=e=>{ const r=cv.getBoundingClientRect(); return [(e.clientX-r.left)*(cv.width/r.width),(e.clientY-r.top)*(cv.height/r.height)]; };
+    cv.addEventListener('pointerdown',e=>{ down=true; cv.setPointerCapture(e.pointerId); const [x,y]=pos(e); ctx.beginPath(); ctx.lineWidth=2; ctx.lineCap='round'; ctx.strokeStyle='#16283a'; ctx.moveTo(x,y); e.preventDefault(); });
+    cv.addEventListener('pointermove',e=>{ if(!down) return; const [x,y]=pos(e); ctx.lineTo(x,y); ctx.stroke(); e.preventDefault(); });
+    ['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>{ down=false; cv.dataset.signed='1'; }));
+  });
+}
+function gheSigClear(id){ const cv=document.getElementById(id); cv.getContext('2d').clearRect(0,0,cv.width,cv.height); delete cv.dataset.signed; }
+function gheSigData(id){ const cv=document.getElementById(id); return cv.dataset.signed?cv.toDataURL('image/png'):''; }
+function gheSigLoad(id,data){
+  gheSigClear(id); if(!data) return;
+  const cv=document.getElementById(id), img=new Image();
+  img.onload=()=>{ cv.getContext('2d').drawImage(img,0,0); cv.dataset.signed='1'; };
+  img.src=data;
+}
+function gheOpenView(){
+  gheRenderScored(); gheWireSigs();
+  document.getElementById('gheView').classList.add('open');
+  document.body.style.overflow='hidden';
+  document.querySelector('#gheView .ghe-body').scrollTop=0;
+}
+function gheClose(){
+  document.getElementById('gheView').classList.remove('open');
+  document.body.style.overflow='';
+}
+function gheNew(clientName){
+  gheOpenView();
+  document.querySelectorAll('#gheView input:not([type=radio]):not([type=checkbox]), #gheView textarea').forEach(el=>{ if(el.id!=='ghe_provider') el.value=''; });
+  document.querySelectorAll('#gheView input[type=radio], #gheView input[type=checkbox]').forEach(el=>el.checked=false);
+  GHE_SIGS.forEach(gheSigClear);
+  gheSet('ghe_id',''); gheSet('ghe_provider','Caring Companions');
+  gheSet('ghe_visit_date',today());
+  gheSet('ghe_sig_nurse_date',today()); gheSet('ghe_sig_part_date',today()); gheSet('ghe_sig_sup_date',today());
+  if(clientName){ gheSet('ghe_client',clientName); const nc=(DATA.nurse_clients||[]).find(c=>c.name===clientName); if(nc&&nc.phone) gheSet('ghe_phone',nc.phone); }
+  const gr=document.querySelector('#ghe_reason_grid input[value="ghe"]'); if(gr) gr.checked=true;
+  document.getElementById('ghe_status').value='draft';
+  gheTotal();
+}
+function gheOpen(id){
+  const g=(DATA.ghe_forms||[]).find(x=>x.id===id); if(!g) return;
+  gheNew();
+  gheSet('ghe_id',g.id);
+  const F=g.f||{};
+  Object.keys(F).forEach(k=>{ const el=document.getElementById(k); if(!el) return;
+    if(el.type==='radio'||el.type==='checkbox') return; el.value=F[k]; });
+  (g.checks||[]).forEach(sel=>{ const el=document.querySelector(sel); if(el) el.checked=true; });
+  Object.entries(g.radios||{}).forEach(([name,val])=>{ const el=document.querySelector('input[name="'+name+'"][value="'+val+'"]'); if(el) el.checked=true; });
+  gheSigLoad('ghe_sig_nurse',g.sig_nurse); gheSigLoad('ghe_sig_part',g.sig_part); gheSigLoad('ghe_sig_sup',g.sig_sup);
+  document.getElementById('ghe_status').value=g.status||'draft';
+  gheTotal();
+}
+async function gheSave(btn){
+  const id=gheV('ghe_id')||uid();
+  const f={};
+  document.querySelectorAll('#gheView input:not([type=radio]):not([type=checkbox]):not([type=hidden]), #gheView textarea').forEach(el=>{ if(el.id) f[el.id]=el.value; });
+  const checks=[];
+  document.querySelectorAll('#gheView input[type=checkbox]:checked').forEach(el=>{
+    const grid=el.closest('[id]');
+    checks.push('#'+(grid?grid.id+' ':'')+'input[value="'+el.value+'"]');
+  });
+  const radios={};
+  document.querySelectorAll('#gheView input[type=radio]:checked').forEach(el=>{ radios[el.name]=el.value; });
+  const rec={
+    id, f, checks, radios,
+    client:gheV('ghe_client'), visit_date:gheV('ghe_visit_date'), nurse:gheV('ghe_nurse'),
+    total:gheTotal(), status:document.getElementById('ghe_status').value,
+    sig_nurse:gheSigData('ghe_sig_nurse'), sig_part:gheSigData('ghe_sig_part'), sig_sup:gheSigData('ghe_sig_sup'),
+    created_at:((DATA.ghe_forms||[]).find(x=>x.id===id)||{}).created_at||new Date().toISOString(),
+    updated_at:new Date().toISOString(), updated_by:ME.email||''
+  };
+  gheSet('ghe_id',id);
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  const i=(DATA.ghe_forms||[]).findIndex(x=>x.id===id);
+  if(i<0){ DATA.ghe_forms=DATA.ghe_forms||[]; DATA.ghe_forms.push(rec); } else DATA.ghe_forms[i]=rec;
+  await persist('ghe_forms',rec);
+  if(btn){ btn.disabled=false; btn.textContent='Save Visit Record'; }
+  gheRenderCards();
+}
+function ghePrint(){
+  document.body.classList.add('ghe-printing');
+  window.print();
+  setTimeout(()=>document.body.classList.remove('ghe-printing'),500);
+}
+async function gheSetStatus(id,st){
+  const g=(DATA.ghe_forms||[]).find(x=>x.id===id); if(!g) return;
+  g.status=st; g.updated_at=new Date().toISOString(); g.updated_by=ME.email||'';
+  await persist('ghe_forms',g); gheRenderCards();
+}
+function gheRenderCards(){
+  const box=document.getElementById('gheList'), cts=document.getElementById('gheCounters');
+  if(!box||!cts) return;
+  const rows=(DATA.ghe_forms||[]).slice().sort((a,b)=>(b.visit_date||'').localeCompare(a.visit_date||''));
+  const n=k=>rows.filter(g=>(g.status||'draft')===k).length;
+  cts.innerHTML=Object.entries(GHE_STATUS).map(([k,[label,cls]])=>
+    '<span class="badge '+cls+'">'+n(k)+' '+label+'</span>').join('');
+  if(!rows.length){ box.innerHTML='<div class="field-note">No GHE forms yet. Start one from the button above, or from a due GHE.</div>'; return; }
+  box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr><th style="text-align:left;">Client</th><th style="text-align:left;">Visit</th><th style="text-align:left;">Nurse</th><th>Score</th><th style="text-align:left;">Status</th><th></th></tr></thead><tbody>'
+    +rows.map(g=>{ const st=GHE_STATUS[g.status||'draft']||GHE_STATUS.draft;
+      return '<tr><td style="padding:6px 0;"><b>'+esc(g.client||'(no name)')+'</b></td>'
+      +'<td>'+esc(g.visit_date||'')+'</td><td>'+esc(g.nurse||'')+'</td>'
+      +'<td style="text-align:center;font-weight:700;">'+(g.total==null?'':g.total)+'</td>'
+      +'<td><select onchange="gheSetStatus(\''+g.id+'\',this.value)" style="width:auto;font-size:12px;padding:4px 6px;">'
+      +Object.entries(GHE_STATUS).map(([k,[label]])=>'<option value="'+k+'"'+((g.status||'draft')===k?' selected':'')+'>'+label+'</option>').join('')
+      +'</select></td>'
+      +'<td style="text-align:right;white-space:nowrap;"><button class="linklike" onclick="gheOpen(\''+g.id+'\')">Open</button>'
+      +'<button class="linklike" onclick="gheOpen(\''+g.id+'\');setTimeout(ghePrint,300)">Print</button></td></tr>';
+    }).join('')+'</tbody></table>';
+}
+/* ---------------- Nurse licenses ---------------- */
+function nsToggleAdd(){ const w=document.getElementById('nsAddWrap'); w.style.display=w.style.display==='none'?'block':'none'; }
+async function nsAdd(){
+  const name=gheV('nsName'); if(!name){ alert('Name the nurse first.'); return; }
+  const rec={ id:uid(), name, cred:document.getElementById('nsCred').value, license:gheV('nsLicense'), expires:gheV('nsExpires'), created_at:new Date().toISOString() };
+  DATA.nurse_staff=DATA.nurse_staff||[]; DATA.nurse_staff.push(rec);
+  await persist('nurse_staff',rec);
+  ['nsName','nsLicense','nsExpires'].forEach(id=>gheSet(id,''));
+  nsToggleAdd(); nsRender();
+}
+async function nsDelete(id){ if(!confirm('Remove this license entry?')) return; await removeItem('nurse_staff',id); DATA.nurse_staff=(DATA.nurse_staff||[]).filter(x=>x.id!==id); nsRender(); }
+function nsRender(){
+  const box=document.getElementById('nsList'); if(!box) return;
+  const rows=(DATA.nurse_staff||[]).slice().sort((a,b)=>(a.expires||'9999').localeCompare(b.expires||'9999'));
+  if(!rows.length){ box.innerHTML='<div class="field-note">No licenses tracked yet.</div>'; return; }
+  const t=today(), soon=addDaysISO(t,60);
+  box.innerHTML=rows.map(s=>{
+    const state=!s.expires?['no date','muted']:(s.expires<t?['EXPIRED','bad']:(s.expires<=soon?['expires soon','warn']:['current','ok']));
+    return '<div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">'
+      +'<b style="flex:0 0 160px;">'+esc(s.name)+'</b><span class="badge muted">'+esc(s.cred||'')+'</span>'
+      +'<span style="color:var(--text-muted);">'+esc(s.license||'')+'</span><span style="flex:1;"></span>'
+      +'<span>'+esc(s.expires||'')+'</span><span class="badge '+state[1]+'">'+state[0]+'</span>'
+      +'<button class="linklike" onclick="nsDelete(\''+s.id+'\')">remove</button></div>';
+  }).join('');
+}
+/* ---------------- Caseloads & RN oversight ----------------
+   Her model: clients with nurse needs get entered once; a pool of PRN
+   nurses claims them; the RN watches every caseload from here. Until the
+   nurse-facing portal exists, claiming = the assign dropdown on each row.
+   The office is deliberately NOT the go-between: the nurse calls the
+   client and sets the time herself. */
+function nvNurseNames(){ return (DATA.nurse_staff||[]).map(s=>s.name).filter(Boolean); }
+function nvNurseOptions(){
+  const sel=document.getElementById('nvNurse'); if(!sel) return;
+  sel.innerHTML='<option value="">Open — for a nurse to claim</option>'+nvNurseNames().map(n=>'<option>'+esc(n)+'</option>').join('');
+}
+async function nvAssign(id,name){
+  const c=(DATA.nurse_clients||[]).find(x=>x.id===id); if(!c) return;
+  c.assigned_nurse=name;
+  await persist('nurse_clients',c); renderNurseVisits();
+}
+function nvClientFlags(c){
+  const flags=[];
+  ['ghe1','ghe2'].forEach(w=>{ const st=nvGheState(c,w); if(st&&st.s==='overdue') flags.push('GHE missed'); else if(st&&st.s==='due') flags.push('GHE due'); });
+  if(c.weekly_meds){
+    const thisWeek=nvWeekStart();
+    const done=(DATA.nurse_visits||[]).filter(v=>v.client_id===c.id&&v.type==='meds'&&v.status==='completed');
+    if(!done.find(v=>(v.week||nvWeekStart(v.completed_on))===thisWeek)) flags.push('med visit due');
+  }
+  return flags;
+}
+function nvRenderCaseloads(){
+  const box=document.getElementById('nvCaseloads'); if(!box) return;
+  const clients=(DATA.nurse_clients||[]).filter(c=>c.active!==false);
+  if(!clients.length){ box.innerHTML='<div class="field-note">No nurse clients yet. Add one above with their needs; it lands in the open pool until a nurse claims it.</div>'; return; }
+  const names=nvNurseNames();
+  const groups=[['','🟡 Open — needs a nurse']].concat(names.map(n=>[n,n]));
+  clients.forEach(c=>{ const a=c.assigned_nurse||''; if(a&&!names.includes(a)&&!groups.some(g=>g[0]===a)) groups.push([a,a+' (not in the license list)']); });
+  box.innerHTML=groups.map(([key,label])=>{
+    const mine=clients.filter(c=>(c.assigned_nurse||'')===key);
+    if(!mine.length && key==='') return '';
+    if(!mine.length) return '<div class="nvcase"><div style="display:flex;gap:8px;align-items:center;"><b>'+esc(label)+'</b><span class="field-note">no clients yet</span></div></div>';
+    const anyRed=mine.some(c=>nvClientFlags(c).some(f=>f.includes('missed')));
+    return '<div class="nvcase'+(key===''?' open':'')+'">'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><b>'+esc(label)+'</b>'
+      +'<span class="field-note">'+mine.length+' client'+(mine.length===1?'':'s')+'</span>'
+      +(anyRed?'<span class="badge bad">needs the RN’s attention</span>':'')
+      +'</div>'
+      +mine.map(c=>{
+        const flags=nvClientFlags(c);
+        const needs=[c.weekly_meds?'weekly meds':'',(c.ghe1||c.ghe2)?'GHE':''].filter(Boolean).join(' + ')||'no set needs';
+        return '<div class="nvcase-row"><b>'+esc(c.name)+'</b><span class="field-note">'+esc(needs)+'</span>'
+          +flags.map(f=>'<span class="badge '+(f.includes('missed')?'bad':'warn')+'">'+f+'</span>').join('')
+          +'<span style="flex:1;"></span>'
+          +'<select onchange="nvAssign(\''+c.id+'\',this.value)" style="width:auto;font-size:12px;padding:4px 6px;">'
+          +'<option value="">Open — unclaimed</option>'
+          +names.map(n=>'<option'+((c.assigned_nurse||'')===n?' selected':'')+'>'+esc(n)+'</option>').join('')
+          +'</select></div>';
+      }).join('')
+      +'</div>';
+  }).join('');
+}
+function gheNewFor(clientId){
+  const c=(DATA.nurse_clients||[]).find(x=>x.id===clientId);
+  if(!c){ gheNew(); return; }
+  gheNew(c.name);
+  if(c.assigned_nurse) gheSet('ghe_nurse',c.assigned_nurse);
+}
 function renderNurseVisits(){
+  gheRenderCards(); nsRender(); nvNurseOptions(); nvRenderCaseloads();
   const ghe=document.getElementById('nvGheList'); if(!ghe) return;
   const clients=(DATA.nurse_clients||[]).filter(c=>c.active!==false);
   const nameOf=id=>{ const c=(DATA.nurse_clients||[]).find(x=>x.id===id); return c?c.name:'?'; };
@@ -10277,6 +10774,7 @@ function renderNurseVisits(){
       const act=(st.s==='done')?'' :
         '<div style="margin-top:4px;display:flex;gap:6px;">'
         +(st.s!=='scheduled'?'<button class="ghost" style="padding:2px 9px;font-size:11.5px;" onclick="nvSchedule(\''+c.id+'\',\''+w+'\')">book</button>':'')
+        +'<button class="ghost" style="padding:2px 9px;font-size:11.5px;" onclick="gheNewFor(\''+c.id+'\')">📋 form</button>'
         +'<button class="ghost" style="padding:2px 9px;font-size:11.5px;" onclick="nvComplete(\''+c.id+'\',\''+w+'\')">done</button></div>';
       return '<td style="padding:8px;border-top:1px solid var(--border);background:'+st.bg+';">'
         +'<span style="color:'+st.col+';font-weight:700;font-size:12.5px;">'+st.lbl+'</span>'+act+'</td>';
