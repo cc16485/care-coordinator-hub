@@ -503,6 +503,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
     <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
+    <span style="flex:1"></span>
+    <!-- One hub, one truth, a lens per person: filters Leads, State
+         Submissions, Check-ins, and Active Clients to one coordinator's
+         book. Remembered per browser; Everyone is always one click away. -->
+    <select id="ccViewAs" onchange="ccSetViewAs(this.value)" title="View one coordinator's book" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--navy);font-family:inherit;max-width:160px;align-self:center"></select>
   </div>
   <div class="fsubbar" id="fsub-team">
     <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
@@ -5151,6 +5156,7 @@ function switchTab(tab){
   renderActiveTab();
 }
 function renderActiveTab(){
+  ccRenderViewAs();
   if(activeTab==='recruit') renderPayRates();
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
   if(activeTab==='nursevisits') renderNurseVisits();
@@ -5630,7 +5636,7 @@ function updateLeadsSubtabBadges(){
 function renderLeads(){
   updateLeadsSubtabBadges();
   renderFilterPills('leadsFilters', ['All','New','Contacted','Assessment Scheduled','Converted','Lost','Follow-up Due'], activeFilters.leads, 'leads');
-  let rows = DATA.leads.filter(l => searchMatch(`${l.first_name} ${l.last_name} ${l.phone} ${l.email} ${l.client_first_name||''} ${l.client_last_name||''} ${l.client_phone||''}`));
+  let rows = DATA.leads.filter(l => ccViewMatch(l.assigned_coordinator) && searchMatch(`${l.first_name} ${l.last_name} ${l.phone} ${l.email} ${l.client_first_name||''} ${l.client_last_name||''} ${l.client_phone||''}`));
   const f = activeFilters.leads;
   if(f==='Follow-up Due') rows = rows.filter(l => l.follow_up_due && l.follow_up_due <= today());
   else if(f!=='All') rows = rows.filter(l => l.status === f);
@@ -6660,6 +6666,36 @@ function renderLeadDocs(){
    this only pre-fills the Assigned Coordinator when it's left blank. When
    the Medicaid+VA book grows enough to split, update this map. */
 const PAYER_COORDINATOR={ private:'Krystal', ltc:'Krystal', va:'Angiel', medicaid:'Angiel', pace:'Angiel' };
+
+/* "Viewing" lens — filter the client lifecycle to one coordinator's book.
+   Records with no coordinator on them only appear under Everyone, which is
+   the deliberate nudge to keep assignments filled (auto-fill covers new
+   leads). The selection sticks per browser, so each coordinator's machine
+   can live on her own book with Everyone one click away. */
+let CC_VIEW_AS = localStorage.getItem('cch_view_as') || '';
+function ccViewMatch(name){
+  if(!CC_VIEW_AS) return true;
+  return String(name||'').trim().toLowerCase() === CC_VIEW_AS.toLowerCase();
+}
+function ccSetViewAs(v){
+  CC_VIEW_AS = v || '';
+  localStorage.setItem('cch_view_as', CC_VIEW_AS);
+  renderActiveTab();
+}
+function ccRenderViewAs(){
+  const sel = document.getElementById('ccViewAs'); if(!sel) return;
+  const OWNERS = ['samantha@mo-care.com','zach@mo-care.com'];
+  const names = new Set(Object.values(PAYER_COORDINATOR));
+  (DATA.coordinator_staff||[]).forEach(s=>{
+    if(s.name && !OWNERS.includes((s.email||'').toLowerCase())) names.add(s.name.trim());
+  });
+  sel.innerHTML = '<option value="">Viewing: Everyone</option>'
+    + [...names].sort().map(n=>'<option value="'+escapeHtmlComms(n)+'">Viewing: '+escapeHtmlComms(n)+'</option>').join('');
+  sel.value = CC_VIEW_AS;
+  if(sel.value!==CC_VIEW_AS){ CC_VIEW_AS=''; sel.value=''; }  // stored name no longer exists
+  sel.style.borderColor = CC_VIEW_AS ? 'var(--gold,#F0A830)' : 'var(--border)';
+  sel.style.fontWeight = CC_VIEW_AS ? '700' : '400';
+}
 async function saveLead(){
   // Duplicate-catcher: a NEW lead whose phone matches an existing record is
   // usually the same person calling again — offer the existing profile.
@@ -6939,7 +6975,7 @@ async function markFollowUpSent(id){
 
 /* ---------------- FOLLOW-UP QUEUE (branch dashboard) ---------------- */
 function activeLeadsForQueue(){
-  return DATA.leads.filter(l => l.status!=='Converted' && l.status!=='Lost');
+  return DATA.leads.filter(l => l.status!=='Converted' && l.status!=='Lost' && ccViewMatch(l.assigned_coordinator));
 }
 function branchCounts(){
   const counts = {};
@@ -7297,7 +7333,7 @@ function renderCheckins(){
   renderFilterPills('checkinsFilters', ['All','Due This Week','Overdue','Escalated','Declining Trend'], activeFilters.checkins, 'checkins');
   /* .client_name guard: the shared 'client_checkins' key also holds the Care
      Match records (shaped .client/.caregiver) — they render in their own tab */
-  let rows = DATA.client_checkins.filter(c=>c.client_name && searchMatch(c.client_name));
+  let rows = DATA.client_checkins.filter(c=>c.client_name && searchMatch(c.client_name) && ccViewMatch(c.coordinator));
   const f = activeFilters.checkins;
   if(f==='Overdue') rows = rows.filter(c=>c.next_checkin_due && c.next_checkin_due < today());
   else if(f==='Due This Week') rows = rows.filter(c=>c.next_checkin_due && daysBetween(today(),c.next_checkin_due)>=0 && daysBetween(today(),c.next_checkin_due)<=7);
@@ -7523,7 +7559,9 @@ function getClientRoster(){
 }
 function renderClients(){
   renderFilterPills('clientsFilters', ['All','Has Open Concern','Declining Trend','No Recent Check-in'], activeFilters.clients, 'clients');
-  let rows = getClientRoster().filter(r=>searchMatch(r.client_name));
+  let rows = getClientRoster().filter(r=>searchMatch(r.client_name)
+    && ccViewMatch((r.lead&&r.lead.assigned_coordinator)
+      || (r.checkins&&r.checkins.length ? r.checkins[r.checkins.length-1].coordinator : '')));
   const f = activeFilters.clients;
   if(f==='Has Open Concern') rows = rows.filter(r=>r.checkins.some(c=>c.escalated));
   else if(f==='Declining Trend') rows = rows.filter(r=>clientSatisfactionDeclining(r.client_name));
@@ -9686,7 +9724,7 @@ function renderNurseVisits(){
   window.renderStateSubs=function(){
     const pendBox=document.getElementById('statesubs-pending'), doneBox=document.getElementById('statesubs-resolved');
     if(!pendBox) return;
-    const all=(DATA.leads||[]).filter(l=>(l.state_status||l.state_submitted||l.funding_source==='medicaid') && l.status!=='Lost');
+    const all=(DATA.leads||[]).filter(l=>(l.state_status||l.state_submitted||l.funding_source==='medicaid') && l.status!=='Lost' && ccViewMatch(l.assigned_coordinator));
     const pending=all.filter(l=>!['authorized','denied'].includes(l.state_status||''));
     const resolved=all.filter(l=>['authorized','denied'].includes(l.state_status||''))
       .sort((a,b)=>String(b.state_submitted||'').localeCompare(String(a.state_submitted||''))).slice(0,10);
