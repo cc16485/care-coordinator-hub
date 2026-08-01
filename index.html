@@ -2654,7 +2654,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-step"><span class="num">1</span>When a Medicaid In-Home Services lead is referred to the state, record it on the lead: open the lead, fill in the <b>Medicaid IHS — State Submission</b> block (DCN, county, submitted date, status). The lead then appears here automatically.</div>
 <div class="guide-step"><span class="num">2</span>The state's pace is slow and silent, so this board ages every submission: <b>blue</b> is recently submitted, <b>amber at 10 days</b> means follow up soon, <b>red at 21 days</b> means call DSDS now. A referral with no submitted date shows red until it's actually sent.</div>
 <div class="guide-step"><span class="num">3</span>After each follow-up call, update the status and set the next <b>follow-up due</b> date on the lead. When the state authorizes, set the status to <b>Authorized</b>, then run the normal conversion: AxisCare setup, and they land in New Clients for scheduling.</div>
-<div class="guide-step flag"><span class="num">!</span>CDS-only towns and pure CDS inquiries don't belong here, refer those to caringcds.com and track them in the CDS hub's own submission tracker.</div>
+<div class="guide-step flag"><span class="num">!</span>This board belongs to <b>Angiel</b> (the Medicaid &amp; VA coordinator) — chasing these submissions is part of the afternoon rhythm. CDS-only towns and pure CDS inquiries don't belong here, refer those to caringcds.com and track them in the CDS hub's own submission tracker.</div>
 </div>
 </details>
 
@@ -3890,7 +3890,7 @@ The HomeTogether team</pre>
 <option>New</option><option>Contacted</option><option>Assessment Scheduled</option><option>Converted</option><option>Lost</option>
 </select>
 </div>
-<div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator"></div>
+<div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator" placeholder="auto-fills from funding source"><div class="field-note" style="font-size:10.5px;margin-top:2px;">Private Pay &amp; LTC → Krystal · Medicaid, VA &amp; PACE → Angiel. Auto-fills when blank; override any time.</div></div>
 <div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
 </div>
 
@@ -6654,6 +6654,12 @@ function renderLeadDocs(){
     : '<div class="field-note">Nothing uploaded yet.</div>';
 }
 
+/* Coordinator books are split by PAYER (Samantha, 2026-08-01): Krystal owns
+   Private Pay (and LTC, which bills private-side); Angiel owns Medicaid, VA
+   (and PACE, a Medicaid program). Ownership stays a label, never a wall —
+   this only pre-fills the Assigned Coordinator when it's left blank. When
+   the Medicaid+VA book grows enough to split, update this map. */
+const PAYER_COORDINATOR={ private:'Krystal', ltc:'Krystal', va:'Angiel', medicaid:'Angiel', pace:'Angiel' };
 async function saveLead(){
   // Duplicate-catcher: a NEW lead whose phone matches an existing record is
   // usually the same person calling again — offer the existing profile.
@@ -6713,7 +6719,8 @@ async function saveLead(){
     quoted_price_amount: document.getElementById('lead_quoted_price_amount').value.trim(),
 
     status: document.getElementById('lead_status').value,
-    assigned_coordinator: document.getElementById('lead_assigned_coordinator').value.trim(),
+    assigned_coordinator: document.getElementById('lead_assigned_coordinator').value.trim()
+      || PAYER_COORDINATOR[getRadioValue('lead_funding_source')] || '',
     axiscare_client_id: document.getElementById('lead_axiscare_client_id').value.trim(),
     dcn: document.getElementById('lead_dcn').value.trim(),
     county: document.getElementById('lead_county').value.trim(),
