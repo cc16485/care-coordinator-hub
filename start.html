@@ -66,8 +66,8 @@
 
   <!-- ============ FORM ============ -->
   <div id="formView">
-    <h1 id="greeting">We would love to have you.</h1>
-    <p class="lede">Your official offer letter and new-hire paperwork are on their way. Before they land, there is one quick thing.</p>
+    <h1 id="greeting">Great news.</h1>
+    <p class="lede">We would like to bring you onto the team. Your official offer letter and new-hire paperwork are on their way, and before they land there is one quick thing.</p>
 
     <div class="why">
       <b>Reference checks are the slowest part of hiring</b>, so we start them the same day.
@@ -121,16 +121,18 @@
       <input id="ssn" inputmode="numeric" autocomplete="off" placeholder="000-00-0000" maxlength="11" oninput="ssnFmt(this)">
       <div class="secure">
         <span>🔒</span>
-        <span>Used only to run your Family Care Safety Registry screening. It is stored so that
-        only the office can retrieve it, never shown back inside our system, and deleted once your
-        screening clears. If you would rather give it to us in person at orientation, leave it blank
-        and we will collect it then.</span>
+        <span>Used only to run your Family Care Safety Registry screening, which Missouri requires
+        before anyone can work in a client's home. It is stored so that only the office can retrieve
+        it, it is never shown back inside our system, and it is deleted once your screening clears.</span>
       </div>
     </div>
 
     <div class="card">
       <h2>Your references</h2>
       <p class="sub">Two is enough to get started. Three or four is better and usually faster.</p>
+      <p style="font-size:14.5px;margin:0 0 12px;">They can be <b>professional or personal</b>. A former supervisor, a coworker,
+      a family you cared for, a neighbor, a pastor, anyone who knows you and can speak to your character or your work.
+      The only rule is that they cannot be <b>related to you</b>, so no parents, siblings, spouse, children or grandparents.</p>
       <div id="refs"></div>
       <button type="button" onclick="addRef()" style="background:none;border:1px dashed var(--border);border-radius:8px;padding:10px;width:100%;font:inherit;font-size:14px;color:var(--navy);cursor:pointer;">+ Add another reference</button>
       <div class="tip">Give your references a heads-up that we will reach out. One text from you and they answer, which is usually the difference between starting this week and starting next week.</div>
@@ -189,7 +191,7 @@ g('todayTxt').textContent = todayLong;
 // Prefill from the link the office sends.
 ['first','last','phone','email'].forEach(k => { if (P.get(k)) g(k).value = P.get(k); });
 if (P.get('first')) {
-  g('greeting').textContent = 'We would love to have you, ' + P.get('first') + '.';
+  g('greeting').textContent = 'Great news, ' + P.get('first') + '.';
   g('thanks').textContent = 'Thank you, ' + P.get('first') + '.';
 }
 
@@ -208,13 +210,23 @@ function addRef(){
   d.innerHTML =
     '<b>Reference ' + refCount + '</b>' +
     '<label>Their name</label><input class="rname">' +
-    '<label>How do they know you?</label><input class="rrel" placeholder="Former supervisor, coworker, client family">' +
+    '<label>How do they know you?</label><input class="rrel" placeholder="Former supervisor, coworker, family you cared for, neighbor" oninput="relCheck(this)">' +
+    '<div class="relwarn" style="display:none;font-size:12.5px;color:#B45309;margin-top:4px;">Heads up: references cannot be relatives. Please use someone outside your family.</div>' +
     '<div class="row"><div><label>Phone</label><input class="rphone" type="tel"></div>' +
     '<div><label>Email (if you have it)</label><input class="remail" type="email"></div></div>';
   g('refs').appendChild(d);
 }
 addRef(); addRef();
 
+/* A soft nudge, never a block. Someone typing "sister-in-law" or "Sister Ruth
+   at church" is fine and should not be argued with by a web form. */
+const RELATIVE_WORDS = /\b(mother|mom|father|dad|sister|brother|son|daughter|husband|wife|spouse|grandmother|grandma|grandfather|grandpa|parent|sibling|aunt|uncle|cousin)\b/i;
+function relCheck(el){
+  const warn = el.parentElement.querySelector('.relwarn');
+  const v = el.value;
+  const related = RELATIVE_WORDS.test(v) && !/in.?law|sister\s+[A-Z]/i.test(v);
+  if (warn) warn.style.display = related ? 'block' : 'none';
+}
 function collectRefs(){
   return [...document.querySelectorAll('.refbox')].map(b => ({
     name: b.querySelector('.rname').value.trim(),
@@ -233,6 +245,7 @@ async function submitForm(){
   if (!val('first') || !val('last')) problems.push('your first and last name');
   if (!val('dob')) problems.push('your date of birth');
   if (!g('oos').value) problems.push('whether you have lived outside Missouri');
+  if (val('ssn').replace(/\D/g,'').length !== 9) problems.push('your full social security number');
   if (refs.length < 2) problems.push('at least two references with a phone or email');
   if (!val('sig')) problems.push('your typed signature');
   if (problems.length) {
