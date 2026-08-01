@@ -2541,6 +2541,20 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <button class="primary" onclick="openOrgModal()">＋ Add organization</button>
   </div>
   <div class="kpi-grid" id="refKpis" style="grid-template-columns:repeat(4,1fr);"></div>
+
+  <!-- Field expectation scoreboard: the community-marketing blocks are an
+       EXPECTATION, not an aspiration (Samantha, 2026-08-01: "we get busy and
+       don't go out to market, so we need it structured and forced"). Counts
+       this week's logged face-to-face touches per coordinator against the
+       standing target of 2 field blocks each. -->
+  <div class="card" style="padding:14px 18px;margin-bottom:16px;border-left:4px solid var(--gold, #F0A830);">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+      <b style="font-size:14.5px;font-weight:800;color:var(--navy);">🚗 Field weeks are kept, not found — this week's scoreboard</b>
+      <span class="field-note" style="font-size:11.5px;">Target: 2 logged field outings each, every week. A visit that isn't logged here didn't happen.</span>
+    </div>
+    <div id="refFieldScore" class="field-note">Loading…</div>
+  </div>
+
   <div class="card" style="padding:16px 18px;margin-bottom:16px;">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
       <b style="font-size:15.5px;font-weight:800;color:var(--navy);">📍 Due for Outreach</b>
@@ -6413,6 +6427,21 @@ function renderReferrers(){
       +'</details></div>';
   }).join('');
 }
+/* This week's face-to-face field touches (Mon-start week), counted per
+   coordinator by the email that logged them. Standing target: 2 each.
+   "Behind pace" = fewer than 1 by end of Wednesday, fewer than 2 by Friday
+   — matching the standing blocks (K: Tue/Thu 12–2, A: Wed/Fri 2–4). */
+function fieldWeekCounts(){
+  const d=new Date(); const dow=(d.getDay()+6)%7;
+  d.setDate(d.getDate()-dow); d.setHours(0,0,0,0);
+  const wk=d.toISOString();
+  const f2f=(DATA.referral_activities||[]).filter(a=>(a.at||'')>=wk&&(a.kind==='dropby'||a.kind==='appointment'||a.kind==='event'));
+  const OWNERS=['samantha@mo-care.com','zach@mo-care.com'];
+  const staff=(DATA.coordinator_staff||[]).filter(s=>s.email&&!OWNERS.includes((s.email||'').toLowerCase()));
+  const rows=staff.map(s=>({name:s.name||(s.email||'').split('@')[0],
+    count:f2f.filter(a=>(a.by||'').toLowerCase()===(s.email||'').toLowerCase()).length}));
+  return {rows, total:f2f.length, expectedNow:dow>=4?2:dow>=2?1:0};
+}
 function renderRefDashboard(){
   const esc=escapeHtmlComms;
   const orgs=DATA.referral_orgs||[];
@@ -6430,6 +6459,18 @@ function renderRefDashboard(){
     +kpi('Face-to-Face Visits',f2f,'drop-bys, appointments & events this month','👣','#F7ECCB','#C17A12')
     +kpi('Referrals Received',refLeads,'leads with source "Referral" this month','📥','#E1F1ED','#1F7A8C')
     +kpi('Starts from Referrals',refStarts,'referral leads converted this month','🏠','#E4EDF6','#0D365F');
+  const fsEl=document.getElementById('refFieldScore');
+  if(fsEl){
+    const fs=fieldWeekCounts();
+    fsEl.innerHTML = fs.rows.length
+      ? fs.rows.map(r=>{
+          const done=r.count>=2, behind=!done&&r.count<fs.expectedNow;
+          return '<span style="display:inline-block;margin-right:16px;font-size:13.5px;font-weight:800;color:'+(done?'#1E8449':behind?'var(--red,#DC2626)':'var(--navy)')+'">'
+            +(done?'✅ ':behind?'🔴 ':'· ')+esc(r.name)+' '+r.count+'/2</span>';
+        }).join('')
+        +'<span class="field-note" style="font-size:11.5px;">'+fs.total+' face-to-face touch'+(fs.total===1?'':'es')+' logged this week (drop-bys, appointments, events)</span>'
+      : fs.total+' face-to-face touch'+(fs.total===1?'':'es')+' logged this week. Add the coordinators in ⚙️ Settings → Staff & Notifications to get per-person counts against the 2-a-week expectation.';
+  }
   const now=Date.now();
   const due=orgs.map(o=>{
     const last=orgLastTouch(o.id);
@@ -9267,6 +9308,14 @@ function renderMgrStrip(){
   // Attendance discipline needing HER decision (she makes all final calls).
   const ncnsPending=(DATA.attendance_events||[]).filter(e=>e.type==='ncns'&&!e.action_id);
   ncnsPending.forEach(e=>rows.push(['🚨',esc(e.caregiver)+' — no-call/no-show on '+esc(e.shift_date)+' (immediate termination review per Handbook 2U)','switchTab(\'cgattendance\')']));
+  // Field marketing is an expectation, not an aspiration: surface anyone
+  // behind pace on their 2 weekly community blocks from Wednesday on.
+  try{
+    const fw=fieldWeekCounts();
+    const behind=fw.rows.filter(r=>r.count<fw.expectedNow);
+    if(behind.length)
+      rows.push(['🚗','Field visits behind pace this week: '+behind.map(r=>esc(r.name)+' '+r.count+'/2').join(' · ')+' — the community blocks only work if they happen','switchTab(\'referrers\')']);
+  }catch(e){}
   const wuPending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
   if(wuPending.length)
     rows.push(['📝',wuPending.length+' write-up'+(wuPending.length===1?'':'s')+' awaiting your approval'+(wuPending.some(a=>a.level==='Termination Review')?' — <b style="color:var(--red);">including a termination review</b>':''),'var d=document.getElementById(\'approvalsDetails\');if(d)d.open=true;d&&d.scrollIntoView({behavior:\'smooth\'})']);
