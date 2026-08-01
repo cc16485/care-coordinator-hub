@@ -223,6 +223,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .ops-add-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px 14px;align-items:end;}
   .ops-add-grid label{margin-top:8px;}
   @media(max-width:900px){.ops-add-grid{grid-template-columns:1fr;}}
+  /* Stand-up board rows (Today tab) */
+  .standup-row{display:flex;align-items:center;gap:14px;padding:9px 4px;border-top:1px solid var(--border);font-size:13px;flex-wrap:wrap;}
+  .standup-row:first-child{border-top:none;}
+  .standup-row:hover{background:#FAF9F6;}
+  .standup-row b{flex:0 0 130px;color:var(--navy);}
+  .standup-row .su-closed{flex:1;min-width:150px;color:var(--text-muted);}
+  .standup-row > span:nth-of-type(2),.standup-row > span:nth-of-type(3){flex:0 0 118px;}
 
   /* KPI cards + pipeline tiles (Overview) */
   .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px;}
@@ -773,6 +780,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <span class="field-note" id="myDayCount" style="font-size:12px;"></span>
         </div>
         <div id="myDayList"></div>
+      </div>
+      <div class="card" id="standupCard" style="padding:15px 18px 9px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <svg style="width:20px;height:20px;flex:none;" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg>
+          <b style="font-size:16px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Stand-up</b>
+          <span class="field-note">One row per person: closed, due, late. Click a row to open their book.</span>
+        </div>
+        <div id="standupRows" style="margin-top:6px;"></div>
       </div>
       <div class="card" id="attnCard" style="padding:2px 18px;margin-bottom:16px;display:none;">
         <div id="handoffBanner"></div>
@@ -6568,7 +6583,65 @@ function leadDueRow(l){
     +'<button class="linklike" onclick="openLeadProfile(\''+l.id+'\')">Open</button>'
     +'</div>';
 }
+/* ---------------- Stand-up board (Today tab) ----------------
+   One row per coordinator: what closed, what's due on their book today,
+   what's late. Reads straight down the screen for the huddle. Roster =
+   the Viewing-lens names (book owners + non-owner staff); per-person
+   activity/ops matching needs the person in Coordinator Staff with the
+   email they sign in with — same dependency as the field scoreboard.
+   On Mondays "closed" looks back to Friday, not Sunday. */
+function standupPeople(){
+  const OWNERS=['samantha@mo-care.com','zach@mo-care.com'];
+  const map={};
+  new Set(Object.values(PAYER_COORDINATOR)).forEach(n=>{ map[n]=map[n]||''; });
+  (DATA.coordinator_staff||[]).forEach(s=>{
+    if(!s.name || OWNERS.includes(String(s.email||'').toLowerCase())) return;
+    map[s.name.trim()]=String(s.email||'').toLowerCase();
+  });
+  return Object.keys(map).sort().map(name=>({name, email:map[name]}));
+}
+function standupOpen(name){
+  ccSetViewAs(name||'');
+  switchTab('leads');
+  switchLeadsSubtab('followups');
+}
+function renderStandup(){
+  const host=document.getElementById('standupRows'); if(!host) return;
+  const t=today();
+  const monday=new Date(t+'T00:00:00').getDay()===1;
+  const yd=addDaysISO(t, monday?-3:-1);
+  const ydLabel=monday?'Friday':'yesterday';
+  const openLeads=(DATA.leads||[]).filter(l=>l.status!=='Converted'&&l.status!=='Lost');
+  const checkins=(DATA.client_checkins||[]).filter(c=>c.client_name);
+  let od=[]; try{ od=opsOverdue(); }catch(e){}
+  const row=(label,closedTxt,due,late,name)=>
+    '<div class="standup-row"'+(name!==undefined?' data-n="'+esc(name)+'" onclick="standupOpen(this.dataset.n)" style="cursor:pointer;"':'')+'>'
+    +'<b>'+esc(label)+'</b>'
+    +'<span class="su-closed">'+closedTxt+'</span>'
+    +'<span>'+(due? due+' due today' : '<span style="color:var(--text-muted);">0 due today</span>')+'</span>'
+    +'<span style="'+(late?'color:var(--red);font-weight:700;':'color:var(--green);')+'">'+(late? late+' late' : 'nothing late')+'</span>'
+    +'</div>';
+  const rows=standupPeople().map(p=>{
+    const nm=p.name.toLowerCase(), em=p.email;
+    const mine=v=>String(v||'').trim().toLowerCase()===nm;
+    const late=openLeads.filter(l=>mine(l.assigned_coordinator)&&l.follow_up_due&&l.follow_up_due<t).length
+      + checkins.filter(c=>mine(c.coordinator)&&c.next_checkin_due&&c.next_checkin_due<t).length
+      + od.filter(i=>{const o=String(i.owner||'').toLowerCase();return o&&(o===em||o===nm);}).length;
+    const due=openLeads.filter(l=>mine(l.assigned_coordinator)&&l.follow_up_due===t).length
+      + checkins.filter(c=>mine(c.coordinator)&&c.next_checkin_due===t).length;
+    const closed=(DATA.leads||[]).filter(l=>mine(l.assigned_coordinator)&&l.last_contacted_at===yd).length
+      + checkins.filter(c=>mine(c.coordinator)&&c.checkin_date===yd).length
+      + (DATA.activities||[]).filter(a=>a.done_at&&String(a.done_at).slice(0,10)===yd&&em&&String(a.done_by||'').toLowerCase()===em).length;
+    return row(p.name,'✓ '+closed+' closed '+ydLabel,due,late,p.name);
+  });
+  const uLate=openLeads.filter(l=>!String(l.assigned_coordinator||'').trim()&&l.follow_up_due&&l.follow_up_due<t).length
+    + od.filter(i=>!String(i.owner||'').trim()).length;
+  const uDue=openLeads.filter(l=>!String(l.assigned_coordinator||'').trim()&&l.follow_up_due===t).length;
+  if(uLate||uDue) rows.push(row('Nobody yet','<span style="color:var(--amber);font-weight:700;">needs an owner</span>',uDue,uLate,''));
+  host.innerHTML=rows.join('');
+}
 function renderToday(){
+  renderStandup();
   const t = today();
   const acts = (DATA.activities||[]).filter(a=>!a.done_at);
   const openLeads = DATA.leads.filter(l=>l.status!=='Converted'&&l.status!=='Lost');
