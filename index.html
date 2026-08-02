@@ -2949,7 +2949,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           </div>
           <div class="grid2">
             <div><label>Job title *</label><input id="jp_title" placeholder="Caregiver" oninput="jpSuggestSlug()"></div>
-            <div><label>Page address <span style="font-weight:400;color:var(--text-muted);">mo-care.com/careers/…</span></label><input id="jp_slug" placeholder="caregiver-springfield"></div>
+            <div><label>Page address <span style="font-weight:400;color:var(--text-muted);">mo-care.com/jobs/…</span></label><input id="jp_slug" placeholder="caregiver-springfield"></div>
           </div>
           <div class="grid2">
             <div><label>Employment type</label>
@@ -2984,6 +2984,21 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <label>Benefits</label><textarea id="jp_benefits" rows="2" placeholder="One per line"></textarea>
           <label>Note to ourselves <span style="font-weight:400;color:var(--text-muted);">(never published)</span></label>
           <input id="jp_note" placeholder="e.g. covering Marla's Tuesdays">
+
+          <!-- Indeed takes a feed from us directly and charges nothing for it.
+               The flag is per posting because a role Augusta is still listing
+               must not go out twice: Indeed treats the second one as a
+               duplicate and buries one of them. -->
+          <label style="display:flex;gap:9px;align-items:flex-start;margin-top:14px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:11px 13px;cursor:pointer;">
+            <input type="checkbox" id="jp_indeed" style="width:17px;height:17px;margin-top:2px;accent-color:var(--yellow);">
+            <span>
+              <b style="font-size:13.5px;color:var(--navy);">Send this one to Indeed too</b>
+              <span class="field-note" style="display:block;margin-top:2px;">
+                Only tick this once Augusta has stopped posting the same role. Two listings for one job
+                on one Indeed account split the applicants and one gets buried.
+              </span>
+            </span>
+          </label>
 
           <div id="jp_err" style="display:none;color:var(--red);font-size:13px;margin-top:10px;"></div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
@@ -10789,8 +10804,9 @@ function jpRender(){
       + '<span class="field-note">'+esc((p.city||'Springfield'))+' · '+esc(String(p.employment_type||'').replace('_',' ').toLowerCase())
       + (p.pay_min?' · $'+Number(p.pay_min).toFixed(2)+(p.pay_max?'–$'+Number(p.pay_max).toFixed(2):'')+'/hr':'')+'</span>'
       + (stale(p)?'<span style="font-size:11.5px;font-weight:700;color:#B91C1C;background:#FEE2E2;border-radius:999px;padding:2px 9px;">expired '+esc(p.valid_through)+'</span>':'')
+      + (p.indeed_feed&&p.status==='published'?'<span style="font-size:11.5px;font-weight:700;color:#1D4ED8;background:#DBEAFE;border-radius:999px;padding:2px 9px;">on Indeed</span>':'')
       + '<span style="flex:1;"></span>'
-      + (p.status==='published'?'<a class="fb" style="text-decoration:none;" target="_blank" rel="noopener" href="https://mo-care.com/careers/'+esc(p.slug)+'">View page ↗</a>':'')
+      + (p.status==='published'?'<a class="fb" style="text-decoration:none;" target="_blank" rel="noopener" href="https://mo-care.com/jobs/'+esc(p.slug)+'">View page ↗</a>':'')
       + '<button class="fb" onclick="jpEdit(\''+esc(p.id)+'\')">Edit</button>'
       + '</div>';
   }).join('');
@@ -10810,6 +10826,7 @@ function jpFill(p){
   v('jp_city',p.city); v('jp_valid',p.valid_through); v('jp_summary',p.summary);
   v('jp_desc',p.description); v('jp_resp',p.responsibilities); v('jp_qual',p.qualifications);
   v('jp_benefits',p.benefits); v('jp_note',p.internal_note);
+  const ind=document.getElementById('jp_indeed'); if(ind) ind.checked = !!p.indeed_feed;
   document.getElementById('jp_err').style.display='none';
   const ed=document.getElementById('jpEditor'); ed.style.display='block';
   ed.scrollIntoView({behavior:'smooth',block:'center'});
@@ -12305,7 +12322,8 @@ async function jpSave(status){
     valid_through:g('jp_valid')||null,
     summary:g('jp_summary')||null, responsibilities:g('jp_resp')||null,
     qualifications:g('jp_qual')||null, benefits:g('jp_benefits')||null,
-    internal_note:g('jp_note')||null };
+    internal_note:g('jp_note')||null,
+    indeed_feed: !!(document.getElementById('jp_indeed')||{}).checked };
   const id=g('jp_id');
   try{
     const q = id ? sb.from('job_postings').update(row).eq('id',id)
