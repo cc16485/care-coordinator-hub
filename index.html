@@ -2784,19 +2784,79 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
       </div>
 
-      <!-- Availability belongs to a person, not to the agency. Angiel's Tuesday
-           mornings and Krystal's Thursday afternoons are different things, and
-           an applicant is offered a time when either of them is free. -->
+      <!-- One calendar under interviews, orientations, care assessments and
+           consultations. Availability belongs to a coordinator AND an activity,
+           because Angiel can be free for assessments all day and for interviews
+           only on Tuesday afternoons. -->
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">📅 Who interviews, and when</b>
-          <span class="field-note">applicants are offered these times the moment they finish applying.</span>
+          <b style="font-size:15px;color:var(--navy);">📅 Team calendar &amp; availability</b>
+          <span class="field-note">what each coordinator is free for, and everything already booked.</span>
           <span style="flex:1;"></span>
-          <button class="secondary" onclick="ivAddHost()">＋ Add coordinator</button>
+          <button class="secondary" onclick="ivAddHost()">＋ Coordinator</button>
           <button class="ghost" onclick="ivLoad(this)">↻ Refresh</button>
         </div>
+
+        <div id="ivFilter" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;"></div>
+
         <div id="ivHosts" style="margin-top:12px;"><div class="field-note">Loading…</div></div>
-        <div id="ivBusy" style="margin-top:8px;"></div>
+
+        <!-- Add hours. A form, not a chain of prompts: this is the thing the
+             whole booking system reads, so it has to be quick and hard to fumble. -->
+        <div id="ivHoursForm" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:6px;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+            <b style="font-size:13.5px;color:var(--navy);">Add hours for <span id="ivHoursWho"></span></b>
+          </div>
+          <input type="hidden" id="ivHoursHost">
+          <div class="grid2">
+            <div><label>Available for</label><select id="ivHoursAct"></select></div>
+            <div><label>Day</label><select id="ivHoursDay"></select></div>
+          </div>
+          <div class="grid2">
+            <div><label>From</label><input id="ivHoursFrom" type="time" step="900" value="09:00"></div>
+            <div><label>Until</label><input id="ivHoursTo" type="time" step="900" value="17:00"></div>
+          </div>
+          <div id="ivHoursErr" style="display:none;color:var(--red);font-size:13px;margin-top:6px;"></div>
+          <div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;">
+            <button class="primary" onclick="ivHoursSave(this)">Add these hours</button>
+            <button class="ghost" onclick="ivHoursClose()">Cancel</button>
+            <span class="field-note" style="flex:1 1 200px;">Repeats every week until you remove it.</span>
+          </div>
+        </div>
+
+        <!-- Time off, marketing mornings, events. Anything that means do not
+             offer this time to anybody. -->
+        <div id="ivBlockForm" style="display:none;background:#FFF8E8;border:1px solid #F5D9A0;border-radius:10px;padding:14px 16px;margin-top:6px;">
+          <b style="font-size:13.5px;color:var(--navy);">Block off time</b>
+          <div class="grid2" style="margin-top:6px;">
+            <div><label>Who</label><select id="ivBlockWho"></select></div>
+            <div><label>What is it?</label><input id="ivBlockWhy" placeholder="Annual leave, marketing visits, Chamber event"></div>
+          </div>
+          <div class="grid2">
+            <div><label>First day</label><input id="ivBlockFrom" type="date"></div>
+            <div><label>Last day</label><input id="ivBlockTo" type="date"></div>
+          </div>
+          <label style="display:flex;align-items:center;gap:9px;margin-top:12px;font-size:13.5px;font-weight:600;color:var(--text);">
+            <input type="checkbox" id="ivBlockAllDay" checked onchange="ivBlockToggle()" style="width:17px;height:17px;accent-color:var(--yellow);">
+            The whole of each day
+          </label>
+          <div class="grid2" id="ivBlockTimes" style="display:none;">
+            <div><label>From</label><input id="ivBlockStart" type="time" step="900" value="13:00"></div>
+            <div><label>Until</label><input id="ivBlockEnd" type="time" step="900" value="17:00"></div>
+          </div>
+          <div id="ivBlockErr" style="display:none;color:var(--red);font-size:13px;margin-top:6px;"></div>
+          <div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;">
+            <button class="primary" onclick="ivBlockSave(this)">Block this time</button>
+            <button class="ghost" onclick="ivBlockClose()">Cancel</button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
+          <b style="font-size:14px;color:var(--navy);">On the calendar, next two weeks</b>
+          <span style="flex:1;"></span>
+          <button class="secondary" onclick="ivBlockOff()">🚫 Block off time</button>
+        </div>
+        <div id="ivBusy" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
 
         <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
           <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">Interview length, notice and how far ahead</summary>
@@ -10153,19 +10213,24 @@ function busyLocalISO(dateStr, timeStr, addMinutes){
 
 async function busySync(){
   if(typeof sb === 'undefined' || !sb) return;
+  if(typeof DATA === 'undefined' || !DATA) return;
   const rows = [];
   const cutoff = new Date(Date.now() - 2*86400000);      // yesterday onwards is enough
 
   /* Orientations block everybody: they run in our office and the coordinator
      is in the room. Duration comes from the same setting the calendar sync
      uses, so the two can never disagree. */
-  const orientHours = (typeof getOrientDuration === 'function') ? getOrientDuration()
-    : (parseFloat((appSettings.orient_config||{}).duration) || 2);
+  let orientHours = 2;
+  try {
+    orientHours = (typeof getOrientDuration === 'function') ? getOrientDuration()
+      : (parseFloat(((typeof appSettings !== 'undefined' && appSettings.orient_config) || {}).duration) || 2);
+  } catch (e) { orientHours = 2; }
+  if(!(orientHours > 0)) orientHours = 2;
   ((DATA.orient_sessions)||[]).forEach(s=>{
     if(!s || !s.date || s.cancelled) return;
     const st = busyLocalISO(s.date, s.time || s.start || '10:00');
     if(!st || new Date(st) < cutoff) return;
-    rows.push({ host_id:null, starts_at:st,
+    rows.push({ coordinator_id:null, starts_at:st,
       ends_at: busyLocalISO(s.date, s.time || s.start || '10:00', Math.round(orientHours*60)),
       source:'orientation', source_id:String(s.id ?? s.date+'-'+(s.time||'')),
       label:'Orientation' });
@@ -10179,7 +10244,7 @@ async function busySync(){
     if(!a || !a.date || a.status==='cancelled') return;
     const st = busyLocalISO(a.date, a.time || '10:00');
     if(!st || new Date(st) < cutoff) return;
-    rows.push({ host_id: hostByName[String(a.coordinator||'').trim().toLowerCase()] || null,
+    rows.push({ coordinator_id: hostByName[String(a.coordinator||'').trim().toLowerCase()] || null,
       starts_at:st, ends_at: busyLocalISO(a.date, a.time || '10:00', 90),
       source:'assessment', source_id:String(a.id ?? st),
       label:'Care assessment' + (a.coordinator?' — '+a.coordinator:'') });
@@ -10191,7 +10256,7 @@ async function busySync(){
     if(!b || !b.start || b.status==='cancelled') return;
     const st = new Date(b.start);
     if(isNaN(st) || st < cutoff) return;
-    rows.push({ host_id:null, starts_at: st.toISOString(),
+    rows.push({ coordinator_id:null, starts_at: st.toISOString(),
       ends_at: new Date(st.getTime() + 60*60000).toISOString(),
       source:'consultation', source_id:String(b.id ?? b.start),
       label:'Consultation' + (b.name?' — '+b.name:'') });
@@ -10205,110 +10270,166 @@ async function busySync(){
   }catch(e){ /* table may not exist yet; the slot generator simply sees no blocks */ }
 }
 
-/* ---- Who interviews, and when ---------------------------------------------
-   Requires interview-booking.sql. Availability belongs to a coordinator, so
-   this is a person with blocks of time rather than one agency-wide schedule.
-   An applicant is offered a slot when at least one of them is free. */
+/* ---- Team calendar: who is available for what, and what is already booked --
+   Availability belongs to a coordinator AND an activity, because Angiel can be
+   free for assessments all day and for interviews only Tuesday afternoons.
+   Requires scheduling.sql. */
 const IV_DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-let IV_HOSTS = [], IV_AVAIL = [];
+const IV_DSHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+let IV_HOSTS = [], IV_AVAIL = [], IV_ACTS = [], IV_BUSY = [];
+let ivFilter = 'all';
 
 const ivTime = t => {                       // "14:30:00" -> "2:30 PM"
   const m = String(t||'').match(/^(\d{1,2}):(\d{2})/); if(!m) return t||'';
   let h = +m[1]; const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
   return h + ':' + m[2] + ' ' + ap;
 };
+const ACT_TONE = { interview:['#1D4ED8','#DBEAFE'], orientation:['#7C3AED','#EDE9FE'],
+  assessment:['#B45309','#FEF3C7'], consultation:['#15803D','#DCFCE7'], manual:['#B91C1C','#FEE2E2'] };
+const actLabel = k => k === 'manual' ? 'Blocked'
+  : ((IV_ACTS.find(a=>a.key===k)||{}).label || k);
 
 async function ivLoad(btn){
   const box = document.getElementById('ivHosts'); if(!box) return;
   if(btn){ btn.disabled = true; btn.textContent = '↻ Loading…'; }
   try{
-    const [h, a, s] = await Promise.all([
-      sb.from('interview_hosts').select('*').order('name'),
-      sb.from('interview_availability').select('*'),
-      sb.from('interview_settings').select('*').eq('id',1).maybeSingle(),
+    const [h, a, t] = await Promise.all([
+      sb.from('coordinators').select('*').order('name'),
+      sb.from('coordinator_availability').select('*'),
+      sb.from('activity_types').select('*').order('sort'),
     ]);
     if(h.error) throw h.error;
-    IV_HOSTS = h.data || []; IV_AVAIL = a.data || [];
-    const st = s.data;
-    if(st){
-      const v=(id,val)=>{ const e=document.getElementById(id); if(e) e.value = val==null?'':val; };
-      v('iv_len',st.slot_minutes); v('iv_lead',st.lead_hours); v('iv_horizon',st.horizon_days);
-      v('iv_note',st.note); v('iv_photo',st.photo_url);
-    }
-    ivRender();
-    /* After the hosts are known, so an assessment's coordinator name can be
-       matched to a person rather than blocking everybody. */
-    await busySync();
-    ivRenderBusy();
+    IV_HOSTS = h.data || []; IV_AVAIL = a.data || []; IV_ACTS = t.data || [];
+    ivRenderFilter(); ivRender();
+    /* Deliberately after the roster is on screen and in its own guard: a
+       problem reading somebody else's JSON must never blank this card. */
+    try { await busySync(); } catch (e) { console.warn('busySync skipped:', e); }
+    await ivLoadBusy();
   }catch(e){
     box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load: '
       + escapeHtmlComms(e && e.message || 'error')
-      + '<br>If this mentions a missing table, run <b>job-applicants.sql</b> and then <b>interview-booking.sql</b> in the Supabase SQL editor, in that order.</div>';
+      + '<br>If this mentions a missing table, run <b>job-applicants.sql</b> and then <b>scheduling.sql</b> in the Supabase SQL editor, in that order.</div>';
   }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
+
+function ivRenderFilter(){
+  const el = document.getElementById('ivFilter'); if(!el) return;
+  const pill = (k,l)=>'<button class="fb'+(ivFilter===k?' active':'')+'" style="'
+    + (ivFilter===k?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
+    + '" onclick="ivSetFilter(\''+k+'\')">'+escapeHtmlComms(l)+'</button>';
+  el.innerHTML = pill('all','Everything') + IV_ACTS.map(a=>pill(a.key,a.label)).join('');
+}
+function ivSetFilter(k){ ivFilter = k; ivRenderFilter(); ivRender(); ivRenderBusy(); }
 
 function ivRender(){
   const box = document.getElementById('ivHosts'); if(!box) return;
   const esc = escapeHtmlComms;
   if(!IV_HOSTS.length){
-    box.innerHTML = '<div class="field-note">Nobody is set up to interview yet, so applicants are told we will call them. '
-      + '<b>＋ Add coordinator</b> and give them some hours to start offering times.</div>';
+    box.innerHTML = '<div class="field-note">Nobody is set up yet, so applicants are told we will call them. '
+      + '<b>＋ Add coordinator</b> and give them hours to start offering times.</div>';
     return;
   }
   box.innerHTML = IV_HOSTS.map(h=>{
-    const mine = IV_AVAIL.filter(a=>String(a.host_id)===String(h.id))
-      .sort((x,y)=> x.day_of_week - y.day_of_week || String(x.start_time).localeCompare(String(y.start_time)));
+    let mine = IV_AVAIL.filter(a=>String(a.coordinator_id)===String(h.id));
+    if(ivFilter!=='all') mine = mine.filter(a=>a.activity===ivFilter);
+    mine.sort((x,y)=> String(x.activity).localeCompare(String(y.activity))
+      || x.day_of_week - y.day_of_week || String(x.start_time).localeCompare(String(y.start_time)));
+    const byAct = {};
+    mine.forEach(a=>{ (byAct[a.activity] = byAct[a.activity] || []).push(a); });
     return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;'
       + (h.active?'background:#fff;':'background:#FAF9F6;opacity:.72;') + '">'
       + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">'
       + '<b style="font-size:14.5px;color:var(--navy);">' + esc(h.name) + '</b>'
-      + (h.active?'':'<span style="font-size:11.5px;font-weight:700;color:#6E6559;background:#F4F2ED;border-radius:999px;padding:2px 9px;">not interviewing</span>')
+      + (h.active?'':'<span style="font-size:11.5px;font-weight:700;color:#6E6559;background:#F4F2ED;border-radius:999px;padding:2px 9px;">paused</span>')
       + '<span style="flex:1;"></span>'
       + '<button class="fb" onclick="ivAddBlock(\''+esc(h.id)+'\')">＋ Add hours</button>'
+      + '<button class="fb" onclick="ivBlockOff(\''+esc(h.id)+'\')">🚫 Block off time</button>'
       + '<button class="fb" onclick="ivToggleHost(\''+esc(h.id)+'\','+(h.active?'false':'true')+')">'
         + (h.active?'Pause':'Resume') + '</button>'
       + '</div>'
-      + (mine.length
-          ? '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;">' + mine.map(a=>
-              '<span style="display:inline-flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border);'
-              + 'border-radius:999px;padding:4px 6px 4px 12px;font-size:12.5px;'
-              + (a.active?'':'opacity:.5;text-decoration:line-through;') + '">'
-              + esc(IV_DAYS[a.day_of_week]) + ' ' + esc(ivTime(a.start_time)) + ' – ' + esc(ivTime(a.end_time))
-              + '<button class="fb" style="padding:1px 7px;font-size:11px;" title="Remove"'
-              + ' onclick="ivDelBlock(\''+esc(a.id)+'\')">✕</button></span>').join('') + '</div>'
-          : '<div class="field-note" style="margin-top:7px;">No hours set, so no times are offered for '+esc(h.name)+'.</div>')
+      + (Object.keys(byAct).length
+          ? Object.keys(byAct).map(k=>{
+              const tone = ACT_TONE[k] || ['#6E6559','#F4F2ED'];
+              return '<div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:9px;">'
+                + '<span style="font-size:11.5px;font-weight:800;color:'+tone[0]+';background:'+tone[1]
+                + ';border-radius:999px;padding:2px 10px;min-width:96px;text-align:center;">'+esc(actLabel(k))+'</span>'
+                + byAct[k].map(a=>
+                    '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);'
+                    + 'border-radius:999px;padding:4px 6px 4px 12px;font-size:12.5px;">'
+                    + esc(IV_DSHORT[a.day_of_week]) + ' ' + esc(ivTime(a.start_time)) + '–' + esc(ivTime(a.end_time))
+                    + '<button class="fb" style="padding:1px 7px;font-size:11px;" title="Remove"'
+                    + ' onclick="ivDelBlock(\''+esc(a.id)+'\')">✕</button></span>').join('')
+                + '</div>';
+            }).join('')
+          : '<div class="field-note" style="margin-top:7px;">No hours'
+            + (ivFilter==='all'?'':' for '+esc(actLabel(ivFilter)))
+            + ' set, so nothing is offered for '+esc(h.name)+'.</div>')
       + '</div>';
   }).join('');
 }
 
-/* What else is eating the calendar. Worth showing, because "why are there no
-   Tuesday times" has an answer and it is usually this. */
-async function ivRenderBusy(){
-  const box = document.getElementById('ivBusy'); if(!box) return;
+/* The calendar itself: what is actually on the books, day by day. */
+async function ivLoadBusy(){
   try{
-    const { data, error } = await sb.from('coordinator_busy')
-      .select('*').gte('starts_at', new Date().toISOString()).order('starts_at').limit(200);
+    const from = new Date(); from.setHours(0,0,0,0);
+    const to = new Date(from.getTime() + 14*86400000);
+    const { data, error } = await sb.from('coordinator_busy').select('*')
+      .gte('starts_at', from.toISOString()).lt('starts_at', to.toISOString())
+      .order('starts_at').limit(400);
     if(error) throw error;
-    const rows = data || [];
-    if(!rows.length){ box.innerHTML = '<span class="field-note">Nothing else on the calendar is blocking interview times.</span>'; return; }
-    const byKind = {};
-    rows.forEach(r=>{ byKind[r.source] = (byKind[r.source]||0) + 1; });
-    const name = { orientation:'orientation', assessment:'care assessment', consultation:'consultation', manual:'blocked time' };
-    const parts = Object.keys(byKind).map(k=>
-      byKind[k] + ' ' + (name[k]||k) + (byKind[k]===1?'':'s'));
-    box.innerHTML = '<span class="field-note">Also holding time: <b>' + escapeHtmlComms(parts.join(', '))
-      + '</b>. Those slots are not offered to applicants.</span>';
+    IV_BUSY = data || [];
+    ivRenderBusy();
   }catch(e){
-    box.innerHTML = '<span class="field-note">Run <b>coordinator-busy.sql</b> so orientations and assessments stop interview times being offered twice.</span>';
+    const el = document.getElementById('ivBusy');
+    if(el) el.innerHTML = '<div class="field-note">Run <b>scheduling.sql</b> to see the calendar here.</div>';
   }
 }
 
+function ivRenderBusy(){
+  const box = document.getElementById('ivBusy'); if(!box) return;
+  const esc = escapeHtmlComms;
+  const nameOf = id => (IV_HOSTS.find(h=>String(h.id)===String(id))||{}).name || 'Everyone';
+  let rows = IV_BUSY.slice();
+  if(ivFilter!=='all') rows = rows.filter(r=>r.source===ivFilter);
+  if(!rows.length){
+    box.innerHTML = '<div class="field-note">Nothing on the calendar for the next two weeks'
+      + (ivFilter==='all'?'':' for '+esc(actLabel(ivFilter))) + '.</div>';
+    return;
+  }
+  const fmtT = iso => new Date(iso).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const byDay = new Map();
+  rows.forEach(r=>{
+    const d = new Date(r.starts_at);
+    const key = d.toDateString();
+    if(!byDay.has(key)) byDay.set(key, { label: d.toLocaleDateString('en-US',
+      {weekday:'long', month:'short', day:'numeric'}), items: [] });
+    byDay.get(key).items.push(r);
+  });
+  box.innerHTML = [...byDay.values()].map(day =>
+    '<div style="margin:0 0 10px;">'
+    + '<div style="font-size:12.5px;font-weight:700;color:var(--navy);margin:0 0 5px;">'+esc(day.label)+'</div>'
+    + day.items.map(r=>{
+        const tone = ACT_TONE[r.source] || ['#6E6559','#F4F2ED'];
+        return '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:12.5px;padding:4px 0;">'
+          + '<span style="min-width:118px;color:#6E6559;font-variant-numeric:tabular-nums;">'
+            + esc(fmtT(r.starts_at)) + '–' + esc(fmtT(r.ends_at)) + '</span>'
+          + '<span style="font-size:11px;font-weight:800;color:'+tone[0]+';background:'+tone[1]
+            + ';border-radius:999px;padding:1px 9px;">'+esc(actLabel(r.source))+'</span>'
+          + '<span>'+esc(r.label||'')+'</span>'
+          + '<span style="color:#A89C8B;">'+esc(nameOf(r.coordinator_id))+'</span>'
+          + '<span style="flex:1;"></span>'
+          + (r.source==='manual' ? '<button class="fb" style="padding:1px 8px;font-size:11px;" onclick="ivUnblock(\''+esc(r.id)+'\')">Remove</button>' : '')
+          + '</div>';
+      }).join('')
+    + '</div>').join('');
+}
+
 async function ivAddHost(){
-  const name = prompt('Which coordinator interviews?\n\nTheir name as applicants would hear it.');
+  const name = prompt('Which coordinator?\n\nTheir name as clients and applicants would hear it.');
   if(name===null) return;
   if(!name.trim()){ alert('It needs a name.'); return; }
   try{
-    const { error } = await sb.from('interview_hosts').insert({ name: name.trim() });
+    const { error } = await sb.from('coordinators').insert({ name: name.trim() });
     if(error) throw error;
     await ivLoad();
   }catch(e){ alert('Could not add them: '+(e&&e.message||'error')); }
@@ -10316,54 +10437,148 @@ async function ivAddHost(){
 
 async function ivToggleHost(id, active){
   try{
-    const { error } = await sb.from('interview_hosts').update({ active }).eq('id', id);
+    const { error } = await sb.from('coordinators').update({ active }).eq('id', id);
     if(error) throw error;
     await ivLoad();
   }catch(e){ alert('Could not change that: '+(e&&e.message||'error')); }
 }
 
-/* Asked as three plain questions rather than a form, because adding hours is
-   something you do once in a while and a modal for it would be overkill. */
-async function ivAddBlock(hostId){
-  const dayIn = prompt('Which day?\n\n0 Sunday · 1 Monday · 2 Tuesday · 3 Wednesday · 4 Thursday · 5 Friday · 6 Saturday', '2');
-  if(dayIn===null) return;
-  const day = parseInt(dayIn,10);
-  if(!(day>=0 && day<=6)){ alert('That needs to be a number from 0 to 6.'); return; }
-  const from = prompt('From what time? Use 24-hour, so 9am is 09:00 and 1pm is 13:00.', '10:00');
-  if(from===null) return;
-  const to = prompt('Until what time?', '15:00');
-  if(to===null) return;
-  const ok = t => /^([01]?\d|2[0-3]):[0-5]\d$/.test(String(t).trim());
-  if(!ok(from) || !ok(to)){ alert('Times need to look like 09:00 or 14:30.'); return; }
-  if(String(to).trim() <= String(from).trim()){ alert('The end has to be after the start.'); return; }
+function ivHoursClose(){ document.getElementById('ivHoursForm').style.display='none'; }
+function ivBlockClose(){ document.getElementById('ivBlockForm').style.display='none'; }
+function ivBlockToggle(){
+  document.getElementById('ivBlockTimes').style.display =
+    document.getElementById('ivBlockAllDay').checked ? 'none' : 'grid';
+}
+
+function ivAddBlock(hostId){
+  const h = IV_HOSTS.find(x=>String(x.id)===String(hostId));
+  ivBlockClose();
+  document.getElementById('ivHoursHost').value = hostId;
+  document.getElementById('ivHoursWho').textContent = h ? h.name : '';
+  document.getElementById('ivHoursAct').innerHTML =
+    (IV_ACTS.length?IV_ACTS:[{key:'interview',label:'Interview'}])
+      .map(a=>'<option value="'+escapeHtmlComms(a.key)+'">'+escapeHtmlComms(a.label)+'</option>').join('');
+  document.getElementById('ivHoursDay').innerHTML =
+    IV_DAYS.map((d,i)=>'<option value="'+i+'"'+(i===2?' selected':'')+'>'+d+'</option>').join('');
+  document.getElementById('ivHoursErr').style.display='none';
+  const f = document.getElementById('ivHoursForm');
+  f.style.display='block';
+  f.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+async function ivHoursSave(btn){
+  const g = id => document.getElementById(id);
+  const err = g('ivHoursErr');
+  const from = g('ivHoursFrom').value, to = g('ivHoursTo').value;
+  if(!from || !to){ err.textContent='Give a start and an end time.'; err.style.display='block'; return; }
+  if(to <= from){ err.textContent='The end has to be after the start.'; err.style.display='block'; return; }
+  err.style.display='none';
+  btn.disabled = true; btn.textContent = 'Adding…';
   try{
-    const { error } = await sb.from('interview_availability').insert({
-      host_id: hostId, day_of_week: day, start_time: from.trim(), end_time: to.trim() });
+    const { error } = await sb.from('coordinator_availability').insert({
+      coordinator_id: g('ivHoursHost').value, activity: g('ivHoursAct').value,
+      day_of_week: parseInt(g('ivHoursDay').value,10), start_time: from, end_time: to });
     if(error) throw error;
+    ivHoursClose();
     await ivLoad();
-  }catch(e){ alert('Could not add those hours: '+(e&&e.message||'error')); }
+  }catch(e){
+    err.textContent = 'Could not add those hours: ' + (e&&e.message||'error');
+    err.style.display='block';
+  }finally{ btn.disabled=false; btn.textContent='Add these hours'; }
 }
 
 async function ivDelBlock(id){
   const a = IV_AVAIL.find(x=>String(x.id)===String(id));
-  const label = a ? IV_DAYS[a.day_of_week]+' '+ivTime(a.start_time)+' – '+ivTime(a.end_time) : 'these hours';
-  if(!confirm('Remove '+label+'?\n\nInterviews already booked in that time stay booked.')) return;
+  const label = a ? actLabel(a.activity)+' '+IV_DSHORT[a.day_of_week]+' '+ivTime(a.start_time)+'–'+ivTime(a.end_time) : 'these hours';
+  if(!confirm('Remove '+label+'?\n\nAnything already booked in that time stays booked.')) return;
   try{
-    const { error } = await sb.from('interview_availability').delete().eq('id', id);
+    const { error } = await sb.from('coordinator_availability').delete().eq('id', id);
     if(error) throw error;
     await ivLoad();
   }catch(e){ alert('Could not remove that: '+(e&&e.message||'error')); }
 }
 
+/* Holiday, a marketing morning, an event. Anything meaning "do not offer this
+   time to anybody", written into the same layer every slot search reads. */
+function ivBlockOff(hostId){
+  ivHoursClose();
+  const sel = document.getElementById('ivBlockWho');
+  sel.innerHTML = '<option value="">Everyone</option>'
+    + IV_HOSTS.map(h=>'<option value="'+escapeHtmlComms(h.id)+'"'
+      + (String(h.id)===String(hostId)?' selected':'') + '>'+escapeHtmlComms(h.name)+'</option>').join('');
+  const t = today();
+  document.getElementById('ivBlockFrom').value = t;
+  document.getElementById('ivBlockTo').value = t;
+  document.getElementById('ivBlockWhy').value = '';
+  document.getElementById('ivBlockAllDay').checked = true;
+  ivBlockToggle();
+  document.getElementById('ivBlockErr').style.display='none';
+  const f = document.getElementById('ivBlockForm');
+  f.style.display='block';
+  f.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+async function ivBlockSave(btn){
+  const g = id => document.getElementById(id);
+  const err = g('ivBlockErr');
+  const why = g('ivBlockWhy').value.trim();
+  const from = g('ivBlockFrom').value, to = g('ivBlockTo').value || g('ivBlockFrom').value;
+  const allDay = g('ivBlockAllDay').checked;
+  const s = allDay ? '00:00' : g('ivBlockStart').value;
+  const e = allDay ? '24:00' : g('ivBlockEnd').value;   // midnight the next day, so no gap
+  if(!why){ err.textContent='Give it a name, so the calendar makes sense in a month.'; err.style.display='block'; return; }
+  if(!from){ err.textContent='Pick a first day.'; err.style.display='block'; return; }
+  if(to < from){ err.textContent='The last day is before the first day.'; err.style.display='block'; return; }
+  if(!allDay && (!s || !e || e <= s)){ err.textContent='The end time has to be after the start time.'; err.style.display='block'; return; }
+  err.style.display='none';
+  btn.disabled = true; btn.textContent = 'Blocking…';
+
+  const hostId = g('ivBlockWho').value || null;
+  const who = IV_HOSTS.find(x=>String(x.id)===String(hostId));
+  const rows = [];
+  const d0 = new Date(from+'T00:00:00'), d1 = new Date(to+'T00:00:00');
+  for(let d = new Date(d0); d <= d1; d.setDate(d.getDate()+1)){
+    const ymd = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    rows.push({ coordinator_id: hostId, source: 'manual',
+      source_id: 'manual-'+(hostId||'all')+'-'+ymd+'-'+s,
+      starts_at: new Date(ymd+'T'+s+':00').toISOString(),
+      ends_at:   (e === '24:00'
+                    ? new Date(new Date(ymd+'T00:00:00').getTime() + 86400000)
+                    : new Date(ymd+'T'+e+':00')).toISOString(),
+      label: why + (who ? ' — '+who.name : ' — everyone') });
+  }
+  try{
+    const { error } = await sb.from('coordinator_busy').upsert(rows, { onConflict: 'source,source_id' });
+    if(error) throw error;
+    ivBlockClose();
+    await ivLoadBusy();
+  }catch(e){
+    err.textContent = 'Could not block that time: ' + (e&&e.message||'error');
+    err.style.display='block';
+  }finally{ btn.disabled=false; btn.textContent='Block this time'; }
+}
+
+async function ivUnblock(id){
+  if(!confirm('Remove this blocked time?\n\nThose slots become bookable again.')) return;
+  try{
+    const { error } = await sb.from('coordinator_busy').delete().eq('id', id);
+    if(error) throw error;
+    await ivLoadBusy();
+  }catch(e){ alert('Could not remove it: '+(e&&e.message||'error')); }
+}
+
 async function ivSaveSettings(btn){
-  const n = id => { const v = (document.getElementById(id).value||'').trim(); return v===''?null:parseInt(v,10); };
-  const t = id => { const v = (document.getElementById(id).value||'').trim(); return v===''?null:v; };
-  const row = { slot_minutes: n('iv_len') || 30, lead_hours: n('iv_lead') ?? 20,
-                horizon_days: n('iv_horizon') || 14, note: t('iv_note'), photo_url: t('iv_photo') };
+  const t = id => { const e=document.getElementById(id); const v=(e&&e.value||'').trim(); return v===''?null:v; };
+  const n = id => { const v = t(id); return v===null?null:parseInt(v,10); };
   if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   try{
-    const { error } = await sb.from('interview_settings').update(row).eq('id', 1);
-    if(error) throw error;
+    const a = await sb.from('activity_types')
+      .update({ minutes: n('iv_len') || 30, lead_hours: n('iv_lead') ?? 20, horizon_days: n('iv_horizon') || 14 })
+      .eq('key','interview');
+    if(a.error) throw a.error;
+    const s = await sb.from('scheduling_settings')
+      .update({ note: t('iv_note'), photo_url: t('iv_photo') }).eq('id', 1);
+    if(s.error) throw s.error;
     if(btn) btn.textContent = 'Saved ✓';
     setTimeout(()=>{ if(btn){ btn.disabled=false; btn.textContent='Save'; } }, 1400);
   }catch(e){
