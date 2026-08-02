@@ -465,7 +465,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   /* The offer form was written for two columns but .grid2 was only ever
      defined inside modals, so every field stretched the full width of the
      screen. A 1400px box for a first name is why this tab read as a wall. */
-  #tab-offers .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;}
+  #tab-offers .grid2,#tab-recruit .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;}
+  #jpEditor{max-width:860px;}
   #joForm{max-width:860px;}                 /* forms stop being readable past this */
   .jo-sec{border-top:1px solid var(--border);margin-top:20px;padding-top:14px;}
   .jo-sec:first-of-type{border-top:none;margin-top:6px;padding-top:0;}
@@ -2703,6 +2704,71 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <span style="flex:1;"></span>
         <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">🌱 Open Augusta ↗</a>
+      </div>
+
+      <!-- Postings we own. Augusta's pages are the ones Google indexes today,
+           which is why the listing costs money. These publish to
+           mo-care.com/careers with the structured data Google reads for free. -->
+      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">📣 Our own job postings</b>
+          <span class="field-note">published to mo-care.com/careers, where Google for Jobs can find them.</span>
+          <span style="flex:1;"></span>
+          <button class="secondary" onclick="jpNew()">＋ New posting</button>
+          <button class="ghost" onclick="jpLoad(this)">↻ Refresh</button>
+        </div>
+        <div id="jpList" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
+
+        <!-- Editor. Hidden until you open a posting. -->
+        <div id="jpEditor" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+          <input type="hidden" id="jp_id">
+          <div class="grid2">
+            <div><label>Job title *</label><input id="jp_title" placeholder="Caregiver" oninput="jpSuggestSlug()"></div>
+            <div><label>Page address <span style="font-weight:400;color:var(--text-muted);">mo-care.com/careers/…</span></label><input id="jp_slug" placeholder="caregiver-springfield"></div>
+          </div>
+          <div class="grid2">
+            <div><label>Employment type</label>
+              <select id="jp_type">
+                <option value="PART_TIME">Part time</option>
+                <option value="FULL_TIME">Full time</option>
+                <option value="PER_DIEM">PRN / as needed</option>
+                <option value="TEMPORARY">Temporary</option>
+                <option value="CONTRACTOR">Contractor</option>
+              </select></div>
+            <div><label>Openings</label><input id="jp_openings" inputmode="numeric" placeholder="1"></div>
+          </div>
+          <div class="grid2">
+            <div><label>Pay from ($/hr)</label><input id="jp_paymin" inputmode="decimal" placeholder="15.00"></div>
+            <div><label>Pay to ($/hr)</label><input id="jp_paymax" inputmode="decimal" placeholder="17.50"></div>
+          </div>
+          <div class="field-note" style="margin:-2px 0 8px;">Google shows pay when you give it, and postings with pay get more applicants. Use the approved rates below.</div>
+          <div class="grid2">
+            <div><label>City</label><input id="jp_city" placeholder="Springfield"></div>
+            <div><label>Posting expires</label><input id="jp_valid" type="date"></div>
+          </div>
+          <div class="field-note" style="margin:-2px 0 10px;">Google drops postings past their expiry, so keep it a few months out and push it forward when the role is still open.</div>
+
+          <label>One-line summary <span style="font-weight:400;color:var(--text-muted);">(shown on the careers index)</span></label>
+          <input id="jp_summary" placeholder="Flexible day shifts caring for seniors in their own homes.">
+          <label>The advert *</label>
+          <textarea id="jp_desc" rows="6" placeholder="What the job is, who it suits, what a shift looks like. Write it the way you would say it."></textarea>
+          <div class="grid2">
+            <div><label>Responsibilities</label><textarea id="jp_resp" rows="4" placeholder="One per line"></textarea></div>
+            <div><label>Qualifications</label><textarea id="jp_qual" rows="4" placeholder="One per line"></textarea></div>
+          </div>
+          <label>Benefits</label><textarea id="jp_benefits" rows="2" placeholder="One per line"></textarea>
+          <label>Note to ourselves <span style="font-weight:400;color:var(--text-muted);">(never published)</span></label>
+          <input id="jp_note" placeholder="e.g. covering Marla's Tuesdays">
+
+          <div id="jp_err" style="display:none;color:var(--red);font-size:13px;margin-top:10px;"></div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
+            <button class="primary" onclick="jpSave('published')">Save &amp; publish</button>
+            <button class="secondary" onclick="jpSave('draft')">Save as draft</button>
+            <button class="ghost" onclick="jpCancel()">Cancel</button>
+            <span style="flex:1;"></span>
+            <button class="ghost" style="color:var(--red);" onclick="jpClose()">Close this role</button>
+          </div>
+        </div>
       </div>
 
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
@@ -6167,7 +6233,7 @@ function renderActiveTab(){
   ccRenderViewAs();
   ccRenderPulse();
   nurseModeCheck();
-  if(activeTab==='recruit') renderPayRates();
+  if(activeTab==='recruit'){ renderPayRates(); jpLoad(); }
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
@@ -9940,6 +10006,138 @@ function offView(name){
   });
   if(name==='new') joInit();
   if(name==='past' && window.renderPastOffers) renderPastOffers();
+}
+
+/* ---------------- Job postings we own -------------------------------------
+   Augusta's pages are what Google indexes today, which is most of what the
+   $340 buys. These publish to mo-care.com/careers carrying the JobPosting
+   structured data Google for Jobs reads, which costs nothing.
+   Requires job-postings.sql. -------------------------------------------- */
+let JP = [];
+
+const jpSlugify = t => String(t||'').toLowerCase().trim()
+  .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);
+
+async function jpLoad(btn){
+  const box = document.getElementById('jpList'); if(!box) return;
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    const { data, error } = await sb.from('job_postings').select('*')
+      .order('status').order('date_posted',{ascending:false});
+    if(error) throw error;
+    JP = data || [];
+    jpRender();
+  }catch(e){
+    box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load postings: '
+      + escapeHtmlComms(e && e.message || 'error')
+      + '<br>If this mentions a missing table, run <b>job-postings.sql</b> in the Supabase SQL editor.</div>';
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+
+function jpRender(){
+  const box = document.getElementById('jpList'); if(!box) return;
+  const esc = escapeHtmlComms;
+  if(!JP.length){
+    box.innerHTML = '<div class="field-note">No postings yet. <b>＋ New posting</b> writes one that Google can index, '
+      + 'which is the part Augusta is doing for you today.</div>';
+    return;
+  }
+  const tone = { published:['#15803D','#DCFCE7','Live'], draft:['#B45309','#FEF3C7','Draft'], closed:['#6E6559','#F4F2ED','Closed'] };
+  /* An expiry in the past means Google has already dropped it, so it is worth
+     saying out loud rather than leaving someone to wonder where it went. */
+  const stale = p => p.valid_through && p.status==='published' && p.valid_through < today();
+  box.innerHTML = JP.map(p=>{
+    const t = tone[p.status] || tone.draft;
+    return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.55rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
+      + '<span style="font-size:11.5px;font-weight:800;color:'+t[0]+';background:'+t[1]+';border-radius:999px;padding:2px 9px;min-width:52px;text-align:center;">'+t[2]+'</span>'
+      + '<b style="color:var(--navy);">'+esc(p.title)+'</b>'
+      + '<span class="field-note">'+esc((p.city||'Springfield'))+' · '+esc(String(p.employment_type||'').replace('_',' ').toLowerCase())
+      + (p.pay_min?' · $'+Number(p.pay_min).toFixed(2)+(p.pay_max?'–$'+Number(p.pay_max).toFixed(2):'')+'/hr':'')+'</span>'
+      + (stale(p)?'<span style="font-size:11.5px;font-weight:700;color:#B91C1C;background:#FEE2E2;border-radius:999px;padding:2px 9px;">expired '+esc(p.valid_through)+'</span>':'')
+      + '<span style="flex:1;"></span>'
+      + (p.status==='published'?'<a class="fb" style="text-decoration:none;" target="_blank" rel="noopener" href="https://mo-care.com/careers/'+esc(p.slug)+'">View page ↗</a>':'')
+      + '<button class="fb" onclick="jpEdit(\''+esc(p.id)+'\')">Edit</button>'
+      + '</div>';
+  }).join('');
+}
+
+function jpBlank(){
+  const d = new Date(); d.setMonth(d.getMonth()+3);
+  return { id:'', title:'', slug:'', employment_type:'PART_TIME', openings:1,
+    pay_min:'', pay_max:'', city:'Springfield',
+    valid_through: d.toISOString().slice(0,10),
+    summary:'', description:'', responsibilities:'', qualifications:'', benefits:'', internal_note:'' };
+}
+function jpFill(p){
+  const v=(id,val)=>{ const e=document.getElementById(id); if(e) e.value = val==null?'':val; };
+  v('jp_id',p.id); v('jp_title',p.title); v('jp_slug',p.slug); v('jp_type',p.employment_type);
+  v('jp_openings',p.openings); v('jp_paymin',p.pay_min); v('jp_paymax',p.pay_max);
+  v('jp_city',p.city); v('jp_valid',p.valid_through); v('jp_summary',p.summary);
+  v('jp_desc',p.description); v('jp_resp',p.responsibilities); v('jp_qual',p.qualifications);
+  v('jp_benefits',p.benefits); v('jp_note',p.internal_note);
+  document.getElementById('jp_err').style.display='none';
+  const ed=document.getElementById('jpEditor'); ed.style.display='block';
+  ed.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function jpNew(){ jpFill(jpBlank()); }
+function jpEdit(id){ const p=JP.find(x=>String(x.id)===String(id)); if(p) jpFill(p); }
+function jpCancel(){ document.getElementById('jpEditor').style.display='none'; }
+
+/* Only suggest a slug while it is still untouched, so editing a live posting
+   cannot silently change its address and break the indexed link. */
+function jpSuggestSlug(){
+  const s=document.getElementById('jp_slug');
+  if(document.getElementById('jp_id').value) return;
+  if(s.dataset.touched) return;
+  s.value = jpSlugify(document.getElementById('jp_title').value);
+}
+
+async function jpSave(status){
+  const g=id=>{ const e=document.getElementById(id); return e? e.value.trim() : ''; };
+  const err=document.getElementById('jp_err');
+  const num=v=>v===''?null:Number(v);
+  const title=g('jp_title'), desc=g('jp_desc');
+  let slug=g('jp_slug')||jpSlugify(title);
+  const missing=[];
+  if(!title) missing.push('a job title');
+  if(!desc)  missing.push('the advert text');
+  if(missing.length){ err.textContent='Google will not list a posting without '+missing.join(' and ')+'.'; err.style.display='block'; return; }
+
+  const row={ slug, status, title, description:desc,
+    employment_type:g('jp_type')||'PART_TIME',
+    openings:num(g('jp_openings'))||1,
+    pay_min:num(g('jp_paymin')), pay_max:num(g('jp_paymax')),
+    city:g('jp_city')||'Springfield',
+    valid_through:g('jp_valid')||null,
+    summary:g('jp_summary')||null, responsibilities:g('jp_resp')||null,
+    qualifications:g('jp_qual')||null, benefits:g('jp_benefits')||null,
+    internal_note:g('jp_note')||null };
+  const id=g('jp_id');
+  try{
+    const q = id ? sb.from('job_postings').update(row).eq('id',id)
+                 : sb.from('job_postings').insert(row);
+    const { error } = await q;
+    if(error) throw error;
+    jpCancel();
+    await jpLoad();
+  }catch(e){
+    const m=String(e&&e.message||'error');
+    err.textContent = m.includes('duplicate') || m.includes('unique')
+      ? 'Another posting already uses the address “'+slug+'”. Give this one a different page address.'
+      : 'Could not save: '+m;
+    err.style.display='block';
+  }
+}
+
+async function jpClose(){
+  const id=document.getElementById('jp_id').value;
+  if(!id){ jpCancel(); return; }
+  if(!confirm('Close this role?\n\nThe page comes down and Google drops it within a few days. Nothing is deleted, so you can publish it again later.')) return;
+  try{
+    const { error } = await sb.from('job_postings').update({status:'closed'}).eq('id',id);
+    if(error) throw error;
+    jpCancel(); await jpLoad();
+  }catch(e){ alert('Could not close it: '+(e&&e.message||'error')); }
 }
 
 /* Counts live on the subnav so you can see there is work without opening it. */
