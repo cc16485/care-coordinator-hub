@@ -2796,6 +2796,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <button class="ghost" onclick="ivLoad(this)">↻ Refresh</button>
         </div>
         <div id="ivHosts" style="margin-top:12px;"><div class="field-note">Loading…</div></div>
+        <div id="ivBusy" style="margin-top:8px;"></div>
 
         <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
           <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">Interview length, notice and how far ahead</summary>
@@ -10129,6 +10130,81 @@ function jpFill(p){
   const ed=document.getElementById('jpEditor'); ed.style.display='block';
   ed.scrollIntoView({behavior:'smooth',block:'center'});
 }
+/* ---- One calendar under four booking systems ------------------------------
+   Consultations, care assessments, orientations and interviews all spend the
+   same coordinator's day, and until now none of them knew the others existed.
+   This pushes the other three into coordinator_busy so the interview slot
+   generator can subtract them.
+
+   Three of the four live in app_data as JSON rather than tables, so this is a
+   reconciler in the same shape as mergePendingBookings: idempotent, keyed on
+   the source id, safe to run as often as the hub is opened.
+
+   Requires coordinator-busy.sql. */
+function busyLocalISO(dateStr, timeStr, addMinutes){
+  if(!dateStr) return null;
+  const [h,m] = String(timeStr||'10:00').split(':').map(n=>parseInt(n,10)||0);
+  const d = new Date(dateStr + 'T00:00:00');            // local wall clock, not UTC
+  if(isNaN(d)) return null;
+  d.setHours(h, m, 0, 0);
+  if(addMinutes) d.setMinutes(d.getMinutes() + addMinutes);
+  return d.toISOString();
+}
+
+async function busySync(){
+  if(typeof sb === 'undefined' || !sb) return;
+  const rows = [];
+  const cutoff = new Date(Date.now() - 2*86400000);      // yesterday onwards is enough
+
+  /* Orientations block everybody: they run in our office and the coordinator
+     is in the room. Duration comes from the same setting the calendar sync
+     uses, so the two can never disagree. */
+  const orientHours = (typeof getOrientDuration === 'function') ? getOrientDuration()
+    : (parseFloat((appSettings.orient_config||{}).duration) || 2);
+  ((DATA.orient_sessions)||[]).forEach(s=>{
+    if(!s || !s.date || s.cancelled) return;
+    const st = busyLocalISO(s.date, s.time || s.start || '10:00');
+    if(!st || new Date(st) < cutoff) return;
+    rows.push({ host_id:null, starts_at:st,
+      ends_at: busyLocalISO(s.date, s.time || s.start || '10:00', Math.round(orientHours*60)),
+      source:'orientation', source_id:String(s.id ?? s.date+'-'+(s.time||'')),
+      label:'Orientation' });
+  });
+
+  /* An assessment names its coordinator, so it blocks that person only when we
+     can match the name to somebody who interviews. */
+  const hostByName = {};
+  (IV_HOSTS||[]).forEach(h=>{ hostByName[String(h.name||'').trim().toLowerCase()] = h.id; });
+  ((DATA.care_assessments)||[]).forEach(a=>{
+    if(!a || !a.date || a.status==='cancelled') return;
+    const st = busyLocalISO(a.date, a.time || '10:00');
+    if(!st || new Date(st) < cutoff) return;
+    rows.push({ host_id: hostByName[String(a.coordinator||'').trim().toLowerCase()] || null,
+      starts_at:st, ends_at: busyLocalISO(a.date, a.time || '10:00', 90),
+      source:'assessment', source_id:String(a.id ?? st),
+      label:'Care assessment' + (a.coordinator?' — '+a.coordinator:'') });
+  });
+
+  /* Consultations carry a real timestamp already and no owner, so they block
+     everybody. Over-blocking is the safer way to be wrong here. */
+  ((DATA.consult_bookings)||[]).forEach(b=>{
+    if(!b || !b.start || b.status==='cancelled') return;
+    const st = new Date(b.start);
+    if(isNaN(st) || st < cutoff) return;
+    rows.push({ host_id:null, starts_at: st.toISOString(),
+      ends_at: new Date(st.getTime() + 60*60000).toISOString(),
+      source:'consultation', source_id:String(b.id ?? b.start),
+      label:'Consultation' + (b.name?' — '+b.name:'') });
+  });
+
+  if(!rows.length) return;
+  try{
+    const { error } = await sb.from('coordinator_busy')
+      .upsert(rows, { onConflict: 'source,source_id' });
+    if(error) throw error;
+  }catch(e){ /* table may not exist yet; the slot generator simply sees no blocks */ }
+}
+
 /* ---- Who interviews, and when ---------------------------------------------
    Requires interview-booking.sql. Availability belongs to a coordinator, so
    this is a person with blocks of time rather than one agency-wide schedule.
@@ -10160,6 +10236,10 @@ async function ivLoad(btn){
       v('iv_note',st.note); v('iv_photo',st.photo_url);
     }
     ivRender();
+    /* After the hosts are known, so an assessment's coordinator name can be
+       matched to a person rather than blocking everybody. */
+    await busySync();
+    ivRenderBusy();
   }catch(e){
     box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load: '
       + escapeHtmlComms(e && e.message || 'error')
@@ -10199,6 +10279,28 @@ function ivRender(){
           : '<div class="field-note" style="margin-top:7px;">No hours set, so no times are offered for '+esc(h.name)+'.</div>')
       + '</div>';
   }).join('');
+}
+
+/* What else is eating the calendar. Worth showing, because "why are there no
+   Tuesday times" has an answer and it is usually this. */
+async function ivRenderBusy(){
+  const box = document.getElementById('ivBusy'); if(!box) return;
+  try{
+    const { data, error } = await sb.from('coordinator_busy')
+      .select('*').gte('starts_at', new Date().toISOString()).order('starts_at').limit(200);
+    if(error) throw error;
+    const rows = data || [];
+    if(!rows.length){ box.innerHTML = '<span class="field-note">Nothing else on the calendar is blocking interview times.</span>'; return; }
+    const byKind = {};
+    rows.forEach(r=>{ byKind[r.source] = (byKind[r.source]||0) + 1; });
+    const name = { orientation:'orientation', assessment:'care assessment', consultation:'consultation', manual:'blocked time' };
+    const parts = Object.keys(byKind).map(k=>
+      byKind[k] + ' ' + (name[k]||k) + (byKind[k]===1?'':'s'));
+    box.innerHTML = '<span class="field-note">Also holding time: <b>' + escapeHtmlComms(parts.join(', '))
+      + '</b>. Those slots are not offered to applicants.</span>';
+  }catch(e){
+    box.innerHTML = '<span class="field-note">Run <b>coordinator-busy.sql</b> so orientations and assessments stop interview times being offered twice.</span>';
+  }
 }
 
 async function ivAddHost(){
