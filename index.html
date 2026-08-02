@@ -2785,13 +2785,21 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Recruit</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Postings here publish to <b>mo-care.com/careers</b>, where Google for Jobs can find them, and applicants come straight into <b>Applicants</b>. Anyone can post a position when a shift needs filling; you do not need approval.</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everything that brings applicants in: what we post, what each role pays and asks, and where it goes.</div>
         </div>
         <span style="flex:1;"></span>
-        <a class="ghost" href="https://mo-care.com/careers" target="_blank" rel="noopener" style="text-decoration:none;">🔗 See our careers page</a>
-        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;" title="Augusta is still running alongside until the contract ends">Augusta ↗</a>
+        <a class="ghost" href="https://mo-care.com/careers" target="_blank" rel="noopener" style="text-decoration:none;">🔗 Our careers page</a>
       </div>
 
+      <div class="offnav">
+        <button class="offnav-b" id="rcnav-postings"  onclick="rcView('postings')">📣 Job postings</button>
+        <button class="offnav-b" id="rcnav-positions" onclick="rcView('positions')">🧩 Positions &amp; pre-screens</button>
+        <button class="offnav-b" id="rcnav-words"     onclick="rcView('words')">📝 Job descriptions</button>
+        <button class="offnav-b" id="rcnav-social"    onclick="rcView('social')">📱 Social posts</button>
+        <button class="offnav-b" id="rcnav-indeed"    onclick="rcView('indeed')">🔎 Indeed &amp; Augusta</button>
+      </div>
+
+      <div class="rcview" id="rcview-postings">
       <!-- Postings we own. Augusta's pages are the ones Google indexes today,
            which is why the listing costs money. These publish to
            mo-care.com/careers with the structured data Google reads for free. -->
@@ -2869,7 +2877,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           </div>
         </div>
       </div>
+      </div>
 
+      <div class="rcview" id="rcview-positions" style="display:none;">
       <!-- Positions, their pay, and the questions their pre-screen asks. All in
            one place because they change together: a new rate, a new licence
            requirement, a role you stop hiring for. -->
@@ -2883,7 +2893,37 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div id="pbList" style="margin-top:11px;"><div class="field-note">Loading…</div></div>
       </div>
+      </div>
 
+      <div class="rcview" id="rcview-words" style="display:none;">
+        <div class="card" style="padding:16px 18px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <b style="font-size:15px;color:var(--navy);">📝 Saved job descriptions</b>
+            <span class="field-note">the words a posting starts from, so one role reads the same every time.</span>
+            <span style="flex:1;"></span>
+            <button class="ghost" onclick="jtLoad().then(jtRenderList)">↻ Refresh</button>
+          </div>
+          <div id="jtList" style="margin-top:11px;"><div class="field-note">Loading…</div></div>
+          <div class="field-note" style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;">
+            To write a new one, open <b>Job postings</b>, start a posting, write the advert, then press
+            <b>💾 Save these words for reuse</b>. It appears here and in the picker on every future posting.
+          </div>
+        </div>
+      </div>
+
+      <div class="rcview" id="rcview-social" style="display:none;">
+        <div class="card" style="padding:16px 18px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <b style="font-size:15px;color:var(--navy);">📱 Posts you can put out today</b>
+            <span class="field-note">written to sound like us, with the pay and link filled in from the role.</span>
+            <span style="flex:1;"></span>
+            <select id="scPos" onchange="scRender()" style="font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;"></select>
+          </div>
+          <div id="scList" style="margin-top:12px;"><div class="field-note">Loading…</div></div>
+        </div>
+      </div>
+
+      <div class="rcview" id="rcview-indeed" style="display:none;">
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <b style="font-size:15px;color:var(--navy);">💵 Approved hourly rates</b>
@@ -2937,7 +2977,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <a href="https://support.augusta.care/hc/en-us" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">Augusta help centre ↗</a>
         </div>
         <div class="field-note" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">Stuck on something Augusta owns? Email <b>hello@augusta.care</b> or call <b>(256) 676-9483</b>, 6:00am&ndash;5:00pm Pacific, Monday to Friday. Anything about our pay, our clients or which shifts to advertise is ours, not theirs &mdash; ask internally.</div>
-      </div>
+      </div>      </div>
     </section>
 
     <!-- ===================== TAB: INTERVIEWS ===================== -->
@@ -6472,7 +6512,7 @@ function renderActiveTab(){
   ccRenderViewAs();
   ccRenderPulse();
   nurseModeCheck();
-  if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); pbLoad(); }
+  if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); pbLoad(); rcView(rcCurrent); }
   if(activeTab==='calendar') ivLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='interviews') ivqLoad();
@@ -10250,6 +10290,131 @@ function offView(name){
   if(name==='past' && window.renderPastOffers) renderPastOffers();
 }
 
+/* ---- Recruit, in five parts ------------------------------------------------
+   Posting a job, deciding what a role pays and asks, the words we reuse, the
+   posts that bring people in, and the rules of the boards we post to. */
+let rcCurrent = 'postings';
+function rcView(name){
+  rcCurrent = name;
+  ['postings','positions','words','social','indeed'].forEach(function(v){
+    const panel = document.getElementById('rcview-'+v);
+    const btn   = document.getElementById('rcnav-'+v);
+    if(panel) panel.style.display = (v===name) ? '' : 'none';
+    if(btn) btn.classList.toggle('on', v===name);
+  });
+  if(name==='words')  jtLoad().then(jtRenderList);
+  if(name==='social') scLoad();
+}
+
+/* The saved descriptions, as a list you can actually manage rather than only
+   a dropdown inside the posting form. */
+function jtRenderList(){
+  const box = document.getElementById('jtList'); if(!box) return;
+  const esc = escapeHtmlComms;
+  if(!JT.length){
+    box.innerHTML = '<div class="field-note">None saved yet. The first one you save becomes the starting point for every posting of that role.</div>';
+    return;
+  }
+  box.innerHTML = JT.map(function(t){
+    const words = String(t.description||'').trim().split(/\s+/).length;
+    return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.55rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
+      + '<b style="color:var(--navy);">'+esc(t.name)+'</b>'
+      + '<span class="field-note">'+esc(t.title||'')+(t.pay_min?' · $'+Number(t.pay_min).toFixed(2).replace(/\.00$/,'')+'/hr':'')
+        + ' · '+words+' words</span>'
+      + '<span style="flex:1;"></span>'
+      + '<button class="fb" onclick="jtPreview(\''+esc(t.id)+'\')">Read it</button>'
+      + '<button class="fb" style="color:var(--red);" onclick="jtDelete(\''+esc(t.id)+'\')">Delete</button>'
+      + '</div>'
+      + '<div id="jtprev_'+esc(t.id)+'" style="display:none;white-space:pre-wrap;font-size:13px;line-height:1.6;'
+      + 'background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:11px 13px;margin:.4rem 0 .6rem;"></div>';
+  }).join('');
+}
+function jtPreview(id){
+  const t = JT.find(function(x){ return String(x.id)===String(id); }); if(!t) return;
+  const el = document.getElementById('jtprev_'+id); if(!el) return;
+  const show = el.style.display === 'none';
+  el.style.display = show ? 'block' : 'none';
+  if(show) el.textContent = [t.description, t.responsibilities && 'What they would be doing:\n'+t.responsibilities,
+    t.qualifications && 'What we are looking for:\n'+t.qualifications,
+    t.benefits && 'What we offer:\n'+t.benefits].filter(Boolean).join('\n\n');
+}
+async function jtDelete(id){
+  const t = JT.find(function(x){ return String(x.id)===String(id); });
+  if(!confirm('Delete "'+((t&&t.name)||'this description')+'"?\n\nPostings already written with it are not touched.')) return;
+  try{
+    const { error } = await sb.from('job_templates').delete().eq('id', id);
+    if(error) throw error;
+    await jtLoad(); jtRenderList();
+  }catch(e){ alert('Could not delete it: '+(e&&e.message||'error')); }
+}
+
+/* ---- Social posts ----------------------------------------------------------
+   The pay and the link come from the role, so a rate change does not leave a
+   stale number in a post somebody copies next month. */
+function scLoad(){
+  const sel = document.getElementById('scPos'); if(!sel) return;
+  if(!PB.length){ pbLoad().then(scLoad); return; }
+  const live = PB.filter(function(p){ return p.active; });
+  sel.innerHTML = live.map(function(p){ return '<option value="'+escapeHtmlComms(p.key)+'">'+escapeHtmlComms(p.label)+'</option>'; }).join('');
+  scRender();
+}
+
+function scPosts(p){
+  const pay = p.pay_min ? '$'+Number(p.pay_min).toFixed(2).replace(/\.00$/,'')
+      + (p.pay_max && Number(p.pay_max)>Number(p.pay_min) ? '–$'+Number(p.pay_max).toFixed(2).replace(/\.00$/,'') : '') + pbUnit(p,1) : '';
+  const link = 'https://mo-care.com/apply?position=' + p.key;
+  const role = p.label.toLowerCase();
+  return [
+    { name:'The straight one', img:'A caregiver and client at a kitchen table, both laughing. Real, not stock.',
+      text: 'We are hiring '+role+'s in the Springfield area.\n\n'
+        + (pay ? pay + '. ' : '') + 'Paid training, weekly pay, and you are a W-2 employee rather than a contractor.\n\n'
+        + 'We build schedules around people, not the other way round. Tell us what you can work and we will do our best with it.\n\n'
+        + 'Two minutes to apply, no resume needed: ' + link },
+    { name:'For someone already doing it', img:'Hands, one older one younger, resting together. Warm light.',
+      text: 'If you are already caring for someone you love, you have the hard part.\n\n'
+        + 'We will teach you the rest, and pay you for the training.\n\n'
+        + (pay ? pay + '. ' : '') + 'Flexible hours around school runs, second jobs and appointments.\n\n'
+        + link },
+    { name:'The honest one', img:'A caregiver in a car with a coffee, before a shift. Ordinary and true.',
+      text: 'Caregiving is not easy work. It is early mornings, it is patience, and it is showing up when somebody is having a bad day.\n\n'
+        + 'It is also the only job I know where you go home certain you mattered today.\n\n'
+        + 'We are hiring in and around Springfield. ' + (pay ? pay + '. ' : '') + 'Paid training, weekly pay.\n\n'
+        + link },
+    { name:'Referral, for your own team', img:'None needed. This one goes in a group text or staff Facebook group.',
+      text: 'Team, we are looking for another '+role+'.\n\n'
+        + 'If you know somebody good, send them here and tell them to say your name: ' + link + '\n\n'
+        + 'You know better than anyone what this job takes, so we trust who you send.' },
+  ];
+}
+
+function scRender(){
+  const box = document.getElementById('scList'); if(!box) return;
+  const key = (document.getElementById('scPos')||{}).value;
+  const p = PB.find(function(x){ return x.key===key; });
+  if(!p){ box.innerHTML = '<div class="field-note">Pick a position.</div>'; return; }
+  const esc = escapeHtmlComms;
+  box.innerHTML = scPosts(p).map(function(post,i){
+    return '<div style="border:1px solid var(--border);border-radius:11px;background:#fff;padding:13px 15px;margin-bottom:10px;">'
+      + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">'
+      + '<b style="font-size:13.5px;color:var(--navy);">'+esc(post.name)+'</b>'
+      + '<span style="flex:1;"></span>'
+      + '<button class="fb" onclick="scCopy('+i+',this)">Copy</button></div>'
+      + '<div id="sc_'+i+'" style="white-space:pre-wrap;font-size:13.5px;line-height:1.6;margin-top:8px;color:var(--text);">'+esc(post.text)+'</div>'
+      + '<div class="field-note" style="margin-top:9px;border-top:1px solid var(--border);padding-top:7px;">'
+      + '<b>Picture:</b> '+esc(post.img)+'</div>'
+      + '</div>';
+  }).join('')
+  + '<div class="field-note" style="margin-top:6px;">Use your own photos of your own caregivers wherever you can, with their permission. '
+  + 'Stock images of models in scrubs read as an agency that does not have any real caregivers to show.</div>';
+}
+function scCopy(i, btn){
+  const el = document.getElementById('sc_'+i); if(!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function(){
+    const was = btn.textContent; btn.textContent = 'Copied ✓';
+    setTimeout(function(){ btn.textContent = was; }, 1500);
+  }).catch(function(){ alert('Could not copy. Select the text and copy it by hand.'); });
+}
+
 /* ---- Positions and their pre-screens ---------------------------------------
    Pay and questions live on the role, so the apply page can show the right
    number before a posting exists and every posting starts from the same
@@ -10271,8 +10436,13 @@ async function pbLoad(btn){
 }
 
 const pbMoney = v => (v===null||v===undefined||v==='') ? '' : '$'+Number(v).toFixed(2).replace(/\.00$/,'');
+/* Live-in is paid by the day, so the unit belongs to the role and everything
+   that quotes a rate asks for it rather than assuming an hour. */
+const PB_UNITS = { HOUR:['/hr',' an hour','$/hr'], DAY:['/day',' a day','$/day'],
+                   WEEK:['/wk',' a week','$/wk'], YEAR:['/yr',' a year','$/yr'] };
+const pbUnit  = (p,i) => (PB_UNITS[p.pay_unit || 'HOUR'] || PB_UNITS.HOUR)[i||0];
 const pbRange = p => !p.pay_min ? 'no pay set'
-  : pbMoney(p.pay_min) + (p.pay_max && Number(p.pay_max)>Number(p.pay_min) ? '–'+pbMoney(p.pay_max) : '') + '/hr';
+  : pbMoney(p.pay_min) + (p.pay_max && Number(p.pay_max)>Number(p.pay_min) ? '–'+pbMoney(p.pay_max) : '') + pbUnit(p,0);
 
 function pbRender(){
   const box = document.getElementById('pbList'); if(!box) return;
@@ -10291,9 +10461,13 @@ function pbRender(){
       + '<span style="color:#A89C8B;font-size:.74rem;">edit ▾</span>'
       + '</summary><div style="padding:0 .9rem .9rem;">'
       + '<div class="grid2" style="margin-top:6px;">'
-      + '<div><label>Pay from ($/hr)</label><input id="pb_min_'+i+'" inputmode="decimal" value="'+esc(p.pay_min==null?'':p.pay_min)+'"></div>'
-      + '<div><label>Pay to ($/hr)</label><input id="pb_max_'+i+'" inputmode="decimal" value="'+esc(p.pay_max==null?'':p.pay_max)+'"></div>'
+      + '<div><label>Pay from ('+esc(pbUnit(p,2))+')</label><input id="pb_min_'+i+'" inputmode="decimal" value="'+esc(p.pay_min==null?'':p.pay_min)+'"></div>'
+      + '<div><label>Pay to ('+esc(pbUnit(p,2))+')</label><input id="pb_max_'+i+'" inputmode="decimal" value="'+esc(p.pay_max==null?'':p.pay_max)+'"></div>'
       + '</div>'
+      + '<div style="max-width:260px;"><label>Paid by the</label><select id="pb_u_'+i+'">'
+        + ['HOUR','DAY','WEEK','YEAR'].map(function(u){ return '<option value="'+u+'"'
+            + ((p.pay_unit||'HOUR')===u?' selected':'')+'>'+({HOUR:'Hour',DAY:'Day',WEEK:'Week',YEAR:'Year'})[u]+'</option>'; }).join('')
+        + '</select></div>'
       + '<div class="field-note" style="margin:-2px 0 8px;">Shown on the apply page and used as the starting figure for a new posting.</div>'
       + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:12px 0 4px;">Questions only this role asks</div>'
       + '<div class="field-note" style="margin:0 0 8px;">Everyone is already asked about age, work authorisation, transport, licence, insurance, background and living outside Missouri. These are on top.</div>'
@@ -10328,7 +10502,8 @@ function pbCollect(i){
              knockout: !!(document.getElementById('pb_k_'+i+'_'+qi)||{}).checked };
   }).filter(function(q){ return q.q; });
   const num = id => { const v = val(id); return v==='' ? null : Number(v); };
-  return { screener: qs, pay_min: num('pb_min_'+i), pay_max: num('pb_max_'+i) };
+  return { screener: qs, pay_min: num('pb_min_'+i), pay_max: num('pb_max_'+i),
+           pay_unit: (document.getElementById('pb_u_'+i)||{}).value || p.pay_unit || 'HOUR' };
 }
 function pbAddQ(i){
   const c = pbCollect(i);
