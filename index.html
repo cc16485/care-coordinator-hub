@@ -1311,7 +1311,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
     <!-- ===================== TAB: FAMILY CIRCLES ===================== -->
     <!-- One message, everybody at once, under the client's name. Not a group
-         SMS thread: replies come to the office line, which is what "ring us
+         SMS thread: replies come to the office line, which is what "call us
          with questions" means, and the record lives here rather than
          unlabelled in a Conversations list. -->
     <section class="tabpanel" id="tab-circles">
@@ -2977,7 +2977,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <div class="rcview" id="rcview-positions" style="display:none;">
       <!-- Positions, their pay, and the questions their pre-screen asks. All in
-           one place because they change together: a new rate, a new licence
+           one place because they change together: a new rate, a new license
            requirement, a role you stop hiring for. -->
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -10620,7 +10620,7 @@ function pbRender(){
             + '<div class="field-note" style="margin-top:3px;">Only Samantha and Zach can change a rate. If this looks wrong, ask before you post it.</div>'
             + '</div>')
       + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:12px 0 4px;">Questions only this role asks</div>'
-      + '<div class="field-note" style="margin:0 0 8px;">Everyone is already asked about age, work authorisation, transport, licence, insurance, background and living outside Missouri. These are on top.</div>'
+      + '<div class="field-note" style="margin:0 0 8px;">Everyone is already asked about age, work authorization, transport, license, insurance, background and living outside Missouri. These are on top.</div>'
       + (qs.length ? qs.map(function(q,qi){ return '<div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin-bottom:7px;">'
           + '<input id="pb_q_'+i+'_'+qi+'" value="'+esc(q.q||'')+'" style="flex:1 1 280px;font:inherit;font-size:13.5px;padding:7px 10px;border:1px solid var(--border);border-radius:7px;">'
           + '<select id="pb_t_'+i+'_'+qi+'" style="font:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--border);border-radius:7px;">'
@@ -11141,7 +11141,7 @@ function fcChangeText(circleId){
   document.getElementById('fcmsg_'+circleId).value =
     'Hello, this is Caring Companions. ' + c.client_name + "'s usual caregiver has called in today, "
     + 'so ' + who + ' will be coming instead.' + line
-    + ' Everything else about the visit stays the same. If you have any questions at all, please ring the office on (417) 234-8494.';
+    + ' Everything else about the visit stays the same. If you have any questions at all, please call us at (417) 234-8494.';
 }
 
 async function fcSend(circleId, btn){
@@ -11294,7 +11294,7 @@ function apChips(r){
   if(r.has_transport===false) out.push(chip('No transport','bad'));
   if(r.lived_outside_mo) out.push(chip('Fingerprint check needed','warn'));
   if(r.can_pass_background===false) out.push(chip('Unsure on background','warn'));
-  if(r.has_license===false) out.push(chip('No licence','plain'));
+  if(r.has_license===false) out.push(chip('No license','plain'));
   if(r.experience_years) out.push(chip(r.experience_years,'plain'));
   if(r.job_type) out.push(chip(r.job_type,'plain'));
   if(!out.length) out.push(chip('Cleared the screen','good'));
@@ -11446,7 +11446,7 @@ const AP_LVL = [['none','No experience'],['some','Some experience'],['lots','Ver
 const AP_QS = [
   ['bg_check',     'Willing to have a criminal background check?', AP_YN],
   ['drug_screen',  'Willing to take a drug screen?',               AP_YN],
-  ['license',      "Valid driver's licence?",                      AP_YN],
+  ['license',      "Valid driver's license?",                      AP_YN],
   ['insurance',    'Car insurance with their name on it?',         AP_YN],
   ['drive_clients','Willing to drive clients?',                    AP_YN],
   ['mvr',          'Clear driving record, and willing to keep it?',AP_YN],
