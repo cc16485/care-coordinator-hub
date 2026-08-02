@@ -6725,6 +6725,12 @@ function ccSetSectionTitle(tab){
   if(t) document.title = t+' — Caring Companions';
 }
 
+/* Some of the hub calls this gotoTab, which was never a function that existed.
+   Anything that reached one of those calls stopped dead: "make them an offer"
+   and the "how did it go?" jump out of the interview list both did nothing at
+   all, with no error, because the line threw before it did anything. */
+function gotoTab(tab){ return switchTab(tab); }
+
 function switchTab(tab){
   if(tab==='settings' && !DISC_APPROVERS.includes(ME.email)){ alert('Settings are managed by Samantha & Zach.'); return; }
   ccSetSectionTitle(tab);
@@ -11768,7 +11774,18 @@ function apRender(){
     return h<1?'just now' : h<24?Math.floor(h)+'h ago' : h<24*60?Math.floor(h/24)+'d ago'
       : Math.floor(h/24/30)+' months ago'; };
 
-  box.innerHTML = rows.map(r=>{
+  /* Inactive is where good applicants go quiet, and it is the one view where
+     the right action is the same for everybody in it. */
+  const sweep = (apFilter==='inactive' && rows.length)
+    ? '<div style="background:#F7F5FF;border:1px solid #EDE9FE;border-radius:10px;padding:11px 13px;margin-bottom:12px;'
+      + 'display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
+      + '<span style="font-size:13.5px;color:var(--text);">These cleared the screen, were never hired, and have gone quiet. '
+      + 'In the pool they stop being a list nobody reads and become the first people asked when hours come up.</span>'
+      + '<span style="flex:1;"></span>'
+      + '<button class="secondary" onclick="apPoolSweep()">🗂 Move all ' + rows.length + ' to the pool</button></div>'
+    : '';
+
+  box.innerHTML = sweep + rows.map(r=>{
     const b = AP_BOOK[r.id];
     const nudges = [r.nudge_1_at,r.nudge_2_at,r.nudge_3_at].filter(Boolean).length;
     const line = b
@@ -11812,6 +11829,13 @@ function apRender(){
           + '</select></label>'
         + (r.phone?'<a class="fb" style="text-decoration:none;" href="tel:'+esc(String(r.phone).replace(/[^0-9+]/g,''))+'">📞 Call</a>':'')
         + (!b && r.status!=='declined'?'<button class="fb" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Book a time for them</button>':'')
+        /* Somebody good with nothing to offer them today. Keeping them is the
+           cheapest hire the agency ever makes. */
+        + (r.status==='pool'
+            ? '<button class="fb" onclick="apToPool(\''+esc(r.id)+'\')">✏️ What they are waiting for</button>'
+              + '<button class="fb" onclick="apFromPool(\''+esc(r.id)+'\')">↩️ Out of the pool</button>'
+            : (r.status!=='hired' && r.status!=='declined'
+                ? '<button class="fb" onclick="apToPool(\''+esc(r.id)+'\')">🗂 Candidate pool</button>' : ''))
         + (r.status!=='declined'?'<button class="fb" onclick="apInterview(\''+esc(r.id)+'\')">📝 Interview &amp; outcome</button>':'')
         + (r.status!=='declined'?'<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')">➡️ Make them an offer</button>':'')
         + (r.status==='new'?'<button class="fb" onclick="apSetStatus(\''+esc(r.id)+'\',\'reviewing\')">Mark as reviewing</button>':'')
@@ -12082,16 +12106,9 @@ async function apOutcome(outcome, btn){
     if(reason===null) return;
   }
   if(outcome==='pool'){
-    /* The pool is only useful if you can tell, months later, who a new run of
-       hours belongs to. So it asks the two things that answer that. */
-    wants = prompt('What are they holding out for?\n\ne.g. Full time · Weekday days · Weekends · 25+ hours',
-      (A.shift==='nights'?'Nights':'') || r.job_type || 'Full time');
-    if(wants===null) return;
-    area = prompt('Which area do they need it in?', A.travel_areas || r.city || '');
-    if(area===null) return;
-    reason = prompt('Anything to remember about them?\n\nThis is what you will read when hours come up.',
-      A.notes || '');
-    if(reason===null) return;
+    const p = apPoolPrompts(r, A);
+    if(!p) return;
+    wants = p.wants; area = p.area; reason = p.note;
   }
   btn.disabled = true;
   try{
@@ -12118,9 +12135,114 @@ async function apOutcome(outcome, btn){
     if(outcome==='hired') apToOffer(id, A);
     await apLoad();
   }catch(e){
-    err.textContent = 'Could not save that: ' + (e&&e.message||'error');
-    err.style.display='block';
+    /* An outcome that fails quietly is worse than one that fails loudly: the
+       card closes, the day moves on, and the interview is never recorded. The
+       constraint one has a specific answer, so give it rather than the raw
+       database wording. */
+    const m = String(e && e.message || 'error');
+    const friendly = /constraint|check/i.test(m) && /pool|noshow|offer/.test(m + outcome)
+      ? 'The database will not accept "' + outcome + '" as a status yet.\n\n'
+        + 'Run recruit-fixes.sql in the Supabase SQL editor and this button works. '
+        + 'Nothing you typed is lost — it is still on screen.'
+      : 'Could not save that: ' + m;
+    err.textContent = friendly;
+    err.style.display = 'block';
+    err.scrollIntoView({ behavior:'smooth', block:'center' });
+    alert(friendly);
   }finally{ btn.disabled=false; }
+}
+
+/* ---- The candidate pool ----------------------------------------------------
+   Right person, wrong moment. Until now the only way in was through the
+   interview form, which meant the people who never got as far as an interview
+   could not be kept at all: the applicant who was excellent in March when
+   there was nothing going, the one who no-showed but rang to apologise, the
+   good ones sitting in Inactive because sixty days went by.
+
+   The pool is only worth having if you can tell, months later, who a new run
+   of hours belongs to. So it always asks the same three things, whether it is
+   reached from the interview or straight from the list. */
+function apPoolPrompts(r, A){
+  A = A || r.post_interview || {};
+  const wants = prompt('What are they holding out for?\n\ne.g. Full time · Weekday days · Weekends · 25+ hours',
+    r.pool_wants || (A.shift==='nights'?'Nights':'') || r.job_type || 'Full time');
+  if(wants===null) return null;
+  const area = prompt('Which area do they need it in?\n\nThis is what "find someone for a case" searches on.',
+    r.pool_area || A.travel_areas || r.city || r.zip || '');
+  if(area===null) return null;
+  const note = prompt('Anything to remember about them?\n\nThis is what you will read when hours come up.',
+    r.pool_note || A.notes || '');
+  if(note===null) return null;
+  return { wants: wants.trim(), area: area.trim(), note: note.trim() };
+}
+
+async function apToPool(id){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  const p = apPoolPrompts(r);
+  if(!p) return;
+  try{
+    const { error } = await sb.from('job_applicants').update({
+      status: 'pool',
+      pooled_at: r.pooled_at || new Date().toISOString(),
+      pool_wants: p.wants || null, pool_area: p.area || null, pool_note: p.note || null,
+      seen_at: new Date().toISOString(),
+    }).eq('id', id);
+    if(error) throw error;
+    await apLoad();
+  }catch(e){
+    const m = String(e&&e.message||'error');
+    alert(/constraint/i.test(m)
+      ? 'The database will not accept "pool" as a status yet. Run recruit-fixes.sql in the Supabase SQL editor and this works.'
+      : 'Could not move them: ' + m);
+  }
+}
+
+/* The whole Inactive view at once.
+   Nothing is invented here: what they are waiting for and where come off their
+   own application, so a swept record says only what they told us. Anything
+   they already had is left alone. */
+async function apPoolSweep(){
+  const rows = apMatching('inactive');
+  if(!rows.length) return;
+  if(!confirm('Move all ' + rows.length + ' of these into the candidate pool?\n\n'
+    + 'What each of them is waiting for and where comes from their own application, so you can search them '
+    + 'by area and hours straight away. Open anyone afterwards to say more about them.')) return;
+  const stamp = new Date().toISOString();
+  const when = d => new Date(d).toLocaleDateString('en-US',{month:'long', year:'numeric'});
+  let done = 0, failed = 0;
+  for(const r of rows){
+    try{
+      const { error } = await sb.from('job_applicants').update({
+        status: 'pool',
+        pooled_at: r.pooled_at || stamp,
+        pool_wants: r.pool_wants || r.job_type || null,
+        pool_area:  r.pool_area  || r.city || r.zip || null,
+        pool_note:  r.pool_note  || ('Applied ' + when(r.created_at) + ', never booked an interview.'),
+        seen_at: stamp,
+      }).eq('id', r.id);
+      if(error) throw error;
+      done++;
+    }catch(e){ failed++; }
+  }
+  await apLoad();
+  apSetFilter('pool');
+  alert(done + ' moved into the pool.' + (failed
+    ? '\n\n' + failed + ' would not save. If that is all of them, run recruit-fixes.sql in the Supabase SQL editor first.'
+    : ''));
+}
+
+/* Out of the pool and back into the working list. What they were waiting for
+   is kept, because it is the truest note anybody ever writes about them. */
+async function apFromPool(id){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  if(!confirm('Take ' + (r.first_name||'them') + ' out of the pool?\n\n'
+    + 'They go back into Qualified as somebody to move on with now. What they were holding out for is kept.')) return;
+  try{
+    const { error } = await sb.from('job_applicants')
+      .update({ status:'reviewing', seen_at:new Date().toISOString() }).eq('id', id);
+    if(error) throw error;
+    await apLoad();
+  }catch(e){ alert('Could not do that: '+(e&&e.message||'error')); }
 }
 
 /* ---- Reaching back out ----------------------------------------------------
