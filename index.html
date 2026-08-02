@@ -453,6 +453,24 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .ckpt-stagehead h3{margin:0;font-size:15px;color:var(--navy);}
   .ckpt-cue{font-size:12px;color:var(--text-muted);font-style:italic;margin:2px 0 8px;line-height:1.45;}
   #callCockpit .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
+
+  /* The offer form was written for two columns but .grid2 was only ever
+     defined inside modals, so every field stretched the full width of the
+     screen. A 1400px box for a first name is why this tab read as a wall. */
+  #tab-offers .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;}
+  #joForm{max-width:860px;}                 /* forms stop being readable past this */
+  .jo-sec{border-top:1px solid var(--border);margin-top:20px;padding-top:14px;}
+  .jo-sec:first-of-type{border-top:none;margin-top:6px;padding-top:0;}
+  .jo-sec > h4{margin:0 0 10px;font-size:12px;font-weight:800;letter-spacing:.06em;
+               text-transform:uppercase;color:var(--text-muted);}
+  .jo-tools{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px;}
+  .jo-tools > details{flex:1 1 300px;border:1px solid var(--border);border-radius:9px;
+                      background:var(--bg);padding:9px 12px;}
+  .jo-tools > details > summary{cursor:pointer;font-size:13px;font-weight:700;
+                                color:var(--navy);list-style:none;}
+  .jo-save{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+           border-top:1px solid var(--border);margin-top:20px;padding-top:16px;}
+  @media (max-width:760px){ #tab-offers .grid2{grid-template-columns:1fr;} }
   .ckpt-slot > div > .section-title:first-child,.ckpt-slot > .section-title:first-child{border-top:none;padding-top:0;margin-top:8px;}
   .ckpt-notes{position:sticky;top:0;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;}
   .ckpt-noteshead{font-size:12px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;}
@@ -2773,7 +2791,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Offer a Job</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Make the offer while the interview is fresh, then finish the onboarding right here. Nothing gets handed to another hub.</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Make the offer while the interview is fresh. Saving it sends their start link, and everything after that happens on this tab.</div>
         </div>
         <span style="flex:1;"></span>
         <a class="ghost" href="https://hcm.viventium.com/apps/account/viventium/login?ReturnUrl=%2Fapps%2Fviventium" target="_blank" rel="noopener">🔗 Open Viventium</a>
@@ -2794,89 +2812,116 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="card" style="padding:0 18px;margin-bottom:16px;" id="joCard">
         <details id="joDetails" open ontoggle="if(this.open)joInit()">
         <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px 0;">
-          <b style="font-size:15px;color:var(--navy);">📋 Offer a Job — fill it out while the interview is fresh</b>
-          <span class="field-note">tap to open the form</span>
+          <b style="font-size:15px;color:var(--navy);">✍️ New offer</b>
+          <span class="field-note">the four things below take about two minutes</span>
           <span style="margin-left:auto;color:var(--text-muted);font-size:13px;" class="jo-chev">▾ expand</span>
         </summary>
         <div style="padding-bottom:18px;">
         <div id="joForm">
-        <div class="field-note" style="margin:2px 0 8px;">Creates the AxisCare applicant with the interview note and starts onboarding tracking. <b>No message goes to the applicant yet</b> — their welcome text &amp; email send when you mark them entered in Viventium on the card above, so "watch for the Viventium email" arrives right as that email goes out.</div>
-        <details style="margin:0 0 12px;" ontoggle="if(this.open)joPreviewMsgs()">
-          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);text-decoration:underline;">👀 See exactly what the text &amp; email will say (sent at the Viventium step, not now)</summary>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:10px;">
-            <div>
-              <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">💬 The text message</div>
-              <div id="jo_prev_sms" style="background:#E8F0E9;border-radius:14px 14px 14px 4px;padding:12px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;"></div>
-            </div>
-            <div>
-              <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">✉️ The email</div>
-              <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
-                <div style="background:#FAF9F6;padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);"><b>Subject:</b> Welcome to Caring Companions — here's what happens next</div>
-                <div id="jo_prev_email" style="padding:12px 14px;font-size:13px;line-height:1.65;"></div>
+
+        <!-- Two optional helpers, side by side and shut by default, rather
+             than two paragraphs of explanation before the first field. -->
+        <div class="jo-tools">
+          <!-- Augusta holds the candidate's details and will not hand them over,
+               so the next best thing is one paste instead of three retypes. -->
+          <details>
+            <summary>📋 Paste from Augusta instead of retyping</summary>
+            <div style="margin-top:8px;">
+              <textarea id="jo_paste" rows="4" placeholder="Select the candidate's details in Augusta, copy, and paste the whole block here. Name, phone and email get pulled out for you." style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;"></textarea>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+                <button type="button" class="secondary" onclick="joParsePaste()">Pull out the details</button>
+                <span class="field-note" id="jo_paste_note">Messy is fine. Anything it cannot find, you fill in below.</span>
               </div>
             </div>
-          </div>
-          <div class="field-note" style="margin-top:8px;">Both go out from the agency's GoHighLevel number — the same thread all their onboarding texts use. Replies land in the Staffing Hub's 💬 Automation Replies inbox.</div>
-        </details>
-        <!-- Augusta holds the candidate's details and will not hand them over, so
-             the next best thing is one paste instead of three retypes. -->
-        <details style="margin:0 0 12px;">
-          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">📋 Paste from Augusta instead of retyping</summary>
-          <div style="margin-top:8px;">
-            <textarea id="jo_paste" rows="4" placeholder="Select the candidate's details in Augusta, copy, and paste the whole block here. Name, phone and email get pulled out for you." style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;"></textarea>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
-              <button type="button" class="secondary" onclick="joParsePaste()">Pull out the details</button>
-              <span class="field-note" id="jo_paste_note">Messy is fine. Anything it cannot find, you fill in below.</span>
+          </details>
+          <details ontoggle="if(this.open)joPreviewMsgs()">
+            <summary>👀 The welcome message they get at the Viventium step</summary>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:10px;">
+              <div>
+                <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">💬 The text message</div>
+                <div id="jo_prev_sms" style="background:#E8F0E9;border-radius:14px 14px 14px 4px;padding:12px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;"></div>
+              </div>
+              <div>
+                <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">✉️ The email</div>
+                <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+                  <div style="background:#FAF9F6;padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);"><b>Subject:</b> Welcome to Caring Companions — here's what happens next</div>
+                  <div id="jo_prev_email" style="padding:12px 14px;font-size:13px;line-height:1.65;"></div>
+                </div>
+              </div>
             </div>
+            <div class="field-note" style="margin-top:8px;">This pair sends later, when you mark them entered in Viventium. The start link below is what goes out today. Both use the agency's GoHighLevel number, so it stays one thread.</div>
+          </details>
+        </div>
+
+        <div class="jo-sec">
+          <h4>Who they are</h4>
+          <div class="grid2">
+            <div><label>First name *</label><input id="jo_first" autocomplete="off"></div>
+            <div><label>Last name *</label><input id="jo_last" autocomplete="off"></div>
           </div>
-        </details>
-        <div class="grid2">
-          <div><label>First name *</label><input id="jo_first" autocomplete="off"></div>
-          <div><label>Last name *</label><input id="jo_last" autocomplete="off"></div>
-        </div>
-        <div class="grid2">
-          <div><label>Mobile phone</label><input id="jo_phone" inputmode="tel" placeholder="(417) 555-0123"></div>
-          <div><label>Email</label><input id="jo_email" inputmode="email" placeholder="name@email.com"></div>
-        </div>
-        <div class="grid2">
-          <div><label>Position</label><select id="jo_position" onchange="joSyncPlan()"><option>Caregiver</option><option>Live-In Caregiver</option><option>CNA</option><option>LPN</option><option>RN</option><option>Office</option></select></div>
-          <div><label>Interview date</label><input id="jo_date" type="date"></div>
-        </div>
-        <div class="grid2">
-          <div><label>Viventium onboarding workflow <span style="font-weight:400;color:var(--text-muted);">(which plan staffing assigns)</span></label>
-            <select id="jo_plan">
-              <option>Default (Default)</option>
-            </select>
-            <div class="field-note" style="margin-top:2px;">Viventium currently has one plan. When role-specific plans are built there, they get added here — tell Claude the exact names.</div>
+          <div class="grid2">
+            <div><label>Mobile phone</label><input id="jo_phone" inputmode="tel" placeholder="(417) 555-0123"></div>
+            <div><label>Email</label><input id="jo_email" inputmode="email" placeholder="name@email.com"></div>
           </div>
-          <div></div>
+          <div class="field-note" style="margin-top:2px;">Their start link goes to both, so a missing one is a slower hire.</div>
         </div>
-        <div class="grid2">
-          <div><label>Interviewed / offered by</label><input id="jo_by" placeholder="Your name"></div>
-          <div><label>Hourly rate discussed ($)</label><input id="jo_rate" inputmode="decimal" placeholder="e.g. 15.50"></div>
+
+        <div class="jo-sec">
+          <h4>The job</h4>
+          <div class="grid2">
+            <div><label>Position</label><select id="jo_position" onchange="joSyncPlan()"><option>Caregiver</option><option>Live-In Caregiver</option><option>CNA</option><option>LPN</option><option>RN</option><option>Office</option></select></div>
+            <div><label>Interview date</label><input id="jo_date" type="date"></div>
+          </div>
+          <div class="grid2">
+            <div><label>Interviewed / offered by</label><input id="jo_by" placeholder="Your name"></div>
+            <div><label>Hourly rate discussed ($)</label><input id="jo_rate" inputmode="decimal" placeholder="e.g. 15.50"></div>
+          </div>
+          <label>Suggested level of care <span style="font-weight:400;color:var(--text-muted);">(confirmed later, after references)</span></label>
+          <div id="jo_lvl" style="display:flex;gap:8px;margin:4px 0 12px;flex-wrap:wrap;">
+            <button type="button" class="secondary" data-l="1" onclick="joLevelPick(1)">Level 1 — companion</button>
+            <button type="button" class="secondary" data-l="2" onclick="joLevelPick(2)">Level 2 — personal care</button>
+            <button type="button" class="secondary" data-l="3" onclick="joLevelPick(3)">Level 3 — advanced</button>
+          </div>
+          <div class="grid2">
+            <div><label>Viventium onboarding workflow</label>
+              <select id="jo_plan">
+                <option>Default (Default)</option>
+              </select>
+              <div class="field-note" style="margin-top:2px;">Viventium has one plan today. Once role-specific plans exist there, they can be listed here.</div>
+            </div>
+            <div></div>
+          </div>
         </div>
-        <label>Suggested level of care <span style="font-weight:400;color:var(--text-muted);">(confirmed later, after references)</span></label>
-        <div id="jo_lvl" style="display:flex;gap:8px;margin:4px 0 10px;">
-          <button type="button" class="secondary" data-l="1" onclick="joLevelPick(1)">Level 1 — companion</button>
-          <button type="button" class="secondary" data-l="2" onclick="joLevelPick(2)">Level 2 — personal care</button>
-          <button type="button" class="secondary" data-l="3" onclick="joLevelPick(3)">Level 3 — advanced</button>
+
+        <div class="jo-sec">
+          <h4>What you learned in the interview</h4>
+          <label>Availability</label><input id="jo_avail" placeholder="e.g. Mon–Fri days, every other weekend, up to 30 hrs">
+          <div class="grid2">
+            <div><label>Experience</label><textarea id="jo_exp" rows="3" placeholder="Past caregiving/CNA work, facilities, years, special skills…"></textarea></div>
+            <div><label>Personality / fit</label><textarea id="jo_pers" rows="3" placeholder="How they came across, client types they'd suit…"></textarea></div>
+          </div>
+          <label>Anything else</label><textarea id="jo_notes" rows="2" placeholder="Start-date hopes, references given, questions they asked…"></textarea>
         </div>
-        <label>Availability</label><input id="jo_avail" placeholder="e.g. Mon–Fri days, every other weekend, up to 30 hrs">
-        <label>Experience</label><textarea id="jo_exp" rows="2" placeholder="Past caregiving/CNA work, facilities, years, special skills…"></textarea>
-        <label>Personality / fit</label><textarea id="jo_pers" rows="2" placeholder="How they came across, client types they'd suit…"></textarea>
-        <label>Anything else</label><textarea id="jo_notes" rows="2" placeholder="Start-date hopes, references given, questions they asked…"></textarea>
-        <label style="margin-top:8px;">Caregiver attributes <span style="font-weight:400;color:var(--text-muted);">(staffing types these into AxisCare — default Yes, flip the No's)</span></label>
-        <div id="jo_attrs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px;margin-top:6px;"></div>
+
+        <div class="jo-sec">
+          <h4>Caregiver attributes for AxisCare</h4>
+          <div class="field-note" style="margin:-4px 0 8px;">Everything starts at Yes. Flip only the ones that do not apply.</div>
+          <div id="jo_attrs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:6px;"></div>
+        </div>
+
         <div id="jo_err" style="display:none;color:var(--red);font-size:13px;margin-top:10px;"></div>
-        <button class="primary" id="jo_send" style="margin-top:14px;" onclick="submitJobOffer()">Save offer — starts onboarding</button>
+        <div class="jo-save">
+          <button class="primary" id="jo_send" onclick="submitJobOffer()">Save offer &amp; send their start link</button>
+          <span class="field-note" style="flex:1 1 260px;">Saving texts and emails them their start link straight away, which is what gets reference checks moving today.</span>
+        </div>
         </div>
         <div id="joDone" style="display:none;">
-          <b style="font-size:16px;color:var(--green);">✅ Offer saved — Staffing takes it from here</b>
+          <b style="font-size:16px;color:var(--green);">✅ Offer saved, and their start link is on its way</b>
           <div id="jo_done_name" style="font-size:14.5px;font-weight:700;margin:6px 0;"></div>
           <div id="jo_steps" style="font-size:13px;line-height:1.9;"></div>
           <div style="margin-top:12px;padding:12px;background:#FFFDF5;border:1px solid #FDE68A;border-radius:8px;">
-            <b style="font-size:13px;">Next: the Staffing Coordinator enters them in Viventium</b>
-            <div class="field-note">That's the step that sends their welcome text &amp; email and their onboarding paperwork. Everything you entered here shows on their Staffing Hub record as a field-by-field Viventium entry sheet — nothing else for you to do.</div>
+            <b style="font-size:13px;">Your next step: enter them in Viventium</b>
+            <div class="field-note">They are on the <b>Offers waiting on you</b> card at the top of this tab, with every field you just typed laid out for copying across. Marking them entered is what sends their welcome message. Everything after that runs on its own.</div>
           </div>
           <button class="secondary" style="margin-top:12px;" onclick="joReset()">＋ Offer another job</button>
         </div>
@@ -5245,7 +5290,10 @@ function addDaysISO(dateStr, days){
 let activeFilters = { leads: 'All', assessments: 'All', checkins: 'All', supervisory: 'All', clients: 'All' };
 
 function uid(){ return 'id_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
-function today(){ return new Date().toISOString().slice(0,10); }
+/* Local date, not UTC. toISOString() rolls over at 7pm Missouri time, so an
+   interview logged in the evening was being dated tomorrow. */
+function today(){ const d=new Date(), p=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
 function addDays(dateStr, days){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
 function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000); }
 
@@ -6316,8 +6364,8 @@ function renderDevices(){
   const shelf=rows.filter(d=>d.status==='shelf').length;
   const withC=rows.filter(d=>d.status==='customer').length;
   const pend=rows.filter(d=>d.status==='return_pending');
-  const today=new Date().toISOString().slice(0,10);
-  const overdue=pend.filter(d=>(d.return_due||'')<today).length;
+  const todayISO=today();                 // local date; UTC marked returns overdue a day early
+  const overdue=pend.filter(d=>(d.return_due||'')<todayISO).length;
   const chip=(t,bg,fg)=>'<span style="background:'+bg+';color:'+fg+';border-radius:999px;padding:3px 11px;font-size:12px;font-weight:700;">'+t+'</span>';
   document.getElementById('dvChips').innerHTML=
     chip(shelf+' on shelf','#DCFCE7','#15803D')+chip(withC+' with customers','#DBEAFE','#1D4ED8')
@@ -6327,7 +6375,7 @@ function renderDevices(){
   if(!rows.length){ el.innerHTML='<div style="color:var(--text-muted);font-size:14px;">No devices yet. Add each Wellness Hub on your shelf by its serial number (white sticker on the bottom), you have 6 to enter.</div>'; return; }
   el.innerHTML=rows.map(d=>{
     const st=DV_STATUSES[d.status]||DV_STATUSES.shelf;
-    const od=d.status==='return_pending'&&(d.return_due||'')<today;
+    const od=d.status==='return_pending'&&(d.return_due||'')<todayISO;
     let acts='';
     if(d.status==='shelf') acts='<button class="btn btn-secondary" onclick="dvAssign(\''+d.id+'\')">Assign to customer</button>';
     if(d.status==='customer') acts='<button class="btn btn-secondary" onclick="dvReturnPending(\''+d.id+'\')">Customer cancelled</button>';
@@ -11414,7 +11462,8 @@ function renderNurseVisits(){
   const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const LEVELS={1:['Level 1 · Wellness','#1E8449','#E7F5EC'],2:['Level 2 · Personal Care','#B45309','#FCEED6'],3:['Level 3 · Advanced Care','#DC2626','#FDE8E8']};
   const METHODS={visit:'in-person visit',phone:'phone call',caregiver:'caregiver check'};
-  const today=()=>new Date().toISOString().slice(0,10);
+  const today=()=>{ const d=new Date(), p=n=>String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); };   // local, not UTC
   const keyFor=(axisId,name)=>(axisId&&String(axisId).trim())?'ax:'+String(axisId).trim():'nm:'+String(name||'').trim().toLowerCase();
   let PAIRS=null, CG_PHONES=null, openAsk=null;
 
