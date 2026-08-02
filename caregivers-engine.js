@@ -1626,8 +1626,30 @@ async function refReconcile(){
       interpersonal: r.interpersonal || '', honesty: r.honesty || '',
       concerns: r.concerns || '', notes: r.notes || '',
     };
-    c['r'+n+'s'] = scoreManualRef(r.recommend, r.reliability, r.interpersonal, r.honesty, r.concerns) || 'Pending';
+    const score = scoreManualRef(r.recommend, r.reliability, r.interpersonal, r.honesty, r.concerns) || 'Pending';
+    c['r'+n+'s'] = score;
     merged++;
+    /* A negative reference on someone about to be alone in a client's home is
+       not a colour change on a row. It goes where late and serious things go,
+       and it names what was said so nobody has to go digging for it. */
+    if (score === 'Negative') {
+      try {
+        await sb.rpc('upsert_app_data_item', { target_key: 'ops_items', item: {
+          id: 'ops_negref_' + r.id, kind: 'discipline', source_id: 'negref_' + r.id,
+          title: 'Negative reference for ' + (c.first + ' ' + c.last).trim(),
+          detail: (r.responder_name || r.ref_name || 'A reference') +
+            (r.ref_relationship ? ' (' + r.ref_relationship + ')' : '') +
+            ' would not recommend them' +
+            (r.concerns === 'serious' ? ' and raised a serious concern' : '') + '.' +
+            (r.notes ? ' They said: "' + String(r.notes).slice(0, 300) + '"' : '') +
+            ' Read the full record before this candidate goes any further.',
+          about: (c.first + ' ' + c.last).trim(), urgency: 'today', status: 'open',
+          created_at: new Date().toISOString(),
+          due: new Date(Date.now() + 4 * 3600 * 1000).toISOString(),
+          owner: '', owner_name: '', created_by: 'reference check', opened_by: 'system',
+        }});
+      } catch (e) { /* the reference is recorded either way */ }
+    }
     try { await sb.from('reference_requests').update({ merged_at: new Date().toISOString() }).eq('id', r.id); }
     catch (e) { /* correct locally already; it will retry next pass */ }
   }
