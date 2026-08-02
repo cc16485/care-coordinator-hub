@@ -2915,6 +2915,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="offnav-b" id="rcnav-words"     onclick="rcView('words')">📝 Job descriptions</button>
         <button class="offnav-b" id="rcnav-social"    onclick="rcView('social')">📱 Social posts</button>
         <button class="offnav-b" id="rcnav-indeed"    onclick="rcView('indeed')">🔎 Indeed &amp; Augusta</button>
+        <button class="offnav-b" id="rcnav-numbers"   onclick="rcView('numbers')">📊 How hiring is going</button>
       </div>
 
       <div class="rcview" id="rcview-postings">
@@ -3132,6 +3133,25 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div class="field-note" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">Stuck on something Augusta owns? Email <b>hello@augusta.care</b> or call <b>(256) 676-9483</b>, 6:00am&ndash;5:00pm Pacific, Monday to Friday. Anything about our pay, our clients or which shifts to advertise is ours, not theirs &mdash; ask internally.</div>
       </div>      </div>
+
+      <!-- Our own recruiting numbers. Augusta shows these for its own funnel
+           and they leave with the contract, so these are ours, from our own
+           applicants, and they will keep working after it ends. -->
+      <div class="rcview" id="rcview-numbers" style="display:none;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+          <select id="rnRange" onchange="rnRender()" style="font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;">
+            <option value="30">Last 30 days</option>
+            <option value="90" selected>Last 90 days</option>
+            <option value="365">Last 12 months</option>
+            <option value="0">Everything</option>
+          </select>
+          <span class="field-note">Our own applicants only. Anyone who applied through Augusta is in Augusta.</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="rnLoad(this)">↻ Refresh</button>
+        </div>
+
+        <div id="rnBody"><div class="field-note">Loading…</div></div>
+      </div>
     </section>
 
     <!-- ===================== TAB: INTERVIEWS ===================== -->
@@ -10471,20 +10491,22 @@ function offView(name){
   if(name==='past' && window.renderPastOffers) renderPastOffers();
 }
 
-/* ---- Recruit, in five parts ------------------------------------------------
+/* ---- Recruit, in six parts -------------------------------------------------
    Posting a job, deciding what a role pays and asks, the words we reuse, the
-   posts that bring people in, and the rules of the boards we post to. */
+   posts that bring people in, the rules of the boards we post to, and whether
+   any of it is working. */
 let rcCurrent = 'postings';
 function rcView(name){
   rcCurrent = name;
-  ['postings','positions','words','social','indeed'].forEach(function(v){
+  ['postings','positions','words','social','indeed','numbers'].forEach(function(v){
     const panel = document.getElementById('rcview-'+v);
     const btn   = document.getElementById('rcnav-'+v);
     if(panel) panel.style.display = (v===name) ? '' : 'none';
     if(btn) btn.classList.toggle('on', v===name);
   });
-  if(name==='words')  jtLoad().then(jtRenderList);
-  if(name==='social') scLoad();
+  if(name==='words')   jtLoad().then(jtRenderList);
+  if(name==='social')  scLoad();
+  if(name==='numbers') rnLoad();
 }
 
 /* The saved descriptions, as a list you can actually manage rather than only
@@ -10831,6 +10853,204 @@ function jpFill(p){
   const ed=document.getElementById('jpEditor'); ed.style.display='block';
   ed.scrollIntoView({behavior:'smooth',block:'center'});
 }
+/* ---- How hiring is going ---------------------------------------------------
+   The numbers Augusta shows and takes away with it: where applicants come
+   from, how many of them get as far as an interview, how many of those
+   actually turn up, and how long each step takes.
+
+   Everything here is worked out in the browser from the two tables we already
+   have, so there is nothing to keep in step and no third place a number can
+   be wrong in. Reads only.
+
+   The one that changes behaviour is no-shows by how far ahead the interview
+   was booked. An interview booked for tomorrow is kept far more often than
+   one booked for next week, and the fix is a setting rather than an effort. */
+let RN_AP = [], RN_BK = [], RN_LOADED = false;
+
+async function rnLoad(btn){
+  const box = document.getElementById('rnBody'); if(!box) return;
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    const [a, b] = await Promise.all([
+      sb.from('job_applicants').select('*').order('created_at',{ascending:false}).limit(5000),
+      sb.from('interview_bookings').select('applicant_id,created_at,starts_at,status').limit(5000),
+    ]);
+    if(a.error) throw a.error;
+    if(b.error) throw b.error;
+    RN_AP = a.data || []; RN_BK = b.data || []; RN_LOADED = true;
+    rnRender();
+  }catch(e){
+    box.innerHTML = '<div class="card" style="padding:16px 18px;"><div class="field-note" style="color:var(--red);">'
+      + 'Could not load the numbers: ' + escapeHtmlComms(e && e.message || 'error') + '</div></div>';
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+
+const rnPct = (a,b) => b ? Math.round(a/b*100) + '%' : '—';
+const rnDays = (from,to) => (new Date(to) - new Date(from)) / 864e5;
+/* Median rather than average, because one applicant who books six weeks out
+   drags an average somewhere that describes nobody. */
+function rnMedian(xs){
+  const v = xs.filter(x=>isFinite(x)).sort((a,b)=>a-b);
+  if(!v.length) return null;
+  const m = Math.floor(v.length/2);
+  return v.length % 2 ? v[m] : (v[m-1]+v[m])/2;
+}
+const rnCard = (title, body, note) =>
+  '<div class="card" style="padding:16px 18px;margin-bottom:14px;">'
+  + '<b style="font-size:15px;color:var(--navy);">' + title + '</b>'
+  + (note ? '<div class="field-note" style="margin-top:3px;">' + note + '</div>' : '')
+  + '<div style="margin-top:11px;">' + body + '</div></div>';
+const rnRow = (left, right) =>
+  '<div style="display:flex;justify-content:space-between;gap:12px;font-size:13.5px;padding:6px 0;border-bottom:1px dashed var(--border);">'
+  + '<span>' + left + '</span><span>' + right + '</span></div>';
+const rnBar = (label, n, of, color) =>
+  '<div style="margin-bottom:9px;">'
+  + '<div style="display:flex;justify-content:space-between;font-size:13.5px;"><span>' + label + '</span>'
+  + '<b>' + n + (of ? ' <span style="font-weight:500;color:var(--text-muted);">(' + rnPct(n,of) + ')</span>' : '') + '</b></div>'
+  + '<div style="background:#FAF9F6;border-radius:6px;height:10px;margin-top:3px;">'
+  + '<div style="width:' + (of ? Math.max(2, Math.round(n/of*100)) : 0) + '%;background:' + color + ';height:10px;border-radius:6px;"></div></div></div>';
+
+function rnRender(){
+  const box = document.getElementById('rnBody'); if(!box) return;
+  if(!RN_LOADED){ rnLoad(); return; }
+  const esc = escapeHtmlComms;
+  const days = parseInt((document.getElementById('rnRange')||{}).value || '90', 10);
+  const cutoff = days ? new Date(Date.now() - days*864e5).toISOString() : '';
+
+  const ap = RN_AP.filter(r => !cutoff || (r.created_at||'') >= cutoff);
+  if(!ap.length){
+    box.innerHTML = rnCard('Nothing yet in this period',
+      '<div class="field-note">' + (RN_AP.length
+        ? 'Nobody has applied on mo-care.com in the last ' + days + ' days. Try a longer period.'
+        : 'Nobody has applied on mo-care.com yet. Applicants appear the moment somebody finishes the form, '
+          + 'and everything on this page fills itself in from there.') + '</div>');
+    return;
+  }
+
+  /* One booking per applicant, the live or most recent one, so somebody who
+     rebooked counts once. */
+  const bookByAp = {};
+  RN_BK.forEach(b=>{
+    const cur = bookByAp[b.applicant_id];
+    if(!cur || (b.starts_at||'') > (cur.starts_at||'')) bookByAp[b.applicant_id] = b;
+  });
+  const apIds = new Set(ap.map(r=>r.id));
+  const bookings = RN_BK.filter(b=>apIds.has(b.applicant_id) && b.status !== 'rescheduled');
+
+  /* ---- the funnel ---- */
+  const finished = ap.filter(r => r.completed_at || r.status !== 'partial');
+  const cleared  = finished.filter(r => !r.decline_reason && r.status !== 'declined'
+    && r.age_ok !== false && r.work_auth !== false && r.has_transport !== false);
+  const booked   = ap.filter(r => bookByAp[r.id]);
+  const cameIn   = ap.filter(r => (bookByAp[r.id]||{}).status === 'attended');
+  const hired    = ap.filter(r => r.hired_at || r.status === 'hired');
+  const n = ap.length;
+
+  const funnel = rnBar('Started the form', n, n, '#94A3B8')
+    + rnBar('Finished it', finished.length, n, '#3B82F6')
+    + rnBar('Cleared the screen', cleared.length, n, '#0EA5E9')
+    + rnBar('Booked an interview', booked.length, n, '#F59E0B')
+    + rnBar('Came in', cameIn.length, n, '#8B5CF6')
+    + rnBar('Hired', hired.length, n, '#15803D')
+    + '<div class="field-note" style="margin-top:8px;">'
+    + (n - finished.length) + ' stopped part way through and ' + rnPct(cleared.length ? booked.length : 0, cleared.length)
+    + ' of the people who cleared the screen booked a time. Anyone who stopped part way is still on the '
+    + '<b>Applicants</b> tab with a phone number, which is the reason the form saves after the first step.</div>';
+
+  /* ---- interviews ---- */
+  const past = bookings.filter(b => new Date(b.starts_at) < new Date());
+  const attended = bookings.filter(b => b.status === 'attended').length;
+  const noshow   = bookings.filter(b => b.status === 'noshow').length;
+  const cancelled= bookings.filter(b => b.status === 'cancelled').length;
+  const awaiting = past.filter(b => b.status === 'booked').length;
+  const judged   = attended + noshow;
+
+  const BUCKETS = [['Same or next day',0,1],['2 to 3 days',2,3],['4 to 6 days',4,6],['A week or more',7,999]];
+  const byLead = BUCKETS.map(([label,lo,hi])=>{
+    const rows = bookings.filter(b=>{
+      const d = Math.round(rnDays(b.created_at, b.starts_at));
+      return d >= lo && d <= hi;
+    });
+    const lost = rows.filter(b => b.status === 'noshow' || b.status === 'cancelled').length;
+    return { label, total: rows.length, lost };
+  }).filter(x => x.total);
+
+  const interviews = bookings.length
+    ? rnRow('Booked', '<b>' + bookings.length + '</b>')
+      + rnRow('Turned up', '<b>' + attended + '</b>' + (judged ? ' · ' + rnPct(attended, judged) + ' of the ones we know about' : ''))
+      + rnRow('Did not show', '<b>' + noshow + '</b>')
+      + rnRow('Cancelled', '<b>' + cancelled + '</b>')
+      + (awaiting ? rnRow('<span style="color:#B45309;">Waiting on an outcome</span>',
+          '<b style="color:#B45309;">' + awaiting + '</b>') : '')
+      + (byLead.length
+          ? '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 4px;">Lost, by how far ahead it was booked</div>'
+            + byLead.map(x => rnRow(esc(x.label), x.lost + ' of ' + x.total + ' · <b>' + rnPct(x.lost, x.total) + '</b>')).join('')
+            + '<div class="field-note" style="margin-top:8px;">If the far-out rows are the worst, offer fewer days at a time '
+            + 'under <b>Interviews &rarr; when we are free</b>. A time somebody picked for tomorrow is a time they keep.</div>'
+          : '')
+    : '<div class="field-note">Nobody has booked an interview yet. Applicants are offered times on the last screen of the form, '
+      + 'so this fills up once somebody has hours set on <b>Interviews</b>.</div>';
+
+  /* ---- where they come from ---- */
+  const bySrc = {};
+  ap.forEach(r=>{
+    const k = r.channel || r.source || 'not recorded';
+    bySrc[k] = bySrc[k] || { n:0, booked:0, hired:0 };
+    bySrc[k].n++;
+    if(bookByAp[r.id]) bySrc[k].booked++;
+    if(r.hired_at || r.status === 'hired') bySrc[k].hired++;
+  });
+  const sources = Object.entries(bySrc).sort((a,b)=>b[1].n-a[1].n).map(([k,v]) =>
+    rnRow('<b>' + esc(k) + '</b>', v.n + ' applied · ' + v.booked + ' booked · <b>' + v.hired + ' hired</b>'
+      + (v.n ? ' <span style="color:var(--text-muted);">(' + rnPct(v.hired, v.n) + ')</span>' : ''))).join('')
+    + (bySrc['not recorded']
+        ? '<div class="field-note" style="margin-top:8px;">"Not recorded" is anybody who came straight to the apply page '
+          + 'without going through a job page. Links in adverts and posts carry the source through on their own.</div>' : '');
+
+  /* ---- speed ---- */
+  const toInterview = booked.map(r => rnDays(r.created_at, bookByAp[r.id].starts_at));
+  const toHire = hired.filter(r=>r.hired_at).map(r => rnDays(r.created_at, r.hired_at));
+  const medI = rnMedian(toInterview), medH = rnMedian(toHire);
+  const speed = rnRow('Applied to interview', medI==null ? '—' : '<b>' + medI.toFixed(1) + ' days</b>')
+    + rnRow('Applied to hired', medH==null ? '—' : '<b>' + medH.toFixed(1) + ' days</b>')
+    + '<div class="field-note" style="margin-top:8px;">Middle of the range, not the average, so one slow one does not move it.</div>';
+
+  /* ---- why people fall out ---- */
+  const why = {};
+  ap.filter(r=>r.decline_reason).forEach(r=>{
+    const k = String(r.decline_reason).trim().toLowerCase();
+    why[k] = (why[k]||0) + 1;
+  });
+  const whyRows = Object.entries(why).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const declines = whyRows.length
+    ? whyRows.map(([k,v]) => rnRow(esc(k.charAt(0).toUpperCase()+k.slice(1)), '<b>'+v+'</b>')).join('')
+    : '<div class="field-note">Nobody has been turned away in this period.</div>';
+
+  /* ---- the pool ---- */
+  const pool = RN_AP.filter(r => r.status === 'pool');
+  const poolBody = pool.length
+    ? rnRow('People waiting', '<b>' + pool.length + '</b>')
+      + rnRow('Longest wait', '<b>' + Math.max.apply(null, pool.map(r =>
+          Math.floor(rnDays(r.pooled_at || r.created_at, new Date().toISOString())))) + ' days</b>')
+      + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 4px;">What they are holding out for</div>'
+      + Object.entries(pool.reduce((m,r)=>{ const k=r.pool_wants||'not recorded'; m[k]=(m[k]||0)+1; return m; },{}))
+          .sort((a,b)=>b[1]-a[1]).map(([k,v])=>rnRow(esc(k), '<b>'+v+'</b>')).join('')
+      + '<div class="field-note" style="margin-top:8px;">When hours come up that match, '
+      + '<b>Applicants &rarr; tell past applicants about an opening</b> reaches them in one go.</div>'
+    : '<div class="field-note">Nobody in the pool. It fills from the interview outcome, and it is the cheapest '
+      + 'place a hire ever comes from: somebody who was right but early.</div>';
+
+  box.innerHTML =
+      rnCard('The funnel', funnel, 'Everyone who started an application in this period, and how far they got.')
+    + '<div class="profile-grid" style="grid-template-columns:1fr 1fr;">'
+    + rnCard('Interviews', interviews, 'Booked in this period.')
+    + rnCard('Where they come from', sources, 'By the channel the link carried.')
+    + rnCard('How long it takes', speed, 'From the moment they applied.')
+    + rnCard('Why people did not go forward', declines, 'The reason recorded, whether the form stopped them or we did.')
+    + '</div>'
+    + rnCard('The candidate pool', poolBody, 'Right person, wrong moment. Not counted in the period above.');
+}
+
 /* ---- One calendar under four booking systems ------------------------------
    Consultations, care assessments, orientations and interviews all spend the
    same coordinator's day, and until now none of them knew the others existed.
