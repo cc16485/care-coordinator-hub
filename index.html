@@ -1314,6 +1314,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div><label>Which opening?</label><select id="apRePosting"></select></div>
           <div><label>Position they applied for</label><select id="apRePos"><option value="">Any</option></select></div>
         </div>
+        <div class="grid2">
+          <div><label>Who to tell</label>
+            <select id="apReWho" onchange="apReCount()">
+              <option value="pool">The candidate pool — people we said we would come back to</option>
+              <option value="all">Everyone qualified who was never hired</option>
+            </select></div>
+          <div></div>
+        </div>
         <label>What to say <span style="font-weight:400;color:var(--text-muted);">(their first name is added at the front)</span></label>
         <textarea id="apReMsg" rows="3" placeholder="we have a new caregiver opening in Nixa with weekday day shifts, and we thought of you. If you are still looking, you can pick an interview time here:"></textarea>
         <div id="apReCount" class="field-note" style="margin-top:8px;"></div>
@@ -10378,7 +10386,7 @@ const apDays = iso => (Date.now() - new Date(iso).getTime()) / 864e5;
 
 const AP_VIEWS = [
   ['new','New'], ['qualified','Qualified'], ['booked','Interview booked'],
-  ['unqualified','Not qualified'], ['inactive','Inactive'], ['all','Everyone'],
+  ['pool','Candidate pool'], ['unqualified','Not qualified'], ['inactive','Inactive'], ['all','Everyone'],
 ];
 
 async function apLoad(btn){
@@ -10428,12 +10436,13 @@ function apMatching(k, ignorePosition){
       case 'all':        return true;
       case 'new':        return r.status==='new' && !booked;
       case 'booked':     return booked;
-      case 'qualified':  return apQualified(r) && !['hired'].includes(r.status)
+      case 'qualified':  return apQualified(r) && !['hired','pool'].includes(r.status)
                                  && (booked || apDays(r.created_at) <= 60);
+      case 'pool':       return r.status==='pool';
       case 'unqualified':return !apQualified(r);
       /* Nobody is thrown away. Inactive is "we tried, they went quiet, and
          they are exactly who to ring when something opens". */
-      case 'inactive':   return apQualified(r) && !booked && apDays(r.created_at) > 60;
+      case 'inactive':   return apQualified(r) && r.status!=='pool' && !booked && apDays(r.created_at) > 60;
       default:           return true;
     }
   });
@@ -10496,6 +10505,10 @@ function apRender(){
     const line = b
       ? '<span style="font-size:12px;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:2px 10px;">'
         + '📅 ' + esc(when(b.starts_at)) + (AP_COORD[b.coordinator_id]?' with '+esc(AP_COORD[b.coordinator_id]):'') + '</span>'
+      : r.status==='pool'
+        ? '<span style="font-size:12px;font-weight:700;color:#5B21B6;background:#EDE9FE;border-radius:999px;padding:2px 10px;">'
+          + '🗂 Waiting for ' + esc(r.pool_wants || 'hours') + (r.pool_area?' · '+esc(r.pool_area):'')
+          + ' · ' + Math.max(0,Math.floor(apDays(r.pooled_at||r.created_at))) + 'd' + '</span>'
       : r.status==='declined' || r.decline_reason
         ? '<span style="font-size:12px;color:#B91C1C;">Not moving forward' + (r.decline_reason?' — '+esc(r.decline_reason):'') + '</span>'
         : r.status==='partial'
@@ -10518,6 +10531,7 @@ function apRender(){
         + (r.channel?'<span>via '+esc(r.channel)+'</span>':'')
         + (r.reengage_count?'<span>told about '+r.reengage_count+' opening'+(r.reengage_count>1?'s':'')+'</span>':'')
       + '</div>'
+      + (r.status==='pool' && r.pool_note?'<div style="margin-top:.5rem;font-size:.82rem;background:#F7F5FF;border:1px solid #EDE9FE;border-radius:8px;padding:.5rem .7rem;"><b>In the pool because:</b> '+esc(r.pool_note)+'</div>':'')
       + (r.availability?'<div style="margin-top:.5rem;font-size:.82rem;"><b>Available:</b> '+esc(r.availability)+'</div>':'')
       + (r.experience?'<div style="margin-top:.3rem;font-size:.82rem;"><b>Experience:</b> '+esc(r.experience)+'</div>':'')
       + ((r.experience_kinds&&r.experience_kinds.length)?'<div style="margin-top:.3rem;font-size:.82rem;color:#6E6559;">'+esc(r.experience_kinds.join(' · '))+'</div>':'')
@@ -10715,16 +10729,33 @@ async function apOutcome(outcome, btn){
   const A = Object.assign({}, window.__apInt || {});
   A.notes = (document.getElementById('apIntNotes').value||'').trim();
 
-  let reason = null;
+  let reason = null, wants = null, area = null;
   if(outcome==='declined'){
     reason = prompt('Why are we not hiring '+(r.first_name||'them')+'?\n\nKept for our records, never sent.','');
+    if(reason===null) return;
+  }
+  if(outcome==='pool'){
+    /* The pool is only useful if you can tell, months later, who a new run of
+       hours belongs to. So it asks the two things that answer that. */
+    wants = prompt('What are they holding out for?\n\ne.g. Full time · Weekday days · Weekends · 25+ hours',
+      (A.shift==='nights'?'Nights':'') || r.job_type || 'Full time');
+    if(wants===null) return;
+    area = prompt('Which area do they need it in?', A.travel_areas || r.city || '');
+    if(area===null) return;
+    reason = prompt('Anything to remember about them?\n\nThis is what you will read when hours come up.',
+      A.notes || '');
     if(reason===null) return;
   }
   btn.disabled = true;
   try{
     const patch = { post_interview: A, status: outcome, seen_at: new Date().toISOString() };
     if(outcome==='declined') patch.decline_reason = (reason||'').trim() || 'not a fit after interview';
-    if(outcome==='pool')  patch.pooled_at = new Date().toISOString();
+    if(outcome==='pool'){
+      patch.pooled_at = new Date().toISOString();
+      patch.pool_wants = (wants||'').trim() || null;
+      patch.pool_area  = (area||'').trim()  || null;
+      patch.pool_note  = (reason||'').trim() || A.notes || null;
+    }
     if(outcome==='hired') patch.hired_at  = new Date().toISOString();
     const { error } = await sb.from('job_applicants').update(patch).eq('id', id);
     if(error) throw error;
@@ -10750,8 +10781,10 @@ async function apOutcome(outcome, btn){
    screen, never got hired, and have not heard from us recently. */
 function apReengageList(){
   const pos = (document.getElementById('apRePos')||{}).value || '';
+  const who = (document.getElementById('apReWho')||{}).value || 'pool';
   return AP_ROWS.filter(r=>
-    apQualified(r) && !AP_BOOK[r.id] && r.status!=='hired'
+    apQualified(r) && r.status!=='hired'
+    && (who==='pool' ? r.status==='pool' : !AP_BOOK[r.id])
     && (!pos || r.position===pos)
     && (r.phone || r.email)
     && (!r.reengaged_at || apDays(r.reengaged_at) > 30));
@@ -10762,6 +10795,7 @@ function apReengage(){
   card.style.display = 'block';
   apReCount();
   document.getElementById('apRePos').onchange = apReCount;
+  document.getElementById('apReWho').onchange = apReCount;
   card.scrollIntoView({behavior:'smooth', block:'center'});
 }
 function apReCount(){
@@ -10770,7 +10804,8 @@ function apReCount(){
   document.getElementById('apReCount').textContent =
     list.length + ' ' + (list.length===1?'person':'people') + ' would hear about this'
     + (list.length ? ' — ' + textable + ' by text, ' + list.filter(r=>r.email).length + ' by email' : '')
-    + '. Anyone contacted in the last 30 days is left out.';
+    + '. Anyone contacted in the last 30 days is left out.'
+    + (list.length ? '\n\nWaiting for: ' + [...new Set(list.map(r=>r.pool_wants).filter(Boolean))].join(', ') : '');
 }
 
 async function apReSend(btn){
