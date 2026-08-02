@@ -1340,7 +1340,9 @@ async function loadOffers(btn){
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 function updateOffersBadge(){
-  const n=OFFERS.filter(o=>!o.attributes_entered_at).length;
+  /* Everything still on this card, not just the ones missing attributes.
+     An offer waiting on Viventium entry is waiting on you too. */
+  const n=OFFERS.filter(o=>!offerMovedOn(o)).length;
   const b=document.getElementById('offersBadge');
   if(b){ b.style.display=n?'inline-block':'none'; b.textContent=n; }
   updateGroupBadges();
@@ -1349,83 +1351,185 @@ function renderOffers(){
   const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const box=document.getElementById('offersList');
   if(!OFFERS.length){ box.innerHTML='<div style="color:#A89C8B;font-size:.85rem">No offers yet — they appear here the moment a coordinator submits the Offer a Job form on the Team Hub.</div>'; return; }
-  box.innerHTML=OFFERS.map((o,i)=>{
-    const done=!!o.attributes_entered_at;
+  /* An offer that has reached Background & References is history, not work.
+     It moves to Previous offers so this card only ever holds what is left. */
+  const active=OFFERS.filter(o=>!offerMovedOn(o))
+    .sort((a,b)=>String(a.interview_date||'').localeCompare(String(b.interview_date||'')));  // oldest first: the ones going stale surface
+
+  /* One line telling you the single next thing, so the card can stay shut. */
+  const nextStep=o=>
+      !o.axiscare_applicant_id   ? ['Add to AxisCare','#B45309','#FEF3C7']
+    : !o.attributes_entered_at   ? ['Enter attributes','#B45309','#FEF3C7']
+    : !o.viventium_entered_at    ? ['Enter in Viventium','#B45309','#FEF3C7']
+    : !o.step1_done_at           ? ['Waiting on their Step 1','#6E6559','#F4F2ED']
+    :                              ['Ready for background & references','#15803D','#DCFCE7'];
+
+  /* One card, four things: who they are, the single next step, the level, and
+     the two reference sheets. Every step used to get its own coloured box on
+     screen at once, which meant reading four to find the one that was yours. */
+  const body=o=>{
     const attrs=o.attributes||{};
     const attrHtml=OFFER_ATTRS.map(a=>{
-      const v=attrs[a[0]];
-      const no=v===false;
+      const no=attrs[a[0]]===false;
       return '<div style="display:flex;justify-content:space-between;gap:.6rem;padding:.18rem 0;border-bottom:1px dashed #FAF9F6;font-size:.8rem">'+
         '<span>'+esc(a[1])+'</span><b style="color:'+(no?'#DC2626':'#15803D')+'">'+(no?'NO':'Yes')+'</b></div>';
     }).join('');
     const lvl=o.level_confirmed||'';
-    return '<div style="background:#fff;border:1px solid '+(done?'#e4e1d8':'#f59e0b')+';border-radius:12px;padding:1rem 1.2rem">'+
-      '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">'+
-      '<b style="font-size:1rem;color:#0D365F">'+esc(o.name)+'</b>'+
-      '<span style="font-size:.78rem;color:#6E6559">'+esc(o.position||'Caregiver')+(o.pay_rate?' · $'+Number(o.pay_rate).toFixed(2)+'/hr':'')+' · interviewed '+esc(o.interview_date||'')+(o.offered_by?' by '+esc(o.offered_by):'')+'</span>'+
-      '<span style="flex:1"></span>'+
-      (o.axiscare_applicant_id
-        ? '<span style="font-size:.72rem;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:.15rem .6rem">In AxisCare ✓</span>'
-        : '<span title="'+esc(o.axiscare_push_error||'')+'" style="font-size:.72rem;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:.15rem .6rem">Add to AxisCare by hand</span>')+
-      (done
-        ? '<span style="font-size:.72rem;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:.15rem .6rem">Attributes entered ✓'+(o.attributes_entered_by?' ('+esc(o.attributes_entered_by)+')':'')+'</span>'
-        : '<button class="fb" onclick="markOfferEntered(\''+esc(o.id)+'\',this)">☑ Entered in AxisCare</button>')+
-      '</div>'+
-      '<div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:.6rem;font-size:.82rem;color:#3A342C">'+
-      (o.phone?'<span>📱 '+esc(o.phone)+'</span>':'')+(o.email?'<span>✉️ '+esc(o.email)+'</span>':'')+
+    const id=esc(o.id);
+
+    /* The ladder, in order. Done ones tick quietly; the first unfinished one
+       is the only place a button appears. */
+    const steps=[
+      {done:!!o.attributes_entered_at, label:'AxisCare attributes',
+       btn:'<button class="fb" onclick="markOfferEntered(\''+id+'\',this)">Mark entered in AxisCare</button>',
+       note:o.axiscare_applicant_id?'Pushed automatically, just confirm the attributes.':'Auto-push did not take, so add them by hand first.'},
+      {done:!!o.viventium_entered_at, label:'Viventium entry',
+       btn:'<button class="fb" onclick="markOfferViventium(\''+id+'\',this)">Mark entered in Viventium</button>',
+       note:'Use the entry sheet below, then mark it. That is what sends their welcome message.'},
+      {done:!!o.step1_done_at, label:'Their Step 1 paperwork',
+       btn:'<button class="fb" onclick="markOfferStep1(\''+id+'\',this)">Mark Step 1 done</button>',
+       note:'Theirs to do. Viventium reminds them every two days'+(o.step1_alerted_at?', and this one is flagged as stalled':'')+'.'},
+      {done:false, label:'Background &amp; references',
+       btn:'<button class="fb" onclick="offerToCandidate(\''+id+'\',this)">Start background &amp; references</button>',
+       note:'Moves them across with their references already filled in.'},
+    ];
+    const at=steps.findIndex(s=>!s.done);
+
+    const ladder=steps.map((s,i)=>
+      i<at ? '<span style="font-size:.76rem;color:#15803D">✓ '+s.label+'</span>'
+    : i===at? ''
+    :         '<span style="font-size:.76rem;color:#C9C1B4">'+s.label+'</span>'
+    ).filter(Boolean).join('<span style="color:#E8E2D8">·</span>');
+
+    const now=steps[at];
+
+    return '<div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.82rem;color:#3A342C">'+
+      (o.phone?'<span>📱 '+esc(o.phone)+'</span>':'')+
+      (o.email?'<span>✉️ '+esc(o.email)+'</span>':'')+
+      (o.pay_rate?'<span>💵 $'+Number(o.pay_rate).toFixed(2)+'/hr</span>':'')+
       (o.availability?'<span>🗓 '+esc(o.availability)+'</span>':'')+
       '</div>'+
-      '<div style="margin-top:.55rem;font-size:.82rem;color:#3A342C;line-height:1.5">'+
-      (o.experience?'<div><b>Experience:</b> '+esc(o.experience)+'</div>':'')+
-      (o.personality?'<div><b>Personality/fit:</b> '+esc(o.personality)+'</div>':'')+
-      (o.notes?'<div><b>Notes:</b> '+esc(o.notes)+'</div>':'')+
+      ((o.experience||o.personality||o.notes)
+        ? '<div style="margin-top:.5rem;font-size:.82rem;color:#3A342C;line-height:1.5">'+
+          (o.experience?'<div><b>Experience:</b> '+esc(o.experience)+'</div>':'')+
+          (o.personality?'<div><b>Personality/fit:</b> '+esc(o.personality)+'</div>':'')+
+          (o.notes?'<div><b>Notes:</b> '+esc(o.notes)+'</div>':'')+'</div>'
+        : '')+
+
+      /* The one thing to do next. */
+      '<div style="margin-top:.7rem;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.6rem .75rem">'+
+      '<div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">'+
+      '<b style="font-size:.82rem;color:#0D365F">Next: '+now.label+'</b>'+
+      '<span style="flex:1"></span>'+now.btn+'</div>'+
+      '<div style="font-size:.76rem;color:#6E6559;margin-top:.3rem">'+now.note+'</div>'+
       '</div>'+
-      '<div style="display:flex;gap:.6rem;align-items:center;margin-top:.7rem;flex-wrap:wrap;font-size:.82rem;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.5rem .7rem">'+
+      (ladder?'<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.45rem">'+ladder+'</div>':'')+
+
+      /* Start link, one line, because it sends itself. */
+      '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.6rem;font-size:.78rem">'+
       '<b style="color:#0D365F">Start link:</b>'+
       (o.start_link_sent_at
-        ? '<span style="color:#15803D;font-weight:700;font-size:.78rem">sent automatically when you saved the offer ✓</span>'
-        : '<span style="color:#B45309;font-size:.78rem">not sent yet — send it so reference checks can start</span>')+
-      '<span style="flex:1"></span>'+
-      '<button class="fb" onclick="offerStartLink(\''+esc(o.id)+'\',this)">'+(o.start_link_sent_at?'📲 Send again':'📲 Send')+'</button>'+
+        ? '<span style="color:#15803D">sent when you saved the offer ✓</span>'
+        : '<span style="color:#B45309">not sent yet</span>')+
+      '<button class="fb" style="font-size:.72rem" onclick="offerStartLink(\''+id+'\',this)">'+(o.start_link_sent_at?'Send again':'Send')+'</button>'+
+      (o.welcome_sent_at?'<span style="color:#15803D">· welcome message sent ✓</span>':'')+
       '</div>'+
-      '<div id="sl_'+esc(o.id)+'" style="display:none;margin-top:.4rem;background:#fff;border:1px solid #e4e1d8;border-radius:8px;padding:.6rem .7rem;font-size:.8rem"></div>'+
-      '<div style="display:flex;gap:.6rem;align-items:center;margin-top:.7rem;flex-wrap:wrap;font-size:.82rem;background:#FAF9F6;border:1px solid #e4e1d8;border-radius:8px;padding:.5rem .7rem">'+
-      '<b style="color:#0D365F">Viventium:</b>'+
-      '<span style="background:#EDE9FE;color:#5B21B6;border-radius:999px;padding:.12rem .6rem;font-size:.72rem;font-weight:700">plan: '+esc(o.onboarding_plan||'Default (Default)')+'</span>'+
-      (o.viventium_entered_at
-        ? '<span style="color:#15803D;font-weight:700">entered ✓</span>'
-        : '<button class="fb" onclick="markOfferViventium(\''+esc(o.id)+'\',this)">☑ Entered in Viventium</button>')+
-      (o.welcome_sent_at
-        ? '<span style="color:#15803D;font-size:.75rem">💬 welcome text + email sent ✓</span>'
-        : (o.viventium_entered_at
-            ? '<button class="fb" style="font-size:.72rem" onclick="sendOfferWelcome(\''+esc(o.id)+'\',this)">💬 Send welcome text + email</button><span style="color:#b45309;font-size:.72rem">not sent yet</span>'
-            : '<span style="color:#A89C8B;font-size:.72rem">💬 welcome text + email sends when you mark this</span>'))+
-      '<span style="color:#E8E2D8">→</span>'+
-      (o.step1_done_at
-        ? '<span style="color:#15803D;font-weight:700">Step 1 paperwork done ✓</span>'
-        : (o.viventium_entered_at
-            ? '<button class="fb" onclick="markOfferStep1(\''+esc(o.id)+'\',this)">☑ Step 1 done (got the notification)</button>'+
-              '<span style="color:#A89C8B">Viventium reminds them every 2 days'+
-              (o.step1_alerted_at?' · flagged as stalled':'')+'</span>'
-            : '<span style="color:#A89C8B">waiting on Viventium entry</span>'))+
-      '</div>'+
-      '<div style="display:flex;gap:.6rem;align-items:center;margin-top:.5rem;flex-wrap:wrap">'+
-      '<button class="fb" onclick="offerToCandidate(\''+esc(o.id)+'\',this)">➡️ Start background &amp; references</button>'+
-      '<span style="color:#6E6559;font-size:.76rem">moves them across with their references already filled in</span>'+
-      '</div>'+
-      '<div style="display:flex;gap:1rem;align-items:center;margin-top:.7rem;flex-wrap:wrap;font-size:.82rem">'+
-      '<span><b>Level of care:</b> suggested '+(o.level_suggested||'—')+' at interview</span>'+
-      '<label style="display:flex;align-items:center;gap:.4rem">confirmed:'+
-      '<select onchange="confirmOfferLevel(\''+esc(o.id)+'\',this)" style="font-family:inherit;font-size:.82rem;padding:.2rem .4rem;border:1px solid #e4e1d8;border-radius:6px">'+
+      '<div id="sl_'+id+'" style="display:none;margin-top:.4rem;background:#fff;border:1px solid #e4e1d8;border-radius:8px;padding:.6rem .7rem;font-size:.8rem"></div>'+
+
+      '<div style="display:flex;gap:.6rem;align-items:center;margin-top:.6rem;flex-wrap:wrap;font-size:.8rem">'+
+      '<b style="color:#0D365F">Level of care:</b><span style="color:#6E6559">suggested '+(o.level_suggested||'—')+'</span>'+
+      '<label style="display:flex;align-items:center;gap:.35rem">confirmed:'+
+      '<select onchange="confirmOfferLevel(\''+id+'\',this)" style="font-family:inherit;font-size:.8rem;padding:.2rem .4rem;border:1px solid #e4e1d8;border-radius:6px">'+
       '<option value=""'+(lvl===''?' selected':'')+'>not yet</option>'+
       [1,2,3].map(n=>'<option value="'+n+'"'+(lvl===n?' selected':'')+'>Level '+n+'</option>').join('')+
-      '</select></label>'+
-      '<span style="color:#A89C8B">(confirm from verified experience + references)</span>'+
-      '</div>'+
-      '<details style="margin-top:.7rem"'+(o.viventium_entered_at?'':' open')+'><summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:#5B21B6">📝 Viventium entry sheet — every field in screen order, copy one at a time</summary>'+
+      '</select></label></div>'+
+
+      '<details style="margin-top:.6rem"><summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:#5B21B6">📝 Viventium entry sheet</summary>'+
       '<div style="max-width:520px;margin-top:.4rem;background:#FBFAFF;border:1px solid #EDE9FE;border-radius:8px;padding:.6rem .8rem">'+vivSheet(o)+'</div></details>'+
-      '<details style="margin-top:.5rem"><summary style="cursor:pointer;font-size:.82rem;font-weight:700;color:#0D365F">AxisCare attribute answers — same order as the Attributes screen</summary>'+
-      '<div style="max-width:420px;margin-top:.4rem">'+attrHtml+'</div></details>'+
+      '<details style="margin-top:.35rem"><summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:#0D365F">AxisCare attribute answers</summary>'+
+      '<div style="max-width:420px;margin-top:.4rem">'+attrHtml+'</div></details>';
+  };
+
+  box.innerHTML = active.length
+    ? active.map(o=>{
+        const s=nextStep(o);
+        /* Age earns a mention only once it is worth noticing. An offer sitting
+           a week without moving is the thing this card exists to surface. */
+        const age=offerAgeDays(o.interview_date);
+        const stale=age!=null&&age>=7;
+        return '<details style="background:#fff;border:1px solid '+(o.attributes_entered_at?'#e4e1d8':'#f59e0b')+';border-radius:12px;margin-bottom:.5rem">'+
+          '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.75rem .95rem">'+
+          '<span style="min-width:4.1rem;font-size:.78rem;font-weight:700;font-variant-numeric:tabular-nums;color:'+(stale?'#B45309':'#6E6559')+'">'+esc(offerDate(o.interview_date))+'</span>'+
+          '<b style="font-size:.95rem;color:#0D365F">'+esc(o.name)+'</b>'+
+          '<span style="font-size:.76rem;color:#6E6559">'+esc(o.position||'Caregiver')+(o.offered_by?' · by '+esc(o.offered_by):'')+'</span>'+
+          (age==null?'':'<span style="font-size:.72rem;'+(stale?'font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:.1rem .5rem':'color:#A89C8B')+'">'+
+            (age===0?'today':age===1?'1 day ago':age+' days ago')+'</span>')+
+          '<span style="flex:1"></span>'+
+          '<span style="font-size:.72rem;font-weight:700;color:'+s[1]+';background:'+s[2]+';border-radius:999px;padding:.15rem .6rem">'+s[0]+'</span>'+
+          '<span style="color:#A89C8B;font-size:.74rem">details ▾</span>'+
+          '</summary>'+
+          '<div style="padding:0 .95rem .95rem">'+body(o)+'</div></details>';
+      }).join('')
+    : '<div style="color:#A89C8B;font-size:.85rem">Nothing waiting on you. Offers land here when you save one, and move to <b>Previous offers</b> below once they reach Background &amp; References.</div>';
+
+  renderPastOffers();
+}
+
+/* Linked when the offer was moved across; the candidate carries the offer id. */
+function offerMovedOn(o){
+  return candidates.some(c=>String(c.offer_id)===String(o.id));
+}
+
+/* "Jul 31" reads faster than "2026-07-31" in a list you scan. The year only
+   earns its space when it is not this one. */
+const OFF_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function offerDate(iso){
+  const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!m) return '—';
+  const out=OFF_MONTHS[+m[2]-1]+' '+(+m[3]);
+  return (+m[1]===new Date().getFullYear()) ? out : out+' '+m[1];
+}
+/* Whole days since the offer, so a stalled one can announce itself. */
+function offerAgeDays(iso){
+  const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!m) return null;
+  const then=new Date(+m[1],+m[2]-1,+m[3]), now=new Date();
+  return Math.floor((new Date(now.getFullYear(),now.getMonth(),now.getDate())-then)/86400000);
+}
+
+/* Everything already moved on, searchable, one line each. Kept out of the way
+   but never thrown away, because "did we ever offer this person a job?" is a
+   question that gets asked months later. */
+function renderPastOffers(){
+  const box=document.getElementById('pastOffersList'); if(!box) return;
+  const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const el=document.getElementById('pastOffersSearch');
+  const q=((el&&el.value)||'').trim().toLowerCase();
+
+  let rows=OFFERS.filter(offerMovedOn);
+  const all=rows.length;
+  if(q) rows=rows.filter(o=>((o.name||'')+' '+(o.position||'')+' '+(o.offered_by||'')).toLowerCase().includes(q));
+  rows.sort((a,b)=>String(b.interview_date||'').localeCompare(String(a.interview_date||'')));
+
+  const cnt=document.getElementById('pastOffersCount');
+  if(cnt) cnt.textContent = all ? (q? rows.length+' of '+all : all+' offer'+(all===1?'':'s')) : '';
+
+  if(!all){ box.innerHTML='<div class="field-note">Nothing here yet. An offer moves down here once you start their background &amp; references.</div>'; return; }
+  if(!rows.length){ box.innerHTML='<div class="field-note">No offer matches “'+esc(q)+'”.</div>'; return; }
+
+  box.innerHTML=rows.map(o=>{
+    const c=candidates.find(x=>String(x.offer_id)===String(o.id));
+    const where=c ? (c.not_hired ? 'Not hired' : obDeriveStatus(c)) : 'In background & references';
+    const tone=where==='Ready for Orientation' ? ['#15803D','#DCFCE7']
+             : where==='Not hired'             ? ['#B91C1C','#FEE2E2']
+             : ['#6E6559','#F4F2ED'];
+    return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.5rem 0;border-bottom:1px solid #F0EDE6;font-size:.84rem">'+
+      '<span style="min-width:4.1rem;font-weight:700;font-variant-numeric:tabular-nums;color:#6E6559">'+esc(offerDate(o.interview_date))+'</span>'+
+      '<b style="color:#0D365F">'+esc(o.name)+'</b>'+
+      '<span style="color:#6E6559">'+esc(o.position||'Caregiver')+(o.offered_by?' · by '+esc(o.offered_by):'')+'</span>'+
+      '<span style="flex:1"></span>'+
+      '<span style="font-size:.72rem;font-weight:700;color:'+tone[0]+';background:'+tone[1]+';border-radius:999px;padding:.15rem .6rem">'+esc(where)+'</span>'+
+      (c?'<button class="fb" style="font-size:.72rem" onclick="gotoTab(\'onboarding\')">Open</button>':'')+
       '</div>';
   }).join('');
 }
@@ -6135,5 +6239,6 @@ window.markOfferViventium = markOfferViventium;
 window.markOfferStep1 = markOfferStep1;
 window.sendOfferWelcome = sendOfferWelcome;
 window.confirmOfferLevel = confirmOfferLevel;
+window.renderPastOffers = renderPastOffers;
 window.dispatchEvent(new Event('scx-ready'));
 })();

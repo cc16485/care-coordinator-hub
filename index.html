@@ -2810,7 +2810,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div id="offersList" style="margin-top:10px;"></div>
       </div>
       <div class="card" style="padding:0 18px;margin-bottom:16px;" id="joCard">
-        <details id="joDetails" open ontoggle="if(this.open)joInit()">
+        <!-- Shut by default so opening the tab answers "what is waiting on me?"
+             before it asks for a form. One click to make an offer. -->
+        <details id="joDetails" ontoggle="if(this.open)joInit()">
         <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px 0;">
           <b style="font-size:15px;color:var(--navy);">✍️ New offer</b>
           <span class="field-note">the four things below take about two minutes</span>
@@ -2929,13 +2931,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </details>
       </div>
 
+      <!-- Was a second copy of the same list, fetched again. It is now the
+           archive: everything that has moved on, searchable, dated, one line. -->
       <div class="card" style="padding:18px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <b style="font-size:14px;color:var(--navy);">Recent offers — where each one stands</b>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:14px;color:var(--navy);">Previous offers</b>
+          <span class="field-note" id="pastOffersCount"></span>
           <span style="flex:1;"></span>
-          <button class="secondary" onclick="renderInterviews(this)">↻ Refresh</button>
+          <input id="pastOffersSearch" type="search" placeholder="Search by name, position or who offered"
+                 oninput="window.renderPastOffers&&renderPastOffers()"
+                 style="flex:0 1 300px;font:inherit;font-size:13px;padding:7px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;">
+          <button class="secondary" onclick="ccLoadOffers(this)">↻ Refresh</button>
         </div>
-        <div id="interviewsList" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
+        <div id="pastOffersList" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
       </div>
     
     </section>
@@ -9904,7 +9912,11 @@ function joReset(){
 }
 
 /* ---------------- Interviews tab (job offers, read-only view) ---------------- */
-async function renderInterviews(btn){
+/* Previous offers render from the offers the engine already loaded, so this
+   tab makes one request instead of two for the same rows. */
+function renderInterviews(btn){ ccLoadOffers(btn); }
+
+async function renderInterviewsLegacy(btn){
   const box=document.getElementById('interviewsList'); if(!box) return;
   const key=(CONFIG.training_hub_key||'').trim();
   if(!key){ box.innerHTML='<div class="field-note">Paste the Training Hub read key into ⚙️ Settings to see offer statuses here. You can still make offers with the button above.</div>'; return; }
