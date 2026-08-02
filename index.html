@@ -2925,16 +2925,37 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <div class="rcview" id="rcview-indeed" style="display:none;">
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">💵 Approved hourly rates</b>
-          <span class="field-note">Use these in the job description. Do not invent a number.</span>
+        <b style="font-size:15px;color:var(--navy);">🔎 Posting on Indeed</b>
+        <div class="field-note" style="margin-top:4px;">Indeed is where most caregivers actually look. These are the rules that get a posting taken down or quietly buried, and the habits that make one work.</div>
+
+        <div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin:16px 0 6px;">Things that get a posting removed</div>
+        <ul style="margin:0;padding-left:20px;font-size:13.5px;line-height:1.8;">
+          <li><b>Never ask an applicant for money.</b> No fees for training, uniforms, background checks or anything else. This is the fastest way to lose an Indeed account.</li>
+          <li><b>One real opening per posting.</b> Not a pipeline advert, not "always accepting applications". Indeed suppresses evergreen postings, and duplicates of the same role split your applicants across both.</li>
+          <li><b>No wording that screens by who somebody is.</b> Age, sex, race, religion, national origin, disability, marital or family status. "Mature caregiver", "young and energetic", "must be female" are all out. If a client genuinely requires a female caregiver, that is a matching decision you make later, not a line in the advert.</li>
+          <li><b>Do not say "no felons" or "clean record only".</b> Say what is actually true: employment is contingent on a Family Care Safety Registry background screening. It is lawful, it is accurate, and it does not turn away somebody with a fifteen-year-old charge who would be excellent.</li>
+          <li><b>The job title is a job title.</b> "Caregiver" or "CNA — Springfield". Not "$20/HR!! START TODAY!!". Capitals, exclamation marks and pay in the title all get a posting demoted.</li>
+          <li><b>The location must be real.</b> Post the office or the town the work is in. Posting to towns you do not serve to widen reach gets flagged.</li>
+        </ul>
+
+        <div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin:18px 0 6px;">Things that make one work</div>
+        <ul style="margin:0;padding-left:20px;font-size:13.5px;line-height:1.8;">
+          <li><b>Always put the pay in.</b> Indeed shows it in the results, and postings without it get materially fewer applies. Take the range from <b>Positions &amp; pre-screens</b> so it matches everywhere else.</li>
+          <li><b>Answer within a day.</b> Indeed tracks employer responsiveness and ranks on it, and caregivers accept whoever calls first. This is what our own booking link is for: they pick a time instead of waiting for a call.</li>
+          <li><b>Send them to <span style="font-family:ui-monospace,monospace;">mo-care.com/apply</span></b> so the pre-screen and interview booking do the work. Indeed's own quick apply gives you a name and nothing else.</li>
+          <li><b>Refresh a stale posting rather than duplicating it.</b> Editing keeps the applicant history; a second copy of the same job competes with the first.</li>
+          <li><b>Sponsor when a role is genuinely urgent</b>, and stop when it fills. A sponsored posting that stays live after you have hired burns budget on applicants you cannot place.</li>
+        </ul>
+
+        <div class="field-note" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;">
+          Our own postings publish to <b>mo-care.com/careers</b> with the markup Google for Jobs reads, which is free.
+          Indeed is separate and still worth paying for while it is where the applicants are.
         </div>
-        <div id="payRatesBody" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
       </div>
 
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
-        <b style="font-size:15px;color:var(--navy);">1. Check what is already posted</b>
-        <div class="field-note" style="margin-top:4px;">Do this <b>before</b> you create anything. Augusta warns against duplicate postings with the same title and location, and a duplicate splits your applicants across two posts.</div>
+        <b style="font-size:15px;color:var(--navy);">Augusta, while the contract runs</b>
+        <div class="field-note" style="margin-top:4px;">Augusta posts to Indeed for us today. Keep using it until the contract ends, so the two funnels can be compared honestly.</div>
         <ol style="margin:10px 0 0;padding-left:20px;font-size:13.5px;line-height:1.75;">
           <li>Open Augusta and log in.</li>
           <li>Click <b>Smart Posts</b>. Everything currently live is listed there.</li>
@@ -10435,6 +10456,9 @@ async function pbLoad(btn){
   }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 
+/* The same people who could always approve a rate. */
+const pbCanSetPay = () => (typeof DISC_APPROVERS !== 'undefined')
+  ? DISC_APPROVERS.includes((typeof ME !== 'undefined' && ME.email) || '') : true;
 const pbMoney = v => (v===null||v===undefined||v==='') ? '' : '$'+Number(v).toFixed(2).replace(/\.00$/,'');
 /* Live-in is paid by the day, so the unit belongs to the role and everything
    that quotes a rate asks for it rather than assuming an hour. */
@@ -10460,15 +10484,22 @@ function pbRender(){
       + '<a class="fb" style="text-decoration:none;" target="_blank" rel="noopener" href="https://mo-care.com/apply?position='+esc(p.key)+'">See the pre-screen ↗</a>'
       + '<span style="color:#A89C8B;font-size:.74rem;">edit ▾</span>'
       + '</summary><div style="padding:0 .9rem .9rem;">'
-      + '<div class="grid2" style="margin-top:6px;">'
-      + '<div><label>Pay from ('+esc(pbUnit(p,2))+')</label><input id="pb_min_'+i+'" inputmode="decimal" value="'+esc(p.pay_min==null?'':p.pay_min)+'"></div>'
-      + '<div><label>Pay to ('+esc(pbUnit(p,2))+')</label><input id="pb_max_'+i+'" inputmode="decimal" value="'+esc(p.pay_max==null?'':p.pay_max)+'"></div>'
-      + '</div>'
-      + '<div style="max-width:260px;"><label>Paid by the</label><select id="pb_u_'+i+'">'
-        + ['HOUR','DAY','WEEK','YEAR'].map(function(u){ return '<option value="'+u+'"'
-            + ((p.pay_unit||'HOUR')===u?' selected':'')+'>'+({HOUR:'Hour',DAY:'Day',WEEK:'Week',YEAR:'Year'})[u]+'</option>'; }).join('')
-        + '</select></div>'
-      + '<div class="field-note" style="margin:-2px 0 8px;">Shown on the apply page and used as the starting figure for a new posting.</div>'
+      + (pbCanSetPay()
+          ? '<div class="grid2" style="margin-top:6px;">'
+            + '<div><label>Pay from ('+esc(pbUnit(p,2))+')</label><input id="pb_min_'+i+'" inputmode="decimal" value="'+esc(p.pay_min==null?'':p.pay_min)+'"></div>'
+            + '<div><label>Pay to ('+esc(pbUnit(p,2))+')</label><input id="pb_max_'+i+'" inputmode="decimal" value="'+esc(p.pay_max==null?'':p.pay_max)+'"></div>'
+            + '</div>'
+            + '<div style="max-width:260px;"><label>Paid by the</label><select id="pb_u_'+i+'">'
+              + ['HOUR','DAY','WEEK','YEAR'].map(function(u){ return '<option value="'+u+'"'
+                  + ((p.pay_unit||'HOUR')===u?' selected':'')+'>'+({HOUR:'Hour',DAY:'Day',WEEK:'Week',YEAR:'Year'})[u]+'</option>'; }).join('')
+              + '</select></div>'
+            + '<div class="field-note" style="margin:-2px 0 8px;">Shown on the apply page and used as the starting figure for a new posting.</div>'
+          /* Rates were owner-only before this card existed, and that was right.
+             Everyone can still see the number and change the questions. */
+          : '<div style="margin-top:6px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:10px 12px;">'
+            + '<b style="font-size:13.5px;color:var(--navy);">'+esc(pbRange(p))+'</b>'
+            + '<div class="field-note" style="margin-top:3px;">Only Samantha and Zach can change a rate. If this looks wrong, ask before you post it.</div>'
+            + '</div>')
       + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:12px 0 4px;">Questions only this role asks</div>'
       + '<div class="field-note" style="margin:0 0 8px;">Everyone is already asked about age, work authorisation, transport, licence, insurance, background and living outside Missouri. These are on top.</div>'
       + (qs.length ? qs.map(function(q,qi){ return '<div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin-bottom:7px;">'
@@ -10502,8 +10533,13 @@ function pbCollect(i){
              knockout: !!(document.getElementById('pb_k_'+i+'_'+qi)||{}).checked };
   }).filter(function(q){ return q.q; });
   const num = id => { const v = val(id); return v==='' ? null : Number(v); };
-  return { screener: qs, pay_min: num('pb_min_'+i), pay_max: num('pb_max_'+i),
-           pay_unit: (document.getElementById('pb_u_'+i)||{}).value || p.pay_unit || 'HOUR' };
+  const out = { screener: qs };
+  if(pbCanSetPay()){
+    out.pay_min = num('pb_min_'+i);
+    out.pay_max = num('pb_max_'+i);
+    out.pay_unit = (document.getElementById('pb_u_'+i)||{}).value || p.pay_unit || 'HOUR';
+  }
+  return out;
 }
 function pbAddQ(i){
   const c = pbCollect(i);
@@ -10524,7 +10560,7 @@ function pbDelQ(i, qi){
 async function pbSave(i, btn){
   const p = PB[i], c = pbCollect(i);
   const msg = document.getElementById('pb_msg_'+i);
-  if(c.pay_min!=null && c.pay_max!=null && c.pay_max < c.pay_min){
+  if(c.pay_min!=null && c.pay_max!=null && Number(c.pay_max) < Number(c.pay_min)){
     msg.style.color='var(--red)'; msg.textContent='The top of the range is below the bottom.'; return;
   }
   btn.disabled = true; btn.textContent = 'Saving…';
