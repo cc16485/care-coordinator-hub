@@ -4201,6 +4201,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </section>
 
 <!-- ===================== LEAD PROFILE PAGE ===================== -->
+<!-- ===================== APPLICANT PROFILE PAGE =====================
+     One person, one page, in the order their story actually happened. The
+     accordion on the Applicants tab is for scanning a list; this is for
+     dealing with somebody. Same shape as the lead profile, deliberately, so
+     there is nothing new to learn. -->
+<section id="applicantProfileView" style="display:none;">
+  <button class="linklike" style="font-size:13px;margin-bottom:12px;" onclick="apCloseProfile()">← Back to Applicants</button>
+  <div class="profile-grid">
+    <div id="apProfLeft"></div>
+    <div id="apProfRight"></div>
+  </div>
+</section>
+
 <section id="leadProfileView" style="display:none;">
   <button class="linklike" style="font-size:13px;margin-bottom:12px;" onclick="closeLeadProfile()">← Back to Leads</button>
   <div class="profile-grid">
@@ -6756,6 +6769,8 @@ function switchTab(tab){
   ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
   if(lpv) lpv.style.display='none';
+  const apv = document.getElementById('applicantProfileView');
+  if(apv) apv.style.display='none';
   if(typeof closeMoreMenu==='function') closeMoreMenu();
   activeTab = tab;
   const g=ccGroupOf(tab);
@@ -10449,6 +10464,21 @@ async function submitJobOffer(){
       body:JSON.stringify({key,offer})});
     const res=await r.json();
     if(!r.ok||res.error) throw new Error(res.error||('save failed ('+r.status+')'));
+    /* The terms, back onto the person. Their profile is then the whole story
+       from applying to starting, rather than half of it. */
+    if(JO_APPLICANT){
+      try{
+        await sb.from('job_applicants').update({
+          offer_position: offer.position || null,
+          offer_rate: offer.pay_rate,
+          offer_hours: offer.hours_type || null,
+          offer_sent_at: new Date().toISOString(),
+          status: 'offer',
+        }).eq('id', JO_APPLICANT);
+      }catch(_){ /* the offer itself is saved; this is the copy on their record */ }
+      if(typeof apLoad === 'function') apLoad();
+      JO_APPLICANT = null;
+    }
     document.getElementById('joForm').style.display='none';
     document.getElementById('joDone').style.display='block';
     document.getElementById('jo_done_name').textContent=first+' '+last+' — '+offer.position+(offer.pay_rate?(' at $'+offer.pay_rate.toFixed(2)+'/hr'):'');
@@ -11682,6 +11712,11 @@ async function apLoad(btn){
     AP_COORD = {}; (c.data||[]).forEach(x=>{ AP_COORD[x.id] = x.name; });
     AP_POS = pos.data || []; AP_POSTINGS = post.data || [];
     apFillPositions(); apRenderFilter(); apRender();
+    /* If somebody's page is open, it is looking at a row we just replaced. */
+    if(AP_PROF){
+      const fresh = AP_ROWS.find(x=>String(x.id)===String(AP_PROF.id));
+      if(fresh){ AP_PROF = fresh; apRenderProfile(); }
+    }
   }catch(e){
     box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load applicants: '
       + escapeHtmlComms(e && e.message || 'error')
@@ -11830,7 +11865,11 @@ function apRender(){
             + (nudges?' · '+nudges+' reminder'+(nudges>1?'s':'')+' sent':'') + '</span>';
     return '<details style="background:#fff;border:1px solid '+(b?'#e4e1d8':'#f59e0b')+';border-radius:12px;margin-bottom:.5rem;">'
       + '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.7rem .9rem;">'
-      + '<b style="font-size:.95rem;color:#0D365F;">'+esc((r.first_name||'')+' '+(r.last_name||''))+'</b>'
+      /* Their name opens their page. The row still expands, because scanning a
+         list and dealing with one person are different jobs. */
+      + '<b style="font-size:.95rem;color:#0D365F;cursor:pointer;text-decoration:underline;text-decoration-color:#CBD5E1;'
+        + 'text-underline-offset:3px;" onclick="event.preventDefault();event.stopPropagation();apOpenProfile(\''+esc(r.id)+'\')">'
+        + esc((r.first_name||'')+' '+(r.last_name||'')) + '</b>'
       + '<span style="font-size:.76rem;color:#6E6559;">'+esc(apPosLabel(r.position)||r.posting_title||'Caregiver')
         + (r.city||r.zip?' · '+esc(r.city||r.zip):'') + ' · applied '+esc(ago(r.created_at))+'</span>'
       + '<span style="flex:1;"></span>' + line
@@ -11863,6 +11902,7 @@ function apRender(){
               + '<button class="fb" onclick="apFromPool(\''+esc(r.id)+'\')">↩️ Out of the pool</button>'
             : (r.status!=='hired' && r.status!=='declined'
                 ? '<button class="fb" onclick="apToPool(\''+esc(r.id)+'\')">🗂 Candidate pool</button>' : ''))
+        + '<button class="fb" onclick="apOpenProfile(\''+esc(r.id)+'\')">👤 Open their profile</button>'
         + (r.status!=='declined'?'<button class="fb" onclick="apInterview(\''+esc(r.id)+'\')">📝 Interview &amp; outcome</button>':'')
         + (r.status!=='declined'?'<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')">➡️ Make them an offer</button>':'')
         + (r.status==='new'?'<button class="fb" onclick="apSetStatus(\''+esc(r.id)+'\',\'reviewing\')">Mark as reviewing</button>':'')
@@ -11900,8 +11940,14 @@ async function apDecline(id){
   await apSetStatus(id, 'declined', why.trim() || null);
 }
 
+/* Which applicant the offer form is currently about, so what gets agreed can
+   be written back onto them rather than living only on a separate record that
+   does not point at anybody. */
+let JO_APPLICANT = null;
+
 function apToOffer(id, answers){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  JO_APPLICANT = r.id;
   const A = answers || r.post_interview || null;
   gotoTab('offers');
   setTimeout(()=>{
@@ -11941,6 +11987,225 @@ function apToOffer(id, answers){
         document.getElementById('jo_avail').value = 'Will travel to ' + A.travel_areas;
     }
   }, 220);
+}
+
+/* ---- One applicant, one page -----------------------------------------------
+   Everything we know about somebody, in the order it happened: what they told
+   us, what the screen made of it, where they have worked and whether anybody
+   has checked, how the interview went, and what we offered. */
+let AP_PROF = null;
+
+function apOpenProfile(id){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  AP_PROF = r;
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+  const lpv = document.getElementById('leadProfileView'); if(lpv) lpv.style.display='none';
+  document.getElementById('applicantProfileView').style.display='block';
+  apRenderProfile();
+  window.scrollTo(0,0);
+}
+function apCloseProfile(){
+  AP_PROF = null;
+  document.getElementById('applicantProfileView').style.display='none';
+  switchTab('applicants');
+}
+
+const apProfCard = (title, body, note) =>
+  '<div class="card" style="padding:16px 18px;margin-bottom:14px;">'
+  + '<b style="font-size:15px;color:var(--navy);">' + title + '</b>'
+  + (note ? '<div class="field-note" style="margin-top:3px;">' + note + '</div>' : '')
+  + '<div style="margin-top:10px;">' + body + '</div></div>';
+const apProfRow = (k, v) => !v ? '' :
+  '<div style="display:flex;gap:12px;justify-content:space-between;font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--border);">'
+  + '<span style="color:var(--text-muted);">' + k + '</span><span style="text-align:right;">' + v + '</span></div>';
+
+function apRenderProfile(){
+  const r = AP_PROF; if(!r) return;
+  const esc = escapeHtmlComms;
+  const b = AP_BOOK[r.id];
+  const name = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'Applicant';
+  const initials = ((r.first_name||' ')[0] + (r.last_name||' ')[0]).toUpperCase();
+  const when = iso => iso ? new Date(iso).toLocaleDateString('en-US',{month:'long', day:'numeric', year:'numeric'}) : '';
+  const GRADE = { qualified:['#15803D','#DCFCE7','Cleared the screen'], review:['#B45309','#FEF3C7','Needs a look'],
+                  duplicate:['#6E6559','#F4F2ED','Applied before'], declined:['#B91C1C','#FEE2E2','Not moving forward'] };
+  const g = GRADE[r.screen_grade] || null;
+
+  /* ---- left: who they are, and what you can do about it ---- */
+  document.getElementById('apProfLeft').innerHTML =
+    '<div class="card" style="padding:18px;margin-bottom:14px;">'
+    + '<div style="display:flex;align-items:center;gap:12px;">'
+      + '<div style="width:52px;height:52px;border-radius:50%;background:var(--blue-bg);color:var(--navy);display:flex;'
+        + 'align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:0 0 auto;">' + esc(initials) + '</div>'
+      + '<div><div style="font-size:19px;font-weight:800;color:var(--navy);letter-spacing:-.01em;">' + esc(name) + '</div>'
+      + '<div class="field-note">' + esc(apPosLabel(r.position) || r.posting_title || 'Caregiver')
+        + (r.city||r.zip ? ' · ' + esc(r.city||r.zip) : '') + '</div></div>'
+    + '</div>'
+    + (g ? '<div style="margin-top:12px;"><span style="font-size:12px;font-weight:800;color:'+g[0]+';background:'+g[1]
+        +';border-radius:999px;padding:3px 12px;">' + g[2] + '</span></div>' : '')
+    + '<div style="margin-top:14px;display:flex;flex-direction:column;gap:7px;font-size:13.5px;">'
+      + (r.phone ? '<a href="tel:'+esc(String(r.phone).replace(/[^0-9+]/g,''))+'" style="color:var(--navy);text-decoration:none;">📱 '+esc(r.phone)+'</a>' : '')
+      + (r.email ? '<a href="mailto:'+esc(r.email)+'" style="color:var(--navy);text-decoration:none;word-break:break-all;">✉️ '+esc(r.email)+'</a>' : '')
+      + '<span class="field-note">' + (r.sms_consent ? '✓ happy to be texted' : 'no texting consent') + '</span>'
+    + '</div>'
+    + '<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">'
+      + apProfRow('Applied', esc(when(r.created_at)))
+      + apProfRow('Came from', esc(r.channel || r.source || 'not recorded'))
+      + apProfRow('Distance', r.miles_out!=null ? esc(Number(r.miles_out).toFixed(0)) + ' miles from the office' : '')
+      + apProfRow('Interview', b ? esc(new Date(b.starts_at).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
+    + '</div>'
+    + '</div>'
+
+    + '<div class="card" style="padding:16px 18px;">'
+    + '<b style="font-size:14px;color:var(--navy);">What next</b>'
+    + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">'
+      + (!b && r.status!=='declined' ? '<button class="secondary" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Book a time for them</button>' : '')
+      + (r.status!=='declined' ? '<button class="fb" onclick="apInterview(\''+esc(r.id)+'\')">📝 Interview &amp; outcome</button>' : '')
+      + (r.status!=='declined' ? '<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')">➡️ Make them an offer</button>' : '')
+      + (r.status!=='hired' && r.status!=='declined' && r.status!=='pool'
+          ? '<button class="fb" onclick="apToPool(\''+esc(r.id)+'\')">🗂 Candidate pool</button>' : '')
+      + (r.status==='pool' ? '<button class="fb" onclick="apFromPool(\''+esc(r.id)+'\')">↩️ Out of the pool</button>' : '')
+      + (r.status!=='declined' ? '<button class="fb" style="color:var(--red);" onclick="apDecline(\''+esc(r.id)+'\')">Not moving forward</button>' : '')
+    + '</div></div>';
+
+  /* ---- right: the story, in the order it happened ---- */
+  const ck = (r.experience_kinds||[]).join(' · ');
+  const told = apProfRow('Looking for', esc(r.job_type||''))
+    + apProfRow('Hours a week', esc(r.hours_wanted||''))
+    + apProfRow('Would build up to them',
+        r.will_build_up===true ? 'Yes' : r.will_build_up===false ? '<b style="color:#B45309;">No, needs them from the start</b>' : '')
+    + apProfRow('Caregiving so far', esc(r.experience_years||''))
+    + apProfRow('Has done', esc(ck))
+    + apProfRow('When they can work', esc(r.availability||''))
+    + apProfRow('Heard about us', esc(r.referral_source||''))
+    + (r.experience ? '<div style="margin-top:10px;font-size:13.5px;background:var(--bg);border:1px solid var(--border);'
+        + 'border-radius:9px;padding:10px 12px;white-space:pre-wrap;">' + esc(r.experience) + '</div>' : '')
+    + (r.role_answers && Object.keys(r.role_answers).length
+        ? '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 4px;">Asked because of the role</div>'
+          + Object.entries(r.role_answers).map(([q,a]) =>
+              apProfRow(esc(q), esc(a===true?'Yes':a===false?'No':(a||'—')))).join('')
+        : '');
+
+  const flags = (r.screen_flags||[]).length
+    ? (r.screen_flags||[]).map(f=>'<div style="font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--border);">'
+        + (/rehire/i.test(f) ? '🚩 ' : '• ') + esc(f.charAt(0).toUpperCase()+f.slice(1)) + '</div>').join('')
+    : '<div class="field-note">Nothing outstanding.</div>';
+
+  document.getElementById('apProfRight').innerHTML =
+      apProfCard('What they told us', told, 'Their own answers, on the day they applied.')
+    + apProfCard('The screen', flags,
+        r.miles_out!=null ? Number(r.miles_out).toFixed(0) + ' miles from the office, straight line.' : '')
+    + apProfCard('Where they have worked', apProfWork(r),
+        'What they claim, and whether anybody has checked it.')
+    + apProfCard('The interview', apProfInterview(r), b || r.post_interview ? '' : 'Nothing recorded yet.')
+    + apProfCard('The offer', apProfOffer(r), '');
+}
+
+/* Each job carries its own verification, so a claim and the check on it live
+   in the same place rather than in a notes field months apart. */
+function apProfWork(r){
+  const esc = escapeHtmlComms;
+  const list = Array.isArray(r.work_history) ? r.work_history : [];
+  if(!list.length) return '<div class="field-note">They did not fill this in. Worth asking on the phone: '
+    + 'where, what they did, and who could confirm it.</div>';
+  return list.map((w,i)=>{
+    const v = w.verified || {};
+    const tone = v.state==='yes' ? ['#15803D','#DCFCE7','Verified'] : v.state==='no' ? ['#B91C1C','#FEE2E2','Could not confirm'] : null;
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:9px;background:#fff;">'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      + '<b style="font-size:14px;color:var(--navy);">' + esc(w.employer||'(no employer given)') + '</b>'
+      + (w.role ? '<span class="field-note">' + esc(w.role) + '</span>' : '')
+      + (tone ? '<span style="font-size:11px;font-weight:700;color:'+tone[0]+';background:'+tone[1]
+          +';border-radius:999px;padding:2px 9px;">'+tone[2]+'</span>' : '')
+      + '</div>'
+      + '<div class="field-note" style="margin-top:3px;">'
+        + esc([w.from||'?', w.current ? 'still there' : (w.to||'?')].join(' to '))
+        + (w.supervisor ? ' · ' + esc(w.supervisor) : '')
+        + (w.supervisor_phone ? ' · ' + esc(w.supervisor_phone) : '')
+        + (w.may_contact===false ? ' · <b>asked us not to contact them</b>' : '')
+      + '</div>'
+      + (v.note ? '<div style="font-size:13px;margin-top:6px;background:var(--bg);border-radius:8px;padding:7px 9px;">'
+          + esc(v.note) + '</div>' : '')
+      + (v.by ? '<div class="field-note" style="margin-top:4px;">Checked by ' + esc(v.by)
+          + (v.at ? ' on ' + esc(new Date(v.at).toLocaleDateString('en-US',{month:'short', day:'numeric'})) : '') + '</div>' : '')
+      + '<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap;">'
+        + (w.supervisor_phone ? '<a class="fb" style="text-decoration:none;" href="tel:'
+            + esc(String(w.supervisor_phone).replace(/[^0-9+]/g,'')) + '">📞 Call them</a>' : '')
+        + '<button class="fb" onclick="apVerifyWork('+i+',\'yes\')">✓ Confirmed</button>'
+        + '<button class="fb" onclick="apVerifyWork('+i+',\'no\')">✕ Could not confirm</button>'
+        + (v.state ? '<button class="fb" onclick="apVerifyWork('+i+',null)">Undo</button>' : '')
+      + '</div></div>';
+  }).join('');
+}
+
+async function apVerifyWork(i, state){
+  const r = AP_PROF; if(!r) return;
+  const list = (Array.isArray(r.work_history) ? r.work_history : []).map(x=>Object.assign({}, x));
+  if(!list[i]) return;
+  if(state){
+    const note = prompt(state==='yes'
+      ? 'Who did you speak to, and what did they say?'
+      : 'What happened? Number dead, would not confirm, no such employer…',
+      (list[i].verified||{}).note || '');
+    if(note===null) return;
+    list[i].verified = { state, note: note.trim() || null,
+      by: (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,
+      at: new Date().toISOString() };
+  } else {
+    delete list[i].verified;
+  }
+  try{
+    const { error } = await sb.from('job_applicants').update({ work_history: list }).eq('id', r.id);
+    if(error) throw error;
+    r.work_history = list;
+    apRenderProfile();
+  }catch(e){
+    alert('Could not save that: ' + (e&&e.message||'error')
+      + '\n\nIf it mentions work_history, run recruit-profile.sql in the Supabase SQL editor.');
+  }
+}
+
+function apProfInterview(r){
+  const esc = escapeHtmlComms;
+  const A = r.post_interview;
+  const b = AP_BOOK[r.id];
+  if(!A || !Object.keys(A).length){
+    return b
+      ? '<div class="field-note">Booked for ' + esc(new Date(b.starts_at).toLocaleString('en-US',
+          {weekday:'long', month:'long', day:'numeric', hour:'numeric', minute:'2-digit'}))
+        + '. Open <b>Interview &amp; outcome</b> when you sit down with them.</div>'
+      : '<div class="field-note">No interview yet.</div>';
+  }
+  const label = { yes:'Yes', no:'No', outside:'Only outside', none:'No experience', some:'Some', lots:'Very experienced' };
+  const say = v => label[v] || esc(v||'');
+  let out = AP_QS.filter(([k])=>A[k]).map(([k,q])=>apProfRow(esc(q), say(A[k]))).join('');
+  const skills = Object.entries(A.skills||{}).filter(([,v])=>v);
+  if(skills.length){
+    const names = Object.fromEntries(AP_SKILLS);
+    out += '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 4px;">Skills</div>'
+      + skills.map(([k,v])=>apProfRow(esc(names[k]||k), say(v))).join('');
+  }
+  const days = Object.keys(A.availability||{}).filter(d=>A.availability[d]);
+  out += apProfRow('Days they can work', esc(days.map(d=>d[0].toUpperCase()+d.slice(1)).join(', ')))
+      + apProfRow('Shift', esc(A.shift||''))
+      + apProfRow('Will travel to', esc(A.travel_areas||''))
+      + apProfRow('Also good at', esc(A.custom_skill||''));
+  if(A.notes) out += '<div style="margin-top:10px;font-size:13.5px;background:var(--bg);border:1px solid var(--border);'
+    + 'border-radius:9px;padding:10px 12px;white-space:pre-wrap;">' + esc(A.notes) + '</div>';
+  return out;
+}
+
+function apProfOffer(r){
+  const esc = escapeHtmlComms;
+  const HOURS = { FULL_TIME:'Full time', PART_TIME:'Part time', PRN:'PRN, as needed' };
+  if(!r.offer_rate && !r.offer_position && r.status!=='hired'){
+    return '<div class="field-note">Nothing offered yet. <b>Make them an offer</b> fills the form from everything above.</div>';
+  }
+  return apProfRow('Position', esc(r.offer_position||''))
+    + apProfRow('Rate', r.offer_rate ? '$' + Number(r.offer_rate).toFixed(2) + '/hr' : '')
+    + apProfRow('Hours', esc(HOURS[r.offer_hours]||''))
+    + apProfRow('Offer sent', r.offer_sent_at ? esc(new Date(r.offer_sent_at).toLocaleDateString('en-US',{month:'long', day:'numeric'})) : '')
+    + apProfRow('Starts', r.start_date ? esc(new Date(r.start_date+'T12:00:00').toLocaleDateString('en-US',{month:'long', day:'numeric'})) : '')
+    + apProfRow('Hired', r.hired_at ? esc(new Date(r.hired_at).toLocaleDateString('en-US',{month:'long', day:'numeric'})) : '');
 }
 
 /* ---- Booking somebody in ourselves -----------------------------------------
