@@ -707,6 +707,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="calendar" onclick="switchTab('calendar')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Calendar</div></div>
   <div class="fsubbar" id="fsub-interviews">
     <div class="fpill" data-tab="recruit" onclick="switchTab('recruit')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Recruit</div>
+    <div class="fpill" data-tab="applicants" onclick="switchTab('applicants')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Applicants<span class="subtab-badge red" id="apNewBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
     <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Offer a Job</div>
     <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Background &amp; References</div>
@@ -1249,6 +1250,51 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <span class="field-note" id="callsMeta"></span>
         </div>
         <div id="callsList"><div class="field-note">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- ===================== TAB: APPLICANTS ===================== -->
+    <section class="tabpanel" id="tab-applicants">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Applicants</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everyone who has ever applied, kept for good. Somebody who was right but early is the cheapest hire you will ever make.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <button class="secondary" onclick="apReengage()">📣 Tell past applicants about an opening</button>
+        <button class="ghost" onclick="apLoad(this)">↻ Refresh</button>
+      </div>
+
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+        <div id="apFilter" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        <span style="flex:1;"></span>
+        <select id="apPos" onchange="apRender()" style="font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;">
+          <option value="">All positions</option>
+        </select>
+        <input id="apSearch" type="search" placeholder="Search by name" oninput="apRender()"
+               style="flex:0 1 220px;font:inherit;font-size:13px;padding:7px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;">
+      </div>
+
+      <div class="card" style="padding:16px 18px;">
+        <div id="apList"><div class="field-note">Loading…</div></div>
+      </div>
+
+      <!-- Reaching back out to people who were right but early. -->
+      <div class="card" id="apReCard" style="display:none;padding:16px 18px;margin-top:14px;background:#FFF8E8;border-color:#F5D9A0;">
+        <b style="font-size:15px;color:var(--navy);">📣 Tell past applicants about an opening</b>
+        <div class="field-note" style="margin-top:3px;">Goes to people who cleared the screen, never got hired, and have not heard from us in 30 days.</div>
+        <div class="grid2" style="margin-top:10px;">
+          <div><label>Which opening?</label><select id="apRePosting"></select></div>
+          <div><label>Position they applied for</label><select id="apRePos"><option value="">Any</option></select></div>
+        </div>
+        <label>What to say <span style="font-weight:400;color:var(--text-muted);">(their first name is added at the front)</span></label>
+        <textarea id="apReMsg" rows="3" placeholder="we have a new caregiver opening in Nixa with weekday day shifts, and we thought of you. If you are still looking, you can pick an interview time here:"></textarea>
+        <div id="apReCount" class="field-note" style="margin-top:8px;"></div>
+        <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
+          <button class="primary" onclick="apReSend(this)">Send it</button>
+          <button class="ghost" onclick="document.getElementById('apReCard').style.display='none'">Cancel</button>
+        </div>
+        <div id="apReErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
       </div>
     </section>
 
@@ -2854,20 +2900,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <span style="flex:1;"></span>
         <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;" title="Augusta is still running alongside until the contract ends">Augusta ↗</a>
-      </div>
-
-      <!-- Applications from mo-care.com. Augusta's own board is still running
-           alongside, which is why its calendar card is still below. -->
-      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">🧑 Applicants</b>
-          <span class="subtab-badge red" id="apNewBadge" style="display:none;"></span>
-          <span class="field-note">from our own careers pages, with their pre-screen answers.</span>
-          <span style="flex:1;"></span>
-          <button class="ghost" onclick="apLoad(this)">↻ Refresh</button>
-        </div>
-        <div id="apFilter" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;"></div>
-        <div id="apList" style="margin-top:11px;"><div class="field-note">Loading…</div></div>
       </div>
 
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
@@ -5773,7 +5805,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans'],team:['inbox','comms','meetings','calls','calendar'],interviews:['recruit','interviews','offers','cgbackground','cgorient'],caregivers:['cgtraining','cgcompliance','cgattendance','cgwriteups','supervisory'],ops:['ops','coverage'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook','teamsched'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans'],team:['inbox','comms','meetings','calls','calendar'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['cgtraining','cgcompliance','cgattendance','cgwriteups','supervisory'],ops:['ops','coverage'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook','teamsched'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -6213,7 +6245,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'New Clients — Needs Scheduling',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  meetings:'Meetings', calendar:'Team Calendar', interviews:'Applicants & Interviews', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
+  meetings:'Meetings', calendar:'Team Calendar', interviews:'Interviews', applicants:'Applicants', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Coverage Help', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
@@ -6378,7 +6410,7 @@ function renderActiveTab(){
   nurseModeCheck();
   if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); }
   if(activeTab==='calendar') ivLoad();
-  if(activeTab==='interviews') apLoad();
+  if(activeTab==='applicants') apLoad();
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
@@ -10304,37 +10336,82 @@ async function busySync(){
   }catch(e){ /* table may not exist yet; the slot generator simply sees no blocks */ }
 }
 
-/* ---- Applicants from our own careers pages ---------------------------------
-   Applications used to land in Augusta and be read there. Now they land here,
-   already screened, with the interview they booked themselves.
+/* ---- Applicants ------------------------------------------------------------
+   Everyone who has ever applied, kept for good. The whole point of keeping
+   them is the person who was right but early: when an opening appears, they
+   are the cheapest hire available and Augusta never let us reach them.
    Requires job-applicants.sql and scheduling.sql. */
-let AP_ROWS = [], AP_BOOK = {}, AP_COORD = {}, apFilter = 'open';
+let AP_ROWS = [], AP_BOOK = {}, AP_COORD = {}, AP_POS = [], AP_POSTINGS = [], apFilter = 'qualified';
+
+/* Cleared the screen means: nothing we knock people back for, and nobody in
+   the office has since said no. */
+const apQualified = r => !r.decline_reason && r.status !== 'declined'
+  && r.age_ok !== false && r.work_auth !== false && r.has_transport !== false;
+const apDays = iso => (Date.now() - new Date(iso).getTime()) / 864e5;
+
+const AP_VIEWS = [
+  ['new','New'], ['qualified','Qualified'], ['booked','Interview booked'],
+  ['unqualified','Not qualified'], ['inactive','Inactive'], ['all','Everyone'],
+];
 
 async function apLoad(btn){
   const box = document.getElementById('apList'); if(!box) return;
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
-    const [a, b, c] = await Promise.all([
-      sb.from('job_applicants').select('*').order('created_at',{ascending:false}).limit(300),
+    const [a, b, c, pos, post] = await Promise.all([
+      sb.from('job_applicants').select('*').order('created_at',{ascending:false}).limit(2000),
       sb.from('interview_bookings').select('*').in('status',['booked','attended','noshow']),
       sb.from('coordinators').select('id,name'),
+      sb.from('job_positions').select('*').eq('active',true).order('sort'),
+      sb.from('job_postings').select('id,title,slug,position,status').eq('status','published'),
     ]);
     if(a.error) throw a.error;
     AP_ROWS = a.data || [];
     AP_BOOK = {}; (b.data||[]).forEach(x=>{ AP_BOOK[x.applicant_id] = x; });
     AP_COORD = {}; (c.data||[]).forEach(x=>{ AP_COORD[x.id] = x.name; });
-    apRenderFilter(); apRender();
+    AP_POS = pos.data || []; AP_POSTINGS = post.data || [];
+    apFillPositions(); apRenderFilter(); apRender();
   }catch(e){
     box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load applicants: '
       + escapeHtmlComms(e && e.message || 'error')
-      + '<br>If this mentions a missing table, run <b>job-applicants.sql</b> then <b>scheduling.sql</b>.</div>';
+      + '<br>If this mentions a missing table or column, re-run <b>job-applicants.sql</b>.</div>';
   }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 
-/* "Open" is everyone still in play. It is the view somebody actually wants
-   when they sit down, so it is the one that loads. */
-const AP_VIEWS = [['open','Still open'],['booked','Interview booked'],['nobooking','No interview yet'],
-                  ['partial','Did not finish'],['declined','Declined'],['all','Everyone']];
+function apFillPositions(){
+  const opts = AP_POS.map(p=>'<option value="'+escapeHtmlComms(p.key)+'">'+escapeHtmlComms(p.label)+'</option>').join('');
+  const f = document.getElementById('apPos');
+  if(f) f.innerHTML = '<option value="">All positions</option>' + opts;
+  const rp = document.getElementById('apRePos');
+  if(rp) rp.innerHTML = '<option value="">Any</option>' + opts;
+  const rl = document.getElementById('apRePosting');
+  if(rl) rl.innerHTML = AP_POSTINGS.length
+    ? AP_POSTINGS.map(p=>'<option value="'+escapeHtmlComms(p.slug)+'">'+escapeHtmlComms(p.title)+'</option>').join('')
+    : '<option value="">No published postings — publish one first</option>';
+}
+
+function apMatching(k, ignorePosition){
+  const pos = ignorePosition ? '' : ((document.getElementById('apPos')||{}).value || '');
+  const q = ((document.getElementById('apSearch')||{}).value || '').trim().toLowerCase();
+  return AP_ROWS.filter(r=>{
+    if(pos && r.position !== pos) return false;
+    if(q && !((r.first_name||'')+' '+(r.last_name||'')).toLowerCase().includes(q)) return false;
+    const booked = !!AP_BOOK[r.id];
+    switch(k){
+      case 'all':        return true;
+      case 'new':        return r.status==='new' && !booked;
+      case 'booked':     return booked;
+      case 'qualified':  return apQualified(r) && !['hired'].includes(r.status)
+                                 && (booked || apDays(r.created_at) <= 60);
+      case 'unqualified':return !apQualified(r);
+      /* Nobody is thrown away. Inactive is "we tried, they went quiet, and
+         they are exactly who to ring when something opens". */
+      case 'inactive':   return apQualified(r) && !booked && apDays(r.created_at) > 60;
+      default:           return true;
+    }
+  });
+}
+
 function apRenderFilter(){
   const el = document.getElementById('apFilter'); if(!el) return;
   el.innerHTML = AP_VIEWS.map(([k,l])=>{
@@ -10347,22 +10424,8 @@ function apRenderFilter(){
   if(nb){ nb.style.display = fresh?'inline-block':'none'; nb.textContent = fresh; }
 }
 function apSetFilter(k){ apFilter=k; apRenderFilter(); apRender(); }
+const apPosLabel = k => (AP_POS.find(p=>p.key===k)||{}).label || '';
 
-function apMatching(k){
-  return AP_ROWS.filter(r=>{
-    const booked = !!AP_BOOK[r.id];
-    if(k==='all') return true;
-    if(k==='open') return ['new','reviewing','interview'].includes(r.status);
-    if(k==='booked') return booked;
-    if(k==='nobooking') return !booked && ['new','reviewing'].includes(r.status);
-    if(k==='partial') return r.status==='partial';
-    if(k==='declined') return r.status==='declined';
-    return true;
-  });
-}
-
-/* The pre-screen at a glance. A no is not always a problem, so the ones that
-   matter are coloured and the rest are just there. */
 function apChips(r){
   const chip=(txt,tone)=>{
     const t = tone==='bad' ? ['#B91C1C','#FEE2E2'] : tone==='warn' ? ['#B45309','#FEF3C7']
@@ -10385,19 +10448,20 @@ function apChips(r){
 
 function apRender(){
   const box = document.getElementById('apList'); if(!box) return;
+  apRenderFilter();
   const esc = escapeHtmlComms;
   const rows = apMatching(apFilter);
   if(!rows.length){
     box.innerHTML = '<div class="field-note">'
-      + (AP_ROWS.length ? 'Nobody in this view.' :
-         'No applications yet. They arrive here the moment somebody applies on mo-care.com.')
-      + '</div>';
+      + (AP_ROWS.length ? 'Nobody in this view.'
+         : 'No applications yet. They arrive the moment somebody applies on mo-care.com.') + '</div>';
     return;
   }
   const when = iso => { const d=new Date(iso); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})
     + ' ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); };
   const ago = iso => { const h=(Date.now()-new Date(iso))/36e5;
-    return h<1?'just now' : h<24?Math.floor(h)+'h ago' : Math.floor(h/24)+'d ago'; };
+    return h<1?'just now' : h<24?Math.floor(h)+'h ago' : h<24*60?Math.floor(h/24)+'d ago'
+      : Math.floor(h/24/30)+' months ago'; };
 
   box.innerHTML = rows.map(r=>{
     const b = AP_BOOK[r.id];
@@ -10405,8 +10469,8 @@ function apRender(){
     const line = b
       ? '<span style="font-size:12px;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:2px 10px;">'
         + '📅 ' + esc(when(b.starts_at)) + (AP_COORD[b.coordinator_id]?' with '+esc(AP_COORD[b.coordinator_id]):'') + '</span>'
-      : r.status==='declined'
-        ? '<span style="font-size:12px;color:#B91C1C;">Declined' + (r.decline_reason?' — '+esc(r.decline_reason):'') + '</span>'
+      : r.status==='declined' || r.decline_reason
+        ? '<span style="font-size:12px;color:#B91C1C;">Not moving forward' + (r.decline_reason?' — '+esc(r.decline_reason):'') + '</span>'
         : r.status==='partial'
           ? '<span style="font-size:12px;color:#B45309;">Did not finish the form</span>'
           : '<span style="font-size:12px;color:#B45309;">No interview booked'
@@ -10414,7 +10478,7 @@ function apRender(){
     return '<details style="background:#fff;border:1px solid '+(b?'#e4e1d8':'#f59e0b')+';border-radius:12px;margin-bottom:.5rem;">'
       + '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.7rem .9rem;">'
       + '<b style="font-size:.95rem;color:#0D365F;">'+esc((r.first_name||'')+' '+(r.last_name||''))+'</b>'
-      + '<span style="font-size:.76rem;color:#6E6559;">'+esc(r.posting_title||'Caregiver')
+      + '<span style="font-size:.76rem;color:#6E6559;">'+esc(apPosLabel(r.position)||r.posting_title||'Caregiver')
         + (r.city||r.zip?' · '+esc(r.city||r.zip):'') + ' · applied '+esc(ago(r.created_at))+'</span>'
       + '<span style="flex:1;"></span>' + line
       + '<span style="color:#A89C8B;font-size:.74rem;">details ▾</span>'
@@ -10425,24 +10489,40 @@ function apRender(){
         + (r.email?'<span>✉️ '+esc(r.email)+'</span>':'')
         + (r.sms_consent?'<span style="color:#15803D;">✓ happy to be texted</span>':'<span style="color:#B45309;">no texting consent</span>')
         + (r.channel?'<span>via '+esc(r.channel)+'</span>':'')
+        + (r.reengage_count?'<span>told about '+r.reengage_count+' opening'+(r.reengage_count>1?'s':'')+'</span>':'')
       + '</div>'
       + (r.availability?'<div style="margin-top:.5rem;font-size:.82rem;"><b>Available:</b> '+esc(r.availability)+'</div>':'')
       + (r.experience?'<div style="margin-top:.3rem;font-size:.82rem;"><b>Experience:</b> '+esc(r.experience)+'</div>':'')
       + ((r.experience_kinds&&r.experience_kinds.length)?'<div style="margin-top:.3rem;font-size:.82rem;color:#6E6559;">'+esc(r.experience_kinds.join(' · '))+'</div>':'')
       + (r.states_lived?'<div style="margin-top:.3rem;font-size:.82rem;"><b>Lived outside Missouri:</b> '+esc(r.states_lived)+'</div>':'')
       + '<div style="display:flex;gap:.5rem;align-items:center;margin-top:.8rem;flex-wrap:wrap;">'
+        + '<label style="font-size:.78rem;color:#6E6559;">Position: <select onchange="apSetPosition(\''+esc(r.id)+'\',this.value)" style="font:inherit;font-size:.78rem;padding:2px 6px;border:1px solid var(--border);border-radius:6px;">'
+          + '<option value="">—</option>'
+          + AP_POS.map(p=>'<option value="'+esc(p.key)+'"'+(r.position===p.key?' selected':'')+'>'+esc(p.label)+'</option>').join('')
+          + '</select></label>'
         + (r.phone?'<a class="fb" style="text-decoration:none;" href="tel:'+esc(String(r.phone).replace(/[^0-9+]/g,''))+'">📞 Call</a>':'')
         + (r.status!=='declined'?'<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')">➡️ Make them an offer</button>':'')
         + (r.status==='new'?'<button class="fb" onclick="apSetStatus(\''+esc(r.id)+'\',\'reviewing\')">Mark as reviewing</button>':'')
-        + (r.status!=='declined'?'<button class="fb" style="color:var(--red);" onclick="apDecline(\''+esc(r.id)+'\')">Not moving forward</button>':'')
+        + (r.status!=='declined'?'<button class="fb" style="color:var(--red);" onclick="apDecline(\''+esc(r.id)+'\')">Not moving forward</button>'
+                                :'<button class="fb" onclick="apSetStatus(\''+esc(r.id)+'\',\'new\')">Put back in play</button>')
       + '</div></div></details>';
   }).join('');
+}
+
+async function apSetPosition(id, position){
+  try{
+    const { error } = await sb.from('job_applicants').update({ position: position || null }).eq('id', id);
+    if(error) throw error;
+    const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(r) r.position = position || null;
+    apRender();
+  }catch(e){ alert('Could not change their position: '+(e&&e.message||'error')); }
 }
 
 async function apSetStatus(id, status, reason){
   try{
     const patch = { status, seen_at: new Date().toISOString() };
     if(reason) patch.notes = reason;
+    if(status==='new') patch.decline_reason = null;
     const { error } = await sb.from('job_applicants').update(patch).eq('id', id);
     if(error) throw error;
     await apLoad();
@@ -10457,8 +10537,6 @@ async function apDecline(id){
   await apSetStatus(id, 'declined', why.trim() || null);
 }
 
-/* Straight into the offer form with their details already filled in, which is
-   the paste step this whole thing exists to remove. */
 function apToOffer(id){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
   gotoTab('offers');
@@ -10474,6 +10552,59 @@ function apToOffer(id){
         + (r.lived_outside_mo?'. Lived outside Missouri, so a fingerprint check is required':'') + '.';
     }
   }, 220);
+}
+
+/* ---- Reaching back out ----------------------------------------------------
+   The people worth telling about a new opening are the ones who cleared the
+   screen, never got hired, and have not heard from us recently. */
+function apReengageList(){
+  const pos = (document.getElementById('apRePos')||{}).value || '';
+  return AP_ROWS.filter(r=>
+    apQualified(r) && !AP_BOOK[r.id] && r.status!=='hired'
+    && (!pos || r.position===pos)
+    && (r.phone || r.email)
+    && (!r.reengaged_at || apDays(r.reengaged_at) > 30));
+}
+
+function apReengage(){
+  const card = document.getElementById('apReCard');
+  card.style.display = 'block';
+  apReCount();
+  document.getElementById('apRePos').onchange = apReCount;
+  card.scrollIntoView({behavior:'smooth', block:'center'});
+}
+function apReCount(){
+  const list = apReengageList();
+  const textable = list.filter(r=>r.phone && r.sms_consent).length;
+  document.getElementById('apReCount').textContent =
+    list.length + ' ' + (list.length===1?'person':'people') + ' would hear about this'
+    + (list.length ? ' — ' + textable + ' by text, ' + list.filter(r=>r.email).length + ' by email' : '')
+    + '. Anyone contacted in the last 30 days is left out.';
+}
+
+async function apReSend(btn){
+  const err = document.getElementById('apReErr');
+  const msg = (document.getElementById('apReMsg').value||'').trim();
+  const slug = (document.getElementById('apRePosting')||{}).value || '';
+  const list = apReengageList();
+  if(!msg){ err.textContent='Write what you want to say.'; err.style.display='block'; return; }
+  if(!slug){ err.textContent='Publish a job posting first, so there is something to point them at.'; err.style.display='block'; return; }
+  if(!list.length){ err.textContent='Nobody matches. Everyone eligible has heard from us in the last 30 days.'; err.style.display='block'; return; }
+  if(!confirm('Send this to ' + list.length + ' ' + (list.length===1?'person':'people') + '?')) return;
+  err.style.display='none';
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try{
+    const { data, error } = await sb.functions.invoke('applicant-reengage', {
+      body: { ids: list.map(r=>r.id), message: msg, slug },
+    });
+    if(error) throw error;
+    document.getElementById('apReCard').style.display='none';
+    alert('Sent to ' + ((data && data.sent) ?? list.length) + '.');
+    await apLoad();
+  }catch(e){
+    err.textContent = 'Could not send: ' + (e&&e.message||'error');
+    err.style.display='block';
+  }finally{ btn.disabled=false; btn.textContent='Send it'; }
 }
 
 /* ---- Team calendar: who is available for what, and what is already booked --
