@@ -1379,7 +1379,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everyone who has ever applied, kept for good. Somebody who was right but early is the cheapest hire you will ever make.</div>
         </div>
         <span style="flex:1;"></span>
-        <button class="secondary" onclick="apReengage()">📣 Tell past applicants about an opening</button>
+        <button class="secondary" onclick="apReengage()">🎯 Find someone for a case</button>
         <button class="ghost" onclick="apLoad(this)">↻ Refresh</button>
       </div>
 
@@ -1395,6 +1395,22 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <div class="card" style="padding:16px 18px;">
         <div id="apList"><div class="field-note">Loading…</div></div>
+      </div>
+
+      <!-- Booking somebody in ourselves. Plenty of people will talk to you on
+           the phone and never touch a booking link, and until now the only way
+           in was for the applicant to book themselves. Same slots, same
+           calendar, same confirmation and reminders afterwards. -->
+      <div class="card" id="apBookCard" style="display:none;padding:16px 18px;margin-top:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">Book a time for <span id="apBookWho"></span></b>
+          <span class="field-note">the times they would have been offered.</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="document.getElementById('apBookCard').style.display='none'">Close</button>
+        </div>
+        <input type="hidden" id="apBookId">
+        <div id="apBookSlots" style="margin-top:12px;"></div>
+        <div id="apBookErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
       </div>
 
       <!-- What we learn sitting across from somebody. These are the same facts
@@ -1426,23 +1442,49 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <!-- Reaching back out to people who were right but early. -->
       <div class="card" id="apReCard" style="display:none;padding:16px 18px;margin-top:14px;background:#FFF8E8;border-color:#F5D9A0;">
-        <b style="font-size:15px;color:var(--navy);">📣 Tell past applicants about an opening</b>
-        <div class="field-note" style="margin-top:3px;">Goes to people who cleared the screen, never got hired, and have not heard from us in 30 days.</div>
+        <b style="font-size:15px;color:var(--navy);">🎯 Find someone for a case</b>
+        <div class="field-note" style="margin-top:3px;">
+          Everyone who ever applied, filtered down to the ones who could actually take these hours. They cleared the
+          screen, were never hired, and have not heard from us in 30 days.
+        </div>
         <div class="grid2" style="margin-top:10px;">
-          <div><label>Which opening?</label><select id="apRePosting"></select></div>
+          <div><label>Which opening are we pointing them at?</label><select id="apRePosting"></select></div>
           <div><label>Position they applied for</label><select id="apRePos"><option value="">Any</option></select></div>
         </div>
         <div class="grid2">
-          <div><label>Who to tell</label>
+          <div><label>Who to ask</label>
             <select id="apReWho" onchange="apReCount()">
               <option value="pool">The candidate pool — people we said we would come back to</option>
               <option value="all">Everyone qualified who was never hired</option>
             </select></div>
+          <div><label>Experience</label>
+            <select id="apReExp" onchange="apReCount()">
+              <option value="">Anyone</option>
+              <option value="exp">Only people with agency or facility experience</option>
+            </select></div>
+        </div>
+
+        <label>Where the case is <span style="font-weight:400;color:var(--text-muted);">(zip codes or towns, separated by commas)</span></label>
+        <input id="apReArea" oninput="apReCount()" placeholder="65714, Nixa, Ozark">
+        <div class="field-note" style="margin:-2px 0 8px;">Matched against the zip they gave us, their town, and anywhere they told us at interview they would travel to. Leave it empty to ask everybody.</div>
+
+        <label>Days the case needs</label>
+        <div class="chips" id="apReDays" style="display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px;"></div>
+        <div class="grid2">
+          <div><label>Time of day</label>
+            <select id="apReShift" onchange="apReCount()">
+              <option value="">Any</option>
+              <option value="days">Days</option>
+              <option value="nights">Nights</option>
+            </select></div>
           <div></div>
         </div>
+        <div class="field-note" style="margin:-4px 0 8px;">We only know somebody's days and shift once they have been interviewed. Anyone we have not asked yet is still included, and says so in the list.</div>
+
         <label>What to say <span style="font-weight:400;color:var(--text-muted);">(their first name is added at the front)</span></label>
         <textarea id="apReMsg" rows="3" placeholder="we have a new caregiver opening in Nixa with weekday day shifts, and we thought of you. If you are still looking, you can pick an interview time here:"></textarea>
-        <div id="apReCount" class="field-note" style="margin-top:8px;"></div>
+        <div id="apReCount" class="field-note" style="margin-top:8px;white-space:pre-wrap;"></div>
+        <div id="apReWhoList" style="margin-top:8px;"></div>
         <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
           <button class="primary" onclick="apReSend(this)">Send it</button>
           <button class="ghost" onclick="document.getElementById('apReCard').style.display='none'">Cancel</button>
@@ -10865,19 +10907,21 @@ function jpFill(p){
    The one that changes behaviour is no-shows by how far ahead the interview
    was booked. An interview booked for tomorrow is kept far more often than
    one booked for next week, and the fix is a setting rather than an effort. */
-let RN_AP = [], RN_BK = [], RN_LOADED = false;
+let RN_AP = [], RN_BK = [], RN_CO = {}, RN_LOADED = false;
 
 async function rnLoad(btn){
   const box = document.getElementById('rnBody'); if(!box) return;
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
-    const [a, b] = await Promise.all([
+    const [a, b, c] = await Promise.all([
       sb.from('job_applicants').select('*').order('created_at',{ascending:false}).limit(5000),
-      sb.from('interview_bookings').select('applicant_id,created_at,starts_at,status').limit(5000),
+      sb.from('interview_bookings').select('applicant_id,created_at,starts_at,status,coordinator_id').limit(5000),
+      sb.from('coordinators').select('id,name'),
     ]);
     if(a.error) throw a.error;
     if(b.error) throw b.error;
     RN_AP = a.data || []; RN_BK = b.data || []; RN_LOADED = true;
+    RN_CO = {}; ((c && c.data) || []).forEach(x=>{ RN_CO[x.id] = x.name; });
     rnRender();
   }catch(e){
     box.innerHTML = '<div class="card" style="padding:16px 18px;"><div class="field-note" style="color:var(--red);">'
@@ -10991,6 +11035,25 @@ function rnRender(){
     : '<div class="field-note">Nobody has booked an interview yet. Applicants are offered times on the last screen of the form, '
       + 'so this fills up once somebody has hours set on <b>Interviews</b>.</div>';
 
+  /* ---- who interviewed ----
+     Not a league table. Two coordinators with very different no-show rates
+     usually means one of them is booking further out or at a harder hour, and
+     that is worth seeing before anybody concludes anything about a person. */
+  const byCo = {};
+  bookings.forEach(b=>{
+    const k = RN_CO[b.coordinator_id] || 'not recorded';
+    byCo[k] = byCo[k] || { n:0, attended:0, noshow:0 };
+    byCo[k].n++;
+    if(b.status === 'attended') byCo[k].attended++;
+    if(b.status === 'noshow') byCo[k].noshow++;
+  });
+  const coRows = Object.entries(byCo).sort((a,b)=>b[1].n-a[1].n);
+  const interviewers = coRows.length
+    ? coRows.map(([k,v]) => rnRow('<b>' + esc(k) + '</b>',
+        v.n + ' booked · ' + v.attended + ' seen · <b>' + v.noshow + ' no-show</b>'
+        + (v.attended + v.noshow ? ' <span style="color:var(--text-muted);">(' + rnPct(v.noshow, v.attended + v.noshow) + ')</span>' : ''))).join('')
+    : '<div class="field-note">Nothing booked yet.</div>';
+
   /* ---- where they come from ---- */
   const bySrc = {};
   ap.forEach(r=>{
@@ -11046,6 +11109,7 @@ function rnRender(){
     + rnCard('Interviews', interviews, 'Booked in this period.')
     + rnCard('Where they come from', sources, 'By the channel the link carried.')
     + rnCard('How long it takes', speed, 'From the moment they applied.')
+    + rnCard('Who interviewed', interviewers, 'Booked in this period, by the coordinator it landed on.')
     + rnCard('Why people did not go forward', declines, 'The reason recorded, whether the form stopped them or we did.')
     + '</div>'
     + rnCard('The candidate pool', poolBody, 'Right person, wrong moment. Not counted in the period above.');
@@ -11624,6 +11688,7 @@ function apRender(){
           + AP_POS.map(p=>'<option value="'+esc(p.key)+'"'+(r.position===p.key?' selected':'')+'>'+esc(p.label)+'</option>').join('')
           + '</select></label>'
         + (r.phone?'<a class="fb" style="text-decoration:none;" href="tel:'+esc(String(r.phone).replace(/[^0-9+]/g,''))+'">📞 Call</a>':'')
+        + (!b && r.status!=='declined'?'<button class="fb" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Book a time for them</button>':'')
         + (r.status!=='declined'?'<button class="fb" onclick="apInterview(\''+esc(r.id)+'\')">📝 Interview &amp; outcome</button>':'')
         + (r.status!=='declined'?'<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')">➡️ Make them an offer</button>':'')
         + (r.status==='new'?'<button class="fb" onclick="apSetStatus(\''+esc(r.id)+'\',\'reviewing\')">Mark as reviewing</button>':'')
@@ -11696,6 +11761,83 @@ function apToOffer(id, answers){
         document.getElementById('jo_avail').value = 'Will travel to ' + A.travel_areas;
     }
   }, 220);
+}
+
+/* ---- Booking somebody in ourselves -----------------------------------------
+   Half of hiring is people who will happily talk to you on the phone and never
+   open a link. This is the same slot list the apply page shows and the same
+   booking function behind it, so a time taken here is a time nobody else is
+   offered, it lands on the coordinator with the lightest day, and it gets the
+   same confirmation and reminders as one they booked themselves. */
+async function apBookFor(id){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  document.getElementById('apBookId').value = id;
+  document.getElementById('apBookWho').textContent = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'them';
+  document.getElementById('apBookErr').style.display = 'none';
+  const box = document.getElementById('apBookSlots');
+  box.innerHTML = '<div class="field-note">Looking for free times…</div>';
+  const card = document.getElementById('apBookCard');
+  card.style.display = 'block';
+  card.scrollIntoView({behavior:'smooth', block:'center'});
+  try{
+    const { data, error } = await sb.rpc('interview_open_slots');
+    if(error) throw error;
+    const slots = data || [];
+    if(!slots.length){
+      box.innerHTML = '<div class="field-note">No free times at the moment. Add hours under '
+        + '<b>Interviews &rarr; when we are free</b>, and they appear here and on the apply page together.</div>';
+      return;
+    }
+    const esc = escapeHtmlComms;
+    const byDay = new Map();
+    slots.forEach(s=>{
+      const d = new Date(s.starts_at);
+      const k = d.toDateString();
+      if(!byDay.has(k)) byDay.set(k, { label: d.toLocaleDateString('en-US',{weekday:'long', month:'short', day:'numeric'}), times: [] });
+      byDay.get(k).times.push({ iso: s.starts_at, label: d.toLocaleTimeString('en-US',{hour:'numeric', minute:'2-digit'}) });
+    });
+    box.innerHTML = [...byDay.values()].map(day =>
+      '<div style="margin:0 0 12px;">'
+      + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:5px;">'+esc(day.label)+'</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+      + day.times.map(t=>'<button type="button" class="fb" onclick="apBookTake(\''+esc(t.iso)+'\',this)">'+esc(t.label)+'</button>').join('')
+      + '</div></div>').join('');
+  }catch(e){
+    box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load times: '
+      + escapeHtmlComms(e && e.message || 'error') + '</div>';
+  }
+}
+
+async function apBookTake(iso, btn){
+  const id = document.getElementById('apBookId').value;
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  const err = document.getElementById('apBookErr');
+  const when = new Date(iso).toLocaleString('en-US',{weekday:'long', month:'long', day:'numeric', hour:'numeric', minute:'2-digit'});
+  if(!confirm('Book ' + ((r.first_name||'them')) + ' in for ' + when + '?\n\n'
+    + 'They get the confirmation and the reminders the same as if they had booked it themselves.')) return;
+  btn.disabled = true; btn.textContent = 'Booking…';
+  err.style.display = 'none';
+  try{
+    /* Booking is only open on an application nobody has closed. Somebody in
+       the pool or marked as a no-show is exactly who this is for, so they come
+       back into play rather than being refused. */
+    if(!['partial','new','reviewing'].includes(r.status)){
+      const { error: e1 } = await sb.from('job_applicants')
+        .update({ status:'reviewing', seen_at:new Date().toISOString() }).eq('id', id);
+      if(e1) throw e1;
+    }
+    const { error } = await sb.rpc('interview_book', { p_applicant: id, p_starts: iso });
+    if(error) throw error;
+    document.getElementById('apBookCard').style.display = 'none';
+    await apLoad();
+  }catch(e){
+    const m = String(e && e.message || 'error');
+    err.textContent = /just taken|passed/i.test(m)
+      ? 'That time went while you were looking at it. Here are the ones still free.'
+      : 'Could not book that: ' + m;
+    err.style.display = 'block';
+    apBookFor(id);
+  }
 }
 
 /* ---- The interview itself --------------------------------------------------
@@ -11861,33 +12003,113 @@ async function apOutcome(outcome, btn){
 /* ---- Reaching back out ----------------------------------------------------
    The people worth telling about a new opening are the ones who cleared the
    screen, never got hired, and have not heard from us recently. */
+/* The case decides who hears about it: the right hours in the right place is
+   most of what makes somebody say yes, and a message to the other ninety
+   people is how a list stops being worth having.
+
+   Days and shift are only known for people who have been interviewed, so
+   anybody we have not asked yet stays in and is labelled rather than dropped.
+   Silently excluding the people we know least about would quietly shrink the
+   list to whoever we happened to interview. */
+let AP_RE_DAYS = {};
+
+const AP_RE_EXPERIENCED = r =>
+  (r.experience_kinds||[]).some(k=>/agency|facility|hospital/i.test(k))
+  || Object.values(((r.post_interview||{}).skills)||{}).some(v=>v==='some'||v==='lots');
+
+function apReAreaTokens(){
+  return String((document.getElementById('apReArea')||{}).value || '')
+    .split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+}
+function apReAreaMatch(r, tokens){
+  if(!tokens.length) return true;
+  const hay = [r.zip, r.city, (r.post_interview||{}).travel_areas, r.pool_area]
+    .filter(Boolean).join(' ').toLowerCase();
+  return tokens.some(t=>hay.includes(t));
+}
+/* Unknown means unknown, not no. */
+function apReDaysMatch(r, days){
+  if(!days.length) return true;
+  const have = ((r.post_interview||{}).availability) || null;
+  if(!have) return true;
+  return days.every(d=>have[d]);
+}
+function apReShiftMatch(r, shift){
+  if(!shift) return true;
+  const s = (r.post_interview||{}).shift;
+  return !s || s === shift;
+}
+const apReKnown = r => !!((r.post_interview||{}).availability || (r.post_interview||{}).shift);
+
 function apReengageList(){
-  const pos = (document.getElementById('apRePos')||{}).value || '';
-  const who = (document.getElementById('apReWho')||{}).value || 'pool';
+  const pos   = (document.getElementById('apRePos')||{}).value || '';
+  const who   = (document.getElementById('apReWho')||{}).value || 'pool';
+  const exp   = (document.getElementById('apReExp')||{}).value || '';
+  const shift = (document.getElementById('apReShift')||{}).value || '';
+  const days  = Object.keys(AP_RE_DAYS).filter(d=>AP_RE_DAYS[d]);
+  const tokens= apReAreaTokens();
   return AP_ROWS.filter(r=>
     apQualified(r) && r.status!=='hired'
     && (who==='pool' ? r.status==='pool' : !AP_BOOK[r.id])
     && (!pos || r.position===pos)
     && (r.phone || r.email)
-    && (!r.reengaged_at || apDays(r.reengaged_at) > 30));
+    && (!r.reengaged_at || apDays(r.reengaged_at) > 30)
+    && (!exp || AP_RE_EXPERIENCED(r))
+    && apReAreaMatch(r, tokens)
+    && apReDaysMatch(r, days)
+    && apReShiftMatch(r, shift));
 }
 
 function apReengage(){
   const card = document.getElementById('apReCard');
   card.style.display = 'block';
+  AP_RE_DAYS = {};
+  const box = document.getElementById('apReDays');
+  if(box) box.innerHTML = AP_DAYS.map(([k,l])=>
+    '<button type="button" class="fb" id="apreday_'+k+'" onclick="apReDay(\''+k+'\')">'+l+'</button>').join('');
   apReCount();
-  document.getElementById('apRePos').onchange = apReCount;
-  document.getElementById('apReWho').onchange = apReCount;
+  ['apRePos','apReWho','apReExp','apReShift'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.onchange = apReCount;
+  });
   card.scrollIntoView({behavior:'smooth', block:'center'});
 }
+function apReDay(k){
+  AP_RE_DAYS[k] = !AP_RE_DAYS[k];
+  const b = document.getElementById('apreday_'+k);
+  if(b) b.style.cssText = AP_RE_DAYS[k] ? 'background:var(--navy);color:#fff;border-color:var(--navy);' : '';
+  apReCount();
+}
+
 function apReCount(){
+  const esc = escapeHtmlComms;
   const list = apReengageList();
   const textable = list.filter(r=>r.phone && r.sms_consent).length;
+  const unknown = list.filter(r=>!apReKnown(r)).length;
+  const days = Object.keys(AP_RE_DAYS).filter(d=>AP_RE_DAYS[d]);
   document.getElementById('apReCount').textContent =
-    list.length + ' ' + (list.length===1?'person':'people') + ' would hear about this'
-    + (list.length ? ' — ' + textable + ' by text, ' + list.filter(r=>r.email).length + ' by email' : '')
+    list.length + ' ' + (list.length===1?'person':'people') + ' match'
+    + (list.length ? ' — ' + textable + ' can be texted, ' + list.filter(r=>r.email).length + ' emailed' : '')
     + '. Anyone contacted in the last 30 days is left out.'
-    + (list.length ? '\n\nWaiting for: ' + [...new Set(list.map(r=>r.pool_wants).filter(Boolean))].join(', ') : '');
+    + (unknown && (days.length || (document.getElementById('apReShift')||{}).value)
+        ? '\n' + unknown + ' of them have never been interviewed, so we are guessing at their hours.' : '')
+    + (list.length ? '\n\nHolding out for: '
+        + ([...new Set(list.map(r=>r.pool_wants).filter(Boolean))].join(', ') || 'nothing recorded') : '');
+
+  /* Seeing the names is what stops a send going out to the wrong twelve
+     people, and it is the same list the message goes to. */
+  const box = document.getElementById('apReWhoList'); if(!box) return;
+  box.innerHTML = !list.length ? '' :
+    '<details style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 12px;">'
+    + '<summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">Who these are</summary>'
+    + '<div style="margin-top:7px;max-height:230px;overflow:auto;">'
+    + list.map(r=>'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;padding:4px 0;border-bottom:1px dashed var(--border);">'
+        + '<b style="color:var(--navy);">'+esc(((r.first_name||'')+' '+(r.last_name||'')).trim())+'</b>'
+        + '<span class="field-note">'+esc([r.city||r.zip, r.pool_wants, (r.post_interview||{}).travel_areas].filter(Boolean).join(' · '))+'</span>'
+        + '<span style="flex:1;"></span>'
+        + (apReKnown(r) ? '' : '<span style="font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 8px;">hours not asked yet</span>')
+        + (r.phone && r.sms_consent ? '<span style="font-size:11px;color:#15803D;">text ok</span>' : '<span style="font-size:11px;color:#B45309;">email only</span>')
+        + '</div>').join('')
+    + '</div></details>';
 }
 
 async function apReSend(btn){
