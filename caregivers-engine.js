@@ -1504,6 +1504,9 @@ async function createRefRequests(c){
   const { data, error } = await sb.from('reference_requests').insert(
     wanted.map(r => ({
       candidate_id: c.id, slot: r.n, candidate_name: (c.first + ' ' + c.last).trim(),
+      /* Carried so the chase can go back to the applicant when a reference
+         goes quiet. They gave us these on their start link. */
+      candidate_phone: c.phone || null, candidate_email: c.email || null,
       ref_name: r.name || null, ref_phone: r.phone || null, ref_email: r.email || null,
       ref_relationship: r.rel || null, sent_at: new Date().toISOString(),
     }))).select();
