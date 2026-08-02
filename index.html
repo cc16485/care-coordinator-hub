@@ -2909,8 +2909,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <div><label>Day</label><select id="ivHoursDay"></select></div>
           </div>
           <div class="grid2">
-            <div><label>From</label><input id="ivHoursFrom" type="time" step="900" value="09:00"></div>
-            <div><label>Until</label><input id="ivHoursTo" type="time" step="900" value="17:00"></div>
+            <div><label>From</label><select id="ivHoursFrom"></select></div>
+            <div><label>Until</label><select id="ivHoursTo"></select></div>
           </div>
           <div id="ivHoursErr" style="display:none;color:var(--red);font-size:13px;margin-top:6px;"></div>
           <div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;">
@@ -2937,8 +2937,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             The whole of each day
           </label>
           <div class="grid2" id="ivBlockTimes" style="display:none;">
-            <div><label>From</label><input id="ivBlockStart" type="time" step="900" value="13:00"></div>
-            <div><label>Until</label><input id="ivBlockEnd" type="time" step="900" value="17:00"></div>
+            <div><label>From</label><select id="ivBlockStart"></select></div>
+            <div><label>Until</label><select id="ivBlockEnd"></select></div>
           </div>
           <div id="ivBlockErr" style="display:none;color:var(--red);font-size:13px;margin-top:6px;"></div>
           <div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;">
@@ -2968,8 +2968,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <div></div>
           </div>
           <div class="grid2">
-            <div><label>Calendar day starts</label><input id="iv_daystart" type="time" step="900" value="07:00"></div>
-            <div><label>Calendar day ends</label><input id="iv_dayend" type="time" step="900" value="19:00"></div>
+            <div><label>Calendar day starts</label><select id="iv_daystart"></select></div>
+            <div><label>Calendar day ends</label><select id="iv_dayend"></select></div>
           </div>
           <div class="field-note" style="margin:-2px 0 10px;">Nobody's hours can fall outside this, which is what stops a stray overnight block.</div>
           <label>What to tell them about finding you</label>
@@ -10300,6 +10300,24 @@ const ivTime = t => {                       // "14:30:00" -> "2:30 PM"
   let h = +m[1]; const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
   return h + ':' + m[2] + ' ' + ap;
 };
+/* Every time on this page is written the way it is said. A time input renders
+   as 24-hour on some machines, and 19:00 is not how anybody here says 7pm. */
+function ivTimeOptions(sel, from, to){
+  const lo = from || '00:00', hi = to || '23:45';
+  let html = '';
+  for(let m = 0; m < 24*60; m += 15){
+    const v = String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+    if(v < lo || v > hi) continue;
+    html += '<option value="'+v+'"'+(v===sel?' selected':'')+'>'+ivTime(v)+'</option>';
+  }
+  return html;
+}
+function ivFillTime(id, sel, from, to){
+  const e = document.getElementById(id); if(!e) return;
+  e.innerHTML = ivTimeOptions(sel, from, to);
+  if(sel) e.value = sel;
+}
+
 const ACT_TONE = { interview:['#1D4ED8','#DBEAFE'], orientation:['#7C3AED','#EDE9FE'],
   assessment:['#B45309','#FEF3C7'], consultation:['#15803D','#DCFCE7'], manual:['#B91C1C','#FEE2E2'] };
 const actLabel = k => k === 'manual' ? 'Blocked'
@@ -10319,8 +10337,9 @@ async function ivLoad(btn){
     IV_HOSTS = h.data || []; IV_AVAIL = a.data || []; IV_ACTS = t.data || [];
     if(g && g.data){
       IV_DAYWIN = { start:(g.data.day_start||'07:00').slice(0,5), end:(g.data.day_end||'19:00').slice(0,5) };
+      ivFillTime('iv_daystart', IV_DAYWIN.start);
+      ivFillTime('iv_dayend',   IV_DAYWIN.end);
       const iv=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v==null?'':v; };
-      iv('iv_daystart', IV_DAYWIN.start); iv('iv_dayend', IV_DAYWIN.end);
       iv('iv_note', g.data.note); iv('iv_photo', g.data.photo_url);
     }
     const it = IV_ACTS.find(x=>x.key==='interview');
@@ -10486,9 +10505,8 @@ function ivAddBlock(hostId){
       .map(a=>'<option value="'+escapeHtmlComms(a.key)+'">'+escapeHtmlComms(a.label)+'</option>').join('');
   document.getElementById('ivHoursDay').innerHTML =
     IV_DAYS.map((d,i)=>'<option value="'+i+'"'+(i===2?' selected':'')+'>'+d+'</option>').join('');
-  const f1=document.getElementById('ivHoursFrom'), f2=document.getElementById('ivHoursTo');
-  f1.min = f2.min = IV_DAYWIN.start; f1.max = f2.max = IV_DAYWIN.end;
-  f1.value = IV_DAYWIN.start; f2.value = IV_DAYWIN.end;
+  ivFillTime('ivHoursFrom', IV_DAYWIN.start, IV_DAYWIN.start, IV_DAYWIN.end);
+  ivFillTime('ivHoursTo',    IV_DAYWIN.end,   IV_DAYWIN.start, IV_DAYWIN.end);
   document.getElementById('ivHoursErr').style.display='none';
   const f = document.getElementById('ivHoursForm');
   f.style.display='block';
@@ -10545,6 +10563,8 @@ function ivBlockOff(hostId){
   document.getElementById('ivBlockTo').value = t;
   document.getElementById('ivBlockWhy').value = '';
   document.getElementById('ivBlockAllDay').checked = true;
+  ivFillTime('ivBlockStart', '13:00');
+  ivFillTime('ivBlockEnd',   '17:00');
   ivBlockToggle();
   document.getElementById('ivBlockErr').style.display='none';
   const f = document.getElementById('ivBlockForm');
