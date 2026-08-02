@@ -738,6 +738,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-clients">
     <div class="fpill" data-parent="assessments" onclick="ccParentClick('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Starting Care</div>
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
+    <div class="fpill" data-tab="circles" onclick="switchTab('circles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family Circles</div>
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
     <div class="fpill" data-tab="careplans" onclick="switchTab('careplans')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Plan Reviews</div>
@@ -1306,6 +1307,24 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div id="callsList"><div class="field-note">Loading…</div></div>
       </div>
+    </section>
+
+    <!-- ===================== TAB: FAMILY CIRCLES ===================== -->
+    <!-- One message, everybody at once, under the client's name. Not a group
+         SMS thread: replies come to the office line, which is what "ring us
+         with questions" means, and the record lives here rather than
+         unlabelled in a Conversations list. -->
+    <section class="tabpanel" id="tab-circles">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Family Circles</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">The people around a client who should hear the same thing at the same time. Coordinators and family only.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <button class="secondary" onclick="fcAdd()">＋ New circle</button>
+        <button class="ghost" onclick="fcLoad(this)">↻ Refresh</button>
+      </div>
+      <div id="fcList"><div class="field-note">Loading…</div></div>
     </section>
 
     <!-- ===================== TAB: TRAINING HUB ===================== -->
@@ -6026,7 +6045,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory'],scheduling:['coverage','teamsched'],clients:['clients','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['leads','statesubs','bookings','referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory'],scheduling:['coverage','teamsched'],clients:['clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['leads','statesubs','bookings','referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -6634,6 +6653,7 @@ function renderActiveTab(){
   if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); pbLoad(); rcView(rcCurrent); }
   if(activeTab==='calendar') ivLoad();
   if(activeTab==='trainhub') trainhubOpen();
+  if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
@@ -10947,6 +10967,203 @@ function ivqOutcome(applicantId){
     if(el && a){ el.value = ((a.first_name||'')+' '+(a.last_name||'')).trim(); apRender(); }
     apInterview(applicantId);
   }, 260);
+}
+
+/* ---- Family circles --------------------------------------------------------
+   Everyone hears the same thing at the same moment, which is the bit families
+   actually want. Replies come back to the office line, so a worried daughter
+   rings us rather than a caregiver's mobile. */
+let FC = [], FC_CONTACTS = {}, FC_INTROS = [];
+
+async function fcLoad(btn){
+  const box = document.getElementById('fcList'); if(!box) return;
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    const [c, p, i] = await Promise.all([
+      sb.from('care_circles').select('*').eq('active',true).order('client_name'),
+      sb.from('circle_contacts').select('*'),
+      sb.from('caregiver_intros').select('*').order('name'),
+    ]);
+    if(c.error) throw c.error;
+    FC = c.data || []; FC_INTROS = i.data || [];
+    FC_CONTACTS = {}; (p.data||[]).forEach(function(x){ (FC_CONTACTS[x.circle_id] = FC_CONTACTS[x.circle_id] || []).push(x); });
+    fcRender();
+  }catch(e){
+    box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load circles: '
+      + escapeHtmlComms(e && e.message || 'error') + '</div>';
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+
+function fcRender(){
+  const box = document.getElementById('fcList'); if(!box) return;
+  const esc = escapeHtmlComms;
+  if(!FC.length){
+    box.innerHTML = '<div class="card" style="padding:16px 18px;"><div class="field-note">'
+      + 'No circles yet. <b>＋ New circle</b> for a client, add the family who should hear from you, '
+      + 'and every update after that is one message instead of four phone calls.</div></div>';
+    return;
+  }
+  box.innerHTML = FC.map(function(c,i){
+    const people = FC_CONTACTS[c.id] || [];
+    const textable = people.filter(function(p){ return p.phone && p.sms_consent; }).length;
+    return '<details class="card" style="padding:0;margin-bottom:10px;">'
+      + '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:14px 18px;">'
+      + '<b style="font-size:15px;color:var(--navy);">' + esc(c.client_name) + '</b>'
+      + '<span class="field-note">' + people.length + ' in the circle'
+        + (people.length ? ' · ' + textable + ' can be texted' : '') + '</span>'
+      + '<span style="flex:1;"></span>'
+      + '<span style="color:#A89C8B;font-size:.78rem;">open ▾</span></summary>'
+      + '<div style="padding:0 18px 16px;">'
+
+      + (people.length ? people.map(function(p){
+          return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.5rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
+            + '<b style="color:var(--navy);">' + esc(p.name) + '</b>'
+            + (p.relationship?'<span class="field-note">'+esc(p.relationship)+'</span>':'')
+            + (p.is_primary?'<span style="font-size:11px;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:2px 8px;">main contact</span>':'')
+            + '<span style="flex:1;"></span>'
+            + (p.phone?'<span class="field-note">'+esc(p.phone)+'</span>':'')
+            + '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);">'
+              + '<input type="checkbox" ' + (p.sms_consent?'checked':'') + ' onchange="fcSet(\'' + esc(p.id) + '\',\'sms_consent\',this.checked)" style="width:15px;height:15px;accent-color:var(--yellow);"> texts ok</label>'
+            + '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);">'
+              + '<input type="checkbox" ' + (p.wants_changes!==false?'checked':'') + ' onchange="fcSet(\'' + esc(p.id) + '\',\'wants_changes\',this.checked)" style="width:15px;height:15px;accent-color:var(--yellow);"> caregiver changes</label>'
+            + '<button class="fb" style="padding:1px 8px;" onclick="fcDel(\'' + esc(p.id) + '\')">✕</button>'
+            + '</div>';
+        }).join('') : '<div class="field-note" style="padding:.5rem 0;">Nobody in this circle yet.</div>')
+
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">'
+      + '<button class="fb" onclick="fcAddContact(\'' + esc(c.id) + '\')">＋ Add someone</button>'
+      + '<button class="fb" onclick="fcCompose(\'' + esc(c.id) + '\',\'change\')">🔄 Caregiver change</button>'
+      + '<button class="fb" onclick="fcCompose(\'' + esc(c.id) + '\',\'update\')">✉️ Send an update</button>'
+      + '</div>'
+
+      + '<div id="fcbox_' + esc(c.id) + '" style="display:none;margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:13px 15px;">'
+        + '<div id="fcpick_' + esc(c.id) + '"></div>'
+        + '<label style="margin-top:8px;">What to tell them</label>'
+        + '<textarea id="fcmsg_' + esc(c.id) + '" rows="4"></textarea>'
+        + '<div class="field-note" id="fcwho_' + esc(c.id) + '" style="margin-top:7px;"></div>'
+        + '<div style="display:flex;gap:9px;margin-top:11px;flex-wrap:wrap;">'
+        + '<button class="primary" onclick="fcSend(\'' + esc(c.id) + '\',this)">Send to the circle</button>'
+        + '<button class="ghost" onclick="document.getElementById(\'fcbox_' + esc(c.id) + '\').style.display=\'none\'">Cancel</button>'
+        + '</div>'
+        + '<div id="fcerr_' + esc(c.id) + '" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>'
+      + '</div></div></details>';
+  }).join('');
+}
+
+async function fcAdd(){
+  const name = prompt('Which client is this circle for?\n\nTheir name as the family would say it.');
+  if(name===null) return;
+  if(!name.trim()){ alert('It needs a name.'); return; }
+  try{
+    const { error } = await sb.from('care_circles').insert({ client_name: name.trim() });
+    if(error) throw error;
+    await fcLoad();
+  }catch(e){ alert('Could not add it: '+(e&&e.message||'error')); }
+}
+
+async function fcAddContact(circleId){
+  const name = prompt('Who should hear from us?'); if(name===null) return;
+  if(!name.trim()){ alert('It needs a name.'); return; }
+  const rel = prompt('How are they related?\n\ne.g. Daughter, Son, Power of attorney, Neighbor', 'Daughter');
+  if(rel===null) return;
+  const phone = prompt('Mobile number, if they are happy to be texted.\n\nLeave blank if not.', '');
+  if(phone===null) return;
+  const email = prompt('Email address, if they have one.', ''); if(email===null) return;
+  if(!phone.trim() && !email.trim()){ alert('Give a phone or an email, or we cannot reach them.'); return; }
+  const consent = phone.trim() ? confirm('Has ' + name.trim() + ' agreed to be texted?\n\nOK for yes. Cancel means email only.') : false;
+  try{
+    const { error } = await sb.from('circle_contacts').insert({
+      circle_id: circleId, name: name.trim(), relationship: rel.trim() || null,
+      phone: phone.trim() || null, email: email.trim() || null, sms_consent: consent,
+      is_primary: !(FC_CONTACTS[circleId]||[]).length });
+    if(error) throw error;
+    await fcLoad();
+  }catch(e){ alert('Could not add them: '+(e&&e.message||'error')); }
+}
+
+async function fcSet(id, field, value){
+  try{
+    const patch = {}; patch[field] = value;
+    const { error } = await sb.from('circle_contacts').update(patch).eq('id', id);
+    if(error) throw error;
+    await fcLoad();
+  }catch(e){ alert('Could not change that: '+(e&&e.message||'error')); }
+}
+async function fcDel(id){
+  if(!confirm('Take this person out of the circle?')) return;
+  try{
+    const { error } = await sb.from('circle_contacts').delete().eq('id', id);
+    if(error) throw error;
+    await fcLoad();
+  }catch(e){ alert('Could not remove them: '+(e&&e.message||'error')); }
+}
+
+/* The message nobody wants to write at 7am, already written. */
+function fcCompose(circleId, kind){
+  const c = FC.find(function(x){ return String(x.id)===String(circleId); }); if(!c) return;
+  const box = document.getElementById('fcbox_'+circleId);
+  const pick = document.getElementById('fcpick_'+circleId);
+  const msg  = document.getElementById('fcmsg_'+circleId);
+  box.dataset.kind = kind;
+
+  if(kind==='change'){
+    pick.innerHTML = '<label>Who is going instead?</label>'
+      + '<select id="fccg_'+escapeHtmlComms(circleId)+'" onchange="fcChangeText(\''+escapeHtmlComms(circleId)+'\')">'
+      + '<option value="">Somebody else from our team</option>'
+      + FC_INTROS.map(function(g){ return '<option value="'+escapeHtmlComms(g.id)+'">'+escapeHtmlComms(g.name)+'</option>'; }).join('')
+      + '</select>'
+      + '<div class="field-note" style="margin-top:4px;">The line about them comes from what you wrote once on their record. Blank is fine.</div>';
+    fcChangeText(circleId);
+  } else {
+    pick.innerHTML = '';
+    msg.value = '';
+  }
+  const people = (FC_CONTACTS[circleId]||[]).filter(function(p){
+    return kind==='change' ? p.wants_changes!==false : p.wants_general!==false; });
+  const reach = people.filter(function(p){ return (p.phone&&p.sms_consent)||p.email; });
+  document.getElementById('fcwho_'+circleId).textContent =
+    'Goes to ' + reach.length + ' of ' + people.length + ' in the circle'
+    + (people.length-reach.length
+        ? ' — ' + (people.length-reach.length) + (people.length-reach.length===1?' has':' have') + ' no way to be reached'
+        : '')
+    + '. Replies come to the office line.';
+  document.getElementById('fcerr_'+circleId).style.display='none';
+  box.style.display='block';
+  box.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function fcChangeText(circleId){
+  const c = FC.find(function(x){ return String(x.id)===String(circleId); });
+  const sel = document.getElementById('fccg_'+circleId);
+  const g = FC_INTROS.find(function(x){ return String(x.id)===String((sel||{}).value); });
+  const who = g ? g.name : 'a different caregiver';
+  const line = g && g.intro ? ' ' + g.intro.trim() : '';
+  document.getElementById('fcmsg_'+circleId).value =
+    'Hello, this is Caring Companions. ' + c.client_name + "'s usual caregiver has called in today, "
+    + 'so ' + who + ' will be coming instead.' + line
+    + ' Everything else about the visit stays the same. If you have any questions at all, please ring the office on (417) 234-8494.';
+}
+
+async function fcSend(circleId, btn){
+  const box = document.getElementById('fcbox_'+circleId);
+  const err = document.getElementById('fcerr_'+circleId);
+  const body = (document.getElementById('fcmsg_'+circleId).value||'').trim();
+  const kind = box.dataset.kind || 'update';
+  if(!body){ err.textContent='Write the message first.'; err.style.display='block'; return; }
+  const c = FC.find(function(x){ return String(x.id)===String(circleId); });
+  if(!confirm('Send this to ' + c.client_name + "'s circle?")) return;
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try{
+    const { data, error } = await sb.functions.invoke('circle-send', {
+      body: { circle_id: circleId, kind: kind, body: body, sent_by: (ME.name || ME.email || '') },
+    });
+    if(error) throw error;
+    box.style.display='none';
+    alert('Sent to ' + ((data && data.reached) ?? '') + ' of ' + c.client_name + "'s circle.");
+  }catch(e){
+    err.textContent = 'Could not send: ' + (e&&e.message||'error');
+    err.style.display='block';
+  }finally{ btn.disabled=false; btn.textContent='Send to the circle'; }
 }
 
 /* The training platform, framed. It is a separate application with its own
