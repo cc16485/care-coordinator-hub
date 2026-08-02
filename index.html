@@ -2809,16 +2809,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- Three jobs, three places, one at a time. Stacking them meant
            scrolling past the form to reach the work. -->
       <div class="offnav">
-        <button class="offnav-b" id="offnav-open" onclick="offView('open')">📋 Open offers <span class="offnav-n" id="offnavOpenN"></span></button>
         <button class="offnav-b" id="offnav-new"  onclick="offView('new')">✍️ Create new offer</button>
+        <button class="offnav-b" id="offnav-open" onclick="offView('open')">📋 Open offers <span class="offnav-n" id="offnavOpenN"></span></button>
         <button class="offnav-b" id="offnav-past" onclick="offView('past')">🗂 Previous offers <span class="offnav-n" id="offnavPastN"></span></button>
       </div>
 
       <div class="card offview" id="offview-open" style="padding:16px 18px;margin-bottom:16px;">
         <!-- The pill above already names this view and carries the count, so
              the heading would just be the same word and the same number twice. -->
+        <!-- The count lives on the subnav pill now. updateOffersBadge() guards
+             on the element being absent, so there is nothing left to feed. -->
         <div class="field-note">Each one shows the single next thing it needs. Open it for the details.</div>
-        <span id="offersBadge" style="display:none;"></span>
         <div id="offersList" style="margin-top:10px;"></div>
       </div>
       <div class="card offview" style="padding:0 18px 18px;margin-bottom:16px;display:none;" id="offview-new">
