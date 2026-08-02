@@ -3055,6 +3055,25 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Team Calendar</h2>
         <div class="field-note" style="font-size:13.5px;margin-top:3px;">Interviews, orientations, care assessments and consultations all spend the same day. This is the one place that knows about all four.</div>
       </div>
+      <!-- The coordinator's own day. Everything else on this page is settings;
+           this is the bit they actually open in the morning. -->
+      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+          <button class="fb" onclick="calStep(-1)" title="Back">‹</button>
+          <button class="fb" onclick="calToday()">Today</button>
+          <button class="fb" onclick="calStep(1)" title="Forward">›</button>
+          <b id="calTitle" style="font-size:15px;color:var(--navy);margin-left:4px;"></b>
+          <span style="flex:1;"></span>
+          <select id="calWho" onchange="calRender()" style="font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;"></select>
+          <div style="display:flex;gap:4px;">
+            <button class="fb" id="calv-day"   onclick="calSetView('day')">Day</button>
+            <button class="fb" id="calv-week"  onclick="calSetView('week')">Week</button>
+            <button class="fb" id="calv-month" onclick="calSetView('month')">Month</button>
+          </div>
+        </div>
+        <div id="calBody" style="margin-top:12px;"><div class="field-note">Loading…</div></div>
+      </div>
+
       <!-- One calendar under interviews, orientations, care assessments and
            consultations. Availability belongs to a coordinator AND an activity,
            because Angiel can be free for assessments all day and for interviews
@@ -11312,6 +11331,171 @@ async function apReSend(btn){
   }finally{ btn.disabled=false; btn.textContent='Send it'; }
 }
 
+/* ---- A coordinator's own calendar ------------------------------------------
+   Day, week and month over the same coordinator_busy layer everything else
+   reads, so an interview, an orientation and a blocked afternoon all appear
+   without any of them being copied anywhere. */
+let calView = 'week', calAnchor = new Date(), CAL_ROWS = [];
+
+const CAL_TONE = { interview:['#1D4ED8','#DBEAFE'], orientation:['#7C3AED','#EDE9FE'],
+  assessment:['#B45309','#FEF3C7'], consultation:['#15803D','#DCFCE7'], manual:['#B91C1C','#FEE2E2'] };
+const calMid = d => { const x=new Date(d); x.setHours(0,0,0,0); return x; };
+const calAddDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const calStartOfWeek = d => calAddDays(calMid(d), -calMid(d).getDay());
+const calHM = d => d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+
+function calSetView(v){ calView = v; calLoad(); }
+function calStep(n){
+  calAnchor = calView==='day' ? calAddDays(calAnchor, n)
+            : calView==='week' ? calAddDays(calAnchor, 7*n)
+            : new Date(calAnchor.getFullYear(), calAnchor.getMonth()+n, 1);
+  calLoad();
+}
+function calToday(){ calAnchor = new Date(); calLoad(); }
+
+function calRange(){
+  if(calView==='day')  return [calMid(calAnchor), calAddDays(calMid(calAnchor),1)];
+  if(calView==='week') return [calStartOfWeek(calAnchor), calAddDays(calStartOfWeek(calAnchor),7)];
+  const first = new Date(calAnchor.getFullYear(), calAnchor.getMonth(), 1);
+  const gridStart = calAddDays(first, -first.getDay());
+  return [gridStart, calAddDays(gridStart, 42)];
+}
+
+async function calLoad(){
+  const box = document.getElementById('calBody'); if(!box) return;
+  const [from, to] = calRange();
+  try{
+    const { data, error } = await sb.from('coordinator_busy').select('*')
+      .gte('starts_at', from.toISOString()).lt('starts_at', to.toISOString())
+      .order('starts_at').limit(1000);
+    if(error) throw error;
+    CAL_ROWS = data || [];
+    calFillWho();
+    calRender();
+  }catch(e){
+    box.innerHTML = '<div class="field-note">Run <b>scheduling.sql</b> to see the calendar here.</div>';
+  }
+}
+
+function calFillWho(){
+  const sel = document.getElementById('calWho'); if(!sel || sel.dataset.filled) return;
+  const mine = (IV_HOSTS||[]).find(function(h){
+    return String(h.name||'').trim().toLowerCase() === String((typeof ME!=='undefined' && ME.name)||'').trim().toLowerCase(); });
+  sel.innerHTML = '<option value="">Everyone</option>'
+    + (IV_HOSTS||[]).map(function(h){ return '<option value="'+escapeHtmlComms(h.id)+'">'+escapeHtmlComms(h.name)+'</option>'; }).join('');
+  /* Open on your own book if we can tell which one is yours. */
+  if(mine) sel.value = mine.id;
+  sel.dataset.filled = '1';
+}
+
+function calRows(){
+  const who = (document.getElementById('calWho')||{}).value || '';
+  /* A block with nobody named applies to everybody, so it stays in view. */
+  return CAL_ROWS.filter(function(r){ return !who || !r.coordinator_id || r.coordinator_id === who; });
+}
+
+function calRender(){
+  const box = document.getElementById('calBody'); if(!box) return;
+  ['day','week','month'].forEach(function(v){
+    const b = document.getElementById('calv-'+v);
+    if(b) b.style.cssText = (v===calView) ? 'background:var(--navy);color:#fff;border-color:var(--navy);' : '';
+  });
+  const t = document.getElementById('calTitle');
+  const [from] = calRange();
+  if(t) t.textContent = calView==='day'
+    ? calAnchor.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric'})
+    : calView==='week'
+      ? from.toLocaleDateString('en-US',{month:'short', day:'numeric'}) + ' – '
+        + calAddDays(from,6).toLocaleDateString('en-US',{month:'short', day:'numeric'})
+      : calAnchor.toLocaleDateString('en-US',{month:'long', year:'numeric'});
+  box.innerHTML = calView==='month' ? calMonth() : calGrid(calView==='day' ? 1 : 7);
+}
+
+/* Day and week share a grid; a day is just a week one column wide. */
+function calGrid(days){
+  const esc = escapeHtmlComms;
+  const startH = parseInt((IV_DAYWIN.start||'07:00').slice(0,2),10);
+  const endH   = parseInt((IV_DAYWIN.end||'19:00').slice(0,2),10);
+  const hours  = Math.max(1, endH - startH);
+  const PX = 44;
+  const first = days===1 ? calMid(calAnchor) : calStartOfWeek(calAnchor);
+  const rows = calRows();
+  const today = calMid(new Date()).getTime();
+
+  let head = '<div style="display:grid;grid-template-columns:52px repeat('+days+',1fr);gap:0;">'
+    + '<div></div>'
+    + Array.from({length:days}, function(_,i){
+        const d = calAddDays(first,i);
+        const isToday = calMid(d).getTime()===today;
+        return '<div style="text-align:center;padding:4px 0 6px;font-size:12px;font-weight:700;color:'
+          + (isToday?'var(--navy)':'#6E6559')+';">'
+          + d.toLocaleDateString('en-US',{weekday:'short'}) + ' '
+          + '<span style="'+(isToday?'background:var(--navy);color:#fff;border-radius:999px;padding:1px 7px;':'')+'">'
+          + d.getDate() + '</span></div>';
+      }).join('') + '</div>';
+
+  let body = '<div style="display:grid;grid-template-columns:52px repeat('+days+',1fr);border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;">'
+    + '<div>' + Array.from({length:hours}, function(_,h){
+        return '<div style="height:'+PX+'px;border-top:1px solid #F2EFE8;font-size:11px;color:#A89C8B;padding:2px 6px;text-align:right;">'
+          + ivTime(String(startH+h).padStart(2,'0')+':00') + '</div>'; }).join('') + '</div>';
+
+  for(let i=0;i<days;i++){
+    const d = calAddDays(first,i);
+    const dayStart = new Date(d); dayStart.setHours(startH,0,0,0);
+    const mine = rows.filter(function(r){ return calMid(new Date(r.starts_at)).getTime() === calMid(d).getTime(); });
+    body += '<div style="position:relative;border-left:1px solid #F2EFE8;height:'+(hours*PX)+'px;">'
+      + Array.from({length:hours}, function(){ return '<div style="height:'+PX+'px;border-top:1px solid #F7F5F0;"></div>'; }).join('')
+      + mine.map(function(r){
+          const st = new Date(r.starts_at), en = new Date(r.ends_at);
+          const top = Math.max(0, (st - dayStart)/36e5 * PX);
+          const h   = Math.max(18, (en - st)/36e5 * PX - 2);
+          const tone = CAL_TONE[r.source] || ['#6E6559','#F4F2ED'];
+          return '<div title="'+esc((r.label||'')+' · '+calHM(st)+'–'+calHM(en))+'" '
+            + 'style="position:absolute;left:3px;right:3px;top:'+top+'px;height:'+h+'px;overflow:hidden;'
+            + 'background:'+tone[1]+';border-left:3px solid '+tone[0]+';border-radius:6px;padding:2px 6px;'
+            + 'font-size:11.5px;line-height:1.3;color:'+tone[0]+';">'
+            + '<b>'+esc(calHM(st))+'</b> '+esc(r.label||actLabel(r.source))+'</div>';
+        }).join('')
+      + '</div>';
+  }
+  body += '</div>';
+  const n = rows.length;
+  return head + body + '<div class="field-note" style="margin-top:8px;">'
+    + (n ? n+' thing'+(n===1?'':'s')+' on this '+calView : 'Nothing booked this '+calView+'.')
+    + ' Times run '+ivTime(IV_DAYWIN.start)+' to '+ivTime(IV_DAYWIN.end)+'.</div>';
+}
+
+function calMonth(){
+  const esc = escapeHtmlComms;
+  const [gridStart] = calRange();
+  const rows = calRows();
+  const month = calAnchor.getMonth();
+  const today = calMid(new Date()).getTime();
+  const byDay = {};
+  rows.forEach(function(r){ const k = calMid(new Date(r.starts_at)).getTime(); (byDay[k] = byDay[k] || []).push(r); });
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">'
+    + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(function(d){
+        return '<div style="text-align:center;font-size:11.5px;font-weight:700;color:#6E6559;padding-bottom:2px;">'+d+'</div>'; }).join('');
+  for(let i=0;i<42;i++){
+    const d = calAddDays(gridStart,i);
+    const k = calMid(d).getTime();
+    const items = (byDay[k] || []).sort(function(a,b){ return new Date(a.starts_at)-new Date(b.starts_at); });
+    const dim = d.getMonth() !== month;
+    html += '<div style="min-height:82px;border:1px solid '+(k===today?'var(--navy)':'var(--border)')+';border-radius:8px;'
+      + 'background:'+(dim?'#FAF9F6':'#fff')+';padding:5px 6px;'+(dim?'opacity:.55;':'')+'">'
+      + '<div style="font-size:11.5px;font-weight:700;color:'+(k===today?'var(--navy)':'#6E6559')+';">'+d.getDate()+'</div>'
+      + items.slice(0,3).map(function(r){
+          const tone = CAL_TONE[r.source] || ['#6E6559','#F4F2ED'];
+          return '<div title="'+esc((r.label||'')+' · '+calHM(new Date(r.starts_at)))+'" style="margin-top:2px;font-size:10.5px;'
+            + 'background:'+tone[1]+';color:'+tone[0]+';border-radius:4px;padding:1px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+            + esc(calHM(new Date(r.starts_at))) + ' ' + esc(r.label||actLabel(r.source)) + '</div>'; }).join('')
+      + (items.length>3 ? '<div style="font-size:10.5px;color:#A89C8B;margin-top:2px;">+'+(items.length-3)+' more</div>' : '')
+      + '</div>';
+  }
+  return html + '</div>';
+}
+
 /* ---- Team calendar: who is available for what, and what is already booked --
    Availability belongs to a coordinator AND an activity, because Angiel can be
    free for assessments all day and for interviews only Tuesday afternoons.
@@ -11377,6 +11561,7 @@ async function ivLoad(btn){
        problem reading somebody else's JSON must never blank this card. */
     try { await busySync(); } catch (e) { console.warn('busySync skipped:', e); }
     await ivLoadBusy();
+    await calLoad();
   }catch(e){
     box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load: '
       + escapeHtmlComms(e && e.message || 'error')
