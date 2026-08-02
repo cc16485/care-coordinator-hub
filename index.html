@@ -1397,48 +1397,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div id="apList"><div class="field-note">Loading…</div></div>
       </div>
 
-      <!-- Booking somebody in ourselves. Plenty of people will talk to you on
-           the phone and never touch a booking link, and until now the only way
-           in was for the applicant to book themselves. Same slots, same
-           calendar, same confirmation and reminders afterwards. -->
-      <div class="card" id="apBookCard" style="display:none;padding:16px 18px;margin-top:14px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">Book a time for <span id="apBookWho"></span></b>
-          <span class="field-note">the times they would have been offered.</span>
-          <span style="flex:1;"></span>
-          <button class="ghost" onclick="document.getElementById('apBookCard').style.display='none'">Close</button>
-        </div>
-        <input type="hidden" id="apBookId">
-        <div id="apBookSlots" style="margin-top:12px;"></div>
-        <div id="apBookErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
-      </div>
 
-      <!-- What we learn sitting across from somebody. These are the same facts
-           AxisCare wants as caregiver attributes, so filling this in at the
-           interview means the offer form is already written. -->
-      <div class="card" id="apIntCard" style="display:none;padding:16px 18px;margin-top:14px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">Interview with <span id="apIntWho"></span></b>
-          <span class="field-note">fill this in as you talk. It becomes their AxisCare attributes.</span>
-          <span style="flex:1;"></span>
-          <button class="ghost" onclick="document.getElementById('apIntCard').style.display='none'">Close</button>
-        </div>
-        <input type="hidden" id="apIntId">
-        <div id="apIntForm" style="margin-top:12px;"></div>
 
-        <label style="margin-top:14px;">How did it go?</label>
-        <textarea id="apIntNotes" rows="2" placeholder="How they came across, anything that decided it either way…"></textarea>
 
-        <div style="display:flex;gap:9px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
-          <button class="primary" onclick="apOutcome('hired',this)">✅ Hire &mdash; make the offer</button>
-          <button class="secondary" onclick="apOutcome('pool',this)">🗂 Candidate pool</button>
-          <button class="ghost" style="color:var(--red);" onclick="apOutcome('declined',this)">Not hiring</button>
-          <span style="flex:1;"></span>
-          <button class="ghost" onclick="apOutcome('noshow',this)">Did not show</button>
-        </div>
-        <div class="field-note" style="margin-top:8px;">Candidate pool keeps them warm. They stay in <b>Qualified</b> and are first in line when you tell past applicants about an opening.</div>
-        <div id="apIntErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
-      </div>
 
       <!-- Reaching back out to people who were right but early. -->
       <div class="card" id="apReCard" style="display:none;padding:16px 18px;margin-top:14px;background:#FFF8E8;border-color:#F5D9A0;">
@@ -4233,6 +4194,50 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div id="apProfLeft"></div>
     <div id="apProfRight"></div>
   </div>
+
+  <!-- Booking somebody in ourselves. Plenty of people will talk to you on
+           the phone and never touch a booking link, and until now the only way
+           in was for the applicant to book themselves. Same slots, same
+           calendar, same confirmation and reminders afterwards. -->
+      <div class="card" id="apBookCard" style="display:none;padding:16px 18px;margin-top:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">Book a time for <span id="apBookWho"></span></b>
+          <span class="field-note">the times they would have been offered.</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="document.getElementById('apBookCard').style.display='none'">Close</button>
+        </div>
+        <input type="hidden" id="apBookId">
+        <div id="apBookSlots" style="margin-top:12px;"></div>
+        <div id="apBookErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
+      </div>
+
+  <!-- What we learn sitting across from somebody. These are the same facts
+           AxisCare wants as caregiver attributes, so filling this in at the
+           interview means the offer form is already written. -->
+      <div class="card" id="apIntCard" style="display:none;padding:16px 18px;margin-top:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">Interview with <span id="apIntWho"></span></b>
+          <span class="field-note">fill this in as you talk. It becomes their AxisCare attributes.</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="document.getElementById('apIntCard').style.display='none'">Close</button>
+        </div>
+        <input type="hidden" id="apIntId">
+        <div id="recHostInterview" style="margin-top:12px;"></div>
+        <div id="apIntForm" style="margin-top:12px;"></div>
+
+        <label style="margin-top:14px;">How did it go?</label>
+        <textarea id="apIntNotes" rows="2" placeholder="How they came across, anything that decided it either way…"></textarea>
+
+        <div style="display:flex;gap:9px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
+          <button class="primary" onclick="apOutcome('hired',this)">✅ Hire &mdash; make the offer</button>
+          <button class="secondary" onclick="apOutcome('pool',this)">🗂 Candidate pool</button>
+          <button class="ghost" style="color:var(--red);" onclick="apOutcome('declined',this)">Not hiring</button>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="apOutcome('noshow',this)">Did not show</button>
+        </div>
+        <div class="field-note" style="margin-top:8px;">Candidate pool keeps them warm. They stay in <b>Qualified</b> and are first in line when you tell past applicants about an opening.</div>
+        <div id="apIntErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
+      </div>
 </section>
 
 <section id="leadProfileView" style="display:none;">
@@ -12080,9 +12085,9 @@ function apRender(){
               + '<button class="fb" onclick="apFromPool(\''+esc(r.id)+'\')">↩️ Out of the pool</button>'
             : (r.status!=='hired' && r.status!=='declined'
                 ? '<button class="fb" onclick="apToPool(\''+esc(r.id)+'\')">🗂 Candidate pool</button>' : ''))
-        + '<button class="fb" onclick="apOpenProfile(\''+esc(r.id)+'\')">👤 Open their profile</button>'
-        + (r.status!=='declined'?'<button class="fb" onclick="apInterview(\''+esc(r.id)+'\')">📝 Interview &amp; outcome</button>':'')
-        + (r.status!=='declined'?'<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')">➡️ Make them an offer</button>':'')
+        /* Everything that needs a form now happens on their page, so a list of
+           hundreds never has one opening underneath it. */
+        + '<button class="secondary" onclick="apOpenProfile(\''+esc(r.id)+'\')">👤 Open their profile</button>'
         + (r.status==='new'?'<button class="fb" onclick="apSetStatus(\''+esc(r.id)+'\',\'reviewing\')">Mark as reviewing</button>':'')
         + (r.status!=='declined'?'<button class="fb" style="color:var(--red);" onclick="apDecline(\''+esc(r.id)+'\')">Not moving forward</button>'
                                 :'<button class="fb" onclick="apSetStatus(\''+esc(r.id)+'\',\'new\')">Put back in play</button>')
@@ -12165,6 +12170,273 @@ function apToOffer(id, answers){
         document.getElementById('jo_avail').value = 'Will travel to ' + A.travel_areas;
     }
   }, 220);
+}
+
+/* ---- Recording the room ----------------------------------------------------
+   An interview and an in-home assessment both end the same way today: somebody
+   typing up what they can remember, or pasting a transcript back in from a
+   separate tool. This records where the work is already happening, transcribes
+   it with speaker labels, and leaves it attached to the person it is about.
+
+   Consent is a gate, not a note. The button will not start without it, and the
+   transcriber refuses a recording that has none.
+
+   Requires recruit-recordings.sql and the transcribe-recording function. */
+let REC = { mr:null, chunks:[], startedAt:0, tick:null, kind:null, subject:null, label:null, host:null, stream:null };
+
+const recMime = () => {
+  const want = ['audio/webm;codecs=opus','audio/webm','audio/mp4'];
+  for(const m of want){ try{ if(window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m; }catch(e){} }
+  return '';
+};
+const recClock = s => Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
+
+function recMount(hostId, kind, subjectId, label){
+  REC.host = hostId; REC.kind = kind; REC.subject = String(subjectId); REC.label = label || '';
+  const host = document.getElementById(hostId); if(!host) return;
+  host.innerHTML =
+    '<div style="border:1px solid var(--border);border-radius:11px;padding:12px 14px;background:#fff;">'
+    + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+      + '<b style="font-size:13.5px;color:var(--navy);">🎙 Record this ' + (kind==='interview'?'interview':'visit') + '</b>'
+      + '<span style="flex:1;"></span>'
+      + '<span id="recState" class="field-note"></span>'
+    + '</div>'
+    + '<label style="display:flex;gap:8px;align-items:flex-start;margin-top:9px;font-size:13px;cursor:pointer;">'
+      + '<input type="checkbox" id="recConsent" onchange="recButtons()" style="width:16px;height:16px;margin-top:2px;accent-color:var(--yellow);">'
+      + '<span>I have asked ' + escapeHtmlComms(label || 'them') + ' out loud, and they said yes to being recorded.</span></label>'
+    + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">'
+      + '<button class="secondary" id="recGo" onclick="recStart()" disabled>● Start recording</button>'
+      + '<button class="fb" id="recStopB" onclick="recStop()" style="display:none;">■ Stop</button>'
+      + '<span id="recTimer" style="font-variant-numeric:tabular-nums;font-weight:700;color:var(--navy);"></span>'
+    + '</div>'
+    + '<div id="recErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>'
+    + '<div id="recList" style="margin-top:10px;"></div>'
+    + '</div>';
+  recLoadList();
+}
+
+function recButtons(){
+  const ok = (document.getElementById('recConsent')||{}).checked;
+  const go = document.getElementById('recGo'); if(go) go.disabled = !ok;
+}
+
+async function recStart(){
+  const err = document.getElementById('recErr'); err.style.display='none';
+  if(!navigator.mediaDevices || !window.MediaRecorder){
+    err.textContent = 'This browser cannot record. Chrome or Safari on the laptop both can.';
+    err.style.display='block'; return;
+  }
+  try{
+    REC.stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+  }catch(e){
+    err.textContent = 'The microphone is blocked. Allow it for cc.mo-care.com in the address bar, then press start again.';
+    err.style.display='block'; return;
+  }
+  const mime = recMime();
+  REC.chunks = [];
+  REC.mr = new MediaRecorder(REC.stream, mime ? { mimeType:mime } : undefined);
+  REC.mr.ondataavailable = e => { if(e.data && e.data.size) REC.chunks.push(e.data); };
+  REC.mr.onstop = recFinish;
+  REC.mr.start(1000);                       // a chunk a second, so a crash loses a second
+  REC.startedAt = Date.now();
+  document.getElementById('recGo').style.display='none';
+  document.getElementById('recStopB').style.display='';
+  document.getElementById('recConsent').disabled = true;
+  document.getElementById('recState').textContent = 'recording';
+  REC.tick = setInterval(()=>{
+    const t = document.getElementById('recTimer');
+    if(t) t.textContent = recClock((Date.now()-REC.startedAt)/1000);
+  }, 500);
+}
+
+function recStop(){
+  if(REC.mr && REC.mr.state !== 'inactive') REC.mr.stop();
+  if(REC.tick){ clearInterval(REC.tick); REC.tick = null; }
+  document.getElementById('recStopB').style.display='none';
+  document.getElementById('recState').textContent = 'saving…';
+}
+
+async function recFinish(){
+  const err = document.getElementById('recErr');
+  try{
+    (REC.stream.getTracks()||[]).forEach(t=>t.stop());
+  }catch(e){}
+  const seconds = Math.round((Date.now()-REC.startedAt)/1000);
+  const blob = new Blob(REC.chunks, { type: REC.mr.mimeType || 'audio/webm' });
+  REC.chunks = [];
+  if(seconds < 2 || !blob.size){
+    err.textContent = 'That was too short to keep.'; err.style.display='block';
+    recReset(); return;
+  }
+  const ext = (blob.type.indexOf('mp4') > -1) ? 'mp4' : 'webm';
+  const path = REC.kind + '/' + REC.subject + '/' + Date.now() + '.' + ext;
+  try{
+    const up = await sb.storage.from('recordings').upload(path, blob, { contentType: blob.type });
+    if(up.error) throw up.error;
+    const ins = await sb.from('recordings').insert({
+      kind: REC.kind, subject_id: REC.subject, subject_label: REC.label,
+      storage_path: path, mime: blob.type, seconds: seconds,
+      consent_given: true,
+      consent_by: (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,
+      recorded_by: (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,
+    }).select('id').single();
+    if(ins.error) throw ins.error;
+    document.getElementById('recState').textContent = 'transcribing…';
+    recReset();
+    await recLoadList();
+    sb.functions.invoke('transcribe-recording', { body:{ recording_id: ins.data.id } })
+      .then(()=>recPoll(ins.data.id))
+      .catch(()=>recPoll(ins.data.id));
+  }catch(e){
+    err.textContent = 'Could not save the recording: ' + (e&&e.message||'error')
+      + '. If this mentions a bucket or a table, run recruit-recordings.sql.';
+    err.style.display='block';
+    recReset();
+  }
+}
+
+function recReset(){
+  const c = document.getElementById('recConsent'); if(c){ c.checked=false; c.disabled=false; }
+  const go = document.getElementById('recGo'); if(go){ go.style.display=''; go.disabled=true; }
+  const t = document.getElementById('recTimer'); if(t) t.textContent='';
+}
+
+/* Transcribing runs on the server, so the screen asks now and then rather than
+   holding a connection open for the length of an interview. */
+async function recPoll(id, tries){
+  tries = tries || 0;
+  if(tries > 60) return;
+  try{
+    const { data } = await sb.from('recordings').select('status').eq('id', id).maybeSingle();
+    if(data && (data.status==='done' || data.status==='failed')){
+      document.getElementById('recState') && (document.getElementById('recState').textContent = '');
+      await recLoadList();
+      return;
+    }
+  }catch(e){}
+  setTimeout(()=>recPoll(id, tries+1), 5000);
+}
+
+async function recLoadList(){
+  const box = document.getElementById('recList'); if(!box) return;
+  try{
+    const { data, error } = await sb.from('recordings').select('*')
+      .eq('kind', REC.kind).eq('subject_id', REC.subject).order('created_at', { ascending:false });
+    if(error) throw error;
+    box.innerHTML = recListHtml(data || []);
+  }catch(e){
+    box.innerHTML = '<div class="field-note">' + escapeHtmlComms(e && e.message || '') + '</div>';
+  }
+}
+
+function recListHtml(rows){
+  const esc = escapeHtmlComms;
+  if(!rows.length) return '';
+  const STATE = { recorded:'waiting to be transcribed', transcribing:'transcribing…', done:'', failed:'could not be transcribed' };
+  return rows.map(r=>{
+    const when = new Date(r.created_at).toLocaleString('en-US',{month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+    return '<div style="border-top:1px solid var(--border);padding:9px 0;">'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;">'
+        + '<b style="color:var(--navy);">' + esc(when) + '</b>'
+        + (r.seconds ? '<span class="field-note">' + recClock(r.seconds) + '</span>' : '')
+        + (r.recorded_by ? '<span class="field-note">by ' + esc(r.recorded_by) + '</span>' : '')
+        + (STATE[r.status] ? '<span class="field-note">' + STATE[r.status] + '</span>' : '')
+        + '<span style="flex:1;"></span>'
+        + '<button class="fb" onclick="recPlay(\'' + esc(r.id) + '\')">▶ Listen</button>'
+        + (r.status==='failed' ? '<button class="fb" onclick="recRetry(\'' + esc(r.id) + '\')">Try again</button>' : '')
+        + (r.transcript && r.kind==='interview'
+            ? '<button class="secondary" onclick="recFill(\'' + esc(r.id) + '\',this)">✨ Fill the answers from this</button>' : '')
+        + (r.transcript ? '<button class="fb" onclick="recUse(\'' + esc(r.id) + '\')">Use this transcript</button>' : '')
+      + '</div>'
+      + (r.error ? '<div class="field-note" style="color:var(--red);">' + esc(r.error) + '</div>' : '')
+      + '<div id="recplay_' + esc(r.id) + '"></div>'
+      + (r.turns && r.turns.length
+          ? '<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">'
+            + 'Read the transcript</summary><div style="max-height:320px;overflow:auto;margin-top:7px;">'
+            + r.turns.map(t=>'<div style="font-size:13.5px;padding:4px 0;">'
+                + '<span class="field-note">' + recClock(t.start||0) + ' · ' + esc(t.name||t.speaker||'') + '</span><br>'
+                + esc(t.text) + '</div>').join('')
+            + '</div></details>'
+          : '')
+      + '</div>';
+  }).join('');
+}
+
+async function recPlay(id){
+  const host = document.getElementById('recplay_'+id); if(!host) return;
+  if(host.innerHTML){ host.innerHTML=''; return; }
+  try{
+    const { data: row } = await sb.from('recordings').select('storage_path').eq('id', id).maybeSingle();
+    const { data, error } = await sb.storage.from('recordings').createSignedUrl(row.storage_path, 3600);
+    if(error) throw error;
+    host.innerHTML = '<audio controls preload="none" style="width:100%;margin-top:7px;" src="' + data.signedUrl + '"></audio>';
+  }catch(e){ host.innerHTML = '<div class="field-note" style="color:var(--red);">Could not open the audio: '
+    + escapeHtmlComms(e && e.message || 'error') + '</div>'; }
+}
+
+async function recRetry(id){
+  try{
+    await sb.from('recordings').update({ status:'recorded', error:null }).eq('id', id);
+    await sb.functions.invoke('transcribe-recording', { body:{ recording_id: id } });
+    recPoll(id);
+    await recLoadList();
+  }catch(e){ alert('Could not start it again: '+(e&&e.message||'error')); }
+}
+
+/* The recording writes up the interview, so nobody types while somebody is
+   talking to them. Everything it puts in is marked as a suggestion and stays
+   one until a person taps it. The hiring call is not the machine's to make. */
+async function recFill(id, btn){
+  const was = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Reading it…';
+  try{
+    const { data, error } = await sb.functions.invoke('score-interview', { body:{ recording_id: id } });
+    if(error) throw error;
+    if(data && data.error) throw new Error(data.error);
+    const A = (window.__apInt = window.__apInt || {});
+    A.script = A.script || {};
+    let filled = 0, scored = 0;
+    (data.answers||[]).forEach(a=>{
+      const cur = A.script[a.id] || {};
+      /* Never overwrite something a person already wrote or chose. */
+      if(cur.note && !cur.suggested) return;
+      if(cur.score && !cur.suggested) return;
+      A.script[a.id] = { note: a.note || cur.note || '', score: a.score || null,
+        evidence: a.evidence || null, suggested: true };
+      filled++; if(a.score) scored++;
+    });
+    if(data.other){
+      const n = document.getElementById('apIntNotes');
+      if(n && !n.value) n.value = data.other;
+    }
+    apIntRender();
+    alert(filled + ' of ' + (data.questions||0) + ' questions written up, ' + scored + ' with a suggested score.\n\n'
+      + 'They are all marked as suggestions. Tap a score or edit a note and it becomes yours.');
+  }catch(e){
+    alert('Could not read it: ' + (e&&e.message||'error')
+      + '\n\nIf this mentions the function, deploy score-interview and set ANTHROPIC_API_KEY.');
+  }finally{ btn.disabled=false; btn.textContent=was; }
+}
+
+/* An assessment already has a transcript box that the care plan is written
+   from. This fills it, which is the whole Otter round trip gone. */
+async function recUse(id){
+  const { data: r } = await sb.from('recordings').select('transcript').eq('id', id).maybeSingle();
+  if(!r || !r.transcript) return;
+  const box = document.getElementById('assess_transcript_text');
+  if(box){
+    box.value = r.transcript;
+    const src = document.getElementById('assess_transcript_source');
+    if(src) src.value = 'Recorded in the hub';
+    alert('Put into the transcript box. Save the visit, then generate the care plan.');
+    box.scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
+  const notes = document.getElementById('apIntNotes');
+  if(notes){
+    notes.value = (notes.value ? notes.value + '\n\n' : '') + r.transcript;
+    alert('Added to the interview notes.');
+  }
 }
 
 /* ---- One applicant, one page -----------------------------------------------
@@ -12420,6 +12692,7 @@ function apProfOffer(r){
    same confirmation and reminders as one they booked themselves. */
 async function apBookFor(id){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  if(!AP_PROF || String(AP_PROF.id) !== String(id)) apOpenProfile(id);
   document.getElementById('apBookId').value = id;
   document.getElementById('apBookWho').textContent = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'them';
   document.getElementById('apBookErr').style.display = 'none';
@@ -12565,7 +12838,13 @@ function apScriptHtml(r){
       + 'onclick="apScriptScore(\''+esc(q.id)+'\',\''+v+'\')">' + label + '</button>';
     const r2 = q.rubric || {};
     return head
-      + '<div style="border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:9px;background:#fff;">'
+      + '<div style="border:' + (a.suggested ? '1px dashed #F59E0B' : '1px solid var(--border)')
+        + ';border-radius:11px;padding:12px 14px;margin-bottom:9px;background:' + (a.suggested ? '#FFFDF7' : '#fff') + ';">'
+      + (a.suggested ? '<div style="display:flex;gap:8px;align-items:center;margin-bottom:7px;">'
+          + '<span style="font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 9px;">'
+          + 'written from the recording, not confirmed</span>'
+          + '<span style="flex:1;"></span>'
+          + '<button type="button" class="fb" onclick="apScriptConfirm(\''+esc(q.id)+'\')">That is right</button></div>' : '')
       + '<div style="font-size:14px;color:var(--text);line-height:1.5;">' + esc(q.question)
         + (q.optional ? ' <span style="font-size:11px;font-weight:700;color:#6E6559;background:#F4F2ED;border-radius:999px;padding:2px 8px;">only if it applies</span>' : '')
       + '</div>'
@@ -12585,10 +12864,18 @@ function apScriptHtml(r){
       + '</div>';
   }).join('') + '</div>';
 }
+/* Touching an answer makes it yours. That is the whole consent model for the
+   AI here: it can write, it cannot decide. */
 function apScriptScore(id, v){
   const A = (window.__apInt = window.__apInt || {});
   A.script = A.script || {}; A.script[id] = A.script[id] || {};
   A.script[id].score = (A.script[id].score === v) ? null : v;
+  A.script[id].suggested = false;
+  apIntRender();
+}
+function apScriptConfirm(id){
+  const A = (window.__apInt = window.__apInt || {});
+  if(A.script && A.script[id]) A.script[id].suggested = false;
   apIntRender();
 }
 /* Typing must not re-render, or the box loses focus mid-sentence. */
@@ -12596,6 +12883,7 @@ function apScriptNote(id, v){
   const A = (window.__apInt = window.__apInt || {});
   A.script = A.script || {}; A.script[id] = A.script[id] || {};
   A.script[id].note = v;
+  A.script[id].suggested = false;
 }
 
 function apIntRender(){
@@ -12651,6 +12939,9 @@ function apIntSkill(k,v){
 
 async function apInterview(id){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  /* Always on their own page. Opening a long form under a list of hundreds of
+     applicants means scrolling past all of them to answer one question. */
+  if(!AP_PROF || String(AP_PROF.id) !== String(id)) apOpenProfile(id);
   /* The script has to be here before the screen draws, or the first thing an
      interviewer sees is the checkboxes and they start there. */
   if(!IQ.length){ try{ await iqLoad(); }catch(e){} }
@@ -12666,6 +12957,7 @@ async function apInterview(id){
   apIntRender();
   const c = document.getElementById('apIntCard');
   c.style.display='block';
+  recMount('recHostInterview', 'interview', r.id, ((r.first_name||'')+' '+(r.last_name||'')).trim());
   c.scrollIntoView({behavior:'smooth', block:'center'});
 }
 
