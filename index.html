@@ -1279,6 +1279,33 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div id="apList"><div class="field-note">Loading…</div></div>
       </div>
 
+      <!-- What we learn sitting across from somebody. These are the same facts
+           AxisCare wants as caregiver attributes, so filling this in at the
+           interview means the offer form is already written. -->
+      <div class="card" id="apIntCard" style="display:none;padding:16px 18px;margin-top:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">Interview with <span id="apIntWho"></span></b>
+          <span class="field-note">fill this in as you talk. It becomes their AxisCare attributes.</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="document.getElementById('apIntCard').style.display='none'">Close</button>
+        </div>
+        <input type="hidden" id="apIntId">
+        <div id="apIntForm" style="margin-top:12px;"></div>
+
+        <label style="margin-top:14px;">How did it go?</label>
+        <textarea id="apIntNotes" rows="2" placeholder="How they came across, anything that decided it either way…"></textarea>
+
+        <div style="display:flex;gap:9px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
+          <button class="primary" onclick="apOutcome('hired',this)">✅ Hire &mdash; make the offer</button>
+          <button class="secondary" onclick="apOutcome('pool',this)">🗂 Candidate pool</button>
+          <button class="ghost" style="color:var(--red);" onclick="apOutcome('declined',this)">Not hiring</button>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="apOutcome('noshow',this)">Did not show</button>
+        </div>
+        <div class="field-note" style="margin-top:8px;">Candidate pool keeps them warm. They stay in <b>Qualified</b> and are first in line when you tell past applicants about an opening.</div>
+        <div id="apIntErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
+      </div>
+
       <!-- Reaching back out to people who were right but early. -->
       <div class="card" id="apReCard" style="display:none;padding:16px 18px;margin-top:14px;background:#FFF8E8;border-color:#F5D9A0;">
         <b style="font-size:15px;color:var(--navy);">📣 Tell past applicants about an opening</b>
@@ -10501,6 +10528,7 @@ function apRender(){
           + AP_POS.map(p=>'<option value="'+esc(p.key)+'"'+(r.position===p.key?' selected':'')+'>'+esc(p.label)+'</option>').join('')
           + '</select></label>'
         + (r.phone?'<a class="fb" style="text-decoration:none;" href="tel:'+esc(String(r.phone).replace(/[^0-9+]/g,''))+'">📞 Call</a>':'')
+        + (r.status!=='declined'?'<button class="fb" onclick="apInterview(\''+esc(r.id)+'\')">📝 Interview &amp; outcome</button>':'')
         + (r.status!=='declined'?'<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')">➡️ Make them an offer</button>':'')
         + (r.status==='new'?'<button class="fb" onclick="apSetStatus(\''+esc(r.id)+'\',\'reviewing\')">Mark as reviewing</button>':'')
         + (r.status!=='declined'?'<button class="fb" style="color:var(--red);" onclick="apDecline(\''+esc(r.id)+'\')">Not moving forward</button>'
@@ -10537,8 +10565,9 @@ async function apDecline(id){
   await apSetStatus(id, 'declined', why.trim() || null);
 }
 
-function apToOffer(id){
+function apToOffer(id, answers){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  const A = answers || r.post_interview || null;
   gotoTab('offers');
   setTimeout(()=>{
     if(typeof offView === 'function') offView('new');
@@ -10551,7 +10580,169 @@ function apToOffer(id){
       notes.value = 'Applied on mo-care.com' + (r.channel?' via '+r.channel:'')
         + (r.lived_outside_mo?'. Lived outside Missouri, so a fingerprint check is required':'') + '.';
     }
+    /* The interview answers are the AxisCare attributes, so nobody types them
+       a second time. Only the ones we actually asked about are touched. */
+    if(A && typeof joSetAttr === 'function'){
+      const yes = v => v==='yes' || v==='outside';
+      const map = {
+        dogs: yes(A.dogs), cats: yes(A.cats), smoking: yes(A.client_smokes),
+        live_in: A.live_in==='yes', transportation: A.drive_clients==='yes',
+        personal_care: (A.skills||{}).personal_care && (A.skills||{}).personal_care!=='none',
+        dementia: (A.skills||{}).dementia && (A.skills||{}).dementia!=='none',
+        alzheimers: (A.skills||{}).dementia && (A.skills||{}).dementia!=='none',
+        hoyer_lift: (A.skills||{}).hoyer && (A.skills||{}).hoyer!=='none',
+      };
+      Object.keys(map).forEach(k=>{
+        const btn = document.querySelector('#jo_attrs .jo-'+(map[k]?'yes':'no')+'[data-k="'+k+'"]');
+        if(btn && map[k] !== undefined && map[k] !== null) btn.click();
+      });
+      if(A.travel_areas && !document.getElementById('jo_avail').value)
+        document.getElementById('jo_avail').value = 'Will travel to ' + A.travel_areas;
+    }
   }, 220);
+}
+
+/* ---- The interview itself --------------------------------------------------
+   The same facts AxisCare asks for as caregiver attributes, so answering them
+   once at the interview writes the offer as a side effect. */
+const AP_YN  = [['yes','Yes'],['no','No']];
+const AP_YNO = [['yes','Yes'],['no','No'],['outside','Only outside']];
+const AP_YNO2= [['yes','Yes'],['no','No'],['outside','If outside']];
+const AP_LVL = [['none','No experience'],['some','Some experience'],['lots','Very experienced']];
+
+const AP_QS = [
+  ['bg_check',     'Willing to have a criminal background check?', AP_YN],
+  ['drug_screen',  'Willing to take a drug screen?',               AP_YN],
+  ['license',      "Valid driver's licence?",                      AP_YN],
+  ['insurance',    'Car insurance with their name on it?',         AP_YN],
+  ['drive_clients','Willing to drive clients?',                    AP_YN],
+  ['mvr',          'Clear driving record, and willing to keep it?',AP_YN],
+  ['live_in',      'Open to live-in work?',                        AP_YN],
+  ['smoker',       'Do they smoke?',                               AP_YNO],
+  ['vaper',        'Do they vape?',                                AP_YNO],
+  ['dogs',         'Will they work in a home with dogs?',          AP_YNO2],
+  ['cats',         'Will they work in a home with cats?',          AP_YNO2],
+  ['client_smokes','Will they work with a client who smokes?',     AP_YNO2],
+];
+const AP_SKILLS = [['dementia','Dementia / Alzheimer\'s'],['incontinence','Incontinence care'],
+                   ['transfers','Transfers'],['hoyer','Hoyer lift'],['personal_care','Personal care']];
+const AP_DAYS = [['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
+
+function apIntPick(key, val){
+  const cur = (window.__apInt = window.__apInt || {});
+  cur[key] = (cur[key] === val) ? null : val;        // tapping again clears it
+  apIntRender();
+}
+function apIntToggle(group, key){
+  const cur = (window.__apInt = window.__apInt || {});
+  cur[group] = cur[group] || {};
+  cur[group][key] = !cur[group][key];
+  apIntRender();
+}
+function apIntSet(key, val){ (window.__apInt = window.__apInt || {})[key] = val; }
+function apIntQuick(which){
+  const cur = (window.__apInt = window.__apInt || {});
+  cur.availability = {}; AP_DAYS.forEach(([k])=>{ cur.availability[k]=true; });
+  cur.shift = which;                                  // days or nights
+  apIntRender();
+}
+
+function apIntRender(){
+  const A = (window.__apInt = window.__apInt || {});
+  const esc = escapeHtmlComms;
+  const row = (label, body) =>
+    '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid #F2EFE8;">'
+    + '<span style="flex:1 1 240px;font-size:13.5px;color:var(--text);">'+label+'</span>'
+    + '<span style="display:flex;gap:6px;flex-wrap:wrap;">'+body+'</span></div>';
+  const opt = (key, val, lab) =>
+    '<button type="button" class="fb" style="'+(A[key]===val?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
+    + '" onclick="apIntPick(\''+key+'\',\''+val+'\')">'+esc(lab)+'</button>';
+
+  let html = AP_QS.map(([k,q,opts]) => row(esc(q), opts.map(([v,l])=>opt(k,v,l)).join(''))).join('');
+
+  html += row('Comfortable working with', ['males','females'].map(g=>
+    '<button type="button" class="fb" style="'+(((A.works_with||{})[g])?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
+    + '" onclick="apIntToggle(\'works_with\',\''+g+'\')">'+(g==='males'?'Men':'Women')+'</button>').join(''));
+
+  html += '<div style="padding:10px 0 4px;font-size:13.5px;font-weight:700;color:var(--navy);">Skills</div>'
+    + AP_SKILLS.map(([k,l])=> row(esc(l), AP_LVL.map(([v,lab])=>
+        '<button type="button" class="fb" style="'+(((A.skills||{})[k])===v?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
+        + '" onclick="apIntSkill(\''+k+'\',\''+v+'\')">'+esc(lab)+'</button>').join(''))).join('');
+
+  html += row('Anything else they are good at',
+    '<input id="apIntCustom" value="'+esc(A.custom_skill||'')+'" oninput="apIntSet(\'custom_skill\',this.value)" '
+    + 'placeholder="e.g. catheter care, Parkinson\'s" style="font:inherit;font-size:13.5px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;min-width:240px;">');
+
+  html += row('How far will they travel?',
+    '<input id="apIntTravel" value="'+esc(A.travel_areas||'')+'" oninput="apIntSet(\'travel_areas\',this.value)" '
+    + 'placeholder="Springfield, Nixa, Ozark…" style="font:inherit;font-size:13.5px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;min-width:240px;">');
+
+  html += '<div style="padding:10px 0 4px;font-size:13.5px;font-weight:700;color:var(--navy);">When can they work?</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">'
+    + '<button type="button" class="fb" style="'+(A.shift==='days'?'background:var(--navy);color:#fff;border-color:var(--navy);':'')+'" onclick="apIntQuick(\'days\')">Every day, 7am to 7pm</button>'
+    + '<button type="button" class="fb" style="'+(A.shift==='nights'?'background:var(--navy);color:#fff;border-color:var(--navy);':'')+'" onclick="apIntQuick(\'nights\')">Every night, 7pm to 7am</button>'
+    + '</div><div style="display:flex;gap:6px;flex-wrap:wrap;">'
+    + AP_DAYS.map(([k,l])=>'<button type="button" class="fb" style="'+(((A.availability||{})[k])?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
+        + '" onclick="apIntToggle(\'availability\',\''+k+'\')">'+l+'</button>').join('')
+    + '</div>';
+
+  document.getElementById('apIntForm').innerHTML = html;
+}
+function apIntSkill(k,v){
+  const A = (window.__apInt = window.__apInt || {});
+  A.skills = A.skills || {};
+  A.skills[k] = (A.skills[k]===v) ? null : v;
+  apIntRender();
+}
+
+function apInterview(id){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  window.__apInt = r.post_interview ? JSON.parse(JSON.stringify(r.post_interview)) : {};
+  document.getElementById('apIntId').value = id;
+  document.getElementById('apIntWho').textContent = (r.first_name||'')+' '+(r.last_name||'');
+  document.getElementById('apIntNotes').value = (r.post_interview && r.post_interview.notes) || '';
+  document.getElementById('apIntErr').style.display='none';
+  apIntRender();
+  const c = document.getElementById('apIntCard');
+  c.style.display='block';
+  c.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+async function apOutcome(outcome, btn){
+  const id = document.getElementById('apIntId').value;
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  const err = document.getElementById('apIntErr');
+  const A = Object.assign({}, window.__apInt || {});
+  A.notes = (document.getElementById('apIntNotes').value||'').trim();
+
+  let reason = null;
+  if(outcome==='declined'){
+    reason = prompt('Why are we not hiring '+(r.first_name||'them')+'?\n\nKept for our records, never sent.','');
+    if(reason===null) return;
+  }
+  btn.disabled = true;
+  try{
+    const patch = { post_interview: A, status: outcome, seen_at: new Date().toISOString() };
+    if(outcome==='declined') patch.decline_reason = (reason||'').trim() || 'not a fit after interview';
+    if(outcome==='pool')  patch.pooled_at = new Date().toISOString();
+    if(outcome==='hired') patch.hired_at  = new Date().toISOString();
+    const { error } = await sb.from('job_applicants').update(patch).eq('id', id);
+    if(error) throw error;
+
+    const b = AP_BOOK[id];
+    if(b){
+      await sb.from('interview_bookings').update({
+        status: outcome==='noshow' ? 'noshow' : 'attended',
+        post_interview: A, outcome_notes: A.notes || null, outcome_at: new Date().toISOString(),
+      }).eq('applicant_id', id).eq('status','booked');
+    }
+    document.getElementById('apIntCard').style.display='none';
+    if(outcome==='hired') apToOffer(id, A);
+    await apLoad();
+  }catch(e){
+    err.textContent = 'Could not save that: ' + (e&&e.message||'error');
+    err.style.display='block';
+  }finally{ btn.disabled=false; }
 }
 
 /* ---- Reaching back out ----------------------------------------------------
