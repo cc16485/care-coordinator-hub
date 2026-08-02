@@ -2852,6 +2852,20 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">🌱 Open Augusta — today's interviews ↗</a>
       </div>
 
+      <!-- Applications from mo-care.com. Augusta's own board is still running
+           alongside, which is why its calendar card is still below. -->
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">🧑 Applicants</b>
+          <span class="subtab-badge red" id="apNewBadge" style="display:none;"></span>
+          <span class="field-note">from our own careers pages, with their pre-screen answers.</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="apLoad(this)">↻ Refresh</button>
+        </div>
+        <div id="apFilter" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:11px;"></div>
+        <div id="apList" style="margin-top:11px;"><div class="field-note">Loading…</div></div>
+      </div>
+
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <b style="font-size:15px;color:var(--navy);">📅 Booked interviews — from your Google Calendars</b>
@@ -6360,6 +6374,7 @@ function renderActiveTab(){
   nurseModeCheck();
   if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); }
   if(activeTab==='calendar') ivLoad();
+  if(activeTab==='interviews') apLoad();
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
@@ -10283,6 +10298,178 @@ async function busySync(){
       .upsert(rows, { onConflict: 'source,source_id' });
     if(error) throw error;
   }catch(e){ /* table may not exist yet; the slot generator simply sees no blocks */ }
+}
+
+/* ---- Applicants from our own careers pages ---------------------------------
+   Applications used to land in Augusta and be read there. Now they land here,
+   already screened, with the interview they booked themselves.
+   Requires job-applicants.sql and scheduling.sql. */
+let AP_ROWS = [], AP_BOOK = {}, AP_COORD = {}, apFilter = 'open';
+
+async function apLoad(btn){
+  const box = document.getElementById('apList'); if(!box) return;
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    const [a, b, c] = await Promise.all([
+      sb.from('job_applicants').select('*').order('created_at',{ascending:false}).limit(300),
+      sb.from('interview_bookings').select('*').in('status',['booked','attended','noshow']),
+      sb.from('coordinators').select('id,name'),
+    ]);
+    if(a.error) throw a.error;
+    AP_ROWS = a.data || [];
+    AP_BOOK = {}; (b.data||[]).forEach(x=>{ AP_BOOK[x.applicant_id] = x; });
+    AP_COORD = {}; (c.data||[]).forEach(x=>{ AP_COORD[x.id] = x.name; });
+    apRenderFilter(); apRender();
+  }catch(e){
+    box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load applicants: '
+      + escapeHtmlComms(e && e.message || 'error')
+      + '<br>If this mentions a missing table, run <b>job-applicants.sql</b> then <b>scheduling.sql</b>.</div>';
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+
+/* "Open" is everyone still in play. It is the view somebody actually wants
+   when they sit down, so it is the one that loads. */
+const AP_VIEWS = [['open','Still open'],['booked','Interview booked'],['nobooking','No interview yet'],
+                  ['partial','Did not finish'],['declined','Declined'],['all','Everyone']];
+function apRenderFilter(){
+  const el = document.getElementById('apFilter'); if(!el) return;
+  el.innerHTML = AP_VIEWS.map(([k,l])=>{
+    const n = apMatching(k).length;
+    return '<button class="fb" style="'+(apFilter===k?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
+      +'" onclick="apSetFilter(\''+k+'\')">'+escapeHtmlComms(l)+(n?' <b>'+n+'</b>':'')+'</button>';
+  }).join('');
+  const nb = document.getElementById('apNewBadge');
+  const fresh = AP_ROWS.filter(r=>r.status==='new' && !AP_BOOK[r.id]).length;
+  if(nb){ nb.style.display = fresh?'inline-block':'none'; nb.textContent = fresh; }
+}
+function apSetFilter(k){ apFilter=k; apRenderFilter(); apRender(); }
+
+function apMatching(k){
+  return AP_ROWS.filter(r=>{
+    const booked = !!AP_BOOK[r.id];
+    if(k==='all') return true;
+    if(k==='open') return ['new','reviewing','interview'].includes(r.status);
+    if(k==='booked') return booked;
+    if(k==='nobooking') return !booked && ['new','reviewing'].includes(r.status);
+    if(k==='partial') return r.status==='partial';
+    if(k==='declined') return r.status==='declined';
+    return true;
+  });
+}
+
+/* The pre-screen at a glance. A no is not always a problem, so the ones that
+   matter are coloured and the rest are just there. */
+function apChips(r){
+  const chip=(txt,tone)=>{
+    const t = tone==='bad' ? ['#B91C1C','#FEE2E2'] : tone==='warn' ? ['#B45309','#FEF3C7']
+            : tone==='good'? ['#15803D','#DCFCE7'] : ['#6E6559','#F4F2ED'];
+    return '<span style="font-size:11px;font-weight:700;color:'+t[0]+';background:'+t[1]
+      +';border-radius:999px;padding:2px 8px;">'+escapeHtmlComms(txt)+'</span>';
+  };
+  const out=[];
+  if(r.age_ok===false) out.push(chip('Under 18','bad'));
+  if(r.work_auth===false) out.push(chip('Not authorised to work','bad'));
+  if(r.has_transport===false) out.push(chip('No transport','bad'));
+  if(r.lived_outside_mo) out.push(chip('Fingerprint check needed','warn'));
+  if(r.can_pass_background===false) out.push(chip('Unsure on background','warn'));
+  if(r.has_license===false) out.push(chip('No licence','plain'));
+  if(r.experience_years) out.push(chip(r.experience_years,'plain'));
+  if(r.job_type) out.push(chip(r.job_type,'plain'));
+  if(!out.length) out.push(chip('Cleared the screen','good'));
+  return out.join(' ');
+}
+
+function apRender(){
+  const box = document.getElementById('apList'); if(!box) return;
+  const esc = escapeHtmlComms;
+  const rows = apMatching(apFilter);
+  if(!rows.length){
+    box.innerHTML = '<div class="field-note">'
+      + (AP_ROWS.length ? 'Nobody in this view.' :
+         'No applications yet. They arrive here the moment somebody applies on mo-care.com.')
+      + '</div>';
+    return;
+  }
+  const when = iso => { const d=new Date(iso); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})
+    + ' ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); };
+  const ago = iso => { const h=(Date.now()-new Date(iso))/36e5;
+    return h<1?'just now' : h<24?Math.floor(h)+'h ago' : Math.floor(h/24)+'d ago'; };
+
+  box.innerHTML = rows.map(r=>{
+    const b = AP_BOOK[r.id];
+    const nudges = [r.nudge_1_at,r.nudge_2_at,r.nudge_3_at].filter(Boolean).length;
+    const line = b
+      ? '<span style="font-size:12px;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:2px 10px;">'
+        + '📅 ' + esc(when(b.starts_at)) + (AP_COORD[b.coordinator_id]?' with '+esc(AP_COORD[b.coordinator_id]):'') + '</span>'
+      : r.status==='declined'
+        ? '<span style="font-size:12px;color:#B91C1C;">Declined' + (r.decline_reason?' — '+esc(r.decline_reason):'') + '</span>'
+        : r.status==='partial'
+          ? '<span style="font-size:12px;color:#B45309;">Did not finish the form</span>'
+          : '<span style="font-size:12px;color:#B45309;">No interview booked'
+            + (nudges?' · '+nudges+' reminder'+(nudges>1?'s':'')+' sent':'') + '</span>';
+    return '<details style="background:#fff;border:1px solid '+(b?'#e4e1d8':'#f59e0b')+';border-radius:12px;margin-bottom:.5rem;">'
+      + '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.7rem .9rem;">'
+      + '<b style="font-size:.95rem;color:#0D365F;">'+esc((r.first_name||'')+' '+(r.last_name||''))+'</b>'
+      + '<span style="font-size:.76rem;color:#6E6559;">'+esc(r.posting_title||'Caregiver')
+        + (r.city||r.zip?' · '+esc(r.city||r.zip):'') + ' · applied '+esc(ago(r.created_at))+'</span>'
+      + '<span style="flex:1;"></span>' + line
+      + '<span style="color:#A89C8B;font-size:.74rem;">details ▾</span>'
+      + '</summary><div style="padding:0 .9rem .9rem;">'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.6rem;">'+apChips(r)+'</div>'
+      + '<div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.82rem;color:#3A342C;">'
+        + (r.phone?'<span>📱 '+esc(r.phone)+'</span>':'')
+        + (r.email?'<span>✉️ '+esc(r.email)+'</span>':'')
+        + (r.sms_consent?'<span style="color:#15803D;">✓ happy to be texted</span>':'<span style="color:#B45309;">no texting consent</span>')
+        + (r.channel?'<span>via '+esc(r.channel)+'</span>':'')
+      + '</div>'
+      + (r.availability?'<div style="margin-top:.5rem;font-size:.82rem;"><b>Available:</b> '+esc(r.availability)+'</div>':'')
+      + (r.experience?'<div style="margin-top:.3rem;font-size:.82rem;"><b>Experience:</b> '+esc(r.experience)+'</div>':'')
+      + ((r.experience_kinds&&r.experience_kinds.length)?'<div style="margin-top:.3rem;font-size:.82rem;color:#6E6559;">'+esc(r.experience_kinds.join(' · '))+'</div>':'')
+      + (r.states_lived?'<div style="margin-top:.3rem;font-size:.82rem;"><b>Lived outside Missouri:</b> '+esc(r.states_lived)+'</div>':'')
+      + '<div style="display:flex;gap:.5rem;align-items:center;margin-top:.8rem;flex-wrap:wrap;">'
+        + (r.phone?'<a class="fb" style="text-decoration:none;" href="tel:'+esc(String(r.phone).replace(/[^0-9+]/g,''))+'">📞 Call</a>':'')
+        + (r.status!=='declined'?'<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')">➡️ Make them an offer</button>':'')
+        + (r.status==='new'?'<button class="fb" onclick="apSetStatus(\''+esc(r.id)+'\',\'reviewing\')">Mark as reviewing</button>':'')
+        + (r.status!=='declined'?'<button class="fb" style="color:var(--red);" onclick="apDecline(\''+esc(r.id)+'\')">Not moving forward</button>':'')
+      + '</div></div></details>';
+  }).join('');
+}
+
+async function apSetStatus(id, status, reason){
+  try{
+    const patch = { status, seen_at: new Date().toISOString() };
+    if(reason) patch.notes = reason;
+    const { error } = await sb.from('job_applicants').update(patch).eq('id', id);
+    if(error) throw error;
+    await apLoad();
+  }catch(e){ alert('Could not update them: '+(e&&e.message||'error')); }
+}
+
+async function apDecline(id){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id));
+  const why = prompt('Why are we not moving forward with '
+    + ((r&&r.first_name)||'this applicant') + '?\n\nKept for our own records only, never sent.', '');
+  if(why===null) return;
+  await apSetStatus(id, 'declined', why.trim() || null);
+}
+
+/* Straight into the offer form with their details already filled in, which is
+   the paste step this whole thing exists to remove. */
+function apToOffer(id){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  gotoTab('offers');
+  setTimeout(()=>{
+    if(typeof offView === 'function') offView('new');
+    const v=(f,val)=>{ const e=document.getElementById(f); if(e && val) e.value=val; };
+    v('jo_first', r.first_name); v('jo_last', r.last_name);
+    v('jo_phone', r.phone); v('jo_email', r.email);
+    v('jo_avail', r.availability); v('jo_exp', r.experience);
+    const notes=document.getElementById('jo_notes');
+    if(notes && !notes.value){
+      notes.value = 'Applied on mo-care.com' + (r.channel?' via '+r.channel:'')
+        + (r.lived_outside_mo?'. Lived outside Missouri, so a fingerprint check is required':'') + '.';
+    }
+  }, 220);
 }
 
 /* ---- Team calendar: who is available for what, and what is already booked --
