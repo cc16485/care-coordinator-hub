@@ -702,7 +702,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="comms" onclick="switchTab('comms')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Send a Message</div>
     <div class="fpill" data-tab="meetings" onclick="switchTab('meetings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
-  <div class="fpill" data-tab="calls" onclick="switchTab('calls')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Calls</div></div>
+  <div class="fpill" data-tab="calls" onclick="switchTab('calls')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Calls</div>
+    <div class="fpill" data-tab="calendar" onclick="switchTab('calendar')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Calendar</div></div>
   <div class="fsubbar" id="fsub-interviews">
     <div class="fpill" data-tab="recruit" onclick="switchTab('recruit')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Recruit</div>
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
@@ -2784,6 +2785,101 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
       </div>
 
+      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">💵 Approved hourly rates</b>
+          <span class="field-note">Use these in the job description. Do not invent a number.</span>
+        </div>
+        <div id="payRatesBody" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
+      </div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
+        <b style="font-size:15px;color:var(--navy);">1. Check what is already posted</b>
+        <div class="field-note" style="margin-top:4px;">Do this <b>before</b> you create anything. Augusta warns against duplicate postings with the same title and location, and a duplicate splits your applicants across two posts.</div>
+        <ol style="margin:10px 0 0;padding-left:20px;font-size:13.5px;line-height:1.75;">
+          <li>Open Augusta and log in.</li>
+          <li>Click <b>Smart Posts</b>. Everything currently live is listed there.</li>
+          <li>Check the <b>title</b> and the <b>posting zip code</b> of each one. Two posts can look different and still be the same job to Indeed.</li>
+          <li>If a suitable post already exists, use it. Send applicants to it rather than making a second one.</li>
+        </ol>
+      </div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
+        <b style="font-size:15px;color:var(--navy);">2. Post a position</b>
+        <div class="field-note" style="margin-top:4px;">In Augusta: <b>Smart Posts &rarr; New Smart Post</b>. To reuse a post that worked, click the <b>Copy</b> icon on it instead of starting blank.</div>
+        <div style="margin-top:10px;font-size:13.5px;line-height:1.75;">
+          <div style="margin-bottom:8px;"><b>Job title.</b> Plain and searchable. <i>Caregiver</i>, <i>Full-Time Caregiver</i>, <i>Overnight Caregiver</i>, <i>Weekend Caregiver</i>. No promotional wording, no emojis, no extra punctuation. If the title could breach Indeed's rules, Augusta flags it and suggests a safer one &mdash; take the suggestion.</div>
+          <div style="margin-bottom:8px;"><b>Service area map.</b> Click <b>Draw Service Area</b>, outline the area, then <b>Turn Off Drawing</b>. For a specific client, draw their <b>general</b> area only. <span style="color:var(--danger,#C0392B);font-weight:700;">Never put a client's name, street or exact address in a posting.</span> The map is only a picture for candidates; it does not change who qualifies.</div>
+          <div style="margin-bottom:8px;"><b>Posting zip code.</b> The zip for the city where you want the job to show up on Google and Indeed. This is separate from the map and separate from geo-qualification.</div>
+          <div style="margin-bottom:8px;"><b>Photos and testimonials.</b> Real photos of our caregivers and team, not stock images.</div>
+          <div style="margin-bottom:8px;"><b>Description.</b> Say the schedule, the responsibilities, the requirements, the pay and benefits, and why someone would want to work here. Use the approved hourly rates shown at the top of this page. If the rate you need is not listed there, ask before you post rather than guessing.</div>
+          <div style="margin-bottom:8px;"><b>Indeed source tag.</b> Short and specific: <i>Overnight</i>, <i>Weekend</i>, <i>CNA</i>, a town name. This is what shows in the <b>Channel</b> column, so it is how we tell which posting an applicant actually came from.</div>
+          <div><b>Publish.</b> Turn on <b>Enable Job Publishing</b>, then <b>Create Smart Post</b>. It goes to our website and Google for Jobs, and to Indeed if that connection is on.</div>
+        </div>
+        <div class="field-note" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">Then open our Careers page and look at the live post. Check the title, the location, the description and the apply button all look right. A posting nobody can apply to is worse than no posting.</div>
+      </div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
+        <b style="font-size:15px;color:var(--navy);">3. Keep it current</b>
+        <ul style="margin:8px 0 0;padding-left:20px;font-size:13.5px;line-height:1.75;">
+          <li><b>Take a post down once the position is filled.</b> Leaving it up wastes applicants' time and ours, and it makes our numbers meaningless.</li>
+          <li>If the shift, the area or the pay changes, edit the post the same day.</li>
+          <li>Do not create a second post with the same title and location as an existing one.</li>
+        </ul>
+      </div>
+
+      <div class="card" style="padding:16px 18px;">
+        <b style="font-size:15px;color:var(--navy);">Augusta's own instructions</b>
+        <div class="field-note" style="margin-top:4px;">The steps above are ours. These are Augusta's, and they are kept up to date by Augusta.</div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="https://support.augusta.care/hc/en-us/articles/30724343100173-Augusta-Smart-Posts-How-to-Create-a-Job-Posting" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">How to create a job posting ↗</a>
+          <a href="https://support.augusta.care/hc/en-us/sections/14935526061837-Smart-Posts" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">All Smart Posts articles ↗</a>
+          <a href="https://support.augusta.care/hc/en-us/articles/35002024075789-Indeed-Integration" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">Indeed integration ↗</a>
+          <a href="https://support.augusta.care/hc/en-us" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">Augusta help centre ↗</a>
+        </div>
+        <div class="field-note" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">Stuck on something Augusta owns? Email <b>hello@augusta.care</b> or call <b>(256) 676-9483</b>, 6:00am&ndash;5:00pm Pacific, Monday to Friday. Anything about our pay, our clients or which shifts to advertise is ours, not theirs &mdash; ask internally.</div>
+      </div>
+    </section>
+
+    <!-- ===================== TAB: INTERVIEWS ===================== -->
+    <section class="tabpanel" id="tab-interviews">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Interviews</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Interviews are scheduled &amp; listed in <b>Augusta</b> (they also sync to your Google Calendar). Once someone is a good fit, use the <b>Offer a Job</b> tab.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">🌱 Open Augusta — today's interviews ↗</a>
+      </div>
+
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">📅 Booked interviews — from your Google Calendars</b>
+          <span class="field-note">Augusta books them straight onto each coordinator's calendar</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="renderCalInterviews(true,this)">↻ Refresh</button>
+        </div>
+        <div id="calInterviews" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
+        <details style="margin-top:12px;">
+          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">⚙ Connect a coordinator's calendar</summary>
+          <div class="field-note" style="margin:8px 0;">On a computer at <b>calendar.google.com</b> (not the phone app): in the left sidebar under <b>My calendars</b>, hover your calendar → click the <b>three dots</b> → <b>Settings and sharing</b> → scroll a long way down to <b>Integrate calendar</b> → copy <b>Secret address in iCal format</b>, a long link ending in <code>basic.ics</code>. Only events with “interview” in the title or notes show up here, so personal appointments stay private. <br><b>Do not see a Secret address?</b> It only exists on calendars you own, and a Google Workspace admin setting can hide it. If it is missing, tell Claude and we will connect the calendar a different way.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="calName" placeholder="Coordinator name" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+            <input id="calUrl" placeholder="Secret iCal address (…basic.ics)" style="flex:1;min-width:240px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+            <button class="addlead" onclick="calConnAdd()">Add calendar</button>
+          </div>
+          <div id="calConnList" style="margin-top:8px;"></div>
+        </details>
+      </div>
+
+</section>
+
+    <!-- ===================== TAB: CALENDAR ===================== -->
+    <section class="tabpanel" id="tab-calendar">
+      <div style="margin-bottom:14px;">
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Team Calendar</h2>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Interviews, orientations, care assessments and consultations all spend the same day. This is the one place that knows about all four.</div>
+      </div>
       <!-- One calendar under interviews, orientations, care assessments and
            consultations. Availability belongs to a coordinator AND an activity,
            because Angiel can be free for assessments all day and for interviews
@@ -2882,94 +2978,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </details>
       </div>
 
-      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">💵 Approved hourly rates</b>
-          <span class="field-note">Use these in the job description. Do not invent a number.</span>
-        </div>
-        <div id="payRatesBody" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
-      </div>
-
-      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
-        <b style="font-size:15px;color:var(--navy);">1. Check what is already posted</b>
-        <div class="field-note" style="margin-top:4px;">Do this <b>before</b> you create anything. Augusta warns against duplicate postings with the same title and location, and a duplicate splits your applicants across two posts.</div>
-        <ol style="margin:10px 0 0;padding-left:20px;font-size:13.5px;line-height:1.75;">
-          <li>Open Augusta and log in.</li>
-          <li>Click <b>Smart Posts</b>. Everything currently live is listed there.</li>
-          <li>Check the <b>title</b> and the <b>posting zip code</b> of each one. Two posts can look different and still be the same job to Indeed.</li>
-          <li>If a suitable post already exists, use it. Send applicants to it rather than making a second one.</li>
-        </ol>
-      </div>
-
-      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
-        <b style="font-size:15px;color:var(--navy);">2. Post a position</b>
-        <div class="field-note" style="margin-top:4px;">In Augusta: <b>Smart Posts &rarr; New Smart Post</b>. To reuse a post that worked, click the <b>Copy</b> icon on it instead of starting blank.</div>
-        <div style="margin-top:10px;font-size:13.5px;line-height:1.75;">
-          <div style="margin-bottom:8px;"><b>Job title.</b> Plain and searchable. <i>Caregiver</i>, <i>Full-Time Caregiver</i>, <i>Overnight Caregiver</i>, <i>Weekend Caregiver</i>. No promotional wording, no emojis, no extra punctuation. If the title could breach Indeed's rules, Augusta flags it and suggests a safer one &mdash; take the suggestion.</div>
-          <div style="margin-bottom:8px;"><b>Service area map.</b> Click <b>Draw Service Area</b>, outline the area, then <b>Turn Off Drawing</b>. For a specific client, draw their <b>general</b> area only. <span style="color:var(--danger,#C0392B);font-weight:700;">Never put a client's name, street or exact address in a posting.</span> The map is only a picture for candidates; it does not change who qualifies.</div>
-          <div style="margin-bottom:8px;"><b>Posting zip code.</b> The zip for the city where you want the job to show up on Google and Indeed. This is separate from the map and separate from geo-qualification.</div>
-          <div style="margin-bottom:8px;"><b>Photos and testimonials.</b> Real photos of our caregivers and team, not stock images.</div>
-          <div style="margin-bottom:8px;"><b>Description.</b> Say the schedule, the responsibilities, the requirements, the pay and benefits, and why someone would want to work here. Use the approved hourly rates shown at the top of this page. If the rate you need is not listed there, ask before you post rather than guessing.</div>
-          <div style="margin-bottom:8px;"><b>Indeed source tag.</b> Short and specific: <i>Overnight</i>, <i>Weekend</i>, <i>CNA</i>, a town name. This is what shows in the <b>Channel</b> column, so it is how we tell which posting an applicant actually came from.</div>
-          <div><b>Publish.</b> Turn on <b>Enable Job Publishing</b>, then <b>Create Smart Post</b>. It goes to our website and Google for Jobs, and to Indeed if that connection is on.</div>
-        </div>
-        <div class="field-note" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">Then open our Careers page and look at the live post. Check the title, the location, the description and the apply button all look right. A posting nobody can apply to is worse than no posting.</div>
-      </div>
-
-      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
-        <b style="font-size:15px;color:var(--navy);">3. Keep it current</b>
-        <ul style="margin:8px 0 0;padding-left:20px;font-size:13.5px;line-height:1.75;">
-          <li><b>Take a post down once the position is filled.</b> Leaving it up wastes applicants' time and ours, and it makes our numbers meaningless.</li>
-          <li>If the shift, the area or the pay changes, edit the post the same day.</li>
-          <li>Do not create a second post with the same title and location as an existing one.</li>
-        </ul>
-      </div>
-
-      <div class="card" style="padding:16px 18px;">
-        <b style="font-size:15px;color:var(--navy);">Augusta's own instructions</b>
-        <div class="field-note" style="margin-top:4px;">The steps above are ours. These are Augusta's, and they are kept up to date by Augusta.</div>
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-          <a href="https://support.augusta.care/hc/en-us/articles/30724343100173-Augusta-Smart-Posts-How-to-Create-a-Job-Posting" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">How to create a job posting ↗</a>
-          <a href="https://support.augusta.care/hc/en-us/sections/14935526061837-Smart-Posts" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">All Smart Posts articles ↗</a>
-          <a href="https://support.augusta.care/hc/en-us/articles/35002024075789-Indeed-Integration" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">Indeed integration ↗</a>
-          <a href="https://support.augusta.care/hc/en-us" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;">Augusta help centre ↗</a>
-        </div>
-        <div class="field-note" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">Stuck on something Augusta owns? Email <b>hello@augusta.care</b> or call <b>(256) 676-9483</b>, 6:00am&ndash;5:00pm Pacific, Monday to Friday. Anything about our pay, our clients or which shifts to advertise is ours, not theirs &mdash; ask internally.</div>
-      </div>
     </section>
-
-    <!-- ===================== TAB: INTERVIEWS ===================== -->
-    <section class="tabpanel" id="tab-interviews">
-      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-        <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Interviews</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Interviews are scheduled &amp; listed in <b>Augusta</b> (they also sync to your Google Calendar). Once someone is a good fit, use the <b>Offer a Job</b> tab.</div>
-        </div>
-        <span style="flex:1;"></span>
-        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">🌱 Open Augusta — today's interviews ↗</a>
-      </div>
-
-      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">📅 Booked interviews — from your Google Calendars</b>
-          <span class="field-note">Augusta books them straight onto each coordinator's calendar</span>
-          <span style="flex:1;"></span>
-          <button class="ghost" onclick="renderCalInterviews(true,this)">↻ Refresh</button>
-        </div>
-        <div id="calInterviews" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
-        <details style="margin-top:12px;">
-          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">⚙ Connect a coordinator's calendar</summary>
-          <div class="field-note" style="margin:8px 0;">On a computer at <b>calendar.google.com</b> (not the phone app): in the left sidebar under <b>My calendars</b>, hover your calendar → click the <b>three dots</b> → <b>Settings and sharing</b> → scroll a long way down to <b>Integrate calendar</b> → copy <b>Secret address in iCal format</b>, a long link ending in <code>basic.ics</code>. Only events with “interview” in the title or notes show up here, so personal appointments stay private. <br><b>Do not see a Secret address?</b> It only exists on calendars you own, and a Google Workspace admin setting can hide it. If it is missing, tell Claude and we will connect the calendar a different way.</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <input id="calName" placeholder="Coordinator name" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
-            <input id="calUrl" placeholder="Secret iCal address (…basic.ics)" style="flex:1;min-width:240px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
-            <button class="addlead" onclick="calConnAdd()">Add calendar</button>
-          </div>
-          <div id="calConnList" style="margin-top:8px;"></div>
-        </details>
-      </div>
-
-</section>
 
     <!-- ===================== TAB: OFFER A JOB ===================== -->
     <section class="tabpanel" id="tab-offers">
@@ -5741,7 +5750,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans'],team:['inbox','comms','meetings','calls'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups','supervisory'],ops:['ops','coverage'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook','teamsched'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans'],team:['inbox','comms','meetings','calls','calendar'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups','supervisory'],ops:['ops','coverage'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook','teamsched'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -6181,7 +6190,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'New Clients — Needs Scheduling',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  meetings:'Meetings', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
+  meetings:'Meetings', calendar:'Team Calendar', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Coverage Help', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
@@ -6344,7 +6353,8 @@ function renderActiveTab(){
   ccRenderViewAs();
   ccRenderPulse();
   nurseModeCheck();
-  if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); ivLoad(); }
+  if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); }
+  if(activeTab==='calendar') ivLoad();
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
