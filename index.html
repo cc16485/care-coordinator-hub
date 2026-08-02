@@ -2967,6 +2967,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
               <input id="iv_horizon" inputmode="numeric" placeholder="14"></div>
             <div></div>
           </div>
+          <div class="grid2">
+            <div><label>Calendar day starts</label><input id="iv_daystart" type="time" step="900" value="07:00"></div>
+            <div><label>Calendar day ends</label><input id="iv_dayend" type="time" step="900" value="19:00"></div>
+          </div>
+          <div class="field-note" style="margin:-2px 0 10px;">Nobody's hours can fall outside this, which is what stops a stray overnight block.</div>
           <label>What to tell them about finding you</label>
           <input id="iv_note" placeholder="Park in the lot out front, then come in through the first floor door on the left.">
           <label>Photo of the entrance <span style="font-weight:400;color:var(--text-muted);">(a link, optional)</span></label>
@@ -10287,6 +10292,7 @@ async function busySync(){
 const IV_DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const IV_DSHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 let IV_HOSTS = [], IV_AVAIL = [], IV_ACTS = [], IV_BUSY = [];
+let IV_DAYWIN = { start:'07:00', end:'19:00' };
 let ivFilter = 'all';
 
 const ivTime = t => {                       // "14:30:00" -> "2:30 PM"
@@ -10303,13 +10309,23 @@ async function ivLoad(btn){
   const box = document.getElementById('ivHosts'); if(!box) return;
   if(btn){ btn.disabled = true; btn.textContent = '↻ Loading…'; }
   try{
-    const [h, a, t] = await Promise.all([
+    const [h, a, t, g] = await Promise.all([
       sb.from('coordinators').select('*').order('name'),
       sb.from('coordinator_availability').select('*'),
       sb.from('activity_types').select('*').order('sort'),
+      sb.from('scheduling_settings').select('*').eq('id',1).maybeSingle(),
     ]);
     if(h.error) throw h.error;
     IV_HOSTS = h.data || []; IV_AVAIL = a.data || []; IV_ACTS = t.data || [];
+    if(g && g.data){
+      IV_DAYWIN = { start:(g.data.day_start||'07:00').slice(0,5), end:(g.data.day_end||'19:00').slice(0,5) };
+      const iv=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v==null?'':v; };
+      iv('iv_daystart', IV_DAYWIN.start); iv('iv_dayend', IV_DAYWIN.end);
+      iv('iv_note', g.data.note); iv('iv_photo', g.data.photo_url);
+    }
+    const it = IV_ACTS.find(x=>x.key==='interview');
+    if(it){ const iv=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v==null?'':v; };
+      iv('iv_len', it.minutes); iv('iv_lead', it.lead_hours); iv('iv_horizon', it.horizon_days); }
     ivRenderFilter(); ivRender();
     /* Deliberately after the roster is on screen and in its own guard: a
        problem reading somebody else's JSON must never blank this card. */
@@ -10470,6 +10486,9 @@ function ivAddBlock(hostId){
       .map(a=>'<option value="'+escapeHtmlComms(a.key)+'">'+escapeHtmlComms(a.label)+'</option>').join('');
   document.getElementById('ivHoursDay').innerHTML =
     IV_DAYS.map((d,i)=>'<option value="'+i+'"'+(i===2?' selected':'')+'>'+d+'</option>').join('');
+  const f1=document.getElementById('ivHoursFrom'), f2=document.getElementById('ivHoursTo');
+  f1.min = f2.min = IV_DAYWIN.start; f1.max = f2.max = IV_DAYWIN.end;
+  f1.value = IV_DAYWIN.start; f2.value = IV_DAYWIN.end;
   document.getElementById('ivHoursErr').style.display='none';
   const f = document.getElementById('ivHoursForm');
   f.style.display='block';
@@ -10482,6 +10501,11 @@ async function ivHoursSave(btn){
   const from = g('ivHoursFrom').value, to = g('ivHoursTo').value;
   if(!from || !to){ err.textContent='Give a start and an end time.'; err.style.display='block'; return; }
   if(to <= from){ err.textContent='The end has to be after the start.'; err.style.display='block'; return; }
+  if(from < IV_DAYWIN.start || to > IV_DAYWIN.end){
+    err.textContent = 'The calendar runs ' + ivTime(IV_DAYWIN.start) + ' to ' + ivTime(IV_DAYWIN.end)
+      + '. Change that below if you need hours outside it.';
+    err.style.display='block'; return;
+  }
   err.style.display='none';
   btn.disabled = true; btn.textContent = 'Adding…';
   try{
@@ -10586,8 +10610,10 @@ async function ivSaveSettings(btn){
       .update({ minutes: n('iv_len') || 30, lead_hours: n('iv_lead') ?? 20, horizon_days: n('iv_horizon') || 14 })
       .eq('key','interview');
     if(a.error) throw a.error;
+    const ds = t('iv_daystart') || '07:00', de = t('iv_dayend') || '19:00';
+    if(de <= ds) throw new Error('The calendar day has to end after it starts.');
     const s = await sb.from('scheduling_settings')
-      .update({ note: t('iv_note'), photo_url: t('iv_photo') }).eq('id', 1);
+      .update({ note: t('iv_note'), photo_url: t('iv_photo'), day_start: ds, day_end: de }).eq('id', 1);
     if(s.error) throw s.error;
     if(btn) btn.textContent = 'Saved ✓';
     setTimeout(()=>{ if(btn){ btn.disabled=false; btn.textContent='Save'; } }, 1400);
