@@ -50,6 +50,7 @@ async function showApp(){
   loadClientQueue();
   mergePendingBookings();
   intakeReconcile().then(autoAskReferences);
+  refFixReconcile();
   refReconcile().then(markScreeningCleared);
   loadOffers(); // fills the New Offers tab + red badge count
 }
@@ -1603,6 +1604,56 @@ async function markScreeningCleared(){
     } catch (e) { /* try again next pass */ }
   }
   saveCandidates();
+}
+/* ---- Applicant-supplied reference fixes ---------------------------------
+   When we cannot reach a reference, the applicant is asked to help, and this
+   is where their answer comes home: a better contact for the same person, or
+   somebody else entirely. The dead request is retired so its link stops
+   working, the candidate's slot is rewritten, and autoAskReferences issues a
+   fresh one on the next pass. Nobody in the office touches it. */
+async function refFixReconcile(){
+  let fixes = [];
+  try {
+    const { data, error } = await sb.from('reference_fixes').select('*')
+      .is('merged_at', null).order('created_at', { ascending: true }).limit(50);
+    if (error) return;
+    fixes = data || [];
+  } catch (e) { return; }
+  if (!fixes.length) return;
+
+  let applied = 0;
+  for (const f of fixes) {
+    // The stalled request tells us who this is about and which slot to rewrite.
+    let req = null;
+    try {
+      const { data } = await sb.from('reference_requests').select('*').eq('id', f.request_id).maybeSingle();
+      req = data || null;
+    } catch (e) { /* fall through to the candidate_id below */ }
+
+    const candId = req ? req.candidate_id : f.candidate_id;
+    const c = candidates.find(x => x.id === candId);
+    if (!c) continue;
+    const n = req ? req.slot : [1,2,3,4].find(i => !c['r'+i+'n']) || 4;
+
+    c['r'+n+'n'] = f.new_name || c['r'+n+'n'] || '';
+    c['r'+n+'_phone'] = f.new_phone || '';
+    c['r'+n+'_email'] = f.new_email || '';
+    if (f.new_relationship) c['r'+n+'_rel'] = f.new_relationship;
+    c['r'+n+'s'] = 'Pending';                       // so it gets asked again
+    delete c['r'+n+'_manual'];
+
+    // Retire the dead request: its link should stop working, and leaving it
+    // would keep the chase nagging about a contact we have already replaced.
+    try { if (req) await sb.from('reference_requests').delete().eq('id', req.id); } catch (e) {}
+    try { await sb.from('reference_fixes').update({ merged_at: new Date().toISOString() }).eq('id', f.id); } catch (e) {}
+    applied++;
+  }
+
+  if (applied) {
+    saveCandidates();
+    await autoAskReferences();                       // the new one gets asked now
+    try { renderOB(); renderHirePipeline(); renderAlerts(); } catch (e) {}
+  }
 }
 async function refReconcile(){
   let rows = [];
@@ -6059,6 +6110,7 @@ window.intakeReconcile = intakeReconcile;
 window.askReferences = askReferences;
 window.autoAskReferences = autoAskReferences;
 window.renderHirePipeline = renderHirePipeline;
+window.refFixReconcile = refFixReconcile;
 window.refReconcile = refReconcile;
 window.markScreeningCleared = markScreeningCleared;
 window.offerCopyLink = offerCopyLink;

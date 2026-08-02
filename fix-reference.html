@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Help us reach your reference — Caring Companions</title>
+<!--
+  Applicant-facing. Sent when a reference has gone quiet for five days.
+  Writes to reference_fixes as anon (insert only). The hub retires the dead
+  request and issues a fresh one, so a replacement gets asked automatically.
+-->
+<style>
+  :root{ --navy:#0D365F; --gold:#F0A63A; --bg:#faf9f6; --card:#fff; --border:#e4e1d8;
+         --text:#16283a; --muted:#6E6559; --green:#15803D; --red:#B00020; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:'Public Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+       line-height:1.55;-webkit-text-size-adjust:100%;}
+  .wrap{max-width:560px;margin:0 auto;padding:22px 18px 60px;}
+  header{text-align:center;padding:8px 0 4px;} header img{height:50px;}
+  h1{font-size:23px;line-height:1.3;color:var(--navy);margin:16px 0 6px;letter-spacing:-.02em;}
+  .lede{font-size:15.5px;margin:0 0 14px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;}
+  .choice{display:flex;align-items:flex-start;gap:11px;border:1px solid var(--border);border-radius:10px;
+          padding:14px;font-size:15px;cursor:pointer;background:#fff;margin-bottom:10px;}
+  .choice:hover{background:#FCFBF8;}
+  .choice.sel{border-color:var(--gold);background:#FFFBF3;}
+  .choice input{width:auto;margin:3px 0 0;accent-color:var(--gold);}
+  .choice b{display:block;color:var(--navy);}
+  .choice span{font-size:13.5px;color:var(--muted);}
+  label.f{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 4px;}
+  input.t{width:100%;font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--border);
+       border-radius:8px;background:#fff;color:var(--text);}
+  button.go{width:100%;background:var(--gold);color:#122F52;border:0;border-radius:10px;padding:16px;
+       font-size:17px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:12px;}
+  button.go:disabled{opacity:.6;cursor:default;}
+  .err{color:var(--red);font-size:14px;margin-top:10px;display:none;}
+  .done{display:none;text-align:center;padding:30px 6px;}
+  .check{width:56px;height:56px;border-radius:50%;background:#DCFCE7;color:var(--green);
+         font-size:30px;line-height:56px;margin:0 auto;}
+  .foot{text-align:center;font-size:13px;color:var(--muted);margin-top:24px;}
+  a{color:var(--navy);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions">
+  </header>
+
+  <div id="formView">
+    <h1 id="head">Help us reach your reference.</h1>
+    <p class="lede" id="lede"></p>
+
+    <div class="card">
+      <label class="choice" id="c_update">
+        <input type="radio" name="action" value="update" onchange="pickUI()">
+        <span><b>I have a better number or email for them</b>
+        <span>Same person, different contact. We will try again straight away.</span></span>
+      </label>
+      <label class="choice" id="c_replace">
+        <input type="radio" name="action" value="replace" onchange="pickUI()">
+        <span><b>Let me give you someone else instead</b>
+        <span>Anyone who knows your work or your character, just not a relative.</span></span>
+      </label>
+
+      <div id="fields" style="display:none;">
+        <div id="nameWrap">
+          <label class="f" for="name">Their name</label>
+          <input class="t" id="name">
+          <label class="f" for="rel">How do they know you?</label>
+          <input class="t" id="rel" placeholder="Former supervisor, coworker, family you cared for, neighbor">
+        </div>
+        <label class="f" for="phone">Their phone</label>
+        <input class="t" id="phone" type="tel">
+        <label class="f" for="email">Their email <span style="font-weight:400;">(this is the one that usually works)</span></label>
+        <input class="t" id="email" type="email">
+        <button class="go" id="submitBtn" onclick="send()">Send this in</button>
+        <div class="err" id="err"></div>
+      </div>
+    </div>
+
+    <p class="foot">Rather just talk it through? Call or text <a href="tel:+14172348494">(417) 234-8494</a>.</p>
+  </div>
+
+  <div class="done" id="doneView">
+    <div class="check">✓</div>
+    <h1>Got it, thank you.</h1>
+    <p class="lede" id="doneLede">We are reaching out to them now.</p>
+    <p class="foot">Caring Companions In-Home Senior Care &middot; (417) 234-8494</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPA_URL='https://zngsgedlsxinbygwmxwn.supabase.co';
+const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const sb=window.supabase.createClient(SUPA_URL,SUPA_ANON);
+const P=new URLSearchParams(location.search);
+const REQ=P.get('r')||'';
+const CAND=P.get('cid')||'';
+const refName=P.get('n')||'your reference';
+const g=id=>document.getElementById(id);
+
+g('lede').textContent = 'We have not been able to reach ' + refName +
+  ', and it is the last thing holding up your start. Either of these fixes it.';
+g('doneLede').textContent = 'We are reaching out to them now, and we will let you know as soon as it is done.';
+g('c_update').querySelector('b').textContent = 'I have a better number or email for ' + refName;
+
+function pickUI(){
+  const v=(document.querySelector('input[name="action"]:checked')||{}).value;
+  document.querySelectorAll('.choice').forEach(el=>
+    el.classList.toggle('sel', el.querySelector('input').checked));
+  g('fields').style.display = v ? 'block' : 'none';
+  // Replacing needs a name; updating already has one.
+  g('nameWrap').style.display = v === 'replace' ? 'block' : 'none';
+  if (v === 'update') g('name').value = refName === 'your reference' ? '' : refName;
+}
+
+async function send(){
+  const err=g('err');
+  const action=(document.querySelector('input[name="action"]:checked')||{}).value;
+  if(!action){ return; }
+  const phone=g('phone').value.trim(), email=g('email').value.trim();
+  const missing=[];
+  if(action==='replace' && !g('name').value.trim()) missing.push('their name');
+  if(!phone && !email) missing.push('a phone number or an email');
+  if(missing.length){ err.textContent='Still needed: '+missing.join(' and ')+'.'; err.style.display='block'; return; }
+  if(!REQ){ err.textContent='This link is missing its code. Please call the office and we will take it over the phone.'; err.style.display='block'; return; }
+
+  const btn=g('submitBtn'); btn.disabled=true; btn.textContent='Sending…'; err.style.display='none';
+  try{
+    const { error } = await sb.from('reference_fixes').insert({
+      request_id: REQ,
+      candidate_id: CAND ? Number(CAND) : null,
+      action,
+      new_name: (action==='replace' ? g('name').value.trim() : (refName==='your reference'?null:refName)),
+      new_relationship: g('rel').value.trim() || null,
+      new_phone: phone || null,
+      new_email: email || null,
+    });
+    if(error) throw error;
+    g('formView').style.display='none';
+    g('doneView').style.display='block';
+    window.scrollTo(0,0);
+  }catch(e){
+    btn.disabled=false; btn.textContent='Send this in';
+    err.textContent='That did not go through. Please call or text the office at (417) 234-8494 and we will sort it out.';
+    err.style.display='block';
+    console.error(e);
+  }
+}
+</script>
+</body>
+</html>
