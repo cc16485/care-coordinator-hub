@@ -2958,6 +2958,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="offnav-b" id="rcnav-social"    onclick="rcView('social')">📱 Social posts</button>
         <button class="offnav-b" id="rcnav-indeed"    onclick="rcView('indeed')">🔎 Indeed &amp; Augusta</button>
         <button class="offnav-b" id="rcnav-numbers"   onclick="rcView('numbers')">📊 How hiring is going</button>
+        <button class="offnav-b" id="rcnav-dnr"       onclick="rcView('dnr')">🚫 Do not rehire</button>
       </div>
 
       <div class="rcview" id="rcview-postings">
@@ -3193,6 +3194,26 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
 
         <div id="rnBody"><div class="field-note">Loading…</div></div>
+      </div>
+
+      <!-- The list that stops a former employee getting all the way to an
+           interview slot before somebody recognises the name. -->
+      <div class="rcview" id="rcview-dnr" style="display:none;">
+        <div class="card" style="padding:16px 18px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <b style="font-size:15px;color:var(--navy);">🚫 People we would not take back</b>
+            <span style="flex:1;"></span>
+            <button class="secondary" onclick="dnrAdd()">＋ Add someone</button>
+            <button class="ghost" onclick="dnrLoad(this)">↻ Refresh</button>
+          </div>
+          <div class="field-note" style="margin-top:4px;">
+            Matched on their phone number and their email address when they apply, never on a name alone,
+            because two people share a name far more often than they share a mobile. A match never turns
+            anybody away by itself. It puts them in <b>Needs a look</b> with the reason showing, and a
+            person decides.
+          </div>
+          <div id="dnrList" style="margin-top:12px;"><div class="field-note">Loading…</div></div>
+        </div>
       </div>
     </section>
 
@@ -10540,7 +10561,7 @@ function offView(name){
 let rcCurrent = 'postings';
 function rcView(name){
   rcCurrent = name;
-  ['postings','positions','words','social','indeed','numbers'].forEach(function(v){
+  ['postings','positions','words','social','indeed','numbers','dnr'].forEach(function(v){
     const panel = document.getElementById('rcview-'+v);
     const btn   = document.getElementById('rcnav-'+v);
     if(panel) panel.style.display = (v===name) ? '' : 'none';
@@ -10549,6 +10570,83 @@ function rcView(name){
   if(name==='words')   jtLoad().then(jtRenderList);
   if(name==='social')  scLoad();
   if(name==='numbers') rnLoad();
+  if(name==='dnr')     dnrLoad();
+}
+
+/* ---- People we would not take back ----------------------------------------
+   Four of them reached a booked interview slot in Augusta before anybody
+   recognised the name, which is four hours nobody could do anything with.
+   Requires recruit-screening.sql. */
+let DNR = [];
+
+async function dnrLoad(btn){
+  const box = document.getElementById('dnrList'); if(!box) return;
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    const { data, error } = await sb.from('do_not_rehire').select('*').order('name');
+    if(error) throw error;
+    DNR = data || [];
+    dnrRender();
+  }catch(e){
+    box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load the list: '
+      + escapeHtmlComms(e && e.message || 'error')
+      + '<br>If this mentions a missing table, run <b>recruit-screening.sql</b> in the Supabase SQL editor.</div>';
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+
+function dnrRender(){
+  const box = document.getElementById('dnrList'); if(!box) return;
+  const esc = escapeHtmlComms;
+  if(!DNR.length){
+    box.innerHTML = '<div class="field-note">Nobody on it. Add the people you already know about, '
+      + 'and from then on the screen recognises them the moment they apply.</div>';
+    return;
+  }
+  const fmt = p => !p ? '' : String(p).replace(/^(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3');
+  box.innerHTML = DNR.map(d =>
+    '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.55rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
+    + '<b style="color:var(--navy);">' + esc(d.name) + '</b>'
+    + '<span class="field-note">' + esc([fmt(d.phone_digits), d.email].filter(Boolean).join(' · ')) + '</span>'
+    + (d.reason ? '<span class="field-note">— ' + esc(d.reason) + '</span>' : '')
+    + '<span style="flex:1;"></span>'
+    + '<button class="fb" style="color:var(--red);" onclick="dnrRemove(\'' + esc(d.id) + '\')">Take off</button>'
+    + '</div>').join('');
+}
+
+async function dnrAdd(){
+  const name = prompt('Who is this?\n\nTheir name as it would come through on an application.');
+  if(name===null) return;
+  if(!name.trim()){ alert('It needs a name.'); return; }
+  const phone = prompt('Their mobile number.\n\nThis is what the match is actually made on, so it is worth digging out.', '');
+  if(phone===null) return;
+  const email = prompt('Their email address, if you have it.', '');
+  if(email===null) return;
+  const digits = phone.replace(/[^0-9]/g,'');
+  if(!digits && !email.trim()){
+    alert('A name on its own cannot be matched safely, because two people share a name far more often than a phone number. Add a number or an email.');
+    return;
+  }
+  const reason = prompt('Why, in a few words?\n\nKept for our own records. Never sent anywhere.', '');
+  if(reason===null) return;
+  try{
+    const { error } = await sb.from('do_not_rehire').insert({
+      name: name.trim(), phone_digits: digits || null,
+      email: email.trim().toLowerCase() || null,
+      reason: reason.trim() || null,
+      added_by: (typeof ME !== 'undefined' && (ME.name || ME.email)) || null });
+    if(error) throw error;
+    await dnrLoad();
+  }catch(e){ alert('Could not add them: '+(e&&e.message||'error')); }
+}
+
+async function dnrRemove(id){
+  const d = DNR.find(x=>String(x.id)===String(id));
+  if(!confirm('Take ' + ((d&&d.name)||'this person') + ' off the list?\n\nThey would be screened like anybody else from now on.')) return;
+  try{
+    const { error } = await sb.from('do_not_rehire').delete().eq('id', id);
+    if(error) throw error;
+    await dnrLoad();
+  }catch(e){ alert('Could not remove them: '+(e&&e.message||'error')); }
 }
 
 /* The saved descriptions, as a list you can actually manage rather than only
@@ -10990,9 +11088,14 @@ function rnRender(){
   const hired    = ap.filter(r => r.hired_at || r.status === 'hired');
   const n = ap.length;
 
+  const dupes  = ap.filter(r => r.screen_grade === 'duplicate').length;
+  const review = ap.filter(r => r.screen_grade === 'review').length;
+
   const funnel = rnBar('Started the form', n, n, '#94A3B8')
     + rnBar('Finished it', finished.length, n, '#3B82F6')
     + rnBar('Cleared the screen', cleared.length, n, '#0EA5E9')
+    + (review ? rnBar('Of those, needed a look first', review, n, '#F59E0B') : '')
+    + (dupes ? rnBar('Had applied before', dupes, n, '#A8A29E') : '')
     + rnBar('Booked an interview', booked.length, n, '#F59E0B')
     + rnBar('Came in', cameIn.length, n, '#8B5CF6')
     + rnBar('Hired', hired.length, n, '#15803D')
@@ -11531,7 +11634,7 @@ const apQualified = r => !r.decline_reason && r.status !== 'declined'
 const apDays = iso => (Date.now() - new Date(iso).getTime()) / 864e5;
 
 const AP_VIEWS = [
-  ['new','New'], ['qualified','Qualified'], ['booked','Interview booked'],
+  ['new','New'], ['qualified','Qualified'], ['review','Needs a look'], ['booked','Interview booked'],
   ['pool','Candidate pool'], ['unqualified','Not qualified'], ['inactive','Inactive'], ['all','Everyone'],
 ];
 
@@ -11580,10 +11683,18 @@ function apMatching(k, ignorePosition){
     const booked = !!AP_BOOK[r.id];
     switch(k){
       case 'all':        return true;
-      case 'new':        return r.status==='new' && !booked;
+      /* A second application is the same person twice. It stays on the record
+         and out of every working list, so nobody rings them about it. */
+      case 'new':        return r.status==='new' && !booked
+                                 && !['duplicate','declined'].includes(r.screen_grade);
       case 'booked':     return booked;
+      case 'review':     return r.screen_grade==='review' && !booked
+                                 && !['hired','pool','declined'].includes(r.status);
+      /* Once somebody is booked the grade has done its job, so a flag no
+         longer holds them out of the list you work from. */
       case 'qualified':  return apQualified(r) && !['hired','pool'].includes(r.status)
-                                 && (booked || apDays(r.created_at) <= 60);
+                                 && r.screen_grade!=='duplicate'
+                                 && (booked || (r.screen_grade!=='review' && apDays(r.created_at) <= 60));
       case 'pool':       return r.status==='pool';
       case 'unqualified':return !apQualified(r);
       /* Nobody is thrown away. Inactive is "we tried, they went quiet, and
@@ -11617,11 +11728,23 @@ function apChips(r){
   };
   const out=[];
   if(r.age_ok===false) out.push(chip('Under 18','bad'));
-  if(r.work_auth===false) out.push(chip('Not authorised to work','bad'));
+  if(r.work_auth===false) out.push(chip('Not authorized to work','bad'));
   if(r.has_transport===false) out.push(chip('No transport','bad'));
-  if(r.lived_outside_mo) out.push(chip('Fingerprint check needed','warn'));
-  if(r.can_pass_background===false) out.push(chip('Unsure on background','warn'));
-  if(r.has_license===false) out.push(chip('No license','plain'));
+  if(r.screen_grade==='duplicate') out.push(chip('Applied before','warn'));
+
+  /* What the screen worked out, in its own words. It already knows about the
+     license, the insurance and the background question, so those are not
+     listed twice. The one that must not be missed is coloured like it. */
+  (r.screen_flags||[]).forEach(f=>{
+    out.push(chip(f.charAt(0).toUpperCase()+f.slice(1), /rehire/i.test(f) ? 'bad' : 'warn'));
+  });
+  if(!(r.screen_flags||[]).length){
+    if(r.lived_outside_mo) out.push(chip('Fingerprint check needed','warn'));
+    if(r.can_pass_background===false) out.push(chip('Unsure on background','warn'));
+    if(r.has_license===false) out.push(chip('No license','plain'));
+  }
+  if(r.miles_out!=null && !(r.screen_flags||[]).some(f=>/miles/.test(f)))
+    out.push(chip(Number(r.miles_out).toFixed(0)+' miles out','plain'));
   if(r.experience_years) out.push(chip(r.experience_years,'plain'));
   if(r.job_type) out.push(chip(r.job_type,'plain'));
   if(!out.length) out.push(chip('Cleared the screen','good'));
