@@ -4,6 +4,28 @@
 <meta charset="UTF-8">
 <meta name="robots" content="noindex, nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+/* Runs before a single pixel is drawn. The section bar used to appear for the
+   moment between first paint and the app finishing boot, which read as the
+   whole hub flashing up inside the GHL frame. Deciding here costs nothing and
+   removes the flash entirely; if the hash turns out to be unknown, the later
+   deep-link code takes 'focused' back off. */
+(function(){
+  var d = document.documentElement, emb = false;
+  try { emb = (window.self !== window.top); } catch (e) { emb = true; }
+  if (emb || /[?&]embed=1/.test(location.search)) {
+    d.classList.add('embedded');
+    if ((location.hash || '').length > 1) d.classList.add('focused');
+  }
+})();
+</script>
+<style>
+  /* Kept with the class that sets it, in the head, so the rule exists before
+     the element it hides is parsed. */
+  html.embedded.focused .fbar{ display:none; }
+  html.embedded .topbar img{ display:none; }
+  html.embedded .topbar{ padding-top:6px; padding-bottom:6px; }
+</style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -14554,8 +14576,8 @@ function renderNurseVisits(){
     }catch(e){}
     // Focused section mode: inside GHL each section has its own sidebar link,
     // so the hub's own section bar is redundant — show only this section.
-    if(ok && document.documentElement.classList.contains('embedded'))
-      document.documentElement.classList.add('focused');
+    var d = document.documentElement;
+    if(d.classList.contains('embedded')) d.classList.toggle('focused', ok);
     return ok;
   }
   window.addEventListener('hashchange', applyHash);
@@ -14569,11 +14591,8 @@ function renderNurseVisits(){
 </script>
 <style>
 /* Inside the GHL frame the sidebar already carries the brand: slim the chrome */
-html.embedded .topbar img{ display:none; }
-html.embedded .topbar{ padding-top:6px; padding-bottom:6px; }
-/* Focused section mode (deep-linked from a GHL sidebar item): GHL navigates
-   between sections, so hide the hub's own section bar; keep the sub-tabs. */
-html.embedded.focused .fbar{ display:none; }
+/* embedded chrome and focused-section rules now live in the head, so they
+   apply on the first paint rather than after this stylesheet is reached. */
 
 /* ── Sit like a native GoHighLevel page ──────────────────────────────────────
    Measured off a real GHL page (2026-07-29): page title 18px/500, tab row on
