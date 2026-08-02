@@ -4222,6 +4222,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <button class="ghost" onclick="document.getElementById('apIntCard').style.display='none'">Close</button>
         </div>
         <input type="hidden" id="apIntId">
+        <!-- What we could actually offer them, on screen while they are sitting
+             there. "Mrs K is in Nixa, twelve minutes from you" closes an
+             interview; "we will be in touch" does not. -->
+        <details style="margin-top:12px;background:var(--bg);border:1px solid var(--border);border-radius:11px;padding:11px 13px;" open>
+          <summary style="cursor:pointer;font-size:13.5px;font-weight:700;color:var(--navy);">🧩 Who needs somebody like this</summary>
+          <div id="apMatchHost" style="margin-top:9px;"></div>
+        </details>
         <div id="recHostInterview" style="margin-top:12px;"></div>
         <div id="apIntForm" style="margin-top:12px;"></div>
 
@@ -12172,6 +12179,129 @@ function apToOffer(id, answers){
   }, 220);
 }
 
+/* ---- Who needs somebody like this ------------------------------------------
+   The question that closes an interview is not "do you have any questions for
+   us", it is "Mrs K is in Nixa, Tuesday and Thursday mornings, twelve minutes
+   from you — could you do that?" Saying that in the room is worth more than
+   any callback.
+
+   Everything here comes from what the hub already holds: the coverage gaps
+   somebody has opened, and where our clients actually are. It does NOT know
+   ongoing unfilled hours, because those live in AxisCare, and it says so
+   rather than pretending otherwise. */
+let ZIPS = null;
+
+async function zipsLoad(){
+  if(ZIPS) return ZIPS;
+  try{
+    const { data, error } = await sb.from('zip_points').select('zip,city,lat,lon');
+    if(error) throw error;
+    ZIPS = {}; (data||[]).forEach(z=>{ ZIPS[z.zip] = z; });
+  }catch(e){ ZIPS = {}; }
+  return ZIPS;
+}
+const zipClean = z => String(z||'').replace(/[^0-9]/g,'').slice(0,5);
+function milesApart(a, b){
+  if(!ZIPS) return null;
+  const p = ZIPS[zipClean(a)], q = ZIPS[zipClean(b)];
+  if(!p || !q) return null;
+  const R = 3958.8, rad = d => d*Math.PI/180;
+  const dp = rad(q.lat-p.lat), dl = rad(q.lon-p.lon);
+  const h = Math.sin(dp/2)**2 + Math.cos(rad(p.lat))*Math.cos(rad(q.lat))*Math.sin(dl/2)**2;
+  return Math.round(2*R*Math.asin(Math.sqrt(h))*10)/10;
+}
+
+/* Clients, with wherever we know them to be. The roster is built from leads and
+   assessments, so the address comes from whichever of those has one. */
+function matchClients(){
+  const roster = (typeof getClientRoster === 'function') ? getClientRoster() : [];
+  return roster.map(c=>{
+    const l = c.lead || {}, a = c.assessment || {};
+    const zip = l.client_zip || (String(a.address||'').match(/\b(6[45]\d{3})\b/)||[])[1] || '';
+    const town = l.client_city || (String(a.address||'').split(',')[1]||'').trim() || '';
+    return { name: c.client_name, zip, town, coordinator: a.coordinator || '', payer: a.payer || '' };
+  }).filter(c=>c.name && c.name !== '(unnamed)');
+}
+
+const MATCH_DAY = ['sun','mon','tue','wed','thu','fri','sat'];
+
+function apMatchHtml(r){
+  const esc = escapeHtmlComms;
+  const A = (window.__apInt = window.__apInt || {});
+  const zip = r.zip;
+  const avail = A.availability || null;
+  const shift = A.shift || null;
+
+  /* The roster is rebuilt from leads and assessments every time it is asked
+     for, so ask once. */
+  const clients = matchClients();
+
+  /* Open coverage gaps they could actually take. A gap on a day they cannot
+     work is not a match, and offering it in the room wastes the moment. */
+  const gaps = (DATA.coverage_cases || []).filter(c=>c.status==='open').map(c=>{
+    const d = c.shift_date ? new Date(c.shift_date+'T12:00:00') : null;
+    const day = d && !isNaN(d) ? MATCH_DAY[d.getDay()] : null;
+    const cl = clients.find(x=>x.name && c.client &&
+      x.name.toLowerCase().includes(String(c.client).toLowerCase().split(' ')[0]));
+    const mi = cl ? milesApart(zip, cl.zip) : null;
+    const dayOk = !avail || !day || !!avail[day];
+    const t = String(c.shift_time||'').toLowerCase();
+    const nightish = /(^|\D)(9|10|11|12)\s*p|overnight|night/.test(t);
+    const shiftOk = !shift || (shift==='nights' ? nightish : !nightish);
+    return { c, day, mi, town: cl && cl.town, fits: dayOk && shiftOk };
+  });
+  const fitting = gaps.filter(g=>g.fits);
+
+  /* And who we look after near them, which is the honest answer to "is there
+     anybody by me" even when nothing is open today. */
+  const near = zip ? clients.map(c=>({ c, mi: milesApart(zip, c.zip) }))
+      .filter(x=>x.mi !== null && x.mi <= 25).sort((a,b)=>a.mi-b.mi).slice(0,6) : [];
+
+  let out = '';
+  if(fitting.length){
+    out += '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:5px;">'
+      + 'Open right now that they could take</div>'
+      + fitting.slice(0,6).map(g=>
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--border);">'
+        + '<b style="color:var(--navy);">' + esc(g.c.client) + '</b>'
+        + '<span class="field-note">' + esc([g.c.shift_date, g.c.shift_time, g.town].filter(Boolean).join(' · ')) + '</span>'
+        + '<span style="flex:1;"></span>'
+        + (g.mi !== null ? '<span style="font-size:11.5px;font-weight:700;color:#1c6b45;background:#e8f1ec;border-radius:999px;padding:2px 9px;">'
+            + g.mi + ' mi away</span>' : '')
+        + '</div>').join('');
+  }
+  if(near.length){
+    out += '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:' + (out?'14px':'0') + ' 0 5px;">'
+      + 'Clients near them</div>'
+      + near.map(x=>'<div style="display:flex;gap:8px;align-items:center;font-size:13.5px;padding:4px 0;border-bottom:1px dashed var(--border);">'
+        + '<span>' + esc(x.c.name) + '</span>'
+        + (x.c.town ? '<span class="field-note">' + esc(x.c.town) + '</span>' : '')
+        + '<span style="flex:1;"></span>'
+        + '<span class="field-note">' + x.mi + ' mi</span></div>').join('');
+  }
+  if(!out){
+    out = '<div class="field-note">'
+      + (zip ? 'Nothing open that matches their days, and no client within 25 miles of ' + esc(zip) + '.'
+             : 'Nothing open that matches what they have told us so far.')
+      + '</div>';
+  }
+  /* Said whether or not anything matched, because a list with no distances on
+     it looks like there is nothing near them rather than like we do not know. */
+  if(!zip) out += '<div class="field-note" style="margin-top:7px;color:#B45309;">'
+    + 'They did not give a zip code, so nothing here is measured by distance. Ask where they are.</div>';
+  return out
+    + '<div class="field-note" style="margin-top:9px;border-top:1px solid var(--border);padding-top:8px;">'
+    + 'Coverage gaps somebody has opened, and clients we already have. Ongoing unfilled hours live in AxisCare, '
+    + 'so check there before you promise anybody a schedule.</div>';
+}
+
+async function apMatchMount(r){
+  const host = document.getElementById('apMatchHost'); if(!host) return;
+  host.innerHTML = '<div class="field-note">Looking…</div>';
+  await zipsLoad();
+  host.innerHTML = apMatchHtml(r);
+}
+
 /* ---- Recording the room ----------------------------------------------------
    An interview and an in-home assessment both end the same way today: somebody
    typing up what they can remember, or pasting a transcript back in from a
@@ -12929,6 +13059,14 @@ function apIntRender(){
     + '</div>';
 
   document.getElementById('apIntForm').innerHTML = html;
+
+  /* Their days and shift are being filled in as the conversation goes, and the
+     match changes with them. No extra queries: the zip table is already held. */
+  const mh = document.getElementById('apMatchHost');
+  if(mh && ZIPS){
+    const r = AP_ROWS.find(x=>String(x.id)===String((document.getElementById('apIntId')||{}).value));
+    if(r) mh.innerHTML = apMatchHtml(r);
+  }
 }
 function apIntSkill(k,v){
   const A = (window.__apInt = window.__apInt || {});
@@ -12958,6 +13096,7 @@ async function apInterview(id){
   const c = document.getElementById('apIntCard');
   c.style.display='block';
   recMount('recHostInterview', 'interview', r.id, ((r.first_name||'')+' '+(r.last_name||'')).trim());
+  apMatchMount(r);
   c.scrollIntoView({behavior:'smooth', block:'center'});
 }
 
