@@ -2958,6 +2958,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="offnav-b" id="rcnav-social"    onclick="rcView('social')">📱 Social posts</button>
         <button class="offnav-b" id="rcnav-indeed"    onclick="rcView('indeed')">🔎 Indeed &amp; Augusta</button>
         <button class="offnav-b" id="rcnav-numbers"   onclick="rcView('numbers')">📊 How hiring is going</button>
+        <button class="offnav-b" id="rcnav-script"    onclick="rcView('script')">🗣 Interview questions</button>
         <button class="offnav-b" id="rcnav-dnr"       onclick="rcView('dnr')">🚫 Do not rehire</button>
       </div>
 
@@ -3194,6 +3195,26 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
 
         <div id="rnBody"><div class="field-note">Loading…</div></div>
+      </div>
+
+      <!-- The questions themselves, out of the Word files and into one place
+           two coordinators can both work from. -->
+      <div class="rcview" id="rcview-script" style="display:none;">
+        <div class="card" style="padding:16px 18px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <b style="font-size:15px;color:var(--navy);">🗣 What we ask at interview</b>
+            <select id="iqPos" onchange="iqRender()" style="font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;"></select>
+            <span style="flex:1;"></span>
+            <button class="secondary" onclick="iqAdd()">＋ Add a question</button>
+            <button class="ghost" onclick="iqLoad(this)">↻ Refresh</button>
+          </div>
+          <div class="field-note" style="margin-top:4px;">
+            These are the questions the interview screen walks through, in this order. Where a question has a
+            <b>No go / Acceptable / Amazing</b> guide, the interviewer picks one as they go, which is what makes
+            two coordinators' interviews comparable afterwards. Edit anything here and the next interview uses it.
+          </div>
+          <div id="iqList" style="margin-top:12px;"><div class="field-note">Loading…</div></div>
+        </div>
       </div>
 
       <!-- The list that stops a former employee getting all the way to an
@@ -10618,7 +10639,7 @@ function offView(name){
 let rcCurrent = 'postings';
 function rcView(name){
   rcCurrent = name;
-  ['postings','positions','words','social','indeed','numbers','dnr'].forEach(function(v){
+  ['postings','positions','words','social','indeed','numbers','script','dnr'].forEach(function(v){
     const panel = document.getElementById('rcview-'+v);
     const btn   = document.getElementById('rcnav-'+v);
     if(panel) panel.style.display = (v===name) ? '' : 'none';
@@ -10627,7 +10648,164 @@ function rcView(name){
   if(name==='words')   jtLoad().then(jtRenderList);
   if(name==='social')  scLoad();
   if(name==='numbers') rnLoad();
+  if(name==='script')  iqLoad();
   if(name==='dnr')     dnrLoad();
+}
+
+/* ---- The questions we ask ---------------------------------------------------
+   They lived in three Word files and a PDF, which is how two coordinators end
+   up asking different things and nobody can compare two applicants afterwards.
+   Here they are one list, in order, editable, and the answers are stored
+   against the question rather than in a single notes box.
+
+   The No go / Acceptable / Amazing guide came off the LPN phone sheet, which
+   is the only one of the three that had it. It is the part that makes two
+   people's interviews mean the same thing.
+   Requires recruit-interview.sql. */
+let IQ = [], IQ_POS = 'caregiver';
+
+async function iqLoad(btn){
+  const box = document.getElementById('iqList'); if(!box) return;
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    const { data, error } = await sb.from('interview_questions').select('*').order('position').order('sort');
+    if(error) throw error;
+    IQ = data || [];
+    iqFillPositions();
+    iqRender();
+  }catch(e){
+    box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load the questions: '
+      + escapeHtmlComms(e && e.message || 'error')
+      + '<br>If this mentions a missing table, run <b>recruit-interview.sql</b> in the Supabase SQL editor.</div>';
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+
+function iqFillPositions(){
+  const sel = document.getElementById('iqPos'); if(!sel) return;
+  const keys = [...new Set(IQ.map(q=>q.position))];
+  if(!keys.length) keys.push('caregiver');
+  if(!keys.includes(IQ_POS)) IQ_POS = keys[0];
+  sel.innerHTML = keys.map(k=>{
+    const label = (typeof PB !== 'undefined' && (PB.find(p=>p.key===k)||{}).label) || k;
+    return '<option value="'+escapeHtmlComms(k)+'"'+(k===IQ_POS?' selected':'')+'>'+escapeHtmlComms(label)+'</option>';
+  }).join('');
+  sel.onchange = function(){ IQ_POS = this.value; iqRender(); };
+}
+
+function iqRender(){
+  const box = document.getElementById('iqList'); if(!box) return;
+  const esc = escapeHtmlComms;
+  IQ_POS = (document.getElementById('iqPos')||{}).value || IQ_POS;
+  const rows = IQ.filter(q=>q.position===IQ_POS);
+  if(!rows.length){
+    box.innerHTML = '<div class="field-note">No questions for this role yet. <b>＋ Add a question</b> starts the list.</div>';
+    return;
+  }
+  let section = null;
+  box.innerHTML = rows.map((q,i)=>{
+    const head = q.section !== section
+      ? (section=q.section, '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;'
+          + 'color:var(--text-muted);margin:16px 0 6px;">' + esc(q.section) + '</div>')
+      : '';
+    const r = q.rubric || {};
+    return head
+      + '<details style="background:#fff;border:1px solid ' + (q.active?'var(--border)':'#EDEAE3') + ';border-radius:11px;'
+        + 'margin-bottom:.5rem;' + (q.active?'':'opacity:.65;') + '">'
+      + '<summary style="cursor:pointer;list-style:none;display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .9rem;">'
+        + '<span style="font-size:13.5px;color:var(--text);flex:1;">' + esc(q.question) + '</span>'
+        + (q.optional ? '<span style="font-size:11px;font-weight:700;color:#6E6559;background:#F4F2ED;border-radius:999px;padding:2px 8px;white-space:nowrap;">only if it applies</span>' : '')
+        + (q.rubric ? '<span style="font-size:11px;font-weight:700;color:#1D4ED8;background:#DBEAFE;border-radius:999px;padding:2px 8px;white-space:nowrap;">has a guide</span>' : '')
+        + '<span style="color:#A89C8B;font-size:.74rem;">edit ▾</span>'
+      + '</summary><div style="padding:0 .9rem .9rem;">'
+      + '<label>The question</label><textarea id="iq_q_'+i+'" rows="2">'+esc(q.question)+'</textarea>'
+      + '<label>What it is for <span style="font-weight:400;color:var(--text-muted);">(shown to the interviewer, never asked)</span></label>'
+      + '<input id="iq_g_'+i+'" value="'+esc(q.guidance||'')+'">'
+      + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:12px 0 4px;">How to judge the answer</div>'
+      + '<div class="field-note" style="margin:0 0 7px;">Leave these empty and the question is just a question. Fill them in and the interviewer picks one while they listen.</div>'
+      + '<label>No go</label><input id="iq_n_'+i+'" value="'+esc(r.no_go||'')+'">'
+      + '<label>Acceptable</label><input id="iq_a_'+i+'" value="'+esc(r.acceptable||'')+'">'
+      + '<label>Amazing</label><input id="iq_m_'+i+'" value="'+esc(r.amazing||'')+'">'
+      + '<div class="grid2" style="margin-top:10px;">'
+        + '<div><label>Section</label><input id="iq_s_'+i+'" value="'+esc(q.section)+'"></div>'
+        + '<div><label>Order</label><input id="iq_o_'+i+'" inputmode="numeric" value="'+esc(q.sort)+'"></div>'
+      + '</div>'
+      + '<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px;">'
+        + '<input type="checkbox" id="iq_x_'+i+'"'+(q.optional?' checked':'')+' style="width:16px;height:16px;accent-color:var(--yellow);">'
+        + 'Only ask this when it applies</label>'
+      + '<div style="display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:12px;">'
+        + '<button class="primary" onclick="iqSave('+i+',this)">Save</button>'
+        + '<button class="fb" onclick="iqToggle('+i+')">'+(q.active?'Stop asking this':'Ask it again')+'</button>'
+        + '<span style="flex:1;"></span>'
+        + '<button class="fb" style="color:var(--red);" onclick="iqDelete('+i+')">Delete</button>'
+        + '<span class="field-note" id="iq_msg_'+i+'"></span>'
+      + '</div></div></details>';
+  }).join('');
+}
+
+const iqRow = i => IQ.filter(q=>q.position===IQ_POS)[i];
+
+async function iqSave(i, btn){
+  const q = iqRow(i); if(!q) return;
+  const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : ''; };
+  const rub = { no_go: v('iq_n_'+i), acceptable: v('iq_a_'+i), amazing: v('iq_m_'+i) };
+  const any = rub.no_go || rub.acceptable || rub.amazing;
+  const patch = {
+    question: v('iq_q_'+i) || q.question,
+    guidance: v('iq_g_'+i) || null,
+    rubric: any ? rub : null,
+    section: v('iq_s_'+i) || q.section,
+    sort: Number(v('iq_o_'+i)) || q.sort,
+    optional: !!(document.getElementById('iq_x_'+i)||{}).checked,
+  };
+  const msg = document.getElementById('iq_msg_'+i);
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    const { error } = await sb.from('interview_questions').update(patch).eq('id', q.id);
+    if(error) throw error;
+    Object.assign(q, patch);
+    msg.style.color=''; msg.textContent = 'Saved. The next interview uses it.';
+    setTimeout(()=>{ if(msg) msg.textContent=''; }, 3000);
+    iqRender();
+  }catch(e){
+    msg.style.color='var(--red)'; msg.textContent = 'Could not save: '+(e&&e.message||'error');
+  }finally{ btn.disabled=false; btn.textContent='Save'; }
+}
+
+async function iqToggle(i){
+  const q = iqRow(i); if(!q) return;
+  try{
+    const { error } = await sb.from('interview_questions').update({ active: !q.active }).eq('id', q.id);
+    if(error) throw error;
+    await iqLoad();
+  }catch(e){ alert('Could not change that: '+(e&&e.message||'error')); }
+}
+
+async function iqDelete(i){
+  const q = iqRow(i); if(!q) return;
+  if(!confirm('Delete this question?\n\nInterviews already recorded keep the answer somebody gave to it.')) return;
+  try{
+    const { error } = await sb.from('interview_questions').delete().eq('id', q.id);
+    if(error) throw error;
+    await iqLoad();
+  }catch(e){ alert('Could not delete it: '+(e&&e.message||'error')); }
+}
+
+async function iqAdd(){
+  const text = prompt('What is the question?\n\nWord it the way you would say it out loud.');
+  if(text===null) return;
+  if(!text.trim()){ alert('It needs a question.'); return; }
+  const rows = IQ.filter(q=>q.position===IQ_POS);
+  const section = prompt('Which part of the interview does it belong to?',
+    (rows[rows.length-1]||{}).section || 'Where they have been');
+  if(section===null) return;
+  try{
+    const { error } = await sb.from('interview_questions').insert({
+      position: IQ_POS, section: section.trim() || 'Other',
+      question: text.trim(),
+      sort: (rows.length ? Math.max.apply(null, rows.map(q=>q.sort||0)) : 0) + 10 });
+    if(error) throw error;
+    await iqLoad();
+  }catch(e){ alert('Could not add it: '+(e&&e.message||'error')); }
 }
 
 /* ---- People we would not take back ----------------------------------------
@@ -12177,7 +12355,33 @@ function apProfInterview(r){
   }
   const label = { yes:'Yes', no:'No', outside:'Only outside', none:'No experience', some:'Some', lots:'Very experienced' };
   const say = v => label[v] || esc(v||'');
-  let out = AP_QS.filter(([k])=>A[k]).map(([k,q])=>apProfRow(esc(q), say(A[k]))).join('');
+
+  /* What they actually said, question by question. This is the part of an
+     interview that used to live in one notes box, or in somebody's head. */
+  let out = '';
+  const S = A.script || {};
+  const asked = Object.keys(S).filter(k=>S[k] && (S[k].score || S[k].note));
+  if(asked.length){
+    const TONE = { no_go:['#B91C1C','#FEE2E2','No go'], acceptable:['#B45309','#FEF3C7','Acceptable'], amazing:['#15803D','#DCFCE7','Amazing'] };
+    out += asked.map(k=>{
+      const q = IQ.find(x=>String(x.id)===String(k));
+      const a = S[k], t = TONE[a.score];
+      return '<div style="border-bottom:1px dashed var(--border);padding:8px 0;">'
+        + '<div style="font-size:13px;color:var(--text-muted);">' + esc(q ? q.question : 'A question since removed') + '</div>'
+        + (a.note ? '<div style="font-size:13.5px;margin-top:3px;white-space:pre-wrap;">' + esc(a.note) + '</div>' : '')
+        + (t ? '<span style="display:inline-block;margin-top:5px;font-size:11px;font-weight:700;color:'+t[0]
+            +';background:'+t[1]+';border-radius:999px;padding:2px 9px;">'+t[2]+'</span>' : '')
+        + '</div>';
+    }).join('');
+    const scores = asked.map(k=>S[k].score).filter(Boolean);
+    if(scores.length) out += '<div class="field-note" style="margin:10px 0 4px;">'
+      + scores.filter(s=>s==='amazing').length + ' amazing · '
+      + scores.filter(s=>s==='acceptable').length + ' acceptable · '
+      + scores.filter(s=>s==='no_go').length + ' no go, across ' + scores.length + ' scored questions.</div>';
+    out += '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);'
+      + 'margin:16px 0 6px;">Matching them to a client</div>';
+  }
+  out += AP_QS.filter(([k])=>A[k]).map(([k,q])=>apProfRow(esc(q), say(A[k]))).join('');
   const skills = Object.entries(A.skills||{}).filter(([,v])=>v);
   if(skills.length){
     const names = Object.fromEntries(AP_SKILLS);
@@ -12333,6 +12537,67 @@ function apIntQuick(which){
   apIntRender();
 }
 
+/* The script, at the top of the interview screen, because it is what you
+   actually say. The checkboxes underneath are about matching somebody to a
+   client, which is a different job done after they have stopped talking. */
+function apScriptHtml(r){
+  const esc = escapeHtmlComms;
+  const A = (window.__apInt = window.__apInt || {});
+  A.script = A.script || {};
+  const pos = (r && r.position) || 'caregiver';
+  let rows = IQ.filter(q=>q.active && q.position===pos);
+  if(!rows.length) rows = IQ.filter(q=>q.active && q.position==='caregiver');
+  if(!rows.length){
+    return '<div class="field-note" style="margin-bottom:12px;">No interview questions set up yet. '
+      + '<b>Recruit &rarr; Interview questions</b> holds them, and running recruit-interview.sql fills it '
+      + 'with the sheets we already use.</div>';
+  }
+  let section = null;
+  return '<div style="margin-bottom:18px;">' + rows.map(q=>{
+    const a = A.script[q.id] || {};
+    const head = q.section !== section
+      ? (section=q.section, '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;'
+          + 'color:var(--text-muted);margin:16px 0 6px;">' + esc(q.section) + '</div>')
+      : '';
+    const pick = (v,label,tone) =>
+      '<button type="button" class="fb" style="' + (a.score===v
+        ? 'background:'+tone+';color:#fff;border-color:'+tone+';' : '') + '" '
+      + 'onclick="apScriptScore(\''+esc(q.id)+'\',\''+v+'\')">' + label + '</button>';
+    const r2 = q.rubric || {};
+    return head
+      + '<div style="border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:9px;background:#fff;">'
+      + '<div style="font-size:14px;color:var(--text);line-height:1.5;">' + esc(q.question)
+        + (q.optional ? ' <span style="font-size:11px;font-weight:700;color:#6E6559;background:#F4F2ED;border-radius:999px;padding:2px 8px;">only if it applies</span>' : '')
+      + '</div>'
+      + (q.guidance ? '<div class="field-note" style="margin-top:4px;">' + esc(q.guidance) + '</div>' : '')
+      + (q.rubric
+          ? '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;">'
+            + pick('no_go','No go','#B91C1C') + pick('acceptable','Acceptable','#B45309') + pick('amazing','Amazing','#15803D')
+            + '</div>'
+            + '<div class="field-note" style="margin-top:6px;line-height:1.6;">'
+            + (r2.no_go ? '<b>No go:</b> ' + esc(r2.no_go) + '<br>' : '')
+            + (r2.acceptable ? '<b>Acceptable:</b> ' + esc(r2.acceptable) + '<br>' : '')
+            + (r2.amazing ? '<b>Amazing:</b> ' + esc(r2.amazing) : '')
+            + '</div>'
+          : '')
+      + '<textarea rows="2" placeholder="What they said…" style="margin-top:9px;"'
+        + ' oninput="apScriptNote(\''+esc(q.id)+'\',this.value)">' + esc(a.note||'') + '</textarea>'
+      + '</div>';
+  }).join('') + '</div>';
+}
+function apScriptScore(id, v){
+  const A = (window.__apInt = window.__apInt || {});
+  A.script = A.script || {}; A.script[id] = A.script[id] || {};
+  A.script[id].score = (A.script[id].score === v) ? null : v;
+  apIntRender();
+}
+/* Typing must not re-render, or the box loses focus mid-sentence. */
+function apScriptNote(id, v){
+  const A = (window.__apInt = window.__apInt || {});
+  A.script = A.script || {}; A.script[id] = A.script[id] || {};
+  A.script[id].note = v;
+}
+
 function apIntRender(){
   const A = (window.__apInt = window.__apInt || {});
   const esc = escapeHtmlComms;
@@ -12344,7 +12609,10 @@ function apIntRender(){
     '<button type="button" class="fb" style="'+(A[key]===val?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
     + '" onclick="apIntPick(\''+key+'\',\''+val+'\')">'+esc(lab)+'</button>';
 
-  let html = AP_QS.map(([k,q,opts]) => row(esc(q), opts.map(([v,l])=>opt(k,v,l)).join(''))).join('');
+  let html = apScriptHtml(AP_ROWS.find(x=>String(x.id)===String((document.getElementById('apIntId')||{}).value)))
+    + '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);'
+      + 'margin:6px 0 8px;border-top:1px solid var(--border);padding-top:14px;">Matching them to a client</div>'
+    + AP_QS.map(([k,q,opts]) => row(esc(q), opts.map(([v,l])=>opt(k,v,l)).join(''))).join('');
 
   html += row('Comfortable working with', ['males','females'].map(g=>
     '<button type="button" class="fb" style="'+(((A.works_with||{})[g])?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
@@ -12381,8 +12649,11 @@ function apIntSkill(k,v){
   apIntRender();
 }
 
-function apInterview(id){
+async function apInterview(id){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  /* The script has to be here before the screen draws, or the first thing an
+     interviewer sees is the checkboxes and they start there. */
+  if(!IQ.length){ try{ await iqLoad(); }catch(e){} }
   window.__apInt = r.post_interview ? JSON.parse(JSON.stringify(r.post_interview)) : {};
   /* Start from what they said on the form, so the interview confirms an answer
      rather than asking from scratch. */
