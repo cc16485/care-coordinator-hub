@@ -2784,6 +2784,43 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
       </div>
 
+      <!-- Availability belongs to a person, not to the agency. Angiel's Tuesday
+           mornings and Krystal's Thursday afternoons are different things, and
+           an applicant is offered a time when either of them is free. -->
+      <div class="card" style="padding:16px 18px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">📅 Who interviews, and when</b>
+          <span class="field-note">applicants are offered these times the moment they finish applying.</span>
+          <span style="flex:1;"></span>
+          <button class="secondary" onclick="ivAddHost()">＋ Add coordinator</button>
+          <button class="ghost" onclick="ivLoad(this)">↻ Refresh</button>
+        </div>
+        <div id="ivHosts" style="margin-top:12px;"><div class="field-note">Loading…</div></div>
+
+        <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">Interview length, notice and how far ahead</summary>
+          <div class="grid2" style="margin-top:10px;">
+            <div><label>How long is an interview? <span style="font-weight:400;color:var(--text-muted);">(minutes)</span></label>
+              <input id="iv_len" inputmode="numeric" placeholder="30"></div>
+            <div><label>Least notice you will accept <span style="font-weight:400;color:var(--text-muted);">(hours)</span></label>
+              <input id="iv_lead" inputmode="numeric" placeholder="20"></div>
+          </div>
+          <div class="grid2">
+            <div><label>Show times this far ahead <span style="font-weight:400;color:var(--text-muted);">(days)</span></label>
+              <input id="iv_horizon" inputmode="numeric" placeholder="14"></div>
+            <div></div>
+          </div>
+          <label>What to tell them about finding you</label>
+          <input id="iv_note" placeholder="Park in the lot out front, then come in through the first floor door on the left.">
+          <label>Photo of the entrance <span style="font-weight:400;color:var(--text-muted);">(a link, optional)</span></label>
+          <input id="iv_photo" placeholder="https://mo-care.com/assets/photos/office-entrance.jpg">
+          <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+            <button class="primary" onclick="ivSaveSettings(this)">Save</button>
+            <span class="field-note">Changing these changes what the next applicant is offered. Nothing already booked moves.</span>
+          </div>
+        </details>
+      </div>
+
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <b style="font-size:15px;color:var(--navy);">💵 Approved hourly rates</b>
@@ -6246,7 +6283,7 @@ function renderActiveTab(){
   ccRenderViewAs();
   ccRenderPulse();
   nurseModeCheck();
-  if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); }
+  if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); ivLoad(); }
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
@@ -10092,6 +10129,147 @@ function jpFill(p){
   const ed=document.getElementById('jpEditor'); ed.style.display='block';
   ed.scrollIntoView({behavior:'smooth',block:'center'});
 }
+/* ---- Who interviews, and when ---------------------------------------------
+   Requires interview-booking.sql. Availability belongs to a coordinator, so
+   this is a person with blocks of time rather than one agency-wide schedule.
+   An applicant is offered a slot when at least one of them is free. */
+const IV_DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+let IV_HOSTS = [], IV_AVAIL = [];
+
+const ivTime = t => {                       // "14:30:00" -> "2:30 PM"
+  const m = String(t||'').match(/^(\d{1,2}):(\d{2})/); if(!m) return t||'';
+  let h = +m[1]; const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  return h + ':' + m[2] + ' ' + ap;
+};
+
+async function ivLoad(btn){
+  const box = document.getElementById('ivHosts'); if(!box) return;
+  if(btn){ btn.disabled = true; btn.textContent = '↻ Loading…'; }
+  try{
+    const [h, a, s] = await Promise.all([
+      sb.from('interview_hosts').select('*').order('name'),
+      sb.from('interview_availability').select('*'),
+      sb.from('interview_settings').select('*').eq('id',1).maybeSingle(),
+    ]);
+    if(h.error) throw h.error;
+    IV_HOSTS = h.data || []; IV_AVAIL = a.data || [];
+    const st = s.data;
+    if(st){
+      const v=(id,val)=>{ const e=document.getElementById(id); if(e) e.value = val==null?'':val; };
+      v('iv_len',st.slot_minutes); v('iv_lead',st.lead_hours); v('iv_horizon',st.horizon_days);
+      v('iv_note',st.note); v('iv_photo',st.photo_url);
+    }
+    ivRender();
+  }catch(e){
+    box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load: '
+      + escapeHtmlComms(e && e.message || 'error')
+      + '<br>If this mentions a missing table, run <b>job-applicants.sql</b> and then <b>interview-booking.sql</b> in the Supabase SQL editor, in that order.</div>';
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+
+function ivRender(){
+  const box = document.getElementById('ivHosts'); if(!box) return;
+  const esc = escapeHtmlComms;
+  if(!IV_HOSTS.length){
+    box.innerHTML = '<div class="field-note">Nobody is set up to interview yet, so applicants are told we will call them. '
+      + '<b>＋ Add coordinator</b> and give them some hours to start offering times.</div>';
+    return;
+  }
+  box.innerHTML = IV_HOSTS.map(h=>{
+    const mine = IV_AVAIL.filter(a=>String(a.host_id)===String(h.id))
+      .sort((x,y)=> x.day_of_week - y.day_of_week || String(x.start_time).localeCompare(String(y.start_time)));
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;'
+      + (h.active?'background:#fff;':'background:#FAF9F6;opacity:.72;') + '">'
+      + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">'
+      + '<b style="font-size:14.5px;color:var(--navy);">' + esc(h.name) + '</b>'
+      + (h.active?'':'<span style="font-size:11.5px;font-weight:700;color:#6E6559;background:#F4F2ED;border-radius:999px;padding:2px 9px;">not interviewing</span>')
+      + '<span style="flex:1;"></span>'
+      + '<button class="fb" onclick="ivAddBlock(\''+esc(h.id)+'\')">＋ Add hours</button>'
+      + '<button class="fb" onclick="ivToggleHost(\''+esc(h.id)+'\','+(h.active?'false':'true')+')">'
+        + (h.active?'Pause':'Resume') + '</button>'
+      + '</div>'
+      + (mine.length
+          ? '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;">' + mine.map(a=>
+              '<span style="display:inline-flex;align-items:center;gap:7px;background:var(--bg);border:1px solid var(--border);'
+              + 'border-radius:999px;padding:4px 6px 4px 12px;font-size:12.5px;'
+              + (a.active?'':'opacity:.5;text-decoration:line-through;') + '">'
+              + esc(IV_DAYS[a.day_of_week]) + ' ' + esc(ivTime(a.start_time)) + ' – ' + esc(ivTime(a.end_time))
+              + '<button class="fb" style="padding:1px 7px;font-size:11px;" title="Remove"'
+              + ' onclick="ivDelBlock(\''+esc(a.id)+'\')">✕</button></span>').join('') + '</div>'
+          : '<div class="field-note" style="margin-top:7px;">No hours set, so no times are offered for '+esc(h.name)+'.</div>')
+      + '</div>';
+  }).join('');
+}
+
+async function ivAddHost(){
+  const name = prompt('Which coordinator interviews?\n\nTheir name as applicants would hear it.');
+  if(name===null) return;
+  if(!name.trim()){ alert('It needs a name.'); return; }
+  try{
+    const { error } = await sb.from('interview_hosts').insert({ name: name.trim() });
+    if(error) throw error;
+    await ivLoad();
+  }catch(e){ alert('Could not add them: '+(e&&e.message||'error')); }
+}
+
+async function ivToggleHost(id, active){
+  try{
+    const { error } = await sb.from('interview_hosts').update({ active }).eq('id', id);
+    if(error) throw error;
+    await ivLoad();
+  }catch(e){ alert('Could not change that: '+(e&&e.message||'error')); }
+}
+
+/* Asked as three plain questions rather than a form, because adding hours is
+   something you do once in a while and a modal for it would be overkill. */
+async function ivAddBlock(hostId){
+  const dayIn = prompt('Which day?\n\n0 Sunday · 1 Monday · 2 Tuesday · 3 Wednesday · 4 Thursday · 5 Friday · 6 Saturday', '2');
+  if(dayIn===null) return;
+  const day = parseInt(dayIn,10);
+  if(!(day>=0 && day<=6)){ alert('That needs to be a number from 0 to 6.'); return; }
+  const from = prompt('From what time? Use 24-hour, so 9am is 09:00 and 1pm is 13:00.', '10:00');
+  if(from===null) return;
+  const to = prompt('Until what time?', '15:00');
+  if(to===null) return;
+  const ok = t => /^([01]?\d|2[0-3]):[0-5]\d$/.test(String(t).trim());
+  if(!ok(from) || !ok(to)){ alert('Times need to look like 09:00 or 14:30.'); return; }
+  if(String(to).trim() <= String(from).trim()){ alert('The end has to be after the start.'); return; }
+  try{
+    const { error } = await sb.from('interview_availability').insert({
+      host_id: hostId, day_of_week: day, start_time: from.trim(), end_time: to.trim() });
+    if(error) throw error;
+    await ivLoad();
+  }catch(e){ alert('Could not add those hours: '+(e&&e.message||'error')); }
+}
+
+async function ivDelBlock(id){
+  const a = IV_AVAIL.find(x=>String(x.id)===String(id));
+  const label = a ? IV_DAYS[a.day_of_week]+' '+ivTime(a.start_time)+' – '+ivTime(a.end_time) : 'these hours';
+  if(!confirm('Remove '+label+'?\n\nInterviews already booked in that time stay booked.')) return;
+  try{
+    const { error } = await sb.from('interview_availability').delete().eq('id', id);
+    if(error) throw error;
+    await ivLoad();
+  }catch(e){ alert('Could not remove that: '+(e&&e.message||'error')); }
+}
+
+async function ivSaveSettings(btn){
+  const n = id => { const v = (document.getElementById(id).value||'').trim(); return v===''?null:parseInt(v,10); };
+  const t = id => { const v = (document.getElementById(id).value||'').trim(); return v===''?null:v; };
+  const row = { slot_minutes: n('iv_len') || 30, lead_hours: n('iv_lead') ?? 20,
+                horizon_days: n('iv_horizon') || 14, note: t('iv_note'), photo_url: t('iv_photo') };
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  try{
+    const { error } = await sb.from('interview_settings').update(row).eq('id', 1);
+    if(error) throw error;
+    if(btn) btn.textContent = 'Saved ✓';
+    setTimeout(()=>{ if(btn){ btn.disabled=false; btn.textContent='Save'; } }, 1400);
+  }catch(e){
+    if(btn){ btn.disabled=false; btn.textContent='Save'; }
+    alert('Could not save: '+(e&&e.message||'error'));
+  }
+}
+
 /* ---- Reusable descriptions ------------------------------------------------
    Requires job-templates.sql. Internal only: a template is a draft, not an
    advert, so unlike postings these are never readable by the public. */
