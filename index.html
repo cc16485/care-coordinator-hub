@@ -678,7 +678,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="ftab active" data-g="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> Overview<span class="subtab-badge red" id="todayBadge" style="display:none;"></span></div>
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Care Coordinator<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
-    <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Hiring</div>
+    <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Hiring<span class="subtab-badge red" id="gb-hiring" style="display:none;"></span></div>
+    <div class="ftab" data-g="caregivers" onclick="ccGroupClick('caregivers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Our Caregivers</div>
     <div class="ftab" data-g="ops" onclick="ccGroupClick('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention<span class="subtab-badge red" id="gb-ops" style="display:none;"></span></div>
     <div class="ftab" data-g="nursing" onclick="ccGroupClick('nursing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nursing<span class="subtab-badge red" id="gb-nursing" style="display:none;"></span></div>
     <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
@@ -710,6 +711,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Offer a Job</div>
     <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Background &amp; References</div>
     <div class="fpill" data-tab="cgorient" onclick="switchTab('cgorient')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Orientations</div>
+  </div>
+  <div class="fsubbar" id="fsub-caregivers">
     <div class="fpill" data-tab="cgtraining" onclick="switchTab('cgtraining')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training</div>
     <div class="fpill" data-tab="cgcompliance" onclick="switchTab('cgcompliance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Active Compliance</div>
     <div class="fpill" data-tab="cgattendance" onclick="switchTab('cgattendance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Attendance</div>
@@ -2701,10 +2704,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Recruit</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Our job postings live in <b>Augusta</b>. <b>Staffing Coordinators and Care Coordinators can both check what is posted and post a position when one is needed</b> &mdash; you do not need to wait for approval to fill a shift you are already short on.</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Postings here publish to <b>mo-care.com/careers</b>, where Google for Jobs can find them, and applicants come straight into <b>Applicants</b>. Anyone can post a position when a shift needs filling; you do not need approval.</div>
         </div>
         <span style="flex:1;"></span>
-        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">🌱 Open Augusta ↗</a>
+        <a class="ghost" href="https://mo-care.com/careers" target="_blank" rel="noopener" style="text-decoration:none;">🔗 See our careers page</a>
+        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;" title="Augusta is still running alongside until the contract ends">Augusta ↗</a>
       </div>
 
       <!-- Postings we own. Augusta's pages are the ones Google indexes today,
@@ -2846,10 +2850,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Interviews</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Interviews are scheduled &amp; listed in <b>Augusta</b> (they also sync to your Google Calendar). Once someone is a good fit, use the <b>Offer a Job</b> tab.</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Applicants book their own interview when they apply, against the hours set on <b>Team &rarr; Calendar</b>. Once somebody is a good fit, <b>Make them an offer</b> carries their details across.</div>
         </div>
         <span style="flex:1;"></span>
-        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">🌱 Open Augusta — today's interviews ↗</a>
+        <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;" title="Augusta is still running alongside until the contract ends">Augusta ↗</a>
       </div>
 
       <!-- Applications from mo-care.com. Augusta's own board is still running
@@ -2868,8 +2872,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">📅 Booked interviews — from your Google Calendars</b>
-          <span class="field-note">Augusta books them straight onto each coordinator's calendar</span>
+          <b style="font-size:15px;color:var(--navy);">📅 Interviews booked through Augusta</b>
+          <span class="field-note">read from Google Calendar. Ours are above; this stays until the Augusta contract ends.</span>
           <span style="flex:1;"></span>
           <button class="ghost" onclick="renderCalInterviews(true,this)">↻ Refresh</button>
         </div>
@@ -5769,7 +5773,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans'],team:['inbox','comms','meetings','calls','calendar'],interviews:['recruit','interviews','offers','cgbackground','cgorient','cgtraining','cgcompliance','cgattendance','cgwriteups','supervisory'],ops:['ops','coverage'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook','teamsched'],settings:['settings']};
+const CC_GROUPS={today:['today'],clients:['leads','statesubs','bookings','assessments','soc','clientqueue','clients','checkins','carematch','careplans'],team:['inbox','comms','meetings','calls','calendar'],interviews:['recruit','interviews','offers','cgbackground','cgorient'],caregivers:['cgtraining','cgcompliance','cgattendance','cgwriteups','supervisory'],ops:['ops','coverage'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],campaigns:['campaigns','referrers','ltcpolicy','feedback','community','reports'],sops:['sops','playbook','teamsched'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -6209,7 +6213,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'New Clients — Needs Scheduling',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  meetings:'Meetings', calendar:'Team Calendar', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
+  meetings:'Meetings', calendar:'Team Calendar', interviews:'Applicants & Interviews', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Coverage Help', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
