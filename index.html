@@ -761,8 +761,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="cgorient" onclick="switchTab('cgorient')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Orientations</div>
   </div>
   <div class="fsubbar" id="fsub-caregivers">
-    <div class="fpill" data-tab="cgtraining" onclick="switchTab('cgtraining')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training</div>
-    <div class="fpill" data-tab="cgcompliance" onclick="switchTab('cgcompliance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Active Compliance</div>
+    <div class="fpill" data-tab="trainhub" onclick="switchTab('trainhub')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training</div>
+    <div class="fpill" data-tab="cgtraining" onclick="switchTab('cgtraining')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training Compliance</div>
+    <div class="fpill" data-tab="cgcompliance" onclick="switchTab('cgcompliance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Ongoing Background Checks</div>
   </div>
   <div class="fsubbar" id="fsub-performance">
     <div class="fpill" data-tab="cgattendance" onclick="switchTab('cgattendance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Attendance</div>
@@ -1304,6 +1305,28 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <span class="field-note" id="callsMeta"></span>
         </div>
         <div id="callsList"><div class="field-note">Loading…</div></div>
+      </div>
+    </section>
+
+    <!-- ===================== TAB: TRAINING HUB ===================== -->
+    <!-- The training platform lives at training.mo-care.com and is its own
+         application with its own sign-in. Framed rather than rebuilt, because
+         two copies of somebody's training record is worse than one click. -->
+    <section class="tabpanel" id="tab-trainhub">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Training</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">The training platform, signed in separately. Courses, progress and certificates all live here.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <a class="ghost" href="https://training.mo-care.com/#/login" target="_blank" rel="noopener" style="text-decoration:none;">Open in a new tab ↗</a>
+      </div>
+      <div id="trainhubFrame" style="position:relative;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;min-height:70vh;">
+        <div id="trainhubFallback" style="display:none;padding:26px;text-align:center;">
+          <b style="font-size:15px;color:var(--navy);">The training platform will not open inside this frame.</b>
+          <div class="field-note" style="margin:6px auto 14px;max-width:460px;">Some browsers block a signed-in site from being embedded in another. It works perfectly in its own tab.</div>
+          <a class="fb" style="text-decoration:none;" href="https://training.mo-care.com/#/login" target="_blank" rel="noopener">Open the training platform ↗</a>
+        </div>
       </div>
     </section>
 
@@ -6003,7 +6026,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory'],scheduling:['coverage','teamsched'],clients:['clients','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['leads','statesubs','bookings','referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory'],scheduling:['coverage','teamsched'],clients:['clients','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['leads','statesubs','bookings','referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -6445,7 +6468,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'New Clients — Needs Scheduling',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  meetings:'Meetings', calendar:'Team Calendar', interviews:'Interviews', applicants:'Applicants', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
+  meetings:'Meetings', calendar:'Team Calendar', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Coverage Help', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
@@ -6610,6 +6633,7 @@ function renderActiveTab(){
   nurseModeCheck();
   if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); pbLoad(); rcView(rcCurrent); }
   if(activeTab==='calendar') ivLoad();
+  if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
@@ -10923,6 +10947,30 @@ function ivqOutcome(applicantId){
     if(el && a){ el.value = ((a.first_name||'')+' '+(a.last_name||'')).trim(); apRender(); }
     apInterview(applicantId);
   }, 260);
+}
+
+/* The training platform, framed. It is a separate application with its own
+   sign-in, so this is a window onto it rather than a copy of it: two records
+   of who has done their dementia training would be worse than one click. */
+let trainhubLoaded = false;
+function trainhubOpen(){
+  if(trainhubLoaded) return;
+  const host = document.getElementById('trainhubFrame'); if(!host) return;
+  trainhubLoaded = true;
+  const f = document.createElement('iframe');
+  f.src = 'https://training.mo-care.com/#/login';
+  f.title = 'Caring Companions training platform';
+  f.style.cssText = 'width:100%;height:78vh;border:0;display:block;';
+  f.setAttribute('loading','lazy');
+  host.insertBefore(f, host.firstChild);
+  /* A refused frame stays blank rather than erroring, so give it a moment and
+     then offer the honest way in. */
+  setTimeout(function(){
+    let blocked = false;
+    try { blocked = !f.contentWindow || f.contentWindow.length === undefined; } catch(e) { blocked = false; }
+    try { if(f.contentDocument && f.contentDocument.body && !f.contentDocument.body.childNodes.length) blocked = true; } catch(e) {}
+    if(blocked){ f.style.display='none'; document.getElementById('trainhubFallback').style.display='block'; }
+  }, 3500);
 }
 
 /* ---- Applicants ------------------------------------------------------------
