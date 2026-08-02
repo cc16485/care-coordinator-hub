@@ -1245,11 +1245,230 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <p style="margin:0 0 6px;"><b>What still needs you, and when:</b></p>
           <ul style="margin:0;padding-left:20px;">
             <li>A <b>negative reference or a flagged screening</b> shows up in Needs Attention within four hours. Read it before that person goes any further.</li>
-            <li>A reference who goes quiet gets <b>one reminder after two days</b>. After five, it becomes a phone call for you.</li>
+            <li>A reference who goes quiet gets <b>one reminder after two days</b>. After five we ask the applicant to help, since it is their job waiting. Only after nine does it become a phone call for you.</li>
             <li><b>Viventium Step 1</b> is their paperwork, not yours, but nobody gets an orientation until it is done. The Step 1 chip on their row tells you.</li>
           </ul>
         </div>
       </details>
+
+      <!-- Most of the hiring flow is now messages nobody in the office ever
+           sees. Answering "what did they actually get?" meant reading an edge
+           function. These drawers are the real copy and the real pages, live,
+           so they cannot drift out of date the way a screenshot would. -->
+      <style>
+        .tp-rail{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+        .tp-step{border:1px solid var(--border);border-radius:10px;background:#fff;overflow:hidden;}
+        .tp-hd{display:flex;align-items:center;gap:11px;padding:11px 13px;cursor:pointer;user-select:none;}
+        .tp-hd:hover{background:#FCFBF8;}
+        .tp-step.open .tp-hd{background:#FFFBF3;border-bottom:1px solid var(--border);}
+        .tp-num{flex:none;width:24px;height:24px;border-radius:50%;background:#0D365F;color:#fff;
+                font-size:12px;font-weight:800;display:grid;place-items:center;}
+        .tp-step.open .tp-num{background:#F0A63A;color:#122F52;}
+        .tp-ttl{font-size:14px;font-weight:700;color:var(--navy);}
+        .tp-when{font-size:12px;color:#6E6559;}
+        .tp-arrow{margin-left:auto;color:#6E6559;font-size:12px;transition:transform .18s;}
+        .tp-step.open .tp-arrow{transform:rotate(180deg);}
+        .tp-body{display:none;padding:14px 13px;background:#FBFAF7;}
+        .tp-step.open .tp-body{display:block;}
+        .tp-pieces{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;}
+        /* min-width:0 matters. Flex items default to min-width:auto, which
+           refuses to shrink below their content and quietly clips instead. */
+        .tp-piece{flex:1 1 260px;min-width:0;max-width:340px;}
+        .tp-lbl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+                color:#6E6559;margin-bottom:6px;}
+        /* A text message, shown as one. */
+        .tp-sms{background:#0D365F;color:#fff;border-radius:16px 16px 16px 4px;padding:11px 13px;
+                font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;}
+        /* An email, shown as one. */
+        .tp-mail{border:1px solid var(--border);border-radius:8px;background:#fff;overflow:hidden;}
+        .tp-subj{background:#F4F2ED;padding:8px 11px;font-size:12px;border-bottom:1px solid var(--border);}
+        .tp-mailbody{padding:11px;font-size:13px;line-height:1.6;}
+        .tp-mailbody p{margin:0 0 8px;}
+        .tp-btn{display:inline-block;background:#F0A63A;color:#122F52;padding:8px 14px;
+                border-radius:7px;font-weight:700;font-size:12.5px;}
+        /* The real page, live, in a phone. Clicks are blocked so nobody
+           submits a half-finished form from inside a preview. */
+        .tp-phone{width:var(--tpw,244px);height:var(--tph,436px);border:7px solid #23303d;
+                  border-radius:22px;overflow:hidden;background:#fff;position:relative;}
+        .tp-phone iframe{width:390px;height:698px;border:0;transform:scale(var(--tps,.6256));
+                         transform-origin:0 0;pointer-events:none;}
+        .tp-open{display:inline-block;margin-top:7px;font-size:12px;}
+        .tp-note{font-size:12.5px;color:#6E6559;margin-top:11px;line-height:1.6;}
+        .tp-you{background:#FFF8E8;border:1px solid #F5D9A0;border-radius:8px;padding:10px 12px;
+                font-size:12.5px;line-height:1.6;color:#5C4813;margin-top:11px;}
+      </style>
+
+      <div class="card" style="padding:14px 16px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">📬 What they actually get</b>
+          <span class="field-note">every message and page a new hire and their references see. Open one to read it.</span>
+        </div>
+        <div class="tp-rail" id="tpRail"></div>
+        <div class="tp-note" style="margin-top:12px;">
+          These are the live pages, not pictures of them, so what you see here is exactly what was sent this morning.
+          Clicking inside a preview does nothing on purpose. Use <b>Open the real page</b> to try one properly.
+        </div>
+      </div>
+
+      <script>
+      /* The copy below is transcribed from the functions that send it:
+         job-offer/sendStartLink and reference-chase. If you change a message
+         there, change it here, or this becomes a confident lie. */
+      (function(){
+        const SITE = 'https://cc.mo-care.com/';
+        const NAME = 'Jordan Ellis', FIRST = 'Jordan', REF = 'Denise Hollan';
+        const LINK = SITE + 'start.html';
+
+        const TOUCHPOINTS = [
+          {
+            title: 'Their start link',
+            when: 'The second you save the offer. Goes to them.',
+            pieces: [
+              { type:'sms', label:'Text message', body:
+                `Hi ${FIRST}, it's Caring Companions! We would love to bring you onto the team. `
+                + `One quick step before your offer letter goes out: ${LINK} `
+                + `It takes about two minutes and lets us start your reference checks today.` },
+              { type:'email', label:'And an email', subject:'Getting you started at Caring Companions',
+                paras:[`Hi ${FIRST},`,
+                  'We would love to bring you onto the team. Your official offer letter and new-hire paperwork are on their way, and before they land there is one quick thing.',
+                  'Reference checks are the slowest part of hiring, so we start them the same day. This takes about two minutes:'],
+                cta:'Get started' },
+              { type:'page', label:'The page it opens', page:'start.html?first=Jordan&last=Ellis' },
+            ],
+            you: 'Nothing, unless it fails. A start link nobody opens is chased for you after three days.',
+          },
+          {
+            title: 'Each reference gets asked',
+            when: 'Within seconds of them filing the form. Goes to the references they named.',
+            pieces: [
+              { type:'email', label:'What the reference gets', subject:`A quick reference for ${NAME}`,
+                paras:[`Hi ${REF},`,
+                  `<b>${NAME}</b> listed you as a reference for a caregiving job with us, and we would be grateful for two minutes of your time.`,
+                  'It is five questions, and there are no wrong answers. An honest middling answer helps us place someone well far more than a glowing one does.'],
+                cta:'Answer five quick questions' },
+              { type:'page', label:'The five questions',
+                page:'reference.html?r=preview&c=Jordan%20Ellis&n=Denise%20Hollan&rel=Charge%20nurse' },
+            ],
+            you: 'Nothing. Answers score themselves and land on the candidate. A negative one interrupts you within four hours.',
+          },
+          {
+            title: 'Two days of silence',
+            when: 'Two days after the ask, if that reference has not answered. One reminder, never a drip.',
+            pieces: [
+              { type:'email', label:'The only reminder they get', subject:`A quick reference for ${NAME}`,
+                paras:[`Hi ${REF},`,
+                  `A gentle nudge. ${NAME} is waiting on one reference before they can start, and yours is the last one we need.`],
+                cta:'Answer five quick questions' },
+            ],
+            you: 'Nothing yet. They are strangers doing you a favor, so a second nag costs more goodwill than it recovers.',
+          },
+          {
+            title: 'Five days, and it goes back to the applicant',
+            when: 'Five days of silence. Goes to the new hire, not the reference.',
+            pieces: [
+              { type:'sms', label:'Text to the applicant', body:
+                `Hi ${FIRST}, Caring Companions here. We have not been able to reach ${REF} for your reference, `
+                + `and it is the last thing holding up your start. Give them a nudge if you can. `
+                + `Or if you have a better number or email for them, or want to use someone else, do it here: `
+                + SITE + 'fix-reference.html' },
+              { type:'email', label:'And an email', subject:`We cannot reach ${REF}`,
+                paras:[`Hi ${FIRST},`,
+                  `We have not been able to reach <b>${REF}</b> for your reference, and it is the last thing holding up your start with us.`,
+                  '<b>Could you give them a nudge?</b> A quick message from you works better than anything we can send. It takes them about two minutes.',
+                  'Or if you have a better number or email for them, or you would rather use someone else entirely, tell us here and we will reach out straight away:'],
+                cta:'Give us a different contact' },
+              { type:'page', label:'Where that link goes',
+                page:'fix-reference.html?r=preview&cid=0&n=Denise%20Hollan' },
+            ],
+            you: 'Nothing. Whoever they name is asked automatically, and the old request stops working.',
+          },
+          {
+            title: 'Nine days, and it becomes yours',
+            when: 'Nine days, or straight away if a reference left no email address.',
+            pieces: [],
+            you: 'This is the one that reaches you. It lands in Needs Attention with the phone number and what has already '
+               + 'been tried, so the call takes a minute. Answers you get by phone are recorded on the candidate and score '
+               + 'exactly the same as answers typed in by the reference.',
+            nothing: 'Nothing goes to them at this point. Every automatic option has been used.',
+          },
+        ];
+
+        const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+        function piece(p){
+          if (p.type === 'sms')
+            return `<div class="tp-piece"><div class="tp-lbl">${esc(p.label)}</div>`
+                 + `<div class="tp-sms">${esc(p.body)}</div></div>`;
+          if (p.type === 'email')
+            return `<div class="tp-piece"><div class="tp-lbl">${esc(p.label)}</div>`
+                 + `<div class="tp-mail"><div class="tp-subj"><b>Subject:</b> ${esc(p.subject)}</div>`
+                 + `<div class="tp-mailbody">${p.paras.map(x => '<p>' + x + '</p>').join('')}`
+                 + (p.cta ? `<p><span class="tp-btn">${esc(p.cta)}</span></p>` : '')
+                 + `<p style="color:#57606a;margin:0;">Thank you,<br>Caring Companions In-Home Senior Care</p>`
+                 + `</div></div></div>`;
+          // Pages load only when the drawer opens, so a closed tab costs nothing.
+          return `<div class="tp-piece"><div class="tp-lbl">${esc(p.label)}</div>`
+               + `<div class="tp-phone"><iframe data-src="${SITE + p.page}" loading="lazy"></iframe></div>`
+               + `<a class="tp-open" href="${SITE + p.page}" target="_blank" rel="noopener">Open the real page ↗</a></div>`;
+        }
+
+        const rail = document.getElementById('tpRail');
+        if (rail) {
+          rail.innerHTML = TOUCHPOINTS.map((t, i) => `
+            <div class="tp-step" id="tpStep${i}">
+              <div class="tp-hd" onclick="tpToggle(${i})">
+                <span class="tp-num">${i + 1}</span>
+                <span><span class="tp-ttl">${esc(t.title)}</span><br><span class="tp-when">${esc(t.when)}</span></span>
+                <span class="tp-arrow">▼</span>
+              </div>
+              <div class="tp-body">
+                ${t.nothing ? `<div class="tp-note" style="margin:0 0 11px;"><i>${esc(t.nothing)}</i></div>` : ''}
+                <div class="tp-pieces">${t.pieces.map(piece).join('')}</div>
+                <div class="tp-you"><b>What you do:</b> ${t.you}</div>
+              </div>
+            </div>`).join('');
+        }
+
+        /* A phone is 390px wide and the column often is not. Scale the whole
+           frame to whatever room it has rather than clipping the right edge. */
+        function tpFit(){
+          document.querySelectorAll('.tp-phone').forEach(p => {
+            const room = p.parentElement.clientWidth;
+            if (!room) return;
+            const s = Math.min(0.6256, room / 390);
+            p.style.setProperty('--tps', s);
+            p.style.setProperty('--tpw', Math.floor(390 * s) + 'px');
+            p.style.setProperty('--tph', Math.floor(698 * s) + 'px');
+          });
+        }
+        /* Watch the column, not the window. The panel changes width on its own
+           when the sidebar or a neighboring card does, and a window listener
+           sleeps through all of that. */
+        if (rail && window.ResizeObserver) {
+          let pending = false;
+          new ResizeObserver(() => {
+            if (pending) return;                 // one fit per frame, not per pixel
+            pending = true;
+            requestAnimationFrame(() => { pending = false; tpFit(); });
+          }).observe(rail);
+        } else {
+          window.addEventListener('resize', tpFit);
+        }
+
+        window.tpToggle = function(i){
+          const el = document.getElementById('tpStep' + i);
+          if (!el) return;
+          const opening = !el.classList.contains('open');
+          el.classList.toggle('open', opening);
+          if (opening) {
+            el.querySelectorAll('iframe[data-src]').forEach(f => {
+              f.src = f.getAttribute('data-src'); f.removeAttribute('data-src');
+            });
+            tpFit();
+          }
+        };
+      })();
+      </script>
 
       <!-- One row per person being hired, so nobody assembles the answer
            from two tabs and their own memory. -->

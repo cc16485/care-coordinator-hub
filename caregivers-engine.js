@@ -1509,9 +1509,15 @@ async function createRefRequests(c){
          goes quiet. They gave us these on their start link. */
       candidate_phone: c.phone || null, candidate_email: c.email || null,
       ref_name: r.name || null, ref_phone: r.phone || null, ref_email: r.email || null,
-      ref_relationship: r.rel || null, sent_at: new Date().toISOString(),
+      /* sent_at stays null until something actually goes out. Stamping it here
+         started the chase clock on a message nobody received, so the reference's
+         first contact was a reminder to answer a question never asked. */
+      ref_relationship: r.rel || null, sent_at: null,
     }))).select();
   if (error) throw error;
+  /* Ask them now rather than at tomorrow's run. The function only touches rows
+     with no sent_at, so calling it twice costs nothing. */
+  try { sb.functions.invoke('reference-chase', { body: {} }); } catch (e) {}
   return data || [];
 }
 
@@ -1563,8 +1569,17 @@ async function askReferences(candId, btn){
       + cname + ' listed you as a reference for a caregiving job. Five quick questions, about two minutes: '
       + url + ' Thank you!';
     const digits = String(r.ref_phone || '').replace(/[^0-9+]/g, '');
+    /* Email goes out on its own now, so these buttons are for a personal nudge
+       or for a reference who only left a phone number. Saying which is which
+       stops anyone sending a second copy of a message already delivered. */
+    const state = r.sent_at
+      ? '<span style="color:#15803D;font-size:.72rem;font-weight:600">✓ emailed automatically</span>'
+      : (r.ref_email
+          ? '<span style="color:#6E6559;font-size:.72rem">sending shortly</span>'
+          : '<span style="color:#B45309;font-size:.72rem;font-weight:600">no email on file, needs you</span>');
     return '<div style="border-top:1px solid #e4e1d8;padding:.6rem 0">'
-      + '<b style="font-size:.86rem;color:#0D365F">' + esc(r.ref_name || 'Reference ' + r.slot) + '</b>'
+      + '<b style="font-size:.86rem;color:#0D365F">' + esc(r.ref_name || 'Reference ' + r.slot) + '</b> '
+      + state
       + '<div style="display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.4rem">'
       + (digits ? '<a class="fb" style="text-decoration:none" href="sms:' + esc(digits) + '&body=' + encodeURIComponent(msg) + '">💬 Text</a>' : '')
       + (r.ref_email ? '<a class="fb" style="text-decoration:none" href="mailto:' + esc(r.ref_email) + '?subject=' + encodeURIComponent('A quick reference for ' + cname) + '&body=' + encodeURIComponent(msg) + '">✉️ Email</a>' : '')
@@ -1575,9 +1590,10 @@ async function askReferences(candId, btn){
   const host = document.getElementById('askRefsBox');
   if (host) {
     host.style.display = 'block';
-    host.innerHTML = '<b style="color:#0D365F">Send these to ' + esc(cname) + "'s references</b>"
-      + '<div style="font-size:.78rem;color:#6E6559;margin:.2rem 0 .3rem">Their answers come straight back here and score themselves. '
-      + 'Each link works once.</div>' + body;
+    host.innerHTML = '<b style="color:#0D365F">' + esc(cname) + "'s references</b>"
+      + '<div style="font-size:.78rem;color:#6E6559;margin:.2rem 0 .3rem">Anyone with an email address is asked automatically, '
+      + 'and their answers come back here and score themselves. Use these to add a personal nudge, '
+      + 'or to reach someone who only left a phone number.</div>' + body;
     host.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
   if (btn) { btn.disabled = false; btn.textContent = '📨 Ask references'; }
