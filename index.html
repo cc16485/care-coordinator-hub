@@ -322,6 +322,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .attx summary{list-style:none;display:flex;align-items:center;gap:8px;padding:13px 0;cursor:pointer;font-weight:700;font-size:13.5px;color:var(--navy);}
   .attx summary::-webkit-details-marker{display:none;}
   /* Sub-navigation inside Offer a Job: three jobs, one on screen at a time. */
+  /* Section labels in the top row, so it reads as the halves of the agency
+     rather than as sixteen equal things. The row bottom-aligns its tabs, so
+     these do too, or the pills ride over them. */
+  .navsec{align-self:flex-end;font-size:10.5px;font-weight:800;letter-spacing:.09em;
+          text-transform:uppercase;color:rgba(255,255,255,.5);padding:0 4px 14px 9px;
+          line-height:1;white-space:nowrap;position:relative;z-index:1;}
+  .navrule{align-self:flex-end;width:1px;height:20px;background:rgba(255,255,255,.2);
+           margin:0 5px 10px;flex:none;}
+  @media (max-width:980px){ .navsec{display:none;} .navrule{margin:0 3px 10px;} }
   .offnav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
   .offnav-b{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);
             color:var(--navy);font:inherit;font-size:13.5px;font-weight:700;padding:9px 15px;
@@ -675,7 +684,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   </header>
 
   <div class="fbar" id="fbar">
-    <div class="ftab active" data-g="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> Overview<span class="subtab-badge red" id="todayBadge" style="display:none;"></span></div>
+    <div class="ftab active" data-g="today" onclick="ccGroupClick('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sun"/></svg> Today<span class="subtab-badge red" id="todayBadge" style="display:none;"></span></div>
     <span class="navrule"></span>
     <span class="navsec">Employees</span>
     <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Recruit &amp; Onboard<span class="subtab-badge red" id="gb-hiring" style="display:none;"></span></div>
@@ -687,9 +696,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Care<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
     <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Leads &amp; Marketing<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
     <span class="navrule"></span>
-    <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Team<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
+    <span class="navsec">Services</span>
     <div class="ftab" data-g="nursing" onclick="ccGroupClick('nursing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nursing<span class="subtab-badge red" id="gb-nursing" style="display:none;"></span></div>
     <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
+    <span class="navrule"></span>
+    <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Conversations<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
     <div class="ftab" data-g="sops" onclick="ccGroupClick('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> SOPs</div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-gear"/></svg> Settings</div>
   </div>
@@ -700,6 +711,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="ops" onclick="switchTab('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention<span class="subtab-badge red" id="gb-ops" style="display:none;"></span></div>
     <div class="fpill" data-tab="calls" onclick="switchTab('calls')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Calls</div>
     <div class="fpill" data-tab="calendar" onclick="switchTab('calendar')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Calendar</div>
+    <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
   </div>
   <div class="fsubbar" id="fsub-clients">
     <div class="fpill" data-parent="assessments" onclick="ccParentClick('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Starting Care</div>
@@ -740,6 +752,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        correction logs would be worse than one somewhere else. -->
   <div class="fsubbar" id="fsub-scheduling">
     <div class="fpill" data-tab="coverage" onclick="switchTab('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Coverage Help<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div>
+    <div class="fpill" data-tab="teamsched" onclick="switchTab('teamsched')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Team Schedule</div>
     <a class="fpill" href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="text-decoration:none;"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV Corrections ↗</a>
   </div>
   <div class="fsubbar" id="fsub-nursing">
@@ -758,12 +771,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="ltcpolicy" onclick="switchTab('ltcpolicy')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> LTC Policy</div>
     <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="community" onclick="switchTab('community')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Community<span class="subtab-badge red" id="cmPillBadge" style="display:none;"></span></div>
-  <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div></div>
+  </div>
 
   <div class="fsubbar" id="fsub-sops">
     <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Library</div>
     <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
-    <div class="fpill" data-tab="teamsched" onclick="switchTab('teamsched')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Team Schedule</div>
+    
   </div>
 
   <!-- Third level. Only appears when the active tab belongs to a parent
@@ -5968,7 +5981,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','ops','calls','calendar'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory'],scheduling:['coverage'],clients:['clients','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['leads','statesubs','bookings','referrers','campaigns','ltcpolicy','feedback','community','reports'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','teamsched'],settings:['settings']};
+const CC_GROUPS={today:['today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory'],scheduling:['coverage','teamsched'],clients:['clients','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['leads','statesubs','bookings','referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -6403,7 +6416,7 @@ function ccGroupClick(g){
 const CC_SECTION_TITLES = {
   cgbackground:'Background & References', cgorient:'Orientations', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups',
   recruit:'Recruit',
-  today:'Overview', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
+  today:'Today', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', sops:'SOP Library', teamsched:'Team Weekly Schedule',
