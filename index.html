@@ -2937,6 +2937,21 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <a href="https://jobs.augusta.care/users/sign_in" target="_blank" rel="noopener" class="ghost" style="text-decoration:none;" title="Augusta is still running alongside until the contract ends">Augusta ↗</a>
       </div>
 
+      <!-- The same bookings as the Applicants tab, asked a different way: that
+           tab answers "tell me about this person", this one answers "who is
+           coming in". Outcomes are recorded on the person, so the button here
+           opens them there rather than keeping two half-records. -->
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">🗓 Our interviews</b>
+          <span class="subtab-badge red" id="ivqBadge" style="display:none;"></span>
+          <span class="field-note">booked by applicants themselves, against the hours on Team &rarr; Calendar.</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="ivqLoad(this)">↻ Refresh</button>
+        </div>
+        <div id="ivqList" style="margin-top:11px;"><div class="field-note">Loading…</div></div>
+      </div>
+
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <b style="font-size:15px;color:var(--navy);">📅 Interviews booked through Augusta</b>
@@ -6446,6 +6461,7 @@ function renderActiveTab(){
   if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); }
   if(activeTab==='calendar') ivLoad();
   if(activeTab==='applicants') apLoad();
+  if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
@@ -10369,6 +10385,107 @@ async function busySync(){
       .upsert(rows, { onConflict: 'source,source_id' });
     if(error) throw error;
   }catch(e){ /* table may not exist yet; the slot generator simply sees no blocks */ }
+}
+
+/* ---- Who is coming in ------------------------------------------------------
+   The same bookings the Applicants tab holds, ordered by time instead of by
+   person, because "what does Tuesday look like" is a different question from
+   "tell me about Renata". An interview that has happened and has no outcome
+   sits at the top until somebody says how it went. */
+let IVQ = [], IVQ_APP = {}, IVQ_CO = {};
+
+async function ivqLoad(btn){
+  const box = document.getElementById('ivqList'); if(!box) return;
+  if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+  try{
+    const from = new Date(Date.now() - 14*864e5).toISOString();
+    const [b, a, c] = await Promise.all([
+      sb.from('interview_bookings').select('*').gte('starts_at', from).order('starts_at'),
+      sb.from('job_applicants').select('id,first_name,last_name,phone,email,position,posting_title,status'),
+      sb.from('coordinators').select('id,name'),
+    ]);
+    if(b.error) throw b.error;
+    IVQ = b.data || [];
+    IVQ_APP = {}; (a.data||[]).forEach(x=>{ IVQ_APP[x.id]=x; });
+    IVQ_CO  = {}; (c.data||[]).forEach(x=>{ IVQ_CO[x.id]=x.name; });
+    ivqRender();
+  }catch(e){
+    box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load interviews: '
+      + escapeHtmlComms(e && e.message || 'error')
+      + '<br>If this mentions a missing table, run <b>job-applicants.sql</b> then <b>scheduling.sql</b>.</div>';
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
+}
+
+function ivqRender(){
+  const box = document.getElementById('ivqList'); if(!box) return;
+  const esc = escapeHtmlComms;
+  const now = Date.now();
+  const live = IVQ.filter(b=>b.status==='booked');
+  const needsOutcome = live.filter(b=>new Date(b.starts_at).getTime() < now);
+  const upcoming     = live.filter(b=>new Date(b.starts_at).getTime() >= now);
+
+  const badge = document.getElementById('ivqBadge');
+  if(badge){ badge.style.display = needsOutcome.length?'inline-block':'none'; badge.textContent = needsOutcome.length; }
+
+  if(!live.length && !IVQ.length){
+    box.innerHTML = '<div class="field-note">No interviews booked yet. Applicants pick their own time when they apply, '
+      + 'so this fills up once somebody has hours on <b>Team &rarr; Calendar</b> and a posting is live.</div>';
+    return;
+  }
+
+  const dayLabel = d => d.toLocaleDateString('en-US',{weekday:'long', month:'short', day:'numeric'});
+  const timeLabel = d => d.toLocaleTimeString('en-US',{hour:'numeric', minute:'2-digit'});
+  const isToday = d => d.toDateString() === new Date().toDateString();
+
+  const row = (b, overdue) => {
+    const a = IVQ_APP[b.applicant_id] || {};
+    const d = new Date(b.starts_at);
+    const name = ((a.first_name||'')+' '+(a.last_name||'')).trim() || 'Applicant';
+    return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.55rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
+      + '<span style="min-width:5.2rem;font-weight:700;color:'+(overdue?'#B45309':'#6E6559')+';font-variant-numeric:tabular-nums;">'+esc(timeLabel(d))+'</span>'
+      + '<b style="color:var(--navy);">'+esc(name)+'</b>'
+      + '<span class="field-note">'+esc(a.posting_title||'Caregiver')
+        + (IVQ_CO[b.coordinator_id]?' · with '+esc(IVQ_CO[b.coordinator_id]):'')+'</span>'
+      + '<span style="flex:1;"></span>'
+      + (a.phone?'<a class="fb" style="text-decoration:none;" href="tel:'+esc(String(a.phone).replace(/[^0-9+]/g,''))+'">📞</a>':'')
+      + '<button class="fb" onclick="ivqOutcome(\'' + esc(b.applicant_id) + '\')">'
+        + (overdue?'📝 How did it go?':'Open') + '</button>'
+      + '</div>';
+  };
+
+  let html = '';
+  if(needsOutcome.length){
+    html += '<div style="background:#FFF8E8;border:1px solid #F5D9A0;border-radius:10px;padding:10px 12px;margin-bottom:12px;">'
+      + '<div style="font-size:13px;font-weight:700;color:#B45309;margin-bottom:4px;">'
+      + needsOutcome.length + ' waiting on an outcome</div>'
+      + needsOutcome.map(b=>row(b,true)).join('') + '</div>';
+  }
+  if(upcoming.length){
+    const byDay = new Map();
+    upcoming.forEach(b=>{ const d=new Date(b.starts_at); const k=d.toDateString();
+      if(!byDay.has(k)) byDay.set(k,{label:(isToday(d)?'Today':dayLabel(d)), items:[]});
+      byDay.get(k).items.push(b); });
+    html += [...byDay.values()].map(day =>
+      '<div style="margin:0 0 12px;"><div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:3px;">'
+      + esc(day.label) + '</div>' + day.items.map(b=>row(b,false)).join('') + '</div>').join('');
+  } else if(!needsOutcome.length){
+    html += '<div class="field-note">Nothing booked at the moment.</div>';
+  }
+  box.innerHTML = html;
+}
+
+/* The outcome belongs on the person, so this opens it there rather than
+   keeping two half-records of the same interview. */
+function ivqOutcome(applicantId){
+  gotoTab('applicants');
+  setTimeout(async ()=>{
+    if(!AP_ROWS.length) await apLoad();
+    apSetFilter('all');
+    const el = document.getElementById('apSearch');
+    const a = IVQ_APP[applicantId];
+    if(el && a){ el.value = ((a.first_name||'')+' '+(a.last_name||'')).trim(); apRender(); }
+    apInterview(applicantId);
+  }, 260);
 }
 
 /* ---- Applicants ------------------------------------------------------------
