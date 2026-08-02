@@ -2722,6 +2722,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <!-- Editor. Hidden until you open a posting. -->
         <div id="jpEditor" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
           <input type="hidden" id="jp_id">
+
+          <!-- The caregiver description is the same words every time. Writing
+               them fresh is how two adverts for one job end up promising
+               different things, when one of them is what somebody was hired on. -->
+          <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;margin-bottom:14px;">
+            <b style="font-size:13px;color:var(--navy);">Saved descriptions</b>
+            <select id="jp_tpl" style="flex:1 1 220px;font:inherit;font-size:13px;padding:6px 9px;border:1px solid var(--border);border-radius:7px;background:#fff;">
+              <option value="">Start from a saved description…</option>
+            </select>
+            <button type="button" class="fb" onclick="jtApply()">Use it</button>
+            <span style="flex:1;"></span>
+            <button type="button" class="fb" onclick="jtSave()">💾 Save these words for reuse</button>
+          </div>
           <div class="grid2">
             <div><label>Job title *</label><input id="jp_title" placeholder="Caregiver" oninput="jpSuggestSlug()"></div>
             <div><label>Page address <span style="font-weight:400;color:var(--text-muted);">mo-care.com/careers/…</span></label><input id="jp_slug" placeholder="caregiver-springfield"></div>
@@ -6233,7 +6246,7 @@ function renderActiveTab(){
   ccRenderViewAs();
   ccRenderPulse();
   nurseModeCheck();
-  if(activeTab==='recruit'){ renderPayRates(); jpLoad(); }
+  if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); }
   if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
@@ -10079,6 +10092,77 @@ function jpFill(p){
   const ed=document.getElementById('jpEditor'); ed.style.display='block';
   ed.scrollIntoView({behavior:'smooth',block:'center'});
 }
+/* ---- Reusable descriptions ------------------------------------------------
+   Requires job-templates.sql. Internal only: a template is a draft, not an
+   advert, so unlike postings these are never readable by the public. */
+let JT = [];
+
+async function jtLoad(){
+  const sel = document.getElementById('jp_tpl'); if(!sel) return;
+  try{
+    const { data, error } = await sb.from('job_templates').select('*').order('name');
+    if(error) throw error;
+    JT = data || [];
+  }catch(e){ JT = []; }          // table not there yet is not worth an alarm
+  sel.innerHTML = '<option value="">Start from a saved description…</option>'
+    + JT.map(t=>'<option value="'+escapeHtmlComms(t.id)+'">'+escapeHtmlComms(t.name)+'</option>').join('');
+}
+
+/* Fills the wording and leaves the posting's own identity alone. Slug, city,
+   expiry and openings belong to this posting, not to the template. */
+function jtApply(){
+  const id = document.getElementById('jp_tpl').value;
+  const t = JT.find(x=>String(x.id)===String(id));
+  if(!t){ alert('Pick a saved description first.'); return; }
+  const filled = ['jp_desc','jp_resp','jp_qual','jp_benefits','jp_summary']
+    .some(f=>document.getElementById(f).value.trim());
+  const isNew = !document.getElementById('jp_id').value;
+  if(filled && !confirm('Replace what is written here with “'+t.name+'”?'
+      + (isNew ? '' : '\n\nThe title, page address and dates stay as they are.'))) return;
+
+  const v=(id,val)=>{ const e=document.getElementById(id); if(e && val!=null && val!=='') e.value=val; };
+  /* On a new posting the title follows the template, so picking the wrong one
+     and correcting it does not leave the old job's name behind. On a posting
+     that already exists the title is its identity, and the page address is
+     built from it, so that stays put. */
+  if(isNew && t.title){ document.getElementById('jp_title').value = t.title; jpSuggestSlug(); }
+  else if(!document.getElementById('jp_title').value){ v('jp_title', t.title); jpSuggestSlug(); }
+  document.getElementById('jp_desc').value      = t.description || '';
+  document.getElementById('jp_resp').value      = t.responsibilities || '';
+  document.getElementById('jp_qual').value      = t.qualifications || '';
+  document.getElementById('jp_benefits').value  = t.benefits || '';
+  document.getElementById('jp_summary').value   = t.summary || '';
+  v('jp_type', t.employment_type); v('jp_paymin', t.pay_min); v('jp_paymax', t.pay_max);
+}
+
+async function jtSave(){
+  const g=id=>{ const e=document.getElementById(id); return e? e.value.trim() : ''; };
+  if(!g('jp_desc')){ alert('Write the advert first, then save it for reuse.'); return; }
+  const suggested = g('jp_title') || 'Description';
+  const name = prompt('Call this description what?\n\nIt appears in the picker next time.', suggested);
+  if(name===null) return;
+  if(!name.trim()){ alert('It needs a name.'); return; }
+  const num=v=>v===''?null:Number(v);
+  const row={ name:name.trim(), title:g('jp_title')||null, employment_type:g('jp_type')||null,
+    pay_min:num(g('jp_paymin')), pay_max:num(g('jp_paymax')), summary:g('jp_summary')||null,
+    description:g('jp_desc'), responsibilities:g('jp_resp')||null,
+    qualifications:g('jp_qual')||null, benefits:g('jp_benefits')||null };
+  const existing = JT.find(t=>t.name.toLowerCase()===row.name.toLowerCase());
+  if(existing && !confirm('“'+row.name+'” already exists. Overwrite it?')) return;
+  try{
+    const q = existing ? sb.from('job_templates').update(row).eq('id',existing.id)
+                       : sb.from('job_templates').insert(row);
+    const { error } = await q;
+    if(error) throw error;
+    await jtLoad();
+    document.getElementById('jp_tpl').value = existing ? existing.id : '';
+    alert('Saved. “'+row.name+'” is in the picker for next time.');
+  }catch(e){
+    alert('Could not save it: '+(e&&e.message||'error')
+      + '\n\nIf this mentions a missing table, run job-templates.sql in the Supabase SQL editor.');
+  }
+}
+
 function jpNew(){ jpFill(jpBlank()); }
 function jpEdit(id){ const p=JP.find(x=>String(x.id)===String(id)); if(p) jpFill(p); }
 function jpCancel(){ document.getElementById('jpEditor').style.display='none'; }
