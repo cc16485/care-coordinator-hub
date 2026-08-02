@@ -2814,7 +2814,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="offnav-b" id="offnav-past" onclick="offView('past')">🗂 Previous offers <span class="offnav-n" id="offnavPastN"></span></button>
       </div>
 
-      <div class="card offview" id="offview-open" style="padding:16px 18px;margin-bottom:16px;">
+      <div class="card offview" id="offview-open" style="padding:16px 18px;margin-bottom:16px;display:none;">
         <!-- The pill above already names this view and carries the count, so
              the heading would just be the same word and the same number twice. -->
         <!-- The count lives on the subnav pill now. updateOffersBadge() guards
@@ -2822,7 +2822,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div class="field-note">Each one shows the single next thing it needs. Open it for the details.</div>
         <div id="offersList" style="margin-top:10px;"></div>
       </div>
-      <div class="card offview" style="padding:0 18px 18px;margin-bottom:16px;display:none;" id="offview-new">
+      <div class="card offview" style="padding:0 18px 18px;margin-bottom:16px;" id="offview-new">
         <div id="joCard">
         <div style="padding:16px 0 4px;">
           <b style="font-size:15px;color:var(--navy);">✍️ New offer</b>
@@ -9926,9 +9926,10 @@ function joReset(){
    tab makes one request instead of two for the same rows. */
 function renderInterviews(btn){ ccLoadOffers(btn); }
 
-/* Which of the three Offer a Job views is showing. Lands on the work rather
-   than the form, because most visits are "what is waiting on me?". */
-let offCurrentView='open';
+/* Which of the three Offer a Job views is showing. Opens on the form, because
+   the tab is called Offer a Job and that is what people come here to do. The
+   counts on the other two pills say whether anything is waiting. */
+let offCurrentView='new';
 function offView(name){
   offCurrentView=name;
   ['open','new','past'].forEach(v=>{
