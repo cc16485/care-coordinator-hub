@@ -3415,7 +3415,66 @@ function obDeriveStatus(c){
   if(pos>=2&&oigOk&&edlOk&&bgOk&&fpOk) return 'Ready for Orientation';
   return 'Awaiting';
 }
+/* ---- Where everyone stands ----------------------------------------------
+   The answer to "how far along is this person" used to live across two tabs
+   and a coordinator's memory. Four columns, one row each, and a plain sentence
+   saying what the next move is. Anything waiting on us is red; anything
+   waiting on them is amber; done is quiet. */
+function hirePipelineRows(){
+  const act = candidates.filter(c => !c.not_hired);
+  return act.map(c => {
+    const offer = c.offer_id ? OFFERS.find(o => String(o.id) === String(c.offer_id)) : null;
+    const refsNamed = [1,2,3,4].filter(n => c['r'+n+'n']).length;
+    const refsBack  = [1,2,3,4].filter(n => c['r'+n+'n'] && c['r'+n+'s'] !== 'Pending').length;
+    const positives = [1,2,3,4].filter(n => c['r'+n+'s'] === 'Positive').length;
+    const negative  = [1,2,3,4].some(n => c['r'+n+'s'] === 'Negative');
+    const checks = [['OIG', c.oig, 'CLEAR'], ['EDL', c.edl, 'Clear'], ['FCSR', c.fcsr, 'Clear']];
+    const checksDone = checks.filter(([, v, ok]) => v === ok).length;
+    const checksBad  = checks.some(([, v]) => v === 'FLAGGED' || v === 'Issues Found');
+    const st = obDeriveStatus(c);
+
+    // The one sentence that matters: what happens next, and who owes it.
+    let next, tone;
+    if (negative || checksBad)            { next = 'A result came back bad. Read it before anything else.'; tone = 'us'; }
+    else if (st === 'Ready for Orientation' && !c.invite_sent) { next = 'Cleared. Invite them to orientation.'; tone = 'us'; }
+    else if (st === 'Ready for Orientation') { next = 'Invited to orientation.'; tone = 'done'; }
+    else if (!refsNamed)                  { next = 'Waiting on their start link, which has their references.'; tone = 'them'; }
+    else if (refsBack < 2)                { next = 'Waiting on references. ' + refsBack + ' of ' + refsNamed + ' back.'; tone = 'them'; }
+    else if (positives < 2)               { next = 'References are back but not two positives yet.'; tone = 'us'; }
+    else if (checksDone < 3)              { next = 'References done. Screenings still to run.'; tone = 'us'; }
+    else                                  { next = 'Almost there.'; tone = 'us'; }
+
+    return { c, offer, refsNamed, refsBack, positives, checksDone, st, next, tone };
+  }).sort((a, b) => (a.tone === b.tone ? 0 : a.tone === 'us' ? -1 : b.tone === 'us' ? 1 : a.tone === 'them' ? -1 : 1));
+}
+function renderHirePipeline(){
+  const box = document.getElementById('hirePipeline');
+  if (!box) return;
+  const rows = hirePipelineRows();
+  if (!rows.length) { box.innerHTML = '<div style="color:#A89C8B;font-size:.85rem">Nobody in the hiring pipeline right now.</div>'; return; }
+  const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const pip = (done, label) =>
+    '<span style="font-size:.68rem;font-weight:700;padding:.1rem .45rem;border-radius:999px;white-space:nowrap;' +
+    (done ? 'background:#DCFCE7;color:#15803D' : 'background:#F3F0EA;color:#8A7F70') + '">' +
+    (done ? '✓ ' : '') + label + '</span>';
+  const toneCol = { us:'#B00020', them:'#B45309', done:'#15803D' };
+  box.innerHTML = rows.map(r => {
+    const c = r.c;
+    return '<div style="display:flex;gap:.7rem;align-items:center;flex-wrap:wrap;padding:.55rem 0;border-top:1px solid #e4e1d8">'
+      + '<b style="flex:0 0 150px;color:#0D365F;font-size:.88rem">' + esc((c.first + ' ' + c.last).trim()) + '</b>'
+      + '<span style="display:flex;gap:.3rem;flex-wrap:wrap">'
+      + pip(r.refsNamed > 0, 'start link')
+      + pip(r.refsBack >= 2, 'refs ' + r.refsBack + '/' + Math.max(r.refsNamed, 2))
+      + pip(r.checksDone === 3, 'screenings ' + r.checksDone + '/3')
+      + pip(!!(r.offer && r.offer.step1_done_at), 'Step 1')
+      + '</span>'
+      + '<span style="flex:1;min-width:170px;font-size:.8rem;font-weight:600;color:' + toneCol[r.tone] + '">' + esc(r.next) + '</span>'
+      + '<button class="ibtn" onclick="openOBModal(' + c.id + ')">open</button>'
+      + '</div>';
+  }).join('');
+}
 function renderOB(){
+  try{ renderHirePipeline(); }catch(e){}
   const q=((document.querySelector('#panel-onboarding input')||{value:''}).value||globalSearch).toLowerCase();
   const today=new Date(); today.setHours(0,0,0,0);
   const list=candidates.filter(c=>{
@@ -5986,7 +6045,7 @@ function renderEVVCorrections() {
 }
 
 /* the only things the panels' handlers need */
-window.SCX = {loadOffers, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+window.SCX = {loadOffers, renderHirePipeline, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
 /* The offer cards are built with inline onclick handlers, so these have to be
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;
@@ -5996,6 +6055,7 @@ window.offerToCandidate = offerToCandidate;
 window.intakeReconcile = intakeReconcile;
 window.askReferences = askReferences;
 window.autoAskReferences = autoAskReferences;
+window.renderHirePipeline = renderHirePipeline;
 window.refReconcile = refReconcile;
 window.markScreeningCleared = markScreeningCleared;
 window.offerCopyLink = offerCopyLink;

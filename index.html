@@ -1226,6 +1226,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <section class="tabpanel" id="tab-cgbackground">
     <div class="panel" id="panel-onboarding">
 
+      <!-- One row per person being hired, so nobody assembles the answer
+           from two tabs and their own memory. -->
+      <div class="card" style="padding:14px 16px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">Where everyone stands</b>
+          <span class="field-note">start link, references, screenings, Viventium. Red is waiting on you.</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="SCX.renderHirePipeline&&SCX.renderHirePipeline()">↻ Refresh</button>
+        </div>
+        <div id="hirePipeline" style="margin-top:10px;"></div>
+      </div>
+
       <!-- Where the reference links appear after "Ask refs" -->
       <div id="askRefsBox" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px;"></div>
 
