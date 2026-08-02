@@ -321,9 +321,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .attx:last-child, .attsec:last-child{border-bottom:none;}
   .attx summary{list-style:none;display:flex;align-items:center;gap:8px;padding:13px 0;cursor:pointer;font-weight:700;font-size:13.5px;color:var(--navy);}
   .attx summary::-webkit-details-marker{display:none;}
-  #joDetails summary::-webkit-details-marker{display:none;}
-  #joDetails[open] .jo-chev::after{content:'';}
-  #joDetails[open] .jo-chev{visibility:hidden;}
+  /* Sub-navigation inside Offer a Job: three jobs, one on screen at a time. */
+  .offnav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .offnav-b{display:flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);
+            color:var(--navy);font:inherit;font-size:13.5px;font-weight:700;padding:9px 15px;
+            border-radius:999px;cursor:pointer;}
+  .offnav-b:hover{background:#FCFBF8;}
+  .offnav-b.on{background:var(--navy);border-color:var(--navy);color:#fff;}
+  .offnav-n{background:var(--yellow);color:#122F52;border-radius:999px;padding:1px 8px;
+            font-size:11.5px;font-weight:800;}
+  .offnav-b.on .offnav-n{background:#fff;color:var(--navy);}
+  .offnav-n:empty{display:none;}
   .attx summary::after{content:'▾';margin-left:auto;color:var(--text-muted);font-size:12px;transition:transform .15s;}
   .attx[open] summary::after{transform:rotate(180deg);}
   .attx .cnt{background:var(--red);color:#fff;border-radius:999px;font-size:11px;font-weight:800;padding:1px 8px;}
@@ -2798,27 +2806,28 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="ghost" onclick="ccLoadOffers(this)">↻ Refresh</button>
       </div>
 
-      <!-- The onboarding cards used to live only in the Staffing hub, which
-           meant whoever made the offer had to go somewhere else to finish it.
-           They render here now; the engine supplies them. -->
-      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">Offers waiting on you</b>
-          <span class="subtab-badge red" id="offersBadge" style="display:none;"></span>
-          <span class="field-note">AxisCare attributes, Viventium entry, welcome message, Step 1 paperwork. All of it here.</span>
-        </div>
+      <!-- Three jobs, three places, one at a time. Stacking them meant
+           scrolling past the form to reach the work. -->
+      <div class="offnav">
+        <button class="offnav-b" id="offnav-open" onclick="offView('open')">📋 Open offers <span class="offnav-n" id="offnavOpenN"></span></button>
+        <button class="offnav-b" id="offnav-new"  onclick="offView('new')">✍️ Create new offer</button>
+        <button class="offnav-b" id="offnav-past" onclick="offView('past')">🗂 Previous offers <span class="offnav-n" id="offnavPastN"></span></button>
+      </div>
+
+      <div class="card offview" id="offview-open" style="padding:16px 18px;margin-bottom:16px;">
+        <!-- The pill above already names this view and carries the count, so
+             the heading would just be the same word and the same number twice. -->
+        <div class="field-note">Each one shows the single next thing it needs. Open it for the details.</div>
+        <span id="offersBadge" style="display:none;"></span>
         <div id="offersList" style="margin-top:10px;"></div>
       </div>
-      <div class="card" style="padding:0 18px;margin-bottom:16px;" id="joCard">
-        <!-- Shut by default so opening the tab answers "what is waiting on me?"
-             before it asks for a form. One click to make an offer. -->
-        <details id="joDetails" ontoggle="if(this.open)joInit()">
-        <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:16px 0;">
+      <div class="card offview" style="padding:0 18px 18px;margin-bottom:16px;display:none;" id="offview-new">
+        <div id="joCard">
+        <div style="padding:16px 0 4px;">
           <b style="font-size:15px;color:var(--navy);">✍️ New offer</b>
-          <span class="field-note">the four things below take about two minutes</span>
-          <span style="margin-left:auto;color:var(--text-muted);font-size:13px;" class="jo-chev">▾ expand</span>
-        </summary>
-        <div style="padding-bottom:18px;">
+          <span class="field-note" style="margin-left:8px;">the four sections below take about two minutes</span>
+        </div>
+        <div>
         <div id="joForm">
 
         <!-- Two optional helpers, side by side and shut by default, rather
@@ -2928,12 +2937,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <button class="secondary" style="margin-top:12px;" onclick="joReset()">＋ Offer another job</button>
         </div>
         </div>
-        </details>
+        </div>
       </div>
 
       <!-- Was a second copy of the same list, fetched again. It is now the
            archive: everything that has moved on, searchable, dated, one line. -->
-      <div class="card" style="padding:18px;">
+      <div class="card offview" id="offview-past" style="padding:18px;display:none;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <b style="font-size:14px;color:var(--navy);">Previous offers</b>
           <span class="field-note" id="pastOffersCount"></span>
@@ -6182,7 +6191,7 @@ function renderActiveTab(){
   if(activeTab==='inbox') renderInboxCc();
   if(activeTab==='meetings') renderMeetingsPage();
   if(activeTab==='interviews'){ renderCalInterviews(); }
-  if(activeTab==='offers'){ joInit(); renderInterviews(); }
+  if(activeTab==='offers'){ offView(offCurrentView); renderInterviews(); }
   if(activeTab==='calls') renderCalls();
   if(activeTab==='ops') renderOps();
   if(activeTab==='settings') fillSettingsPanel();
@@ -9915,6 +9924,28 @@ function joReset(){
 /* Previous offers render from the offers the engine already loaded, so this
    tab makes one request instead of two for the same rows. */
 function renderInterviews(btn){ ccLoadOffers(btn); }
+
+/* Which of the three Offer a Job views is showing. Lands on the work rather
+   than the form, because most visits are "what is waiting on me?". */
+let offCurrentView='open';
+function offView(name){
+  offCurrentView=name;
+  ['open','new','past'].forEach(v=>{
+    const panel=document.getElementById('offview-'+v);
+    const btn=document.getElementById('offnav-'+v);
+    if(panel) panel.style.display = (v===name) ? '' : 'none';
+    if(btn) btn.classList.toggle('on', v===name);
+  });
+  if(name==='new') joInit();
+  if(name==='past' && window.renderPastOffers) renderPastOffers();
+}
+
+/* Counts live on the subnav so you can see there is work without opening it. */
+function offNavCounts(open, past){
+  const o=document.getElementById('offnavOpenN'), p=document.getElementById('offnavPastN');
+  if(o) o.textContent = open ? String(open) : '';
+  if(p) p.textContent = past ? String(past) : '';
+}
 
 async function renderInterviewsLegacy(btn){
   const box=document.getElementById('interviewsList'); if(!box) return;

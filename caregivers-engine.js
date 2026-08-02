@@ -1473,6 +1473,7 @@ function renderOffers(){
     : '<div style="color:#A89C8B;font-size:.85rem">Nothing waiting on you. Offers land here when you save one, and move to <b>Previous offers</b> below once they reach Background &amp; References.</div>';
 
   renderPastOffers();
+  if(window.offNavCounts) window.offNavCounts(active.length, OFFERS.length-active.length);
 }
 
 /* Linked when the offer was moved across; the candidate carries the offer id. */
