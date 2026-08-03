@@ -9669,6 +9669,64 @@ function clientSatisfactionDeclining(clientName){
   for(let i=1;i<recent.length;i++){ if(recent[i].satisfaction_rating >= recent[i-1].satisfaction_rating) return false; }
   return true;
 }
+
+/* ---- Asking for a review, at the only moment it works -----------------------
+   The review page has always done the right thing: four or five stars offers
+   Google, three or fewer goes privately to Samantha. What nothing did was ask
+   at a moment worth asking. The only invitation was a quarterly email that
+   arrives whether or not anything good just happened.
+
+   A check-in that came back at four or five stars, logged by the coordinator
+   who just had that conversation, is the moment. So the prompt appears there,
+   on that row, while it is still in their head.
+
+   Deliberately not automatic. A "please review us" text sent by a machine a
+   week after a hard month would cost more than the review is worth. This
+   writes the message; a person decides whether to send it. */
+const CI_FEEDBACK_URL = 'https://mo-care.com/feedback';
+
+function ciCanAsk(c){
+  if(!c || !c.client_name) return false;
+  if((c.satisfaction_rating||0) < 4) return false;   // never off the back of a poor one
+  if(c.escalated) return false;
+  if(clientSatisfactionDeclining(c.client_name)) return false;
+  /* Only off the back of the conversation that just happened. A good call in
+     June is not a reason to text somebody in August, and showing the prompt on
+     every old row makes it wallpaper. */
+  const mine=(DATA.client_checkins||[]).filter(x=>x.client_name===c.client_name && x.checkin_date)
+    .sort((a,b)=>String(a.checkin_date).localeCompare(String(b.checkin_date)));
+  const latest=mine[mine.length-1];
+  if(latest && latest.id !== c.id) return false;
+  if(c.checkin_date && (Date.now()-new Date(c.checkin_date+'T12:00:00')) > 14*864e5) return false;
+  /* Once per client per quarter at the outside, however many check-ins they
+     have. Being asked twice reads as not listening the first time. */
+  const asked = (DATA.client_checkins||[])
+    .filter(x=>x.client_name===c.client_name && x.feedback_asked_at)
+    .map(x=>x.feedback_asked_at).sort().pop();
+  if(asked && (Date.now()-new Date(asked)) < 90*864e5) return false;
+  return true;
+}
+
+async function ciAskFeedback(id){
+  const c=(DATA.client_checkins||[]).find(x=>x.id===id); if(!c) return;
+  const who=(c.client_name||'').trim().split(/\s+/)[0] || 'there';
+  const msg = 'Hi ' + who + ', this is ' + ((c.coordinator||'').split(' ')[0] || 'Caring Companions')
+    + ' at Caring Companions. Thank you for the kind words on our call. If you have a minute, '
+    + 'it would mean a lot if you shared them here: ' + CI_FEEDBACK_URL
+    + ' It helps other families in the area find care they can trust.';
+  const ok = confirm('Send this to ' + (c.client_name||'them') + '?\n\n' + msg
+    + '\n\nOK copies it to your clipboard so you can send it from your phone or from GoHighLevel. '
+    + 'Nothing is sent automatically.');
+  if(!ok) return;
+  try{ await navigator.clipboard.writeText(msg); }catch(e){}
+  c.feedback_asked_at = new Date().toISOString();
+  try{ await persist('client_checkins', c); }catch(e){}
+  renderCheckins();
+  alert('Copied, and noted on their check-in so nobody asks twice.\n\n'
+    + 'Four or five stars on the page offers them Google. Anything lower comes '
+    + 'straight to Samantha instead, privately.');
+}
+
 function renderCheckins(){
   renderFilterPills('checkinsFilters', ['All','Due This Week','Overdue','Escalated','Declining Trend'], activeFilters.checkins, 'checkins');
   /* .client_name guard: the shared 'client_checkins' key also holds the Care
@@ -9693,7 +9751,7 @@ function renderCheckins(){
       <td>${'⭐'.repeat(c.satisfaction_rating||0)}</td>
       <td>${c.next_checkin_due ? (c.next_checkin_due<today() ? '<span class="badge bad">'+c.next_checkin_due+'</span>' : c.next_checkin_due) : '—'}</td>
       <td>${c.coordinator||''}</td>
-      <td><button class="linklike" onclick="openCheckinModal('${c.id}')">Edit</button></td>
+      <td><button class="linklike" onclick="openCheckinModal('${c.id}')">Edit</button>${ciCanAsk(c)?` <button class="linklike" style="color:#B8860B;" onclick="ciAskFeedback('${c.id}')">🌟 Ask for feedback</button>`:''}${c.feedback_asked_at?` <span class="field-note">asked ${String(c.feedback_asked_at).slice(0,10)}</span>`:''}</td>
     </tr>`; }).join('')}</tbody></table>`;
 }
 function openCheckinModal(id){
