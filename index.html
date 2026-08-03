@@ -12685,8 +12685,11 @@ function apRenderProfile(){
     + apProfCard('The offer', apProfOffer(r), '')
     + apProfCard('Getting them started', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
         'References, the screenings and the paperwork, wherever they have got to.')
+    + apProfCard('Training', '<div id="apTrainHost"><div class="field-note">Looking…</div></div>',
+        'Read live from the training platform, which is where it actually lives.')
     + (r.started_at || r.left_at ? apProfCard('How it ended', apProfLeaving(r), '') : '');
   apOnboardMount(r);
+  apTrainingMount(r);
 }
 
 /* ---- The half of somebody's life that used to live somewhere else ----------
@@ -12744,6 +12747,100 @@ async function apOnboardMount(r){
     host.innerHTML = '<div class="field-note">Could not read the onboarding: ' + esc(e && e.message || 'error')
       + '<br>If this mentions applicant_id, run <b>recruit-lifecycle.sql</b>.</div>';
   }
+}
+
+/* ---- Training: shown, never copied ----------------------------------------
+   The training platform is the system of record and has its own sign-in. Two
+   records of who has done their dementia training would be worse than one
+   click, so this reads the same endpoint the Training tab syncs from, shows
+   where somebody is, and links out for anything more.
+
+   Matched on the AxisCare number when we have it, on the name when we do not,
+   and never on a name that belongs to two people. */
+let TRAIN_ROWS = null;
+const TRAIN_API  = 'https://rdqujxiycycwhskyvrwa.supabase.co/rest/v1/rpc/hub_training_status';
+const TRAIN_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkcXVqeGl5Y3ljd2hza3l2cndhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTg1NDgsImV4cCI6MjA5ODc5NDU0OH0.SFjAfj--b-tWrk8bMVLeM-tGwD8VBaPsEBtUAp5tPew';
+const trainNorm = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'');
+
+async function trainLoad(){
+  if(TRAIN_ROWS) return TRAIN_ROWS;
+  const key = ((typeof appSettings !== 'undefined' && appSettings.training_hub_key)
+    || (typeof CONFIG !== 'undefined' && CONFIG.training_hub_key) || '').trim();
+  if(!key){ TRAIN_ROWS = []; return TRAIN_ROWS; }
+  try{
+    const r = await fetch(TRAIN_API, { method:'POST',
+      headers:{ 'apikey':TRAIN_ANON, 'Authorization':'Bearer '+TRAIN_ANON, 'Content-Type':'application/json' },
+      body: JSON.stringify({ p_key: key }) });
+    const data = await r.json();
+    TRAIN_ROWS = Array.isArray(data) ? data : [];
+  }catch(e){ TRAIN_ROWS = []; }
+  return TRAIN_ROWS;
+}
+
+function trainFor(r, rows){
+  if(!rows || !rows.length) return null;
+  if(r.axiscare_id){
+    const byId = rows.find(h=>String(h.axiscare_id||'') === String(r.axiscare_id));
+    if(byId) return byId;
+  }
+  const n = trainNorm((r.first_name||'') + (r.last_name||''));
+  if(!n) return null;
+  const hits = rows.filter(h=>trainNorm(h.name) === n);
+  if(hits.length === 1) return hits[0];
+  /* Two people with one name is a different problem from not being there, and
+     saying so is the difference between a five-minute fix and a puzzle. */
+  return hits.length > 1 ? 'ambiguous' : null;
+}
+
+async function apTrainingMount(r){
+  const host = document.getElementById('apTrainHost'); if(!host) return;
+  const esc = escapeHtmlComms;
+  const rows = await trainLoad();
+  const link = '<a class="fb" style="text-decoration:none;" target="_blank" rel="noopener" '
+    + 'href="https://training.mo-care.com">Open the training platform ↗</a>';
+
+  if(!rows.length){
+    host.innerHTML = '<div class="field-note">Cannot read the training platform from here. '
+      + 'Paste the Training Hub read key into ⚙️ Settings and this fills in.</div>'
+      + '<div style="margin-top:8px;">' + link + '</div>';
+    return;
+  }
+  const h = trainFor(r, rows);
+  if(h === 'ambiguous'){
+    host.innerHTML = '<div class="field-note" style="color:#B45309;">'
+      + 'Two people on the training platform have this name, so nothing is shown rather than the wrong one. '
+      + 'Put their AxisCare number on this record and the match becomes exact.'
+      + '</div><div style="margin-top:8px;">' + link + '</div>';
+    return;
+  }
+  if(!h){
+    host.innerHTML = '<div class="field-note">'
+      + (r.status==='hired' || r.status==='left'
+          ? 'Not found on the training platform. Either the name is spelled differently there, or they have not been set up yet.'
+          : 'Nothing yet. Training starts once they are hired and set up on the platform.')
+      + '</div><div style="margin-top:8px;">' + link + '</div>';
+    return;
+  }
+  const day = iso => iso ? new Date(String(iso).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'long', day:'numeric', year:'numeric'}) : '';
+  const course = slug => (h.trainings||[]).find(t=>t.slug===slug);
+  const line = (label, c) => {
+    if(!c) return apProfRow(label, '<span class="field-note">not started</span>');
+    if(c.status === 'complete') return apProfRow(label,
+      '<span style="color:#15803D;font-weight:700;">done</span>' + (c.completed_at ? ' · ' + esc(day(c.completed_at)) : ''));
+    return apProfRow(label, '<span style="color:#B45309;">'
+      + esc(String(c.status || 'in progress').replace(/_/g,' ')) + '</span>');
+  };
+  host.innerHTML =
+      line('Agency orientation', course('agency-orientation'))
+    + line('Dementia care', course('dementia-care'))
+    + line('On the job training', course('on-the-job-training'))
+    + apProfRow('Annual in-service', h.inservice_last_date
+        ? esc(day(h.inservice_last_date)) + (h.inservice_hours_12mo != null
+            ? ' · ' + esc(h.inservice_hours_12mo) + ' hours in the last year' : '')
+        : '<span class="field-note">none recorded</span>')
+    + apProfRow('Hired', esc(day(h.hire_date)))
+    + apProfRow('First client contact', esc(day(h.first_contact_date)))
+    + '<div style="margin-top:10px;">' + link + '</div>';
 }
 
 function apProfLeaving(r){
