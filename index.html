@@ -3417,18 +3417,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <!-- Two optional helpers, side by side and shut by default, rather
              than two paragraphs of explanation before the first field. -->
         <div class="jo-tools">
-          <!-- Augusta holds the candidate's details and will not hand them over,
-               so the next best thing is one paste instead of three retypes. -->
-          <details>
-            <summary>📋 Paste from Augusta instead of retyping</summary>
-            <div style="margin-top:8px;">
-              <textarea id="jo_paste" rows="4" placeholder="Select the candidate's details in Augusta, copy, and paste the whole block here. Name, phone and email get pulled out for you." style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;"></textarea>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">
-                <button type="button" class="secondary" onclick="joParsePaste()">Pull out the details</button>
-                <span class="field-note" id="jo_paste_note">Messy is fine. Anything it cannot find, you fill in below.</span>
-              </div>
-            </div>
-          </details>
           <details ontoggle="if(this.open)joPreviewMsgs()">
             <summary>👀 The welcome message they get at the Viventium step</summary>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:10px;">
@@ -3447,6 +3435,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <div class="field-note" style="margin-top:8px;">This pair sends later, when you mark them entered in Viventium. The start link below is what goes out today. Both use the agency's GoHighLevel number, so it stays one thread.</div>
           </details>
         </div>
+
+        <!-- Opened from somebody's profile, this says whose offer it is and
+             why the fields are already full. Opened cold from the Offers tab,
+             it stays out of the way. -->
+        <div id="jo_who" style="display:none;background:#E8F1EC;border:1px solid #CFE3D6;border-radius:10px;
+             padding:11px 13px;margin:0 0 14px;font-size:13.5px;color:#1c6b45;"></div>
 
         <div class="jo-sec">
           <h4>Who they are</h4>
@@ -3474,6 +3468,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <!-- What we are actually offering them, which is not always what they
                asked for. Recorded here because "offered $17, PRN" was a
                sentence somebody was typing into the notes. -->
+          <div class="grid2">
+            <div><label>Proposed start date</label><input id="jo_start" type="date">
+              <div class="field-note" style="margin-top:2px;">The one thing nothing else captures, and the one that turns into "never started" when it is missing.</div>
+            </div>
+            <div></div>
+          </div>
           <div class="grid2">
             <div><label>Hours we are offering</label>
               <select id="jo_hours">
@@ -10487,6 +10487,7 @@ async function submitJobOffer(){
     position:g('jo_position'),onboarding_plan:g('jo_plan')||null,interview_date:g('jo_date')||null,offered_by:g('jo_by')||null,
     pay_rate:isFinite(rate)&&rate>0?rate:null, level_suggested:joLevel,
     hours_type:g('jo_hours')||null, will_build_up:g('jo_build')||null,
+    start_date:g('jo_start')||null,
     availability:g('jo_avail')||null,experience:g('jo_exp')||null,
     personality:g('jo_pers')||null,notes:g('jo_notes')||null, attributes:joState };
   const btn=document.getElementById('jo_send');
@@ -10505,6 +10506,7 @@ async function submitJobOffer(){
           offer_position: offer.position || null,
           offer_rate: offer.pay_rate,
           offer_hours: offer.hours_type || null,
+          start_date: offer.start_date || null,
           offer_sent_at: new Date().toISOString(),
           status: 'offer',
         }).eq('id', JO_APPLICANT);
@@ -10572,40 +10574,6 @@ const JO_PLAN_BY_POSITION = {
    blocks ("Phone: 417...") and loose text equally, fills only what is empty so
    a second paste never wipes something already typed, and says plainly what it
    found so nobody assumes it worked when it did not. */
-function joParsePaste(){
-  const raw = (document.getElementById('jo_paste').value || '').trim();
-  const note = document.getElementById('jo_paste_note');
-  if(!raw){ note.textContent = 'Paste something in first.'; return; }
-  const found = [];
-  const setIfEmpty = (id, v) => {
-    const el = document.getElementById(id);
-    if(el && v && !el.value.trim()){ el.value = v; return true; }
-    return false;
-  };
-  const email = (raw.match(/[\w.+-]+@[\w-]+\.[\w.-]+/) || [])[0] || '';
-  if(setIfEmpty('jo_email', email)) found.push('email');
-
-  const phoneRaw = (raw.match(/(\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/) || [])[0] || '';
-  const digits = phoneRaw.replace(/\D/g,'').replace(/^1/,'');
-  const phone = digits.length === 10 ? '(' + digits.slice(0,3) + ') ' + digits.slice(3,6) + '-' + digits.slice(6) : '';
-  if(setIfEmpty('jo_phone', phone)) found.push('phone');
-
-  // Name: a "Name:" label wins, otherwise the first line that reads like one.
-  let name = (raw.match(/(?:^|\n)\s*(?:name|candidate|applicant)\s*[:\-]\s*(.+)/i) || [])[1] || '';
-  if(!name){
-    name = (raw.split(/\n/).map(l => l.trim()).find(l =>
-      /^[A-Z][a-z'’-]+(\s+[A-Z][a-z'’-]+){1,2}$/.test(l) && !/@/.test(l)) || '');
-  }
-  name = name.trim().replace(/\s+/g,' ');
-  if(name){
-    const parts = name.split(' ');
-    if(setIfEmpty('jo_first', parts[0])) found.push('first name');
-    if(parts.length > 1 && setIfEmpty('jo_last', parts.slice(1).join(' '))) found.push('last name');
-  }
-  note.textContent = found.length
-    ? 'Filled in ' + found.join(', ') + '. Check it, then finish the rest below.'
-    : 'Could not find a name, phone or email in that. Fill them in below.';
-}
 function joSyncPlan(){
   const pos=document.getElementById('jo_position').value;
   const sel=document.getElementById('jo_plan');
@@ -10615,6 +10583,8 @@ function joSyncPlan(){
   if(match) sel.value=match.value;
 }
 function joReset(){
+  const who=document.getElementById('jo_who'); if(who){ who.style.display='none'; who.innerHTML=''; }
+
   document.getElementById('joDone').style.display='none';
   document.getElementById('joForm').style.display='block';
   ['jo_first','jo_last','jo_phone','jo_email','jo_rate','jo_avail','jo_exp','jo_pers','jo_notes'].forEach(id=>document.getElementById(id).value='');
@@ -12299,6 +12269,39 @@ function apToOffer(id, answers){
     v('jo_first', r.first_name); v('jo_last', r.last_name);
     v('jo_phone', r.phone); v('jo_email', r.email);
     v('jo_avail', r.availability); v('jo_exp', r.experience);
+
+    /* Whose offer this is, and why the fields are already full. */
+    const who = document.getElementById('jo_who');
+    if(who){
+      who.style.display = 'block';
+      who.innerHTML = '<b>Making an offer to ' + escapeHtmlComms(((r.first_name||'')+' '+(r.last_name||'')).trim()) + '.</b> '
+        + 'Everything below is filled in from their profile. Change anything that is not right.';
+    }
+
+    /* The interview happened on a date we already hold. Typing it from memory
+       is how it ends up a day out on the AxisCare note. */
+    const b = AP_BOOK[r.id];
+    if(b && b.starts_at) v('jo_date', new Date(b.starts_at).toISOString().slice(0,10));
+
+    /* The role they applied for, and the rate the agency has approved for it,
+       so the number starts right and is changed on purpose rather than typed
+       from memory. */
+    const pos = AP_POS.find(p=>p.key===r.position);
+    if(pos){
+      const sel = document.getElementById('jo_position');
+      if(sel && [...sel.options].some(o=>o.text===pos.label)) sel.value = pos.label;
+      const approved = (typeof pbApproved === 'function') ? pbApproved(pos) : null;
+      const rate = (approved && approved.min != null) ? approved.min : pos.pay_min;
+      if(rate != null) v('jo_rate', Number(rate).toFixed(2));
+    }
+
+    /* What they can actually do, from the interview, as the suggested level of
+       care. Confirmed later after references, which is what the label says. */
+    const sk = (A && A.skills) || {};
+    const lvl = (sk.hoyer==='lots' || sk.transfers==='lots') ? 3
+      : (sk.personal_care && sk.personal_care!=='none') ? 2
+      : (A && Object.keys(sk).length) ? 1 : null;
+    if(lvl && typeof joLevelPick === 'function') joLevelPick(lvl);
     /* What they told us on the form, so the offer starts from their answer
        rather than from somebody's memory of the interview. */
     const hrs = { 'Full time':'FULL_TIME', 'Part time':'PART_TIME' }[r.job_type];
