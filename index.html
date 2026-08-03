@@ -696,6 +696,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div id="topbarPulse"></div>
     <input class="search" id="globalSearch" placeholder="🔍 Search leads, clients, referrers…" oninput="renderActiveTab()">
     <div class="spacer"></div>
+    <!-- On every page, because a coordinator seeing "sent" on a record should
+         be able to find out in one click what was sent, to whom, and when the
+         next thing happens. Nothing here is a setting: it is a plain account
+         of what runs without anybody pressing anything. -->
+    <button class="pill" onclick="autoOpen()" title="Everything that happens without anybody pressing a button"
+            style="cursor:pointer;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;">🤖 What runs by itself</button>
     <span class="pill" id="syncPill">☁ Synced</span>
     <button class="addlead" onclick="openCallCockpit()">＋ Add Lead</button>
     <span id="userChip" style="display:flex;align-items:center;gap:8px;padding:3px 12px 3px 4px;border:1px solid var(--border);border-radius:999px;background:#fff;flex:0 0 auto;">
@@ -5294,6 +5300,20 @@ The HomeTogether team</pre>
 </div>
 
 <!-- ============================= LEAD MODAL (Initial Consultation) ============================= -->
+
+<!-- ===================== WHAT RUNS BY ITSELF =====================
+     Reachable from every page. Coordinators see "sent" on a record and have no
+     way to find out what was sent or what happens next; this is that answer,
+     in the words the person on the other end actually receives. -->
+<div class="modal-backdrop" id="autoBackdrop">
+  <div class="modal" style="max-width:820px;">
+    <div class="modal-head">
+      <b style="font-size:16px;color:var(--navy);">🤖 What runs by itself</b>
+      <button class="ghost" onclick="closeModal('autoBackdrop')">Close</button>
+    </div>
+    <div class="modal-body" id="autoBody" style="max-height:72vh;overflow:auto;"></div>
+  </div>
+</div>
 <div class="modal-backdrop" id="leadModalBackdrop">
 <div class="modal" style="max-width:760px;">
 <h2 id="leadModalTitle">Add Lead</h2>
@@ -9872,6 +9892,153 @@ function saveSettings(){
   initSupabase();
   alert('Settings saved ✓');
   alert('Settings saved. Reload the page if you just connected Supabase for the first time.');
+}
+
+
+/* ---- What runs by itself ----------------------------------------------------
+   Every automation in the hub, in one place, written for the person who has to
+   answer "so what happens now?" while a family is on the phone.
+
+   Kept as data rather than prose so it stays honest: each entry says what sets
+   it off, when it lands, and the actual words that go out. If a message
+   changes, it changes here too, and the answer a coordinator gives matches the
+   one the family received. */
+const AUTO_GROUPS = [
+  { who: 'When somebody applies for a job', items: [
+    { name: 'We have your application',
+      when: 'Within 15 minutes of them finishing the form',
+      how: 'Text and email, to them',
+      says: 'Their interview time, where to come, the door to use, and our number.',
+      note: 'Only if they booked a time. If they skipped it, the nudges below start instead.' },
+    { name: 'Pick a time, we have not heard',
+      when: '2 hours after applying, then 2 days, then 5 days',
+      how: 'Text and email, to them',
+      says: '"You are one step from an interview, and you can pick a time that suits you here."',
+      note: 'Three tries and it stops for good. After that they are a phone call, not a message.' },
+    { name: 'Reminder, the day before',
+      when: 'Roughly 24 hours before their interview',
+      how: 'Text and email, to them',
+      says: 'The time, the address, and how to move it if they need to.' },
+    { name: 'Reminder, an hour before',
+      when: 'Shortly before the interview, on the day',
+      how: 'Text only, to them',
+      says: 'Almost entirely the address. A reminder without one is a reminder to get lost.' },
+    { name: 'Somebody good just applied',
+      when: 'Within 15 minutes of them clearing the screen',
+      how: 'Text or email, to the office',
+      says: 'Their name, their town, how far out they are, the hours they want, where they came from.',
+      note: 'Once per applicant. Never for anybody the form already turned away.' },
+  ]},
+
+  { who: 'When a family gets in touch', items: [
+    { name: 'We have your message',
+      when: 'Within 15 minutes, but only between 8am and 8pm',
+      how: 'Text and email, to them',
+      says: '"We have your message and a care coordinator will call you shortly. If you would rather not wait, we are on (417) 234-8494."',
+      note: 'Only in the first 12 hours. After that it would be saying something that is plainly not true, so the office is told instead.' },
+    { name: 'Is there a good time to call?',
+      when: 'A day later, if nobody has called them',
+      how: 'Text and email, to them',
+      says: '"We do not want to lose track of you. Is there a good time to call?"' },
+    { name: 'One last note',
+      when: 'Three days after they wrote, if still nobody has called',
+      how: 'Text and email, to them',
+      says: '"Last note from us so we are not a nuisance."',
+      note: 'Then it stops. Two messages, never more.' },
+    { name: 'This lead is going cold',
+      when: 'As soon as it passes its follow-up time',
+      how: 'Text or email, to the office',
+      says: 'Who they are, how many hours ago they wrote, and that nobody has called.' },
+    { name: 'Everything stops',
+      when: 'The moment a coordinator moves them off New, or they reply',
+      how: '—',
+      says: 'Nothing further sends. A person has it.',
+      note: 'The worst thing this could do is chase a family while somebody is already on the phone to them.' },
+  ]},
+
+  { who: 'Families who are not ready yet', items: [
+    { name: 'The gentle drip',
+      when: 'Day 3, 10, 21 and 45 after somebody enrolls them',
+      how: 'Text and email, to them',
+      says: 'No pressure, then the five questions to ask any agency, then a check-in, then "still here".',
+      note: 'A coordinator has to start this deliberately. Nothing enrolls anybody automatically.' },
+    { name: 'The long game',
+      when: 'Day 60 through 400, roughly every six weeks',
+      how: 'Email only',
+      says: 'Something useful each time: the home safety check, what care costs here, caregiver burnout, fall prevention, the Medicaid and VA money most people never claim, the family meeting planner.',
+      note: 'Rolls on from the drip by itself. Stops for good at about thirteen months.' },
+    { name: 'A check-in after a loss',
+      when: '90 days after a lead was marked lost',
+      how: 'Text, to them',
+      says: '"Circumstances change, so I wanted to see how things are going."' },
+  ]},
+
+  { who: 'The email calendar', items: [
+    { name: 'The monthly library',
+      when: 'Every morning at 10am, it sends whatever the calendar says is due',
+      how: 'Email, to leads, clients, client families and caregivers',
+      says: 'Seasonal and educational emails, written and designed in advance.',
+      note: 'Each email sends at most once a year, skips anybody marked do-not-contact, and stands aside for anyone already in a drip so nobody gets two things in a fortnight. Referral-partner emails are never automatic.' },
+  ]},
+
+  { who: 'Once somebody is hired', items: [
+    { name: 'Their start link',
+      when: 'As soon as the offer is saved',
+      how: 'Text and email, to them',
+      says: 'A two-minute form so reference checks can start the same day.' },
+    { name: 'Chasing a quiet reference',
+      when: '2 days after asking, then we stop at 5 and it becomes a phone call',
+      how: 'Email, to the reference',
+      note: 'References are never texted.' },
+    { name: 'Their social security number is deleted',
+      when: 'Once their screening clears',
+      how: '—',
+      says: 'The number goes. Everything else on the form stays.',
+      note: 'The start form promises this. This is the thing that keeps the promise.' },
+  ]},
+
+  { who: 'Quietly, in the background', items: [
+    { name: 'Interview audio is deleted',
+      when: '90 days after the recording',
+      how: '—',
+      says: 'The recording goes, the written transcript stays.',
+      note: 'A recording that never transcribed is never deleted, because then the audio is the only copy.' },
+    { name: 'The daily lead digest',
+      when: 'Every morning',
+      how: 'Email, to the office',
+      says: 'What is due today and what is overdue.' },
+    { name: 'A backup of the whole hub',
+      when: 'Every Monday',
+      how: '—' },
+  ]},
+];
+
+function autoOpen(){
+  const esc = escapeHtmlComms;
+  document.getElementById('autoBody').innerHTML =
+    '<div class="field-note" style="margin-bottom:14px;">'
+    + 'Everything below happens without anybody pressing a button. Nothing here quotes a price, makes a promise '
+    + 'about a visit, or asks a question the person has to answer. If a family or an applicant says '
+    + '"I got a message", this is what they got.</div>'
+    + AUTO_GROUPS.map(function(g){
+      return '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;'
+        + 'color:var(--text-muted);margin:18px 0 8px;">' + esc(g.who) + '</div>'
+        + g.items.map(function(i){
+          return '<div style="border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:9px;background:#fff;">'
+            + '<div style="display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;">'
+              + '<b style="font-size:14px;color:var(--navy);">' + esc(i.name) + '</b>'
+              + (i.how && i.how !== '—' ? '<span style="font-size:11px;font-weight:700;color:#1c6b45;background:#e8f1ec;border-radius:999px;padding:2px 9px;">' + esc(i.how) + '</span>' : '')
+            + '</div>'
+            + '<div class="field-note" style="margin-top:4px;"><b>When:</b> ' + esc(i.when) + '</div>'
+            + (i.says ? '<div style="font-size:13.5px;margin-top:6px;">' + esc(i.says) + '</div>' : '')
+            + (i.note ? '<div class="field-note" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px;">' + esc(i.note) + '</div>' : '')
+            + '</div>';
+        }).join('');
+    }).join('')
+    + '<div class="field-note" style="margin-top:16px;border-top:1px solid var(--border);padding-top:10px;">'
+    + 'Anybody can be taken out of all of it. Marking a lead do-not-contact, or a caregiver, stops every automatic '
+    + 'message to them immediately.</div>';
+  document.getElementById('autoBackdrop').classList.add('open');
 }
 
 /* ---------------- MODAL HELPERS ---------------- */
