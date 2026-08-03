@@ -7139,6 +7139,30 @@ function cmpDueSoon(days){
   }
   return out.sort((a,b)=>a.start-b.start);
 }
+/* The switch says what somebody intended. Whether anything is actually running
+   is a different question, and the page used to answer it with "sending on
+   schedule" — a claim it had no way to check. The send log can answer it: if
+   the calendar is on and nothing has gone out in weeks, something is wrong
+   upstream and saying so is worth more than a reassuring label. */
+function cmpLastAutoSend(){
+  const rows=(DATA.campaign_log||[]).filter(l=>(l.sent||0)>0);
+  if(!rows.length) return null;
+  return rows.sort((a,b)=>(b.at||'').localeCompare(a.at||''))[0];
+}
+function cmpHealth(cfg){
+  if(!cfg.enabled) return '';
+  const last=cmpLastAutoSend();
+  const days=last? Math.floor((Date.now()-new Date(last.at))/864e5) : null;
+  const overdue=cmpDueSoon(0).filter(d=>!cmpSentThisYear(d.e.key)).length;
+  if(!last) return '<div style="background:#FEE2E2;border:1px solid #FCA5A5;border-radius:9px;padding:9px 12px;margin-top:10px;font-size:13px;">'
+    + '<b>Switched on, but nothing has ever sent.</b> The switch and the scheduler are different things. '
+    + 'Run <code>select jobname from cron.job;</code> in Supabase — if <b>campaign-auto</b> is not in the list, nothing is calling it.</div>';
+  if(days>45 || overdue) return '<div style="background:#FEF3C7;border:1px solid #F5D9A0;border-radius:9px;padding:9px 12px;margin-top:10px;font-size:13px;">'
+    + '<b>Last send was '+days+' days ago'+(overdue? ', and '+overdue+' due now '+(overdue===1?'has':'have')+' not gone' : '')+'.</b> '
+    + 'Worth checking the schedule is still running.</div>';
+  return '<div class="field-note" style="margin-top:8px;">Last send '+tkWhen(last.at)+'.</div>';
+}
+
 function renderAutopilot(){
   const el=document.getElementById('cmpAutopilot'); if(!el) return;
   const cfg=cmpSettings();
@@ -7146,7 +7170,7 @@ function renderAutopilot(){
   el.innerHTML=
   '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'+
     '<div style="font-weight:800;color:var(--navy);font-size:15px;">🤖 Autopilot</div>'+
-    '<label style="display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700;color:'+(cfg.enabled?'#227a46':'var(--text-muted)')+';cursor:pointer;"><input type="checkbox" id="apOn" '+(cfg.enabled?'checked':'')+' onchange="apSave()"> '+(cfg.enabled?'ON, sending on schedule':'OFF, nothing sends automatically')+'</label>'+
+    '<label style="display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700;color:'+(cfg.enabled?'#227a46':'var(--text-muted)')+';cursor:pointer;"><input type="checkbox" id="apOn" '+(cfg.enabled?'checked':'')+' onchange="apSave()"> '+(cfg.enabled?'Switched ON':'OFF, nothing sends automatically')+'</label>'+
     '<span style="border-left:1px solid var(--border);padding-left:14px;font-size:13px;color:var(--text-muted);">Audiences:</span>'+
     '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apM" '+(cfg.aud_monthly?'checked':'')+' onchange="apSave()"> Leads (monthly)</label>'+
     '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apC" '+(cfg.aud_clients?'checked':'')+' onchange="apSave()"> Clients</label>'+
@@ -7154,7 +7178,18 @@ function renderAutopilot(){
     '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apG" '+(cfg.aud_caregivers?'checked':'')+' onchange="apSave()"> Caregivers</label>'+
   '</div>'+
   '<div style="font-size:12.5px;color:var(--text-muted);margin-top:10px;">Runs every morning. Each email sends once per year at most, skips do-not-contact people, and emails you a summary after every run. Referral-partner emails stay manual.</div>'+
-  (due.length?'<div style="margin-top:10px;font-size:13px;"><b style="color:var(--navy);">Coming up:</b> '+due.slice(0,4).map(d=>'<span style="display:inline-block;background:var(--amber-bg,#FFF4DE);color:#8a5a1a;border-radius:999px;padding:3px 10px;margin:2px 4px 0 0;">'+tkEsc(d.e.when)+' · '+tkEsc(d.e.subj.slice(0,42))+(d.e.subj.length>42?'…':'')+'</span>').join('')+'</div>':'');
+  (due.length?'<div style="margin-top:10px;font-size:13px;"><b style="color:var(--navy);">Coming up:</b> '+due.slice(0,4).map(d=>'<span style="display:inline-block;background:var(--amber-bg,#FFF4DE);color:#8a5a1a;border-radius:999px;padding:3px 10px;margin:2px 4px 0 0;">'+tkEsc(d.e.when)+' · '+tkEsc(d.e.subj.slice(0,42))+(d.e.subj.length>42?'…':'')+'</span>').join('')+'</div>':'')
+  /* How many people each switch actually reaches. Turning one on should not be
+     a leap of faith, and the monthly one now stands aside for anyone already
+     in a drip, which is worth seeing rather than wondering about. */
+  + '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:11px;border-top:1px solid var(--border);padding-top:9px;font-size:13px;">'
+  + CMP_AUDS.filter(a=>a[0]!=='referrers').map(function(a){
+      const c=cmpAudienceCount(a[0]);
+      return '<span><b style="color:var(--navy);">'+(c.n==null?'—':c.n)+'</b> '+tkEsc(a[1].replace(/^\S+\s/,''))
+        + (c.note?'<span class="field-note"> · '+tkEsc(c.note)+'</span>':'')+'</span>';
+    }).join('')
+  + '</div>'
+  + cmpHealth(cfg);
 }
 async function apSave(){
   const item={id:'settings',
@@ -7168,6 +7203,44 @@ async function apSave(){
   try{ await persist('campaign_settings', item); }catch(e){}
   renderAutopilot();
 }
+/* ---- what has actually gone out ------------------------------------------
+   The page showed what was coming and never what had been, so a calendar that
+   has never sent anything looks exactly like one that is working. The send log
+   already holds the answer. */
+function cmpSentFor(key){
+  const rows=(DATA.campaign_log||[]).filter(l=>l.key===key && (l.sent||0)>0);
+  if(!rows.length) return null;
+  return rows.sort((a,b)=>(b.at||'').localeCompare(a.at||''))[0];
+}
+const cmpYear = iso => (iso||'').slice(0,4);
+function cmpSentThisYear(key){
+  const l=cmpSentFor(key);
+  return (l && cmpYear(l.at)===String(new Date().getFullYear())) ? l : null;
+}
+
+/* Who is actually on each list, counted the same way the sender counts them,
+   so turning an audience on is not a leap of faith. */
+function cmpAudienceCount(aud){
+  const leads=DATA.leads||[];
+  const live = l => l.status!=='Converted' && l.status!=='Lost';
+  const inDrip = l => !!l.nurture_started_at && !l.nurture_stopped_at;
+  if(aud==='monthly'){
+    const withEmail=leads.filter(l=>l.email && live(l));
+    const held=withEmail.filter(inDrip).length;
+    return { n: withEmail.length-held, held,
+      note: held? held+' held back, already in a drip' : '' };
+  }
+  if(aud==='clients'||aud==='client_contacts'){
+    const n=leads.filter(l=>l.email && l.status==='Converted').length;
+    return { n, held:0, note:'from the hub; the sender also reads AxisCare' };
+  }
+  if(aud==='caregivers'){
+    const n=((typeof caregivers!=='undefined'&&caregivers)||[]).filter(c=>c.email).length;
+    return { n, held:0, note: n? '' : 'the sender reads the AxisCare roster' };
+  }
+  return { n:null, held:0, note:'sent by hand, never on a schedule' };
+}
+
 function renderCampaigns(){
   const auds=document.getElementById('cmpAuds'); if(!auds) return;
   renderAutopilot();
@@ -7179,7 +7252,12 @@ function renderCampaigns(){
     '<div class="cmp-card" onclick="openCampaign(\''+e.key+'\')">'+
     '<div class="cmp-when" style="color:'+tkEsc(e.ac)+'">'+tkEsc(e.when||'')+(e.seg?' · '+tkEsc(e.seg):'')+'</div>'+
     '<div class="cmp-subj">'+tkEsc(e.subj)+'</div>'+
-    '<div class="cmp-meta">'+tkEsc(e.cat||'')+(e.variant?' · '+tkEsc(e.variant):'')+'</div></div>').join('');
+    '<div class="cmp-meta">'+tkEsc(e.cat||'')+(e.variant?' · '+tkEsc(e.variant):'')+'</div>'+
+    (function(){ const l=cmpSentThisYear(e.key), any=cmpSentFor(e.key);
+      if(l) return '<div class="cmp-meta" style="color:#15803D;font-weight:700;">sent '+tkWhen(l.at)+' · '+l.sent+'</div>';
+      if(any) return '<div class="cmp-meta" style="color:var(--text-muted);">last sent '+tkWhen(any.at)+'</div>';
+      return '<div class="cmp-meta" style="color:#B45309;">never sent</div>'; })()+
+    '</div>').join('');
   const log=(DATA.campaign_log||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||'')).slice(0,15);
   document.getElementById('cmpLog').innerHTML = log.length ?
     '<h3 style="font-size:15px;color:var(--navy);margin:26px 0 8px;">Recent sends</h3><table><tr><th>When</th><th>Email</th><th>Audience</th><th>Sent</th></tr>'+
