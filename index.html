@@ -4189,6 +4189,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </section>
 
 <!-- ===================== LEAD PROFILE PAGE ===================== -->
+
+<!-- ===================== REFERRAL PARTNER PROFILE =====================
+     Seasons Hospice is a relationship, not a row. Everything we know about
+     them on one page: who we know, every visit and what was said, what they
+     have actually sent us, and the ideas somebody had that would otherwise
+     live in a car on the way back from a drop-by. -->
+<section id="refProfileView" style="display:none;">
+  <button class="linklike" style="font-size:13px;margin-bottom:12px;" onclick="closeRefProfile()">← Back to referral partners</button>
+  <div class="profile-grid">
+    <div id="refProfLeft"></div>
+    <div id="refProfRight"></div>
+  </div>
+</section>
 <!-- ===================== APPLICANT PROFILE PAGE =====================
      One person, one page, in the order their story actually happened. The
      accordion on the Applicants tab is for scanning a list; this is for
@@ -6830,6 +6843,8 @@ function switchTab(tab){
   if(lpv) lpv.style.display='none';
   const apv = document.getElementById('applicantProfileView');
   if(apv) apv.style.display='none';
+  const rpv = document.getElementById('refProfileView');
+  if(rpv) rpv.style.display='none';
   if(typeof closeMoreMenu==='function') closeMoreMenu();
   activeTab = tab;
   const g=ccGroupOf(tab);
@@ -7962,7 +7977,7 @@ function lpCopyAttrs(){
 }
 
 /* ================= CRM: TODAY / ACTIVITIES ================= */
-const ACT_ICON = { call:'☎', dropby:'🏢', email:'✉️', other:'•' };
+const ACT_ICON = { call:'☎', dropby:'🏢', email:'✉️', appointment:'🤝', event:'🎪', idea:'💡', other:'•' };
 function actPhone(a){
   if(a.lead_id){ const l=DATA.leads.find(x=>x.id===a.lead_id); return l&&l.phone; }
   if(a.org_id){ const o=DATA.referral_orgs.find(x=>x.id===a.org_id); return o&&o.phone; }
@@ -8313,7 +8328,8 @@ function renderReferrers(){
     const acts=(DATA.referral_activities||[]).filter(a=>a.org_id===o.id).sort((a,b)=>b.at<a.at?-1:1);
     return '<div class="card" style="padding:14px 16px;margin-bottom:10px;">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
-      +'<b style="font-size:14.5px;color:var(--navy);">'+esc(o.name)+'</b>'
+      +'<b style="font-size:14.5px;color:var(--navy);cursor:pointer;text-decoration:underline;text-decoration-color:#CBD5E1;'
+        +'text-underline-offset:3px;" onclick="openRefProfile(\''+esc(o.id)+'\')">'+esc(o.name)+'</b>'
       +'<span class="tag-chip">'+esc(o.type||'')+'</span>'
       +(refs?'<span class="badge ok">'+refs+' referral'+(refs===1?'':'s')+'</span>':'')
       +(quiet?'<span class="badge bad">😴 gone quiet'+(last?' — last touch '+String(last).slice(0,10):' — never touched')+'</span>':'<span class="badge muted">last touch '+String(last).slice(0,10)+'</span>')
@@ -8402,6 +8418,141 @@ async function logOrgActivity(orgId){
   await persist('referral_activities',a);
   if(confirm('Logged! Schedule the NEXT touch with them now? (Keeps the relationship from going quiet.)')) openActivityModal(null,orgId);
   renderReferrers();
+}
+
+
+/* ---- One referral partner, one page ----------------------------------------
+   A hospital is a relationship that runs for years, and it was a row in a list
+   with twelve of its last touches behind a fold. This is the whole of it: who
+   we know there, every visit and what was said, what they have actually sent
+   us, and the ideas somebody had on the drive back that would otherwise never
+   be written down.
+
+   Ideas are logged as touches with their own kind, so they sit in the same
+   history in the same order rather than in a second place nobody opens. */
+let REF_PROF = null;
+
+function openRefProfile(id){
+  const o=(DATA.referral_orgs||[]).find(x=>String(x.id)===String(id)); if(!o) return;
+  REF_PROF=o;
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
+  ['leadProfileView','applicantProfileView'].forEach(v=>{ const e=document.getElementById(v); if(e) e.style.display='none'; });
+  document.getElementById('refProfileView').style.display='block';
+  renderRefProfile();
+  window.scrollTo(0,0);
+}
+function closeRefProfile(){
+  REF_PROF=null;
+  document.getElementById('refProfileView').style.display='none';
+  switchTab('referrers');
+}
+
+function refActs(id){
+  return (DATA.referral_activities||[]).filter(a=>a.org_id===id)
+    .sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+}
+/* Leads they sent, by the id where we have it and by name for the older ones,
+   which is the same rule the leaderboard counts on. */
+function refLeads(o){
+  const norm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const n=norm(o.name);
+  return (DATA.leads||[]).filter(function(l){
+    if(l.referral_org_id) return l.referral_org_id===o.id;
+    const t=norm(l.referral_source_name);
+    return !!t && n && (t.includes(n)||n.includes(t));
+  });
+}
+
+function renderRefProfile(){
+  const o=REF_PROF; if(!o) return;
+  const esc=escapeHtmlComms;
+  const acts=refActs(o.id);
+  const leads=refLeads(o);
+  const won=leads.filter(l=>l.status==='Converted').length;
+  const last=acts.length?String(acts[0].at).slice(0,10):null;
+  const days=last?Math.floor((Date.now()-new Date(last+'T12:00:00'))/864e5):null;
+  const face=acts.filter(a=>['dropby','appointment','event'].includes(a.kind));
+  const d=s=>s?new Date(String(s).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
+
+  document.getElementById('refProfLeft').innerHTML =
+    '<div class="card" style="padding:18px;margin-bottom:14px;">'
+    + '<div style="font-size:19px;font-weight:800;color:var(--navy);letter-spacing:-.01em;">'+esc(o.name)+'</div>'
+    + (o.type?'<div class="field-note">'+esc(o.type)+'</div>':'')
+    + '<div style="margin-top:12px;display:flex;flex-direction:column;gap:7px;font-size:13.5px;">'
+      + (o.phone?'<a href="tel:'+esc(String(o.phone).replace(/[^0-9+]/g,''))+'" style="color:var(--navy);text-decoration:none;">☎ '+esc(o.phone)+'</a>':'')
+      + (o.email?'<a href="mailto:'+esc(o.email)+'" style="color:var(--navy);text-decoration:none;word-break:break-all;">✉️ '+esc(o.email)+'</a>':'')
+    + '</div>'
+    + (o.people?'<div style="margin-top:12px;"><div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);">Who we know there</div>'
+        + '<div style="font-size:13.5px;margin-top:4px;white-space:pre-wrap;">'+esc(o.people)+'</div></div>':'')
+    + '<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;font-size:13.5px;">'
+      + '<div style="display:flex;justify-content:space-between;padding:4px 0;"><span style="color:var(--text-muted);">Last visited</span><span>'
+        + (last? esc(d(last)) + (days>30?' <b style="color:#B91C1C;">('+days+'d)</b>':' <span class="field-note">('+days+'d)</span>') : '<b style="color:#B91C1C;">never</b>') + '</span></div>'
+      + '<div style="display:flex;justify-content:space-between;padding:4px 0;"><span style="color:var(--text-muted);">Times we have been</span><span><b>'+face.length+'</b></span></div>'
+      + '<div style="display:flex;justify-content:space-between;padding:4px 0;"><span style="color:var(--text-muted);">Leads they sent</span><span><b>'+leads.length+'</b>'+(won?' · '+won+' became clients':'')+'</span></div>'
+    + '</div></div>'
+
+    + '<div class="card" style="padding:16px 18px;">'
+    + '<b style="font-size:14px;color:var(--navy);">Log something</b>'
+    + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">'
+      + '<select id="rp_kind"><option value="dropby">🏢 Drop-by</option><option value="appointment">🤝 Appointment</option>'
+        + '<option value="event">🎪 Event</option><option value="call">☎ Call</option><option value="email">✉️ Email</option>'
+        + '<option value="idea">💡 Idea to try</option></select>'
+      + '<textarea id="rp_note" rows="3" placeholder="Who you saw, what was said, what they need from us…"></textarea>'
+      + '<button class="primary" onclick="refLog()">Save it</button>'
+      + '<button class="fb" onclick="openActivityModal(null,\'' + esc(o.id) + '\')">📅 Schedule the next one</button>'
+      + '<button class="fb" onclick="openOrgModal(\'' + esc(o.id) + '\')">Edit their details</button>'
+    + '</div></div>';
+
+  const ideas=acts.filter(a=>a.kind==='idea');
+  const history=acts.filter(a=>a.kind!=='idea');
+
+  document.getElementById('refProfRight').innerHTML =
+      (o.notes?'<div class="card" style="padding:16px 18px;margin-bottom:14px;"><b style="font-size:15px;color:var(--navy);">What to remember</b>'
+        + '<div style="font-size:13.5px;margin-top:8px;white-space:pre-wrap;">'+esc(o.notes)+'</div></div>':'')
+
+    + '<div class="card" style="padding:16px 18px;margin-bottom:14px;"><b style="font-size:15px;color:var(--navy);">💡 Ideas to try</b>'
+      + '<div class="field-note" style="margin-top:3px;">The things somebody thought of on the drive back.</div>'
+      + '<div style="margin-top:10px;">'
+      + (ideas.length? ideas.map(a=>'<div style="font-size:13.5px;padding:6px 0;border-bottom:1px dashed var(--border);">'
+          + esc(a.note) + '<div class="field-note">' + esc(d(a.at)) + (a.by?' · '+esc(String(a.by).split('@')[0]):'') + '</div></div>').join('')
+        : '<div class="field-note">Nothing yet. Log one with the 💡 option.</div>')
+      + '</div></div>'
+
+    + '<div class="card" style="padding:16px 18px;margin-bottom:14px;"><b style="font-size:15px;color:var(--navy);">Every visit and call</b>'
+      + '<div class="field-note" style="margin-top:3px;">All of it, oldest at the bottom.</div>'
+      + '<div style="margin-top:10px;max-height:420px;overflow:auto;">'
+      + (history.length? history.map(a=>'<div style="display:flex;gap:9px;align-items:flex-start;padding:7px 0;border-bottom:1px dashed var(--border);font-size:13.5px;">'
+          + '<span style="flex:0 0 auto;">'+(ACT_ICON[a.kind]||'•')+'</span>'
+          + '<span style="flex:0 0 92px;color:var(--text-muted);">'+esc(d(a.at))+'</span>'
+          + '<span style="flex:1;">'+esc(a.note||a.kind)+(a.by?'<span class="field-note"> · '+esc(String(a.by).split('@')[0])+'</span>':'')+'</span></div>').join('')
+        : '<div class="field-note">Nobody has been yet. That is the whole job.</div>')
+      + '</div></div>'
+
+    + '<div class="card" style="padding:16px 18px;"><b style="font-size:15px;color:var(--navy);">What they have sent us</b>'
+      + '<div style="margin-top:10px;">'
+      + (leads.length? leads.slice(0,20).map(l=>'<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:5px 0;border-bottom:1px dashed var(--border);font-size:13.5px;">'
+          + '<b style="color:var(--navy);">'+esc(((l.first_name||'')+' '+(l.last_name||'')).trim()||'A family')+'</b>'
+          + '<span class="field-note">'+esc(d(l.created_at))+'</span><span style="flex:1;"></span>'
+          + '<span class="field-note">'+esc(l.status||'')+'</span></div>').join('')
+        : '<div class="field-note">Nothing yet. Worth knowing before the next visit.</div>')
+      + '</div></div>';
+}
+
+async function refLog(){
+  const o=REF_PROF; if(!o) return;
+  const note=document.getElementById('rp_note').value.trim();
+  const kind=document.getElementById('rp_kind').value;
+  if(!note){ alert('Write a line about it, even a short one. A touch with no note is a tally, not a memory.'); return; }
+  let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
+  const a={ id:uid(), org_id:o.id, kind, note, at:new Date().toISOString(), by };
+  DATA.referral_activities=DATA.referral_activities||[]; DATA.referral_activities.push(a);
+  try{ await persist('referral_activities',a); }catch(e){}
+  document.getElementById('rp_note').value='';
+  renderRefProfile();
+  /* Only for a real visit. Being asked to schedule the next one after jotting
+     an idea would train everybody to dismiss it. */
+  if(['dropby','appointment','event'].includes(kind)
+     && confirm('Logged. Schedule the next touch with them now?\n\nThis is what keeps a partner from going quiet.')) openActivityModal(null,o.id);
 }
 
 /* ================= CRM: LOST REASONS + REPORTS ================= */
