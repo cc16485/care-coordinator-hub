@@ -5337,7 +5337,13 @@ The HomeTogether team</pre>
 <option>Phone</option><option>Website</option><option>Referral</option><option>Other</option>
 </select>
 </div>
-<div style="grid-column:1/-1;"><label>Referred By</label><input id="lead_referral_source_name" placeholder="Doctor, hospital, friend, Facebook ad, etc."></div>
+<div style="grid-column:1/-1;"><label>Referred By</label>
+  <!-- Picked from the partners we already keep records on, because a typed
+       name is how "Mercy", "Mercy Hospital" and "mercy hosp" become three
+       different referrers on the leaderboard. The free text stays for the
+       ones who are not organisations: a neighbour, a former client, an ad. -->
+  <select id="lead_referral_org_id" onchange="leadRefOrgPicked()" style="margin-bottom:6px;"></select>
+  <input id="lead_referral_source_name" placeholder="Or type it: a neighbour, a former client, Facebook…"></div>
 </div>
 <div class="script-hint"><span class="ic">💬</span><span>Try hard for the email: "What's the best email for you? That way I can send over everything we talk about today, so you have it all in writing."</span></div>
 </div>
@@ -7574,6 +7580,7 @@ function openLeadModal(id){
   document.getElementById('lead_email').value = l.email||'';
   document.getElementById('lead_relationship').value = l.relationship||'';
   document.getElementById('lead_source').value = l.source||'Phone';
+  leadFillRefOrgs(l.referral_org_id||'');
   document.getElementById('lead_referral_source_name').value = l.referral_source_name||'';
 
   document.getElementById('lead_client_name_not_provided').checked = !!l.client_name_not_provided;
@@ -8262,10 +8269,34 @@ function orgLastTouch(orgId){
   const acts=(DATA.referral_activities||[]).filter(a=>a.org_id===orgId);
   return acts.length?acts.map(a=>a.at).sort().pop():null;
 }
+/* Counted on the partner's id, which cannot drift. Leads recorded before the
+   picker existed only have words, so those are still matched by name, and the
+   two are never double-counted for the same lead. */
 function orgReferralCount(o){
   const norm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
   const n=norm(o.name); if(!n) return 0;
-  return DATA.leads.filter(l=>norm(l.referral_source_name).includes(n)||n.includes(norm(l.referral_source_name)||'~')).length;
+  return DATA.leads.filter(function(l){
+    if(l.referral_org_id) return l.referral_org_id===o.id;
+    const t=norm(l.referral_source_name);
+    return !!t && (t.includes(n) || n.includes(t));
+  }).length;
+}
+function leadFillRefOrgs(sel){
+  const el=document.getElementById('lead_referral_org_id'); if(!el) return;
+  el.innerHTML='<option value="">Not one of our partners</option>'
+    + (DATA.referral_orgs||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');})
+      .map(function(o){ return '<option value="'+escapeHtmlComms(o.id)+'"'+(o.id===sel?' selected':'')+'>'+escapeHtmlComms(o.name)+'</option>'; }).join('');
+}
+/* Picking a partner fills the words too, so the row still reads properly
+   everywhere the name is shown and nobody has to type it twice. */
+function leadRefOrgPicked(){
+  const id=document.getElementById('lead_referral_org_id').value;
+  const o=(DATA.referral_orgs||[]).find(function(x){return x.id===id;});
+  const t=document.getElementById('lead_referral_source_name');
+  if(o) t.value=o.name;
+  else if(t.value && (DATA.referral_orgs||[]).some(function(x){return x.name===t.value;})) t.value='';
+  const src=document.getElementById('lead_source');
+  if(o && src && src.value!=='Referral') src.value='Referral';
 }
 function renderReferrers(){
   const esc=escapeHtmlComms;
@@ -8633,6 +8664,7 @@ async function saveLead(){
     email: document.getElementById('lead_email').value.trim(),
     relationship: document.getElementById('lead_relationship').value.trim(),
     source: document.getElementById('lead_source').value,
+    referral_org_id: document.getElementById('lead_referral_org_id').value || null,
     referral_source_name: document.getElementById('lead_referral_source_name').value.trim(),
 
     client_name_not_provided: document.getElementById('lead_client_name_not_provided').checked,
