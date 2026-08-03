@@ -12333,7 +12333,9 @@ function recMount(hostId, kind, subjectId, label){
     + '</div>'
     + '<label style="display:flex;gap:8px;align-items:flex-start;margin-top:9px;font-size:13px;cursor:pointer;">'
       + '<input type="checkbox" id="recConsent" onchange="recButtons()" style="width:16px;height:16px;margin-top:2px;accent-color:var(--yellow);">'
-      + '<span>I have asked ' + escapeHtmlComms(label || 'them') + ' out loud, and they said yes to being recorded.</span></label>'
+      + '<span>I have asked ' + escapeHtmlComms(label || 'them') + ' out loud, and they said yes to being recorded.<br>'
+      + '<span class="field-note">Worth saying on the recording itself, in the first few seconds, so the transcript is its own proof. '
+      + 'The audio is deleted after 90 days and the written transcript is kept.</span></span></label>'
     + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">'
       + '<button class="secondary" id="recGo" onclick="recStart()" disabled>● Start recording</button>'
       + '<button class="fb" id="recStopB" onclick="recStop()" style="display:none;">■ Stop</button>'
@@ -12472,7 +12474,9 @@ function recListHtml(rows){
         + (r.recorded_by ? '<span class="field-note">by ' + esc(r.recorded_by) + '</span>' : '')
         + (STATE[r.status] ? '<span class="field-note">' + STATE[r.status] + '</span>' : '')
         + '<span style="flex:1;"></span>'
-        + '<button class="fb" onclick="recPlay(\'' + esc(r.id) + '\')">▶ Listen</button>'
+        + (r.audio_purged_at
+            ? '<span class="field-note">audio deleted, transcript kept</span>'
+            : '<button class="fb" onclick="recPlay(\'' + esc(r.id) + '\')">▶ Listen</button>')
         + (r.status==='failed' ? '<button class="fb" onclick="recRetry(\'' + esc(r.id) + '\')">Try again</button>' : '')
         + (r.transcript && r.kind==='interview'
             ? '<button class="secondary" onclick="recFill(\'' + esc(r.id) + '\',this)">✨ Fill the answers from this</button>' : '')
