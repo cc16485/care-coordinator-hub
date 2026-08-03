@@ -12687,6 +12687,8 @@ function apRenderProfile(){
         'References, the screenings and the paperwork, wherever they have got to.')
     + apProfCard('Training', '<div id="apTrainHost"><div class="field-note">Looking…</div></div>',
         'Read live from the training platform, which is where it actually lives.')
+    + (r.status==='hired' || r.status==='left' || r.started_at
+        ? apProfCard('Since they started', apPerfHtml(r), 'Attendance and write-ups.') : '')
     + (r.started_at || r.left_at ? apProfCard('How it ended', apProfLeaving(r), '') : '');
   apOnboardMount(r);
   apTrainingMount(r);
@@ -12841,6 +12843,77 @@ async function apTrainingMount(r){
     + apProfRow('Hired', esc(day(h.hire_date)))
     + apProfRow('First client contact', esc(day(h.first_contact_date)))
     + '<div style="margin-top:10px;">' + link + '</div>';
+}
+
+/* ---- Since they started -----------------------------------------------------
+   Attendance and write-ups identify people by a name somebody typed, which is
+   the last thing in the hub that does. Until they carry a person id, this
+   matches on the name and says so, and refuses to show anything at all when
+   two people share one, because the wrong person's write-up is far worse than
+   a blank card. */
+function apPerfHtml(r){
+  const esc = escapeHtmlComms;
+  const name = ((r.first_name||'')+' '+(r.last_name||'')).trim();
+  const n = trainNorm((r.first_name||'')+(r.last_name||''));
+  if(!n) return '<div class="field-note">No name on this record.</div>';
+
+  const sameName = (AP_ROWS||[]).filter(x=>trainNorm((x.first_name||'')+(x.last_name||''))===n).length;
+  const mine = list => (list||[]).filter(x =>
+    (x.person_id && String(x.person_id)===String(r.id))
+    || (!x.person_id && sameName<2 && trainNorm(x.caregiver)===n));
+
+  const events  = mine(DATA.attendance_events).sort((a,b)=>(b.shift_date||'').localeCompare(a.shift_date||''));
+  const actions = mine(DATA.discipline_actions).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
+
+  if(sameName > 1 && !events.length && !actions.length){
+    return '<div class="field-note" style="color:#B45309;">' + esc(sameName) + ' applicants share this name, '
+      + 'so nothing is matched here rather than risk showing somebody else\'s record. '
+      + 'These will attach correctly once past records carry a person rather than a typed name.</div>';
+  }
+  if(!events.length && !actions.length){
+    return '<div class="field-note">Nothing logged. Attendance and write-ups appear here once there are any.</div>';
+  }
+
+  const TYPE = { callin:['#B45309','#FEF3C7','Called in'], tardy:['#B45309','#FEF3C7','Late'],
+                 ncns:['#B91C1C','#FEE2E2','No call, no show'] };
+  const day = s => s ? new Date(s+'T12:00:00').toLocaleDateString('en-US',{month:'short', day:'numeric', year:'numeric'}) : '';
+  let out = '';
+
+  if(events.length){
+    const n12 = events.filter(e=>e.shift_date && (Date.now()-new Date(e.shift_date+'T12:00:00')) < 365*864e5).length;
+    out += '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px;">'
+      + 'Attendance · ' + n12 + ' in the last year</div>'
+      + events.slice(0,8).map(e=>{
+        const t = TYPE[e.type] || ['#6E6559','#F4F2ED', e.type||'event'];
+        return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--border);">'
+          + '<span style="font-size:11px;font-weight:700;color:'+t[0]+';background:'+t[1]+';border-radius:999px;padding:2px 9px;">'+t[2]+'</span>'
+          + '<span>' + esc(day(e.shift_date)) + '</span>'
+          + (e.notice_hours != null ? '<span class="field-note">' + esc(e.notice_hours) + 'h notice</span>' : '')
+          + (e.minutes_late ? '<span class="field-note">' + esc(e.minutes_late) + ' min late</span>' : '')
+          + (e.note ? '<span class="field-note">' + esc(e.note) + '</span>' : '')
+          + '</div>';
+      }).join('')
+      + (events.length > 8 ? '<div class="field-note" style="margin-top:5px;">and ' + (events.length-8) + ' older</div>' : '');
+  }
+
+  if(actions.length){
+    out += '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:' + (out?'14px':'0') + ' 0 4px;">Write-ups</div>'
+      + actions.slice(0,6).map(a=>
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--border);">'
+        + '<b style="color:var(--navy);">' + esc(a.level||'') + '</b>'
+        + '<span>' + esc(a.reason||'') + '</span>'
+        + '<span style="flex:1;"></span>'
+        + (a.issued_at
+            ? '<span class="field-note">issued ' + esc(day(String(a.issued_at).slice(0,10))) + '</span>'
+            : '<span style="font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 9px;">draft</span>')
+        + '</div>').join('');
+  }
+
+  const byName = (events.concat(actions)).some(x=>!x.person_id);
+  if(byName) out += '<div class="field-note" style="margin-top:9px;border-top:1px solid var(--border);padding-top:8px;">'
+    + 'Matched to ' + esc(name) + ' by name, because these records predate the person record. '
+    + 'Exact once they are linked.</div>';
+  return out;
 }
 
 function apProfLeaving(r){
