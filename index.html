@@ -12644,7 +12644,12 @@ function apRenderProfile(){
       + (r.status!=='hired' && r.status!=='declined' && r.status!=='pool'
           ? '<button class="fb" onclick="apToPool(\''+esc(r.id)+'\')">🗂 Candidate pool</button>' : '')
       + (r.status==='pool' ? '<button class="fb" onclick="apFromPool(\''+esc(r.id)+'\')">↩️ Out of the pool</button>' : '')
-      + (r.status!=='declined' ? '<button class="fb" style="color:var(--red);" onclick="apDecline(\''+esc(r.id)+'\')">Not moving forward</button>' : '')
+      + (r.status!=='declined' && r.status!=='hired' && r.status!=='left'
+          ? '<button class="fb" style="color:var(--red);" onclick="apDecline(\''+esc(r.id)+'\')">Not moving forward</button>' : '')
+      /* The end of the story belongs on the same page as the beginning of it. */
+      + (r.status==='hired' || r.status==='left'
+          ? '<button class="fb" style="color:var(--red);" onclick="apOffboard(\''+esc(r.id)+'\')">'
+            + (r.status==='left' ? '✏️ Change how they left' : '🚪 They have left') + '</button>' : '')
     + '</div></div>';
 
   /* ---- right: the story, in the order it happened ---- */
@@ -12677,7 +12682,115 @@ function apRenderProfile(){
     + apProfCard('Where they have worked', apProfWork(r),
         'What they claim, and whether anybody has checked it.')
     + apProfCard('The interview', apProfInterview(r), b || r.post_interview ? '' : 'Nothing recorded yet.')
-    + apProfCard('The offer', apProfOffer(r), '');
+    + apProfCard('The offer', apProfOffer(r), '')
+    + apProfCard('Getting them started', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
+        'References, the screenings and the paperwork, wherever they have got to.')
+    + (r.started_at || r.left_at ? apProfCard('How it ended', apProfLeaving(r), '') : '');
+  apOnboardMount(r);
+}
+
+/* ---- The half of somebody's life that used to live somewhere else ----------
+   The start paperwork and the reference chase both existed already, keyed on
+   the AxisCare candidate number. They now carry a link back to the person who
+   applied, so this is a read rather than a new system.
+   Requires recruit-lifecycle.sql. */
+async function apOnboardMount(r){
+  const host = document.getElementById('apOnboardHost'); if(!host) return;
+  const esc = escapeHtmlComms;
+  try{
+    const [h, refs] = await Promise.all([
+      sb.from('hire_intake').select('id,created_at,candidate_id,signature_name,refs,screening_cleared_at,ssn_purged_at')
+        .eq('applicant_id', r.id).order('created_at',{ascending:false}).limit(1),
+      sb.from('reference_requests').select('*').eq('applicant_id', r.id).order('slot'),
+    ]);
+    if(h.error) throw h.error;
+    const intake = (h.data||[])[0];
+    const R = refs.error ? [] : (refs.data||[]);
+    let out = '';
+
+    if(!intake){
+      out += '<div class="field-note">No start form yet. It sends itself when the offer goes out, and lands here when they fill it in.</div>';
+    } else {
+      const back = intake.screening_cleared_at;
+      out += apProfRow('Start form', esc(new Date(intake.created_at).toLocaleDateString('en-US',{month:'long', day:'numeric'})) + ' · signed')
+        + apProfRow('AxisCare number', esc(intake.candidate_id || '') )
+        + apProfRow('Screenings', back
+            ? '<span style="color:#15803D;font-weight:700;">cleared ' + esc(new Date(back).toLocaleDateString('en-US',{month:'short', day:'numeric'})) + '</span>'
+            : '<span style="color:#B45309;">not cleared yet</span>')
+        + apProfRow('Their SSN', intake.ssn_purged_at
+            ? 'deleted once screening cleared' : '<span style="color:#B45309;">still held, deleted when screening clears</span>');
+    }
+
+    if(R.length){
+      const done = R.filter(x=>x.responded_at).length;
+      out += '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 4px;">'
+        + 'References · ' + done + ' of ' + R.length + ' back</div>'
+        + R.map(x=>'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--border);">'
+            + '<b style="color:var(--navy);">' + esc(x.ref_name || 'Reference ' + x.slot) + '</b>'
+            + (x.ref_relationship ? '<span class="field-note">' + esc(x.ref_relationship) + '</span>' : '')
+            + '<span style="flex:1;"></span>'
+            + (x.responded_at
+                ? '<span style="font-size:11px;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:2px 9px;">answered</span>'
+                : x.reminder_count
+                  ? '<span style="font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 9px;">chased ' + x.reminder_count + '×</span>'
+                  : '<span class="field-note">asked</span>')
+            + '</div>').join('');
+    } else if(intake){
+      out += '<div class="field-note" style="margin-top:10px;">No references asked yet. They go out on their own once the start form is in.</div>';
+    }
+
+    host.innerHTML = out;
+  }catch(e){
+    host.innerHTML = '<div class="field-note">Could not read the onboarding: ' + esc(e && e.message || 'error')
+      + '<br>If this mentions applicant_id, run <b>recruit-lifecycle.sql</b>.</div>';
+  }
+}
+
+function apProfLeaving(r){
+  const esc = escapeHtmlComms;
+  const d = s => s ? new Date(s+'T12:00:00').toLocaleDateString('en-US',{month:'long', day:'numeric', year:'numeric'}) : '';
+  return apProfRow('Started', esc(d(r.started_at)))
+    + apProfRow('Last day', esc(d(r.left_at)))
+    + apProfRow('How', esc(r.left_how||''))
+    + apProfRow('Why', esc(r.leave_reason||''))
+    + apProfRow('Would we have them back',
+        r.rehire_ok === true ? '<b style="color:#15803D;">Yes</b>'
+        : r.rehire_ok === false ? '<b style="color:#B91C1C;">No, and they are on the do-not-rehire list</b>' : '')
+    + (r.offboarded_by ? '<div class="field-note" style="margin-top:6px;">Recorded by ' + esc(r.offboarded_by) + '</div>' : '');
+}
+
+/* Leaving, recorded once, in the place somebody will actually look two years
+   from now when the same name comes back through the form. */
+async function apOffboard(id){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  const last = prompt('What was their last day?\n\nAs YYYY-MM-DD.', r.left_at || new Date().toISOString().slice(0,10));
+  if(last===null) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(last.trim())){ alert('That did not look like a date. Try 2026-08-02.'); return; }
+  const how = prompt('How did it end?\n\nresigned · let go · no call no show · never started · other',
+    r.left_how || 'resigned');
+  if(how===null) return;
+  const ok = ['resigned','let go','no call no show','never started','other'];
+  const how2 = ok.includes(how.trim().toLowerCase()) ? how.trim().toLowerCase() : 'other';
+  const why = prompt('Why, in a line?\n\nKept for our own records. Never sent anywhere.', r.leave_reason || '');
+  if(why===null) return;
+  const back = confirm('Would we have them back?\n\nOK for yes. Cancel for no.\n\n'
+    + 'A no puts them on the do-not-rehire list straight away, so if they apply again the screen catches them at the form.');
+  try{
+    const { error } = await sb.from('job_applicants').update({
+      status: 'left', left_at: last.trim(), left_how: how2,
+      leave_reason: why.trim() || null, rehire_ok: back,
+      offboarded_by: (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,
+      seen_at: new Date().toISOString(),
+    }).eq('id', id);
+    if(error) throw error;
+    await apLoad();
+    if(!back) alert('Recorded, and added to the do-not-rehire list.');
+  }catch(e){
+    const m = String(e&&e.message||'error');
+    alert(/constraint|column/i.test(m)
+      ? 'The database does not know about leaving yet. Run recruit-lifecycle.sql in the Supabase SQL editor.'
+      : 'Could not save that: ' + m);
+  }
 }
 
 /* Each job carries its own verification, so a claim and the check on it live
