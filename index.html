@@ -11882,6 +11882,7 @@ const apDays = iso => (Date.now() - new Date(iso).getTime()) / 864e5;
 
 const AP_VIEWS = [
   ['new','New'], ['qualified','Qualified'], ['review','Needs a look'], ['booked','Interview booked'],
+  ['starting','Starting soon'],
   ['pool','Candidate pool'], ['unqualified','Not qualified'], ['inactive','Inactive'], ['all','Everyone'],
 ];
 
@@ -11947,6 +11948,17 @@ function apMatching(k, ignorePosition){
       case 'qualified':  return apQualified(r) && !['hired','pool'].includes(r.status)
                                  && r.screen_grade!=='duplicate'
                                  && (booked || (r.screen_grade!=='review' && apDays(r.created_at) <= 60));
+      /* Between saying yes and turning up is where hires evaporate, and it was
+         the one stretch with no list at all. Offer out, or a start date close
+         enough to matter. */
+      case 'starting':   {
+        if(r.left_at) return false;
+        if(r.status==='offer') return true;            // said yes, not started
+        if(r.status!=='hired') return false;
+        if(!r.start_date) return true;                 // hired with no start date is itself the problem
+        const d = apDays(r.start_date);                // positive once the day has passed
+        return d > -28 && d < 14;                      // coming up, or just begun
+      }
       case 'pool':       return r.status==='pool';
       case 'unqualified':return !apQualified(r);
       /* Nobody is thrown away. Inactive is "we tried, they went quiet, and
@@ -12037,6 +12049,14 @@ function apRender(){
       + '<button class="secondary" onclick="apPoolSweep()">🗂 Move all ' + rows.length + ' to the pool</button></div>'
     : '';
 
+  /* Between yes and the first shift, the question is never "who are they", it
+     is "what is still missing". So this view is a checklist, not a card. */
+  if(apFilter==='starting'){
+    box.innerHTML = '<div id="apStartHost"><div class="field-note">Looking…</div></div>';
+    apStartingMount(rows);
+    return;
+  }
+
   box.innerHTML = sweep + rows.map(r=>{
     const b = AP_BOOK[r.id];
     const nudges = [r.nudge_1_at,r.nudge_2_at,r.nudge_3_at].filter(Boolean).length;
@@ -12100,6 +12120,103 @@ function apRender(){
                                 :'<button class="fb" onclick="apSetStatus(\''+esc(r.id)+'\',\'new\')">Put back in play</button>')
       + '</div></div></details>';
   }).join('');
+}
+
+/* ---- Starting soon ----------------------------------------------------------
+   The stretch between somebody saying yes and turning up for their first shift
+   is where hires evaporate, and it was the one part of the journey with no list
+   at all. Everything here already existed: the start form, the screenings, the
+   references, the orientation seats. Nobody had a screen that put the four
+   people starting next week side by side with what each of them is waiting on.
+
+   Reads only. Every step is done on the tab that owns it. */
+async function apStartingMount(rows){
+  const host = document.getElementById('apStartHost'); if(!host) return;
+  const esc = escapeHtmlComms;
+  if(!rows.length){
+    host.innerHTML = '<div class="field-note">Nobody with an offer out or a start date coming. '
+      + 'People appear here the moment an offer is sent.</div>';
+    return;
+  }
+  const ids = rows.map(r=>r.id);
+  let intakes = [], refs = [];
+  try{
+    const [h, rr] = await Promise.all([
+      sb.from('hire_intake').select('applicant_id,created_at,screening_cleared_at,candidate_id').in('applicant_id', ids),
+      sb.from('reference_requests').select('applicant_id,slot,responded_at').in('applicant_id', ids),
+    ]);
+    intakes = h.error ? [] : (h.data||[]);
+    refs    = rr.error ? [] : (rr.data||[]);
+  }catch(e){ /* the list is still worth showing without the paperwork */ }
+
+  const digits = p => String(p||'').replace(/[^0-9]/g,'').slice(-10);
+  /* Orientation seats are booked by name and phone, so match on the number
+     first and fall back to the name. */
+  const orientFor = r => {
+    const want = digits(r.phone), n = trainNorm((r.first_name||'')+(r.last_name||''));
+    let found = null;
+    (DATA.orient_sessions||[]).forEach(s=>{
+      if(s.cancelled) return;
+      (s.bookings||[]).forEach(b=>{
+        const hit = (want && digits(b.phone) === want)
+          || (!want && n && trainNorm((b.first||'')+(b.last||'')) === n);
+        if(hit && (!found || String(s.date) < String(found.date))) found = s;
+      });
+    });
+    return found;
+  };
+
+  const day = s => s ? new Date(String(s).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short', day:'numeric'}) : '';
+  const dot = (ok, doneText, waitText) => ok
+    ? '<span style="font-size:12px;color:#15803D;">✓ ' + esc(doneText) + '</span>'
+    : '<span style="font-size:12px;color:#B45309;font-weight:700;">• ' + esc(waitText) + '</span>';
+
+  const cards = rows.map(r=>{
+    const intake = intakes.find(x=>String(x.applicant_id)===String(r.id));
+    const mine = refs.filter(x=>String(x.applicant_id)===String(r.id));
+    const back = mine.filter(x=>x.responded_at).length;
+    const orient = orientFor(r);
+    const days = r.start_date ? Math.round(-apDays(r.start_date)) : null;
+
+    const steps = [
+      dot(!!r.offer_sent_at, 'offer sent ' + day(r.offer_sent_at), 'offer not sent'),
+      dot(!!intake, 'start form in', 'waiting on the start form'),
+      dot(!!(intake && intake.screening_cleared_at), 'screenings cleared', 'screenings not cleared'),
+      dot(mine.length > 0 && back >= 2, back + ' of ' + (mine.length||0) + ' references back',
+          mine.length ? back + ' of ' + mine.length + ' references back' : 'no references asked'),
+      dot(!!orient, 'orientation ' + day(orient && orient.date), 'no orientation booked'),
+      dot(!!r.start_date, 'starts ' + day(r.start_date), 'no start date set'),
+    ];
+    const waiting = steps.filter(s=>s.indexOf('•') > -1).length;
+
+    return '<div style="background:#fff;border:1px solid ' + (waiting ? '#F5D9A0' : '#DCFCE7')
+        + ';border-radius:12px;padding:13px 15px;margin-bottom:9px;">'
+      + '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;">'
+        + '<b style="font-size:15px;color:var(--navy);cursor:pointer;text-decoration:underline;text-decoration-color:#CBD5E1;'
+          + 'text-underline-offset:3px;" onclick="apOpenProfile(\''+esc(r.id)+'\')">'
+          + esc(((r.first_name||'')+' '+(r.last_name||'')).trim()) + '</b>'
+        + '<span class="field-note">' + esc(r.offer_position || apPosLabel(r.position) || 'Caregiver')
+          + (r.offer_rate ? ' · $' + Number(r.offer_rate).toFixed(2) + '/hr' : '') + '</span>'
+        + '<span style="flex:1;"></span>'
+        + (days !== null
+            ? '<span style="font-size:12px;font-weight:800;color:' + (days < 0 ? '#B45309' : '#15803D')
+              + ';background:' + (days < 0 ? '#FEF3C7' : '#DCFCE7') + ';border-radius:999px;padding:3px 11px;">'
+              + (days > 1 ? 'in ' + days + ' days' : days === 1 ? 'tomorrow' : days === 0 ? 'today' : 'started ' + Math.abs(days) + 'd ago')
+              + '</span>'
+            : '<span style="font-size:12px;font-weight:800;color:#B45309;background:#FEF3C7;border-radius:999px;padding:3px 11px;">no start date</span>')
+      + '</div>'
+      + '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:9px;">' + steps.join('') + '</div>'
+      + (waiting ? '' : '<div class="field-note" style="margin-top:7px;">Nothing outstanding.</div>')
+      + '</div>';
+  }).join('');
+
+  const stuck = rows.filter(r=>!r.start_date).length;
+  host.innerHTML =
+    (stuck ? '<div style="background:#FFF8E8;border:1px solid #F5D9A0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13.5px;">'
+      + stuck + ' of these have no start date. That is the one that quietly turns into somebody who never started.</div>' : '')
+    + cards
+    + '<div class="field-note" style="margin-top:10px;">Each step is done on the tab that owns it: '
+    + '<b>Offers</b>, <b>Background</b> and <b>Orientation</b>. This is only the view that shows them together.</div>';
 }
 
 async function apSetPosition(id, position){
