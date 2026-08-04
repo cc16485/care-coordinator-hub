@@ -41,6 +41,21 @@
   .done{display:none;text-align:center;padding:26px 18px;}
   .done .tick{font-size:44px;}
   .done h2{color:var(--green);font-size:20px;margin:8px 0 6px;}
+.spellbtn{margin-top:7px;background:#fff;border:1.5px solid var(--border);border-radius:9px;
+             padding:8px 13px;font-family:inherit;font-size:13.5px;cursor:pointer;color:var(--navy);font-weight:600;}
+  .spellbtn[disabled]{opacity:.5;cursor:wait;}
+  .polish{display:none;margin-top:10px;background:#F4F8FF;border:1.5px solid #CBD9EC;border-radius:11px;padding:12px 13px;}
+  .polish .h{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:5px;}
+  .polish .txt{font-size:14.5px;white-space:pre-wrap;background:#fff;border:1px solid var(--border);
+               border-radius:9px;padding:9px 11px;}
+  .polish .row{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap;}
+  .polish button{border:none;border-radius:9px;padding:9px 14px;font-family:inherit;font-size:13.5px;
+                 font-weight:700;cursor:pointer;}
+  .polish .use{background:var(--navy);color:#fff;}
+  .polish .keep{background:#fff;border:1.5px solid var(--border);color:#4A4238;}
+  .polish .none{font-size:13.5px;color:var(--green);font-weight:600;}
+  .ideas{margin-top:6px;font-size:13px;color:var(--muted);}
+  .ideas b{color:#4A4238;}
   .preview{margin-top:10px;display:none;}
   .preview img{max-width:150px;border-radius:12px;display:block;border:1px solid var(--border);}
   .preview video{max-width:100%;border-radius:12px;border:1px solid var(--border);}
@@ -106,12 +121,21 @@
         Two or three sentences. What you are like to have in the house.
       </div>
       <textarea id="about" placeholder="I'm patient, I talk a lot, and I make a good cup of coffee…"></textarea>
+      <div class="ideas">Stuck? People often say: <b>how they are around the house</b> (quiet, chatty, always
+        cooking), <b>what they are patient with</b>, or <b>what a good day looks like</b> to them.</div>
+      <button type="button" class="spellbtn" onclick="polish('about',this)">✓ Check my spelling</button>
+      <div class="polish" id="polish-about"></div>
 
       <label>Why do you do this work?</label>
       <textarea id="why" placeholder="I looked after my grandmother for four years and…"></textarea>
+      <div class="ideas">Most people have one story that started it. That is usually the answer.</div>
+      <button type="button" class="spellbtn" onclick="polish('why',this)">✓ Check my spelling</button>
+      <div class="polish" id="polish-why"></div>
 
       <label>Something about you outside of work <span class="opt">optional</span></label>
       <textarea id="outside" rows="2" placeholder="Two grandkids, a very bad dog, and I grow tomatoes."></textarea>
+      <button type="button" class="spellbtn" onclick="polish('outside',this)">✓ Check my spelling</button>
+      <div class="polish" id="polish-outside"></div>
     </div>
 
     <div class="card">
@@ -187,6 +211,56 @@ preview('photo', 'photoPrev', u => document.getElementById('photoImg').src = u);
 preview('video', 'videoPrev', u => document.getElementById('videoEl').src = u);
 
 const MAX_VIDEO = 100 * 1024 * 1024;   // matches the bucket's own limit
+
+/* Spellcheck, and only spellcheck. The caregiver sees their own words and the
+   corrected words side by side and picks; nothing is ever swapped underneath
+   them. The button says "check my spelling" rather than anything about
+   improving writing, because the people it helps most are the ones who would
+   be embarrassed by the second phrasing. */
+async function polish(field, btn) {
+  const ta = document.getElementById(field);
+  const box = document.getElementById('polish-' + field);
+  const text = ta.value.trim();
+  if (!text) { box.style.display = 'none'; return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+  box.style.display = 'none';
+  try {
+    const res = await fetch(SB_URL + '/functions/v1/profile-polish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY },
+      body: JSON.stringify({ text }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body.error) throw new Error(body.error || 'could not check');
+
+    if (body.unchanged || body.polished.trim() === text) {
+      box.innerHTML = '<div class="none">✓ Nothing to fix. That reads well.</div>';
+    } else {
+      box.innerHTML =
+        '<div class="h">Spelling and punctuation tidied. Your words, unchanged.</div>' +
+        '<div class="txt" id="polished-' + field + '"></div>' +
+        '<div class="row">' +
+          '<button type="button" class="use" onclick="usePolish(\'' + field + '\')">Use this</button>' +
+          '<button type="button" class="keep" onclick="document.getElementById(\'polish-' + field + '\').style.display=\'none\'">Keep mine</button>' +
+        '</div>';
+      document.getElementById('polished-' + field).textContent = body.polished;
+    }
+    box.style.display = 'block';
+  } catch (e) {
+    box.innerHTML = '<div class="none" style="color:var(--muted)">Could not check just now. ' +
+      'What you have written is fine to save as it is.</div>';
+    box.style.display = 'block';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Check my spelling'; }
+  }
+}
+
+function usePolish(field) {
+  const el = document.getElementById('polished-' + field);
+  if (el) document.getElementById(field).value = el.textContent;
+  document.getElementById('polish-' + field).style.display = 'none';
+}
 
 function fail(msg) {
   const el = document.getElementById('err');
