@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your caregiver &mdash; Caring Companions</title>
+<!-- A private link, not a public page. Nothing here should ever turn up in a
+     search result for a caregiver's name. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<style>
+  :root{
+    --navy:#0D365F; --teal:#54BDB8; --honey:#F0A830;
+    --cream:#FAF9F6; --border:#E8E2D8; --muted:#6E6559;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Poppins','Segoe UI',system-ui,sans-serif;background:var(--cream);color:#3A342C;
+       font-size:16px;line-height:1.6;padding:26px 18px 60px;}
+  .wrap{max-width:560px;margin:0 auto;}
+  .brand{font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+         font-weight:700;margin-bottom:14px;text-align:center;}
+  .card{background:#fff;border:1px solid var(--border);border-radius:18px;overflow:hidden;
+        box-shadow:0 2px 14px rgba(13,54,95,.06);}
+  .hero{padding:26px 24px 20px;text-align:center;border-bottom:1px solid var(--border);}
+  .hero img{width:132px;height:132px;object-fit:cover;border-radius:50%;border:4px solid #fff;
+            box-shadow:0 3px 14px rgba(13,54,95,.16);display:block;margin:0 auto 14px;}
+  h1{color:var(--navy);font-size:26px;letter-spacing:-.01em;}
+  .meet{color:var(--muted);font-size:14px;margin-top:2px;}
+  .years{display:inline-block;margin-top:11px;background:#E4F4F3;color:#06312F;border-radius:999px;
+         padding:5px 14px;font-size:13.5px;font-weight:700;}
+  .body{padding:22px 24px 26px;}
+  h2{color:var(--navy);font-size:14px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 7px;}
+  .body p{font-size:16px;white-space:pre-wrap;margin-bottom:20px;}
+  .tags{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px;}
+  .tag{background:var(--cream);border:1px solid var(--border);border-radius:999px;padding:6px 13px;font-size:13.5px;}
+  video{width:100%;border-radius:14px;border:1px solid var(--border);margin-bottom:20px;display:block;background:#000;}
+  .foot{text-align:center;color:var(--muted);font-size:13.5px;margin-top:20px;line-height:1.7;}
+  .foot a{color:var(--navy);font-weight:600;}
+  .state{text-align:center;padding:50px 20px;color:var(--muted);}
+  .state h1{font-size:20px;margin-bottom:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">Caring Companions</div>
+  <div id="host"><div class="state">Loading…</div></div>
+  <div class="foot" id="foot" style="display:none">
+    Questions, or something you would like us to know before the first visit?<br>
+    Call us on <a href="tel:4172348494">(417) 234-8494</a>, any time.
+  </div>
+</div>
+
+<script>
+const SB_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+function state(title, line){
+  document.getElementById('host').innerHTML =
+    '<div class="state"><h1>' + esc(title) + '</h1><p>' + esc(line) + '</p></div>';
+}
+
+async function load(){
+  const id = new URLSearchParams(location.search).get('id') || '';
+  if(!id) return state('Nothing to show here', 'This link is missing its address. Ask us to send it again.');
+
+  let p;
+  try{
+    const res = await fetch(SB_URL + '/functions/v1/caregiver-card?id=' + encodeURIComponent(id), {
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY },
+    });
+    if(res.status === 404){
+      return state('This profile is not available',
+        'It may have been taken down. Call the office and we will tell you who is coming.');
+    }
+    if(!res.ok) throw new Error('http ' + res.status);
+    p = await res.json();
+  }catch(e){
+    return state('We could not load this just now',
+      'Please try again in a moment, or call us on (417) 234-8494.');
+  }
+
+  const name = esc(p.name);
+  document.title = name + ' — your caregiver — Caring Companions';
+
+  document.getElementById('host').innerHTML =
+    '<div class="card">' +
+      '<div class="hero">' +
+        (p.photo ? '<img src="' + esc(p.photo) + '" alt="' + name + '">' : '') +
+        '<h1>' + name + '</h1>' +
+        '<div class="meet">Your caregiver from Caring Companions</div>' +
+        (p.years ? '<div class="years">' + esc(p.years) + ' caring for people</div>' : '') +
+      '</div>' +
+      '<div class="body">' +
+        (p.video ? '<video controls playsinline preload="metadata" src="' + esc(p.video) + '"></video>' : '') +
+        (p.about ? '<h2>A little about ' + name + '</h2><p>' + esc(p.about) + '</p>' : '') +
+        (p.why ? '<h2>Why ' + name + ' does this work</h2><p>' + esc(p.why) + '</p>' : '') +
+        (p.specialties && p.specialties.length
+          ? '<h2>What ' + name + ' is best at</h2><div class="tags">' +
+            p.specialties.map(t => '<span class="tag">' + esc(t) + '</span>').join('') + '</div>'
+          : '') +
+      '</div>' +
+    '</div>';
+  document.getElementById('foot').style.display = 'block';
+}
+load();
+</script>
+</body>
+</html>
