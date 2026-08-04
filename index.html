@@ -776,6 +776,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="cgattendance" onclick="switchTab('cgattendance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Attendance</div>
     <div class="fpill" data-tab="cgwriteups" onclick="switchTab('cgwriteups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> Write-Ups</div>
     <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
+    <div class="fpill" data-tab="cgprofiles" onclick="switchTab('cgprofiles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Caregiver Profiles</div>
   </div>
   <!-- Keeping shifts covered and the records straight. EVV Corrections still
        lives in the Staffing hub, so it is a link rather than a copy: two
@@ -4168,6 +4169,31 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     style="width:100%;height:calc(100vh - 210px);min-height:520px;border:1px solid var(--border);border-radius:12px;background:#FAF9F6;display:block"></iframe>
 </section>
 
+<!-- ===================== TAB: CAREGIVER PROFILES =====================
+     What a family is sent before somebody walks into their mother's house.
+     Caregivers build these at orientation; nothing reaches a family until
+     somebody here has read it and pressed Approve. -->
+<section class="tabpanel" id="tab-cgprofiles">
+<details class="guide">
+<summary>📋 How This Tab Works — Step by Step ▼</summary>
+<div class="guide-body">
+<div class="guide-step"><span class="num">1</span>Caregivers fill these in at orientation at <b>cc.mo-care.com/caregiver-profile.html</b>. Photo, an optional short video, what they are best at, and what they would want a family to know.</div>
+<div class="guide-step"><span class="num">2</span>They arrive <b>unapproved</b>. Read it as a family would, fix any typos, then <b>Approve &amp; publish</b>. Nothing is sent to anybody before that.</div>
+<div class="guide-step"><span class="num">3</span><b>Match it to the roster</b> by putting their caregiver ID in, so the schedule knows whose profile is whose.</div>
+<div class="guide-step"><span class="num">4</span><b>Unpublish</b> takes it out of circulation and keeps the record. <b>Remove</b> deletes the photo and video for good, which is what to use when somebody withdraws their permission or leaves.</div>
+<div class="guide-step flag"><span class="num">!</span>The link is unguessable but it is not secret: anybody a family forwards it to can open it. That is the trade for a page a family can look at without signing in.</div>
+</div>
+</details>
+
+<div class="toolbar">
+  <b style="font-size:16px;color:var(--navy);">Caregiver Profiles</b>
+  <span class="spacer"></span>
+  <span class="field-note" id="cgpCount"></span>
+  <button class="ghost" onclick="loadCgProfiles(true)">↻ Refresh</button>
+</div>
+<div id="cgpBody"><div class="field-note">Loading…</div></div>
+</section>
+
 <!-- ===================== TAB: REPORTS ===================== -->
 <section class="tabpanel" id="tab-reports">
   <div class="toolbar">
@@ -6273,7 +6299,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory'],scheduling:['coverage','teamsched','evv'],clients:['clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['leads','statesubs','bookings','referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','evv'],clients:['clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['leads','statesubs','bookings','referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -6714,7 +6740,7 @@ const CC_SECTION_TITLES = {
   carematch:'Care Match Check-ins', sops:'SOP Library', teamsched:'Team Weekly Schedule',
   clientqueue:'New Clients — Needs Scheduling',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
-  supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
+  supervisory:'Supervisory Visits', cgprofiles:'Caregiver Profiles', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV Corrections', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Coverage Help', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
@@ -6913,6 +6939,7 @@ function renderActiveTab(){
   if(activeTab==='statesubs') renderStateSubs();
   if(activeTab==='careplans') cpRender();
   if(activeTab==='supervisory') renderSupervisory();
+  if(activeTab==='cgprofiles') loadCgProfiles();
   if(activeTab==='clients') renderClients();
   if(activeTab==='soc') renderSocTab();
   if(activeTab==='comms') renderCommsPage();
@@ -9834,6 +9861,162 @@ async function notifyEscalation(c){
 }
 
 /* ---------------- SUPERVISORY VISITS ---------------- */
+// ============================================================================
+// CAREGIVER PROFILES
+//
+// These live in their own table rather than the app_data key store, because a
+// caregiver writes one at orientation without being signed in and app_data is
+// closed to anonymous writers, correctly. So this loads on its own.
+//
+// The rule the whole thing hangs on: nothing published until somebody here has
+// read it. A profile arrives from orientation with published = false, and a
+// family cannot be sent a link to something nobody has looked at.
+// ============================================================================
+const CGP_BUCKET = 'caregiver-profiles';
+let CGPROFILES = [];
+let cgpLoaded = false;
+
+function cgpPublicUrl(path){
+  if(!path) return '';
+  return CONFIG.supabase_url + '/storage/v1/object/public/' + CGP_BUCKET + '/' + path;
+}
+
+async function loadCgProfiles(force){
+  const host = document.getElementById('cgpBody'); if(!host) return;
+  if(cgpLoaded && !force){ renderCgProfiles(); return; }
+  host.innerHTML = '<div class="field-note">Loading…</div>';
+  const { data, error } = await sb.from('caregiver_profiles').select('*').order('created_at',{ascending:false});
+  if(error){
+    host.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load profiles, ' +
+      esc(error.message) + '. If this says the table does not exist, caregiver-profiles.sql has not been run yet.</div>';
+    return;
+  }
+  CGPROFILES = data || [];
+  cgpLoaded = true;
+  renderCgProfiles();
+}
+
+function renderCgProfiles(){
+  const host = document.getElementById('cgpBody'); if(!host) return;
+  const waiting = CGPROFILES.filter(p => !p.published && p.status !== 'withdrawn').length;
+  const live = CGPROFILES.filter(p => p.published).length;
+  const count = document.getElementById('cgpCount');
+  if(count) count.textContent = CGPROFILES.length
+    ? waiting + ' waiting to approve · ' + live + ' live'
+    : '';
+
+  if(!CGPROFILES.length){
+    host.innerHTML = '<div class="field-note">No profiles yet. Caregivers fill these in at ' +
+      '<a href="caregiver-profile.html" target="_blank" rel="noopener">cc.mo-care.com/caregiver-profile.html</a> ' +
+      'at orientation.</div>';
+    return;
+  }
+
+  // Unapproved first: they are the ones with somebody waiting on them.
+  const rows = CGPROFILES.slice().sort((a,b) =>
+    (a.published?1:0) - (b.published?1:0) || String(b.created_at||'').localeCompare(String(a.created_at||'')));
+
+  host.innerHTML = rows.map(p => {
+    const name = esc(p.preferred_name || p.first_name);
+    const badge = p.status === 'withdrawn'
+      ? '<span class="badge" style="background:#F3F1EE;color:var(--text-muted);">withdrawn</span>'
+      : p.published
+        ? '<span class="badge" style="background:#DCFCE7;color:#166534;">live</span>'
+        : '<span class="badge" style="background:#FEF3C7;color:#92400E;">waiting to approve</span>';
+    const link = p.published ? 'caregiver.html?id=' + encodeURIComponent(p.id) : '';
+    return '<div class="card" style="padding:16px 18px;margin-bottom:12px;">' +
+      '<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;">' +
+        (p.photo_path
+          ? '<img src="' + esc(cgpPublicUrl(p.photo_path)) + '" alt="" style="width:82px;height:82px;' +
+            'object-fit:cover;border-radius:12px;border:1px solid var(--border);flex:none;">'
+          : '<div style="width:82px;height:82px;border-radius:12px;background:var(--bg);border:1px solid var(--border);' +
+            'flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-muted);">no photo</div>') +
+        '<div style="flex:1;min-width:220px;">' +
+          '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;">' +
+            '<b style="font-size:16px;color:var(--navy);">' + name + '</b>' + badge +
+            (p.video_path ? '<span class="field-note">🎥 video</span>' : '') +
+          '</div>' +
+          '<div class="field-note" style="margin-top:3px;">' +
+            (p.years_experience ? esc(p.years_experience) + ' experience' : 'experience not given') +
+            (p.caregiver_id ? ' · roster ' + esc(p.caregiver_id) : ' · <b style="color:#B45309;">not matched to the roster</b>') +
+          '</div>' +
+          ((p.specialties||[]).length
+            ? '<div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap;">' +
+              p.specialties.map(x => '<span class="badge" style="background:#E4F4F3;color:#06312F;">' + esc(x) + '</span>').join('') +
+              '</div>' : '') +
+        '</div>' +
+      '</div>' +
+
+      '<label style="margin-top:12px;">What a family reads</label>' +
+      '<textarea id="cgp-about-' + p.id + '" rows="3">' + esc(p.about||'') + '</textarea>' +
+      '<label>Why they do this work</label>' +
+      '<textarea id="cgp-why-' + p.id + '" rows="2">' + esc(p.why_this_work||'') + '</textarea>' +
+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:flex-end;">' +
+        '<div style="flex:1;min-width:150px;"><label>Roster ID</label>' +
+          '<input type="text" id="cgp-cid-' + p.id + '" value="' + esc(p.caregiver_id||'') + '" placeholder="their caregiver id"></div>' +
+        '<button class="secondary" onclick="cgpSave(\'' + p.id + '\')">Save edits</button>' +
+        (p.published
+          ? '<button class="ghost" onclick="cgpPublish(\'' + p.id + '\',false)">Unpublish</button>'
+          : '<button class="primary" onclick="cgpPublish(\'' + p.id + '\',true)">Approve &amp; publish</button>') +
+        (link ? '<a class="ghost" href="' + esc(link) + '" target="_blank" rel="noopener" ' +
+                'style="text-decoration:none;padding:9px 14px;border-radius:9px;">See what the family sees ↗</a>' : '') +
+        '<span class="spacer"></span>' +
+        '<button class="ghost" style="color:var(--red);" onclick="cgpRemove(\'' + p.id + '\')">Remove</button>' +
+      '</div>' +
+      '<div class="field-note" id="cgp-msg-' + p.id + '" style="margin-top:7px;"></div>' +
+      '</div>';
+  }).join('');
+}
+
+function cgpMsg(id, text, bad){
+  const el = document.getElementById('cgp-msg-' + id);
+  if(el){ el.innerHTML = text; el.style.color = bad ? 'var(--red)' : '#15803D'; }
+}
+
+async function cgpSave(id){
+  const patch = {
+    about: document.getElementById('cgp-about-' + id).value.trim() || null,
+    why_this_work: document.getElementById('cgp-why-' + id).value.trim() || null,
+    caregiver_id: document.getElementById('cgp-cid-' + id).value.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await sb.from('caregiver_profiles').update(patch).eq('id', id);
+  if(error) return cgpMsg(id, 'Did not save, ' + esc(error.message), true);
+  Object.assign(CGPROFILES.find(p => p.id === id) || {}, patch);
+  cgpMsg(id, '✓ Saved.');
+}
+
+async function cgpPublish(id, on){
+  const p = CGPROFILES.find(x => x.id === id);
+  // Their permission is the gate, not ours. A profile without consent should
+  // not exist, but if one ever does it does not go out.
+  if(on && p && !p.consent){
+    return cgpMsg(id, 'This one has no consent recorded, so it cannot be published. Ask them again.', true);
+  }
+  const patch = { published: !!on, status: on ? 'approved' : 'new', updated_at: new Date().toISOString() };
+  const { error } = await sb.from('caregiver_profiles').update(patch).eq('id', id);
+  if(error) return cgpMsg(id, 'Did not save, ' + esc(error.message), true);
+  Object.assign(p || {}, patch);
+  renderCgProfiles();
+}
+
+async function cgpRemove(id){
+  const p = CGPROFILES.find(x => x.id === id);
+  if(!p) return;
+  if(!confirm('Remove ' + (p.preferred_name || p.first_name) + '\'s profile?\n\n' +
+     'This deletes their photo and video for good, which is the right thing when somebody withdraws their ' +
+     'permission or leaves. The record stays, marked withdrawn, so you can see it happened.')) return;
+  const paths = [p.photo_path, p.video_path].filter(Boolean);
+  if(paths.length) await sb.storage.from(CGP_BUCKET).remove(paths);
+  const patch = { published:false, status:'withdrawn', photo_path:null, video_path:null,
+                  updated_at:new Date().toISOString() };
+  const { error } = await sb.from('caregiver_profiles').update(patch).eq('id', id);
+  if(error) return cgpMsg(id, 'Files removed but the record did not update, ' + esc(error.message), true);
+  Object.assign(p, patch);
+  renderCgProfiles();
+}
+
 function renderSupervisory(){
   renderFilterPills('supervisoryFilters', ['All','Due Soon','Overdue','Completed This Year'], activeFilters.supervisory, 'supervisory');
   let rows = DATA.supervisory_visits.filter(v=>searchMatch(v.caregiver_name));
