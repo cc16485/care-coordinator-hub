@@ -9,6 +9,7 @@
     --navy:#0D365F; --teal:#54BDB8; --honey:#F0A830;
     --cream:#FAF9F6; --border:#E8E2D8; --muted:#6E6559;
     --teal-soft:#E4F4F3; --honey-soft:#FCEED6; --navy-soft:#E3EAF2;
+    --oncall:#4A8F6B; --oncall-soft:#E6F2EB;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Poppins','Segoe UI',system-ui,sans-serif;background:var(--cream);color:#3A342C;padding:28px 24px;font-size:14px;}
@@ -24,11 +25,13 @@
   td .who{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:2px;}
   .chip{display:inline-block;border-radius:5px;padding:1px 6px;font-weight:700;font-size:10.5px;color:#fff;}
   .k{background:var(--teal);} .a{background:var(--honey);color:#5a3c00;} .s{background:var(--navy);}
+  .lc{background:var(--oncall);}
   .hourcell{font-weight:700;color:var(--navy);font-size:11px;background:var(--cream);white-space:nowrap;}
   .act{color:var(--muted);font-size:10.5px;line-height:1.35;}
   .field{background:var(--honey-soft);}
   .huddle{background:var(--navy-soft);}
   .fieldK{background:var(--teal-soft);}
+  .oncall{background:var(--oncall-soft);}
   .closed{color:#B9AE9D;text-align:center;font-size:10px;}
   h2{color:var(--navy);font-size:15px;margin:26px 0 8px;}
   .lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;}
@@ -37,7 +40,9 @@
   .lane .hours{font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600;}
   .lane ul{padding-left:16px;font-size:12px;line-height:1.7;}
   .lane.k h3{color:#2C8A85;} .lane.a h3{color:#B07514;} .lane.s h3{color:var(--navy);}
+  .lane.lc h3{color:#2F6B4C;} .lane.lc{border-top:4px solid var(--oncall);}
   .lane.k{border-top:4px solid var(--teal);} .lane.a{border-top:4px solid var(--honey);} .lane.s{border-top:4px solid var(--navy);}
+  .tbd{background:var(--honey-soft);border:1px dashed var(--honey);border-radius:4px;padding:0 5px;font-style:italic;}
   .rule{margin-top:20px;background:#fff;border:1px solid var(--border);border-left:4px solid var(--honey);border-radius:10px;padding:10px 14px;font-size:12.5px;line-height:1.6;}
   @media print{ body{padding:10px;} .rule{page-break-inside:avoid;} }
 </style>
@@ -45,12 +50,13 @@
 <body>
 
 <h1>Caring Companions, Care Team Weekly Rhythm</h1>
-<div class="sub">Monday to Friday. Office phones are covered every minute of 8am to 5pm. Field time never leaves the office empty. Hours: Krystal 8a&ndash;2p daily &middot; Angiel Mon 10a&ndash;5p, Tue&ndash;Fri 1p&ndash;5p &middot; Samantha ~10/11a&ndash;4p.</div>
+<div class="sub">Office phones are covered every minute of 8am to 5pm, Monday to Friday, and a Lead Caregiver carries the phone every hour outside that. Nobody is ever uncovered. Field time never leaves the office empty. Hours: Krystal 8a&ndash;2p daily &middot; Angiel Mon 10a&ndash;5p, Tue&ndash;Fri 1p&ndash;5p &middot; Samantha ~10/11a&ndash;4p.</div>
 
 <div class="legend">
   <span><span class="dot" style="background:var(--teal)"></span> Krystal, Care Coordinator &mdash; Private Pay &amp; LTC (8a&ndash;2p)</span>
   <span><span class="dot" style="background:var(--honey)"></span> Angiel, Care Coordinator &mdash; Medicaid, VA &amp; CDS (Mon 10a&ndash;5p &middot; Tue&ndash;Fri 1p&ndash;5p)</span>
   <span><span class="dot" style="background:var(--navy)"></span> Samantha, Owner (10/11a&ndash;4p)</span>
+  <span><span class="dot" style="background:var(--oncall)"></span> Lead Caregiver, on call &mdash; after hours &amp; weekends (stipend)</span>
   <span><span class="dot" style="background:var(--honey-soft);border:1px solid var(--honey)"></span> field / community</span>
   <span><span class="dot" style="background:var(--navy-soft);border:1px solid var(--navy)"></span> huddle</span>
 </div>
@@ -101,7 +107,50 @@
     <td class="hourcell">4 &ndash; 5</td>
     <td colspan="5"><div class="who"><span class="chip a">A</span></div><div class="act">End of day: Needs Attention left empty, tomorrow's follow-ups set, visit notes logged in Referrers</div></td>
   </tr>
+
+  <!-- The office day is only half of a day. Adding the overnight row here rather
+       than in a note further down, because the handoff at 5pm is the moment the
+       phone changes hands and it belongs on the same grid. -->
+  <tr>
+    <td class="hourcell oncall">5p &ndash; 8a</td>
+    <td colspan="5" class="oncall"><div class="who"><span class="chip lc">LC</span> on call</div>
+      <div class="act"><b>Lead Caregiver carries the phone</b> &middot; call-offs, no-shows, client and caregiver
+        emergencies &middot; escalates to Samantha only for what cannot wait until 8am</div></td>
+  </tr>
 </table>
+
+<!-- ===================== AFTER HOURS & WEEKENDS =====================
+     Two separate posts, not one rota, because they are different jobs: a
+     weeknight is a phone by the bed, a weekend is two full days on. They are
+     paid separately for the same reason. -->
+<h2>After hours &amp; weekends &mdash; Lead Caregiver on call</h2>
+<div class="lanes">
+  <div class="lane lc">
+    <h3>Weeknight on call</h3>
+    <div class="hours">Monday to Friday &middot; 5:00pm &ndash; 8:00am</div>
+    <ul>
+      <li>Picks up at 5pm as the office closes, hands back at 8am when Krystal starts.</li>
+      <li>Friday's shift runs 5pm to Saturday 8am, then the weekend post takes over.</li>
+      <li><b>Stipend:</b> <span class="tbd">amount to be set</span> per night.</li>
+    </ul>
+  </div>
+  <div class="lane lc">
+    <h3>Weekend on call</h3>
+    <div class="hours">Saturday 8:00am &ndash; Monday 8:00am</div>
+    <div class="hours" style="font-weight:400">48 hours, one person, one handoff</div>
+    <ul>
+      <li>Starts Saturday 8am and runs straight through to Monday 8am.</li>
+      <li>Covers both weekend days and Sunday night, so Monday opens with no backlog of unanswered calls.</li>
+      <li><b>Stipend:</b> <span class="tbd">amount to be set</span> per weekend.</li>
+    </ul>
+  </div>
+</div>
+<div class="rule" style="border-left-color:var(--oncall)">
+  <b>The two posts are filled separately.</b> Somebody can hold weeknights without holding weekends, and the
+  weekend is its own stipend because it is a different commitment: two full days, not an evening by the phone.
+  Between the office day, the weeknight post and the weekend post, every hour of the week is somebody's, and the
+  grid above shows whose.
+</div>
 
 <h2>Each person's week at a glance</h2>
 <div class="lanes">
@@ -142,6 +191,17 @@
 <div class="rule">
   <b>The one rule that makes this work:</b> the board is the handoff. Nobody briefs anybody at shift change. Every record shows its stage, its notes, and its next follow-up date in the hub, so whoever is on works whatever is sitting in the queues. Ownership is a label, never a wall, and everyone sees everything. In practice: your book is yours to drive, but whoever is on shift answers for every client while they're on, a Private Pay family calling at 3pm gets helped by Angiel, then Krystal picks it up from the notes tomorrow.
   <div style="margin-top:8px;font-size:12px;color:var(--muted);"><b>Growth plan:</b> when the Medicaid and VA books get big enough, they split, one coordinator for each. The payer-based structure is built for that day: the map just gains a name.</div>
+
+  <div class="lane lc">
+    <h3>Lead Caregiver &mdash; on call</h3>
+    <div class="hours">Weeknights 5p&ndash;8a &middot; Weekends Sat 8a&ndash;Mon 8a</div>
+    <ul>
+      <li>Answers the on-call phone: call-offs, no-shows, client and caregiver emergencies.</li>
+      <li>Fills what can be filled from the caregiver list; logs what cannot so the office picks it up at 8am.</li>
+      <li>Escalates to Samantha only for what genuinely cannot wait until the morning.</li>
+      <li>Leaves a note on every call so nobody is briefed at handoff, the board is the handoff.</li>
+    </ul>
+  </div>
 </div>
 
 <h2>The field expectation, in writing</h2>
