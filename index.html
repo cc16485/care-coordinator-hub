@@ -10102,7 +10102,7 @@ async function cgpSend(id, dry){
       headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + (session && session.access_token) },
       body: JSON.stringify({
         profile_id: id, client_name: circle && circle.client_name, circle_id: circleId,
-        reason, sent_by: ME.email, contacts: extra ? [extra] : undefined, dry: !!dry,
+        reason, contacts: extra ? [extra] : undefined, dry: !!dry,
       }),
     });
     const b = await res.json().catch(() => ({}));
