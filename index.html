@@ -9961,12 +9961,174 @@ function renderCgProfiles(){
           : '<button class="primary" onclick="cgpPublish(\'' + p.id + '\',true)">Approve &amp; publish</button>') +
         (link ? '<a class="ghost" href="' + esc(link) + '" target="_blank" rel="noopener" ' +
                 'style="text-decoration:none;padding:9px 14px;border-radius:9px;">See what the family sees ↗</a>' : '') +
+        (p.published ? '<button class="primary" onclick="cgpOpenSend(\'' + p.id + '\')">Introduce to a family</button>' : '') +
         '<span class="spacer"></span>' +
         '<button class="ghost" style="color:var(--red);" onclick="cgpRemove(\'' + p.id + '\')">Remove</button>' +
       '</div>' +
       '<div class="field-note" id="cgp-msg-' + p.id + '" style="margin-top:7px;"></div>' +
+      '<div id="cgp-send-' + p.id + '" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;"></div>' +
       '</div>';
   }).join('');
+}
+
+// ============================================================================
+// INTRODUCING A CAREGIVER TO A FAMILY
+//
+// The office picks the client, sees exactly who would hear about it and why,
+// and only then sends. The preview is not decoration: these messages go to
+// people who are worried about their mother, and "who is this actually
+// reaching" should be answerable before pressing send, not afterwards.
+//
+// Contacts can be added right here, because circle_contacts is empty for most
+// clients and asking "who should hear when somebody new is coming?" at the
+// moment you are placing somebody is a better time than any afternoon set
+// aside for data entry.
+// ============================================================================
+let CGP_CIRCLES = null;
+
+async function cgpOpenSend(id){
+  const host = document.getElementById('cgp-send-' + id);
+  if(!host) return;
+  if(host.style.display === 'block'){ host.style.display = 'none'; return; }
+  host.style.display = 'block';
+  host.innerHTML = '<div class="field-note">Loading clients…</div>';
+
+  if(!CGP_CIRCLES){
+    const { data, error } = await sb.from('care_circles').select('*').eq('active', true).order('client_name');
+    if(error){ host.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load clients, ' + esc(error.message) + '</div>'; return; }
+    CGP_CIRCLES = data || [];
+  }
+
+  host.innerHTML =
+    '<b style="font-size:14px;color:var(--navy);">Introduce to a family</b>' +
+    '<div class="field-note" style="margin:3px 0 9px;">Who is this caregiver going to?</div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">' +
+      '<div style="flex:1;min-width:190px;"><label>Client</label>' +
+        '<select id="cgp-circle-' + id + '" onchange="cgpPickClient(\'' + id + '\')">' +
+          '<option value="">Choose a client…</option>' +
+          CGP_CIRCLES.map(c => '<option value="' + esc(c.id) + '">' + esc(c.client_name) + '</option>').join('') +
+        '</select></div>' +
+      '<div style="flex:1;min-width:170px;"><label>Why</label>' +
+        '<select id="cgp-reason-' + id + '">' +
+          '<option value="first_time">First time with this client</option>' +
+          '<option value="start_of_care">Start of care</option>' +
+          '<option value="change">A change of caregiver</option>' +
+        '</select></div>' +
+    '</div>' +
+    (CGP_CIRCLES.length ? '' :
+      '<div class="field-note" style="color:#B45309;margin-top:8px;">No care circles yet. ' +
+      'Make one for this client on the <b>Circles</b> tab first, so the family list has somewhere to live.</div>') +
+    '<div id="cgp-who-' + id + '" style="margin-top:10px;"></div>' +
+    '<div id="cgp-sendmsg-' + id + '" class="field-note" style="margin-top:8px;"></div>';
+}
+
+async function cgpPickClient(id){
+  const circleId = document.getElementById('cgp-circle-' + id).value;
+  const who = document.getElementById('cgp-who-' + id);
+  if(!circleId){ who.innerHTML = ''; return; }
+  who.innerHTML = '<div class="field-note">Loading who would hear…</div>';
+
+  const { data, error } = await sb.from('circle_contacts').select('*').eq('circle_id', circleId);
+  if(error){ who.innerHTML = '<div class="field-note" style="color:var(--red);">' + esc(error.message) + '</div>'; return; }
+  const people = data || [];
+
+  const PREF = { every:'every change', new_only:'only somebody new', never:'nothing' };
+  who.innerHTML =
+    (people.length
+      ? '<div style="font-size:12.5px;">' + people.map(c =>
+          '<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">' +
+          '<b>' + esc(c.name) + '</b>' +
+          (c.relationship ? '<span class="field-note">' + esc(c.relationship) + '</span>' : '') +
+          '<span class="badge" style="background:var(--bg);">' + esc(PREF[c.caregiver_intro_pref] || 'only somebody new') + '</span>' +
+          (c.stopped_at ? '<span class="badge" style="background:#FEE2E2;color:#991B1B;">replied STOP</span>' : '') +
+          ((c.phone && c.sms_consent) || c.email ? '' : '<span class="badge" style="background:#FEF3C7;color:#92400E;">no way to reach them</span>') +
+          '</div>').join('') + '</div>'
+      : '<div class="field-note">Nobody on this circle yet. Add whoever should hear about it.</div>') +
+
+    '<details style="margin-top:9px;"' + (people.length ? '' : ' open') + '>' +
+      '<summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">＋ Add somebody</summary>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">' +
+        '<div style="flex:1;min-width:130px;"><label>Name</label><input type="text" id="cgp-nn-' + id + '"></div>' +
+        '<div style="flex:1;min-width:110px;"><label>Relationship</label><input type="text" id="cgp-nr-' + id + '" placeholder="daughter"></div>' +
+        '<div style="flex:1;min-width:120px;"><label>Mobile</label><input type="tel" id="cgp-np-' + id + '"></div>' +
+        '<div style="flex:1;min-width:150px;"><label>Email</label><input type="text" id="cgp-ne-' + id + '"></div>' +
+        '<div style="flex:1;min-width:150px;"><label>Wants to hear about</label>' +
+          '<select id="cgp-npref-' + id + '">' +
+            '<option value="new_only">Only somebody new</option>' +
+            '<option value="every">Every change</option>' +
+            '<option value="never">Nothing</option>' +
+          '</select></div>' +
+      '</div>' +
+      '<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:400;font-size:13px;">' +
+        '<input type="checkbox" id="cgp-nsms-' + id + '"> They are happy to be texted</label>' +
+      '<div class="field-note" style="margin-top:4px;">Without that ticked they will only be emailed, which is the ' +
+        'right default: nobody should get an unexpected text from us.</div>' +
+    '</details>' +
+
+    '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:12px;">' +
+      '<button class="secondary" onclick="cgpSend(\'' + id + '\', true)">See who this would reach</button>' +
+      '<button class="primary" onclick="cgpSend(\'' + id + '\', false)">Send it</button>' +
+    '</div>';
+}
+
+function cgpNewContact(id){
+  const v = k => (document.getElementById('cgp-' + k + '-' + id) || {}).value || '';
+  const name = v('nn').trim();
+  if(!name) return null;
+  return {
+    name,
+    relationship: v('nr').trim() || null,
+    phone: v('np').trim() || null,
+    email: v('ne').trim() || null,
+    pref: v('npref') || 'new_only',
+    sms_consent: (document.getElementById('cgp-nsms-' + id) || {}).checked === true,
+  };
+}
+
+async function cgpSend(id, dry){
+  const msg = document.getElementById('cgp-sendmsg-' + id);
+  const circleId = (document.getElementById('cgp-circle-' + id) || {}).value || '';
+  if(!circleId){ msg.style.color = 'var(--red)'; msg.textContent = 'Choose a client first.'; return; }
+  const circle = (CGP_CIRCLES || []).find(c => String(c.id) === String(circleId));
+  const reason = (document.getElementById('cgp-reason-' + id) || {}).value || 'first_time';
+  const extra = cgpNewContact(id);
+
+  msg.style.color = 'var(--text-muted)';
+  msg.textContent = dry ? 'Checking…' : 'Sending…';
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    const res = await fetch(CONFIG.supabase_url + '/functions/v1/caregiver-intro' + (dry ? '?dry=1' : ''), {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + (session && session.access_token) },
+      body: JSON.stringify({
+        profile_id: id, client_name: circle && circle.client_name, circle_id: circleId,
+        reason, sent_by: ME.email, contacts: extra ? [extra] : undefined, dry: !!dry,
+      }),
+    });
+    const b = await res.json().catch(() => ({}));
+    if(!res.ok || b.error) throw new Error(b.error || ('HTTP ' + res.status));
+
+    if(dry){
+      msg.style.color = 'var(--navy)';
+      msg.innerHTML = (b.would_reach || []).length
+        ? '<b>Would reach ' + (b.would_reach||[]).map(esc).join(', ') + '</b> · ' +
+          b.by_text + ' by text, ' + b.by_email + ' by email' +
+          (b.not_wanted ? ' · ' + b.not_wanted + ' did not want this one' : '') +
+          (b.held_back ? ' · ' + b.held_back + ' with no way to reach them' : '') +
+          '<div style="margin-top:6px;background:var(--bg);border-radius:8px;padding:8px 10px;">' + esc(b.example) + '</div>'
+        : 'Nobody would hear about this one. ' +
+          (b.not_wanted ? 'Their settings say they do not want it.' : 'Nobody on this circle can be reached.');
+    }else{
+      msg.style.color = '#15803D';
+      msg.innerHTML = b.reached
+        ? '✓ Sent to ' + (b.who||[]).map(esc).join(', ')
+        : 'Nothing sent, nobody on this circle wanted it or could be reached.';
+      cgpPickClient(id);
+    }
+  }catch(e){
+    msg.style.color = 'var(--red)';
+    msg.textContent = (dry ? 'Could not check: ' : 'Did not send: ') + (e.message || 'unknown error');
+  }
 }
 
 function cgpMsg(id, text, bad){
