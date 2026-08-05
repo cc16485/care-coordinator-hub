@@ -44,6 +44,10 @@
 .spellbtn{margin-top:7px;background:#fff;border:1.5px solid var(--border);border-radius:9px;
              padding:8px 13px;font-family:inherit;font-size:13.5px;cursor:pointer;color:var(--navy);font-weight:600;}
   .spellbtn[disabled]{opacity:.5;cursor:wait;}
+  .askbox{display:none;margin-top:10px;background:#FFF8EC;border:1.5px solid #F0D8A8;border-radius:11px;padding:12px 13px;}
+  .askbox .q{font-size:15px;font-weight:600;color:#7A5410;}
+  .askbox .sub{font-size:12.5px;color:var(--muted);margin-top:5px;}
+  .askbox .done{font-size:13.5px;color:var(--green);font-weight:600;}
   .polish{display:none;margin-top:10px;background:#F4F8FF;border:1.5px solid #CBD9EC;border-radius:11px;padding:12px 13px;}
   .polish .h{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:5px;}
   .polish .txt{font-size:14.5px;white-space:pre-wrap;background:#fff;border:1px solid var(--border);
@@ -81,6 +85,8 @@
       <textarea id="experience" placeholder="Four years on a dementia unit, then two with hospice. A lot of one-to-one at home…"></textarea>
       <div class="ideas">Most people start with <b>where</b> they have worked, then <b>who</b> they cared for.</div>
       <button type="button" class="spellbtn" onclick="polish('experience',this)">✓ Check my spelling</button>
+      <button type="button" class="spellbtn" onclick="askMore('experience',this)">💬 What else should I say?</button>
+      <div class="askbox" id="ask-experience"></div>
       <div class="polish" id="polish-experience"></div>
 
       <label>How long have you been caring for people?</label>
@@ -107,12 +113,16 @@
       <div class="ideas">Stuck? People often say: <b>how they are around the house</b> (quiet, chatty, always
         cooking), <b>what they are patient with</b>, or <b>what a good day looks like</b> to them.</div>
       <button type="button" class="spellbtn" onclick="polish('about',this)">✓ Check my spelling</button>
+      <button type="button" class="spellbtn" onclick="askMore('about',this)">💬 What else should I say?</button>
+      <div class="askbox" id="ask-about"></div>
       <div class="polish" id="polish-about"></div>
 
       <label>Why do you do this work?</label>
       <textarea id="why" placeholder="I looked after my grandmother for four years and…"></textarea>
       <div class="ideas">Most people have one story that started it. That is usually the answer.</div>
       <button type="button" class="spellbtn" onclick="polish('why',this)">✓ Check my spelling</button>
+      <button type="button" class="spellbtn" onclick="askMore('why',this)">💬 What else should I say?</button>
+      <div class="askbox" id="ask-why"></div>
       <div class="polish" id="polish-why"></div>
 
       <label>Something about you outside of work <span class="opt">optional</span></label>
@@ -262,6 +272,45 @@ async function polish(field, btn) {
     box.style.display = 'block';
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '✓ Check my spelling'; }
+  }
+}
+
+/* The other half of the help, and the more useful half. Somebody who has
+   written one flat line does not need their spelling fixed, they need
+   somebody to ask them a question. So this asks one, and they answer it
+   themselves. Nothing they wrote is touched, and no example answer is offered,
+   because an example is just a rewrite somebody will copy. */
+async function askMore(field, btn) {
+  const ta = document.getElementById(field);
+  const box = document.getElementById('ask-' + field);
+  const text = ta.value.trim();
+  if (!text) {
+    box.innerHTML = '<div class="sub">Write a line or two first, then this can ask you about it.</div>';
+    box.style.display = 'block';
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Thinking…'; }
+  box.style.display = 'none';
+  try {
+    const res = await fetch(SB_URL + '/functions/v1/profile-polish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY },
+      body: JSON.stringify({ text, mode: 'ask' }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body.error) throw new Error(body.error || 'could not ask');
+
+    box.innerHTML = body.enough
+      ? '<div class="done">✓ That reads well. A family would feel they knew you.</div>'
+      : '<div class="q">' + String(body.question).replace(/[<>&]/g, '') + '</div>' +
+        '<div class="sub">Answer it in the box above, in your own words. There is no right answer, ' +
+        'and you can ignore it.</div>';
+    box.style.display = 'block';
+  } catch (e) {
+    box.innerHTML = '<div class="sub">Could not think of anything just now. What you have written is fine.</div>';
+    box.style.display = 'block';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💬 What else should I say?'; }
   }
 }
 
