@@ -69,37 +69,20 @@
     <p class="lede">
       When we put you on a family's schedule, we introduce you first, with your photo and a little about you.
       Families tell us it is the difference between a stranger at the door and someone they were expecting.
-      This takes about five minutes and you decide what goes in it.
+      It takes about five minutes, it starts with the easy part, and you decide what goes in it.
     </p>
 
     <div class="card">
-      <h2>Your name</h2>
-      <div class="hint">Families see your first name only. Never your last name, address or phone number.</div>
-      <label>First name</label>
-      <input type="text" id="first" autocomplete="given-name">
-      <label>What you like to be called <span class="opt">if it is different</span></label>
-      <input type="text" id="preferred" placeholder="e.g. Sam, Kate">
-    </div>
-
-    <div class="card">
-      <h2>Your photo</h2>
-      <div class="hint">A clear, friendly photo of your face. A phone selfie in good light is perfect.</div>
-      <input type="file" id="photo" accept="image/*" capture="user">
-      <div class="preview" id="photoPrev"><img id="photoImg" alt=""></div>
-    </div>
-
-    <div class="card">
-      <h2>A short video <span class="opt" style="font-weight:400;font-size:14px;color:var(--muted)">optional</span></h2>
-      <div class="hint">
-        Up to a minute, saying hello and why you do this work. Plenty of people would rather not be on camera,
-        and that is genuinely fine, what you write below matters more.
-      </div>
-      <input type="file" id="video" accept="video/*" capture="user">
-      <div class="preview" id="videoPrev"><video id="videoEl" controls playsinline></video></div>
-    </div>
-
-    <div class="card">
       <h2>Your experience</h2>
+      <label>Tell us about your experience. What kind of care have you done?</label>
+      <div class="hint" style="margin:0 0 6px">
+        In your own words. Where you have worked, who you have looked after, anything you have got good at.
+      </div>
+      <textarea id="experience" placeholder="Four years on a dementia unit, then two with hospice. A lot of one-to-one at home…"></textarea>
+      <div class="ideas">Most people start with <b>where</b> they have worked, then <b>who</b> they cared for.</div>
+      <button type="button" class="spellbtn" onclick="polish('experience',this)">✓ Check my spelling</button>
+      <div class="polish" id="polish-experience"></div>
+
       <label>How long have you been caring for people?</label>
       <select id="years">
         <option value="">Choose…</option>
@@ -136,6 +119,32 @@
       <textarea id="outside" rows="2" placeholder="Two grandkids, a very bad dog, and I grow tomatoes."></textarea>
       <button type="button" class="spellbtn" onclick="polish('outside',this)">✓ Check my spelling</button>
       <div class="polish" id="polish-outside"></div>
+    </div>
+
+    <div class="card">
+      <h2>Your name</h2>
+      <div class="hint">Families see your first name only. Never your last name, address or phone number.</div>
+      <label>First name</label>
+      <input type="text" id="first" autocomplete="given-name">
+      <label>What you like to be called <span class="opt">if it is different</span></label>
+      <input type="text" id="preferred" placeholder="e.g. Sam, Kate">
+    </div>
+
+    <div class="card">
+      <h2>Your photo</h2>
+      <div class="hint">A clear, friendly photo of your face. A phone selfie in good light is perfect.</div>
+      <input type="file" id="photo" accept="image/*" capture="user">
+      <div class="preview" id="photoPrev"><img id="photoImg" alt=""></div>
+    </div>
+
+    <div class="card">
+      <h2>A short video <span class="opt" style="font-weight:400;font-size:14px;color:var(--muted)">optional</span></h2>
+      <div class="hint">
+        Up to a minute, saying hello and why you do this work. Plenty of people would rather not be on camera,
+        and that is genuinely fine, what you write below matters more.
+      </div>
+      <input type="file" id="video" accept="video/*" capture="user">
+      <div class="preview" id="videoPrev"><video id="videoEl" controls playsinline></video></div>
     </div>
 
     <div class="card">
@@ -321,6 +330,7 @@ async function submitProfile() {
       caregiver_id: params.get('id') || null,
       photo_path: photoPath,
       video_path: videoPath,
+      experience: document.getElementById('experience').value.trim() || null,
       years_experience: document.getElementById('years').value || null,
       specialties: [...chosen],
       about: [about, outside].filter(Boolean).join('\n\n') || null,

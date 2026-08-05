@@ -96,6 +96,7 @@ async function load(){
       '</div>' +
       '<div class="body">' +
         (p.video ? '<video controls playsinline preload="metadata" src="' + esc(p.video) + '"></video>' : '') +
+        (p.experience ? '<h2>' + name + '\u2019s experience</h2><p>' + esc(p.experience) + '</p>' : '') +
         (p.about ? '<h2>A little about ' + name + '</h2><p>' + esc(p.about) + '</p>' : '') +
         (p.why ? '<h2>Why ' + name + ' does this work</h2><p>' + esc(p.why) + '</p>' : '') +
         (p.specialties && p.specialties.length

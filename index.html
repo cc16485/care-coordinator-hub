@@ -9947,7 +9947,9 @@ function renderCgProfiles(){
         '</div>' +
       '</div>' +
 
-      '<label style="margin-top:12px;">What a family reads</label>' +
+      '<label style="margin-top:12px;">Their experience, in their words</label>' +
+      '<textarea id="cgp-exp-' + p.id + '" rows="3">' + esc(p.experience||'') + '</textarea>' +
+      '<label>What a family reads</label>' +
       '<textarea id="cgp-about-' + p.id + '" rows="3">' + esc(p.about||'') + '</textarea>' +
       '<label>Why they do this work</label>' +
       '<textarea id="cgp-why-' + p.id + '" rows="2">' + esc(p.why_this_work||'') + '</textarea>' +
@@ -10138,6 +10140,7 @@ function cgpMsg(id, text, bad){
 
 async function cgpSave(id){
   const patch = {
+    experience: document.getElementById('cgp-exp-' + id).value.trim() || null,
     about: document.getElementById('cgp-about-' + id).value.trim() || null,
     why_this_work: document.getElementById('cgp-why-' + id).value.trim() || null,
     caregiver_id: document.getElementById('cgp-cid-' + id).value.trim() || null,
