@@ -38,6 +38,8 @@
   .foot a{color:var(--navy);font-weight:600;}
   .state{text-align:center;padding:50px 20px;color:var(--muted);}
   .state h1{font-size:20px;margin-bottom:8px;}
+  .demo{background:#FFF8EC;border:1.5px solid #F0D8A8;border-radius:11px;padding:10px 13px;
+        font-size:13px;color:#7A5410;margin-bottom:14px;text-align:center;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -63,8 +65,32 @@ function state(title, line){
     '<div class="state"><h1>' + esc(title) + '</h1><p>' + esc(line) + '</p></div>';
 }
 
+/* An example, so a caregiver at orientation can see what they are filling in
+   for, and the office can show a family what to expect. Made-up on purpose and
+   labelled as such: a real caregiver's profile should never be used as the
+   sample, and nobody should mistake this for somebody who works here. */
+const DEMO = {
+  name: 'Sarah',
+  photo: null,
+  video: null,
+  experience: 'Four years on a dementia unit at a care home in Nixa, then two with hospice. ' +
+    'Most of what I do now is one-to-one in people\u2019s own homes, which I much prefer.',
+  years: '6 to 10 years',
+  about: 'I\u2019m patient and I talk a lot. I make a good cup of coffee and I\u2019ll always find ' +
+    'something to laugh about.\n\nTwo grandkids, a very bad dog, and I grow tomatoes.',
+  why: 'I looked after my grandma for four years and I just never stopped.',
+  specialties: ['Dementia & memory care', 'Hospice & end of life', 'Cooking & meals',
+                'Companionship & conversation'],
+};
+
 async function load(){
-  const id = new URLSearchParams(location.search).get('id') || '';
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id') || '';
+
+  if(params.get('demo') === '1'){
+    render(DEMO, true);
+    return;
+  }
   if(!id) return state('Nothing to show here', 'This link is missing its address. Ask us to send it again.');
 
   let p;
@@ -83,13 +109,24 @@ async function load(){
       'Please try again in a moment, or call us on (417) 234-8494.');
   }
 
+  render(p, false);
+}
+
+function render(p, isDemo){
   const name = esc(p.name);
-  document.title = name + ' — your caregiver — Caring Companions';
+  document.title = (isDemo ? 'Example profile' : name + ' — your caregiver') + ' — Caring Companions';
 
   document.getElementById('host').innerHTML =
+    (isDemo ? '<div class="demo"><b>This is an example.</b> Sarah is not a real caregiver. ' +
+              'It is here to show what a profile looks like.</div>' : '') +
     '<div class="card">' +
       '<div class="hero">' +
-        (p.photo ? '<img src="' + esc(p.photo) + '" alt="' + name + '">' : '') +
+        (p.photo
+          ? '<img src="' + esc(p.photo) + '" alt="' + name + '">'
+          : '<div style="width:132px;height:132px;border-radius:50%;margin:0 auto 14px;' +
+            'background:var(--teal);color:#fff;font-size:52px;font-weight:700;display:flex;' +
+            'align-items:center;justify-content:center;box-shadow:0 3px 14px rgba(13,54,95,.16)">' +
+            name.slice(0,1) + '</div>') +
         '<h1>' + name + '</h1>' +
         '<div class="meet">Your caregiver from Caring Companions</div>' +
         (p.years ? '<div class="years">' + esc(p.years) + ' caring for people</div>' : '') +
