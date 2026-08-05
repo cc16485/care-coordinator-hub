@@ -4179,7 +4179,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-body">
 <div class="guide-step"><span class="num">1</span>Caregivers fill these in at orientation at <b>cc.mo-care.com/caregiver-profile.html</b>. Photo, an optional short video, what they are best at, and what they would want a family to know.</div>
 <div class="guide-step"><span class="num">2</span>They arrive <b>unapproved</b>. Read it as a family would, fix any typos, then <b>Approve &amp; publish</b>. Nothing is sent to anybody before that.</div>
-<div class="guide-step"><span class="num">3</span><b>Match it to the roster</b> by putting their caregiver ID in, so the schedule knows whose profile is whose.</div>
+<div class="guide-step"><span class="num">3</span><b>Put their AxisCare ID in.</b> AxisCare is where the schedule lives, so this is what links a profile to the person on a shift. Without it, this profile can be sent by hand but can never be sent automatically.</div>
 <div class="guide-step"><span class="num">4</span><b>Unpublish</b> takes it out of circulation and keeps the record. <b>Remove</b> deletes the photo and video for good, which is what to use when somebody withdraws their permission or leaves.</div>
 <div class="guide-step flag"><span class="num">!</span>The link is unguessable but it is not secret: anybody a family forwards it to can open it. That is the trade for a page a family can look at without signing in.</div>
 </div>
@@ -9938,7 +9938,7 @@ function renderCgProfiles(){
           '</div>' +
           '<div class="field-note" style="margin-top:3px;">' +
             (p.years_experience ? esc(p.years_experience) + ' experience' : 'experience not given') +
-            (p.caregiver_id ? ' · roster ' + esc(p.caregiver_id) : ' · <b style="color:#B45309;">not matched to the roster</b>') +
+            (p.axiscare_id ? ' · AxisCare ' + esc(p.axiscare_id) : ' · <b style="color:#B45309;">no AxisCare ID yet</b>') +
           '</div>' +
           ((p.specialties||[]).length
             ? '<div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap;">' +
@@ -9955,8 +9955,8 @@ function renderCgProfiles(){
       '<textarea id="cgp-why-' + p.id + '" rows="2">' + esc(p.why_this_work||'') + '</textarea>' +
 
       '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:flex-end;">' +
-        '<div style="flex:1;min-width:150px;"><label>Roster ID</label>' +
-          '<input type="text" id="cgp-cid-' + p.id + '" value="' + esc(p.caregiver_id||'') + '" placeholder="their caregiver id"></div>' +
+        '<div style="flex:1;min-width:190px;"><label>AxisCare ID</label>' +
+          '<input type="text" id="cgp-axid-' + p.id + '" value="' + esc(p.axiscare_id||'') + '" placeholder="their ID in AxisCare"></div>' +
         '<button class="secondary" onclick="cgpSave(\'' + p.id + '\')">Save edits</button>' +
         (p.published
           ? '<button class="ghost" onclick="cgpPublish(\'' + p.id + '\',false)">Unpublish</button>'
@@ -10143,7 +10143,7 @@ async function cgpSave(id){
     experience: document.getElementById('cgp-exp-' + id).value.trim() || null,
     about: document.getElementById('cgp-about-' + id).value.trim() || null,
     why_this_work: document.getElementById('cgp-why-' + id).value.trim() || null,
-    caregiver_id: document.getElementById('cgp-cid-' + id).value.trim() || null,
+    axiscare_id: document.getElementById('cgp-axid-' + id).value.trim() || null,
     updated_at: new Date().toISOString(),
   };
   const { error } = await sb.from('caregiver_profiles').update(patch).eq('id', id);
