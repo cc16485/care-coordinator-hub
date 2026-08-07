@@ -90,6 +90,18 @@
   .empty{ text-align:center; color:var(--muted); padding:34px 12px; }
   .err{ background:var(--red-bg); color:var(--red); border-radius:10px; padding:11px 14px; font-size:14px; margin-top:12px; }
   .ok{ background:var(--green-bg); color:var(--green); border-radius:10px; padding:11px 14px; font-size:14px; margin-top:12px; }
+
+  /* ---- hub section tabs (so this never feels like a dead end, especially
+     inside GoHighLevel where the other links keep their tab strip) ---- */
+  .hubtabs{ background:var(--navy); padding:8px 14px 0; display:flex; gap:4px;
+            align-items:flex-end; overflow-x:auto; }
+  .hubtabs a{ font-family:inherit; font-size:13px; font-weight:600; color:rgba(255,255,255,.78);
+              text-decoration:none; padding:8px 16px; border-radius:9px 9px 0 0; white-space:nowrap; }
+  .hubtabs a:hover{ color:#fff; background:rgba(255,255,255,.08); }
+  .hubtabs a.on{ background:var(--cream); color:var(--navy); font-weight:800; margin-bottom:-1px; }
+  html.embedded header img,
+  html.embedded header a.back[href="index.html"]{ display:none; }
+  html.embedded header{ padding:11px 18px; }
   .hide{ display:none !important; }
   details summary{ cursor:pointer; font-weight:700; color:var(--cta); font-size:14px; }
   @media (max-width:700px){ .grid2{ grid-template-columns:1fr; } main{ padding:18px 14px 70px; } }
@@ -121,6 +133,7 @@
   <a class="back" href="playbook-video.html">What to say &rarr;</a>
   <span class="who" id="who"></span>
 </header>
+<div class="hubtabs"><a href="/#leads">Leads</a><a href="/#campaigns">Campaigns</a><a href="/#referrers">Referrers</a><a href="/#ltcpolicy">LTC Policy</a><a href="/#feedback">Feedback</a><a href="/#community">Community</a><a href="/game" class="on">Story Game</a><a href="/series417">417 Series</a></div>
 <nav>
   <button data-s="videos" class="on">Videos<span class="pill hide" id="pillNew"></span></button>
   <button data-s="clients">Clients</button>
@@ -655,6 +668,23 @@
       : 'Nobody has scored yet this month. The first story is worth the same as the last one, so go ask somebody about their first car.';
   }
   $('sbCopy').addEventListener('click', function () { copy($('sbBrag').value, $('sbCopy')); });
+})();
+</script>
+
+<script>
+/* Inside GoHighLevel these open as their own page, so bring the hub's section
+   tabs with us and keep the embed flag on every link we hand off to. */
+(function(){
+  var qs = new URLSearchParams(location.search);
+  var emb = qs.get('embed') === '1' || (function(){ try { return window.self !== window.top; } catch(e){ return true; } })();
+  if (emb) {
+    document.documentElement.classList.add('embedded');
+    Array.prototype.forEach.call(document.querySelectorAll('.hubtabs a'), function(a){
+      var h = a.getAttribute('href');
+      var h2 = h.indexOf('#') > -1 ? h.replace('#', '?embed=1#') : h + '?embed=1';
+      if (h && h.indexOf('embed=1') < 0) a.setAttribute('href', h2);
+    });
+  }
 })();
 </script>
 </body>
