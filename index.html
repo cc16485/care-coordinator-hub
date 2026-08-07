@@ -3594,6 +3594,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 <!-- Was buried in the AxisCare section, where nobody could find it, which is
      why the Communications panel sat switched off. -->
+<div class="settings-section" style="background:var(--slate-bg,#f2f0e9);">
+<h3>⚙️ These belong to the agency now</h3>
+<p class="hint">Everything below except the Supabase connection is shared with the whole team, on every device. Pasting a key here switches it on for Krystal too. You can also manage the same settings from the <a href="https://hub.mo-care.com/admin" target="_blank" rel="noopener"><b>Admin page</b></a>.</p>
+</div>
+
 <div class="settings-section">
 <h3>💬 Communications &amp; Training Hub</h3>
 <p class="hint">One key switches on three things: the <b>texts, emails and calls</b> shown on a lead, the <b>Sync from Training Hub</b> button on the Training tab, and escalation alerts. It lives in the Training Platform project as <code>hub_read_key</code> and starts with <code>cchub_</code>.</p>
@@ -6026,6 +6031,41 @@ The HomeTogether team</pre>
 let sb = null; // Supabase client instance — named `sb`, not `supabase`, to avoid colliding
                 // with the `supabase` global the CDN script above already declares.
 let CONFIG = JSON.parse(localStorage.getItem('cch_config') || '{}');
+
+/* ── Settings belong to the agency, not to one laptop ──────────────────────
+   These lived in localStorage, which meant a key pasted on Samantha's machine
+   left the same panel dark on Krystal's, and a new computer started blank. The
+   ones below now live in Supabase so everybody gets the same answer, and they
+   are editable from the Admin page at hub.mo-care.com/admin as well as here.
+   The Supabase URL and anon key deliberately stay local: they are what we need
+   in order to reach Supabase in the first place. */
+const CC_CFG_KEY = 'cc_hub_config';
+const CC_SHARED_SETTINGS = ['axiscare_site','axiscare_token','training_hub_key','checkin_cadence',
+  'supervisory_window','auto_clear_transcript','careplan_webhook','escalation_protocol'];
+
+async function loadSharedConfig(){
+  if(!sb) return;
+  try{
+    const { data } = await sb.from('app_data').select('data').eq('key', CC_CFG_KEY).maybeSingle();
+    const remote = (data && data.data && typeof data.data === 'object' && !Array.isArray(data.data)) ? data.data : null;
+    if(!remote) return;
+    let changed = false;
+    for(const k of CC_SHARED_SETTINGS){
+      if(remote[k] !== undefined && remote[k] !== CONFIG[k]){ CONFIG[k] = remote[k]; changed = true; }
+    }
+    if(changed) localStorage.setItem('cch_config', JSON.stringify(CONFIG));
+  }catch(e){ /* an old browser copy is better than none */ }
+}
+async function saveSharedConfig(){
+  if(!sb) return false;
+  const shared = {};
+  for(const k of CC_SHARED_SETTINGS) if(CONFIG[k] !== undefined) shared[k] = CONFIG[k];
+  try{
+    const { error } = await sb.from('app_data')
+      .upsert({ key: CC_CFG_KEY, data: shared, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    return !error;
+  }catch(e){ return false; }
+}
 CONFIG.checkin_cadence = CONFIG.checkin_cadence || 30;
 CONFIG.supervisory_window = CONFIG.supervisory_window || 60;
 CONFIG.admin_passcode = CONFIG.admin_passcode || '';
@@ -6160,6 +6200,7 @@ async function loadAllData(){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
   }
+  await loadSharedConfig();   // agency settings, not this laptop's settings
   document.getElementById('syncPill').textContent = '☁ Synced';
   await resolveMe();
 }
@@ -10542,8 +10583,11 @@ function saveSettings(){
   if(newCode) CONFIG.admin_passcode = newCode;
   localStorage.setItem('cch_config', JSON.stringify(CONFIG));
   initSupabase();
-  alert('Settings saved ✓');
-  alert('Settings saved. Reload the page if you just connected Supabase for the first time.');
+  saveSharedConfig().then(function(ok){
+    alert(ok
+      ? 'Settings saved ✓ — everyone on the team gets these, on every device.'
+      : 'Saved on this computer, but they could not be shared with the team. Check your connection and press Save again.');
+  });
 }
 
 
