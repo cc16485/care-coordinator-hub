@@ -50,6 +50,13 @@
   ul.plain li::before{ content:"—"; position:absolute; left:0; color:var(--honey); font-weight:700; }
   @media print{ nav, .copy button, header .sp{ display:none !important; } body{ background:#fff; } main{ max-width:none; padding:0; } }
   @media (max-width:600px){ .nums{ grid-template-columns:1fr; } }
+
+  .hubtabs{ background:var(--navy); padding:8px 14px 0; display:flex; gap:4px; align-items:flex-end; overflow-x:auto; }
+  .hubtabs a{ font-family:inherit; font-size:13px; font-weight:600; color:rgba(255,255,255,.78);
+              text-decoration:none; padding:8px 16px; border-radius:9px 9px 0 0; white-space:nowrap; }
+  .hubtabs a:hover{ color:#fff; background:rgba(255,255,255,.08); }
+  .hubtabs a.on{ background:var(--cream); color:var(--navy); font-weight:800; margin-bottom:-1px; }
+  html.embedded header img, html.embedded header a[href="index.html"]{ display:none; }
 </style>
 </head>
 <body>
@@ -61,10 +68,12 @@
   <a href="https://mo-care.com/hometogether-included" target="_blank" rel="noopener">The page ↗</a>
   <a href="javascript:window.print()">Print</a>
 </header>
+<div class="hubtabs"><a href="/#leads">Leads</a><a href="/#campaigns">Campaigns</a><a href="/#referrers">Referrers</a><a href="/#ltcpolicy">LTC Policy</a><a href="/#feedback">Feedback</a><a href="/#community">Community</a><a href="/game">Story Game</a><a href="/series417">417 Series</a><a href="/playbook-offer" class="on">20-Hour Offer</a></div>
 <nav>
   <a href="#what">The offer</a>
   <a href="#say">What to say</a>
   <a href="#ads">Facebook ads</a>
+  <a href="#art">Ad artwork</a>
   <a href="#social">Social posts</a>
   <a href="#referral">Referral partners</a>
   <a href="#email">Client email</a>
@@ -184,6 +193,76 @@ Description: HomeTogether TV free at 20+ hours a week of care.</div>
   <div class="never">
     <b>Two rules Facebook actually enforces.</b> You cannot target people by health condition, and you cannot write copy that implies you know something personal about the reader. "Does your mother have dementia?" gets rejected. "Families caring for a parent with dementia" is fine. Keep it about us and about the offer, never about a diagnosis you are guessing they have.
   </div>
+
+
+  <h2 class="serif" id="art">Ad artwork: what to have made</h2>
+  <p class="muted">Paste any of these straight into a design tool. Every one assumes our palette: navy #0D365F, honey #F0A63A, cream #faf9f6, serif headlines, no stock-photo gloss.</p>
+
+  <div class="why"><b>The single rule.</b> The picture has to show <b>a face on a television and an older person looking at it</b>. That is the whole product in one frame. Everything else, the device, the logo, the price, is decoration. If a designer sends back a smiling stock senior holding a tablet, send it back.</div>
+
+  <h3>Sizes to ask for, every time</h3>
+  <ul class="plain">
+    <li><b>1080 × 1350 (4:5)</b> — the main feed size, takes up the most screen on a phone. Make this one first.</li>
+    <li><b>1080 × 1080 (1:1)</b> — square, for the feed and for Instagram.</li>
+    <li><b>1080 × 1920 (9:16)</b> — Stories and Reels. Keep everything important in the middle, the top and bottom get covered.</li>
+  </ul>
+
+  <div class="copy">
+    <div class="lbl">Brief 1 — the guilt of distance</div>
+    <div class="body" id="d1">Photograph, shot from behind and slightly to the side of an older woman sitting in her own living room chair. We see the back of her head and shoulder, and past her, the television. On the screen is a woman in her forties mid-sentence, clearly on a video call, in an ordinary kitchen somewhere else. Warm lamp light, late afternoon. A real room: a crocheted blanket, a side table with a coaster and reading glasses, family photos on the wall.
+
+No text on the image at all, or at most one line in the lower third: "See her face." Serif, cream, on a soft navy gradient so it stays readable.
+
+Feels like: a documentary still. Slightly imperfect, real furniture, real clutter.
+Avoid: white backgrounds, staged smiles at the camera, anything that looks like a hospital or a brochure, and any device that is not a television.</div>
+    <button onclick="cp('d1',this)">Copy</button>
+  </div>
+
+  <div class="copy">
+    <div class="lbl">Brief 2 — the switch</div>
+    <div class="body" id="d2">Typographic, almost no photo. Deep navy background (#0D365F). One question centred in large cream serif, big enough to read at a glance while scrolling:
+
+"What's included at 20 hours a week?"
+
+Underneath, small, in honey (#F0A63A): "Ask your agency. Then ask us."
+
+Bottom edge: the Caring Companions logo, small, and nothing else. In the lower right corner, a small photograph, no bigger than a quarter of the frame, of a television showing a family on a video call, with soft rounded corners so it reads as an inset rather than a background.
+
+Feels like: a plain question asked confidently, not an advertisement.
+Avoid: exclamation marks, starbursts, "LIMITED TIME", and any comparison table.</div>
+    <button onclick="cp('d2',this)">Copy</button>
+  </div>
+
+  <div class="copy">
+    <div class="lbl">Brief 3 — the grandchildren</div>
+    <div class="body" id="d3">The television is the whole frame, shot straight on, filling most of the image. On the screen is a video call grid with four or five faces of different ages, including at least two children, all mid-laugh, clearly in different homes. In the bottom of the frame, out of focus, the back of an older person's head and the top of an armchair, so you understand who is watching.
+
+Text across the top in cream serif, kept short: "Ten grandchildren. One television. No passwords."
+
+Small honey band along the bottom: "Included free at 20+ hours a week of care."
+
+Feels like: a Sunday afternoon, noisy and happy.
+Avoid: a perfect symmetrical grid of professional headshots. Make the faces look like a real family on a real call, one too close to the camera, one in a doorway.</div>
+    <button onclick="cp('d3',this)">Copy</button>
+  </div>
+
+  <h3>If you want one video instead</h3>
+  <div class="copy">
+    <div class="lbl">Brief 4 — 15 seconds, vertical, no words spoken</div>
+    <div class="body" id="d4">1080 × 1920, fifteen seconds, silent, captions burned in because most people watch with the sound off.
+
+0 to 3 sec: a dark television in a quiet living room. An older woman is doing something ordinary nearby, folding a towel, turning a page.
+3 to 6 sec: the screen lights up. A face appears. She looks up. She has not touched anything.
+6 to 11 sec: she is talking to the screen and smiling. Cut to two more faces joining the call, then a child waving.
+11 to 15 sec: cut to cream. Navy serif: "Included free at 20+ hours a week." Then the logo and mo-care.com/hometogether-included.
+
+Captions, in order: "She doesn't answer it." / "She doesn't unlock anything." / "It just comes on." / "Included at 20 hours a week."
+No music with lyrics. Nothing dramatic. Let it be quiet.</div>
+    <button onclick="cp('d4',this)">Copy</button>
+  </div>
+
+  <div class="why"><b>Where the real footage comes from.</b> Once a family has a device and has said yes on their video page, that is your ad. A real Springfield living room beats anything a designer can build, and you already have the consent process for it. Until then, use the briefs above and swap in the real thing the moment you have it.</div>
+  <div class="never"><b>Never use a client's face in an ad</b> without their written yes on file, and never use a photograph of a real client's home in a way that could identify where they live. The release on the Share Your Story page covers video. A photo taken on a coordinator's phone at a visit does not.</div>
 
   <h2 class="serif" id="social">Social posts</h2>
   <div class="copy">
@@ -369,6 +448,21 @@ function cp(id, btn){
     setTimeout(function(){ btn.textContent = o; }, 1400);
   });
 }
+</script>
+
+<script>
+/* Opened from a GoHighLevel menu link this is its own page, so it carries the
+   hub's section tabs with it and keeps the embed flag on anything it hands off. */
+(function(){
+  var qs=new URLSearchParams(location.search);
+  var emb = qs.get('embed')==='1' || (function(){ try{ return window.self!==window.top; }catch(e){ return true; } })();
+  if(!emb) return;
+  document.documentElement.classList.add('embedded');
+  Array.prototype.forEach.call(document.querySelectorAll('.hubtabs a'), function(a){
+    var h=a.getAttribute('href'); if(!h || h.indexOf('embed=1')>-1) return;
+    a.setAttribute('href', h.indexOf('#')>-1 ? h.replace('#','?embed=1#') : h+'?embed=1');
+  });
+})();
 </script>
 </body>
 </html>
