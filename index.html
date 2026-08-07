@@ -3590,7 +3590,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <p class="hint">Find your site number in your AxisCare URL: https://<b>XXXXX</b>.axiscare.com</p>
 <label>Site Number</label><input id="set_axiscare_site">
 <label>API Token (Admin → API Token in AxisCare)</label><input id="set_axiscare_token" type="password" placeholder="stored locally, never shared">
-<label>Training Hub read key (powers the lead Communications panel — ask Samantha)</label><input id="set_training_hub_key" type="password" placeholder="cchub_...">
+</div>
+
+<!-- Was buried in the AxisCare section, where nobody could find it, which is
+     why the Communications panel sat switched off. -->
+<div class="settings-section">
+<h3>💬 Communications &amp; Training Hub</h3>
+<p class="hint">One key switches on three things: the <b>texts, emails and calls</b> shown on a lead, the <b>Sync from Training Hub</b> button on the Training tab, and escalation alerts. It lives in the Training Platform project as <code>hub_read_key</code> and starts with <code>cchub_</code>.</p>
+<label>Training Hub read key</label><input id="set_training_hub_key" type="password" placeholder="cchub_...">
 </div>
 
 <div class="settings-section">
