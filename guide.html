@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GUIDE Program &mdash; Caring Companions</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="icon" href="cc-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --navy:#0D365F; --cta:#1F7A8C; --cta-h:#155A68; --honey:#F0A63A; --deep-honey:#C17A12;
+         --cream:#faf9f6; --panel:#f2f0e9; --ink:#16283a; --muted:#55677a; --border:#e4e1d8; --pale:#EAF4F6;
+         --green:#0f7a4d; --green-bg:#e8f6ef; --red:#a33; --red-bg:#fdf0f0; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:'Inter',Helvetica,Arial,sans-serif; background:var(--cream); color:var(--ink); font-size:15px; line-height:1.6; }
+  .serif{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; }
+  #gate{ min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--navy); padding:24px; }
+  #gate .box{ background:#fff; border-radius:18px; padding:34px 30px; width:100%; max-width:400px; text-align:center; }
+  #gate img{ width:170px; margin:0 auto 18px; display:block; }
+  #gate h1{ font-size:22px; color:var(--navy); margin-bottom:4px; }
+  #gate p{ color:var(--muted); font-size:14px; margin-bottom:18px; }
+  label{ display:block; font-size:13px; font-weight:700; color:var(--navy); margin:14px 0 5px; text-align:left; }
+  input,select,textarea{ width:100%; padding:11px 12px; font-size:15px; font-family:inherit; color:var(--ink);
+    background:var(--cream); border:1px solid var(--border); border-radius:10px; }
+  input:focus,select:focus,textarea:focus{ outline:2px solid var(--cta); border-color:var(--cta); background:#fff; }
+  textarea{ min-height:80px; resize:vertical; font-size:13.5px; }
+  .btn{ font-family:inherit; font-size:15px; font-weight:700; padding:11px 18px; border-radius:10px; border:none;
+        cursor:pointer; background:var(--cta); color:#fff; }
+  .btn:hover{ background:var(--cta-h); }
+  .btn.wide{ width:100%; margin-top:16px; }
+  .btn.ghost{ background:#fff; color:var(--navy); border:1px solid var(--border); }
+  .btn.ghost:hover{ background:var(--pale); }
+  .btn.sm{ font-size:13px; padding:8px 13px; border-radius:9px; }
+  .btn.danger{ background:#fff; color:var(--red); border:1px solid var(--border); }
+  .btn.good{ background:var(--green); }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  header{ background:var(--navy); color:#fff; padding:16px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header img{ height:34px; }
+  header .ttl{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:20px; }
+  header .ttl em{ font-style:normal; color:var(--honey); }
+  header a.back{ color:#fff; font-size:13px; text-decoration:underline; opacity:.85; }
+  header .who{ margin-left:auto; font-size:13px; opacity:.85; }
+  nav{ background:#fff; border-bottom:1px solid var(--border); padding:0 18px; display:flex; gap:4px; overflow-x:auto; }
+  nav button{ font-family:inherit; font-size:14.5px; font-weight:600; color:var(--muted); background:none; border:none;
+    border-bottom:3px solid transparent; padding:14px 14px; cursor:pointer; white-space:nowrap; }
+  nav button.on{ color:var(--navy); border-bottom-color:var(--honey); }
+  main{ max-width:1080px; margin:0 auto; padding:24px 18px 80px; }
+  section{ display:none; } section.on{ display:block; }
+  h2{ font-size:21px; color:var(--navy); margin:0 0 4px; }
+  h3{ font-size:16px; color:var(--navy); margin:0 0 6px; }
+  .lead{ color:var(--muted); font-size:14.5px; margin:0 0 18px; max-width:76ch; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin:0 0 14px; }
+  .card.tight{ padding:14px 16px; }
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .muted{ color:var(--muted); font-size:13.5px; }
+  .tag{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; border-radius:999px;
+        padding:3px 10px; background:var(--panel); color:var(--muted); display:inline-block; }
+  .tag.good{ background:var(--green-bg); color:var(--green); }
+  .tag.warn{ background:#fdf3e2; color:var(--deep-honey); }
+  .tag.bad{ background:var(--red-bg); color:var(--red); }
+  .name{ font-weight:700; color:var(--navy); font-size:16px; }
+  .empty{ text-align:center; color:var(--muted); padding:34px 12px; }
+  .err{ background:var(--red-bg); color:var(--red); border-radius:10px; padding:11px 14px; font-size:14px; margin-top:12px; }
+  .ok{ background:var(--green-bg); color:var(--green); border-radius:10px; padding:11px 14px; font-size:14px; margin-top:12px; }
+
+  /* the money / facts strip */
+  .facts{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:16px; }
+  .fact{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+  .fact .n{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:27px; color:var(--navy); line-height:1.15; }
+  .fact .l{ font-size:12.5px; color:var(--muted); margin-top:3px; }
+
+  /* yes / no / unknown answer buttons */
+  .qblock{ border-top:1px solid var(--border); padding:16px 0; }
+  .qblock:first-of-type{ border-top:none; padding-top:4px; }
+  .qtext{ font-weight:600; color:var(--navy); font-size:15px; margin-bottom:3px; }
+  .qhelp{ font-size:13px; color:var(--muted); margin-bottom:10px; }
+  .opts{ display:flex; gap:8px; flex-wrap:wrap; }
+  .opt{ font-family:inherit; font-size:14px; font-weight:600; padding:9px 15px; border-radius:10px; cursor:pointer;
+        background:#fff; color:var(--ink); border:1px solid var(--border); }
+  .opt:hover{ background:var(--pale); }
+  .opt.on{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .opt.on.kill{ background:var(--red); border-color:var(--red); }
+  .opt.on.pass{ background:var(--green); border-color:var(--green); }
+  .opt.on.maybe{ background:var(--deep-honey); border-color:var(--deep-honey); }
+
+  /* verdict */
+  .verdict{ border-radius:14px; padding:20px 22px; margin-bottom:14px; color:#fff; }
+  .verdict.yes{ background:var(--green); }
+  .verdict.no{ background:#8f2f2f; }
+  .verdict.ask{ background:var(--deep-honey); }
+  .verdict.wait{ background:var(--navy); }
+  .verdict h3{ color:#fff; font-family:'Source Serif 4',Georgia,serif; font-size:20px; margin-bottom:6px; }
+  .verdict p{ font-size:14.5px; opacity:.94; }
+  .verdict ul{ margin:10px 0 0 20px; font-size:14px; }
+  .verdict li{ margin-bottom:4px; }
+
+  /* script blocks */
+  .say{ background:var(--panel); border-left:3px solid var(--honey); border-radius:0 10px 10px 0;
+        padding:14px 16px; margin:10px 0; font-size:14.5px; line-height:1.7; }
+  .say b{ color:var(--navy); }
+  details.obj{ border-top:1px solid var(--border); padding:12px 0; }
+  details.obj:last-of-type{ border-bottom:1px solid var(--border); }
+  details.obj summary{ cursor:pointer; font-weight:600; color:var(--navy); font-size:15px; list-style:none; }
+  details.obj summary::-webkit-details-marker{ display:none; }
+  details.obj summary::before{ content:"+ "; color:var(--deep-honey); font-weight:700; }
+  details.obj[open] summary::before{ content:"\2013 "; }
+  details.obj .body{ padding-top:8px; }
+
+  /* dates */
+  table{ width:100%; border-collapse:collapse; font-size:14.5px; }
+  th{ text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);
+      padding:8px 10px; border-bottom:1px solid var(--border); }
+  td{ padding:10px; border-bottom:1px solid var(--border); }
+  tr.next td{ background:var(--green-bg); font-weight:700; color:var(--green); }
+  tr.past td{ color:#a9a396; }
+
+  /* documents */
+  .doc{ display:flex; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid var(--border); }
+  .doc:last-child{ border-bottom:none; }
+  .doc .ic{ width:34px; height:34px; border-radius:9px; background:var(--pale); color:var(--cta);
+            display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-weight:700; font-size:11px; }
+  .doc .g{ flex:1; min-width:0; }
+  .doc .g b{ color:var(--navy); font-size:15px; display:block; }
+  .doc .g span{ font-size:12.5px; color:var(--muted); }
+  .drop{ border:2px dashed var(--border); border-radius:14px; padding:26px; text-align:center; color:var(--muted);
+         cursor:pointer; background:#fff; }
+  .drop.over{ border-color:var(--cta); background:var(--pale); color:var(--cta); }
+
+  .hubtabs{ background:var(--navy); padding:8px 14px 0; display:flex; gap:4px; align-items:flex-end; overflow-x:auto; }
+  .hubtabs a{ font-family:inherit; font-size:13px; font-weight:600; color:rgba(255,255,255,.78);
+              text-decoration:none; padding:8px 16px; border-radius:9px 9px 0 0; white-space:nowrap; }
+  .hubtabs a:hover{ color:#fff; background:rgba(255,255,255,.08); }
+  .hubtabs a.on{ background:var(--cream); color:var(--navy); font-weight:800; margin-bottom:-1px; }
+  html.embedded header img,
+  html.embedded header a.back[href="index.html"]{ display:none; }
+  html.embedded header{ padding:11px 18px; }
+  .hide{ display:none !important; }
+  @media (max-width:700px){ .grid2,.grid3{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="box">
+    <img src="cc-logo.png" alt="Caring Companions">
+    <h1 class="serif">GUIDE Program</h1>
+    <p>Same sign-in as your hub.</p>
+    <label for="em">Email</label><input id="em" type="email" autocomplete="username" placeholder="you@mo-care.com">
+    <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+    <button class="btn wide" id="signin">Sign in</button>
+    <div class="err hide" id="gateErr"></div>
+  </div>
+</div>
+
+<div id="app" class="hide">
+<header>
+  <img src="cc-logo.png" alt="">
+  <span class="ttl">GUIDE <em>Program</em></span>
+  <a class="back" href="index.html">&larr; Back to the hub</a>
+  <span class="who" id="who"></span>
+</header>
+<div class="hubtabs"><a href="/#leads">Leads</a><a href="/#clients">Clients</a><a href="/#referrers">Referrers</a><a href="/guide" class="on">GUIDE</a><a href="/game">Story Game</a><a href="/series417">417 Series</a><a href="/playbook-offer">20-Hour Offer</a></div>
+<nav>
+  <button data-s="screen" class="on">Screen someone</button>
+  <button data-s="say">What to say</button>
+  <button data-s="program">The program</button>
+  <button data-s="dates">Dates &amp; deadlines</button>
+  <button data-s="docs">Documents</button>
+  <button data-s="log">Screening log<span class="tag" id="logCount" style="margin-left:6px;">0</span></button>
+</nav>
+<main>
+
+<!-- ======================= SCREEN ======================= -->
+<section id="s-screen" class="on">
+  <h2 class="serif">Is this person eligible for GUIDE?</h2>
+  <p class="lead">Nine questions. Ask them on the phone while you have the family, in this order, because the first two knock out most people and there is no point going further. Nothing here is the final word. CMS decides, and Continuum submits.</p>
+
+  <div id="verdictWrap"></div>
+
+  <div class="card">
+    <div class="qblock" data-q="dx">
+      <div class="qtext">1. Has a doctor diagnosed dementia or memory impairment?</div>
+      <div class="qhelp">Alzheimer's, vascular, Lewy body, frontotemporal, or a general memory-impairment diagnosis all count. A family saying "she is forgetful" does not. It has to be in a chart somewhere.</div>
+      <div class="opts">
+        <button class="opt pass" data-v="yes">Yes, diagnosed</button>
+        <button class="opt kill" data-v="no">No diagnosis</button>
+        <button class="opt maybe" data-v="unk">Not sure yet</button>
+      </div>
+    </div>
+
+    <div class="qblock" data-q="mcare">
+      <div class="qtext">2. What kind of Medicare do they have?</div>
+      <div class="qhelp">This is the one that disqualifies the most people. Traditional Medicare only. If the card says Aetna, Humana, UnitedHealthcare, Anthem, Wellcare, or any plan name at all, that is Medicare Advantage and they cannot be aligned.</div>
+      <div class="opts">
+        <button class="opt pass" data-v="trad">Traditional / Original Medicare</button>
+        <button class="opt kill" data-v="ma">Medicare Advantage</button>
+        <button class="opt maybe" data-v="unk">Not sure</button>
+      </div>
+    </div>
+
+    <div class="qblock" data-q="live">
+      <div class="qtext">3. Where do they live?</div>
+      <div class="qhelp">A nursing home is the only living situation that rules them out. Assisted living is fine. Memory care is fine as long as the unit is licensed as assisted living, so ask the community which license they hold.</div>
+      <div class="opts">
+        <button class="opt pass" data-v="home">Own home</button>
+        <button class="opt pass" data-v="family">A family member's home</button>
+        <button class="opt pass" data-v="al">Assisted living</button>
+        <button class="opt maybe" data-v="mc">Memory care</button>
+        <button class="opt kill" data-v="nh">Nursing home</button>
+      </div>
+    </div>
+
+    <div class="qblock" data-q="hospice">
+      <div class="qtext">4. Are they on the Medicare hospice benefit?</div>
+      <div class="qhelp">Hospice rules them out. Palliative care does not, and families mix the two up constantly, so ask which one it is by name.</div>
+      <div class="opts">
+        <button class="opt kill" data-v="yes">On hospice</button>
+        <button class="opt pass" data-v="pall">Palliative care only</button>
+        <button class="opt pass" data-v="no">Neither</button>
+        <button class="opt maybe" data-v="unk">Not sure</button>
+      </div>
+    </div>
+
+    <div class="qblock" data-q="pace">
+      <div class="qtext">5. Are they enrolled in PACE?</div>
+      <div class="qhelp">Program of All-Inclusive Care for the Elderly. Rare around here, but it rules them out, and it is one of the reasons people get unaligned later.</div>
+      <div class="opts">
+        <button class="opt kill" data-v="yes">Yes</button>
+        <button class="opt pass" data-v="no">No</button>
+        <button class="opt maybe" data-v="unk">Not sure</button>
+      </div>
+    </div>
+
+    <div class="qblock" data-q="cg">
+      <div class="qtext">6. Is there an unpaid caregiver?</div>
+      <div class="qhelp">A spouse, an adult child, a neighbor. Somebody who is not paid to be there. The respite money exists to give that person a break, so if there is nobody, respite has nothing to relieve and it is a common rejection reason.</div>
+      <div class="opts">
+        <button class="opt pass" data-v="yes">Yes</button>
+        <button class="opt kill" data-v="no">No, all paid help</button>
+        <button class="opt maybe" data-v="unk">Not sure</button>
+      </div>
+    </div>
+
+    <div class="qblock" data-q="guide">
+      <div class="qtext">7. Are they already aligned with another GUIDE provider?</div>
+      <div class="qhelp">A person can only be aligned with one. If another agency or clinic already enrolled them, they are not available to us.</div>
+      <div class="opts">
+        <button class="opt kill" data-v="yes">Yes, already aligned</button>
+        <button class="opt pass" data-v="no">No</button>
+        <button class="opt maybe" data-v="unk">Not sure</button>
+      </div>
+    </div>
+
+    <div class="qblock" data-q="dual">
+      <div class="qtext">8. Do they also have Medicaid or VA benefits?</div>
+      <div class="qhelp">Neither one disqualifies anybody. Note it so billing is not surprised later.</div>
+      <div class="opts">
+        <button class="opt" data-v="none">Neither</button>
+        <button class="opt" data-v="medicaid">Medicaid too</button>
+        <button class="opt" data-v="va">VA benefits</button>
+        <button class="opt" data-v="both">Both</button>
+      </div>
+    </div>
+
+    <div class="qblock" data-q="area">
+      <div class="qtext">9. Are they inside our service area?</div>
+      <div class="qhelp">We can only take the respite hours if we can staff the visits. If they are outside it, they may still be eligible, and Continuum can align them with a different partner.</div>
+      <div class="opts">
+        <button class="opt pass" data-v="yes">Yes</button>
+        <button class="opt maybe" data-v="no">Outside our area</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Who is this?</h3>
+    <p class="muted">Fill this in and the summary below writes itself, ready to send to Continuum.</p>
+    <div class="grid2" style="margin-top:10px;">
+      <div><label for="pName" style="margin-top:0;">Patient name</label><input id="pName" placeholder="Dorothy Wheeler"></div>
+      <div><label for="pDob" style="margin-top:0;">Date of birth</label><input id="pDob" placeholder="04/12/1941"></div>
+      <div><label for="pMbi" style="margin-top:0;">Medicare number (MBI)</label><input id="pMbi" placeholder="1EG4-TE5-MK73"></div>
+      <div><label for="pPhone" style="margin-top:0;">Best phone</label><input id="pPhone" placeholder="(417) 555-0134"></div>
+      <div><label for="pAddr" style="margin-top:0;">Address</label><input id="pAddr" placeholder="1420 S Kimbrough Ave, Springfield MO 65807"></div>
+      <div><label for="pCg" style="margin-top:0;">Unpaid caregiver, and how they are related</label><input id="pCg" placeholder="Linda Wheeler, daughter, (417) 555-0188"></div>
+    </div>
+    <label for="pNotes">Anything else worth knowing</label>
+    <textarea id="pNotes" placeholder="Daughter works days and is running out of PTO. Doctor is Dr. Alvarez at Mercy."></textarea>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn" id="copySum">Copy the summary</button>
+      <button class="btn ghost" id="emailSum">Email it to Continuum</button>
+      <button class="btn ghost" id="saveScreen">Save to the log</button>
+      <button class="btn ghost" id="resetScreen">Start over</button>
+    </div>
+    <div id="screenMsg"></div>
+  </div>
+
+  <div class="card">
+    <h3>The summary</h3>
+    <textarea id="summary" style="min-height:230px; font-family:ui-monospace,Menlo,monospace; font-size:12.5px;"></textarea>
+  </div>
+</section>
+
+<!-- ======================= WHAT TO SAY ======================= -->
+<section id="s-say">
+  <h2 class="serif">What to say</h2>
+  <p class="lead">Three different conversations. The words matter less than the order: what it is, what it pays for, what it costs them. Say the cost part early, because everybody is waiting for the catch.</p>
+
+  <div class="card">
+    <h3>The one sentence, if you only get one</h3>
+    <div class="say">Medicare started a new program for people with dementia, and it pays for someone to come sit with your mother so you can leave the house. It does not cost you anything, and it does not replace her doctor.</div>
+    <p class="muted">Do not lead with the name. "GUIDE" means nothing to a family and sounds like a brochure. Lead with what it does.</p>
+  </div>
+
+  <div class="card">
+    <h3>To a client we already have</h3>
+    <p class="muted">Easiest money on this list. They already trust us and we already know the diagnosis.</p>
+    <div class="say">
+      <b>You:</b> While I have you, there is something new I want to make sure you know about. Medicare added a dementia program this year called GUIDE. Because your mom has a dementia diagnosis and traditional Medicare, she almost certainly qualifies.<br><br>
+      <b>Them:</b> What does it do?<br><br>
+      <b>You:</b> Three things. A dementia nurse who checks in with you every month, a 24-hour line you can call at two in the morning when something happens, and about $2,500 a year of respite care that Medicare pays for. That last part means roughly nineteen four-hour visits from us that do not come out of your pocket.<br><br>
+      <b>Them:</b> What does it cost?<br><br>
+      <b>You:</b> Nothing. It is a Medicare benefit. It does not change her doctor, it does not change her plan, and it does not touch the hours you are already paying for. It sits on top of them.<br><br>
+      <b>You:</b> There are about nine questions I need to run through to confirm, and it takes five minutes. Do you have those five minutes now or should I call you back this evening?
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>To somebody calling us for the first time</h3>
+    <p class="muted">Listen for dementia in the first two minutes. "She keeps repeating herself," "he got lost driving," "we had to take the stove knobs off." Then ask the Medicare question before you quote a rate.</p>
+    <div class="say">
+      <b>You:</b> Before we talk about hours and cost, let me ask you two things that could save you money. Has a doctor told you it is dementia or Alzheimer's? &hellip; And is she on traditional Medicare, or does she have a plan through Humana or Aetna or one of those?<br><br>
+      <b>You:</b> Good. Then there is a Medicare program she likely qualifies for that pays for part of her care. Most people have never heard of it because it is new. It will not cover everything you need, so we will still put together a regular schedule, but it will cover about $2,500 a year of it and it comes with a dementia nurse and a 24-hour line.<br><br>
+      <b>You:</b> Here is how it usually goes. We get care started now, because the paperwork takes a few weeks and you need help this week. Once Medicare aligns her, part of it gets billed to them instead of to you.
+    </div>
+    <p class="muted">That last paragraph is the whole play. Start private pay, convert part of it to GUIDE later. Never make a family wait weeks for help they need now.</p>
+  </div>
+
+  <div class="card">
+    <h3>To a referral source</h3>
+    <p class="muted">Discharge planners, memory clinics, home health, elder law, social workers. Most of them do not know GUIDE exists, and that is your whole opening.</p>
+    <div class="say">
+      <b>You:</b> Do you know about the GUIDE program? &hellip; Most people do not. It is a Medicare model for dementia patients on traditional Medicare. It gives the family a dementia care navigator, a 24-hour clinical line, and about $2,500 a year of paid respite.<br><br>
+      <b>You:</b> The reason I am telling you is that we are an approved respite provider for it, so when you have a dementia discharge going home with a worn-out spouse, you have somewhere to send them that costs the family nothing. I am not asking you to sell anything. I am asking you to remember it exists.<br><br>
+      <b>You:</b> Can I leave you a few one-pagers for the families, and can I get on your calendar for fifteen minutes to walk your team through who qualifies?
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>When they push back</h3>
+    <details class="obj"><summary>"Is this one of those things where you sign up and then get billed?"</summary>
+      <div class="body">No. It is a Medicare benefit, and the money goes from Medicare to us, not from you to us. What I will ask you to sign is a service agreement, and that is because if Medicare ever denies a visit we already made, we have to be able to bill for it. That is standard, and I will walk you through it line by line before you sign anything.</div>
+    </details>
+    <details class="obj"><summary>"She already has a doctor. I do not want to change anything."</summary>
+      <div class="body">Nothing changes. This does not replace her doctor or any specialist. It adds a dementia nurse who calls you once a month and a line you can call at night. Her doctor stays exactly where they are.</div>
+    </details>
+    <details class="obj"><summary>"I do not need help. I can take care of my own mother."</summary>
+      <div class="body">I believe you, and that is not what this is for. This is for the afternoon you have your own doctor's appointment, or the day your daughter gets married, or the week you get the flu. It is there so you can keep doing this for another two years instead of another six months.</div>
+    </details>
+    <details class="obj"><summary>"How much does the respite actually pay for?"</summary>
+      <div class="body">About $2,563 a year. In our hours that is roughly nineteen four-hour visits, so think of it as one afternoon every other week for a year, paid for. Some families use it all in one stretch for a trip instead. It is yours to spend either way.</div>
+    </details>
+    <details class="obj"><summary>"She is in assisted living. Does that count?"</summary>
+      <div class="body">Yes. Assisted living is fine, and so is memory care as long as the unit is licensed as assisted living. A nursing home is the one that does not qualify. If you are not sure which license the community holds, I can call and ask them.</div>
+    </details>
+    <details class="obj"><summary>"He is on hospice."</summary>
+      <div class="body">Then he is not eligible for GUIDE, and I would not put you through the paperwork. If it turns out to be palliative care rather than hospice, that is different and he may qualify, so it is worth double checking which one it is.</div>
+    </details>
+    <details class="obj"><summary>"How long until it starts?"</summary>
+      <div class="body">Assessments are submitted on Fridays and people get aligned the Tuesday about a week and a half later. So realistically two to three weeks, sometimes a bit more. That is exactly why I do not want you waiting on it. Let us get care started now and let the paperwork catch up.</div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h3>Never say</h3>
+    <ul style="margin:8px 0 0 20px; font-size:14.5px;">
+      <li style="margin-bottom:6px;"><b>"Free care."</b> It is about $2,563 a year of respite, not unlimited care. Families who hear "free" and then get a bill for their regular hours never trust us again.</li>
+      <li style="margin-bottom:6px;"><b>"You are approved."</b> We screen. CMS decides. Say "you look eligible" until alignment comes back.</li>
+      <li style="margin-bottom:6px;"><b>"It replaces your doctor."</b> It never does, and saying so gets the doctor angry at us.</li>
+      <li><b>Anything at all to someone on Medicare Advantage.</b> Do not promise to check into it. They are not eligible, today, and a soft no now beats a hard no in three weeks.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ======================= PROGRAM ======================= -->
+<section id="s-program">
+  <h2 class="serif">What GUIDE actually is</h2>
+  <p class="lead">Guiding an Improved Dementia Experience. A Medicare model built to keep people with dementia at home instead of in a nursing home, by paying for the things that usually break a family: no coordination, no backup, and no rest.</p>
+
+  <div class="facts">
+    <div class="fact"><div class="n">$2,563</div><div class="l">Respite per patient, per year, that Medicare pays</div></div>
+    <div class="fact"><div class="n">$200</div><div class="l">To us per completed home assessment, once approved</div></div>
+    <div class="fact"><div class="n">8&ndash;21 days</div><div class="l">Typical onboarding, against 4 to 6 weeks elsewhere</div></div>
+    <div class="fact"><div class="n">3&ndash;5 weeks</div><div class="l">From billing to payment</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Who qualifies</h3>
+      <ul style="margin:8px 0 0 20px; font-size:14.5px;">
+        <li style="margin-bottom:5px;">Diagnosed dementia or memory impairment</li>
+        <li style="margin-bottom:5px;">Traditional Medicare, not Medicare Advantage</li>
+        <li style="margin-bottom:5px;">Not living in a nursing home</li>
+        <li style="margin-bottom:5px;">Not on the Medicare hospice benefit (palliative care is fine)</li>
+        <li style="margin-bottom:5px;">Not enrolled in PACE</li>
+        <li>Medicaid and VA benefits are both fine alongside it</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>What the family gets</h3>
+      <ul style="margin:8px 0 0 20px; font-size:14.5px;">
+        <li style="margin-bottom:5px;"><b>Care navigation.</b> A monthly call from a trained dementia navigator: education, resources, brief counseling, advocacy. Required, not optional, and losing contact for several months can get them removed by CMS.</li>
+        <li style="margin-bottom:5px;"><b>A 24/7 support line with telehealth.</b> 888 466 9008, any hour, for urgent concerns that cannot wait for the doctor and for behavior nobody knows how to handle at 3am.</li>
+        <li><b>Respite.</b> Up to $2,563 a year, usable for in-home care, adult day, or overnight facility respite.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>What respite money buys, roughly</h3>
+    <table>
+      <tr><th>Kind of respite</th><th>Average rate</th><th>What $2,563 covers</th></tr>
+      <tr><td>Private duty home care</td><td>$135 per 4-hour shift</td><td>About 19 visits</td></tr>
+      <tr><td>Adult day services</td><td>$102 a day</td><td>About 25 days</td></tr>
+      <tr><td>24-hour community respite</td><td>$313 a day</td><td>About 8 days</td></tr>
+    </table>
+    <p class="muted" style="margin-top:10px;">Rates are adjusted by region, so treat these as the shape of it rather than a quote.</p>
+  </div>
+
+  <div class="card">
+    <h3>Where we sit in it</h3>
+    <p style="font-size:14.5px;">Continuum holds the GUIDE participation with CMS through EmpowerMe Medical Group. We are a contracted partner organization. Our part is doing the home assessments and delivering the respite hours, and we bill through the Crosby Health platform.</p>
+    <div class="grid3" style="margin-top:14px;">
+      <div class="card tight" style="margin:0;"><b class="name" style="font-size:14px;">Assessments</b><p class="muted" style="margin-top:4px;">$200 each once the patient is approved. Contact the family within 24 to 48 business hours of a referral.</p></div>
+      <div class="card tight" style="margin:0;"><b class="name" style="font-size:14px;">Respite hours</b><p class="muted" style="margin-top:4px;">Billed weekly or monthly through Crosby. Paid in 3 to 5 weeks.</p></div>
+      <div class="card tight" style="margin:0;"><b class="name" style="font-size:14px;">Referrals in</b><p class="muted" style="margin-top:4px;">Continuum sends us assessment and respite referrals from their network of 1,000+ organizations.</p></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Unalignment, and the trap in it</h3>
+    <p style="font-size:14.5px;">People fall out of GUIDE. Hospice admission, a move to a nursing home, enrolling in PACE, switching to a Medicare Advantage plan, or the patient asking to leave. CMS notifications do not always reach us quickly, which means <b>we can deliver hours for somebody who was unaligned two weeks ago and not know it.</b></p>
+    <p style="font-size:14.5px; margin-top:10px;">That is exactly why every GUIDE family signs a standard service agreement saying that if Medicare does not cover a visit, the visit is billable to them at our market rate. Not to be aggressive about collecting. To make sure nobody is shocked.</p>
+    <p style="font-size:14.5px; margin-top:10px;">Services dated <b>before</b> the unalignment date can still be billed: Respite tab, Suspended, then enter it under the patient's name. Services on or after that date are not GUIDE eligible.</p>
+  </div>
+
+  <div class="card">
+    <h3>Caregiver training requirement</h3>
+    <p style="font-size:14.5px;">Any direct care worker providing GUIDE respite has to be 18 or older, pass a background check, and either hold state certification or complete the CMS-approved national training. Missouri has no separate licensure for this, so our people take the national training and we keep the certificate. <b>CMS will not pay for respite if we cannot prove the worker was qualified,</b> so the certificate has to be in the file before the first visit, not after.</p>
+  </div>
+
+  <div class="card">
+    <h3>Who to call</h3>
+    <div class="grid2">
+      <div><b class="name" style="font-size:14px;">Continuum GUIDE team</b>
+        <p class="muted" style="margin-top:3px;">Program questions, patient status, eligibility problems, MBI issues.<br>
+        <a href="mailto:guide@continuumcare.com">guide@continuumcare.com</a> &nbsp;&middot;&nbsp; 833.801.4336<br>
+        Monday to Thursday 8am&ndash;5pm, Friday 8am&ndash;4pm</p></div>
+      <div><b class="name" style="font-size:14px;">24/7 support line, for families</b>
+        <p class="muted" style="margin-top:3px;">Give this number to every GUIDE family. Urgent health concerns, behavior, resources, any hour.<br>
+        <b>888 466 9008</b></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= DATES ======================= -->
+<section id="s-dates">
+  <h2 class="serif">Submission and alignment dates</h2>
+  <p class="lead">Assessments are submitted on Fridays by noon. Everyone in that batch aligns the following Tuesday of the next week. Miss noon and the family waits an extra two weeks, so this is worth watching.</p>
+  <div id="nextDate"></div>
+  <div class="card">
+    <table id="dateTable"></table>
+  </div>
+</section>
+
+<!-- ======================= DOCUMENTS ======================= -->
+<section id="s-docs">
+  <h2 class="serif">Documents</h2>
+  <p class="lead">Our signed contracts, forms, and training material, in one place that is not somebody's email. Anyone signed into the hub can open these. Nobody outside can.</p>
+  <div class="card">
+    <div class="grid2">
+      <div><label for="dCat" style="margin-top:0;">What kind of document</label>
+        <select id="dCat">
+          <option value="Contract">Contract or agreement</option>
+          <option value="GUIDE">GUIDE program material</option>
+          <option value="Training">Training</option>
+          <option value="Form">Form or template</option>
+          <option value="Insurance">Insurance or license</option>
+          <option value="Other">Other</option>
+        </select></div>
+      <div><label for="dName" style="margin-top:0;">Name it something you will recognize</label>
+        <input id="dName" placeholder="GUIDE Partner Agreement, signed 1/15/26"></div>
+    </div>
+    <div class="drop" id="drop" style="margin-top:14px;">
+      <b>Drop a file here, or click to choose one</b>
+      <div class="muted" style="margin-top:4px;">PDF, Word, Excel, or an image. Up to 25MB.</div>
+      <input type="file" id="fileIn" class="hide">
+    </div>
+    <div id="upMsg"></div>
+  </div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between; margin-bottom:6px;">
+      <b class="name">Stored documents</b>
+      <select id="dFilter" style="width:auto;"><option value="">Everything</option></select>
+    </div>
+    <div id="docList"></div>
+  </div>
+</section>
+
+<!-- ======================= LOG ======================= -->
+<section id="s-log">
+  <h2 class="serif">Screening log</h2>
+  <p class="lead">Everyone we have screened, so nobody gets asked the same nine questions twice and so we can see how many eligible people we found and never followed up on.</p>
+  <div id="logList"></div>
+</section>
+
+</main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+  var SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+  var BUCKET = 'agency-docs';
+  var sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+  var $ = function (id) { return document.getElementById(id); };
+  var D = { guide_screens: [], agency_docs: [] };
+  var A = {};           // current answers
+  var ME = '';
+
+  if (window.top !== window.self) document.documentElement.classList.add('embedded');
+
+  /* ---------- the 2026 calendar, straight off Continuum's sheet ---------- */
+  var DATES = [
+    ['2025-12-26','2026-01-06'],['2026-01-09','2026-01-20'],['2026-01-23','2026-02-03'],
+    ['2026-02-06','2026-02-17'],['2026-02-20','2026-03-03'],['2026-03-06','2026-03-17'],
+    ['2026-03-20','2026-03-31'],['2026-04-03','2026-04-14'],['2026-04-17','2026-04-28'],
+    ['2026-05-01','2026-05-12'],['2026-05-15','2026-05-26'],['2026-05-29','2026-06-09'],
+    ['2026-06-12','2026-06-23'],['2026-06-26','2026-07-07'],['2026-07-10','2026-07-21'],
+    ['2026-07-24','2026-08-04'],['2026-08-07','2026-08-18'],['2026-08-21','2026-09-01'],
+    ['2026-09-04','2026-09-15'],['2026-09-18','2026-09-29'],['2026-10-02','2026-10-13'],
+    ['2026-10-16','2026-10-27'],['2026-10-30','2026-11-10'],['2026-11-13','2026-11-24'],
+    ['2026-11-27','2026-12-08'],['2026-12-11','2026-12-22'],['2026-12-23','2027-01-05']
+  ];
+
+  /* ---------- auth ---------- */
+  sb.auth.getSession().then(function (r) { if (r.data && r.data.session) boot(r.data.session); });
+  $('signin').addEventListener('click', doSignIn);
+  $('pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSignIn(); });
+  function doSignIn() {
+    $('gateErr').classList.add('hide');
+    $('signin').disabled = true; $('signin').textContent = 'Signing in...';
+    sb.auth.signInWithPassword({ email: $('em').value.trim(), password: $('pw').value }).then(function (r) {
+      $('signin').disabled = false; $('signin').textContent = 'Sign in';
+      if (r.error) { $('gateErr').textContent = r.error.message; $('gateErr').classList.remove('hide'); return; }
+      boot(r.data.session);
+    });
+  }
+  function boot(session) {
+    $('gate').classList.add('hide'); $('app').classList.remove('hide');
+    ME = (session.user && session.user.email) || '';
+    $('who').textContent = ME;
+    renderDates();
+    verdict();
+    loadAll();
+  }
+
+  /* ---------- data ---------- */
+  function loadAll() {
+    return Promise.all(Object.keys(D).map(function (k) {
+      return sb.from('app_data').select('data').eq('key', k).maybeSingle()
+        .then(function (r) { D[k] = (r.data && Array.isArray(r.data.data)) ? r.data.data : []; });
+    })).then(function () { renderLog(); renderDocs(); });
+  }
+  function save(key, item) {
+    var i = D[key].findIndex(function (x) { return x.id === item.id; });
+    if (i > -1) D[key][i] = item; else D[key].push(item);
+    return sb.rpc('upsert_app_data_item', { target_key: key, item: item });
+  }
+  function drop(key, id) {
+    D[key] = D[key].filter(function (x) { return x.id !== id; });
+    return sb.rpc('delete_app_data_item', { target_key: key, item_id: id });
+  }
+  function uid() { return (crypto.randomUUID ? crypto.randomUUID() : 'id' + Math.random().toString(36).slice(2) + Date.now().toString(36)); }
+  function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+  function fmt(iso) { return iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month: 'short', day: 'numeric' }) : ''; }
+  // the table spans three calendar years, so a bare "Dec 26" is genuinely ambiguous there
+  function fmtY(iso) { return iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month: 'short', day: 'numeric', year: 'numeric' }) : ''; }
+  function fmtStamp(iso) { return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; }
+  function today() { return new Date().toISOString().slice(0, 10); }
+  function copy(text, btn) {
+    navigator.clipboard.writeText(text).then(function () {
+      if (!btn) return; var o = btn.textContent; btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = o; }, 1400);
+    });
+  }
+  function flash(el, msg, cls) {
+    el.innerHTML = '<div class="' + (cls || 'ok') + '">' + esc(msg) + '</div>';
+    setTimeout(function () { el.innerHTML = ''; }, 4000);
+  }
+
+  /* ---------- tabs ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) {
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (x) { x.classList.remove('on'); });
+      Array.prototype.forEach.call(document.querySelectorAll('main section'), function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      $('s-' + b.getAttribute('data-s')).classList.add('on');
+      window.scrollTo(0, 0);
+    });
+  });
+
+  /* ---------- the screener ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll('.qblock'), function (block) {
+    var q = block.getAttribute('data-q');
+    Array.prototype.forEach.call(block.querySelectorAll('.opt'), function (btn) {
+      btn.addEventListener('click', function () {
+        var v = btn.getAttribute('data-v');
+        if (A[q] === v) { delete A[q]; btn.classList.remove('on'); }
+        else {
+          A[q] = v;
+          Array.prototype.forEach.call(block.querySelectorAll('.opt'), function (x) { x.classList.remove('on'); });
+          btn.classList.add('on');
+        }
+        verdict();
+      });
+    });
+  });
+
+  // each check returns null when it passes, or a reason when it does not
+  var KILLS = [
+    ['dx', 'no', 'No dementia diagnosis. GUIDE requires one.'],
+    ['mcare', 'ma', 'Medicare Advantage. GUIDE is traditional Medicare only, and this cannot be worked around.'],
+    ['live', 'nh', 'Lives in a nursing home.'],
+    ['hospice', 'yes', 'On the Medicare hospice benefit.'],
+    ['pace', 'yes', 'Enrolled in PACE.'],
+    ['cg', 'no', 'No unpaid caregiver, so there is nobody for respite to relieve.'],
+    ['guide', 'yes', 'Already aligned with another GUIDE provider. A person can only be aligned with one.']
+  ];
+  var ASKS = {
+    dx:      'Get the diagnosis confirmed. Ask which doctor made it and when.',
+    mcare:   'Find out which Medicare. Ask them to read you the card, or ask for a photo of it.',
+    hospice: 'Confirm whether it is hospice or palliative care. Families use the words interchangeably and they are not the same thing here.',
+    pace:    'Confirm they are not in PACE.',
+    cg:      'Find out whether anyone unpaid is helping, and how often.',
+    guide:   'Ask whether another agency or clinic has already signed them up for a dementia program.'
+  };
+  var LABELS = {
+    dx:{yes:'Diagnosed',no:'No diagnosis',unk:'Unknown'},
+    mcare:{trad:'Traditional Medicare',ma:'Medicare Advantage',unk:'Unknown'},
+    live:{home:'Own home',family:"Family member's home",al:'Assisted living',mc:'Memory care',nh:'Nursing home'},
+    hospice:{yes:'On hospice',pall:'Palliative only',no:'Neither',unk:'Unknown'},
+    pace:{yes:'In PACE',no:'Not in PACE',unk:'Unknown'},
+    cg:{yes:'Has an unpaid caregiver',no:'No unpaid caregiver',unk:'Unknown'},
+    guide:{yes:'Already aligned elsewhere',no:'Not aligned',unk:'Unknown'},
+    dual:{none:'Medicare only',medicaid:'Medicaid as well',va:'VA benefits',both:'Medicaid and VA'},
+    area:{yes:'In our service area',no:'Outside our service area'}
+  };
+  var ORDER = ['dx','mcare','live','hospice','pace','cg','guide','dual','area'];
+  var QNAMES = { dx:'Diagnosis', mcare:'Medicare type', live:'Living situation', hospice:'Hospice',
+                 pace:'PACE', cg:'Unpaid caregiver', guide:'Already aligned', dual:'Medicaid / VA', area:'Service area' };
+
+  function assess() {
+    var blockers = [], unknowns = [], notes = [];
+    KILLS.forEach(function (k) { if (A[k[0]] === k[1]) blockers.push(k[2]); });
+    Object.keys(ASKS).forEach(function (q) { if (!A[q] || A[q] === 'unk') unknowns.push(ASKS[q]); });
+    if (A.live === 'mc') notes.push('Memory care is fine only if that unit is licensed as assisted living. Call the community and ask which license they hold.');
+    if (A.live === 'al') notes.push('Assisted living residents are eligible. This is a good source of referrals and most communities do not know it.');
+    if (A.hospice === 'pall') notes.push('Palliative care does not disqualify anyone.');
+    if (A.dual && A.dual !== 'none') notes.push('Dual eligibility with Medicaid or VA is allowed. Flag it for billing.');
+    if (A.area === 'no') notes.push('Outside our area, so we cannot staff the respite hours, but they may still be eligible. Send them to Continuum, who can align them with another partner.');
+    var answered = ORDER.filter(function (q) { return A[q]; }).length;
+    return { blockers: blockers, unknowns: unknowns, notes: notes, answered: answered };
+  }
+
+  function verdict() {
+    var r = assess(), w = $('verdictWrap'), cls, title, body;
+    if (r.blockers.length) {
+      cls = 'no'; title = 'Not eligible';
+      body = '<p>Do not submit an assessment. Tell the family plainly rather than saying you will look into it.</p><ul><li>' +
+             r.blockers.map(esc).join('</li><li>') + '</li></ul>';
+    } else if (!r.answered) {
+      cls = 'wait'; title = 'Start with question one';
+      body = '<p>Work down the list while you have them on the phone. The answers write the summary at the bottom of this page.</p>';
+    } else if (r.unknowns.length) {
+      cls = 'ask'; title = 'Nothing rules them out yet, but you are missing answers';
+      body = '<p>Nothing disqualifying so far. Get these before you submit:</p><ul><li>' +
+             r.unknowns.map(esc).join('</li><li>') + '</li></ul>';
+    } else {
+      cls = 'yes'; title = 'Looks eligible';
+      var nx = nextDeadline();
+      body = '<p>Nothing here disqualifies them. Submit the assessment and CMS makes the final call.</p>' +
+             (nx ? '<ul><li>Submit by <b>noon ' + fmt(nx[0]) + '</b> and they align <b>' + fmt(nx[1]) + '</b>.</li>' +
+                   '<li>Do not make them wait on it. Start care now and let the alignment catch up.</li></ul>' : '');
+    }
+    if (r.notes.length) body += '<ul>' + r.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>';
+    w.innerHTML = '<div class="verdict ' + cls + '"><h3>' + title + '</h3>' + body + '</div>';
+    buildSummary(cls);
+  }
+
+  function buildSummary(cls) {
+    var r = assess();
+    var L = [];
+    L.push('GUIDE ELIGIBILITY SCREENING');
+    L.push('Screened ' + new Date().toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }) + ' by ' + (ME || 'Caring Companions'));
+    L.push('');
+    L.push('PATIENT');
+    L.push('  Name:      ' + ($('pName').value || '-'));
+    L.push('  DOB:       ' + ($('pDob').value || '-'));
+    L.push('  MBI:       ' + ($('pMbi').value || '-'));
+    L.push('  Phone:     ' + ($('pPhone').value || '-'));
+    L.push('  Address:   ' + ($('pAddr').value || '-'));
+    L.push('  Caregiver: ' + ($('pCg').value || '-'));
+    L.push('');
+    L.push('SCREENING');
+    ORDER.forEach(function (q) {
+      var v = A[q];
+      var label = v ? (LABELS[q] && LABELS[q][v]) || v : 'not asked';
+      L.push('  ' + (QNAMES[q] + ':').padEnd(19) + label);
+    });
+    L.push('');
+    L.push('RESULT: ' + (cls === 'yes' ? 'Looks eligible, ready to submit'
+                       : cls === 'no'  ? 'Not eligible'
+                       : cls === 'ask' ? 'Incomplete, missing answers' : 'Not started'));
+    if (r.blockers.length) { L.push(''); L.push('BLOCKERS'); r.blockers.forEach(function (b) { L.push('  - ' + b); }); }
+    if (r.unknowns.length) { L.push(''); L.push('STILL NEED'); r.unknowns.forEach(function (b) { L.push('  - ' + b); }); }
+    if (r.notes.length)    { L.push(''); L.push('NOTES');      r.notes.forEach(function (b) { L.push('  - ' + b); }); }
+    if ($('pNotes').value.trim()) { L.push(''); L.push('FROM THE CALL'); L.push('  ' + $('pNotes').value.trim()); }
+    var nx = nextDeadline();
+    if (cls === 'yes' && nx) { L.push(''); L.push('DEADLINE: submit by noon ' + fmt(nx[0]) + ' to align ' + fmt(nx[1])); }
+    $('summary').value = L.join('\n');
+  }
+
+  ['pName','pDob','pMbi','pPhone','pAddr','pCg','pNotes'].forEach(function (id) {
+    $(id).addEventListener('input', function () { buildSummary(currentCls()); });
+  });
+  function currentCls() {
+    var v = document.querySelector('.verdict');
+    if (!v) return 'wait';
+    return v.classList.contains('yes') ? 'yes' : v.classList.contains('no') ? 'no' : v.classList.contains('ask') ? 'ask' : 'wait';
+  }
+
+  $('copySum').addEventListener('click', function () { copy($('summary').value, this); });
+  $('emailSum').addEventListener('click', function () {
+    var subj = 'GUIDE screening: ' + ($('pName').value || 'new patient');
+    window.location.href = 'mailto:guide@continuumcare.com?subject=' + encodeURIComponent(subj) +
+      '&body=' + encodeURIComponent($('summary').value);
+  });
+  $('resetScreen').addEventListener('click', function () {
+    A = {};
+    Array.prototype.forEach.call(document.querySelectorAll('.opt'), function (x) { x.classList.remove('on'); });
+    ['pName','pDob','pMbi','pPhone','pAddr','pCg','pNotes'].forEach(function (id) { $(id).value = ''; });
+    verdict(); window.scrollTo(0, 0);
+  });
+  $('saveScreen').addEventListener('click', function () {
+    var name = $('pName').value.trim();
+    if (!name) { flash($('screenMsg'), 'Give it a name first, or you will never find it again.', 'err'); return; }
+    var cls = currentCls();
+    var item = {
+      id: uid(), name: name, dob: $('pDob').value.trim(), phone: $('pPhone').value.trim(),
+      caregiver: $('pCg').value.trim(), answers: JSON.parse(JSON.stringify(A)),
+      result: cls, summary: $('summary').value, notes: $('pNotes').value.trim(),
+      by: ME, at: new Date().toISOString(), followed_up: false
+    };
+    save('guide_screens', item).then(function () {
+      renderLog(); flash($('screenMsg'), 'Saved to the log.');
+    });
+  });
+
+  /* ---------- log ---------- */
+  function renderLog() {
+    var list = D.guide_screens.slice().sort(function (a, b) { return (b.at || '').localeCompare(a.at || ''); });
+    $('logCount').textContent = list.length;
+    if (!list.length) { $('logList').innerHTML = '<div class="card"><div class="empty">Nobody screened yet.</div></div>'; return; }
+    $('logList').innerHTML = list.map(function (s) {
+      var tag = s.result === 'yes' ? '<span class="tag good">Looks eligible</span>'
+              : s.result === 'no' ? '<span class="tag bad">Not eligible</span>'
+              : '<span class="tag warn">Incomplete</span>';
+      return '<div class="card">' +
+        '<div class="row" style="justify-content:space-between;">' +
+          '<div><b class="name">' + esc(s.name) + '</b> ' + tag + '</div>' +
+          '<span class="muted">' + esc(fmtStamp(s.at)) + ' &middot; ' + esc(s.by || '') + '</span>' +
+        '</div>' +
+        (s.phone || s.caregiver ? '<p class="muted" style="margin-top:4px;">' + esc([s.phone, s.caregiver].filter(Boolean).join(' &middot; ')) + '</p>' : '') +
+        (s.notes ? '<p class="muted" style="margin-top:6px;">' + esc(s.notes) + '</p>' : '') +
+        '<div class="row" style="margin-top:10px;">' +
+          '<button class="btn sm ghost" data-copy="' + s.id + '">Copy the summary</button>' +
+          '<button class="btn sm danger" data-del="' + s.id + '">Delete</button>' +
+        '</div></div>';
+    }).join('');
+    bind('[data-copy]', 'data-copy', function (id, btn) {
+      var s = D.guide_screens.find(function (x) { return x.id === id; });
+      if (s) copy(s.summary || '', btn);
+    });
+    bind('[data-del]', 'data-del', function (id) {
+      if (!confirm('Delete this screening?')) return;
+      drop('guide_screens', id).then(renderLog);
+    });
+  }
+  function bind(sel, attr, fn) {
+    Array.prototype.forEach.call(document.querySelectorAll(sel), function (b) {
+      b.addEventListener('click', function () { fn(b.getAttribute(attr), b); });
+    });
+  }
+
+  /* ---------- dates ---------- */
+  function nextDeadline() {
+    var t = today();
+    for (var i = 0; i < DATES.length; i++) if (DATES[i][0] >= t) return DATES[i];
+    return null;
+  }
+  function renderDates() {
+    var nx = nextDeadline(), t = today();
+    if (nx) {
+      var isToday = nx[0] === t;
+      $('nextDate').innerHTML = '<div class="verdict ' + (isToday ? 'ask' : 'wait') + '">' +
+        '<h3>' + (isToday ? 'Today is a submission day' : 'Next submission') + '</h3>' +
+        '<p>Anything submitted by <b>noon on ' + fmt(nx[0]) + '</b> aligns on <b>' + fmt(nx[1]) + '</b>. ' +
+        (isToday ? 'If it is already past noon, it rolls to the next one.' : 'Miss it and the family waits an extra two weeks.') +
+        '</p></div>';
+    }
+    var rows = ['<tr><th>Submit by noon</th><th>They align</th><th></th></tr>'];
+    DATES.forEach(function (d) {
+      var cls = d[0] < t ? 'past' : (nx && d[0] === nx[0] ? 'next' : '');
+      var note = d[0] < t ? 'passed' : (nx && d[0] === nx[0] ? 'next one' : '');
+      rows.push('<tr class="' + cls + '"><td>' + fmtY(d[0]) + '</td><td>' + fmtY(d[1]) + '</td><td class="muted">' + note + '</td></tr>');
+    });
+    $('dateTable').innerHTML = rows.join('');
+  }
+
+  /* ---------- documents ---------- */
+  var dropZone = $('drop'), fileIn = $('fileIn');
+  dropZone.addEventListener('click', function () { fileIn.click(); });
+  dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.classList.add('over'); });
+  dropZone.addEventListener('dragleave', function () { dropZone.classList.remove('over'); });
+  dropZone.addEventListener('drop', function (e) {
+    e.preventDefault(); dropZone.classList.remove('over');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]);
+  });
+  fileIn.addEventListener('change', function () { if (fileIn.files[0]) upload(fileIn.files[0]); });
+
+  function upload(file) {
+    if (file.size > 25 * 1024 * 1024) { flash($('upMsg'), 'That file is over 25MB. Too big.', 'err'); return; }
+    var name = $('dName').value.trim() || file.name.replace(/\.[^.]+$/, '');
+    var ext = (file.name.match(/\.[^.]+$/) || [''])[0];
+    var path = $('dCat').value.toLowerCase() + '/' + uid() + ext;
+    flash($('upMsg'), 'Uploading ' + file.name + '...');
+    sb.storage.from(BUCKET).upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false })
+      .then(function (r) {
+        if (r.error) { flash($('upMsg'), 'Upload failed: ' + r.error.message, 'err'); return; }
+        var item = { id: uid(), name: name, cat: $('dCat').value, path: path, size: file.size,
+                     filename: file.name, by: ME, at: new Date().toISOString() };
+        return save('agency_docs', item).then(function () {
+          $('dName').value = ''; fileIn.value = '';
+          renderDocs(); flash($('upMsg'), 'Saved.');
+        });
+      });
+  }
+
+  function kb(n) {
+    if (!n) return '';
+    return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB';
+  }
+  function renderDocs() {
+    var cats = {};
+    D.agency_docs.forEach(function (d) { cats[d.cat] = 1; });
+    var sel = $('dFilter'), cur = sel.value;
+    sel.innerHTML = '<option value="">Everything</option>' +
+      Object.keys(cats).sort().map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('');
+    sel.value = cur;
+
+    var list = D.agency_docs.filter(function (d) { return !cur || d.cat === cur; })
+      .sort(function (a, b) { return (b.at || '').localeCompare(a.at || ''); });
+    if (!list.length) { $('docList').innerHTML = '<div class="empty">Nothing stored yet.</div>'; return; }
+    $('docList').innerHTML = list.map(function (d) {
+      var ext = ((d.filename || '').match(/\.([^.]+)$/) || ['', 'file'])[1].toUpperCase().slice(0, 4);
+      return '<div class="doc">' +
+        '<div class="ic">' + esc(ext) + '</div>' +
+        '<div class="g"><b>' + esc(d.name) + '</b>' +
+          '<span>' + esc(d.cat) + ' &middot; ' + kb(d.size) + ' &middot; added ' + esc(fmtStamp(d.at)) + (d.by ? ' by ' + esc(d.by) : '') + '</span></div>' +
+        '<button class="btn sm ghost" data-open="' + d.id + '">Open</button>' +
+        '<button class="btn sm danger" data-ddel="' + d.id + '">Delete</button>' +
+      '</div>';
+    }).join('');
+    bind('[data-open]', 'data-open', function (id, btn) {
+      var d = D.agency_docs.find(function (x) { return x.id === id; });
+      if (!d) return;
+      btn.textContent = 'Opening...';
+      sb.storage.from(BUCKET).createSignedUrl(d.path, 3600).then(function (r) {
+        btn.textContent = 'Open';
+        if (r.error || !r.data) { alert('Could not open it: ' + (r.error ? r.error.message : 'unknown')); return; }
+        window.open(r.data.signedUrl, '_blank', 'noopener');
+      });
+    });
+    bind('[data-ddel]', 'data-ddel', function (id) {
+      var d = D.agency_docs.find(function (x) { return x.id === id; });
+      if (!d || !confirm('Delete "' + d.name + '"? This removes the file too.')) return;
+      sb.storage.from(BUCKET).remove([d.path]).then(function () {
+        return drop('agency_docs', id);
+      }).then(renderDocs);
+    });
+  }
+  $('dFilter').addEventListener('change', renderDocs);
+})();
+</script>
+</body>
+</html>
