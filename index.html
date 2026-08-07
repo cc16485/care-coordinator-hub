@@ -4337,6 +4337,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div id="lp_converted" class="field-note" style="margin-top:8px;display:none;"></div>
       </div>
 
+      <!-- What has actually been said to this person. Used to mean leaving the
+           hub for GoHighLevel and searching their name, so nobody looked. -->
+      <div class="card" style="padding:18px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="font-size:14px;color:var(--navy);">💬 Texts &amp; emails</b>
+          <span class="field-note" id="gt_lp_meta"></span>
+          <button class="linklike" style="margin-left:auto;" onclick="ghlThread('gt_lp', {phone:(lpLead||{}).phone, email:(lpLead||{}).email})">↻ Load</button>
+          <a class="linklike" id="gt_lp_open" href="#" target="_blank" rel="noopener" style="display:none;">Open in GHL ↗</a>
+        </div>
+        <div id="gt_lp" style="margin-top:10px;"></div>
+      </div>
+
       <div class="card" style="padding:18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <b style="font-size:14px;color:var(--navy);">✨ AI Needs Summary</b>
@@ -7920,6 +7932,7 @@ function renderLeadProfile(){
   document.getElementById('lp_due').textContent = l.follow_up_due||'—';
   document.getElementById('lp_tags').innerHTML = (l.intent_tags||[]).map((t,i)=>
     '<span class="tag-chip">'+esc(t)+' <a href="#" onclick="lpRemoveTag('+i+');return false;" style="text-decoration:none;color:var(--text-muted);">✕</a></span>').join('')||'<span class="field-note">none yet</span>';
+  ghlThreadReset('gt_lp');
   document.getElementById('lp_ai_summary').textContent = l.ai_needs_summary || 'No summary yet — click 🤖 Summarize and the AI reads the call notes.';
   document.getElementById('lp_ai_flags').innerHTML = (l.ai_care_flags||[]).map(f=>
     '<span class="badge bad" style="background:var(--red-bg);">'+esc(f)+'</span>').join('');
@@ -15824,6 +15837,54 @@ async function renderOps(btn){
    browser — we fetch the audio with our own session and play it from a blob. */
 let CALLS_FEED=null, CALLS_AT=0, CALLS_FILTER='all';
 const GHL_LOC='Recp0AhyMh8lrtKJ9kaj';
+
+/* ── One person's GoHighLevel thread, inside their profile ──────────────────
+   Reusable on purpose: leads, clients, caregivers and applicants all have the
+   same problem, which is that everything we have ever said to somebody lives
+   in a different application behind a search box. Mount a div, call this with
+   their phone and email, done. Nothing loads until somebody asks for it, so
+   opening a profile stays fast. */
+function ghlThreadReset(mount){
+  const box=document.getElementById(mount); if(box) box.innerHTML='<div class="field-note">Not loaded. Press Load to see what we have sent and received.</div>';
+  const meta=document.getElementById(mount+'_meta'); if(meta) meta.textContent='';
+  const open=document.getElementById(mount+'_open'); if(open) open.style.display='none';
+}
+async function ghlThread(mount, who){
+  const box=document.getElementById(mount); if(!box) return;
+  const meta=document.getElementById(mount+'_meta');
+  const openA=document.getElementById(mount+'_open');
+  if(!who || (!who.phone && !who.email && !who.contact_id)){
+    box.innerHTML='<div class="field-note">No phone or email on this record, so there is nothing to look up.</div>'; return;
+  }
+  if(!session || !session.access_token){ box.innerHTML='<div class="field-note">Please sign in again.</div>'; return; }
+  box.innerHTML='<div class="field-note">Looking…</div>';
+  try{
+    const r=await fetch(CONFIG.supabase_url+'/functions/v1/ghl-thread',{
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
+      body:JSON.stringify({ phone:who.phone||'', email:who.email||'', contact_id:who.contact_id||'' })
+    });
+    const d=await r.json();
+    if(!r.ok || d.error){ box.innerHTML='<div class="field-note">'+escapeHtmlComms(d.error||('Could not reach GoHighLevel ('+r.status+').'))+'</div>'; return; }
+    if(openA && d.open_url){ openA.href=d.open_url; openA.style.display=''; }
+    const msgs=d.messages||[];
+    if(meta) meta.textContent = msgs.length ? msgs.length+' message'+(msgs.length===1?'':'s') : '';
+    if(!msgs.length){ box.innerHTML='<div class="field-note">'+escapeHtmlComms(d.note||'Nothing has been sent to or received from this person yet.')+'</div>'; return; }
+    box.innerHTML='<div style="max-height:320px;overflow:auto;">'+msgs.map(m=>{
+      const inbound=m.direction==='in';
+      const when=m.at?new Date(m.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
+      return '<div style="padding:9px 0;border-bottom:1px solid var(--border);">'
+        +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+        +'<span style="font-weight:800;color:'+(inbound?'#1F7A8C':'var(--text-muted)')+';">'+(inbound?'↓ them':'↑ us')+'</span>'
+        +'<span class="tag-chip">'+escapeHtmlComms(m.type||'')+'</span>'
+        +'<span style="flex:1;"></span><span class="field-note">'+escapeHtmlComms(when)+'</span></div>'
+        +(m.body?'<div style="font-size:13.5px;line-height:1.55;margin-top:4px;white-space:pre-wrap;color:var(--text);">'+escapeHtmlComms(String(m.body).slice(0,900))+'</div>':'')
+        +'</div>';
+    }).join('')+'</div>';
+  }catch(e){
+    box.innerHTML='<div class="field-note">Could not reach GoHighLevel just now. Try again in a moment.</div>';
+  }
+}
 
 function callsFmtDur(s){
   if(!s || s<=0) return '';
