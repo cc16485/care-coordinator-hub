@@ -180,6 +180,17 @@
   <h2 class="serif">Is this person eligible for GUIDE?</h2>
   <p class="lead">Nine questions. Ask them on the phone while you have the family, in this order, because the first two knock out most people and there is no point going further. Nothing here is the final word. CMS decides, and Continuum submits.</p>
 
+  <div class="card" style="border-color:#e0c48a; background:#fdf8ef;">
+    <div class="row" style="justify-content:space-between; align-items:flex-start;">
+      <div style="flex:1; min-width:260px;">
+        <h3 style="color:#C17A12;">What changed on June 1, 2026</h3>
+        <p style="font-size:14.5px; margin-bottom:8px;">The July 2026 Amended Participation Agreement limits GUIDE to people living in a <b>private residence</b> or <b>independent living</b>. Everyone in a residential care community is now ineligible: assisted living, memory care, group homes, adult family homes, board and care.</p>
+        <p style="font-size:14.5px; margin-bottom:8px;">EmpowerMe also stopped enrolling RCC patients altogether, because CMS's new RCC partner requirements ask communities for ownership structures, leadership Social Security numbers, and three years of compliance history. Almost no senior living provider will agree to that.</p>
+        <p style="font-size:14.5px;"><b>Three things this means for you:</b> stop assessments for anyone in memory care or an RCC. Verify the residence type for anyone in independent living, and be ready to attest in Crosby that their community is not an RCC. And <b>never</b> request unenrollment for a current patient in memory care or an RCC. EmpowerMe handles all of those. The only exceptions are moving out, hospice, or death.</p>
+      </div>
+    </div>
+  </div>
+
   <div id="verdictWrap"></div>
 
   <div class="card">
@@ -205,12 +216,14 @@
 
     <div class="qblock" data-q="live">
       <div class="qtext">3. Where do they live?</div>
-      <div class="qhelp">A nursing home is the only living situation that rules them out. Assisted living is fine. Memory care is fine as long as the unit is licensed as assisted living, so ask the community which license they hold.</div>
+      <div class="qhelp"><b>This rule changed on June 1, 2026.</b> GUIDE is now limited to a private residence or independent living. Residential care communities are out, which means assisted living, memory care, group homes, and board and care homes. If you learned this job before June, unlearn that part.</div>
       <div class="opts">
-        <button class="opt pass" data-v="home">Own home</button>
+        <button class="opt pass" data-v="home">Own home, apartment, or condo</button>
         <button class="opt pass" data-v="family">A family member's home</button>
-        <button class="opt pass" data-v="al">Assisted living</button>
-        <button class="opt maybe" data-v="mc">Memory care</button>
+        <button class="opt maybe" data-v="il">Independent living</button>
+        <button class="opt kill" data-v="al">Assisted living</button>
+        <button class="opt kill" data-v="mc">Memory care</button>
+        <button class="opt kill" data-v="rcc">Group home or board and care</button>
         <button class="opt kill" data-v="nh">Nursing home</button>
       </div>
     </div>
@@ -374,7 +387,10 @@
       <div class="body">About $2,625 a year. In our hours that is roughly nineteen four-hour visits, so think of it as one afternoon every other week for a year, paid for. Some families use it all in one stretch for a trip instead. It is yours to spend either way.</div>
     </details>
     <details class="obj"><summary>"She is in assisted living. Does that count?"</summary>
-      <div class="body">Yes. Assisted living is fine, and so is memory care as long as the unit is licensed as assisted living. A nursing home is the one that does not qualify. If you are not sure which license the community holds, I can call and ask them.</div>
+      <div class="body">It did until June, and it does not now. Medicare changed the rules on June 1 and limited the program to people in a private home or in independent living. I am sorry, because it is a real loss and it was not anybody here who decided it. If she is already enrolled, leave it alone, her medical group handles that and there is nothing you need to do. And call me anyway, because there are other things we can do for her.</div>
+    </details>
+    <details class="obj"><summary>"She is in a retirement community. Which one is that?"</summary>
+      <div class="body">The line is what her lease pays for, not what the place calls itself. If she has her own apartment and the community does not provide personal care, medication management, or supervision as part of what she pays them, that is independent living and she can qualify. If any of that is bundled into her rent, Medicare counts it as a residential care community and she cannot. Can you send me her residency agreement, or give me the community name and I will call them?</div>
     </details>
     <details class="obj"><summary>"He is on hospice."</summary>
       <div class="body">Then he is not eligible for GUIDE, and I would not put you through the paperwork. If it turns out to be palliative care rather than hospice, that is different and he may qualify, so it is worth double checking which one it is.</div>
@@ -413,7 +429,7 @@
       <ul style="margin:8px 0 0 20px; font-size:14.5px;">
         <li style="margin-bottom:5px;">Diagnosed dementia or memory impairment</li>
         <li style="margin-bottom:5px;">Traditional Medicare, not Medicare Advantage</li>
-        <li style="margin-bottom:5px;">Not living in a nursing home</li>
+        <li style="margin-bottom:5px;">Living in a private residence or independent living, and <b>not</b> in a nursing home, assisted living, memory care, or any other residential care community</li>
         <li style="margin-bottom:5px;">Not on the Medicare hospice benefit (palliative care is fine)</li>
         <li style="margin-bottom:5px;">Not enrolled in PACE</li>
         <li>Medicaid and VA benefits are both fine alongside it</li>
@@ -424,7 +440,7 @@
       <ul style="margin:8px 0 0 20px; font-size:14.5px;">
         <li style="margin-bottom:5px;"><b>Care navigation.</b> A monthly call from a trained dementia navigator: education, resources, brief counseling, advocacy. Required, not optional, and losing contact for several months can get them removed by CMS.</li>
         <li style="margin-bottom:5px;"><b>A 24/7 support line with telehealth.</b> 888 466 9008, any hour, for urgent concerns that cannot wait for the doctor and for behavior nobody knows how to handle at 3am.</li>
-        <li><b>Respite.</b> Up to $2,625 a year, usable for in-home care, adult day, or overnight facility respite.</li>
+        <li><b>Respite.</b> Up to $2,625 a year, usable for in-home care, adult day, or overnight facility respite. <b>Not everyone enrolled gets it.</b> Respite goes to moderate and high complexity dyads, decided by the FAST stage (5 through 7) and the caregiver's ZBI burden score, both taken during the assessment. A family early in the disease can be enrolled with no respite hours and become eligible later.</li>
       </ul>
     </div>
   </div>
@@ -468,7 +484,8 @@
       <div><b class="name" style="font-size:14px;">Continuum GUIDE team</b>
         <p class="muted" style="margin-top:3px;">Program questions, patient status, eligibility problems, MBI issues.<br>
         <a href="mailto:guide@continuumcare.com">guide@continuumcare.com</a> &nbsp;&middot;&nbsp; 833.801.4336<br>
-        Monday to Thursday 8am&ndash;5pm, Friday 8am&ndash;4pm</p></div>
+        Monday to Thursday 8am&ndash;5pm, Friday 8am&ndash;4pm<br>
+        <b>EmpowerMe Medical Group:</b> <a href="mailto:care@empowerme.com">care@empowerme.com</a> or (888) 466-9008, for continuity questions about a specific patient losing eligibility.</p></div>
       <div><b class="name" style="font-size:14px;">24/7 support line, for families</b>
         <p class="muted" style="margin-top:3px;">Give this number to every GUIDE family. Urgent health concerns, behavior, resources, any hour.<br>
         <b>888 466 9008</b></p></div>
@@ -703,6 +720,9 @@
     ['dx', 'no', 'No dementia diagnosis. GUIDE requires one.'],
     ['mcare', 'ma', 'Medicare Advantage. GUIDE is traditional Medicare only, and this cannot be worked around.'],
     ['live', 'nh', 'Lives in a nursing home.'],
+    ['live', 'al', 'Lives in assisted living. As of June 1, 2026 residential care communities are not eligible.'],
+    ['live', 'mc', 'Lives in memory care. As of June 1, 2026 residential care communities are not eligible.'],
+    ['live', 'rcc', 'Lives in a group home or board and care home, which counts as a residential care community and is not eligible as of June 1, 2026.'],
     ['hospice', 'yes', 'On the Medicare hospice benefit.'],
     ['pace', 'yes', 'Enrolled in PACE.'],
     ['cg', 'no', 'No unpaid caregiver, so there is nobody for respite to relieve.'],
@@ -719,7 +739,7 @@
   var LABELS = {
     dx:{yes:'Diagnosed',no:'No diagnosis',unk:'Unknown'},
     mcare:{trad:'Traditional Medicare',ma:'Medicare Advantage',unk:'Unknown'},
-    live:{home:'Own home',family:"Family member's home",al:'Assisted living',mc:'Memory care',nh:'Nursing home'},
+    live:{home:'Own home',family:"Family member's home",il:'Independent living',al:'Assisted living',mc:'Memory care',rcc:'Group home / board and care',nh:'Nursing home'},
     hospice:{yes:'On hospice',pall:'Palliative only',no:'Neither',unk:'Unknown'},
     pace:{yes:'In PACE',no:'Not in PACE',unk:'Unknown'},
     cg:{yes:'Has an unpaid caregiver',no:'No unpaid caregiver',unk:'Unknown'},
@@ -735,8 +755,8 @@
     var blockers = [], unknowns = [], notes = [];
     KILLS.forEach(function (k) { if (A[k[0]] === k[1]) blockers.push(k[2]); });
     Object.keys(ASKS).forEach(function (q) { if (!A[q] || A[q] === 'unk') unknowns.push(ASKS[q]); });
-    if (A.live === 'mc') notes.push('Memory care is fine only if that unit is licensed as assisted living. Call the community and ask which license they hold.');
-    if (A.live === 'al') notes.push('Assisted living residents are eligible. This is a good source of referrals and most communities do not know it.');
+    if (A.live === 'il') notes.push('Independent living qualifies only if the community does not provide personal care, medication management, or supervision as part of the residency agreement. Read the agreement, do not trust the sign on the building. Crosby will ask you for the community name, address, and phone, and you have to attest it is not an RCC. If it turns out to be one, the patient gets unenrolled.');
+    if (A.live === 'al' || A.live === 'mc' || A.live === 'rcc') notes.push('If this person is ALREADY enrolled in GUIDE, do not request unenrollment. EmpowerMe handles every RCC and memory care unenrollment themselves. Only ask if they are moving out, going on hospice, or have died.');
     if (A.hospice === 'pall') notes.push('Palliative care does not disqualify anyone.');
     if (A.dual && A.dual !== 'none') notes.push('Dual eligibility with Medicaid or VA is allowed. Flag it for billing.');
     if (A.area === 'no') notes.push('Outside our area, so we cannot staff the respite hours, but they may still be eligible. Send them to Continuum, who can align them with another partner.');
