@@ -178,7 +178,8 @@
 <!-- ======================= SCREEN ======================= -->
 <section id="s-screen" class="on">
   <h2 class="serif">Is this person eligible for GUIDE?</h2>
-  <p class="lead">Nine questions. Ask them on the phone while you have the family, in this order, because the first two knock out most people and there is no point going further. Nothing here is the final word. CMS decides, and Continuum submits.</p>
+  <p class="lead">Nine questions. Ask them on the phone while you have the family, in this order, because the first two knock out most people and there is no point going further.</p>
+  <p class="lead" style="margin-top:-8px;"><b>This screening is ours, not Medicare's.</b> It exists so you do not drive across town for an assessment that was never going to qualify. Nobody is enrolled by anything on this page. Enrollment is a patient record and a comprehensive assessment <b>in Crosby Health</b>, submitted by noon on a Friday. Email is only for when something is blocking you.</p>
 
   <div class="card" style="border-color:#e0c48a; background:#fdf8ef;">
     <div class="row" style="justify-content:space-between; align-items:flex-start;">
@@ -305,7 +306,7 @@
     <textarea id="pNotes" placeholder="Daughter works days and is running out of PTO. Doctor is Dr. Alvarez at Mercy."></textarea>
     <div class="row" style="margin-top:14px;">
       <button class="btn" id="copySum">Copy the summary</button>
-      <button class="btn ghost" id="emailSum">Email it to Continuum</button>
+      <button class="btn ghost" id="emailSum">Email Continuum a question</button>
       <button class="btn ghost" id="saveScreen">Save to the log</button>
       <button class="btn ghost" id="resetScreen">Start over</button>
     </div>
@@ -780,9 +781,14 @@
     } else {
       cls = 'yes'; title = 'Looks eligible';
       var nx = nextDeadline();
-      body = '<p>Nothing here disqualifies them. Submit the assessment and CMS makes the final call.</p>' +
-             (nx ? '<ul><li>Submit by <b>noon ' + fmt(nx[0]) + '</b> and they align <b>' + fmt(nx[1]) + '</b>.</li>' +
-                   '<li>Do not make them wait on it. Start care now and let the alignment catch up.</li></ul>' : '');
+      body = '<p>Nothing here disqualifies them. This screening is ours, for the phone call. ' +
+             'It does not enroll anybody, so the next step is Crosby.</p>' +
+             '<ul><li><b>Go to Crosby Health and create the patient,</b> then schedule and complete the comprehensive assessment. ' +
+             'That is what goes to CMS, and CMS makes the final call.</li>' +
+             (A.live && A.live === 'il' ? '<li><b>Independent living:</b> Crosby will ask for the community name, address, and phone, and make you attest it is not a residential care community. Have that in front of you.</li>' : '') +
+             (nx ? '<li>The assessment has to be submitted by <b>noon ' + fmt(nx[0]) + '</b> to align <b>' + fmt(nx[1]) + '</b>.</li>' : '') +
+             '<li>Do not make them wait on it. Start care now and let the alignment catch up.</li>' +
+             '<li>Email Continuum only if something is in the way: you cannot reach them, the MBI will not validate, or you are unsure about the residence. Emailing does not enroll anyone.</li></ul>';
     }
     if (r.notes.length) body += '<ul>' + r.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>';
     w.innerHTML = '<div class="verdict ' + cls + '"><h3>' + title + '</h3>' + body + '</div>';
@@ -792,7 +798,7 @@
   function buildSummary(cls) {
     var r = assess();
     var L = [];
-    L.push('GUIDE ELIGIBILITY SCREENING');
+    L.push('GUIDE PRE-SCREEN (internal, not a submission)');
     L.push('Screened ' + new Date().toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }) + ' by ' + (ME || 'Caring Companions'));
     L.push('');
     L.push('PATIENT');
@@ -833,10 +839,14 @@
 
   $('copyPub').addEventListener('click', function () { copy('https://mo-care.com/guide', this); });
   $('copySum').addEventListener('click', function () { copy($('summary').value, this); });
+  // Email is NOT how anybody gets enrolled. It is for the three things the
+  // program actually uses it for: a referral we cannot reach, an eligibility
+  // or MBI question, and continuity when somebody loses eligibility.
   $('emailSum').addEventListener('click', function () {
-    var subj = 'GUIDE screening: ' + ($('pName').value || 'new patient');
+    var subj = 'GUIDE question: ' + ($('pName').value || 'a patient');
+    var body = 'Question:\n\n\n\n----- screening notes -----\n' + $('summary').value;
     window.location.href = 'mailto:guide@continuumcare.com?subject=' + encodeURIComponent(subj) +
-      '&body=' + encodeURIComponent($('summary').value);
+      '&body=' + encodeURIComponent(body);
   });
   $('resetScreen').addEventListener('click', function () {
     A = {};
