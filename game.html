@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Story Game &mdash; Caring Companions</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="icon" href="cc-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --navy:#0D365F; --cta:#1F7A8C; --cta-h:#155A68; --honey:#F0A63A; --deep-honey:#C17A12;
+         --cream:#faf9f6; --panel:#f2f0e9; --ink:#16283a; --muted:#55677a; --border:#e4e1d8; --pale:#EAF4F6;
+         --green:#0f7a4d; --green-bg:#e8f6ef; --red:#a33; --red-bg:#fdf0f0; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:'Inter',Helvetica,Arial,sans-serif; background:var(--cream); color:var(--ink);
+        font-size:15px; line-height:1.6; }
+  .serif{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; }
+  a{ color:var(--cta); }
+
+  /* ---- sign in ---- */
+  #gate{ min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--navy); padding:24px; }
+  #gate .box{ background:#fff; border-radius:18px; padding:34px 30px; width:100%; max-width:400px; text-align:center; }
+  #gate img{ width:170px; margin:0 auto 18px; display:block; }
+  #gate h1{ font-size:22px; color:var(--navy); margin-bottom:4px; }
+  #gate p{ color:var(--muted); font-size:14px; margin-bottom:18px; }
+
+  label{ display:block; font-size:13px; font-weight:700; color:var(--navy); margin:14px 0 5px; text-align:left; }
+  input,select,textarea{ width:100%; padding:11px 12px; font-size:15px; font-family:inherit; color:var(--ink);
+    background:var(--cream); border:1px solid var(--border); border-radius:10px; }
+  input:focus,select:focus,textarea:focus{ outline:2px solid var(--cta); border-color:var(--cta); background:#fff; }
+  textarea{ min-height:70px; resize:vertical; }
+  .btn{ font-family:inherit; font-size:15px; font-weight:700; padding:11px 18px; border-radius:10px;
+        border:none; cursor:pointer; background:var(--cta); color:#fff; }
+  .btn:hover{ background:var(--cta-h); }
+  .btn:disabled{ opacity:.55; cursor:wait; }
+  .btn.wide{ width:100%; margin-top:16px; }
+  .btn.ghost{ background:#fff; color:var(--navy); border:1px solid var(--border); }
+  .btn.ghost:hover{ background:var(--pale); }
+  .btn.sm{ font-size:13px; padding:8px 13px; border-radius:9px; }
+  .btn.danger{ background:#fff; color:var(--red); border:1px solid var(--border); }
+
+  /* ---- shell ---- */
+  header{ background:var(--navy); color:#fff; padding:16px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header img{ height:34px; }
+  header .ttl{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:20px; }
+  header .who{ margin-left:auto; font-size:13px; opacity:.85; }
+  header a.back{ color:#fff; font-size:13px; text-decoration:underline; opacity:.85; }
+  nav{ background:#fff; border-bottom:1px solid var(--border); padding:0 18px; display:flex; gap:4px; overflow-x:auto; }
+  nav button{ font-family:inherit; font-size:14.5px; font-weight:600; color:var(--muted); background:none; border:none;
+    border-bottom:3px solid transparent; padding:14px 14px; cursor:pointer; white-space:nowrap; }
+  nav button.on{ color:var(--navy); border-bottom-color:var(--honey); }
+  nav .pill{ background:var(--honey); color:#3d2a06; border-radius:999px; font-size:11px; font-weight:700;
+    padding:1px 7px; margin-left:6px; }
+  main{ max-width:1080px; margin:0 auto; padding:24px 18px 80px; }
+  section{ display:none; }
+  section.on{ display:block; }
+  h2{ font-size:21px; color:var(--navy); margin:0 0 4px; }
+  .lead{ color:var(--muted); font-size:14.5px; margin:0 0 18px; max-width:74ch; }
+
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin:0 0 14px; }
+  .card.tight{ padding:14px 16px; }
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .muted{ color:var(--muted); font-size:13.5px; }
+  .tag{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; border-radius:999px;
+        padding:3px 10px; background:var(--panel); color:var(--muted); }
+  .tag.good{ background:var(--green-bg); color:var(--green); }
+  .tag.warn{ background:#fdf3e2; color:var(--deep-honey); }
+  .tag.bad{ background:var(--red-bg); color:var(--red); }
+  .name{ font-weight:700; color:var(--navy); font-size:16px; }
+  .q{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:17px; color:var(--navy); }
+  .linkbox{ display:flex; gap:8px; align-items:center; margin-top:10px; }
+  .linkbox code{ flex:1; background:var(--panel); border-radius:8px; padding:8px 10px; font-size:12px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:ui-monospace,Menlo,monospace; }
+  .code{ font-family:ui-monospace,Menlo,monospace; font-size:19px; font-weight:700; letter-spacing:.12em; color:var(--navy); }
+  .vgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
+  .vcard{ background:#fff; border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+  .vcard video{ width:100%; display:block; background:var(--navy); max-height:300px; }
+  .vcard .b{ padding:14px 16px; }
+  .board{ list-style:none; }
+  .board li{ display:flex; gap:12px; align-items:center; padding:11px 0; border-bottom:1px solid var(--border); }
+  .board li:last-child{ border:none; }
+  .board .p{ margin-left:auto; font-weight:700; color:var(--deep-honey); font-size:17px; }
+  .filters{ display:flex; gap:8px; margin:0 0 16px; flex-wrap:wrap; }
+  .filters button{ font-family:inherit; font-size:13.5px; font-weight:600; background:#fff; color:var(--muted);
+    border:1px solid var(--border); border-radius:999px; padding:8px 15px; cursor:pointer; }
+  .filters button.on{ background:var(--navy); border-color:var(--navy); color:#fff; }
+  .empty{ text-align:center; color:var(--muted); padding:34px 12px; }
+  .err{ background:var(--red-bg); color:var(--red); border-radius:10px; padding:11px 14px; font-size:14px; margin-top:12px; }
+  .ok{ background:var(--green-bg); color:var(--green); border-radius:10px; padding:11px 14px; font-size:14px; margin-top:12px; }
+  .hide{ display:none !important; }
+  details summary{ cursor:pointer; font-weight:700; color:var(--cta); font-size:14px; }
+  @media (max-width:700px){ .grid2{ grid-template-columns:1fr; } main{ padding:18px 14px 70px; } }
+</style>
+</head>
+<body>
+
+<!-- ============================= SIGN IN ============================= -->
+<div id="gate">
+  <div class="box">
+    <img src="cc-logo.png" alt="Caring Companions">
+    <h1 class="serif">The Story Game</h1>
+    <p>Same sign-in as your hub.</p>
+    <label for="em">Email</label>
+    <input id="em" type="email" placeholder="you@mo-care.com" autocomplete="username">
+    <label for="pw">Password</label>
+    <input id="pw" type="password" placeholder="••••••••" autocomplete="current-password">
+    <button class="btn wide" id="signin">Sign in</button>
+    <div class="err hide" id="gateErr"></div>
+  </div>
+</div>
+
+<!-- ============================= APP ============================= -->
+<div id="app" class="hide">
+<header>
+  <img src="cc-logo.png" alt="">
+  <span class="ttl">The Story Game</span>
+  <a class="back" href="index.html">&larr; Back to the hub</a>
+  <span class="who" id="who"></span>
+</header>
+<nav>
+  <button data-s="videos" class="on">Videos<span class="pill hide" id="pillNew"></span></button>
+  <button data-s="clients">Clients</button>
+  <button data-s="players">Caregivers</button>
+  <button data-s="questions">Questions</button>
+  <button data-s="scoreboard">Scoreboard</button>
+</nav>
+<main>
+
+  <!-- ---------------- VIDEOS ---------------- -->
+  <section id="s-videos" class="on">
+    <h2 class="serif">Videos</h2>
+    <p class="lead">Everything caregivers have recorded. A video is private until the family's decision maker says otherwise, so "Ready to post" is the only pile you can use publicly.</p>
+    <div class="filters" id="vFilters">
+      <button data-f="ready" class="on">Ready to post</button>
+      <button data-f="waiting">Waiting on the family</button>
+      <button data-f="private">Family said no</button>
+      <button data-f="all">Everything</button>
+    </div>
+    <div class="vgrid" id="vList"></div>
+  </section>
+
+  <!-- ---------------- CLIENTS ---------------- -->
+  <section id="s-clients">
+    <h2 class="serif">Clients in the game</h2>
+    <p class="lead">A client only appears for caregivers after you record their consent here. Each family gets one link plus two codes: the family code lets everyone watch and leave hearts, the decision maker code adds the yes-or-no on sharing.</p>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <b class="name">Add a client</b>
+        <button class="btn sm ghost" id="cToggle">Show the form</button>
+      </div>
+      <div id="cForm" class="hide" style="margin-top:6px;">
+        <div class="grid2">
+          <div><label for="c_name">Client name</label><input id="c_name" placeholder="Dorothy Wilkins"></div>
+          <div><label for="c_dm">Family decision maker</label><input id="c_dm" placeholder="Karen Wilkins"></div>
+        </div>
+        <div class="grid2">
+          <div><label for="c_email">Their email <span class="muted">(we email them each new video)</span></label><input id="c_email" type="email" placeholder="karen@example.com"></div>
+          <div><label for="c_phone">Their phone</label><input id="c_phone" placeholder="(417) 555-0134"></div>
+        </div>
+        <label for="c_consent">Consent to record <span class="muted">(who signed off, and how)</span></label>
+        <input id="c_consent" placeholder="Karen Wilkins, POA — verbal yes on the phone 8/6, form signed at the visit">
+        <div class="err hide" id="cErr"></div>
+        <button class="btn wide" id="cAdd">Add them and make their links</button>
+      </div>
+    </div>
+    <div id="cList"></div>
+  </section>
+
+  <!-- ---------------- PLAYERS ---------------- -->
+  <section id="s-players">
+    <h2 class="serif">Caregivers playing</h2>
+    <p class="lead">Each caregiver gets one permanent private link. Text it to them once, they keep it on their phone. If someone leaves, switch them off and the link stops working.</p>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <b class="name">Add a caregiver</b>
+        <button class="btn sm ghost" id="pToggle">Show the form</button>
+      </div>
+      <div id="pForm" class="hide" style="margin-top:6px;">
+        <div class="grid2">
+          <div><label for="p_name">Name</label><input id="p_name" placeholder="Tasha B"></div>
+          <div><label for="p_phone">Cell <span class="muted">(so you know where to text the link)</span></label><input id="p_phone" placeholder="(417) 555-0177"></div>
+        </div>
+        <div class="err hide" id="pErr"></div>
+        <button class="btn wide" id="pAdd">Add them and make their link</button>
+      </div>
+    </div>
+    <div id="pList"></div>
+  </section>
+
+  <!-- ---------------- QUESTIONS ---------------- -->
+  <section id="s-questions">
+    <h2 class="serif">The question bank</h2>
+    <p class="lead">Whatever you star becomes the question of the week on every caregiver's screen. They can swap to any other one if it does not suit the person in front of them.</p>
+    <div class="card">
+      <label for="q_new">Add a question</label>
+      <div class="row">
+        <input id="q_new" placeholder="What did your kitchen smell like growing up?" style="flex:1;min-width:220px;">
+        <button class="btn" id="qAdd">Add it</button>
+      </div>
+      <div id="qSeedWrap" class="hide" style="margin-top:14px;">
+        <button class="btn ghost" id="qSeed">Load the 40 starter questions</button>
+        <span class="muted"> &nbsp;Good ones to begin with. You can edit or delete any of them after.</span>
+      </div>
+    </div>
+    <div id="qList"></div>
+  </section>
+
+  <!-- ---------------- SCOREBOARD ---------------- -->
+  <section id="s-scoreboard">
+    <h2 class="serif">Scoreboard</h2>
+    <p class="lead">1 point for recording a story, 5 every time a family member hearts it, 10 when a family says it may be shared. That way the win goes to whoever creates moments families love, not whoever films the most.</p>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:6px;">
+        <b class="name" id="sbTitle">This month</b>
+        <select id="sbMonth" style="width:auto;"></select>
+      </div>
+      <ul class="board" id="sbList"></ul>
+    </div>
+    <div class="card">
+      <b class="name">Announcing the winner</b>
+      <p class="muted" style="margin-top:6px;">Copy this into your caregiver group chat at the end of the month.</p>
+      <textarea id="sbBrag" style="margin-top:10px;min-height:120px;"></textarea>
+      <button class="btn sm ghost" id="sbCopy" style="margin-top:10px;">Copy it</button>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+  var SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+  var SITE = 'https://mo-care.com';
+  var BUCKET = 'memories';
+  var sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+  var $ = function (id) { return document.getElementById(id); };
+  var D = { memory_clients: [], memory_players: [], memory_prompts: [], memory_videos: [] };
+  var vFilter = 'ready';
+
+  var STARTERS = [
+    'What was your first car, and what happened to it?',
+    'What did your kitchen smell like growing up?',
+    'What is the best meal anyone ever cooked for you?',
+    'What was your first job, and what did it pay?',
+    'How did you meet your husband or wife?',
+    'What did you and your friends do on a Saturday night when you were seventeen?',
+    'What song takes you straight back?',
+    'Who was the funniest person in your family?',
+    'What is something you can do that most people cannot?',
+    'What did your mother always say?',
+    'What did your father teach you that stuck?',
+    'What is the farthest from home you have ever been?',
+    'What was your favorite thing about the town you grew up in?',
+    'What did Christmas look like at your house?',
+    'Tell me about a teacher you never forgot.',
+    'What is the best advice anybody ever gave you?',
+    'What were you like as a kid? Trouble, or good as gold?',
+    'What is a skill everybody had back then that nobody has now?',
+    'What did you want to be when you grew up?',
+    'What is the proudest you have ever been of someone else?',
+    'What was your wedding day like?',
+    'What is the hardest work you ever did?',
+    'What did a dollar buy when you were young?',
+    'Tell me about your best friend growing up.',
+    'What animal or pet do you still think about?',
+    'What is your favorite thing to do on a rainy afternoon?',
+    'What is something people get wrong about your generation?',
+    'What is the funniest thing that ever happened to you?',
+    'What did your house look like when you were ten?',
+    'What is a tradition you hope your family keeps?',
+    'What is the best trip you ever took?',
+    'What made you laugh this week?',
+    'What is something you are still curious about?',
+    'What would you tell your twenty-year-old self?',
+    'What has surprised you most about getting older?',
+    'What are you better at now than you were at forty?',
+    'What is your idea of a perfect day?',
+    'What do you want your grandchildren to know about you?',
+    'What is something small that makes you happy?',
+    'What are you most grateful for right now?'
+  ];
+
+  /* ---------------- sign in ---------------- */
+  sb.auth.getSession().then(function (r) { if (r.data && r.data.session) boot(r.data.session); });
+  $('signin').addEventListener('click', doSignIn);
+  $('pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSignIn(); });
+  function doSignIn() {
+    $('gateErr').classList.add('hide');
+    $('signin').disabled = true; $('signin').textContent = 'Signing in...';
+    sb.auth.signInWithPassword({ email: $('em').value.trim(), password: $('pw').value })
+      .then(function (r) {
+        $('signin').disabled = false; $('signin').textContent = 'Sign in';
+        if (r.error) { $('gateErr').textContent = r.error.message; $('gateErr').classList.remove('hide'); return; }
+        boot(r.data.session);
+      });
+  }
+  function boot(session) {
+    $('gate').classList.add('hide');
+    $('app').classList.remove('hide');
+    $('who').textContent = (session.user && session.user.email) || '';
+    loadAll();
+  }
+
+  /* ---------------- data ---------------- */
+  function loadAll() {
+    var keys = Object.keys(D);
+    return Promise.all(keys.map(function (k) {
+      return sb.from('app_data').select('data').eq('key', k).maybeSingle()
+        .then(function (r) { D[k] = (r.data && Array.isArray(r.data.data)) ? r.data.data : []; });
+    })).then(renderAll);
+  }
+  function save(key, item) {
+    var i = D[key].findIndex(function (x) { return x.id === item.id; });
+    if (i > -1) D[key][i] = item; else D[key].push(item);
+    return sb.rpc('upsert_app_data_item', { target_key: key, item: item });
+  }
+  function drop(key, id) {
+    D[key] = D[key].filter(function (x) { return x.id !== id; });
+    return sb.rpc('delete_app_data_item', { target_key: key, item_id: id });
+  }
+  function uid() { return (crypto.randomUUID ? crypto.randomUUID() : 'id' + Math.random().toString(36).slice(2) + Date.now().toString(36)); }
+  function code6() { return String(Math.floor(100000 + Math.random() * 900000)); }
+  function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+  function monthOf(iso) { return String(iso || '').slice(0, 7); }
+  function thisMonth() { return new Date().toISOString().slice(0, 7); }
+  function fmt(iso) { return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  function copy(text, btn) {
+    navigator.clipboard.writeText(text).then(function () {
+      if (!btn) return; var old = btn.textContent; btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = old; }, 1400);
+    });
+  }
+
+  /* ---------------- nav ---------------- */
+  Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) {
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (x) { x.classList.remove('on'); });
+      Array.prototype.forEach.call(document.querySelectorAll('section'), function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      $('s-' + b.getAttribute('data-s')).classList.add('on');
+    });
+  });
+
+  function renderAll() { renderVideos(); renderClients(); renderPlayers(); renderQuestions(); renderScore(); }
+
+  /* ---------------- videos ---------------- */
+  Array.prototype.forEach.call(document.querySelectorAll('#vFilters button'), function (b) {
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('#vFilters button'), function (x) { x.classList.remove('on'); });
+      b.classList.add('on'); vFilter = b.getAttribute('data-f'); renderVideos();
+    });
+  });
+
+  function renderVideos() {
+    var all = D.memory_videos.filter(function (v) { return !v.archived && v.status === 'ready'; })
+      .sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+    var waiting = all.filter(function (v) { return (v.share || 'pending') === 'pending'; });
+    var pill = $('pillNew');
+    if (waiting.length) { pill.textContent = waiting.length; pill.classList.remove('hide'); } else { pill.classList.add('hide'); }
+
+    var rows = vFilter === 'all' ? all
+      : vFilter === 'ready' ? all.filter(function (v) { return v.share === 'yes'; })
+      : vFilter === 'private' ? all.filter(function (v) { return v.share === 'no'; })
+      : waiting;
+
+    if (!rows.length) {
+      $('vList').innerHTML = '<div class="card empty">' + (
+        vFilter === 'ready' ? 'Nothing cleared for posting yet. Families answer the sharing question in their own library.'
+        : vFilter === 'waiting' ? 'No videos waiting on an answer. Nice.'
+        : vFilter === 'private' ? 'No family has said no. Good sign.'
+        : 'No videos yet. Once a caregiver sends the first one it shows up here.') + '</div>';
+      return;
+    }
+    $('vList').innerHTML = rows.map(function (v) {
+      var tag = v.share === 'yes' ? '<span class="tag good">ready to post</span>'
+        : v.share === 'no' ? '<span class="tag bad">family said no</span>'
+        : '<span class="tag warn">waiting on the family</span>';
+      return '<div class="vcard"><div class="b">'
+        + '<div class="row" style="justify-content:space-between;"><span class="name">' + esc(v.client_name) + '</span>' + tag + '</div>'
+        + '<p class="q" style="margin:8px 0 6px;">' + esc(v.prompt) + '</p>'
+        + '<p class="muted">' + fmt(v.at) + ' &middot; recorded by ' + esc(v.player_name)
+        + ' &middot; ' + (v.hearts || 0) + ' heart' + ((v.hearts || 0) === 1 ? '' : 's') + '</p>'
+        + '<div class="row" style="margin-top:12px;">'
+        + '<button class="btn sm" data-watch="' + v.id + '">Watch</button>'
+        + '<button class="btn sm ghost" data-get="' + v.id + '">Download</button>'
+        + '<button class="btn sm danger" data-del="' + v.id + '">Delete</button>'
+        + '</div></div></div>';
+    }).join('');
+
+    bind('[data-watch]', 'data-watch', function (id) { openVideo(id, false); });
+    bind('[data-get]', 'data-get', function (id) { openVideo(id, true); });
+    bind('[data-del]', 'data-del', function (id) {
+      var v = D.memory_videos.find(function (x) { return x.id === id; });
+      if (!v) return;
+      if (!confirm('Delete this video of ' + v.client_name + '? The family loses it too, and it cannot be undone.')) return;
+      sb.storage.from(BUCKET).remove([v.path]).catch(function () {});
+      drop('memory_videos', id).then(renderVideos);
+    });
+  }
+  function bind(sel, attr, fn) {
+    Array.prototype.forEach.call(document.querySelectorAll(sel), function (b) {
+      b.addEventListener('click', function () { fn(b.getAttribute(attr), b); });
+    });
+  }
+  function openVideo(id, download) {
+    var v = D.memory_videos.find(function (x) { return x.id === id; });
+    if (!v) return;
+    sb.storage.from(BUCKET).createSignedUrl(v.path, 3600, download ? { download: true } : undefined)
+      .then(function (r) {
+        if (r.error || !r.data) { alert('Could not open that video: ' + ((r.error && r.error.message) || 'unknown')); return; }
+        window.open(r.data.signedUrl, '_blank');
+      });
+  }
+
+  /* ---------------- clients ---------------- */
+  $('cToggle').addEventListener('click', function () {
+    $('cForm').classList.toggle('hide');
+    this.textContent = $('cForm').classList.contains('hide') ? 'Show the form' : 'Hide the form';
+  });
+  $('cAdd').addEventListener('click', function () {
+    $('cErr').classList.add('hide');
+    var name = $('c_name').value.trim(), dm = $('c_dm').value.trim(), consent = $('c_consent').value.trim();
+    if (!name) { return err('cErr', 'Who is the client?'); }
+    if (!dm) { return err('cErr', 'Name the family decision maker. They hold the sharing switch.'); }
+    if (!consent) { return err('cErr', 'Write down who gave consent and how. This is the record if anyone ever asks.'); }
+    var item = {
+      id: uid(), name: name, decision_maker: dm,
+      dm_email: $('c_email').value.trim(), dm_phone: $('c_phone').value.trim(),
+      consent_note: consent, consent_at: new Date().toISOString(), consent_by: ($('who').textContent || ''),
+      token: uid(), passcode: code6(), owner_passcode: code6(),
+      active: true, created_at: new Date().toISOString()
+    };
+    save('memory_clients', item).then(function () {
+      ['c_name', 'c_dm', 'c_email', 'c_phone', 'c_consent'].forEach(function (i) { $(i).value = ''; });
+      $('cForm').classList.add('hide'); $('cToggle').textContent = 'Show the form';
+      renderClients(); renderVideos();
+    });
+  });
+  function err(id, msg) { $(id).textContent = msg; $(id).classList.remove('hide'); }
+
+  function renderClients() {
+    var rows = D.memory_clients.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    if (!rows.length) { $('cList').innerHTML = '<div class="card empty">No clients in the game yet. Add the first one above.</div>'; return; }
+    $('cList').innerHTML = rows.map(function (c) {
+      var link = SITE + '/memories?c=' + c.token;
+      var count = D.memory_videos.filter(function (v) { return v.client_id === c.id && v.status === 'ready' && !v.archived; }).length;
+      return '<div class="card">'
+        + '<div class="row" style="justify-content:space-between;">'
+        + '<span class="name">' + esc(c.name) + '</span>'
+        + (c.active === false ? '<span class="tag">paused</span>' : '<span class="tag good">' + count + ' video' + (count === 1 ? '' : 's') + '</span>')
+        + '</div>'
+        + '<p class="muted" style="margin-top:4px;">Decision maker: ' + esc(c.decision_maker)
+        + (c.dm_email ? ' &middot; ' + esc(c.dm_email) : '') + (c.dm_phone ? ' &middot; ' + esc(c.dm_phone) : '') + '</p>'
+        + '<div class="linkbox"><code>' + esc(link) + '</code>'
+        + '<button class="btn sm ghost" data-copy="' + esc(link) + '">Copy link</button></div>'
+        + '<div class="grid2" style="margin-top:12px;">'
+        + '<div class="card tight"><div class="muted">Family code (watch + hearts)</div><div class="code">' + esc(c.passcode) + '</div></div>'
+        + '<div class="card tight"><div class="muted">Decision maker code (adds sharing)</div><div class="code">' + esc(c.owner_passcode) + '</div></div>'
+        + '</div>'
+        + '<details style="margin-top:10px;"><summary>Consent on file</summary>'
+        + '<p class="muted" style="margin-top:6px;">' + esc(c.consent_note) + '<br>Recorded ' + fmt(c.consent_at)
+        + (c.consent_by ? ' by ' + esc(c.consent_by) : '') + '</p></details>'
+        + '<div class="row" style="margin-top:12px;">'
+        + '<button class="btn sm ghost" data-msg="' + c.id + '">Copy the message for the family</button>'
+        + '<button class="btn sm ghost" data-pause="' + c.id + '">' + (c.active === false ? 'Turn back on' : 'Pause') + '</button>'
+        + '<button class="btn sm danger" data-cdel="' + c.id + '">Remove</button>'
+        + '</div></div>';
+    }).join('');
+
+    bind('[data-copy]', 'data-copy', function (t, btn) { copy(t, btn); });
+    bind('[data-msg]', 'data-msg', function (id, btn) {
+      var c = D.memory_clients.find(function (x) { return x.id === id; });
+      var first = String(c.name).split(' ')[0];
+      copy('Hi ' + String(c.decision_maker).split(' ')[0] + ', this is Caring Companions. '
+        + first + "'s caregiver has been recording little videos of " + first + ' answering fun questions, '
+        + 'and we made a private library for your family to watch them: ' + SITE + '/memories?c=' + c.token
+        + '\n\nFamily code (anyone can watch): ' + c.passcode
+        + '\nYour code (lets you decide what we may share): ' + c.owner_passcode
+        + '\n\nNothing is ever shared publicly unless you say yes right there on the video.', btn);
+    });
+    bind('[data-pause]', 'data-pause', function (id) {
+      var c = D.memory_clients.find(function (x) { return x.id === id; });
+      c.active = c.active === false; save('memory_clients', c).then(renderClients);
+    });
+    bind('[data-cdel]', 'data-cdel', function (id) {
+      var c = D.memory_clients.find(function (x) { return x.id === id; });
+      var n = D.memory_videos.filter(function (v) { return v.client_id === id; }).length;
+      if (!confirm('Remove ' + c.name + ' from the game?' + (n ? ' Their ' + n + ' video(s) stay saved, but the family link stops working.' : ''))) return;
+      drop('memory_clients', id).then(renderClients);
+    });
+  }
+
+  /* ---------------- players ---------------- */
+  $('pToggle').addEventListener('click', function () {
+    $('pForm').classList.toggle('hide');
+    this.textContent = $('pForm').classList.contains('hide') ? 'Show the form' : 'Hide the form';
+  });
+  $('pAdd').addEventListener('click', function () {
+    $('pErr').classList.add('hide');
+    var name = $('p_name').value.trim();
+    if (!name) { return err('pErr', 'Give them a name.'); }
+    var item = { id: uid(), name: name, phone: $('p_phone').value.trim(), token: uid(), active: true, joined_at: new Date().toISOString(), clients: [] };
+    save('memory_players', item).then(function () {
+      $('p_name').value = ''; $('p_phone').value = '';
+      $('pForm').classList.add('hide'); $('pToggle').textContent = 'Show the form';
+      renderPlayers();
+    });
+  });
+
+  function pointsOf(playerId, month) {
+    return D.memory_videos.reduce(function (n, v) {
+      if (v.player_id !== playerId || v.status !== 'ready' || v.archived) return n;
+      if (month && monthOf(v.at) !== month) return n;
+      return n + 1 + (Number(v.hearts) || 0) * 5 + (v.share === 'yes' ? 10 : 0);
+    }, 0);
+  }
+
+  function renderPlayers() {
+    var rows = D.memory_players.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+    if (!rows.length) { $('pList').innerHTML = '<div class="card empty">Nobody is playing yet. Add your first caregiver above.</div>'; return; }
+    $('pList').innerHTML = rows.map(function (p) {
+      var link = SITE + '/play?k=' + p.token;
+      var n = D.memory_videos.filter(function (v) { return v.player_id === p.id && v.status === 'ready' && !v.archived; }).length;
+      return '<div class="card">'
+        + '<div class="row" style="justify-content:space-between;">'
+        + '<span class="name">' + esc(p.name) + (p.phone ? ' <span class="muted">' + esc(p.phone) + '</span>' : '') + '</span>'
+        + (p.active === false ? '<span class="tag">switched off</span>'
+          : '<span class="tag good">' + pointsOf(p.id, thisMonth()) + ' pts this month &middot; ' + plural(n, 'story', 'stories') + '</span>')
+        + '</div>'
+        + '<div class="linkbox"><code>' + esc(link) + '</code>'
+        + '<button class="btn sm ghost" data-copy="' + esc(link) + '">Copy link</button></div>'
+        + '<div class="row" style="margin-top:12px;">'
+        + '<button class="btn sm ghost" data-pmsg="' + p.id + '">Copy the text to send them</button>'
+        + '<button class="btn sm ghost" data-poff="' + p.id + '">' + (p.active === false ? 'Turn back on' : 'Switch off') + '</button>'
+        + '<button class="btn sm danger" data-pdel="' + p.id + '">Remove</button>'
+        + '</div></div>';
+    }).join('');
+
+    bind('[data-copy]', 'data-copy', function (t, btn) { copy(t, btn); });
+    bind('[data-pmsg]', 'data-pmsg', function (id, btn) {
+      var p = D.memory_players.find(function (x) { return x.id === id; });
+      copy(String(p.name).split(' ')[0] + ', we started something fun. Each week there is a question to ask your client, '
+        + 'you record their answer on your phone, and their family gets to watch it. '
+        + 'Most points at the end of the month wins the prize.\n\nHere is your link, save it to your home screen:\n'
+        + SITE + '/play?k=' + p.token
+        + '\n\nAlways ask them first. If they say no, that is fine and it costs you nothing.', btn);
+    });
+    bind('[data-poff]', 'data-poff', function (id) {
+      var p = D.memory_players.find(function (x) { return x.id === id; });
+      p.active = p.active === false; save('memory_players', p).then(renderPlayers);
+    });
+    bind('[data-pdel]', 'data-pdel', function (id) {
+      if (!confirm('Remove this caregiver? Their link stops working immediately.')) return;
+      drop('memory_players', id).then(renderPlayers);
+    });
+  }
+
+  /* ---------------- questions ---------------- */
+  $('qAdd').addEventListener('click', function () {
+    var t = $('q_new').value.trim();
+    if (!t) return;
+    var item = { id: uid(), text: t, active: true, featured: !D.memory_prompts.some(function (p) { return p.featured; }), at: new Date().toISOString() };
+    save('memory_prompts', item).then(function () { $('q_new').value = ''; renderQuestions(); });
+  });
+  $('qSeed').addEventListener('click', function () {
+    $('qSeed').disabled = true; $('qSeed').textContent = 'Loading...';
+    var chain = Promise.resolve();
+    STARTERS.forEach(function (text, i) {
+      chain = chain.then(function () {
+        return save('memory_prompts', { id: uid(), text: text, active: true, featured: i === 0, at: new Date().toISOString() });
+      });
+    });
+    chain.then(function () { $('qSeed').disabled = false; $('qSeed').textContent = 'Load the 40 starter questions'; renderQuestions(); });
+  });
+
+  function renderQuestions() {
+    $('qSeedWrap').classList.toggle('hide', D.memory_prompts.length > 0);
+    var rows = D.memory_prompts.slice();
+    if (!rows.length) { $('qList').innerHTML = '<div class="card empty">No questions yet. Load the starters, or write your own above.</div>'; return; }
+    rows.sort(function (a, b) { return (b.featured ? 1 : 0) - (a.featured ? 1 : 0); });
+    $('qList').innerHTML = rows.map(function (q) {
+      return '<div class="card tight"><div class="row" style="justify-content:space-between;">'
+        + '<span class="q" style="flex:1;min-width:200px;">' + (q.featured ? '⭐ ' : '') + esc(q.text) + '</span>'
+        + '<span class="row">'
+        + (q.featured ? '<span class="tag warn">question of the week</span>'
+          : '<button class="btn sm ghost" data-feat="' + q.id + '">Make it this week\'s</button>')
+        + '<button class="btn sm ghost" data-qoff="' + q.id + '">' + (q.active === false ? 'Turn on' : 'Retire') + '</button>'
+        + '<button class="btn sm danger" data-qdel="' + q.id + '">Delete</button>'
+        + '</span></div>'
+        + (q.active === false ? '<p class="muted">Retired, caregivers do not see it.</p>' : '')
+        + '</div>';
+    }).join('');
+
+    bind('[data-feat]', 'data-feat', function (id) {
+      var chain = Promise.resolve();
+      D.memory_prompts.forEach(function (p) {
+        var want = p.id === id;
+        if (!!p.featured !== want) { p.featured = want; chain = chain.then(function () { return save('memory_prompts', p); }); }
+      });
+      chain.then(renderQuestions);
+    });
+    bind('[data-qoff]', 'data-qoff', function (id) {
+      var q = D.memory_prompts.find(function (x) { return x.id === id; });
+      q.active = q.active === false; save('memory_prompts', q).then(renderQuestions);
+    });
+    bind('[data-qdel]', 'data-qdel', function (id) { drop('memory_prompts', id).then(renderQuestions); });
+  }
+
+  /* ---------------- scoreboard ---------------- */
+  $('sbMonth').addEventListener('change', renderScore);
+  function renderScore() {
+    var months = {};
+    D.memory_videos.forEach(function (v) { if (v.at) months[monthOf(v.at)] = true; });
+    months[thisMonth()] = true;
+    var list = Object.keys(months).sort().reverse();
+    var sel = $('sbMonth'), keep = sel.value;
+    sel.innerHTML = list.map(function (m) {
+      var d = new Date(m + '-01T00:00:00');
+      return '<option value="' + m + '">' + d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) + '</option>';
+    }).join('');
+    sel.value = (keep && list.indexOf(keep) > -1) ? keep : list[0];
+    var month = sel.value;
+
+    var board = D.memory_players.filter(function (p) { return p.active !== false; })
+      .map(function (p) { return { name: p.name, pts: pointsOf(p.id, month), id: p.id }; })
+      .filter(function (r) { return r.pts > 0; })
+      .sort(function (a, b) { return b.pts - a.pts; });
+
+    $('sbTitle').textContent = month === thisMonth() ? 'This month so far' : 'Final standings';
+    var medals = ['🥇', '🥈', '🥉'];
+    $('sbList').innerHTML = board.length
+      ? board.map(function (r, i) {
+          var n = D.memory_videos.filter(function (v) { return v.player_id === r.id && monthOf(v.at) === month && v.status === 'ready'; });
+          var hearts = n.reduce(function (a, v) { return a + (Number(v.hearts) || 0); }, 0);
+          return '<li><span style="width:28px;">' + (medals[i] || (i + 1)) + '</span>'
+            + '<span><b>' + esc(r.name) + '</b><br><span class="muted">' + plural(n.length, 'story', 'stories')
+            + ' &middot; ' + plural(hearts, 'heart') + '</span></span>'
+            + '<span class="p">' + r.pts + '</span></li>';
+        }).join('')
+      : '<li class="muted">No points yet this month.</li>';
+
+    var w = board[0];
+    $('sbBrag').value = w
+      ? '🏆 ' + w.name + ' wins The Story Game this month with ' + w.pts + ' points!\n\n'
+        + 'That is ' + plural(D.memory_videos.filter(function (v) { return v.player_id === w.id && monthOf(v.at) === month && v.status === 'ready'; }).length, 'story', 'stories')
+        + ' saved this month. Families will keep these long after we are all gone. '
+        + 'Thank you for slowing down long enough to ask.\n\n'
+        + 'New question goes out Monday. Everybody starts at zero.'
+      : 'Nobody has scored yet this month. The first story is worth the same as the last one, so go ask somebody about their first car.';
+  }
+  $('sbCopy').addEventListener('click', function () { copy($('sbBrag').value, $('sbCopy')); });
+})();
+</script>
+</body>
+</html>

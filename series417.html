@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>417 Caring Community &mdash; Caring Companions</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="icon" href="cc-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --navy:#0D365F; --cta:#1F7A8C; --cta-h:#155A68; --honey:#F0A63A; --deep-honey:#C17A12;
+         --cream:#faf9f6; --panel:#f2f0e9; --ink:#16283a; --muted:#55677a; --border:#e4e1d8; --pale:#EAF4F6;
+         --green:#0f7a4d; --green-bg:#e8f6ef; --red:#a33; --red-bg:#fdf0f0; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:'Inter',Helvetica,Arial,sans-serif; background:var(--cream); color:var(--ink); font-size:15px; line-height:1.6; }
+  .serif{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; }
+  #gate{ min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--navy); padding:24px; }
+  #gate .box{ background:#fff; border-radius:18px; padding:34px 30px; width:100%; max-width:400px; text-align:center; }
+  #gate img{ width:170px; margin:0 auto 18px; display:block; }
+  #gate h1{ font-size:22px; color:var(--navy); margin-bottom:4px; }
+  #gate p{ color:var(--muted); font-size:14px; margin-bottom:18px; }
+  label{ display:block; font-size:13px; font-weight:700; color:var(--navy); margin:14px 0 5px; text-align:left; }
+  input,select,textarea{ width:100%; padding:11px 12px; font-size:15px; font-family:inherit; color:var(--ink);
+    background:var(--cream); border:1px solid var(--border); border-radius:10px; }
+  input:focus,select:focus,textarea:focus{ outline:2px solid var(--cta); border-color:var(--cta); background:#fff; }
+  textarea{ min-height:80px; resize:vertical; font-size:13.5px; }
+  .btn{ font-family:inherit; font-size:15px; font-weight:700; padding:11px 18px; border-radius:10px; border:none;
+        cursor:pointer; background:var(--cta); color:#fff; }
+  .btn:hover{ background:var(--cta-h); }
+  .btn.wide{ width:100%; margin-top:16px; }
+  .btn.ghost{ background:#fff; color:var(--navy); border:1px solid var(--border); }
+  .btn.ghost:hover{ background:var(--pale); }
+  .btn.sm{ font-size:13px; padding:8px 13px; border-radius:9px; }
+  .btn.danger{ background:#fff; color:var(--red); border:1px solid var(--border); }
+  .btn.good{ background:var(--green); }
+  header{ background:var(--navy); color:#fff; padding:16px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header img{ height:34px; }
+  header .ttl{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:20px; }
+  header .ttl em{ font-style:normal; color:var(--honey); }
+  header a.back{ color:#fff; font-size:13px; text-decoration:underline; opacity:.85; }
+  header .who{ margin-left:auto; font-size:13px; opacity:.85; }
+  nav{ background:#fff; border-bottom:1px solid var(--border); padding:0 18px; display:flex; gap:4px; overflow-x:auto; }
+  nav button{ font-family:inherit; font-size:14.5px; font-weight:600; color:var(--muted); background:none; border:none;
+    border-bottom:3px solid transparent; padding:14px 14px; cursor:pointer; white-space:nowrap; }
+  nav button.on{ color:var(--navy); border-bottom-color:var(--honey); }
+  nav .pill{ background:var(--honey); color:#3d2a06; border-radius:999px; font-size:11px; font-weight:700; padding:1px 7px; margin-left:6px; }
+  main{ max-width:1080px; margin:0 auto; padding:24px 18px 80px; }
+  section{ display:none; } section.on{ display:block; }
+  h2{ font-size:21px; color:var(--navy); margin:0 0 4px; }
+  .lead{ color:var(--muted); font-size:14.5px; margin:0 0 18px; max-width:76ch; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin:0 0 14px; }
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .muted{ color:var(--muted); font-size:13.5px; }
+  .tag{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; border-radius:999px;
+        padding:3px 10px; background:var(--panel); color:var(--muted); }
+  .tag.good{ background:var(--green-bg); color:var(--green); }
+  .tag.warn{ background:#fdf3e2; color:var(--deep-honey); }
+  .name{ font-weight:700; color:var(--navy); font-size:16px; }
+  .q{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:17px; color:var(--navy); }
+  .vgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; }
+  .vcard{ background:#fff; border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+  .vcard video{ width:100%; display:block; background:var(--navy); aspect-ratio:16/9; object-fit:cover; }
+  .vcard .b{ padding:14px 16px; }
+  .empty{ text-align:center; color:var(--muted); padding:34px 12px; }
+  .linkbox{ display:flex; gap:8px; align-items:center; margin-top:10px; }
+  .linkbox code{ flex:1; background:var(--panel); border-radius:8px; padding:8px 10px; font-size:12px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:ui-monospace,Menlo,monospace; }
+  .qrow{ display:flex; gap:10px; align-items:center; padding:11px 0; border-bottom:1px solid var(--border); }
+  .qrow:last-child{ border:none; }
+  .prev{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:22px; margin-top:14px; }
+  .err{ background:var(--red-bg); color:var(--red); border-radius:10px; padding:11px 14px; font-size:14px; margin-top:12px; }
+  .hide{ display:none !important; }
+  @media (max-width:700px){ .grid2{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="box">
+    <img src="cc-logo.png" alt="Caring Companions">
+    <h1 class="serif">417 Caring Community</h1>
+    <p>Same sign-in as your hub.</p>
+    <label for="em">Email</label><input id="em" type="email" autocomplete="username" placeholder="you@mo-care.com">
+    <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" placeholder="••••••••">
+    <button class="btn wide" id="signin">Sign in</button>
+    <div class="err hide" id="gateErr"></div>
+  </div>
+</div>
+
+<div id="app" class="hide">
+<header>
+  <img src="cc-logo.png" alt="">
+  <span class="ttl">417 <em>Caring</em> Community</span>
+  <a class="back" href="index.html">&larr; Back to the hub</a>
+  <span class="who" id="who"></span>
+</header>
+<nav>
+  <button data-s="review" class="on">To review<span class="pill hide" id="pillNew"></span></button>
+  <button data-s="published">Published</button>
+  <button data-s="questions">This month's 4</button>
+  <button data-s="email">Monthly email</button>
+  <button data-s="invite">Invite people</button>
+</nav>
+<main>
+
+  <section id="s-review" class="on">
+    <h2 class="serif">Waiting on you</h2>
+    <p class="lead">Nothing a professional records goes public on its own. Watch it, then publish it into the month's issue or decline it. If you decline, nobody is told, so send them a kind note yourself.</p>
+    <div class="vgrid" id="reviewList"></div>
+  </section>
+
+  <section id="s-published">
+    <h2 class="serif">Published</h2>
+    <p class="lead">Live on mo-care.com/417-caring-community. Pulling one down takes effect the moment you press it.</p>
+    <div class="vgrid" id="pubList"></div>
+  </section>
+
+  <section id="s-questions">
+    <h2 class="serif">This month's four questions</h2>
+    <p class="lead">Four a month. Whoever opens the record link sees these and picks whichever one they would enjoy answering.</p>
+    <div class="card">
+      <div class="row">
+        <div style="flex:1;min-width:180px;">
+          <label for="qMonth" style="margin-top:0;">Month</label>
+          <select id="qMonth"></select>
+        </div>
+        <div style="flex:2;min-width:240px;">
+          <label for="qNew" style="margin-top:0;">Add a question to this month</label>
+          <div class="row">
+            <input id="qNew" placeholder="What is one resource every family in the 417 should know about?" style="flex:1;min-width:200px;">
+            <button class="btn" id="qAdd">Add</button>
+          </div>
+        </div>
+      </div>
+      <div id="qCount" class="muted" style="margin-top:10px;"></div>
+      <div id="qList" style="margin-top:8px;"></div>
+      <div id="qSeedWrap" class="hide" style="margin-top:14px;">
+        <button class="btn ghost" id="qSeed">Use the four starter questions</button>
+        <span class="muted"> &nbsp;A good opening month. Edit any of them after.</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-email">
+    <h2 class="serif">The monthly email</h2>
+    <p class="lead">Built from whatever you published this month. Copy it into GoHighLevel and send it to every professional on your referral list. This is the reason they will remember your name.</p>
+    <div class="card">
+      <div class="row">
+        <div style="flex:1;min-width:180px;">
+          <label for="eMonth" style="margin-top:0;">Issue</label>
+          <select id="eMonth"></select>
+        </div>
+        <div style="flex:2;min-width:240px;">
+          <label for="eSubject" style="margin-top:0;">Subject line</label>
+          <input id="eSubject">
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px;">
+        <button class="btn" id="eCopyHtml">Copy the email (HTML)</button>
+        <button class="btn ghost" id="eCopyText">Copy it as plain text</button>
+        <button class="btn ghost" id="eCopySubject">Copy the subject</button>
+      </div>
+      <p class="muted" style="margin-top:10px;">In GoHighLevel: Marketing &rarr; Emails &rarr; new email &rarr; add a Custom Code element &rarr; paste the HTML.</p>
+    </div>
+    <div class="prev" id="ePreview"></div>
+  </section>
+
+  <section id="s-invite">
+    <h2 class="serif">Getting people in the series</h2>
+    <p class="lead">The ask that works: you are giving them free exposure to families, not asking them for anything. Two minutes of their time, and they get a clip they can post themselves.</p>
+    <div class="card">
+      <b class="name">The record link</b>
+      <div class="linkbox"><code id="recLink">https://mo-care.com/417</code>
+        <button class="btn sm ghost" id="copyRec">Copy</button></div>
+      <div class="grid2" style="margin-top:14px;">
+        <div><label for="iOrg" style="margin-top:0;">Prefill their organization <span class="muted">(optional)</span></label><input id="iOrg" placeholder="Ozarks Hospice"></div>
+        <div><label for="iName" style="margin-top:0;">Prefill their name <span class="muted">(optional)</span></label><input id="iName" placeholder="Jamie Ruiz"></div>
+      </div>
+      <div class="linkbox"><code id="recLink2">https://mo-care.com/417-record</code>
+        <button class="btn sm ghost" id="copyRec2">Copy the prefilled link</button></div>
+    </div>
+    <div class="card">
+      <b class="name">The message to send them</b>
+      <textarea id="inviteMsg" style="margin-top:10px;min-height:190px;"></textarea>
+      <button class="btn sm ghost" id="copyMsg" style="margin-top:10px;">Copy it</button>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;">
+        <b class="name">Nominations</b>
+        <a class="muted" href="https://mo-care.com/417-nominate" target="_blank" rel="noopener">the nominate page &rarr;</a>
+      </div>
+      <p class="muted" style="margin-top:4px;">People the community put forward. Open with "somebody nominated you" and they almost always say yes.</p>
+      <div id="nomList" style="margin-top:10px;"></div>
+    </div>
+    <div class="card">
+      <b class="name">Who you are missing</b>
+      <p class="muted" style="margin-top:4px;">Fields with nobody in the series yet. These are the calls worth making.</p>
+      <div id="gaps" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+  var SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+  var SITE = 'https://mo-care.com';
+  var GALLERY = SITE + '/417-caring-community';
+  var BUCKET = 'caring417';
+  var sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+  var $ = function (id) { return document.getElementById(id); };
+  var D = { pro_videos: [], pro_prompts: [], pro_nominations: [] };
+
+  var ALL_CATS = ['Hospice & palliative', 'Home health', 'Elder law & estate', 'Veterans services',
+    'Medicare & insurance', 'Senior living & housing', 'Meals & nutrition', 'Transportation',
+    'Rehab & therapy', 'Mental health', 'Financial & fiduciary', 'Faith & community',
+    'Area agency & government', 'Hearing, vision & dental'];
+
+  var STARTERS = [
+    'What is your favorite thing about working with seniors?',
+    'What is one resource every family in the 417 should know about?',
+    'What is the most common mistake families make before they call you?',
+    'Who should call you, and when?'
+  ];
+
+  /* ---------- auth ---------- */
+  sb.auth.getSession().then(function (r) { if (r.data && r.data.session) boot(r.data.session); });
+  $('signin').addEventListener('click', doSignIn);
+  $('pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSignIn(); });
+  function doSignIn() {
+    $('gateErr').classList.add('hide');
+    $('signin').disabled = true; $('signin').textContent = 'Signing in...';
+    sb.auth.signInWithPassword({ email: $('em').value.trim(), password: $('pw').value }).then(function (r) {
+      $('signin').disabled = false; $('signin').textContent = 'Sign in';
+      if (r.error) { $('gateErr').textContent = r.error.message; $('gateErr').classList.remove('hide'); return; }
+      boot(r.data.session);
+    });
+  }
+  function boot(session) {
+    $('gate').classList.add('hide'); $('app').classList.remove('hide');
+    $('who').textContent = (session.user && session.user.email) || '';
+    loadAll();
+  }
+
+  /* ---------- data ---------- */
+  function loadAll() {
+    return Promise.all(Object.keys(D).map(function (k) {
+      return sb.from('app_data').select('data').eq('key', k).maybeSingle()
+        .then(function (r) { D[k] = (r.data && Array.isArray(r.data.data)) ? r.data.data : []; });
+    })).then(renderAll);
+  }
+  function save(key, item) {
+    var i = D[key].findIndex(function (x) { return x.id === item.id; });
+    if (i > -1) D[key][i] = item; else D[key].push(item);
+    return sb.rpc('upsert_app_data_item', { target_key: key, item: item });
+  }
+  function drop(key, id) {
+    D[key] = D[key].filter(function (x) { return x.id !== id; });
+    return sb.rpc('delete_app_data_item', { target_key: key, item_id: id });
+  }
+  function uid() { return (crypto.randomUUID ? crypto.randomUUID() : 'id' + Math.random().toString(36).slice(2) + Date.now().toString(36)); }
+  function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+  function thisMonth() { return new Date().toISOString().slice(0, 7); }
+  function monthName(m) { return new Date(m + '-01T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); }
+  function fmt(iso) { return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''; }
+  function pub(path) { return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl; }
+  function copy(text, btn) {
+    navigator.clipboard.writeText(text).then(function () {
+      if (!btn) return; var o = btn.textContent; btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = o; }, 1400);
+    });
+  }
+  function bind(sel, attr, fn) {
+    Array.prototype.forEach.call(document.querySelectorAll(sel), function (b) {
+      b.addEventListener('click', function () { fn(b.getAttribute(attr), b); });
+    });
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) {
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (x) { x.classList.remove('on'); });
+      Array.prototype.forEach.call(document.querySelectorAll('section'), function (x) { x.classList.remove('on'); });
+      b.classList.add('on'); $('s-' + b.getAttribute('data-s')).classList.add('on');
+    });
+  });
+
+  function renderAll() { renderReview(); renderPublished(); renderQuestions(); renderEmail(); renderInvite(); }
+
+  /* ---------- review ---------- */
+  function personLine(v) {
+    return esc(v.name) + (v.title ? ', ' + esc(v.title) : '') + '<br><b>' + esc(v.org) + '</b>'
+      + (v.category ? ' <span class="tag">' + esc(v.category) + '</span>' : '');
+  }
+  function renderReview() {
+    var rows = D.pro_videos.filter(function (v) { return v.status === 'review'; })
+      .sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+    var pill = $('pillNew');
+    if (rows.length) { pill.textContent = rows.length; pill.classList.remove('hide'); } else { pill.classList.add('hide'); }
+    if (!rows.length) { $('reviewList').innerHTML = '<div class="card empty">Nothing waiting. When a professional sends one in it lands here and you get an email.</div>'; return; }
+    $('reviewList').innerHTML = rows.map(function (v) {
+      return '<div class="vcard"><video src="' + esc(pub(v.path)) + '" controls preload="metadata"></video><div class="b">'
+        + '<p class="q" style="margin-bottom:8px;">' + esc(v.prompt) + '</p>'
+        + '<p class="muted">' + personLine(v) + '</p>'
+        + (v.email || v.org_phone ? '<p class="muted" style="margin-top:6px;">' + esc(v.email || '') + (v.org_phone ? ' &middot; ' + esc(v.org_phone) : '') + '</p>' : '')
+        + (v.notes ? '<p class="muted" style="margin-top:6px;"><i>' + esc(v.notes) + '</i></p>' : '')
+        + '<p class="muted" style="margin-top:6px;">Sent ' + fmt(v.at) + ' &middot; ' + (v.seconds || '?') + ' sec</p>'
+        + '<div class="row" style="margin-top:12px;">'
+        + '<button class="btn sm good" data-pubv="' + v.id + '">Publish it</button>'
+        + '<button class="btn sm ghost" data-declinev="' + v.id + '">Decline</button>'
+        + '<button class="btn sm danger" data-delv="' + v.id + '">Delete</button>'
+        + '</div></div></div>';
+    }).join('');
+    bind('[data-pubv]', 'data-pubv', function (id) { setStatus(id, 'published'); });
+    bind('[data-declinev]', 'data-declinev', function (id) { setStatus(id, 'declined'); });
+    bind('[data-delv]', 'data-delv', delVideo);
+  }
+  function setStatus(id, status) {
+    var v = D.pro_videos.find(function (x) { return x.id === id; });
+    if (!v) return;
+    v.status = status;
+    if (status === 'published' && !v.published_at) v.published_at = new Date().toISOString();
+    save('pro_videos', v).then(function () { renderReview(); renderPublished(); renderEmail(); renderInvite(); });
+  }
+  function delVideo(id) {
+    var v = D.pro_videos.find(function (x) { return x.id === id; });
+    if (!v) return;
+    if (!confirm('Delete ' + v.name + "'s video for good?")) return;
+    sb.storage.from(BUCKET).remove([v.path]).catch(function () {});
+    drop('pro_videos', id).then(function () { renderReview(); renderPublished(); renderEmail(); renderInvite(); });
+  }
+
+  function renderPublished() {
+    var rows = D.pro_videos.filter(function (v) { return v.status === 'published'; })
+      .sort(function (a, b) { return String(b.published_at || b.at).localeCompare(String(a.published_at || a.at)); });
+    if (!rows.length) { $('pubList').innerHTML = '<div class="card empty">Nothing published yet.</div>'; return; }
+    $('pubList').innerHTML = rows.map(function (v) {
+      return '<div class="vcard"><video src="' + esc(pub(v.path)) + '" controls preload="metadata"></video><div class="b">'
+        + '<div class="row" style="justify-content:space-between;"><span class="tag good">live</span>'
+        + '<span class="muted">' + esc(monthName(v.month || thisMonth())) + '</span></div>'
+        + '<p class="q" style="margin:8px 0;">' + esc(v.prompt) + '</p>'
+        + '<p class="muted">' + personLine(v) + '</p>'
+        + '<div class="row" style="margin-top:12px;">'
+        + '<button class="btn sm ghost" data-clip="' + v.id + '">Copy their clip link</button>'
+        + '<button class="btn sm ghost" data-unpub="' + v.id + '">Take it down</button>'
+        + '<button class="btn sm danger" data-delv="' + v.id + '">Delete</button>'
+        + '</div></div></div>';
+    }).join('');
+    bind('[data-unpub]', 'data-unpub', function (id) { setStatus(id, 'review'); });
+    bind('[data-delv]', 'data-delv', delVideo);
+    bind('[data-clip]', 'data-clip', function (id, btn) {
+      var v = D.pro_videos.find(function (x) { return x.id === id; });
+      copy(GALLERY + '#v-' + id + '\n\nDirect video file: ' + pub(v.path), btn);
+    });
+  }
+
+  /* ---------- questions ---------- */
+  function monthOptions(sel, keep) {
+    var d = new Date(), out = [];
+    for (var i = -2; i <= 3; i++) {
+      var x = new Date(d.getFullYear(), d.getMonth() + i, 1);
+      out.push(x.toISOString().slice(0, 7));
+    }
+    D.pro_videos.forEach(function (v) { if (v.month && out.indexOf(v.month) < 0) out.push(v.month); });
+    out.sort().reverse();
+    sel.innerHTML = out.map(function (m) { return '<option value="' + m + '">' + monthName(m) + '</option>'; }).join('');
+    sel.value = (keep && out.indexOf(keep) > -1) ? keep : thisMonth();
+    return sel.value;
+  }
+  $('qMonth').addEventListener('change', renderQuestions);
+  $('qAdd').addEventListener('click', function () {
+    var t = $('qNew').value.trim(); if (!t) return;
+    var m = $('qMonth').value;
+    save('pro_prompts', { id: uid(), text: t, month: m, active: true, at: new Date().toISOString() })
+      .then(function () { $('qNew').value = ''; renderQuestions(); });
+  });
+  $('qSeed').addEventListener('click', function () {
+    var m = $('qMonth').value, chain = Promise.resolve();
+    $('qSeed').disabled = true;
+    STARTERS.forEach(function (t) {
+      chain = chain.then(function () { return save('pro_prompts', { id: uid(), text: t, month: m, active: true, at: new Date().toISOString() }); });
+    });
+    chain.then(function () { $('qSeed').disabled = false; renderQuestions(); });
+  });
+  function renderQuestions() {
+    var m = monthOptions($('qMonth'), $('qMonth').value);
+    var rows = D.pro_prompts.filter(function (p) { return (p.month || thisMonth()) === m; });
+    $('qSeedWrap').classList.toggle('hide', rows.length > 0);
+    $('qCount').textContent = rows.length + ' of 4 set for ' + monthName(m)
+      + (rows.length > 4 ? '. Only the first four show on the record page.' : '');
+    $('qList').innerHTML = rows.length ? rows.map(function (q, i) {
+      return '<div class="qrow"><span class="q" style="flex:1;">' + (i + 1) + '. ' + esc(q.text) + '</span>'
+        + '<button class="btn sm danger" data-qdel="' + q.id + '">Remove</button></div>';
+    }).join('') : '<p class="muted">No questions set for this month yet.</p>';
+    bind('[data-qdel]', 'data-qdel', function (id) { drop('pro_prompts', id).then(renderQuestions); });
+  }
+
+  /* ---------- the monthly email ---------- */
+  $('eMonth').addEventListener('change', renderEmail);
+  function renderEmail() {
+    var m = monthOptions($('eMonth'), $('eMonth').value);
+    var vids = D.pro_videos.filter(function (v) { return v.status === 'published' && (v.month || thisMonth()) === m; });
+    $('eSubject').value = vids.length
+      ? (vids.length === 1
+          ? '417 Caring Community: one minute from a neighbor of yours'
+          : '417 Caring Community: ' + vids.length + ' answers from your neighbors this month')
+      : '417 Caring Community: ' + monthName(m);
+    $('ePreview').innerHTML = vids.length
+      ? emailHtml(m, vids)
+      : '<p class="muted">Nothing published for ' + monthName(m) + ' yet. Publish a few and the email builds itself.</p>';
+  }
+  function emailHtml(m, vids) {
+    var head = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.65;color:#16283a;max-width:600px;margin:0 auto;">'
+      + '<div style="background:#0D365F;border-radius:14px;padding:26px 24px;text-align:center;color:#fff;">'
+      + '<div style="font-size:26px;font-weight:bold;">417 <span style="color:#F0A63A;">Caring</span> Community</div>'
+      + '<div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#8FD1C7;margin-top:8px;">One question. One minute.</div>'
+      + '<div style="font-size:12px;color:#9fb6c2;margin-top:12px;">Brought to you by Caring Companions In-Home Senior Care</div>'
+      + '</div>'
+      + '<p style="margin:24px 0 6px;">Here is the ' + monthName(m) + ' issue: ' + vids.length
+      + (vids.length === 1 ? ' answer' : ' answers') + ' from people who take care of seniors right here in the 417. '
+      + 'Every one is about a minute, and every one is somebody worth knowing.</p>';
+    var body = vids.map(function (v) {
+      var url = v.org_url ? (/^https?:\/\//i.test(v.org_url) ? v.org_url : 'https://' + v.org_url) : '';
+      return '<div style="border:1px solid #e4e1d8;border-radius:14px;padding:20px;margin:18px 0;background:#ffffff;">'
+        + '<div style="font-size:11px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:#C17A12;">' + escT(v.category || '') + '</div>'
+        + '<div style="font-family:Georgia,serif;font-size:19px;font-weight:bold;color:#0D365F;margin:8px 0 12px;">' + escT(v.prompt) + '</div>'
+        + '<div style="font-size:15px;">' + escT(v.name) + (v.title ? ', ' + escT(v.title) : '') + '</div>'
+        + '<div style="font-size:15px;font-weight:bold;color:#0D365F;">'
+        + (url ? '<a href="' + escT(url) + '" style="color:#1F7A8C;">' + escT(v.org) + '</a>' : escT(v.org)) + '</div>'
+        + (v.org_phone ? '<div style="font-size:14px;color:#55677a;margin-top:2px;">' + escT(v.org_phone) + '</div>' : '')
+        + '<div style="margin-top:14px;"><a href="' + GALLERY + '#v-' + v.id + '" '
+        + 'style="display:inline-block;background:#1F7A8C;color:#ffffff;font-weight:bold;font-size:15px;'
+        + 'padding:11px 22px;border-radius:9px;text-decoration:none;">Watch their minute &rarr;</a></div>'
+        + '</div>';
+    }).join('');
+    var tail = '<div style="background:#f2f0e9;border-radius:14px;padding:22px;margin-top:22px;text-align:center;">'
+      + '<div style="font-family:Georgia,serif;font-size:19px;font-weight:bold;color:#0D365F;">Want to be in next month\'s issue?</div>'
+      + '<p style="font-size:14.5px;color:#55677a;margin:8px 0 16px;">Answer one question, about a minute, from your phone. '
+      + 'We tag your organization so families can find you, and we send you the clip to post yourself.</p>'
+      + '<a href="' + SITE + '/417" style="display:inline-block;background:#0D365F;color:#ffffff;font-weight:bold;'
+      + 'font-size:15px;padding:12px 24px;border-radius:9px;text-decoration:none;">Record your minute &rarr;</a></div>'
+      + '<p style="font-size:13px;color:#55677a;margin-top:22px;text-align:center;">'
+      + 'Caring Companions In-Home Senior Care &middot; 1331 N Stewart Ave Ste B, Springfield MO 65802 &middot; (417) 234-8494<br>'
+      + 'We send this once a month to professionals who serve seniors in southwest Missouri.</p></div>';
+    return head + body + tail;
+  }
+  function escT(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function emailText(m, vids) {
+    return '417 CARING COMMUNITY — ' + monthName(m) + '\nOne question. One minute.\n'
+      + 'Brought to you by Caring Companions In-Home Senior Care\n\n'
+      + vids.map(function (v) {
+          return '• ' + v.prompt + '\n  ' + v.name + (v.title ? ', ' + v.title : '') + ' — ' + v.org
+            + (v.org_phone ? ' — ' + v.org_phone : '') + '\n  Watch: ' + GALLERY + '#v-' + v.id;
+        }).join('\n\n')
+      + '\n\nWant to be in next month\'s issue? Record your minute at ' + SITE + '/417';
+  }
+  $('eCopyHtml').addEventListener('click', function () {
+    var m = $('eMonth').value;
+    var vids = D.pro_videos.filter(function (v) { return v.status === 'published' && (v.month || thisMonth()) === m; });
+    if (!vids.length) return;
+    copy(emailHtml(m, vids), $('eCopyHtml'));
+  });
+  $('eCopyText').addEventListener('click', function () {
+    var m = $('eMonth').value;
+    var vids = D.pro_videos.filter(function (v) { return v.status === 'published' && (v.month || thisMonth()) === m; });
+    if (!vids.length) return;
+    copy(emailText(m, vids), $('eCopyText'));
+  });
+  $('eCopySubject').addEventListener('click', function () { copy($('eSubject').value, $('eCopySubject')); });
+
+  /* ---------- invite ---------- */
+  function inviteLink() {
+    var p = [];
+    if ($('iOrg').value.trim()) p.push('org=' + encodeURIComponent($('iOrg').value.trim()));
+    if ($('iName').value.trim()) p.push('name=' + encodeURIComponent($('iName').value.trim()));
+    return SITE + '/417-record' + (p.length ? '?' + p.join('&') : '');
+  }
+  function renderInvite() {
+    $('recLink').textContent = SITE + '/417';
+    $('recLink2').textContent = inviteLink();
+    $('inviteMsg').value = 'Hi [name], this is Samantha with Caring Companions.\n\n'
+      + 'We started something called the 417 Caring Community. One question, one minute, answered by the people who '
+      + 'actually take care of seniors around here. We publish them on our site and send them out to every professional '
+      + 'on our list each month.\n\n'
+      + 'I would love to have you in it. It takes about two minutes: open this link, pick whichever question you like, '
+      + 'record on your phone. We tag your organization underneath with a link so families can reach you, and we send '
+      + 'you the clip so you can post it too.\n\n'
+      + inviteLink() + '\n\n'
+      + 'No cost, no catch, and you never have to send us anything in return.';
+    var have = {};
+    D.pro_videos.forEach(function (v) { if (v.status === 'published') have[v.category] = (have[v.category] || 0) + 1; });
+    var missing = ALL_CATS.filter(function (c) { return !have[c]; });
+    var noms = D.pro_nominations.slice().sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+    $('nomList').innerHTML = noms.length ? noms.map(function (n) {
+      var done = n.status === 'invited' || n.status === 'passed';
+      return '<div class="card tight" style="margin:0 0 10px;' + (done ? 'opacity:.6;' : '') + '">'
+        + '<div class="row" style="justify-content:space-between;">'
+        + '<span class="name">' + esc(n.who_name || '(no name)') + (n.who_org ? ' <span class="muted">' + esc(n.who_org) + '</span>' : '') + '</span>'
+        + '<span class="tag' + (n.status === 'invited' ? ' good' : '') + '">' + esc(n.status || 'new') + '</span></div>'
+        + (n.category ? '<p class="muted">' + esc(n.category) + '</p>' : '')
+        + (n.who_contact ? '<p class="muted">Reach them: ' + esc(n.who_contact) + '</p>' : '')
+        + (n.why ? '<p class="muted" style="margin-top:4px;"><i>' + esc(n.why) + '</i></p>' : '')
+        + '<p class="muted" style="margin-top:4px;">' + (n.from_name ? 'From ' + esc(n.from_name) + (n.from_contact ? ' (' + esc(n.from_contact) + ')' : '') : 'Anonymous') + ' &middot; ' + fmt(n.at) + '</p>'
+        + '<div class="row" style="margin-top:10px;">'
+        + (n.status === 'invited' ? '' : '<button class="btn sm ghost" data-ninv="' + n.id + '">Mark invited</button>')
+        + '<button class="btn sm ghost" data-nmsg="' + n.id + '">Copy the ask</button>'
+        + '<button class="btn sm danger" data-ndel="' + n.id + '">Remove</button>'
+        + '</div></div>';
+    }).join('') : '<p class="muted">No nominations yet. The nominate page feeds this.</p>';
+    bind('[data-ninv]', 'data-ninv', function (id) {
+      var n = D.pro_nominations.find(function (x) { return x.id === id; });
+      n.status = 'invited'; save('pro_nominations', n).then(renderInvite);
+    });
+    bind('[data-ndel]', 'data-ndel', function (id) { drop('pro_nominations', id).then(renderInvite); });
+    bind('[data-nmsg]', 'data-nmsg', function (id, btn) {
+      var n = D.pro_nominations.find(function (x) { return x.id === id; });
+      var first = String(n.who_name || '').split(' ')[0] || 'there';
+      copy('Hi ' + first + ', this is Samantha with Caring Companions.\n\n'
+        + 'Someone in the community put your name forward for something we run called the 417 Caring Community. '
+        + 'One question, one minute, answered by the people who actually take care of seniors around here. '
+        + 'We publish them on our site and send them to every professional on our list each month.\n\n'
+        + 'It takes about two minutes and we tag ' + (n.who_org || 'your organization') + ' with a link so families can reach you. '
+        + 'We also send you the clip to post yourself.\n\n'
+        + SITE + '/417-record?org=' + encodeURIComponent(n.who_org || '') + '&name=' + encodeURIComponent(n.who_name || '')
+        + '\n\nNo cost, and nothing expected in return.', btn);
+    });
+
+    $('gaps').innerHTML = missing.length
+      ? missing.map(function (c) { return '<span class="tag warn" style="margin:0 6px 6px 0;display:inline-block;">' + esc(c) + '</span>'; }).join('')
+      : '<span class="tag good">Every field is covered. Nicely done.</span>';
+  }
+  ['iOrg', 'iName'].forEach(function (id) { $(id).addEventListener('input', renderInvite); });
+  $('copyRec').addEventListener('click', function () { copy(SITE + '/417', $('copyRec')); });
+  $('copyRec2').addEventListener('click', function () { copy(inviteLink(), $('copyRec2')); });
+  $('copyMsg').addEventListener('click', function () { copy($('inviteMsg').value, $('copyMsg')); });
+})();
+</script>
+</body>
+</html>

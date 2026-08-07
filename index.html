@@ -802,6 +802,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="ltcpolicy" onclick="switchTab('ltcpolicy')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> LTC Policy</div>
     <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="community" onclick="switchTab('community')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Community<span class="subtab-badge red" id="cmPillBadge" style="display:none;"></span></div>
+    <div class="fpill" onclick="location.href='game.html'"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Story Game</div>
+    <div class="fpill" onclick="location.href='series417.html'"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> 417 Series<span class="subtab-badge red" id="s417PillBadge" style="display:none;"></span></div>
   </div>
 
   <div class="fsubbar" id="fsub-sops">
@@ -6383,8 +6385,9 @@ function ccRenderSub2(tab){
 function renderFeedback(){
   const el=document.getElementById('fbList'); if(!el) return;
   const rows=(DATA.feedback||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
-  if(!rows.length){ el.innerHTML='<div class="fb-card" style="color:var(--text-muted);">Nothing yet. When someone taps a star in one of your emails, or sends a Caregiver of the Year nomination, it shows up here.</div>'; return; }
+  if(!rows.length){ el.innerHTML='<div class="fb-card" style="color:var(--text-muted);">Nothing yet. When someone taps a star in one of your emails, sends a Caregiver of the Year nomination, or records a video at mo-care.com/share-your-story, it shows up here.</div>'; return; }
   el.innerHTML=rows.map(f=>{
+    if(f.kind==='story') return fbStoryCard(f);
     const stars=f.kind==='nomination'?'🏆':'★★★★★'.slice(0,f.rating||0)+'<span style="color:var(--border);">'+'★★★★★'.slice(0,5-(f.rating||0))+'</span>';
     const low=f.kind==='rating'&&(f.rating||0)<=3;
     const when=f.at?new Date(f.at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
@@ -6402,9 +6405,49 @@ function renderFeedback(){
   }).join('');
   fbBadges();
 }
+// Video + written stories from mo-care.com/share-your-story. The video itself
+// lives in the private "stories" bucket; Watch makes a link that dies in an hour.
+function fbStoryCard(f){
+  const when=f.at?new Date(f.at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+  const pending=f.has_video&&f.status!=='ready';
+  const size=f.video_size?Math.max(1,Math.round(f.video_size/1048576))+' MB':'';
+  const len=f.video_seconds?Math.round(f.video_seconds)+' sec':'';
+  const bits=[len,size].filter(Boolean).join(' · ');
+  return '<div class="fb-card'+(f.seen?'':' unseen')+'">'
+    +'<div class="fb-top"><span class="fb-stars">'+(f.has_video?'🎥':'✍️')+'</span>'
+    +'<span class="fb-name">'+esc(f.name||'No name given')+'</span>'
+    +'<span class="fb-who">'+esc(f.who||'')+'</span>'
+    +'<span class="fb-who">'+(f.has_video?'video story':'written story')+'</span>'
+    +(pending?'<span class="fb-who fb-low">upload never finished</span>':'')
+    +'<span class="fb-when">'+when+'</span></div>'
+    +(f.message?'<div class="fb-msg">'+esc(f.message)+'</div>':'')
+    +(f.relationship?'<div class="fb-meta">'+esc(f.relationship)+'</div>':'')
+    +(f.caregiver?'<div class="fb-meta">Mentions: '+esc(f.caregiver)+'</div>':'')
+    +(f.contact?'<div class="fb-meta">Contact: '+esc(f.contact)+'</div>':'')
+    +'<div class="fb-meta">'+(f.release_signed?'✅ Release signed':'⚠️ No release on file')
+      +' · show them as: '+esc(f.display_pref||'first name only')+(bits?' · '+bits:'')+'</div>'
+    +'<div class="fb-actions">'
+    +((f.has_video&&!pending)?'<button class="btn btn-primary" onclick="fbWatch(\''+f.id+'\')">Watch video</button>':'')
+    +(f.seen?'':'<button class="btn btn-secondary" onclick="fbSeen(\''+f.id+'\')">Mark seen</button>')
+    +'<button class="btn btn-secondary" onclick="fbDelete(\''+f.id+'\')">Delete</button></div></div>';
+}
+async function fbWatch(id){
+  const f=(DATA.feedback||[]).find(x=>x.id===id);
+  if(!f||!f.video_path){ alert('No video was saved with this one.'); return; }
+  const { data, error } = await sb.storage.from('stories').createSignedUrl(f.video_path, 3600);
+  if(error||!data){ alert('Could not open that video: '+((error&&error.message)||'unknown error')); return; }
+  window.open(data.signedUrl,'_blank');
+  if(!f.seen){ f.seen=true; await persist('feedback',f); renderFeedback(); }
+}
 async function fbSeen(id){ const f=(DATA.feedback||[]).find(x=>x.id===id); if(!f) return; f.seen=true; await persist('feedback',f); renderFeedback(); }
 async function fbSeenAll(){ for(const f of (DATA.feedback||[])){ if(!f.seen){ f.seen=true; await persist('feedback',f); } } renderFeedback(); }
-async function fbDelete(id){ if(!confirm('Delete this feedback entry?')) return; await removeItem('feedback', id); DATA.feedback=(DATA.feedback||[]).filter(x=>x.id!==id); renderFeedback(); }
+async function fbDelete(id){
+  const f=(DATA.feedback||[]).find(x=>x.id===id);
+  const isStory=f&&f.kind==='story';
+  if(!confirm(isStory?'Delete this story? If there is a video, it is deleted too and cannot be recovered.':'Delete this feedback entry?')) return;
+  if(isStory&&f.video_path){ try{ await sb.storage.from('stories').remove([f.video_path]); }catch(e){} }
+  await removeItem('feedback', id); DATA.feedback=(DATA.feedback||[]).filter(x=>x.id!==id); renderFeedback();
+}
 function fbBadges(){
   const n=(DATA.feedback||[]).filter(f=>!f.seen).length;
   for(const id of ['fbBadge','fbPillBadge']){ const b=document.getElementById(id); if(b){ b.textContent=n; b.style.display=n?'':'none'; } }
