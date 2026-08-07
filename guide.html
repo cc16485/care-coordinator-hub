@@ -310,6 +310,15 @@
   <p class="lead">Three different conversations. The words matter less than the order: what it is, what it pays for, what it costs them. Say the cost part early, because everybody is waiting for the catch.</p>
 
   <div class="card">
+    <h3>The page to send them</h3>
+    <p class="muted">Families can check eligibility themselves at <b>mo-care.com/guide</b>, which is the short link on the flyers and lands on the full page. Whatever they answer comes to us as a lead with the answers attached, so you already know where they stand before you call.</p>
+    <div class="row" style="margin-top:12px;">
+      <button class="btn sm ghost" id="copyPub">Copy mo-care.com/guide</button>
+      <a class="btn sm ghost" href="https://mo-care.com/medicare-guide" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;">Open it</a>
+    </div>
+  </div>
+
+  <div class="card">
     <h3>The one sentence, if you only get one</h3>
     <div class="say">Medicare started a new program for people with dementia, and it pays for someone to come sit with your mother so you can leave the house. It does not cost you anything, and it does not replace her doctor.</div>
     <p class="muted">Do not lead with the name. "GUIDE" means nothing to a family and sounds like a brochure. Lead with what it does.</p>
@@ -743,6 +752,7 @@
     return v.classList.contains('yes') ? 'yes' : v.classList.contains('no') ? 'no' : v.classList.contains('ask') ? 'ask' : 'wait';
   }
 
+  $('copyPub').addEventListener('click', function () { copy('https://mo-care.com/guide', this); });
   $('copySum').addEventListener('click', function () { copy($('summary').value, this); });
   $('emailSum').addEventListener('click', function () {
     var subj = 'GUIDE screening: ' + ($('pName').value || 'new patient');
