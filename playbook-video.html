@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The video playbook &mdash; Caring Companions</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="icon" href="cc-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy:#0D365F; --cta:#1F7A8C; --cta-h:#155A68; --honey:#F0A63A; --deep-honey:#C17A12;
+         --cream:#faf9f6; --panel:#f2f0e9; --ink:#16283a; --muted:#55677a; --border:#e4e1d8; --pale:#EAF4F6;
+         --green:#0f7a4d; --green-bg:#e8f6ef; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:'Inter',Helvetica,Arial,sans-serif; background:var(--cream); color:var(--ink);
+        font-size:16px; line-height:1.65; }
+  .serif{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; }
+  header{ background:var(--navy); color:#fff; padding:16px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header img{ height:32px; }
+  header .ttl{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:19px; }
+  header a{ color:#fff; font-size:13px; text-decoration:underline; opacity:.85; }
+  header .sp{ margin-left:auto; }
+  nav{ background:#fff; border-bottom:1px solid var(--border); padding:0 18px; display:flex; gap:4px;
+       overflow-x:auto; position:sticky; top:0; z-index:10; }
+  nav a{ font-size:14.5px; font-weight:600; color:var(--muted); text-decoration:none; padding:14px 13px;
+         white-space:nowrap; border-bottom:3px solid transparent; }
+  nav a:hover{ color:var(--cta); }
+  main{ max-width:780px; margin:0 auto; padding:28px 20px 90px; }
+  h1{ font-size:31px; color:var(--navy); margin:0 0 8px; letter-spacing:-.01em; }
+  .lede{ font-size:17px; color:var(--muted); margin:0 0 8px; }
+  h2{ font-size:23px; color:var(--navy); margin:44px 0 6px; padding-top:22px; border-top:2px solid var(--border); }
+  h2:first-of-type{ border-top:none; padding-top:0; }
+  h3{ font-size:17px; color:var(--navy); margin:26px 0 8px; }
+  p{ margin:0 0 12px; }
+  .muted{ color:var(--muted); font-size:14.5px; }
+  ol.steps{ counter-reset:s; list-style:none; margin:16px 0 0; }
+  ol.steps li{ position:relative; padding:0 0 20px 44px; }
+  ol.steps li::before{ counter-increment:s; content:counter(s); position:absolute; left:0; top:0;
+    width:30px; height:30px; border-radius:50%; background:var(--navy); color:#fff; font-size:14px;
+    font-weight:700; display:flex; align-items:center; justify-content:center; }
+  ol.steps b{ color:var(--navy); }
+  .script{ background:#fff; border:1px solid var(--border); border-left:4px solid var(--honey);
+    border-radius:12px; padding:18px 20px; margin:14px 0; }
+  .script .lbl{ font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--deep-honey); margin-bottom:8px; }
+  .script .body{ font-family:'Source Serif 4',Georgia,serif; font-size:16.5px; line-height:1.7; white-space:pre-wrap; }
+  .script button{ margin-top:12px; font-family:inherit; font-size:13px; font-weight:700; background:#fff;
+    color:var(--navy); border:1px solid var(--border); border-radius:8px; padding:8px 14px; cursor:pointer; }
+  .script button:hover{ background:var(--pale); border-color:var(--cta); color:var(--cta); }
+  .why{ background:var(--pale); border-radius:12px; padding:15px 18px; font-size:14.5px; color:var(--ink);
+    line-height:1.65; margin:12px 0; }
+  .why b{ color:var(--navy); }
+  .never{ background:#fdf0f0; border-radius:12px; padding:15px 18px; font-size:14.5px; line-height:1.65; margin:12px 0; }
+  .never b{ color:#a33; }
+  ul.plain{ list-style:none; margin:10px 0; }
+  ul.plain li{ padding:7px 0 7px 26px; position:relative; font-size:15.5px; }
+  ul.plain li::before{ content:"—"; position:absolute; left:0; color:var(--honey); font-weight:700; }
+  .go{ display:inline-block; background:var(--cta); color:#fff; font-weight:700; font-size:15px;
+    padding:11px 20px; border-radius:10px; text-decoration:none; margin:6px 8px 6px 0; }
+  .go:hover{ background:var(--cta-h); }
+  .go.ghost{ background:#fff; color:var(--navy); border:1px solid var(--border); }
+  @media print{
+    nav, header .sp, .script button, .go{ display:none !important; }
+    body{ background:#fff; font-size:12pt; }
+    main{ max-width:none; padding:0; }
+    h2{ page-break-after:avoid; }
+    .script, .why, .never{ page-break-inside:avoid; }
+    @page{ margin:14mm; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <img src="cc-logo.png" alt="">
+  <span class="ttl">The video playbook</span>
+  <a href="index.html">&larr; Hub</a>
+  <span class="sp"></span>
+  <a href="game.html">Story Game</a>
+  <a href="series417.html">417 Series</a>
+  <a href="javascript:window.print()">Print</a>
+</header>
+<nav>
+  <a href="#start">Start here</a>
+  <a href="#families">Asking families</a>
+  <a href="#caregivers">Asking caregivers</a>
+  <a href="#game">The Story Game</a>
+  <a href="#417">The 417 series</a>
+  <a href="#filming">How to film</a>
+  <a href="#after">After a yes</a>
+</nav>
+<main>
+
+  <h1 class="serif">The video playbook</h1>
+  <p class="lede">Everything is built and live. None of it works until somebody asks. Here is exactly what to say.</p>
+
+  <h2 class="serif" id="start">Start here: the first twenty minutes</h2>
+  <ol class="steps">
+    <li><b>Load the questions.</b> Open <a href="game.html">Story Game &rarr; Questions</a> and press "Load the 40 starter questions." Then open <a href="series417.html">417 Series &rarr; This month's 4</a> and press "Use the four starter questions." Two clicks, and both systems have something to ask.</li>
+    <li><b>Add one caregiver.</b> Story Game &rarr; Caregivers. Pick the one who talks to their clients the most, not the one who has been here longest. Copy the text and send it.</li>
+    <li><b>Add one client.</b> Story Game &rarr; Clients. Pick a family you already have a good relationship with. Record who consented and how, then send them their library link and codes.</li>
+    <li><b>Ask three families.</b> Pull your last three five-star Google reviewers and send them the story text below. They already said it in writing, you are only asking them to say it out loud.</li>
+    <li><b>Print the 417 handout.</b> <a href="https://mo-care.com/417-onepager" target="_blank" rel="noopener">mo-care.com/417-onepager</a>, take a stack to your next networking meeting, and record four people on the spot.</li>
+  </ol>
+  <div class="why"><b>Do the last one in person.</b> An empty gallery does not recruit anybody. Four familiar local faces recruits the next twenty by itself, because the first thing every professional asks is who else is in it.</div>
+
+  <h2 class="serif" id="families">Asking a family for a story</h2>
+  <p class="muted">Best moment: within 48 hours of them saying something kind. The first good week, a covered emergency, a smooth hospital discharge, the 90-day mark, or right after a five-star review.</p>
+
+  <div class="script">
+    <div class="lbl">In person, on a visit</div>
+    <div class="body" id="s1">Would you record a 60-second video for me on my phone? Two questions, no script, and if you hate it we delete it right here. It helps the next family more than anything we could write ourselves.</div>
+    <button onclick="cp('s1',this)">Copy</button>
+  </div>
+
+  <div class="script">
+    <div class="lbl">Text message</div>
+    <div class="body" id="s2">Hi [name], it's Samantha at Caring Companions. What you said about [caregiver] has stayed with me. Would you be willing to record about a minute on your phone answering three easy questions? It helps other families in the same spot know what good care looks like.
+
+No script and no editing, and you can delete it if you don't like it: mo-care.com/share-your-story</div>
+    <button onclick="cp('s2',this)">Copy</button>
+  </div>
+
+  <div class="why"><b>Why this works:</b> a time cap, no preparation, and an escape hatch. The delete promise is what converts the hesitant ones. Never say "testimonial."</div>
+  <div class="never"><b>Never</b> offer a client cash or a gift card for a story. If any part of their care touches Medicaid, paying for a testimonial creates a problem you do not need. Say thank you with a framed photo, a note, or their name in the newsletter.</div>
+
+  <h2 class="serif" id="caregivers">Asking a caregiver for a story</h2>
+  <p class="muted">Best moment: after a raise, a bonus, Caregiver of the Month, a 6-month or 1-year anniversary, or right after they refer a friend.</p>
+
+  <div class="script">
+    <div class="lbl">Text message</div>
+    <div class="body" id="s3">[First name], I want to brag on you. Would you record about a minute on your phone about why you stay? Three questions, no script, and it goes on our careers page to help us find more people like you.
+
+mo-care.com/share-your-story?who=caregiver
+
+There's a $25 gift card in it for you either way, and no hard feelings if it's not your thing.</div>
+    <button onclick="cp('s3',this)">Copy</button>
+  </div>
+  <div class="why"><b>Caregivers you can pay.</b> Gift cards, jeans day, an extra PTO hour, a monthly drawing. Announce it as a standing offer in the group chat. If you do give anything of value, the video needs a line on screen saying so.</div>
+
+  <h2 class="serif" id="game">The Story Game: getting a client in</h2>
+  <p>Consent comes first and it is recorded in the hub. This is what to say on the phone to the family decision maker.</p>
+
+  <div class="script">
+    <div class="lbl">Phone call to the family decision maker</div>
+    <div class="body" id="s4">I wanted to run something by you. Each week we give our caregivers a fun question to ask, things like what was your first car, or what did your kitchen smell like growing up. If it's alright with you, [caregiver] would record [client]'s answer on her phone, just a minute or two.
+
+We keep them in a private library only your family can see, and I'll send you a link and a code. Nothing is ever posted anywhere unless you specifically say yes to that video.
+
+The honest reason I'm asking: in a few years those little clips are going to matter to your family a great deal more than they matter to us.</div>
+    <button onclick="cp('s4',this)">Copy</button>
+  </div>
+
+  <div class="why"><b>Write down exactly what they said</b> in the consent box when you add them, including the date and whether it was verbal or signed. That box is your record if anyone ever questions it.</div>
+  <div class="never"><b>If the client has dementia,</b> consent comes from the responsible party, and the caregiver still asks the client in the moment every single time. If the client seems uneasy, that is a no. A caregiver never loses points for a no.</div>
+
+  <h3>What the caregiver needs to hear</h3>
+  <ul class="plain">
+    <li>Ask them first, every time, even with consent on file.</li>
+    <li>If they say no, that is a complete answer and it costs you nothing.</li>
+    <li>Never film someone during personal care, when they are upset, or undressed.</li>
+    <li>Short and real beats long and perfect.</li>
+    <li>The family hearts you get are worth more points than the number you film.</li>
+  </ul>
+
+  <h2 class="serif" id="417">The 417 series: getting professionals in</h2>
+  <p class="muted">The ask that works is not "will you help us." It is "we would like to give you free exposure to families."</p>
+
+  <div class="script">
+    <div class="lbl">In person at a networking meeting</div>
+    <div class="body" id="s5">We started something called the 417 Caring Community. One question, one minute, from the people who actually take care of seniors around here. I've got two minutes right now if you want to do yours on my phone. We tag your organization underneath with a link so families can reach you, and I'll send you the clip to post yourself.</div>
+    <button onclick="cp('s5',this)">Copy</button>
+  </div>
+
+  <div class="script">
+    <div class="lbl">Email</div>
+    <div class="body" id="s6">Subject: One minute of your time, for families in the 417
+
+Hi [name],
+
+We run something called the 417 Caring Community: one question, one minute, answered by the professionals who take care of seniors around here. We publish them on our site and send them to every professional on our list each month.
+
+I'd like you in it. It takes about two minutes: open the link, pick whichever of this month's four questions you like, record on your phone. We tag your organization with a link so families can reach you, and we send you the clip so you can post it too.
+
+mo-care.com/417
+
+No cost, no catch, and nothing expected in return.
+
+Samantha</div>
+    <button onclick="cp('s6',this)">Copy</button>
+  </div>
+
+  <div class="why"><b>Start with the people who already refer to you</b>, then work the "who you are missing" list in the 417 Series screen. Hospice, elder law, VA, senior centers and Medicare brokers are the easy yeses, because none of them compete with you.</div>
+  <div class="never"><b>No selling inside the series.</b> Your name at the top and nothing else. No "call Caring Companions" button on a partner's card, no ranking partners, no leaving somebody out because they are adjacent to what you do. The moment it reads as an ad, professionals stop wanting in and the whole thing is worth nothing.</div>
+
+  <h2 class="serif" id="filming">How to film one in 30 seconds of setup</h2>
+  <ul class="plain">
+    <li>Phone upright for social, sideways for the website. Upright is the safer default.</li>
+    <li>Face a window so the light is on their face, never a window behind them.</li>
+    <li>Quiet room. TV off. That is the one thing that ruins more clips than anything else.</li>
+    <li>Phone about chest height, arm's length away, hold it with both hands.</li>
+    <li>Record two takes. The second one is always better because they have relaxed.</li>
+    <li>Do not let them write anything down. Read them the question and let them talk.</li>
+  </ul>
+  <div class="why"><b>Keep it imperfect.</b> Kitchen table, real accent, slightly shaky. Polished corporate video reads as fake to families around here and converts worse than raw phone footage.</div>
+
+  <h2 class="serif" id="after">After a family says yes</h2>
+  <ol class="steps">
+    <li><b>Thank them the same day.</b> They did you a real favor and it takes one text.</li>
+    <li><b>Get more than one thing out of it.</b> A 60-second cut for the website, two or three 15-second vertical clips for Reels and TikTok, one still frame with a pull quote, and the transcript as a written testimonial.</li>
+    <li><b>Send the person their own clip.</b> Especially caregivers and 417 partners. Them posting it to their own audience is worth more than you posting it to yours.</li>
+    <li><b>Caregiver stories are recruiting ads.</b> Put them on the careers page and behind your job postings before you put them anywhere else.</li>
+  </ol>
+
+  <p style="margin-top:34px;">
+    <a class="go" href="game.html">Open the Story Game</a>
+    <a class="go" href="series417.html">Open the 417 Series</a>
+    <a class="go ghost" href="https://mo-care.com/417-onepager" target="_blank" rel="noopener">Print the 417 handout</a>
+  </p>
+</main>
+
+<script>
+function cp(id, btn){
+  navigator.clipboard.writeText(document.getElementById(id).textContent.trim()).then(function(){
+    var o = btn.textContent; btn.textContent = 'Copied';
+    setTimeout(function(){ btn.textContent = o; }, 1400);
+  });
+}
+</script>
+</body>
+</html>
