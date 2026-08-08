@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Virtual caregiving ads &mdash; Caring Companions</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="icon" href="cc-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy:#0D365F; --cta:#1F7A8C; --cta-h:#155A68; --honey:#F0A63A; --deep-honey:#C17A12;
+         --cream:#faf9f6; --panel:#f2f0e9; --ink:#16283a; --muted:#55677a; --border:#e4e1d8; --pale:#EAF4F6;
+         --green:#0f7a4d; --green-bg:#e8f6ef; --red:#a33; --red-bg:#fdf0f0; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:'Inter',Helvetica,Arial,sans-serif; background:var(--cream); color:var(--ink); font-size:16px; line-height:1.65; }
+  .serif{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; }
+  header{ background:var(--navy); color:#fff; padding:16px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header img{ height:32px; }
+  header .ttl{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:19px; }
+  header a{ color:#fff; font-size:13px; text-decoration:underline; opacity:.85; }
+  header .sp{ margin-left:auto; }
+  nav{ background:#fff; border-bottom:1px solid var(--border); padding:0 18px; display:flex; gap:4px; overflow-x:auto; position:sticky; top:0; z-index:10; }
+  nav a{ font-size:14.5px; font-weight:600; color:var(--muted); text-decoration:none; padding:14px 13px; white-space:nowrap; }
+  nav a:hover{ color:var(--cta); }
+  main{ max-width:820px; margin:0 auto; padding:28px 20px 90px; }
+  h1{ font-size:31px; color:var(--navy); margin:0 0 8px; letter-spacing:-.01em; }
+  .lede{ font-size:17px; color:var(--muted); margin:0 0 6px; }
+  h2{ font-size:23px; color:var(--navy); margin:44px 0 6px; padding-top:22px; border-top:2px solid var(--border); }
+  h2:first-of-type{ border-top:none; padding-top:0; }
+  h3{ font-size:16.5px; color:var(--navy); margin:24px 0 6px; }
+  p{ margin:0 0 12px; }
+  .muted{ color:var(--muted); font-size:14.5px; }
+  .copy{ background:#fff; border:1px solid var(--border); border-left:4px solid var(--honey); border-radius:12px; padding:18px 20px; margin:14px 0; }
+  .copy .lbl{ font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--deep-honey); margin-bottom:8px; }
+  .copy .body{ font-family:'Source Serif 4',Georgia,serif; font-size:16px; line-height:1.7; white-space:pre-wrap; }
+  .copy button{ margin-top:12px; font-family:inherit; font-size:13px; font-weight:700; background:#fff; color:var(--navy);
+    border:1px solid var(--border); border-radius:8px; padding:8px 14px; cursor:pointer; }
+  .copy button:hover{ background:var(--pale); border-color:var(--cta); color:var(--cta); }
+  .why{ background:var(--pale); border-radius:12px; padding:15px 18px; font-size:14.5px; line-height:1.65; margin:12px 0; }
+  .why b{ color:var(--navy); }
+  .never{ background:var(--red-bg); border-radius:12px; padding:15px 18px; font-size:14.5px; line-height:1.65; margin:12px 0; }
+  .never b{ color:var(--red); }
+  .nums{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:16px 0; }
+  .nums div{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px; text-align:center; }
+  .nums .n{ font-family:'Source Serif 4',Georgia,serif; font-size:28px; color:var(--navy); }
+  .nums .l{ font-size:13px; color:var(--muted); line-height:1.5; margin-top:4px; }
+  ul.plain{ list-style:none; margin:10px 0; }
+  ul.plain li{ padding:7px 0 7px 26px; position:relative; font-size:15.5px; }
+  ul.plain li::before{ content:"—"; position:absolute; left:0; color:var(--honey); font-weight:700; }
+  .ad{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:20px 22px; margin:16px 0; }
+  .ad .top{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:4px; }
+  .ad .name{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:19px; color:var(--navy); }
+  .ad .pill{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+    background:var(--pale); color:var(--cta); border-radius:999px; padding:3px 10px; }
+  .fld{ margin-top:14px; }
+  .fld .k{ font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--deep-honey); margin-bottom:6px; }
+  .fld .v{ background:var(--cream); border:1px solid var(--border); border-radius:10px; padding:13px 15px;
+    font-size:15px; line-height:1.7; white-space:pre-wrap; }
+  .fld .v.one{ white-space:normal; }
+  .cbtn{ margin-top:8px; font-family:inherit; font-size:13px; font-weight:700; background:#fff; color:var(--navy);
+    border:1px solid var(--border); border-radius:8px; padding:7px 13px; cursor:pointer; }
+  .cbtn:hover{ background:var(--pale); border-color:var(--cta); color:var(--cta); }
+  .shot{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin:14px 0; }
+  .shot figure{ margin:0; }
+  .shot img{ width:100%; border-radius:10px; border:1px solid var(--border); display:block; }
+  .shot figcaption{ font-size:12.5px; color:var(--muted); margin-top:6px; text-align:center; }
+  table{ width:100%; border-collapse:collapse; font-size:15px; margin:14px 0; }
+  th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted);
+    padding:9px 10px; border-bottom:1px solid var(--border); }
+  td{ padding:11px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  @media print{ nav, .copy button, header .sp{ display:none !important; } body{ background:#fff; } main{ max-width:none; padding:0; } }
+  @media (max-width:600px){ .nums{ grid-template-columns:1fr; } }
+
+  .hubtabs{ background:var(--navy); padding:8px 14px 0; display:flex; gap:4px; align-items:flex-end; overflow-x:auto; }
+  .hubtabs a{ font-family:inherit; font-size:13px; font-weight:600; color:rgba(255,255,255,.78);
+              text-decoration:none; padding:8px 16px; border-radius:9px 9px 0 0; white-space:nowrap; }
+  .hubtabs a:hover{ color:#fff; background:rgba(255,255,255,.08); }
+  .hubtabs a.on{ background:var(--cream); color:var(--navy); font-weight:800; margin-bottom:-1px; }
+  html.embedded header img, html.embedded header a[href="index.html"]{ display:none; }
+</style>
+</head>
+<body>
+<header>
+  <img src="cc-logo.png" alt="">
+  <span class="ttl">Virtual caregiving ads</span>
+  <a href="index.html">&larr; Hub</a>
+  <span class="sp"></span>
+  <a href="https://mo-care.com/hometogether" target="_blank" rel="noopener">The page &#8599;</a>
+  <a href="javascript:window.print()">Print</a>
+</header>
+<div class="hubtabs"><a href="/#leads">Leads</a><a href="/#clients">Clients</a><a href="/#campaigns">Marketing</a><a href="/guide">GUIDE</a><a href="/game">Story Game</a><a href="/series417">417 Series</a><a href="/playbook-offer">20-Hour Offer</a><a href="/playbook-virtual" class="on">Virtual Ads</a></div>
+<nav>
+  <a href="#read">Read this first</a><a href="#copy">The ads</a><a href="#art">Artwork</a>
+  <a href="#set">Setting it up</a><a href="#watch">What to watch</a>
+</nav>
+<main>
+<h1>Facebook ads for virtual caregiver visits</h1>
+<p class="lede">Three ads, nine images, and the settings to run them. Everything here points at <b>mo-care.com/hometogether</b>, where the visit builder does the selling.</p>
+
+<h2 id="read">Read this first, or the ads get rejected</h2>
+<div class="never">
+<b>Never write "you" or "your mother" in a way that implies we know something about the person reading.</b> Meta's personal attributes policy forbids ads that assert or imply knowledge of somebody's health, condition, or circumstances, and elder care trips it constantly. This is the single most common reason an ad like this gets disapproved.
+<div style="margin-top:10px;">
+<b>Rejected:</b> "Caring for a parent with dementia?" &middot; "Worried about your mom living alone?" &middot; "Is your father forgetting his medications?"<br>
+<b>Fine:</b> "Most families do not need somebody in the house all day." &middot; "Caring Companions caregivers check in by video." &middot; "Dorothy's television comes on by itself."
+</div>
+<div style="margin-top:10px;">Every ad below is written in the third person for exactly this reason. If you rewrite one, keep it describing <i>us</i> or <i>a family</i>, never <i>you</i>.</div>
+</div>
+<div class="why">
+<b>The other thing that changed:</b> Meta removed health-related interest targeting in 2022, so you cannot target "Alzheimer's disease" or "caregiving" as interests any more. Do not go hunting for them. Broad targeting with a good creative now beats clever targeting, which is genuinely how it works today.
+</div>
+
+<h2 id="copy">The three ads</h2>
+<p>Run all three at once in one ad set and let Meta find the winner. Do not run them in separate ad sets, that splits the learning and costs more to get nowhere.</p>
+<div class="ad">
+  <div class="top"><span class="name">Ad 1. The moment</span><span class="pill">Start here</span></div>
+  <p class="muted">Shows the thing no competitor shows: what actually happens in a visit. Works because it is specific. “Show me the plate” is not something a stock-photo agency would ever write.</p>
+  <div class="fld"><div class="k">Primary text</div><div class="v" id="a1p">At nine in the morning, Dorothy's television comes on by itself. Denise is already there.
+
+She asks whether the blue pill went down with breakfast. Then she asks to see the plate. Not "did you eat," but show me. That is the difference between a phone call and a visit.
+
+Caring Companions caregivers make video check-ins on the television that is already in the living room. Every weekday. Medications watched, meals checked, and somebody who notices when a day looks different from the last one.
+
+From $75 a week, which is less than one four-hour in-home visit.</div>
+    <button class="cbtn" data-c="a1p">Copy</button></div>
+  <div class="fld"><div class="k">Headline</div><div class="v one" id="a1h">A caregiver looks in every weekday</div>
+    <button class="cbtn" data-c="a1h">Copy</button></div>
+  <div class="fld"><div class="k">Description</div><div class="v one" id="a1d">From $75 a week. Springfield and southwest Missouri.</div>
+    <button class="cbtn" data-c="a1d">Copy</button></div>
+</div>
+<div class="ad">
+  <div class="top"><span class="name">Ad 2. The price</span><span class="pill">Best for cold traffic</span></div>
+  <p class="muted">The comparison is the argument. Put a number next to a number and let people do the arithmetic themselves.</p>
+  <div class="fld"><div class="k">Primary text</div><div class="v" id="a2p">In-home care comes in four-hour blocks. Around here that is roughly $120 for one afternoon.
+
+A whole week of daily video check-ins from a Caring Companions caregiver starts at $75.
+
+Five days of somebody looking in, for less than one afternoon of somebody sitting. Medications watched, meals checked, and a real conversation, on the television already in the living room.
+
+Pick what each visit should cover and the price works itself out.</div>
+    <button class="cbtn" data-c="a2p">Copy</button></div>
+  <div class="fld"><div class="k">Headline</div><div class="v one" id="a2h">Five days of care for less than one visit</div>
+    <button class="cbtn" data-c="a2h">Copy</button></div>
+  <div class="fld"><div class="k">Description</div><div class="v one" id="a2d">Daily video check-ins from $75 a week.</div>
+    <button class="cbtn" data-c="a2d">Copy</button></div>
+</div>
+<div class="ad">
+  <div class="top"><span class="name">Ad 3. The gap</span><span class="pill">Best for retargeting</span></div>
+  <p class="muted">Names the objection nobody says out loud. People who have priced home care and walked away will recognise themselves in this one.</p>
+  <div class="fld"><div class="k">Primary text</div><div class="v" id="a3p">Most families do not need somebody in the house all day.
+
+They need somebody there at eight in the morning when the pills matter, and again at six when the day gets long. But in-home care comes in four-hour blocks, so a family who needs twenty minutes twice a day pays for eight hours or goes without.
+
+Almost everyone goes without. And then worries all day.
+
+Caring Companions virtual caregiver visits are built for exactly that gap. A real caregiver, on the television, every weekday, from $75 a week.</div>
+    <button class="cbtn" data-c="a3p">Copy</button></div>
+  <div class="fld"><div class="k">Headline</div><div class="v one" id="a3h">Nobody needs four hours</div>
+    <button class="cbtn" data-c="a3h">Copy</button></div>
+  <div class="fld"><div class="k">Description</div><div class="v one" id="a3d">Fifteen minutes, twice a day, from $75 a week.</div>
+    <button class="cbtn" data-c="a3d">Copy</button></div>
+</div>
+<div class="why">
+<b>Call to action button:</b> Learn More on all three. Not "Sign Up" or "Get Offer," which set an expectation the page does not meet. <b>Destination:</b> <code>https://mo-care.com/hometogether#plan</code> so people land on the builder rather than scrolling to find it.
+</div>
+
+<h2 id="art">The artwork</h2>
+<p>Nine files on the Desktop in <b>Virtual Caregiving Ads</b>. Three messages, three shapes. Upload the portrait one as the main image and let Meta crop the rest, or upload each shape for its own placement if you want it exact.</p>
+<div class="shot">
+  <figure><img src="ads/vc-moment-portrait.jpg" alt="The moment ad"><figcaption>Moment &middot; 1080&times;1350</figcaption></figure>
+  <figure><img src="ads/vc-price-portrait.jpg" alt="The price ad"><figcaption>Price &middot; 1080&times;1350</figcaption></figure>
+  <figure><img src="ads/vc-gap-portrait.jpg" alt="The gap ad"><figcaption>Gap &middot; 1080&times;1350</figcaption></figure>
+</div>
+<table>
+  <tr><th>Shape</th><th>Size</th><th>Where it runs</th></tr>
+  <tr><td><b>Portrait</b></td><td>1080 &times; 1350</td><td>Facebook and Instagram feed. This is the one that performs, it takes up the most screen.</td></tr>
+  <tr><td>Square</td><td>1080 &times; 1080</td><td>Feed fallback, right column, older placements.</td></tr>
+  <tr><td>Story</td><td>1080 &times; 1920</td><td>Stories and Reels.</td></tr>
+</table>
+<p class="muted">Pair each image with its matching copy: moment artwork with the moment text. Mixing them works but the pairs were written to reinforce each other.</p>
+
+<h2 id="set">Setting it up</h2>
+<h3>Campaign</h3>
+<ul class="plain">
+  <li>Objective: <b>Leads</b> if you want Meta optimising for form fills, or <b>Traffic</b> to start cheap and see whether anyone bites. Traffic first is the honest choice for a new offer.</li>
+  <li>One campaign, one ad set, three ads.</li>
+  <li>Advantage campaign budget on.</li>
+</ul>
+<h3>Audience</h3>
+<ul class="plain">
+  <li><b>Location:</b> Springfield plus 25 miles. Add Nixa, Ozark, Republic, Bolivar, Branson and Willard by name if the radius misses them.</li>
+  <li><b>Age:</b> 45 to 70. The buyer is the adult child, not the person receiving care.</li>
+  <li><b>Gender:</b> all. Daughters buy more of this than sons, but let the algorithm find that out rather than deciding it for it.</li>
+  <li><b>Detailed targeting:</b> leave it empty. See the note above about health interests being gone. Broad plus good creative is the play.</li>
+  <li><b>Advantage+ audience:</b> on.</li>
+</ul>
+<h3>Budget</h3>
+<div class="nums">
+  <div><div class="n">$20</div><div class="l">a day to start, for two weeks</div></div>
+  <div><div class="n">$280</div><div class="l">what that test costs you</div></div>
+  <div><div class="n">1</div><div class="l">client at 15 min daily pays it back in about 4 weeks</div></div>
+</div>
+<p class="muted">Do not touch it for the first four days no matter what the numbers say. Meta needs roughly fifty conversion events to leave the learning phase, and turning knobs restarts the clock.</p>
+<h3>Before you press go</h3>
+<ul class="plain">
+  <li>Meta pixel firing on mo-care.com. Without it you are flying blind and cannot retarget.</li>
+  <li>Whoever answers the phone knows this offer exists and what it costs. An ad that works and a coordinator who says "let me find out" wastes the money.</li>
+  <li>Decide now who calls a lead back and how fast. Same day, or the ad is a donation.</li>
+</ul>
+
+<h2 id="watch">What to watch, and what to ignore</h2>
+<table>
+  <tr><th>Number</th><th>What it means</th><th>What to do</th></tr>
+  <tr><td><b>Cost per click</b></td><td>Under about $1.50 is healthy for this audience.</td><td>Above $3, the creative is not landing. Change the image before the words.</td></tr>
+  <tr><td><b>Click-through rate</b></td><td>Over 1% means the ad is doing its job.</td><td>Under 0.6% after 5,000 impressions, kill that ad and put the budget on the other two.</td></tr>
+  <tr><td><b>Cost per lead</b></td><td>The only number that matters.</td><td>Judge it against what a client is worth, not against what a click costs.</td></tr>
+  <tr><td>Likes and shares</td><td>Almost nothing.</td><td>Ignore. A quiet ad that produces three calls beats a popular one that produces none.</td></tr>
+</table>
+<div class="why">
+<b>The comment you will get, and the answer:</b> somebody will write "so it's just a video call?" under the ad, probably in the first week. Reply publicly and plainly: it is a caregiver, at a set time, who watches the medications go down and tells the family what they saw. A phone call cannot do any of that. Answering it in the comments is free advertising, and leaving it there costs you the next ten readers.
+</div>
+<div class="never">
+<b>Turn the ads off if you cannot staff the visits.</b> Nothing costs more than a family who calls, hears yes, and then waits. Check capacity before you scale the budget, not after.
+</div>
+</main>
+<script>
+Array.prototype.forEach.call(document.querySelectorAll('.cbtn'), function (b) {
+  b.addEventListener('click', function () {
+    var el = document.getElementById(b.getAttribute('data-c'));
+    navigator.clipboard.writeText(el.innerText).then(function () {
+      var o = b.textContent; b.textContent = 'Copied';
+      setTimeout(function () { b.textContent = o; }, 1400);
+    });
+  });
+});
+</script>
+<script>
+/* Opened from a GoHighLevel menu link this is its own page, so it carries the
+   hub's section tabs with it and keeps the embed flag on anything it hands off. */
+(function(){
+  var qs=new URLSearchParams(location.search);
+  var emb = qs.get('embed')==='1' || (function(){ try{ return window.self!==window.top; }catch(e){ return true; } })();
+  if(!emb) return;
+  document.documentElement.classList.add('embedded');
+  Array.prototype.forEach.call(document.querySelectorAll('.hubtabs a'), function(a){
+    var h=a.getAttribute('href'); if(!h || h.indexOf('embed=1')>-1) return;
+    a.setAttribute('href', h.indexOf('#')>-1 ? h.replace('#','?embed=1#') : h+'?embed=1');
+  });
+})();
+</script>
+</body>
+</html>
