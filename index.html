@@ -17770,6 +17770,23 @@ const DUTY_RESPONDING=['operations','staffing','after_hours','owner_escalation']
 function dutyAreaLabel(code){ return (DUTY_AREAS.find(a=>a[0]===code)||[])[1]||code; }
 function dutyAreaDomains(code){ return (DUTY_AREAS.find(a=>a[0]===code)||[])[3]||[]; }
 
+/* Windows are STORED as 24-hour "HH:MM" because that is what <input type="time">
+   gives us and what sorts and compares correctly. Nobody here reads 14:00, so
+   it is never SHOWN that way. Store machine, display human. */
+function dutyClock(hhmm){
+  const m=/^(\d{1,2}):(\d{2})$/.exec(String(hhmm||'')); if(!m) return hhmm||'?';
+  let h=+m[1]; const mins=m[2];
+  if(h===12 && mins==='00') return 'noon';
+  if(h===0  && mins==='00') return 'midnight';
+  const ap = h<12 ? 'am' : 'pm';
+  h = h%12 || 12;
+  return h + (mins==='00' ? '' : ':'+mins) + ap;
+}
+function dutyClockRange(from,to){
+  if(from==='00:00' && (to==='23:59'||to==='24:00')) return 'all day';
+  return dutyClock(from)+' to '+dutyClock(to);
+}
+
 /* One table, two shapes. A one-off carries start/end; a pattern carries recur.
    A one-off ALWAYS beats a pattern, which is what makes a swap or a day off an
    ordinary edit rather than a special case. */
@@ -17931,8 +17948,8 @@ function dutyEdit(){
       return '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">'
         +'<b>'+esc(dutyAreaLabel(w.area))+'</b> · '+esc(opsOwnerName(w.person)||w.person)
         +(w.backup_person?' <span class="field-note">backup '+esc(opsOwnerName(w.backup_person))+'</span>':'')
-        +'<div class="field-note">'+esc(d)+' '+esc((w.recur&&w.recur.from)||'')+'–'
-        +esc((w.recur&&w.recur.to)||'')+'</div>'
+        +'<div class="field-note">'+esc(d)+' '
+        +esc(w.recur?dutyClockRange(w.recur.from,w.recur.to):'')+'</div>'
         +'<button class="linklike" style="font-size:12px;" onclick="dutyRemove(\''+w.id+'\')">Remove</button>'
         +'</div>'; }).join('') : '<div class="field-note">Nobody is assigned to anything yet.</div>';
   };
