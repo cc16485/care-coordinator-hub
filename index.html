@@ -17121,6 +17121,24 @@ function respFor(email, includeEnded, includePlanned){
     && (includePlanned || !rowPlanned(r)));
 }
 function roleStaff(){ return (DATA.coordinator_staff||[]).filter(s=>s.email); }
+/* MY TEAM SHOWS THE ORGANISATION. THAT IS NOT THE ASSIGNABLE ROSTER.
+   coordinator_staff is operational: being on it puts you in pickers and lets
+   you receive work. Cierra has not started, so she must not be on it — and
+   Angiel joining it would change live assignment behaviour, which is a separate
+   decision. But a planned role nobody can see is not a plan, so My Team unions
+   the roster with everybody who has a role profile. Appearing here confers
+   nothing; it is a view. */
+function roleEveryone(){
+  const out=roleStaff().slice();
+  const seen=new Set(out.map(s=>String(s.email||'').toLowerCase()));
+  (DATA.role_profiles||[]).forEach(pr=>{
+    const e=String(pr.id||pr.person||'').toLowerCase();
+    if(!e || seen.has(e)) return;
+    seen.add(e);
+    out.push({ email:e, name:pr.full_name || opsOwnerName(e) || e, not_on_roster:true });
+  });
+  return out;
+}
 function roleCanEdit(){ return DISC_APPROVERS.includes(ME.email); }
 
 /* ── MY ROLE ─────────────────────────────────────────────────────────────── */
@@ -17241,7 +17259,7 @@ function renderMyRole(email){
 function renderMyTeam(){
   const wrap=document.getElementById('myTeamWrap'); if(!wrap) return;
   const esc=escapeHtmlComms;
-  const staff=roleStaff();
+  const staff=roleEveryone();
   let h='<div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:12px;">'
     +'<div><h2 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">'
     +'My Team</h2><div class="field-note">Who does what, and what is temporary</div></div>'
@@ -17272,6 +17290,7 @@ function renderMyTeam(){
       +'<span class="field-note">'+esc((p&&p.title)||'no role written yet')+'</span>'
       +(planned?'<span class="tag-chip" style="background:var(--amber-bg);color:var(--amber);">'
         +'PLANNED</span>':'')
+      +(s.not_on_roster?'<span class="field-note">not on the assignable roster yet</span>':'')
       +'<span style="flex:1;"></span>'
       +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
       +'onclick="roleOpen(\''+esc(e)+'\')">Open role</button>'
@@ -17873,7 +17892,7 @@ function posPanelHtml(){
    assessment, consultation. No near-duplicates invented. */
 const PLAN_PEOPLE={
   'cierra@mo-care.com':{
-    title:'Field Care Lead', status:'planned',
+    full_name:'Cierra Land', title:'Field Care Lead', status:'planned',
     why:'Make sure care in the home is done safely and well: advanced-care support, '
        +'hands-on skills, and the field judgement nobody in the office can give.',
     escalate_to:'krystal@mo-care.com',
@@ -17891,7 +17910,7 @@ const PLAN_PEOPLE={
       ['support','Caregiver support in the field',null],
       ['not_primary','Caregiver performance management — that is Krystal',null]]},
   'angiel@mo-care.com':{
-    title:'Payer Program Coordinator', status:'active',
+    full_name:'Angiel Reed', title:'Payer Program Coordinator', status:'active',
     why:'Make sure a payer-programme opportunity actually becomes an active client '
        +'receiving authorised care, and grow the Medicaid census deliberately.',
     escalate_to:'samantha@mo-care.com',
@@ -17928,6 +17947,11 @@ const PLAN_DUTY=[
   {id:'dw_plan_sc_weekend',   area:'staffing', position:'pos_staffing_coordinator',
    days:[6,0], from:'08:00', to:'16:00'}
 ];
+/* What the vacant position is holding open, so it is not an empty shell. */
+const PLAN_POS_RESP=[
+  {position:'pos_staffing_coordinator', kind:'primary', domain:'scheduling_coverage',
+   text:'Scheduling and coverage',
+   transfer_note:'Transfers from Samantha when the position is filled and the person is ready'}];
 /* Angiel's client-care hours are LIVE and are not a coverage promise. Entered
    as direct_care so the existing conflict rule refuses to make her a responding
    duty holder while she is in somebody's home. */
@@ -17945,11 +17969,17 @@ function planPending(){
     for(const r of (d.live||[])) if(!has(email,r[0],r[1])) out.resp.push([email,r,false]);
     for(const r of d.resp)       if(!has(email,r[0],r[1])) out.resp.push([email,r,true]);
   }
+  const R=(DATA.responsibilities||[]);
+  for(const pr of PLAN_POS_RESP)
+    if(!R.some(r=>r.position===pr.position && r.kind===pr.kind && r.text===pr.text && r.active!==false))
+      out.posResp=(out.posResp||[]).concat([pr]);
+  out.posResp=out.posResp||[];
   const W=(DATA.duty_windows||[]);
   for(const w of PLAN_DUTY.concat(PLAN_DIRECT)) if(!W.some(x=>x.id===w.id)) out.duty.push(w);
   return out;
 }
-function planCount(){ const p=planPending(); return p.profiles.length+p.resp.length+p.duty.length; }
+function planCount(){ const p=planPending();
+  return p.profiles.length+p.resp.length+p.duty.length+p.posResp.length; }
 
 async function roleSeedPlanned(){
   if(!roleCanEdit()) return;
@@ -17983,13 +18013,19 @@ async function roleSeedPlanned(){
     const q=planPending();
     for(const email of q.profiles){
       const d=PLAN_PEOPLE[email];
-      await roleSaveProfile(email,{ title:d.title, why:d.why, status:d.status,
-        escalate_to:d.escalate_to||'', escalate_when:d.escalate_when||'' });
+      await roleSaveProfile(email,{ full_name:d.full_name||'', title:d.title, why:d.why,
+        status:d.status, escalate_to:d.escalate_to||'', escalate_when:d.escalate_when||'' });
     }
     for(const [email,r,planned] of q.resp){
       await roleAddResp(email,{ kind:r[0], text:r[1], domain:r[2]||null,
         activity:r[3]||null, transfer_note:r[4]||null,
         status: planned?'planned':'live' });
+    }
+    for(const pr of q.posResp){
+      const row=Object.assign({ id:'rsp_pos_'+pr.position+'_'+pr.kind, active:true, status:'planned',
+        created_by:ME.email||'', created_at:new Date().toISOString() }, pr);
+      DATA.responsibilities=DATA.responsibilities||[]; DATA.responsibilities.push(row);
+      await persist('responsibilities', row);
     }
     for(const w of q.duty){
       const row={ id:w.id, area:w.area, active:true,
