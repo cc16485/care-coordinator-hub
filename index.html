@@ -6022,6 +6022,13 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
+<!-- Operating layer, build 4. Shared by every hub, served from one place and
+     pinned by version: cc-ops.v1.js is frozen now that a hub includes it, and
+     changes go in v2 so one mistake cannot reach four production systems at
+     once. If this file is missing or hub.mo-care.com is unreachable, window.CC
+     is simply undefined and every use of it below is guarded, so this hub
+     loads exactly as it did before. -->
+<script src="https://hub.mo-care.com/cc-ops.v1.js"></script>
 <script>
 /* =========================================================================
    Care Coordinator's Hub — app logic
@@ -6224,6 +6231,35 @@ async function resolveMe(){
   if(sft) sft.style.display=isOwner?'flex':'none';
   // The evening coordinator's work lives in Start of Care — land them there.
   if(ME.shift==='evening' && !window._landedOnce){ window._landedOnce=true; switchTab('soc'); }
+
+  /* ---- Operating layer, build 4. Additive only. ------------------------
+     ME.shift above is still set by the exact expression it always was, and
+     everything here only ADDS fields. Nothing in this hub reads them yet.
+
+     DELIBERATELY NOT AWAITED. Sign-in must not wait on this: if
+     hub.mo-care.com is slow or the script is missing, the hub behaves
+     exactly as it does today. Nothing reads the added fields, so there is
+     no race to lose.
+
+     Guarded on window.CC because a 404 on the script leaves it undefined,
+     and an unguarded call here would break sign-in for everybody — the one
+     failure this whole sequence is built to avoid. */
+  try{
+    if(window.CC && typeof CC.init === 'function'){
+      CC.init({
+        sb, email: ME.email, entity: 'cc_ihs',
+        ghlLocation: (typeof GHL_LOC !== 'undefined') ? GHL_LOC : '',
+        legacy: action => legacyCan(action, ME.email)
+      }).then(ok => {
+        if(!ok) return;                       // tables unreachable; stay inert
+        const m = CC.me();
+        ME.person_id   = m.person_id;
+        ME.roles       = m.roles;
+        ME.memberships = m.memberships;
+        ME.entity      = m.entity;
+      }).catch(()=>{});                       // inert by design
+    }
+  }catch(e){}                                 // inert by design
 }
 // Coordinators are often in a client's home with spotty signal during the
 // exact moment they most need to save an assessment. Rather than lose that
@@ -11023,6 +11059,55 @@ async function coordMsgDone(id){
    drafts the notice; only Samantha or Zach may approve any discipline,
    warnings and terminations alike (her decision Jul 11 2026). ------------ */
 const DISC_APPROVERS=['samantha@mo-care.com','zach@mo-care.com'];
+
+/* ---------------- LEGACY AUTHORITY, IN ONE PLACE (build 4) ----------------
+   Every gated action this hub has, and the expression that decides it today,
+   collected here for the first time. Nothing calls this yet except the
+   operating layer's compatibility shim, which returns these answers verbatim
+   while there is no authority data to replace them with.
+
+   THE LINE NUMBERS ARE PART OF THE POINT. Each case is copied from its real
+   call site rather than rewritten, so the self test in build 5 compares the
+   new model against what the hub actually does, not against a tidier version
+   of it. Do not "improve" any expression below. If one looks wrong, it is
+   wrong in production too, and that is a separate decision to make out loud.
+
+   Takes an email rather than reading ME, because the self test has to ask
+   this about every person, not only whoever is signed in. Reading ME here is
+   exactly the bug that cc-ops.v1's first canFor() had. */
+function legacyCan(action, email){
+  email = String(email||'').toLowerCase();
+  const isApprover = DISC_APPROVERS.includes(email);
+  const staff = (DATA.coordinator_staff||[]).find(s => (s.email||'').toLowerCase() === email);
+  const shift = (email==='samantha@mo-care.com'||email==='zach@mo-care.com')
+                  ? 'manager' : ((staff&&staff.shift)||'day');
+  switch(action){
+    case 'manage_settings':       return isApprover;            // :7008
+    case 'view_settings_tab':     return isApprover;            // :6231
+    case 'set_pay_rates':         return isApprover;            // :6920
+    case 'set_client_rates':      return isApprover;            // :9213
+    case 'view_discipline_queue': return isApprover;            // :11114
+    case 'approve_discipline':    return isApprover;            // :11135
+    case 'act_on_discipline':     return isApprover;            // :11143
+    case 'see_owner_tasks':       return isApprover;            // :11041
+    case 'set_sop_library':       return isApprover;            // :17717
+    case 'set_playbook_pay':      return isApprover;            // :12028
+    // Sensitive items are visible to an approver OR to whoever raised them.
+    // Only the approver half belongs here; the raiser half depends on the
+    // item, not the person, and stays at the call site. :15682
+    case 'see_sensitive_item':    return isApprover;
+    case 'set_cc_goals':          return shift==='manager';     // :11251
+    case 'meeting_manager_role':  return shift==='manager';     // :11154
+    case 'land_on_soc':           return shift==='evening';     // :6233
+    default: return false;
+  }
+}
+/* Every action name above, for the self test. Kept beside the switch so the
+   two cannot drift apart without it being obvious. */
+const LEGACY_ACTIONS = ['manage_settings','view_settings_tab','set_pay_rates',
+  'set_client_rates','view_discipline_queue','approve_discipline',
+  'act_on_discipline','see_owner_tasks','set_sop_library','set_playbook_pay',
+  'see_sensitive_item','set_cc_goals','meeting_manager_role','land_on_soc'];
 function renderApprovalsCc(){
   const wrap=document.getElementById('approvalsCard'); if(!wrap) return;
   const esc=escapeHtmlComms;
