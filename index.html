@@ -17183,7 +17183,9 @@ function renderMyTeam(){
     /* Same rule as the seeder: a one-time control disappears the moment there
        is nothing left for it to do. */
     +((roleCanEdit()&&omCount())?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
-      +'onclick="roleApplyCorrections()">Apply model corrections ('+omCount()+')</button>':'')+'</div>';
+      +'onclick="roleApplyCorrections()">Apply model corrections ('+omCount()+')</button>':'')
+    +((roleCanEdit()&&planCount())?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
+      +'onclick="roleSeedPlanned()">Write the planned model ('+planCount()+')</button>':'')+'</div>';
 
   h+=staff.map(s=>{
     const e=String(s.email).toLowerCase();
@@ -17703,6 +17705,152 @@ async function roleApplyCorrections(){
       await roleAddResp(person, rest);
     }
     renderMyTeam();
+  };
+}
+
+/* ── The planned operating model ─────────────────────────────────────────
+   Real people, real emails, real activity keys. What makes this safe is not
+   that the names are placeholders — they are not — but that every row carries
+   status:'planned' and therefore cannot hold duty, take work or close a gap.
+
+   ANGIEL IS DELIBERATELY MIXED. She is a current employee: PAYER_COORDINATOR
+   already routes Medicaid, CDS and Veterans Affairs to her and the State
+   Submissions board is already hers, so that ownership is LIVE. Her expanded
+   Payer Program Coordinator role is PLANNED. Marking all of her planned would
+   claim nobody owns payer work today, which is false.
+
+   Activity keys are the four read from activity_types: interview, orientation,
+   assessment, consultation. No near-duplicates invented. */
+const PLAN_PEOPLE={
+  'cierra@mo-care.com':{
+    title:'Field Care Lead', status:'planned',
+    why:'Make sure care in the home is done safely and well: advanced-care support, '
+       +'hands-on skills, and the field judgement nobody in the office can give.',
+    escalate_to:'krystal@mo-care.com',
+    escalate_when:'Anything unsafe. A caregiver who cannot be brought up to standard. '
+                 +'Anything about the employee rather than their skills — that is Krystal.',
+    resp:[
+      ['primary','Field quality and advanced care','field_quality'],
+      ['primary','Field response — going to a home when needed','field_quality'],
+      ['primary','Advanced-care intake and field assessment','field_quality'],
+      ['primary','Hands-on caregiver skills validation','field_quality'],
+      ['primary','Hoyer, transfers and bedbound-care training','field_quality'],
+      ['primary','Field observations and skills refreshers','field_quality'],
+      ['qualified','Conduct caregiver interviews','recruiting_orientation','interview'],
+      ['qualified','Conduct caregiver orientation','recruiting_orientation','orientation'],
+      ['support','Caregiver support in the field',null],
+      ['not_primary','Caregiver performance management — that is Krystal',null]]},
+  'angiel@mo-care.com':{
+    title:'Payer Program Coordinator', status:'active',
+    why:'Make sure a payer-programme opportunity actually becomes an active client '
+       +'receiving authorised care, and grow the Medicaid census deliberately.',
+    escalate_to:'samantha@mo-care.com',
+    escalate_when:'An authorisation problem you cannot resolve. A case stalled beyond '
+                 +'reason. Anything needing an owner decision.',
+    /* LIVE — she does these today */
+    live:[
+      ['primary','Payer programmes — Medicaid IHS, CDS and Veterans Affairs','payer_programs'],
+      ['primary','Monthly check-ins — Medicaid, CDS and VA clients','client_care']],
+    /* PLANNED — the expansion */
+    resp:[
+      ['primary','Authorisation tracking and AxisCare setup','payer_programs'],
+      ['primary','Start-of-care follow-through — approved must become scheduled','payer_programs'],
+      ['primary','CDS intake, onboarding and fiscal setup','payer_programs'],
+      ['primary','Payer-programme referral development and census growth','payer_programs'],
+      ['qualified','Conduct caregiver interviews','recruiting_orientation','interview'],
+      ['qualified','Conduct caregiver orientation','recruiting_orientation','orientation'],
+      ['qualified','Scheduling support','scheduling_coverage',null,
+       'Needs training and a deliberate release. Not routine Staffing ownership.'],
+      ['not_primary','Routine Staffing — the Staffing Coordinator owns that',null]]}
+};
+/* Planned duty windows. Deterministic ids so pressing twice cannot duplicate. */
+const PLAN_DUTY=[
+  {id:'dw_plan_cierra_field',  area:'field_response', person:'cierra@mo-care.com',
+   days:[1,2,3,5,6], from:'08:00', to:'12:00'},
+  {id:'dw_plan_cierra_adv',   area:'advanced_care',  person:'cierra@mo-care.com',
+   days:[1,2,3,5,6], from:'08:00', to:'12:00'},
+  {id:'dw_plan_kry_staff_mt', area:'staffing', person:'krystal@mo-care.com',
+   days:[1,2], from:'08:00', to:'14:00'},
+  {id:'dw_plan_kry_staff_wf', area:'staffing', person:'krystal@mo-care.com',
+   days:[3,4,5], from:'08:00', to:'11:00'},
+  {id:'dw_plan_sc_weekday',   area:'staffing', position:'pos_staffing_coordinator',
+   days:[3,4,5], from:'11:00', to:'19:00'},
+  {id:'dw_plan_sc_weekend',   area:'staffing', position:'pos_staffing_coordinator',
+   days:[6,0], from:'08:00', to:'16:00'}
+];
+/* Angiel's client-care hours are LIVE and are not a coverage promise. Entered
+   as direct_care so the existing conflict rule refuses to make her a responding
+   duty holder while she is in somebody's home. */
+const PLAN_DIRECT=[
+  {id:'dw_live_angiel_care', area:'direct_care', person:'angiel@mo-care.com',
+   days:[2,3,4,5], from:'08:00', to:'12:00', live:true}];
+
+function planPending(){
+  const A=(DATA.responsibilities||[]);
+  const has=(pe,k,t)=>A.some(r=>String(r.person||'').toLowerCase()===pe && r.active!==false
+                                && r.kind===k && r.text===t);
+  const out={profiles:[],resp:[],duty:[]};
+  for(const [email,d] of Object.entries(PLAN_PEOPLE)){
+    if(!roleProfile(email)) out.profiles.push(email);
+    for(const r of (d.live||[])) if(!has(email,r[0],r[1])) out.resp.push([email,r,false]);
+    for(const r of d.resp)       if(!has(email,r[0],r[1])) out.resp.push([email,r,true]);
+  }
+  const W=(DATA.duty_windows||[]);
+  for(const w of PLAN_DUTY.concat(PLAN_DIRECT)) if(!W.some(x=>x.id===w.id)) out.duty.push(w);
+  return out;
+}
+function planCount(){ const p=planPending(); return p.profiles.length+p.resp.length+p.duty.length; }
+
+async function roleSeedPlanned(){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms, p=planPending();
+  const live=p.resp.filter(x=>!x[2]).length, plan=p.resp.filter(x=>x[2]).length;
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Write the planned operating model</div>'
+    +'<div class="field-note" style="margin:4px 0 10px;">Cierra and Angiel, with their real work '
+    +'emails. Planned rows cannot hold duty, take work, or close a gap.</div>'
+    +'<div style="font-size:13px;">'+p.profiles.length+' role profile'+(p.profiles.length===1?'':'s')+'</div>'
+    +'<div class="field-note" style="margin:2px 0 8px;">'
+    +p.profiles.map(e=>esc(opsOwnerName(e)||e)).join('<br>')+'</div>'
+    +'<div style="font-size:13px;">'+plan+' planned responsibilities'
+    +(live?', and '+live+' <b>live</b> for Angiel':'')+'</div>'
+    +'<div class="field-note" style="margin:2px 0 8px;">Angiel already owns Medicaid, CDS and '
+    +'Veterans Affairs, so that stays live. Her expanded role is planned.</div>'
+    +'<div style="font-size:13px;">'+p.duty.length+' duty windows</div>'
+    +'<div class="field-note" style="margin:2px 0 10px;">All planned, except Angiel\'s Tue–Fri '
+    +'8am–noon client care, which is live and marks her unavailable rather than covering anything.</div>'
+    +'<div class="field-note" style="margin-bottom:10px;">Nothing here changes Responsible Now, '
+    +'routing, or anybody\'s My Work.</div>'
+    +(planCount()?'<div style="display:flex;gap:8px;">'
+      +'<button class="primary" id="plGo" style="padding:7px 14px;font-size:13px;">Write '+planCount()+'</button>'
+      +'<button class="ghost" id="plNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>'
+      :'<button class="ghost" id="plNo" style="padding:7px 14px;font-size:13px;">Nothing to write</button>'),
+    {width:450});
+  el.querySelector('#plNo').onclick=ccPopClose;
+  const go=el.querySelector('#plGo'); if(!go) return;
+  go.onclick=async ()=>{
+    ccPopClose();
+    const q=planPending();
+    for(const email of q.profiles){
+      const d=PLAN_PEOPLE[email];
+      await roleSaveProfile(email,{ title:d.title, why:d.why, status:d.status,
+        escalate_to:d.escalate_to||'', escalate_when:d.escalate_when||'' });
+    }
+    for(const [email,r,planned] of q.resp){
+      await roleAddResp(email,{ kind:r[0], text:r[1], domain:r[2]||null,
+        activity:r[3]||null, transfer_note:r[4]||null,
+        status: planned?'planned':'live' });
+    }
+    for(const w of q.duty){
+      const row={ id:w.id, area:w.area, active:true,
+        status: w.live?'live':'planned',
+        recur:{ days:w.days, from:w.from, to:w.to },
+        assigned_by:ME.email||'', created_at:new Date().toISOString() };
+      if(w.person) row.person=w.person; else row.position=w.position;
+      DATA.duty_windows=DATA.duty_windows||[]; DATA.duty_windows.push(row);
+      await persist('duty_windows', row);
+    }
+    renderMyTeam(); renderHome();
   };
 }
 
