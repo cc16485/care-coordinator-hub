@@ -3700,6 +3700,26 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
      authority cutover.</p>
   <div id="staffAccessWrap"><div class="field-note">Loading…</div></div>
 </div>
+<!-- Review rules. Data, not code: saying "review everything Angiel does on
+     family calls" must never need a deploy. -->
+<div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border);">
+  <h3 style="margin:0 0 2px;">Who gets reviewed</h3>
+  <p class="hint">While somebody is learning, their work gets looked at before their
+     oversight reduces. A rule here means the reviewer picks up a <b>Review</b> item
+     each time that person finishes that kind of work. The employee&rsquo;s own work is
+     already done; the review is the reviewer&rsquo;s.</p>
+  <div id="reviewRulesWrap"></div>
+  <div class="grid2" style="margin-top:10px;">
+    <div><label>Whose work</label><select id="rr_person"></select></div>
+    <div><label>What kind</label><select id="rr_kind"></select></div>
+  </div>
+  <div class="grid2" style="margin-top:8px;">
+    <div><label>Reviewed by</label><select id="rr_reviewer"></select></div>
+    <div style="display:flex;align-items:flex-end;">
+      <button class="primary" onclick="reviewAddRule()">Add rule</button></div>
+  </div>
+</div>
+
 
 <div class="grid2" style="margin-top:10px;">
 <div><label>Name</label><input id="new_staff_name"></div>
@@ -6149,7 +6169,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -6266,7 +6286,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -10635,6 +10655,7 @@ function fillSettingsPanel(){
   // Read-only, and deliberately not awaited: a slow or missing RPC must not
   // stop the rest of Settings from opening.
   renderStaffAccess();
+  renderReviewRules();
 }
 function renderStaffList(){
   const wrap = document.getElementById('staffListWrap');
@@ -16315,6 +16336,13 @@ function myWorkCard(it, i){
   } else if(!it.owner){
     h+='<button class="primary" style="padding:6px 13px;font-size:12.5px;" '
       +'onclick="opsAssignFromCard(\''+it.id+'\',\'act_'+it.id+'\')">Assign…</button>';
+  } else if(it.kind==='review'){
+    // A review is finished by doing it, not by pressing Done.
+    h+='<button class="primary" style="padding:6px 13px;font-size:12.5px;" '
+      +'onclick="reviewOpen(\''+it.id+'\',\'act_'+it.id+'\')">Review now</button>'
+      +'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
+      +'onclick="myWorkHandOff(\''+it.id+'\',\'act_'+it.id+'\')">Hand off</button>'
+      +(it.review&&it.review.call_id?'<span class="field-note">recording available</span>':'');
   } else {
     h+='<button class="primary" style="padding:6px 13px;font-size:12.5px;" onclick="opsClose(\''+it.id+'\')">Done</button>'
       +'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
@@ -16518,8 +16546,322 @@ async function opsTriage(id, what, quiet){
     opsLog(it,'Closed — '+label.toLowerCase());
   }
   await persist('ops_items',it);
+  if(it.status==='done' && typeof reviewMaybeCreate==='function') await reviewMaybeCreate(it);
   if(!quiet) myWorkRefresh();
 }
+
+/* ═══════════════════ REVIEW — the management loop, v1 ════════════════════
+   A REVIEW IS AN ops_item. kind:'review', owned by the reviewer, with a due
+   time. That is not a shortcut: a review IS work somebody owes, so it belongs
+   in the same queue as everything else and inherits Mine, Overdue, the badge,
+   the keyboard and the history for free. Building supervisors their own task
+   universe is how supervision becomes the thing nobody opens.
+
+   THE RULE THIS ENCODES, and it is the reason the whole build exists:
+
+     If Angiel has completed five calls that need reviewing, that is
+     KRYSTAL owes five reviews. It is never "Angiel's training is
+     incomplete". The employee never carries their supervisor's backlog.
+
+   NOT IN v1, deliberately: competency levels, sample rates, advancement, AI.
+   This collects the evidence those will later be built from.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+const REVIEW_FOLLOWUPS = [
+  ['none',        'Nothing further'],
+  ['discuss',     'Discuss together'],
+  ['next',        'Review the next one too'],
+  ['retrain',     'Repeat the training'],
+  ['redo',        'Something needs redoing'],
+  ['escalate',    'Escalate a concern']];
+
+function reviewRules(){ return (DATA.review_rules||[]).filter(r=>r.active!==false); }
+function reviewRuleFor(email, kind){
+  const e=String(email||'').toLowerCase();
+  return reviewRules().find(r=>String(r.person||'').toLowerCase()===e && r.kind===kind) || null;
+}
+function reviewExistsFor(sourceId){
+  return (DATA.ops_items||[]).some(i=>i.kind==='review' && i.review && i.review.source_id===sourceId);
+}
+
+/* When a missed call is closed, the call that resolved it is usually sitting
+   in the same feed: an outbound call to that number, afterwards, that
+   connected. Capturing its id is what lets a reviewer press Listen instead of
+   taking somebody's word for how it went. */
+function opsResolvingCall(it){
+  if(!CALLS_FEED || !Array.isArray(CALLS_FEED.calls)) return '';
+  const d=opsDigits(it.phone); if(!d) return '';
+  const back=CALLS_FEED.calls.filter(x=>x.direction==='outbound' && x.duration>0
+    && opsDigits(x.phone)===d && String(x.at)>String(it.created_at))
+    .sort((a,b)=>String(a.at).localeCompare(String(b.at)))[0];
+  return back ? back.id : '';
+}
+
+/* Called after anything is closed. Creates the supervisor's work, never the
+   employee's: the employee's item is finished and stays finished. */
+async function reviewMaybeCreate(it){
+  try{
+    if(!it || it.kind==='review') return;
+    const who=String(it.closed_by||it.owner||'').toLowerCase();
+    if(!who) return;
+    const rule=reviewRuleFor(who, it.kind);
+    if(!rule || reviewExistsFor(it.id)) return;
+    if(String(rule.reviewer||'').toLowerCase()===who) return;   // nobody reviews themselves
+
+    const label=(OPS_KINDS[it.kind]||{}).label||it.kind;
+    const person=opsOwnerName(who)||who;
+    const now=new Date().toISOString();
+    const rev={
+      id:'rev_'+it.id, kind:'review', source_id:it.id,
+      about:person,
+      title:'Review '+person+"'s "+label.toLowerCase(),
+      detail:(it.about||it.title||''),
+      next_action:'Look at what they did, then write what went well and what to do next time.',
+      status:'open', created_at:now, last_activity_at:now,
+      due:new Date(Date.now()+24*3600*1000).toISOString(),
+      opened_by:'system', domain:it.domain||null,
+      owner:String(rule.reviewer).toLowerCase(),
+      owner_name:opsOwnerName(rule.reviewer),
+      review:{ person:who, person_name:person, source_id:it.id, source_kind:it.kind,
+               source_title:(it.about||it.title||''), work_completed_at:it.closed_at||now,
+               call_id:(it.kind==='missed_call'?opsResolvingCall(it):''),
+               what_went_well:'', next_time:'', follow_up:'' }
+    };
+    DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(rev);
+    await persist('ops_items', rev);
+  }catch(e){ console.warn('[review] could not create', e); }
+}
+
+/* ── Doing a review ─────────────────────────────────────────────────────── */
+function reviewOpen(id, anchorId){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it||!it.review) return;
+  const r=it.review, esc=escapeHtmlComms;
+  const src=(DATA.ops_items||[]).find(x=>x.id===r.source_id);
+  const done=!!it.review.completed_at || it.status==='done';
+
+  let h='<div style="font-size:14px;font-weight:800;color:var(--navy);">'
+    +esc(r.person_name)+' · '+esc((OPS_KINDS[r.source_kind]||{}).label||r.source_kind)+'</div>'
+    +'<div class="field-note" style="margin-bottom:8px;">Finished '
+    +esc(callsFmtWhen(r.work_completed_at))+'</div>';
+
+  h+='<div class="card" style="padding:10px 12px;margin-bottom:10px;background:var(--bg);">'
+    +'<div style="font-size:13px;"><b>'+esc(r.source_title||'')+'</b></div>'
+    +(src&&src.detail?'<div class="field-note" style="margin-top:3px;">“'+esc(src.detail)+'”</div>':'')
+    +(src&&src.close_note?'<div class="field-note" style="margin-top:3px;">They closed it: “'
+      +esc(src.close_note)+'”</div>':'')
+    +'</div>';
+
+  /* The recording is streamed through the existing calls-feed proxy, so the
+     GoHighLevel token never reaches a browser and no audio is copied into
+     Core. GHL stays the source. */
+  if(r.call_id){
+    h+='<button class="ghost" id="revPlay" style="padding:6px 12px;font-size:12.5px;margin-bottom:8px;">'
+      +'▶ Listen to the call</button><div id="rec-'+esc(r.call_id)+'" style="display:none;"></div>';
+  }
+
+  if(done){
+    h+='<div class="field-note" style="font-weight:700;margin-top:6px;">WHAT WENT WELL</div>'
+      +'<div style="font-size:13.5px;">'+esc(r.what_went_well||'')+'</div>'
+      +'<div class="field-note" style="font-weight:700;margin-top:8px;">NEXT TIME</div>'
+      +'<div style="font-size:13.5px;">'+esc(r.next_time||'')+'</div>';
+  } else {
+    h+='<div class="field-note" style="font-weight:700;">WHAT WENT WELL <span style="font-weight:400;">· required</span></div>'
+      +'<textarea id="revWell" rows="3" placeholder="Be specific. What should they keep doing?" '
+      +'style="width:100%;font-size:13px;padding:8px;border-radius:8px;margin:3px 0 8px;"></textarea>'
+      +'<div class="field-note" style="font-weight:700;">NEXT TIME <span style="font-weight:400;">· required</span></div>'
+      +'<textarea id="revNext" rows="3" placeholder="One thing to do differently next time." '
+      +'style="width:100%;font-size:13px;padding:8px;border-radius:8px;margin:3px 0 8px;"></textarea>'
+      +'<div class="field-note" style="font-weight:700;">ANYTHING TO FOLLOW UP?</div>'
+      +'<select id="revFollow" style="width:100%;padding:7px 9px;font-size:13px;border-radius:8px;margin:3px 0 10px;">'
+      +REVIEW_FOLLOWUPS.map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('')+'</select>'
+      +'<div id="revErr" class="field-note" style="color:var(--red);min-height:1em;"></div>'
+      +'<div style="display:flex;gap:8px;">'
+      +'<button class="primary" id="revGo" style="padding:7px 14px;font-size:13px;">Complete review</button>'
+      +'<button class="ghost" id="revNo" style="padding:7px 14px;font-size:13px;">Not yet</button></div>';
+  }
+
+  const el=ccPopOpen(document.getElementById(anchorId)||document.body, h, {width:420});
+  if(r.call_id){
+    const b=el.querySelector('#revPlay');
+    b.onclick=()=>{ if(typeof callsPlay==='function') callsPlay(r.call_id, b);
+                    else b.textContent='Recording unavailable'; };
+  }
+  if(done) return;
+  el.querySelector('#revNo').onclick=ccPopClose;
+  el.querySelector('#revGo').onclick=async ()=>{
+    const well=(el.querySelector('#revWell').value||'').trim();
+    const next=(el.querySelector('#revNext').value||'').trim();
+    /* BOTH are required, and that is the point. Requiring the first is what
+       makes this survivable for people who do not enjoy giving feedback, and
+       it is the difference between a review culture and an inspection one. */
+    if(!well || !next){
+      el.querySelector('#revErr').textContent =
+        !well ? 'Say one thing that went well. There is always one, and it is the half people remember.'
+              : 'Say one thing for next time, even if it is small.';
+      return;
+    }
+    ccPopClose();
+    it.review.what_went_well=well;
+    it.review.next_time=next;
+    it.review.follow_up=el.querySelector('#revFollow').value;
+    it.review.completed_at=new Date().toISOString();
+    it.review.completed_by=ME.email||'';
+    it.status='done'; it.closed_at=it.review.completed_at; it.closed_by=ME.email||'';
+    it.close_note='Reviewed';
+    opsLog(it,'Reviewed '+it.review.person_name+"'s work");
+    await persist('ops_items', it);
+    myWorkRefresh();
+  };
+}
+
+/* ── What a supervisor owes, and who is waiting on them ─────────────────── */
+function reviewsIOwe(){
+  const me=String(opsMeKey()||'').toLowerCase();
+  return (DATA.ops_items||[]).filter(i=>i.kind==='review' && i.status==='open'
+    && String(i.owner||'').toLowerCase()===me);
+}
+/* Grouped by the person waiting, because "Angiel has been waiting three days"
+   lands differently from "3 reviews outstanding". */
+function reviewsWaitingOn(reviewerEmail){
+  const e=String(reviewerEmail||'').toLowerCase();
+  const out={};
+  (DATA.ops_items||[]).filter(i=>i.kind==='review' && i.status==='open'
+    && String(i.owner||'').toLowerCase()===e)
+    .forEach(i=>{ const n=(i.review&&i.review.person_name)||'someone';
+      (out[n]=out[n]||[]).push(i); });
+  return out;
+}
+function reviewOldestDays(list){
+  if(!list.length) return 0;
+  const oldest=list.reduce((a,b)=>String(a.created_at)<String(b.created_at)?a:b);
+  return Math.floor((Date.now()-Date.parse(oldest.created_at||''))/86400000);
+}
+/* Everyone behind on reviews, for Samantha. Reviewing the reviewers. */
+function reviewSupervisorsBehind(){
+  const by={};
+  (DATA.ops_items||[]).filter(i=>i.kind==='review'&&i.status==='open').forEach(i=>{
+    const k=String(i.owner||'').toLowerCase(); (by[k]=by[k]||[]).push(i); });
+  return Object.entries(by).map(([email,list])=>({
+    email, name:opsOwnerName(email)||email, count:list.length,
+    oldest_days:reviewOldestDays(list),
+    waiting:[...new Set(list.map(i=>(i.review&&i.review.person_name)||''))].filter(Boolean)
+  })).sort((a,b)=>b.oldest_days-a.oldest_days);
+}
+/* An employee's own feedback. Normal training, kept clearly apart from the
+   disciplinary ladder, which still owns the word "Coaching". */
+function reviewMyFeedback(email){
+  const e=String(email||opsMeKey()||'').toLowerCase();
+  return (DATA.ops_items||[]).filter(i=>i.kind==='review' && i.review
+    && String(i.review.person||'').toLowerCase()===e && i.review.completed_at)
+    .sort((a,b)=>String(b.review.completed_at).localeCompare(String(a.review.completed_at)));
+}
+
+/* Shared by both homes. Two sections that exist to put the bottleneck where
+   it belongs: what I owe, and who is waiting on me because I have not done
+   it. Never rendered as the employee being incomplete. */
+function homeReviewSections(){
+  const esc=escapeHtmlComms;
+  const mine=reviewsIOwe();
+  const now=Date.now();
+  const late=mine.filter(i=>i.due && Date.parse(i.due)<now);
+  const waiting=reviewsWaitingOn(opsMeKey());
+  const box=(title,count,body,note)=>
+    '<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">'+title+'</b>'
+    +'<span style="flex:1;"></span>'+(count?'<b style="font-size:16px;">'+count+'</b>':'')+'</div>'
+    +(body||'<div class="field-note" style="margin-top:6px;">'+(note||'Nothing. Good.')+'</div>')+'</div>';
+
+  let h=box('REVIEWS I OWE', mine.length, mine.length
+    ? mine.slice(0,6).map(i=>{
+        const days=Math.floor((now-Date.parse(i.created_at||''))/86400000);
+        const od=i.due&&Date.parse(i.due)<now;
+        return '<div style="padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;" '
+          +'onclick="switchTab(\'mywork\')"><div style="font-size:13.5px;">'
+          +(od?'<b style="color:var(--red);">':'')+esc(i.title||'')+(od?'</b>':'')+'</div>'
+          +'<div class="field-note">'+(days?days+' day'+(days===1?'':'s')+' waiting':'today')
+          +(od?' · overdue':'')+'</div></div>'; }).join('')
+      +(late.length?'<div class="field-note" style="margin-top:8px;color:var(--red);">'
+        +late.length+' of these are past due. That is yours, not theirs.</div>':'')
+    : '', 'Nothing to review. Good.');
+
+  const names=Object.keys(waiting);
+  if(names.length){
+    h+=box('WAITING ON ME', names.length, names.map(n=>{
+      const list=waiting[n], d=reviewOldestDays(list);
+      return '<div style="padding:7px 0;border-bottom:1px solid var(--border);">'
+        +'<div style="font-size:13.5px;">'+esc(n)+' · '+list.length+' piece'+(list.length===1?'':'s')
+        +' of work waiting for your review</div>'
+        +'<div class="field-note">'+(d?'oldest '+d+' day'+(d===1?'':'s'):'since today')
+        +' · nothing of theirs advances until this is done</div></div>'; }).join(''));
+  }
+
+  /* Everyone's own feedback, including a supervisor's. Normal training, and
+     deliberately nowhere near the word Coaching, which in this hub is rung one
+     of the disciplinary ladder. */
+  const fb=reviewMyFeedback(opsMeKey()).slice(0,3);
+  if(fb.length){
+    h+=box('MY RECENT FEEDBACK', 0, fb.map(i=>{
+      const r=i.review;
+      return '<div style="padding:9px 0;border-bottom:1px solid var(--border);">'
+        +'<div class="field-note">'+esc((OPS_KINDS[r.source_kind]||{}).label||r.source_kind)
+        +' · '+esc(callsFmtWhen(r.completed_at))+' · '+esc(opsOwnerName(r.completed_by)||'')+'</div>'
+        +'<div style="font-size:13px;margin-top:4px;"><span class="field-note">WHAT WENT WELL&nbsp;&nbsp;</span>'
+        +esc(r.what_went_well||'')+'</div>'
+        +'<div style="font-size:13px;margin-top:2px;"><span class="field-note">NEXT TIME&nbsp;&nbsp;</span>'
+        +esc(r.next_time||'')+'</div></div>'; }).join(''));
+  }
+  return h;
+}
+
+/* ── Review rules, stored as data ────────────────────────────────────────
+   "Review everything Angiel does on family calls" is a row, not a deploy.
+   Owner-only, because deciding whose work gets checked is an authority
+   decision even though reading the result is not. */
+function renderReviewRules(){
+  const wrap=document.getElementById('reviewRulesWrap'); if(!wrap) return;
+  const esc=escapeHtmlComms;
+  const staff=(DATA.coordinator_staff||[]).filter(s=>s.email);
+  const fill=(id,list,blank)=>{ const el=document.getElementById(id); if(!el) return;
+    el.innerHTML=(blank?'<option value="">'+blank+'</option>':'')
+      +list.map(([v,l])=>'<option value="'+esc(v)+'">'+esc(l)+'</option>').join(''); };
+  fill('rr_person',   staff.map(s=>[String(s.email).toLowerCase(), s.name||s.email]), 'Choose…');
+  fill('rr_reviewer', staff.map(s=>[String(s.email).toLowerCase(), s.name||s.email]), 'Choose…');
+  fill('rr_kind', Object.entries(OPS_KINDS).filter(([k])=>k!=='review')
+        .map(([k,v])=>[k, v.label]), 'Choose…');
+
+  const rules=DATA.review_rules||[];
+  wrap.innerHTML = rules.length
+    ? '<table><thead><tr><th>Whose work</th><th>What kind</th><th>Reviewed by</th><th></th></tr></thead><tbody>'
+      +rules.map(r=>'<tr><td>'+esc(opsOwnerName(r.person)||r.person)+'</td>'
+        +'<td>'+esc((OPS_KINDS[r.kind]||{}).label||r.kind)+'</td>'
+        +'<td>'+esc(opsOwnerName(r.reviewer)||r.reviewer)+'</td>'
+        +'<td style="text-align:right;"><button class="linklike" onclick="reviewRemoveRule(\''+r.id+'\')">Remove</button></td></tr>').join('')
+      +'</tbody></table>'
+    : '<div class="field-note">No rules yet. Nobody\'s work is being reviewed.</div>';
+}
+async function reviewAddRule(){
+  const person=document.getElementById('rr_person').value;
+  const kind=document.getElementById('rr_kind').value;
+  const reviewer=document.getElementById('rr_reviewer').value;
+  if(!person||!kind||!reviewer){ alert('Pick all three.'); return; }
+  if(person===reviewer){ alert('Somebody cannot review their own work.'); return; }
+  DATA.review_rules=DATA.review_rules||[];
+  if(DATA.review_rules.some(r=>r.person===person&&r.kind===kind)){
+    alert('There is already a rule for that person and that kind of work.'); return; }
+  const rule={ id:'rr_'+Date.now().toString(36), person, kind, reviewer, active:true,
+    created_at:new Date().toISOString(), created_by:ME.email||'' };
+  DATA.review_rules.push(rule);
+  await persist('review_rules', rule);
+  renderReviewRules();
+}
+async function reviewRemoveRule(id){
+  const r=(DATA.review_rules||[]).find(x=>x.id===id); if(!r) return;
+  DATA.review_rules=DATA.review_rules.filter(x=>x.id!==id);
+  try{ await sb.rpc('delete_app_data_item',{ target_key:'review_rules', item_id:id }); }catch(e){}
+  renderReviewRules();
+}
+
 /* ── HOME ────────────────────────────────────────────────────────────────── */
 function renderHome(){
   const wrap=document.getElementById('homeWrap'); if(!wrap) return;
@@ -16564,9 +16906,18 @@ function renderHome(){
         line(i.title, i.owner?('owned by '+opsOwnerName(i.owner)):'nobody owns this')).join(''):'');
     h+=sect('UNASSIGNED RISK', unowned.length, unowned.length?unowned.slice(0,5).map(i=>
         line(i.title,'no owner · '+hrs(i)+' hrs old')).join(''):'', 'Nothing important is sitting unowned.');
+    h+=homeReviewSections();
+    /* Reviewing the reviewers. Samantha's job here is not to do the reviews,
+       it is to notice when somebody else has stopped doing theirs. */
+    const behind=reviewSupervisorsBehind().filter(s=>s.oldest_days>=2);
+    h+=sect('SUPERVISORS BEHIND', behind.length, behind.length?behind.map(s=>
+        '<div style="padding:7px 0;border-bottom:1px solid var(--border);">'
+        +'<div style="font-size:13.5px;">'+esc(s.name)+' · '+s.count+' review'+(s.count===1?'':'s')
+        +' outstanding</div><div class="field-note">oldest '+s.oldest_days+' days'
+        +(s.waiting.length?' · '+esc(s.waiting.join(', '))+' waiting':'')+'</div></div>').join(''):'',
+      'Nobody is behind on reviews.');
     h+='<div class="card" style="padding:14px 18px;margin-bottom:12px;background:var(--bg);">'
-      +'<div class="field-note">Coming later: reviews I owe · team development · '
-      +'supervisors behind on reviews · today\'s coverage</div></div>';
+      +'<div class="field-note">Coming later: team development · today\'s coverage</div></div>';
     h+='<div class="field-note" style="text-align:center;padding:10px;">Not shown: '+hidden
       +' item'+(hidden===1?'':'s')+' owned by somebody and not late. '
       +'<button class="linklike" onclick="switchTab(\'ops\')">Show me anyway</button></div>';
@@ -16586,8 +16937,9 @@ function renderHome(){
         +(ev?'. '+ev+' look already handled':'')+'. <button class="linklike" '
         +'onclick="myWorkGo(\'unassigned\');switchTab(\'mywork\')">Open triage</button></div>' : '',
       'Everything open has somebody\'s name on it.');
+    h+=homeReviewSections();
     h+='<div class="card" style="padding:14px 18px;background:var(--bg);">'
-      +'<div class="field-note">Coming later: reviews I owe · my team · scheduling help needed</div></div>';
+      +'<div class="field-note">Coming later: my team · scheduling help needed</div></div>';
   }
   wrap.innerHTML=h;
 }
@@ -16598,6 +16950,7 @@ function renderHome(){
    "something is late" and everyone learns to ignore it. */
 const OPS_KINDS = {
   missed_call:    { label:'Missed call',   hours:1  },
+  review:         { label:'Review',       hours:24 },
   new_lead:       { label:'New lead',      hours:4  },
   discipline:     { label:'Approval',      hours:24 },
   request:        { label:'Request',       hours:72 },
@@ -16809,6 +17162,9 @@ function opsClose(id, anchorId){
     it.close_note=note;
     if(typeof opsLog==='function') opsLog(it,'Closed'+(note?' — '+note:''));
     await persist('ops_items', it);
+    // The employee's item is finished. Whether it needs reviewing is the
+    // supervisor's problem from here, and becomes their work item.
+    if(typeof reviewMaybeCreate==='function') await reviewMaybeCreate(it);
     if(typeof myWorkRefresh==='function') myWorkRefresh();
     opsRenderCallbacks(); opsRenderQueue(); opsBadges();
   };
