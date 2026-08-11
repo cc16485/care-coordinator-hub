@@ -6186,7 +6186,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -6303,7 +6303,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -17048,7 +17048,7 @@ function respFor(email, includeEnded, includePlanned){
   const e=String(email||'').toLowerCase();
   return (DATA.responsibilities||[]).filter(r=>String(r.person||'').toLowerCase()===e
     && (includeEnded || r.active!==false)
-    && (includePlanned || r.status!=='planned'));
+    && (includePlanned || !rowPlanned(r)));
 }
 function roleStaff(){ return (DATA.coordinator_staff||[]).filter(s=>s.email); }
 function roleCanEdit(){ return DISC_APPROVERS.includes(ME.email); }
@@ -17228,7 +17228,7 @@ function renderMyTeam(){
       +(temp?'<div class="field-note" style="margin-top:4px;">'+temp+' temporary — planned to move</div>':'')
       +'</div>';
   }).join('');
-  wrap.innerHTML=h;
+  wrap.innerHTML=h+posPanelHtml();
 }
 function roleOpen(email){ switchTab('myrole'); renderMyRole(email); }
 
@@ -17981,6 +17981,50 @@ function recurEndAsk(id, email){
    NOT a staff scheduling application. Operational coverage only.
    ═════════════════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════ POSITIONS ════════════════════════════════════════════
+   A POSITION IS NOT A PERSON, and the difference is the whole point.
+
+   A person performs actions and is attributed for them. A position is a job
+   that exists in the operating model whether or not anybody currently holds
+   it. The Staffing Coordinator exists as a role today, with a schedule, a
+   responsibility and a mailbox — and no human. Inventing a persons row called
+   "Staffing Coordinator" to model that would put a fake employee into the
+   attribution of every action it ever touched.
+
+   VACANT MATTERS MORE THAN PLANNED. When the eventual holder leaves, the
+   position does not disappear and the operating model is not rebuilt: it goes
+   back to vacant, keeps its schedule and responsibilities, and Responsible Now
+   shows the gap honestly until somebody real is assigned.
+
+   role_email IS A CONTACT, NEVER AN IDENTITY. staffing@mo-care.com belongs to
+   the function. It must never become a persons row, an auth login, an item
+   owner or an assignee, because ME.email drives attribution in 76 places and a
+   shared login would silently record the mailbox instead of the person for
+   every one of them. History has to say "Jane Smith changed this shift".
+
+   THE BOUNDARY: a position may only appear on a row that is not live. The
+   moment a row goes live it carries a real person's email and the position
+   survives only as provenance in from_position. So there is exactly one way to
+   say WHO for anything live, and every existing reader is untouched. */
+function posGet(id){ return (DATA.positions||[]).find(p=>p.id===id)||null; }
+function posFilled(id){ const p=posGet(id); return !!(p && p.status==='filled' && p.person); }
+/* Belt and braces. A row pointing at an unfilled position is planned no matter
+   what its own status says, so flipping a status field can never conjure a
+   holder who does not exist. */
+function rowPlanned(r){
+  if(!r) return false;
+  if(r.status==='planned') return true;
+  if(r.position && !posFilled(r.position)) return true;
+  return false;
+}
+/* Who a row refers to, for display only. Never used for routing or ownership. */
+function posHolderLabel(r){
+  if(r.person) return opsOwnerName(r.person)||r.person;
+  const p=posGet(r.position);
+  if(!p) return 'unknown position';
+  return p.title+(posFilled(r.position)?'':' · '+(p.status||'vacant'));
+}
+
 const DUTY_AREAS=[
   ['operations',      'Operations',        'Manages whatever comes up',            ['client_care','family_enquiries']],
   ['staffing',        'Staffing',          'Open shifts, call-offs, outreach',     ['scheduling_coverage']],
@@ -18032,7 +18076,7 @@ function dutyClockRange(from,to){
    default that leaks. */
 function dutyCoversAt(w, when){
   if(w.active===false) return false;
-  if(w.status==='planned') return false;
+  if(rowPlanned(w)) return false;
   return dutyCoversAtPlanned(w, when);
 }
 /* Identical, minus the planned guard. Only the Planned view may call it. */
@@ -18115,7 +18159,7 @@ function dutyConflictsFor(person, area, when){
 */
 function dutyResponsibility(area, kind){
   const doms=dutyAreaDomains(area); if(!doms.length) return null;
-  return (DATA.responsibilities||[]).find(r=>r.active!==false && r.status!=='planned'
+  return (DATA.responsibilities||[]).find(r=>r.active!==false && !rowPlanned(r)
     && r.kind===kind && r.domain && doms.includes(r.domain)) || null;
 }
 /* Capability is stored; availability is calculated. Somebody can be a valid
