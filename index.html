@@ -4445,6 +4445,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <button class="secondary" onclick="lpPrintFacesheet()">🖨 Print facesheet</button>
           <button class="secondary" onclick="openActivityModal(lpLead.id)">📅 Schedule activity</button>
           <button class="secondary" onclick="openStaffingModal(lpLead.id)">📨 Send to Staffing</button>
+          <button class="secondary" id="lpDelBtn" onclick="lpDeleteLead()"
+                  style="margin-left:auto;color:var(--red);border-color:var(--red);">🗑 Delete lead</button>
           <button class="primary" id="lp_convert_btn" onclick="lpConvertLead()">✅ Convert → AxisCare client</button>
         </div>
         <div id="lp_converted" class="field-note" style="margin-top:8px;display:none;"></div>
@@ -8165,6 +8167,66 @@ const LP_ATTRS = [
 ];
 let lpLead = null;
 let lpCommsKind = 'all';
+
+/* Deleting a lead did not exist. Everything else about a lead could be edited,
+   scheduled, converted or printed, but a record entered by mistake — or one of
+   my own test rows — could only be removed by somebody writing SQL. That is not
+   a system anybody can run on their own, so here it is as an ordinary button.
+
+   Owner-only, because it is the one action on this screen that destroys
+   something. Everything else can be undone by editing. */
+async function lpDeleteLead(){
+  if(!lpLead) return;
+  const esc=escapeHtmlComms;
+  if(!roleCanEdit()){
+    ccPopOpen(document.getElementById('lpDelBtn')||document.body,
+      '<div style="font-size:13.5px;">Deleting a lead is owner-only.</div>'
+      +'<div class="field-note" style="margin-top:4px;">Ask Samantha or Zach, or mark it '
+      +'<b>Lost</b> instead — that keeps the record and takes it off your list.</div>',{width:330});
+    return;
+  }
+  const L=lpLead;
+  const nm=((L.first_name||'')+' '+(L.last_name||'')).trim()||'(no name)';
+  /* Say what else goes, before it goes. */
+  const linked=(DATA.ops_items||[]).filter(i=>
+    (i.lead_id && i.lead_id===L.id) ||
+    (nm!=='(no name)' && String(i.about||'').toLowerCase()===nm.toLowerCase()));
+  const acts=(DATA.activities||[]).filter(a=>a.lead_id===L.id);
+  const el=ccPopOpen(document.getElementById('lpDelBtn')||document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Delete this lead?</div>'
+    +'<div style="font-size:13.5px;margin-top:8px;"><b>'+esc(nm)+'</b></div>'
+    +'<div class="field-note">'+esc(L.phone||'no phone')+' · '+esc(L.status||'no status')
+    +(L.assigned_coordinator?' · '+esc(L.assigned_coordinator):'')+'</div>'
+    +'<div class="field-note" style="margin-top:10px;">This also removes '
+    +linked.length+' work item'+(linked.length===1?'':'s')+' and '
+    +acts.length+' scheduled activit'+(acts.length===1?'y':'ies')+' attached to it.</div>'
+    +'<div class="field-note" style="margin-top:8px;color:var(--amber);">It does not come back. '
+    +'If you only want it off your list, cancel and set the status to <b>Lost</b> instead — '
+    +'that keeps the history.</div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px;">'
+    +'<button class="primary" id="lpDelGo" style="padding:7px 14px;font-size:13px;'
+    +'background:var(--red);border-color:var(--red);">Delete</button>'
+    +'<button class="ghost" id="lpDelNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:390});
+  el.querySelector('#lpDelNo').onclick=ccPopClose;
+  el.querySelector('#lpDelGo').onclick=async ()=>{
+    ccPopClose();
+    for(const i of linked){
+      DATA.ops_items=(DATA.ops_items||[]).filter(x=>x.id!==i.id);
+      await removeItem('ops_items', i.id);
+    }
+    for(const a of acts){
+      DATA.activities=(DATA.activities||[]).filter(x=>x.id!==a.id);
+      await removeItem('activities', a.id);
+    }
+    DATA.leads=(DATA.leads||[]).filter(x=>x.id!==L.id);
+    await removeItem('leads', L.id);
+    lpLead=null;
+    const panel=document.getElementById('leadProfile');
+    if(panel) panel.style.display='none';
+    renderActiveTab();
+  };
+}
 
 function openLeadProfile(id){
   const lead = DATA.leads.find(l=>l.id===id);
