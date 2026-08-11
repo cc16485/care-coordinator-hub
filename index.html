@@ -17041,10 +17041,14 @@ function roleProfile(email){
   const e=String(email||'').toLowerCase();
   return (DATA.role_profiles||[]).find(r=>String(r.person||'').toLowerCase()===e)||null;
 }
-function respFor(email, includeEnded){
+/* Planned responsibilities are excluded by DEFAULT, for the same reason planned
+   windows are: a capability somebody will have is not one they have. Ask for
+   them by name. */
+function respFor(email, includeEnded, includePlanned){
   const e=String(email||'').toLowerCase();
   return (DATA.responsibilities||[]).filter(r=>String(r.person||'').toLowerCase()===e
-    && (includeEnded || r.active!==false));
+    && (includeEnded || r.active!==false)
+    && (includePlanned || r.status!=='planned'));
 }
 function roleStaff(){ return (DATA.coordinator_staff||[]).filter(s=>s.email); }
 function roleCanEdit(){ return DISC_APPROVERS.includes(ME.email); }
@@ -18016,7 +18020,23 @@ function dutyClockRange(from,to){
 /* One table, two shapes. A one-off carries start/end; a pattern carries recur.
    A one-off ALWAYS beats a pattern, which is what makes a swap or a day off an
    ordinary edit rather than a special case. */
+/* ONE CHOKE POINT, ON PURPOSE.
+   Every read of duty_windows that drives behaviour passes through here:
+   dutyWindowsFor -> dutyHolder -> dutyNow -> Responsible Now, dutyConflictsFor,
+   and dutyPersonAvailable. So a planned window is made inert in one line rather
+   than by remembering to filter at each call site and eventually not.
+
+   A planned row cannot hold duty, satisfy a gap, receive work, change routing,
+   suppress a conflict, or make somebody who has not started look available.
+   Preview asks for planned EXPLICITLY, via dutyCoversAtPlanned. There is no
+   default that leaks. */
 function dutyCoversAt(w, when){
+  if(w.active===false) return false;
+  if(w.status==='planned') return false;
+  return dutyCoversAtPlanned(w, when);
+}
+/* Identical, minus the planned guard. Only the Planned view may call it. */
+function dutyCoversAtPlanned(w, when){
   if(w.active===false) return false;
   const t=when.getTime();
   if(w.start && w.end) return t>=Date.parse(w.start) && t<Date.parse(w.end);
@@ -18095,8 +18115,8 @@ function dutyConflictsFor(person, area, when){
 */
 function dutyResponsibility(area, kind){
   const doms=dutyAreaDomains(area); if(!doms.length) return null;
-  return (DATA.responsibilities||[]).find(r=>r.active!==false && r.kind===kind
-    && r.domain && doms.includes(r.domain)) || null;
+  return (DATA.responsibilities||[]).find(r=>r.active!==false && r.status!=='planned'
+    && r.kind===kind && r.domain && doms.includes(r.domain)) || null;
 }
 /* Capability is stored; availability is calculated. Somebody can be a valid
    backup for a function without being available at every moment the primary
