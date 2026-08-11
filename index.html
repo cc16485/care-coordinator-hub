@@ -17800,12 +17800,33 @@ async function roleApplyCorrections(){
 /* ── The positions we already know about ─────────────────────────────────
    Seeded like the starting roles: shown before it is written, idempotent, and
    the control disappears once there is nothing left to write. */
+/* EVERY EMPLOYEE ROLE IS A POSITION. Samantha and Zach are not, deliberately:
+   ownership is not a job that can be vacated or handed to a successor, so a
+   position would imply a slot that does not exist. Every other role can turn
+   over, and when it does the job must outlive the holder — the same argument
+   that justified the vacant Staffing Coordinator, applied consistently.
+
+   A position holds IDENTITY: title, role mailbox, who holds it now, who held it
+   before. It does NOT hold a copy of the responsibilities. Those stay on the
+   person and carry from_position, because two copies of the same fact drift
+   apart and then nobody knows which is true. */
 const POS_SEED=[
+  { id:'pos_cc_private', title:'Care Coordinator (Private Pay, LTC, Medicare GUIDE)',
+    entity:'cc_ihs', role_email:null, status:'filled', person:'krystal@mo-care.com' },
+  { id:'pos_cc_medicaid', title:'Care Coordinator (Medicaid & VA)',
+    entity:'cc_ihs', role_email:null, status:'filled', person:'angiel@mo-care.com' },
+  { id:'pos_lead_caregiver', title:'Lead Caregiver', entity:'cc_ihs',
+    role_email:null, status:'planned', person:null, intended_person:'cierra@mo-care.com',
+    note:'Planned until Cierra starts. Nothing attached to it is live.' },
   { id:'pos_staffing_coordinator', title:'Staffing Coordinator', entity:'cc_ihs',
     role_email:'staffing@mo-care.com', status:'vacant', person:null,
     transfer_from:'samantha@mo-care.com',
     note:'Samantha is carrying this function temporarily so the workflow is '
         +'proven in real operations before anybody inherits it.' }];
+/* Titles I wrote before the real ones were confirmed. Repaired the same way as
+   names: a profile that exists is never rewritten by a seeder. */
+const PROFILE_FIX={
+  'krystal@mo-care.com':{ title:'Care Coordinator (Private Pay, LTC, Medicare GUIDE)' }};
 function posPending(){ return POS_SEED.filter(p=>!posGet(p.id)); }
 async function posSeed(){
   if(!roleCanEdit()) return;
@@ -17841,6 +17862,12 @@ async function posSeed(){
   };
 }
 /* Rows attached to a position, so a vacancy shows what it is holding open. */
+/* Names people the persons table does not know about yet. */
+function posPersonName(email){
+  const e=String(email||'').toLowerCase();
+  const pr=(DATA.role_profiles||[]).find(x=>String(x.id||x.person||'').toLowerCase()===e);
+  return (pr&&pr.full_name)||opsOwnerName(e)||e;
+}
 function posRowsFor(id){
   return { duty:(DATA.duty_windows||[]).filter(w=>w.position===id && w.active!==false),
            resp:(DATA.responsibilities||[]).filter(r=>r.position===id && r.active!==false) };
@@ -17862,7 +17889,9 @@ function posPanelHtml(){
       +'<b style="font-size:15px;">'+esc(p.title)+'</b>'
       +'<span class="tag-chip" style="background:'+(filled?'var(--teal-bg)':'var(--amber-bg)')
       +';color:'+(filled?'var(--teal)':'var(--amber)')+';">'+esc(String(p.status||'').toUpperCase())+'</span>'
-      +(filled?'<span class="field-note">held by '+esc(opsOwnerName(p.person)||p.person)+'</span>':'')
+      +(filled?'<span class="field-note">held by '+esc(opsOwnerName(p.person)||p.person)+'</span>'
+        :(p.intended_person?'<span class="field-note">intended for '
+          +esc(posPersonName(p.intended_person))+'</span>':''))
       +'</div>'
       +(p.role_email?'<div class="field-note" style="margin-top:4px;">Role contact '+esc(p.role_email)
         +' — a mailbox, not an identity</div>':'')
@@ -17873,6 +17902,8 @@ function posPanelHtml(){
       +r.resp.length+' planned responsibilit'+(r.resp.length===1?'y':'ies')+' · '
       +r.duty.length+' planned duty window'+(r.duty.length===1?'':'s')
       +(filled?'':' · none of it is live')+'</div>'
+      +(filled?'':'<div class="field-note">Samantha and Zach have no position: ownership is not '
+        +'a job that can be vacated.</div>')
       +'</div>'; }).join('');
   return h;
 }
@@ -17910,7 +17941,7 @@ const PLAN_PEOPLE={
       ['support','Caregiver support in the field',null],
       ['not_primary','Caregiver performance management — that is Krystal',null]]},
   'angiel@mo-care.com':{
-    full_name:'Angiel Falig', title:'Payer Program Coordinator', status:'active',
+    full_name:'Angiel Falig', title:'Care Coordinator (Medicaid & VA)', status:'active',
     why:'Make sure a payer-programme opportunity actually becomes an active client '
        +'receiving authorised care, and grow the Medicaid census deliberately.',
     escalate_to:'samantha@mo-care.com',
@@ -17964,6 +17995,10 @@ function planPending(){
   const has=(pe,k,t)=>A.some(r=>String(r.person||'').toLowerCase()===pe && r.active!==false
                                 && r.kind===k && r.text===t);
   const out={profiles:[],resp:[],duty:[],names:[]};
+  for(const [email,d] of Object.entries(PROFILE_FIX)){
+    const ex=roleProfile(email);
+    if(ex && d.title && ex.title!==d.title) out.names.push(email);
+  }
   for(const [email,d] of Object.entries(PLAN_PEOPLE)){
     const ex=roleProfile(email);
     if(!ex) out.profiles.push(email);
@@ -18029,8 +18064,9 @@ async function roleSeedPlanned(){
         status: planned?'planned':'live' });
     }
     for(const email of q.names){
-      await roleSaveProfile(email,{ full_name:PLAN_PEOPLE[email].full_name,
-                                    title:PLAN_PEOPLE[email].title });
+      const d=PLAN_PEOPLE[email]||PROFILE_FIX[email]||{};
+      const patch={}; if(d.full_name) patch.full_name=d.full_name; if(d.title) patch.title=d.title;
+      await roleSaveProfile(email, patch);
     }
     for(const pr of q.posResp){
       const row=Object.assign({ id:'rsp_pos_'+pr.position+'_'+pr.kind, active:true, status:'planned',
