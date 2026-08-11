@@ -3341,9 +3341,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
 
       <!-- One calendar under interviews, orientations, care assessments and
-           consultations. Availability belongs to a coordinator AND an activity,
+           consultations. Availability belongs to a coordinator AND an activity
+           (coordinator_availability: coordinator, activity, day, start, end),
            because Angiel can be free for assessments all day and for interviews
-           only on Tuesday afternoons. -->
+           only on Tuesday afternoons.
+
+           THAT IS BOOKABLE HOURS, NOT APPROVAL. Removing somebody's Tuesday
+           interview hours does not make them untrained, and somebody trained
+           but with no hours set is still trained. Whether a person MAY perform
+           an activity is a responsibility of kind 'qualified'; this table says
+           WHEN. They use the same activity keys so they compose. -->
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <b style="font-size:15px;color:var(--navy);">📅 Team calendar &amp; availability</b>
@@ -15346,7 +15353,14 @@ function calMonth(){
 /* ---- Team calendar: who is available for what, and what is already booked --
    Availability belongs to a coordinator AND an activity, because Angiel can be
    free for assessments all day and for interviews only Tuesday afternoons.
-   Requires scheduling.sql. */
+   Requires scheduling.sql.
+
+   THIS ANSWERS "WHEN", NOT "MAY THEY". coordinator_availability is a bookable
+   hours table that happens to carry an activity. It cannot express "qualified
+   but no hours set yet", and deleting a row would wrongly read as revoking
+   training. Approval lives in responsibilities as kind 'qualified', keyed on
+   the SAME activity keys as IV_ACTS so the two compose rather than compete:
+   eligible = qualified AND available AND live. */
 const IV_DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const IV_DSHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 let IV_HOSTS = [], IV_AVAIL = [], IV_ACTS = [], IV_BUSY = [];
@@ -17414,7 +17428,7 @@ async function roleSeedStarting(){
            Staffing Coordinator's own schedule so the workflow is proven in real
            operations before anybody inherits it. */
         ['primary','Scheduling and coverage','scheduling_coverage',true,
-         'Samantha is temporarily working the Staffing Coordinator schedule until the VA starts and is ready'],
+         'Samantha is temporarily working the Staffing Coordinator schedule until the Staffing Coordinator starts and is ready'],
         ['support','Operational exceptions'],['support','Developing the managers'],
         ['not_primary','Routine caregiver outreach'],
         ['not_primary','Routine family follow-up'],
@@ -17452,7 +17466,7 @@ async function roleSeedStarting(){
   };
   /* Rows the operating model has since replaced. These are ENDED, never
      deleted: "who owned scheduling in August" has to stay answerable after
-     Samantha takes it and again after the VA does.
+     Samantha takes it and again after the Staffing Coordinator does.
 
      Keyed on person + text + KIND, active rows only. Text alone is not enough:
      Krystal's replacement row carries the SAME text as the row it replaces
@@ -17575,7 +17589,7 @@ async function roleSeedStarting(){
 
    KNOWN GAP, stated rather than hidden: this materialises when somebody signs
    in. A period where nobody signed in leaves no record. Harmless while the
-   owners sign in daily; when the VA starts, the same function moves to a
+   owners sign in daily; when the Staffing Coordinator starts, it moves to a
    daily cron. A port, not a redesign.
    ═════════════════════════════════════════════════════════════════════════ */
 
@@ -17808,8 +17822,9 @@ function recurEndAsk(id, email){
      DUTY WINDOW     who is carrying it during THIS time period   ← here
      ASSIGNMENT      who owns one particular item
 
-   The VA can be the primary scheduling owner and not be on duty at 8am. Both
-   are true, and conflating them is how "the VA does scheduling" and "everyone
+   The Staffing Coordinator can be the primary scheduling owner and not be on
+   duty at 8am. Both are true, and conflating them is how "the Coordinator does
+   scheduling" and "everyone
    does scheduling" both become wrong at once.
 
    DIRECT CARE IS A DUTY AREA, not an integration. Modelling "working an
