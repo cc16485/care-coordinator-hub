@@ -758,6 +758,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-today">
     <div class="fpill" data-tab="home" onclick="switchTab('home')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> Home</div>
     <div class="fpill" data-tab="mywork" onclick="switchTab('mywork')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> My Work<span class="subtab-badge red" id="gb-mywork" style="display:none;"></span></div>
+    <div class="fpill" data-tab="myrole" onclick="switchTab('myrole')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> My Role</div>
+    <div class="fpill" data-tab="myteam" onclick="switchTab('myteam')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> My Team</div>
     <div class="fpill" data-tab="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sun"/></svg> Today</div>
     <div class="fpill" data-tab="ops" onclick="switchTab('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention<span class="subtab-badge red" id="gb-ops" style="display:none;"></span></div>
     <div class="fpill" data-tab="calls" onclick="switchTab('calls')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Calls</div>
@@ -1234,6 +1236,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          second task system: the machinery was already right, it just had
          nowhere to be seen from. Unassigned is where triage lives, so it is
          part of the operating system rather than a one-off cleanup screen. -->
+    <!-- ===================== TAB: MY ROLE =====================
+         What your job actually is, in operational language. Reads from
+         role_profiles and responsibilities; invents nothing. -->
+    <section class="tabpanel" id="tab-myrole"><div id="myRoleWrap"></div></section>
+
+    <!-- ===================== TAB: MY TEAM ===================== -->
+    <section class="tabpanel" id="tab-myteam"><div id="myTeamWrap"></div></section>
+
     <section class="tabpanel" id="tab-mywork">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
         <div>
@@ -6169,7 +6179,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -6286,7 +6296,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -6485,7 +6495,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['home','mywork','today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','evv'],clients:['leads','statesubs','bookings','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['home','mywork','myrole','myteam','today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','evv'],clients:['leads','statesubs','bookings','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -7155,6 +7165,8 @@ function renderActiveTab(){
   if(activeTab==='today') renderToday();
   if(activeTab==='home') renderHome();
   if(activeTab==='mywork') renderMyWork();
+  if(activeTab==='myrole') renderMyRole();
+  if(activeTab==='myteam') renderMyTeam();
   if(activeTab==='referrers') renderReferrers();
   if(activeTab==='reports') renderReports();
   if(activeTab==='leads') renderLeads();
@@ -16044,24 +16056,33 @@ function opsAlreadyHandled(it){
    render as "An embedded page at cc.mo-care.com says", which reads like a
    fault rather than a question. Under 700px it becomes a bottom sheet,
    because a 280px popover anchored to a button is unusable on a phone. */
-let CC_POP=null;
+/* A STACK, not a single popover. The first version closed whatever was open
+   before opening anything, which meant choosing a person from inside the
+   transfer dialog destroyed the transfer dialog. Anything opened from inside
+   a popover stacks on top and returns to its parent when dismissed. */
+let CC_POPS=[];
 function ccPopClose(){
-  if(!CC_POP) return;
-  CC_POP.el.remove(); CC_POP.backdrop && CC_POP.backdrop.remove();
-  document.removeEventListener('keydown', CC_POP.onKey, true);
-  CC_POP=null;
+  const t=CC_POPS.pop(); if(!t) return;
+  t.el.remove(); t.backdrop && t.backdrop.remove();
+  document.removeEventListener('keydown', t.onKey, true);
 }
-function ccPopIsOpen(){ return !!CC_POP; }
+function ccPopCloseAll(){ while(CC_POPS.length) ccPopClose(); }
+function ccPopIsOpen(){ return CC_POPS.length>0; }
 function ccPopOpen(anchor, html, opts){
-  ccPopClose(); opts=opts||{};
+  opts=opts||{};
+  // Replace by default, so clicking the menu on one card closes the menu on
+  // another. stack:true is for anything opened FROM inside a popover, which
+  // must sit on top of its parent rather than destroying it.
+  if(!opts.stack) ccPopCloseAll();
+  const depth=CC_POPS.length;
   const narrow = window.innerWidth < 700;
   const back=document.createElement('div');
-  back.style.cssText='position:fixed;inset:0;z-index:9998;'
-    +(narrow?'background:rgba(14,56,96,.35);':'');
+  back.style.cssText='position:fixed;inset:0;z-index:'+(9998+depth*2)+';'
+    +(narrow||depth?'background:rgba(14,56,96,'+(depth?'.25':'.35')+');':'');
   back.onclick=ccPopClose;
   const el=document.createElement('div');
   el.className='ccpop';
-  el.style.cssText='position:fixed;z-index:9999;background:#fff;border:1px solid var(--border);'
+  el.style.cssText='position:fixed;z-index:'+(9999+depth*2)+';background:#fff;border:1px solid var(--border);'
     +'box-shadow:0 12px 32px rgba(14,56,96,.18);'
     +(narrow
       ? 'left:0;right:0;bottom:0;border-radius:16px 16px 0 0;max-height:75vh;overflow:auto;padding:14px 16px 22px;'
@@ -16076,7 +16097,7 @@ function ccPopOpen(anchor, html, opts){
   }
   const onKey=(e)=>{ if(e.key==='Escape'){ e.stopPropagation(); ccPopClose(); } };
   document.addEventListener('keydown', onKey, true);
-  CC_POP={el, backdrop:back, onKey};
+  CC_POPS.push({el, backdrop:back, onKey});
   const f=el.querySelector('input,textarea'); if(f) setTimeout(()=>f.focus(),20);
   return el;
 }
@@ -16154,7 +16175,7 @@ function ccPickPerson(anchor, cfg){
     +'<div class="ccpick-row" data-email="" data-name="" style="padding:8px;border-radius:8px;cursor:pointer;">'
     +'<span class="field-note">Leave unassigned</span></div>';
 
-  const el=ccPopOpen(anchor, h, {width:330});
+  const el=ccPopOpen(anchor, h, {width:330, stack:ccPopIsOpen()});
   const pick=(e,n)=>{ ccPopClose(); cfg.onPick && cfg.onPick(e,n); };
   el.querySelectorAll('.ccpick-row').forEach(r=>{
     r.onmouseenter=()=>r.style.background='var(--bg)';
@@ -16184,7 +16205,7 @@ function ccPickDomain(anchor, cfg){
     +'<div style="height:1px;background:var(--border);margin:6px 0;"></div>'
     +'<div class="ccpick-row" data-code="" style="padding:8px;border-radius:8px;cursor:pointer;">'
     +'<span class="field-note">Not known yet</span></div>';
-  const el=ccPopOpen(anchor, h, {width:300});
+  const el=ccPopOpen(anchor, h, {width:300, stack:ccPopIsOpen()});
   el.querySelectorAll('.ccpick-row').forEach(r=>{
     r.onmouseenter=()=>r.style.background='var(--bg)';
     r.onmouseleave=()=>r.style.background='';
@@ -16935,6 +16956,483 @@ function homeShowBacklog(email){
     +'. Ask about them rather than doing them: a supervisor who never has to '
     +'catch up never becomes one.</div>';
   ccPopOpen(document.body, h, {width:400});
+}
+
+/* ═══════════════════ MY ROLE / MY TEAM — responsibilities ════════════════
+   What a person's job is, in operational language, from data.
+   Nothing about Cierra's job lives in this file.
+
+   Two keys: role_profiles (title, why it exists, escalation) and
+   responsibilities (one row per thing somebody owns, supports, backs up, or
+   should not be quietly carrying).
+
+   ENDING A RESPONSIBILITY NEVER DELETES IT. active:false plus an ended_at,
+   so when Scheduling moves from Krystal to the staffing coordinator we can
+   still answer what was true in September. Transfer is end-one-and-create-
+   another in a single action, which is the only reason that history survives.
+
+   TEMPORARY IS A FLAG, and it earns its place: six of eight domains sit with
+   Krystal right now, and without a mark saying so the temporary shape quietly
+   becomes the permanent one.
+
+   NOT HERE: competency. No levels, no readiness score, no percentage. This
+   page answers "what is my job". The review system answers "what is being
+   checked". Those are different questions and mixing them was how people got
+   handed responsibility they had not been prepared for.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+const RESP_KINDS=[
+  ['primary','YOU OWN','Where you are the primary owner'],
+  ['support','YOU SUPPORT','Where you help, or step in when asked'],
+  ['backup','BACKUP CAPABILITY','Yours to cover when the usual owner is unavailable'],
+  ['not_primary','NOT YOUR PRIMARY LANE','You can still help. You are not expected to carry it']];
+
+function roleProfile(email){
+  const e=String(email||'').toLowerCase();
+  return (DATA.role_profiles||[]).find(r=>String(r.person||'').toLowerCase()===e)||null;
+}
+function respFor(email, includeEnded){
+  const e=String(email||'').toLowerCase();
+  return (DATA.responsibilities||[]).filter(r=>String(r.person||'').toLowerCase()===e
+    && (includeEnded || r.active!==false));
+}
+function roleStaff(){ return (DATA.coordinator_staff||[]).filter(s=>s.email); }
+function roleCanEdit(){ return DISC_APPROVERS.includes(ME.email); }
+
+/* ── MY ROLE ─────────────────────────────────────────────────────────────── */
+function renderMyRole(email){
+  const wrap=document.getElementById('myRoleWrap'); if(!wrap) return;
+  const esc=escapeHtmlComms;
+  const who=String(email||opsMeKey()||'').toLowerCase();
+  const p=roleProfile(who), rs=respFor(who);
+  const name=opsOwnerName(who)||who;
+
+  if(!p && !rs.length){
+    wrap.innerHTML='<div class="card" style="padding:24px;text-align:center;">'
+      +'<b style="font-size:15px;">No role written for '+esc(name)+' yet.</b>'
+      +'<div class="field-note" style="margin-top:6px;">A role says why the job exists, what '
+      +'is owned, what is supported, and where to escalate. '
+      +(roleCanEdit()?'You can write one from My Team.':'Ask Samantha to write one.')+'</div>'
+      +(roleCanEdit()?'<button class="primary" style="margin-top:12px;padding:7px 14px;font-size:13px;" '
+        +'onclick="switchTab(\'myteam\')">Open My Team</button>':'')+'</div>';
+    return;
+  }
+
+  const planned=p&&p.status==='planned';
+  let h='<div style="margin-bottom:14px;">'
+    +'<h2 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">'
+    +esc(name)+'</h2>'
+    +'<div class="field-note">'+esc((p&&p.title)||'')
+    +(planned?' · <b style="color:var(--amber);">PLANNED — not started yet</b>':'')+'</div></div>';
+
+  if(p&&p.why) h+='<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">WHY YOUR ROLE EXISTS</b>'
+    +'<div style="font-size:14px;margin-top:6px;">'+esc(p.why)+'</div></div>';
+
+  RESP_KINDS.forEach(([kind,label,note])=>{
+    const list=rs.filter(r=>r.kind===kind);
+    if(!list.length) return;
+    h+='<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+      +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">'+label+'</b>'
+      +'<div class="field-note" style="margin-bottom:6px;">'+note+'</div>'
+      +list.map(r=>{
+        const d=opsAllDomains().find(x=>x.code===r.domain);
+        return '<div style="padding:7px 0;border-bottom:1px solid var(--border);">'
+          +'<div style="font-size:13.5px;">'+esc(r.text||'')
+          +(r.temporary?' <span class="tag-chip" style="background:var(--amber-bg);color:var(--amber);">'
+            +'TEMPORARY</span>':'')+'</div>'
+          +(r.temporary&&r.transfer_note?'<div class="field-note" style="color:var(--amber);">'
+            +esc(r.transfer_note)+'</div>':'')
+          +(d?'<div class="field-note">'+esc(d.label)+'</div>':'')
+          +(r.recurring?'<div class="field-note">Recurring: '+esc(r.recurring)+'</div>':'')
+          +'</div>'; }).join('')
+      +'</div>';
+  });
+
+  /* Live, from the work system. Not a second copy of anything. */
+  const me=String(opsMeKey()||'').toLowerCase();
+  if(who===me){
+    const b=myWorkBuckets(), owed=reviewsIOwe();
+    h+='<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+      +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">RIGHT NOW</b>'
+      +'<div style="display:flex;gap:22px;flex-wrap:wrap;margin-top:8px;font-size:13.5px;">'
+      +'<span><b style="font-size:18px;">'+b.mine.length+'</b> open</span>'
+      +'<span><b style="font-size:18px;'+(b.overdue.length?'color:var(--red);':'')+'">'
+        +b.overdue.length+'</b> overdue</span>'
+      +(owed.length?'<span><b style="font-size:18px;">'+owed.length+'</b> reviews you owe</span>':'')
+      +'</div>'
+      +'<button class="ghost" style="margin-top:10px;padding:6px 12px;font-size:12.5px;" '
+      +'onclick="switchTab(\'mywork\')">Open My Work</button></div>';
+
+    const fb=reviewMyFeedback(who).slice(0,3);
+    const waiting=(DATA.ops_items||[]).filter(i=>i.kind==='review'&&i.status==='open'
+      && i.review && String(i.review.person||'').toLowerCase()===who);
+    if(fb.length||waiting.length){
+      h+='<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+        +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">FEEDBACK</b>'
+        +'<div class="field-note" style="margin-bottom:6px;">Training feedback. Separate from '
+        +'corrective action, which lives in Write-Ups.</div>'
+        /* The employee is never shown as behind because a review has not
+           happened. Their part is finished; the next step is somebody else's. */
+        +(waiting.length?'<div class="field-note" style="margin-bottom:6px;">'+waiting.length
+          +' completed item'+(waiting.length===1?'':'s')+' waiting on '
+          +esc([...new Set(waiting.map(i=>opsOwnerName(i.owner)||''))].filter(Boolean).join(', '))
+          +' to review. You finished your part.</div>':'')
+        +fb.map(i=>{ const r=i.review;
+          return '<div style="padding:8px 0;border-bottom:1px solid var(--border);">'
+            +'<div class="field-note">'+esc((OPS_KINDS[r.source_kind]||{}).label||r.source_kind)
+            +' · '+esc(callsFmtWhen(r.completed_at))+'</div>'
+            +'<div style="font-size:13px;margin-top:3px;"><span class="field-note">WHAT WENT WELL&nbsp;&nbsp;</span>'
+            +esc(r.what_went_well||'')+'</div>'
+            +'<div style="font-size:13px;"><span class="field-note">NEXT TIME&nbsp;&nbsp;</span>'
+            +esc(r.next_time||'')+'</div></div>'; }).join('')
+        +'</div>';
+    }
+  }
+
+  if(p&&(p.escalate_to||p.escalate_when)){
+    h+='<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+      +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">WHEN TO ESCALATE</b>'
+      +(p.escalate_to?'<div style="font-size:13.5px;margin-top:6px;">Go to <b>'
+        +esc(opsOwnerName(p.escalate_to)||p.escalate_to)+'</b></div>':'')
+      +(p.escalate_when?'<div style="font-size:13.5px;margin-top:4px;">'
+        +esc(p.escalate_when)+'</div>':'')+'</div>';
+  }
+  if(roleCanEdit()) h+='<div style="text-align:center;padding:6px;">'
+    +'<button class="linklike" onclick="roleEdit(\''+esc(who)+'\')">Edit this role</button></div>';
+  wrap.innerHTML=h;
+}
+
+/* ── MY TEAM ─────────────────────────────────────────────────────────────── */
+function renderMyTeam(){
+  const wrap=document.getElementById('myTeamWrap'); if(!wrap) return;
+  const esc=escapeHtmlComms;
+  const staff=roleStaff();
+  let h='<div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:12px;">'
+    +'<div><h2 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">'
+    +'My Team</h2><div class="field-note">Who does what, and what is temporary</div></div>'
+    +'<span style="flex:1;"></span>'
+    +(roleCanEdit()?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
+      +'onclick="roleSeedStarting()">Write the starting roles</button>':'')+'</div>';
+
+  h+=staff.map(s=>{
+    const e=String(s.email).toLowerCase();
+    const p=roleProfile(e), rs=respFor(e);
+    const cnt=k=>rs.filter(r=>r.kind===k).length;
+    const temp=rs.filter(r=>r.temporary).length;
+    const open=(DATA.ops_items||[]).filter(i=>i.status==='open'&&String(i.owner||'').toLowerCase()===e);
+    const late=open.filter(i=>i.due&&Date.parse(i.due)<Date.now());
+    const owed=open.filter(i=>i.kind==='review');
+    const planned=p&&p.status==='planned';
+    return '<div class="card" style="padding:15px 17px;margin-bottom:10px;">'
+      +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
+      +'<b style="font-size:15.5px;">'+esc(s.name||e)+'</b>'
+      +'<span class="field-note">'+esc((p&&p.title)||'no role written yet')+'</span>'
+      +(planned?'<span class="tag-chip" style="background:var(--amber-bg);color:var(--amber);">'
+        +'PLANNED</span>':'')
+      +'<span style="flex:1;"></span>'
+      +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
+      +'onclick="roleOpen(\''+esc(e)+'\')">Open role</button>'
+      +(roleCanEdit()?'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
+        +'onclick="roleEdit(\''+esc(e)+'\')">Edit</button>':'')
+      +'</div>'
+      +'<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;">'
+      +'<span>'+cnt('primary')+' primary</span><span>'+cnt('support')+' support</span>'
+      +'<span>'+cnt('backup')+' backup</span>'
+      +'<span>'+open.length+' open work</span>'
+      +(late.length?'<span style="color:var(--red);">'+late.length+' overdue</span>':'')
+      +(owed.length?'<span>'+owed.length+' reviews owed</span>':'')
+      +'</div>'
+      /* Surfacing reality rather than scoring it. If six of eight domains are
+         one person's, that should be visible without anybody inventing a
+         workload index. */
+      +(cnt('primary')>=5?'<div class="field-note" style="color:var(--amber);margin-top:6px;">'
+        +'Carrying '+cnt('primary')+' primary responsibilities'
+        +(temp?', '+temp+' of them marked temporary':'')+'</div>':'')
+      +(temp?'<div class="field-note" style="margin-top:4px;">'+temp+' temporary — planned to move</div>':'')
+      +'</div>';
+  }).join('');
+  wrap.innerHTML=h;
+}
+function roleOpen(email){ switchTab('myrole'); renderMyRole(email); }
+
+/* ── Editing a role. Owner/Admin only, and no email typing anywhere. ────── */
+async function roleSaveProfile(email, patch){
+  DATA.role_profiles=DATA.role_profiles||[];
+  let p=roleProfile(email);
+  if(!p){ p={ person:String(email).toLowerCase(), status:'active' }; DATA.role_profiles.push(p); }
+  Object.assign(p, patch, { updated_at:new Date().toISOString(), updated_by:ME.email||'' });
+  await persist('role_profiles', p);
+}
+async function roleAddResp(email, r){
+  DATA.responsibilities=DATA.responsibilities||[];
+  const row=Object.assign({
+    id:'rsp_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    person:String(email).toLowerCase(), active:true,
+    started_at:new Date().toISOString(), created_by:ME.email||'',
+    created_at:new Date().toISOString() }, r);
+  DATA.responsibilities.push(row);
+  await persist('responsibilities', row);
+  return row;
+}
+/* Ends it. Never deletes it. "What was Krystal responsible for in September"
+   has to stay answerable after the staffing coordinator takes scheduling. */
+async function roleEndResp(id, why){
+  const r=(DATA.responsibilities||[]).find(x=>x.id===id); if(!r) return;
+  r.active=false; r.ended_at=new Date().toISOString();
+  r.ended_by=ME.email||''; if(why) r.ended_reason=why;
+  await persist('responsibilities', r);
+}
+
+function roleEdit(email){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms;
+  const p=roleProfile(email)||{}, rs=respFor(email,true);
+  const name=opsOwnerName(email)||email;
+  const doms=opsAllDomains();
+
+  const h='<div style="font-size:14px;font-weight:800;color:var(--navy);">'+esc(name)+'</div>'
+    +'<div class="field-note" style="margin-bottom:10px;">Changes are saved as they are made.</div>'
+    +'<label>Role title</label><input id="reTitle" value="'+esc(p.title||'')+'" '
+      +'placeholder="Care Operations" style="width:100%;font-size:13px;padding:7px 9px;border-radius:8px;">'
+    +'<label style="margin-top:8px;">Why this role exists</label>'
+    +'<textarea id="reWhy" rows="2" placeholder="One or two sentences." '
+      +'style="width:100%;font-size:13px;padding:8px;border-radius:8px;">'+esc(p.why||'')+'</textarea>'
+    +'<label style="margin-top:8px;">Status</label>'
+    +'<select id="reStatus" style="width:100%;padding:7px 9px;font-size:13px;border-radius:8px;">'
+      +'<option value="active"'+(p.status!=='planned'?' selected':'')+'>Active — doing this job now</option>'
+      +'<option value="planned"'+(p.status==='planned'?' selected':'')+'>Planned — has not started yet</option></select>'
+    +'<label style="margin-top:8px;">Escalate to</label>'
+    +'<div id="reEscWrap" style="display:flex;gap:8px;align-items:center;">'
+      +'<button class="ghost" id="reEscBtn" style="padding:6px 12px;font-size:12.5px;">'
+      +esc(p.escalate_to?(opsOwnerName(p.escalate_to)||p.escalate_to):'Choose…')+'</button></div>'
+    +'<label style="margin-top:8px;">Escalate when</label>'
+    +'<textarea id="reEscWhen" rows="2" placeholder="Safety, compliance, losing a client, final discipline." '
+      +'style="width:100%;font-size:13px;padding:8px;border-radius:8px;">'+esc(p.escalate_when||'')+'</textarea>'
+    +'<div style="display:flex;gap:8px;margin:10px 0 14px;">'
+      +'<button class="primary" id="reSave" style="padding:7px 14px;font-size:13px;">Save role</button></div>'
+    +'<div style="height:1px;background:var(--border);margin:6px 0 10px;"></div>'
+    +'<div class="field-note" style="font-weight:700;margin-bottom:6px;">RESPONSIBILITIES</div>'
+    +'<div id="reList"></div>'
+    +'<div style="height:1px;background:var(--border);margin:10px 0;"></div>'
+    +'<div class="field-note" style="font-weight:700;margin-bottom:6px;">ADD ONE</div>'
+    +'<input id="reText" placeholder="Client and family care coordination" '
+      +'style="width:100%;font-size:13px;padding:7px 9px;border-radius:8px;">'
+    +'<div style="display:flex;gap:6px;margin-top:6px;">'
+      +'<select id="reKind" style="flex:1;padding:7px 9px;font-size:13px;border-radius:8px;">'
+      +RESP_KINDS.map(([k,l])=>'<option value="'+k+'">'+l+'</option>').join('')+'</select>'
+      +'<select id="reDomain" style="flex:1;padding:7px 9px;font-size:13px;border-radius:8px;">'
+      +'<option value="">No domain</option>'
+      +doms.map(d=>'<option value="'+esc(d.code)+'">'+esc(d.label)+'</option>').join('')+'</select></div>'
+    +'<input id="reRecur" placeholder="Recurring expectation, optional" '
+      +'style="width:100%;font-size:13px;padding:7px 9px;border-radius:8px;margin-top:6px;">'
+    +'<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px;">'
+      +'<input type="checkbox" id="reTemp" style="width:15px;height:15px;"> This is temporary</label>'
+    +'<input id="reTransfer" placeholder="Planned transfer to… (optional)" '
+      +'style="width:100%;font-size:13px;padding:7px 9px;border-radius:8px;margin-top:6px;">'
+    +'<button class="primary" id="reAdd" style="padding:7px 14px;font-size:13px;margin-top:10px;">Add</button>';
+
+  const el=ccPopOpen(document.body, h, {width:460});
+  let escTo=p.escalate_to||'';
+
+  const paint=()=>{
+    const list=respFor(email,true);
+    el.querySelector('#reList').innerHTML = list.length ? list.map(r=>{
+      const lbl=(RESP_KINDS.find(k=>k[0]===r.kind)||[])[1]||r.kind;
+      const ended=r.active===false;
+      return '<div style="padding:7px 0;border-bottom:1px solid var(--border);'+(ended?'opacity:.45;':'')+'">'
+        +'<div style="font-size:13px;">'+esc(r.text||'')
+        +(r.temporary?' <span class="tag-chip" style="background:var(--amber-bg);color:var(--amber);">TEMPORARY</span>':'')
+        +(ended?' <span class="tag-chip">ENDED</span>':'')+'</div>'
+        +'<div class="field-note">'+esc(lbl)+(r.domain?' · '+esc(r.domain):'')+'</div>'
+        +(ended?'':'<div style="display:flex;gap:6px;margin-top:4px;">'
+          +'<button class="linklike" style="font-size:12px;" onclick="roleEndAsk(\''+r.id+'\',\''+esc(email)+'\')">End it</button>'
+          +(r.kind==='primary'?'<button class="linklike" style="font-size:12px;" '
+            +'onclick="roleTransfer(\''+r.id+'\')">Transfer to someone…</button>':'')
+          +'</div>')
+        +'</div>'; }).join('') : '<div class="field-note">None yet.</div>';
+  };
+  paint();
+
+  el.querySelector('#reEscBtn').onclick=(ev)=>{
+    ccPickPerson(ev.target,{ onPick:(e,n)=>{ escTo=e; ev.target.textContent=n||'Choose…'; } });
+  };
+  el.querySelector('#reSave').onclick=async ()=>{
+    await roleSaveProfile(email,{ title:el.querySelector('#reTitle').value.trim(),
+      why:el.querySelector('#reWhy').value.trim(), status:el.querySelector('#reStatus').value,
+      escalate_to:escTo, escalate_when:el.querySelector('#reEscWhen').value.trim() });
+    renderMyTeam(); el.querySelector('#reSave').textContent='Saved';
+    setTimeout(()=>{ const b=el.querySelector('#reSave'); if(b) b.textContent='Save role'; },1500);
+  };
+  el.querySelector('#reAdd').onclick=async ()=>{
+    const text=el.querySelector('#reText').value.trim();
+    if(!text) return;
+    await roleAddResp(email,{ text, kind:el.querySelector('#reKind').value,
+      domain:el.querySelector('#reDomain').value||null,
+      recurring:el.querySelector('#reRecur').value.trim()||null,
+      temporary:el.querySelector('#reTemp').checked,
+      transfer_note:el.querySelector('#reTransfer').value.trim()||null });
+    el.querySelector('#reText').value=''; el.querySelector('#reRecur').value='';
+    el.querySelector('#reTransfer').value=''; el.querySelector('#reTemp').checked=false;
+    paint(); renderMyTeam();
+  };
+}
+
+function roleEndAsk(id, email){
+  const r=(DATA.responsibilities||[]).find(x=>x.id===id); if(!r) return;
+  const esc=escapeHtmlComms;
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:13.5px;font-weight:700;">End this responsibility?</div>'
+    +'<div class="field-note" style="margin:4px 0 8px;">'+esc(r.text||'')+'</div>'
+    +'<div class="field-note" style="margin-bottom:8px;">It stays on the record with an end date, '
+    +'so what was true before this moment is still answerable.</div>'
+    +'<input id="reWhyEnd" placeholder="Why, optional" style="width:100%;font-size:13px;padding:7px 9px;border-radius:8px;">'
+    +'<div style="display:flex;gap:8px;margin-top:10px;">'
+    +'<button class="primary" id="reEndGo" style="padding:7px 14px;font-size:13px;">End it</button>'
+    +'<button class="ghost" id="reEndNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',{width:340});
+  el.querySelector('#reEndNo').onclick=ccPopClose;
+  el.querySelector('#reEndGo').onclick=async ()=>{
+    const why=el.querySelector('#reWhyEnd').value.trim(); ccPopClose();
+    await roleEndResp(id, why); renderMyTeam(); roleEdit(email);
+  };
+}
+
+/* ── Transfer ────────────────────────────────────────────────────────────
+   The whole reason responsibilities are dated. Ends one, creates the other,
+   and offers to leave the previous owner as backup — because the day
+   scheduling moves to the staffing coordinator, Krystal does not stop being
+   able to do it. */
+function roleTransfer(id){
+  const r=(DATA.responsibilities||[]).find(x=>x.id===id); if(!r) return;
+  const esc=escapeHtmlComms;
+  const from=opsOwnerName(r.person)||r.person;
+  let to='', toName='';
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Transfer a responsibility</div>'
+    +'<div class="field-note" style="margin:4px 0 10px;">'+esc(r.text||'')+'</div>'
+    +'<div style="font-size:13px;">Currently <b>'+esc(from)+'</b></div>'
+    +'<div style="margin-top:8px;"><label>Hand it to</label>'
+    +'<button class="ghost" id="rtWho" style="padding:6px 12px;font-size:12.5px;">Choose…</button></div>'
+    +'<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;">'
+    +'<input type="checkbox" id="rtBackup" checked style="width:15px;height:15px;"> '
+    +'Keep '+esc(String(from).split(' ')[0])+' as backup</label>'
+    +'<div class="field-note" style="margin-top:8px;">'+esc(String(from).split(' ')[0])
+    +'&rsquo;s version is end-dated, not deleted. A new one starts today for the new owner.</div>'
+    +'<div id="rtErr" class="field-note" style="color:var(--red);min-height:1em;"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:8px;">'
+    +'<button class="primary" id="rtGo" style="padding:7px 14px;font-size:13px;">Transfer</button>'
+    +'<button class="ghost" id="rtNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',{width:380});
+  el.querySelector('#rtNo').onclick=ccPopClose;
+  el.querySelector('#rtWho').onclick=(ev)=>ccPickPerson(ev.target,{
+    onPick:(e,n)=>{ to=e; toName=n; ev.target.textContent=n||'Choose…'; }});
+  el.querySelector('#rtGo').onclick=async ()=>{
+    if(!to){ el.querySelector('#rtErr').textContent='Pick who it goes to.'; return; }
+    if(String(to).toLowerCase()===String(r.person).toLowerCase()){
+      el.querySelector('#rtErr').textContent='That is who has it now.'; return; }
+    const keep=el.querySelector('#rtBackup').checked;
+    ccPopClose();
+    await roleEndResp(r.id, 'Transferred to '+toName);
+    await roleAddResp(to, { text:r.text, kind:'primary', domain:r.domain,
+      recurring:r.recurring, temporary:false,
+      transfer_note:'Taken over from '+from+' on '+new Date().toLocaleDateString() });
+    if(keep) await roleAddResp(r.person, { text:r.text, kind:'backup', domain:r.domain,
+      transfer_note:'Was primary until '+new Date().toLocaleDateString() });
+    renderMyTeam();
+    ccPopOpen(document.body,'<div style="font-size:13.5px;">Moved to <b>'+esc(toName)+'</b>.'
+      +(keep?' '+esc(String(from).split(' ')[0])+' is now backup.':'')+'</div>'
+      +(r.domain?'<div class="field-note" style="margin-top:8px;">This does not change who owns the '
+        +'<b>'+esc(r.domain)+'</b> domain for work routing. Change that in Settings when '
+        +esc(String(toName).split(' ')[0])+' is ready.</div>':''),{width:340});
+  };
+}
+
+/* One-time starting content, from the approved operating model. It writes
+   roles only for people who actually exist in the staff list, and it never
+   overwrites anything already written. Cierra, Angiel and the staffing
+   coordinator get theirs the day they are added, from the same editor. */
+async function roleSeedStarting(){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms;
+  const SEED={
+    'samantha@mo-care.com':{ title:'Owner and Administrator',
+      why:'Lead the company: growth, strategy, major decisions, and the exceptions nobody else can settle.',
+      escalate_when:'Nothing above you. This is where it stops.',
+      resp:[
+        ['primary','Strategy and growth'],['primary','Major financial decisions'],
+        ['primary','Major compliance and safety decisions'],
+        ['primary','Programme administration', 'program_administration', true,
+         'Temporary — planned to move to office staff as they are trained'],
+        ['primary','Final escalations'],['primary','Owner approvals, including discipline'],
+        ['support','Operational exceptions'],['support','Developing the managers'],
+        ['not_primary','Routine scheduling'],['not_primary','Routine caregiver outreach'],
+        ['not_primary','Routine family follow-up'],
+        ['not_primary','Review work that belongs to Krystal']]},
+    'zach@mo-care.com':{ title:'Owner',
+      why:'Second owner with full access. Day-to-day involvement is deliberately light for now and will be written properly when it grows.',
+      escalate_when:'Nothing above you.',
+      resp:[['primary','Owner approvals, including discipline'],
+            ['support','Major decisions with Samantha']]},
+    'krystal@mo-care.com':{ title:'Care Operations',
+      why:'Make sure daily care operations work, and that clients, families and caregivers get the support they need.',
+      escalate_to:'samantha@mo-care.com',
+      escalate_when:'Anything unsafe. Compliance. A client at risk of leaving. Final discipline. Anything above your spend limit.',
+      resp:[
+        ['primary','Family enquiries and the front door','family_enquiries'],
+        ['primary','Client and family care coordination','client_care'],
+        ['primary','Daily operations management'],
+        ['primary','Scheduling and coverage','scheduling_coverage',true,
+         'Temporary — planned transfer to the Staffing Coordinator'],
+        ['primary','Caregiver performance and field quality','caregiver_performance',true,
+         'Temporary — planned transfer to the Field Care Lead'],
+        ['primary','Recruiting and orientation','recruiting_orientation',true,
+         'Temporary — planned to share with the Field Care Lead and office staff'],
+        ['primary','Training and compliance','training_compliance',true,
+         'Temporary'],
+        ['support','Training and reviewing office staff'],
+        ['support','Complex staffing situations'],
+        ['backup','Scheduling, once the Staffing Coordinator is primary','scheduling_coverage'],
+        ['not_primary','Routine open-shift chasing, once the Staffing Coordinator owns it'],
+        ['not_primary','Routine field skills training, once the Field Care Lead owns it'],
+        ['not_primary','Owner-level decisions']]}
+  };
+  const staff=roleStaff().map(s=>String(s.email).toLowerCase());
+  const todo=Object.keys(SEED).filter(e=>staff.includes(e) && !roleProfile(e));
+  const skipped=Object.keys(SEED).filter(e=>!staff.includes(e));
+  const already=Object.keys(SEED).filter(e=>roleProfile(e));
+
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Write the starting roles</div>'
+    +'<div class="field-note" style="margin:4px 0 10px;">From the operating model we agreed. '
+    +'Everything stays editable afterwards.</div>'
+    +(todo.length?'<div style="font-size:13px;">Will write a role for:</div><div class="field-note" '
+      +'style="margin:3px 0 8px;">'+todo.map(e=>esc(opsOwnerName(e)||e)).join('<br>')+'</div>':'')
+    +(already.length?'<div class="field-note" style="margin-bottom:6px;">Already written, left alone: '
+      +already.map(e=>esc(opsOwnerName(e)||e)).join(', ')+'</div>':'')
+    +(skipped.length?'<div class="field-note" style="margin-bottom:8px;">Not in the staff list yet, so '
+      +'skipped: '+skipped.map(e=>esc(e)).join(', ')+'</div>':'')
+    +'<div class="field-note" style="margin-bottom:10px;">Cierra, Angiel and the Staffing Coordinator '
+    +'are not written here. Add them to the staff list when they start and write their role then, '
+    +'rather than the hub pretending a job is settled before anybody is doing it.</div>'
+    +(todo.length?'<div style="display:flex;gap:8px;">'
+      +'<button class="primary" id="rsGo" style="padding:7px 14px;font-size:13px;">Write '+todo.length+'</button>'
+      +'<button class="ghost" id="rsNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>'
+      :'<button class="ghost" id="rsNo" style="padding:7px 14px;font-size:13px;">Close</button>'),
+    {width:400});
+  el.querySelector('#rsNo').onclick=ccPopClose;
+  const go=el.querySelector('#rsGo'); if(!go) return;
+  go.onclick=async ()=>{
+    ccPopClose();
+    for(const e of todo){
+      const s=SEED[e];
+      await roleSaveProfile(e,{ title:s.title, why:s.why, status:'active',
+        escalate_to:s.escalate_to||'', escalate_when:s.escalate_when||'' });
+      for(const r of s.resp){
+        await roleAddResp(e,{ kind:r[0], text:r[1], domain:r[2]||null,
+          temporary:!!r[3], transfer_note:r[4]||null });
+      }
+    }
+    renderMyTeam();
+  };
 }
 
 /* ── HOME ────────────────────────────────────────────────────────────────── */
