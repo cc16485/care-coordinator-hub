@@ -17892,7 +17892,7 @@ function posPanelHtml(){
    assessment, consultation. No near-duplicates invented. */
 const PLAN_PEOPLE={
   'cierra@mo-care.com':{
-    full_name:'Cierra Barber', title:'Field Care Lead', status:'planned',
+    full_name:'Cierra Barber', title:'Lead Caregiver', status:'planned',
     why:'Make sure care in the home is done safely and well: advanced-care support, '
        +'hands-on skills, and the field judgement nobody in the office can give.',
     escalate_to:'krystal@mo-care.com',
@@ -17967,10 +17967,10 @@ function planPending(){
   for(const [email,d] of Object.entries(PLAN_PEOPLE)){
     const ex=roleProfile(email);
     if(!ex) out.profiles.push(email);
-    /* Names I invented once already. If a profile was written with the wrong
-       one, nothing else would ever correct it, because a profile that exists is
-       never rewritten. */
-    else if(d.full_name && ex.full_name!==d.full_name) out.names.push(email);
+    /* Names and titles I got wrong once already. A profile that exists is never
+       rewritten by the seeder, so without this nothing would ever correct it. */
+    else if((d.full_name && ex.full_name!==d.full_name) || (d.title && ex.title!==d.title))
+      out.names.push(email);
     for(const r of (d.live||[])) if(!has(email,r[0],r[1])) out.resp.push([email,r,false]);
     for(const r of d.resp)       if(!has(email,r[0],r[1])) out.resp.push([email,r,true]);
   }
@@ -17995,7 +17995,8 @@ async function roleSeedPlanned(){
     +'<div class="field-note" style="margin:4px 0 10px;">Cierra and Angiel, with their real work '
     +'emails. Planned rows cannot hold duty, take work, or close a gap.</div>'
     +'<div style="font-size:13px;">'+p.profiles.length+' role profile'+(p.profiles.length===1?'':'s')
-    +(p.names.length?', and '+p.names.length+' name correction'+(p.names.length===1?'':'s'):'')+'</div>'
+    +(p.names.length?', and '+p.names.length+' name or title correction'
+      +(p.names.length===1?'':'s'):'')+'</div>'
     +'<div class="field-note" style="margin:2px 0 8px;">'
     +p.profiles.map(e=>esc(opsOwnerName(e)||e)).join('<br>')+'</div>'
     +'<div style="font-size:13px;">'+plan+' planned responsibilities'
@@ -18028,7 +18029,8 @@ async function roleSeedPlanned(){
         status: planned?'planned':'live' });
     }
     for(const email of q.names){
-      await roleSaveProfile(email,{ full_name:PLAN_PEOPLE[email].full_name });
+      await roleSaveProfile(email,{ full_name:PLAN_PEOPLE[email].full_name,
+                                    title:PLAN_PEOPLE[email].title });
     }
     for(const pr of q.posResp){
       const row=Object.assign({ id:'rsp_pos_'+pr.position+'_'+pr.kind, active:true, status:'planned',
