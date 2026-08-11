@@ -735,6 +735,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <!-- The day's own row: what is happening, what is late, who rang, and what
        is booked. These were scattered across three sections. -->
   <div class="fsubbar" id="fsub-today">
+    <div class="fpill" data-tab="home" onclick="switchTab('home')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> Home</div>
+    <div class="fpill" data-tab="mywork" onclick="switchTab('mywork')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> My Work<span class="subtab-badge red" id="gb-mywork" style="display:none;"></span></div>
     <div class="fpill" data-tab="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sun"/></svg> Today</div>
     <div class="fpill" data-tab="ops" onclick="switchTab('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention<span class="subtab-badge red" id="gb-ops" style="display:none;"></span></div>
     <div class="fpill" data-tab="calls" onclick="switchTab('calls')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Calls</div>
@@ -1196,6 +1198,30 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
       </div>
       <div class="card" style="padding:18px;"><div id="meetingsPageList"></div></div>
+    </section>
+
+    <!-- ===================== TAB: HOME =====================
+         One screen per person, showing only what is theirs. Whose it is
+         decides what appears: an owner sees exceptions, everyone else sees
+         their own work. Deliberately NOT a dashboard of the whole company. -->
+    <section class="tabpanel" id="tab-home">
+      <div id="homeWrap"></div>
+    </section>
+
+    <!-- ===================== TAB: MY WORK =====================
+         Five buckets over the same ops_items the hub already uses. Not a
+         second task system: the machinery was already right, it just had
+         nowhere to be seen from. Unassigned is where triage lives, so it is
+         part of the operating system rather than a one-off cleanup screen. -->
+    <section class="tabpanel" id="tab-mywork">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">My Work</h2>
+          <div class="field-note" id="myWorkWho"></div>
+        </div>
+      </div>
+      <div class="subtab-bar" id="myWorkTabs"></div>
+      <div id="myWorkWrap"></div>
     </section>
 
     <!-- ===================== TAB: OPERATIONS INBOX ===================== -->
@@ -6227,6 +6253,10 @@ async function loadAllData(){
   await loadSharedConfig();   // agency settings, not this laptop's settings
   document.getElementById('syncPill').textContent = '☁ Synced';
   await resolveMe();
+  // Before any feeder runs, so new work can be routed. If this fails the
+  // feeders fall back to leaving things unassigned, which is exactly the
+  // behaviour they had before Step 1 and is safe.
+  await opsLoadRouting();
 }
 async function resolveMe(){
   let email='';
@@ -6414,7 +6444,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','evv'],clients:['leads','statesubs','bookings','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['home','mywork','today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','evv'],clients:['leads','statesubs','bookings','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -7082,6 +7112,8 @@ function renderActiveTab(){
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today') renderToday();
+  if(activeTab==='home') renderHome();
+  if(activeTab==='mywork') renderMyWork();
   if(activeTab==='referrers') renderReferrers();
   if(activeTab==='reports') renderReports();
   if(activeTab==='leads') renderLeads();
@@ -15797,12 +15829,24 @@ function opsReconcileCalls(){
     if(c.direction!=='inbound' || !callsIsMissed(c)) return;
     let it = existing.get(c.id);
     if(!it){
+      // A missed call has an honestly unknown domain and a perfectly knowable
+      // owner: whoever rang and whatever they wanted, the next action is the
+      // same. Ring them back. So the domain stays null unless the number
+      // matches a lead, and somebody owns it either way.
+      const who = opsIdentifyCaller(c.phone);
+      const owner = who ? (opsDomainOwner(who.domain)||opsFrontDoor()) : opsFrontDoor();
       it = { id:'ops_'+c.id, kind:'missed_call', source_id:c.id,
              title:'Missed call from '+(c.name||'Unknown caller'),
+             detail:'They rang and nobody picked up.'
+                    +(who?' The number matches '+(who.label||'a lead')+'.':''),
+             next_action:'Ring back and find out what they need.',
+             about: who ? (who.label||'').trim() : '',
+             domain: who ? who.domain : null,
              phone:c.phone||'', contact_id:c.contact_id||'',
              status:'open', created_at:c.at||new Date().toISOString(),
+             last_activity_at:c.at||new Date().toISOString(),
              due:new Date(new Date(c.at||Date.now()).getTime()+OPS_CALLBACK_HOURS*3600*1000).toISOString(),
-             opened_by:'system', owner:'', owner_name:'' };
+             opened_by:'system', owner:owner, owner_name:owner?opsOwnerName(owner):'' };
       DATA.ops_items.push(it); existing.set(c.id,it); touched.set(it.id,it);
     }
     // If we rang them back afterwards and actually connected, close it out —
@@ -15820,6 +15864,403 @@ function opsReconcileCalls(){
   });
 
   touched.forEach(i=>persist('ops_items', i));
+}
+
+/* ═══════════════ STEP 1 — OWNERSHIP, TRIAGE, MY WORK, HOME ═══════════════
+   The machinery below this comment already worked. What it never had was an
+   owner on anything: 71 of 72 items had nobody's name on them, because two of
+   the three feeders wrote owner:'' every time. A queue nobody owns is a list.
+
+   THE PRINCIPLE THIS ENCODES, and it is the whole of Step 1:
+
+     DOMAIN says what the work is ABOUT.
+     OWNER  says who can do the CURRENT NEXT ACTION.
+
+   They usually agree. When a write-up reaches "waiting for approval" they do
+   not: the domain is still caregiver performance, but only an owner can
+   approve, so routing it to the domain owner would create work she is
+   structurally unable to finish. Ownership moves as the next action moves;
+   the domain does not.
+
+   And its corollary:
+
+     Not knowing what work is ABOUT is not a reason to leave it UNOWNED.
+
+   An unidentified missed call has an honestly unknown domain and a perfectly
+   knowable owner, because the next action is the same whoever rang: ring them
+   back. So domain stays null and somebody still owns it.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* Loaded here rather than read from CC, deliberately. CC.init() is fired
+   without await so sign-in never waits on it, which means it may not have
+   finished by the time a feeder runs. Step 1 also has no business depending
+   on the parked authority work. Three small selects, once, at sign-in. */
+let OPS_ROUTING={}, OPS_DOMAINS=[], OPS_PEOPLE=[];
+async function opsLoadRouting(){
+  try{
+    const [r,d,p] = await Promise.all([
+      sb.from('ops_routing').select('key, person_id'),
+      sb.from('domains').select('code, label, owner_person, escalation_person, entity'),
+      sb.from('persons').select('person_id, full_name, primary_email')
+    ]);
+    if(r.error||d.error||p.error) throw new Error((r.error||d.error||p.error).message);
+    OPS_ROUTING={}; (r.data||[]).forEach(x=>{ OPS_ROUTING[x.key]=x.person_id; });
+    OPS_DOMAINS=(d.data||[]).filter(x=>x.entity==='cc_ihs');
+    OPS_PEOPLE=p.data||[];
+  }catch(e){
+    // Inert. Feeders leave things unassigned, which is exactly what they did
+    // before Step 1, so a missing table degrades to yesterday rather than to
+    // broken.
+    OPS_ROUTING={}; OPS_DOMAINS=[]; OPS_PEOPLE=[];
+  }
+}
+function opsAllDomains(){ return OPS_DOMAINS; }
+
+/* ops_items keys owners by email, which is what every existing filter and
+   dropdown already compares against. So a person_id has to come back to an
+   email before it can be written. */
+function opsEmailForPerson(pid){
+  if(!pid) return '';
+  const p = OPS_PEOPLE.find(x=>x.person_id===pid);
+  return p ? String(p.primary_email||'').toLowerCase() : '';
+}
+function opsDomainOwner(code){
+  const d = code ? OPS_DOMAINS.find(x=>x.code===code) : null;
+  return d ? opsEmailForPerson(d.owner_person) : '';
+}
+function opsDomainEscalation(code){
+  const d = code ? OPS_DOMAINS.find(x=>x.code===code) : null;
+  return d ? opsEmailForPerson(d.escalation_person) : '';
+}
+/* The person who rings back callers we cannot identify. A PERSON, not a
+   domain: Krystal owning the callback is not evidence that an unknown call
+   belongs to Client Care. The domain stays null until she has rung. */
+function opsFrontDoor(){ return opsEmailForPerson(OPS_ROUTING.front_door); }
+
+function opsOwnerName(email){
+  const s=(DATA.coordinator_staff||[]).find(x=>String(x.email||'').toLowerCase()===String(email||'').toLowerCase());
+  return s ? (s.name||s.email) : (email||'');
+}
+
+/* Does a phone number belong to somebody we already know?
+   Only `leads` is used. A caregiver's number would tell us nothing useful: a
+   caregiver ringing could be calling off, reporting a fall, asking about pay
+   or resigning. Four domains, and the call gives no way to choose between
+   them, so it is not guessed. */
+function opsIdentifyCaller(phone){
+  const d = opsDigits(phone);
+  if(!d) return null;
+  const lead = (DATA.leads||[]).find(l=>opsDigits(l.phone)===d);
+  if(lead) return { kind:'lead', domain:'family_enquiries',
+                    label:(lead.first_name||'')+' '+(lead.last_name||'') };
+  return null;
+}
+
+/* Evidence that a missed call was already dealt with.
+ *
+ * IT DELIBERATELY DOES NOT LOOK FOR A CALLBACK TO THE SAME NUMBER.
+ * opsReconcileCalls above already closes those automatically, and has since
+ * before Step 1. A check using the same rule could never fire: anything it
+ * would find is closed before it runs. The first version of this did exactly
+ * that and looked useful while being incapable of returning anything.
+ *
+ * So it looks for what that rule MISSES: the caller is a known contact, and we
+ * rang them back on a DIFFERENT number and connected. Same person, second
+ * number, which the phone-digit match cannot see.
+ *
+ * Expect this to find few, and sometimes none. If it finds none, the open
+ * missed calls are genuinely unreturned, which is worth knowing plainly rather
+ * than being softened by a check that always finds something.
+ *
+ * Shown, never acted on. Nothing here closes anything by itself. */
+function opsAlreadyHandled(it){
+  if(it.kind!=='missed_call' || it.status!=='open') return null;
+  if(!CALLS_FEED || !Array.isArray(CALLS_FEED.calls)) return null;
+  if(!it.contact_id) return null;                 // no contact, no second number
+  const d=opsDigits(it.phone);
+  const back=CALLS_FEED.calls.find(x=>x.direction==='outbound' && x.duration>0
+    && x.contact_id && x.contact_id===it.contact_id
+    && opsDigits(x.phone)!==d                     // the same-number case is auto-closed
+    && String(x.at)>String(it.created_at));
+  if(!back) return null;
+  const mins=Math.floor((back.duration||0)/60), secs=(back.duration||0)%60;
+  return { at:back.at, text:'We rang this contact back on a different number and '
+    +'connected for '+(mins?mins+'m ':'')+secs+'s, '+callsFmtWhen(back.at)+'.' };
+}
+
+/* ── MY WORK ─────────────────────────────────────────────────────────────── */
+let MYWORK_TAB='mine';
+const MYWORK_TABS=[
+  ['mine','Mine'],['unassigned','Unassigned'],['overdue','Overdue'],
+  ['escalated','Escalated'],['waiting','Waiting']];
+
+function myWorkBuckets(){
+  const me=String(opsMeKey()||'').toLowerCase();
+  const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
+  const mine=open.filter(i=>(i.owner||'').toLowerCase()===me && me);
+  const now=Date.now();
+  return {
+    mine:       mine.filter(i=>i.sub_state!=='waiting'),
+    unassigned: open.filter(i=>!i.owner),
+    overdue:    mine.filter(i=>i.due && Date.parse(i.due)<now),
+    escalated:  mine.filter(i=>i.sub_state==='escalated' || (i.escalation_level||0)>0),
+    waiting:    mine.filter(i=>i.sub_state==='waiting')
+  };
+}
+
+function myWorkCard(it, opts){
+  const esc=escapeHtmlComms; opts=opts||{};
+  const k=(OPS_KINDS[it.kind]||{});
+  const late=it.due && Date.parse(it.due)<Date.now();
+  const dom=(opsAllDomains().find(d=>d.code===it.domain)||{}).label;
+  const when=it.due ? (late?'<b style="color:var(--red);">'+callsFmtWhen(it.due)+' · late</b>'
+                           :callsFmtWhen(it.due)) : '';
+  let h='<div class="card" style="padding:14px 16px;margin-bottom:10px;">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">'
+    +'<div style="font-size:12px;color:var(--text-muted);min-width:96px;">'+when+'</div>'
+    +'<b style="font-size:15px;flex:1;min-width:200px;">'+esc(it.title||'')+'</b>'
+    +(dom?'<span class="field-note">'+esc(dom)+'</span>':'<span class="field-note" style="color:var(--amber);">domain not known yet</span>')
+    +'</div>';
+  if(it.detail) h+='<div style="margin-top:8px;font-size:13px;"><span class="field-note">WHAT HAPPENED&nbsp;&nbsp;</span>'+esc(it.detail)+'</div>';
+  if(it.next_action) h+='<div style="margin-top:3px;font-size:13px;"><span class="field-note">WHAT TO DO&nbsp;&nbsp;</span>'+esc(it.next_action)+'</div>';
+  if(it.about) h+='<div style="margin-top:3px;font-size:13px;"><span class="field-note">ABOUT&nbsp;&nbsp;</span>'+esc(it.about)+'</div>';
+  h+='<div style="margin-top:3px;font-size:13px;"><span class="field-note">FROM&nbsp;&nbsp;</span>'
+    +esc(k.label||it.kind)+(it.opened_by==='system'?', picked up automatically':'')
+    +(it.owner&&!opts.hideOwner?' · owned by '+esc(opsOwnerName(it.owner)):'')+'</div>';
+  h+='<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">'+(opts.actions||'')+'</div>';
+  return h+'</div>';
+}
+
+function renderMyWork(){
+  const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
+  const who=document.getElementById('myWorkWho');
+  if(who) who.textContent = ME.name ? ('Signed in as '+ME.name) : '';
+  const b=myWorkBuckets();
+
+  const tabs=document.getElementById('myWorkTabs');
+  if(tabs) tabs.innerHTML=MYWORK_TABS.map(([k,label])=>
+    '<div class="subtab'+(MYWORK_TAB===k?' active':'')+'" onclick="myWorkGo(\''+k+'\')">'
+    +label+(b[k].length?' <span class="subtab-badge'+(k==='overdue'?' red':'')+'">'+b[k].length+'</span>':'')
+    +'</div>').join('');
+
+  if(MYWORK_TAB==='unassigned') return renderTriage(b.unassigned);
+
+  const rows=b[MYWORK_TAB]||[];
+  if(!rows.length){
+    const msg={mine:'Nothing on your list right now.',
+      overdue:'Nothing of yours is late. Good.',
+      escalated:'Nothing has been escalated to you. Good.',
+      waiting:'You are not waiting on anybody.'}[MYWORK_TAB];
+    wrap.innerHTML='<div class="card" style="padding:20px;text-align:center;">'+msg+'</div>';
+    return;
+  }
+  wrap.innerHTML=rows.sort((a,b2)=>String(a.due||a.created_at||'').localeCompare(String(b2.due||b2.created_at||'')))
+    .map(it=>myWorkCard(it,{hideOwner:true,actions:
+        '<button class="primary" style="padding:6px 12px;font-size:12.5px;" onclick="opsClose(\''+it.id+'\')">Done</button>'
+       +'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="myWorkHandOff(\''+it.id+'\')">Hand off</button>'
+       +(it.sub_state==='waiting'
+          ? '<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="myWorkWait(\''+it.id+'\',false)">No longer waiting</button>'
+          : '<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="myWorkWait(\''+it.id+'\',true)">Waiting on someone</button>')
+      })).join('');
+}
+function myWorkGo(t){ MYWORK_TAB=t; renderMyWork(); }
+
+async function myWorkHandOff(id){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  const to=prompt('Hand this to whom? Type their email exactly as it appears in Settings, or leave blank to put it back in Unassigned.', '');
+  if(to===null) return;
+  it.owner=String(to||'').trim().toLowerCase();
+  it.owner_name=it.owner?opsOwnerName(it.owner):'';
+  it.last_activity_at=new Date().toISOString();
+  await persist('ops_items',it); renderMyWork(); renderHome();
+}
+async function myWorkWait(id,on){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  it.sub_state = on ? 'waiting' : null;
+  it.last_activity_at=new Date().toISOString();
+  await persist('ops_items',it); renderMyWork();
+}
+
+/* ── TRIAGE, which is the Unassigned tab ─────────────────────────────────── */
+function renderTriage(rows){
+  const wrap=document.getElementById('myWorkWrap'); const esc=escapeHtmlComms;
+  if(!rows.length){
+    wrap.innerHTML='<div class="card" style="padding:20px;text-align:center;">Everything open has somebody\'s name on it.</div>';
+    return;
+  }
+  const handled=[], undecided=[];
+  rows.forEach(it=>{ const ev=opsAlreadyHandled(it); (ev?handled:undecided).push([it,ev]); });
+
+  const n=handled.length, one=(n===1);
+  let h='<div class="field-note" style="margin-bottom:12px;">'+rows.length
+    +' piece'+(rows.length===1?'':'s')+' of work with nobody\'s name on '
+    +(rows.length===1?'it':'them')+'.'
+    +(n?' '+n+(one?' shows':' show')+' evidence of later successful contact.':'')+'</div>';
+
+  if(n){
+    h+='<div class="card" style="padding:14px 16px;margin-bottom:14px;background:#F0FDF9;border-color:#A7E8D6;">'
+      +'<b style="font-size:14px;">'+n+' call'+(one?'':'s')
+      +' with evidence of later successful contact</b>'
+      /* Describes the rule that actually runs. A missed call returned on the
+         SAME number is closed automatically and never reaches this list, so
+         everything here is the case that would otherwise be missed: same
+         person, second number. */
+      +'<div class="field-note" style="margin:4px 0 10px;">We rang '+(one?'this contact':'these contacts')
+      +' back on a different number and connected. Calls returned on the same number close '
+      +'themselves, so '+(one?'this is the one':'these are the ones')+' that would otherwise be missed. '
+      +'Nothing has been closed.</div>'
+      /* Scoped deliberately, and the button says so. A generic "close
+         everything visible" would eventually be pressed against a filtered
+         list of forty. */
+      +'<button class="primary" style="padding:7px 14px;font-size:13px;" onclick="opsBulkHandled()">'
+      +(one?'Mark this one already handled':'Mark these '+n+' already handled')+'</button></div>';
+  }
+
+  const act=(it)=>'<button class="ghost" style="padding:5px 10px;font-size:12px;" onclick="opsTriage(\''+it.id+'\',\'assign\')">Assign to…</button>'
+    +'<button class="ghost" style="padding:5px 10px;font-size:12px;" onclick="opsTriage(\''+it.id+'\',\'domain\')">Route to domain…</button>'
+    +'<button class="ghost" style="padding:5px 10px;font-size:12px;" onclick="opsTriage(\''+it.id+'\',\'needs_samantha\')">Needs Samantha</button>'
+    +'<button class="ghost" style="padding:5px 10px;font-size:12px;" onclick="opsTriage(\''+it.id+'\',\'already_handled\')">Already handled</button>'
+    +'<button class="ghost" style="padding:5px 10px;font-size:12px;" onclick="opsTriage(\''+it.id+'\',\'duplicate\')">Duplicate</button>'
+    +'<button class="ghost" style="padding:5px 10px;font-size:12px;" onclick="opsTriage(\''+it.id+'\',\'informational\')">Informational</button>'
+    +'<button class="ghost" style="padding:5px 10px;font-size:12px;" onclick="opsTriage(\''+it.id+'\',\'stale\')">Stale, close</button>';
+
+  if(handled.length){
+    h+='<div class="field-note" style="margin:16px 0 6px;font-weight:700;">LIKELY ALREADY HANDLED</div>';
+    h+=handled.map(([it,ev])=>myWorkCard(it,{actions:
+        '<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">✓ '+esc(ev.text)+'</span>'
+       +'<button class="ghost" style="padding:5px 10px;font-size:12px;" onclick="opsTriage(\''+it.id+'\',\'already_handled\')">Already handled</button>'
+       +'<button class="ghost" style="padding:5px 10px;font-size:12px;" onclick="opsTriage(\''+it.id+'\',\'assign\')">No, still needs doing</button>'})).join('');
+  }
+  if(undecided.length){
+    h+='<div class="field-note" style="margin:16px 0 6px;font-weight:700;">STILL NEEDS A DECISION</div>';
+    h+=undecided.map(([it])=>myWorkCard(it,{actions:act(it)})).join('');
+  }
+  wrap.innerHTML=h;
+}
+
+async function opsTriage(id, what){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  const stamp=()=>{ it.last_activity_at=new Date().toISOString(); };
+  if(what==='assign'){
+    const to=prompt('Assign to whom? Type their sign-in email exactly as it appears in Settings.','');
+    if(!to) return;
+    it.owner=String(to).trim().toLowerCase(); it.owner_name=opsOwnerName(it.owner);
+  } else if(what==='domain'){
+    const list=opsAllDomains();
+    const pick=prompt('Which domain?\n\n'+list.map(d=>'  '+d.code+'  —  '+d.label).join('\n')+'\n\nType the code exactly.','');
+    if(!pick) return;
+    const d=list.find(x=>x.code===String(pick).trim());
+    if(!d){ alert('No domain with that code. Nothing changed.'); return; }
+    it.domain=d.code;
+    const owner=opsDomainOwner(d.code);
+    if(owner && !it.owner){ it.owner=owner; it.owner_name=opsOwnerName(owner); }
+  } else if(what==='needs_samantha'){
+    const s=opsDomainEscalation(it.domain)||'samantha@mo-care.com';
+    it.owner=s; it.owner_name=opsOwnerName(s); it.sub_state='escalated';
+  } else {
+    // already_handled | duplicate | informational | stale — all close it, and
+    // all record WHICH judgement was made rather than a bare "done".
+    const label={already_handled:'Already handled elsewhere',duplicate:'Duplicate',
+                 informational:'Informational, no action needed',stale:'Stale'}[what]||what;
+    it.status='done'; it.triage_state=what; it.resolution_code=what;
+    it.closed_at=new Date().toISOString(); it.closed_by=ME.email||'';
+    it.close_note=label+' (triaged)';
+  }
+  stamp();
+  await persist('ops_items',it);
+  renderMyWork(); renderHome(); opsBadges();
+}
+
+/* Scoped to the items that carry evidence, never to whatever is on screen.
+   Each closure records who did it and what the evidence was, so a bulk action
+   leaves the same trail as thirty individual ones. */
+async function opsBulkHandled(){
+  const rows=(DATA.ops_items||[]).filter(i=>i.status==='open' && !i.owner && opsCanSee(i))
+    .map(i=>[i,opsAlreadyHandled(i)]).filter(([,ev])=>!!ev);
+  if(!rows.length){ alert('Nothing currently has that evidence.'); return; }
+  if(!confirm('Close these '+rows.length+' missed call'+(rows.length===1?'':'s')+'?\n\n'
+    +'Only the ones where a later outbound call to the same number connected.\n'
+    +'Your name goes on each one.')) return;
+  const now=new Date().toISOString();
+  for(const [it,ev] of rows){
+    it.status='done'; it.triage_state='already_handled'; it.resolution_code='already_handled';
+    it.closed_at=now; it.closed_by=ME.email||''; it.last_activity_at=now;
+    it.close_note='Already handled — '+ev.text+' (bulk triage by '+(ME.name||ME.email)+')';
+    await persist('ops_items',it);
+  }
+  renderMyWork(); renderHome(); opsBadges();
+}
+
+/* ── HOME ────────────────────────────────────────────────────────────────── */
+function renderHome(){
+  const wrap=document.getElementById('homeWrap'); if(!wrap) return;
+  const esc=escapeHtmlComms;
+  const owner=DISC_APPROVERS.includes(ME.email);
+  const b=myWorkBuckets();
+  const now=Date.now();
+  const hrs=(i)=>Math.floor((now-Date.parse(i.created_at||''))/3600000);
+
+  const sect=(title,count,body,note)=>
+    '<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">'+title+'</b>'
+    +'<span style="flex:1;"></span>'
+    +(count?'<b style="font-size:16px;">'+count+'</b>':'')+'</div>'
+    +(body||'<div class="field-note" style="margin-top:6px;">'+(note||'Nothing. Good.')+'</div>')+'</div>';
+
+  const line=(t,sub,tab)=>'<div style="padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;" '
+    +'onclick="switchTab(\''+(tab||'mywork')+'\')"><div style="font-size:13.5px;">'+esc(t)+'</div>'
+    +(sub?'<div class="field-note">'+esc(sub)+'</div>':'')+'</div>';
+
+  let h='<div style="margin-bottom:14px;"><h2 style="margin:0;font-size:24px;font-weight:800;'
+    +'letter-spacing:-0.02em;color:var(--navy);">'+esc(ME.name||ME.email||'')+'</h2>'
+    +'<div class="field-note">'+new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'})+'</div></div>';
+
+  if(owner){
+    /* An owner's home is defined by what it LEAVES OUT. Anything with an owner
+       that is not late does not appear here; Krystal has it. The count of what
+       was withheld is shown so filtering this hard still feels safe. */
+    const needsMe=b.mine.concat(b.escalated).filter((v,i,a)=>a.indexOf(v)===i);
+    const risks=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i)
+      && ((i.due&&Date.parse(i.due)<now&&i.urgency==='high') || (!i.owner&&hrs(i)>48)));
+    const unowned=b.unassigned.filter(i=>i.urgency==='high'||hrs(i)>48);
+    const hidden=(DATA.ops_items||[]).filter(i=>i.status==='open'&&i.owner
+      &&(i.owner||'').toLowerCase()!==String(opsMeKey()||'').toLowerCase()
+      &&!(i.due&&Date.parse(i.due)<now)).length;
+
+    h+=sect('NEEDS ME', needsMe.length, needsMe.length?needsMe.slice(0,6).map(i=>
+        line(i.title, (i.next_action||'')+(i.created_at?' · waiting '+hrs(i)+' hrs':''))).join(''):'',
+        'Nothing needs you. Good.');
+    h+=sect('OPERATING RISKS', risks.length, risks.length?risks.slice(0,6).map(i=>
+        line(i.title, i.owner?('owned by '+opsOwnerName(i.owner)):'nobody owns this')).join(''):'');
+    h+=sect('UNASSIGNED RISK', unowned.length, unowned.length?unowned.slice(0,5).map(i=>
+        line(i.title,'no owner · '+hrs(i)+' hrs old')).join(''):'', 'Nothing important is sitting unowned.');
+    h+='<div class="card" style="padding:14px 18px;margin-bottom:12px;background:var(--bg);">'
+      +'<div class="field-note">Coming later: reviews I owe · team development · '
+      +'supervisors behind on reviews · today\'s coverage</div></div>';
+    h+='<div class="field-note" style="text-align:center;padding:10px;">Not shown: '+hidden
+      +' item'+(hidden===1?'':'s')+' owned by somebody and not late. '
+      +'<button class="linklike" onclick="switchTab(\'ops\')">Show me anyway</button></div>';
+  } else {
+    const needsResponse=b.mine.filter(i=>i.kind==='missed_call'||i.kind==='new_lead');
+    h+=sect('NEEDS MY RESPONSE', needsResponse.length, needsResponse.length?needsResponse.slice(0,5).map(i=>
+        line(i.title,(i.created_at?'waiting '+hrs(i)+' hrs':''))).join(''):'', 'Nobody is waiting on you.');
+    h+=sect('MY WORK TODAY', b.mine.length, b.mine.length?b.mine.slice(0,6).map(i=>
+        line(i.title, i.next_action||'')).join(''):'', 'Nothing on your list right now.');
+    h+=sect('OVERDUE', b.overdue.length, b.overdue.length?b.overdue.slice(0,5).map(i=>
+        line(i.title,'due '+callsFmtWhen(i.due))).join(''):'', 'Nothing of yours is late. Good.');
+    h+=sect('ESCALATED TO ME', b.escalated.length, b.escalated.length?b.escalated.slice(0,5).map(i=>
+        line(i.title, i.next_action||'')).join(''):'', 'Nothing has been escalated to you. Good.');
+    const ev=b.unassigned.filter(i=>opsAlreadyHandled(i)).length;
+    h+=sect('UNASSIGNED · NEEDS TRIAGE', b.unassigned.length, b.unassigned.length
+      ? '<div class="field-note" style="margin-top:6px;">Nobody owns these yet'
+        +(ev?'. '+ev+' look already handled':'')+'. <button class="linklike" '
+        +'onclick="myWorkGo(\'unassigned\');switchTab(\'mywork\')">Open triage</button></div>' : '',
+      'Everything open has somebody\'s name on it.');
+    h+='<div class="card" style="padding:14px 18px;background:var(--bg);">'
+      +'<div class="field-note">Coming later: reviews I owe · my team · scheduling help needed</div></div>';
+  }
+  wrap.innerHTML=h;
 }
 
 /* What may go in this queue: something a NAMED person must do by a TIME.
@@ -15870,10 +16311,18 @@ function opsReconcileLeads(){
       it = { id:'ops_lead_'+id, kind:'new_lead', source_id:id,
              title:'New lead: '+who,
              detail:(l.interest_notes||'').slice(0,300),
-             phone:l.phone||'', about:'', urgency:'normal',
-             status:'open', created_at:created,
+             next_action:'Ring them and find out what care they need.',
+             phone:l.phone||'', about:who, urgency:'normal',
+             // A lead exists because somebody asked about care, so the domain
+             // is not a guess. A coordinator already on the lead has claimed
+             // it; otherwise it goes to whoever currently owns the domain, so
+             // the day this moves to somebody else, one row changes.
+             domain:'family_enquiries',
+             status:'open', created_at:created, last_activity_at:created,
              due:opsDueFor('new_lead','normal',created),
-             owner:l.assigned_coordinator||'', owner_name:'', opened_by:'system' };
+             owner:(l.assigned_coordinator||opsDomainOwner('family_enquiries')||''),
+             owner_name:'', opened_by:'system' };
+      it.owner_name = it.owner ? opsOwnerName(it.owner) : '';
       DATA.ops_items.push(it); existing.set(id,it); touched.set(it.id,it);
     }
 
@@ -15929,10 +16378,21 @@ function opsReconcileDiscipline(){
              title:'Write-up for '+(a.caregiver||'a caregiver')+' needs approval',
              detail:(a.level? a.level+'. ':'')+'Raised by '+(a.created_by||'a coordinator')
                     +'. Nothing is sent until an owner approves it.',
+             next_action:'Read the whole notice, then approve it or send it back.',
+             about:(a.caregiver||''),
              created_by:a.created_by||'', created_by_email:a.created_by_email||a.created_by||'',
-             urgency:'today', status:'open', created_at:at,
+             urgency:'today', status:'open', created_at:at, last_activity_at:at,
              due:opsDueFor('discipline','today',at),
+             // Domain says what this is ABOUT; owner says who can do the
+             // CURRENT next action. They part company here: the domain is
+             // caregiver performance, but only an owner may approve, so
+             // routing it to the domain owner would create work she is
+             // structurally unable to finish. It moves back to the domain
+             // owner if it is ever sent back for revision.
+             domain:'caregiver_performance',
              owner:'', owner_name:'', opened_by:'system' };
+      const approver = opsDomainEscalation('caregiver_performance') || 'samantha@mo-care.com';
+      it.owner = approver; it.owner_name = opsOwnerName(approver);
       DATA.ops_items.push(it); existing.set(id,it); touched.set(it.id,it);
     }
 
