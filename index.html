@@ -723,7 +723,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          of what runs without anybody pressing anything. -->
     <button class="pill" onclick="autoOpen()" title="Everything that happens without anybody pressing a button"
             style="cursor:pointer;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;">🤖 What runs by itself</button>
-    <span class="pill" id="syncPill">☁ Synced</span>
+    <span class="pill" id="syncPill" onclick="syncOpenPanel()" style="cursor:pointer;" title="What has and has not reached the database">☁ Synced</span>
     <button class="addlead" onclick="openCallCockpit()">＋ Add Lead</button>
     <span id="userChip" style="display:flex;align-items:center;gap:8px;padding:3px 12px 3px 4px;border:1px solid var(--border);border-radius:999px;background:#fff;flex:0 0 auto;">
       <span class="su-avatar" id="navAvatar">·</span>
@@ -6375,6 +6375,67 @@ async function resolveMe(){
 // queue up instead of one silently overwriting the other's write. Always
 // pass the specific record that changed; DATA[key] itself is only ever
 // used as the local in-memory copy for rendering.
+/* ── WHY A WRITE FAILED IS NOT ONE STATE ──────────────────────────────────
+   The old catch treated every failure as "offline", queued it, and said
+   "Saved on this device — will sync when back online". That sentence is true
+   when the laptop is off the network and a lie when the server actively
+   refused the write. It is how 30 structural writes could be pressed, produce
+   no error anybody saw, and never reach the database.
+
+   Three different situations, three different sentences, and only a confirmed
+   RPC success is ever called Synced. The queue is never dropped: data is
+   preserved in every case, because a rejected write may still be wanted once
+   the cause is fixed. */
+function syncClassify(e){
+  const msg = String((e && (e.message || e.error_description || e.hint)) || e || '');
+  const code = e && (e.code || e.status || e.statusCode);
+  if(typeof navigator!=='undefined' && navigator.onLine===false) return 'offline';
+  if(/failed to fetch|networkerror|network error|load failed|timeout|ERR_INTERNET/i.test(msg)) return 'offline';
+  if(code===401 || code===403 || /jwt|token|session|not authenticated|unauthor/i.test(msg)) return 'auth';
+  return 'server';
+}
+const SYNC_TEXT={ offline:'🕓 Saved locally · waiting for connection',
+                  auth:   '⚠ Not synced · sign in again',
+                  server: '✗ Save failed · server rejected the change' };
+function syncSay(t){ const el=document.getElementById('syncPill'); if(el) el.textContent=t; }
+/* Kept so the failure is inspectable instead of needing a browser console. */
+function syncRecordError(key, item, e, kind){
+  try{
+    const log=JSON.parse(localStorage.getItem('cch_sync_errors')||'[]');
+    log.unshift({ at:new Date().toISOString(), key, id:(item&&item.id)||null, kind,
+                  code:(e && (e.code||e.status)) || null,
+                  message:String((e&&e.message)||e||'').slice(0,400) });
+    localStorage.setItem('cch_sync_errors', JSON.stringify(log.slice(0,25)));
+  }catch(_){}
+}
+function syncPendingList(){
+  try{ return Object.values(JSON.parse(localStorage.getItem('cch_pending_sync')||'{}')); }
+  catch(_){ return []; }
+}
+function syncErrorList(){
+  try{ return JSON.parse(localStorage.getItem('cch_sync_errors')||'[]'); }catch(_){ return []; }
+}
+/* Click the pill to see exactly what has not been saved and why. */
+function syncOpenPanel(){
+  const esc=escapeHtmlComms, pend=syncPendingList(), errs=syncErrorList();
+  const byKey={}; pend.forEach(p=>{ byKey[p.key]=(byKey[p.key]||0)+1; });
+  ccPopOpen(document.getElementById('syncPill')||document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Sync</div>'
+    +(pend.length
+      ? '<div class="field-note" style="margin:4px 0 8px;">'+pend.length
+        +' change'+(pend.length===1?'':'s')+' written on this device and NOT in the database.</div>'
+        +Object.entries(byKey).map(([k,n])=>'<div style="font-size:13px;">'+esc(k)+' · '+n+'</div>').join('')
+      : '<div class="field-note" style="margin:4px 0 8px;">Everything is saved to the database.</div>')
+    +(errs.length?'<div style="font-size:13px;font-weight:700;margin-top:10px;">Why</div>'
+      +errs.slice(0,5).map(e=>'<div class="field-note" style="padding:4px 0;border-bottom:1px solid var(--border);">'
+        +esc(e.kind)+(e.code?' · '+esc(String(e.code)):'')+'<br>'+esc(e.message||'')
+        +'<br><span style="opacity:.7;">'+esc(String(e.at).replace('T',' ').slice(0,16))+' · '+esc(e.key||'')+'</span></div>').join('')
+      :'')
+    +(pend.length?'<button class="primary" style="margin-top:10px;padding:6px 12px;font-size:12.5px;" '
+      +'onclick="ccPopClose();flushPendingSync();">Try again now</button>':''),
+    {width:400});
+}
+
 async function persist(key, item){
   if(!sb){ document.getElementById('syncPill').textContent = '⚠ Not connected'; return; }
   if(!item){ console.warn('persist() called without an item for key', key, '— nothing sent.'); return; }
@@ -6393,8 +6454,12 @@ async function persist(key, item){
     document.getElementById('syncPill').textContent = '☁ Synced';
     clearPendingSync(key, item.id);
   }catch(e){
+    /* The data is kept whatever went wrong. What changes is what we CALL it. */
+    const kind = syncClassify(e);
     queuePendingSync(key, item);
-    document.getElementById('syncPill').textContent = '🕓 Saved on this device — will sync when back online';
+    syncRecordError(key, item, e, kind);
+    console.error('persist('+key+') failed ['+kind+']', e);
+    syncSay(SYNC_TEXT[kind]);
   }
 }
 async function removeItem(key, itemId){
@@ -6478,15 +6543,20 @@ async function flushPendingSync(){
   const pendingKeys = Object.keys(pending);
   if(pendingKeys.length===0) return;
   document.getElementById('syncPill').textContent = '⏳ Syncing offline changes…';
+  let lastErr=null;
   for(const pk of pendingKeys){
     const entry = pending[pk];
     try{
       const { error } = await sb.rpc('upsert_app_data_item', { target_key: entry.key, item: entry.item });
       if(!error){ delete pending[pk]; localStorage.setItem('cch_pending_sync', JSON.stringify(pending)); }
-    }catch(e){ /* still offline — will retry on the next 'online' event or reload */ }
+      else { lastErr=error; syncRecordError(entry.key, entry.item, error, syncClassify(error)); }
+    }catch(e){ lastErr=e; syncRecordError(entry.key, entry.item, e, syncClassify(e)); }
   }
   const remaining = JSON.parse(localStorage.getItem('cch_pending_sync') || '{}');
-  document.getElementById('syncPill').textContent = Object.keys(remaining).length ? '🕓 Saved on this device — will sync when back online' : '☁ Synced';
+  const left = Object.keys(remaining).length;
+  /* Only a database that accepted everything is called Synced. */
+  syncSay(!left ? '☁ Synced'
+        : (SYNC_TEXT[syncClassify(lastErr)] + ' · ' + left + ' waiting'));
 }
 window.addEventListener('online', flushPendingSync);
 
