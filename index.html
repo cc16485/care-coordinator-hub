@@ -17410,8 +17410,13 @@ async function roleSeedStarting(){
         ['primary','Programme administration', 'program_administration', true,
          'Temporary — planned to move to office staff as they are trained'],
         ['primary','Final escalations'],['primary','Owner approvals, including discipline'],
+        /* Deliberately primary, deliberately temporary. Samantha is working the
+           Staffing Coordinator's own schedule so the workflow is proven in real
+           operations before anybody inherits it. */
+        ['primary','Scheduling and coverage','scheduling_coverage',true,
+         'Samantha is temporarily working the Staffing Coordinator schedule until the VA starts and is ready'],
         ['support','Operational exceptions'],['support','Developing the managers'],
-        ['not_primary','Routine scheduling'],['not_primary','Routine caregiver outreach'],
+        ['not_primary','Routine caregiver outreach'],
         ['not_primary','Routine family follow-up'],
         ['not_primary','Review work that belongs to Krystal']]},
     'zach@mo-care.com':{ title:'Owner',
@@ -17427,8 +17432,6 @@ async function roleSeedStarting(){
         ['primary','Family enquiries and the front door','family_enquiries'],
         ['primary','Client and family care coordination','client_care'],
         ['primary','Daily operations management'],
-        ['primary','Scheduling and coverage','scheduling_coverage',true,
-         'Temporary — planned transfer to the Staffing Coordinator'],
         ['primary','Caregiver performance and field quality','caregiver_performance',true,
          'Temporary — planned transfer to the Field Care Lead'],
         ['primary','Recruiting and orientation','recruiting_orientation',true,
@@ -17437,15 +17440,57 @@ async function roleSeedStarting(){
          'Temporary'],
         ['support','Training and reviewing office staff'],
         ['support','Complex staffing situations'],
-        ['backup','Scheduling, once the Staffing Coordinator is primary','scheduling_coverage'],
+        /* Backup NOW, not "once the Staffing Coordinator is primary". Samantha
+           is primary today, so Krystal's backup relationship is already live.
+           Whether she is available at a given moment is a separate question the
+           duty windows answer. */
+        ['backup','Scheduling and coverage','scheduling_coverage',false,
+         'Backup for Staffing during her office availability'],
         ['not_primary','Routine open-shift chasing, once the Staffing Coordinator owns it'],
         ['not_primary','Routine field skills training, once the Field Care Lead owns it'],
         ['not_primary','Owner-level decisions']]}
   };
+  /* Rows the operating model has since replaced. These are ENDED, never
+     deleted: "who owned scheduling in August" has to stay answerable after
+     Samantha takes it and again after the VA does.
+
+     Keyed on person + text + KIND, active rows only. Text alone is not enough:
+     Krystal's replacement row carries the SAME text as the row it replaces
+     ("Scheduling and coverage", primary → backup), so a text-only rule ends the
+     replacement on the next press and quietly destroys the relationship it just
+     created. The simulation caught exactly that on pass 2. */
+  const SUPERSEDED={
+    'krystal@mo-care.com':[
+      ['Scheduling and coverage','primary',
+       'Samantha is temporarily primary for Staffing. Krystal is now backup.'],
+      ['Scheduling, once the Staffing Coordinator is primary','backup',
+       'Replaced: Krystal is backup for Staffing now, not once the Coordinator starts.']],
+    'samantha@mo-care.com':[
+      ['Routine scheduling','not_primary',
+       'Superseded: Samantha is now temporarily primary for Scheduling and coverage.']]
+  };
+  const activeResp=(email,text)=>(DATA.responsibilities||[]).find(r=>
+    String(r.person||'').toLowerCase()===email && r.active!==false && r.text===text);
+  const isSuperseded=(email,row)=>!!row &&
+    (SUPERSEDED[email]||[]).some(([t,k])=>t===row.text && k===row.kind);
+
   const staff=roleStaff().map(s=>String(s.email).toLowerCase());
   const todo=Object.keys(SEED).filter(e=>staff.includes(e) && !roleProfile(e));
   const skipped=Object.keys(SEED).filter(e=>!staff.includes(e));
   const already=Object.keys(SEED).filter(e=>roleProfile(e));
+  /* What this press will actually change, counted before anybody agrees to it.
+     ORDER MATTERS. Krystal's replacement row carries the SAME text as the one
+     being ended ("Scheduling and coverage", primary → backup), so anything that
+     asks "does this already exist?" without accounting for the pending end
+     would treat the correction as a duplicate and quietly skip it — leaving the
+     wrong row active, which is the one outcome this whole commit exists to
+     prevent. Superseded rows are therefore treated as already gone. */
+  const stillActive=(email,text)=>{ const r=activeResp(email,text); return !!r && !isSuperseded(email,r); };
+
+  const willEnd=Object.keys(SUPERSEDED).flatMap(e=>
+    SUPERSEDED[e].filter(([t,k])=>{ const r=activeResp(e,t); return r && r.kind===k; }).map(([t])=>[e,t]));
+  const willAdd=todo.flatMap(e=>SEED[e].resp.filter(r=>!stillActive(e,r[1])).map(r=>[e,r[1]]));
+  const willSkip=todo.reduce((n,e)=>n+SEED[e].resp.filter(r=>stillActive(e,r[1])).length,0);
 
   const el=ccPopOpen(document.body,
     '<div style="font-size:14px;font-weight:800;color:var(--navy);">Write the starting roles</div>'
@@ -17453,6 +17498,13 @@ async function roleSeedStarting(){
     +'Everything stays editable afterwards.</div>'
     +(todo.length?'<div style="font-size:13px;">Will write a role for:</div><div class="field-note" '
       +'style="margin:3px 0 8px;">'+todo.map(e=>esc(opsOwnerName(e)||e)).join('<br>')+'</div>':'')
+    +(willEnd.length?'<div style="font-size:13px;">Will END, because the operating model changed:</div>'
+      +'<div class="field-note" style="margin:3px 0 8px;">'
+      +willEnd.map(([e,t])=>esc((opsOwnerName(e)||e)+' — '+t)).join('<br>')
+      +'<br>Ended, not deleted. The history stays readable.</div>':'')
+    +'<div class="field-note" style="margin-bottom:8px;">'
+      +willAdd.length+' responsibilit'+(willAdd.length===1?'y':'ies')+' written'
+      +(willSkip?', '+willSkip+' already there and left alone':'')+'.</div>'
     +(already.length?'<div class="field-note" style="margin-bottom:6px;">Already written, left alone: '
       +already.map(e=>esc(opsOwnerName(e)||e)).join(', ')+'</div>':'')
     +(skipped.length?'<div class="field-note" style="margin-bottom:8px;">Not in the staff list yet, so '
@@ -17469,11 +17521,26 @@ async function roleSeedStarting(){
   const go=el.querySelector('#rsGo'); if(!go) return;
   go.onclick=async ()=>{
     ccPopClose();
+    /* 1. End what the operating model replaced, BEFORE writing anything, so a
+          replacement sharing the old row's text is not mistaken for it. */
+    for(const e of Object.keys(SUPERSEDED)){
+      for(const [text, kind, why] of SUPERSEDED[e]){
+        const old=(DATA.responsibilities||[]).find(r=>
+          String(r.person||'').toLowerCase()===e && r.active!==false
+          && r.text===text && r.kind===kind);
+        if(old) await roleEndResp(old.id, why);
+      }
+    }
+    /* 2. Write profiles and only the responsibilities that are not already
+          active. Pressing this twice must not create a second copy of
+          anything — the 27 rows written before the id bug was fixed stay
+          exactly as they are. */
     for(const e of todo){
       const s=SEED[e];
       await roleSaveProfile(e,{ title:s.title, why:s.why, status:'active',
         escalate_to:s.escalate_to||'', escalate_when:s.escalate_when||'' });
       for(const r of s.resp){
+        if(activeResp(e, r[1])) continue;
         await roleAddResp(e,{ kind:r[0], text:r[1], domain:r[2]||null,
           temporary:!!r[3], transfer_note:r[4]||null });
       }
