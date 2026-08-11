@@ -11108,6 +11108,136 @@ const LEGACY_ACTIONS = ['manage_settings','view_settings_tab','set_pay_rates',
   'set_client_rates','view_discipline_queue','approve_discipline',
   'act_on_discipline','see_owner_tasks','set_sop_library','set_playbook_pay',
   'see_sensitive_item','set_cc_goals','meeting_manager_role','land_on_soc'];
+
+/* ---------------- #opscheck — the operating layer's own status page --------
+   Visit cc.mo-care.com/#opscheck while signed in. Nothing else reaches it and
+   nothing links to it.
+
+   WHY IT EXISTS RATHER THAN A CONSOLE PASTE: the same report used to live in a
+   snippet people pasted into developer tools, which meant enabling a menu,
+   answering a "pasting is dangerous" prompt, and knowing to hard-reload first.
+   The person who most needs to run it is the one without Settings access, so
+   it is open to everyone signed in and gated by nothing.
+
+   IT RE-RUNS CC.init() EVERY TIME. Reading CC.status() alone reports what was
+   true when the page loaded; on 2026-08-10 that reported a permission error
+   for nine minutes after it had been fixed. A check that can answer from
+   memory is not a check.
+
+   READ ONLY. It presses nothing and writes nothing. -------------------------*/
+async function opsCheckRender(){
+  if(document.getElementById('opsCheckOverlay')) return;
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const L=[], say=s=>L.push(s==null?'':s), yn=b=>b?'PASS':'FAIL';
+  const me = (ME&&ME.email) ? ME.email.toLowerCase() : '';
+  const owner = DISC_APPROVERS.includes(me);
+
+  say('OPERATING LAYER CHECK — '+new Date().toLocaleString());
+  say('signed in as : '+(me||'(not signed in)'));
+  say('treated as   : '+(owner?'Owner/Admin':'non-owner'));
+  say('');
+  if(!me){ say('Not signed in. Sign in, then visit #opscheck again.'); }
+  else {
+    say('── OPERATING LAYER ────────────────────────────────');
+    if(!window.CC){ say('CC is not defined. The shared script did not load.');
+                    say('The hub should still work normally; if it does, the guard worked.'); }
+    else {
+      try{
+        await CC.init({ sb, email: me, entity:'cc_ihs',
+          ghlLocation:(typeof GHL_LOC!=='undefined')?GHL_LOC:'',
+          legacy: a => legacyCan(a, me) });
+        say('(re-checked just now, not cached)');
+      }catch(e){ say('init() threw: '+e.message+'   ← should never happen'); }
+      const st=CC.status(), m=CC.me();
+      say('version      : '+st.version);
+      say('ready        : '+st.ready+'   '+yn(st.ready===true));
+      say('seeded       : '+st.seeded+'   '+yn(st.seeded===3)+'   (expect 3)');
+      say('error        : '+(st.error||'none'));
+      say('person_id    : '+(m.person_id||'(none)')+'   '+yn(!!m.person_id));
+      say('roles        : '+(m.roles.join(', ')||'(none)'));
+      say('memberships  : '+(m.memberships.join(', ')||'(none)'));
+      say('');
+      say('── COMPATIBILITY ──────────────────────────────────');
+      try{
+        const people=(DATA.coordinator_staff||[]).filter(s=>s.email).map(s=>({email:s.email}));
+        const r=CC.selfTest({ people, actions:LEGACY_ACTIONS,
+                              legacyFor:(email,action)=>legacyCan(action,email) });
+        say('rows         : '+r.rows.length+'   ('+r.people+' people × '+r.actions+' actions)');
+        say('mismatches   : '+r.mismatches+'   '+yn(r.mismatches===0));
+        say('null answers : '+r.rows.filter(x=>x.next===null).length+'   (must be 0)');
+        r.rows.filter(x=>!x.match).forEach(x=>say('  MISMATCH '+x.email+' / '+x.action+
+              '  legacy='+x.legacy+' next='+x.next));
+      }catch(e){ say('could not run: '+e.message); }
+      say('');
+    }
+    say('── AUTHORITY, AS THIS PERSON ──────────────────────');
+    let bad=0;
+    LEGACY_ACTIONS.forEach(a=>{
+      const got=legacyCan(a,me), want=(a==='land_on_soc')?false:owner;
+      if(got!==want) bad++;
+      say('  '+a.padEnd(24)+String(got).padEnd(7)+(got===want?'':'  ← EXPECTED '+want));
+    });
+    say('  '+(bad===0?'all as expected':bad+' UNEXPECTED'));
+    say('');
+    say('── WHAT IS ON SCREEN ──────────────────────────────');
+    const sft=document.getElementById('settingsFtab');
+    const sv=!!(sft&&sft.style.display!=='none');
+    const wu=!!document.querySelector('[data-tab="cgwriteups"]');
+    say('Settings tab visible  : '+sv+'   '+yn(sv===owner));
+    say('Write-Ups tab present : '+wu+'   '+yn(wu===true)+'   (everyone should see this)');
+    say('');
+    say('── ATTRIBUTION ────────────────────────────────────');
+    say('Work saved from here records: '+(ME.name||ME.email));
+    say('');
+    say('── BY HAND ────────────────────────────────────────');
+    if(owner){
+      say('  · approve a test write-up, confirm the record names YOU');
+      say('  · confirm the standup board and referral scoreboard omit you');
+    }else{
+      say('  · open Write-Ups, confirm "Start a write-up" works');
+      say('  · confirm no Approve or Send back button exists anywhere');
+      say('  · open Pay Rates, confirm the figures are read-only');
+      say('  · claim a missed call, confirm your name lands on it');
+    }
+  }
+
+  const text=L.join('\n');
+  const d=document.createElement('div');
+  d.id='opsCheckOverlay';
+  d.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(14,56,96,.94);'
+    +'display:flex;align-items:center;justify-content:center;padding:16px;';
+  d.innerHTML='<div style="background:#fff;border-radius:14px;max-width:820px;width:100%;'
+    +'max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">'
+    +'<div style="padding:14px 18px;border-bottom:1px solid #E2E8F0;display:flex;'
+    +'align-items:center;gap:10px;"><b style="color:#0E3860;font-size:15px;flex:1;">'
+    +'Operating layer check</b>'
+    +'<button id="opsCheckCopy" style="padding:7px 14px;border-radius:999px;border:1px solid #E2E8F0;'
+    +'background:#54BDB8;color:#fff;font-weight:700;cursor:pointer;font-family:inherit;">Copy</button>'
+    +'<button id="opsCheckClose" style="padding:7px 14px;border-radius:999px;border:1px solid #E2E8F0;'
+    +'background:#fff;cursor:pointer;font-family:inherit;">Close</button></div>'
+    +'<pre id="opsCheckBody" style="margin:0;padding:16px 18px;overflow:auto;flex:1;'
+    +'font-size:12px;line-height:1.5;white-space:pre-wrap;color:#1f2a36;">'+esc(text)+'</pre></div>';
+  document.body.appendChild(d);
+  document.getElementById('opsCheckClose').onclick=()=>{
+    d.remove(); if(location.hash.toLowerCase()==='#opscheck') location.hash='';
+  };
+  document.getElementById('opsCheckCopy').onclick=async ()=>{
+    const b=document.getElementById('opsCheckCopy');
+    try{ await navigator.clipboard.writeText(text); b.textContent='Copied'; }
+    catch(e){
+      // Clipboard access is refused in some embedded contexts. Selecting the
+      // text is the fallback, because "Copy did nothing" with no explanation
+      // is worse than no button at all.
+      const r=document.createRange(); r.selectNodeContents(document.getElementById('opsCheckBody'));
+      const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      b.textContent='Selected — press ⌘C';
+    }
+    setTimeout(()=>{ b.textContent='Copy'; }, 2500);
+  };
+}
+window.addEventListener('hashchange', ()=>{
+  if((location.hash||'').toLowerCase()==='#opscheck') opsCheckRender();
+});
 function renderApprovalsCc(){
   const wrap=document.getElementById('approvalsCard'); if(!wrap) return;
   const esc=escapeHtmlComms;
