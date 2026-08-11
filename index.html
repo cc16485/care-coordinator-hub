@@ -17842,7 +17842,12 @@ const DUTY_AREAS=[
   ['operations',      'Operations',        'Manages whatever comes up',            ['client_care','family_enquiries']],
   ['staffing',        'Staffing',          'Open shifts, call-offs, outreach',     ['scheduling_coverage']],
   ['field_response',  'Field Response',    'Can physically go to a home',          []],
-  ['advanced_care',   'Advanced Care',     'CNA-level judgement',                  ['caregiver_performance']],
+  /* field_quality, NOT caregiver_performance. One domain was doing two jobs:
+     this area is hands-on clinical work in a home, while the discipline path
+     writes caregiver_performance items that only an owner may approve. Same
+     address, two different owners. Existing items keep their old domain and
+     are still correctly classified; only future field work routes here. */
+  ['advanced_care',   'Advanced Care',     'CNA-level judgement',                  ['field_quality']],
   ['after_hours',     'After Hours',       'Holds the phone outside office hours', []],
   ['owner_escalation','Owner Escalation',  'The last resort',                      []]];
 /* Areas that mean "you are available to respond". Direct care is not one of
