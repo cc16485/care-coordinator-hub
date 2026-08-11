@@ -17014,10 +17014,27 @@ function homeShowBacklog(email){
    handed responsibility they had not been prepared for.
    ═════════════════════════════════════════════════════════════════════════ */
 
+/* QUALIFIED IS NOT OWNERSHIP, AND IT IS NOT AVAILABILITY.
+   Three different questions, three different places, and collapsing any two of
+   them is how a shared task turns into three people who all think it is theirs:
+
+     qualified                 MAY this person perform this kind of work?
+                               Durable. No clock in it. Still true on a day
+                               they are fully booked, on leave, or planned.
+     coordinator_availability  WHEN are they bookable for it?  Changes hourly.
+                               Says nothing about whether they should.
+     status live | planned     Is the capability active yet?
+
+   Eligibility composes them rather than storing them twice:
+       eligible = qualified AND available AND live
+   Hours are NEVER copied into a responsibility. When an activity is named it
+   reuses the activity_types keys exactly — interview, orientation, assessment,
+   consultation — so the two tables join instead of competing. */
 const RESP_KINDS=[
   ['primary','YOU OWN','Where you are the primary owner'],
   ['support','YOU SUPPORT','Where you help, or step in when asked'],
   ['backup','BACKUP CAPABILITY','Yours to cover when the usual owner is unavailable'],
+  ['qualified','TRAINED TO DO THIS','Approved to perform it. Does not make it yours to own'],
   ['not_primary','NOT YOUR PRIMARY LANE','You can still help. You are not expected to carry it']];
 
 function roleProfile(email){
@@ -17186,6 +17203,10 @@ function renderMyTeam(){
       +'<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;">'
       +'<span>'+cnt('primary')+' primary</span><span>'+cnt('support')+' support</span>'
       +'<span>'+cnt('backup')+' backup</span>'
+      /* Shown separately, and never added to the primary count. "Trained to do
+         this" is not a share of the workload — reading it as one is how a
+         shared task quietly acquires three owners. */
+      +(cnt('qualified')?'<span style="color:var(--teal);">'+cnt('qualified')+' qualified</span>':'')
       +'<span>'+open.length+' open work</span>'
       +(late.length?'<span style="color:var(--red);">'+late.length+' overdue</span>':'')
       +(owed.length?'<span>'+owed.length+' reviews owed</span>':'')
