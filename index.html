@@ -17924,6 +17924,46 @@ function dutyConflictsFor(person, area, when){
 }
 
 /* ── The shell component ─────────────────────────────────────────────────── */
+/* ── RESPONSIBILITY, DUTY, BACKUP AND ESCALATION ARE FOUR DIFFERENT THINGS ──
+   Collapsing them is how a temporary arrangement starts looking like the
+   permanent organisation chart. Kept separate in the data and on the screen.
+
+     responsibility  who NORMALLY owns the function        responsibilities
+     duty            who is covering it RIGHT NOW          duty_windows
+     backup          who can step in                       responsibilities
+     escalation      who is involved when it cannot be     domain, then the
+                     resolved the normal way               holder's own profile
+*/
+function dutyResponsibility(area, kind){
+  const doms=dutyAreaDomains(area); if(!doms.length) return null;
+  return (DATA.responsibilities||[]).find(r=>r.active!==false && r.kind===kind
+    && r.domain && doms.includes(r.domain)) || null;
+}
+/* Capability is stored; availability is calculated. Somebody can be a valid
+   backup for a function without being available at every moment the primary
+   window is open — Krystal backs up Staffing but is gone by 2pm and does not
+   work weekends. V1 derives "is she working" from that person's OWN duty
+   windows, which is truthful today and documented as an assumption. It can
+   only under-report help, never over-report it. */
+function dutyPersonAvailable(email, when){
+  const t=when||new Date(), e=String(email||'').toLowerCase();
+  if(!e) return null;
+  const on=(DATA.duty_windows||[]).filter(w=>String(w.person||'').toLowerCase()===e
+    && dutyCoversAt(w,t));
+  if(!on.length) return { available:false, until:'' };
+  const w=on[0];
+  return { available:true, until:(w.recur&&w.recur.to)?dutyClock(w.recur.to):'' };
+}
+function dutyEscalation(area){
+  const doms=dutyAreaDomains(area);
+  for(const d of doms){ const e=opsDomainEscalation(d); if(e) return e; }
+  /* No domain record loaded, so ask the person who holds the function where
+     THEY escalate. Their role profile already answers it. */
+  const r=dutyResponsibility(area,'primary');
+  const p=r?roleProfile(String(r.person||'').toLowerCase()):null;
+  return (p&&p.escalate_to)||'';
+}
+
 function dutyPanelHtml(){
   const esc=escapeHtmlComms, now=new Date();
   const rows=dutyNow(now), nxt=dutyNextChange(now);
@@ -17937,14 +17977,50 @@ function dutyPanelHtml(){
     +'</div>';
   h+=rows.map(r=>{
     const who=r.holder?opsOwnerName(r.holder.person):'';
-    return '<div style="display:flex;gap:10px;padding:5px 0;font-size:13.5px;align-items:baseline;">'
+    const resp=dutyResponsibility(r.area,'primary');
+    const back=dutyResponsibility(r.area,'backup');
+    const esc8=dutyEscalation(r.area);
+    const w=r.holder&&r.holder.window;
+    const hours=(w&&w.recur)?dutyClockRange(w.recur.from,w.recur.to):'';
+
+    /* Line 2 only exists when there is something structural to say. An area
+       with no responsibility, no backup and no escalation stays one line
+       rather than growing three empty labels. */
+    const bits=[];
+    if(resp){
+      const rn=opsOwnerName(resp.person)||resp.person;
+      bits.push('<span><span style="color:var(--text-muted);">responsibility</span> '+esc(rn)
+        +(resp.temporary?' <span class="tag-chip" style="background:var(--amber-bg);color:var(--amber);">TEMPORARY</span>':'')
+        +'</span>');
+    }
+    if(back){
+      const bn=opsOwnerName(back.person)||back.person;
+      const av=dutyPersonAvailable(back.person, now);
+      /* Named, always. Available, only when true. */
+      bits.push('<span><span style="color:var(--text-muted);">backup</span> '+esc(bn)+' · '
+        +(av&&av.available
+          ? '<span style="color:var(--teal);">available now'+(av.until?', until '+esc(av.until):'')+'</span>'
+          : '<span style="color:var(--text-muted);">not available right now</span>')
+        +'</span>');
+    }
+    if(esc8) bits.push('<span><span style="color:var(--text-muted);">escalation</span> '
+      +esc(opsOwnerName(esc8)||esc8)+'</span>');
+
+    return '<div style="padding:7px 0;border-bottom:1px solid var(--border);">'
+      +'<div style="display:flex;gap:10px;font-size:13.5px;align-items:baseline;">'
       +'<span style="min-width:132px;color:var(--text-muted);">'+esc(r.label)+'</span>'
       +(r.gap
         ? '<b style="color:var(--amber);">nobody assigned</b>'
         : '<b>'+esc(who)+'</b>'
-          +(r.holder.backup?'<span class="field-note"> · backup '+esc(opsOwnerName(r.holder.backup))+'</span>':'')
+          +(hours?'<span class="field-note"> · on duty '+esc(hours)+'</span>':'')
           +(r.holder.conflict?'<span class="field-note" style="color:var(--red);"> · '
             +r.holder.conflict+' overlapping assignments</span>':''))
+      +'</div>'
+      +(bits.length?'<div class="field-note" style="margin-left:142px;display:flex;gap:14px;'
+        +'flex-wrap:wrap;margin-top:2px;">'+bits.join('')+'</div>':'')
+      +(resp&&resp.temporary&&resp.transfer_note
+        ? '<div class="field-note" style="margin-left:142px;color:var(--amber);">'
+          +esc(resp.transfer_note)+'</div>':'')
       +'</div>'; }).join('');
   if(gaps.length) h+='<div class="field-note" style="margin-top:8px;color:var(--amber);">'
     +gaps.length+' area'+(gaps.length===1?'':'s')+' with nobody assigned right now. '
