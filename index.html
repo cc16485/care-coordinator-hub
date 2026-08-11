@@ -8374,16 +8374,7 @@ function leadDueRow(l){
    activity/ops matching needs the person in Coordinator Staff with the
    email they sign in with — same dependency as the field scoreboard.
    On Mondays "closed" looks back to Friday, not Sunday. */
-function standupPeople(){
-  const OWNERS=['samantha@mo-care.com','zach@mo-care.com'];
-  const map={};
-  new Set(Object.values(PAYER_COORDINATOR)).forEach(n=>{ map[n]=map[n]||''; });
-  (DATA.coordinator_staff||[]).forEach(s=>{
-    if(!s.name || OWNERS.includes(String(s.email||'').toLowerCase())) return;
-    map[s.name.trim()]=String(s.email||'').toLowerCase();
-  });
-  return Object.keys(map).sort().map(name=>({name, email:map[name]}));
-}
+function standupPeople(){ return ccPeople(); }
 function standupOpen(name){
   ccSetViewAs(name||'');
   switchTab('leads');
@@ -8406,11 +8397,12 @@ function renderStandup(){
     +'<span style="'+(late?'color:var(--red);font-weight:700;':'color:var(--green);')+'">'+(late? late+' late' : 'nothing late')+'</span>'
     +'</div>';
   const rows=standupPeople().map(p=>{
-    const nm=p.name.toLowerCase(), em=p.email;
-    const mine=v=>String(v||'').trim().toLowerCase()===nm;
+    const als=(p.aliases||[p.name]).map(a=>a.toLowerCase()), em=p.email;
+    const mine=v=>als.indexOf(String(v||'').trim().toLowerCase())>-1;
     const late=openLeads.filter(l=>mine(l.assigned_coordinator)&&l.follow_up_due&&l.follow_up_due<t).length
       + checkins.filter(c=>mine(c.coordinator)&&c.next_checkin_due&&c.next_checkin_due<t).length
-      + od.filter(i=>{const o=String(i.owner||'').toLowerCase();return o&&(o===em||o===nm);}).length;
+      + od.filter(i=>{const o=String(i.owner||'').toLowerCase();
+                       return o&&(o===em||als.indexOf(o)>-1);}).length;
     const due=openLeads.filter(l=>mine(l.assigned_coordinator)&&l.follow_up_due===t).length
       + checkins.filter(c=>mine(c.coordinator)&&c.next_checkin_due===t).length;
     const closed=(DATA.leads||[]).filter(l=>mine(l.assigned_coordinator)&&l.last_contacted_at===yd).length
@@ -9125,9 +9117,42 @@ function leadPayorUI(){
    leads). The selection sticks per browser, so each coordinator's machine
    can live on her own book with Everyone one click away. */
 let CC_VIEW_AS = localStorage.getItem('cch_view_as') || '';
+/* ── ONE PERSON, ONE ROW ──────────────────────────────────────────────────
+   Two naming conventions were being unioned. PAYER_COORDINATOR names people by
+   first name ('Krystal'); coordinator_staff stores full names ('Krystal Land').
+   A Set of both produced TWO entries for one person — in the stand-up and in
+   the Leads "Viewing" picker — which split her work across two rows so neither
+   was ever right, and offered you two filters that each showed half her book.
+
+   Reconciled on first name: the staff record wins because it carries the email,
+   and the short string becomes an alias so records written under EITHER
+   spelling still match. No data is rewritten; leads keep whatever they say. */
+function ccPeople(){
+  const OWNERS=['samantha@mo-care.com','zach@mo-care.com'];
+  const first=n=>String(n||'').trim().split(/\s+/)[0].toLowerCase();
+  const out=[];
+  (DATA.coordinator_staff||[]).forEach(st=>{
+    if(!st.name || OWNERS.includes(String(st.email||'').toLowerCase())) return;
+    const nm=String(st.name).trim();
+    if(out.some(p=>first(p.name)===first(nm))) return;      // never two rows for one first name
+    out.push({ name:nm, email:String(st.email||'').toLowerCase(), aliases:[nm] });
+  });
+  new Set(Object.values(PAYER_COORDINATOR)).forEach(short=>{
+    const hit=out.find(p=>first(p.name)===first(short));
+    if(hit){ if(hit.aliases.indexOf(short)===-1) hit.aliases.push(short); }
+    else out.push({ name:short, email:'', aliases:[short] });
+  });
+  return out.sort((a,b)=>a.name.localeCompare(b.name));
+}
+function ccAliasesFor(name){
+  const p=ccPeople().find(x=>x.name===name || x.aliases.indexOf(name)>-1);
+  return p ? p.aliases.map(a=>a.toLowerCase()) : [String(name||'').toLowerCase()];
+}
 function ccViewMatch(name){
   if(!CC_VIEW_AS) return true;
-  return String(name||'').trim().toLowerCase() === CC_VIEW_AS.toLowerCase();
+  /* Matches any alias, so choosing "Krystal Land" also finds the leads written
+     as "Krystal" rather than silently showing half her book. */
+  return ccAliasesFor(CC_VIEW_AS).indexOf(String(name||'').trim().toLowerCase())>-1;
 }
 function ccSetViewAs(v){
   CC_VIEW_AS = v || '';
@@ -9136,13 +9161,9 @@ function ccSetViewAs(v){
 }
 function ccRenderViewAs(){
   const sel = document.getElementById('ccViewAs'); if(!sel) return;
-  const OWNERS = ['samantha@mo-care.com','zach@mo-care.com'];
-  const names = new Set(Object.values(PAYER_COORDINATOR));
-  (DATA.coordinator_staff||[]).forEach(s=>{
-    if(s.name && !OWNERS.includes((s.email||'').toLowerCase())) names.add(s.name.trim());
-  });
   sel.innerHTML = '<option value="">Viewing: Everyone</option>'
-    + [...names].sort().map(n=>'<option value="'+escapeHtmlComms(n)+'">Viewing: '+escapeHtmlComms(n)+'</option>').join('');
+    + ccPeople().map(p=>'<option value="'+escapeHtmlComms(p.name)+'">Viewing: '
+        +escapeHtmlComms(p.name)+'</option>').join('');
   sel.value = CC_VIEW_AS;
   if(sel.value!==CC_VIEW_AS){ CC_VIEW_AS=''; sel.value=''; }  // stored name no longer exists
   sel.style.borderColor = CC_VIEW_AS ? 'var(--gold,#F0A830)' : 'var(--border)';
