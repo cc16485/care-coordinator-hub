@@ -531,6 +531,27 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
   /* ---- Sub-tabs (within a tab, e.g. Leads: Pipeline / Post-Call / Follow-Up Queue) ---- */
   .subtab-bar{display:flex;gap:4px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content;margin-bottom:16px;flex-wrap:wrap;}
+
+  /* ── Work cards. Calm until touched: the chip and the ⋯ only gain a
+        background on hover, so a list of twenty reads as text rather than
+        as twenty rows of controls. ─────────────────────────────────────── */
+  .wkcard{background:#fff;border:1px solid var(--border);border-radius:12px;transition:border-color .12s,box-shadow .12s;}
+  .wkcard:hover{border-color:#C8D6E5;}
+  .wkcard.focused{border-color:var(--teal);box-shadow:0 0 0 3px rgba(84,189,184,.15);}
+  .wkcard.selected{background:#F5FAFF;border-color:#B7D4F5;}
+  .wkchip{font-size:11px;font-weight:700;color:var(--text-muted);background:transparent;
+    border:1px solid transparent;border-radius:999px;padding:2px 9px;cursor:pointer;white-space:nowrap;}
+  .wkchip:hover{background:var(--bg);border-color:var(--border);color:var(--navy);}
+  .wkmore{font-size:17px;line-height:1;color:var(--text-muted);cursor:pointer;padding:0 6px;
+    border-radius:6px;user-select:none;}
+  .wkmore:hover{background:var(--bg);color:var(--navy);}
+  .ccpick-row{transition:background .1s;}
+  .ccpop{font-family:inherit;}
+  /* On a phone the popover becomes a sheet, so its rows need room for a thumb. */
+  @media (max-width:700px){
+    .ccpick-row{padding:12px 10px !important;}
+    .wkcard [id^="act_"] button{flex:1 1 auto;}
+  }
   .subtab{display:flex;align-items:center;gap:6px;background:none;border:none;padding:8px 14px;border-radius:7px;font-size:13px;font-weight:600;color:var(--text-muted);}
   .subtab:hover{background:#FAF9F6;color:var(--text);}
   .subtab.active{background:var(--navy);color:#fff;}
@@ -15988,8 +16009,243 @@ function opsAlreadyHandled(it){
     +'connected for '+(mins?mins+'m ':'')+secs+'s, '+callsFmtWhen(back.at)+'.' };
 }
 
+/* ═══════════════ V2 — POPOVERS, PICKERS, CALM CARDS, BULK, KEYBOARD ═══════
+   The v1 card carried two permanent dropdowns and five buttons, which reads
+   as a database form rather than a situation. The rules underneath are
+   unchanged; only how a person meets them is different.
+
+   CALM UNTIL TOUCHED. A card is a sentence about something that happened,
+   with one obvious next move. Everything else appears when asked for.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── Popover kit ───────────────────────────────────────────────────────────
+   No prompt(), no alert(), no confirm(). Inside the GoHighLevel frame those
+   render as "An embedded page at cc.mo-care.com says", which reads like a
+   fault rather than a question. Under 700px it becomes a bottom sheet,
+   because a 280px popover anchored to a button is unusable on a phone. */
+let CC_POP=null;
+function ccPopClose(){
+  if(!CC_POP) return;
+  CC_POP.el.remove(); CC_POP.backdrop && CC_POP.backdrop.remove();
+  document.removeEventListener('keydown', CC_POP.onKey, true);
+  CC_POP=null;
+}
+function ccPopIsOpen(){ return !!CC_POP; }
+function ccPopOpen(anchor, html, opts){
+  ccPopClose(); opts=opts||{};
+  const narrow = window.innerWidth < 700;
+  const back=document.createElement('div');
+  back.style.cssText='position:fixed;inset:0;z-index:9998;'
+    +(narrow?'background:rgba(14,56,96,.35);':'');
+  back.onclick=ccPopClose;
+  const el=document.createElement('div');
+  el.className='ccpop';
+  el.style.cssText='position:fixed;z-index:9999;background:#fff;border:1px solid var(--border);'
+    +'box-shadow:0 12px 32px rgba(14,56,96,.18);'
+    +(narrow
+      ? 'left:0;right:0;bottom:0;border-radius:16px 16px 0 0;max-height:75vh;overflow:auto;padding:14px 16px 22px;'
+      : 'border-radius:12px;width:'+(opts.width||320)+'px;max-height:60vh;overflow:auto;padding:10px;');
+  el.innerHTML=html;
+  document.body.appendChild(back); document.body.appendChild(el);
+  if(!narrow && anchor){
+    const r=anchor.getBoundingClientRect();
+    const w=opts.width||320, h=el.offsetHeight;
+    el.style.left=Math.max(8, Math.min(r.left, window.innerWidth-w-8))+'px';
+    el.style.top =(r.bottom+6+h > window.innerHeight ? Math.max(8,r.top-h-6) : r.bottom+6)+'px';
+  }
+  const onKey=(e)=>{ if(e.key==='Escape'){ e.stopPropagation(); ccPopClose(); } };
+  document.addEventListener('keydown', onKey, true);
+  CC_POP={el, backdrop:back, onKey};
+  const f=el.querySelector('input,textarea'); if(f) setTimeout(()=>f.focus(),20);
+  return el;
+}
+
+/* ── Who could own this, and how much they are already carrying ─────────── */
+function opsOpenCountFor(email){
+  const e=String(email||'').toLowerCase(); if(!e) return 0;
+  return (DATA.ops_items||[]).filter(i=>i.status==='open'&&(i.owner||'').toLowerCase()===e).length;
+}
+function opsInitials(name){
+  return String(name||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
+}
+function opsStaffRole(email){
+  const s=(DATA.coordinator_staff||[]).find(x=>String(x.email||'').toLowerCase()===String(email||'').toLowerCase());
+  if(!s) return '';
+  if(DISC_APPROVERS.includes(String(email||'').toLowerCase())) return 'Owner/Admin';
+  return s.role || (s.shift==='day'?'Care Coordinator':s.shift==='evening'?'Evening':'');
+}
+
+/* ── The suggestion, which is a rule and says which rule ──────────────────
+   Deterministic. Nothing here guesses, and every answer carries the sentence
+   that produced it, so a suggestion can be disagreed with on its merits. */
+function opsSuggest(it){
+  if(!it || it.owner) return null;                     // claimed work stays put
+  if(it.kind==='discipline'){
+    const e=opsDomainEscalation(it.domain||'caregiver_performance');
+    if(e) return {email:e, reason:'This is waiting for owner approval'};
+  }
+  if(it.domain){
+    const o=opsDomainOwner(it.domain);
+    const d=opsAllDomains().find(x=>x.code===it.domain);
+    if(o) return {email:o, reason:'Primary owner for '+((d&&d.label)||it.domain)};
+  }
+  if(it.kind==='missed_call'){
+    const f=opsFrontDoor();
+    if(f) return {email:f, reason:'Rings back callers we cannot identify yet'};
+  }
+  return null;
+}
+
+/* ── Staff picker ─────────────────────────────────────────────────────────
+   Names, roles and how much each is already carrying. No email addresses as
+   identity, and no duty state: duty_windows does not exist, and inventing it
+   would be worse than leaving it out. */
+function ccPickPerson(anchor, cfg){
+  cfg=cfg||{};
+  const esc=escapeHtmlComms;
+  const staff=(DATA.coordinator_staff||[]).filter(s=>s.email);
+  const sug=cfg.suggested;
+  const row=(s,why)=>{
+    const e=String(s.email).toLowerCase(), n=s.name||s.email, cnt=opsOpenCountFor(e);
+    return '<div class="ccpick-row" data-email="'+esc(e)+'" data-name="'+esc(n)+'" '
+      +'style="display:flex;gap:10px;align-items:center;padding:8px 8px;border-radius:8px;cursor:pointer;">'
+      +'<span style="width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;'
+      +'display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:0 0 auto;">'
+      +esc(opsInitials(n))+'</span>'
+      +'<span style="flex:1;min-width:0;"><b style="font-size:13.5px;">'+esc(n)+'</b>'
+      +'<div class="field-note">'+esc(opsStaffRole(e))
+      +(cnt?' · '+cnt+' open':'')+'</div>'
+      +(why?'<div class="field-note" style="color:var(--teal);">'+esc(why)+'</div>':'')
+      +'</span></div>';
+  };
+  let h='<input id="ccPickSearch" placeholder="Search by name…" '
+    +'style="width:100%;padding:8px 10px;font-size:13px;border-radius:8px;margin-bottom:8px;">';
+  if(sug){
+    const s=staff.find(x=>String(x.email).toLowerCase()===sug.email);
+    if(s) h+='<div class="field-note" style="font-weight:700;margin:2px 0 2px 8px;">SUGGESTED</div>'
+             +row(s, sug.reason)
+             +'<div style="height:1px;background:var(--border);margin:6px 0;"></div>';
+  }
+  h+='<div class="field-note" style="font-weight:700;margin:2px 0 2px 8px;">EVERYONE</div>'
+    +'<div id="ccPickList">'+staff.map(s=>row(s,'')).join('')
+    +'</div>'
+    +'<div style="height:1px;background:var(--border);margin:6px 0;"></div>'
+    +'<div class="ccpick-row" data-email="" data-name="" style="padding:8px;border-radius:8px;cursor:pointer;">'
+    +'<span class="field-note">Leave unassigned</span></div>';
+
+  const el=ccPopOpen(anchor, h, {width:330});
+  const pick=(e,n)=>{ ccPopClose(); cfg.onPick && cfg.onPick(e,n); };
+  el.querySelectorAll('.ccpick-row').forEach(r=>{
+    r.onmouseenter=()=>r.style.background='var(--bg)';
+    r.onmouseleave=()=>r.style.background='';
+    r.onclick=()=>pick(r.dataset.email, r.dataset.name);
+  });
+  const box=el.querySelector('#ccPickSearch');
+  box.oninput=()=>{
+    const q=box.value.toLowerCase();
+    el.querySelectorAll('#ccPickList .ccpick-row').forEach(r=>{
+      r.style.display = (r.dataset.name.toLowerCase().indexOf(q)>-1) ? 'flex' : 'none';
+    });
+  };
+  // Enter picks the only remaining match, so "kry" + Enter assigns Krystal.
+  box.onkeydown=(ev)=>{
+    if(ev.key!=='Enter') return;
+    const vis=[...el.querySelectorAll('#ccPickList .ccpick-row')].filter(r=>r.style.display!=='none');
+    if(vis.length===1){ ev.preventDefault(); pick(vis[0].dataset.email, vis[0].dataset.name); }
+  };
+}
+
+function ccPickDomain(anchor, cfg){
+  cfg=cfg||{}; const esc=escapeHtmlComms;
+  const h='<div class="field-note" style="font-weight:700;margin:2px 0 6px 8px;">WHAT IS THIS ABOUT?</div>'
+    +opsAllDomains().map(d=>'<div class="ccpick-row" data-code="'+esc(d.code)+'" '
+      +'style="padding:8px;border-radius:8px;cursor:pointer;font-size:13.5px;">'+esc(d.label)+'</div>').join('')
+    +'<div style="height:1px;background:var(--border);margin:6px 0;"></div>'
+    +'<div class="ccpick-row" data-code="" style="padding:8px;border-radius:8px;cursor:pointer;">'
+    +'<span class="field-note">Not known yet</span></div>';
+  const el=ccPopOpen(anchor, h, {width:300});
+  el.querySelectorAll('.ccpick-row').forEach(r=>{
+    r.onmouseenter=()=>r.style.background='var(--bg)';
+    r.onmouseleave=()=>r.style.background='';
+    r.onclick=()=>{ ccPopClose(); cfg.onPick && cfg.onPick(r.dataset.code); };
+  });
+}
+
+/* ── Applying a decision ──────────────────────────────────────────────────
+   Every change appends to history, so the next person reads what happened
+   rather than reconstructing it. */
+function opsLog(it, text){
+  it.history = it.history || [];
+  it.history.push({ at:new Date().toISOString(), by:(ME.name||ME.email||''), text:text });
+  it.last_activity_at=new Date().toISOString();
+}
+async function opsSetOwner(id, email, name, note){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  const was=it.owner_name||opsOwnerName(it.owner)||'nobody';
+  it.owner=String(email||'').trim().toLowerCase();
+  it.owner_name=it.owner?(name||opsOwnerName(it.owner)):'';
+  opsLog(it, it.owner
+    ? (was==='nobody' ? 'Assigned to '+it.owner_name : 'Handed from '+was+' to '+it.owner_name)
+      + (note?' — '+note:'')
+    : 'Put back in Unassigned');
+  await persist('ops_items',it); myWorkRefresh();
+}
+/* Choosing a lane fills the owner only if nobody has claimed it. Claimed work
+   never moves because somebody labelled it. */
+async function opsSetDomain(id, code){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  it.domain=code||null;
+  const d=opsAllDomains().find(x=>x.code===code);
+  opsLog(it, code ? ('Filed under '+((d&&d.label)||code)) : 'Domain cleared');
+  if(code && !it.owner){
+    const o=opsDomainOwner(code);
+    if(o){ it.owner=o; it.owner_name=opsOwnerName(o); opsLog(it,'Assigned to '+it.owner_name+' as owner of that domain'); }
+  }
+  await persist('ops_items',it); myWorkRefresh();
+}
+function myWorkRefresh(){ renderMyWork(); renderHome(); opsBadges(); }
+
+function opsAssignFromCard(id, anchorId){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  ccPickPerson(document.getElementById(anchorId), {
+    current:it.owner, suggested:opsSuggest(it),
+    onPick:(e,n)=>opsSetOwner(id,e,n)
+  });
+}
+function opsDomainFromCard(id, anchorId){
+  ccPickDomain(document.getElementById(anchorId), { onPick:(c)=>opsSetDomain(id,c) });
+}
+
+/* ── Hand off, with the reason attached ──────────────────────────────────
+   The note is the point. Work handed over without saying why makes the next
+   person start from nothing, which is the thing this build exists to stop. */
+function myWorkHandOff(id, anchorId){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  ccPickPerson(document.getElementById(anchorId||('act_'+id)), {
+    current:it.owner, suggested:opsSuggest(it),
+    onPick:(e,n)=>{
+      if(!e) return opsSetOwner(id,'','');
+      const esc=escapeHtmlComms;
+      const el=ccPopOpen(document.getElementById(anchorId||('act_'+id)),
+        '<div style="font-size:13.5px;font-weight:700;margin-bottom:2px;">Hand to '+esc(n)+'</div>'
+        +'<div class="field-note" style="margin-bottom:8px;">What do they need to know?</div>'
+        +'<textarea id="hoNote" rows="3" placeholder="Optional, but it saves them working it out" '
+        +'style="width:100%;font-size:13px;padding:8px;border-radius:8px;"></textarea>'
+        +'<div style="display:flex;gap:8px;margin-top:10px;">'
+        +'<button class="primary" id="hoGo" style="padding:7px 14px;font-size:13px;">Hand off</button>'
+        +'<button class="ghost" id="hoCancel" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+        {width:340});
+      el.querySelector('#hoCancel').onclick=ccPopClose;
+      el.querySelector('#hoGo').onclick=()=>{
+        const note=(el.querySelector('#hoNote').value||'').trim();
+        ccPopClose(); opsSetOwner(id,e,n,note);
+      };
+    }
+  });
+}
+
 /* ── MY WORK ─────────────────────────────────────────────────────────────── */
-let MYWORK_TAB='mine';
+let MYWORK_TAB='mine', MYWORK_SEL=new Set(), MYWORK_FOCUS=0;
 const MYWORK_TABS=[
   ['mine','Mine'],['unassigned','Unassigned'],['overdue','Overdue'],
   ['escalated','Escalated'],['waiting','Waiting']];
@@ -16007,247 +16263,263 @@ function myWorkBuckets(){
     waiting:    mine.filter(i=>i.sub_state==='waiting')
   };
 }
+function myWorkRows(){
+  const b=myWorkBuckets();
+  return (b[MYWORK_TAB]||[]).slice()
+    .sort((a,c)=>String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
+}
 
-function myWorkCard(it, opts){
-  const esc=escapeHtmlComms; opts=opts||{};
-  const k=(OPS_KINDS[it.kind]||{});
+/* A card is a sentence about a situation. One obvious move, everything else
+   behind the menu. */
+function myWorkCard(it, i){
+  const esc=escapeHtmlComms;
   const late=it.due && Date.parse(it.due)<Date.now();
-  const dom=(opsAllDomains().find(d=>d.code===it.domain)||{}).label;
-  const when=it.due ? (late?'<b style="color:var(--red);">'+callsFmtWhen(it.due)+' · late</b>'
-                           :callsFmtWhen(it.due)) : '';
-  let h='<div class="card" style="padding:14px 16px;margin-bottom:10px;">'
-    +'<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">'
-    +'<div style="font-size:12px;color:var(--text-muted);min-width:96px;">'+when+'</div>'
-    +'<b style="font-size:15px;flex:1;min-width:200px;">'+esc(it.title||'')+'</b>'
-    +(dom?'<span class="field-note">'+esc(dom)+'</span>':'<span class="field-note" style="color:var(--amber);">domain not known yet</span>')
+  const d=opsAllDomains().find(x=>x.code===it.domain);
+  const sug=opsSuggest(it);
+  const sel=MYWORK_SEL.has(it.id), focused=(i===MYWORK_FOCUS);
+  const ev=opsAlreadyHandled(it);
+  const ago=it.created_at?callsFmtWhen(it.created_at):'';
+  const who=it.owner?('owned by '+esc(it.owner_name||opsOwnerName(it.owner))):'unassigned';
+
+  let h='<div class="wkcard'+(focused?' focused':'')+(sel?' selected':'')+'" data-id="'+it.id+'" '
+    +'style="padding:13px 15px;margin-bottom:8px;">'
+    +'<div style="display:flex;gap:10px;align-items:flex-start;">'
+    +'<input type="checkbox" class="wkchk" '+(sel?'checked':'')+' onchange="myWorkToggle(\''+it.id+'\')" '
+    +'style="width:16px;height:16px;margin-top:3px;flex:0 0 auto;cursor:pointer;">'
+    +'<div style="flex:1;min-width:0;">'
+    +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">'
+    +'<b style="font-size:15px;">'+esc(it.about||it.title||'')+'</b>'
+    +'<span class="field-note">'+esc((OPS_KINDS[it.kind]||{}).label||it.kind)+' · '+esc(ago)
+    +' · '+who+(late?' · <b style="color:var(--red);">late</b>':'')+'</span>'
+    +'<span style="flex:1;"></span>'
+    +'<span class="wkchip" id="dom_'+it.id+'" onclick="opsDomainFromCard(\''+it.id+'\',\'dom_'+it.id+'\')" '
+    +'title="What is this about?">'+esc(d?d.label:'Unclassified')+'</span>'
+    +'<span class="wkmore" id="more_'+it.id+'" onclick="myWorkMore(\''+it.id+'\',\'more_'+it.id+'\')">⋯</span>'
     +'</div>';
-  if(it.detail) h+='<div style="margin-top:8px;font-size:13px;"><span class="field-note">WHAT HAPPENED&nbsp;&nbsp;</span>'+esc(it.detail)+'</div>';
-  if(it.next_action) h+='<div style="margin-top:3px;font-size:13px;"><span class="field-note">WHAT TO DO&nbsp;&nbsp;</span>'+esc(it.next_action)+'</div>';
-  if(it.about) h+='<div style="margin-top:3px;font-size:13px;"><span class="field-note">ABOUT&nbsp;&nbsp;</span>'+esc(it.about)+'</div>';
-  h+='<div style="margin-top:3px;font-size:13px;"><span class="field-note">FROM&nbsp;&nbsp;</span>'
-    +esc(k.label||it.kind)+(it.opened_by==='system'?', picked up automatically':'')
-    +(it.owner&&!opts.hideOwner?' · owned by '+esc(opsOwnerName(it.owner)):'')+'</div>';
-  h+='<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
-    +(opts.actions||'')+'</div>';
-  // Revealed in place by Hand off, rather than a dialog over the top of the work.
-  h+='<div id="pick_'+it.id+'" style="display:none;gap:8px;align-items:center;margin-top:8px;"></div>';
-  return h+'</div>';
+
+  if(it.about && it.title && it.about!==it.title)
+    h+='<div style="font-size:13.5px;margin-top:3px;">'+esc(it.title)+'</div>';
+  if(it.detail) h+='<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;">“'+esc(it.detail)+'”</div>';
+  if(it.next_action) h+='<div style="font-size:13.5px;margin-top:5px;">→ '+esc(it.next_action)+'</div>';
+  if(ev) h+='<div class="field-note" style="margin-top:6px;color:#1F7A8C;">✓ '+esc(ev.text)+'</div>';
+
+  h+='<div id="act_'+it.id+'" style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">';
+  if(!it.owner && sug){
+    h+='<span class="field-note">Suggested</span>'
+      +'<button class="primary" style="padding:6px 13px;font-size:12.5px;" '
+      +'onclick="opsSetOwner(\''+it.id+'\',\''+esc(sug.email)+'\')">Assign '
+      +esc((opsOwnerName(sug.email)||'').split(' ')[0])+'</button>'
+      +'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
+      +'onclick="opsAssignFromCard(\''+it.id+'\',\'act_'+it.id+'\')">Choose…</button>'
+      +'<span class="field-note" style="flex-basis:100%;color:var(--teal);">'+esc(sug.reason)+'</span>';
+  } else if(!it.owner){
+    h+='<button class="primary" style="padding:6px 13px;font-size:12.5px;" '
+      +'onclick="opsAssignFromCard(\''+it.id+'\',\'act_'+it.id+'\')">Assign…</button>';
+  } else {
+    h+='<button class="primary" style="padding:6px 13px;font-size:12.5px;" onclick="opsClose(\''+it.id+'\')">Done</button>'
+      +'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
+      +'onclick="myWorkHandOff(\''+it.id+'\',\'act_'+it.id+'\')">Hand off</button>';
+  }
+  h+='</div>';
+
+  const hist=(it.history||[]).slice(-2);
+  if(hist.length) h+='<div class="field-note" style="margin-top:8px;">'
+    +hist.map(x=>esc(callsFmtWhen(x.at))+' · '+esc(x.by)+' — '+esc(x.text)).join('<br>')+'</div>';
+
+  return h+'</div></div></div>';
+}
+
+function myWorkMore(id, anchorId){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  const opt=(what,label,warn)=>'<div class="ccpick-row" data-what="'+what+'" '
+    +'style="padding:8px;border-radius:8px;cursor:pointer;font-size:13.5px;'
+    +(warn?'color:var(--red);':'')+'">'+label+'</div>';
+  let h='';
+  if(it.owner) h+=opt('waiting', it.sub_state==='waiting'?'No longer waiting':'Waiting on someone');
+  h+=opt('needs_samantha','Needs Samantha')
+    +'<div style="height:1px;background:var(--border);margin:6px 0;"></div>'
+    +'<div class="field-note" style="margin:2px 0 4px 8px;">CLOSE IT</div>'
+    +opt('already_handled','Already handled elsewhere')
+    +opt('duplicate','Duplicate')
+    +opt('informational','Informational, no action')
+    +opt('stale','Stale',true);
+  const el=ccPopOpen(document.getElementById(anchorId), h, {width:280});
+  el.querySelectorAll('.ccpick-row').forEach(r=>{
+    r.onmouseenter=()=>r.style.background='var(--bg)';
+    r.onmouseleave=()=>r.style.background='';
+    r.onclick=()=>{ ccPopClose(); opsTriage(id, r.dataset.what); };
+  });
 }
 
 function renderMyWork(){
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
   const who=document.getElementById('myWorkWho');
-  if(who) who.textContent = ME.name ? ('Signed in as '+ME.name) : '';
+  if(who) who.textContent=(ME.name?('Signed in as '+ME.name):'')+'   ·   press ? for shortcuts';
   const b=myWorkBuckets();
-
   const tabs=document.getElementById('myWorkTabs');
   if(tabs) tabs.innerHTML=MYWORK_TABS.map(([k,label])=>
     '<div class="subtab'+(MYWORK_TAB===k?' active':'')+'" onclick="myWorkGo(\''+k+'\')">'
     +label+(b[k].length?' <span class="subtab-badge'+(k==='overdue'?' red':'')+'">'+b[k].length+'</span>':'')
     +'</div>').join('');
 
-  if(MYWORK_TAB==='unassigned') return renderTriage(b.unassigned);
+  const rows=myWorkRows();
+  [...MYWORK_SEL].forEach(id=>{ if(!rows.some(r=>r.id===id)) MYWORK_SEL.delete(id); });
+  if(MYWORK_FOCUS>=rows.length) MYWORK_FOCUS=Math.max(0,rows.length-1);
 
-  const rows=b[MYWORK_TAB]||[];
   if(!rows.length){
     const msg={mine:'Nothing on your list right now.',
+      unassigned:'Everything open has somebody\'s name on it.',
       overdue:'Nothing of yours is late. Good.',
       escalated:'Nothing has been escalated to you. Good.',
       waiting:'You are not waiting on anybody.'}[MYWORK_TAB];
-    wrap.innerHTML='<div class="card" style="padding:20px;text-align:center;">'+msg+'</div>';
+    wrap.innerHTML='<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>';
     return;
   }
-  wrap.innerHTML=rows.sort((a,b2)=>String(a.due||a.created_at||'').localeCompare(String(b2.due||b2.created_at||'')))
-    .map(it=>myWorkCard(it,{hideOwner:true,actions:
-        '<button class="primary" style="padding:6px 12px;font-size:12.5px;" onclick="opsClose(\''+it.id+'\')">Done</button>'
-       +'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="myWorkHandOff(\''+it.id+'\')">Hand off</button>'
-       +(it.sub_state==='waiting'
-          ? '<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="myWorkWait(\''+it.id+'\',false)">No longer waiting</button>'
-          : '<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="myWorkWait(\''+it.id+'\',true)">Waiting on someone</button>')
-      })).join('');
+  wrap.innerHTML=myWorkBulkBar(rows)+rows.map((it,i)=>myWorkCard(it,i)).join('');
 }
-function myWorkGo(t){ MYWORK_TAB=t; renderMyWork(); }
+function myWorkGo(t){ MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
 
-/* ── Pickers ──────────────────────────────────────────────────────────────
-   Dropdowns, not typed email addresses. The first version used prompt(),
-   which meant a typo produced a work item owned by an address that does not
-   exist, and inside the GoHighLevel frame it renders as "An embedded page at
-   cc.mo-care.com says", which looks like something has gone wrong.
-
-   Both lists come from data the hub already holds, so a person added in
-   Settings appears here without anything else changing. */
-function opsStaffSelect(id, current, onChange){
-  const esc=escapeHtmlComms;
-  const staff=(DATA.coordinator_staff||[]).filter(s=>s.email||s.name);
-  return '<select onchange="'+onChange+'(\''+id+'\',this.value)" '
-    +'style="width:auto;padding:5px 8px;font-size:12.5px;border-radius:7px;">'
-    +'<option value="">— nobody —</option>'
-    +staff.map(s=>{ const v=String(s.email||s.name||'').toLowerCase();
-        return '<option value="'+esc(v)+'"'+(v===String(current||'').toLowerCase()?' selected':'')
-          +'>'+esc(s.name||s.email)+'</option>'; }).join('')
-    +'</select>';
+/* ── Bulk ────────────────────────────────────────────────────────────────
+   An action is offered in bulk only when it means the same thing for every
+   item selected. Rather than being clever about mixed selections, the ones
+   that would not be safe are simply not offered. */
+function myWorkToggle(id){
+  MYWORK_SEL.has(id)?MYWORK_SEL.delete(id):MYWORK_SEL.add(id);
+  renderMyWork();
 }
-function opsDomainSelect(id, current, onChange){
-  const esc=escapeHtmlComms;
-  return '<select onchange="'+onChange+'(\''+id+'\',this.value)" '
-    +'style="width:auto;padding:5px 8px;font-size:12.5px;border-radius:7px;">'
-    +'<option value="">— not known yet —</option>'
-    +opsAllDomains().map(d=>'<option value="'+esc(d.code)+'"'
-        +(d.code===current?' selected':'')+'>'+esc(d.label)+'</option>').join('')
-    +'</select>';
+function myWorkSelectAll(on){
+  MYWORK_SEL.clear();
+  if(on) myWorkRows().forEach(r=>MYWORK_SEL.add(r.id));
+  renderMyWork();
 }
-
-async function opsSetOwner(id, email){
-  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
-  it.owner=String(email||'').trim().toLowerCase();
-  it.owner_name=it.owner?opsOwnerName(it.owner):'';
-  it.last_activity_at=new Date().toISOString();
-  await persist('ops_items',it); renderMyWork(); renderHome(); opsBadges();
-}
-/* Setting a domain also fills the owner IF nobody has claimed it. Claimed work
-   stays with the person who claimed it: choosing a lane must never quietly
-   take something off the person already doing it. */
-async function opsSetDomain(id, code){
-  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
-  it.domain=code||null;
-  if(code && !it.owner){
-    const o=opsDomainOwner(code);
-    if(o){ it.owner=o; it.owner_name=opsOwnerName(o); }
-  }
-  it.last_activity_at=new Date().toISOString();
-  await persist('ops_items',it); renderMyWork(); renderHome(); opsBadges();
-}
-
-function myWorkHandOff(id){
-  const box=document.getElementById('pick_'+id); if(!box) return;
-  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
-  box.style.display='flex';
-  box.innerHTML='<span class="field-note">Hand this to</span>'
-    +opsStaffSelect(id, it.owner, 'opsSetOwner');
-}
-async function myWorkWait(id,on){
-  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
-  it.sub_state = on ? 'waiting' : null;
-  it.last_activity_at=new Date().toISOString();
-  await persist('ops_items',it); renderMyWork();
-}
-
-/* ── TRIAGE, which is the Unassigned tab ─────────────────────────────────── */
-function renderTriage(rows){
-  const wrap=document.getElementById('myWorkWrap'); const esc=escapeHtmlComms;
-  if(!rows.length){
-    wrap.innerHTML='<div class="card" style="padding:20px;text-align:center;">Everything open has somebody\'s name on it.</div>';
-    return;
-  }
-  const handled=[], undecided=[];
-  rows.forEach(it=>{ const ev=opsAlreadyHandled(it); (ev?handled:undecided).push([it,ev]); });
-
-  const n=handled.length, one=(n===1);
-  let h='<div class="field-note" style="margin-bottom:12px;">'+rows.length
-    +' piece'+(rows.length===1?'':'s')+' of work with nobody\'s name on '
-    +(rows.length===1?'it':'them')+'.'
-    +(n?' '+n+(one?' shows':' show')+' evidence of later successful contact.':'')+'</div>';
-
+function myWorkBulkBar(rows){
+  const n=MYWORK_SEL.size;
+  const all=n>0 && n===rows.length;
+  let h='<div class="card" style="padding:9px 14px;margin-bottom:10px;display:flex;gap:10px;'
+    +'align-items:center;flex-wrap:wrap;'+(n?'background:#F0F7FF;border-color:#B7D4F5;':'')+'">'
+    +'<label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer;">'
+    +'<input type="checkbox" '+(all?'checked':'')+' onchange="myWorkSelectAll(this.checked)" '
+    +'style="width:16px;height:16px;cursor:pointer;"> '
+    +(n?('<b>'+n+' selected</b>'):('Select all '+rows.length))+'</label>';
   if(n){
-    h+='<div class="card" style="padding:14px 16px;margin-bottom:14px;background:#F0FDF9;border-color:#A7E8D6;">'
-      +'<b style="font-size:14px;">'+n+' call'+(one?'':'s')
-      +' with evidence of later successful contact</b>'
-      /* Describes the rule that actually runs. A missed call returned on the
-         SAME number is closed automatically and never reaches this list, so
-         everything here is the case that would otherwise be missed: same
-         person, second number. */
-      +'<div class="field-note" style="margin:4px 0 10px;">We rang '+(one?'this contact':'these contacts')
-      +' back on a different number and connected. Calls returned on the same number close '
-      +'themselves, so '+(one?'this is the one':'these are the ones')+' that would otherwise be missed. '
-      +'Nothing has been closed.</div>'
-      /* Scoped deliberately, and the button says so. A generic "close
-         everything visible" would eventually be pressed against a filtered
-         list of forty. */
-      +'<button class="primary" style="padding:7px 14px;font-size:13px;" onclick="opsBulkHandled()">'
-      +(one?'Mark this one already handled':'Mark these '+n+' already handled')+'</button></div>';
+    const sel=rows.filter(r=>MYWORK_SEL.has(r.id));
+    // Only offered when it means the same thing for everything selected.
+    const canAssign = sel.every(r=>true);
+    const anyClaimed = sel.some(r=>r.owner);
+    h+='<span style="flex:1;"></span>'
+      +(canAssign?'<button class="ghost" id="bulkAssign" style="padding:6px 12px;font-size:12.5px;" '
+        +'onclick="myWorkBulkAssign()">Assign '+n+'…</button>':'')
+      +'<button class="ghost" id="bulkDomain" style="padding:6px 12px;font-size:12.5px;" '
+        +'onclick="myWorkBulkDomain()">Set what they are about…</button>'
+      +'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
+        +'onclick="myWorkBulkClose(\'already_handled\')">Already handled</button>'
+      +'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
+        +'onclick="myWorkBulkClose(\'duplicate\')">Duplicate</button>'
+      +'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
+        +'onclick="myWorkBulkClose(\'informational\')">Informational</button>'
+      +'<button class="ghost" style="padding:6px 12px;font-size:12.5px;color:var(--red);" '
+        +'onclick="myWorkBulkClose(\'stale\')">Stale</button>'
+      +(anyClaimed?'<span class="field-note" style="flex-basis:100%;">Some of these already have an owner. '
+        +'Assigning will move them.</span>':'');
   }
-
-  /* Both dropdowns are always visible and apply on change. Triaging is two
-     decisions — whose is it, and what is it about — so making each a click
-     that opens something is two clicks too many for a list of twenty. */
-  const b=(id,what,label)=>'<button class="ghost" style="padding:5px 10px;font-size:12px;" '
-    +'onclick="opsTriage(\''+id+'\',\''+what+'\')">'+label+'</button>';
-  const act=(it)=>
-     '<span class="field-note">Owner</span>'+opsStaffSelect(it.id, it.owner, 'opsSetOwner')
-    +'<span class="field-note" style="margin-left:6px;">About</span>'+opsDomainSelect(it.id, it.domain, 'opsSetDomain')
-    +'<span style="width:10px;"></span>'
-    +b(it.id,'needs_samantha','Needs Samantha')
-    +b(it.id,'already_handled','Already handled')
-    +b(it.id,'duplicate','Duplicate')
-    +b(it.id,'informational','Informational')
-    +b(it.id,'stale','Stale, close');
-
-  if(handled.length){
-    h+='<div class="field-note" style="margin:16px 0 6px;font-weight:700;">LIKELY ALREADY HANDLED</div>';
-    h+=handled.map(([it,ev])=>myWorkCard(it,{actions:
-        '<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">✓ '+esc(ev.text)+'</span>'
-       +'<button class="ghost" style="padding:5px 10px;font-size:12px;" onclick="opsTriage(\''+it.id+'\',\'already_handled\')">Already handled</button>'
-       +'<button class="ghost" style="padding:5px 10px;font-size:12px;" onclick="opsTriage(\''+it.id+'\',\'needs_doing\')">No, still needs doing</button>'})).join('');
-  }
-  if(undecided.length){
-    h+='<div class="field-note" style="margin:16px 0 6px;font-weight:700;">STILL NEEDS A DECISION</div>';
-    h+=undecided.map(([it])=>myWorkCard(it,{actions:act(it)})).join('');
-  }
-  wrap.innerHTML=h;
+  return h+'</div>';
+}
+function myWorkBulkAssign(){
+  const rows=myWorkRows().filter(r=>MYWORK_SEL.has(r.id));
+  ccPickPerson(document.getElementById('bulkAssign'), {
+    onPick: async (e,n)=>{
+      for(const it of rows) await opsSetOwner(it.id,e,n);
+      MYWORK_SEL.clear(); myWorkRefresh();
+    }});
+}
+function myWorkBulkDomain(){
+  const rows=myWorkRows().filter(r=>MYWORK_SEL.has(r.id));
+  ccPickDomain(document.getElementById('bulkDomain'), {
+    onPick: async (c)=>{ for(const it of rows) await opsSetDomain(it.id,c);
+      MYWORK_SEL.clear(); myWorkRefresh(); }});
+}
+/* Named, counted, and it lists them. "Mark all handled" against a filtered
+   list of forty is exactly the click somebody regrets. */
+function myWorkBulkClose(what){
+  const rows=myWorkRows().filter(r=>MYWORK_SEL.has(r.id));
+  if(!rows.length) return;
+  const label={already_handled:'already handled elsewhere',duplicate:'duplicates',
+               informational:'informational, no action needed',stale:'stale'}[what];
+  const esc=escapeHtmlComms;
+  const el=ccPopOpen(document.querySelector('#myWorkWrap .card'),
+    '<div style="font-size:14px;font-weight:700;margin-bottom:6px;">Close '+rows.length
+    +' item'+(rows.length===1?'':'s')+' as '+label+'?</div>'
+    +'<div class="field-note" style="max-height:150px;overflow:auto;margin-bottom:10px;">'
+    +rows.map(r=>'· '+esc(r.about||r.title||'')).join('<br>')+'</div>'
+    +'<div class="field-note" style="margin-bottom:10px;">Your name goes on each one.</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="bcGo" style="padding:7px 14px;font-size:13px;">Close '+rows.length+'</button>'
+    +'<button class="ghost" id="bcNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>', {width:360});
+  el.querySelector('#bcNo').onclick=ccPopClose;
+  el.querySelector('#bcGo').onclick=async ()=>{
+    ccPopClose();
+    for(const it of rows) await opsTriage(it.id, what, true);
+    MYWORK_SEL.clear(); myWorkRefresh();
+  };
 }
 
-async function opsTriage(id, what){
+/* ── Keyboard ────────────────────────────────────────────────────────────
+   Never while somebody is typing, and never while a popover is open. */
+function myWorkKeys(e){
+  if(document.querySelector('#tab-mywork.active')===null) return;
+  const t=e.target, tag=(t.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select'||t.isContentEditable) return;
+  if(ccPopIsOpen() && e.key!=='Escape') return;
+  const rows=myWorkRows(); if(!rows.length && e.key!=='?') return;
+  const it=rows[MYWORK_FOCUS];
+  const k=e.key;
+  const go=(fn)=>{ e.preventDefault(); fn(); };
+  if(k==='j'||k==='J') return go(()=>{ MYWORK_FOCUS=Math.min(rows.length-1,MYWORK_FOCUS+1); renderMyWork(); });
+  if(k==='k'||k==='K') return go(()=>{ MYWORK_FOCUS=Math.max(0,MYWORK_FOCUS-1); renderMyWork(); });
+  if(!it) return;
+  if(k==='a'||k==='A') return go(()=>opsAssignFromCard(it.id,'act_'+it.id));
+  if(k==='d'||k==='D') return go(()=>opsDomainFromCard(it.id,'dom_'+it.id));
+  if(k==='h'||k==='H') return go(()=>opsTriage(it.id,'already_handled'));
+  if(k==='e'||k==='E') return go(()=>opsTriage(it.id,'needs_samantha'));
+  if(k==='x'||k==='X') return go(()=>myWorkToggle(it.id));
+  if(k==='?')          return go(()=>ccPopOpen(document.getElementById('myWorkTabs'),
+    '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">Shortcuts</div>'
+    +[['J / K','next / previous'],['A','assign'],['D','what it is about'],
+      ['H','already handled'],['E','needs Samantha'],['X','select for bulk'],
+      ['Esc','close this']].map(([a,b])=>
+      '<div style="display:flex;gap:12px;font-size:13px;padding:3px 0;">'
+      +'<b style="min-width:56px;">'+a+'</b><span>'+b+'</span></div>').join(''), {width:250}));
+}
+document.addEventListener('keydown', myWorkKeys);
+
+async function opsTriage(id, what, quiet){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
-  const stamp=()=>{ it.last_activity_at=new Date().toISOString(); };
-  // Assigning an owner and choosing a domain are the two dropdowns on the
-  // card, handled by opsSetOwner and opsSetDomain. Nothing here types.
-  if(what==='needs_samantha'){
+  if(what==='waiting'){
+    it.sub_state = it.sub_state==='waiting' ? null : 'waiting';
+    opsLog(it, it.sub_state==='waiting'?'Waiting on somebody else':'No longer waiting');
+  } else if(what==='needs_samantha'){
     const s=opsDomainEscalation(it.domain)||'samantha@mo-care.com';
     it.owner=s; it.owner_name=opsOwnerName(s); it.sub_state='escalated';
+    opsLog(it,'Escalated to '+it.owner_name);
   } else if(what==='needs_doing'){
-    // "No, still needs doing" — the opposite of closing it. Give it an owner
-    // so it becomes somebody's work, and stop offering the evidence.
     it.triage_state='needs_doing';
     if(!it.owner){ const fd=opsFrontDoor();
       if(fd){ it.owner=fd; it.owner_name=opsOwnerName(fd); } }
+    opsLog(it,'Confirmed this still needs doing');
   } else {
-    /* ONLY these four close anything. The previous version was a catch-all:
-       any value it did not recognise fell through to here and closed the item.
-       That is how "No, still needs doing" would have closed the very thing
-       somebody had just said still needed doing. A default branch that
-       destroys work on an unrecognised input is not a default, it is a trap. */
+    /* ONLY these four close anything. A default branch that destroys work on
+       an unrecognised input is not a default, it is a trap. */
     const label={already_handled:'Already handled elsewhere', duplicate:'Duplicate',
                  informational:'Informational, no action needed', stale:'Stale'}[what];
     if(!label){ console.warn('[triage] unknown action, nothing done:', what); return; }
     it.status='done'; it.triage_state=what; it.resolution_code=what;
     it.closed_at=new Date().toISOString(); it.closed_by=ME.email||'';
     it.close_note=label+' (triaged)';
+    opsLog(it,'Closed — '+label.toLowerCase());
   }
-  stamp();
   await persist('ops_items',it);
-  renderMyWork(); renderHome(); opsBadges();
+  if(!quiet) myWorkRefresh();
 }
-
-/* Scoped to the items that carry evidence, never to whatever is on screen.
-   Each closure records who did it and what the evidence was, so a bulk action
-   leaves the same trail as thirty individual ones. */
-async function opsBulkHandled(){
-  const rows=(DATA.ops_items||[]).filter(i=>i.status==='open' && !i.owner && opsCanSee(i))
-    .map(i=>[i,opsAlreadyHandled(i)]).filter(([,ev])=>!!ev);
-  if(!rows.length){ alert('Nothing currently has that evidence.'); return; }
-  if(!confirm('Close these '+rows.length+' missed call'+(rows.length===1?'':'s')+'?\n\n'
-    +'Only the ones where a later outbound call to the same number connected.\n'
-    +'Your name goes on each one.')) return;
-  const now=new Date().toISOString();
-  for(const [it,ev] of rows){
-    it.status='done'; it.triage_state='already_handled'; it.resolution_code='already_handled';
-    it.closed_at=now; it.closed_by=ME.email||''; it.last_activity_at=now;
-    it.close_note='Already handled — '+ev.text+' (bulk triage by '+(ME.name||ME.email)+')';
-    await persist('ops_items',it);
-  }
-  renderMyWork(); renderHome(); opsBadges();
-}
-
 /* ── HOME ────────────────────────────────────────────────────────────────── */
 function renderHome(){
   const wrap=document.getElementById('homeWrap'); if(!wrap) return;
@@ -16512,15 +16784,34 @@ async function opsAssign(id, val){
   opsRenderCallbacks(); opsRenderQueue();
 }
 
-async function opsClose(id){
+/* Closing asks what happened, in a popover rather than a browser prompt.
+   Inside the GoHighLevel frame a prompt reads as "An embedded page at
+   cc.mo-care.com says", which looks like a fault rather than a question. */
+function opsClose(id, anchorId){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
-  const note=prompt('Close this. What happened? (optional)','');
-  if(note===null) return;                       // cancelled — leave it open
-  it.status='done'; it.closed_at=new Date().toISOString();
-  it.closed_by=(typeof ME!=='undefined'&&ME.email)?ME.email:'';
-  it.close_note=note||'';
-  await persist('ops_items', it);
-  opsRenderCallbacks(); opsRenderQueue(); opsBadges();
+  const esc=escapeHtmlComms;
+  const anchor=document.getElementById(anchorId||('act_'+id))||document.body;
+  const el=ccPopOpen(anchor,
+    '<div style="font-size:13.5px;font-weight:700;margin-bottom:2px;">Mark this done</div>'
+    +'<div class="field-note" style="margin-bottom:8px;">'+esc(it.about||it.title||'')+'</div>'
+    +'<textarea id="clNote" rows="3" placeholder="What happened? Optional." '
+    +'style="width:100%;font-size:13px;padding:8px;border-radius:8px;"></textarea>'
+    +'<div style="display:flex;gap:8px;margin-top:10px;">'
+    +'<button class="primary" id="clGo" style="padding:7px 14px;font-size:13px;">Done</button>'
+    +'<button class="ghost" id="clNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:340});
+  el.querySelector('#clNo').onclick=ccPopClose;
+  el.querySelector('#clGo').onclick=async ()=>{
+    const note=(el.querySelector('#clNote').value||'').trim();
+    ccPopClose();
+    it.status='done'; it.closed_at=new Date().toISOString();
+    it.closed_by=(typeof ME!=='undefined'&&ME.email)?ME.email:'';
+    it.close_note=note;
+    if(typeof opsLog==='function') opsLog(it,'Closed'+(note?' — '+note:''));
+    await persist('ops_items', it);
+    if(typeof myWorkRefresh==='function') myWorkRefresh();
+    opsRenderCallbacks(); opsRenderQueue(); opsBadges();
+  };
 }
 
 /* The Calls tab is the call log, nothing more. It used to carry the callback
