@@ -17175,7 +17175,11 @@ function renderMyTeam(){
     /* One-time setup does not live beside everyday management for ever.
        It disappears as soon as there is nothing left for it to write. */
     +((roleCanEdit()&&roleSeedPending().length)?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
-      +'onclick="roleSeedStarting()">Write the starting roles ('+roleSeedPending().length+')</button>':'')+'</div>';
+      +'onclick="roleSeedStarting()">Write the starting roles ('+roleSeedPending().length+')</button>':'')
+    /* Same rule as the seeder: a one-time control disappears the moment there
+       is nothing left for it to do. */
+    +((roleCanEdit()&&omCount())?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
+      +'onclick="roleApplyCorrections()">Apply model corrections ('+omCount()+')</button>':'')+'</div>';
 
   h+=staff.map(s=>{
     const e=String(s.email).toLowerCase();
@@ -17579,6 +17583,120 @@ async function roleSeedStarting(){
         await roleAddResp(e,{ kind:r[0], text:r[1], domain:r[2]||null,
           temporary:!!r[3], transfer_note:r[4]||null });
       }
+    }
+    renderMyTeam();
+  };
+}
+
+/* ═══════════════ OPERATING-MODEL CORRECTIONS ══════════════════════════════
+   The starting roles were written from a model that has since changed. This
+   applies the differences ONCE, and it is deliberately three separate
+   mechanisms rather than one, because the three are not the same act:
+
+     notes   a wording fix on a responsibility that did NOT change hands.
+             Corrected in place, with the previous text kept. Ending and
+             recreating the row would claim the responsibility moved on the
+             day we fixed a typo, which is a worse lie than the typo.
+     end     a responsibility that genuinely stopped being someone's. Ended
+             with a reason, never deleted.
+     add     what replaces it.
+
+   Only Samantha and Krystal are touched here. Cierra and Angiel need planned
+   rows, and a planned row written before the Live/Planned guard exists would
+   be LIVE the moment it was created — a future employee holding real work.
+   That is why they come after, not because they were forgotten. */
+const OM_CORRECTIONS={
+  notes:[
+    { person:'samantha@mo-care.com', kind:'primary', text:'Scheduling and coverage',
+      when_contains:'until the VA starts',
+      transfer_note:'Samantha is temporarily working the Staffing Coordinator schedule '
+                   +'until the Staffing Coordinator starts and is ready',
+      why:'VA is reserved for Veterans Affairs in this hub. The role is the Staffing Coordinator.' }],
+  end:[
+    { person:'krystal@mo-care.com', kind:'primary', text:'Caregiver performance and field quality',
+      why:'Split in two. Krystal keeps caregiver performance management permanently; '
+         +'field quality becomes its own responsibility, planned for Cierra.' }],
+  add:[
+    /* NOT temporary. This was the half that was wrongly marked as leaving. */
+    { person:'krystal@mo-care.com', kind:'primary', text:'Caregiver performance management',
+      domain:'caregiver_performance' },
+    { person:'krystal@mo-care.com', kind:'primary', text:'Field quality and advanced care',
+      domain:'field_quality', temporary:true,
+      transfer_note:'Temporary — planned transfer to Cierra as Field Care Lead' },
+    /* Activity keys are the activity_types keys, exactly. No near-duplicates. */
+    { person:'krystal@mo-care.com', kind:'qualified', text:'Conduct caregiver interviews',
+      domain:'recruiting_orientation', activity:'interview' },
+    { person:'krystal@mo-care.com', kind:'qualified', text:'Conduct caregiver orientation',
+      domain:'recruiting_orientation', activity:'orientation' },
+    /* KNOWN GAP, recorded rather than hidden: this is who is ACCOUNTABLE. The
+       check-ins board still auto-assigns every new check-in to Angiel via the
+       payer map, and that migration was deliberately deferred. The model is
+       true; the automation has not caught up. */
+    { person:'krystal@mo-care.com', kind:'primary',
+      text:'Monthly check-ins — private, LTC and PACE clients', domain:'client_care' }]
+};
+function omPending(){
+  const A=(DATA.responsibilities||[]);
+  const act=(p,k,t)=>A.find(r=>String(r.person||'').toLowerCase()===p && r.active!==false
+                              && r.kind===k && r.text===t);
+  return {
+    notes: OM_CORRECTIONS.notes.filter(n=>{
+      const r=act(n.person,n.kind,n.text);
+      return r && String(r.transfer_note||'').indexOf(n.when_contains)>-1; }),
+    end:   OM_CORRECTIONS.end.filter(e=>act(e.person,e.kind,e.text)),
+    add:   OM_CORRECTIONS.add.filter(a=>!act(a.person,a.kind,a.text))
+  };
+}
+function omCount(){ const p=omPending(); return p.notes.length+p.end.length+p.add.length; }
+
+async function roleApplyCorrections(){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms, p=omPending();
+  const who=e=>esc(opsOwnerName(e)||e);
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Apply operating-model corrections</div>'
+    +'<div class="field-note" style="margin:4px 0 10px;">What changed since the starting roles were '
+    +'written. Nothing is deleted.</div>'
+    +(p.notes.length?'<div style="font-size:13px;">Wording corrected, responsibility unchanged:</div>'
+      +'<div class="field-note" style="margin:3px 0 8px;">'
+      +p.notes.map(n=>who(n.person)+' — '+esc(n.text)+'<br><span style="opacity:.8;">'+esc(n.why)+'</span>').join('<br>')
+      +'</div>':'')
+    +(p.end.length?'<div style="font-size:13px;">Ended, with a reason:</div>'
+      +'<div class="field-note" style="margin:3px 0 8px;">'
+      +p.end.map(e=>who(e.person)+' — '+esc(e.text)+'<br><span style="opacity:.8;">'+esc(e.why)+'</span>').join('<br>')
+      +'</div>':'')
+    +(p.add.length?'<div style="font-size:13px;">Added:</div>'
+      +'<div class="field-note" style="margin:3px 0 10px;">'
+      +p.add.map(a=>who(a.person)+' — '+esc(a.text)+' <i>('+esc(a.kind)+')</i>').join('<br>')
+      +'</div>':'')
+    +'<div class="field-note" style="margin-bottom:10px;">Cierra and Angiel are not written here. '
+    +'Their rows are planned, and planned has to exist before a future employee can hold one.</div>'
+    +(omCount()?'<div style="display:flex;gap:8px;">'
+      +'<button class="primary" id="omGo" style="padding:7px 14px;font-size:13px;">Apply '+omCount()+'</button>'
+      +'<button class="ghost" id="omNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>'
+      :'<button class="ghost" id="omNo" style="padding:7px 14px;font-size:13px;">Nothing to apply</button>'),
+    {width:440});
+  el.querySelector('#omNo').onclick=ccPopClose;
+  const go=el.querySelector('#omGo'); if(!go) return;
+  go.onclick=async ()=>{
+    ccPopClose();
+    const A=(DATA.responsibilities||[]);
+    const act=(pe,k,t)=>A.find(r=>String(r.person||'').toLowerCase()===pe && r.active!==false
+                                 && r.kind===k && r.text===t);
+    for(const n of omPending().notes){
+      const r=act(n.person,n.kind,n.text); if(!r) continue;
+      r.transfer_note_was=r.transfer_note;          // the old wording is kept
+      r.transfer_note=n.transfer_note;
+      r.note_corrected_at=new Date().toISOString();
+      r.note_corrected_by=ME.email||'';
+      await persist('responsibilities', r);
+    }
+    for(const e of omPending().end){
+      const r=act(e.person,e.kind,e.text); if(r) await roleEndResp(r.id, e.why);
+    }
+    for(const a of omPending().add){
+      const {person,...rest}=a;
+      await roleAddResp(person, rest);
     }
     renderMyTeam();
   };
