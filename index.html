@@ -6371,6 +6371,14 @@ async function resolveMe(){
 async function persist(key, item){
   if(!sb){ document.getElementById('syncPill').textContent = '⚠ Not connected'; return; }
   if(!item){ console.warn('persist() called without an item for key', key, '— nothing sent.'); return; }
+  /* upsert_app_data_item finds the row by item.id. Without one the write goes
+     nowhere and reports nothing, which is how role_profiles appeared to save
+     for an entire build and did not. Fail loudly instead. */
+  if(!item.id){
+    console.error('persist('+key+') refused: the item has no id, so it cannot be written.', item);
+    document.getElementById('syncPill').textContent = '⚠ Not saved';
+    return;
+  }
   document.getElementById('syncPill').textContent = '⏳ Saving…';
   try{
     const { error } = await sb.rpc('upsert_app_data_item', { target_key: key, item });
@@ -17185,7 +17193,14 @@ function roleOpen(email){ switchTab('myrole'); renderMyRole(email); }
 async function roleSaveProfile(email, patch){
   DATA.role_profiles=DATA.role_profiles||[];
   let p=roleProfile(email);
-  if(!p){ p={ person:String(email).toLowerCase(), status:'active' }; DATA.role_profiles.push(p); }
+  /* THE id IS REQUIRED, and its absence is why role profiles silently never
+     saved. upsert_app_data_item locates the row by item.id; a row without one
+     cannot be written at all, which produced 27 responsibilities and zero
+     profiles. The email is the natural id here: one profile per person, and
+     re-saving updates rather than appends. */
+  if(!p){ p={ id:String(email).toLowerCase(), person:String(email).toLowerCase(),
+              status:'active' }; DATA.role_profiles.push(p); }
+  if(!p.id) p.id=String(email).toLowerCase();          // repair anything written before
   Object.assign(p, patch, { updated_at:new Date().toISOString(), updated_by:ME.email||'' });
   await persist('role_profiles', p);
 }
