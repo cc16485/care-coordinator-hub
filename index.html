@@ -6179,7 +6179,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -6296,7 +6296,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -6308,6 +6308,7 @@ async function loadAllData(){
   // feeders fall back to leaving things unassigned, which is exactly the
   // behaviour they had before Step 1 and is safe.
   await opsLoadRouting();
+  await recurMaterialize();   // standing expectations become real work
 }
 async function resolveMe(){
   let email='';
@@ -17049,6 +17050,16 @@ function renderMyRole(email){
       +'</div>';
   });
 
+  const rec=recurFor(who);
+  if(rec.length) h+='<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">RECURRING EXPECTATIONS</b>'
+    +'<div class="field-note" style="margin-bottom:6px;">These arrive in My Work on their own.</div>'
+    +rec.map(r=>'<div style="padding:7px 0;border-bottom:1px solid var(--border);">'
+      +'<div style="font-size:13.5px;">'+esc(r.name||'')+'</div>'
+      +'<div class="field-note">'+esc(recurDescribe(r))+'</div>'
+      +(r.next_action?'<div class="field-note">'+esc(r.next_action)+'</div>':'')+'</div>').join('')
+    +'</div>';
+
   /* Live, from the work system. Not a second copy of anything. */
   const me=String(opsMeKey()||'').toLowerCase();
   if(who===me){
@@ -17134,7 +17145,9 @@ function renderMyTeam(){
       +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
       +'onclick="roleOpen(\''+esc(e)+'\')">Open role</button>'
       +(roleCanEdit()?'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
-        +'onclick="roleEdit(\''+esc(e)+'\')">Edit</button>':'')
+        +'onclick="roleEdit(\''+esc(e)+'\')">Edit</button>'
+        +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
+        +'onclick="recurEdit(\''+esc(e)+'\')">Recurring</button>':'')
       +'</div>'
       +'<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;">'
       +'<span>'+cnt('primary')+' primary</span><span>'+cnt('support')+' support</span>'
@@ -17435,6 +17448,236 @@ async function roleSeedStarting(){
   };
 }
 
+/* ═══════════════════ RECURRING DUTIES ════════════════════════════════════
+   The bridge between My Role and My Work: an ongoing expectation becoming a
+   real, owned, dated piece of work at the right moment.
+
+   NOT A CALENDAR PRODUCT. A duty materialises into an ordinary ops_item and
+   inherits Mine, Overdue, the badge, keyboard, history and escalation.
+
+   DUPLICATE PREVENTION IS THE ID, not a check.
+     dut_<dutyId>_<2026-08-11>
+   Deterministic, so two browsers materialising the same period write the same
+   row and upsert_app_data_item collapses them. No check-then-create race, and
+   the identical function can later run on a cron without producing doubles.
+
+   TWO BEHAVIOURS, chosen per duty rather than guessed:
+     new_instance  each occurrence is separately owed. Current period only,
+                   never backfilled: three missed daily reviews cannot be done
+                   today, and creating them teaches people to bulk-close.
+     rolling       one continuing obligation. No second one while the first is
+                   still open; the due date rolls forward instead.
+
+   OWNER FOLLOWS THE RESPONSIBILITY where one is named, so when Scheduling
+   moves to the staffing coordinator future occurrences follow it and past
+   ones keep the name that actually owned them.
+
+   KNOWN GAP, stated rather than hidden: this materialises when somebody signs
+   in. A period where nobody signed in leaves no record. Harmless while the
+   owners sign in daily; when the VA starts, the same function moves to a
+   daily cron. A port, not a redesign.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+const RECUR_FREQ=[['daily','Every day'],['weekdays','Every weekday'],
+                  ['weekly','Weekly'],['monthly','Monthly']];
+const RECUR_BEHAVIOUR=[
+  ['new_instance','Each one is separately owed','A missed one cannot be made up'],
+  ['rolling','One continuing obligation','Rolls forward until it is done']];
+
+function recurPeriodKey(freq, d){
+  const p=n=>String(n).padStart(2,'0');
+  if(freq==='monthly') return d.getFullYear()+'-'+p(d.getMonth()+1);
+  if(freq==='weekly'){
+    const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+    const day=t.getUTCDay()||7; t.setUTCDate(t.getUTCDate()+4-day);
+    const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));
+    return t.getUTCFullYear()+'-W'+p(Math.ceil(((t-y0)/86400000+1)/7));
+  }
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());
+}
+function recurDueAt(duty, d){
+  const [hh,mm]=String(duty.due_time||'09:00').split(':').map(Number);
+  const x=new Date(d); x.setHours(hh||9, mm||0, 0, 0); return x;
+}
+/* Does this duty apply on this date at all? */
+function recurAppliesOn(duty, d){
+  if(duty.active===false) return false;
+  const iso=d.toISOString().slice(0,10);
+  if(duty.start_date && iso<duty.start_date) return false;
+  if(duty.end_date   && iso>duty.end_date)   return false;
+  const dow=d.getDay();
+  if(duty.freq==='weekdays') return dow>=1&&dow<=5;
+  if(duty.freq==='weekly')   return dow===Number(duty.weekday||1);
+  if(duty.freq==='monthly')  return d.getDate()===Number(duty.day_of_month||1);
+  return true;
+}
+/* Whoever holds the responsibility today, or the named person. */
+function recurOwnerOf(duty){
+  if(duty.responsibility_id){
+    const r=(DATA.responsibilities||[]).find(x=>x.id===duty.responsibility_id && x.active!==false);
+    if(r) return String(r.person||'').toLowerCase();
+  }
+  return String(duty.person||'').toLowerCase();
+}
+
+async function recurMaterialize(){
+  try{
+    const duties=(DATA.recurring_duties||[]).filter(d=>d.active!==false);
+    if(!duties.length) return;
+    const now=new Date();
+    for(const duty of duties){
+      const owner=recurOwnerOf(duty);
+      if(!owner) continue;                       // nobody holds it; create nothing
+      if(!recurAppliesOn(duty, now)) continue;
+
+      if(duty.behaviour==='rolling'){
+        /* One obligation. If an earlier one is still open, roll its due date
+           forward rather than stacking a second copy of the same job. */
+        const open=(DATA.ops_items||[]).find(i=>i.kind==='recurring'&&i.status==='open'
+          && i.recurring && i.recurring.duty_id===duty.id);
+        if(open){
+          const due=recurDueAt(duty, now).toISOString();
+          if(open.due!==due){ open.due=due; open.owner=owner;
+            open.owner_name=opsOwnerName(owner);
+            opsLog(open,'Rolled forward to '+callsFmtWhen(due));
+            await persist('ops_items', open); }
+          continue;
+        }
+      }
+
+      const key=recurPeriodKey(duty.freq, now);
+      const id='dut_'+duty.id+'_'+key;
+      if((DATA.ops_items||[]).some(i=>i.id===id)) continue;   // already this period
+
+      const due=recurDueAt(duty, now).toISOString();
+      const it={ id, kind:'recurring', source_id:duty.id,
+        title:duty.name||'Recurring duty',
+        about:duty.name||'',
+        detail:'This is a standing part of the role, due '+
+          (RECUR_FREQ.find(f=>f[0]===duty.freq)||[])[1].toLowerCase()+'.',
+        next_action:duty.next_action||'',
+        domain:duty.domain||null, urgency:duty.priority||'normal',
+        status:'open', created_at:new Date().toISOString(),
+        last_activity_at:new Date().toISOString(), due,
+        opened_by:'system', owner, owner_name:opsOwnerName(owner),
+        recurring:{ duty_id:duty.id, period:key, behaviour:duty.behaviour||'new_instance' } };
+      DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(it);
+      await persist('ops_items', it);
+    }
+  }catch(e){ console.warn('[recurring] could not materialise', e); }
+}
+
+/* What a person is expected to do regularly, for My Role. */
+function recurFor(email){
+  const e=String(email||'').toLowerCase();
+  return (DATA.recurring_duties||[]).filter(d=>d.active!==false && recurOwnerOf(d)===e);
+}
+function recurDescribe(d){
+  const f=(RECUR_FREQ.find(x=>x[0]===d.freq)||[])[1]||d.freq;
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  let when=f;
+  if(d.freq==='weekly') when='Every '+days[Number(d.weekday||1)];
+  if(d.freq==='monthly') when='Monthly on day '+(d.day_of_month||1);
+  return when+' by '+(d.due_time||'09:00');
+}
+
+async function recurSave(duty){
+  DATA.recurring_duties=DATA.recurring_duties||[];
+  const ex=DATA.recurring_duties.find(x=>x.id===duty.id);
+  if(ex) Object.assign(ex,duty); else DATA.recurring_duties.push(duty);
+  await persist('recurring_duties', ex||duty);
+}
+/* Ended, never deleted: past occurrences stay attached to something real. */
+async function recurEnd(id){
+  const d=(DATA.recurring_duties||[]).find(x=>x.id===id); if(!d) return;
+  d.active=false; d.end_date=new Date().toISOString().slice(0,10);
+  d.ended_by=ME.email||'';
+  await persist('recurring_duties', d);
+}
+
+function recurEdit(email){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms;
+  const doms=opsAllDomains();
+  const resp=respFor(email).filter(r=>r.kind==='primary'||r.kind==='support');
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const h='<div style="font-size:14px;font-weight:800;color:var(--navy);">Recurring duties</div>'
+    +'<div class="field-note" style="margin-bottom:10px;">'+esc(opsOwnerName(email)||email)
+    +'. These become real work in My Work at the right time.</div>'
+    +'<div id="rcList"></div>'
+    +'<div style="height:1px;background:var(--border);margin:10px 0;"></div>'
+    +'<div class="field-note" style="font-weight:700;margin-bottom:6px;">ADD ONE</div>'
+    +'<input id="rcName" placeholder="Daily morning operations review" '
+      +'style="width:100%;font-size:13px;padding:7px 9px;border-radius:8px;">'
+    +'<input id="rcAction" placeholder="What to actually do" '
+      +'style="width:100%;font-size:13px;padding:7px 9px;border-radius:8px;margin-top:6px;">'
+    +'<div style="display:flex;gap:6px;margin-top:6px;">'
+      +'<select id="rcFreq" style="flex:1;padding:7px 9px;font-size:13px;border-radius:8px;">'
+      +RECUR_FREQ.map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('')+'</select>'
+      +'<select id="rcDay" style="flex:1;padding:7px 9px;font-size:13px;border-radius:8px;">'
+      +days.map((d,i)=>'<option value="'+i+'"'+(i===1?' selected':'')+'>'+d+'</option>').join('')+'</select>'
+      +'<input id="rcTime" type="time" value="09:00" style="width:110px;padding:6px;font-size:13px;border-radius:8px;">'
+    +'</div>'
+    +'<select id="rcBehav" style="width:100%;padding:7px 9px;font-size:13px;border-radius:8px;margin-top:6px;">'
+      +RECUR_BEHAVIOUR.map(([v,l,n])=>'<option value="'+v+'">'+l+' — '+n+'</option>').join('')+'</select>'
+    +'<div style="display:flex;gap:6px;margin-top:6px;">'
+      +'<select id="rcDomain" style="flex:1;padding:7px 9px;font-size:13px;border-radius:8px;">'
+      +'<option value="">No domain</option>'
+      +doms.map(d=>'<option value="'+esc(d.code)+'">'+esc(d.label)+'</option>').join('')+'</select>'
+      +'<select id="rcResp" style="flex:1;padding:7px 9px;font-size:13px;border-radius:8px;">'
+      +'<option value="">Belongs to the person</option>'
+      +resp.map(r=>'<option value="'+esc(r.id)+'">Follows: '+esc(r.text)+'</option>').join('')+'</select>'
+    +'</div>'
+    +'<div class="field-note" style="margin-top:5px;">Tying it to a responsibility means it moves '
+    +'with that responsibility if it is ever transferred.</div>'
+    +'<button class="primary" id="rcAdd" style="padding:7px 14px;font-size:13px;margin-top:10px;">Add</button>';
+
+  const el=ccPopOpen(document.body, h, {width:440, stack:ccPopIsOpen()});
+  const paint=()=>{
+    const list=(DATA.recurring_duties||[]).filter(d=>recurOwnerOf(d)===String(email).toLowerCase());
+    el.querySelector('#rcList').innerHTML = list.length ? list.map(d=>
+      '<div style="padding:7px 0;border-bottom:1px solid var(--border);'+(d.active===false?'opacity:.45;':'')+'">'
+      +'<div style="font-size:13px;">'+esc(d.name||'')
+      +(d.active===false?' <span class="tag-chip">ENDED</span>':'')+'</div>'
+      +'<div class="field-note">'+esc(recurDescribe(d))+' · '
+      +esc((RECUR_BEHAVIOUR.find(b=>b[0]===(d.behaviour||'new_instance'))||[])[1])
+      +(d.responsibility_id?' · follows a responsibility':'')+'</div>'
+      +(d.active===false?'':'<button class="linklike" style="font-size:12px;" '
+        +'onclick="recurEndAsk(\''+d.id+'\',\''+esc(email)+'\')">End it</button>')
+      +'</div>').join('') : '<div class="field-note">None yet.</div>';
+  };
+  paint();
+  el.querySelector('#rcAdd').onclick=async ()=>{
+    const name=el.querySelector('#rcName').value.trim(); if(!name) return;
+    await recurSave({ id:'rc_'+Date.now().toString(36), person:String(email).toLowerCase(),
+      responsibility_id:el.querySelector('#rcResp').value||null,
+      name, next_action:el.querySelector('#rcAction').value.trim(),
+      freq:el.querySelector('#rcFreq').value, weekday:Number(el.querySelector('#rcDay').value),
+      due_time:el.querySelector('#rcTime').value||'09:00',
+      behaviour:el.querySelector('#rcBehav').value,
+      domain:el.querySelector('#rcDomain').value||null,
+      active:true, start_date:new Date().toISOString().slice(0,10),
+      created_by:ME.email||'', created_at:new Date().toISOString() });
+    el.querySelector('#rcName').value=''; el.querySelector('#rcAction').value='';
+    paint(); await recurMaterialize(); myWorkRefresh();
+  };
+}
+function recurEndAsk(id, email){
+  const d=(DATA.recurring_duties||[]).find(x=>x.id===id); if(!d) return;
+  const esc=escapeHtmlComms;
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:13.5px;font-weight:700;">Stop this recurring duty?</div>'
+    +'<div class="field-note" style="margin:4px 0 8px;">'+esc(d.name||'')+'</div>'
+    +'<div class="field-note" style="margin-bottom:10px;">It stops creating new work. '
+    +'Occurrences already created stay exactly as they are.</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="rcEndGo" style="padding:7px 14px;font-size:13px;">Stop it</button>'
+    +'<button class="ghost" id="rcEndNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:340, stack:true});
+  el.querySelector('#rcEndNo').onclick=ccPopClose;
+  el.querySelector('#rcEndGo').onclick=async ()=>{ ccPopClose(); await recurEnd(id); recurEdit(email); };
+}
+
 /* ── HOME ────────────────────────────────────────────────────────────────── */
 function renderHome(){
   const wrap=document.getElementById('homeWrap'); if(!wrap) return;
@@ -17571,6 +17814,7 @@ function renderHome(){
 const OPS_KINDS = {
   missed_call:    { label:'Missed call',   hours:1  },
   review:         { label:'Review',       hours:24 },
+  recurring:      { label:'Recurring duty', hours:24 },
   new_lead:       { label:'New lead',      hours:4  },
   discipline:     { label:'Approval',      hours:24 },
   request:        { label:'Request',       hours:72 },
