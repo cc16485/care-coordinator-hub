@@ -3639,6 +3639,21 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <h3>Staff &amp; Notifications</h3>
 <p class="hint">Add each coordinator with the <b>email they sign in with</b> — that's how the hub knows who's who: it shapes their view, stamps their work, and powers the stand-up counts. Samantha's account always sees everything.</p>
 <div id="staffListWrap"></div>
+
+<!-- Staff & Access, read only. Build 6 period.
+     Shows the structural identity model beside the legacy staff list above, so
+     the two can be compared during the authority cutover. Nothing here edits
+     anything; the write-capable version comes after the cutover so that
+     can('manage_staff_access') can gate it from inception. -->
+<div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border);">
+  <h3 style="margin:0 0 2px;">Staff &amp; Access <span style="font-weight:500;font-size:12px;color:var(--gray);">— read only</span></h3>
+  <p class="hint">Who exists, what they belong to, and what they hold, read from the
+     structural identity model rather than from any list of email addresses in the code.
+     Nothing on this panel can be edited yet; managing access here comes after the
+     authority cutover.</p>
+  <div id="staffAccessWrap"><div class="field-note">Loading…</div></div>
+</div>
+
 <div class="grid2" style="margin-top:10px;">
 <div><label>Name</label><input id="new_staff_name"></div>
 <div>
@@ -10564,6 +10579,9 @@ function fillSettingsPanel(){
   document.getElementById('set_escalation_protocol').value = CONFIG.escalation_protocol||'';
   if(CONFIG.supabase_url) document.getElementById('leadWebhookUrl').textContent = `POST ${CONFIG.supabase_url}/functions/v1/lead-intake?token=cclead_b36832b06f2bb8d58b7d6302  (point the website form here — JSON or normal form posts both work)`;
   renderStaffList();
+  // Read-only, and deliberately not awaited: a slow or missing RPC must not
+  // stop the rest of Settings from opening.
+  renderStaffAccess();
 }
 function renderStaffList(){
   const wrap = document.getElementById('staffListWrap');
@@ -11238,6 +11256,78 @@ async function opsCheckRender(){
 window.addEventListener('hashchange', ()=>{
   if((location.hash||'').toLowerCase()==='#opscheck') opsCheckRender();
 });
+
+/* ---------------- STAFF & ACCESS — read only ------------------------------
+   Renders staff_access_overview(), which is Owner/Admin only and enforces
+   that inside the function. This code hides nothing and protects nothing:
+   a non-owner calling the same RPC gets an empty set from the database.
+   That separation is deliberate. The page is presentation; the function is
+   the boundary.
+
+   NOTHING HERE WRITES. There is no companion that writes, on purpose. The
+   write-capable version arrives after the authority cutover so it can be
+   gated by can('manage_staff_access') from the day it exists, rather than
+   being born on DISC_APPROVERS and migrated afterwards. ------------------- */
+async function renderStaffAccess(){
+  const box=document.getElementById('staffAccessWrap'); if(!box) return;
+  const esc=escapeHtmlComms;
+  try{
+    const { data, error } = await sb.rpc('staff_access_overview');
+    if(error) throw error;
+    const rows=data||[];
+    if(!rows.length){
+      box.innerHTML='<div class="field-note">Nothing to show. Either no one is '
+        +'seeded yet, or this account does not hold Owner/Admin. The database '
+        +'decides that, not this page.</div>';
+      return;
+    }
+    const chip=(t,bg,fg)=>'<span class="tag-chip" style="background:'+bg+';color:'+fg+';">'+esc(t)+'</span>';
+    const when=s=>{ if(!s) return '—';
+      const d=new Date(s), days=Math.floor((Date.now()-d)/86400000);
+      return days===0?'today':days===1?'yesterday':days+' days ago'; };
+
+    box.innerHTML='<table><thead><tr>'
+      +'<th>Person</th><th>Work email</th><th>Account</th><th>Active</th>'
+      +'<th>Entity</th><th>Hub access</th><th>Roles</th><th>Last sign-in</th>'
+      +'</tr></thead><tbody>'
+      +rows.map(r=>{
+        const owner=(r.roles||[]).includes('owner_admin');
+        const acct = !r.has_account ? chip('none','var(--red-bg)','var(--red)')
+                   : !r.account_confirmed ? chip('unconfirmed','var(--amber-bg)','var(--amber)')
+                   : chip('yes','#E1F1ED','#1F7A8C');
+        // No hub_access recorded still means access to everything today: the
+        // fallback grants it when the field is absent. Saying "all (default)"
+        // rather than "none" keeps that visible instead of reassuring.
+        const access=(r.hub_access&&r.hub_access.length)
+          ? r.hub_access.map(h=>chip(h,'#EEF2F7','#334155')).join(' ')
+          : chip('all (default)','var(--amber-bg)','var(--amber)');
+        const roles=(r.roles&&r.roles.length)
+          ? r.roles.map(x=>chip(x, owner&&x==='owner_admin'?'var(--yellow)':'#EEF2F7',
+                                    owner&&x==='owner_admin'?'#5C4300':'#334155')).join(' ')
+          : '<span class="field-note">none</span>';
+        return '<tr'+(r.active?'':' style="opacity:.5;"')+'>'
+          +'<td><b>'+esc(r.full_name||'')+'</b></td>'
+          +'<td>'+esc(r.email||'—')+'</td>'
+          +'<td>'+acct+'</td>'
+          +'<td>'+(r.active?'yes':chip('inactive','#EEF2F7','#334155'))+'</td>'
+          +'<td>'+esc((r.entities||[]).join(', ')||'—')+'</td>'
+          +'<td>'+access+'</td>'
+          +'<td>'+roles+'</td>'
+          +'<td class="field-note">'+when(r.last_sign_in)+'</td></tr>';
+      }).join('')
+      +'</tbody></table>'
+      +'<div class="field-note" style="margin-top:8px;">'
+      +rows.length+' person(s) · '
+      +rows.filter(r=>(r.roles||[]).includes('owner_admin')).length+' Owner/Admin · '
+      +rows.filter(r=>!r.has_account).length+' without a sign-in account'
+      +'</div>';
+  }catch(e){
+    box.innerHTML='<div class="field-note" style="color:var(--red);">Could not load: '
+      +esc(e.message||String(e))
+      +(String(e.message||'').indexOf('staff_access_overview')>-1
+        ? '. The function may not be installed yet.' : '')+'</div>';
+  }
+}
 function renderApprovalsCc(){
   const wrap=document.getElementById('approvalsCard'); if(!wrap) return;
   const esc=escapeHtmlComms;
