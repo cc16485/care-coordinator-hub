@@ -16789,11 +16789,19 @@ function homeReviewSections(){
   if(names.length){
     h+=box('WAITING ON ME', names.length, names.map(n=>{
       const list=waiting[n], d=reviewOldestDays(list);
+      /* THREE DIFFERENT THINGS, and the wording has to keep them apart:
+           the employee finished their part
+           the supervisor owes the review
+           the development decision is waiting on that review
+         The first is complete. The delay belongs to the second, and saying
+         "nothing of theirs advances" quietly made it the employee's problem,
+         which is the exact thing this build exists to prevent. */
+      const first=String(n).split(' ')[0];
       return '<div style="padding:7px 0;border-bottom:1px solid var(--border);">'
-        +'<div style="font-size:13.5px;">'+esc(n)+' · '+list.length+' piece'+(list.length===1?'':'s')
-        +' of work waiting for your review</div>'
+        +'<div style="font-size:13.5px;">'+esc(n)+' · '+list.length+' completed item'
+        +(list.length===1?'':'s')+' waiting for your review</div>'
         +'<div class="field-note">'+(d?'oldest '+d+' day'+(d===1?'':'s'):'since today')
-        +' · nothing of theirs advances until this is done</div></div>'; }).join(''));
+        +' · '+esc(first)+' finished their part. You owe the next step.</div></div>'; }).join(''));
   }
 
   /* Everyone's own feedback, including a supervisor's. Normal training, and
@@ -16862,6 +16870,73 @@ async function reviewRemoveRule(id){
   renderReviewRules();
 }
 
+/* ── Team development, from the review data that actually exists ─────────
+   Counts and real notes only. No readiness score, no competency progress, no
+   percentage complete: none of those exist yet, and a number invented here
+   would be the first dishonest thing on the page.
+
+   A REPEATED "next time" is the one thing worth surfacing, because it is the
+   pattern a busy supervisor forgets between weeks. It is detected by the same
+   note appearing twice, not by guessing at themes from three sentences. */
+function homeTeamDevelopment(){
+  const esc=escapeHtmlComms;
+  const all=(DATA.ops_items||[]).filter(i=>i.kind==='review'&&i.review);
+  if(!all.length) return '';
+  const by={};
+  all.forEach(i=>{ const k=i.review.person_name||i.review.person||'—';
+    (by[k]=by[k]||{done:[],open:[],owners:new Set()});
+    (i.review.completed_at?by[k].done:by[k].open).push(i);
+    if(!i.review.completed_at) by[k].owners.add(opsOwnerName(i.owner)||i.owner); });
+
+  const norm=t=>String(t||'').toLowerCase().replace(/[^a-z ]/g,'').replace(/\s+/g,' ').trim();
+  const rows=Object.entries(by).map(([name,d])=>{
+    const notes=d.done.map(i=>i.review.next_time).filter(Boolean);
+    const counts={}; notes.forEach(n=>{ const k=norm(n); counts[k]=(counts[k]||0)+1; });
+    const repeated=Object.entries(counts).filter(([,c])=>c>1)
+      .map(([k])=>notes.find(n=>norm(n)===k));
+    const latest=d.done.sort((a,b)=>String(b.review.completed_at).localeCompare(String(a.review.completed_at)))[0];
+    return '<div style="padding:9px 0;border-bottom:1px solid var(--border);">'
+      +'<div style="font-size:13.5px;"><b>'+esc(name)+'</b> · '+d.done.length+' reviewed'
+      +(d.open.length?' · '+d.open.length+' waiting':'')+'</div>'
+      +(d.open.length?'<div class="field-note">'+esc(name.split(' ')[0])+' finished their part. '
+        +esc([...d.owners].join(', '))+' owes the review.</div>':'')
+      +(repeated.length?'<div class="field-note" style="color:var(--amber);margin-top:3px;">'
+        +'Said more than once: &ldquo;'+esc(repeated[0])+'&rdquo;</div>':'')
+      +(latest&&!repeated.length?'<div class="field-note" style="margin-top:3px;">Last note: &ldquo;'
+        +esc(latest.review.next_time||'')+'&rdquo;</div>':'')
+      +'</div>';
+  }).join('');
+
+  return '<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">TEAM DEVELOPMENT</b>'
+    +'<span style="flex:1;"></span></div>'+rows
+    +'<div class="field-note" style="margin-top:8px;">Counts and real notes only. Competency '
+    +'levels come later, from this evidence.</div></div>';
+}
+
+/* Push the manager; do not take the reviews over. Samantha becoming the
+   default reviewer whenever Krystal is busy is how Krystal stays a
+   coordinator instead of becoming a manager. */
+function homeShowBacklog(email){
+  const esc=escapeHtmlComms;
+  const list=(DATA.ops_items||[]).filter(i=>i.kind==='review'&&i.status==='open'
+    && String(i.owner||'').toLowerCase()===String(email||'').toLowerCase())
+    .sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
+  const name=opsOwnerName(email)||email;
+  const h='<div style="font-size:14px;font-weight:800;color:var(--navy);margin-bottom:2px;">'
+    +esc(name)+'&rsquo;s review backlog</div>'
+    +'<div class="field-note" style="margin-bottom:10px;">'+list.length+' outstanding</div>'
+    +list.map(i=>{ const d=Math.floor((Date.now()-Date.parse(i.created_at||''))/86400000);
+      return '<div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+        +esc(i.title||'')+'<div class="field-note">'+(d?d+' day'+(d===1?'':'s')+' waiting':'today')
+        +'</div></div>'; }).join('')
+    +'<div class="field-note" style="margin-top:12px;">These belong to '+esc(String(name).split(' ')[0])
+    +'. Ask about them rather than doing them: a supervisor who never has to '
+    +'catch up never becomes one.</div>';
+  ccPopOpen(document.body, h, {width:400});
+}
+
 /* ── HOME ────────────────────────────────────────────────────────────────── */
 function renderHome(){
   const wrap=document.getElementById('homeWrap'); if(!wrap) return;
@@ -16888,39 +16963,86 @@ function renderHome(){
     +'<div class="field-note">'+new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'})+'</div></div>';
 
   if(owner){
-    /* An owner's home is defined by what it LEAVES OUT. Anything with an owner
-       that is not late does not appear here; Krystal has it. The count of what
-       was withheld is shown so filtering this hard still feels safe. */
-    const needsMe=b.mine.concat(b.escalated).filter((v,i,a)=>a.indexOf(v)===i);
-    const risks=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i)
-      && ((i.due&&Date.parse(i.due)<now&&i.urgency==='high') || (!i.owner&&hrs(i)>48)));
-    const unowned=b.unassigned.filter(i=>i.urgency==='high'||hrs(i)>48);
-    const hidden=(DATA.ops_items||[]).filter(i=>i.status==='open'&&i.owner
-      &&(i.owner||'').toLowerCase()!==String(opsMeKey()||'').toLowerCase()
-      &&!(i.due&&Date.parse(i.due)<now)).length;
+    /* SAMANTHA HOME — defined by what it LEAVES OUT.
+       Anything with an owner that is not late does not appear. Krystal has it.
+       The count of what was withheld is shown so filtering this hard still
+       feels safe: without it the instinct is to go looking, and the page
+       collapses back into a dashboard of everything.
+
+       No KPIs. Care hours, revenue and lead totals are not exceptions and do
+       not belong on a page whose only question is "does this need me". */
+    const me=String(opsMeKey()||'').toLowerCase();
+    const open=(DATA.ops_items||[]).filter(i=>i.status==='open'&&opsCanSee(i));
+    const isMine=i=>String(i.owner||'').toLowerCase()===me;
+    const od=i=>i.due&&Date.parse(i.due)<now;
+
+    /* ── 1. NEEDS ME ── assigned to her, escalated to her, or an approval.
+       Deliberately NOT "everything important". */
+    const needsMe=open.filter(i=>i.kind!=='review' &&
+      (isMine(i) || (i.sub_state==='escalated'&&isMine(i)) || (i.kind==='discipline'&&isMine(i))));
+
+    /* ── 4. OPERATING RISKS ── strong thresholds on purpose. Every red badge
+       in the hub arriving here would make this page the thing it replaces. */
+    const risks=open.filter(i=>i.kind!=='review' && !isMine(i) && (
+         (od(i) && (i.urgency==='urgent'||i.urgency==='today'))
+      || (!i.owner && hrs(i)>48)
+      || (i.sub_state==='escalated' && hrs(i)>24)));
+
+    const hidden=open.filter(i=>i.owner&&!isMine(i)&&!od(i)&&i.kind!=='review').length;
 
     h+=sect('NEEDS ME', needsMe.length, needsMe.length?needsMe.slice(0,6).map(i=>
-        line(i.title, (i.next_action||'')+(i.created_at?' · waiting '+hrs(i)+' hrs':''))).join(''):'',
-        'Nothing needs you. Good.');
-    h+=sect('OPERATING RISKS', risks.length, risks.length?risks.slice(0,6).map(i=>
-        line(i.title, i.owner?('owned by '+opsOwnerName(i.owner)):'nobody owns this')).join(''):'');
-    h+=sect('UNASSIGNED RISK', unowned.length, unowned.length?unowned.slice(0,5).map(i=>
-        line(i.title,'no owner · '+hrs(i)+' hrs old')).join(''):'', 'Nothing important is sitting unowned.');
+        line(i.title,(i.next_action||'')+(i.created_at?' · waiting '+hrs(i)+' hrs':''))).join(''):'',
+        'Nothing needs you right now.');
+
+    /* ── 2 and 3. Her own reviews, then the managers who are behind. ── */
     h+=homeReviewSections();
-    /* Reviewing the reviewers. Samantha's job here is not to do the reviews,
-       it is to notice when somebody else has stopped doing theirs. */
-    const behind=reviewSupervisorsBehind().filter(s=>s.oldest_days>=2);
+
+    /* SUPERVISORS BEHIND is not REVIEWS I OWE. The action is to push the
+       manager, never to take the reviews over — Samantha becoming the default
+       reviewer whenever Krystal is busy is how Krystal stays a coordinator. */
+    const behind=reviewSupervisorsBehind()
+      .filter(s=>s.email!==me && (s.oldest_days>=2 || s.count>=3));
     h+=sect('SUPERVISORS BEHIND', behind.length, behind.length?behind.map(s=>
-        '<div style="padding:7px 0;border-bottom:1px solid var(--border);">'
-        +'<div style="font-size:13.5px;">'+esc(s.name)+' · '+s.count+' review'+(s.count===1?'':'s')
-        +' outstanding</div><div class="field-note">oldest '+s.oldest_days+' days'
-        +(s.waiting.length?' · '+esc(s.waiting.join(', '))+' waiting':'')+'</div></div>').join(''):'',
+        '<div style="padding:8px 0;border-bottom:1px solid var(--border);">'
+        +'<div style="font-size:13.5px;"><b>'+esc(s.name)+'</b> · '+s.count+' review'
+        +(s.count===1?'':'s')+' outstanding</div>'
+        +'<div class="field-note">oldest '+s.oldest_days+' day'+(s.oldest_days===1?'':'s')
+        +(s.waiting.length?' · '+esc(s.waiting.join(', '))+' finished their part and '
+          +(s.waiting.length===1?'is':'are')+' waiting':'')+'</div>'
+        +'<button class="ghost" style="padding:5px 11px;font-size:12px;margin-top:6px;" '
+        +'onclick="homeShowBacklog(\''+esc(s.email)+'\')">See '+esc(String(s.name).split(' ')[0])
+        +'&rsquo;s review backlog</button></div>').join(''):'',
       'Nobody is behind on reviews.');
-    h+='<div class="card" style="padding:14px 18px;margin-bottom:12px;background:var(--bg);">'
-      +'<div class="field-note">Coming later: team development · today\'s coverage</div></div>';
-    h+='<div class="field-note" style="text-align:center;padding:10px;">Not shown: '+hidden
-      +' item'+(hidden===1?'':'s')+' owned by somebody and not late. '
-      +'<button class="linklike" onclick="switchTab(\'ops\')">Show me anyway</button></div>';
+
+    h+=sect('OPERATING RISKS', risks.length, risks.length?risks.slice(0,6).map(i=>
+        '<div id="hrisk_'+i.id+'" style="padding:8px 0;border-bottom:1px solid var(--border);">'
+        +'<div style="font-size:13.5px;">'+esc(i.title||'')+'</div>'
+        +'<div class="field-note">'+(i.owner?('owned by '+esc(opsOwnerName(i.owner))):'<b>nobody owns this</b>')
+        +' · '+hrs(i)+' hrs old'+(od(i)?' · overdue':'')+'</div>'
+        +(!i.owner?'<button class="ghost" style="padding:5px 11px;font-size:12px;margin-top:6px;" '
+          +'onclick="opsAssignFromCard(\''+i.id+'\',\'hrisk_'+i.id+'\')">Give this to someone</button>':'')
+        +'</div>').join(''):'',
+      'Nothing is drifting.');
+
+    /* ── 5. TEAM DEVELOPMENT ── real review counts only. No readiness scores,
+       no competency progress: neither exists, and inventing a number here
+       would be the first dishonest thing on the page. */
+    h+=homeTeamDevelopment();
+
+    /* ── 7. What we actually know. NOT "on duty": duty windows do not exist,
+       and a made-up duty state is worse than none. ── */
+    const doms=opsAllDomains().filter(d=>d.owner_person);
+    if(doms.length) h+=sect('CURRENT DOMAIN OWNERSHIP', 0,
+      '<div class="field-note" style="margin:2px 0 8px;">Who owns each area at the moment. '
+      +'Not who is on duty right now, which the hub cannot yet answer.</div>'
+      +doms.map(d=>'<div style="display:flex;gap:10px;padding:4px 0;font-size:13px;">'
+        +'<span style="flex:1;">'+esc(d.label)+'</span>'
+        +'<b>'+esc(opsOwnerName(opsEmailForPerson(d.owner_person))||'—')+'</b></div>').join(''));
+
+    /* ── 6. Quiet, and deliberately not the loudest thing on the page. ── */
+    h+='<div class="field-note" style="text-align:center;padding:12px 10px 4px;">Not shown: '+hidden
+      +' active item'+(hidden===1?'':'s')+' owned by somebody else and not overdue. '
+      +'<button class="linklike" onclick="switchTab(\'mywork\');myWorkGo(\'unassigned\')">View all work</button></div>';
   } else {
     const needsResponse=b.mine.filter(i=>i.kind==='missed_call'||i.kind==='new_lead');
     h+=sect('NEEDS MY RESPONSE', needsResponse.length, needsResponse.length?needsResponse.slice(0,5).map(i=>
