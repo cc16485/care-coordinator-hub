@@ -6179,7 +6179,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -6296,7 +6296,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -16345,6 +16345,16 @@ function myWorkCard(it, i){
   if(it.detail) h+='<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;">“'+esc(it.detail)+'”</div>';
   if(it.next_action) h+='<div style="font-size:13.5px;margin-top:5px;">→ '+esc(it.next_action)+'</div>';
   if(ev) h+='<div class="field-note" style="margin-top:6px;color:#1F7A8C;">✓ '+esc(ev.text)+'</div>';
+  /* A rolling obligation says how long it has actually been unresolved, not
+     just when to look next. Three days open with a checkpoint today is still
+     three days open. */
+  if(it.recurring && it.recurring.behaviour==='rolling' && it.recurring.first_due_at){
+    const r=it.recurring;
+    h+='<div class="field-note" style="margin-top:5px;'+(r.missed_periods?'color:var(--red);':'')+'">'
+      +'Originally due '+esc(callsFmtWhen(r.first_due_at))
+      +(r.missed_periods?' · '+r.missed_periods+' checkpoint'+(r.missed_periods===1?'':'s')+' missed':'')
+      +(r.next_checkpoint?' · next look '+esc(callsFmtWhen(r.next_checkpoint)):'')+'</div>';
+  }
 
   h+='<div id="act_'+it.id+'" style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">';
   if(!it.owner && sug){
@@ -17123,8 +17133,10 @@ function renderMyTeam(){
     +'<div><h2 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">'
     +'My Team</h2><div class="field-note">Who does what, and what is temporary</div></div>'
     +'<span style="flex:1;"></span>'
-    +(roleCanEdit()?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
-      +'onclick="roleSeedStarting()">Write the starting roles</button>':'')+'</div>';
+    /* One-time setup does not live beside everyday management for ever.
+       It disappears as soon as there is nothing left for it to write. */
+    +((roleCanEdit()&&roleSeedPending().length)?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
+      +'onclick="roleSeedStarting()">Write the starting roles ('+roleSeedPending().length+')</button>':'')+'</div>';
 
   h+=staff.map(s=>{
     const e=String(s.email).toLowerCase();
@@ -17363,6 +17375,13 @@ function roleTransfer(id){
    roles only for people who actually exist in the staff list, and it never
    overwrites anything already written. Cierra, Angiel and the staffing
    coordinator get theirs the day they are added, from the same editor. */
+/* Which of the starting roles still need writing. Shared by the button and
+   the seeder so the count and the action can never disagree. */
+function roleSeedPending(){
+  const staff=roleStaff().map(s=>String(s.email).toLowerCase());
+  return ['samantha@mo-care.com','zach@mo-care.com','krystal@mo-care.com']
+    .filter(e=>staff.includes(e) && !roleProfile(e));
+}
 async function roleSeedStarting(){
   if(!roleCanEdit()) return;
   const esc=escapeHtmlComms;
@@ -17531,16 +17550,30 @@ async function recurMaterialize(){
       if(!recurAppliesOn(duty, now)) continue;
 
       if(duty.behaviour==='rolling'){
-        /* One obligation. If an earlier one is still open, roll its due date
-           forward rather than stacking a second copy of the same job. */
+        /* One obligation, and its ORIGINAL DEADLINE NEVER MOVES.
+           The first version overwrote `due` on every roll, which quietly made
+           Monday's missed obligation look like it was due Tuesday and wiped
+           the fact that it had been sitting for three days. Continuing work
+           can roll forward; accountability cannot.
+           So: `due` stays the first deadline, so overdue stays true and the
+           age is real. `next_checkpoint` is the separate "look at it again"
+           time, and missed_periods counts what went by. */
         const open=(DATA.ops_items||[]).find(i=>i.kind==='recurring'&&i.status==='open'
           && i.recurring && i.recurring.duty_id===duty.id);
         if(open){
-          const due=recurDueAt(duty, now).toISOString();
-          if(open.due!==due){ open.due=due; open.owner=owner;
-            open.owner_name=opsOwnerName(owner);
-            opsLog(open,'Rolled forward to '+callsFmtWhen(due));
-            await persist('ops_items', open); }
+          const check=recurDueAt(duty, now).toISOString();
+          const r=open.recurring||(open.recurring={});
+          if(!r.first_due_at) r.first_due_at=open.due;
+          if(r.next_checkpoint!==check){
+            if(r.next_checkpoint && r.next_checkpoint<new Date().toISOString())
+              r.missed_periods=(r.missed_periods||0)+1;
+            r.next_checkpoint=check; r.last_rolled_at=new Date().toISOString();
+            open.owner=owner; open.owner_name=opsOwnerName(owner);
+            opsLog(open,'Still open. Next checkpoint '+callsFmtWhen(check)
+              +(r.missed_periods?' · '+r.missed_periods+' checkpoint'
+                +(r.missed_periods===1?'':'s')+' missed since '+callsFmtWhen(r.first_due_at):''));
+            await persist('ops_items', open);
+          }
           continue;
         }
       }
@@ -17560,7 +17593,8 @@ async function recurMaterialize(){
         status:'open', created_at:new Date().toISOString(),
         last_activity_at:new Date().toISOString(), due,
         opened_by:'system', owner, owner_name:opsOwnerName(owner),
-        recurring:{ duty_id:duty.id, period:key, behaviour:duty.behaviour||'new_instance' } };
+        recurring:{ duty_id:duty.id, period:key, behaviour:duty.behaviour||'new_instance',
+                    first_due_at:due, next_checkpoint:due, missed_periods:0 } };
       DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(it);
       await persist('ops_items', it);
     }
@@ -17604,6 +17638,10 @@ function recurEdit(email){
   const h='<div style="font-size:14px;font-weight:800;color:var(--navy);">Recurring duties</div>'
     +'<div class="field-note" style="margin-bottom:10px;">'+esc(opsOwnerName(email)||email)
     +'. These become real work in My Work at the right time.</div>'
+    +'<div class="card" style="padding:9px 12px;margin-bottom:10px;background:var(--amber-bg);">'
+    +'<div class="field-note" style="color:var(--amber);"><b>V1 — created while the Hub is open.</b> '
+    +'Recurring work appears when somebody signs in, so a day when nobody opens the Hub leaves no '
+    +'record. Not guaranteed yet. Moves server-side when the Staffing Coordinator starts.</div></div>'
     +'<div id="rcList"></div>'
     +'<div style="height:1px;background:var(--border);margin:10px 0;"></div>'
     +'<div class="field-note" style="font-weight:700;margin-bottom:6px;">ADD ONE</div>'
@@ -17678,6 +17716,250 @@ function recurEndAsk(id, email){
   el.querySelector('#rcEndGo').onclick=async ()=>{ ccPopClose(); await recurEnd(id); recurEdit(email); };
 }
 
+/* ═══════════════════ DUTY WINDOWS ════════════════════════════════════════
+   The only question this answers: WHO IS RESPONSIBLE RIGHT NOW.
+
+   Deliberately separate from everything near it:
+     ROLE            what somebody normally does
+     RESPONSIBILITY  what they generally own or support
+     RECURRING DUTY  what work their role generates
+     DUTY WINDOW     who is carrying it during THIS time period   ← here
+     ASSIGNMENT      who owns one particular item
+
+   The VA can be the primary scheduling owner and not be on duty at 8am. Both
+   are true, and conflating them is how "the VA does scheduling" and "everyone
+   does scheduling" both become wrong at once.
+
+   DIRECT CARE IS A DUTY AREA, not an integration. Modelling "working an
+   actual client shift" as a window is what makes the Cierra conflict a rule
+   about two rows rather than a live AxisCare lookup: she cannot be in
+   somebody's home at 2am AND be the person who answers the phone.
+
+   A GAP IS SHOWN, NEVER FILLED. Silently falling back to Samantha is how she
+   ends up permanently on call without anybody deciding it.
+
+   NOT a staff scheduling application. Operational coverage only.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+const DUTY_AREAS=[
+  ['operations',      'Operations',        'Manages whatever comes up',            ['client_care','family_enquiries']],
+  ['staffing',        'Staffing',          'Open shifts, call-offs, outreach',     ['scheduling_coverage']],
+  ['field_response',  'Field Response',    'Can physically go to a home',          []],
+  ['advanced_care',   'Advanced Care',     'CNA-level judgement',                  ['caregiver_performance']],
+  ['after_hours',     'After Hours',       'Holds the phone outside office hours', []],
+  ['owner_escalation','Owner Escalation',  'The last resort',                      []]];
+/* Areas that mean "you are available to respond". Direct care is not one of
+   them, and that is the whole basis of the conflict rule. */
+const DUTY_RESPONDING=['operations','staffing','after_hours','owner_escalation'];
+
+function dutyAreaLabel(code){ return (DUTY_AREAS.find(a=>a[0]===code)||[])[1]||code; }
+function dutyAreaDomains(code){ return (DUTY_AREAS.find(a=>a[0]===code)||[])[3]||[]; }
+
+/* One table, two shapes. A one-off carries start/end; a pattern carries recur.
+   A one-off ALWAYS beats a pattern, which is what makes a swap or a day off an
+   ordinary edit rather than a special case. */
+function dutyCoversAt(w, when){
+  if(w.active===false) return false;
+  const t=when.getTime();
+  if(w.start && w.end) return t>=Date.parse(w.start) && t<Date.parse(w.end);
+  if(w.recur){
+    const days=w.recur.days||[];
+    if(days.length && days.indexOf(when.getDay())===-1) return false;
+    const [fh,fm]=String(w.recur.from||'00:00').split(':').map(Number);
+    const [th,tm]=String(w.recur.to||'23:59').split(':').map(Number);
+    const mins=when.getHours()*60+when.getMinutes();
+    const from=fh*60+(fm||0), to=th*60+(tm||0);
+    return from<=to ? (mins>=from&&mins<to) : (mins>=from||mins<to);  // crosses midnight
+  }
+  return false;
+}
+function dutyWindowsFor(area, when){
+  return (DATA.duty_windows||[]).filter(w=>w.area===area && dutyCoversAt(w, when||new Date()));
+}
+/* One-off beats pattern. Two one-offs is a real conflict and is reported
+   rather than silently resolved. */
+function dutyHolder(area, when){
+  const list=dutyWindowsFor(area, when);
+  if(!list.length) return null;
+  const oneOffs=list.filter(w=>w.start&&w.end);
+  const chosen=(oneOffs.length?oneOffs:list)[0];
+  return { window:chosen, person:chosen.person, backup:chosen.backup_person||'',
+           conflict: oneOffs.length>1 || (!oneOffs.length && list.length>1) ? list.length : 0 };
+}
+function dutyNow(when){
+  const t=when||new Date();
+  return DUTY_AREAS.map(([code,label])=>{
+    const h=dutyHolder(code,t);
+    return { area:code, label, holder:h, gap:!h };
+  });
+}
+/* When does the next area change hands? Checked minute by minute across the
+   next 24 hours, which is cheap and avoids reasoning about recurrence maths. */
+function dutyNextChange(when){
+  const t0=when||new Date();
+  const base=dutyNow(t0).map(x=>x.area+':'+((x.holder&&x.holder.person)||''));
+  for(let m=5;m<=24*60;m+=5){
+    const t=new Date(t0.getTime()+m*60000);
+    const now=dutyNow(t).map(x=>x.area+':'+((x.holder&&x.holder.person)||''));
+    for(let i=0;i<now.length;i++){
+      if(now[i]!==base[i]){
+        const [area]=now[i].split(':');
+        const from=base[i].split(':')[1], to=now[i].split(':')[1];
+        return { at:t, area, label:dutyAreaLabel(area),
+                 from:from?opsOwnerName(from):'nobody', to:to?opsOwnerName(to):'nobody' };
+      }
+    }
+  }
+  return null;
+}
+/* Cierra cannot be in a client's home at 2am and also be the person who
+   answers the phone. Warned at the moment of assignment, and overridable by
+   an owner who has read the warning, because a rule nobody can override is a
+   rule people work around. */
+function dutyConflictsFor(person, area, when){
+  if(DUTY_RESPONDING.indexOf(area)===-1) return [];
+  const t=when||new Date();
+  return (DATA.duty_windows||[]).filter(w=>w.active!==false
+    && String(w.person||'').toLowerCase()===String(person||'').toLowerCase()
+    && w.area==='direct_care' && dutyCoversAt(w,t));
+}
+
+/* ── The shell component ─────────────────────────────────────────────────── */
+function dutyPanelHtml(){
+  const esc=escapeHtmlComms, now=new Date();
+  const rows=dutyNow(now), nxt=dutyNextChange(now);
+  const gaps=rows.filter(r=>r.gap);
+  let h='<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">RESPONSIBLE NOW</b>'
+    +'<span class="field-note">'+esc(now.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}))+'</span>'
+    +'<span style="flex:1;"></span>'
+    +(roleCanEdit()?'<button class="linklike" style="font-size:12px;" onclick="dutyEdit()">Manage</button>':'')
+    +'</div>';
+  h+=rows.map(r=>{
+    const who=r.holder?opsOwnerName(r.holder.person):'';
+    return '<div style="display:flex;gap:10px;padding:5px 0;font-size:13.5px;align-items:baseline;">'
+      +'<span style="min-width:132px;color:var(--text-muted);">'+esc(r.label)+'</span>'
+      +(r.gap
+        ? '<b style="color:var(--amber);">nobody assigned</b>'
+        : '<b>'+esc(who)+'</b>'
+          +(r.holder.backup?'<span class="field-note"> · backup '+esc(opsOwnerName(r.holder.backup))+'</span>':'')
+          +(r.holder.conflict?'<span class="field-note" style="color:var(--red);"> · '
+            +r.holder.conflict+' overlapping assignments</span>':''))
+      +'</div>'; }).join('');
+  if(gaps.length) h+='<div class="field-note" style="margin-top:8px;color:var(--amber);">'
+    +gaps.length+' area'+(gaps.length===1?'':'s')+' with nobody assigned right now. '
+    +'A visible gap is more use than pretending somebody is covering it.</div>';
+  if(nxt) h+='<div class="field-note" style="margin-top:8px;">Next change · '+esc(nxt.label)+' · '
+    +esc(nxt.from)+' → '+esc(nxt.to)+' at '
+    +esc(nxt.at.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}))+'</div>';
+  return h+'</div>';
+}
+
+/* What the incoming duty holder inherits. No handoff form: the board is the
+   handoff, as decided. This is a filter over work that already exists. */
+function dutyInboxFor(area){
+  const doms=dutyAreaDomains(area);
+  const open=(DATA.ops_items||[]).filter(i=>i.status==='open'&&opsCanSee(i));
+  return {
+    unresolved: open.filter(i=>doms.length?doms.indexOf(i.domain)>-1:false),
+    escalated:  open.filter(i=>i.sub_state==='escalated'),
+    waiting:    open.filter(i=>i.sub_state==='waiting'),
+    unowned:    open.filter(i=>!i.owner)
+  };
+}
+
+/* ── Managing duty ───────────────────────────────────────────────────────
+   Small on purpose. Two shapes: a repeating pattern for the normal week, and
+   a one-off for a swap, a day off, or an overnight shift. A one-off always
+   wins, so covering for somebody is an ordinary edit. */
+function dutyEdit(){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms;
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const areas=DUTY_AREAS.concat([['direct_care','Working a client shift',
+    'Not a responding role — used to catch conflicts',[]]]);
+  const h='<div style="font-size:14px;font-weight:800;color:var(--navy);">Who is on duty</div>'
+    +'<div class="field-note" style="margin-bottom:10px;">Who carries each area during a time '
+    +'period. Different from who owns it in general.</div>'
+    +'<div id="dwList"></div>'
+    +'<div style="height:1px;background:var(--border);margin:10px 0;"></div>'
+    +'<div class="field-note" style="font-weight:700;margin-bottom:6px;">ADD A WINDOW</div>'
+    +'<select id="dwArea" style="width:100%;padding:7px 9px;font-size:13px;border-radius:8px;">'
+    +areas.map(a=>'<option value="'+a[0]+'">'+esc(a[1])+' — '+esc(a[2])+'</option>').join('')+'</select>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:8px;">'
+    +'<span class="field-note">Who</span><button class="ghost" id="dwWho" '
+    +'style="padding:6px 12px;font-size:12.5px;">Choose…</button>'
+    +'<span class="field-note">Backup</span><button class="ghost" id="dwBack" '
+    +'style="padding:6px 12px;font-size:12.5px;">Optional…</button></div>'
+    +'<div style="display:flex;gap:6px;margin-top:8px;align-items:center;">'
+    +'<span class="field-note" style="min-width:44px;">Days</span>'
+    +days.map((d,i)=>'<label style="font-size:12px;display:flex;gap:3px;align-items:center;">'
+      +'<input type="checkbox" class="dwDay" value="'+i+'"'+(i>=1&&i<=5?' checked':'')+'> '+d+'</label>').join('')
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:8px;align-items:center;">'
+    +'<span class="field-note">From</span><input id="dwFrom" type="time" value="08:00" '
+    +'style="width:110px;padding:6px;font-size:13px;border-radius:8px;">'
+    +'<span class="field-note">to</span><input id="dwTo" type="time" value="17:00" '
+    +'style="width:110px;padding:6px;font-size:13px;border-radius:8px;"></div>'
+    +'<div class="field-note" style="margin-top:5px;">Crossing midnight is fine — an overnight is '
+    +'19:00 to 07:00.</div>'
+    +'<div id="dwWarn" class="field-note" style="color:var(--red);min-height:1em;margin-top:6px;"></div>'
+    +'<button class="primary" id="dwAdd" style="padding:7px 14px;font-size:13px;margin-top:8px;">Add</button>';
+
+  const el=ccPopOpen(document.body, h, {width:470});
+  let who='', whoName='', back='', backName='';
+  const paint=()=>{
+    const list=(DATA.duty_windows||[]).filter(w=>w.active!==false);
+    el.querySelector('#dwList').innerHTML = list.length ? list.map(w=>{
+      const d=w.recur?(w.recur.days||[]).map(i=>days[i]).join(' '):'';
+      return '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+        +'<b>'+esc(dutyAreaLabel(w.area))+'</b> · '+esc(opsOwnerName(w.person)||w.person)
+        +(w.backup_person?' <span class="field-note">backup '+esc(opsOwnerName(w.backup_person))+'</span>':'')
+        +'<div class="field-note">'+esc(d)+' '+esc((w.recur&&w.recur.from)||'')+'–'
+        +esc((w.recur&&w.recur.to)||'')+'</div>'
+        +'<button class="linklike" style="font-size:12px;" onclick="dutyRemove(\''+w.id+'\')">Remove</button>'
+        +'</div>'; }).join('') : '<div class="field-note">Nobody is assigned to anything yet.</div>';
+  };
+  paint();
+  el.querySelector('#dwWho').onclick=(ev)=>ccPickPerson(ev.target,{onPick:(e,n)=>{
+    who=e; whoName=n; ev.target.textContent=n||'Choose…';
+    const c=dutyConflictsFor(e, el.querySelector('#dwArea').value);
+    el.querySelector('#dwWarn').textContent = c.length
+      ? whoName+' is already down as working a client shift in that window. Somebody in a home '
+        +'cannot also be the person answering the phone.' : '';
+  }});
+  el.querySelector('#dwBack').onclick=(ev)=>ccPickPerson(ev.target,{onPick:(e,n)=>{
+    back=e; backName=n; ev.target.textContent=n||'Optional…'; }});
+  el.querySelector('#dwAdd').onclick=async ()=>{
+    if(!who){ el.querySelector('#dwWarn').textContent='Pick who is on.'; return; }
+    const area=el.querySelector('#dwArea').value;
+    const conflicts=dutyConflictsFor(who, area);
+    if(conflicts.length && !el.dataset.override){
+      el.dataset.override='1';
+      el.querySelector('#dwWarn').textContent=whoName+' is working a client shift then. '
+        +'Press Add again to do it anyway.';
+      return;
+    }
+    const w={ id:'dw_'+Date.now().toString(36), area, person:who,
+      backup_person:back||null, active:true,
+      recur:{ days:[...el.querySelectorAll('.dwDay:checked')].map(x=>Number(x.value)),
+              from:el.querySelector('#dwFrom').value, to:el.querySelector('#dwTo').value },
+      assigned_by:ME.email||'', created_at:new Date().toISOString(),
+      override_conflict: conflicts.length?true:false };
+    DATA.duty_windows=DATA.duty_windows||[]; DATA.duty_windows.push(w);
+    await persist('duty_windows', w);
+    delete el.dataset.override; el.querySelector('#dwWarn').textContent='';
+    paint(); renderHome();
+  };
+}
+async function dutyRemove(id){
+  const w=(DATA.duty_windows||[]).find(x=>x.id===id); if(!w) return;
+  w.active=false; w.ended_at=new Date().toISOString(); w.ended_by=ME.email||'';
+  await persist('duty_windows', w);
+  ccPopClose(); dutyEdit(); renderHome();
+}
+
 /* ── HOME ────────────────────────────────────────────────────────────────── */
 function renderHome(){
   const wrap=document.getElementById('homeWrap'); if(!wrap) return;
@@ -17702,6 +17984,8 @@ function renderHome(){
   let h='<div style="margin-bottom:14px;"><h2 style="margin:0;font-size:24px;font-weight:800;'
     +'letter-spacing:-0.02em;color:var(--navy);">'+esc(ME.name||ME.email||'')+'</h2>'
     +'<div class="field-note">'+new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'})+'</div></div>';
+
+  h+=dutyPanelHtml();
 
   if(owner){
     /* SAMANTHA HOME — defined by what it LEAVES OUT.
