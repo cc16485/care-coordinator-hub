@@ -12403,9 +12403,14 @@ const SOC_MERGED = [
   ['Notify the DSDS case manager services began; set ongoing supervision & QA cadence','evening','med'],
 ];
 function socBuildSteps(pathway){
+  /* Stamped at creation so a record's ownership is fixed the day it is made
+     and cannot move when a label is reworded later. */
   const pre=(SOC_PATHWAYS[pathway]||SOC_PATHWAYS.A1).steps.map((s,i)=>({id:'p'+i,label:s[0],role:s[1]}));
   const merged=SOC_MERGED.filter(s=>pathway==='PP'?s[2]==='all':true).map((s,i)=>({id:'m'+i,label:s[0],role:s[1]}));
-  return pre.concat(merged);
+  const all = pre.concat(merged);
+  all.forEach(st => { st.domain = (typeof CS_STEP_DOMAIN!=='undefined')
+    ? (CS_STEP_DOMAIN[pathway+':'+st.id] || null) : null; });
+  return all;
 }
 const socRoleChip = r => r==='evening'
   ? '<span class="tag-chip" style="background:#EDE4F5;color:#6B4B9E;">Evening</span>'
@@ -12424,16 +12429,58 @@ const socRoleChip = r => r==='evening'
 
    A start that is progressing normally creates NOTHING. */
 
-/* Which domain owns the step somebody is waiting on. Read from the step text
-   because that is what actually says whose work it is — the step's `role`
-   (day/evening/state) records WHEN it happens, not WHO owns it. */
-function csDomainForStep(label){
-  const t=String(label||'').toLowerCase();
-  if(/authoriz|fusion|dsds|pccp|referral|eligib|case manager|units/.test(t)) return 'payer_programs';
-  if(/care plan|rn |assessment|home safety|welcome|admission|consent|demographic/.test(t)) return 'client_care';
-  if(/caregiver|match|schedul|evv|shift|coverage/.test(t)) return 'scheduling_coverage';
-  if(/follow-up|follow up/.test(t)) return 'client_care';
-  return 'client_care';
+/* ── WHO OWNS EACH STEP — one explicit table, not keyword matching ────────
+   Ownership must not change because somebody rewrites a label. It also cannot
+   key on the step id alone: socBuildSteps FILTERS the merged steps for private
+   pay before numbering them, so PP:m2 is "Home safety assessment" while A1:m2
+   is "Enter the care plan". The stable key is pathway + step id.
+
+   New Start-of-Care records get `domain` stamped onto each step at creation
+   (see socBuildSteps). This table is what stamps them, and it is also the
+   fallback for records created before that existed. Keyword matching is gone. */
+const CS_STEP_DOMAIN = {
+  // A1 — new Medicaid referral, we submit to FUSION
+  'A1:p0':'family_enquiries', 'A1:p1':'family_enquiries', 'A1:p2':'family_enquiries',
+  'A1:p3':'payer_programs',   'A1:p4':'payer_programs',   'A1:p5':'payer_programs',
+  // A2 — PCCP provider change
+  'A2:p0':'family_enquiries', 'A2:p1':'family_enquiries',
+  'A2:p2':'payer_programs',   'A2:p3':'payer_programs',   'A2:p4':'payer_programs',
+  // B — DSDS offered us the case
+  'B:p0':'payer_programs',
+  'B:p1':'scheduling_coverage',      // "confirm we can staff it" is a staffing question
+  // PP — private pay
+  'PP:p0':'client_care',             // in-home assessment
+  'PP:p1':'family_enquiries',        // service agreement signed — conversion
+  // merged steps, numbered per pathway
+  'A1:m0':'payer_programs',      'A2:m0':'payer_programs',      'B:m0':'payer_programs',
+  'A1:m1':'payer_programs',      'A2:m1':'payer_programs',      'B:m1':'payer_programs',
+  'A1:m2':'client_care',         'A2:m2':'client_care',         'B:m2':'client_care',
+  'A1:m3':'client_care',         'A2:m3':'client_care',         'B:m3':'client_care',
+  'A1:m4':'client_care',         'A2:m4':'client_care',         'B:m4':'client_care',
+  'A1:m5':'client_care',         'A2:m5':'client_care',         'B:m5':'client_care',
+  'A1:m6':'scheduling_coverage', 'A2:m6':'scheduling_coverage', 'B:m6':'scheduling_coverage',
+  'A1:m7':'scheduling_coverage', 'A2:m7':'scheduling_coverage', 'B:m7':'scheduling_coverage',
+  'A1:m8':'scheduling_coverage', 'A2:m8':'scheduling_coverage', 'B:m8':'scheduling_coverage',
+  'A1:m9':'client_care',         'A2:m9':'client_care',         'B:m9':'client_care',
+  'A1:m10':'payer_programs',     'A2:m10':'payer_programs',     'B:m10':'payer_programs',
+  // PP's merged steps are renumbered because the authorization ones are filtered out
+  'PP:m0':'client_care',         // enter the care plan in AxisCare
+  'PP:m1':'client_care',         // welcome call
+  'PP:m2':'client_care',         // home safety
+  'PP:m3':'scheduling_coverage', // caregiver match
+  'PP:m4':'scheduling_coverage', // schedule + EVV
+  'PP:m5':'scheduling_coverage', // first shift
+  'PP:m6':'client_care'          // 24-72h follow-ups
+};
+
+/* A step stamped at creation wins; otherwise the table; otherwise nothing —
+   and "nothing" is reported rather than guessed, because an unmapped step
+   silently landing in a default domain is how work goes to the wrong person
+   for months without anybody noticing. */
+function csDomainForStep(step, pathway){
+  if(step && step.domain) return step.domain;
+  const key = (pathway||'') + ':' + ((step&&step.id)||'');
+  return CS_STEP_DOMAIN[key] || null;
 }
 
 /* The window before a stalled step becomes work. A step owned by DSDS is not
@@ -12447,7 +12494,7 @@ function csItemId(lead){ return 'cstart_'+lead.id; }
    it does not write, so it can be tested against fixtures without a database. */
 function csEvaluate(leads, items, nowIso){
   const now = nowIso || new Date().toISOString();
-  const out = { create:[], update:[], resolve:[], quiet:0 };
+  const out = { create:[], update:[], resolve:[], quiet:0, unrouted:[] };
   (leads||[]).forEach(l=>{
     if(!l || !l.soc) return;
     const existing = (items||[]).find(i=>i.id===csItemId(l));
@@ -12475,7 +12522,14 @@ function csEvaluate(leads, items, nowIso){
     }
 
     const who = ((l.first_name||'')+' '+(l.last_name||'')).trim() || l.id;
-    const domain = csDomainForStep(cur.label);
+    const domain = csDomainForStep(cur, l.soc.pathway);
+    if(!domain){
+      /* Unroutable. Reported as its own problem rather than dumped on a
+         default owner, because a wrong owner is worse than a named gap. */
+      out.unrouted.push({ lead:l.id, who:who, pathway:l.soc.pathway,
+                          step:cur.id, label:cur.label });
+      return;
+    }
     const item = {
       id: csItemId(l), kind:'client_start', source_id:l.id, about:who,
       title: who+' — start of care stuck '+waited+' days',
