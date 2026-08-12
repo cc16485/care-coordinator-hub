@@ -10873,6 +10873,162 @@ async function addStaffMember(){
   ['new_staff_notify_leads','new_staff_notify_checkins','new_staff_notify_supervisory','new_staff_notify_careplan'].forEach(id=>document.getElementById(id).checked=false);
   renderStaffList();
 }
+/* ═══════════════ EDIT SOMEBODY ════════════════════════════════════════════
+   Identity lives here: name, phone, whether they are working. Their role,
+   responsibilities and escalation live in Edit role, which already does that
+   job properly — duplicating those fields would give two places to change one
+   fact and no way to tell which won.
+
+   EMAIL IS NOT AN ORDINARY FIELD, and it is not offered as one. It is the key
+   this person is known by in seven places plus their sign-in:
+
+     coordinator_staff.email · role_profiles.id AND .person
+     responsibilities.person · duty_windows.person AND .backup_person
+     recurring_duties.person · ops_items.owner
+     positions.person AND .previous_holders
+
+   Typing over it would silently orphan every one of those — their work would
+   belong to an address nobody has, and their history would detach from them.
+   So it is read-only, with a separate flow that counts what it will rewrite
+   and then rewrites all of it together. */
+function staffRefs(email){
+  const e=String(email||'').toLowerCase();
+  const P=(DATA.positions||[]);
+  return {
+    staff:   (DATA.coordinator_staff||[]).filter(x=>String(x.email||'').toLowerCase()===e),
+    profile: (DATA.role_profiles||[]).filter(x=>String(x.id||x.person||'').toLowerCase()===e),
+    resp:    (DATA.responsibilities||[]).filter(x=>String(x.person||'').toLowerCase()===e),
+    duty:    (DATA.duty_windows||[]).filter(x=>String(x.person||'').toLowerCase()===e),
+    backup:  (DATA.duty_windows||[]).filter(x=>String(x.backup_person||'').toLowerCase()===e),
+    recur:   (DATA.recurring_duties||[]).filter(x=>String(x.person||'').toLowerCase()===e),
+    items:   (DATA.ops_items||[]).filter(x=>String(x.owner||'').toLowerCase()===e),
+    posHeld: P.filter(x=>String(x.person||'').toLowerCase()===e),
+    posPast: P.filter(x=>(x.previous_holders||[]).some(h=>String(h.person||'').toLowerCase()===e))
+  };
+}
+async function staffEditOpen(email){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
+  const st=(DATA.coordinator_staff||[]).find(x=>String(x.email||'').toLowerCase()===e);
+  const prof=roleProfile(e)||{};
+  const nm=(st&&st.name)||prof.full_name||e;
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Edit '+esc(nm)+'</div>'
+    +'<div class="field-note" style="margin:4px 0 12px;">Who they are. Their role and '
+    +'responsibilities are under <b>Edit role</b>.</div>'
+    +'<label style="display:block;margin-bottom:9px;"><span style="font-size:12.5px;font-weight:600;">Name</span>'
+    +'<input id="seName" value="'+esc(nm)+'" style="width:100%;padding:7px 9px;font-size:13px;'
+    +'border:1px solid var(--border);border-radius:8px;margin-top:3px;"></label>'
+    +'<label style="display:block;margin-bottom:9px;"><span style="font-size:12.5px;font-weight:600;">Phone</span>'
+    +'<input id="sePhone" value="'+esc((st&&st.phone)||'')+'" style="width:100%;padding:7px 9px;'
+    +'font-size:13px;border:1px solid var(--border);border-radius:8px;margin-top:3px;"></label>'
+    +'<label style="display:block;margin-bottom:9px;"><span style="font-size:12.5px;font-weight:600;">Working status</span>'
+    +'<select id="seStatus" style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);'
+    +'border-radius:8px;margin-top:3px;">'
+    +['active','planned','inactive'].map(v=>'<option value="'+v+'"'
+      +(((prof.status||'active')===v)?' selected':'')+'>'
+      +({active:'Working now',planned:'Starting later',inactive:'No longer working here'})[v]
+      +'</option>').join('')+'</select></label>'
+    +'<div style="margin:12px 0 4px;font-size:12.5px;font-weight:600;">Work email</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;">'
+    +'<input value="'+esc(e)+'" disabled style="flex:1;padding:7px 9px;font-size:13px;'
+    +'border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text-muted);">'
+    +'<button class="ghost" id="seEmail" style="padding:6px 11px;font-size:12.5px;">Change</button></div>'
+    +'<div class="field-note" style="margin-top:4px;">This is how they are known everywhere. '
+    +'Changing it moves their work and history with them, so it has its own step.</div>'
+    +'<div id="seMsg" class="field-note" style="margin-top:10px;"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px;">'
+    +'<button class="primary" id="seGo" style="padding:7px 14px;font-size:13px;">Save</button>'
+    +'<button class="ghost" id="seRole" style="padding:7px 14px;font-size:13px;">Edit role…</button>'
+    +'<button class="ghost" id="seNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:430});
+  el.querySelector('#seNo').onclick=ccPopClose;
+  el.querySelector('#seRole').onclick=()=>{ ccPopClose(); roleEdit(e); };
+  el.querySelector('#seEmail').onclick=()=>{ ccPopClose(); staffChangeEmail(e); };
+  el.querySelector('#seGo').onclick=async ()=>{
+    const name=el.querySelector('#seName').value.trim();
+    const phone=el.querySelector('#sePhone').value.trim();
+    const status=el.querySelector('#seStatus').value;
+    if(!name){ el.querySelector('#seMsg').innerHTML=
+      '<span style="color:var(--red);">A name is needed.</span>'; return; }
+    ccPopClose();
+    if(st){ st.name=name; st.phone=phone;
+            st.active = status!=='inactive';
+            await persist('coordinator_staff', st); }
+    await roleSaveProfile(e, { full_name:name, status });
+    renderMyTeam(); renderStaffList();
+  };
+}
+
+/* Changing the key somebody is known by. Counted first, then done in one go. */
+async function staffChangeEmail(oldEmail){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms, from=String(oldEmail||'').toLowerCase();
+  const r=staffRefs(from);
+  const total=r.staff.length+r.profile.length+r.resp.length+r.duty.length+r.backup.length
+             +r.recur.length+r.items.length+r.posHeld.length+r.posPast.length;
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Change work email</div>'
+    +'<div class="field-note" style="margin:4px 0 10px;">'+esc(from)+'</div>'
+    +'<label style="display:block;margin-bottom:10px;"><span style="font-size:12.5px;font-weight:600;">New work email</span>'
+    +'<input id="ceNew" type="email" placeholder="name@mo-care.com" style="width:100%;padding:7px 9px;'
+    +'font-size:13px;border:1px solid var(--border);border-radius:8px;margin-top:3px;"></label>'
+    +'<div style="font-size:13px;font-weight:700;">What moves with them</div>'
+    +'<div class="field-note" style="margin:5px 0 10px;">'
+    + [[r.staff.length,'staff record'],[r.profile.length,'role profile'],
+       [r.resp.length,'responsibilities'],[r.duty.length,'duty windows'],
+       [r.backup.length,'windows where they are the backup'],[r.recur.length,'recurring duties'],
+       [r.items.length,'work items, open and finished'],[r.posHeld.length,'position held'],
+       [r.posPast.length,'position history']]
+      .filter(x=>x[0]).map(x=>x[0]+' '+x[1]).join('<br>')
+    + (total?'':'nothing yet — they have no work attached')
+    +'</div>'
+    +'<div class="field-note" style="color:var(--amber);margin-bottom:10px;">Their <b>sign-in</b> is '
+    +'separate and does not change here. If they already have Hub access, remove it and invite the '
+    +'new address, or they will still be signing in as the old one.</div>'
+    +'<div id="ceMsg" class="field-note" style="margin-bottom:10px;"></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="ceGo" style="padding:7px 14px;font-size:13px;">Move '+total+' record'
+    +(total===1?'':'s')+'</button>'
+    +'<button class="ghost" id="ceNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:430});
+  el.querySelector('#ceNo').onclick=ccPopClose;
+  el.querySelector('#ceGo').onclick=async ()=>{
+    const to=el.querySelector('#ceNew').value.trim().toLowerCase();
+    const bad=m=>{ el.querySelector('#ceMsg').innerHTML=
+      '<span style="color:var(--red);">'+escapeHtmlComms(m)+'</span>'; };
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return bad('That is not an email address.');
+    if(to===from) return bad('That is the same address.');
+    if((DATA.coordinator_staff||[]).some(x=>String(x.email||'').toLowerCase()===to))
+      return bad('Somebody else already uses that address.');
+    ccPopClose();
+    const R=staffRefs(from);
+    for(const x of R.staff){ x.email=to; await persist('coordinator_staff', x); }
+    /* The profile is keyed BY the email, so it is a new row and the old one goes. */
+    for(const x of R.profile){
+      const copy=Object.assign({}, x, { id:to, person:to });
+      await persist('role_profiles', copy);
+      await removeItem('role_profiles', x.id);
+      DATA.role_profiles=(DATA.role_profiles||[]).filter(y=>y.id!==x.id).concat([copy]);
+    }
+    for(const x of R.resp){  x.person=to;         await persist('responsibilities', x); }
+    for(const x of R.duty){  x.person=to;         await persist('duty_windows', x); }
+    for(const x of R.backup){x.backup_person=to;  await persist('duty_windows', x); }
+    for(const x of R.recur){ x.person=to;         await persist('recurring_duties', x); }
+    for(const x of R.items){ x.owner=to;          await persist('ops_items', x); }
+    for(const x of R.posHeld){ x.person=to;       await persist('positions', x); }
+    for(const x of R.posPast){
+      (x.previous_holders||[]).forEach(h=>{ if(String(h.person||'').toLowerCase()===from) h.person=to; });
+      await persist('positions', x);
+    }
+    renderMyTeam(); renderHome(); renderStaffList();
+    ccPopOpen(document.body,
+      '<div style="font-size:13.5px;">Moved to <b>'+escapeHtmlComms(to)+'</b>.</div>'
+      +'<div class="field-note" style="margin-top:5px;">Their sign-in is unchanged. Use '
+      +'<b>Hub access</b> to remove the old one and invite the new address.</div>',{width:370});
+  };
+}
+
 /* ═══════════════ ADD SOMEBODY ═════════════════════════════════════════════
    The old form lived in Settings and asked for a shift and four notification
    checkboxes. It created a coordinator_staff row and nothing else, so the new
@@ -17805,7 +17961,7 @@ function renderMyTeam(){
         +'color:var(--red);border-color:var(--red);" '
         +'onclick="staffDeactivate(\''+esc(e)+'\')">Deactivate</button>':'')
       +(roleCanEdit()?'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
-        +'onclick="roleEdit(\''+esc(e)+'\')">Edit</button>'
+        +'onclick="staffEditOpen(\''+esc(e)+'\')">Edit</button>'
         +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
         +'onclick="recurEdit(\''+esc(e)+'\')">Recurring</button>':'')
       +'</div>'
