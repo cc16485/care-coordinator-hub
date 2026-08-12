@@ -10873,6 +10873,266 @@ async function addStaffMember(){
   ['new_staff_notify_leads','new_staff_notify_checkins','new_staff_notify_supervisory','new_staff_notify_careplan'].forEach(id=>document.getElementById(id).checked=false);
   renderStaffList();
 }
+/* ═══════════════ POSITION LIFECYCLE ═══════════════════════════════════════
+   A position's planned responsibilities and duty windows are a TEMPLATE. They
+   are never activated in place. Filling copies them into rows owned by the
+   person, tagged from_position; vacating ends those rows and leaves the
+   template untouched for whoever comes next.
+
+   That is what makes a position survive its holders. If filling mutated the
+   template, vacating would have to reconstruct it from memory, and the second
+   hire would inherit whatever the first one's departure happened to leave. */
+function posTemplate(id){
+  return {
+    resp: (DATA.responsibilities||[]).filter(r=>r.position===id && r.active!==false),
+    duty: (DATA.duty_windows||[]).filter(w=>w.position===id && w.active!==false)
+  };
+}
+function posLiveRows(id, email){
+  const e=String(email||'').toLowerCase();
+  return {
+    resp: (DATA.responsibilities||[]).filter(r=>r.from_position===id && r.active!==false
+            && (!e || String(r.person||'').toLowerCase()===e)),
+    duty: (DATA.duty_windows||[]).filter(w=>w.from_position===id && w.active!==false
+            && (!e || String(w.person||'').toLowerCase()===e))
+  };
+}
+const posField=(id,label,val,ph)=>'<label style="display:block;margin-bottom:9px;">'
+  +'<span style="font-size:12.5px;font-weight:600;">'+label+'</span>'
+  +'<input id="'+id+'" value="'+escapeHtmlComms(val||'')+'" placeholder="'+(ph||'')+'" '
+  +'style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);'
+  +'border-radius:8px;margin-top:3px;"></label>';
+
+async function posAddOpen(){
+  if(!roleCanEdit()) return;
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Add position</div>'
+    +'<div class="field-note" style="margin:4px 0 12px;">A job that exists whether or not '
+    +'somebody holds it.</div>'
+    + posField('paTitle','Title','','Field Care Lead')
+    + posField('paMail','Role contact email (optional)','','fieldcare@mo-care.com')
+    +'<label style="display:block;margin-bottom:10px;"><span style="font-size:12.5px;font-weight:600;">'
+    +'Why this position exists</span><textarea id="paWhy" rows="2" style="width:100%;padding:7px 9px;'
+    +'font-size:13px;border:1px solid var(--border);border-radius:8px;margin-top:3px;'
+    +'font-family:inherit;"></textarea></label>'
+    +'<div class="field-note" style="margin-bottom:10px;">It starts <b>vacant</b>. Nothing about it '
+    +'is live until somebody fills it.</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="paGo2" style="padding:7px 14px;font-size:13px;">Add</button>'
+    +'<button class="ghost" id="paNo2" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:420});
+  el.querySelector('#paNo2').onclick=ccPopClose;
+  el.querySelector('#paGo2').onclick=async ()=>{
+    const t=el.querySelector('#paTitle').value.trim(); if(!t) return;
+    const row={ id:'pos_'+t.toLowerCase().replace(/[^a-z0-9]+/g,'_').slice(0,32)+'_'
+                  +Date.now().toString(36).slice(-4),
+      title:t, entity:'cc_ihs',
+      role_email:el.querySelector('#paMail').value.trim().toLowerCase()||null,
+      status:'vacant', person:null, note:el.querySelector('#paWhy').value.trim(),
+      created_at:new Date().toISOString(), created_by:ME.email||'' };
+    ccPopClose();
+    DATA.positions=DATA.positions||[]; DATA.positions.push(row);
+    await persist('positions', row); renderMyTeam();
+  };
+}
+
+async function posEditOpen(id){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms, P=posGet(id); if(!P) return;
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Edit position</div>'
+    +'<div class="field-note" style="margin:4px 0 12px;">The seat, not the person in it.</div>'
+    + posField('peTitle','Title', P.title)
+    + posField('peMail','Role contact email', P.role_email, 'staffing@mo-care.com')
+    +'<div class="field-note" style="margin:-4px 0 10px;">A mailbox that belongs to the job. '
+    +'It never becomes anybody\'s identity, and changing it does not touch the holder\'s own '
+    +'work email.</div>'
+    +'<label style="display:block;margin-bottom:9px;"><span style="font-size:12.5px;font-weight:600;">'
+    +'Why this position exists</span><textarea id="peWhy" rows="2" style="width:100%;padding:7px 9px;'
+    +'font-size:13px;border:1px solid var(--border);border-radius:8px;margin-top:3px;'
+    +'font-family:inherit;">'+esc(P.note||'')+'</textarea></label>'
+    +'<div class="field-note" style="margin-bottom:10px;">Planned responsibilities and the planned '
+    +'schedule are edited from the position\'s cards below, and stay as the template for whoever '
+    +'holds it next.</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="peGo" style="padding:7px 14px;font-size:13px;">Save</button>'
+    +'<button class="ghost" id="peNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:420});
+  el.querySelector('#peNo').onclick=ccPopClose;
+  el.querySelector('#peGo').onclick=async ()=>{
+    const t=el.querySelector('#peTitle').value.trim();
+    if(!t) return;
+    P.title=t;
+    P.role_email=el.querySelector('#peMail').value.trim().toLowerCase()||null;
+    P.note=el.querySelector('#peWhy').value.trim();
+    P.updated_at=new Date().toISOString(); P.updated_by=ME.email||'';
+    ccPopClose(); await persist('positions', P); renderMyTeam();
+  };
+}
+
+async function posFillOpen(id){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms, P=posGet(id); if(!P || P.status==='filled') return;
+  const T=posTemplate(id);
+  const people=ccPeople().filter(x=>x.email);
+  const tmpFrom=P.transfer_from ? String(P.transfer_from).toLowerCase() : '';
+  const tmpResp=tmpFrom ? (DATA.responsibilities||[]).filter(r=>r.active!==false && r.temporary
+      && String(r.person||'').toLowerCase()===tmpFrom) : [];
+  const tmpRecur=tmpFrom ? (DATA.recurring_duties||[]).filter(r=>r.active!==false
+      && String(r.person||'').toLowerCase()===tmpFrom) : [];
+  const opt=(id2,label,note,checked)=>'<label style="display:flex;gap:8px;align-items:flex-start;'
+    +'font-size:13px;margin-bottom:8px;"><input type="checkbox" id="'+id2+'"'+(checked?' checked':'')
+    +' style="width:auto;margin-top:3px;"><span>'+label
+    +(note?'<br><span class="field-note">'+note+'</span>':'')+'</span></label>';
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Fill '+esc(P.title)+'</div>'
+    +'<label style="display:block;margin:10px 0;"><span style="font-size:12.5px;font-weight:600;">Who</span>'
+    +'<select id="pfWho" style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);'
+    +'border-radius:8px;margin-top:3px;"><option value="">Choose a person…</option>'
+    + people.map(x=>'<option value="'+esc(x.email)+'">'+esc(x.name)+'</option>').join('')
+    +'</select></label>'
+    +'<div style="font-size:13px;font-weight:700;margin-top:12px;">What happens</div>'
+    +'<div class="field-note" style="margin:3px 0 8px;">Ticked items are yours to change.</div>'
+    +'<div style="font-size:13px;margin-bottom:8px;">The position becomes <b>Filled</b> and they '
+    +'become the holder. '+esc(P.role_email||'The role mailbox')+' stays with the position.</div>'
+    + (T.resp.length?opt('pfResp',
+        'Give them the position\'s '+T.resp.length+' responsibilit'+(T.resp.length===1?'y':'ies'),
+        T.resp.map(r=>esc(r.text)).join(' · ')+' — the template stays for the next holder',true):'')
+    + (T.duty.length?opt('pfDuty',
+        'Put them on the position\'s '+T.duty.length+' duty window'+(T.duty.length===1?'':'s'),
+        T.duty.map(w=>dutyAreaLabel(w.area)+' '+((w.recur&&w.recur.days)||[]).map(d=>
+          ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(' ')+' '
+          +dutyClockRange(w.recur&&w.recur.from, w.recur&&w.recur.to)).join('<br>'),true):'')
+    + (tmpResp.length?opt('pfEnd',
+        'End '+esc(posPersonName(tmpFrom))+'\'s temporary cover',
+        tmpResp.map(r=>esc(r.text)).join(' · ')+' — kept in the record, not deleted',true):'')
+    + (tmpRecur.length?opt('pfRecur',
+        'Move '+tmpRecur.length+' recurring dut'+(tmpRecur.length===1?'y':'ies')+' across',
+        'Occurrences already created keep their own owner',false):'')
+    +'<div class="field-note" style="color:var(--amber);margin:8px 0 10px;">Domain ownership is not '
+    +'changed here — that lives in Operational Ownership, which is the next build. Until then, new '
+    +'unowned work still routes to whoever the domain says.</div>'
+    +'<div class="field-note" style="margin-bottom:10px;">Everything '+esc(posPersonName(tmpFrom)||'the previous holder')
+    +' already finished stays theirs, under their name.</div>'
+    +'<div id="pfMsg" class="field-note" style="margin-bottom:10px;"></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="pfGo" style="padding:7px 14px;font-size:13px;">Fill position</button>'
+    +'<button class="ghost" id="pfNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:460});
+  el.querySelector('#pfNo').onclick=ccPopClose;
+  el.querySelector('#pfGo').onclick=async ()=>{
+    const who=el.querySelector('#pfWho').value;
+    if(!who){ el.querySelector('#pfMsg').innerHTML=
+      '<span style="color:var(--red);">Choose who is filling it.</span>'; return; }
+    const doResp=!!(el.querySelector('#pfResp')&&el.querySelector('#pfResp').checked);
+    const doDuty=!!(el.querySelector('#pfDuty')&&el.querySelector('#pfDuty').checked);
+    const doEnd =!!(el.querySelector('#pfEnd') &&el.querySelector('#pfEnd').checked);
+    const doRec =!!(el.querySelector('#pfRecur')&&el.querySelector('#pfRecur').checked);
+    const now=new Date().toISOString();
+    ccPopClose();
+    if(doResp) for(const r of T.resp){
+      await roleAddResp(who, { kind:r.kind, text:r.text, domain:r.domain||null,
+        activity:r.activity||null, from_position:id, status:'live' });
+    }
+    if(doDuty) for(const w of T.duty){
+      const row={ id:'dw_'+id+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,4),
+        area:w.area, person:who, from_position:id, status:'live', active:true,
+        recur:JSON.parse(JSON.stringify(w.recur||{})), backup_person:w.backup_person||null,
+        assigned_by:ME.email||'', created_at:now };
+      DATA.duty_windows=DATA.duty_windows||[]; DATA.duty_windows.push(row);
+      await persist('duty_windows', row);
+    }
+    if(doEnd) for(const r of tmpResp){
+      await roleEndResp(r.id, 'Transferred to '+(posPersonName(who))+' on '+now.slice(0,10)
+        +' when '+P.title+' was filled');
+    }
+    if(doRec) for(const r of tmpRecur){ r.person=who; await persist('recurring_duties', r); }
+    P.status='filled'; P.person=who; P.filled_at=now; P.filled_by=ME.email||'';
+    P.holder_history=(P.holder_history||[]).concat([{person:who, name:posPersonName(who), from:now}]);
+    await persist('positions', P);
+    renderMyTeam(); renderHome();
+  };
+}
+
+async function posVacateOpen(id){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms, P=posGet(id); if(!P || P.status!=='filled') return;
+  const who=String(P.person||'').toLowerCase(), nm=posPersonName(who);
+  const L=posLiveRows(id, who);
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Vacate '+esc(P.title)+'</div>'
+    +'<div class="field-note" style="margin:4px 0 10px;">The position stays. '+esc(nm)
+    +' stops holding it.</div>'
+    +'<div style="font-size:13px;font-weight:700;">What ends</div>'
+    +'<div class="field-note" style="margin:5px 0 10px;">'
+    + (L.resp.length? L.resp.length+' responsibilit'+(L.resp.length===1?'y':'ies')
+        +' they have because of this position<br>':'')
+    + (L.duty.length? L.duty.length+' duty window'+(L.duty.length===1?'':'s')+'<br>':'')
+    + (!L.resp.length&&!L.duty.length?'Nothing is attached to them through this position.':'')
+    +'</div>'
+    +'<div style="font-size:13px;font-weight:700;">What stays</div>'
+    +'<div class="field-note" style="margin:5px 0 10px;">'
+    +'The position, its title and '+esc(P.role_email||'no role mailbox')+'<br>'
+    +'The planned responsibilities and schedule, ready for the next holder<br>'
+    +esc(nm)+' in the position\'s history, with the dates<br>'
+    +'Everything they finished, under their name'
+    +'</div>'
+    +'<div class="field-note" style="color:var(--amber);margin-bottom:10px;">Once vacant it stops '
+    +'satisfying coverage. Whatever it was covering will read as a gap, which is the honest '
+    +'answer.</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="pvGo" style="padding:7px 14px;font-size:13px;'
+    +'background:var(--amber);border-color:var(--amber);">Vacate</button>'
+    +'<button class="ghost" id="pvNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:440});
+  el.querySelector('#pvNo').onclick=ccPopClose;
+  el.querySelector('#pvGo').onclick=async ()=>{
+    const now=new Date().toISOString();
+    ccPopClose();
+    for(const r of L.resp) await roleEndResp(r.id, P.title+' was vacated on '+now.slice(0,10));
+    for(const w of L.duty){ w.active=false; w.ended_at=now; w.ended_by=ME.email||'';
+                            await persist('duty_windows', w); }
+    const h=(P.holder_history||[]);
+    for(let i=h.length-1;i>=0;i--){ if(!h[i].until && String(h[i].person||'').toLowerCase()===who){
+      h[i].until=now; break; } }
+    P.holder_history=h; P.status='vacant'; P.person=null;
+    P.vacated_at=now; P.vacated_by=ME.email||'';
+    await persist('positions', P);
+    renderMyTeam(); renderHome();
+  };
+}
+
+async function posArchiveOpen(id){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms, P=posGet(id); if(!P) return;
+  const L=posLiveRows(id);
+  const blockers=[];
+  if(P.status==='filled') blockers.push(esc(posPersonName(P.person))+' still holds it — vacate it first');
+  if(L.duty.length) blockers.push(L.duty.length+' live duty window'+(L.duty.length===1?'':'s')+' still depend on it');
+  if(L.resp.length) blockers.push(L.resp.length+' live responsibilit'+(L.resp.length===1?'y':'ies')+' still come from it');
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Archive '+esc(P.title)+'</div>'
+    +'<div class="field-note" style="margin:4px 0 10px;">Vacant means you still mean to fill it. '
+    +'Archived means the job is gone from how the company works.</div>'
+    + (blockers.length
+      ? '<div style="font-size:13px;color:var(--red);">Not yet:</div><div class="field-note" '
+        +'style="margin:4px 0 10px;">'+blockers.map(b=>'· '+b).join('<br>')+'</div>'
+        +'<button class="ghost" id="paNo" style="padding:7px 14px;font-size:13px;">Close</button>'
+      : '<div class="field-note" style="margin-bottom:10px;">Nobody holds it and nothing live '
+        +'depends on it. Its history and everyone who held it are kept.</div>'
+        +'<div style="display:flex;gap:8px;">'
+        +'<button class="primary" id="paGo" style="padding:7px 14px;font-size:13px;">Archive</button>'
+        +'<button class="ghost" id="paNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>'),
+    {width:420});
+  el.querySelector('#paNo').onclick=ccPopClose;
+  const go=el.querySelector('#paGo'); if(!go) return;
+  go.onclick=async ()=>{
+    ccPopClose();
+    P.status='archived'; P.archived_at=new Date().toISOString(); P.archived_by=ME.email||'';
+    await persist('positions', P); renderMyTeam();
+  };
+}
+
 /* ═══════════════ EDIT SOMEBODY ════════════════════════════════════════════
    Identity lives here: name, phone, whether they are working. Their role,
    responsibilities and escalation live in Edit role, which already does that
@@ -18561,16 +18821,21 @@ function posPanelHtml(){
     +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">POSITIONS</b>'
     +'<span class="field-note">Jobs that exist whether or not somebody holds them</span>'
     +'<span style="flex:1;"></span>'
+    +(roleCanEdit()?'<button class="linklike" style="font-size:12px;" '
+      +'onclick="posAddOpen()">Add position</button>':'')
     +((roleCanEdit()&&posPending().length)?'<button class="linklike" style="font-size:12px;" '
       +'onclick="posSeed()">Create position ('+posPending().length+')</button>':'')+'</div>';
-  h+=list.map(p=>{
+  const live=list.filter(p=>p.status!=='archived'), gone=list.filter(p=>p.status==='archived');
+  h+=live.concat(gone).map(p=>{
     const r=posRowsFor(p.id), filled=posFilled(p.id);
     return '<div class="card" style="padding:14px 16px;margin-bottom:10px;'
-      +(filled?'':'border-left:3px solid var(--amber);')+'">'
+      +(p.status==='archived'?'opacity:.6;':(filled?'':'border-left:3px solid var(--amber);'))+'">'
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
       +'<b style="font-size:15px;">'+esc(p.title)+'</b>'
-      +'<span class="tag-chip" style="background:'+(filled?'var(--teal-bg)':'var(--amber-bg)')
-      +';color:'+(filled?'var(--teal)':'var(--amber)')+';">'+esc(String(p.status||'').toUpperCase())+'</span>'
+      +'<span class="tag-chip" style="background:'+(p.status==='archived'?'var(--border)'
+        :(filled?'var(--teal-bg)':'var(--amber-bg)'))
+      +';color:'+(p.status==='archived'?'var(--text-muted)'
+        :(filled?'var(--teal)':'var(--amber)'))+';">'+esc(String(p.status||'').toUpperCase())+'</span>'
       +(filled?'<span class="field-note">held by '+esc(opsOwnerName(p.person)||p.person)+'</span>'
         :(p.intended_person?'<span class="field-note">intended for '
           +esc(posPersonName(p.intended_person))+'</span>':''))
@@ -18584,8 +18849,24 @@ function posPanelHtml(){
       +r.resp.length+' planned responsibilit'+(r.resp.length===1?'y':'ies')+' · '
       +r.duty.length+' planned duty window'+(r.duty.length===1?'':'s')
       +(filled?'':' · none of it is live')+'</div>'
-      +(filled?'':'<div class="field-note">Samantha and Zach have no position: ownership is not '
-        +'a job that can be vacated.</div>')
+      /* Who has held it, so "who was the Staffing Coordinator in October" has
+         an answer that does not involve digging through deleted records. */
+      +((p.holder_history||[]).length?'<div class="field-note" style="margin-top:4px;">'
+        +(p.holder_history||[]).map(h=>esc(h.name||h.person)+' · '
+          +String(h.from||'').slice(0,10)+' to '+(h.until?String(h.until).slice(0,10):'now'))
+          .join('<br>')+'</div>':'')
+      /* Only the actions that make sense for where it is now. */
+      +(roleCanEdit()?'<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap;">'
+        +(p.status!=='archived'?'<button class="ghost" style="padding:4px 10px;font-size:12px;" '
+          +'onclick="posEditOpen(\''+esc(p.id)+'\')">Edit position</button>':'')
+        +(!filled&&p.status!=='archived'?'<button class="ghost" style="padding:4px 10px;font-size:12px;" '
+          +'onclick="posFillOpen(\''+esc(p.id)+'\')">Fill position</button>':'')
+        +(filled?'<button class="ghost" style="padding:4px 10px;font-size:12px;'
+          +'color:var(--amber);border-color:var(--amber);" '
+          +'onclick="posVacateOpen(\''+esc(p.id)+'\')">Vacate</button>':'')
+        +(!filled&&p.status!=='archived'?'<button class="ghost" style="padding:4px 10px;font-size:12px;" '
+          +'onclick="posArchiveOpen(\''+esc(p.id)+'\')">Archive</button>':'')
+        +'</div>':'')
       +'</div>'; }).join('');
   return h;
 }
