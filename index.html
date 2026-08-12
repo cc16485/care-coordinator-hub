@@ -10873,6 +10873,155 @@ async function addStaffMember(){
   ['new_staff_notify_leads','new_staff_notify_checkins','new_staff_notify_supervisory','new_staff_notify_careplan'].forEach(id=>document.getElementById(id).checked=false);
   renderStaffList();
 }
+/* ═══════════════ OPERATIONAL OWNERSHIP ════════════════════════════════════
+   Who owns an area of the business, in business language, changeable without
+   a terminal. The write goes through set_domain_people, which decides for
+   itself whether you may — the browser cannot alter routing on its own say-so.
+
+   A LIVE OWNER IS ALWAYS A REAL PERSON. A vacant position may be shown as the
+   planned future owner, but it can never be the current one: a seat cannot
+   answer a phone. */
+const OWN_AREAS=[
+  ['scheduling_coverage','Staffing & Scheduling','Open shifts, call-offs, coverage'],
+  ['client_care',        'Client Care','Clients, families, the relationship'],
+  ['family_enquiries',   'Family Enquiries','The front door'],
+  ['caregiver_performance','Caregiver Performance Management','Conduct, reliability, corrective action'],
+  ['field_quality',      'Field Quality & Advanced Care','Hands-on skills in the home'],
+  ['payer_programs',     'Payer Programs & Enrollment','Medicaid IHS · CDS · Veterans Affairs'],
+  ['recruiting_orientation','Recruiting & Orientation','Hiring and starting people'],
+  ['training_compliance','Training & Compliance','Required training and records'],
+  ['program_administration','Programme Administration',''],
+  ['money',              'Money & Approvals','']
+];
+function ownDomain(code){ return (OPS_DOMAINS||[]).find(d=>d.code===code)||null; }
+function ownName(pid){
+  if(!pid) return '';
+  const p=(OPS_PEOPLE||[]).find(x=>x.person_id===pid);
+  return p ? (p.full_name||p.primary_email||'') : '';
+}
+/* The planned successor, if a vacant position is aimed at this area. */
+function ownPlannedFor(code){
+  const r=(DATA.responsibilities||[]).find(x=>x.position && x.domain===code && x.active!==false);
+  if(!r) return null;
+  const P=posGet(r.position);
+  return P ? P : null;
+}
+function ownPanelHtml(){
+  if(!roleCanEdit()) return '';
+  const esc=escapeHtmlComms;
+  if(!(OPS_DOMAINS||[]).length) return '<div style="margin-top:22px;" class="field-note">'
+    +'Operational ownership could not be loaded.</div>';
+  let h='<div style="display:flex;align-items:baseline;gap:10px;margin:22px 0 8px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">OPERATIONAL OWNERSHIP</b>'
+    +'<span class="field-note">Who owns each area, and where an exception goes</span></div>';
+  h+=OWN_AREAS.map(([code,label,note])=>{
+    const d=ownDomain(code); if(!d) return '';
+    const owner=ownName(d.owner_person), backup=ownName(d.backup_person),
+          esc8=ownName(d.escalation_person);
+    const plan=ownPlannedFor(code);
+    const tmp=(DATA.responsibilities||[]).find(r=>r.active!==false && r.kind==='primary'
+      && r.domain===code && r.temporary);
+    return '<div class="card" style="padding:13px 16px;margin-bottom:9px;">'
+      +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
+      +'<b style="font-size:14.5px;">'+esc(label)+'</b>'
+      +(note?'<span class="field-note">'+esc(note)+'</span>':'')
+      +'<span style="flex:1;"></span>'
+      +'<button class="ghost" style="padding:4px 10px;font-size:12px;" '
+      +'onclick="ownChangeOpen(\''+esc(code)+'\')">Change</button></div>'
+      +'<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:6px;font-size:13px;">'
+      +'<span><span class="field-note">owner</span> '
+        +(owner?'<b>'+esc(owner)+'</b>':'<b style="color:var(--amber);">nobody</b>')
+        +(tmp?' <span class="tag-chip" style="background:var(--amber-bg);color:var(--amber);">TEMPORARY</span>':'')
+      +'</span>'
+      +(backup?'<span><span class="field-note">backup</span> '+esc(backup)+'</span>':'')
+      +(esc8?'<span><span class="field-note">escalates to</span> '+esc(esc8)+'</span>':'')
+      +'</div>'
+      +(plan?'<div class="field-note" style="color:var(--amber);margin-top:4px;">Future owner · '
+        +esc(plan.title)+' · '+esc(String(plan.status||'').toUpperCase())+'</div>':'')
+      +'</div>';
+  }).join('');
+  return h;
+}
+
+async function ownChangeOpen(code){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms, d=ownDomain(code); if(!d) return;
+  const area=(OWN_AREAS.find(a=>a[0]===code)||[])[1]||code;
+  const people=(OPS_PEOPLE||[]).filter(p=>p.primary_email);
+  const cur=ownName(d.owner_person);
+  const openItems=(DATA.ops_items||[]).filter(i=>i.status==='open' && i.domain===code);
+  const mine=openItems.filter(i=>i.owner && String(i.owner).toLowerCase()
+    ===String((people.find(p=>p.person_id===d.owner_person)||{}).primary_email||'').toLowerCase());
+  const sel=(id,label,current)=>'<label style="display:block;margin-bottom:9px;">'
+    +'<span style="font-size:12.5px;font-weight:600;">'+label+'</span>'
+    +'<select id="'+id+'" style="width:100%;padding:7px 9px;font-size:13px;'
+    +'border:1px solid var(--border);border-radius:8px;margin-top:3px;">'
+    +'<option value="">— nobody —</option>'
+    + people.map(p=>'<option value="'+esc(p.primary_email)+'"'
+        +(p.person_id===current?' selected':'')+'>'+esc(p.full_name||p.primary_email)+'</option>').join('')
+    +'</select></label>';
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">'+esc(area)+'</div>'
+    +'<div class="field-note" style="margin:4px 0 12px;">A live owner is always a real person. '
+    +'A vacant position can be the planned successor, never the current one.</div>'
+    + sel('owOwner','Owner', d.owner_person)
+    + sel('owBackup','Backup', d.backup_person)
+    + sel('owEsc','Escalates to', d.escalation_person)
+    +'<div id="owWhat" style="font-size:13px;"></div>'
+    +'<div id="owMsg" class="field-note" style="margin:10px 0;"></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="owGo" style="padding:7px 14px;font-size:13px;">Save</button>'
+    +'<button class="ghost" id="owNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:440});
+  const what=el.querySelector('#owWhat');
+  const draw=()=>{
+    const pick=el.querySelector('#owOwner').value;
+    const to=people.find(p=>String(p.primary_email).toLowerCase()===pick);
+    const changed = (to? to.person_id : null) !== (d.owner_person||null);
+    what.innerHTML = !changed ? '<div class="field-note">Owner unchanged.</div>'
+      : '<div style="font-weight:700;margin-bottom:5px;">What this changes</div>'
+        +'<div class="field-note" style="margin-bottom:8px;">'
+        +'New '+esc(area)+' work that arrives without an owner will go to '
+        +(to?'<b>'+esc(to.full_name||to.primary_email)+'</b>':'<b>nobody — it will show as needing an owner</b>')
+        +'.<br>Responsible Now will name them as structurally responsible.</div>'
+        +'<div style="font-weight:700;margin-bottom:5px;">What it does not change</div>'
+        +'<div class="field-note" style="margin-bottom:8px;">'
+        +'Work already assigned stays with whoever has it. Finished work and who did it are '
+        +'untouched.</div>'
+        + (mine.length?'<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;">'
+          +'<input type="checkbox" id="owMove" style="width:auto;margin-top:3px;">'
+          +'<span>Also move '+mine.length+' open item'+(mine.length===1?'':'s')
+          +' currently with '+esc(cur||'the old owner')+'<br><span class="field-note">'
+          +'Off by default. Somebody may be halfway through them.</span></span></label>'
+          : '<div class="field-note">No open work is sitting with the current owner.</div>');
+  };
+  el.querySelector('#owOwner').onchange=draw; draw();
+  el.querySelector('#owNo').onclick=ccPopClose;
+  el.querySelector('#owGo').onclick=async ()=>{
+    const msg=el.querySelector('#owMsg');
+    const owner=el.querySelector('#owOwner').value||null;
+    const backup=el.querySelector('#owBackup').value||null;
+    const esc9=el.querySelector('#owEsc').value||null;
+    const move=!!(el.querySelector('#owMove')&&el.querySelector('#owMove').checked);
+    msg.textContent='Saving…';
+    const { data, error } = await sb.rpc('set_domain_people', {
+      p_code:code, p_owner_email:owner, p_backup_email:backup, p_escalation_email:esc9 });
+    if(error){
+      msg.innerHTML='<span style="color:var(--red);">'+escapeHtmlComms(error.message||'Could not save.')+'</span>';
+      return;
+    }
+    if(move && owner) for(const i of mine){
+      i.owner=owner; i.owner_name=opsOwnerName(owner)||'';
+      i.history=(i.history||[]).concat([{at:new Date().toISOString(), by:ME.email||'',
+        what:'Moved with the '+area+' owner change'}]);
+      await persist('ops_items', i);
+    }
+    ccPopClose();
+    await opsLoadRouting();
+    renderMyTeam(); renderHome();
+  };
+}
+
 /* ═══════════════ POSITION LIFECYCLE ═══════════════════════════════════════
    A position's planned responsibilities and duty windows are a TEMPLATE. They
    are never activated in place. Filling copies them into rows owned by the
@@ -18017,6 +18166,11 @@ function homeShowBacklog(email){
    Hours are NEVER copied into a responsibility. When an activity is named it
    reuses the activity_types keys exactly — interview, orientation, assessment,
    consultation — so the two tables join instead of competing. */
+/* The four real keys in activity_types, confirmed against the database rather
+   than invented. If somebody adds a fifth there, it belongs here too — and if a
+   capability is NOT a bookable activity, it does not belong here at all. */
+const QUAL_ACTIVITIES=[['interview','Interview'],['orientation','Orientation'],
+                       ['assessment','Care assessment'],['consultation','Consultation']];
 const RESP_KINDS=[
   ['primary','YOU OWN','Where you are the primary owner'],
   ['support','YOU SUPPORT','Where you help, or step in when asked'],
@@ -18261,7 +18415,7 @@ function renderMyTeam(){
       +'<button class="ghost" style="padding:4px 10px;font-size:12px;" '
       +'onclick="roleOpen(\''+esc(String(g.email).toLowerCase())+'\')">Open role</button>'
       +'</div></div>').join('');
-  wrap.innerHTML=h+posPanelHtml();
+  wrap.innerHTML=h+posPanelHtml()+ownPanelHtml();
 }
 function roleOpen(email){ switchTab('myrole'); renderMyRole(email); }
 
@@ -18340,6 +18494,17 @@ function roleEdit(email){
       +'<select id="reDomain" style="flex:1;padding:7px 9px;font-size:13px;border-radius:8px;">'
       +'<option value="">No domain</option>'
       +doms.map(d=>'<option value="'+esc(d.code)+'">'+esc(d.label)+'</option>').join('')+'</select></div>'
+    /* Only for a QUALIFIED row, and only the real activity_types keys. A
+       qualification that cannot name what it is a qualification FOR cannot
+       answer "who may run this interview", which is the only question it
+       exists to answer. */
+    +'<div id="reActWrap" style="display:none;margin-top:6px;">'
+      +'<select id="reActivity" style="width:100%;padding:7px 9px;font-size:13px;border-radius:8px;">'
+      +'<option value="">Which activity?</option>'
+      +QUAL_ACTIVITIES.map(a=>'<option value="'+a[0]+'">'+a[1]+'</option>').join('')
+      +'</select>'
+      +'<div class="field-note" style="margin-top:3px;">Approved to perform it. Separate from '
+      +'when they are free to do it, which lives in the team calendar.</div></div>'
     +'<input id="reRecur" placeholder="Recurring expectation, optional" '
       +'style="width:100%;font-size:13px;padding:7px 9px;border-radius:8px;margin-top:6px;">'
     +'<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px;">'
@@ -18380,14 +18545,25 @@ function roleEdit(email){
     renderMyTeam(); el.querySelector('#reSave').textContent='Saved';
     setTimeout(()=>{ const b=el.querySelector('#reSave'); if(b) b.textContent='Save role'; },1500);
   };
+  const reKindEl=el.querySelector('#reKind'), reActWrap=el.querySelector('#reActWrap');
+  const syncAct=()=>{ if(reActWrap) reActWrap.style.display =
+    (reKindEl && reKindEl.value==='qualified') ? 'block' : 'none'; };
+  if(reKindEl) reKindEl.onchange=syncAct; syncAct();
   el.querySelector('#reAdd').onclick=async ()=>{
     const text=el.querySelector('#reText').value.trim();
     if(!text) return;
-    await roleAddResp(email,{ text, kind:el.querySelector('#reKind').value,
+    const kind=el.querySelector('#reKind').value;
+    const activity=(el.querySelector('#reActivity')||{}).value||'';
+    if(kind==='qualified' && !activity){
+      const a=el.querySelector('#reActivity'); if(a){ a.style.borderColor='var(--red)'; a.focus(); }
+      return;
+    }
+    await roleAddResp(email,{ text, kind, activity:activity||null,
       domain:el.querySelector('#reDomain').value||null,
       recurring:el.querySelector('#reRecur').value.trim()||null,
       temporary:el.querySelector('#reTemp').checked,
       transfer_note:el.querySelector('#reTransfer').value.trim()||null });
+    if(el.querySelector('#reActivity')) el.querySelector('#reActivity').value='';
     el.querySelector('#reText').value=''; el.querySelector('#reRecur').value='';
     el.querySelector('#reTransfer').value=''; el.querySelector('#reTemp').checked=false;
     paint(); renderMyTeam();
