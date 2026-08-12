@@ -18171,11 +18171,25 @@ function homeShowBacklog(email){
    capability is NOT a bookable activity, it does not belong here at all. */
 const QUAL_ACTIVITIES=[['interview','Interview'],['orientation','Orientation'],
                        ['assessment','Care assessment'],['consultation','Consultation']];
+/* CAPABILITY IS NOT QUALIFICATION, AND NEITHER IS AVAILABILITY.
+     qualified   may they perform this BOOKABLE activity?   activity_types
+     capability  are they trained to HELP with this operational work?
+     available   are they free right now?                   the team calendar
+
+   Somebody can hold Scheduling support and be off, with a client, or not on
+   duty. Suggesting help one day means capable AND live AND available; this is
+   only the first of the three, and deliberately so.
+
+   Started with one key, because one is what the operating model actually needs.
+   Adding a capability is cheap; a list of thirty nobody uses is not. */
+const CAPABILITY_TYPES=[
+  ['scheduling_support','Scheduling support','Open shifts and call-offs, when the owner needs hands']];
 const RESP_KINDS=[
   ['primary','YOU OWN','Where you are the primary owner'],
   ['support','YOU SUPPORT','Where you help, or step in when asked'],
   ['backup','BACKUP CAPABILITY','Yours to cover when the usual owner is unavailable'],
-  ['qualified','TRAINED TO DO THIS','Approved to perform it. Does not make it yours to own'],
+  ['qualified','APPROVED TO PERFORM','A bookable activity — an interview, an orientation. Does not make it yours to own'],
+  ['capability','TRAINED TO HELP WITH','Operational work you can safely assist with when the owner needs hands. Not a booking, not ownership'],
   ['not_primary','NOT YOUR PRIMARY LANE','You can still help. You are not expected to carry it']];
 
 function roleProfile(email){
@@ -18505,6 +18519,13 @@ function roleEdit(email){
       +'</select>'
       +'<div class="field-note" style="margin-top:3px;">Approved to perform it. Separate from '
       +'when they are free to do it, which lives in the team calendar.</div></div>'
+    +'<div id="reCapWrap" style="display:none;margin-top:6px;">'
+      +'<select id="reCapability" style="width:100%;padding:7px 9px;font-size:13px;border-radius:8px;">'
+      +'<option value="">Which operational work?</option>'
+      +CAPABILITY_TYPES.map(a=>'<option value="'+a[0]+'">'+a[1]+'</option>').join('')
+      +'</select>'
+      +'<div class="field-note" style="margin-top:3px;">Trained to help, not to own it, and not '
+      +'a claim that they are free.</div></div>'
     +'<input id="reRecur" placeholder="Recurring expectation, optional" '
       +'style="width:100%;font-size:13px;padding:7px 9px;border-radius:8px;margin-top:6px;">'
     +'<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px;">'
@@ -18546,24 +18567,33 @@ function roleEdit(email){
     setTimeout(()=>{ const b=el.querySelector('#reSave'); if(b) b.textContent='Save role'; },1500);
   };
   const reKindEl=el.querySelector('#reKind'), reActWrap=el.querySelector('#reActWrap');
-  const syncAct=()=>{ if(reActWrap) reActWrap.style.display =
-    (reKindEl && reKindEl.value==='qualified') ? 'block' : 'none'; };
+  const reCapWrap=el.querySelector('#reCapWrap');
+  const syncAct=()=>{ const k=reKindEl?reKindEl.value:'';
+    if(reActWrap) reActWrap.style.display = k==='qualified'  ? 'block':'none';
+    if(reCapWrap) reCapWrap.style.display = k==='capability' ? 'block':'none'; };
   if(reKindEl) reKindEl.onchange=syncAct; syncAct();
   el.querySelector('#reAdd').onclick=async ()=>{
     const text=el.querySelector('#reText').value.trim();
     if(!text) return;
     const kind=el.querySelector('#reKind').value;
     const activity=(el.querySelector('#reActivity')||{}).value||'';
+    const capability=(el.querySelector('#reCapability')||{}).value||'';
+    /* Each kind must name the thing it is about, or it answers no question. */
     if(kind==='qualified' && !activity){
       const a=el.querySelector('#reActivity'); if(a){ a.style.borderColor='var(--red)'; a.focus(); }
       return;
     }
-    await roleAddResp(email,{ text, kind, activity:activity||null,
+    if(kind==='capability' && !capability){
+      const c=el.querySelector('#reCapability'); if(c){ c.style.borderColor='var(--red)'; c.focus(); }
+      return;
+    }
+    await roleAddResp(email,{ text, kind, activity:activity||null, capability:capability||null,
       domain:el.querySelector('#reDomain').value||null,
       recurring:el.querySelector('#reRecur').value.trim()||null,
       temporary:el.querySelector('#reTemp').checked,
       transfer_note:el.querySelector('#reTransfer').value.trim()||null });
     if(el.querySelector('#reActivity')) el.querySelector('#reActivity').value='';
+    if(el.querySelector('#reCapability')) el.querySelector('#reCapability').value='';
     el.querySelector('#reText').value=''; el.querySelector('#reRecur').value='';
     el.querySelector('#reTransfer').value=''; el.querySelector('#reTemp').checked=false;
     paint(); renderMyTeam();
@@ -18848,6 +18878,15 @@ const OM_CORRECTIONS={
     { person:'krystal@mo-care.com', kind:'primary',
       text:'Monthly check-ins — private, LTC and PACE clients', domain:'client_care' }]
 };
+/* A qualified row that names no activity cannot answer "who may run this
+   interview", which is the only question qualified exists to answer. Angiel's
+   "Scheduling support" was one — it is operational help, not a bookable
+   activity, and forcing it into activity_types would have started a junk
+   drawer. It becomes a capability instead, keeping its meaning. */
+function omStrayQualified(){
+  return (DATA.responsibilities||[]).filter(r=>r.active!==false && r.kind==='qualified'
+    && !r.activity);
+}
 function omPending(){
   const A=(DATA.responsibilities||[]);
   const act=(p,k,t)=>A.find(r=>String(r.person||'').toLowerCase()===p && r.active!==false
@@ -18860,7 +18899,8 @@ function omPending(){
     add:   OM_CORRECTIONS.add.filter(a=>!act(a.person,a.kind,a.text))
   };
 }
-function omCount(){ const p=omPending(); return p.notes.length+p.end.length+p.add.length; }
+function omCount(){ const p=omPending();
+  return p.notes.length+p.end.length+p.add.length+omStrayQualified().length; }
 
 async function roleApplyCorrections(){
   if(!roleCanEdit()) return;
@@ -18882,6 +18922,11 @@ async function roleApplyCorrections(){
       +'<div class="field-note" style="margin:3px 0 10px;">'
       +p.add.map(a=>who(a.person)+' — '+esc(a.text)+' <i>('+esc(a.kind)+')</i>').join('<br>')
       +'</div>':'')
+    +(omStrayQualified().length?'<div style="font-size:13px;">Moved out of Qualified:</div>'
+      +'<div class="field-note" style="margin:3px 0 8px;">'
+      +omStrayQualified().map(r=>esc(opsOwnerName(r.person)||r.person)+' — '+esc(r.text)
+        +'<br><span style="opacity:.8;">not a bookable activity, so it becomes a capability</span>')
+        .join('<br>')+'</div>':'')
     +'<div class="field-note" style="margin-bottom:10px;">Cierra and Angiel are not written here. '
     +'Their rows are planned, and planned has to exist before a future employee can hold one.</div>'
     +(omCount()?'<div style="display:flex;gap:8px;">'
@@ -18910,6 +18955,13 @@ async function roleApplyCorrections(){
     for(const a of omPending().add){
       const {person,...rest}=a;
       await roleAddResp(person, rest);
+    }
+    for(const r of omStrayQualified()){
+      r.kind='capability';
+      r.capability = /schedul/i.test(String(r.text||'')) ? 'scheduling_support' : null;
+      r.converted_at=new Date().toISOString(); r.converted_by=ME.email||'';
+      r.converted_from='qualified';
+      await persist('responsibilities', r);
     }
     renderMyTeam();
   };
