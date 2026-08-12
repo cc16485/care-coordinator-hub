@@ -4445,8 +4445,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <button class="secondary" onclick="lpPrintFacesheet()">🖨 Print facesheet</button>
           <button class="secondary" onclick="openActivityModal(lpLead.id)">📅 Schedule activity</button>
           <button class="secondary" onclick="openStaffingModal(lpLead.id)">📨 Send to Staffing</button>
-          <button class="secondary" id="lpDelBtn" onclick="lpDeleteLead()"
-                  style="margin-left:auto;color:var(--red);border-color:var(--red);">🗑 Delete lead</button>
+          <button class="secondary" id="lpArchBtn" onclick="lpArchiveLead()"
+                  style="margin-left:auto;">📥 Archive</button>
+          <button class="secondary" id="lpMoreBtn" onclick="lpMoreOpen()">⋯ More</button>
           <button class="primary" id="lp_convert_btn" onclick="lpConvertLead()">✅ Convert → AxisCare client</button>
         </div>
         <div id="lp_converted" class="field-note" style="margin-top:8px;display:none;"></div>
@@ -7221,7 +7222,7 @@ function ccRenderPulse(){
   const box=document.getElementById('topbarPulse'); if(!box) return;
   if(!DATA || !Array.isArray(DATA.leads)){ box.innerHTML=''; return; }
   const t=today();
-  const fu=DATA.leads.filter(l=>l.follow_up_due && l.follow_up_due<=t && l.status!=='Converted' && l.status!=='Lost').length;
+  const fu=DATA.leads.filter(l=>!l.archived && l.follow_up_due && l.follow_up_due<=t && l.status!=='Converted' && l.status!=='Lost').length;
   let late=0;
   try{
     const me=String(opsMeKey()||'').toLowerCase();
@@ -7701,7 +7702,7 @@ async function cmpRecipients(){
   let out=[];
   const leadName=l=>((l.first_name||'')+' '+(l.last_name||'')).trim();
   if(src==='leads_all') out=(DATA.leads||[]).filter(l=>l.email).map(l=>({email:l.email,name:leadName(l)}));
-  if(src==='leads_open') out=(DATA.leads||[]).filter(l=>l.email&&l.status!=='Converted'&&l.status!=='Lost').map(l=>({email:l.email,name:leadName(l)}));
+  if(src==='leads_open') out=(DATA.leads||[]).filter(l=>l.email&&!l.archived&&l.status!=='Converted'&&l.status!=='Lost').map(l=>({email:l.email,name:leadName(l)}));
   if(src==='leads_lost') out=(DATA.leads||[]).filter(l=>l.email&&l.status==='Lost').map(l=>({email:l.email,name:leadName(l)}));
   if(src==='orgs') out=(DATA.referral_orgs||[]).filter(o=>o.email).map(o=>({email:o.email,name:o.people||o.name||''}));
   if(src==='caregivers'){
@@ -7796,7 +7797,7 @@ function switchLeadsSubtab(name){
 }
 function updateLeadsSubtabBadges(){
   const pendingCount = DATA.post_call_followups.filter(f=>f.status==='pending_approval').length;
-  const overdueLeads = DATA.leads.filter(l=>l.follow_up_due && l.follow_up_due<=today() && l.status!=='Converted' && l.status!=='Lost').length;
+  const overdueLeads = DATA.leads.filter(l=>!l.archived && l.follow_up_due && l.follow_up_due<=today() && l.status!=='Converted' && l.status!=='Lost').length;
   const dueBanner = document.getElementById('leadsDueBanner');
   if(dueBanner){
     dueBanner.style.display = overdueLeads ? 'block' : 'none';
@@ -7809,11 +7810,18 @@ function updateLeadsSubtabBadges(){
 }
 function renderLeads(){
   updateLeadsSubtabBadges();
-  renderFilterPills('leadsFilters', ['All','New','Contacted','Assessment Scheduled','Converted','Lost','Follow-up Due'], activeFilters.leads, 'leads');
-  let rows = DATA.leads.filter(l => ccViewMatch(l.assigned_coordinator) && searchMatch(`${l.first_name} ${l.last_name} ${l.phone} ${l.email} ${l.client_first_name||''} ${l.client_last_name||''} ${l.client_phone||''}`));
+  const archivedCount=(DATA.leads||[]).filter(l=>l.archived).length;
+  renderFilterPills('leadsFilters', ['All','New','Contacted','Assessment Scheduled','Converted','Lost','Follow-up Due']
+    .concat(archivedCount?['Archived ('+archivedCount+')']:[]), activeFilters.leads, 'leads');
   const f = activeFilters.leads;
+  const wantArchived = String(f||'').indexOf('Archived')===0;
+  /* Archived leads leave the working list entirely. They are not lost — they
+     have their own pill and everything about them is intact — but a record
+     somebody archived should stop appearing in the day's work. */
+  let rows = DATA.leads.filter(l => (wantArchived ? !!l.archived : !l.archived)
+    && ccViewMatch(l.assigned_coordinator) && searchMatch(`${l.first_name} ${l.last_name} ${l.phone} ${l.email} ${l.client_first_name||''} ${l.client_last_name||''} ${l.client_phone||''}`));
   if(f==='Follow-up Due') rows = rows.filter(l => l.follow_up_due && l.follow_up_due <= today());
-  else if(f!=='All') rows = rows.filter(l => l.status === f);
+  else if(f!=='All' && !wantArchived) rows = rows.filter(l => l.status === f);
 
   const wrap = document.getElementById('leadsTableWrap');
   if(rows.length===0){ wrap.innerHTML = '<div class="empty">No leads match.</div>'; return; }
@@ -8168,6 +8176,127 @@ const LP_ATTRS = [
 let lpLead = null;
 let lpCommsKind = 'all';
 
+/* ═══════════════ LEAD LIFECYCLE ═══════════════════════════════════════════
+   ARCHIVE IS THE EVERYDAY ACTION. Deleting was the only way to get a record off
+   the list, which meant ordinary tidying destroyed history — the source it came
+   from, who worked it, what was said, and whether it ever converted.
+
+   Archiving keeps every one of those and takes it out of the working list.
+   Permanent deletion still exists for a record that should never have been
+   here, and it lives behind More where it cannot be reached by accident. */
+function leadDisplayName(l){
+  return ((l.first_name||'')+' '+(l.last_name||'')).trim() || '(no name)';
+}
+async function lpArchiveLead(){
+  if(!lpLead) return;
+  const esc=escapeHtmlComms, L=lpLead, nm=leadDisplayName(L);
+  const el=ccPopOpen(document.getElementById('lpArchBtn')||document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Archive this lead?</div>'
+    +'<div style="font-size:13.5px;margin-top:8px;"><b>'+esc(nm)+'</b></div>'
+    +'<div class="field-note">'+esc(L.phone||'no phone')+' · '+esc(L.status||'no status')+'</div>'
+    +'<label style="display:block;margin:11px 0 4px;font-size:12.5px;font-weight:600;">Why (optional)</label>'
+    +'<select id="laWhy" style="width:100%;padding:7px 9px;font-size:13px;'
+    +'border:1px solid var(--border);border-radius:8px;">'
+    +['','Not a real enquiry','Duplicate','Went elsewhere','No longer needs care',
+      'Could not reach them','Out of our area','Other']
+      .map(v=>'<option value="'+esc(v)+'">'+(v||'— no reason —')+'</option>').join('')
+    +'</select>'
+    +'<div class="field-note" style="margin-top:10px;">It comes off the working list and out of '
+    +'the follow-up counts. Everything stays: where it came from, who worked it, the notes, the '
+    +'activities, and whether it ever converted. You can restore it at any time.</div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px;">'
+    +'<button class="primary" id="laGo" style="padding:7px 14px;font-size:13px;">Archive</button>'
+    +'<button class="ghost" id="laNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:400});
+  el.querySelector('#laNo').onclick=ccPopClose;
+  el.querySelector('#laGo').onclick=async ()=>{
+    const why=el.querySelector('#laWhy').value;
+    ccPopClose();
+    L.archived=true; L.archived_at=new Date().toISOString(); L.archived_by=ME.email||'';
+    if(why) L.archive_reason=why;
+    await persist('leads', L);
+    const panel=document.getElementById('leadProfile'); if(panel) panel.style.display='none';
+    lpLead=null; renderActiveTab();
+  };
+}
+async function lpRestoreLead(){
+  if(!lpLead) return;
+  const L=lpLead, esc=escapeHtmlComms;
+  const el=ccPopOpen(document.getElementById('lpArchBtn')||document.body,
+    '<div style="font-size:13.5px;">Bring <b>'+esc(leadDisplayName(L))+'</b> back to the working list?</div>'
+    +(L.archived_at?'<div class="field-note" style="margin-top:5px;">Archived '
+      +esc(String(L.archived_at).slice(0,10))
+      +(L.archive_reason?' — '+esc(L.archive_reason):'')+'</div>':'')
+    +'<div class="field-note" style="margin-top:5px;">Their stage, follow-up date and history are '
+    +'exactly as they were.</div>'
+    +'<div style="display:flex;gap:8px;margin-top:11px;">'
+    +'<button class="primary" id="lrGo" style="padding:6px 12px;font-size:12.5px;">Restore</button>'
+    +'<button class="ghost" id="lrNo" style="padding:6px 12px;font-size:12.5px;">Cancel</button></div>',
+    {width:370});
+  el.querySelector('#lrNo').onclick=ccPopClose;
+  el.querySelector('#lrGo').onclick=async ()=>{
+    ccPopClose();
+    L.archived=false; L.restored_at=new Date().toISOString(); L.restored_by=ME.email||'';
+    await persist('leads', L);
+    renderActiveTab();
+  };
+}
+/* More: the things you do rarely, kept away from the things you do daily. */
+function lpMoreOpen(){
+  if(!lpLead) return;
+  const esc=escapeHtmlComms, L=lpLead;
+  const item=(id,label,note,danger)=>'<div style="padding:8px 0;border-bottom:1px solid var(--border);">'
+    +'<button class="linklike" id="'+id+'" style="font-size:13px;font-weight:600;'
+    +(danger?'color:var(--red);':'')+'">'+label+'</button>'
+    +(note?'<div class="field-note">'+note+'</div>':'')+'</div>';
+  const el=ccPopOpen(document.getElementById('lpMoreBtn')||document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">More</div>'
+    +'<div class="field-note" style="margin:3px 0 6px;">'+esc(leadDisplayName(L))+'</div>'
+    + item('lmDup','Mark as duplicate','Archives it and records which one it duplicates')
+    + (L.archived ? item('lmRestore','Restore to the working list','')
+                  : item('lmArchive','Archive','Takes it off the list, keeps everything'))
+    + item('lmDel','Delete permanently','Removes the record and its work items. Cannot be undone', true),
+    {width:340});
+  const on=(id,fn)=>{ const b=el.querySelector('#'+id); if(b) b.onclick=fn; };
+  on('lmArchive',()=>{ ccPopClose(); lpArchiveLead(); });
+  on('lmRestore',()=>{ ccPopClose(); lpRestoreLead(); });
+  on('lmDel',   ()=>{ ccPopClose(); lpDeleteLead(); });
+  on('lmDup',   ()=>{ ccPopClose(); lpMarkDuplicate(); });
+}
+async function lpMarkDuplicate(){
+  if(!lpLead) return;
+  const esc=escapeHtmlComms, L=lpLead;
+  const others=(DATA.leads||[]).filter(x=>x.id!==L.id && !x.archived)
+    .sort((a,b)=>leadDisplayName(a).localeCompare(leadDisplayName(b)));
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Mark as duplicate</div>'
+    +'<div class="field-note" style="margin:4px 0 10px;">'+esc(leadDisplayName(L))
+    +' is the same person as…</div>'
+    +'<select id="ldOf" style="width:100%;padding:7px 9px;font-size:13px;'
+    +'border:1px solid var(--border);border-radius:8px;">'
+    +'<option value="">Choose the one to keep…</option>'
+    + others.map(x=>'<option value="'+esc(x.id)+'">'+esc(leadDisplayName(x))
+        +(x.phone?' · '+esc(x.phone):'')+'</option>').join('')
+    +'</select>'
+    +'<div class="field-note" style="margin-top:9px;">This one is archived and points at the one '
+    +'you keep. Nothing is deleted, so if it turns out they are different people you can restore '
+    +'it.</div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px;">'
+    +'<button class="primary" id="ldGo" style="padding:7px 14px;font-size:13px;">Mark duplicate</button>'
+    +'<button class="ghost" id="ldNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:400});
+  el.querySelector('#ldNo').onclick=ccPopClose;
+  el.querySelector('#ldGo').onclick=async ()=>{
+    const keep=el.querySelector('#ldOf').value; if(!keep) return;
+    ccPopClose();
+    L.archived=true; L.archived_at=new Date().toISOString(); L.archived_by=ME.email||'';
+    L.archive_reason='Duplicate'; L.duplicate_of=keep;
+    await persist('leads', L);
+    const panel=document.getElementById('leadProfile'); if(panel) panel.style.display='none';
+    lpLead=null; renderActiveTab();
+  };
+}
+
 /* Deleting a lead did not exist. Everything else about a lead could be edited,
    scheduled, converted or printed, but a record entered by mistake — or one of
    my own test rows — could only be removed by somebody writing SQL. That is not
@@ -8448,7 +8577,7 @@ function renderStandup(){
   const monday=new Date(t+'T00:00:00').getDay()===1;
   const yd=addDaysISO(t, monday?-3:-1);
   const ydLabel=monday?'Friday':'yesterday';
-  const openLeads=(DATA.leads||[]).filter(l=>l.status!=='Converted'&&l.status!=='Lost');
+  const openLeads=(DATA.leads||[]).filter(l=>!l.archived && l.status!=='Converted'&&l.status!=='Lost');
   const checkins=(DATA.client_checkins||[]).filter(c=>c.client_name);
   let od=[]; try{ od=opsOverdue(); }catch(e){}
   const row=(label,closedTxt,due,late,name)=>
