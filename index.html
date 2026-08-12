@@ -12483,6 +12483,57 @@ function csDomainForStep(step, pathway){
   return CS_STEP_DOMAIN[key] || null;
 }
 
+/* ── TWO CLOCKS, DELIBERATELY DIFFERENT ───────────────────────────────────
+   "Has this step waited too long?" and "has the coordinator had a fair working
+   window to fix it before their supervisor is pulled in?" are different
+   questions and must not share a timer.
+
+   STUCK is calendar days, unchanged: 3 internal, 14 for a DSDS-owned step.
+   A client is objectively stuck on a Saturday; the calendar does not pause
+   because the office is shut.
+
+   ESCALATION is BUSINESS days: 2 working days after the operational due date.
+   An internal step overdue on Friday escalates Tuesday, not Sunday. Nobody
+   should be pulled in over a weekend because 48 elapsed hours passed.
+
+   Monday–Friday only. There is no holiday calendar anywhere in this estate to
+   reuse, and building one for this alone would be disproportionate — so a
+   public holiday counts as a working day for now. Worth revisiting if
+   escalations start landing on Thanksgiving.
+
+   ops-escalate is deliberately NOT changed: it measures elapsed minutes, which
+   is right for missed calls. A call missed at 6pm Friday should be chased. */
+function csAddBusinessDays(from, n){
+  /* Parsed at LOCAL NOON. `new Date('2026-08-13')` is UTC midnight, which in
+     Central time is the previous evening — so getDay() returned the wrong
+     weekday and a Thursday due date escalated to a Saturday. Noon is far
+     enough from either boundary that no timezone shifts the day. */
+  const d = (typeof from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(from))
+    ? new Date(from + 'T12:00:00')
+    : new Date(from);
+  let left = n;
+  while(left > 0){
+    d.setDate(d.getDate() + 1);
+    const day = d.getDay();
+    if(day !== 0 && day !== 6) left--;    // 0 Sun, 6 Sat
+  }
+  return d;
+}
+const CS_ESCALATION_BUSINESS_DAYS = 2;
+
+/* The date the coordinator's window runs out and the domain's escalation
+   person is pulled in. */
+function csEscalationDate(dueIso){
+  /* The string is passed through untouched so csAddBusinessDays can parse it
+     at local noon. Wrapping it in new Date() here was undoing that fix one
+     line above the function it was fixing. */
+  const d = csAddBusinessDays(String(dueIso).slice(0,10), CS_ESCALATION_BUSINESS_DAYS);
+  /* Formatted from local parts, not toISOString, which would convert back to
+     UTC and re-introduce the same off-by-one. */
+  const pad = n => String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+
 /* The window before a stalled step becomes work. A step owned by DSDS is not
    our staff being slow, so it gets far longer — the existing socIsStuck()
    already draws that distinction and this keeps it. */
@@ -12541,10 +12592,17 @@ function csEvaluate(leads, items, nowIso){
       priority: waited > window*3 ? 'high' : 'normal',
       created_at: existing ? existing.created_at : now,
       last_activity_at: now,
-      due: existing ? existing.due : now.slice(0,10),
+      /* Operational due date: when the step's own window ran out — derived
+         from the wait, not from when the evaluator happened to notice. */
+      due: existing ? existing.due
+         : new Date(Date.parse(now) - (waited - window)*86400000).toISOString().slice(0,10),
       opened_by:'client-start',
-      client_start:{ step:cur.label, role:cur.role, waited_days:waited, window }
+      client_start:{ step:cur.label, step_id:cur.id, role:cur.role,
+                     waited_days:waited, window,
+                     escalate_on: null }      // filled below, from the due date
     };
+    item.client_start.escalate_on = csEscalationDate(item.due);
+    item.escalate_to_domain = domain;        // resolves to a person at send time
     if(!existing) out.create.push(item);
     else if(existing.status!=='open' ||
             (existing.client_start||{}).step !== cur.label ||
