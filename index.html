@@ -6189,7 +6189,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -6306,7 +6306,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -6333,9 +6333,9 @@ async function resolveMe(){
   if(roleEl) roleEl.textContent = ME.shift==='manager'?'Manager · sees everything':ME.shift==='evening'?'Evening · Start of Care':'Care Coordinator';
   // The chip is just who's signed in — Settings lives in its own tab (and
   // the sidebar), shown to owners below. The old gear shortcut is gone.
-  const isOwner=DISC_APPROVERS.includes(ME.email);
-  const sft=document.getElementById('settingsFtab');
-  if(sft) sft.style.display=isOwner?'flex':'none';
+  /* Roles are read a moment later, in opsLoadRouting, so asking here would
+     always answer no. Applied once now and again when the answer is known. */
+  ccApplyRoleUi();
   // The evening coordinator's work lives in Start of Care — land them there.
   if(ME.shift==='evening' && !window._landedOnce){ window._landedOnce=true; switchTab('soc'); }
 
@@ -7076,7 +7076,7 @@ const CC_SECTION_TITLES = {
 };
 /* ---------- Approved hourly pay rates ----------
    One saved record, id 'rates', in the pay_rates key. Only the people in
-   DISC_APPROVERS can edit; everyone else sees the same figures read-only,
+   manage_rates can edit; everyone else sees the same figures read-only,
    so coordinators writing a job post are never guessing at pay. */
 const PAY_ROLES = [
   { k:'caregiver', label:'Caregiver' },
@@ -7102,7 +7102,7 @@ function payRangeText(r){
 function renderPayRates(){
   const wrap = document.getElementById('payRatesBody'); if(!wrap) return;
   const rec = payRatesRec();
-  const canEdit = DISC_APPROVERS.includes(ME.email);
+  const canEdit = ccCan('manage_rates');
   const stamp = rec.updated_at
     ? '<div class="field-note" style="margin-top:10px;">Last saved by '+esc(rec.updated_by||'someone')
       +' on '+new Date(rec.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+'.</div>'
@@ -7190,7 +7190,7 @@ function ccSetSectionTitle(tab){
 function gotoTab(tab){ return switchTab(tab); }
 
 function switchTab(tab){
-  if(tab==='settings' && !DISC_APPROVERS.includes(ME.email)){ alert('Settings are managed by Samantha & Zach.'); return; }
+  if(tab==='settings' && !ccCan('manage_settings')){ alert('You do not have permission to open Settings.'); return; }
   ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
   if(lpv) lpv.style.display='none';
@@ -8307,9 +8307,9 @@ async function lpMarkDuplicate(){
 async function lpDeleteLead(){
   if(!lpLead) return;
   const esc=escapeHtmlComms;
-  if(!roleCanEdit()){
+  if(!ccCan('manage_leads')){
     ccPopOpen(document.getElementById('lpDelBtn')||document.body,
-      '<div style="font-size:13.5px;">Deleting a lead is owner-only.</div>'
+      '<div style="font-size:13.5px;">You do not have permission to delete a lead.</div>'
       +'<div class="field-note" style="margin-top:4px;">Ask Samantha or Zach, or mark it '
       +'<b>Lost</b> instead — that keeps the record and takes it off your list.</div>',{width:330});
     return;
@@ -9557,7 +9557,7 @@ async function ckptSave(book){
 }
 /* ---------- Client rate card (Guided Call side panel) ----------
    Same deal as the caregiver pay rates: one shared record, id 'rates', in
-   the client_rates key. Only DISC_APPROVERS (Samantha & Zach) can edit;
+   the client_rates key. Only manage_rates can edit;
    coordinators read the same figures on every machine, so nobody quotes
    from memory. Levels follow her Care Levels system. */
 const CARE_RATE_LEVELS=[
@@ -9608,7 +9608,7 @@ function ckptServicesHtml(text){
 function ckptRenderRates(edit){
   const box=document.getElementById('ckptRatesBody'); if(!box) return;
   const rec=clientRatesRec();
-  const canEdit=DISC_APPROVERS.includes(ME.email);
+  const canEdit=ccCan('manage_rates');
   if(edit && canEdit){
     box.innerHTML = CARE_RATE_LEVELS.map(L=>{
       const r=(rec.levels||{})[L.k]||{};
@@ -11036,7 +11036,7 @@ function ownPlannedFor(code){
   return P ? P : null;
 }
 function ownPanelHtml(){
-  if(!roleCanEdit()) return '';
+  if(!ccCan('manage_ownership')) return '';
   const esc=escapeHtmlComms;
   if(!(OPS_DOMAINS||[]).length) return '<div style="margin-top:22px;" class="field-note">'
     +'Operational ownership could not be loaded.</div>';
@@ -11073,7 +11073,7 @@ function ownPanelHtml(){
 }
 
 async function ownChangeOpen(code){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_ownership')) return;
   const esc=escapeHtmlComms, d=ownDomain(code); if(!d) return;
   const area=(OWN_AREAS.find(a=>a[0]===code)||[])[1]||code;
   const people=(OPS_PEOPLE||[]).filter(p=>p.primary_email);
@@ -11182,7 +11182,7 @@ const posField=(id,label,val,ph)=>'<label style="display:block;margin-bottom:9px
   +'border-radius:8px;margin-top:3px;"></label>';
 
 async function posAddOpen(){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_positions')) return;
   const el=ccPopOpen(document.body,
     '<div style="font-size:14px;font-weight:800;color:var(--navy);">Add position</div>'
     +'<div class="field-note" style="margin:4px 0 12px;">A job that exists whether or not '
@@ -11215,7 +11215,7 @@ async function posAddOpen(){
 }
 
 async function posEditOpen(id){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_positions')) return;
   const esc=escapeHtmlComms, P=posGet(id); if(!P) return;
   const el=ccPopOpen(document.body,
     '<div style="font-size:14px;font-weight:800;color:var(--navy);">Edit position</div>'
@@ -11249,7 +11249,7 @@ async function posEditOpen(id){
 }
 
 async function posFillOpen(id){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_positions')) return;
   const esc=escapeHtmlComms, P=posGet(id); if(!P || P.status==='filled') return;
   const T=posTemplate(id);
   const people=ccPeople().filter(x=>x.email);
@@ -11333,7 +11333,7 @@ async function posFillOpen(id){
 }
 
 async function posVacateOpen(id){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_positions')) return;
   const esc=escapeHtmlComms, P=posGet(id); if(!P || P.status!=='filled') return;
   const who=String(P.person||'').toLowerCase(), nm=posPersonName(who);
   const L=posLiveRows(id, who);
@@ -11381,7 +11381,7 @@ async function posVacateOpen(id){
 }
 
 async function posArchiveOpen(id){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_positions')) return;
   const esc=escapeHtmlComms, P=posGet(id); if(!P) return;
   const L=posLiveRows(id);
   const blockers=[];
@@ -11445,7 +11445,7 @@ function staffRefs(email){
   };
 }
 async function staffEditOpen(email){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_staff')) return;
   const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
   const st=(DATA.coordinator_staff||[]).find(x=>String(x.email||'').toLowerCase()===e);
   const prof=roleProfile(e)||{};
@@ -11500,7 +11500,7 @@ async function staffEditOpen(email){
 
 /* Changing the key somebody is known by. Counted first, then done in one go. */
 async function staffChangeEmail(oldEmail){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_staff')) return;
   const esc=escapeHtmlComms, from=String(oldEmail||'').toLowerCase();
   const r=staffRefs(from);
   const total=r.staff.length+r.profile.length+r.resp.length+r.duty.length+r.backup.length
@@ -11575,7 +11575,7 @@ async function staffChangeEmail(oldEmail){
    This asks business questions and does the record-keeping itself. It says what
    it will create, in plain words, before it creates anything. */
 function staffAddOpen(){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_staff')) return;
   const esc=escapeHtmlComms;
   const vacant=(DATA.positions||[]).filter(p=>p.status!=='filled');
   const F=(id,label,ph,type)=>'<label style="display:block;margin-bottom:9px;">'
@@ -11774,7 +11774,7 @@ const HUB_STATE={
   none:    { label:'No account',             tone:'var(--text-muted)' }
 };
 async function hubAccessOpen(email){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_access')) return;
   const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
   const nm=posPersonName(e);
   const el=ccPopOpen(document.body,
@@ -11879,16 +11879,16 @@ function staffHoldings(email){
    to remove the last owner who can sign in; employment needs the same guard,
    because deactivating the wrong owner is the one mistake with no way back. */
 function activeOwners(){
-  return DISC_APPROVERS.filter(o=>{
+  return ccOwnerEmails().filter(o=>{
     const st=(DATA.coordinator_staff||[]).find(x=>String(x.email||'').toLowerCase()===o);
     return !st || st.active!==false;               // absent from the roster still counts as active
   });
 }
 async function staffDeactivate(email){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_staff')) return;
   const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
   const h=staffHoldings(e); if(!h) return;
-  const isOwner=DISC_APPROVERS.includes(e);
+  const isOwner=ccIsOwner(e);
   if(isOwner && activeOwners().length<=1){
     ccPopOpen(document.body,
       '<div style="font-size:14px;font-weight:800;color:var(--navy);">Not this one</div>'
@@ -11960,6 +11960,12 @@ async function staffDeactivate(email){
         +'<span>End '+h.resp.length+' responsibilit'+(h.resp.length===1?'y':'ies')
         +', keeping the record<br><span class="field-note">'
         +'"Who owned this in August" stays answerable.</span></span></label>':'')
+    + (ccRolesFor(e).length?'<label style="display:flex;gap:8px;align-items:flex-start;">'
+        +'<input type="checkbox" checked disabled style="width:auto;margin-top:3px;">'
+        +'<span>Remove their Hub role, <b>'+esc(ccRoleLabel(ccRolesFor(e)[0]))+'</b>'
+        +'<br><span class="field-note">Not optional. A role that outlives the job is a former '
+        +'employee who can still administer the company. The change is logged, and a rehire is '
+        +'given a role again deliberately.</span></span></label>':'')
     + (h.position?'<label style="display:flex;gap:8px;align-items:flex-start;">'
         +'<input type="checkbox" checked disabled style="width:auto;margin-top:3px;">'
         +'<span>Vacate <b>'+esc(h.position.title)+'</b>, keeping the position'
@@ -12069,6 +12075,27 @@ async function staffDeactivate(email){
         +stillOwned.map(d=>escapeHtmlComms(d.code)).join(', ')+'. Nothing else was changed.</div>',
         {width:400});
       return;
+    }
+
+    /* Their AUTHORITY goes with the same structural pass, and for the same
+       reason: a staff_roles row that outlives the job is a former employee
+       who can still administer the company. Skipped only when somebody is
+       deactivating themselves, because set_staff_role refuses self-changes
+       and there is no honest way around that from here. */
+    if(e!==String(ME.email||'').toLowerCase() && ccRolesFor(e).length){
+      const rr=await ccSetRole(e, null);
+      if(!rr.ok){
+        ccPopClose();
+        ccPopOpen(document.body,
+          '<div style="font-size:14px;font-weight:800;color:var(--navy);">Stopped</div>'
+          +'<div style="font-size:13.5px;margin-top:7px;">'+escapeHtmlComms(nm)+' is still active.</div>'
+          +'<div class="field-note" style="margin-top:5px;">Their Hub role could not be removed: '
+          +escapeHtmlComms(rr.error)+'</div>'
+          +'<div class="field-note" style="margin-top:5px;">Ownership handover already succeeded. '
+          +'Nothing else was changed, and they keep their authority until this works.</div>',
+          {width:410});
+        return;
+      }
     }
     ccPopClose();
 
@@ -12576,7 +12603,7 @@ function renderCoordMsgs(){
     +'<div class="field-note">'+esc(t.from_name||'')+' · '+esc(t.urgency||'')+'</div></div>'
     +'<button class="linklike" onclick="coordMsgDone(\''+t.id+'\')">Done ✓</button></div>';
   const open=(DATA.staffing_tasks||[]).filter(t=>t.direction==='to_coordinators'&&t.status==='open');
-  const forOwners=DISC_APPROVERS.includes(ME.email)
+  const forOwners=ccIsOwner()
     ? (DATA.staffing_tasks||[]).filter(t=>t.direction==='to_owners'&&t.status==='open') : [];
   wrap.innerHTML =
     (open.length
@@ -12596,6 +12623,134 @@ async function coordMsgDone(id){
 /* ---------------- Corrective-action approvals (FOUNDERS ONLY) — staffing
    drafts the notice; only Samantha or Zach may approve any discipline,
    warnings and terminations alike (her decision Jul 11 2026). ------------ */
+/* ═══════════════ PERMISSIONS ══════════════════════════════════════════════
+   Authority used to be two email addresses in an array, checked in 56 places.
+   That made the Hub self-service for owners and nobody else: Krystal could not
+   add a staff member, manage a position or edit a duty window, so the office
+   stopped whenever Samantha was away.
+
+   Authority now comes from the structural role model we already built —
+   staff_roles, the same table the hub-access function reads. One question, one
+   answer: WHY can this person do this? Because they hold a role, and that role
+   grants this permission. Changing somebody's authority is a data change.
+
+   WHAT THIS DELIBERATELY DOES NOT TOUCH: opsCanSee. That is not a permission,
+   it is a confidentiality rule about reading sensitive items somebody else
+   raised. Folding it into an office role would quietly widen who can read
+   private matters, which is not what anybody asked for. */
+let CC_ROLES=[];                       // roles held by the signed-in person
+let CC_ROLE_BY_EMAIL={};               // every person's roles, for owner identity
+let CC_ROLES_LOADED=false;             // did the read actually succeed?
+
+/* The default policy. Overridden by app_data 'role_permissions' when present,
+   so the mapping itself is data and does not need a deploy to change. */
+const CC_ROLE_PERMS_DEFAULT={
+  owner_admin:[ 'manage_staff','manage_positions','manage_duty','manage_leads',
+                'manage_ownership','approve_discipline','manage_access',
+                'manage_settings','manage_rates' ],
+  /* Krystal's role. Runs the office; does not approve discipline, administer
+     access, set pay, or change owner settings. */
+  care_coordinator:[ 'manage_staff','manage_positions','manage_duty',
+                     'manage_leads','manage_ownership' ],
+  /* PROPOSED, and deliberately the smallest thing that lets the job be done:
+     coverage. It is NOT a copy of the Care Coordinator role. Widen it on
+     purpose once the job is real, by editing the role_permissions record —
+     that is a data change, not a deploy. */
+  staffing_coordinator:[ 'manage_duty' ]
+};
+
+/* The same nine permissions said the way somebody would say them out loud.
+   Every screen that explains authority reads from here, so the wording cannot
+   drift between the role picker and the confirmation. */
+const CC_PERM_LABEL={
+  manage_staff:'manage staff',
+  manage_positions:'manage positions',
+  manage_duty:'manage duty coverage',
+  manage_leads:'manage leads',
+  manage_ownership:'manage operational ownership',
+  approve_discipline:'approve discipline',
+  manage_access:'manage Hub access',
+  manage_settings:'change Owner settings',
+  manage_rates:'change rates'
+};
+const CC_PERM_ORDER=['manage_staff','manage_positions','manage_duty','manage_leads',
+  'manage_ownership','approve_discipline','manage_access','manage_settings','manage_rates'];
+
+/* The roles that legitimately exist, read from the database catalog. The
+   picker cannot offer anything else and set_staff_role will not accept
+   anything else, so the interface has no way to invent an identifier. */
+let CC_ROLE_TYPES=[];
+function ccRoleLabel(role){
+  if(!role) return 'No Hub role';
+  const t=CC_ROLE_TYPES.find(x=>x.role===role);
+  return t ? t.label : role;
+}
+function ccRolePermsFor(role){
+  const map=ccRolePerms();
+  return CC_PERM_ORDER.filter(p=>(map[role]||[]).indexOf(p)>-1);
+}
+function ccRolePerms(){
+  const rec=(DATA.role_permissions||[]).find(r=>r.id==='map');
+  return (rec && rec.perms) ? rec.perms : CC_ROLE_PERMS_DEFAULT;
+}
+function ccMyRoles(){ return CC_ROLES; }
+function ccCan(perm){
+  const map=ccRolePerms();
+  return (CC_ROLES||[]).some(r=>(map[r]||[]).indexOf(perm)>-1);
+}
+/* Answers "why can they?" in one sentence, for the interface and for me. */
+function ccWhy(perm){
+  const map=ccRolePerms();
+  const via=(CC_ROLES||[]).filter(r=>(map[r]||[]).indexOf(perm)>-1);
+  return via.length ? 'Held through: '+via.join(', ') : 'No role grants this.';
+}
+
+/* Owner IDENTITY, which is not the same question as owner PERMISSION.
+   "Is this person an owner" is asked by things that are not grants at all:
+   the guard that refuses to deactivate the last owner, and the mailbox for
+   messages addressed to owners. Those follow the role table too, so there is
+   still one answer to who an owner is. */
+function ccIsOwner(email){
+  const e=String(email==null?(ME&&ME.email||''):email).toLowerCase();
+  return (CC_ROLE_BY_EMAIL[e]||[]).indexOf('owner_admin')>-1;
+}
+function ccOwnerEmails(){
+  return Object.keys(CC_ROLE_BY_EMAIL).filter(e=>ccIsOwner(e));
+}
+function ccRolesFor(email){
+  return CC_ROLE_BY_EMAIL[String(email||'').toLowerCase()]||[];
+}
+
+/* If the role table could not be read, every permission answers no. That is
+   the safe direction, but a screen that has quietly lost its buttons looks
+   identical to a screen that never had them — the exact confusion this hub
+   keeps getting caught by. So say it out loud instead. */
+/* Anything the CHROME shows or hides on a permission has to be re-applied
+   once roles are actually known, because the first paint happens before the
+   read finishes. Every other gate is inside a click handler and therefore
+   already runs late enough. */
+function ccApplyRoleUi(){
+  const sft=document.getElementById('settingsFtab');
+  if(sft) sft.style.display=ccCan('manage_settings')?'flex':'none';
+}
+function ccRolesBanner(){
+  const id='ccRolesWarn';
+  const old=document.getElementById(id); if(old) old.remove();
+  if(CC_ROLES_LOADED || !ME.email) return;
+  const d=document.createElement('div'); d.id=id;
+  d.style.cssText='background:#fdecec;border-bottom:1px solid #e6b7b7;color:#7a1f1f;'
+    +'padding:9px 14px;font-size:13px;text-align:center;';
+  d.innerHTML='Your permissions could not be loaded, so editing controls are hidden. '
+    +'Nothing has changed about what you are allowed to do. Reload the page to try again. '
+    +'<button class="linklike" onclick="location.reload()" style="color:#7a1f1f;">Reload</button>';
+  document.body.insertBefore(d, document.body.firstChild);
+}
+
+/* RETIRED as an authority source. Nothing decides what anybody may DO from
+   this list any more — every action asks ccCan(), and "is this an owner" asks
+   the role table through ccIsOwner(). It survives for exactly two readers:
+   opsCanSee, the confidentiality rule, which was deliberately left alone; and
+   legacyCan, the parked comparison shim. Do not add a third. */
 const DISC_APPROVERS=['samantha@mo-care.com','zach@mo-care.com'];
 
 /* ---------------- LEGACY AUTHORITY, IN ONE PLACE (build 4) ----------------
@@ -12668,7 +12823,7 @@ async function opsCheckRender(){
   const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
   const L=[], say=s=>L.push(s==null?'':s), yn=b=>b?'PASS':'FAIL';
   const me = (ME&&ME.email) ? ME.email.toLowerCase() : '';
-  const owner = DISC_APPROVERS.includes(me);
+  const owner = ccIsOwner(me);
 
   say('OPERATING LAYER CHECK — '+new Date().toLocaleString());
   say('signed in as : '+(me||'(not signed in)'));
@@ -12851,7 +13006,7 @@ async function renderStaffAccess(){
 function renderApprovalsCc(){
   const wrap=document.getElementById('approvalsCard'); if(!wrap) return;
   const esc=escapeHtmlComms;
-  if(!DISC_APPROVERS.includes(ME.email)){ wrap.innerHTML=''; updateAttnCard(); return; }
+  if(!ccCan('approve_discipline')){ wrap.innerHTML=''; updateAttnCard(); return; }
   const pending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
   if(!pending.length){ wrap.innerHTML=''; updateAttnCard(); return; }
   wrap.innerHTML='<details class="attx" id="approvalsDetails"><summary>📝 Write-ups awaiting your approval<span class="cnt">'+pending.length+'</span></summary>'
@@ -12872,7 +13027,7 @@ function renderApprovalsCc(){
 }
 async function approveWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
-  if(!DISC_APPROVERS.includes(ME.email)){ alert('Only Samantha or Zach can approve discipline.'); return; }
+  if(!ccCan('approve_discipline')){ alert('You do not have permission to approve discipline.'); return; }
   if(!confirm('Approve this '+a.level+' for '+a.caregiver+'? Your name ('+(ME.name||ME.email)+') goes on the approval, and staffing will print, review and issue it.')) return;
   a.status='approved'; a.approved_by=ME.name||ME.email; a.approved_at=new Date().toISOString();
   await persist('discipline_actions',a);
@@ -12880,7 +13035,7 @@ async function approveWriteupCc(id){
 }
 async function rejectWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
-  if(!DISC_APPROVERS.includes(ME.email)){ alert('Only Samantha or Zach can act on discipline.'); return; }
+  if(!ccCan('approve_discipline')){ alert('You do not have permission to act on discipline.'); return; }
   const why=prompt('Tell staffing what to change (they\'ll see this on the draft):',''); if(why===null) return;
   a.status='draft'; a.reject_note=why.trim()||'needs changes';
   await persist('discipline_actions',a);
@@ -13106,7 +13261,7 @@ function renderCommsPage(){
   const DIR_LABEL={to_staffing:'→ Staffing',to_coordinators:'→ Coordinators',to_owners:'→ Owners'};
   wrap.innerHTML=all.map(t=>{
     const outgoing=t.from_email===ME.email||t.direction==='to_staffing'||t.direction==='to_owners';
-    const canDone=t.status==='open'&&(t.direction==='to_coordinators'||(t.direction==='to_owners'&&DISC_APPROVERS.includes(ME.email)));
+    const canDone=t.status==='open'&&(t.direction==='to_coordinators'||(t.direction==='to_owners'&&ccIsOwner()));
     return '<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;align-items:flex-start;">'
       +'<span style="font-size:16px;">'+(t.direction==='to_coordinators'?'📥':'📤')+'</span>'
       +'<div style="flex:1;min-width:0;">'
@@ -13125,7 +13280,7 @@ function renderCommsPage(){
 }
 function updateCommsTabBadge(){
   const b=document.getElementById('commsTabBadge'); if(!b) return;
-  const n=(DATA.staffing_tasks||[]).filter(t=>t.status==='open'&&(t.direction==='to_coordinators'||(t.direction==='to_owners'&&DISC_APPROVERS.includes(ME.email)))).length;
+  const n=(DATA.staffing_tasks||[]).filter(t=>t.status==='open'&&(t.direction==='to_coordinators'||(t.direction==='to_owners'&&ccIsOwner()))).length;
   b.style.display=n?'inline-flex':'none'; b.textContent=n;
   const g=document.getElementById('gb-team');
   if(g){ g.style.display=n?'inline-flex':'none'; g.textContent=n; }
@@ -13136,7 +13291,7 @@ function renderInboxCc(){
   const box=document.getElementById('inboxList'); if(!box) return;
   const esc=escapeHtmlComms;
   const fmt=iso=>{ try{ return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } };
-  const mine=(DATA.staffing_tasks||[]).filter(t=>t.direction==='to_coordinators'||(t.direction==='to_owners'&&DISC_APPROVERS.includes(ME.email)))
+  const mine=(DATA.staffing_tasks||[]).filter(t=>t.direction==='to_coordinators'||(t.direction==='to_owners'&&ccIsOwner()))
     .sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
   const open=mine.filter(t=>t.status==='open'), done=mine.filter(t=>t.status==='done').slice(0,20);
   const row=t=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13.5px;">'
@@ -13765,8 +13920,7 @@ async function pbLoad(btn){
 }
 
 /* The same people who could always approve a rate. */
-const pbCanSetPay = () => (typeof DISC_APPROVERS !== 'undefined')
-  ? DISC_APPROVERS.includes((typeof ME !== 'undefined' && ME.email) || '') : true;
+const pbCanSetPay = () => (typeof ccCan === 'function') ? ccCan('manage_rates') : false;
 const pbMoney = v => (v===null||v===undefined||v==='') ? '' : '$'+Number(v).toFixed(2).replace(/\.00$/,'');
 /* Live-in is paid by the day, so the unit belongs to the role and everything
    that quotes a rate asks for it rather than assuming an hour. */
@@ -17402,12 +17556,46 @@ async function opsLoadRouting(){
     OPS_ROUTING={}; (r.data||[]).forEach(x=>{ OPS_ROUTING[x.key]=x.person_id; });
     OPS_DOMAINS=(d.data||[]).filter(x=>x.entity==='cc_ihs');
     OPS_PEOPLE=p.data||[];
+    /* Which roles everybody holds. Read from the table, never claimed by the
+       browser. The whole map is loaded, not only mine, because two questions
+       need it: what may I do, and who are the owners (the last-owner guard
+       and the "to owners" mailbox both have to know that without an email
+       list). staff_roles is SELECT-only for authenticated, so reading it all
+       grants nothing — every write still goes through a definer function that
+       re-checks authority server-side. */
+    try{
+      const [rr,tt]=await Promise.all([
+        /* Scoped to this company on purpose. staff_roles is keyed by entity,
+           and set_staff_role only ever writes cc_ihs, so reading every entity
+           would let a role granted for the CDS company quietly confer
+           authority in this hub. Read and write have to agree. */
+        sb.from('staff_roles').select('person_id, role').eq('entity','cc_ihs'),
+        sb.from('staff_role_types').select('role, label, description, sort, active')
+      ]);
+      if(rr.error) throw new Error(rr.error.message);
+      /* The catalog is allowed to be missing — 009 may not have run yet. The
+         hub then knows the roles people hold but offers no picker, which is
+         exactly the state it was in before this build. */
+      CC_ROLE_TYPES=(tt&&!tt.error)
+        ? (tt.data||[]).filter(x=>x.active).sort((a,b)=>(a.sort||0)-(b.sort||0)) : [];
+      const byId={}; (OPS_PEOPLE||[]).forEach(x=>{ byId[x.person_id]=String(x.primary_email||'').toLowerCase(); });
+      CC_ROLE_BY_EMAIL={};
+      (rr.data||[]).forEach(x=>{
+        const em=byId[x.person_id]; if(!em) return;
+        (CC_ROLE_BY_EMAIL[em]=CC_ROLE_BY_EMAIL[em]||[]).push(x.role);
+      });
+      CC_ROLES=CC_ROLE_BY_EMAIL[String(ME.email||'').toLowerCase()]||[];
+      CC_ROLES_LOADED=true;
+    }catch(e){ CC_ROLE_BY_EMAIL={}; CC_ROLES=[]; CC_ROLES_LOADED=false; }
   }catch(e){
     // Inert. Feeders leave things unassigned, which is exactly what they did
     // before Step 1, so a missing table degrades to yesterday rather than to
     // broken.
     OPS_ROUTING={}; OPS_DOMAINS=[]; OPS_PEOPLE=[];
+    CC_ROLES=[]; CC_ROLE_BY_EMAIL={}; CC_ROLES_LOADED=false;
   }
+  ccApplyRoleUi();
+  ccRolesBanner();
 }
 function opsAllDomains(){ return OPS_DOMAINS; }
 
@@ -17554,7 +17742,7 @@ function opsInitials(name){
 function opsStaffRole(email){
   const s=(DATA.coordinator_staff||[]).find(x=>String(x.email||'').toLowerCase()===String(email||'').toLowerCase());
   if(!s) return '';
-  if(DISC_APPROVERS.includes(String(email||'').toLowerCase())) return 'Owner/Admin';
+  if(ccIsOwner(email)) return 'Owner/Admin';
   return s.role || (s.shift==='day'?'Care Coordinator':s.shift==='evening'?'Evening':'');
 }
 
@@ -18508,7 +18696,9 @@ function roleEveryone(){
   });
   return out;
 }
-function roleCanEdit(){ return DISC_APPROVERS.includes(ME.email); }
+/* Kept as a name because the My Team call sites read well with it. It is now
+   a permission, not an email list. */
+function roleCanEdit(){ return ccCan('manage_staff'); }
 
 /* ── MY ROLE ─────────────────────────────────────────────────────────────── */
 function renderMyRole(email){
@@ -18625,6 +18815,123 @@ function renderMyRole(email){
 }
 
 /* ── MY TEAM ─────────────────────────────────────────────────────────────── */
+/* ---------------- HUB ROLE, ON THE PERSON ---------------------------------
+   Four things stay separate here on purpose, because collapsing any two of
+   them is how somebody quietly acquires authority nobody granted:
+
+     POSITION        the seat they hold          (Staffing Coordinator)
+     ROLE            their authority in the Hub  (Care Coordinator)
+     PERMISSIONS     what that role permits      (manage_staff, ...)
+     RESPONSIBILITIES the outcomes they own      (Staffing and Scheduling)
+
+   Filling a position grants nothing. This block is the only place a role is
+   read or changed, and it never mentions staff_roles. */
+function roleHubPanelHtml(email){
+  const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
+  const held=ccRolesFor(e);
+  const role=held[0]||'';
+  const perms=role?ccRolePermsFor(role):[];
+  return '<div style="margin-top:10px;padding:10px 12px;background:var(--bg);'
+    +'border:1px solid var(--border);border-radius:9px;">'
+    +'<div style="display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;">'
+    +'<span style="font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;'
+    +'color:var(--navy);">Hub role &amp; permissions</span>'
+    +'<span style="flex:1;"></span>'
+    +((ccIsOwner()&&CC_ROLE_TYPES.length)
+      ?'<button class="linklike" style="font-size:12px;" onclick="roleChangeOpen(\''+esc(e)+'\')">'
+       +(role?'Change role':'Give a role')+'</button>':'')
+    +'</div>'
+    +'<div style="margin-top:5px;font-size:13.5px;font-weight:700;">'+esc(ccRoleLabel(role))+'</div>'
+    +(perms.length
+      ? '<div class="field-note" style="margin-top:4px;">Allows</div>'
+        +'<ul style="margin:3px 0 0;padding-left:18px;font-size:12.5px;line-height:1.6;">'
+        +perms.map(p=>'<li>'+esc(CC_PERM_LABEL[p]||p)+'</li>').join('')+'</ul>'
+      : '<div class="field-note" style="margin-top:4px;">No Hub actions. They can sign in and see '
+        +'their work, but cannot administer anything.</div>')
+    +'</div>';
+}
+
+/* Owner/Admin only, and the server checks that again for itself. The preview
+   is the point: nobody should confirm a role without reading, in words, both
+   what it opens and what it still refuses. */
+async function roleChangeOpen(email){
+  /* Deliberately ccIsOwner, not a permission. set_staff_role checks for
+     owner_admin itself, and a button the database will refuse is worse than
+     no button. The two must ask the identical question. */
+  if(!ccIsOwner()) return;
+  const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
+  const who=posPersonName(e)||e;
+  const first=String(who).trim().split(/\s+/)[0]||who;
+  if(e===String(ME.email||'').toLowerCase()){
+    ccPopOpen(document.body,
+      '<div style="font-size:14px;font-weight:800;color:var(--navy);">Not your own role</div>'
+      +'<div style="font-size:13.5px;margin-top:7px;">Nobody can change their own Hub role, '
+      +'including an owner. Ask the other owner to do it.</div>',{width:360});
+    return;
+  }
+  const current=(ccRolesFor(e)[0])||'';
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Change '+esc(first)+'&rsquo;s Hub role</div>'
+    +'<div class="field-note" style="margin:4px 0 10px;">'+esc(e)+'</div>'
+    +'<select id="rcPick" style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);'
+    +'border-radius:8px;background:#fff;">'
+    +'<option value="">No Hub role</option>'
+    +CC_ROLE_TYPES.map(t=>'<option value="'+esc(t.role)+'"'+(t.role===current?' selected':'')+'>'
+      +esc(t.label)+'</option>').join('')
+    +'</select>'
+    +'<div id="rcPrev" style="margin-top:11px;"></div>'
+    +'<div id="rcMsg" class="field-note" style="margin:9px 0;"></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="rcGo" style="padding:7px 14px;font-size:13px;">Confirm role</button>'
+    +'<button class="ghost" id="rcNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:430});
+  const pick=el.querySelector('#rcPick');
+  const draw=()=>{
+    const r=pick.value;
+    const allow=r?ccRolePermsFor(r):[];
+    const deny=CC_PERM_ORDER.filter(p=>allow.indexOf(p)<0);
+    const t=CC_ROLE_TYPES.find(x=>x.role===r);
+    el.querySelector('#rcPrev').innerHTML=
+      (t&&t.description?'<div class="field-note" style="margin-bottom:7px;">'+esc(t.description)+'</div>':'')
+      +(allow.length
+        ? '<div style="font-size:13px;">This allows '+esc(first)+' to:</div>'
+          +'<ul style="margin:3px 0 8px;padding-left:18px;font-size:12.5px;line-height:1.6;">'
+          +allow.map(p=>'<li>'+esc(CC_PERM_LABEL[p])+'</li>').join('')+'</ul>'
+        : '<div style="font-size:13px;">This gives '+esc(first)+' no Hub actions at all.</div>')
+      +(deny.length
+        ? '<div style="font-size:13px;">'+esc(first)+' will still <b>not</b> be able to:</div>'
+          +'<ul style="margin:3px 0 0;padding-left:18px;font-size:12.5px;line-height:1.6;color:var(--text-muted);">'
+          +deny.map(p=>'<li>'+esc(CC_PERM_LABEL[p])+'</li>').join('')
+          /* Said every time, because it is the question a role picker most
+             invites somebody to assume the wrong answer to. */
+          +'<li>read confidential items they could not already see</li></ul>'
+        : '');
+  };
+  pick.onchange=draw; draw();
+  el.querySelector('#rcNo').onclick=ccPopClose;
+  el.querySelector('#rcGo').onclick=async ()=>{
+    const msg=el.querySelector('#rcMsg');
+    msg.innerHTML='Saving…';
+    const r=await ccSetRole(e, pick.value);
+    if(!r.ok){ msg.innerHTML='<span style="color:var(--red);">'+esc(r.error)+'</span>'; return; }
+    ccPopClose();
+    await opsLoadRouting();              // re-read authority from the table
+    renderMyTeam(); renderHome(); ccApplyRoleUi();
+  };
+}
+
+/* The single call. Nothing else in the hub writes a role. */
+async function ccSetRole(email, role){
+  try{
+    const { data, error } = await sb.rpc('set_staff_role',
+      { p_email:String(email||'').toLowerCase(), p_role:role||null, p_entity:'cc_ihs' });
+    if(error) return { ok:false, error:error.message||'The database refused that change.' };
+    return { ok:true, row:(data&&data[0])||null };
+  }catch(err){
+    return { ok:false, error:'Could not reach the database. Nothing was changed.' };
+  }
+}
+
 function renderMyTeam(){
   const wrap=document.getElementById('myTeamWrap'); if(!wrap) return;
   const esc=escapeHtmlComms;
@@ -18693,6 +19000,7 @@ function renderMyTeam(){
         +'Carrying '+cnt('primary')+' primary responsibilities'
         +(temp?', '+temp+' of them marked temporary':'')+'</div>':'')
       +(temp?'<div class="field-note" style="margin-top:4px;">'+temp+' temporary — planned to move</div>':'')
+      +roleHubPanelHtml(e)
       +'</div>';
   }).join('');
   /* Former staff do not vanish. They leave the roster and stay in the record,
@@ -18751,7 +19059,7 @@ async function roleEndResp(id, why){
 }
 
 function roleEdit(email){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_staff')) return;
   const esc=escapeHtmlComms;
   const p=roleProfile(email)||{}, rs=respFor(email,true);
   const name=opsOwnerName(email)||email;
@@ -18962,7 +19270,7 @@ function roleSeedPending(){
     .filter(e=>staff.includes(e) && !roleProfile(e));
 }
 async function roleSeedStarting(){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_staff')) return;
   const esc=escapeHtmlComms;
   const SEED={
     'samantha@mo-care.com':{ title:'Owner and Administrator',
@@ -19185,7 +19493,7 @@ function omCount(){ const p=omPending();
   return p.notes.length+p.end.length+p.add.length+omStrayQualified().length; }
 
 async function roleApplyCorrections(){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_staff')) return;
   const esc=escapeHtmlComms, p=omPending();
   const who=e=>esc(opsOwnerName(e)||e);
   const el=ccPopOpen(document.body,
@@ -19281,7 +19589,7 @@ const PROFILE_FIX={
   'krystal@mo-care.com':{ title:'Care Coordinator (Private Pay, LTC, Medicare GUIDE)' }};
 function posPending(){ return POS_SEED.filter(p=>!posGet(p.id)); }
 async function posSeed(){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_positions')) return;
   const esc=escapeHtmlComms, todo=posPending();
   const el=ccPopOpen(document.body,
     '<div style="font-size:14px;font-weight:800;color:var(--navy);">Create position</div>'
@@ -19495,7 +19803,7 @@ function planCount(){ const p=planPending();
   return p.profiles.length+p.resp.length+p.duty.length+p.posResp.length+p.names.length; }
 
 async function roleSeedPlanned(){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_staff')) return;
   const esc=escapeHtmlComms, p=planPending();
   const live=p.resp.filter(x=>!x[2]).length, plan=p.resp.filter(x=>x[2]).length;
   const el=ccPopOpen(document.body,
@@ -19725,7 +20033,7 @@ async function recurEnd(id){
 }
 
 function recurEdit(email){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_duty')) return;
   const esc=escapeHtmlComms;
   const doms=opsAllDomains();
   const resp=respFor(email).filter(r=>r.kind==='primary'||r.kind==='support');
@@ -20196,7 +20504,7 @@ function dutyInboxFor(area){
    a one-off for a swap, a day off, or an overnight shift. A one-off always
    wins, so covering for somebody is an ordinary edit. */
 function dutyEdit(){
-  if(!roleCanEdit()) return;
+  if(!ccCan('manage_duty')) return;
   const esc=escapeHtmlComms;
   const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const areas=DUTY_AREAS.concat([['direct_care','Working a client shift',
@@ -20397,7 +20705,7 @@ async function dutyRemove(id){
 function renderHome(){
   const wrap=document.getElementById('homeWrap'); if(!wrap) return;
   const esc=escapeHtmlComms;
-  const owner=DISC_APPROVERS.includes(ME.email);
+  const owner=ccIsOwner();
   const b=myWorkBuckets();
   const now=Date.now();
   const hrs=(i)=>Math.floor((now-Date.parse(i.created_at||''))/3600000);
@@ -21892,7 +22200,7 @@ function gheNewFor(clientId){
    pool to claim from, her caseload, her GHE forms. */
 function nurseMe(){
   if(!ME.email) return null;
-  if(DISC_APPROVERS.includes(ME.email)) return null;
+  if(ccIsOwner()) return null;
   if((DATA.coordinator_staff||[]).some(s=>String(s.email||'').toLowerCase()===ME.email)) return null;
   return (DATA.nurse_staff||[]).find(s=>String(s.email||'').toLowerCase()===ME.email)||null;
 }
@@ -22671,7 +22979,7 @@ function renderNurseVisits(){
    Documents live in app_data key 'sop_library' as {id,title,body,updated_at,
    updated_by} — in the database, not in this file, because some SOPs are
    deliberately kept out of the public repo. Everyone signed in can read;
-   only DISC_APPROVERS (Samantha & Zach) see the add/edit/delete controls.
+   only manage_settings sees the add/edit/delete controls.
    The RLS on app_data is what actually protects the content; the button
    gating is just tidiness. Markdown rendering is a small local converter:
    headings, bold/italic, inline code, fenced blocks, tables, lists, rules. */
@@ -22679,7 +22987,7 @@ function renderNurseVisits(){
   const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   /* ME and DISC_APPROVERS are top-level let/const — not window properties —
      so they must be referenced directly (this script runs after both). */
-  const isOwner=()=>{ try{ return DISC_APPROVERS.includes(ME.email); }catch(e){ return false; } };
+  const isOwner=()=>{ try{ return ccCan('manage_settings'); }catch(e){ return false; } };
   const docs=()=>(DATA.sop_library||[]).slice().sort((a,b)=>String(a.title||'').localeCompare(String(b.title||'')));
   let openId=null, editId=null, staffingLinks=null;
 
