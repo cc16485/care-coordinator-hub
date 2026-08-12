@@ -27,3 +27,30 @@ const FIXTURES = [
 ];
 if (typeof module !== 'undefined') module.exports = { FIXTURES, K, iso, CLEAN };
 if (typeof globalThis !== 'undefined') globalThis.CCEligFixtures = { FIXTURES, K, iso, CLEAN };
+
+/* EMPLOYED-CAREGIVER fixtures. These records deliberately carry NO candidate
+   fields — no r1s..r4s, no candidate oig/edl/fcsr strings — because a real
+   caregiver record does not have them. Every one of these was Not Eligible
+   before the formulas were split. */
+const CG = { first:"Real", last:"Caregiver", hire_date:iso(-800),
+  orient_date:iso(-790), alz_date:iso(-790),
+  ojt_date:iso(-780), ojt_signed:"yes", ojt_online:iso(-780),
+  annual_date:iso(-30), oig_date:iso(-10), edl_date:iso(-10), fcsr_date:iso(-100),
+  supv_date:iso(-10), perf_date:iso(-10) };
+const G = o => Object.assign({}, CG, o);
+const CG_FIXTURES = [
+  ["long-tenured, current compliance",   G({}),                              "eligible"],
+  ["OIG overdue (91 days)",              G({oig_date:iso(-91)}),             "lapsed"],
+  ["EDL overdue",                        G({edl_date:iso(-91)}),             "lapsed"],
+  ["FCSR overdue (annual)",              G({fcsr_date:iso(-400)}),           "lapsed"],
+  ["annual training overdue",            G({annual_date:iso(-400)}),         "lapsed"],
+  ["performance review overdue",         G({perf_date:iso(-400)}),           "eligible"],
+  ["supervisory visit overdue",          G({supv_date:iso(-400)}),           "eligible"],
+  ["both management items overdue",      G({perf_date:iso(-400),supv_date:iso(-400)}), "eligible"],
+  ["OJT overdue after valid pre-work",   G({hire_date:iso(-40),ojt_date:"",ojt_online:"",ojt_signed:"",orient_date:iso(-38),alz_date:iso(-38),annual_date:""}), "lapsed"],
+  ["new caregiver, no orientation",      G({hire_date:iso(-5),orient_date:"",alz_date:"",ojt_date:"",ojt_online:"",ojt_signed:"",annual_date:"",fcsr_date:iso(-5),oig_date:iso(-5),edl_date:iso(-5)}), "not_eligible"],
+  ["status override says Overdue",       G({oig_status:"Overdue"}),          "lapsed"],
+  ["status override says Current",       G({oig_date:iso(-91),oig_status:"Current"}), "eligible"],
+];
+if (typeof module !== 'undefined') module.exports.CG_FIXTURES = CG_FIXTURES;
+if (typeof globalThis !== 'undefined') globalThis.CCEligFixtures.CG_FIXTURES = CG_FIXTURES;

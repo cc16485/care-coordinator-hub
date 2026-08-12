@@ -114,6 +114,37 @@ function refPolicy(c){
     why:(2-pos)+' more positive reference'+(2-pos===1?'':'s')+' needed.'};
   return {ok:true, blocked:false, why:''};
 }
+/* CANDIDATE / PRE-HIRE progression. References and the initial CLEAR results
+   are pre-hire evidence and live only on the candidate record. This decides
+   whether somebody may move toward hire and orientation — it is NOT the
+   question of whether an employed caregiver may work today. */
+function candidateProgress(c){
+  const rp=refPolicy(c);
+  const out={ status: obDeriveStatus(c), refs: rp, blockers: [] };
+  if(!rp.ok) out.blockers.push({code:'references', why:rp.why, needs_supervisor:rp.blocked});
+  if(c.oig !== 'CLEAR')  out.blockers.push({code:'oig',  why:'OIG check not clear.'});
+  if(c.edl !== 'Clear')  out.blockers.push({code:'edl',  why:'EDL check not clear.'});
+  if(c.fcsr !== 'Clear') out.blockers.push({code:'fcsr', why:'FCSR background check not clear.'});
+  if(c.oos === 'yes' && c.fp !== 'Clear')
+    out.blockers.push({code:'fingerprints', why:'Out-of-state history: fingerprints required and not clear.'});
+  out.ready = out.status === 'Ready for Orientation';
+  return out;
+}
+
+/* The snapshot taken when a candidate becomes an employee. It answers "why did
+   Caring Companions allow this person to be hired" without the live evaluator
+   having to reach back into candidate records for ever. */
+function hiringSnapshot(cand){
+  const p=candidateProgress(cand);
+  return { at:new Date().toISOString(), event:'pre_hire_clearance',
+    ready:p.ready, status:p.status,
+    refs:[cand.r1s,cand.r2s,cand.r3s,cand.r4s].map(x=>x||'').join('|'),
+    oig:cand.oig||'', edl:cand.edl||'', fcsr:cand.fcsr||'',
+    oos:cand.oos||'', fp:cand.fp||'',
+    ref_decision: cand.ref_decision || null,
+    outstanding: p.blockers.map(b=>b.code) };
+}
+
 function obDeriveStatus(c){
   const rp=refPolicy(c);
   const oigOk=c.oig==='CLEAR', edlOk=c.edl==='Clear', bgOk=c.fcsr==='Clear';
@@ -174,18 +205,18 @@ function eligibility(c){
   const tasks    = [];   // required, deadline running, does not stop work
   const mgmt     = [];   // management quality, never affects eligibility
 
-  // ── PRE-WORK, gate A: pre-hire clearance ──────────────────────────────
-  const rp = refPolicy(c);
-  if(!rp.ok) blockers.push({ code:'references', kind:ELIG_LEGAL, why:rp.why,
-                             needs_supervisor: rp.blocked });
-  if(c.oig !== 'CLEAR')  blockers.push({code:'oig',  kind:ELIG_LEGAL, why:'OIG check not clear.'});
-  if(c.edl !== 'Clear')  blockers.push({code:'edl',  kind:ELIG_LEGAL, why:'EDL check not clear.'});
-  if(c.fcsr !== 'Clear') blockers.push({code:'fcsr', kind:ELIG_LEGAL, why:'FCSR background check not clear.'});
-  if(c.oos === 'yes' && c.fp !== 'Clear')
-    blockers.push({code:'fingerprints', kind:ELIG_LEGAL,
-                   why:'Out-of-state history, so fingerprints are required and are not clear.'});
+  /* NO CANDIDATE FIELDS ARE READ HERE. References and the initial CLEAR
+     results are pre-hire evidence; they live on the candidate record and are
+     preserved as a hiring snapshot. An employed caregiver's record does not
+     carry r1s..r4s or the candidate oig/edl/fcsr strings, and treating their
+     absence as failure marked every real caregiver Not Eligible on all six
+     counts at once — which is how the dry run caught it.
 
-  // ── PRE-WORK, gate B: before any client contact ───────────────────────
+     Current background compliance still matters, and is evaluated below from
+     the caregiver's own dates and status overrides. Historical clearance and
+     current compliance are different facts. */
+
+  // ── PRE-WORK: before any client contact ───────────────────────────────
   if(!f.ts.preContactDone){
     if(!c.orient_date) blockers.push({code:'orientation', kind:ELIG_LEGAL, why:'Orientation not attended.'});
     if(!c.alz_date)    blockers.push({code:'alz', kind:ELIG_LEGAL,
@@ -221,9 +252,19 @@ function eligibility(c){
     tasks.push({ code:'fcsr_registration', kind:ELIG_LEGAL, why:f.reg.label });
 
   // ── RECURRING CLEARANCES that can end eligibility ─────────────────────
-  if(f.oig.status === 'Overdue')  lapses.push({code:'oig_expired',  kind:ELIG_LEGAL, why:'OIG check is overdue (90-day cycle).'});
-  if(f.edl.status === 'Overdue')  lapses.push({code:'edl_expired',  kind:ELIG_LEGAL, why:'EDL check is overdue (90-day cycle).'});
-  if(f.fcsr.status === 'Overdue') lapses.push({code:'fcsr_expired', kind:ELIG_LEGAL, why:'FCSR check is overdue (annual).'});
+  /* The caregiver record carries an optional override per check —
+     Auto | Current | Overdue. 'Auto' or blank means derive it from the date,
+     which is the normal case. An explicit value is a human saying they know
+     better than the date, and it wins. */
+  const eff = (override, derived) => {
+    const o = String(override || '').trim();
+    if(o === 'Overdue') return 'Overdue';
+    if(o === 'Current') return 'Current';
+    return derived;
+  };
+  if(eff(c.oig_status,  f.oig.status)  === 'Overdue') lapses.push({code:'oig_expired',  kind:ELIG_LEGAL, why:'OIG check is overdue (90-day cycle).'});
+  if(eff(c.edl_status,  f.edl.status)  === 'Overdue') lapses.push({code:'edl_expired',  kind:ELIG_LEGAL, why:'EDL check is overdue (90-day cycle).'});
+  if(eff(c.fcsr_status, f.fcsr.status) === 'Overdue') lapses.push({code:'fcsr_expired', kind:ELIG_LEGAL, why:'FCSR check is overdue (annual).'});
   if(f.ts.annualStatus === 'Overdue')
     lapses.push({code:'annual_training', kind:ELIG_LEGAL, why:'Annual training is overdue.'});
 
@@ -331,6 +372,7 @@ function eligRecordRefDecision(c, outcome, note){
 }
 
 root.CCElig = { chkStatus, trainStatus, refPolicy, refDecisionCovers, obDeriveStatus,
+                candidateProgress, hiringSnapshot,
                 fcsrRegStatus, eligibility, eligibilityFacts, eligEntry, eligRecord,
                 eligRecordRefDecision, ELIG_LEGAL, ELIG_MGMT,
                 _helpers:{ pd, addDays, daysLeft, fmtD, today } };
