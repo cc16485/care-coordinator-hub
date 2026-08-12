@@ -11480,6 +11480,13 @@ function staffAddOpen(){
       + vacant.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.title)+' · '
         +esc(String(v.status).toUpperCase())+'</option>').join('')
       +'</select></label>':'')
+    +'<label style="display:block;margin-bottom:9px;">'
+    +'<span style="font-size:12.5px;font-weight:600;">Works with</span>'
+    +'<select id="saEntity" style="width:100%;padding:7px 9px;font-size:13px;'
+    +'border:1px solid var(--border);border-radius:8px;margin-top:3px;">'
+    +'<option value="cc_ihs">Caring Companions In-Home Senior Care</option>'
+    +'<option value="cc_cds">Caring Companions Community Directed Services</option>'
+    +'<option value="both">Both</option></select></label>'
     +'<label style="display:flex;gap:8px;align-items:flex-start;margin:12px 0;font-size:13px;">'
     +'<input type="checkbox" id="saInvite" style="width:auto;margin-top:3px;">'
     +'<span>Invite them to the Hub now<br><span class="field-note">They get an email and choose '
@@ -11491,17 +11498,48 @@ function staffAddOpen(){
     {width:430});
 
   const g=id=>{ const x=el.querySelector('#'+id); return x?x.value.trim():''; };
+  let known=null;                     // what we already know about this email
   const preview=()=>{
+    const ent=g('saEntity');
     const bits=['their staff profile','their role and title'];
+    bits.push(known&&known.person_exists ? 'their existing person identity, reused'
+                                         : 'a person identity, so they can own things later');
+    bits.push(ent==='both' ? 'membership of both companies'
+      : ent==='cc_cds' ? 'membership of Community Directed Services'
+      : 'membership of In-Home Senior Care');
     if(g('saPos')) bits.push('they become the holder of that position');
     if(el.querySelector('#saInvite').checked) bits.push('an invitation to the Hub');
     const planned=g('saStatus')==='planned';
     el.querySelector('#saPreview').innerHTML='<b>This creates:</b> '+bits.join(', ')+'.'
       +(planned?'<br>Marked <b>planned</b>, so they will not appear where work is assigned '
-        +'until you make them active.':'');
+        +'until you make them active.':'')
+      +'<br><b>Hub access:</b> '
+      +(el.querySelector('#saInvite').checked?'invited — they choose their own password'
+                                             :'not invited')
+      +'. No authority and no live duty is granted either way.'
+      + (known&&known.person_exists&&!known.person_active
+          ? '<br><span style="color:var(--amber);"><b>'+escapeHtmlComms(known.full_name||'')
+            +' already exists here and is inactive.</b> Saving reactivates that same person '
+            +'rather than creating a second one, so their history stays attached.</span>':'')
+      + (known&&known.has_account
+          ? '<br><span style="color:var(--amber);">They already have a sign-in.</span>':'')
+      + (known&&known.roles&&known.roles.length
+          ? '<br><span style="color:var(--amber);">They already hold: '
+            +escapeHtmlComms(known.roles.join(', '))+'. That is not changed here.</span>':'');
   };
-  ['saName','saEmail','saTitle','saStatus','saPos'].forEach(id=>{
+  /* Ask the database what it already knows, before offering to create anything. */
+  const lookup=async ()=>{
+    const em=g('saEmail').toLowerCase();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ known=null; preview(); return; }
+    try{
+      const { data } = await sb.rpc('staff_identity_status', { p_email: em });
+      known = (data && data[0]) || null;
+    }catch(e){ known=null; }
+    preview();
+  };
+  ['saName','saTitle','saStatus','saPos','saEntity'].forEach(id=>{
     const x=el.querySelector('#'+id); if(x) x.oninput=x.onchange=preview; });
+  const emEl=el.querySelector('#saEmail'); if(emEl){ emEl.oninput=preview; emEl.onblur=lookup; }
   const inv=el.querySelector('#saInvite'); if(inv) inv.onchange=preview;
   preview();
 
@@ -11512,20 +11550,40 @@ function staffAddOpen(){
       '<span style="color:var(--red);">'+escapeHtmlComms(m)+'</span>'; };
     if(!name) return err('A name is needed.');
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return err('A work email address is needed.');
-    if((DATA.coordinator_staff||[]).some(x=>String(x.email||'').toLowerCase()===email))
+    const already=(DATA.coordinator_staff||[]).find(x=>String(x.email||'').toLowerCase()===email);
+    if(already && already.active!==false)
       return err('Somebody with that email is already on the team.');
 
     const planned=g('saStatus')==='planned';
+    const ent=g('saEntity')==='both' ? ['cc_ihs','cc_cds'] : [g('saEntity')||'cc_ihs'];
     const posId=g('saPos');
     /* Read every field BEFORE closing. Once the popover is gone the inputs are
        gone with it, and a checkbox read afterwards is always false. */
     const invWanted=!!(el.querySelector('#saInvite')&&el.querySelector('#saInvite').checked);
     ccPopClose();
 
-    const row={ id:'stf_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
-      name, email, phone:g('saPhone')||'', role:g('saTitle')||'',
-      active:true, added_at:new Date().toISOString(), added_by:ME.email||'' };
-    DATA.coordinator_staff=DATA.coordinator_staff||[]; DATA.coordinator_staff.push(row);
+    /* IDENTITY FIRST. If this fails the person is not half-created: no staff
+       profile, no role, nothing to clean up. A staff row without an identity is
+       exactly the state that used to need me and a terminal to repair. */
+    const { data:idres, error:iderr } = await sb.rpc('upsert_staff_person', {
+      p_email: email, p_full_name: name, p_entities: ent, p_active: !planned });
+    if(iderr){
+      ccPopOpen(document.body,
+        '<div style="font-size:14px;font-weight:800;color:var(--navy);">Nobody was added</div>'
+        +'<div class="field-note" style="margin-top:6px;">'+escapeHtmlComms(iderr.message||'')+'</div>'
+        +'<div class="field-note" style="margin-top:5px;">Nothing was created, so there is nothing '
+        +'to tidy up. Try again.</div>',{width:400});
+      return;
+    }
+    const idrow=(idres&&idres[0])||{};
+
+    /* Rehire comes back to the same staff row rather than a second one. */
+    const row = already || { id:'stf_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+      email, added_at:new Date().toISOString(), added_by:ME.email||'' };
+    row.name=name; row.phone=g('saPhone')||''; row.role=g('saTitle')||''; row.active=true;
+    if(already && already.active===false){ row.rehired_at=new Date().toISOString(); }
+    DATA.coordinator_staff=DATA.coordinator_staff||[];
+    if(!already) DATA.coordinator_staff.push(row);
     await persist('coordinator_staff', row);
 
     await roleSaveProfile(email, { full_name:name, title:g('saTitle')||'',
@@ -11536,7 +11594,12 @@ function staffAddOpen(){
       if(pos){ pos.status='filled'; pos.person=email; pos.filled_at=new Date().toISOString();
                pos.filled_by=ME.email||''; await persist('positions', pos); }
     }
+    await opsLoadRouting();          // so they can be chosen as an owner straight away
     renderMyTeam(); renderStaffList();
+    if(idrow.was_existing && idrow.was_inactive) ccPopOpen(document.body,
+      '<div style="font-size:13.5px;"><b>'+escapeHtmlComms(name)+'</b> was reactivated.</div>'
+      +'<div class="field-note" style="margin-top:5px;">Their existing identity was reused, so '
+      +'everything they did before is still theirs.</div>',{width:370});
     if(invWanted){
       const r=await hubAccessCall('invite', email);
       ccPopOpen(document.body,
