@@ -11652,6 +11652,16 @@ async function hubAccessOpen(email){
    work and reviews stay exactly as they are and stay readable. What cannot
    safely stay with an inactive employee is disposed of deliberately, in front
    of you, before anything happens. */
+/* Areas this person structurally OWNS — from the domains table, which is what
+   routes unowned work. Not the same as a responsibility mentioning a domain. */
+function staffOwnedDomains(email){
+  const e=String(email||'').toLowerCase();
+  const me=(OPS_PEOPLE||[]).find(p=>String(p.primary_email||'').toLowerCase()===e);
+  if(!me) return [];
+  return (OPS_DOMAINS||[]).filter(d=>d.owner_person===me.person_id)
+    .map(d=>({ code:d.code,
+               label:(OWN_AREAS.find(a=>a[0]===d.code)||[])[1] || d.label || d.code }));
+}
 function staffHoldings(email){
   const e=String(email||'').toLowerCase(); if(!e) return null;
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open'
@@ -11700,6 +11710,7 @@ async function staffDeactivate(email){
   const person=(DATA.coordinator_staff||[]).find(s=>String(s.email||'').toLowerCase()===e);
   const nm=(person&&person.name)||posPersonName(e)||e;
   const others=ccPeople().filter(x=>x.email && x.email!==e);
+  const owned=staffOwnedDomains(e);
 
   const line=(n,label,note)=>n?'<div style="display:flex;gap:9px;font-size:13.5px;padding:3px 0;">'
     +'<b style="min-width:26px;text-align:right;">'+n+'</b><span>'+label
@@ -11764,11 +11775,22 @@ async function staffDeactivate(email){
         +'</span></label>':'')
     +'</div>'
 
-    + (h.domains.length?'<div class="field-note" style="color:var(--amber);margin-bottom:10px;">'
-        +'Their domain ownership is set in Operational Ownership, which is the next build. '
-        +'Until then, new unowned work in '+esc(h.domains.map(d=>d.domain).join(', '))
-        +' will keep routing to them even though they are inactive. Tell me and I will change it.'
-        +'</div>':'')
+    + (owned.length?'<div style="font-size:13px;font-weight:700;">'
+        +'They own '+owned.length+' area'+(owned.length===1?'':'s')+'. Each needs an answer.</div>'
+        +'<div class="field-note" style="margin:3px 0 8px;">New unowned work goes to whoever owns '
+        +'an area. Leaving that pointing at somebody inactive is how work quietly stops.</div>'
+        + owned.map((d,i)=>'<div style="margin-bottom:9px;">'
+          +'<div style="font-size:13px;font-weight:600;">'+esc(d.label)+'</div>'
+          +'<select id="sdDom'+i+'" data-code="'+esc(d.code)+'" style="width:100%;padding:7px 9px;'
+          +'font-size:13px;border:1px solid var(--border);border-radius:8px;margin-top:3px;">'
+          +'<option value="">— choose who takes it —</option>'
+          + (OPS_PEOPLE||[]).filter(x=>x.primary_email
+              && String(x.primary_email).toLowerCase()!==e)
+             .map(x=>'<option value="'+esc(x.primary_email)+'">'+esc(x.full_name||x.primary_email)
+               +'</option>').join('')
+          +'<option value="__vacant__">Leave it deliberately unowned</option>'
+          +'</select></div>').join('')
+        :'')
 
     +'<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin-bottom:10px;">'
     +'<input type="checkbox" id="sdAccess" checked style="width:auto;margin-top:3px;">'
@@ -11788,6 +11810,74 @@ async function staffDeactivate(email){
     const to=toEl?toEl.value:'';
     const moveRecur=!!(el.querySelector('#sdRecur')&&el.querySelector('#sdRecur').checked);
     const now=new Date().toISOString(), by=ME.email||'';
+
+    /* Every area must have an answer. Silence is not one. */
+    const picks=[];
+    for(let i=0;i<owned.length;i++){
+      const selEl=el.querySelector('#sdDom'+i);
+      const v=selEl?selEl.value:'';
+      if(!v){ if(selEl){ selEl.style.borderColor='var(--red)'; selEl.focus(); } return; }
+      picks.push({ code:selEl.dataset.code, to:(v==='__vacant__'?null:v) });
+    }
+    if(picks.some(p=>p.to===null)){
+      const ok=await new Promise(res=>{
+        const c=ccPopOpen(document.body,
+          '<div style="font-size:13.5px;">Leaving '
+          +picks.filter(p=>!p.to).length+' area'+(picks.filter(p=>!p.to).length===1?'':'s')
+          +' with no owner.</div>'
+          +'<div class="field-note" style="margin-top:5px;">New work there will arrive with nobody '
+          +'responsible for it. It will show as needing an owner, which is honest, but somebody has '
+          +'to be watching for it.</div>'
+          +'<div style="display:flex;gap:8px;margin-top:11px;">'
+          +'<button class="primary" id="dvY" style="padding:6px 12px;font-size:12.5px;">That is intended</button>'
+          +'<button class="ghost" id="dvN" style="padding:6px 12px;font-size:12.5px;">Go back</button></div>',
+          {width:380});
+        c.querySelector('#dvY').onclick=()=>{ ccPopClose(); res(true); };
+        c.querySelector('#dvN').onclick=()=>{ ccPopClose(); res(false); };
+      });
+      if(!ok) return;
+    }
+
+    /* ── THE ORDER HERE IS THE SAFETY ────────────────────────────────────
+       Domain ownership lives in Postgres behind an RPC; everything else is
+       app_data behind a different one. They cannot be one transaction from a
+       browser, and pretending otherwise would be the lie.
+
+       So the STRUCTURAL change goes first, and is re-read to confirm it took.
+       If it fails, nothing else is touched and the person stays active and
+       still owning — unchanged, and therefore consistent. Deactivating first
+       and failing here is what produces the half-offboarded state, and it is
+       the one order that cannot recover itself. */
+    for(const pk of picks){
+      const { error } = await sb.rpc('set_domain_people', {
+        p_code: pk.code, p_owner_email: pk.to,
+        p_backup_email: null, p_escalation_email: null });
+      if(error){
+        ccPopClose();
+        ccPopOpen(document.body,
+          '<div style="font-size:14px;font-weight:800;color:var(--navy);">Nothing was changed</div>'
+          +'<div style="font-size:13.5px;margin-top:7px;">'+escapeHtmlComms(nm)+' is still active.</div>'
+          +'<div class="field-note" style="margin-top:5px;">Handing over <b>'
+          +escapeHtmlComms(pk.code)+'</b> failed: '+escapeHtmlComms(error.message||'unknown error')
+          +'</div>'
+          +'<div class="field-note" style="margin-top:5px;">Their work, duties and access are '
+          +'untouched. Fix the ownership handover and try again.</div>',{width:400});
+        return;
+      }
+    }
+    await opsLoadRouting();
+    const meRow=(OPS_PEOPLE||[]).find(x=>String(x.primary_email||'').toLowerCase()===e);
+    const stillOwned=meRow ? (OPS_DOMAINS||[]).filter(d=>d.owner_person===meRow.person_id) : [];
+    if(stillOwned.length){
+      ccPopClose();
+      ccPopOpen(document.body,
+        '<div style="font-size:14px;font-weight:800;color:var(--navy);">Stopped</div>'
+        +'<div style="font-size:13.5px;margin-top:7px;">'+escapeHtmlComms(nm)+' is still active.</div>'
+        +'<div class="field-note" style="margin-top:5px;">After the handover they still own '
+        +stillOwned.map(d=>escapeHtmlComms(d.code)).join(', ')+'. Nothing else was changed.</div>',
+        {width:400});
+      return;
+    }
     ccPopClose();
 
     for(const i of h.open.concat(h.reviews)){
