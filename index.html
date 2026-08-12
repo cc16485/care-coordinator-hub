@@ -6641,6 +6641,16 @@ function scxEnsure(tab){
     scxRender(activeTab);
   }, { once:true });
   const s = document.createElement('script');
+  /* The rules the engine delegates to must exist before it runs. Loaded here
+     rather than as a page-level tag so it travels with the lazy engine and
+     cannot be forgotten. */
+  if(!globalThis.CCElig && !document.getElementById('cceligrules')){
+    const r=document.createElement('script');
+    r.id='cceligrules'; r.src='eligibility-rules.js?v=' + Date.now();
+    r.async=false;                      // ordered against the engine below
+    document.head.appendChild(r);
+  }
+  s.async = false;
   s.src = 'caregivers-engine.js?v=' + Date.now();
   s.onerror = function(){
     scxState = 'idle';
