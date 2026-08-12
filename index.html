@@ -19634,7 +19634,9 @@ function recurOwnerOf(duty){
 
 async function recurMaterialize(){
   try{
-    const duties=(DATA.recurring_duties||[]).filter(d=>d.active!==false);
+    /* Paused stops NEW occurrences and leaves existing ones alone. A Pause
+       button that did not reach here would be a control that lies. */
+    const duties=(DATA.recurring_duties||[]).filter(d=>d.active!==false && !d.paused);
     if(!duties.length) return;
     const now=new Date();
     for(const duty of duties){
@@ -19761,7 +19763,11 @@ function recurEdit(email){
     +'</div>'
     +'<div class="field-note" style="margin-top:5px;">Tying it to a responsibility means it moves '
     +'with that responsibility if it is ever transferred.</div>'
-    +'<button class="primary" id="rcAdd" style="padding:7px 14px;font-size:13px;margin-top:10px;">Add</button>';
+    +'<div style="display:flex;gap:8px;margin-top:10px;">'
+    +'<button class="primary" id="rcAdd" style="padding:7px 14px;font-size:13px;">Add</button>'
+    +'<button class="ghost" id="rcCancel" style="padding:7px 14px;font-size:13px;display:none;">'
+    +'Cancel edit</button></div>'
+    +'<div id="rcNote" class="field-note" style="margin-top:6px;"></div>';
 
   const el=ccPopOpen(document.body, h, {width:440, stack:ccPopIsOpen()});
   const paint=()=>{
@@ -19769,17 +19775,81 @@ function recurEdit(email){
     el.querySelector('#rcList').innerHTML = list.length ? list.map(d=>
       '<div style="padding:7px 0;border-bottom:1px solid var(--border);'+(d.active===false?'opacity:.45;':'')+'">'
       +'<div style="font-size:13px;">'+esc(d.name||'')
-      +(d.active===false?' <span class="tag-chip">ENDED</span>':'')+'</div>'
+      +(d.active===false?' <span class="tag-chip">ENDED</span>':'')
+      +(d.paused&&d.active!==false?' <span class="tag-chip" style="background:var(--amber-bg);'
+        +'color:var(--amber);">PAUSED</span>':'')+'</div>'
       +'<div class="field-note">'+esc(recurDescribe(d))+' · '
       +esc((RECUR_BEHAVIOUR.find(b=>b[0]===(d.behaviour||'new_instance'))||[])[1])
       +(d.responsibility_id?' · follows a responsibility':'')+'</div>'
       +(d.active===false?'':'<button class="linklike" style="font-size:12px;" '
+        +'onclick="recurLoadForEdit(\''+d.id+'\')">Edit</button> · '
+        +'<button class="linklike" style="font-size:12px;" '
+        +'onclick="recurPause(\''+d.id+'\')">'+(d.paused?'Resume':'Pause')+'</button> · '
+        +'<button class="linklike" style="font-size:12px;" '
         +'onclick="recurEndAsk(\''+d.id+'\',\''+esc(email)+'\')">End it</button>')
       +'</div>').join('') : '<div class="field-note">None yet.</div>';
   };
   paint();
+  /* EDITING A RULE CHANGES THE FUTURE, NOT THE PAST.
+     Occurrences are separate work items with deterministic ids
+     (dut_<dutyId>_<periodKey>), so one already created keeps whatever was true
+     when it was created — its owner, its due date, whether it was done. The
+     rule only decides what gets made next. That is why this edits in place
+     rather than ending and recreating: there is no history inside the rule to
+     protect, only occurrences outside it, and they are already safe. */
+  let rcEditing=null;
+  window.recurLoadForEdit=(id)=>{
+    const d=(DATA.recurring_duties||[]).find(x=>x.id===id); if(!d) return;
+    rcEditing=d;
+    el.querySelector('#rcName').value=d.name||'';
+    el.querySelector('#rcAction').value=d.next_action||'';
+    el.querySelector('#rcFreq').value=d.freq||'weekly';
+    el.querySelector('#rcDay').value=String(d.weekday!=null?d.weekday:1);
+    el.querySelector('#rcTime').value=d.due_time||'09:00';
+    el.querySelector('#rcBehav').value=d.behaviour||'new_instance';
+    el.querySelector('#rcDomain').value=d.domain||'';
+    el.querySelector('#rcResp').value=d.responsibility_id||'';
+    el.querySelector('#rcAdd').textContent='Save changes';
+    el.querySelector('#rcCancel').style.display='';
+    const open=(DATA.ops_items||[]).filter(i=>i.status==='open'
+      && String(i.id||'').indexOf('dut_'+d.id+'_')===0);
+    el.querySelector('#rcNote').innerHTML = open.length
+      ? '<b>'+open.length+' occurrence'+(open.length===1?' is':'s are')+' already open.</b> '
+        +'They keep the owner and due date they were created with — changing the rule only '
+        +'affects what gets made from now on.'
+      : 'No occurrences are open right now, so this only affects future ones.';
+  };
+  const rcReset=()=>{
+    rcEditing=null;
+    el.querySelector('#rcName').value=''; el.querySelector('#rcAction').value='';
+    el.querySelector('#rcAdd').textContent='Add';
+    el.querySelector('#rcCancel').style.display='none';
+    el.querySelector('#rcNote').textContent='';
+  };
+  el.querySelector('#rcCancel').onclick=rcReset;
+  window.recurPause=async (id)=>{
+    const d=(DATA.recurring_duties||[]).find(x=>x.id===id); if(!d) return;
+    d.paused=!d.paused;
+    d[d.paused?'paused_at':'resumed_at']=new Date().toISOString();
+    d[d.paused?'paused_by':'resumed_by']=ME.email||'';
+    await recurSave(d); paint();
+  };
   el.querySelector('#rcAdd').onclick=async ()=>{
     const name=el.querySelector('#rcName').value.trim(); if(!name) return;
+    if(rcEditing){
+      Object.assign(rcEditing, {
+        name, next_action:el.querySelector('#rcAction').value.trim(),
+        freq:el.querySelector('#rcFreq').value,
+        weekday:Number(el.querySelector('#rcDay').value),
+        due_time:el.querySelector('#rcTime').value||'09:00',
+        behaviour:el.querySelector('#rcBehav').value,
+        domain:el.querySelector('#rcDomain').value||null,
+        responsibility_id:el.querySelector('#rcResp').value||null,
+        updated_at:new Date().toISOString(), updated_by:ME.email||'' });
+      await recurSave(rcEditing);
+      rcReset(); paint(); await recurMaterialize(); myWorkRefresh();
+      return;
+    }
     await recurSave({ id:'rc_'+Date.now().toString(36), person:String(email).toLowerCase(),
       responsibility_id:el.querySelector('#rcResp').value||null,
       name, next_action:el.querySelector('#rcAction').value.trim(),
@@ -19789,7 +19859,7 @@ function recurEdit(email){
       domain:el.querySelector('#rcDomain').value||null,
       active:true, start_date:new Date().toISOString().slice(0,10),
       created_by:ME.email||'', created_at:new Date().toISOString() });
-    el.querySelector('#rcName').value=''; el.querySelector('#rcAction').value='';
+    rcReset();
     paint(); await recurMaterialize(); myWorkRefresh();
   };
 }
@@ -20156,21 +20226,50 @@ function dutyEdit(){
     +'style="width:110px;padding:6px;font-size:13px;border-radius:8px;"></div>'
     +'<div class="field-note" style="margin-top:5px;">Crossing midnight is fine — an overnight is '
     +'19:00 to 07:00.</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:8px;">'
+      +'<span class="field-note">Status</span>'
+      +'<select id="dwStatus" style="flex:1;padding:7px 9px;font-size:13px;border-radius:8px;">'
+      +'<option value="live">Live — counts as coverage now</option>'
+      +'<option value="planned">Planned — inert until activated</option></select></div>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:6px;">'
+      +'<span class="field-note">Handoff</span>'
+      +'<button class="ghost" id="dwHandTo" style="flex:1;padding:6px 9px;font-size:13px;'
+      +'text-align:left;">Nobody — ordinary window</button>'
+      +'<input id="dwHandUntil" type="time" style="width:110px;padding:6px;font-size:13px;'
+      +'border-radius:8px;"></div>'
+    +'<div class="field-note" style="margin-top:4px;">A handoff must name who it is TO and when it '
+    +'ends. Without both, two people on one area is a conflict, not a handover.</div>'
     +'<div id="dwWarn" class="field-note" style="color:var(--red);min-height:1em;margin-top:6px;"></div>'
-    +'<button class="primary" id="dwAdd" style="padding:7px 14px;font-size:13px;margin-top:8px;">Add</button>';
+    +'<div style="display:flex;gap:8px;margin-top:8px;">'
+    +'<button class="primary" id="dwAdd" style="padding:7px 14px;font-size:13px;">Add</button>'
+    +'<button class="ghost" id="dwCancel" style="padding:7px 14px;font-size:13px;display:none;">'
+    +'Cancel edit</button></div>';
 
   const el=ccPopOpen(document.body, h, {width:470});
   let who='', whoName='', back='', backName='';
   const paint=()=>{
+    /* Planned windows are managed here even though they cover nothing. */
     const list=(DATA.duty_windows||[]).filter(w=>w.active!==false);
     el.querySelector('#dwList').innerHTML = list.length ? list.map(w=>{
       const d=w.recur?(w.recur.days||[]).map(i=>days[i]).join(' '):'';
-      return '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">'
-        +'<b>'+esc(dutyAreaLabel(w.area))+'</b> · '+esc(opsOwnerName(w.person)||w.person)
+      const planned=rowPlanned(w);
+      return '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;'
+        +(planned?'opacity:.72;':'')+'">'
+        +'<b>'+esc(dutyAreaLabel(w.area))+'</b> · '
+        +esc(w.person?(opsOwnerName(w.person)||w.person):posHolderLabel(w))
+        +(planned?' <span class="tag-chip" style="background:var(--amber-bg);color:var(--amber);">'
+          +'PLANNED</span>':'')
         +(w.backup_person?' <span class="field-note">backup '+esc(opsOwnerName(w.backup_person))+'</span>':'')
+        +(w.handoff&&w.handoff.to?' <span class="field-note">→ '
+          +esc(opsOwnerName(w.handoff.to)||w.handoff.to)+' until '
+          +esc(dutyClock(w.handoff.until))+'</span>':'')
         +'<div class="field-note">'+esc(d)+' '
         +esc(w.recur?dutyClockRange(w.recur.from,w.recur.to):'')+'</div>'
-        +'<button class="linklike" style="font-size:12px;" onclick="dutyRemove(\''+w.id+'\')">Remove</button>'
+        +(w.person?'<button class="linklike" style="font-size:12px;" '
+          +'onclick="dutyLoadForEdit(\''+w.id+'\')">Edit</button> · ':'')
+        +(planned&&w.person?'<button class="linklike" style="font-size:12px;" '
+          +'onclick="dutyActivate(\''+w.id+'\')">Activate</button> · ':'')
+        +'<button class="linklike" style="font-size:12px;" onclick="dutyRemove(\''+w.id+'\')">End it</button>'
         +'</div>'; }).join('') : '<div class="field-note">Nobody is assigned to anything yet.</div>';
   };
   paint();
@@ -20183,6 +20282,56 @@ function dutyEdit(){
   }});
   el.querySelector('#dwBack').onclick=(ev)=>ccPickPerson(ev.target,{onPick:(e,n)=>{
     back=e; backName=n; ev.target.textContent=n||'Optional…'; }});
+  let hand='', handName='';
+  el.querySelector('#dwHandTo').onclick=(ev)=>ccPickPerson(ev.target,{onPick:(e,n)=>{
+    hand=e; handName=n; ev.target.textContent=n||'Nobody — ordinary window'; }});
+
+  /* EDITING. Ordinary changes should not mean delete-and-retype. But some
+     changes are operationally meaningful — who is on, which area, which days,
+     which hours — and rewriting those in place would erase what used to be
+     true. Those END the old window and open a new one, which is the pattern
+     this system already uses everywhere else. Backup, handoff and status are
+     descriptive and change in place. */
+  let editing=null;
+  const MEANINGFUL=w=>[w.person,w.area,(w.recur&&(w.recur.days||[]).join(',')),
+                       w.recur&&w.recur.from, w.recur&&w.recur.to].join('|');
+  window.dutyLoadForEdit=(id)=>{
+    const w=(DATA.duty_windows||[]).find(x=>x.id===id); if(!w) return;
+    editing=w;
+    el.querySelector('#dwArea').value=w.area||'';
+    who=w.person||''; whoName=opsOwnerName(who)||who;
+    el.querySelector('#dwWho').textContent=whoName||'Choose…';
+    back=w.backup_person||''; backName=opsOwnerName(back)||'';
+    el.querySelector('#dwBack').textContent=backName||'Optional…';
+    el.querySelectorAll('.dwDay').forEach(x=>{ x.checked=((w.recur&&w.recur.days)||[]).indexOf(Number(x.value))>-1; });
+    el.querySelector('#dwFrom').value=(w.recur&&w.recur.from)||'08:00';
+    el.querySelector('#dwTo').value=(w.recur&&w.recur.to)||'17:00';
+    el.querySelector('#dwStatus').value=(w.status==='planned')?'planned':'live';
+    hand=(w.handoff&&w.handoff.to)||''; handName=opsOwnerName(hand)||'';
+    el.querySelector('#dwHandTo').textContent=handName||'Nobody — ordinary window';
+    el.querySelector('#dwHandUntil').value=(w.handoff&&w.handoff.until)||'';
+    el.querySelector('#dwAdd').textContent='Save changes';
+    el.querySelector('#dwCancel').style.display='';
+    el.querySelector('#dwWarn').textContent='';
+  };
+  const resetForm=()=>{
+    editing=null; who=''; whoName=''; back=''; backName=''; hand=''; handName='';
+    el.querySelector('#dwWho').textContent='Choose…';
+    el.querySelector('#dwBack').textContent='Optional…';
+    el.querySelector('#dwHandTo').textContent='Nobody — ordinary window';
+    el.querySelector('#dwHandUntil').value='';
+    el.querySelectorAll('.dwDay').forEach(x=>x.checked=false);
+    el.querySelector('#dwStatus').value='live';
+    el.querySelector('#dwAdd').textContent='Add';
+    el.querySelector('#dwCancel').style.display='none';
+    el.querySelector('#dwWarn').textContent='';
+  };
+  el.querySelector('#dwCancel').onclick=resetForm;
+  window.dutyActivate=async (id)=>{
+    const w=(DATA.duty_windows||[]).find(x=>x.id===id); if(!w) return;
+    w.status='live'; w.activated_at=new Date().toISOString(); w.activated_by=ME.email||'';
+    await persist('duty_windows', w); paint(); renderHome();
+  };
   el.querySelector('#dwAdd').onclick=async ()=>{
     if(!who){ el.querySelector('#dwWarn').textContent='Pick who is on.'; return; }
     const area=el.querySelector('#dwArea').value;
@@ -20193,15 +20342,47 @@ function dutyEdit(){
         +'Press Add again to do it anyway.';
       return;
     }
-    const w={ id:'dw_'+Date.now().toString(36), area, person:who,
-      backup_person:back||null, active:true,
-      recur:{ days:[...el.querySelectorAll('.dwDay:checked')].map(x=>Number(x.value)),
-              from:el.querySelector('#dwFrom').value, to:el.querySelector('#dwTo').value },
-      assigned_by:ME.email||'', created_at:new Date().toISOString(),
-      override_conflict: conflicts.length?true:false };
-    DATA.duty_windows=DATA.duty_windows||[]; DATA.duty_windows.push(w);
-    await persist('duty_windows', w);
-    delete el.dataset.override; el.querySelector('#dwWarn').textContent='';
+    const days2=[...el.querySelectorAll('.dwDay:checked')].map(x=>Number(x.value));
+    const untl=el.querySelector('#dwHandUntil').value;
+    /* A handoff names who and when, or it is not one. */
+    if((hand && !untl) || (!hand && untl)){
+      el.querySelector('#dwWarn').textContent='A handoff needs both a person and a time it ends. '
+        +'Set both, or clear both.'; return;
+    }
+    const shape={ area, person:who, backup_person:back||null,
+      status: el.querySelector('#dwStatus').value,
+      handoff: hand ? { to:hand, until:untl } : null,
+      recur:{ days:days2, from:el.querySelector('#dwFrom').value,
+              to:el.querySelector('#dwTo').value } };
+
+    if(editing){
+      const before=MEANINGFUL(editing), after=MEANINGFUL(Object.assign({},editing,shape));
+      if(before!==after){
+        /* Ended, not overwritten. "Krystal was on 8–2 until Tuesday" stays true. */
+        const now=new Date().toISOString();
+        editing.active=false; editing.ended_at=now; editing.ended_by=ME.email||'';
+        editing.ended_reason='Changed'; 
+        await persist('duty_windows', editing);
+        const w2=Object.assign({ id:'dw_'+Date.now().toString(36), active:true,
+          assigned_by:ME.email||'', created_at:now, replaced:editing.id,
+          from_position:editing.from_position||null }, shape);
+        DATA.duty_windows.push(w2);
+        await persist('duty_windows', w2);
+      }else{
+        Object.assign(editing, shape);
+        editing.updated_at=new Date().toISOString(); editing.updated_by=ME.email||'';
+        await persist('duty_windows', editing);
+      }
+      resetForm();
+    }else{
+      const w=Object.assign({ id:'dw_'+Date.now().toString(36), active:true,
+        assigned_by:ME.email||'', created_at:new Date().toISOString(),
+        override_conflict: conflicts.length?true:false }, shape);
+      DATA.duty_windows=DATA.duty_windows||[]; DATA.duty_windows.push(w);
+      await persist('duty_windows', w);
+      resetForm();
+    }
+    delete el.dataset.override;
     paint(); renderHome();
   };
 }
