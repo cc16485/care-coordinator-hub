@@ -12411,6 +12411,105 @@ const socRoleChip = r => r==='evening'
   ? '<span class="tag-chip" style="background:#EDE4F5;color:#6B4B9E;">Evening</span>'
   : r==='state' ? '<span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">DSDS</span>'
   : '<span class="tag-chip" style="background:#E4EDF6;color:#2F6FB0;">Daytime</span>';
+/* ═══ CLIENT START — one item, one client, follows the bottleneck ═════════
+   Step 1 of the Client Start workflow. socIsStuck() has always been able to
+   see a stalled start; it just never told anybody. It rendered on the lead
+   profile and in the stand-up, so it was found only by whoever happened to
+   look. This turns that detection into owned, dated, escalating work.
+
+   ONE item per client start, id 'cstart_<lead id>'. As the bottleneck moves
+   from payer to care plan to staffing, the SAME item is retitled and rerouted
+   — never a second task. A client stuck for a month is one thing to fix, not
+   thirty.
+
+   A start that is progressing normally creates NOTHING. */
+
+/* Which domain owns the step somebody is waiting on. Read from the step text
+   because that is what actually says whose work it is — the step's `role`
+   (day/evening/state) records WHEN it happens, not WHO owns it. */
+function csDomainForStep(label){
+  const t=String(label||'').toLowerCase();
+  if(/authoriz|fusion|dsds|pccp|referral|eligib|case manager|units/.test(t)) return 'payer_programs';
+  if(/care plan|rn |assessment|home safety|welcome|admission|consent|demographic/.test(t)) return 'client_care';
+  if(/caregiver|match|schedul|evv|shift|coverage/.test(t)) return 'scheduling_coverage';
+  if(/follow-up|follow up/.test(t)) return 'client_care';
+  return 'client_care';
+}
+
+/* The window before a stalled step becomes work. A step owned by DSDS is not
+   our staff being slow, so it gets far longer — the existing socIsStuck()
+   already draws that distinction and this keeps it. */
+function csWindowFor(step){ return (step && step.role==='state') ? 14 : 3; }
+
+function csItemId(lead){ return 'cstart_'+lead.id; }
+
+/* Evaluates every open start and returns what should change. Pure: it decides,
+   it does not write, so it can be tested against fixtures without a database. */
+function csEvaluate(leads, items, nowIso){
+  const now = nowIso || new Date().toISOString();
+  const out = { create:[], update:[], resolve:[], quiet:0 };
+  (leads||[]).forEach(l=>{
+    if(!l || !l.soc) return;
+    const existing = (items||[]).find(i=>i.id===csItemId(l));
+    const cur = socCurrentStep(l.soc);
+
+    // Start of Care finished, or the client is not starting: close it out.
+    if(!cur || l.soc.abandoned){
+      if(existing && existing.status==='open')
+        out.resolve.push({ id:existing.id,
+          close_reason: cur ? 'Client is not starting.' : 'Start of Care complete — care is established.' });
+      else out.quiet++;
+      return;
+    }
+
+    const waited = socWaitingDays(l.soc);
+    const window = csWindowFor(cur);
+    if(waited <= window){
+      /* Moving again. Resolve rather than leave a stale task sitting on
+         somebody's list describing a bottleneck that has cleared. */
+      if(existing && existing.status==='open')
+        out.resolve.push({ id:existing.id,
+          close_reason:'Moving again — now on: '+cur.label });
+      else out.quiet++;
+      return;
+    }
+
+    const who = ((l.first_name||'')+' '+(l.last_name||'')).trim() || l.id;
+    const domain = csDomainForStep(cur.label);
+    const item = {
+      id: csItemId(l), kind:'client_start', source_id:l.id, about:who,
+      title: who+' — start of care stuck '+waited+' days',
+      detail: 'Waiting on: '+cur.label,
+      next_action: cur.role==='state'
+        ? 'Chase DSDS, or record what they have said and when to check again.'
+        : 'Complete this step, or move it to whoever can.',
+      status:'open', domain,
+      priority: waited > window*3 ? 'high' : 'normal',
+      created_at: existing ? existing.created_at : now,
+      last_activity_at: now,
+      due: existing ? existing.due : now.slice(0,10),
+      opened_by:'client-start',
+      client_start:{ step:cur.label, role:cur.role, waited_days:waited, window }
+    };
+    if(!existing) out.create.push(item);
+    else if(existing.status!=='open' ||
+            (existing.client_start||{}).step !== cur.label ||
+            existing.domain !== domain ||
+            (existing.client_start||{}).waited_days !== waited){
+      /* The same problem, described freshly. History records the move so the
+         item reads as one story rather than a task that changed its mind. */
+      item.history = (existing.history||[]).concat([{
+        at: now, by:'client-start',
+        what: (existing.client_start||{}).step === cur.label
+          ? 'Still waiting on: '+cur.label+' ('+waited+' days)'
+          : 'Bottleneck moved to: '+cur.label+
+            (existing.domain!==domain ? ' — now owned by '+domain : '') }]);
+      out.update.push(item);
+    } else out.quiet++;
+  });
+  return out;
+}
+
 function socCurrentStep(soc){ return (soc.steps||[]).find(s=>!s.done_at)||null; }
 function socWaitingDays(soc){
   const cur=socCurrentStep(soc); if(!cur) return 0;
