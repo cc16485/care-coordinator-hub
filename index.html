@@ -9194,7 +9194,7 @@ function ccPeople(){
   const first=n=>String(n||'').trim().split(/\s+/)[0].toLowerCase();
   const out=[];
   (DATA.coordinator_staff||[]).forEach(st=>{
-    if(!st.name || OWNERS.includes(String(st.email||'').toLowerCase())) return;
+    if(!st.name || st.active===false || OWNERS.includes(String(st.email||'').toLowerCase())) return;
     const nm=String(st.name).trim();
     if(out.some(p=>first(p.name)===first(nm))) return;      // never two rows for one first name
     out.push({ name:nm, email:String(st.email||'').toLowerCase(), aliases:[nm] });
@@ -10847,7 +10847,7 @@ function renderStaffList(){
   wrap.innerHTML = `<table><thead><tr><th>Name</th><th>Sign-in email</th><th>Shift</th><th>Phone</th><th>Notifications</th><th></th></tr></thead><tbody>${
     staff.map(s=>{
       const notifs = [s.notify_leads&&'Leads', s.notify_checkins&&'Check-ins', s.notify_supervisory&&'Supervisory', s.notify_careplan&&'Care Plans'].filter(Boolean).join(', ') || '—';
-      return `<tr><td>${s.name}</td><td>${s.email||'—'}</td><td>${shiftLabel(s)}</td><td>${s.phone||'—'}</td><td>${notifs}</td><td><button class="linklike" onclick="removeStaffMember('${s.id}')">Remove</button></td></tr>`;
+      return `<tr><td>${s.name}</td><td>${s.email||'—'}</td><td>${shiftLabel(s)}</td><td>${s.phone||'—'}</td><td>${notifs}</td><td><button class="linklike" onclick="staffDeactivate('${(s.email||'').toLowerCase()}')">Deactivate</button></td></tr>`;
     }).join('')
   }</tbody></table>`;
 }
@@ -10873,10 +10873,185 @@ async function addStaffMember(){
   ['new_staff_notify_leads','new_staff_notify_checkins','new_staff_notify_supervisory','new_staff_notify_careplan'].forEach(id=>document.getElementById(id).checked=false);
   renderStaffList();
 }
+/* ═══════════════ OFFBOARDING ══════════════════════════════════════════════
+   removeStaffMember was one line: drop the row, no confirmation, no questions.
+   Their open work kept their email as owner, their recurring duties kept
+   firing, their duty windows kept claiming coverage, and their name vanished
+   from every picker so nobody could see what they had been holding. That is
+   not offboarding; it is data loss with a friendly button.
+
+   A person is now DEACTIVATED, never deleted. History, attribution, completed
+   work and reviews stay exactly as they are and stay readable. What cannot
+   safely stay with an inactive employee is disposed of deliberately, in front
+   of you, before anything happens. */
+function staffHoldings(email){
+  const e=String(email||'').toLowerCase(); if(!e) return null;
+  const open=(DATA.ops_items||[]).filter(i=>i.status==='open'
+    && String(i.owner||'').toLowerCase()===e);
+  return { email:e,
+    open:      open.filter(i=>i.kind!=='review'),
+    reviews:   open.filter(i=>i.kind==='review'),
+    recurring: (DATA.recurring_duties||[]).filter(r=>r.active!==false
+                 && String(r.person||'').toLowerCase()===e),
+    windows:   (DATA.duty_windows||[]).filter(w=>w.active!==false
+                 && String(w.person||'').toLowerCase()===e),
+    backups:   (DATA.duty_windows||[]).filter(w=>w.active!==false
+                 && String(w.backup_person||'').toLowerCase()===e),
+    resp:      (DATA.responsibilities||[]).filter(r=>r.active!==false
+                 && String(r.person||'').toLowerCase()===e),
+    domains:   (DATA.responsibilities||[]).filter(r=>r.active!==false && r.kind==='primary'
+                 && r.domain && String(r.person||'').toLowerCase()===e),
+    position:  (DATA.positions||[]).find(x=>x.status==='filled'
+                 && String(x.person||'').toLowerCase()===e)||null };
+}
+
+async function staffDeactivate(email){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
+  const h=staffHoldings(e); if(!h) return;
+  const person=(DATA.coordinator_staff||[]).find(s=>String(s.email||'').toLowerCase()===e);
+  const nm=(person&&person.name)||posPersonName(e)||e;
+  const others=ccPeople().filter(x=>x.email && x.email!==e);
+
+  const line=(n,label,note)=>n?'<div style="display:flex;gap:9px;font-size:13.5px;padding:3px 0;">'
+    +'<b style="min-width:26px;text-align:right;">'+n+'</b><span>'+label
+    +(note?' <span class="field-note">'+note+'</span>':'')+'</span></div>':'';
+
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Deactivate '+esc(nm)+'</div>'
+    +'<div class="field-note" style="margin:4px 0 10px;">Nothing is deleted. They stop appearing '
+    +'where work is assigned, and everything they did stays under their name.</div>'
+
+    +'<div style="font-size:13px;font-weight:700;">They currently hold</div>'
+    +'<div style="margin:5px 0 12px;">'
+    + line(h.domains.length,'domain'+(h.domains.length===1?'':'s'),
+           h.domains.map(d=>d.domain).join(', '))
+    + line(h.open.length,'open work item'+(h.open.length===1?'':'s'))
+    + line(h.reviews.length,'review'+(h.reviews.length===1?'':'s')+' owed')
+    + line(h.recurring.length,'recurring dut'+(h.recurring.length===1?'y':'ies'))
+    + line(h.windows.length,'duty window'+(h.windows.length===1?'':'s'))
+    + line(h.backups.length,'window'+(h.backups.length===1?'':'s')+' where they are the backup')
+    + line(h.resp.length,'active responsibilit'+(h.resp.length===1?'y':'ies'))
+    + (h.position?'<div style="display:flex;gap:9px;font-size:13.5px;padding:3px 0;">'
+        +'<b style="min-width:26px;text-align:right;">1</b><span>position &mdash; '
+        +esc(h.position.title)+'</span></div>':'')
+    + ((!h.domains.length&&!h.open.length&&!h.reviews.length&&!h.recurring.length
+        &&!h.windows.length&&!h.backups.length&&!h.resp.length&&!h.position)
+        ? '<div class="field-note">Nothing. This is a clean deactivation.</div>':'')
+    +'</div>'
+
+    + ((h.open.length||h.reviews.length)
+      ? '<div style="font-size:13px;font-weight:700;">Where should their open work go?</div>'
+        +'<select id="sdTo" style="width:100%;padding:7px 9px;font-size:13px;margin:6px 0 12px;'
+        +'border:1px solid var(--border);border-radius:8px;">'
+        +'<option value="">Leave it unassigned — it will show as needing an owner</option>'
+        + others.map(o=>'<option value="'+esc(o.email)+'">'+esc(o.name)+'</option>').join('')
+        +'</select>' : '')
+
+    +'<div style="font-size:13px;font-weight:700;">What will happen</div>'
+    +'<div style="margin:6px 0 10px;display:flex;flex-direction:column;gap:6px;font-size:13px;">'
+    + (h.recurring.length?'<label style="display:flex;gap:8px;align-items:flex-start;">'
+        +'<input type="checkbox" id="sdRecur" checked style="width:auto;margin-top:3px;">'
+        +'<span>Move '+h.recurring.length+' recurring dut'+(h.recurring.length===1?'y':'ies')
+        +' to the same person. Unticked, they end.<br><span class="field-note">'
+        +'Occurrences already created keep their own owner and dates.</span></span></label>':'')
+    + (h.windows.length?'<label style="display:flex;gap:8px;align-items:flex-start;">'
+        +'<input type="checkbox" checked disabled style="width:auto;margin-top:3px;">'
+        +'<span>End '+h.windows.length+' duty window'+(h.windows.length===1?'':'s')
+        +'<br><span class="field-note">Not optional — an inactive person cannot be on duty.</span>'
+        +'</span></label>':'')
+    + (h.resp.length?'<label style="display:flex;gap:8px;align-items:flex-start;">'
+        +'<input type="checkbox" checked disabled style="width:auto;margin-top:3px;">'
+        +'<span>End '+h.resp.length+' responsibilit'+(h.resp.length===1?'y':'ies')
+        +', keeping the record<br><span class="field-note">'
+        +'"Who owned this in August" stays answerable.</span></span></label>':'')
+    + (h.position?'<label style="display:flex;gap:8px;align-items:flex-start;">'
+        +'<input type="checkbox" checked disabled style="width:auto;margin-top:3px;">'
+        +'<span>Vacate <b>'+esc(h.position.title)+'</b>, keeping the position'
+        +'<br><span class="field-note">The job stays on the chart with nobody in it.</span>'
+        +'</span></label>':'')
+    +'</div>'
+
+    + (h.domains.length?'<div class="field-note" style="color:var(--amber);margin-bottom:10px;">'
+        +'Their domain ownership is set in Operational Ownership, which is the next build. '
+        +'Until then, new unowned work in '+esc(h.domains.map(d=>d.domain).join(', '))
+        +' will keep routing to them even though they are inactive. Tell me and I will change it.'
+        +'</div>':'')
+
+    +'<div class="field-note" style="margin-bottom:11px;">Completed work, reviews already given, '
+    +'feedback and every past assignment stay exactly as they are, under their name.</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="sdGo" style="padding:7px 14px;font-size:13px;">Deactivate</button>'
+    +'<button class="ghost" id="sdNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:470});
+
+  el.querySelector('#sdNo').onclick=ccPopClose;
+  el.querySelector('#sdGo').onclick=async ()=>{
+    const toEl=el.querySelector('#sdTo');
+    const to=toEl?toEl.value:'';
+    const moveRecur=!!(el.querySelector('#sdRecur')&&el.querySelector('#sdRecur').checked);
+    const now=new Date().toISOString(), by=ME.email||'';
+    ccPopClose();
+
+    for(const i of h.open.concat(h.reviews)){
+      i.owner=to||''; i.owner_name=to?(opsOwnerName(to)||''):'';
+      i.history=(i.history||[]).concat([{at:now,by,
+        what: to ? 'Moved to '+(opsOwnerName(to)||to)+' when '+nm+' was deactivated'
+                 : 'Left unassigned when '+nm+' was deactivated'}]);
+      await persist('ops_items', i);
+    }
+    for(const r of h.recurring){
+      if(moveRecur && to){ r.person=to; }
+      else { r.active=false; r.ended_at=now; r.ended_by=by;
+             r.ended_reason=nm+' was deactivated'; }
+      await persist('recurring_duties', r);
+    }
+    for(const w of h.windows){
+      w.active=false; w.ended_at=now; w.ended_by=by; await persist('duty_windows', w);
+    }
+    for(const w of h.backups){
+      w.backup_person=null; await persist('duty_windows', w);
+    }
+    for(const r of h.resp){
+      await roleEndResp(r.id, nm+' was deactivated on '+now.slice(0,10));
+    }
+    if(h.position){
+      h.position.status='vacant';
+      h.position.previous_holders=(h.position.previous_holders||[]).concat(
+        [{person:e, name:nm, until:now}]);
+      h.position.person=null;
+      await persist('positions', h.position);
+    }
+    if(person){
+      person.active=false; person.ended_at=now; person.ended_by=by;
+      await persist('coordinator_staff', person);
+    }
+    const prof=roleProfile(e);
+    if(prof){ await roleSaveProfile(e,{ status:'inactive' }); }
+    renderMyTeam(); renderHome(); renderStaffList();
+  };
+}
+
+/* Kept for the rare case of a row created by mistake that never did anything.
+   It is no longer reachable from an everyday screen, and it refuses to run on
+   anybody who holds work — that is what Deactivate is for. */
 async function removeStaffMember(id){
+  const st=(DATA.coordinator_staff||[]).find(s=>s.id===id); if(!st) return;
+  const h=staffHoldings(st.email);
+  const held=h?(h.open.length+h.reviews.length+h.recurring.length+h.windows.length
+               +h.resp.length+(h.position?1:0)):0;
+  if(held){
+    ccPopOpen(document.body,
+      '<div style="font-size:13.5px;"><b>'+escapeHtmlComms(st.name||'')+'</b> still holds '
+      +held+' thing'+(held===1?'':'s')+'.</div>'
+      +'<div class="field-note" style="margin-top:5px;">Use <b>Deactivate</b> instead — it asks '
+      +'where each one should go and keeps the history. Permanent removal is only for a row '
+      +'created by mistake that never did anything.</div>',{width:360});
+    return;
+  }
   DATA.coordinator_staff = (DATA.coordinator_staff||[]).filter(s=>s.id!==id);
   await removeItem('coordinator_staff', id);
-  renderStaffList();
+  renderStaffList(); renderMyTeam();
 }
 function saveSettings(){
   const newCode = document.getElementById('set_new_passcode').value;
@@ -17203,7 +17378,9 @@ function respFor(email, includeEnded, includePlanned){
     && (includeEnded || r.active!==false)
     && (includePlanned || !rowPlanned(r)));
 }
-function roleStaff(){ return (DATA.coordinator_staff||[]).filter(s=>s.email); }
+/* Inactive people leave the assignable roster and stay in the record. */
+function roleStaff(){ return (DATA.coordinator_staff||[]).filter(s=>s.email && s.active!==false); }
+function roleFormer(){ return (DATA.coordinator_staff||[]).filter(s=>s.email && s.active===false); }
 /* MY TEAM SHOWS THE ORGANISATION. THAT IS NOT THE ASSIGNABLE ROSTER.
    coordinator_staff is operational: being on it puts you in pickers and lets
    you receive work. Cierra has not started, so she must not be on it — and
@@ -17377,6 +17554,9 @@ function renderMyTeam(){
       +'<span style="flex:1;"></span>'
       +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
       +'onclick="roleOpen(\''+esc(e)+'\')">Open role</button>'
+      +(roleCanEdit()&&!s.not_on_roster?'<button class="ghost" style="padding:5px 11px;font-size:12px;'
+        +'color:var(--red);border-color:var(--red);" '
+        +'onclick="staffDeactivate(\''+esc(e)+'\')">Deactivate</button>':'')
       +(roleCanEdit()?'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
         +'onclick="roleEdit(\''+esc(e)+'\')">Edit</button>'
         +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
@@ -17402,6 +17582,22 @@ function renderMyTeam(){
       +(temp?'<div class="field-note" style="margin-top:4px;">'+temp+' temporary — planned to move</div>':'')
       +'</div>';
   }).join('');
+  /* Former staff do not vanish. They leave the roster and stay in the record,
+     because "who owned this in August" has to keep working. */
+  const gone=roleFormer();
+  if(gone.length) h+='<div style="display:flex;align-items:baseline;gap:10px;margin:22px 0 8px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">FORMER STAFF</b>'
+    +'<span class="field-note">Off the roster. Their history is intact and still theirs</span></div>'
+    +gone.map(g=>'<div class="card" style="padding:11px 15px;margin-bottom:8px;opacity:.72;">'
+      +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
+      +'<b style="font-size:14px;">'+esc(g.name||g.email)+'</b>'
+      +'<span class="field-note">'+esc(((roleProfile(String(g.email).toLowerCase())||{}).title)||'')+'</span>'
+      +'<span class="tag-chip" style="background:var(--border);color:var(--text-muted);">INACTIVE</span>'
+      +(g.ended_at?'<span class="field-note">since '+esc(String(g.ended_at).slice(0,10))+'</span>':'')
+      +'<span style="flex:1;"></span>'
+      +'<button class="ghost" style="padding:4px 10px;font-size:12px;" '
+      +'onclick="roleOpen(\''+esc(String(g.email).toLowerCase())+'\')">Open role</button>'
+      +'</div></div>').join('');
   wrap.innerHTML=h+posPanelHtml();
 }
 function roleOpen(email){ switchTab('myrole'); renderMyRole(email); }
