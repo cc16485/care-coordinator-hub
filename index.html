@@ -10873,6 +10873,96 @@ async function addStaffMember(){
   ['new_staff_notify_leads','new_staff_notify_checkins','new_staff_notify_supervisory','new_staff_notify_careplan'].forEach(id=>document.getElementById(id).checked=false);
   renderStaffList();
 }
+/* ═══════════════ HUB ACCESS ═══════════════════════════════════════════════
+   Whether somebody can sign in is now an ordinary thing you change from My
+   Team. The browser never holds a service-role key: it calls the hub-access
+   function with YOUR session, and that function decides what you may do by
+   reading staff_roles. Nothing in the request can claim authority — proved by
+   sending one that tried.
+
+   ACCESS IS NOT EMPLOYMENT. Removing access stops somebody signing in. It does
+   not end their job, move their work, stop their duty windows or touch a single
+   line of history. Those are different decisions and they stay separate. */
+const HUB_ACCESS_FN = (CONFIG.supabase_url||'')+'/functions/v1/hub-access';
+async function hubAccessCall(action, email){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session) return { error:'Your session has expired. Sign in again.' };
+  const r = await fetch(HUB_ACCESS_FN, { method:'POST',
+    headers:{ 'Content-Type':'application/json',
+              'Authorization':'Bearer '+session.access_token,
+              'apikey': CONFIG.supabase_anon_key },
+    body: JSON.stringify({ action, target_email:String(email||'').toLowerCase(),
+                           hub:'care_coordinator' }) });
+  let body={}; try{ body = await r.json(); }catch(e){}
+  if(!r.ok) return { error: body.error || ('Request failed ('+r.status+')'), detail: body.detail };
+  return body;
+}
+const HUB_STATE={
+  active:  { label:'Can sign in',            tone:'var(--teal)'  },
+  invited: { label:'Invitation sent, not accepted yet', tone:'var(--amber)' },
+  revoked: { label:'Access removed',         tone:'var(--text-muted)' },
+  none:    { label:'No account',             tone:'var(--text-muted)' }
+};
+async function hubAccessOpen(email){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
+  const nm=posPersonName(e);
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Hub access</div>'
+    +'<div class="field-note" style="margin:3px 0 10px;">'+esc(nm)+'</div>'
+    +'<div id="haBody" class="field-note">Checking…</div>', {width:400});
+  const body=el.querySelector('#haBody');
+  const st=await hubAccessCall('status', e);
+  if(st.error){
+    body.innerHTML='<span style="color:var(--red);">'+esc(st.error)+'</span>'
+      +(st.detail?'<div class="field-note" style="margin-top:4px;">'+esc(st.detail)+'</div>':'');
+    return;
+  }
+  const S=HUB_STATE[st.state]||HUB_STATE.none;
+  const act=(id,label,primary)=>'<button class="'+(primary?'primary':'ghost')
+    +'" id="'+id+'" style="padding:6px 12px;font-size:12.5px;">'+label+'</button>';
+  let buttons='';
+  if(st.state==='none')    buttons=act('haInvite','Invite to Hub',true);
+  if(st.state==='invited') buttons=act('haResend','Resend invitation',true)+act('haRevoke','Cancel access');
+  if(st.state==='active')  buttons=act('haRevoke','Remove access');
+  if(st.state==='revoked') buttons=act('haRestore','Restore access',true);
+  body.innerHTML='<div style="font-size:13.5px;color:'+S.tone+';font-weight:600;">'+S.label+'</div>'
+    +'<div class="field-note" style="margin:4px 0 12px;">'+esc(e)+'</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'+buttons+'</div>'
+    +'<div id="haMsg" class="field-note" style="margin-top:10px;"></div>';
+  const msg=body.querySelector('#haMsg');
+  const run=async (action, confirmHtml)=>{
+    if(confirmHtml){
+      msg.innerHTML=confirmHtml
+        +'<div style="display:flex;gap:8px;margin-top:9px;">'
+        +'<button class="primary" id="haYes" style="padding:6px 12px;font-size:12.5px;'
+        +'background:var(--red);border-color:var(--red);">Remove access</button>'
+        +'<button class="ghost" id="haNo" style="padding:6px 12px;font-size:12.5px;">Keep it</button></div>';
+      msg.querySelector('#haNo').onclick=()=>{ msg.innerHTML=''; };
+      msg.querySelector('#haYes').onclick=()=>run(action);
+      return;
+    }
+    msg.textContent='Working…';
+    const r=await hubAccessCall(action, e);
+    if(r.error){
+      msg.innerHTML='<span style="color:var(--red);">'+esc(r.error)+'</span>'
+        +(r.detail?'<div style="margin-top:3px;">'+esc(r.detail)+'</div>':'');
+      return;
+    }
+    ccPopClose(); hubAccessOpen(e);
+  };
+  const on=(id,fn)=>{ const b=body.querySelector('#'+id); if(b) b.onclick=fn; };
+  on('haInvite', ()=>run('invite'));
+  on('haResend', ()=>run('resend'));
+  on('haRestore',()=>run('restore'));
+  on('haRevoke', ()=>run('revoke',
+    '<div style="color:var(--ink);font-size:13px;">This stops <b>'+esc(nm)
+    +'</b> signing into the Hub.</div>'
+    +'<div style="margin-top:5px;">It does <b>not</b> end their employment, move their work, '
+    +'stop their duty windows, or remove anything they have done. Their history stays '
+    +'exactly as it is.</div>'));
+}
+
 /* ═══════════════ OFFBOARDING ══════════════════════════════════════════════
    removeStaffMember was one line: drop the row, no confirmation, no questions.
    Their open work kept their email as owner, their recurring duties kept
@@ -10978,6 +11068,11 @@ async function staffDeactivate(email){
         +' will keep routing to them even though they are inactive. Tell me and I will change it.'
         +'</div>':'')
 
+    +'<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin-bottom:10px;">'
+    +'<input type="checkbox" id="sdAccess" checked style="width:auto;margin-top:3px;">'
+    +'<span>Also remove their Hub access<br><span class="field-note">'
+    +'A separate thing from employment, so it is a separate tick. Untick it only if there is '
+    +'a reason they should still be able to sign in.</span></span></label>'
     +'<div class="field-note" style="margin-bottom:11px;">Completed work, reviews already given, '
     +'feedback and every past assignment stay exactly as they are, under their name.</div>'
     +'<div style="display:flex;gap:8px;">'
@@ -11028,6 +11123,17 @@ async function staffDeactivate(email){
     }
     const prof=roleProfile(e);
     if(prof){ await roleSaveProfile(e,{ status:'inactive' }); }
+    /* Access last, and never allowed to undo the rest if it fails. */
+    const dropAccess=!!(el.querySelector('#sdAccess')&&el.querySelector('#sdAccess').checked);
+    if(dropAccess){
+      const r=await hubAccessCall('revoke', e);
+      if(r && r.error) ccPopOpen(document.body,
+        '<div style="font-size:13.5px;">'+esc(nm)+' was deactivated.</div>'
+        +'<div class="field-note" style="margin-top:5px;color:var(--amber);">Their Hub access '
+        +'could NOT be removed: '+escapeHtmlComms(r.error)+'</div>'
+        +'<div class="field-note" style="margin-top:5px;">Everything else went through. '
+        +'Use <b>Hub access</b> on their card to try again.</div>',{width:380});
+    }
     renderMyTeam(); renderHome(); renderStaffList();
   };
 }
@@ -17554,6 +17660,8 @@ function renderMyTeam(){
       +'<span style="flex:1;"></span>'
       +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
       +'onclick="roleOpen(\''+esc(e)+'\')">Open role</button>'
+      +(roleCanEdit()?'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
+        +'onclick="hubAccessOpen(\''+esc(e)+'\')">Hub access</button>':'')
       +(roleCanEdit()&&!s.not_on_roster?'<button class="ghost" style="padding:5px 11px;font-size:12px;'
         +'color:var(--red);border-color:var(--red);" '
         +'onclick="staffDeactivate(\''+esc(e)+'\')">Deactivate</button>':'')
