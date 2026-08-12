@@ -10873,6 +10873,119 @@ async function addStaffMember(){
   ['new_staff_notify_leads','new_staff_notify_checkins','new_staff_notify_supervisory','new_staff_notify_careplan'].forEach(id=>document.getElementById(id).checked=false);
   renderStaffList();
 }
+/* ═══════════════ ADD SOMEBODY ═════════════════════════════════════════════
+   The old form lived in Settings and asked for a shift and four notification
+   checkboxes. It created a coordinator_staff row and nothing else, so the new
+   person had no role, no title, and no way in.
+
+   This asks business questions and does the record-keeping itself. It says what
+   it will create, in plain words, before it creates anything. */
+function staffAddOpen(){
+  if(!roleCanEdit()) return;
+  const esc=escapeHtmlComms;
+  const vacant=(DATA.positions||[]).filter(p=>p.status!=='filled');
+  const F=(id,label,ph,type)=>'<label style="display:block;margin-bottom:9px;">'
+    +'<span style="font-size:12.5px;font-weight:600;">'+label+'</span>'
+    +'<input id="'+id+'" type="'+(type||'text')+'" placeholder="'+(ph||'')+'" '
+    +'style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);'
+    +'border-radius:8px;margin-top:3px;"></label>';
+  const el=ccPopOpen(document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Add someone to the team</div>'
+    +'<div class="field-note" style="margin:4px 0 12px;">You can change any of this later.</div>'
+    + F('saName','Name','Cierra Barber')
+    + F('saEmail','Work email','name@mo-care.com','email')
+    + F('saPhone','Phone (optional)','')
+    +'<label style="display:block;margin-bottom:9px;">'
+    +'<span style="font-size:12.5px;font-weight:600;">Are they working now?</span>'
+    +'<select id="saStatus" style="width:100%;padding:7px 9px;font-size:13px;'
+    +'border:1px solid var(--border);border-radius:8px;margin-top:3px;">'
+    +'<option value="active">Yes — working now</option>'
+    +'<option value="planned">Not yet — starting later</option></select></label>'
+    + F('saTitle','Job title','Lead Caregiver')
+    +'<label style="display:block;margin-bottom:9px;">'
+    +'<span style="font-size:12.5px;font-weight:600;">Why the job exists (optional)</span>'
+    +'<textarea id="saWhy" rows="2" placeholder="What this person is here to make sure happens"'
+    +' style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);'
+    +'border-radius:8px;margin-top:3px;font-family:inherit;"></textarea></label>'
+    + (vacant.length?'<label style="display:block;margin-bottom:9px;">'
+      +'<span style="font-size:12.5px;font-weight:600;">Fill a position?</span>'
+      +'<select id="saPos" style="width:100%;padding:7px 9px;font-size:13px;'
+      +'border:1px solid var(--border);border-radius:8px;margin-top:3px;">'
+      +'<option value="">No — not filling a position</option>'
+      + vacant.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.title)+' · '
+        +esc(String(v.status).toUpperCase())+'</option>').join('')
+      +'</select></label>':'')
+    +'<label style="display:flex;gap:8px;align-items:flex-start;margin:12px 0;font-size:13px;">'
+    +'<input type="checkbox" id="saInvite" style="width:auto;margin-top:3px;">'
+    +'<span>Invite them to the Hub now<br><span class="field-note">They get an email and choose '
+    +'their own password. Nobody ever sets it for them.</span></span></label>'
+    +'<div id="saPreview" class="field-note" style="margin-bottom:10px;"></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="saGo" style="padding:7px 14px;font-size:13px;">Add them</button>'
+    +'<button class="ghost" id="saNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:430});
+
+  const g=id=>{ const x=el.querySelector('#'+id); return x?x.value.trim():''; };
+  const preview=()=>{
+    const bits=['their staff profile','their role and title'];
+    if(g('saPos')) bits.push('they become the holder of that position');
+    if(el.querySelector('#saInvite').checked) bits.push('an invitation to the Hub');
+    const planned=g('saStatus')==='planned';
+    el.querySelector('#saPreview').innerHTML='<b>This creates:</b> '+bits.join(', ')+'.'
+      +(planned?'<br>Marked <b>planned</b>, so they will not appear where work is assigned '
+        +'until you make them active.':'');
+  };
+  ['saName','saEmail','saTitle','saStatus','saPos'].forEach(id=>{
+    const x=el.querySelector('#'+id); if(x) x.oninput=x.onchange=preview; });
+  const inv=el.querySelector('#saInvite'); if(inv) inv.onchange=preview;
+  preview();
+
+  el.querySelector('#saNo').onclick=ccPopClose;
+  el.querySelector('#saGo').onclick=async ()=>{
+    const name=g('saName'), email=g('saEmail').toLowerCase();
+    const err=(m)=>{ el.querySelector('#saPreview').innerHTML=
+      '<span style="color:var(--red);">'+escapeHtmlComms(m)+'</span>'; };
+    if(!name) return err('A name is needed.');
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return err('A work email address is needed.');
+    if((DATA.coordinator_staff||[]).some(x=>String(x.email||'').toLowerCase()===email))
+      return err('Somebody with that email is already on the team.');
+
+    const planned=g('saStatus')==='planned';
+    const posId=g('saPos');
+    /* Read every field BEFORE closing. Once the popover is gone the inputs are
+       gone with it, and a checkbox read afterwards is always false. */
+    const invWanted=!!(el.querySelector('#saInvite')&&el.querySelector('#saInvite').checked);
+    ccPopClose();
+
+    const row={ id:'stf_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+      name, email, phone:g('saPhone')||'', role:g('saTitle')||'',
+      active:true, added_at:new Date().toISOString(), added_by:ME.email||'' };
+    DATA.coordinator_staff=DATA.coordinator_staff||[]; DATA.coordinator_staff.push(row);
+    await persist('coordinator_staff', row);
+
+    await roleSaveProfile(email, { full_name:name, title:g('saTitle')||'',
+      why:g('saWhy')||'', status: planned?'planned':'active' });
+
+    if(posId){
+      const pos=posGet(posId);
+      if(pos){ pos.status='filled'; pos.person=email; pos.filled_at=new Date().toISOString();
+               pos.filled_by=ME.email||''; await persist('positions', pos); }
+    }
+    renderMyTeam(); renderStaffList();
+    if(invWanted){
+      const r=await hubAccessCall('invite', email);
+      ccPopOpen(document.body,
+        '<div style="font-size:13.5px;"><b>'+escapeHtmlComms(name)+'</b> added.</div>'
+        +(r && r.error
+          ? '<div class="field-note" style="margin-top:5px;color:var(--amber);">The invitation did '
+            +'not send: '+escapeHtmlComms(r.error)+'<br>Everything else saved. Use <b>Hub access</b> '
+            +'on their card to try again.</div>'
+          : '<div class="field-note" style="margin-top:5px;">Invitation sent to '
+            +escapeHtmlComms(email)+'. They choose their own password.</div>'),{width:380});
+    }
+  };
+}
+
 /* ═══════════════ HUB ACCESS ═══════════════════════════════════════════════
    Whether somebody can sign in is now an ordinary thing you change from My
    Team. The browser never holds a service-role key: it calls the hub-access
@@ -10995,10 +11108,30 @@ function staffHoldings(email){
                  && String(x.person||'').toLowerCase()===e)||null };
 }
 
+/* An owner is not an ordinary employee. The hub-access function already refuses
+   to remove the last owner who can sign in; employment needs the same guard,
+   because deactivating the wrong owner is the one mistake with no way back. */
+function activeOwners(){
+  return DISC_APPROVERS.filter(o=>{
+    const st=(DATA.coordinator_staff||[]).find(x=>String(x.email||'').toLowerCase()===o);
+    return !st || st.active!==false;               // absent from the roster still counts as active
+  });
+}
 async function staffDeactivate(email){
   if(!roleCanEdit()) return;
   const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
   const h=staffHoldings(e); if(!h) return;
+  const isOwner=DISC_APPROVERS.includes(e);
+  if(isOwner && activeOwners().length<=1){
+    ccPopOpen(document.body,
+      '<div style="font-size:14px;font-weight:800;color:var(--navy);">Not this one</div>'
+      +'<div style="font-size:13.5px;margin-top:7px;">'+esc(posPersonName(e))
+      +' is the last active owner.</div>'
+      +'<div class="field-note" style="margin-top:5px;">Deactivating them would leave nobody who '
+      +'can approve discipline, change access, or put any of it back. Make somebody else an owner '
+      +'first.</div>',{width:380});
+    return;
+  }
   const person=(DATA.coordinator_staff||[]).find(s=>String(s.email||'').toLowerCase()===e);
   const nm=(person&&person.name)||posPersonName(e)||e;
   const others=ccPeople().filter(x=>x.email && x.email!==e);
@@ -11012,6 +11145,10 @@ async function staffDeactivate(email){
     +'<div class="field-note" style="margin:4px 0 10px;">Nothing is deleted. They stop appearing '
     +'where work is assigned, and everything they did stays under their name.</div>'
 
+    +(isOwner?'<div class="field-note" style="color:var(--amber);margin-bottom:10px;">'
+      +'This person is an <b>owner</b>. Their approvals — discipline, access, owner decisions — '
+      +'stop with them. '+(activeOwners().length-1)+' other active owner'
+      +(activeOwners().length-1===1?'':'s')+' would remain.</div>':'')
     +'<div style="font-size:13px;font-weight:700;">They currently hold</div>'
     +'<div style="margin:5px 0 12px;">'
     + line(h.domains.length,'domain'+(h.domains.length===1?'':'s'),
@@ -17632,6 +17769,8 @@ function renderMyTeam(){
     +'<span style="flex:1;"></span>'
     /* One-time setup does not live beside everyday management for ever.
        It disappears as soon as there is nothing left for it to write. */
+    +(roleCanEdit()?'<button class="primary" style="padding:6px 12px;font-size:12.5px;" '
+      +'onclick="staffAddOpen()">Add staff member</button>':'')
     +((roleCanEdit()&&roleSeedPending().length)?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
       +'onclick="roleSeedStarting()">Write the starting roles ('+roleSeedPending().length+')</button>':'')
     /* Same rule as the seeder: a one-time control disappears the moment there
