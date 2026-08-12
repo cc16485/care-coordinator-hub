@@ -216,11 +216,41 @@ function eligibility(c){
      the caregiver's own dates and status overrides. Historical clearance and
      current compliance are different facts. */
 
-  // ── PRE-WORK: before any client contact ───────────────────────────────
+  /* ── PRE-WORK: before any client contact ───────────────────────────────
+     UNKNOWN IS NOT FAILED. This distinction is permanent and applies well
+     beyond training: as older employee records move into newer systems, the
+     absence of a field means "we have not looked there yet" far more often
+     than it means "this did not happen".
+
+     Orientation and dementia training are populated by the Training Hub sync
+     (course slugs agency-orientation and dementia-care). A caregiver who has
+     been working for months with no record at all is almost certainly a record
+     that was never imported. A caregiver hired last week with no record has
+     genuinely not done it yet.
+
+     So: recent hire + absent = a real blocker.
+         tenured + absent + no evidence anywhere = needs historical verification,
+         which is work for a human and NEVER a hard work restriction. */
+  const GRACE_DAYS = 45;              // long enough to complete it, short enough to notice
+  const tenureDays = f.hire ? Math.floor((__ELIG_TODAY__ - f.hire)/86400000) : null;
+  const longServing = tenureDays !== null && tenureDays > GRACE_DAYS;
+  const noEvidenceAtAll = !c.orient_date && !c.alz_date && !c.orient_proof && !c.alz_proof
+                          && !c.th_synced;
+  const unverified = [];
   if(!f.ts.preContactDone){
-    if(!c.orient_date) blockers.push({code:'orientation', kind:ELIG_LEGAL, why:'Orientation not attended.'});
-    if(!c.alz_date)    blockers.push({code:'alz', kind:ELIG_LEGAL,
-                                      why:"Alzheimer's / dementia training not completed."});
+    const historical = longServing && noEvidenceAtAll;
+    if(!c.orient_date){
+      (historical ? unverified : blockers).push({code:'orientation', kind:ELIG_LEGAL,
+        why: historical
+          ? 'No orientation record, and none has ever been imported for this caregiver. Verify before treating it as incomplete.'
+          : 'Orientation not attended.'});
+    }
+    if(!c.alz_date){
+      (historical ? unverified : blockers).push({code:'alz', kind:ELIG_LEGAL,
+        why: historical
+          ? "No dementia-training record, and none has ever been imported. Verify before treating it as incomplete."
+          : "Alzheimer's / dementia training not completed."});
+    }
   }
 
   // ── OJT: a task until the 30-day deadline, a work restriction after ───
@@ -230,7 +260,7 @@ function eligibility(c){
      Without this, a caregiver who never attended orientation would be handed
      a DO NOT SCHEDULE note citing OJT, which is both wrong and confusing. */
   if(!f.ts.thirtyDone){
-    if(f.ts.thirtyPassed && f.ts.preContactDone && !blockers.length){
+    if(f.ts.thirtyPassed && f.ts.preContactDone && !blockers.length && !unverified.length){
       lapses.push({ code:'ojt_overdue', kind:ELIG_LEGAL, restriction:true,
         why:'Required OJT not completed within 30 days of hire',
         due: f.ojtDeadline ? f.ojtDeadline.toISOString().slice(0,10) : null });
@@ -273,15 +303,25 @@ function eligibility(c){
   if(sv.status === 'Overdue') mgmt.push({code:'supervisory_visit', kind:ELIG_MGMT, why:'Supervisory visit overdue.'});
   if(pr.status === 'Overdue') mgmt.push({code:'performance_review', kind:ELIG_MGMT, why:'Performance review overdue.'});
 
-  const state = blockers.length ? 'not_eligible' : (lapses.length ? 'lapsed' : 'eligible');
+  /* needs_verification sits between eligible and not_eligible on purpose. It
+     is not a pass, and it is not a compliance failure — it is a record to go
+     and find. It never produces a hard work restriction. */
+  const state = blockers.length ? 'not_eligible'
+              : (lapses.length ? 'lapsed'
+              : (unverified.length ? 'needs_verification' : 'eligible'));
   const label = state==='eligible' ? 'ELIGIBLE TO WORK'
-              : state==='lapsed'   ? 'ELIGIBILITY LAPSED' : 'NOT ELIGIBLE';
-  const reasons = blockers.concat(lapses);
+              : state==='lapsed'   ? 'ELIGIBILITY LAPSED'
+              : state==='needs_verification' ? 'NEEDS HISTORICAL VERIFICATION'
+              : 'NOT ELIGIBLE';
+  const reasons = blockers.concat(lapses).concat(unverified);
   return {
-    state, label, blockers, lapses, tasks, mgmt, facts:f, reasons,
+    state, label, blockers, lapses, tasks, mgmt, unverified, facts:f, reasons,
+    tenure_days: tenureDays,
     /* the single sentence a human reads first */
     summary: state==='eligible'
       ? 'All required pre-work conditions satisfied.'
+      : state==='needs_verification'
+      ? 'Working, but the training record was never imported. Verify it rather than assuming it is missing.'
       : reasons.map(r=>r.why).join(' '),
     /* a hard work restriction is a lapse that says so */
     restricted: lapses.some(l=>l.restriction===true),
