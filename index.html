@@ -18236,9 +18236,44 @@ const REVIEW_FOLLOWUPS = [
   ['escalate',    'Escalate a concern']];
 
 function reviewRules(){ return (DATA.review_rules||[]).filter(r=>r.active!==false); }
+/* Rules can now stop on their own. Before this, a rule set up to supervise a
+   new coordinator supervised them for ever, because nothing ever removed it —
+   the training wheels had no way to come off except somebody remembering.
+
+     until    an ISO date. The rule stops applying after it.
+     first_n  an integer. The rule stops once that many reviews already exist
+              for this person and kind.
+
+   Either, both, or neither. Both absent behaves exactly as before, so every
+   existing rule is unaffected. */
+function reviewCountFor(email, kind){
+  const e=String(email||'').toLowerCase();
+  return (DATA.ops_items||[]).filter(i =>
+    i.kind==='review' && i.review &&
+    String(i.review.person||'').toLowerCase()===e &&
+    i.review.kind===kind).length;
+}
+function reviewRuleSpent(rule){
+  if(!rule) return true;
+  if(rule.until){
+    /* Compared at day granularity so a rule set to end on the 30th covers the
+       whole of the 30th, which is what somebody writing that date means. */
+    const end=new Date(String(rule.until).slice(0,10)+'T23:59:59');
+    if(!isNaN(end) && Date.now() > end.getTime())
+      return {spent:true, why:'ended '+String(rule.until).slice(0,10)};
+  }
+  if(rule.first_n){
+    const done=reviewCountFor(rule.person, rule.kind);
+    if(done >= Number(rule.first_n))
+      return {spent:true, why:done+' of '+rule.first_n+' reviews done'};
+  }
+  return false;
+}
 function reviewRuleFor(email, kind){
   const e=String(email||'').toLowerCase();
-  return reviewRules().find(r=>String(r.person||'').toLowerCase()===e && r.kind===kind) || null;
+  const rule=reviewRules().find(r=>String(r.person||'').toLowerCase()===e && r.kind===kind) || null;
+  if(!rule) return null;
+  return reviewRuleSpent(rule) ? null : rule;
 }
 function reviewExistsFor(sourceId){
   return (DATA.ops_items||[]).some(i=>i.kind==='review' && i.review && i.review.source_id===sourceId);
@@ -18273,6 +18308,9 @@ async function reviewMaybeCreate(it){
     const now=new Date().toISOString();
     const rev={
       id:'rev_'+it.id, kind:'review', source_id:it.id,
+      /* person + kind are stored so a first_n rule can count what it has
+         already produced. `about` is a display name and cannot be counted on. */
+      review:{ source_id:it.id, person:who, kind:it.kind },
       about:person,
       title:'Review '+person+"'s "+label.toLowerCase(),
       detail:(it.about||it.title||''),
