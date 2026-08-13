@@ -20156,7 +20156,16 @@ const PLAN_DIRECT=[
 
 function planPending(){
   const A=(DATA.responsibilities||[]);
-  const has=(pe,k,t)=>A.some(r=>String(r.person||'').toLowerCase()===pe && r.active!==false
+  /* ENDED COUNTS AS PRESENT. This used to require r.active!==false, so a
+     responsibility somebody had deliberately ended looked like one they had
+     never been given, and the seeder handed it straight back on the next run.
+     That is how Angiel accumulated seven identical Scheduling Support rows on
+     seven separate occasions, and how a carefully rewritten job description
+     was silently restored to its placeholders after a page reload.
+
+     Ending a responsibility is a decision. A seeder exists to fill gaps, not
+     to overrule the person who decided. */
+  const has=(pe,k,t)=>A.some(r=>String(r.person||'').toLowerCase()===pe
                                 && r.kind===k && r.text===t);
   const out={profiles:[],resp:[],duty:[],names:[]};
   for(const [email,d] of Object.entries(PROFILE_FIX)){
@@ -20175,7 +20184,9 @@ function planPending(){
   }
   const R=(DATA.responsibilities||[]);
   for(const pr of PLAN_POS_RESP)
-    if(!R.some(r=>r.position===pr.position && r.kind===pr.kind && r.text===pr.text && r.active!==false))
+    /* Same rule as has() above: an ended planned responsibility was decided
+       against, and must not be handed back on the next run. */
+    if(!R.some(r=>r.position===pr.position && r.kind===pr.kind && r.text===pr.text))
       out.posResp=(out.posResp||[]).concat([pr]);
   out.posResp=out.posResp||[];
   const W=(DATA.duty_windows||[]);
