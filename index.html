@@ -3732,8 +3732,21 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   </div>
   <div class="grid2" style="margin-top:8px;">
     <div><label>Reviewed by</label><select id="rr_reviewer"></select></div>
-    <div style="display:flex;align-items:flex-end;">
-      <button class="primary" onclick="reviewAddRule()">Add rule</button></div>
+    <div></div>
+  </div>
+  <!-- Supervision that does not expire is not supervision, it is a permanent
+       second signature. Both limits are optional; leaving them blank is still
+       allowed, and says out loud that the rule runs until somebody removes it. -->
+  <div class="grid2" style="margin-top:8px;">
+    <div><label>Stop after this many reviews</label>
+      <input id="rr_first_n" type="number" min="1" step="1" placeholder="e.g. 10">
+      <span class="hint">Counts only this kind of work. Blank means no limit.</span></div>
+    <div><label>Stop on this date at the latest</label>
+      <input id="rr_until" type="date">
+      <span class="hint">A backstop. Whichever comes first ends the rule.</span></div>
+  </div>
+  <div style="margin-top:8px;">
+    <button class="primary" onclick="reviewAddRule()">Add rule</button>
   </div>
 </div>
 
@@ -18758,7 +18771,14 @@ function homeReviewSections(){
 function renderReviewRules(){
   const wrap=document.getElementById('reviewRulesWrap'); if(!wrap) return;
   const esc=escapeHtmlComms;
-  const staff=(DATA.coordinator_staff||[]).filter(s=>s.email);
+  /* The staff person registry, not the legacy coordinator_staff list. Anybody
+     hired through My Team was missing from both dropdowns, so a rule could not
+     be written about a new employee — which is the only time ramp-up
+     supervision is actually wanted. */
+  const staff=(OPS_PEOPLE||[]).filter(p=>p.primary_email)
+    .map(p=>({ email:String(p.primary_email).toLowerCase(),
+               name:p.full_name||p.primary_email }))
+    .sort((a,b)=>a.name.localeCompare(b.name));
   const fill=(id,list,blank)=>{ const el=document.getElementById(id); if(!el) return;
     el.innerHTML=(blank?'<option value="">'+blank+'</option>':'')
       +list.map(([v,l])=>'<option value="'+esc(v)+'">'+esc(l)+'</option>').join(''); };
@@ -18769,11 +18789,29 @@ function renderReviewRules(){
 
   const rules=DATA.review_rules||[];
   wrap.innerHTML = rules.length
-    ? '<table><thead><tr><th>Whose work</th><th>What kind</th><th>Reviewed by</th><th></th></tr></thead><tbody>'
-      +rules.map(r=>'<tr><td>'+esc(opsOwnerName(r.person)||r.person)+'</td>'
+    ? '<table><thead><tr><th>Whose work</th><th>What kind</th><th>Reviewed by</th>'
+      +'<th>Runs until</th><th></th></tr></thead><tbody>'
+      +rules.map(r=>{
+        /* Said in words, because "first_n: 10" on a screen tells a manager
+           nothing about whether the rule is still doing anything today. */
+        const spent=reviewRuleSpent(r);
+        let limit;
+        if(spent && spent.spent){
+          limit='<span style="opacity:.6;">Finished — '+esc(spent.why)+'</span>';
+        } else if(!r.first_n && !r.until){
+          limit='<b>No limit</b><br><span class="field-note">Runs until you remove it</span>';
+        } else {
+          const bits=[];
+          if(r.first_n) bits.push(reviewCountFor(r.person,r.kind)+' of '+r.first_n+' reviews done');
+          if(r.until)   bits.push('or '+esc(String(r.until).slice(0,10)));
+          limit=esc(bits.join(', ')).replace(/&lt;/g,'<');
+        }
+        return '<tr><td>'+esc(opsOwnerName(r.person)||r.person)+'</td>'
         +'<td>'+esc((OPS_KINDS[r.kind]||{}).label||r.kind)+'</td>'
         +'<td>'+esc(opsOwnerName(r.reviewer)||r.reviewer)+'</td>'
-        +'<td style="text-align:right;"><button class="linklike" onclick="reviewRemoveRule(\''+r.id+'\')">Remove</button></td></tr>').join('')
+        +'<td style="font-size:12.5px;">'+limit+'</td>'
+        +'<td style="text-align:right;"><button class="linklike" onclick="reviewRemoveRule(\''+r.id+'\')">Remove</button></td></tr>';
+      }).join('')
       +'</tbody></table>'
     : '<div class="field-note">No rules yet. Nobody\'s work is being reviewed.</div>';
 }
@@ -18786,7 +18824,24 @@ async function reviewAddRule(){
   DATA.review_rules=DATA.review_rules||[];
   if(DATA.review_rules.some(r=>r.person===person&&r.kind===kind)){
     alert('There is already a rule for that person and that kind of work.'); return; }
+  /* Both limits are optional and both are validated, because a rule that
+     silently ignores a typo'd limit is worse than one that refuses it: it
+     looks like ramp-up supervision and behaves like permanent supervision. */
+  const nRaw=(document.getElementById('rr_first_n')||{}).value||'';
+  const uRaw=(document.getElementById('rr_until')||{}).value||'';
+  let first_n=null, until=null;
+  if(String(nRaw).trim()!==''){
+    first_n=parseInt(nRaw,10);
+    if(!isFinite(first_n)||first_n<1){ alert('Stop after this many reviews must be 1 or more, or left blank.'); return; }
+  }
+  if(String(uRaw).trim()!==''){
+    /* Date inputs give YYYY-MM-DD. reviewRuleSpent appends a local end-of-day,
+       so no timezone conversion happens here on purpose. */
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(uRaw)){ alert('That end date did not read as a date.'); return; }
+    until=uRaw;
+  }
   const rule={ id:'rr_'+Date.now().toString(36), person, kind, reviewer, active:true,
+    first_n, until,
     created_at:new Date().toISOString(), created_by:ME.email||'' };
   DATA.review_rules.push(rule);
   await persist('review_rules', rule);
