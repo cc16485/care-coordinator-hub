@@ -344,7 +344,11 @@
          report zeros, and an automation processing nothing looks identical to
          an automation with nothing to process. That is the false green this
          whole exercise exists to prevent. */
-      var s = { rows: 0, created: 0, skipped: 0, unroutable: 0, tooOld: 0 };
+      /* `candidates` passed every check and were eligible to be created.
+         `created` is what actually survived the per-run ceiling. Conflating the
+         two inflated the count and made the reconciliation double-count
+         everything that was deferred. */
+      var s = { rows: 0, candidates: 0, created: 0, skipped: 0, unroutable: 0, tooOld: 0 };
       var rows = [];
       try { rows = src.rows(data) || []; }
       catch (e) {
@@ -414,7 +418,7 @@
           source: { type: src.key, id: src.id(r), code: ob.code || null,
                     due: dueYmd, anchor: anchorYmd }
         });
-        s.created++;
+        s.candidates++;
     }
 
     /* PRIORITY BEFORE THE CEILING.
@@ -444,6 +448,8 @@
         return;
       }
       out.create.push(it);
+      var k = (it.source && it.source.type) || '';
+      if (out.bySource[k]) out.bySource[k].created++;
     });
 
     /* Generated work whose obligation no longer exists — and WHY.
