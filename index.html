@@ -11262,7 +11262,17 @@ async function posFillOpen(id){
   if(!ccCan('manage_positions')) return;
   const esc=escapeHtmlComms, P=posGet(id); if(!P || P.status==='filled') return;
   const T=posTemplate(id);
-  const people=ccPeople().filter(x=>x.email);
+  /* The staff person registry — the same source My Team writes to and the
+     domain owner picker already reads. This used to read ccPeople(), which is
+     built from the legacy coordinator_staff list, so anybody added through My
+     Team was invisible here and a real position could not be filled by a real
+     employee. ccPeople() also drops the owners on purpose, which is right for
+     payer-coordinator matching and wrong for filling a position: somebody has
+     to be able to hold the Owner position. */
+  const people=(OPS_PEOPLE||[]).filter(x=>x.primary_email)
+    .map(x=>({ name:x.full_name||x.primary_email,
+               email:String(x.primary_email).toLowerCase() }))
+    .sort((a,b)=>a.name.localeCompare(b.name));
   const tmpFrom=P.transfer_from ? String(P.transfer_from).toLowerCase() : '';
   const tmpResp=tmpFrom ? (DATA.responsibilities||[]).filter(r=>r.active!==false && r.temporary
       && String(r.person||'').toLowerCase()===tmpFrom) : [];
