@@ -1291,6 +1291,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
               <option value="today">Today</option>
               <option value="urgent">Urgent, within the hour</option>
             </select></div>
+          <!-- Separate from "How soon" on purpose. Urgency says how hard to
+               push; the due date is what Overdue measures, and what a
+               supervisor looks at to see what is being missed. -->
+          <div><label>Due by</label>
+            <select id="opsNewDue" onchange="opsDuePickToggle()">
+              <option value="auto">Use how soon</option>
+              <option value="today">End of today</option>
+              <option value="tomorrow">End of tomorrow</option>
+              <option value="pick">Pick a date…</option>
+            </select></div>
+          <div id="opsNewDuePickWrap" style="display:none;">
+            <label>On this date</label>
+            <input id="opsNewDueDate" type="date"></div>
           <div><label>Which client, if any</label>
             <input id="opsNewAbout" placeholder="Optional"></div>
           <div style="grid-column:1/-1;"><label>Anything they need to know</label>
@@ -21173,6 +21186,30 @@ const OPS_KINDS = {
 // Urgency overrides the default window for anything raised by hand.
 const OPS_URGENCY = { urgent:1, today:8, normal:null };
 
+function opsDuePickToggle(){
+  const s=document.getElementById('opsNewDue'), w=document.getElementById('opsNewDuePickWrap');
+  if(s&&w) w.style.display = s.value==='pick' ? '' : 'none';
+}
+/* End of the chosen day in LOCAL time, built from parts. Never
+   new Date('YYYY-MM-DD') — that is parsed as UTC midnight, which lands on the
+   previous evening here and would mark work overdue before it was due. */
+function opsEndOfLocalDay(y, m, d){
+  return new Date(y, m, d, 23, 59, 59, 999).toISOString();
+}
+/* Resolves the Due by choice to the same `due` field the Overdue bucket
+   already reads. Returns null if the choice was 'pick' with no valid date,
+   so the caller can refuse rather than quietly falling back to a guess. */
+function opsDueFromChoice(choice, dateStr, kind, urgency, fromISO){
+  const now=new Date(fromISO||Date.now());
+  if(choice==='today')    return opsEndOfLocalDay(now.getFullYear(), now.getMonth(), now.getDate());
+  if(choice==='tomorrow') return opsEndOfLocalDay(now.getFullYear(), now.getMonth(), now.getDate()+1);
+  if(choice==='pick'){
+    const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr||''));
+    if(!m) return null;
+    return opsEndOfLocalDay(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  }
+  return opsDueFor(kind, urgency, fromISO);
+}
 function opsDueFor(kind, urgency, fromISO){
   const base = (OPS_KINDS[kind]||{}).hours || 24;
   const hrs  = OPS_URGENCY[urgency] || base;
@@ -21335,7 +21372,12 @@ function opsBadges(){
 
 function opsStaffOptions(sel){
   const esc=escapeHtmlComms;
-  const staff=(DATA.coordinator_staff||[]).filter(s=>s.name||s.email);
+  /* The staff person registry, not the legacy coordinator_staff list. This
+     dropdown decides who manual work can be given to at all, so anybody hired
+     through My Team was unassignable — the queue offered no way to reach them. */
+  const staff=(OPS_PEOPLE||[]).filter(p=>p.primary_email)
+    .map(p=>({ name:p.full_name||p.primary_email, email:String(p.primary_email).toLowerCase() }))
+    .sort((a,b)=>a.name.localeCompare(b.name));
   return '<option value="">Unassigned</option>'+staff.map(s=>{
     const key=(s.email||s.name||'');
     return '<option value="'+esc(key)+'"'+(key===sel?' selected':'')+'>'+esc(s.name||s.email)+'</option>';
@@ -21496,16 +21538,26 @@ async function opsAdd(){
   const about = document.getElementById('opsNewAbout').value.trim();
   if(!title){ alert('Give it a short title so people can scan the list.'); return; }
   if(!owner){ alert('Pick who owns this. Work assigned to everybody gets done by nobody.'); return; }
-  const s=(DATA.coordinator_staff||[]).find(x=>(x.email||x.name)===owner);
   const now=new Date().toISOString();
+  const dueChoice=(document.getElementById('opsNewDue')||{}).value||'auto';
+  const dueDate=(document.getElementById('opsNewDueDate')||{}).value||'';
+  const due=opsDueFromChoice(dueChoice, dueDate, kind, urgency, now);
+  if(!due){ alert('Pick the date it is due, or choose a different Due by option.'); return; }
+  /* owner_name is what every card and every review shows. Reading it from the
+     legacy coordinator_staff list left it blank for anybody hired through My
+     Team, so their own work would not say whose it was. */
+  const s=(OPS_PEOPLE||[]).find(p=>String(p.primary_email||'').toLowerCase()===String(owner).toLowerCase());
   const it={ id:'ops_'+Date.now().toString(36), kind, title, detail, about,
-    urgency, status:'open', created_at:now, due:opsDueFor(kind,urgency,now),
-    owner, owner_name:s?(s.name||s.email):'',
+    urgency, status:'open', created_at:now, due,
+    owner, owner_name:s?(s.full_name||s.primary_email):(opsOwnerName(owner)||''),
     created_by:(typeof ME!=='undefined'&&ME.name)?ME.name:((typeof ME!=='undefined'&&ME.email)||''),
     opened_by:'person' };
   DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(it);
   await persist('ops_items', it);
-  ['opsNewTitle','opsNewDetail','opsNewAbout'].forEach(id=>document.getElementById(id).value='');
+  ['opsNewTitle','opsNewDetail','opsNewAbout','opsNewDueDate']
+    .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  const dsel=document.getElementById('opsNewDue'); if(dsel) dsel.value='auto';
+  opsDuePickToggle();
   document.getElementById('opsAddWrap').style.display='none';
   opsRenderQueue(); opsRenderCallbacks();
 }
