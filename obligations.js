@@ -307,7 +307,16 @@
     var maxAgeDays = (typeof ctx.maxAgeDays === 'number') ? ctx.maxAgeDays : null;
 
     var out = { create: [], stale: [], skipped: 0, unroutable: [], errors: [],
-                tooOld: [], deferred: 0, bySource: {} };
+                tooOld: [], deferred: 0, bySource: {},
+                /* WHY something did not appear is as important as what did.
+                   Held work split by severity and by reason, so 'legal went
+                   from 11 to 0' is answerable from the run itself instead of
+                   being reasoned about afterwards. */
+                heldBySeverity: {} };
+    function bump(o, sev, why){
+      o[sev] = o[sev] || { too_old: 0, deferred: 0 };
+      o[sev][why]++;
+    }
     /* A PER-RUN CEILING, separate from the backlog guard.
        The age guard stops OLD obligations arriving. It cannot stop a large
        number of legitimately-current ones arriving together, which is exactly
@@ -378,9 +387,16 @@
         /* Backlog guard. A first run must not dump a year of history on
            somebody. Skipped, counted and reported — never silently dropped. */
         if (oldestAllowed && dueYmd < oldestAllowed) {
-          s.tooOld++; out.tooOld.push({ source: src.key, id: id, due: dueYmd }); return;
+          s.tooOld++;
+          bump(out.heldBySeverity, ob.severity || 'legal', 'too_old');
+          out.tooOld.push({ source: src.key, id: id, due: dueYmd, code: ob.code || null,
+                            severity: ob.severity || null }); return;
         }
-        if (maxPerRun !== null && out.create.length >= maxPerRun) { out.deferred++; return; }
+        if (maxPerRun !== null && out.create.length >= maxPerRun) {
+          out.deferred++;
+          bump(out.heldBySeverity, ob.severity || 'legal', 'deferred');
+          return;
+        }
         var owner = '';
         try { owner = resolveOwner(ob.who !== undefined ? ob.who : src.who(r)) || ''; } catch (e) { owner = ''; }
         if (!owner) owner = domainOwner(ob.domain || src.domain) || '';
