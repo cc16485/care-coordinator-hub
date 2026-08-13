@@ -1062,7 +1062,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="card" id="attnCard" style="padding:2px 18px;margin-bottom:16px;display:none;">
         <div id="careAlerts"></div>
         <div id="mgrStrip"></div>
-        <div id="approvalsCard"></div>
         <div id="coordMsgs"></div>
         <div id="meetingsCard"></div>
       </div>
@@ -1250,25 +1249,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">My Work</h2>
           <div class="field-note" id="myWorkWho"></div>
         </div>
+        <div style="flex:1;"></div>
+        <button class="addlead" onclick="opsToggleAdd()">＋ Add work</button>
       </div>
       <div class="subtab-bar" id="myWorkTabs"></div>
-      <div id="myWorkWrap"></div>
-    </section>
-
-    <!-- ===================== TAB: OPERATIONS INBOX ===================== -->
-    <section class="tabpanel" id="tab-ops">
-      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-        <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Needs Attention</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everything open right now, with a name on it. Nothing here disappears on its own.</div>
-        </div>
-        <span style="flex:1;"></span>
-        <button class="addlead" onclick="opsToggleAdd()">＋ Add something</button>
-        <button class="ghost" onclick="renderOps(this)">↻ Refresh</button>
-      </div>
-
-      <!-- Raise something by hand. Deliberately spare: a title, a person, a
-           when. Anything needing discussion is a conversation, not a queue item. -->
+      <div id="myWorkApprovals" style="display:none;"><div id="approvalsCard"></div></div>
       <div class="card" id="opsAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
           <b style="font-size:15px;color:var(--navy);">Add something to the queue</b>
@@ -1314,6 +1299,22 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <button class="ghost" onclick="opsToggleAdd()">Cancel</button>
         </div>
       </div>
+      <div id="myWorkWrap"></div>
+    </section>
+
+    <!-- ===================== TAB: OPERATIONS INBOX ===================== -->
+    <section class="tabpanel" id="tab-ops">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Needs Attention</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everything open right now, with a name on it. Nothing here disappears on its own.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <button class="ghost" onclick="renderOps(this)">↻ Refresh</button>
+      </div>
+
+      <!-- Raise something by hand. Deliberately spare: a title, a person, a
+           when. Anything needing discussion is a conversation, not a queue item. -->
 
       <div class="card" id="opsQueueCard" style="padding:16px 18px;margin-bottom:16px;display:none;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
@@ -18209,10 +18210,24 @@ function myWorkHandOff(id, anchorId){
 }
 
 /* ── MY WORK ─────────────────────────────────────────────────────────────── */
-let MYWORK_TAB='mine', MYWORK_SEL=new Set(), MYWORK_FOCUS=0;
-const MYWORK_TABS=[
-  ['mine','Mine'],['unassigned','Unassigned'],['overdue','Overdue'],
-  ['escalated','Escalated'],['waiting','Waiting']];
+/* Lands on Today, because "what do I need to do now" is the question somebody
+   opens this screen to answer. */
+let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0;
+/* Buckets are FILTERS over one list, never separate lists. Overdue and
+   escalated used to be their own destinations, but both are computed from
+   `mine` — they are states of your work, not categories of it. Today carries
+   the overdue ones so that nothing needing attention today is one click away
+   instead of in front of you. Nothing can fall between buckets, because every
+   bucket except `unassigned` is a subset of `mine`. */
+function myWorkTabs(){
+  const t=[['today','Today'],['mine','All mine'],['waiting','Waiting'],
+           ['reviews','Reviews'],['unassigned','Unassigned']];
+  /* An approval is work that requires a specific person, so it belongs in that
+     person's work. The gate is the same ccCan the approve/reject handlers use;
+     this only decides whether the bucket is offered. */
+  if(ccCan('approve_discipline')) t.push(['approvals','Approvals']);
+  return t;
+}
 
 function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
@@ -18224,7 +18239,23 @@ function myWorkBuckets(){
     unassigned: open.filter(i=>!i.owner),
     overdue:    mine.filter(i=>i.due && Date.parse(i.due)<now),
     escalated:  mine.filter(i=>i.sub_state==='escalated' || (i.escalation_level||0)>0),
-    waiting:    mine.filter(i=>i.sub_state==='waiting')
+    waiting:    mine.filter(i=>i.sub_state==='waiting'),
+    /* Due today OR already late. Something overdue is something needed today,
+       so it is not hidden behind a second click. Local day boundaries, never
+       a UTC comparison. */
+    today:      mine.filter(i=>{
+                  if(i.sub_state==='waiting' || !i.due) return false;
+                  const d=Date.parse(i.due); if(isNaN(d)) return false;
+                  if(d<now) return true;
+                  const e=new Date(); e.setHours(23,59,59,999);
+                  return d<=e.getTime();
+                }),
+    /* Reviews are ordinary items owned by the reviewer. This is a lens on
+       `mine`, not a removal from it, so a review is never only in one place. */
+    reviews:    mine.filter(i=>i.kind==='review' && i.sub_state!=='waiting'),
+    approvals:  (ccCan('approve_discipline')
+                  ? (DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval')
+                  : [])
   };
 }
 function myWorkRows(){
@@ -18337,21 +18368,42 @@ function renderMyWork(){
   const who=document.getElementById('myWorkWho');
   if(who) who.textContent=(ME.name?('Signed in as '+ME.name):'')+'   ·   press ? for shortcuts';
   const b=myWorkBuckets();
+  const TABS=myWorkTabs();
+  /* A bucket that is no longer offered — Approvals when the signed-in person
+     cannot approve — must not leave the screen showing nothing. */
+  if(!TABS.some(([k])=>k===MYWORK_TAB)) MYWORK_TAB='today';
   const tabs=document.getElementById('myWorkTabs');
-  if(tabs) tabs.innerHTML=MYWORK_TABS.map(([k,label])=>
+  if(tabs) tabs.innerHTML=TABS.map(([k,label])=>
     '<div class="subtab'+(MYWORK_TAB===k?' active':'')+'" onclick="myWorkGo(\''+k+'\')">'
-    +label+(b[k].length?' <span class="subtab-badge'+(k==='overdue'?' red':'')+'">'+b[k].length+'</span>':'')
+    +label+((b[k]||[]).length?' <span class="subtab-badge'
+      +((k==='today'&&b.overdue.length)||k==='approvals'?' red':'')+'">'+b[k].length+'</span>':'')
     +'</div>').join('');
+
+  /* Approvals is not a list of ops_items, so it renders its own card rather
+     than going through myWorkRows(). renderApprovalsCc re-checks the
+     permission for itself; this branch only decides where it draws. */
+  const appr=document.getElementById('myWorkApprovals');
+  if(appr) appr.style.display = (MYWORK_TAB==='approvals') ? '' : 'none';
+  if(MYWORK_TAB==='approvals'){
+    wrap.innerHTML='';
+    renderApprovalsCc();
+    if(!b.approvals.length)
+      wrap.innerHTML='<div class="card" style="padding:22px;text-align:center;">'
+        +'Nothing is waiting for your approval.</div>';
+    return;
+  }
 
   const rows=myWorkRows();
   [...MYWORK_SEL].forEach(id=>{ if(!rows.some(r=>r.id===id)) MYWORK_SEL.delete(id); });
   if(MYWORK_FOCUS>=rows.length) MYWORK_FOCUS=Math.max(0,rows.length-1);
 
   if(!rows.length){
-    const msg={mine:'Nothing on your list right now.',
+    const msg={today:'Nothing is due today and nothing is late. Good.',
+      mine:'Nothing on your list right now.',
       unassigned:'Everything open has somebody\'s name on it.',
       overdue:'Nothing of yours is late. Good.',
       escalated:'Nothing has been escalated to you. Good.',
+      reviews:'No work is waiting for your review.',
       waiting:'You are not waiting on anybody.'}[MYWORK_TAB];
     wrap.innerHTML='<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>';
     return;
@@ -21617,7 +21669,11 @@ async function opsAdd(){
   const dsel=document.getElementById('opsNewDue'); if(dsel) dsel.value='auto';
   opsDuePickToggle();
   document.getElementById('opsAddWrap').style.display='none';
+  /* The form now lives in My Work, so the list the person is looking at has to
+     refresh too. opsRenderQueue stays because the Needs Attention queue reads
+     the same items and is still reachable. */
   opsRenderQueue(); opsRenderCallbacks();
+  if(typeof myWorkRefresh==='function') myWorkRefresh();
 }
 function opsToggleAdd(){
   const w=document.getElementById('opsAddWrap');
