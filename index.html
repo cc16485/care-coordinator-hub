@@ -6221,7 +6221,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [] };
+let DATA = { ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -6338,7 +6338,7 @@ async function signOut(){
 /* ---------------- DATA LOAD / SAVE (app_data key/JSONB pattern) ---------------- */
 async function loadAllData(){
   if(!sb) return;
-  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions'];
+  const keys = ['ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -18238,6 +18238,84 @@ function myWorkTabs(b){
      this only decides whether the bucket is offered. */
   if(ccCan('approve_discipline')) t.push(['approvals','Approvals']);
   return t;
+}
+
+/* ─────────────── RECURRING WORK ───────────────
+   The first automation that creates work rather than routing it.
+
+   IDEMPOTENCY IS THE WHOLE DESIGN. The item id is derived from the check-in
+   row and the date it was due: ops_ci_<checkinId>_<YYYY-MM-DD>. Running this
+   ten times a day, on three devices, after a refresh, produces exactly one
+   item. When the coordinator completes the check-in and sets the next due
+   date, the derived id changes and the next one appears. No cursor, no
+   "last run" timestamp to get out of step, nothing to replay.
+
+   It creates work only for dates that have ARRIVED. A check-in due in three
+   weeks is not work yet, and putting it on somebody's list today is how a
+   list stops meaning anything.
+
+   Owner comes from the check-in's coordinator, canonicalised through the
+   person registry because that column has historically held names. If it
+   cannot be resolved, the client_care domain owner takes it — never nobody. */
+function autoRecurringCheckins(opts){
+  const dry=!(opts&&opts.commit);
+  const out={ran:'client_checkin', created:[], skipped:0, unroutable:[], errors:[]};
+  const rows=(DATA.client_checkins||[]).filter(c=>c && c.client_name && c.next_checkin_due);
+  const t=today();
+  const existing=new Set((DATA.ops_items||[]).map(i=>i.id));
+  for(const c of rows){
+    const dueYmd=String(c.next_checkin_due).slice(0,10);
+    if(dueYmd>t){ out.skipped++; continue; }              // not due yet
+    const id='ops_ci_'+String(c.id)+'_'+dueYmd;
+    if(existing.has(id)){ out.skipped++; continue; }       // already generated, ever
+    let owner=(typeof opsCanonicalPerson==='function')?opsCanonicalPerson(c.coordinator):'';
+    if(!owner) owner=opsDomainOwner('client_care')||'';
+    if(!owner){ out.unroutable.push(c.client_name); continue; }
+    const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(dueYmd);
+    const due=m?new Date(+m[1],+m[2]-1,+m[3],23,59,59,999).toISOString():new Date().toISOString();
+    const nowIso=new Date().toISOString();
+    const it={ id, kind:'client_issue', status:'open',
+      title:'Client check-in due — '+c.client_name,
+      about:c.client_name,
+      detail:'Scheduled check-in. Last one '+(c.checkin_date||'not recorded')
+             +(c.satisfaction_rating?', rated '+c.satisfaction_rating+'/5':'')
+             +'. Record what is going well, what has changed, and what needs attention.',
+      next_action:'Call the client or family, then update the check-in record.',
+      urgency:'normal', due, domain:'client_care',
+      owner, owner_name:opsOwnerName(owner)||'',
+      created_at:nowIso, last_activity_at:nowIso,
+      opened_by:'system', created_by:'automation:client_checkin',
+      source:{ type:'client_checkin', id:c.id, due:dueYmd } };
+    out.created.push(it);
+  }
+  if(dry) return out;
+  DATA.ops_items=DATA.ops_items||[];
+  return (async()=>{
+    for(const it of out.created){
+      try{ DATA.ops_items.push(it); await persist('ops_items', it); }
+      catch(e){ out.errors.push({id:it.id, message:String(e&&e.message||e)}); }
+    }
+    await autoLog(out);
+    return out;
+  })();
+}
+
+/* Every automated run is recorded, successes included. An automation that only
+   speaks up when it fails is one nobody can tell the difference between
+   "working" and "not running at all". */
+async function autoLog(result){
+  try{
+    const row={ id:'auto_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+      at:new Date().toISOString(), automation:result.ran,
+      created:(result.created||[]).length, skipped:result.skipped||0,
+      unroutable:(result.unroutable||[]).length,
+      errors:(result.errors||[]).length,
+      detail:{ unroutable:result.unroutable||[], errors:result.errors||[] },
+      by:(typeof ME!=='undefined'&&ME.email)?ME.email:'' };
+    DATA.automation_log=DATA.automation_log||[];
+    DATA.automation_log.push(row);
+    await persist('automation_log', row);
+  }catch(e){ console.warn('[automation] could not write the run log', e); }
 }
 
 /* ATTENTION RISES. OWNERSHIP DOES NOT MOVE.
