@@ -6682,6 +6682,12 @@ function scxEnsure(tab){
   /* The rules the engine delegates to must exist before it runs. Loaded here
      rather than as a page-level tag so it travels with the lazy engine and
      cannot be forgotten. */
+  if(!globalThis.CCOblig && !document.getElementById('ccobligrules')){
+    const o=document.createElement('script');
+    o.id='ccobligrules'; o.src='obligations.js?v=' + Date.now();
+    o.async=false;
+    document.head.appendChild(o);
+  }
   if(!globalThis.CCElig && !document.getElementById('cceligrules')){
     const r=document.createElement('script');
     r.id='cceligrules'; r.src='eligibility-rules.js?v=' + Date.now();
@@ -18263,149 +18269,67 @@ function myWorkTabs(b){
    Owner comes from the check-in's coordinator, canonicalised through the
    person registry because that column has historically held names. If it
    cannot be resolved, the client_care domain owner takes it — never nobody. */
-/* A source is a DECLARATION, not another function. Adding "supervisory visits
-   are due on due_date and belong to training_compliance" should be six lines
-   here, not a second engine with its own subtly different idea of idempotency.
+/* THE BROWSER DOES NOT DECIDE. obligations.js does, and the scheduled runner
+   loads the very same file. This is the thin half: supply context, perform
+   writes. Any rule that lived here would be a second copy free to drift, and
+   the two would disagree about a real client's real check-in with nobody
+   seeing it.
 
-   Every spec supplies: where the records live, which of them count, the date
-   the obligation falls due, who it belongs to, and what the item says. The
-   engine owns everything else — deduplication, the date maths, routing
-   fallback, staleness, logging. */
-const OBLIGATION_SOURCES=[
-  { key:'client_checkin', label:'Client check-ins', prefix:'ops_ci',
-    rows:()=> (DATA.client_checkins||[]).filter(c=>c && c.client_name && c.next_checkin_due),
-    /* Care Match records share this key and are shaped .client/.caregiver, so
-       requiring client_name is what keeps them out. */
-    id:  c=>String(c.id),
-    due: c=>String(c.next_checkin_due).slice(0,10),
-    who: c=>c.coordinator,
-    domain:'client_care', kind:'client_issue',
-    title: c=>'Client check-in due — '+c.client_name,
-    about: c=>c.client_name,
-    detail:c=>'Scheduled check-in. Last one '+(c.checkin_date||'not recorded')
-              +(c.satisfaction_rating?', rated '+c.satisfaction_rating+'/5':'')
-              +'. Record what is going well, what has changed, and what needs attention.',
-    next:  ()=>'Call the client or family, then update the check-in record.',
+   The day is computed in CENTRAL, not from this device. Caring Companions
+   operates in one timezone; a laptop somewhere else must not generate an
+   obligation a day early. */
+function ccTodayCentral(){
+  const p=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',
+    year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  const g=t=>(p.find(x=>x.type===t)||{}).value||'';
+  return g('year')+'-'+g('month')+'-'+g('day');
+}
+/* Same guard the server uses. Without it the browser would create backlog the
+   scheduled runner refuses, and the two paths would disagree on day one. */
+const OBLIG_MAX_AGE_DAYS = 45;
 
-    /* SATISFACTION IS READ FROM THE SOURCE, NOT WRITTEN TO IT.
-       saveCheckin() already records the date, method, satisfaction, concerns
-       and resolution, and advances next_checkin_due by CONFIG.checkin_cadence.
-       That is a real workflow capturing real content. If closing the generated
-       work item wrote back to the source instead, it would mark the check-in
-       done and destroy everything that made the record worth keeping.
-
-       So the obligation is satisfied when the source says the check-in
-       happened on or after the date it was due. Completing it early counts —
-       the work was done. */
-    satisfied:(c, dueYmd)=> !!(c.checkin_date && String(c.checkin_date).slice(0,10) >= dueYmd),
-    /* Where the human actually completes it. The work item is a prompt; the
-       record is the deliverable. */
-    open:  c=>"openCheckinModal('"+String(c.id).replace(/'/g,"\\'")+"')" }
-];
-
-/* ONE ENGINE, ALL SOURCES.
-   Idempotency: the id is derived from the source row and the date it fell due,
-   so any number of runs on any number of devices produces one item.
-
-   STALENESS: if the underlying date moves after an item was generated — a
-   review gets rescheduled — the old item no longer matches any current
-   obligation. It is closed automatically with the reason recorded, rather
-   than sitting on somebody's list for a date that no longer exists. Only
-   items this engine created are ever touched. */
 function runObligations(opts){
   const dry=!(opts&&opts.commit);
-  const t=today();
-  const items=(DATA.ops_items||[]);
-  const existing=new Set(items.map(i=>i.id));
-  const out={ran:'obligations', created:[], stale:[], skipped:0, unroutable:[], errors:[], bySource:{}};
-  const wanted=new Set();
-
-  for(const src of OBLIGATION_SOURCES){
-    const s={created:0, skipped:0, unroutable:0};
-    let rows=[];
-    try{ rows=src.rows()||[]; }
-    catch(e){ out.errors.push({source:src.key, message:'rows() failed: '+String(e&&e.message||e)}); continue; }
-    for(const r of rows){
-      let dueYmd;
-      try{ dueYmd=src.due(r); }catch(e){ continue; }
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(String(dueYmd||''))) continue;
-      const id=src.prefix+'_'+src.id(r)+'_'+dueYmd;
-      wanted.add(id);
-      if(dueYmd>t){ s.skipped++; out.skipped++; continue; }   // not due yet
-      if(existing.has(id)){ s.skipped++; out.skipped++; continue; }
-      let owner=(typeof opsCanonicalPerson==='function')?opsCanonicalPerson(src.who(r)):'';
-      if(!owner) owner=opsDomainOwner(src.domain)||'';
-      if(!owner){ s.unroutable++; out.unroutable.push(src.about(r)||src.id(r)); continue; }
-      const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(dueYmd);
-      const nowIso=new Date().toISOString();
-      out.created.push({ id, kind:src.kind, status:'open',
-        title:src.title(r), about:src.about(r)||'', detail:src.detail(r),
-        next_action:src.next(r), urgency:'normal',
-        due:new Date(+m[1],+m[2]-1,+m[3],23,59,59,999).toISOString(),
-        domain:src.domain, owner, owner_name:opsOwnerName(owner)||'',
-        created_at:nowIso, last_activity_at:nowIso,
-        opened_by:'system', created_by:'automation:'+src.key,
-        source:{ type:src.key, id:src.id(r), due:dueYmd } });
-      s.created++;
-    }
-    out.bySource[src.key]=s;
+  if(!globalThis.CCOblig || !CCOblig.evaluate){
+    console.warn('[obligations] obligations.js has not loaded — deciding nothing');
+    return {ran:'obligations', created:[], stale:[], skipped:0, unroutable:[],
+            errors:[{message:'obligations.js not loaded'}], bySource:{}};
   }
-
-  /* Generated work whose obligation no longer exists — and WHY, because
-     "she did the check-in" and "somebody moved the date" are different facts
-     and closing both with one reason throws away the useful one.
-
-     Satisfaction is decided by asking the source, never by the work item.
-     A check-in completed early still counts: the work was done. */
-  const byKey={}; OBLIGATION_SOURCES.forEach(s=>byKey[s.key]=s);
-  const rowCache={};
-  for(const it of items){
-    if(it.status!=='open') continue;
-    if(!OBLIGATION_SOURCES.some(s=>String(it.id).startsWith(s.prefix+'_'))) continue;
-    if(wanted.has(it.id)) continue;
-    const src=byKey[(it.source||{}).type];
-    let why='obligation_moved';
-    if(src && typeof src.satisfied==='function'){
-      try{
-        if(!rowCache[src.key]) rowCache[src.key]=src.rows()||[];
-        const row=rowCache[src.key].find(r=>String(src.id(r))===String((it.source||{}).id));
-        if(row && src.satisfied(row, String((it.source||{}).due||''))) why='done_at_source';
-      }catch(e){ out.errors.push({id:it.id, message:'satisfaction test failed: '+String(e&&e.message||e)}); }
-    }
-    it.__why=why;
-    out.stale.push(it);
-  }
-  out.satisfied=out.stale.filter(i=>i.__why==='done_at_source').length;
-  out.rescheduled=out.stale.filter(i=>i.__why!=='done_at_source').length;
-
+  const r=CCOblig.evaluate({
+    data: DATA, items: (DATA.ops_items||[]), today: ccTodayCentral(),
+    maxAgeDays: OBLIG_MAX_AGE_DAYS,
+    resolveOwner: v=>(typeof opsCanonicalPerson==='function')?opsCanonicalPerson(v):'',
+    domainOwner:  c=>opsDomainOwner(c)||'',
+    ownerName:    e=>opsOwnerName(e)||e
+  });
+  /* Shaped like the old return so callers and the run log are unchanged. */
+  const out={ran:'obligations', created:r.create, stale:r.stale.map(x=>x.item),
+    skipped:r.skipped, unroutable:r.unroutable, errors:r.errors, bySource:r.bySource,
+    satisfied:r.satisfied, rescheduled:r.rescheduled, sourceGone:r.sourceGone,
+    tooOld:r.tooOld};
   if(dry) return out;
   DATA.ops_items=DATA.ops_items||[];
   return (async()=>{
-    for(const it of out.created){
+    for(const it of r.create){
       try{ DATA.ops_items.push(it); await persist('ops_items', it); }
       catch(e){ out.errors.push({id:it.id, message:String(e&&e.message||e)}); }
     }
-    for(const it of out.stale){
+    for(const s of r.stale){
       try{
-        const done=it.__why==='done_at_source';
-        delete it.__why;
+        const it=s.item;
         it.status='done'; it.closed_at=new Date().toISOString();
-        it.closed_by='automation';
-        it.resolution_code=done?'done_at_source':'obligation_moved';
-        it.auto_closed_reason=it.resolution_code;
-        it.close_note=done
-          ? 'The record shows this was completed. Closed automatically.'
-          : 'The underlying date changed, so this obligation no longer exists.';
-        opsLog(it, done
-          ? 'Closed automatically — the record shows it was done'
-          : 'Closed automatically — the date it was generated for has moved');
+        it.closed_by='automation'; it.resolution_code=s.why;
+        it.auto_closed_reason=s.why;
+        it.close_note=(CCOblig.CLOSE_NOTE||{})[s.why]||'Closed automatically.';
+        opsLog(it,(CCOblig.CLOSE_LOG||{})[s.why]||'Closed automatically');
         await persist('ops_items', it);
-      }catch(e){ out.errors.push({id:it.id, message:'stale close: '+String(e&&e.message||e)}); }
+      }catch(e){ out.errors.push({id:s.item.id, message:'stale close: '+String(e&&e.message||e)}); }
     }
     await autoLog(out);
     return out;
   })();
 }
+
 /* Kept as the name the sign-in path calls, so switching the engine on did not
    also change where it is switched on from. */
 function autoRecurringCheckins(opts){ return runObligations(opts); }
@@ -18535,10 +18459,10 @@ function myWorkRows(){
    registry, so no source-specific behaviour lives in the card. */
 function obligationOpenAction(it){
   try{
-    if(!it || !it.source || typeof OBLIGATION_SOURCES==='undefined') return '';
-    const src=OBLIGATION_SOURCES.find(s=>s.key===it.source.type);
+    if(!it || !it.source || !globalThis.CCOblig) return '';
+    const src=(CCOblig.SOURCES||[]).find(s=>s.key===it.source.type);
     if(!src || typeof src.open!=='function') return '';
-    const rows=src.rows()||[];
+    const rows=src.rows(DATA)||[];
     const row=rows.find(r=>String(src.id(r))===String(it.source.id));
     if(!row) return '';
     const done=typeof src.satisfied==='function'
@@ -19248,8 +19172,8 @@ function homeAutomation(){
     String(b.at||'').localeCompare(String(a.at||'')));
   /* Named from the registry, so a new source appears here the moment it is
      declared. Nothing to remember to add in two places. */
-  const AUTOMATIONS=(typeof OBLIGATION_SOURCES!=='undefined'
-    ? OBLIGATION_SOURCES.map(s=>[s.key, s.label]) : []);
+  const AUTOMATIONS=(globalThis.CCOblig && CCOblig.SOURCES)
+    ? CCOblig.SOURCES.map(s=>[s.key, s.label]) : [];
   const now=Date.now();
 
   const rows=AUTOMATIONS.map(([key,label])=>{
