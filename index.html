@@ -18240,6 +18240,55 @@ function myWorkTabs(b){
   return t;
 }
 
+/* ATTENTION RISES. OWNERSHIP DOES NOT MOVE.
+   Time makes something louder and widens who can see it. It never reassigns
+   anybody, because the moment it does, waiting long enough becomes a way to
+   give work away — the exact defect we removed from 'ask for help'.
+
+   Derived, never stored. There is no attention field to drift out of date, no
+   migration, and no background job: the level is a function of the due date
+   and the clock, so it is correct the instant it is read.
+
+     0  fine
+     1  due today
+     2  late            louder to the owner
+     3  late 2+ days    the domain's escalation person can see it drifting
+     4  late 5+ days    an operating risk, surfaced to the owner of the company
+
+   A level 4 item is still owned by whoever owned it at level 0. Samantha
+   seeing something is not Samantha holding it. */
+function opsAttention(it){
+  if(!it || it.status!=='open') return {level:0,label:''};
+  if(it.sub_state==='waiting'){
+    /* Parked work is not late. It is late only once it has come back and been
+       ignored, which the check_back date already governs. */
+    return {level:0,label:''};
+  }
+  const now=Date.now();
+  const due=it.due?Date.parse(it.due):NaN;
+  if(isNaN(due)) return {level:0,label:''};
+  const days=Math.floor((now-due)/86400000);
+  if(due>now){
+    const e=new Date(); e.setHours(23,59,59,999);
+    return due<=e.getTime() ? {level:1,label:'due today',days:0} : {level:0,label:''};
+  }
+  if(days>=5) return {level:4,label:days+' days late',days};
+  if(days>=2) return {level:3,label:days+' days late',days};
+  return {level:2,label:days>=1?days+' day late':'late',days:Math.max(days,0)};
+}
+/* Who may see something drifting, without any of them acquiring it. The
+   owner always. The domain's escalation person once it is genuinely stale.
+   The company owner only at the top level. */
+function opsAttentionAudience(it){
+  const a=opsAttention(it), out=[];
+  if(it.owner) out.push(String(it.owner).toLowerCase());
+  if(a.level>=3){
+    const e=opsDomainEscalation(it.domain);
+    if(e) out.push(String(e).toLowerCase());
+  }
+  return {level:a.level, label:a.label, audience:[...new Set(out)]};
+}
+
 function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
@@ -18294,6 +18343,9 @@ function myWorkRows(){
 function myWorkCard(it, i){
   const esc=escapeHtmlComms;
   const late=it.due && Date.parse(it.due)<Date.now();
+  /* Graded rather than a single "late". Two days and five days late are
+     different operational facts and used to read identically. */
+  const att=opsAttention(it);
   const d=opsAllDomains().find(x=>x.code===it.domain);
   const sug=opsSuggest(it);
   const sel=MYWORK_SEL.has(it.id), focused=(i===MYWORK_FOCUS);
@@ -18325,7 +18377,8 @@ function myWorkCard(it, i){
     +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">'
     +'<b style="font-size:15px;">'+esc(it.about||it.title||'')+'</b>'
     +'<span class="field-note">'+esc((OPS_KINDS[it.kind]||{}).label||it.kind)+' · '+esc(ago)
-    +' · '+who+(late?' · <b style="color:var(--red);">late</b>':'')+'</span>'
+    +' · '+who+(att.level>=2?' · <b style="color:var(--red);">'+esc(att.label)+'</b>'
+                :(att.level===1?' · <b style="color:var(--amber);">due today</b>':''))+'</span>'
     +states
     +'<span style="flex:1;"></span>'
     +'<span class="wkchip" id="dom_'+it.id+'" onclick="opsDomainFromCard(\''+it.id+'\',\'dom_'+it.id+'\')" '
@@ -18913,6 +18966,39 @@ function reviewMyFeedback(email){
   return (DATA.ops_items||[]).filter(i=>i.kind==='review' && i.review
     && String(i.review.person||'').toLowerCase()===e && i.review.completed_at)
     .sort((a,b)=>String(b.review.completed_at).localeCompare(String(a.review.completed_at)));
+}
+
+/* WHAT IS DRIFTING IN THE AREAS I ESCALATE FOR.
+   Krystal escalates for nothing today — Samantha does — but the moment a
+   domain escalates to a supervisor, this is how they find out something is
+   stalling before it becomes an owner-level problem.
+
+   It is visibility only. There is no claim button and no reassignment. The
+   action a supervisor takes is to go and ask the owner, which is what a
+   supervisor is for. If the Hub offered "take it" here, every stalled item
+   would end up owned by whoever looked at it most often. */
+function homeDrifting(){
+  const esc=escapeHtmlComms;
+  const me=String(opsMeKey()||'').toLowerCase();
+  if(!me) return '';
+  const rows=(DATA.ops_items||[]).filter(i=>{
+    if(i.status!=='open' || i.kind==='review' || !opsCanSee(i)) return false;
+    if(String(i.owner||'').toLowerCase()===me) return false;   // mine is not drifting-for-me
+    const a=opsAttentionAudience(i);
+    return a.level>=3 && a.audience.indexOf(me)>-1;
+  });
+  if(!rows.length) return '';
+  return '<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">DRIFTING IN YOUR AREAS</b>'
+    +'<span style="flex:1;"></span><b style="font-size:16px;">'+rows.length+'</b></div>'
+    +'<div class="field-note" style="margin:4px 0 2px;">Still owned by the person named. '
+    +'Ask them, do not take it.</div>'
+    +rows.slice(0,6).map(i=>'<div style="padding:7px 0;border-bottom:1px solid var(--border);">'
+      +'<div style="font-size:13.5px;">'+esc(i.title||'')+'</div>'
+      +'<div class="field-note">'+esc(opsOwnerName(i.owner)||i.owner)+' · '
+      +esc(opsAttention(i).label)+'</div></div>').join('')
+    +'</div>';
 }
 
 /* WHAT A PERSON ACTUALLY DOES, for the My Team card.
@@ -21429,8 +21515,13 @@ function renderHome(){
 
     /* ── 4. OPERATING RISKS ── strong thresholds on purpose. Every red badge
        in the hub arriving here would make this page the thing it replaces. */
+    /* Now graded by opsAttention rather than by ad-hoc thresholds, so the
+       owner's card, the supervisor's view and this page all agree on what
+       "drifting" means. Level 4 is five days late. Nothing here changes who
+       owns anything — this is visibility, not acquisition. */
     const risks=open.filter(i=>i.kind!=='review' && !isMine(i) && (
-         (od(i) && (i.urgency==='urgent'||i.urgency==='today'))
+         opsAttention(i).level>=4
+      || (od(i) && (i.urgency==='urgent'||i.urgency==='today'))
       || (!i.owner && hrs(i)>48)
       || (i.sub_state==='escalated' && hrs(i)>24)));
 
@@ -21559,6 +21650,9 @@ function renderHome(){
         +(b.waiting.length===1?' is':'s are')+' parked on somebody else. '
         +'<button class="linklike" onclick="switchTab(\'mywork\');myWorkGo(\'waiting\')">See them</button></div>'
       : '', 'You are not waiting on anybody.');
+
+    /* ── Anything stalling in an area they escalate for. Visibility only. ── */
+    h+=homeDrifting();
 
     /* ── What they are being trained on. Read from the same review rules that
          actually govern it, so this cannot drift from reality. ── */
