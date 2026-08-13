@@ -18341,9 +18341,19 @@ async function autoLog(result){
   try{
     const row={ id:'auto_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
       at:new Date().toISOString(), automation:result.ran,
+      /* Same shape the scheduled runner writes, so the Control Centre does not
+         have to tell browser rows from server rows to read them. */
+      ran_by:'browser', ok:((result.errors||[]).length===0), dry:false,
+      /* THE FIELD THAT MAKES SILENCE READABLE. A run that evaluated its
+         sources and created nothing is healthy; a run that never happened is
+         not. Without this, both are a row of zeros. */
+      sources_evaluated:Object.keys(result.bySource||{}).length,
       created:(result.created||[]).length, skipped:result.skipped||0,
+      closed:(result.stale||[]).length,
       stale:(result.stale||[]).length,
       satisfied:result.satisfied||0, rescheduled:result.rescheduled||0,
+      source_gone:result.sourceGone||0,
+      too_old:(result.tooOld||[]).length,
       unroutable:(result.unroutable||[]).length,
       errors:(result.errors||[]).length,
       by_source:result.bySource||{},
@@ -19184,6 +19194,11 @@ function homeAutomation(){
     const last=runs[0];
     if(!last) return {label, state:'never', text:'has never run'};
     const hrs=Math.floor((now-Date.parse(last.at))/3600000);
+    /* HEALTHY-QUIET IS NOT SILENCE. A run that evaluated its sources and had
+       nothing to do is a good result and must not read like an automation that
+       died three days ago. The difference is whether it recorded evaluating
+       anything at all - a bare row of zeros cannot tell you which it was. */
+    const evaluated=Number(last.sources_evaluated||0);
     const created=runs.reduce((n,r)=>n+((r.by_source&&r.by_source[key])
       ? (r.by_source[key].created||0) : (r.created||0)),0);
     const failing=runs.slice(0,3).filter(r=>(r.errors||0)>0).length;
@@ -19193,6 +19208,10 @@ function homeAutomation(){
     else if((last.errors||0)>0){ state='bad'; text=last.errors+' error'+(last.errors===1?'':'s')+' on the last run'; }
     else if(unroutable>0){ state='warn'; text=unroutable+' item'+(unroutable===1?'':'s')+' could not be routed'; }
     else if(hrs>36){ state='warn'; text='last ran '+Math.floor(hrs/24)+' days ago'; }
+    else if(!evaluated){ state='warn';
+      text='ran, but recorded evaluating nothing — check it is reading its source'; }
+    else if(!created){ state='ok';
+      text='ran '+(hrs<1?'in the last hour':hrs+'h ago')+', nothing was due'; }
     return {label, state, text, created,
             detail:(last.detail&&last.detail.unroutable)||[]};
   });
