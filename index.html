@@ -18803,6 +18803,85 @@ function reviewMyFeedback(email){
     .sort((a,b)=>String(b.review.completed_at).localeCompare(String(a.review.completed_at)));
 }
 
+/* WHAT A PERSON ACTUALLY DOES, for the My Team card.
+
+   Every line is read from the record that governs it, never from a second
+   copy: OWNS comes from the domains table, not from a responsibility claiming
+   to be primary — those two disagreed once tonight and the domain table is the
+   one routing decisions are made from. DEVELOPING is a support responsibility
+   that also has a live review rule, which is exactly what developing means
+   here. STEPS IN FOR is backup and capability, never support, because being
+   cross-trained is not the same as being expected to cover. */
+function teamOwnershipHtml(email){
+  const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
+  const doms=(typeof opsAllDomains==='function')?opsAllDomains():[];
+  const labelOf=c=>{ const d=doms.find(x=>x.code===c); return (d&&d.label)||c||''; };
+  const mine=(DATA.responsibilities||[]).filter(r=>
+    String(r.person||'').toLowerCase()===e && r.active!==false);
+  const uniq=a=>[...new Set(a.filter(Boolean))];
+
+  const owns=uniq(doms.filter(d=>{
+    const oe=(typeof opsEmailForPerson==='function')?opsEmailForPerson(d.owner_person):'';
+    return String(oe||'').toLowerCase()===e;
+  }).map(d=>d.label||d.code));
+
+  const rules=(typeof reviewRules==='function'?reviewRules():[])
+    .filter(r=>String(r.person||'').toLowerCase()===e)
+    .filter(r=>{ const s=reviewRuleSpent(r); return !(s&&s.spent); });
+  const developingKinds=rules.length>0;
+
+  const supportDoms=uniq(mine.filter(r=>r.kind==='support').map(r=>labelOf(r.domain)));
+  const stepIn=uniq(mine.filter(r=>r.kind==='backup'||r.kind==='capability')
+    .map(r=>labelOf(r.domain)));
+  const quals=uniq(mine.filter(r=>r.kind==='qualified')
+    .map(r=>{ const a=r.activity||''; return a?a.charAt(0).toUpperCase()+a.slice(1):''; }));
+
+  const row=(k,v,color)=>v.length
+    ? '<div style="display:flex;gap:8px;font-size:13px;padding:2px 0;">'
+      +'<span style="min-width:96px;color:var(--text-muted);font-size:12px;">'+k+'</span>'
+      +'<span'+(color?' style="color:'+color+';"':'')+'>'+esc(v.join(' · '))+'</span></div>'
+    : '';
+
+  let h='<div style="margin-top:8px;">';
+  h+=row('Owns', owns);
+  /* Support becomes DEVELOPING only when a live review rule says so. Without
+     that, calling somebody a trainee is a guess about a person. */
+  h+=row(developingKinds?'Developing':'Supports', supportDoms);
+  h+=row('Qualified', quals);
+  h+=row('Steps in for', stepIn);
+  if(!owns.length && !supportDoms.length && !quals.length && !stepIn.length)
+    h+='<div class="field-note">No responsibilities recorded yet.</div>';
+
+  /* Review progress, stated the way the rule states it. */
+  rules.forEach(r=>{
+    const done=reviewCountFor(e, r.kind);
+    const lbl=(OPS_KINDS[r.kind]||{}).label||r.kind;
+    const bits=[];
+    if(r.first_n) bits.push(done+' of '+r.first_n+' reviewed');
+    if(r.until)   bits.push('until '+String(r.until).slice(0,10));
+    h+='<div style="display:flex;gap:8px;font-size:13px;padding:2px 0;">'
+      +'<span style="min-width:96px;color:var(--text-muted);font-size:12px;">Review</span>'
+      +'<span>'+esc(lbl)+' · '+esc(bits.join(' · ')||'no limit')
+      +' · by '+esc(opsOwnerName(r.reviewer)||r.reviewer)+'</span></div>';
+  });
+
+  /* When they are working, from the duty windows themselves. */
+  const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dw=(DATA.duty_windows||[]).filter(w=>
+    String(w.person||'').toLowerCase()===e && w.active!==false);
+  dw.forEach(w=>{
+    const rc=w.recur||{}; const days=(rc.days||w.days||[]);
+    if(!days.length) return;
+    h+='<div style="display:flex;gap:8px;font-size:13px;padding:2px 0;">'
+      +'<span style="min-width:96px;color:var(--text-muted);font-size:12px;">Working</span>'
+      +'<span>'+esc(days.map(d=>D[d]).join(' '))+'  '
+      +esc((rc.from||w.from||'')+'–'+(rc.to||w.to||''))
+      +'<span class="field-note"> · '+esc(typeof dutyAreaLabel==='function'
+        ? dutyAreaLabel(w.area) : (w.area||''))+'</span></span></div>';
+  });
+  return h+'</div>';
+}
+
 /* WHAT AM I BEING TRAINED ON — read from the review rules that actually govern
    it, so the screen cannot drift from the thing enforcing it. States progress
    and the end condition, because supervision somebody cannot see the end of
@@ -19442,23 +19521,13 @@ function renderMyTeam(){
       +'<span style="flex:1;"></span>'
       +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
       +'onclick="roleOpen(\''+esc(e)+'\')">Open role</button>'
-      +(roleCanEdit()?'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
-        +'onclick="hubAccessOpen(\''+esc(e)+'\')">Hub access</button>':'')
-      +(roleCanEdit()&&!s.not_on_roster?'<button class="ghost" style="padding:5px 11px;font-size:12px;'
-        +'color:var(--red);border-color:var(--red);" '
-        +'onclick="staffDeactivate(\''+esc(e)+'\')">Deactivate</button>':'')
-      +(roleCanEdit()?'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
-        +'onclick="staffEditOpen(\''+esc(e)+'\')">Edit</button>'
-        +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
-        +'onclick="recurEdit(\''+esc(e)+'\')">Recurring</button>':'')
       +'</div>'
+      /* WHAT THEY DO, BEFORE HOW MANY. This line used to read "7 primary
+         2 support 0 backup", which answers a question nobody asks. A manager
+         looking at Cierra needs to know she owns Field Quality and is learning
+         Client Care, not that she holds seven rows of one kind. */
+      +teamOwnershipHtml(e)
       +'<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;">'
-      +'<span>'+cnt('primary')+' primary</span><span>'+cnt('support')+' support</span>'
-      +'<span>'+cnt('backup')+' backup</span>'
-      /* Shown separately, and never added to the primary count. "Trained to do
-         this" is not a share of the workload — reading it as one is how a
-         shared task quietly acquires three owners. */
-      +(cnt('qualified')?'<span style="color:var(--teal);">'+cnt('qualified')+' qualified</span>':'')
       +'<span>'+open.length+' open work</span>'
       +(late.length?'<span style="color:var(--red);">'+late.length+' overdue</span>':'')
       +(owed.length?'<span>'+owed.length+' reviews owed</span>':'')
@@ -19470,7 +19539,25 @@ function renderMyTeam(){
         +'Carrying '+cnt('primary')+' primary responsibilities'
         +(temp?', '+temp+' of them marked temporary':'')+'</div>':'')
       +(temp?'<div class="field-note" style="margin-top:4px;">'+temp+' temporary — planned to move</div>':'')
+      /* Administration goes behind a disclosure. Permissions, Hub access,
+         deactivation and role administration are configuration; they were the
+         first and largest thing on every card, which made a management screen
+         read as an auth screen. Nothing is removed, only demoted. */
+      +'<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:12px;'
+      +'color:var(--text-muted);">Manage</summary><div style="padding-top:8px;">'
+      +(roleCanEdit()?'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">'
+        +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
+        +'onclick="hubAccessOpen(\''+esc(e)+'\')">Hub access</button>'
+        +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
+        +'onclick="staffEditOpen(\''+esc(e)+'\')">Edit</button>'
+        +'<button class="ghost" style="padding:5px 11px;font-size:12px;" '
+        +'onclick="recurEdit(\''+esc(e)+'\')">Recurring</button>'
+        +(!s.not_on_roster?'<button class="ghost" style="padding:5px 11px;font-size:12px;'
+          +'color:var(--red);border-color:var(--red);" '
+          +'onclick="staffDeactivate(\''+esc(e)+'\')">Deactivate</button>':'')
+        +'</div>':'')
       +roleHubPanelHtml(e)
+      +'</div></details>'
       +'</div>';
   }).join('');
   /* Former staff do not vanish. They leave the roster and stay in the record,
