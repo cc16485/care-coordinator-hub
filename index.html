@@ -19195,6 +19195,42 @@ function reviewOutcomeText(email, kind){
   return bits.join(', ');
 }
 
+/* PRODUCER ACTIVATION — the questions every new source must answer BEFORE it
+   is allowed to create work.
+
+   We have now hit the same failure four times in one build: the compliance
+   backlog, the verification flood, the reference pipeline, and the call
+   history waiting behind a phone port. Each time the processor was correct and
+   the danger was the source suddenly having history in it.
+
+   So this is written down rather than remembered:
+
+     1. How far back can the source return data?
+        calls-feed scans by CONVERSATION COUNT, not by time. It can reach
+        back weeks. A source that cannot answer this is not ready.
+
+     2. What is the maximum age we materialise on first activation?
+        Twelve hours for calls, matching ops-escalate. Forty-five days for
+        obligations. Both named constants, neither buried in a condition.
+
+     3. Are existing live items preserved past that window?
+        Yes, always. The guard applies only where no item exists. Ageing out
+        must never abandon work somebody is already carrying.
+
+     4. Can duplicate events create duplicate work?
+        Only if the id is not derived from the source. Missed calls key on
+        the call id; obligations on source id plus due date.
+
+     5. Can the first activation be dry-run?
+        obligations-run can. calls-feed cannot yet, which is why its age
+        guard matters more.
+
+     6. Does the Control Centre show seen / skipped / created / reconciled?
+        If it only shows created, a source returning nothing looks identical
+        to a source working perfectly.
+
+   A processor being green is not a workflow being green. */
+
 /* AUTOMATION CONTROL CENTRE.
    Small on purpose. It is not a dashboard for employees; it exists so that
    depending on automation is a decision somebody can verify rather than a
@@ -19216,6 +19252,31 @@ function homeAutomation(){
      declared. Nothing to remember to add in two places. */
   const AUTOMATIONS=(globalThis.CCOblig && CCOblig.SOURCES)
     ? CCOblig.SOURCES.map(s=>[s.key, s.label]) : [];
+
+  /* THE PHONE FEED, reported separately because its health question is
+     different: not "did it run" but "is it seeing the main line". After the
+     port, a feed that keeps returning zero inbound calls is a PRODUCER
+     failure, and it would otherwise look exactly like a quiet day. */
+  const feedRow=(function(){
+    const f=(typeof CALLS_FEED!=='undefined')?CALLS_FEED:null;
+    if(!f) return {label:'Phone feed', state:'never', text:'has not been read this session'};
+    const calls=Array.isArray(f.calls)?f.calls:[];
+    const inbound=calls.filter(c=>c.direction==='inbound').length;
+    const missed=calls.filter(c=>c.direction==='inbound'&&(typeof callsIsMissed==='function')&&callsIsMissed(c)).length;
+    const open=(DATA.ops_items||[]).filter(i=>i.kind==='missed_call'&&i.status==='open').length;
+    const at=f.at||f.fetched_at||'';
+    /* Date.now() rather than the outer `now`, which is declared below this
+       point — reading it here threw before the page could render. */
+    const hrs=at?Math.floor((Date.now()-Date.parse(at))/3600000):null;
+    if(f.error) return {label:'Phone feed', state:'bad', text:String(f.error).slice(0,60)};
+    if(!calls.length) return {label:'Phone feed', state:'bad',
+      text:'read, but returned no calls at all — check the number is in GHL'};
+    if(!inbound) return {label:'Phone feed', state:'warn',
+      text:calls.length+' calls seen, none inbound — the main line may not be feeding yet'};
+    if(hrs!==null&&hrs>12) return {label:'Phone feed', state:'warn', text:'last read '+hrs+'h ago'};
+    return {label:'Phone feed', state:'ok',
+      text:calls.length+' calls seen, '+inbound+' inbound, '+missed+' missed, '+open+' open'};
+  })();
   const now=Date.now();
 
   const rows=AUTOMATIONS.map(([key,label])=>{
@@ -19251,6 +19312,7 @@ function homeAutomation(){
             detail:(last.detail&&last.detail.unroutable)||[]};
   });
 
+  rows.unshift(feedRow);
   const bad=rows.filter(r=>r.state==='bad'||r.state==='never').length;
   const warn=rows.filter(r=>r.state==='warn').length;
   const dot=s=>({ok:'var(--teal)',warn:'var(--amber)',bad:'var(--red)',never:'var(--red)'})[s]||'var(--gray)';
