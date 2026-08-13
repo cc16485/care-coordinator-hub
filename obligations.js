@@ -124,13 +124,19 @@
     }
 
     SOURCES.forEach(function (src) {
-      var s = { created: 0, skipped: 0, unroutable: 0, tooOld: 0 };
+      /* `rows` is the count the engine actually SAW. Without it, a source
+         whose table is empty and a source that is perfectly up to date both
+         report zeros, and an automation processing nothing looks identical to
+         an automation with nothing to process. That is the false green this
+         whole exercise exists to prevent. */
+      var s = { rows: 0, created: 0, skipped: 0, unroutable: 0, tooOld: 0 };
       var rows = [];
       try { rows = src.rows(data) || []; }
       catch (e) {
         out.errors.push({ source: src.key, message: 'rows() failed: ' + (e && e.message || e) });
         out.bySource[src.key] = s; return;
       }
+      s.rows = rows.length;
       rows.forEach(function (r) {
         var dueYmd;
         try { dueYmd = src.due(r); } catch (e) { return; }
@@ -195,6 +201,9 @@
       out.stale.push({ item: it, why: why });
     });
 
+    out.rowsSeen = SOURCES.reduce(function (n, src) {
+      return n + ((out.bySource[src.key] || {}).rows || 0);
+    }, 0);
     out.satisfied   = out.stale.filter(function (x) { return x.why === 'done_at_source'; }).length;
     out.rescheduled = out.stale.filter(function (x) { return x.why === 'obligation_moved'; }).length;
     out.sourceGone  = out.stale.filter(function (x) { return x.why === 'source_gone'; }).length;
