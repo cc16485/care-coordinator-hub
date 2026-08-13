@@ -18580,9 +18580,6 @@ async function reviewMaybeCreate(it){
     const now=new Date().toISOString();
     const rev={
       id:'rev_'+it.id, kind:'review', source_id:it.id,
-      /* person + kind are stored so a first_n rule can count what it has
-         already produced. `about` is a display name and cannot be counted on. */
-      review:{ source_id:it.id, person:who, kind:it.kind },
       about:person,
       title:'Review '+person+"'s "+label.toLowerCase(),
       detail:(it.about||it.title||''),
@@ -18592,7 +18589,14 @@ async function reviewMaybeCreate(it){
       opened_by:'system', domain:it.domain||null,
       owner:String(rule.reviewer).toLowerCase(),
       owner_name:opsOwnerName(rule.reviewer),
-      review:{ person:who, person_name:person, source_id:it.id, source_kind:it.kind,
+      /* `kind` is what reviewCountFor() counts on, so a first_n rule can tell
+         how many reviews it has already produced. This object literal used to
+         set `review:` twice; the second won and carried only `source_kind`, so
+         the count matched nothing, always returned zero, and first_n never
+         spent. Supervision meant to end after ten reviews would have run
+         forever. One object now, and it carries both names. */
+      review:{ person:who, person_name:person, source_id:it.id,
+               kind:it.kind, source_kind:it.kind,
                source_title:(it.about||it.title||''), work_completed_at:it.closed_at||now,
                call_id:(it.kind==='missed_call'?opsResolvingCall(it):''),
                what_went_well:'', next_time:'', follow_up:'' }
