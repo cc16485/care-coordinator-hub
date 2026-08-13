@@ -17877,8 +17877,16 @@ function opsDomainEscalation(code){
    belongs to Client Care. The domain stays null until she has rung. */
 function opsFrontDoor(){ return opsEmailForPerson(OPS_ROUTING.front_door); }
 
+/* Every card, review and escalation line in the hub is labelled through here.
+   It used to read only DATA.coordinator_staff, so anybody hired through My Team
+   fell through to the raw email address and their own work said
+   "owned by cierra@mo-care.com". The staff person registry is checked first. */
 function opsOwnerName(email){
-  const s=(DATA.coordinator_staff||[]).find(x=>String(x.email||'').toLowerCase()===String(email||'').toLowerCase());
+  const e=String(email||'').toLowerCase();
+  if(!e) return '';
+  const p=(OPS_PEOPLE||[]).find(x=>String(x.primary_email||'').toLowerCase()===e);
+  if(p && p.full_name) return p.full_name;
+  const s=(DATA.coordinator_staff||[]).find(x=>String(x.email||'').toLowerCase()===e);
   return s ? (s.name||s.email) : (email||'');
 }
 
@@ -19068,7 +19076,13 @@ function renderMyRole(email){
     +'<h2 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">'
     +esc(name)+'</h2>'
     +'<div class="field-note">'+esc((p&&p.title)||'')
-    +(planned?' · <b style="color:var(--amber);">PLANNED — not started yet</b>':'')+'</div></div>';
+    +(planned?' · <b style="color:var(--amber);">PLANNED — not started yet</b>':'')+'</div>'
+    /* The address stays visible but subordinate. It is how work is addressed
+       and how somebody checks they are looking at the right person; it is not
+       what a person is called. */
+    +(String(who||'').toLowerCase()!==String(name||'').toLowerCase()
+      ? '<div class="field-note" style="opacity:.7;">'+esc(who)+'</div>' : '')
+    +'</div>';
 
   if(p&&p.why) h+='<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
     +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">WHY YOUR ROLE EXISTS</b>'
