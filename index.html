@@ -7279,7 +7279,6 @@ function ccRenderPulse(){
   const box=document.getElementById('topbarPulse'); if(!box) return;
   if(!DATA || !Array.isArray(DATA.leads)){ box.innerHTML=''; return; }
   const t=today();
-  const fu=DATA.leads.filter(l=>!l.archived && l.follow_up_due && l.follow_up_due<=t && l.status!=='Converted' && l.status!=='Lost').length;
   let late=0;
   try{
     const me=String(opsMeKey()||'').toLowerCase();
@@ -7287,7 +7286,12 @@ function ccRenderPulse(){
   }catch(e){}
   const ci=(DATA.client_checkins||[]).filter(c=>c.client_name && c.next_checkin_due && c.next_checkin_due<t).length;
   const chips=[];
-  if(fu) chips.push('<span class="tp-chip alert" onclick="switchTab(\'leads\');switchLeadsSubtab(\'followups\')" title="Lead follow-ups due or overdue — click to open the queue"><b>'+fu+'</b> follow-up'+(fu===1?'':'s')+' due</span>');
+  /* The 'N follow-ups due' chip is gone. It existed to compensate for lead
+     follow-up having no work item: the enquiry closed on first contact and
+     every chase after that lived only on the Leads screen. Now one evolving
+     item runs from enquiry to converted or lost, so the follow-up IS in My
+     Work, goes overdue there, and escalates there. Two places teaching staff
+     to watch the same thing is how one of them stops being trusted. */
   /* Points at My Work, which is where a late item is actually worked. `late` is
      unchanged — the same opsOverdue() filtered to mine-or-unowned that My Work's
      Today bucket shows — so this is a label and a destination, not a new metric. */
