@@ -18031,7 +18031,14 @@ function opsSuggest(it){
 function ccPickPerson(anchor, cfg){
   cfg=cfg||{};
   const esc=escapeHtmlComms;
-  const staff=(DATA.coordinator_staff||[]).filter(s=>s.email);
+  /* The staff person registry. This picker backs "assign from a card", which
+     is how work moves between people — including handing a field issue to the
+     owner of caregiver_performance. Built from the legacy coordinator_staff
+     list, anybody hired through My Team could neither be assigned work nor
+     hand work on. */
+  const staff=(OPS_PEOPLE||[]).filter(p=>p.primary_email)
+    .map(p=>({ name:p.full_name||p.primary_email, email:String(p.primary_email).toLowerCase() }))
+    .sort((a,b)=>a.name.localeCompare(b.name));
   const sug=cfg.suggested;
   const row=(s,why)=>{
     const e=String(s.email).toLowerCase(), n=s.name||s.email, cnt=opsOpenCountFor(e);
