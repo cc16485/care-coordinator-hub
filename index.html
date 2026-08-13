@@ -18884,6 +18884,21 @@ function reviewOpen(id, anchorId){
       +'<textarea id="revNext" rows="3" placeholder="One thing to do differently next time." '
       +'style="width:100%;font-size:13px;padding:8px;border-radius:8px;margin:3px 0 8px;"></textarea>'
       +'<div class="field-note" style="font-weight:700;">ANYTHING TO FOLLOW UP?</div>'
+      /* ONE QUESTION, TWO ANSWERS. The whole point of a ramp-up rule is to
+         find out whether somebody is becoming independent, and ten completed
+         reviews cannot answer that. This is the smallest field that can:
+         did the work stand on its own, or did it need correcting. The written
+         feedback stays exactly as it was — this does not replace it. */
+      +'<div style="font-size:13px;font-weight:700;margin-bottom:4px;">How did it go?</div>'
+      +'<div style="display:flex;gap:8px;margin-bottom:10px;">'
+      +'<label style="flex:1;display:flex;gap:6px;align-items:center;font-size:13px;'
+      +'border:1px solid var(--border);border-radius:8px;padding:7px 9px;cursor:pointer;">'
+      +'<input type="radio" name="revOutcome" value="passed" checked style="width:auto;">'
+      +'Stood on its own</label>'
+      +'<label style="flex:1;display:flex;gap:6px;align-items:center;font-size:13px;'
+      +'border:1px solid var(--border);border-radius:8px;padding:7px 9px;cursor:pointer;">'
+      +'<input type="radio" name="revOutcome" value="coached" style="width:auto;">'
+      +'Needed coaching</label></div>'
       +'<select id="revFollow" style="width:100%;padding:7px 9px;font-size:13px;border-radius:8px;margin:3px 0 10px;">'
       +REVIEW_FOLLOWUPS.map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('')+'</select>'
       +'<div id="revErr" class="field-note" style="color:var(--red);min-height:1em;"></div>'
@@ -18916,6 +18931,8 @@ function reviewOpen(id, anchorId){
     it.review.what_went_well=well;
     it.review.next_time=next;
     it.review.follow_up=el.querySelector('#revFollow').value;
+    const oc=el.querySelector('input[name="revOutcome"]:checked');
+    it.review.outcome=oc?oc.value:'passed';
     it.review.completed_at=new Date().toISOString();
     it.review.completed_by=ME.email||'';
     it.status='done'; it.closed_at=it.review.completed_at; it.closed_by=ME.email||'';
@@ -18966,6 +18983,33 @@ function reviewMyFeedback(email){
   return (DATA.ops_items||[]).filter(i=>i.kind==='review' && i.review
     && String(i.review.person||'').toLowerCase()===e && i.review.completed_at)
     .sort((a,b)=>String(b.review.completed_at).localeCompare(String(a.review.completed_at)));
+}
+
+/* "8 of 10 reviewed" says a process ran. "6 stood on their own, 2 needed
+   coaching" says whether somebody is becoming independent, which is the only
+   reason the rule exists. Counts completed reviews only — an outcome cannot
+   exist before the review is done, and reviews completed before this field
+   existed are counted as unrecorded rather than silently as passes. */
+function reviewOutcomeTally(email, kind){
+  const e=String(email||'').toLowerCase();
+  const rows=(DATA.ops_items||[]).filter(i=>
+    i.kind==='review' && i.review &&
+    String(i.review.person||'').toLowerCase()===e &&
+    i.review.kind===kind);
+  const done=rows.filter(i=>i.review.completed_at);
+  const passed=done.filter(i=>i.review.outcome==='passed').length;
+  const coached=done.filter(i=>i.review.outcome==='coached').length;
+  return {total:rows.length, done:done.length, passed, coached,
+          unrecorded:done.length-passed-coached};
+}
+function reviewOutcomeText(email, kind){
+  const t=reviewOutcomeTally(email, kind);
+  if(!t.done) return '';
+  const bits=[];
+  if(t.passed)  bits.push(t.passed+' stood on their own');
+  if(t.coached) bits.push(t.coached+' needed coaching');
+  if(t.unrecorded) bits.push(t.unrecorded+' before outcomes were recorded');
+  return bits.join(', ');
 }
 
 /* WHAT IS DRIFTING IN THE AREAS I ESCALATE FOR.
@@ -19057,10 +19101,12 @@ function teamOwnershipHtml(email){
     const bits=[];
     if(r.first_n) bits.push(done+' of '+r.first_n+' reviewed');
     if(r.until)   bits.push('until '+String(r.until).slice(0,10));
+    const oc=reviewOutcomeText(e, r.kind);
     h+='<div style="display:flex;gap:8px;font-size:13px;padding:2px 0;">'
       +'<span style="min-width:96px;color:var(--text-muted);font-size:12px;">Review</span>'
       +'<span>'+esc(lbl)+' · '+esc(bits.join(' · ')||'no limit')
-      +' · by '+esc(opsOwnerName(r.reviewer)||r.reviewer)+'</span></div>';
+      +' · by '+esc(opsOwnerName(r.reviewer)||r.reviewer)
+      +(oc?'<br><span class="field-note">'+esc(oc)+'</span>':'')+'</span></div>';
   });
 
   /* When they are working, from the duty windows themselves. */
@@ -19105,7 +19151,10 @@ function homeDeveloping(){
       +'<div style="font-size:13.5px;">'+esc(label)+' work, reviewed by <b>'
       +esc(opsOwnerName(r.reviewer)||r.reviewer)+'</b></div>'
       +'<div class="field-note">'+esc(bits.join(' · ')||'no limit set')
-      +(r.first_n&&done>=0?' · then it stops on its own':'')+'</div></div>';
+      +(r.first_n&&done>=0?' · then it stops on its own':'')+'</div>'
+      +(function(){ const oc=reviewOutcomeText(me, r.kind);
+          return oc?'<div class="field-note">'+esc(oc)+'</div>':''; })()
+      +'</div>';
   }).join('');
   return '<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
     +'<div style="display:flex;align-items:baseline;gap:10px;">'
