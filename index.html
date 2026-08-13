@@ -18285,7 +18285,22 @@ const OBLIGATION_SOURCES=[
     detail:c=>'Scheduled check-in. Last one '+(c.checkin_date||'not recorded')
               +(c.satisfaction_rating?', rated '+c.satisfaction_rating+'/5':'')
               +'. Record what is going well, what has changed, and what needs attention.',
-    next:  ()=>'Call the client or family, then update the check-in record.' }
+    next:  ()=>'Call the client or family, then update the check-in record.',
+
+    /* SATISFACTION IS READ FROM THE SOURCE, NOT WRITTEN TO IT.
+       saveCheckin() already records the date, method, satisfaction, concerns
+       and resolution, and advances next_checkin_due by CONFIG.checkin_cadence.
+       That is a real workflow capturing real content. If closing the generated
+       work item wrote back to the source instead, it would mark the check-in
+       done and destroy everything that made the record worth keeping.
+
+       So the obligation is satisfied when the source says the check-in
+       happened on or after the date it was due. Completing it early counts —
+       the work was done. */
+    satisfied:(c, dueYmd)=> !!(c.checkin_date && String(c.checkin_date).slice(0,10) >= dueYmd),
+    /* Where the human actually completes it. The work item is a prompt; the
+       record is the deliverable. */
+    open:  c=>"openCheckinModal('"+String(c.id).replace(/'/g,"\\'")+"')" }
 ];
 
 /* ONE ENGINE, ALL SOURCES.
@@ -18336,14 +18351,32 @@ function runObligations(opts){
     out.bySource[src.key]=s;
   }
 
-  /* Generated work whose obligation no longer exists. */
-  const prefixes=OBLIGATION_SOURCES.map(s=>s.prefix+'_');
+  /* Generated work whose obligation no longer exists — and WHY, because
+     "she did the check-in" and "somebody moved the date" are different facts
+     and closing both with one reason throws away the useful one.
+
+     Satisfaction is decided by asking the source, never by the work item.
+     A check-in completed early still counts: the work was done. */
+  const byKey={}; OBLIGATION_SOURCES.forEach(s=>byKey[s.key]=s);
+  const rowCache={};
   for(const it of items){
     if(it.status!=='open') continue;
-    if(!prefixes.some(p=>String(it.id).startsWith(p))) continue;
+    if(!OBLIGATION_SOURCES.some(s=>String(it.id).startsWith(s.prefix+'_'))) continue;
     if(wanted.has(it.id)) continue;
+    const src=byKey[(it.source||{}).type];
+    let why='obligation_moved';
+    if(src && typeof src.satisfied==='function'){
+      try{
+        if(!rowCache[src.key]) rowCache[src.key]=src.rows()||[];
+        const row=rowCache[src.key].find(r=>String(src.id(r))===String((it.source||{}).id));
+        if(row && src.satisfied(row, String((it.source||{}).due||''))) why='done_at_source';
+      }catch(e){ out.errors.push({id:it.id, message:'satisfaction test failed: '+String(e&&e.message||e)}); }
+    }
+    it.__why=why;
     out.stale.push(it);
   }
+  out.satisfied=out.stale.filter(i=>i.__why==='done_at_source').length;
+  out.rescheduled=out.stale.filter(i=>i.__why!=='done_at_source').length;
 
   if(dry) return out;
   DATA.ops_items=DATA.ops_items||[];
@@ -18354,11 +18387,18 @@ function runObligations(opts){
     }
     for(const it of out.stale){
       try{
+        const done=it.__why==='done_at_source';
+        delete it.__why;
         it.status='done'; it.closed_at=new Date().toISOString();
-        it.closed_by='automation'; it.resolution_code='obligation_moved';
-        it.close_note='The underlying date changed, so this obligation no longer exists.';
-        it.auto_closed_reason='obligation_moved';
-        opsLog(it,'Closed automatically — the date it was generated for has moved');
+        it.closed_by='automation';
+        it.resolution_code=done?'done_at_source':'obligation_moved';
+        it.auto_closed_reason=it.resolution_code;
+        it.close_note=done
+          ? 'The record shows this was completed. Closed automatically.'
+          : 'The underlying date changed, so this obligation no longer exists.';
+        opsLog(it, done
+          ? 'Closed automatically — the record shows it was done'
+          : 'Closed automatically — the date it was generated for has moved');
         await persist('ops_items', it);
       }catch(e){ out.errors.push({id:it.id, message:'stale close: '+String(e&&e.message||e)}); }
     }
@@ -18379,6 +18419,7 @@ async function autoLog(result){
       at:new Date().toISOString(), automation:result.ran,
       created:(result.created||[]).length, skipped:result.skipped||0,
       stale:(result.stale||[]).length,
+      satisfied:result.satisfied||0, rescheduled:result.rescheduled||0,
       unroutable:(result.unroutable||[]).length,
       errors:(result.errors||[]).length,
       by_source:result.bySource||{},
@@ -18490,6 +18531,27 @@ function myWorkRows(){
 
 /* A card is a sentence about a situation. One obvious move, everything else
    behind the menu. */
+/* The button that takes somebody from the prompt to the record. Driven by the
+   registry, so no source-specific behaviour lives in the card. */
+function obligationOpenAction(it){
+  try{
+    if(!it || !it.source || typeof OBLIGATION_SOURCES==='undefined') return '';
+    const src=OBLIGATION_SOURCES.find(s=>s.key===it.source.type);
+    if(!src || typeof src.open!=='function') return '';
+    const rows=src.rows()||[];
+    const row=rows.find(r=>String(src.id(r))===String(it.source.id));
+    if(!row) return '';
+    const done=typeof src.satisfied==='function'
+      ? src.satisfied(row, String(it.source.due||'')) : false;
+    if(done) return '<div class="field-note" style="margin-top:5px;color:var(--teal);">'
+      +'Already recorded. This closes itself on the next run.</div>';
+    return '<div style="margin-top:6px;"><button class="ghost" '
+      +'style="padding:5px 11px;font-size:12px;" onclick="'+src.open(row)+'">'
+      +'Open the record</button>'
+      +'<span class="field-note" style="margin-left:8px;">Closing this without '
+      +'recording it will bring it back.</span></div>';
+  }catch(e){ return ''; }
+}
 function myWorkCard(it, i){
   const esc=escapeHtmlComms;
   const late=it.due && Date.parse(it.due)<Date.now();
@@ -18540,6 +18602,11 @@ function myWorkCard(it, i){
     h+='<div style="font-size:13.5px;margin-top:3px;">'+esc(it.title)+'</div>';
   if(it.detail) h+='<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;">“'+esc(it.detail)+'”</div>';
   if(it.next_action) h+='<div style="font-size:13.5px;margin-top:5px;">→ '+esc(it.next_action)+'</div>';
+  /* Generated work is a PROMPT; the source record is the deliverable. Putting
+     the record one click away is what stops somebody closing the prompt and
+     believing the obligation is discharged — it is not, and the engine will
+     regenerate it, which looks like a bug unless the right path is obvious. */
+  h+=obligationOpenAction(it);
   if(ev) h+='<div class="field-note" style="margin-top:6px;color:#1F7A8C;">✓ '+esc(ev.text)+'</div>';
   /* A rolling obligation says how long it has actually been unresolved, not
      just when to look next. Three days open with a checkpoint today is still
