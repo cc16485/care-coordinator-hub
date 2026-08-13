@@ -18803,6 +18803,41 @@ function reviewMyFeedback(email){
     .sort((a,b)=>String(b.review.completed_at).localeCompare(String(a.review.completed_at)));
 }
 
+/* WHAT AM I BEING TRAINED ON — read from the review rules that actually govern
+   it, so the screen cannot drift from the thing enforcing it. States progress
+   and the end condition, because supervision somebody cannot see the end of
+   reads as supervision that will never stop.
+
+   Deliberately NOT an outcome breakdown. "3 passed without correction, 1
+   needed coaching" is not derivable: a completed review stores free text, not
+   a verdict. Inventing that number would be the first dishonest thing here. */
+function homeDeveloping(){
+  const esc=escapeHtmlComms;
+  const me=String(ME.email||'').toLowerCase();
+  const mine=(typeof reviewRules==='function'?reviewRules():[])
+    .filter(r=>String(r.person||'').toLowerCase()===me);
+  const live=mine.filter(r=>{ const s=reviewRuleSpent(r); return !(s&&s.spent); });
+  if(!live.length) return '';
+  const rows=live.map(r=>{
+    const label=(OPS_KINDS[r.kind]||{}).label||r.kind;
+    const done=reviewCountFor(me, r.kind);
+    const bits=[];
+    if(r.first_n) bits.push(done+' of '+r.first_n+' reviewed');
+    if(r.until)   bits.push('until '+String(r.until).slice(0,10));
+    return '<div style="padding:7px 0;border-bottom:1px solid var(--border);">'
+      +'<div style="font-size:13.5px;">'+esc(label)+' work, reviewed by <b>'
+      +esc(opsOwnerName(r.reviewer)||r.reviewer)+'</b></div>'
+      +'<div class="field-note">'+esc(bits.join(' · ')||'no limit set')
+      +(r.first_n&&done>=0?' · then it stops on its own':'')+'</div></div>';
+  }).join('');
+  return '<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">YOU ARE DEVELOPING</b>'
+    +'</div>'
+    +'<div class="field-note" style="margin:4px 0 2px;">Work you are learning. '
+    +'Your specialty is not reviewed.</div>'+rows+'</div>';
+}
+
 /* Shared by both homes. Two sections that exist to put the bottleneck where
    it belongs: what I owe, and who is waiting on me because I have not done
    it. Never rendered as the employee being incomplete. */
@@ -21241,8 +21276,10 @@ function renderHome(){
        would be the first dishonest thing on the page. */
     h+=homeTeamDevelopment();
 
-    /* ── 7. What we actually know. NOT "on duty": duty windows do not exist,
-       and a made-up duty state is worse than none. ── */
+    /* ── 7. Ownership, which is a different question from who is on duty.
+       Duty windows now exist and RESPONSIBLE NOW at the top of this page
+       answers "who is covering right now". This answers "who is accountable
+       for this area at all", which does not change when somebody goes home. ── */
     const doms=opsAllDomains().filter(d=>d.owner_person);
     if(doms.length) h+=sect('CURRENT DOMAIN OWNERSHIP', 0,
       '<div class="field-note" style="margin:2px 0 8px;">Who owns each area at the moment. '
@@ -21251,29 +21288,91 @@ function renderHome(){
         +'<span style="flex:1;">'+esc(d.label)+'</span>'
         +'<b>'+esc(opsOwnerName(opsEmailForPerson(d.owner_person))||'—')+'</b></div>').join(''));
 
+    /* ── RUNNING WITHOUT YOU ── the only section here that is not a problem.
+       A page made only of exceptions teaches its reader that the company is
+       only ever going wrong. What the team closed today is the evidence that
+       the rest of the page is a short list rather than a filtered one. */
+    const dayStart=new Date(); dayStart.setHours(0,0,0,0);
+    const closedToday=(DATA.ops_items||[]).filter(i=>{
+      if(i.status!=='done'||!i.closed_at) return false;
+      const t=Date.parse(i.closed_at);
+      return !isNaN(t) && t>=dayStart.getTime();
+    });
+    const byWho={};
+    closedToday.forEach(i=>{
+      const w=String(i.closed_by||i.owner||'').toLowerCase(); if(!w) return;
+      byWho[w]=(byWho[w]||0)+1;
+    });
+    const others=Object.entries(byWho).filter(([w])=>w!==me);
+    const mineToday=byWho[me]||0;
+    h+=sect('RUNNING WITHOUT YOU', closedToday.length, closedToday.length
+      ? '<div class="field-note" style="margin:6px 0 8px;">'
+        +closedToday.length+' item'+(closedToday.length===1?'':'s')+' closed today'
+        +(others.length?', '+(closedToday.length-mineToday)+' of them without you':'')+'.</div>'
+        +others.sort((a,b)=>b[1]-a[1]).map(([w,n])=>
+          '<div style="display:flex;gap:10px;padding:3px 0;font-size:13px;">'
+          +'<span style="flex:1;">'+esc(opsOwnerName(w)||w)+'</span><b>'+n+'</b></div>').join('')
+      : '', 'Nothing has been closed yet today.');
+
     /* ── 6. Quiet, and deliberately not the loudest thing on the page. ── */
     h+='<div class="field-note" style="text-align:center;padding:12px 10px 4px;">Not shown: '+hidden
       +' active item'+(hidden===1?'':'s')+' owned by somebody else and not overdue. '
       +'<button class="linklike" onclick="switchTab(\'mywork\');myWorkGo(\'unassigned\')">View all work</button></div>';
   } else {
-    const needsResponse=b.mine.filter(i=>i.kind==='missed_call'||i.kind==='new_lead');
-    h+=sect('NEEDS MY RESPONSE', needsResponse.length, needsResponse.length?needsResponse.slice(0,5).map(i=>
-        line(i.title,(i.created_at?'waiting '+hrs(i)+' hrs':''))).join(''):'', 'Nobody is waiting on you.');
-    h+=sect('MY WORK TODAY', b.mine.length, b.mine.length?b.mine.slice(0,6).map(i=>
-        line(i.title, i.next_action||'')).join(''):'', 'Nothing on your list right now.');
-    h+=sect('OVERDUE', b.overdue.length, b.overdue.length?b.overdue.slice(0,5).map(i=>
-        line(i.title,'due '+callsFmtWhen(i.due))).join(''):'', 'Nothing of yours is late. Good.');
-    h+=sect('ESCALATED TO ME', b.escalated.length, b.escalated.length?b.escalated.slice(0,5).map(i=>
-        line(i.title, i.next_action||'')).join(''):'', 'Nothing has been escalated to you. Good.');
-    const ev=b.unassigned.filter(i=>opsAlreadyHandled(i)).length;
-    h+=sect('UNASSIGNED · NEEDS TRIAGE', b.unassigned.length, b.unassigned.length
-      ? '<div class="field-note" style="margin-top:6px;">Nobody owns these yet'
-        +(ev?'. '+ev+' look already handled':'')+'. <button class="linklike" '
-        +'onclick="myWorkGo(\'unassigned\');switchTab(\'mywork\')">Open triage</button></div>' : '',
-      'Everything open has somebody\'s name on it.');
+    /* STAFF HOME IS A BRIEFING, NOT A SECOND MY WORK.
+       It used to list Needs my response / My work today / Overdue / Escalated /
+       Unassigned — which is My Work with different headings. Two screens
+       showing the same list teaches somebody that they have to check both, and
+       the day they differ they will trust the wrong one.
+
+       So Home answers questions My Work does not: what am I covering, what
+       arrived while I was away, what am I being trained on. It states counts
+       and hands off; the list itself lives in one place. */
+
+    /* ── What needs me: a number and the top three, then out. ── */
+    const needsN=b.today.length;
+    h+=sect('NEEDS YOU TODAY', needsN, needsN
+      ? b.today.slice(0,3).map(i=>line(i.title,
+          (i.due&&Date.parse(i.due)<now) ? 'overdue · '+callsFmtWhen(i.due)
+                                         : (i.next_action||''))).join('')
+        +'<div style="margin-top:8px;"><button class="linklike" '
+        +'onclick="switchTab(\'mywork\');myWorkGo(\'today\')">Open My Work'
+        +(needsN>3?' — all '+needsN:'')+'</button></div>'
+      : '', 'Nothing is due today and nothing is late. Good.');
+
+    /* ── What arrived while they were away. The marker is per-person and per
+         device; if it is missing this is their first visit and everything open
+         is legitimately new to them. ── */
+    const seenKey='cch_home_seen_'+String(ME.email||'').toLowerCase();
+    const seenAt=Number(localStorage.getItem(seenKey)||0);
+    const fresh=b.mine.filter(i=>{
+      const t=Date.parse(i.created_at||''); return !isNaN(t) && (!seenAt || t>seenAt);
+    });
+    if(seenAt) h+=sect('SINCE YOU LAST LOOKED', fresh.length, fresh.length
+      ? fresh.slice(0,4).map(i=>line(i.title, callsFmtWhen(i.created_at))).join('') : '',
+      'Nothing new has been assigned to you.');
+    try{ localStorage.setItem(seenKey, String(Date.now())); }catch(_){}
+
+    /* ── Waiting is a count, never a list. Work parked on somebody else is not
+         something to act on this morning; it is something not to forget. ── */
+    h+=sect('YOU ARE WAITING ON', b.waiting.length, b.waiting.length
+      ? '<div class="field-note" style="margin-top:6px;">'+b.waiting.length+' item'
+        +(b.waiting.length===1?' is':'s are')+' parked on somebody else. '
+        +'<button class="linklike" onclick="switchTab(\'mywork\');myWorkGo(\'waiting\')">See them</button></div>'
+      : '', 'You are not waiting on anybody.');
+
+    /* ── What they are being trained on. Read from the same review rules that
+         actually govern it, so this cannot drift from reality. ── */
+    h+=homeDeveloping();
+
+    /* ── Reviews they owe somebody else. ── */
     h+=homeReviewSections();
+
+    /* ── Their own role, one click away, because "what am I responsible for"
+         is a Home question even though the answer lives elsewhere. ── */
     h+='<div class="card" style="padding:14px 18px;background:var(--bg);">'
-      +'<div class="field-note">Coming later: my team · scheduling help needed</div></div>';
+      +'<div class="field-note">Not sure what is yours? '
+      +'<button class="linklike" onclick="switchTab(\'myrole\')">Open My Role</button></div></div>';
   }
   wrap.innerHTML=h;
 }
