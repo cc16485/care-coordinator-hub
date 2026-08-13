@@ -18263,37 +18263,88 @@ function myWorkTabs(b){
    Owner comes from the check-in's coordinator, canonicalised through the
    person registry because that column has historically held names. If it
    cannot be resolved, the client_care domain owner takes it — never nobody. */
-function autoRecurringCheckins(opts){
+/* A source is a DECLARATION, not another function. Adding "supervisory visits
+   are due on due_date and belong to training_compliance" should be six lines
+   here, not a second engine with its own subtly different idea of idempotency.
+
+   Every spec supplies: where the records live, which of them count, the date
+   the obligation falls due, who it belongs to, and what the item says. The
+   engine owns everything else — deduplication, the date maths, routing
+   fallback, staleness, logging. */
+const OBLIGATION_SOURCES=[
+  { key:'client_checkin', label:'Client check-ins', prefix:'ops_ci',
+    rows:()=> (DATA.client_checkins||[]).filter(c=>c && c.client_name && c.next_checkin_due),
+    /* Care Match records share this key and are shaped .client/.caregiver, so
+       requiring client_name is what keeps them out. */
+    id:  c=>String(c.id),
+    due: c=>String(c.next_checkin_due).slice(0,10),
+    who: c=>c.coordinator,
+    domain:'client_care', kind:'client_issue',
+    title: c=>'Client check-in due — '+c.client_name,
+    about: c=>c.client_name,
+    detail:c=>'Scheduled check-in. Last one '+(c.checkin_date||'not recorded')
+              +(c.satisfaction_rating?', rated '+c.satisfaction_rating+'/5':'')
+              +'. Record what is going well, what has changed, and what needs attention.',
+    next:  ()=>'Call the client or family, then update the check-in record.' }
+];
+
+/* ONE ENGINE, ALL SOURCES.
+   Idempotency: the id is derived from the source row and the date it fell due,
+   so any number of runs on any number of devices produces one item.
+
+   STALENESS: if the underlying date moves after an item was generated — a
+   review gets rescheduled — the old item no longer matches any current
+   obligation. It is closed automatically with the reason recorded, rather
+   than sitting on somebody's list for a date that no longer exists. Only
+   items this engine created are ever touched. */
+function runObligations(opts){
   const dry=!(opts&&opts.commit);
-  const out={ran:'client_checkin', created:[], skipped:0, unroutable:[], errors:[]};
-  const rows=(DATA.client_checkins||[]).filter(c=>c && c.client_name && c.next_checkin_due);
   const t=today();
-  const existing=new Set((DATA.ops_items||[]).map(i=>i.id));
-  for(const c of rows){
-    const dueYmd=String(c.next_checkin_due).slice(0,10);
-    if(dueYmd>t){ out.skipped++; continue; }              // not due yet
-    const id='ops_ci_'+String(c.id)+'_'+dueYmd;
-    if(existing.has(id)){ out.skipped++; continue; }       // already generated, ever
-    let owner=(typeof opsCanonicalPerson==='function')?opsCanonicalPerson(c.coordinator):'';
-    if(!owner) owner=opsDomainOwner('client_care')||'';
-    if(!owner){ out.unroutable.push(c.client_name); continue; }
-    const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(dueYmd);
-    const due=m?new Date(+m[1],+m[2]-1,+m[3],23,59,59,999).toISOString():new Date().toISOString();
-    const nowIso=new Date().toISOString();
-    const it={ id, kind:'client_issue', status:'open',
-      title:'Client check-in due — '+c.client_name,
-      about:c.client_name,
-      detail:'Scheduled check-in. Last one '+(c.checkin_date||'not recorded')
-             +(c.satisfaction_rating?', rated '+c.satisfaction_rating+'/5':'')
-             +'. Record what is going well, what has changed, and what needs attention.',
-      next_action:'Call the client or family, then update the check-in record.',
-      urgency:'normal', due, domain:'client_care',
-      owner, owner_name:opsOwnerName(owner)||'',
-      created_at:nowIso, last_activity_at:nowIso,
-      opened_by:'system', created_by:'automation:client_checkin',
-      source:{ type:'client_checkin', id:c.id, due:dueYmd } };
-    out.created.push(it);
+  const items=(DATA.ops_items||[]);
+  const existing=new Set(items.map(i=>i.id));
+  const out={ran:'obligations', created:[], stale:[], skipped:0, unroutable:[], errors:[], bySource:{}};
+  const wanted=new Set();
+
+  for(const src of OBLIGATION_SOURCES){
+    const s={created:0, skipped:0, unroutable:0};
+    let rows=[];
+    try{ rows=src.rows()||[]; }
+    catch(e){ out.errors.push({source:src.key, message:'rows() failed: '+String(e&&e.message||e)}); continue; }
+    for(const r of rows){
+      let dueYmd;
+      try{ dueYmd=src.due(r); }catch(e){ continue; }
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(String(dueYmd||''))) continue;
+      const id=src.prefix+'_'+src.id(r)+'_'+dueYmd;
+      wanted.add(id);
+      if(dueYmd>t){ s.skipped++; out.skipped++; continue; }   // not due yet
+      if(existing.has(id)){ s.skipped++; out.skipped++; continue; }
+      let owner=(typeof opsCanonicalPerson==='function')?opsCanonicalPerson(src.who(r)):'';
+      if(!owner) owner=opsDomainOwner(src.domain)||'';
+      if(!owner){ s.unroutable++; out.unroutable.push(src.about(r)||src.id(r)); continue; }
+      const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(dueYmd);
+      const nowIso=new Date().toISOString();
+      out.created.push({ id, kind:src.kind, status:'open',
+        title:src.title(r), about:src.about(r)||'', detail:src.detail(r),
+        next_action:src.next(r), urgency:'normal',
+        due:new Date(+m[1],+m[2]-1,+m[3],23,59,59,999).toISOString(),
+        domain:src.domain, owner, owner_name:opsOwnerName(owner)||'',
+        created_at:nowIso, last_activity_at:nowIso,
+        opened_by:'system', created_by:'automation:'+src.key,
+        source:{ type:src.key, id:src.id(r), due:dueYmd } });
+      s.created++;
+    }
+    out.bySource[src.key]=s;
   }
+
+  /* Generated work whose obligation no longer exists. */
+  const prefixes=OBLIGATION_SOURCES.map(s=>s.prefix+'_');
+  for(const it of items){
+    if(it.status!=='open') continue;
+    if(!prefixes.some(p=>String(it.id).startsWith(p))) continue;
+    if(wanted.has(it.id)) continue;
+    out.stale.push(it);
+  }
+
   if(dry) return out;
   DATA.ops_items=DATA.ops_items||[];
   return (async()=>{
@@ -18301,10 +18352,23 @@ function autoRecurringCheckins(opts){
       try{ DATA.ops_items.push(it); await persist('ops_items', it); }
       catch(e){ out.errors.push({id:it.id, message:String(e&&e.message||e)}); }
     }
+    for(const it of out.stale){
+      try{
+        it.status='done'; it.closed_at=new Date().toISOString();
+        it.closed_by='automation'; it.resolution_code='obligation_moved';
+        it.close_note='The underlying date changed, so this obligation no longer exists.';
+        it.auto_closed_reason='obligation_moved';
+        opsLog(it,'Closed automatically — the date it was generated for has moved');
+        await persist('ops_items', it);
+      }catch(e){ out.errors.push({id:it.id, message:'stale close: '+String(e&&e.message||e)}); }
+    }
     await autoLog(out);
     return out;
   })();
 }
+/* Kept as the name the sign-in path calls, so switching the engine on did not
+   also change where it is switched on from. */
+function autoRecurringCheckins(opts){ return runObligations(opts); }
 
 /* Every automated run is recorded, successes included. An automation that only
    speaks up when it fails is one nobody can tell the difference between
@@ -18314,8 +18378,10 @@ async function autoLog(result){
     const row={ id:'auto_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
       at:new Date().toISOString(), automation:result.ran,
       created:(result.created||[]).length, skipped:result.skipped||0,
+      stale:(result.stale||[]).length,
       unroutable:(result.unroutable||[]).length,
       errors:(result.errors||[]).length,
+      by_source:result.bySource||{},
       detail:{ unroutable:result.unroutable||[], errors:result.errors||[] },
       by:(typeof ME!=='undefined'&&ME.email)?ME.email:'' };
     DATA.automation_log=DATA.automation_log||[];
@@ -19113,15 +19179,22 @@ function homeAutomation(){
   const esc=escapeHtmlComms;
   const log=(DATA.automation_log||[]).slice().sort((a,b)=>
     String(b.at||'').localeCompare(String(a.at||'')));
-  const AUTOMATIONS=[['client_checkin','Client check-ins']];
+  /* Named from the registry, so a new source appears here the moment it is
+     declared. Nothing to remember to add in two places. */
+  const AUTOMATIONS=(typeof OBLIGATION_SOURCES!=='undefined'
+    ? OBLIGATION_SOURCES.map(s=>[s.key, s.label]) : []);
   const now=Date.now();
 
   const rows=AUTOMATIONS.map(([key,label])=>{
-    const runs=log.filter(r=>r.automation===key);
+    /* One run covers every source, so a run counts for this source when the
+       engine reported on it. Older rows named a single automation. */
+    const runs=log.filter(r=> r.automation===key
+      || (r.automation==='obligations' && r.by_source && r.by_source[key]));
     const last=runs[0];
     if(!last) return {label, state:'never', text:'has never run'};
     const hrs=Math.floor((now-Date.parse(last.at))/3600000);
-    const created=runs.reduce((n,r)=>n+(r.created||0),0);
+    const created=runs.reduce((n,r)=>n+((r.by_source&&r.by_source[key])
+      ? (r.by_source[key].created||0) : (r.created||0)),0);
     const failing=runs.slice(0,3).filter(r=>(r.errors||0)>0).length;
     const unroutable=last.unroutable||0;
     let state='ok', text='ran '+(hrs<1?'in the last hour':hrs+'h ago');
