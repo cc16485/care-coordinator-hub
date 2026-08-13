@@ -6210,6 +6210,9 @@ async function saveSharedConfig(){
   }catch(e){ return false; }
 }
 CONFIG.checkin_cadence = CONFIG.checkin_cadence || 30;
+/* Business days before a contacted lead is chased again when the
+   coordinator did not set a date. Named rather than hidden. */
+CONFIG.lead_followup_days = CONFIG.lead_followup_days || 1;
 CONFIG.supervisory_window = CONFIG.supervisory_window || 60;
 CONFIG.admin_passcode = CONFIG.admin_passcode || '';
 CONFIG.escalation_protocol = CONFIG.escalation_protocol || '1. Call the on-call coordinator listed above.\n2. No answer within 15 minutes? Call the agency owner directly.\n3. Medical emergency? Call 911 first, then notify the on-call coordinator once the client is safe.\n\n(Edit this in Settings — replace with your real names and numbers.)';
@@ -22003,6 +22006,32 @@ function opsDueFromChoice(choice, dateStr, kind, urgency, fromISO){
   }
   return opsDueFor(kind, urgency, fromISO);
 }
+/* History for a lead item, but only when something actually changed. A
+   reconciliation that runs on every sign-in must not write a history line each
+   time, or the record becomes unreadable and the useful entries are buried. */
+function opsLeadLog(it, text){
+  it.history = it.history || [];
+  const last = it.history[it.history.length-1];
+  if(last && last.text===text) return;
+  it.history.push({ at:new Date().toISOString(), by:'system', text:text });
+  it.last_activity_at = new Date().toISOString();
+}
+/* Next business day, skipping Saturday and Sunday. A promise to ring somebody
+   back on Saturday is not a promise anybody keeps. */
+function ccNextBusinessDay(fromYmd, days){
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(fromYmd||''));
+  if(!m) return '';
+  let d=new Date(+m[1],+m[2]-1,+m[3],12,0,0);
+  let n=Math.max(1, Number(days)||1);
+  while(n>0){ d.setDate(d.getDate()+1); const w=d.getDay(); if(w!==0&&w!==6) n--; }
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function ccEndOfDayIso(ymd){
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd||''));
+  if(!m) return '';
+  return new Date(+m[1],+m[2]-1,+m[3],23,59,59,999).toISOString();
+}
+
 function opsDueFor(kind, urgency, fromISO){
   const base = (OPS_KINDS[kind]||{}).hours || 24;
   const hrs  = OPS_URGENCY[urgency] || base;
@@ -22052,12 +22081,90 @@ function opsReconcileLeads(){
       DATA.ops_items.push(it); existing.set(id,it); touched.set(it.id,it);
     }
 
-    if(it && it.status==='open' && !opsLeadUntouched(l)){
-      it.status='done'; it.closed_at=new Date().toISOString(); it.closed_by='system';
-      it.auto_closed_reason = l.last_contacted_at
-        ? 'Contacted '+l.last_contacted_at
-        : ((l.status && l.status!=='New') ? 'Moved to '+l.status : 'Contact logged');
-      touched.set(it.id,it);
+    /* ONE EVOLVING ITEM FOR THE WHOLE ENQUIRY.
+       This used to close the moment last_contacted_at appeared, which treated
+       first contact as completion. It is progress. Everything after it — the
+       promised call-back, the chase, the consultation — had no work item at
+       all and lived only on the Leads screen and a header chip. For a business
+       whose growth depends on converting enquiries, that was the wrong thing
+       to make invisible.
+
+       The item now runs from enquiry to Converted or Lost, and the LEAD RECORD
+       drives it. My Work is the action layer; the lead is the business record.
+       A coordinator logs contact and sets a next step on the lead, and the item
+       follows — they never maintain a task separately. */
+    if(it && it.status==='open'){
+      const st=String(l.status||'New');
+      const done=(st==='Converted'||st==='Lost');
+
+      if(done){
+        it.status='done'; it.closed_at=new Date().toISOString(); it.closed_by='system';
+        it.auto_closed_reason = st==='Converted'
+          ? ('Converted'+(l.converted_at?' '+String(l.converted_at).slice(0,10):''))
+          : ('Lost'+(l.lost_reason?' — '+l.lost_reason:''));
+        opsLeadLog(it, st==='Converted' ? 'Converted' :
+          ('Lost'+(l.lost_reason?' — '+l.lost_reason:'')));
+        touched.set(it.id,it);
+      } else {
+        /* Ownership follows the lead, so reassigning a coordinator moves the
+           existing item rather than leaving it with the previous owner. */
+        const own = opsCanonicalPerson(l.assigned_coordinator)
+                    || opsDomainOwner('family_enquiries') || '';
+        if(own && own!==it.owner){
+          const from=it.owner_name||it.owner||'nobody';
+          it.owner=own; it.owner_name=opsOwnerName(own)||'';
+          opsLeadLog(it,'Reassigned from '+from+' to '+(it.owner_name||own));
+          touched.set(it.id,it);
+        }
+
+        const contacted=!opsLeadUntouched(l);
+        const fu=String(l.follow_up_due||'').slice(0,10);
+        const t=today();
+
+        if(contacted && !it.lead_contacted_at){
+          it.lead_contacted_at = l.last_contacted_at || t;
+          opsLeadLog(it,'First contact made');
+          touched.set(it.id,it);
+        }
+
+        /* A contacted lead with no next step is how an enquiry quietly stops
+           being chased. Rather than leaving it dateless, the Hub schedules the
+           next business day and says so, which the coordinator can override by
+           setting a real date on the lead. */
+        let nextDue=fu;
+        if(contacted && !nextDue){
+          nextDue = ccNextBusinessDay(l.last_contacted_at || t, CONFIG.lead_followup_days);
+          if(it.lead_auto_followup!==nextDue){
+            it.lead_auto_followup=nextDue;
+            opsLeadLog(it,'No follow-up set, so scheduled '+nextDue);
+            touched.set(it.id,it);
+          }
+        } else if(it.lead_auto_followup && fu){
+          it.lead_auto_followup=null;   // a real date replaced the automatic one
+        }
+
+        if(nextDue){
+          const iso=ccEndOfDayIso(nextDue);
+          if(iso && it.due!==iso){
+            it.due=iso;
+            if(fu) opsLeadLog(it,'Follow-up scheduled for '+fu);
+            touched.set(it.id,it);
+          }
+          /* Waiting until the date arrives, then back to Today by itself. */
+          const want = (nextDue>t) ? 'waiting' : null;
+          if((it.sub_state||null)!==want && it.sub_state!=='escalated'){
+            it.sub_state=want;
+            it.waiting_on = want ? 'the family, until '+nextDue : null;
+            it.check_back = want ? nextDue : null;
+            touched.set(it.id,it);
+          }
+        }
+
+        const action = !contacted ? 'Ring them and find out what care they need.'
+          : (nextDue>t) ? 'Waiting until '+nextDue+'. Nothing to do yet.'
+          : 'Follow up as promised, then log it on the lead.';
+        if(it.next_action!==action){ it.next_action=action; touched.set(it.id,it); }
+      }
     }
   });
 
