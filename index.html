@@ -18227,9 +18227,12 @@ let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0;
    the overdue ones so that nothing needing attention today is one click away
    instead of in front of you. Nothing can fall between buckets, because every
    bucket except `unassigned` is a subset of `mine`. */
-function myWorkTabs(){
+function myWorkTabs(b){
   const t=[['today','Today'],['mine','All mine'],['waiting','Waiting'],
            ['reviews','Reviews'],['unassigned','Unassigned']];
+  /* Only offered when somebody has actually asked. A permanently empty tab
+     teaches people to ignore a tab. */
+  if(b && b.helping && b.helping.length) t.splice(4,0,['helping','Helping']);
   /* An approval is work that requires a specific person, so it belongs in that
      person's work. The gate is the same ccCan the approve/reject handlers use;
      this only decides whether the bucket is offered. */
@@ -18242,25 +18245,39 @@ function myWorkBuckets(){
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
   const mine=open.filter(i=>(i.owner||'').toLowerCase()===me && me);
   const now=Date.now();
+  const endOfToday=(()=>{ const e=new Date(); e.setHours(23,59,59,999); return e.getTime(); })();
+  /* THE CHASE. A parked item carries the date it should come back. When that
+     date arrives it stops being parked — it returns to Today by itself, and
+     nobody had to remember it. Parsed at local noon so a date-only value can
+     never land on the previous evening. */
+  const backNow=i=>{
+    if(i.sub_state!=='waiting' || !i.check_back) return false;
+    const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(i.check_back));
+    if(!m) return false;
+    return new Date(+m[1], +m[2]-1, +m[3], 12, 0, 0).getTime() <= endOfToday;
+  };
+  const parked=i=>i.sub_state==='waiting' && !backNow(i);
   return {
-    mine:       mine.filter(i=>i.sub_state!=='waiting'),
+    mine:       mine.filter(i=>!parked(i)),
     unassigned: open.filter(i=>!i.owner),
-    overdue:    mine.filter(i=>i.due && Date.parse(i.due)<now),
+    overdue:    mine.filter(i=>!parked(i) && i.due && Date.parse(i.due)<now),
     escalated:  mine.filter(i=>i.sub_state==='escalated' || (i.escalation_level||0)>0),
-    waiting:    mine.filter(i=>i.sub_state==='waiting'),
-    /* Due today OR already late. Something overdue is something needed today,
-       so it is not hidden behind a second click. Local day boundaries, never
-       a UTC comparison. */
+    waiting:    mine.filter(parked),
+    /* Work somebody asked ME about. They still own it — this is a question,
+       not a handover — so it is deliberately not part of `mine`. */
+    helping:    open.filter(i=>String(i.help_from||'').toLowerCase()===me && me
+                              && String(i.owner||'').toLowerCase()!==me),
+    /* Due today, already late, or a parked item whose check-back has arrived. */
     today:      mine.filter(i=>{
-                  if(i.sub_state==='waiting' || !i.due) return false;
+                  if(parked(i)) return false;
+                  if(backNow(i)) return true;
+                  if(!i.due) return false;
                   const d=Date.parse(i.due); if(isNaN(d)) return false;
-                  if(d<now) return true;
-                  const e=new Date(); e.setHours(23,59,59,999);
-                  return d<=e.getTime();
+                  return d<now || d<=endOfToday;
                 }),
     /* Reviews are ordinary items owned by the reviewer. This is a lens on
        `mine`, not a removal from it, so a review is never only in one place. */
-    reviews:    mine.filter(i=>i.kind==='review' && i.sub_state!=='waiting'),
+    reviews:    mine.filter(i=>i.kind==='review' && !parked(i)),
     approvals:  (ccCan('approve_discipline')
                   ? (DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval')
                   : [])
@@ -18283,6 +18300,21 @@ function myWorkCard(it, i){
   const ev=opsAlreadyHandled(it);
   const ago=it.created_at?callsFmtWhen(it.created_at):'';
   const who=it.owner?('owned by '+esc(it.owner_name||opsOwnerName(it.owner))):'unassigned';
+  /* State has to be readable on the card, or marking something waiting or in
+     progress is a private act nobody else benefits from. Ownership is stated
+     alongside every one of them, because the whole point of asking for help is
+     that the work did not move. */
+  const stateChip=(txt,col)=>'<span class="tag-chip" style="background:'+col+'-bg);color:var('+col+');">'+esc(txt)+'</span>';
+  let states='';
+  if(it.sub_state==='working') states+=stateChip('in progress','var(--teal');
+  if(it.sub_state==='waiting'){
+    const bits=['waiting'];
+    if(it.waiting_on) bits.push('on '+it.waiting_on);
+    if(it.check_back) bits.push('· back '+String(it.check_back).slice(5).replace('-','/'));
+    states+=stateChip(bits.join(' '),'var(--amber');
+  }
+  if(it.help_from) states+=stateChip('help asked of '+(opsOwnerName(it.help_from)||it.help_from),'var(--navy');
+  if(it.sub_state==='escalated') states+=stateChip('escalated','var(--red');
 
   let h='<div class="wkcard'+(focused?' focused':'')+(sel?' selected':'')+'" data-id="'+it.id+'" '
     +'style="padding:13px 15px;margin-bottom:8px;">'
@@ -18294,6 +18326,7 @@ function myWorkCard(it, i){
     +'<b style="font-size:15px;">'+esc(it.about||it.title||'')+'</b>'
     +'<span class="field-note">'+esc((OPS_KINDS[it.kind]||{}).label||it.kind)+' · '+esc(ago)
     +' · '+who+(late?' · <b style="color:var(--red);">late</b>':'')+'</span>'
+    +states
     +'<span style="flex:1;"></span>'
     +'<span class="wkchip" id="dom_'+it.id+'" onclick="opsDomainFromCard(\''+it.id+'\',\'dom_'+it.id+'\')" '
     +'title="What is this about?">'+esc(d?d.label:'Unclassified')+'</span>'
@@ -18355,8 +18388,11 @@ function myWorkMore(id, anchorId){
     +'style="padding:8px;border-radius:8px;cursor:pointer;font-size:13.5px;'
     +(warn?'color:var(--red);':'')+'">'+label+'</div>';
   let h='';
-  if(it.owner) h+=opt('waiting', it.sub_state==='waiting'?'No longer waiting':'Waiting on someone');
-  h+=opt('needs_samantha','Needs Samantha')
+  if(it.owner) h+=opt('working', it.sub_state==='working'?'Not working on it right now':'I am working on this');
+  if(it.owner) h+=opt('waiting', it.sub_state==='waiting'?'No longer waiting':'Waiting on someone…');
+  if(it.owner) h+=opt(it.help_from?'help_done':'ask_help',
+    it.help_from?'Help no longer needed':'Ask for help (keeps it mine)');
+  h+=opt('needs_samantha','Hand it over — needs Samantha')
     +'<div style="height:1px;background:var(--border);margin:6px 0;"></div>'
     +'<div class="field-note" style="margin:2px 0 4px 8px;">CLOSE IT</div>'
     +opt('already_handled','Already handled elsewhere')
@@ -18367,8 +18403,54 @@ function myWorkMore(id, anchorId){
   el.querySelectorAll('.ccpick-row').forEach(r=>{
     r.onmouseenter=()=>r.style.background='var(--bg)';
     r.onmouseleave=()=>r.style.background='';
-    r.onclick=()=>{ ccPopClose(); opsTriage(id, r.dataset.what); };
+    r.onclick=()=>{
+      ccPopClose();
+      /* Waiting without a date is how work disappears. Marking something
+         waiting asks the only two questions that matter, and the answer is
+         what brings it back on its own. */
+      if(r.dataset.what==='waiting' && it.sub_state!=='waiting')
+        return opsWaitOpen(id, anchorId);
+      opsTriage(id, r.dataset.what);
+    };
   });
+}
+
+/* WAITING IS A PROMISE TO COME BACK.
+   Two fields, both optional but strongly prompted: what is being waited on,
+   and when to check again. The date is what makes the Hub chase instead of the
+   person remembering. Stored on the item, not in a parallel reminder system. */
+function opsWaitOpen(id, anchorId){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  const esc=escapeHtmlComms;
+  const d=new Date(); d.setDate(d.getDate()+3);
+  const def=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const el=ccPopOpen(document.getElementById(anchorId)||document.body,
+    '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">What are you waiting on?</div>'
+    +'<input id="owWho" placeholder="the state, the family, Dr Patel…" '
+    +'style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);border-radius:8px;">'
+    +'<div style="font-size:13.5px;font-weight:700;margin:10px 0 6px;">Check back on</div>'
+    +'<input id="owWhen" type="date" value="'+def+'" '
+    +'style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);border-radius:8px;">'
+    +'<div class="field-note" style="margin-top:6px;">It leaves your list until then, '
+    +'and comes back on its own. It stays yours the whole time.</div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px;">'
+    +'<button class="primary" id="owGo" style="padding:6px 12px;font-size:13px;">Park it</button>'
+    +'<button class="ghost" id="owNo" style="padding:6px 12px;font-size:13px;">Cancel</button></div>',
+    {width:300});
+  el.querySelector('#owNo').onclick=ccPopClose;
+  el.querySelector('#owGo').onclick=async ()=>{
+    const who=el.querySelector('#owWho').value.trim();
+    const when=el.querySelector('#owWhen').value;
+    ccPopClose();
+    const x=(DATA.ops_items||[]).find(y=>y.id===id); if(!x) return;
+    x.sub_state='waiting';
+    x.waiting_on=who||null;
+    x.check_back=when||null;
+    opsLog(x,'Waiting'+(who?' on '+who:'')+(when?', checking back '+when:''));
+    await persist('ops_items',x);
+    myWorkRefresh();
+  };
+  const f=el.querySelector('#owWho'); if(f) f.focus();
 }
 
 function renderMyWork(){
@@ -18376,7 +18458,7 @@ function renderMyWork(){
   const who=document.getElementById('myWorkWho');
   if(who) who.textContent=(ME.name?('Signed in as '+ME.name):'')+'   ·   press ? for shortcuts';
   const b=myWorkBuckets();
-  const TABS=myWorkTabs();
+  const TABS=myWorkTabs(b);
   /* A bucket that is no longer offered — Approvals when the signed-in person
      cannot approve — must not leave the screen showing nothing. */
   if(!TABS.some(([k])=>k===MYWORK_TAB)) MYWORK_TAB='today';
@@ -18412,6 +18494,7 @@ function renderMyWork(){
       overdue:'Nothing of yours is late. Good.',
       escalated:'Nothing has been escalated to you. Good.',
       reviews:'No work is waiting for your review.',
+      helping:'Nobody has asked you for help.',
       waiting:'You are not waiting on anybody.'}[MYWORK_TAB];
     wrap.innerHTML='<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>';
     return;
@@ -18537,7 +18620,28 @@ async function opsTriage(id, what, quiet){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
   if(what==='waiting'){
     it.sub_state = it.sub_state==='waiting' ? null : 'waiting';
+    if(it.sub_state!=='waiting'){ it.waiting_on=null; it.check_back=null; }
     opsLog(it, it.sub_state==='waiting'?'Waiting on somebody else':'No longer waiting');
+  } else if(what==='working'){
+    /* Owning something and actively handling it are different facts. Without
+       this, a supervisor cannot tell the difference between work in progress
+       and work nobody has touched, and the only way to find out is to ask. */
+    it.sub_state = it.sub_state==='working' ? null : 'working';
+    if(it.sub_state==='working' && !it.started_at) it.started_at=new Date().toISOString();
+    opsLog(it, it.sub_state==='working'?'Started working on it':'No longer marked in progress');
+  } else if(what==='ask_help'){
+    /* ASKING FOR HELP MUST NOT MOVE THE WORK.
+       'Needs Samantha' reassigns the owner, so the only way to ask a question
+       was to hand the whole thing over. That is how everything ends up owned
+       by the person at the top. This records who was asked and leaves
+       accountability exactly where it was. */
+    const to=opsDomainEscalation(it.domain)||'samantha@mo-care.com';
+    it.help_from=to; it.help_asked_at=new Date().toISOString();
+    opsLog(it,'Asked '+(opsOwnerName(to)||to)+' for help. Still owned by '
+      +(opsOwnerName(it.owner)||it.owner||'nobody'));
+  } else if(what==='help_done'){
+    it.help_from=null; it.help_asked_at=null;
+    opsLog(it,'Help no longer needed');
   } else if(what==='needs_samantha'){
     const s=opsDomainEscalation(it.domain)||'samantha@mo-care.com';
     it.owner=s; it.owner_name=opsOwnerName(s); it.sub_state='escalated';
