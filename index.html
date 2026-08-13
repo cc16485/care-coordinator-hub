@@ -17748,6 +17748,17 @@ async function renderInterviewsLegacy(btn){
    writer. Time-based escalation needs a scheduled function and is NOT here
    yet — this guarantees nothing is *lost*, not that anyone is chased. */
 const OPS_CALLBACK_HOURS = 1;   // how soon an inbound miss should be returned
+/* HOW FAR BACK A MISSED CALL IS STILL WORK.
+   calls-feed scans by conversation COUNT, not by time, so the moment the main
+   line ports into GHL it can return call history going back weeks. Every
+   unanswered inbound in it would have become an item due one hour after the
+   call — that is, already overdue — and landed on the front door in one go.
+
+   ops-escalate has carried a max_age_hours guard for exactly this reason since
+   it was written; the browser side never had one. Twelve hours matches it.
+   Anything older is history: ringing somebody back about a call they made last
+   Tuesday is not a callback, it is a surprise. */
+const OPS_MISSED_MAX_AGE_HOURS = 12;
 
 function opsDigits(p){ return String(p||'').replace(/\D/g,'').replace(/^1/,''); }
 
@@ -17763,6 +17774,11 @@ function opsReconcileCalls(){
     if(c.direction!=='inbound' || !callsIsMissed(c)) return;
     let it = existing.get(c.id);
     if(!it){
+      /* Old enough to be history rather than a callback. Skipped only for
+         items that do not exist yet — anything already raised keeps running,
+         because ageing out of the window must never abandon live work. */
+      const at = Date.parse(c.at || '');
+      if(isFinite(at) && (Date.now()-at) > OPS_MISSED_MAX_AGE_HOURS*3600*1000) return;
       // A missed call has an honestly unknown domain and a perfectly knowable
       // owner: whoever rang and whatever they wanted, the next action is the
       // same. Ring them back. So the domain stays null unless the number
