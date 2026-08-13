@@ -6351,6 +6351,12 @@ async function loadAllData(){
   // behaviour they had before Step 1 and is safe.
   await opsLoadRouting();
   await recurMaterialize();   // standing expectations become real work
+  /* Runs after routing so the work it creates can be given an owner. Safe to
+     run on every sign-in because the item ids are derived, so a second run
+     creates nothing. Failures are recorded in automation_log and surfaced on
+     the owner's Home rather than only reaching the console. */
+  try{ await autoRecurringCheckins({commit:true}); }
+  catch(e){ console.warn('[automation] client check-in run failed', e); }
 }
 async function resolveMe(){
   let email='';
@@ -19090,6 +19096,65 @@ function reviewOutcomeText(email, kind){
   return bits.join(', ');
 }
 
+/* AUTOMATION CONTROL CENTRE.
+   Small on purpose. It is not a dashboard for employees; it exists so that
+   depending on automation is a decision somebody can verify rather than a
+   hope. Four questions only:
+
+     is it running        — when it last ran at all. Silence is a failure mode
+     did it fail          — errors, and work it could not route
+     what did it do       — meaningful actions, not a firehose
+     what is stalled      — repeated failures on the same thing
+
+   Reads automation_log, which every run writes to including successful ones.
+   An automation that only speaks when it fails cannot be told apart from one
+   that stopped running. */
+function homeAutomation(){
+  const esc=escapeHtmlComms;
+  const log=(DATA.automation_log||[]).slice().sort((a,b)=>
+    String(b.at||'').localeCompare(String(a.at||'')));
+  const AUTOMATIONS=[['client_checkin','Client check-ins']];
+  const now=Date.now();
+
+  const rows=AUTOMATIONS.map(([key,label])=>{
+    const runs=log.filter(r=>r.automation===key);
+    const last=runs[0];
+    if(!last) return {label, state:'never', text:'has never run'};
+    const hrs=Math.floor((now-Date.parse(last.at))/3600000);
+    const created=runs.reduce((n,r)=>n+(r.created||0),0);
+    const failing=runs.slice(0,3).filter(r=>(r.errors||0)>0).length;
+    const unroutable=last.unroutable||0;
+    let state='ok', text='ran '+(hrs<1?'in the last hour':hrs+'h ago');
+    if(failing>=2){ state='bad'; text='failed on the last '+failing+' runs'; }
+    else if((last.errors||0)>0){ state='bad'; text=last.errors+' error'+(last.errors===1?'':'s')+' on the last run'; }
+    else if(unroutable>0){ state='warn'; text=unroutable+' item'+(unroutable===1?'':'s')+' could not be routed'; }
+    else if(hrs>36){ state='warn'; text='last ran '+Math.floor(hrs/24)+' days ago'; }
+    return {label, state, text, created,
+            detail:(last.detail&&last.detail.unroutable)||[]};
+  });
+
+  const bad=rows.filter(r=>r.state==='bad'||r.state==='never').length;
+  const warn=rows.filter(r=>r.state==='warn').length;
+  const dot=s=>({ok:'var(--teal)',warn:'var(--amber)',bad:'var(--red)',never:'var(--red)'})[s]||'var(--gray)';
+
+  return '<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">AUTOMATION</b>'
+    +'<span style="flex:1;"></span>'
+    +'<span class="field-note">'+(bad?bad+' need attention':(warn?warn+' to watch':'all healthy'))+'</span></div>'
+    +rows.map(r=>'<div style="display:flex;gap:9px;align-items:baseline;padding:6px 0;'
+      +'border-bottom:1px solid var(--border);">'
+      +'<span style="width:8px;height:8px;border-radius:50%;background:'+dot(r.state)
+      +';flex:0 0 auto;"></span>'
+      +'<span style="flex:1;font-size:13.5px;">'+esc(r.label)+'</span>'
+      +'<span class="field-note">'+esc(r.text)+'</span></div>'
+      +(r.detail&&r.detail.length
+        ? '<div class="field-note" style="padding:2px 0 6px 17px;">could not route: '
+          +esc(r.detail.slice(0,4).join(', '))+'</div>' : '')).join('')
+    +'<div class="field-note" style="margin-top:8px;">Work created automatically is owned '
+    +'and chased exactly like work somebody typed in.</div></div>';
+}
+
 /* WHAT IS DRIFTING IN THE AREAS I ESCALATE FOR.
    Krystal escalates for nothing today — Samantha does — but the moment a
    domain escalates to a supervisor, this is how they find out something is
@@ -21704,6 +21769,11 @@ function renderHome(){
       +doms.map(d=>'<div style="display:flex;gap:10px;padding:4px 0;font-size:13px;">'
         +'<span style="flex:1;">'+esc(d.label)+'</span>'
         +'<b>'+esc(opsOwnerName(opsEmailForPerson(d.owner_person))||'—')+'</b></div>').join(''));
+
+    /* ── Can the automation be trusted? Placed above the positive signal
+         because 'the team closed 12 items' means nothing if the thing that
+         creates the work stopped running three days ago. ── */
+    h+=homeAutomation();
 
     /* ── RUNNING WITHOUT YOU ── the only section here that is not a problem.
        A page made only of exceptions teaches its reader that the company is
