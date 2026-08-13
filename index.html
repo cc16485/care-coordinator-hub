@@ -1247,6 +1247,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="field-note" id="myWorkWho"></div>
         </div>
         <div style="flex:1;"></div>
+        <button class="addlead" onclick="CCIssue.open()" style="background:var(--navy);"
+          title="Somebody has told us about a problem">＋ Report a concern</button>
         <button class="addlead" onclick="opsToggleAdd()">＋ Add work</button>
       </div>
       <div class="subtab-bar" id="myWorkTabs"></div>
@@ -2204,6 +2206,65 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     </div>
 </section>
 
+
+<div class="overlay" id="issueModal">
+  <div class="modal" style="max-width:600px">
+    <h3 style="color:var(--navy)">Report a concern</h3>
+    <p style="font-size:.78rem;color:var(--gray);margin:.3rem 0 .7rem">
+      Four questions. Anything else can be added once it is on somebody's list.</p>
+
+    <label style="font-size:.78rem;font-weight:700">Who is this about?</label>
+    <input id="issClient" placeholder="Client name — type it as you know it"
+      style="width:100%;font-size:.86rem" oninput="CCIssue.dupeCheck()">
+    <div class="field-note" style="margin-top:2px">A name is enough. We will link it to the
+      client record when AxisCare is connected.</div>
+
+    <div id="issDupes" style="margin:.6rem 0"></div>
+
+    <label style="font-size:.78rem;font-weight:700;margin-top:.5rem;display:block">What happened?</label>
+    <textarea id="issSummary" rows="2" style="width:100%;font-size:.86rem"
+      placeholder="In their words if you have them"></textarea>
+
+    <div style="display:flex;gap:.6rem;margin-top:.5rem;flex-wrap:wrap">
+      <div style="flex:1;min-width:220px">
+        <label style="font-size:.78rem;font-weight:700">What kind of issue?</label>
+        <select id="issCategory" style="width:100%;font-size:.86rem"
+          onchange="CCIssue.catChanged()"></select>
+      </div>
+      <div style="flex:0 0 150px">
+        <label style="font-size:.78rem;font-weight:700">How urgent?</label>
+        <select id="issUrgency" style="width:100%;font-size:.86rem">
+          <option value="">use the default</option>
+          <option value="critical">Critical</option><option value="high">High</option>
+          <option value="normal">Normal</option><option value="low">Low</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="issCatHelp" class="field-note" style="margin-top:.45rem"></div>
+
+    <div style="display:flex;gap:.6rem;margin-top:.5rem">
+      <div style="flex:1">
+        <label style="font-size:.78rem;font-weight:700">Who reported it?</label>
+        <input id="issReporter" placeholder="Name" style="width:100%;font-size:.86rem">
+      </div>
+      <div style="flex:0 0 150px">
+        <label style="font-size:.78rem;font-weight:700">They are the…</label>
+        <select id="issReporterRole" style="width:100%;font-size:.86rem">
+          <option value="family">Family</option><option value="client">Client</option>
+          <option value="caregiver">Caregiver</option><option value="staff">Staff</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="issMsg" style="margin-top:.6rem;font-size:.82rem"></div>
+    <div style="display:flex;gap:.4rem;margin-top:.7rem;justify-content:flex-end">
+      <button class="btn-ghost" onclick="CCIssue.close()">Cancel</button>
+      <button class="btn" id="issSave" onclick="CCIssue.save()">Report it</button>
+    </div>
+  </div>
+</div>
 <div class="overlay" id="staffhandoff-modal">
   <div class="modal" style="max-width:640px">
     <h3 style="color:var(--navy)">🔄 Hand off to the evening coordinator</h3>
@@ -18573,6 +18634,33 @@ function myWorkCard(it, i){
      believing the obligation is discharged — it is not, and the engine will
      regenerate it, which looks like a bug unless the right path is obvious. */
   h+=obligationOpenAction(it);
+  /* An issue-backed item says what would actually resolve it, so nobody has to
+     open another screen to find out why the item still exists after they did
+     the thing they were asked to do. */
+  if(issueOf(it)){
+    const st=it.issue_state||'reported';
+    const stLabel={reported:'Reported — not yet triaged', triaged:'Triaged',
+      in_progress:'Being worked', waiting:'Waiting', resolving:'Fix in place, not confirmed',
+      follow_up:'Waiting on the follow-up check'}[st]||st;
+    h+='<div style="margin-top:7px;padding:8px 10px;border-radius:8px;background:var(--bg);">'
+      +'<div style="font-size:12.5px;"><b>Issue:</b> '+esc(stLabel)
+      +(it.who_it_concerns?' · about '+esc(it.who_it_concerns):'')
+      +(it.reported_by?' · reported by '+esc(it.reported_by):'')+'</div>';
+    if(it.issue_state==='reported' && it.issue_category==='needs_triage')
+      h+='<div style="font-size:12.5px;color:var(--red);margin-top:3px;">'
+        +'<b>Needs classification before it can be resolved.</b></div>';
+    if(Array.isArray(it.already_done) && it.already_done.length)
+      h+='<div class="field-note" style="margin-top:3px;">Already done: '
+        +esc(it.already_done.slice(0,2).map(a=>a.what+(a.by?' ('+a.by+')':'')).join(', '))
+        +(it.already_done.length>2?' +'+(it.already_done.length-2)+' more':'')+'</div>';
+    if(it.what_would_resolve_this)
+      h+='<div class="field-note" style="margin-top:3px;color:var(--navy);">'
+        +'<b>Resolved means:</b> '+esc(it.what_would_resolve_this)+'</div>';
+    if(it.next_follow_up)
+      h+='<div class="field-note" style="margin-top:3px;color:var(--amber);">'
+        +'Follow-up check due '+esc(String(it.next_follow_up).slice(0,10))+'</div>';
+    h+='</div>';
+  }
   if(ev) h+='<div class="field-note" style="margin-top:6px;color:#1F7A8C;">✓ '+esc(ev.text)+'</div>';
   /* A rolling obligation says how long it has actually been unresolved, not
      just when to look next. Three days open with a checkpoint today is still
@@ -18628,13 +18716,24 @@ function myWorkMore(id, anchorId){
   if(it.owner) h+=opt('waiting', it.sub_state==='waiting'?'No longer waiting':'Waiting on someone…');
   if(it.owner) h+=opt(it.help_from?'help_done':'ask_help',
     it.help_from?'Help no longer needed':'Ask for help (keeps it mine)');
-  h+=opt('needs_samantha','Hand it over — needs Samantha')
-    +'<div style="height:1px;background:var(--border);margin:6px 0;"></div>'
-    +'<div class="field-note" style="margin:2px 0 4px 8px;">CLOSE IT</div>'
-    +opt('already_handled','Already handled elsewhere')
-    +opt('duplicate','Duplicate')
-    +opt('informational','Informational, no action')
-    +opt('stale','Stale',true);
+  h+=opt('needs_samantha','Hand it over — needs Samantha');
+  /* An issue is NOT closed by the generic triage reasons. Completing an action
+     and resolving a problem are different acts and the menu has to say so, or
+     somebody clicks Done because they finished today's phone call. */
+  if(issueOf(it)){
+    h+='<div style="height:1px;background:var(--border);margin:6px 0;"></div>'
+      +'<div class="field-note" style="margin:2px 0 4px 8px;">THIS ISSUE</div>'
+      +opt('iss_action','Record what I did (issue stays open)')
+      +opt('iss_classify','Classify it')
+      +opt('iss_resolve','Resolve the issue…');
+  } else {
+    h+='<div style="height:1px;background:var(--border);margin:6px 0;"></div>'
+      +'<div class="field-note" style="margin:2px 0 4px 8px;">CLOSE IT</div>'
+      +opt('already_handled','Already handled elsewhere')
+      +opt('duplicate','Duplicate')
+      +opt('informational','Informational, no action')
+      +opt('stale','Stale',true);
+  }
   const el=ccPopOpen(document.getElementById(anchorId), h, {width:280});
   el.querySelectorAll('.ccpick-row').forEach(r=>{
     r.onmouseenter=()=>r.style.background='var(--bg)';
@@ -18890,9 +18989,20 @@ async function opsTriage(id, what, quiet){
   } else {
     /* ONLY these four close anything. A default branch that destroys work on
        an unrecognised input is not a default, it is a trap. */
+    /* Issue actions are handled by the issue lifecycle, not by triage. */
+    if(what==='iss_action' || what==='iss_classify' || what==='iss_resolve')
+      return ccIssueAct(id, what);
     const label={already_handled:'Already handled elsewhere', duplicate:'Duplicate',
                  informational:'Informational, no action needed', stale:'Stale'}[what];
     if(!label){ console.warn('[triage] unknown action, nothing done:', what); return; }
+    /* The last guard. Closing the PROMPT would hide a problem that is still
+       happening to a real client, and the prompt is regenerated anyway. */
+    if(issueOf(it)){
+      alert('This item is a client issue, so it cannot be closed this way.\n\n'
+        +'Use "Resolve the issue" — it checks whether the resolution requirements '
+        +'have actually been met.');
+      return;
+    }
     it.status='done'; it.triage_state=what; it.resolution_code=what;
     it.closed_at=new Date().toISOString(); it.closed_by=ME.email||'';
     it.close_note=label+' (triaged)';
@@ -18902,6 +19012,210 @@ async function opsTriage(id, what, quiet){
   if(it.status==='done' && typeof reviewMaybeCreate==='function') await reviewMaybeCreate(it);
   if(!quiet) myWorkRefresh();
 }
+
+
+/* ═══════════════════ CLIENT ISSUES — chain 4 in the office ═══════════════════
+   An issue is a durable record of a PROBLEM. An ops_item is a PROMPT pointing
+   at it. The two are not the same thing and the interface must not let them
+   blur, because the whole failure mode this exists to prevent is somebody
+   completing today's action and believing the problem is solved.
+
+   Krystal calls the family. That action is complete. The caregiver is still
+   late next week. */
+const CCIssue = {
+  cats: [], dupes: [], prefill: null,
+
+  async call(mode, body){
+    const { data:{ session } } = await sb.auth.getSession();
+    const r = await fetch(CONFIG.supabase_url+'/functions/v1/issues-run?'+mode, {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+(session?session.access_token:''),
+                'Content-Type':'application/json' },
+      body: JSON.stringify(body||{})
+    });
+    return await r.json().catch(()=>({error:'unreadable response'}));
+  },
+
+  async loadCats(){
+    if(this.cats.length) return this.cats;
+    const { data } = await sb.from('issue_category')
+      .select('code,label,default_domain,default_urgency,target_hours,follow_up_required,'
+             +'requires_policy_lookup,resolution_means,required_info,owner_authority')
+      .order('sort');
+    this.cats = data||[];
+    return this.cats;
+  },
+
+  /* Opened cold, or carrying everything a phone call already knew so nobody
+     retypes what the caller just said. */
+  async open(prefill){
+    this.prefill = prefill||null;
+    await this.loadCats();
+    const sel=document.getElementById('issCategory');
+    sel.innerHTML = this.cats.map(c=>'<option value="'+c.code+'">'+escapeHtmlComms(c.label)+'</option>').join('');
+    document.getElementById('issClient').value      = (prefill&&prefill.client_name)||'';
+    document.getElementById('issSummary').value     = (prefill&&prefill.summary)||'';
+    document.getElementById('issReporter').value    = (prefill&&prefill.reported_by_name)||'';
+    if(prefill&&prefill.reported_by_role) document.getElementById('issReporterRole').value=prefill.reported_by_role;
+    if(prefill&&prefill.category) sel.value=prefill.category;
+    document.getElementById('issUrgency').value='';
+    document.getElementById('issMsg').innerHTML='';
+    document.getElementById('issDupes').innerHTML='';
+    this.dupes=[];
+    this.catChanged();
+    document.getElementById('issueModal').classList.add('open');
+    setTimeout(()=>{ const el=document.getElementById('issClient'); if(el) el.focus(); },50);
+    if(prefill&&prefill.client_name) this.dupeCheck();
+  },
+  close(){ document.getElementById('issueModal').classList.remove('open'); },
+
+  /* The category decides urgency, follow-up and what resolution means, so the
+     employee sees those BEFORE they choose rather than discovering them later. */
+  catChanged(){
+    const c=this.cats.find(x=>x.code===document.getElementById('issCategory').value);
+    const box=document.getElementById('issCatHelp');
+    if(!c){ box.innerHTML=''; return; }
+    let h='Goes to <b>'+escapeHtmlComms(c.default_domain)+'</b> · '
+      +escapeHtmlComms(c.default_urgency)+' · first response within '+c.target_hours+'h';
+    if(c.follow_up_required) h+='<br><b style="color:var(--amber)">A follow-up check is required '
+      +'before this can be resolved.</b>';
+    if(c.requires_policy_lookup) h+='<br><b style="color:var(--red)">Policy governs this — '
+      +'check the procedure before acting.</b>';
+    if(c.owner_authority) h+='<br><b style="color:var(--red)">Needs owner authority.</b>';
+    if(c.required_info) h+='<br>Worth capturing: '+escapeHtmlComms(c.required_info);
+    box.innerHTML=h;
+  },
+
+  /* Duplicates are OFFERED, never merged. The second call about the same late
+     caregiver should thicken one history, not start a second complaint — but
+     only a person can tell whether it is genuinely the same problem. */
+  async dupeCheck(){
+    const nm=(document.getElementById('issClient').value||'').trim();
+    const box=document.getElementById('issDupes');
+    if(nm.length<3){ box.innerHTML=''; this.dupes=[]; return; }
+    const { data } = await sb.rpc('issue_candidates',
+      { p_client_text:nm, p_client_person:null, p_category:null });
+    this.dupes=data||[];
+    if(!this.dupes.length){ box.innerHTML=''; return; }
+    box.innerHTML='<div class="card" style="padding:10px 12px;background:var(--bg);">'
+      +'<div class="field-note" style="margin-bottom:5px;"><b>There is already an open issue '
+      +'for this client.</b> Add this report to it, or say it is separate.</div>'
+      + this.dupes.map(d=>'<div style="display:flex;gap:8px;align-items:center;margin:4px 0;">'
+        +'<div style="flex:1;font-size:13px;">'+escapeHtmlComms(d.summary)
+        +' <span class="field-note">· '+escapeHtmlComms(d.state)+' · '+d.action_count+' actions · '
+        +escapeHtmlComms(d.why_suggested)+'</span></div>'
+        +'<button class="btn-ghost" style="font-size:.75rem;padding:.2rem .5rem" '
+        +'onclick="CCIssue.addToExisting(\''+d.issue_id+'\')">Add to this</button></div>').join('')
+      +'</div>';
+  },
+
+  async addToExisting(issueId){
+    const note=(document.getElementById('issSummary').value||'').trim();
+    const by=(document.getElementById('issReporter').value||'').trim();
+    if(!note) return alert('Say what happened first, then it can be added to the existing issue.');
+    document.getElementById('issMsg').innerHTML='Adding…';
+    const r=await this.call('action=1', { issue_id:issueId, action_type:'reported_again',
+      note:'Reported again'+(by?' by '+by:'')+': '+note, by_whom:ME.email||'' });
+    if(r.error){ document.getElementById('issMsg').innerHTML='<b style="color:var(--red)">'+escapeHtmlComms(r.error)+'</b>'; return; }
+    this.close();
+    await loadOpsItems();
+    alert('Added to the existing issue. It is now on record that this was reported again.');
+  },
+
+  async save(){
+    const cat=document.getElementById('issCategory').value;
+    const summary=(document.getElementById('issSummary').value||'').trim();
+    if(!summary) return alert('What happened?');
+    const btn=document.getElementById('issSave'); btn.disabled=true;
+    document.getElementById('issMsg').innerHTML='Saving…';
+    const body={
+      category:cat, summary:summary,
+      client_name:(document.getElementById('issClient').value||'').trim(),
+      urgency:document.getElementById('issUrgency').value||'',
+      reported_by_name:(document.getElementById('issReporter').value||'').trim(),
+      reported_by_role:document.getElementById('issReporterRole').value,
+      source:(this.prefill&&this.prefill.source)||'manual',
+      source_ref:(this.prefill&&this.prefill.source_ref)||'',
+      taken_by:ME.email||'',
+      confirm_new:true   /* the duplicates were already shown above */
+    };
+    const r=await this.call('intake=1', body);
+    btn.disabled=false;
+    if(r.error){ document.getElementById('issMsg').innerHTML='<b style="color:var(--red)">'+escapeHtmlComms(r.error)+'</b>'; return; }
+    this.close();
+    await loadOpsItems();
+    const to=r.owner?(opsOwnerName(r.owner)||r.owner):'nobody yet — the domain has no owner';
+    alert('Logged. It is now with '+to+'.\n\nResolved means: '+(r.what_would_resolve_this||''));
+  },
+};
+
+
+/* The three issue actions. Kept out of opsTriage on purpose: triage closes
+   prompts, and an issue is not a prompt. */
+async function ccIssueAct(id, what){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it||!it.issue_id) return;
+  await CCIssue.loadCats();
+  const cat=CCIssue.cats.find(c=>c.code===it.issue_category);
+
+  if(what==='iss_action'){
+    const note=prompt('What did you do?\n\nThis is recorded against the issue. '
+      +'The issue stays open — completing an action is not the same as solving '
+      +'the problem.');
+    if(!note) return;
+    const r=await CCIssue.call('action=1',{ issue_id:it.issue_id, action_type:'action',
+      note:note, by_whom:ME.email||'', ops_item_id:it.id });
+    if(r.error) return alert(r.error);
+    await loadOpsItems(); myWorkRefresh();
+    return;
+  }
+
+  if(what==='iss_classify'){
+    const opts=CCIssue.cats.filter(c=>c.code!=='needs_triage');
+    const pick=prompt('Classify this issue.\n\n'
+      +opts.map((c,n)=>(n+1)+'. '+c.label).join('\n')
+      +'\n\nType the number:');
+    const c=opts[parseInt(pick,10)-1];
+    if(!c) return;
+    /* Reclassifies the SAME issue. The original report and every action stay
+       attached — a replacement issue would lose why it was raised. */
+    const { error } = await sb.from('client_issue')
+      .update({ category:c.code, urgency:c.default_urgency, domain:c.default_domain,
+                state:'triaged', updated_at:new Date().toISOString() })
+      .eq('id', it.issue_id);
+    if(error) return alert(error.message);
+    await CCIssue.call('action=1',{ issue_id:it.issue_id, action_type:'classified',
+      note:'Classified as '+c.label+' by '+(ME.name||ME.email||'staff'),
+      by_whom:ME.email||'', state:'triaged' });
+    await loadOpsItems(); myWorkRefresh();
+    alert('Classified as '+c.label+'.\n\nResolved means: '+c.resolution_means);
+    return;
+  }
+
+  if(what==='iss_resolve'){
+    const warn = cat && cat.follow_up_required
+      ? '\n\nNOTE: this kind of issue requires a follow-up check. Resolving now '
+        +'will schedule that check rather than closing it — the problem is not '
+        +'settled until somebody confirms it stayed settled.'
+      : '';
+    const note=prompt('What actually resolved it?\n\nResolved means: '
+      +((cat&&cat.resolution_means)||'the underlying problem is addressed')+warn);
+    if(!note) return;
+    const r=await CCIssue.call('action=1',{ issue_id:it.issue_id, action_type:'resolution',
+      note:note, resolution_note:note, by_whom:ME.email||'', state:'resolved',
+      ops_item_id:it.id });
+    if(r.error) return alert(r.error);
+    await loadOpsItems(); myWorkRefresh();
+    alert(r.follow_up_scheduled
+      ? 'Recorded, and the issue is NOT closed.\n\nA follow-up check is due '
+        +r.follow_up_scheduled+' to confirm it actually worked. It will come back '
+        +'to your list then.'
+      : 'Issue resolved.');
+    return;
+  }
+}
+
+/* Does this work item point at a durable issue? */
+function issueOf(it){ return (it && it.kind==='client_issue' && it.issue_id) ? it : null; }
 
 /* ═══════════════════ REVIEW — the management loop, v1 ════════════════════
    A REVIEW IS AN ops_item. kind:'review', owned by the reviewer, with a due
