@@ -326,6 +326,7 @@
        on the next run. */
     var maxPerRun = (typeof ctx.maxPerRun === 'number' && ctx.maxPerRun > 0)
       ? ctx.maxPerRun : null;
+    var candidates = [];
     var existing = {}; items.forEach(function (i) { existing[i.id] = i; });
     var wanted = {};
     var nowIso = (ctx.nowIso || new Date().toISOString());
@@ -392,17 +393,12 @@
           out.tooOld.push({ source: src.key, id: id, due: dueYmd, code: ob.code || null,
                             severity: ob.severity || null }); return;
         }
-        if (maxPerRun !== null && out.create.length >= maxPerRun) {
-          out.deferred++;
-          bump(out.heldBySeverity, ob.severity || 'legal', 'deferred');
-          return;
-        }
         var owner = '';
         try { owner = resolveOwner(ob.who !== undefined ? ob.who : src.who(r)) || ''; } catch (e) { owner = ''; }
         if (!owner) owner = domainOwner(ob.domain || src.domain) || '';
         if (!owner) { s.unroutable++; out.unroutable.push(src.about(r) || src.id(r)); return; }
         var end = endOfLocalDay(dueYmd);
-        out.create.push({
+        candidates.push({
           id: id, kind: ob.kind || src.kind, status: 'open',
           title: ob.title || src.title(r), about: ob.about || src.about(r) || '',
           detail: ob.detail || src.detail(r),
@@ -420,6 +416,35 @@
         });
         s.created++;
     }
+
+    /* PRIORITY BEFORE THE CEILING.
+       The cap used to fill in whatever order caregivers happened to be
+       processed, so forty-four record-verification tasks could crowd out a
+       background check expiring next week. Sorting first means the ceiling
+       always spends its budget on the most consequential work available.
+
+       Work-affecting before management before verification; within a severity,
+       the earliest due date first. Everything over the ceiling is DEFERRED and
+       arrives on the next run — it is queued, not discarded. */
+    var RANK = { legal: 0, management: 1, verification: 2 };
+    candidates.sort(function (a, b) {
+      var ra = RANK[(a.compliance && a.compliance.severity) || 'legal'];
+      var rb = RANK[(b.compliance && b.compliance.severity) || 'legal'];
+      if (ra !== rb) return ra - rb;
+      /* A restriction outranks a task of the same severity. */
+      var xa = (a.compliance && a.compliance.restriction) ? 0 : 1;
+      var xb = (b.compliance && b.compliance.restriction) ? 0 : 1;
+      if (xa !== xb) return xa - xb;
+      return String(a.due || '').localeCompare(String(b.due || ''));
+    });
+    candidates.forEach(function (it) {
+      if (maxPerRun !== null && out.create.length >= maxPerRun) {
+        out.deferred++;
+        bump(out.heldBySeverity, (it.compliance && it.compliance.severity) || 'legal', 'deferred');
+        return;
+      }
+      out.create.push(it);
+    });
 
     /* Generated work whose obligation no longer exists — and WHY.
        "She did the check-in" and "somebody moved the date" are different
