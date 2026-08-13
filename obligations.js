@@ -36,6 +36,15 @@
     return new Date(+m[1], +m[2]-1, +m[3], 23, 59, 59, 999);
   }
 
+  var CG_LABELS = {
+    oig_expired:'OIG check', edl_expired:'EDL check', fcsr_expired:'FCSR check',
+    fcsr_registration:'FCSR registration', annual_training:'Annual training',
+    orientation:'Orientation', alz:'Dementia training',
+    ojt:'On-the-job training', ojt_overdue:'OJT past its 30-day deadline',
+    supervisory_visit:'Supervisory visit', performance_review:'Performance review'
+  };
+  function LABEL(code){ return CG_LABELS[code] || String(code || 'Compliance item'); }
+
   function cgName(c){
     var n = [c.first, c.last].filter(Boolean).join(' ').trim();
     return n || c.name || ('caregiver ' + c.id);
@@ -120,8 +129,12 @@
        source is empty, which is true and visible, instead of quietly
        evaluating caregivers against nothing. */
     rows: function (d) {
+      /* Gate on the function actually used below. This checked
+         eligibilityFacts while obligations() consumes eligibility(), so a
+         rules file exposing one and not the other would have reported zero
+         caregivers and looked like an empty source. */
       var E = (typeof globalThis !== 'undefined') ? globalThis.CCElig : null;
-      if (!E || !E.eligibilityFacts) return [];
+      if (!E || !E.eligibility) return [];
       return (d.caregivers || []).filter(function (c) {
         /* Somebody who has left stops generating obligations. A discharged
            caregiver chased for an expired background check is noise that
@@ -147,78 +160,90 @@
        An overdue performance review must never look like an expired OIG
        check, and an unimported training record must never be reported as a
        failure. */
-    obligations: function (c) {
+    obligations: function (c, todayYmd) {
       var E = globalThis.CCElig;
-      if (!E || !E.eligibilityFacts) return [];
-      var f, out = [];
-      try { f = E.eligibilityFacts(c); } catch (e) { return []; }
-      var name = cgName(c);
+      if (!E || !E.eligibility) return [];
+      var v; try { v = E.eligibility(c); } catch (e) { return []; }
+      if (!v) return [];
+      var f = v.facts || {}, name = cgName(c), out = [];
 
-      /* Warn BEFORE it lapses. The rules already carry a warn window
-         (14 days for the 90-day checks, 30 for annual), and nextDue is the
-         date itself, so acting early costs nothing and prevents the lapse. */
-      function recurring(code, st, label, lead) {
-        if (!st || !st.nextDue) return;                 // never done: handled below
-        var dueYmd = ymdOf(fmtISO(st.nextDue));
-        if (!dueYmd) return;
-        var act = addDaysYmd(dueYmd, -(lead || 14));    // create it early
+      /* THE RULE'S VERDICT IS THE INPUT. An earlier version of this read
+         eligibilityFacts() and decided for itself whether OJT was missing,
+         which made it a second rule source — exactly what it must not be.
+
+         It also got the answer wrong in a way that mattered. The caregivers
+         restored after the July incident came back with names and hire dates
+         only, so ojt_date is blank for nearly all of them. Reading that as
+         "OJT never happened" produced 54 work-restriction obligations about
+         long-serving caregivers whose records were simply lost.
+
+         eligibility() already refuses to do that: ojt_overdue with
+         restriction:true only fires when there is nothing unverified, so a
+         caregiver with no imported evidence gets a VERIFICATION task and never
+         a work restriction. Consuming the verdict inherits that judgement
+         instead of re-litigating it. */
+
+      /* A STABLE ANCHOR PER OBLIGATION. The id carries a date, so that date
+         must not move day to day or a fresh obligation appears every morning.
+         Prefer the rule's own due date; then the computed next-due for a
+         recurring check; then the hire date, which never changes. */
+      var nextDue = {
+        oig_expired:  f.oig  && f.oig.nextDue,
+        edl_expired:  f.edl  && f.edl.nextDue,
+        fcsr_expired: f.fcsr && f.fcsr.nextDue
+      };
+      function anchor(it) {
+        return ymdOf(it.due) || ymdOf(fmtISO(nextDue[it.code])) || ymdOf(c.hire_date) || '';
+      }
+
+      function add(it, severity, domain, lead) {
+        var a = anchor(it); if (!a) return;
+        /* Verification is not late — nobody missed a deadline, a record was
+           never imported. Its id stays anchored to the hire date so it is
+           stable forever, but it becomes actionable now rather than being
+           judged against a date years in the past. */
+        var isVerify = (severity === 'verification');
+        /* Due today, not in a week. The record has been missing since the
+           caregiver was hired; adding a grace period to a gap that is already
+           years old just delays the only action that resolves it. The id stays
+           anchored to the hire date so it never regenerates. */
+        var dueOn = isVerify ? (todayYmd || a)
+                             : (lead ? addDaysYmd(a, -lead) : a);
         out.push({
-          code: code, due: act, kind: 'request', severity: 'legal',
-          domain: 'training_compliance',
-          title: label + ' due — ' + name,
+          code: it.code,
+          anchor: a,
+          due: dueOn,
+          kind: 'request',
+          severity: severity,
+          restriction: it.restriction === true,
+          domain: domain,
+          title: LABEL(it.code) + ' — ' + name,
           about: name,
-          detail: label + ' is due ' + dueYmd + '. Recorded ' +
-                  (st.status === 'Pending' ? 'never' : 'previously') +
-                  '. Completing it and recording the date closes this by itself.',
-          next: 'Complete ' + label.toLowerCase() + ', then record the date on the caregiver.'
-        });
-      }
-      recurring('oig_expired',  f.oig,  'OIG check', 14);
-      recurring('edl_expired',  f.edl,  'EDL check', 14);
-      recurring('fcsr_expired', f.fcsr, 'FCSR check', 30);
-
-      /* OJT KEEPS ITS OWN CONSEQUENCE and does not get generalised. The
-         30-day deadline is a hard restriction: overdue means off future
-         shifts, an admin notified, and the restriction on the record.
-         Nothing else in this list behaves that way, and flattening them all
-         into one shape would either over-punish a late supervisory visit or
-         under-punish this. */
-      if (f.ojtDeadline && !c.ojt_date) {
-        var ojt = ymdOf(fmtISO(f.ojtDeadline));
-        if (ojt) out.push({
-          code: 'ojt', due: addDaysYmd(ojt, -7), kind: 'request', severity: 'legal',
-          restriction: true, domain: 'training_compliance',
-          title: 'OJT deadline approaching — ' + name,
-          about: name,
-          detail: 'OJT must be completed by ' + ojt + ', 30 days from hire. ' +
-                  'If it passes uncompleted they become ineligible, come off future ' +
-                  'shifts, and the restriction is recorded.',
-          next: 'Schedule and complete OJT, then record the date.'
+          detail: (it.why || LABEL(it.code)) +
+            (severity === 'verification'
+              ? ' This is a record to verify, NOT a compliance failure. Do not treat this person as ineligible.'
+              : severity === 'management'
+              ? ' This is a management obligation: being overdue does not make anyone ineligible to work.'
+              : it.restriction === true
+              ? ' This is a work restriction: they come off future shifts until it is completed, and the restriction is recorded.'
+              : ''),
+          next: severity === 'verification'
+            ? 'Check the paper file and the Training Hub, then record what you find.'
+            : 'Complete it, then record the date on the caregiver.'
         });
       }
 
-      /* MANAGEMENT QUALITY. Same engine, different consequence. Routed to
-         caregiver_performance rather than training_compliance so it reaches
-         the person who runs performance, and marked so no screen can render
-         it as a work-affecting lapse. */
-      function annualMgmt(code, lastStr, label) {
-        var st = E.chkStatus ? E.chkStatus(lastStr, 365, 30) : null;
-        if (!st || !st.nextDue) return;
-        var dueYmd = ymdOf(fmtISO(st.nextDue));
-        if (!dueYmd) return;
-        out.push({
-          code: code, due: addDaysYmd(dueYmd, -30), kind: 'request',
-          severity: 'management', domain: 'caregiver_performance',
-          title: label + ' due — ' + name,
-          about: name,
-          detail: label + ' is due ' + dueYmd +
-                  '. This is a management obligation: being overdue does NOT ' +
-                  'make anyone ineligible to work.',
-          next: 'Carry out the ' + label.toLowerCase() + ' and record the date.'
-        });
-      }
-      annualMgmt('supervisory_visit',  c.supv_date, 'Supervisory visit');
-      annualMgmt('performance_review', c.perf_date, 'Performance review');
+      /* Work-affecting. Lapses have already happened; tasks have not yet. */
+      (v.lapses || []).forEach(function (it) { add(it, 'legal', 'training_compliance', 0); });
+      (v.tasks  || []).forEach(function (it) { add(it, 'legal', 'training_compliance', 7); });
+      /* Cannot work yet — same domain, but never a restriction, because they
+         were never working in the first place. */
+      (v.blockers || []).forEach(function (it) { add(it, 'legal', 'training_compliance', 0); });
+      /* Management quality: reported, never eligibility, and routed to the
+         person who runs performance rather than the one who runs compliance. */
+      (v.mgmt || []).forEach(function (it) { add(it, 'management', 'caregiver_performance', 0); });
+      /* Unknown history is not failed compliance. */
+      (v.unverified || []).forEach(function (it) { add(it, 'verification', 'training_compliance', 0); });
 
       return out;
     },
@@ -227,14 +252,20 @@
        the caregiver moves nextDue forward, the derived id changes, and the old
        obligation reconciles itself. Nothing writes back to the caregiver. */
     satisfied: function (c, dueYmd, code) {
-      var map = { oig_expired: c.oig_date, edl_expired: c.edl_date,
-                  fcsr_expired: c.fcsr_date, ojt: c.ojt_date,
-                  supervisory_visit: c.supv_date, performance_review: c.perf_date };
-      var last = map[code];
-      if (!last) return false;
-      /* The obligation was created ahead of the due date, so "done" means the
-         record moved past the point that generated it. */
-      return ymdOf(last) >= addDaysYmd(dueYmd, 0);
+      /* Ask the rule again rather than second-guessing it. If the code no
+         longer appears anywhere in the current verdict, the requirement has
+         been met or has ceased to apply — either way this obligation is done.
+         Reading the date fields directly would mean re-implementing, for the
+         second time, the judgement about what counts as satisfied. */
+      var E = globalThis.CCElig;
+      if (!E || !E.eligibility) return false;
+      var v; try { v = E.eligibility(c); } catch (e) { return false; }
+      if (!v) return false;
+      var still = []
+        .concat(v.lapses || [], v.tasks || [], v.blockers || [],
+                v.mgmt || [], v.unverified || [])
+        .some(function (it) { return it.code === code; });
+      return !still;
     }
   }
   ];
@@ -299,7 +330,7 @@
         var many;
         try {
           many = (typeof src.obligations === 'function')
-            ? (src.obligations(r) || [])
+            ? (src.obligations(r, today) || [])
             : [{ code: '', due: src.due(r) }];
         } catch (e) {
           out.errors.push({ source: src.key, message: 'obligations() failed: ' + (e && e.message || e) });
@@ -313,7 +344,13 @@
     function emit(src, r, ob, s) {
         var dueYmd = ymdOf(ob.due);
         if (!YMD.test(String(dueYmd || ''))) return;
-        var id = src.prefix + '_' + src.id(r) + (ob.code ? '_' + ob.code : '') + '_' + dueYmd;
+        /* The id may be anchored to something OTHER than the due date. A
+           verification task is anchored to the hire date so its id never moves,
+           while its deadline is soon — otherwise a tenured caregiver's
+           verification would be permanently "45 days too old" and never
+           surface at all. */
+        var anchorYmd = ymdOf(ob.anchor) || dueYmd;
+        var id = src.prefix + '_' + src.id(r) + (ob.code ? '_' + ob.code : '') + '_' + anchorYmd;
         wanted[id] = true;
         if (today && dueYmd > today) { s.skipped++; out.skipped++; return; }   // not due yet
         if (existing[id]) { s.skipped++; out.skipped++; return; }              // generated already, ever
@@ -340,7 +377,8 @@
           domain: ob.domain || src.domain, owner: owner, owner_name: ownerName(owner) || '',
           created_at: nowIso, last_activity_at: nowIso,
           opened_by: 'system', created_by: 'automation:' + src.key,
-          source: { type: src.key, id: src.id(r), code: ob.code || null, due: dueYmd }
+          source: { type: src.key, id: src.id(r), code: ob.code || null,
+                    due: dueYmd, anchor: anchorYmd }
         });
         s.created++;
     }
