@@ -36,6 +36,22 @@
     return new Date(+m[1], +m[2]-1, +m[3], 23, 59, 59, 999);
   }
 
+  /* WHEN THE REQUIREMENT STARTED APPLYING.
+     Caring Companions became a Medicaid provider on 2025-04-25. These are
+     Medicaid requirements, so nothing was owed before that date — a caregiver
+     hired in 2020 did not accrue an annual-training deadline in 2021.
+
+     The rules compute deadlines from the hire date, which is correct for a
+     provider that has always been one and wrong for one that enrolled. Without
+     this floor the engine asserted 114 obligations for a period in which they
+     did not exist, and the age guard hid them rather than questioning them.
+
+     This does NOT invent a new deadline. It refuses to assert an old one. What
+     the first annual training was actually due after enrolment is a compliance
+     question nobody has answered, so anything genuinely due since this date
+     still surfaces normally and anything before it is skipped and counted. */
+  var MEDICAID_PROVIDER_SINCE = '2025-04-25';
+
   var CG_LABELS = {
     oig_expired:'OIG check', edl_expired:'EDL check', fcsr_expired:'FCSR check',
     fcsr_registration:'FCSR registration', annual_training:'Annual training',
@@ -166,7 +182,7 @@
       if (!E || !E.eligibility) return [];
       var v; try { v = E.eligibility(c); } catch (e) { return []; }
       if (!v) return [];
-      var f = v.facts || {}, name = cgName(c), out = [];
+      var f = v.facts || {}, name = cgName(c), out = [], preEnrolment = 0;
 
       /* THE RULE'S VERDICT IS THE INPUT. An earlier version of this read
          eligibilityFacts() and decided for itself whether OJT was missing,
@@ -199,6 +215,9 @@
 
       function add(it, severity, domain, lead) {
         var a = anchor(it); if (!a) return;
+        /* A deadline that fell before we were a Medicaid provider was never
+           owed. Counted, not silently dropped. */
+        if (a < MEDICAID_PROVIDER_SINCE) { preEnrolment++; return; }
         /* Verification is not late — nobody missed a deadline, a record was
            never imported. Its id stays anchored to the hire date so it is
            stable forever, but it becomes actionable now rather than being
@@ -257,6 +276,8 @@
         }, 'verification', 'training_compliance', 0);
       }
 
+      /* Reported so the count is visible rather than the work merely absent. */
+      if (preEnrolment) out.preEnrolment = preEnrolment;
       return out;
     },
 
@@ -307,7 +328,7 @@
     var maxAgeDays = (typeof ctx.maxAgeDays === 'number') ? ctx.maxAgeDays : null;
 
     var out = { create: [], stale: [], skipped: 0, unroutable: [], errors: [],
-                tooOld: [], deferred: 0, bySource: {},
+                tooOld: [], deferred: 0, preEnrolment: 0, bySource: {},
                 /* WHY something did not appear is as important as what did.
                    Held work split by severity and by reason, so 'legal went
                    from 11 to 0' is answerable from the run itself instead of
@@ -348,7 +369,8 @@
          `created` is what actually survived the per-run ceiling. Conflating the
          two inflated the count and made the reconciliation double-count
          everything that was deferred. */
-      var s = { rows: 0, candidates: 0, created: 0, skipped: 0, unroutable: 0, tooOld: 0 };
+      var s = { rows: 0, candidates: 0, created: 0, skipped: 0, unroutable: 0,
+                tooOld: 0, preEnrolment: 0 };
       var rows = [];
       try { rows = src.rows(data) || []; }
       catch (e) {
@@ -370,6 +392,10 @@
         } catch (e) {
           out.errors.push({ source: src.key, message: 'obligations() failed: ' + (e && e.message || e) });
           return;
+        }
+        if (many.preEnrolment) {
+          s.preEnrolment = (s.preEnrolment || 0) + many.preEnrolment;
+          out.preEnrolment = (out.preEnrolment || 0) + many.preEnrolment;
         }
         many.forEach(function (ob) { emit(src, r, ob, s); });
       });
