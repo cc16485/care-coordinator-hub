@@ -39,6 +39,7 @@
   var CG_LABELS = {
     oig_expired:'OIG check', edl_expired:'EDL check', fcsr_expired:'FCSR check',
     fcsr_registration:'FCSR registration', annual_training:'Annual training',
+    verify_records:'Verify training records',
     orientation:'Orientation', alz:'Dementia training',
     ojt:'On-the-job training', ojt_overdue:'OJT past its 30-day deadline',
     supervisory_visit:'Supervisory visit', performance_review:'Performance review'
@@ -242,8 +243,19 @@
       /* Management quality: reported, never eligibility, and routed to the
          person who runs performance rather than the one who runs compliance. */
       (v.mgmt || []).forEach(function (it) { add(it, 'management', 'caregiver_performance', 0); });
-      /* Unknown history is not failed compliance. */
-      (v.unverified || []).forEach(function (it) { add(it, 'verification', 'training_compliance', 0); });
+      /* ONE VERIFICATION ITEM PER CAREGIVER, not one per missing record.
+         56 restored caregivers each missing an orientation AND a dementia
+         record is 108 items for what is, in practice, one action: open the
+         file, see what is there, record it. Two items for one visit to one
+         folder is how a queue becomes noise. */
+      var uv = v.unverified || [];
+      if (uv.length) {
+        var codes = uv.map(function (x) { return x.code; });
+        add({
+          code: 'verify_records',
+          why: 'No record imported for: ' + codes.map(LABEL).join(', ') + '.'
+        }, 'verification', 'training_compliance', 0);
+      }
 
       return out;
     },
@@ -295,7 +307,16 @@
     var maxAgeDays = (typeof ctx.maxAgeDays === 'number') ? ctx.maxAgeDays : null;
 
     var out = { create: [], stale: [], skipped: 0, unroutable: [], errors: [],
-                tooOld: [], bySource: {} };
+                tooOld: [], deferred: 0, bySource: {} };
+    /* A PER-RUN CEILING, separate from the backlog guard.
+       The age guard stops OLD obligations arriving. It cannot stop a large
+       number of legitimately-current ones arriving together, which is exactly
+       what a first compliance run does: 56 caregivers whose records were lost
+       in one incident all become due on the same day. Anything over the cap is
+       DEFERRED, not dropped — it has no date to age past, so it simply arrives
+       on the next run. */
+    var maxPerRun = (typeof ctx.maxPerRun === 'number' && ctx.maxPerRun > 0)
+      ? ctx.maxPerRun : null;
     var existing = {}; items.forEach(function (i) { existing[i.id] = i; });
     var wanted = {};
     var nowIso = (ctx.nowIso || new Date().toISOString());
@@ -359,6 +380,7 @@
         if (oldestAllowed && dueYmd < oldestAllowed) {
           s.tooOld++; out.tooOld.push({ source: src.key, id: id, due: dueYmd }); return;
         }
+        if (maxPerRun !== null && out.create.length >= maxPerRun) { out.deferred++; return; }
         var owner = '';
         try { owner = resolveOwner(ob.who !== undefined ? ob.who : src.who(r)) || ''; } catch (e) { owner = ''; }
         if (!owner) owner = domainOwner(ob.domain || src.domain) || '';

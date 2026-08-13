@@ -18287,6 +18287,11 @@ function ccTodayCentral(){
 /* Same guard the server uses. Without it the browser would create backlog the
    scheduled runner refuses, and the two paths would disagree on day one. */
 const OBLIG_MAX_AGE_DAYS = 45;
+/* Ceiling per run, separate from the age guard. The age guard stops OLD work
+   arriving; it cannot stop a large number of legitimately-current obligations
+   arriving together, which is exactly what one incident that wiped 56 records
+   produces. Deferred items simply arrive on the next run. */
+const OBLIG_MAX_PER_RUN = 10;
 
 function runObligations(opts){
   const dry=!(opts&&opts.commit);
@@ -18297,7 +18302,7 @@ function runObligations(opts){
   }
   const r=CCOblig.evaluate({
     data: DATA, items: (DATA.ops_items||[]), today: ccTodayCentral(),
-    maxAgeDays: OBLIG_MAX_AGE_DAYS,
+    maxAgeDays: OBLIG_MAX_AGE_DAYS, maxPerRun: OBLIG_MAX_PER_RUN,
     resolveOwner: v=>(typeof opsCanonicalPerson==='function')?opsCanonicalPerson(v):'',
     domainOwner:  c=>opsDomainOwner(c)||'',
     ownerName:    e=>opsOwnerName(e)||e
@@ -18357,6 +18362,7 @@ async function autoLog(result){
       satisfied:result.satisfied||0, rescheduled:result.rescheduled||0,
       source_gone:result.sourceGone||0,
       too_old:(result.tooOld||[]).length,
+      deferred:result.deferred||0,
       unroutable:(result.unroutable||[]).length,
       errors:(result.errors||[]).length,
       by_source:result.bySource||{},
