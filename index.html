@@ -22136,7 +22136,10 @@ function opsReconcileLeads(){
            next business day and says so, which the coordinator can override by
            setting a real date on the lead. */
         let nextDue=fu;
-        if(contacted && !nextDue){
+        /* Not a future follow-up: a bad number needs solving today, and
+           parking it until tomorrow hides the only thing blocking contact. */
+        if(l.bad_number && !fu) nextDue=t;
+        else if(contacted && !nextDue){
           nextDue = ccNextBusinessDay(l.last_contacted_at || t, CONFIG.lead_followup_days);
           if(it.lead_auto_followup!==nextDue){
             it.lead_auto_followup=nextDue;
@@ -22164,7 +22167,15 @@ function opsReconcileLeads(){
           }
         }
 
-        const action = !contacted ? 'Ring them and find out what care they need.'
+        /* A call disposition of "incorrect number" flags bad_number, logs the
+           attempt and leaves the lead open with no follow-up date. Without
+           this branch the default above would schedule a call-back and the
+           item would read "follow up as promised" — on a number we already
+           know is wrong. The action is to find a working number, and it is
+           actionable now rather than tomorrow. */
+        const action = l.bad_number && !fu
+            ? 'The number we have is wrong. Find a working number before trying again.'
+          : !contacted ? 'Ring them and find out what care they need.'
           : (nextDue>t) ? 'Waiting until '+nextDue+'. Nothing to do yet.'
           : 'Follow up as promised, then log it on the lead.';
         if(it.next_action!==action){ it.next_action=action; touched.set(it.id,it); }
