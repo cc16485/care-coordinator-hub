@@ -17864,6 +17864,27 @@ function opsEmailForPerson(pid){
   const p = OPS_PEOPLE.find(x=>x.person_id===pid);
   return p ? String(p.primary_email||'').toLowerCase() : '';
 }
+/* PAYER_COORDINATOR maps a funding source to a FIRST NAME, and that value
+   auto-fills lead.assigned_coordinator. Everything downstream — My Work,
+   attribution, reviews — keys on email. An item owned by 'Angiel' therefore
+   matched nobody, and because the string is truthy it was not in the
+   unassigned bucket either: it sat in no bucket at all.
+
+   Resolved through the person registry rather than a second email map, so
+   there is still exactly one place that says who somebody is. Returns '' when
+   a name cannot be resolved, which lets the caller fall back to the domain
+   owner instead of writing an owner nobody can be. */
+function opsCanonicalPerson(v){
+  const s=String(v||'').trim();
+  if(!s) return '';
+  if(s.indexOf('@')>-1) return s.toLowerCase();
+  const low=s.toLowerCase();
+  const hit=(OPS_PEOPLE||[]).find(p=>{
+    const fn=String(p.full_name||'').trim().toLowerCase();
+    return fn===low || fn.split(/\s+/)[0]===low;
+  });
+  return hit ? String(hit.primary_email||'').toLowerCase() : '';
+}
 function opsDomainOwner(code){
   const d = code ? OPS_DOMAINS.find(x=>x.code===code) : null;
   return d ? opsEmailForPerson(d.owner_person) : '';
@@ -21277,7 +21298,8 @@ function opsReconcileLeads(){
              domain:'family_enquiries',
              status:'open', created_at:created, last_activity_at:created,
              due:opsDueFor('new_lead','normal',created),
-             owner:(l.assigned_coordinator||opsDomainOwner('family_enquiries')||''),
+             owner:(opsCanonicalPerson(l.assigned_coordinator)
+                    ||opsDomainOwner('family_enquiries')||''),
              owner_name:'', opened_by:'system' };
       it.owner_name = it.owner ? opsOwnerName(it.owner) : '';
       DATA.ops_items.push(it); existing.set(id,it); touched.set(it.id,it);
