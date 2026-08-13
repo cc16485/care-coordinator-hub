@@ -760,9 +760,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="mywork" onclick="switchTab('mywork')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> My Work<span class="subtab-badge red" id="gb-mywork" style="display:none;"></span></div>
     <div class="fpill" data-tab="myrole" onclick="switchTab('myrole')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> My Role</div>
     <div class="fpill" data-tab="myteam" onclick="switchTab('myteam')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> My Team</div>
-    <div class="fpill" data-tab="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sun"/></svg> Today</div>
-    <div class="fpill" data-tab="ops" onclick="switchTab('ops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Needs Attention<span class="subtab-badge red" id="gb-ops" style="display:none;"></span></div>
-    <div class="fpill" data-tab="calls" onclick="switchTab('calls')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Calls</div>
     <div class="fpill" data-tab="calendar" onclick="switchTab('calendar')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Calendar</div>
     <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
   </div>
@@ -1300,6 +1297,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
       </div>
       <div id="myWorkWrap"></div>
+      <!-- Demoted, not deleted. The scope switch (mine / everyone) and the
+           Overview's standup, care alerts and KPI sections still live on these
+           screens; they stop being places somebody must remember to check. -->
+      <div class="field-note" style="text-align:center;padding:14px 10px 4px;">
+        Older views: <button class="linklike" onclick="switchTab('ops')">All open work</button>
+        · <button class="linklike" onclick="switchTab('today')">Overview</button>
+        · <button class="linklike" onclick="switchTab('calls')">Calls</button>
+      </div>
     </section>
 
     <!-- ===================== TAB: OPERATIONS INBOX ===================== -->
@@ -7268,7 +7273,10 @@ function ccRenderPulse(){
   const ci=(DATA.client_checkins||[]).filter(c=>c.client_name && c.next_checkin_due && c.next_checkin_due<t).length;
   const chips=[];
   if(fu) chips.push('<span class="tp-chip alert" onclick="switchTab(\'leads\');switchLeadsSubtab(\'followups\')" title="Lead follow-ups due or overdue — click to open the queue"><b>'+fu+'</b> follow-up'+(fu===1?'':'s')+' due</span>');
-  if(late) chips.push('<span class="tp-chip alert" onclick="switchTab(\'ops\')" title="Late in Needs Attention, yours or nobody\'s"><b>'+late+'</b> late in Needs Attention</span>');
+  /* Points at My Work, which is where a late item is actually worked. `late` is
+     unchanged — the same opsOverdue() filtered to mine-or-unowned that My Work's
+     Today bucket shows — so this is a label and a destination, not a new metric. */
+  if(late) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Overdue, yours or nobody\'s"><b>'+late+'</b> overdue</span>');
   if(ci) chips.push('<span class="tp-chip" onclick="switchTab(\'checkins\')" title="Client check-ins past due"><b>'+ci+'</b> check-in'+(ci===1?'':'s')+' overdue</span>');
   const gr=(DATA.ghe_forms||[]).filter(g=>g.status==='ready').length;
   if(gr) chips.push('<span class="tp-chip" onclick="switchTab(\'nursevisits\')" title="Completed GHEs waiting for the coordinator\'s Fusion upload"><b>'+gr+'</b> GHE'+(gr===1?'':'s')+' ready for Fusion</span>');
@@ -21658,7 +21666,10 @@ function opsBadges(){
     const owner=(i.owner||'').toLowerCase();
     return !owner || (me && owner===me);
   }).length;
-  ['gb-ops','gb-phone'].forEach(id=>{
+  /* gb-mywork has existed in the markup since the tab was added and was never
+     populated, so the My Work pill has never carried a count. Same number as
+     the header chip and the Today bucket — one source, three renderings. */
+  ['gb-mywork','gb-ops','gb-phone'].forEach(id=>{
     const b=document.getElementById(id);
     if(b){ b.style.display = late ? 'inline-block' : 'none'; b.textContent = late; }
   });
