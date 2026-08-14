@@ -22178,6 +22178,63 @@ function renderHome(){
     +'letter-spacing:-0.02em;color:var(--navy);">'+esc(ME.name||ME.email||'')+'</h2>'
     +'<div class="field-note">'+new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'})+'</div></div>';
 
+  /* CLIENT ISSUES ON THE OWNER'S HOME — EXCEPTIONS ONLY.
+     An issue correctly owned by Krystal, Cierra or Angiel and moving along is
+     not the owner's business. Putting it here would rebuild the thing this
+     whole chain exists to remove: the CEO reading everything.
+
+     VISIBILITY IS NOT OWNERSHIP. Everything below is shown to the owner while
+     the coordinator responsible for it stays the owner. Nothing here reassigns
+     anybody. */
+  if(owner){
+    const iss=(DATA.ops_items||[]).filter(i=>i.status==='open' && issueOf(i));
+    const meK=String(opsMeKey()||'').toLowerCase();
+    const bucket={ decision:[], urgent:[], stale:[], leakage:[], ceo_owned:[] };
+    iss.forEach(i=>{
+      const att=opsAttention(i);
+      const mine=String(i.owner||'').toLowerCase()===meK;
+      /* A category the office cannot decide alone. */
+      if(i.owner_authority_required) return bucket.decision.push(i);
+      /* Safety-critical: the owner should know now, without taking it over. */
+      if(i.urgency==='critical') return bucket.urgent.push(i);
+      /* Routine work that landed on the owner because the DOMAIN is hers.
+         Not leakage — configuration. The number to drive down by changing
+         who owns the domain, not by rerouting the item. */
+      if(mine) return bucket.ceo_owned.push(i);
+      /* Somebody else's work that ended up here anyway. */
+      if(i.sub_state==='escalated' || i.help_from===meK) return bucket.leakage.push(i);
+      /* Somebody else's work that has gone quiet well past its lane. */
+      if(att.level>=3) return bucket.stale.push(i);
+      /* Everything else is healthy and stays invisible. */
+    });
+    const issLine=(i,why)=>'<div style="padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;" '
+      +'onclick="switchTab(\'mywork\')"><div style="font-size:13.5px;">'+esc(i.title||'')+'</div>'
+      +'<div class="field-note">'+esc(why)+' · owned by '
+      +esc(i.owner?(opsOwnerName(i.owner)||i.owner):'nobody')+'</div></div>';
+    const show=(list,title,why,note)=>{
+      if(!list.length) return '';
+      return sect(title, list.length, list.slice(0,6).map(i=>issLine(i,why)).join('')
+        +(list.length>6?'<div class="field-note" style="margin-top:5px;">+'+(list.length-6)+' more</div>':'')
+        +(note?'<div class="field-note" style="margin-top:7px;">'+note+'</div>':''));
+    };
+    h+=show(bucket.decision,'OWNER DECISION REQUIRED','needs your authority',
+            'These cannot be decided below you.');
+    h+=show(bucket.urgent,'URGENT — FOR YOUR AWARENESS','critical',
+            'Shown so you know. Still owned by the person resolving it.');
+    h+=show(bucket.leakage,'ADMINISTRATIVE LEAKAGE','escalated or asked of you',
+            'Work that reached you from somebody else. Each one is a question '
+            +'about why it could not be resolved in its own lane.');
+    h+=show(bucket.stale,'STALE BEYOND ITS LANE','no movement',
+            'Not yours. Visible because it has gone quiet.');
+    h+=show(bucket.ceo_owned,'CEO-OWNED OPERATIONAL WORK','you own this domain',
+            'Routine work that is yours because the DOMAIN is yours, not because '
+            +'anything went wrong. This falls when a domain changes hands, not '
+            +'when an item is rerouted.');
+    if(!Object.values(bucket).some(x=>x.length))
+      h+=sect('CLIENT ISSUES', 0, '', 'Nothing needs you. Issues are being '
+        +'handled by the people who own them.');
+  }
+
   h+=dutyPanelHtml();
 
   if(owner){
