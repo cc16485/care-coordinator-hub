@@ -24338,7 +24338,7 @@ function renderNurseVisits(){
     const mine=(PAIRS||[]).filter(p=> c.axisId ? String(p.client_id)===String(c.axisId)
       : String(p.client||'').trim().toLowerCase()===String(c.name||'').trim().toLowerCase());
     if(!(CONFIG.training_hub_key||'').trim()){ el.innerHTML='<span style="font-size:.8rem;color:#b45309">Paste the Training Hub read key into ⚙️ Settings to load caregivers.</span>'; return; }
-    if(!mine.length){ el.innerHTML='<span style="font-size:.8rem;color:var(--text-muted)">No completed visits found for this client in the last 60 days.</span>'; return; }
+    if(!mine.length){ el.innerHTML='<span style="font-size:.8rem;color:var(--text-muted)">No scheduled visits found for this client in the last 60 days.</span>'; return; }
     const asked=asks().filter(a=>(a.client_key||'')===key);
     el.innerHTML='<div style="font-size:.72rem;font-weight:700;color:var(--text-muted);margin-bottom:.35rem">Caregivers on '+E(c.name)+'\'s shifts, last 60 days — one tap asks the care plan question:</div>'
       +mine.map(p=>{
@@ -24931,7 +24931,7 @@ function renderNurseVisits(){
   }
   function renderPairs(){
     const box=document.getElementById('ci-pairs-board'); if(!box||PAIRS===null) return;
-    if(!PAIRS.length){ box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">No completed visits found in the last 60 days.</div>'; return; }
+    if(!PAIRS.length){ box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">No scheduled visits found in the last 60 days.</div>'; return; }
     const fmt=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
     const rank=i=>i.due==='concern'?0:i.due==='first'&&i.newPair?1:i.due==='first'?2:i.due==='fit'?3:4;
     const rows=PAIRS.map(p=>({p,i:pairInfo(p)}))
@@ -24940,7 +24940,7 @@ function renderNurseVisits(){
     box.innerHTML=rows.map(({p,i})=>{
       const border=i.due==='concern'?'#DC2626':i.due==='first'?(i.newPair?'#DC2626':'#B45309'):i.due==='fit'?'#B45309':'#16a34a';
       const tag=i.due==='concern'?'<span style="font-size:.7rem;font-weight:800;color:#DC2626">🚩 concerns on '+fmt(String(i.last.at).slice(0,10))+' — check it got fixed</span>'
-        :i.due==='first'&&i.newPair?'<span style="font-size:.7rem;font-weight:800;color:#DC2626">🆕 first shift '+fmt(p.first_date)+' — call them</span>'
+        :i.due==='first'&&i.newPair?'<span style="font-size:.7rem;font-weight:800;color:#DC2626">🆕 first shift scheduled '+fmt(p.first_date)+' — call them</span>'
         :i.due==='first'?'<span style="font-size:.7rem;font-weight:700;color:#B45309">first check-in still to do</span>'
         :i.due==='fit'?'<span style="font-size:.7rem;font-weight:700;color:#B45309">good-fit follow-up — first call was '+fmt(String(i.last.at).slice(0,10))+'</span>'
         :i.count>=2?'<span style="font-size:.7rem;font-weight:700;color:#166534">✓ good fit confirmed — no more calls needed</span>'
