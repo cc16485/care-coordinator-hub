@@ -2401,8 +2401,12 @@ async function hbCreateWriteup(){
     body:hbDocBody(cg,key,level,when,checked,details),
     status:'draft', created_at:new Date().toISOString(),
     created_by:by.split('@')[0]||'coordinator', created_by_email:by, issued_at:null };
+  // Persist FIRST, then show it locally — so a failed save never leaves a
+  // phantom draft that looks saved but vanishes on reload. attPersist alerts
+  // "Could not save" and throws on failure, so the coordinator is told.
+  try{ await attPersist('discipline_actions',a); }
+  catch(e){ return; }
   DISC_ACTIONS.push(a);
-  await attPersist('discipline_actions',a);
   document.getElementById('newwriteup-modal').classList.remove('open');
   openWriteup(a.id);
   renderAttendance();
@@ -2584,7 +2588,8 @@ function openWriteup(id){
   document.getElementById('writeup-modal').classList.add('open');
 }
 async function sendForApproval(){
-  const a=DISC_ACTIONS.find(x=>x.id===_writeupId); if(!a) return;
+  const a=DISC_ACTIONS.find(x=>x.id===_writeupId);
+  if(!a){ alert('This write-up could not be found — reload the page, open it again, then resend. (Nothing was lost; your draft is saved.)'); return; }
   a.body=document.getElementById('writeup-body').value;
   a.status='pending_approval'; a.sent_for_approval_at=new Date().toISOString(); a.reject_note='';
   await attPersist('discipline_actions',a);
@@ -2625,7 +2630,8 @@ function printWriteup(){
   w.document.close(); w.print();
 }
 async function issueWriteup(){
-  const a=DISC_ACTIONS.find(x=>x.id===_writeupId); if(!a) return;
+  const a=DISC_ACTIONS.find(x=>x.id===_writeupId);
+  if(!a){ alert('This write-up could not be found — reload the page and open it again.'); return; }
   if(a.status!=='approved'){ alert('Samantha has to approve this first — send it to her from the draft view.'); return; }
   if(!confirm('Mark this '+a.level+' as ISSUED to '+a.caregiver+'? Only do this once the signed copy is in hand.')) return;
   a.body=document.getElementById('writeup-body').value;
