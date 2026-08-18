@@ -15506,7 +15506,12 @@ async function apSetPosition(id, position){
 async function apSetStatus(id, status, reason){
   try{
     const patch = { status, seen_at: new Date().toISOString() };
-    if(reason) patch.notes = reason;
+    // A decline reason must land in decline_reason — that is the column the
+    // applicant card, the filters and the analytics all READ. It used to be
+    // written to `notes`, so the reason saved but was invisible everywhere
+    // ("doesn't seem to be saved anywhere"). apOutcome already writes
+    // decline_reason; this makes the list "Not moving forward" button agree.
+    if(reason) patch.decline_reason = reason;
     if(status==='new') patch.decline_reason = null;
     const { error } = await sb.from('job_applicants').update(patch).eq('id', id);
     if(error) throw error;
