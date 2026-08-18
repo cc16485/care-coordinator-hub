@@ -16067,6 +16067,15 @@ function apRenderProfile(){
               : '<div style="margin-top:4px;font-style:italic;">No reason was recorded.</div>')
           + '</div>'
         : '')
+    /* They have applied before. The apply flow now tags a repeat application
+       so a previously-declined person can't quietly come back as "new". */
+    + ((r.duplicate_of || r.screen_grade==='duplicate' || (r.screen_flags||[]).some(f=>/applied before|previously declined/i.test(f)))
+        ? '<div style="margin-top:12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:9px;padding:10px 12px;font-size:13px;color:#92400E;">'
+          + '<b>⚠ Applied before</b>'
+          + ((r.screen_flags||[]).filter(f=>/applied before|previously declined/i.test(f)).map(f=>'<div style="margin-top:4px;">'+esc(f)+'</div>').join('')
+             || '<div style="margin-top:4px;">There is an earlier application from this person — check it before proceeding.</div>')
+          + '</div>'
+        : '')
     + '<div style="margin-top:14px;display:flex;flex-direction:column;gap:7px;font-size:13.5px;">'
       + (r.phone ? '<a href="tel:'+esc(String(r.phone).replace(/[^0-9+]/g,''))+'" style="color:var(--navy);text-decoration:none;">📱 '+esc(r.phone)+'</a>' : '')
       + (r.email ? '<a href="mailto:'+esc(r.email)+'" style="color:var(--navy);text-decoration:none;word-break:break-all;">✉️ '+esc(r.email)+'</a>' : '')
