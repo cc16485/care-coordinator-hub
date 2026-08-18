@@ -16819,7 +16819,8 @@ async function apInterview(id){
 
 async function apOutcome(outcome, btn){
   const id = document.getElementById('apIntId').value;
-  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  const r = AP_ROWS.find(x=>String(x.id)===String(id));
+  if(!r){ alert('Could not match this to an applicant on the list — reload the page and open their interview again. Nothing was recorded.'); return; }
   const err = document.getElementById('apIntErr');
   const A = Object.assign({}, window.__apInt || {});
   A.notes = (document.getElementById('apIntNotes').value||'').trim();
