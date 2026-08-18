@@ -16056,6 +16056,17 @@ function apRenderProfile(){
     + '</div>'
     + (g ? '<div style="margin-top:12px;"><span style="font-size:12px;font-weight:800;color:'+g[0]+';background:'+g[1]
         +';border-radius:999px;padding:3px 12px;">' + g[2] + '</span></div>' : '')
+    /* When they were turned down, the profile must say WHY — the reason was
+       being saved but never shown here. Falls back to `notes` so reasons saved
+       before the column fix are still visible. */
+    + (r.status==='declined'
+        ? '<div style="margin-top:12px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:9px;padding:10px 12px;font-size:13px;color:#991B1B;">'
+          + '<b>Not moving forward</b>'
+          + ((r.decline_reason||r.notes)
+              ? '<div style="margin-top:4px;color:#7F1D1D;white-space:pre-wrap;">' + esc(r.decline_reason||r.notes) + '</div>'
+              : '<div style="margin-top:4px;font-style:italic;">No reason was recorded.</div>')
+          + '</div>'
+        : '')
     + '<div style="margin-top:14px;display:flex;flex-direction:column;gap:7px;font-size:13.5px;">'
       + (r.phone ? '<a href="tel:'+esc(String(r.phone).replace(/[^0-9+]/g,''))+'" style="color:var(--navy);text-decoration:none;">📱 '+esc(r.phone)+'</a>' : '')
       + (r.email ? '<a href="mailto:'+esc(r.email)+'" style="color:var(--navy);text-decoration:none;word-break:break-all;">✉️ '+esc(r.email)+'</a>' : '')
