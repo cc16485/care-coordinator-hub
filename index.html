@@ -4454,7 +4454,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            calendar, same confirmation and reminders afterwards. -->
       <div class="card" id="apBookCard" style="display:none;padding:16px 18px;margin-top:14px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">Book a time for <span id="apBookWho"></span></b>
+          <b style="font-size:15px;color:var(--navy);" id="apBookTitle">Book a time for <span id="apBookWho"></span></b>
           <span class="field-note">the times they would have been offered.</span>
           <span style="flex:1;"></span>
           <button class="ghost" onclick="document.getElementById('apBookCard').style.display='none'">Close</button>
@@ -14881,6 +14881,11 @@ function ivqRender(){
         + (IVQ_CO[b.coordinator_id]?' · with '+esc(IVQ_CO[b.coordinator_id]):'')+'</span>'
       + '<span style="flex:1;"></span>'
       + (a.phone?'<a class="fb" style="text-decoration:none;" href="tel:'+esc(String(a.phone).replace(/[^0-9+]/g,''))+'">📞</a>':'')
+      /* "Can we do Thursday instead" and "I have to cancel" are phone calls to
+         this screen, so the buttons live on the row the call is about. */
+      + (overdue ? '' :
+          '<button class="fb" onclick="ivqMove(\'' + esc(b.applicant_id) + '\')">📅 Move</button>'
+          + '<button class="fb" style="color:var(--red);" onclick="apCancelBooking(\'' + esc(b.applicant_id) + '\')">✕ Cancel</button>')
       + '<button class="fb" onclick="ivqOutcome(\'' + esc(b.applicant_id) + '\')">'
         + (overdue?'📝 How did it go?':'Open') + '</button>'
       + '</div>';
@@ -14918,6 +14923,16 @@ function ivqOutcome(applicantId){
     const a = IVQ_APP[applicantId];
     if(el && a){ el.value = ((a.first_name||'')+' '+(a.last_name||'')).trim(); apRender(); }
     apInterview(applicantId);
+  }, 260);
+}
+
+/* Moving uses the same picker as booking, over on their page, where it turns
+   into a move by itself because a live booking exists. */
+function ivqMove(applicantId){
+  gotoTab('applicants');
+  setTimeout(async ()=>{
+    if(!AP_ROWS.length) await apLoad();
+    apBookFor(applicantId);
   }, 260);
 }
 
@@ -15174,7 +15189,13 @@ async function apLoad(btn){
     ]);
     if(a.error) throw a.error;
     AP_ROWS = a.data || [];
-    AP_BOOK = {}; (b.data||[]).forEach(x=>{ AP_BOOK[x.applicant_id] = x; });
+    /* One person can carry several rows — a no-show and the rebooking, an old
+       cancelled time and the moved one. The live 'booked' row is the one every
+       button acts on, so it always wins the map. */
+    AP_BOOK = {}; (b.data||[]).forEach(x=>{
+      const cur = AP_BOOK[x.applicant_id];
+      if(!cur || (x.status==='booked' && cur.status!=='booked')) AP_BOOK[x.applicant_id] = x;
+    });
     AP_COORD = {}; (c.data||[]).forEach(x=>{ AP_COORD[x.id] = x.name; });
     AP_POS = pos.data || []; AP_POSTINGS = post.data || [];
     apFillPositions(); apRenderFilter(); apRender();
@@ -15379,7 +15400,12 @@ function apRender(){
           + AP_POS.map(p=>'<option value="'+esc(p.key)+'"'+(r.position===p.key?' selected':'')+'>'+esc(p.label)+'</option>').join('')
           + '</select></label>'
         + (r.phone?'<a class="fb" style="text-decoration:none;" href="tel:'+esc(String(r.phone).replace(/[^0-9+]/g,''))+'">📞 Call</a>':'')
-        + (!b && r.status!=='declined'?'<button class="fb" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Book a time for them</button>':'')
+        + (r.status!=='declined'
+            ? (b && b.status==='booked'
+                ? '<button class="fb" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Move their interview</button>'
+                  + '<button class="fb" style="color:var(--red);" onclick="apCancelBooking(\''+esc(r.id)+'\')">✕ Cancel interview</button>'
+                : (!b ? '<button class="fb" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Book a time for them</button>' : ''))
+            : '')
         /* Somebody good with nothing to offer them today. Keeping them is the
            cheapest hire the agency ever makes. */
         + (r.status==='pool'
@@ -16086,6 +16112,8 @@ function apRenderProfile(){
       + apProfRow('Came from', esc(r.channel || r.source || 'not recorded'))
       + apProfRow('Distance', r.miles_out!=null ? esc(Number(r.miles_out).toFixed(0)) + ' miles from the office' : '')
       + apProfRow('Interview', b ? esc(new Date(b.starts_at).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
+      + apProfRow('Moved from', b && b.rescheduled_from
+          ? esc(new Date(b.rescheduled_from).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
     + '</div>'
     + '</div>'
 
@@ -16093,6 +16121,10 @@ function apRenderProfile(){
     + '<b style="font-size:14px;color:var(--navy);">What next</b>'
     + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">'
       + (!b && r.status!=='declined' ? '<button class="secondary" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Book a time for them</button>' : '')
+      + (b && b.status==='booked' && r.status!=='declined'
+          ? '<button class="secondary" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Move their interview</button>'
+            + '<button class="fb" style="color:var(--red);" onclick="apCancelBooking(\''+esc(r.id)+'\')">✕ Cancel their interview</button>'
+          : '')
       + (r.status!=='declined' ? '<button class="fb" onclick="apInterview(\''+esc(r.id)+'\')">📝 Interview &amp; outcome</button>' : '')
       + (r.status!=='declined' ? '<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')">➡️ Make them an offer</button>' : '')
       + (r.status!=='hired' && r.status!=='declined' && r.status!=='pool'
@@ -16561,7 +16593,12 @@ async function apBookFor(id){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
   if(!AP_PROF || String(AP_PROF.id) !== String(id)) apOpenProfile(id);
   document.getElementById('apBookId').value = id;
-  document.getElementById('apBookWho').textContent = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'them';
+  /* The same picker moves an interview as books one: with a live booking the
+     chosen time replaces it rather than stacking a second one on top. */
+  const moving = !!(AP_BOOK[id] && AP_BOOK[id].status==='booked');
+  document.getElementById('apBookTitle').textContent =
+    (moving ? 'Move the interview for ' : 'Book a time for ')
+    + (((r.first_name||'')+' '+(r.last_name||'')).trim() || 'them');
   document.getElementById('apBookErr').style.display = 'none';
   const box = document.getElementById('apBookSlots');
   box.innerHTML = '<div class="field-note">Looking for free times…</div>';
@@ -16601,10 +16638,16 @@ async function apBookTake(iso, btn){
   const id = document.getElementById('apBookId').value;
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
   const err = document.getElementById('apBookErr');
-  const when = new Date(iso).toLocaleString('en-US',{weekday:'long', month:'long', day:'numeric', hour:'numeric', minute:'2-digit'});
-  if(!confirm('Book ' + ((r.first_name||'them')) + ' in for ' + when + '?\n\n'
-    + 'They get the confirmation and the reminders the same as if they had booked it themselves.')) return;
-  btn.disabled = true; btn.textContent = 'Booking…';
+  const fmt = d => new Date(d).toLocaleString('en-US',{weekday:'long', month:'long', day:'numeric', hour:'numeric', minute:'2-digit'});
+  const when = fmt(iso);
+  const b = AP_BOOK[id];
+  const moving = !!(b && b.status==='booked');
+  if(!confirm(moving
+    ? 'Move ' + (r.first_name||'them') + '\'s interview from ' + fmt(b.starts_at) + ' to ' + when + '?\n\n'
+      + 'The old time opens back up, and they get a fresh confirmation and reminders for the new one.'
+    : 'Book ' + ((r.first_name||'them')) + ' in for ' + when + '?\n\n'
+      + 'They get the confirmation and the reminders the same as if they had booked it themselves.')) return;
+  btn.disabled = true; btn.textContent = moving ? 'Moving…' : 'Booking…';
   err.style.display = 'none';
   try{
     /* Booking is only open on an application nobody has closed. Somebody in
@@ -16615,7 +16658,11 @@ async function apBookTake(iso, btn){
         .update({ status:'reviewing', seen_at:new Date().toISOString() }).eq('id', id);
       if(e1) throw e1;
     }
-    const { error } = await sb.rpc('interview_book', { p_applicant: id, p_starts: iso });
+    /* Moving is one transaction: if the new time was just taken, the old
+       booking survives untouched. */
+    const { error } = moving
+      ? await sb.rpc('interview_reschedule', { p_applicant: id, p_starts: iso, p_by: 'office' })
+      : await sb.rpc('interview_book', { p_applicant: id, p_starts: iso });
     if(error) throw error;
     document.getElementById('apBookCard').style.display = 'none';
     await apLoad();
@@ -16623,9 +16670,42 @@ async function apBookTake(iso, btn){
     const m = String(e && e.message || 'error');
     err.textContent = /just taken|passed/i.test(m)
       ? 'That time went while you were looking at it. Here are the ones still free.'
-      : 'Could not book that: ' + m;
+      : /interview_reschedule/.test(m) && /function|exist/i.test(m)
+        ? 'The database cannot move bookings yet — run interview-cancel-reschedule.sql in the Supabase SQL editor and this works.'
+        : 'Could not book that: ' + m;
     err.style.display = 'block';
     apBookFor(id);
+  }
+}
+
+/* ---- Cancelling for somebody -----------------------------------------------
+   "I need to cancel my interview" is a thirty-second phone call, and until now
+   the office had nothing to press at the end of it. The applicant gets a text
+   and email confirming the cancellation, with their link to book a new time,
+   and the slot goes straight back on offer. */
+async function apCancelBooking(id){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)) || IVQ_APP[id] || {};
+  const b = (AP_BOOK[id] && AP_BOOK[id].status==='booked') ? AP_BOOK[id]
+          : (IVQ||[]).find(x=>String(x.applicant_id)===String(id) && x.status==='booked');
+  const name = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'this applicant';
+  const when = b ? new Date(b.starts_at).toLocaleString('en-US',{weekday:'long', month:'long', day:'numeric', hour:'numeric', minute:'2-digit'}) : 'their time';
+  const reason = prompt('Cancel ' + name + '\'s interview — ' + when + '?\n\n'
+    + 'Say why if you know (kept on the booking, never sent to them word for word). '
+    + 'They get a text and email confirming the cancellation, with the link to book a new time. '
+    + 'To pick the new time with them now, use Move instead — this only cancels.','');
+  if(reason===null) return;
+  try{
+    const { data, error } = await sb.rpc('interview_cancel',
+      { p_applicant: id, p_reason: (reason||'').trim() || null, p_by: 'office' });
+    if(error) throw error;
+    if(!data || !data.cancelled) alert('There was no live booking to cancel — refresh and look again.');
+    if(AP_ROWS.length) await apLoad();
+    if(document.getElementById('ivqList')) ivqLoad();
+  }catch(e){
+    const m = String(e && e.message || 'error');
+    alert(/interview_cancel/.test(m) && /function|exist/i.test(m)
+      ? 'The database cannot cancel bookings yet — run interview-cancel-reschedule.sql in the Supabase SQL editor and this works.'
+      : 'Could not cancel it: ' + m);
   }
 }
 
