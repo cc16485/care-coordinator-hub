@@ -15162,7 +15162,7 @@ function evvOpen(){ framedOpen('evvFrame','https://sc.mo-care.com/#evv','EVV cor
    them is the person who was right but early: when an opening appears, they
    are the cheapest hire available and Augusta never let us reach them.
    Requires job-applicants.sql and scheduling.sql. */
-let AP_ROWS = [], AP_BOOK = {}, AP_COORD = {}, AP_POS = [], AP_POSTINGS = [], apFilter = 'qualified';
+let AP_ROWS = [], AP_BOOK = {}, AP_COORD = {}, AP_CHURN = {}, AP_POS = [], AP_POSTINGS = [], apFilter = 'qualified';
 
 /* Cleared the screen means: nothing we knock people back for, and nobody in
    the office has since said no. */
@@ -15180,12 +15180,14 @@ async function apLoad(btn){
   const box = document.getElementById('apList'); if(!box) return;
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
-    const [a, b, c, pos, post] = await Promise.all([
+    const [a, b, c, pos, post, cx] = await Promise.all([
       sb.from('job_applicants').select('*').order('created_at',{ascending:false}).limit(2000),
       sb.from('interview_bookings').select('*').in('status',['booked','attended','noshow']),
       sb.from('coordinators').select('id,name'),
       sb.from('job_positions').select('*').eq('active',true).order('sort'),
       sb.from('job_postings').select('id,title,slug,position,status').eq('status','published'),
+      sb.from('interview_bookings').select('applicant_id,cancelled_by,cancel_reason')
+        .eq('status','cancelled').limit(5000),
     ]);
     if(a.error) throw a.error;
     AP_ROWS = a.data || [];
@@ -15197,6 +15199,15 @@ async function apLoad(btn){
       if(!cur || (x.status==='booked' && cur.status!=='booked')) AP_BOOK[x.applicant_id] = x;
     });
     AP_COORD = {}; (c.data||[]).forEach(x=>{ AP_COORD[x.id] = x.name; });
+    /* How many times each person moved or cancelled a booking THEMSELVES —
+       office changes are not held against them. Two is where the apply page
+       stops letting them and it becomes a phone call, so two is also where
+       this turns amber. The columns arrive with interview-cancel-reschedule.sql;
+       before that the query just returns nothing. */
+    AP_CHURN = {}; (cx.data||[]).forEach(x=>{
+      if(x.cancelled_by==='applicant' || (x.cancelled_by==='reschedule' && x.cancel_reason==='moved by the applicant'))
+        AP_CHURN[x.applicant_id] = (AP_CHURN[x.applicant_id]||0)+1;
+    });
     AP_POS = pos.data || []; AP_POSTINGS = post.data || [];
     apFillPositions(); apRenderFilter(); apRender();
     /* If somebody's page is open, it is looking at a row we just replaced. */
@@ -15291,6 +15302,9 @@ function apChips(r){
   if(r.work_auth===false) out.push(chip('Not authorized to work','bad'));
   if(r.has_transport===false) out.push(chip('No transport','bad'));
   if(r.screen_grade==='duplicate') out.push(chip('Applied before','warn'));
+  /* Reliability, before it costs a client a shift. At two their self-serve
+     changes stop and any further moves come through the phone. */
+  if(AP_CHURN[r.id]) out.push(chip('🔁 Moved/cancelled interview ×'+AP_CHURN[r.id], AP_CHURN[r.id]>=2?'warn':''));
 
   /* What the screen worked out, in its own words. It already knows about the
      license, the insurance and the background question, so those are not
@@ -16114,6 +16128,8 @@ function apRenderProfile(){
       + apProfRow('Interview', b ? esc(new Date(b.starts_at).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
       + apProfRow('Moved from', b && b.rescheduled_from
           ? esc(new Date(b.rescheduled_from).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
+      + apProfRow('Changed by them', AP_CHURN[r.id]
+          ? '×' + AP_CHURN[r.id] + (AP_CHURN[r.id]>=2 ? ' — self-serve changes used up, phone only now' : '') : '')
     + '</div>'
     + '</div>'
 
