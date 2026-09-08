@@ -14535,7 +14535,7 @@ async function rnLoad(btn){
   try{
     const [a, b, c] = await Promise.all([
       sb.from('job_applicants').select('*').order('created_at',{ascending:false}).limit(5000),
-      sb.from('interview_bookings').select('applicant_id,created_at,starts_at,status,coordinator_id').limit(5000),
+      sb.from('interview_bookings').select('applicant_id,created_at,starts_at,status,coordinator_id,cancelled_by').limit(5000),
       sb.from('coordinators').select('id,name'),
     ]);
     if(a.error) throw a.error;
@@ -14591,15 +14591,26 @@ function rnRender(){
     return;
   }
 
-  /* One booking per applicant, the live or most recent one, so somebody who
-     rebooked counts once. */
+  /* A moved interview leaves its old row behind, marked cancelled by
+     'reschedule'. Those rows are the history of ONE interview, not extra
+     interviews, so they are dropped before anything is counted. A genuine
+     cancellation (by the applicant or the office) stays: it feeds the
+     Cancelled row and the lost-by-lead-time table. */
+  const real = RN_BK.filter(b => b.status !== 'rescheduled'
+    && !(b.status === 'cancelled' && b.cancelled_by === 'reschedule'));
+
+  /* One booking per applicant: the live or judged one beats a cancelled one
+     (somebody who cancelled Thursday and rebooked Tuesday is their Tuesday),
+     and the most recent wins within a kind. */
   const bookByAp = {};
-  RN_BK.forEach(b=>{
+  const rnRank = b => b.status === 'cancelled' ? 0 : 1;
+  real.forEach(b=>{
     const cur = bookByAp[b.applicant_id];
-    if(!cur || (b.starts_at||'') > (cur.starts_at||'')) bookByAp[b.applicant_id] = b;
+    if(!cur || rnRank(b) > rnRank(cur)
+       || (rnRank(b) === rnRank(cur) && (b.starts_at||'') > (cur.starts_at||''))) bookByAp[b.applicant_id] = b;
   });
   const apIds = new Set(ap.map(r=>r.id));
-  const bookings = RN_BK.filter(b=>apIds.has(b.applicant_id) && b.status !== 'rescheduled');
+  const bookings = real.filter(b=>apIds.has(b.applicant_id));
 
   /* ---- the funnel ---- */
   const finished = ap.filter(r => r.completed_at || r.status !== 'partial');
@@ -14833,7 +14844,8 @@ async function ivqLoad(btn){
   try{
     const from = new Date(Date.now() - 14*864e5).toISOString();
     const [b, a, c] = await Promise.all([
-      sb.from('interview_bookings').select('*').gte('starts_at', from).order('starts_at'),
+      sb.from('interview_bookings').select('*').in('status',['booked','attended','noshow'])
+        .gte('starts_at', from).order('starts_at'),
       sb.from('job_applicants').select('id,first_name,last_name,phone,email,position,posting_title,status'),
       sb.from('coordinators').select('id,name'),
     ]);
