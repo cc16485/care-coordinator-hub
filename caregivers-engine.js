@@ -1621,8 +1621,17 @@ async function createRefRequests(c){
     }))).select();
   if (error) throw error;
   /* Ask them now rather than at tomorrow's run. The function only touches rows
-     with no sent_at, so calling it twice costs nothing. */
-  try { sb.functions.invoke('reference-chase', { body: {} }); } catch (e) {}
+     with no sent_at, so calling it twice costs nothing. Awaited, because a
+     fire-and-forget here was how "sending shortly" quietly meant "never":
+     if this attempt is refused (evening, weekend, outage), say so — the
+     weekday-morning cron is the backstop that actually sends it. */
+  try {
+    const { data: chase, error: chaseErr } = await sb.functions.invoke('reference-chase', { body: {} });
+    if (chaseErr) console.warn('reference-chase: immediate send failed, the weekday-morning run will send these —', chaseErr.message || chaseErr);
+    else if (chase && chase.skipped) console.warn('reference-chase: held (' + chase.skipped + ') — the weekday-morning run will send these');
+  } catch (e) {
+    console.warn('reference-chase: immediate send failed, the weekday-morning run will send these —', e && e.message || e);
+  }
   return data || [];
 }
 
