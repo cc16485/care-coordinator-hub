@@ -17225,8 +17225,10 @@ function apReengageList(){
   const shift = (document.getElementById('apReShift')||{}).value || '';
   const days  = Object.keys(AP_RE_DAYS).filter(d=>AP_RE_DAYS[d]);
   const tokens= apReAreaTokens();
+  /* Never "a new opening!" to somebody who already said yes: an offer out
+     (they may be mid-paperwork) is as excluded as hired. */
   return AP_ROWS.filter(r=>
-    apQualified(r) && r.status!=='hired'
+    apQualified(r) && r.status!=='hired' && r.status!=='offer'
     && (who==='pool' ? r.status==='pool' : !AP_BOOK[r.id])
     && (!pos || r.position===pos)
     && (r.phone || r.email)

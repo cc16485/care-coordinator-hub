@@ -22,14 +22,27 @@ const sb = supabase.createClient(SB_URL, SB_KEY);
 // ── Admin passcode — gates Settings access ────────────────────────────
 // Stored in localStorage; set on first use via Settings.
 function getAdminPwd(){ return localStorage.getItem('cc_admin_pwd') || ''; }
+
+/* The Training-Hub key, from wherever this page keeps it. The Staffing hub
+   stores it in its own Settings (appSettings); the Care Coordinator Hub
+   stores it in CONFIG. Reading only appSettings meant every offer-card save
+   button failed on the care hub with "update failed" — the list loaded (that
+   call had the fallback) and nothing else worked. One lookup, used by all. */
+function hubKey(){
+  const fromCfg = (typeof CONFIG !== 'undefined' && CONFIG && CONFIG.training_hub_key) || '';
+  return String(appSettings.training_hub_key || fromCfg || '').trim();
+}
 function checkAdminPwd(val){ return val !== '' && btoa(val) === getAdminPwd(); }
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 
 // ── Supabase Auth ─────────────────────────────────────────────────────
-// Fixed slug this hub checks against a signed-in user's app_metadata.hub_access.
-// Must exactly match this hub's row in Team Hub's hub_portals list ("staffing").
-const HUB_SLUG = 'staffing';
+// The slugs this engine accepts from a signed-in user's app_metadata.hub_access.
+// This code serves TWO hubs now — its original Staffing hub home and the Care
+// Coordinator Hub it was moved into — so either portal grant is enough.
+// Checking 'staffing' alone silently signed care coordinators out the moment
+// they opened Offers or Background & References, with no message at all.
+const HUB_SLUGS = ['staffing', 'care_coordinator'];
 // Real access control lives in Supabase Auth's app_metadata.hub_access. A
 // missing hub_access array means the account predates this system — treat
 // that as grandfathered in rather than denied, so this never locks out the
@@ -38,7 +51,7 @@ const HUB_SLUG = 'staffing';
 function hasHubAccess(user){
   const access = user && user.app_metadata && user.app_metadata.hub_access;
   if(access === undefined || access === null) return true;
-  return Array.isArray(access) && access.includes(HUB_SLUG);
+  return Array.isArray(access) && HUB_SLUGS.some(s => access.includes(s));
 }
 async function showApp(){
   document.getElementById('login-screen').style.display='none';
@@ -49,10 +62,15 @@ async function showApp(){
   renderAll();
   loadClientQueue();
   mergePendingBookings();
+  /* Offers first, and awaited: intakeReconcile links each new candidate to
+     their offer by looking it up in OFFERS, and racing ahead of this load
+     created candidates with no offer_id — so the offer sat in "Open offers"
+     forever looking stalled and the Step-1 pip never lit. */
+  await loadOffers(); // fills the New Offers tab + red badge count
+  linkCandidatesToOffers();
   intakeReconcile().then(autoAskReferences);
   refFixReconcile();
   refReconcile().then(markScreeningCleared);
-  loadOffers(); // fills the New Offers tab + red badge count
 }
 
 async function doLogin(){
@@ -75,7 +93,7 @@ async function doLogin(){
     errEl.style.display='block';
   } else if(!hasHubAccess(data.user)){
     await sb.auth.signOut();
-    errEl.textContent = "You don't have access to the Staffing Coordinator's Hub. Contact your owner to be granted access.";
+    errEl.textContent = "You don't have access to this hub. Contact your owner to be granted access.";
     errEl.style.display='block';
   } else {
     await showApp();
@@ -139,7 +157,7 @@ document.getElementById('login-email')?.addEventListener('keydown',e=>{if(e.key=
     if(!hasHubAccess(session.user)){
       await sb.auth.signOut();
       const errEl = document.getElementById('err');
-      errEl.textContent = "You don't have access to the Staffing Coordinator's Hub. Contact your owner to be granted access.";
+      errEl.textContent = "You don't have access to this hub. Contact your owner to be granted access.";
       errEl.style.display = 'block';
       return;
     }
@@ -1256,7 +1274,7 @@ function renderStaffHome(){
   const hr=new Date().getHours();
   document.getElementById('home-greeting').textContent=(hr<12?'Good morning':hr<17?'Good afternoon':'Good evening')+' — your day at a glance';
   // Kick the async sources once so the counts fill themselves in.
-  if(!_homeKicked && (appSettings.training_hub_key||'').trim()){
+  if(!_homeKicked && hubKey()){
     _homeKicked=true;
     try{ loadOpenShifts(); }catch(e){}
     try{ loadCheckinPairs(); }catch(e){}
@@ -1324,7 +1342,7 @@ async function loadOffers(btn){
   const box=document.getElementById('offersList');
   /* Fetch even with no panel on screen: Background & References reads OFFERS
      to show Step 1 status without keeping a second copy of it. */
-  const key=(appSettings.training_hub_key || (typeof CONFIG!=='undefined' && CONFIG.training_hub_key) || '').trim();
+  const key=hubKey();
   if(!key){ if(box) box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings first.</div>'; return; }
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
@@ -1535,7 +1553,7 @@ function renderPastOffers(){
   }).join('');
 }
 async function offerUpdate(id, payload){
-  const key=(appSettings.training_hub_key||'').trim();
+  const key=hubKey();
   const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/rest/v1/rpc/hub_offer_update',{
     method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
     body:JSON.stringify(Object.assign({p_key:key,p_id:id},payload))});
@@ -1912,6 +1930,28 @@ async function intakeReconcile(){
       ' arrived from their start link and ' + (made === 1 ? 'is' : 'are') + ' ready for checks.'; n.style.display = ''; }
   }
 }
+/* Heals the candidates the old boot race left behind: anyone on the board
+   with no offer_id is matched to their offer by phone or email, once, so the
+   offer stops looking stalled and its Step-1 pip can light. Idempotent —
+   a linked candidate is never touched. */
+function linkCandidatesToOffers(){
+  if (!Array.isArray(OFFERS) || !OFFERS.length) return;
+  const digits = t => String(t || '').replace(/\D/g, '').slice(-10);
+  let changed = 0;
+  candidates.forEach(c => {
+    if (c.offer_id) return;
+    const o = OFFERS.find(x =>
+      (digits(x.phone) && digits(x.phone) === digits(c.phone)) ||
+      (x.email && c.email && String(x.email).toLowerCase() === String(c.email).toLowerCase()));
+    if (o) {
+      c.offer_id = String(o.id);
+      if (!c.position && o.position) c.position = o.position;
+      changed++;
+    }
+  });
+  if (changed) saveCandidates();
+}
+
 async function offerToCandidate(offerId, btn){
   const o = OFFERS.find(x => String(x.id) === String(offerId));
   if (!o) return;
@@ -1921,6 +1961,14 @@ async function offerToCandidate(offerId, btn){
     ((c.first || '').toLowerCase() === String(o.first_name || '').toLowerCase() &&
      (c.last  || '').toLowerCase() === String(o.last_name  || '').toLowerCase()));
   if (dupe) {
+    /* Already on the board — but if the race left them unlinked, this click
+       is the moment we know which offer is theirs. Take it. */
+    if (!dupe.offer_id) {
+      dupe.offer_id = String(o.id);
+      if (!dupe.position && o.position) dupe.position = o.position;
+      saveCandidates();
+      try { renderOffers(); } catch (e) {}
+    }
     alert(dupe.first + ' ' + dupe.last + ' is already in Background & References.');
     gotoTab('onboarding'); return;
   }
@@ -2012,7 +2060,7 @@ async function markOfferViventium(id,btn){
   }catch(e){ alert('Could not save: '+(e&&e.message?e.message:'error')); if(btn){btn.disabled=false;btn.textContent='☑ Entered in Viventium';} }
 }
 async function sendOfferWelcome(id,btn,quiet){
-  const key=(appSettings.training_hub_key||'').trim();
+  const key=hubKey();
   if(!key){ if(!quiet) alert('Paste the Training Hub read key into ⚙️ Settings first.'); return {ok:false,error:'hub key missing'}; }
   if(btn){btn.disabled=true;btn.textContent='Sending…';}
   try{
@@ -2609,7 +2657,7 @@ async function sendForApproval(){
 }
 async function pushAxNote(id){
   const a=DISC_ACTIONS.find(x=>x.id===id); if(!a) return;
-  const key=(appSettings.training_hub_key||'').trim();
+  const key=hubKey();
   if(!key){ a.ax_note_error='Training Hub key missing in Settings'; await attPersist('discipline_actions',a); renderAttendance(); return; }
   const noteText='CORRECTIVE ACTION ISSUED — '+a.level+' ('+String(a.issued_at||'').slice(0,10)+')\n'
     +'Category: Attendance & Dependability (Handbook 2U/2V)\n'
@@ -2661,7 +2709,7 @@ async function issueWriteup(){
 }
 async function scanClockins(btn){
   const box=document.getElementById('att-scan-results');
-  const key=(appSettings.training_hub_key||'').trim();
+  const key=hubKey();
   if(!key){ box.innerHTML='<div style="color:#b45309;font-size:.8rem">Paste the Training Hub read key into ⚙️ Settings first.</div>'; return; }
   if(btn){btn.disabled=true;btn.textContent='Scanning…';}
   try{
@@ -2695,7 +2743,7 @@ function prefillTardy(cg,date,time,mins){
 let _repliesData=null, repliesExpanded=true;
 async function loadRepliesWaiting(btn){
   const box=document.getElementById('repliesWaiting'); if(!box) return;
-  const key=(appSettings.training_hub_key||'').trim();
+  const key=hubKey();
   if(!key){ box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings → Training Hub to turn this on.</div>'; return; }
   if(btn&&btn.tagName==='BUTTON'){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
@@ -2739,7 +2787,7 @@ async function toggleThread(i){
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-thread',{
       method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key:appSettings.training_hub_key,conversation_id:el.dataset.conv})});
+      body:JSON.stringify({key:hubKey(),conversation_id:el.dataset.conv})});
     const data=await r.json();
     if(!data||!Array.isArray(data.thread)) throw new Error(data&&data.error?data.error:'no thread');
     const fmt=iso=>{try{return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}catch(e){return ''}};
@@ -2764,7 +2812,7 @@ async function sendReply(i){
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-reply',{
       method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key:appSettings.training_hub_key,contact_id:el.dataset.contact,message:msg})});
+      body:JSON.stringify({key:hubKey(),contact_id:el.dataset.contact,message:msg})});
     const data=await r.json();
     if(!data||data.error) throw new Error(data&&data.error?data.error:'send failed');
     input.value='';
@@ -2781,7 +2829,7 @@ async function dismissReply(i){
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-reply',{
       method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key:appSettings.training_hub_key,action:'dismiss',conversation_id:el.dataset.conv})});
+      body:JSON.stringify({key:hubKey(),action:'dismiss',conversation_id:el.dataset.conv})});
     const data=await r.json();
     if(!data||data.error) throw new Error(data&&data.error?data.error:'could not clear');
     await loadRepliesWaiting();
@@ -2869,7 +2917,7 @@ function updateCommsBadge(){
 let OPEN_SHIFTS=null; // null = not loaded yet
 async function loadOpenShifts(btn){
   const box=document.getElementById('open-shifts-board'); if(!box) return;
-  const key=(appSettings.training_hub_key||'').trim();
+  const key=hubKey();
   if(!key){ box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings → Training Hub to turn the board on.</div>'; return; }
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
@@ -2970,7 +3018,7 @@ function ciPairInfo(p){
 }
 async function loadCheckinPairs(btn){
   const box=document.getElementById('ci-pairs-board');
-  const key=(appSettings.training_hub_key||'').trim();
+  const key=hubKey();
   if(!key){ if(box) box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings → Training Hub to turn this board on.</div>'; return; }
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
@@ -3085,7 +3133,7 @@ async function ciMarkFav(id){
 }
 async function ciPushCoach(id){
   const e=(CHECKINS||[]).find(x=>x.id===id); if(!e) return;
-  const key=(appSettings.training_hub_key||'').trim();
+  const key=hubKey();
   if(!key){ alert('Paste the Training Hub read key into ⚙️ Settings first.'); return; }
   const noteText='CLIENT PREFERENCE — from a check-in call ('+String(e.at).slice(0,10)+')\n'
     +'Client: '+e.client+(e.spoke_with?' (spoke with '+e.spoke_with+')':'')+'\n'
@@ -3383,7 +3431,7 @@ function saveCaregivers(){
 const TRAINING_HUB_API='https://rdqujxiycycwhskyvrwa.supabase.co/rest/v1/rpc/hub_training_status';
 const TRAINING_HUB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkcXVqeGl5Y3ljd2hza3l2cndhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTg1NDgsImV4cCI6MjA5ODc5NDU0OH0.SFjAfj--b-tWrk8bMVLeM-tGwD8VBaPsEBtUAp5tPew';
 async function syncFromTrainingHub(btn){
-  const key=(appSettings.training_hub_key||'').trim();
+  const key=hubKey();
   if(!key){ alert('First paste the Training Hub read key into ⚙️ Settings → Training Hub.'); return; }
   const orig=btn?btn.textContent:'';
   if(btn){ btn.textContent='☁ Syncing…'; btn.disabled=true; }
