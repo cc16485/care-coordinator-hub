@@ -3368,8 +3368,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <span class="subtab-badge red" id="ivqBadge" style="display:none;"></span>
           <span class="field-note">booked by applicants themselves, against the hours on Team &rarr; Calendar.</span>
           <span style="flex:1;"></span>
+          <button class="ghost" onclick="ivqSelfTest(this)" title="Books a throwaway applicant into the first open time, cancels it, and checks the time comes back. Cleans up after itself.">🧪 Test booking &amp; cancel</button>
           <button class="ghost" onclick="ivqLoad(this)">↻ Refresh</button>
         </div>
+        <div id="ivqTestOut" style="display:none;margin-top:10px;"></div>
         <div id="ivqList" style="margin-top:11px;"><div class="field-note">Loading…</div></div>
       </div>
 
@@ -14946,6 +14948,81 @@ function ivqMove(applicantId){
     if(!AP_ROWS.length) await apLoad();
     apBookFor(applicantId);
   }, 260);
+}
+
+/* ---- The booking self-test -------------------------------------------------
+   Proof over promises: books a throwaway applicant into the first open time,
+   cancels it, and checks the time is offered again. The slot generator lives
+   only in the database, so this is the one way to know from the hub that
+   cancelled interviews really free their slots. The throwaway has no phone
+   and no email, so the messaging run has nobody to write to, and everything
+   it created is deleted before the button comes back. */
+async function ivqSelfTest(btn){
+  const out = document.getElementById('ivqTestOut');
+  const esc = escapeHtmlComms;
+  const say = (tone, html) => {
+    const c = tone==='ok' ? ['#15803D','#DCFCE7','#86EFAC'] : tone==='bad' ? ['#B91C1C','#FEE2E2','#FCA5A5'] : ['#B45309','#FFF8E8','#F5D9A0'];
+    out.style.display='block';
+    out.innerHTML = '<div style="border:1px solid '+c[2]+';background:'+c[1]+';color:'+c[0]
+      + ';border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6;">'+html+'</div>';
+  };
+  if(!confirm('Run the booking self-test?\n\nIt books a throwaway applicant called "Slot Selftest" into the first open time, '
+    + 'cancels it again, and checks the time comes back. It cleans up after itself and messages nobody.')) return;
+  btn.disabled = true; const oldLabel = btn.textContent; btn.textContent = '🧪 Testing…';
+  let apId = null;
+  const times = r => (r||[]).map(x=>x.starts_at).sort();
+  try{
+    const s1 = await sb.rpc('interview_open_slots'); if(s1.error) throw s1.error;
+    const t1 = times(s1.data);
+    if(!t1.length){
+      say('warn','Nothing to test with: there are no open interview times right now. '
+        + 'Add hours under <b>when we are free</b> and run it again.');
+      return;
+    }
+    const target = t1[0];
+
+    const ins = await sb.from('job_applicants')
+      .insert({ first_name:'Slot', last_name:'Selftest', status:'partial', channel:'self-test' })
+      .select('id').single();
+    if(ins.error) throw new Error('could not create the throwaway applicant — ' + ins.error.message);
+    apId = ins.data.id;
+
+    const bk = await sb.rpc('interview_book', { p_applicant: apId, p_starts: target });
+    if(bk.error) throw new Error('booking failed — ' + bk.error.message);
+    const s2 = await sb.rpc('interview_open_slots'); if(s2.error) throw s2.error;
+    const gone = !times(s2.data).includes(target);
+
+    const cx = await sb.rpc('interview_cancel', { p_applicant: apId, p_reason: 'slot reopen self-test', p_by: 'office' });
+    if(cx.error) throw new Error('cancelling failed — ' + cx.error.message);
+    const s3 = await sb.rpc('interview_open_slots'); if(s3.error) throw s3.error;
+    const back = times(s3.data).includes(target);
+
+    const when = new Date(target).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+    if(gone && back) say('ok','<b>All good.</b> Booking took ' + esc(when) + ' off the open list, and cancelling put it '
+      + 'straight back. Cancelled interviews free their slot for the next person.');
+    else if(!gone) say('bad','<b>Odd:</b> booking ' + esc(when) + ' did not remove it from the open list, so double-booking '
+      + 'is possible. Tell Claude exactly this.');
+    else say('bad','<b>Problem found:</b> cancelling did not put ' + esc(when) + ' back on the open list — cancelled '
+      + 'interviews are NOT freeing their slots. Tell Claude exactly this; it is a one-line database fix.');
+  }catch(e){
+    say('bad','The test could not finish: ' + esc(String(e && e.message || e)) + '. Nothing was harmed — tell Claude what this says.');
+  }finally{
+    if(apId){
+      try{
+        await sb.from('interview_bookings').delete().eq('applicant_id', apId);
+        const del = await sb.from('job_applicants').delete().eq('id', apId);
+        if(del.error) throw del.error;
+      }catch(_e){
+        /* Deleting may not be allowed from the hub; parked as declined, the
+           row stays out of every working list and every statistic that counts
+           real people. */
+        try{ await sb.from('job_applicants').update({ status:'declined',
+          decline_reason:'self-test row — ignore', seen_at:new Date().toISOString() }).eq('id', apId); }catch(_e2){}
+      }
+    }
+    btn.disabled = false; btn.textContent = oldLabel;
+    ivqLoad();
+  }
 }
 
 /* ---- Family circles --------------------------------------------------------
