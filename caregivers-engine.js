@@ -5165,6 +5165,15 @@ function markAttendance(sessId, bookingIdx, status){
     candidates[cIdx].orient_outcome = status;
     candidates[cIdx].orient_session_date = status ? s.date : '';
     if(!status){ candidates[cIdx].cancel_method=null; candidates[cIdx].cancel_reason=''; }
+    /* A no-show or a reschedule is a seat still owed. Keeping invite_sent
+       meant they never resurfaced anywhere — not in the ready queue, not in
+       any count — and "follow up and rebook them" was an instruction to a
+       memory. Clearing it puts them straight back in the invite queue with
+       a live Invite button. */
+    if(status==='noshow' || status==='rescheduled'){
+      candidates[cIdx].invite_sent = false;
+      candidates[cIdx].invite_sent_date = '';
+    }
     saveCandidates();
   }
   // Push to AxisCare via Zapier
