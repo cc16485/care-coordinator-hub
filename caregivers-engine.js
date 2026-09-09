@@ -5188,6 +5188,19 @@ function promoteToCaregiver(candidateId){
   const hireDate = c.orient_session_date || new Date().toISOString().split('T')[0];
   caregivers.push({
     id: cgId++, first: c.first, last: c.last,
+    // Carry the contact details and the SOURCE ID forward. Without these the
+    // promotion destroys the identity trail: the candidate record is deleted
+    // a few lines below, taking the only copy of their phone and email with
+    // it, and nothing links the new caregiver back to who they came from.
+    // That is why 56 caregivers ended up with no way to recognise their calls.
+    // (This fix already lived in the Staffing hub's copy; this is the copy
+    // that actually runs, and it was still losing them.)
+    phone: c.phone||'', email: c.email||'',
+    candidate_id: c.id,
+    promoted_at: new Date().toISOString(),
+    // Why we were allowed to hire them, frozen at the only moment it can be —
+    // the candidate record and its evidence are deleted just below.
+    hiring_snapshot: (typeof hiringSnapshot === 'function' ? hiringSnapshot(c) : null),
     hire_date: hireDate, oos: c.oos||'no',
     orient_date: hireDate, alz_date: '',
     ojt_date: '', ojt_signed: 'no', ojt_proof: '', ojt_online: '',
