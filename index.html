@@ -852,7 +852,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Coverage Help</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">AxisCare posts the shift to the caregiver app. When it is not filling on its own, open a case here so the chase is visible: who has been asked, what they said, and how long the shift has been uncovered.</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Cases open three ways: the phone call-off button, unassigning a shift in AxisCare with a call-in reason, or the button here. When the callout engine is on, each open case texts caregivers in ranked waves — worked-with-this-client first — and their YES / NO / questions land on the case below. First yes wins; a person confirms and assigns in AxisCare, never the robot.</div>
         </div>
         <span style="flex:1;"></span>
         <!-- straight to AxisCare's Real Time View filtered to unassigned —
@@ -23682,6 +23682,8 @@ async function covAskState(cid,aid,state){
 async function covResolve(id,how,byName){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
   let by=byName;
+  // The engine's first-yes winner is the default answer to "covered by whom?"
+  if(how==='covered' && !by && c.pending_fill && c.pending_fill.name) by=c.pending_fill.name;
   if(how==='covered' && !by){ by=prompt('Covered by whom?'); if(!by||!by.trim()) return; by=by.trim(); }
   c.status='done'; c.resolved_how=how; c.covered_by=by||null;
   c.resolved_at=new Date().toISOString();
@@ -23707,7 +23709,12 @@ function covDur(c){
   if(h<24) return h+'h '+(m%60)+'m'; return Math.floor(h/24)+'d';
 }
 const COV_STATE_UI={ waiting:['⏳ waiting','#94681D'], yes:['✅ yes','#1E8449'],
-                     no:['✖ no','#C0392B'], noanswer:['📵 no answer','#8A7F70'] };
+                     no:['✖ no','#C0392B'], noanswer:['📵 no answer','#8A7F70'],
+                     inquiry:['❓ question','#B8860B'],
+                     closed_notified:['📨 told it’s covered','#8A7F70'] };
+/* CareQB-style order: willing on top, questions next (they need a human),
+   then waiting, declines and the rest at the bottom. */
+const COV_STATE_ORDER={ yes:0, inquiry:1, waiting:2, no:3, noanswer:4, closed_notified:5 };
 function renderCoverage(){
   const box=document.getElementById('covList'); if(!box) return;
   let list=(DATA.coverage_cases||[]).slice().sort((a,b)=>(b.opened_at||'').localeCompare(a.opened_at||''));
@@ -23726,19 +23733,41 @@ function renderCoverage(){
   box.innerHTML=list.map(c=>{
     const open=c.status==='open';
     const age=open?'<span style="font-weight:800;color:'+(covAgo(c.opened_at).includes('d')?'#C0392B':'#94681D')+';">open '+covAgo(c.opened_at)+'</span>':'';
-    const askRows=(c.asked||[]).map(a=>{
+    const askedSorted=(c.asked||[]).slice().sort((x,y)=>
+      ((COV_STATE_ORDER[x.state]??2)-(COV_STATE_ORDER[y.state]??2)) ||
+      String(x.at||'').localeCompare(String(y.at||'')));
+    const askRows=askedSorted.map(a=>{
       const [lbl,col]=COV_STATE_UI[a.state]||COV_STATE_UI.waiting;
       const acts=(open&&a.state==='waiting')
         ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'yes\')">yes</button>'
           +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'no\')">no</button>'
           +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'noanswer\')">no answer</button>'
         : '';
-      return '<div style="display:flex;gap:8px;align-items:center;padding:5px 0;border-top:1px solid var(--border);font-size:13px;">'
-        +'<b>'+esc(a.name)+'</b><span class="field-note">'+esc(a.channel)+' · asked '+covAgo(a.at)+' ago</span>'
+      const how=a.auto?('🤖 auto text'+(a.tier?' · tier '+a.tier:'')):esc(a.channel);
+      return '<div style="padding:5px 0;border-top:1px solid var(--border);font-size:13px;">'
+        +'<div style="display:flex;gap:8px;align-items:center;">'
+        +'<b>'+esc(a.name)+'</b><span class="field-note">'+how+' · asked '+covAgo(a.at)+' ago</span>'
         +'<span style="color:'+col+';font-weight:700;">'+lbl+'</span>'
         +(a.replied_at&&a.state!=='waiting'?'<span class="field-note">('+covAgo(a.replied_at)+' ago)</span>':'')
-        +'<span style="flex:1;"></span>'+acts+'</div>';
+        +'<span style="flex:1;"></span>'+acts+'</div>'
+        +(a.reply?'<div class="field-note" style="margin:2px 0 0 2px;font-style:italic;">“'+esc(a.reply)+'”</div>':'')
+        +'</div>';
     }).join('');
+    // CareQB-style tallies, one glance: who's willing, who's asking, who's out.
+    const tally=(st)=>askedSorted.filter(a=>a.state===st).length;
+    const tallies=[['✅',tally('yes'),'#1E8449'],['❓',tally('inquiry'),'#B8860B'],
+                   ['⏳',tally('waiting'),'#94681D'],['✖',tally('no'),'#C0392B']]
+      .filter(t=>t[1]>0)
+      .map(t=>'<span style="color:'+t[2]+';font-weight:800;">'+t[0]+' '+t[1]+'</span>').join(' · ');
+    // First YES wins: the engine records it here so the office confirms it.
+    const fill=(open&&c.pending_fill)
+      ? '<div style="margin-top:9px;padding:9px 12px;border-radius:8px;background:#E8F6EE;border:1px solid #1E8449;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
+        +'<b style="color:#1E8449;">✅ '+esc(c.pending_fill.name)+' can cover</b>'
+        +'<span class="field-note">said yes '+covAgo(c.pending_fill.at)+' ago — confirm with them, assign the visit in AxisCare, then mark covered.</span>'
+        +'<span style="flex:1;"></span>'
+        +'<button class="addlead" onclick="covResolve(\''+c.id+'\',\'covered\')">Confirmed — mark covered ✓</button>'
+        +'</div>'
+      : '';
     return '<div class="card" style="padding:16px 18px;margin-bottom:12px;'+(open?'border-left:4px solid #C0392B;':'')+'">'
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
       +'<b style="font-size:15.5px;color:var(--navy);">'+esc(c.client)+'</b>'
@@ -23751,7 +23780,10 @@ function renderCoverage(){
         : '<button class="ghost" onclick="covReopen(\''+c.id+'\')">Reopen</button>')
       +'</div>'
       +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
-      +'<div style="margin-top:9px;">'+(askRows||'<div class="field-note" style="padding:4px 0;">Nobody logged as asked yet.</div>')+'</div>'
+      +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
+      +(c.callout_started_at?'<div class="field-note" style="margin-top:3px;">📣 Callout texting started '+covAgo(c.callout_started_at)+' ago'+(tallies?' — '+tallies:'')+'</div>':(tallies?'<div class="field-note" style="margin-top:3px;">'+tallies+'</div>':''))
+      +fill
+      +'<div style="margin-top:9px;">'+(askRows||'<div class="field-note" style="padding:4px 0;">Nobody asked yet'+(open?' — the callout engine texts the first wave within 5 minutes when it’s on, or use “I asked someone”.':'.')+'</div>')+'</div>'
       +'<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px;font-weight:600;color:'
         +(c.resolved_how==='covered'?'#1E8449':c.resolved_how==='uncovered'?'#C0392B':'var(--text-muted)')+';">'
       +covSummary(c)+'</div>'
