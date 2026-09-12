@@ -861,20 +861,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="addlead" onclick="covToggleAdd()">＋ Open a coverage case</button>
       </div>
 
-      <!-- Open Shifts board — moved in from the Staffing hub's Scheduling tab
-           2026-07-31. Live from AxisCare via the same edge function the
-           manager strip uses; shifts are FILLED in AxisCare, this board just
-           makes sure nothing uncovered goes unseen. -->
-      <div style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:.6rem;flex-wrap:wrap">
-          <div>
-            <div style="font-size:.92rem;font-weight:700;color:var(--navy)">🔴 Open Shifts — next 14 days <span id="covShiftsCount" style="color:#DC2626"></span></div>
-            <div style="font-size:.72rem;color:var(--text-muted)">Live from AxisCare: every scheduled visit with no caregiver assigned. Fill them in AxisCare; open a case below for any that aren't filling on their own.</div>
-          </div>
-          <button class="primary" style="font-size:.75rem" onclick="covLoadShifts(this)">↻ Refresh</button>
-        </div>
-        <div id="covShiftsBoard"><div style="color:var(--text-muted);font-size:.85rem">Loading open shifts…</div></div>
-      </div>
+      <!-- The Open Shifts mirror that used to sit here was REMOVED 2026-09-12
+           at Samantha's request: it duplicated AxisCare (staleness included)
+           and buried the cases this tab exists for. The "Unassigned in
+           AxisCare" button above IS the open-shifts list now. -->
 
       <div class="card" id="covAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
         <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:8px;">
@@ -7404,7 +7394,7 @@ function renderActiveTab(){
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='interviews') ivqLoad();
-  if(activeTab==='coverage'){ renderCoverage(); covShiftsEnsure(); }
+  if(activeTab==='coverage'){ renderCoverage(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today') renderToday();
@@ -24715,61 +24705,13 @@ function renderNurseVisits(){
 })();
 </script>
 <script>
-/* ── COVERAGE: OPEN SHIFTS BOARD ──────────────────────────────────────
-   Moved from the Staffing hub's Scheduling tab (2026-07-31). Same edge
-   function the manager strip uses; the full board lives here now because
-   Coverage Help is where an unfilled shift becomes someone's problem. */
-(function(){
-  const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  let SHIFTS=null, loadedOnce=false;
-  async function load(btn){
-    const box=document.getElementById('covShiftsBoard'); if(!box) return;
-    const k=(CONFIG.training_hub_key||'').trim();
-    if(!k){ box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings to turn the board on.</div>'; return; }
-    if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
-    try{
-      const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
-        method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
-        body:JSON.stringify({key:k, days:14})});
-      const data=await r.json();
-      if(data.error){
-        SHIFTS=null;
-        box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">'+E(String(data.error).includes('403')
-          ?'AxisCare said no (403) — the API token needs "Visits" read permission. In AxisCare, edit the API token and check Visits, then refresh.'
-          :'Could not load open shifts: '+data.error)+'</div>';
-        return;
-      }
-      SHIFTS=data.open||[];
-      render();
-    }catch(e){ box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not reach the open-shifts service — check your connection.</div>'; }
-    finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
-  }
-  function render(){
-    const box=document.getElementById('covShiftsBoard'); if(!box||SHIFTS===null) return;
-    const cnt=document.getElementById('covShiftsCount');
-    if(!SHIFTS.length){
-      if(cnt) cnt.textContent='';
-      box.innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:.75rem 1rem;font-size:.85rem;color:#166534">✅ No open shifts in the next 14 days — everything is covered.</div>';
-      return;
-    }
-    if(cnt) cnt.textContent='('+SHIFTS.length+')';
-    const now=Date.now();
-    const fmt=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-    box.innerHTML=SHIFTS.map(s=>{
-      const hrs=(new Date(s.date+'T'+(s.start24||'23:59')).getTime()-now)/3600000;
-      const color=hrs<=48?'#DC2626':hrs<=168?'#B45309':'#6E6559';
-      const tag=hrs<=48?'⚠ within 48 hours':hrs<=168?'this week':'';
-      return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+color+';border-radius:10px;padding:.6rem 1rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">'
-        +'<b style="min-width:130px">'+E(s.client)+'</b>'
-        +'<span style="font-size:.85rem">'+fmt(s.date)+(s.start?' · '+E(s.start)+(s.end?'–'+E(s.end):''):'')+'</span>'
-        +(tag?'<span style="font-size:.72rem;font-weight:700;color:'+color+'">'+tag+'</span>':'')
-        +'<span style="margin-left:auto;font-size:.72rem;color:var(--text-muted)">fill in AxisCare ↗</span>'
-        +'</div>';
-    }).join('');
-  }
-  window.covLoadShifts=load;
-  window.covShiftsEnsure=function(){ if(!loadedOnce){ loadedOnce=true; load(); } else render(); };
-})();
+/* The Open Shifts board script that lived here was removed 2026-09-12 with
+   its HTML — it mirrored AxisCare (through the Training project's
+   axiscare-open-shifts function, staleness and 403s included) and buried
+   the coverage cases. AxisCare's own Real Time View is the open-shifts
+   list; the tab's header button deep-links to it. */
+window.covShiftsEnsure=function(){};
+window.covLoadShifts=function(){};
 </script>
 <script>
 /* ── NEW CLIENTS — NEEDS SCHEDULING ───────────────────────────────────
