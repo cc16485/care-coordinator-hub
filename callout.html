@@ -141,7 +141,10 @@ async function pick(i){
   if(!$('careNote').value && PICK.client_axiscare_id){
     try{
       const out=await fn({ client_lookup:PICK.client_axiscare_id });
-      if(out&&out.priority_note) $('careNote').value=String(out.priority_note).slice(0,220);
+      if(out&&out.priority_note){
+        $('careNote').value=String(out.priority_note).slice(0,220);
+        $('goErr').textContent='⚠ Care note prefilled from an AxisCare note — read it and strip door codes / entry details / anything private before opening.';
+      }
     }catch(e){}
   }
   const who=String(PICK.client).split(/\s+/);

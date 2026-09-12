@@ -23807,7 +23807,7 @@ function covPickShift(i){
       const ta=document.getElementById('covMsgCare'), srcEl=document.getElementById('covCareSrc');
       if(ta&&!ta.value.trim()&&out.priority_note){
         ta.value=String(out.priority_note).slice(0,220);
-        if(srcEl) srcEl.textContent='Prefilled from the client\'s AxisCare profile note — trim it down for a text.';
+        if(srcEl){ srcEl.innerHTML='<b style="color:#C0392B;">⚠ Prefilled from an AxisCare note — READ IT before opening: strip door codes, entry details, addresses, anything private. Only what\'s in this box goes in the text.</b>'; }
       }
     }catch(e){} })();
   }
