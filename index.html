@@ -23707,6 +23707,26 @@ async function covResolve(id,how,byName){
   c.status='done'; c.resolved_how=how; c.covered_by=by||null;
   c.resolved_at=new Date().toISOString();
   await persist('coverage_cases',c); renderCoverage();
+  /* Confirming a fill also puts them ON THE AXISCARE SCHEDULE — the click is
+     the authorization, the server does the write and reads it back to verify.
+     When the visit can't be identified with certainty the card says "assign
+     by hand" instead of guessing. */
+  if(how==='covered'){
+    try{
+      const { data:{ session } } = await sb.auth.getSession();
+      if(session&&session.access_token){
+        const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-assign`,{
+          method:'POST',
+          headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+          body: JSON.stringify({ case_id:id })});
+        const out=await r.json().catch(()=>({}));
+        /* The function stamped the case server-side; mirror it locally so the
+           board updates without a reload. */
+        if(out&&out.status){ c.axiscare_assignment={ status:out.status, detail:out.detail||'', at:new Date().toISOString() }; }
+      }
+    }catch(e){ console.warn('coverage-assign call failed', e); }
+    renderCoverage();
+  }
 }
 async function covReopen(id){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
@@ -23803,6 +23823,13 @@ function renderCoverage(){
       +(c.callout_started_at?'<div class="field-note" style="margin-top:3px;">📣 Callout texting started '+covAgo(c.callout_started_at)+' ago'+(tallies?' — '+tallies:'')+'</div>':(tallies?'<div class="field-note" style="margin-top:3px;">'+tallies+'</div>':''))
       +fill
       +'<div style="margin-top:9px;">'+(askRows||'<div class="field-note" style="padding:4px 0;">Nobody asked yet'+(open?' — the callout engine texts the first wave within 5 minutes when it’s on, or use “I asked someone”.':'.')+'</div>')+'</div>'
+      +(c.axiscare_assignment
+        ? '<div style="margin-top:9px;padding:7px 10px;border-radius:7px;font-size:12.5px;font-weight:600;'
+          +(c.axiscare_assignment.status==='assigned'
+            ?'background:#E8F6EE;color:#1E8449;">✓ On the AxisCare schedule — verified.'
+            :'background:#FDF3E0;color:#94681D;">⚠ AxisCare: '+esc(c.axiscare_assignment.detail||'assign by hand'))
+          +'</div>'
+        : '')
       +'<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px;font-weight:600;color:'
         +(c.resolved_how==='covered'?'#1E8449':c.resolved_how==='uncovered'?'#C0392B':'var(--text-muted)')+';">'
       +covSummary(c)+'</div>'
