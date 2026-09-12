@@ -867,6 +867,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            AxisCare" button above IS the open-shifts list now. -->
 
       <div class="card" id="covAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
+        <!-- Caregiver-first (Samantha, 2026-09-12): a call-off is about a REAL
+             shift that is still assigned to the caller. Pick who is calling
+             off, see their live AxisCare shifts, click the one they mean —
+             the case then knows the exact visit, client and times, and
+             confirming a fill can replace them on that very visit. -->
+        <div id="covAttachNote" class="field-note" style="display:none;margin-bottom:8px;color:#94681D;font-weight:700;"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <label style="font-weight:700;font-size:13.5px;color:var(--navy);">Who's calling off?</label>
+          <select id="covWho" style="min-width:220px;" onchange="covLoadCallerShifts()"><option value="">Pick the caregiver…</option></select>
+          <span id="covWhoState" class="field-note"></span>
+        </div>
+        <div id="covWhoShifts" style="margin-top:8px;"></div>
+        <div class="field-note" style="margin:12px 0 6px;border-top:1px solid var(--border);padding-top:10px;">…or open a case by hand (no exact shift attached — assignment will be manual):</div>
         <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:8px;">
           <input id="covClient" placeholder="Client name">
           <input id="covDate" type="date">
@@ -23652,7 +23665,83 @@ function renderMgrStrip(){
    resolved case collapses into one honest summary line.
    ================================================================ */
 let covFilterVal='open';
-function covToggleAdd(){ const w=document.getElementById('covAddWrap'); w.style.display=w.style.display==='none'?'block':'none'; }
+let covAttachTarget=null;   // set when picking a shift ATTACHES to an existing case
+let COV_SHIFTS=[];
+function covToggleAdd(attachCaseId){
+  const w=document.getElementById('covAddWrap');
+  const opening = w.style.display==='none' || attachCaseId;
+  covAttachTarget = attachCaseId || null;
+  const note=document.getElementById('covAttachNote');
+  if(note){
+    note.style.display=covAttachTarget?'block':'none';
+    if(covAttachTarget){ const c=(DATA.coverage_cases||[]).find(x=>x.id===covAttachTarget);
+      note.textContent='Attaching the real shift to the open case for '+((c&&c.client)||'?')+' — pick the caregiver who called off and click the shift.'; }
+  }
+  w.style.display=opening?'block':'none';
+  if(opening) covFillWho();
+  if(opening&&attachCaseId) w.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function covFillWho(){
+  const sel=document.getElementById('covWho'); if(!sel||sel.options.length>1) return;
+  const roster=(DATA.caregivers||[]).filter(g=>g.active!==false&&g.axiscare_id)
+    .map(g=>({ id:String(g.axiscare_id), name:(String(g.first||'').trim()+' '+String(g.last||'').trim()).trim() }))
+    .filter(g=>g.name).sort((a,b)=>a.name.localeCompare(b.name));
+  sel.innerHTML='<option value="">Pick the caregiver…</option>'
+    +roster.map(g=>'<option value="'+esc(g.id)+'" data-name="'+esc(g.name)+'">'+esc(g.name)+'</option>').join('');
+}
+async function covLoadCallerShifts(){
+  const sel=document.getElementById('covWho'), box=document.getElementById('covWhoShifts'),
+        st=document.getElementById('covWhoState');
+  if(!sel||!sel.value){ if(box) box.innerHTML=''; return; }
+  st.textContent='loading their shifts…'; box.innerHTML='';
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session){ st.textContent='sign in again'; return; }
+    const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-shifts`,{
+      method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+      body:JSON.stringify({ caregiver_axiscare_id: sel.value })});
+    const out=await r.json().catch(()=>({}));
+    if(out.error){ st.textContent=''; box.innerHTML='<div class="field-note" style="color:var(--red);">Could not load shifts: '+esc(String(out.error))+'</div>'; return; }
+    COV_SHIFTS=out.shifts||[];
+    st.textContent=COV_SHIFTS.length? 'click the shift being called in:' : '';
+    box.innerHTML=COV_SHIFTS.length? COV_SHIFTS.map((s,i)=>
+      '<div onclick="covPickShift('+i+')" style="cursor:pointer;display:flex;gap:10px;align-items:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:#fff;" '
+      +'onmouseover="this.style.borderColor=\'var(--teal)\'" onmouseout="this.style.borderColor=\'var(--border)\'">'
+      +'<b style="color:var(--navy);">'+esc(s.client)+'</b>'
+      +'<span class="field-note">'+esc(s.date)+' · '+esc(s.time||'')+'</span>'
+      +'<span style="flex:1;"></span><span style="font-size:12px;font-weight:700;color:var(--teal);">'
+      +(covAttachTarget?'attach this shift →':'open case for this shift →')+'</span></div>').join('')
+      :'<div class="field-note">No upcoming shifts in the next 14 days for them in AxisCare.</div>';
+  }catch(e){ st.textContent=''; box.innerHTML='<div class="field-note" style="color:var(--red);">Could not reach AxisCare — open the case by hand below.</div>'; }
+}
+async function covPickShift(i){
+  const s=COV_SHIFTS[i]; if(!s) return;
+  const sel=document.getElementById('covWho');
+  const callerName=(sel.options[sel.selectedIndex]||{}).dataset ? sel.options[sel.selectedIndex].dataset.name : '';
+  const fields={ client:s.client, client_axiscare_id:s.client_axiscare_id,
+    axiscare_visit_id:s.visit_id, shift_date:s.date, shift_time:s.time,
+    calling_off:callerName||'', calling_off_id:sel.value||'' };
+  if(covAttachTarget){
+    const c=(DATA.coverage_cases||[]).find(x=>x.id===covAttachTarget);
+    if(c){ Object.assign(c,fields);
+      c.note=[String(c.note||'').trim(),'Shift attached: '+callerName+' called off '+s.date+' '+(s.time||'')+'.'].filter(Boolean).join(' ');
+      await persist('coverage_cases',c); }
+    covAttachTarget=null;
+  }else{
+    const c=Object.assign({ id:uid(), reason:'calloff',
+      note:(document.getElementById('covNote').value.trim()||'')||(callerName+' called off.'),
+      status:'open', asked:[],
+      opened_at:new Date().toISOString(),
+      opened_by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'',
+      resolved_at:null, resolved_how:null, covered_by:null }, fields);
+    DATA.coverage_cases=DATA.coverage_cases||[]; DATA.coverage_cases.push(c);
+    await persist('coverage_cases',c);
+  }
+  document.getElementById('covAddWrap').style.display='none';
+  document.getElementById('covWhoShifts').innerHTML='';
+  renderCoverage();
+}
 function covFilter(f,btn){ covFilterVal=f;
   document.querySelectorAll('#tab-coverage .fb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active'); renderCoverage(); }
@@ -23813,11 +23902,13 @@ function renderCoverage(){
       +'<span class="field-note">'+esc(c.shift_date||'')+' '+esc(c.shift_time||'')+' · '+(R[c.reason]||c.reason)+'</span>'
       +age+'<span style="flex:1;"></span>'
       +(open
-        ? '<button class="ghost" onclick="covAsk(\''+c.id+'\')">＋ I asked someone</button>'
+        ? (c.axiscare_visit_id?'':'<button class="ghost" style="color:#94681D;" onclick="covToggleAdd(\''+c.id+'\')">🔗 Attach the real shift</button>')
+          +'<button class="ghost" onclick="covAsk(\''+c.id+'\')">＋ I asked someone</button>'
           +'<button class="addlead" onclick="covResolve(\''+c.id+'\',\'covered\')">Covered ✓</button>'
           +'<button class="ghost" onclick="covResolve(\''+c.id+'\',\'uncovered\')">Close uncovered</button>'
         : '<button class="ghost" onclick="covReopen(\''+c.id+'\')">Reopen</button>')
       +'</div>'
+      +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' called off'+(c.axiscare_visit_id?' — exact AxisCare shift attached; confirming a fill replaces them on it.':'')+'</div>':'')
       +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
       +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
       +(c.callout_started_at?'<div class="field-note" style="margin-top:3px;">📣 Callout texting started '+covAgo(c.callout_started_at)+' ago'+(tallies?' — '+tallies:'')+'</div>':(tallies?'<div class="field-note" style="margin-top:3px;">'+tallies+'</div>':''))
