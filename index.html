@@ -23740,17 +23740,57 @@ async function covLoadCallerShifts(){
       :'<div class="field-note">No upcoming shifts in the next 14 days for them in AxisCare.</div>';
   }catch(e){ st.textContent=''; box.innerHTML='<div class="field-note" style="color:var(--red);">Could not reach AxisCare — open the case by hand below.</div>'; }
 }
-async function covPickShift(i){
+/* What the waves will actually text — composed the same way the engine
+   composes it (same ops_settings templates, same placeholders), so the
+   coordinator sees the real message before the case starts sending. The
+   SERVER remains the authority; these defaults mirror coverage-run's. */
+function covComposeMsgs(f){
+  const st=(DATA.ops_settings||{});
+  const who=String(f.client||'a client').split(/\s+/);
+  const clientShort=who.length>1?who[0]+' '+who[who.length-1][0]+'.':who[0];
+  const today=new Date().toLocaleDateString('en-CA');
+  const rel=!f.shift_date?'':(f.shift_date===today?'today'
+    :(new Date(f.shift_date+'T12:00:00')-new Date(today+'T12:00:00')===86400000)?'tomorrow'
+    :new Date(f.shift_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}));
+  const when=[rel,f.shift_time].filter(Boolean).join(' ')||'as soon as possible — the office has details';
+  const where=f.client_axiscare_id?" in (the client's city — filled in automatically)":'';
+  const fill=t=>t.replaceAll('{first_name}','(their first name)').replaceAll('{client}',clientShort)
+    .replaceAll('{where}',where).replaceAll('{when}',when);
+  return {
+    tier1: fill(String(st.coverage_msg_tier1||'')||"Hi {first_name}, it's Caring Companions. {client}'s shift needs coverage: {when}. Can you take it? Reply YES or NO — questions welcome."),
+    other: fill(String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. We need a last-minute fill-in{where}: {when}. Can you take it? Reply YES or NO — questions welcome."),
+  };
+}
+let COV_PENDING=null;
+function covPickShift(i){
   const s=COV_SHIFTS[i]; if(!s) return;
   const sel=document.getElementById('covWho');
   const callerName=(sel.options[sel.selectedIndex]||{}).dataset ? sel.options[sel.selectedIndex].dataset.name : '';
   const fields={ client:s.client, client_axiscare_id:s.client_axiscare_id,
     axiscare_visit_id:s.visit_id, shift_date:s.date, shift_time:s.time,
     calling_off:callerName||'', calling_off_id:sel.value||'' };
+  COV_PENDING={ fields, attach:covAttachTarget };
+  const m=covComposeMsgs(fields);
+  const box=document.getElementById('covWhoShifts');
+  box.innerHTML='<div class="card" style="padding:14px 16px;border-left:4px solid var(--teal);">'
+    +'<b style="color:var(--navy);">'+esc(callerName)+' is calling off: '+esc(s.client)+' · '+esc(s.date)+' '+esc(s.time||'')+'</b>'
+    +'<div class="field-note" style="margin-top:8px;font-weight:700;">📤 What caregivers will be texted (first wave goes within 5 minutes):</div>'
+    +'<div style="margin-top:6px;padding:8px 10px;background:var(--bg);border-radius:7px;font-size:13px;"><b>Caregivers who work with '+esc(s.client.split(/\s+/)[0])+':</b><br>'+esc(m.tier1)+'</div>'
+    +'<div style="margin-top:6px;padding:8px 10px;background:var(--bg);border-radius:7px;font-size:13px;"><b>Everyone else:</b><br>'+esc(m.other)+'</div>'
+    +'<div class="field-note" style="margin-top:6px;">Wording is editable in Settings (coverage_msg_tier1 / coverage_msg_other) — ask Claude to change it once and it changes for every callout.</div>'
+    +'<div style="margin-top:10px;display:flex;gap:8px;">'
+    +'<button class="addlead" onclick="covConfirmOpen()">'+(covAttachTarget?'Attach shift & start texting':'Open case & start texting')+'</button>'
+    +'<button class="ghost" onclick="covLoadCallerShifts()">← Back</button>'
+    +'</div></div>';
+}
+async function covConfirmOpen(){
+  if(!COV_PENDING) return;
+  const fields=COV_PENDING.fields, callerName=fields.calling_off;
+  covAttachTarget=COV_PENDING.attach; COV_PENDING=null;
   if(covAttachTarget){
     const c=(DATA.coverage_cases||[]).find(x=>x.id===covAttachTarget);
     if(c){ Object.assign(c,fields);
-      c.note=[String(c.note||'').trim(),'Shift attached: '+callerName+' called off '+s.date+' '+(s.time||'')+'.'].filter(Boolean).join(' ');
+      c.note=[String(c.note||'').trim(),'Shift attached: '+callerName+' called off '+fields.shift_date+' '+(fields.shift_time||'')+'.'].filter(Boolean).join(' ');
       await persist('coverage_cases',c); }
     covAttachTarget=null;
   }else{
@@ -23934,6 +23974,9 @@ function renderCoverage(){
         : '<button class="ghost" onclick="covReopen(\''+c.id+'\')">Reopen</button>')
       +'</div>'
       +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' called off'+(c.axiscare_visit_id?' — exact AxisCare shift attached; confirming a fill replaces them on it.':'')+'</div>':'')
+      +(open?'<details style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
+        +(function(){ const m=covComposeMsgs(c); return '<div style="margin-top:4px;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12.5px;"><b>Works with this client:</b> '+esc(m.tier1)+'<br style="margin-bottom:4px;"><b>Everyone else:</b> '+esc(m.other)+'</div>'; })()
+        +'</details>':'')
       +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
       +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
       +(c.callout_started_at?'<div class="field-note" style="margin-top:3px;">📣 Callout texting started '+covAgo(c.callout_started_at)+' ago'+(tallies?' — '+tallies:'')+'</div>':(tallies?'<div class="field-note" style="margin-top:3px;">'+tallies+'</div>':''))
