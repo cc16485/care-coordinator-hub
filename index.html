@@ -23684,13 +23684,34 @@ function covToggleAdd(attachCaseId){
   if(opening) covFillWho();
   if(opening&&attachCaseId) w.scrollIntoView({behavior:'smooth',block:'center'});
 }
-function covFillWho(){
-  const sel=document.getElementById('covWho'); if(!sel||sel.options.length>1) return;
-  const roster=(DATA.caregivers||[]).filter(g=>g.active!==false&&g.axiscare_id)
-    .map(g=>({ id:String(g.axiscare_id), name:(String(g.first||'').trim()+' '+String(g.last||'').trim()).trim() }))
-    .filter(g=>g.name).sort((a,b)=>a.name.localeCompare(b.name));
-  // An empty dropdown must say WHY, not sit there looking broken.
-  sel.innerHTML='<option value="">'+(roster.length?'Pick the caregiver…':'No caregivers loaded — refresh the page; if it persists, tell Claude')+'</option>'
+let COV_CG_CACHE=null;
+async function covFillWho(){
+  const sel=document.getElementById('covWho'); if(!sel) return;
+  /* The dropdown is AxisCare's LIVE active caregiver list — the hub roster's
+     active flag drifts, and inactive people were showing up. Cached for the
+     session; the roster is only the labeled fallback if AxisCare is down. */
+  let roster=COV_CG_CACHE, fromFallback=false;
+  if(!roster){
+    sel.innerHTML='<option value="">loading active caregivers…</option>';
+    try{
+      const { data:{ session } } = await sb.auth.getSession();
+      const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-shifts`,{
+        method:'POST',
+        headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+        body:JSON.stringify({ list_caregivers:true })});
+      const out=await r.json().catch(()=>({}));
+      if(Array.isArray(out.caregivers)&&out.caregivers.length){ roster=out.caregivers; COV_CG_CACHE=roster; }
+    }catch(e){ /* fall through to the roster */ }
+    if(!roster){
+      fromFallback=true;
+      roster=(DATA.caregivers||[]).filter(g=>g.active!==false&&g.axiscare_id)
+        .map(g=>({ id:String(g.axiscare_id), name:(String(g.first||'').trim()+' '+String(g.last||'').trim()).trim() }))
+        .filter(g=>g.name).sort((a,b)=>a.name.localeCompare(b.name));
+    }
+  }
+  sel.innerHTML='<option value="">'
+    +(roster.length?(fromFallback?'Pick the caregiver… (AxisCare unreachable — hub list, may include inactive)':'Pick the caregiver…')
+      :'No caregivers found — tell Claude')+'</option>'
     +roster.map(g=>'<option value="'+esc(g.id)+'" data-name="'+esc(g.name)+'">'+esc(g.name)+'</option>').join('');
 }
 async function covLoadCallerShifts(){
