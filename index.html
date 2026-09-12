@@ -23744,7 +23744,8 @@ async function covLoadCallerShifts(){
    composes it (same ops_settings templates, same placeholders), so the
    coordinator sees the real message before the case starts sending. The
    SERVER remains the authority; these defaults mirror coverage-run's. */
-function covComposeMsgs(f){
+function covComposeMsgs(f,opts){
+  const raw=(opts||{}).raw;      // raw=true keeps {first_name} etc. for editing
   const st=(DATA.ops_settings||{});
   const who=String(f.client||'a client').split(/\s+/);
   const clientShort=who.length>1?who[0]+' '+who[who.length-1][0]+'.':who[0];
@@ -23754,11 +23755,16 @@ function covComposeMsgs(f){
     :new Date(f.shift_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}));
   const when=[rel,f.shift_time].filter(Boolean).join(' ')||'as soon as possible — the office has details';
   const where=f.client_axiscare_id?" in (the client's city — filled in automatically)":'';
-  const fill=t=>t.replaceAll('{first_name}','(their first name)').replaceAll('{client}',clientShort)
-    .replaceAll('{where}',where).replaceAll('{when}',when);
+  // In raw (editable) mode {first_name} and {where} stay as placeholders —
+  // their real values are only known per-recipient / server-side, and the
+  // display explainer must never be saved into an actual message.
+  const fill=t=>t.replaceAll('{first_name}',raw?'{first_name}':'(their first name)')
+    .replaceAll('{client}',clientShort).replaceAll('{where}',raw?'{where}':where).replaceAll('{when}',when);
+  // A case's own edited wording wins, then agency settings, then the default —
+  // same order the engine applies.
   return {
-    tier1: fill(String(st.coverage_msg_tier1||'')||"Hi {first_name}, it's Caring Companions. {client}'s shift needs coverage: {when}. Can you take it? Reply YES or NO — questions welcome."),
-    other: fill(String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. We need a last-minute fill-in{where}: {when}. Can you take it? Reply YES or NO — questions welcome."),
+    tier1: fill(String(f.msg_tier1||'')||String(st.coverage_msg_tier1||'')||"Hi {first_name}, it's Caring Companions. {client}'s shift needs coverage: {when}. Can you take it? Reply YES or NO — questions welcome."),
+    other: fill(String(f.msg_other||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. We need a last-minute fill-in{where}: {when}. Can you take it? Reply YES or NO — questions welcome."),
   };
 }
 let COV_PENDING=null;
@@ -23770,14 +23776,16 @@ function covPickShift(i){
     axiscare_visit_id:s.visit_id, shift_date:s.date, shift_time:s.time,
     calling_off:callerName||'', calling_off_id:sel.value||'' };
   COV_PENDING={ fields, attach:covAttachTarget };
-  const m=covComposeMsgs(fields);
+  const m=covComposeMsgs(fields,{raw:true});
   const box=document.getElementById('covWhoShifts');
   box.innerHTML='<div class="card" style="padding:14px 16px;border-left:4px solid var(--teal);">'
     +'<b style="color:var(--navy);">'+esc(callerName)+' is calling off: '+esc(s.client)+' · '+esc(s.date)+' '+esc(s.time||'')+'</b>'
-    +'<div class="field-note" style="margin-top:8px;font-weight:700;">📤 What caregivers will be texted (first wave goes within 5 minutes):</div>'
-    +'<div style="margin-top:6px;padding:8px 10px;background:var(--bg);border-radius:7px;font-size:13px;"><b>Caregivers who work with '+esc(s.client.split(/\s+/)[0])+':</b><br>'+esc(m.tier1)+'</div>'
-    +'<div style="margin-top:6px;padding:8px 10px;background:var(--bg);border-radius:7px;font-size:13px;"><b>Everyone else:</b><br>'+esc(m.other)+'</div>'
-    +'<div class="field-note" style="margin-top:6px;">Wording is editable in Settings (coverage_msg_tier1 / coverage_msg_other) — ask Claude to change it once and it changes for every callout.</div>'
+    +'<div class="field-note" style="margin-top:8px;font-weight:700;">📤 What caregivers will be texted — edit it right here if you want (first wave goes within 5 minutes of opening):</div>'
+    +'<div class="field-note" style="margin-top:4px;">To caregivers who work with '+esc(s.client.split(/\s+/)[0])+':</div>'
+    +'<textarea id="covMsg1" rows="3" style="width:100%;font-size:13px;margin-top:2px;">'+esc(m.tier1)+'</textarea>'
+    +'<div class="field-note" style="margin-top:6px;">To everyone else:</div>'
+    +'<textarea id="covMsgO" rows="3" style="width:100%;font-size:13px;margin-top:2px;">'+esc(m.other)+'</textarea>'
+    +'<div class="field-note" style="margin-top:4px;">Keep <b>{first_name}</b> and <b>{where}</b> exactly as written — first_name becomes each caregiver\'s own name, and where becomes " in [the client\'s city]" when the texts send. This edit is for THIS callout only; to change the wording for every future callout, tell Claude.</div>'
     +'<div style="margin-top:10px;display:flex;gap:8px;">'
     +'<button class="addlead" onclick="covConfirmOpen()">'+(covAttachTarget?'Attach shift & start texting':'Open case & start texting')+'</button>'
     +'<button class="ghost" onclick="covLoadCallerShifts()">← Back</button>'
@@ -23786,6 +23794,12 @@ function covPickShift(i){
 async function covConfirmOpen(){
   if(!COV_PENDING) return;
   const fields=COV_PENDING.fields, callerName=fields.calling_off;
+  /* The edited wording rides on the case; the engine prefers it over the
+     agency template. Values like {client}/{when} are already baked into the
+     text shown, so storing it verbatim is exactly what will send. */
+  const m1=document.getElementById('covMsg1'), mO=document.getElementById('covMsgO');
+  if(m1&&m1.value.trim()) fields.msg_tier1=m1.value.trim();
+  if(mO&&mO.value.trim()) fields.msg_other=mO.value.trim();
   covAttachTarget=COV_PENDING.attach; COV_PENDING=null;
   if(covAttachTarget){
     const c=(DATA.coverage_cases||[]).find(x=>x.id===covAttachTarget);
