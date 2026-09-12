@@ -6538,6 +6538,15 @@ function syncOpenPanel(){
         +esc(e.kind)+(e.code?' · '+esc(String(e.code)):'')+'<br>'+esc(e.message||'')
         +'<br><span style="opacity:.7;">'+esc(String(e.at).replace('T',' ').slice(0,16))+' · '+esc(e.key||'')+'</span></div>').join('')
       :'')
+    +(function(){ try{
+        const qr=JSON.parse(localStorage.getItem('cch_sync_quarantine')||'[]');
+        if(!qr.length) return '';
+        return '<div style="font-size:13px;font-weight:700;margin-top:10px;">Quarantined (kept, not saveable as-is)</div>'
+          +qr.slice(0,3).map(q=>'<div class="field-note" style="padding:4px 0;border-bottom:1px solid var(--border);">'
+            +esc(q.key)+' · '+esc(String(q.at).replace('T',' ').slice(0,16))
+            +'<br><span style="opacity:.75;">'+esc(JSON.stringify(q.item).slice(0,160))+'</span></div>').join('')
+          +'<div class="field-note" style="margin-top:4px;">These were written by an older build without the field the database requires. The data is kept here — show this to Claude to recover anything that matters.</div>';
+      }catch(_){ return ''; } })()
     +(pend.length?'<button class="primary" style="margin-top:10px;padding:6px 12px;font-size:12.5px;" '
       +'onclick="ccPopClose();flushPendingSync();">Try again now</button>':''),
     {width:400});
@@ -6653,11 +6662,31 @@ async function flushPendingSync(){
   let lastErr=null;
   for(const pk of pendingKeys){
     const entry = pending[pk];
+    /* Repair-on-retry: entries queued by the OLD build can lack an id (the
+       exact bug the persist() guard now prevents), so the server refuses them
+       forever and the queue never shrinks. Where the id is derivable — a role
+       profile's id IS the person's email — repair it and send. Where it is
+       not, move the data to a visible quarantine instead of retrying a write
+       that can never succeed. Nothing is dropped either way. */
+    const it = entry.item || {};
+    if((!it.id || !String(it.id).trim()) && (it.person || it.email)){
+      it.id = String(it.person || it.email).toLowerCase();
+    }
+    if(!it.id || !String(it.id).trim()){
+      try{
+        const qr = JSON.parse(localStorage.getItem('cch_sync_quarantine') || '[]');
+        qr.unshift({ at:new Date().toISOString(), key:entry.key, item:it });
+        localStorage.setItem('cch_sync_quarantine', JSON.stringify(qr.slice(0,20)));
+      }catch(_){}
+      delete pending[pk]; localStorage.setItem('cch_pending_sync', JSON.stringify(pending));
+      syncRecordError(entry.key, it, 'no id and no way to derive one — moved to quarantine (data kept, see the sync panel)', 'server');
+      continue;
+    }
     try{
-      const { error } = await sb.rpc('upsert_app_data_item', { target_key: entry.key, item: entry.item });
+      const { error } = await sb.rpc('upsert_app_data_item', { target_key: entry.key, item: it });
       if(!error){ delete pending[pk]; localStorage.setItem('cch_pending_sync', JSON.stringify(pending)); }
-      else { lastErr=error; syncRecordError(entry.key, entry.item, error, syncClassify(error)); }
-    }catch(e){ lastErr=e; syncRecordError(entry.key, entry.item, e, syncClassify(e)); }
+      else { lastErr=error; syncRecordError(entry.key, it, error, syncClassify(error)); }
+    }catch(e){ lastErr=e; syncRecordError(entry.key, it, e, syncClassify(e)); }
   }
   const remaining = JSON.parse(localStorage.getItem('cch_pending_sync') || '{}');
   const left = Object.keys(remaining).length;
