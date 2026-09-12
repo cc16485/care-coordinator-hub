@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Call-Off">
+<title>Call-Off · Caring Companions</title>
+<!-- ============================================================
+     THE PHONE CALL-OFF FORM (Samantha, 2026-09-12): open a coverage
+     callout from a phone home-screen icon — no GHL, no hub navigation.
+     Same engine, same records: it writes the same coverage_cases the
+     Coverage Help board reads, and the callout engine texts the waves.
+     Sign in once with hub credentials; the session sticks.
+     ============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#FFC671; --bg:#F6F9FD; --border:#E2E8F0; --gray:#6B7280; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+        background:var(--bg); color:#1f2a36; padding:16px; padding-bottom:40px; }
+  h1{ font-size:20px; color:var(--navy); margin:6px 0 2px; }
+  .sub{ font-size:13px; color:var(--gray); margin-bottom:14px; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  label{ display:block; font-size:13px; font-weight:700; color:var(--navy); margin:10px 0 4px; }
+  select,input,textarea,button{ width:100%; font-size:16px; padding:11px 12px; border:1px solid var(--border);
+        border-radius:10px; background:#fff; }
+  textarea{ font-size:14px; }
+  button{ border:0; font-weight:800; cursor:pointer; }
+  .primary{ background:var(--teal); color:#fff; }
+  .go{ background:var(--navy); color:#fff; margin-top:10px; }
+  .ghost{ background:#fff; border:1px solid var(--border); color:var(--navy); margin-top:8px; }
+  .shift{ display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--border);
+        border-radius:10px; padding:11px 12px; margin-top:8px; font-size:14.5px; }
+  .shift b{ color:var(--navy); }
+  .note{ font-size:12.5px; color:var(--gray); margin-top:6px; }
+  .ok{ background:#E8F6EE; border:1px solid #1E8449; color:#1E8449; border-radius:10px;
+        padding:12px; font-weight:700; margin-top:10px; }
+  .err{ color:#C0392B; font-size:13.5px; margin-top:8px; font-weight:600; }
+  details{ margin-top:8px; } summary{ font-size:13px; color:var(--gray); cursor:pointer; }
+  .msg{ background:var(--bg); border-radius:8px; padding:8px 10px; font-size:13px; margin-top:6px; }
+</style>
+</head>
+<body>
+<h1>📵 Caregiver Call-Off</h1>
+<div class="sub">Opens a Coverage Help case — the callout engine texts caregivers within 5 minutes.</div>
+
+<div class="card" id="loginCard" style="display:none;">
+  <label>Hub email</label><input id="liEmail" type="email" autocomplete="username">
+  <label>Password</label><input id="liPass" type="password" autocomplete="current-password">
+  <button class="primary" style="margin-top:12px;" onclick="doLogin()">Sign in (stays signed in)</button>
+  <div class="err" id="liErr"></div>
+</div>
+
+<div id="app" style="display:none;">
+  <div class="card">
+    <label>Who's calling off?</label>
+    <select id="who" onchange="loadShifts()"><option value="">Loading caregivers…</option></select>
+    <div id="shifts"></div>
+  </div>
+  <div class="card" id="confirmCard" style="display:none;">
+    <div id="confirmHead" style="font-weight:800;color:var(--navy);font-size:15px;"></div>
+    <label>Care note for caregivers who don't know this client <span style="font-weight:400;color:var(--gray);">(one line; those who work with them get a short text without it)</span></label>
+    <textarea id="careNote" rows="2" placeholder="e.g. Mostly independent; needs transfer assistance and meal prep."></textarea>
+    <details><summary>See the texts that will go out</summary>
+      <div class="msg" id="msg1"></div><div class="msg" id="msgO"></div>
+      <div class="note">{first_name}, {where} and {care} fill in automatically per text.</div>
+    </details>
+    <button class="go" onclick="openCase()">Open case &amp; start texting</button>
+    <button class="ghost" onclick="backToShifts()">← Different shift</button>
+    <div class="err" id="goErr"></div>
+  </div>
+  <div id="done"></div>
+</div>
+
+<script>
+const SUPA_URL='https://zngsgedlsxinbygwmxwn.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const sb=window.supabase.createClient(SUPA_URL,ANON);
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let SHIFTS=[],PICK=null,ME_TOKEN='';
+
+async function boot(){
+  const { data:{ session } }=await sb.auth.getSession();
+  if(!session){ $('loginCard').style.display='block'; return; }
+  ME_TOKEN=session.access_token;
+  $('loginCard').style.display='none'; $('app').style.display='block';
+  fillWho();
+}
+async function doLogin(){
+  $('liErr').textContent='';
+  const { error }=await sb.auth.signInWithPassword({ email:$('liEmail').value.trim(), password:$('liPass').value });
+  if(error){ $('liErr').textContent=error.message; return; }
+  boot();
+}
+async function fn(body){
+  const { data:{ session } }=await sb.auth.getSession();
+  const r=await fetch(SUPA_URL+'/functions/v1/coverage-shifts',{ method:'POST',
+    headers:{ 'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json' },
+    body:JSON.stringify(body)});
+  return r.json().catch(()=>({}));
+}
+async function fillWho(){
+  const out=await fn({ list_caregivers:true });
+  const sel=$('who');
+  if(!Array.isArray(out.caregivers)||!out.caregivers.length){
+    sel.innerHTML='<option value="">Could not load caregivers — tell Claude: '+esc(String(out.error||'empty'))+'</option>'; return;
+  }
+  sel.innerHTML='<option value="">Pick the caregiver…</option>'
+    +out.caregivers.map(g=>'<option value="'+esc(g.id)+'" data-name="'+esc(g.name)+'">'+esc(g.name)+'</option>').join('');
+}
+async function loadShifts(){
+  PICK=null; $('confirmCard').style.display='none'; $('done').innerHTML='';
+  const sel=$('who'); if(!sel.value){ $('shifts').innerHTML=''; return; }
+  $('shifts').innerHTML='<div class="note">loading their shifts…</div>';
+  const out=await fn({ caregiver_axiscare_id: sel.value });
+  SHIFTS=out.shifts||[];
+  $('shifts').innerHTML=SHIFTS.length? SHIFTS.map((s,i)=>
+    '<button class="shift" onclick="pick('+i+')"><b>'+esc(s.client)+'</b><br>'
+    +esc(s.date)+' · '+esc(s.time||'')+'</button>').join('')
+    :'<div class="note">'+(out.error?'Error: '+esc(String(out.error)):'No upcoming shifts in the next 14 days.')+'</div>';
+}
+async function pick(i){
+  PICK=SHIFTS[i]; if(!PICK) return;
+  const sel=$('who');
+  PICK.caller=(sel.options[sel.selectedIndex].dataset||{}).name||'';
+  PICK.caller_id=sel.value;
+  $('shifts').innerHTML='';
+  $('confirmCard').style.display='block';
+  $('confirmHead').textContent=PICK.caller+' is calling off: '+PICK.client+' · '+PICK.date+' '+(PICK.time||'');
+  // Prefill the remembered care note for this client.
+  $('careNote').value='';
+  try{
+    const { data }=await sb.from('app_data').select('data').eq('key','client_care_blurbs').maybeSingle();
+    const b=(Array.isArray(data&&data.data)?data.data:[]).find(x=>String(x.id)===String(PICK.client_axiscare_id||''));
+    if(b&&b.blurb) $('careNote').value=b.blurb;
+  }catch(e){}
+  const who=String(PICK.client).split(/\s+/);
+  const cs=who.length>1?who[0]+' '+who[who.length-1][0]+'.':who[0];
+  const today=new Date().toLocaleDateString('en-CA');
+  const rel=PICK.date===today?'today':PICK.date;
+  const when=[rel,PICK.time].filter(Boolean).join(' ');
+  $('msg1').innerHTML='<b>Works with '+esc(who[0])+':</b> Hi {first_name}, can you cover '+esc(cs)+' '+esc(when)+'? It\'s Caring Companions — reply YES or NO.';
+  $('msgO').innerHTML='<b>Everyone else:</b> Hi {first_name}, it\'s Caring Companions. Last-minute fill-in{where}: '+esc(when)+'. {care}Can you take it? Reply YES or NO — questions welcome.';
+}
+function backToShifts(){ $('confirmCard').style.display='none'; loadShifts(); }
+function uid(){ return 'cph_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+async function openCase(){
+  if(!PICK) return; $('goErr').textContent='';
+  const care=$('careNote').value.trim();
+  const c={ id:uid(), client:PICK.client, client_axiscare_id:PICK.client_axiscare_id,
+    axiscare_visit_id:PICK.visit_id, shift_date:PICK.date, shift_time:PICK.time,
+    calling_off:PICK.caller, calling_off_id:PICK.caller_id,
+    care_note:care, reason:'calloff', note:PICK.caller+' called off (opened from the phone form).',
+    status:'open', asked:[], opened_at:new Date().toISOString(),
+    opened_by:'phone-form', resolved_at:null, resolved_how:null, covered_by:null };
+  const { error }=await sb.rpc('upsert_app_data_item',{ target_key:'coverage_cases', item:c });
+  if(error){ $('goErr').textContent='Could not open the case: '+error.message; return; }
+  if(care&&PICK.client_axiscare_id){
+    sb.rpc('upsert_app_data_item',{ target_key:'client_care_blurbs',
+      item:{ id:String(PICK.client_axiscare_id), blurb:care, updated_at:new Date().toISOString() } });
+  }
+  $('confirmCard').style.display='none'; $('who').value=''; $('shifts').innerHTML='';
+  $('done').innerHTML='<div class="ok">✅ Case opened for '+esc(PICK.client)+'. The first texts go out within 5 minutes. Replies land on the Coverage Help board.</div>';
+  PICK=null;
+}
+boot();
+</script>
+</body>
+</html>

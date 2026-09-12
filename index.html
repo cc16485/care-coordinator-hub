@@ -6290,7 +6290,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { caregivers: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
+let DATA = { caregivers: [], client_care_blurbs: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -6410,7 +6410,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
+  const keys = ['caregivers','client_care_blurbs','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -23785,7 +23785,9 @@ function covPickShift(i){
     +'<textarea id="covMsg1" rows="3" style="width:100%;font-size:13px;margin-top:2px;">'+esc(m.tier1)+'</textarea>'
     +'<div class="field-note" style="margin-top:6px;">To everyone else:</div>'
     +'<textarea id="covMsgO" rows="3" style="width:100%;font-size:13px;margin-top:2px;">'+esc(m.other)+'</textarea>'
-    +'<div class="field-note" style="margin-top:4px;">Keep <b>{first_name}</b> and <b>{where}</b> exactly as written — first_name becomes each caregiver\'s own name, and where becomes " in [the client\'s city]" when the texts send. This edit is for THIS callout only; to change the wording for every future callout, tell Claude.</div>'
+    +'<div class="field-note" style="margin-top:6px;">One-line care note about '+esc(s.client.split(/\s+/)[0])+' for caregivers who <b>don\'t</b> know them (fills the <b>{care}</b> spot in the everyone-else text; caregivers who work with them never get it — they don\'t need a synopsis). Remembered for next time:</div>'
+    +'<textarea id="covMsgCare" rows="2" style="width:100%;font-size:13px;margin-top:2px;" placeholder="e.g. Mostly independent female client; needs transfer assistance and meal prep.">'+esc((function(){ const b=(DATA.client_care_blurbs||[]).find(x=>String(x.id)===String(s.client_axiscare_id||'')); return (b&&b.blurb)||''; })())+'</textarea>'
+    +'<div class="field-note" style="margin-top:4px;">Keep <b>{first_name}</b>, <b>{where}</b> and <b>{care}</b> exactly as written — they become each caregiver\'s name, the client\'s city, and the care note when the texts send. These edits are for THIS callout only; to change the wording for every future callout, tell Claude.</div>'
     +'<div style="margin-top:10px;display:flex;gap:8px;">'
     +'<button class="addlead" onclick="covConfirmOpen()">'+(covAttachTarget?'Attach shift & start texting':'Open case & start texting')+'</button>'
     +'<button class="ghost" onclick="covLoadCallerShifts()">← Back</button>'
@@ -23797,9 +23799,19 @@ async function covConfirmOpen(){
   /* The edited wording rides on the case; the engine prefers it over the
      agency template. Values like {client}/{when} are already baked into the
      text shown, so storing it verbatim is exactly what will send. */
-  const m1=document.getElementById('covMsg1'), mO=document.getElementById('covMsgO');
+  const m1=document.getElementById('covMsg1'), mO=document.getElementById('covMsgO'),
+        mC=document.getElementById('covMsgCare');
   if(m1&&m1.value.trim()) fields.msg_tier1=m1.value.trim();
   if(mO&&mO.value.trim()) fields.msg_other=mO.value.trim();
+  if(mC){ fields.care_note=mC.value.trim();
+    /* Remembered per client, so the next call-off for them prefills. */
+    if(fields.care_note&&fields.client_axiscare_id){
+      const blurb={ id:String(fields.client_axiscare_id), blurb:fields.care_note,
+        updated_at:new Date().toISOString() };
+      DATA.client_care_blurbs=(DATA.client_care_blurbs||[]).filter(x=>String(x.id)!==blurb.id).concat([blurb]);
+      persist('client_care_blurbs', blurb);
+    }
+  }
   covAttachTarget=COV_PENDING.attach; COV_PENDING=null;
   if(covAttachTarget){
     const c=(DATA.coverage_cases||[]).find(x=>x.id===covAttachTarget);
