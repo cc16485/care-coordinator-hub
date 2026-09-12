@@ -23787,11 +23787,30 @@ function covPickShift(i){
     +'<textarea id="covMsgO" rows="3" style="width:100%;font-size:13px;margin-top:2px;">'+esc(m.other)+'</textarea>'
     +'<div class="field-note" style="margin-top:6px;">One-line care note about '+esc(s.client.split(/\s+/)[0])+' for caregivers who <b>don\'t</b> know them (fills the <b>{care}</b> spot in the everyone-else text; caregivers who work with them never get it — they don\'t need a synopsis). Remembered for next time:</div>'
     +'<textarea id="covMsgCare" rows="2" style="width:100%;font-size:13px;margin-top:2px;" placeholder="e.g. Mostly independent female client; needs transfer assistance and meal prep.">'+esc((function(){ const b=(DATA.client_care_blurbs||[]).find(x=>String(x.id)===String(s.client_axiscare_id||'')); return (b&&b.blurb)||''; })())+'</textarea>'
+    +'<div class="field-note" id="covCareSrc" style="margin-top:2px;"></div>'
     +'<div class="field-note" style="margin-top:4px;">Keep <b>{first_name}</b>, <b>{where}</b> and <b>{care}</b> exactly as written — they become each caregiver\'s name, the client\'s city, and the care note when the texts send. These edits are for THIS callout only; to change the wording for every future callout, tell Claude.</div>'
     +'<div style="margin-top:10px;display:flex;gap:8px;">'
     +'<button class="addlead" onclick="covConfirmOpen()">'+(covAttachTarget?'Attach shift & start texting':'Open case & start texting')+'</button>'
     +'<button class="ghost" onclick="covLoadCallerShifts()">← Back</button>'
     +'</div></div>';
+  /* Prefill the care note from the client's AxisCare profile note (the Open
+     Visit Note) when nothing was typed for them before — trim before
+     sending; 500 profile characters is a 4-part text. */
+  if(s.client_axiscare_id){
+    (async()=>{ try{
+      const { data:{ session } } = await sb.auth.getSession(); if(!session) return;
+      const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-shifts`,{
+        method:'POST',
+        headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+        body:JSON.stringify({ client_lookup:s.client_axiscare_id })});
+      const out=await r.json().catch(()=>({}));
+      const ta=document.getElementById('covMsgCare'), srcEl=document.getElementById('covCareSrc');
+      if(ta&&!ta.value.trim()&&out.priority_note){
+        ta.value=String(out.priority_note).slice(0,220);
+        if(srcEl) srcEl.textContent='Prefilled from the client\'s AxisCare profile note — trim it down for a text.';
+      }
+    }catch(e){} })();
+  }
 }
 async function covConfirmOpen(){
   if(!COV_PENDING) return;

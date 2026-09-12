@@ -130,13 +130,20 @@ async function pick(i){
   $('shifts').innerHTML='';
   $('confirmCard').style.display='block';
   $('confirmHead').textContent=PICK.caller+' is calling off: '+PICK.client+' · '+PICK.date+' '+(PICK.time||'');
-  // Prefill the remembered care note for this client.
+  // Prefill the care note: previously typed blurb first, else the client's
+  // AxisCare profile note (Open Visit Note), trimmed to text length.
   $('careNote').value='';
   try{
     const { data }=await sb.from('app_data').select('data').eq('key','client_care_blurbs').maybeSingle();
     const b=(Array.isArray(data&&data.data)?data.data:[]).find(x=>String(x.id)===String(PICK.client_axiscare_id||''));
     if(b&&b.blurb) $('careNote').value=b.blurb;
   }catch(e){}
+  if(!$('careNote').value && PICK.client_axiscare_id){
+    try{
+      const out=await fn({ client_lookup:PICK.client_axiscare_id });
+      if(out&&out.priority_note) $('careNote').value=String(out.priority_note).slice(0,220);
+    }catch(e){}
+  }
   const who=String(PICK.client).split(/\s+/);
   const cs=who.length>1?who[0]+' '+who[who.length-1][0]+'.':who[0];
   const today=new Date().toLocaleDateString('en-CA');
