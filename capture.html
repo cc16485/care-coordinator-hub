@@ -47,7 +47,45 @@
 </div>
 
 <div id="app" style="display:none;">
-  <div class="card">
+  <div class="card" style="padding:10px 12px;">
+    <div style="display:flex;gap:8px;">
+      <button id="mLead" class="primary" style="flex:1;" onclick="setMode('lead')">💛 Lead call</button>
+      <button id="mNote" style="flex:1;background:#fff;border:1px solid var(--border);color:var(--navy);" onclick="setMode('note')">📝 Pass-along</button>
+    </div>
+    <div class="note" id="modeHint" style="text-align:center;">A potential new client called.</div>
+  </div>
+
+  <!-- PASS-ALONG: any info, question, or follow-up that must reach the team
+       — the 7pm caregiver question answered at a football game. -->
+  <div class="card" id="noteCard" style="display:none;">
+    <div class="row">
+      <div><label>Who or what is it about?</label><input id="nAbout" placeholder="e.g. Lacey Williams / client Steve / payroll"></div>
+    </div>
+    <label>The note <span style="font-weight:400;color:var(--gray);">(what happened, what was said, what needs doing)</span></label>
+    <textarea id="nNotes" rows="4" placeholder="e.g. Lacey called at 7pm asking about holiday pay for Labor Day. I told her I'd have the office confirm Monday. Someone confirm and text her."></textarea>
+    <div class="row">
+      <div>
+        <label>Who follows up</label>
+        <select id="nOwner">
+          <option value="krystal@mo-care.com">Krystal</option>
+          <option value="samantha@mo-care.com">Samantha</option>
+          <option value="">Morning triage (whole team sees it)</option>
+        </select>
+      </div>
+      <div>
+        <label>By when</label>
+        <input id="nDue" type="date">
+      </div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:14px;margin-top:8px;">
+      <input type="checkbox" id="nUrgent" style="width:auto;"> Urgent (needs action within hours, not days)
+    </label>
+    <button class="go" onclick="bankNote()">Pass it along</button>
+    <div class="err" id="nErr"></div>
+    <div id="nDone"></div>
+  </div>
+
+  <div class="card" id="leadCard">
     <div class="row">
       <div><label>Caller name</label><input id="cName" placeholder="Jane Smith"></div>
       <div><label>Phone</label><input id="cPhone" type="tel" inputmode="tel" placeholder="417-555-1234"></div>
@@ -109,6 +147,43 @@ async function doLogin(){
   boot();
 }
 const uid=p=>p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+function setMode(m){
+  const lead=m==='lead';
+  $('leadCard').style.display=lead?'block':'none';
+  $('noteCard').style.display=lead?'none':'block';
+  $('mLead').className=lead?'primary':''; $('mLead').style.cssText='flex:1;'+(lead?'':'background:#fff;border:1px solid var(--border);color:var(--navy);');
+  $('mNote').className=lead?'':'primary'; $('mNote').style.cssText='flex:1;'+(lead?'background:#fff;border:1px solid var(--border);color:var(--navy);':'');
+  $('modeHint').textContent=lead?'A potential new client called.':'Anything the team must know or do — a question, info, a promise you made.';
+  if(!lead&&!$('nDue').value) $('nDue').value=$('cDue').value;
+}
+let NBANKING=false;
+async function bankNote(){
+  if(NBANKING) return; NBANKING=true;
+  $('nErr').textContent=''; $('nDone').innerHTML='';
+  try{
+    const about=$('nAbout').value.trim(), notes=$('nNotes').value.trim(),
+          owner=$('nOwner').value, due=$('nDue').value, urgent=$('nUrgent').checked;
+    if(!notes){ $('nErr').textContent='Write the note — future-team will thank you.'; return; }
+    const { data:{ session } }=await sb.auth.getSession();
+    if(!session){ $('app').style.display='none'; $('loginCard').style.display='block'; return; }
+    const by=(session.user&&session.user.email)||'quick capture';
+    const nowIso=new Date().toISOString();
+    const item={
+      id:uid('ops_note'), kind:'request',
+      title:'Pass-along — '+(about||notes.slice(0,40)),
+      about:about||'',
+      detail:notes+' (Passed along via the quick form by '+by+'.)',
+      domain:'', status:'open', urgency:urgent?'high':'normal',
+      owner, owner_name: owner?owner.split('@')[0]:'',
+      due:(due||nowIso.slice(0,10))+'T09:00:00',
+      created_at: nowIso, created_by: by, opened_by:'quick-capture',
+    };
+    const r=await sb.rpc('upsert_app_data_item',{ target_key:'ops_items', item });
+    if(r.error){ $('nErr').textContent='Could not save: '+r.error.message; return; }
+    $('nDone').innerHTML='<div class="ok">✅ Passed along. '+(owner?esc(owner.split('@')[0])+' owns it':'It lands in morning triage')+', due '+esc(due||'today')+'. Enjoy the game.</div>';
+    ['nAbout','nNotes'].forEach(i=>$(i).value=''); $('nUrgent').checked=false;
+  } finally { NBANKING=false; }
+}
 let BANKING=false;
 async function bank(){
   if(BANKING) return; BANKING=true;
