@@ -96,11 +96,15 @@ async function doLogin(){
   boot();
 }
 async function fn(body){
-  const { data:{ session } }=await sb.auth.getSession();
-  const r=await fetch(SUPA_URL+'/functions/v1/coverage-shifts',{ method:'POST',
-    headers:{ 'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json' },
-    body:JSON.stringify(body)});
-  return r.json().catch(()=>({}));
+  try{
+    const { data:{ session } }=await sb.auth.getSession();
+    if(!session){ $('app').style.display='none'; $('loginCard').style.display='block';
+      return { error:'signed out — sign in again above' }; }
+    const r=await fetch(SUPA_URL+'/functions/v1/coverage-shifts',{ method:'POST',
+      headers:{ 'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json' },
+      body:JSON.stringify(body)});
+    return await r.json().catch(()=>({ error:'unreadable answer from the server' }));
+  }catch(e){ return { error:'network problem — try again: '+String(e) }; }
 }
 async function fillWho(){
   const out=await fn({ list_caregivers:true });
@@ -139,9 +143,11 @@ async function pick(i){
     if(b&&b.blurb) $('careNote').value=b.blurb;
   }catch(e){}
   if(!$('careNote').value && PICK.client_axiscare_id){
+    const myPickRef=PICK;
     try{
       const out=await fn({ client_lookup:PICK.client_axiscare_id });
-      if(out&&out.priority_note){
+      /* A late response must not overwrite typing or fill a different pick. */
+      if(PICK===myPickRef && !$('careNote').value.trim() && out && out.priority_note){
         $('careNote').value=String(out.priority_note).slice(0,220);
         $('goErr').textContent='⚠ Care note prefilled from an AxisCare note. Read it and strip door codes, entry details, and anything private before opening.';
       }
@@ -149,32 +155,45 @@ async function pick(i){
   }
   const who=String(PICK.client).split(/\s+/);
   const cs=who[0];   // first name only
-  const today=new Date().toLocaleDateString('en-CA');
+  const today=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10);
   const rel=PICK.date===today?'today':PICK.date;
   const when=[rel,PICK.time].filter(Boolean).join(' ');
-  $('msg1').innerHTML='<b>Works with '+esc(who[0])+':</b> Hi {first_name}, can you cover '+esc(cs)+' '+esc(when)+'? It\'s Caring Companions. Reply YES or NO.';
-  $('msgO').innerHTML='<b>Everyone else:</b> Hi {first_name}, it\'s Caring Companions. '+(PICK.date===today?'Last-minute fill-in':'We have an open shift')+' at {address}: '+esc(when)+'. {care}Can you take it? Reply YES or NO. Questions welcome.';
+  // Show the AGENCY'S saved wording (Settings > Callout texts), not stale
+  // factory defaults — the preview must match what actually sends.
+  let ST={};
+  try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle();
+       ST=(data&&data.data)||{}; }catch(e){}
+  const t1=String(ST.coverage_msg_tier1||'')||"Hi {first_name}, can you cover {client} {when}? It's Caring Companions. Reply YES or NO.";
+  const tO=(PICK.date===today
+    ?(String(ST.coverage_msg_other_sameday||'')||String(ST.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. Last-minute fill-in at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome.")
+    :(String(ST.coverage_msg_other_advance||'')||String(ST.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. We have an open shift at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome."));
+  const show=t=>esc(t.replaceAll('{client}',cs).replaceAll('{when}',when));
+  $('msg1').innerHTML='<b>Works with '+esc(who[0])+':</b> '+show(t1);
+  $('msgO').innerHTML='<b>Everyone else:</b> '+show(tO);
 }
 function backToShifts(){ $('confirmCard').style.display='none'; loadShifts(); }
 function uid(){ return 'cph_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+let OPENING=false;
 async function openCase(){
-  if(!PICK) return; $('goErr').textContent='';
+  if(!PICK||OPENING) return; OPENING=true;   // a double-tap must not open two callouts
+  const myPick=PICK; PICK=null;
+  $('goErr').textContent='';
   const care=$('careNote').value.trim();
-  const c={ id:uid(), client:PICK.client, client_axiscare_id:PICK.client_axiscare_id,
-    axiscare_visit_id:PICK.visit_id, shift_date:PICK.date, shift_time:PICK.time,
-    calling_off:PICK.caller, calling_off_id:PICK.caller_id,
-    care_note:care, reason:'calloff', note:PICK.caller+' called off (opened from the phone form).',
+  const c={ id:uid(), client:myPick.client, client_axiscare_id:myPick.client_axiscare_id,
+    axiscare_visit_id:myPick.visit_id, shift_date:myPick.date, shift_time:myPick.time,
+    calling_off:myPick.caller, calling_off_id:myPick.caller_id,
+    care_note:care, reason:'calloff', note:myPick.caller+' called off (opened from the phone form).',
     status:'open', asked:[], opened_at:new Date().toISOString(),
     opened_by:'phone-form', resolved_at:null, resolved_how:null, covered_by:null };
   const { error }=await sb.rpc('upsert_app_data_item',{ target_key:'coverage_cases', item:c });
-  if(error){ $('goErr').textContent='Could not open the case: '+error.message; return; }
-  if(care&&PICK.client_axiscare_id){
+  if(error){ $('goErr').textContent='Could not open the case: '+error.message; PICK=myPick; OPENING=false; return; }
+  if(care&&myPick.client_axiscare_id){
     sb.rpc('upsert_app_data_item',{ target_key:'client_care_blurbs',
-      item:{ id:String(PICK.client_axiscare_id), blurb:care, updated_at:new Date().toISOString() } });
+      item:{ id:String(myPick.client_axiscare_id), blurb:care, updated_at:new Date().toISOString() } });
   }
   $('confirmCard').style.display='none'; $('who').value=''; $('shifts').innerHTML='';
-  $('done').innerHTML='<div class="ok">✅ Case opened for '+esc(PICK.client)+'. The first texts go out within 5 minutes. Replies land on the Coverage Help board.</div>';
-  PICK=null;
+  $('done').innerHTML='<div class="ok">✅ Case opened for '+esc(myPick.client)+'. The first texts go out within 5 minutes. Replies land on the Coverage Help board.</div>';
+  OPENING=false;
 }
 boot();
 </script>

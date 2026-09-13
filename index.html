@@ -6698,17 +6698,24 @@ async function flushPendingSync(){
        not, move the data to a visible quarantine instead of retrying a write
        that can never succeed. Nothing is dropped either way. */
     const it = entry.item || {};
-    if((!it.id || !String(it.id).trim()) && (it.person || it.email)){
+    /* Repair only role_profiles (their id IS the person's email). Rewriting
+       ids on other collections from an email field would mint duplicates
+       (review finding). */
+    if(entry.key==='role_profiles' && (!it.id || !String(it.id).trim()) && (it.person || it.email)){
       it.id = String(it.person || it.email).toLowerCase();
     }
     if(!it.id || !String(it.id).trim()){
+      let quarantined=false;
       try{
         const qr = JSON.parse(localStorage.getItem('cch_sync_quarantine') || '[]');
         qr.unshift({ at:new Date().toISOString(), key:entry.key, item:it });
         localStorage.setItem('cch_sync_quarantine', JSON.stringify(qr.slice(0,20)));
+        quarantined=true;
       }catch(_){}
-      delete pending[pk]; localStorage.setItem('cch_pending_sync', JSON.stringify(pending));
-      syncRecordError(entry.key, it, 'no id and no way to derive one — moved to quarantine (data kept, see the sync panel)', 'server');
+      /* Only leave the pending queue once the quarantine copy EXISTS —
+         otherwise the data would be dropped while the panel says kept. */
+      if(quarantined){ delete pending[pk]; localStorage.setItem('cch_pending_sync', JSON.stringify(pending)); }
+      syncRecordError(entry.key, it, quarantined?'no id and no way to derive one — moved to quarantine (data kept, see the sync panel)':'no id — quarantine write failed, left in the queue', 'server');
       continue;
     }
     try{
@@ -11149,16 +11156,22 @@ async function covMsgsSave(btn){
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
     set_cov_covered:'coverage_msg_covered' };
-  const merged=Object.assign({}, DATA.ops_settings||{});
+  if(btn) btn.disabled=true;
+  /* Merge against the CURRENT server object, not the page-load copy — the
+     engine and other tabs write flags into ops_settings too, and a stale
+     whole-object write would erase them (review finding). */
+  let base={};
+  try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle();
+       base=(data&&data.data)||{}; }catch(e){}
+  const merged=Object.assign({}, base);
   for(const [el,k] of Object.entries(map)){
     const n=document.getElementById(el); if(!n) continue;
     const v=n.value.trim(); if(v) merged[k]=v; else delete merged[k];
   }
-  if(btn) btn.disabled=true;
   const { error }=await sb.from('app_data').upsert({ key:'ops_settings', data:merged,
     updated_at:new Date().toISOString() }, { onConflict:'key' });
   if(btn) btn.disabled=false;
-  DATA.ops_settings=merged;
+  if(!error) DATA.ops_settings=merged;
   const s=document.getElementById('covMsgsSaved');
   if(s) s.textContent=error?('Could not save: '+error.message):'Saved. Every callout from now on uses these words.';
 }
@@ -23726,6 +23739,9 @@ function covToggleAdd(attachCaseId){
   const w=document.getElementById('covAddWrap');
   const opening = w.style.display==='none' || attachCaseId;
   covAttachTarget = attachCaseId || null;
+  COV_PENDING=null;
+  const box=document.getElementById('covWhoShifts'); if(box) box.innerHTML='';
+  const selWho=document.getElementById('covWho'); if(selWho) selWho.value='';
   const note=document.getElementById('covAttachNote');
   if(note){
     note.style.display=covAttachTarget?'block':'none';
@@ -23801,7 +23817,7 @@ function covComposeMsgs(f,opts){
   const st=(DATA.ops_settings||{});
   const who=String(f.client||'a client').split(/\s+/);
   const clientShort=who[0];   // first name only (her call)
-  const today=new Date().toLocaleDateString('en-CA');
+  const today=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10); // agency clock, not the browser's
   const rel=!f.shift_date?'':(f.shift_date===today?'today'
     :(new Date(f.shift_date+'T12:00:00')-new Date(today+'T12:00:00')===86400000)?'tomorrow'
     :new Date(f.shift_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}));
@@ -23832,8 +23848,8 @@ function covPickShift(i){
   const fields={ client:s.client, client_axiscare_id:s.client_axiscare_id,
     axiscare_visit_id:s.visit_id, shift_date:s.date, shift_time:s.time,
     calling_off:callerName||'', calling_off_id:sel.value||'' };
-  COV_PENDING={ fields, attach:covAttachTarget };
   const m=covComposeMsgs(fields,{raw:true});
+  COV_PENDING={ fields, attach:covAttachTarget, composed:m };
   const box=document.getElementById('covWhoShifts');
   box.innerHTML='<div class="card" style="padding:14px 16px;border-left:4px solid var(--teal);">'
     +'<b style="color:var(--navy);">'+esc(callerName)+' is calling off: '+esc(s.client)+' · '+esc(s.date)+' '+esc(s.time||'')+'</b>'
@@ -23854,13 +23870,17 @@ function covPickShift(i){
      Visit Note) when nothing was typed for them before — trim before
      sending; 500 profile characters is a 4-part text. */
   if(s.client_axiscare_id){
+    const myClient=String(s.client_axiscare_id);
     (async()=>{ try{
       const { data:{ session } } = await sb.auth.getSession(); if(!session) return;
       const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-shifts`,{
         method:'POST',
         headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
-        body:JSON.stringify({ client_lookup:s.client_axiscare_id })});
+        body:JSON.stringify({ client_lookup:myClient })});
       const out=await r.json().catch(()=>({}));
+      /* A late response must not fill a DIFFERENT pick's card, and must
+         never overwrite text a human typed or cleaned (review finding). */
+      if(!COV_PENDING||String((COV_PENDING.fields||{}).client_axiscare_id||'')!==myClient) return;
       const ta=document.getElementById('covMsgCare'), srcEl=document.getElementById('covCareSrc');
       if(ta&&!ta.value.trim()&&out.priority_note){
         ta.value=String(out.priority_note).slice(0,220);
@@ -23877,8 +23897,12 @@ async function covConfirmOpen(){
      text shown, so storing it verbatim is exactly what will send. */
   const m1=document.getElementById('covMsg1'), mO=document.getElementById('covMsgO'),
         mC=document.getElementById('covMsgCare');
-  if(m1&&m1.value.trim()) fields.msg_tier1=m1.value.trim();
-  if(mO&&mO.value.trim()) fields.msg_other=mO.value.trim();
+  /* Only an EDIT rides on the case. Storing the unedited prefill froze the
+     wording at open time — "today"/"last-minute" baked into a case that
+     sends tomorrow, and Settings changes ignored (review finding). */
+  const composed=(COV_PENDING&&COV_PENDING.composed)||{};
+  if(m1&&m1.value.trim()&&m1.value.trim()!==String(composed.tier1||'').trim()) fields.msg_tier1=m1.value.trim();
+  if(mO&&mO.value.trim()&&mO.value.trim()!==String(composed.other||'').trim()) fields.msg_other=mO.value.trim();
   if(mC){ fields.care_note=mC.value.trim();
     /* Remembered per client, so the next call-off for them prefills. */
     if(fields.care_note&&fields.client_axiscare_id){
@@ -23919,6 +23943,7 @@ function covAgo(iso){
   if(h<24) return h+'h '+(m%60)+'m'; return Math.floor(h/24)+'d '+(h%24)+'h';
 }
 async function covAdd(){
+  if(covAttachTarget){ alert('You are attaching a shift to an existing case — pick the caregiver and their shift above, or close and reopen the panel to start a new case.'); return; }
   const client=document.getElementById('covClient').value.trim();
   if(!client){ alert('Whose shift is it?'); return; }
   const c={ id:uid(), client,
@@ -23953,7 +23978,9 @@ async function covAskState(cid,aid,state){
   /* Correcting a wrong YES un-freezes the callout: clear the pending fill
      and close the "confirm & assign" prompt it created. Waves resume on the
      engine's next tick. */
-  if(wasYes&&state!=='yes'&&c.pending_fill&&String(c.pending_fill.name).toLowerCase()===String(a.name).toLowerCase()){
+  const pfName=c.pending_fill?String(c.pending_fill.name||''):'';
+  const onlyYes=(c.asked||[]).filter(x=>x.state==='yes').length<=1;
+  if(wasYes&&state!=='yes'&&c.pending_fill&&(pfName.toLowerCase().replace(/\s+/g,' ').trim()===String(a.name||'').toLowerCase().replace(/\s+/g,' ').trim()||!pfName||onlyYes)){
     delete c.pending_fill;
     const it=(DATA.ops_items||[]).find(x=>x.id==='ops_covfill_'+c.id);
     if(it&&it.status==='open'){ it.status='done'; it.closed_at=new Date().toISOString();
@@ -23987,16 +24014,26 @@ async function covResolve(id,how,byName){
           body: JSON.stringify({ case_id:id })});
         const out=await r.json().catch(()=>({}));
         /* The function stamped the case server-side; mirror it locally so the
-           board updates without a reload. */
-        if(out&&out.status){ c.axiscare_assignment={ status:out.status, detail:out.detail||'', at:new Date().toISOString() }; }
+           board updates without a reload. If the service could not be reached
+           or answered nothing, say so on the card — a silent skip here is a
+           false "covered" (review finding). */
+        c.axiscare_assignment=(out&&out.status)
+          ? { status:out.status, detail:out.detail||'', at:new Date().toISOString() }
+          : { status:'unknown', detail:'the assign service gave no answer — verify the schedule in AxisCare by hand', at:new Date().toISOString() };
+      } else {
+        c.axiscare_assignment={ status:'unknown', detail:'not signed in — the AxisCare assignment was NOT attempted; do it by hand', at:new Date().toISOString() };
       }
-    }catch(e){ console.warn('coverage-assign call failed', e); }
+    }catch(e){ console.warn('coverage-assign call failed', e);
+      c.axiscare_assignment={ status:'unknown', detail:'could not reach the assign service — verify the schedule in AxisCare by hand', at:new Date().toISOString() }; }
+    await persist('coverage_cases',c);
     renderCoverage();
   }
 }
 async function covReopen(id){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
   c.status='open'; c.resolved_how=null; c.covered_by=null; c.resolved_at=null;
+  delete c.closure_notified; delete c.pending_fill; delete c.axiscare_assignment;
+  (c.asked||[]).forEach(x=>{ if(x.state==='closed_notified') x.state='no_answer_final'; if(x.confirm_sent) delete x.confirm_sent; });
   await persist('coverage_cases',c); renderCoverage();
 }
 function covSummary(c){
@@ -24044,13 +24081,13 @@ function renderCoverage(){
     const askRows=askedSorted.map(a=>{
       const [lbl,col]=COV_STATE_UI[a.state]||COV_STATE_UI.waiting;
       const acts=(open&&a.state==='waiting')
-        ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'yes\')">yes</button>'
-          +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'no\')">no</button>'
-          +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'noanswer\')">no answer</button>'
+        ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'yes\')">yes</button>'
+          +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'no\')">no</button>'
+          +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'noanswer\')">no answer</button>'
         : (open&&a.state==='yes')
-        ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;color:#C0392B;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'no\')">not a yes, mark no</button>'
+        ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;color:#C0392B;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'no\')">not a yes, mark no</button>'
         : '';
-      const how=a.auto?('🤖 auto text'+(a.tier?' · tier '+a.tier:'')):esc(a.channel);
+      const how=a.auto?('🤖 auto text'+(a.tier?' · tier '+esc(String(a.tier)):'')):esc(a.channel);
       return '<div style="padding:5px 0;border-top:1px solid var(--border);font-size:13px;">'
         +'<div style="display:flex;gap:8px;align-items:center;">'
         +'<b>'+esc(a.name)+'</b><span class="field-note">'+how+' · asked '+covAgo(a.at)+' ago</span>'
@@ -24072,20 +24109,20 @@ function renderCoverage(){
         +'<b style="color:#1E8449;">✅ '+esc(c.pending_fill.name)+' can cover</b>'
         +'<span class="field-note">said yes '+covAgo(c.pending_fill.at)+' ago — confirm with them, assign the visit in AxisCare, then mark covered.</span>'
         +'<span style="flex:1;"></span>'
-        +'<button class="addlead" onclick="covResolve(\''+c.id+'\',\'covered\')">Confirmed — mark covered ✓</button>'
+        +'<button class="addlead" onclick="covResolve(\''+esc(c.id)+'\',\'covered\')">Confirmed — mark covered ✓</button>'
         +'</div>'
       : '';
     return '<div class="card" style="padding:16px 18px;margin-bottom:12px;'+(open?'border-left:4px solid #C0392B;':'')+'">'
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
       +'<b style="font-size:15.5px;color:var(--navy);">'+esc(c.client)+'</b>'
-      +'<span class="field-note">'+esc(c.shift_date||'')+' '+esc(c.shift_time||'')+' · '+(R[c.reason]||c.reason)+'</span>'
+      +'<span class="field-note">'+esc(c.shift_date||'')+' '+esc(c.shift_time||'')+' · '+esc(R[c.reason]||c.reason)+'</span>'
       +age+'<span style="flex:1;"></span>'
       +(open
-        ? (c.axiscare_visit_id?'':'<button class="ghost" style="color:#94681D;" onclick="covToggleAdd(\''+c.id+'\')">🔗 Attach the real shift</button>')
-          +'<button class="ghost" onclick="covAsk(\''+c.id+'\')">＋ I asked someone</button>'
-          +'<button class="addlead" onclick="covResolve(\''+c.id+'\',\'covered\')">Covered ✓</button>'
-          +'<button class="ghost" onclick="covResolve(\''+c.id+'\',\'uncovered\')">Close uncovered</button>'
-        : '<button class="ghost" onclick="covReopen(\''+c.id+'\')">Reopen</button>')
+        ? (c.axiscare_visit_id?'':'<button class="ghost" style="color:#94681D;" onclick="covToggleAdd(\''+esc(c.id)+'\')">🔗 Attach the real shift</button>')
+          +'<button class="ghost" onclick="covAsk(\''+esc(c.id)+'\')">＋ I asked someone</button>'
+          +'<button class="addlead" onclick="covResolve(\''+esc(c.id)+'\',\'covered\')">Covered ✓</button>'
+          +'<button class="ghost" onclick="covResolve(\''+esc(c.id)+'\',\'uncovered\')">Close uncovered</button>'
+        : '<button class="ghost" onclick="covReopen(\''+esc(c.id)+'\')">Reopen</button>')
       +'</div>'
       +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' called off'+(c.axiscare_visit_id?' — exact AxisCare shift attached; confirming a fill replaces them on it.':'')+'</div>':'')
       +(open?'<details style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
