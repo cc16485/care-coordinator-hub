@@ -105,6 +105,7 @@
         <label>Assessment booked?</label>
         <input id="cAssess" type="datetime-local">
         <div class="note">Leave empty if none was booked.</div>
+        <button id="bookBtn" style="display:none;background:var(--honey);color:#5a4300;margin-top:6px;font-size:14px;" onclick="openBooking()">📅 Book assessment now (opens your calendar, prefilled)</button>
       </div>
       <div>
         <label>Follow-up owner</label>
@@ -139,10 +140,26 @@ const sb=window.supabase.createClient(SUPA_URL,ANON);
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+let ASMT_URL='';
+function openBooking(){
+  if(!ASMT_URL) return;
+  const name=$('cName').value.trim(), phone=$('cPhone').value.trim();
+  const parts=name.split(/\s+/);
+  const u=new URL(ASMT_URL);
+  if(parts[0]) u.searchParams.set('first_name',parts[0]);
+  if(parts.length>1) u.searchParams.set('last_name',parts.slice(1).join(' '));
+  if(phone) u.searchParams.set('phone',phone);
+  window.open(u.toString(),'_blank');
+}
 async function boot(){
   const { data:{ session } }=await sb.auth.getSession();
   if(!session){ $('loginCard').style.display='block'; return; }
   $('loginCard').style.display='none'; $('app').style.display='block';
+  try{
+    const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle();
+    ASMT_URL=String((data&&data.data&&data.data.assessment_calendar_url)||'');
+    if(ASMT_URL) $('bookBtn').style.display='block';
+  }catch(e){}
   // Default follow-up: tomorrow (or Monday if tomorrow is Sunday), agency clock.
   const chi=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Chicago'}));
   chi.setDate(chi.getDate()+ (chi.getDay()===6?2:1));

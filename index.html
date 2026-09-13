@@ -3826,6 +3826,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <textarea id="set_cov_escalation" rows="2" placeholder="Coverage alert: the callout for {client} {when} ran out of caregivers to ask ({asked} asked, nobody said yes). It needs a person now. Board: cc.mo-care.com"></textarea>
 <label>Availability invite (sends 10am-5pm only, from the Hours Watch button)</label>
 <textarea id="set_cov_avail_invite" rows="2" placeholder="Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability It takes 30 seconds and you can update it anytime."></textarea>
+<label>New Client Assessment booking link (from your GHL calendar — used by the Book assessment button on Quick Capture)</label>
+<input id="set_cov_asmt_url" placeholder="https://api.leadconnectorhq.com/widget/booking/...">
 <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
 <button class="primary" onclick="covMsgsSave(this)">Save callout texts</button>
 <span class="field-note" id="covMsgsSaved"></span>
@@ -11207,7 +11209,7 @@ function covMsgsFill(){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url' };
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
 }
 async function covMsgsSave(btn){
@@ -11216,7 +11218,7 @@ async function covMsgsSave(btn){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url' };
   if(btn) btn.disabled=true;
   /* Merge against the CURRENT server object, not the page-load copy — the
      engine and other tabs write flags into ops_settings too, and a stale
