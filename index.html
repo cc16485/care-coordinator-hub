@@ -23759,12 +23759,12 @@ function covComposeMsgs(f,opts){
   // their real values are only known per-recipient / server-side, and the
   // display explainer must never be saved into an actual message.
   const fill=t=>t.replaceAll('{first_name}',raw?'{first_name}':'(their first name)')
-    .replaceAll('{client}',clientShort).replaceAll('{where}',raw?'{where}':where).replaceAll('{when}',when);
+    .replaceAll('{client}',clientShort).replaceAll('{where}',raw?'{where}':where).replaceAll('{address}',raw?'{address}':"(street & city — filled in automatically)").replaceAll('{care}',raw?'{care}':'(care note) ').replaceAll('{when}',when);
   // A case's own edited wording wins, then agency settings, then the default —
   // same order the engine applies.
   return {
     tier1: fill(String(f.msg_tier1||'')||String(st.coverage_msg_tier1||'')||"Hi {first_name}, it's Caring Companions. {client}'s shift needs coverage: {when}. Can you take it? Reply YES or NO — questions welcome."),
-    other: fill(String(f.msg_other||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. We need a last-minute fill-in{where}: {when}. Can you take it? Reply YES or NO — questions welcome."),
+    other: fill(String(f.msg_other||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. Last-minute fill-in at {address}: {when}. {care}Can you take it? Reply YES or NO — questions welcome."),
   };
 }
 let COV_PENDING=null;
@@ -23788,7 +23788,7 @@ function covPickShift(i){
     +'<div class="field-note" style="margin-top:6px;">One-line care note about '+esc(s.client.split(/\s+/)[0])+' for caregivers who <b>don\'t</b> know them (fills the <b>{care}</b> spot in the everyone-else text; caregivers who work with them never get it — they don\'t need a synopsis). Remembered for next time:</div>'
     +'<textarea id="covMsgCare" rows="2" style="width:100%;font-size:13px;margin-top:2px;" placeholder="e.g. Mostly independent female client; needs transfer assistance and meal prep.">'+esc((function(){ const b=(DATA.client_care_blurbs||[]).find(x=>String(x.id)===String(s.client_axiscare_id||'')); return (b&&b.blurb)||''; })())+'</textarea>'
     +'<div class="field-note" id="covCareSrc" style="margin-top:2px;"></div>'
-    +'<div class="field-note" style="margin-top:4px;">Keep <b>{first_name}</b>, <b>{where}</b> and <b>{care}</b> exactly as written — they become each caregiver\'s name, the client\'s city, and the care note when the texts send. These edits are for THIS callout only; to change the wording for every future callout, tell Claude.</div>'
+    +'<div class="field-note" style="margin-top:4px;">Keep <b>{first_name}</b>, <b>{address}</b>, <b>{where}</b> and <b>{care}</b> exactly as written — they become each caregiver\'s name, the client\'s city, and the care note when the texts send. These edits are for THIS callout only; to change the wording for every future callout, tell Claude.</div>'
     +'<div style="margin-top:10px;display:flex;gap:8px;">'
     +'<button class="addlead" onclick="covConfirmOpen()">'+(covAttachTarget?'Attach shift & start texting':'Open case & start texting')+'</button>'
     +'<button class="ghost" onclick="covLoadCallerShifts()">← Back</button>'
