@@ -851,10 +851,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <section class="tabpanel" id="tab-hourswatch">
       <div style="margin-bottom:12px;">
         <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Hours Watch</h2>
-        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Who wants more hours than they're getting. Caregivers set their own target and windows at <b>cc.mo-care.com/availability.html</b> (text them the link); scheduled hours come live from AxisCare. Biggest gap first — these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Who wants more hours than they're getting. Caregivers set their own target and windows at <b>cc.mo-care.com/availability</b> (text them the link); scheduled hours come live from AxisCare. Biggest gap first — these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
       </div>
       <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
         <button class="primary" style="font-size:.8rem" onclick="hwLoad(this)">↻ Refresh from AxisCare</button>
+        <button class="addlead" style="font-size:.8rem" onclick="hwInvite(this)">📨 Text the link to caregivers missing it</button>
         <span class="field-note" id="hwState"></span>
       </div>
       <div id="hwList"><div class="field-note">Open this tab and hit Refresh to load.</div></div>
@@ -3778,6 +3779,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <textarea id="set_cov_confirmed" rows="2" placeholder="You're confirmed for {client}, {when}. It's on your schedule. Thank you, {first_name}!"></textarea>
 <label>To everyone still waiting when the case is covered</label>
 <textarea id="set_cov_covered" rows="2" placeholder="Caring Companions: that shift is covered now. Thank you! No action needed."></textarea>
+<label>Availability invite (sends 10am-5pm only, from the Hours Watch button)</label>
+<textarea id="set_cov_avail_invite" rows="2" placeholder="Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability It takes 30 seconds and you can update it anytime."></textarea>
 <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
 <button class="primary" onclick="covMsgsSave(this)">Save callout texts</button>
 <span class="field-note" id="covMsgsSaved"></span>
@@ -11158,7 +11161,7 @@ function covMsgsFill(){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite' };
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
 }
 async function covMsgsSave(btn){
@@ -11167,7 +11170,7 @@ async function covMsgsSave(btn){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite' };
   if(btn) btn.disabled=true;
   /* Merge against the CURRENT server object, not the page-load copy — the
      engine and other tabs write flags into ops_settings too, and a stale
@@ -24210,10 +24213,28 @@ function hwRender(){
     +'<span class="field-note" style="flex:1;">'+esc(r.wins)+'</span>'
     +'<span class="field-note">updated '+esc(r.updated)+'</span>'
     +'</div>').join('')
-    :'<div class="card" style="padding:16px;color:var(--text-muted);font-size:13.5px;">Nobody has filled in their availability yet. Text caregivers the link: <b>cc.mo-care.com/availability.html</b></div>')
+    :'<div class="card" style="padding:16px;color:var(--text-muted);font-size:13.5px;">Nobody has filled in their availability yet. Text caregivers the link: <b>cc.mo-care.com/availability</b></div>')
     +(noAv.length?'<div class="field-note" style="margin-top:10px;">📋 No availability on file yet ('+noAv.length+'): '
       +noAv.slice(0,15).map(g=>esc((g.first||'')+' '+(g.last||''))).join(', ')+(noAv.length>15?'…':'')
       +' — send them the link.</div>':'');
+}
+
+async function hwInvite(btn){
+  const st=document.getElementById('hwState');
+  if(!confirm('Text the availability link to every active caregiver who has nothing on file (up to 20 per press, never nurses, nobody twice in 30 days)? Sends only between 10am and 5pm.')) return;
+  if(btn) btn.disabled=true; if(st) st.textContent='sending invites…';
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session){ if(st) st.textContent='sign in again'; return; }
+    const r=await fetch(`${CONFIG.supabase_url}/functions/v1/caregiver-availability`,{
+      method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+      body:JSON.stringify({ action:'invite' })});
+    const out=await r.json().catch(()=>({}));
+    if(st) st.textContent=out.held?out.message
+      :out.error?('Could not send: '+out.error)
+      :('Invited '+(out.sent||0)+(out.sent_to&&out.sent_to.length?': '+out.sent_to.join(', '):'')+(out.note?' — '+out.note:''));
+  } finally { if(btn) btn.disabled=false; }
 }
 
 /* ================================================================
