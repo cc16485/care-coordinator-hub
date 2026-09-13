@@ -3809,6 +3809,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <textarea id="set_cov_confirmed" rows="2" placeholder="You're confirmed for {client}, {when}. It's on your schedule. Thank you, {first_name}!"></textarea>
 <label>To everyone still waiting when the case is covered</label>
 <textarea id="set_cov_covered" rows="2" placeholder="Caring Companions: that shift is covered now. Thank you! No action needed."></textarea>
+<label>Escalation text to the on-call person when a callout runs out of caregivers</label>
+<textarea id="set_cov_escalation" rows="2" placeholder="Coverage alert: the callout for {client} {when} ran out of caregivers to ask ({asked} asked, nobody said yes). It needs a person now. Board: cc.mo-care.com"></textarea>
 <label>Availability invite (sends 10am-5pm only, from the Hours Watch button)</label>
 <textarea id="set_cov_avail_invite" rows="2" placeholder="Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability It takes 30 seconds and you can update it anytime."></textarea>
 <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
@@ -11191,7 +11193,7 @@ function covMsgsFill(){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation' };
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
 }
 async function covMsgsSave(btn){
@@ -11200,7 +11202,7 @@ async function covMsgsSave(btn){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation' };
   if(btn) btn.disabled=true;
   /* Merge against the CURRENT server object, not the page-load copy — the
      engine and other tabs write flags into ops_settings too, and a stale
@@ -24086,6 +24088,7 @@ async function covReopen(id){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
   c.status='open'; c.resolved_how=null; c.covered_by=null; c.resolved_at=null;
   delete c.closure_notified; delete c.pending_fill; delete c.axiscare_assignment;
+  delete c.callout_escalated_at; delete c.callout_escalation_sms;
   (c.asked||[]).forEach(x=>{ if(x.state==='closed_notified') x.state='no_answer_final'; if(x.confirm_sent) delete x.confirm_sent; });
   await persist('coverage_cases',c); renderCoverage();
 }
