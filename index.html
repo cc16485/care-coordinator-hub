@@ -4100,6 +4100,25 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-step flag"><span class="num">!</span>AxisCare custom fields aren't finalized yet — see the <code>AxisCare_Care_Assessment_Fields_Setup.md</code> guide. Until those are created in AxisCare, pushes will save to Supabase but the AxisCare step will no-op.</div>
 </div>
 </details>
+  <!-- The GHL booking calendar, live inside the hub. GHL is the booking
+       front door now (confirmations + reminders in Samantha's own words);
+       the hub stays the record: booked assessments flow back in as leads,
+       prep items and Team Calendar entries via assessment-intake. -->
+  <div class="bkg-card" id="ghlBookCard" style="display:none;">
+    <div class="bkg-top">
+      <b style="font-size:15.5px;color:var(--navy);">📅 Book a New Client Assessment</b>
+      <span class="bkg-type home">GHL calendar</span>
+      <span class="bkg-ago">round robin; morning/afternoon split pending in GHL</span>
+    </div>
+    <div class="bkg-meta">The live booking calendar, the same one behind Quick Capture's button. Book here with a family on the phone; they get your confirmation and reminder texts automatically, and the booking lands on the Team Calendar and the lead board by itself.</div>
+    <div class="bkg-actions"><button class="fb" onclick="ghlBookOpen()">Open full size</button></div>
+    <iframe id="ghlBookFrame" loading="lazy" title="New Client Assessment booking" style="width:100%;height:640px;border:1px solid var(--border);border-radius:10px;margin-top:10px;background:#fff;"></iframe>
+    <div id="ghlBookMedicaid" style="display:none;margin-top:16px;">
+      <b style="font-size:14.5px;color:var(--navy);">Medicaid Assessment (Angiel)</b>
+      <iframe id="ghlBookFrameMed" loading="lazy" title="Medicaid Assessment booking" style="width:100%;height:640px;border:1px solid var(--border);border-radius:10px;margin-top:8px;background:#fff;"></iframe>
+    </div>
+  </div>
+
 
 <div class="toolbar" id="assessmentsFilters"></div>
 <div class="toolbar">
@@ -4848,26 +4867,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     #tab-bookings .bkg-hrow span{width:40px;font-size:13px;font-weight:700;color:var(--text-muted);}
     #tab-bookings .bkg-hrow input[type=time]{width:110px;}
   </style>
-  <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Consultation Bookings</h2>
-  <p class="bkg-sub">Consultations booked on mo-care.com/book. The public calendar only offers times that are open here AND free on the connected Google Calendars below, so a family can never double-book a coordinator. Orientation sessions from the Staffing Hub block this calendar automatically too.</p>
-  <!-- The GHL booking calendar, live inside the hub. GHL is the booking
-       front door now (confirmations + reminders in Samantha's own words);
-       the hub stays the record: booked assessments flow back in as leads,
-       prep items and Team Calendar entries via assessment-intake. -->
-  <div class="bkg-card" id="ghlBookCard" style="display:none;">
-    <div class="bkg-top">
-      <b style="font-size:15.5px;color:var(--navy);">📅 Book a New Client Assessment</b>
-      <span class="bkg-type home">GHL calendar</span>
-      <span class="bkg-ago">round robin; morning/afternoon split pending in GHL</span>
-    </div>
-    <div class="bkg-meta">The live booking calendar, the same one behind Quick Capture's button. Book here with a family on the phone; they get your confirmation and reminder texts automatically, and the booking lands on the Team Calendar and the lead board by itself.</div>
-    <div class="bkg-actions"><button class="fb" onclick="ghlBookOpen()">Open full size</button></div>
-    <iframe id="ghlBookFrame" loading="lazy" title="New Client Assessment booking" style="width:100%;height:640px;border:1px solid var(--border);border-radius:10px;margin-top:10px;background:#fff;"></iframe>
-    <div id="ghlBookMedicaid" style="display:none;margin-top:16px;">
-      <b style="font-size:14.5px;color:var(--navy);">Medicaid Assessment (Angiel)</b>
-      <iframe id="ghlBookFrameMed" loading="lazy" title="Medicaid Assessment booking" style="width:100%;height:640px;border:1px solid var(--border);border-radius:10px;margin-top:8px;background:#fff;"></iframe>
-    </div>
-  </div>
+  <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Phone Consultations</h2>
+  <p class="bkg-sub">Phone consultations booked on mo-care.com/book (the 20-minute intro call, a different thing from the in-home assessment; book assessments under Care Assessments). The public calendar only offers times that are open here AND free on the connected Google Calendars below, so a family can never double-book a coordinator. Orientation sessions from the Staffing Hub block this calendar automatically too.</p>
   <div id="bkgList"></div>
   <div class="bkg-set">
     <h3 style="font-size:16px;margin:0 0 2px;color:var(--navy);">Scheduler settings</h3>
@@ -7525,7 +7526,7 @@ function renderActiveTab(){
   if(activeTab==='coverage'){ renderCoverage(); }
   if(activeTab==='hourswatch'){ hwRender(); if(HW_SCHED===null) hwLoad(); }
   if(activeTab==='cg360'){ c360Fill(); c360Render(); }
-  if(activeTab==='bookings'){ ghlBookFill(); }
+  if(activeTab==='assessments'){ ghlBookFill(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today') renderToday();
