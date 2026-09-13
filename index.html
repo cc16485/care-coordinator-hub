@@ -7572,7 +7572,7 @@ function renderActiveTab(){
   if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='cgprofiles') loadCgProfiles();
   if(activeTab==='clients') renderClients();
-  if(activeTab==='client360'){ cl360Fill(); cl360Render(); }
+  if(activeTab==='client360'){ cl360Fill().then(()=>cl360Render()); }
   if(activeTab==='soc') renderSocTab();
   if(activeTab==='comms') renderCommsPage();
   if(activeTab==='inbox') renderInboxCc();
@@ -24318,9 +24318,47 @@ function cl360ProfileId(r){
   const key = r.axiscare_client_id ? 'ax'+String(r.axiscare_client_id) : 'nm'+String(r.client_name||'').toLowerCase().replace(/[^a-z0-9]+/g,'_');
   return 'cp_'+key;
 }
-function cl360Fill(){
+/* The picker is the ACTIVE CENSUS first (identity layer: the 24 AxisCare
+   clients with their phone, AxisCare id and, where matched, their GHL
+   contact id), merged with anyone the hub knows from leads, assessments
+   and check-ins. So the tab is useful on day one, before hub records
+   accumulate. */
+let CL360_IDENTITY = null;
+async function cl360Identity(){
+  if(CL360_IDENTITY) return CL360_IDENTITY;
+  try{
+    const roles = await sb.from('person_role').select('person_id').eq('role','client');
+    const ids = (roles.data||[]).map(r=>r.person_id);
+    if(!ids.length) return (CL360_IDENTITY = []);
+    const [pi, srcs] = await Promise.all([
+      sb.from('person_identity').select('id, display_name, first_name, last_name, primary_phone').in('id', ids),
+      sb.from('person_source_id').select('person_id, system, source_id, entity_type').in('person_id', ids),
+    ]);
+    CL360_IDENTITY = (pi.data||[]).map(p=>{
+      const mine = (srcs.data||[]).filter(x=>x.person_id===p.id);
+      const ax = mine.find(x=>x.system==='axiscare' && x.entity_type==='client');
+      const gh = mine.find(x=>x.system==='ghl');
+      return { client_name: p.display_name || ((p.first_name||'')+' '+(p.last_name||'')).trim() || '(unnamed)',
+               axiscare_client_id: ax ? String(ax.source_id) : '',
+               phone: p.primary_phone || '', ghl_contact_id: gh ? String(gh.source_id) : '',
+               lead:null, assessment:null, plan:null, checkins:[] };
+    });
+  }catch(e){ CL360_IDENTITY = []; }
+  return CL360_IDENTITY;
+}
+async function cl360Fill(){
   const sel = document.getElementById('cl360Sel'); if(!sel) return;
-  const roster = getClientRoster().sort((a,b)=>a.client_name.localeCompare(b.client_name));
+  const census = await cl360Identity();
+  const byKey = new Map();
+  census.forEach(c=>byKey.set(c.axiscare_client_id ? 'ax:'+c.axiscare_client_id : 'nm:'+c.client_name.toLowerCase(), c));
+  getClientRoster().forEach(r=>{
+    const key = r.axiscare_client_id ? 'ax:'+String(r.axiscare_client_id) : 'nm:'+String(r.client_name||'').toLowerCase();
+    const base = byKey.get(key);
+    if(base) Object.assign(base, { lead:r.lead, assessment:r.assessment, plan:r.plan, checkins:r.checkins,
+      phone: base.phone || (r.lead&&r.lead.phone) || '' });
+    else byKey.set(key, { phone:(r.lead&&r.lead.phone)||'', ghl_contact_id:'', ...r });
+  });
+  const roster = [...byKey.values()].sort((a,b)=>a.client_name.localeCompare(b.client_name));
   CL360_ROSTER = roster;
   const keep = sel.value;
   sel.innerHTML = '<option value="">Pick a client…</option>'
@@ -24347,7 +24385,7 @@ async function cl360Render(){
   const blurb = (DATA.client_care_blurbs||[]).find(b=>axisId && String(b.id)===axisId);
   const prof = (DATA.client_profiles||[]).find(p=>p.id===cl360ProfileId(r)) || {};
   const lead = r.lead || {};
-  const phone = lead.phone || prof.phone || '';
+  const phone = r.phone || lead.phone || prof.phone || '';
 
   /* header */
   let head = cl360Kv('Care level', esc(prof.care_level || '(not set)'))
@@ -24355,9 +24393,11 @@ async function cl360Render(){
     + cl360Kv('AxisCare', axisId
         ? esc(axisId)+' · <a href="https://16485.axiscare.com/?clients-profile.php&id='+esc(axisId)+'" target="_blank" rel="noopener">open in AxisCare ↗</a>'
         : '(not linked)')
-    + cl360Kv('GHL', phone
-        ? '<a href="https://app.hirecara.com/v2/location/Recp0AhyMh8lrtKJ9kaj/contacts/smart_list/All" target="_blank" rel="noopener">open GHL contacts ↗</a> <span class="field-note">(search '+esc(phone)+')</span>'
-        : '<span class="field-note">needs a phone number first</span>')
+    + cl360Kv('GHL', r.ghl_contact_id
+        ? '<a href="https://app.hirecara.com/v2/location/Recp0AhyMh8lrtKJ9kaj/contacts/detail/'+esc(r.ghl_contact_id)+'" target="_blank" rel="noopener">open their conversation ↗</a>'
+        : (phone
+            ? '<a href="https://app.hirecara.com/v2/location/Recp0AhyMh8lrtKJ9kaj/contacts/smart_list/All" target="_blank" rel="noopener">open GHL contacts ↗</a> <span class="field-note">(search '+esc(phone)+')</span>'
+            : '<span class="field-note">needs a phone number first</span>'))
     + (blurb ? cl360Kv('Care synopsis', esc(blurb.blurb||'')) : cl360Kv('Care synopsis', '<span class="field-note">none yet — it prefills callout texts, set it from a coverage case or AxisCare priority note</span>'));
 
   /* care picture */
