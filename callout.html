@@ -148,7 +148,7 @@ async function pick(i){
     }catch(e){}
   }
   const who=String(PICK.client).split(/\s+/);
-  const cs=who.length>1?who[0]+' '+who[who.length-1][0]+'.':who[0];
+  const cs=who[0];   // first name only
   const today=new Date().toLocaleDateString('en-CA');
   const rel=PICK.date===today?'today':PICK.date;
   const when=[rel,PICK.time].filter(Boolean).join(' ');

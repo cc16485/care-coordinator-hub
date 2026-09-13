@@ -23748,7 +23748,7 @@ function covComposeMsgs(f,opts){
   const raw=(opts||{}).raw;      // raw=true keeps {first_name} etc. for editing
   const st=(DATA.ops_settings||{});
   const who=String(f.client||'a client').split(/\s+/);
-  const clientShort=who.length>1?who[0]+' '+who[who.length-1][0]+'.':who[0];
+  const clientShort=who[0];   // first name only (her call)
   const today=new Date().toLocaleDateString('en-CA');
   const rel=!f.shift_date?'':(f.shift_date===today?'today'
     :(new Date(f.shift_date+'T12:00:00')-new Date(today+'T12:00:00')===86400000)?'tomorrow'
