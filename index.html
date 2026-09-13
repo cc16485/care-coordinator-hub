@@ -3474,6 +3474,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <button class="fb" id="calv-week"  onclick="calSetView('week')">Week</button>
             <button class="fb" id="calv-month" onclick="calSetView('month')">Month</button>
           </div>
+          <button class="fb" onclick="calBookAssessment()" title="Opens the GHL booking calendar; the booking flows back onto this calendar by itself" style="background:var(--teal);color:#fff;border-color:var(--teal);">📅 Book assessment</button>
         </div>
         <div id="calBody" style="margin-top:12px;"><div class="field-note">Loading…</div></div>
       </div>
@@ -3826,8 +3827,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <textarea id="set_cov_escalation" rows="2" placeholder="Coverage alert: the callout for {client} {when} ran out of caregivers to ask ({asked} asked, nobody said yes). It needs a person now. Board: cc.mo-care.com"></textarea>
 <label>Availability invite (sends 10am-5pm only, from the Hours Watch button)</label>
 <textarea id="set_cov_avail_invite" rows="2" placeholder="Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability It takes 30 seconds and you can update it anytime."></textarea>
-<label>New Client Assessment booking link (from your GHL calendar — used by the Book assessment button on Quick Capture)</label>
-<input id="set_cov_asmt_url" placeholder="https://api.leadconnectorhq.com/widget/booking/...">
+<label>New Client Assessment booking link (from your GHL calendar; used by the Book assessment button on Quick Capture and embedded in Client Care > Bookings)</label>
+<input id="set_cov_asmt_url" placeholder="https://link.mo-care.com/widget/booking/...">
+<label>Medicaid Assessment booking link (Angiel's GHL calendar; leave blank until it exists)</label>
+<input id="set_cov_medicaid_url" placeholder="https://link.mo-care.com/widget/booking/...">
 <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
 <button class="primary" onclick="covMsgsSave(this)">Save callout texts</button>
 <span class="field-note" id="covMsgsSaved"></span>
@@ -4847,6 +4850,24 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   </style>
   <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Consultation Bookings</h2>
   <p class="bkg-sub">Consultations booked on mo-care.com/book. The public calendar only offers times that are open here AND free on the connected Google Calendars below, so a family can never double-book a coordinator. Orientation sessions from the Staffing Hub block this calendar automatically too.</p>
+  <!-- The GHL booking calendar, live inside the hub. GHL is the booking
+       front door now (confirmations + reminders in Samantha's own words);
+       the hub stays the record: booked assessments flow back in as leads,
+       prep items and Team Calendar entries via assessment-intake. -->
+  <div class="bkg-card" id="ghlBookCard" style="display:none;">
+    <div class="bkg-top">
+      <b style="font-size:15.5px;color:var(--navy);">📅 Book a New Client Assessment</b>
+      <span class="bkg-type home">GHL calendar</span>
+      <span class="bkg-ago">Krystal mornings · Samantha afternoons</span>
+    </div>
+    <div class="bkg-meta">The live booking calendar, the same one behind Quick Capture's button. Book here with a family on the phone; they get your confirmation and reminder texts automatically, and the booking lands on the Team Calendar and the lead board by itself.</div>
+    <div class="bkg-actions"><button class="fb" onclick="ghlBookOpen()">Open full size</button></div>
+    <iframe id="ghlBookFrame" loading="lazy" title="New Client Assessment booking" style="width:100%;height:640px;border:1px solid var(--border);border-radius:10px;margin-top:10px;background:#fff;"></iframe>
+    <div id="ghlBookMedicaid" style="display:none;margin-top:16px;">
+      <b style="font-size:14.5px;color:var(--navy);">Medicaid Assessment (Angiel)</b>
+      <iframe id="ghlBookFrameMed" loading="lazy" title="Medicaid Assessment booking" style="width:100%;height:640px;border:1px solid var(--border);border-radius:10px;margin-top:8px;background:#fff;"></iframe>
+    </div>
+  </div>
   <div id="bkgList"></div>
   <div class="bkg-set">
     <h3 style="font-size:16px;margin:0 0 2px;color:var(--navy);">Scheduler settings</h3>
@@ -7504,6 +7525,7 @@ function renderActiveTab(){
   if(activeTab==='coverage'){ renderCoverage(); }
   if(activeTab==='hourswatch'){ hwRender(); if(HW_SCHED===null) hwLoad(); }
   if(activeTab==='cg360'){ c360Fill(); c360Render(); }
+  if(activeTab==='bookings'){ ghlBookFill(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today') renderToday();
@@ -11209,8 +11231,38 @@ function covMsgsFill(){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url' };
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
+}
+/* ── GHL booking calendars, embedded in Client Care > Bookings ─────────
+   The widget URLs live in ops_settings (assessment_calendar_url,
+   medicaid_calendar_url) so swapping a calendar never needs a deploy.
+   Frames get their src on first open, not at page load, so the hub does
+   not carry two GHL iframes everywhere. */
+let GHL_BOOK_LOADED=false;
+async function ghlBookFill(){
+  if(GHL_BOOK_LOADED) return;
+  try{
+    const { data } = await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle();
+    const s=(data&&data.data)||{};
+    const u=String(s.assessment_calendar_url||'').trim();
+    const m=String(s.medicaid_calendar_url||'').trim();
+    if(!/^https:\/\//.test(u)) return;
+    document.getElementById('ghlBookFrame').src=u;
+    document.getElementById('ghlBookCard').style.display='';
+    if(/^https:\/\//.test(m)){
+      document.getElementById('ghlBookFrameMed').src=m;
+      document.getElementById('ghlBookMedicaid').style.display='';
+    }
+    GHL_BOOK_LOADED=true;
+  }catch(e){ /* card just stays hidden */ }
+}
+function ghlBookOpen(){ const f=document.getElementById('ghlBookFrame'); if(f&&f.src) window.open(f.src,'_blank'); }
+async function calBookAssessment(){
+  await ghlBookFill();
+  const f=document.getElementById('ghlBookFrame');
+  if(f&&f.src) window.open(f.src,'_blank');
+  else alert('Paste the New Client Assessment booking link into Settings first (Callout texts card).');
 }
 async function covMsgsSave(btn){
   /* ops_settings is an OBJECT, not an item array, so it saves whole with a
@@ -11218,7 +11270,7 @@ async function covMsgsSave(btn){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url' };
   if(btn) btn.disabled=true;
   /* Merge against the CURRENT server object, not the page-load copy — the
      engine and other tabs write flags into ops_settings too, and a stale
