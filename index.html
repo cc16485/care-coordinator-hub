@@ -3457,7 +3457,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <section class="tabpanel" id="tab-calendar">
       <div style="margin-bottom:14px;">
         <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Team Calendar</h2>
-        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Interviews, orientations, care assessments and consultations all spend the same day. This is the one place that knows about all four.</div>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Interviews, orientations and care assessments all spend the same day. This is the one place that knows about all three.</div>
       </div>
       <!-- The coordinator's own day. Everything else on this page is settings;
            this is the bit they actually open in the morning. -->
@@ -6846,8 +6846,11 @@ const CC_SUBTABS = {
      a lead and a client are the same person at two moments, and splitting
      them across sections made a coordinator change rooms mid-conversion. */
   leads:       [ {t:'leads',       l:'Leads',             i:'i-phone'},
-                 {t:'statesubs',   l:'State Submissions', i:'i-doc'},
-                 {t:'bookings',    l:'Consultations',     i:'i-calendar'} ],
+                 {t:'statesubs',   l:'State Submissions', i:'i-doc'} ],
+  /* 'bookings' (the phone-consultation scheduler) is unlinked, 2026-09-13:
+     Samantha's ruling is that booked phone calls are not a real thing here,
+     people just call. The panel and its data stay for history; put the pill
+     back by re-adding {t:'bookings', l:'Consultations', i:'i-calendar'}. */
   assessments: [ {t:'assessments', l:'Care Assessments',  i:'i-clipboard'},
                  {t:'soc',         l:'Start of Care',     i:'i-hospital'},
                  {t:'clientqueue', l:'New Clients',       i:'i-family'} ],
