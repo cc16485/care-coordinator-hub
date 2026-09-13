@@ -23763,8 +23763,8 @@ function covComposeMsgs(f,opts){
   // A case's own edited wording wins, then agency settings, then the default —
   // same order the engine applies.
   return {
-    tier1: fill(String(f.msg_tier1||'')||String(st.coverage_msg_tier1||'')||"Hi {first_name}, it's Caring Companions. {client}'s shift needs coverage: {when}. Can you take it? Reply YES or NO — questions welcome."),
-    other: fill(String(f.msg_other||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. Last-minute fill-in at {address}: {when}. {care}Can you take it? Reply YES or NO — questions welcome."),
+    tier1: fill(String(f.msg_tier1||'')||String(st.coverage_msg_tier1||'')||"Hi {first_name}, can you cover {client} {when}? It's Caring Companions. Reply YES or NO."),
+    other: fill(String(f.msg_other||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. Last-minute fill-in at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome."),
   };
 }
 let COV_PENDING=null;
@@ -23991,7 +23991,7 @@ function renderCoverage(){
           +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'no\')">no</button>'
           +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'noanswer\')">no answer</button>'
         : (open&&a.state==='yes')
-        ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;color:#C0392B;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'no\')">not a yes — mark no</button>'
+        ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;color:#C0392B;" onclick="covAskState(\''+c.id+'\',\''+a.id+'\',\'no\')">not a yes, mark no</button>'
         : '';
       const how=a.auto?('🤖 auto text'+(a.tier?' · tier '+a.tier:'')):esc(a.channel);
       return '<div style="padding:5px 0;border-top:1px solid var(--border);font-size:13px;">'
