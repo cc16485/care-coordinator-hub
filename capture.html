@@ -61,8 +61,15 @@
     <div class="row">
       <div><label>Who or what is it about?</label><input id="nAbout" placeholder="e.g. Lacey Williams / client Steve / payroll"></div>
     </div>
+    <label>What kind of thing is it?</label>
+    <select id="nKind">
+      <option value="follow_up">Follow up with someone</option>
+      <option value="send_caregivers">Send a message OUT to caregivers</option>
+      <option value="update_axiscare">Update AxisCare (appointment, schedule note, client info)</option>
+      <option value="fyi">Just so the team knows (FYI)</option>
+    </select>
     <label>The note <span style="font-weight:400;color:var(--gray);">(what happened, what was said, what needs doing)</span></label>
-    <textarea id="nNotes" rows="4" placeholder="e.g. Lacey called at 7pm asking about holiday pay for Labor Day. I told her I'd have the office confirm Monday. Someone confirm and text her."></textarea>
+    <textarea id="nNotes" rows="4" placeholder="e.g. Steve's daughter called: he has a cardiology appointment next Tue 10am, needs the morning caregiver to have him ready by 9:15. Put it on his AxisCare schedule and tell his caregivers."></textarea>
     <div class="row">
       <div>
         <label>Who follows up</label>
@@ -168,9 +175,12 @@ async function bankNote(){
     if(!session){ $('app').style.display='none'; $('loginCard').style.display='block'; return; }
     const by=(session.user&&session.user.email)||'quick capture';
     const nowIso=new Date().toISOString();
+    const KIND_TAG={ follow_up:'Follow up', send_caregivers:'SEND TO CAREGIVERS',
+      update_axiscare:'UPDATE AXISCARE', fyi:'FYI' };
+    const kindSel=$('nKind').value;
     const item={
       id:uid('ops_note'), kind:'request',
-      title:'Pass-along — '+(about||notes.slice(0,40)),
+      title:(KIND_TAG[kindSel]||'Pass-along')+' — '+(about||notes.slice(0,40)),
       about:about||'',
       detail:notes+' (Passed along via the quick form by '+by+'.)',
       domain:'', status:'open', urgency:urgent?'high':'normal',
