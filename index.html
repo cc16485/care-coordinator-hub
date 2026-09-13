@@ -853,6 +853,36 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Hours Watch</h2>
         <div class="field-note" style="font-size:13.5px;margin-top:3px;">Who wants more hours than they're getting. Caregivers set their own target and windows at <b>cc.mo-care.com/availability</b> (text them the link); scheduled hours come live from AxisCare. Biggest gap first — these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
       </div>
+      <!-- THE INTAKE MATCHER: while a new lead is on the phone, answer
+           "who could staff Mon/Wed/Fri mornings?" with real names. -->
+      <div class="card" style="padding:14px 16px;margin-bottom:14px;border-left:4px solid var(--teal);">
+        <b style="color:var(--navy);">Who could staff this?</b>
+        <div class="field-note" style="margin:2px 0 8px;">Tick the schedule a caller is asking about. Ranked: knows-the-client first (if you pick one), then best schedule fit, then who's hungriest for hours.</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <span class="field-note" style="font-weight:700;">Days:</span>
+          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="mon" style="width:auto;"> Mon</label>
+          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="tue" style="width:auto;"> Tue</label>
+          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="wed" style="width:auto;"> Wed</label>
+          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="thu" style="width:auto;"> Thu</label>
+          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="fri" style="width:auto;"> Fri</label>
+          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="sat" style="width:auto;"> Sat</label>
+          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="sun" style="width:auto;"> Sun</label>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
+          <span class="field-note" style="font-weight:700;">Times:</span>
+          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mWin" value="morning" style="width:auto;"> Morning</label>
+          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mWin" value="afternoon" style="width:auto;"> Afternoon</label>
+          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mWin" value="evening" style="width:auto;"> Evening</label>
+          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mWin" value="overnight" style="width:auto;"> Overnight</label>
+          <span class="field-note" style="font-weight:700;margin-left:8px;">Care level:</span>
+          <select id="mLevel" style="width:auto;font-size:13px;padding:4px 8px;">
+            <option value="">any</option><option value="1">Level 1 wellness</option>
+            <option value="2">Level 2 personal</option><option value="3">Level 3 complex</option>
+          </select>
+          <button class="addlead" style="font-size:.8rem;margin-left:8px;" onclick="hwMatch(this)">Find caregivers</button>
+        </div>
+        <div id="mOut" style="margin-top:10px;"></div>
+      </div>
       <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
         <button class="primary" style="font-size:.8rem" onclick="hwLoad(this)">↻ Refresh from AxisCare</button>
         <button class="addlead" style="font-size:.8rem" onclick="hwInvite(this)">📨 Text the link to caregivers missing it</button>
@@ -24219,6 +24249,40 @@ function hwRender(){
       +' — send them the link.</div>':'');
 }
 
+async function hwMatch(btn){
+  const days=[...document.querySelectorAll('.mDay:checked')].map(x=>x.value);
+  const wins=[...document.querySelectorAll('.mWin:checked')].map(x=>x.value);
+  const out=document.getElementById('mOut');
+  if(!days.length||!wins.length){ out.innerHTML='<div class="field-note" style="color:var(--red);">Tick at least one day and one time.</div>'; return; }
+  if(btn) btn.disabled=true;
+  out.innerHTML='<div class="field-note">matching against live AxisCare + availability…</div>';
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session){ out.innerHTML='<div class="field-note">sign in again</div>'; return; }
+    const lvl=document.getElementById('mLevel').value;
+    const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-shifts`,{
+      method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+      body:JSON.stringify({ match:{ days, windows:wins, level:lvl?Number(lvl):null } })});
+    const res=await r.json().catch(()=>({}));
+    if(res.error){ out.innerHTML='<div class="field-note" style="color:var(--red);">'+esc(String(res.error))+'</div>'; return; }
+    const m=res.matches||[];
+    out.innerHTML=(m.length
+      ? m.slice(0,12).map(x=>'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;">'
+        +'<b style="color:var(--navy);min-width:140px;">'+esc(x.name)+'</b>'
+        +'<span>covers <b>'+esc(x.covers)+'</b> of the asked slots</span>'
+        +(x.level!=null?'<span>Level '+esc(String(x.level))+'</span>':'<span class="field-note">level not classed</span>')
+        +(x.hours_short!=null?'<span style="font-weight:700;color:'+(x.hours_short>0?'#C0392B':'#1E8449')+';">'+(x.hours_short>0?x.hours_short+'h short of target':'at target')+'</span>':'')
+        +'<span class="field-note">'+esc(String(x.scheduled_next_week))+'h scheduled next wk</span>'
+        +(x.knows_client_visits?'<span style="font-weight:700;color:var(--teal);">knows this client ('+esc(String(x.knows_client_visits))+' visits)</span>':'')
+        +'</div>').join('')
+      : '<div class="field-note" style="padding:6px 0;">Nobody\'s stated availability covers that schedule yet.</div>')
+      +((res.worth_asking_no_availability||[]).length
+        ? '<div class="field-note" style="margin-top:8px;">Worth asking (no availability on file): '
+          +res.worth_asking_no_availability.slice(0,10).map(x=>esc(x.name)).join(', ')+'</div>'
+        : '');
+  } finally { if(btn) btn.disabled=false; }
+}
 async function hwInvite(btn){
   const st=document.getElementById('hwState');
   if(!confirm('Text the availability link to every active caregiver who has nothing on file (up to 20 per press, never nurses, nobody twice in 30 days)? Sends only between 10am and 5pm.')) return;
