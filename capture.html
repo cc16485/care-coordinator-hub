@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Capture">
+<title>Quick Capture · Caring Companions</title>
+<!-- ============================================================
+     QUICK CAPTURE (Samantha, 2026-09-12): the after-hours net. A
+     lead call answered at 8pm Saturday gets banked in 30 seconds:
+     a real lead lands in the hub AND a follow-up item lands on
+     whoever owns it, so Monday starts with nothing living only in
+     someone's head. Sign in once with hub credentials; it sticks.
+     ============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#FFC671; --bg:#F6F9FD; --border:#E2E8F0; --gray:#6B7280; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+        background:var(--bg); color:#1f2a36; padding:16px; padding-bottom:44px; }
+  h1{ font-size:20px; color:var(--navy); margin:6px 0 2px; }
+  .sub{ font-size:13px; color:var(--gray); margin-bottom:14px; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  label{ display:block; font-size:13px; font-weight:700; color:var(--navy); margin:10px 0 4px; }
+  input,textarea,select,button{ width:100%; font-size:16px; padding:11px 12px; border:1px solid var(--border); border-radius:10px; background:#fff; }
+  textarea{ font-size:14px; }
+  button{ border:0; font-weight:800; cursor:pointer; }
+  .primary{ background:var(--teal); color:#fff; }
+  .go{ background:var(--navy); color:#fff; margin-top:12px; }
+  .row{ display:flex; gap:8px; } .row > *{ flex:1; }
+  .ok{ background:#E8F6EE; border:1px solid #1E8449; color:#1E8449; border-radius:10px; padding:12px; font-weight:700; margin-top:10px; }
+  .err{ color:#C0392B; font-size:13.5px; margin-top:8px; font-weight:600; }
+  .note{ font-size:12.5px; color:var(--gray); margin-top:4px; }
+</style>
+</head>
+<body>
+<img src="cc-logo.png" alt="Caring Companions" style="display:block;max-width:210px;width:65%;margin:4px auto 12px;">
+<h1>📥 Quick Capture</h1>
+<div class="sub">Answered a call? Bank it in 30 seconds. It becomes a real lead in the hub plus a follow-up on whoever you pick. Nothing falls through.</div>
+
+<div class="card" id="loginCard" style="display:none;">
+  <label>Hub email</label><input id="liEmail" type="email" autocomplete="username">
+  <label>Password</label><input id="liPass" type="password" autocomplete="current-password">
+  <button class="primary" style="margin-top:12px;" onclick="doLogin()">Sign in (stays signed in)</button>
+  <div class="err" id="liErr"></div>
+</div>
+
+<div id="app" style="display:none;">
+  <div class="card">
+    <div class="row">
+      <div><label>Caller name</label><input id="cName" placeholder="Jane Smith"></div>
+      <div><label>Phone</label><input id="cPhone" type="tel" inputmode="tel" placeholder="417-555-1234"></div>
+    </div>
+    <label>What do they want? <span style="font-weight:400;color:var(--gray);">(who needs care, where, days/hours, timeline, anything promised)</span></label>
+    <textarea id="cNotes" rows="4" placeholder="e.g. Mom in Hollister, wants daily care, asked if we can staff it. I said we'd love to try."></textarea>
+    <div class="row">
+      <div>
+        <label>Assessment booked?</label>
+        <input id="cAssess" type="datetime-local">
+        <div class="note">Leave empty if none was booked.</div>
+      </div>
+      <div>
+        <label>Follow-up owner</label>
+        <select id="cOwner">
+          <option value="samantha@mo-care.com">Samantha</option>
+          <option value="krystal@mo-care.com">Krystal</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Follow up by</label>
+        <input id="cDue" type="date">
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:14px;margin:0;padding:11px 0;">
+          <input type="checkbox" id="cAsap" style="width:auto;"> Wants to start ASAP
+        </label>
+      </div>
+    </div>
+    <button class="go" onclick="bank()">Bank it</button>
+    <div class="err" id="err"></div>
+    <div id="done"></div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL='https://zngsgedlsxinbygwmxwn.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const sb=window.supabase.createClient(SUPA_URL,ANON);
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function boot(){
+  const { data:{ session } }=await sb.auth.getSession();
+  if(!session){ $('loginCard').style.display='block'; return; }
+  $('loginCard').style.display='none'; $('app').style.display='block';
+  // Default follow-up: tomorrow (or Monday if tomorrow is Sunday), agency clock.
+  const chi=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Chicago'}));
+  chi.setDate(chi.getDate()+ (chi.getDay()===6?2:1));
+  $('cDue').value=chi.toISOString().slice(0,10);
+}
+async function doLogin(){
+  $('liErr').textContent='';
+  const { error }=await sb.auth.signInWithPassword({ email:$('liEmail').value.trim(), password:$('liPass').value });
+  if(error){ $('liErr').textContent=error.message; return; }
+  boot();
+}
+const uid=p=>p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+let BANKING=false;
+async function bank(){
+  if(BANKING) return; BANKING=true;
+  $('err').textContent=''; $('done').innerHTML='';
+  try{
+    const name=$('cName').value.trim(), phone=$('cPhone').value.trim(),
+          notes=$('cNotes').value.trim(), assess=$('cAssess').value,
+          owner=$('cOwner').value, due=$('cDue').value, asap=$('cAsap').checked;
+    if(!name&&!phone){ $('err').textContent='At least a name or a phone number.'; return; }
+    if(!notes){ $('err').textContent='One sentence on what they want — future-you will thank you.'; return; }
+    const { data:{ session } }=await sb.auth.getSession();
+    if(!session){ $('app').style.display='none'; $('loginCard').style.display='block'; return; }
+    const by=(session.user&&session.user.email)||'quick capture';
+    const parts=name.split(/\s+/);
+    const nowIso=new Date().toISOString();
+    const assessTxt=assess?('ASSESSMENT BOOKED: '+assess.replace('T',' ')+'. '):'';
+    const lead={
+      id:uid('lead'), first_name:parts[0]||'(caller)', last_name:parts.slice(1).join(' '),
+      phone, email:'', source:'Phone (quick capture)', status: assess?'Assessment Scheduled':'New',
+      interest_notes:(asap?'WANTS TO START ASAP. ':'')+assessTxt+notes,
+      follow_up_branch: assess?'ready-to-start':(asap?'ready-to-start':'soft-check-in'),
+      follow_up_due: due||nowIso.slice(0,10),
+      assessment_at: assess||null,
+      created_at: nowIso, updated_at: nowIso, captured_by: by,
+      comm_log:[{ body:'📥 Captured via quick form by '+by, at: nowIso, by }],
+    };
+    let r=await sb.rpc('upsert_app_data_item',{ target_key:'leads', item:lead });
+    if(r.error){ $('err').textContent='Could not save the lead: '+r.error.message; return; }
+    const item={
+      id:uid('ops_cap'), kind:'request',
+      title:(assess?'Assessment '+assess.replace('T',' ')+' — ':'New lead follow-up — ')+(name||phone),
+      about:name||phone,
+      detail:(asap?'WANTS TO START ASAP. ':'')+assessTxt+notes+' (Captured after-hours via the quick form.)',
+      domain:'', status:'open', urgency: (assess||asap)?'high':'normal',
+      owner, owner_name: owner.split('@')[0],
+      due:(due?due:nowIso.slice(0,10))+'T09:00:00',
+      created_at: nowIso, created_by: by, opened_by:'quick-capture',
+    };
+    r=await sb.rpc('upsert_app_data_item',{ target_key:'ops_items', item });
+    if(r.error){ $('err').textContent='Lead saved, but the follow-up item failed: '+r.error.message; return; }
+    $('done').innerHTML='<div class="ok">✅ Banked. '+esc(name||phone)+' is a lead in the hub, and '
+      +esc(owner.split('@')[0])+' owns the follow-up'+(assess?' (assessment on the item)':'')+'. Nothing to remember.</div>';
+    ['cName','cPhone','cNotes','cAssess'].forEach(i=>$(i).value='');
+    $('cAsap').checked=false;
+  } finally { BANKING=false; }
+}
+boot();
+</script>
+</body>
+</html>
