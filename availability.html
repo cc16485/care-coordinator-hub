@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="My Hours">
+<title>My Hours · Caring Companions</title>
+<!-- ============================================================
+     CAREGIVER AVAILABILITY (Samantha, 2026-09-12): caregivers tell
+     us the hours they WANT and the day/time windows they want them
+     in, from their own phone, updated whenever life changes. Feeds
+     the Hours Watch board, callout ranking, and intake matching.
+     Public page: identity = their own phone number matched to
+     exactly one active caregiver, server-side.
+     ============================================================ -->
+<style>
+  :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#FFC671; --bg:#F6F9FD; --border:#E2E8F0; --gray:#6B7280; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+        background:var(--bg); color:#1f2a36; padding:16px; padding-bottom:44px; }
+  h1{ font-size:20px; color:var(--navy); margin:6px 0 2px; }
+  .sub{ font-size:13.5px; color:var(--gray); margin-bottom:14px; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  label{ display:block; font-size:13px; font-weight:700; color:var(--navy); margin:10px 0 4px; }
+  input,button{ width:100%; font-size:16px; padding:11px 12px; border:1px solid var(--border); border-radius:10px; background:#fff; }
+  button{ border:0; font-weight:800; cursor:pointer; }
+  .primary{ background:var(--teal); color:#fff; }
+  .go{ background:var(--navy); color:#fff; margin-top:12px; }
+  .note{ font-size:12.5px; color:var(--gray); margin-top:6px; }
+  .ok{ background:#E8F6EE; border:1px solid #1E8449; color:#1E8449; border-radius:10px; padding:12px; font-weight:700; margin-top:10px; }
+  .err{ color:#C0392B; font-size:13.5px; margin-top:8px; font-weight:600; }
+  table{ width:100%; border-collapse:collapse; margin-top:8px; }
+  th{ font-size:11px; color:var(--gray); font-weight:700; padding:4px 2px; text-align:center; }
+  th:first-child{ text-align:left; }
+  td{ padding:3px 2px; text-align:center; }
+  td:first-child{ text-align:left; font-size:13px; font-weight:700; color:var(--navy); padding-right:6px; }
+  .w{ display:inline-block; width:100%; padding:9px 0; border-radius:8px; border:1px solid var(--border);
+      background:#fff; font-size:11px; color:var(--gray); cursor:pointer; user-select:none; }
+  .w.on{ background:var(--teal); border-color:var(--teal); color:#fff; font-weight:800; }
+</style>
+</head>
+<body>
+<h1>🕐 My Hours</h1>
+<div class="sub">Tell us the hours you want and when you want them. We use this to offer you shifts first. Update it any time your life changes.</div>
+
+<div class="card" id="phoneCard">
+  <label>Your phone number</label>
+  <input id="ph" type="tel" inputmode="tel" placeholder="417-555-1234">
+  <button class="primary" style="margin-top:12px;" onclick="lookup()">Continue</button>
+  <div class="err" id="phErr"></div>
+</div>
+
+<div id="form" style="display:none;">
+  <div class="card">
+    <div id="hello" style="font-weight:800;color:var(--navy);font-size:16px;"></div>
+    <label>Hours per week you're hoping for</label>
+    <input id="hours" type="number" inputmode="numeric" min="0" max="80" placeholder="e.g. 25">
+    <label style="margin-top:14px;">When do you want to work? Tap everything that works for you.</label>
+    <table id="grid"></table>
+    <div class="note">Morning is roughly 6am-12pm, afternoon 12-5pm, evening 5-10pm, overnight 10pm-6am.</div>
+    <button class="go" onclick="save()">Save my hours</button>
+    <div class="err" id="saveErr"></div>
+    <div id="done"></div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL='https://zngsgedlsxinbygwmxwn.supabase.co';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
+const WINS=[['morning','Morn'],['afternoon','Aft'],['evening','Eve'],['overnight','Night']];
+let SEL={};
+
+async function call(body){
+  try{
+    const r=await fetch(SUPA_URL+'/functions/v1/caregiver-availability',{
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    return await r.json().catch(()=>({error:'unreadable answer'}));
+  }catch(e){ return { error:'network problem — try again' }; }
+}
+function grid(){
+  $('grid').innerHTML='<tr><th></th>'+WINS.map(w=>'<th>'+w[1]+'</th>').join('')+'</tr>'
+    +DAYS.map(d=>'<tr><td>'+d[1]+'</td>'+WINS.map(w=>{
+      const on=(SEL[d[0]]||[]).includes(w[0]);
+      return '<td><span class="w'+(on?' on':'')+'" onclick="tog(\''+d[0]+'\',\''+w[0]+'\',this)">'+(on?'✓':'+')+'</span></td>';
+    }).join('')+'</tr>').join('');
+}
+function tog(d,w,el){
+  SEL[d]=SEL[d]||[];
+  const i=SEL[d].indexOf(w);
+  if(i>=0){ SEL[d].splice(i,1); el.classList.remove('on'); el.textContent='+'; }
+  else { SEL[d].push(w); el.classList.add('on'); el.textContent='✓'; }
+}
+async function lookup(){
+  $('phErr').textContent='';
+  const out=await call({ phone:$('ph').value });
+  if(out.error){ $('phErr').textContent=out.error; return; }
+  if(out.unknown){ $('phErr').textContent=out.message; return; }
+  $('hello').textContent='Hi '+out.first_name+'!'+(out.updated_at?' Here is what you told us last time — change anything.':'');
+  if(out.target_hours!=null) $('hours').value=out.target_hours;
+  SEL=out.windows||{};
+  grid();
+  $('phoneCard').style.display='none';
+  $('form').style.display='block';
+}
+let SAVING=false;
+async function save(){
+  if(SAVING) return; SAVING=true;
+  $('saveErr').textContent=''; $('done').innerHTML='';
+  const out=await call({ phone:$('ph').value, action:'save',
+    target_hours:Number($('hours').value||0), windows:SEL });
+  SAVING=false;
+  if(out.error){ $('saveErr').textContent=out.error; return; }
+  if(out.unknown){ $('saveErr').textContent=out.message; return; }
+  $('done').innerHTML='<div class="ok">✅ '+esc(out.message||'Saved!')+'</div>';
+}
+</script>
+</body>
+</html>

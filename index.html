@@ -806,7 +806,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        lives in the Staffing hub, so it is a link rather than a copy: two
        correction logs would be worse than one somewhere else. -->
   <div class="fsubbar" id="fsub-scheduling">
-    <div class="fpill" data-tab="coverage" onclick="switchTab('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Coverage Help<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div>
+    <div class="fpill" data-tab="coverage" onclick="switchTab('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Coverage Help<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div><div class="fpill" data-tab="hourswatch" onclick="switchTab('hourswatch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Hours Watch</div>
     <div class="fpill" data-tab="teamsched" onclick="switchTab('teamsched')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Team Schedule</div>
     <div class="fpill" data-tab="evv" onclick="switchTab('evv')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV Corrections</div>
   </div>
@@ -848,6 +848,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          shift is NOT filling on its own, it becomes a case here — who was
          asked, when, by what channel, what they said, how long it has been
          open, and how it ended. Micro-states, not pending/done. -->
+    <section class="tabpanel" id="tab-hourswatch">
+      <div style="margin-bottom:12px;">
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Hours Watch</h2>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Who wants more hours than they're getting. Caregivers set their own target and windows at <b>cc.mo-care.com/availability.html</b> (text them the link); scheduled hours come live from AxisCare. Biggest gap first — these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
+      </div>
+      <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
+        <button class="primary" style="font-size:.8rem" onclick="hwLoad(this)">↻ Refresh from AxisCare</button>
+        <span class="field-note" id="hwState"></span>
+      </div>
+      <div id="hwList"><div class="field-note">Open this tab and hit Refresh to load.</div></div>
+    </section>
     <section class="tabpanel" id="tab-coverage">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
@@ -6313,7 +6324,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { caregivers: [], client_care_blurbs: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
+let DATA = { caregivers: [], caregiver_availability: [], client_care_blurbs: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -6433,7 +6444,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','client_care_blurbs','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
+  const keys = ['caregivers','caregiver_availability','client_care_blurbs','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -6753,7 +6764,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['home','mywork','myrole','myteam','today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','evv'],clients:['leads','statesubs','bookings','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['home','mywork','myrole','myteam','today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','hourswatch','evv'],clients:['leads','statesubs','bookings','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -7254,7 +7265,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', cgprofiles:'Caregiver Profiles', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV Corrections', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
-  coverage:'Coverage Help', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
+  coverage:'Coverage Help', hourswatch:'Hours Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -7441,6 +7452,7 @@ function renderActiveTab(){
   if(activeTab==='applicants') apLoad();
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); }
+  if(activeTab==='hourswatch'){ hwRender(); if(HW_SCHED===null) hwLoad(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today') renderToday();
@@ -24145,6 +24157,63 @@ function renderCoverage(){
       +covSummary(c)+'</div>'
       +'</div>';
   }).join('');
+}
+
+/* ── HOURS WATCH: wanted hours vs scheduled hours, gap first. ─────────── */
+let HW_SCHED=null, HW_WIN='';
+async function hwLoad(btn){
+  const st=document.getElementById('hwState');
+  if(btn){btn.disabled=true;} if(st) st.textContent='loading scheduled hours…';
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session){ if(st) st.textContent='sign in again'; return; }
+    const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-shifts`,{
+      method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+      body:JSON.stringify({ hours_watch:true })});
+    const out=await r.json().catch(()=>({}));
+    if(out.error){ if(st) st.textContent='could not load: '+out.error; return; }
+    HW_SCHED=out.scheduled_hours||{}; HW_WIN=out.window||'';
+    if(st) st.textContent='scheduled hours for '+HW_WIN+(out.truncated?' (PARTIAL — schedule list was truncated)':'');
+    hwRender();
+  } finally { if(btn) btn.disabled=false; }
+}
+function hwRender(){
+  const box=document.getElementById('hwList'); if(!box) return;
+  const av=DATA.caregiver_availability||[];
+  const roster=DATA.caregivers||[];
+  const hireDate=g=>String(g.hire_date||'');
+  const now=Date.now();
+  const isNew=g=>{ const h=hireDate(g); return h&&(now-new Date(h+'T12:00:00').getTime())<60*864e5; };
+  const byAxis={}; roster.forEach(g=>{ if(g.axiscare_id) byAxis[String(g.axiscare_id)]=g; });
+  const rows=[];
+  av.forEach(a=>{
+    const sched=HW_SCHED?(HW_SCHED[String(a.axiscare_id||'')]??0):null;
+    const gap=(sched==null||!Number.isFinite(Number(a.target_hours)))?null:(Number(a.target_hours)-sched);
+    const g=byAxis[String(a.axiscare_id||'')];
+    const wins=a.windows?Object.entries(a.windows).filter(([d,w])=>w&&w.length)
+      .map(([d,w])=>d.slice(0,1).toUpperCase()+d.slice(1,3)+':'+w.map(x=>x.slice(0,1)).join('')).join(' · '):'';
+    rows.push({ name:a.name, target:a.target_hours, sched, gap, wins,
+      isNew:g?isNew(g):false, updated:String(a.updated_at||'').slice(0,10) });
+  });
+  // Caregivers with NO availability on file — visible as their own ask.
+  const haveAv=new Set(av.map(a=>String(a.axiscare_id||'')));
+  const noAv=roster.filter(g=>g.active!==false&&g.axiscare_id&&!haveAv.has(String(g.axiscare_id)));
+  rows.sort((x,y)=>((y.gap??-999)-(x.gap??-999)));
+  box.innerHTML=(rows.length?rows.map(r=>
+    '<div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;'
+    +((r.gap??0)>=8?'border-left:4px solid #C0392B;':(r.gap??0)>=4?'border-left:4px solid #94681D;':'')+'">'
+    +'<b style="color:var(--navy);min-width:150px;">'+esc(r.name)+(r.isNew?' <span class="tag-chip" style="background:var(--honey,#FFC671);color:#5a4300;">NEW HIRE</span>':'')+'</b>'
+    +'<span style="font-size:13px;">wants <b>'+esc(String(r.target))+'</b>h/wk</span>'
+    +'<span style="font-size:13px;">scheduled <b>'+(r.sched==null?'?':esc(String(r.sched)))+'</b>h next wk</span>'
+    +(r.gap!=null?'<span style="font-weight:800;color:'+(r.gap>=8?'#C0392B':r.gap>=4?'#94681D':'#1E8449')+';">'+(r.gap>0?r.gap.toFixed(1)+'h short':'at target')+'</span>':'')
+    +'<span class="field-note" style="flex:1;">'+esc(r.wins)+'</span>'
+    +'<span class="field-note">updated '+esc(r.updated)+'</span>'
+    +'</div>').join('')
+    :'<div class="card" style="padding:16px;color:var(--text-muted);font-size:13.5px;">Nobody has filled in their availability yet. Text caregivers the link: <b>cc.mo-care.com/availability.html</b></div>')
+    +(noAv.length?'<div class="field-note" style="margin-top:10px;">📋 No availability on file yet ('+noAv.length+'): '
+      +noAv.slice(0,15).map(g=>esc((g.first||'')+' '+(g.last||''))).join(', ')+(noAv.length>15?'…':'')
+      +' — send them the link.</div>':'');
 }
 
 /* ================================================================
