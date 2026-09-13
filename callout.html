@@ -153,7 +153,7 @@ async function pick(i){
   const rel=PICK.date===today?'today':PICK.date;
   const when=[rel,PICK.time].filter(Boolean).join(' ');
   $('msg1').innerHTML='<b>Works with '+esc(who[0])+':</b> Hi {first_name}, can you cover '+esc(cs)+' '+esc(when)+'? It\'s Caring Companions. Reply YES or NO.';
-  $('msgO').innerHTML='<b>Everyone else:</b> Hi {first_name}, it\'s Caring Companions. Last-minute fill-in at {address}: '+esc(when)+'. {care}Can you take it? Reply YES or NO. Questions welcome.';
+  $('msgO').innerHTML='<b>Everyone else:</b> Hi {first_name}, it\'s Caring Companions. '+(PICK.date===today?'Last-minute fill-in':'We have an open shift')+' at {address}: '+esc(when)+'. {care}Can you take it? Reply YES or NO. Questions welcome.';
 }
 function backToShifts(){ $('confirmCard').style.display='none'; loadShifts(); }
 function uid(){ return 'cph_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }

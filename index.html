@@ -3751,6 +3751,29 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 
 <div class="settings-section">
+<h3>📣 Callout texts (canned responses)</h3>
+<p class="hint">Every message the callout engine sends, in your words. Blank means the standard wording shown in grey. Fill-ins that get replaced per text: <code>{first_name}</code> the caregiver's name, <code>{client}</code> the client's first name, <code>{when}</code> day and time, <code>{address}</code> street and city, <code>{care}</code> the care note. "Last-minute" wording is used for same-day shifts only; future shifts use the open-shift message.</p>
+<label>To caregivers who work with the client</label>
+<textarea id="set_cov_tier1" rows="2" placeholder="Hi {first_name}, can you cover {client} {when}? It's Caring Companions. Reply YES or NO."></textarea>
+<label>To everyone else, shift is TODAY</label>
+<textarea id="set_cov_other_sameday" rows="2" placeholder="Hi {first_name}, it's Caring Companions. Last-minute fill-in at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
+<label>To everyone else, shift is a FUTURE day</label>
+<textarea id="set_cov_other_advance" rows="2" placeholder="Hi {first_name}, it's Caring Companions. We have an open shift at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
+<label>Instant reply to a YES</label>
+<textarea id="set_cov_ack_yes" rows="2" placeholder="Got it, {first_name}. Thank you! The office will confirm with you shortly."></textarea>
+<label>Reply to a YES that came after someone else already got it</label>
+<textarea id="set_cov_ack_late" rows="2" placeholder="Thank you {first_name}! Someone grabbed it just before you, but we really appreciate you answering. Next one is yours."></textarea>
+<label>To the confirmed caregiver when you mark the case covered</label>
+<textarea id="set_cov_confirmed" rows="2" placeholder="You're confirmed for {client}, {when}. It's on your schedule. Thank you, {first_name}!"></textarea>
+<label>To everyone still waiting when the case is covered</label>
+<textarea id="set_cov_covered" rows="2" placeholder="Caring Companions: that shift is covered now. Thank you! No action needed."></textarea>
+<div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+<button class="primary" onclick="covMsgsSave(this)">Save callout texts</button>
+<span class="field-note" id="covMsgsSaved"></span>
+</div>
+</div>
+
+<div class="settings-section">
 <h3>💬 Communications &amp; Training Hub</h3>
 <p class="hint">One key switches on three things: the <b>texts, emails and calls</b> shown on a lead, the <b>Sync from Training Hub</b> button on the Training tab, and escalation alerts. It lives in the Training Platform project as <code>hub_read_key</code> and starts with <code>cchub_</code>.</p>
 <label>Training Hub read key</label><input id="set_training_hub_key" type="password" placeholder="cchub_...">
@@ -11111,7 +11134,36 @@ function checkSettingsPasscode(){
     document.getElementById('settingsLockError').style.display = 'block';
   }
 }
+function covMsgsFill(){
+  const st=DATA.ops_settings||{};
+  const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
+    set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
+    set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
+    set_cov_covered:'coverage_msg_covered' };
+  for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
+}
+async function covMsgsSave(btn){
+  /* ops_settings is an OBJECT, not an item array, so it saves whole with a
+     merge; the engines read these keys on every run, so no deploy needed. */
+  const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
+    set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
+    set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
+    set_cov_covered:'coverage_msg_covered' };
+  const merged=Object.assign({}, DATA.ops_settings||{});
+  for(const [el,k] of Object.entries(map)){
+    const n=document.getElementById(el); if(!n) continue;
+    const v=n.value.trim(); if(v) merged[k]=v; else delete merged[k];
+  }
+  if(btn) btn.disabled=true;
+  const { error }=await sb.from('app_data').upsert({ key:'ops_settings', data:merged,
+    updated_at:new Date().toISOString() }, { onConflict:'key' });
+  if(btn) btn.disabled=false;
+  DATA.ops_settings=merged;
+  const s=document.getElementById('covMsgsSaved');
+  if(s) s.textContent=error?('Could not save: '+error.message):'Saved. Every callout from now on uses these words.';
+}
 function fillSettingsPanel(){
+  covMsgsFill();
   document.getElementById('set_supabase_url').value = CONFIG.supabase_url||'';
   document.getElementById('set_supabase_anon_key').value = CONFIG.supabase_anon_key||'';
   document.getElementById('set_axiscare_site').value = CONFIG.axiscare_site||'';
@@ -23762,9 +23814,14 @@ function covComposeMsgs(f,opts){
     .replaceAll('{client}',clientShort).replaceAll('{where}',raw?'{where}':where).replaceAll('{address}',raw?'{address}':"(street & city — filled in automatically)").replaceAll('{care}',raw?'{care}':'(care note) ').replaceAll('{when}',when);
   // A case's own edited wording wins, then agency settings, then the default —
   // same order the engine applies.
+  // Same rule as the engine: last-minute wording is same-day only.
+  const sameday=f.shift_date===today;
+  const otherDefault=sameday
+    ?(String(st.coverage_msg_other_sameday||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. Last-minute fill-in at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome.")
+    :(String(st.coverage_msg_other_advance||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. We have an open shift at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome.");
   return {
     tier1: fill(String(f.msg_tier1||'')||String(st.coverage_msg_tier1||'')||"Hi {first_name}, can you cover {client} {when}? It's Caring Companions. Reply YES or NO."),
-    other: fill(String(f.msg_other||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. Last-minute fill-in at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome."),
+    other: fill(String(f.msg_other||'')||otherDefault),
   };
 }
 let COV_PENDING=null;
