@@ -44,7 +44,7 @@
 </head>
 <body>
 <h1>📵 Caregiver Call-Off</h1>
-<div class="sub">Opens a Coverage Help case — the callout engine texts caregivers within 5 minutes.</div>
+<div class="sub">Opens a Coverage Help case. The callout engine texts caregivers within 5 minutes.</div>
 
 <div class="card" id="loginCard" style="display:none;">
   <label>Hub email</label><input id="liEmail" type="email" autocomplete="username">
@@ -106,7 +106,7 @@ async function fillWho(){
   const out=await fn({ list_caregivers:true });
   const sel=$('who');
   if(!Array.isArray(out.caregivers)||!out.caregivers.length){
-    sel.innerHTML='<option value="">Could not load caregivers — tell Claude: '+esc(String(out.error||'empty'))+'</option>'; return;
+    sel.innerHTML='<option value="">Could not load caregivers. Tell Claude: '+esc(String(out.error||'empty'))+'</option>'; return;
   }
   sel.innerHTML='<option value="">Pick the caregiver…</option>'
     +out.caregivers.map(g=>'<option value="'+esc(g.id)+'" data-name="'+esc(g.name)+'">'+esc(g.name)+'</option>').join('');
