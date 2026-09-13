@@ -806,7 +806,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        lives in the Staffing hub, so it is a link rather than a copy: two
        correction logs would be worse than one somewhere else. -->
   <div class="fsubbar" id="fsub-scheduling">
-    <div class="fpill" data-tab="coverage" onclick="switchTab('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Coverage Help<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div><div class="fpill" data-tab="hourswatch" onclick="switchTab('hourswatch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Hours Watch</div>
+    <div class="fpill" data-tab="coverage" onclick="switchTab('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Coverage Help<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div><div class="fpill" data-tab="cg360" onclick="switchTab('cg360')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-user"/></svg> Caregiver 360</div><div class="fpill" data-tab="hourswatch" onclick="switchTab('hourswatch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Hours Watch</div>
     <div class="fpill" data-tab="teamsched" onclick="switchTab('teamsched')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Team Schedule</div>
     <div class="fpill" data-tab="evv" onclick="switchTab('evv')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV Corrections</div>
   </div>
@@ -848,6 +848,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          shift is NOT filling on its own, it becomes a case here — who was
          asked, when, by what channel, what they said, how long it has been
          open, and how it ended. Micro-states, not pending/done. -->
+    <section class="tabpanel" id="tab-cg360">
+      <div style="margin-bottom:12px;">
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Caregiver 360</h2>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everything the hubs know about one caregiver, on one card: compliance, attendance, write-ups, wanted hours, callout history. Pick a person.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+        <select id="c360Sel" style="min-width:240px;" onchange="c360Render()"><option value="">Pick a caregiver…</option></select>
+        <span class="field-note" id="c360Hint"></span>
+      </div>
+      <div id="c360Out"></div>
+    </section>
     <section class="tabpanel" id="tab-hourswatch">
       <div style="margin-bottom:12px;">
         <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Hours Watch</h2>
@@ -6801,7 +6812,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['home','mywork','myrole','myteam','today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','hourswatch','evv'],clients:['leads','statesubs','bookings','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['home','mywork','myrole','myteam','today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','hourswatch','evv'],clients:['leads','statesubs','bookings','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -7302,7 +7313,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', cgprofiles:'Caregiver Profiles', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV Corrections', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
-  coverage:'Coverage Help', hourswatch:'Hours Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
+  coverage:'Coverage Help', hourswatch:'Hours Watch', cg360:'Caregiver 360', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -7490,6 +7501,7 @@ function renderActiveTab(){
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); }
   if(activeTab==='hourswatch'){ hwRender(); if(HW_SCHED===null) hwLoad(); }
+  if(activeTab==='cg360'){ c360Fill(); c360Render(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today') renderToday();
@@ -24215,6 +24227,90 @@ function renderCoverage(){
       +'</div>'
       +'</div>';
   }).join('');
+}
+
+/* ── CAREGIVER 360: one card, everything the hubs know. ──────────────── */
+function c360Fill(){
+  const sel=document.getElementById('c360Sel'); if(!sel||sel.options.length>1) return;
+  const roster=(DATA.caregivers||[]).filter(g=>g.active!==false)
+    .map(g=>({ id:String(g.id), name:((g.first||'')+' '+(g.last||'')).trim() }))
+    .filter(g=>g.name).sort((a,b)=>a.name.localeCompare(b.name));
+  sel.innerHTML='<option value="">Pick a caregiver…</option>'
+    +roster.map(g=>'<option value="'+esc(g.id)+'">'+esc(g.name)+'</option>').join('');
+}
+function c360Render(){
+  const sel=document.getElementById('c360Sel'), out=document.getElementById('c360Out');
+  if(!sel||!sel.value){ out.innerHTML=''; return; }
+  const g=(DATA.caregivers||[]).find(x=>String(x.id)===sel.value); if(!g) return;
+  const name=((g.first||'')+' '+(g.last||'')).trim();
+  const nk=name.toLowerCase().replace(/\s+/g,' ').trim();
+  const now=Date.now(), d30=now-30*864e5, d90=now-90*864e5;
+  const sec=(title,body)=>'<div class="card" style="padding:14px 16px;margin-bottom:10px;">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:14px;margin-bottom:6px;">'+title+'</div>'+body+'</div>';
+  const kv=(k,v)=>'<div style="display:flex;gap:8px;font-size:13.5px;padding:2px 0;"><span class="field-note" style="min-width:150px;">'+k+'</span><span>'+v+'</span></div>';
+
+  // Identity
+  const hire=String(g.hire_date||'');
+  const tenure=hire?Math.floor((now-new Date(hire+'T12:00:00').getTime())/864e5):null;
+  const isNew=tenure!=null&&tenure<60;
+  let html=sec('Identity'+(isNew?' <span class="tag-chip" style="background:var(--honey,#FFC671);color:#5a4300;">NEW HIRE — day '+tenure+'</span>':''),
+    kv('Phone',esc(g.phone||'(none on roster)'))+kv('Email',esc(g.email||'(none)'))
+    +kv('Hired',esc(hire||'?')+(tenure!=null?' ('+Math.floor(tenure/30)+' months)':''))
+    +kv('AxisCare id',g.axiscare_id?esc(String(g.axiscare_id))+' · <a href="https://16485.axiscare.com/?caregivers-profile.php&id='+esc(String(g.axiscare_id))+'" target="_blank" rel="noopener">open in AxisCare ↗</a>':'(not linked)'));
+
+  // Compliance snapshot straight off the roster fields
+  const chk=(label,date,status)=>kv(label,(status?esc(String(status))+' · ':'')+(date?esc(String(date)):'<span style="color:#C0392B;">missing</span>'));
+  html+=sec('Compliance & training',
+    chk('Orientation',g.orient_date)+chk('ALZ pre-contact',g.alz_date)
+    +chk('OJT',g.ojt_date)+chk('Annual training',g.annual_date)
+    +chk('OIG check',g.oig_date,g.oig_status)+chk('EDL check',g.edl_date,g.edl_status)
+    +chk('FCSR',g.fcsr_date,g.fcsr_status)+(g.fp&&g.fp!=='N/A'?chk('Fingerprints',g.fp_date,g.fp):''));
+
+  // Hours & availability
+  const av=(DATA.caregiver_availability||[]).find(a=>String(a.axiscare_id||a.id)===String(g.axiscare_id||('roster_'+g.id)));
+  const schedKnown=typeof HW_SCHED==='object'&&HW_SCHED!==null;
+  const sched=schedKnown?(HW_SCHED[String(g.axiscare_id||'')]??0):null;
+  const wins=av&&av.windows?Object.entries(av.windows).filter(([d,w])=>w&&w.length)
+    .map(([d,w])=>d.slice(0,1).toUpperCase()+d.slice(1,3)+': '+w.join(', ')).join(' · '):'';
+  html+=sec('Hours they want vs hours they have',
+    av?(kv('Wants',esc(String(av.target_hours))+' h/week (updated '+esc(String(av.updated_at||'').slice(0,10))+')')
+      +kv('Scheduled next week',sched==null?'open Hours Watch and Refresh to load':esc(String(sched))+' h')
+      +(sched!=null&&Number.isFinite(Number(av.target_hours))?kv('Gap',(Number(av.target_hours)-sched)>0?'<b style="color:#C0392B;">'+(Number(av.target_hours)-sched).toFixed(1)+' h short</b>':'<b style="color:#1E8449;">at target</b>'):'')
+      +kv('Wanted windows',esc(wins||'(none ticked)')))
+    :'<div class="field-note">No availability on file — text them cc.mo-care.com/availability</div>');
+
+  // Attendance 30/90 days + write-ups
+  const evs=(DATA.attendance_events||[]).filter(e=>String(e.caregiver||'').toLowerCase().replace(/\s+/g,' ').trim()===nk);
+  const inD=(e,cut)=>{ const t=new Date(String(e.shift_date||e.created_at||0)+'T12:00:00').getTime(); return Number.isFinite(t)&&t>=cut; };
+  const cnt=(type,cut)=>evs.filter(e=>(type==='evv'?(e.type==='evv_missing_in'||e.type==='evv_missing_out'):e.type===type)&&inD(e,cut)).length;
+  const wus=(DATA.discipline_actions||[]).filter(w=>String(w.caregiver||'').toLowerCase().replace(/\s+/g,' ').trim()===nk);
+  const recent=evs.sort((a,b)=>String(b.shift_date||'').localeCompare(String(a.shift_date||''))).slice(0,6)
+    .map(e=>'<div class="field-note" style="padding:1px 0;">'+esc(String(e.shift_date||''))+' · '+esc(String(e.type))
+      +(e.minutes_late?' ('+esc(String(e.minutes_late))+' min late)':'')
+      +(e.notice_hours!=null?' ('+esc(String(e.notice_hours))+'h notice)':'')+'</div>').join('');
+  html+=sec('Attendance (30 / 90 days)',
+    kv('Call-ins',cnt('callin',d30)+' / '+cnt('callin',d90))
+    +kv('Tardies',cnt('tardy',d30)+' / '+cnt('tardy',d90))
+    +kv('EVV problems',cnt('evv',d30)+' / '+cnt('evv',d90))
+    +kv('No-call/no-show',cnt('ncns',d30)+' / '+cnt('ncns',d90))
+    +kv('Write-ups on file',String(wus.length))
+    +(recent?'<div style="margin-top:6px;">'+recent+'</div>':'<div class="field-note" style="margin-top:6px;">No attendance events recorded.</div>'));
+
+  // Callout behaviour from coverage cases
+  let asked=0,yes=0,no=0,silent=0,lastReply='';
+  (DATA.coverage_cases||[]).forEach(c=>(c.asked||[]).forEach(a=>{
+    if(String(a.name||'').toLowerCase().replace(/\s+/g,' ').trim()!==nk) return;
+    asked++;
+    if(a.state==='yes') yes++; else if(a.state==='no') no++; else silent++;
+    if(a.reply&&(!lastReply||String(a.replied_at||'')>lastReply)) lastReply=String(a.reply);
+  }));
+  html+=sec('Callout behaviour',
+    asked?(kv('Times asked to cover',String(asked))+kv('Said yes',String(yes))+kv('Said no',String(no))+kv('Never answered',String(silent))
+      +(lastReply?kv('Last reply','“'+esc(lastReply.slice(0,120))+'”'):''))
+    :'<div class="field-note">Never asked on a callout yet.</div>');
+
+  out.innerHTML=html;
+  document.getElementById('c360Hint').textContent='';
 }
 
 /* ── HOURS WATCH: wanted hours vs scheduled hours, gap first. ─────────── */
