@@ -698,7 +698,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:#fff;border-bottom:1px solid var(--border);">
       <b style="color:var(--navy);font-size:15px;">Client profile</b>
       <span style="flex:1"></span>
-      <button class="ghost" onclick="pdOpenTab()" style="font-size:12.5px;">Open full tab</button>
       <button class="ghost" onclick="pdClose()" aria-label="Close" style="font-size:15px;">✕</button>
     </div>
     <div id="pdBody" style="overflow:auto;padding:14px 16px;"></div>
@@ -785,7 +784,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-parent="leads" onclick="ccParentClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads<span class="subtab-badge red" id="bkgPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-parent="assessments" onclick="ccParentClick('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Starting Care</div>
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
-    <div class="fpill" data-tab="client360" onclick="switchTab('client360')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-user"/></svg> Client 360</div>
     <div class="fpill" data-tab="circles" onclick="switchTab('circles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family Circles</div>
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
@@ -1478,23 +1476,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          SMS thread: replies come to the office line, which is what "call us
          with questions" means, and the record lives here rather than
          unlabelled in a Conversations list. -->
-    <!-- ===================== TAB: CLIENT 360 ===================== -->
-    <!-- One client, the whole picture. AxisCare stays the owner of identity
-         and schedule; everything here is read from data the hub already
-         keeps, except the Home & Life card, which holds the few things no
-         system records (the dog's name, the parking quirk, the life story)
-         in app_data client_profiles, typed once. -->
-    <section class="tabpanel" id="tab-client360">
-      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-        <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Client 360</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everything the hubs know about one client, in one place.</div>
-        </div>
-        <span style="flex:1;"></span>
-        <select id="cl360Sel" style="min-width:240px;" onchange="cl360Render()"><option value="">Pick a client…</option></select>
-      </div>
-      <div id="cl360Out"><div class="field-note">Pick a client to see their whole picture.</div></div>
-    </section>
 
     <section class="tabpanel" id="tab-circles">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
@@ -6873,7 +6854,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['home','mywork','myrole','myteam','today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','hourswatch','evv'],clients:['leads','statesubs','bookings','clients','client360','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['home','mywork','myrole','myteam','today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','hourswatch','evv'],clients:['leads','statesubs','bookings','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -7590,7 +7571,6 @@ function renderActiveTab(){
   if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='cgprofiles') loadCgProfiles();
   if(activeTab==='clients') renderClients();
-  if(activeTab==='client360'){ cl360Fill().then(()=>cl360Render()); }
   if(activeTab==='soc') renderSocTab();
   if(activeTab==='comms') renderCommsPage();
   if(activeTab==='inbox') renderInboxCc();
@@ -11165,9 +11145,13 @@ function getClientRoster(){
   });
   return Array.from(byKey.values());
 }
-function renderClients(){
+async function renderClients(){
   renderFilterPills('clientsFilters', ['All','Has Open Concern','Declining Trend','No Recent Check-in'], activeFilters.clients, 'clients');
-  let rows = getClientRoster().filter(r=>searchMatch(r.client_name)
+  /* The full active census (identity layer) merged with hub records — the
+     same roster the profile slide-over uses. Click a name for the whole
+     picture; this table is the overview. */
+  let rows = (await cl360Roster()).map(r=>({ checkins:[], key:(r.axiscare_client_id?'ax:'+r.axiscare_client_id:'nm:'+String(r.client_name||'').toLowerCase()), ...r }))
+    .filter(r=>searchMatch(r.client_name)
     && ccViewMatch((r.lead&&r.lead.assigned_coordinator)
       || (r.checkins&&r.checkins.length ? r.checkins[r.checkins.length-1].coordinator : '')));
   const f = activeFilters.clients;
@@ -11176,17 +11160,17 @@ function renderClients(){
   else if(f==='No Recent Check-in') rows = rows.filter(r=>r.checkins.length===0 || !r.checkins.some(c=>c.next_checkin_due && c.next_checkin_due>=today()));
 
   const wrap = document.getElementById('clientsTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty">No clients yet — clients appear here once a lead is converted, an assessment is logged, or a check-in is recorded.</div>'; return; }
+  if(rows.length===0){ wrap.innerHTML='<div class="empty">No clients match this filter.</div>'; return; }
   rows.sort((a,b)=>a.client_name.localeCompare(b.client_name));
   wrap.innerHTML = `<table><thead><tr>
-    <th>Client</th><th>AxisCare ID</th><th>Payer</th><th>Assessment Status</th><th>Last Check-in</th><th>Actions</th>
+    <th>Client</th><th>AxisCare ID</th><th>Care Level</th><th>Assessment Status</th><th>Last Check-in</th><th>Actions</th>
   </tr></thead><tbody>${rows.map(r=>{
     const lastCheckin = r.checkins.slice().sort((a,b)=>(b.checkin_date||'').localeCompare(a.checkin_date||''))[0];
     const declining = clientSatisfactionDeclining(r.client_name);
     return `<tr>
       <td><b><a href="javascript:void(0)" data-open-client="${escapeHtmlComms(String(r.axiscare_client_id||r.client_name))}" style="color:inherit;text-decoration:underline dotted;" title="Open their profile">${r.client_name}</a></b>${declining?' <span class="badge warn">📉 Declining</span>':''}</td>
       <td>${r.axiscare_client_id||'—'}</td>
-      <td>${(r.assessment&&r.assessment.payer)||'—'}</td>
+      <td>${(()=>{ const p=(DATA.client_profiles||[]).find(x=>x.id===cl360ProfileId(r)); return (p&&p.care_level)||'—'; })()}</td>
       <td>${r.assessment?statusBadge(r.assessment.status):'<span class="badge muted">No assessment</span>'}</td>
       <td>${lastCheckin ? lastCheckin.checkin_date+' ('+'⭐'.repeat(lastCheckin.satisfaction_rating||0)+')' : '—'}</td>
       <td><button class="linklike" onclick="openClientHistory('${r.key.replace(/'/g,"\\'")}')">View History</button></td>
@@ -11194,7 +11178,7 @@ function renderClients(){
 }
 function openClientHistory(key){
   const rec = getClientRoster().find(r=>r.key===key);
-  if(!rec) return;
+  if(!rec){ openClientProfile(key.replace(/^ax:/,'').replace(/^nm:/,'')); return; }
   document.getElementById('clientHistoryTitle').textContent = rec.client_name;
   document.getElementById('clientHistorySub').textContent = rec.axiscare_client_id ? 'AxisCare Client ID: '+rec.axiscare_client_id : 'No AxisCare Client ID on file yet';
 
@@ -24378,15 +24362,6 @@ async function cl360Roster(){
   CL360_ROSTER = [...byKey.values()].sort((a,b)=>a.client_name.localeCompare(b.client_name));
   return CL360_ROSTER;
 }
-async function cl360Fill(){
-  const sel = document.getElementById('cl360Sel'); if(!sel) return;
-  const roster = await cl360Roster();
-  const keep = sel.value;
-  sel.innerHTML = '<option value="">Pick a client…</option>'
-    + roster.map((r,i)=>'<option value="'+i+'">'+escapeHtmlComms(r.client_name)
-      + (r.axiscare_client_id ? ' · '+escapeHtmlComms(String(r.axiscare_client_id)) : '')+'</option>').join('');
-  if(keep && roster[keep]) sel.value = keep;
-}
 function cl360Card(title, body){
   return '<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
     + '<div style="font-weight:800;color:var(--navy);font-size:15px;margin-bottom:8px;">'+title+'</div>'+body+'</div>';
@@ -24394,13 +24369,6 @@ function cl360Card(title, body){
 function cl360Kv(k, v){
   return '<div style="display:flex;gap:10px;font-size:13.5px;padding:2px 0;">'
     + '<span style="min-width:130px;color:var(--text-muted);font-weight:600;">'+k+'</span><span>'+v+'</span></div>';
-}
-async function cl360Render(){
-  const sel = document.getElementById('cl360Sel'), out = document.getElementById('cl360Out');
-  if(!sel || !out) return;
-  const r = CL360_ROSTER[sel.value];
-  if(!r){ out.innerHTML = '<div class="field-note">Pick a client to see their whole picture.</div>'; return; }
-  return cl360RenderInto(r, out, '');
 }
 /* px keeps ids unique when the same profile renders in the slide-over while
    the tab also holds one. */
@@ -24552,14 +24520,6 @@ async function openClientProfile(ref){
   await cl360RenderInto(r, body, 'pd_');
 }
 function pdClose(){ const w=document.getElementById('pdWrap'); if(w) w.style.display='none'; }
-async function pdOpenTab(){
-  pdClose(); if(!PD_R) return;
-  switchTab('client360');
-  await cl360Fill();
-  const sel = document.getElementById('cl360Sel');
-  const i = CL360_ROSTER.findIndex(x=>x.client_name===PD_R.client_name);
-  if(sel && i>-1){ sel.value = String(i); cl360Render(); }
-}
 function openCaregiverProfile(name){
   const q = String(name||'').trim().toLowerCase();
   const g = (DATA.caregivers||[]).find(x=>(((x.first||'')+' '+(x.last||'')).trim().toLowerCase())===q)
