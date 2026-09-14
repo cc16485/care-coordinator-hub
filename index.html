@@ -109,6 +109,10 @@
   .fsubbar{display:none;gap:6px;padding:11px 26px 10px;background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto;}
   .fsubbar.on{display:flex;}
   .fpill{display:flex;align-items:center;gap:8px;border-radius:999px;padding:6px 16px;font-size:12.5px;font-weight:700;border:1.5px solid var(--navy);background:#fff;color:var(--navy);cursor:pointer;white-space:nowrap;flex:0 0 auto;}
+  /* Tiny labels that split one pill row into its two jobs (her ask,
+     2026-09-13: leads vs current clients should read as different work). */
+  .pillsec{align-self:center;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);white-space:nowrap;flex:0 0 auto;padding-right:2px;}
+  .pillsec:not(:first-child){margin-left:10px;padding-left:12px;border-left:1px solid var(--border);}
   .fpill:hover{background:#EFF5FA;}
   .fpill.active{background:var(--navy);color:#fff;}
   /* ---- styles carried over with the caregiver panels ---- */
@@ -781,14 +785,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
   </div>
   <div class="fsubbar" id="fsub-clients">
+    <span class="pillsec">New Families</span>
     <div class="fpill" data-parent="leads" onclick="ccParentClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
     <div class="fpill" data-parent="assessments" onclick="ccParentClick('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Starting Care</div>
+    <span class="pillsec">Current Clients</span>
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
     <div class="fpill" data-tab="circles" onclick="switchTab('circles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family Circles</div>
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
     <div class="fpill" data-tab="careplans" onclick="switchTab('careplans')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Plan Reviews</div>
-    <div class="fpill" onclick="location.href='guide.html'"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> GUIDE Program</div>
     <span style="flex:1"></span>
     <!-- One hub, one truth, a lens per person: filters Leads, State
          Submissions, Check-ins, and Active Clients to one coordinator's
@@ -848,7 +853,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-sops">
     <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Library</div>
     <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
-    
+    <span class="pillsec">Programs</span>
+    <div class="fpill" onclick="location.href='guide.html'"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> GUIDE Program</div>
   </div>
 
   <!-- Third level. Only appears when the active tab belongs to a parent
