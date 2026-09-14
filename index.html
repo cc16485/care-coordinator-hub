@@ -24168,7 +24168,8 @@ async function cl360RenderInto(r, out, px){
       ? members.map(m=>'<div style="font-size:13.5px;padding:4px 0;border-bottom:1px solid var(--border);">'
           + '<b>'+esc(m.name||'(no name)')+'</b>'
           + (m.role||m.relationship ? ' · '+esc(m.role||m.relationship) : '')
-          + (m.decision_maker ? ' · <b>decision maker</b>' : '')
+          + (m.can_make_medical_decisions ? ' · <b>medical decisions ok</b>' : (m.decision_maker ? ' · <b>decision maker</b>' : ''))
+          + (m.hipaa_authorized ? ' · HIPAA ok' : '')
           + (m.phone ? '<div class="field-note">'+esc(m.phone)+(m.email?' · '+esc(m.email):'')+'</div>' : (m.email?'<div class="field-note">'+esc(m.email)+'</div>':''))
           + '</div>').join('')
       : '<div class="field-note">Circle exists but has no people yet — add them in Family Circles.</div>';
