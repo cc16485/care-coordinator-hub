@@ -26361,6 +26361,17 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
   position:relative !important;
   z-index:2 !important;
 }
+
+/* The section labels inside the sub-bar (New Families / Current Clients)
+   were still coloured for the old light bar; on the navy drawer they read
+   as black. White, with a matching divider. */
+html.embedded .fsubbar .pillsec, .fsubbar .pillsec {
+  color:rgba(255,255,255,.92) !important;
+  align-self:center !important;
+}
+html.embedded .fsubbar .pillsec:not(:first-child), .fsubbar .pillsec:not(:first-child) {
+  border-left-color:rgba(255,255,255,.35) !important;
+}
 </style>
 </body>
 </html>
