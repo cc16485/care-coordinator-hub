@@ -794,7 +794,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        is booked. These were scattered across three sections. -->
   <div class="fsubbar" id="fsub-today">
     <div class="fpill" data-tab="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Dashboard</div>
-    <div class="fpill" data-tab="home" onclick="switchTab('home')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> Home</div>
     <div class="fpill" data-tab="mywork" onclick="switchTab('mywork')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> My Work<span class="subtab-badge red" id="gb-mywork" style="display:none;"></span></div>
     <div class="fpill" data-tab="myrole" onclick="switchTab('myrole')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> My Role</div>
     <div class="fpill" data-tab="myteam" onclick="switchTab('myteam')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> My Team</div>
@@ -1130,6 +1129,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            the hub teach each other. Chips are doors, not decorations. -->
       <div id="todayGlance"></div>
       <div id="todayHero"></div>
+      <!-- The Responsible Now board moved here when the Home tab retired
+           (Samantha, 2026-09-14: "i dont think we need the home tab"). Who
+           holds each function right now belongs on the page everyone opens. -->
+      <div id="dutyDock"></div>
       <div class="card" id="myDayCard" style="padding:15px 18px 9px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
           <svg style="width:21px;height:21px;flex:none;" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg>
@@ -1323,9 +1326,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          One screen per person, showing only what is theirs. Whose it is
          decides what appears: an owner sees exceptions, everyone else sees
          their own work. Deliberately NOT a dashboard of the whole company. -->
-    <section class="tabpanel" id="tab-home">
-      <div id="homeWrap"></div>
-    </section>
 
     <!-- ===================== TAB: MY WORK =====================
          Five buckets over the same ops_items the hub already uses. Not a
@@ -6826,7 +6826,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','home','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','evv'],clients:['leads','statesubs','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','evv'],clients:['leads','statesubs','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -7393,7 +7393,6 @@ function renderActiveTab(){
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today') renderToday();
-  if(activeTab==='home') renderHome();
   if(activeTab==='mywork') renderMyWork();
   if(activeTab==='myrole') renderMyRole();
   if(activeTab==='myteam') renderMyTeam();
@@ -8876,6 +8875,7 @@ async function heroLoadShifts(){
 function renderToday(){
   renderStandup();
   try{ renderTodayHero(); }catch(e){}
+  try{ const dd=document.getElementById('dutyDock'); if(dd) dd.innerHTML=dutyPanelHtml(); }catch(e){}
   const t = today();
   const acts = (DATA.activities||[]).filter(a=>!a.done_at);
   const openLeads = DATA.leads.filter(l=>l.status!=='Converted'&&l.status!=='Lost');
