@@ -8767,7 +8767,12 @@ function renderTodayHero(){
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open');
   const win=heroAfterHoursStart().getTime();
   const born=x=>{ const p=Date.parse(x||''); return !isNaN(p)&&p>=win; };
-  const onOps=open.filter(i=>born(i.created_at));
+  /* Overnight means PEOPLE: a note someone banked, a text a caregiver sent,
+     a booking a family made. The midnight automation sweeps also stamp
+     created_at overnight, and 20 machine rows drown the 3 human ones. */
+  const humanBorn=i=>!/^automation:/.test(String(i.created_by||''))
+    && !/^(attendance|coverage)-watch$/.test(String(i.opened_by||''));
+  const onOps=open.filter(i=>born(i.created_at)&&humanBorn(i));
   const openLeads=(DATA.leads||[]).filter(l=>l.status!=='Converted'&&l.status!=='Lost');
   const onLeads=openLeads.filter(l=>born(l.created_at));
   const myPass=open.filter(i=>i.opened_by==='quick-capture'&&String(i.owner||'').toLowerCase()===me);
@@ -8808,12 +8813,13 @@ function renderTodayHero(){
 
   let left='';
   if(onOps.length||onLeads.length) left+=card('🌙','While you were out','var(--navy)',
-    onOps.map(i=>row('<b>'+esc(i.about||i.title||'')+'</b> '+(i.urgency==='high'?urgent:''),
+    onOps.slice(0,8).map(i=>row('<b>'+esc(i.about||i.title||'')+'</b> '+(i.urgency==='high'?urgent:''),
       esc(String(i.detail||'').slice(0,110))+' · '+esc(when(i.created_at))+(i.created_by?' · '+esc(String(i.created_by).split('@')[0]):''),'mywork')).join('')
-    +onLeads.map(l=>row('<b>New lead: '+esc([l.first_name,l.last_name].filter(Boolean).join(' '))+'</b>'
+    +onLeads.slice(0,4).map(l=>row('<b>New lead: '+esc([l.first_name,l.last_name].filter(Boolean).join(' '))+'</b>'
       +(/quick capture|assessment booking/i.test(String(l.source||''))?' <span class="hero-badge" style="background:#FFF4DE;color:#B45309;">quick form</span>':''),
-      esc(String(l.interest_notes||'').slice(0,100))+' · '+esc(when(l.created_at)),'leads')).join(''),
-    'Everything that came in after 5pm '+((new Date().getDay()===1)?'Friday':'yesterday')+'.');
+      esc(String(l.interest_notes||'').slice(0,100))+' · '+esc(when(l.created_at)),'leads')).join('')
+    +((onOps.length>8||onLeads.length>4)?'<div class="field-note" style="padding-top:6px;">plus '+(Math.max(0,onOps.length-8)+Math.max(0,onLeads.length-4))+' more in My Work</div>':''),
+    'What PEOPLE sent in after 5pm '+((new Date().getDay()===1)?'Friday':'yesterday')+'. The robots\' overnight findings go to My Work, not here.');
   if(myPass.length) left+=card('📝','Passed along to you ('+myPass.length+')','#B45309',
     myPass.map(i=>row('<b>'+esc(i.about||i.title||'')+'</b> '+(i.urgency==='high'?urgent:''),
       esc(String(i.detail||'').slice(0,130)),'mywork')).join(''));
