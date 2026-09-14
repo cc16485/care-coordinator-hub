@@ -4257,7 +4257,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div style="font-size:.72rem;color:var(--text-muted)">Live from AxisCare visits. Two calls per match: 🆕 first-shift call, then a good-fit follow-up a month later. After that a pair only comes back if a call raised concerns.</div>
       </div>
     </div>
-    <button class="primary" style="font-size:.78rem" onclick="cmLoadPairs(this)">↻ Refresh</button>
+    <div style="display:flex;gap:.5rem"><button style="font-size:.78rem" onclick="cmBulkGood(this)" title="Clears the schedule-import backlog: pairs whose first visit is over two weeks old get a known-good ✓ without calls. New matches stay.">✓ Clear pre-existing matches</button><button class="primary" style="font-size:.78rem" onclick="cmLoadPairs(this)">↻ Refresh</button></div>
   </div>
   <div id="ci-pairs-board"><div style="color:var(--text-muted);font-size:.85rem">Loading recent client–caregiver matches…</div></div>
 </div>
@@ -26216,6 +26216,31 @@ window.covLoadShifts=function(){};
   window.cmLoadPairs=loadPairs;
   window.cmPrefill=prefill;
   window.cmSave=save;
+  /* One click for the go-live backlog: when all schedules were first entered
+     into AxisCare, every client-caregiver pair looked like a brand-new match
+     and flooded this board. Pairs whose FIRST visit is already more than two
+     weeks old are that import wave, not new matches — clear them as known
+     good in one pass. Genuinely new pairs (first visit within 14 days) and
+     concern/good-fit follow-ups are left alone. */
+  async function bulkGood(btn){
+    if(PAIRS===null||!PAIRS.length){ alert('Load the board first (\u21bb Refresh).'); return; }
+    const targets=PAIRS.filter(p=>{ const i=pairInfo(p); return i.due==='first' && !i.newPair; });
+    if(!targets.length){ alert('Nothing to clear. Every listed pair is either genuinely new or already handled.'); return; }
+    if(!confirm('Mark '+targets.length+' pre-existing matches as known good?\n\nThese are pairs whose first visit is more than two weeks old (the schedule-import backlog). Each gets a \u2713 and stops coming up for first calls. New matches and concern follow-ups stay on the list.')) return;
+    if(btn) btn.disabled=true;
+    let n=0;
+    for(const p of targets){
+      const e={ id:'ci'+Date.now()+Math.random().toString(36).slice(2,6), client:p.client, caregiver:p.caregiver, spoke_with:'', rating:'good',
+        notes:'Cleared as a pre-existing match (schedule-import backlog). No call needed.', coaching:'', want_favorite:false, want_exclusion:false,
+        at:new Date().toISOString(), by:me(), skip:true, fav_ax_done:false, coach_ax_noted:false, coach_ax_error:'' };
+      DATA.client_checkins.push(e);
+      await persist('client_checkins', e);
+      n++; if(btn) btn.textContent='Clearing\u2026 '+n+'/'+targets.length;
+    }
+    if(btn){ btn.disabled=false; btn.textContent='\u2713 Clear pre-existing matches'; }
+    renderHistory(); renderPairs();
+  }
+  window.cmBulkGood=bulkGood;
   window.cmSkip=skip;
   window.cmMarkFav=markFav;
   window.cmPushCoach=pushCoach;
