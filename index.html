@@ -3863,6 +3863,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 
 <div class="settings-section">
+<h3>☀️ Morning Brief</h3>
+<p class="hint">A personal email at <b>6:45am on workdays</b>: pass-along notes from the quick form, leads to call, and that person's top priorities, each line one tap into the hub. Everyone sees only their own book plus anything nobody owns yet. Pick who gets one:</p>
+<div id="mbRecips" style="display:flex;flex-direction:column;gap:5px;margin:8px 0;"></div>
+<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+<button class="primary" onclick="mbSave(this)">Save recipients</button>
+<button class="secondary" onclick="mbTest(this)">Send me a test brief now</button>
+<span class="field-note" id="mbStatus"></span>
+</div>
+</div>
+
+<div class="settings-section">
 <h3>💬 Communications &amp; Training Hub</h3>
 <p class="hint">One key switches on three things: the <b>texts, emails and calls</b> shown on a lead, the <b>Sync from Training Hub</b> button on the Training tab, and escalation alerts. It lives in the Training Platform project as <code>hub_read_key</code> and starts with <code>cchub_</code>.</p>
 <label>Training Hub read key</label><input id="set_training_hub_key" type="password" placeholder="cchub_...">
@@ -11015,8 +11026,69 @@ async function covMsgsSave(btn){
   const s=document.getElementById('covMsgsSaved');
   if(s) s.textContent=error?('Could not save: '+error.message):'Saved. Every callout from now on uses these words.';
 }
+/* ── MORNING BRIEF (Samantha, 2026-09-13: "an email with priorities of the
+   day... something they will actually use every day"). The engine is the
+   lead-digest function (its 7am cron already existed); these controls choose
+   who gets one and let anybody send themselves a test. ── */
+function mbFill(){
+  const box=document.getElementById('mbRecips'); if(!box) return;
+  const saved=(DATA.ops_settings&&Array.isArray(DATA.ops_settings.morning_brief_recipients))
+    ? DATA.ops_settings.morning_brief_recipients : null;
+  const savedEmails=new Set((saved||[]).map(r=>String(r.email||'').toLowerCase()));
+  const people=[];
+  (DATA.coordinator_staff||[]).forEach(s=>{
+    const em=String(s.email||'').toLowerCase();
+    if(!em.includes('@') || s.active===false) return;
+    if(!people.some(p=>p.email===em)) people.push({ name:String(s.name||em.split('@')[0]), email:em });
+  });
+  (saved||[]).forEach(r=>{ const em=String(r.email||'').toLowerCase();
+    if(em.includes('@') && !people.some(p=>p.email===em)) people.push({ name:String(r.name||em.split('@')[0]), email:em }); });
+  if(!people.length){ box.innerHTML='<span class="field-note">Add your staff (with emails) on My Team first.</span>'; return; }
+  /* No saved list yet = the function's old default pair; show that honestly. */
+  box.innerHTML=people.map(p=>{
+    const on=saved ? savedEmails.has(p.email)
+      : (p.email==='samantha@mo-care.com'||p.email==='krystal@mo-care.com');
+    return '<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;cursor:pointer;">'
+      +'<input type="checkbox" class="mbChk" data-name="'+escapeHtmlComms(p.name)+'" data-email="'+escapeHtmlComms(p.email)+'" '+(on?'checked':'')+'>'
+      +escapeHtmlComms(p.name)+' <span class="field-note">'+escapeHtmlComms(p.email)+'</span></label>';
+  }).join('');
+}
+async function mbSave(btn){
+  const picks=[...document.querySelectorAll('.mbChk:checked')]
+    .map(c=>({ name:c.dataset.name, email:c.dataset.email }));
+  if(btn) btn.disabled=true;
+  let base={};
+  try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle();
+       base=(data&&data.data)||{}; }catch(e){}
+  const merged=Object.assign({}, base, { morning_brief_recipients:picks });
+  const { error }=await sb.from('app_data').upsert({ key:'ops_settings', data:merged,
+    updated_at:new Date().toISOString() }, { onConflict:'key' });
+  if(btn) btn.disabled=false;
+  if(!error) DATA.ops_settings=merged;
+  const s=document.getElementById('mbStatus');
+  if(s) s.textContent=error?('Could not save: '+error.message)
+    :(picks.length?('Saved. '+picks.length+' brief'+(picks.length>1?'s':'')+' go out at 6:45am.')
+                  :'Saved. Nobody gets a brief until you check somebody.');
+}
+async function mbTest(btn){
+  if(btn){ btn.disabled=true; btn.textContent='Sending…'; }
+  const s=document.getElementById('mbStatus');
+  try{
+    const ses=await sb.auth.getSession();
+    const tok=ses&&ses.data&&ses.data.session&&ses.data.session.access_token;
+    const me=ses&&ses.data&&ses.data.session&&ses.data.session.user&&ses.data.session.user.email;
+    if(!me) throw new Error('no signed-in email');
+    const r=await fetch(CONFIG.supabase_url+'/functions/v1/lead-digest?to='+encodeURIComponent(me)+'&force=1',
+      { headers:{ Authorization:'Bearer '+tok, apikey: CONFIG.supabase_anon_key } });
+    const d=await r.json();
+    if(s) s.textContent=(d&&d.recipients>0)?('Test brief sent to '+me+'. Check your inbox.')
+      :('Could not send: '+JSON.stringify(d&&(d.briefs||d.error||d.status)||'?').slice(0,140));
+  }catch(e){ if(s) s.textContent='Could not send: '+(e&&e.message||e); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Send me a test brief now'; } }
+}
 function fillSettingsPanel(){
   covMsgsFill();
+  mbFill();
   document.getElementById('set_supabase_url').value = CONFIG.supabase_url||'';
   document.getElementById('set_supabase_anon_key').value = CONFIG.supabase_anon_key||'';
   document.getElementById('set_axiscare_site').value = CONFIG.axiscare_site||'';
@@ -25995,7 +26067,10 @@ window.covLoadShifts=function(){};
                         'training-compliance':'caregivers',
                         'client-care':'clients', clientcare:'clients',
                         newclients:'clientqueue', statesubmissions:'statesubs',
-                        overview:'today', reports:'reports' };
+                        overview:'today', reports:'reports',
+                        /* the Morning Brief emails link straight to tabs; 'leads'
+                           itself is shadowed by the old sidebar alias above */
+                        leadboard:'leads' };
   function applyHash(){
     var h=(location.hash||'').replace(/^#/,'').toLowerCase(); if(!h) return false;
     if(CC_HASH_ALIAS[h]) h=CC_HASH_ALIAS[h];
