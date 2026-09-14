@@ -113,6 +113,22 @@
      2026-09-13: leads vs current clients should read as different work). */
   .pillsec{align-self:center;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gray);white-space:nowrap;flex:0 0 auto;padding-right:2px;}
   .pillsec:not(:first-child){margin-left:10px;padding-left:12px;border-left:1px solid var(--border);}
+  /* The Today hero: the live twin of the Morning Brief email. */
+  .tg-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:10px;margin-bottom:16px;}
+  .tg-chip{background:#fff;border:1px solid var(--border);border-top:3px solid var(--navy);border-radius:12px;padding:10px 8px 9px;text-align:center;cursor:pointer;transition:transform .08s, box-shadow .08s;}
+  .tg-chip:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(14,56,96,.10);}
+  .tg-chip .n{font-size:24px;font-weight:800;line-height:1;color:var(--navy);}
+  .tg-chip .l{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray);margin-top:4px;}
+  .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;align-items:start;}
+  @media (max-width:960px){.hero-grid{grid-template-columns:1fr;}}
+  .hero-card{background:#fff;border:1px solid var(--border);border-left:4px solid var(--navy);border-radius:12px;padding:13px 16px 10px;margin-bottom:14px;}
+  .hero-card .hc-t{font-size:13px;font-weight:800;color:var(--navy);margin-bottom:4px;}
+  .hero-row{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;}
+  .hero-row:last-child{border-bottom:none;}
+  .hero-row .m{flex:1;min-width:0;font-size:13.5px;color:#1f2a36;line-height:1.45;}
+  .hero-row .m .sub{font-size:12px;color:var(--gray);margin-top:1px;}
+  .hero-row .go{flex:0 0 auto;color:var(--teal);font-weight:700;font-size:12px;white-space:nowrap;align-self:center;}
+  .hero-badge{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;white-space:nowrap;vertical-align:1px;}
   .fpill:hover{background:#EFF5FA;}
   .fpill.active{background:var(--navy);color:#fff;}
   /* ---- styles carried over with the caregiver panels ---- */
@@ -1107,6 +1123,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="secondary" onclick="ccmtgSolo()">🎥 Meeting</button>
         <button class="primary" onclick="openActivityModal()">＋ Schedule an activity</button>
       </div>
+      <!-- THE MORNING HERO (Samantha, 2026-09-14: "a really good page for our
+           dashboard/today"). The live twin of the 6:45 Morning Brief email:
+           the same numbers, the same sections, same order, so the email and
+           the hub teach each other. Chips are doors, not decorations. -->
+      <div id="todayGlance"></div>
+      <div id="todayHero"></div>
       <div class="card" id="myDayCard" style="padding:15px 18px 9px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
           <svg style="width:21px;height:21px;flex:none;" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg>
@@ -8723,8 +8745,130 @@ function renderStandup(){
   if(uLate||uDue) rows.push(row('Nobody yet','<span style="color:var(--amber);font-weight:700;">needs an owner</span>',uDue,uLate,''));
   host.innerHTML=rows.join('');
 }
+/* ── THE TODAY HERO ──────────────────────────────────────────────────────
+   The live twin of the 6:45 Morning Brief email: overnight news, pass-alongs,
+   the floor (coverage cases, open shifts pulled live from AxisCare, family
+   updates from flagged notes, yesterday's EVV). Same numbers, same order, so
+   the email and this page teach each other. Chips are doors: every one opens
+   the tab where the work lives. */
+let TB_CACHE=null, TB_AT=0, TB_LOADING=false;
+function heroAfterHoursStart(){
+  const d=new Date(); const back=(d.getDay()===1)?3:1;
+  const w=new Date(d.getTime()-back*864e5); w.setHours(17,0,0,0); return w;
+}
+function renderTodayHero(){
+  const g=document.getElementById('todayGlance'), h=document.getElementById('todayHero');
+  if(!g||!h) return;
+  const esc=escapeHtmlComms;
+  const me=String(opsMeKey()||'').toLowerCase();
+  const myFirst=String((ME&&ME.name)||'').split(/\s+/)[0]||'';
+  const t=today(), now=Date.now();
+  const yd=new Date(now-864e5).toLocaleDateString('en-CA');
+  const open=(DATA.ops_items||[]).filter(i=>i.status==='open');
+  const win=heroAfterHoursStart().getTime();
+  const born=x=>{ const p=Date.parse(x||''); return !isNaN(p)&&p>=win; };
+  const onOps=open.filter(i=>born(i.created_at));
+  const openLeads=(DATA.leads||[]).filter(l=>l.status!=='Converted'&&l.status!=='Lost');
+  const onLeads=openLeads.filter(l=>born(l.created_at));
+  const myPass=open.filter(i=>i.opened_by==='quick-capture'&&String(i.owner||'').toLowerCase()===me);
+  const mineName=c=>{ const cc=String(c||'').trim().toLowerCase();
+    return !cc || (myFirst && (cc===String(ME.name||'').toLowerCase() || cc.split(/\s+/)[0]===myFirst.toLowerCase())); };
+  const myLeadsDue=openLeads.filter(l=>l.follow_up_due&&l.follow_up_due<=t&&mineName(l.assigned_coordinator));
+  const b=myWorkBuckets();
+  const covOpen=(DATA.coverage_cases||[]).filter(c=>c.status==='open');
+  const famCalls=open.filter(i=>String(i.id||'').startsWith('ops_note_'));
+  const evv=(DATA.attendance_events||[]).filter(e=>e.shift_date===yd&&/^evv_missing/.test(String(e.type||'')));
+
+  const chip=(n,label,color,tab)=>'<div class="tg-chip" style="border-top-color:'+color+';" onclick="switchTab(\''+tab+'\')">'
+    +'<div class="n" style="color:'+color+';">'+n+'</div><div class="l">'+esc(label)+'</div></div>';
+  const chips=[];
+  if(onOps.length+onLeads.length) chips.push(chip(onOps.length+onLeads.length,'overnight','var(--navy)','mywork'));
+  if(myPass.length) chips.push(chip(myPass.length,'pass-alongs','#B45309','mywork'));
+  if(myLeadsDue.length) chips.push(chip(myLeadsDue.length,'leads to call','var(--navy)','leads'));
+  chips.push(chip(b.today.length,'my priorities',b.today.length?'var(--red)':'var(--teal)','mywork'));
+  chips.push(chip(covOpen.length,'coverage cases',covOpen.length?'var(--red)':'var(--teal)','coverage'));
+  chips.push('<div class="tg-chip" id="tbShiftChip" style="border-top-color:var(--gray);" onclick="switchTab(\'coverage\')">'
+    +'<div class="n" id="tbShiftN" style="color:var(--gray);">…</div><div class="l">open shifts today</div></div>');
+  if(famCalls.length) chips.push(chip(famCalls.length,'family updates','#C2720E','ops'));
+  if(evv.length) chips.push(chip(evv.length,'EVV misses','#B45309','cgattendance'));
+  g.innerHTML='<div class="tg-strip">'+chips.join('')+'</div>';
+
+  const card=(icon,title,color,rowsHtml,note)=>rowsHtml
+    ? '<div class="hero-card" style="border-left-color:'+color+';"><div class="hc-t">'+icon+'&nbsp; '+esc(title)+'</div>'
+      +rowsHtml+(note?'<div class="field-note" style="padding:6px 0 2px;">'+note+'</div>':'')+'</div>'
+    : '';
+  const row=(main,sub,tab,act)=>'<div class="hero-row" onclick="switchTab(\''+tab+'\')">'
+    +'<div class="m">'+main+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>'
+    +'<div class="go">'+esc(act||'Open')+' →</div></div>';
+  const when=x=>{ const d=new Date(x); if(isNaN(d)) return '';
+    const hm=d.getHours(); const t12=((hm%12)||12)+':'+String(d.getMinutes()).padStart(2,'0')+(hm<12?'am':'pm');
+    const ds=d.toLocaleDateString('en-CA');
+    return ds===t?t12+' this morning':(ds===yd?t12+' last night':t12+' '+(d.getMonth()+1)+'/'+d.getDate()); };
+  const urgent='<span class="hero-badge" style="background:#FDE8E8;color:var(--red);">urgent</span> ';
+
+  let left='';
+  if(onOps.length||onLeads.length) left+=card('🌙','While you were out','var(--navy)',
+    onOps.map(i=>row('<b>'+esc(i.about||i.title||'')+'</b> '+(i.urgency==='high'?urgent:''),
+      esc(String(i.detail||'').slice(0,110))+' · '+esc(when(i.created_at))+(i.created_by?' · '+esc(String(i.created_by).split('@')[0]):''),'mywork')).join('')
+    +onLeads.map(l=>row('<b>New lead: '+esc([l.first_name,l.last_name].filter(Boolean).join(' '))+'</b>'
+      +(/quick capture|assessment booking/i.test(String(l.source||''))?' <span class="hero-badge" style="background:#FFF4DE;color:#B45309;">quick form</span>':''),
+      esc(String(l.interest_notes||'').slice(0,100))+' · '+esc(when(l.created_at)),'leads')).join(''),
+    'Everything that came in after 5pm '+((new Date().getDay()===1)?'Friday':'yesterday')+'.');
+  if(myPass.length) left+=card('📝','Passed along to you ('+myPass.length+')','#B45309',
+    myPass.map(i=>row('<b>'+esc(i.about||i.title||'')+'</b> '+(i.urgency==='high'?urgent:''),
+      esc(String(i.detail||'').slice(0,130)),'mywork')).join(''));
+
+  let right='';
+  if(covOpen.length) right+=card('🚨','Coverage cases open ('+covOpen.length+')','var(--red)',
+    covOpen.slice(0,5).map(c=>row('<b>'+esc(c.client||'?')+'</b> — '+esc([c.shift_date,c.shift_time].filter(Boolean).join(' ')),
+      (c.calling_off?esc(c.calling_off)+' called off · ':'')+((c.asked||[]).length?(c.asked.length+' asked so far'):'nobody asked yet'),'coverage','Work it')).join('')
+    +(covOpen.length>5?'<div class="field-note" style="padding-top:6px;">plus '+(covOpen.length-5)+' more on the board</div>':''));
+  right+='<div class="hero-card" id="tbShiftCard" style="border-left-color:var(--teal);"><div class="hc-t">🗓&nbsp; Today in AxisCare</div>'
+    +'<div class="field-note" id="tbShiftBody">Checking today\'s schedule…</div></div>';
+  if(famCalls.length) right+=card('💛','Keep the family updated ('+famCalls.length+')','#C2720E',
+    famCalls.map(i=>row('<b>'+esc(i.about||i.title||'')+'</b>',esc(String(i.detail||'').slice(0,110)),'ops')).join(''),
+    'A caregiver rated a note medium or high. A person decides and calls — never a robot.');
+  if(evv.length){
+    const inn=[...new Set(evv.filter(e=>e.type==='evv_missing_in').map(e=>e.caregiver))];
+    const out=[...new Set(evv.filter(e=>e.type==='evv_missing_out').map(e=>e.caregiver))];
+    right+=card('⏰',"Yesterday's EVV misses",'#B45309',
+      (inn.length?row('<b>No clock-in:</b> '+esc(inn.join(', ')),'','cgattendance','Review'):'')
+      +(out.length?row('<b>No clock-out:</b> '+esc(out.join(', ')),'','cgattendance','Review'):''));
+  }
+  h.innerHTML=(left||right)?'<div class="hero-grid"><div>'+left+'</div><div>'+right+'</div></div>':'';
+  heroLoadShifts();
+}
+async function heroLoadShifts(){
+  const body=document.getElementById('tbShiftBody'), nEl=document.getElementById('tbShiftN');
+  const chipEl=document.getElementById('tbShiftChip');
+  const paint=d=>{
+    if(!d||d.error){ if(body) body.textContent='AxisCare did not answer just now.'; if(nEl) nEl.textContent='—'; return; }
+    if(nEl){ nEl.textContent=d.open.length; nEl.style.color=d.open.length?'var(--red)':'var(--teal)'; }
+    if(chipEl) chipEl.style.borderTopColor=d.open.length?'var(--red)':'var(--teal)';
+    if(!body) return;
+    body.innerHTML='<div style="font-size:13px;color:#1f2a36;margin-bottom:2px;"><b>'+d.total+'</b> visits scheduled today.</div>'
+      +(d.open.length
+        ? d.open.slice(0,6).map(o=>'<div class="hero-row" onclick="switchTab(\'coverage\')"><div class="m"><b style="color:var(--red);">Open shift</b> '
+            +escapeHtmlComms(o.time+(o.end?'-'+o.end:''))+' — '+escapeHtmlComms(o.client)+'</div><div class="go">Cover →</div></div>').join('')
+          +(d.open.length>6?'<div class="field-note" style="padding-top:6px;">plus '+(d.open.length-6)+' more open</div>':'')
+        : '<div style="font-size:13px;color:var(--teal);font-weight:700;">Every visit today has a caregiver assigned. 💪</div>');
+  };
+  if(TB_CACHE && Date.now()-TB_AT<5*60000){ paint(TB_CACHE); return; }
+  if(TB_LOADING) return; TB_LOADING=true;
+  try{
+    const ses=await sb.auth.getSession();
+    const tok=ses&&ses.data&&ses.data.session&&ses.data.session.access_token;
+    const r=await fetch(CONFIG.supabase_url+'/functions/v1/coverage-shifts',
+      { method:'POST', headers:{ Authorization:'Bearer '+tok, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' },
+        body: JSON.stringify({ today_board:true }) });
+    const d=await r.json();
+    TB_CACHE=d; TB_AT=Date.now(); paint(d);
+  }catch(e){ paint(null); }
+  finally{ TB_LOADING=false; }
+}
 function renderToday(){
   renderStandup();
+  try{ renderTodayHero(); }catch(e){}
   const t = today();
   const acts = (DATA.activities||[]).filter(a=>!a.done_at);
   const openLeads = DATA.leads.filter(l=>l.status!=='Converted'&&l.status!=='Lost');
