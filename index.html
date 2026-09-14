@@ -687,6 +687,24 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </style>
 </head>
 <body>
+<!-- ── PROFILE SLIDE-OVER ──────────────────────────────────────────────
+     Any client name anywhere in the hub opens the full Client 360 here,
+     without leaving the screen you were on. Caregiver names jump to
+     Caregiver 360. Rendered by cl360RenderInto with the pd_ prefix so its
+     ids never collide with the tab's copy. -->
+<div id="pdWrap" style="display:none;position:fixed;inset:0;z-index:9000;">
+  <div onclick="pdClose()" style="position:absolute;inset:0;background:rgba(14,42,69,.35);"></div>
+  <div style="position:absolute;top:0;right:0;bottom:0;width:min(620px,94vw);background:var(--bg,#F6F9FD);box-shadow:-10px 0 32px rgba(0,0,0,.2);display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;background:#fff;border-bottom:1px solid var(--border);">
+      <b style="color:var(--navy);font-size:15px;">Client profile</b>
+      <span style="flex:1"></span>
+      <button class="ghost" onclick="pdOpenTab()" style="font-size:12.5px;">Open full tab</button>
+      <button class="ghost" onclick="pdClose()" aria-label="Close" style="font-size:15px;">✕</button>
+    </div>
+    <div id="pdBody" style="overflow:auto;padding:14px 16px;"></div>
+  </div>
+</div>
+
 
 <!-- ============================= SIGN-IN ============================= -->
 <div id="signinScreen">
@@ -11166,7 +11184,7 @@ function renderClients(){
     const lastCheckin = r.checkins.slice().sort((a,b)=>(b.checkin_date||'').localeCompare(a.checkin_date||''))[0];
     const declining = clientSatisfactionDeclining(r.client_name);
     return `<tr>
-      <td><b>${r.client_name}</b>${declining?' <span class="badge warn">📉 Declining</span>':''}</td>
+      <td><b><a href="javascript:void(0)" data-open-client="${escapeHtmlComms(String(r.axiscare_client_id||r.client_name))}" style="color:inherit;text-decoration:underline dotted;" title="Open their profile">${r.client_name}</a></b>${declining?' <span class="badge warn">📉 Declining</span>':''}</td>
       <td>${r.axiscare_client_id||'—'}</td>
       <td>${(r.assessment&&r.assessment.payer)||'—'}</td>
       <td>${r.assessment?statusBadge(r.assessment.status):'<span class="badge muted">No assessment</span>'}</td>
@@ -24266,7 +24284,7 @@ function renderCoverage(){
     return '<div class="card" style="padding:'+(expanded?'16px 18px':'10px 18px')+';margin-bottom:'+(expanded?'12px':'6px')+';'+(open?'border-left:4px solid #C0392B;':'')+'">'
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;cursor:pointer;" onclick="covToggleCase(\''+esc(c.id)+'\')">'
       +'<span style="color:var(--text-muted);font-size:12px;">'+(expanded?'▾':'▸')+'</span>'
-      +'<b style="font-size:15.5px;color:var(--navy);">'+esc(c.client)+'</b>'
+      +'<b style="font-size:15.5px;color:var(--navy);"><a href="javascript:void(0)" data-open-client="'+esc(String(c.client_axiscare_id||c.client))+'" style="color:inherit;text-decoration:underline dotted;" title="Open their profile">'+esc(c.client)+'</a></b>'
       +'<span class="field-note">'+esc(c.shift_date||'')+' '+esc(c.shift_time||'')+' · '+esc(R[c.reason]||c.reason)+'</span>'
       +age+headTallies+pendChip
       +(!open&&c.resolved_how?'<span style="font-size:12px;font-weight:700;color:'+(c.resolved_how==='covered'?'#1E8449':'#C0392B')+';">'+(c.resolved_how==='covered'?'covered by '+esc(c.covered_by||'?'):'closed uncovered')+'</span>':'')
@@ -24346,8 +24364,7 @@ async function cl360Identity(){
   }catch(e){ CL360_IDENTITY = []; }
   return CL360_IDENTITY;
 }
-async function cl360Fill(){
-  const sel = document.getElementById('cl360Sel'); if(!sel) return;
+async function cl360Roster(){
   const census = await cl360Identity();
   const byKey = new Map();
   census.forEach(c=>byKey.set(c.axiscare_client_id ? 'ax:'+c.axiscare_client_id : 'nm:'+c.client_name.toLowerCase(), c));
@@ -24358,8 +24375,12 @@ async function cl360Fill(){
       phone: base.phone || (r.lead&&r.lead.phone) || '' });
     else byKey.set(key, { phone:(r.lead&&r.lead.phone)||'', ghl_contact_id:'', ...r });
   });
-  const roster = [...byKey.values()].sort((a,b)=>a.client_name.localeCompare(b.client_name));
-  CL360_ROSTER = roster;
+  CL360_ROSTER = [...byKey.values()].sort((a,b)=>a.client_name.localeCompare(b.client_name));
+  return CL360_ROSTER;
+}
+async function cl360Fill(){
+  const sel = document.getElementById('cl360Sel'); if(!sel) return;
+  const roster = await cl360Roster();
   const keep = sel.value;
   sel.innerHTML = '<option value="">Pick a client…</option>'
     + roster.map((r,i)=>'<option value="'+i+'">'+escapeHtmlComms(r.client_name)
@@ -24375,11 +24396,17 @@ function cl360Kv(k, v){
     + '<span style="min-width:130px;color:var(--text-muted);font-weight:600;">'+k+'</span><span>'+v+'</span></div>';
 }
 async function cl360Render(){
-  const esc = escapeHtmlComms;
   const sel = document.getElementById('cl360Sel'), out = document.getElementById('cl360Out');
   if(!sel || !out) return;
   const r = CL360_ROSTER[sel.value];
   if(!r){ out.innerHTML = '<div class="field-note">Pick a client to see their whole picture.</div>'; return; }
+  return cl360RenderInto(r, out, '');
+}
+/* px keeps ids unique when the same profile renders in the slide-over while
+   the tab also holds one. */
+let CL360_CURRENT = {};
+async function cl360RenderInto(r, out, px){
+  const esc = escapeHtmlComms;
   const name = r.client_name, first = name.split(/\s+/)[0].toLowerCase();
   const axisId = String(r.axiscare_client_id||'');
   const blurb = (DATA.client_care_blurbs||[]).find(b=>axisId && String(b.id)===axisId);
@@ -24412,17 +24439,17 @@ async function cl360Render(){
 
   /* home & life, typed once */
   const homeFields = [
-    ['cp_pets','Pets', prof.pets],
-    ['cp_entrance','Entrance & parking', prof.entrance],
-    ['cp_home','The home (stairs, equipment, quirks)', prof.home_notes],
-    ['cp_life','Life story (who they were, what they love)', prof.life_story],
+    [px+'cp_pets','Pets', prof.pets],
+    [px+'cp_entrance','Entrance & parking', prof.entrance],
+    [px+'cp_home','The home (stairs, equipment, quirks)', prof.home_notes],
+    [px+'cp_life','Life story (who they were, what they love)', prof.life_story],
   ];
   const home = homeFields.map(f=>'<label style="font-size:12.5px;font-weight:700;color:var(--text-muted);display:block;margin:8px 0 3px;">'+f[1]+'</label>'
       + '<textarea id="'+f[0]+'" rows="2" style="width:100%;font-size:13px;">'+esc(f[2]||'')+'</textarea>').join('')
     + '<label style="font-size:12.5px;font-weight:700;color:var(--text-muted);display:block;margin:8px 0 3px;">Care level (1 wellness · 2 personal · 3 complex)</label>'
-    + '<select id="cp_level" style="font-size:13px;"><option value="">not set</option>'
+    + '<select id="'+px+'cp_level" style="font-size:13px;"><option value="">not set</option>'
     + ['Level 1','Level 2','Level 3'].map(l=>'<option'+(prof.care_level===l?' selected':'')+'>'+l+'</option>').join('')+'</select>'
-    + '<div style="margin-top:10px;"><button class="secondary" onclick="cl360SaveProfile()">Save home & life</button> <span class="field-note" id="cp_saved"></span></div>'
+    + '<div style="margin-top:10px;"><button class="secondary" onclick="cl360SaveProfile(&quot;'+px+'&quot;)">Save home & life</button> <span class="field-note" id="'+px+'cp_saved"></span></div>'
     + (prof.updated_at ? '<div class="field-note" style="margin-top:6px;">last saved '+esc(String(prof.updated_at).slice(0,10))+'</div>' : '');
 
   /* coverage history on this client's shifts */
@@ -24468,14 +24495,14 @@ async function cl360Render(){
     + meter
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start;">'
     + '<div>' + cl360Card('Who they are', head) + cl360Card('Care picture', care + cl360Kv('Coverage', esc(covLine))) + cl360Card('🏠 Home & life <span class="field-note" style="font-weight:400;">typed once, gold for fill-ins</span>', home) + '</div>'
-    + '<div>' + cl360Card('👨‍👩‍👧 Care circle', '<div id="cl360Circle">'+circleHtml+'</div>') + cl360Card('📜 Timeline', tl) + '</div>'
+    + '<div>' + cl360Card('👨‍👩‍👧 Care circle', '<div id="'+px+'cl360Circle">'+circleHtml+'</div>') + cl360Card('📜 Timeline', tl) + '</div>'
     + '</div>';
 
   /* circle loads after paint; its tables are not in the DATA blob */
   try{
     const c = await sb.from('care_circles').select('*').eq('active', true);
     const circ = (c.data||[]).find(x=>String(x.client_name||'').toLowerCase().includes(first));
-    const box = document.getElementById('cl360Circle'); if(!box) return;
+    const box = document.getElementById(px+'cl360Circle'); if(!box) return;
     if(!circ){ box.innerHTML = '<div class="field-note">No circle yet. Build one in Family Circles: the people around '+esc(name.split(' ')[0])+' who should hear the same thing at the same time.</div>'; return; }
     const p2 = await sb.from('circle_contacts').select('*').eq('circle_id', circ.id);
     const members = p2.data||[];
@@ -24487,11 +24514,12 @@ async function cl360Render(){
           + (m.phone ? '<div class="field-note">'+esc(m.phone)+(m.email?' · '+esc(m.email):'')+'</div>' : (m.email?'<div class="field-note">'+esc(m.email)+'</div>':''))
           + '</div>').join('')
       : '<div class="field-note">Circle exists but has no people yet — add them in Family Circles.</div>';
-  }catch(e){ const box=document.getElementById('cl360Circle'); if(box) box.innerHTML='<div class="field-note">Could not load the circle.</div>'; }
+  }catch(e){ const box=document.getElementById(px+'cl360Circle'); if(box) box.innerHTML='<div class="field-note">Could not load the circle.</div>'; }
 }
-async function cl360SaveProfile(){
-  const r = CL360_ROSTER[document.getElementById('cl360Sel').value]; if(!r) return;
-  const g = id => (document.getElementById(id)||{}).value || '';
+async function cl360SaveProfile(px){
+  px = px || '';
+  const r = CL360_CURRENT[px]; if(!r) return;
+  const g = id => (document.getElementById(px+id)||{}).value || '';
   const prev = (DATA.client_profiles||[]).find(p=>p.id===cl360ProfileId(r)) || {};
   const item = { ...prev, id: cl360ProfileId(r), client_name: r.client_name,
     axiscare_client_id: r.axiscare_client_id || '',
@@ -24501,8 +24529,51 @@ async function cl360SaveProfile(){
     updated_at: new Date().toISOString(), updated_by: (ME && ME.name) || '' };
   DATA.client_profiles = (DATA.client_profiles||[]).filter(p=>p.id!==item.id).concat([item]);
   persist('client_profiles', item);
-  const n = document.getElementById('cp_saved'); if(n){ n.textContent = 'Saved.'; setTimeout(()=>{ n.textContent=''; }, 2500); }
+  const n = document.getElementById(px+'cp_saved'); if(n){ n.textContent = 'Saved.'; setTimeout(()=>{ n.textContent=''; }, 2500); }
 }
+
+/* ── SLIDE-OVER OPENERS ──────────────────────────────────────────────────
+   data-open-client / data-open-caregiver attributes anywhere in the hub
+   become live. The listener runs in CAPTURE phase so a name inside a card
+   that itself has an onclick (a coverage case header) opens the profile
+   instead of toggling the card. */
+let PD_R = null;
+async function openClientProfile(ref){
+  const wrap = document.getElementById('pdWrap'), body = document.getElementById('pdBody');
+  if(!wrap || !body) return;
+  wrap.style.display = ''; body.innerHTML = '<div class="field-note">Loading…</div>';
+  const roster = await cl360Roster();
+  const q = String(ref||'').trim().toLowerCase();
+  const r = roster.find(x=>String(x.axiscare_client_id||'')===String(ref))
+    || roster.find(x=>String(x.client_name||'').toLowerCase()===q)
+    || roster.find(x=>String(x.client_name||'').toLowerCase().split(/\s+/)[0]===q.split(/\s+/)[0]);
+  if(!r){ body.innerHTML = '<div class="field-note">No profile found for "'+escapeHtmlComms(String(ref))+'". They may not be an active client.</div>'; PD_R=null; return; }
+  PD_R = r;
+  await cl360RenderInto(r, body, 'pd_');
+}
+function pdClose(){ const w=document.getElementById('pdWrap'); if(w) w.style.display='none'; }
+async function pdOpenTab(){
+  pdClose(); if(!PD_R) return;
+  switchTab('client360');
+  await cl360Fill();
+  const sel = document.getElementById('cl360Sel');
+  const i = CL360_ROSTER.findIndex(x=>x.client_name===PD_R.client_name);
+  if(sel && i>-1){ sel.value = String(i); cl360Render(); }
+}
+function openCaregiverProfile(name){
+  const q = String(name||'').trim().toLowerCase();
+  const g = (DATA.caregivers||[]).find(x=>(((x.first||'')+' '+(x.last||'')).trim().toLowerCase())===q)
+    || (DATA.caregivers||[]).find(x=>String(x.first||'').toLowerCase()===q.split(/\s+/)[0]);
+  switchTab('cg360');
+  setTimeout(()=>{ c360Fill(); const sel=document.getElementById('c360Sel');
+    if(sel && g){ sel.value=String(g.id); c360Render(); } }, 60);
+}
+document.addEventListener('click', function(e){
+  const c = e.target.closest && e.target.closest('[data-open-client]');
+  if(c){ e.stopPropagation(); e.preventDefault(); openClientProfile(c.getAttribute('data-open-client')); return; }
+  const g = e.target.closest && e.target.closest('[data-open-caregiver]');
+  if(g){ e.stopPropagation(); e.preventDefault(); openCaregiverProfile(g.getAttribute('data-open-caregiver')); }
+}, true);
 
 /* ── CAREGIVER 360: one card, everything the hubs know. ──────────────── */
 function c360Fill(){
