@@ -15145,11 +15145,17 @@ function fcChangeText(circleId){
   const c = FC.find(function(x){ return String(x.id)===String(circleId); });
   const sel = document.getElementById('fccg_'+circleId);
   const g = FC_INTROS.find(function(x){ return String(x.id)===String((sel||{}).value); });
-  const who = g ? g.name : 'a different caregiver';
+  /* Same shape as the automatic covered-callout text: first names, the
+     caregiver actually going, their intro line, and the meet-the-caregiver
+     link when their card exists. */
+  const clientFirst = String(c.client_name||'').trim().split(/\s+/)[0] || 'your loved one';
+  const whoFirst = g ? String(g.name||'').trim().split(/\s+/)[0] : '';
+  const who = g ? (whoFirst + ' from our team') : 'a different caregiver from our team';
   const line = g && g.intro ? ' ' + g.intro.trim() : '';
+  const meet = g ? ' Meet ' + (whoFirst||'them') + ' here: https://cc.mo-care.com/meet.html?cg=' + g.id : '';
   document.getElementById('fcmsg_'+circleId).value =
-    'Hello, this is Caring Companions. ' + c.client_name + "'s usual caregiver has called in today, "
-    + 'so ' + who + ' will be coming instead.' + line
+    'Hello, this is Caring Companions. ' + clientFirst + "'s usual caregiver is unavailable today, "
+    + 'so ' + who + ' will be coming instead.' + line + meet
     + ' Everything else about the visit stays the same. If you have any questions at all, please call us at (417) 234-8494.';
 }
 
