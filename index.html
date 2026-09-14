@@ -3848,8 +3848,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <input id="set_cov_asmt_url" placeholder="https://link.mo-care.com/widget/booking/...">
 <label>Medicaid Assessment booking link (Angiel's GHL calendar; leave blank until it exists)</label>
 <input id="set_cov_medicaid_url" placeholder="https://link.mo-care.com/widget/booking/...">
-<label>Family circle text when a caregiver changes (sent automatically to consented circle members when a callout is covered; {client} {when} {caregiver} {meet})</label>
-<textarea id="set_cov_circle_change" rows="3" placeholder="Hello, this is Caring Companions. {client}'s usual caregiver is unavailable for the visit {when}, so {caregiver} from our team will be coming instead. Everything else about the visit stays the same.{meet} Any questions at all, call us at (417) 234-8494."></textarea>
+<label>Family circle text when a caregiver changes (sent automatically to consented circle members when a callout is covered; {off} = who called off, {client} {when} {caregiver} {meet})</label>
+<textarea id="set_cov_circle_change" rows="3" placeholder="Hello, this is Caring Companions. {off} is unable to make {client}'s visit {when}, so {caregiver} from our team will be coming instead. Everything else about the visit stays the same.{meet} Any questions at all, call us at (417) 234-8494."></textarea>
 <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
 <button class="primary" onclick="covMsgsSave(this)">Save callout texts</button>
 <span class="field-note" id="covMsgsSaved"></span>
@@ -15154,8 +15154,8 @@ function fcChangeText(circleId){
   const line = g && g.intro ? ' ' + g.intro.trim() : '';
   const meet = g ? ' Meet ' + (whoFirst||'them') + ' here: https://cc.mo-care.com/meet.html?cg=' + g.id : '';
   document.getElementById('fcmsg_'+circleId).value =
-    'Hello, this is Caring Companions. ' + clientFirst + "'s usual caregiver is unavailable today, "
-    + 'so ' + who + ' will be coming instead.' + line + meet
+    'Hello, this is Caring Companions. The caregiver scheduled for ' + clientFirst + "'s visit today "
+    + 'is unable to make it, so ' + who + ' will be coming instead.' + line + meet
     + ' Everything else about the visit stays the same. If you have any questions at all, please call us at (417) 234-8494.';
 }
 
