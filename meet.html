@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Meet Your Caregiver · Caring Companions</title>
+<!-- ============================================================
+     MEET YOUR CAREGIVER (Samantha, 2026-09-13): the page behind the
+     link in a family's caregiver-change text. A face and a friendly
+     paragraph turn "a stranger is coming" into "oh, Marie sounds
+     lovely." Public, read-only, and it shows nothing but what belongs
+     on a team page: name, photo, the intro. No schedules, no clients.
+     ============================================================ -->
+<style>
+  :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#FFC671; --bg:#F6F9FD; --border:#E2E8F0; --gray:#6B7280; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+        background:var(--bg); color:#1f2a36; padding:16px; }
+  .wrap{ max-width:480px; margin:0 auto; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:16px; padding:22px 22px 18px;
+         box-shadow:0 2px 10px rgba(14,42,69,.06); text-align:center; }
+  .photo{ width:132px; height:132px; border-radius:50%; object-fit:cover; margin:6px auto 12px;
+          border:4px solid var(--honey); display:block; background:#EAF4F6; }
+  .noPhoto{ width:132px; height:132px; border-radius:50%; margin:6px auto 12px; background:var(--teal);
+            color:#fff; font-size:44px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  h1{ font-size:23px; color:var(--navy); margin:0 0 2px; }
+  .role{ color:var(--gray); font-size:13.5px; margin-bottom:14px; }
+  .about{ font-size:15px; line-height:1.65; color:#33475b; text-align:left; margin:0 0 16px; white-space:pre-line; }
+  .trust{ text-align:left; border-top:1px solid var(--border); padding-top:12px; margin-top:4px; }
+  .trust div{ font-size:13.5px; color:#33475b; padding:3px 0; }
+  .call{ display:block; background:var(--navy); color:#fff; text-decoration:none; font-weight:800;
+         border-radius:10px; padding:13px; font-size:15.5px; margin-top:14px; }
+  .foot{ text-align:center; color:var(--gray); font-size:12px; margin-top:14px; line-height:1.5; }
+  .err{ text-align:center; color:var(--gray); font-size:14.5px; padding:30px 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img src="cc-logo.png" alt="Caring Companions" style="display:block;max-width:210px;width:64%;margin:4px auto 16px;">
+  <div class="card" id="card"><div class="err">One moment…</div></div>
+  <div class="foot">Caring Companions In-Home Senior Care · Springfield, MO<br>Questions any time: (417) 234-8494</div>
+</div>
+<script>
+const FN='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/meet-caregiver';
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+(async function(){
+  const card=document.getElementById('card');
+  const cg=new URLSearchParams(location.search).get('cg')||'';
+  try{
+    const r=await fetch(FN+'?cg='+encodeURIComponent(cg));
+    const d=await r.json();
+    if(!r.ok||d.error) throw new Error(d.error||'not found');
+    const first=String(d.name||'').split(' ')[0];
+    card.innerHTML=
+      (d.photo_url?'<img class="photo" src="'+esc(d.photo_url)+'" alt="'+esc(d.name)+'">'
+                  :'<div class="noPhoto">'+esc((d.name||'?').trim()[0]||'?')+'</div>')
+      +'<h1>'+esc(d.name)+'</h1>'
+      +'<div class="role">Professional Caregiver · Caring Companions</div>'
+      +((d.about||d.intro)?'<p class="about">'+esc(d.about||d.intro)+'</p>':'')
+      +'<div class="trust">'
+      +'<div>✅ Background checked, every year</div>'
+      +'<div>🎓 Trained and supervised by our care team</div>'
+      +'<div>💛 Employed by Caring Companions, never a contractor</div>'
+      +'</div>'
+      +'<a class="call" href="tel:14172348494">Questions? Call us: (417) 234-8494</a>';
+    document.title='Meet '+first+' · Caring Companions';
+  }catch(e){
+    card.innerHTML='<div class="err">We could not load this card, but your caregiver is fully vetted, trained, and employed by Caring Companions.<br><br>Call us any time with questions: <a href="tel:14172348494">(417) 234-8494</a></div>';
+  }
+})();
+</script>
+</body>
+</html>

@@ -1483,6 +1483,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <span style="flex:1;"></span>
         <button class="secondary" onclick="fcAdd()">＋ New circle</button>
+        <button class="secondary" onclick="fcSyncAxis(this)" title="Pulls responsible parties from AxisCare. Runs nightly by itself; this button is the on-demand version. Never overwrites people you typed, never sets texting consent.">⇄ Sync from AxisCare</button>
         <button class="ghost" onclick="fcLoad(this)">↻ Refresh</button>
       </div>
       <div id="fcList"><div class="field-note">Loading…</div></div>
@@ -3847,6 +3848,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <input id="set_cov_asmt_url" placeholder="https://link.mo-care.com/widget/booking/...">
 <label>Medicaid Assessment booking link (Angiel's GHL calendar; leave blank until it exists)</label>
 <input id="set_cov_medicaid_url" placeholder="https://link.mo-care.com/widget/booking/...">
+<label>Family circle text when a caregiver changes (sent automatically to consented circle members when a callout is covered; {client} {when} {caregiver} {meet})</label>
+<textarea id="set_cov_circle_change" rows="3" placeholder="Hello, this is Caring Companions. {client}'s usual caregiver is unavailable for the visit {when}, so {caregiver} from our team will be coming instead. Everything else about the visit stays the same.{meet} Any questions at all, call us at (417) 234-8494."></textarea>
 <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
 <button class="primary" onclick="covMsgsSave(this)">Save callout texts</button>
 <span class="field-note" id="covMsgsSaved"></span>
@@ -10947,7 +10950,7 @@ function covMsgsFill(){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
 }
 /* ── GHL booking calendars, embedded in Client Care > Bookings ─────────
@@ -10986,7 +10989,7 @@ async function covMsgsSave(btn){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
   if(btn) btn.disabled=true;
   /* Merge against the CURRENT server object, not the page-load copy — the
      engine and other tabs write flags into ops_settings too, and a stale
@@ -14962,6 +14965,25 @@ async function ivqSelfTest(btn){
    rings us rather than a caregiver's mobile. */
 let FC = [], FC_CONTACTS = {}, FC_INTROS = [];
 
+/* The nightly cron runs the same sync at 4am; this is the "I just added
+   someone in AxisCare and want it now" button. */
+async function fcSyncAxis(btn){
+  if(btn){ btn.disabled=true; btn.textContent='⇄ Syncing…'; }
+  try{
+    const ses = await sb.auth.getSession();
+    const tok = ses && ses.data && ses.data.session && ses.data.session.access_token;
+    const r = await fetch(CONFIG.supabase_url+'/functions/v1/identity-backfill?circles=1&commit=1',
+      { headers:{ Authorization:'Bearer '+tok, apikey: CONFIG.supabase_anon_key } });
+    const d = await r.json();
+    if(d && d.error) alert('Sync problem: '+d.error);
+    else alert('Synced from AxisCare.\n\nNew circles: '+(d.circles_created||0)
+      +'\nPeople added: '+(d.contacts_added||0)
+      +'\nBlanks filled: '+(d.contacts_updated||0)
+      +(d.clients_with_no_parties?'\nClients with nobody listed in AxisCare: '+d.clients_with_no_parties:''));
+    await fcLoad();
+  }catch(e){ alert('Could not sync: '+(e&&e.message||e)); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='⇄ Sync from AxisCare'; } }
+}
 async function fcLoad(btn){
   const box = document.getElementById('fcList'); if(!box) return;
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
