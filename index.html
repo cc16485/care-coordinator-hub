@@ -24426,9 +24426,12 @@ async function cl360Render(){
     + (prof.updated_at ? '<div class="field-note" style="margin-top:6px;">last saved '+esc(String(prof.updated_at).slice(0,10))+'</div>' : '');
 
   /* coverage history on this client's shifts */
-  const cases = (DATA.coverage_cases||[]).filter(c=>String(c.client||'').trim().toLowerCase().split(/\s+/)[0]===first);
+  const cases = (DATA.coverage_cases||[]).filter(c=>
+    (axisId && String(c.client_axiscare_id||'')===axisId)
+    || String(c.client||'').trim().toLowerCase().split(/\s+/)[0]===first);
+  const covFilled = cases.filter(c=>c.covered_by || c.status==='covered' || c.status==='filled').length;
   const covLine = cases.length
-    ? cases.length+' callout'+(cases.length>1?'s':'')+' on their shifts · '+cases.filter(c=>c.status==='filled'||c.filled_by).length+' filled'
+    ? cases.length+' callout'+(cases.length>1?'s':'')+' on their shifts · '+covFilled+' covered'
     : 'no callouts recorded on their shifts';
 
   /* timeline: everything, one river, newest first */
@@ -24439,7 +24442,12 @@ async function cl360Render(){
   (DATA.care_assessments||[]).filter(x=>String(x.axiscare_client_id||'')===axisId || String(x.client_name||'').toLowerCase().includes(first))
     .forEach(x=>push(x.created_at, 'Care assessment '+esc(x.status||'recorded')));
   (r.checkins||[]).forEach(c=>push(c.checkin_date||c.created_at, 'Check-in'+(c.escalated?' · <b style="color:var(--red);">escalated</b>':'')));
-  cases.forEach(c=>push(c.created_at, 'Callout on their shift'+(c.filled_by?' · filled by '+esc(String(c.filled_by))+'':'')));
+  cases.forEach(c=>{
+    push(c.opened_at, 'Callout: '+esc(String(c.calling_off||'someone'))+' called off '
+      + esc(String(c.shift_date||''))+' '+esc(String(c.shift_time||''))
+      + (c.covered_by?' · covered by '+esc(String(c.covered_by)):' · <b style="color:var(--red);">not covered</b>'));
+    if(c.resolved_at) push(c.resolved_at, 'Callout resolved ('+esc(String(c.resolved_how||c.status||''))+')');
+  });
   (DATA.nurse_visits||[]).filter(v=>String(v.client||v.client_name||'').toLowerCase().includes(first))
     .forEach(v=>push(v.date||v.created_at, 'Nurse visit'));
   ev.sort((x,y)=>y.at.localeCompare(x.at));
