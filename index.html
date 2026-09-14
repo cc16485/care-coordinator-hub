@@ -781,7 +781,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
   </div>
   <div class="fsubbar" id="fsub-clients">
-    <div class="fpill" data-parent="leads" onclick="ccParentClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads<span class="subtab-badge red" id="bkgPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-parent="leads" onclick="ccParentClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
     <div class="fpill" data-parent="assessments" onclick="ccParentClick('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Starting Care</div>
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
     <div class="fpill" data-tab="circles" onclick="switchTab('circles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family Circles</div>
@@ -817,14 +817,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="cg360" onclick="switchTab('cg360')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-user"/></svg> Caregiver 360</div><div class="fpill" data-tab="cgattendance" onclick="switchTab('cgattendance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Attendance</div>
     <div class="fpill" data-tab="cgwriteups" onclick="switchTab('cgwriteups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> Write-Ups</div>
     <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
-    <div class="fpill" data-tab="cgprofiles" onclick="switchTab('cgprofiles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Caregiver Profiles</div>
   </div>
   <!-- Keeping shifts covered and the records straight. EVV Corrections still
        lives in the Staffing hub, so it is a link rather than a copy: two
        correction logs would be worse than one somewhere else. -->
   <div class="fsubbar" id="fsub-scheduling">
     <div class="fpill" data-tab="coverage" onclick="switchTab('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Coverage Help<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div><div class="fpill" data-tab="hourswatch" onclick="switchTab('hourswatch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Hours Watch</div>
-    <div class="fpill" data-tab="teamsched" onclick="switchTab('teamsched')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Team Schedule</div>
     <div class="fpill" data-tab="evv" onclick="switchTab('evv')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV Corrections</div>
   </div>
   <div class="fsubbar" id="fsub-nursing">
@@ -4107,6 +4105,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 <!-- ===================== TAB: CARE ASSESSMENTS ===================== -->
 <section class="tabpanel" id="tab-assessments">
+<style>
+  /* the GHL booking card (classes formerly scoped to the retired bookings tab) */
+  #tab-assessments .bkg-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:0 0 14px;box-shadow:0 1px 2px rgba(16,24,40,.03);}
+  #tab-assessments .bkg-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+  #tab-assessments .bkg-type{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-radius:999px;padding:3px 10px;background:#FDF1DC;color:#B45309;}
+  #tab-assessments .bkg-ago{margin-left:auto;color:var(--text-muted);font-size:12.5px;white-space:nowrap;}
+  #tab-assessments .bkg-meta{font-size:14px;color:var(--text);margin:4px 0 0;line-height:1.6;}
+  #tab-assessments .bkg-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
+</style>
 <details class="guide">
 <summary>📋 How This Tab Works — Step by Step ▼</summary>
 <div class="guide-body">
@@ -4482,7 +4489,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">Also part of the library</div>
   <div class="card" style="padding:1rem 1.25rem;margin-bottom:2rem;font-size:.85rem;line-height:2">
     <div>📚 <a href="#" onclick="switchTab('playbook');return false"><b>Coordinator Playbook</b></a> — payors, the intake process, sales scripts, objection handling. The next pill over.</div>
-    <div>🗓️ <a href="#" onclick="switchTab('teamsched');return false"><b>Team Weekly Schedule</b></a> — who's on, who's in the field, the coordinator books, and the field expectation in writing.</div>
+    <div>🗓️ <a href="#" onclick="switchTab('calendar');return false"><b>Team Calendar</b></a> — who's on, who's in the field, the coordinator books, and the field expectation in writing.</div>
     <div>🛡️ <a href="#" onclick="switchTab('ltcpolicy');return false"><b>LTC claim process</b></a> — lives with the LTC Policy tools under Growth.</div>
     <div>📋 <b>"How This Tab Works" guides</b> — at the top of every tab in every hub, instructions stay where the work happens.</div>
   </div>
@@ -4494,44 +4501,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
      field blocks, the written field expectation) lives at
      team-schedule.html in this repo — THAT file is the one to edit; this
      tab just frames it, and the same page prints as the office copy. -->
-<section class="tabpanel" id="tab-teamsched">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem">
-    <div style="font-size:.74rem;color:var(--text-muted)">The standing weekly rhythm for Krystal, Angiel, and Samantha. This page is the office copy — if the schedule changes, this is what changes.</div>
-    <a href="team-schedule.html" target="_blank" rel="noopener" class="primary" style="font-size:.75rem;text-decoration:none;padding:6px 12px;border-radius:8px;background:var(--navy);color:#fff">🖨 Open full page / print ↗</a>
-  </div>
-  <!-- Fills the pane and scrolls inside itself. Growing the frame to fit its
-       content instead made the hub the thing that scrolled, which inside GHL
-       (a frame in a frame) left the schedule half off the bottom. -->
-  <iframe src="team-schedule.html" title="Team Weekly Schedule"
-    style="width:100%;height:calc(100vh - 210px);min-height:520px;border:1px solid var(--border);border-radius:12px;background:#FAF9F6;display:block"></iframe>
-</section>
-
-<!-- ===================== TAB: CAREGIVER PROFILES =====================
-     What a family is sent before somebody walks into their mother's house.
-     Caregivers build these at orientation; nothing reaches a family until
-     somebody here has read it and pressed Approve. -->
-<section class="tabpanel" id="tab-cgprofiles">
-<details class="guide">
-<summary>📋 How This Tab Works — Step by Step ▼</summary>
-<div class="guide-body">
-<div class="guide-step"><span class="num">1</span>Caregivers fill these in at orientation at <b>cc.mo-care.com/caregiver-profile.html</b>. Photo, an optional short video, what they are best at, and what they would want a family to know.</div>
-<div class="guide-step"><span class="num">2</span>They arrive <b>unapproved</b>. Read it as a family would, fix any typos, then <b>Approve &amp; publish</b>. Nothing is sent to anybody before that.</div>
-<div class="guide-step"><span class="num">3</span><b>Put their AxisCare ID in.</b> AxisCare is where the schedule lives, so this is what links a profile to the person on a shift. Without it, this profile can be sent by hand but can never be sent automatically.</div>
-<div class="guide-step"><span class="num">4</span><b>Unpublish</b> takes it out of circulation and keeps the record. <b>Remove</b> deletes the photo and video for good, which is what to use when somebody withdraws their permission or leaves.</div>
-<div class="guide-step flag"><span class="num">!</span>The link is unguessable but it is not secret: anybody a family forwards it to can open it. That is the trade for a page a family can look at without signing in.</div>
-</div>
-</details>
-
-<div class="toolbar">
-  <b style="font-size:16px;color:var(--navy);">Caregiver Profiles</b>
-  <span class="spacer"></span>
-  <span class="field-note" id="cgpCount"></span>
-  <button class="ghost" onclick="loadCgProfiles(true)">↻ Refresh</button>
-</div>
-<div id="cgpBody"><div class="field-note">Loading…</div></div>
-</section>
-
-<!-- ===================== TAB: REPORTS ===================== -->
 <section class="tabpanel" id="tab-reports">
   <div class="toolbar">
     <b style="font-size:16px;color:var(--navy);"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</b>
@@ -4863,46 +4832,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <p class="fb-sub">Star check-ins from clients, families and caregivers, plus Caregiver of the Year nominations. Everything here also landed in your email the moment it was sent.</p>
   <div style="margin:0 0 14px;"><button class="btn btn-secondary" onclick="fbSeenAll()">Mark all as seen</button></div>
   <div id="fbList"></div>
-</section>
-<section class="tabpanel" id="tab-bookings">
-  <style>
-    #tab-bookings h2{font-size:22px;margin:0 0 4px;color:var(--navy);}
-    #tab-bookings .bkg-sub{color:var(--text-muted);font-size:14px;margin:0 0 16px;max-width:76ch;}
-    #tab-bookings .bkg-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:0 0 12px;box-shadow:0 1px 2px rgba(16,24,40,.03);}
-    #tab-bookings .bkg-card.unseen{border-left:4px solid #F0A63A;}
-    #tab-bookings .bkg-card.cancelled{opacity:.55;}
-    #tab-bookings .bkg-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
-    #tab-bookings .bkg-when{font-weight:700;color:var(--navy);font-size:15.5px;}
-    #tab-bookings .bkg-type{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-radius:999px;padding:3px 10px;background:#EAF4F6;color:#1F7A8C;}
-    #tab-bookings .bkg-type.home{background:var(--amber-bg);color:var(--amber);}
-    #tab-bookings .bkg-ago{margin-left:auto;color:var(--text-muted);font-size:12.5px;white-space:nowrap;}
-    #tab-bookings .bkg-meta{font-size:14px;color:var(--text);margin:4px 0 0;line-height:1.6;}
-    #tab-bookings .bkg-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
-    #tab-bookings .bkg-set{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-top:22px;}
-    #tab-bookings .bkg-set label{display:block;font-size:12.5px;font-weight:700;color:var(--text-muted);margin:12px 0 4px;}
-    #tab-bookings .bkg-set input,#tab-bookings .bkg-set textarea,#tab-bookings .bkg-set select{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;font-family:inherit;background:#fff;color:var(--text);}
-    #tab-bookings .bkg-hrow{display:flex;align-items:center;gap:8px;margin:5px 0;}
-    #tab-bookings .bkg-hrow span{width:40px;font-size:13px;font-weight:700;color:var(--text-muted);}
-    #tab-bookings .bkg-hrow input[type=time]{width:110px;}
-  </style>
-  <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Phone Consultations</h2>
-  <p class="bkg-sub">Phone consultations booked on mo-care.com/book (the 20-minute intro call, a different thing from the in-home assessment; book assessments under Care Assessments). The public calendar only offers times that are open here AND free on the connected Google Calendars below, so a family can never double-book a coordinator. Orientation sessions from the Staffing Hub block this calendar automatically too.</p>
-  <div id="bkgList"></div>
-  <div class="bkg-set">
-    <h3 style="font-size:16px;margin:0 0 2px;color:var(--navy);">Scheduler settings</h3>
-    <p style="font-size:13px;color:var(--text-muted);margin:0 0 8px;">Times are Central. Changes apply to the public calendar the moment you save.</p>
-    <label>Bookable hours</label>
-    <div id="bkgHours"></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
-      <div><label>Slot length</label><select id="bkgSlotMin"><option value="20">20 minutes</option><option value="30" selected>30 minutes</option><option value="45">45 minutes</option><option value="60">60 minutes</option></select></div>
-      <div><label>Minimum notice (hours)</label><input id="bkgLead" type="number" min="0" max="72" value="3"></div>
-      <div><label>Days offered ahead</label><input id="bkgAhead" type="number" min="3" max="30" value="14"></div>
-    </div>
-    <label>Coordinators' Google Calendars (one per line: <code>Name | secret iCal address</code>)</label>
-    <textarea id="bkgCals" rows="3" placeholder="Samantha | https://calendar.google.com/calendar/ical/…/basic.ics"></textarea>
-    <p style="font-size:12.5px;color:var(--text-muted);margin:6px 0 0;">In Google Calendar: Settings &rarr; your calendar &rarr; "Integrate calendar" &rarr; copy the <b>Secret address in iCal format</b> and paste it here. Busy events on that calendar automatically block the public scheduler. Keep these links private, treat them like a password.</p>
-    <div style="margin-top:14px;"><button class="btn btn-primary" onclick="bkgSaveSettings()">Save scheduler settings</button> <span id="bkgSaveMsg" style="font-size:13px;color:var(--green,#1a7f4b);font-weight:700;"></span></div>
-  </div>
 </section>
 <section class="tabpanel" id="tab-community">
   <style>
@@ -6854,7 +6783,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['home','mywork','myrole','myteam','today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory','cgprofiles'],scheduling:['coverage','teamsched','hourswatch','evv'],clients:['leads','statesubs','bookings','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['home','mywork','myrole','myteam','today','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','evv'],clients:['leads','statesubs','clients','circles','checkins','carematch','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -6865,10 +6794,6 @@ const CC_SUBTABS = {
      them across sections made a coordinator change rooms mid-conversion. */
   leads:       [ {t:'leads',       l:'Leads',             i:'i-phone'},
                  {t:'statesubs',   l:'State Submissions', i:'i-doc'} ],
-  /* 'bookings' (the phone-consultation scheduler) is unlinked, 2026-09-13:
-     Samantha's ruling is that booked phone calls are not a real thing here,
-     people just call. The panel and its data stay for history; put the pill
-     back by re-adding {t:'bookings', l:'Consultations', i:'i-calendar'}. */
   assessments: [ {t:'assessments', l:'Care Assessments',  i:'i-clipboard'},
                  {t:'soc',         l:'Start of Care',     i:'i-hospital'},
                  {t:'clientqueue', l:'New Clients',       i:'i-family'} ],
@@ -7025,135 +6950,9 @@ function fbBadges(){
   const n=(DATA.feedback||[]).filter(f=>!f.seen).length;
   for(const id of ['fbBadge','fbPillBadge']){ const b=document.getElementById(id); if(b){ b.textContent=n; b.style.display=n?'':'none'; } }
 }
-// Global esc — renderFeedback and renderBookings both use it (escapeHtmlComms
+// Global esc — renderFeedback and friends use it (escapeHtmlComms
 // hoists, so this is safe to define here).
 function esc(s){ return escapeHtmlComms(s); }
-const BKG_DAYS=[['1','Mon'],['2','Tue'],['3','Wed'],['4','Thu'],['5','Fri'],['6','Sat'],['0','Sun']];
-function bkgSettings(){
-  const it=(DATA.booking_settings||[]).find(x=>x.id==='settings');
-  return it||{id:'settings',timezone:'America/Chicago',slot_minutes:30,lead_hours:3,days_ahead:14,hours:{1:[['09:00','16:00']],2:[['09:00','16:00']],3:[['09:00','16:00']],4:[['09:00','16:00']],5:[['09:00','16:00']]},calendars:[]};
-}
-function bkgBadges(){
-  const now=Date.now();
-  const n=(DATA.consult_bookings||[]).filter(b=>!b.seen&&b.status!=='cancelled'&&Date.parse(b.start||'')>now-86400000).length;
-  const b=document.getElementById('bkgPillBadge'); if(b){ b.textContent=n; b.style.display=n?'':'none'; }
-}
-/* Bookings were an island: a consult booked online had no wire to the lead
-   pipeline. Every booking card now finds its lead by phone or email, or
-   creates one prefilled from the booking. */
-function bkgFindLead(b){
-  const d=String(b.phone||'').replace(/\D/g,'').slice(-10);
-  const em=String(b.email||'').toLowerCase();
-  return (DATA.leads||[]).find(l=>
-    (d.length===10&&String(l.phone||'').replace(/\D/g,'').slice(-10)===d) ||
-    (em&&String(l.email||'').toLowerCase()===em)) || null;
-}
-async function bkgMakeLead(id){
-  const b=(DATA.consult_bookings||[]).find(x=>x.id===id); if(!b) return;
-  const ex=bkgFindLead(b);
-  if(ex){ openLeadProfile(ex.id); return; }
-  const parts=String(b.name||'').trim().split(' ');
-  const rec={ id:uid(), first_name:parts[0]||'', last_name:parts.slice(1).join(' '),
-    phone:b.phone||'', email:b.email||'', source:'Website', status:'Contacted',
-    interest_notes:'Booked a '+(b.type==='home'?'home visit':'phone consult')
-      +(b.start?' for '+new Date(b.start).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'')
-      +(b.notes?'\n'+b.notes:''),
-    intent_tags:[], created_at:new Date().toISOString() };
-  DATA.leads.push(rec);
-  await persist('leads', rec);
-  renderBookings();
-  openLeadModal(rec.id);
-}
-function renderBookings(){
-  const el=document.getElementById('bkgList'); if(!el) return;
-  const now=Date.now();
-  const rows=(DATA.consult_bookings||[]).slice().sort((a,b)=>(a.start||'').localeCompare(b.start||''));
-  const upcoming=rows.filter(b=>Date.parse(b.end||b.start||'')>=now);
-  const past=rows.filter(b=>Date.parse(b.end||b.start||'')<now);
-  const card=b=>{
-    const when=b.start?new Date(b.start).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'(no time)';
-    const home=b.type==='home';
-    return '<div class="bkg-card'+(b.seen?'':' unseen')+(b.status==='cancelled'?' cancelled':'')+'">'
-      +'<div class="bkg-top"><span class="bkg-when">'+when+'</span>'
-      +'<span class="bkg-type'+(home?' home':'')+'">'+(home?'In-home visit':'Phone call')+'</span>'
-      +(b.status==='cancelled'?'<span class="bkg-type" style="background:var(--red-bg);color:var(--red);">Cancelled</span>':'')
-      +'<span class="bkg-ago">booked '+(b.at?new Date(b.at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'')+'</span></div>'
-      +'<p class="bkg-meta"><b>'+esc(b.name||'')+'</b> &middot; <a href="tel:'+esc(b.phone||'')+'">'+esc(b.phone||'')+'</a>'+(b.email?' &middot; '+esc(b.email):'')+'</p>'
-      +(b.notes?'<p class="bkg-meta" style="white-space:pre-wrap;">'+esc(b.notes)+'</p>':'')
-      +'<div class="bkg-actions">'
-      +(function(){ const ml=bkgFindLead(b);
-          return ml?'<button class="btn btn-secondary" onclick="openLeadProfile(\''+ml.id+'\')">👤 Open their lead</button>'
-                   :'<button class="btn btn-secondary" onclick="bkgMakeLead(\''+b.id+'\')">➕ Make a lead</button>'; })()
-      +(b.seen?'':'<button class="btn btn-secondary" onclick="bkgSeen(\''+b.id+'\')">Mark seen</button>')
-      +(b.status!=='cancelled'&&Date.parse(b.start||'')>now?'<button class="btn btn-secondary" onclick="bkgCancel(\''+b.id+'\')">Cancel booking</button>':'')
-      +'<button class="btn btn-secondary" onclick="bkgDelete(\''+b.id+'\')">Delete</button></div></div>';
-  };
-  let html='';
-  const orient=(DATA.orient_sessions||[]).filter(o=>o&&o.date&&o.status!=='cancelled'&&new Date(o.date+'T23:59:59')>=new Date()).sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||'')));
-  if(orient.length){
-    html+='<p style="font-size:12.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin:0 0 8px;">Orientation sessions (block this calendar)</p>';
-    html+=orient.slice(0,6).map(o=>{
-      const when=new Date(o.date+'T'+(o.time||'10:00')).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
-      const spots=(o.bookings||[]).length+'/'+(o.capacity||'?');
-      return '<div class="bkg-card" style="border-left:4px solid #54BDB8;"><div class="bkg-top"><span class="bkg-when">'+when+'</span>'
-        +'<span class="bkg-type" style="background:#dff3f2;color:#1F7A8C;">Orientation &middot; '+spots+' booked</span>'
-        +(o.facilitator?'<span class="bkg-ago">run by '+esc(o.facilitator)+'</span>':'')
-        +'</div><p class="bkg-meta">Managed in the Staffing Hub &rarr; Orientations. Consultations can\'t be booked during this time.</p></div>';
-    }).join('');
-    html+='<p style="font-size:12.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;margin:14px 0 8px;">Consultations</p>';
-  }
-  html+=upcoming.length?upcoming.map(card).join(''):'<div class="bkg-card" style="color:var(--text-muted);">No upcoming consultations booked online yet. Share mo-care.com/book.html and they\'ll appear here.</div>';
-  if(past.length) html+='<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13.5px;color:var(--text-muted);font-weight:700;">Past ('+past.length+')</summary>'+past.slice(-20).reverse().map(card).join('')+'</details>';
-  el.innerHTML=html;
-  bkgFillSettings(); bkgBadges();
-}
-function bkgFillSettings(){
-  const st=bkgSettings();
-  const hoursEl=document.getElementById('bkgHours'); if(!hoursEl) return;
-  if(!hoursEl.dataset.built){
-    hoursEl.innerHTML=BKG_DAYS.map(([n,lab])=>'<div class="bkg-hrow"><input type="checkbox" id="bkgOn'+n+'" style="width:auto;"> <span>'+lab+'</span> <input type="time" id="bkgS'+n+'"> <span style="width:14px;text-align:center;">to</span> <input type="time" id="bkgE'+n+'"></div>').join('');
-    hoursEl.dataset.built='1';
-  }
-  for(const [n] of BKG_DAYS){
-    const win=(st.hours&&st.hours[n]&&st.hours[n][0])||null;
-    document.getElementById('bkgOn'+n).checked=!!win;
-    document.getElementById('bkgS'+n).value=win?win[0]:'09:00';
-    document.getElementById('bkgE'+n).value=win?win[1]:'16:00';
-  }
-  document.getElementById('bkgSlotMin').value=String(st.slot_minutes||30);
-  document.getElementById('bkgLead').value=st.lead_hours!=null?st.lead_hours:3;
-  document.getElementById('bkgAhead').value=st.days_ahead||14;
-  document.getElementById('bkgCals').value=(st.calendars||[]).map(c=>(c.name||'Coordinator')+' | '+c.url).join('\n');
-}
-async function bkgSaveSettings(){
-  const st=bkgSettings();
-  const hours={};
-  for(const [n] of BKG_DAYS){
-    if(!document.getElementById('bkgOn'+n).checked) continue;
-    const a=document.getElementById('bkgS'+n).value, b=document.getElementById('bkgE'+n).value;
-    if(a&&b&&a<b) hours[n]=[[a,b]];
-  }
-  st.hours=hours;
-  st.slot_minutes=parseInt(document.getElementById('bkgSlotMin').value,10)||30;
-  st.lead_hours=Math.max(0,parseInt(document.getElementById('bkgLead').value,10)||0);
-  st.days_ahead=Math.min(30,Math.max(3,parseInt(document.getElementById('bkgAhead').value,10)||14));
-  st.calendars=document.getElementById('bkgCals').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
-    const i=l.indexOf('|');
-    return i<0?{name:'Coordinator',url:l.trim()}:{name:l.slice(0,i).trim()||'Coordinator',url:l.slice(i+1).trim()};
-  }).filter(c=>/^https:\/\//.test(c.url));
-  st.updated_at=new Date().toISOString();
-  await persist('booking_settings',st);
-  const i=(DATA.booking_settings||[]).findIndex(x=>x.id==='settings');
-  if(i<0){ DATA.booking_settings=DATA.booking_settings||[]; DATA.booking_settings.push(st); } else DATA.booking_settings[i]=st;
-  const m=document.getElementById('bkgSaveMsg'); m.textContent='Saved \u2713 live on the public calendar now'; setTimeout(()=>{m.textContent='';},4000);
-}
-async function bkgSeen(id){ const b=(DATA.consult_bookings||[]).find(x=>x.id===id); if(!b) return; b.seen=true; await persist('consult_bookings',b); renderBookings(); }
-async function bkgCancel(id){
-  const b=(DATA.consult_bookings||[]).find(x=>x.id===id); if(!b) return;
-  if(!confirm('Cancel this consultation? Remember to call '+(b.name||'the family')+' at '+(b.phone||'their number')+' so they are not left waiting.')) return;
-  b.status='cancelled'; b.seen=true; await persist('consult_bookings',b); renderBookings();
-}
-async function bkgDelete(id){ if(!confirm('Delete this booking entry?')) return; await removeItem('consult_bookings', id); DATA.consult_bookings=(DATA.consult_bookings||[]).filter(x=>x.id!==id); renderBookings(); }
 var HL_CG_STATUSES=['applied','interviewing','background check','active','declined'];
 var HL_FAM_STATUSES=['new','matching','introduced','closed'];
 function hlStatusColor(st){
@@ -7353,10 +7152,10 @@ const CC_SECTION_TITLES = {
   today:'Today', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', sops:'SOP Library', teamsched:'Team Weekly Schedule',
+  carematch:'Care Match Check-ins', sops:'SOP Library',
   clientqueue:'New Clients — Needs Scheduling',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
-  supervisory:'Supervisory Visits', cgprofiles:'Caregiver Profiles', inbox:'Inbox', comms:'Communication',
+  supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV Corrections', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Coverage Help', hourswatch:'Hours Watch', cg360:'Caregiver 360', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
@@ -7558,7 +7357,6 @@ function renderActiveTab(){
   if(activeTab==='referrers') renderReferrers();
   if(activeTab==='reports') renderReports();
   if(activeTab==='leads') renderLeads();
-  if(activeTab==='bookings') renderBookings();
   if(activeTab==='community') renderCommunity();
   if(activeTab==='htlocal') renderHtLocal();
   if(activeTab==='assessments') renderAssessments();
@@ -7569,7 +7367,6 @@ function renderActiveTab(){
   if(activeTab==='statesubs') renderStateSubs();
   if(activeTab==='careplans') cpRender();
   if(activeTab==='supervisory') renderSupervisory();
-  if(activeTab==='cgprofiles') loadCgProfiles();
   if(activeTab==='clients') renderClients();
   if(activeTab==='soc') renderSocTab();
   if(activeTab==='comms') renderCommsPage();
@@ -7585,7 +7382,7 @@ function renderActiveTab(){
   if(activeTab==='htsupport') renderTickets();
   if(activeTab==='campaigns') renderCampaigns();
   if(activeTab==='feedback') renderFeedback();
-  updateHTBadge(); fbBadges(); bkgBadges(); cmBadges(); hlBadges();
+  updateHTBadge(); fbBadges(); cmBadges(); hlBadges();
 }
 function renderFilterPills(containerId, options, activeKey, tabKey){
   const el = document.getElementById(containerId);
@@ -10720,113 +10517,6 @@ function cgpPublicUrl(path){
   if(!path) return '';
   return CONFIG.supabase_url + '/storage/v1/object/public/' + CGP_BUCKET + '/' + path;
 }
-
-async function loadCgProfiles(force){
-  const host = document.getElementById('cgpBody'); if(!host) return;
-  if(cgpLoaded && !force){ renderCgProfiles(); return; }
-  host.innerHTML = '<div class="field-note">Loading…</div>';
-  const { data, error } = await sb.from('caregiver_profiles').select('*').order('created_at',{ascending:false});
-  if(error){
-    host.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load profiles, ' +
-      esc(error.message) + '. If this says the table does not exist, caregiver-profiles.sql has not been run yet.</div>';
-    return;
-  }
-  CGPROFILES = data || [];
-  cgpLoaded = true;
-  renderCgProfiles();
-}
-
-function renderCgProfiles(){
-  const host = document.getElementById('cgpBody'); if(!host) return;
-  const waiting = CGPROFILES.filter(p => !p.published && p.status !== 'withdrawn').length;
-  const live = CGPROFILES.filter(p => p.published).length;
-  const count = document.getElementById('cgpCount');
-  if(count) count.textContent = CGPROFILES.length
-    ? waiting + ' waiting to approve · ' + live + ' live'
-    : '';
-
-  if(!CGPROFILES.length){
-    host.innerHTML = '<div class="field-note">No profiles yet. Caregivers fill these in at ' +
-      '<a href="caregiver-profile.html" target="_blank" rel="noopener">cc.mo-care.com/caregiver-profile.html</a> ' +
-      'at orientation.</div>';
-    return;
-  }
-
-  // Unapproved first: they are the ones with somebody waiting on them.
-  const rows = CGPROFILES.slice().sort((a,b) =>
-    (a.published?1:0) - (b.published?1:0) || String(b.created_at||'').localeCompare(String(a.created_at||'')));
-
-  host.innerHTML = rows.map(p => {
-    const name = esc(p.preferred_name || p.first_name);
-    const badge = p.status === 'withdrawn'
-      ? '<span class="badge" style="background:#F3F1EE;color:var(--text-muted);">withdrawn</span>'
-      : p.published
-        ? '<span class="badge" style="background:#DCFCE7;color:#166534;">live</span>'
-        : '<span class="badge" style="background:#FEF3C7;color:#92400E;">waiting to approve</span>';
-    const link = p.published ? 'caregiver.html?id=' + encodeURIComponent(p.id) : '';
-    return '<div class="card" style="padding:16px 18px;margin-bottom:12px;">' +
-      '<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;">' +
-        (p.photo_path
-          ? '<img src="' + esc(cgpPublicUrl(p.photo_path)) + '" alt="" style="width:82px;height:82px;' +
-            'object-fit:cover;border-radius:12px;border:1px solid var(--border);flex:none;">'
-          : '<div style="width:82px;height:82px;border-radius:12px;background:var(--bg);border:1px solid var(--border);' +
-            'flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-muted);">no photo</div>') +
-        '<div style="flex:1;min-width:220px;">' +
-          '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;">' +
-            '<b style="font-size:16px;color:var(--navy);">' + name + '</b>' + badge +
-            (p.video_path ? '<span class="field-note">🎥 video</span>' : '') +
-          '</div>' +
-          '<div class="field-note" style="margin-top:3px;">' +
-            (p.years_experience ? esc(p.years_experience) + ' experience' : 'experience not given') +
-            (p.axiscare_id ? ' · AxisCare ' + esc(p.axiscare_id) : ' · <b style="color:#B45309;">no AxisCare ID yet</b>') +
-          '</div>' +
-          ((p.specialties||[]).length
-            ? '<div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap;">' +
-              p.specialties.map(x => '<span class="badge" style="background:#E4F4F3;color:#06312F;">' + esc(x) + '</span>').join('') +
-              '</div>' : '') +
-        '</div>' +
-      '</div>' +
-
-      '<label style="margin-top:12px;">Their experience, in their words</label>' +
-      '<textarea id="cgp-exp-' + p.id + '" rows="3">' + esc(p.experience||'') + '</textarea>' +
-      '<label>What a family reads</label>' +
-      '<textarea id="cgp-about-' + p.id + '" rows="3">' + esc(p.about||'') + '</textarea>' +
-      '<label>Why they do this work</label>' +
-      '<textarea id="cgp-why-' + p.id + '" rows="2">' + esc(p.why_this_work||'') + '</textarea>' +
-
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:flex-end;">' +
-        '<div style="flex:1;min-width:190px;"><label>AxisCare ID</label>' +
-          '<input type="text" id="cgp-axid-' + p.id + '" value="' + esc(p.axiscare_id||'') + '" placeholder="their ID in AxisCare"></div>' +
-        '<button class="secondary" onclick="cgpSave(\'' + p.id + '\')">Save edits</button>' +
-        (p.published
-          ? '<button class="ghost" onclick="cgpPublish(\'' + p.id + '\',false)">Unpublish</button>'
-          : '<button class="primary" onclick="cgpPublish(\'' + p.id + '\',true)">Approve &amp; publish</button>') +
-        (link ? '<a class="ghost" href="' + esc(link) + '" target="_blank" rel="noopener" ' +
-                'style="text-decoration:none;padding:9px 14px;border-radius:9px;">See what the family sees ↗</a>' : '') +
-        (p.published ? '<button class="primary" onclick="cgpOpenSend(\'' + p.id + '\')">Introduce to a family</button>' : '') +
-        '<span class="spacer"></span>' +
-        '<button class="ghost" style="color:var(--red);" onclick="cgpRemove(\'' + p.id + '\')">Remove</button>' +
-      '</div>' +
-      '<div class="field-note" id="cgp-msg-' + p.id + '" style="margin-top:7px;"></div>' +
-      '<div id="cgp-send-' + p.id + '" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;"></div>' +
-      '</div>';
-  }).join('');
-}
-
-// ============================================================================
-// INTRODUCING A CAREGIVER TO A FAMILY
-//
-// The office picks the client, sees exactly who would hear about it and why,
-// and only then sends. The preview is not decoration: these messages go to
-// people who are worried about their mother, and "who is this actually
-// reaching" should be answerable before pressing send, not afterwards.
-//
-// Contacts can be added right here, because circle_contacts is empty for most
-// clients and asking "who should hear when somebody new is coming?" at the
-// moment you are placing somebody is a better time than any afternoon set
-// aside for data entry.
-// ============================================================================
-let CGP_CIRCLES = null;
 
 async function cgpOpenSend(id){
   const host = document.getElementById('cgp-send-' + id);
