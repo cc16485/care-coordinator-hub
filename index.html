@@ -3864,7 +3864,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 <div class="settings-section">
 <h3>☀️ Morning Brief</h3>
-<p class="hint">A personal email at <b>6:45am on workdays</b>: pass-along notes from the quick form, leads to call, and that person's top priorities, each line one tap into the hub. Everyone sees only their own book plus anything nobody owns yet. Pick who gets one:</p>
+<p class="hint">A personal email at <b>6:45am on workdays</b>: anything that came in overnight, pass-along notes from the quick form, leads to call, and that person's top priorities, each line one tap into the hub. Everyone sees only their own book plus anything nobody owns yet. <b>Full picture</b> adds the admin sections: family-update calls from flagged care notes, write-ups for call-offs with under 4 hours notice, yesterday's EVV misses, and today's schedule from AxisCare with any open shifts. Pick who gets what:</p>
 <div id="mbRecips" style="display:flex;flex-direction:column;gap:5px;margin:8px 0;"></div>
 <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
 <button class="primary" onclick="mbSave(this)">Save recipients</button>
@@ -11045,17 +11045,23 @@ function mbFill(){
     if(em.includes('@') && !people.some(p=>p.email===em)) people.push({ name:String(r.name||em.split('@')[0]), email:em }); });
   if(!people.length){ box.innerHTML='<span class="field-note">Add your staff (with emails) on My Team first.</span>'; return; }
   /* No saved list yet = the function's old default pair; show that honestly. */
+  const savedAdmins=new Set((saved||[]).filter(r=>r.admin===true).map(r=>String(r.email||'').toLowerCase()));
   box.innerHTML=people.map(p=>{
     const on=saved ? savedEmails.has(p.email)
       : (p.email==='samantha@mo-care.com'||p.email==='krystal@mo-care.com');
+    const adm=saved ? savedAdmins.has(p.email) : (p.email==='samantha@mo-care.com');
     return '<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;cursor:pointer;">'
       +'<input type="checkbox" class="mbChk" data-name="'+escapeHtmlComms(p.name)+'" data-email="'+escapeHtmlComms(p.email)+'" '+(on?'checked':'')+'>'
-      +escapeHtmlComms(p.name)+' <span class="field-note">'+escapeHtmlComms(p.email)+'</span></label>';
+      +escapeHtmlComms(p.name)+' <span class="field-note">'+escapeHtmlComms(p.email)+'</span>'
+      +'<span style="flex:1"></span>'
+      +'<span class="field-note" style="display:flex;align-items:center;gap:5px;" title="Adds the admin sections: family-update calls, short-notice call-off write-ups, EVV misses, and today\'s open shifts from AxisCare.">'
+      +'<input type="checkbox" class="mbAdm" data-email="'+escapeHtmlComms(p.email)+'" '+(adm?'checked':'')+'> full picture</span></label>';
   }).join('');
 }
 async function mbSave(btn){
+  const admins=new Set([...document.querySelectorAll('.mbAdm:checked')].map(c=>c.dataset.email));
   const picks=[...document.querySelectorAll('.mbChk:checked')]
-    .map(c=>({ name:c.dataset.name, email:c.dataset.email }));
+    .map(c=>({ name:c.dataset.name, email:c.dataset.email, admin:admins.has(c.dataset.email) }));
   if(btn) btn.disabled=true;
   let base={};
   try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle();
