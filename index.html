@@ -233,6 +233,29 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .fpill2:hover{color:var(--navy);border-color:var(--navy);}
   .fpill2.active{background:#F7E9D2;border-color:#F0A830;color:var(--navy);}
   .fpill2 .navi{width:13px;height:13px;}
+  /* ── Cara coverage workspace (Phase 1, CARA-UI-SPEC.md) — display-only.
+     Same tokens as the rest of the hub: navy for structure, teal for the
+     step in motion, honey for needs-you, existing greens/reds for outcomes. */
+  .cov-rail{display:flex;gap:0;align-items:center;flex-wrap:wrap;margin:10px 0 4px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;}
+  .cov-step{display:flex;gap:6px;align-items:center;font-size:12px;font-weight:700;color:var(--text-muted);white-space:nowrap;}
+  .cov-step .dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:1.6px solid var(--border);background:#fff;color:var(--text-muted);flex:0 0 auto;}
+  .cov-step.done{color:var(--navy);}
+  .cov-step.done .dot{background:#E8F6EE;border-color:#1E8449;color:#1E8449;}
+  .cov-step.now{color:var(--navy);}
+  .cov-step.now .dot{background:var(--teal);border-color:var(--teal);color:#fff;}
+  .cov-step.needsyou{color:#94681D;}
+  .cov-step.needsyou .dot{background:#F7E9D2;border-color:#F0A830;color:#94681D;}
+  .cov-step-link{border-top:2px solid var(--border);width:18px;margin:0 6px;flex:0 0 auto;}
+  .cov-step.clickable{cursor:pointer;}
+  .cov-wave{margin-top:9px;}
+  .cov-wave-head{font-size:11.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);padding:3px 0;}
+  .cov-loop{margin-top:9px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--bg);}
+  .cov-loop-row{display:flex;gap:8px;align-items:baseline;font-size:13px;padding:2.5px 0;}
+  .cov-loop-row .st{font-weight:800;width:16px;flex:0 0 auto;}
+  .cov-confirm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:9px;}
+  @media (max-width:760px){ .cov-confirm-grid{grid-template-columns:1fr;} }
+  .cov-confirm-col{padding:10px 12px;border-radius:9px;border:1px solid var(--border);font-size:13px;}
+  .cov-confirm-col .lbl{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;}
   header.topbar{height:66px;background:var(--navy);color:#fff;border-bottom:0;display:flex;align-items:center;gap:12px;padding:0 26px;position:sticky;top:0;z-index:20;}
   header.topbar .spacer{flex:1;}
   /* Everything on the navy band is either honey (the one action), solid
@@ -24155,8 +24178,217 @@ function covDur(c){
 }
 const COV_STATE_UI={ waiting:['⏳ waiting','#94681D'], yes:['✅ yes','#1E8449'],
                      no:['✖ no','#C0392B'], noanswer:['📵 no answer','#8A7F70'],
+                     no_answer_final:['📵 no answer','#8A7F70'],
                      inquiry:['❓ question','#B8860B'],
                      closed_notified:['📨 told it’s covered','#8A7F70'] };
+
+/* ═══ Cara coverage workspace (Phase 1, CARA-UI-SPEC.md) ═══════════════════
+   Display-only. Every element below derives from fields the engine already
+   writes; nothing here sends, persists, or invents state. Confirm & Assign
+   stays covResolve() — the one existing confirm path. */
+
+/* Group the automated asks into their waves. Wave numbers aren't stored:
+   coverage-run sends one wave per case per run, so auto asks cluster tightly
+   in time. A gap of 3+ minutes between consecutive auto asks is a wave
+   boundary — conservative, derived, and honest about being derived (the
+   header says "sent h:mm", which IS stored). Manual asks group separately. */
+function covWaves(c){
+  const auto=(c.asked||[]).filter(a=>a.auto===true)
+    .slice().sort((x,y)=>String(x.at||'').localeCompare(String(y.at||'')));
+  const manual=(c.asked||[]).filter(a=>a.auto!==true)
+    .slice().sort((x,y)=>String(x.at||'').localeCompare(String(y.at||'')));
+  const waves=[]; let cur=null, prev=0;
+  auto.forEach(a=>{
+    const t=new Date(a.at||0).getTime();
+    if(!cur || (t-prev)>=3*60000){ cur={at:a.at, asks:[]}; waves.push(cur); }
+    cur.asks.push(a); prev=t;
+  });
+  return { waves, manual };
+}
+function covClock(iso){
+  if(!iso) return '';
+  try{ return new Date(iso).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+  catch(e){ return ''; }
+}
+/* The lifecycle rail. States derive from existing case data only:
+   ✓ done · ● happening now · ○ waiting · ! needs you. */
+function covRailStages(c){
+  const open=c.status==='open';
+  const {waves,manual}=covWaves(c);
+  const asked=(c.asked||[]);
+  const engineOn=!!(DATA.ops_settings&&DATA.ops_settings.coverage_send_live===true);
+  const anyAnswer=asked.some(a=>a.state&&a.state!=='waiting');
+  const covered=c.resolved_how==='covered';
+  const closedUncovered=!open&&!covered;
+  const verified=c.axiscare_assignment&&c.axiscare_assignment.status==='assigned';
+  const loopDone=covered&&!!c.closure_notified;
+  // Matching is ✓ once the engine composed a wave (her call: don't show it
+  // incomplete just because candidate preview doesn't ship until Phase 3).
+  const matched=waves.length>0;
+  const S=(state,label,detail)=>({state,label,detail});
+  return [
+    S('done','Call-Off', (c.opened_by==='axiscare-watch'?'Detected from the AxisCare unassignment':'Opened '+(c.opened_by?'by '+c.opened_by:'on the board'))+' · '+covClock(c.opened_at)),
+    S(matched?'done':(open&&engineOn?'now':(open?'wait':'done')),'Matching',
+      matched
+        ? 'Cara selected '+waves[0].asks.length+' caregiver'+(waves[0].asks.length===1?'':'s')+' for Wave 1'
+          +(waves[0].asks.some(a=>a.tier===1)?' — worked-with-this-client first':'')
+        : (open&&engineOn?'Cara is composing the first wave':(open?'The callout engine is off — asks are recorded by hand':(manual.length?'Asks were recorded by the office':'No asks were recorded'))),
+    ),
+    S(waves.length||manual.length?((open&&!c.pending_fill&&!closedUncovered&&(waves.length||manual.length))?'now':'done'):'wait','Outreach',
+      waves.length? waves.length+' wave'+(waves.length===1?'':'s')+' sent'+(manual.length?' + '+manual.length+' asked by the office':'')
+        : manual.length? manual.length+' asked by the office':'Nobody asked yet'),
+    S(anyAnswer?(open&&!c.pending_fill?'now':'done'):'wait','Responses',
+      anyAnswer? asked.filter(a=>a.state==='yes').length+' yes · '+asked.filter(a=>a.state==='no').length+' no · '
+        +asked.filter(a=>a.state==='waiting').length+' waiting':'No responses yet'),
+    S(covered?'done':(open&&c.pending_fill?'needsyou':'wait'),'Confirm',
+      covered? 'Confirmed — '+(c.covered_by||'?')+(verified?' · AxisCare verified':'')
+        : (c.pending_fill?'⚡ '+c.pending_fill.name+' said yes — needs your confirmation':'Waiting on a yes')),
+    S(loopDone?'done':(covered?'now':'wait'),'Close Loop',
+      loopDone?'Everyone who needed to know was told'
+        :(covered?'The engine’s closure pass sends the courtesy and family texts within a few minutes':'After the fill is confirmed')),
+  ];
+}
+function covRailHtml(c){
+  const ICON={done:'✓',now:'●',wait:'○',needsyou:'!'};
+  const stages=covRailStages(c);
+  return '<div class="cov-rail">'
+    + stages.map((s,i)=>
+        '<div class="cov-step '+(s.state==='wait'?'':s.state)+' clickable" title="'+esc(s.detail||'')+'" '
+        +'onclick="event.stopPropagation();covRailDetail(\''+esc(c.id)+'\','+i+')">'
+        +'<span class="dot">'+ICON[s.state]+'</span>'+s.label+'</div>'
+        +(i<stages.length-1?'<span class="cov-step-link"></span>':''))
+      .join('')
+    +'</div>'
+    +'<div class="field-note" id="covRailNote_'+esc(c.id)+'" style="display:none;margin:2px 0 4px 4px;"></div>';
+}
+const COV_RAIL_OPEN={};
+function covRailDetail(caseId,i){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===caseId); if(!c) return;
+  const el=document.getElementById('covRailNote_'+caseId); if(!el) return;
+  const s=covRailStages(c)[i]; if(!s) return;
+  const key=caseId+':'+i;
+  if(COV_RAIL_OPEN[caseId]===key&&el.style.display!=='none'){ el.style.display='none'; return; }
+  COV_RAIL_OPEN[caseId]=key;
+  el.textContent=s.label+': '+(s.detail||'');
+  el.style.display='block';
+}
+/* One ask, one card row. Reuses the existing state map, action buttons and
+   handlers — this is presentation, the same covAskState() writes. */
+function covAskRow(c,a,open){
+  const [lbl,col]=COV_STATE_UI[a.state]||COV_STATE_UI.waiting;
+  const acts=(open&&a.state==='waiting')
+    ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'yes\')">yes</button>'
+      +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'no\')">no</button>'
+      +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'noanswer\')">no answer</button>'
+    : (open&&a.state==='yes')
+    ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;color:#C0392B;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'no\')">not a yes, mark no</button>'
+    : '';
+  const how=a.auto?('💬 Cara text'+(a.tier===1?' · knows this client':a.tier===2?' · recently active':'')):esc(a.channel||'asked');
+  return '<div style="padding:6px 0;border-top:1px solid var(--border);font-size:13px;">'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+    +'<b>'+esc(a.name)+'</b><span class="field-note">'+how+' · '+covClock(a.at)+'</span>'
+    +'<span style="color:'+col+';font-weight:700;">'+lbl+'</span>'
+    +(a.replied_at&&a.state!=='waiting'?'<span class="field-note">at '+covClock(a.replied_at)+'</span>':'')
+    +'<span style="flex:1;"></span>'+acts+'</div>'
+    +(a.reply?'<div class="field-note" style="margin:2px 0 0 2px;font-style:italic;">“'+esc(a.reply)+'”'
+      +(a.state==='inquiry'?' — <a href="javascript:void(0)" onclick="switchTab(\'ops\')">answer in the Operations Inbox →</a>':'')+'</div>':'')
+    +'</div>';
+}
+/* The outreach section: waves shown as waves — never "everyone at once". */
+function covOutreachHtml(c){
+  const open=c.status==='open';
+  const {waves,manual}=covWaves(c);
+  const engineOn=!!(DATA.ops_settings&&DATA.ops_settings.coverage_send_live===true);
+  let h='';
+  waves.forEach((w,i)=>{
+    h+='<div class="cov-wave"><div class="cov-wave-head">Wave '+(i+1)+' · sent '+covClock(w.at)
+      +' · '+w.asks.length+' caregiver'+(w.asks.length===1?'':'s')+'</div>'
+      +w.asks.map(a=>covAskRow(c,a,open)).join('')+'</div>';
+  });
+  if(manual.length){
+    h+='<div class="cov-wave"><div class="cov-wave-head">Asked by the office</div>'
+      +manual.map(a=>covAskRow(c,a,open)).join('')+'</div>';
+  }
+  if(!h){
+    h='<div class="field-note" style="padding:4px 0;">Nobody asked yet'
+      +(open?(engineOn?' — Cara texts the first wave within 5 minutes.':' — the callout engine is off; use “I asked someone”.'):'.')+'</div>';
+  }
+  // What happens next, said out loud — the controlled-wave design is a
+  // feature. Times derive from the newest auto ask + the stored fuse.
+  if(open&&waves.length&&!c.pending_fill&&!c.callout_escalated_at&&engineOn){
+    const fuse=Number(DATA.ops_settings&&DATA.ops_settings.coverage_wave_fuse_min)>0
+      ? Number(DATA.ops_settings.coverage_wave_fuse_min):10;
+    const last=waves[waves.length-1];
+    const newest=Math.max(...last.asks.map(a=>new Date(a.at||0).getTime()));
+    const dueAt=new Date(newest+fuse*60000);
+    h+='<div class="field-note" style="margin-top:7px;">Cara asks a few at a time, worked-with-this-client first — never the whole roster at once. '
+      +(dueAt.getTime()>Date.now()
+        ?'If nobody accepts, the next wave goes out around <b>'+covClock(dueAt.toISOString())+'</b>.'
+        :'The next wave goes out on Cara’s next pass (every few minutes).')+'</div>';
+  }
+  if(open&&c.callout_escalated_at){
+    h+='<div style="margin-top:7px;padding:7px 10px;border-radius:7px;background:#FDECEA;border:1px solid #C0392B;font-size:12.5px;color:#C0392B;font-weight:600;">Cara ran out of caregivers to ask '+covAgo(c.callout_escalated_at)+' ago and escalated to the office — this case needs a person now.</div>';
+  }
+  return h;
+}
+/* Ready to Confirm: original beside replacement, substantiated facts only.
+   The button is the existing confirm path (covResolve → coverage-assign). */
+function covConfirmHtml(c){
+  if(!(c.status==='open'&&c.pending_fill)) return '';
+  const winner=(c.asked||[]).find(a=>String(a.name||'').toLowerCase()===String(c.pending_fill.name||'').toLowerCase())||{};
+  const R={calloff:'Call-off',open:'Open shift',new:'New client'};
+  const facts=[
+    'Said yes '+covAgo(c.pending_fill.at)+' ago'+(winner.reply?' — “'+esc(String(winner.reply).slice(0,120))+'”':''),
+    winner.tier===1?'Has worked with '+esc(String(c.client||'this client').split(/\s+/)[0])+' before'
+      :winner.tier===2?'Worked a shift in the last 14 days':null,
+    winner.auto?'Reached by Cara’s text':'Asked by the office'+(winner.channel?' ('+esc(winner.channel)+')':''),
+  ].filter(Boolean);
+  return '<div style="margin-top:10px;padding:10px 12px;border-radius:9px;background:#F7E9D2;border:1.5px solid #F0A830;">'
+    +'<b style="color:#94681D;">⚡ Coverage found — ready to confirm</b>'
+    +'<div class="cov-confirm-grid">'
+    +'<div class="cov-confirm-col" style="background:#fff;"><div class="lbl">Original</div>'
+      +'<b>'+esc(c.calling_off||'(caregiver not recorded)')+'</b>'
+      +'<div class="field-note">'+esc(R[c.reason]||c.reason||'')+' · '+esc(c.shift_date||'')+' '+esc(c.shift_time||'')+'</div></div>'
+    +'<div class="cov-confirm-col" style="background:#E8F6EE;border-color:#1E8449;"><div class="lbl" style="color:#1E8449;">Replacement</div>'
+      +'<b>'+esc(c.pending_fill.name)+'</b>'
+      +facts.map(f=>'<div class="field-note">'+f+'</div>').join('')+'</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">'
+    +'<button class="addlead" onclick="covResolve(\''+esc(c.id)+'\',\'covered\')">Confirm &amp; assign in AxisCare ✓</button>'
+    +'<span class="field-note">Confirming writes '+esc(String(c.pending_fill.name).split(/\s+/)[0])+' onto the visit and reads it back to verify'+(c.axiscare_visit_id?'.':' — no exact visit is attached, so assignment will say “assign by hand”.')+'</span>'
+    +'</div></div>';
+}
+/* Closing the Loop: renders the engine's OWN flags. Nothing is sent from
+   here — coverage-run's closure pass already sends every text and stamps
+   closure_notified / family_notified / confirm_sent. */
+function covLoopHtml(c){
+  if(c.resolved_how!=='covered') return '';
+  const verified=c.axiscare_assignment&&c.axiscare_assignment.status==='assigned';
+  const winnerTold=(c.asked||[]).some(a=>a.confirm_sent);
+  const othersAsked=(c.asked||[]).some(a=>a.auto&&String(a.name||'').toLowerCase()!==String(c.covered_by||'').toLowerCase());
+  const row=(st,txt,note)=>'<div class="cov-loop-row"><span class="st" style="color:'
+    +(st==='done'?'#1E8449':st==='pending'?'#94681D':'var(--text-muted)')+';">'
+    +(st==='done'?'✓':st==='pending'?'●':'○')+'</span><span>'+txt
+    +(note?' <span class="field-note">'+note+'</span>':'')+'</span></div>';
+  return '<div class="cov-loop"><b style="font-size:13px;color:var(--navy);">Closing the loop</b>'
+    +row('done','Replacement confirmed: <b>'+esc(c.covered_by||'?')+'</b>')
+    +row(verified?'done':(c.axiscare_assignment?'pending':'pending'),
+      verified?'AxisCare visit updated and verified'
+        :'AxisCare assignment '+(c.axiscare_assignment?esc(c.axiscare_assignment.detail||'needs a hand'):'not recorded for this case'),
+      verified?'':'— check the schedule by hand')
+    +row(winnerTold?'done':'pending',
+      winnerTold?esc(String(c.covered_by||'').split(/\s+/)[0]||'Winner')+' got the confirmation text'
+        :'Winner confirmation text', winnerTold?'':'the engine’s closure pass sends it within a few minutes')
+    +(othersAsked?row(c.closure_notified?'done':'pending',
+      c.closure_notified?'Everyone else asked was thanked and told it’s covered'
+        :'Courtesy texts to the other caregivers asked',
+      c.closure_notified?'':'sent by the closure pass, 8am-9pm'):'')
+    +row(c.family_notified?'done':'pending',
+      c.family_notified?'Family circle notified':'Family circle notification',
+      c.family_notified?'':'sent by the closure pass if a circle is on file')
+    +row(c.resolved_at?'done':'pending','Case resolved · '+covSummary(c))
+    +'</div>';
+}
 /* CareQB-style order: willing on top, questions next (they need a human),
    then waiting, declines and the rest at the bottom. */
 const COV_STATE_ORDER={ yes:0, inquiry:1, waiting:2, no:3, noanswer:4, closed_notified:5 };
@@ -24181,40 +24413,12 @@ function renderCoverage(){
     const askedSorted=(c.asked||[]).slice().sort((x,y)=>
       ((COV_STATE_ORDER[x.state]??2)-(COV_STATE_ORDER[y.state]??2)) ||
       String(x.at||'').localeCompare(String(y.at||'')));
-    const askRows=askedSorted.map(a=>{
-      const [lbl,col]=COV_STATE_UI[a.state]||COV_STATE_UI.waiting;
-      const acts=(open&&a.state==='waiting')
-        ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'yes\')">yes</button>'
-          +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'no\')">no</button>'
-          +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'noanswer\')">no answer</button>'
-        : (open&&a.state==='yes')
-        ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;color:#C0392B;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'no\')">not a yes, mark no</button>'
-        : '';
-      const how=a.auto?('🤖 auto text'+(a.tier?' · tier '+esc(String(a.tier)):'')):esc(a.channel);
-      return '<div style="padding:5px 0;border-top:1px solid var(--border);font-size:13px;">'
-        +'<div style="display:flex;gap:8px;align-items:center;">'
-        +'<b>'+esc(a.name)+'</b><span class="field-note">'+how+' · asked '+covAgo(a.at)+' ago</span>'
-        +'<span style="color:'+col+';font-weight:700;">'+lbl+'</span>'
-        +(a.replied_at&&a.state!=='waiting'?'<span class="field-note">('+covAgo(a.replied_at)+' ago)</span>':'')
-        +'<span style="flex:1;"></span>'+acts+'</div>'
-        +(a.reply?'<div class="field-note" style="margin:2px 0 0 2px;font-style:italic;">“'+esc(a.reply)+'”</div>':'')
-        +'</div>';
-    }).join('');
     // CareQB-style tallies, one glance: who's willing, who's asking, who's out.
     const tally=(st)=>askedSorted.filter(a=>a.state===st).length;
     const tallies=[['✅',tally('yes'),'#1E8449'],['❓',tally('inquiry'),'#B8860B'],
                    ['⏳',tally('waiting'),'#94681D'],['✖',tally('no'),'#C0392B']]
       .filter(t=>t[1]>0)
       .map(t=>'<span style="color:'+t[2]+';font-weight:800;">'+t[0]+' '+t[1]+'</span>').join(' · ');
-    // First YES wins: the engine records it here so the office confirms it.
-    const fill=(open&&c.pending_fill)
-      ? '<div style="margin-top:9px;padding:9px 12px;border-radius:8px;background:#E8F6EE;border:1px solid #1E8449;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
-        +'<b style="color:#1E8449;">✅ '+esc(c.pending_fill.name)+' can cover</b>'
-        +'<span class="field-note">said yes '+covAgo(c.pending_fill.at)+' ago — confirm with them, assign the visit in AxisCare, then mark covered.</span>'
-        +'<span style="flex:1;"></span>'
-        +'<button class="addlead" onclick="covResolve(\''+esc(c.id)+'\',\'covered\')">Confirmed — mark covered ✓</button>'
-        +'</div>'
-      : '';
     const expanded=COV_EXPANDED.has(c.id)||(open&&!!c.pending_fill);
     const headTallies=tallies?'<span style="font-size:12.5px;">'+tallies+'</span>':'';
     const pendChip=(open&&c.pending_fill)?'<span style="font-size:12px;font-weight:800;color:#1E8449;background:#E8F6EE;border-radius:6px;padding:2px 8px;">✅ '+esc(c.pending_fill.name)+' can cover</span>':'';
@@ -24229,6 +24433,7 @@ function renderCoverage(){
       +'<span class="field-note" style="font-size:11.5px;">'+(expanded?'click to collapse':'click for details')+'</span>'
       +'</div>'
       +'<div style="display:'+(expanded?'block':'none')+';">'
+      +covRailHtml(c)
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-top:8px;">'
       +'<span style="flex:1;"></span>'
       +(open
@@ -24245,15 +24450,16 @@ function renderCoverage(){
       +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
       +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
       +(c.callout_started_at?'<div class="field-note" style="margin-top:3px;">📣 Callout texting started '+covAgo(c.callout_started_at)+' ago'+(tallies?' — '+tallies:'')+'</div>':(tallies?'<div class="field-note" style="margin-top:3px;">'+tallies+'</div>':''))
-      +fill
-      +'<div style="margin-top:9px;">'+(askRows||'<div class="field-note" style="padding:4px 0;">Nobody asked yet'+(open?' — the callout engine texts the first wave within 5 minutes when it’s on, or use “I asked someone”.':'.')+'</div>')+'</div>'
+      +covConfirmHtml(c)
+      +'<div style="margin-top:6px;">'+covOutreachHtml(c)+'</div>'
       +(c.axiscare_assignment
         ? '<div style="margin-top:9px;padding:7px 10px;border-radius:7px;font-size:12.5px;font-weight:600;'
           +(c.axiscare_assignment.status==='assigned'
-            ?'background:#E8F6EE;color:#1E8449;">✓ On the AxisCare schedule — verified.'
+            ?'background:#E8F6EE;color:#1E8449;">✓ Shift successfully filled — '+esc(c.covered_by||'the replacement')+' is on the AxisCare schedule, read back and verified.'
             :'background:#FDF3E0;color:#94681D;">⚠ AxisCare: '+esc(c.axiscare_assignment.detail||'assign by hand'))
           +'</div>'
         : '')
+      +covLoopHtml(c)
       +'<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px;font-weight:600;color:'
         +(c.resolved_how==='covered'?'#1E8449':c.resolved_how==='uncovered'?'#C0392B':'var(--text-muted)')+';">'
       +covSummary(c)+'</div>'
