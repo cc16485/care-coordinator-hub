@@ -24010,7 +24010,9 @@ function caraNeedsCard(c){
   const why=caraNeedsReason(c);
   const first=esc(String(c.client||'the client').split(/\s+/)[0]);
   const when=esc(caraWhen(c))||'the scheduled time';
-  const R={calloff:'Call-off',open:'Open shift',new:'New client'};
+  /* coverage-watch writes reason:'call_off'; the phone and manual openers
+     write 'calloff'. Both are real, so both are labelled. */
+  const R={calloff:'Call-off',call_off:'Call-off',open:'Open shift',new:'New client'};
   let head='', sub='', cta='Open the case &rarr;', winner=null;
   if(why==='pending'){
     winner=(c.asked||[]).find(a=>String(a.name||'').toLowerCase()===String(c.pending_fill.name||'').toLowerCase())||null;
@@ -24411,10 +24413,13 @@ function swRenderLive(){
       +done.map(swCard).join('');
   }
 
-  h+='<div class="field-note" style="font-size:11.5px;margin-top:10px;">'
-    +'Live Shift Watch lists the visits Cara has actually raised. A feed of the shifts that are running normally is not available yet, so none is shown.'
-    +(S.skips?' '+S.skips+' skip-list entr'+(S.skips===1?'y is':'ies are')+' in effect.':'')
-    +'</div>';
+  /* The office-facing screen says what Cara has raised, and nothing about
+     what the backend cannot yet feed it. The missing healthy / starting-soon
+     read endpoint is documented in CARA-UI-SPEC.md, not here. */
+  if(S.skips){
+    h+='<div class="field-note" style="font-size:11.5px;margin-top:10px;">'
+      +S.skips+' skip-list entr'+(S.skips===1?'y is':'ies are')+' in effect.</div>';
+  }
 
   box.innerHTML=h;
 
