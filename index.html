@@ -25185,7 +25185,10 @@ function covAskRow(c,a,open){
     +(a.replied_at&&a.state!=='waiting'?'<span class="field-note">at '+covClock(a.replied_at)+'</span>':'')
     +'<span style="flex:1;"></span>'+acts+'</div>'
     +(a.reply?'<div class="field-note" style="margin:2px 0 0 2px;font-style:italic;">“'+esc(a.reply)+'”'
-      +(a.state==='inquiry'?' — <a href="javascript:void(0)" onclick="switchTab(\'ops\')">answer in the Operations Inbox →</a>':'')+'</div>':'')
+      +(a.state==='inquiry'?' — '+(a.ghl_contact_id
+        ?'<a href="https://app.hirecara.com/v2/location/Recp0AhyMh8lrtKJ9kaj/contacts/detail/'+esc(a.ghl_contact_id)+'" target="_blank" rel="noopener">text them back in GHL ↗</a>'
+        :'<a href="https://app.hirecara.com/v2/location/Recp0AhyMh8lrtKJ9kaj/contacts/smart_list/All" target="_blank" rel="noopener">find them in GHL Conversations ↗</a>')
+      :'')+'</div>':'')
     +'</div>';
 }
 /* The outreach section: waves shown as waves — never "everyone at once". */
