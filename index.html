@@ -924,9 +924,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div id="c360Out"></div>
     </section>
     <section class="tabpanel" id="tab-hourswatch">
-      <div style="margin-bottom:18px;">
-        <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Schedule Watch</h2>
-        <div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:70ch;">Is today's schedule happening, and who is not getting the hours they asked for.</div>
+      <div style="margin-bottom:18px;display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1 1 420px;">
+          <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Schedule Watch</h2>
+          <div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:70ch;">Is today's schedule happening, and who is not getting the hours they asked for.</div>
+        </div>
+        <a href="scheduling-guide.html#schedwatch" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">How this works &#8599;</a>
       </div>
       <!-- LIVE SHIFT WATCH. Renders timekeeper_cases, the ladder record
            timekeeper-watch maintains. Only recorded events are shown, and
@@ -973,6 +976,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <span style="flex:1;"></span>
         <!-- straight to AxisCare's Real Time View filtered to unassigned —
              the authoritative list a case should start from -->
+        <a href="scheduling-guide.html" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;align-self:center;">How this works &#8599;</a>
         <a href="https://16485.axiscare.com/?realtimeview.php&types=unassigned" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">Unassigned in AxisCare ↗</a>
         <button class="addlead" onclick="covToggleAdd()">＋ Open a coverage case</button>
       </div>
@@ -1559,6 +1563,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">EVV Corrections</h2>
           <div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:70ch;">The correction log lives in the Staffing hub and has its own sign in. It is shown here so you do not have to leave Scheduling.</div>
         </div>
+        <a href="scheduling-guide.html#evv" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">How this works &#8599;</a>
         <a href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="font-size:13.5px;font-weight:700;color:var(--teal);text-decoration:none;">Open in a new tab &#8599;</a>
       </div>
       <!-- Framed, not rebuilt: two copies of a correction log is worse than

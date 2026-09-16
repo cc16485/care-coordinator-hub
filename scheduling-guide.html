@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>How Scheduling Works — Caring Companions</title>
+<style>
+  :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#F0A830; --honey-ink:#94681D;
+         --bg:#F6F9FD; --card:#fff; --border:#E2E8F0; --text:#1f2a36; --muted:#6B7280;
+         --green:#1E8449; --red:#C0392B; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--text);
+        font:15px/1.65 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+        padding:0 16px 60px; }
+  .wrap{ max-width:820px; margin:0 auto; }
+  header{ background:var(--navy); color:#fff; margin:0 -16px; padding:26px 16px 22px; }
+  header .wrap b{ font-size:22px; letter-spacing:-.02em; }
+  header .wrap div{ opacity:.85; font-size:13.5px; margin-top:4px; }
+  nav{ display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 6px; }
+  nav a{ text-decoration:none; font-size:12.5px; font-weight:700; color:var(--navy);
+         border:1.5px solid var(--navy); border-radius:999px; padding:5px 14px; background:#fff; }
+  h2{ color:var(--navy); font-size:20px; letter-spacing:-.015em; margin:34px 0 4px; }
+  h3{ color:var(--navy); font-size:15.5px; margin:22px 0 6px; }
+  .sub{ color:var(--muted); font-size:13.5px; margin:0 0 14px; }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:12px;
+         padding:16px 18px; margin:12px 0; }
+  .msg{ background:var(--bg); border-left:3px solid var(--teal); border-radius:8px;
+        padding:10px 14px; margin:8px 0; font-size:13.5px; font-style:italic; }
+  .msg b{ font-style:normal; }
+  .tag{ display:inline-block; font-size:11px; font-weight:800; letter-spacing:.05em;
+        text-transform:uppercase; border-radius:999px; padding:2px 10px; margin-left:8px; vertical-align:middle; }
+  .tag.on{ background:#E8F6EE; color:var(--green); }
+  .tag.off{ background:#F7E9D2; color:var(--honey-ink); }
+  .own{ display:grid; grid-template-columns:1fr; gap:8px; }
+  .own div{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; font-size:14px; }
+  .own b{ color:var(--navy); }
+  ul{ margin:8px 0; padding-left:22px; }
+  li{ margin:5px 0; }
+  .note{ font-size:13px; color:var(--muted); border-top:1px solid var(--border); margin-top:10px; padding-top:8px; }
+  .never{ border-left:3px solid var(--red); }
+  a{ color:var(--navy); }
+  @media (min-width:640px){ .own{ grid-template-columns:1fr 1fr 1fr; } }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <b>How Scheduling Works</b>
+  <div>Cara, Schedule Watch and EVV, explained for the coordinator who has a family on the phone.</div>
+</div></header>
+<div class="wrap">
+
+<nav>
+  <a href="#who-owns-what">Which tab owns what</a>
+  <a href="#cara">Cara</a>
+  <a href="#schedwatch">Schedule Watch</a>
+  <a href="#evv">EVV</a>
+  <a href="#never">What Cara never does</a>
+</nav>
+
+<h2 id="who-owns-what">Which tab owns which problem</h2>
+<p class="sub">A problem lives in exactly one place. It can move between tabs, but it is never active work in two of them.</p>
+<div class="own">
+  <div><b>No clock-in when a shift starts</b><br>Schedule Watch. Is the caregiver coming?</div>
+  <div><b>The caregiver cannot work the shift</b><br>Cara. The shift needs somebody else.</div>
+  <div><b>The visit happened, the record is wrong</b><br>EVV. Fix the record, with the form.</div>
+</div>
+
+<h2 id="cara">Cara <span class="tag on">the coverage engine</span></h2>
+<p class="sub">Cara is our scheduling assistant. When a shift loses its caregiver, she finds out who can cover it, asks them by text, collects the answers, and hands you the decision. A person always confirms. Cara never assigns anyone on her own.</p>
+
+<div class="card">
+  <h3 style="margin-top:0;">How a coverage case opens (three ways)</h3>
+  <ul>
+    <li><b>The schedule itself.</b> Unassign the visit in AxisCare with a call-in or call-off reason. Cara sees it within about five minutes and opens the case herself. Your normal workflow is the trigger; there is no second data entry.</li>
+    <li><b>The phone call-off flow.</b> A caregiver calls off by phone and the call-off form writes the case.</li>
+    <li><b>The board.</b> On the Cara tab, "Open a coverage case": pick who is calling off, click the exact shift they mean from their real AxisCare schedule, and the case knows the visit, client and times from the start.</li>
+  </ul>
+  <div class="note">Only open a case when a shift needs chasing. If the AxisCare app fills it on its own, it never needs to be here.</div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">How Cara asks caregivers</h3>
+  <ul>
+    <li><b>Waves of five, never the whole roster.</b> Caregivers who have worked with this client go first, then people active in the last two weeks, then everyone else eligible.</li>
+    <li><b>Ten minutes between waves.</b> If nobody in a wave says yes, the next five are asked.</li>
+    <li><b>Quiet hours are 9pm to 8am.</b> Overnight, texts hold until morning, unless the shift itself starts within three hours, when waking people is the job.</li>
+    <li><b>Who is never asked:</b> nurses, office staff, anyone already working at that time, anyone below the client's care level, anyone inactive in AxisCare.</li>
+  </ul>
+  <h3>What the texts actually say</h3>
+  <div class="msg">To someone who knows the client: <b>"Hi {name}, can you cover {client} {when}? It's Caring Companions. Reply YES or NO."</b></div>
+  <div class="msg">To everyone else: <b>"Hi {name}, it's Caring Companions. Last-minute fill-in at {address}: {when}. Can you take it? Reply YES or NO. Questions welcome."</b></div>
+  <div class="note">Only caregivers who already work with the client see the client's name. Everyone else gets the address, never the name. The wording can be edited per callout before it starts texting.</div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">What happens with the answers</h3>
+  <ul>
+    <li><b>YES:</b> first yes wins. The case moves to "Needs You", the caregiver gets "got it, the office will confirm with you shortly", and everything else pauses.</li>
+    <li><b>A later yes:</b> they get an honest "someone beat you to it, thank you!"</li>
+    <li><b>NO:</b> recorded quietly. A decline never gets a reply, because a decline answered feels like pressure.</li>
+    <li><b>A question:</b> lands in the Operations Inbox with their exact words. A person answers it. Never a robot.</li>
+    <li><b>Nobody left to ask:</b> after the last unanswered ask sits twenty minutes, the case gets loud: an urgent item for whoever owns coverage, plus a text. A person takes over.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">You confirm, and Cara writes the schedule</h3>
+  <p style="margin:6px 0;">When a caregiver accepts, the case shows the original and the replacement side by side, with only facts we can back up: worked with this client before, said yes at what time, their scheduled hours for the next 7 days. One button: <b>Confirm &amp; assign in AxisCare</b>. That click is the authorization. Cara writes the caregiver onto the real visit and then reads the schedule back to verify it took. The board never says "Successfully filled" until AxisCare itself confirms it.</p>
+  <div class="note">If the exact visit cannot be identified with certainty, the card says "assign by hand" instead of guessing. A wrong write would put a caregiver on the wrong shift, so Cara refuses to guess.</div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">Closing the loop</h3>
+  <p style="margin:6px 0;">A filled shift is not finished until everyone who needs to know has been told. After your confirmation, Cara sends (daytime only, 8am to 9pm):</p>
+  <div class="msg">To the winner: <b>"You're confirmed for {client}, {when}. It's on your schedule. Thank you, {name}!"</b></div>
+  <div class="msg">To everyone else who was asked and still waiting: <b>"Caring Companions: that shift is covered now. Thank you! No action needed."</b></div>
+  <div class="msg">To the client's family circle (only members who have texting consent on file): <b>"Hello, this is Caring Companions. {caregiver} is unable to make {client}'s visit {when}, so {replacement} from our team will be coming instead. Everything else about the visit stays the same. Any questions at all, call us at (417) 234-8494."</b></div>
+  <div class="note">Every case shows a Closing the Loop checklist that says exactly what was sent and what was not. If it says "Nobody was left waiting to tell" or "No family members have texting consent on file", that is the truth of that case, not a failure.</div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">Reading the Cara tab</h3>
+  <ul>
+    <li><b>Needs Your Attention</b> is the only section that needs you: a caregiver accepted and wants confirming, a question is waiting, or a callout ran out of people.</li>
+    <li><b>Cara is Working On</b> is hers. You can watch, but nothing there is waiting on you.</li>
+    <li><b>Filled Today</b> is done, verified against AxisCare.</li>
+    <li>Every case shows its lifecycle rail: Call-Off, Matching, Outreach, Responses, Confirm, Close Loop. Click any step for detail.</li>
+  </ul>
+</div>
+
+<h2 id="schedwatch">Schedule Watch</h2>
+<p class="sub">Everything about whether scheduled care is actually happening, and who could take more of it.</p>
+
+<div class="card">
+  <h3 style="margin-top:0;">Live Shift Watch <span class="tag off">built, not switched on yet</span></h3>
+  <p style="margin:6px 0;">When it is switched on: a few minutes past a shift's start with no AxisCare clock-in, Cara texts the caregiver. If there is still no clock-in about ten minutes in, the office gets an urgent alert with the caregiver's number ready to call. The moment a clock-in appears, the whole thing closes itself quietly. Nobody gets chased for a shift they are already working.</p>
+  <div class="msg">The nudge: <b>"Hi {name}, it's Cara with Caring Companions. Your shift with {client} was set to start at {time} and we don't see a clock-in yet. If you're there, please clock in through the AxisCare app now. If the clock-in was missed, we cannot make any manual changes to your time without the EVV correction form, completed and signed by the client: sc.mo-care.com/evv-correction-form. If something's come up, reply here or call the office at (417) 234-8494."</b></div>
+  <p style="margin:6px 0;">If the caregiver says they cannot make it, that stops being a Schedule Watch problem and becomes a Cara coverage case. One problem, one place.</p>
+  <div class="note">Until the switch is turned on, nothing texts anybody about clock-ins, and the nightly attendance sweep remains the record of misses and tardies.</div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">Hours and availability</h3>
+  <ul>
+    <li>Caregivers set their own weekly hours target and available windows at <b>cc.mo-care.com/availability</b>. Text them the link from the tab.</li>
+    <li>Scheduled hours come live from AxisCare for the next 7 days. Biggest gap first: the people shown at the top want more hours than they are getting, and they are the ones to call before they quietly job-hunt.</li>
+    <li><b>Who could cover a new client?</b> answers while a caller is still on the phone: tick the days and times they are asking about and get real names, ranked by who knows the client, then schedule fit, then who most wants hours.</li>
+  </ul>
+</div>
+
+<h2 id="evv">EVV</h2>
+<p class="sub">Fixing the record of a visit that already happened.</p>
+<div class="card">
+  <ul>
+    <li>A caregiver who missed a clock-in or clock-out fixes it with the correction form at <b>sc.mo-care.com/evv-correction-form</b>: original times, corrected times, the reason, their signature, and the client's signature.</li>
+    <li><b>The office cannot make any manual changes to recorded time without that form, completed and signed by the client.</b> The form refuses to submit unsigned. There are no exceptions to ask for.</li>
+    <li>Submitted corrections land on the EVV tab for the office to accept and log, then AxisCare gets updated. One correction log, one place, so a visit can never be fixed twice and billed once.</li>
+  </ul>
+  <div class="note">Repeated corrections are counted. Three or more in a month for the same caregiver raises a flag for the admins, because a pattern is a conversation, not a form.</div>
+</div>
+
+<h2 id="never">What Cara never does</h2>
+<div class="card never">
+  <ul style="margin:4px 0;">
+    <li>Never assigns a caregiver to a shift without a person clicking confirm.</li>
+    <li>Never answers a caregiver's question with a robot. Questions go to a human, with their exact words.</li>
+    <li>Never claims a shift is filled until AxisCare verifies the assignment.</li>
+    <li>Never texts a client's name to a caregiver who has not worked with them.</li>
+    <li>Never texts families anything clinical, and never texts a circle member without recorded consent.</li>
+    <li>Never quotes prices, promises visit times, or makes commitments. That is your job, and hers is to protect your time for it.</li>
+    <li>Never keeps going once a person steps in. A coordinator touching a case, a lead, or a shift stops the automation for it.</li>
+  </ul>
+</div>
+
+<p class="sub" style="margin-top:26px;">Questions this page does not answer belong to Samantha, or ask Claude in the hub session and it can walk through any case's history line by line.</p>
+</div>
+</body>
+</html>
