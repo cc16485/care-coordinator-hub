@@ -6443,7 +6443,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { caregivers: [], caregiver_availability: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
+let DATA = { caregivers: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -6563,7 +6563,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','caregiver_availability','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
+  const keys = ['caregivers','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -24187,6 +24187,7 @@ function caraRenderCC(){
   }
 
   h+='<div style="border-top:1px solid var(--border);margin:2px 0 12px;"></div>';
+  h+=dnoCardHtml();
   box.innerHTML=h;
 
   /* The red pill badge counts what needs a PERSON. A count of everything
@@ -24198,6 +24199,71 @@ function caraRenderCC(){
     const want=CARA_PENDING_CASE;
     if((DATA.coverage_cases||[]).some(x=>x&&x.id===want)){ CARA_PENDING_CASE=''; caraShowCase(want); }
   }
+}
+
+/* ── Do-not-offer list ────────────────────────────────────────────────────
+   Caregivers who've told the office they can't take on more shifts (an SSI
+   income limit is the usual reason). Cara's engine skips everyone on this
+   list in every automatic callout; recording an ask by hand still works.
+   Stored in app_data key coverage_do_not_offer; the engine matches by
+   AxisCare id, then phone, then name, and an entry with a "through" date
+   lifts itself the day after (Chicago calendar). */
+function dnoActive(d){
+  const u=String((d&&d.until)||'').trim();
+  if(!/^\d{4}-\d\d-\d\d$/.test(u)) return true;
+  const today=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10);
+  return u>=today;
+}
+function dnoCardHtml(){
+  const list=(DATA.coverage_do_not_offer||[]).filter(Boolean);
+  const live=list.filter(dnoActive), ended=list.length-live.length;
+  const rows=live.map(d=>'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-bottom:1px solid var(--border);">'
+    +'<b style="color:var(--navy);font-size:13.5px;">'+esc(d.name||'?')+'</b>'
+    +(d.note?'<span class="field-note" style="font-size:12.5px;">'+esc(d.note)+'</span>':'')
+    +'<span style="flex:1;"></span>'
+    +'<span class="field-note" style="font-size:12px;">'+(d.until?('through '+esc(d.until)):'until removed')+'</span>'
+    +'<a href="javascript:void(0)" onclick="dnoRemove(\''+esc(String(d.id||''))+'\')" style="font-size:12.5px;font-weight:700;color:var(--danger,#C0392B);">Remove</a>'
+    +'</div>').join('');
+  const roster=(DATA.caregivers||[]).filter(c=>c&&c.active!==false)
+    .map(c=>[String(c.first||'').trim(),String(c.last||'').trim()].filter(Boolean).join(' ')).filter(Boolean).sort();
+  return '<div class="card" style="padding:15px 17px;margin:0 0 16px;">'
+    +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
+    +'<h3 style="margin:0;font-size:15.5px;font-weight:800;color:var(--navy);">Not offered open shifts</h3>'
+    +'<span class="field-note" style="font-size:12.5px;">'+(live.length?live.length+' caregiver'+(live.length===1?'':'s'):'nobody right now')+(ended?' &middot; '+ended+' ended':'')+'</span></div>'
+    +'<div class="field-note" style="font-size:12.5px;margin:4px 0 8px;">For caregivers who\'ve told us they can\'t take on more shifts &mdash; an SSI income limit, for example. Cara skips them in every automatic callout. You can still text or assign them by hand.</div>'
+    +rows
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:9px;">'
+    +'<input id="dnoName" list="dnoRosterList" placeholder="Caregiver name" style="flex:1;min-width:150px;">'
+    +'<datalist id="dnoRosterList">'+roster.map(n=>'<option value="'+esc(n)+'">').join('')+'</datalist>'
+    +'<input id="dnoNote" placeholder="Why (optional)" style="flex:1;min-width:130px;">'
+    +'<input id="dnoUntil" type="date" title="Blocked through this date &mdash; leave empty for until removed" style="width:140px;">'
+    +'<button class="addlead" onclick="dnoAdd()">Stop offering</button></div></div>';
+}
+async function dnoAdd(){
+  const nameEl=document.getElementById('dnoName'), name=(nameEl&&nameEl.value||'').trim();
+  if(!name){ alert('Type or pick the caregiver\'s name first.'); return; }
+  const key=name.toLowerCase().replace(/[^a-z]/g,'');
+  const cg=(DATA.caregivers||[]).find(c=>c&&[String(c.first||'').trim(),String(c.last||'').trim()].filter(Boolean).join(' ').toLowerCase().replace(/[^a-z]/g,'')===key);
+  if(!cg){ alert('"'+name+'" is not on the caregiver roster. Pick a name from the list so the block lands on the right person.'); return; }
+  const full=[String(cg.first||'').trim(),String(cg.last||'').trim()].filter(Boolean).join(' ');
+  const item={ id:'dno_'+(String(cg.axiscare_id||'').trim()||key),
+    name:full, axiscare_id:String(cg.axiscare_id||'').trim()||null, phone:String(cg.phone||'').trim()||null,
+    note:(document.getElementById('dnoNote').value||'').trim(),
+    until:(document.getElementById('dnoUntil').value||'').trim()||null,
+    added_by:(typeof ME!=='undefined'&&ME&&ME.email)||'', added_at:new Date().toISOString() };
+  const arr=DATA.coverage_do_not_offer=DATA.coverage_do_not_offer||[];
+  const i=arr.findIndex(x=>x&&x.id===item.id); if(i>=0) arr[i]=item; else arr.push(item);
+  await persist('coverage_do_not_offer', item);
+  caraRenderCC();
+}
+async function dnoRemove(id){
+  const arr=DATA.coverage_do_not_offer||[];
+  const d=arr.find(x=>x&&x.id===id);
+  if(!d) return;
+  if(!confirm('Start offering open shifts to '+(d.name||'this caregiver')+' again?')) return;
+  DATA.coverage_do_not_offer=arr.filter(x=>!(x&&x.id===id));
+  await removeItem('coverage_do_not_offer', id);
+  caraRenderCC();
 }
 
 /* ── Direct routes ────────────────────────────────────────────────────────
