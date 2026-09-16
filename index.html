@@ -25707,11 +25707,12 @@ async function hwMatch(btn){
         if(x.hours_short!=null) chips.push(x.hours_short>0
           ? '<span class="cara-rchip short">'+esc(String(x.hours_short))+'h short of target</span>'
           : '<span class="cara-rchip at">at target</span>');
-        /* Date-neutral on purpose: this figure comes from coverage-shifts
-           MATCH mode, which still builds its endDate from UTC now+7d (the
-           hours_watch fix did not touch it, by scope). No "next 7 days"
-           claim here until match mode gets the same calendar fix. */
-        chips.push('<span class="cara-rchip">'+esc(String(x.scheduled_next_week))+'h already scheduled</span>');
+        /* The figure comes from coverage-shifts MATCH mode, which since the
+           2026-09-16 calendar fix uses the product's Next 7 Days window -
+           the exact horizon hours_watch reports (production verified: all
+           common caregiver ids agree exactly). The label may say so again;
+           the browser still never computes a window of its own. */
+        chips.push('<span class="cara-rchip">'+esc(String(x.scheduled_next_week))+'h scheduled &middot; next 7 days</span>');
         return '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border);">'
           +'<b style="font-size:15px;font-weight:700;color:var(--navy);min-width:160px;">'+esc(x.name)+'</b>'
           +chips.join('')+'</div>';

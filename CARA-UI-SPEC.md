@@ -159,10 +159,20 @@ Sep 15–Sep 21 · Not a payroll week
 ```
 
 If a payroll-week calculation is wanted later, it gets built deliberately.
-Known scope note: `coverage-shifts` MATCH mode and the caregiver shift-picker
-mode still build their own endDate from UTC now+N days (deliberately outside
-the hours_watch fix), so the matcher's "already scheduled" chip stays
-date-neutral until those modes get the same calendar treatment.
+Calendar consistency (closed 2026-09-16): MATCH mode and the caregiver
+shift-picker now derive both boundaries from the Chicago calendar too. MATCH
+uses exactly the Next 7 Days window hours_watch reports (production verified:
+`scheduled_next_week` equals `scheduled_hours` for every common caregiver
+id), so the matcher chip reads "Xh scheduled · next 7 days". The picker's
+`days` parameter means the TOTAL number of local calendar dates returned,
+including today (default 14).
+
+Recorded follow-up, not yet built: AxisCare returns 404 when a picker query
+matches zero visits (pre-existing; the Hub shows "Could not load shifts:
+AxisCare responded 404"). Before converting that to an empty `shifts: []`,
+coverage-shifts must learn to distinguish a no-matching-visits 404 from a
+genuine request or resource error - never assume every 404 means zero
+results.
 
 ## The Schedule Watch tab
 
