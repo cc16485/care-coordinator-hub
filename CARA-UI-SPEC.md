@@ -137,8 +137,16 @@ covAskState.
 Showing the hours consequence before a coordinator confirms is approved, from
 `coverage-shifts {hours_watch:true}`.
 
-**That endpoint returns a rolling window of today through today plus seven
-days. It is not a payroll week.** Label it "Next 7 days" and nothing else.
+**Next 7 Days (product definition, final 2026-09-16): a rolling
+seven-calendar-date window beginning with the current date in the agency's
+operating timezone (America/Chicago) and ending six calendar dates later,
+both boundaries inclusive, exactly seven dates total. Example: September 15
+through September 21. It is not a payroll week.** The backend derives both
+boundaries from that same local calendar (`coverage-shifts` hours_watch,
+fixed 2026-09-16); the UI displays the backend's returned window dates and
+never computes a seven-day range of its own.
+
+Label it "Next 7 days" with the returned dates as context ("Sep 15–Sep 21").
 Do not write "weekly hours", do not write "overtime", do not compare against a
 40-hour threshold, and do not imply a Monday to Sunday payroll period. No
 overtime rule is implemented anywhere in the system, so the UI states the
@@ -146,12 +154,15 @@ arithmetic and stops:
 
 ```
 NEXT 7 DAYS
-Currently scheduled: 38 hrs
-This shift: +6 hrs
-Projected: 44 hrs
+Robin is currently scheduled 38 hrs · this shift +6 hrs · projected 44 hrs
+Sep 15–Sep 21 · Not a payroll week
 ```
 
 If a payroll-week calculation is wanted later, it gets built deliberately.
+Known scope note: `coverage-shifts` MATCH mode and the caregiver shift-picker
+mode still build their own endDate from UTC now+N days (deliberately outside
+the hours_watch fix), so the matcher's "already scheduled" chip stays
+date-neutral until those modes get the same calendar treatment.
 
 ## The Schedule Watch tab
 

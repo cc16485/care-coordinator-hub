@@ -939,16 +939,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:0 0 6px;padding-top:20px;border-top:1px solid var(--border);">
         <h3 style="margin:0;font-size:20px;font-weight:800;letter-spacing:-0.015em;color:var(--navy);">Upcoming schedule and hours</h3>
-        <!-- Deliberately NOT "Next 7 days". coverage-shifts mixes a Chicago
-             startDate with a UTC endDate, so the window it sums is 8 or 9
-             calendar dates. This shows the dates actually counted until that
-             is fixed server-side. -->
-        <span id="hwWindowPill" style="background:#fff;border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:700;color:var(--text-muted);">Scheduled window</span>
+        <!-- "Next 7 days" is real again: coverage-shifts hours_watch derives
+             both boundaries from the Chicago calendar (today + the following
+             six dates, seven inclusive). The status line shows the actual
+             dates the backend returned after a load - never a range this
+             browser computed for itself. -->
+        <span id="hwWindowPill" style="background:#fff;border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:700;color:var(--text-muted);">Next 7 days</span>
         <span style="flex:1;"></span>
         <button class="cara-btn ghost" onclick="hwLoad(this)">Refresh from AxisCare</button>
         <button class="cara-btn ghost" id="hwInviteTop" onclick="hwInvite(this)">Text the availability link</button>
       </div>
-      <div style="font-size:13.5px;color:var(--text-muted);margin:0 0 16px;max-width:76ch;">Caregivers set their own target and windows at <b>cc.mo-care.com/availability</b>. Scheduled hours come live from AxisCare for the dates shown above. Biggest gap first, so these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
+      <div style="font-size:13.5px;color:var(--text-muted);margin:0 0 16px;max-width:76ch;">Caregivers set their own target and windows at <b>cc.mo-care.com/availability</b>. Scheduled hours come live from AxisCare for the next 7 days. Biggest gap first, so these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
 
       <!-- THE INTAKE MATCHER, as a question rather than a form: while a new
            lead is on the phone, answer "who could staff Mon/Wed/Fri
@@ -24269,16 +24270,23 @@ function caraOpenHistory(){
   if(l&&l.scrollIntoView) l.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-/* ── Scheduled hours in the returned window, at the confirm decision ──────
-   coverage-shifts {hours_watch:true} returns a ROLLING window, and that
-   window is currently WRONG: the endpoint takes startDate from the Chicago
-   date but endDate from Date.now()+7d in UTC, so it spans 8 calendar dates
-   for most of the day and 9 in the Chicago evening. Until that is corrected
-   server-side nothing here calls it "next 7 days"; the dates the endpoint
-   actually returned are shown instead.
-   It is not a payroll week either, so it is never labelled one, and no
-   threshold is applied to it: no overtime rule exists anywhere in this
-   system. The arithmetic is stated and that is all. */
+/* ── Next 7 days scheduled hours, at the confirm decision ─────────────────
+   coverage-shifts {hours_watch:true} returns the Next 7 Days window: today
+   in the agency's Chicago calendar plus the following six calendar dates,
+   seven dates inclusive, both boundaries from the same calendar (fixed
+   server-side 2026-09-16). The dates displayed are the backend's own
+   returned window - this browser never computes a seven-day range itself.
+   It is not a payroll week, so it is never labelled one, and no threshold
+   is applied to it: no overtime rule exists anywhere in this system. The
+   arithmetic is stated and that is all. */
+/* "2026-09-15 → 2026-09-21" -> "Sep 15–Sep 21". Backend dates in, pretty
+   range out; empty in, empty out (the label then stands alone). */
+function hwPrettyRange(win){
+  var m=String(win||'').match(/^(\d{4}-\d\d-\d\d)\s*→\s*(\d{4}-\d\d-\d\d)$/);
+  if(!m) return '';
+  var f=function(d){ return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+  return f(m[1])+'–'+f(m[2]);
+}
 function covShiftHours(c){
   const m=String(c.shift_time||'').match(/^(\d\d):(\d\d)-(\d\d):(\d\d)$/);
   if(!m) return null;
@@ -24314,11 +24322,11 @@ async function covHoursFill(caseId){
   }
   const cur=Math.round(Number(HW_SCHED[axId]||0)*10)/10;
   const first=esc(String(c.pending_fill.name).split(/\s+/)[0]);
-  el.innerHTML='<b style="color:var(--navy);font-size:11px;letter-spacing:.05em;text-transform:uppercase;">Scheduled window</b> '
+  var range=hwPrettyRange(HW_WIN);
+  el.innerHTML='<b style="color:var(--navy);font-size:11px;letter-spacing:.05em;text-transform:uppercase;">Next 7 days</b> '
     +'<span style="color:var(--text);">'+first+' is currently scheduled '+cur+' hrs &middot; this shift +'+hrs+' hrs &middot; '
     +'<b>projected '+(Math.round((cur+hrs)*10)/10)+' hrs</b></span> '
-    +'<span style="opacity:.85;">Rolling window from AxisCare'
-    +(HW_WIN?' ('+esc(String(HW_WIN).replace(/\s*\u2192\s*/,' to '))+')':'')+', not a payroll week.</span>';
+    +'<span style="opacity:.85;">'+(range?esc(range)+' &middot; ':'')+'Not a payroll week.</span>';
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -25570,15 +25578,12 @@ async function hwLoad(btn){
     const out=await r.json().catch(()=>({}));
     if(out.error){ if(st) st.textContent='could not load: '+out.error; return; }
     HW_SCHED=out.scheduled_hours||{}; HW_WIN=out.window||'';
-    /* HW_WIN is the backend's own window string, not debug output, and it is
-       not safe to drop: coverage-shifts builds endDate from UTC while
-       startDate is the Chicago date, so the span it actually sums is 8 or 9
-       calendar dates rather than 7. Until that is corrected server-side this
-       line is the only truthful statement of what was counted. */
-    var winTxt=String(HW_WIN||'').replace(/\s*\u2192\s*/,' to ');
-    var pill=document.getElementById('hwWindowPill');
-    if(pill&&winTxt) pill.textContent=winTxt;
-    if(st) st.innerHTML=(winTxt?'Counted from AxisCare visits dated '+esc(winTxt):'')
+    /* HW_WIN is the backend's own window string: since the hours_watch fix
+       both of its boundaries come from the Chicago calendar, seven dates
+       inclusive, so "Next 7 days" is the truth and the dates shown are the
+       backend's, never a range this browser computed for itself. */
+    var winTxt=hwPrettyRange(HW_WIN);
+    if(st) st.innerHTML=(winTxt?esc(winTxt):'')
       +(out.truncated?' <b>(partial: the schedule list was truncated)</b>':'');
     hwRender();
   } finally { if(btn) btn.disabled=false; }
@@ -25702,7 +25707,10 @@ async function hwMatch(btn){
         if(x.hours_short!=null) chips.push(x.hours_short>0
           ? '<span class="cara-rchip short">'+esc(String(x.hours_short))+'h short of target</span>'
           : '<span class="cara-rchip at">at target</span>');
-        /* Same window defect as the hours list, so no "next 7 days" claim. */
+        /* Date-neutral on purpose: this figure comes from coverage-shifts
+           MATCH mode, which still builds its endDate from UTC now+7d (the
+           hours_watch fix did not touch it, by scope). No "next 7 days"
+           claim here until match mode gets the same calendar fix. */
         chips.push('<span class="cara-rchip">'+esc(String(x.scheduled_next_week))+'h already scheduled</span>');
         return '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border);">'
           +'<b style="font-size:15px;font-weight:700;color:var(--navy);min-width:160px;">'+esc(x.name)+'</b>'
@@ -25720,11 +25728,10 @@ async function hwMatch(btn){
 /* Caregiver hours. The gap is the point of the section, so it leads the row.
 
    WINDOW HONESTY: the totals come from coverage-shifts {hours_watch:true},
-   which builds startDate from the Chicago date and endDate from
-   Date.now()+7d in UTC. Two different clocks, so the span it sums is 8
-   calendar dates for most of the day and 9 in the Chicago evening, never 7.
-   Until that is corrected server-side this screen states the actual dates
-   returned and never claims "next 7 days".
+   whose window is the product's Next 7 Days since the 2026-09-16 fix: both
+   boundaries from the Chicago calendar, today plus the following six dates,
+   seven inclusive. The dates shown are still the backend's own returned
+   window, never a range this browser computed for itself.
 
    WHO COUNTS AS A CAREGIVER: the authoritative rule lives in AxisCare and is
    applied by coverage-shifts itself (status.active === true, nurse classes
@@ -25773,7 +25780,7 @@ function hwRender(){
       +'<div style="font-size:16px;font-weight:700;color:var(--navy);">'+esc(r.name)
       +(r.isNew?' <span class="cara-rchip" style="background:var(--honey-chip);border-color:var(--honey);color:var(--honey-ink);font-weight:700;">New hire</span>':'')+'</div>'
       +'<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;">wants <b>'+esc(String(r.target))+'h a week</b>'
-      +' · <b>'+(r.sched==null?'?':esc(String(r.sched)))+'h scheduled in this window</b></div>'
+      +' · <b>'+(r.sched==null?'?':esc(String(r.sched)))+'h scheduled, next 7 days</b></div>'
       +(r.wins?'<div style="font-size:13px;color:var(--text-dim);margin-top:3px;">'+esc(r.wins)+'</div>':'')
       +'</div>'
       +'<span class="cara-mono">availability updated '+esc(r.updated||'?')+'</span></div>';
