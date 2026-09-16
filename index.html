@@ -3913,9 +3913,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <label>To caregivers who work with the client</label>
 <textarea id="set_cov_tier1" rows="2" placeholder="Hi {first_name}, can you cover {client} {when}? It's Caring Companions. Reply YES or NO."></textarea>
 <label>To everyone else, shift is TODAY</label>
-<textarea id="set_cov_other_sameday" rows="2" placeholder="Hi {first_name}, it's Caring Companions. Last-minute fill-in at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
+<textarea id="set_cov_other_sameday" rows="2" placeholder="Hi {first_name}, it's Caring Companions. Last-minute fill-in for {client} at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
 <label>To everyone else, shift is a FUTURE day</label>
-<textarea id="set_cov_other_advance" rows="2" placeholder="Hi {first_name}, it's Caring Companions. We have an open shift at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
+<textarea id="set_cov_other_advance" rows="2" placeholder="Hi {first_name}, it's Caring Companions. We have an open shift for {client} at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
 <label>Instant reply to a YES</label>
 <textarea id="set_cov_ack_yes" rows="2" placeholder="Got it, {first_name}. Thank you! The office will confirm with you shortly."></textarea>
 <label>Reply to a YES that came after someone else already got it</label>
@@ -24728,13 +24728,18 @@ async function covLoadCallerShifts(){
 function covComposeMsgs(f,opts){
   const raw=(opts||{}).raw;      // raw=true keeps {first_name} etc. for editing
   const st=(DATA.ops_settings||{});
-  const who=String(f.client||'a client').split(/\s+/);
-  const clientShort=who[0];   // first name only (her call)
+  const who=String(f.client||'').trim().split(/\s+/).filter(Boolean);
+  // First name(s), never the surname — a couple keeps both: "Joel & Carol",
+  // not "Joel". Mirrors the engine (her call, live 2026-09-16).
+  const clientShort=(who.length>1?who.slice(0,-1).join(' '):who.join(''))||'a client';
+  // Clock times in texts read "5pm-9pm", never "17:00-21:00" (same helper as the engine).
+  const t12=t=>{const m=String(t||'').trim().match(/^(\d{1,2}):(\d\d)$/);if(!m)return String(t||'').trim();const h24=+m[1],h=h24%12||12;return h+(m[2]==='00'?'':':'+m[2])+(h24>=12?'pm':'am');};
+  const span12=s=>String(s||'').trim().split('-').map(t12).join('-');
   const today=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10); // agency clock, not the browser's
   const rel=!f.shift_date?'':(f.shift_date===today?'today'
     :(new Date(f.shift_date+'T12:00:00')-new Date(today+'T12:00:00')===86400000)?'tomorrow'
     :new Date(f.shift_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}));
-  const when=[rel,f.shift_time].filter(Boolean).join(' ')||'as soon as possible — the office has details';
+  const when=[rel,span12(f.shift_time)].filter(Boolean).join(' ')||'as soon as possible — the office has details';
   const where=f.client_axiscare_id?" in (the client's city — filled in automatically)":'';
   // In raw (editable) mode {first_name} and {where} stay as placeholders —
   // their real values are only known per-recipient / server-side, and the
@@ -24746,8 +24751,8 @@ function covComposeMsgs(f,opts){
   // Same rule as the engine: last-minute wording is same-day only.
   const sameday=f.shift_date===today;
   const otherDefault=sameday
-    ?(String(st.coverage_msg_other_sameday||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. Last-minute fill-in at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome.")
-    :(String(st.coverage_msg_other_advance||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. We have an open shift at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome.");
+    ?(String(st.coverage_msg_other_sameday||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. Last-minute fill-in for {client} at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome.")
+    :(String(st.coverage_msg_other_advance||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. We have an open shift for {client} at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome.");
   return {
     tier1: fill(String(f.msg_tier1||'')||String(st.coverage_msg_tier1||'')||"Hi {first_name}, can you cover {client} {when}? It's Caring Companions. Reply YES or NO."),
     other: fill(String(f.msg_other||'')||otherDefault),
