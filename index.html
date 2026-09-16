@@ -870,8 +870,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        lives in the Staffing hub, so it is a frame rather than a copy: two
        correction logs would be worse than one somewhere else. -->
   <div class="fsubbar" id="fsub-scheduling">
-    <div class="fpill" data-tab="coverage" onclick="caraGoHome()"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div><div class="fpill" data-tab="hourswatch" onclick="switchTab('hourswatch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Schedule Watch<span class="subtab-badge red" id="swPillBadge" style="display:none;"></span></div>
-    <div class="fpill" data-tab="evv" onclick="switchTab('evv')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV</div>
+    <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div><div class="fpill" data-tab="hourswatch" onclick="schedGo('hourswatch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Schedule Watch<span class="subtab-badge red" id="swPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="evv" onclick="schedGo('evv')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV</div>
   </div>
   <div class="fsubbar" id="fsub-nursing">
     <div class="fpill" data-tab="nursevisits" onclick="switchTab('nursevisits')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nurse Visits</div>
@@ -939,12 +939,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:0 0 6px;padding-top:20px;border-top:1px solid var(--border);">
         <h3 style="margin:0;font-size:20px;font-weight:800;letter-spacing:-0.015em;color:var(--navy);">Upcoming schedule and hours</h3>
-        <span style="background:#fff;border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:700;color:var(--text-muted);">Next 7 days</span>
+        <!-- Deliberately NOT "Next 7 days". coverage-shifts mixes a Chicago
+             startDate with a UTC endDate, so the window it sums is 8 or 9
+             calendar dates. This shows the dates actually counted until that
+             is fixed server-side. -->
+        <span id="hwWindowPill" style="background:#fff;border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:700;color:var(--text-muted);">Scheduled window</span>
         <span style="flex:1;"></span>
         <button class="cara-btn ghost" onclick="hwLoad(this)">Refresh from AxisCare</button>
-        <button class="cara-btn ghost" onclick="hwInvite(this)">Text the availability link</button>
+        <button class="cara-btn ghost" id="hwInviteTop" onclick="hwInvite(this)">Text the availability link</button>
       </div>
-      <div style="font-size:13.5px;color:var(--text-muted);margin:0 0 16px;max-width:76ch;">Caregivers set their own target and windows at <b>cc.mo-care.com/availability</b>. Scheduled hours come live from AxisCare for the next 7 days. Biggest gap first, so these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
+      <div style="font-size:13.5px;color:var(--text-muted);margin:0 0 16px;max-width:76ch;">Caregivers set their own target and windows at <b>cc.mo-care.com/availability</b>. Scheduled hours come live from AxisCare for the dates shown above. Biggest gap first, so these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
 
       <!-- THE INTAKE MATCHER, as a question rather than a form: while a new
            lead is on the phone, answer "who could staff Mon/Wed/Fri
@@ -952,7 +956,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            purpose: a client may be alone right now, and an intake
            convenience must not sit above that. -->
       <div id="hwAsk"></div>
-      <div style="margin-bottom:10px;"><span style="font-size:12.5px;color:var(--text-muted);" id="hwState"></span></div>
+      <div id="hwStateWrap" style="margin:0 0 12px;"><span class="cara-mono" id="hwState"></span></div>
       <div id="hwList"><div style="font-size:13.5px;color:var(--text-muted);">Open this tab and hit Refresh to load.</div></div>
     </section>
     <section class="tabpanel" id="tab-coverage">
@@ -24218,22 +24222,42 @@ function caraOpenCase(id){
 /* Clicking the Cara pill means "take me home to Cara": the Open board, no
    deep-linked case, nothing left expanded. A hash change alone does not do
    that, so the pill gets its own entry point. */
-function caraGoHome(){
-  CARA_PENDING_CASE='';
-  try{
-    var h=(location.hash||'');
-    if(h.indexOf('/')>-1) history.replaceState(null,'','#coverage');
-  }catch(e){}
-  try{ if(typeof COV_EXPANDED!=='undefined'&&COV_EXPANDED.clear) COV_EXPANDED.clear(); }catch(e){}
-  switchTab('coverage');
-  if(typeof caraResetBoard==='function') caraResetBoard();
+/* ---- Scheduling URL contract -------------------------------------------
+   Scoped to this module ONLY. The rest of the Hub does not sync the hash and
+   is deliberately left alone: switchTab and ccGroupClick never touch it.
+   Inside Scheduling the invariant is "visible primary view = canonical hash",
+   so a refresh returns to the view the coordinator actually picked, and GHL
+   deep links keep working.
+   replaceState, never location.hash: assigning the hash fires hashchange,
+   applyHash re-enters the same path and the panel renders twice. Replacement
+   also keeps simple tab switching out of browser history, while a real deep
+   link (a case, history, a shift) still arrives as its own entry. */
+var SCHED_CANON={ coverage:'#cara', hourswatch:'#schedwatch', evv:'#evv' };
+function schedGo(tab){
+  if(tab==='coverage'){
+    CARA_PENDING_CASE='';
+    try{ if(typeof COV_EXPANDED!=='undefined'&&COV_EXPANDED.clear) COV_EXPANDED.clear(); }catch(e){}
+    /* Filter before the switch: switchTab renders, so the board paints once
+       already showing Open rather than painting twice. */
+    if(typeof caraSetOpenBoard==='function') caraSetOpenBoard();
+  }
+  if(tab==='hourswatch'){
+    try{ SW_PENDING=''; if(typeof SW_EXPANDED!=='undefined'&&SW_EXPANDED.clear) SW_EXPANDED.clear(); }catch(e){}
+  }
+  try{ history.replaceState(null,'',SCHED_CANON[tab]||('#'+tab)); }catch(e){}
+  switchTab(tab);
 }
-function caraResetBoard(){
+/* Kept as the named entry point for "take me home to Cara". */
+function caraGoHome(){ schedGo('coverage'); }
+/* State and buttons only, NO render. Callers that are about to render
+   anyway (switchTab always calls renderActiveTab) use this so the board is
+   painted once, already filtered, instead of twice. */
+function caraSetOpenBoard(){
   covFilterVal='open';
   document.querySelectorAll('#tab-coverage .fb').forEach(function(x){ x.classList.remove('active'); });
   var ob=document.getElementById('covFilterOpen'); if(ob) ob.classList.add('active');
-  renderCoverage();
 }
+function caraResetBoard(){ caraSetOpenBoard(); renderCoverage(); }
 function caraOpenHistory(){
   if(activeTab!=='coverage') switchTab('coverage');
   try{ history.replaceState(null,'','#cara/history'); }catch(e){}
@@ -24245,11 +24269,16 @@ function caraOpenHistory(){
   if(l&&l.scrollIntoView) l.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-/* ── Next 7 days scheduled hours, at the confirm decision ─────────────────
-   coverage-shifts {hours_watch:true} returns a ROLLING window of today
-   through today plus seven days. It is not a payroll week, so it is never
-   labelled one, and no threshold is applied to it: no overtime rule exists
-   anywhere in this system. The arithmetic is stated and that is all. */
+/* ── Scheduled hours in the returned window, at the confirm decision ──────
+   coverage-shifts {hours_watch:true} returns a ROLLING window, and that
+   window is currently WRONG: the endpoint takes startDate from the Chicago
+   date but endDate from Date.now()+7d in UTC, so it spans 8 calendar dates
+   for most of the day and 9 in the Chicago evening. Until that is corrected
+   server-side nothing here calls it "next 7 days"; the dates the endpoint
+   actually returned are shown instead.
+   It is not a payroll week either, so it is never labelled one, and no
+   threshold is applied to it: no overtime rule exists anywhere in this
+   system. The arithmetic is stated and that is all. */
 function covShiftHours(c){
   const m=String(c.shift_time||'').match(/^(\d\d):(\d\d)-(\d\d):(\d\d)$/);
   if(!m) return null;
@@ -24285,10 +24314,11 @@ async function covHoursFill(caseId){
   }
   const cur=Math.round(Number(HW_SCHED[axId]||0)*10)/10;
   const first=esc(String(c.pending_fill.name).split(/\s+/)[0]);
-  el.innerHTML='<b style="color:var(--navy);font-size:11px;letter-spacing:.05em;text-transform:uppercase;">Next 7 days</b> '
+  el.innerHTML='<b style="color:var(--navy);font-size:11px;letter-spacing:.05em;text-transform:uppercase;">Scheduled window</b> '
     +'<span style="color:var(--text);">'+first+' is currently scheduled '+cur+' hrs &middot; this shift +'+hrs+' hrs &middot; '
     +'<b>projected '+(Math.round((cur+hrs)*10)/10)+' hrs</b></span> '
-    +'<span style="opacity:.85;">Rolling window from AxisCare'+(HW_WIN?' ('+esc(HW_WIN)+')':'')+', not a payroll week.</span>';
+    +'<span style="opacity:.85;">Rolling window from AxisCare'
+    +(HW_WIN?' ('+esc(String(HW_WIN).replace(/\s*\u2192\s*/,' to '))+')':'')+', not a payroll week.</span>';
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -25540,7 +25570,16 @@ async function hwLoad(btn){
     const out=await r.json().catch(()=>({}));
     if(out.error){ if(st) st.textContent='could not load: '+out.error; return; }
     HW_SCHED=out.scheduled_hours||{}; HW_WIN=out.window||'';
-    if(st) st.textContent='scheduled hours for '+HW_WIN+(out.truncated?' (PARTIAL — schedule list was truncated)':'');
+    /* HW_WIN is the backend's own window string, not debug output, and it is
+       not safe to drop: coverage-shifts builds endDate from UTC while
+       startDate is the Chicago date, so the span it actually sums is 8 or 9
+       calendar dates rather than 7. Until that is corrected server-side this
+       line is the only truthful statement of what was counted. */
+    var winTxt=String(HW_WIN||'').replace(/\s*\u2192\s*/,' to ');
+    var pill=document.getElementById('hwWindowPill');
+    if(pill&&winTxt) pill.textContent=winTxt;
+    if(st) st.innerHTML=(winTxt?'Counted from AxisCare visits dated '+esc(winTxt):'')
+      +(out.truncated?' <b>(partial: the schedule list was truncated)</b>':'');
     hwRender();
   } finally { if(btn) btn.disabled=false; }
 }
@@ -25663,7 +25702,8 @@ async function hwMatch(btn){
         if(x.hours_short!=null) chips.push(x.hours_short>0
           ? '<span class="cara-rchip short">'+esc(String(x.hours_short))+'h short of target</span>'
           : '<span class="cara-rchip at">at target</span>');
-        chips.push('<span class="cara-rchip">'+esc(String(x.scheduled_next_week))+'h scheduled, next 7 days</span>');
+        /* Same window defect as the hours list, so no "next 7 days" claim. */
+        chips.push('<span class="cara-rchip">'+esc(String(x.scheduled_next_week))+'h already scheduled</span>');
         return '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border);">'
           +'<b style="font-size:15px;font-weight:700;color:var(--navy);min-width:160px;">'+esc(x.name)+'</b>'
           +chips.join('')+'</div>';
@@ -25678,7 +25718,20 @@ async function hwMatch(btn){
   } finally { if(btn) btn.disabled=false; }
 }
 /* Caregiver hours. The gap is the point of the section, so it leads the row.
-   Both halves are 7-day spans and the copy says so. */
+
+   WINDOW HONESTY: the totals come from coverage-shifts {hours_watch:true},
+   which builds startDate from the Chicago date and endDate from
+   Date.now()+7d in UTC. Two different clocks, so the span it sums is 8
+   calendar dates for most of the day and 9 in the Chicago evening, never 7.
+   Until that is corrected server-side this screen states the actual dates
+   returned and never claims "next 7 days".
+
+   WHO COUNTS AS A CAREGIVER: the authoritative rule lives in AxisCare and is
+   applied by coverage-shifts itself (status.active === true, nurse classes
+   excluded). The hub roster cannot reproduce it: its rows carry no active
+   flag at all, no role and no class, so "active !== false" passed every row
+   including office staff. This screen therefore makes no numeric claim about
+   the caregiver population and names nobody. */
 function hwRender(){
   var box=document.getElementById('hwList'); if(!box) return;
   var av=DATA.caregiver_availability||[], roster=DATA.caregivers||[];
@@ -25696,11 +25749,22 @@ function hwRender(){
     rows.push({ name:a.name, target:a.target_hours, sched:sched, gap:gap, wins:wins,
       isNew:g?isNew(g):false, updated:String(a.updated_at||'').slice(0,10) });
   });
-  var haveAv=new Set(av.map(function(a){ return String(a.axiscare_id||''); }));
-  var noAv=roster.filter(function(g){ return g.active!==false&&g.axiscare_id&&!haveAv.has(String(g.axiscare_id)); });
   rows.sort(function(x,y){ return ((y.gap??-999)-(x.gap??-999)); });
 
-  var h=rows.length?rows.map(function(r){
+  var inviteTop=document.getElementById('hwInviteTop');
+
+  if(!rows.length){
+    /* ONE empty state, one CTA, and no claim about how many caregivers exist. */
+    if(inviteTop) inviteTop.style.display='none';
+    box.innerHTML='<div class="card" style="padding:22px 24px;margin:0;">'
+      +'<div style="font-size:17px;font-weight:700;color:var(--navy);">No caregiver availability is on file</div>'
+      +'<div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:64ch;">Cara cannot use availability matching until caregivers have added their availability. They set it themselves at <b>cc.mo-care.com/availability</b>.</div>'
+      +'<div style="margin-top:16px;"><button class="cara-btn" onclick="hwInvite(this)">Text availability link</button></div></div>';
+    return;
+  }
+
+  if(inviteTop) inviteTop.style.display='';
+  var h=rows.map(function(r){
     var band=(r.gap??0)>=8?'b3':(r.gap??0)>=4?'b2':'b1';
     var gaptxt=r.gap==null?'?':(r.gap>0?(Math.round(r.gap*10)/10)+'h short':'at target');
     return '<div class="card" style="padding:15px 20px;margin:0 0 9px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">'
@@ -25709,25 +25773,19 @@ function hwRender(){
       +'<div style="font-size:16px;font-weight:700;color:var(--navy);">'+esc(r.name)
       +(r.isNew?' <span class="cara-rchip" style="background:var(--honey-chip);border-color:var(--honey);color:var(--honey-ink);font-weight:700;">New hire</span>':'')+'</div>'
       +'<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;">wants <b>'+esc(String(r.target))+'h a week</b>'
-      +' · <b>'+(r.sched==null?'?':esc(String(r.sched)))+'h scheduled, next 7 days</b></div>'
+      +' · <b>'+(r.sched==null?'?':esc(String(r.sched)))+'h scheduled in this window</b></div>'
       +(r.wins?'<div style="font-size:13px;color:var(--text-dim);margin-top:3px;">'+esc(r.wins)+'</div>':'')
       +'</div>'
       +'<span class="cara-mono">availability updated '+esc(r.updated||'?')+'</span></div>';
-  }).join('')
-  : '<div class="card" style="padding:22px 24px;font-size:14px;color:var(--text-muted);">Nobody has filled in their availability yet. Text caregivers the link: <b>cc.mo-care.com/availability</b></div>';
+  }).join('');
 
-  /* Promoted from a grey footnote: these people cannot be matched at all,
-     which is a bigger ask than any gap. */
-  if(noAv.length){
-    h+='<div class="card" style="padding:18px 22px;margin:14px 0 0;border-left:3px solid var(--honey);">'
-      +'<div style="font-size:15.5px;font-weight:700;color:var(--navy);">'+noAv.length
-      +' caregiver'+(noAv.length===1?' has':'s have')+' no availability on file</div>'
-      +'<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;">They cannot be matched to a new client at all.</div>'
-      +'<div style="font-size:13.5px;color:var(--navy-2);margin-top:7px;">'
-      +noAv.slice(0,15).map(function(g){ return esc(((g.first||'')+' '+(g.last||'')).trim()); }).join(', ')
-      +(noAv.length>15?', and '+(noAv.length-15)+' more':'')+'</div>'
-      +'<div style="margin-top:12px;"><button class="cara-btn ghost" onclick="hwInvite(this)">Text the availability link</button></div></div>';
-  }
+  /* Mixed state: results, then ONE notice, worded without a count because the
+     schedulable population is not knowable from this screen. No button here:
+     the section's own "Text the availability link" utility is already on
+     screen and a second identical CTA is the duplication this pass removes. */
+  h+='<div class="card" style="padding:18px 22px;margin:14px 0 0;border-left:3px solid var(--honey);">'
+    +'<div style="font-size:15.5px;font-weight:700;color:var(--navy);">Some caregivers do not have availability on file</div>'
+    +'<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;max-width:64ch;">Cara cannot include a caregiver in availability matching until their availability is updated.</div></div>';
   box.innerHTML=h;
 }
 
@@ -27336,6 +27394,10 @@ window.covLoadShifts=function(){};
     var h=raw.toLowerCase();
     if(!ok){
       if(CC_HASH_ALIAS[h]) h=CC_HASH_ALIAS[h];
+      /* A bare #cara means the command-centre home, so a filter left behind
+         by #cara/history does not silently persist. Deep routes are handled
+         above and set their own filter, so this never runs for them. */
+      if(h==='coverage' && typeof caraSetOpenBoard==='function') caraSetOpenBoard();
       try{
         if(typeof CC_GROUPS!=='undefined' && CC_GROUPS[h]){ ccGroupClick(h); ok=true; }
         else if(document.getElementById('tab-'+h)){ switchTab(h); ok=true; }
@@ -27343,7 +27405,8 @@ window.covLoadShifts=function(){};
       /* A bare #cara means the command-centre home, so a filter left behind
          by #cara/history does not silently persist. Deep routes are handled
          above and set their own filter, so this never runs for them. */
-      if(ok && h==='coverage' && typeof caraResetBoard==='function') caraResetBoard();
+      /* Same single-paint rule as the pill: the filter is set before the tab
+         switches, so a bare #cara does not render the board twice. */
     }
     // Focused section mode: inside GHL each section has its own sidebar link,
     // so the hub's own section bar is redundant — show only this section.
