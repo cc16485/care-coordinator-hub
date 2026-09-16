@@ -3909,13 +3909,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 <div class="settings-section">
 <h3>📣 Callout texts (canned responses)</h3>
-<p class="hint">Every message the callout engine sends, in your words. Blank means the standard wording shown in grey. Fill-ins that get replaced per text: <code>{first_name}</code> the caregiver's name, <code>{client}</code> the client's first name, <code>{when}</code> day and time, <code>{address}</code> street and city, <code>{care}</code> the care note. "Last-minute" wording is used for same-day shifts only; future shifts use the open-shift message.</p>
+<p class="hint">Every message the callout engine sends, in your words. Blank means the standard wording shown in grey. Fill-ins that get replaced per text: <code>{first_name}</code> the caregiver's name, <code>{client}</code> the client's first name, <code>{when}</code> day and time, <code>{address}</code> street and city, <code>{care}</code> the care note, <code>{pattern}</code> "could become your regular Friday shift" / "One time only" when the calendar says which. "Last-minute" wording is used for same-day shifts only; future shifts use the open-shift message.</p>
 <label>To caregivers who work with the client</label>
-<textarea id="set_cov_tier1" rows="2" placeholder="Hi {first_name}, can you cover {client} {when}? It's Caring Companions. Reply YES or NO."></textarea>
+<textarea id="set_cov_tier1" rows="2" placeholder="Hi {first_name}, can you cover {client} {when}? {pattern}It's Caring Companions. Reply YES or NO."></textarea>
 <label>To everyone else, shift is TODAY</label>
-<textarea id="set_cov_other_sameday" rows="2" placeholder="Hi {first_name}, it's Caring Companions. Last-minute fill-in for {client} at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
+<textarea id="set_cov_other_sameday" rows="2" placeholder="Hi {first_name}, it's Caring Companions. Last-minute fill-in for {client} at {address}: {when}. {pattern}{care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
 <label>To everyone else, shift is a FUTURE day</label>
-<textarea id="set_cov_other_advance" rows="2" placeholder="Hi {first_name}, it's Caring Companions. We have an open shift for {client} at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
+<textarea id="set_cov_other_advance" rows="2" placeholder="Hi {first_name}, it's Caring Companions. We have an open shift for {client} at {address}: {when}. {pattern}{care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
 <label>Instant reply to a YES</label>
 <textarea id="set_cov_ack_yes" rows="2" placeholder="Got it, {first_name}. Thank you! The office will confirm with you shortly."></textarea>
 <label>Reply to a YES that came after someone else already got it</label>
@@ -24068,7 +24068,8 @@ function caraNeedsCard(c){
     +'<div style="font-size:14px;margin-top:2px;color:var(--text);font-weight:'+(strong?700:500)+';">'+v+'</div></div>';
   const facts=[
     fact('Client', esc(c.client||'(not identified)')+(c.client_city?' <span class="field-note">'+esc(c.client_city)+'</span>':'')),
-    fact('Shift', when+' <span class="field-note">'+esc(R[c.reason]||c.reason||'')+'</span>'),
+    fact('Shift', when+' <span class="field-note">'+esc(R[c.reason]||c.reason||'')+'</span>'
+      +(caraPatternChip(c)?' '+caraPatternChip(c):'')),
     fact('Called off', esc(c.calling_off||'(not recorded on the case)'))
   ];
   if(why==='pending') facts.push(fact('Proposed replacement', esc(c.pending_fill.name), true));
@@ -24105,6 +24106,7 @@ function caraWorkingCard(c){
     +'<div style="margin-top:9px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;">'
     +'<span style="background:var(--green-bg);color:var(--green);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;">'
       +(waveN?'Wave '+waveN+' out':(engineOn?'Cara is composing the first wave':'Callout engine is off'))+'</span>'
+    +caraPatternChip(c)
     +'</div>'
     +(chips?'<div style="margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;">'+chips+'</div>':'')
     +'<div style="margin-top:11px;"><a href="javascript:void(0)" onclick="caraOpenCase(\''+esc(c.id)+'\')" style="font-size:13px;font-weight:700;">View live coverage &rarr;</a></div>'
@@ -24791,6 +24793,25 @@ async function covLoadCallerShifts(){
    composes it (same ops_settings templates, same placeholders), so the
    coordinator sees the real message before the case starts sending. The
    SERVER remains the authority; these defaults mirror coverage-run's. */
+/* Clock spans in the hub read like the texts do: "17:00-21:00" → "5pm-9pm". */
+function covT12(span){
+  const one=t=>{const m=String(t||'').trim().match(/^(\d{1,2}):(\d\d)$/);if(!m)return String(t||'').trim();const h24=+m[1],h=h24%12||12;return h+(m[2]==='00'?'':':'+m[2])+(h24>=12?'pm':'am');};
+  return String(span||'').trim().split('-').map(one).join('-');
+}
+/* Ongoing vs one-time, stamped on the case by the watcher from the AxisCare
+   calendar (visit ids are s=<schedule>:d=<date>; siblings in the next 28
+   days = ongoing). No stamp = no chip: silence, never a guess. */
+function caraPatternChip(c){
+  const p=c&&c.shift_pattern;
+  if(!p||!p.kind) return '';
+  if(p.kind==='ongoing'){
+    const n=Number(p.more_dates!=null?p.more_dates:(p.future_dates||[]).length)||0;
+    return '<span title="'+esc(n?(n+' more '+(p.weekday?p.weekday+'s':'dates')+' on the AxisCare calendar in the next 4 weeks'):'Repeats on the AxisCare calendar')+'" '
+      +'style="background:var(--navy);color:#fff;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:700;">Ongoing'+(p.weekday?' &middot; '+esc(p.weekday)+'s':'')+'</span>';
+  }
+  return '<span title="The only date for this schedule on the AxisCare calendar in the next 4 weeks" '
+    +'style="background:var(--slate-bg);border:1px solid var(--border);color:var(--text);border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:700;">One-time</span>';
+}
 function covComposeMsgs(f,opts){
   const raw=(opts||{}).raw;      // raw=true keeps {first_name} etc. for editing
   const st=(DATA.ops_settings||{});
@@ -24810,17 +24831,21 @@ function covComposeMsgs(f,opts){
   // In raw (editable) mode {first_name} and {where} stay as placeholders —
   // their real values are only known per-recipient / server-side, and the
   // display explainer must never be saved into an actual message.
+  const pp=(f.shift_pattern&&typeof f.shift_pattern==='object')?f.shift_pattern:null;
+  const patLine=pp&&pp.kind==='ongoing'?('This could become your regular '+(pp.weekday?pp.weekday+' ':'')+'shift. ')
+    :(pp&&pp.kind==='one_time'?'One time only. ':'');
   const fill=t=>t.replaceAll('{first_name}',raw?'{first_name}':'(their first name)')
+    .replaceAll('{pattern}',raw?'{pattern}':patLine)
     .replaceAll('{client}',clientShort).replaceAll('{where}',raw?'{where}':where).replaceAll('{address}',raw?'{address}':"(street & city — filled in automatically)").replaceAll('{care}',raw?'{care}':'(care note) ').replaceAll('{when}',when);
   // A case's own edited wording wins, then agency settings, then the default —
   // same order the engine applies.
   // Same rule as the engine: last-minute wording is same-day only.
   const sameday=f.shift_date===today;
   const otherDefault=sameday
-    ?(String(st.coverage_msg_other_sameday||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. Last-minute fill-in for {client} at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome.")
-    :(String(st.coverage_msg_other_advance||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. We have an open shift for {client} at {address}: {when}. {care}Can you take it? Reply YES or NO. Questions welcome.");
+    ?(String(st.coverage_msg_other_sameday||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. Last-minute fill-in for {client} at {address}: {when}. {pattern}{care}Can you take it? Reply YES or NO. Questions welcome.")
+    :(String(st.coverage_msg_other_advance||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. We have an open shift for {client} at {address}: {when}. {pattern}{care}Can you take it? Reply YES or NO. Questions welcome.");
   return {
-    tier1: fill(String(f.msg_tier1||'')||String(st.coverage_msg_tier1||'')||"Hi {first_name}, can you cover {client} {when}? It's Caring Companions. Reply YES or NO."),
+    tier1: fill(String(f.msg_tier1||'')||String(st.coverage_msg_tier1||'')||"Hi {first_name}, can you cover {client} {when}? {pattern}It's Caring Companions. Reply YES or NO."),
     other: fill(String(f.msg_other||'')||otherDefault),
   };
 }
@@ -25309,8 +25334,8 @@ function renderCoverage(){
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;cursor:pointer;" onclick="covToggleCase(\''+esc(c.id)+'\')">'
       +'<span style="color:var(--text-muted);font-size:12px;">'+(expanded?'▾':'▸')+'</span>'
       +'<b style="font-size:15.5px;color:var(--navy);"><a href="javascript:void(0)" data-open-client="'+esc(String(c.client_axiscare_id||c.client))+'" style="color:inherit;text-decoration:underline dotted;" title="Open their profile">'+esc(c.client)+'</a></b>'
-      +'<span class="field-note">'+esc(c.shift_date||'')+' '+esc(c.shift_time||'')+' · '+esc(R[c.reason]||c.reason)+'</span>'
-      +age+headTallies+pendChip
+      +'<span class="field-note">'+esc(c.shift_date||'')+' '+esc(covT12(c.shift_time||''))+' · '+esc(R[c.reason]||c.reason)+'</span>'
+      +caraPatternChip(c)+age+headTallies+pendChip
       +(!open&&c.resolved_how?'<span style="font-size:12px;font-weight:700;color:'+(c.resolved_how==='covered'?'var(--green)':'var(--red)')+';">'+(c.resolved_how==='covered'?'covered by '+esc(c.covered_by||'?'):'closed uncovered')+'</span>':'')
       +'<span style="flex:1;"></span>'
       +'<span class="field-note" style="font-size:11.5px;">'+(expanded?'click to collapse':'click for details')+'</span>'
