@@ -26,7 +26,7 @@
   html.embedded .topbar img{ display:none; }
   html.embedded .topbar{ padding-top:6px; padding-bottom:6px; }
 </style>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -870,7 +870,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        lives in the Staffing hub, so it is a frame rather than a copy: two
        correction logs would be worse than one somewhere else. -->
   <div class="fsubbar" id="fsub-scheduling">
-    <div class="fpill" data-tab="coverage" onclick="switchTab('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div><div class="fpill" data-tab="hourswatch" onclick="switchTab('hourswatch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Schedule Watch<span class="subtab-badge red" id="swPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="coverage" onclick="caraGoHome()"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div><div class="fpill" data-tab="hourswatch" onclick="switchTab('hourswatch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Schedule Watch<span class="subtab-badge red" id="swPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="evv" onclick="switchTab('evv')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV</div>
   </div>
   <div class="fsubbar" id="fsub-nursing">
@@ -924,9 +924,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div id="c360Out"></div>
     </section>
     <section class="tabpanel" id="tab-hourswatch">
-      <div style="margin-bottom:12px;">
-        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Schedule Watch</h2>
-        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Is today's schedule actually happening, and what is at risk next. Live Shift Watch is Cara watching AxisCare for clock-ins that have not arrived. Below it, who wants more hours than they are getting.</div>
+      <div style="margin-bottom:18px;">
+        <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Schedule Watch</h2>
+        <div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:70ch;">Is today's schedule happening, and who is not getting the hours they asked for.</div>
       </div>
       <!-- LIVE SHIFT WATCH. Renders timekeeper_cases, the ladder record
            timekeeper-watch maintains. Only recorded events are shown, and
@@ -935,53 +935,35 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            or six hours. A healthy / starting-soon feed does not exist yet
            (timekeeper_cases holds problem visits only), so nothing pretends
            to list the shifts that are going fine. -->
-      <div id="swLive" style="margin-bottom:18px;"></div>
-      <div style="margin:0 0 12px;padding-top:4px;border-top:1px solid var(--border);">
-        <h3 style="margin:10px 0 0;font-size:17px;font-weight:800;letter-spacing:-0.01em;color:var(--navy);">Upcoming schedule and hours</h3>
-        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Who wants more hours than they're getting. Caregivers set their own target and windows at <b>cc.mo-care.com/availability</b> (text them the link); scheduled hours come live from AxisCare, for the next 7 days. Biggest gap first, so these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
+      <div id="swLive" style="margin-bottom:26px;"></div>
+
+      <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:0 0 6px;padding-top:20px;border-top:1px solid var(--border);">
+        <h3 style="margin:0;font-size:20px;font-weight:800;letter-spacing:-0.015em;color:var(--navy);">Upcoming schedule and hours</h3>
+        <span style="background:#fff;border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:700;color:var(--text-muted);">Next 7 days</span>
+        <span style="flex:1;"></span>
+        <button class="cara-btn ghost" onclick="hwLoad(this)">Refresh from AxisCare</button>
+        <button class="cara-btn ghost" onclick="hwInvite(this)">Text the availability link</button>
       </div>
-      <!-- THE INTAKE MATCHER: while a new lead is on the phone, answer
-           "who could staff Mon/Wed/Fri mornings?" with real names. -->
-      <div class="card" style="padding:14px 16px;margin-bottom:14px;border-left:4px solid var(--teal);">
-        <b style="color:var(--navy);">Who could staff this?</b>
-        <div class="field-note" style="margin:2px 0 8px;">Tick the schedule a caller is asking about. Ranked: knows-the-client first (if you pick one), then best schedule fit, then who's hungriest for hours.</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-          <span class="field-note" style="font-weight:700;">Days:</span>
-          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="mon" style="width:auto;"> Mon</label>
-          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="tue" style="width:auto;"> Tue</label>
-          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="wed" style="width:auto;"> Wed</label>
-          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="thu" style="width:auto;"> Thu</label>
-          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="fri" style="width:auto;"> Fri</label>
-          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="sat" style="width:auto;"> Sat</label>
-          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mDay" value="sun" style="width:auto;"> Sun</label>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
-          <span class="field-note" style="font-weight:700;">Times:</span>
-          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mWin" value="morning" style="width:auto;"> Morning</label>
-          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mWin" value="afternoon" style="width:auto;"> Afternoon</label>
-          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mWin" value="evening" style="width:auto;"> Evening</label>
-          <label style="display:inline;margin:0;font-weight:400;font-size:13px;"><input type="checkbox" class="mWin" value="overnight" style="width:auto;"> Overnight</label>
-          <span class="field-note" style="font-weight:700;margin-left:8px;">Care level:</span>
-          <select id="mLevel" style="width:auto;font-size:13px;padding:4px 8px;">
-            <option value="">any</option><option value="1">Level 1 wellness</option>
-            <option value="2">Level 2 personal</option><option value="3">Level 3 complex</option>
-          </select>
-          <button class="addlead" style="font-size:.8rem;margin-left:8px;" onclick="hwMatch(this)">Find caregivers</button>
-        </div>
-        <div id="mOut" style="margin-top:10px;"></div>
-      </div>
-      <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center;">
-        <button class="primary" style="font-size:.8rem" onclick="hwLoad(this)">↻ Refresh from AxisCare</button>
-        <button class="addlead" style="font-size:.8rem" onclick="hwInvite(this)">📨 Text the link to caregivers missing it</button>
-        <span class="field-note" id="hwState"></span>
-      </div>
-      <div id="hwList"><div class="field-note">Open this tab and hit Refresh to load.</div></div>
+      <div style="font-size:13.5px;color:var(--text-muted);margin:0 0 16px;max-width:76ch;">Caregivers set their own target and windows at <b>cc.mo-care.com/availability</b>. Scheduled hours come live from AxisCare for the next 7 days. Biggest gap first, so these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
+
+      <!-- THE INTAKE MATCHER, as a question rather than a form: while a new
+           lead is on the phone, answer "who could staff Mon/Wed/Fri
+           mornings?" with real names. Placed BELOW Live Shift Watch on
+           purpose: a client may be alone right now, and an intake
+           convenience must not sit above that. -->
+      <div id="hwAsk"></div>
+      <div style="margin-bottom:10px;"><span style="font-size:12.5px;color:var(--text-muted);" id="hwState"></span></div>
+      <div id="hwList"><div style="font-size:13.5px;color:var(--text-muted);">Open this tab and hit Refresh to load.</div></div>
     </section>
     <section class="tabpanel" id="tab-coverage">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Cara</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Cases open three ways: the phone call-off button, unassigning a shift in AxisCare with a call-in reason, or the button here. When the callout engine is on, each open case texts caregivers in ranked waves — worked-with-this-client first — and their YES / NO / questions land on the case below. First yes wins; a person confirms and assigns in AxisCare, never the robot.</div>
+          <div style="font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--green);margin-top:4px;">Scheduling Assistant</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:2px;max-width:760px;">Cara finds coverage for open shifts, handles caregiver outreach, and brings your team the decisions that need human judgment.</div>
+          <!-- Status is written by caraRenderCC so it reflects the real gate
+               rather than a hard-coded claim. -->
+          <div id="caraStatus" style="margin-top:7px;"></div>
         </div>
         <span style="flex:1;"></span>
         <!-- straight to AxisCare's Real Time View filtered to unassigned —
@@ -1567,19 +1549,40 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          rather than copied, because two logs of the same correction is how a
          visit gets fixed twice and billed once. -->
     <section class="tabpanel" id="tab-evv">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-        <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">EVV Corrections</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">The correction log from the Staffing hub, with its own sign-in.</div>
+      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+        <div style="flex:1 1 420px;">
+          <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">EVV Corrections</h2>
+          <div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:70ch;">The correction log lives in the Staffing hub and has its own sign in. It is shown here so you do not have to leave Scheduling.</div>
         </div>
-        <span style="flex:1;"></span>
-        <a class="ghost" href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="text-decoration:none;">Open in a new tab ↗</a>
+        <a href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="font-size:13.5px;font-weight:700;color:var(--teal);text-decoration:none;">Open in a new tab &#8599;</a>
       </div>
-      <div id="evvFrame" style="position:relative;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff;min-height:70vh;">
-        <div id="evvFallback" style="display:none;padding:26px;text-align:center;">
-          <b style="font-size:15px;color:var(--navy);">The Staffing hub will not open inside this frame.</b>
-          <div class="field-note" style="margin:6px auto 14px;max-width:460px;">Some browsers block a signed-in site from being embedded in another. It works in its own tab.</div>
-          <a class="fb" style="text-decoration:none;" href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener">Open EVV Corrections ↗</a>
+      <!-- Framed, not rebuilt: two copies of a correction log is worse than
+           one click. The source strip names where the content comes from
+           rather than pretending it is native, which is what keeps an
+           embedded application that does not share the Cara language from
+           reading as a mistake. Same pattern serves the Training tab. -->
+      <div id="evvFrame" class="cara-frame">
+        <div class="cara-strip">
+          <span class="cara-mono" style="flex:1;">sc.mo-care.com &#183; Staffing hub</span>
+          <a href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">Open in a new tab &#8599;</a>
+        </div>
+        <div id="evvBody" style="position:relative;min-height:520px;background:#fff;">
+          <div id="evvConnecting" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;min-height:520px;">
+            <span style="width:34px;height:34px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--teal);animation:caraspin 0.9s linear infinite;"></span>
+            <div style="font-size:15px;font-weight:600;color:var(--navy);">Connecting to the Staffing hub</div>
+            <div style="font-size:13px;color:var(--text-muted);">If you are not signed in there, it will ask you to sign in.</div>
+          </div>
+          <div id="evvFallback" style="display:none;padding:44px 26px;min-height:520px;box-sizing:border-box;align-items:center;justify-content:center;">
+            <div style="max-width:460px;text-align:center;margin:0 auto;">
+              <span style="width:40px;height:40px;border-radius:50%;background:var(--amber-bg);color:var(--amber);display:inline-flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;">&#8599;</span>
+              <div style="font-size:18px;font-weight:700;color:var(--navy);margin-top:12px;">This log cannot be shown inside the Hub.</div>
+              <div style="font-size:14px;color:var(--text-muted);margin-top:7px;line-height:1.55;">Your browser blocks the Staffing hub from loading inside another site. Open it in its own tab to review and correct visits. Nothing is lost, and you can come straight back here.</div>
+              <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                <a class="cara-btn" style="text-decoration:none;display:inline-block;" href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener">Open EVV Corrections &#8599;</a>
+                <button class="cara-btn ghost" onclick="evvRetry()">Try again</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -7431,7 +7434,7 @@ function renderActiveTab(){
   if(activeTab==='applicants') apLoad();
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); }
-  if(activeTab==='hourswatch'){ swRenderLive(); hwRender(); if(HW_SCHED===null) hwLoad(); }
+  if(activeTab==='hourswatch'){ swRenderLive(); hwAskRender(); hwRender(); if(HW_SCHED===null) hwLoad(); }
   if(activeTab==='cg360'){ c360Fill(); c360Render(); }
   if(activeTab==='assessments'){ ghlBookFill(); }
   if(activeTab==='nursevisits') renderNurseVisits();
@@ -15478,11 +15481,32 @@ function framedOpen(hostId, url, title, fallbackId){
   setTimeout(function(){
     let blocked = false;
     try { if(f.contentDocument && f.contentDocument.body && !f.contentDocument.body.childNodes.length) blocked = true; } catch(e) {}
-    if(blocked){ f.style.display='none'; const fb=document.getElementById(fallbackId); if(fb) fb.style.display='block'; }
+    if(blocked){ f.style.display='none'; const fb=document.getElementById(fallbackId); if(fb) fb.style.display=(fb.id==='evvFallback'?'flex':'block'); }
   }, 3500);
 }
 function trainhubOpen(){ framedOpen('trainhubFrame','https://training.mo-care.com/#/login','Caring Companions training platform','trainhubFallback'); }
-function evvOpen(){ framedOpen('evvFrame','https://sc.mo-care.com/#evv','EVV corrections in the Staffing hub','evvFallback'); }
+/* The iframe goes inside #evvBody, beneath the source strip, so the strip
+   survives. Connecting -> embedded -> blocked are the three states the
+   design asks for, and the blocked one is the common one: browsers routinely
+   refuse to embed a signed-in site. */
+function evvOpen(){
+  framedOpen('evvBody','https://sc.mo-care.com/#evv','EVV corrections in the Staffing hub','evvFallback');
+  var c=document.getElementById('evvConnecting');
+  var host=document.getElementById('evvBody');
+  var f=host?host.querySelector('iframe'):null;
+  if(f){ f.addEventListener('load',function(){ if(c) c.style.display='none'; }); }
+  /* Whatever happens, stop spinning: either the frame painted or the
+     fallback took over. */
+  setTimeout(function(){ if(c) c.style.display='none'; }, 3600);
+}
+function evvRetry(){
+  var fb=document.getElementById('evvFallback'); if(fb) fb.style.display='none';
+  var c=document.getElementById('evvConnecting'); if(c) c.style.display='flex';
+  var host=document.getElementById('evvBody');
+  if(host){ var old=host.querySelector('iframe'); if(old&&old.parentNode) old.parentNode.removeChild(old); }
+  try{ FRAMED['evvBody']=false; }catch(e){}
+  evvOpen();
+}
 
 /* ---- Applicants ------------------------------------------------------------
    Everyone who has ever applied, kept for good. The whole point of keeping
@@ -23921,13 +23945,13 @@ function caraSections(){
 }
 
 function caraStat(label,n,sub,tone){
+  /* Presentation lives in .cara-metric now. Only the "needs you" card is
+     allowed to raise its voice, and only when the count is non-zero. */
   const hot=tone==='needs'&&n>0;
-  const col=hot?'var(--amber)':tone==='work'?'var(--green)':'var(--navy)';
-  const skin=hot?'background:var(--amber-bg);border-color:var(--amber);':'';
-  return '<div class="card" style="padding:13px 15px;margin:0;'+skin+'">'
-    +'<div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);">'+label+'</div>'
-    +'<div style="font-size:29px;font-weight:800;line-height:1.1;margin-top:3px;color:'+col+';">'+n+'</div>'
-    +'<div class="field-note" style="font-size:12px;margin-top:1px;">'+sub+'</div></div>';
+  return '<div class="cara-metric'+(hot?' attn':'')+'">'
+    +'<div class="k">'+label+'</div>'
+    +'<div class="v"'+(!hot&&tone==='work'?' style="color:var(--green);"':'')+'>'+n+'</div>'
+    +'<div class="s">'+sub+'</div></div>';
 }
 
 /* Why this caregiver, from the tier the engine stored on the ask. Tier is a
@@ -24097,17 +24121,15 @@ function caraRenderCC(){
   const grid=(inner,min)=>'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax('+min+'px,1fr));gap:10px;">'+inner+'</div>';
   let h='';
 
-  /* Identity row. An engine in dry run must never look like one that is
-     texting caregivers. */
-  h+='<div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:12px;">'
-    +'<div style="font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--green);">Scheduling assistant</div>'
-    +'<div class="field-note" style="font-size:13px;">Cara finds coverage for shifts that need another caregiver, and brings you the decisions only a person can make.</div>'
-    +'<span style="flex:1;"></span>'
-    +'<span style="display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12.5px;">'
-    +'<span style="width:8px;height:8px;border-radius:50%;background:'+(engineOn?'var(--green)':'var(--text-muted)')+';"></span>'
-    +'<b style="color:var(--navy);">'+(engineOn?'Callout engine is on':'Callout engine is off')+'</b>'
-    +'<span class="field-note">'+(engineOn?'contacting caregivers in waves':'asks are recorded by hand')+'</span></span>'
-    +'</div>';
+  /* Status belongs with the identity block in the header, and it is written
+     from the real gate: an engine that is off must never read as active. */
+  const statusEl=document.getElementById('caraStatus');
+  if(statusEl){
+    statusEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12.5px;">'
+      +'<span style="width:8px;height:8px;border-radius:50%;background:'+(engineOn?'var(--green)':'var(--text-muted)')+';"></span>'
+      +'<b style="color:var(--navy);">'+(engineOn?'Cara is active':'Callout engine is off')+'</b>'
+      +'<span class="field-note">'+(engineOn?'Monitoring coverage':'asks are recorded by hand')+'</span></span>';
+  }
 
   h+=grid(
       caraStat('Open coverage',S.open.length,(S.open.length===1?'1 shift still needs':S.open.length+' shifts still need')+' a caregiver','')
@@ -24191,6 +24213,27 @@ function caraOpenCase(id){
   try{ history.replaceState(null,'','#cara/case/'+encodeURIComponent(id)); }catch(e){}
   caraShowCase(id);
 }
+/* The Cara home state: the board back on Open, nothing expanded by a
+   previous deep link. Presentation only, no case is touched. */
+/* Clicking the Cara pill means "take me home to Cara": the Open board, no
+   deep-linked case, nothing left expanded. A hash change alone does not do
+   that, so the pill gets its own entry point. */
+function caraGoHome(){
+  CARA_PENDING_CASE='';
+  try{
+    var h=(location.hash||'');
+    if(h.indexOf('/')>-1) history.replaceState(null,'','#coverage');
+  }catch(e){}
+  try{ if(typeof COV_EXPANDED!=='undefined'&&COV_EXPANDED.clear) COV_EXPANDED.clear(); }catch(e){}
+  switchTab('coverage');
+  if(typeof caraResetBoard==='function') caraResetBoard();
+}
+function caraResetBoard(){
+  covFilterVal='open';
+  document.querySelectorAll('#tab-coverage .fb').forEach(function(x){ x.classList.remove('active'); });
+  var ob=document.getElementById('covFilterOpen'); if(ob) ob.classList.add('active');
+  renderCoverage();
+}
 function caraOpenHistory(){
   if(activeTab!=='coverage') switchTab('coverage');
   try{ history.replaceState(null,'','#cara/history'); }catch(e){}
@@ -24273,65 +24316,254 @@ function swSettings(){
            skips:(Array.isArray(s.cara_skip)?s.cara_skip.length:0),
            phones:(Array.isArray(s.timekeeper_alert_phones)?s.timekeeper_alert_phones.length:0) };
 }
-function swStage(l){
-  if(l.resolved_at) return {k:'resolved',label:SW_RESOLVED_LABEL[l.resolved_how]||'Resolved',
-    col:'var(--green)',bg:'var(--green-bg)'};
-  if(l.office_alerted_at) return {k:'office',label:'Office follow-up needed',col:'#C0392B',bg:'var(--red-bg)'};
-  if(l.texted_at) return {k:'texted',label:'Cara texted the caregiver',col:'var(--amber)',bg:'var(--amber-bg)'};
-  return {k:'detected',label:'No clock-in detected',col:'var(--amber)',bg:'var(--amber-bg)'};
+/* ---- Schedule Watch, rebuilt to the Cara design -------------------------
+   Presentation and copy only. No new engine behaviour, no new data source,
+   no recomputed clock comparison. Times shown as "office alerted at" are
+   arithmetic on the shift_time STRING plus two settings integers, which is
+   local-clock only and never touches an AxisCare timestamp.
+   ------------------------------------------------------------------------ */
+function swClock12(hh,mm){
+  var h=Number(hh), ap=h>=12?'PM':'AM', d=(h%12)||12;
+  return d+':'+String(mm).padStart(2,'0')+' '+ap;
 }
+/* "6:00 PM" from the stored shift_time, or '' when it is not the plain range
+   the engine writes. Never guesses. */
+function swStart(l){
+  var m=/^(\d\d):(\d\d)-(\d\d):(\d\d)$/.exec(String(l&&l.shift_time||''));
+  return m?swClock12(m[1],m[2]):'';
+}
+function swEnd(l){
+  var m=/^(\d\d):(\d\d)-(\d\d):(\d\d)$/.exec(String(l&&l.shift_time||''));
+  return m?swClock12(m[3],m[4]):'';
+}
+/* When the office step is due, from the shift start plus the two settings.
+   String arithmetic on a local clock value: no Date, no timezone. */
+function swOfficeDue(l,S){
+  var m=/^(\d\d):(\d\d)-/.exec(String(l&&l.shift_time||'')); if(!m) return '';
+  var t=Number(m[1])*60+Number(m[2])+S.grace+S.office;
+  return swClock12(Math.floor(t/60)%24, t%60);
+}
+var SW_RESOLVED_DETAIL={
+  clocked_in:function(l){ return l.minutes_late!=null?(l.minutes_late+' minutes late'):'Clocked in'; },
+  clocked_out:function(l){ return 'Clocked out '+covClock(l.resolved_at); },
+  visit_gone:function(l){ return 'Removed '+covClock(l.resolved_at); },
+  visit_changed:function(l){ return 'Reassigned '+covClock(l.resolved_at); }
+};
+/* Stage. Red is earned ONLY by "office alerted and still unresolved", read
+   from the stored flag. While watching is off nothing is red, because red
+   would promise an urgency that is not real. */
+function swStage(l,S){
+  if(l.resolved_at) return {k:'resolved',label:SW_RESOLVED_LABEL[l.resolved_how]||'Resolved',cls:'calm'};
+  if(l.office_alerted_at) return {k:'office',label:'Office follow-up needed',cls:(S&&S.watchLive)?'alarm':'work'};
+  if(l.texted_at) return {k:'texted',label:'Cara texted the caregiver',cls:'work'};
+  return {k:'detected',label:'No clock-in detected',cls:'flat'};
+}
+/* The meta line and the one-line lead: what the coordinator does next. */
+function swMeta(l,S){
+  if(l.office_alerted_at)
+    return 'Office alerted '+covClock(l.office_alerted_at)+(l.no_phone
+      ? ' · no mobile number on the roster'
+      : ' · urgent item in the Operations Inbox');
+  if(l.texted_at) return 'Case opened and text sent '+covClock(l.texted_at);
+  return 'Case opened '+covClock(l.opened_at)+(l.no_phone?' · no mobile number on the roster':'');
+}
+function swLead(l,S){
+  if(l.resolved_at) return '';
+  if(l.office_alerted_at){
+    if(l.no_phone) return 'No text could be sent. Call '+esc(String(l.caregiver||'the caregiver').split(/\s+/)[0])
+      +' and add a number to the roster.';
+    return 'A call from the office is the next step.';
+  }
+  var due=swOfficeDue(l,S);
+  if(l.texted_at) return 'Waiting on a reply or a clock-in.'+(due?' The office is alerted at '+due+' if nothing changes.':'');
+  if(l.no_phone) return 'No mobile number on the roster, so no text was sent.'+(due?' The office is alerted at '+due+'.':'');
+  if(!S.textLive) return 'Caregiver texting is off.'+(due?' The office is alerted at '+due+'.':'');
+  return due?'The office is alerted at '+due+' if no clock-in appears.':'';
+}
+/* Only stored events. Case-open and the text share a timestamp because the
+   engine writes both in the same run, so they are ONE event, not two rows
+   carrying the same time. */
+function swTimeline(l,S){
+  var R=function(t,dot,text){
+    return '<div style="display:flex;gap:11px;align-items:flex-start;padding:4px 0;">'
+      +'<span class="cara-mono" style="width:58px;flex:0 0 58px;text-align:right;">'+esc(t||'')+'</span>'
+      +'<span style="width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:'+dot+';margin-top:6px;"></span>'
+      +'<div style="font-size:13.5px;color:var(--navy-2);line-height:1.45;">'+text+'</div></div>';
+  };
+  var rows=[], start=swStart(l), who=esc(String(l.caregiver||'the caregiver').split(/\s+/)[0]);
+  if(l.texted_at){
+    rows.push(R(covClock(l.texted_at),'var(--amber)',
+      'Case opened and Cara texted '+who+'. No clock-in recorded for the '+esc(start||'scheduled')+' start.'));
+  }else{
+    rows.push(R(covClock(l.opened_at),'var(--navy)',
+      'Case opened. No clock-in recorded for the '+esc(start||'scheduled')+' start.'
+      +(l.no_phone?' No mobile number on the roster, so no text was sent.':'')));
+  }
+  if(l.office_alerted_at){
+    rows.push(R(covClock(l.office_alerted_at),(S&&S.watchLive)?'var(--red)':'var(--amber)',
+      'Office alerted. Urgent item raised in the Operations Inbox.'
+      +(S&&S.phones?'':' No SMS was sent, no alert phones are configured.')));
+  }
+  if(l.resolved_at){
+    rows.push(R(covClock(l.resolved_at),'var(--green)',
+      esc(SW_RESOLVED_LABEL[l.resolved_how]||'Resolved')
+      +(l.resolved_how==='clocked_in'&&l.minutes_late!=null?'. '+l.minutes_late+' minutes late.':'.')));
+  }
+  (Array.isArray(l.notes)?l.notes:[]).forEach(function(n){
+    /* Stored notes are shown as written, with the engine's em dash normalised
+       so office-facing copy stays consistent with the rest of the module. */
+    rows.push(R('','var(--text-dim)',esc(String(n).replace(/\s*—\s*/g,', '))));
+  });
+  return '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">'
+    +'<div style="font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin-bottom:7px;">What Cara recorded</div>'
+    +rows.join('')+'</div>';
+}
+/* redGround: only the FIRST alerted case carries the red ground. The rest
+   show red in the status pill alone, so the screen never reads as an alarm
+   board. */
+function swCard(l,S,redGround){
+  S=S||swSettings();
+  var st=swStage(l,S), open=SW_EXPANDED.has(l.id), lead=swLead(l,S);
+  var ground=(st.k==='office'&&S.watchLive&&redGround)
+    ? 'background:var(--red-ground);border:1.5px solid var(--red-line);' : '';
+  return '<div class="card" id="swcase_'+esc(l.id)+'" style="padding:'+(open?'18px 22px':'15px 20px')+';margin:0 0 9px;'+ground+'">'
+    +'<div style="display:flex;gap:11px;align-items:baseline;flex-wrap:wrap;cursor:pointer;" onclick="swToggle(\''+esc(l.id)+'\')">'
+    +'<b style="font-size:16.5px;font-weight:700;color:var(--navy);">'+esc(l.client_first||'(client)')
+    +' <span style="color:var(--text-dim);font-weight:400;">·</span> '+esc(l.caregiver||'(caregiver)')+'</b>'
+    +'<span style="font-size:13px;color:var(--text-muted);">'
+      +(l.shift_date&&l.shift_date!==ccChiToday()?esc(l.shift_date)+' ':'Today ')
+      +esc(swStart(l)||l.shift_time||'')+(swStart(l)?' start':'')+'</span>'
+    +'<span style="flex:1;"></span>'
+    +'<span class="cara-pill '+st.cls+'">'+esc(st.label)+'</span>'
+    +'<span style="color:var(--text-dim);font-size:15px;font-weight:700;width:12px;text-align:center;">'+(open?'–':'+')+'</span>'
+    +'</div>'
+    +'<div class="cara-mono" style="margin-top:4px;">'+esc(swMeta(l,S))+'</div>'
+    +(lead?'<div style="font-size:13.5px;color:var(--navy-2);margin-top:6px;">'+lead+'</div>':'')
+    +(open?swTimeline(l,S)
+      +'<div style="margin-top:14px;display:flex;gap:13px;flex-wrap:wrap;align-items:center;">'
+      +(l.resolved_at?'':'<button class="cara-btn" onclick="swFindCoverage(\''+esc(l.id)+'\')">If they cannot work, open a coverage case</button>')
+      +'<span class="cara-mono">AxisCare visit '+esc(l.visit_id||'?')+'</span>'
+      +'</div>':'')
+    +'</div>';
+}
+/* A resolved case is a quiet one-line row, not a full card. */
+function swResolvedRow(l){
+  var f=SW_RESOLVED_DETAIL[l.resolved_how];
+  return '<div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--border);">'
+    +'<span style="color:var(--green);font-weight:800;">✓</span>'
+    +'<b style="font-size:14px;font-weight:600;color:var(--navy);">'+esc(l.client_first||'(client)')
+    +' <span style="color:var(--text-dim);font-weight:400;">·</span> '+esc(l.caregiver||'')+'</b>'
+    +'<span style="flex:1;"></span>'
+    +'<span style="font-size:13px;color:var(--text-muted);">'+esc(SW_RESOLVED_LABEL[l.resolved_how]||'Resolved')+'</span>'
+    +'<span class="cara-mono">'+esc(f?f(l):covClock(l.resolved_at))+'</span></div>';
+}
+/* The banner. Two rows, because there are exactly two gates. Office alerting
+   is DERIVED from watch_live and is never shown as a third setting. */
+function swBanner(S){
+  if(S.watchLive&&S.textLive) return '';
+  var off=!S.watchLive;
+  var row=function(label,on){
+    return '<div style="display:flex;gap:12px;align-items:baseline;padding:3px 0;">'
+      +'<span style="font-size:13.5px;color:var(--navy-2);flex:1;">'+label+'</span>'
+      +'<b style="font-size:13.5px;color:'+(on?'var(--green)':'var(--text-dim)')+';">'+(on?'On':'Off')+'</b></div>';
+  };
+  return '<div style="border-radius:16px;padding:18px 22px;margin:0 0 18px;display:flex;gap:20px;flex-wrap:wrap;'
+    +(off?'background:#F5F2EA;border:1px solid #DFD6C6;':'background:var(--amber-bg);border:1.5px solid var(--honey);')+'">'
+    +'<div style="flex:1 1 380px;display:flex;gap:13px;align-items:flex-start;">'
+    +'<span style="width:30px;height:30px;flex:0 0 30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;'
+    +(off?'background:#EDE7DA;color:var(--text-muted);':'background:var(--honey-soft);color:var(--amber);')+'">'+(off?'○':'●')+'</span>'
+    +'<div><div style="font-size:16.5px;font-weight:700;color:var(--navy);">'
+    +(off?'Shift watching is not turned on yet.':'Watching shifts. Caregiver texting is off.')+'</div>'
+    +'<div style="font-size:13.5px;color:var(--text-muted);margin-top:4px;line-height:1.5;">'
+    +(off
+      ? 'Nothing is being watched, no caregiver text goes out, and no item is raised in the Operations Inbox. Anything listed below is from an earlier run.'
+      : 'When a clock-in is missing, Cara raises an urgent item in the Operations Inbox. No text goes to the caregiver, so the first contact is a call from the office.')
+    +'</div></div></div>'
+    +'<div style="flex:0 1 260px;min-width:220px;">'
+    +row('Watching AxisCare clock-ins',S.watchLive)
+    +row('Caregiver texting',S.textLive)
+    +'</div></div>';
+}
+function swRenderLive(){
+  var box=document.getElementById('swLive'); if(!box) return;
+  var S=swSettings();
+  var all=(DATA.timekeeper_cases||[]).filter(Boolean);
+  var today=ccChiToday();
+  var isToday=function(l){ return !l.shift_date||l.shift_date===today; };
+  var clockIn=all.filter(function(l){ return l.kind!=='clock_out'; });
+  var outs=all.filter(function(l){ return l.kind==='clock_out'&&isToday(l); });
+  var live=clockIn.filter(function(l){ return !l.resolved_at; }).sort(function(a,b){
+    return ((b.office_alerted_at?1:0)-(a.office_alerted_at?1:0))
+      ||String(a.opened_at||'').localeCompare(String(b.opened_at||'')); });
+  var done=clockIn.filter(function(l){ return l.resolved_at&&isToday(l); })
+    .sort(function(a,b){ return String(b.resolved_at||'').localeCompare(String(a.resolved_at||'')); });
+  var needing=live.filter(function(l){ return l.office_alerted_at; }).length;
+
+  var h=swBanner(S)
+    +'<div style="display:flex;gap:11px;align-items:baseline;flex-wrap:wrap;margin-bottom:11px;">'
+    +'<h3 style="margin:0;font-size:20px;font-weight:800;color:var(--navy);letter-spacing:-0.015em;">Live Shift Watch</h3>'
+    +'<span style="font-size:13px;color:var(--text-dim);">Today</span>'
+    +(live.length?'<span class="cara-pill '+(needing&&S.watchLive?'alarm':'work')+'">'+live.length+' open</span>':'')
+    +'</div>';
+
+  var usedRed=false;
+  if(live.length){
+    h+=live.map(function(l){
+      var first=!usedRed&&!!l.office_alerted_at;
+      if(first) usedRed=true;
+      return swCard(l,S,first);
+    }).join('');
+  }else{
+    h+='<div class="card" style="padding:22px 24px;margin:0 0 9px;display:flex;gap:14px;align-items:center;">'
+      +'<span style="width:38px;height:38px;flex:0 0 38px;border-radius:50%;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;">✓</span>'
+      +'<div><div style="font-size:17.5px;font-weight:700;color:var(--navy);">No schedule issues need attention.</div>'
+      +'<div style="font-size:14px;color:var(--text-muted);margin-top:3px;">Cara has not recorded a missed clock-in that is still open.</div></div></div>';
+  }
+
+  if(outs.length){
+    h+='<div style="font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:22px 0 8px;">Clock-out reminders today</div>'
+      +'<div class="card" style="padding:6px 20px 12px;margin:0;">'
+      +outs.map(function(l){
+        return '<div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;padding:9px 0;border-top:1px solid var(--border);">'
+          +'<b style="font-size:14px;font-weight:600;color:var(--navy);">'+esc(l.client_first||'(client)')
+          +' <span style="color:var(--text-dim);font-weight:400;">·</span> '+esc(l.caregiver||'')+'</b>'
+          +'<span style="flex:1;"></span>'
+          +'<span class="cara-mono">'+(l.resolved_at?'Clocked out '+covClock(l.resolved_at)
+            :'Reminder sent '+covClock(l.texted_at))
+          +(swEnd(l)?' · scheduled end '+esc(swEnd(l)):'')+'</span></div>';
+      }).join('')+'</div>'
+      +'<div style="font-size:12.5px;color:var(--text-muted);margin-top:7px;">One reminder at '+S.outGrace
+      +' minutes past the scheduled end. No office step: the client was served, and only payroll and the visit record are at stake.</div>';
+  }
+
+  if(done.length){
+    h+='<div style="font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:22px 0 8px;">Resolved today</div>'
+      +'<div class="card" style="padding:6px 20px 12px;margin:0;">'+done.map(swResolvedRow).join('')+'</div>';
+  }
+
+  if(S.skips){
+    h+='<div style="font-size:12.5px;color:var(--text-muted);margin-top:12px;">'
+      +S.skips+' skip-list entr'+(S.skips===1?'y is':'ies are')+' in effect.</div>';
+  }
+
+  box.innerHTML=h;
+  var b=document.getElementById('swPillBadge');
+  if(b){ b.style.display=needing?'inline-block':'none'; b.textContent=needing; }
+
+  if(SW_PENDING&&all.some(function(x){ return x&&x.id===SW_PENDING; })){
+    var want=SW_PENDING; SW_PENDING='';
+    SW_EXPANDED.add(want);
+    swRenderLive();
+    setTimeout(function(){
+      var el=document.getElementById('swcase_'+want);
+      if(el&&el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'center'});
+    },40);
+  }
+}
+
 function swToggle(id){
   if(SW_EXPANDED.has(id)) SW_EXPANDED.delete(id); else SW_EXPANDED.add(id);
   swRenderLive();
-}
-/* Only stored events. Nothing is inserted between them to narrate a moment
-   the backend did not record. */
-function swTimeline(l){
-  const S=swSettings();
-  const R=(mark,col,text,meta)=>'<div style="display:flex;gap:9px;align-items:flex-start;padding:3px 0;">'
-    +'<span style="color:'+col+';font-weight:800;line-height:1.4;width:12px;flex:0 0 12px;">'+mark+'</span>'
-    +'<div><span style="font-size:13px;color:var(--text);">'+text+'</span>'
-    +(meta?'<span class="field-note" style="font-size:11.5px;margin-left:7px;">'+meta+'</span>':'')+'</div></div>';
-  const rows=[];
-  rows.push(R('&#10003;','var(--text-muted)','Scheduled start',
-    esc(l.shift_time||'')+(l.shift_date?' on '+esc(l.shift_date):'')));
-  rows.push(R('&#10003;','var(--amber)','No AxisCare clock-in detected',covClock(l.opened_at)));
-  if(l.texted_at) rows.push(R('&#10003;','var(--green)','Cara texted '+esc(String(l.caregiver||'the caregiver').split(/\s+/)[0]),covClock(l.texted_at)));
-  else if(l.no_phone) rows.push(R('&#9675;','var(--text-muted)','No phone on the roster, so no text was sent',''));
-  if(l.office_alerted_at) rows.push(R('&#10003;','#C0392B','Office alerted',
-    covClock(l.office_alerted_at)+' &middot; Operations Inbox item'+(S.phones?' and SMS to the alert phones':'')));
-  if(l.resolved_at){
-    rows.push(R('&#10003;','var(--green)',esc(SW_RESOLVED_LABEL[l.resolved_how]||'Resolved'),
-      covClock(l.resolved_at)+(l.resolved_how==='clocked_in'&&l.minutes_late!=null?' &middot; '+l.minutes_late+' minutes late':'')));
-  }else if(l.office_alerted_at){
-    rows.push(R('&#9679;','#C0392B','<b>Office follow-up needed.</b> Call the caregiver.',
-      'Cara has done everything it does automatically.'));
-  }
-  (Array.isArray(l.notes)?l.notes:[]).forEach(n=>rows.push(R('&middot;','var(--text-muted)',esc(String(n)),'')));
-  return '<div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--border);">'+rows.join('')+'</div>';
-}
-
-function swCard(l){
-  const st=swStage(l);
-  const open=SW_EXPANDED.has(l.id);
-  const edge=st.k==='office'?'border-left:4px solid #C0392B;':st.k==='resolved'?'':'border-left:4px solid var(--gold);';
-  return '<div class="card" id="swcase_'+esc(l.id)+'" style="padding:'+(open?'14px 16px':'10px 16px')+';margin:0 0 7px;'+edge+'">'
-    +'<div style="display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;cursor:pointer;" onclick="swToggle(\''+esc(l.id)+'\')">'
-    +'<span style="color:var(--text-muted);font-size:12px;">'+(open?'&#9662;':'&#9656;')+'</span>'
-    +'<b style="font-size:15px;color:var(--navy);">'+esc(l.client_first||'(client)')+'</b>'
-    +'<span class="field-note">'+esc(l.shift_time||'')+(l.shift_date?' &middot; '+esc(l.shift_date):'')+'</span>'
-    +'<span style="font-size:13px;color:var(--text);">'+esc(l.caregiver||'(caregiver)')+'</span>'
-    +'<span style="background:'+st.bg+';color:'+st.col+';border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:700;">'+esc(st.label)+'</span>'
-    +(l.resolved_how==='clocked_in'&&l.minutes_late!=null?'<span class="field-note">'+l.minutes_late+' min late</span>':'')
-    +'<span style="flex:1;"></span>'
-    +'<span class="field-note" style="font-size:11.5px;">'+(open?'click to collapse':'click for the sequence')+'</span>'
-    +'</div>'
-    +(open?swTimeline(l)
-      +'<div style="margin-top:11px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
-      +(l.resolved_at?'':'<button class="ghost" onclick="swFindCoverage(\''+esc(l.id)+'\')">If they cannot work, open a coverage case &rarr;</button>')
-      +'<span class="field-note" style="font-size:11.5px;">AxisCare visit '+esc(l.visit_id||'?')+'</span>'
-      +'</div>':'')
-    +'</div>';
 }
 
 /* The handoff. No new engine behaviour: this is the SAME caregiver-first
@@ -24360,82 +24592,6 @@ function swFindCoverage(id){
   },140);
 }
 
-function swRenderLive(){
-  const box=document.getElementById('swLive'); if(!box) return;
-  const S=swSettings();
-  const all=(DATA.timekeeper_cases||[]).filter(Boolean);
-  const today=ccChiToday();
-  const isToday=l=>!l.shift_date||l.shift_date===today;
-  const clockIn=all.filter(l=>l.kind!=='clock_out');
-  const outs=all.filter(l=>l.kind==='clock_out'&&isToday(l));
-  const live=clockIn.filter(l=>!l.resolved_at).sort((a,b)=>
-    ((b.office_alerted_at?1:0)-(a.office_alerted_at?1:0))
-    ||String(a.opened_at||'').localeCompare(String(b.opened_at||'')));
-  const done=clockIn.filter(l=>l.resolved_at&&isToday(l))
-    .sort((a,b)=>String(b.resolved_at||'').localeCompare(String(a.resolved_at||'')));
-  const needing=live.filter(l=>l.office_alerted_at).length;
-
-  let h='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:9px;">'
-    +'<h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Live Shift Watch</h3>'
-    +(live.length?'<span style="background:'+(needing?'#C0392B':'var(--gold-text)')+';color:#fff;border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:700;">'+live.length+' open</span>':'')
-    +'<span style="flex:1;"></span>'
-    +'<span class="field-note" style="font-size:12px;">Cara texts at '+S.grace+' min past the start, alerts the office at '+(S.grace+S.office)+' min.</span></div>';
-
-  if(!S.watchLive){
-    h+='<div class="card" style="padding:11px 14px;margin:0 0 9px;background:var(--blue-bg);border-color:var(--blue);">'
-      +'<b style="color:var(--blue);font-size:13px;">Shift watch is in dry run.</b> '
-      +'<span class="field-note" style="font-size:12.5px;">Cara is not opening ladders or sending anything. Any cases below are from earlier runs.</span></div>';
-  }else if(!S.textLive){
-    h+='<div class="card" style="padding:11px 14px;margin:0 0 9px;background:var(--blue-bg);border-color:var(--blue);">'
-      +'<b style="color:var(--blue);font-size:13px;">Watching, texting is off.</b> '
-      +'<span class="field-note" style="font-size:12.5px;">Ladders open and the office still gets alerted, but no caregiver text goes out.</span></div>';
-  }
-
-  if(live.length) h+=live.map(swCard).join('');
-  else h+='<div class="card" style="padding:15px 17px;margin:0 0 9px;display:flex;gap:12px;align-items:center;">'
-      +'<span style="width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:800;">&#10003;</span>'
-      +'<div><div style="font-size:15px;font-weight:700;color:var(--navy);">No schedule issues need attention.</div>'
-      +'<div class="field-note" style="font-size:12.5px;margin-top:2px;">Cara has not recorded a missed clock-in that is still open.</div></div></div>';
-
-  if(outs.length){
-    h+='<div style="margin:14px 0 7px;"><b style="font-size:13.5px;color:var(--navy);">Clock-out reminders</b> '
-      +'<span class="field-note" style="font-size:12px;">One text at '+S.outGrace+' min past the scheduled end. No office step: the client was served, and only payroll and the visit record are at stake.</span></div>'
-      +outs.map(l=>'<div class="card" style="padding:9px 15px;margin:0 0 6px;font-size:13px;">'
-        +'<b style="color:var(--navy);">'+esc(l.client_first||'(client)')+'</b> '
-        +'<span class="field-note">'+esc(l.shift_time||'')+'</span> '
-        +esc(l.caregiver||'')+' '
-        +'<span style="color:'+(l.resolved_at?'var(--green)':'var(--amber)')+';font-weight:700;">'
-        +(l.resolved_at?'clocked out':'reminded '+covClock(l.texted_at))+'</span></div>').join('');
-  }
-
-  if(done.length){
-    h+='<div style="margin:14px 0 7px;"><b style="font-size:13.5px;color:var(--navy);">Resolved today</b></div>'
-      +done.map(swCard).join('');
-  }
-
-  /* The office-facing screen says what Cara has raised, and nothing about
-     what the backend cannot yet feed it. The missing healthy / starting-soon
-     read endpoint is documented in CARA-UI-SPEC.md, not here. */
-  if(S.skips){
-    h+='<div class="field-note" style="font-size:11.5px;margin-top:10px;">'
-      +S.skips+' skip-list entr'+(S.skips===1?'y is':'ies are')+' in effect.</div>';
-  }
-
-  box.innerHTML=h;
-
-  const b=document.getElementById('swPillBadge');
-  if(b){ b.style.display=needing?'inline-block':'none'; b.textContent=needing; }
-
-  if(SW_PENDING&&all.some(x=>x&&x.id===SW_PENDING)){
-    const want=SW_PENDING; SW_PENDING='';
-    SW_EXPANDED.add(want);
-    swRenderLive();
-    setTimeout(function(){
-      const el=document.getElementById('swcase_'+want);
-      if(el&&el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'center'});
-    },40);
-  }
-}
 function swOpenShift(id){
   if(activeTab!=='hourswatch') switchTab('hourswatch');
   try{ history.replaceState(null,'','#schedwatch/shift/'+encodeURIComponent(id)); }catch(e){}
@@ -24598,7 +24754,7 @@ function covPickShift(i){
       const ta=document.getElementById('covMsgCare'), srcEl=document.getElementById('covCareSrc');
       if(ta&&!ta.value.trim()&&out.priority_note){
         ta.value=String(out.priority_note).slice(0,220);
-        if(srcEl){ srcEl.innerHTML='<b style="color:#C0392B;">⚠ Prefilled from an AxisCare note — READ IT before opening: strip door codes, entry details, addresses, anything private. Only what\'s in this box goes in the text.</b>'; }
+        if(srcEl){ srcEl.innerHTML='<b style="color:var(--red);">⚠ Prefilled from an AxisCare note — READ IT before opening: strip door codes, entry details, addresses, anything private. Only what\'s in this box goes in the text.</b>'; }
       }
     }catch(e){} })();
   }
@@ -24765,11 +24921,11 @@ function covDur(c){
   if(m<60) return m+'m'; const h=Math.floor(m/60);
   if(h<24) return h+'h '+(m%60)+'m'; return Math.floor(h/24)+'d';
 }
-const COV_STATE_UI={ waiting:['⏳ waiting','#94681D'], yes:['✅ yes','#1E8449'],
-                     no:['✖ no','#C0392B'], noanswer:['📵 no answer','#8A7F70'],
-                     no_answer_final:['📵 no answer','#8A7F70'],
-                     inquiry:['❓ question','#B8860B'],
-                     closed_notified:['📨 told it’s covered','#8A7F70'] };
+const COV_STATE_UI={ waiting:['⏳ waiting','var(--honey-ink)'], yes:['✅ yes','var(--green)'],
+                     no:['✖ no','var(--red)'], noanswer:['📵 no answer','var(--text-dim)'],
+                     no_answer_final:['📵 no answer','var(--text-dim)'],
+                     inquiry:['❓ question','var(--amber)'],
+                     closed_notified:['📨 told it’s covered','var(--text-dim)'] };
 
 /* ═══ Cara coverage workspace (Phase 1, CARA-UI-SPEC.md) ═══════════════════
    Display-only. Every element below derives from fields the engine already
@@ -24870,7 +25026,7 @@ function covAskRow(c,a,open){
       +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'no\')">no</button>'
       +'<button class="ghost" style="padding:2px 8px;font-size:11.5px;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'noanswer\')">no answer</button>'
     : (open&&a.state==='yes')
-    ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;color:#C0392B;" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'no\')">not a yes, mark no</button>'
+    ? ' <button class="ghost" style="padding:2px 8px;font-size:11.5px;color:var(--red);" onclick="covAskState(\''+esc(c.id)+'\',\''+esc(a.id)+'\',\'no\')">not a yes, mark no</button>'
     : '';
   const how=a.auto?('💬 Cara text'+(a.tier===1?' · knows this client':a.tier===2?' · recently active':'')):esc(a.channel||'asked');
   return '<div style="padding:6px 0;border-top:1px solid var(--border);font-size:13px;">'
@@ -24916,7 +25072,7 @@ function covOutreachHtml(c){
         :'The next wave goes out on Cara’s next pass (every few minutes).')+'</div>';
   }
   if(open&&c.callout_escalated_at){
-    h+='<div style="margin-top:7px;padding:7px 10px;border-radius:7px;background:#FDECEA;border:1px solid #C0392B;font-size:12.5px;color:#C0392B;font-weight:600;">Cara ran out of caregivers to ask '+covAgo(c.callout_escalated_at)+' ago and escalated to the office — this case needs a person now.</div>';
+    h+='<div style="margin-top:7px;padding:7px 10px;border-radius:7px;background:var(--red-bg);border:1px solid var(--red);font-size:12.5px;color:var(--red);font-weight:600;">Cara ran out of caregivers to ask '+covAgo(c.callout_escalated_at)+' ago and escalated to the office — this case needs a person now.</div>';
   }
   return h;
 }
@@ -24932,13 +25088,13 @@ function covConfirmHtml(c){
       :winner.tier===2?'Worked a shift in the last 14 days':null,
     winner.auto?'Reached by Cara’s text':'Asked by the office'+(winner.channel?' ('+esc(winner.channel)+')':''),
   ].filter(Boolean);
-  return '<div style="margin-top:10px;padding:10px 12px;border-radius:9px;background:#F7E9D2;border:1.5px solid #F0A830;">'
-    +'<b style="color:#94681D;">⚡ Coverage found — ready to confirm</b>'
+  return '<div style="margin-top:10px;padding:10px 12px;border-radius:9px;background:var(--honey-chip);border:1.5px solid var(--honey);">'
+    +'<b style="color:var(--honey-ink);">⚡ Coverage found — ready to confirm</b>'
     +'<div class="cov-confirm-grid">'
     +'<div class="cov-confirm-col" style="background:#fff;"><div class="lbl">Original</div>'
       +'<b>'+esc(c.calling_off||'(caregiver not recorded)')+'</b>'
       +'<div class="field-note">'+esc(R[c.reason]||c.reason||'')+' · '+esc(c.shift_date||'')+' '+esc(c.shift_time||'')+'</div></div>'
-    +'<div class="cov-confirm-col" style="background:#E8F6EE;border-color:#1E8449;"><div class="lbl" style="color:#1E8449;">Replacement</div>'
+    +'<div class="cov-confirm-col" style="background:var(--green-bg);border-color:var(--green);"><div class="lbl" style="color:var(--green);">Replacement</div>'
       +'<b>'+esc(c.pending_fill.name)+'</b>'
       +facts.map(f=>'<div class="field-note">'+f+'</div>').join('')+'</div>'
     +'</div>'
@@ -24956,7 +25112,7 @@ function covLoopHtml(c){
   const winnerTold=(c.asked||[]).some(a=>a.confirm_sent);
   const othersAsked=(c.asked||[]).some(a=>a.auto&&String(a.name||'').toLowerCase()!==String(c.covered_by||'').toLowerCase());
   const row=(st,txt,note)=>'<div class="cov-loop-row"><span class="st" style="color:'
-    +(st==='done'?'#1E8449':st==='pending'?'#94681D':'var(--text-muted)')+';">'
+    +(st==='done'?'var(--green)':st==='pending'?'var(--honey-ink)':'var(--text-muted)')+';">'
     +(st==='done'?'✓':st==='pending'?'●':'○')+'</span><span>'+txt
     +(note?' <span class="field-note">'+note+'</span>':'')+'</span></div>';
   return '<div class="cov-loop"><b style="font-size:13px;color:var(--navy);">Closing the loop</b>'
@@ -24999,26 +25155,26 @@ function renderCoverage(){
   const R={calloff:'Call-off',open:'Open shift',new:'New client'};
   box.innerHTML=list.map(c=>{
     const open=c.status==='open';
-    const age=open?'<span style="font-weight:800;color:'+(covAgo(c.opened_at).includes('d')?'#C0392B':'#94681D')+';">open '+covAgo(c.opened_at)+'</span>':'';
+    const age=open?'<span style="font-weight:800;color:'+(covAgo(c.opened_at).includes('d')?'var(--red)':'var(--honey-ink)')+';">open '+covAgo(c.opened_at)+'</span>':'';
     const askedSorted=(c.asked||[]).slice().sort((x,y)=>
       ((COV_STATE_ORDER[x.state]??2)-(COV_STATE_ORDER[y.state]??2)) ||
       String(x.at||'').localeCompare(String(y.at||'')));
     // CareQB-style tallies, one glance: who's willing, who's asking, who's out.
     const tally=(st)=>askedSorted.filter(a=>a.state===st).length;
-    const tallies=[['✅',tally('yes'),'#1E8449'],['❓',tally('inquiry'),'#B8860B'],
-                   ['⏳',tally('waiting'),'#94681D'],['✖',tally('no'),'#C0392B']]
+    const tallies=[['✅',tally('yes'),'var(--green)'],['❓',tally('inquiry'),'var(--amber)'],
+                   ['⏳',tally('waiting'),'var(--honey-ink)'],['✖',tally('no'),'var(--red)']]
       .filter(t=>t[1]>0)
       .map(t=>'<span style="color:'+t[2]+';font-weight:800;">'+t[0]+' '+t[1]+'</span>').join(' · ');
     const expanded=COV_EXPANDED.has(c.id)||(open&&!!c.pending_fill);
     const headTallies=tallies?'<span style="font-size:12.5px;">'+tallies+'</span>':'';
-    const pendChip=(open&&c.pending_fill)?'<span style="font-size:12px;font-weight:800;color:#1E8449;background:#E8F6EE;border-radius:6px;padding:2px 8px;">✅ '+esc(c.pending_fill.name)+' can cover</span>':'';
-    return '<div class="card" id="covcase_'+esc(c.id)+'" style="padding:'+(expanded?'16px 18px':'10px 18px')+';margin-bottom:'+(expanded?'12px':'6px')+';'+(open?'border-left:4px solid #C0392B;':'')+'">'
+    const pendChip=(open&&c.pending_fill)?'<span style="font-size:12px;font-weight:800;color:var(--green);background:var(--green-bg);border-radius:6px;padding:2px 8px;">✅ '+esc(c.pending_fill.name)+' can cover</span>':'';
+    return '<div class="card" id="covcase_'+esc(c.id)+'" style="padding:'+(expanded?'16px 18px':'10px 18px')+';margin-bottom:'+(expanded?'12px':'6px')+';'+(open?'border-left:4px solid var(--red);':'')+'">'
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;cursor:pointer;" onclick="covToggleCase(\''+esc(c.id)+'\')">'
       +'<span style="color:var(--text-muted);font-size:12px;">'+(expanded?'▾':'▸')+'</span>'
       +'<b style="font-size:15.5px;color:var(--navy);"><a href="javascript:void(0)" data-open-client="'+esc(String(c.client_axiscare_id||c.client))+'" style="color:inherit;text-decoration:underline dotted;" title="Open their profile">'+esc(c.client)+'</a></b>'
       +'<span class="field-note">'+esc(c.shift_date||'')+' '+esc(c.shift_time||'')+' · '+esc(R[c.reason]||c.reason)+'</span>'
       +age+headTallies+pendChip
-      +(!open&&c.resolved_how?'<span style="font-size:12px;font-weight:700;color:'+(c.resolved_how==='covered'?'#1E8449':'#C0392B')+';">'+(c.resolved_how==='covered'?'covered by '+esc(c.covered_by||'?'):'closed uncovered')+'</span>':'')
+      +(!open&&c.resolved_how?'<span style="font-size:12px;font-weight:700;color:'+(c.resolved_how==='covered'?'var(--green)':'var(--red)')+';">'+(c.resolved_how==='covered'?'covered by '+esc(c.covered_by||'?'):'closed uncovered')+'</span>':'')
       +'<span style="flex:1;"></span>'
       +'<span class="field-note" style="font-size:11.5px;">'+(expanded?'click to collapse':'click for details')+'</span>'
       +'</div>'
@@ -25027,7 +25183,7 @@ function renderCoverage(){
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-top:8px;">'
       +'<span style="flex:1;"></span>'
       +(open
-        ? (c.axiscare_visit_id?'':'<button class="ghost" style="color:#94681D;" onclick="covToggleAdd(\''+esc(c.id)+'\')">🔗 Attach the real shift</button>')
+        ? (c.axiscare_visit_id?'':'<button class="ghost" style="color:var(--honey-ink);" onclick="covToggleAdd(\''+esc(c.id)+'\')">🔗 Attach the real shift</button>')
           +'<button class="ghost" onclick="covAsk(\''+esc(c.id)+'\')">＋ I asked someone</button>'
           +'<button class="addlead" onclick="covResolve(\''+esc(c.id)+'\',\'covered\')">Covered ✓</button>'
           +'<button class="ghost" onclick="covResolve(\''+esc(c.id)+'\',\'uncovered\')">Close uncovered</button>'
@@ -25045,13 +25201,13 @@ function renderCoverage(){
       +(c.axiscare_assignment
         ? '<div style="margin-top:9px;padding:7px 10px;border-radius:7px;font-size:12.5px;font-weight:600;'
           +(c.axiscare_assignment.status==='assigned'
-            ?'background:#E8F6EE;color:#1E8449;">✓ Shift successfully filled — '+esc(c.covered_by||'the replacement')+' is on the AxisCare schedule, read back and verified.'
-            :'background:#FDF3E0;color:#94681D;">⚠ AxisCare: '+esc(c.axiscare_assignment.detail||'assign by hand'))
+            ?'background:var(--green-bg);color:var(--green);">✓ Shift successfully filled — '+esc(c.covered_by||'the replacement')+' is on the AxisCare schedule, read back and verified.'
+            :'background:var(--amber-bg);color:var(--honey-ink);">⚠ AxisCare: '+esc(c.axiscare_assignment.detail||'assign by hand'))
           +'</div>'
         : '')
       +covLoopHtml(c)
       +'<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px;font-weight:600;color:'
-        +(c.resolved_how==='covered'?'#1E8449':c.resolved_how==='uncovered'?'#C0392B':'var(--text-muted)')+';">'
+        +(c.resolved_how==='covered'?'var(--green)':c.resolved_how==='uncovered'?'var(--red)':'var(--text-muted)')+';">'
       +covSummary(c)+'</div>'
       +'</div>'
       +'</div>';
@@ -25309,13 +25465,13 @@ function c360Render(){
   const hire=String(g.hire_date||'');
   const tenure=hire?Math.floor((now-new Date(hire+'T12:00:00').getTime())/864e5):null;
   const isNew=tenure!=null&&tenure<60;
-  let html=sec('Identity'+(isNew?' <span class="tag-chip" style="background:var(--honey,#FFC671);color:#5a4300;">NEW HIRE — day '+tenure+'</span>':''),
+  let html=sec('Identity'+(isNew?' <span class="tag-chip" style="background:var(--honey-chip);color:var(--honey-ink);">NEW HIRE — day '+tenure+'</span>':''),
     kv('Phone',esc(g.phone||'(none on roster)'))+kv('Email',esc(g.email||'(none)'))
     +kv('Hired',esc(hire||'?')+(tenure!=null?' ('+Math.floor(tenure/30)+' months)':''))
     +kv('AxisCare id',g.axiscare_id?esc(String(g.axiscare_id))+' · <a href="https://16485.axiscare.com/?caregivers-profile.php&id='+esc(String(g.axiscare_id))+'" target="_blank" rel="noopener">open in AxisCare ↗</a>':'(not linked)'));
 
   // Compliance snapshot straight off the roster fields
-  const chk=(label,date,status)=>kv(label,(status?esc(String(status))+' · ':'')+(date?esc(String(date)):'<span style="color:#C0392B;">missing</span>'));
+  const chk=(label,date,status)=>kv(label,(status?esc(String(status))+' · ':'')+(date?esc(String(date)):'<span style="color:var(--red);">missing</span>'));
   html+=sec('Compliance & training',
     chk('Orientation',g.orient_date)+chk('ALZ pre-contact',g.alz_date)
     +chk('OJT',g.ojt_date)+chk('Annual training',g.annual_date)
@@ -25331,7 +25487,7 @@ function c360Render(){
   html+=sec('Hours they want vs hours they have',
     av?(kv('Wants',esc(String(av.target_hours))+' h/week (updated '+esc(String(av.updated_at||'').slice(0,10))+')')
       +kv('Scheduled next week',sched==null?'open Hours Watch and Refresh to load':esc(String(sched))+' h')
-      +(sched!=null&&Number.isFinite(Number(av.target_hours))?kv('Gap',(Number(av.target_hours)-sched)>0?'<b style="color:#C0392B;">'+(Number(av.target_hours)-sched).toFixed(1)+' h short</b>':'<b style="color:#1E8449;">at target</b>'):'')
+      +(sched!=null&&Number.isFinite(Number(av.target_hours))?kv('Gap',(Number(av.target_hours)-sched)>0?'<b style="color:var(--red);">'+(Number(av.target_hours)-sched).toFixed(1)+' h short</b>':'<b style="color:var(--green);">at target</b>'):'')
       +kv('Wanted windows',esc(wins||'(none ticked)')))
     :'<div class="field-note">No availability on file — text them cc.mo-care.com/availability</div>');
 
@@ -25388,78 +25544,193 @@ async function hwLoad(btn){
     hwRender();
   } finally { if(btn) btn.disabled=false; }
 }
-function hwRender(){
-  const box=document.getElementById('hwList'); if(!box) return;
-  const av=DATA.caregiver_availability||[];
-  const roster=DATA.caregivers||[];
-  const hireDate=g=>String(g.hire_date||'');
-  const now=Date.now();
-  const isNew=g=>{ const h=hireDate(g); return h&&(now-new Date(h+'T12:00:00').getTime())<60*864e5; };
-  const byAxis={}; roster.forEach(g=>{ if(g.axiscare_id) byAxis[String(g.axiscare_id)]=g; });
-  const rows=[];
-  av.forEach(a=>{
-    const sched=HW_SCHED?(HW_SCHED[String(a.axiscare_id||'')]??0):null;
-    const gap=(sched==null||!Number.isFinite(Number(a.target_hours)))?null:(Number(a.target_hours)-sched);
-    const g=byAxis[String(a.axiscare_id||'')];
-    const wins=a.windows?Object.entries(a.windows).filter(([d,w])=>w&&w.length)
-      .map(([d,w])=>d.slice(0,1).toUpperCase()+d.slice(1,3)+':'+w.map(x=>x.slice(0,1)).join('')).join(' · '):'';
-    rows.push({ name:a.name, target:a.target_hours, sched, gap, wins,
-      isNew:g?isNew(g):false, updated:String(a.updated_at||'').slice(0,10) });
-  });
-  // Caregivers with NO availability on file — visible as their own ask.
-  const haveAv=new Set(av.map(a=>String(a.axiscare_id||'')));
-  const noAv=roster.filter(g=>g.active!==false&&g.axiscare_id&&!haveAv.has(String(g.axiscare_id)));
-  rows.sort((x,y)=>((y.gap??-999)-(x.gap??-999)));
-  box.innerHTML=(rows.length?rows.map(r=>
-    '<div class="card" style="padding:12px 16px;margin-bottom:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;'
-    +((r.gap??0)>=8?'border-left:4px solid #C0392B;':(r.gap??0)>=4?'border-left:4px solid #94681D;':'')+'">'
-    +'<b style="color:var(--navy);min-width:150px;">'+esc(r.name)+(r.isNew?' <span class="tag-chip" style="background:var(--honey,#FFC671);color:#5a4300;">NEW HIRE</span>':'')+'</b>'
-    +'<span style="font-size:13px;">wants <b>'+esc(String(r.target))+'</b>h/wk</span>'
-    +'<span style="font-size:13px;">scheduled <b>'+(r.sched==null?'?':esc(String(r.sched)))+'</b>h next wk</span>'
-    +(r.gap!=null?'<span style="font-weight:800;color:'+(r.gap>=8?'#C0392B':r.gap>=4?'#94681D':'#1E8449')+';">'+(r.gap>0?r.gap.toFixed(1)+'h short':'at target')+'</span>':'')
-    +'<span class="field-note" style="flex:1;">'+esc(r.wins)+'</span>'
-    +'<span class="field-note">updated '+esc(r.updated)+'</span>'
-    +'</div>').join('')
-    :'<div class="card" style="padding:16px;color:var(--text-muted);font-size:13.5px;">Nobody has filled in their availability yet. Text caregivers the link: <b>cc.mo-care.com/availability</b></div>')
-    +(noAv.length?'<div class="field-note" style="margin-top:10px;">📋 No availability on file yet ('+noAv.length+'): '
-      +noAv.slice(0,15).map(g=>esc((g.first||'')+' '+(g.last||''))).join(', ')+(noAv.length>15?'…':'')
-      +' — send them the link.</div>':'');
-}
+/* ---- Upcoming schedule and hours, and the matcher ----------------------- */
+var HW_ASK={open:false,ran:false,days:new Set(),wins:new Set(),level:'',clientId:'',clientName:''};
+var HW_CLIENTS=null;
 
+function hwAskToggle(){ HW_ASK.open=!HW_ASK.open; if(!HW_ASK.open) HW_ASK.ran=false; hwAskRender(); }
+function hwAskChip(kind,val){
+  var set=kind==='day'?HW_ASK.days:HW_ASK.wins;
+  if(set.has(val)) set.delete(val); else set.add(val);
+  hwAskRender();
+}
+function hwAskLevel(v){ HW_ASK.level=v; }
+function hwAskClient(v){
+  HW_ASK.clientName=v;
+  var hit=(HW_CLIENTS||[]).find(function(c){ return c.client_name===v; });
+  HW_ASK.clientId=hit?String(hit.axiscare_client_id||''):'';
+}
+/* The client list comes from the Hub's own identity source, which is memoised
+   for the session. It is what makes knows_client_visits populate at all: the
+   backend has always ranked prior visits with the client as its top sort key,
+   and the Hub has never sent the id. */
+async function hwAskClients(){
+  if(HW_CLIENTS) return HW_CLIENTS;
+  try{
+    var rows=await cl360Identity();
+    HW_CLIENTS=(rows||[]).filter(function(c){ return c.axiscare_client_id; })
+      .sort(function(a,b){ return String(a.client_name).localeCompare(String(b.client_name)); });
+  }catch(e){ HW_CLIENTS=[]; }
+  return HW_CLIENTS;
+}
+var HW_DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
+var HW_WINS=[['morning','Morning'],['afternoon','Afternoon'],['evening','Evening'],['overnight','Overnight']];
+
+function hwAskRender(){
+  var box=document.getElementById('hwAsk'); if(!box) return;
+  if(!HW_ASK.open){
+    box.innerHTML='<div class="card" style="padding:22px 24px;margin:0 0 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">'
+      +'<div style="flex:1 1 380px;"><div style="font-size:17px;font-weight:700;color:var(--navy);">Who could cover a new client?</div>'
+      +'<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;">Ask while the caller is on the phone. Cara answers from availability on file and hours already scheduled.</div></div>'
+      +'<button class="cara-btn" onclick="hwAskOpen()">Ask the question</button></div>';
+    return;
+  }
+  var chip=function(kind,v,label,on){
+    return '<span class="cara-chip'+(on?' on':'')+'" onclick="hwAskChip(\''+kind+'\',\''+v+'\')">'+label+'</span>';
+  };
+  var word='<span style="font-size:15px;color:var(--text-muted);">';
+  var opts=(HW_CLIENTS||[]).map(function(c){ return '<option value="'+esc(c.client_name)+'"></option>'; }).join('');
+  box.innerHTML='<div class="card" style="padding:22px 24px;margin:0 0 16px;">'
+    +'<div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:14px;">'
+    +'<div style="font-size:17px;font-weight:700;color:var(--navy);flex:1;">Who could cover a new client?</div>'
+    +'<a href="javascript:void(0)" onclick="hwAskToggle()" style="font-size:13px;font-weight:700;">Close</a></div>'
+
+    +'<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;line-height:2.3;">'
+    +word+'Who could cover</span>'+word+'<b style="color:var(--navy-2);">for</b></span>'
+    +'<input id="hwAskClient" list="hwClientList" placeholder="client name" autocomplete="off" '
+    +'value="'+esc(HW_ASK.clientName)+'" oninput="hwAskClient(this.value)" '
+    +'style="width:auto;min-width:210px;font-size:13.5px;padding:8px 12px;border-radius:9px;border:1px solid var(--cream-line);background:var(--cream);">'
+    +'<datalist id="hwClientList">'+opts+'</datalist>'
+    +'</div>'
+    +'<div style="font-size:12.5px;color:var(--text-dim);margin:2px 0 10px;">Optional. Ranks people who have worked with this client first.</div>'
+
+    +'<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;line-height:2.3;">'
+    +word+'<b style="color:var(--navy-2);">on</b></span>'
+    +HW_DAYS.map(function(d){ return chip('day',d[0],d[1],HW_ASK.days.has(d[0])); }).join('')
+    +'</div>'
+    +'<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;line-height:2.3;margin-top:6px;">'
+    +word+'<b style="color:var(--navy-2);">in the</b></span>'
+    +HW_WINS.map(function(w){ return chip('win',w[0],w[1],HW_ASK.wins.has(w[0])); }).join('')
+    +word+'<b style="color:var(--navy-2);">at</b></span>'
+    +'<select onchange="hwAskLevel(this.value)" style="width:auto;font-size:13.5px;padding:8px 12px;border-radius:9px;border:1px solid var(--cream-line);background:var(--cream);">'
+    +['','1','2','3'].map(function(v){
+        var t=v===''?'any care level':v==='1'?'Level 1 wellness':v==='2'?'Level 2 personal care':'Level 3 complex care';
+        return '<option value="'+v+'"'+(HW_ASK.level===v?' selected':'')+'>'+t+'</option>'; }).join('')
+    +'</select></div>'
+
+    +'<div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
+    +'<button class="cara-btn" onclick="hwMatch(this)">Show caregivers</button>'
+    +'<span id="hwAskNote" style="font-size:12.5px;color:var(--text-muted);"></span></div>'
+    +'<div id="mOut" style="margin-top:14px;"></div></div>';
+}
+async function hwAskOpen(){
+  HW_ASK.open=true; hwAskRender();
+  await hwAskClients();
+  if(HW_ASK.open) hwAskRender();
+}
 async function hwMatch(btn){
-  const days=[...document.querySelectorAll('.mDay:checked')].map(x=>x.value);
-  const wins=[...document.querySelectorAll('.mWin:checked')].map(x=>x.value);
-  const out=document.getElementById('mOut');
-  if(!days.length||!wins.length){ out.innerHTML='<div class="field-note" style="color:var(--red);">Tick at least one day and one time.</div>'; return; }
+  var days=[...HW_ASK.days], wins=[...HW_ASK.wins];
+  var out=document.getElementById('mOut'); if(!out) return;
+  if(!days.length||!wins.length){
+    out.innerHTML='<div style="font-size:13px;color:var(--red);">Pick at least one day and one time of day.</div>'; return;
+  }
   if(btn) btn.disabled=true;
-  out.innerHTML='<div class="field-note">matching against live AxisCare + availability…</div>';
+  out.innerHTML='<div style="font-size:13px;color:var(--text-muted);">Matching against AxisCare and availability on file...</div>';
   try{
     const { data:{ session } } = await sb.auth.getSession();
-    if(!session){ out.innerHTML='<div class="field-note">sign in again</div>'; return; }
-    const lvl=document.getElementById('mLevel').value;
+    if(!session){ out.innerHTML='<div style="font-size:13px;color:var(--text-muted);">Sign in again.</div>'; return; }
+    const body={ match:{ days:days, windows:wins, level:HW_ASK.level?Number(HW_ASK.level):null } };
+    if(HW_ASK.clientId) body.match.client_axiscare_id=HW_ASK.clientId;
     const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-shifts`,{
       method:'POST',
       headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
-      body:JSON.stringify({ match:{ days, windows:wins, level:lvl?Number(lvl):null } })});
+      body:JSON.stringify(body)});
     const res=await r.json().catch(()=>({}));
-    if(res.error){ out.innerHTML='<div class="field-note" style="color:var(--red);">'+esc(String(res.error))+'</div>'; return; }
+    if(res.error){ out.innerHTML='<div style="font-size:13px;color:var(--red);">'+esc(String(res.error))+'</div>'; return; }
     const m=res.matches||[];
-    out.innerHTML=(m.length
-      ? m.slice(0,12).map(x=>'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;">'
-        +'<b style="color:var(--navy);min-width:140px;">'+esc(x.name)+'</b>'
-        +'<span>covers <b>'+esc(x.covers)+'</b> of the asked slots</span>'
-        +(x.level!=null?'<span>Level '+esc(String(x.level))+'</span>':'<span class="field-note">level not classed</span>')
-        +(x.hours_short!=null?'<span style="font-weight:700;color:'+(x.hours_short>0?'#C0392B':'#1E8449')+';">'+(x.hours_short>0?x.hours_short+'h short of target':'at target')+'</span>':'')
-        +'<span class="field-note">'+esc(String(x.scheduled_next_week))+'h scheduled next wk</span>'
-        +(x.knows_client_visits?'<span style="font-weight:700;color:var(--teal);">knows this client ('+esc(String(x.knows_client_visits))+' visits)</span>':'')
-        +'</div>').join('')
-      : '<div class="field-note" style="padding:6px 0;">Nobody\'s stated availability covers that schedule yet.</div>')
+    /* Chip text is the endpoint's own vocabulary, verbatim. This is a
+       different ranking from Cara's coverage waves and does not borrow its
+       language: only "knows this client" is shared. */
+    out.innerHTML='<div style="font-size:12.5px;color:var(--text-muted);margin-bottom:9px;">'
+      +'Ranked by who knows the client, then coverage of the asked slots, then who most wants hours.</div>'
+      +(m.length? m.slice(0,12).map(function(x){
+        var chips=[];
+        if(x.knows_client_visits) chips.push('<span class="cara-rchip knows">knows this client ('+esc(String(x.knows_client_visits))+' visits)</span>');
+        chips.push('<span class="cara-rchip">covers '+esc(String(x.covers))+' of the asked slots</span>');
+        chips.push(x.level_unknown||x.level==null
+          ? '<span class="cara-rchip dim">level not classed</span>'
+          : '<span class="cara-rchip">Level '+esc(String(x.level))+'</span>');
+        if(x.hours_short!=null) chips.push(x.hours_short>0
+          ? '<span class="cara-rchip short">'+esc(String(x.hours_short))+'h short of target</span>'
+          : '<span class="cara-rchip at">at target</span>');
+        chips.push('<span class="cara-rchip">'+esc(String(x.scheduled_next_week))+'h scheduled, next 7 days</span>');
+        return '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border);">'
+          +'<b style="font-size:15px;font-weight:700;color:var(--navy);min-width:160px;">'+esc(x.name)+'</b>'
+          +chips.join('')+'</div>';
+      }).join('')
+      : '<div style="font-size:13.5px;color:var(--text-muted);padding:6px 0;">Nobody\'s stated availability covers that schedule yet.</div>')
       +((res.worth_asking_no_availability||[]).length
-        ? '<div class="field-note" style="margin-top:8px;">Worth asking (no availability on file): '
-          +res.worth_asking_no_availability.slice(0,10).map(x=>esc(x.name)).join(', ')+'</div>'
+        ? '<div style="font-size:13px;color:var(--text-muted);margin-top:11px;">No availability on file, still worth asking: '
+          +res.worth_asking_no_availability.slice(0,10).map(function(x){ return esc(x.name); }).join(', ')+'</div>'
         : '');
+    var note=document.getElementById('hwAskNote');
+    if(note) note.textContent=HW_ASK.clientId?'':'No client picked, so nobody is ranked by who knows them.';
   } finally { if(btn) btn.disabled=false; }
 }
+/* Caregiver hours. The gap is the point of the section, so it leads the row.
+   Both halves are 7-day spans and the copy says so. */
+function hwRender(){
+  var box=document.getElementById('hwList'); if(!box) return;
+  var av=DATA.caregiver_availability||[], roster=DATA.caregivers||[];
+  var now=Date.now();
+  var isNew=function(g){ var h=String(g.hire_date||''); return h&&(now-new Date(h+'T12:00:00').getTime())<60*864e5; };
+  var byAxis={}; roster.forEach(function(g){ if(g.axiscare_id) byAxis[String(g.axiscare_id)]=g; });
+  var WIN={morning:'mornings',afternoon:'afternoons',evening:'evenings',overnight:'overnights'};
+  var rows=[];
+  av.forEach(function(a){
+    var sched=HW_SCHED?(HW_SCHED[String(a.axiscare_id||'')]??0):null;
+    var gap=(sched==null||!Number.isFinite(Number(a.target_hours)))?null:(Number(a.target_hours)-sched);
+    var g=byAxis[String(a.axiscare_id||'')];
+    var wins=a.windows?Object.entries(a.windows).filter(function(e){ return e[1]&&e[1].length; })
+      .map(function(e){ return e[0].slice(0,1).toUpperCase()+e[0].slice(1,3)+' '+e[1].map(function(x){ return WIN[x]||x; }).join('/'); }).join(' · '):'';
+    rows.push({ name:a.name, target:a.target_hours, sched:sched, gap:gap, wins:wins,
+      isNew:g?isNew(g):false, updated:String(a.updated_at||'').slice(0,10) });
+  });
+  var haveAv=new Set(av.map(function(a){ return String(a.axiscare_id||''); }));
+  var noAv=roster.filter(function(g){ return g.active!==false&&g.axiscare_id&&!haveAv.has(String(g.axiscare_id)); });
+  rows.sort(function(x,y){ return ((y.gap??-999)-(x.gap??-999)); });
+
+  var h=rows.length?rows.map(function(r){
+    var band=(r.gap??0)>=8?'b3':(r.gap??0)>=4?'b2':'b1';
+    var gaptxt=r.gap==null?'?':(r.gap>0?(Math.round(r.gap*10)/10)+'h short':'at target');
+    return '<div class="card" style="padding:15px 20px;margin:0 0 9px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">'
+      +'<div class="cara-gap '+band+'">'+esc(gaptxt)+'</div>'
+      +'<div style="flex:1 1 320px;min-width:0;">'
+      +'<div style="font-size:16px;font-weight:700;color:var(--navy);">'+esc(r.name)
+      +(r.isNew?' <span class="cara-rchip" style="background:var(--honey-chip);border-color:var(--honey);color:var(--honey-ink);font-weight:700;">New hire</span>':'')+'</div>'
+      +'<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;">wants <b>'+esc(String(r.target))+'h a week</b>'
+      +' · <b>'+(r.sched==null?'?':esc(String(r.sched)))+'h scheduled, next 7 days</b></div>'
+      +(r.wins?'<div style="font-size:13px;color:var(--text-dim);margin-top:3px;">'+esc(r.wins)+'</div>':'')
+      +'</div>'
+      +'<span class="cara-mono">availability updated '+esc(r.updated||'?')+'</span></div>';
+  }).join('')
+  : '<div class="card" style="padding:22px 24px;font-size:14px;color:var(--text-muted);">Nobody has filled in their availability yet. Text caregivers the link: <b>cc.mo-care.com/availability</b></div>';
+
+  /* Promoted from a grey footnote: these people cannot be matched at all,
+     which is a bigger ask than any gap. */
+  if(noAv.length){
+    h+='<div class="card" style="padding:18px 22px;margin:14px 0 0;border-left:3px solid var(--honey);">'
+      +'<div style="font-size:15.5px;font-weight:700;color:var(--navy);">'+noAv.length
+      +' caregiver'+(noAv.length===1?' has':'s have')+' no availability on file</div>'
+      +'<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;">They cannot be matched to a new client at all.</div>'
+      +'<div style="font-size:13.5px;color:var(--navy-2);margin-top:7px;">'
+      +noAv.slice(0,15).map(function(g){ return esc(((g.first||'')+' '+(g.last||'')).trim()); }).join(', ')
+      +(noAv.length>15?', and '+(noAv.length-15)+' more':'')+'</div>'
+      +'<div style="margin-top:12px;"><button class="cara-btn ghost" onclick="hwInvite(this)">Text the availability link</button></div></div>';
+  }
+  box.innerHTML=h;
+}
+
 async function hwInvite(btn){
   const st=document.getElementById('hwState');
   if(!confirm('Text the availability link to every active caregiver who has nothing on file (up to 20 per press, never nurses, nobody twice in 30 days)? Sends only between 10am and 5pm.')) return;
@@ -27069,6 +27340,10 @@ window.covLoadShifts=function(){};
         if(typeof CC_GROUPS!=='undefined' && CC_GROUPS[h]){ ccGroupClick(h); ok=true; }
         else if(document.getElementById('tab-'+h)){ switchTab(h); ok=true; }
       }catch(e){}
+      /* A bare #cara means the command-centre home, so a filter left behind
+         by #cara/history does not silently persist. Deep routes are handled
+         above and set their own filter, so this never runs for them. */
+      if(ok && h==='coverage' && typeof caraResetBoard==='function') caraResetBoard();
     }
     // Focused section mode: inside GHL each section has its own sidebar link,
     // so the hub's own section bar is redundant — show only this section.
@@ -27195,6 +27470,108 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
   position:relative !important;
   z-index:2 !important;
 }
+
+/* ===================== CARA SCOPE =====================
+   Presentation only, for the three Scheduling panels. Layer 1 redefines the
+   Hub variables ON THESE PANELS ONLY, so every inline style already written
+   as var(--navy) etc. picks up the Cara palette with no markup change and no
+   possible reach into any other tab. Layer 2 carries what variables cannot:
+   radius, shadow, type and the components the design introduces.
+   Nothing here changes :root, a shared component's base rule, or any engine
+   call, data key, gate or threshold.
+   ====================================================== */
+#tab-coverage, #tab-hourswatch, #tab-evv{
+  --navy:#12395F; --navy-2:#2C4462;
+  --border:#EAE3D6;
+  --text:#1B2B3D; --text-muted:#5A6B80; --text-dim:#8A96A5;
+  --green:#0B5E58; --green-bg:#E7F1EF; --teal:#0F7A73; --teal-line:#CADDD9;
+  --amber:#B15A12; --amber-bg:#FFF4E3; --honey-ink:#8A4E0C;
+  --honey:#E0A855; --honey-soft:#FFFCF5; --honey-chip:#F7E7CD;
+  --red:#96271C; --red-bg:#FDECEA; --red-ground:#FFF8F7; --red-line:#E9B4AE;
+  --gold:#E0A855; --gold-text:#B15A12;
+  --cream:#FAF6EF; --cream-line:#E0D6C4; --neutral:#F5F1EA; --neutral-2:#EDE7DA;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --mono-ink:#8A8271;
+  --cara-shadow:0 2px 10px rgba(122,85,30,0.07);
+  background:var(--cream);
+  font-family:'Figtree','Public Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  /* Full bleed: these offsets MUST mirror main's own padding (20px 26px at
+     desktop, 12px under 720px) or the panel overflows its container. */
+  margin:0 -26px; padding:18px 26px 26px;
+}
+#tab-coverage .card, #tab-hourswatch .card, #tab-evv .card{
+  border-radius:16px; box-shadow:var(--cara-shadow); border-color:var(--border);
+}
+#tab-coverage h2, #tab-hourswatch h2, #tab-evv h2{ font-size:25px; }
+#tab-coverage .field-note, #tab-hourswatch .field-note, #tab-evv .field-note{ color:var(--text-muted); }
+
+/* mono role: timestamps, AxisCare IDs, source strip */
+.cara-mono{ font-family:var(--mono); font-size:12.5px; color:var(--mono-ink); letter-spacing:-0.01em; }
+
+/* metric card */
+.cara-metric{ background:#fff; border:1px solid var(--border); border-radius:16px;
+  padding:18px 20px; box-shadow:var(--cara-shadow); }
+.cara-metric .k{ font-size:11.5px; font-weight:800; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--text-dim); }
+.cara-metric .v{ font-size:36px; font-weight:800; line-height:1.05; margin:6px 0 2px;
+  color:var(--navy); letter-spacing:-0.02em; }
+.cara-metric .s{ font-size:13px; color:var(--text-muted); }
+.cara-metric.attn{ background:var(--honey-soft); border:1.5px solid var(--honey); }
+.cara-metric.attn .v{ color:var(--amber); }
+.cara-metric.attn .s{ color:var(--honey-ink); }
+
+/* attention card */
+.cara-attn{ background:#fff; border:1.5px solid var(--honey); border-radius:16px;
+  padding:22px 24px; box-shadow:var(--cara-shadow); }
+
+/* state pill */
+.cara-pill{ border-radius:999px; padding:6px 13px; font-size:12.5px; font-weight:700;
+  display:inline-block; white-space:nowrap; }
+.cara-pill.calm{ background:var(--green-bg); color:var(--green); }
+.cara-pill.work{ background:var(--amber-bg); color:var(--honey-ink); }
+.cara-pill.alarm{ background:var(--red-bg); color:var(--red); }
+.cara-pill.flat{ background:var(--neutral); color:#6B7484; }
+
+/* matcher chip: unselected cream, selected navy, so the asked set is legible */
+.cara-chip{ border-radius:9px; padding:8px 13px; font-size:13.5px; font-weight:600;
+  background:var(--cream); border:1px solid var(--cream-line); color:var(--navy-2);
+  cursor:pointer; display:inline-block; user-select:none; }
+.cara-chip.on{ background:var(--navy); border-color:var(--navy); color:#fff; font-weight:700; }
+.cara-rchip{ border-radius:999px; padding:4px 11px; font-size:12.5px; font-weight:600;
+  background:var(--cream); border:1px solid #EFE7D9; color:var(--navy-2); display:inline-block; }
+.cara-rchip.knows{ background:var(--green-bg); border-color:var(--teal-line); color:var(--green); font-weight:700; }
+.cara-rchip.short{ background:var(--amber-bg); border-color:var(--honey); color:var(--honey-ink); font-weight:700; }
+.cara-rchip.at{ background:var(--green-bg); border-color:var(--teal-line); color:var(--green); font-weight:700; }
+.cara-rchip.dim{ background:var(--neutral); border-color:var(--neutral-2); color:#6B7484; }
+
+/* hours gap block, the strongest element in the row */
+.cara-gap{ border-radius:11px; padding:11px 16px; font-size:19px; font-weight:800;
+  white-space:nowrap; text-align:center; min-width:104px; }
+.cara-gap.b3{ background:var(--amber-bg); border:1.5px solid var(--honey); color:var(--amber); }
+.cara-gap.b2{ background:var(--honey-soft); border:1px solid #E7C089; color:var(--honey-ink); }
+.cara-gap.b1{ background:var(--green-bg); border:1px solid var(--teal-line); color:var(--green); }
+
+/* buttons inside the scope */
+#tab-coverage .cara-btn, #tab-hourswatch .cara-btn, #tab-evv .cara-btn{
+  background:var(--navy); color:#fff; border:none; border-radius:10px;
+  padding:11px 18px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer; }
+#tab-coverage .cara-btn.ghost, #tab-hourswatch .cara-btn.ghost, #tab-evv .cara-btn.ghost{
+  background:#fff; color:var(--navy); border:1px solid var(--cream-line); }
+
+/* framed external application: the strip names the source rather than
+   pretending the content is native */
+.cara-frame{ background:#fff; border:1px solid var(--border); border-radius:16px;
+  overflow:hidden; box-shadow:var(--cara-shadow); }
+.cara-strip{ background:var(--cream); border-bottom:1px solid var(--border);
+  padding:11px 18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+@media(max-width:720px){
+  #tab-coverage, #tab-hourswatch, #tab-evv{ margin:0 -12px; padding:14px 12px 22px; }
+  .cara-metric .v{ font-size:30px; }
+  .cara-gap{ min-width:0; }
+}
+/* =================== END CARA SCOPE =================== */
+@keyframes caraspin{to{transform:rotate(360deg);}}
 </style>
 </body>
 </html>
