@@ -167,12 +167,18 @@ id), so the matcher chip reads "Xh scheduled · next 7 days". The picker's
 `days` parameter means the TOTAL number of local calendar dates returned,
 including today (default 14).
 
-Recorded follow-up, not yet built: AxisCare returns 404 when a picker query
-matches zero visits (pre-existing; the Hub shows "Could not load shifts:
-AxisCare responded 404"). Before converting that to an empty `shifts: []`,
-coverage-shifts must learn to distinguish a no-matching-visits 404 from a
-genuine request or resource error - never assume every 404 means zero
-results.
+Picker 404 semantics (closed 2026-09-16): AxisCare's visits endpoint
+returns the identical 404 "No visits found" for BOTH a valid caregiver
+with zero matching visits AND a nonexistent caregiver id (probed), so the
+visits response can never distinguish the two and body-message matching
+must never be used. The picker therefore confirms caregiver existence
+independently (GET /api/caregivers/{id}: 200 + results for a valid
+caregiver, explicit 404 for a nonexistent one) before treating an initial
+visits 404 as an empty result. Confirmed valid + empty returns
+`shifts: []` (the Hub's ordinary "No upcoming shifts..." state); a
+confirmed-missing caregiver stays an error; any unverifiable state (auth,
+5xx, network, malformed) fails closed into an error. Uncertainty is never
+an empty list.
 
 ## The Schedule Watch tab
 
