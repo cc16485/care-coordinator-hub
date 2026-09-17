@@ -11127,13 +11127,27 @@ function openClientHistory(key){
       &&((rec.axiscare_client_id&&String(r.axiscare_client_id)===String(rec.axiscare_client_id))||nk(r.client_name)===nk(rec.client_name)))
     .sort((a,b)=>String(b.at).localeCompare(String(a.at)));
   const LVL={1:'L1 · Wellness',2:'L2 · Personal Care',3:'L3 · Advanced Care'};
-  document.getElementById('clientHistoryCarePlans').innerHTML = cprs.length
+  // Custom updates texted to the client's caregivers join the story too —
+  // one line per send (they're logged per caregiver, so group by day+text).
+  const updGroups={};
+  (DATA.care_plan_reviews||[]).filter(r=>r.kind==='update'
+      &&((rec.axiscare_client_id&&String(r.client_key||'')==='ax:'+String(rec.axiscare_client_id))||nk(r.client_name)===nk(rec.client_name)))
+    .forEach(u=>{ const g=String(u.at).slice(0,10)+'|'+String(u.message||'');
+      (updGroups[g]=updGroups[g]||{at:u.at,message:u.message,by:u.by,cgs:[]}).cgs.push(u.caregiver); });
+  const updRows=Object.values(updGroups).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  const updHtml=updRows.length
+    ? '<div style="font-size:.78rem;font-weight:700;color:var(--navy);margin:.7rem 0 .3rem">📢 Updates texted to the caregivers</div>'
+      +updRows.map(g=>'<div style="font-size:.78rem;padding:.25rem 0;border-bottom:1px dashed var(--border)">'
+        +'<b>'+String(g.at).slice(0,10)+'</b> · “'+esc2(String(g.message||'').slice(0,200))+'” · sent to '+g.cgs.length+': '+esc2(g.cgs.join(', '))
+        +(g.by?' · by '+esc2(g.by):'')+'</div>').join('')
+    : '';
+  document.getElementById('clientHistoryCarePlans').innerHTML = (cprs.length
     ? '<table><thead><tr><th>Date</th><th>Method</th><th>Level</th><th>Changes</th><th>Plan updated</th></tr></thead><tbody>'
       +cprs.map(r=>'<tr><td>'+String(r.at).slice(0,10)+'</td><td>'+esc2(r.method||'')+'</td><td>'+(LVL[r.care_level]||'—')+'</td>'
         +'<td>'+((r.flags||[]).map(esc2).join(', ')||'none')+'</td>'
         +'<td>'+(r.changes_needed?(r.plan_updated?'✅':'<span class="badge bad">not yet</span>'):'—')+'</td></tr>').join('')
       +'</tbody></table>'
-    : '<div class="empty">No care plan reviews yet.</div>';
+    : (updRows.length?'':'<div class="empty">No care plan reviews yet.</div>'))+updHtml;
   const cms=(DATA.client_checkins||[]).filter(c=>c.client&&c.caregiver&&nk(c.client)===nk(rec.client_name))
     .sort((a,b)=>String(b.at).localeCompare(String(a.at)));
   const RATE2={love:'⭐ They love them',good:'👍 Going fine',concern:'🚩 Concerns'};
@@ -26832,7 +26846,27 @@ function renderNurseVisits(){
         else failed.push(cg);
       }catch(e){ failed.push(cg); }
     }
+    // The send is part of the client's record: note it on their AxisCare
+    // profile (same path the flagged-changes note uses), so anyone opening
+    // the client sees what went out, to whom, and when.
+    let noted=false;
+    if(sent.length&&c.axisId&&(CONFIG.training_hub_key||'').trim()){
+      try{
+        let by=''; try{ by=(ME&&ME.name)||''; }catch(e){}
+        const note='UPDATE TEXTED TO CAREGIVERS ('+today()+')\n'
+          +'"'+msg+'"\n'
+          +'Sent to: '+sent.join(', ')
+          +(noPhone.length?'\nNo phone on file (send manually): '+noPhone.map(p=>p.caregiver).join(', '):'')
+          +'\n— '+(by||'coordinator')+', Caring Companions hub';
+        const nr=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
+          method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+          body:JSON.stringify({key:CONFIG.training_hub_key, action:'client_note', client_id:c.axisId, note})});
+        noted=nr.ok;
+      }catch(e){}
+    }
     let report='📢 Update sent to '+sent.length+' of '+withPhone.length+' caregiver'+(withPhone.length===1?'':'s')+'.';
+    if(noted) report+='\n\n📝 Noted on '+c.name+'\'s AxisCare profile (what was sent, to whom, and when). It\'s also in their History here in the hub.';
+    else if(sent.length) report+='\n\n📝 Saved to '+c.name+'\'s History here in the hub.'+(c.axisId?' (Could not reach AxisCare to add the profile note.)':' (No AxisCare ID on file, so no profile note.)');
     if(failed.length) report+='\n\n⚠ Could not send to: '+failed.join(', ')+'. Try again in a minute or text them from your phone.';
     if(noPhone.length){
       try{ await navigator.clipboard.writeText('Update about '+c.name+': '+msg+' — Caring Companions'); }catch(e){}
