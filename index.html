@@ -4440,7 +4440,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-body">
 <div class="guide-step"><span class="num">💡</span><b>Why this exists:</b> clients decline faster than paperwork. A fill-in caregiver who walks in trusting a plan that says "walker" when the client now needs a Hoyer lift is a safety incident waiting to happen. So every active client's care plan gets confirmed <b>every 30 days</b>, no exceptions.</div>
 <div class="guide-step"><span class="num">1</span><b>Work the board top-down.</b> Overdue and never-reviewed clients float to the top in red. A review can be an in-person visit, a phone call with the client or family, or a caregiver check, whichever fits the month, as long as someone who has actually seen the client confirms the plan.</div>
-<div class="guide-step"><span class="num">2</span><b>Ask the people on the shifts.</b> "Ask caregivers" lists every caregiver who worked with that client in the last 60 days (live from AxisCare) and texts them the check question with one click. They see the decline first, weeks before anyone in the office does.</div>
+<div class="guide-step"><span class="num">2</span><b>Ask the people on the shifts.</b> "Ask caregivers" lists every caregiver who worked with that client in the last 60 days (live from AxisCare) and texts them the check question with one click. They see the decline first, weeks before anyone in the office does. The same panel can also send a <b>custom update</b> in your own words to everyone on that client's shifts (a new address, a schedule note, an equipment change) without logging it as a plan check.</div>
 <div class="guide-step"><span class="num">3</span><b>Log what you learned and set the Level.</b> Every client is Level 1 (Wellness), Level 2 (Personal Care), or Level 3 (Advanced Care). If anything changed, mobility, overnight expectations, meds, equipment, flag it. A changed answer isn't done until the plan in AxisCare is actually updated, the board holds a red "plan not updated yet" until you mark it.</div>
 <div class="guide-step flag"><span class="num">!</span>A Level change is a scheduling event, not just paperwork: a Level 3 client needs Level 3-capable caregivers on every shift, including fill-ins. When you bump a level, tell scheduling the same day.</div>
 </div>
@@ -26561,6 +26561,7 @@ function renderNurseVisits(){
 
   const reviews=()=>(DATA.care_plan_reviews||[]).filter(r=>r.kind==='review');
   const asks=()=>(DATA.care_plan_reviews||[]).filter(r=>r.kind==='ask');
+  const updates=()=>(DATA.care_plan_reviews||[]).filter(r=>r.kind==='update');
 
   /* The client list comes from AXISCARE, the system of record: every client
      with a completed visit in the last 60 days (the pairs feed carries real
@@ -26740,21 +26741,33 @@ function renderNurseVisits(){
     if(!(CONFIG.training_hub_key||'').trim()){ el.innerHTML='<span style="font-size:.8rem;color:#b45309">Paste the Training Hub read key into ⚙️ Settings to load caregivers.</span>'; return; }
     if(!mine.length){ el.innerHTML='<span style="font-size:.8rem;color:var(--text-muted)">No scheduled visits found for this client in the last 60 days.</span>'; return; }
     const asked=asks().filter(a=>(a.client_key||'')===key);
+    const updated=updates().filter(u=>(u.client_key||'')===key);
+    const phoneCount=mine.filter(p=>CG_PHONES[String(p.caregiver||'').trim().toLowerCase()]).length;
     el.innerHTML='<div style="font-size:.72rem;font-weight:700;color:var(--text-muted);margin-bottom:.35rem">Caregivers on '+E(c.name)+'\'s shifts, last 60 days — one tap asks the care plan question:</div>'
       +mine.map(p=>{
         const cg=String(p.caregiver||'').trim();
         const phone=CG_PHONES[cg.toLowerCase()]||'';
         const lastAsk=asked.filter(a=>a.caregiver===cg).sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0];
         const askedNote=lastAsk?'<span style="font-size:.68rem;color:#1E8449">✓ asked '+String(lastAsk.at).slice(0,10)+'</span>':'';
+        const lastUpd=updated.filter(u=>u.caregiver===cg).sort((a,b)=>String(b.at).localeCompare(String(a.at)))[0];
+        const updNote=lastUpd?'<span style="font-size:.68rem;color:#1D6FA5" title="'+E(String(lastUpd.message||'').slice(0,180))+'">📢 update '+String(lastUpd.at).slice(0,10)+'</span>':'';
         return '<div style="display:flex;align-items:center;gap:.6rem;padding:.3rem 0;flex-wrap:wrap;font-size:.82rem">'
           +'<b style="min-width:150px">'+E(cg)+'</b>'
           +'<span style="font-size:.7rem;color:var(--text-muted)">'+p.visits+' shift'+(p.visits===1?'':'s')+' · last '+E(p.last_date||'')+'</span>'
-          +askedNote
+          +askedNote+updNote
           +'<span style="flex:1"></span>'
           +(phone?'<button class="primary" style="font-size:.7rem" onclick="cpTextCg(\''+E(key)+'\','+A2(cg)+','+A2(phone)+','+A2(c.name)+')">📱 Text the check</button>'
                  :'<button style="font-size:.7rem" onclick="cpCopyAsk('+A2(cg)+','+A2(c.name)+',\''+E(key)+'\')" title="No phone on file in the hub — copies the message to paste anywhere">📋 Copy ask</button>')
           +'</div>';
-      }).join('');
+      }).join('')
+      +'<div style="margin-top:.55rem;border-top:1px dashed var(--border);padding-top:.55rem">'
+      +'<div style="font-size:.72rem;font-weight:700;color:var(--text-muted);margin-bottom:.3rem">📢 Send a custom update to all '+mine.length+' caregiver'+(mine.length===1?'':'s')+' on '+E(c.name)+'\'s shifts</div>'
+      +'<textarea id="cp-cust-'+E(key)+'" rows="2" placeholder="e.g. Starting Monday, please park on the street, not in the driveway. The family is having the driveway resealed this week." style="resize:vertical;width:100%;font-size:.82rem"></textarea>'
+      +'<div style="display:flex;align-items:center;gap:.6rem;margin-top:.35rem;flex-wrap:wrap">'
+      +'<button class="primary" style="font-size:.72rem" onclick="cpSendUpdate(\''+E(key)+'\')">📱 Text all '+(phoneCount<mine.length?phoneCount+' with a phone on file':phoneCount)+'</button>'
+      +'<span style="font-size:.68rem;color:var(--text-muted)">Each text is sent as: Hi (first name)! Update about '+E(c.name)+': your message. Caring Companions'
+      +(phoneCount<mine.length?' · '+(mine.length-phoneCount)+' caregiver'+(mine.length-phoneCount===1?' has':'s have')+' no phone on file, you\'ll get the message copied to paste from your own phone.':'')+'</span>'
+      +'</div></div>';
   }
   function A2(s){ return "'"+String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;')+"'"; }
   function askText(cgFirst,client){
@@ -26776,6 +26789,57 @@ function renderNurseVisits(){
       if(d&&d.status==='sent'){ await logAsk(key,client,cg,'sms'); renderAskInto(key); cpRender(); }
       else alert('Could not send: '+((d&&d.error)||'unknown error')+'\n\nUse 📋 Copy ask instead and send it from your phone.');
     }catch(e){ alert('Could not reach the messaging service — check your connection.'); }
+  };
+  async function logUpdate(key,client,cg,via,msg){
+    let by=''; try{ by=(ME&&ME.name)||''; }catch(e){}
+    const u={ kind:'update', id:'cpu'+Date.now()+Math.random().toString(36).slice(2,5), client_key:key, client_name:client,
+      caregiver:cg, via, message:String(msg||'').slice(0,300), at:new Date().toISOString(), by };
+    DATA.care_plan_reviews.push(u);
+    await persist('care_plan_reviews', u);
+  }
+  /* Custom update to everyone on this client's shifts — same caregiver list
+     and the same secured GHL send as the care plan check, but the message
+     is the coordinator's own words (new address, schedule note, equipment
+     change). Logged as kind 'update' so it never counts as a plan check. */
+  window.cpSendUpdate=async function(key){
+    const box=document.getElementById('cp-cust-'+key); if(!box) return;
+    const msg=box.value.trim();
+    if(!msg){ alert('Type the update first, then send.'); return; }
+    const c=clientRows(true).find(x=>x.key===key); if(!c) return;
+    const mine=(PAIRS||[]).filter(p=> c.axisId ? String(p.client_id)===String(c.axisId)
+      : String(p.client||'').trim().toLowerCase()===String(c.name||'').trim().toLowerCase());
+    if(!mine.length){ alert('No caregivers found for this client in the last 60 days.'); return; }
+    const withPhone=mine.filter(p=>CG_PHONES[String(p.caregiver||'').trim().toLowerCase()]);
+    const noPhone=mine.filter(p=>!CG_PHONES[String(p.caregiver||'').trim().toLowerCase()]);
+    if(!withPhone.length&&noPhone.length){
+      try{ await navigator.clipboard.writeText('Update about '+c.name+': '+msg+' — Caring Companions'); }catch(e){}
+      alert('None of '+c.name+'\'s caregivers have a phone on file in the hub. The message is copied, paste it into a text from your own phone to: '+noPhone.map(p=>p.caregiver).join(', '));
+      return;
+    }
+    if(!confirm('Send this to '+withPhone.length+' caregiver'+(withPhone.length===1?'':'s')+' on '+c.name+'\'s shifts?\n\n"'+msg+'"'
+      +(noPhone.length?'\n\n('+noPhone.length+' more '+(noPhone.length===1?'has':'have')+' no phone on file, you\'ll get a copy to send yourself.)':''))) return;
+    const sent=[], failed=[];
+    for(const p of withPhone){
+      const cg=String(p.caregiver||'').trim(), first=cg.split(' ')[0]||cg;
+      const phone=CG_PHONES[cg.toLowerCase()];
+      try{
+        const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
+          method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+          body:JSON.stringify({key:CONFIG.training_hub_key, action:'send_sms', phone, first_name:first,
+            message:'Hi '+first+'! Update about '+c.name+': '+msg+' — Caring Companions'})});
+        const d=await r.json();
+        if(d&&d.status==='sent'){ sent.push(cg); await logUpdate(key,c.name,cg,'sms',msg); }
+        else failed.push(cg);
+      }catch(e){ failed.push(cg); }
+    }
+    let report='📢 Update sent to '+sent.length+' of '+withPhone.length+' caregiver'+(withPhone.length===1?'':'s')+'.';
+    if(failed.length) report+='\n\n⚠ Could not send to: '+failed.join(', ')+'. Try again in a minute or text them from your phone.';
+    if(noPhone.length){
+      try{ await navigator.clipboard.writeText('Update about '+c.name+': '+msg+' — Caring Companions'); }catch(e){}
+      report+='\n\n📋 No phone on file for: '+noPhone.map(p=>p.caregiver).join(', ')+'. The message is copied, paste it into a text from your own phone.';
+    }
+    alert(report);
+    renderAskInto(key); cpRender();
   };
   window.cpCopyAsk=async function(cg,client,key){
     const first=cg.split(' ')[0]||cg;
