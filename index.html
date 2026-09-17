@@ -3775,7 +3775,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div class="jo-sec">
           <h4>The job</h4>
           <div class="grid2">
-            <div><label>Position</label><select id="jo_position" onchange="joSyncPlan()"><option>Caregiver</option><option>Live-In Caregiver</option><option>CNA</option><option>LPN</option><option>RN</option><option>Office</option></select></div>
+            <div><label>Position</label><select id="jo_position" onchange="joSyncPlan()"><option>Caregiver</option><option>CNA</option><option>LPN</option><option>RN</option><option>Office</option></select></div>
             <div><label>Interview date</label><input id="jo_date" type="date"></div>
           </div>
           <div class="grid2">
@@ -5362,10 +5362,9 @@ The HomeTogether team</pre>
           <tr><td>Personal Care</td><td>from $32/hr</td></tr>
           <tr><td>Advanced Care</td><td>from $34/hr</td></tr>
           <tr><td>24-Hour Care</td><td>$28–$32/hr</td></tr>
-          <tr><td>Live-In Care</td><td>$450/day*</td></tr>
           <tr><td>HomeTogether virtual check-ins</td><td>from $75/mo</td></tr>
         </table>
-        <p class="pb2-note">*Live-In includes a $25/day caregiver meal fee. These are the only published rates — quote them exactly, never invent others.</p>
+        <p class="pb2-note">These are the only published rates — quote them exactly, never invent others.</p>
         <p class="pb2-kv"><b>Best for:</b> families who need to start now with no eligibility wait, want flexibility, or don't qualify for a program. <b>Lead with:</b> our caregivers are screened, insured W-2 employees, backed by 24/7 support and backup coverage.</p>
       </details>
 
@@ -5822,7 +5821,6 @@ The HomeTogether team</pre>
 <label><input type="checkbox" value="housekeeping"> Housekeeping</label>
 <label><input type="checkbox" value="respite"> Respite Care</label>
 <label><input type="checkbox" value="overnight"> Overnight Care</label>
-<label><input type="checkbox" value="liveIn"> Live-in Care</label>
 <label><input type="checkbox" value="cds"> CDS</label>
 <label><input type="checkbox" value="va"> VA</label>
 <label><input type="checkbox" value="privatePay"> Private Pay</label>
@@ -8358,7 +8356,6 @@ const LP_ATTRS = [
   ['gait_belt','Gait Belt','Client requires gait belt assistance.',false],
   ['hospice','Hospice','Client is receiving hospice or end-of-life services.',false],
   ['hoyer_lift','Hoyer Lift','Client requires Hoyer lift experience.',false],
-  ['live_in','Live-In','Client requires live-in caregiving services.',false],
   ['male_caregiver','Male Caregiver','Client prefers or requires a male caregiver.',true],
   ['parkinsons',"Parkinson's Disease Experience","Client would benefit from a caregiver with Parkinson's experience.",true],
   ['payor_medicaid','Payor - Medicaid','Client is (or will be) a Medicaid IHS client.',false],
@@ -9920,7 +9917,6 @@ Specialty:
 Dementia & Alzheimer's care
 Respite for family caregivers
 Overnight care
-Live-in care
 Hospital-to-home recovery`;
 function ckptServicesHtml(text){
   return String(text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(line=>
@@ -13930,7 +13926,7 @@ const JO_ATTRS=[
   ['alzheimers',"Alzheimer's Disease"],['bed_bound','Bed Bound'],['cats','Cats'],
   ['dementia','Dementia'],['dogs','Dogs'],['female_caregiver','Female Caregiver'],
   ['gait_belt','Gait Belt'],['hospice','Hospice'],['hoyer_lift','Hoyer Lift'],
-  ['live_in','Live-In'],['male_caregiver','Male Caregiver'],['parkinsons',"Parkinson's Experience"],
+  ['male_caregiver','Male Caregiver'],['parkinsons',"Parkinson's Experience"],
   ['payor_medicaid','Payor - Medicaid'],['payor_private_pay','Payor - Private Pay'],
   ['personal_care','Personal Care'],['smoking','Smoking'],
   ['spanish_speaking','Spanish Speaking'],['transportation','Transportation'],
@@ -14063,7 +14059,6 @@ function joPreviewMsgs(){
    position falls through to Default, which is the current behaviour. */
 const JO_PLAN_BY_POSITION = {
   // 'Caregiver':         'Caregiver (Default)',
-  // 'Live-In Caregiver': 'Live-In Caregiver',
   // 'CNA':               'CNA',
   // 'LPN':               'LPN',
   // 'RN':                'RN',
@@ -14496,8 +14491,8 @@ async function pbLoad(btn){
 /* The same people who could always approve a rate. */
 const pbCanSetPay = () => (typeof ccCan === 'function') ? ccCan('manage_rates') : false;
 const pbMoney = v => (v===null||v===undefined||v==='') ? '' : '$'+Number(v).toFixed(2).replace(/\.00$/,'');
-/* Live-in is paid by the day, so the unit belongs to the role and everything
-   that quotes a rate asks for it rather than assuming an hour. */
+/* Some roles are paid by the day, so the unit belongs to the role and
+   everything that quotes a rate asks for it rather than assuming an hour. */
 const PB_UNITS = { HOUR:['/hr',' an hour','$/hr'], DAY:['/day',' a day','$/day'],
                    WEEK:['/wk',' a week','$/wk'], YEAR:['/yr',' a year','$/yr'] };
 const pbUnit  = (p,i) => (PB_UNITS[p.pay_unit || 'HOUR'] || PB_UNITS.HOUR)[i||0];
@@ -15994,7 +15989,7 @@ function apToOffer(id, answers){
       const yes = v => v==='yes' || v==='outside';
       const map = {
         dogs: yes(A.dogs), cats: yes(A.cats), smoking: yes(A.client_smokes),
-        live_in: A.live_in==='yes', transportation: A.drive_clients==='yes',
+        transportation: A.drive_clients==='yes',
         personal_care: (A.skills||{}).personal_care && (A.skills||{}).personal_care!=='none',
         dementia: (A.skills||{}).dementia && (A.skills||{}).dementia!=='none',
         alzheimers: (A.skills||{}).dementia && (A.skills||{}).dementia!=='none',
@@ -17101,7 +17096,6 @@ const AP_QS = [
   ['insurance',    'Car insurance with their name on it?',         AP_YN],
   ['drive_clients','Willing to drive clients?',                    AP_YN],
   ['mvr',          'Clear driving record, and willing to keep it?',AP_YN],
-  ['live_in',      'Open to live-in work?',                        AP_YN],
   /* They answered this on the form. Asking again face to face is the point:
      "yes" typed at 11pm and "yes" said out loud are different promises. */
   ['build_up',     'Would they start on fewer hours and build up?', AP_YN],
