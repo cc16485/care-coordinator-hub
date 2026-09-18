@@ -4348,7 +4348,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-step"><span class="num">⭐</span><b>Favorite:</b> the client loved them. Mark the caregiver as a preferred caregiver on the client's AxisCare profile so scheduling pairs them first from now on. A fill-in who clicks is a long-term match found for free.</div>
 <div class="guide-step"><span class="num">💬</span><b>Coaching:</b> something small ("she likes the dishes hand-dried," "he wants the TV on for lunch"). Pass it to the caregiver kindly, it's a preference, not a write-up, and put it on their AxisCare record with one click below so it's never lost. Small coaching is what turns a fine match into a favorite.</div>
 <div class="guide-step"><span class="num">🚫</span><b>Exclusion:</b> the client doesn't want them back. Logging it here puts it straight on the permanent Do-Not-Return log, then enter the exclusion in AxisCare so the schedule physically can't pair them again.</div>
-<div class="guide-step"><span class="num">1</span><b>After the first shift:</b> any caregiver whose first visit with a client was in the last two weeks gets a call within a day or two. These are the calls that save clients.</div>
+<div class="guide-step"><span class="num">1</span><b>After the first shift:</b> the morning after a brand-new match's first shift, the hub texts the caregiver automatically ("how did your first shift with ___ go?") and emails the coordinators/admins that a check-in call is due. <b>The client's side is your call</b>, on purpose: a family talks to a person, never a robot. That call within a day or two is the one that saves clients.</div>
 <div class="guide-step"><span class="num">2</span><b>One good-fit follow-up about a month later:</b> "still going well with ___?" If yes, that match is set: no more scheduled calls. Only a 🚩 concerns call brings a pair back on the list (re-check about a week later to make sure it got fixed). Long-standing match from before this tab existed? Click "known good match ✓" on its row instead of calling, it clears without a call.</div>
 <div class="guide-step"><span class="num">☎️</span>A script that works: <i>"Hi, this is ___ from Caring Companions, just checking in. How did things go with [caregiver] this week? Anything they could do differently that would make it even better?"</i> That last question is where the gold is.</div>
 </div>
@@ -12670,6 +12670,19 @@ const AUTO_GROUPS = [
       how: '—',
       says: 'The number goes. Everything else on the form stays.',
       note: 'The start form promises this. This is the thing that keeps the promise.' },
+  ]},
+
+  { who: 'When a caregiver works a first shift with a client', items: [
+    { name: 'How did your first shift go?',
+      when: 'The next morning, between 8 and 9am',
+      how: 'Text, to the caregiver',
+      says: '"How did your first shift with ___ go? Reply right here with how it went and anything we should know to make it a great match."',
+      note: 'Their reply lands in the team inbox like any other text. One text per new match, ever.' },
+    { name: 'A check-in call is due',
+      when: 'The same morning',
+      how: 'Email, to the coordinators and admins on the Morning Brief list',
+      says: 'Every brand-new client and caregiver match from yesterday, with a link to the Care Match board to log the calls.',
+      note: 'The client is never messaged automatically. Their side of the check-in is always a person calling them.' },
   ]},
 
   { who: 'Quietly, in the background', items: [
@@ -27386,8 +27399,15 @@ window.covLoadShifts=function(){};
     if(!PAIRS.length){ box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">No scheduled visits found in the last 60 days.</div>'; return; }
     const fmt=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
     const rank=i=>i.due==='concern'?0:i.due==='first'&&i.newPair?1:i.due==='first'?2:i.due==='fit'?3:4;
-    const rows=PAIRS.map(p=>({p,i:pairInfo(p)}))
+    /* Done matches leave the board (2026-09-18): only pairs with a call due
+       stay up top. A cleared pair returns only if a call raises concerns;
+       its record still lives in the history below. */
+    const everything=PAIRS.map(p=>({p,i:pairInfo(p)}));
+    const rows=everything.filter(x=>x.i.due)
       .sort((a,b)=>rank(a.i)-rank(b.i)||String(b.p.last_date).localeCompare(String(a.p.last_date)));
+    const doneN=everything.length-rows.length;
+    const doneNote=doneN?'<div style="font-size:.74rem;color:var(--text-muted);margin-top:.45rem">✓ '+doneN+' match'+(doneN===1?' is':'es are')+' all set and tucked away — a pair only comes back if a check-in call raises concerns.</div>':'';
+    if(!rows.length){ box.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">🎉 Nothing to call — every match is checked in.</div>'+doneNote; return; }
     const RATE={love:'⭐',good:'👍',concern:'🚩'};
     box.innerHTML=rows.map(({p,i})=>{
       const border=i.due==='concern'?'#DC2626':i.due==='first'?(i.newPair?'#DC2626':'#B45309'):i.due==='fit'?'#B45309':'#16a34a';
@@ -27405,7 +27425,7 @@ window.covLoadShifts=function(){};
         +tag+skip
         +(i.due?'<button class="primary" style="font-size:.72rem" onclick="cmPrefill('+A(p.client)+','+A(p.caregiver)+')">📞 Log check-in</button>':'')
         +'</div>';
-    }).join('');
+    }).join('')+doneNote;
   }
   function prefill(client,caregiver){
     const c=document.getElementById('ci-client'), g=document.getElementById('ci-caregiver');
