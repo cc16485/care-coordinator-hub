@@ -985,9 +985,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            tiny chip + a buried form, her ask 2026-09-18): a call-off, and a
            new-client interest check. Both open the same panel in the right
            mode, directly under these buttons. -->
+      <style>
+        /* The two start buttons: brand colors, outlined (her call, 2026-09-18).
+           Navy for the call-off, teal for the new client; fill on hover. */
+        .cov-cta{background:#fff;border:2px solid var(--navy);color:var(--navy);
+          border-radius:10px;padding:11px 22px;font-size:14.5px;font-weight:800;
+          cursor:pointer;transition:background .12s,color .12s;}
+        .cov-cta:hover{background:var(--navy);color:#fff;}
+        .cov-cta.teal{border-color:var(--teal);color:var(--teal);}
+        .cov-cta.teal:hover{background:var(--teal);color:#fff;}
+      </style>
       <div style="display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap;">
-        <button class="addlead" style="font-size:14.5px;padding:12px 22px;" onclick="covOpenAdd('calloff')">📞 Someone's calling off</button>
-        <button class="addlead" style="font-size:14.5px;padding:12px 22px;background:var(--teal);" onclick="covOpenAdd('interest')">📣 New client — ask the team</button>
+        <button class="cov-cta" onclick="covOpenAdd('calloff')">📞 Someone's calling off</button>
+        <button class="cov-cta teal" onclick="covOpenAdd('interest')">📣 New client — ask the team</button>
       </div>
 
       <!-- The Open Shifts mirror that used to sit here was REMOVED 2026-09-12
