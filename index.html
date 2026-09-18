@@ -1030,6 +1030,27 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <input id="covTime" placeholder="Shift time, e.g. 10a–6p">
           <select id="covReason"><option value="calloff">Call-off</option><option value="open">Open shift</option><option value="new">New client</option></select>
         </div>
+        <!-- Interest-check extras (2026-09-18): town/zip + the recurring days
+             and hours, so the picker can say who lives closest and who is
+             already working those hours. All optional. -->
+        <div id="covInterestRow" style="display:none;margin-top:8px;">
+          <div style="display:grid;grid-template-columns:1.6fr .8fr .8fr;gap:8px;">
+            <input id="covTownZip" placeholder="Client's town &amp; zip, e.g. Mount Vernon 65712">
+            <input id="covStart" type="time" title="Shift start">
+            <input id="covEnd" type="time" title="Shift end">
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <span class="field-note" style="font-weight:700;">Which days?</span>
+            <button type="button" class="fb" data-covday="mon" onclick="this.classList.toggle('active')">Mon</button>
+            <button type="button" class="fb" data-covday="tue" onclick="this.classList.toggle('active')">Tue</button>
+            <button type="button" class="fb" data-covday="wed" onclick="this.classList.toggle('active')">Wed</button>
+            <button type="button" class="fb" data-covday="thu" onclick="this.classList.toggle('active')">Thu</button>
+            <button type="button" class="fb" data-covday="fri" onclick="this.classList.toggle('active')">Fri</button>
+            <button type="button" class="fb" data-covday="sat" onclick="this.classList.toggle('active')">Sat</button>
+            <button type="button" class="fb" data-covday="sun" onclick="this.classList.toggle('active')">Sun</button>
+          </div>
+          <div class="field-note" style="margin-top:4px;">Town/zip sorts the list by who lives closest; days + times mark who's already working those hours. Leave anything blank if you don't know yet.</div>
+        </div>
         <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input id="covNote" placeholder="Anything the person filling this needs to know" style="flex:1;min-width:220px;">
           <button class="addlead" id="covAddBtn" onclick="covAdd()">Open case</button>
@@ -24962,6 +24983,7 @@ function covApplyAddMode(mode){
   const set=(id,fn)=>{ const el=document.getElementById(id); if(el) fn(el); };
   set('covAddTitle',el=>el.textContent=interest?'📣 New client — see who wants the hours':'📞 Open a coverage case');
   set('covCalloffTop',el=>el.style.display=interest?'none':'');
+  set('covInterestRow',el=>el.style.display=interest?'':'none');
   set('covReason',el=>{ el.value=interest?'new':'calloff'; el.style.display=interest?'none':''; });
   set('covClient',el=>el.placeholder=interest?'Potential client — any name works, they don\'t need to be in AxisCare':'Client name');
   set('covTime',el=>el.placeholder=interest?'The hours, e.g. Mon/Wed/Fri 9a-1p':'Shift time, e.g. 10a–6p');
@@ -25244,8 +25266,19 @@ async function covAdd(){
     reason:reasonV,
     /* "New client" is an INTEREST CHECK (her ask, 2026-09-19): the client
        may not be in AxisCare yet, the text asks who WANTS the hours, and
-       every YES is collected — never treated as a fill. */
-    ...(reasonV==='new'?{kind:'interest'}:{}),
+       every YES is collected — never treated as a fill. Town/zip + the
+       recurring days/hours feed the picker's closest-and-free sorting. */
+    ...(reasonV==='new'?(function(){
+      const tz=String(document.getElementById('covTownZip').value||'').trim();
+      const zip=(tz.match(/\b(\d{5})\b/)||[])[1]||'';
+      const town=tz.replace(/\b\d{5}(-\d{4})?\b/,'').replace(/[,]/g,' ').replace(/\s+/g,' ').trim();
+      const days=[...document.querySelectorAll('[data-covday].active')].map(b=>b.getAttribute('data-covday'));
+      return { kind:'interest',
+        ...(town?{client_city:town}:{}), ...(zip?{client_zip:zip}:{}),
+        ...(days.length?{interest_days:days}:{}),
+        ...(document.getElementById('covStart').value?{interest_start:document.getElementById('covStart').value}:{}),
+        ...(document.getElementById('covEnd').value?{interest_end:document.getElementById('covEnd').value}:{}) };
+    })():{}),
     note:document.getElementById('covNote').value.trim(),
     status:'open', asked:[],
     opened_at:new Date().toISOString(),
@@ -25254,7 +25287,8 @@ async function covAdd(){
   DATA.coverage_cases=DATA.coverage_cases||[]; DATA.coverage_cases.push(c);
   await persist('coverage_cases',c);
   COV_EXPANDED.add(c.id);   // land on the new case with its picker open
-  ['covClient','covTime','covNote'].forEach(i=>document.getElementById(i).value='');
+  ['covClient','covTime','covNote','covTownZip','covStart','covEnd'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
+  document.querySelectorAll('[data-covday].active').forEach(b=>b.classList.remove('active'));
   covShowAdd(false);
   renderCoverage();
 }
@@ -25401,7 +25435,11 @@ function covPickerHtml(c){
     const row=(x,g,checked)=>'<label style="display:flex;gap:8px;align-items:baseline;font-size:13px;padding:2.5px 0;cursor:pointer;">'
       +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'"'+(checked?' checked':'')+' style="width:auto;">'
       +'<b>'+esc(x.name)+'</b><span class="field-note">'+esc(x.why)
-      +(x.level?' · Level '+x.level:'')+(x.wants_more_hours?' · wants +'+x.wants_more_hours+'h':'')+'</span></label>';
+      +(x.level?' · Level '+x.level:'')+(x.wants_more_hours?' · wants +'+x.wants_more_hours+'h':'')
+      +(x.city?' · 📍 '+esc(x.city)+(x.same_town?' <b style="color:var(--green);">same town</b>':(x.miles!=null?' ~'+x.miles+' mi':'')):'')
+      +(x.free_then===true?' · <b style="color:var(--green);">🟢 free those hours</b>'
+        :x.free_then===false?' · <b style="color:var(--red);">⛔ working then ('+x.conflicts_then+' shift'+(x.conflicts_then===1?'':'s')+')</b>':'')
+      +'</span></label>';
     body='<div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:2px 0;">'+(isInterest?'Everyone eligible for the interest check':'Group 1 — worked with '+esc(String(c.client||'this client').split(/\s+/)[0]))+(isInterest?'':' ('+g1n+')')+'</div>'
       +(g1n?d.group1.map(x=>row(x,1,true)).join(''):(isInterest?'':'<div class="field-note" style="padding:2px 0;">Nobody on record has worked with this client'+(String(d.meta.client_resolution||'').startsWith('resolved')?'':' (client not matched in AxisCare — normal for a new client)')+'.</div>'))
       +(isInterest?'':'<div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:8px 0 2px;">Group 2 — good matches, haven\'t worked with them ('+g2n+')'+(g2n>5?' <span class="field-note" style="font-weight:500;">top 5 checked — tick more to widen</span>':'')+'</div>')
@@ -25416,7 +25454,9 @@ function covPickerHtml(c){
          +'<button class="addlead" onclick="covPickSend(\''+esc(c.id)+'\',true)">📱 Send to Groups 1 + 2</button>')
       +'<button class="ghost" onclick="covPickBuild(\''+esc(c.id)+'\')">↻ Rebuild</button>'
       +'</div>'
-      +'<div class="field-note" style="margin-top:5px;">Uncheck anyone who shouldn\'t be asked — you know things the data doesn\'t. '+esc(String(d.meta.census||''))+'</div>';
+      +'<div class="field-note" style="margin-top:5px;">Uncheck anyone who shouldn\'t be asked — you know things the data doesn\'t. '+esc(String(d.meta.census||''))
+      +(d.meta.hours_check?' · '+esc(String(d.meta.hours_check)):'')
+      +((d.group1.some(x=>x.miles!=null)||d.group2.some(x=>x.miles!=null))?' · distances are straight-line by zip, not driving miles':'')+'</div>';
   } else {
     body='<button class="addlead" onclick="covPickBuild(\''+esc(c.id)+'\')">🧭 Build the ask list</button>'
       +'<span class="field-note" style="margin-left:8px;">'+(isInterest
