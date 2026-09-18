@@ -4421,17 +4421,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="primary" onclick="cmSave()">Save check-in ✓</button>
 </div>
 
-<!-- History (permanent) -->
-<div style="margin-top:1.25rem;padding:0 0 2rem">
-  <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.65rem">
+<!-- History (permanent) — collapsible + searchable (2026-09-18): the record
+     grows forever, so it folds away by default and opens to a search box. -->
+<details id="ci-hist-wrap" style="margin-top:1.25rem;padding:0 0 2rem">
+  <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.6rem;margin-bottom:.65rem">
     <span style="font-size:1.1rem">📒</span>
     <div>
-      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Check-in history <span style="font-weight:500;color:var(--text-muted);font-size:.75rem">— permanent record</span></div>
+      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Check-in history<span id="ci-hist-count" style="font-weight:600;color:var(--text-muted);font-size:.78rem"></span> <span style="font-weight:500;color:var(--text-muted);font-size:.75rem">— permanent record · tap to open ▾</span></div>
       <div style="font-size:.72rem;color:var(--text-muted)">Every call, what the client said, what the caregiver said, and what we did about it. Feeds favorites, coaching notes, and the Do-Not-Return log.</div>
     </div>
-  </div>
+  </summary>
+  <input id="ci-hist-search" type="text" placeholder="🔎 Search by client, caregiver, or anything that was said…" oninput="cmHistSearch(this.value)" style="max-width:440px;display:block;margin-bottom:.6rem;font-size:.85rem">
   <div id="ci-history"><div style="color:var(--text-muted);font-size:.85rem">No check-ins logged yet — the first one appears here.</div></div>
-</div>
+</details>
 
 <!-- Do-Not-Return Log — moved in from the Staffing hub's Scheduling tab
      2026-07-31; exclusions logged on check-ins land here. Permanent. -->
@@ -27490,12 +27492,22 @@ window.covLoadShifts=function(){};
     document.getElementById('ci-fav').checked=false; document.getElementById('ci-excl').checked=false;
     renderHistory(); renderPairs();
   }
+  let HIST_Q='';
+  window.cmHistSearch=function(v){ HIST_Q=String(v||''); renderHistory(); };
   function renderHistory(){
     const box=document.getElementById('ci-history'); if(!box) return;
-    const list=all();
-    if(!list.length){ box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">No check-ins logged yet — the first one appears here.</div>'; return; }
+    const full=all();
+    const cnt=document.getElementById('ci-hist-count');
+    if(cnt) cnt.textContent=full.length?' ('+full.length+')':'';
+    if(!full.length){ box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">No check-ins logged yet — the first one appears here.</div>'; return; }
+    const q=HIST_Q.trim().toLowerCase();
+    const list=q?full.filter(e=>[e.client,e.caregiver,e.notes,e.cg_notes,e.coaching,e.spoke_with,e.by,e.rating,e.cg_rating]
+      .map(x=>String(x||'').toLowerCase()).join(' ').includes(q)):full;
+    if(!list.length){ box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">No check-ins match “'+E(HIST_Q.trim())+'”.</div>'; return; }
+    const shown=q?200:40;
+    const more=list.length>shown?'<div style="font-size:.74rem;color:var(--text-muted);margin-top:.3rem">Showing the latest '+shown+' of '+list.length+(q?' matching':'')+' — narrow the search to see older ones.</div>':'';
     const RATE={love:['⭐','#16a34a','They love them'],good:['👍','#2F6FB0','Going fine'],concern:['🚩','#DC2626','Some concerns']};
-    box.innerHTML=list.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,40).map(e=>{
+    box.innerHTML=more.replace('margin-top','margin-bottom')+list.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,shown).map(e=>{
       const rm=RATE[e.rating]||RATE.good;
       let extra='';
       if(e.cg_rating){
