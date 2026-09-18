@@ -25477,13 +25477,16 @@ function covPickerHtml(c){
     /* Group 2 defaults to its TOP FIVE checked (ranked: recently active,
        then hungriest for hours) — widening past that is a deliberate tick,
        never an accidental blast to the whole roster. */
+    /* Anyone already scheduled during the proposed time wears the red
+       calendar with EXACTLY what they're working, and starts unchecked —
+       sending to them is a deliberate tick, never an accident. */
     const row=(x,g,checked)=>'<label style="display:flex;gap:8px;align-items:baseline;font-size:13px;padding:2.5px 0;cursor:pointer;">'
-      +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'"'+(checked?' checked':'')+' style="width:auto;">'
+      +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'"'+((checked&&!x.working_then)?' checked':'')+' style="width:auto;">'
       +'<b>'+esc(x.name)+'</b><span class="field-note">'+esc(x.why)
       +(x.level?' · Level '+x.level:'')+(x.wants_more_hours?' · wants +'+x.wants_more_hours+'h':'')
       +(x.city?' · 📍 '+esc(x.city)+(x.same_town?' <b style="color:var(--green);">same town</b>':(x.miles!=null?' ~'+x.miles+' mi':'')):'')
-      +(x.free_then===true?' · <b style="color:var(--green);">🟢 free those hours</b>'
-        :x.free_then===false?' · <b style="color:var(--red);">⛔ working then ('+x.conflicts_then+' shift'+(x.conflicts_then===1?'':'s')+')</b>':'')
+      +(x.working_then?' · <b style="color:var(--red);">📅 already scheduled: '+esc(x.working_then.detail)+'</b>'
+        :x.free_then===true?' · <b style="color:var(--green);">🟢 free those hours</b>':'')
       +'</span></label>';
     body='<div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:2px 0;">'+(isInterest?'Everyone eligible for the interest check':'Group 1 — worked with '+esc(String(c.client||'this client').split(/\s+/)[0]))+(isInterest?'':' ('+g1n+')')+'</div>'
       +(g1n?d.group1.map(x=>row(x,1,true)).join(''):(isInterest?'':'<div class="field-note" style="padding:2px 0;">Nobody on record has worked with this client'+(String(d.meta.client_resolution||'').startsWith('resolved')?'':' (client not matched in AxisCare — normal for a new client)')+'.</div>'))
