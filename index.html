@@ -932,6 +932,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <a href="scheduling-guide.html#schedwatch" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">How this works &#8599;</a>
       </div>
+      <!-- THREE SUB-TABS (2026-09-18, same coordinator-first treatment as
+           Cara): Today = is the schedule happening right now; Missing EVV =
+           the record cleanup; Hours & matching = the planning work. -->
+      <div id="swSubBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;"></div>
       <!-- LIVE SHIFT WATCH. Renders timekeeper_cases, the ladder record
            timekeeper-watch maintains. Only recorded events are shown, and
            minutes late comes from the stored value: AxisCare returns
@@ -939,9 +943,24 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            or six hours. A healthy / starting-soon feed does not exist yet
            (timekeeper_cases holds problem visits only), so nothing pretends
            to list the shifts that are going fine. -->
-      <div id="swLive" style="margin-bottom:26px;"></div>
+      <div id="swTodayWrap"><div id="swLive" style="margin-bottom:26px;"></div></div>
 
-      <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:0 0 6px;padding-top:20px;border-top:1px solid var(--border);">
+      <!-- MISSING EVV: visits that already ENDED with no clock-in or no
+           clock-out, straight from AxisCare (the same live_schedule read the
+           Live Schedule tab uses). One tap texts the caregiver the signed
+           correction-form link; handled state lives in app_data
+           evv_followups so the whole office sees what's been chased. -->
+      <div id="swEvvWrap" style="display:none;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+          <div class="field-note" style="max-width:70ch;">A visit that ended without its clock-in or clock-out is a payroll and compliance hole. Text the caregiver the correction form (it must be signed by the client), then the corrections log on the EVV tab takes over.</div>
+          <span style="flex:1;"></span>
+          <button class="cara-btn ghost" onclick="swEvvLoad(true)">↻ Refresh from AxisCare</button>
+        </div>
+        <div id="swEvvBoard"><div class="field-note">Loading…</div></div>
+      </div>
+
+      <div id="swHoursWrap" style="display:none;">
+      <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:0 0 6px;padding-top:6px;">
         <h3 style="margin:0;font-size:20px;font-weight:800;letter-spacing:-0.015em;color:var(--navy);">Upcoming schedule and hours</h3>
         <!-- "Next 7 days" is real again: coverage-shifts hours_watch derives
              both boundaries from the Chicago calendar (today + the following
@@ -963,6 +982,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div id="hwAsk"></div>
       <div id="hwStateWrap" style="margin:0 0 12px;"><span class="cara-mono" id="hwState"></span></div>
       <div id="hwList"><div style="font-size:13.5px;color:var(--text-muted);">Open this tab and hit Refresh to load.</div></div>
+      </div>
     </section>
     <section class="tabpanel" id="tab-coverage">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
@@ -6653,7 +6673,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
+  const keys = ['caregivers','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -7534,7 +7554,7 @@ function renderActiveTab(){
   if(activeTab==='applicants') apLoad();
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); }
-  if(activeTab==='hourswatch'){ swRenderLive(); hwAskRender(); hwRender(); if(HW_SCHED===null) hwLoad(); }
+  if(activeTab==='hourswatch'){ swRenderAll(); }
   if(activeTab==='cg360'){ c360Fill(); c360Render(); }
   if(activeTab==='assessments'){ ghlBookFill(); }
   if(activeTab==='nursevisits') renderNurseVisits();
@@ -24845,6 +24865,164 @@ function swBanner(S){
     +row('Caregiver texting',S.textLive)
     +'</div></div>';
 }
+/* ── SCHEDULE WATCH SUB-TABS (2026-09-18, same coordinator-first treatment
+   as Cara): Today / Missing EVV / Hours & matching. ─────────────────────── */
+let SW_SUB=(function(){ try{ return localStorage.getItem('cch_swsub')||'today'; }catch(e){ return 'today'; } })();
+function swSubGo(s){ SW_SUB=s; try{ localStorage.setItem('cch_swsub',s); }catch(e){} swRenderAll(); }
+function swRenderBar(){
+  var bar=document.getElementById('swSubBar'); if(!bar) return;
+  var openN=(DATA.timekeeper_cases||[]).filter(function(l){ return l&&l.kind!=='clock_out'&&!l.resolved_at; }).length;
+  var evvN=(SW_EVV.data&&SW_EVV.data.missing)?SW_EVV.data.missing.filter(function(r){ return !swEvvState(r.key); }).length:null;
+  var tabs=[['today','⚡ Today',openN,'red'],['evv','🧾 Missing EVV',evvN,''],['hours','📊 Hours & matching',null,'']];
+  bar.innerHTML=tabs.map(function(t){
+    return '<button class="fb'+(SW_SUB===t[0]?' active':'')+'" onclick="swSubGo(\''+t[0]+'\')">'+t[1]
+      +(t[2]?' <span style="background:'+(t[3]==='red'?'var(--red)':'var(--slate-bg)')+';color:'+(t[3]==='red'?'#fff':'var(--navy)')+';border-radius:999px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:4px;">'+t[2]+'</span>':'')
+      +'</button>';
+  }).join('');
+}
+function swRenderAll(){
+  swRenderBar();
+  var show=function(id,on){ var el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
+  show('swTodayWrap',SW_SUB==='today'); show('swEvvWrap',SW_SUB==='evv'); show('swHoursWrap',SW_SUB==='hours');
+  if(SW_SUB==='today'){ swRenderLive(); swAutoRefreshArm(); }
+  else if(SW_SUB==='evv'){ if(!SW_EVV.data&&!SW_EVV.loading) swEvvLoad(); else swEvvPaint(); }
+  else { hwAskRender(); hwRender(); if(HW_SCHED===null) hwLoad(); }
+}
+/* Today refreshes itself: a clock-in landing in AxisCare should clear the
+   card without anybody hammering reload. */
+let SW_REFRESH_T=null;
+function swAutoRefreshArm(){
+  if(SW_REFRESH_T) return;
+  SW_REFRESH_T=setInterval(async function(){
+    try{
+      if(typeof activeTab==='undefined'||activeTab!=='hourswatch'||SW_SUB!=='today'||document.hidden) return;
+      var r=await sb.from('app_data').select('data').eq('key','timekeeper_cases').maybeSingle();
+      if(r&&r.data&&Array.isArray(r.data.data)){ DATA.timekeeper_cases=r.data.data; swRenderLive(); swRenderBar(); }
+    }catch(e){}
+  },60000);
+}
+
+/* ── MISSING EVV (her ask, 2026-09-18: "we need to monitor missed clock ins
+   and clock outs - and missing evv"). Yesterday + today, live from the same
+   AxisCare read the Live Schedule uses; a visit that ENDED without its
+   clock-in or clock-out is a hole in the record. One tap texts the
+   caregiver the correction-form link (signed by the client — her EVV rule);
+   handled state persists in app_data evv_followups for the whole office. */
+let SW_EVV={data:null,loading:false};
+function swEvvKey(date,visitId){ return 'evv_'+String(date)+'_'+String(visitId).replace(/[^A-Za-z0-9]/g,'_'); }
+function swEvvState(key){ return (DATA.evv_followups||[]).find(function(e){ return e&&e.id===key; })||null; }
+async function swEvvLoad(force){
+  var box=document.getElementById('swEvvBoard'); if(!box) return;
+  if(SW_EVV.loading) return;
+  SW_EVV.loading=true;
+  box.innerHTML='<div class="field-note">Reading yesterday and today from AxisCare…</div>';
+  try{
+    var sess=await sb.auth.getSession();
+    var tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+    if(!tok) throw new Error('Sign in to the hub first.');
+    var days=[ccChiToday()];
+    (function(){ var d=new Date(Date.now()-86400000); days.unshift(d.toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10)); })();
+    var missing=[], errs=[];
+    for(var i=0;i<days.length;i++){
+      var r=await fetch(CONFIG.supabase_url+'/functions/v1/coverage-shifts',{
+        method:'POST', headers:{ Authorization:'Bearer '+tok, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' },
+        body: JSON.stringify({ live_schedule:true, date:days[i] })});
+      var d2=await r.json().catch(function(){ return null; });
+      if(!r.ok||!d2||d2.error){ errs.push(days[i]+': '+((d2&&d2.error)||('AxisCare answered '+r.status))); continue; }
+      var nowChi=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'});
+      var isToday=days[i]===nowChi.slice(0,10), nowHM=nowChi.slice(11,16);
+      (d2.rows||[]).forEach(function(v){
+        if(!v.caregiver) return;                       // unassigned = Cara's problem, not EVV's
+        var ended=isToday?(v.end&&v.end<=nowHM):true;
+        if(!ended) return;
+        var missIn=!v.clock_in, missOut=!v.clock_out;
+        if(!missIn&&!missOut) return;
+        missing.push({ key:swEvvKey(days[i],v.visit_id||v.time+'_'+v.caregiver_id), date:days[i],
+          time:v.time, end:v.end, client:v.client, caregiver:v.caregiver, caregiver_id:v.caregiver_id,
+          miss: missIn&&missOut?'no clock-in or clock-out':missIn?'no clock-in':'no clock-out' });
+      });
+    }
+    SW_EVV.data={missing:missing, errors:errs, at:Date.now()};
+  }catch(e){ SW_EVV.data={missing:[],errors:[String(e.message||e)],at:Date.now()}; }
+  SW_EVV.loading=false;
+  swEvvPaint(); swRenderBar();
+}
+function swEvvPaint(){
+  var box=document.getElementById('swEvvBoard'); if(!box||!SW_EVV.data) return;
+  var t12=function(s){ var m=String(s||'').match(/^(\d\d):(\d\d)$/); if(!m) return s||''; var h=+m[1]%12||12; return h+(m[2]==='00'?'':':'+m[2])+(+m[1]>=12?'p':'a'); };
+  var rows=SW_EVV.data.missing.slice().sort(function(a,b){ return (a.date+a.time).localeCompare(b.date+b.time); });
+  var open=rows.filter(function(r){ return !swEvvState(r.key); });
+  var handled=rows.filter(function(r){ return swEvvState(r.key); });
+  var today=ccChiToday();
+  var h='';
+  if(SW_EVV.data.errors&&SW_EVV.data.errors.length)
+    h+='<div style="color:var(--red);font-size:12.5px;margin-bottom:8px;">Could not read: '+esc(SW_EVV.data.errors.join(' · '))+'</div>';
+  if(!open.length){
+    h+='<div class="card" style="padding:20px 22px;display:flex;gap:13px;align-items:center;">'
+      +'<span style="width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:800;">✓</span>'
+      +'<div><div style="font-size:15.5px;font-weight:700;color:var(--navy);">Every finished visit has its EVV.</div>'
+      +'<div class="field-note" style="margin-top:2px;">Yesterday and today, straight from AxisCare.</div></div></div>';
+  }else{
+    h+=open.map(function(r){
+      return '<div class="card" style="padding:12px 16px;margin:0 0 7px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;border-left:4px solid var(--red);">'
+        +'<b style="color:var(--navy);">'+esc(r.client)+'</b>'
+        +'<span class="field-note">'+(r.date===today?'today':'yesterday')+' '+t12(r.time)+(r.end?'–'+t12(r.end):'')+' · '+esc(r.caregiver)+'</span>'
+        +'<b style="color:var(--red);font-size:12.5px;">🧾 '+esc(r.miss)+'</b>'
+        +'<span style="flex:1;"></span>'
+        +'<button class="cara-btn" style="font-size:12px;" onclick="swEvvText(\''+esc(r.key)+'\')">📱 Text the correction form</button>'
+        +'<button class="cara-btn ghost" style="font-size:12px;" onclick="swEvvHandled(\''+esc(r.key)+'\')">✓ Handled</button>'
+        +'</div>';
+    }).join('');
+  }
+  if(handled.length){
+    h+='<div style="font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:16px 0 7px;">Chased or handled</div>'
+      +'<div class="card" style="padding:6px 18px 10px;">'+handled.map(function(r){
+        var st=swEvvState(r.key);
+        return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">'
+          +'<b>'+esc(r.client)+'</b><span class="field-note">'+esc(r.caregiver)+' · '+esc(r.miss)+'</span>'
+          +'<span style="flex:1;"></span>'
+          +'<span class="field-note">'+(st.status==='texted'?'📱 form texted':'✓ marked handled')+' '+covClock(st.at)+(st.by?' by '+esc(st.by):'')+'</span></div>';
+      }).join('')+'</div>';
+  }
+  h+='<div class="field-note" style="margin-top:9px;">Corrections need the signed form (client signature required) — the corrections log lives on the EVV tab. Loaded '+new Date(SW_EVV.data.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+'.</div>';
+  box.innerHTML=h;
+}
+async function swEvvMark(key,status){
+  var r=(SW_EVV.data.missing||[]).find(function(x){ return x.key===key; }); if(!r) return;
+  var e={ id:key, status:status, at:new Date().toISOString(),
+    by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'', caregiver:r.caregiver, client:r.client, miss:r.miss, date:r.date };
+  DATA.evv_followups=DATA.evv_followups||[]; DATA.evv_followups.push(e);
+  await persist('evv_followups',e);
+  swEvvPaint(); swRenderBar();
+}
+async function swEvvHandled(key){ await swEvvMark(key,'handled'); }
+async function swEvvText(key){
+  var r=(SW_EVV.data.missing||[]).find(function(x){ return x.key===key; }); if(!r) return;
+  var roster=(DATA.caregivers||[]);
+  var nk=function(s){ return String(s||'').toLowerCase().replace(/[^a-z]/g,''); };
+  var cg=roster.find(function(c){ return nk((c.first||'')+(c.last||''))===nk(r.caregiver); });
+  var phone=cg&&cg.phone;
+  var first=(cg&&cg.first)||String(r.caregiver).split(' ')[0];
+  var clientFirst=String(r.client).split(' ')[0];
+  var when=(r.date===ccChiToday()?'today':'yesterday');
+  var msg='Hi '+first+", it's the Caring Companions office. Your "+when+' visit with '+clientFirst+' is missing its '+r.miss.replace('no ','')+' in AxisCare. Please complete the EVV correction form and have the client sign it: sc.mo-care.com/evv-correction-form — thank you!';
+  if(!phone){
+    try{ await navigator.clipboard.writeText(msg); }catch(e){}
+    alert('No phone on file for '+r.caregiver+' in the hub roster. The message is copied — paste it into a text from your phone, then it will be logged as texted.');
+    await swEvvMark(key,'texted');
+    return;
+  }
+  if(!confirm('Text '+r.caregiver+' the correction-form request?\n\n"'+msg+'"')) return;
+  try{
+    var resp=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
+      method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+      body:JSON.stringify({key:CONFIG.training_hub_key, action:'send_sms', phone:phone, first_name:first, message:msg})});
+    var d=await resp.json();
+    if(d&&d.status==='sent'){ await swEvvMark(key,'texted'); }
+    else alert('Could not send: '+((d&&d.error)||'unknown error'));
+  }catch(e){ alert('Could not reach the messaging service — check your connection.'); }
+}
+
 function swRenderLive(){
   var box=document.getElementById('swLive'); if(!box) return;
   var S=swSettings();
@@ -24908,6 +25086,7 @@ function swRenderLive(){
   }
 
   box.innerHTML=h;
+  swRenderBar();
   var b=document.getElementById('swPillBadge');
   if(b){ b.style.display=needing?'inline-block':'none'; b.textContent=needing; }
 
@@ -24957,7 +25136,8 @@ function swOpenShift(id){
   if(activeTab!=='hourswatch') switchTab('hourswatch');
   try{ history.replaceState(null,'','#schedwatch/shift/'+encodeURIComponent(id)); }catch(e){}
   SW_PENDING=id;
-  swRenderLive();
+  SW_SUB='today'; try{ localStorage.setItem('cch_swsub','today'); }catch(e){}
+  swRenderAll();
 }
 
 const COV_EXPANDED=new Set();
