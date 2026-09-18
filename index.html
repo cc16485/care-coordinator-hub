@@ -870,6 +870,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        correction logs would be worse than one somewhere else. -->
   <div class="fsubbar" id="fsub-scheduling">
     <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div><div class="fpill" data-tab="hourswatch" onclick="schedGo('hourswatch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Schedule Watch<span class="subtab-badge red" id="swPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="liveschedule" onclick="switchTab('liveschedule')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Live Schedule</div>
     <div class="fpill" data-tab="evv" onclick="schedGo('evv')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV</div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
   </div>
@@ -977,8 +978,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <!-- straight to AxisCare's Real Time View filtered to unassigned —
              the authoritative list a case should start from -->
         <a href="scheduling-guide.html" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;align-self:center;">How this works &#8599;</a>
-        <a href="https://16485.axiscare.com/?realtimeview.php&types=unassigned" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-size:13.5px;font-weight:700;background:#1F7A8C;color:#fff;">Unassigned in AxisCare ↗</a>
-        <button class="addlead" onclick="covToggleAdd()">＋ Open a coverage case</button>
+        <a href="https://16485.axiscare.com" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;align-self:center;">AxisCare &#8599;</a>
+      </div>
+
+      <!-- The two things a coordinator comes here to START (moved up from a
+           tiny chip + a buried form, her ask 2026-09-18): a call-off, and a
+           new-client interest check. Both open the same panel in the right
+           mode, directly under these buttons. -->
+      <div style="display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap;">
+        <button class="addlead" style="font-size:14.5px;padding:12px 22px;" onclick="covOpenAdd('calloff')">📞 Someone's calling off</button>
+        <button class="addlead" style="font-size:14.5px;padding:12px 22px;background:var(--teal);" onclick="covOpenAdd('interest')">📣 New client — ask the team</button>
       </div>
 
       <!-- The Open Shifts mirror that used to sit here was REMOVED 2026-09-12
@@ -996,8 +1005,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
              shift that is still assigned to the caller. Pick who is calling
              off, see their live AxisCare shifts, click the one they mean —
              the case then knows the exact visit, client and times, and
-             confirming a fill can replace them on that very visit. -->
+             confirming a fill can replace them on that very visit.
+             Since 2026-09-18 the panel has a second MODE: a new-client
+             interest check, where the client may not be in AxisCare at all. -->
+        <div id="covAddTitle" style="font-size:15px;font-weight:800;color:var(--navy);margin-bottom:8px;"></div>
         <div id="covAttachNote" class="field-note" style="display:none;margin-bottom:8px;color:#94681D;font-weight:700;"></div>
+        <div id="covCalloffTop">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <label style="font-weight:700;font-size:13.5px;color:var(--navy);">Who's calling off?</label>
           <select id="covWho" style="min-width:220px;" onchange="covLoadCallerShifts()"><option value="">Pick the caregiver…</option></select>
@@ -1005,6 +1018,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div id="covWhoShifts" style="margin-top:8px;"></div>
         <div class="field-note" style="margin:12px 0 6px;border-top:1px solid var(--border);padding-top:10px;">…or open a case by hand (no exact shift attached — assignment will be manual):</div>
+        </div>
         <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:8px;">
           <input id="covClient" placeholder="Client name">
           <input id="covDate" type="date">
@@ -1013,9 +1027,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input id="covNote" placeholder="Anything the person filling this needs to know" style="flex:1;min-width:220px;">
-          <button class="addlead" onclick="covAdd()">Open case</button>
+          <button class="addlead" id="covAddBtn" onclick="covAdd()">Open case</button>
         </div>
-        <div class="field-note" style="margin-top:8px;">Only open a case when the shift needs chasing. If the AxisCare app fills it on its own, it never needs to be here.</div>
+        <div class="field-note" id="covAddHint" style="margin-top:8px;">Only open a case when the shift needs chasing. If the AxisCare app fills it on its own, it never needs to be here.</div>
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
@@ -4336,6 +4350,27 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </section>
 
+<!-- ===================== TAB: LIVE SCHEDULE =====================
+     AxisCare's real-time view, inside the hub (her ask, 2026-09-18): every
+     visit for the chosen day, straight from the AxisCare API on demand.
+     Read-only window — AxisCare stays the system of record; the jump link
+     is right there for anything this view can't do. -->
+<section class="tabpanel" id="tab-liveschedule">
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+  <div>
+    <div style="font-size:.95rem;font-weight:800;color:var(--navy);">📅 Live Schedule <span class="field-note" id="ls-date-label"></span></div>
+    <div class="field-note" style="font-size:.74rem;">Straight from AxisCare when you load it. Unassigned visits show in red — open a coverage case to work one.</div>
+  </div>
+  <span style="flex:1;"></span>
+  <button class="fb" id="ls-btn-today" onclick="lsPick(0,this)">Today</button>
+  <button class="fb" id="ls-btn-tomorrow" onclick="lsPick(1,this)">Tomorrow</button>
+  <input type="date" id="ls-date" style="width:auto;font-size:.8rem;" onchange="lsPickDate(this.value)">
+  <button class="addlead" style="font-size:.78rem" onclick="lsLoad(true)">↻ Refresh</button>
+  <a href="https://16485.axiscare.com/?realtimeview.php" target="_blank" rel="noopener" style="font-size:.78rem;font-weight:700;color:var(--teal);text-decoration:none;">Open in AxisCare ↗</a>
+</div>
+<div id="ls-board" class="card" style="padding:1rem 1.25rem;"><div style="color:var(--text-muted);font-size:.85rem">Pick a day and it loads live from AxisCare.</div></div>
+</section>
+
 <!-- ===================== TAB: CARE MATCH CHECK-INS =====================
      Moved from the Staffing hub's "Client Check-Ins" tab on 2026-07-31 and
      renamed so it stops sharing a name with the monthly Client Check-ins.
@@ -6905,7 +6940,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','evv','carematch'],clients:['leads','statesubs','clients','circles','checkins','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch'],clients:['leads','statesubs','clients','circles','checkins','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -7274,7 +7309,7 @@ const CC_SECTION_TITLES = {
   today:'Today', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', sops:'SOP Library',
+  carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library',
   clientqueue:'New Clients — Needs Scheduling',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
@@ -7483,6 +7518,7 @@ function renderActiveTab(){
   if(activeTab==='assessments') renderAssessments();
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='carematch') cmRenderAll();
+  if(activeTab==='liveschedule') lsRender();
   if(activeTab==='sops') sopRender();
   if(activeTab==='clientqueue') cqRender();
   if(activeTab==='statesubs') renderStateSubs();
@@ -24017,6 +24053,9 @@ function caraNeedsReason(c){
   if(c.pending_fill||(c.asked||[]).some(a=>a&&a.state==='yes')) return 'pending';
   if(c.callout_escalated_at) return 'exhausted';
   if((c.asked||[]).some(a=>a&&a.state==='inquiry')) return 'question';
+  /* Manual selection (2026-09-18): an open case with no asks is waiting on
+     a COORDINATOR to build the list — Cara isn't "working on" anything. */
+  if((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)&&!(c.asked||[]).length) return 'pick';
   return null;
 }
 function covYesList(c){ return (c.asked||[]).filter(a=>a&&a.state==='yes'); }
@@ -24145,6 +24184,12 @@ function caraNeedsCard(c){
       sub='Said yes '+covAgo((winner&&winner.replied_at)||(c.pending_fill&&c.pending_fill.at)||c.opened_at)+' ago. More yeses may still come — nobody is answered until you pick and confirm.';
     }
     cta='Review and pick &rarr;';
+  }else if(why==='pick'){
+    head=String(c.kind)==='interest'
+      ? 'The '+first+' interest check needs its list.'
+      : first+"'s "+when+' shift needs its ask list.';
+    sub='Nothing sends on its own — build the list, uncheck anyone you\'d rather not ask, and choose who gets the text.';
+    cta='Build the ask list &rarr;';
   }else if(why==='question'){
     const qs=(c.asked||[]).filter(a=>a.state==='inquiry');
     head=esc(qs[0].name)+(qs.length>1?' and '+(qs.length-1)+' other'+(qs.length>2?'s':''):'')
@@ -24198,7 +24243,10 @@ function caraWorkingCard(c){
       +(c.client_city?' &middot; '+esc(c.client_city):'')+'</div>'
     +'<div style="margin-top:9px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;">'
     +'<span style="background:var(--green-bg);color:var(--green);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;">'
-      +(waveN?'Wave '+waveN+' out':(engineOn?'Cara is composing the first wave':'Callout engine is off'))+'</span>'
+      +(waveN?'Wave '+waveN+' out'
+        :((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)
+          ?(asked.length?'Asks out — waiting on replies':'Waiting on your ask list')
+          :(engineOn?'Cara is composing the first wave':'Callout engine is off')))+'</span>'
     +caraPatternChip(c)
     +'</div>'
     +(chips?'<div style="margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;">'+chips+'</div>':'')
@@ -24233,12 +24281,15 @@ function caraRenderCC(){
     statusEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12.5px;">'
       +'<span style="width:8px;height:8px;border-radius:50%;background:'+(engineOn?'var(--green)':'var(--text-muted)')+';"></span>'
       +'<b style="color:var(--navy);">'+(engineOn?'Cara is active':'Callout engine is off')+'</b>'
-      +'<span class="field-note">'+(engineOn?'Monitoring coverage':'asks are recorded by hand')+'</span></span>';
+      +'<span class="field-note">'+(engineOn
+        ?((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)?'Monitoring — you choose who gets asked':'Monitoring coverage')
+        :'asks are recorded by hand')+'</span></span>';
   }
 
   h+=grid(
       caraStat('Open coverage',S.open.length,(S.open.length===1?'1 shift still needs':S.open.length+' shifts still need')+' a caregiver','')
-    + caraStat('Cara working',S.working.length,'Cara is still finding coverage','work')
+    + caraStat('Cara working',S.working.length,
+        (DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)?'asks out, waiting on replies':'Cara is still finding coverage','work')
     + caraStat('Needs you',S.needs.length,S.needs.length?'waiting on your decision':'nothing waiting on you','needs')
     + caraStat('Filled today',S.filled.length,'covered and resolved today',''),190)
     +'<div style="height:16px;"></div>';
@@ -24253,7 +24304,10 @@ function caraRenderCC(){
     h+='<div class="card" style="padding:15px 17px;margin:0 0 16px;display:flex;gap:13px;align-items:center;">'
       +'<span style="width:32px;height:32px;flex:0 0 32px;border-radius:50%;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;">&#10003;</span>'
       +'<div><div style="font-size:15.5px;font-weight:700;color:var(--navy);">Nothing is waiting on you.</div>'
-      +'<div class="field-note" style="font-size:13px;margin-top:2px;">Cara has the open cases in hand.</div></div></div>';
+      +'<div class="field-note" style="font-size:13px;margin-top:2px;">'
+      +((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)
+        ?'Asks are out — replies land here the moment they arrive.'
+        :'Cara has the open cases in hand.')+'</div></div></div>';
   }
 
   if(S.working.length){
@@ -24808,8 +24862,91 @@ function covToggleCase(id){
   if(COV_EXPANDED.has(id)) COV_EXPANDED.delete(id); else COV_EXPANDED.add(id);
   renderCoverage();
 }
+/* ── LIVE SCHEDULE (2026-09-18): AxisCare's day view, in the hub. ──────── */
+let LS_STATE={date:null,data:null,loading:false};
+function lsChiDay(off){ const d=new Date(Date.now()+ (off||0)*86400000);
+  return d.toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10); }
+function lsPick(off,btn){ LS_STATE.date=lsChiDay(off); const de=document.getElementById('ls-date'); if(de) de.value=LS_STATE.date; lsLoad(true); }
+function lsPickDate(v){ if(/^\d{4}-\d\d-\d\d$/.test(String(v||''))){ LS_STATE.date=v; lsLoad(true); } }
+function lsRender(){ if(!LS_STATE.data&&!LS_STATE.loading){ LS_STATE.date=LS_STATE.date||lsChiDay(0); const de=document.getElementById('ls-date'); if(de) de.value=LS_STATE.date; lsLoad(); } else lsPaint(); }
+async function lsLoad(force){
+  const box=document.getElementById('ls-board'); if(!box) return;
+  if(LS_STATE.loading) return;
+  LS_STATE.loading=true;
+  box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">Loading '+esc(LS_STATE.date||'today')+' from AxisCare…</div>';
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session||!session.access_token) throw new Error('Sign in to the hub first.');
+    const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-shifts`,{
+      method:'POST', headers:{ Authorization:'Bearer '+session.access_token, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' },
+      body: JSON.stringify({ live_schedule:true, date:LS_STATE.date })});
+    const d=await r.json().catch(()=>null);
+    if(!r.ok||!d||d.error) throw new Error((d&&d.error)||('AxisCare answered '+r.status));
+    LS_STATE.data=d;
+  }catch(e){ LS_STATE.data={error:String(e.message||e)}; }
+  LS_STATE.loading=false;
+  lsPaint();
+}
+function lsPaint(){
+  const box=document.getElementById('ls-board'); if(!box) return;
+  const d=LS_STATE.data; if(!d) return;
+  const lbl=document.getElementById('ls-date-label');
+  if(lbl) lbl.textContent=d.date?('— '+new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})):'';
+  if(d.error){ box.innerHTML='<div style="color:var(--red);font-size:.85rem">Could not load: '+esc(d.error)+' · <a href="https://16485.axiscare.com/?realtimeview.php" target="_blank" rel="noopener">open AxisCare instead ↗</a></div>'; return; }
+  if(!(d.rows||[]).length){ box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">No visits scheduled on '+esc(d.date)+'.</div>'; return; }
+  const t12=s=>{ const m=String(s||'').match(/^(\d\d):(\d\d)$/); if(!m) return s||''; const h=Number(m[1])%12||12; return h+(m[2]==='00'?'':':'+m[2])+(Number(m[1])>=12?'p':'a'); };
+  const nowChi=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'});
+  const isToday=d.date===nowChi.slice(0,10), nowHM=nowChi.slice(11,16);
+  box.innerHTML='<div class="field-note" style="margin-bottom:.5rem;">'+d.total+' visit'+(d.total===1?'':'s')+(d.unassigned?' · <b style="color:var(--red);">'+d.unassigned+' unassigned</b>':' · all assigned')+'</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:.84rem;">'
+    +'<thead><tr style="text-align:left;color:var(--text-muted);font-size:.72rem;"><th style="padding:.3rem .4rem;">Time</th><th style="padding:.3rem .4rem;">Client</th><th style="padding:.3rem .4rem;">Caregiver</th><th style="padding:.3rem .4rem;">Status</th></tr></thead><tbody>'
+    +d.rows.map(v=>{
+      const un=!v.caregiver;
+      let st='';
+      if(un) st='<b style="color:var(--red);">UNASSIGNED</b> · <a href="#" onclick="switchTab(\'coverage\');covOpenAdd(\'calloff\');return false;">open a case</a>';
+      else if(v.clock_out) st='<span style="color:var(--green);">✓ done '+t12(v.clock_in)+'–'+t12(v.clock_out)+'</span>';
+      else if(v.clock_in) st='<span style="color:var(--green);">✓ clocked in '+t12(v.clock_in)+'</span>';
+      else if(isToday&&v.time&&v.time<nowHM&&(!v.end||v.end>nowHM)) st='<span style="color:var(--red);font-weight:700;">no clock-in yet</span>';
+      else if(isToday&&v.end&&v.end<=nowHM) st='<span style="color:var(--text-muted);">ended (no EVV shown)</span>';
+      else st='<span style="color:var(--text-muted);">upcoming</span>';
+      return '<tr style="border-top:1px solid var(--border);'+(un?'background:#FFF6F5;':'')+'">'
+        +'<td style="padding:.35rem .4rem;white-space:nowrap;">'+t12(v.time)+(v.end?'–'+t12(v.end):'')+'</td>'
+        +'<td style="padding:.35rem .4rem;"><b>'+esc(v.client)+'</b></td>'
+        +'<td style="padding:.35rem .4rem;">'+(un?'—':esc(v.caregiver))+'</td>'
+        +'<td style="padding:.35rem .4rem;">'+st+'</td></tr>';
+    }).join('')+'</tbody></table>'
+    +'<div class="field-note" style="margin-top:.5rem;">A window into AxisCare, loaded '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' — changes happen in AxisCare itself.</div>';
+}
+
+/* ── THE ADD PANEL'S TWO MODES (2026-09-18): call-off vs interest check. ── */
+let COV_ADD_MODE='calloff';
+function covApplyAddMode(mode){
+  COV_ADD_MODE=mode||'calloff';
+  const interest=COV_ADD_MODE==='interest';
+  const set=(id,fn)=>{ const el=document.getElementById(id); if(el) fn(el); };
+  set('covAddTitle',el=>el.textContent=interest?'📣 New client — see who wants the hours':'📞 Open a coverage case');
+  set('covCalloffTop',el=>el.style.display=interest?'none':'');
+  set('covReason',el=>{ el.value=interest?'new':'calloff'; el.style.display=interest?'none':''; });
+  set('covClient',el=>el.placeholder=interest?'Potential client — any name works, they don\'t need to be in AxisCare':'Client name');
+  set('covTime',el=>el.placeholder=interest?'The hours, e.g. Mon/Wed/Fri 9a-1p':'Shift time, e.g. 10a–6p');
+  set('covNote',el=>el.placeholder=interest?'What helps them decide — area, care level, start date, anything you can share':'Anything the person filling this needs to know');
+  set('covAddBtn',el=>el.textContent=interest?'Create the interest check':'Open case');
+  set('covAddHint',el=>el.textContent=interest
+    ?'This only creates the case — next you build the list and choose who gets the text. Every YES is collected for the client meeting; nobody is assigned anything.'
+    :'Only open a case when the shift needs chasing. If the AxisCare app fills it on its own, it never needs to be here.');
+}
+function covOpenAdd(mode){
+  covApplyAddMode(mode);
+  covAttachTarget=null; COV_PENDING=null;
+  const note=document.getElementById('covAttachNote'); if(note) note.style.display='none';
+  const w=document.getElementById('covAddWrap'); if(!w) return;
+  w.style.display='block';
+  if(COV_ADD_MODE!=='interest') covFillWho();
+  w.scrollIntoView({behavior:'smooth',block:'center'});
+}
 let COV_SHIFTS=[];
 function covToggleAdd(attachCaseId){
+  covApplyAddMode('calloff');
   const w=document.getElementById('covAddWrap');
   const opening = w.style.display==='none' || attachCaseId;
   covAttachTarget = attachCaseId || null;
@@ -25074,6 +25211,7 @@ async function covAdd(){
     resolved_at:null, resolved_how:null, covered_by:null };
   DATA.coverage_cases=DATA.coverage_cases||[]; DATA.coverage_cases.push(c);
   await persist('coverage_cases',c);
+  COV_EXPANDED.add(c.id);   // land on the new case with its picker open
   ['covClient','covTime','covNote'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('covAddWrap').style.display='none';
   renderCoverage();
@@ -25363,7 +25501,9 @@ function covRailStages(c){
       matched
         ? 'Cara selected '+waves[0].asks.length+' caregiver'+(waves[0].asks.length===1?'':'s')+' for Wave 1'
           +(waves[0].asks.some(a=>a.tier===1)?' — worked-with-this-client first':'')
-        : (open&&engineOn?'Cara is composing the first wave':(open?'The callout engine is off — asks are recorded by hand':(manual.length?'Asks were recorded by the office':'No asks were recorded'))),
+        : ((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)
+            ? (open?'Waiting for the office to build the ask list':(manual.length?'Asks were recorded by the office':'No asks were recorded'))
+            : (open&&engineOn?'Cara is composing the first wave':(open?'The callout engine is off — asks are recorded by hand':(manual.length?'Asks were recorded by the office':'No asks were recorded')))),
     ),
     S(waves.length||manual.length?((open&&!c.pending_fill&&!closedUncovered&&(waves.length||manual.length))?'now':'done'):'wait','Outreach',
       waves.length? waves.length+' wave'+(waves.length===1?'':'s')+' sent'+(manual.length?' + '+manual.length+' asked by the office':'')
