@@ -12716,6 +12716,11 @@ const AUTO_GROUPS = [
       how: 'Text, to the team you pick',
       says: '"We\'re meeting a potential new client… would you be interested in these hours? Nothing is set yet."',
       note: 'Every YES is collected so you walk into the client meeting knowing who wants the hours. Nobody is assigned anything.' },
+    { name: 'When caregivers say yes',
+      when: 'Nothing sends until you pick',
+      how: '—',
+      says: 'Nothing, on purpose. Every yes is collected on the case; the office gets one text on the first yes. When you pick, the chosen caregiver gets "You\'re confirmed…", and YOU decide what the others hear: the thank-you text, your own wording, or no message at all.',
+      note: 'No caregiver is ever told "someone grabbed it just before you" again.' },
   ]},
 
   { who: 'When a caregiver works a first shift with a client', items: [
@@ -24007,11 +24012,14 @@ function caraNeedsReason(c){
   if(!c) return null;
   if(c.status==='flagged') return 'flag';   // Cara heard a possible call-in — confirm or dismiss
   if(c.status!=='open') return null;
-  if(c.pending_fill) return 'pending';
+  /* Collect-all-yeses (2026-09-19): ANY standing yes means the office has a
+     pick to make — nobody has been answered until they do. */
+  if(c.pending_fill||(c.asked||[]).some(a=>a&&a.state==='yes')) return 'pending';
   if(c.callout_escalated_at) return 'exhausted';
   if((c.asked||[]).some(a=>a&&a.state==='inquiry')) return 'question';
   return null;
 }
+function covYesList(c){ return (c.asked||[]).filter(a=>a&&a.state==='yes'); }
 function caraSections(){
   const all=(DATA.coverage_cases||[]).filter(Boolean);
   const open=all.filter(c=>c.status==='open');
@@ -24126,10 +24134,17 @@ function caraNeedsCard(c){
       +'Nobody is texted until you confirm the call-in and choose who to ask.';
     cta='Confirm or dismiss &rarr;';
   }else if(why==='pending'){
-    winner=(c.asked||[]).find(a=>String(a.name||'').toLowerCase()===String(c.pending_fill.name||'').toLowerCase())||null;
-    head=esc(String(c.pending_fill.name).split(/\s+/)[0])+' said yes to '+first+"'s "+when+' shift.';
-    sub='Accepted '+covAgo(c.pending_fill.at)+' ago. Outreach is paused until you confirm.';
-    cta='Review and confirm &rarr;';
+    const yesL=covYesList(c);
+    const pfName=c.pending_fill?String(c.pending_fill.name||''):'';
+    winner=(pfName?(c.asked||[]).find(a=>String(a.name||'').toLowerCase()===pfName.toLowerCase()):null)||yesL[0]||null;
+    if(yesL.length>1){
+      head=yesL.length+' caregivers can cover '+first+"'s "+when+' shift — pick the best fit.';
+      sub=yesL.map(a=>esc(String(a.name||'').split(/\s+/)[0])).join(', ')+' all said yes. Nobody has been answered — when you pick, you also choose what (or whether) the others hear.';
+    }else{
+      head=esc(String((winner&&winner.name)||pfName||'Someone').split(/\s+/)[0])+' said yes to '+first+"'s "+when+' shift.';
+      sub='Said yes '+covAgo((winner&&winner.replied_at)||(c.pending_fill&&c.pending_fill.at)||c.opened_at)+' ago. More yeses may still come — nobody is answered until you pick and confirm.';
+    }
+    cta='Review and pick &rarr;';
   }else if(why==='question'){
     const qs=(c.asked||[]).filter(a=>a.state==='inquiry');
     head=esc(qs[0].name)+(qs.length>1?' and '+(qs.length-1)+' other'+(qs.length>2?'s':''):'')
@@ -24149,7 +24164,8 @@ function caraNeedsCard(c){
       +(caraPatternChip(c)?' '+caraPatternChip(c):'')),
     fact('Called off', esc(c.calling_off||'(not recorded on the case)'))
   ];
-  if(why==='pending') facts.push(fact('Proposed replacement', esc(c.pending_fill.name), true));
+  if(why==='pending'){ const yl=covYesList(c);
+    facts.push(fact(yl.length>1?'Said yes':'Can cover', esc(yl.length?yl.map(a=>a.name).join(', '):String(c.pending_fill&&c.pending_fill.name||'')), true)); }
   const panel=why==='flag'?'':caraContextPanel(c,why,winner);
   return '<div class="card" style="padding:16px 18px;margin:0 0 10px;background:#FFFCF5;border:1.5px solid var(--gold);">'
     +'<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;">'
@@ -25095,9 +25111,28 @@ async function covAskState(cid,aid,state){
 async function covResolve(id,how,byName){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
   let by=byName;
-  // The engine's first-yes winner is the default answer to "covered by whom?"
+  const yesL=covYesList(c);
+  if(how==='covered' && !by && yesL.length===1) by=yesL[0].name;
   if(how==='covered' && !by && c.pending_fill && c.pending_fill.name) by=c.pending_fill.name;
   if(how==='covered' && !by){ by=prompt('Covered by whom?'); if(!by||!by.trim()) return; by=by.trim(); }
+  /* THE OTHERS WHO SAID YES (her rule, 2026-09-19): the coordinator decides
+     what they hear — the default thank-you, custom wording, or nothing. */
+  if(how==='covered'){
+    const others=yesL.filter(a=>String(a.name||'').toLowerCase()!==String(by||'').toLowerCase());
+    if(others.length){
+      const names=others.map(a=>a.name).join(', ');
+      if(confirm(others.length+' other'+(others.length===1?'':'s')+' also said yes ('+names+').\n\nText them a thank-you when this closes?\n\nOK = send a message (you write it next) · Cancel = they get NO message')){
+        const dflt=(DATA.ops_settings&&DATA.ops_settings.coverage_msg_not_chosen)
+          ||'Caring Companions: that shift got covered this time — thank you so much for offering, {first_name}! Next one is yours.';
+        const m=prompt('What should it say? ({first_name} becomes their name)',dflt);
+        c.not_chosen_msg=(m&&m.trim())||dflt;
+        delete c.not_chosen_silent;
+      }else{
+        c.not_chosen_silent=true;
+        delete c.not_chosen_msg;
+      }
+    }
+  }
   c.status='done'; c.resolved_how=how; c.covered_by=by||null;
   c.resolved_at=new Date().toISOString();
   await persist('coverage_cases',c); renderCoverage();
@@ -25135,7 +25170,10 @@ async function covReopen(id){
   c.status='open'; c.resolved_how=null; c.covered_by=null; c.resolved_at=null;
   delete c.closure_notified; delete c.pending_fill; delete c.axiscare_assignment;
   delete c.callout_escalated_at; delete c.callout_escalation_sms;
-  (c.asked||[]).forEach(x=>{ if(x.state==='closed_notified') x.state='no_answer_final'; if(x.confirm_sent) delete x.confirm_sent; });
+  delete c.not_chosen_msg; delete c.not_chosen_silent;
+  (c.asked||[]).forEach(x=>{ if(x.state==='closed_silent'){ x.state=x.was_yes?'yes':'no_answer_final'; }
+    else if(x.state==='closed_notified') x.state=x.was_yes?'yes':'no_answer_final';
+    if(x.confirm_sent) delete x.confirm_sent; });
   await persist('coverage_cases',c); renderCoverage();
 }
 
@@ -25430,29 +25468,40 @@ function covOutreachHtml(c){
 /* Ready to Confirm: original beside replacement, substantiated facts only.
    The button is the existing confirm path (covResolve → coverage-assign). */
 function covConfirmHtml(c){
-  if(!(c.status==='open'&&c.pending_fill)) return '';
-  const winner=(c.asked||[]).find(a=>String(a.name||'').toLowerCase()===String(c.pending_fill.name||'').toLowerCase())||{};
+  /* Collect-all-yeses (2026-09-19): EVERY standing yes renders side by side,
+     each with its own confirm button — the office picks the best fit, never
+     the fastest thumb. Legacy pending_fill-only cases still render. */
+  const yesL=covYesList(c);
+  if(!(c.status==='open'&&(yesL.length||c.pending_fill))) return '';
   const R={calloff:'Call-off',open:'Open shift',new:'New client'};
-  const facts=[
-    'Said yes '+covAgo(c.pending_fill.at)+' ago'+(winner.reply?' — “'+esc(String(winner.reply).slice(0,120))+'”':''),
-    winner.tier===1?'Has worked with '+esc(String(c.client||'this client').split(/\s+/)[0])+' before'
-      :winner.tier===2?'Worked a shift in the last 14 days':null,
-    winner.auto?'Reached by Cara’s text':'Asked by the office'+(winner.channel?' ('+esc(winner.channel)+')':''),
-  ].filter(Boolean);
+  const cands=yesL.length?yesL:[{name:c.pending_fill.name,replied_at:c.pending_fill.at,reply:'',tier:null}];
+  const col=(w)=>{
+    const facts=[
+      'Said yes '+covAgo(w.replied_at||w.at||c.opened_at)+' ago'+(w.reply?' — “'+esc(String(w.reply).slice(0,120))+'”':''),
+      w.tier===1?'Has worked with '+esc(String(c.client||'this client').split(/\s+/)[0])+' before'
+        :w.tier===2?'Worked a shift in the last 14 days':null,
+      (w.auto?'Reached by Cara’s text':w.picked_by_coordinator?'Picked and texted by the office':'Asked by the office'+(w.channel?' ('+esc(w.channel)+')':'')),
+    ].filter(Boolean);
+    return '<div class="cov-confirm-col" style="background:var(--green-bg);border-color:var(--green);"><div class="lbl" style="color:var(--green);">Can cover</div>'
+      +'<b>'+esc(w.name)+'</b>'
+      +facts.map(f=>'<div class="field-note">'+f+'</div>').join('')
+      +'<div style="margin-top:6px;"><button class="addlead" style="font-size:12.5px;" onclick="covResolve(\''+esc(c.id)+'\',\'covered\','+ (function(s){return "'"+String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;')+"'";})(w.name) +')">Pick '+esc(String(w.name).split(/\s+/)[0])+' ✓</button></div>'
+      +'</div>';
+  };
+  const isInterest=String(c.kind)==='interest';
   return '<div style="margin-top:10px;padding:10px 12px;border-radius:9px;background:var(--honey-chip);border:1.5px solid var(--honey);">'
-    +'<b style="color:var(--honey-ink);">⚡ Coverage found — ready to confirm</b>'
+    +'<b style="color:var(--honey-ink);">'+(isInterest?'💛 '+cands.length+' interested — for the client meeting':(cands.length>1?'⚡ '+cands.length+' can cover — pick the best fit':'⚡ Coverage found — ready to confirm'))+'</b>'
+    +(isInterest?'':'<div class="field-note" style="margin-top:2px;">Nobody has been answered. Your pick gets the confirm text; you\'ll choose what (or whether) the others hear.</div>')
     +'<div class="cov-confirm-grid">'
     +'<div class="cov-confirm-col" style="background:#fff;"><div class="lbl">Original</div>'
       +'<b>'+esc(c.calling_off||'(caregiver not recorded)')+'</b>'
-      +'<div class="field-note">'+esc(R[c.reason]||c.reason||'')+' · '+esc(c.shift_date||'')+' '+esc(c.shift_time||'')+'</div></div>'
-    +'<div class="cov-confirm-col" style="background:var(--green-bg);border-color:var(--green);"><div class="lbl" style="color:var(--green);">Replacement</div>'
-      +'<b>'+esc(c.pending_fill.name)+'</b>'
-      +facts.map(f=>'<div class="field-note">'+f+'</div>').join('')+'</div>'
+      +'<div class="field-note">'+esc(R[c.reason]||c.reason||'')+' · '+esc(c.shift_date||'')+' '+esc(covT12(c.shift_time||''))+'</div></div>'
+    +(isInterest?cands.map(w=>'<div class="cov-confirm-col" style="background:var(--green-bg);border-color:var(--green);"><div class="lbl" style="color:var(--green);">Interested</div><b>'+esc(w.name)+'</b>'+(w.reply?'<div class="field-note">“'+esc(String(w.reply).slice(0,120))+'”</div>':'')+'</div>').join('')
+                :cands.map(col).join(''))
     +'</div>'
-    +'<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">'
-    +'<button class="addlead" onclick="covResolve(\''+esc(c.id)+'\',\'covered\')">Confirm &amp; assign in AxisCare ✓</button>'
-    +'<span class="field-note">Confirming writes '+esc(String(c.pending_fill.name).split(/\s+/)[0])+' onto the visit and reads it back to verify'+(c.axiscare_visit_id?'.':' — no exact visit is attached, so assignment will say “assign by hand”.')+'</span>'
-    +'</div>'+covHoursHtml(c)+'</div>';
+    +(isInterest?'':'<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">'
+      +'<span class="field-note">Picking someone writes them onto the visit and reads it back to verify'+(c.axiscare_visit_id?'.':' — no exact visit is attached, so assignment will say “assign by hand”.')+'</span>'
+      +'</div>')+covHoursHtml(c)+'</div>';
 }
 /* Closing the Loop: renders the engine's OWN flags. Nothing is sent from
    here — coverage-run's closure pass already sends every text and stamps
@@ -25464,8 +25513,8 @@ function covLoopHtml(c){
   /* The engine only ever texts a winner who was auto-asked and said yes;
      a manual phone confirm has no such entry, so "text pending" would be
      false forever. Derivable from the stored asks, so say the truth. */
-  const winnerEligible=(c.asked||[]).some(a=>a.auto&&String(a.name||'').toLowerCase()===String(c.covered_by||'').toLowerCase());
-  const othersAsked=(c.asked||[]).some(a=>a.auto&&String(a.name||'').toLowerCase()!==String(c.covered_by||'').toLowerCase());
+  const winnerEligible=(c.asked||[]).some(a=>(a.auto||a.picked_by_coordinator)&&String(a.name||'').toLowerCase()===String(c.covered_by||'').toLowerCase());
+  const othersAsked=(c.asked||[]).some(a=>(a.auto||a.picked_by_coordinator)&&String(a.name||'').toLowerCase()!==String(c.covered_by||'').toLowerCase());
   const row=(st,txt,note)=>'<div class="cov-loop-row"><span class="st" style="color:'
     +(st==='done'?'var(--green)':st==='pending'?'var(--honey-ink)':'var(--text-muted)')+';">'
     +(st==='done'?'✓':st==='pending'?'●':'○')+'</span><span>'+txt
@@ -25556,7 +25605,9 @@ function renderCoverage(){
       .map(t=>'<span style="color:'+t[2]+';font-weight:800;">'+t[0]+' '+t[1]+'</span>').join(' · ');
     const expanded=COV_EXPANDED.has(c.id)||(open&&!!c.pending_fill);
     const headTallies=tallies?'<span style="font-size:12.5px;">'+tallies+'</span>':'';
-    const pendChip=(open&&c.pending_fill)?'<span style="font-size:12px;font-weight:800;color:var(--green);background:var(--green-bg);border-radius:6px;padding:2px 8px;">✅ '+esc(c.pending_fill.name)+' can cover</span>':'';
+    const yesN=covYesList(c).length;
+    const pendChip=(open&&yesN)?'<span style="font-size:12px;font-weight:800;color:var(--green);background:var(--green-bg);border-radius:6px;padding:2px 8px;">✅ '+(yesN===1?esc(covYesList(c)[0].name)+' can cover':yesN+' can cover — pick one')+'</span>'
+      :(open&&c.pending_fill)?'<span style="font-size:12px;font-weight:800;color:var(--green);background:var(--green-bg);border-radius:6px;padding:2px 8px;">✅ '+esc(c.pending_fill.name)+' can cover</span>':'';
     return '<div class="card" id="covcase_'+esc(c.id)+'" style="padding:'+(expanded?'16px 18px':'10px 18px')+';margin-bottom:'+(expanded?'12px':'6px')+';'+(open?'border-left:4px solid var(--red);':'')+'">'
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;cursor:pointer;" onclick="covToggleCase(\''+esc(c.id)+'\')">'
       +'<span style="color:var(--text-muted);font-size:12px;">'+(expanded?'▾':'▸')+'</span>'
