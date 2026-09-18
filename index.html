@@ -25177,14 +25177,18 @@ function covPickerHtml(c){
   else if(st&&st.data){
     const d=st.data;
     const g1n=d.group1.length, g2n=d.group2.length;
-    const row=(x,g)=>'<label style="display:flex;gap:8px;align-items:baseline;font-size:13px;padding:2.5px 0;cursor:pointer;">'
-      +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'" checked style="width:auto;">'
+    /* Group 2 defaults to its TOP FIVE checked (ranked: recently active,
+       then hungriest for hours) — widening past that is a deliberate tick,
+       never an accidental blast to the whole roster. */
+    const row=(x,g,checked)=>'<label style="display:flex;gap:8px;align-items:baseline;font-size:13px;padding:2.5px 0;cursor:pointer;">'
+      +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'"'+(checked?' checked':'')+' style="width:auto;">'
       +'<b>'+esc(x.name)+'</b><span class="field-note">'+esc(x.why)
       +(x.level?' · Level '+x.level:'')+(x.wants_more_hours?' · wants +'+x.wants_more_hours+'h':'')+'</span></label>';
     body='<div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:2px 0;">'+(isInterest?'Everyone eligible for the interest check':'Group 1 — worked with '+esc(String(c.client||'this client').split(/\s+/)[0]))+(isInterest?'':' ('+g1n+')')+'</div>'
-      +(g1n?d.group1.map(x=>row(x,1)).join(''):(isInterest?'':'<div class="field-note" style="padding:2px 0;">Nobody on record has worked with this client'+(String(d.meta.client_resolution||'').startsWith('resolved')?'':' (client not matched in AxisCare — normal for a new client)')+'.</div>'))
-      +(isInterest?'':'<div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:8px 0 2px;">Group 2 — good matches, haven\'t worked with them ('+g2n+')</div>')
-      +(g2n?d.group2.map(x=>row(x,2)).join(''):'<div class="field-note" style="padding:2px 0;">Nobody else eligible.</div>')
+      +(g1n?d.group1.map(x=>row(x,1,true)).join(''):(isInterest?'':'<div class="field-note" style="padding:2px 0;">Nobody on record has worked with this client'+(String(d.meta.client_resolution||'').startsWith('resolved')?'':' (client not matched in AxisCare — normal for a new client)')+'.</div>'))
+      +(isInterest?'':'<div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:8px 0 2px;">Group 2 — good matches, haven\'t worked with them ('+g2n+')'+(g2n>5?' <span class="field-note" style="font-weight:500;">top 5 checked — tick more to widen</span>':'')+'</div>')
+      +(g2n?d.group2.map((x,i)=>row(x,2,isInterest?i<8:i<5)).join(''):'<div class="field-note" style="padding:2px 0;">Nobody else eligible.</div>')
+      +(isInterest&&g2n>8?'<div class="field-note" style="padding:2px 0;">Top 8 checked — tick more to reach the wider team.</div>':'')
       +(d.excluded.length?'<details style="margin-top:6px;"><summary class="field-note" style="cursor:pointer;">Not listed: '+d.excluded.length+' (each with the reason'+(d.meta.dnr_barred?', incl. '+d.meta.dnr_barred+' Do-Not-Return':'')+')</summary>'
         +d.excluded.map(x=>'<div class="field-note" style="padding:1px 0;">'+esc(x.name)+' — '+esc(x.why)+'</div>').join('')+'</details>':'')
       +'<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
@@ -25227,7 +25231,11 @@ async function covPickSend(id,includeG2){
   if(!names.length){ alert('Nobody is checked — nothing to send.'); return; }
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id);
   const isInterest=c&&String(c.kind)==='interest';
-  if(!confirm((isInterest?'Text the new-client interest check to ':'Text the coverage ask to ')+names.length+' caregiver'+(names.length===1?'':'s')+'?\n\n'+names.join(', ')+'\n\nReplies land on this case.')) return;
+  /* Late-night check: the button works around the clock on purpose (a human
+     chose), but nobody should wake 12 caregivers by accident. */
+  const hr=new Date().getHours();
+  const lateNote=(hr>=21||hr<8)?'⚠ It\'s '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' — most caregivers are asleep. Send anyway only if this shift truly can\'t wait for morning.\n\n':'';
+  if(!confirm(lateNote+(isInterest?'Text the new-client interest check to ':'Text the coverage ask to ')+names.length+' caregiver'+(names.length===1?'':'s')+'?\n\n'+names.join(', ')+'\n\nReplies land on this case.')) return;
   try{
     const { data:{ session } } = await sb.auth.getSession();
     if(!session||!session.access_token) throw new Error('Sign in to the hub first.');
