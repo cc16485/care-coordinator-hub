@@ -1000,7 +1000,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            writes, and no case appears in more than one section. -->
       <div id="caraCC"></div>
 
-      <div class="card" id="covAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
+      <!-- Since 2026-09-18 the opener is a MODAL (her call: the inline card
+           shoved the whole board down and never felt at home). The backdrop
+           closes it on a click outside; the board never moves. -->
+      <div class="modal-backdrop" id="covAddBackdrop" onclick="if(event.target===this) covCloseAdd();">
+      <div class="modal" id="covAddWrap" style="max-width:780px;width:100%;position:relative;padding:16px 18px;">
+        <button onclick="covCloseAdd()" style="position:absolute;top:10px;right:12px;background:none;border:none;font-size:20px;color:var(--text-muted);cursor:pointer;padding:4px;" title="Close">✕</button>
         <!-- Caregiver-first (Samantha, 2026-09-12): a call-off is about a REAL
              shift that is still assigned to the caller. Pick who is calling
              off, see their live AxisCare shifts, click the one they mean —
@@ -1030,6 +1035,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <button class="addlead" id="covAddBtn" onclick="covAdd()">Open case</button>
         </div>
         <div class="field-note" id="covAddHint" style="margin-top:8px;">Only open a case when the shift needs chasing. If the AxisCare app fills it on its own, it never needs to be here.</div>
+      </div>
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
@@ -24935,20 +24941,21 @@ function covApplyAddMode(mode){
     ?'This only creates the case — next you build the list and choose who gets the text. Every YES is collected for the client meeting; nobody is assigned anything.'
     :'Only open a case when the shift needs chasing. If the AxisCare app fills it on its own, it never needs to be here.');
 }
+function covShowAdd(on){ const b=document.getElementById('covAddBackdrop'); if(b) b.classList[on?'add':'remove']('open'); }
+function covCloseAdd(){ covShowAdd(false); }
 function covOpenAdd(mode){
   covApplyAddMode(mode);
   covAttachTarget=null; COV_PENDING=null;
   const note=document.getElementById('covAttachNote'); if(note) note.style.display='none';
-  const w=document.getElementById('covAddWrap'); if(!w) return;
-  w.style.display='block';
+  covShowAdd(true);
   if(COV_ADD_MODE!=='interest') covFillWho();
-  w.scrollIntoView({behavior:'smooth',block:'center'});
+  setTimeout(()=>{ const el=document.getElementById(COV_ADD_MODE==='interest'?'covClient':'covWho'); if(el) el.focus(); },200);
 }
 let COV_SHIFTS=[];
 function covToggleAdd(attachCaseId){
   covApplyAddMode('calloff');
-  const w=document.getElementById('covAddWrap');
-  const opening = w.style.display==='none' || attachCaseId;
+  const b=document.getElementById('covAddBackdrop');
+  const opening = !(b&&b.classList.contains('open')) || attachCaseId;
   covAttachTarget = attachCaseId || null;
   COV_PENDING=null;
   const box=document.getElementById('covWhoShifts'); if(box) box.innerHTML='';
@@ -24959,9 +24966,8 @@ function covToggleAdd(attachCaseId){
     if(covAttachTarget){ const c=(DATA.coverage_cases||[]).find(x=>x.id===covAttachTarget);
       note.textContent='Attaching the real shift to the open case for '+((c&&c.client)||'?')+' — pick the caregiver who called off and click the shift.'; }
   }
-  w.style.display=opening?'block':'none';
+  covShowAdd(opening);
   if(opening) covFillWho();
-  if(opening&&attachCaseId) w.scrollIntoView({behavior:'smooth',block:'center'});
 }
 let COV_CG_CACHE=null;
 async function covFillWho(){
@@ -25178,7 +25184,7 @@ async function covConfirmOpen(){
     DATA.coverage_cases=DATA.coverage_cases||[]; DATA.coverage_cases.push(c);
     await persist('coverage_cases',c);
   }
-  document.getElementById('covAddWrap').style.display='none';
+  covShowAdd(false);
   document.getElementById('covWhoShifts').innerHTML='';
   renderCoverage();
 }
@@ -25213,7 +25219,7 @@ async function covAdd(){
   await persist('coverage_cases',c);
   COV_EXPANDED.add(c.id);   // land on the new case with its picker open
   ['covClient','covTime','covNote'].forEach(i=>document.getElementById(i).value='');
-  document.getElementById('covAddWrap').style.display='none';
+  covShowAdd(false);
   renderCoverage();
 }
 async function covAsk(id){
