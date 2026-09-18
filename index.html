@@ -24065,6 +24065,16 @@ function caraNeedsReason(c){
   return null;
 }
 function covYesList(c){ return (c.asked||[]).filter(a=>a&&a.state==='yes'); }
+/* An ONGOING opening (her ask, 2026-09-18: see them apart from call-offs):
+   the watcher stamped the slot's future dates as having nobody
+   (shift_pattern open_ongoing), or the case was opened as an "Open shift"
+   by hand. A call-off whose slot turns out to be truly open counts —
+   what matters is what needs filling, not how the case began. */
+function covIsOngoing(c){
+  if(!c||String(c.kind)==='interest') return false;
+  const p=c.shift_pattern;
+  return (p&&typeof p==='object'&&p.kind==='open_ongoing')||c.reason==='open';
+}
 function caraSections(){
   const all=(DATA.coverage_cases||[]).filter(Boolean);
   /* Interest checks are NOT open shifts (her call, 2026-09-18): they get
@@ -25770,7 +25780,8 @@ function renderCoverage(){
   /* Interest checks live under their own heading — a new-client feeler is
      not an uncovered shift and never sits among them (her call, 2026-09-18). */
   const interestList=list.filter(c=>String(c.kind)==='interest');
-  list=list.filter(c=>String(c.kind)!=='interest');
+  const ongoingList=list.filter(c=>String(c.kind)!=='interest'&&covIsOngoing(c));
+  list=list.filter(c=>String(c.kind)!=='interest'&&!covIsOngoing(c));
   const section=(title,note)=>'<div style="display:flex;gap:8px;align-items:baseline;margin:14px 0 8px;"><h3 style="margin:0;font-size:15px;font-weight:800;color:var(--navy);">'+title+'</h3><span class="field-note" style="font-size:12px;">'+note+'</span></div>';
   const renderCase=c=>{
     const open=c.status==='open';
@@ -25834,10 +25845,11 @@ function renderCoverage(){
       +'</div>'
       +'</div>';
   };
+  const shown=[interestList.length,ongoingList.length,list.length].filter(Boolean).length;
   box.innerHTML=flaggedHtml
     +(interestList.length?section('📣 New-client interest checks','who wants the hours — separate from open shifts')+interestList.map(renderCase).join(''):'')
-    +((interestList.length&&list.length)?section('Coverage cases','call-offs and open shifts'):'')
-    +list.map(renderCase).join('');
+    +(ongoingList.length?section('🔁 Ongoing shifts to fill','recurring openings — could become someone\'s regular shift')+ongoingList.map(renderCase).join(''):'')
+    +(list.length?((shown>1)?section('📵 Call-offs & one-time coverage','a single shift that needs a person'):'')+list.map(renderCase).join(''):'');
 }
 
 /* ── CLIENT 360: one client, the whole picture ───────────────────────────
