@@ -25090,6 +25090,12 @@ function covComposeMsgs(f,opts){
   const otherDefault=sameday
     ?(String(st.coverage_msg_other_sameday||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. Last-minute fill-in for {client} at {address}: {when}. {pattern}{care}Can you take it? Reply YES or NO. Questions welcome.")
     :(String(st.coverage_msg_other_advance||'')||String(st.coverage_msg_other||'')||"Hi {first_name}, it's Caring Companions. We have an open shift for {client} at {address}: {when}. {pattern}{care}Can you take it? Reply YES or NO. Questions welcome.");
+  /* Interest checks preview their own single message — nobody is "covering"
+     anything, and the tier split doesn't apply. */
+  if(String(f.kind)==='interest'){
+    const im=fill(String(f.msg_interest||'')||String(st.coverage_msg_interest||'')||"Hi {first_name}, it's Caring Companions. We're meeting a potential new client{where}: {when}. {care}Would you be interested in these hours? Nothing is set yet - reply YES if you'd like to be considered, or NO. Questions welcome.");
+    return { tier1: im, other: im, interest: true };
+  }
   return {
     tier1: fill(String(f.msg_tier1||'')||String(st.coverage_msg_tier1||'')||"Hi {first_name}, can you cover {client} {when}? {pattern}It's Caring Companions. Reply YES or NO."),
     other: fill(String(f.msg_other||'')||otherDefault),
@@ -25502,7 +25508,7 @@ function covRailStages(c){
   const matched=waves.length>0;
   const S=(state,label,detail)=>({state,label,detail});
   return [
-    S('done','Call-Off', (c.opened_by==='axiscare-watch'?'Detected from the AxisCare unassignment':'Opened '+(c.opened_by?'by '+c.opened_by:'on the board'))+' · '+covClock(c.opened_at)),
+    S('done',String(c.kind)==='interest'?'New Client':'Call-Off', (c.opened_by==='axiscare-watch'?'Detected from the AxisCare unassignment':'Opened '+(c.opened_by?'by '+c.opened_by:'on the board'))+' · '+covClock(c.opened_at)),
     S(matched?'done':(open&&engineOn?'now':(open?'wait':'done')),'Matching',
       matched
         ? 'Cara selected '+waves[0].asks.length+' caregiver'+(waves[0].asks.length===1?'':'s')+' for Wave 1'
@@ -25591,7 +25597,9 @@ function covOutreachHtml(c){
   }
   if(!h){
     h='<div class="field-note" style="padding:4px 0;">Nobody asked yet'
-      +(open?(engineOn?' — Cara texts the first wave within 5 minutes.':' — the callout engine is off; use “I asked someone”.'):'.')+'</div>';
+      +(open?((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)
+          ?' — build the ask list above and choose who to text.'
+          :(engineOn?' — Cara texts the first wave within 5 minutes.':' — the callout engine is off; use “I asked someone”.')):'.')+'</div>';
   }
   // What happens next, said out loud — the controlled-wave design is a
   // feature. Times derive from the newest auto ask + the stored fuse.
@@ -25777,7 +25785,7 @@ function renderCoverage(){
       +'</div>'
       +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' called off'+(c.axiscare_visit_id?' — exact AxisCare shift attached; confirming a fill replaces them on it.':'')+'</div>':'')
       +(open?'<details style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
-        +(function(){ const m=covComposeMsgs(c); return '<div style="margin-top:4px;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12.5px;"><b>Works with this client:</b> '+esc(m.tier1)+'<br style="margin-bottom:4px;"><b>Everyone else:</b> '+esc(m.other)+'</div>'; })()
+        +(function(){ const m=covComposeMsgs(c); return '<div style="margin-top:4px;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12.5px;">'+(m.interest?'<b>Everyone you pick:</b> '+esc(m.tier1):'<b>Works with this client:</b> '+esc(m.tier1)+'<br style="margin-bottom:4px;"><b>Everyone else:</b> '+esc(m.other))+'</div>'; })()
         +'</details>':'')
       +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
       +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
