@@ -12696,6 +12696,28 @@ const AUTO_GROUPS = [
       note: 'The start form promises this. This is the thing that keeps the promise.' },
   ]},
 
+  { who: 'When a shift needs covering (Cara)', items: [
+    { name: 'Cara hears a possible call-in',
+      when: 'Minutes after a call, from the call summary',
+      how: '—',
+      says: 'Nothing to anyone. A flag appears on the Cara board: who she thinks called off, and the phrase that convinced her.',
+      note: 'A coordinator confirms or dismisses every flag. Cara never texts a caregiver on her own.' },
+    { name: 'The office hears about a confirmed call-in',
+      when: 'As soon as a case opens',
+      how: 'Email always, text 8am-9pm, to the admins',
+      says: 'Who called off, which client, which shift, and that the candidate list is ready on the board.' },
+    { name: 'The ask goes to the caregivers YOU pick',
+      when: 'Only when a coordinator presses send',
+      how: 'Text, to the chosen caregivers',
+      says: 'The callout wording from Settings, worked-with-this-client caregivers offered first. Do-Not-Return caregivers are never listed, let alone texted.',
+      note: 'You choose Group 1 (worked with the client), or Groups 1+2 (good matches too), and can uncheck anyone.' },
+    { name: 'A new-client interest check',
+      when: 'Only when a coordinator sends one',
+      how: 'Text, to the team you pick',
+      says: '"We\'re meeting a potential new client… would you be interested in these hours? Nothing is set yet."',
+      note: 'Every YES is collected so you walk into the client meeting knowing who wants the hours. Nobody is assigned anything.' },
+  ]},
+
   { who: 'When a caregiver works a first shift with a client', items: [
     { name: 'How did your first shift go?',
       when: 'The next morning, between 9 and 10am',
@@ -23982,7 +24004,9 @@ function ccChiDate(iso){
    is a field the engine actually writes. Do not add a fourth without a
    field behind it. */
 function caraNeedsReason(c){
-  if(!c||c.status!=='open') return null;
+  if(!c) return null;
+  if(c.status==='flagged') return 'flag';   // Cara heard a possible call-in — confirm or dismiss
+  if(c.status!=='open') return null;
   if(c.pending_fill) return 'pending';
   if(c.callout_escalated_at) return 'exhausted';
   if((c.asked||[]).some(a=>a&&a.state==='inquiry')) return 'question';
@@ -23992,6 +24016,7 @@ function caraSections(){
   const all=(DATA.coverage_cases||[]).filter(Boolean);
   const open=all.filter(c=>c.status==='open');
   const needs=[], working=[];
+  all.filter(c=>c.status==='flagged').forEach(c=>needs.push(c));
   open.forEach(c=>{ if(caraNeedsReason(c)) needs.push(c); else working.push(c); });
   const t=ccChiToday();
   const filled=all.filter(c=>c.resolved_how==='covered'&&ccChiDate(c.resolved_at)===t);
@@ -24095,7 +24120,12 @@ function caraNeedsCard(c){
      write 'calloff'. Both are real, so both are labelled. */
   const R={calloff:'Call-off',call_off:'Call-off',open:'Open shift',new:'New client'};
   let head='', sub='', cta='Open the case &rarr;', winner=null;
-  if(why==='pending'){
+  if(why==='flag'){
+    head='Cara thinks '+esc(String(c.calling_off||'a caregiver').split(/\s+/)[0])+' called off — confirm it.';
+    sub=(c.flag_evidence?'From the call: “'+esc(String(c.flag_evidence).slice(0,140))+'”. ':'')
+      +'Nobody is texted until you confirm the call-in and choose who to ask.';
+    cta='Confirm or dismiss &rarr;';
+  }else if(why==='pending'){
     winner=(c.asked||[]).find(a=>String(a.name||'').toLowerCase()===String(c.pending_fill.name||'').toLowerCase())||null;
     head=esc(String(c.pending_fill.name).split(/\s+/)[0])+' said yes to '+first+"'s "+when+' shift.';
     sub='Accepted '+covAgo(c.pending_fill.at)+' ago. Outreach is paused until you confirm.';
@@ -24120,7 +24150,7 @@ function caraNeedsCard(c){
     fact('Called off', esc(c.calling_off||'(not recorded on the case)'))
   ];
   if(why==='pending') facts.push(fact('Proposed replacement', esc(c.pending_fill.name), true));
-  const panel=caraContextPanel(c,why,winner);
+  const panel=why==='flag'?'':caraContextPanel(c,why,winner);
   return '<div class="card" style="padding:16px 18px;margin:0 0 10px;background:#FFFCF5;border:1.5px solid var(--gold);">'
     +'<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;">'
     +'<div style="flex:1 1 380px;min-width:280px;">'
@@ -25012,10 +25042,15 @@ async function covAdd(){
   if(covAttachTarget){ alert('You are attaching a shift to an existing case — pick the caregiver and their shift above, or close and reopen the panel to start a new case.'); return; }
   const client=document.getElementById('covClient').value.trim();
   if(!client){ alert('Whose shift is it?'); return; }
+  const reasonV=document.getElementById('covReason').value;
   const c={ id:uid(), client,
     shift_date:document.getElementById('covDate').value||today(),
     shift_time:document.getElementById('covTime').value.trim(),
-    reason:document.getElementById('covReason').value,
+    reason:reasonV,
+    /* "New client" is an INTEREST CHECK (her ask, 2026-09-19): the client
+       may not be in AxisCare yet, the text asks who WANTS the hours, and
+       every YES is collected — never treated as a fill. */
+    ...(reasonV==='new'?{kind:'interest'}:{}),
     note:document.getElementById('covNote').value.trim(),
     status:'open', asked:[],
     opened_at:new Date().toISOString(),
@@ -25102,6 +25137,115 @@ async function covReopen(id){
   delete c.callout_escalated_at; delete c.callout_escalation_sms;
   (c.asked||[]).forEach(x=>{ if(x.state==='closed_notified') x.state='no_answer_final'; if(x.confirm_sent) delete x.confirm_sent; });
   await persist('coverage_cases',c); renderCoverage();
+}
+
+/* ── CARA'S FLAGS + THE PICKER (2026-09-19 redesign) ─────────────────────
+   Cara flags a possible call-in from a call summary; a human confirms or
+   dismisses. On any open case, "Build the ask list" fetches the ranked
+   candidates from the engine — Group 1 worked with this client, Group 2
+   good matches who haven't, Do-Not-Return names never listed — and the
+   coordinator unchecks anyone before choosing the send scope. The engine
+   re-derives eligibility server-side on send, so the browser list can only
+   ever narrow it. */
+async function covFlagConfirm(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  if(/confirm the client/.test(String(c.client||''))||!String(c.client||'').trim()){
+    const nm=prompt('Which client is this shift for? (Cara couldn\'t tell from the call)');
+    if(nm&&nm.trim()) c.client=nm.trim();
+  }
+  c.status='open'; c.flag_confirmed_at=new Date().toISOString();
+  c.flag_confirmed_by=(typeof ME!=='undefined'&&(ME.name||ME.email))||'';
+  await persist('coverage_cases',c);
+  COV_EXPANDED.add(c.id);
+  renderCoverage();
+}
+async function covFlagDismiss(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  if(!confirm('Dismiss this flag? Cara won\'t flag this call again.')) return;
+  c.status='dismissed'; c.dismissed_at=new Date().toISOString();
+  c.dismissed_by=(typeof ME!=='undefined'&&(ME.name||ME.email))||'';
+  await persist('coverage_cases',c); renderCoverage();
+}
+let COV_PICK={};
+function covPickerHtml(c){
+  if(c.status!=='open') return '';
+  const st=COV_PICK[c.id];
+  const isInterest=String(c.kind)==='interest';
+  let body='';
+  if(st&&st.loading){ body='<span class="field-note">Building the list from AxisCare… (a few seconds)</span>'; }
+  else if(st&&st.err){ body='<span style="color:var(--red);font-size:12.5px;">'+esc(st.err)+'</span> <button class="ghost" onclick="covPickBuild(\''+esc(c.id)+'\')">Try again</button>'; }
+  else if(st&&st.data){
+    const d=st.data;
+    const g1n=d.group1.length, g2n=d.group2.length;
+    const row=(x,g)=>'<label style="display:flex;gap:8px;align-items:baseline;font-size:13px;padding:2.5px 0;cursor:pointer;">'
+      +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'" checked style="width:auto;">'
+      +'<b>'+esc(x.name)+'</b><span class="field-note">'+esc(x.why)
+      +(x.level?' · Level '+x.level:'')+(x.wants_more_hours?' · wants +'+x.wants_more_hours+'h':'')+'</span></label>';
+    body='<div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:2px 0;">'+(isInterest?'Everyone eligible for the interest check':'Group 1 — worked with '+esc(String(c.client||'this client').split(/\s+/)[0]))+(isInterest?'':' ('+g1n+')')+'</div>'
+      +(g1n?d.group1.map(x=>row(x,1)).join(''):(isInterest?'':'<div class="field-note" style="padding:2px 0;">Nobody on record has worked with this client'+(String(d.meta.client_resolution||'').startsWith('resolved')?'':' (client not matched in AxisCare — normal for a new client)')+'.</div>'))
+      +(isInterest?'':'<div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:8px 0 2px;">Group 2 — good matches, haven\'t worked with them ('+g2n+')</div>')
+      +(g2n?d.group2.map(x=>row(x,2)).join(''):'<div class="field-note" style="padding:2px 0;">Nobody else eligible.</div>')
+      +(d.excluded.length?'<details style="margin-top:6px;"><summary class="field-note" style="cursor:pointer;">Not listed: '+d.excluded.length+' (each with the reason'+(d.meta.dnr_barred?', incl. '+d.meta.dnr_barred+' Do-Not-Return':'')+')</summary>'
+        +d.excluded.map(x=>'<div class="field-note" style="padding:1px 0;">'+esc(x.name)+' — '+esc(x.why)+'</div>').join('')+'</details>':'')
+      +'<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+      +(isInterest
+        ?'<button class="addlead" onclick="covPickSend(\''+esc(c.id)+'\',true)">📣 Text everyone checked</button>'
+        :'<button class="addlead" onclick="covPickSend(\''+esc(c.id)+'\',false)">📱 Send to Group 1 only</button>'
+         +'<button class="addlead" onclick="covPickSend(\''+esc(c.id)+'\',true)">📱 Send to Groups 1 + 2</button>')
+      +'<button class="ghost" onclick="covPickBuild(\''+esc(c.id)+'\')">↻ Rebuild</button>'
+      +'</div>'
+      +'<div class="field-note" style="margin-top:5px;">Uncheck anyone who shouldn\'t be asked — you know things the data doesn\'t. '+esc(String(d.meta.census||''))+'</div>';
+  } else {
+    body='<button class="addlead" onclick="covPickBuild(\''+esc(c.id)+'\')">🧭 Build the ask list</button>'
+      +'<span class="field-note" style="margin-left:8px;">'+(isInterest
+        ?'Cara lists everyone eligible so you can ask who wants the hours. Nothing sends until you choose.'
+        :'Cara ranks everyone eligible: worked-with-this-client first, then good matches. Do-Not-Return names are never listed. Nothing sends until you choose.')+'</span>';
+  }
+  return '<div style="margin-top:9px;padding:10px 12px;background:var(--bg);border-radius:9px;">'
+    +'<div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:5px;">'+(isInterest?'📣 New-client interest check — choose who hears about it':'📣 Choose who to ask')+'</div>'
+    +body+'</div>';
+}
+async function covPickBuild(id){
+  COV_PICK[id]={loading:true}; renderCoverage();
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session||!session.access_token) throw new Error('Sign in to the hub first.');
+    const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-run`,{
+      method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+      body: JSON.stringify({ action:'candidates', case_id:id })});
+    const out=await r.json().catch(()=>null);
+    if(!r.ok||!out||out.error) throw new Error((out&&out.error)||('The engine answered '+r.status));
+    COV_PICK[id]={data:out};
+  }catch(e){ COV_PICK[id]={err:String(e.message||e)}; }
+  renderCoverage();
+}
+async function covPickSend(id,includeG2){
+  const sel=g=>[...document.querySelectorAll('input[data-pick="'+id+'"][data-g="'+g+'"]')]
+    .filter(el=>el.checked).map(el=>el.value);
+  const names=includeG2?[...sel(1),...sel(2)]:sel(1);
+  if(!names.length){ alert('Nobody is checked — nothing to send.'); return; }
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id);
+  const isInterest=c&&String(c.kind)==='interest';
+  if(!confirm((isInterest?'Text the new-client interest check to ':'Text the coverage ask to ')+names.length+' caregiver'+(names.length===1?'':'s')+'?\n\n'+names.join(', ')+'\n\nReplies land on this case.')) return;
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session||!session.access_token) throw new Error('Sign in to the hub first.');
+    const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-run`,{
+      method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+      body: JSON.stringify({ action:'send_selected', case_id:id, recipients:names })});
+    const out=await r.json().catch(()=>null);
+    if(!r.ok||!out||out.error) throw new Error((out&&out.error)||('The engine answered '+r.status));
+    let msg='📱 Sent to '+(out.sent||[]).length+' caregiver'+((out.sent||[]).length===1?'':'s')+'.';
+    if((out.failed||[]).length) msg+='\n\n⚠ Not sent: '+out.failed.join('; ');
+    if((out.refused_not_eligible||[]).length) msg+='\n\nNo longer eligible (list had gone stale): '+out.refused_not_eligible.join(', ');
+    alert(msg);
+    delete COV_PICK[id];
+    try{ const fresh=await sb.from('app_data').select('data').eq('key','coverage_cases').maybeSingle();
+      if(Array.isArray(fresh.data&&fresh.data.data)) DATA.coverage_cases=fresh.data.data; }catch(e){}
+    renderCoverage();
+  }catch(e){ alert('Could not send: '+String(e.message||e)); }
 }
 function covSummary(c){
   const n=(c.asked||[]).length, r=(c.asked||[]).filter(a=>a.state!=='waiting').length;
@@ -25375,7 +25519,22 @@ function renderCoverage(){
     return;
   }
   const R={calloff:'Call-off',open:'Open shift',new:'New client'};
-  box.innerHTML=list.map(c=>{
+  /* Cara's flags come first, whatever the filter: a possible call-in she
+     heard on a call, waiting for a human to confirm or dismiss. Nothing is
+     texted from a flag. */
+  const flaggedHtml=(DATA.coverage_cases||[]).filter(c=>c&&c.status==='flagged')
+    .sort((a,b)=>String(b.opened_at||'').localeCompare(String(a.opened_at||'')))
+    .map(c=>'<div class="card" style="padding:14px 18px;margin-bottom:10px;background:#FFFCF5;border:1.5px solid var(--gold);">'
+      +'<div style="font-size:15px;font-weight:800;color:var(--navy);">👂 Cara thinks '+esc(c.calling_off||'a caregiver')+' called off'+(c.client&&!/confirm the client/.test(String(c.client))?' — client: '+esc(c.client):'')+'</div>'
+      +(c.flag_evidence?'<div class="field-note" style="margin-top:4px;">From the call: “'+esc(String(c.flag_evidence).slice(0,200))+'” <span style="color:#94681D;">('+esc(c.flag_confidence||'')+' confidence)</span></div>':'')
+      +(c.note?'<details style="margin-top:4px;"><summary class="field-note" style="cursor:pointer;">Full call summary</summary><div class="field-note" style="margin-top:3px;white-space:pre-wrap;">'+esc(String(c.note).slice(0,1200))+'</div></details>':'')
+      +'<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">'
+      +'<button class="addlead" onclick="covFlagConfirm(\''+esc(c.id)+'\')">✓ It\'s real — open the case</button>'
+      +'<button class="ghost" onclick="covFlagDismiss(\''+esc(c.id)+'\')">Dismiss — not a call-off</button>'
+      +'</div>'
+      +'<div class="field-note" style="margin-top:6px;">Nobody has been texted. Confirming opens a normal case where you choose who to ask.</div>'
+      +'</div>').join('');
+  box.innerHTML=flaggedHtml+list.map(c=>{
     const open=c.status==='open';
     const age=open?'<span style="font-weight:800;color:'+(covAgo(c.opened_at).includes('d')?'var(--red)':'var(--honey-ink)')+';">open '+covAgo(c.opened_at)+'</span>':'';
     const askedSorted=(c.asked||[]).slice().sort((x,y)=>
@@ -25418,6 +25577,7 @@ function renderCoverage(){
       +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
       +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
       +(c.callout_started_at?'<div class="field-note" style="margin-top:3px;">📣 Callout texting started '+covAgo(c.callout_started_at)+' ago'+(tallies?' — '+tallies:'')+'</div>':(tallies?'<div class="field-note" style="margin-top:3px;">'+tallies+'</div>':''))
+      +covPickerHtml(c)
       +covConfirmHtml(c)
       +'<div style="margin-top:6px;">'+covOutreachHtml(c)+'</div>'
       +(c.axiscare_assignment
