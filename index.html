@@ -24067,16 +24067,19 @@ function caraNeedsReason(c){
 function covYesList(c){ return (c.asked||[]).filter(a=>a&&a.state==='yes'); }
 function caraSections(){
   const all=(DATA.coverage_cases||[]).filter(Boolean);
-  const open=all.filter(c=>c.status==='open');
+  /* Interest checks are NOT open shifts (her call, 2026-09-18): they get
+     their own section and never count in the coverage metrics. */
+  const interest=all.filter(c=>c.status==='open'&&String(c.kind)==='interest');
+  const open=all.filter(c=>c.status==='open'&&String(c.kind)!=='interest');
   const needs=[], working=[];
   all.filter(c=>c.status==='flagged').forEach(c=>needs.push(c));
   open.forEach(c=>{ if(caraNeedsReason(c)) needs.push(c); else working.push(c); });
   const t=ccChiToday();
   const filled=all.filter(c=>c.resolved_how==='covered'&&ccChiDate(c.resolved_at)===t);
   const newest=(x,y)=>String(y.opened_at||'').localeCompare(String(x.opened_at||''));
-  needs.sort(newest); working.sort(newest);
+  needs.sort(newest); working.sort(newest); interest.sort(newest);
   filled.sort((x,y)=>String(y.resolved_at||'').localeCompare(String(x.resolved_at||'')));
-  return {all,open,needs,working,filled};
+  return {all,open,needs,working,filled,interest};
 }
 
 function caraStat(label,n,sub,tone){
@@ -24314,6 +24317,23 @@ function caraRenderCC(){
       +((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)
         ?'Asks are out — replies land here the moment they arrive.'
         :'Cara has the open cases in hand.')+'</div></div></div>';
+  }
+
+  if(S.interest.length){
+    h+='<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:9px;">'
+      +'<h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">📣 New-client interest checks</h3>'
+      +'<span class="field-note" style="font-size:12.5px;">who wants the hours — separate from open shifts</span></div>'
+      +grid(S.interest.map(function(c){
+        const sent=(c.asked||[]).length, yes=(c.asked||[]).filter(a=>a.state==='yes').length;
+        return '<div class="card" style="padding:14px 16px;margin:0;border-left:4px solid var(--teal);">'
+          +'<div style="font-size:15.5px;font-weight:700;color:var(--navy);">'+esc(c.client||'(client)')+'</div>'
+          +'<div class="field-note" style="font-size:12.5px;margin-top:3px;">'+esc([c.shift_date,c.shift_time].filter(Boolean).join(' · ')||'hours on the case')+'</div>'
+          +'<div style="margin-top:8px;font-size:12.5px;">'
+          +(sent?('asked '+sent+' · <b style="color:var(--green);">'+yes+' interested</b>'):'<span style="color:var(--honey-ink);font-weight:700;">nobody asked yet — build the list</span>')+'</div>'
+          +'<div style="margin-top:9px;"><a href="javascript:void(0)" onclick="caraOpenCase(\''+esc(c.id)+'\')" style="font-size:13px;font-weight:700;">'+(sent?'See who\'s interested':'Choose who hears about it')+' &rarr;</a></div>'
+          +'</div>';
+      }).join(''),260)
+      +'<div style="height:16px;"></div>';
   }
 
   if(S.working.length){
@@ -25720,11 +25740,13 @@ function renderCoverage(){
   let list=(DATA.coverage_cases||[]).slice().sort((a,b)=>(b.opened_at||'').localeCompare(a.opened_at||''));
   if(covFilterVal==='open') list=list.filter(c=>c.status==='open');
   if(covFilterVal==='done') list=list.filter(c=>c.status!=='open');
-  // badge: open cases, red because an uncovered shift is late by definition
-  const openN=(DATA.coverage_cases||[]).filter(c=>c.status==='open').length;
+  // badge: open COVERAGE cases (interest checks aren't uncovered shifts),
+  // red because an uncovered shift is late by definition
+  const openN=(DATA.coverage_cases||[]).filter(c=>c.status==='open'&&String(c.kind)!=='interest').length;
   const b=document.getElementById('covPillBadge');
   if(b){ b.style.display=openN?'inline-block':'none'; b.textContent=openN; }
-  if(!list.length){
+  const anyFlagged=(DATA.coverage_cases||[]).some(c=>c&&c.status==='flagged');
+  if(!list.length&&!anyFlagged){
     box.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);font-size:13.5px;">'+
       (covFilterVal==='open'?'No open coverage cases. That is the goal state.':'Nothing here yet.')+'</div>';
     return;
@@ -25745,7 +25767,12 @@ function renderCoverage(){
       +'</div>'
       +'<div class="field-note" style="margin-top:6px;">Nobody has been texted. Confirming opens a normal case where you choose who to ask.</div>'
       +'</div>').join('');
-  box.innerHTML=flaggedHtml+list.map(c=>{
+  /* Interest checks live under their own heading — a new-client feeler is
+     not an uncovered shift and never sits among them (her call, 2026-09-18). */
+  const interestList=list.filter(c=>String(c.kind)==='interest');
+  list=list.filter(c=>String(c.kind)!=='interest');
+  const section=(title,note)=>'<div style="display:flex;gap:8px;align-items:baseline;margin:14px 0 8px;"><h3 style="margin:0;font-size:15px;font-weight:800;color:var(--navy);">'+title+'</h3><span class="field-note" style="font-size:12px;">'+note+'</span></div>';
+  const renderCase=c=>{
     const open=c.status==='open';
     const age=open?'<span style="font-weight:800;color:'+(covAgo(c.opened_at).includes('d')?'var(--red)':'var(--honey-ink)')+';">open '+covAgo(c.opened_at)+'</span>':'';
     const askedSorted=(c.asked||[]).slice().sort((x,y)=>
@@ -25806,7 +25833,11 @@ function renderCoverage(){
       +covSummary(c)+'</div>'
       +'</div>'
       +'</div>';
-  }).join('');
+  };
+  box.innerHTML=flaggedHtml
+    +(interestList.length?section('📣 New-client interest checks','who wants the hours — separate from open shifts')+interestList.map(renderCase).join(''):'')
+    +((interestList.length&&list.length)?section('Coverage cases','call-offs and open shifts'):'')
+    +list.map(renderCase).join('');
 }
 
 /* ── CLIENT 360: one client, the whole picture ───────────────────────────
