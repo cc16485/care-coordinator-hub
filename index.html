@@ -998,6 +998,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- The command centre. Every number in it is derived from
            coverage_cases / asked[] / ops_items at render time; nothing here
            writes, and no case appears in more than one section. -->
+      <div id="covSubBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;"></div>
       <div id="caraCC"></div>
 
       <!-- Since 2026-09-18 the opener is a MODAL (her call: the inline card
@@ -1059,11 +1060,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
       </div>
 
-      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-        <button class="fb active" id="covFilterOpen" onclick="covFilter('open',this)">Open</button>
-        <button class="fb" id="covFilterDone" onclick="covFilter('done',this)">Resolved</button>
-        <button class="fb" id="covFilterAll" onclick="covFilter('all',this)">All</button>
-      </div>
       <div id="covList"></div>
     </section>
 
@@ -24252,15 +24248,24 @@ function caraNeedsCard(c){
   if(why==='pending'){ const yl=covYesList(c);
     facts.push(fact(yl.length>1?'Said yes':'Can cover', esc(yl.length?yl.map(a=>a.name).join(', '):String(c.pending_fill&&c.pending_fill.name||'')), true)); }
   const panel=why==='flag'?'':caraContextPanel(c,why,winner);
+  /* Time-to-shift leads the card: a coordinator triages by "how long until
+     somebody stands at that door", never by case age. Red inside 3 hours. */
+  const cd=covCountdown(c);
+  const cdSoon=covShiftMs(c)-Date.now()<3*3600000;
+  const cdChip=cd?'<div style="margin-top:5px;"><span style="display:inline-block;background:'+(cdSoon?'var(--red)':'#FFF4E3')+';color:'+(cdSoon?'#fff':'#8A4E0C')+';border-radius:999px;padding:3px 11px;font-size:12px;font-weight:800;">⏱ '+esc(cd)+'</span></div>':'';
   return '<div class="card" style="padding:16px 18px;margin:0 0 10px;background:#FFFCF5;border:1.5px solid var(--gold);">'
     +'<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;">'
     +'<div style="flex:1 1 380px;min-width:280px;">'
     +'<div style="font-size:18px;font-weight:700;color:var(--navy);letter-spacing:-0.01em;">'+head+'</div>'
+    +cdChip
     +'<div class="field-note" style="font-size:13px;margin-top:3px;color:#7A6224;">'+sub+'</div>'
     +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 18px;margin-top:13px;padding-top:11px;border-top:1px solid #EFE0C2;">'
     +facts.join('')+'</div>'
     +'<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">'
-    +'<button class="addlead" onclick="caraOpenCase(\''+esc(c.id)+'\')">'+cta+'</button>'
+    +(why==='flag'
+      ?'<button class="addlead" onclick="covFlagConfirm(\''+esc(c.id)+'\')">✓ It\'s real — open the case</button>'
+       +'<button class="ghost" onclick="covFlagDismiss(\''+esc(c.id)+'\')">Dismiss — not a call-off</button>'
+      :'<button class="addlead" onclick="caraOpenCase(\''+esc(c.id)+'\')">'+cta+'</button>')
     +'</div></div>'
     +panel
     +'</div></div>';
@@ -24307,104 +24312,139 @@ function caraFilledCard(c){
     +'</div>';
 }
 
+/* ── THE FIVE SUB-TABS (2026-09-18, her design session: organize by the
+   JOBS a coordinator switches between, not by data type. Today is triage;
+   everything else is a workspace you visit on purpose.) ─────────────────── */
+let COV_SUB=(function(){ try{ return localStorage.getItem('cch_covsub')||'today'; }catch(e){ return 'today'; } })();
+function covSubGo(s){ COV_SUB=s; try{ localStorage.setItem('cch_covsub',s); }catch(e){} renderCoverage(); }
+function covSubFor(c){
+  if(!c) return 'today';
+  if(c.status==='flagged') return 'today';
+  if(String(c.kind)==='interest') return 'newclients';
+  if(c.status!=='open') return 'history';
+  return covIsOngoing(c)?'ongoing':'calloffs';
+}
+/* Coordinators think in "how long until someone stands at that door" — so
+   every card leads with time-to-shift and Today sorts by it. */
+function covShiftMs(c){
+  const d=String(c&&c.shift_date||''); if(!/^\d{4}-\d\d-\d\d$/.test(d)) return Infinity;
+  const t=(String(c.shift_time||'').match(/^(\d\d:\d\d)/)||[])[1]||'23:59';
+  const ms=new Date(d+'T'+t+':00').getTime(); return Number.isFinite(ms)?ms:Infinity;
+}
+function covCountdown(c){
+  const ms=covShiftMs(c); if(ms===Infinity) return '';
+  const diff=ms-Date.now(), abs=Math.abs(diff);
+  const dd=Math.floor(abs/86400000), h=Math.floor(abs%86400000/3600000), m=Math.floor(abs%3600000/60000);
+  const span=dd>=2?dd+' days':(dd?dd+'d '+h+'h':(h?h+'h '+m+'m':m+'m'));
+  return diff>0?'shift starts in '+span:'shift started '+span+' ago';
+}
+function covRenderSubBar(S){
+  const bar=document.getElementById('covSubBar'); if(!bar) return;
+  const ongoingN=S.open.filter(covIsOngoing).length;
+  const calloffN=S.open.length-ongoingN;
+  const tabs=[
+    ['today','\u26a1 Today',S.needs.length,'red'],
+    ['calloffs','\ud83d\udcf5 Call-offs & open shifts',calloffN,''],
+    ['ongoing','\ud83d\udd01 Ongoing shifts',ongoingN,''],
+    ['newclients','\ud83d\udce3 New clients',S.interest.length,''],
+    ['history','\ud83d\uddc2 History & lists',0,''],
+  ];
+  bar.innerHTML=tabs.map(t=>'<button class="fb'+(COV_SUB===t[0]?' active':'')+'" onclick="covSubGo(\''+t[0]+'\')">'+t[1]
+    +(t[2]?' <span style="background:'+(t[3]==='red'?'var(--red)':'var(--slate-bg)')+';color:'+(t[3]==='red'?'#fff':'var(--navy)')+';border-radius:999px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:4px;">'+t[2]+'</span>':'')
+    +'</button>').join('');
+}
+/* A compact waiting row: who, how soon, what's come back, one link in. */
+function covWaitingRow(c){
+  const asked=(c.asked||[]); const t=st=>asked.filter(a=>a.state===st).length;
+  const last=asked.map(a=>new Date(a.at||0).getTime()).filter(Number.isFinite).sort((a,b)=>b-a)[0];
+  const cd=covCountdown(c);
+  const soon=covShiftMs(c)-Date.now()<3*3600000;
+  return '<div class="card" style="padding:10px 14px;margin:0 0 6px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
+    +'<b style="color:var(--navy);">'+esc(c.client||'?')+'</b>'
+    +(cd?'<span style="font-size:12px;font-weight:800;color:'+(soon?'var(--red)':'var(--honey-ink)')+';">\u23f1 '+cd+'</span>':'')
+    +'<span class="field-note">asked '+asked.length+(last?' \u00b7 last ask '+covAgo(new Date(last).toISOString())+' ago':'')+'</span>'
+    +(t('no')?'<span style="color:var(--red);font-weight:700;font-size:12.5px;">\u2716 '+t('no')+' no</span>':'')
+    +(t('waiting')?'<span style="color:var(--honey-ink);font-weight:700;font-size:12.5px;">\u23f3 '+t('waiting')+' waiting</span>':'')
+    +'<span style="flex:1;"></span>'
+    +'<a href="javascript:void(0)" onclick="caraOpenCase(\''+esc(c.id)+'\')" style="font-size:12.5px;font-weight:700;">Open the case &rarr;</a>'
+    +'</div>';
+}
+/* Today refreshes itself while a coordinator stares at "did anyone reply" —
+   but never mid-edit: an open ask list (COV_PICK) always wins. */
+let COV_REFRESH_T=null;
+function covAutoRefreshArm(){
+  if(COV_REFRESH_T) return;
+  COV_REFRESH_T=setInterval(async function(){
+    try{
+      if(typeof activeTab==='undefined'||activeTab!=='coverage'||COV_SUB!=='today'||document.hidden) return;
+      if(Object.keys(COV_PICK||{}).length) return;
+      const r=await sb.from('app_data').select('data').eq('key','coverage_cases').maybeSingle();
+      if(r&&r.data&&Array.isArray(r.data.data)){ DATA.coverage_cases=r.data.data; renderCoverage(); }
+    }catch(e){}
+  },60000);
+}
 function caraRenderCC(){
   const box=document.getElementById('caraCC'); if(!box) return;
   const S=caraSections();
   const engineOn=!!(DATA.ops_settings&&DATA.ops_settings.coverage_send_live===true);
+  const manualMode=!!(DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true);
   const grid=(inner,min)=>'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax('+min+'px,1fr));gap:10px;">'+inner+'</div>';
-  let h='';
 
-  /* Status belongs with the identity block in the header, and it is written
-     from the real gate: an engine that is off must never read as active. */
   const statusEl=document.getElementById('caraStatus');
   if(statusEl){
     statusEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12.5px;">'
       +'<span style="width:8px;height:8px;border-radius:50%;background:'+(engineOn?'var(--green)':'var(--text-muted)')+';"></span>'
       +'<b style="color:var(--navy);">'+(engineOn?'Cara is active':'Callout engine is off')+'</b>'
-      +'<span class="field-note">'+(engineOn
-        ?((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)?'Monitoring — you choose who gets asked':'Monitoring coverage')
-        :'asks are recorded by hand')+'</span></span>';
+      +'<span class="field-note">'+(engineOn?(manualMode?'Monitoring \u2014 you choose who gets asked':'Monitoring coverage'):'asks are recorded by hand')+'</span></span>';
   }
 
-  h+=grid(
-      caraStat('Open coverage',S.open.length,(S.open.length===1?'1 shift still needs':S.open.length+' shifts still need')+' a caregiver','')
-    + caraStat('Cara working',S.working.length,
-        (DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)?'asks out, waiting on replies':'Cara is still finding coverage','work')
-    + caraStat('Needs you',S.needs.length,S.needs.length?'waiting on your decision':'nothing waiting on you','needs')
-    + caraStat('Filled today',S.filled.length,'covered and resolved today',''),190)
-    +'<div style="height:16px;"></div>';
+  covRenderSubBar(S);
 
-  if(S.needs.length){
+  /* The red pill badge counts what needs a PERSON, whatever sub-tab shows. */
+  const b=document.getElementById('covPillBadge2');
+  if(b){ b.style.display=S.needs.length?'inline-block':'none'; b.textContent=S.needs.length; }
+  if(CARA_PENDING_CASE){
+    const want=CARA_PENDING_CASE;
+    if((DATA.coverage_cases||[]).some(x=>x&&x.id===want)){ CARA_PENDING_CASE=''; caraShowCase(want); return; }
+  }
+
+  if(COV_SUB!=='today'){ box.innerHTML=''; return; }
+  covAutoRefreshArm();
+
+  let h='';
+  const needsSorted=S.needs.slice().sort((a,b)=>covShiftMs(a)-covShiftMs(b));
+  if(needsSorted.length){
     h+='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:9px;">'
-      +'<h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Needs your attention</h3>'
-      +'<span style="background:var(--gold-text);color:#fff;border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:700;">Cara needs you &middot; '+S.needs.length+'</span></div>'
-      + S.needs.map(caraNeedsCard).join('')
+      +'<h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Needs you</h3>'
+      +'<span style="background:var(--gold-text);color:#fff;border-radius:999px;padding:3px 10px;font-size:11.5px;font-weight:700;">'+needsSorted.length+'</span>'
+      +'<span class="field-note" style="font-size:12.5px;">soonest shift first</span></div>'
+      +needsSorted.map(caraNeedsCard).join('')
       +'<div style="height:16px;"></div>';
-  }else if(S.open.length||S.filled.length){
+  }else{
     h+='<div class="card" style="padding:15px 17px;margin:0 0 16px;display:flex;gap:13px;align-items:center;">'
       +'<span style="width:32px;height:32px;flex:0 0 32px;border-radius:50%;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;">&#10003;</span>'
       +'<div><div style="font-size:15.5px;font-weight:700;color:var(--navy);">Nothing is waiting on you.</div>'
       +'<div class="field-note" style="font-size:13px;margin-top:2px;">'
-      +((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)
-        ?'Asks are out — replies land here the moment they arrive.'
-        :'Cara has the open cases in hand.')+'</div></div></div>';
-  }
-
-  if(S.interest.length){
-    h+='<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:9px;">'
-      +'<h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">📣 New-client interest checks</h3>'
-      +'<span class="field-note" style="font-size:12.5px;">who wants the hours — separate from open shifts</span></div>'
-      +grid(S.interest.map(function(c){
-        const sent=(c.asked||[]).length, yes=(c.asked||[]).filter(a=>a.state==='yes').length;
-        return '<div class="card" style="padding:14px 16px;margin:0;border-left:4px solid var(--teal);">'
-          +'<div style="font-size:15.5px;font-weight:700;color:var(--navy);">'+esc(c.client||'(client)')+'</div>'
-          +'<div class="field-note" style="font-size:12.5px;margin-top:3px;">'+esc([c.shift_date,c.shift_time].filter(Boolean).join(' · ')||'hours on the case')+'</div>'
-          +'<div style="margin-top:8px;font-size:12.5px;">'
-          +(sent?('asked '+sent+' · <b style="color:var(--green);">'+yes+' interested</b>'):'<span style="color:var(--honey-ink);font-weight:700;">nobody asked yet — build the list</span>')+'</div>'
-          +'<div style="margin-top:9px;"><a href="javascript:void(0)" onclick="caraOpenCase(\''+esc(c.id)+'\')" style="font-size:13px;font-weight:700;">'+(sent?'See who\'s interested':'Choose who hears about it')+' &rarr;</a></div>'
-          +'</div>';
-      }).join(''),260)
-      +'<div style="height:16px;"></div>';
+      +(S.working.length?'Asks are out \u2014 replies land here the moment they arrive.':'No open coverage cases. Every shift is covered.')+'</div></div></div>';
   }
 
   if(S.working.length){
-    h+='<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:3px;">'
-      +'<h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Cara is working on</h3>'
-      +'<span style="flex:1;"></span>'
-      +'<a href="javascript:void(0)" onclick="caraOpenHistory()" style="font-size:12.5px;font-weight:700;">Coverage history &rarr;</a></div>'
-      +'<div class="field-note" style="font-size:12.5px;margin:0 0 9px;">Cases where Cara is still finding coverage. A case waiting on you moves up to Needs your attention.</div>'
-      + grid(S.working.map(caraWorkingCard).join(''),300)
-      +'<div style="height:16px;"></div>';
+    h+='<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px;">'
+      +'<h3 style="margin:0;font-size:16px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Waiting on replies</h3>'
+      +'<span class="field-note" style="font-size:12.5px;">a yes moves the case up to Needs you</span></div>'
+      +S.working.slice().sort((a,b)=>covShiftMs(a)-covShiftMs(b)).map(covWaitingRow).join('')
+      +'<div style="height:14px;"></div>';
   }
 
   if(S.filled.length){
     h+='<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:9px;">'
-      +'<h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Filled today</h3>'
+      +'<h3 style="margin:0;font-size:16px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Filled today</h3>'
       +'<span class="field-note" style="font-size:12.5px;">'+S.filled.length+' shift'+(S.filled.length===1?'':'s')+' covered</span></div>'
-      + grid(S.filled.map(caraFilledCard).join(''),250)
-      +'<div style="height:16px;"></div>';
+      +grid(S.filled.map(caraFilledCard).join(''),250)
+      +'<div style="height:10px;"></div>';
   }
-
-  if(!S.open.length&&!S.filled.length){
-    h+='<div class="card" style="padding:18px;margin:0 0 16px;display:flex;gap:13px;align-items:center;">'
-      +'<span style="width:32px;height:32px;flex:0 0 32px;border-radius:50%;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;">&#10003;</span>'
-      +'<div><div style="font-size:15.5px;font-weight:700;color:var(--navy);">No open coverage cases. Every shift is covered.</div>'
-      +'<div class="field-note" style="font-size:13px;margin-top:2px;"><a href="javascript:void(0)" onclick="caraOpenHistory()">Coverage history &rarr;</a></div></div></div>';
-  }
-
-  h+='<div style="border-top:1px solid var(--border);margin:2px 0 12px;"></div>';
-  h+=dnoCardHtml();
+  h+='<div class="field-note" style="font-size:11.5px;">This view refreshes itself every minute.</div>';
   box.innerHTML=h;
-
-  /* The red pill badge counts what needs a PERSON. A count of everything
-     open becomes wallpaper. */
-  const b=document.getElementById('covPillBadge2');
-  if(b){ b.style.display=S.needs.length?'inline-block':'none'; b.textContent=S.needs.length; }
-
-  if(CARA_PENDING_CASE){
-    const want=CARA_PENDING_CASE;
-    if((DATA.coverage_cases||[]).some(x=>x&&x.id===want)){ CARA_PENDING_CASE=''; caraShowCase(want); }
-  }
 }
 
 /* ── Do-not-offer list ────────────────────────────────────────────────────
@@ -24480,13 +24520,13 @@ let CARA_PENDING_CASE='';
 function caraShowCase(id){
   const c=(DATA.coverage_cases||[]).find(x=>x&&x.id===id);
   if(!c){ CARA_PENDING_CASE=id; return; }
-  covFilterVal='all';
-  document.querySelectorAll('#tab-coverage .fb').forEach(x=>x.classList.remove('active'));
-  const ab=document.getElementById('covFilterAll'); if(ab) ab.classList.add('active');
+  /* Land on the case's home sub-tab: a call-off in Call-offs, an interest
+     check in New clients, a resolved one in History, a flag on Today. */
+  COV_SUB=covSubFor(c); try{ localStorage.setItem('cch_covsub',COV_SUB); }catch(e){}
   COV_EXPANDED.add(id);
   renderCoverage();
   setTimeout(function(){
-    const el=document.getElementById('covcase_'+id);
+    const el=document.getElementById('covcase_'+id)||document.getElementById('caraCC');
     if(el&&el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'center'});
   },40);
 }
@@ -24531,17 +24571,13 @@ function caraGoHome(){ schedGo('coverage'); }
    anyway (switchTab always calls renderActiveTab) use this so the board is
    painted once, already filtered, instead of twice. */
 function caraSetOpenBoard(){
-  covFilterVal='open';
-  document.querySelectorAll('#tab-coverage .fb').forEach(function(x){ x.classList.remove('active'); });
-  var ob=document.getElementById('covFilterOpen'); if(ob) ob.classList.add('active');
+  COV_SUB='today'; try{ localStorage.setItem('cch_covsub','today'); }catch(e){}
 }
 function caraResetBoard(){ caraSetOpenBoard(); renderCoverage(); }
 function caraOpenHistory(){
   if(activeTab!=='coverage') switchTab('coverage');
   try{ history.replaceState(null,'','#cara/history'); }catch(e){}
-  covFilterVal='done';
-  document.querySelectorAll('#tab-coverage .fb').forEach(x=>x.classList.remove('active'));
-  const db=document.getElementById('covFilterDone'); if(db) db.classList.add('active');
+  COV_SUB='history'; try{ localStorage.setItem('cch_covsub','history'); }catch(e){}
   renderCoverage();
   const l=document.getElementById('covList');
   if(l&&l.scrollIntoView) l.scrollIntoView({behavior:'smooth',block:'start'});
@@ -25408,8 +25444,7 @@ async function covFlagConfirm(id){
   c.status='open'; c.flag_confirmed_at=new Date().toISOString();
   c.flag_confirmed_by=(typeof ME!=='undefined'&&(ME.name||ME.email))||'';
   await persist('coverage_cases',c);
-  COV_EXPANDED.add(c.id);
-  renderCoverage();
+  caraShowCase(c.id);   // straight to the case's workspace, picker ready
 }
 async function covFlagDismiss(id){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
@@ -25787,42 +25822,28 @@ const COV_STATE_ORDER={ yes:0, inquiry:1, waiting:2, no:3, noanswer:4, closed_no
 function renderCoverage(){
   caraRenderCC();
   const box=document.getElementById('covList'); if(!box) return;
+  if(COV_SUB==='today'){ box.innerHTML=''; return; }   // Today lives in #caraCC
   let list=(DATA.coverage_cases||[]).slice().sort((a,b)=>(b.opened_at||'').localeCompare(a.opened_at||''));
-  if(covFilterVal==='open') list=list.filter(c=>c.status==='open');
-  if(covFilterVal==='done') list=list.filter(c=>c.status!=='open');
+  /* Each sub-tab IS its section (2026-09-18): one kind of work per screen. */
+  if(COV_SUB==='newclients') list=list.filter(c=>String(c.kind)==='interest'&&c.status==='open');
+  else if(COV_SUB==='ongoing') list=list.filter(c=>c.status==='open'&&covIsOngoing(c));
+  else if(COV_SUB==='calloffs') list=list.filter(c=>c.status==='open'&&String(c.kind)!=='interest'&&!covIsOngoing(c));
+  else if(COV_SUB==='history') list=list.filter(c=>c.status!=='open'&&c.status!=='flagged');
   // badge: open COVERAGE cases (interest checks aren't uncovered shifts),
   // red because an uncovered shift is late by definition
   const openN=(DATA.coverage_cases||[]).filter(c=>c.status==='open'&&String(c.kind)!=='interest').length;
   const b=document.getElementById('covPillBadge');
   if(b){ b.style.display=openN?'inline-block':'none'; b.textContent=openN; }
-  const anyFlagged=(DATA.coverage_cases||[]).some(c=>c&&c.status==='flagged');
-  if(!list.length&&!anyFlagged){
-    box.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);font-size:13.5px;">'+
-      (covFilterVal==='open'?'No open coverage cases. That is the goal state.':'Nothing here yet.')+'</div>';
+  if(!list.length){
+    const EMPTY={calloffs:'No open call-offs or one-time shifts. That is the goal state.',
+      ongoing:'No standing openings right now. The hourly sweep adds any it finds in the AxisCare schedule.',
+      newclients:'No interest checks running. The big 📣 button up top starts one.',
+      history:'Nothing resolved yet.'};
+    box.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);font-size:13.5px;">'+(EMPTY[COV_SUB]||'Nothing here yet.')+'</div>'
+      +(COV_SUB==='history'?'<div style="height:16px;"></div>'+dnoCardHtml():'');
     return;
   }
   const R={calloff:'Call-off',open:'Open shift',new:'New client'};
-  /* Cara's flags come first, whatever the filter: a possible call-in she
-     heard on a call, waiting for a human to confirm or dismiss. Nothing is
-     texted from a flag. */
-  const flaggedHtml=(DATA.coverage_cases||[]).filter(c=>c&&c.status==='flagged')
-    .sort((a,b)=>String(b.opened_at||'').localeCompare(String(a.opened_at||'')))
-    .map(c=>'<div class="card" style="padding:14px 18px;margin-bottom:10px;background:#FFFCF5;border:1.5px solid var(--gold);">'
-      +'<div style="font-size:15px;font-weight:800;color:var(--navy);">👂 Cara thinks '+esc(c.calling_off||'a caregiver')+' called off'+(c.client&&!/confirm the client/.test(String(c.client))?' — client: '+esc(c.client):'')+'</div>'
-      +(c.flag_evidence?'<div class="field-note" style="margin-top:4px;">From the call: “'+esc(String(c.flag_evidence).slice(0,200))+'” <span style="color:#94681D;">('+esc(c.flag_confidence||'')+' confidence)</span></div>':'')
-      +(c.note?'<details style="margin-top:4px;"><summary class="field-note" style="cursor:pointer;">Full call summary</summary><div class="field-note" style="margin-top:3px;white-space:pre-wrap;">'+esc(String(c.note).slice(0,1200))+'</div></details>':'')
-      +'<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">'
-      +'<button class="addlead" onclick="covFlagConfirm(\''+esc(c.id)+'\')">✓ It\'s real — open the case</button>'
-      +'<button class="ghost" onclick="covFlagDismiss(\''+esc(c.id)+'\')">Dismiss — not a call-off</button>'
-      +'</div>'
-      +'<div class="field-note" style="margin-top:6px;">Nobody has been texted. Confirming opens a normal case where you choose who to ask.</div>'
-      +'</div>').join('');
-  /* Interest checks live under their own heading — a new-client feeler is
-     not an uncovered shift and never sits among them (her call, 2026-09-18). */
-  const interestList=list.filter(c=>String(c.kind)==='interest');
-  const ongoingList=list.filter(c=>String(c.kind)!=='interest'&&covIsOngoing(c));
-  list=list.filter(c=>String(c.kind)!=='interest'&&!covIsOngoing(c));
-  const section=(title,note)=>'<div style="display:flex;gap:8px;align-items:baseline;margin:14px 0 8px;"><h3 style="margin:0;font-size:15px;font-weight:800;color:var(--navy);">'+title+'</h3><span class="field-note" style="font-size:12px;">'+note+'</span></div>';
   const renderCase=c=>{
     const open=c.status==='open';
     const age=open?'<span style="font-weight:800;color:'+(covAgo(c.opened_at).includes('d')?'var(--red)':'var(--honey-ink)')+';">open '+covAgo(c.opened_at)+'</span>':'';
@@ -25885,11 +25906,11 @@ function renderCoverage(){
       +'</div>'
       +'</div>';
   };
-  const shown=[interestList.length,ongoingList.length,list.length].filter(Boolean).length;
-  box.innerHTML=flaggedHtml
-    +(interestList.length?section('📣 New-client interest checks','who wants the hours — separate from open shifts')+interestList.map(renderCase).join(''):'')
-    +(ongoingList.length?section('🔁 Ongoing shifts to fill','recurring openings — could become someone\'s regular shift')+ongoingList.map(renderCase).join(''):'')
-    +(list.length?((shown>1)?section('📵 Call-offs & one-time coverage','a single shift that needs a person'):'')+list.map(renderCase).join(''):'');
+  box.innerHTML=list.map(renderCase).join('')
+    +(COV_SUB==='history'
+      ?'<div style="height:16px;"></div>'+dnoCardHtml()
+        +'<div class="field-note" style="margin-top:10px;">The callout message wording lives in ⚙️ Settings → Callout texts.</div>'
+      :'');
 }
 
 /* ── CLIENT 360: one client, the whole picture ───────────────────────────
