@@ -26,12 +26,12 @@ begin
 exception when others then null;  -- fine if it never existed
 end $$;
 
--- 14:00 UTC = 8am Springfield in summer, 9am in winter. Every day, because
--- first shifts happen on weekends too and the text goes to staff about their
--- own work (routine_internal — no external outreach window applies).
+-- 15:00 UTC = 10am Springfield in summer, 9am in winter (the 9-10am slot
+-- Samantha asked for). Every day, because first shifts happen on weekends
+-- too and the text goes to staff about their own work (routine_internal).
 select cron.schedule(
   'carematch-watch',
-  '0 14 * * *',
+  '0 15 * * *',
   $job$
   select net.http_post(
     url     := 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/carematch-watch',

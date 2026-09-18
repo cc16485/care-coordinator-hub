@@ -4348,7 +4348,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-step"><span class="num">⭐</span><b>Favorite:</b> the client loved them. Mark the caregiver as a preferred caregiver on the client's AxisCare profile so scheduling pairs them first from now on. A fill-in who clicks is a long-term match found for free.</div>
 <div class="guide-step"><span class="num">💬</span><b>Coaching:</b> something small ("she likes the dishes hand-dried," "he wants the TV on for lunch"). Pass it to the caregiver kindly, it's a preference, not a write-up, and put it on their AxisCare record with one click below so it's never lost. Small coaching is what turns a fine match into a favorite.</div>
 <div class="guide-step"><span class="num">🚫</span><b>Exclusion:</b> the client doesn't want them back. Logging it here puts it straight on the permanent Do-Not-Return log, then enter the exclusion in AxisCare so the schedule physically can't pair them again.</div>
-<div class="guide-step"><span class="num">1</span><b>After the first shift:</b> the morning after a brand-new match's first shift, the hub texts the caregiver automatically ("how did your first shift with ___ go?") and emails the coordinators/admins that a check-in call is due. <b>The client's side is your call</b>, on purpose: a family talks to a person, never a robot. That call within a day or two is the one that saves clients.</div>
+<div class="guide-step"><span class="num">1</span><b>After the first shift:</b> the morning after a brand-new match's first shift (9-10am), the hub texts the caregiver automatically — <i>"Good morning, ___! How did your first shift with ___ go?"</i> — and emails the coordinators/admins that a check-in call is due. <b>The client's side is your call</b>, on purpose: a family talks to a person, never a robot. That call within a day or two is the one that saves clients.</div>
+<div class="guide-step"><span class="num">💛</span><b>A match has two sides.</b> Log the client's answer AND the caregiver's answer on the same check-in — sometimes it's a good match for the client but not the caregiver, or the other way around. The caregiver's reply to the morning text goes in "What the caregiver said." A 🚩 on either side brings the pair back for a follow-up.</div>
 <div class="guide-step"><span class="num">2</span><b>One good-fit follow-up about a month later:</b> "still going well with ___?" If yes, that match is set: no more scheduled calls. Only a 🚩 concerns call brings a pair back on the list (re-check about a week later to make sure it got fixed). Long-standing match from before this tab existed? Click "known good match ✓" on its row instead of calling, it clears without a call.</div>
 <div class="guide-step"><span class="num">☎️</span>A script that works: <i>"Hi, this is ___ from Caring Companions, just checking in. How did things go with [caregiver] this week? Anything they could do differently that would make it even better?"</i> That last question is where the gold is.</div>
 </div>
@@ -4378,7 +4379,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Spoke with</label><input id="ci-spoke" type="text" placeholder="Client / daughter / son…"></div>
   </div>
   <div style="margin-bottom:.6rem">
-    <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">How's it going with this caregiver?</label>
+    <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Client's side — how's it going with this caregiver?</label>
     <select id="ci-rating" style="max-width:340px;display:block">
       <option value="">— pick one —</option>
       <option value="love">⭐ They love them</option>
@@ -4389,6 +4390,25 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div style="margin-bottom:.6rem">
     <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">What they said</label>
     <textarea id="ci-notes" rows="2" placeholder="In their words — the good, the small stuff, anything off" style="resize:vertical"></textarea>
+  </div>
+  <!-- The caregiver's side of the same match: a good match for the client is
+       not automatically a good match for the caregiver, and a caregiver who
+       dreads a shift will drift away from it. Their answer usually arrives as
+       a reply to the automatic morning text — log it on this same check-in. -->
+  <div style="display:grid;grid-template-columns:minmax(220px,340px) 1fr;gap:.6rem;margin-bottom:.6rem;align-items:start">
+    <div>
+      <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Caregiver's side — good match for them?</label>
+      <select id="ci-cg-rating" style="display:block">
+        <option value="">— haven't heard back yet —</option>
+        <option value="love">⭐ They love this match</option>
+        <option value="good">👍 Good on their side</option>
+        <option value="concern">🚩 Not a fit for them</option>
+      </select>
+    </div>
+    <div>
+      <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">What the caregiver said</label>
+      <textarea id="ci-cg-notes" rows="2" placeholder="Their reply to the morning text, or what they told you" style="resize:vertical"></textarea>
+    </div>
   </div>
   <div style="margin-bottom:.6rem">
     <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">💬 Small thing to pass along to the caregiver (optional)</label>
@@ -4407,7 +4427,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span style="font-size:1.1rem">📒</span>
     <div>
       <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Check-in history <span style="font-weight:500;color:var(--text-muted);font-size:.75rem">— permanent record</span></div>
-      <div style="font-size:.72rem;color:var(--text-muted)">Every call, what the client said, and what we did about it. Feeds favorites, coaching notes, and the Do-Not-Return log.</div>
+      <div style="font-size:.72rem;color:var(--text-muted)">Every call, what the client said, what the caregiver said, and what we did about it. Feeds favorites, coaching notes, and the Do-Not-Return log.</div>
     </div>
   </div>
   <div id="ci-history"><div style="color:var(--text-muted);font-size:.85rem">No check-ins logged yet — the first one appears here.</div></div>
@@ -11153,9 +11173,11 @@ function openClientHistory(key){
   const cms=(DATA.client_checkins||[]).filter(c=>c.client&&c.caregiver&&nk(c.client)===nk(rec.client_name))
     .sort((a,b)=>String(b.at).localeCompare(String(a.at)));
   const RATE2={love:'⭐ They love them',good:'👍 Going fine',concern:'🚩 Concerns'};
+  const RATE2CG={love:'⭐ loves it',good:'👍 good',concern:'🚩 not a fit'};
   document.getElementById('clientHistoryCareMatch').innerHTML = cms.length
     ? '<table><thead><tr><th>Date</th><th>Caregiver</th><th>How it went</th><th>Outcome</th></tr></thead><tbody>'
-      +cms.map(c=>'<tr><td>'+String(c.at).slice(0,10)+'</td><td>'+esc2(c.caregiver||'')+'</td><td>'+(RATE2[c.rating]||esc2(c.rating||''))+'</td>'
+      +cms.map(c=>'<tr><td>'+String(c.at).slice(0,10)+'</td><td>'+esc2(c.caregiver||'')+'</td><td>'+(RATE2[c.rating]||esc2(c.rating||''))
+        +(c.cg_rating?'<br><span style="font-size:.72rem;color:#5b6673">caregiver: '+(RATE2CG[c.cg_rating]||esc2(c.cg_rating))+'</span>':'')+'</td>'
         +'<td>'+(c.want_exclusion?'🚫 Do-Not-Return':c.want_favorite?'⭐ Favorite':c.coaching?'💬 Coaching passed':'—')+'</td></tr>').join('')
       +'</tbody></table>'
     : '<div class="empty">No match calls yet.</div>';
@@ -12674,10 +12696,10 @@ const AUTO_GROUPS = [
 
   { who: 'When a caregiver works a first shift with a client', items: [
     { name: 'How did your first shift go?',
-      when: 'The next morning, between 8 and 9am',
+      when: 'The next morning, between 9 and 10am',
       how: 'Text, to the caregiver',
-      says: '"How did your first shift with ___ go? Reply right here with how it went and anything we should know to make it a great match."',
-      note: 'Their reply lands in the team inbox like any other text. One text per new match, ever.' },
+      says: '"Good morning, ___! How did your first shift with ___ go?"',
+      note: 'Their reply lands in the team inbox like any other text — log it as the caregiver\'s side of the check-in. One text per new match, ever.' },
     { name: 'A check-in call is due',
       when: 'The same morning',
       how: 'Email, to the coordinators and admins on the Morning Brief list',
@@ -27373,8 +27395,11 @@ window.covLoadShifts=function(){};
     const mine=all().filter(e=>pairKey(e.client,e.caregiver)===k).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
     const last=mine.length?mine[mine.length-1]:null;
     let due=null; // 'first' | 'concern' | 'fit' | null
+    /* A concern on EITHER side re-opens the pair: a match the caregiver
+       dreads fails just as surely as one the client complains about. */
+    const anyConcern=r=>r&&(r.rating==='concern'||r.cg_rating==='concern');
     if(!last) due='first';
-    else if(last.rating==='concern'&&daysAgo(last.at)>=7) due='concern';
+    else if(anyConcern(last)&&daysAgo(last.at)>=7) due='concern';
     else if(mine.length===1&&!last.skip&&daysAgo(last.at)>=30&&String(p.last_date)>=String(last.at).slice(0,10)) due='fit';
     return {newPair,last,count:mine.length,due,dueNow:due==='concern'||(due==='first'&&newPair)};
   }
@@ -27437,12 +27462,15 @@ window.covLoadShifts=function(){};
     const val=id=>(document.getElementById(id)?document.getElementById(id).value.trim():'');
     const client=val('ci-client'), caregiver=val('ci-caregiver'), spoke=val('ci-spoke');
     const rating=val('ci-rating'), notes=val('ci-notes'), coaching=val('ci-coaching');
+    const cgRating=val('ci-cg-rating'), cgNotes=val('ci-cg-notes');
     const fav=document.getElementById('ci-fav').checked, excl=document.getElementById('ci-excl').checked;
     if(!client||!caregiver){ alert('Client and caregiver names are both needed.'); return; }
-    if(!rating){ alert('Pick how it\'s going — ⭐ 👍 or 🚩.'); return; }
+    if(!rating){ alert('Pick how it\'s going on the client\'s side — ⭐ 👍 or 🚩.'); return; }
     if(excl&&!notes){ alert('For a do-not-return, write what the client said in "What they said" — it goes on the permanent log.'); return; }
+    if(cgRating==='concern'&&!cgNotes){ alert('If it\'s not a fit for the caregiver, write what they said — that\'s what scheduling needs to find them something better.'); return; }
     const who=me();
     const e={ id:'ci'+Date.now()+Math.random().toString(36).slice(2,6), client, caregiver, spoke_with:spoke, rating, notes, coaching,
+      cg_rating:cgRating, cg_notes:cgNotes,
       want_favorite:fav, want_exclusion:excl, at:new Date().toISOString(), by:who,
       fav_ax_done:false, coach_ax_noted:false, coach_ax_error:'' };
     DATA.client_checkins.push(e);
@@ -27458,7 +27486,7 @@ window.covLoadShifts=function(){};
     if(fav){
       alert('⭐ Nice find. Make it stick in AxisCare: open '+client+'\'s profile and mark '+caregiver+' as a preferred caregiver so scheduling pairs them first. Then click "mark done" on the entry below.');
     }
-    ['ci-client','ci-caregiver','ci-spoke','ci-rating','ci-notes','ci-coaching'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    ['ci-client','ci-caregiver','ci-spoke','ci-rating','ci-notes','ci-coaching','ci-cg-rating','ci-cg-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
     document.getElementById('ci-fav').checked=false; document.getElementById('ci-excl').checked=false;
     renderHistory(); renderPairs();
   }
@@ -27470,6 +27498,11 @@ window.covLoadShifts=function(){};
     box.innerHTML=list.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,40).map(e=>{
       const rm=RATE[e.rating]||RATE.good;
       let extra='';
+      if(e.cg_rating){
+        const cm={love:['⭐','#16a34a','loves this match'],good:['👍','#2F6FB0','good on their side'],concern:['🚩','#DC2626','not a fit for them']}[e.cg_rating];
+        if(cm) extra+='<div style="font-size:.78rem;margin-top:.35rem;color:'+cm[1]+'">Caregiver\'s side: '+cm[0]+' '+cm[2]
+          +(e.cg_notes?' <span style="color:#3A342C">— “'+E(e.cg_notes)+'”</span>':'')+'</div>';
+      }
       if(e.coaching){
         extra+='<div style="font-size:.78rem;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:6px;padding:.35rem .6rem;margin-top:.35rem">💬 Pass along: “'+E(e.coaching)+'” — '
           +(e.coach_ax_noted?'✅ on the caregiver\'s AxisCare record'
