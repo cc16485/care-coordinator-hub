@@ -4365,7 +4365,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div style="font-size:.72rem;color:var(--text-muted)">Live from AxisCare visits. Two calls per match: 🆕 first-shift call, then a good-fit follow-up a month later. After that a pair only comes back if a call raised concerns.</div>
       </div>
     </div>
-    <div style="display:flex;gap:.5rem"><button style="font-size:.78rem" onclick="cmBulkGood(this)" title="Fresh start: every match on the board right now gets a known-good ✓ without calls, so only matches whose first shift happens after today come up. Unresolved concern follow-ups stay.">↺ Reset — start fresh from today</button><button class="primary" style="font-size:.78rem" onclick="cmLoadPairs(this)">↻ Refresh</button></div>
+    <div style="display:flex;gap:.5rem"><button class="primary" style="font-size:.78rem" onclick="cmLoadPairs(this)">↻ Refresh</button></div>
   </div>
   <div id="ci-pairs-board"><div style="color:var(--text-muted);font-size:.85rem">Loading recent client–caregiver matches…</div></div>
 </div>
@@ -27599,31 +27599,11 @@ window.covLoadShifts=function(){};
   window.cmLoadPairs=loadPairs;
   window.cmPrefill=prefill;
   window.cmSave=save;
-  /* Fresh-start reset (was the narrower "import backlog" clear until
-     2026-09-18, when Samantha reset the board to start clean): every pair
-     currently due a first call or a good-fit follow-up gets a known-good
-     check record, so the board only surfaces matches whose first shift
-     happens after the reset. Unresolved concern follow-ups are never
-     cleared — a flagged concern stays until a clean call closes it. */
-  async function bulkGood(btn){
-    if(PAIRS===null||!PAIRS.length){ alert('Load the board first (\u21bb Refresh).'); return; }
-    const targets=PAIRS.filter(p=>{ const i=pairInfo(p); return i.due==='first'||i.due==='fit'; });
-    if(!targets.length){ alert('Nothing to clear. Every listed pair is already handled or waiting on a concern follow-up.'); return; }
-    if(!confirm('Start fresh? '+targets.length+' match'+(targets.length===1?'':'es')+' on the board get a known-good \u2713 without calls, including new ones.\n\nFrom now on, only matches whose first shift happens after today will come up for check-in calls. Unresolved concern follow-ups stay on the list.')) return;
-    if(btn) btn.disabled=true;
-    let n=0;
-    for(const p of targets){
-      const e={ id:'ci'+Date.now()+Math.random().toString(36).slice(2,6), client:p.client, caregiver:p.caregiver, spoke_with:'', rating:'good',
-        notes:'Cleared in the fresh-start reset — check-ins begin with matches after this date. No call needed.', coaching:'', want_favorite:false, want_exclusion:false,
-        at:new Date().toISOString(), by:me(), skip:true, fav_ax_done:false, coach_ax_noted:false, coach_ax_error:'' };
-      DATA.client_checkins.push(e);
-      await persist('client_checkins', e);
-      n++; if(btn) btn.textContent='Clearing\u2026 '+n+'/'+targets.length;
-    }
-    if(btn){ btn.disabled=false; btn.textContent='\u21ba Reset \u2014 start fresh from today'; }
-    renderHistory(); renderPairs();
-  }
-  window.cmBulkGood=bulkGood;
+  /* The fresh-start reset button lived here until 2026-09-18: Samantha ran
+     it once (every pending pair got a known-good record so check-ins start
+     with matches after that date) and then had it removed on purpose, so a
+     coordinator can never wipe the board again. The reset's records are the
+     'Cleared in the fresh-start reset' entries in client_checkins. */
   window.cmSkip=skip;
   window.cmMarkFav=markFav;
   window.cmPushCoach=pushCoach;
