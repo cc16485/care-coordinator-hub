@@ -1207,6 +1207,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            (Samantha, 2026-09-14: "i dont think we need the home tab"). Who
            holds each function right now belongs on the page everyone opens. -->
       <div id="dutyDock"></div>
+      <!-- What other people did while you were away — raw, human events only. -->
+      <div id="sylWrap"></div>
       <div class="card" id="myDayCard" style="padding:15px 18px 9px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
           <svg style="width:21px;height:21px;flex:none;" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg>
@@ -9106,6 +9108,7 @@ async function heroLoadShifts(){
 }
 function renderToday(){
   renderStandup();
+  try{ renderSinceYouLeft(); }catch(e){}
   try{ renderTodayHero(); }catch(e){}
   try{ const dd=document.getElementById('dutyDock'); if(dd) dd.innerHTML=dutyPanelHtml(); }catch(e){}
   const t = today();
@@ -19076,6 +19079,16 @@ function opEvent(verb, o){
   }catch(e){ console.warn('[op_events] not recorded:', e); }
 }
 
+/* One quiet confirmation style for every "it worked" moment. */
+function ccToast(msg){
+  try{
+    const t=document.createElement('div');
+    t.textContent=msg;
+    t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 20px;border-radius:999px;font-size:13.5px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.25);';
+    document.body.appendChild(t); setTimeout(()=>t.remove(), 2600);
+  }catch(e){}
+}
+
 /* ── CLAIM: "I've got it." ───────────────────────────────────────────────
    Owner and claimer are different facts. owner = whose RESPONSIBILITY this
    is — what routing, escalation and the buckets care about. claimed_by =
@@ -19098,7 +19111,14 @@ async function opsClaim(id){
     : (mine ? "I've got it" : "I've got it — still "+(it.owner_name||opsOwnerName(it.owner)||'their')+"'s"));
   opEvent(before?'item_taken_over':'item_claimed',
     {item:it, summary:a.name+' is on it — '+(it.about||it.title||'')});
-  await persist('ops_items',it); myWorkRefresh();
+  await persist('ops_items',it);
+  /* She pressed a button and the card is about to move lists. Say where it
+     went, or the honest reading is "did I just delete that?" */
+  const e=new Date(); e.setHours(23,59,59,999);
+  const d=it.due?Date.parse(it.due):NaN;
+  ccToast(!isNaN(d)&&d<=e.getTime() ? '✓ Yours — it’s in your Today list'
+    : '✓ Yours — on your list'+(it.due?', due '+String(it.due).slice(5,10).replace('-','/'):''));
+  myWorkRefresh();
 }
 async function opsRelease(id){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
@@ -19116,14 +19136,33 @@ async function opsRelease(id){
    when it needs to happen — the whole point is that writing it down takes
    less time than deciding not to. It becomes an ordinary item, so it shows
    up in My Work / Today like everything else and comes back on its own. */
-let CC_CAP_WHEN='today';
+let CC_CAP_WHEN='today', CC_CAP_DATE='';
 function ccCapWhen(el){
-  CC_CAP_WHEN = el.tagName==='INPUT' ? (el.value?'pick':'today') : el.dataset.w;
+  if(el.tagName==='INPUT'){ CC_CAP_WHEN=el.value?'pick':'today'; CC_CAP_DATE=el.value||''; }
+  else{
+    CC_CAP_WHEN=el.dataset.w; CC_CAP_DATE=el.dataset.date||'';
+    const d=document.getElementById('capDate'); if(d) d.value=CC_CAP_DATE;
+  }
   document.querySelectorAll('#ccCapWrap .capwhen').forEach(b=>{
-    b.style.background = (b.dataset.w===CC_CAP_WHEN)?'var(--navy)':'';
-    b.style.color = (b.dataset.w===CC_CAP_WHEN)?'#fff':'';
+    const on=(b.dataset.w===CC_CAP_WHEN)&&((b.dataset.date||'')===CC_CAP_DATE);
+    b.style.background = on?'var(--navy)':'';
+    b.style.color = on?'#fff':'';
   });
-  if(CC_CAP_WHEN!=='pick'){ const d=document.getElementById('capDate'); if(d) d.value=''; }
+}
+/* today · tomorrow · the next few weekdays by name — "call the pharmacy
+   Monday" should not require knowing Monday's date mid-phone-call. */
+function ccCapChips(){
+  const wk=document.getElementById('capWhenChips'); if(!wk) return;
+  const btn=(w,label,date)=>'<button class="capwhen ghost" data-w="'+w+'"'
+    +(date?' data-date="'+date+'"':'')+' onclick="ccCapWhen(this)" '
+    +'style="padding:5px 12px;font-size:12.5px;">'+label+'</button>';
+  let h=btn('today','today')+btn('tomorrow','tomorrow');
+  for(let k=2;k<=4;k++){
+    const d=new Date(); d.setDate(d.getDate()+k);
+    const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    h+=btn('pick',d.toLocaleDateString('en-US',{weekday:'short'}),iso);
+  }
+  wk.innerHTML=h;
 }
 function ccCaptureClose(){ const d=document.getElementById('ccCapWrap'); if(d) d.style.display='none'; }
 function ccCaptureOpen(){
@@ -19141,8 +19180,7 @@ function ccCaptureOpen(){
       +'</div>'
       +'<div style="display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap;">'
       +'<span class="field-note">Needs to happen</span>'
-      +'<button class="capwhen ghost" data-w="today" onclick="ccCapWhen(this)" style="padding:5px 12px;font-size:12.5px;">today</button>'
-      +'<button class="capwhen ghost" data-w="tomorrow" onclick="ccCapWhen(this)" style="padding:5px 12px;font-size:12.5px;">tomorrow</button>'
+      +'<span id="capWhenChips" style="display:contents;"></span>'
       +'<input id="capDate" type="date" onchange="ccCapWhen(this)" style="font-size:12.5px;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;">'
       +'</div>'
       +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;">'
@@ -19166,9 +19204,11 @@ function ccCaptureOpen(){
     sel.insertAdjacentHTML('afterbegin','<option value="'+me.email+'" selected>'+escapeHtmlComms(me.name||me.email)+'</option>');
   document.getElementById('capWhat').value=''; document.getElementById('capAbout').value='';
   const dt=document.getElementById('capDate'); if(dt) dt.value='';
-  CC_CAP_WHEN='today';
+  CC_CAP_WHEN='today'; CC_CAP_DATE='';
+  ccCapChips();
   document.querySelectorAll('#ccCapWrap .capwhen').forEach(b=>{
-    b.style.background=(b.dataset.w==='today')?'var(--navy)':''; b.style.color=(b.dataset.w==='today')?'#fff':'';
+    const on=b.dataset.w==='today';
+    b.style.background=on?'var(--navy)':''; b.style.color=on?'#fff':'';
   });
   document.getElementById('capWhat').focus();
 }
@@ -19191,10 +19231,7 @@ async function ccCaptureSave(){
   opEvent('captured',{item:it, summary:a.name+' captured: '+what});
   await persist('ops_items',it);
   ccCaptureClose();
-  const t=document.createElement('div');
-  t.textContent='✓ Captured'+(owner?(owner===a.email?' — on your list':' — on '+(it.owner_name||owner)+'’s list'):' — unassigned');
-  t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 20px;border-radius:999px;font-size:13.5px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.25);';
-  document.body.appendChild(t); setTimeout(()=>t.remove(), 2600);
+  ccToast('✓ Captured'+(owner?(owner===a.email?' — on your list':' — on '+(it.owner_name||owner)+'’s list'):' — unassigned'));
   if(typeof myWorkRefresh==='function') myWorkRefresh();
   if(typeof opsRenderQueue==='function') opsRenderQueue();
 }
@@ -19210,20 +19247,71 @@ let CC_SINCE=[];
 function ccSeenStamp(){
   try{ if(typeof ME!=='undefined'&&ME.email) localStorage.setItem('cc_seen_'+ME.email, new Date().toISOString()); }catch(e){}
 }
+function ccSeenLast(){
+  try{ return (typeof ME!=='undefined'&&ME.email&&localStorage.getItem('cc_seen_'+ME.email))||''; }catch(e){ return ''; }
+}
+/* Diagnostics stay out of the human ledger. This list is what the record
+   writes that no administrator needs in "what happened while I was gone". */
+const CC_SINCE_NOISE=['routing_shadow','record_started'];
 async function ccSinceFetch(){
   try{
     if(!sb || typeof ME==='undefined' || !ME.email) return;
-    let last=''; try{ last=localStorage.getItem('cc_seen_'+ME.email)||''; }catch(e){}
+    const last=ccSeenLast();
     if(last){
       const r=await sb.from('op_events')
         .select('at,actor_email,actor_name,verb,summary,area,item_id')
         .gt('at',last).order('at',{ascending:true}).limit(200);
-      if(!r.error) CC_SINCE=(r.data||[]).filter(e=>String(e.actor_email||'').toLowerCase()!==String(ME.email).toLowerCase());
+      if(!r.error) CC_SINCE=(r.data||[])
+        .filter(e=>CC_SINCE_NOISE.indexOf(String(e.verb||''))<0)
+        .filter(e=>String(e.actor_email||'').toLowerCase()!==String(ME.email).toLowerCase());
+    } else {
+      /* First sign-in on this browser: nothing to compare against yet.
+         Start the clock now; from here on absence is measured honestly. */
+      ccSeenStamp();
     }
-    ccSeenStamp();
+    /* DELIBERATELY no stamp here. Fetching is not seeing. The stamp moves
+       only when the person actually does something (below), so if she signs
+       in and walks away, tomorrow still shows her everything. Occasionally
+       showing an event twice beats silently deciding she saw it. */
+    if(typeof renderSinceYouLeft==='function') renderSinceYouLeft();
   }catch(e){ console.warn('[since you left]', e); }
 }
-if(!window._ccSeenTimer) window._ccSeenTimer=setInterval(ccSeenStamp, 5*60*1000);
+/* "Seen" = a real interaction while the tab is actually visible — never a
+   timer in an abandoned tab. Throttled so it costs nothing. */
+let CC_SEEN_AT=0;
+function ccSeenActivity(){
+  if(document.visibilityState!=='visible') return;
+  const n=Date.now(); if(n-CC_SEEN_AT<60000) return;
+  CC_SEEN_AT=n; ccSeenStamp();
+}
+if(!window._ccSeenWired){
+  window._ccSeenWired=true;
+  ['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,ccSeenActivity,{passive:true}));
+  /* Coming back to a tab that sat hidden a while = "since you left" moment:
+     re-read the record before her first click moves the stamp. */
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState!=='visible') return;
+    const last=ccSeenLast();
+    if(!last || (Date.now()-Date.parse(last))>10*60000) ccSinceFetch();
+  });
+}
+function renderSinceYouLeft(){
+  const box=document.getElementById('sylWrap'); if(!box) return;
+  const esc=escapeHtmlComms;
+  if(!CC_SINCE.length){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:16px;border-left:4px solid var(--teal);">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;">'
+    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">SINCE YOU LEFT</b>'
+    +'<span class="field-note">what other people did, oldest first</span>'
+    +'<span style="flex:1;"></span>'
+    +'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="CC_SINCE=[];renderSinceYouLeft()">dismiss</span></div>'
+    +CC_SINCE.slice(-30).map(e=>
+      '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+      +'<span class="field-note">'+esc(callsFmtWhen(e.at))+'</span> · <b>'
+      +esc(e.actor_name||e.actor_email||'system')+'</b> — '+esc(e.summary||e.verb)+'</div>').join('')
+    +(CC_SINCE.length>30?'<div class="field-note" style="margin-top:4px;">'+(CC_SINCE.length-30)+' earlier entr'+(CC_SINCE.length-30===1?'y':'ies')+' not shown</div>':'')
+    +'</div>';
+}
 
 async function opsSetOwner(id, email, name, note){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
@@ -19522,14 +19610,28 @@ function myWorkBuckets(){
        not a handover — so it is deliberately not part of `mine`. */
     helping:    open.filter(i=>String(i.help_from||'').toLowerCase()===me && me
                               && String(i.owner||'').toLowerCase()!==me),
-    /* Due today, already late, or a parked item whose check-back has arrived. */
+    /* Due today, already late, or a parked item whose check-back has arrived.
+       PLUS: unclaimed work that can't afford to hide behind the Unassigned
+       pill. Today answers "what might need me today?" — and an urgent
+       call-off nobody has grabbed yet needs SOMEBODY. Scope: due today /
+       late / urgent, and in an area I'm responsible for; when the area has
+       no resolvable owner (or the item has no area yet), it shows to every
+       admin rather than to nobody — hidden is the only wrong answer. */
     today:      mine.filter(i=>{
                   if(parked(i)) return false;
                   if(backNow(i)) return true;
                   if(!i.due) return false;
                   const d=Date.parse(i.due); if(isNaN(d)) return false;
                   return d<now || d<=endOfToday;
-                }),
+                }).concat(open.filter(i=>{
+                  if(i.owner || parked(i)) return false;
+                  const hot = i.urgency==='urgent' || i.urgency==='high'
+                    || (i.due && !isNaN(Date.parse(i.due)) && Date.parse(i.due)<=endOfToday);
+                  if(!hot) return false;
+                  if(!i.domain) return true;
+                  const resp=opsDomainOwner(i.domain);
+                  return !resp || resp===me;
+                })),
     /* Reviews are ordinary items owned by the reviewer. This is a lens on
        `mine`, not a removal from it, so a review is never only in one place. */
     reviews:    mine.filter(i=>i.kind==='review' && !parked(i)),
@@ -19540,8 +19642,13 @@ function myWorkBuckets(){
 }
 function myWorkRows(){
   const b=myWorkBuckets();
-  return (b[MYWORK_TAB]||[]).slice()
+  const rows=(b[MYWORK_TAB]||[]).slice()
     .sort((a,c)=>String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
+  /* Today: unclaimed first — the list opens on what nobody has yet. */
+  if(MYWORK_TAB==='today')
+    rows.sort((a,c)=>((a.owner?1:0)-(c.owner?1:0))
+      || String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
+  return rows;
 }
 
 /* A card is a sentence about a situation. One obvious move, everything else
@@ -19695,7 +19802,12 @@ function myWorkCard(it, i){
       +'onclick="myWorkHandOff(\''+it.id+'\',\'act_'+it.id+'\')">Hand off</button>'
       +(it.review&&it.review.call_id?'<span class="field-note">recording available</span>':'');
   } else {
-    h+='<button class="primary" style="padding:6px 13px;font-size:12.5px;" onclick="opsClose(\''+it.id+'\')">Done</button>'
+    /* When somebody ELSE is on it, Done stops being the invited next press —
+       still there, no longer shouting. */
+    const otherCl = it.claimed_by && it.claimed_by!==ccActor().email;
+    h+='<button class="'+(otherCl?'ghost':'primary')+'" style="padding:6px 13px;font-size:12.5px;" '
+      +(otherCl?'title="'+esc((it.claimed_by_name||'Someone').split(' ')[0])+' is handling this — close it only if you know it’s finished" ':'')
+      +'onclick="opsClose(\''+it.id+'\')">'+(otherCl?'Done…':'Done')+'</button>'
       +'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
       +'onclick="myWorkHandOff(\''+it.id+'\',\'act_'+it.id+'\')">Hand off</button>';
   }
@@ -19790,6 +19902,8 @@ function opsWaitOpen(id, anchorId){
     x.waiting_on=who||null;
     x.check_back=when||null;
     opsLog(x,'Waiting'+(who?' on '+who:'')+(when?', checking back '+when:''));
+    opEvent('item_waiting',{item:x, summary:(x.about||x.title||'')+' — parked'
+      +(who?', waiting on '+who:'')+(when?', back '+when:'')});
     await persist('ops_items',x);
     myWorkRefresh();
   };
@@ -19842,7 +19956,19 @@ function renderMyWork(){
     wrap.innerHTML='<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>';
     return;
   }
-  wrap.innerHTML=myWorkBulkBar(rows)+rows.map((it,i)=>myWorkCard(it,i)).join('');
+  /* On Today the unclaimed block reads as its own question. The divider is
+     visual only — keyboard order and indexes match the list exactly. */
+  let cards='';
+  if(MYWORK_TAB==='today' && rows.some(r=>!r.owner)){
+    const nFree=rows.filter(r=>!r.owner).length;
+    cards+='<div class="field-note" style="margin:2px 0 8px;font-weight:700;letter-spacing:.03em;color:var(--amber,#C17A12);">NEEDS SOMEONE — unclaimed ('+nFree+')</div>';
+    rows.forEach((it,i)=>{
+      if(i===rows.findIndex(r=>!!r.owner) && it.owner)
+        cards+='<div class="field-note" style="margin:14px 0 8px;font-weight:700;letter-spacing:.03em;">YOURS</div>';
+      cards+=myWorkCard(it,i);
+    });
+  } else cards=rows.map((it,i)=>myWorkCard(it,i)).join('');
+  wrap.innerHTML=myWorkBulkBar(rows)+cards;
 }
 function myWorkGo(t){ MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
 
@@ -19993,6 +20119,8 @@ async function opsTriage(id, what, quiet){
     it.help_from=to; it.help_asked_at=new Date().toISOString();
     opsLog(it,'Asked '+(opsOwnerName(to)||to)+' for help. Still owned by '
       +(opsOwnerName(it.owner)||it.owner||'nobody'));
+    opEvent('help_asked',{item:it, summary:(it.about||it.title||'')+' — '
+      +ccActor().name+' asked '+(opsOwnerName(to)||to)+' for help (still theirs)'});
   } else if(what==='help_done'){
     it.help_from=null; it.help_asked_at=null;
     opsLog(it,'Help no longer needed');
@@ -23200,24 +23328,8 @@ function renderHome(){
     +'letter-spacing:-0.02em;color:var(--navy);">'+esc(ME.name||ME.email||'')+'</h2>'
     +'<div class="field-note">'+new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'})+'</div></div>';
 
-  /* SINCE YOU LEFT — the raw record of what others did while you were away.
-     Deliberately verbatim, no summary and no interpretation: the list has
-     to earn a narrative before anything writes one. Dismiss clears it until
-     something new happens. */
-  if(CC_SINCE.length){
-    h+='<div class="card" style="padding:14px 18px;margin-bottom:12px;border-left:4px solid var(--teal);">'
-      +'<div style="display:flex;align-items:baseline;gap:10px;">'
-      +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">SINCE YOU LEFT</b>'
-      +'<span class="field-note">what other people did, oldest first</span>'
-      +'<span style="flex:1;"></span>'
-      +'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="CC_SINCE=[];renderHome()">dismiss</span></div>'
-      +CC_SINCE.slice(-30).map(e=>
-        '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;">'
-        +'<span class="field-note">'+esc(callsFmtWhen(e.at))+'</span> · <b>'
-        +esc(e.actor_name||e.actor_email||'system')+'</b> — '+esc(e.summary||e.verb)+'</div>').join('')
-      +(CC_SINCE.length>30?'<div class="field-note" style="margin-top:4px;">'+(CC_SINCE.length-30)+' earlier entr'+(CC_SINCE.length-30===1?'y':'ies')+' not shown</div>':'')
-      +'</div>';
-  }
+  /* Since You Left lives on the Today/Overview page (renderSinceYouLeft) —
+     this function's container was retired with the Home tab. */
 
   /* CLIENT ISSUES ON THE OWNER'S HOME — EXCEPTIONS ONLY.
      An issue correctly owned by Krystal, Cierra or Angiel and moving along is
@@ -23876,17 +23988,37 @@ function opsRow(i, showKind){
   const kind = OPS_KINDS[i.kind] || { label:i.kind||'Item' };
   const sub = [ i.phone ? callsFmtPhone(i.phone) : '', i.about ? 'Client: '+i.about : '',
                 i.caregiver ? 'Caregiver: '+i.caregiver : '' ].filter(Boolean).join(' · ');
+  /* THE POINT OF THE SHARED LIST: another admin must be able to see, without
+     asking anybody, that a human is actively on this. Owner (the dropdown)
+     and handler (this chip) are different facts and both get shown. */
+  const meRow=(typeof ccActor==='function')?ccActor().email:'';
+  const otherHas=!!(i.claimed_by && i.claimed_by!==meRow);
+  let claimChip='';
+  if(i.claimed_by && i.status==='open'){
+    const m=i.claimed_at?Math.max(0,Math.round((Date.now()-Date.parse(i.claimed_at))/60000)):null;
+    const ago=m==null?'':(' · '+(m>=60?Math.floor(m/60)+'h '+(m%60?m%60+'m':''):m+' min')).trimEnd();
+    claimChip='<span class="tag-chip" style="background:var(--teal-bg,#E6F5F4);color:var(--teal);font-weight:700;">'
+      +esc((i.claimed_by===meRow?'You’re on it':(i.claimed_by_name||opsOwnerName(i.claimed_by)||i.claimed_by).split(' ')[0]+' is on it')+ago)+'</span>';
+  }
+  /* Done stays reachable for everyone, but when somebody else is visibly on
+     it the button stops LOOKING like the next thing to press. */
+  const doneBtn = otherHas
+    ? '<button class="ghost" style="font-size:12px;padding:5px 12px;flex:0 0 auto;" '
+      +'title="'+esc((i.claimed_by_name||'Someone').split(' ')[0])+' is handling this — close it only if you know it’s finished" '
+      +'onclick="opsClose(\''+i.id+'\')">Done…</button>'
+    : '<button class="addlead" style="font-size:12px;padding:5px 12px;flex:0 0 auto;" onclick="opsClose(\''+i.id+'\')">✓ Done</button>';
   return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
     +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
     +(showKind?'<span class="tag-chip" style="background:#F3EDE3;color:var(--navy);">'+esc(kind.label)+'</span>':'')
     +'<span style="font-size:13.5px;font-weight:700;color:var(--navy);min-width:180px;">'+esc(i.title||'')+'</span>'
+    +claimChip
     +(sub?'<span class="field-note">'+esc(sub)+'</span>':'')
     +(overdue?'<span class="tag-chip" style="background:#FDE8E8;color:#B23B2E;">Overdue</span>':'')
     +'<span class="field-note">'+esc(callsFmtWhen(i.created_at))+'</span>'
     +'<span style="flex:1;"></span>'
     +'<select onchange="opsAssign(\''+i.id+'\',this.value)" style="font-size:12px;padding:4px 8px;border:1.5px solid var(--border);border-radius:7px;width:150px;flex:0 0 auto;">'
       +opsStaffOptions(i.owner||'')+'</select>'
-    +'<button class="addlead" style="font-size:12px;padding:5px 12px;flex:0 0 auto;" onclick="opsClose(\''+i.id+'\')">✓ Done</button>'
+    +doneBtn
     +'</div>'
     +(i.detail?'<div class="field-note" style="margin-top:4px;white-space:pre-wrap;">'+esc(i.detail)+'</div>':'')
     +(i.created_by?'<div class="field-note" style="margin-top:2px;">Raised by '+esc(i.created_by)+'</div>':'')
@@ -26032,11 +26164,32 @@ const RT_SEED={
   money_programs:{resp:['Samantha'],backup:[],now:[],daily:['Samantha'],esc:'Zach',esc_when:'a filing or authorization deadline at risk'},
   growth_leads:{resp:['Samantha'],backup:[],now:['Samantha'],daily:[],esc:'Zach',esc_when:'a lead untouched for 24 hours'},
 };
-const RT_PEOPLE_FALLBACK=['Samantha','Zach','Krystal','Angiel','Staffing Coordinator'];
-function rtPeople(){
-  var names=(DATA.coordinator_staff||[]).map(function(s){ return String(s&&s.name||'').trim(); }).filter(Boolean);
-  RT_PEOPLE_FALLBACK.forEach(function(n){ if(names.indexOf(n)<0) names.push(n); });
-  return names;
+/* THE CORE ADMIN GROUP — the five seats this model routes to, keyed by
+   stable identity (sign-in email; the staffing seat is a role key until it
+   has its own account). Having a hub ACCOUNT does not put somebody here —
+   access, organizational role and responsibility are different facts (her
+   rule, 2026-09-19: Cierra has an account and deliberately no seat). Old
+   saved rows and the seed store first names; rtKeyFor folds those in so
+   nothing saved is lost, and every new toggle writes the stable key. */
+const RT_CORE=[
+  {key:'samantha@mo-care.com', label:'Samantha'},
+  {key:'zach@mo-care.com',     label:'Zach'},
+  {key:'krystal@mo-care.com',  label:'Krystal'},
+  {key:'angiel@mo-care.com',   label:'Angiel'},
+  {key:'staffing_coordinator', label:'Staffing Coordinator'},
+];
+function rtKeyFor(v){
+  var s=String(v||'').trim().toLowerCase(); if(!s) return '';
+  if(s.indexOf('@')>0) return s;
+  if(s.indexOf('staffing')===0) return 'staffing_coordinator';
+  var first=s.split(' ')[0];
+  var hit=RT_CORE.find(function(p){ return p.label.toLowerCase()===first; });
+  return hit?hit.key:String(v).trim();
+}
+function rtLabelFor(v){
+  var key=rtKeyFor(v);
+  var hit=RT_CORE.find(function(p){ return p.key===key; });
+  return hit?hit.label:String(v).split('@')[0];
 }
 function rtRow(code){
   var saved=(DATA.op_routing||[]).find(function(r){ return r&&r.id===code; });
@@ -26053,17 +26206,16 @@ function rtRender(){
     ?'Click a name to toggle it in or out of a column. Changes save for the whole office instantly. <b>Nothing routes through this yet</b> — it\'s the master plan the alerts are being migrated onto.'
     :'Read-only for your sign-in — an owner can edit. Everyone always sees everything; this only sets queues, pings and escalation.';
   var canEdit=rtCanEdit();
-  var people=rtPeople();
-  var chip=function(code,col,name,on){
-    return '<span onclick="'+(canEdit?'rtToggle(\''+esc(code)+'\',\''+esc(col)+'\','+"'"+esc(name).replace(/'/g,"\\'")+"'"+')':'')+'" '
+  var chip=function(code,col,p,on){
+    return '<span onclick="'+(canEdit?'rtToggle(\''+esc(code)+'\',\''+esc(col)+'\',\''+esc(p.key)+'\')':'')+'" '
       +'style="display:inline-block;margin:1px 3px 1px 0;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700;'
       +(canEdit?'cursor:pointer;':'')
       +(on?'background:var(--navy);color:#fff;':'background:#fff;color:var(--text-muted);border:1px solid var(--border);')
-      +'">'+esc(name.split(' ')[0]==='Staffing'?'Staffing Coord':name.split(' ')[0])+'</span>';
+      +'">'+esc(p.label==='Staffing Coordinator'?'Staffing Coord':p.label)+'</span>';
   };
   var cell=function(code,col,row){
-    var sel=row[col]||[];
-    return people.map(function(p){ return chip(code,col,p,sel.indexOf(p)>=0); }).join('');
+    var sel=(row[col]||[]).map(rtKeyFor);
+    return RT_CORE.map(function(p){ return chip(code,col,p,sel.indexOf(p.key)>=0); }).join('');
   };
   var groups={};
   RT_AREAS.forEach(function(a){ (groups[a.g]=groups[a.g]||[]).push(a); });
@@ -26080,12 +26232,12 @@ function rtRender(){
         var r=rtRow(a.code);
         return '<tr style="border-top:1px solid var(--border);vertical-align:top;">'
           +'<td style="padding:.5rem;"><b style="color:var(--navy);">'+esc(a.label)+'</b>'
-          +((r.backup||[]).length?'<div class="field-note" style="font-size:10.5px;">backup: '+esc(r.backup.join(', '))+'</div>':'')+'</td>'
+          +((r.backup||[]).length?'<div class="field-note" style="font-size:10.5px;">backup: '+esc(r.backup.map(rtLabelFor).join(', '))+'</div>':'')+'</td>'
           +'<td style="padding:.5rem;">'+cell(a.code,'resp',r)+'</td>'
           +'<td style="padding:.5rem;">'+cell(a.code,'now',r)+'</td>'
           +'<td style="padding:.5rem;">'+cell(a.code,'daily',r)+'</td>'
           +'<td style="padding:.5rem;">'
-          +people.map(function(p){ return chip(a.code,'esc',p,r.esc===p); }).join('')
+          +RT_CORE.map(function(p){ return chip(a.code,'esc',p,rtKeyFor(r.esc)===p.key); }).join('')
           +'<div style="margin-top:4px;">'
           +(canEdit
             ?'<input value="'+esc(r.esc_when||'')+'" placeholder="when? e.g. unresolved 24h" '
@@ -26104,14 +26256,16 @@ async function rtSave(row){
   row.updated_by=(typeof ME!=='undefined'&&(ME.name||ME.email))||'';
   await persist('op_routing',row);
 }
-async function rtToggle(code,col,name){
+async function rtToggle(code,col,key){
   if(!rtCanEdit()) return;
   var row=rtRow(code);
-  if(col==='esc'){ row.esc=(row.esc===name)?'':name; }
+  /* Editing a row migrates it to stable keys in one motion — legacy
+     first-name values fold into the same identity instead of coexisting. */
+  if(col==='esc'){ row.esc=(rtKeyFor(row.esc)===key)?'':key; }
   else{
-    row[col]=row[col]||[];
-    var i=row[col].indexOf(name);
-    if(i>=0) row[col].splice(i,1); else row[col].push(name);
+    row[col]=(row[col]||[]).map(rtKeyFor);
+    var i=row[col].indexOf(key);
+    if(i>=0) row[col].splice(i,1); else row[col].push(key);
   }
   await rtSave(row); rtRender();
 }
@@ -26736,6 +26890,10 @@ async function covPickSend(id,includeG2){
       body: JSON.stringify({ action:'send_selected', case_id:id, recipients:names })});
     const out=await r.json().catch(()=>null);
     if(!r.ok||!out||out.error) throw new Error((out&&out.error)||('The engine answered '+r.status));
+    if((out.sent||[]).length)
+      opEvent('wave_sent',{item_id:id, area:'coverage',
+        summary:ccActor().name+' asked '+out.sent.length+' caregiver'+(out.sent.length===1?'':'s')
+          +(isInterest?' (interest check)':'')+' about '+((c&&c.client)||'a shift')+': '+out.sent.join(', ')});
     let msg='📱 Sent to '+(out.sent||[]).length+' caregiver'+((out.sent||[]).length===1?'':'s')+'.';
     if((out.failed||[]).length) msg+='\n\n⚠ Not sent: '+out.failed.join('; ');
     if((out.refused_not_eligible||[]).length) msg+='\n\nNo longer eligible (list had gone stale): '+out.refused_not_eligible.join(', ');
