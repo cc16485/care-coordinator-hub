@@ -19447,6 +19447,28 @@ async function ccRecentFetch(){
 }
 function ccRecentFor(id){ return CC_RECENT.byItem[String(id||'')]||null; }
 
+/* Refresh ops_items into an OPEN tab so server-created work (a family's
+   reply, Cara's raised items) appears within minutes, not at next sign-in.
+   Applies only when it cannot yank the floor out: no open popover, no bulk
+   selection, and nothing queued locally that the database hasn't seen. */
+async function ccOpsRefresh(){
+  try{
+    if(!sb) return;
+    const r=await sb.from('app_data').select('data').eq('key','ops_items').single();
+    if(r.error||!r.data) return;
+    const fresh=Array.isArray(r.data.data)?r.data.data:[];
+    if(typeof ccPopIsOpen==='function' && ccPopIsOpen()) return;
+    if(typeof MYWORK_SEL!=='undefined' && MYWORK_SEL.size) return;
+    const pill=document.getElementById('syncPill');
+    if(pill && pill.textContent.indexOf('Synced')<0) return;   // local truth is ahead — don't regress it
+    const sig=a=>a.length+'|'+a.reduce((m,x)=>{const t=x.last_activity_at||x.closed_at||x.created_at||''; return m>t?m:t;},'');
+    if(sig(fresh)!==sig(DATA.ops_items||[])){
+      DATA.ops_items=fresh;
+      renderMyWork(); opsBadges();
+    }
+  }catch(e){}
+}
+
 /* ── THE OTHER TWO STATES OF TODAY ───────────────────────────────────────
    NEEDS YOU is the card list. These strips are the rest of the truth:
    BEING HANDLED — Cara mid-callout, or a person actively on my item — and
@@ -20251,6 +20273,9 @@ function renderMyWork(){
     CC_RECENT.tried=Date.now();
     const had=CC_RECENT.at;
     ccRecentFetch().then(()=>{ if(CC_RECENT.at!==had) renderMyWork(); });
+    /* Server-born work (a family reply, Cara's items) must not wait for a
+       sign-in to reach an OPEN Today tab. Same five-minute pulse. */
+    ccOpsRefresh();
   }
   if(!rows.length){
     const msg={today:'Nothing needs you right now.',
@@ -24592,6 +24617,13 @@ function opsRenderStatus(){
   if(!staff.length)      problems.push('No one is on the staff list yet, so calls can\'t be assigned to anybody. Add your coordinators in Settings.');
   else if(!withPhone)    problems.push('Nobody on the staff list has a phone number, so no one can be texted about a missed call. Add numbers in Settings.');
   if(!cfg.live)          problems.push('Chasing is switched off. Missed calls are still captured and listed here, but nobody gets texted when one sits too long.');
+  /* Trustworthy silence (her rule, 2026-09-19): until the GHL inbound-SMS
+     workflow is PROVEN end to end, the hub must admit that a family reply
+     can sit unseen until the daily nurture check. Flips off by setting
+     ops_settings.lead_reply_realtime_verified = true after a real text has
+     traversed webhook → NEEDS YOU item. */
+  if(!cfg.lead_reply_realtime_verified)
+    problems.push('Family TEXT replies: the instant alert is NOT yet proven. If a family texts back, the hub may stay quiet until the daily check — treat silence about replies as unreliable until we verify the GHL workflow end to end.');
 
   if(!problems.length){
     card.style.display='block';
