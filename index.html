@@ -19347,11 +19347,15 @@ function myWorkStrips(){
       if(d===key(n)) return 'today';
       n.setDate(n.getDate()+1);
       return d===key(n)?'tomorrow':String(d||'').slice(5,10).replace('-','/'); })(String(c.shift_date||''));
+    /* Say exactly what Cara is doing and exactly who she is contacting.
+       "Cara is working — Joel" could read as Cara talking TO Joel; she never
+       contacts clients or families — she texts caregivers about the shift. */
     handled.push({go:'#cara/case/'+encodeURIComponent(String(c.id)),
-      text:'Cara is working — '+(c.client||'a shift')+' '
-        +[dayWord,t12(c.shift_time)].filter(Boolean).join(' ')
-        +' · '+c.asked.length+' asked'+(noes?' · '+noes+' no':'')
-        +' · '+waiting+' waiting on replies'
+      text:'Cara is finding caregiver coverage for '+(c.client||'a client')+'’s shift ('
+        +[dayWord,t12(c.shift_time)].filter(Boolean).join(' ')+') — '
+        +c.asked.length+' caregiver'+(c.asked.length===1?'':'s')+' asked'
+        +(noes?' · '+noes+' said no':'')
+        +' · '+waiting+' repl'+(waiting===1?'y':'ies')+' pending'
         +(newest?' · last ask '+agoM(newest)+' ago':'')});
   });
   (DATA.ops_items||[]).filter(i=>i.status==='open'&&i.claimed_by&&i.claimed_by!==meE
