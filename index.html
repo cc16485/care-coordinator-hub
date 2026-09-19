@@ -24500,11 +24500,13 @@ function covRenderSubBar(S){
   const ongoingN=S.open.filter(covIsOngoing).length;
   const calloffN=S.open.length-ongoingN;
   if(COV_SUB==='newclients') COV_SUB='today';   // that sub moved to Schedule Watch
+  const dnoN=(DATA.coverage_do_not_offer||[]).filter(dnoActive).length;
   const tabs=[
     ['today','\u26a1 Today',S.needs.length,'red'],
     ['calloffs','\ud83d\udcf5 Call-offs & open shifts',calloffN,''],
     ['ongoing','\ud83d\udd01 Ongoing shifts',ongoingN,''],
-    ['history','\ud83d\uddc2 History & lists',0,''],
+    ['dno','\ud83d\udd15 No shift texts',dnoN,''],
+    ['history','\ud83d\uddc2 History',0,''],
   ];
   bar.innerHTML=tabs.map(t=>'<button class="fb'+(COV_SUB===t[0]?' active':'')+'" onclick="covSubGo(\''+t[0]+'\')">'+t[1]
     +(t[2]?' <span style="background:'+(t[3]==='red'?'var(--red)':'var(--slate-bg)')+';color:'+(t[3]==='red'?'#fff':'var(--navy)')+';border-radius:999px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:4px;">'+t[2]+'</span>':'')
@@ -26656,6 +26658,13 @@ function renderCoverage(){
   if(COV_SUB==='ongoing') list=list.filter(c=>c.status==='open'&&covIsOngoing(c));
   else if(COV_SUB==='calloffs') list=list.filter(c=>c.status==='open'&&String(c.kind)!=='interest'&&!covIsOngoing(c));
   else if(COV_SUB==='history') list=list.filter(c=>c.status!=='open'&&c.status!=='flagged');
+  else if(COV_SUB==='dno'){
+    /* Its own sub-tab (her call, 2026-09-19): the caregivers who asked NOT
+       to be texted about open shifts — clear name, no digging in History. */
+    box.innerHTML='<div class="field-note" style="margin-bottom:10px;max-width:70ch;">Caregivers on this list are never texted about open shifts — not by a coordinator\'s ask list and not by any automation. An SSI income cap is the usual reason; a "through" date lifts it automatically the day after. Asking someone by hand (a call, a personal text) is always still your judgment.</div>'
+      +dnoCardHtml();
+    return;
+  }
   // badge: open COVERAGE cases (interest checks aren't uncovered shifts),
   // red because an uncovered shift is late by definition
   const openN=(DATA.coverage_cases||[]).filter(c=>c.status==='open'&&String(c.kind)!=='interest').length;
@@ -26701,8 +26710,7 @@ function renderCoverage(){
     box.innerHTML=(COV_SUB==='history'?scoreHtml:'')
     +list.map(covCaseCard).join('')
     +(COV_SUB==='history'
-      ?'<div style="height:16px;"></div>'+dnoCardHtml()
-        +'<div class="field-note" style="margin-top:10px;">The callout message wording lives in ⚙️ Settings → Callout texts.</div>'
+      ?'<div class="field-note" style="margin-top:10px;">The callout message wording lives in ⚙️ Settings → Callout texts.</div>'
       :'');
 }
 
