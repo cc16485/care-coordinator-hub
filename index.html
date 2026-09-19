@@ -4901,6 +4901,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           <span style="flex:1;"></span>
           <a id="commsCallBtn" href="#" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;color:var(--text);background:#fff;">☎ Call</a>
           <button type="button" class="secondary" onclick="logManualCall()">📝 Log a call</button>
+          <button type="button" class="secondary" id="ldDncBtn" onclick="ldToggleDnc()">🚫 Do not contact</button>
           <button type="button" class="secondary" onclick="refreshCommsTimeline(this)">↻ Refresh</button>
         </div>
         <div id="commsLocked" class="field-note" style="display:none;margin-top:8px;"></div>
@@ -8218,7 +8219,7 @@ function renderLeads(){
       <td>${clientName}</td>
       <td>${urgencyBadge(l.urgency)}</td>
       <td style="color:var(--text-muted);">${l.source||''}${l.referral_source_name? ' — '+l.referral_source_name:''}</td>
-      <td>${statusBadge(l.status)}</td>
+      <td>${statusBadge(l.status)}${leadTruthChips(l)}</td>
       <td>${leadNextAction(l)}</td>
       <td onclick="event.stopPropagation();">
         <button class="linklike" style="font-weight:700;" onclick="openLeadProfile('${l.id}')">Profile</button>
@@ -8242,6 +8243,18 @@ function leadAttemptChip(l){
   if(!n) return '';
   return ' <span class="badge '+(n>=3?'bad':'warn')+'" style="font-size:10px;">'
     +(l.last_attempt_kind==='voicemail'?'vm':'no answer')+' ×'+n+'</span>';
+}
+/* The truth chips on the card: derived stage plus the flags that change what
+   you do next (they replied · do-not-contact). */
+function leadTruthChips(l){
+  let h='';
+  try{
+    if(typeof leadStage==='function') h+=' '+leadStageChip(l);
+    if(l.family_last_reply_at && !ldLast(l,e=>e.actor==='human'&&e.direction==='out'&&e.at>l.family_last_reply_at))
+      h+=' <span class="badge bad" style="font-size:10px;">replied — answer them</span>';
+    if(l.do_not_contact) h+=' <span class="badge bad" style="font-size:10px;">🚫 do not contact</span>';
+  }catch(e){}
+  return h;
 }
 function leadNextAction(l){
   if(l.status==='Converted') return '<span style="color:#2E7D57;font-size:12.5px;font-weight:600;">✓ Started care</span>';
@@ -8456,6 +8469,31 @@ async function refreshCommsTimeline(btn){
 function escapeHtmlComms(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function renderCommsTimeline(){
   const box = document.getElementById('commsTimeline');
+  /* The truth bar: stage + the two moments that matter, above the chatter.
+     Also keeps the do-not-contact button honest about the current state. */
+  try{
+    const l=commsLead;
+    const dncBtn=document.getElementById('ldDncBtn');
+    if(dncBtn&&l){ dncBtn.textContent=l.do_not_contact?'🚫 DO NOT CONTACT — recorded':'🚫 Do not contact';
+      dncBtn.style.color=l.do_not_contact?'#B23B2E':''; dncBtn.style.borderColor=l.do_not_contact?'#B23B2E':''; }
+    let bar=document.getElementById('ldTruthBar');
+    if(!bar&&box&&box.parentElement){ bar=document.createElement('div'); bar.id='ldTruthBar';
+      box.parentElement.insertBefore(bar, box); }
+    if(bar&&l){
+      const f=iso=>{ try{ return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } };
+      const n=ldAttempts(l);
+      bar.style.cssText='margin:0 0 8px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg);font-size:12.5px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;';
+      bar.innerHTML=leadStageChip(l)
+        +'<span>'+(l.first_human_attempt_at?('First human attempt '+f(l.first_human_attempt_at)):'No human attempt recorded yet')+'</span>'
+        +'<span>·</span>'
+        +'<span'+(l.first_human_contact_at?'':' style="color:var(--amber,#C17A12);font-weight:700;"')+'>'
+        +(l.first_human_contact_at?('First real conversation '+f(l.first_human_contact_at)):'No real conversation yet')+'</span>'
+        +(n?'<span>· '+n+' human attempt'+(n===1?'':'s')+'</span>':'')
+        +(l.family_last_reply_at?'<span>· they last replied '+f(l.family_last_reply_at)+'</span>':'')
+        +(l.promised_callback_at?'<span style="color:var(--navy);font-weight:700;">· promised call-back '+f(l.promised_callback_at)+'</span>':'')
+        +(l.do_not_contact?'<span style="color:#B23B2E;font-weight:700;">· DO NOT CONTACT</span>':'');
+    }
+  }catch(e){}
   const manual = (commsLead && commsLead.comm_log ? commsLead.comm_log : []).map(n=>({
     kind:'note', direction:'outbound', body:n.body, at:n.at, by:n.by }));
   let items = commsRemote.concat(manual).sort((a,b)=>new Date(a.at)-new Date(b.at));
@@ -8491,10 +8529,13 @@ async function sendLeadSms(){
   if(!text || !commsLead) return;
   if(!commsLead.phone){ alert('This lead has no phone number on file — add one and save first.'); return; }
   btn.disabled=true; btn.textContent='Sending…';
+  if(commsLead.do_not_contact && !confirm('This family asked us not to contact them. Send anyway, as a person, because they asked for this specific reply?')){ btn.disabled=false; btn.textContent='Send text'; return; }
   try{
     await commsCall({ action:'send_sms', message:text });
     input.value='';
     commsRemote.push({ kind:'sms', direction:'outbound', body:text, at:new Date().toISOString() });
+    ldPush(commsLead,{channel:'sms',direction:'out',outcome:'sent',actor:'human',by:ccActor().email,ref:text.slice(0,120)});
+    await persist('leads', commsLead);
     renderCommsTimeline();
   }catch(e){ alert('Could not send: '+e.message); }
   finally{ btn.disabled=false; btn.textContent='Send text'; }
@@ -8506,23 +8547,113 @@ async function sendLeadEmail(){
   if(!sub || !bodyEl.value.trim() || !commsLead) { alert('Subject and body are both needed.'); return; }
   if(!commsLead.email){ alert('This lead has no email on file — add one and save first.'); return; }
   btn.disabled=true; btn.textContent='Sending…';
+  if(commsLead.do_not_contact && !confirm('This family asked us not to contact them. Send anyway, as a person, because they asked for this specific reply?')){ btn.disabled=false; btn.textContent='Send email'; return; }
   try{
     await commsCall({ action:'send_email', subject:sub, message:bodyEl.value.trim() });
     commsRemote.push({ kind:'email', direction:'outbound', subject:sub, body:bodyEl.value.trim(), at:new Date().toISOString() });
+    ldPush(commsLead,{channel:'email',direction:'out',outcome:'sent',actor:'human',by:ccActor().email,ref:sub.slice(0,120)});
+    await persist('leads', commsLead);
     bodyEl.value=''; document.getElementById('commsEmailSubject').value='';
     renderCommsTimeline();
   }catch(e){ alert('Could not send: '+e.message); }
   finally{ btn.disabled=false; btn.textContent='Send email'; }
 }
-async function logManualCall(){
+/* Logging a call asks WHAT HAPPENED, not for an essay. The outcome is the
+   fact the whole lead system runs on; the note is optional color. */
+function logManualCall(){
   if(!commsLead) return;
-  const note = prompt('What happened on the call? (one or two lines)');
-  if(!note || !note.trim()) return;
-  let by = '';
-  try{ const { data:{ session } } = await sb.auth.getSession(); by = (session&&session.user&&session.user.email)||''; }catch(e){}
-  commsLead.comm_log = commsLead.comm_log||[];
-  commsLead.comm_log.push({ body: note.trim().slice(0,600), at: new Date().toISOString(), by });
-  await persist('leads', commsLead);
+  const esc=escapeHtmlComms;
+  const anchor=document.activeElement&&document.activeElement.tagName==='BUTTON'?document.activeElement:document.body;
+  const OUT=[['connected','✅ Connected — we actually talked'],
+             ['voicemail','🎙 Voicemail'],
+             ['no_answer','📵 No answer'],
+             ['requested_callback','📅 They asked us to call back…'],
+             ['wrong_number','⚠ Wrong number']];
+  const el=ccPopOpen(anchor,
+    '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">What happened on the call?</div>'
+    +OUT.map(o=>'<div class="ccpick-row" data-o="'+o[0]+'" style="padding:8px;border-radius:8px;cursor:pointer;font-size:13.5px;">'+o[1]+'</div>').join('')
+    +'<div id="ldCbWrap" style="display:none;margin-top:8px;">'
+    +'<div class="field-note" style="margin-bottom:4px;">Call them back when?</div>'
+    +'<div style="display:flex;gap:6px;"><input id="ldCbDate" type="date" style="flex:1;font-size:13px;padding:6px;">'
+    +'<input id="ldCbTime" type="time" style="width:110px;font-size:13px;padding:6px;"></div></div>'
+    +'<input id="ldCallNote" placeholder="Anything worth remembering? (optional)" '
+    +'style="width:100%;margin-top:10px;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;">'
+    +'<div style="display:flex;gap:8px;margin-top:10px;">'
+    +'<button class="primary" id="ldCallGo" style="padding:7px 14px;font-size:13px;" disabled>Log it</button>'
+    +'<button class="ghost" id="ldCallNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
+    {width:320});
+  let picked='';
+  el.querySelectorAll('.ccpick-row').forEach(r=>{
+    r.onmouseenter=()=>r.style.background='var(--bg)'; r.onmouseleave=()=>{ if(r.dataset.o!==picked) r.style.background=''; };
+    r.onclick=()=>{
+      picked=r.dataset.o;
+      el.querySelectorAll('.ccpick-row').forEach(x=>x.style.background=x.dataset.o===picked?'var(--teal-bg,#E6F5F4)':'');
+      el.querySelector('#ldCbWrap').style.display = picked==='requested_callback'?'block':'none';
+      el.querySelector('#ldCallGo').disabled=false;
+    };
+  });
+  el.querySelector('#ldCallNo').onclick=ccPopClose;
+  el.querySelector('#ldCallGo').onclick=async ()=>{
+    const note=(el.querySelector('#ldCallNote').value||'').trim();
+    const cbDate=(el.querySelector('#ldCbDate')||{}).value||'';
+    const cbTime=(el.querySelector('#ldCbTime')||{}).value||'';
+    if(picked==='requested_callback'&&!cbDate){ alert('Pick the day they asked for.'); return; }
+    ccPopClose();
+    await ldLogCall(picked, note, cbDate, cbTime);
+  };
+}
+async function ldLogCall(outcome, note, cbDate, cbTime){
+  const l=commsLead; if(!l||!outcome) return;
+  const a=ccActor();
+  const label={connected:'connected',voicemail:'voicemail',no_answer:'no answer',
+               requested_callback:'they asked us to call back',wrong_number:'wrong number'}[outcome]||outcome;
+  const firstTime=!l.first_human_contact_at;
+  ldPush(l,{channel:'call',direction:'out',outcome:outcome,actor:'human',by:a.email,note:(note||'').slice(0,300)});
+  l.comm_log=l.comm_log||[];
+  l.comm_log.push({ body:'☎ call — '+label+(note?': '+note.slice(0,400):''), at:new Date().toISOString(), by:a.email });
+  l.last_contacted_at=today();          // legacy compat — old readers keep working
+  if(outcome==='connected'){
+    if(String(l.status||'New')==='New') l.status='Contacted';
+    const who=[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'the family';
+    if(firstTime) opEvent('lead_connected',{item_id:String(l.id), area:'growth_leads',
+      summary:a.name+' had the first real conversation with '+who});
+  }
+  if(outcome==='voicemail'||outcome==='no_answer'){
+    l.contact_attempts=(Number(l.contact_attempts)||0)+1;
+    l.last_attempt_kind=outcome==='voicemail'?'voicemail':'no answer';
+  }
+  if(outcome==='wrong_number') l.bad_number=true;
+  if(outcome==='requested_callback'&&cbDate){
+    l.follow_up_due=cbDate;
+    l.follow_up_branch='call-back-next-week';
+    /* The promise, kept whole: "call me Monday after 3" is a datetime, not a
+       vibe. The reconciler turns a missed one into NEEDS YOU. */
+    l.promised_callback_at=cbDate+'T'+(cbTime||'09:00')+':00';
+    l.comm_log.push({ body:'🤝 Promised to call back '+cbDate+(cbTime?' at '+cbTime:''), at:new Date().toISOString(), by:a.email });
+  }
+  await persist('leads', l);
+  renderCommsTimeline();
+  if(typeof opsReconcileLeads==='function'){ try{ opsReconcileLeads(); }catch(e){} }
+  if(typeof myWorkRefresh==='function') myWorkRefresh();
+  ccToast(outcome==='connected'?'✓ Logged — first real conversation is on the record':'✓ Logged');
+}
+/* Do-not-contact: the recorded fact every automated sender obeys. */
+async function ldToggleDnc(){
+  const l=commsLead; if(!l) return;
+  const a=ccActor();
+  if(!l.do_not_contact){
+    if(!confirm('Record that this family asked us NOT to contact them?\n\nEvery automated text and email will skip them from now on. Humans can still call if they ask us to.')) return;
+    l.do_not_contact=true; l.do_not_contact_at=new Date().toISOString();
+    l.do_not_contact_reason='recorded by '+(a.name||a.email);
+    l.comm_log=(l.comm_log||[]); l.comm_log.push({body:'🚫 Do not contact — recorded', at:l.do_not_contact_at, by:a.email});
+    opEvent('lead_opted_out',{item_id:String(l.id), area:'growth_leads',
+      summary:(([l.first_name,l.last_name].filter(Boolean).join(' '))||'A lead')+' marked do-not-contact by '+a.name});
+  } else {
+    if(!confirm('They asked us to contact them again? This turns automated messages back on.')) return;
+    l.do_not_contact=false; l.do_not_contact_cleared_at=new Date().toISOString();
+    l.comm_log=(l.comm_log||[]); l.comm_log.push({body:'Do-not-contact lifted', at:l.do_not_contact_cleared_at, by:a.email});
+  }
+  await persist('leads', l);
   renderCommsTimeline();
 }
 
@@ -10497,7 +10628,7 @@ function openFollowUpDetail(leadId){
   html += `<div class="detail-grid3" style="margin-top:16px;">
     <div class="dbox"><div class="dlbl">Last Contacted</div><div class="dval">${l.last_contacted_at||'—'}</div></div>
     <div class="dbox"><div class="dlbl">Next Action Due</div><div class="dval">${l.follow_up_due||'—'}</div></div>
-    <div class="dbox"><div class="dlbl">Status</div><div class="dval">${statusBadge(l.status)}</div></div>
+    <div class="dbox"><div class="dlbl">Status</div><div class="dval">${statusBadge(l.status)}${leadTruthChips(l)}</div></div>
   </div>`;
   html += `<div class="section-title">Follow-Up Draft</div>`;
   if(draft){
@@ -19364,11 +19495,35 @@ function myWorkStrips(){
       +' is on it — '+(i.about||i.title||'')
       +(i.claimed_at?' · '+agoM(Date.parse(i.claimed_at))+' in':'')});
   });
+  /* Leads with a real conversation behind them: awareness, not action. */
+  (DATA.leads||[]).filter(l=>!l.archived).forEach(l=>{
+    if(typeof leadStage!=='function') return;
+    const stg=leadStage(l);
+    const whoL=[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'a family';
+    if(stg==='assessment'){
+      const cn=ldLastConnected(l);
+      handled.push({text:(cn?((opsOwnerName(cn.by)||String(cn.by||'').split('@')[0]||'We')+' connected with '+whoL
+          +(cn.duration_s?' ('+Math.round(cn.duration_s/60)+'-min call)':''))
+          :('Consultation set with '+whoL))
+        +' — assessment '+(l.assessment_at||'scheduled')});
+    }
+  });
   const watching=(DATA.ops_items||[]).filter(i=>i.status==='open'&&i.sub_state==='waiting'
       &&String(i.owner||'').toLowerCase()===meE&&i.check_back)
     .map(i=>({text:'Waiting on '+(i.waiting_on||'someone')
       +' · back '+String(i.check_back).slice(5,10).replace('-','/')
       +' — '+(i.about||i.title||'')}));
+  (DATA.leads||[]).filter(l=>!l.archived).forEach(l=>{
+    if(typeof leadStage!=='function') return;
+    if(leadStage(l)!=='deciding') return;
+    const whoL=[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'a family';
+    const pr=l.promised_callback_at;
+    if(pr && Date.parse(pr)<Date.now()) return;      // missed promise = NEEDS YOU, not watching
+    if(!pr && !(l.follow_up_due&&l.follow_up_due>today())) return;
+    watching.push({text:'Family deciding — '+(pr
+      ?('call promised '+new Date(pr).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}))
+      :('follow-up '+String(l.follow_up_due).slice(5,10).replace('-','/')))+' — '+whoL});
+  });
   const strip=(title,note,list)=>!list.length?''
     :'<div class="card" style="padding:12px 16px;margin-top:14px;background:var(--bg);">'
     +'<div style="display:flex;gap:8px;align-items:baseline;">'
@@ -23799,6 +23954,79 @@ function opsDueFor(kind, urgency, fromISO){
    once it's late, so someone can claim it before the clock matters.
    Closes itself as soon as anyone actually makes contact — a queue that still
    lists leads you already rang is a queue people stop believing. */
+
+/* ── LEAD CONTACT TRUTH (2026-09-19) ─────────────────────────────────────
+   Attempted contact and actual human contact are different facts, and
+   `contacted` may never blur them again. contact_events[] is the story:
+   {at, channel(call|sms|email|web|in_person), direction(in|out),
+    outcome(connected|voicemail|no_answer|requested_callback|wrong_number|
+    sent|reply|inquiry), actor(human|automation|family), by, note,
+    duration_s, ref}. Two stamps are maintained here and only here:
+   first_human_attempt_at and first_human_contact_at. An automated ack, a
+   voicemail, an unanswered call, or a family replying to a robot NEVER
+   counts as human contact. This contract is deliberately duplicated in
+   _shared/lead-truth.ts (same reasoning as the untouched-definition
+   duplication below) — change both or neither. */
+function ldEvents(l){ return (l&&Array.isArray(l.contact_events))?l.contact_events:[]; }
+function ldPush(l, ev){
+  const at=ev.at||new Date().toISOString();
+  l.contact_events=ldEvents(l);
+  l.contact_events.push(Object.assign({at:at},ev));
+  if(l.contact_events.length>200) l.contact_events=l.contact_events.slice(-200);
+  if(ev.actor==='human'&&ev.direction==='out'&&!l.first_human_attempt_at) l.first_human_attempt_at=at;
+  if(ev.actor==='human'&&ev.outcome==='connected'){
+    if(!l.first_human_attempt_at) l.first_human_attempt_at=at;
+    if(!l.first_human_contact_at) l.first_human_contact_at=at;
+  }
+  if(ev.direction==='in'&&ev.actor==='family') l.family_last_reply_at=at;
+  return l;
+}
+function ldLast(l,pred){ const ee=ldEvents(l); for(let i=ee.length-1;i>=0;i--) if(pred(ee[i])) return ee[i]; return null; }
+function ldLastHumanAttempt(l){ return ldLast(l,e=>e.actor==='human'&&e.direction==='out'); }
+function ldLastConnected(l){ return ldLast(l,e=>e.actor==='human'&&e.outcome==='connected'); }
+function ldAttempts(l){ return ldEvents(l).filter(e=>e.actor==='human'&&e.direction==='out').length; }
+
+/* THE WORKING STAGE MODEL (her approval, 2026-09-19):
+   NEW → REACHING OUT → CONNECTED → ASSESSMENT → DECIDING → NURTURE → WON/LOST.
+   Derived from facts, never stored — a stage that could disagree with its
+   own evidence is worse than no stage. CONNECTED is earned only by a
+   recorded two-way conversation; a legacy lead whose old status says
+   'Contacted' but has no recorded conversation reads REACHING OUT, because
+   claiming a connection nobody recorded is exactly the lie this replaces. */
+function leadStage(l){
+  const st=String(l.status||'New');
+  if(st==='Converted') return 'won';
+  if(st==='Lost'||l.archived) return 'lost';
+  if(l.nurture_started_at && !l.nurture_stopped_at) return 'nurture';
+  if(st==='Assessment Scheduled') return 'assessment';
+  if(l.first_human_contact_at){
+    /* DECIDING means a forward-looking commitment exists — a promised call,
+       a family-decision branch, a future follow-up. A same-day date from
+       intake is not a decision process. */
+    const deciding=l.promised_callback_at
+      || (l.follow_up_due && String(l.follow_up_due)>today())
+      || ['family-decision','call-back-next-week','soft-check-in'].indexOf(String(l.follow_up_branch||''))>=0;
+    return deciding ? 'deciding' : 'connected';
+  }
+  if(l.first_human_attempt_at || ldAttempts(l)>0
+     || st==='Contacted' || l.last_contacted_at || (l.comm_log||[]).length) return 'reaching_out';
+  return 'new';
+}
+const LEAD_STAGE_META={
+  new:          ['New',          '#FDE8E8', '#B23B2E'],
+  reaching_out: ['Reaching out', '#FDF3E3', '#C17A12'],
+  connected:    ['Connected',    '#E6F5F4', '#1F7A8C'],
+  assessment:   ['Assessment',   '#E8F0FB', '#2F6FB0'],
+  deciding:     ['Deciding',     '#EFEAFB', '#6B4FBB'],
+  nurture:      ['Nurture',      '#F3EDE3', '#6E6559'],
+  won:          ['Won',          '#E7F6EC', '#1F7A4D'],
+  lost:         ['Lost',         '#F1F5F9', '#64748B'],
+};
+function leadStageChip(l){
+  const m=LEAD_STAGE_META[leadStage(l)]||LEAD_STAGE_META.new;
+  return '<span class="tag-chip" title="From recorded facts, not a label" '
+    +'style="background:'+m[1]+';color:'+m[2]+';font-weight:700;">'+m[0]+'</span>';
+}
 function opsLeadUntouched(l){
   return !l.last_contacted_at
       && !((l.comm_log||[]).length)
@@ -23807,7 +24035,14 @@ function opsLeadUntouched(l){
 
 function opsReconcileLeads(){
   DATA.ops_items = DATA.ops_items || [];
-  const existing = new Map(DATA.ops_items.filter(i=>i.kind==='new_lead').map(i=>[i.source_id,i]));
+  /* Only the ONE evolving enquiry item per lead (id ops_lead_<id>) belongs to
+     this reconciler. Reply/consult/opt-out items share the kind and the
+     source_id so they filter and close together elsewhere, but they are
+     their own work — without this guard they hijack the map slot and the
+     enquiry item silently stops being maintained. */
+  const existing = new Map(DATA.ops_items
+    .filter(i=>i.kind==='new_lead' && String(i.id||'').indexOf('ops_lead_')===0)
+    .map(i=>[i.source_id,i]));
   const touched = new Map();
 
   (DATA.leads||[]).forEach(l=>{
@@ -23882,6 +24117,63 @@ function opsReconcileLeads(){
           touched.set(it.id,it);
         }
 
+        /* CONTACT TRUTH ON THE CARD. The item's face now states the facts a
+           coordinator needs: was it acknowledged, how many human attempts,
+           has a real conversation happened. Legacy leads without recorded
+           events keep their old wording rather than claiming "0 attempts". */
+        const stg=(typeof leadStage==='function')?leadStage(l):'';
+        const who2=[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'(no name given)';
+        let nt='', nd='', na='';
+        if(stg==='new'){
+          nt='New care inquiry: '+who2;
+          nd=(l.ack_sent_at?'Auto-acknowledged':'No acknowledgment went out')
+            +' · no human attempt yet.'
+            +(l.interest_notes?' "'+String(l.interest_notes).slice(0,180)+'"':'');
+          na='Call them — a person, as soon as you can.';
+        } else if(stg==='reaching_out' && ldAttempts(l)>0 && !l.first_human_contact_at){
+          const la=ldLastHumanAttempt(l);
+          const n=ldAttempts(l);
+          nt=n+' attempt'+(n===1?'':'s')+' · no real conversation yet — '+who2;
+          nd='Last attempt '+(la?callsFmtWhen(la.at)+(la.outcome?' ('+String(la.outcome).replace('_',' ')+')':''):'')
+            +'. Nobody has actually spoken with this family.';
+          na='Try again — a different time of day often lands.';
+        }
+        if(nt && it.title!==nt){ it.title=nt; it.detail=nd; if(na) it.next_action=na; touched.set(it.id,it); }
+        /* Once a real conversation exists, a card must never keep claiming
+           nobody has spoken with them. */
+        if(l.first_human_contact_at && /Nobody has actually spoken/.test(String(it.detail||''))){
+          const lc2=ldLastConnected(l);
+          it.detail=lc2?('Connected '+callsFmtWhen(lc2.at)+(lc2.note?' — "'+String(lc2.note).slice(0,140)+'"':'')):'';
+          touched.set(it.id,it);
+        }
+
+        /* A PROMISED CALL-BACK IS A PROMISE, not a reminder preference. When
+           its time passes with no human attempt after it, the item stops
+           waiting, goes urgent, and says exactly what was broken. */
+        if(l.promised_callback_at){
+          const pAt=Date.parse(l.promised_callback_at);
+          const laH=ldLastHumanAttempt(l);
+          const keptOrLater=laH && Date.parse(laH.at)>=pAt;
+          if(!isNaN(pAt) && pAt<Date.now() && !keptOrLater && stg!=='won' && stg!=='lost'){
+            const label='Follow-up promised for '
+              +new Date(pAt).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'})
+              +' and hasn’t happened — '+who2;
+            if(it.title!==label){
+              it.title=label;
+              const lc=ldLastConnected(l);
+              it.detail='We told them we would call.'
+                +(lc?' Last real conversation '+callsFmtWhen(lc.at)+(lc.note?' — "'+String(lc.note).slice(0,140)+'"':'')+'.':'');
+              it.next_action='Call them now — we told them we would.';
+              touched.set(it.id,it);
+            }
+            if(it.urgency!=='high'){ it.urgency='high'; touched.set(it.id,it); }
+            if(it.sub_state==='waiting'){ it.sub_state=null; it.waiting_on=null; it.check_back=null; touched.set(it.id,it); }
+            const pIso=new Date(pAt).toISOString();
+            if(it.due!==pIso){ it.due=pIso; touched.set(it.id,it); }
+            it.lead_promise_overdue=true;
+          } else if(it.lead_promise_overdue){ it.lead_promise_overdue=false; touched.set(it.id,it); }
+        }
+
         /* A contacted lead with no next step is how an enquiry quietly stops
            being chased. Rather than leaving it dateless, the Hub schedules the
            next business day and says so, which the coordinator can override by
@@ -23901,7 +24193,7 @@ function opsReconcileLeads(){
           it.lead_auto_followup=null;   // a real date replaced the automatic one
         }
 
-        if(nextDue){
+        if(nextDue && !it.lead_promise_overdue){
           const iso=ccEndOfDayIso(nextDue);
           if(iso && it.due!==iso){
             it.due=iso;
@@ -23924,9 +24216,13 @@ function opsReconcileLeads(){
            item would read "follow up as promised" — on a number we already
            know is wrong. The action is to find a working number, and it is
            actionable now rather than tomorrow. */
-        const action = l.bad_number && !fu
+        const action = it.lead_promise_overdue
+            ? 'Call them now — we told them we would.'
+          : l.bad_number && !fu
             ? 'The number we have is wrong. Find a working number before trying again.'
-          : !contacted ? 'Ring them and find out what care they need.'
+          : !contacted ? 'Call them — a person, as soon as you can.'
+          : (stg==='reaching_out' && !(nextDue>t))
+            ? 'Try again — nobody has actually spoken with this family yet.'
           : (nextDue>t) ? 'Waiting until '+nextDue+'. Nothing to do yet.'
           : 'Follow up as promised, then log it on the lead.';
         if(it.next_action!==action){ it.next_action=action; touched.set(it.id,it); }
