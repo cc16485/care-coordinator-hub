@@ -962,6 +962,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div id="swNewClientsList"></div>
       </div>
 
+      <!-- THE CARE TEAM BUILDER (2026-09-19, her ask: "an actual interactive
+           thing… instead of writing it out on paper"). A week grid of shifts
+           per new client: pencil caregivers in as you call, mark asked /
+           confirmed / declined, move people freely — NOTHING touches
+           AxisCare until the whole puzzle is pieced together and a human
+           enters it there. Plans live in shared app_data staffing_plans so
+           the whole office sees the same board. -->
+      <div id="swBuilderWrap" style="display:none;"><div id="tbRoot"><div class="field-note">Loading…</div></div></div>
+
       <!-- Missing EVV moved wholesale to the EVV tab (her call, 2026-09-18):
            one home for the whole pipeline. The swEvv* functions live on,
            painting the EVV tab's missing board. -->
@@ -6683,7 +6692,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
+  const keys = ['caregivers','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -24954,7 +24963,8 @@ function swRenderBar(){
   var openN=(DATA.timekeeper_cases||[]).filter(function(l){ return l&&l.kind!=='clock_out'&&!l.resolved_at; }).length;
   if(SW_SUB==='evv') SW_SUB='today';   // Missing EVV lives on the EVV tab now
   var newN=(DATA.coverage_cases||[]).filter(function(c){ return c&&c.status==='open'&&String(c.kind)==='interest'; }).length;
-  var tabs=[['today','⚡ Today',openN,'red'],['newclients','📣 New clients',newN,''],['hours','📊 Hours & matching',null,'']];
+  var planN=(DATA.staffing_plans||[]).filter(function(p){ return p&&p.status!=='done'; }).length;
+  var tabs=[['today','⚡ Today',openN,'red'],['newclients','📣 New clients',newN,''],['builder','🧩 Team builder',planN,''],['hours','📊 Hours & matching',null,'']];
   bar.innerHTML=tabs.map(function(t){
     return '<button class="fb'+(SW_SUB===t[0]?' active':'')+'" onclick="swSubGo(\''+t[0]+'\')">'+t[1]
       +(t[2]?' <span style="background:'+(t[3]==='red'?'var(--red)':'var(--slate-bg)')+';color:'+(t[3]==='red'?'#fff':'var(--navy)')+';border-radius:999px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:4px;">'+t[2]+'</span>':'')
@@ -24966,8 +24976,10 @@ function swRenderAll(){
   var show=function(id,on){ var el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
   show('swTodayWrap',SW_SUB==='today');
   show('swNewWrap',SW_SUB==='newclients'); show('swHoursWrap',SW_SUB==='hours');
+  show('swBuilderWrap',SW_SUB==='builder');
   if(SW_SUB==='today'){ swRenderLive(); swAutoRefreshArm(); }
   else if(SW_SUB==='newclients'){ swRenderNewClients(); }
+  else if(SW_SUB==='builder'){ tbRender(); }
   else { hwAskRender(); hwRender(); if(HW_SCHED===null) hwLoad(); }
 }
 /* The interest-check workspace, rendered with the SAME shared case card the
@@ -25138,6 +25150,276 @@ async function swEvvText(key){
     if(d&&d.status==='sent'){ await swEvvMark(key,'texted'); }
     else alert('Could not send: '+((d&&d.error)||'unknown error'));
   }catch(e){ alert('Could not reach the messaging service — check your connection.'); }
+}
+
+/* ── THE CARE TEAM BUILDER (2026-09-19) ──────────────────────────────────
+   The interactive week grid that replaces the paper chart: rows are shifts,
+   columns are days, cells are people in one of four states — penciled
+   (thinking about them), asked (call/text out), confirmed (they said yes),
+   declined. Everything moves freely until the puzzle is whole; NOTHING is
+   written to AxisCare from here, ever. Candidate ranking per cell comes
+   from one team_pool read: stated windows (or unconfirmed), schedule
+   conflicts on that weekday+time, same-town, and the running weekly hours
+   as you pencil — so the OT math happens while you talk. */
+let TB={pool:null,loading:false,planId:null,cellOpen:null};
+const TB_DAYS=['mon','tue','wed','thu','fri','sat','sun'];
+const TB_DAYL={mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri',sat:'Sat',sun:'Sun'};
+const TB_PATTERNS={
+  twelves:{label:'2 × 12-hour (day / night)',slots:[{k:'day',label:'Day 8a–8p',start:'08:00',end:'20:00'},{k:'night',label:'Night 8p–8a',start:'20:00',end:'08:00'}]},
+  eights:{label:'3 × 8-hour',slots:[{k:'a',label:'6a–2p',start:'06:00',end:'14:00'},{k:'b',label:'2p–10p',start:'14:00',end:'22:00'},{k:'c',label:'10p–6a',start:'22:00',end:'06:00'}]},
+  daily4:{label:'One daily shift (set the hours)',slots:[{k:'main',label:'Daily shift',start:'09:00',end:'13:00'}]}
+};
+function tbPlans(){ return (DATA.staffing_plans||[]).filter(Boolean); }
+function tbPlan(){ return tbPlans().find(function(p){ return p.id===TB.planId; })||null; }
+function tbT12(t){ var m=String(t||'').match(/^(\d\d):(\d\d)$/); if(!m) return t||''; var h=+m[1]%12||12; return h+(m[2]==='00'?'':':'+m[2])+(+m[1]>=12?'p':'a'); }
+function tbSlotHours(s){ var a=+s.start.slice(0,2)+s.start.slice(3,5)/60, b=+s.end.slice(0,2)+s.end.slice(3,5)/60; return Math.round(((b>a?b-a:24-a+b))*10)/10; }
+function tbNk(s){ return String(s||'').toLowerCase().replace(/[^a-z]/g,''); }
+/* Slot time → the availability form's categories (morning 6-12, afternoon
+   12-17, evening 17-22, overnight 22-6), so stated windows can answer. */
+function tbCats(s){
+  var cats=[], a=+s.start.slice(0,2), b=+s.end.slice(0,2); if(b<=a) b+=24;
+  var spans=[['morning',6,12],['afternoon',12,17],['evening',17,22],['overnight',22,30],['overnight',-2,6]];
+  spans.forEach(function(sp){ if(a<sp[2]&&b>sp[1]&&cats.indexOf(sp[0])<0) cats.push(sp[0]); });
+  return cats;
+}
+async function tbLoadPool(){
+  if(TB.loading||TB.pool) return;
+  TB.loading=true;
+  try{
+    var sess=await sb.auth.getSession();
+    var tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+    if(!tok) throw new Error('Sign in first.');
+    var r=await fetch(CONFIG.supabase_url+'/functions/v1/coverage-shifts',{
+      method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},
+      body:JSON.stringify({team_pool:true})});
+    var d=await r.json().catch(function(){return null;});
+    if(!r.ok||!d||d.error) throw new Error((d&&d.error)||('AxisCare answered '+r.status));
+    TB.pool=d.caregivers||[];
+  }catch(e){ TB.pool={error:String(e.message||e)}; }
+  TB.loading=false;
+  tbRender();
+}
+function tbRender(){
+  var root=document.getElementById('tbRoot'); if(!root) return;
+  if(!TB.pool&&!TB.loading){ tbLoadPool(); }
+  var plan=tbPlan();
+  root.innerHTML=plan?tbBoardHtml(plan):tbHomeHtml();
+}
+function tbHomeHtml(){
+  var plans=tbPlans().slice().sort(function(a,b){ return String(b.created_at||'').localeCompare(String(a.created_at||'')); });
+  var h='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
+    +'<button class="cov-cta teal" onclick="tbNewForm()">🧩 New care team plan</button>'
+    +'<span class="field-note" style="max-width:60ch;">The chart you used to draw on paper: shifts down the side, days across the top, pencil people in as you call. Nothing goes on the AxisCare schedule until the whole week is confirmed.</span>'
+    +'</div><div id="tbNewFormBox"></div>';
+  if(!plans.length) h+='<div class="card" style="padding:16px 18px;color:var(--text-muted);font-size:13.5px;">No plans yet.</div>';
+  else h+=plans.map(function(p){
+    var cells=Object.keys(p.cells||{}).length, total=(p.days||[]).length*(p.slots||[]).length;
+    var yes=Object.values(p.cells||{}).filter(function(c){ return c&&c.status==='yes'; }).length;
+    return '<div class="card" style="padding:13px 16px;margin:0 0 8px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;'+(p.status==='done'?'opacity:.65;':'')+'">'
+      +'<b style="color:var(--navy);font-size:15px;">'+esc(p.client||'(client)')+'</b>'
+      +'<span class="field-note">'+esc([p.city,p.level?('Level '+p.level):''].filter(Boolean).join(' · '))+'</span>'
+      +'<span style="font-size:12.5px;"><b style="color:var(--green);">'+yes+'</b>/'+total+' confirmed · '+cells+' penciled</span>'
+      +(p.status==='done'?'<span style="color:var(--green);font-weight:700;font-size:12px;">✓ complete</span>':'')
+      +'<span style="flex:1;"></span>'
+      +'<button class="cara-btn" style="font-size:12px;" onclick="tbOpen(\''+esc(p.id)+'\')">Open the board →</button>'
+      +'</div>';
+  }).join('');
+  return h;
+}
+function tbNewForm(){
+  var box=document.getElementById('tbNewFormBox'); if(!box) return;
+  box.innerHTML='<div class="card" style="padding:14px 18px;margin:0 0 12px;">'
+    +'<div style="display:grid;grid-template-columns:1.4fr 1fr .8fr 1fr;gap:8px;">'
+    +'<input id="tb-client" placeholder="Client name (doesn\'t need to be in AxisCare)">'
+    +'<input id="tb-townzip" placeholder="Town & zip, e.g. Mount Vernon 65712">'
+    +'<select id="tb-level"><option value="">Level?</option><option value="1">Level 1</option><option value="2">Level 2</option><option value="3">Level 3</option></select>'
+    +'<select id="tb-pattern">'+Object.keys(TB_PATTERNS).map(function(k){ return '<option value="'+k+'">'+TB_PATTERNS[k].label+'</option>'; }).join('')+'</select>'
+    +'</div>'
+    +'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
+    +'<span class="field-note" style="font-weight:700;">Days:</span>'
+    +TB_DAYS.map(function(d){ return '<button type="button" class="fb active" data-tbday="'+d+'" onclick="this.classList.toggle(\'active\')">'+TB_DAYL[d]+'</button>'; }).join('')
+    +'<span style="flex:1;"></span>'
+    +'<button class="addlead" onclick="tbCreate()">Create the board</button>'
+    +'</div></div>';
+}
+async function tbCreate(){
+  var client=document.getElementById('tb-client').value.trim();
+  if(!client){ alert('Whose care are we building?'); return; }
+  var tz=document.getElementById('tb-townzip').value.trim();
+  var zip=(tz.match(/\b(\d{5})\b/)||[])[1]||'';
+  var city=tz.replace(/\b\d{5}(-\d{4})?\b/,'').replace(/,/g,' ').replace(/\s+/g,' ').trim();
+  var days=[].slice.call(document.querySelectorAll('[data-tbday].active')).map(function(b){ return b.getAttribute('data-tbday'); });
+  if(!days.length){ alert('Pick at least one day.'); return; }
+  var pat=TB_PATTERNS[document.getElementById('tb-pattern').value]||TB_PATTERNS.twelves;
+  var p={ id:'tb'+Date.now(), client:client, city:city||null, zip:zip||null,
+    level:document.getElementById('tb-level').value||null,
+    days:days, slots:JSON.parse(JSON.stringify(pat.slots)), cells:{},
+    status:'building', created_at:new Date().toISOString(),
+    by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'' };
+  DATA.staffing_plans=DATA.staffing_plans||[]; DATA.staffing_plans.push(p);
+  await persist('staffing_plans',p);
+  TB.planId=p.id; TB.cellOpen=null;
+  tbRender(); swRenderBar();
+}
+function tbOpen(id){ TB.planId=id; TB.cellOpen=null; tbRender(); }
+function tbClose(){ TB.planId=null; TB.cellOpen=null; tbRender(); }
+function tbCellKey(d,sk){ return d+'|'+sk; }
+/* Projected weekly hours for a caregiver: what this board gives them (any
+   state but declined) + their real AxisCare average from the 14-day read. */
+function tbProjHours(plan,name){
+  var board=0;
+  (plan.days||[]).forEach(function(d){ (plan.slots||[]).forEach(function(s){
+    var c=(plan.cells||{})[tbCellKey(d,s.k)];
+    if(c&&c.status!=='no'&&tbNk(c.name)===tbNk(name)) board+=tbSlotHours(s);
+  }); });
+  var cg=Array.isArray(TB.pool)?TB.pool.find(function(x){ return tbNk(x.name)===tbNk(name); }):null;
+  var sched=0;
+  if(cg) cg.visits.forEach(function(v){ var a=v.start?(+v.start.slice(0,2)+v.start.slice(3,5)/60):0, b=v.end?(+v.end.slice(0,2)+v.end.slice(3,5)/60):a; if(b>a) sched+=(b-a); });
+  return { board:Math.round(board*10)/10, axis:Math.round(sched/2*10)/10 };
+}
+function tbBoardHtml(plan){
+  var STATUS={penciled:['#94A3B8','penciled'],asked:['var(--honey-ink)','asked'],yes:['var(--green)','confirmed ✓'],no:['var(--red)','declined']};
+  var total=(plan.days||[]).length*(plan.slots||[]).length;
+  var yes=0, filled=0;
+  var grid='<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;">'
+    +'<thead><tr><th style="padding:.4rem;text-align:left;color:var(--text-muted);font-size:11px;">Shift</th>'
+    +(plan.days||[]).map(function(d){ return '<th style="padding:.4rem;color:var(--navy);">'+TB_DAYL[d]+'</th>'; }).join('')+'</tr></thead><tbody>'
+    +(plan.slots||[]).map(function(s){
+      return '<tr><td style="padding:.45rem .4rem;border-top:1px solid var(--border);font-weight:700;color:var(--navy);white-space:nowrap;">'+esc(s.label)+'<div class="field-note" style="font-size:10.5px;">'+tbT12(s.start)+'–'+tbT12(s.end)+' · '+tbSlotHours(s)+'h</div></td>'
+        +(plan.days||[]).map(function(d){
+          var key=tbCellKey(d,s.k), c=(plan.cells||{})[key];
+          if(c&&c.status==='yes') yes++;
+          if(c&&c.status!=='no') filled++;
+          var open=TB.cellOpen===key;
+          var inner=c
+            ?'<div style="border-radius:7px;padding:3px 6px;background:'+(c.status==='yes'?'var(--green-bg)':c.status==='asked'?'#FFF4E3':c.status==='no'?'#FDE8E8':'#F1F5F9')+';color:'+STATUS[c.status][0]+';font-weight:700;'+(c.status==='no'?'text-decoration:line-through;':'')+'">'+esc(String(c.name).split(' ')[0]+' '+(String(c.name).split(' ')[1]||'').slice(0,1))+'<div style="font-size:9.5px;font-weight:600;">'+STATUS[c.status][1]+'</div></div>'
+            :'<span style="color:var(--text-dim);font-size:15px;">＋</span>';
+          return '<td onclick="tbCell(\''+key+'\')" style="padding:.3rem;border-top:1px solid var(--border);border-left:1px solid var(--border);text-align:center;cursor:pointer;min-width:64px;'+(open?'outline:2px solid var(--teal);outline-offset:-2px;':'')+'">'+inner+'</td>';
+        }).join('')+'</tr>';
+    }).join('')+'</tbody></table>';
+  var team={};
+  Object.values(plan.cells||{}).forEach(function(c){ if(c&&c.status!=='no') team[c.name]=true; });
+  var teamRows=Object.keys(team).map(function(n){
+    var h=tbProjHours(plan,n), tot=h.board+h.axis;
+    return '<span style="font-size:12px;background:#fff;border:1px solid var(--border);border-radius:7px;padding:3px 9px;">'+esc(n)+' <b style="color:'+(tot>40?'var(--red)':'var(--navy)')+';">'+h.board+'h here'+(h.axis?' +'+h.axis+'h existing':'')+(tot>40?' ⚠ OT':'')+'</b></span>';
+  }).join(' ');
+  var gaps=total-filled;
+  return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px;">'
+    +'<button class="cara-btn ghost" style="font-size:12px;" onclick="tbClose()">← All plans</button>'
+    +'<b style="font-size:16px;color:var(--navy);">'+esc(plan.client)+'</b>'
+    +'<span class="field-note">'+esc([plan.city,plan.level?('Level '+plan.level):''].filter(Boolean).join(' · '))+'</span>'
+    +'<span style="font-size:12.5px;"><b style="color:var(--green);">'+yes+'</b>/'+total+' confirmed'+(gaps?' · <b style="color:var(--red);">'+gaps+' gap'+(gaps===1?'':'s')+'</b>':' · 🎉 every slot filled')+'</span>'
+    +'<span style="flex:1;"></span>'
+    +(gaps?'<button class="cara-btn ghost" style="font-size:12px;" onclick="tbFlagGaps()">Flag gaps to recruiting</button>':'')
+    +(yes===total&&total>0?'<button class="addlead" style="font-size:12px;" onclick="tbComplete()">✓ Plan complete — show the summary</button>':'')
+    +'</div>'
+    +'<div class="card" style="padding:8px;overflow-x:auto;">'+grid+'</div>'
+    +(teamRows?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span class="field-note" style="font-weight:700;">The team so far:</span>'+teamRows+'</div>':'')
+    +'<div id="tbAssign" style="margin-top:10px;">'+(TB.cellOpen?tbAssignHtml(plan,TB.cellOpen):'<div class="field-note">Click any cell to pencil someone in. Click a filled cell to update or move them.</div>')+'</div>'
+    +'<div class="field-note" style="margin-top:8px;">Nothing here touches AxisCare. When every cell is green, enter the finished schedule there.</div>';
+}
+function tbCell(key){ TB.cellOpen=(TB.cellOpen===key)?null:key; tbRender(); }
+function tbAssignHtml(plan,key){
+  var parts=key.split('|'), d=parts[0], sk=parts[1];
+  var slot=(plan.slots||[]).find(function(s){ return s.k===sk; }); if(!slot) return '';
+  var cur=(plan.cells||{})[key];
+  var head='<div style="font-weight:800;color:var(--navy);margin-bottom:6px;">'+TB_DAYL[d]+' · '+esc(slot.label)+' ('+tbT12(slot.start)+'–'+tbT12(slot.end)+')</div>';
+  var curHtml=cur?'<div class="card" style="padding:9px 12px;margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+    +'<b>'+esc(cur.name)+'</b><span class="field-note">currently '+esc(cur.status)+'</span><span style="flex:1;"></span>'
+    +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbSet(\''+esc(key)+'\',\'asked\')">📞 Asked</button>'
+    +'<button class="cara-btn" style="font-size:11.5px;" onclick="tbSet(\''+esc(key)+'\',\'yes\')">✓ Confirmed</button>'
+    +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbSet(\''+esc(key)+'\',\'no\')">✗ Declined</button>'
+    +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbSet(\''+esc(key)+'\',null)">Remove</button>'
+    +'</div>':'';
+  if(!Array.isArray(TB.pool)) return head+curHtml+'<div class="field-note">'+(TB.pool&&TB.pool.error?('Could not load the roster: '+esc(TB.pool.error)):'Loading the roster…')+'</div>';
+  var cats=tbCats(slot);
+  var wd2=[]; // the two dates in the 14-day window matching this weekday
+  for(var i=0;i<14;i++){ var dt=new Date(Date.now()+i*86400000); var w=dt.toLocaleDateString('en-US',{weekday:'short',timeZone:'America/Chicago'}).toLowerCase(); if(w===d) wd2.push(dt.toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10)); }
+  var list=TB.pool.map(function(cg){
+    var lvOK=!plan.level||cg.level==null||cg.level>=+plan.level;
+    if(!lvOK) return null;
+    var stated=null;
+    if(cg.windows){ var have=[]; Object.keys(cg.windows).forEach(function(dd){ (cg.windows[dd]||[]).forEach(function(w){ have.push(dd+':'+w); }); });
+      stated=cats.every(function(cN){ return have.indexOf(d+':'+cN)>=0; }); }
+    var conf=[];
+    cg.visits.forEach(function(v){ if(wd2.indexOf(v.day)<0) return;
+      var a=v.start,b=v.end; if(!a||!b) return;
+      var s1=slot.start,e1=slot.end; var overnight=e1<=s1;
+      var overlap = overnight ? (b>s1||a<e1) : (a<e1&&b>s1);
+      if(overlap) conf.push(tbT12(a)+'–'+tbT12(b)+' with '+v.client); });
+    var h=tbProjHours(plan,cg.name); var tot=h.board+h.axis+tbSlotHours(slot);
+    return { cg:cg, stated:stated, conflicts:conf, sameTown:!!(plan.city&&cg.city&&plan.city.toLowerCase()===cg.city.toLowerCase()), proj:tot };
+  }).filter(Boolean);
+  list.sort(function(a,b){
+    return ((a.conflicts.length?1:0)-(b.conflicts.length?1:0))
+      || ((b.stated===true?1:0)-(a.stated===true?1:0))
+      || ((a.stated===false?1:0)-(b.stated===false?1:0))
+      || (Number(b.sameTown)-Number(a.sameTown))
+      || (a.proj-b.proj);
+  });
+  return head+curHtml
+    +'<div class="card" style="padding:8px 12px;max-height:340px;overflow-y:auto;">'
+    +list.map(function(x){
+      var flags=[];
+      if(x.stated===true) flags.push('<b style="color:var(--green);">✓ says they\'re free '+TB_DAYL[d]+' '+cats.join('/')+'</b>');
+      else if(x.stated===false) flags.push('<b style="color:var(--red);">their form says these hours don\'t work</b>');
+      else flags.push('<span style="color:#8A4E0C;font-weight:700;">availability not on file</span>');
+      if(x.conflicts.length) flags.push('<b style="color:var(--red);">📅 '+esc(x.conflicts[0])+'</b>');
+      if(x.sameTown) flags.push('<b style="color:var(--green);">📍 same town</b>'); else if(x.cg.city) flags.push('📍 '+esc(x.cg.city));
+      flags.push((x.proj>40?'<b style="color:var(--red);">would be '+Math.round(x.proj)+'h/wk ⚠ OT</b>':'~'+Math.round(x.proj)+'h/wk with this'));
+      return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
+        +'<b style="min-width:130px;">'+esc(x.cg.name)+'</b>'
+        +'<span class="field-note" style="flex:1;">'+flags.join(' · ')+'</span>'
+        +'<button class="cara-btn" style="font-size:11.5px;" onclick="tbAssign(\''+esc(key)+'\','+"'"+esc(String(x.cg.name)).replace(/'/g,"\\'")+"'"+')">Pencil in</button>'
+        +'</div>';
+    }).join('')+'</div>';
+}
+async function tbSave(plan){ await persist('staffing_plans',plan); }
+async function tbAssign(key,name){
+  var plan=tbPlan(); if(!plan) return;
+  plan.cells=plan.cells||{};
+  plan.cells[key]={name:name,status:'penciled',at:new Date().toISOString(),
+    by:(typeof ME!=='undefined'&&(ME.name||ME.email))||''};
+  await tbSave(plan); tbRender();
+}
+async function tbSet(key,status){
+  var plan=tbPlan(); if(!plan||!plan.cells||!plan.cells[key]) return;
+  if(status===null){ delete plan.cells[key]; }
+  else { plan.cells[key].status=status; plan.cells[key].at=new Date().toISOString(); }
+  await tbSave(plan); tbRender(); swRenderBar();
+}
+async function tbFlagGaps(){
+  var plan=tbPlan(); if(!plan) return;
+  var gaps=[];
+  (plan.slots||[]).forEach(function(s){
+    var missing=(plan.days||[]).filter(function(d){ var c=(plan.cells||{})[tbCellKey(d,s.k)]; return !c||c.status==='no'; });
+    if(missing.length) gaps.push(s.label+' ('+tbT12(s.start)+'–'+tbT12(s.end)+'): '+missing.map(function(d){ return TB_DAYL[d]; }).join(', '));
+  });
+  if(!gaps.length){ alert('No gaps — every slot has someone.'); return; }
+  var item={ id:'ops_hire_'+plan.id, kind:'staffing',
+    title:'HIRE NEEDED — '+plan.client+' care team has '+gaps.length+' uncovered slot group'+(gaps.length===1?'':'s'),
+    about:plan.client,
+    detail:'The team builder could not fill: '+gaps.join(' · ')+'. Area: '+(plan.city||'?')+(plan.level?' · Level '+plan.level:'')+'. Recruit for these exact hours.',
+    domain:'scheduling_coverage', status:'open', urgency:'high',
+    created_at:new Date().toISOString(), created_by:'team-builder',
+    owner:'', owner_name:'' };
+  DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(item);
+  await persist('ops_items',item);
+  alert('📌 Flagged to the Operations Inbox with the exact hours and area:\n\n'+gaps.join('\n'));
+}
+async function tbComplete(){
+  var plan=tbPlan(); if(!plan) return;
+  var lines=[];
+  (plan.slots||[]).forEach(function(s){
+    (plan.days||[]).forEach(function(d){
+      var c=(plan.cells||{})[tbCellKey(d,s.k)];
+      if(c&&c.status==='yes') lines.push(TB_DAYL[d]+' '+tbT12(s.start)+'–'+tbT12(s.end)+': '+c.name);
+    });
+  });
+  plan.status='done'; plan.completed_at=new Date().toISOString();
+  await tbSave(plan);
+  alert('🎉 The '+plan.client+' care team is pieced together:\n\n'+lines.join('\n')+'\n\nNow enter it in AxisCare — this board never writes there itself.');
+  tbRender(); swRenderBar();
 }
 
 function swRenderLive(){
