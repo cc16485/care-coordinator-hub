@@ -897,6 +897,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-sops">
     <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Library</div>
     <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
+    <div class="fpill" data-tab="routing" onclick="switchTab('routing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Who Handles What</div>
     <span class="pillsec">Programs</span>
     <div class="fpill" onclick="location.href='guide.html'"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> GUIDE Program</div>
   </div>
@@ -4370,6 +4371,24 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </section>
 
+<!-- ===================== TAB: WHO HANDLES WHAT =====================
+     The routing matrix (2026-09-19 product-direction session): per area,
+     who's Responsible, who's Notified (now vs daily), and who it Escalates
+     to — with everyone able to SEE everything always (her call: no
+     visibility gating at this size). Nothing routes through this yet; it's
+     the master plan the alerts migrate onto, and delegation later is just
+     editing these rows. Stored in shared app_data op_routing. -->
+<section class="tabpanel" id="tab-routing">
+<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px;">
+  <div style="flex:1 1 420px;">
+    <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Who Handles What</h2>
+    <div class="field-note" style="font-size:13.5px;margin-top:4px;max-width:80ch;">Everyone sees everything, always — this only decides whose <b>queue</b> it is, whose <b>phone</b> buzzes, and who gets pulled in when something is <b>stuck</b>. Handing an area to someone else is editing a row here, not rewriting the system.</div>
+  </div>
+</div>
+<div class="field-note" id="rt-edit-note" style="margin-bottom:12px;"></div>
+<div id="rt-board"><div class="field-note">Loading…</div></div>
+</section>
+
 <!-- ===================== TAB: LIVE SCHEDULE =====================
      AxisCare's real-time view, inside the hub (her ask, 2026-09-18): every
      visit for the chosen day, straight from the AxisCare API on demand.
@@ -6696,7 +6715,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
+  const keys = ['caregivers','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -7016,7 +7035,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch'],clients:['leads','statesubs','clients','circles','checkins','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch'],clients:['leads','statesubs','clients','circles','checkins','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    Three pills on the Care Coordinator bar are parents rather than pages.
@@ -7385,7 +7404,7 @@ const CC_SECTION_TITLES = {
   today:'Today', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library',
+  carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
   clientqueue:'New Clients — Needs Scheduling',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
@@ -7595,6 +7614,7 @@ function renderActiveTab(){
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='carematch') cmRenderAll();
   if(activeTab==='liveschedule') lsRender();
+  if(activeTab==='routing') rtRender();
   if(activeTab==='sops') sopRender();
   if(activeTab==='clientqueue') cqRender();
   if(activeTab==='statesubs') renderStateSubs();
@@ -25692,6 +25712,137 @@ function covToggleCase(id){
   if(COV_EXPANDED.has(id)) COV_EXPANDED.delete(id); else COV_EXPANDED.add(id);
   renderCoverage();
 }
+/* ── WHO HANDLES WHAT: the routing matrix (2026-09-19) ───────────────────
+   Per area: Responsible (their My Day queue), Notified now (phone buzzes),
+   Notified daily (their Morning Brief), Escalated to (pulled in when stuck,
+   with the trigger written down). Universal visibility is the rule, so
+   there is deliberately NO visibility column. Owners edit; everyone reads.
+   Seeded with the draft from the product session — every cell editable. */
+const RT_AREAS=[
+  {g:'Scheduling',code:'sched_calloffs',label:'Call-offs & coverage'},
+  {g:'Scheduling',code:'sched_ongoing',label:'Open & ongoing shifts to fill'},
+  {g:'Scheduling',code:'sched_clockins',label:'Missed clock-ins / clock-outs'},
+  {g:'Scheduling',code:'sched_afterhours',label:'After-hours issues'},
+  {g:'Care coordination',code:'care_concerns',label:'Client concerns & family callbacks'},
+  {g:'Care coordination',code:'care_condition',label:'Change-in-condition follow-ups'},
+  {g:'Care coordination',code:'care_reviews',label:'Care plan reviews & check-ins'},
+  {g:'Care coordination',code:'care_incidents',label:'Incidents'},
+  {g:'EVV & compliance',code:'evv',label:'EVV exceptions & corrections'},
+  {g:'EVV & compliance',code:'compliance_docs',label:'Missing documents & training deadlines'},
+  {g:'Hiring & onboarding',code:'hire_applicants',label:'Applicants & interviews'},
+  {g:'Hiring & onboarding',code:'hire_screening',label:'Background, references & screening'},
+  {g:'Hiring & onboarding',code:'hire_onboarding',label:'Onboarding & orientation'},
+  {g:'Money & programs',code:'money_payroll',label:'Payroll & billing'},
+  {g:'Money & programs',code:'money_programs',label:'Medicaid/IHS · CDS · VA · private pay'},
+  {g:'Growth',code:'growth_leads',label:'Marketing leads (speed to lead)'},
+];
+const RT_SEED={
+  sched_calloffs:{resp:['Staffing Coordinator'],backup:['Krystal'],now:['Staffing Coordinator','Samantha'],daily:[],esc:'Samantha',esc_when:'no yes 60 min after the ask, or shift under 3h away uncovered'},
+  sched_ongoing:{resp:['Staffing Coordinator'],backup:[],now:[],daily:['Staffing Coordinator'],esc:'Samantha',esc_when:'a slot sits unworked for 7 days'},
+  sched_clockins:{resp:['Staffing Coordinator'],backup:[],now:['Staffing Coordinator'],daily:[],esc:'Samantha',esc_when:'30 min past start with no resolution'},
+  sched_afterhours:{resp:['Staffing Coordinator'],backup:[],now:['Staffing Coordinator'],daily:[],esc:'Samantha',esc_when:'immediately — after-hours escalations skip the line'},
+  care_concerns:{resp:['Krystal'],backup:[],now:['Krystal'],daily:['Samantha'],esc:'Samantha',esc_when:'unresolved after 24 hours'},
+  care_condition:{resp:['Krystal'],backup:[],now:['Krystal'],daily:[],esc:'Samantha',esc_when:'unresolved after 24 hours'},
+  care_reviews:{resp:['Krystal'],backup:[],now:[],daily:['Krystal'],esc:'Samantha',esc_when:'overdue by 2 weeks'},
+  care_incidents:{resp:['Samantha'],backup:[],now:['Samantha','Zach'],daily:[],esc:'Zach',esc_when:'always in the loop on incidents'},
+  evv:{resp:['Staffing Coordinator'],backup:[],now:[],daily:['Staffing Coordinator'],esc:'Samantha',esc_when:'Saturday with forms still unprocessed'},
+  compliance_docs:{resp:['Angiel'],backup:[],now:[],daily:['Angiel'],esc:'Samantha',esc_when:'within 2 weeks of a compliance date'},
+  hire_applicants:{resp:['Samantha'],backup:[],now:['Samantha'],daily:[],esc:'Zach',esc_when:'an applicant sits unclaimed 3 days'},
+  hire_screening:{resp:['Samantha'],backup:[],now:[],daily:['Samantha'],esc:'Samantha',esc_when:'the chase ladder exhausts'},
+  hire_onboarding:{resp:['Krystal'],backup:[],now:[],daily:['Krystal'],esc:'Samantha',esc_when:'a start date is at risk'},
+  money_payroll:{resp:['Samantha'],backup:[],now:[],daily:['Samantha'],esc:'Zach',esc_when:'anything blocking a pay run'},
+  money_programs:{resp:['Samantha'],backup:[],now:[],daily:['Samantha'],esc:'Zach',esc_when:'a filing or authorization deadline at risk'},
+  growth_leads:{resp:['Samantha'],backup:[],now:['Samantha'],daily:[],esc:'Zach',esc_when:'a lead untouched for 24 hours'},
+};
+const RT_PEOPLE_FALLBACK=['Samantha','Zach','Krystal','Angiel','Staffing Coordinator'];
+function rtPeople(){
+  var names=(DATA.coordinator_staff||[]).map(function(s){ return String(s&&s.name||'').trim(); }).filter(Boolean);
+  RT_PEOPLE_FALLBACK.forEach(function(n){ if(names.indexOf(n)<0) names.push(n); });
+  return names;
+}
+function rtRow(code){
+  var saved=(DATA.op_routing||[]).find(function(r){ return r&&r.id===code; });
+  if(saved) return saved;
+  var s=RT_SEED[code]||{resp:[],backup:[],now:[],daily:[],esc:'',esc_when:''};
+  return { id:code, resp:(s.resp||[]).slice(), backup:(s.backup||[]).slice(),
+    now:(s.now||[]).slice(), daily:(s.daily||[]).slice(), esc:s.esc||'', esc_when:s.esc_when||'' };
+}
+function rtCanEdit(){ try{ return ccCan('manage_settings'); }catch(e){ return false; } }
+function rtRender(){
+  var box=document.getElementById('rt-board'); if(!box) return;
+  var note=document.getElementById('rt-edit-note');
+  if(note) note.innerHTML=rtCanEdit()
+    ?'Click a name to toggle it in or out of a column. Changes save for the whole office instantly. <b>Nothing routes through this yet</b> — it\'s the master plan the alerts are being migrated onto.'
+    :'Read-only for your sign-in — an owner can edit. Everyone always sees everything; this only sets queues, pings and escalation.';
+  var canEdit=rtCanEdit();
+  var people=rtPeople();
+  var chip=function(code,col,name,on){
+    return '<span onclick="'+(canEdit?'rtToggle(\''+esc(code)+'\',\''+esc(col)+'\','+"'"+esc(name).replace(/'/g,"\\'")+"'"+')':'')+'" '
+      +'style="display:inline-block;margin:1px 3px 1px 0;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700;'
+      +(canEdit?'cursor:pointer;':'')
+      +(on?'background:var(--navy);color:#fff;':'background:#fff;color:var(--text-muted);border:1px solid var(--border);')
+      +'">'+esc(name.split(' ')[0]==='Staffing'?'Staffing Coord':name.split(' ')[0])+'</span>';
+  };
+  var cell=function(code,col,row){
+    var sel=row[col]||[];
+    return people.map(function(p){ return chip(code,col,p,sel.indexOf(p)>=0); }).join('');
+  };
+  var groups={};
+  RT_AREAS.forEach(function(a){ (groups[a.g]=groups[a.g]||[]).push(a); });
+  box.innerHTML=Object.keys(groups).map(function(g){
+    return '<h3 style="margin:18px 0 8px;font-size:16px;font-weight:800;color:var(--navy);">'+esc(g)+'</h3>'
+      +'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;background:#fff;font-size:12.5px;min-width:760px;">'
+      +'<thead><tr style="text-align:left;color:var(--text-muted);font-size:11px;">'
+      +'<th style="padding:.45rem .5rem;width:20%;">Area</th>'
+      +'<th style="padding:.45rem .5rem;">Responsible <span style="font-weight:400;">(their queue)</span></th>'
+      +'<th style="padding:.45rem .5rem;">Notified now <span style="font-weight:400;">(phone)</span></th>'
+      +'<th style="padding:.45rem .5rem;">Notified daily <span style="font-weight:400;">(brief)</span></th>'
+      +'<th style="padding:.45rem .5rem;width:26%;">Escalated to · when</th></tr></thead><tbody>'
+      +groups[g].map(function(a){
+        var r=rtRow(a.code);
+        return '<tr style="border-top:1px solid var(--border);vertical-align:top;">'
+          +'<td style="padding:.5rem;"><b style="color:var(--navy);">'+esc(a.label)+'</b>'
+          +((r.backup||[]).length?'<div class="field-note" style="font-size:10.5px;">backup: '+esc(r.backup.join(', '))+'</div>':'')+'</td>'
+          +'<td style="padding:.5rem;">'+cell(a.code,'resp',r)+'</td>'
+          +'<td style="padding:.5rem;">'+cell(a.code,'now',r)+'</td>'
+          +'<td style="padding:.5rem;">'+cell(a.code,'daily',r)+'</td>'
+          +'<td style="padding:.5rem;">'
+          +people.map(function(p){ return chip(a.code,'esc',p,r.esc===p); }).join('')
+          +'<div style="margin-top:4px;">'
+          +(canEdit
+            ?'<input value="'+esc(r.esc_when||'')+'" placeholder="when? e.g. unresolved 24h" '
+              +'style="width:100%;font-size:11px;padding:3px 6px;" onchange="rtEscWhen(\''+esc(a.code)+'\',this.value)">'
+            :'<span class="field-note" style="font-size:11px;">'+esc(r.esc_when||'')+'</span>')
+          +'</div></td></tr>';
+      }).join('')+'</tbody></table></div>';
+  }).join('')
+  +'<div class="field-note" style="margin-top:14px;max-width:80ch;">Delegation, later, is exactly this page: move a name out of Responsible, drop a "now" to "daily", keep the escalation. The workflows never change — only these rows do.</div>';
+}
+async function rtSave(row){
+  DATA.op_routing=DATA.op_routing||[];
+  var i=DATA.op_routing.findIndex(function(r){ return r&&r.id===row.id; });
+  if(i>=0) DATA.op_routing[i]=row; else DATA.op_routing.push(row);
+  row.updated_at=new Date().toISOString();
+  row.updated_by=(typeof ME!=='undefined'&&(ME.name||ME.email))||'';
+  await persist('op_routing',row);
+}
+async function rtToggle(code,col,name){
+  if(!rtCanEdit()) return;
+  var row=rtRow(code);
+  if(col==='esc'){ row.esc=(row.esc===name)?'':name; }
+  else{
+    row[col]=row[col]||[];
+    var i=row[col].indexOf(name);
+    if(i>=0) row[col].splice(i,1); else row[col].push(name);
+  }
+  await rtSave(row); rtRender();
+}
+async function rtEscWhen(code,v){
+  if(!rtCanEdit()) return;
+  var row=rtRow(code); row.esc_when=String(v||'').trim();
+  await rtSave(row); rtRender();
+}
+
 /* ── LIVE SCHEDULE (2026-09-18): AxisCare's day view, in the hub. ──────── */
 let LS_STATE={date:null,data:null,loading:false};
 function lsChiDay(off){ const d=new Date(Date.now()+ (off||0)*86400000);
