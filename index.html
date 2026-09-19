@@ -26690,7 +26690,10 @@ async function hwMatch(btn){
       +(m.length? m.slice(0,12).map(function(x){
         var chips=[];
         if(x.knows_client_visits) chips.push('<span class="cara-rchip knows">knows this client ('+esc(String(x.knows_client_visits))+' visits)</span>');
-        chips.push('<span class="cara-rchip">covers '+esc(String(x.covers))+' of the asked slots</span>');
+        /* Her rule (2026-09-19): no form on file = assumed available 24/7
+           minus their schedule, ranked in the main list and labeled. */
+        if(x.assumed_available) chips.push('<span class="cara-rchip" style="background:#FFF4E3;color:#8A4E0C;font-weight:700;">assumed available — hasn\'t set their windows yet</span>');
+        else chips.push('<span class="cara-rchip">covers '+esc(String(x.covers))+' of the asked slots (their stated windows)</span>');
         chips.push(x.level_unknown||x.level==null
           ? '<span class="cara-rchip dim">level not classed</span>'
           : '<span class="cara-rchip">Level '+esc(String(x.level))+'</span>');
@@ -26707,11 +26710,8 @@ async function hwMatch(btn){
           +'<b style="font-size:15px;font-weight:700;color:var(--navy);min-width:160px;">'+esc(x.name)+'</b>'
           +chips.join('')+'</div>';
       }).join('')
-      : '<div style="font-size:13.5px;color:var(--text-muted);padding:6px 0;">Nobody\'s stated availability covers that schedule yet.</div>')
-      +((res.worth_asking_no_availability||[]).length
-        ? '<div style="font-size:13px;color:var(--text-muted);margin-top:11px;">No availability on file, still worth asking: '
-          +res.worth_asking_no_availability.slice(0,10).map(function(x){ return esc(x.name); }).join(', ')+'</div>'
-        : '');
+      : '<div style="font-size:13.5px;color:var(--text-muted);padding:6px 0;">Nobody fits that schedule — everyone who has filled the availability form says these hours are outside their windows.</div>')
+      +'<div style="font-size:12px;color:var(--text-muted);margin-top:9px;">Everyone is assumed available around their real schedule until they complete the availability form — then their own windows take over. "Text the availability link" above nudges them to fill it in.</div>';
     var note=document.getElementById('hwAskNote');
     if(note) note.textContent=HW_ASK.clientId?'':'No client picked, so nobody is ranked by who knows them.';
   } finally { if(btn) btn.disabled=false; }
