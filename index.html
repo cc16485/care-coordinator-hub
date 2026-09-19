@@ -962,15 +962,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div id="swNewClientsList"></div>
       </div>
 
-      <div id="swEvvWrap" style="display:none;">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-          <div class="field-note" style="max-width:70ch;">A visit that ended without its clock-in or clock-out is a payroll and compliance hole. Text the caregiver the correction form (it must be signed by the client), then the corrections log on the EVV tab takes over.</div>
-          <span style="flex:1;"></span>
-          <button class="cara-btn ghost" onclick="swEvvLoad(true)">↻ Refresh from AxisCare</button>
-        </div>
-        <div id="swEvvBoard"><div class="field-note">Loading…</div></div>
-      </div>
-
+      <!-- Missing EVV moved wholesale to the EVV tab (her call, 2026-09-18):
+           one home for the whole pipeline. The swEvv* functions live on,
+           painting the EVV tab's missing board. -->
       <div id="swHoursWrap" style="display:none;">
       <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:0 0 6px;padding-top:6px;">
         <h3 style="margin:0;font-size:20px;font-weight:800;letter-spacing:-0.015em;color:var(--navy);">Upcoming schedule and hours</h3>
@@ -24958,9 +24952,9 @@ function swSubGo(s){ SW_SUB=s; try{ localStorage.setItem('cch_swsub',s); }catch(
 function swRenderBar(){
   var bar=document.getElementById('swSubBar'); if(!bar) return;
   var openN=(DATA.timekeeper_cases||[]).filter(function(l){ return l&&l.kind!=='clock_out'&&!l.resolved_at; }).length;
-  var evvN=(SW_EVV.data&&SW_EVV.data.missing)?SW_EVV.data.missing.filter(function(r){ return !swEvvState(r.key); }).length:null;
+  if(SW_SUB==='evv') SW_SUB='today';   // Missing EVV lives on the EVV tab now
   var newN=(DATA.coverage_cases||[]).filter(function(c){ return c&&c.status==='open'&&String(c.kind)==='interest'; }).length;
-  var tabs=[['today','⚡ Today',openN,'red'],['evv','🧾 Missing EVV',evvN,''],['newclients','📣 New clients',newN,''],['hours','📊 Hours & matching',null,'']];
+  var tabs=[['today','⚡ Today',openN,'red'],['newclients','📣 New clients',newN,''],['hours','📊 Hours & matching',null,'']];
   bar.innerHTML=tabs.map(function(t){
     return '<button class="fb'+(SW_SUB===t[0]?' active':'')+'" onclick="swSubGo(\''+t[0]+'\')">'+t[1]
       +(t[2]?' <span style="background:'+(t[3]==='red'?'var(--red)':'var(--slate-bg)')+';color:'+(t[3]==='red'?'#fff':'var(--navy)')+';border-radius:999px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:4px;">'+t[2]+'</span>':'')
@@ -24970,10 +24964,9 @@ function swRenderBar(){
 function swRenderAll(){
   swRenderBar();
   var show=function(id,on){ var el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
-  show('swTodayWrap',SW_SUB==='today'); show('swEvvWrap',SW_SUB==='evv');
+  show('swTodayWrap',SW_SUB==='today');
   show('swNewWrap',SW_SUB==='newclients'); show('swHoursWrap',SW_SUB==='hours');
   if(SW_SUB==='today'){ swRenderLive(); swAutoRefreshArm(); }
-  else if(SW_SUB==='evv'){ if(!SW_EVV.data&&!SW_EVV.loading) swEvvLoad(); else swEvvPaint(); }
   else if(SW_SUB==='newclients'){ swRenderNewClients(); }
   else { hwAskRender(); hwRender(); if(HW_SCHED===null) hwLoad(); }
 }
