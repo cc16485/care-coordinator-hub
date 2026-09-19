@@ -6637,13 +6637,15 @@ initSupabase();
 /* ---------------- AUTH ---------------- */
 // Real access control lives in Supabase Auth's app_metadata.hub_access, set
 // only via Team Hub's Manage Team Access invite automation (service_role,
-// never the browser). A missing hub_access array means the account predates
-// this system — treat that as grandfathered in rather than denied, so this
-// never locks out the existing team on deploy. Restriction only starts once
-// an owner explicitly sets someone's portal access.
+// never the browser). A missing hub_access array is DENIED. The grandfather
+// default-allow that used to live here existed so the pre-system team was
+// never locked out on deploy; every account has carried an explicit array
+// since 2026-08-12 and invites write one, so the grandfather door is closed
+// (script 158 backfills any stragglers). If someone is denied here, their
+// account simply has no access recorded yet — grant it from Team Hub's
+// Manage Team Access, and they're in on their next sign-in.
 function hasHubAccess(user){
   const access = user && user.app_metadata && user.app_metadata.hub_access;
-  if(access === undefined || access === null) return true;
   return Array.isArray(access) && access.includes(HUB_SLUG);
 }
 /* ---- Self-service password reset (same flow on every hub) ---- */
@@ -6693,7 +6695,7 @@ async function signIn(){
   if(error){ errEl.textContent = error.message; errEl.style.display = 'block'; return; }
   if(!hasHubAccess(data.user)){
     await sb.auth.signOut();
-    errEl.textContent = "You don't have access to Care Coordinator's Hub. Contact your owner to be granted access.";
+    errEl.textContent = "No hub access is recorded for this account yet. Ask Samantha or Zach to grant it from Team Hub → Manage Team Access, then sign in again.";
     errEl.style.display = 'block';
     return;
   }
@@ -6734,6 +6736,19 @@ async function loadAllData(){
      the owner's Home rather than only reaching the console. */
   try{ await autoRecurringCheckins({commit:true}); }
   catch(e){ console.warn('[automation] client check-in run failed', e); }
+}
+/* THE one way new code answers "which human did this". Email is the stable
+   key (unique per account, what ops_items already filters on); name is only
+   display. The scattered legacy stamps write `by: ME.name||ME.email`, which
+   puts the AMBIGUOUS value first — do not copy that pattern; call this.
+   person_id rides along when the operating layer resolved one, else ''. */
+function ccActor(){
+  const me = (typeof ME!=='undefined' && ME) || {};
+  return {
+    email: String(me.email||'').toLowerCase(),
+    name: me.name || String(me.email||'').split('@')[0] || '',
+    person_id: me.person_id || ''
+  };
 }
 async function resolveMe(){
   let email='';
@@ -24180,7 +24195,7 @@ function renderMgrStrip(){
       if(!hasHubAccess(session.user)){
         await sb.auth.signOut();
         const errEl = document.getElementById('loginError');
-        errEl.textContent = "You don't have access to Care Coordinator's Hub. Contact your owner to be granted access.";
+        errEl.textContent = "No hub access is recorded for this account yet. Ask Samantha or Zach to grant it from Team Hub → Manage Team Access, then sign in again.";
         errEl.style.display = 'block';
         return;
       }
