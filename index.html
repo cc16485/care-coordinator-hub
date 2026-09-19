@@ -1624,9 +1624,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 8px;">
         <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">3 · The corrections log</h3>
-        <span class="field-note">processed corrections and whether AxisCare was updated</span>
+        <span class="field-note">processed corrections and whether AxisCare was updated — everything happens right here</span>
         <span style="flex:1;"></span>
-        <a href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">Process &amp; edit in the Staffing hub ↗</a>
+        <a href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:var(--teal);text-decoration:none;">Staffing hub's copy ↗</a>
       </div>
       <div id="evvLogNative"></div>
     </section>
@@ -15723,10 +15723,43 @@ function evvPaintSubs(){
       +(s.reason?'<span class="field-note">'+esc(String(s.reason).slice(0,60))+'</span>':'')
       +'<span style="flex:1;"></span>'
       +'<span class="field-note">'+(s.submitted_at?new Date(s.submitted_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'')+'</span>'
-      +'<a class="cara-btn" style="font-size:12px;text-decoration:none;" href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener">Process ↗</a>'
+      +'<button class="cara-btn" style="font-size:12px;" onclick="evvProcessSub(\''+esc(String(s.id))+'\')">✓ Log it</button>'
+      +'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvDismissSub(\''+esc(String(s.id))+'\')">Dismiss</button>'
       +'</div>';
   }).join('')
-  +'<div class="field-note" style="margin-top:6px;">Processing (logging it + marking AxisCare updated) happens in the Staffing hub — one log, one writer, no drift.</div>';
+  +'<div class="field-note" style="margin-top:6px;">Log it moves the form into the corrections log below — then update AxisCare and tap "AxisCare updated ✓" on the row. (Both hubs share one log; writes merge safely since 2026-09-19.)</div>';
+}
+/* NATIVE PROCESSING (her ask, 2026-09-19: no more jumping to the Staffing
+   hub). Item-level writes, and the Staffing hub's whole-array save now
+   merges with the database first — both hubs share one log safely. */
+async function evvProcessSub(id){
+  var rows=(EVV_SUBS.data&&EVV_SUBS.data.rows)||[];
+  var s=rows.find(function(x){ return String(x.id)===String(id); }); if(!s) return;
+  if(!confirm('Log '+s.attendant+'\'s correction for '+s.visitdate+'?\n\nAfter logging: update the times in AxisCare, then tap "AxisCare updated ✓" on the log row.')) return;
+  var me=(typeof ME!=='undefined'&&(ME.email||ME.name))||'coordinator';
+  var e={ id:Date.now().toString(), attendant:s.attendant, consumer:s.consumer,
+    visitdate:s.visitdate, submitdate:s.submitdate||'',
+    origIn:s.orig_in||'', origOut:s.orig_out||'', newIn:s.new_in||'', newOut:s.new_out||'',
+    reason:s.reason||'', formReceived:'yes', wellskyDone:'no', admin:me,
+    wellskyDate:'', notes:s.notes||'', loggedAt:new Date().toISOString() };
+  DATA.evv_corrections=DATA.evv_corrections||[]; DATA.evv_corrections.unshift(e);
+  await persist('evv_corrections',e);
+  try{ await sb.from('evv_submissions').update({processed:true,processed_by:me,processed_at:new Date().toISOString()}).eq('id',s.id); }
+  catch(err){ alert('Logged, but could not mark the submission processed: '+String(err&&err.message||err)); }
+  EVV_SUBS.data=null; evvLoadSubs(); evvPaintLog();
+}
+async function evvDismissSub(id){
+  if(!confirm('Dismiss this submission without logging it? It disappears from the pending list.')) return;
+  var me=(typeof ME!=='undefined'&&(ME.email||ME.name))||'coordinator';
+  try{ await sb.from('evv_submissions').update({processed:true,processed_by:me,processed_at:new Date().toISOString()}).eq('id',id); }
+  catch(err){ alert('Could not dismiss: '+String(err&&err.message||err)); return; }
+  EVV_SUBS.data=null; evvLoadSubs();
+}
+async function evvMarkAx(id){
+  var e=(DATA.evv_corrections||[]).find(function(x){ return x&&String(x.id)===String(id); }); if(!e) return;
+  e.wellskyDone='yes'; e.wellskyDate=ccChiToday();
+  await persist('evv_corrections',e);
+  evvPaintLog(); evvPaintStats();
 }
 function evvPaintLog(){
   const box=document.getElementById('evvLogNative'); if(!box) return;
@@ -15738,8 +15771,8 @@ function evvPaintLog(){
       +'<b>'+esc(e.attendant||'?')+'</b>'
       +'<span class="field-note">'+esc(e.visitdate||'')+' with '+esc(e.consumer||'')+' · '+esc([e.newIn,e.newOut].filter(Boolean).join('–'))+'</span>'
       +'<span style="flex:1;"></span>'
-      +(done?'<span style="color:var(--green);font-weight:700;font-size:12px;">✓ AxisCare updated</span>'
-            :'<span style="color:var(--honey-ink);font-weight:700;font-size:12px;">⏳ AxisCare not updated yet</span>')
+      +(done?'<span style="color:var(--green);font-weight:700;font-size:12px;">✓ AxisCare updated'+(e.wellskyDate?' '+esc(e.wellskyDate):'')+'</span>'
+            :'<button class="cara-btn" style="font-size:11.5px;" onclick="evvMarkAx(\''+esc(String(e.id))+'\')">AxisCare updated ✓</button>')
       +'</div>';
   }).join('')+'</div>'
   +((DATA.evv_corrections||[]).length>25?'<div class="field-note" style="margin-top:5px;">Showing the latest 25 — the full log is in the Staffing hub.</div>':'');
