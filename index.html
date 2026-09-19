@@ -975,6 +975,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            one home for the whole pipeline. The swEvv* functions live on,
            painting the EVV tab's missing board. -->
       <div id="swHoursWrap" style="display:none;">
+      <!-- The quiet-quit radar + care-gap watch (her picks #7+#8) and the
+           availability freshness meter (#10): trends over six weeks, and
+           how current the availability data actually is. -->
+      <div id="hwRadar" style="margin-bottom:16px;"></div>
       <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:0 0 6px;padding-top:6px;">
         <h3 style="margin:0;font-size:20px;font-weight:800;letter-spacing:-0.015em;color:var(--navy);">Upcoming schedule and hours</h3>
         <!-- "Next 7 days" is real again: coverage-shifts hours_watch derives
@@ -24980,7 +24984,59 @@ function swRenderAll(){
   if(SW_SUB==='today'){ swRenderLive(); swAutoRefreshArm(); }
   else if(SW_SUB==='newclients'){ swRenderNewClients(); }
   else if(SW_SUB==='builder'){ tbRender(); }
-  else { hwAskRender(); hwRender(); if(HW_SCHED===null) hwLoad(); }
+  else { hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad(); }
+}
+/* ── RETENTION RADAR + CARE-GAP WATCH + AVAILABILITY FRESHNESS ─────────── */
+let HW_TRENDS={data:null,at:0,loading:false};
+async function hwTrendsLoad(){
+  if(HW_TRENDS.loading) return;
+  HW_TRENDS.loading=true; hwRadarRender();
+  try{
+    var sess=await sb.auth.getSession();
+    var tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+    if(!tok) throw new Error('sign in');
+    var r=await fetch(CONFIG.supabase_url+'/functions/v1/coverage-shifts',{
+      method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},
+      body:JSON.stringify({trends:true})});
+    var d=await r.json().catch(function(){return null;});
+    HW_TRENDS.data=(r.ok&&d&&!d.error)?d:{error:(d&&d.error)||('answered '+r.status)};
+  }catch(e){ HW_TRENDS.data={error:String(e.message||e)}; }
+  HW_TRENDS.at=Date.now(); HW_TRENDS.loading=false;
+  hwRadarRender();
+}
+function hwRadarRender(){
+  var box=document.getElementById('hwRadar'); if(!box) return;
+  /* Freshness meter comes free from data already loaded. */
+  var roster=(DATA.caregivers||[]).filter(function(c){ return c&&c.active!==false; });
+  var staleCut=Date.now()-90*86400000;
+  var current=0;
+  (DATA.caregiver_availability||[]).forEach(function(a){
+    if(a&&new Date(String(a.updated_at||0)).getTime()>staleCut) current++;
+  });
+  var meter='<div class="card" style="padding:12px 16px;margin:0 0 8px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;">'
+    +'<b style="color:var(--navy);">📋 Availability on file:</b>'
+    +'<b style="font-size:18px;color:'+(current>=roster.length*0.7?'var(--green)':'var(--honey-ink)')+';">'+current+' of '+roster.length+'</b>'
+    +'<span class="field-note">current (form within 90 days) — everyone else is "assumed available" guesswork</span>'
+    +'<span style="flex:1;"></span>'
+    +'<button class="cara-btn ghost" style="font-size:12px;" onclick="hwInvite(this)">Text the missing &amp; stale the form</button>'
+    +'</div>';
+  var d=HW_TRENDS.data;
+  var radar;
+  if(!d) radar='<div class="card" style="padding:12px 16px;"><b style="color:var(--navy);">📉 Retention radar &amp; care-gap watch</b> <span class="field-note">six weeks of hours trends — who\'s drifting away, who\'s burning out, which clients\' care is shrinking</span> <button class="cara-btn" style="font-size:12px;margin-left:8px;" onclick="hwTrendsLoad()">'+(HW_TRENDS.loading?'Reading…':'Run the check')+'</button></div>';
+  else if(d.error) radar='<div class="card" style="padding:12px 16px;color:var(--red);font-size:13px;">Trends unavailable: '+esc(d.error)+' <button class="cara-btn ghost" style="font-size:12px;" onclick="hwTrendsLoad()">Try again</button></div>';
+  else{
+    var sec=function(title,icon,rows,empty){
+      return '<div style="flex:1;min-width:250px;"><div style="font-weight:800;color:var(--navy);font-size:13px;margin-bottom:4px;">'+icon+' '+title+'</div>'
+        +(rows.length?rows.slice(0,5).map(function(x){ return '<div style="font-size:12.5px;padding:3px 0;border-top:1px solid var(--border);"><b>'+esc(x.name)+'</b> <span class="field-note">'+esc(x.detail)+'</span></div>'; }).join('')
+          :'<div class="field-note" style="font-size:12px;">'+empty+'</div>')+'</div>';
+    };
+    radar='<div class="card" style="padding:13px 16px;"><div style="display:flex;gap:20px;flex-wrap:wrap;">'
+      +sec('Drifting away','📉',d.falling_caregivers||[],'nobody\'s hours are collapsing — good sign')
+      +sec('Running hot','🔥',d.overtime_caregivers||[],'nobody averaging over 40h')
+      +sec('Client care shrinking','🩺',d.client_care_gaps||[],'no client\'s delivered hours are sliding')
+      +'</div><div class="field-note" style="font-size:11px;margin-top:6px;">Six-week trend from the AxisCare schedule · checked '+new Date(HW_TRENDS.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' · <a href="javascript:void(0)" onclick="hwTrendsLoad()">re-run</a></div></div>';
+  }
+  box.innerHTML=meter+radar;
 }
 /* The interest-check workspace, rendered with the SAME shared case card the
    coverage board uses — picker, yes collection, everything. */
@@ -25422,6 +25478,48 @@ async function tbComplete(){
   tbRender(); swRenderBar();
 }
 
+/* ── THE FRAGILITY FORECAST (her pick #6): today's likely break points,
+   before they break — first pairs, call-in history, impossible drive gaps.
+   Loaded once per half hour; reactive becomes proactive. ──────────────── */
+let SW_FRAG={data:null,at:0,loading:false};
+async function swFragLoad(){
+  if(SW_FRAG.loading) return;
+  SW_FRAG.loading=true;
+  try{
+    var sess=await sb.auth.getSession();
+    var tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+    if(!tok) throw new Error('sign in');
+    var r=await fetch(CONFIG.supabase_url+'/functions/v1/coverage-shifts',{
+      method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},
+      body:JSON.stringify({fragility:true})});
+    var d=await r.json().catch(function(){return null;});
+    SW_FRAG.data=(r.ok&&d&&!d.error)?d:{error:(d&&d.error)||('answered '+r.status)};
+  }catch(e){ SW_FRAG.data={error:String(e.message||e)}; }
+  SW_FRAG.at=Date.now(); SW_FRAG.loading=false;
+  if(typeof activeTab!=='undefined'&&activeTab==='hourswatch'&&SW_SUB==='today') swRenderLive();
+}
+function swFragHtml(){
+  if(!SW_FRAG.data&&!SW_FRAG.loading&&Date.now()-SW_FRAG.at>30*60000) swFragLoad();
+  var d=SW_FRAG.data;
+  if(!d) return '<div class="field-note" style="margin-bottom:10px;">🔮 Scoring today\'s schedule for fragile spots…</div>';
+  if(d.error) return '<div class="field-note" style="margin-bottom:10px;">🔮 Fragility check unavailable ('+esc(d.error)+').</div>';
+  var t12=function(s){ var m=String(s||'').match(/^(\d\d):(\d\d)$/); if(!m) return s||''; var h=+m[1]%12||12; return h+(m[2]==='00'?'':':'+m[2])+(+m[1]>=12?'p':'a'); };
+  if(!(d.risks||[]).length)
+    return '<div class="card" style="padding:12px 16px;margin:0 0 14px;display:flex;gap:10px;align-items:center;">'
+      +'<span style="font-size:16px;">🔮</span><div><b style="color:var(--green);font-size:14px;">Today looks sturdy.</b>'
+      +'<span class="field-note" style="margin-left:8px;">No first-pairs, no risky histories, no impossible drives across '+d.visits_scored+' visits.</span></div></div>';
+  var ICON={first_pair:'💛',callin_history:'⚠️',late_history:'⏱',impossible_gap:'🚗'};
+  return '<div class="card" style="padding:13px 16px;margin:0 0 14px;border-left:4px solid var(--honey);">'
+    +'<div style="font-weight:800;color:var(--navy);margin-bottom:6px;">🔮 Today\'s fragile spots <span class="field-note" style="font-weight:500;">'+d.risks.length+' worth an eye — seen before they break</span></div>'
+    +d.risks.slice(0,8).map(function(x){
+      return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:4px 0;font-size:13px;border-top:1px solid var(--border);">'
+        +'<span>'+(ICON[x.kind]||'⚠️')+'</span><b style="color:var(--navy);">'+t12(x.time)+'</b>'
+        +'<b>'+esc(x.caregiver||'')+'</b><span class="field-note">'+(x.client?'with '+esc(x.client)+' · ':'')+esc(x.detail)+'</span></div>';
+    }).join('')
+    +(d.risks.length>8?'<div class="field-note" style="margin-top:4px;">+'+(d.risks.length-8)+' more lower-risk items</div>':'')
+    +'</div>';
+}
+
 function swRenderLive(){
   var box=document.getElementById('swLive'); if(!box) return;
   var S=swSettings();
@@ -25438,6 +25536,7 @@ function swRenderLive(){
   var needing=live.filter(function(l){ return l.office_alerted_at; }).length;
 
   var h=swBanner(S)
+    +swFragHtml()
     +'<div style="display:flex;gap:11px;align-items:baseline;flex-wrap:wrap;margin-bottom:11px;">'
     +'<h3 style="margin:0;font-size:20px;font-weight:800;color:var(--navy);letter-spacing:-0.015em;">Live Shift Watch</h3>'
     +'<span style="font-size:13px;color:var(--text-dim);">Today</span>'
@@ -26056,6 +26155,12 @@ async function covFlagDismiss(id){
 let COV_PICK={};
 function covPickerHtml(c){
   if(c.status!=='open') return '';
+  /* Cara pre-builds the list server-side the moment a case opens (2026-09-19):
+     a fresh prebuild renders instantly — review, uncheck, send. */
+  if(!COV_PICK[c.id]&&c.prebuilt&&c.prebuilt_at
+     &&(Date.now()-new Date(c.prebuilt_at).getTime())<45*60000){
+    COV_PICK[c.id]={data:c.prebuilt,prebuilt_at:c.prebuilt_at};
+  }
   const st=COV_PICK[c.id];
   const isInterest=String(c.kind)==='interest';
   let body='';
@@ -26096,6 +26201,7 @@ function covPickerHtml(c){
         :'<button class="addlead" onclick="covPickSend(\''+esc(c.id)+'\',false)">📱 Send to Group 1 only</button>'
          +'<button class="addlead" onclick="covPickSend(\''+esc(c.id)+'\',true)">📱 Send to Groups 1 + 2</button>')
       +'<button class="ghost" onclick="covPickBuild(\''+esc(c.id)+'\')">↻ Rebuild</button>'
+      +(st.prebuilt_at?'<span class="field-note">Cara built this '+covAgo(st.prebuilt_at)+' ago — ready when you were.</span>':'')
       +'</div>'
       +'<div class="field-note" style="margin-top:5px;">Uncheck anyone who shouldn\'t be asked — you know things the data doesn\'t. '+esc(String(d.meta.census||''))
       +(d.meta.hours_check?' · '+esc(String(d.meta.hours_check)):'')
@@ -26517,7 +26623,36 @@ function renderCoverage(){
       +(COV_SUB==='history'?'<div style="height:16px;"></div>'+dnoCardHtml():'');
     return;
   }
-    box.innerHTML=list.map(covCaseCard).join('')
+    /* THE COVERED-LOOP SCOREBOARD (her pick #2, 2026-09-19): median
+       time-to-cover, cover rate, and the saves leaderboard — the caregivers
+       who rescue shifts deserve to be SEEN. Last 30 days. */
+    var scoreHtml='';
+    if(COV_SUB==='history'){
+      var cut=Date.now()-30*86400000;
+      var closed=(DATA.coverage_cases||[]).filter(function(c){ return c&&c.status!=='open'&&c.status!=='flagged'
+        &&String(c.kind)!=='interest'&&c.resolved_at&&new Date(c.resolved_at).getTime()>cut; });
+      var covered=closed.filter(function(c){ return c.resolved_how==='covered'; });
+      var mins=covered.map(function(c){ return (new Date(c.resolved_at)-new Date(c.opened_at))/60000; })
+        .filter(function(m){ return Number.isFinite(m)&&m>0; }).sort(function(a,b){ return a-b; });
+      var med=mins.length?Math.round(mins[Math.floor(mins.length/2)]):null;
+      var saves={};
+      covered.forEach(function(c){ if(c.covered_by) saves[c.covered_by]=(saves[c.covered_by]||0)+1; });
+      var top=Object.keys(saves).map(function(n){ return [n,saves[n]]; })
+        .sort(function(a,b){ return b[1]-a[1]; }).slice(0,5);
+      if(closed.length){
+        scoreHtml='<div class="card" style="padding:14px 18px;margin:0 0 12px;">'
+          +'<div style="font-weight:800;color:var(--navy);margin-bottom:8px;">📈 The last 30 days</div>'
+          +'<div style="display:flex;gap:22px;flex-wrap:wrap;align-items:baseline;">'
+          +'<div><div style="font-size:24px;font-weight:800;color:var(--green);">'+covered.length+'/'+closed.length+'</div><div class="field-note" style="font-size:11.5px;">shifts covered</div></div>'
+          +(med!=null?'<div><div style="font-size:24px;font-weight:800;color:var(--navy);">'+(med>=90?Math.round(med/60*10)/10+'h':med+' min')+'</div><div class="field-note" style="font-size:11.5px;">median call-off → covered</div></div>':'')
+          +(top.length?'<div style="flex:1;min-width:220px;"><div style="font-weight:700;font-size:12.5px;color:var(--navy);">⭐ Shift savers</div><div style="font-size:12.5px;margin-top:2px;">'
+            +top.map(function(t){ return esc(t[0])+' <b style="color:var(--green);">×'+t[1]+'</b>'; }).join(' · ')
+            +'</div><div class="field-note" style="font-size:11px;margin-top:2px;">the people who said yes when it mattered — worth a thank-you</div></div>':'')
+          +'</div></div>';
+      }
+    }
+    box.innerHTML=(COV_SUB==='history'?scoreHtml:'')
+    +list.map(covCaseCard).join('')
     +(COV_SUB==='history'
       ?'<div style="height:16px;"></div>'+dnoCardHtml()
         +'<div class="field-note" style="margin-top:10px;">The callout message wording lives in ⚙️ Settings → Callout texts.</div>'
