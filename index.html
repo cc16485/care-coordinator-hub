@@ -24622,7 +24622,12 @@ function opsRenderStatus(){
      can sit unseen until the daily nurture check. Flips off by setting
      ops_settings.lead_reply_realtime_verified = true after a real text has
      traversed webhook → NEEDS YOU item. */
-  if(!cfg.lead_reply_realtime_verified)
+  /* Proof is evidence, not a flag: the moment ANY inbound family text has
+     actually traversed webhook → recorded event, the warning clears itself.
+     (The manual flag remains as an override.) */
+  const replyProven = !!cfg.lead_reply_realtime_verified
+    || (DATA.leads||[]).some(l=>(l.contact_events||[]).some(e=>e&&e.direction==='in'&&e.channel==='sms'));
+  if(!replyProven)
     problems.push('Family TEXT replies: the instant alert is NOT yet proven. If a family texts back, the hub may stay quiet until the daily check — treat silence about replies as unreliable until we verify the GHL workflow end to end.');
 
   if(!problems.length){
