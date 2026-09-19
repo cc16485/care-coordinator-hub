@@ -24189,6 +24189,14 @@ function caraNeedsReason(c){
   /* Manual selection (2026-09-18): an open case with no asks is waiting on
      a COORDINATOR to build the list — Cara isn't "working on" anything. */
   if((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)&&!(c.asked||[]).length) return 'pick';
+  /* The quiet-callout nudge (2026-09-19): asks out 30+ minutes with zero
+     yeses is a decision moment, not background noise. Computed here so the
+     board says it even before the cron's ops item lands. */
+  if((c.asked||[]).length&&String(c.kind)!=='interest'){
+    var newestA=(c.asked||[]).map(function(a){ return new Date(a&&a.at||0).getTime(); })
+      .filter(function(t){ return isFinite(t)&&t>0; }).sort(function(x,y){ return y-x; })[0];
+    if(newestA&&Date.now()-newestA>30*60000) return 'quiet';
+  }
   return null;
 }
 function covYesList(c){ return (c.asked||[]).filter(a=>a&&a.state==='yes'); }
@@ -24336,6 +24344,12 @@ function caraNeedsCard(c){
       : first+"'s "+when+' shift needs its ask list.';
     sub='Nothing sends on its own — build the list, uncheck anyone you\'d rather not ask, and choose who gets the text.';
     cta='Build the ask list &rarr;';
+  }else if(why==='quiet'){
+    var qa=(c.asked||[]), qNo=qa.filter(function(a){ return a.state==='no'; }).length;
+    var qNew=qa.map(function(a){ return new Date(a.at||0).getTime(); }).filter(isFinite).sort(function(x,y){ return y-x; })[0];
+    head='Nobody\'s answered for '+first+"'s "+when+' shift.';
+    sub=qa.length+' asked '+(qNew?Math.round((Date.now()-qNew)/60000)+' min ago':'')+' — '+qNo+' said no, '+(qa.length-qNo)+' silent, zero yes. Widen to Group 2 or start calling.';
+    cta='Widen the ask &rarr;';
   }else if(why==='question'){
     const qs=(c.asked||[]).filter(a=>a.state==='inquiry');
     head=esc(qs[0].name)+(qs.length>1?' and '+(qs.length-1)+' other'+(qs.length>2?'s':''):'')
@@ -24357,7 +24371,7 @@ function caraNeedsCard(c){
   ];
   if(why==='pending'){ const yl=covYesList(c);
     facts.push(fact(yl.length>1?'Said yes':'Can cover', esc(yl.length?yl.map(a=>a.name).join(', '):String(c.pending_fill&&c.pending_fill.name||'')), true)); }
-  const panel=why==='flag'?'':caraContextPanel(c,why,winner);
+  const panel=(why==='flag'||why==='quiet')?'':caraContextPanel(c,why,winner);
   /* Time-to-shift leads the card: a coordinator triages by "how long until
      somebody stands at that door", never by case age. Red inside 3 hours. */
   const cd=covCountdown(c);
