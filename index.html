@@ -25723,6 +25723,11 @@ function covPickerHtml(c){
       +'<b>'+esc(x.name)+'</b><span class="field-note">'+esc(x.why)
       +(x.level?' · Level '+x.level:'')+(x.wants_more_hours?' · wants +'+x.wants_more_hours+'h':'')
       +(x.city?' · 📍 '+esc(x.city)+(x.same_town?' <b style="color:var(--green);">same town</b>':(x.miles!=null?' ~'+x.miles+' mi':'')):'')
+      +(x.this_client&&x.this_client.favorite?' · <b style="color:var(--green);">💛 this client\'s ⭐ favorite</b>'
+        :x.this_client&&x.this_client.rating==='concern'?' · <b style="color:var(--red);">🚩 this client raised a concern before</b>':'')
+      +(x.rep&&x.rep.favorites?' · <b style="color:var(--honey-ink);">⭐ favorited by '+x.rep.favorites+' client'+(x.rep.favorites===1?'':'s')+'</b>':'')
+      +(x.rep&&x.rep.concerns>1?' · <span style="color:var(--red);">🚩 '+x.rep.concerns+' concern calls</span>':'')
+      +(x.chain?' · <b style="color:var(--teal);">🚗 '+esc(x.chain.detail)+'</b>':'')
       +(x.working_then?' · <b style="color:var(--red);">📅 already scheduled: '+esc(x.working_then.detail)+'</b>'
         :x.free_then===true?' · <b style="color:var(--green);">🟢 free those hours</b>':'')
       +'</span></label>';
