@@ -6901,6 +6901,18 @@ async function persist(key, item){
     return;
   }
   document.getElementById('syncPill').textContent = '⏳ Saving…';
+  /* CONFIGURATION IS AUDITED (her rule, 2026-09-19): every change to who
+     handles what or who is on duty leaves a who/what/when line in the
+     event record — visible in Since You Left like any other act. */
+  try{
+    if((key==='op_routing'||key==='duty_windows') && typeof opEvent==='function'){
+      opEvent('config_changed',{ item_id:String(item.id||''),
+        area: key==='op_routing' ? String(item.id||'') : String(item.area||''),
+        summary: key==='op_routing'
+          ? 'Who Handles What — "'+String(item.id||'?')+'" row changed'
+          : 'Duty window changed — '+String(item.area||'?')+' · '+String(item.person||'(no person)') });
+    }
+  }catch(e){}
   try{
     const { error } = await sb.rpc('upsert_app_data_item', { target_key: key, item });
     if(error) throw error;
@@ -26689,7 +26701,8 @@ function rtRow(code){
   if(saved) return saved;
   var s=RT_SEED[code]||{resp:[],backup:[],now:[],daily:[],esc:'',esc_when:''};
   return { id:code, resp:(s.resp||[]).slice(), backup:(s.backup||[]).slice(),
-    now:(s.now||[]).slice(), daily:(s.daily||[]).slice(), esc:s.esc||'', esc_when:s.esc_when||'' };
+    now:(s.now||[]).slice(), daily:(s.daily||[]).slice(), esc:s.esc||'', esc_when:s.esc_when||'',
+    esc_minutes:null, fallback:'' };
 }
 function rtCanEdit(){ try{ return ccCan('manage_settings'); }catch(e){ return false; } }
 function rtRender(){
@@ -26738,6 +26751,22 @@ function rtRender(){
             ?'<input value="'+esc(r.esc_when||'')+'" placeholder="when? e.g. unresolved 24h" '
               +'style="width:100%;font-size:11px;padding:3px 6px;" onchange="rtEscWhen(\''+esc(a.code)+'\',this.value)">'
             :'<span class="field-note" style="font-size:11px;">'+esc(r.esc_when||'')+'</span>')
+          +'</div>'
+          /* The STRUCTURED threshold the engine will read once Samantha
+             approves each area's number. A blank field means "not decided" —
+             the engine never invents one. */
+          +'<div style="margin-top:4px;display:flex;gap:5px;align-items:center;">'
+          +(canEdit
+            ?'<input type="number" min="1" value="'+(r.esc_minutes||'')+'" placeholder="—" '
+              +'title="Escalate after this many minutes unacknowledged. A business decision: leave blank until Samantha approves the number." '
+              +'style="width:56px;font-size:11px;padding:3px 6px;" onchange="rtEscMin(\''+esc(a.code)+'\',this.value)">'
+              +'<span class="field-note" style="font-size:10px;">min unacknowledged (blank = not decided)</span>'
+            :'<span class="field-note" style="font-size:10px;">'+(r.esc_minutes?('escalates at '+r.esc_minutes+' min unacknowledged'):'threshold not decided')+'</span>')
+          +'</div>'
+          /* Explicit fallback when no duty holder covers the moment — never
+             a silent guess at whoever happens to be working something else. */
+          +'<div style="margin-top:4px;"><span class="field-note" style="font-size:10px;">If NO duty holder: </span>'
+          +RT_CORE.map(function(p){ return chip(a.code,'fallback',p, rtKeyFor(r.fallback)===p.key); }).join('')
           +'</div></td></tr>';
       }).join('')+'</tbody></table></div>';
   }).join('')
@@ -26757,6 +26786,7 @@ async function rtToggle(code,col,key){
   /* Editing a row migrates it to stable keys in one motion — legacy
      first-name values fold into the same identity instead of coexisting. */
   if(col==='esc'){ row.esc=(rtKeyFor(row.esc)===key)?'':key; }
+  else if(col==='fallback'){ row.fallback=(rtKeyFor(row.fallback)===key)?'':key; }
   else{
     row[col]=(row[col]||[]).map(rtKeyFor);
     var i=row[col].indexOf(key);
@@ -26767,6 +26797,13 @@ async function rtToggle(code,col,key){
 async function rtEscWhen(code,v){
   if(!rtCanEdit()) return;
   var row=rtRow(code); row.esc_when=String(v||'').trim();
+  await rtSave(row); rtRender();
+}
+async function rtEscMin(code,v){
+  if(!rtCanEdit()) return;
+  var row=rtRow(code);
+  var n=parseInt(v,10);
+  row.esc_minutes=(Number.isFinite(n)&&n>0)?n:null;
   await rtSave(row); rtRender();
 }
 
