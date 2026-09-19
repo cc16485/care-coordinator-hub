@@ -25235,14 +25235,17 @@ function lsPaint(){
     +'<thead><tr style="text-align:left;color:var(--text-muted);font-size:.72rem;"><th style="padding:.3rem .4rem;">Time</th><th style="padding:.3rem .4rem;">Client</th><th style="padding:.3rem .4rem;">Caregiver</th><th style="padding:.3rem .4rem;">Status</th></tr></thead><tbody>'
     +d.rows.map(v=>{
       const un=!v.caregiver;
-      let st='';
-      if(un) st='<b style="color:var(--red);">UNASSIGNED</b> · <a href="#" onclick="switchTab(\'coverage\');covOpenAdd(\'calloff\');return false;">open a case</a>';
-      else if(v.clock_out) st='<span style="color:var(--green);">✓ done '+t12(v.clock_in)+'–'+t12(v.clock_out)+'</span>';
-      else if(v.clock_in) st='<span style="color:var(--green);">✓ clocked in '+t12(v.clock_in)+'</span>';
+      /* Color story (her call, 2026-09-18): GREEN = being worked right now,
+         TEAL = completed, red = unassigned or missing a clock-in, gray =
+         upcoming. One glance says what's live vs done. */
+      let st='', tint='';
+      if(un){ st='<b style="color:var(--red);">UNASSIGNED</b> · <a href="#" onclick="switchTab(\'coverage\');covOpenAdd(\'calloff\');return false;">open a case</a>'; tint='background:#FFF6F5;'; }
+      else if(v.clock_out){ st='<span style="color:var(--teal);font-weight:700;">✔ completed '+t12(v.clock_in)+'–'+t12(v.clock_out)+'</span>'; tint='background:#F0F7F6;'; }
+      else if(v.clock_in){ st='<span style="color:var(--green);font-weight:800;">● being worked — clocked in '+t12(v.clock_in)+'</span>'; tint='background:var(--green-bg);'; }
       else if(isToday&&v.time&&v.time<nowHM&&(!v.end||v.end>nowHM)) st='<span style="color:var(--red);font-weight:700;">no clock-in yet</span>';
       else if(isToday&&v.end&&v.end<=nowHM) st='<span style="color:var(--text-muted);">ended (no EVV shown)</span>';
       else st='<span style="color:var(--text-muted);">upcoming</span>';
-      return '<tr style="border-top:1px solid var(--border);'+(un?'background:#FFF6F5;':'')+'">'
+      return '<tr style="border-top:1px solid var(--border);'+tint+'">'
         +'<td style="padding:.35rem .4rem;white-space:nowrap;">'+t12(v.time)+(v.end?'–'+t12(v.end):'')+'</td>'
         +'<td style="padding:.35rem .4rem;"><b>'+esc(v.client)+'</b></td>'
         +'<td style="padding:.35rem .4rem;">'+(un?'—':esc(v.caregiver))+'</td>'
