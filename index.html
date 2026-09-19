@@ -1593,35 +1593,35 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <a href="scheduling-guide.html#evv" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">How this works &#8599;</a>
         <a href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="font-size:13.5px;font-weight:700;color:var(--teal);text-decoration:none;">Open in a new tab &#8599;</a>
       </div>
-      <!-- Framed, not rebuilt: two copies of a correction log is worse than
-           one click. The source strip names where the content comes from
-           rather than pretending it is native, which is what keeps an
-           embedded application that does not share the Cara language from
-           reading as a mistake. Same pattern serves the Training tab. -->
-      <div id="evvFrame" class="cara-frame">
-        <div class="cara-strip">
-          <span class="cara-mono" style="flex:1;">sc.mo-care.com &#183; Staffing hub</span>
-          <a href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">Open in a new tab &#8599;</a>
-        </div>
-        <div id="evvBody" style="position:relative;min-height:520px;background:#fff;">
-          <div id="evvConnecting" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;min-height:520px;">
-            <span style="width:34px;height:34px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--teal);animation:caraspin 0.9s linear infinite;"></span>
-            <div style="font-size:15px;font-weight:600;color:var(--navy);">Connecting to the Staffing hub</div>
-            <div style="font-size:13px;color:var(--text-muted);">If you are not signed in there, it will ask you to sign in.</div>
-          </div>
-          <div id="evvFallback" style="display:none;padding:44px 26px;min-height:520px;box-sizing:border-box;align-items:center;justify-content:center;">
-            <div style="max-width:460px;text-align:center;margin:0 auto;">
-              <span style="width:40px;height:40px;border-radius:50%;background:var(--amber-bg);color:var(--amber);display:inline-flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;">&#8599;</span>
-              <div style="font-size:18px;font-weight:700;color:var(--navy);margin-top:12px;">This log cannot be shown inside the Hub.</div>
-              <div style="font-size:14px;color:var(--text-muted);margin-top:7px;line-height:1.55;">Your browser blocks the Staffing hub from loading inside another site. Open it in its own tab to review and correct visits. Nothing is lost, and you can come straight back here.</div>
-              <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-                <a class="cara-btn" style="text-decoration:none;display:inline-block;" href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener">Open EVV Corrections &#8599;</a>
-                <button class="cara-btn ghost" onclick="evvRetry()">Try again</button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <!-- NATIVE PIPELINE (2026-09-18, her call: "make the evv tab better and
+           fully synced with the schedule watch evv"). Three linked stages,
+           all from the shared database and the same AxisCare read Schedule
+           Watch uses. The Staffing hub remains the ONLY writer of the
+           corrections log (it saves the whole array — a second writer would
+           clobber entries), so processing clicks jump there. -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px;" id="evvStatRow"></div>
+
+      <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 8px;">
+        <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">1 · Missing from the record</h3>
+        <span class="field-note">yesterday + today, live from AxisCare — same list as Schedule Watch &gt; Missing EVV</span>
+        <span style="flex:1;"></span>
+        <button class="cara-btn ghost" onclick="swEvvLoad(true)">↻ Refresh</button>
       </div>
+      <div id="evvMissingBoard" style="margin-bottom:22px;"><div class="field-note">Loading…</div></div>
+
+      <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 8px;">
+        <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">2 · Forms received — waiting to be processed</h3>
+        <span class="field-note">signed correction forms from sc.mo-care.com/evv-correction-form · deadline Sunday midnight</span>
+      </div>
+      <div id="evvPendingNative" style="margin-bottom:22px;"><div class="field-note">Loading…</div></div>
+
+      <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 8px;">
+        <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">3 · The corrections log</h3>
+        <span class="field-note">processed corrections and whether AxisCare was updated</span>
+        <span style="flex:1;"></span>
+        <a href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">Process &amp; edit in the Staffing hub ↗</a>
+      </div>
+      <div id="evvLogNative"></div>
     </section>
 
     <!-- ===================== TAB: TRAINING HUB ===================== -->
@@ -6689,7 +6689,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
+  const keys = ['caregivers','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -15679,23 +15679,80 @@ function trainhubOpen(){ framedOpen('trainhubFrame','https://training.mo-care.co
    survives. Connecting -> embedded -> blocked are the three states the
    design asks for, and the blocked one is the common one: browsers routinely
    refuse to embed a signed-in site. */
+/* ── NATIVE EVV PIPELINE (2026-09-18, replacing the iframe): three stages
+   from the shared database — missing (same read as Schedule Watch), forms
+   received (evv_submissions table), and the corrections log (read-only:
+   the Staffing hub is the only writer of that array on purpose). */
+let EVV_SUBS={data:null,loading:false};
 function evvOpen(){
-  framedOpen('evvBody','https://sc.mo-care.com/#evv','EVV corrections in the Staffing hub','evvFallback');
-  var c=document.getElementById('evvConnecting');
-  var host=document.getElementById('evvBody');
-  var f=host?host.querySelector('iframe'):null;
-  if(f){ f.addEventListener('load',function(){ if(c) c.style.display='none'; }); }
-  /* Whatever happens, stop spinning: either the frame painted or the
-     fallback took over. */
-  setTimeout(function(){ if(c) c.style.display='none'; }, 3600);
+  if(!SW_EVV.data&&!SW_EVV.loading) swEvvLoad(); else swEvvPaint();
+  evvLoadSubs();
+  evvPaintLog();
 }
-function evvRetry(){
-  var fb=document.getElementById('evvFallback'); if(fb) fb.style.display='none';
-  var c=document.getElementById('evvConnecting'); if(c) c.style.display='flex';
-  var host=document.getElementById('evvBody');
-  if(host){ var old=host.querySelector('iframe'); if(old&&old.parentNode) old.parentNode.removeChild(old); }
-  try{ FRAMED['evvBody']=false; }catch(e){}
-  evvOpen();
+async function evvLoadSubs(){
+  if(EVV_SUBS.loading) return;
+  EVV_SUBS.loading=true;
+  try{
+    const r=await sb.from('evv_submissions').select('*').eq('processed',false)
+      .order('submitted_at',{ascending:false});
+    EVV_SUBS.data=r.error?{error:r.error.message}:{rows:r.data||[]};
+  }catch(e){ EVV_SUBS.data={error:String(e.message||e)}; }
+  EVV_SUBS.loading=false;
+  evvPaintSubs(); evvPaintStats();
+  try{ swEvvPaint(); }catch(e){}   // re-match the missing rows against the fresh forms
+}
+function evvPaintSubs(){
+  const box=document.getElementById('evvPendingNative'); if(!box||!EVV_SUBS.data) return;
+  const d=EVV_SUBS.data;
+  if(d.error){ box.innerHTML='<div style="color:var(--red);font-size:12.5px;">Could not load submissions: '+esc(d.error)+'</div>'; return; }
+  if(!d.rows.length){ box.innerHTML='<div class="card" style="padding:14px 18px;color:var(--text-muted);font-size:13.5px;">No forms waiting. ✅</div>'; return; }
+  box.innerHTML=d.rows.map(function(s){
+    const orig=[s.orig_in,s.orig_out].filter(Boolean).join('–')||'—';
+    const neu=[s.new_in,s.new_out].filter(Boolean).join('–')||'—';
+    return '<div class="card" style="padding:12px 16px;margin:0 0 7px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;border-left:4px solid var(--honey);">'
+      +'<b style="color:var(--navy);">'+esc(s.attendant||'?')+'</b>'
+      +'<span class="field-note">visit '+esc(s.visitdate||'?')+' with '+esc(s.consumer||'?')+'</span>'
+      +'<span style="font-size:12.5px;">'+esc(orig)+' → <b>'+esc(neu)+'</b></span>'
+      +(s.reason?'<span class="field-note">'+esc(String(s.reason).slice(0,60))+'</span>':'')
+      +'<span style="flex:1;"></span>'
+      +'<span class="field-note">'+(s.submitted_at?new Date(s.submitted_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'')+'</span>'
+      +'<a class="cara-btn" style="font-size:12px;text-decoration:none;" href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener">Process ↗</a>'
+      +'</div>';
+  }).join('')
+  +'<div class="field-note" style="margin-top:6px;">Processing (logging it + marking AxisCare updated) happens in the Staffing hub — one log, one writer, no drift.</div>';
+}
+function evvPaintLog(){
+  const box=document.getElementById('evvLogNative'); if(!box) return;
+  const log=(DATA.evv_corrections||[]).slice(0,25);
+  if(!log.length){ box.innerHTML='<div class="card" style="padding:14px 18px;color:var(--text-muted);font-size:13.5px;">Nothing in the log yet.</div>'; return; }
+  box.innerHTML='<div class="card" style="padding:6px 18px 10px;">'+log.map(function(e){
+    const done=String(e.wellskyDone||'').toLowerCase()==='yes';
+    return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">'
+      +'<b>'+esc(e.attendant||'?')+'</b>'
+      +'<span class="field-note">'+esc(e.visitdate||'')+' with '+esc(e.consumer||'')+' · '+esc([e.newIn,e.newOut].filter(Boolean).join('–'))+'</span>'
+      +'<span style="flex:1;"></span>'
+      +(done?'<span style="color:var(--green);font-weight:700;font-size:12px;">✓ AxisCare updated</span>'
+            :'<span style="color:var(--honey-ink);font-weight:700;font-size:12px;">⏳ AxisCare not updated yet</span>')
+      +'</div>';
+  }).join('')+'</div>'
+  +((DATA.evv_corrections||[]).length>25?'<div class="field-note" style="margin-top:5px;">Showing the latest 25 — the full log is in the Staffing hub.</div>':'');
+}
+function evvPaintStats(){
+  const row=document.getElementById('evvStatRow'); if(!row) return;
+  const missN=(SW_EVV.data&&SW_EVV.data.missing)?SW_EVV.data.missing.filter(function(r){ return !swEvvState(r.key)&&!evvSubFor(r); }).length:'…';
+  const pendN=(EVV_SUBS.data&&EVV_SUBS.data.rows)?EVV_SUBS.data.rows.length:'…';
+  const notAx=(DATA.evv_corrections||[]).filter(function(e){ return String(e.wellskyDone||'').toLowerCase()!=='yes'; }).length;
+  const stat=function(n,label,hot){ return '<div class="card" style="padding:12px 14px;text-align:center;">'
+    +'<div style="font-size:26px;font-weight:800;color:'+(hot&&n?'var(--red)':'var(--navy)')+';">'+n+'</div>'
+    +'<div class="field-note" style="font-size:11.5px;">'+label+'</div></div>'; };
+  row.innerHTML=stat(missN,'missing, not chased',true)+stat(pendN,'forms waiting',false)+stat(notAx,'logged, AxisCare not updated',false);
+}
+/* SYNC: a Missing-EVV row whose caregiver + visit date matches a submitted
+   form is no longer a chase — the form beat us to it. */
+function evvSubFor(r){
+  const rows=(EVV_SUBS.data&&EVV_SUBS.data.rows)||[];
+  const nk=function(s){ return String(s||'').toLowerCase().replace(/[^a-z]/g,''); };
+  return rows.find(function(s){ return String(s.visitdate||'')===String(r.date)&&nk(s.attendant)===nk(r.caregiver); })||null;
 }
 
 /* ---- Applicants ------------------------------------------------------------
@@ -24995,13 +25052,18 @@ async function swEvvLoad(force){
     SW_EVV.data={missing:missing, errors:errs, at:Date.now()};
   }catch(e){ SW_EVV.data={missing:[],errors:[String(e.message||e)],at:Date.now()}; }
   SW_EVV.loading=false;
+  if(!EVV_SUBS.data&&!EVV_SUBS.loading) evvLoadSubs();   // form-matching needs the submissions
   swEvvPaint(); swRenderBar();
 }
 function swEvvPaint(){
-  var box=document.getElementById('swEvvBoard'); if(!box||!SW_EVV.data) return;
+  var boxes=[document.getElementById('swEvvBoard'),document.getElementById('evvMissingBoard')].filter(Boolean);
+  var box=boxes[0]; if(!boxes.length||!SW_EVV.data) return;
   var t12=function(s){ var m=String(s||'').match(/^(\d\d):(\d\d)$/); if(!m) return s||''; var h=+m[1]%12||12; return h+(m[2]==='00'?'':':'+m[2])+(+m[1]>=12?'p':'a'); };
   var rows=SW_EVV.data.missing.slice().sort(function(a,b){ return (a.date+a.time).localeCompare(b.date+b.time); });
-  var open=rows.filter(function(r){ return !swEvvState(r.key); });
+  /* SYNC with the correction forms: a matching submission means the form
+     already came in — no chase needed, it just needs processing. */
+  var formIn=rows.filter(function(r){ return !swEvvState(r.key)&&evvSubFor(r); });
+  var open=rows.filter(function(r){ return !swEvvState(r.key)&&!evvSubFor(r); });
   var handled=rows.filter(function(r){ return swEvvState(r.key); });
   var today=ccChiToday();
   var h='';
@@ -25024,6 +25086,17 @@ function swEvvPaint(){
         +'</div>';
     }).join('');
   }
+  if(formIn.length){
+    h+='<div style="font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:16px 0 7px;">📨 Correction form already received</div>'
+      +formIn.map(function(r){
+        return '<div class="card" style="padding:10px 16px;margin:0 0 6px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;border-left:4px solid var(--teal);">'
+          +'<b style="color:var(--navy);">'+esc(r.client)+'</b>'
+          +'<span class="field-note">'+(r.date===today?'today':'yesterday')+' '+t12(r.time)+(r.end?'–'+t12(r.end):'')+' · '+esc(r.caregiver)+' · '+esc(r.miss)+'</span>'
+          +'<span style="flex:1;"></span>'
+          +'<b style="color:var(--teal);font-size:12.5px;">📨 form in — waiting to be processed (section 2 on the EVV tab)</b>'
+          +'</div>';
+      }).join('');
+  }
   if(handled.length){
     h+='<div style="font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:16px 0 7px;">Chased or handled</div>'
       +'<div class="card" style="padding:6px 18px 10px;">'+handled.map(function(r){
@@ -25035,7 +25108,8 @@ function swEvvPaint(){
       }).join('')+'</div>';
   }
   h+='<div class="field-note" style="margin-top:9px;">Corrections need the signed form (client signature required) — the corrections log lives on the EVV tab. Loaded '+new Date(SW_EVV.data.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+'.</div>';
-  box.innerHTML=h;
+  boxes.forEach(function(b){ b.innerHTML=h; });
+  try{ evvPaintStats(); }catch(e){}
 }
 async function swEvvMark(key,status){
   var r=(SW_EVV.data.missing||[]).find(function(x){ return x.key===key; }); if(!r) return;
