@@ -6744,7 +6744,8 @@ async function loadAllData(){
   catch(e){ console.warn('[automation] client check-in run failed', e); }
   /* Not awaited: the raw "since you left" list fills Home when it arrives,
      and a missing op_events table costs nothing but a console note. */
-  ccSinceFetch().then(()=>{ if(CC_SINCE.length && typeof renderHome==='function') renderHome(); });
+  ccSinceFetch().then(()=>{ if(CC_SINCE.length && typeof renderSinceYouLeft==='function') renderSinceYouLeft(); });
+  ccRecentFetch();
 }
 /* THE one way new code answers "which human did this". Email is the stable
    key (unique per account, what ops_items already filters on); name is only
@@ -19295,6 +19296,89 @@ if(!window._ccSeenWired){
     if(!last || (Date.now()-Date.parse(last))>10*60000) ccSinceFetch();
   });
 }
+/* ── RECENT MOVEMENT (events as a live signal, not just history) ─────────
+   One cheap read of the last 24h of op_events, newest win per item id.
+   Feeds two things on Today: the "no movement Xm" chip on claimed cards and
+   freshness on Being-Handled lines. Missing table or failed read = the
+   signal quietly absent, exactly like everything else around the record. */
+let CC_RECENT={at:0,byItem:{}};
+async function ccRecentFetch(){
+  try{
+    if(!sb) return;
+    const since=new Date(Date.now()-24*3600e3).toISOString();
+    const r=await sb.from('op_events').select('at,verb,item_id')
+      .gt('at',since).order('at',{ascending:false}).limit(200);
+    if(r.error) return;
+    const by={};
+    (r.data||[]).forEach(e=>{ const k=String(e.item_id||''); if(k&&!by[k]) by[k]={at:e.at,verb:e.verb}; });
+    CC_RECENT={at:Date.now(),byItem:by};
+  }catch(e){}
+}
+function ccRecentFor(id){ return CC_RECENT.byItem[String(id||'')]||null; }
+
+/* ── THE OTHER TWO STATES OF TODAY ───────────────────────────────────────
+   NEEDS YOU is the card list. These strips are the rest of the truth:
+   BEING HANDLED — Cara mid-callout, or a person actively on my item — and
+   WATCHING — parked promises the system brings back by itself. Lines, not
+   cards, no buttons: nobody should feel responsible for work the system is
+   already safely carrying. */
+function myWorkStrips(){
+  const esc=escapeHtmlComms;
+  const meE=ccActor().email;
+  const agoM=(t)=>{ const m=Math.max(0,Math.round((Date.now()-t)/60000));
+    return m>=60?Math.floor(m/60)+'h '+(m%60)+'m':m+' min'; };
+  const t12=(s)=>String(s||'').split('-').map(x=>{const m=/^(\d{1,2}):(\d{2})$/.exec(x.trim());
+    if(!m) return x; let h=+m[1]; const ap=h<12?'am':'pm'; h=h%12||12;
+    return h+(m[2]==='00'?'':':'+m[2])+ap;}).join('-');
+  const linked=new Set((DATA.ops_items||[]).filter(i=>i.status==='open'&&i.coverage_case_id)
+    .map(i=>String(i.coverage_case_id)));
+  const handled=[];
+  (DATA.coverage_cases||[]).forEach(c=>{
+    if(c.status!=='open'||String(c.kind)==='interest') return;
+    if(!Array.isArray(c.asked)||!c.asked.length) return;
+    if(linked.has(String(c.id))) return;             // a needs-you card already carries it
+    // deno-safe: any yes means a pick is waiting — that is needs-you, not this
+    if(c.asked.some(a=>a.state==='yes')) return;
+    const noes=c.asked.filter(a=>a.state==='no').length;
+    const waiting=c.asked.length-noes;
+    const newest=c.asked.map(a=>Date.parse(a.at||0)).filter(Number.isFinite).sort((a,b)=>b-a)[0];
+    const dayWord=(d=>{ const n=new Date(); const pad=x=>String(x).padStart(2,'0');
+      const key=y=>y.getFullYear()+'-'+pad(y.getMonth()+1)+'-'+pad(y.getDate());
+      if(d===key(n)) return 'today';
+      n.setDate(n.getDate()+1);
+      return d===key(n)?'tomorrow':String(d||'').slice(5,10).replace('-','/'); })(String(c.shift_date||''));
+    handled.push({go:'#cara/case/'+encodeURIComponent(String(c.id)),
+      text:'Cara is working — '+(c.client||'a shift')+' '
+        +[dayWord,t12(c.shift_time)].filter(Boolean).join(' ')
+        +' · '+c.asked.length+' asked'+(noes?' · '+noes+' no':'')
+        +' · '+waiting+' waiting on replies'
+        +(newest?' · last ask '+agoM(newest)+' ago':'')});
+  });
+  (DATA.ops_items||[]).filter(i=>i.status==='open'&&i.claimed_by&&i.claimed_by!==meE
+      &&String(i.owner||'').toLowerCase()===meE).forEach(i=>{
+    handled.push({text:(i.claimed_by_name||opsOwnerName(i.claimed_by)||'Someone').split(' ')[0]
+      +' is on it — '+(i.about||i.title||'')
+      +(i.claimed_at?' · '+agoM(Date.parse(i.claimed_at))+' in':'')});
+  });
+  const watching=(DATA.ops_items||[]).filter(i=>i.status==='open'&&i.sub_state==='waiting'
+      &&String(i.owner||'').toLowerCase()===meE&&i.check_back)
+    .map(i=>({text:'Waiting on '+(i.waiting_on||'someone')
+      +' · back '+String(i.check_back).slice(5,10).replace('-','/')
+      +' — '+(i.about||i.title||'')}));
+  const strip=(title,note,list)=>!list.length?''
+    :'<div class="card" style="padding:12px 16px;margin-top:14px;background:var(--bg);">'
+    +'<div style="display:flex;gap:8px;align-items:baseline;">'
+    +'<b style="font-size:12px;letter-spacing:.04em;color:var(--text-muted);">'+title+'</b>'
+    +'<span class="field-note">'+note+'</span></div>'
+    +list.map(x=>'<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;'
+      +(x.go?'cursor:pointer;':'')+'" '
+      +(x.go?'onclick="location.hash=\''+esc(x.go)+'\'" title="Open the case on the Cara board"':'')
+      +'>'+esc(x.text)+'</div>').join('')
+    +'</div>';
+  return strip('BEING HANDLED','no action needed — awareness only',handled)
+        +strip('WATCHING','comes back on its own',watching);
+}
+
 function renderSinceYouLeft(){
   const box=document.getElementById('sylWrap'); if(!box) return;
   const esc=escapeHtmlComms;
@@ -19640,14 +19724,49 @@ function myWorkBuckets(){
                   : [])
   };
 }
+/* How many minutes until the shift this item is about? Null when the item
+   isn't tied to a coverage case with a parseable start. Negative = started. */
+function opsMinsToShift(it){
+  if(!it||!it.coverage_case_id) return null;
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===it.coverage_case_id);
+  if(!c||!c.shift_date) return null;
+  const sH=String(c.shift_time||'').split('-')[0].trim();
+  const m=/^(\d{1,2}):(\d{2})$/.exec(sH); if(!m) return null;
+  const p=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(c.shift_date)); if(!p) return null;
+  const t=new Date(+p[1], +p[2]-1, +p[3], +m[1], +m[2], 0);
+  return Math.round((t.getTime()-Date.now())/60000);
+}
+/* WHAT A GREAT COORDINATOR LOOKS AT FIRST. Not a score — operational facts,
+   in tiers, worst first:
+     0  happening to a person right now: a missed clock-in (somebody may be
+        alone), anything urgent, anything escalated to me
+     1  an uncovered shift starting inside 3 hours — soonest first
+     2  already late — longest-late first
+     3  due today — earliest due first, urgency:high a step ahead
+     4  everything else by due date
+   Unclaimed no longer jumps the queue by itself: tomorrow's unhurried pick
+   must not outrank a client sitting alone this morning. The card still says
+   nobody has it, and "I've got it" is still the button. */
+function opsPriorityKey(it){
+  if(it.kind==='staffing_issue' && /timekeeper/.test(String(it.opened_by||'')))
+    return [0, Date.parse(it.created_at||0)||0];
+  if(it.urgency==='urgent' || it.sub_state==='escalated')
+    return [0, Date.parse(it.due||it.created_at||0)||0];
+  const m=opsMinsToShift(it);
+  if(m!=null && m<=180) return [1, m];
+  const d=Date.parse(it.due||'');
+  if(!isNaN(d) && d<Date.now()) return [2, d];
+  const e=new Date(); e.setHours(23,59,59,999);
+  if(!isNaN(d) && d<=e.getTime()) return [3, d-(it.urgency==='high'?36e5:0)];
+  return [4, isNaN(d)?Infinity:d];
+}
 function myWorkRows(){
   const b=myWorkBuckets();
   const rows=(b[MYWORK_TAB]||[]).slice()
     .sort((a,c)=>String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
-  /* Today: unclaimed first — the list opens on what nobody has yet. */
   if(MYWORK_TAB==='today')
-    rows.sort((a,c)=>((a.owner?1:0)-(c.owner?1:0))
-      || String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
+    rows.sort((a,c)=>{ const ka=opsPriorityKey(a), kc=opsPriorityKey(c);
+      return (ka[0]-kc[0]) || (ka[1]-kc[1]); });
   return rows;
 }
 
@@ -19708,6 +19827,25 @@ function myWorkCard(it, i){
   if(it.claimed_by && (it.claimed_by!==String(it.owner||'').toLowerCase() || it.sub_state!=='working')){
     const meCl=it.claimed_by===ccActor().email;
     states+=stateChip(meCl?'you’ve got it':((it.claimed_by_name||opsOwnerName(it.claimed_by)||it.claimed_by).split(' ')[0]+' is on it'),'var(--teal');
+  }
+  /* Time-to-shift is the fact a coordinator does mental math for all day.
+     Do the math for her. */
+  const mts=opsMinsToShift(it);
+  if(mts!=null && mts<=240){
+    const lbl=mts<0?('shift started '+(-mts)+'m ago')
+      :('shift in '+(mts>=60?Math.floor(mts/60)+'h '+(mts%60?mts%60+'m':''):mts+' min')).trimEnd();
+    states+=stateChip(lbl, mts<90?'var(--red':'var(--amber');
+  }
+  /* A claim with nothing moving is the one claim worth glancing at — the
+     same 30-minute rule the server uses to resume the office alert. */
+  if(it.claimed_by && it.status==='open'){
+    const rec=(typeof ccRecentFor==='function')?ccRecentFor(it.id):null;
+    const lastMv=Math.max(Date.parse(it.last_activity_at||0)||0, Date.parse(it.claimed_at||0)||0,
+      rec?(Date.parse(rec.at)||0):0);
+    if(lastMv){
+      const mv=Math.round((Date.now()-lastMv)/60000);
+      if(mv>=30) states+=stateChip('no movement '+(mv>=60?Math.floor(mv/60)+'h '+(mv%60)+'m':mv+'m'),'var(--amber');
+    }
   }
 
   let h='<div class="wkcard'+(focused?' focused':'')+(sel?' selected':'')+'" data-id="'+it.id+'" '
@@ -19944,8 +20082,19 @@ function renderMyWork(){
   [...MYWORK_SEL].forEach(id=>{ if(!rows.some(r=>r.id===id)) MYWORK_SEL.delete(id); });
   if(MYWORK_FOCUS>=rows.length) MYWORK_FOCUS=Math.max(0,rows.length-1);
 
+  /* Today reads as three honest states: NEEDS YOU (cards, worst first, per
+     opsPriorityKey), BEING HANDLED and WATCHING (lines, no buttons). The
+     old unclaimed-first divider is gone — priority already floats an
+     uncovered morning shift above tomorrow's unhurried pick, and each
+     unclaimed card still says nobody has it and offers "I've got it". */
+  if(MYWORK_TAB==='today' && (typeof CC_RECENT!=='undefined')
+     && Date.now()-(CC_RECENT.tried||0)>5*60000){
+    CC_RECENT.tried=Date.now();
+    const had=CC_RECENT.at;
+    ccRecentFetch().then(()=>{ if(CC_RECENT.at!==had) renderMyWork(); });
+  }
   if(!rows.length){
-    const msg={today:'Nothing is due today and nothing is late. Good.',
+    const msg={today:'Nothing needs you right now.',
       mine:'Nothing on your list right now.',
       unassigned:'Everything open has somebody\'s name on it.',
       overdue:'Nothing of yours is late. Good.',
@@ -19953,20 +20102,15 @@ function renderMyWork(){
       reviews:'No work is waiting for your review.',
       helping:'Nobody has asked you for help.',
       waiting:'You are not waiting on anybody.'}[MYWORK_TAB];
-    wrap.innerHTML='<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>';
+    wrap.innerHTML='<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>'
+      +(MYWORK_TAB==='today'?myWorkStrips():'');
     return;
   }
-  /* On Today the unclaimed block reads as its own question. The divider is
-     visual only — keyboard order and indexes match the list exactly. */
   let cards='';
-  if(MYWORK_TAB==='today' && rows.some(r=>!r.owner)){
-    const nFree=rows.filter(r=>!r.owner).length;
-    cards+='<div class="field-note" style="margin:2px 0 8px;font-weight:700;letter-spacing:.03em;color:var(--amber,#C17A12);">NEEDS SOMEONE — unclaimed ('+nFree+')</div>';
-    rows.forEach((it,i)=>{
-      if(i===rows.findIndex(r=>!!r.owner) && it.owner)
-        cards+='<div class="field-note" style="margin:14px 0 8px;font-weight:700;letter-spacing:.03em;">YOURS</div>';
-      cards+=myWorkCard(it,i);
-    });
+  if(MYWORK_TAB==='today'){
+    cards+='<div class="field-note" style="margin:2px 0 8px;font-weight:700;letter-spacing:.03em;color:var(--navy);">NEEDS YOU ('+rows.length+')</div>'
+      +rows.map((it,i)=>myWorkCard(it,i)).join('')
+      +myWorkStrips();
   } else cards=rows.map((it,i)=>myWorkCard(it,i)).join('');
   wrap.innerHTML=myWorkBulkBar(rows)+cards;
 }
@@ -26178,8 +26322,19 @@ const RT_CORE=[
   {key:'angiel@mo-care.com',   label:'Angiel'},
   {key:'staffing_coordinator', label:'Staffing Coordinator'},
 ];
+/* Duty-resolved entries (her decision, 2026-09-19): "Notified now" can name
+   WHOEVER IS ON DUTY rather than a fixed person. The resolver chain, once
+   routing leaves shadow: holder of the Staffing duty window at that moment →
+   if nothing covers it, holder of the After Hours window → if nothing covers
+   that either, Samantha. Office hours are defined by the windows themselves,
+   not by a constant. */
+const RT_DUTY=[
+  {key:'duty:staffing',    label:'On duty: Staffing'},
+  {key:'duty:after_hours', label:'On duty: After-hours'},
+];
 function rtKeyFor(v){
   var s=String(v||'').trim().toLowerCase(); if(!s) return '';
+  if(s.indexOf('duty:')===0) return s;
   if(s.indexOf('@')>0) return s;
   if(s.indexOf('staffing')===0) return 'staffing_coordinator';
   var first=s.split(' ')[0];
@@ -26188,7 +26343,8 @@ function rtKeyFor(v){
 }
 function rtLabelFor(v){
   var key=rtKeyFor(v);
-  var hit=RT_CORE.find(function(p){ return p.key===key; });
+  var hit=RT_CORE.find(function(p){ return p.key===key; })
+       || RT_DUTY.find(function(p){ return p.key===key; });
   return hit?hit.label:String(v).split('@')[0];
 }
 function rtRow(code){
@@ -26215,7 +26371,9 @@ function rtRender(){
   };
   var cell=function(code,col,row){
     var sel=(row[col]||[]).map(rtKeyFor);
-    return RT_CORE.map(function(p){ return chip(code,col,p,sel.indexOf(p.key)>=0); }).join('');
+    /* "Notified now" can also point at a duty window instead of a person. */
+    var opts=(col==='now')?RT_CORE.concat(RT_DUTY):RT_CORE;
+    return opts.map(function(p){ return chip(code,col,p,sel.indexOf(p.key)>=0); }).join('');
   };
   var groups={};
   RT_AREAS.forEach(function(a){ (groups[a.g]=groups[a.g]||[]).push(a); });
