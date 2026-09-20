@@ -14260,6 +14260,17 @@ function cgdKnowSentence(ev){
   if(ev.type==='staff_resolution') return 'Resolved by '+who+(when?' on '+when:'')+'.';
   return 'Recorded'+(when?' '+when:'')+' — original source unknown.';
 }
+/* Office-facing name for a source record; the raw identifier stays in the
+   technical disclosure only (her cleanup, 2026-09-20). */
+function cgdKnowStore(sr){
+  const s=String(sr||'');
+  if(/^job_offers\//.test(s)) return 'their offer record (offers system)';
+  if(/^hire_intake\//.test(s)) return 'their start-form record';
+  if(/^reference_requests\//.test(s)) return 'a reference response on file';
+  if(/^recordings\//.test(s)) return 'an interview recording transcript';
+  if(/^supervisory_visits\//.test(s)) return 'a supervisory visit record';
+  return s.split('/')[0].replace(/_/g,' ')||'a source record';
+}
 function cgdKnowWhy(f){
   const esc=escapeHtmlComms, ev=(f.evidence&&f.evidence[0])||null;
   if(!ev) return '<div class="field-note">No evidence detail available.</div>';
@@ -14271,7 +14282,8 @@ function cgdKnowWhy(f){
     +'<div><span class="field-note">Source:</span> '+esc(ev.source_person||'unknown')+' · <span class="field-note">How captured:</span> '+esc(String(ev.type||'').replace(/_/g,' '))+' · <span class="field-note">When:</span> '+cgdKnowDate(ev.occurred_at)+'</div>'
     +(ev.note?'<div><span class="field-note">Context:</span> '+esc(ev.note)+'</div>':'')
     +'<div><span class="field-note">Entered into caregiver knowledge by:</span> '+esc(ev.recorded_by||'?')+' · <span class="field-note">via:</span> '+esc(via)+'</div>'
-    +'<div class="field-note" style="font-size:11px;margin-top:3px;cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">▸ technical details</div>'
+    +(ev.source_record?'<div><span class="field-note">Original record:</span> '+esc(cgdKnowStore(ev.source_record))+' <span class="field-note">(kept on file)</span></div>':'')
+    +'<div class="field-note" style="font-size:11px;margin-top:3px;cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">▸ technical / troubleshooting details (record identifiers)</div>'
     +'<div style="display:none;font-size:11px;color:var(--text-muted);font-family:monospace;">event '+esc(ev.event_id||'')+'<br>source record '+esc(ev.source_record||'(none)')+'</div>'
     +'</div>';
 }
