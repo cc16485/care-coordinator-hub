@@ -801,6 +801,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span class="navrule"></span>
     <span class="navsec">Employees</span>
     <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Recruit &amp; Onboard<span class="subtab-badge red" id="gb-hiring" style="display:none;"></span></div>
+    <div class="ftab" data-g="cgdir" onclick="ccGroupClick('cgdir')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregivers</div>
     <div class="ftab" data-g="caregivers" onclick="ccGroupClick('caregivers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training &amp; Compliance</div>
     <div class="ftab" data-g="performance" onclick="ccGroupClick('performance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Performance</div>
     <div class="ftab" data-g="scheduling" onclick="ccGroupClick('scheduling')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Scheduling<span class="subtab-badge red" id="gb-sched" style="display:none;"></span></div>
@@ -4359,6 +4360,32 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div id="cq-list"><div style="color:var(--text-muted);font-size:.85rem">Loading…</div></div>
 </section>
 
+<!-- ===================== TAB: CAREGIVERS (AxisCare-anchored directory) ==
+     THE RULE (hers, 2026-09-20): a caregiver appears because AXISCARE says
+     they exist. The Hub enriches that identity; it never gets to decide the
+     caregiver doesn't exist because an overlay record is missing. -->
+<section class="tabpanel" id="tab-cgdir">
+  <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+    <div>
+      <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Caregivers</h2>
+      <div class="field-note" style="font-size:13.5px;margin-top:3px;" id="cgdCount">Loading the live AxisCare census…</div>
+    </div>
+    <span style="flex:1;"></span>
+    <input id="cgdSearch" placeholder="Search any caregiver, current or historical…" style="min-width:260px;" oninput="cgdSearchGo(this.value)">
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="cgdFilters">
+    <button class="filter-pill active" data-cf="active" onclick="cgdFilter('active',this)">Active</button>
+    <button class="filter-pill" data-cf="inactive" onclick="cgdFilter('inactive',this)">Inactive</button>
+    <button class="filter-pill" data-cf="attention" onclick="cgdFilter('attention',this)">Needs attention</button>
+    <button class="filter-pill" data-cf="needsdata" onclick="cgdFilter('needsdata',this)">Needs data connection</button>
+  </div>
+  <div id="cgdList"><div class="field-note">Loading…</div></div>
+</section>
+<!-- The caregiver profile slide-over (shell holds Phase-2 home too) -->
+<div id="cgdProfile" style="display:none;position:fixed;top:0;right:0;bottom:0;width:min(680px,96vw);background:var(--bg);border-left:1px solid var(--border);box-shadow:-18px 0 40px rgba(16,24,40,.18);z-index:300;overflow-y:auto;">
+  <div id="cgdProfileBody" style="padding:16px 18px 40px;"></div>
+</div>
+
 <!-- ===================== TAB: STATE SUBMISSIONS (Medicaid IHS) ========
      Modeled on the CDS hub's State Submission Tracker (2026-08-01): every
      Medicaid IHS lead submitted to DSDS/DHSS, aged by days-since-submission
@@ -6618,7 +6645,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list — managed from Team Hub → Manage Team Access.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { caregivers: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
+let DATA = { caregivers: [], caregiver_overlay: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -6740,7 +6767,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
+  const keys = ['caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
   for(const key of keys){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
@@ -7089,7 +7116,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],cgdir:['cgdir'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7453,7 +7480,7 @@ const CC_SECTION_TITLES = {
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
-  clientqueue:'New Clients — First-Caregiver Launch',
+  clientqueue:'New Clients — First-Caregiver Launch', cgdir:'Caregivers',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
@@ -7586,6 +7613,8 @@ function switchTab(tab){
   if(apv) apv.style.display='none';
   const rpv = document.getElementById('refProfileView');
   if(rpv) rpv.style.display='none';
+  const cgp = document.getElementById('cgdProfile');
+  if(cgp) cgp.style.display='none';
   if(typeof closeMoreMenu==='function') closeMoreMenu();
   activeTab = tab;
   const g=ccGroupOf(tab);
@@ -7639,6 +7668,7 @@ function renderActiveTab(){
   if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); pbLoad(); rcView(rcCurrent); }
   if(activeTab==='calendar') ivLoad();
   if(activeTab==='trainhub') trainhubOpen();
+  if(activeTab==='cgdir') cgdOpen();
   if(activeTab==='evv') evvOpen();
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
@@ -13799,6 +13829,297 @@ async function ccEnfSave(key,val,el){
     }catch(e){}
   };
 })();
+
+/* ═══ CAREGIVERS DIRECTORY — AxisCare-anchored (Phase 1, 2026-09-20) ═══════
+   AxisCare = identity/census/status. Training Platform = evidence.
+   GHL = communications. The Hub = the operational overlay and this
+   workspace. NO caregiver master roster is created here: the list reads
+   the live census, and overlay facts save to `caregiver_overlay`, keyed by
+   AxisCare id, holding ONLY hub-native facts (skills, willingness, notes) —
+   never identity. The legacy roster is read as legacy overlay data only. */
+let CGD={ census:null, at:0, filter:'active', q:'', openId:null };
+async function cgdCensus(force){
+  if(CGD.census && !force && (Date.now()-CGD.at)<10*60*1000) return CGD.census;
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session) throw new Error('not signed in');
+  const r=await fetch('https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/caregiver-census-report',{
+    method:'POST', headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' }, body:'{}' });
+  const j=await r.json();
+  if(!r.ok||j.error) throw new Error(j.error||('census '+r.status));
+  CGD.census=j; CGD.at=Date.now();
+  return j;
+}
+const cgdNorm = s => String(s||'').toLowerCase().replace(/[^a-z]/g,'');
+function cgdLegacyFor(axid, nm){
+  const byId=(DATA.caregivers||[]).find(x=>String(x.axiscare_id||'')===String(axid));
+  if(byId) return byId;
+  if(!nm) return null;
+  const cands=(DATA.caregivers||[]).filter(x=>cgdNorm((x.first||'')+(x.last||''))===cgdNorm(nm));
+  return cands.length===1?cands[0]:null;   // ambiguous names connect nothing
+}
+function cgdOverlayFor(axid){ return (DATA.caregiver_overlay||[]).find(o=>String(o.axiscare_id||'')===String(axid))||null; }
+function cgdSkillsMerged(axid, legacy){
+  const ov=cgdOverlayFor(axid);
+  return { skills: Object.assign({}, (legacy&&legacy.skills)||{}, (ov&&ov.skills)||{}),
+           spanish: (ov&&ov.spanish_ability)||(legacy&&legacy.spanish_ability)||'' };
+}
+function cgdLevelOf(classes){
+  let best=null;
+  for(const t of (classes||[])){ const m=String(t).toLowerCase().match(/level\s*([123])/);
+    const lv=m?+m[1]:/complex/i.test(t)?3:/personal\s*care/i.test(t)?2:/wellness/i.test(t)?1:null;
+    if(lv!=null&&(best==null||lv>best)) best=lv; }
+  return best;
+}
+function cgdAvailFor(axid, nm){
+  return (DATA.caregiver_availability||[]).find(a=>String(a.axiscare_id||'')===String(axid))
+      || (DATA.caregiver_availability||[]).find(a=>cgdNorm(a.name)===cgdNorm(nm)) || null;
+}
+async function cgdOpen(){ // tab open
+  const el=document.getElementById('cgdList');
+  try{ await cgdCensus(); }catch(e){ if(el) el.innerHTML='<div class="card" style="padding:16px;">Could not load the AxisCare census: '+escapeHtmlComms(String(e.message||e))+'</div>'; return; }
+  cgdRenderList();
+}
+function cgdFilter(f,btn){ CGD.filter=f; document.querySelectorAll('#cgdFilters .filter-pill').forEach(b=>b.classList.toggle('active',b===btn)); cgdRenderList(); }
+let cgdSearchT=null;
+function cgdSearchGo(v){ CGD.q=v; clearTimeout(cgdSearchT); cgdSearchT=setTimeout(cgdRenderList,180); }
+function cgdRenderList(){
+  const el=document.getElementById('cgdList'); if(!el||!CGD.census) return;
+  const esc=escapeHtmlComms;
+  const all=CGD.census.caregivers||[];
+  const nAct=all.filter(c=>c.active).length;
+  const cnt=document.getElementById('cgdCount');
+  if(cnt) cnt.textContent=nAct+' active caregivers · live from AxisCare ('+all.length+' total on record)';
+  const q=cgdNorm(CGD.q);
+  let rows;
+  if(q){ rows=all.filter(c=>cgdNorm(c.first+c.last).includes(q)||String(c.mobile||'').replace(/\D/g,'').includes(String(CGD.q).replace(/\D/g,'')||'ZZZ')); }
+  else if(CGD.filter==='inactive'){ rows=all.filter(c=>!c.active); }
+  else if(CGD.filter==='needsdata'){ rows=all.filter(c=>c.active && !cgdLegacyFor(c.id,(c.first+' '+c.last)) && !cgdOverlayFor(c.id)); }
+  else if(CGD.filter==='attention'){
+    rows=all.filter(c=>{ if(!c.active) return false;
+      const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
+      if(!g) return true;                                  // no hub data connected
+      const bad=String(g.oig_status||'')==='FLAGGED'||/issues/i.test(g.edl_status||'')||/issues/i.test(g.fcsr_status||'');
+      const unk=!(g.oig_status||g.edl_status||g.fcsr_status)||!g.orient_date||!g.alz_date;
+      return bad||unk; });
+  }
+  else { rows=all.filter(c=>c.active); }
+  rows=rows.slice().sort((a,b)=>(a.last+a.first).localeCompare(b.last+b.first));
+  const cap = (CGD.filter==='inactive'&&!q) ? 200 : 600;
+  const shown=rows.slice(0,cap);
+  if(!shown.length){ el.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);">Nobody matches this view.</div>'; return; }
+  el.innerHTML='<div class="card" style="padding:0;overflow:hidden;">'+shown.map(c=>{
+    const nm=(c.first+' '+c.last).trim();
+    const g=cgdLegacyFor(c.id,nm), ov=cgdOverlayFor(c.id);
+    const merged=cgdSkillsMerged(c.id,g);
+    const nSkills=Object.keys(merged.skills).length+(merged.spanish?1:0);
+    const lvl=cgdLevelOf(c.classes);
+    const av=cgdAvailFor(c.id,nm);
+    const bad=g&&(String(g.oig_status||'')==='FLAGGED'||/issues/i.test(g.edl_status||'')||/issues/i.test(g.fcsr_status||''));
+    const compl = !g&&!ov ? ['#B45309','needs data connection']
+      : bad ? ['var(--red)','background issue']
+      : (g&&g.oig_status&&g.orient_date&&g.alz_date) ? ['var(--green)','compliance recorded']
+      : ['#B45309','answers needed'];
+    return '<div onclick="cgdOpenProfile(\''+esc(c.id)+'\')" style="display:flex;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid #F3EFE7;cursor:pointer;font-size:13.5px;" onmouseover="this.style.background=\'#FBFAF7\'" onmouseout="this.style.background=\'\'">'
+      +'<span style="width:9px;height:9px;border-radius:99px;background:'+compl[0]+';flex-shrink:0;" title="'+compl[1]+'"></span>'
+      +'<b style="min-width:170px;color:var(--navy);">'+esc(nm)+'</b>'
+      +(lvl?'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">L'+lvl+'</span>':'<span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">no level</span>')
+      +(!c.active?'<span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">'+esc(c.status_label||'inactive')+'</span>':'')
+      +((!g&&!ov&&c.active)?'<span class="tag-chip" style="background:#FFF7ED;color:#B45309;" title="AxisCare says they exist — the Hub just has no operational data connected yet">needs data connection</span>':'')
+      +'<span style="flex:1;"></span>'
+      +'<span class="field-note">'+esc(c.city||'')+'</span>'
+      +'<span class="field-note" style="min-width:110px;">'+esc(c.mobile||'no mobile')+'</span>'
+      +'<span class="field-note" style="min-width:80px;">'+esc((c.hire_date||'').slice(0,10))+'</span>'
+      +'<span class="field-note" title="skills & willingness recorded">'+(nSkills?('🧩 '+nSkills):'')+'</span>'
+      +'<span class="field-note" style="min-width:96px;" title="last operational activity">'+(av&&av.updated_at?('avail '+String(av.updated_at).slice(0,10)):'')+'</span>'
+      +'</div>';
+  }).join('')+'</div>'
+  +(rows.length>cap?'<div class="field-note" style="margin-top:6px;">Showing '+cap+' of '+rows.length+' — narrow with search.</div>':'');
+}
+
+/* ---- the profile slide-over ---- */
+function cgdClose(){ const p=document.getElementById('cgdProfile'); if(p) p.style.display='none'; CGD.openId=null; }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') cgdClose(); });
+async function cgdOpenProfile(axid){
+  const panel=document.getElementById('cgdProfile'), body=document.getElementById('cgdProfileBody');
+  if(!panel||!body) return;
+  const c=(CGD.census&&CGD.census.caregivers||[]).find(x=>String(x.id)===String(axid)); if(!c) return;
+  CGD.openId=String(axid);
+  panel.style.display='block';
+  const esc=escapeHtmlComms, nm=(c.first+' '+c.last).trim();
+  const g=cgdLegacyFor(axid,nm), ov=cgdOverlayFor(axid);
+  const card=(title,inner,id)=>'<div class="card" style="padding:14px 16px;margin-bottom:10px;"'+(id?' id="'+id+'"':'')+'><div style="font-weight:800;color:var(--navy);font-size:14px;margin-bottom:6px;">'+title+'</div>'+inner+'</div>';
+  const kv=(k,v)=>'<div style="display:flex;gap:8px;font-size:13.5px;padding:2px 0;"><span class="field-note" style="min-width:130px;">'+k+'</span><span style="min-width:0;">'+v+'</span></div>';
+  /* A caregiver exists because AxisCare says so — overlay presence is shown
+     as connection status, never as existence. */
+  body.innerHTML=
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
+    +'<b style="font-size:20px;color:var(--navy);">'+esc(nm)+'</b>'
+    +(c.active?'<span class="tag-chip" style="background:#E7F6EC;color:#1F7A4D;">AxisCare ACTIVE</span>'
+              :'<span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">'+esc(c.status_label||'inactive')+'</span>')
+    +'<span style="flex:1;"></span>'
+    +'<button class="secondary" onclick="cgdClose()">✕ Close</button></div>'
+    +card('Identity & Contact <span class="field-note" style="font-weight:400;">(AxisCare truth)</span>',
+      kv('AxisCare id', esc(String(c.id)))
+      +kv('Status', esc(c.status_label||(c.active?'Active':'Inactive')))
+      +kv('Classes', esc((c.classes||[]).join(' · ')||'none recorded'))
+      +kv('Phone', c.mobile?('<a href="tel:'+esc(c.mobile)+'">'+esc(c.mobile)+'</a> · <a href="sms:'+esc(c.mobile)+'">Text</a>'):'(none on the AxisCare record)')
+      +kv('Email', c.email?('<a href="mailto:'+esc(c.email)+'">'+esc(c.email)+'</a>'):'(none)')
+      +kv('Mailing', esc([c.city,c.zip].filter(Boolean).join(' ')||'(none)'))
+      +kv('Hired', esc((c.hire_date||'?').slice(0,10)))
+      +'<div style="margin-top:8px;border-top:1px solid #F3EFE7;padding-top:6px;">'
+      +kv('Hub operational data', g?'<span style="color:var(--green);">connected</span>'+(g.axiscare_id?'':' <span class="field-note">(matched by name — id not recorded on the legacy row)</span>'):(ov?'<span style="color:var(--green);">connected (overlay)</span>':'<span style="color:#B45309;">needs data connection</span> <span class="field-note">— they are still a real caregiver; the Hub just holds no operational data yet</span>'))
+      +kv('Training Platform', '<span id="cgdTrainLink">checking…</span>')
+      +kv('GHL communications', '<span id="cgdGhlLink">resolving…</span>')
+      +'</div>')
+    +card('Conversation <span class="field-note" style="font-weight:400;">(their actual texts & emails, via GHL)</span>',
+      '<div id="cgdThread"><div class="field-note">Loading the thread…</div></div>','cgdThreadCard')
+    +card('Compliance & Training', cgdComplianceHtml(c,g), 'cgdComplCard')
+    +card('Skills & Willingness <span class="field-note" style="font-weight:400;">(saved to the AxisCare-keyed overlay)</span>',
+      '<div id="cgdSkills"></div>')
+    +card('General readiness <span class="field-note" style="font-weight:400;">(shadow — blocks nothing; client-specific matching happens on the assignment workflow)</span>',
+      '<div id="cgdReady"><div class="field-note">Evaluating…</div></div>')
+    +card('Performance <span class="field-note" style="font-weight:400;">— Phase 2</span>',
+      '<div class="field-note">Annual review · write-ups · attendance · client match ratings. Coming after Phase-1 review.</div>')
+    +card('Work <span class="field-note" style="font-weight:400;">— Phase 2</span>',
+      '<div class="field-note">Availability · current assignments · coverage history · Do-Not-Return. Coming after Phase-1 review.</div>');
+  cgdRenderSkills(c,g);
+  cgdLoadThread(c,nm);
+  cgdLoadTraining(c,nm);
+  cgdLoadReadiness(c);
+}
+function cgdComplianceHtml(c,g){
+  const esc=escapeHtmlComms;
+  const st=(v,goodRx,badRx)=>{ const s=String(v||'').trim();
+    if(!s) return '<span style="color:#B45309;">needs an answer</span> <span class="field-note">(unknown is not a no)</span>';
+    if(badRx&&badRx.test(s)) return '<span style="color:var(--red);font-weight:700;">'+esc(s)+'</span>';
+    return '<span style="color:var(--green);">'+esc(s)+'</span>'; };
+  const row=(k,v)=>'<div style="display:flex;gap:8px;font-size:13.5px;padding:2px 0;"><span class="field-note" style="min-width:170px;">'+k+'</span><span>'+v+'</span></div>';
+  if(!g) return '<div class="field-note">No Hub compliance record connected yet — the Training Platform evidence below still counts, and background answers can be recorded once the data connection exists.</div>'
+    +'<div id="cgdTrainEvidence" style="margin-top:6px;"></div>';
+  return row('Agency Orientation', g.orient_date?('<span style="color:var(--green);">'+esc(g.orient_date)+'</span>'):st(''))
+    +row('ALZ / dementia training', g.alz_date?('<span style="color:var(--green);">'+esc(g.alz_date)+(g.alz_hrs?' ('+esc(g.alz_hrs)+'h)':'')+'</span>'):st(''))
+    +row('OIG', st(g.oig_status,null,/FLAGGED/))
+    +row('EDL', st(g.edl_status,null,/issues/i))
+    +row('FCSR', st(g.fcsr_status,null,/issues/i))
+    +'<div id="cgdTrainEvidence" style="margin-top:6px;"></div>';
+}
+async function cgdLoadTraining(c,nm){
+  const link=document.getElementById('cgdTrainLink'), ev=document.getElementById('cgdTrainEvidence');
+  try{
+    const rows=await trainLoad();
+    const t=rows.find(r=>String(r.axiscare_id||'')===String(c.id))
+        || (rows.filter(r=>cgdNorm(r.name)===cgdNorm(nm)).length===1?rows.find(r=>cgdNorm(r.name)===cgdNorm(nm)):null);
+    if(link) link.innerHTML=t?'<span style="color:var(--green);">matched'+(String(t.axiscare_id||'')===String(c.id)?' by id':' by name')+'</span>':'<span style="color:#B45309;">no Training Platform record</span>';
+    if(!ev) return;
+    if(!t){ ev.innerHTML='<div class="field-note">No Training Platform evidence found for this caregiver.</div>'; return; }
+    const esc=escapeHtmlComms;
+    const tr=slug=>(t.trainings||[]).find(x=>x.slug===slug);
+    const or=tr('agency-orientation'), alz=tr('dementia-care');
+    ev.innerHTML='<div style="border-top:1px solid #F3EFE7;padding-top:6px;"><b style="font-size:12.5px;color:var(--navy);">Training Platform evidence</b>'
+      +'<div style="font-size:13px;padding:2px 0;">Agency Orientation: '+(or&&or.status==='complete'
+        ?'<span style="color:var(--green);">completed '+esc(String(or.completed_at||'').slice(0,10))+'</span> <span class="tag-chip" style="background:#E7F6EC;color:#1F7A4D;">counts — mapping approved</span>'
+        :'<span class="field-note">'+esc((or&&or.status)||'not recorded')+'</span>')+'</div>'
+      +'<div style="font-size:13px;padding:2px 0;">Alzheimer\'s &amp; Dementia: '+(alz&&alz.status==='complete'
+        ?'<span style="color:var(--green);">completed '+esc(String(alz.completed_at||'').slice(0,10))+'</span> <span class="tag-chip" style="background:#FFF7ED;color:#B45309;" title="Evidence recorded — whether it satisfies the CC requirement awaits her mapping ruling">evidence only — mapping held</span>'
+        :'<span class="field-note">'+esc((alz&&alz.status)||'not recorded')+'</span>')+'</div>'
+      +'<div class="field-note">Native/imported provenance lives on the Training Platform record. Nothing here restores anything.</div></div>';
+  }catch(e){ if(link) link.textContent='unavailable'; }
+}
+async function cgdLoadThread(c,nm){
+  const box=document.getElementById('cgdThread'), link=document.getElementById('cgdGhlLink');
+  if(!box) return;
+  const esc=escapeHtmlComms;
+  if(!c.mobile&&!c.email){ box.innerHTML='<div class="field-note">No phone or email on the AxisCare record — nothing to resolve in GHL.</div>'; if(link) link.textContent='no identifiers'; return; }
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    const r=await fetch('https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/ghl-thread',{
+      method:'POST', headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
+      body: JSON.stringify({ phone:c.mobile||'', email:c.email||'', limit:25 }) });
+    const j=await r.json();
+    if(!j.ok||!j.contact_id){
+      box.innerHTML='<div class="field-note">'+esc(j.note||'Nobody in GoHighLevel matches this phone or email yet.')+' A contact appears automatically the first time a text goes out.</div>';
+      if(link) link.innerHTML='<span class="field-note">no GHL contact yet</span>'; return;
+    }
+    const mismatch=j.name&&cgdNorm(j.name)!==cgdNorm(nm)&&!cgdNorm(j.name).includes(cgdNorm(c.first))&&!cgdNorm(nm).includes(cgdNorm(j.name));
+    if(link) link.innerHTML='<span style="color:var(--green);">resolved by '+(c.mobile?'phone':'email')+'</span> · <a href="'+esc(j.open_url)+'" target="_blank" rel="noopener">open in GHL ↗</a>';
+    box.innerHTML=(mismatch?'<div style="background:#FFFBEB;border:1px solid #F0C36A;border-radius:8px;padding:6px 10px;font-size:12.5px;margin-bottom:8px;">⚠ GHL matched a contact named <b>'+esc(j.name)+'</b> by this number. Confirm this is the same person before treating the thread as theirs — nothing is chosen silently.</div>':'')
+      +((j.messages||[]).length? (j.messages||[]).map(m=>{
+        const dir=(m.direction||'').toLowerCase().includes('in')?'in':'out';
+        return '<div style="display:flex;'+(dir==='in'?'':'justify-content:flex-end;')+'margin:4px 0;">'
+          +'<div style="max-width:82%;padding:7px 10px;border-radius:10px;font-size:13px;'+(dir==='in'?'background:#F1EBE1;border:1px solid #E8E2D8;':'background:#E4EDF6;')+'">'
+          +'<div class="field-note" style="font-size:10.5px;">'+esc((m.type||'')+' · '+String(m.date||m.dateAdded||'').slice(0,16))+'</div>'
+          +escapeHtmlComms(String(m.body||m.text||'').slice(0,600))+'</div></div>';
+      }).join('') : '<div class="field-note">Contact exists ('+esc(j.name||'unnamed')+') but no messages yet.</div>');
+  }catch(e){ box.innerHTML='<div class="field-note">Could not load the thread: '+esc(String(e.message||e))+'</div>'; }
+}
+function cgdRenderSkills(c,g){
+  const el=document.getElementById('cgdSkills'); if(!el) return;
+  const esc=escapeHtmlComms;
+  const merged=cgdSkillsMerged(c.id,g);
+  const triple=(k)=>{
+    const derived=(k==='dementia_care'&&g&&g.alz_date)?('ALZ training '+String(g.alz_date).slice(0,10)):null;
+    if(derived) return '<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">yes — derived: '+esc(derived)+'</span>';
+    const rec=merged.skills[k]||{}; const v=rec.have||'';
+    const btn=(val,label)=>'<button class="linklike" style="font-size:11.5px;'+(v===val?'font-weight:800;text-decoration:none;color:'+(val==='yes'?'var(--green)':val==='no'?'var(--red)':'#B45309')+';':'color:var(--text-muted);')+'" onclick="cgdSkillSet(\''+esc(String(c.id))+'\',\''+k+'\',\''+val+'\')">'+label+'</button>';
+    return btn('yes','Yes')+' · '+btn('no','No')+' · '+btn('','Unanswered')
+      +(v?'<div class="field-note" style="font-size:10.5px;">'+esc(rec.evidence||'attested')+' · '+esc(rec.by||'')+' '+String(rec.at||'').slice(0,10)+(rec.note?' · 📝 '+esc(rec.note):'')+'</div>':'');
+  };
+  el.innerHTML=CC_SKILLS.map(([k,label,note])=>'<div style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;border-bottom:1px solid #F6F3EC;font-size:13px;">'
+      +'<div style="flex:1;min-width:0;"><b>'+esc(label)+'</b>'+(note?'<div class="field-note" style="font-size:10.5px;">'+esc(note)+'</div>':'')+'</div>'
+      +'<div style="text-align:right;">'+triple(k)+'</div></div>').join('')
+    +CC_WILLING.map(([k,label])=>'<div style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;border-bottom:1px solid #F6F3EC;font-size:13px;">'
+      +'<div style="flex:1;min-width:0;"><b>'+esc(label)+'</b></div>'
+      +'<div style="text-align:right;">'+triple(k)+'</div></div>').join('')
+    +'<div style="display:flex;gap:8px;align-items:center;padding:6px 0;font-size:13px;"><b style="flex:1;">Spanish ability</b>'
+    +'<select style="font-size:12.5px;" onchange="cgdSpanishSet(\''+esc(String(c.id))+'\',this.value)">'
+    +['','none','basic','conversational','fluent'].map(v=>'<option value="'+v+'"'+((merged.spanish||'')===v?' selected':'')+'>'+(v||'unanswered')+'</option>').join('')
+    +'</select></div>'
+    +'<div class="field-note" style="font-size:10.5px;">Unanswered means unknown — never inferred. Saved against AxisCare id '+esc(String(c.id))+' in the overlay, not to any roster.</div>';
+}
+async function cgdOverlaySave(axid, mutate){
+  let ov=cgdOverlayFor(axid);
+  if(!ov){ ov={ id:'cgov_'+axid, axiscare_id:String(axid) };
+    DATA.caregiver_overlay=(DATA.caregiver_overlay||[]).concat([ov]); }
+  mutate(ov);
+  ov.updated_at=new Date().toISOString(); ov.updated_by=(ME&&(ME.name||ME.email))||'';
+  await persist('caregiver_overlay', ov);
+  Object.keys(CC_PROF_CACHE).forEach(k=>{ if(k.startsWith('cg')) delete CC_PROF_CACHE[k]; });
+}
+async function cgdSkillSet(axid,key,val){
+  let evidence='attested', note='';
+  if(val!==''){
+    const ev=prompt('Evidence for "'+key.replace(/_/g,' ')+'" = '+val+':\ntype one of: training / observed / attested','attested');
+    if(ev===null) return;
+    evidence=/^(training|observed|attested)$/i.test((ev||'').trim())?(ev||'').trim().toLowerCase():'attested';
+    note=(prompt('Optional evidence note (Enter to skip):','')||'').trim();
+  }
+  await cgdOverlaySave(axid, ov=>{
+    ov.skills=ov.skills||{};
+    if(val==='') delete ov.skills[key];
+    else ov.skills[key]={ have:val, evidence, by:(ME&&(ME.name||ME.email))||'', at:new Date().toISOString(), note };
+  });
+  const c=(CGD.census.caregivers||[]).find(x=>String(x.id)===String(axid));
+  cgdRenderSkills(c, cgdLegacyFor(axid,(c.first+' '+c.last)));
+}
+async function cgdSpanishSet(axid,val){
+  await cgdOverlaySave(axid, ov=>{ if(val==='') delete ov.spanish_ability; else ov.spanish_ability=val; });
+}
+/* General readiness only: no client context is sent, so no client-specific
+   items can appear; someone is never globally "not ready" for being a bad
+   match for one particular client. Display language per her ruling. */
+const CGD_RELABEL={ axis_link:['Hub data connection','No hub operational data connected yet — they are still a real caregiver; connect the overlay to record compliance and skills.'] };
+async function cgdLoadReadiness(c){
+  const el=document.getElementById('cgdReady'); if(!el) return;
+  try{
+    const resp=await ccProfileFetch({ caregiver_eval:{ axiscare_id:String(c.id) } }, 'cgdir:'+c.id);
+    const items=(resp.items||[]).filter(i=>i.status!=='na').map(i=>{
+      const re=CGD_RELABEL[i.code];
+      return re?{...i,label:re[0],detail:(i.status==='pass'?i.detail:re[1])}:i;
+    });
+    const fake={...resp, items};
+    ccProfileRenderInto(el, fake, { entity:'caregiver' });
+  }catch(e){ el.innerHTML='<div class="field-note">Readiness unavailable: '+escapeHtmlComms(String(e.message||e))+'</div>'; }
+}
 
 /* ---- SOC tab (the queue) ---- */
 let socActiveFilter='active';
