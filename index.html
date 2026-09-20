@@ -803,7 +803,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Recruit &amp; Onboard<span class="subtab-badge red" id="gb-hiring" style="display:none;"></span></div>
     <div class="ftab" data-g="cgdir" onclick="ccGroupClick('cgdir')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregivers</div>
     <div class="ftab" data-g="caregivers" onclick="ccGroupClick('caregivers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training &amp; Compliance</div>
-    <div class="ftab" data-g="performance" onclick="ccGroupClick('performance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Performance</div>
     <div class="ftab" data-g="scheduling" onclick="ccGroupClick('scheduling')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Scheduling<span class="subtab-badge red" id="gb-sched" style="display:none;"></span></div>
     <span class="navrule"></span>
     <span class="navsec">Clients</span>
@@ -876,8 +875,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="cgtraining" onclick="switchTab('cgtraining')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training Compliance</div>
     <div class="fpill" data-tab="cgcompliance" onclick="switchTab('cgcompliance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Ongoing Background Checks</div>
   </div>
-  <div class="fsubbar" id="fsub-performance">
-    <div class="fpill" data-tab="cg360" onclick="switchTab('cg360')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-user"/></svg> Caregiver 360</div><div class="fpill" data-tab="cgattendance" onclick="switchTab('cgattendance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Attendance</div>
+  <!-- Performance folded into Caregivers (her call, 2026-09-20): every one
+       of these tabs is per-caregiver material, and the directory is now the
+       front door. cg360 stays reachable until the new profile proves out. -->
+  <div class="fsubbar" id="fsub-cgdir">
+    <div class="fpill" data-tab="cgdir" onclick="switchTab('cgdir')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Directory</div>
+    <div class="fpill" data-tab="cg360" onclick="switchTab('cg360')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-user"/></svg> Caregiver 360</div>
+    <div class="fpill" data-tab="cgattendance" onclick="switchTab('cgattendance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Attendance</div>
     <div class="fpill" data-tab="cgwriteups" onclick="switchTab('cgwriteups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> Write-Ups</div>
     <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
   </div>
@@ -7116,7 +7120,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],cgdir:['cgdir'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],cgdir:['cgdir','cg360','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -30860,6 +30864,9 @@ window.covLoadShifts=function(){};
                         /* Nursing folded into Scheduling 2026-09-20; old
                            #nursing links land on Nurse Visits. */
                         nursing:'nursevisits',
+                        /* Performance folded into Caregivers 2026-09-20;
+                           its old links land on the directory group. */
+                        performance:'cgdir',
                         cara:'coverage', 'coverage-help':'coverage',
                         schedwatch:'hourswatch', 'schedule-watch':'hourswatch',
                         'hours-watch':'hourswatch' };
