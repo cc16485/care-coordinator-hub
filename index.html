@@ -31171,15 +31171,20 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 }
 
 /* ===================== CARA SCOPE =====================
-   Presentation only, for the three Scheduling panels. Layer 1 redefines the
-   Hub variables ON THESE PANELS ONLY, so every inline style already written
-   as var(--navy) etc. picks up the Cara palette with no markup change and no
-   possible reach into any other tab. Layer 2 carries what variables cannot:
-   radius, shadow, type and the components the design introduces.
+   Presentation only. Layer 1 redefines the Hub variables ON THESE PANELS
+   ONLY, so every inline style already written as var(--navy) etc. picks up
+   the Cara palette with no markup change and no possible reach into any
+   other tab. Layer 2 carries what variables cannot: radius, shadow, type
+   and the components the design introduces.
    Nothing here changes :root, a shared component's base rule, or any engine
    call, data key, gate or threshold.
+   Her ruling 2026-09-20: ALL PROFILES take after the Scheduling-page design
+   from Claude Design — so the scope now also covers the Caregivers page
+   (directory + full profile), Caregiver 360, and the lead / applicant /
+   referral-partner profile views.
    ====================================================== */
-#tab-coverage, #tab-hourswatch, #tab-evv{
+#tab-coverage, #tab-hourswatch, #tab-evv,
+#tab-cgdir, #tab-cg360, #leadProfileView, #applicantProfileView, #refProfileView{
   --navy:#12395F; --navy-2:#2C4462;
   --border:#EAE3D6;
   --text:#1B2B3D; --text-muted:#5A6B80; --text-dim:#8A96A5;
@@ -31198,11 +31203,14 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
      desktop, 12px under 720px) or the panel overflows its container. */
   margin:0 -26px; padding:18px 26px 26px;
 }
-#tab-coverage .card, #tab-hourswatch .card, #tab-evv .card{
+#tab-coverage .card, #tab-hourswatch .card, #tab-evv .card,
+#tab-cgdir .card, #tab-cg360 .card, #leadProfileView .card, #applicantProfileView .card, #refProfileView .card{
   border-radius:16px; box-shadow:var(--cara-shadow); border-color:var(--border);
 }
-#tab-coverage h2, #tab-hourswatch h2, #tab-evv h2{ font-size:25px; }
-#tab-coverage .field-note, #tab-hourswatch .field-note, #tab-evv .field-note{ color:var(--text-muted); }
+#tab-coverage h2, #tab-hourswatch h2, #tab-evv h2,
+#tab-cgdir h2, #tab-cg360 h2, #leadProfileView h2, #applicantProfileView h2, #refProfileView h2{ font-size:25px; }
+#tab-coverage .field-note, #tab-hourswatch .field-note, #tab-evv .field-note,
+#tab-cgdir .field-note, #tab-cg360 .field-note, #leadProfileView .field-note, #applicantProfileView .field-note, #refProfileView .field-note{ color:var(--text-muted); }
 
 /* mono role: timestamps, AxisCare IDs, source strip */
 .cara-mono{ font-family:var(--mono); font-size:12.5px; color:var(--mono-ink); letter-spacing:-0.01em; }
@@ -31251,10 +31259,12 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 .cara-gap.b1{ background:var(--green-bg); border:1px solid var(--teal-line); color:var(--green); }
 
 /* buttons inside the scope */
-#tab-coverage .cara-btn, #tab-hourswatch .cara-btn, #tab-evv .cara-btn{
+#tab-coverage .cara-btn, #tab-hourswatch .cara-btn, #tab-evv .cara-btn,
+#tab-cgdir .cara-btn, #tab-cg360 .cara-btn, #leadProfileView .cara-btn, #applicantProfileView .cara-btn, #refProfileView .cara-btn{
   background:var(--navy); color:#fff; border:none; border-radius:10px;
   padding:11px 18px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer; }
-#tab-coverage .cara-btn.ghost, #tab-hourswatch .cara-btn.ghost, #tab-evv .cara-btn.ghost{
+#tab-coverage .cara-btn.ghost, #tab-hourswatch .cara-btn.ghost, #tab-evv .cara-btn.ghost,
+#tab-cgdir .cara-btn.ghost, #tab-cg360 .cara-btn.ghost, #leadProfileView .cara-btn.ghost, #applicantProfileView .cara-btn.ghost, #refProfileView .cara-btn.ghost{
   background:#fff; color:var(--navy); border:1px solid var(--cream-line); }
 
 /* framed external application: the strip names the source rather than
@@ -31265,7 +31275,8 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
   padding:11px 18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 
 @media(max-width:720px){
-  #tab-coverage, #tab-hourswatch, #tab-evv{ margin:0 -12px; padding:14px 12px 22px; }
+  #tab-coverage, #tab-hourswatch, #tab-evv,
+  #tab-cgdir, #tab-cg360, #leadProfileView, #applicantProfileView, #refProfileView{ margin:0 -12px; padding:14px 12px 22px; }
   .cara-metric .v{ font-size:30px; }
   .cara-gap{ min-width:0; }
 }
