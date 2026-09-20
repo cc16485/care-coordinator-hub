@@ -806,6 +806,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="ftab" data-g="scheduling" onclick="ccGroupClick('scheduling')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Scheduling<span class="subtab-badge red" id="gb-sched" style="display:none;"></span></div>
     <span class="navrule"></span>
     <span class="navsec">Clients</span>
+    <div class="ftab" data-g="leads" onclick="ccGroupClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Care<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
     <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Marketing<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
     <span class="navrule"></span>
@@ -827,10 +828,23 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="calendar" onclick="switchTab('calendar')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Calendar</div>
     <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
   </div>
+  <!-- Winning the work is its own section (her call, 2026-09-19): leads were
+       two clicks deep under a heading that reads as current clients only.
+       Care Assessments lives here because assessment is a lead STAGE — the
+       family is still deciding until Start of Care, which is where Client
+       Care begins. The tab keys did not change, so every old link keeps
+       working. -->
+  <div class="fsubbar" id="fsub-leads">
+    <div class="fpill" data-tab="leads" onclick="switchTab('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
+    <div class="fpill" data-tab="statesubs" onclick="switchTab('statesubs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> State Submissions</div>
+    <div class="fpill" data-tab="assessments" onclick="switchTab('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Assessments</div>
+    <span style="flex:1"></span>
+    <select id="ccViewAsL" onchange="ccSetViewAs(this.value)" title="View one coordinator's book" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--navy);font-family:inherit;max-width:160px;align-self:center"></select>
+  </div>
   <div class="fsubbar" id="fsub-clients">
-    <span class="pillsec">New Families</span>
-    <div class="fpill" data-parent="leads" onclick="ccParentClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
-    <div class="fpill" data-parent="assessments" onclick="ccParentClick('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Starting Care</div>
+    <span class="pillsec">Starting Care</span>
+    <div class="fpill" data-tab="soc" onclick="switchTab('soc')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Start of Care</div>
+    <div class="fpill" data-tab="clientqueue" onclick="switchTab('clientqueue')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> New Clients</div>
     <span class="pillsec">Current Clients</span>
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
     <div class="fpill" data-tab="circles" onclick="switchTab('circles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family Circles</div>
@@ -839,7 +853,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span style="flex:1"></span>
     <!-- One hub, one truth, a lens per person: filters Leads, State
          Submissions, Check-ins, and Active Clients to one coordinator's
-         book. Remembered per browser; Everyone is always one click away. -->
+         book. Remembered per browser; Everyone is always one click away.
+         The same lens sits on the Leads strip (ccViewAsL); ccRenderViewAs
+         keeps the two selects in step. -->
     <select id="ccViewAs" onchange="ccSetViewAs(this.value)" title="View one coordinator's book" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--navy);font-family:inherit;max-width:160px;align-self:center"></select>
   </div>
   <div class="fsubbar" id="fsub-team">
@@ -3971,7 +3987,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <textarea id="set_cov_escalation" rows="2" placeholder="Coverage alert: the callout for {client} {when} ran out of caregivers to ask ({asked} asked, nobody said yes). It needs a person now. Board: cc.mo-care.com"></textarea>
 <label>Availability invite (sends 10am-5pm only, from the Hours Watch button)</label>
 <textarea id="set_cov_avail_invite" rows="2" placeholder="Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability It takes 30 seconds and you can update it anytime."></textarea>
-<label>New Client Assessment booking link (from your GHL calendar; used by the Book assessment button on Quick Capture and embedded in Client Care > Bookings)</label>
+<label>New Client Assessment booking link (from your GHL calendar; used by the Book assessment button on Quick Capture and embedded in Leads > Care Assessments)</label>
 <input id="set_cov_asmt_url" placeholder="https://link.mo-care.com/widget/booking/...">
 <label>Medicaid Assessment booking link (Angiel's GHL calendar; leave blank until it exists)</label>
 <input id="set_cov_medicaid_url" placeholder="https://link.mo-care.com/widget/booking/...">
@@ -7073,21 +7089,15 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch'],clients:['leads','statesubs','clients','circles','checkins','careplans','assessments','soc','clientqueue'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
-   Three pills on the Care Coordinator bar are parents rather than pages.
-   Clicking one opens its first child and reveals the strip beneath. */
-const CC_SUBTABS = {
-  /* Winning the work, and then starting it. Both live under Client Care now:
-     a lead and a client are the same person at two moments, and splitting
-     them across sections made a coordinator change rooms mid-conversion. */
-  leads:       [ {t:'leads',       l:'Leads',             i:'i-phone'},
-                 {t:'statesubs',   l:'State Submissions', i:'i-doc'} ],
-  assessments: [ {t:'assessments', l:'Care Assessments',  i:'i-clipboard'},
-                 {t:'soc',         l:'Start of Care',     i:'i-hospital'},
-                 {t:'clientqueue', l:'New Clients',       i:'i-family'} ],
-};
+   A pill listed here is a parent rather than a page: clicking it opens its
+   first child and reveals a strip beneath. Empty since 2026-09-19 — Leads
+   became a top-level section of its own (with State Submissions and Care
+   Assessments, all lead-stage) and Client Care flattened to one strip.
+   The machinery stays for the next time a section needs a third level. */
+const CC_SUBTABS = {};
 /* page -> parent, derived so the two can never drift apart */
 const CC_PARENT_OF = (() => {
   const m = {};
@@ -10004,14 +10014,18 @@ function ccSetViewAs(v){
   renderActiveTab();
 }
 function ccRenderViewAs(){
-  const sel = document.getElementById('ccViewAs'); if(!sel) return;
-  sel.innerHTML = '<option value="">Viewing: Everyone</option>'
-    + ccPeople().map(p=>'<option value="'+escapeHtmlComms(p.name)+'">Viewing: '
-        +escapeHtmlComms(p.name)+'</option>').join('');
-  sel.value = CC_VIEW_AS;
-  if(sel.value!==CC_VIEW_AS){ CC_VIEW_AS=''; sel.value=''; }  // stored name no longer exists
-  sel.style.borderColor = CC_VIEW_AS ? 'var(--gold,#F0A830)' : 'var(--border)';
-  sel.style.fontWeight = CC_VIEW_AS ? '700' : '400';
+  /* One lens, two homes: the same select sits on the Leads strip and the
+     Client Care strip, and both always show the same choice. */
+  for(const id of ['ccViewAs','ccViewAsL']){
+    const sel = document.getElementById(id); if(!sel) continue;
+    sel.innerHTML = '<option value="">Viewing: Everyone</option>'
+      + ccPeople().map(p=>'<option value="'+escapeHtmlComms(p.name)+'">Viewing: '
+          +escapeHtmlComms(p.name)+'</option>').join('');
+    sel.value = CC_VIEW_AS;
+    if(sel.value!==CC_VIEW_AS){ CC_VIEW_AS=''; sel.value=''; }  // stored name no longer exists
+    sel.style.borderColor = CC_VIEW_AS ? 'var(--gold,#F0A830)' : 'var(--border)';
+    sel.style.fontWeight = CC_VIEW_AS ? '700' : '400';
+  }
 }
 async function saveLead(){
   // Duplicate-catcher: a NEW lead whose phone matches an existing record is
@@ -11522,7 +11536,7 @@ function covMsgsFill(){
     set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
 }
-/* ── GHL booking calendars, embedded in Client Care > Bookings ─────────
+/* ── GHL booking calendars, embedded in Leads > Care Assessments ───────
    The widget URLs live in ops_settings (assessment_calendar_url,
    medicaid_calendar_url) so swapping a calendar never needs a deploy.
    Frames get their src on first open, not at page load, so the hub does
@@ -30035,7 +30049,9 @@ window.covLoadShifts=function(){};
   var CC_HASH_ALIAS = { grow:'clients', phone:'calls', 'clients-care':'clients',
                         carecoordinator:'clients', 'care-coordinator':'clients',
                         growth:'campaigns', marketing:'campaigns',
-                        leads:'campaigns', 'leads-marketing':'campaigns',
+                        /* 'leads' stopped being an alias 2026-09-19: it is a
+                           real top-level group now, found without help. */
+                        'leads-marketing':'campaigns',
                         communication:'team', conversations:'team', messages:'team',
                         hiring:'interviews', recruit:'interviews', onboard:'interviews',
                         'recruit-onboard':'interviews', recruiting:'interviews',
@@ -30044,8 +30060,9 @@ window.covLoadShifts=function(){};
                         'client-care':'clients', clientcare:'clients',
                         newclients:'clientqueue', statesubmissions:'statesubs',
                         overview:'today', reports:'reports',
-                        /* the Morning Brief emails link straight to tabs; 'leads'
-                           itself is shadowed by the old sidebar alias above */
+                        /* the Morning Brief emails link straight to tabs;
+                           #leads itself now reaches the Leads section, but
+                           this older spelling keeps working */
                         leadboard:'leads',
                         /* IA revision 2026-09-15. The tab KEYS did not change,
                            so every old link keeps working; these are the new
