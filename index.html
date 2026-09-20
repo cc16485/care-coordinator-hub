@@ -13950,8 +13950,8 @@ function cgdBackToList(){
   if(f) f.style.display='none'; if(l) l.style.display='block';
   cgdRenderList();
 }
-const CGD_SECTIONS=[['overview','Overview'],['compliance','Compliance'],['skills','Skills'],
-  ['performance','Performance'],['work','Work'],['conversations','Conversations']];
+const CGD_SECTIONS=[['overview','Overview'],['hiring','Hiring & Experience'],['compliance','Compliance'],
+  ['skills','Skills'],['performance','Performance'],['work','Work'],['conversations','Conversations']];
 function cgdSection(name){
   CGD.section=name;
   CGD_SECTIONS.forEach(([k])=>{
@@ -14011,6 +14011,10 @@ async function cgdOpenProfile(axid){
     +card('Anything in the way of scheduling?','<div id="cgdReady"><div class="field-note">Checking…</div></div>')
     +'</div>'
 
+    +'<div id="cgdSec-hiring" style="display:none;">'
+    +'<div id="cgdHiring"><div class="field-note">Loading the hiring history…</div></div>'
+    +'</div>'
+
     +'<div id="cgdSec-compliance" style="display:none;">'
     +card('Compliance & Training', cgdComplianceHtml(c,g), 'cgdComplCard')
     +'</div>'
@@ -14033,6 +14037,7 @@ async function cgdOpenProfile(axid){
     +'</div>';
   cgdRenderSkills(c,g);
   cgdKnowledgeLoad(String(c.id));
+  cgdHiringLoad(String(c.id), lvl);
   cgdLoadThread(c,nm);
   cgdLoadTraining(c,nm);
   cgdLoadReadiness(c);
@@ -14236,6 +14241,108 @@ function cgdRenderSkills(c,g){
     +['','none','basic','conversational','fluent'].map(v=>'<option value="'+v+'"'+((merged.spanish||'')===v?' selected':'')+'>'+(v||'unanswered')+'</option>').join('')
     +'</select></div>'
     +'<div class="field-note" style="font-size:10.5px;">Unanswered means unknown — never inferred. Saved against AxisCare id '+esc(String(c.id))+' in the overlay, not to any roster.</div>';
+}
+/* ---- Hiring & Experience: the HISTORICAL story (her phase order 2026-09-20).
+   What happened during recruiting and what CC learned AT THE TIME — distinct
+   from Skills (the operational present); never collapsed. Historical wording
+   is always "Reported during interview" — never Verified/Competent/
+   Qualified/Evidence-backed unless a fact has genuinely entered the
+   Foundation (derived live from the bridge, never hard-coded). READ-ONLY:
+   no add/approve/import buttons exist here. ---- */
+function cgdHirCard(title,inner){
+  return '<div class="card" style="padding:14px 16px;margin-bottom:10px;"><div style="font-weight:800;color:var(--navy);font-size:14px;margin-bottom:6px;">'+title+'</div>'+inner+'</div>';
+}
+async function cgdHiringLoad(axid, currentLevel){
+  const el=document.getElementById('cgdHiring'); if(!el) return;
+  const esc=escapeHtmlComms;
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session) throw new Error('not signed in');
+    const r=await fetch('https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/caregiver-hiring-history',{
+      method:'POST', headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
+      body: JSON.stringify({ axiscare_id: axid }) });
+    const j=await r.json();
+    if(!r.ok||!j.ok) throw new Error(j.error||('caregiver-hiring-history '+r.status));
+    if(!j.found){
+      el.innerHTML=cgdHirCard('Hiring history','<div class="field-note">'+esc(j.honest_empty||'No connected hiring history found in the current recruiting records.')+'</div>');
+      return;
+    }
+    let html='';
+    if(j.ambiguities&&j.ambiguities.length)
+      html+=cgdHirCard('Needs review','<div style="color:#B45309;font-size:13px;">'+j.ambiguities.map(esc).join('<br>')+'</div><div class="field-note">Identity is ambiguous for these records — nothing was chosen automatically.</div>');
+    // 1. How they came to us
+    html+=cgdHirCard('How they came to us',
+      j.application.found
+        ? '<div style="font-size:13px;">Online application · started '+esc(j.application.created||'?')+(j.application.completed?' · completed '+esc(j.application.completed):'')+(j.application.experience_years?' · stated experience: '+esc(String(j.application.experience_years))+' yrs':'')+(j.application.work_history_entries?' · '+j.application.work_history_entries+' work-history entr'+(j.application.work_history_entries>1?'ies':'y'):'')+'</div>'
+        : '<div style="font-size:13px;"><b>No online application record</b></div><div class="field-note">'+esc(j.application.honest||'')+'</div>');
+    // 2. Interview
+    if(j.offer.found){
+      const o=j.offer;
+      const bg=String(o.background_freetext||'').split(/;|\n/).map(s=>s.trim()).filter(Boolean);
+      const dt=cgdKnowDate(o.interview_date);
+      html+=cgdHirCard('The interview <span class="field-note" style="font-weight:400;">'+dt+' · interviewer/offerer '+esc(o.interviewer||'?')+'</span>',
+        (bg.length?'<div style="font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--text-muted);text-transform:uppercase;">Background at interview</div>'
+          +'<div style="font-size:13.5px;margin:2px 0 8px;">'+bg.map(b=>'• '+esc(b)).join('<br>')+'</div>'
+          +'<div class="field-note" style="font-size:11px;margin-bottom:8px;">Displayed as captured — not interpreted or verified.</div>':'')
+        +'<div style="font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--text-muted);text-transform:uppercase;">Experience reported during interview</div>'
+        +(o.interview_answers||[]).map(a=>'<div style="display:flex;gap:8px;font-size:13px;padding:2px 0;border-bottom:1px solid #F6F3EC;"><span style="min-width:210px;">'+esc(a.label)+'</span><span>'+esc(a.answer)+' <span class="field-note">— reported during interview</span></span></div>').join('')
+        +'<div style="font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--text-muted);text-transform:uppercase;margin-top:8px;">Comfort & environment reported during interview</div>'
+        +(o.environment_answers||[]).map(a=>{
+          const b=(j.bridge||[]).find(x=>x.field===a.field);
+          const inF=b&&b.evidence_status==='in_foundation';
+          return '<div style="display:flex;gap:8px;font-size:13px;padding:2px 0;border-bottom:1px solid #F6F3EC;"><span style="min-width:210px;">'+esc(a.label)+'</span><span>'+esc(a.answer)+' <span class="field-note">— reported during interview</span>'+(inF?' <button class="linklike" style="font-size:11.5px;color:var(--green);" onclick="cgdSection(\'skills\')">Now evidence-backed →</button>':'')+'</span></div>';
+        }).join(''));
+      // 3. Availability at hiring
+      if(o.availability_at_hiring)
+        html+=cgdHirCard('Availability reported at hiring <span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">historical — '+dt+'</span>',
+          '<div style="font-size:13.5px;">'+esc(o.availability_at_hiring)+'</div>'
+          +'<div class="field-note" style="margin-top:4px;">What they told us when hired — NOT their current availability. Current scheduling availability lives under Work.</div>');
+    } else {
+      html+=cgdHirCard('The interview','<div class="field-note">'+esc(j.offer.error||'No connected interview/offer record.')+'</div>');
+    }
+    // 4. References
+    const refs=(j.intake.found?(j.intake.records||[]).flatMap(r0=>r0.references||[]):[]);
+    html+=cgdHirCard('References',
+      refs.length
+        ? refs.map(f=>'<div style="font-size:13.5px;padding:2px 0;"><b>'+esc(f.name)+'</b> — '+esc(f.relationship||'relationship not recorded')+'<div class="field-note" style="font-size:11.5px;">'+esc(f.honest)+'</div></div>').join('')
+          +'<div class="field-note" style="margin-top:6px;">Reference contacts provided. No reference responses are recorded in the connected systems. (This records what we hold — not whether outreach occurred.)</div>'
+        : '<div class="field-note">No reference contacts exist in the connected records.</div>');
+    // 5. Offer & hiring context
+    if(j.offer.found){
+      const o=j.offer;
+      html+=cgdHirCard('Offer & hiring context',
+        '<div style="display:flex;gap:8px;font-size:13.5px;padding:2px 0;"><span class="field-note" style="min-width:210px;">Position</span><span>'+esc(o.position||'?')+'</span></div>'
+        +'<div style="display:flex;gap:8px;font-size:13.5px;padding:2px 0;"><span class="field-note" style="min-width:210px;">Care level suggested during hiring</span><span>'+esc(String(o.level_suggested??'not recorded'))+(o.level_confirmed==null?' <span class="field-note">(never marked confirmed on the record)</span>':' · confirmed: '+esc(String(o.level_confirmed)))+'</span></div>'
+        +'<div style="display:flex;gap:8px;font-size:13.5px;padding:2px 0;"><span class="field-note" style="min-width:210px;">Current AxisCare care level</span><span>'+(currentLevel?('Level '+esc(String(currentLevel))):'(see header)')+' <span class="field-note">— a separate, current fact; matching does not retro-confirm the suggestion</span></span></div>'
+        +(o.personality?'<div style="display:flex;gap:8px;font-size:13.5px;padding:2px 0;"><span class="field-note" style="min-width:210px;">Interview observations</span><span>'+esc(o.personality)+' <span class="field-note">(subjective observation, not a skill claim)</span></span></div>':'')
+        +(o.notes?'<div style="display:flex;gap:8px;font-size:13.5px;padding:2px 0;"><span class="field-note" style="min-width:210px;">Hiring notes</span><span>'+esc(o.notes)+'</span></div>':''));
+    }
+    // 6. What this history could support (READ ONLY — no buttons)
+    if(j.bridge&&j.bridge.length&&j.offer.found){
+      const ans={}; (j.offer.interview_answers||[]).concat(j.offer.environment_answers||[]).forEach(a=>{ans[a.field]=a.answer;});
+      html+=cgdHirCard('What this history could support <span class="field-note" style="font-weight:400;">(read-only — entering caregiver knowledge is a separate, gated decision)</span>',
+        j.bridge.filter(b=>ans[b.field]==='yes').map(b=>'<div style="display:flex;gap:8px;font-size:13px;padding:3px 0;border-bottom:1px solid #F6F3EC;">'
+          +'<span style="min-width:210px;"><b>'+esc(b.label)+'</b></span>'
+          +'<span>Reported during interview · <span class="field-note">eligible to support:</span> '+esc(b.eligible_to_support)
+          +' · '+(b.evidence_status==='in_foundation'
+              ?'<span class="tag-chip" style="background:#E7F6EC;color:#1F7A4D;">Already in caregiver knowledge</span>'
+              :'<span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">Not yet added to caregiver knowledge</span>')
+          +'</span></div>').join(''));
+    }
+    // 7. What we never captured
+    if(j.gaps&&j.gaps.length)
+      html+=cgdHirCard('What we never captured',
+        (j.gaps||[]).map(g0=>'<div class="field-note" style="padding:1px 0;">• '+esc(g0)+'</div>').join(''));
+    // technical detail
+    html+='<div class="field-note" style="font-size:11px;cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">▸ technical / troubleshooting details (record identifiers, unresolved source fields)</div>'
+      +'<div style="display:none;font-size:11px;color:var(--text-muted);font-family:monospace;">'
+      +(j.application.found?'application '+esc(j.application.record_id)+'<br>':'')
+      +(j.intake.found?(j.intake.records||[]).map(r0=>'intake '+esc(r0.record_id)).join('<br>')+'<br>':'')
+      +(j.offer.found?'offer '+esc(j.offer.record_id)+'<br>':'')
+      +(j.offer.found&&j.offer.unresolved_source_fields?('unresolved source field: spanish_speaking='+esc(String(j.offer.unresolved_source_fields.spanish_speaking))+' — '+esc(j.offer.unresolved_source_fields.note)):'')
+      +'</div>';
+    el.innerHTML=html;
+  }catch(e){ el.innerHTML='<div class="field-note">Hiring history unavailable: '+escapeHtmlComms(String(e.message||e))+'</div>'; }
 }
 /* ---- Evidence-backed knowledge (READ-ONLY view of the Evidence Foundation
    via the caregiver-knowledge endpoint — the browser never touches the
