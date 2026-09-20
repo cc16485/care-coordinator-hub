@@ -8210,6 +8210,13 @@ function renderLeads(){
   if(f==='Follow-up Due') rows = rows.filter(l => l.follow_up_due && l.follow_up_due <= today());
   else if(f!=='All' && !wantArchived) rows = rows.filter(l => l.status === f);
 
+  /* Newest inquiry on top — the storage order appends new leads to the end,
+     which buried exactly the person who most needs eyes. The Follow-up Due
+     view sorts by who was promised a call soonest instead. */
+  rows = rows.slice().sort((a,b)=> f==='Follow-up Due'
+    ? String(a.follow_up_due||'9999').localeCompare(String(b.follow_up_due||'9999'))
+    : String(b.created_at||'').localeCompare(String(a.created_at||'')));
+
   const wrap = document.getElementById('leadsTableWrap');
   if(rows.length===0){ wrap.innerHTML = '<div class="empty">No leads match.</div>'; return; }
   const urgencyBadge = u => ({today:'<span class="badge bad">Today</span>',
