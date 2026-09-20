@@ -14090,7 +14090,7 @@ function cgdWorkHtml(c,g,nm){
     if(a.state==='yes') yes++; else if(a.state==='no') no++; else silent++;
     if(a.reply&&(!lastReply||String(a.replied_at||'')>lastReply)) lastReply=String(a.reply);
   }));
-  return card('Hours they want vs hours they have',hoursCard)
+  return card('Hours wanted vs scheduled next 7 days <span class="field-note" style="font-weight:400;">(rolling window, live from AxisCare — not a recurring weekly assignment)</span>',hoursCard)
     +card('Coverage offers <span class="field-note" style="font-weight:400;">(optional open shifts — saying no here is always fine)</span>',
       asked?(kv('Times asked to cover',String(asked))+kv('Said yes',String(yes))+kv('Said no',String(no))+kv('Never answered',String(silent))
         +(lastReply?kv('Last reply','“'+esc(lastReply.slice(0,120))+'”'):''))
@@ -28949,23 +28949,31 @@ async function openClientProfile(ref){
 }
 function pdClose(){ const w=document.getElementById('pdWrap'); if(w) w.style.display='none'; }
 /* Deep links land on the FULL caregiver profile (Caregiver 360 retired,
-   her call 2026-09-20). Resolution against the live census: exact name,
-   else a single active first-name match, else the directory with the name
-   pre-searched — never a guess between two people. */
-async function openCaregiverProfile(name){
-  const q=String(name||'').trim().toLowerCase().replace(/\s+/g,' ');
+   her call 2026-09-20; D1 fix approved same day). Identity rules:
+   - an exact AxisCare-ID reference opens that exact caregiver;
+   - a name-only reference is trusted only when it is UNIQUE across the
+     whole census. An active + inactive namesake is ambiguous, and being
+     active NEVER breaks the tie (her ruling) — the directory opens
+     pre-searched and the human chooses. */
+async function openCaregiverProfile(ref){
+  const raw=String(ref||'').trim();
+  const q=raw.toLowerCase().replace(/\s+/g,' ');
   switchTab('cgdir');
   try{ await cgdCensus(); }catch(e){ return; }
   const all=(CGD.census&&CGD.census.caregivers)||[];
+  if(/^\d+$/.test(q)){
+    const byId=all.find(x=>String(x.id)===q);
+    if(byId){ cgdOpenProfile(String(byId.id)); return; }
+  }
   const full=all.filter(x=>((x.first+' '+x.last).trim().toLowerCase().replace(/\s+/g,' '))===q);
   let hit=full.length===1?full[0]:null;
-  if(!hit){
-    const fn=all.filter(x=>x.active&&String(x.first||'').toLowerCase()===q.split(' ')[0]);
+  if(!hit&&full.length===0){
+    const fn=all.filter(x=>String(x.first||'').toLowerCase()===q.split(' ')[0]);
     if(fn.length===1) hit=fn[0];
   }
   if(hit){ cgdOpenProfile(String(hit.id)); return; }
   const inp=document.getElementById('cgdSearch');
-  if(inp){ inp.value=String(name||''); cgdSearchGo(inp.value); }
+  if(inp){ inp.value=raw; cgdSearchGo(inp.value); }
 }
 document.addEventListener('click', function(e){
   const c = e.target.closest && e.target.closest('[data-open-client]');
