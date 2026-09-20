@@ -9016,15 +9016,33 @@ function lpCommsFilter(kind, btn){
 function renderLpAttrs(){
   const box=document.getElementById('lp_attrs'); const l=lpLead; if(!box||!l) return;
   const vals=l.client_attributes||{};
+  /* Gender migration (her ruling, 2026-09-20): the old checkbox could not
+     tell "prefers" from "requires", so every legacy YES becomes PREFER —
+     never REQUIRE — and is flagged for staff confirmation. From now on the
+     buttons say what they mean: Require blocks a match, Prefer only ranks. */
+  const GENDER_KEYS=['female_caregiver','male_caregiver'];
+  if(lpLead && lpLead.gender_pref_normalized!==true){
+    let moved=false;
+    lpLead.client_attributes = lpLead.client_attributes || {};
+    for(const k of GENDER_KEYS){ if(vals[k]==='yes'){ vals[k]='preferred'; lpLead.client_attributes[k]='preferred'; lpLead.gender_pref_needs_confirm=true; moved=true; } }
+    lpLead.gender_pref_normalized=true;
+    persist('leads', lpLead);
+    if(moved && typeof ccToast==='function') ccToast('Gender preference migrated to PREFER — confirm below if it is actually a requirement');
+  }
   box.innerHTML = LP_ATTRS.map(a=>{
     const v=vals[a[0]]||'';
+    const isGender=GENDER_KEYS.includes(a[0]);
     return '<div class="lp-attr-row">'
       +'<div class="lp-attr-opts">'
-      +'<button class="'+(v==='yes'?'on-yes':'')+'" onclick="lpSetAttr(\''+a[0]+'\',\'yes\')">Yes</button>'
+      +'<button class="'+(v==='yes'?'on-yes':'')+'" onclick="lpSetAttr(\''+a[0]+'\',\'yes\')">'+(isGender?'Require':'Yes')+'</button>'
       +'<button class="'+(v==='no'?'on-no':'')+'" onclick="lpSetAttr(\''+a[0]+'\',\'no\')">No</button>'
-      +(a[3]?'<button class="'+(v==='preferred'?'on-pref':'')+'" onclick="lpSetAttr(\''+a[0]+'\',\'preferred\')">Pref</button>':'')
+      +(a[3]?'<button class="'+(v==='preferred'?'on-pref':'')+'" onclick="lpSetAttr(\''+a[0]+'\',\'preferred\')">'+(isGender?'Prefer':'Pref')+'</button>':'')
       +'</div>'
-      +'<div style="min-width:0;"><b>'+a[1]+'</b><div class="field-note">'+a[2]+'</div></div>'
+      +'<div style="min-width:0;"><b>'+a[1]+'</b><div class="field-note">'+a[2]
+      +(isGender?' <b>Require</b> blocks incompatible matches; <b>Prefer</b> only influences ranking.':'')+'</div>'
+      +(isGender&&lpLead&&lpLead.gender_pref_needs_confirm&&v==='preferred'
+        ?'<div class="field-note" style="color:#B45309;">Migrated from the old checkbox as PREFER — <button class="linklike" style="font-size:11.5px;" onclick="lpGenderConfirm()">confirm this is right</button> or click Require if it is a requirement.</div>':'')
+      +'</div>'
       +'</div>';
   }).join('');
   const ent=document.getElementById('lp_attr_entered');
@@ -9038,6 +9056,12 @@ async function lpSetAttr(key,val){
   lpLead.client_attributes[key] = (lpLead.client_attributes[key]===val) ? '' : val;
   lpLead.attributes_entered_at = null; // answers changed — needs re-entry
   await persist('leads',lpLead);
+  renderLpAttrs();
+}
+async function lpGenderConfirm(){
+  if(!lpLead) return;
+  lpLead.gender_pref_needs_confirm=false;
+  await persist('leads', lpLead);
   renderLpAttrs();
 }
 async function lpMarkAttrsEntered(){
@@ -13512,7 +13536,9 @@ function renderLpSoc(){
         +'<button class="linklike" style="font-size:12px;" onclick="socStepNote('+i+')" title="Add a note to this step">📝</button>'
         +'</div>';
     }).join('')
-    +'<div style="margin-top:8px;"><button class="linklike" style="font-size:12px;color:var(--text-muted);" onclick="socRemove()">Remove checklist (started by mistake)</button></div>';
+    +'<div style="margin-top:8px;"><button class="linklike" style="font-size:12px;color:var(--text-muted);" onclick="socRemove()">Remove checklist (started by mistake)</button></div>'
+    +'<div id="lpProfilePanel" style="margin-top:10px;"></div>';
+  try{ ccProfilePanelLoad(l); }catch(e){}
 }
 async function socStart(){
   if(!lpLead) return;
@@ -13548,6 +13574,218 @@ async function socRemove(){
   await persist('leads', lpLead);
   renderLpSoc(); updateSocBadge();
 }
+
+/* ═══ PROFILE STANDARD — SHADOW MODE (2026-09-20) ═══════════════════════════
+   Every panel below EVALUATES AND DISPLAYS only. The three enforcement
+   switches default OFF and blocking is not wired anywhere; the standard
+   proves itself against real records before it may gate anything.
+   The evaluator lives server-side in the send-incapable profile-check
+   function; the hub renders its verdicts and never re-derives them. */
+const CC_PROF_CACHE = {};
+async function ccProfileFetch(body, cacheKey){
+  const hit = CC_PROF_CACHE[cacheKey];
+  if(hit && (Date.now()-hit.at) < 8*60*1000) return hit.resp;
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session) throw new Error('not signed in');
+  const r = await fetch('https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/profile-check', {
+    method:'POST', headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
+    body: JSON.stringify(body) });
+  const resp = await r.json();
+  if(!r.ok || resp.error) throw new Error(resp.error||('profile-check '+r.status));
+  CC_PROF_CACHE[cacheKey] = { at: Date.now(), resp };
+  return resp;
+}
+const CC_PROF_SEV = {
+  HARD:        ['HARD',        '#FEE2E2', '#B91C1C'],
+  FIRST_SHIFT: ['FIRST SHIFT', '#FEF3C7', '#92400E'],
+  WARN:        ['WARNING',     '#F3EDE3', '#6E6559'],
+  COND:        ['CONDITIONAL', '#E4EDF6', '#2F6FB0'],
+};
+const CC_PROF_TIER = { api:'Verified from AxisCare', hub:'Hub record', attested:'Staff confirmed' };
+function ccProfileRenderInto(el, resp, opts){
+  const esc=escapeHtmlComms, o=opts||{};
+  const items=(resp.items||[]).filter(i=>i.status!=='na');
+  const misses=items.filter(i=>i.status!=='pass');
+  const sum=resp.summary||{};
+  const wb=resp.would_block||{};
+  const gf=!!wb.grandfathered;
+  const sevChip=s=>{const m=CC_PROF_SEV[s]||CC_PROF_SEV.WARN;
+    return '<span style="font-size:.62rem;font-weight:800;border-radius:4px;padding:.08rem .3rem;background:'+m[1]+';color:'+m[2]+';white-space:nowrap;">'+m[0]+'</span>';};
+  const stIcon=i=> i.status==='pass'?'<span style="color:var(--green);">✓</span>'
+    : i.status==='unanswered'?'<span title="Unanswered is not a no — it needs an answer" style="color:#B45309;font-weight:800;">?</span>'
+    : '<span style="color:var(--red);font-weight:800;">✗</span>';
+  const row=i=>'<div style="display:flex;gap:6px;align-items:flex-start;padding:3px 0;font-size:12.5px;border-bottom:1px solid #F6F3EC;">'
+    +stIcon(i)+sevChip(i.severity)
+    +'<div style="flex:1;min-width:0;"><b>'+esc(i.label)+'</b>'
+    +'<div class="field-note" style="font-size:11.5px;">'+esc(i.detail)
+    +' · <i>'+ (CC_PROF_TIER[i.tier]||i.tier) +'</i></div>'
+    +(i.fix==='exception'&&resp.axiscare_client_id?'<button class="linklike" style="font-size:11.5px;" onclick="ccProfileNoRp(\''+esc(resp.axiscare_client_id)+'\')">Document the no-responsible-party exception…</button>':'')
+    +'</div></div>';
+  const blockers = o.entity==='caregiver' ? (wb.assignment||[]) : (wb.ready_for_staffing||[]);
+  const fsBlockers = (wb.first_shift||[]).filter(b=>!blockers.some(x=>x.code===b.code));
+  el.innerHTML =
+    '<div class="card" style="padding:10px 12px;border-left:4px solid #8AA9C8;">'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+    +'<b style="font-size:13px;color:var(--navy);">'+(o.entity==='caregiver'?'Caregiver Ready to Schedule':'Client Profile')+'</b>'
+    +'<span style="font-size:.62rem;font-weight:800;border-radius:4px;padding:.08rem .3rem;background:#E4EDF6;color:#2F6FB0;">SHADOW — nothing is blocked</span>'
+    +(gf?'<span style="font-size:.62rem;font-weight:800;border-radius:4px;padding:.08rem .3rem;background:#F3EDE3;color:#6E6559;" title="This record predates the standard: it can never be blocked; items show as cleanup only.">GRANDFATHERED</span>':'')
+    +'<span style="flex:1;"></span>'
+    +'<span class="field-note">'+(sum.required_complete??'–')+'/'+(sum.required_total??'–')+' required complete</span>'
+    +'</div>'
+    +(misses.length
+      ? '<div style="margin-top:6px;">'+misses.map(row).join('')+'</div>'
+      : '<div class="field-note" style="margin-top:6px;">Everything the standard checks is complete. ✓</div>')
+    +(gf
+      ? ((wb.display_only_cleanup||[]).length?'<div class="field-note" style="margin-top:6px;">Cleanup (display only, never blocks): '+esc((wb.display_only_cleanup||[]).map(b=>b.label).join(' · '))+'</div>':'')
+      : (blockers.length||fsBlockers.length)
+        ? '<div style="margin-top:6px;font-size:12px;background:#FFFBEB;border:1px solid #F0C36A;border-radius:6px;padding:6px 8px;">'
+          +'<b>If enforcement were ON:</b> '
+          +(blockers.length?('would block '+(o.entity==='caregiver'?'assignment':'Ready for Staffing')+' — '+esc(blockers.map(b=>b.label).join(' · '))+'. '):'')
+          +(fsBlockers.length?('Would block first shift — '+esc(fsBlockers.map(b=>b.label).join(' · '))+'.'):'')
+          +'</div>'
+        : '<div class="field-note" style="margin-top:6px;">Enforcement (all switches OFF) would block nothing for this record.</div>')
+    +'</div>';
+}
+async function ccProfilePanelLoad(l){
+  const el=document.getElementById('lpProfilePanel'); if(!el||!l) return;
+  el.innerHTML='<div class="field-note">Checking the profile standard (shadow)…</div>';
+  try{
+    const resp=await ccProfileFetch({ client_eval:{ lead_id:l.id, axiscare_client_id:l.axiscare_client_id||'' } }, 'cl:'+l.id);
+    ccProfileRenderInto(el, resp, { entity:'client' });
+  }catch(e){ el.innerHTML='<div class="field-note">Profile check unavailable: '+escapeHtmlComms(String(e&&e.message||e))+'</div>'; }
+}
+async function ccProfileNoRp(axId){
+  const reason=prompt('Document the no-responsible-party exception.\n\nWhy does this client legitimately have no responsible party / emergency contact? (Never enter fake contact data to satisfy the standard.)');
+  if(!reason||!reason.trim()) return;
+  const id='cp_ax'+axId;
+  const prev=(DATA.client_profiles||[]).find(p=>p.id===id)||{ id, axiscare_client_id:axId, client_name:'' };
+  const item={ ...prev, no_responsible_party:{ reason:reason.trim(), by:(ME&&(ME.name||ME.email))||'', at:new Date().toISOString() } };
+  DATA.client_profiles=(DATA.client_profiles||[]).filter(p=>p.id!==id).concat([item]);
+  await persist('client_profiles', item);
+  Object.keys(CC_PROF_CACHE).forEach(k=>{ if(k.startsWith('cl:')) delete CC_PROF_CACHE[k]; });
+  try{ ccToast('✓ Exception documented — recorded who, when, and why'); }catch(e){}
+  try{ if(lpLead) ccProfilePanelLoad(lpLead); }catch(e){}
+}
+
+/* ── Caregiver skills & willingness editor (Caregiver 360) ─────────────── */
+const CC_SKILLS=[
+  ['dementia_care',"Dementia / Alzheimer's care",'derived from ALZ training when on file'],
+  ['parkinsons_care',"Parkinson's care",''],
+  ['hospice_support','Hospice support',''],
+  ['personal_care','Personal care',''],
+  ['transfers_gait_belt','Transfers / gait belt',''],
+  ['hoyer_lift','Hoyer lift',''],
+  ['bedbound_care','Bedbound care',''],
+  ['complex_care','Complex care','derived from a Level 3 class in AxisCare'],
+  ['transportation','Transportation (own vehicle)',''],
+];
+const CC_WILLING=[['ok_cats','Comfortable with cats'],['ok_dogs','Comfortable with dogs'],['ok_smoking','Comfortable with smoking in the home']];
+function ccSkillsMount(){
+  const out=document.getElementById('c360Out'); const sel=document.getElementById('c360Sel');
+  if(!out||!sel||!sel.value||!out.innerHTML) return;
+  const g=(DATA.caregivers||[]).find(x=>String(x.id)===sel.value); if(!g) return;
+  let box=document.getElementById('c360Skills');
+  if(!box){ box=document.createElement('div'); box.id='c360Skills'; out.appendChild(box); }
+  const esc=escapeHtmlComms, sk=g.skills||{};
+  const triple=(k,derived)=>{
+    if(derived) return '<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">yes — '+derived+'</span>';
+    const v=(sk[k]&&sk[k].have)||'';
+    const btn=(val,label)=>'<button class="linklike" style="font-size:11.5px;'+(v===val?'font-weight:800;text-decoration:none;color:'+(val==='yes'?'var(--green)':val==='no'?'var(--red)':'#B45309')+';':'color:var(--text-muted);')+'" onclick="ccSkillSet(\''+g.id+'\',\''+k+'\',\''+val+'\')">'+label+'</button>';
+    return btn('yes','Yes')+' · '+btn('no','No')+' · '+btn('','Unanswered')
+      +(sk[k]&&sk[k].have?'<div class="field-note" style="font-size:10.5px;">'+esc(sk[k].evidence||'attested')+' · '+esc(sk[k].by||'')+' '+String(sk[k].at||'').slice(0,10)+(sk[k].note?' · 📝 '+esc(sk[k].note):'')+'</div>':'');
+  };
+  box.innerHTML='<div class="card" style="padding:14px 16px;margin-bottom:10px;">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:14px;margin-bottom:2px;">Skills & Willingness <span style="font-size:.62rem;font-weight:800;border-radius:4px;padding:.08rem .3rem;background:#E4EDF6;color:#2F6FB0;">SHADOW STANDARD</span></div>'
+    +'<div class="field-note" style="margin-bottom:8px;">Unanswered means unknown — it is never treated as yes or no. Derived rows come from records the system already trusts; no double entry.</div>'
+    +CC_SKILLS.map(([k,label,note])=>{
+      /* complex_care is also derived (from a Level 3 AxisCare class), but
+         that truth lives server-side in the evaluator — locally only the
+         ALZ-training derivation is visible. */
+      const derived=(k==='dementia_care'&&g.alz_date)?'ALZ training '+String(g.alz_date).slice(0,10):null;
+      return '<div style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;border-bottom:1px solid #F6F3EC;font-size:13px;">'
+        +'<div style="flex:1;min-width:0;"><b>'+esc(label)+'</b>'+(note?'<div class="field-note" style="font-size:10.5px;">'+esc(note)+'</div>':'')+'</div>'
+        +'<div style="text-align:right;">'+triple(k,derived)+'</div></div>';
+    }).join('')
+    +CC_WILLING.map(([k,label])=>'<div style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;border-bottom:1px solid #F6F3EC;font-size:13px;">'
+        +'<div style="flex:1;min-width:0;"><b>'+esc(label)+'</b></div>'
+        +'<div style="text-align:right;">'+triple(k,null)+'</div></div>').join('')
+    +'<div style="display:flex;gap:8px;align-items:center;padding:6px 0;font-size:13px;">'
+    +'<b style="flex:1;">Spanish ability</b>'
+    +'<select style="font-size:12.5px;" onchange="ccSkillSpanish(\''+g.id+'\',this.value)">'
+    +['','none','basic','conversational','fluent'].map(v=>'<option value="'+v+'"'+((g.spanish_ability||'')===v?' selected':'')+'>'+(v||'unanswered')+'</option>').join('')
+    +'</select></div>'
+    +'<div class="field-note" style="font-size:10.5px;">Spanish-required care needs conversational or fluent; basic is not enough to conduct a care visit safely. Unanswered is distinct from none.</div>'
+    +'</div>';
+}
+async function ccSkillSet(cgId,key,val){
+  const g=(DATA.caregivers||[]).find(x=>String(x.id)===String(cgId)); if(!g) return;
+  g.skills=g.skills||{};
+  if(val===''){ delete g.skills[key]; }
+  else{
+    const ev=prompt('Evidence for "'+key.replace(/_/g,' ')+'" = '+val+':\ntype one of: training / observed / attested','attested');
+    if(ev===null) return;
+    const evidence=/^(training|observed|attested)$/i.test((ev||'').trim())?(ev||'').trim().toLowerCase():'attested';
+    const note=prompt('Optional evidence note (Enter to skip):','')||'';
+    g.skills[key]={ have:val, evidence, by:(ME&&(ME.name||ME.email))||'', at:new Date().toISOString(), note:note.trim() };
+  }
+  await persist('caregivers', g);
+  Object.keys(CC_PROF_CACHE).forEach(k=>{ if(k.startsWith('cg:')) delete CC_PROF_CACHE[k]; });
+  ccSkillsMount();
+}
+async function ccSkillSpanish(cgId,val){
+  const g=(DATA.caregivers||[]).find(x=>String(x.id)===String(cgId)); if(!g) return;
+  if(val==='') delete g.spanish_ability; else g.spanish_ability=val;
+  await persist('caregivers', g);
+  Object.keys(CC_PROF_CACHE).forEach(k=>{ if(k.startsWith('cg:')) delete CC_PROF_CACHE[k]; });
+  ccSkillsMount();
+}
+
+/* ── Enforcement switches (Settings) — explicit, independent, default OFF ── */
+async function ccEnfMount(){
+  const tab=document.getElementById('tab-settings'); if(!tab) return;
+  if(document.getElementById('ccEnfCard')) return;
+  const card=document.createElement('div');
+  card.id='ccEnfCard'; card.className='card'; card.style.cssText='padding:14px 16px;margin-bottom:14px;border-left:4px solid #8AA9C8;';
+  tab.prepend(card);
+  let st={};
+  try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle(); st=(data&&data.data)||{}; }catch(e){}
+  const SW=[['client_profile_enforcement','Client profile blocks Ready for Staffing'],
+            ['caregiver_assignment_enforcement','Caregiver standard blocks assignment'],
+            ['first_shift_profile_enforcement','Profile standard blocks First Shift']];
+  card.innerHTML='<b style="font-size:14px;color:var(--navy);">Profile standard — enforcement switches</b> '
+    +'<span style="font-size:.62rem;font-weight:800;border-radius:4px;padding:.08rem .3rem;background:#E4EDF6;color:#2F6FB0;">SHADOW MODE</span>'
+    +'<div class="field-note" style="margin:4px 0 8px;">All OFF: the standard evaluates and displays but blocks nothing. Turning one on is a deliberate act, made here, after the shadow proof — never implicit in a deploy. Grandfathered records are never blocked even when ON.</div>'
+    +SW.map(([k,label])=>'<label style="display:flex;gap:8px;align-items:center;font-size:13px;padding:3px 0;">'
+      +'<input type="checkbox" style="width:auto;" '+(st[k]===true?'checked':'')+' onchange="ccEnfSave(\''+k+'\',this.checked,this)"> '+label
+      +'</label>').join('');
+}
+async function ccEnfSave(key,val,el){
+  if(val && !confirm('Turn ON enforcement?\n\n"'+key+'" will start BLOCKING (grandfathered records excepted). The shadow proof should be reviewed first. Continue?')){ el.checked=false; return; }
+  let base={};
+  try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle(); base=(data&&data.data)||{}; }catch(e){}
+  const merged=Object.assign({}, base, { [key]: val===true });
+  const { error }=await sb.from('app_data').upsert({ key:'ops_settings', data:merged, updated_at:new Date().toISOString() }, { onConflict:'key' });
+  if(error){ alert('Could not save: '+error.message); el.checked=!val; return; }
+  DATA.ops_settings=merged;
+  try{ ccToast(val?('⚠ '+key+' is ON'):('✓ '+key+' is off — shadow only')); }catch(e){}
+}
+/* mount hooks: run after the originals without touching them.
+   c360Render lives in a LATER script tag, so it is wrapped lazily on the
+   first render rather than referenced at parse time. */
+(function(){
+  const _ra=renderActiveTab;
+  renderActiveTab=function(){ _ra();
+    try{ if(activeTab==='settings') ccEnfMount(); }catch(e){}
+    try{
+      if(!window.__ccSkillsWrapped && typeof window.c360Render==='function'){
+        window.__ccSkillsWrapped=true;
+        const _c3=window.c360Render;
+        window.c360Render=function(){ _c3(); try{ ccSkillsMount(); }catch(e){} };
+      }
+      if(activeTab==='cg360') setTimeout(ccSkillsMount,0);
+    }catch(e){}
+  };
+})();
 
 /* ---- SOC tab (the queue) ---- */
 let socActiveFilter='active';
@@ -28072,14 +28310,21 @@ async function cl360RenderInto(r, out, px){
   let circleHtml = '<div class="field-note">Loading circle…</div>';
 
   /* home & life, typed once */
+  /* Pets and entrance follow the answered-not-nonblank rule (her standard,
+     2026-09-20): blank is NOT "none". Details, or the explicit checkbox. */
   const homeFields = [
     [px+'cp_pets','Pets', prof.pets],
     [px+'cp_entrance','Entrance & parking', prof.entrance],
     [px+'cp_home','The home (stairs, equipment, quirks)', prof.home_notes],
     [px+'cp_life','Life story (who they were, what they love)', prof.life_story],
   ];
+  const noneBox = (id,checked,label)=>'<label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--text-muted);margin-top:2px;">'
+      + '<input type="checkbox" id="'+id+'" style="width:auto;" '+(checked?'checked':'')+'> '+label+'</label>';
   const home = homeFields.map(f=>'<label style="font-size:12.5px;font-weight:700;color:var(--text-muted);display:block;margin:8px 0 3px;">'+f[1]+'</label>'
-      + '<textarea id="'+f[0]+'" rows="2" style="width:100%;font-size:13px;">'+esc(f[2]||'')+'</textarea>').join('')
+      + '<textarea id="'+f[0]+'" rows="2" style="width:100%;font-size:13px;">'+esc(f[2]||'')+'</textarea>'
+      + (f[0]===px+'cp_pets'?noneBox(px+'cp_pets_none', prof.pets_none===true, 'Explicitly: no pets in the home (blank is not an answer)'):'')
+      + (f[0]===px+'cp_entrance'?noneBox(px+'cp_ent_none', prof.entrance_none===true, 'Explicitly: no special entrance instructions'):'')
+    ).join('')
     + '<label style="font-size:12.5px;font-weight:700;color:var(--text-muted);display:block;margin:8px 0 3px;">Care level (1 wellness · 2 personal · 3 complex)</label>'
     + '<select id="'+px+'cp_level" style="font-size:13px;"><option value="">not set</option>'
     + ['Level 1','Level 2','Level 3'].map(l=>'<option'+(prof.care_level===l?' selected':'')+'>'+l+'</option>').join('')+'</select>'
@@ -28156,9 +28401,11 @@ async function cl360SaveProfile(px){
   const r = CL360_CURRENT[px]; if(!r) return;
   const g = id => (document.getElementById(px+id)||{}).value || '';
   const prev = (DATA.client_profiles||[]).find(p=>p.id===cl360ProfileId(r)) || {};
+  const chk = id => !!((document.getElementById(px+id)||{}).checked);
   const item = { ...prev, id: cl360ProfileId(r), client_name: r.client_name,
     axiscare_client_id: r.axiscare_client_id || '',
     pets: g('cp_pets').trim(), entrance: g('cp_entrance').trim(),
+    pets_none: chk('cp_pets_none'), entrance_none: chk('cp_ent_none'),
     home_notes: g('cp_home').trim(), life_story: g('cp_life').trim(),
     care_level: g('cp_level'),
     updated_at: new Date().toISOString(), updated_by: (ME && ME.name) || '' };
@@ -29644,11 +29891,11 @@ window.covLoadShifts=function(){};
       { f:'client_called',           short:'Client OK',   label:'Called '+(c.client_name||'the client')+' & confirmed schedule',
         sub:'Share the caregiver\'s name, confirm start date and days/times of care.', needs:'caregiver_assigned', notes:'client_call_notes' },
       { f:'schedule_added',          short:'Scheduled',   label:'Schedule entered in AxisCare',
-        sub:'Enter the confirmed shifts so they appear on the caregiver\'s calendar. The scheduling note pushes to their AxisCare profile at this step.', needs:'client_called' },
+        sub:'Enter the confirmed shifts so they appear on the caregiver\'s calendar. The scheduling note pushes to their AxisCare profile at this step. While you\'re in there, set the client\'s Start Date on their AxisCare profile.', needs:'client_called' },
       { f:'evv_verified',            short:'EVV',         label:'EVV / setup verified for the first shift',
         sub:'Clock-in method works, address and phone are right, the caregiver knows how to check in.', needs:'schedule_added' },
       { f:'first_shift_done',        short:'First shift', label:'First shift completed',
-        sub:'The caregiver was in the home and care happened.', needs:'evv_verified' },
+        sub:'The caregiver was in the home and care happened. Before this step the shadow profile check verifies the AxisCare Start Date exists.', needs:'evv_verified' },
       { f:'followup_client_done',    short:'FU client',   label:'24–72h follow-up — client/family',
         sub:'How did the first visits feel? Catch anything wrong while it\'s small.', needs:'first_shift_done' },
       { f:'followup_caregiver_done', short:'FU caregiver',label:'24–72h follow-up — caregiver',
@@ -29699,7 +29946,8 @@ window.covLoadShifts=function(){};
         let extra='';
         if(s.f==='caregiver_assigned'){
           extra=(done&&!c.caregiver_assigned_name?'<input type="text" placeholder="Enter caregiver name…" onblur="cqCgName(\''+E(c.id)+'\',this.value)" onclick="event.stopPropagation()" style="margin-top:.3rem;width:100%;padding:.3rem .55rem;border:1.5px solid #86efac;border-radius:6px;font-family:inherit;font-size:.75rem;background:#fff;box-sizing:border-box">':'')
-               +(c.caregiver_assigned_name?'<div style="font-size:.73rem;font-weight:600;color:#166534;margin-top:.2rem">👤 '+E(c.caregiver_assigned_name)+'</div>':'');
+               +(c.caregiver_assigned_name?'<div style="font-size:.73rem;font-weight:600;color:#166534;margin-top:.2rem">👤 '+E(c.caregiver_assigned_name)
+                 +' <button class="linklike" style="font-size:.7rem;margin-left:.4rem" onclick="event.stopPropagation();cqCgCheck(\''+E(c.id)+'\')">🔎 Shadow readiness check</button></div>':'');
         }
         if(s.f==='schedule_added'&&c.sched_note_pushed_at)
           extra+='<div style="font-size:.67rem;color:#166534;margin-top:.15rem">📋 Scheduling note pushed to AxisCare '+fmtTs(c.sched_note_pushed_at)+'</div>';
@@ -29717,6 +29965,7 @@ window.covLoadShifts=function(){};
           +'</div></label>'+notes+'</div>';
       }).join('')
       +'</div>'
+      +'<div id="cq-prof-'+E(c.id)+'"></div>'
       +(allChecked&&!notesOk?'<div style="margin-top:.65rem;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:.5rem .75rem;font-size:.78rem;color:#dc2626">⚠ Please add the call notes on the two calls before completing the launch.</div>':'')
       +(canComplete?'<div style="margin-top:.65rem"><button onclick="cqComplete(\''+E(c.id)+'\')" style="padding:.4rem 1rem;background:#22c55e;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer">✅ Launch Complete</button></div>':'')
       +'</div></div>';
@@ -29796,6 +30045,19 @@ window.covLoadShifts=function(){};
       }
     }catch(e){}
     try{ if(typeof opEvent==='function'&&item) opEvent('launch_complete', item.client_name+' — first-caregiver launch complete'+((item.episode_n||1)>1?' (episode '+item.episode_n+')':'')); }catch(e){}
+  };
+  /* Shadow readiness check for the typed-in caregiver, against THIS client.
+     Display only — enforcement switches are off, and even on, blocking is a
+     later, deliberate change. */
+  window.cqCgCheck=async function(id){
+    const c=(QUEUE||[]).find(x=>x.id===id); if(!c||!c.caregiver_assigned_name) return;
+    const box=document.getElementById('cq-prof-'+id); if(!box) return;
+    box.innerHTML='<div class="field-note" style="margin-top:.6rem">Checking '+E(c.caregiver_assigned_name)+' against the shadow standard…</div>';
+    try{
+      const resp=await ccProfileFetch({ caregiver_eval:{ name:c.caregiver_assigned_name,
+        client_axiscare_id:c.axiscare_client_id||'' } }, 'cg:'+c.caregiver_assigned_name+':'+(c.axiscare_client_id||''));
+      ccProfileRenderInto(box, resp, { entity:'caregiver' });
+    }catch(e){ box.innerHTML='<div class="field-note" style="margin-top:.6rem">Could not run the check: '+E(String(e&&e.message||e))+'</div>'; }
   };
   window.cqDelete=async function(id){
     if(!confirm('Remove this client from the queue?')) return;
