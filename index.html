@@ -811,7 +811,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Marketing<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
     <span class="navrule"></span>
     <span class="navsec">Services</span>
-    <div class="ftab" data-g="nursing" onclick="ccGroupClick('nursing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nursing<span class="subtab-badge red" id="gb-nursing" style="display:none;"></span></div>
     <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
     <span class="navrule"></span>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Conversations<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
@@ -893,9 +892,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="liveschedule" onclick="switchTab('liveschedule')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Live Schedule</div>
     <div class="fpill" data-tab="evv" onclick="schedGo('evv')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV</div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
-  </div>
-  <div class="fsubbar" id="fsub-nursing">
-    <div class="fpill" data-tab="nursevisits" onclick="switchTab('nursevisits')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nurse Visits</div>
+    <!-- Nursing folded into Scheduling 2026-09-20 (her call): a GHE visit is
+         scheduled like any other visit. The badge keeps its gb-nursing id so
+         the overdue-GHE counter keeps working. -->
+    <div class="fpill" data-tab="nursevisits" onclick="switchTab('nursevisits')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nurse Visits<span class="subtab-badge red" id="gb-nursing" style="display:none;"></span></div>
     <div class="fpill" data-tab="nurseportal" onclick="switchTab('nurseportal')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Nurse Portal</div>
   </div>
   <div class="fsubbar" id="fsub-htorders">
@@ -7089,7 +7089,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],nursing:['nursevisits','nurseportal'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],caregivers:['trainhub','cgtraining','cgcompliance'],performance:['cg360','cgattendance','cgwriteups','supervisory'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -30067,6 +30067,9 @@ window.covLoadShifts=function(){};
                         /* IA revision 2026-09-15. The tab KEYS did not change,
                            so every old link keeps working; these are the new
                            names pointing at the same panels. */
+                        /* Nursing folded into Scheduling 2026-09-20; old
+                           #nursing links land on Nurse Visits. */
+                        nursing:'nursevisits',
                         cara:'coverage', 'coverage-help':'coverage',
                         schedwatch:'hourswatch', 'schedule-watch':'hourswatch',
                         'hours-watch':'hourswatch' };
