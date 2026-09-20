@@ -1318,13 +1318,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-step"><span class="num">A1</span><b>Brand-new referral</b> — the family calls us first and has never had HCBS services. We explain the program (DSDS decides eligibility, not us), get permission, and submit the referral in <b>FUSION</b>. DSDS assesses, and if approved, offers us the case.</div>
           <div class="guide-step"><span class="num">A2</span><b>PCCP transfer</b> — they already have services but want to switch to us. We get consent and enter the PCCP request in FUSION; DSDS coordinates the transfer and sends the authorization (a new assessment usually isn't needed).</div>
           <div class="guide-step"><span class="num">B</span><b>DSDS calls us</b> — the state offers us a case directly with the care plan and authorized hours. We decide whether we can staff it and notify DSDS.</div>
-          <div class="guide-step"><span class="num">→</span>From acceptance on, all three paths merge into the same start-of-care checklist, through to the 24–72 hour follow-up calls. The <b>evening coordinator</b> owns FUSION entry, authorizations and care-plan input; <b>daytime</b> owns the welcome call, caregiver match and scheduling.</div>
+          <div class="guide-step"><span class="num">→</span>From acceptance on, all three paths merge into the same checklist — authorization, care plan into AxisCare, welcome call, assessments, home safety — ending at <b>Ready for Staffing</b>. The <b>evening coordinator</b> owns FUSION entry, authorizations and care-plan input; <b>daytime</b> owns the welcome call and assessments. The moment a start is business-ready and the AxisCare client is linked, the first-caregiver launch opens by itself in <b>New Clients</b>, which owns everything from caregiver match through first shift and the 24–72 hour follow-ups.</div>
         </div>
       </details>
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Start of Care</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Every accepted case, from referral to first completed shift. Open the lead to check steps off.</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Every accepted case, from referral to Ready for Staffing. Open the lead to check steps off — the launch itself runs in New Clients.</div>
         </div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="socFilters">
@@ -4337,12 +4337,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
      when a new client is added in AxisCare, so the feed is untouched. -->
 <section class="tabpanel" id="tab-clientqueue">
 <details class="guide">
-<summary>📋 How This Tab Works — New Clients, Needs Scheduling ▼</summary>
+<summary>📋 How This Tab Works — the First-Caregiver Launch ▼</summary>
 <div class="guide-body">
-<div class="guide-step"><span class="num">1</span>When a new client is added in AxisCare, they appear here automatically (via Zapier) needing their first caregiver. This is the last stage of intake: the lead converted, the assessment is done, and now someone has to actually be in their home.</div>
-<div class="guide-step"><span class="num">2</span>Each client card is a four-step checklist, in order: assign a caregiver in AxisCare, call and brief the caregiver, call the client to confirm, then enter the schedule in AxisCare. Call notes are required on both calls, they're what saves you when anyone asks "what was agreed."</div>
-<div class="guide-step"><span class="num">3</span>When all four steps and both notes are done, <b>Mark Scheduling Complete</b>. That also pushes a scheduling summary note onto the client's AxisCare profile automatically.</div>
-<div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation + ALZ Training before their first client, check the Caregivers section before scheduling anyone new. And always check the Do-Not-Return log (Care Match Check-ins tab) before assigning.</div>
+<div class="guide-step"><span class="num">1</span>A launch opens here <b>on its own</b> when a lead's Start of Care reaches Ready for Staffing (all business steps done, AxisCare client linked). Clients created directly in AxisCare arrive through the safety net. There's no routine reason to add one by hand — the Launch Exception link exists for deliberate cases like a readmission where staff decides a new Start of Care isn't needed, and it requires a written reason.</div>
+<div class="guide-step"><span class="num">2</span>Each card is the whole launch, in order: assign the caregiver, brief the caregiver, confirm with the client (notes required on both calls — they're what saves you when anyone asks "what was agreed"), enter the schedule, verify EVV is ready, first shift completed, then the 24–72 hour follow-ups with the client AND the caregiver. Medicaid launches add the DSDS services-began notice.</div>
+<div class="guide-step"><span class="num">3</span>The scheduling summary note pushes to the client's AxisCare profile when the schedule step is confirmed. When every step and both notes are done, <b>Launch Complete</b> closes the episode. A client who is later discharged and returns gets a fresh episode (Episode 2, 3…) — history is never overwritten.</div>
+<div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation + ALZ Training before their first client, check the Caregivers section before scheduling anyone new. And always check the Do-Not-Return log (Care Match Check-ins tab) before assigning. Launch Complete is our operational finish line; whether a client is <i>active</i> is always AxisCare's call, on the Active Clients tab.</div>
 </div>
 </details>
 
@@ -4350,8 +4350,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div style="display:flex;align-items:center;gap:.6rem">
     <span style="font-size:1.1rem">🏠</span>
     <div>
-      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">New Clients — Needs Scheduling</div>
-      <div style="font-size:.72rem;color:var(--text-muted)">Populated automatically when a new client is added in AxisCare via Zapier.</div>
+      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">New Clients — First-Caregiver Launch</div>
+      <div style="font-size:.72rem;color:var(--text-muted)">Opens automatically when Start of Care reaches Ready for Staffing; runs through first shift and the 24–72h follow-ups.</div>
     </div>
   </div>
   <button class="primary" style="font-size:.75rem" onclick="cqRender(true)">↻ Refresh</button>
@@ -7453,7 +7453,7 @@ const CC_SECTION_TITLES = {
   soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
-  clientqueue:'New Clients — Needs Scheduling',
+  clientqueue:'New Clients — First-Caregiver Launch',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
@@ -9818,17 +9818,16 @@ async function lpConvertLead(){
     l.axiscare_client_id = data.client_id;
     l.converted_at = new Date().toISOString();
     await persist('leads', l);
-    // Staffing Hub scheduling queue — same table its AxisCare webhook feeds.
-    try{
-      await sb.from('client_queue').insert({
-        client_name: who.filter(Boolean).join(' '),
-        payer: l.funding_source || '',
-        schedule_notes: (l.ai_needs_summary || l.interest_notes || '').slice(0,300),
-        axiscare_client_id: data.client_id,
-      });
-    }catch(e){ /* queue insert is best-effort */ }
+    /* The direct client_queue insert that used to live here is retired
+       (2026-09-20): launch creation has ONE door, upsert_client_launch,
+       and the normal producer is Start of Care reaching Ready for
+       Staffing. If this lead's SOC is already business-ready, linking
+       the AxisCare id just now is what completes the handoff: */
+    try{ if(l.soc) await socReadyCheck(l); }catch(e){}
     renderLeadProfile(); renderLeads();
-    alert('Done! Client #'+data.client_id+' created in AxisCare'+(data.note_attached?' with the intake note attached':' (note could not attach — add it by hand)')+', and they\'re in the Staffing Hub scheduling queue.\n\nLast hand step: enter the attributes on their AxisCare profile (checklist is in the note).');
+    alert('Done! Client #'+data.client_id+' created in AxisCare'+(data.note_attached?' with the intake note attached':' (note could not attach — add it by hand)')
+      +(l.soc&&l.soc.launch_upserted_at?'\n\nStart of Care was ready, so their first-caregiver launch just opened in New Clients.':'\n\nWhen their Start of Care reaches Ready for Staffing, the New Clients launch opens on its own.')
+      +'\n\nLast hand step: enter the attributes on their AxisCare profile (checklist is in the note).');
   }catch(e){
     alert('Could not convert: '+(e&&e.message?e.message:'error'));
   }finally{
@@ -10871,23 +10870,15 @@ async function savePlan(pushToAxisCare){
   renderAssessments();
 }
 
-/* Hands a finalized client off to Staffing Hub's own "New Clients — Needs
-   Scheduling" queue (the client_queue table Staffing Hub already reads from
-   via its AxisCare webhook). Writing here directly means the AxisCare Zap
-   isn't the only way a client can land in that queue — this codepath is
-   equally valid since it's the exact same table/shape. */
+/* DORMANT (2026-09-20). This used to insert a client_queue row when a care
+   plan was finalized — one of five uncoordinated producers the launch-episode
+   restructure retired. Launch creation now has ONE door
+   (upsert_client_launch) and its normal producer is Start of Care reaching
+   Ready for Staffing. Kept, inert, in case a review decides plan
+   finalization should nudge the launch — in which case it would call the
+   RPC, never the table. */
 async function handOffToStaffingHub(assessment, plan){
-  if(!sb || !assessment) return;
-  try{
-    await sb.from('client_queue').insert({
-      client_name: assessment.client_name,
-      start_date: plan.start_date || '',
-      auth_hours: plan.recommended_hours_per_week || '',
-      payer: assessment.payer || '',
-      schedule_notes: [plan.recommended_frequency, plan.services_recommended].filter(Boolean).join(' — '),
-      axiscare_client_id: assessment.axiscare_client_id || ''
-    });
-  }catch(e){ /* client_queue table may not exist yet in this project — non-fatal, Staffing Hub setup still pending */ }
+  return; /* retired — see the launch-episodes restructure */
 }
 
 /* ---------------- CLIENT CHECK-INS ---------------- */
@@ -13140,6 +13131,14 @@ const SOC_PATHWAYS = {
     ['Service agreement signed','day'],
   ]},
 };
+/* ── Lifecycle split (2026-09-20, her restructure) ────────────────────────
+   Start of Care now ends at READY FOR STAFFING: intake, payer requirements,
+   authorization, assessments, and care-plan readiness. Everything from
+   caregiver match through first shift and the 24–72h follow-ups is the
+   NEW CLIENT LAUNCH and lives on the queue card in New Clients.
+   Step ids m0–m5 are unchanged, so CS_STEP_DOMAIN still routes them.
+   Records started before this change carry their own step arrays and keep
+   rendering the old staffing steps (read-only, marked as moved). */
 const SOC_MERGED = [
   ['Review the authorization & DSDS care plan','evening','med'],
   ['Enter the authorization in AxisCare','evening','med'],
@@ -13147,12 +13146,56 @@ const SOC_MERGED = [
   ['Welcome call — welcome them and verify information','day','all'],
   ['RN assessment / agency admission visit (if required)','day','med'],
   ['Home safety assessment','day','all'],
-  ['Match with the right caregiver','day','all'],
-  ['Schedule services in AxisCare & verify EVV readiness','day','all'],
-  ['First shift completed within the required timeframe','day','all'],
-  ['24–72 hour follow-up calls — participant AND caregiver','day','all'],
-  ['Notify the DSDS case manager services began; set ongoing supervision & QA cadence','evening','med'],
 ];
+/* Steps that OLD records still carry but that moved to the launch. The id
+   sets differ because private pay's merged list was filtered before
+   numbering (PP:m3 was "caregiver match"; A1:m3 is "welcome call"). */
+function socIsLaunchStep(pathway, id){
+  return (pathway==='PP' ? ['m3','m4','m5','m6'] : ['m6','m7','m8','m9','m10']).includes(String(id));
+}
+function socPreSteps(soc){ return (soc.steps||[]).filter(s=>!socIsLaunchStep(soc.pathway,s.id)); }
+/* Business readiness is deliberately separate from the AxisCare technical
+   handoff: "not ready for staffing" and "ready, but our AxisCare setup is
+   incomplete" must be distinguishable at a glance. */
+function socBusinessReady(soc){
+  const pre=socPreSteps(soc);
+  return pre.length>0 && pre.every(s=>s.done_at);
+}
+/* Ready-for-Staffing transition + launch handoff. Runs after every step
+   save. Old records (any that still carry launch steps) get the ready
+   stamp but are NEVER auto-handed to the queue — their launch may already
+   be finished there, and resurrecting it would be worse than asking. */
+async function socReadyCheck(l){
+  if(!l || !l.soc || l.soc.abandoned) return;
+  if(!socBusinessReady(l.soc)) return;
+  if(!l.soc.ready_for_staffing_at){
+    l.soc.ready_for_staffing_at=new Date().toISOString();
+    l.soc.ready_by=(typeof ME!=='undefined' && (ME.name||ME.email))||'';
+    await persist('leads', l);
+    try{ if(typeof opEvent==='function') opEvent('soc_ready', ((l.first_name||'')+' '+(l.last_name||'')).trim()+' is ready for staffing'); }catch(e){}
+  }
+  if(l.soc.launch_upserted_at) return;
+  if((l.soc.steps||[]).some(s=>socIsLaunchStep(l.soc.pathway,s.id))) return;  // pre-change record
+  const ax=String(l.axiscare_client_id||'').trim();
+  if(!ax) return;  // renders as "Ready for Staffing — AxisCare client needed"
+  const who=((l.client_first_name||'')+' '+(l.client_last_name||'')).trim()
+         || ((l.first_name||'')+' '+(l.last_name||'')).trim() || 'Client '+ax;
+  try{
+    const { data, error } = await sb.rpc('upsert_client_launch', { p:{
+      client_name: who,
+      payer: l.funding_source||'',
+      schedule_notes: (l.ai_needs_summary||l.interest_notes||'').slice(0,300),
+      axiscare_client_id: ax,
+      source: 'soc_handoff',
+      created_by: (typeof ME!=='undefined' && (ME.name||ME.email))||'',
+    }});
+    if(error){ console.warn('launch handoff failed:', error.message); return; }
+    l.soc.launch_upserted_at=new Date().toISOString();
+    l.soc.launch_episode=(data&&data.episode_n)||1;
+    await persist('leads', l);
+    try{ if(typeof ccToast==='function') ccToast('✓ '+who+' handed to New Clients'+(((data&&data.episode_n)||1)>1?' — launch episode '+data.episode_n:'')); }catch(e){}
+  }catch(e){ console.warn('launch handoff error:', e); }
+}
 function socBuildSteps(pathway){
   /* Stamped at creation so a record's ownership is fixed the day it is made
      and cannot move when a label is reworded later. */
@@ -13373,7 +13416,10 @@ function csEvaluate(leads, items, nowIso){
   return out;
 }
 
-function socCurrentStep(soc){ return (soc.steps||[]).find(s=>!s.done_at)||null; }
+/* Current step and completion are judged over the PRE-STAFFING steps only:
+   launch steps on old records belong to New Clients now, and a record must
+   not read as forever-stuck on work that moved. */
+function socCurrentStep(soc){ return socPreSteps(soc).find(s=>!s.done_at)||null; }
 function socWaitingDays(soc){
   const cur=socCurrentStep(soc); if(!cur) return 0;
   const done=(soc.steps||[]).filter(s=>s.done_at).map(s=>s.done_at).sort();
@@ -13400,8 +13446,11 @@ function renderLpSoc(){
       +'<button class="primary" style="margin-top:8px;" onclick="socStart()">▶ Begin Start of Care</button>';
     return;
   }
-  const soc=l.soc, total=soc.steps.length, done=soc.steps.filter(s=>s.done_at).length;
-  prog.textContent = done+' of '+total+' steps'+(done===total?' — complete 🎉':'');
+  const soc=l.soc, pre=socPreSteps(soc), total=pre.length, done=pre.filter(s=>s.done_at).length;
+  const ready=socBusinessReady(soc);
+  const hasAx=!!String(l.axiscare_client_id||'').trim();
+  const oldRecord=(soc.steps||[]).some(s=>socIsLaunchStep(soc.pathway,s.id));
+  prog.textContent = done+' of '+total+' steps'+(ready?' — ready for staffing':'');
   const cur=socCurrentStep(soc);
   const stuck=socIsStuck(soc);
   body.innerHTML =
@@ -13409,11 +13458,32 @@ function renderLpSoc(){
     +'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">'+esc((SOC_PATHWAYS[soc.pathway]||{}).label||soc.pathway)+'</span>'
     +(stuck?'<span class="tag-chip" style="background:var(--red-bg);color:var(--red);">⚠ waiting '+socWaitingDays(soc)+' days on the current step</span>':'')
     +'</div>'
-    +'<div style="height:6px;background:#faf9f6;border-radius:99px;overflow:hidden;margin-bottom:10px;"><i style="display:block;height:100%;width:'+Math.round(done/total*100)+'%;background:var(--green);"></i></div>'
+    /* Business readiness vs the AxisCare technical handoff — two different
+       truths, shown as two different banners. */
+    +(ready && soc.launch_upserted_at
+      ?'<div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:8px;padding:8px 12px;font-size:13px;color:#166534;margin-bottom:10px;">✅ Ready for Staffing — handed to <b>New Clients</b>'+((soc.launch_episode||1)>1?' (launch episode '+soc.launch_episode+')':'')+'. The first-caregiver launch is tracked there.</div>'
+      :ready && oldRecord
+      ?'<div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:8px;padding:8px 12px;font-size:13px;color:#166534;margin-bottom:10px;">✅ Ready for Staffing. This start predates the launch split — its staffing work stays where it already is in <b>New Clients</b>.</div>'
+      :ready && !hasAx
+      ?'<div style="background:#FFFBEB;border:1.5px solid #F0A63A;border-radius:8px;padding:8px 12px;font-size:13px;color:#92400E;margin-bottom:10px;"><b>⚠ Ready for Staffing — AxisCare client needed.</b> All the business steps are done; create or link their AxisCare client (the Convert button below) and the launch opens in New Clients on its own.</div>'
+      :ready
+      ?'<div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:8px;padding:8px 12px;font-size:13px;color:#166534;margin-bottom:10px;">✅ Ready for Staffing — opening the New Clients launch…</div>'
+      :'')
+    +'<div style="height:6px;background:#faf9f6;border-radius:99px;overflow:hidden;margin-bottom:10px;"><i style="display:block;height:100%;width:'+Math.round(total?done/total*100:0)+'%;background:var(--green);"></i></div>'
     +soc.steps.map((s,i)=>{
       const isCur=cur&&s.id===cur.id;
+      const movedStep=socIsLaunchStep(soc.pathway,s.id);
+      if(movedStep && !s.done_at){
+        /* Historical record, staffing step not yet done here: read-only
+           pointer, because that work now lives on the New Clients card. */
+        return '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:8px;font-size:13px;opacity:.65;">'
+          +'<span style="width:16px;text-align:center;">→</span>'
+          +'<div style="flex:1;min-width:0;color:var(--text-muted);">'+esc(s.label)
+          +'<div class="field-note">Moved — tracked in New Clients now</div></div>'
+          +socRoleChip(s.role)+'</div>';
+      }
       return '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:8px;font-size:13px;'+(isCur?'background:#F4F9F6;border:1px solid #CBE3D4;':'')+'">'
-        +'<input type="checkbox" style="width:auto;margin-top:2px;" '+(s.done_at?'checked':'')+' onchange="socToggleStep('+i+',this.checked)">'
+        +'<input type="checkbox" style="width:auto;margin-top:2px;" '+(s.done_at?'checked':'')+(movedStep?' disabled':'')+' onchange="socToggleStep('+i+',this.checked)">'
         +'<div style="flex:1;min-width:0;'+(s.done_at?'color:var(--text-muted);':'')+'">'
         +esc(s.label)
         +(s.done_at?'<div class="field-note">✓ '+new Date(s.done_at).toLocaleDateString()+(s.done_by?' — '+esc(s.done_by):'')+'</div>':'')
@@ -13430,14 +13500,17 @@ async function socStart(){
   const pathway=document.getElementById('lp_soc_pathway').value;
   lpLead.soc={ pathway, started_at:new Date().toISOString(), started_by:ME.name||ME.email, steps:socBuildSteps(pathway) };
   await persist('leads', lpLead);
+  await socReadyCheck(lpLead);
   renderLpSoc(); updateSocBadge();
 }
 async function socToggleStep(i,checked){
   if(!lpLead||!lpLead.soc) return;
   const s=lpLead.soc.steps[i]; if(!s) return;
+  if(socIsLaunchStep(lpLead.soc.pathway,s.id)) return;  // moved to New Clients
   s.done_at=checked?new Date().toISOString():null;
   s.done_by=checked?(ME.name||ME.email):null;
   await persist('leads', lpLead);
+  await socReadyCheck(lpLead);
   renderLpSoc(); updateSocBadge();
 }
 async function socStepNote(i){
@@ -13468,12 +13541,29 @@ function renderSocTab(){
   const wrap=document.getElementById('socList'); if(!wrap) return;
   const esc=escapeHtmlComms;
   let rows=DATA.leads.filter(l=>l.soc);
-  if(socActiveFilter==='done') rows=rows.filter(l=>!socCurrentStep(l.soc));
+  /* "Done" means the start's own work is finished: business-ready AND the
+     launch is where it belongs (handed to New Clients, or a pre-split
+     record whose staffing already lives there). Business-ready but
+     AxisCare-incomplete is NOT done — it stays in front of people. */
+  const socIsFinished=l=>{
+    if(!socBusinessReady(l.soc)) return false;
+    const old=(l.soc.steps||[]).some(s=>socIsLaunchStep(l.soc.pathway,s.id));
+    return !!(l.soc.launch_upserted_at||old);
+  };
+  if(socActiveFilter==='done') rows=rows.filter(socIsFinished);
   else{
-    rows=rows.filter(l=>socCurrentStep(l.soc));
+    rows=rows.filter(l=>!socIsFinished(l));
     if(socActiveFilter==='stuck') rows=rows.filter(l=>socIsStuck(l.soc));
-    if(socActiveFilter==='evening') rows=rows.filter(l=>socCurrentStep(l.soc).role==='evening');
-    if(socActiveFilter==='day') rows=rows.filter(l=>socCurrentStep(l.soc).role==='day');
+    if(socActiveFilter==='evening') rows=rows.filter(l=>{const c=socCurrentStep(l.soc); return c&&c.role==='evening';});
+    if(socActiveFilter==='day') rows=rows.filter(l=>{const c=socCurrentStep(l.soc); return c&&c.role==='day';});
+    /* Self-heal: ready with an AxisCare id but no launch yet (a handoff
+       that failed mid-flight) retries quietly whenever the tab renders. */
+    rows.forEach(l=>{
+      if(socBusinessReady(l.soc) && !l.soc.launch_upserted_at
+         && String(l.axiscare_client_id||'').trim()
+         && !(l.soc.steps||[]).some(s=>socIsLaunchStep(l.soc.pathway,s.id)))
+        socReadyCheck(l);
+    });
   }
   rows.sort((a,b)=>(socIsStuck(b.soc)?1:0)-(socIsStuck(a.soc)?1:0) || socWaitingDays(b.soc)-socWaitingDays(a.soc));
   if(!rows.length){
@@ -13482,9 +13572,11 @@ function renderSocTab(){
     return;
   }
   wrap.innerHTML=rows.map(l=>{
-    const soc=l.soc, total=soc.steps.length, done=soc.steps.filter(s=>s.done_at).length;
+    const soc=l.soc, pre=socPreSteps(soc), total=pre.length, done=pre.filter(s=>s.done_at).length;
     const cur=socCurrentStep(soc), stuck=socIsStuck(soc), wd=socWaitingDays(soc);
-    return '<div class="card" style="padding:14px 16px;margin-bottom:10px;'+(stuck?'border-color:#E8B4B4;background:#FFFBFA;':'')+'">'
+    const ready=socBusinessReady(soc), hasAx=!!String(l.axiscare_client_id||'').trim();
+    const needsAx=ready && !hasAx && !soc.launch_upserted_at;
+    return '<div class="card" style="padding:14px 16px;margin-bottom:10px;'+(stuck?'border-color:#E8B4B4;background:#FFFBFA;':needsAx?'border-color:#F0C36A;background:#FFFDF7;':'')+'">'
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
       +'<b style="color:var(--navy);">'+esc((l.first_name||'')+' '+(l.last_name||''))+'</b>'
       +'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">'+esc((SOC_PATHWAYS[soc.pathway]||{}).label||soc.pathway)+'</span>'
@@ -13492,13 +13584,17 @@ function renderSocTab(){
       +'<span class="field-note">'+done+'/'+total+'</span>'
       +'<button class="linklike" onclick="openLeadProfile(\''+l.id+'\')">Open</button>'
       +'</div>'
-      +'<div style="height:5px;background:#faf9f6;border-radius:99px;overflow:hidden;margin:8px 0;"><i style="display:block;height:100%;width:'+Math.round(done/total*100)+'%;background:'+(stuck?'var(--red)':'var(--green)')+';"></i></div>'
+      +'<div style="height:5px;background:#faf9f6;border-radius:99px;overflow:hidden;margin:8px 0;"><i style="display:block;height:100%;width:'+Math.round(total?done/total*100:0)+'%;background:'+(stuck?'var(--red)':'var(--green)')+';"></i></div>'
       +(cur
         ?'<div style="display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap;">'
           +(stuck?'<span style="color:var(--red);font-weight:700;">⚠</span>':'<span>→</span>')
           +'<span style="flex:1;min-width:0;">'+esc(cur.label)+'</span>'+socRoleChip(cur.role)
           +'<span class="field-note">'+(wd?wd+' day'+(wd===1?'':'s')+' on this step':'started today')+'</span></div>'
-        :'<div style="font-size:13px;color:var(--green);font-weight:600;">✓ Complete — services running'+(l.status!=='Converted'?' (mark the lead Converted if you haven\'t)':'')+'</div>')
+        :needsAx
+        ?'<div style="font-size:13px;color:#92400E;font-weight:600;">⚠ Ready for Staffing — AxisCare client needed. Open them and use Convert; the launch follows on its own.</div>'
+        :soc.launch_upserted_at
+        ?'<div style="font-size:13px;color:var(--green);font-weight:600;">✅ Ready for Staffing — launch'+((soc.launch_episode||1)>1?' episode '+soc.launch_episode:'')+' is in New Clients.</div>'
+        :'<div style="font-size:13px;color:var(--green);font-weight:600;">✓ Business steps complete'+(l.status!=='Converted'?' (mark the lead Converted if you haven\'t)':'')+'</div>')
       +'</div>';
   }).join('');
 }
@@ -29467,6 +29563,9 @@ window.covLoadShifts=function(){};
       l.converted_at=l.converted_at||new Date().toISOString();
       if(row.axiscare_client_id&&!l.axiscare_client_id) l.axiscare_client_id=String(row.axiscare_client_id);
       await persist('leads', l);
+      /* The backfilled AxisCare id may be the last thing a business-ready
+         SOC was waiting on — complete its handoff (idempotent). */
+      try{ if(l.soc && typeof socReadyCheck==='function') await socReadyCheck(l); }catch(e){}
       flipped++;
     }
     if(flipped){ try{ if(activeTab==='leads') renderLeads(); }catch(e){} }
@@ -29478,11 +29577,11 @@ window.covLoadShifts=function(){};
     const completed=all.filter(c=>c.status==='complete');
     let html='';
     if(!pending.length){
-      html+='<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:1.25rem;text-align:center;color:#166534;font-size:.82rem;margin-bottom:.75rem">✅ No pending clients — all scheduled!'
-        +'<div style="font-size:.7rem;margin-top:.3rem;color:var(--text-muted)">New clients appear here automatically when added in AxisCare via Zapier. <a href="#" onclick="cqAddManual();return false">Or add one manually →</a></div></div>';
+      html+='<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:1.25rem;text-align:center;color:#166534;font-size:.82rem;margin-bottom:.75rem">✅ No launches in progress.'
+        +'<div style="font-size:.7rem;margin-top:.3rem;color:var(--text-muted)">A launch opens here on its own when a lead\'s Start of Care reaches Ready for Staffing. <a href="#" onclick="cqAddManual();return false">Add Launch Exception →</a></div></div>';
     } else {
       html+=pending.map(card).join('');
-      html+='<div style="font-size:.7rem;color:var(--text-muted);text-align:right;margin-bottom:.5rem"><a href="#" onclick="cqAddManual();return false">+ Add client manually</a></div>';
+      html+='<div style="font-size:.7rem;color:var(--text-muted);text-align:right;margin-bottom:.5rem"><a href="#" onclick="cqAddManual();return false">+ Add Launch Exception</a></div>';
     }
     if(completed.length){
       html+='<div style="border:1.5px solid #d1fae5;border-radius:10px;overflow:hidden;margin-top:.5rem">'
@@ -29491,6 +29590,7 @@ window.covLoadShifts=function(){};
         +'<div id="cq-done-body" style="display:none;padding:.65rem .9rem">'
         +completed.map(c=>'<div style="display:flex;align-items:center;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid #d1fae5;font-size:.78rem;color:var(--navy)">'
           +'<div><span style="font-weight:600">'+E(c.client_name)+'</span>'
+          +((c.episode_n||1)>1?'<span style="font-size:.68rem;background:#EDE4F5;color:#6B4B9E;border-radius:4px;padding:.1rem .35rem;margin-left:.35rem;font-weight:700">Episode '+E(c.episode_n)+'</span>':'')
           +(c.caregiver_assigned_name?'<span style="color:var(--text-muted);margin-left:.5rem">→ '+E(c.caregiver_assigned_name)+'</span>':'')
           +(c.payer?'<span style="font-size:.68rem;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:.1rem .35rem;margin-left:.35rem">'+E(c.payer)+'</span>':'')+'</div>'
           +'<div style="display:flex;align-items:center;gap:.5rem">'
@@ -29509,70 +29609,128 @@ window.covLoadShifts=function(){};
     if(body) body.style.display=expanded.has(id)?'block':'none';
     if(arrow) arrow.textContent=expanded.has(id)?'▲':'▼';
   };
+  /* ── The launch checklist, data-driven (2026-09-20 restructure) ────────
+     New Clients owns the ENTIRE first-caregiver launch: assign, brief,
+     confirm, schedule, EVV-verify, first shift, both 24–72h follow-ups,
+     and (Medicaid only) the DSDS services-began notification. The note
+     discipline on the two calls is unchanged — those notes are what saves
+     you when anyone asks "what was agreed." */
+  function cqIsMedicaid(c){ return /medicaid|ihs|dsds/i.test(String(c.payer||'')); }
+  function cqLaunchSteps(c){
+    const s=[
+      { f:'caregiver_assigned',      short:'Assigned',    label:'Caregiver assigned in AxisCare',
+        sub:'Match and assign a caregiver to this client\'s shifts in AxisCare.', needs:null },
+      { f:'caregiver_called',        short:'CG Briefed',  label:'Called & briefed '+(c.caregiver_assigned_name||'the assigned caregiver'),
+        sub:'Introduce the client, review care plan and schedule, confirm start date.', needs:'caregiver_assigned', notes:'caregiver_call_notes' },
+      { f:'client_called',           short:'Client OK',   label:'Called '+(c.client_name||'the client')+' & confirmed schedule',
+        sub:'Share the caregiver\'s name, confirm start date and days/times of care.', needs:'caregiver_assigned', notes:'client_call_notes' },
+      { f:'schedule_added',          short:'Scheduled',   label:'Schedule entered in AxisCare',
+        sub:'Enter the confirmed shifts so they appear on the caregiver\'s calendar. The scheduling note pushes to their AxisCare profile at this step.', needs:'client_called' },
+      { f:'evv_verified',            short:'EVV',         label:'EVV / setup verified for the first shift',
+        sub:'Clock-in method works, address and phone are right, the caregiver knows how to check in.', needs:'schedule_added' },
+      { f:'first_shift_done',        short:'First shift', label:'First shift completed',
+        sub:'The caregiver was in the home and care happened.', needs:'evv_verified' },
+      { f:'followup_client_done',    short:'FU client',   label:'24–72h follow-up — client/family',
+        sub:'How did the first visits feel? Catch anything wrong while it\'s small.', needs:'first_shift_done' },
+      { f:'followup_caregiver_done', short:'FU caregiver',label:'24–72h follow-up — caregiver',
+        sub:'How is the match from their side? Anything they need?', needs:'first_shift_done' },
+    ];
+    if(cqIsMedicaid(c)) s.push({ f:'dsds_notified', short:'DSDS', label:'Notify the DSDS case manager services began',
+        sub:'Services-began notice, plus the ongoing supervision & QA cadence.', needs:'first_shift_done' });
+    return s;
+  }
   function card(c){
-    const allChecked=c.caregiver_assigned&&c.caregiver_called&&c.client_called&&c.schedule_added;
+    const STEPS=cqLaunchSteps(c);
+    const allChecked=STEPS.every(s=>c[s.f]);
     const notesOk=(c.caregiver_call_notes||'').trim()&&(c.client_call_notes||'').trim();
     const canComplete=allChecked&&notesOk;
-    const progress=[c.caregiver_assigned,c.caregiver_called,c.client_called,c.schedule_added].filter(Boolean).length;
-    const dateLabel=c.start_date?new Date(c.start_date+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'TBD';
-    if(progress>0&&progress<4&&!expanded.has(c.id)) expanded.add(c.id);
+    const progress=STEPS.filter(s=>c[s.f]).length;
+    const stepTotal=STEPS.length;
+    const dateLabel=c.start_date?new Date(String(c.start_date).slice(0,10)+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'TBD';
+    if(progress>0&&progress<stepTotal&&!expanded.has(c.id)) expanded.add(c.id);
     if(allChecked&&!notesOk&&!expanded.has(c.id)) expanded.add(c.id);
     const isOpen=expanded.has(c.id);
     const fmtTs=ts=>ts?new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
-    const steps=[c.caregiver_assigned,c.caregiver_called,c.client_called,c.schedule_added];
-    const stepLabels=['Assigned','CG Called','Client Called','Scheduled'];
-    const stepDots=steps.map((done,i)=>'<span title="'+stepLabels[i]+'" style="display:inline-flex;align-items:center;justify-content:center;width:1.2rem;height:1.2rem;border-radius:50%;font-size:.62rem;font-weight:700;background:'+(done?'#22c55e':'#F3EDE3')+';color:'+(done?'#fff':'#A89C8B')+'">'+(done?'✓':(i+1))+'</span>').join('');
+    const stepDots=STEPS.map((s,i)=>'<span title="'+E(s.short)+'" style="display:inline-flex;align-items:center;justify-content:center;width:1.2rem;height:1.2rem;border-radius:50%;font-size:.62rem;font-weight:700;background:'+(c[s.f]?'#22c55e':'#F3EDE3')+';color:'+(c[s.f]?'#fff':'#A89C8B')+'">'+(c[s.f]?'✓':(i+1))+'</span>').join('');
     const borderColor=canComplete?'#fde68a':allChecked&&!notesOk?'#fca5a5':progress>0?'#86efac':'#F3EDE3';
-    const cgNotes=c.caregiver_called?'<div style="margin-top:.45rem" onclick="event.stopPropagation()">'
-      +(c.caregiver_called_at?'<div style="font-size:.67rem;color:var(--text-muted);margin-bottom:.25rem">✓ Completed '+fmtTs(c.caregiver_called_at)+'</div>':'')
-      +'<textarea rows="2" placeholder="Required — notes from caregiver call (confirmed schedule, any concerns…)" onblur="cqNotes(\''+E(c.id)+'\',\'caregiver_call_notes\',this.value)" style="width:100%;padding:.35rem .55rem;border:1.5px solid '+((c.caregiver_call_notes||'').trim()?'#86efac':'#fca5a5')+';border-radius:6px;font-family:inherit;font-size:.74rem;resize:vertical;box-sizing:border-box;background:#fff">'+E(c.caregiver_call_notes||'')+'</textarea>'
-      +(!(c.caregiver_call_notes||'').trim()?'<div style="font-size:.68rem;color:#dc2626;margin-top:.15rem">⚠ Notes required</div>':'')+'</div>':'';
-    const clNotes=c.client_called?'<div style="margin-top:.45rem" onclick="event.stopPropagation()">'
-      +(c.client_called_at?'<div style="font-size:.67rem;color:var(--text-muted);margin-bottom:.25rem">✓ Completed '+fmtTs(c.client_called_at)+'</div>':'')
-      +'<textarea rows="2" placeholder="Required — notes from client call (schedule confirmed, client reaction, anything to flag…)" onblur="cqNotes(\''+E(c.id)+'\',\'client_call_notes\',this.value)" style="width:100%;padding:.35rem .55rem;border:1.5px solid '+((c.client_call_notes||'').trim()?'#86efac':'#fca5a5')+';border-radius:6px;font-family:inherit;font-size:.74rem;resize:vertical;box-sizing:border-box;background:#fff">'+E(c.client_call_notes||'')+'</textarea>'
-      +(!(c.client_call_notes||'').trim()?'<div style="font-size:.68rem;color:#dc2626;margin-top:.15rem">⚠ Notes required</div>':'')+'</div>':'';
+    const noteBox=(field,placeholder,doneTs)=>'<div style="margin-top:.45rem" onclick="event.stopPropagation()">'
+      +(doneTs?'<div style="font-size:.67rem;color:var(--text-muted);margin-bottom:.25rem">✓ Completed '+fmtTs(doneTs)+'</div>':'')
+      +'<textarea rows="2" placeholder="'+placeholder+'" onblur="cqNotes(\''+E(c.id)+'\',\''+field+'\',this.value)" style="width:100%;padding:.35rem .55rem;border:1.5px solid '+((c[field]||'').trim()?'#86efac':'#fca5a5')+';border-radius:6px;font-family:inherit;font-size:.74rem;resize:vertical;box-sizing:border-box;background:#fff">'+E(c[field]||'')+'</textarea>'
+      +(!(c[field]||'').trim()?'<div style="font-size:.68rem;color:#dc2626;margin-top:.15rem">⚠ Notes required</div>':'')+'</div>';
     return '<div style="background:#fff;border:2px solid '+borderColor+';border-radius:10px;margin-bottom:.5rem;overflow:hidden">'
       +'<div onclick="cqToggle(\''+E(c.id)+'\')" style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;cursor:pointer;user-select:none;'+(isOpen?'border-bottom:1.5px solid #FAF9F6':'')+'">'
       +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">'
       +'<span style="font-size:.88rem;font-weight:700;color:var(--navy);white-space:nowrap">'+E(c.client_name)+'</span>'
+      +((c.episode_n||1)>1?'<span title="This client has launched before — discharged and returned" style="font-size:.65rem;background:#EDE4F5;color:#6B4B9E;border-radius:4px;padding:.1rem .35rem;font-weight:700;white-space:nowrap">Episode '+E(c.episode_n)+'</span>':'')
+      +(c.source==='exception'?'<span title="'+E(c.exception_reason||'Launch exception')+'" style="font-size:.65rem;background:#FFF7ED;color:#92400E;border-radius:4px;padding:.1rem .35rem;font-weight:700;white-space:nowrap">Exception</span>':'')
       +(c.payer?'<span style="font-size:.65rem;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:.1rem .35rem;font-weight:600;white-space:nowrap">'+E(c.payer)+'</span>':'')
       +(c.auth_hours?'<span style="font-size:.65rem;background:#f0fdf4;color:#166534;border-radius:4px;padding:.1rem .35rem;font-weight:600;white-space:nowrap">'+E(c.auth_hours)+'</span>':'')
       +'<span style="font-size:.65rem;color:var(--text-muted);white-space:nowrap">Start: '+dateLabel+'</span></div>'
       +(c.caregiver_assigned_name?'<div style="font-size:.7rem;color:#166534;margin-top:.15rem">👤 '+E(c.caregiver_assigned_name)+'</div>':'')+'</div>'
       +'<div style="display:flex;align-items:center;gap:.5rem;flex-shrink:0"><div style="display:flex;gap:.2rem">'+stepDots+'</div>'
-      +'<span style="font-size:.7rem;font-weight:700;color:'+(progress===4?'#22c55e':'#92400e')+';background:'+(progress===4?'#f0fdf4':'#fff7ed')+';border-radius:5px;padding:.15rem .45rem;white-space:nowrap">'+progress+'/4</span>'
+      +'<span style="font-size:.7rem;font-weight:700;color:'+(progress===stepTotal?'#22c55e':'#92400e')+';background:'+(progress===stepTotal?'#f0fdf4':'#fff7ed')+';border-radius:5px;padding:.15rem .45rem;white-space:nowrap">'+progress+'/'+stepTotal+'</span>'
       +'<button onclick="event.stopPropagation();cqDelete(\''+E(c.id)+'\')" style="background:none;border:none;cursor:pointer;font-size:.8rem;color:#E8E2D8;padding:.1rem .25rem;line-height:1" title="Remove">✕</button>'
       +'<span id="cq-arrow-'+E(c.id)+'" style="font-size:.65rem;color:var(--text-muted);min-width:.7rem;text-align:center">'+(isOpen?'▲':'▼')+'</span></div></div>'
       +'<div id="cq-body-'+E(c.id)+'" style="display:'+(isOpen?'block':'none')+';padding:.75rem .9rem">'
       +(c.schedule_notes?'<div style="font-size:.74rem;color:#92400e;margin-bottom:.6rem;background:#fff7ed;border-radius:5px;padding:.25rem .5rem">📋 '+E(c.schedule_notes)+'</div>':'')
       +(c.axiscare_client_id?'<div style="font-size:.68rem;color:var(--text-muted);margin-bottom:.5rem">AxisCare ID: '+E(c.axiscare_client_id)+'</div>':'')
       +'<div style="display:flex;flex-direction:column;gap:.5rem">'
-      +'<label style="display:flex;align-items:flex-start;gap:.65rem;cursor:pointer;padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(c.caregiver_assigned?'#86efac':'var(--border)')+';background:'+(c.caregiver_assigned?'#f0fdf4':'#fafafa')+'">'
-      +'<input type="checkbox" '+(c.caregiver_assigned?'checked':'')+' onchange="cqStep(\''+E(c.id)+'\',\'caregiver_assigned\',this.checked)" style="margin-top:.15rem;accent-color:#22c55e;width:1rem;height:1rem;flex-shrink:0">'
-      +'<div style="flex:1"><div style="font-size:.8rem;font-weight:600;color:var(--navy)'+(c.caregiver_assigned?';text-decoration:line-through;opacity:.55':'')+'">Caregiver assigned in AxisCare</div>'
-      +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">Match and assign a caregiver to this client\'s shifts in AxisCare.</div>'
-      +(c.caregiver_assigned&&!c.caregiver_assigned_name?'<input type="text" placeholder="Enter caregiver name…" onblur="cqCgName(\''+E(c.id)+'\',this.value)" onclick="event.stopPropagation()" style="margin-top:.3rem;width:100%;padding:.3rem .55rem;border:1.5px solid #86efac;border-radius:6px;font-family:inherit;font-size:.75rem;background:#fff;box-sizing:border-box">':'')
-      +(c.caregiver_assigned_name?'<div style="font-size:.73rem;font-weight:600;color:#166534;margin-top:.2rem">👤 '+E(c.caregiver_assigned_name)+'</div>':'')
-      +(c.caregiver_assigned&&c.caregiver_assigned_at?'<div style="font-size:.67rem;color:var(--text-muted);margin-top:.15rem">✓ '+fmtTs(c.caregiver_assigned_at)+'</div>':'')+'</div></label>'
-      +'<div style="padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(c.caregiver_called?'#86efac':'var(--border)')+';background:'+(c.caregiver_called?'#f0fdf4':'#fafafa')+(!c.caregiver_assigned?';opacity:.4':'')+'">'
-      +'<label style="display:flex;align-items:flex-start;gap:.65rem;'+(!c.caregiver_assigned?'cursor:not-allowed':'cursor:pointer')+'">'
-      +'<input type="checkbox" '+(c.caregiver_called?'checked':'')+' '+(!c.caregiver_assigned?'disabled':'')+' onchange="cqStep(\''+E(c.id)+'\',\'caregiver_called\',this.checked)" style="margin-top:.15rem;accent-color:#22c55e;width:1rem;height:1rem;flex-shrink:0">'
-      +'<div><div style="font-size:.8rem;font-weight:600;color:var(--navy)'+(c.caregiver_called?';text-decoration:line-through;opacity:.55':'')+'">Called &amp; briefed '+E(c.caregiver_assigned_name||'assigned caregiver')+'</div>'
-      +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">Introduce the client, review care plan and schedule, confirm start date.</div></div></label>'+cgNotes+'</div>'
-      +'<div style="padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(c.client_called?'#86efac':'var(--border)')+';background:'+(c.client_called?'#f0fdf4':'#fafafa')+(!c.caregiver_assigned?';opacity:.4':'')+'">'
-      +'<label style="display:flex;align-items:flex-start;gap:.65rem;'+(!c.caregiver_assigned?'cursor:not-allowed':'cursor:pointer')+'">'
-      +'<input type="checkbox" '+(c.client_called?'checked':'')+' '+(!c.caregiver_assigned?'disabled':'')+' onchange="cqStep(\''+E(c.id)+'\',\'client_called\',this.checked)" style="margin-top:.15rem;accent-color:#22c55e;width:1rem;height:1rem;flex-shrink:0">'
-      +'<div><div style="font-size:.8rem;font-weight:600;color:var(--navy)'+(c.client_called?';text-decoration:line-through;opacity:.55':'')+'">Called '+E(c.client_name)+' &amp; confirmed schedule</div>'
-      +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">Share caregiver\'s name, confirm start date and days/times of care.</div></div></label>'+clNotes+'</div>'
-      +'<label style="display:flex;align-items:flex-start;gap:.65rem;'+(!c.client_called?'opacity:.4;cursor:not-allowed':'cursor:pointer')+';padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(c.schedule_added?'#86efac':'var(--border)')+';background:'+(c.schedule_added?'#f0fdf4':'#fafafa')+'">'
-      +'<input type="checkbox" '+(c.schedule_added?'checked':'')+' '+(!c.client_called?'disabled':'')+' onchange="cqStep(\''+E(c.id)+'\',\'schedule_added\',this.checked)" style="margin-top:.15rem;accent-color:#22c55e;width:1rem;height:1rem;flex-shrink:0">'
-      +'<div><div style="font-size:.8rem;font-weight:600;color:var(--navy)'+(c.schedule_added?';text-decoration:line-through;opacity:.55':'')+'">Added schedule into AxisCare</div>'
-      +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">Enter the confirmed shift schedule in AxisCare so it appears on the caregiver\'s calendar.</div>'
-      +(c.schedule_added&&c.schedule_added_at?'<div style="font-size:.67rem;color:var(--text-muted);margin-top:.15rem">✓ '+fmtTs(c.schedule_added_at)+'</div>':'')+'</div></label>'
+      +STEPS.map(s=>{
+        const done=!!c[s.f], gated=s.needs&&!c[s.needs];
+        let extra='';
+        if(s.f==='caregiver_assigned'){
+          extra=(done&&!c.caregiver_assigned_name?'<input type="text" placeholder="Enter caregiver name…" onblur="cqCgName(\''+E(c.id)+'\',this.value)" onclick="event.stopPropagation()" style="margin-top:.3rem;width:100%;padding:.3rem .55rem;border:1.5px solid #86efac;border-radius:6px;font-family:inherit;font-size:.75rem;background:#fff;box-sizing:border-box">':'')
+               +(c.caregiver_assigned_name?'<div style="font-size:.73rem;font-weight:600;color:#166534;margin-top:.2rem">👤 '+E(c.caregiver_assigned_name)+'</div>':'');
+        }
+        if(s.f==='schedule_added'&&c.sched_note_pushed_at)
+          extra+='<div style="font-size:.67rem;color:#166534;margin-top:.15rem">📋 Scheduling note pushed to AxisCare '+fmtTs(c.sched_note_pushed_at)+'</div>';
+        const ts=c[s.f+'_at'];
+        const notes=s.notes&&done?noteBox(s.notes, s.notes==='caregiver_call_notes'
+            ?'Required — notes from caregiver call (confirmed schedule, any concerns…)'
+            :'Required — notes from client call (schedule confirmed, client reaction, anything to flag…)', ts):'';
+        return '<div style="padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(done?'#86efac':'var(--border)')+';background:'+(done?'#f0fdf4':'#fafafa')+(gated?';opacity:.4':'')+'">'
+          +'<label style="display:flex;align-items:flex-start;gap:.65rem;'+(gated?'cursor:not-allowed':'cursor:pointer')+'">'
+          +'<input type="checkbox" '+(done?'checked':'')+(gated?' disabled':'')+' onchange="cqStep(\''+E(c.id)+'\',\''+s.f+'\',this.checked)" style="margin-top:.15rem;accent-color:#22c55e;width:1rem;height:1rem;flex-shrink:0">'
+          +'<div style="flex:1"><div style="font-size:.8rem;font-weight:600;color:var(--navy)'+(done?';text-decoration:line-through;opacity:.55':'')+'">'+E(s.label)+'</div>'
+          +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">'+s.sub+'</div>'
+          +extra
+          +(done&&ts&&!s.notes?'<div style="font-size:.67rem;color:var(--text-muted);margin-top:.15rem">✓ '+fmtTs(ts)+'</div>':'')
+          +'</div></label>'+notes+'</div>';
+      }).join('')
       +'</div>'
-      +(allChecked&&!notesOk?'<div style="margin-top:.65rem;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:.5rem .75rem;font-size:.78rem;color:#dc2626">⚠ Please add call notes for steps 2 and 3 before marking complete.</div>':'')
-      +(canComplete?'<div style="margin-top:.65rem"><button onclick="cqComplete(\''+E(c.id)+'\')" style="padding:.4rem 1rem;background:#22c55e;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer">✅ Mark Scheduling Complete</button></div>':'')
+      +(allChecked&&!notesOk?'<div style="margin-top:.65rem;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:.5rem .75rem;font-size:.78rem;color:#dc2626">⚠ Please add the call notes on the two calls before completing the launch.</div>':'')
+      +(canComplete?'<div style="margin-top:.65rem"><button onclick="cqComplete(\''+E(c.id)+'\')" style="padding:.4rem 1rem;background:#22c55e;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer">✅ Launch Complete</button></div>':'')
       +'</div></div>';
+  }
+  /* AxisCare scheduling-summary note: fires when scheduling is actually
+     confirmed (step 4 checked, both call notes written) rather than waiting
+     for Launch Complete. Idempotent three ways: an in-flight guard against
+     double events, the sched_note_pushed_at stamp against future renders,
+     and the stamp is only written after AxisCare accepted the note — a
+     failed push stays unstamped and quietly retries on the next save. */
+  const notePushInFlight=new Set();
+  async function cqMaybePushSchedNote(item){
+    if(!item||item.status==='complete') return;
+    if(!item.schedule_added||item.sched_note_pushed_at||notePushInFlight.has(item.id)) return;
+    if(!(item.caregiver_call_notes||'').trim()||!(item.client_call_notes||'').trim()) return;
+    if(!item.axiscare_client_id) return;
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session||!session.access_token) return;
+    notePushInFlight.add(item.id);
+    try{
+      const res=await fetch('https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/axiscare-push-note',{
+        method:'POST',
+        headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
+        body:JSON.stringify({ client_queue_id:item.id })});
+      const data=await res.json();
+      if(data.success){
+        const at=new Date().toISOString();
+        item.sched_note_pushed_at=at;
+        await sb.from('client_queue').update({ sched_note_pushed_at:at }).eq('id',item.id);
+        renderQueue();
+      } else console.warn('AxisCare note push failed:', data.error);
+    }catch(e){ console.warn('AxisCare note push error:', e); }
+    finally{ notePushInFlight.delete(item.id); }
   }
   window.cqStep=async function(id,field,value){
     const item=(QUEUE||[]).find(c=>c.id===id);
@@ -29581,6 +29739,7 @@ window.covLoadShifts=function(){};
     renderQueue();
     const { error } = await sb.from('client_queue').update({ [field]:value, [tsField]:tsValue }).eq('id',id);
     if(error) saveError(error);
+    if(item) cqMaybePushSchedNote(item);
   };
   window.cqNotes=async function(id,field,value){
     const item=(QUEUE||[]).find(c=>c.id===id);
@@ -29588,6 +29747,7 @@ window.covLoadShifts=function(){};
     renderQueue();
     const { error } = await sb.from('client_queue').update({ [field]:value }).eq('id',id);
     if(error) saveError(error);
+    if(item) cqMaybePushSchedNote(item);
   };
   window.cqCgName=async function(id,name){
     if(!name.trim()) return;
@@ -29599,23 +29759,24 @@ window.covLoadShifts=function(){};
   };
   window.cqComplete=async function(id){
     const { data:{ user } } = await sb.auth.getUser();
-    const { data:{ session } } = await sb.auth.getSession();
     const now=new Date().toISOString();
     const item=(QUEUE||[]).find(c=>c.id===id);
-    if(item){ item.status='complete'; item.completed_at=now; item.completed_by=(user&&user.email)||''; }
+    /* Safety net: if the scheduling note never made it to AxisCare (pushed
+       at step 4 normally), completing the launch is the last chance. */
+    if(item) await cqMaybePushSchedNote(item);
+    if(item){ item.status='complete'; item.completed_at=now; item.completed_by=(user&&user.email)||''; item.launch_completed_at=now; }
     renderQueue();
-    const { error } = await sb.from('client_queue').update({ status:'complete', completed_at:now, completed_by:(user&&user.email)||'' }).eq('id',id);
+    const { error } = await sb.from('client_queue').update({ status:'complete', completed_at:now, completed_by:(user&&user.email)||'', launch_completed_at:now }).eq('id',id);
     if(error) saveError(error);
-    if(item&&item.axiscare_client_id&&session&&session.access_token){
-      try{
-        const res=await fetch('https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/axiscare-push-note',{
-          method:'POST',
-          headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
-          body:JSON.stringify({ client_queue_id:id })});
-        const data=await res.json();
-        if(!data.success) console.warn('AxisCare note push failed:', data.error);
-      }catch(e){ console.warn('AxisCare note push error:', e); }
-    }
+    /* Stamp the story back onto the lead, when there is one. Launch Complete
+       and "active in AxisCare" stay separate truths — nothing graduates. */
+    try{
+      if(item&&item.axiscare_client_id){
+        const l=(DATA.leads||[]).find(x=>String(x.axiscare_client_id||'')===String(item.axiscare_client_id));
+        if(l&&l.soc&&!l.soc.launch_completed_at){ l.soc.launch_completed_at=now; await persist('leads', l); }
+      }
+    }catch(e){}
+    try{ if(typeof opEvent==='function'&&item) opEvent('launch_complete', item.client_name+' — first-caregiver launch complete'+((item.episode_n||1)>1?' (episode '+item.episode_n+')':'')); }catch(e){}
   };
   window.cqDelete=async function(id){
     if(!confirm('Remove this client from the queue?')) return;
@@ -29623,15 +29784,24 @@ window.covLoadShifts=function(){};
     renderQueue();
     await sb.from('client_queue').delete().eq('id',id);
   };
+  /* Launch Exception — the deliberate escape hatch, not a shortcut around
+     Start of Care. Requires a written reason, records who and when, and goes
+     through the same central upsert as every other producer, so it can
+     enrich an open episode but never create a duplicate one. */
   window.cqAddManual=async function(){
-    const name=prompt('Client name:');
-    if(!name) return;
-    const payload={ client_name:name.trim(), client_address:'', start_date:null, auth_hours:'', payer:'',
-      schedule_notes:'', axiscare_client_id:'', caregiver_assigned:false, caregiver_called:false,
-      client_called:false, schedule_added:false, caregiver_call_notes:'', client_call_notes:'', status:'pending' };
-    const { data:inserted, error } = await sb.from('client_queue').insert([payload]).select();
+    const name=prompt('Launch Exception — client name:\n\n(The normal route is a lead\'s Start of Care reaching Ready for Staffing. Use this only when staff has deliberately determined that isn\'t needed.)');
+    if(!name||!name.trim()) return;
+    const reason=prompt('Why is this launch being created without Start of Care?\n\nExamples: "readmission / SOC not required", "client added directly in AxisCare".\nA reason is required.');
+    if(!reason||!reason.trim()){ alert('No reason, no exception — nothing was created.'); return; }
+    const ax=prompt('AxisCare client ID (leave blank if they don\'t have one yet):')||'';
+    const { data:{ user } } = await sb.auth.getUser();
+    const { data, error } = await sb.rpc('upsert_client_launch', { p:{
+      client_name:name.trim(), axiscare_client_id:ax.trim(),
+      source:'exception', exception_reason:reason.trim(),
+      created_by:(user&&user.email)||'' }});
     if(error){ saveError(error); return; }
-    if(inserted){ QUEUE=QUEUE||[]; QUEUE.unshift(inserted[0]); renderQueue(); }
+    if(data&&data.action==='enriched') alert('They already have an open launch — opening it rather than creating a duplicate.');
+    await loadQueue(); renderQueue();
   };
 })();
 </script>
