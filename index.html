@@ -14211,8 +14211,14 @@ function cgdRenderSkills(c,g){
     if(derived) return '<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">yes — derived: '+esc(derived)+'</span>';
     const rec=merged.skills[k]||{}; const v=rec.have||'';
     const btn=(val,label)=>'<button class="linklike" style="font-size:11.5px;'+(v===val?'font-weight:800;text-decoration:none;color:'+(val==='yes'?'var(--green)':val==='no'?'var(--red)':'#B45309')+';':'color:var(--text-muted);')+'" onclick="cgdSkillSet(\''+esc(String(c.id))+'\',\''+k+'\',\''+val+'\')">'+label+'</button>';
-    return btn('yes','Yes')+' · '+btn('no','No')+' · '+btn('','Unanswered')
-      +(v?'<div class="field-note" style="font-size:10.5px;">'+esc(rec.evidence||'attested')+' · '+esc(rec.by||'')+' '+String(rec.at||'').slice(0,10)+(rec.note?' · 📝 '+esc(rec.note):'')+'</div>':'');
+    const evLine=v?'<div class="field-note" style="font-size:10.5px;" title="How we know — tap to change">'
+      +[['attested','they told us'],['observed','we saw it'],['training','has training']].map(([e,label])=>
+        '<button class="linklike" style="font-size:10.5px;padding:1px 3px;'
+        +(String(rec.evidence||'attested')===e?'font-weight:800;color:var(--navy);text-decoration:none;':'color:var(--text-muted);')
+        +'" onclick="cgdSkillEvidence(\''+esc(String(c.id))+'\',\''+k+'\',\''+e+'\')">'+label+'</button>').join('·')
+      +' — '+esc(rec.by||'')+' '+String(rec.at||'').slice(0,10)
+      +(rec.note?' · 📝 '+esc(rec.note):'')+'</div>':'';
+    return btn('yes','Yes')+' · '+btn('no','No')+' · '+btn('','Unanswered')+evLine;
   };
   el.innerHTML=CC_SKILLS.map(([k,label,note])=>'<div style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;border-bottom:1px solid #F6F3EC;font-size:13px;">'
       +'<div style="flex:1;min-width:0;"><b>'+esc(label)+'</b>'+(note?'<div class="field-note" style="font-size:10.5px;">'+esc(note)+'</div>':'')+'</div>'
@@ -14235,18 +14241,26 @@ async function cgdOverlaySave(axid, mutate){
   await persist('caregiver_overlay', ov);
   Object.keys(CC_PROF_CACHE).forEach(k=>{ if(k.startsWith('cg')) delete CC_PROF_CACHE[k]; });
 }
+/* One click saves (her ask, 2026-09-20: no pop-up questions). Provenance is
+   captured automatically — attested · who · when — and the little inline
+   words under the answer let her upgrade "how we know" to observed or
+   training with one more tap. Same record shape as before; only the
+   interruptions are gone. */
 async function cgdSkillSet(axid,key,val){
-  let evidence='attested', note='';
-  if(val!==''){
-    const ev=prompt('Evidence for "'+key.replace(/_/g,' ')+'" = '+val+':\ntype one of: training / observed / attested','attested');
-    if(ev===null) return;
-    evidence=/^(training|observed|attested)$/i.test((ev||'').trim())?(ev||'').trim().toLowerCase():'attested';
-    note=(prompt('Optional evidence note (Enter to skip):','')||'').trim();
-  }
   await cgdOverlaySave(axid, ov=>{
     ov.skills=ov.skills||{};
     if(val==='') delete ov.skills[key];
-    else ov.skills[key]={ have:val, evidence, by:(ME&&(ME.name||ME.email))||'', at:new Date().toISOString(), note };
+    else ov.skills[key]={ have:val, evidence:(ov.skills[key]&&ov.skills[key].evidence)||'attested', by:(ME&&(ME.name||ME.email))||'', at:new Date().toISOString() };
+  });
+  const c=(CGD.census.caregivers||[]).find(x=>String(x.id)===String(axid));
+  cgdRenderSkills(c, cgdLegacyFor(axid,(c.first+' '+c.last)));
+}
+async function cgdSkillEvidence(axid,key,ev){
+  await cgdOverlaySave(axid, ov=>{
+    ov.skills=ov.skills||{};
+    const cur=ov.skills[key]||{};
+    if(!cur.have){ const m=cgdSkillsMerged(axid,cgdLegacyFor(axid,'')); cur.have=(m.skills[key]&&m.skills[key].have)||'yes'; }
+    ov.skills[key]={ ...cur, evidence:ev, by:(ME&&(ME.name||ME.email))||'', at:new Date().toISOString() };
   });
   const c=(CGD.census.caregivers||[]).find(x=>String(x.id)===String(axid));
   cgdRenderSkills(c, cgdLegacyFor(axid,(c.first+' '+c.last)));
