@@ -13930,7 +13930,12 @@ function cgdRenderList(){
       +'<span class="field-note" style="min-width:110px;">'+esc(c.mobile||'no mobile')+'</span>'
       +'<span class="field-note" style="min-width:80px;">'+esc((c.hire_date||'').slice(0,10))+'</span>'
       +'<span class="field-note" title="skills & willingness recorded">'+(nSkills?('🧩 '+nSkills):'')+'</span>'
-      +'<span class="field-note" style="min-width:96px;" title="last operational activity">'+(av&&av.updated_at?('avail '+String(av.updated_at).slice(0,10)):'')+'</span>'
+      /* "Last activity" in Phase 1 means exactly one thing: when this
+         caregiver last UPDATED THEIR AVAILABILITY (self-reported, via the
+         availability page). It is NOT a worked shift and is never presented
+         as one; there is no fallback source. Worked-shift history belongs
+         to the Phase-2 Work section, from AxisCare visits. */
+      +'<span class="field-note" style="min-width:130px;" title="Availability last updated by the caregiver — self-reported; NOT a worked shift">'+(av&&av.updated_at?('avail updated '+String(av.updated_at).slice(0,10)):'')+'</span>'
       +'</div>';
   }).join('')+'</div>'
   +(rows.length>cap?'<div class="field-note" style="margin-top:6px;">Showing '+cap+' of '+rows.length+' — narrow with search.</div>':'');
