@@ -9016,22 +9016,18 @@ function lpCommsFilter(kind, btn){
 function renderLpAttrs(){
   const box=document.getElementById('lp_attrs'); const l=lpLead; if(!box||!l) return;
   const vals=l.client_attributes||{};
-  /* Gender migration (her ruling, 2026-09-20): the old checkbox could not
-     tell "prefers" from "requires", so every legacy YES becomes PREFER —
-     never REQUIRE — and is flagged for staff confirmation. From now on the
-     buttons say what they mean: Require blocks a match, Prefer only ranks. */
+  /* Gender Require/Prefer (her ruling, 2026-09-20). VIEWING IS READ-ONLY
+     (her correction): a legacy pre-standard "yes" only DISPLAYS as
+     "Prefer — needs confirmation"; nothing persists until a human clicks.
+     Any explicit gender click normalizes BOTH gender rows in that one
+     deliberate save, so a stored legacy "yes" can never read as Require. */
   const GENDER_KEYS=['female_caregiver','male_caregiver'];
-  if(lpLead && lpLead.gender_pref_normalized!==true){
-    let moved=false;
-    lpLead.client_attributes = lpLead.client_attributes || {};
-    for(const k of GENDER_KEYS){ if(vals[k]==='yes'){ vals[k]='preferred'; lpLead.client_attributes[k]='preferred'; lpLead.gender_pref_needs_confirm=true; moved=true; } }
-    lpLead.gender_pref_normalized=true;
-    persist('leads', lpLead);
-    if(moved && typeof ccToast==='function') ccToast('Gender preference migrated to PREFER — confirm below if it is actually a requirement');
-  }
+  const genderLegacy = k => GENDER_KEYS.includes(k) && vals[k]==='yes' && !(lpLead&&lpLead.gender_pref_normalized===true);
   box.innerHTML = LP_ATTRS.map(a=>{
-    const v=vals[a[0]]||'';
+    const raw=vals[a[0]]||'';
     const isGender=GENDER_KEYS.includes(a[0]);
+    const legacy=genderLegacy(a[0]);
+    const v=legacy?'preferred':raw;      // display only — no write happens here
     return '<div class="lp-attr-row">'
       +'<div class="lp-attr-opts">'
       +'<button class="'+(v==='yes'?'on-yes':'')+'" onclick="lpSetAttr(\''+a[0]+'\',\'yes\')">'+(isGender?'Require':'Yes')+'</button>'
@@ -9040,8 +9036,8 @@ function renderLpAttrs(){
       +'</div>'
       +'<div style="min-width:0;"><b>'+a[1]+'</b><div class="field-note">'+a[2]
       +(isGender?' <b>Require</b> blocks incompatible matches; <b>Prefer</b> only influences ranking.':'')+'</div>'
-      +(isGender&&lpLead&&lpLead.gender_pref_needs_confirm&&v==='preferred'
-        ?'<div class="field-note" style="color:#B45309;">Migrated from the old checkbox as PREFER — <button class="linklike" style="font-size:11.5px;" onclick="lpGenderConfirm()">confirm this is right</button> or click Require if it is a requirement.</div>':'')
+      +(legacy
+        ?'<div class="field-note" style="color:#B45309;">Recorded before Require/Prefer existed — treated as <b>Prefer</b> until confirmed. <button class="linklike" style="font-size:11.5px;" onclick="lpGenderConfirm(\''+a[0]+'\')">Confirm Prefer</button> or click Require if it is a true requirement. Nothing is saved until you click.</div>':'')
       +'</div>'
       +'</div>';
   }).join('');
@@ -9054,13 +9050,30 @@ async function lpSetAttr(key,val){
   if(!lpLead) return;
   lpLead.client_attributes = lpLead.client_attributes||{};
   lpLead.client_attributes[key] = (lpLead.client_attributes[key]===val) ? '' : val;
+  /* a gender click is the explicit act that makes Require mean require —
+     it also settles any legacy value on the other gender row as Prefer */
+  if(key==='female_caregiver'||key==='male_caregiver') lpGenderNormalizePair(key);
   lpLead.attributes_entered_at = null; // answers changed — needs re-entry
   await persist('leads',lpLead);
   renderLpAttrs();
 }
-async function lpGenderConfirm(){
+/* Explicit human actions are the ONLY things that persist gender intent.
+   Both normalize the pair: any legacy "yes" on the OTHER gender row is
+   written down as Prefer in the same save, so no stored legacy value can
+   ever be read as Require afterward. */
+function lpGenderNormalizePair(exceptKey){
+  lpLead.client_attributes=lpLead.client_attributes||{};
+  for(const k of ['female_caregiver','male_caregiver']){
+    if(k!==exceptKey && lpLead.client_attributes[k]==='yes' && lpLead.gender_pref_normalized!==true)
+      lpLead.client_attributes[k]='preferred';
+  }
+  lpLead.gender_pref_normalized=true;
+}
+async function lpGenderConfirm(key){
   if(!lpLead) return;
-  lpLead.gender_pref_needs_confirm=false;
+  lpLead.client_attributes=lpLead.client_attributes||{};
+  lpLead.client_attributes[key]='preferred';
+  lpGenderNormalizePair(key);
   await persist('leads', lpLead);
   renderLpAttrs();
 }
