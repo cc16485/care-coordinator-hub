@@ -14016,7 +14016,11 @@ async function cgdOpenProfile(axid){
     +'</div>'
 
     +'<div id="cgdSec-skills" style="display:none;">'
-    +card('Skills & Willingness <span class="field-note" style="font-weight:400;">(saved to the AxisCare-keyed overlay)</span>','<div id="cgdSkills"></div>')
+    +card('What we know <span class="field-note" style="font-weight:400;">(evidence-backed — every line here can answer "why do we know this?")</span>',
+      '<div id="cgdKnow"><div class="field-note">Loading the evidence-backed knowledge…</div></div>')
+    +card('Existing profile information <span class="field-note" style="font-weight:400;">(recorded before the evidence system — source not yet established)</span>',
+      '<div class="field-note" style="margin-bottom:6px;">Values below predate the Evidence Foundation. Unless the same fact also appears in "What we know" above, its source has not been established — a checked box here is not evidence.</div>'
+      +'<div id="cgdSkills"></div>')
     +'</div>'
 
     +'<div id="cgdSec-performance" style="display:none;">'+cgdPerformanceHtml(c,nm)+'</div>'
@@ -14028,6 +14032,7 @@ async function cgdOpenProfile(axid){
       '<div id="cgdThread" style="max-width:720px;"><div class="field-note">Loading the thread…</div></div>','cgdThreadCard')
     +'</div>';
   cgdRenderSkills(c,g);
+  cgdKnowledgeLoad(String(c.id));
   cgdLoadThread(c,nm);
   cgdLoadTraining(c,nm);
   cgdLoadReadiness(c);
@@ -14231,6 +14236,79 @@ function cgdRenderSkills(c,g){
     +['','none','basic','conversational','fluent'].map(v=>'<option value="'+v+'"'+((merged.spanish||'')===v?' selected':'')+'>'+(v||'unanswered')+'</option>').join('')
     +'</select></div>'
     +'<div class="field-note" style="font-size:10.5px;">Unanswered means unknown — never inferred. Saved against AxisCare id '+esc(String(c.id))+' in the overlay, not to any roster.</div>';
+}
+/* ---- Evidence-backed knowledge (READ-ONLY view of the Evidence Foundation
+   via the caregiver-knowledge endpoint — the browser never touches the
+   protected namespaces; her phase order 2026-09-20). The renderer is driven
+   by claim FAMILY, never hard-coded to one fact. Unknown stays visibly
+   unknown: registered claims without Foundation evidence say "Not recorded
+   yet" — they NEVER inherit values from the offer record or the legacy
+   overlay. No Verified badge exists: the category says what the evidence
+   actually is. ---- */
+const CGD_KNOW_TOL=[['cats','Cats'],['dogs','Dogs'],['smoking','Smoking in the home']];
+function cgdKnowDate(d){ if(!d) return ''; const t=new Date(String(d).slice(0,10)+'T12:00:00');
+  return isNaN(+t)?String(d):t.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function cgdKnowSentence(ev){
+  const esc=escapeHtmlComms, who=esc(ev.source_person||'unknown source');
+  const when=cgdKnowDate(ev.occurred_at)+(ev.occurred_precision==='approximate'?' (approximate)':'');
+  if(ev.type==='interview_answer') return 'Reported by '+who+' during the '+when+' interview.';
+  if(ev.type==='caregiver_update') return who+' told us'+(when?' on '+when:'')+'.';
+  if(ev.type==='reference_response') return 'Verified by '+who+(when?' ('+when+')':'')+'.';
+  if(ev.type==='supervisory_observation') return 'Observed by '+who+(when?' on '+when:'')+'.';
+  if(ev.type==='competency_check') return 'Demonstrated to '+who+(when?' on '+when:'')+'.';
+  if(ev.type==='training_completion') return 'Supported by training'+(when?' completed '+when:'')+'.';
+  if(ev.type==='staff_resolution') return 'Resolved by '+who+(when?' on '+when:'')+'.';
+  return 'Recorded'+(when?' '+when:'')+' — original source unknown.';
+}
+function cgdKnowWhy(f){
+  const esc=escapeHtmlComms, ev=(f.evidence&&f.evidence[0])||null;
+  if(!ev) return '<div class="field-note">No evidence detail available.</div>';
+  const via = ev.recorded_via==='service_role' ? 'administrative import (service process)'
+            : ev.recorded_via==='authenticated' ? 'entered directly in the Hub' : (ev.recorded_via||'unknown path');
+  return '<div style="font-size:12.5px;background:#FAF9F6;border:1px solid var(--border);border-radius:8px;padding:8px 11px;margin:4px 0 6px;">'
+    +'<div style="font-weight:700;color:var(--navy);margin-bottom:3px;">'+cgdKnowSentence(ev)+'</div>'
+    +'<div><span class="field-note">Current answer:</span> '+esc(String(f.value))+'</div>'
+    +'<div><span class="field-note">Source:</span> '+esc(ev.source_person||'unknown')+' · <span class="field-note">How captured:</span> '+esc(String(ev.type||'').replace(/_/g,' '))+' · <span class="field-note">When:</span> '+cgdKnowDate(ev.occurred_at)+'</div>'
+    +(ev.note?'<div><span class="field-note">Context:</span> '+esc(ev.note)+'</div>':'')
+    +'<div><span class="field-note">Entered into caregiver knowledge by:</span> '+esc(ev.recorded_by||'?')+' · <span class="field-note">via:</span> '+esc(via)+'</div>'
+    +'<div class="field-note" style="font-size:11px;margin-top:3px;cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'">▸ technical details</div>'
+    +'<div style="display:none;font-size:11px;color:var(--text-muted);font-family:monospace;">event '+esc(ev.event_id||'')+'<br>source record '+esc(ev.source_record||'(none)')+'</div>'
+    +'</div>';
+}
+function cgdKnowRow(label, f){
+  const esc=escapeHtmlComms;
+  if(!f) return '<div style="font-size:13px;padding:3px 0;border-bottom:1px solid #F6F3EC;">'+esc(label)+' — <span class="field-note">Not recorded yet</span></div>';
+  const ev=(f.evidence&&f.evidence[0])||{};
+  const stateChip = f.state==='current'?'':' <span class="tag-chip" style="background:#FEF3C7;color:#92400E;">'+esc(String(f.state).replace(/_/g,' '))+'</span>';
+  return '<div style="font-size:13px;padding:3px 0;border-bottom:1px solid #F6F3EC;">'
+    +'<b>'+esc(label)+'</b> — '+esc(String(f.value))
+    +' · <span class="tag-chip" style="background:#E4EDF6;color:#2F6FB0;">'+esc(ev.category_label||'basis unknown')+'</span>'
+    +(ev.occurred_at?' · '+cgdKnowDate(ev.occurred_at):'')+stateChip
+    +' <button class="linklike" style="font-size:11.5px;" onclick="const w=this.parentElement.nextElementSibling; w.style.display=w.style.display===\'none\'?\'block\':\'none\'">Why we know this →</button>'
+    +'</div><div style="display:none;">'+cgdKnowWhy(f)+'</div>';
+}
+async function cgdKnowledgeLoad(axid){
+  const el=document.getElementById('cgdKnow'); if(!el) return;
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session) throw new Error('not signed in');
+    const r=await fetch('https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/caregiver-knowledge',{
+      method:'POST', headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
+      body: JSON.stringify({ axiscare_id: axid }) });
+    const j=await r.json();
+    if(!r.ok||!j.ok) throw new Error(j.error||('caregiver-knowledge '+r.status));
+    const byClaim={}; (j.facts||[]).forEach(f=>{ byClaim[f.claim]=f; });
+    const sec=(t,inner)=>'<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--text-muted);text-transform:uppercase;margin-bottom:2px;">'+t+'</div>'+inner+'</div>';
+    let html='';
+    if(j.empty) html+='<div class="field-note" style="margin-bottom:6px;">No evidence-backed knowledge recorded yet for this caregiver.</div>';
+    html+=sec('Comfort & Environment', CGD_KNOW_TOL.map(([k,l])=>cgdKnowRow(l, byClaim[k+'.willingness'])).join(''));
+    html+=sec('Language', cgdKnowRow('Spanish', byClaim['spanish.ability']));
+    const expFacts=(j.facts||[]).filter(f=>f.family==='experience');
+    const compFacts=(j.facts||[]).filter(f=>f.family==='competency');
+    html+=sec('Experience', expFacts.length?expFacts.map(f=>cgdKnowRow(f.label,f)).join(''):'<div class="field-note" style="font-size:12px;">No evidence-backed experience recorded yet.</div>');
+    html+=sec('Competency', compFacts.length?compFacts.map(f=>cgdKnowRow(f.label,f)).join(''):'<div class="field-note" style="font-size:12px;">No demonstrated competency recorded yet.</div>');
+    el.innerHTML=html;
+  }catch(e){ el.innerHTML='<div class="field-note">Evidence-backed knowledge unavailable: '+escapeHtmlComms(String(e.message||e))+'</div>'; }
 }
 async function cgdOverlaySave(axid, mutate){
   let ov=cgdOverlayFor(axid);
