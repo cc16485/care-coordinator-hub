@@ -1486,7 +1486,7 @@ function renderOffers(){
        btn:'<button class="fb" onclick="markOfferStep1(\''+id+'\',this)">Mark Step 1 done</button>',
        note:'Theirs to do. Viventium reminds them every two days'+(o.step1_alerted_at?', and this one is flagged as stalled':'')+'.'},
       {done:false, label:'Background &amp; references',
-       btn:'<button class="fb" onclick="offerToCandidate(\''+id+'\',this)">Start background &amp; references</button>',
+       btn:'<button class="fb" onclick="offerToCandidate(\''+id+'\',this)">Start checks early (before their start link)</button>',
        note:'Moves them across with their references already filled in.'},
     ];
     const at=steps.findIndex(s=>!s.done);
@@ -3872,6 +3872,17 @@ function renderHirePipeline(){
       actions.push('<button class="ibtn" onclick="askReferences(' + r.board.id + ',this)">Ask references</button>');
     if (r.offer && !r.intake && !r.board)
       actions.push('<button class="ibtn" onclick="offerStartLink(\'' + r.offer.id + '\',this)">Start link</button>');
+    /* Gate B: the offer's own step actions live on the person row, so the
+       retired Offer a Job tab is not needed to finish an offer. */
+    if (r.offer && !r.offer.attributes_entered_at)
+      actions.push('<button class="ibtn" onclick="markOfferEntered(\'' + r.offer.id + '\',this)">☑ AxisCare</button>');
+    if (r.offer && !r.offer.viventium_entered_at)
+      actions.push('<button class="ibtn" onclick="markOfferViventium(\'' + r.offer.id + '\',this)">☑ Viventium</button>');
+    if (r.offer && r.offer.viventium_entered_at && !r.offer.step1_done_at)
+      actions.push('<button class="ibtn" onclick="markOfferStep1(\'' + r.offer.id + '\',this)">☑ Step 1</button>');
+    if (r.offer && !r.intake && !r.board)
+      actions.push('<button class="ibtn" title="Optional: open a checks workspace before their start link arrives"'
+        + ' onclick="offerToCandidate(\'' + r.offer.id + '\',this)">Start checks early</button>');
 
     const att = r.attention.map(a => '<div style="font-size:.75rem;color:#B91C1C;font-weight:600">⚠ ' + esc(a) + '</div>').join('');
     return '<div style="padding:.55rem 0;border-top:1px solid #e4e1d8">'

@@ -866,7 +866,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="recruit" onclick="switchTab('recruit')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Recruit</div>
     <div class="fpill" data-tab="applicants" onclick="switchTab('applicants')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Applicants<span class="subtab-badge red" id="apNewBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
-    <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Offer a Job</div>
+    <!-- Offer a Job left normal navigation 2026-09-21 (owner ruling): offers
+         are made FROM the person (Applicants/Interviews hand off here with
+         the form prefilled) and tracked ON the person's lifecycle row. The
+         panel itself remains for those handoffs; job_offers is untouched. -->
     <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Background &amp; References<span class="subtab-badge red" id="bgrPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="cgorient" onclick="switchTab('cgorient')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Orientations</div>
   </div>
@@ -7118,7 +7121,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','offers','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
