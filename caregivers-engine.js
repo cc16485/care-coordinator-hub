@@ -6300,5 +6300,27 @@ window.markOfferStep1 = markOfferStep1;
 window.sendOfferWelcome = sendOfferWelcome;
 window.confirmOfferLevel = confirmOfferLevel;
 window.renderPastOffers = renderPastOffers;
+/* Every function the engine's own rendered HTML calls through an inline
+   onclick. The engine is an IIFE, so anything not exported here throws
+   ReferenceError the moment somebody clicks — which is exactly what
+   happened to the Background & References "open" button and 53 siblings.
+   This list is the complete audit of onclick="fn(" occurrences in this
+   file; keep it complete when adding a new inline handler. */
+for (const [n, f] of Object.entries({
+  acceptEVVSubmission, acceptMeeting, addManualBooking, calClickDay,
+  ciMarkFav, ciPrefill, ciPushCoach, ciSkip, completeClientQueueItem,
+  copyWriteup, creqDone, declineMeeting, deleteClientQueueItem,
+  deleteOrient, dismissEVVSubmission, dismissReply, dnrMarkAxis,
+  doneMeeting, draftWriteup, evvRemove, generateOrientSessions,
+  issueWriteup, markAttendance, oigResultConfirm, oigResultDismiss,
+  oigResultFlagged, oigResultNotMatch, openAddClientManual,
+  openBookingLinkModal, openCGModal, openCancelModal, openEod,
+  openInviteModal, openManualRef, openNotHireModal, openOBModal,
+  openOrientModal, openOrientModalOnDate, openProfile, openWriteup,
+  orientDayToggle, prefillTardy, printWriteup, promoteToCaregiver,
+  pushAxNote, reactivateOB, removeStaffUser, resolveReturnedItem,
+  sendForApproval, sendReply, toggleCQCard, toggleStaffNotif,
+  toggleThread, vivCopy,
+})) window[n] = f;
 window.dispatchEvent(new Event('scx-ready'));
 })();
