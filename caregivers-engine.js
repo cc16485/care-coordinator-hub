@@ -195,7 +195,7 @@ function hydrateBanner(){
   el.style.display = '';
   el.innerHTML = '⚠ Shared data has not loaded'
     + (HYDRATE_ERR ? ' (' + String(HYDRATE_ERR).slice(0,120) + ')' : '')
-    + '. This section is READ-ONLY — nothing you change here will be saved. '
+    + '. This section is READ-ONLY: nothing you change here will be saved. '
     + '<button class="ibtn" onclick="retryHydrate(this)">Try again</button>';
 }
 async function bootHydrate(){
@@ -1994,8 +1994,12 @@ async function intakeReconcile(){
     });
 
     try {
+      /* candidate_id is the AxisCare identity field (script 185; the
+         hiring-history reader depends on it) and may NEVER hold a board id.
+         The board linkage is c.intake_id, set above. Only seen_at is
+         stamped here. (This whole function is dormant in the CC hub.) */
       await sb.from('hire_intake')
-        .update({ candidate_id: c.id, seen_at: new Date().toISOString() })
+        .update({ seen_at: new Date().toISOString() })
         .eq('id', r.id);
     } catch (e) { /* the record is already correct locally; try again next pass */ }
   }
@@ -3808,11 +3812,11 @@ function lifecycleRows(){
       : (obDeriveStatus(board) === 'Ready for Orientation' ? 'ready' : 'active');
     const attention = [];
     if (intake && intake.seen_at && !board)
-      attention.push('was imported before but the workspace is gone — review');
+      attention.push('was imported before but the workspace is gone. Review.');
     const axid = intake && intake.candidate_id != null ? String(intake.candidate_id) : null;
     const identity = axid ? { axid, onRoster: rosterHit(axid) } : null;
     if (identity && !identity.onRoster)
-      attention.push('AxisCare identity ' + axid + ' recorded but not found on the caregiver roster — review');
+      attention.push('AxisCare identity ' + axid + ' recorded but not found on the caregiver roster. Review.');
     return { name: name.trim(), offer, intake, board, approxPair,
              offerState, linkState, checksState, attention, identity };
   }
@@ -3822,8 +3826,8 @@ function renderHirePipeline(){
   if (!box) return;
   hydrateBanner();
   if (!HYDRATED) {
-    box.innerHTML = '<div style="color:#B91C1C;font-size:.85rem;font-weight:600">Shared data has not loaded — '
-      + 'the pipeline cannot be shown from a local cache. Use "Try again" above.</div>';
+    box.innerHTML = '<div style="color:#B91C1C;font-size:.85rem;font-weight:600">Shared data has not loaded. '
+      + 'The pipeline cannot be shown from a local cache. Use "Try again" above.</div>';
     return;
   }
   const rows = lifecycleRows();
@@ -3883,7 +3887,7 @@ function renderHirePipeline(){
    ONLY — it records who did it and it contains no path to any reference
    outreach. Ask References is its own explicit button. */
 async function intakeImport(intakeId, btn){
-  if (!HYDRATED) { alert('Shared data has not loaded — this section is read-only right now.'); return; }
+  if (!HYDRATED) { alert('Shared data has not loaded. This section is read-only right now.'); return; }
   const existing = candidates.find(c => c.intake_id === intakeId);
   if (existing) { openOBModal(existing.id); return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
