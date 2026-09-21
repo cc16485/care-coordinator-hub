@@ -57,7 +57,8 @@ async function showApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('hdr-date').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  await loadFromSupabase();
+  HYDRATED = !!(await loadFromSupabase());   // the write gate applies here too
+  if (HYDRATED) HYDRATE_ERR = null;
   migrateOldRecipients();
   renderAll();
   loadClientQueue();
@@ -150,6 +151,75 @@ function showSetNewPassword(){
 document.getElementById('pwd')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 document.getElementById('login-email')?.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('pwd').focus();});
 
+/* ── EMBEDDED (CC HUB) HYDRATION ──────────────────────────────────────────────
+   This engine runs in two homes. Standalone (its own page, with a login
+   screen) it boots through showApp(). Embedded in the CC hub there is no
+   login chrome, and from Jul 31 to Sep 21 the boot died on its first
+   getElementById and NOTHING loaded — every tab rendered stale localStorage.
+
+   bootHydrate() is the embedded boot: reads only. The legacy showApp()
+   side-effect chain stays DORMANT here on purpose (owner ruling 2026-09-21):
+     · intakeReconcile()        — retired as an auto-importer; the B&R tab now
+                                  reads hire_intake natively and staff Import
+     · autoAskReferences()      — outreach may NEVER fire from boot
+     · refFixReconcile()        — heuristic reference repair, off until ruled
+     · refReconcile()           — reference-answer sync, off until ruled
+     · markScreeningCleared()   — screening write-back, off until ruled
+     · linkCandidatesToOffers() — contact-heuristic linkage WRITER, off:
+                                  heuristics may display, never write
+     · migrateOldRecipients(), loadClientQueue(), mergePendingBookings()
+                                — legacy standalone duties, off here
+   HYDRATED is the write gate: until a fresh shared load has succeeded, no
+   engine tab may save its cached copy over the shared database. */
+let HYDRATED = false;
+let HYDRATE_ERR = null;
+let INTAKE_ROWS = [];
+async function loadIntake(){
+  const { data, error } = await sb.from('hire_intake')
+    .select('id, created_at, first_name, last_name, candidate_id, seen_at, signed_at, screening_cleared_at, refs')
+    .order('created_at', { ascending: false });
+  if (error) throw new Error('hire_intake: ' + error.message);
+  INTAKE_ROWS = data || [];
+}
+function hydrateBanner(){
+  let el = document.getElementById('scxHydrateBanner');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'scxHydrateBanner';
+    el.style.cssText = 'display:none;margin:0 0 12px;padding:10px 14px;border-radius:10px;'
+      + 'background:#FEE2E2;border:1px solid #FCA5A5;color:#B91C1C;font-size:13px;font-weight:600;';
+    const host = document.querySelector('.tabpanel.active') || document.body;
+    host.prepend(el);
+  }
+  if (HYDRATED) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = '⚠ Shared data has not loaded'
+    + (HYDRATE_ERR ? ' (' + String(HYDRATE_ERR).slice(0,120) + ')' : '')
+    + '. This section is READ-ONLY — nothing you change here will be saved. '
+    + '<button class="ibtn" onclick="retryHydrate(this)">Try again</button>';
+}
+async function bootHydrate(){
+  try{
+    const okLoad = await loadFromSupabase();
+    if (!okLoad) throw new Error('shared app data did not load');
+    await loadOffers();
+    await loadIntake();
+    HYDRATED = true; HYDRATE_ERR = null;
+  }catch(e){
+    HYDRATED = false;
+    HYDRATE_ERR = String((e && e.message) || e);
+    console.warn('bootHydrate failed:', HYDRATE_ERR);
+  }
+  hydrateBanner();
+  try{ renderAll(); }catch(e){}
+  try{ window.dispatchEvent(new Event('scx-hydrated')); }catch(e){}
+}
+async function retryHydrate(btn){
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  await bootHydrate();
+  if (btn) { btn.disabled = false; btn.textContent = 'Try again'; }
+}
+
 // Auto-restore session on page load
 (async ()=>{
   const { data: { session } } = await sb.auth.getSession();
@@ -157,12 +227,20 @@ document.getElementById('login-email')?.addEventListener('keydown',e=>{if(e.key=
     if(!hasHubAccess(session.user)){
       await sb.auth.signOut();
       const errEl = document.getElementById('err');
-      errEl.textContent = "You don't have access to this hub. Contact your owner to be granted access.";
-      errEl.style.display = 'block';
+      if (errEl) {
+        errEl.textContent = "You don't have access to this hub. Contact your owner to be granted access.";
+        errEl.style.display = 'block';
+      }
       return;
     }
-    await showApp();
-    isOwner().then(ok => { const b = document.getElementById('settingsBtn'); if(b && !ok) b.style.display = 'none'; });
+    if (document.getElementById('login-screen')) {
+      /* Standalone page: the legacy boot, untouched. */
+      await showApp();
+      isOwner().then(ok => { const b = document.getElementById('settingsBtn'); if(b && !ok) b.style.display = 'none'; });
+    } else {
+      /* Embedded in the CC hub: safe hydration only. */
+      await bootHydrate();
+    }
   }
 })();
 
@@ -3333,7 +3411,16 @@ function renderEod(){
 
 async function syncToSupabase(key, data){
   try {
-    // Guard: NEVER write while logged out. A fresh browser starts with empty
+    /* Guard 1: NEVER write before a fresh shared load has succeeded. These
+       saves replace the WHOLE blob, so a stale localStorage copy written
+       back would erase everyone else's changes. Invariant (owner ruling
+       2026-09-21): no successful fresh shared load -> no shared write. */
+    if(!HYDRATED){
+      console.warn('BLOCKED stale write of', key, '- shared data never loaded this session');
+      try{ hydrateBanner(); }catch(e){}
+      return;
+    }
+    // Guard 2: NEVER write while logged out. A fresh browser starts with empty
     // local arrays, and an unauthenticated write here can overwrite real data
     // in Supabase (this happened — see clearSeedPeople).
     const { data:{ session } } = await sb.auth.getSession();
@@ -3349,7 +3436,10 @@ async function loadFromSupabase(){
   try {
     try{ const {data:{session}}=await sb.auth.getSession(); window._myEmail=((session&&session.user&&session.user.email)||'').toLowerCase(); }catch(e){}
     const { data, error } = await sb.from('app_data').select('*');
-    if(error || !data) { setSyncStatus('offline'); return; }
+    /* Returns false on failure so bootHydrate can refuse to declare the app
+       hydrated — silent failure here is how stale local caches ended up
+       being the only data this hub ever showed. */
+    if(error || !data) { setSyncStatus('offline'); return false; }
     data.forEach(row => {
       if(!row.data) return;
       if(row.key==='candidates')     { candidates=row.data; obId=Math.max(obId,...candidates.map(c=>c.id+1),10); }
@@ -3374,7 +3464,8 @@ async function loadFromSupabase(){
     if(typeof activeTab!=='undefined' && activeTab==='coordreq') renderCoordReqs();
     if(typeof activeTab!=='undefined' && activeTab==='home') renderStaffHome();
     setSyncStatus('ok');
-  } catch(e){ console.warn('Supabase load failed, using localStorage:', e); setSyncStatus('offline'); }
+    return true;
+  } catch(e){ console.warn('Supabase load failed, using localStorage:', e); setSyncStatus('offline'); return false; }
 }
 
 function setSyncStatus(s){
@@ -3636,58 +3727,204 @@ function renderOBStats(){
    and a coordinator's memory. Four columns, one row each, and a plain sentence
    saying what the next move is. Anything waiting on us is red; anything
    waiting on them is amber; done is quiet. */
-function hirePipelineRows(){
-  const act = candidates.filter(c => !c.not_hired);
-  return act.map(c => {
-    const offer = c.offer_id ? OFFERS.find(o => String(o.id) === String(c.offer_id)) : null;
-    const refsNamed = [1,2,3,4].filter(n => c['r'+n+'n']).length;
-    const refsBack  = [1,2,3,4].filter(n => c['r'+n+'n'] && c['r'+n+'s'] !== 'Pending').length;
-    const positives = [1,2,3,4].filter(n => c['r'+n+'s'] === 'Positive').length;
-    const negative  = [1,2,3,4].some(n => c['r'+n+'s'] === 'Negative');
-    const checks = [['OIG', c.oig, 'CLEAR'], ['EDL', c.edl, 'Clear'], ['FCSR', c.fcsr, 'Clear']];
-    const checksDone = checks.filter(([, v, ok]) => v === ok).length;
-    const checksBad  = checks.some(([, v]) => v === 'FLAGGED' || v === 'Issues Found');
-    const st = obDeriveStatus(c);
+/* ── THE LIFECYCLE ROWS ───────────────────────────────────────────────────────
+   One row per person in flight, assembled from three sources:
+     job_offers (OFFERS)          — the durable offer record
+     hire_intake (INTAKE_ROWS)    — their start-link submission
+     the B&R board (candidates)   — the checks workspace
+   Deterministic links only: board.offer_id -> offer, board.intake_id ->
+   intake. The offer<->intake pairing has NO stored key yet, so it uses a
+   contact-info heuristic for DISPLAY ASSISTANCE ONLY, always labeled '~'.
+   It never establishes identity, never writes a linkage, never changes
+   state, never triggers anything (owner ruling 2026-09-21).
 
-    // The one sentence that matters: what happens next, and who owes it.
-    let next, tone;
-    if (negative || checksBad)            { next = 'A result came back bad. Read it before anything else.'; tone = 'us'; }
-    else if (st === 'Ready for Orientation' && !c.invite_sent) { next = 'Cleared. Invite them to orientation.'; tone = 'us'; }
-    else if (st === 'Ready for Orientation') { next = 'Invited to orientation.'; tone = 'done'; }
-    else if (!refsNamed)                  { next = 'Waiting on their start link, which has their references.'; tone = 'them'; }
-    else if (refsBack < 2)                { next = 'Waiting on references. ' + refsBack + ' of ' + refsNamed + ' back.'; tone = 'them'; }
-    else if (positives < 2)               { next = 'References are back but not two positives yet.'; tone = 'us'; }
-    else if (checksDone < 3)              { next = 'References done. Screenings still to run.'; tone = 'us'; }
-    else                                  { next = 'Almost there.'; tone = 'us'; }
+   State is FOUR INDEPENDENT dimensions, never inferred from identity:
+     offerState  : none | sent | stalled           (from job_offers columns)
+     linkState   : none | waiting | submitted      (does an intake row exist)
+     checksState : none | active | ready | not_hired  (board workspace)
+     attention[] : inconsistencies rendered loudly, never skipped
+   hire_intake.candidate_id is the AxisCare identity (script 185; the
+   hiring-history reader depends on it). It informs the identity chip and
+   roster corroboration ONLY — it never by itself means resolved. */
+function lifecycleRows(){
+  const digits = t => String(t || '').replace(/\D/g, '').slice(-10);
+  const rows = [];
+  const usedIntake = new Set();
+  const usedBoard = new Set();
 
-    return { c, offer, refsNamed, refsBack, positives, checksDone, st, next, tone };
-  }).sort((a, b) => (a.tone === b.tone ? 0 : a.tone === 'us' ? -1 : b.tone === 'us' ? 1 : a.tone === 'them' ? -1 : 1));
+  const boardFor = i => candidates.find(c => c.intake_id === i.id);
+  const rosterHit = axid => (typeof caregivers !== 'undefined' ? caregivers : [])
+    .some(g => String(g.axiscare_id || '') === String(axid));
+
+  for (const o of OFFERS) {
+    const board = candidates.find(c => String(c.offer_id) === String(o.id)) || null;
+    if (board) usedBoard.add(board.id);
+    let intake = board && board.intake_id ? INTAKE_ROWS.find(r => r.id === board.intake_id) : null;
+    let approx = false;
+    if (!intake) {
+      intake = INTAKE_ROWS.find(r => !usedIntake.has(r.id)
+        && String(o.first_name || '').toLowerCase() === String(r.first_name || '').toLowerCase()
+        && String(o.last_name || '').toLowerCase() === String(r.last_name || '').toLowerCase()
+        && (o.first_name || o.last_name)) || null;
+      if (intake) approx = true;      // display assistance only, labeled '~'
+    }
+    if (intake) {
+      usedIntake.add(intake.id);
+      const b2 = boardFor(intake); if (b2) usedBoard.add(b2.id);
+      rows.push(mkRow(o, intake, b2 || board, approx));
+    } else {
+      rows.push(mkRow(o, null, board, false));
+    }
+  }
+  for (const r of INTAKE_ROWS) {
+    if (usedIntake.has(r.id)) continue;
+    const b = boardFor(r); if (b) usedBoard.add(b.id);
+    rows.push(mkRow(null, r, b || null, false));
+  }
+  for (const c of candidates) {
+    if (usedBoard.has(c.id)) continue;
+    rows.push(mkRow(null, null, c, false));
+  }
+  // board rows whose intake_id points at nothing = attention
+  for (const c of candidates) {
+    if (c.intake_id && !INTAKE_ROWS.some(r => r.id === c.intake_id)) {
+      const row = rows.find(x => x.board && x.board.id === c.id);
+      if (row) row.attention.push('workspace is linked to a submission that no longer exists');
+    }
+  }
+  const rank = r => r.attention.length ? 0 : (r.linkState === 'submitted' && r.checksState === 'none') ? 1
+              : r.checksState === 'active' ? 2 : r.linkState === 'waiting' ? 3 : 4;
+  return rows.sort((a, b) => rank(a) - rank(b));
+
+  function mkRow(offer, intake, board, approxPair){
+    const name = (offer && (offer.first_name + ' ' + offer.last_name))
+              || (intake && (intake.first_name + ' ' + intake.last_name))
+              || (board && (board.first + ' ' + board.last)) || '(unnamed)';
+    const offerState = !offer ? 'none'
+      : (offer.stall_alerted_at && !offer.step1_done_at) ? 'stalled' : 'sent';
+    const linkState = intake ? 'submitted' : (offer ? 'waiting' : 'none');
+    let checksState = 'none';
+    if (board) checksState = board.not_hired ? 'not_hired'
+      : (obDeriveStatus(board) === 'Ready for Orientation' ? 'ready' : 'active');
+    const attention = [];
+    if (intake && intake.seen_at && !board)
+      attention.push('was imported before but the workspace is gone — review');
+    const axid = intake && intake.candidate_id != null ? String(intake.candidate_id) : null;
+    const identity = axid ? { axid, onRoster: rosterHit(axid) } : null;
+    if (identity && !identity.onRoster)
+      attention.push('AxisCare identity ' + axid + ' recorded but not found on the caregiver roster — review');
+    return { name: name.trim(), offer, intake, board, approxPair,
+             offerState, linkState, checksState, attention, identity };
+  }
 }
 function renderHirePipeline(){
   const box = document.getElementById('hirePipeline');
   if (!box) return;
-  const rows = hirePipelineRows();
+  hydrateBanner();
+  if (!HYDRATED) {
+    box.innerHTML = '<div style="color:#B91C1C;font-size:.85rem;font-weight:600">Shared data has not loaded — '
+      + 'the pipeline cannot be shown from a local cache. Use "Try again" above.</div>';
+    return;
+  }
+  const rows = lifecycleRows();
   if (!rows.length) { box.innerHTML = '<div style="color:#A89C8B;font-size:.85rem">Nobody in the hiring pipeline right now.</div>'; return; }
   const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const pip = (done, label) =>
-    '<span style="font-size:.68rem;font-weight:700;padding:.1rem .45rem;border-radius:999px;white-space:nowrap;' +
-    (done ? 'background:#DCFCE7;color:#15803D' : 'background:#F3F0EA;color:#8A7F70') + '">' +
-    (done ? '✓ ' : '') + label + '</span>';
-  const toneCol = { us:'#B00020', them:'#B45309', done:'#15803D' };
-  box.innerHTML = rows.map(r => {
-    const c = r.c;
-    return '<div style="display:flex;gap:.7rem;align-items:center;flex-wrap:wrap;padding:.55rem 0;border-top:1px solid #e4e1d8">'
-      + '<b style="flex:0 0 150px;color:#0D365F;font-size:.88rem">' + esc((c.first + ' ' + c.last).trim()) + '</b>'
-      + '<span style="display:flex;gap:.3rem;flex-wrap:wrap">'
-      + pip(r.refsNamed > 0, 'start link')
-      + pip(r.refsBack >= 2, 'refs ' + r.refsBack + '/' + Math.max(r.refsNamed, 2))
-      + pip(r.checksDone === 3, 'screenings ' + r.checksDone + '/3')
-      + pip(!!(r.offer && r.offer.step1_done_at), 'Step 1')
-      + '</span>'
-      + '<span style="flex:1;min-width:170px;font-size:.8rem;font-weight:600;color:' + toneCol[r.tone] + '">' + esc(r.next) + '</span>'
-      + '<button class="ibtn" onclick="openOBModal(' + c.id + ')">open</button>'
-      + '</div>';
+  const chip = (bg, fg, label) =>
+    '<span style="font-size:.68rem;font-weight:700;padding:.12rem .5rem;border-radius:999px;white-space:nowrap;background:'
+    + bg + ';color:' + fg + '">' + label + '</span>';
+  const on  = l => chip('#DCFCE7', '#15803D', '✓ ' + l);
+  const off = l => chip('#F3F0EA', '#8A7F70', l);
+  const warn = l => chip('#FEF3C7', '#B45309', l);
+  const bad  = l => chip('#FEE2E2', '#B91C1C', l);
+  const d10 = t => t ? String(t).slice(0, 10) : '';
+
+  const waiting = rows.filter(r => r.linkState === 'submitted' && r.checksState === 'none' && !r.identity).length;
+  const head = '<div class="field-note" style="margin-bottom:.4rem">'
+    + rows.length + ' in flight · ' + waiting + ' submitted and waiting to be imported</div>';
+
+  box.innerHTML = head + rows.map(r => {
+    const pips = [];
+    if (r.offer) {
+      pips.push(on('offer ' + d10(r.offer.created_at)));
+      pips.push(r.offer.attributes_entered_at ? on('AxisCare') : off('AxisCare'));
+      pips.push(r.offer.viventium_entered_at ? on('Viventium') : off('Viventium'));
+      pips.push(r.offer.step1_done_at ? on('Step 1') : off('Step 1'));
+      if (r.offerState === 'stalled') pips.push(warn('no response'));
+    }
+    if (r.linkState === 'submitted') pips.push(on('start link ' + d10(r.intake.created_at) + (r.approxPair ? ' ~' : '')));
+    else if (r.linkState === 'waiting') pips.push(warn('waiting for start link'));
+    if (r.checksState === 'active') pips.push(on('checks in progress'));
+    if (r.checksState === 'ready') pips.push(on('READY for orientation'));
+    if (r.checksState === 'not_hired') pips.push(off('not hired'));
+    if (r.identity) pips.push(chip('#E0E7FF', '#3730A3',
+      'AxisCare #' + esc(r.identity.axid) + (r.identity.onRoster ? ' · on roster' : '')));
+
+    const actions = [];
+    if (r.intake && !r.board)
+      actions.push('<button class="ibtn" onclick="intakeImport(\'' + r.intake.id + '\',this)">Import</button>');
+    if (r.board)
+      actions.push('<button class="ibtn" onclick="openOBModal(' + r.board.id + ')">open</button>');
+    if (r.board && !r.board.not_hired && [1,2,3,4].some(n => r.board['r'+n+'n'] && r.board['r'+n+'s'] === 'Pending'))
+      actions.push('<button class="ibtn" onclick="askReferences(' + r.board.id + ',this)">Ask references</button>');
+    if (r.offer && !r.intake && !r.board)
+      actions.push('<button class="ibtn" onclick="offerStartLink(\'' + r.offer.id + '\',this)">Start link</button>');
+
+    const att = r.attention.map(a => '<div style="font-size:.75rem;color:#B91C1C;font-weight:600">⚠ ' + esc(a) + '</div>').join('');
+    return '<div style="padding:.55rem 0;border-top:1px solid #e4e1d8">'
+      + '<div style="display:flex;gap:.7rem;align-items:center;flex-wrap:wrap">'
+      + '<b style="flex:0 0 160px;color:#0D365F;font-size:.88rem">' + esc(r.name) + '</b>'
+      + '<span style="display:flex;gap:.3rem;flex-wrap:wrap;flex:1">' + pips.join('') + '</span>'
+      + '<span style="display:flex;gap:.35rem">' + actions.join('') + '</span>'
+      + '</div>' + att + '</div>';
   }).join('');
+}
+
+/* Import: creates the checks workspace from a submission. WORKSPACE CREATION
+   ONLY — it records who did it and it contains no path to any reference
+   outreach. Ask References is its own explicit button. */
+async function intakeImport(intakeId, btn){
+  if (!HYDRATED) { alert('Shared data has not loaded — this section is read-only right now.'); return; }
+  const existing = candidates.find(c => c.intake_id === intakeId);
+  if (existing) { openOBModal(existing.id); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
+  let who = '';
+  try { const { data:{ session } } = await sb.auth.getSession(); who = (session && session.user && session.user.email) || ''; } catch(e){}
+  const { data: row, error } = await sb.from('hire_intake').select('*').eq('id', intakeId).maybeSingle();
+  if (error || !row) {
+    alert('Could not read that submission: ' + (error ? error.message : 'not found'));
+    if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
+    return;
+  }
+  const rec = {
+    id: obId++,
+    first: row.first_name || '', last: row.last_name || '',
+    phone: row.phone || '', email: row.email || '',
+    oos: row.lived_outside_mo ? 'yes' : 'no',
+    fp: row.lived_outside_mo ? 'Required' : 'N/A',
+    oig: 'Pending', edl: 'Pending', fcsr: 'Pending',
+    r1s: 'Pending', r2s: 'Pending', r3s: 'Pending', r4s: 'Pending',
+    intake_id: row.id,
+    imported_by: who, imported_at: new Date().toISOString(),
+    notes: 'Imported from their start link by ' + (who || 'staff') + '.',
+    invite_sent: false, invite_sent_date: '',
+    addedAt: new Date().toISOString(),
+  };
+  (Array.isArray(row.refs) ? row.refs : []).slice(0, 4).forEach((ref, i) => {
+    const n = i + 1;
+    rec['r'+n+'n'] = ref.name || '';
+    rec['r'+n+'_phone'] = ref.phone || '';
+    rec['r'+n+'_email'] = ref.email || '';
+    rec['r'+n+'_rel'] = ref.relationship || '';
+  });
+  candidates.push(rec);
+  saveCandidates();
+  try {
+    await sb.from('hire_intake').update({ seen_at: new Date().toISOString() }).eq('id', row.id);
+    const local = INTAKE_ROWS.find(r => r.id === row.id);
+    if (local) local.seen_at = new Date().toISOString();
+  } catch(e) { /* the workspace exists either way; the row re-imports as a dupe-guard hit */ }
+  renderOB(); renderAlerts();
+  if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
 }
 function renderOB(){
   try{ renderHirePipeline(); }catch(e){}
@@ -6322,5 +6559,7 @@ for (const [n, f] of Object.entries({
   sendForApproval, sendReply, toggleCQCard, toggleStaffNotif,
   toggleThread, vivCopy,
 })) window[n] = f;
+window.intakeImport = intakeImport;
+window.retryHydrate = retryHydrate;
 window.dispatchEvent(new Event('scx-ready'));
 })();

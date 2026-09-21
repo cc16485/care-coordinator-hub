@@ -867,7 +867,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="applicants" onclick="switchTab('applicants')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Applicants<span class="subtab-badge red" id="apNewBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
     <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Offer a Job</div>
-    <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Background &amp; References</div>
+    <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Background &amp; References<span class="subtab-badge red" id="bgrPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="cgorient" onclick="switchTab('cgorient')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Orientations</div>
   </div>
   <div class="fsubbar" id="fsub-caregivers">
@@ -2026,7 +2026,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div class="tab-guide-body" id="guide-body-ob">
           <div class="guide-section-lbl" style="border-top:none;padding-top:0;margin-top:0">How candidates get here</div>
-          <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">Candidate completes their application in <strong>Viventium</strong>. This triggers an email to Gmail and automatically adds them to this tab.<span class="tip">If a candidate doesn't appear, check that Viventium sent the notification and manually add them using "+ Add Candidate."</span></div></div>
+          <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">The candidate taps the <strong>start link</strong> in their offer message and submits their references. The moment they finish, they appear above as <strong>submitted, waiting to be imported</strong> — click <strong>Import</strong> to open their checks workspace.<span class="tip">If someone accepted an offer but hasn't appeared, they haven't finished their start link yet — their row shows "waiting for start link" with a button to resend it. Importing never contacts their references; <strong>Ask References</strong> is its own separate button.</span></div></div>
           <div class="guide-section-lbl">Your checklist for each candidate</div>
           <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body"><strong>Run OIG Exclusion Check</strong> — click the OIG button on their row. Must be clear before proceeding.<span class="tip">You can also run a batch OIG check for all pending candidates at once using the Batch OIG button.</span></div></div>
           <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>Order FCSR Background Check</strong> — done manually through FCSR. Log the date ordered and mark clear/failed when results arrive.</div></div>
@@ -7167,6 +7167,9 @@ function scxEnsure(tab){
     document.getElementById('scxLoading')?.remove();
     scxRender(activeTab);
   }, { once:true });
+  /* The engine hydrates shared data asynchronously after scx-ready; re-render
+     the open panel once fresh data (or the read-only banner) is in. */
+  window.addEventListener('scx-hydrated', function(){ scxRender(activeTab); });
   const s = document.createElement('script');
   /* The rules the engine delegates to must exist before it runs. Loaded here
      rather than as a page-level tag so it travels with the lazy engine and
@@ -26191,9 +26194,27 @@ function renderMgrStrip(){
       await loadAllData();
       await flushPendingSync();
       renderActiveTab();
+      updateStartLinkBadge();
     }
   }
 })();
+
+/* Deterministic awareness at login, no tab-open needed: how many start-link
+   submissions have never been reviewed. seen_at is stamped by Import;
+   candidate_id-bearing rows are historical identity records (script 185)
+   and are not "new submissions". Passive: a failure here shows nothing and
+   breaks nothing. */
+async function updateStartLinkBadge(){
+  try{
+    const { count, error } = await sb.from('hire_intake')
+      .select('id', { count: 'exact', head: true })
+      .is('seen_at', null).is('candidate_id', null);
+    const b = document.getElementById('bgrPillBadge');
+    if(!b || error) return;
+    if(count > 0){ b.textContent = count; b.style.display = ''; b.title = count + ' start-link submission' + (count===1?'':'s') + ' waiting to be imported'; }
+    else b.style.display = 'none';
+  }catch(e){ /* awareness only */ }
+}
 </script>
 <script>
 /* ================================================================
