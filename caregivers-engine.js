@@ -1692,6 +1692,10 @@ function offerCopyLink(btn, url){
 /* Creating the request rows is the half that can happen on its own; showing
    the links is the half that needs a person looking at the screen. */
 async function createRefRequests(c){
+  /* Gate A read-only guard (owner ruling 2026-09-22): this is the ONLY place
+     reference rows are inserted and reference-chase is invoked. No fresh shared
+     load means no mutation and no outreach, full stop. */
+  if (!HYDRATED) { console.warn('BLOCKED createRefRequests: shared data not loaded, no reference rows created and no chase invoked'); return []; }
   const slots = [1,2,3,4]
     .map(n => ({ n, name: c['r'+n+'n'], phone: c['r'+n+'_phone'], email: c['r'+n+'_email'], rel: c['r'+n+'_rel'], status: c['r'+n+'s'] }))
     .filter(r => r.name && (r.phone || r.email) && r.status === 'Pending');
@@ -1735,6 +1739,7 @@ async function createRefRequests(c){
    happens by itself. Anything already asked is skipped, so this is safe to run
    as often as the tab is opened. */
 async function autoAskReferences(){
+  if (!HYDRATED) { console.warn('BLOCKED autoAskReferences: shared data not loaded'); return; }
   const waiting = candidates.filter(c =>
     !c.not_hired && [1,2,3,4].some(n => c['r'+n+'n'] && (c['r'+n+'_phone'] || c['r'+n+'_email']) && c['r'+n+'s'] === 'Pending'));
   for (const c of waiting) {
@@ -1745,6 +1750,7 @@ async function autoAskReferences(){
 async function askReferences(candId, btn){
   const c = candidates.find(x => x.id === candId);
   if (!c) return;
+  if (!HYDRATED) { alert('Shared data has not loaded, so this section is read-only right now. No reference requests were created and nothing was sent. Use Try again at the top, then retry.'); return; }
   const slots = [1,2,3,4]
     .map(n => ({ n, name: c['r'+n+'n'], phone: c['r'+n+'_phone'], email: c['r'+n+'_email'], rel: c['r'+n+'_rel'], status: c['r'+n+'s'] }))
     .filter(r => r.name && (r.phone || r.email) && r.status === 'Pending');
@@ -3422,17 +3428,18 @@ async function syncToSupabase(key, data){
     if(!HYDRATED){
       console.warn('BLOCKED stale write of', key, '- shared data never loaded this session');
       try{ hydrateBanner(); }catch(e){}
-      return;
+      return false;
     }
     // Guard 2: NEVER write while logged out. A fresh browser starts with empty
     // local arrays, and an unauthenticated write here can overwrite real data
     // in Supabase (this happened — see clearSeedPeople).
     const { data:{ session } } = await sb.auth.getSession();
-    if(!session){ console.warn('Skipped Supabase sync for', key, '— not signed in'); return; }
+    if(!session){ console.warn('Skipped Supabase sync for', key, '— not signed in'); return false; }
     const { error } = await sb.from('app_data').upsert({ key, data, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-    if(error){ console.warn('Supabase sync failed for', key, error); setSyncStatus('offline'); }
-    else setSyncStatus('ok');
-  } catch(e){ console.warn('Supabase sync:', e); setSyncStatus('offline'); }
+    if(error){ console.warn('Supabase sync failed for', key, error); setSyncStatus('offline'); return false; }
+    setSyncStatus('ok');
+    return true;
+  } catch(e){ console.warn('Supabase sync:', e); setSyncStatus('offline'); return false; }
 }
 
 async function loadFromSupabase(){
@@ -3932,12 +3939,32 @@ async function intakeImport(intakeId, btn){
     rec['r'+n+'_rel'] = ref.relationship || '';
   });
   candidates.push(rec);
-  saveCandidates();
+  /* Gate A (owner ruling 2026-09-22): the workspace must be CONFIRMED in the
+     shared database before we mark this submission seen. seen_at is what drops
+     them off the import queue, so stamping it on an unconfirmed write is how a
+     person could vanish (imported here, never saved there). Persist first, and
+     stamp seen_at only if that persist truly succeeded. */
+  localStorage.setItem('cc_candidates', JSON.stringify(candidates));
+  localStorage.setItem('cc_ob_id', String(obId));
+  const persisted = await syncToSupabase('candidates', candidates);
+  if (!persisted) {
+    /* Roll the workspace back out of memory and local cache so state stays
+       consistent and they REMAIN importable. Nothing was stamped, so their row
+       still shows in the queue and a retry starts clean. */
+    candidates = candidates.filter(c => c !== rec);
+    localStorage.setItem('cc_candidates', JSON.stringify(candidates));
+    try { renderOB(); } catch(e) {}
+    alert('Could not save this workspace to the shared database, so we did not mark them as imported. Nothing was lost. Try Import again in a moment.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
+    return;
+  }
+  /* Workspace is confirmed in the shared database. NOW it is safe to mark the
+     submission seen. */
   try {
     await sb.from('hire_intake').update({ seen_at: new Date().toISOString() }).eq('id', row.id);
     const local = INTAKE_ROWS.find(r => r.id === row.id);
     if (local) local.seen_at = new Date().toISOString();
-  } catch(e) { /* the workspace exists either way; the row re-imports as a dupe-guard hit */ }
+  } catch(e) { /* the workspace is saved either way; seen_at can retry, and the dupe-guard re-opens rather than re-creating */ }
   renderOB(); renderAlerts();
   if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
 }
