@@ -4372,6 +4372,12 @@ function renderBGRTab(){
   bgrOnOpen();
 }
 
+/* When shared data finishes loading, the legacy views refresh via renderAll,
+   but the new read-only views are NOT in that path. Re-render them on the
+   hydration signal so People & Checks / Reference Activity never stay stuck on
+   "shared data has not loaded" after a load that actually succeeded. Read-only. */
+try{ window.addEventListener('scx-hydrated', function(){ try{ bgrOnOpen(); }catch(e){} }); }catch(e){}
+
 function renderOB(){
   try{ renderHirePipeline(); }catch(e){}
   const q=((document.querySelector('#panel-onboarding input')||{value:''}).value||globalSearch).toLowerCase();

@@ -1806,14 +1806,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- People & Checks: attention-first, read-only projection (renderer in
            caregivers-engine.js). The legacy pipeline + full table stay below as
            a detailed view so no editing affordance is lost. -->
-      <div class="bgr-people" style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.6rem">
-        <input id="bgrPeopleSearch" type="text" placeholder="Search people..." oninput="SCX.renderPeopleChecks()" style="max-width:260px" />
-        <span class="field-note">Who needs attention, why, and what happens next. Nothing here sends or writes.</span>
+      <div class="card bgr-people" style="padding:14px 16px 16px;margin-bottom:14px">
+        <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.7rem">
+          <input id="bgrPeopleSearch" type="text" placeholder="Search people..." oninput="SCX.renderPeopleChecks()" style="max-width:260px" />
+          <span class="field-note">Who needs attention, why, and what happens next. Nothing here sends or writes.</span>
+        </div>
+        <div id="bgrPeople"></div>
       </div>
-      <div class="bgr-people" id="bgrPeople"></div>
 
       <!-- Reference Activity: observational only. No Ask button, no invoke. -->
-      <div class="bgr-refs" id="bgrRefActivity"></div>
+      <div class="card bgr-refs" id="bgrRefActivity" style="padding:14px 16px;margin-bottom:14px"></div>
 
       <!-- Six new nouns arrived with the automation. A coordinator opening
            this cold deserves a map before a board. -->
