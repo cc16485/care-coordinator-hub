@@ -3514,10 +3514,49 @@ let obId  = parseInt(localStorage.getItem('cc_ob_id')  || '10');
 let cgId  = parseInt(localStorage.getItem('cc_cg_id')  || '10');
 clearSeedPeople();
 
-function saveCandidates(){
+async function saveCandidates(){
+  // Local cache is written synchronously first (before any await), so callers
+  // that read localStorage right after calling this still see the update.
   localStorage.setItem('cc_candidates', JSON.stringify(candidates));
   localStorage.setItem('cc_ob_id', String(obId));
-  syncToSupabase('candidates', candidates);
+  // Then attempt the shared write and SURFACE its outcome. Previously this was
+  // fire-and-forget: a rejected shared write (no access / offline) left the user
+  // believing the checks workspace was saved for the whole team when it only
+  // reached this device. syncToSupabase is left untouched (Gate A's intakeImport
+  // depends on its exact true/false contract); we react to its result here.
+  const ok = await syncToSupabase('candidates', candidates);
+  bgrSharedSaveResult(ok);
+}
+// Visible, actionable warning when a shared candidates save did not go through.
+function bgrSharedSaveResult(ok){
+  let el = (typeof document!=='undefined' && document.getElementById) ? document.getElementById('scxSharedSaveWarn') : null;
+  if(ok){ if(el && el.remove) el.remove(); return; }
+  // A false result while shared data never loaded this session is the "stale
+  // write blocked" case — syncToSupabase already showed the hydrate banner for
+  // that distinct cause, so don't stack a second warning on top of it.
+  if(typeof HYDRATED !== 'undefined' && !HYDRATED) return;
+  if(!(typeof document!=='undefined' && document.body)) return;
+  if(el) return; // already showing
+  el = document.createElement('div');
+  el.id = 'scxSharedSaveWarn';
+  el.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;max-width:520px;'
+    + 'background:#FEF2F2;border:1px solid #FCA5A5;color:#991B1B;padding:12px 14px;border-radius:12px;'
+    + 'box-shadow:0 8px 24px rgba(0,0,0,.12);font-size:13px;line-height:1.45;display:flex;gap:10px;align-items:flex-start;';
+  el.innerHTML =
+      '<span style="font-size:16px;line-height:1">&#9888;&#65039;</span>'
+    + '<span><b>Saved on this device only.</b> This change did not reach the shared workspace, '
+    + 'so the rest of the team will not see it yet. You may not have access to save shared changes, '
+    + 'or the connection dropped.<br>'
+    + '<button type="button" id="scxSharedSaveRetry" style="margin-top:9px;background:#991B1B;color:#fff;border:0;border-radius:8px;padding:6px 11px;font-size:12px;cursor:pointer">Try saving to shared again</button>'
+    + '<button type="button" id="scxSharedSaveDismiss" style="margin-top:9px;margin-left:8px;background:transparent;color:#991B1B;border:0;font-size:12px;cursor:pointer;text-decoration:underline">Dismiss</button>'
+    + '</span>';
+  document.body.appendChild(el);
+  const r = document.getElementById('scxSharedSaveRetry');
+  const d = document.getElementById('scxSharedSaveDismiss');
+  // Remove the stale banner before retrying so a fresh outcome (success = no
+  // banner, failure = a new banner) is shown cleanly.
+  if(r) r.onclick = function(){ if(el.remove) el.remove(); saveCandidates(); };
+  if(d) d.onclick = function(){ if(el.remove) el.remove(); };
 }
 function saveCaregivers(){
   localStorage.setItem('cc_caregivers', JSON.stringify(caregivers));
