@@ -3863,7 +3863,7 @@ function renderHirePipeline(){
       if (r.offerState === 'stalled') pips.push(warn('no response'));
     }
     if (r.linkState === 'submitted') pips.push(on('start link ' + d10(r.intake.created_at) + (r.approxPair ? ' ~' : '')));
-    else if (r.linkState === 'waiting') pips.push(warn('waiting for start link'));
+    else if (r.linkState === 'waiting') pips.push(bgrUnk('not submitted · send not recorded'));
     if (r.checksState === 'active') pips.push(on('checks in progress'));
     if (r.checksState === 'ready') pips.push(on('READY for orientation'));
     if (r.checksState === 'not_hired') pips.push(off('not hired'));
@@ -3968,6 +3968,332 @@ async function intakeImport(intakeId, btn){
   renderOB(); renderAlerts();
   if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
 }
+/* ══════════════ UI GATE 1 — Background & References (read-only) ══════════════
+   People & Checks and Reference Activity are read-only PROJECTIONS of records
+   we already store (lifecycleRows + the candidate workspace + reference_requests
+   + the automation heartbeat). They perform NO writes, NO function invokes, and
+   NO outreach. Gate A (intakeImport / syncToSupabase / the guards) and seen_at
+   are untouched. Data loads once per tab open with SELECTs only. Anything we
+   cannot prove is shown as "Unknown", "Not recorded", or "Needs review" — never
+   a manufactured status. */
+let REF_REQUESTS = [];
+let BGR_HEARTBEATS = null;        // parsed app_data 'automation_heartbeats' (array)
+let BGR_DATA_LOADED = false;
+let BGR_DATA_ERR = null;
+
+/* Read-only loads. reference_requests is readable by authenticated staff (RLS
+   refreq_auth_all + grant select); the heartbeat is in app_data, the table this
+   hub already reads. Neither statement mutates anything. */
+async function bgrEnsureData(force){
+  if(!HYDRATED){ BGR_DATA_ERR = 'Shared data has not loaded.'; return; }
+  if(BGR_DATA_LOADED && !force) return;
+  BGR_DATA_ERR = null;
+  try{
+    const rr = await sb.from('reference_requests')
+      .select('id, created_at, candidate_id, candidate_name, slot, ref_name, ref_email, ref_phone, sent_at, reminded_at, reminder_count, responded_at, responder_name, recommend, concerns, applicant_nudged_at, applicant_nudge_count')
+      .order('created_at', { ascending: false });
+    REF_REQUESTS = (rr && rr.data) ? rr.data : [];
+    if(rr && rr.error) BGR_DATA_ERR = 'Could not read reference requests.';
+  }catch(e){ REF_REQUESTS = []; BGR_DATA_ERR = 'Could not read reference requests.'; }
+  try{
+    const hb = await sb.from('app_data').select('data').eq('key','automation_heartbeats').maybeSingle();
+    const blob = hb && hb.data && hb.data.data;
+    BGR_HEARTBEATS = Array.isArray(blob) ? blob : null;
+  }catch(e){ BGR_HEARTBEATS = null; }
+  BGR_DATA_LOADED = true;
+}
+
+const bgrEsc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const bgrD   = t => t ? String(t).slice(0,10) : '';
+function bgrDaysSince(t){ if(!t) return null; const d = Math.floor((Date.now() - new Date(t).getTime())/86400000); return isFinite(d) ? d : null; }
+function bgrChip(bg, fg, label){ return '<span style="font-size:.68rem;font-weight:700;padding:.1rem .48rem;border-radius:999px;white-space:nowrap;background:'+bg+';color:'+fg+'">'+label+'</span>'; }
+const bgrOn  = l => bgrChip('#DCFCE7','#15803D', l);
+const bgrOff = l => bgrChip('#F3F0EA','#8A7F70', l);
+const bgrWarn= l => bgrChip('#FEF3C7','#B45309', l);
+const bgrBad = l => bgrChip('#FEE2E2','#B91C1C', l);
+const bgrUnk = l => bgrChip('#EEF2F7','#5B6472', l);
+const bgrOp  = l => bgrChip('#E4EDF7','#2C5A86', l);   // operational, NOT a warning
+/* Group tone: only "Needs attention" is urgent (red). "Our next step" is a calm
+   operational blue so normal progressing work never looks like a problem. */
+function bgrGroupColor(key){
+  return key==='attention' ? ['#FEE2E2','#B91C1C']
+       : key==='nextstep'  ? ['#E4EDF7','#2C5A86']
+       : key==='ready'     ? ['#DCFCE7','#15803D']
+       : ['#EEF2F7','#5B6472'];
+}
+
+/* Reference rows attached to a board (candidate workspace), factual. */
+function bgrReqsFor(board){ return board ? REF_REQUESTS.filter(r => String(r.candidate_id) === String(board.id)) : []; }
+
+/* One-line reference summary from what we actually record. Uses the request
+   lifecycle when requests exist; falls back to the workspace slots otherwise. */
+function bgrRefsSummary(board){
+  if(!board) return { text:'Not applicable', tone:'unk' };
+  const onFile = [1,2,3,4].filter(n => board['r'+n+'n']);
+  const reqs = bgrReqsFor(board);
+  if(onFile.length === 0 && reqs.length === 0) return { text:'None on file', tone:'unk' };
+  if(reqs.length === 0) return { text: onFile.length + ' on file · not yet requested', tone:'warn' };
+  const responded = reqs.filter(r => r.responded_at).length;
+  const awaiting  = reqs.filter(r => r.sent_at && !r.responded_at).length;
+  const notSent   = reqs.filter(r => !r.sent_at).length;
+  let text = responded + ' of ' + reqs.length + ' responded';
+  if(awaiting) text += ' · ' + awaiting + ' awaiting';
+  if(notSent)  text += ' · ' + notSent + ' not sent';
+  return { text, tone: responded === reqs.length ? 'ok' : 'warn' };
+}
+
+/* Background-check summary, per recorded field only. */
+function bgrChecksSummary(board){
+  if(!board) return { chips:[bgrUnk('Not recorded')], problem:false };
+  const chips = [];
+  let problem = false;
+  const mk = (label, val, clearVals, ran) => {
+    if(clearVals.indexOf(val) > -1) return bgrOn(label + ' clear');
+    if(val === 'FLAGGED' || val === 'Issues Found'){ problem = true; return bgrBad(label + ' problem'); }
+    return ran ? bgrWarn(label + ' pending') : bgrOff(label + ' not started');
+  };
+  chips.push(mk('OIG', board.oig, ['CLEAR'], !!board.oig_date));
+  chips.push(mk('EDL', board.edl, ['Clear'], !!board.edl_date));
+  chips.push(mk('FCSR', board.fcsr, ['Clear'], !!board.fcsr_date));
+  if(board.oos === 'yes') chips.push(mk('FP', board.fp, ['Clear'], !!board.fp_date));
+  else chips.push(bgrOff('FP n/a'));
+  return { chips, problem };
+}
+
+/* TRIAGE: turn a lifecycle row into {stage, waitingOn, why, next, group}, using
+   ONLY factual states. Where evidence is absent the fields say so. This assigns
+   Us / Applicant / Reference / External check ONLY when a record supports it;
+   otherwise Unknown. It never infers that the applicant is stalling merely from
+   an absent submission. */
+function bgrTriage(r){
+  const board = r.board, offer = r.offer, intake = r.intake;
+  // 1) genuine problems / decisions
+  if(r.attention && r.attention.length)
+    return { stage:'Data needs review', waitingOn:'Us', why:r.attention[0], next:'Review record', group:'attention' };
+  if(board && obDeriveStatus(board) === 'Needs Review')
+    return { stage:'Needs review', waitingOn:'Us', why:'A check is flagged or a reference is negative', next:'Review and decide', group:'attention' };
+  // 2) submitted but not imported
+  if(intake && !board)
+    return { stage:'Submitted, not imported', waitingOn:'Us', why:'Their start-link submission has not been imported', next:'Import', group:'nextstep' };
+  // 3) has a workspace
+  if(board){
+    if(board.not_hired)
+      return { stage:'Not hired', waitingOn:'—', why:'Marked not hired', next:'Closed', group:'closed' };
+    const status = obDeriveStatus(board);
+    if(status === 'Ready for Orientation')
+      return { stage:'Ready for orientation', waitingOn:'Us', why:'All required checks are clear', next:'Book orientation', group:'ready' };
+    // Awaiting: find the primary factual blocker.
+    // LIFECYCLE PREREQUISITES (no invented deadlines, no "old = overdue"):
+    //  · "Ask references" only when references are ON FILE and pending. A person
+    //    with no references on file is NOT told to request them.
+    //  · A background check is only a next step once the person is imported
+    //    (a board exists); FP only when they lived outside Missouri (oos==='yes').
+    //    A check that does not apply at this stage never becomes our next step.
+    const reqs = bgrReqsFor(board);
+    const refsPending = [1,2,3,4].some(n => board['r'+n+'n'] && board['r'+n+'s'] === 'Pending');
+    if(refsPending){
+      const awaiting = reqs.some(x => x.sent_at && !x.responded_at);
+      const nudged   = reqs.some(x => x.applicant_nudged_at && !x.responded_at);
+      const anyReq   = reqs.length > 0;
+      if(!anyReq)   return { stage:'Checks in progress', waitingOn:'Us', why:'References are on file and not yet requested', next:'Ask references', group:'nextstep' };
+      if(nudged)    return { stage:'Checks in progress', waitingOn:'Applicant', why:'A reference has not answered; handed to the applicant', next:'Awaiting applicant help', group:'others' };
+      if(awaiting)  return { stage:'Checks in progress', waitingOn:'Reference', why:'Reference request sent, awaiting a response', next:'Awaiting reference', group:'others' };
+    }
+    // background checks
+    const fcsrOrdered = !!board.fcsr_date && board.fcsr !== 'Clear';
+    if(fcsrOrdered) return { stage:'Checks in progress', waitingOn:'External check', why:'FCSR ordered, awaiting the result', next:'Awaiting FCSR result', group:'others' };
+    if(board.oig !== 'CLEAR' && !board.oig_date)  return { stage:'Checks in progress', waitingOn:'Us', why:'OIG check not run yet', next:'Run OIG', group:'nextstep' };
+    if(board.edl !== 'Clear' && !board.edl_date)  return { stage:'Checks in progress', waitingOn:'Us', why:'EDL result not recorded', next:'Record EDL', group:'nextstep' };
+    if(board.fcsr !== 'Clear' && !board.fcsr_date) return { stage:'Checks in progress', waitingOn:'Us', why:'FCSR not ordered yet', next:'Order FCSR', group:'nextstep' };
+    if(board.oos === 'yes' && board.fp !== 'Clear'){
+      return board.fp_date
+        ? { stage:'Checks in progress', waitingOn:'External check', why:'Fingerprint submitted, awaiting the result', next:'Awaiting fingerprint result', group:'others' }
+        : { stage:'Checks in progress', waitingOn:'Us', why:'Fingerprint required, not scheduled', next:'Schedule fingerprint', group:'nextstep' };
+    }
+    return { stage:'Checks in progress', waitingOn:'Unknown', why:'Needs review', next:'Needs review', group:'others' };
+  }
+  // 4) offer exists, no submission — send is NOT recorded, so we do not claim
+  //    the applicant is holding it.
+  if(offer && !intake && !board){
+    const days = bgrDaysSince(offer.created_at);
+    return { stage:'Start not submitted · send status not recorded', waitingOn:'Unknown',
+             why: (days != null ? days + ' days since offer, no submission' : 'No submission on record') + '; whether a start link was sent is not recorded',
+             next:'Needs review (start-link send is not tracked)', group:'startunknown' };
+  }
+  return { stage:'Unknown', waitingOn:'Unknown', why:'No records to determine state', next:'Needs review', group:'others' };
+}
+
+const BGR_GROUPS = [
+  { key:'attention',    title:'Needs attention',     note:'flagged, inconsistent, or otherwise needs a decision' },
+  { key:'nextstep',     title:'Our next step',       note:'progressing normally; the next factual action is ours' },
+  { key:'others',       title:'Waiting on others',   note:'reference, applicant, or an external check' },
+  { key:'startunknown', title:'Start not confirmed', note:'offer made, no submission, send status not recorded' },
+  { key:'ready',        title:'Ready',               note:'all required checks clear' },
+  { key:'closed',       title:'Closed',              note:'not hired' },
+];
+/* "Us" is operational blue (our action), not amber; the waiting states are
+   neutral grey; nothing here is coloured as a problem. */
+const bgrWaitTone = w => w==='Us' ? bgrOp : (w==='Unknown' ? bgrUnk : bgrOff);
+
+function bgrPersonCard(r, t){
+  const refs = bgrRefsSummary(r.board);
+  const checks = bgrChecksSummary(r.board);
+  const refTone = refs.tone==='ok'?bgrOn:(refs.tone==='warn'?bgrWarn:bgrUnk);
+  const actions = [];
+  if(r.board) actions.push('<button class="ibtn" onclick="openOBModal('+r.board.id+')">Open</button>');
+  else if(r.intake) actions.push('<button class="ibtn" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>');
+  /* Only genuine problems carry the red accent; normal next steps do not. */
+  const accent = t.group==='attention' ? 'border-left:3px solid #EF4444;padding-left:.55rem;' : '';
+  return '<div style="padding:.6rem .1rem;border-top:1px solid #ece9e1;'+accent+'">'
+    + '<div style="display:flex;gap:.7rem;align-items:baseline;flex-wrap:wrap">'
+    +   '<b style="flex:0 0 150px;color:#0D365F;font-size:.9rem">'+bgrEsc(r.name)+'</b>'
+    +   '<span style="flex:1;color:#4A4A4A;font-size:.82rem">'+bgrEsc(t.stage)+'</span>'
+    +   '<span style="display:flex;gap:.3rem">'+actions.join('')+'</span>'
+    + '</div>'
+    + '<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.35rem;align-items:center">'
+    +   bgrWaitTone(t.waitingOn)('Waiting on: '+t.waitingOn)
+    +   refTone('Refs: '+refs.text)
+    +   checks.chips.join(' ')
+    + '</div>'
+    + '<div style="margin-top:.3rem;font-size:.78rem;color:#6E6559"><b style="color:#8A7F70;font-weight:700">Why:</b> '+bgrEsc(t.why)+'</div>'
+    + '<div style="font-size:.78rem;color:#0D365F"><b style="color:#8A7F70;font-weight:700">Next:</b> '+bgrEsc(t.next)+'</div>'
+    + '</div>';
+}
+
+/* Pure builder so the same output can be rendered in the preview harness. */
+function bgrPeopleHTML(rows, term){
+  const q = (term||'').toLowerCase();
+  const items = rows
+    .map(r => ({ r, t: bgrTriage(r) }))
+    .filter(x => !q || x.r.name.toLowerCase().indexOf(q) > -1);
+  if(!items.length) return '<div style="color:#A89C8B;font-size:.85rem;padding:.6rem 0">Nobody matches.</div>';
+  const counts = {};
+  items.forEach(x => { counts[x.t.group] = (counts[x.t.group]||0) + 1; });
+  const summary = '<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin:.2rem 0 .8rem">'
+    + BGR_GROUPS.filter(g=>counts[g.key]).map(g => {
+        const c = bgrGroupColor(g.key);
+        return bgrChip(c[0], c[1], g.title + ' (' + counts[g.key] + ')');
+      }).join('')
+    + '</div>';
+  let html = summary;
+  BGR_GROUPS.forEach(g => {
+    const inGroup = items.filter(x => x.t.group === g.key);
+    if(!inGroup.length) return;
+    // oldest first within a group, so the longest-waiting rises
+    inGroup.sort((a,b) => {
+      const ka = (a.r.offer&&a.r.offer.created_at) || (a.r.intake&&a.r.intake.created_at) || (a.r.board&&a.r.board.addedAt) || '';
+      const kb = (b.r.offer&&b.r.offer.created_at) || (b.r.intake&&b.r.intake.created_at) || (b.r.board&&b.r.board.addedAt) || '';
+      return String(ka).localeCompare(String(kb));
+    });
+    const hc = g.key==='attention' ? '#B91C1C' : '#8A7F70';
+    html += '<div style="margin:.6rem 0 .2rem;font-size:.72rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:'+hc+'">'
+      + bgrEsc(g.title) + ' <span style="font-weight:600;text-transform:none;letter-spacing:0;color:#A89C8B">· ' + bgrEsc(g.note) + '</span></div>';
+    html += inGroup.map(x => bgrPersonCard(x.r, x.t)).join('');
+  });
+  return html;
+}
+
+function renderPeopleChecks(){
+  const box = document.getElementById('bgrPeople'); if(!box) return;
+  if(!HYDRATED){ box.innerHTML = '<div style="color:#B91C1C;font-size:.85rem;font-weight:600">Shared data has not loaded. This view is read-only and cannot be shown from a local cache.</div>'; return; }
+  const term = (document.getElementById('bgrPeopleSearch')||{value:''}).value || '';
+  let rows = [];
+  try{ rows = lifecycleRows(); }catch(e){ rows = []; }
+  box.innerHTML = bgrPeopleHTML(rows, term);
+}
+
+/* ── Reference Activity (observational) ─────────────────────────────────────
+   Automation-health language is EVIDENCE-BASED: a heartbeat proves a run
+   happened at a time; its absence or staleness does NOT prove OFF or ERROR,
+   and the browser cannot read the cron, so we never claim RUNNING/OFF/ERROR. */
+const BGR_CHASE_WINDOW_H = 80;   // reference-chase allowed window (automation-watchdog)
+function bgrHealthModel(){
+  const beat = Array.isArray(BGR_HEARTBEATS) ? BGR_HEARTBEATS.find(b => b && b.automation === 'reference-chase') : null;
+  let heartbeat = 'None recorded', ageH = null, lastSuccess = 'No successful run recorded', lastNote = '';
+  if(beat && beat.at){
+    ageH = (Date.now() - new Date(beat.at).getTime())/3600000;
+    heartbeat = (ageH <= BGR_CHASE_WINDOW_H) ? 'Recent' : 'Stale';
+    if(beat.ok !== false) lastSuccess = bgrD(beat.at) + ' (' + Math.round(ageH) + 'h ago)';
+    else { lastSuccess = 'No successful run recorded'; lastNote = 'Last recorded run (' + bgrD(beat.at) + ') reported a problem'; }
+  }
+  const sent = REF_REQUESTS.filter(r => r.sent_at);
+  const awaiting = sent.filter(r => !r.responded_at).length;
+  const responses = REF_REQUESTS.filter(r => r.responded_at).length;
+  const needs = REF_REQUESTS.filter(r => r.responded_at && (r.recommend === 'no' || r.concerns === 'serious')).length;
+  return { heartbeat, lastSuccess, lastNote, awaiting, responses, needs };
+}
+
+function bgrRefActivityHTML(){
+  if(!HYDRATED) return '<div style="color:#B91C1C;font-size:.85rem;font-weight:600">Shared data has not loaded. This view is read-only and cannot be shown from a local cache.</div>';
+  const h = bgrHealthModel();
+  const line = (k,v) => '<div style="display:flex;justify-content:space-between;gap:1rem;padding:.2rem 0;font-size:.82rem"><span style="color:#8A7F70">'+k+'</span><span style="color:#0D365F;font-weight:600;text-align:right">'+v+'</span></div>';
+  const hbTone = h.heartbeat==='Recent'?'#15803D':(h.heartbeat==='Stale'?'#B45309':'#5B6472');
+  let health = '<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">'
+    + '<div style="font-weight:800;color:#0D365F;font-size:.9rem;margin-bottom:.3rem">Automation activity</div>'
+    + line('Last recorded successful run', bgrEsc(h.lastSuccess))
+    + (h.lastNote ? '<div style="font-size:.76rem;color:#B45309;margin:-.05rem 0 .15rem">'+bgrEsc(h.lastNote)+'</div>' : '')
+    + line('Heartbeat status', '<span style="color:'+hbTone+'">'+h.heartbeat+'</span>')
+    + line('Schedule', 'Not visible from Hub')
+    + line('Requests awaiting response', String(h.awaiting))
+    + line('Responses received', String(h.responses))
+    + line('Needs attention (negative or serious)', String(h.needs))
+    + '<div style="font-size:.72rem;color:#A89C8B;margin-top:.4rem">A heartbeat proves a run happened. A missing or stale one does not by itself prove the automation is off or errored, and the schedule is not readable from here. We do not track delivery or opens.</div>'
+    + (BGR_DATA_ERR ? '<div style="font-size:.76rem;color:#B91C1C;margin-top:.3rem">'+bgrEsc(BGR_DATA_ERR)+'</div>' : '')
+    + '</div>';
+
+  if(!REF_REQUESTS.length) return health + '<div style="color:#A89C8B;font-size:.85rem">No reference requests on record yet.</div>';
+  const rowsHtml = REF_REQUESTS.map(r => {
+    const cell = (label, val, tone) => '<td style="padding:.4rem .5rem;white-space:nowrap">'+(val ? (tone||bgrOn)(label) : bgrOff('—'))+'</td>';
+    const reminders = (r.reminder_count||0) > 0 ? bgrWarn((r.reminder_count)+'× '+(bgrD(r.reminded_at)||'')) : bgrOff('none');
+    const responded = r.responded_at
+      ? ((r.recommend==='no'||r.concerns==='serious') ? bgrBad('responded '+bgrD(r.responded_at)) : bgrOn('responded '+bgrD(r.responded_at)))
+      : bgrOff('—');
+    const needs = (r.responded_at && (r.recommend==='no'||r.concerns==='serious')) ? bgrBad('review') : bgrOff('—');
+    return '<tr style="border-top:1px solid #ece9e1">'
+      + '<td style="padding:.4rem .5rem">'+bgrEsc(r.candidate_name||('#'+r.candidate_id))+'</td>'
+      + '<td style="padding:.4rem .5rem">'+bgrEsc(r.ref_name||('slot '+r.slot))+'</td>'
+      + '<td style="padding:.4rem .5rem;white-space:nowrap">'+(bgrD(r.created_at)||bgrUnk('—'))+'</td>'
+      + cell('sent '+(bgrD(r.sent_at)||''), r.sent_at)
+      + '<td style="padding:.4rem .5rem">'+reminders+'</td>'
+      + '<td style="padding:.4rem .5rem">'+responded+'</td>'
+      + cell('nudged '+(bgrD(r.applicant_nudged_at)||''), r.applicant_nudged_at, bgrWarn)
+      + '<td style="padding:.4rem .5rem">'+(r.responder_name?bgrEsc(r.responder_name):bgrUnk('Not recorded'))+'</td>'
+      + '<td style="padding:.4rem .5rem">'+needs+'</td>'
+      + '</tr>';
+  }).join('');
+  return health
+    + '<div class="tbl-wrap"><table><thead><tr>'
+    + ['Candidate','Reference','Requested','Sent','Reminders','Responded','Applicant nudged','Response source','Needs attention']
+        .map(h2 => '<th>'+h2+'</th>').join('')
+    + '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
+}
+
+function renderReferenceActivity(){
+  const box = document.getElementById('bgrRefActivity'); if(!box) return;
+  box.innerHTML = bgrRefActivityHTML();
+}
+
+/* Fired on tab open and subtab switch. Loads read-only data once, then renders
+   the two dynamic views. No writes, no invokes. */
+async function bgrOnOpen(){
+  try{ await bgrEnsureData(false); }catch(e){}
+  try{ renderPeopleChecks(); }catch(e){}
+  try{ renderReferenceActivity(); }catch(e){}
+}
+
+/* Called by the subtab bar (index.html) after it flips the mode class. */
+function bgrRenderSub(which){
+  if(which === 'people') renderPeopleChecks();
+  else if(which === 'refs') renderReferenceActivity();
+}
+
+/* Tab-open entry: keep the legacy table working, then load + render the new
+   read-only views. */
+function renderBGRTab(){
+  try{ renderOB(); }catch(e){}
+  bgrOnOpen();
+}
+
 function renderOB(){
   try{ renderHirePipeline(); }catch(e){}
   const q=((document.querySelector('#panel-onboarding input')||{value:''}).value||globalSearch).toLowerCase();
@@ -6558,7 +6884,7 @@ function renderEVVCorrections() {
 }
 
 /* the only things the panels' handlers need */
-window.SCX = {loadOffers, renderHirePipeline, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+window.SCX = {loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
 /* The offer cards are built with inline onclick handlers, so these have to be
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;

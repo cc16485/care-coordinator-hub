@@ -1762,9 +1762,62 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <section class="tabpanel" id="tab-cgbackground">
     <div class="panel" id="panel-onboarding">
 
+      <!-- Sub-tabs (UI Gate 1, 2026-09-22): four internal tabs. People & Checks
+           lands first (the work), then Reference Activity (observational),
+           Messages & Experience (previews), How It Works (guides). Toggling only
+           flips a mode class on this panel; the read-only renderers in
+           caregivers-engine.js do the rest. Gate A is untouched. -->
+      <style>
+        #panel-onboarding:not(.mode-people)     .bgr-people{display:none;}
+        #panel-onboarding:not(.mode-refs)       .bgr-refs{display:none;}
+        #panel-onboarding:not(.mode-messages)   .bgr-messages{display:none;}
+        #panel-onboarding:not(.mode-howitworks) .bgr-howitworks{display:none;}
+        .bgr-subnav{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+        .bgr-subnav button{background:none;border:none;border-bottom:2px solid transparent;
+          padding:9px 14px 11px;margin-bottom:-1px;font-family:inherit;font-size:13.5px;
+          font-weight:700;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:7px;white-space:nowrap;}
+        .bgr-subnav button:hover{color:var(--navy);}
+        .bgr-subnav button.active{color:var(--navy);border-bottom-color:var(--gold,#F0A63A);}
+      </style>
+      <div class="bgr-subnav" role="tablist">
+        <button id="bgr-tab-people"     class="active" onclick="bgrSub('people')">🗂 People &amp; Checks</button>
+        <button id="bgr-tab-refs"       onclick="bgrSub('refs')">📞 Reference Activity</button>
+        <button id="bgr-tab-messages"   onclick="bgrSub('messages')">📬 Messages &amp; Experience</button>
+        <button id="bgr-tab-howitworks" onclick="bgrSub('howitworks')">📖 How It Works</button>
+      </div>
+      <script>
+        (function(){
+          var p=document.getElementById('panel-onboarding');
+          if(p && !/mode-(people|refs|messages|howitworks)/.test(p.className)) p.classList.add('mode-people');
+        })();
+        window.bgrSub=function(which){
+          var p=document.getElementById('panel-onboarding'); if(!p) return;
+          ['people','refs','messages','howitworks'].forEach(function(m){
+            p.classList.toggle('mode-'+m, m===which);
+            var b=document.getElementById('bgr-tab-'+m); if(b) b.classList.toggle('active', m===which);
+          });
+          try{ if(window.SCX && SCX.bgrRenderSub) SCX.bgrRenderSub(which); }catch(e){}
+          /* phone previews scale to their container width, which is 0 while
+             hidden — refit them when Messages becomes visible. */
+          if(which==='messages'){ try{ window.dispatchEvent(new Event('resize')); }catch(e){} }
+        };
+      </script>
+
+      <!-- People & Checks: attention-first, read-only projection (renderer in
+           caregivers-engine.js). The legacy pipeline + full table stay below as
+           a detailed view so no editing affordance is lost. -->
+      <div class="bgr-people" style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.6rem">
+        <input id="bgrPeopleSearch" type="text" placeholder="Search people..." oninput="SCX.renderPeopleChecks()" style="max-width:260px" />
+        <span class="field-note">Who needs attention, why, and what happens next. Nothing here sends or writes.</span>
+      </div>
+      <div class="bgr-people" id="bgrPeople"></div>
+
+      <!-- Reference Activity: observational only. No Ask button, no invoke. -->
+      <div class="bgr-refs" id="bgrRefActivity"></div>
+
       <!-- Six new nouns arrived with the automation. A coordinator opening
            this cold deserves a map before a board. -->
-      <details class="card" style="padding:12px 16px;margin-bottom:14px;">
+      <details class="card bgr-howitworks" style="padding:12px 16px;margin-bottom:14px;">
         <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--navy);list-style:none;">
           🧭 How hiring runs now — read this once
         </summary>
@@ -1772,7 +1825,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <p style="margin:0 0 10px;">Most of this happens without you. Your job is the judgement calls and the screenings only you can run.</p>
           <ol style="margin:0 0 10px;padding-left:20px;">
             <li><b>You make the offer</b> on the Offer a Job tab. Paste their details from Augusta rather than retyping.</li>
-            <li><b>Their start link sends itself.</b> They get a text and email asking for references and the details the Family Care Safety Registry needs. This is the fastest way to get reference checks moving, which is the slowest part of hiring.</li>
+            <li><b>Their start link is sent by hand.</b> There is no automatic send yet, and whether a link was sent is not recorded. Open the offer and use Text it or Email it to send the link that asks for references and the Family Care Safety Registry details. Sending it promptly is what gets reference checks moving, the slowest part of hiring.</li>
             <li><b>They appear here on their own</b> once they fill it in, with references already in place and a fingerprint check flagged if they have lived outside Missouri.</li>
             <li><b>Their references get asked automatically</b> and answer five questions on their phone. The answers score themselves, exactly as if you had called.</li>
             <li><b>You run OIG, EDL and FCSR</b>, because those are state systems only a person can use.</li>
@@ -1834,7 +1887,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
                 font-size:12.5px;line-height:1.6;color:#5C4813;margin-top:11px;}
       </style>
 
-      <div class="card" style="padding:14px 16px;margin-bottom:14px;">
+      <div class="card bgr-messages" style="padding:14px 16px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <b style="font-size:15px;color:var(--navy);">📬 What they actually get</b>
           <span class="field-note">every message and page a new hire and their references see. Open one to read it.</span>
@@ -1871,7 +1924,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
                 cta:'Get started' },
               { type:'page', label:'The page it opens', page:'start.html?first=Jordan&last=Ellis' },
             ],
-            you: 'Nothing, unless it fails. A start link nobody opens is chased for you after three days.',
+            you: 'Send this by hand from the offer (Text it or Email it). There is no automatic send or three-day chase yet, and whether it was sent is not recorded.',
           },
           {
             title: 'Each reference gets asked',
@@ -2006,9 +2059,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       })();
       </script>
 
+      <!-- Detailed view (legacy pipeline + full checks table) kept below the
+           attention-first People view so no editing affordance is lost. -->
+      <div class="bgr-people" style="margin:.4rem 0 .2rem;font-size:.72rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#8A7F70">Detailed view <span style="font-weight:600;text-transform:none;letter-spacing:0;color:#A89C8B">· full pipeline and checks table</span></div>
       <!-- One row per person being hired, so nobody assembles the answer
            from two tabs and their own memory. -->
-      <div class="card" style="padding:14px 16px;margin-bottom:14px;">
+      <div class="card bgr-people" style="padding:14px 16px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <b style="font-size:15px;color:var(--navy);">Where everyone stands</b>
           <span class="field-note">start link, references, screenings, Viventium. Red is waiting on you.</span>
@@ -2019,10 +2075,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
 
       <!-- Where the reference links appear after "Ask refs" -->
-      <div id="askRefsBox" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px;"></div>
+      <div class="bgr-people" id="askRefsBox" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px;"></div>
 
       <!-- Tab Guide -->
-      <div class="tab-guide">
+      <div class="tab-guide bgr-howitworks">
         <div class="tab-guide-hdr" onclick="SCX.toggleGuide('ob')">
           <span class="tab-guide-title">📋 How This Tab Works — Step by Step</span>
           <span class="tab-guide-arrow" id="guide-arrow-ob">▼</span>
@@ -2042,8 +2098,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
       </div>
 
-      <div class="stats" id="ob-stats"></div>
-      <div class="controls">
+      <div class="stats bgr-people" id="ob-stats"></div>
+      <div class="controls bgr-people">
         <input type="text" placeholder="Search candidate..." oninput="SCX.renderOB()">
         <button class="fb active" onclick="SCX.obFilter('all',this)">All</button>
         <button class="fb" onclick="SCX.obFilter('ready',this)">✅ Ready for Orientation</button>
@@ -2053,7 +2109,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="fb" onclick="SCX.obFilter('not_hired',this)" style="color:#ef4444;border-color:#fca5a5">🚫 Not Hired</button>
         <button class="fb" onclick="SCX.obFilter('stats',this)" style="margin-left:auto">📊 Processing Stats</button>
       </div>
-      <div class="tbl-wrap">
+      <div class="tbl-wrap bgr-people">
         <table>
           <thead><tr>
             <th>Candidate</th>
@@ -2068,7 +2124,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </table>
         <div class="empty" id="ob-empty" style="display:none">No candidates match.</div>
       </div>
-      <div id="ob-stats-panel" style="display:none;padding:.25rem 0 1rem"></div>
+      <div class="bgr-people" id="ob-stats-panel" style="display:none;padding:.25rem 0 1rem"></div>
     </div>
 
     <!-- ═══════════════════════════════ TRAINING ════════════════════════════════ -->
@@ -7200,7 +7256,7 @@ function scxEnsure(tab){
 }
 function scxRender(tab){
   if(!window.SCX) return;
-  const fn = { cgbackground:'renderOB', cgorient:'renderOrientations', cgtraining:'renderTR', cgcompliance:'renderAC', cgattendance:'renderAttendance', cgwriteups:'renderWriteups', offers:'loadOffers' }[tab];
+  const fn = { cgbackground:'renderBGRTab', cgorient:'renderOrientations', cgtraining:'renderTR', cgcompliance:'renderAC', cgattendance:'renderAttendance', cgwriteups:'renderWriteups', offers:'loadOffers' }[tab];
   try{ if(fn && SCX[fn]) SCX[fn](); }catch(e){ console.warn('caregiver panel render:', e); }
 }
 
