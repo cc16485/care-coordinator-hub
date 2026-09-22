@@ -68,6 +68,18 @@ async function showApp(){
      created candidates with no offer_id — so the offer sat in "Open offers"
      forever looking stalled and the Step-1 pip never lit. */
   await loadOffers(); // fills the New Offers tab + red badge count
+  /* Standalone boot must hydrate hire_intake the SAME way the embedded boot
+     (bootHydrate) does. Without this, INTAKE_ROWS stays empty here, so
+     Background & References cannot see start-link submissions: submitted people
+     show as "Start not confirmed" and no Import ever appears. Read-only (it only
+     assigns INTAKE_ROWS); guarded so a hire_intake hiccup never breaks sign-in.
+     Placed right after loadOffers to match bootHydrate's offers->intake order,
+     before anything derives B&R lifecycle state. */
+  try { await loadIntake(); } catch(e){ console.warn('loadIntake (standalone boot):', (e && e.message) || e); }
+  /* Refresh the read-only B&R views now that offers + intake are loaded — the
+     same signal bootHydrate emits; its sole listener re-renders People & Checks
+     and Reference Activity. No writes, no invokes. */
+  try { window.dispatchEvent(new Event('scx-hydrated')); } catch(e){}
   linkCandidatesToOffers();
   intakeReconcile().then(autoAskReferences);
   refFixReconcile();
