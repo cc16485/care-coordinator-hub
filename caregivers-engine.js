@@ -4135,13 +4135,90 @@ const BGR_GROUPS = [
    neutral grey; nothing here is coloured as a problem. */
 const bgrWaitTone = w => w==='Us' ? bgrOp : (w==='Unknown' ? bgrUnk : bgrOff);
 
+/* ── Gate 1b: per-person timeline ───────────────────────────────────────────
+   A READ-ONLY projection of the SAME records People & Checks already reads
+   (offer + hire_intake + workspace + reference_requests). It stores nothing,
+   writes nothing, and invents no state. Every line traces to a stored value;
+   anything absent reads "Not recorded" / "Not submitted" / "n/a". */
+function bgrKey(r){
+  if(r.board)  return 'b'+r.board.id;
+  if(r.intake) return 'i'+String(r.intake.id).replace(/[^a-z0-9]/gi,'');
+  if(r.offer)  return 'o'+String(r.offer.id).replace(/[^a-z0-9]/gi,'');
+  return 'x'+String(r.name||'').replace(/[^a-z0-9]/gi,'').slice(0,12);
+}
+function bgrTLrow(dot, label, value, valColor){
+  return '<div style="display:flex;gap:.55rem;padding:.14rem 0">'
+    + '<span style="flex:0 0 8px;height:8px;width:8px;border-radius:50%;background:'+dot+';margin-top:.35rem"></span>'
+    + '<span style="flex:0 0 148px;font-size:.77rem;color:#4A4A4A">'+bgrEsc(label)+'</span>'
+    + '<span style="flex:1;min-width:120px;font-size:.77rem;color:'+(valColor||'#0D365F')+';font-weight:600">'+value+'</span>'
+    + '</div>';
+}
+function bgrTimelineHTML(r, t){
+  const board=r.board, intake=r.intake, offer=r.offer;
+  const reqs = bgrReqsFor(board);
+  const done='#15803D', pend='#C9B99B', prob='#EF4444', unk='#CBD2DA', dim='#A89C8B';
+  let h = '';
+  h += bgrTLrow(offer?done:unk, 'Offer saved', offer? bgrD(offer.created_at) : 'Not recorded', offer?'#15803D':dim);
+  h += bgrTLrow(unk, 'Start link sent', 'Not recorded (send is not tracked)', dim);
+  h += bgrTLrow(intake?done:unk, 'Start submitted', intake? bgrD(intake.created_at) : 'Not submitted', intake?'#15803D':dim);
+  if(board){
+    const imp = board.imported_at ? bgrD(board.imported_at) : (board.addedAt ? bgrD(board.addedAt) : 'imported, date not recorded');
+    h += bgrTLrow(done, 'Imported', imp, '#15803D');
+    const onFile = [1,2,3,4].filter(n => board['r'+n+'n']);
+    if(!reqs.length && !onFile.length){
+      h += bgrTLrow(unk, 'References', 'None on record', dim);
+    } else {
+      reqs.slice().sort((a,b)=>(a.slot||0)-(b.slot||0)).forEach(q => {
+        const parts = [ q.sent_at ? 'sent '+bgrD(q.sent_at) : 'not sent' ];
+        if((q.reminder_count||0) > 0) parts.push(q.reminder_count+'× reminded'+(q.reminded_at?' '+bgrD(q.reminded_at):''));
+        if(q.applicant_nudged_at) parts.push('applicant nudged '+bgrD(q.applicant_nudged_at));
+        const neg = q.responded_at && (q.recommend==='no' || q.concerns==='serious');
+        parts.push(q.responded_at ? ('responded '+bgrD(q.responded_at)+(neg?' (negative)':'')) : 'awaiting');
+        h += bgrTLrow(neg?prob:(q.responded_at?done:pend), 'Reference: '+(q.ref_name||('slot '+q.slot)),
+                      parts.join(' · '), neg?'#B91C1C':(q.responded_at?'#15803D':'#B45309'));
+      });
+      const reqSlots = new Set(reqs.map(q=>q.slot));
+      onFile.filter(n=>!reqSlots.has(n)).forEach(n =>
+        h += bgrTLrow(pend, 'Reference: '+bgrEsc(board['r'+n+'n']), 'on file, not requested', '#B45309'));
+    }
+    const chk = (label,val,clear,ran,date) => {
+      const text = clear ? ('clear'+(date?' '+bgrD(date):'')) : ((val==='FLAGGED'||val==='Issues Found') ? 'problem' : (ran?'pending':'not started'));
+      const color = clear ? '#15803D' : ((val==='FLAGGED'||val==='Issues Found') ? '#B91C1C' : '#8A7F70');
+      const dot = clear ? done : ((val==='FLAGGED'||val==='Issues Found') ? prob : pend);
+      return bgrTLrow(dot, label, text, color);
+    };
+    h += chk('OIG', board.oig, board.oig==='CLEAR', !!board.oig_date, board.oig_date);
+    h += chk('EDL', board.edl, board.edl==='Clear', !!board.edl_date, board.edl_date);
+    h += chk('FCSR', board.fcsr, board.fcsr==='Clear', !!board.fcsr_date, board.fcsr_date);
+    if(board.oos==='yes') h += chk('Fingerprint', board.fp, board.fp==='Clear', !!board.fp_date, board.fp_date);
+    else h += bgrTLrow(unk, 'Fingerprint', 'n/a (in state)', dim);
+  } else {
+    h += bgrTLrow(unk, 'Imported', 'Not imported', dim);
+    h += bgrTLrow(unk, 'Background checks', 'Not started (no workspace)', dim);
+  }
+  h += '<div style="margin-top:.4rem;padding-top:.35rem;border-top:1px dashed #E5E1D8;font-size:.77rem">'
+     + '<b style="color:#8A7F70">Waiting on:</b> '+bgrEsc(t.waitingOn)+' &nbsp;·&nbsp; <b style="color:#8A7F70">Next:</b> '+bgrEsc(t.next)+'</div>';
+  return '<div style="margin:.45rem 0 .2rem;padding:.5rem .65rem;background:#FBFAF7;border:1px solid #EEE9DF;border-radius:8px">'
+    + '<div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;margin-bottom:.35rem">Timeline · from stored records only</div>'
+    + h + '</div>';
+}
+function bgrToggleTimeline(key, btn){
+  const el = document.getElementById('bgrtl-'+key); if(!el) return;
+  const opening = (el.style.display === 'none' || !el.style.display);
+  el.style.display = opening ? 'block' : 'none';
+  if(btn) btn.textContent = opening ? '▾ Timeline' : '▸ Timeline';
+}
+window.bgrToggleTimeline = bgrToggleTimeline;
+
 function bgrPersonCard(r, t){
+  const key = bgrKey(r);
   const refs = bgrRefsSummary(r.board);
   const checks = bgrChecksSummary(r.board);
   const refTone = refs.tone==='ok'?bgrOn:(refs.tone==='warn'?bgrWarn:bgrUnk);
   const actions = [];
   if(r.board) actions.push('<button class="ibtn" onclick="openOBModal('+r.board.id+')">Open</button>');
   else if(r.intake) actions.push('<button class="ibtn" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>');
+  actions.push('<button class="ibtn" onclick="bgrToggleTimeline(\''+key+'\',this)">&#9656; Timeline</button>');
   /* Only genuine problems carry the red accent; normal next steps do not. */
   const accent = t.group==='attention' ? 'border-left:3px solid #EF4444;padding-left:.55rem;' : '';
   return '<div style="padding:.6rem .1rem;border-top:1px solid #ece9e1;'+accent+'">'
@@ -4157,6 +4234,7 @@ function bgrPersonCard(r, t){
     + '</div>'
     + '<div style="margin-top:.3rem;font-size:.78rem;color:#6E6559"><b style="color:#8A7F70;font-weight:700">Why:</b> '+bgrEsc(t.why)+'</div>'
     + '<div style="font-size:.78rem;color:#0D365F"><b style="color:#8A7F70;font-weight:700">Next:</b> '+bgrEsc(t.next)+'</div>'
+    + '<div id="bgrtl-'+key+'" style="display:none">'+bgrTimelineHTML(r, t)+'</div>'
     + '</div>';
 }
 
