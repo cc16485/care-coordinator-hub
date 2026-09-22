@@ -18088,14 +18088,27 @@ function apRenderProfile(){
 
   /* ---- right: the story, in the order it happened ---- */
   const ck = (r.experience_kinds||[]).join(' · ');
-  const told = apProfRow('Looking for', esc(r.job_type||''))
-    + apProfRow('Hours a week', esc(r.hours_wanted||''))
-    + apProfRow('Would build up to them',
-        r.will_build_up===true ? 'Yes' : r.will_build_up===false ? '<b style="color:#B45309;">No, needs them from the start</b>' : '')
-    + apProfRow('Caregiving so far', esc(r.experience_years||''))
-    + apProfRow('Has done', esc(ck))
-    + apProfRow('When they can work', esc(r.availability||''))
-    + apProfRow('Heard about us', esc(r.referral_source||''))
+  /* The exact pre-screener: every question in the apply page's own words and
+     order, with the answer as they gave it (her ask, 2026-09-22). A question
+     they never reached stays hidden; a No is a real answer and always shows. */
+  const yn = v => v===true ? 'Yes' : v===false ? '<b style="color:#B45309;">No</b>' : '';
+  const told = apProfRow('Are you looking for full time or part time?', esc(r.job_type||''))
+    + apProfRow('How many hours a week are you hoping for?', esc(r.hours_wanted||''))
+    + apProfRow('If we could not start you on that many hours straight away, would you start with fewer and build up?',
+        r.will_build_up===true ? 'Yes, I would build up' : r.will_build_up===false ? '<b style="color:#B45309;">I need those hours from the start</b>' : '')
+    + apProfRow('Have you worked with older adults before?', esc(ck))
+    + apProfRow('Are you 18 or older?', yn(r.age_ok))
+    + apProfRow('Are you legally authorized to work in the United States?', yn(r.work_auth))
+    + apProfRow('Do you have reliable transportation to get to shifts?', yn(r.has_transport))
+    + apProfRow("Do you have a valid driver's license?", yn(r.has_license))
+    + apProfRow('Do you have current auto insurance?', yn(r.has_insurance))
+    + apProfRow('Can you pass a background check?',
+        r.can_pass_background===true ? 'Yes' : r.can_pass_background===false ? '<b style="color:#B45309;">Not sure</b>' : '')
+    + apProfRow('Have you lived outside Missouri in the last five years?', yn(r.lived_outside_mo))
+    + apProfRow('Which states?', esc(r.states_lived||''))
+    + apProfRow('How long have you been caregiving?', esc(r.experience_years||''))
+    + apProfRow('When can you work?', esc(r.availability||''))
+    + apProfRow('How did you hear about us?', esc(r.referral_source||''))
     + (r.experience ? '<div style="margin-top:10px;font-size:13.5px;background:var(--bg);border:1px solid var(--border);'
         + 'border-radius:9px;padding:10px 12px;white-space:pre-wrap;">' + esc(r.experience) + '</div>' : '')
     + (r.role_answers && Object.keys(r.role_answers).length
