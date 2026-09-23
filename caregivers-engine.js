@@ -62,28 +62,38 @@ async function showApp(){
   migrateOldRecipients();
   renderAll();
   loadClientQueue();
-  mergePendingBookings();
-  /* Offers first, and awaited: intakeReconcile links each new candidate to
-     their offer by looking it up in OFFERS, and racing ahead of this load
-     created candidates with no offer_id — so the offer sat in "Open offers"
-     forever looking stalled and the Step-1 pip never lit. */
   await loadOffers(); // fills the New Offers tab + red badge count
   /* Standalone boot must hydrate hire_intake the SAME way the embedded boot
      (bootHydrate) does. Without this, INTAKE_ROWS stays empty here, so
      Background & References cannot see start-link submissions: submitted people
      show as "Start not confirmed" and no Import ever appears. Read-only (it only
      assigns INTAKE_ROWS); guarded so a hire_intake hiccup never breaks sign-in.
-     Placed right after loadOffers to match bootHydrate's offers->intake order,
-     before anything derives B&R lifecycle state. */
+     loadOffers first to match bootHydrate's offers->intake order, before
+     anything derives B&R lifecycle state. */
   try { await loadIntake(); } catch(e){ console.warn('loadIntake (standalone boot):', (e && e.message) || e); }
   /* Refresh the read-only B&R views now that offers + intake are loaded — the
      same signal bootHydrate emits; its sole listener re-renders People & Checks
      and Reference Activity. No writes, no invokes. */
   try { window.dispatchEvent(new Event('scx-hydrated')); } catch(e){}
-  linkCandidatesToOffers();
-  intakeReconcile().then(autoAskReferences);
-  refFixReconcile();
-  refReconcile().then(markScreeningCleared);
+  /* ── BOOT MUST BE READ-ONLY (owner ruling 2026-09-21, formalized 2026-09-22) ──
+     showApp() now obeys the SAME safety invariant bootHydrate() already documents:
+     authentication / boot / restored session / reload / navigation / tab switch /
+     render must NEVER perform an operational MUTATE just because the Hub was
+     viewed. The legacy side-effect chain that used to run here is removed from
+     boot; every capability is retained, only behind its explicit action or an
+     intentional server process:
+       · mergePendingBookings()   -> still ingests on the Orientations-tab open
+       · linkCandidatesToOffers() -> dropped from boot; it never affected display
+                                     (lifecycleRows derives the board<->offer link
+                                     from the persisted offer_id); heuristics may
+                                     display, never write
+       · intakeReconcile()        -> explicit Import button (intakeImport, Gate A
+                                     persistence + rollback + seen_at guarantees)
+       · autoAskReferences()      -> explicit "Ask references" button (askReferences)
+       · refFixReconcile() / refReconcile() / markScreeningCleared()
+                                  -> off until ruled; never a page-load action
+     Outreach (the reference-chase edge fn) still runs server-side for reference
+     requests a human already created. No boot path can reach it. */
 }
 
 async function doLogin(){
@@ -7028,7 +7038,11 @@ window.offerStartLink = offerStartLink;
 window.offerToCandidate = offerToCandidate;
 window.intakeReconcile = intakeReconcile;
 window.askReferences = askReferences;
-window.autoAskReferences = autoAskReferences;
+/* window.autoAskReferences intentionally NOT exposed: nothing in the UI calls it
+   (its only in-engine caller is the explicit reference-slot rewrite action), and
+   a global handle to an outreach-triggering function is exactly the kind of
+   "reading/console access can cause an action" surface the boot-read-only gate
+   closes. The explicit human path is window.askReferences (above). */
 window.renderHirePipeline = renderHirePipeline;
 window.refFixReconcile = refFixReconcile;
 window.refReconcile = refReconcile;
