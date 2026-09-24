@@ -197,8 +197,11 @@ let HYDRATED = false;
 let HYDRATE_ERR = null;
 let INTAKE_ROWS = [];
 async function loadIntake(){
+  /* email + phone are added for the identity-grouping hierarchy (same-person
+     submissions). authenticated has column SELECT on both (ssn is deliberately
+     NOT selected — it is not granted and would error the whole read). */
   const { data, error } = await sb.from('hire_intake')
-    .select('id, created_at, first_name, last_name, candidate_id, seen_at, signed_at, screening_cleared_at, refs')
+    .select('id, created_at, first_name, last_name, candidate_id, email, phone, seen_at, signed_at, screening_cleared_at, refs')
     .order('created_at', { ascending: false });
   if (error) throw new Error('hire_intake: ' + error.message);
   INTAKE_ROWS = data || [];
@@ -3828,6 +3831,55 @@ function lifecycleRows(){
   const rosterHit = axid => (typeof caregivers !== 'undefined' ? caregivers : [])
     .some(g => String(g.axiscare_id || '') === String(axid));
 
+  /* ── IDENTITY GROUPING (deterministic, never by name alone) ──────────────────
+     A person may submit their start link more than once. Those submissions are
+     the SAME person's history, not two people, so they collapse into one person
+     with a submission list. Strong identifiers, strongest to weakest:
+       1) AxisCare applicant id (hire_intake.candidate_id)
+       2) normalized email
+       3) normalized phone
+     Union-find across EVERY strong key a row carries (so a row linked by email to
+     one that also has an AxisCare id joins the same person). Name is NEVER a
+     grouping key. If a resulting group's strong ids DISAGREE (e.g. two different
+     AxisCare ids pulled together by a shared phone), the person is surfaced as
+     attention — never silently combined. Read-only: operates on a copy, sorts a
+     copy, mutates no hire_intake row. */
+  const normEmail = e => { const s = String(e == null ? '' : e).trim().toLowerCase(); return s || null; };
+  const normPhone = p => { const d = digits(p); return d.length >= 10 ? d : null; };
+  const persons = (function buildPersons(){
+    const list = INTAKE_ROWS.slice();
+    const parent = new Map(); list.forEach(r => parent.set(r.id, r.id));
+    const find = x => { let r = x; while (parent.get(r) !== r) r = parent.get(r);
+      while (parent.get(x) !== r) { const n = parent.get(x); parent.set(x, r); x = n; } return r; };
+    const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb); };
+    const keysOf = r => [
+      r.candidate_id != null ? 'ax:' + String(r.candidate_id) : null,
+      normEmail(r.email) ? 'em:' + normEmail(r.email) : null,
+      normPhone(r.phone) ? 'ph:' + normPhone(r.phone) : null,
+    ].filter(Boolean);
+    const seen = new Map();
+    for (const r of list) for (const k of keysOf(r)) {
+      if (seen.has(k)) union(r.id, seen.get(k)); else seen.set(k, r.id);
+    }
+    const byRoot = new Map();
+    for (const r of list) { const root = find(r.id); if (!byRoot.has(root)) byRoot.set(root, []); byRoot.get(root).push(r); }
+    const out = [];
+    for (const subs of byRoot.values()) {
+      subs.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))); // newest first
+      const distinct = sel => new Set(subs.map(sel).filter(v => v != null && v !== '')).size;
+      const conflict = distinct(r => r.candidate_id != null ? String(r.candidate_id) : null) > 1
+                    || distinct(r => normEmail(r.email)) > 1
+                    || distinct(r => normPhone(r.phone)) > 1;
+      out.push({ submissions: subs, latest: subs[0], conflict });
+    }
+    return out;
+  })();
+  const personByIntakeId = new Map();
+  persons.forEach(p => p.submissions.forEach(s => personByIntakeId.set(s.id, p)));
+  const personFor = i => personByIntakeId.get(i.id) || { submissions: [i], latest: i, conflict: false };
+  const claimPerson = p => p.submissions.forEach(s => usedIntake.add(s.id));
+  const boardForPerson = p => p.submissions.map(boardFor).find(Boolean) || null;
+
   for (const o of OFFERS) {
     const board = candidates.find(c => String(c.offer_id) === String(o.id)) || null;
     if (board) usedBoard.add(board.id);
@@ -3841,21 +3893,24 @@ function lifecycleRows(){
       if (intake) approx = true;      // display assistance only, labeled '~'
     }
     if (intake) {
-      usedIntake.add(intake.id);
-      const b2 = boardFor(intake); if (b2) usedBoard.add(b2.id);
-      rows.push(mkRow(o, intake, b2 || board, approx));
+      const person = personFor(intake);
+      claimPerson(person);                       // marks EVERY submission used, so no duplicate card
+      const b2 = boardForPerson(person); if (b2) usedBoard.add(b2.id);
+      rows.push(mkRow(o, person.latest, b2 || board, approx, person));
     } else {
-      rows.push(mkRow(o, null, board, false));
+      rows.push(mkRow(o, null, board, false, null));
     }
   }
   for (const r of INTAKE_ROWS) {
     if (usedIntake.has(r.id)) continue;
-    const b = boardFor(r); if (b) usedBoard.add(b.id);
-    rows.push(mkRow(null, r, b || null, false));
+    const person = personFor(r);
+    claimPerson(person);
+    const b = boardForPerson(person); if (b) usedBoard.add(b.id);
+    rows.push(mkRow(null, person.latest, b || null, false, person));
   }
   for (const c of candidates) {
     if (usedBoard.has(c.id)) continue;
-    rows.push(mkRow(null, null, c, false));
+    rows.push(mkRow(null, null, c, false, null));
   }
   // board rows whose intake_id points at nothing = attention
   for (const c of candidates) {
@@ -3868,7 +3923,7 @@ function lifecycleRows(){
               : r.checksState === 'active' ? 2 : r.linkState === 'waiting' ? 3 : 4;
   return rows.sort((a, b) => rank(a) - rank(b));
 
-  function mkRow(offer, intake, board, approxPair){
+  function mkRow(offer, intake, board, approxPair, person){
     const name = (offer && (offer.first_name + ' ' + offer.last_name))
               || (intake && (intake.first_name + ' ' + intake.last_name))
               || (board && (board.first + ' ' + board.last)) || '(unnamed)';
@@ -3881,12 +3936,29 @@ function lifecycleRows(){
     const attention = [];
     if (intake && intake.seen_at && !board)
       attention.push('was imported before but the workspace is gone. Review.');
-    const axid = intake && intake.candidate_id != null ? String(intake.candidate_id) : null;
-    const identity = axid ? { axid, onRoster: rosterHit(axid) } : null;
-    if (identity && !identity.onRoster)
-      attention.push('AxisCare identity ' + axid + ' recorded but not found on the caregiver roster. Review.');
+    /* Identity: applicant vs caregiver. hire_intake.candidate_id is an AxisCare
+       APPLICANT id (pre-hire); a pre-hire applicant is NOT expected on the hired-
+       caregiver roster, so its absence there is not an issue. The roster is
+       corroborated ONLY for a CAREGIVER-stage id (board.axiscare_id, set once the
+       person is hired/linked to a caregiver record). That preserves genuine
+       "hired but missing from the roster" detection without flagging applicants. */
+    const applicantAxid = intake && intake.candidate_id != null ? String(intake.candidate_id) : null;
+    const caregiverAxid = board && board.axiscare_id ? String(board.axiscare_id) : null;
+    const identity = (applicantAxid || caregiverAxid) ? {
+      axid: caregiverAxid || applicantAxid,
+      kind: caregiverAxid ? 'caregiver' : 'applicant',
+      onRoster: caregiverAxid ? rosterHit(caregiverAxid) : null,   // null = not applicable (pre-hire applicant)
+    } : null;
+    if (caregiverAxid && !rosterHit(caregiverAxid))
+      attention.push('AxisCare caregiver ' + caregiverAxid + ' recorded but not found on the caregiver roster. Review.');
+    /* Submission history: one person may carry several submissions. The earlier
+       ones are never discarded; the newest is the representative for the row. */
+    const submissions = person ? person.submissions : (intake ? [intake] : []);
+    if (person && person.conflict)
+      attention.push('submissions were grouped as one person but their AxisCare id / email / phone disagree. Review whether they are the same person.');
     return { name: name.trim(), offer, intake, board, approxPair,
-             offerState, linkState, checksState, attention, identity };
+             offerState, linkState, checksState, attention, identity,
+             submissions, submissionCount: submissions.length };
   }
 }
 function renderHirePipeline(){
@@ -3910,7 +3982,12 @@ function renderHirePipeline(){
   const bad  = l => chip('#FEE2E2', '#B91C1C', l);
   const d10 = t => t ? String(t).slice(0, 10) : '';
 
-  const waiting = rows.filter(r => r.linkState === 'submitted' && r.checksState === 'none' && !r.identity).length;
+  /* "Waiting to import" is defined the SAME way People & Checks derives its
+     Import group (bgrTriage): submitted, no workspace yet, and no genuine issue.
+     A pre-hire AxisCare applicant id is NOT an issue, so it no longer excludes
+     the person here — that kept the two views in agreement after the identity
+     semantics change. */
+  const waiting = rows.filter(r => r.linkState === 'submitted' && r.checksState === 'none' && !r.attention.length).length;
   const head = '<div class="field-note" style="margin-bottom:.4rem">'
     + rows.length + ' in flight · ' + waiting + ' submitted and waiting to be imported</div>';
 
@@ -3929,7 +4006,8 @@ function renderHirePipeline(){
     if (r.checksState === 'ready') pips.push(on('READY for orientation'));
     if (r.checksState === 'not_hired') pips.push(off('not hired'));
     if (r.identity) pips.push(chip('#E0E7FF', '#3730A3',
-      'AxisCare #' + esc(r.identity.axid) + (r.identity.onRoster ? ' · on roster' : '')));
+      'AxisCare ' + (r.identity.kind === 'caregiver' ? 'caregiver' : 'applicant') + ' #' + esc(r.identity.axid)
+      + (r.identity.onRoster === true ? ' · on roster' : (r.identity.onRoster === false ? ' · not on roster' : ''))));
 
     const actions = [];
     if (r.intake && !r.board)
@@ -4221,7 +4299,14 @@ function bgrTimelineHTML(r, t){
   let h = '';
   h += bgrTLrow(offer?done:unk, 'Offer saved', offer? bgrD(offer.created_at) : 'Not recorded', offer?'#15803D':dim);
   h += bgrTLrow(unk, 'Start link sent', 'Not recorded (send is not tracked)', dim);
-  h += bgrTLrow(intake?done:unk, 'Start submitted', intake? bgrD(intake.created_at) : 'Not submitted', intake?'#15803D':dim);
+  const subs = (r.submissions && r.submissions.length) ? r.submissions : (intake ? [intake] : []);
+  if(!subs.length){
+    h += bgrTLrow(unk, 'Start submitted', 'Not submitted', dim);
+  } else {
+    // every submission is history; the newest is the latest, older ones are kept
+    subs.forEach((s,i) => h += bgrTLrow(done, 'Start submitted' + (subs.length>1 ? (i===0 ? ' · latest' : ' · earlier') : ''),
+      bgrD(s.created_at), '#15803D'));
+  }
   if(board){
     const imp = board.imported_at ? bgrD(board.imported_at) : (board.addedAt ? bgrD(board.addedAt) : 'imported, date not recorded');
     h += bgrTLrow(done, 'Imported', imp, '#15803D');
@@ -4286,6 +4371,7 @@ function bgrPersonCard(r, t){
     + '<div style="display:flex;gap:.7rem;align-items:baseline;flex-wrap:wrap">'
     +   '<b style="flex:0 0 150px;color:#0D365F;font-size:.9rem">'+bgrEsc(r.name)+'</b>'
     +   '<span style="flex:1;color:#4A4A4A;font-size:.82rem">'+bgrEsc(t.stage)+'</span>'
+    +   (r.submissionCount>1 ? '<span style="flex:0 0 auto;font-size:.72rem;font-weight:600;color:#8A7F70">'+r.submissionCount+' submissions</span>' : '')
     +   '<span style="display:flex;gap:.3rem">'+actions.join('')+'</span>'
     + '</div>'
     + '<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.35rem;align-items:center">'
