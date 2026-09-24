@@ -4050,7 +4050,13 @@ async function intakeImport(intakeId, btn){
   if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
   let who = '';
   try { const { data:{ session } } = await sb.auth.getSession(); who = (session && session.user && session.user.email) || ''; } catch(e){}
-  const { data: row, error } = await sb.from('hire_intake').select('*').eq('id', intakeId).maybeSingle();
+  /* Select ONLY the granted columns this import reads. select('*') pulled in the
+     ssn column, which authenticated is deliberately denied (SSN column-lock), so
+     the read failed with "permission denied" and Import was broken for every
+     coordinator. These 7 columns are all SELECT-granted to authenticated. */
+  const { data: row, error } = await sb.from('hire_intake')
+    .select('id, first_name, last_name, phone, email, lived_outside_mo, refs')
+    .eq('id', intakeId).maybeSingle();
   if (error || !row) {
     alert('Could not read that submission: ' + (error ? error.message : 'not found'));
     if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
