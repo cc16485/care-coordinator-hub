@@ -7036,7 +7036,6 @@ window.loadOffers = loadOffers;
 window.refReport = refReport;
 window.offerStartLink = offerStartLink;
 window.offerToCandidate = offerToCandidate;
-window.intakeReconcile = intakeReconcile;
 window.askReferences = askReferences;
 /* window.autoAskReferences intentionally NOT exposed: nothing in the UI calls it
    (its only in-engine caller is the explicit reference-slot rewrite action), and
@@ -7044,9 +7043,12 @@ window.askReferences = askReferences;
    "reading/console access can cause an action" surface the boot-read-only gate
    closes. The explicit human path is window.askReferences (above). */
 window.renderHirePipeline = renderHirePipeline;
-window.refFixReconcile = refFixReconcile;
-window.refReconcile = refReconcile;
-window.markScreeningCleared = markScreeningCleared;
+/* window.intakeReconcile / refFixReconcile / refReconcile / markScreeningCleared
+   intentionally NOT exposed: their only caller was the standalone-boot chain the
+   boot-read-only gate removed, so they now have zero UI/external callers. A global
+   handle to a mutating reconciler is an accidental operational entry point (console
+   / future assistant), and server-side authorization — not this — is the real
+   boundary. The functions remain defined for an explicit/server caller if reintroduced. */
 window.offerCopyLink = offerCopyLink;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
