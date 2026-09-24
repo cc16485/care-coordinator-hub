@@ -1214,7 +1214,7 @@ function switchTab(name, btn){
   if(btn) btn.classList.add('active');
   document.getElementById('panel-'+name).classList.add('active');
   if(name==='home') { renderStaffHome(); }
-  if(name==='orientations'){ renderOrientations(); initOrientSettings(); mergePendingBookings(); }
+  if(name==='orientations'){ renderOrientations(); initOrientSettings(); orientLoadPending().then(renderOrientations); }
   if(name==='evv') { renderEVVCorrections(); loadPendingEVVSubmissions(); }
   if(name==='offers') { loadOffers(); }
   if(name==='eod') { renderEod(); }
@@ -5189,6 +5189,13 @@ const BOOKING_PAGE = 'orientation-booking.html';
 let orientSessions = JSON.parse(localStorage.getItem('cc_orient_sessions') || '[]');
 let eodReports = [];
 let orientId = parseInt(localStorage.getItem('cc_orient_id') || '1');
+/* Self-serve orient_bookings that have not been synced into the roster yet.
+   READ-ONLY, transient, display-only: loaded when the Orientations tab opens and
+   shown as a labeled "pending" section. They are NEVER pushed into a session's
+   bookings[] (attendance/cancel index into that array — injecting would shift
+   indices and could act on the wrong person), and viewing never persists them.
+   Folding them in is the explicit Sync action (orientSyncBookings). */
+let ORIENT_PENDING = [];
 let calViewMonth = new Date(); calViewMonth.setDate(1); calViewMonth.setHours(0,0,0,0);
 let calSelectedDate = null;
 let editingOrient = null;
@@ -5435,8 +5442,23 @@ function generateOrientSessions(){
   }
 }
 
-// Pull self-serve bookings from the orient_bookings table (written by the public
-// booking page as anon) and merge them into the session records the hub manages.
+/* READ-ONLY loader for the Orientations tab: fetch self-serve bookings that have
+   not been synced yet, for display only. It performs NO update and NO save, so
+   opening/viewing the tab never mutates operational truth. */
+async function orientLoadPending(){
+  try {
+    const { data, error } = await sb.from('orient_bookings').select('*').eq('merged', false).order('booked_at', { ascending: true });
+    if(error){ console.warn('orient_bookings load failed — run fix-scheduling-and-bookings.sql if the table is missing:', error); ORIENT_PENDING = []; return; }
+    ORIENT_PENDING = data || [];
+  } catch(e){ console.warn('orientLoadPending:', e); ORIENT_PENDING = []; }
+}
+const orientPendingFor = sid => (ORIENT_PENDING||[]).filter(p => String(p.session_id) === String(sid));
+const orientPendingCount = () => (ORIENT_PENDING||[]).length;
+
+// EXPLICIT SYNC ACTION (human-clicked, or an intentional server process): pull
+// self-serve bookings from orient_bookings (written by the public booking page as
+// anon) and merge them into the session records the hub manages. This is the ONLY
+// path that stamps merged:true and saves — never tab navigation.
 async function mergePendingBookings(){
   try {
     const { data, error } = await sb.from('orient_bookings').select('*').eq('merged', false).order('booked_at', { ascending: true });
@@ -5464,7 +5486,9 @@ async function mergePendingBookings(){
       const { error: updErr } = await sb.from('orient_bookings').update({ merged: true }).eq('id', row.id);
       if(updErr){ console.warn('Could not mark booking merged:', updErr); }
     }
-    if(changed){ saveOrientStore(); renderOrientations(); renderAlerts(); }
+    if(changed){ saveOrientStore(); renderAlerts(); }
+    ORIENT_PENDING = [];          // just synced -> nothing pending until next load
+    renderOrientations();
   } catch(e){ console.warn('mergePendingBookings:', e); }
 }
 
@@ -5510,11 +5534,19 @@ function renderOrientations(){
   const booked = upcoming.reduce((a,s)=>a+(s.bookings||[]).length,0);
   const available = totalSpots - booked;
   const full = upcoming.filter(s=>(s.bookings||[]).length>=parseInt(s.capacity)).length;
+  /* Read-only banner for pending self-serve bookings + the EXPLICIT sync button.
+     The count is display-only; nothing is written until Sync is clicked. */
+  const pc = orientPendingCount();
+  const pendBanner = pc > 0
+    ? `<div style="flex:1 0 100%;margin-top:.5rem;padding:.5rem .7rem;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:.8rem;color:#92400E;display:flex;gap:.6rem;align-items:center;justify-content:space-between;flex-wrap:wrap">`
+      + `<span>⏳ <b>${pc}</b> self-serve booking${pc!==1?'s':''} pending — shown read-only below, not yet in the roster.</span>`
+      + `<button class="ibtn" onclick="orientSyncBookings(this)">Sync to roster</button></div>`
+    : '';
   document.getElementById('or-stats').innerHTML = `
     <div class="stat"><div class="lbl">Upcoming</div><div class="val v-navy">${upcoming.length}</div></div>
     <div class="stat"><div class="lbl">Booked</div><div class="val v-amber">${booked}</div></div>
     <div class="stat"><div class="lbl">Available</div><div class="val v-green">${available}</div></div>
-    <div class="stat"><div class="lbl">Full</div><div class="val v-red">${full}</div></div>`;
+    <div class="stat"><div class="lbl">Full</div><div class="val v-red">${full}</div></div>` + pendBanner;
 }
 
 function renderCalendar(){
@@ -5626,6 +5658,14 @@ function renderSessionsList(){
     const chips = (s.bookings||[]).length
       ? (s.bookings||[]).map(b=>`<span class="booking-chip">${b.first} ${b.last}</span>`).join('')
       : '<span style="font-size:.7rem;color:var(--gray);font-style:italic">No bookings yet</span>';
+    /* Self-serve bookings not yet synced into this session's roster. Read-only,
+       shown separately so they are visible immediately without being pushed into
+       bookings[] (which attendance/cancel index into). */
+    const pend = orientPendingFor(s.id);
+    const pendChips = pend.length
+      ? `<div style="margin-top:.4rem;font-size:.68rem;color:#B45309"><b>⏳ ${pend.length} pending self-serve booking${pend.length!==1?'s':''} — sync to add to the roster:</b> `
+        + pend.map(p=>`<span class="booking-chip" style="background:#FEF3C7;color:#92400E">${p.first} ${p.last}</span>`).join(' ') + '</div>'
+      : '';
     const fullBadge = isFull ? '<span class="badge b-red" style="font-size:.65rem;margin-left:.4rem">FULL</span>' : '';
     const seriesBadge = s.series_id ? '<span class="badge b-navy" style="font-size:.62rem;margin-top:.3rem">🔁 Series</span>' : '';
     return `<div class="session-card${calSelectedDate&&s.date===calSelectedDate?' highlighted':''}">
@@ -5648,7 +5688,7 @@ function renderSessionsList(){
         <div class="cap-bar"><div class="cap-fill${isFull?' full':''}" style="width:${pct}%"></div></div>
         <div style="font-size:.7rem;color:${isFull?'#F97316':'var(--green-text)'};font-weight:600">${isFull?'Full':`${avail} open`}</div>
       </div>
-      ${!showPastSessions ? `<div class="sess-bookings">${chips}</div>` : `
+      ${!showPastSessions ? `<div class="sess-bookings">${chips}${pendChips}</div>` : `
         <div style="margin-bottom:.55rem">
           ${(s.bookings||[]).length===0
             ? '<span style="font-size:.7rem;color:var(--gray);font-style:italic">No bookings recorded</span>'
@@ -7043,6 +7083,10 @@ window.askReferences = askReferences;
    "reading/console access can cause an action" surface the boot-read-only gate
    closes. The explicit human path is window.askReferences (above). */
 window.renderHirePipeline = renderHirePipeline;
+/* Explicit, human-clicked (or intentional server) sync of self-serve orientation
+   bookings — the ONLY path that stamps merged:true + saves. Exposed for its Sync
+   button; tab navigation calls the read-only orientLoadPending() instead. */
+window.orientSyncBookings = mergePendingBookings;
 /* window.intakeReconcile / refFixReconcile / refReconcile / markScreeningCleared
    intentionally NOT exposed: their only caller was the standalone-boot chain the
    boot-read-only gate removed, so they now have zero UI/external callers. A global
