@@ -4922,6 +4922,33 @@ async function bgrSaveCheck(btn){
   restore();
   bgrCloseCheckModal();
   bgrApplyBoardChange(candId, changes);
+  if(changes[which+'_proof']) bgrPushDocToGHL(candId, which, changes[which+'_proof']);  // fire-and-forget
+}
+/* File the proof onto the caregiver's GoHighLevel contact (a note + secure link
+   now; the file itself lands in GHL's media library once the token has the
+   medias.write scope — no code change needed then) and send a Google Drive copy
+   through the candidate webhook. This files a document; it never messages the
+   caregiver. */
+async function bgrPushDocToGHL(candId, which, proof){
+  const c = candidates.find(x => x.id === candId);
+  if(!c || (!c.email && !c.phone) || !proof) return;
+  const label = ({oig:'OIG',edl:'EDL',fcsr:'FCSR',fp:'Fingerprint'}[which] || which) + ' background check';
+  let fileUrl = proof, fname = 'document';
+  if(!/^https?:\/\//i.test(proof)){
+    fname = String(proof).split('/').pop() || 'document.pdf';
+    try{ const { data } = await sb.storage.from('lead-docs').createSignedUrl(proof, 31536000); fileUrl = (data && data.signedUrl) || ''; }catch(e){ fileUrl = ''; }
+  }
+  const cfg = (typeof CONFIG !== 'undefined' && CONFIG) || (typeof window !== 'undefined' && window.CONFIG) || null;
+  const trainingKey = (cfg && cfg.training_hub_key) || '';
+  if(trainingKey){
+    try{
+      await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-attach-doc', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: trainingKey, first: c.first||'', last: c.last||'', email: c.email||'', phone: c.phone||'', label, file_url: fileUrl, file_name: fname })
+      });
+    }catch(e){ console.warn('GHL doc attach skipped', e); }
+  }
+  try{ zapFire('zapier_cand_webhook', { candidate_id: c.id, full_name: (c.first+' '+c.last).trim(), phone: c.phone||'', email: c.email||'', doc_label: label, doc_url: fileUrl, doc_name: fname, document: true, timestamp: new Date().toISOString() }); }catch(e){}
 }
 /* Open a proof: a pasted http link directly, or a private storage path via a
    short-lived signed URL. */
