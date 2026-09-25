@@ -4757,6 +4757,7 @@ function renderPeopleChecks(){
 let BGR_ROW_INDEX = {};
 let _bgrDrawerKey = null;
 const BGR_CHECKS = [
+  { k:'oig',  label:'OIG',         opts:['Pending','CLEAR','FLAGGED'] },
   { k:'edl',  label:'EDL',         opts:['Pending','Clear','Issues Found'] },
   { k:'fcsr', label:'FCSR',        opts:['Pending','Clear','Issues Found'] },
   { k:'fp',   label:'Fingerprint', opts:['N/A','Required','Submitted','Clear','Issues Found'] },
@@ -4864,7 +4865,10 @@ function bgrEnsureCheckModal(){
     +   '<div style="font-size:.72rem;color:#A89C8B;margin-bottom:.5rem">Records the result on the candidate. Reaching all-clear can move them to Ready and sync to AxisCare.</div>'
     +   '<div style="'+lbl+'">Result</div><select id="bgrCheckResult" style="'+inp+'"></select>'
     +   '<div style="'+lbl+'">Date</div><input id="bgrCheckDate" type="date" style="'+inp+'">'
-    +   '<div style="'+lbl+'">Document link (optional)</div><input id="bgrCheckProof" type="url" placeholder="https://…" style="'+inp+'">'
+    +   '<div style="'+lbl+'">Proof document <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#A89C8B">(PDF or photo — saved privately for audit)</span></div>'
+    +   '<input id="bgrCheckFile" type="file" accept=".pdf,image/*" style="'+inp+';padding:.4rem">'
+    +   '<div id="bgrCheckCurrent" style="font-size:.74rem;color:#6E6559;margin:.35rem 0 0"></div>'
+    +   '<div style="'+lbl+'">…or paste a link instead</div><input id="bgrCheckProof" type="url" placeholder="https://…" style="'+inp+'">'
     +   '<div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem">'
     +     '<button class="ibtn" onclick="bgrCloseCheckModal()">Cancel</button>'
     +     '<button class="ibtn ibtn-strong" onclick="bgrSaveCheck(this)">Save</button>'
@@ -4883,19 +4887,58 @@ function bgrRecordCheck(candId, which){
   const cur = c[which] || meta.opts[0];
   document.getElementById('bgrCheckResult').innerHTML = meta.opts.map(o => '<option value="'+bgrEsc(o)+'"'+(o===cur?' selected':'')+'>'+bgrEsc(o)+'</option>').join('');
   document.getElementById('bgrCheckDate').value = c[which+'_date'] || new Date().toISOString().slice(0,10);
-  document.getElementById('bgrCheckProof').value = c[which+'_proof'] || '';
+  const f = document.getElementById('bgrCheckFile'); if(f) f.value = '';
+  const url = document.getElementById('bgrCheckProof'); if(url) url.value = '';
+  const curDoc = c[which+'_proof'];
+  document.getElementById('bgrCheckCurrent').innerHTML = curDoc
+    ? 'On file: <a class="proof-link" style="cursor:pointer;color:var(--teal)" onclick="bgrViewProof(\''+bgrEsc(curDoc).replace(/\x27/g,'')+'\')">📄 View document</a> — upload a new one to replace it.'
+    : '<span style="color:#A89C8B">No document on file yet.</span>';
   document.getElementById('bgrCheckModal').style.display = 'flex';
 }
 function bgrCloseCheckModal(){ const m = document.getElementById('bgrCheckModal'); if(m) m.style.display = 'none'; _bgrCheckCand = null; _bgrCheckWhich = null; }
-function bgrSaveCheck(btn){
+async function bgrSaveCheck(btn){
   const candId = _bgrCheckCand, which = _bgrCheckWhich;
   if(candId == null || !which) return;
   const changes = {};
   changes[which] = document.getElementById('bgrCheckResult').value;
   changes[which+'_date'] = document.getElementById('bgrCheckDate').value;
-  changes[which+'_proof'] = (document.getElementById('bgrCheckProof').value || '').trim();
+  const fileInput = document.getElementById('bgrCheckFile');
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  const urlVal = (document.getElementById('bgrCheckProof').value || '').trim();
+  const restore = () => { if(btn){ btn.disabled = false; btn.textContent = btn._t || 'Save'; } };
+  if(btn){ btn.disabled = true; btn._t = btn.textContent; btn.textContent = 'Saving…'; }
+  if(file){
+    if(file.size > 20*1024*1024){ alert('That file is over 20 MB — please shrink it first.'); restore(); return; }
+    const safe = String(file.name).replace(/[^a-zA-Z0-9._-]/g,'_');
+    const path = 'bgcheck/' + candId + '/' + which + '-' + Date.now() + '-' + safe;
+    try{
+      const { error } = await sb.storage.from('lead-docs').upload(path, file);
+      if(error){ alert('Upload failed: ' + error.message); restore(); return; }
+      changes[which+'_proof'] = path;
+    }catch(e){ alert('Upload failed. Nothing was saved — please try again.'); restore(); return; }
+  } else if(urlVal){
+    changes[which+'_proof'] = urlVal;
+  }
+  restore();
   bgrCloseCheckModal();
   bgrApplyBoardChange(candId, changes);
+}
+/* Open a proof: a pasted http link directly, or a private storage path via a
+   short-lived signed URL. */
+async function bgrViewProof(proof){
+  if(!proof) return;
+  if(/^https?:\/\//i.test(proof)){ window.open(proof, '_blank', 'noopener'); return; }
+  try{
+    const { data, error } = await sb.storage.from('lead-docs').createSignedUrl(proof, 3600);
+    if(error || !data){ alert('Could not open the document: ' + (error ? error.message : 'unknown')); return; }
+    window.open(data.signedUrl, '_blank', 'noopener');
+  }catch(e){ alert('Could not open the document.'); }
+}
+/* Proof display for a check cell: works for both a pasted link and an uploaded
+   private document (opens via a signed URL). */
+function bgrCheckProofHtml(proof){
+  if(!proof) return '';
+  return ' <a class="proof-link" style="cursor:pointer" onclick="bgrViewProof(\''+bgrEsc(proof).replace(/\x27/g,'')+'\')" title="Open the proof document">📄 doc</a>';
 }
 
 /* ── Reference Activity (observational) ─────────────────────────────────────
@@ -5054,10 +5097,10 @@ function renderOB(){
         const contactLine=ph||em?`<span class="sub">${ph?`<a href="tel:${ph}" style="color:var(--teal);text-decoration:none" title="Call">📞 ${ph}</a>`:''}${ph&&em?' · ':''} ${em?`<a href="mailto:${em}" style="color:var(--teal);text-decoration:none" title="Email">✉️ ${em}</a>`:''}</span>`:'';
         return `<td><span class="badge ${refBadge(s)}">${s}</span>${nm?`<span class="sub">${nm}</span>`:''}${contactLine}${manualTag}${pf?proofLink(pf,'View form'):''}${recordBtn}</td>`;
       }).join('')}
-      <td><div class="chk"><span onclick="bgrRunOIG(${c.id})" title="Run the OIG exclusion check now" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.oig==='CLEAR'?'b-green':c.oig==='FLAGGED'?'b-red':'b-gray'}">${c.oig||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'✎':'▸ run'}</span></span>${c.oig_date?`<span class="chk-date">${fmtD(c.oig_date)}</span>`:''}${proofLink(c.oig_proof,'View')}</div></td>
-      <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'edl')" title="Record the EDL result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.edl==='Clear'?'b-green':c.edl==='Issues Found'?'b-red':'b-gray'}">${c.edl||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.edl_date?`<span class="chk-date">${fmtD(c.edl_date)}</span>`:''}${proofLink(c.edl_proof,'View')}</div></td>
-      <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'fcsr')" title="Record the FCSR result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.fcsr==='Clear'?'b-green':c.fcsr==='Issues Found'?'b-red':'b-gray'}">${c.fcsr||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fcsr_date?`<span class="chk-date">${fmtD(c.fcsr_date)}</span>`:''}${proofLink(c.fcsr_proof,'View')}</div></td>
-      <td><div class="chk">${fpShow?`<span onclick="bgrRecordCheck(${c.id},'fp')" title="Record the fingerprint result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${fpBadge}">${c.fp}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fp_date?`<span class="chk-date">${fmtD(c.fp_date)}</span>`:''}${proofLink(c.fp_proof,'View')}`:`<span class="badge b-gray">Not required</span>`}</div></td>
+      <td><div class="chk"><span onclick="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?`bgrRecordCheck(${c.id},'oig')`:`bgrRunOIG(${c.id})`}" title="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'Update the OIG result or attach the proof':'Run the OIG exclusion check now'}" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.oig==='CLEAR'?'b-green':c.oig==='FLAGGED'?'b-red':'b-gray'}">${c.oig||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'✎':'▸ run'}</span></span>${c.oig_date?`<span class="chk-date">${fmtD(c.oig_date)}</span>`:''}${bgrCheckProofHtml(c.oig_proof)}</div></td>
+      <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'edl')" title="Record the EDL result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.edl==='Clear'?'b-green':c.edl==='Issues Found'?'b-red':'b-gray'}">${c.edl||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.edl_date?`<span class="chk-date">${fmtD(c.edl_date)}</span>`:''}${bgrCheckProofHtml(c.edl_proof)}</div></td>
+      <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'fcsr')" title="Record the FCSR result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.fcsr==='Clear'?'b-green':c.fcsr==='Issues Found'?'b-red':'b-gray'}">${c.fcsr||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fcsr_date?`<span class="chk-date">${fmtD(c.fcsr_date)}</span>`:''}${bgrCheckProofHtml(c.fcsr_proof)}</div></td>
+      <td><div class="chk">${fpShow?`<span onclick="bgrRecordCheck(${c.id},'fp')" title="Record the fingerprint result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${fpBadge}">${c.fp}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fp_date?`<span class="chk-date">${fmtD(c.fp_date)}</span>`:''}${bgrCheckProofHtml(c.fp_proof)}`:`<span class="badge b-gray">Not required</span>`}</div></td>
       <td>
         ${c.not_hired?`
           <span class="badge b-red">🚫 Not Hired</span>
@@ -7745,5 +7788,6 @@ window.bgrCloseDrawer = bgrCloseDrawer;
 window.bgrRecordCheck = bgrRecordCheck;
 window.bgrCloseCheckModal = bgrCloseCheckModal;
 window.bgrSaveCheck = bgrSaveCheck;
+window.bgrViewProof = bgrViewProof;
 window.dispatchEvent(new Event('scx-ready'));
 })();
