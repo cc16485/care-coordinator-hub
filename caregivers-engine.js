@@ -4647,7 +4647,7 @@ function bgrPersonCard(r, t){
     if([1,2,3,4].some(n => b['r'+n+'n'])) refBtns.push('<button class="ibtn" onclick="bgrRecordForPerson('+b.id+')" title="Record a reference&#39;s answer from a phone call or in person">Record answer</button>');
     if(bgrReqsFor(b).length) refBtns.push('<button class="ibtn" onclick="bgrLogForPerson('+b.id+')" title="Record a call, voicemail, or text you made by hand to a reference">+ Log</button>');
   }
-  const timeline = '<button class="ibtn" onclick="bgrToggleTimeline(\''+key+'\',this)">&#9656; Timeline</button>';
+  const timeline = '<button class="ibtn ibtn-strong" onclick="bgrToggleTimeline(\''+key+'\',this)">&#9656; Timeline</button>';
   const grp = (label, btns) => btns.length
     ? '<span style="display:inline-flex;align-items:center;gap:.3rem;padding-left:.5rem;border-left:1px solid #E1DBCF">'
       + '<span style="font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#A89C8B">'+label+'</span>'
