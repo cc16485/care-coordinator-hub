@@ -1809,7 +1809,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="card bgr-people" style="padding:14px 16px 16px;margin-bottom:14px">
         <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.7rem">
           <input id="bgrPeopleSearch" type="text" placeholder="Search people..." oninput="SCX.renderPeopleChecks()" style="max-width:260px" />
-          <span class="field-note">Who needs attention, why, and what happens next. Nothing here sends or writes.</span>
+          <button class="ibtn" onclick="bgrSyncRefAnswers(this)" title="Bring any reference answers that came in through the online form onto their candidate, and clear anyone now fully done. Sends nothing.">&#8635; Sync reference answers</button>
+          <span class="field-note" style="flex:1;min-width:180px">Who needs attention, why, and what happens next. This view only reads; it never sends.</span>
         </div>
         <div id="bgrPeople"></div>
       </div>

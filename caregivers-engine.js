@@ -1851,16 +1851,18 @@ async function askReferences(candId, btn){
 async function markScreeningCleared(){
   const done = candidates.filter(c =>
     c.intake_id && !c.screening_cleared_stamped && obDeriveStatus(c) === 'Ready for Orientation');
-  if (!done.length) return;
+  if (!done.length) return 0;
+  let n = 0;
   for (const c of done) {
     try {
       const { error } = await sb.from('hire_intake')
         .update({ screening_cleared_at: new Date().toISOString() })
         .eq('id', c.intake_id);
-      if (!error) c.screening_cleared_stamped = true;
+      if (!error) { c.screening_cleared_stamped = true; n++; }
     } catch (e) { /* try again next pass */ }
   }
   saveCandidates();
+  return n;
 }
 /* ---- Applicant-supplied reference fixes ---------------------------------
    When we cannot reach a reference, the applicant is asked to help, and this
@@ -1917,10 +1919,10 @@ async function refReconcile(){
   try {
     const { data, error } = await sb.from('reference_requests').select('*')
       .not('responded_at', 'is', null).is('merged_at', null).limit(50);
-    if (error) return;
+    if (error) return 0;
     rows = data || [];
-  } catch (e) { return; }
-  if (!rows.length) return;
+  } catch (e) { return 0; }
+  if (!rows.length) return 0;
 
   let merged = 0;
   for (const r of rows) {
@@ -1968,6 +1970,7 @@ async function refReconcile(){
     saveCandidates();
     try { renderOB(); renderAlerts(); } catch (e) {}
   }
+  return merged;
 }
 async function intakeReconcile(){
   let rows = [];
@@ -4353,6 +4356,98 @@ async function bgrSaveAttempt(btn){
   else { alert('Could not save the attempt. Nothing was recorded — please try again.'); }
 }
 
+/* ── Sync reference answers (explicit, gated action) ─────────────────────────
+   Brings reference answers that arrived through the online form onto their
+   candidate (refReconcile) and stamps screening-cleared for anyone now fully
+   done (markScreeningCleared, which is what lets the nightly job delete the SSN
+   we promised to remove). This is the deliberate home for those two writes: it
+   runs ONLY when a human clicks it, never at boot, and it records an audit
+   line. It sends nothing. */
+async function bgrSyncRefAnswers(btn){
+  if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then sync.'); return; }
+  if(btn){ btn.disabled = true; btn._t = btn.textContent; btn.textContent = 'Syncing…'; }
+  let merged = 0, cleared = 0, err = null;
+  try { merged = (await refReconcile()) || 0; } catch(e){ err = e; }
+  if(!err){ try { cleared = (await markScreeningCleared()) || 0; } catch(e){ err = e; } }
+  // Audit only a run that changed something or errored, so no-op clicks don't
+  // fill the log.
+  if(merged || cleared || err){
+    let by = '';
+    try { const s = await sb.auth.getSession(); by = (s && s.data && s.data.session && s.data.session.user && s.data.session.user.email) || ''; } catch(e){}
+    try {
+      await sb.rpc('upsert_app_data_item', { target_key: 'audit_log', item: {
+        id: 'refsync_' + Date.now(), kind: 'ref_answer_sync', at: new Date().toISOString(),
+        by: by, merged: merged, cleared: cleared, ok: !err,
+        note: err ? ('error: ' + ((err && err.message) || err)) : ('merged ' + merged + ' answer(s), cleared ' + cleared)
+      }});
+    } catch(e){ /* audit is best-effort; the work itself already persisted */ }
+  }
+  try { await bgrEnsureData(true); } catch(e){}
+  try { renderPeopleChecks(); } catch(e){}
+  try { renderReferenceActivity(); } catch(e){}
+  if(btn){ btn.disabled = false; btn.textContent = btn._t || '↻ Sync reference answers'; }
+  if(err){ alert('The sync hit a problem and may be incomplete: ' + ((err && err.message) || err) + '\n\nNothing was sent. You can run it again.'); return; }
+  if(!merged && !cleared){ alert('Nothing new to sync. Any emailed answers were already on their candidate.'); return; }
+  alert('Synced. '
+    + (merged ? (merged + ' reference answer' + (merged>1?'s':'') + ' brought onto their candidate. ') : 'No new reference answers. ')
+    + (cleared ? (cleared + ' candidate' + (cleared>1?'s':'') + ' now cleared for orientation.') : ''));
+}
+
+/* Run the OIG exclusion check for one candidate straight from their card, then
+   write the result to their record and re-render. Explicit, gated. */
+async function bgrRunOIG(boardId, btn){
+  if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then run the check.'); return; }
+  const c = candidates.find(x => x.id === boardId);
+  if(!c){ alert('That candidate could not be found. Refresh the tab and try again.'); return; }
+  if(btn){ btn.disabled = true; btn._t = btn.textContent; btn.textContent = 'Checking…'; }
+  try {
+    const result = await runOIGCheck(c.first, c.last);
+    showOIGResult((c.first + ' ' + c.last).trim(), result,
+      (date) => { c.oig = 'CLEAR';   c.oig_date = date; saveCandidates(); try{ renderPeopleChecks(); renderOB(); renderAlerts(); }catch(e){} },
+      (date) => { c.oig = 'FLAGGED'; c.oig_date = date; saveCandidates(); try{ renderPeopleChecks(); renderOB(); renderAlerts(); }catch(e){} });
+  } catch(e){ alert('OIG check failed: ' + ((e && e.message) || e)); }
+  if(btn){ btn.disabled = false; btn.textContent = btn._t || 'Run OIG'; }
+}
+
+/* Record a reference's answer from the card. Picks the reference (or opens
+   directly when there is only one), then opens the existing scored form. */
+let _bgrRefPickCb = null;
+function bgrEnsureRefPicker(){
+  if(document.getElementById('bgrRefPickModal')) return;
+  const w = document.createElement('div');
+  w.id = 'bgrRefPickModal';
+  w.style.cssText = 'display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,54,95,.35);align-items:center;justify-content:center;padding:1rem';
+  w.innerHTML =
+      '<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2)">'
+    +   '<div id="bgrRefPickTitle" style="font-weight:800;color:#0D365F;font-size:1rem;margin-bottom:.15rem">Which reference?</div>'
+    +   '<div id="bgrRefPickSub" style="font-size:.78rem;color:#6E6559;margin-bottom:.8rem"></div>'
+    +   '<div id="bgrRefPickList" style="display:flex;flex-direction:column;gap:.4rem"></div>'
+    +   '<div style="display:flex;justify-content:flex-end;margin-top:.9rem"><button type="button" class="ibtn" onclick="bgrCloseRefPicker()">Cancel</button></div>'
+    + '</div>';
+  document.body.appendChild(w);
+}
+function bgrCloseRefPicker(){ const m = document.getElementById('bgrRefPickModal'); if(m) m.style.display = 'none'; _bgrRefPickCb = null; }
+function bgrRefPickChoose(n){ const cb = _bgrRefPickCb; bgrCloseRefPicker(); if(cb) cb(n); }
+function bgrPickReferenceSlot(boardId, title, onPick){
+  const c = candidates.find(x => x.id === boardId);
+  if(!c){ alert('That candidate could not be found. Refresh the tab and try again.'); return; }
+  const slots = [1,2,3,4].filter(n => c['r'+n+'n']);
+  if(!slots.length){ alert('No references are on file for this candidate yet. Add them from Open, then record their answer.'); return; }
+  if(slots.length === 1){ onPick(slots[0]); return; }
+  bgrEnsureRefPicker();
+  _bgrRefPickCb = onPick;
+  document.getElementById('bgrRefPickTitle').textContent = title || 'Which reference?';
+  document.getElementById('bgrRefPickSub').textContent = (c.first + ' ' + c.last).trim();
+  document.getElementById('bgrRefPickList').innerHTML = slots.map(n =>
+    '<button type="button" class="ibtn" style="text-align:left" onclick="bgrRefPickChoose('+n+')">'
+    + bgrEsc(c['r'+n+'n']) + ' <span style="color:#8A7F70;font-weight:600">· ' + bgrEsc(c['r'+n+'s'] || 'Pending') + '</span></button>').join('');
+  document.getElementById('bgrRefPickModal').style.display = 'flex';
+}
+function bgrRecordForPerson(boardId){
+  if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then record the answer.'); return; }
+  bgrPickReferenceSlot(boardId, "Record a reference's answer", (slot) => openManualRef(boardId, slot));
+}
+
 /* Background-check summary, per recorded field only. */
 function bgrChecksSummary(board){
   if(!board) return { chips:[bgrUnk('Not recorded')], problem:false };
@@ -4540,16 +4635,17 @@ function bgrPersonCard(r, t){
   const actions = [];
   if(r.board) actions.push('<button class="ibtn" onclick="openOBModal('+r.board.id+')">Open</button>');
   else if(r.intake) actions.push('<button class="ibtn" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>');
-  actions.push('<button class="ibtn" onclick="bgrToggleTimeline(\''+key+'\',this)">&#9656; Timeline</button>');
-  /* Card-level actions for the two most common moves, so the detailed drawer
-     stays optional. "Ask refs" only when a reference is on file and pending;
-     "+ Log" only once requests exist (something to attach an attempt to). */
+  /* Card-level actions for the common moves, so the detailed drawer stays
+     optional. Each shows only when it actually applies. */
   if(r.board){
     const b = r.board;
+    if(b.oig !== 'CLEAR' && !b.oig_date) actions.push('<button class="ibtn" onclick="bgrRunOIG('+b.id+',this)" title="Run the OIG exclusion check for this candidate now">Run OIG</button>');
     const refsPending = [1,2,3,4].some(n => b['r'+n+'n'] && b['r'+n+'s'] === 'Pending');
     if(refsPending) actions.push('<button class="ibtn" onclick="askReferences('+b.id+',this)" title="Email any reference with an email address; a phone-only reference stays yours to call">&#128233; Ask refs</button>');
+    if([1,2,3,4].some(n => b['r'+n+'n'])) actions.push('<button class="ibtn" onclick="bgrRecordForPerson('+b.id+')" title="Record a reference&#39;s answer from a phone call or in person">Record answer</button>');
     if(bgrReqsFor(b).length) actions.push('<button class="ibtn" onclick="bgrLogForPerson('+b.id+')" title="Record a call, voicemail, or text you made by hand to a reference">+ Log</button>');
   }
+  actions.push('<button class="ibtn" onclick="bgrToggleTimeline(\''+key+'\',this)">&#9656; Timeline</button>');
   /* Only genuine problems carry the red accent; normal next steps do not. */
   const accent = t.group==='attention' ? 'border-left:3px solid #EF4444;padding-left:.55rem;' : '';
   const metaBits = [];
@@ -5383,6 +5479,7 @@ function saveManualRef(){
   candidates[i][`r${_mrefSlot}s`]=score;
   candidates[i][`r${_mrefSlot}_manual`]=manual;
   saveCandidates(); closeModal('manual-ref-modal'); renderOB(); renderAlerts();
+  try{ renderPeopleChecks(); renderReferenceActivity(); }catch(e){}
 }
 
 let cgReturnTab='training';
