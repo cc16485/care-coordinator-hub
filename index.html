@@ -14026,6 +14026,39 @@ function cgdSection(name){
     const b=document.getElementById('cgdSecBtn-'+k); if(b) b.classList.toggle('active',k===name);
   });
 }
+/* Pre-Hire Background Checks panel for the caregiver profile. Reads the frozen
+   prehire snapshot (from promotion) if present, else the caregiver's current
+   check fields. Documents open via the engine's signed-URL viewer. Kept apart
+   from ongoing/annual checks for the state audit. */
+function cgdPreHireHtml(g){
+  if(!g) return '<div class="field-note">No hub operational record is connected yet, so pre-hire checks are not on file here.</div>';
+  const esc=escapeHtmlComms;
+  const ph=g.prehire;
+  const checks = ph
+    ? [['OIG',ph.oig,'CLEAR'],['EDL',ph.edl,'Clear'],['FCSR',ph.fcsr,'Clear'],['Fingerprint',ph.fp,'Clear']]
+    : [['OIG',{status:g.oig_status||'',date:g.oig_date||'',proof:g.oig_proof||''},'CLEAR'],
+       ['EDL',{status:g.edl_status||'',date:g.edl_date||'',proof:g.edl_proof||''},'Clear'],
+       ['FCSR',{status:g.fcsr_status||'',date:g.fcsr_date||'',proof:g.fcsr_proof||''},'Clear'],
+       ['Fingerprint',{status:g.fp||'',date:g.fp_date||'',proof:g.fp_proof||'',applicable:g.oos==='yes'},'Clear']];
+  const rows=checks.map(function(t){
+    const label=t[0], o=t[1]||{}, clearVal=t[2];
+    const naFp=(label==='Fingerprint' && o.applicable===false && !o.status);
+    const st=o.status||'Pending';
+    const isClear=o.status===clearVal||o.status==='N/A';
+    const isBad=o.status==='FLAGGED'||o.status==='Issues Found';
+    const color=naFp?'#8A7F70':isClear?'#15803D':isBad?'#B91C1C':'#B45309';
+    const badge='<span style="font-weight:700;color:'+color+'">'+(naFp?'n/a':esc(st))+'</span>';
+    const date=o.date?' <span class="field-note">'+esc(String(o.date).slice(0,10))+'</span>':'';
+    const doc=o.proof
+      ? ' · <a class="linklike" style="cursor:pointer" onclick="bgrViewProof(\''+esc(String(o.proof)).replace(/\x27/g,'')+'\')">📄 document</a>'
+      : (naFp?'':' · <span class="field-note" style="color:#B45309">no document</span>');
+    return '<div style="display:flex;gap:8px;font-size:13.5px;padding:4px 0;border-bottom:1px solid #F6F3EC;"><span class="field-note" style="min-width:110px;">'+label+'</span><span>'+badge+date+doc+'</span></div>';
+  }).join('');
+  const note=ph
+    ? '<div class="field-note" style="margin-top:8px;">Frozen at hire'+(ph.hired_at?(' ('+esc(String(ph.hired_at).slice(0,10))+')'):'')+'. Ongoing and annual checks are in the section below.</div>'
+    : '<div class="field-note" style="margin-top:8px;">Shown from the current check fields — no frozen pre-hire snapshot (hired before it was captured). New hires capture this automatically.</div>';
+  return rows+note;
+}
 async function cgdOpenProfile(axid){
   const full=document.getElementById('cgdFull'), list=document.getElementById('cgdListView');
   if(!full||!list) return;
@@ -14083,7 +14116,8 @@ async function cgdOpenProfile(axid){
     +'</div>'
 
     +'<div id="cgdSec-compliance" style="display:none;">'
-    +card('Compliance & Training', cgdComplianceHtml(c,g), 'cgdComplCard')
+    +card('Pre-Hire Background Checks <span class="field-note" style="font-weight:400;">— screenings completed before hire, with the document on file (for audits)</span>', cgdPreHireHtml(g), 'cgdPreHireCard')
+    +card('Compliance & Training <span class="field-note" style="font-weight:400;">— ongoing and annual</span>', cgdComplianceHtml(c,g), 'cgdComplCard')
     +'</div>'
 
     +'<div id="cgdSec-skills" style="display:none;">'
