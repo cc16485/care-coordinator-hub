@@ -6818,6 +6818,7 @@ async function signIn(){
   document.getElementById('signinScreen').style.display = 'none';
   document.getElementById('appScreen').classList.add('on'); initNavUser();
   await loadAllData();
+  await runSignInWork();   // writing producers run on an intentional sign-in, never on a passive reload
   await flushPendingSync();
   renderActiveTab();
 }
@@ -6845,17 +6846,31 @@ async function loadAllData(){
   // feeders fall back to leaving things unassigned, which is exactly the
   // behaviour they had before Step 1 and is safe.
   await opsLoadRouting();
-  await recurMaterialize();   // standing expectations become real work
-  /* Runs after routing so the work it creates can be given an owner. Safe to
-     run on every sign-in because the item ids are derived, so a second run
-     creates nothing. Failures are recorded in automation_log and surfaced on
-     the owner's Home rather than only reaching the console. */
-  try{ await autoRecurringCheckins({commit:true}); }
-  catch(e){ console.warn('[automation] client check-in run failed', e); }
+  /* ── BOOT MUST BE READ-ONLY (owner ruling 2026-09-21; extended to the CC hub
+     loader 2026-09-25, Stage 0). loadAllData() runs on BOTH an explicit sign-in
+     and a passive reload / session-restore, so the two WRITING producers that
+     used to run here — recurMaterialize() (standing expectations -> ops_items)
+     and autoRecurringCheckins({commit:true}) (client check-in work) — moved to
+     runSignInWork(), called only from the explicit signIn() path. A reload now
+     performs zero writes here. The same work is still generated on an
+     intentional sign-in and by the server-side obligations cron; only a passive
+     page view stops producing it. Neither producer ever sent outreach: both
+     only write ops_items. */
   /* Not awaited: the raw "since you left" list fills Home when it arrives,
      and a missing op_events table costs nothing but a console note. */
   ccSinceFetch().then(()=>{ if(CC_SINCE.length && typeof renderSinceYouLeft==='function') renderSinceYouLeft(); });
   ccRecentFetch();
+}
+/* The writing producers that must run on an intentional sign-in but NEVER on a
+   passive reload or session-restore (see the read-only-boot note above, and the
+   engine's showApp/bootHydrate invariant). Idempotent: item ids are derived, so
+   a repeat sign-in creates nothing new. Both only write ops_items; neither ever
+   contacts a client, family, or caregiver. */
+async function runSignInWork(){
+  try{ await recurMaterialize(); }
+  catch(e){ console.warn('[automation] recurring duties run failed', e); }
+  try{ await autoRecurringCheckins({commit:true}); }
+  catch(e){ console.warn('[automation] client check-in run failed', e); }
 }
 /* THE one way new code answers "which human did this". Email is the stable
    key (unique per account, what ops_items already filters on); name is only
