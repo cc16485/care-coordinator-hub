@@ -148,6 +148,13 @@
 .controls input:focus{outline:none;border-color:var(--teal)}
 .fb{padding:.4rem .8rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:.78rem;cursor:pointer;background:var(--white);color:var(--navy);font-weight:500}
 .fb.active,.fb:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+/* Inline action button used across the Background & References cards, timeline,
+   pickers and modals. Small, quiet, clearly a button. */
+.ibtn{display:inline-flex;align-items:center;gap:.3rem;padding:.32rem .62rem;border:1px solid var(--border);border-radius:8px;background:var(--white,#fff);color:var(--navy);font-family:inherit;font-size:.78rem;font-weight:700;line-height:1.2;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s}
+.ibtn:hover{background:#F6F3EC;border-color:#d8d2c4}
+.ibtn:active{background:#efeade}
+.ibtn:disabled{opacity:.55;cursor:default}
+.ibtn:focus-visible{outline:2px solid var(--navy);outline-offset:1px}
 .add-btn{margin-left:auto;padding:.45rem 1rem;background:var(--teal);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.82rem;font-weight:600;cursor:pointer}
 /* ── Table ── */
 .tbl-wrap{background:var(--white);border-radius:12px;box-shadow:0 2px 12px rgba(14,56,96,.07);overflow-x:auto}
