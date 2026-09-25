@@ -27609,7 +27609,41 @@ function tbBoardHtml(plan){
     +'<div class="card" style="padding:8px;overflow-x:auto;">'+grid+'</div>'
     +(teamRows?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span class="field-note" style="font-weight:700;">The team so far:</span>'+teamRows+'</div>':'')
     +'<div id="tbAssign" style="margin-top:10px;">'+(TB.cellOpen?tbAssignHtml(plan,TB.cellOpen):'<div class="field-note">Click any cell to pencil someone in. Click a filled cell to update or move them.</div>')+'</div>'
-    +'<div class="field-note" style="margin-top:8px;">Nothing here touches AxisCare. When every cell is green, enter the finished schedule there.</div>';
+    +'<div class="field-note" style="margin-top:8px;">Nothing here touches AxisCare. When every cell is green, enter the finished schedule there.</div>'
+    +tbNotesHtml(plan);
+}
+/* Shared, append-only notes on a plan — the whole office collaborates here
+   (moves off other clients, preferences, any detail worth knowing). Everyone
+   who opens the plan sees them; nothing is deleted. */
+function tbNotesHtml(plan){
+  var notes=(plan.notes||[]);
+  var list=notes.length
+    ? notes.map(function(n){
+        var who=esc(n.by||'someone');
+        var when=n.at?new Date(n.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
+        return '<div style="padding:7px 0;border-top:1px solid var(--border);">'
+          +'<div style="font-size:11.5px;color:var(--text-muted);"><b style="color:var(--navy);">'+who+'</b>'+(when?' · '+esc(when):'')+'</div>'
+          +'<div style="font-size:13.5px;white-space:pre-wrap;margin-top:2px;">'+esc(n.text||'')+'</div></div>';
+      }).join('')
+    : '<div class="field-note" style="padding:6px 0;">No notes yet — add the first one below.</div>';
+  return '<div class="card" style="padding:12px 16px;margin-top:12px;">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:14px;">📝 Team notes</div>'
+    +'<div class="field-note" style="margin:2px 0 6px;">Open scratchpad for the whole office — who we\'re moving off another client, preferences, anything to keep in the mix while we build this team. Everyone sees it; nothing is deleted.</div>'
+    +list
+    +'<div style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;">'
+    +'<textarea id="tbNoteInput" rows="2" placeholder="Add a note… e.g. pulling Ariel off the Smith Tue shift to free her up for this one" style="flex:1;font-family:inherit;font-size:13.5px;padding:7px 9px;border:1.5px solid var(--border);border-radius:8px;resize:vertical;box-sizing:border-box;"></textarea>'
+    +'<button class="addlead" style="white-space:nowrap;" onclick="tbAddNote(\''+plan.id+'\')">Add note</button>'
+    +'</div></div>';
+}
+async function tbAddNote(id){
+  var p=tbPlan(); if(!p||p.id!==id) return;
+  var el=document.getElementById('tbNoteInput');
+  var text=el?el.value.trim():'';
+  if(!text){ return; }
+  p.notes=p.notes||[];
+  p.notes.push({ by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'office', at:new Date().toISOString(), text:text.slice(0,4000) });
+  await persist('staffing_plans',p);
+  tbRender();
 }
 function tbCell(key){ TB.cellOpen=(TB.cellOpen===key)?null:key; tbRender(); }
 function tbAssignHtml(plan,key){
