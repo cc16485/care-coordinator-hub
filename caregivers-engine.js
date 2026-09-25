@@ -4263,6 +4263,10 @@ function bgrEnsureAttemptModal(){
     +   '<div style="font-weight:800;color:#0D365F;font-size:1rem;margin-bottom:.2rem">Log an outreach attempt</div>'
     +   '<div id="bgrAttWho" style="font-size:.82rem;color:#6E6559;margin-bottom:.2rem"></div>'
     +   '<div style="font-size:.72rem;color:#A89C8B;margin-bottom:.7rem">This only records that you tried to reach them. It sends nothing.</div>'
+    +   '<div id="bgrAttRefWrap" style="display:none;margin-bottom:.8rem">'
+    +     '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;margin-bottom:.25rem">Which reference?</div>'
+    +     '<select id="bgrAttRefSel" onchange="bgrAttPickRef()" style="width:100%;padding:.45rem .6rem;border:1px solid var(--border,#d9d4c8);border-radius:8px;font-size:.85rem;box-sizing:border-box"></select>'
+    +   '</div>'
     +   '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;margin-bottom:.35rem">How did you reach out?</div>'
     +   '<div id="bgrAttMethods" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.8rem">'
     +     BGR_ATT_METHODS.map(m => '<button type="button" class="ibtn" data-m="'+m.k+'" onclick="bgrPickAttemptMethod(\''+m.k+'\')">'+bgrEsc(m.label)+'</button>').join('')
@@ -4276,18 +4280,58 @@ function bgrEnsureAttemptModal(){
     + '</div>';
   document.body.appendChild(wrap);
 }
+/* Reflect the currently-targeted request in the "who" line. */
+function bgrAttSyncWho(){
+  const req = REF_REQUESTS.find(r => String(r.id) === String(_bgrAttReqId));
+  const who = document.getElementById('bgrAttWho'); if(!who) return;
+  if(!req){ who.textContent = ''; return; }
+  who.innerHTML = 'For <b>'+bgrEsc(req.ref_name || ('slot '+req.slot))+'</b>'
+    + (req.candidate_name ? (' · '+bgrEsc(req.candidate_name)) : '')
+    + (req.ref_phone ? (' · '+bgrEsc(req.ref_phone)) : '');
+}
+function bgrAttResetForm(){
+  const note = document.getElementById('bgrAttNote'); if(note) note.value = '';
+  _bgrAttMethod = null;
+  Array.prototype.forEach.call(document.querySelectorAll('#bgrAttMethods [data-m]'), b => { b.style.background=''; b.style.color=''; });
+}
+/* Open for ONE known request (used from the Reference Activity row). */
 function bgrOpenAttemptModal(reqId){
   if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then log the attempt.'); return; }
   const req = REF_REQUESTS.find(r => String(r.id) === String(reqId));
   if(!req){ alert('That reference could not be found. Refresh the tab and try again.'); return; }
   bgrEnsureAttemptModal();
-  _bgrAttReqId = reqId; _bgrAttMethod = null;
-  document.getElementById('bgrAttWho').innerHTML = 'For <b>'+bgrEsc(req.ref_name || ('slot '+req.slot))+'</b>'
-    + (req.candidate_name ? (' · '+bgrEsc(req.candidate_name)) : '')
-    + (req.ref_phone ? (' · '+bgrEsc(req.ref_phone)) : '');
-  const note = document.getElementById('bgrAttNote'); if(note) note.value = '';
-  Array.prototype.forEach.call(document.querySelectorAll('#bgrAttMethods [data-m]'), b => { b.style.background=''; b.style.color=''; });
+  _bgrAttReqId = reqId;
+  const wrap = document.getElementById('bgrAttRefWrap'); if(wrap) wrap.style.display = 'none';
+  bgrAttResetForm();
+  bgrAttSyncWho();
   document.getElementById('bgrAttemptModal').style.display = 'flex';
+}
+/* Open from a person card. With one reference it targets it directly; with
+   several it shows a picker so the attempt lands on the right reference. */
+function bgrLogForPerson(boardId){
+  if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then log the attempt.'); return; }
+  const reqs = REF_REQUESTS.filter(r => String(r.candidate_id) === String(boardId))
+                           .slice().sort((a,b)=>(a.slot||0)-(b.slot||0));
+  if(!reqs.length){ alert('Click "Ask refs" first. Once a reference is requested you can log the calls and voicemails you make to them.'); return; }
+  if(reqs.length === 1){ bgrOpenAttemptModal(reqs[0].id); return; }
+  bgrEnsureAttemptModal();
+  const sel = document.getElementById('bgrAttRefSel');
+  sel.innerHTML = reqs.map(r => {
+    const a = bgrAttemptSummary(r);
+    return '<option value="'+bgrEsc(String(r.id))+'">'+bgrEsc(r.ref_name || ('slot '+r.slot))
+      + (r.ref_phone ? (' · '+bgrEsc(r.ref_phone)) : (r.ref_email ? (' · '+bgrEsc(r.ref_email)) : ''))
+      + (a ? (' · '+a.count+' logged') : '') + '</option>';
+  }).join('');
+  document.getElementById('bgrAttRefWrap').style.display = 'block';
+  _bgrAttReqId = sel.value;
+  bgrAttResetForm();
+  bgrAttSyncWho();
+  document.getElementById('bgrAttemptModal').style.display = 'flex';
+}
+function bgrAttPickRef(){
+  const sel = document.getElementById('bgrAttRefSel'); if(!sel) return;
+  _bgrAttReqId = sel.value;
+  bgrAttSyncWho();
 }
 function bgrPickAttemptMethod(k){
   _bgrAttMethod = k;
@@ -4450,8 +4494,10 @@ function bgrTimelineHTML(r, t){
         if(q.applicant_nudged_at) parts.push('applicant nudged '+bgrD(q.applicant_nudged_at));
         const neg = q.responded_at && (q.recommend==='no' || q.concerns==='serious');
         parts.push(q.responded_at ? ('responded '+bgrD(q.responded_at)+(neg?' (negative)':'')) : 'awaiting');
+        const logBtn = q.responded_at ? '' :
+          ' <button class="ibtn" style="padding:.02rem .42rem;font-size:.68rem;font-weight:700;vertical-align:middle" onclick="bgrOpenAttemptModal(\''+bgrEsc(String(q.id))+'\')">+ Log</button>';
         h += bgrTLrow(neg?prob:(q.responded_at?done:pend), 'Reference: '+(q.ref_name||('slot '+q.slot)),
-                      parts.join(' · '), neg?'#B91C1C':(q.responded_at?'#15803D':'#B45309'));
+                      parts.join(' · ') + logBtn, neg?'#B91C1C':(q.responded_at?'#15803D':'#B45309'));
       });
       const reqSlots = new Set(reqs.map(q=>q.slot));
       onFile.filter(n=>!reqSlots.has(n)).forEach(n =>
@@ -4495,15 +4541,33 @@ function bgrPersonCard(r, t){
   if(r.board) actions.push('<button class="ibtn" onclick="openOBModal('+r.board.id+')">Open</button>');
   else if(r.intake) actions.push('<button class="ibtn" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>');
   actions.push('<button class="ibtn" onclick="bgrToggleTimeline(\''+key+'\',this)">&#9656; Timeline</button>');
+  /* Card-level actions for the two most common moves, so the detailed drawer
+     stays optional. "Ask refs" only when a reference is on file and pending;
+     "+ Log" only once requests exist (something to attach an attempt to). */
+  if(r.board){
+    const b = r.board;
+    const refsPending = [1,2,3,4].some(n => b['r'+n+'n'] && b['r'+n+'s'] === 'Pending');
+    if(refsPending) actions.push('<button class="ibtn" onclick="askReferences('+b.id+',this)" title="Email any reference with an email address; a phone-only reference stays yours to call">&#128233; Ask refs</button>');
+    if(bgrReqsFor(b).length) actions.push('<button class="ibtn" onclick="bgrLogForPerson('+b.id+')" title="Record a call, voicemail, or text you made by hand to a reference">+ Log</button>');
+  }
   /* Only genuine problems carry the red accent; normal next steps do not. */
   const accent = t.group==='attention' ? 'border-left:3px solid #EF4444;padding-left:.55rem;' : '';
+  const metaBits = [];
+  if(r.offer && r.offer.created_at) metaBits.push('Offer '+bgrD(r.offer.created_at));
+  const sub0 = (r.submissions && r.submissions[0]) || r.intake;
+  if(sub0 && sub0.created_at) metaBits.push('started '+bgrD(sub0.created_at));
+  if(sub0 && sub0.candidate_id) metaBits.push('applicant #'+bgrEsc(String(sub0.candidate_id)));
+  if(r.board && r.board.oos === 'yes') metaBits.push('lived outside MO');
+  const metaLine = metaBits.length
+    ? '<div style="color:#9a8f7f;font-size:.74rem;margin-top:.15rem">'+metaBits.join(' · ')+'</div>' : '';
   return '<div style="padding:.6rem .1rem;border-top:1px solid #ece9e1;'+accent+'">'
     + '<div style="display:flex;gap:.7rem;align-items:baseline;flex-wrap:wrap">'
     +   '<b style="flex:0 0 150px;color:#0D365F;font-size:.9rem">'+bgrEsc(r.name)+'</b>'
     +   '<span style="flex:1;color:#4A4A4A;font-size:.82rem">'+bgrEsc(t.stage)+'</span>'
     +   (r.submissionCount>1 ? '<span style="flex:0 0 auto;font-size:.72rem;font-weight:600;color:#8A7F70">'+r.submissionCount+' submissions</span>' : '')
-    +   '<span style="display:flex;gap:.3rem">'+actions.join('')+'</span>'
+    +   '<span style="display:flex;gap:.3rem;flex-wrap:wrap;justify-content:flex-end">'+actions.join('')+'</span>'
     + '</div>'
+    + metaLine
     + '<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.35rem;align-items:center">'
     +   bgrWaitTone(t.waitingOn)('Waiting on: '+t.waitingOn)
     +   refTone('Refs: '+refs.text)
