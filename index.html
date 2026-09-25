@@ -2061,24 +2061,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       })();
       </script>
 
-      <!-- Detailed views collapsed into drawers; the attention-first cards above
-           are the default. Every legacy action is preserved inside. -->
-      <details class="card bgr-people" id="bgrDrawerPipe" style="padding:0;margin-bottom:14px;">
-        <summary style="cursor:pointer;padding:12px 16px;font-weight:800;color:var(--navy);font-size:.9rem;">Pipeline overview <span style="font-weight:600;color:#A89C8B;font-size:.78rem">· where everyone stands, with AxisCare / Viventium sync</span></summary>
-        <div style="padding:2px 16px 14px;">
-      <!-- One row per person being hired, so nobody assembles the answer
-           from two tabs and their own memory. -->
-      <div class="card bgr-people" style="padding:14px 16px;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">Where everyone stands</b>
-          <span class="field-note">start link, references, screenings, Viventium. Red is waiting on you.</span>
-          <span style="flex:1;"></span>
-          <button class="ghost" onclick="SCX.renderHirePipeline&&SCX.renderHirePipeline()">↻ Refresh</button>
-        </div>
-        <div id="hirePipeline" style="margin-top:10px;"></div>
-      </div>
-        </div>
-      </details>
+      <!-- The attention-first cards above are the default. Below: askRefsBox and
+           the How It Works guide (both outside the single detailed drawer). -->
 
       <!-- Where the reference links appear after "Ask refs" -->
       <div class="bgr-people" id="askRefsBox" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px;"></div>
@@ -2105,9 +2089,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
 
       <details class="card bgr-people" id="bgrDrawerTable" style="padding:0;margin-bottom:14px;">
-        <summary style="cursor:pointer;padding:12px 16px;font-weight:800;color:var(--navy);font-size:.9rem;">Full checks table <span style="font-weight:600;color:#A89C8B;font-size:.78rem">· every reference &amp; screening column, plus row actions (record an answer, edit, not hired)</span></summary>
+        <summary style="cursor:pointer;padding:12px 16px;font-weight:800;color:var(--navy);font-size:.9rem;">Detailed table <span style="font-weight:600;color:#A89C8B;font-size:.78rem">· full pipeline and checks — every column, plus AxisCare / Viventium sync and row actions</span></summary>
         <div style="padding:2px 16px 14px;">
-      <p style="color:#6E6559;font-size:.8rem;margin:.2rem 0 .9rem">Everyday work happens in the cards above. This is the full spreadsheet, kept intact for when you want every column and the row actions.</p>
+      <p style="color:#6E6559;font-size:.8rem;margin:.2rem 0 .9rem">Everyday work happens in the cards above. This is the full pipeline and spreadsheet, kept intact for when you want every column and the extra actions.</p>
+      <!-- Pipeline overview: where everyone stands, with AxisCare / Viventium sync -->
+      <div class="card bgr-people" style="padding:14px 16px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">Where everyone stands</b>
+          <span class="field-note">start link, references, screenings, Viventium. Red is waiting on you.</span>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="SCX.renderHirePipeline&&SCX.renderHirePipeline()">↻ Refresh</button>
+        </div>
+        <div id="hirePipeline" style="margin-top:10px;"></div>
+      </div>
       <div class="stats bgr-people" id="ob-stats"></div>
       <div class="controls bgr-people">
         <input type="text" placeholder="Search candidate..." oninput="SCX.renderOB()">
