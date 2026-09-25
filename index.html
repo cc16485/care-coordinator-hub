@@ -27424,9 +27424,10 @@ let TB={pool:null,loading:false,planId:null,cellOpen:null};
 const TB_DAYS=['mon','tue','wed','thu','fri','sat','sun'];
 const TB_DAYL={mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri',sat:'Sat',sun:'Sun'};
 const TB_PATTERNS={
+  custom:{label:'Flexible — start with one shift, add & edit your own',slots:[{k:'s1',label:'Shift 1',start:'09:00',end:'17:00'}]},
   twelves:{label:'2 × 12-hour (day / night)',slots:[{k:'day',label:'Day 8a–8p',start:'08:00',end:'20:00'},{k:'night',label:'Night 8p–8a',start:'20:00',end:'08:00'}]},
   eights:{label:'3 × 8-hour',slots:[{k:'a',label:'6a–2p',start:'06:00',end:'14:00'},{k:'b',label:'2p–10p',start:'14:00',end:'22:00'},{k:'c',label:'10p–6a',start:'22:00',end:'06:00'}]},
-  daily4:{label:'One daily shift (set the hours)',slots:[{k:'main',label:'Daily shift',start:'09:00',end:'13:00'}]}
+  daily4:{label:'One daily shift',slots:[{k:'main',label:'Daily shift',start:'09:00',end:'13:00'}]}
 };
 function tbPlans(){ return (DATA.staffing_plans||[]).filter(Boolean); }
 function tbPlan(){ return tbPlans().find(function(p){ return p.id===TB.planId; })||null; }
@@ -27522,6 +27523,28 @@ async function tbCreate(){
 }
 function tbOpen(id){ TB.planId=id; TB.cellOpen=null; tbRender(); }
 function tbClose(){ TB.planId=null; TB.cellOpen=null; tbRender(); }
+/* Flexible shifts: add, remove, and retime shifts on a plan whenever you like,
+   so the number of shifts per day and their hours are never locked to a preset. */
+async function tbAddShift(id){
+  var p=tbPlan(); if(!p||p.id!==id) return;
+  p.slots=p.slots||[];
+  p.slots.push({k:'s'+Date.now().toString(36),label:'Shift '+(p.slots.length+1),start:'09:00',end:'17:00'});
+  await persist('staffing_plans',p); tbRender();
+}
+async function tbDelShift(id,k){
+  var p=tbPlan(); if(!p||p.id!==id) return;
+  if((p.slots||[]).length<=1){ alert('A plan needs at least one shift — edit this one instead of removing it.'); return; }
+  if(!confirm('Remove this shift? Anyone penciled into it on this board will be cleared.')) return;
+  p.slots=(p.slots||[]).filter(function(s){ return s.k!==k; });
+  (p.days||[]).forEach(function(d){ if(p.cells) delete p.cells[tbCellKey(d,k)]; });
+  await persist('staffing_plans',p); tbRender();
+}
+async function tbSetShift(id,k,field,val){
+  var p=tbPlan(); if(!p||p.id!==id) return;
+  var s=(p.slots||[]).find(function(x){ return x.k===k; }); if(!s) return;
+  s[field]=val;
+  await persist('staffing_plans',p); tbRender();
+}
 function tbCellKey(d,sk){ return d+'|'+sk; }
 /* Projected weekly hours for a caregiver: what this board gives them (any
    state but declined) + their real AxisCare average from the 14-day read. */
@@ -27544,7 +27567,16 @@ function tbBoardHtml(plan){
     +'<thead><tr><th style="padding:.4rem;text-align:left;color:var(--text-muted);font-size:11px;">Shift</th>'
     +(plan.days||[]).map(function(d){ return '<th style="padding:.4rem;color:var(--navy);">'+TB_DAYL[d]+'</th>'; }).join('')+'</tr></thead><tbody>'
     +(plan.slots||[]).map(function(s){
-      return '<tr><td style="padding:.45rem .4rem;border-top:1px solid var(--border);font-weight:700;color:var(--navy);white-space:nowrap;">'+esc(s.label)+'<div class="field-note" style="font-size:10.5px;">'+tbT12(s.start)+'–'+tbT12(s.end)+' · '+tbSlotHours(s)+'h</div></td>'
+      return '<tr><td style="padding:.4rem .4rem;border-top:1px solid var(--border);white-space:nowrap;vertical-align:top;">'
+        +'<input value="'+esc(s.label)+'" onchange="tbSetShift(\''+plan.id+'\',\''+s.k+'\',\'label\',this.value)" title="Shift name" style="width:94px;font-weight:700;color:var(--navy);font-size:11px;border:1px solid var(--border);border-radius:5px;padding:2px 4px;font-family:inherit;">'
+        +'<div style="display:flex;gap:3px;align-items:center;margin-top:3px;">'
+        +'<input type="time" value="'+esc(s.start)+'" onchange="tbSetShift(\''+plan.id+'\',\''+s.k+'\',\'start\',this.value)" style="font-size:10px;border:1px solid var(--border);border-radius:4px;padding:1px 2px;font-family:inherit;">'
+        +'<span style="font-size:10px;color:var(--text-muted);">–</span>'
+        +'<input type="time" value="'+esc(s.end)+'" onchange="tbSetShift(\''+plan.id+'\',\''+s.k+'\',\'end\',this.value)" style="font-size:10px;border:1px solid var(--border);border-radius:4px;padding:1px 2px;font-family:inherit;">'
+        +'</div>'
+        +'<div style="display:flex;gap:8px;align-items:center;margin-top:2px;"><span class="field-note" style="font-size:10px;">'+tbSlotHours(s)+'h</span>'
+        +'<button onclick="tbDelShift(\''+plan.id+'\',\''+s.k+'\')" title="Remove this shift" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:10.5px;line-height:1;padding:0;">✕ remove</button></div>'
+        +'</td>'
         +(plan.days||[]).map(function(d){
           var key=tbCellKey(d,s.k), c=(plan.cells||{})[key];
           if(c&&c.status==='yes') yes++;
@@ -27555,7 +27587,9 @@ function tbBoardHtml(plan){
             :'<span style="color:var(--text-dim);font-size:15px;">＋</span>';
           return '<td onclick="tbCell(\''+key+'\')" style="padding:.3rem;border-top:1px solid var(--border);border-left:1px solid var(--border);text-align:center;cursor:pointer;min-width:64px;'+(open?'outline:2px solid var(--teal);outline-offset:-2px;':'')+'">'+inner+'</td>';
         }).join('')+'</tr>';
-    }).join('')+'</tbody></table>';
+    }).join('')+'</tbody></table>'
+    +'<button class="fb" onclick="tbAddShift(\''+plan.id+'\')" style="margin-top:8px;">+ Add a shift</button>'
+    +'<span class="field-note" style="margin-left:10px;font-size:11.5px;">Add as many shifts as a day needs; edit any shift\'s name and hours right on its row. Leave a day\'s cell empty when there\'s no shift that day.</span>';
   var team={};
   Object.values(plan.cells||{}).forEach(function(c){ if(c&&c.status!=='no') team[c.name]=true; });
   var teamRows=Object.keys(team).map(function(n){
