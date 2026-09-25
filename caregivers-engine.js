@@ -4684,8 +4684,32 @@ function bgrPersonCard(r, t){
     + '</div>';
 }
 
+/* Compact, clickable pipeline row. The full record + every action lives in the
+   side drawer that opens on click, so the main view stays scannable. */
+function bgrCompactRow(r, t){
+  const key = bgrKey(r);
+  const refs = bgrRefsSummary(r.board);
+  const refTone = refs.tone==='ok'?bgrOn:(refs.tone==='warn'?bgrWarn:bgrUnk);
+  const checks = bgrChecksSummary(r.board);
+  const accent = t.group==='attention' ? '3px solid #EF4444' : '3px solid transparent';
+  return '<div role="button" tabindex="0" onclick="bgrOpenDrawer(\''+key+'\')" '
+    + 'onkeydown="if(event.key===\'Enter\'){bgrOpenDrawer(\''+key+'\')}" '
+    + 'onmouseover="this.style.background=\'#FAF8F3\'" onmouseout="this.style.background=\'\'" '
+    + 'style="cursor:pointer;display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;padding:.5rem .55rem;border-top:1px solid #ece9e1;border-left:'+accent+'">'
+    +   '<b style="flex:0 0 145px;color:#0D365F;font-size:.88rem">'+bgrEsc(r.name)+'</b>'
+    +   '<span style="flex:0 0 auto;color:#4A4A4A;font-size:.78rem;min-width:110px">'+bgrEsc(t.stage)+'</span>'
+    +   '<span style="display:flex;gap:.3rem;flex-wrap:wrap;flex:1;align-items:center;min-width:120px">'
+    +     bgrWaitTone(t.waitingOn)(t.waitingOn) + refTone('Refs: '+refs.text) + checks.chips.join(' ')
+    +   '</span>'
+    +   (r.submissionCount>1 ? '<span style="font-size:.68rem;color:#8A7F70;font-weight:700">'+r.submissionCount+' subs</span>' : '')
+    +   '<span style="color:#B9AF9E;font-weight:800;font-size:1.05rem;line-height:1">&rsaquo;</span>'
+    + '</div>';
+}
+
 /* Pure builder so the same output can be rendered in the preview harness. */
 function bgrPeopleHTML(rows, term){
+  BGR_ROW_INDEX = {};
+  rows.forEach(r => { BGR_ROW_INDEX[bgrKey(r)] = r; });
   const q = (term||'').toLowerCase();
   const items = rows
     .map(r => ({ r, t: bgrTriage(r) }))
@@ -4712,7 +4736,7 @@ function bgrPeopleHTML(rows, term){
     const hc = g.key==='attention' ? '#B91C1C' : '#8A7F70';
     html += '<div style="margin:.6rem 0 .2rem;font-size:.72rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:'+hc+'">'
       + bgrEsc(g.title) + ' <span style="font-weight:600;text-transform:none;letter-spacing:0;color:#A89C8B">· ' + bgrEsc(g.note) + '</span></div>';
-    html += inGroup.map(x => bgrPersonCard(x.r, x.t)).join('');
+    html += inGroup.map(x => bgrCompactRow(x.r, x.t)).join('');
   });
   return html;
 }
@@ -4724,6 +4748,154 @@ function renderPeopleChecks(){
   let rows = [];
   try{ rows = lifecycleRows(); }catch(e){ rows = []; }
   box.innerHTML = bgrPeopleHTML(rows, term);
+  bgrRefreshDrawer();
+}
+
+/* ── Side drawer: click a name in the pipeline, get the full record + every
+   action in one panel. Reuses the existing derivations; writes go through the
+   same handlers as before. ─────────────────────────────────────────────────*/
+let BGR_ROW_INDEX = {};
+let _bgrDrawerKey = null;
+const BGR_CHECKS = [
+  { k:'edl',  label:'EDL',         opts:['Pending','Clear','Issues Found'] },
+  { k:'fcsr', label:'FCSR',        opts:['Pending','Clear','Issues Found'] },
+  { k:'fp',   label:'Fingerprint', opts:['N/A','Required','Submitted','Clear','Issues Found'] },
+];
+function bgrEnsureDrawer(){
+  if(document.getElementById('bgrDrawer')) return;
+  const bd = document.createElement('div');
+  bd.id = 'bgrDrawerBackdrop';
+  bd.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(15,54,95,.28);z-index:9998';
+  bd.onclick = bgrCloseDrawer;
+  const dr = document.createElement('div');
+  dr.id = 'bgrDrawer';
+  dr.style.cssText = 'position:fixed;top:0;right:0;bottom:0;width:470px;max-width:94vw;background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.18);z-index:9999;transform:translateX(102%);transition:transform .22s ease;overflow-y:auto';
+  document.body.appendChild(bd);
+  document.body.appendChild(dr);
+}
+function bgrOpenDrawer(key){
+  const r = BGR_ROW_INDEX[key]; if(!r) return;
+  let t; try{ t = bgrTriage(r); }catch(e){ return; }
+  bgrEnsureDrawer();
+  _bgrDrawerKey = key;
+  document.getElementById('bgrDrawer').innerHTML = bgrDrawerHTML(r, t);
+  document.getElementById('bgrDrawerBackdrop').style.display = 'block';
+  const dr = document.getElementById('bgrDrawer');
+  requestAnimationFrame(() => { dr.style.transform = 'translateX(0)'; });
+}
+function bgrCloseDrawer(){
+  const dr = document.getElementById('bgrDrawer'); if(dr) dr.style.transform = 'translateX(102%)';
+  const bd = document.getElementById('bgrDrawerBackdrop'); if(bd) bd.style.display = 'none';
+  _bgrDrawerKey = null;
+}
+/* After a write re-renders the list (which rebuilds BGR_ROW_INDEX with fresh
+   rows), refresh an open drawer so it shows the new state for the same person. */
+function bgrRefreshDrawer(){
+  if(!_bgrDrawerKey) return;
+  const bd = document.getElementById('bgrDrawerBackdrop');
+  if(!bd || bd.style.display === 'none') return;
+  const r = BGR_ROW_INDEX[_bgrDrawerKey];
+  if(!r){ return; }
+  try{ document.getElementById('bgrDrawer').innerHTML = bgrDrawerHTML(r, bgrTriage(r)); }catch(e){}
+}
+function bgrDrawerHTML(r, t){
+  const b = r.board;
+  const refs = bgrRefsSummary(b);
+  const refTone = refs.tone==='ok'?bgrOn:(refs.tone==='warn'?bgrWarn:bgrUnk);
+  const checks = bgrChecksSummary(b);
+  const bgBtns = [], refBtns = [];
+  if(b){
+    if(b.oig !== 'CLEAR' && !b.oig_date) bgBtns.push('<button class="ibtn" onclick="bgrRunOIG('+b.id+',this)">Run OIG</button>');
+    bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'edl\')">Record EDL</button>');
+    bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'fcsr\')">Record FCSR</button>');
+    if(b.oos === 'yes') bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'fp\')">Record fingerprint</button>');
+    const refsPending = [1,2,3,4].some(n => b['r'+n+'n'] && b['r'+n+'s'] === 'Pending');
+    if(refsPending) refBtns.push('<button class="ibtn" onclick="askReferences('+b.id+',this)">&#128233; Ask refs</button>');
+    if([1,2,3,4].some(n => b['r'+n+'n'])) refBtns.push('<button class="ibtn" onclick="bgrRecordForPerson('+b.id+')">Record answer</button>');
+    if(bgrReqsFor(b).length) refBtns.push('<button class="ibtn" onclick="bgrLogForPerson('+b.id+')">+ Log</button>');
+  } else if(r.intake){
+    bgBtns.push('<button class="ibtn ibtn-strong" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>');
+  }
+  const grp = (label, btns) => btns.length
+    ? '<div style="margin-top:.7rem"><div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#A89C8B;margin-bottom:.3rem">'+label+'</div>'
+      + '<div style="display:flex;gap:.4rem;flex-wrap:wrap">'+btns.join('')+'</div></div>' : '';
+  const metaBits = [];
+  if(r.offer && r.offer.created_at) metaBits.push('Offer '+bgrD(r.offer.created_at));
+  const sub0 = (r.submissions && r.submissions[0]) || r.intake;
+  if(sub0 && sub0.created_at) metaBits.push('started '+bgrD(sub0.created_at));
+  if(sub0 && sub0.candidate_id) metaBits.push('applicant #'+bgrEsc(String(sub0.candidate_id)));
+  if(b && b.oos === 'yes') metaBits.push('lived outside MO');
+  const profile = b ? '<button class="ibtn" onclick="openOBModal('+b.id+')" title="Open the full candidate record">Full record &#8599;</button>' : '';
+  return ''
+    + '<div style="position:sticky;top:0;background:#fff;border-bottom:1px solid #ECE9E1;padding:14px 16px;display:flex;align-items:flex-start;gap:.6rem;z-index:1">'
+    +   '<div style="flex:1">'
+    +     '<div style="font-weight:800;color:#0D365F;font-size:1.05rem">'+bgrEsc(r.name)+(r.submissionCount>1?' <span style="font-size:.7rem;font-weight:600;color:#8A7F70">'+r.submissionCount+' submissions</span>':'')+'</div>'
+    +     '<div style="color:#4A4A4A;font-size:.82rem;margin-top:.1rem">'+bgrEsc(t.stage)+'</div>'
+    +     (metaBits.length?'<div style="color:#9a8f7f;font-size:.74rem;margin-top:.15rem">'+metaBits.join(' · ')+'</div>':'')
+    +   '</div>'
+    +   '<button class="ibtn" onclick="bgrCloseDrawer()" title="Close" style="flex:0 0 auto">&times;</button>'
+    + '</div>'
+    + '<div style="padding:14px 16px">'
+    +   '<div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin-bottom:.5rem">'
+    +     bgrWaitTone(t.waitingOn)('Waiting on: '+t.waitingOn) + refTone('Refs: '+refs.text) + checks.chips.join(' ')
+    +   '</div>'
+    +   '<div style="font-size:.82rem;color:#6E6559"><b style="color:#8A7F70">Why:</b> '+bgrEsc(t.why)+'</div>'
+    +   '<div style="font-size:.82rem;color:#0D365F"><b style="color:#8A7F70">Next:</b> '+bgrEsc(t.next)+'</div>'
+    +   (profile ? '<div style="margin-top:.6rem">'+profile+'</div>' : '')
+    +   grp('Background checks', bgBtns)
+    +   grp('References', refBtns)
+    +   '<div style="margin-top:.8rem">'+bgrTimelineHTML(r, t)+'</div>'
+    + '</div>';
+}
+
+/* Record a single background check (EDL / FCSR / Fingerprint) from the drawer.
+   Writes through bgrApplyBoardChange so the AxisCare + Zapier side effects fire. */
+let _bgrCheckCand = null, _bgrCheckWhich = null;
+function bgrEnsureCheckModal(){
+  if(document.getElementById('bgrCheckModal')) return;
+  const w = document.createElement('div');
+  w.id = 'bgrCheckModal';
+  w.style.cssText = 'display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,54,95,.35);align-items:center;justify-content:center;padding:1rem';
+  const lbl = 'font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;margin:.5rem 0 .25rem';
+  const inp = 'width:100%;padding:.5rem .6rem;border:1px solid var(--border,#d9d4c8);border-radius:8px;font-size:.85rem;box-sizing:border-box';
+  w.innerHTML =
+      '<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2)">'
+    +   '<div id="bgrCheckTitle" style="font-weight:800;color:#0D365F;font-size:1rem;margin-bottom:.2rem">Record a background check</div>'
+    +   '<div style="font-size:.72rem;color:#A89C8B;margin-bottom:.5rem">Records the result on the candidate. Reaching all-clear can move them to Ready and sync to AxisCare.</div>'
+    +   '<div style="'+lbl+'">Result</div><select id="bgrCheckResult" style="'+inp+'"></select>'
+    +   '<div style="'+lbl+'">Date</div><input id="bgrCheckDate" type="date" style="'+inp+'">'
+    +   '<div style="'+lbl+'">Document link (optional)</div><input id="bgrCheckProof" type="url" placeholder="https://…" style="'+inp+'">'
+    +   '<div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem">'
+    +     '<button class="ibtn" onclick="bgrCloseCheckModal()">Cancel</button>'
+    +     '<button class="ibtn ibtn-strong" onclick="bgrSaveCheck(this)">Save</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(w);
+}
+function bgrRecordCheck(candId, which){
+  if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then record the check.'); return; }
+  const c = candidates.find(x => x.id === candId);
+  if(!c){ alert('That candidate could not be found. Refresh the tab and try again.'); return; }
+  const meta = BGR_CHECKS.find(x => x.k === which); if(!meta) return;
+  bgrEnsureCheckModal();
+  _bgrCheckCand = candId; _bgrCheckWhich = which;
+  document.getElementById('bgrCheckTitle').textContent = 'Record ' + meta.label + ' — ' + (c.first + ' ' + c.last).trim();
+  const cur = c[which] || meta.opts[0];
+  document.getElementById('bgrCheckResult').innerHTML = meta.opts.map(o => '<option value="'+bgrEsc(o)+'"'+(o===cur?' selected':'')+'>'+bgrEsc(o)+'</option>').join('');
+  document.getElementById('bgrCheckDate').value = c[which+'_date'] || new Date().toISOString().slice(0,10);
+  document.getElementById('bgrCheckProof').value = c[which+'_proof'] || '';
+  document.getElementById('bgrCheckModal').style.display = 'flex';
+}
+function bgrCloseCheckModal(){ const m = document.getElementById('bgrCheckModal'); if(m) m.style.display = 'none'; _bgrCheckCand = null; _bgrCheckWhich = null; }
+function bgrSaveCheck(btn){
+  const candId = _bgrCheckCand, which = _bgrCheckWhich;
+  if(candId == null || !which) return;
+  const changes = {};
+  changes[which] = document.getElementById('bgrCheckResult').value;
+  changes[which+'_date'] = document.getElementById('bgrCheckDate').value;
+  changes[which+'_proof'] = (document.getElementById('bgrCheckProof').value || '').trim();
+  bgrCloseCheckModal();
+  bgrApplyBoardChange(candId, changes);
 }
 
 /* ── Reference Activity (observational) ─────────────────────────────────────
@@ -5193,7 +5365,15 @@ function saveOB(){
     });
   }
   // Push to AxisCare + Google Drive via Zapier (URL configured in Settings)
-  zapFire('zapier_cand_webhook',{
+  zapFire('zapier_cand_webhook', obCandPayload(saved));
+}
+
+/* Candidate sync payload, shared by saveOB and any other path that persists a
+   candidate (e.g. recording a single background check from the side drawer) so
+   the AxisCare / Google Drive sync stays identical no matter where the edit
+   came from. */
+function obCandPayload(saved){
+  return {
     candidate_id: saved.id,
     first: saved.first, last: saved.last, full_name:`${saved.first} ${saved.last}`,
     phone: saved.phone||'', email: saved.email||'',
@@ -5208,7 +5388,35 @@ function saveOB(){
     overall_status:obDeriveStatus(saved),
     notes:saved.notes||'',
     timestamp:new Date().toISOString()
-  });
+  };
+}
+/* Persist a single change to a candidate board with the SAME side effects saveOB
+   applies: resolution stamp, the AxisCare "ready for orientation" push the first
+   time they become ready, and the Zapier sync. Used by the drawer's check
+   recording so those never get skipped. */
+function bgrApplyBoardChange(candId, changes){
+  const i = candidates.findIndex(x => x.id === candId);
+  if(i < 0) return;
+  const old = candidates[i];
+  const wasReady = obDeriveStatus(old) === 'Ready for Orientation';
+  const wasResolved = wasReady || obDeriveStatus(old) === 'Needs Review';
+  candidates[i] = { ...old, ...changes };
+  const saved = candidates[i];
+  const nowStatus = obDeriveStatus(saved);
+  const nowReady = nowStatus === 'Ready for Orientation';
+  if(!wasResolved && (nowReady || nowStatus === 'Needs Review')){
+    saved.resolvedAt = new Date().toISOString();
+    saved.resolvedStatus = nowStatus;
+  }
+  saveCandidates();
+  if(nowReady && !wasReady){
+    try{ pushAxisCareStatus('orientation_ready', {
+      first: saved.first, last: saved.last, axiscare_id: saved.axiscare_id||'', phone: saved.phone||'',
+      note: '✅ Ready for Orientation — background checks clear, 2 positive references received. Ready to be scheduled for orientation.'
+    }); }catch(e){}
+  }
+  try{ zapFire('zapier_cand_webhook', obCandPayload(saved)); }catch(e){}
+  try{ renderOB(); renderAlerts(); renderPeopleChecks(); }catch(e){}
 }
 
 // ── ORIENTATION INVITE ────────────────────────────────────────────────
@@ -7531,5 +7739,10 @@ window.bgrRecordForPerson = bgrRecordForPerson;
 window.bgrCloseRefPicker = bgrCloseRefPicker;
 window.bgrRefPickChoose = bgrRefPickChoose;
 window.bgrSyncRefAnswers = bgrSyncRefAnswers;
+window.bgrOpenDrawer = bgrOpenDrawer;
+window.bgrCloseDrawer = bgrCloseDrawer;
+window.bgrRecordCheck = bgrRecordCheck;
+window.bgrCloseCheckModal = bgrCloseCheckModal;
+window.bgrSaveCheck = bgrSaveCheck;
 window.dispatchEvent(new Event('scx-ready'));
 })();
