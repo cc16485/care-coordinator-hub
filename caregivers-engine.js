@@ -271,15 +271,16 @@ async function retryHydrate(btn){
 
 // ── OIG Exclusion Check ───────────────────────────────────────────────
 async function runOIGCheck(first, last){
-  const url = `https://exclusions.oig.hhs.gov/api/search.json?firstname=${encodeURIComponent(first)}&lastname=${encodeURIComponent(last)}`;
-  const res = await fetch(url);
-  if(!res.ok) throw new Error(`OIG API returned ${res.status}`);
-  const data = await res.json();
-  const matches = data.results || [];
+  // The government's browser API is gone and the CSV database has no CORS, so we
+  // check server-side via the oig-check edge function (queries the live LEIE
+  // database and returns matches). Same shape the result modal already expects.
+  const { data, error } = await sb.functions.invoke('oig-check', { body: { first, last } });
+  if(error) throw new Error(error.message || 'OIG check could not run');
+  if(data && data.error) throw new Error(data.error);
   return {
-    clear: matches.length === 0,
-    date: new Date().toISOString().slice(0,10),
-    matches
+    clear: !!(data && data.clear),
+    date: (data && data.date) || new Date().toISOString().slice(0,10),
+    matches: (data && data.matches) || []
   };
 }
 
@@ -4632,20 +4633,28 @@ function bgrPersonCard(r, t){
   const refs = bgrRefsSummary(r.board);
   const checks = bgrChecksSummary(r.board);
   const refTone = refs.tone==='ok'?bgrOn:(refs.tone==='warn'?bgrWarn:bgrUnk);
-  const actions = [];
-  if(r.board) actions.push('<button class="ibtn" onclick="openOBModal('+r.board.id+')">Open</button>');
-  else if(r.intake) actions.push('<button class="ibtn" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>');
-  /* Card-level actions for the common moves, so the detailed drawer stays
-     optional. Each shows only when it actually applies. */
+  /* Actions are grouped by what they are, so background checks and reference
+     work read as separate things. Open/Timeline are plain navigation; the
+     Background and References clusters each carry a small label + divider. */
+  const open = r.board ? '<button class="ibtn" onclick="openOBModal('+r.board.id+')">Open</button>'
+             : (r.intake ? '<button class="ibtn" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>' : '');
+  const bgBtns = [], refBtns = [];
   if(r.board){
     const b = r.board;
-    if(b.oig !== 'CLEAR' && !b.oig_date) actions.push('<button class="ibtn" onclick="bgrRunOIG('+b.id+',this)" title="Run the OIG exclusion check for this candidate now">Run OIG</button>');
+    if(b.oig !== 'CLEAR' && !b.oig_date) bgBtns.push('<button class="ibtn" onclick="bgrRunOIG('+b.id+',this)" title="Run the OIG exclusion check for this candidate now">Run OIG</button>');
     const refsPending = [1,2,3,4].some(n => b['r'+n+'n'] && b['r'+n+'s'] === 'Pending');
-    if(refsPending) actions.push('<button class="ibtn" onclick="askReferences('+b.id+',this)" title="Email any reference with an email address; a phone-only reference stays yours to call">&#128233; Ask refs</button>');
-    if([1,2,3,4].some(n => b['r'+n+'n'])) actions.push('<button class="ibtn" onclick="bgrRecordForPerson('+b.id+')" title="Record a reference&#39;s answer from a phone call or in person">Record answer</button>');
-    if(bgrReqsFor(b).length) actions.push('<button class="ibtn" onclick="bgrLogForPerson('+b.id+')" title="Record a call, voicemail, or text you made by hand to a reference">+ Log</button>');
+    if(refsPending) refBtns.push('<button class="ibtn" onclick="askReferences('+b.id+',this)" title="Email any reference with an email address; a phone-only reference stays yours to call">&#128233; Ask refs</button>');
+    if([1,2,3,4].some(n => b['r'+n+'n'])) refBtns.push('<button class="ibtn" onclick="bgrRecordForPerson('+b.id+')" title="Record a reference&#39;s answer from a phone call or in person">Record answer</button>');
+    if(bgrReqsFor(b).length) refBtns.push('<button class="ibtn" onclick="bgrLogForPerson('+b.id+')" title="Record a call, voicemail, or text you made by hand to a reference">+ Log</button>');
   }
-  actions.push('<button class="ibtn" onclick="bgrToggleTimeline(\''+key+'\',this)">&#9656; Timeline</button>');
+  const timeline = '<button class="ibtn" onclick="bgrToggleTimeline(\''+key+'\',this)">&#9656; Timeline</button>';
+  const grp = (label, btns) => btns.length
+    ? '<span style="display:inline-flex;align-items:center;gap:.3rem;padding-left:.5rem;border-left:1px solid #E1DBCF">'
+      + '<span style="font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#A89C8B">'+label+'</span>'
+      + btns.join('') + '</span>'
+    : '';
+  const actionsHtml = '<span style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;justify-content:flex-end">'
+    + open + grp('Background', bgBtns) + grp('References', refBtns) + timeline + '</span>';
   /* Only genuine problems carry the red accent; normal next steps do not. */
   const accent = t.group==='attention' ? 'border-left:3px solid #EF4444;padding-left:.55rem;' : '';
   const metaBits = [];
@@ -4661,7 +4670,7 @@ function bgrPersonCard(r, t){
     +   '<b style="flex:0 0 150px;color:#0D365F;font-size:.9rem">'+bgrEsc(r.name)+'</b>'
     +   '<span style="flex:1;color:#4A4A4A;font-size:.82rem">'+bgrEsc(t.stage)+'</span>'
     +   (r.submissionCount>1 ? '<span style="flex:0 0 auto;font-size:.72rem;font-weight:600;color:#8A7F70">'+r.submissionCount+' submissions</span>' : '')
-    +   '<span style="display:flex;gap:.3rem;flex-wrap:wrap;justify-content:flex-end">'+actions.join('')+'</span>'
+    +   actionsHtml
     + '</div>'
     + metaLine
     + '<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.35rem;align-items:center">'
