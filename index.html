@@ -1782,6 +1782,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         #panel-onboarding:not(.mode-refs)       .bgr-refs{display:none;}
         #panel-onboarding:not(.mode-messages)   .bgr-messages{display:none;}
         #panel-onboarding:not(.mode-howitworks) .bgr-howitworks{display:none;}
+        #panel-onboarding:not(.mode-audit)      .bgr-audit{display:none;}
         .bgr-subnav{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
         .bgr-subnav button{background:none;border:none;border-bottom:2px solid transparent;
           padding:9px 14px 11px;margin-bottom:-1px;font-family:inherit;font-size:13.5px;
@@ -1791,6 +1792,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </style>
       <div class="bgr-subnav" role="tablist">
         <button id="bgr-tab-people"     class="active" onclick="bgrSub('people')">🗂 People &amp; Checks</button>
+        <button id="bgr-tab-audit"      onclick="bgrSub('audit')">🛡 Pre-Hire Audit</button>
         <button id="bgr-tab-refs"       onclick="bgrSub('refs')">📞 Reference Activity</button>
         <button id="bgr-tab-messages"   onclick="bgrSub('messages')">📬 Messages &amp; Experience</button>
         <button id="bgr-tab-howitworks" onclick="bgrSub('howitworks')">📖 How It Works</button>
@@ -1798,11 +1800,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <script>
         (function(){
           var p=document.getElementById('panel-onboarding');
-          if(p && !/mode-(people|refs|messages|howitworks)/.test(p.className)) p.classList.add('mode-people');
+          if(p && !/mode-(people|refs|messages|howitworks|audit)/.test(p.className)) p.classList.add('mode-people');
         })();
         window.bgrSub=function(which){
           var p=document.getElementById('panel-onboarding'); if(!p) return;
-          ['people','refs','messages','howitworks'].forEach(function(m){
+          ['people','refs','messages','howitworks','audit'].forEach(function(m){
             p.classList.toggle('mode-'+m, m===which);
             var b=document.getElementById('bgr-tab-'+m); if(b) b.classList.toggle('active', m===which);
           });
@@ -1824,6 +1826,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <!-- Reference Activity: observational only. No Ask button, no invoke. -->
       <div class="card bgr-refs" id="bgrRefActivity" style="padding:14px 16px;margin-bottom:14px"></div>
+
+      <!-- Pre-Hire Audit: read-only compliance roster of pre-hire background checks. -->
+      <div class="card bgr-audit" id="bgrAudit" style="padding:14px 16px;margin-bottom:14px"></div>
 
       <!-- Six new nouns arrived with the automation. A coordinator opening
            this cold deserves a map before a board. -->

@@ -5030,9 +5030,96 @@ async function bgrOnOpen(){
 }
 
 /* Called by the subtab bar (index.html) after it flips the mode class. */
+/* ── Pre-Hire Background Checks — audit roster ───────────────────────────────
+   One screen a state auditor can scan: every person and their four pre-hire
+   screenings (OIG / EDL / FCSR / Fingerprint) with the document on file.
+   Read-only. Kept separate from ongoing/annual checks. */
+function preHireRows(){
+  const rows = [];
+  const cand = (typeof candidates !== 'undefined' && candidates) ? candidates : [];
+  cand.forEach(c => {
+    if(c.not_hired) return;
+    rows.push({ name:(c.first+' '+c.last).trim(), stage:'In pipeline',
+      oig:{s:c.oig||'',d:c.oig_date||'',p:c.oig_proof||''},
+      edl:{s:c.edl||'',d:c.edl_date||'',p:c.edl_proof||''},
+      fcsr:{s:c.fcsr||'',d:c.fcsr_date||'',p:c.fcsr_proof||''},
+      fp:{s:c.fp||'',d:c.fp_date||'',p:c.fp_proof||'',applicable:c.oos==='yes'} });
+  });
+  const cgs = (typeof caregivers !== 'undefined' && caregivers) ? caregivers : [];
+  cgs.forEach(cg => {
+    if(cg.not_hired) return;
+    const ph = cg.prehire;
+    rows.push(ph
+      ? { name:(cg.first+' '+cg.last).trim(), stage:'Hired', oig:ph.oig, edl:ph.edl, fcsr:ph.fcsr, fp:ph.fp }
+      : { name:(cg.first+' '+cg.last).trim(), stage:'Hired',
+          oig:{s:cg.oig_status||'',d:cg.oig_date||'',p:cg.oig_proof||''},
+          edl:{s:cg.edl_status||'',d:cg.edl_date||'',p:cg.edl_proof||''},
+          fcsr:{s:cg.fcsr_status||'',d:cg.fcsr_date||'',p:cg.fcsr_proof||''},
+          fp:{s:cg.fp||'',d:cg.fp_date||'',p:cg.fp_proof||'',applicable:cg.oos==='yes'} });
+  });
+  rows.sort((a,b)=>a.name.localeCompare(b.name));
+  return rows;
+}
+function preHireStatus(r){
+  const issue = r.oig.s==='FLAGGED' || r.edl.s==='Issues Found' || r.fcsr.s==='Issues Found' || r.fp.s==='Issues Found';
+  const fpOk = !r.fp.applicable || r.fp.s==='Clear' || r.fp.s==='N/A';
+  const complete = r.oig.s==='CLEAR' && r.edl.s==='Clear' && r.fcsr.s==='Clear' && fpOk;
+  return issue ? 'attention' : complete ? 'complete' : 'progress';
+}
+function bgrAuditHTML(forPrint){
+  const rows = preHireRows();
+  const chkCell = (label, obj, clearVal) => {
+    const st = obj.s || 'Pending';
+    const isClear = obj.s===clearVal || obj.s==='N/A';
+    const isBad = obj.s==='FLAGGED' || obj.s==='Issues Found';
+    const naFp = (label==='FP' && obj.applicable===false && !obj.s);
+    const badge = naFp ? bgrOff('n/a') : (isClear ? bgrOn(st) : isBad ? bgrBad(st) : bgrOff(st));
+    const date = obj.d ? '<div style="font-size:.66rem;color:#8A7F70">'+bgrD(obj.d)+'</div>' : '';
+    const doc = obj.p
+      ? (forPrint ? '<div style="font-size:.62rem;color:#15803D">document on file</div>' : '<div>'+bgrCheckProofHtml(obj.p)+'</div>')
+      : (naFp ? '' : '<div style="font-size:.62rem;color:#B45309">no document</div>');
+    return '<td style="padding:.4rem .5rem;vertical-align:top">'+badge+date+doc+'</td>';
+  };
+  const body = rows.map(r => {
+    const s = preHireStatus(r);
+    const overall = s==='complete' ? bgrOn('✓ Complete') : s==='attention' ? bgrBad('Needs attention') : bgrWarn('In progress');
+    return '<tr style="border-top:1px solid #ece9e1">'
+      + '<td style="padding:.4rem .5rem;vertical-align:top;font-weight:700;color:#0D365F">'+bgrEsc(r.name)+'<div style="font-size:.66rem;font-weight:600;color:#8A7F70">'+bgrEsc(r.stage)+'</div></td>'
+      + chkCell('OIG', r.oig, 'CLEAR') + chkCell('EDL', r.edl, 'Clear') + chkCell('FCSR', r.fcsr, 'Clear') + chkCell('FP', r.fp, 'Clear')
+      + '<td style="padding:.4rem .5rem;vertical-align:top">'+overall+'</td>'
+      + '</tr>';
+  }).join('');
+  const head = ['Caregiver','OIG','EDL','FCSR','Fingerprint','Pre-hire status'].map(h=>'<th style="text-align:left;padding:.4rem .5rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;background:#F6F3EC">'+h+'</th>').join('');
+  const total = rows.length, complete = rows.filter(r=>preHireStatus(r)==='complete').length, attn = rows.filter(r=>preHireStatus(r)==='attention').length;
+  const summary = total ? '<div style="font-size:.82rem;color:#0D365F;margin:.2rem 0 .6rem"><b>'+complete+' of '+total+'</b> have all pre-hire screenings clear'+(attn?' · <span style="color:#B91C1C;font-weight:700">'+attn+' need attention</span>':'')+'.</div>' : '';
+  return summary + '<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse"><thead><tr>'+head+'</tr></thead><tbody>'+(body||'<tr><td colspan="6" style="padding:.6rem;color:#A89C8B">Nobody on record yet.</td></tr>')+'</tbody></table></div>';
+}
+function renderPreHireAudit(){
+  const box = document.getElementById('bgrAudit'); if(!box) return;
+  if(!HYDRATED){ box.innerHTML = '<div style="color:#B91C1C;font-weight:600">Shared data has not loaded.</div>'; return; }
+  box.innerHTML =
+      '<div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.5rem">'
+    +   '<b style="font-size:1rem;color:#0D365F">Pre-Hire Background Checks</b>'
+    +   '<button class="ibtn" onclick="bgrPrintAudit()">&#128424; Print binder</button>'
+    +   '<span class="field-note" style="flex:1;min-width:200px">The screenings completed before hire, with the document on file. Separate from ongoing and annual checks.</span>'
+    + '</div>'
+    + bgrAuditHTML(false);
+}
+function bgrPrintAudit(){
+  const w = window.open('', '_blank'); if(!w){ alert('Please allow pop-ups to print the binder.'); return; }
+  const when = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  w.document.write('<html><head><title>Pre-Hire Background Checks — Caring Companions</title>'
+    + '<style>body{font-family:system-ui,Arial,sans-serif;color:#1a1a1a;padding:24px}h1{color:#0D365F;font-size:18px;margin:0 0 2px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}</style>'
+    + '</head><body><h1>Pre-Hire Background Checks</h1><div style="color:#666;font-size:12px;margin-bottom:12px">Caring Companions &middot; generated '+when+'</div>'
+    + bgrAuditHTML(true)
+    + '</body></html>');
+  w.document.close(); w.focus(); setTimeout(()=>{ try{ w.print(); }catch(e){} }, 350);
+}
+
 function bgrRenderSub(which){
   if(which === 'people') renderPeopleChecks();
   else if(which === 'refs') renderReferenceActivity();
+  else if(which === 'audit') renderPreHireAudit();
 }
 
 /* Tab-open entry: keep the legacy table working, then load + render the new
@@ -6698,12 +6785,21 @@ function promoteToCaregiver(candidateId){
     orient_date: hireDate, alz_date: '',
     ojt_date: '', ojt_signed: 'no', ojt_proof: '', ojt_online: '',
     annual_date: '', annual_proof: '', annual_online: '',
-    oig_date: c.oig_date||'', oig_status: '', oig_proof: '',
-    edl_date: c.edl_date||'', edl_status: '', edl_proof: '',
-    fcsr_date: c.fcsr_date||'', fcsr_status: '', fcsr_proof: '',
-    fp: c.fp||'N/A', fp_date: c.fp_date||'', fp_proof: '',
+    oig_date: c.oig_date||'', oig_status: c.oig||'', oig_proof: c.oig_proof||'',
+    edl_date: c.edl_date||'', edl_status: c.edl||'', edl_proof: c.edl_proof||'',
+    fcsr_date: c.fcsr_date||'', fcsr_status: c.fcsr||'', fcsr_proof: c.fcsr_proof||'',
+    fp: c.fp||'N/A', fp_date: c.fp_date||'', fp_proof: c.fp_proof||'',
     supv_date: '', supv_proof: '',
-    perf_date: '', perf_proof: ''
+    perf_date: '', perf_proof: '',
+    // Frozen pre-hire background-check record for the state audit binder, kept
+    // separate from the ongoing/annual checks above so the two never blur.
+    prehire: {
+      hired_at: hireDate,
+      oig:  { status: c.oig||'',  date: c.oig_date||'',  proof: c.oig_proof||''  },
+      edl:  { status: c.edl||'',  date: c.edl_date||'',  proof: c.edl_proof||''  },
+      fcsr: { status: c.fcsr||'', date: c.fcsr_date||'', proof: c.fcsr_proof||'' },
+      fp:   { status: c.fp||'',   date: c.fp_date||'',   proof: c.fp_proof||'',  applicable: c.oos==='yes' }
+    }
   });
   saveCaregivers();
   candidates = candidates.filter(x=>x.id!==candidateId);
@@ -7789,5 +7885,6 @@ window.bgrRecordCheck = bgrRecordCheck;
 window.bgrCloseCheckModal = bgrCloseCheckModal;
 window.bgrSaveCheck = bgrSaveCheck;
 window.bgrViewProof = bgrViewProof;
+window.bgrPrintAudit = bgrPrintAudit;
 window.dispatchEvent(new Event('scx-ready'));
 })();
