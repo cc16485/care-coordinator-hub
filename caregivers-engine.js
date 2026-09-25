@@ -4981,6 +4981,7 @@ function renderReferenceActivity(){
    the two dynamic views. No writes, no invokes. */
 async function bgrOnOpen(){
   try{ await bgrEnsureData(false); }catch(e){}
+  try{ renderOB(); }catch(e){}
   try{ renderPeopleChecks(); }catch(e){}
   try{ renderReferenceActivity(); }catch(e){}
 }

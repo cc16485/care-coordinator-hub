@@ -1816,13 +1816,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- People & Checks: attention-first, read-only projection (renderer in
            caregivers-engine.js). The legacy pipeline + full table stay below as
            a detailed view so no editing affordance is lost. -->
-      <div class="card bgr-people" style="padding:14px 16px 16px;margin-bottom:14px">
-        <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.7rem">
-          <input id="bgrPeopleSearch" type="text" placeholder="Search people..." oninput="SCX.renderPeopleChecks()" style="max-width:260px" />
-          <button class="ibtn" onclick="bgrSyncRefAnswers(this)" title="Bring any reference answers that came in through the online form onto their candidate, and clear anyone now fully done. Sends nothing.">&#8635; Sync reference answers</button>
-          <span class="field-note" style="flex:1;min-width:180px">Who needs attention, why, and what happens next. This view only reads; it never sends.</span>
-        </div>
-        <div id="bgrPeople"></div>
+      <!-- People & Checks is one clean view: the candidates table below. -->
+      <div class="bgr-people" style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <button class="ibtn" onclick="bgrSyncRefAnswers(this)" title="Bring any reference answers that came in through the online form onto their candidate, and clear anyone now fully done. Sends nothing.">&#8635; Sync reference answers</button>
+        <span class="field-note" style="flex:1;min-width:180px">Everyone in the hiring pipeline. Use the row actions to record checks and references. Nothing here sends on its own.</span>
       </div>
 
       <!-- Reference Activity: observational only. No Ask button, no invoke. -->
@@ -2099,20 +2096,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
       </div>
 
-      <details class="card bgr-people" id="bgrDrawerTable" style="padding:0;margin-bottom:14px;">
-        <summary style="cursor:pointer;padding:12px 16px;font-weight:800;color:var(--navy);font-size:.9rem;">Detailed table <span style="font-weight:600;color:#A89C8B;font-size:.78rem">· full pipeline and checks — every column, plus AxisCare / Viventium sync and row actions</span></summary>
-        <div style="padding:2px 16px 14px;">
-      <p style="color:#6E6559;font-size:.8rem;margin:.2rem 0 .9rem">Everyday work happens in the cards above. This is the full pipeline and spreadsheet, kept intact for when you want every column and the extra actions.</p>
-      <!-- Pipeline overview: where everyone stands, with AxisCare / Viventium sync -->
-      <div class="card bgr-people" style="padding:14px 16px;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">Where everyone stands</b>
-          <span class="field-note">start link, references, screenings, Viventium. Red is waiting on you.</span>
-          <span style="flex:1;"></span>
-          <button class="ghost" onclick="SCX.renderHirePipeline&&SCX.renderHirePipeline()">↻ Refresh</button>
-        </div>
-        <div id="hirePipeline" style="margin-top:10px;"></div>
-      </div>
+      <div class="card bgr-people" style="padding:14px 16px 4px;margin-bottom:14px;">
       <div class="stats bgr-people" id="ob-stats"></div>
       <div class="controls bgr-people">
         <input type="text" placeholder="Search candidate..." oninput="SCX.renderOB()">
@@ -2140,8 +2124,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div class="empty" id="ob-empty" style="display:none">No candidates match.</div>
       </div>
       <div class="bgr-people" id="ob-stats-panel" style="display:none;padding:.25rem 0 1rem"></div>
-        </div>
-      </details>
+      </div>
     </div>
 
     <!-- ═══════════════════════════════ TRAINING ════════════════════════════════ -->
