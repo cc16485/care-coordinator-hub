@@ -7509,5 +7509,18 @@ for (const [n, f] of Object.entries({
 })) window[n] = f;
 window.intakeImport = intakeImport;
 window.retryHydrate = retryHydrate;
+/* Background & References card / timeline / modal actions reached from onclick.
+   The engine runs in a closure, so every onclick target must be attached here. */
+window.bgrOpenAttemptModal = bgrOpenAttemptModal;
+window.bgrPickAttemptMethod = bgrPickAttemptMethod;
+window.bgrCloseAttemptModal = bgrCloseAttemptModal;
+window.bgrSaveAttempt = bgrSaveAttempt;
+window.bgrAttPickRef = bgrAttPickRef;
+window.bgrLogForPerson = bgrLogForPerson;
+window.bgrRunOIG = bgrRunOIG;
+window.bgrRecordForPerson = bgrRecordForPerson;
+window.bgrCloseRefPicker = bgrCloseRefPicker;
+window.bgrRefPickChoose = bgrRefPickChoose;
+window.bgrSyncRefAnswers = bgrSyncRefAnswers;
 window.dispatchEvent(new Event('scx-ready'));
 })();
