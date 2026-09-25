@@ -4135,7 +4135,7 @@ async function bgrEnsureData(force){
   BGR_DATA_ERR = null;
   try{
     const rr = await sb.from('reference_requests')
-      .select('id, created_at, candidate_id, candidate_name, slot, ref_name, ref_email, ref_phone, sent_at, reminded_at, reminder_count, responded_at, responder_name, recommend, concerns, applicant_nudged_at, applicant_nudge_count')
+      .select('id, created_at, candidate_id, candidate_name, slot, ref_name, ref_email, ref_phone, sent_at, reminded_at, reminder_count, responded_at, responder_name, recommend, concerns, applicant_nudged_at, applicant_nudge_count, office_attempts')
       .order('created_at', { ascending: false });
     REF_REQUESTS = (rr && rr.data) ? rr.data : [];
     if(rr && rr.error) BGR_DATA_ERR = 'Could not read reference requests.';
@@ -4181,10 +4181,132 @@ function bgrRefsSummary(board){
   const responded = reqs.filter(r => r.responded_at).length;
   const awaiting  = reqs.filter(r => r.sent_at && !r.responded_at).length;
   const notSent   = reqs.filter(r => !r.sent_at).length;
+  const attempts  = reqs.reduce((n,r)=> n + (Array.isArray(r.office_attempts) ? r.office_attempts.length : 0), 0);
   let text = responded + ' of ' + reqs.length + ' responded';
   if(awaiting) text += ' · ' + awaiting + ' awaiting';
   if(notSent)  text += ' · ' + notSent + ' not sent';
+  if(attempts) text += ' · ' + attempts + ' outreach logged';
   return { text, tone: responded === reqs.length ? 'ok' : 'warn' };
+}
+
+/* ── Log an office outreach attempt to a reference ──────────────────────────
+   Records that a human on the office side TRIED to reach a reference (a call, a
+   voicemail, a hand-sent text or email, or something else) with an optional
+   note, so a phone-only reference that is being actively worked stops reading as
+   untouched. This is manual data entry only: it appends one entry to
+   reference_requests.office_attempts and invokes NOTHING (no email, no SMS, no
+   automation). Each entry is stamped with who logged it and when. */
+const BGR_ATT_METHODS = [
+  { k:'call',      label:'Call',           short:'calls' },
+  { k:'voicemail', label:'Voicemail',      short:'voicemails' },
+  { k:'text',      label:'Text',           short:'texts' },
+  { k:'email',     label:'Email',          short:'emails' },
+  { k:'other',     label:'Something else', short:'other' }
+];
+function bgrAttMethodLabel(k){ const m = BGR_ATT_METHODS.find(x=>x.k===k); return m ? m.label : (k||'attempt'); }
+
+/* Factual summary of a request's logged attempts, or null when there are none.
+   e.g. "3 attempts · 2 voicemails · 1 call · last Sep 24". */
+function bgrAttemptSummary(req){
+  const a = Array.isArray(req && req.office_attempts) ? req.office_attempts : [];
+  if(!a.length) return null;
+  const counts = {};
+  a.forEach(x => { const k = (x && x.method) || 'other'; counts[k] = (counts[k]||0) + 1; });
+  const bits = [];
+  BGR_ATT_METHODS.forEach(m => { if(counts[m.k]) bits.push(counts[m.k] + ' ' + (counts[m.k]===1 ? m.label.toLowerCase() : m.short)); });
+  const last = a.map(x => x && x.at).filter(Boolean).sort().slice(-1)[0];
+  return {
+    count: a.length,
+    last, lastD: last ? bgrD(last) : '',
+    text: (a.length + (a.length===1 ? ' attempt' : ' attempts'))
+        + (bits.length ? ' · ' + bits.join(' · ') : '')
+        + (last ? ' · last ' + bgrD(last) : '')
+  };
+}
+
+/* Append one attempt to a reference request. Returns true on a confirmed write,
+   false otherwise (and writes nothing on false). Re-reads the single row first
+   so a second logger does not clobber the array. authenticated already holds
+   table SELECT/UPDATE on reference_requests (RLS refreq_auth_all) — no RPC. */
+async function logRefAttempt(reqId, method, note){
+  if(!HYDRATED){ console.warn('BLOCKED logRefAttempt: shared data not loaded'); return false; }
+  if(BGR_ATT_METHODS.map(m=>m.k).indexOf(method) < 0) return false;
+  let by = '';
+  try{ const s = await sb.auth.getSession(); by = (s && s.data && s.data.session && s.data.session.user && s.data.session.user.email) || ''; }catch(e){}
+  let current = [];
+  try{
+    const { data, error } = await sb.from('reference_requests').select('office_attempts').eq('id', reqId).maybeSingle();
+    if(error) return false;
+    current = Array.isArray(data && data.office_attempts) ? data.office_attempts : [];
+  }catch(e){ return false; }
+  const entry = { at: new Date().toISOString(), method: method, note: String(note||'').slice(0,280), by: by };
+  const next = current.concat([entry]);
+  try{
+    const { error } = await sb.from('reference_requests').update({ office_attempts: next }).eq('id', reqId);
+    if(error) return false;
+  }catch(e){ return false; }
+  const r = REF_REQUESTS.find(x => String(x.id) === String(reqId));
+  if(r) r.office_attempts = next;
+  return true;
+}
+
+/* Small self-injecting modal so logging works in the embedded hub with no
+   index.html markup. Pick a method, add an optional note, Save. */
+let _bgrAttReqId = null, _bgrAttMethod = null;
+function bgrEnsureAttemptModal(){
+  if(document.getElementById('bgrAttemptModal')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'bgrAttemptModal';
+  wrap.style.cssText = 'display:none;position:fixed;inset:0;z-index:10000;background:rgba(15,54,95,.35);align-items:center;justify-content:center;padding:1rem';
+  wrap.innerHTML =
+      '<div style="background:#fff;border-radius:12px;max-width:430px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2)">'
+    +   '<div style="font-weight:800;color:#0D365F;font-size:1rem;margin-bottom:.2rem">Log an outreach attempt</div>'
+    +   '<div id="bgrAttWho" style="font-size:.82rem;color:#6E6559;margin-bottom:.2rem"></div>'
+    +   '<div style="font-size:.72rem;color:#A89C8B;margin-bottom:.7rem">This only records that you tried to reach them. It sends nothing.</div>'
+    +   '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;margin-bottom:.35rem">How did you reach out?</div>'
+    +   '<div id="bgrAttMethods" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.8rem">'
+    +     BGR_ATT_METHODS.map(m => '<button type="button" class="ibtn" data-m="'+m.k+'" onclick="bgrPickAttemptMethod(\''+m.k+'\')">'+bgrEsc(m.label)+'</button>').join('')
+    +   '</div>'
+    +   '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;margin-bottom:.25rem">Note (optional)</div>'
+    +   '<input id="bgrAttNote" maxlength="280" placeholder="e.g. left voicemail, will try again Friday" style="width:100%;padding:.5rem .6rem;border:1px solid var(--border,#d9d4c8);border-radius:8px;font-size:.85rem;margin-bottom:.9rem;box-sizing:border-box">'
+    +   '<div style="display:flex;justify-content:flex-end;gap:.5rem">'
+    +     '<button type="button" class="ibtn" onclick="bgrCloseAttemptModal()">Cancel</button>'
+    +     '<button type="button" class="ibtn" id="bgrAttSave" onclick="bgrSaveAttempt(this)" style="background:#0D365F;color:#fff">Save attempt</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(wrap);
+}
+function bgrOpenAttemptModal(reqId){
+  if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then log the attempt.'); return; }
+  const req = REF_REQUESTS.find(r => String(r.id) === String(reqId));
+  if(!req){ alert('That reference could not be found. Refresh the tab and try again.'); return; }
+  bgrEnsureAttemptModal();
+  _bgrAttReqId = reqId; _bgrAttMethod = null;
+  document.getElementById('bgrAttWho').innerHTML = 'For <b>'+bgrEsc(req.ref_name || ('slot '+req.slot))+'</b>'
+    + (req.candidate_name ? (' · '+bgrEsc(req.candidate_name)) : '')
+    + (req.ref_phone ? (' · '+bgrEsc(req.ref_phone)) : '');
+  const note = document.getElementById('bgrAttNote'); if(note) note.value = '';
+  Array.prototype.forEach.call(document.querySelectorAll('#bgrAttMethods [data-m]'), b => { b.style.background=''; b.style.color=''; });
+  document.getElementById('bgrAttemptModal').style.display = 'flex';
+}
+function bgrPickAttemptMethod(k){
+  _bgrAttMethod = k;
+  Array.prototype.forEach.call(document.querySelectorAll('#bgrAttMethods [data-m]'), b => {
+    const on = b.getAttribute('data-m') === k;
+    b.style.background = on ? '#0D365F' : ''; b.style.color = on ? '#fff' : '';
+  });
+}
+function bgrCloseAttemptModal(){ const m = document.getElementById('bgrAttemptModal'); if(m) m.style.display='none'; _bgrAttReqId=null; _bgrAttMethod=null; }
+async function bgrSaveAttempt(btn){
+  if(!_bgrAttMethod){ alert('Pick how you reached out first (call, voicemail, text, email, or something else).'); return; }
+  const note = ((document.getElementById('bgrAttNote')||{value:''}).value || '').trim().slice(0,280);
+  const reqId = _bgrAttReqId;
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  let ok = false;
+  try{ ok = await logRefAttempt(reqId, _bgrAttMethod, note); }catch(e){ ok = false; }
+  if(btn){ btn.disabled=false; btn.textContent='Save attempt'; }
+  if(ok){ bgrCloseAttemptModal(); try{ renderReferenceActivity(); }catch(e){} try{ renderPeopleChecks(); }catch(e){} }
+  else { alert('Could not save the attempt. Nothing was recorded — please try again.'); }
 }
 
 /* Background-check summary, per recorded field only. */
@@ -4323,6 +4445,8 @@ function bgrTimelineHTML(r, t){
       reqs.slice().sort((a,b)=>(a.slot||0)-(b.slot||0)).forEach(q => {
         const parts = [ q.sent_at ? 'sent '+bgrD(q.sent_at) : 'not sent' ];
         if((q.reminder_count||0) > 0) parts.push(q.reminder_count+'× reminded'+(q.reminded_at?' '+bgrD(q.reminded_at):''));
+        const qa = bgrAttemptSummary(q);
+        if(qa) parts.push(qa.count + (qa.count===1?' office attempt':' office attempts') + (qa.lastD?(' (last '+qa.lastD+')'):''));
         if(q.applicant_nudged_at) parts.push('applicant nudged '+bgrD(q.applicant_nudged_at));
         const neg = q.responded_at && (q.recommend==='no' || q.concerns==='serious');
         parts.push(q.responded_at ? ('responded '+bgrD(q.responded_at)+(neg?' (negative)':'')) : 'awaiting');
@@ -4480,6 +4604,11 @@ function bgrRefActivityHTML(){
       ? ((r.recommend==='no'||r.concerns==='serious') ? bgrBad('responded '+bgrD(r.responded_at)) : bgrOn('responded '+bgrD(r.responded_at)))
       : bgrOff('—');
     const needs = (r.responded_at && (r.recommend==='no'||r.concerns==='serious')) ? bgrBad('review') : bgrOff('—');
+    const att = bgrAttemptSummary(r);
+    const attCell = '<td style="padding:.4rem .5rem;font-size:.76rem;color:#4A4A4A;min-width:120px">'
+      + (att ? bgrEsc(att.text) : bgrOff('none logged')) + '</td>';
+    const logCell = '<td style="padding:.4rem .5rem;white-space:nowrap">'
+      + '<button class="ibtn" onclick="bgrOpenAttemptModal(\''+bgrEsc(String(r.id))+'\')" title="Record a call, voicemail, text, or email you made by hand">+ Log</button></td>';
     return '<tr style="border-top:1px solid #ece9e1">'
       + '<td style="padding:.4rem .5rem">'+bgrEsc(r.candidate_name||('#'+r.candidate_id))+'</td>'
       + '<td style="padding:.4rem .5rem">'+bgrEsc(r.ref_name||('slot '+r.slot))+'</td>'
@@ -4488,13 +4617,16 @@ function bgrRefActivityHTML(){
       + '<td style="padding:.4rem .5rem">'+reminders+'</td>'
       + '<td style="padding:.4rem .5rem">'+responded+'</td>'
       + cell('nudged '+(bgrD(r.applicant_nudged_at)||''), r.applicant_nudged_at, bgrWarn)
+      + attCell
+      + logCell
       + '<td style="padding:.4rem .5rem">'+(r.responder_name?bgrEsc(r.responder_name):bgrUnk('Not recorded'))+'</td>'
       + '<td style="padding:.4rem .5rem">'+needs+'</td>'
       + '</tr>';
   }).join('');
   return health
+    + '<div style="font-size:.78rem;color:#6E6559;margin:0 0 .5rem">A reference with only a phone number is never texted automatically. Use <b>+ Log</b> to record each call, voicemail, or text you make by hand so it stops looking untouched.</div>'
     + '<div class="tbl-wrap"><table><thead><tr>'
-    + ['Candidate','Reference','Requested','Sent','Reminders','Responded','Applicant nudged','Response source','Needs attention']
+    + ['Candidate','Reference','Requested','Sent','Reminders','Responded','Applicant nudged','Office attempts','Log','Response source','Needs attention']
         .map(h2 => '<th>'+h2+'</th>').join('')
     + '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>';
 }
