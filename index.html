@@ -10550,8 +10550,11 @@ function cqfChip(c){
   return od?'<span style="font-size:.65rem;background:#FDECEA;color:var(--red);border-radius:4px;padding:.1rem .35rem;font-weight:700;white-space:nowrap">'+(od.kind==='promise_lapsed'?'Promised date passed':'Family update owed')+'</span>':'';
 }
 /* the four dates: shown only from where each is recorded; never invented */
-function cqfDates(c,info,contract){
-  var esc=escapeHtmlComms, l=info.lead, rows=[];
+function cqfDates(c,info,contract){ return startDatesHtml(info.lead, contract, c&&c.first_shift_done?c.first_shift_done_at:null, 'on this card'); }
+/* The four dates, each only from where it is recorded; never invented.
+   firstShiftAt = when a New Clients launch's "First shift completed" was marked. */
+function startDatesHtml(l, contract, firstShiftAt, whereShift, inCareBefore){
+  var esc=escapeHtmlComms, rows=[];
   rows.push(['Requested', l&&l.urgency&&LPSC_URG[l.urgency]?'Family asked for: '+esc(LPSC_URG[l.urgency])+' <span class="field-note" style="font-size:11px;">(on the inquiry; no date recorded)</span>':'<span class="field-note">not recorded</span>']);
   rows.push(['Target', contract?(contract.target_date?'<b>'+esc(lpscDate(contract.target_date))+'</b> · '+esc((LPSC_CONF[contract.confidence]||[contract.confidence])[0]):esc((LPSC_CONF[contract.confidence]||[contract.confidence])[0])+', no date yet'):'<span class="field-note">no Start Contract yet</span>']);
   var auth='<span class="field-note">not recorded</span>';
@@ -10561,8 +10564,9 @@ function cqfDates(c,info,contract){
     else if(l.state_status==='authorized') auth='Authorized <span class="field-note" style="font-size:11px;">(State Submissions; date not recorded)</span>';
   }
   rows.push(['Authorized / Approved', auth]);
-  rows.push(['Actual SOC', c.first_shift_done&&c.first_shift_done_at?'Care began: first shift marked completed '+esc(lpscDate(String(c.first_shift_done_at).slice(0,10)))
-    :'<span class="field-note">not yet (set when the first shift is completed on this card)</span>']);
+  rows.push(['Actual SOC', firstShiftAt?'Care began: first shift marked completed '+esc(lpscDate(String(firstShiftAt).slice(0,10)))
+    :inCareBefore?'<span class="field-note">not recorded (care was already under way when tracking began)</span>'
+    :'<span class="field-note">not yet (set when the first shift is marked completed '+esc(whereShift||'on the New Clients card')+')</span>']);
   return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 12px;margin:.4rem 0 .2rem;">'
     +rows.map(function(r){ return '<div style="font-size:.76rem;"><div style="color:var(--text-muted);font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">'+r[0]+'</div><div>'+r[1]+'</div></div>'; }).join('')+'</div>';
 }
@@ -14118,7 +14122,7 @@ function scxRender(key){
   if(!st.d&&!st.loading&&!st.err){ setAct(''); body.innerHTML='<div class="field-note">Loading…</div>'; scxLoad(key); return; }
   if(st.err&&!st.d){ setAct(''); body.innerHTML='<div class="field-note" style="color:var(--red)">Could not load the Start Contract: '+esc(st.err)+'</div>'; return; }
   if(!st.d){ body.innerHTML='<div class="field-note">Loading…</div>'; return; }
-  var d=st.d, c=d.c, can=scxCanEdit(key);
+  var d=st.d, c=d.c, can=scxCanEdit(key)&&!ctx.readOnly;
   if(!d.ep){ setAct(''); body.innerHTML='<div class="field-note">'+esc(ctx.noJourneyText||'This inquiry\'s Journey is still being set up. It appears within 15 minutes of the lead being added.')+'</div>'; return; }
   setAct(can&&!st.form?('<button class="linklike" onclick="scxForm('+K+',\'contract\')">'+(c?'✎ Change':'+ Record the Start Contract')+'</button>'
       +(c?'<button class="linklike" onclick="scxForm('+K+',\'update\')">+ Log a family update</button>':'')):'');
@@ -14127,7 +14131,7 @@ function scxRender(key){
   if(!c){
     h+='<div style="font-size:13.5px;">Nothing has been recorded about starting care yet.</div>';
     if(urg) h+='<div class="field-note" style="margin-top:4px;">On the inquiry, the family asked for: <b>'+esc(urg)+'</b></div>';
-    h+='<div class="field-note" style="margin-top:6px;">When you tell the family anything about when care can start, record it here: how confident we are, the exact words, and when we owe them the next update.'+(can?'':' Recording it needs a Journey seat.')+'</div>';
+    h+='<div class="field-note" style="margin-top:6px;">'+(ctx.readOnly?esc(ctx.readOnlyNote||'Recorded on the lead profile or the New Clients card.'):'When you tell the family anything about when care can start, record it here: how confident we are, the exact words, and when we owe them the next update.'+(can?'':' Recording it needs a Journey seat.'))+'</div>';
     body.innerHTML=h+scxMsg(key); return;
   }
   var cf=LPSC_CONF[c.confidence]||[c.confidence,'#fff','var(--navy)'], ev=scxPromise(key);
@@ -14148,6 +14152,7 @@ function scxRender(key){
       :'<div style="font-size:13px;white-space:pre-wrap;">'+esc(scxTalking(c))+'</div>');
   h+=scxFold(key,'told','What the family has been told',!!st.open.told,scxToldHtml(key));
   h+=scxFold(key,'detail','Changes and details',!!st.open.detail,scxDetailHtml(key));
+  if(ctx.readOnly&&ctx.readOnlyNote) h+='<div class="field-note" style="font-size:11.5px;margin-top:6px;">'+esc(ctx.readOnlyNote)+'</div>';
   body.innerHTML=h+scxMsg(key);
 }
 function scxTalking(c){
@@ -30461,8 +30466,11 @@ async function cl360RenderInto(r, out, px){
     + meter
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start;">'
     + '<div>' + cl360Card('Who they are', head) + cl360Card('Care picture', care + cl360Kv('Coverage', esc(covLine))) + cl360Card('🏠 Home & life <span class="field-note" style="font-weight:400;">typed once, gold for fill-ins</span>', home) + '</div>'
-    + '<div>' + cl360Card('👨‍👩‍👧 Care circle', '<div id="'+px+'cl360Circle">'+circleHtml+'</div>') + cl360Card('📜 Timeline', tl) + '</div>'
+    + '<div>' + cl360Card('Their start', '<div id="'+px+'cl360Start"><div class="field-note">Loading…</div></div>')
+    + cl360Card('👨‍👩‍👧 Care circle', '<div id="'+px+'cl360Circle">'+circleHtml+'</div>') + cl360Card('📜 Timeline', '<div id="'+px+'cl360Tl">'+tl+'</div>') + '</div>'
     + '</div>';
+  /* Step 4: the Journey history loads after paint and adds its events to the timeline */
+  c360StartLoad(r, px, ev.slice());
 
   /* circle loads after paint; its tables are not in the DATA blob */
   try{
@@ -30482,6 +30490,103 @@ async function cl360RenderInto(r, out, px){
           + '</div>').join('')
       : '<div class="field-note">Circle exists but has no people yet — add them in Family Circles.</div>';
   }catch(e){ const box=document.getElementById(px+'cl360Circle'); if(box) box.innerHTML='<div class="field-note">Could not load the circle.</div>'; }
+}
+/* ===================== STEP 4 · "Their start" on the client profile =====================
+   (2026-09-26.) The same Journey the lead profile and New Clients show, as
+   history: how they came to us, their Journeys (a returning client has more
+   than one), the four dates, Start of Care and each launch, and the Start
+   Contract (read only here; it is edited on the lead profile or the New
+   Clients card). Every value is read from where it is recorded; nothing is
+   written from this card. The same events join the profile's timeline. */
+var C360J_STATE={provisional:'Inquiry',open:'Open',converted:'Starting care',established:'Receiving care',lost:'Did not start',abandoned:'Did not start',ended:'Ended',closed:'Closed',voided:'Voided'};
+/* a date with the year whenever it isn't this year: history spans years */
+function c360Date(d){
+  if(!d||/infinity/.test(String(d))) return '';
+  var p=String(d).slice(0,10).split('-'), x=new Date(+p[0],+p[1]-1,+p[2]); if(isNaN(x)) return '';
+  return x.toLocaleDateString('en-US',{month:'short',day:'numeric',year:(+p[0]===new Date().getFullYear()?undefined:'numeric')});
+}
+function c360Began(e){
+  if(e.began_basis==='documented') return 'began '+c360Date(e.began_lo);
+  if(e.began_basis==='observed_window') return 'began between '+c360Date(e.began_lo)+' and '+c360Date(e.began_hi);
+  if(e.began_basis==='before_observation') return 'began on or before '+c360Date(e.began_hi);
+  return 'start date not known';
+}
+function c360Ended(e){
+  if(['provisional','open','converted','established'].indexOf(e.state)>=0) return '';
+  if(e.ended_basis==='documented') return ', ended '+c360Date(e.ended_lo);
+  if(e.ended_basis==='observed_window') return ', ended between '+c360Date(e.ended_lo)+' and '+c360Date(e.ended_hi);
+  return ', end date not known';
+}
+async function c360StartLoad(r, px, baseEv){
+  var box=document.getElementById(px+'cl360Start'); if(!box) return;
+  var esc=escapeHtmlComms, ax=String(r.axiscare_client_id||'').trim();
+  var q=function(p){ return p.then(function(x){ if(x.error) throw x.error; return x.data||[]; }); };
+  if(!ax){ box.innerHTML='<div class="field-note">No AxisCare id on this profile, so their Journey can\'t be found.</div>'; return; }
+  try{
+    var link=await q(sb.from('person_source_id').select('person_id').eq('system','axiscare').eq('entity_type','client').eq('source_id',ax));
+    if(!link.length){ box.innerHTML='<div class="field-note">AxisCare client #'+esc(ax)+' hasn\'t been matched to a person yet. That happens on New Clients ("Who is this?") or by connecting their inquiry.</div>'; return; }
+    var pid=link[0].person_id;
+    var eps=await q(sb.from('journey_episode_current').select('episode_id,state,began_basis,began_lo,began_hi,ended_basis,ended_lo,ended_hi,prior_history_status').eq('person_id',pid));
+    var epIds=eps.map(function(e){ return e.episode_id; });
+    var r2=epIds.length?await Promise.all([
+      q(sb.from('lead_journey_connection').select('episode_id,lead_id,how,confirmed_by,confirmed_at').in('episode_id',epIds)),
+      q(sb.from('client_admission_journey').select('case_id,episode_id,decision,no_lead_reason,decided_by,decided_at').in('episode_id',epIds)),
+      q(sb.from('start_contract_version').select('episode_id,confidence,target_date,promised_wording,promised_to,change_reason,recorded_by,recorded_at').in('episode_id',epIds)),
+      q(sb.from('start_contract_update').select('episode_id,kind,given_at,given_to,summary,recorded_by').in('episode_id',epIds).eq('kind','update_given'))
+    ]):[[],[],[],[]];
+    var launches=await q(sb.from('client_queue').select('id,status,episode_n,added_at,first_shift_done,first_shift_done_at,completed_at').eq('axiscare_client_id',ax));
+  }catch(e){ box.innerHTML='<div class="field-note">Could not load their start: '+esc(String(e&&e.message||e))+'</div>'; return; }
+  var conns=r2[0], adms=r2[1], vers=r2[2], upds=r2[3];
+  var active=['provisional','open','converted','established'];
+  var cur=eps.find(function(e){ return active.indexOf(e.state)>=0; })||null;
+  var past=eps.filter(function(e){ return e!==cur&&e.state!=='voided'; });
+  var conn=cur&&conns.find(function(x){ return x.episode_id===cur.episode_id; });
+  var adm=cur&&adms.find(function(x){ return x.episode_id===cur.episode_id; });
+  var lead=conn?(DATA.leads||[]).find(function(l){ return String(l.id)===String(conn.lead_id); }):null;
+  var kv=function(k,v){ return cl360Kv(k,v); };
+  var h='';
+  if(!cur){ h+='<div class="field-note" style="margin-bottom:6px;">No active Journey right now.</div>'; }
+  else{
+    h+=kv('Journey', esc(C360J_STATE[cur.state]||cur.state)+' · '+esc(c360Began(cur)));
+    var how=conn?('From the inquiry <button class="linklike" onclick="pdClose&&pdClose();openLeadProfile(\''+esc(conn.lead_id)+'\')">'+esc(lead?([lead.first_name,lead.last_name].filter(Boolean).join(' ')||'open lead'):'open lead')+'</button>'
+         +' · connected by '+esc(lpscName(conn.confirmed_by))+', '+esc(lpscDate(String(conn.confirmed_at).slice(0,10)))+(conn.how==='convert'?' (created from the lead)':''))
+      :adm?('No inquiry: '+esc(adm.no_lead_reason)+' · admitted by '+esc(lpscName(adm.decided_by))+', '+esc(lpscDate(String(adm.decided_at).slice(0,10))))
+      :(past.length?'Already a client when tracking began.':'Already a client when tracking began; their history before that wasn\'t observed.');
+    h+=kv('How they came to us', how);
+  }
+  if(past.length) h+=kv('Earlier Journeys', past.map(function(e){ return esc((C360J_STATE[e.state]||e.state)+': '+c360Began(e)+c360Ended(e)); }).join('<br>'));
+  var myL=launches.slice().sort(function(a,b){ return (a.episode_n||1)-(b.episode_n||1); });
+  if(myL.length) h+=kv('Launch'+(myL.length>1?'es':''), myL.map(function(c){
+      return 'Opened '+esc(lpscDate(String(c.added_at||'').slice(0,10)))+(c.first_shift_done&&c.first_shift_done_at?' · first shift marked '+esc(lpscDate(String(c.first_shift_done_at).slice(0,10))):'')
+        +(c.status==='complete'&&c.completed_at?' · complete '+esc(lpscDate(String(c.completed_at).slice(0,10))):' · in progress'); }).join('<br>'));
+  if(lead&&lead.soc) h+=kv('Start of Care', esc(((typeof SOC_PATHWAYS!=='undefined'&&SOC_PATHWAYS[lead.soc.pathway])||{}).label||lead.soc.pathway||'')
+      +(lead.soc.ready_for_staffing_at?' · ready for staffing '+esc(lpscDate(String(lead.soc.ready_for_staffing_at).slice(0,10))):' · not ready for staffing yet'));
+  var firstShift=myL.filter(function(c){ return c.first_shift_done&&c.first_shift_done_at; }).map(function(c){ return c.first_shift_done_at; }).sort().pop()||null;
+  h+='<div id="'+px+'cl360Dates"></div>';
+  if(cur) h+='<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:8px;"><b style="font-size:13px;color:var(--navy);">Start Contract</b><div id="'+px+'cl360Sc" style="margin-top:6px;"></div></div>';
+  box.innerHTML=h;
+  /* a client already in care when tracking began has no recorded start; never say "not yet" for them */
+  var inCareBefore=!!(cur&&!conn&&!adm&&!firstShift&&cur.state==='established');
+  var dates=function(contract){ var el=document.getElementById(px+'cl360Dates'); if(el) el.innerHTML=startDatesHtml(lead, contract, firstShift, 'on New Clients', inCareBefore); };
+  dates(null);
+  if(cur) scxMount('c360_'+(px||'tab')+'_'+ax,{bodyId:px+'cl360Sc',ep:cur.episode_id,lead:lead,label:r.client_name,readOnly:true,
+      readOnlyNote:'Shown here as history. Change it or log a family update on the lead profile or the New Clients card.',
+      onLoaded:function(d){ dates(d&&d.c); }});
+  /* the same events, on the profile's own timeline */
+  var add=[];
+  var push=function(at,what){ if(at) add.push({at:String(at),what:what}); };
+  conns.forEach(function(x){ push(x.confirmed_at,'Inquiry connected to this client by '+esc(lpscName(x.confirmed_by))); });
+  adms.forEach(function(x){ push(x.decided_at,'Admitted with no inquiry ('+esc(x.no_lead_reason)+') by '+esc(lpscName(x.decided_by))); });
+  vers.forEach(function(v){ push(v.recorded_at,'Start Contract: '+esc((LPSC_CONF[v.confidence]||[v.confidence])[0])+(v.target_date?', target '+esc(lpscDate(v.target_date)):'')+(v.change_reason?' · why: '+esc(v.change_reason):'')); });
+  upds.forEach(function(u){ push(u.given_at,'Family update to '+esc(u.given_to)+': "'+esc(u.summary)+'"'); });
+  if(lead&&lead.soc&&lead.soc.ready_for_staffing_at) push(lead.soc.ready_for_staffing_at,'Start of Care ready for staffing');
+  myL.forEach(function(c){ if(c.first_shift_done&&c.first_shift_done_at) push(c.first_shift_done_at,'Care began (first shift marked completed)'); if(c.completed_at) push(c.completed_at,'Launch complete'); });
+  if(add.length){
+    var all=(baseEv||[]).concat(add).sort(function(x,y){ return y.at.localeCompare(x.at); });
+    var tlBox=document.getElementById(px+'cl360Tl');
+    if(tlBox) tlBox.innerHTML=all.slice(0,30).map(function(e){ return '<div style="display:flex;gap:10px;font-size:13px;padding:3px 0;border-bottom:1px solid var(--border);">'
+        +'<span style="min-width:86px;color:var(--text-muted);">'+esc(e.at.slice(0,10))+'</span><span>'+e.what+'</span></div>'; }).join('');
+  }
 }
 async function cl360SaveProfile(px){
   px = px || '';
