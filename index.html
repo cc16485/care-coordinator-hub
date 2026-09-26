@@ -4399,7 +4399,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <summary>📋 How This Tab Works — the First-Caregiver Launch ▼</summary>
 <div class="guide-body">
 <div class="guide-step"><span class="num">1</span>A launch opens here <b>on its own</b> when a lead's Start of Care reaches Ready for Staffing (all business steps done, AxisCare client linked). Clients created directly in AxisCare arrive through the safety net. There's no routine reason to add one by hand — the Launch Exception link exists for deliberate cases like a readmission where staff decides a new Start of Care isn't needed, and it requires a written reason.</div>
-<div class="guide-step"><span class="num">2</span>Each card is the whole launch, in order: assign the caregiver, brief the caregiver, confirm with the client (notes required on both calls — they're what saves you when anyone asks "what was agreed"), enter the schedule, verify EVV is ready, first shift completed, then the 24–72 hour follow-ups with the client AND the caregiver. Medicaid launches add the DSDS services-began notice.</div>
+<div class="guide-step"><span class="num">2</span>Each card is the whole launch, in order: assign the caregiver, brief the caregiver, confirm with the client (notes required on both calls, since they're what saves you when anyone asks "what was agreed"), enter the schedule, verify EVV is ready, first shift completed, then the 24–72 hour follow-ups with the client AND the caregiver. Medicaid launches add the DSDS services-began notice. The caregiver, the schedule and the first shift are read from AxisCare when you open the card: do them in AxisCare as usual and the card fills in. The first shift counts only when AxisCare shows a real clock-in and clock-out, and that date becomes the client's Actual SOC. If AxisCare can't show it, record it by hand with a reason.</div>
 <div class="guide-step"><span class="num">3</span>The scheduling summary note pushes to the client's AxisCare profile when the schedule step is confirmed. When every step and both notes are done, <b>Launch Complete</b> closes the episode. A client who is later discharged and returns gets a fresh episode (Episode 2, 3…) — history is never overwritten.</div>
 <div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation + ALZ Training before their first client, check the Caregivers section before scheduling anyone new. And always check the Do-Not-Return log (Care Match Check-ins tab) before assigning. Launch Complete is our operational finish line; whether a client is <i>active</i> is always AxisCare's call, on the Active Clients tab.</div>
 </div>
@@ -10454,7 +10454,8 @@ var CQF={byAx:{},key:'',loading:false,err:''};
 async function cqfLoad(rows,force){
   var ids=[...new Set((rows||[]).map(function(c){ return String(c.axiscare_client_id||'').trim(); }).filter(Boolean))].sort();
   var key=ids.join(',');
-  if(!force&&(CQF.key===key||CQF.loading)) return;
+  /* a failed load is retried once a minute, not on every redraw (it used to loop) */
+  if(!force&&(CQF.loading||(CQF.key===key&&!(CQF.err&&Date.now()-(CQF.errAt||0)>60000)))) return;
   CQF.loading=true; CQF.err='';
   var q=function(p){ return p.then(function(r){ if(r.error) throw r.error; return r.data||[]; }); };
   try{
@@ -10481,7 +10482,7 @@ async function cqfLoad(rows,force){
        admission scan found them in the census): they get a strip at the top */
     CQF.openCases=await q(sb.from('client_admission_case').select('case_id,axiscare_client_id,axiscare_name,observed_label,observed_at,needs_owner_decision').eq('status','open'));
     CQF.byAx=by; CQF.key=key;
-  }catch(e){ CQF.err=String(e&&e.message||e); }
+  }catch(e){ CQF.err=String(e&&e.message||e); CQF.errAt=Date.now(); CQF.key=key; }
   CQF.loading=false;
   if(typeof cqRender==='function') cqRender();
 }
@@ -10502,9 +10503,10 @@ function cqfChip(c){
   return od?'<span style="font-size:.65rem;background:#FDECEA;color:var(--red);border-radius:4px;padding:.1rem .35rem;font-weight:700;white-space:nowrap">'+(od.kind==='promise_lapsed'?'Promised date passed':'Family update owed')+'</span>':'';
 }
 /* the four dates: shown only from where each is recorded; never invented */
-function cqfDates(c,info,contract){ return startDatesHtml(info.lead, contract, c&&c.first_shift_done?c.first_shift_done_at:null, 'on this card'); }
+function cqfDates(c,info,contract){ var e=LEV[c&&c.id]; return startDatesHtml(info.lead, contract, c?leActualSoc(c, e&&e.data&&e.data.evidence):null, 'on this card'); }
 /* The four dates, each only from where it is recorded; never invented.
-   firstShiftAt = when a New Clients launch's "First shift completed" was marked. */
+   firstShiftAt = leActualSoc(): a person's hand record, AxisCare's first clock-in,
+   or (older launches) when "First shift completed" was ticked. */
 function startDatesHtml(l, contract, firstShiftAt, whereShift, inCareBefore){
   var esc=escapeHtmlComms, rows=[];
   rows.push(['Requested', l&&l.urgency&&LPSC_URG[l.urgency]?'Family asked for: '+esc(LPSC_URG[l.urgency])+' <span class="field-note" style="font-size:11px;">(on the inquiry; no date recorded)</span>':'<span class="field-note">not recorded</span>']);
@@ -10516,14 +10518,18 @@ function startDatesHtml(l, contract, firstShiftAt, whereShift, inCareBefore){
     else if(l.state_status==='authorized') auth='Authorized <span class="field-note" style="font-size:11px;">(State Submissions; date not recorded)</span>';
   }
   rows.push(['Authorized / Approved', auth]);
-  rows.push(['Actual SOC', firstShiftAt?'Care began: first shift marked completed '+esc(lpscDate(String(firstShiftAt).slice(0,10)))
+  var fsa=firstShiftAt&&typeof firstShiftAt==='object'?firstShiftAt:(firstShiftAt?{ymd:String(firstShiftAt).slice(0,10),how:'marked'}:null);
+  rows.push(['Actual SOC', fsa&&fsa.how==='axiscare'?'Care began <b>'+esc(lpscDate(fsa.ymd))+'</b> <span class="field-note" style="font-size:11px;">(first clock-in in AxisCare)</span>'
+    :fsa&&fsa.how==='hand'?'Care began <b>'+esc(lpscDate(fsa.ymd))+'</b> <span class="field-note" style="font-size:11px;">(recorded by hand by '+esc(lpscName(fsa.by))+': '+esc(fsa.reason||'')+')</span>'
+    :fsa?'Care began: first shift marked completed '+esc(lpscDate(fsa.ymd))
     :inCareBefore?'<span class="field-note">not recorded (care was already under way when tracking began)</span>'
-    :'<span class="field-note">not yet (set when the first shift is marked completed '+esc(whereShift||'on the New Clients card')+')</span>']);
+    :'<span class="field-note">not yet (set from the first clock-in and clock-out in AxisCare '+esc(whereShift||'on the New Clients card')+')</span>']);
   return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 12px;margin:.4rem 0 .2rem;">'
     +rows.map(function(r){ return '<div style="font-size:.76rem;"><div style="color:var(--text-muted);font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">'+r[0]+'</div><div>'+r[1]+'</div></div>'; }).join('')+'</div>';
 }
 function cqfSection(c){
   var el=document.getElementById('cqf-'+c.id); if(!el) return;
+  leRefresh(c);
   var esc=escapeHtmlComms, i=cqfInfo(c), h='<div style="font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.25rem;">The family</div>';
   if(!i.ax){ el.innerHTML=h+'<div class="field-note" style="font-size:.75rem;">No AxisCare id on this launch yet, so the family\'s Journey can\'t be shown.</div>'; return; }
   if(CQF.err&&!i.b){ el.innerHTML=h+'<div class="field-note" style="font-size:.75rem;color:var(--red)">Could not load the family: '+esc(CQF.err)+'</div>'; return; }
@@ -10550,6 +10556,117 @@ function cqfSection(c){
   el.innerHTML=h;
   scxMount('cq_'+c.id,{bodyId:'cqsc-'+c.id,actId:'cqsca-'+c.id,ep:b.ep,lead:i.lead||null,label:b.name||c.client_name,
     onLoaded:function(d){ var x=document.getElementById('cqfd-'+c.id); if(x) x.innerHTML=cqfDates(c,cqfInfo(c),d&&d.c); var ch=document.getElementById('cqfchip-'+c.id); if(ch) ch.innerHTML=cqfChip(c); }});
+}
+/* ── Launch evidence (Change 1): New Clients reads what AxisCare already knows ──
+   The launch-evidence function reads this client's AxisCare visits and runs
+   launch-evidence.js (the one copy of the rules). Assigned, Scheduled and First
+   shift become read-outs once the switch is on; a person records by hand, with
+   a reason, only when AxisCare can't show it. EVV readiness stays a person's
+   pre-shift check and is satisfied by the first clocked shift. Before the switch
+   is on, the old checkboxes stay and AxisCare's view is shown beside them. */
+var LEV={};
+var LE_STEP={caregiver_assigned:'caregiver',schedule_added:'schedule',evv_verified:'evv',first_shift_done:'first_shift'};
+var LE_READOUT={caregiver_assigned:1,schedule_added:1,first_shift_done:1};
+function leLive(c){ var e=LEV[c.id]; return !!(e&&e.data&&e.data.ok&&e.data.live); }
+function leDay(at){ if(!at) return ''; var s=String(at); if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  var d=new Date(s); return isNaN(d)?s.slice(0,10):new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(d); }
+function leHm(hm){ if(!hm) return ''; var p=String(hm).split(':'), h=+p[0]; return ((h%12)||12)+':'+p[1]+(h<12?'am':'pm'); }
+/* Actual SOC for one launch: a person's hand record, else AxisCare's first clock-in, else the old checkbox time */
+function leActualSoc(c, rows){
+  rows=(rows||[]).filter(function(r){ return r.launch_id===c.id&&r.fact==='first_shift'; });
+  var hand=rows.find(function(r){ return r.source==='person'; }), ax=rows.find(function(r){ return r.source==='axiscare'; });
+  if(hand&&hand.evidence&&hand.evidence.date) return {ymd:String(hand.evidence.date).slice(0,10),how:'hand',by:hand.recorded_by,reason:hand.reason};
+  if(ax&&ax.evidence) return {ymd:ax.evidence.clock_in_date||leDay(ax.evidence.at||ax.evidence.clock_in_at),how:'axiscare',d:ax.evidence};
+  if(c.first_shift_done&&c.first_shift_done_at) return {ymd:leDay(c.first_shift_done_at),how:'marked'};
+  return null;
+}
+async function leCall(body){
+  var sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+  if(!tok) throw new Error('Sign in first.');
+  var r=await fetch(CONFIG.supabase_url+'/functions/v1/launch-evidence',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  var d=await r.json().catch(function(){ return null; }); if(!d) throw new Error('The AxisCare reader answered '+r.status); return d;
+}
+async function leRefresh(c, force){
+  if(!c||!c.id||String(c.id).indexOf('ax_')===0) return;
+  var e=LEV[c.id];
+  if(e&&(e.loading||(!force&&Date.now()-e.at<120000))) return;
+  var wasLive=leLive(c);
+  LEV[c.id]={at:Date.now(),loading:true,data:e&&e.data,err:null}; lePaint(c);
+  try{ LEV[c.id].data=await leCall({action:'refresh',launch_id:c.id}); }
+  catch(err){ LEV[c.id].err=String(err&&err.message||err); }
+  LEV[c.id].loading=false;
+  var d=LEV[c.id].data, ticked=d&&d.recorded&&d.recorded.ticked&&d.recorded.ticked.length;
+  if(ticked&&typeof cqRender==='function') cqRender(true);
+  else if(leLive(c)!==wasLive&&typeof cqRender==='function') cqRender();
+  else lePaint(c);
+}
+function lePaint(c){
+  Object.keys(LE_STEP).forEach(function(f){ var el=document.getElementById('le-'+c.id+'-'+f); if(el) el.innerHTML=leSlotInner(c,f); });
+  var dd=document.getElementById('cqfd-'+c.id);
+  if(dd&&typeof cqfInfo==='function'){ var st=SCX['cq_'+c.id]; dd.innerHTML=cqfDates(c,cqfInfo(c),st&&st.d?st.d.c:null); }
+}
+function leSlot(c,f){ return '<div id="le-'+escapeHtmlComms(c.id)+'-'+f+'" onclick="event.stopPropagation()">'+leSlotInner(c,f)+'</div>'; }
+function leSlotInner(c,f){
+  var esc=escapeHtmlComms, e=LEV[c.id], fact=LE_STEP[f];
+  var note=function(t,col){ return '<div style="font-size:.71rem;margin-top:.2rem;color:'+(col||'#0F5E73')+'">'+t+'</div>'; };
+  if(!c.axiscare_client_id) return f==='first_shift_done'?note('No AxisCare id on this launch yet, so AxisCare can\'t be read.','var(--text-muted)'):'';
+  if(!e) return '';
+  if(e.loading&&!e.data) return f==='caregiver_assigned'?note('Reading AxisCare…','var(--text-muted)'):'';
+  var d=e.data;
+  if(e.err||!d||d.error) return f==='caregiver_assigned'?note('AxisCare view not available right now'+(d&&d.error?': '+esc(d.error):'')+'.','var(--text-muted)'):'';
+  if(!d.ok) return f==='caregiver_assigned'?note(d.reason==='axiscare_busy'?'AxisCare is busy. It will be read again in a couple of minutes.':'AxisCare could not be reached'+(d.detail?': '+esc(d.detail):'')+'.','var(--text-muted)'):'';
+  var ev=d.evaluation||{}, rows=d.evidence||[], h='';
+  var mine=rows.filter(function(r){ return r.fact===fact; }), hand=mine.find(function(r){ return r.source==='person'; });
+  var nice=function(ymd){ return esc(lpscDate(ymd)); };
+  if(fact==='caregiver'){
+    var cg=ev.caregiver||{};
+    if(cg.state==='yes') h+=note('AxisCare: <b>'+cg.caregivers.slice(0,3).map(function(x){ return esc(x.name)+' ('+x.visits+' visit'+(x.visits===1?'':'s')+')'; }).join(', ')+'</b>'
+      +(cg.unassigned_upcoming?' · <span style="color:#92400E">'+cg.unassigned_upcoming+' upcoming visit'+(cg.unassigned_upcoming===1?' has':'s have')+' nobody yet</span>':''));
+    else h+=note('AxisCare shows no caregiver on this client\'s visits yet'+(cg.unassigned_upcoming?' ('+cg.unassigned_upcoming+' open visit'+(cg.unassigned_upcoming===1?'':'s')+')':'')+'.','#92400E');
+  }
+  if(fact==='schedule'){
+    var s=ev.schedule||{};
+    h+=s.state==='yes'?note('AxisCare: '+s.visits+' visit'+(s.visits===1?'':'s')+' since '+nice(ev.window_from)+(s.next?' · next '+nice(s.next.date)+' at '+esc(leHm(s.next.scheduled)):' · none upcoming'))
+      :note('AxisCare shows no visits for this client yet.','#92400E');
+  }
+  if(fact==='first_shift'){
+    var fs=ev.first_shift||{}, v=fs.visit||{};
+    if(fs.state==='evidenced') h+=note('Care began <b>'+nice(v.clock_in_date)+'</b>: '+esc(v.caregiver||'caregiver')+' clocked in '+esc(leHm(v.clock_in))+', out '+esc(leHm(v.clock_out))
+      +(v.method?' ('+esc(v.method)+(v.verified?', verified':'')+')':(v.verified?' (verified)':'')));
+    else if(fs.state==='under_way') h+=note('Under way: '+esc(v.caregiver||'the caregiver')+' clocked in at '+esc(leHm(v.clock_in))+'. It counts once they clock out.');
+    else if(fs.state==='recorded_by_hand'&&fs.by_hand) h+=note('Recorded by hand: care began <b>'+nice(fs.by_hand.date)+'</b> ('+esc(lpscName(fs.by_hand.by))+': '+esc(fs.by_hand.reason||'')+')');
+    else if(!(ev.exceptions||[]).length) h+=note('No clocked visit in AxisCare yet. A scheduled visit does not count; a clock-in and clock-out do.','var(--text-muted)');
+    (ev.exceptions||[]).forEach(function(x){ h+='<div style="font-size:.71rem;margin-top:.25rem;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:6px;padding:.25rem .45rem;color:#92400E">'+esc(x.text)+'</div>'; });
+  }
+  if(fact==='evv'){
+    if(ev.evv&&ev.evv.state==='proven') h+=note('Proven on the first shift'+(ev.evv.method?' ('+esc(ev.evv.method)+' clock-in)':'')+'.');
+  }
+  if(hand&&!(fact==='first_shift'&&fs&&fs.state==='recorded_by_hand')) h+=note('Recorded by hand by '+esc(lpscName(hand.recorded_by))+': '+esc(hand.reason||''),'var(--text-muted)');
+  var done=!!c[f];
+  if(!done&&!hand&&d.live&&LE_READOUT[f]) h+='<div style="margin-top:.25rem"><button class="linklike" style="font-size:.7rem" onclick="event.stopPropagation();leHand(\''+esc(c.id)+'\',\''+f+'\')">AxisCare can\'t show this? Record by hand</button></div><div id="leh-'+esc(c.id)+'-'+f+'"></div>';
+  return h;
+}
+function leHand(id,f){
+  var box=document.getElementById('leh-'+id+'-'+f); if(!box) return;
+  var esc=escapeHtmlComms, today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date());
+  box.innerHTML='<div style="border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;margin-top:.3rem;background:#fff">'
+    +(f==='first_shift_done'?'<label style="font-size:.72rem;font-weight:600">The day care began <input type="date" id="leh-d-'+esc(id)+'" max="'+today+'" style="font-size:.74rem;width:auto;margin-left:.3rem"></label>':'')
+    +(f==='caregiver_assigned'?'<label style="font-size:.72rem;font-weight:600">Caregiver <input type="text" id="leh-n-'+esc(id)+'" style="font-size:.74rem;width:60%;margin-left:.3rem"></label>':'')
+    +'<textarea id="leh-r-'+esc(id)+'" rows="2" placeholder="Why AxisCare can\'t show this (required), e.g. caregiver forgot to clock in, family confirmed the visit" style="width:100%;margin-top:.35rem;font-size:.74rem;box-sizing:border-box"></textarea>'
+    +'<div style="display:flex;gap:6px;margin-top:.35rem;align-items:center"><button class="primary" style="font-size:.72rem" onclick="leHandSave(\''+esc(id)+'\',\''+f+'\')">Record</button>'
+    +'<button class="secondary" style="font-size:.72rem" onclick="document.getElementById(\'leh-'+esc(id)+'-'+f+'\').innerHTML=\'\'">Cancel</button><span id="leh-m-'+esc(id)+'" style="font-size:.7rem;color:var(--red)"></span></div></div>';
+}
+async function leHandSave(id,f){
+  var g=function(k){ var el=document.getElementById(k+id); return el?el.value.trim():''; }, msg=document.getElementById('leh-m-'+id);
+  var body={action:'record',launch_id:id,fact:LE_STEP[f],reason:g('leh-r-')};
+  if(f==='first_shift_done'){ body.date=g('leh-d-'); if(!body.date){ msg.textContent='Say which day care began.'; return; } }
+  if(f==='caregiver_assigned') body.name=g('leh-n-');
+  if(body.reason.length<5){ msg.textContent='Say why AxisCare can\'t show this.'; return; }
+  msg.textContent='Saving…';
+  var out; try{ out=await leCall(body); }catch(e){ msg.textContent=String(e.message||e); return; }
+  if(out&&out.outcome==='recorded'){ var c=(window.__cqRows||[]).find(function(x){ return x.id===id; }); if(typeof cqRender==='function') await cqRender(true); if(c) leRefresh(c,true); return; }
+  var why={reason_required:'A reason is required.',launch_complete:'This launch is already complete.',nothing_new:'That step was already recorded by hand.'};
+  msg.textContent=(out&&(why[out.outcome]||(out.detail&&out.detail.detail)||(out.detail&&out.detail.outcome)||out.outcome||out.error))||'Not saved.';
 }
 /* called by renderQueue after it redraws; mounts only the open cards */
 function cqfAfterRender(pending,expanded){
@@ -30186,6 +30303,7 @@ async function c360StartLoad(r, px, baseEv){
       q(sb.from('start_contract_update').select('episode_id,kind,given_at,given_to,summary,recorded_by').in('episode_id',epIds).eq('kind','update_given'))
     ]):[[],[],[],[]];
     var launches=await q(sb.from('client_queue').select('id,status,episode_n,added_at,first_shift_done,first_shift_done_at,completed_at').eq('axiscare_client_id',ax));
+    var levRows=[]; try{ if(launches.length) levRows=await q(sb.from('launch_evidence').select('launch_id,fact,source,evidence,reason,recorded_by').eq('fact','first_shift').in('launch_id',launches.map(function(c){ return c.id; }))); }catch(e){ levRows=[]; }
   }catch(e){ box.innerHTML='<div class="field-note">Could not load their start: '+esc(String(e&&e.message||e))+'</div>'; return; }
   var conns=r2[0], adms=r2[1], vers=r2[2], upds=r2[3];
   var active=['provisional','open','converted','established'];
@@ -30208,11 +30326,12 @@ async function c360StartLoad(r, px, baseEv){
   if(past.length) h+=kv('Earlier Journeys', past.map(function(e){ return esc((C360J_STATE[e.state]||e.state)+': '+c360Began(e)+c360Ended(e)); }).join('<br>'));
   var myL=launches.slice().sort(function(a,b){ return (a.episode_n||1)-(b.episode_n||1); });
   if(myL.length) h+=kv('Launch'+(myL.length>1?'es':''), myL.map(function(c){
-      return 'Opened '+esc(lpscDate(String(c.added_at||'').slice(0,10)))+(c.first_shift_done&&c.first_shift_done_at?' · first shift marked '+esc(lpscDate(String(c.first_shift_done_at).slice(0,10))):'')
+      var a=leActualSoc(c,levRows);
+      return 'Opened '+esc(lpscDate(String(c.added_at||'').slice(0,10)))+(a?' · care began '+esc(lpscDate(a.ymd))+(a.how==='axiscare'?' (AxisCare clock-in)':a.how==='hand'?' (recorded by hand)':' (marked on the card)'):'')
         +(c.status==='complete'&&c.completed_at?' · complete '+esc(lpscDate(String(c.completed_at).slice(0,10))):' · in progress'); }).join('<br>'));
   if(lead&&lead.soc) h+=kv('Start of Care', esc(((typeof SOC_PATHWAYS!=='undefined'&&SOC_PATHWAYS[lead.soc.pathway])||{}).label||lead.soc.pathway||'')
       +(lead.soc.ready_for_staffing_at?' · ready for staffing '+esc(lpscDate(String(lead.soc.ready_for_staffing_at).slice(0,10))):' · not ready for staffing yet'));
-  var firstShift=myL.filter(function(c){ return c.first_shift_done&&c.first_shift_done_at; }).map(function(c){ return c.first_shift_done_at; }).sort().pop()||null;
+  var firstShift=myL.map(function(c){ return leActualSoc(c,levRows); }).filter(Boolean).sort(function(a,b){ return a.ymd.localeCompare(b.ymd); }).pop()||null;
   h+='<div id="'+px+'cl360Dates"></div>';
   if(cur) h+='<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:8px;"><b style="font-size:13px;color:var(--navy);">Start Contract</b><div id="'+px+'cl360Sc" style="margin-top:6px;"></div></div>';
   box.innerHTML=h;
@@ -30231,7 +30350,7 @@ async function c360StartLoad(r, px, baseEv){
   vers.forEach(function(v){ push(v.recorded_at,'Start Contract: '+esc((LPSC_CONF[v.confidence]||[v.confidence])[0])+(v.target_date?', target '+esc(lpscDate(v.target_date)):'')+(v.change_reason?' · why: '+esc(v.change_reason):'')); });
   upds.forEach(function(u){ push(u.given_at,'Family update to '+esc(u.given_to)+': "'+esc(u.summary)+'"'); });
   if(lead&&lead.soc&&lead.soc.ready_for_staffing_at) push(lead.soc.ready_for_staffing_at,'Start of Care ready for staffing');
-  myL.forEach(function(c){ if(c.first_shift_done&&c.first_shift_done_at) push(c.first_shift_done_at,'Care began (first shift marked completed)'); if(c.completed_at) push(c.completed_at,'Launch complete'); });
+  myL.forEach(function(c){ var a=leActualSoc(c,levRows); if(a) push(a.ymd,'Care began ('+(a.how==='axiscare'?'first clock-in in AxisCare':a.how==='hand'?'recorded by hand by '+esc(lpscName(a.by)):'first shift marked completed')+')'); if(c.completed_at) push(c.completed_at,'Launch complete'); });
   if(add.length){
     var all=(baseEv||[]).concat(add).sort(function(x,y){ return y.at.localeCompare(x.at); });
     var tlBox=document.getElementById(px+'cl360Tl');
@@ -31736,6 +31855,23 @@ window.covLoadShifts=function(){};
         if(s.f==='schedule_added'&&c.sched_note_pushed_at)
           extra+='<div style="font-size:.67rem;color:#166534;margin-top:.15rem">📋 Scheduling note pushed to AxisCare '+fmtTs(c.sched_note_pushed_at)+'</div>';
         const ts=c[s.f+'_at'];
+        const slot=LE_STEP[s.f]?leSlot(c,s.f):'';
+        if(leLive(c)&&LE_READOUT[s.f]){
+          /* Change 1: AxisCare already knows this; show it, don't ask for it */
+          const ro={caregiver_assigned:['Caregiver assigned','Assign in AxisCare as usual. This reads who is on the visits.'],
+                    schedule_added:['Schedule in AxisCare','Enter the shifts in AxisCare as usual (and set the client\'s Start Date there). This reads them.'],
+                    first_shift_done:['First shift completed','Counts only when AxisCare shows a real clock-in and clock-out. A scheduled visit never counts.']}[s.f];
+          const axRow=((LEV[c.id]&&LEV[c.id].data&&LEV[c.id].data.evidence)||[]).some(r=>r.fact===LE_STEP[s.f]&&r.source==='axiscare');
+          const nameLine=s.f==='caregiver_assigned'&&c.caregiver_assigned_name?'<div style="font-size:.73rem;font-weight:600;color:#166534;margin-top:.2rem">👤 '+E(c.caregiver_assigned_name)
+              +' <button class="linklike" style="font-size:.7rem;margin-left:.4rem" onclick="event.stopPropagation();cqCgCheck(\''+E(c.id)+'\')">🔎 Shadow readiness check</button></div>':'';
+          return '<div style="padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(done?'#86efac':'var(--border)')+';background:'+(done?'#f0fdf4':'#fafafa')+'">'
+            +'<div style="display:flex;align-items:flex-start;gap:.65rem">'
+            +'<span title="Read from AxisCare" style="display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;border-radius:50%;flex-shrink:0;margin-top:.15rem;font-size:.62rem;font-weight:700;background:'+(done?'#22c55e':'#E8E2D8')+';color:#fff">'+(done?'✓':'')+'</span>'
+            +'<div style="flex:1"><div style="font-size:.8rem;font-weight:600;color:var(--navy)">'+E(ro[0])+' <span style="font-size:.64rem;font-weight:700;color:#0F5E73;background:#E4F2F0;border-radius:4px;padding:.05rem .3rem;margin-left:.2rem">from AxisCare</span></div>'
+            +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">'+ro[1]+'</div>'+nameLine+(s.f==='schedule_added'?extra:'')+slot
+            +(done&&!axRow&&ts?'<div style="font-size:.67rem;color:var(--text-muted);margin-top:.15rem">✓ ticked by hand '+fmtTs(ts)+'</div>':'')
+            +'</div></div></div>';
+        }
         const notes=s.notes&&done?noteBox(s.notes, s.notes==='caregiver_call_notes'
             ?'Required — notes from caregiver call (confirmed schedule, any concerns…)'
             :'Required — notes from client call (schedule confirmed, client reaction, anything to flag…)', ts):'';
@@ -31744,7 +31880,7 @@ window.covLoadShifts=function(){};
           +'<input type="checkbox" '+(done?'checked':'')+(gated?' disabled':'')+' onchange="cqStep(\''+E(c.id)+'\',\''+s.f+'\',this.checked)" style="margin-top:.15rem;accent-color:#22c55e;width:1rem;height:1rem;flex-shrink:0">'
           +'<div style="flex:1"><div style="font-size:.8rem;font-weight:600;color:var(--navy)'+(done?';text-decoration:line-through;opacity:.55':'')+'">'+E(s.label)+'</div>'
           +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">'+s.sub+'</div>'
-          +extra
+          +extra+slot
           +(done&&ts&&!s.notes?'<div style="font-size:.67rem;color:var(--text-muted);margin-top:.15rem">✓ '+fmtTs(ts)+'</div>':'')
           +'</div></label>'+notes+'</div>';
       }).join('')
