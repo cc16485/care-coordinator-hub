@@ -21914,6 +21914,18 @@ function myWorkRows(){
    registry, so no source-specific behaviour lives in the card. */
 function obligationOpenAction(it){
   try{
+    /* Step 6 (2026-09-26): promise and Journey-review items open the family's
+       record. The Start Contract lives on the lead profile (or the client
+       profile once there is no lead); logging the update there closes the item. */
+    if(it && it.source && it.source.type==='journey'){
+      const esc=escapeHtmlComms, s=it.source;
+      const lead=s.lead_id?(DATA.leads||[]).find(l=>String(l.id)===String(s.lead_id)):null;
+      const go=lead?'openLeadProfile(\''+esc(String(lead.id))+'\')':(s.axiscare_client_id?'openClientProfile(\''+esc(String(s.axiscare_client_id))+'\')':'');
+      if(!go) return '';
+      return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="'+go+'">Open the record</button>'
+        +'<span class="field-note" style="margin-left:8px;">'+(s.kind==='review'?'This closes itself once the decision is made.'
+          :'Logging the update on their Start Contract closes this by itself.')+'</span></div>';
+    }
     if(!it || !it.source || !globalThis.CCOblig) return '';
     const src=(CCOblig.SOURCES||[]).find(s=>s.key===it.source.type);
     if(!src || typeof src.open!=='function') return '';
@@ -25870,6 +25882,11 @@ const OPS_KINDS = {
   client_issue:   { label:'Client issue',  hours:24 },
   staffing_issue: { label:'Staffing',      hours:24 },
   capture:        { label:'Captured',      hours:8  },
+  /* Step 6 (2026-09-26): made by the promise-run producer from Start Contracts
+     and Journey reviews. They close themselves when the source is satisfied. */
+  promise_update: { label:'Family update owed',    hours:24 },
+  promise_lapsed: { label:'Promised start passed', hours:8  },
+  journey_review: { label:'Journey decision',      hours:72 },
 };
 // Urgency overrides the default window for anything raised by hand.
 const OPS_URGENCY = { urgent:1, today:8, normal:null };
