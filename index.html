@@ -5028,6 +5028,21 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         <div id="lp_ai_flags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
       </div>
 
+      <!-- The Start Contract (2026-09-26, Step 1 of the Lead to Client Plan).
+           It belongs to this inquiry's Journey, not to the lead; this card is
+           one of the places to see and edit it. Reads the Journey tables,
+           writes only through the start-contract function as the signed-in
+           person. Nothing here contacts the family. -->
+      <div class="card" style="padding:18px;margin-bottom:14px;border-color:#BBD3E8;" id="lp_sc_card">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="font-size:14px;color:var(--navy);"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Start Contract</b>
+          <span class="field-note" style="font-size:11.5px;">what we've told the family about starting care</span>
+          <span style="flex:1;"></span>
+          <span id="lp_sc_actions" style="display:flex;gap:6px;flex-wrap:wrap;"></span>
+        </div>
+        <div id="lp_sc_body" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
+      </div>
+
       <div class="card" style="padding:18px;margin-bottom:14px;border-color:#BBD3E8;" id="lp_soc_card">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <b style="font-size:14px;color:var(--navy);"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Start of Care</b>
@@ -9109,6 +9124,7 @@ function renderLeadProfile(){
   renderLpNurture();
   renderLeadDocs();
   renderLpSoc();
+  lpScRender();
 }
 const NURTURE_INFO = {
   not_ready: { name:'Not-ready-yet drip', steps:4, desc:'warm text day 3, helpful email day 10, check-in text day 21, note day 45' },
@@ -13657,6 +13673,228 @@ function socIsStuck(soc){
 }
 
 /* ---- SOC card on the lead profile ---- */
+/* ===================== START CONTRACT on the lead profile =====================
+   Step 1 of the Lead to Client Plan (2026-09-26). The Start Contract belongs to
+   this inquiry's Journey (start_contract_version / start_contract_update, keyed
+   by episode_id); this card is a surface for it, never a copy.
+   READS  episode_source (which Journey this lead started), journey_episode.state,
+          start_contract_current, start_contract_version, start_contract_update,
+          journey_seat_member (may this person record?), and from the lead itself
+          only by reference: urgency, state_status, funding_source (a temporary
+          bridge), quoted_price_amount, promised_callback_at.
+   WRITES nothing directly. Saving posts to the start-contract function, which
+          records the signed-in person and seat through the audited Doors.
+   Talking points come from promise-engine.js, which decides and never writes.
+   Nothing here contacts the family or changes a promise without a person. */
+var LPSC={leadId:null,loading:false,d:null,err:'',form:null,msg:null,draft:null,udraft:null,open:{}};
+var LPSC_CONF={early:['Early','#EEF2F7','var(--navy)'],likely:['Likely','#EEF2F7','var(--navy)'],expected:['Expected','#E6F6F5','var(--teal,#0F7A73)'],committed:['Committed','#E7F1EF','var(--green)']};
+var LPSC_VIA={call:'call',in_person:'in person',text:'text',email:'email',other:'other'};
+var LPSC_URG={today:'Needs care today','48hours':'Within 48 hours','7days':'Within 7 days',researching:'Just researching'};
+var LPSC_PAYER={private:'Private pay',ltc:'LTC insurance',va:'VA',cds:'CDS',medicaid:'Medicaid (IHS)',pace:'PACE'};
+var LPSC_MSG={recorded:'Start Contract saved.',changed:'Saved. The earlier version is kept in the history.',unchanged:'Nothing changed, so nothing new was saved.',
+  next_update_set:'Next update owed is set.',update_logged:'Family update logged.',no_seat:'Your account does not hold a Journey seat yet. Ask the owner to add you.',
+  episode_not_active:'This inquiry is closed, so its Start Contract can no longer change.',target_date_required:'Pick a target date. Only Early can go without one.',
+  owner_required:'Say who owns this commitment.',promise_incomplete:'A promise needs the exact words, who they were said to, how, and when.',
+  committed_needs_wording:'Committed means we told the family. Record the words we used.',promised_in_future:'The day it was said cannot be in the future.',
+  next_update_in_past:'The next update owed cannot be in the past.',next_update_required:'Set when we owe the family their next update, or say why nothing more is owed.',
+  reason_required:'This changes a commitment already made to the family. Say what changed and why.',update_incomplete:'Say when, to whom, how, and what we told them.',
+  given_in_future:'The update time cannot be in the future.',no_contract:'Record the Start Contract first.',invalid_via:'Pick how it was said.',invalid_confidence:'Pick how confident we are.'};
+function lpscDate(d){ if(!d) return ''; var p=String(d).slice(0,10).split('-'); var x=new Date(+p[0],+p[1]-1,+p[2]);
+  return isNaN(x)?'':x.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
+function lpscStamp(t){ if(!t) return ''; var x=new Date(t); return isNaN(x)?'':x.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }
+function lpscName(e){ return String(e||'').split('@')[0]; }
+async function lpScLoad(lead,force){
+  if(!lead) return;
+  if(!force&&LPSC.leadId===lead.id&&(LPSC.d||LPSC.loading)) return;
+  if(LPSC.leadId!==lead.id){ LPSC.d=null; LPSC.err=''; LPSC.form=null; LPSC.msg=null; LPSC.draft=null; LPSC.udraft=null; LPSC.open={}; }
+  LPSC.leadId=lead.id; LPSC.loading=true; LPSC.err='';
+  var q=function(p){ return p.then(function(r){ if(r.error) throw r.error; return r.data||[]; }); };
+  try{
+    var src=await q(sb.from('episode_source').select('episode_id').eq('system','lead').eq('role','origin').eq('source_ref',String(lead.id)));
+    var ep=src[0]&&src[0].episode_id, d={ep:ep||null};
+    if(ep){
+      var r=await Promise.all([
+        q(sb.from('journey_episode').select('state').eq('episode_id',ep)),
+        q(sb.from('start_contract_current').select('*').eq('episode_id',ep)),
+        q(sb.from('start_contract_version').select('version_id,confidence,target_date,promised_wording,promised_to,promised_via,promised_on,commitment_owner,change_reason,recorded_by,recorded_seat,recorded_at,supersedes_version_id').eq('episode_id',ep)),
+        q(sb.from('start_contract_update').select('update_id,seq,kind,given_at,given_to,given_via,summary,next_update_owed_on,owed_by,none_owed_reason,recorded_by,recorded_seat,recorded_at').eq('episode_id',ep)),
+        q(sb.from('journey_seat_member').select('email,seat'))
+      ]);
+      d.state=(r[0][0]||{}).state||null; d.c=r[1][0]||null; d.versions=r[2]; d.updates=r[3]; d.seats=r[4];
+    }
+    var sess=null; try{ sess=(await sb.auth.getSession()).data.session; }catch(e){}
+    d.me=String((sess&&sess.user&&sess.user.email)||ME.email||'').toLowerCase();
+    if(LPSC.leadId===lead.id) LPSC.d=d;
+  }catch(e){ if(LPSC.leadId===lead.id) LPSC.err=String(e&&e.message||e); }
+  LPSC.loading=false;
+  if(lpLead&&lpLead.id===lead.id) lpScRender();
+}
+function lpScCanEdit(){ var d=LPSC.d; return !!(d&&d.me&&(d.seats||[]).some(function(x){ return x.email===d.me; })&&['provisional','open','converted','established'].indexOf(d.state)>=0); }
+function lpScPromise(){
+  var d=LPSC.d, l=lpLead; if(!d||!d.c||typeof CCPromise==='undefined') return null;
+  var label=[l.client_first_name,l.client_last_name].filter(Boolean).join(' ')||[l.first_name,l.last_name].filter(Boolean).join(' ')||'this family';
+  var lab={}, st={}; lab[d.ep]=label; st[d.ep]=d.state;
+  return CCPromise.evaluate({contracts:[d.c],labels:lab,states:st,today:CCPromise.todayChicago()});
+}
+function lpScRender(){
+  var body=document.getElementById('lp_sc_body'), act=document.getElementById('lp_sc_actions'); if(!body||!lpLead) return;
+  var esc=escapeHtmlComms, l=lpLead;
+  if(LPSC.leadId!==l.id||(!LPSC.d&&!LPSC.loading&&!LPSC.err)){ act.innerHTML=''; body.innerHTML='<div class="field-note">Loading…</div>'; lpScLoad(l); return; }
+  if(LPSC.err&&!LPSC.d){ act.innerHTML=''; body.innerHTML='<div class="field-note" style="color:var(--red)">Could not load the Start Contract: '+esc(LPSC.err)+'</div>'; return; }
+  if(!LPSC.d){ body.innerHTML='<div class="field-note">Loading…</div>'; return; }
+  var d=LPSC.d, c=d.c, can=lpScCanEdit(), h='';
+  if(!d.ep){ act.innerHTML=''; body.innerHTML='<div class="field-note">This inquiry\'s Journey is still being set up. It appears within 15 minutes of the lead being added.</div>'; return; }
+  act.innerHTML=can&&!LPSC.form?('<button class="linklike" onclick="lpScForm(\'contract\')">'+(c?'✎ Change':'+ Record the Start Contract')+'</button>'
+      +(c?'<button class="linklike" onclick="lpScForm(\'update\')">+ Log a family update</button>':'')):'';
+  if(LPSC.form){ body.innerHTML=(LPSC.form==='update'?lpScUpdateForm(c):lpScContractForm(c)); return; }
+  var urg=l.urgency&&LPSC_URG[l.urgency]?LPSC_URG[l.urgency]:'';
+  if(!c){
+    h+='<div style="font-size:13.5px;">Nothing has been recorded about starting care yet.</div>';
+    if(urg) h+='<div class="field-note" style="margin-top:4px;">On the inquiry, the family asked for: <b>'+esc(urg)+'</b></div>';
+    h+='<div class="field-note" style="margin-top:6px;">When you tell the family anything about when care can start, record it here: how confident we are, the exact words, and when we owe them the next update.'+(can?'':' Recording it needs a Journey seat.')+'</div>';
+    body.innerHTML=h+lpScMsg(); return;
+  }
+  var cf=LPSC_CONF[c.confidence]||[c.confidence,'#fff','var(--navy)'], ev=lpScPromise();
+  var p=ev&&ev.promises.find(function(x){ return x.kind==='update'; }), lapsed=ev&&ev.promises.find(function(x){ return x.kind==='lapsed'; });
+  var item=ev&&ev.items[0];
+  var row=function(k,v){ return '<div style="display:grid;grid-template-columns:minmax(118px,150px) 1fr;gap:10px;padding:3px 0;align-items:baseline;"><span style="color:var(--text-muted);font-size:12.5px;">'+k+'</span><span style="font-size:13.5px;">'+v+'</span></div>'; };
+  var owed=!c.next_update_owed_on?'<span class="field-note">Nothing more owed · '+esc(c.none_owed_reason||'')+'</span>'
+    :'<b>'+esc(lpscDate(c.next_update_owed_on))+'</b> · '+esc(lpscName(c.owed_by||c.commitment_owner))
+     +(p&&p.state==='overdue'?' <span class="badge bad" style="background:var(--red-bg);">overdue by '+(-p.days)+' day'+(p.days===-1?'':'s')+'</span>'
+      :p&&p.state==='due_today'?' <span class="badge" style="background:#FFF4E3;color:#8A4E0C;">due today</span>':'');
+  h+=row('Working toward',(c.target_date?'<b>'+esc(lpscDate(c.target_date))+'</b>':'<span class="field-note">no date yet</span>')+(lapsed?' <span class="badge bad" style="background:var(--red-bg);">this committed date has passed</span>':''));
+  h+=row('Confidence','<span style="font-size:12px;font-weight:700;border-radius:6px;padding:2px 8px;color:'+cf[2]+';background:'+cf[1]+'">'+cf[0]+'</span>');
+  h+=row('Family was told',c.promised_wording?'<span style="color:var(--navy);">"'+esc(c.promised_wording)+'"</span><div class="field-note" style="font-size:11.5px;">to '+esc(c.promised_to)+' by '+esc(LPSC_VIA[c.promised_via]||c.promised_via)+' on '+esc(lpscDate(c.promised_on))+' · recorded by '+esc(lpscName(c.recorded_by))+'</div>':'<span class="field-note">Nothing promised yet</span>');
+  h+=row('Next update owed',owed);
+  if(c.last_update_at) h+=row('Last update given',esc(lpscStamp(c.last_update_at))+' to '+esc(c.last_update_to)+' · <span style="font-style:italic;color:var(--text-muted);">"'+esc(c.last_update_summary)+'"</span>');
+  var callOpen=LPSC.open.call!==undefined?LPSC.open.call:!!item;
+  h+=lpScFold('call','Before you call',callOpen,item?'<div style="white-space:pre-wrap;font-size:13px;">'+esc(item.draft)+'</div><div class="field-note" style="font-size:11px;margin-top:4px;">Talking points only. Nothing is sent from here.</div>'
+      :'<div style="font-size:13px;white-space:pre-wrap;">'+esc(lpScTalking(c))+'</div>');
+  h+=lpScFold('told','What the family has been told',!!LPSC.open.told,lpScToldHtml());
+  h+=lpScFold('detail','Changes and details',!!LPSC.open.detail,lpScDetailHtml());
+  body.innerHTML=h+lpScMsg();
+}
+function lpScTalking(c){
+  var lines=[];
+  if(c.promised_wording) lines.push('We told '+(c.promised_to||'them')+' on '+lpscDate(c.promised_on)+': "'+c.promised_wording+'"');
+  if(c.last_update_at) lines.push('Last update, '+lpscStamp(c.last_update_at)+': "'+c.last_update_summary+'"');
+  lines.push('Nothing is due yet. Before any call about starting care, check what has changed since then.');
+  return lines.join('\n');
+}
+function lpScFold(k,title,open,inner){
+  return '<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:6px;"><button class="linklike" style="font-size:12.5px;font-weight:700;color:var(--navy);" onclick="lpScToggle(\''+k+'\','+(!open)+')">'+(open?'▾ ':'▸ ')+title+'</button>'
+    +(open?'<div style="margin-top:6px;">'+inner+'</div>':'')+'</div>';
+}
+function lpScToggle(k,v){ LPSC.open[k]=v; lpScRender(); }
+function lpScMsg(){ return LPSC.msg?'<div style="margin-top:8px;font-size:12.5px;font-weight:700;color:'+(LPSC.msg.ok?'var(--green)':'var(--red)')+';">'+escapeHtmlComms(LPSC.msg.text)+'</div>':''; }
+/* Everything said to the family, oldest to newest: each promise as first
+   recorded, and each update given. */
+function lpScToldHtml(){
+  var esc=escapeHtmlComms, d=LPSC.d, ev=[];
+  var seen={};
+  (d.versions||[]).slice().sort(function(a,b){ return String(a.recorded_at).localeCompare(String(b.recorded_at)); }).forEach(function(v){
+    if(!v.promised_wording) return; var k=v.promised_wording+'|'+v.promised_to+'|'+v.promised_on; if(seen[k]) return; seen[k]=1;
+    ev.push({at:String(v.promised_on||'')+'T12:00:00',html:'<b>Promise</b> to '+esc(v.promised_to)+' by '+esc(LPSC_VIA[v.promised_via]||v.promised_via)+', '+esc(lpscDate(v.promised_on))+': <span style="color:var(--navy);">"'+esc(v.promised_wording)+'"</span> <span class="field-note" style="font-size:11px;">recorded by '+esc(lpscName(v.recorded_by))+'</span>'}); });
+  (d.updates||[]).filter(function(u){ return u.kind==='update_given'; }).forEach(function(u){
+    ev.push({at:String(u.given_at),html:'<b>Update</b> to '+esc(u.given_to)+' by '+esc(LPSC_VIA[u.given_via]||u.given_via)+', '+esc(lpscStamp(u.given_at))+': <span style="font-style:italic;">"'+esc(u.summary)+'"</span> <span class="field-note" style="font-size:11px;">recorded by '+esc(lpscName(u.recorded_by))+'</span>'}); });
+  ev.sort(function(a,b){ return b.at.localeCompare(a.at); });
+  return ev.length?ev.map(function(x){ return '<div style="font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--border);">'+x.html+'</div>'; }).join(''):'<div class="field-note">Nothing recorded yet.</div>';
+}
+/* What changed and why: each version against the one before it, with who,
+   which seat and when. Plus facts shown from elsewhere, labeled as such. */
+function lpScDetailHtml(){
+  var esc=escapeHtmlComms, d=LPSC.d, c=d.c, l=lpLead, h='';
+  var vs=(d.versions||[]).slice().sort(function(a,b){ return String(a.recorded_at).localeCompare(String(b.recorded_at)); });
+  var cl=function(v){ return (LPSC_CONF[v]||[v])[0]; };
+  var rows=vs.map(function(v,i){
+    var pv=vs[i-1], ch=[];
+    if(!pv) ch.push('first recorded: '+cl(v.confidence)+(v.target_date?', target '+lpscDate(v.target_date):''));
+    else{
+      if(pv.confidence!==v.confidence) ch.push('confidence '+cl(pv.confidence)+' → '+cl(v.confidence));
+      if(pv.target_date!==v.target_date) ch.push('target '+(pv.target_date?lpscDate(pv.target_date):'none')+' → '+(v.target_date?lpscDate(v.target_date):'none'));
+      if(pv.promised_wording!==v.promised_wording) ch.push(v.promised_wording?'new words to the family':'promise wording cleared');
+      if(pv.commitment_owner!==v.commitment_owner) ch.push('owner '+lpscName(pv.commitment_owner)+' → '+lpscName(v.commitment_owner));
+    }
+    return '<div style="font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--border);">'+esc(lpscStamp(v.recorded_at))+' · '+esc(ch.join(' · ')||'no change')
+      +(v.change_reason?'<div style="color:var(--navy);">Why: '+esc(v.change_reason)+'</div>':'')
+      +'<div class="field-note" style="font-size:11px;">by '+esc(v.recorded_by)+' ('+(v.recorded_seat==='owner_decision'?'Owner / Decision':'Client Intake')+')</div></div>';
+  }).reverse();
+  h+='<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:2px;">How the plan changed ('+vs.length+' version'+(vs.length===1?'':'s')+')</div>'+rows.join('');
+  var sched=(d.updates||[]).filter(function(u){ return u.kind==='next_scheduled'; }).length;
+  h+='<div class="field-note" style="font-size:11.5px;margin-top:4px;">Next update rescheduled without a family update: '+sched+' time'+(sched===1?'':'s')+'. Owner: '+esc(c.commitment_owner)+'.</div>';
+  var ref=[];
+  if(l.urgency&&LPSC_URG[l.urgency]) ref.push('Family asked for (on the inquiry): <b>'+esc(LPSC_URG[l.urgency])+'</b>. No requested start date is recorded anywhere yet.');
+  if(l.funding_source==='medicaid'||l.state_status) ref.push('Authorized / Approved: '+(l.state_status==='authorized'?'<b>authorized</b> (State Submissions status; the date is not recorded)':'not yet'+(l.state_status?' ('+esc(l.state_status)+')':'')));
+  if(l.funding_source) ref.push('Payer: '+esc(LPSC_PAYER[l.funding_source]||l.funding_source)+' <span class="field-note" style="font-size:11px;">(read from the lead for now, a temporary bridge)</span>');
+  if(l.quoted_price_amount) ref.push('Quoted: '+esc(l.quoted_price_amount));
+  if(l.promised_callback_at) ref.push('Promised call-back: '+esc(lpscStamp(l.promised_callback_at))+' <span class="field-note" style="font-size:11px;">(Leads follows this up)</span>');
+  if(ref.length) h+='<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin:8px 0 2px;">From the lead, shown not copied</div>'+ref.map(function(x){ return '<div style="font-size:12.5px;">'+x+'</div>'; }).join('');
+  h+='<div class="field-note" style="font-size:11px;margin-top:8px;">This Start Contract belongs to the inquiry\'s Journey ('+esc(String(d.ep).slice(0,8))+'), not the lead record. Every save is kept; nothing is overwritten.</div>';
+  return h;
+}
+function lpScSel(id,opts,val){ return '<select id="'+id+'" style="font-size:13px;width:auto;">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select>'; }
+function lpScIn(id,type,val,ph){ return '<input id="'+id+'" type="'+type+'" value="'+escapeHtmlComms(val||'')+'"'+(ph?' placeholder="'+escapeHtmlComms(ph)+'"':'')+' style="font-size:13px;">'; }
+function lpScLab(t,n){ return '<label style="font-size:12.5px;font-weight:700;color:var(--text-muted);display:block;margin:10px 0 3px;">'+t+(n?' <span style="font-weight:400;">'+n+'</span>':'')+'</label>'; }
+function lpScContractForm(c0){
+  var c=Object.assign({},c0||{},LPSC.draft||{}), esc=escapeHtmlComms, today=CCPromise.todayChicago();
+  var VIA=[['','How?'],['call','Call'],['in_person','In person'],['text','Text'],['email','Email'],['other','Other']];
+  return '<div style="font-size:13px;">'
+    +lpScLab('How confident are we?')+lpScSel('lpsc_conf',[['early','Early (no date yet)'],['likely','Likely'],['expected','Expected'],['committed','Committed (we told the family a date)']],c.confidence||'early')
+    +lpScLab('Target start date','the date we are working toward')+lpScIn('lpsc_target','date',c.target_date)
+    +lpScLab('What exactly did we tell the family?','their words matter; leave blank if nothing has been said yet')
+    +'<textarea id="lpsc_words" rows="2" style="font-size:13px;" placeholder="e.g. Expect to begin October 5, contingent on authorization and staffing.">'+esc(c.promised_wording||'')+'</textarea>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:6px;">'+lpScIn('lpsc_to','text',c.promised_to,'To whom, e.g. Cathy (daughter)')+lpScSel('lpsc_via',VIA,c.promised_via||'')+lpScIn('lpsc_on','date',c.promised_on)+'</div>'
+    +lpScLab('Who owns this commitment?')+lpScIn('lpsc_owner','email',c.commitment_owner||(LPSC.d&&LPSC.d.me))
+    +(function(){ var cur=(c0&&c0.next_update_owed_on)||'', past=cur&&cur<today, v=(LPSC.draft&&'next_update_owed_on' in LPSC.draft)?LPSC.draft.next_update_owed_on:(past?'':cur);
+        return lpScLab('Next update owed to the family',past?'it was due '+esc(lpscDate(cur))+' (overdue): set a new date, or leave blank to keep it':(c0?'leave as is to keep it':'from '+esc(lpscDate(today))+' on'))+lpScIn('lpsc_next','date',v); })()
+    +(c0&&c0.version_id?lpScLab('What changed and why?',c0.confidence==='committed'?'required: this changes a commitment already made to the family':'optional')
+      +'<textarea id="lpsc_reason" rows="2" style="font-size:13px;">'+esc((LPSC.draft&&LPSC.draft.change_reason)||'')+'</textarea>':'')
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px;"><button class="primary" onclick="lpScSave()">Save</button><button class="secondary" onclick="lpScForm(null)">Cancel</button>'
+    +'<span class="field-note" style="font-size:11.5px;">Saved as a new version; the earlier one stays in the history.</span></div>'+lpScMsg()+'</div>';
+}
+function lpScUpdateForm(c){
+  var u=LPSC.udraft||{}, esc=escapeHtmlComms, VIA=[['call','Call'],['in_person','In person'],['text','Text'],['email','Email'],['other','Other']];
+  var nowLocal=(function(){ var x=u.given_at?new Date(u.given_at):new Date(); x.setMinutes(x.getMinutes()-x.getTimezoneOffset()); return x.toISOString().slice(0,16); })();
+  var none=u.none_owed_reason!==undefined&&u.none_owed_reason!==null;
+  return '<div style="font-size:13px;">'
+    +lpScLab('When did we tell them?')+lpScIn('lpsu_at','datetime-local',nowLocal)
+    +lpScLab('To whom, and how?')+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;">'+lpScIn('lpsu_to','text',u.given_to||c.last_update_to||c.promised_to||'','e.g. Cathy (daughter)')+lpScSel('lpsu_via',VIA,u.given_via||'call')+'</div>'
+    +lpScLab('What did we tell them?')+'<textarea id="lpsu_sum" rows="2" style="font-size:13px;">'+esc(u.summary||'')+'</textarea>'
+    +lpScLab('Next update owed')+lpScIn('lpsu_next','date',u.next_update_owed_on||'')
+    +'<label style="display:flex;gap:6px;align-items:center;font-size:12.5px;margin-top:6px;"><input type="checkbox" id="lpsu_none" style="width:auto;"'+(none?' checked':'')+' onchange="document.getElementById(\'lpsu_noner\').style.display=this.checked?\'block\':\'none\'"> Nothing more is owed</label>'
+    +'<input id="lpsu_noner" value="'+esc(u.none_owed_reason||'')+'" placeholder="Why, e.g. Care has started" style="display:'+(none?'block':'none')+';margin-top:4px;font-size:13px;">'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"><button class="primary" onclick="lpScSaveUpdate()">Log update</button><button class="secondary" onclick="lpScForm(null)">Cancel</button></div>'+lpScMsg()+'</div>';
+}
+function lpScForm(kind){ LPSC.form=kind; LPSC.msg=null; LPSC.draft=null; LPSC.udraft=null; lpScRender(); }
+function lpScVal(id){ var el=document.getElementById(id); return el?String(el.value||'').trim():''; }
+async function lpScPost(body){
+  LPSC.msg={ok:true,text:'Saving…'}; lpScRender();
+  try{
+    var sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+    if(!tok) throw new Error('Sign in first.');
+    var r=await fetch(CONFIG.supabase_url+'/functions/v1/start-contract',{method:'POST',
+      headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var d=await r.json().catch(function(){ return null; }), o=d&&d.outcome;
+    if(!o) throw new Error((d&&d.error)||('The service answered '+r.status));
+    if(['recorded','changed','unchanged','next_update_set','update_logged'].indexOf(o)>=0){
+      LPSC.form=null; LPSC.draft=null; LPSC.udraft=null; LPSC.msg={ok:true,text:LPSC_MSG[o]||o};
+      await lpScLoad(lpLead,true); return;
+    }
+    LPSC.msg={ok:false,text:LPSC_MSG[o]||('Not saved: '+o)};
+  }catch(e){ LPSC.msg={ok:false,text:'Not saved: '+String(e.message||e)}; }
+  lpScRender();
+}
+function lpScSave(){
+  LPSC.draft={confidence:lpScVal('lpsc_conf'),target_date:lpScVal('lpsc_target')||null,promised_wording:lpScVal('lpsc_words'),promised_to:lpScVal('lpsc_to'),
+    promised_via:lpScVal('lpsc_via')||null,promised_on:lpScVal('lpsc_on')||null,commitment_owner:lpScVal('lpsc_owner'),next_update_owed_on:lpScVal('lpsc_next')||null,change_reason:lpScVal('lpsc_reason')};
+  lpScPost(Object.assign({action:'contract',episode_id:LPSC.d.ep},LPSC.draft));
+}
+function lpScSaveUpdate(){
+  var none=document.getElementById('lpsu_none'), at=lpScVal('lpsu_at');
+  LPSC.udraft={given_at:at?new Date(at).toISOString():null,given_to:lpScVal('lpsu_to'),given_via:lpScVal('lpsu_via'),summary:lpScVal('lpsu_sum'),
+    next_update_owed_on:(none&&none.checked)?null:(lpScVal('lpsu_next')||null),none_owed_reason:(none&&none.checked)?lpScVal('lpsu_noner'):null};
+  lpScPost(Object.assign({action:'update',episode_id:LPSC.d.ep},LPSC.udraft));
+}
 function renderLpSoc(){
   const body=document.getElementById('lp_soc_body'), prog=document.getElementById('lp_soc_progress');
   if(!body||!lpLead) return;
@@ -27935,7 +28173,8 @@ function jvContractFormHtml(e,c0){
       +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">'+jvIn('jvf-to','text',c.promised_to,'To whom, e.g. Cathy (daughter)')+jvSel('jvf-via',VIA,c.promised_via||'')+jvIn('jvf-on','date',c.promised_on||'')+'</div>'
       +'<div class="field-note" style="font-size:11px;margin-top:3px;">Leave all of this blank if nothing has been promised yet.</div></span>'
     +'<span>Owner</span><span>'+jvIn('jvf-owner','text',c.commitment_owner||JV.data.me)+'</span>'
-    +'<span>Next update owed</span><span>'+jvIn('jvf-next','date',c.next_update_owed_on||'')+'<div class="field-note" style="font-size:11px;margin-top:3px;">The day we owe the family an update. From '+esc(jvDate(today))+' on.</div></span>'
+    +(function(){ var cur=c0x.next_update_owed_on||'', past=cur&&cur<today, v=(dr&&'next_update_owed_on' in dr)?(dr.next_update_owed_on||''):(past?'':cur);
+        return '<span>Next update owed</span><span>'+jvIn('jvf-next','date',v)+'<div class="field-note" style="font-size:11px;margin-top:3px;">'+(past?'It was due '+esc(jvDate(cur))+' (overdue). Set a new date, or leave blank to keep it.':'The day we owe the family an update. From '+esc(jvDate(today))+' on.')+'</div></span>'; })()
     +(c0x.version_id?'<span>Why it changed</span><span><textarea id="jvf-reason" rows="2" placeholder="'+(c0x.confidence==='committed'?'Required: this changes a commitment already made to the family':'Optional')+'" style="width:100%;font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;">'+esc(dr&&dr.change_reason||'')+'</textarea></span>':'')
     +'<span></span><span style="display:flex;gap:8px;flex-wrap:wrap;"><button class="jv-save" onclick="jvSaveContract(\''+esc(e.episode_id)+'\')">Save</button><button class="fb" onclick="jvForm(null)">Cancel</button>'
     +(JV.formMsg&&JV.formMsg.ep===e.episode_id?'<span style="font-size:12.5px;font-weight:700;color:'+(JV.formMsg.ok?'var(--green)':'var(--red)')+'">'+esc(JV.formMsg.text)+'</span>':'')+'</span>'
