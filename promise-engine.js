@@ -108,5 +108,112 @@
     return { today: today, promises: promises, items: items };
   }
 
-  root.CCPromise = { evaluate: evaluate, todayChicago: todayChicago, CONFIDENCE: CONFIDENCE, version: 1 };
+  /* ---------------------------------------------------------------------------
+     WORK ITEMS (Step 6, 2026-09-26). What My Work should hold for promises and
+     Journey reviews. Still decides only: the caller writes (the promise-run
+     producer through upsert_app_data_item). The source record is the truth and
+     the item is the prompt: an item closes itself when its source no longer
+     calls for it (the update was logged, the promise moved, the review was
+     decided). Nothing here contacts a family.
+       ids come from the source, so a re-run can never duplicate work;
+       an id that ever existed (even closed) is never created again;
+       MAX_AGE_DAYS: a first run never dumps old history, it counts it;
+       MAX_PER_RUN: the most urgent first, the rest arrive on the next run.
+     input: { contracts, reviews, labels, states, leads, axiscare, today,
+              existing (ops_items), domainOwner(code), maxAgeDays, maxPerRun }
+     output: { create:[item], close:[{item, why}], counts:{…} } */
+  var MAX_AGE_DAYS = 60;
+  var MAX_PER_RUN = 20;
+  var PRODUCER = 'automation:promises';
+  var REVIEW_KIND = { resolve_conflict: 'an inquiry matched a client who already has a Journey', open_conflict: 'a Journey was opened for someone who already has one',
+    overlap: 'two Journeys would overlap', historical_evidence: 'earlier history needs a decision', fact_correction: 'a recorded fact needs correcting',
+    boundary: 'an earlier Journey has no recorded end' };
+  /* End of that day on the office's calendar (11:59pm in Springfield), wherever
+     this runs: the server's clock is UTC, where the day ends at 7pm Central. */
+  function endIso(ymd) {
+    var m = YMD.exec(String(ymd || '').slice(0, 10)); if (!m) return null;
+    var guess = Date.UTC(+m[1], +m[2] - 1, +m[3], 23, 59, 59, 999);
+    var p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', hourCycle: 'h23', year: 'numeric', month: '2-digit',
+      day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(guess));
+    var g = function (t) { return +((p.find(function (x) { return x.type === t; }) || {}).value); };
+    var wall = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second'), 999);
+    return new Date(guess - (wall - guess)).toISOString();
+  }
+  function workItems(input) {
+    input = input || {};
+    var today = ymdOf(input.today) || todayChicago();
+    var t = dayNum(today);
+    var maxAge = input.maxAgeDays > 0 ? input.maxAgeDays : MAX_AGE_DAYS;
+    var cap = input.maxPerRun > 0 ? input.maxPerRun : MAX_PER_RUN;
+    var labels = input.labels || {}, states = input.states || {}, leads = input.leads || {}, axc = input.axiscare || {};
+    var owner0 = typeof input.domainOwner === 'function' ? input.domainOwner : function () { return ''; };
+    var existing = {}; (input.existing || []).forEach(function (i) { if (i && i.id) existing[i.id] = i; });
+    var counts = { contracts_seen: 0, reviews_seen: 0, candidates: 0, would_create: 0, deferred: 0,
+                   skipped_existing: 0, too_old: 0, would_close: 0 };
+    var wanted = {}, cands = [];
+    var ev = evaluate({ contracts: input.contracts, labels: labels, states: states, today: today });
+    counts.contracts_seen = (input.contracts || []).filter(function (c) { return c && c.episode_id; }).length;
+    var byEp = {}; (input.contracts || []).forEach(function (c) { if (c && c.episode_id) byEp[c.episode_id] = c; });
+    ev.items.forEach(function (it) {
+      var c = byEp[it.episode_id] || {}, st = states[it.episode_id];
+      var id = (it.kind === 'promise_lapsed' ? 'prom_lapse_' : 'prom_upd_') + it.episode_id + '_' + it.due;
+      wanted[id] = true;
+      if (existing[id]) { counts.skipped_existing++; return; }
+      if (dayNum(it.due) < t - maxAge) { counts.too_old++; return; }
+      var domain = st === 'established' ? 'client_care' : 'family_enquiries';
+      var late = t - dayNum(it.due);
+      cands.push({
+        id: id, kind: it.kind, status: 'open', title: it.title, about: labels[it.episode_id] || '',
+        detail: it.detail + '\n\n' + it.draft,
+        next_action: it.kind === 'promise_lapsed'
+          ? 'Tell the family where things stand, then record the new plan on their Start Contract.'
+          : 'Call the family, then log the update on their Start Contract (lead profile or New Clients card). Logging it closes this.',
+        urgency: (it.kind === 'promise_lapsed' || late > 2) ? 'high' : 'normal',
+        due: endIso(it.due), domain: domain,
+        owner: String(it.owner || c.commitment_owner || owner0(domain) || '').toLowerCase(),
+        created_at: null, last_activity_at: null, opened_by: 'system', created_by: PRODUCER,
+        source: { type: 'journey', id: it.episode_id, due: it.due, kind: it.kind === 'promise_lapsed' ? 'lapsed' : 'update',
+                  lead_id: leads[it.episode_id] || null, axiscare_client_id: axc[it.episode_id] || null }
+      });
+    });
+    (input.reviews || []).forEach(function (r) {
+      if (!r || !r.review_id) return;
+      counts.reviews_seen++;
+      var id = 'jrev_' + r.review_id; wanted[id] = true;
+      if (existing[id]) { counts.skipped_existing++; return; }
+      var due = ymdOf(r.created_at) || today;
+      var seat = r.seat === 'owner_decision' ? 'Owner / Decision' : 'Client Intake';
+      cands.push({
+        id: id, kind: 'journey_review', status: 'open',
+        title: 'Journey decision for ' + seat + ': ' + (REVIEW_KIND[r.kind] || String(r.kind || '').replace(/_/g, ' ')),
+        about: labels[r.episode_id] || '', detail: 'A Journey step was refused and needs a person to decide. Nothing changed until someone does.',
+        next_action: 'Look at the client\'s profile and decide; the owner can record the decision.',
+        urgency: 'normal', due: endIso(due), domain: 'client_care', owner: '',
+        created_at: null, last_activity_at: null, opened_by: 'system', created_by: PRODUCER,
+        source: { type: 'journey', id: r.episode_id || null, review_id: r.review_id, seat: r.seat, kind: 'review',
+                  lead_id: leads[r.episode_id] || null, axiscare_client_id: axc[r.episode_id] || null }
+      });
+    });
+    counts.candidates = cands.length;
+    cands.sort(function (a, b) {
+      var ua = a.urgency === 'high' ? 0 : 1, ub = b.urgency === 'high' ? 0 : 1;
+      return (ua - ub) || String(a.due).localeCompare(String(b.due)) || a.id.localeCompare(b.id);
+    });
+    var create = cands.slice(0, cap);
+    counts.deferred = cands.length - create.length;
+    counts.would_create = create.length;
+    var close = [];
+    Object.keys(existing).forEach(function (id) {
+      var i = existing[id];
+      if (i.created_by !== PRODUCER || i.status !== 'open' || wanted[id]) return;
+      close.push({ item: i, why: i.kind === 'journey_review' ? 'review_decided' : 'promise_satisfied' });
+    });
+    counts.would_close = close.length;
+    return { today: today, create: create, close: close, counts: counts };
+  }
+  var CLOSE_NOTE = { promise_satisfied: 'Closed automatically: the update was logged, or the Start Contract no longer calls for it.',
+                     review_decided: 'Closed automatically: the Journey decision was made.' };
+
+  root.CCPromise = { evaluate: evaluate, workItems: workItems, todayChicago: todayChicago, CONFIDENCE: CONFIDENCE,
+                     MAX_AGE_DAYS: MAX_AGE_DAYS, MAX_PER_RUN: MAX_PER_RUN, PRODUCER: PRODUCER, CLOSE_NOTE: CLOSE_NOTE, version: 2 };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
