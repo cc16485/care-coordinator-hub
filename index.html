@@ -9125,6 +9125,7 @@ function renderLeadProfile(){
   renderLeadDocs();
   renderLpSoc();
   lpScRender();
+  jcRenderStatus();
 }
 const NURTURE_INFO = {
   not_ready: { name:'Not-ready-yet drip', steps:4, desc:'warm text day 3, helpful email day 10, check-in text day 21, note day 45' },
@@ -10043,6 +10044,10 @@ async function lpConvertLead(){
     l.axiscare_client_id = data.client_id;
     l.converted_at = new Date().toISOString();
     await persist('leads', l);
+    /* Step 2: the AxisCare client was just created FROM this lead, so the
+       coordinator's Convert click is the confirmation. Connect the Journey. */
+    let jcRes=null;
+    try{ jcRes=await jcConnect(l, String(data.client_id), 'convert', who.filter(Boolean).join(' ')); }catch(e){}
     /* The direct client_queue insert that used to live here is retired
        (2026-09-20): launch creation has ONE door, upsert_client_launch,
        and the normal producer is Start of Care reaching Ready for
@@ -10052,6 +10057,7 @@ async function lpConvertLead(){
     renderLeadProfile(); renderLeads();
     alert('Done! Client #'+data.client_id+' created in AxisCare'+(data.note_attached?' with the intake note attached':' (note could not attach — add it by hand)')
       +(l.soc&&l.soc.launch_upserted_at?'\n\nStart of Care was ready, so their first-caregiver launch just opened in New Clients.':'\n\nWhen their Start of Care reaches Ready for Staffing, the New Clients launch opens on its own.')
+      +(jcRes?'\n\nJourney: '+jcRes.text:'')
       +'\n\nLast hand step: enter the attributes on their AxisCare profile (checklist is in the note).');
   }catch(e){
     alert('Could not convert: '+(e&&e.message?e.message:'error'));
@@ -10338,11 +10344,190 @@ async function saveLead(){
     const r = askLostReason();
     if(r){ merged.lost_reason = r; merged.lost_at = new Date().toISOString(); }
   }
+  /* Step 2: a new AxisCare id is checked side by side BEFORE saving, and a
+     lead already connected to a client keeps its id (changing who a Journey
+     belongs to is an Owner / Decision correction, not a form edit). */
+  const prevAx=String((idx>=0?DATA.leads[idx].axiscare_client_id:'')||'').trim(), newAx=String(merged.axiscare_client_id||'').trim();
+  let jcAfter=null;
+  if(newAx!==prevAx){
+    const conn=(idx>=0&&prevAx)?await jcLoadConn(id,true):null;
+    if(conn&&conn.axiscare_client_id){
+      alert('This lead is connected to AxisCare client #'+conn.axiscare_client_id+' as that client\'s Journey, so its AxisCare id was not changed.\n\nChanging who a Journey belongs to is an Owner / Decision correction. Everything else on the form was saved.');
+      merged.axiscare_client_id=prevAx;
+    } else if(newAx){
+      const r=await jcSideBySide(merged, newAx, 'save');
+      if(r.choice==='cancel') return;
+      if(r.choice==='connect') jcAfter={name:r.name};
+    }
+  }
   if(idx>=0) DATA.leads[idx]=merged; else DATA.leads.push(merged);
   await persist('leads', merged);
+  if(jcAfter){
+    const res=await jcConnect(merged, newAx, 'typed', jcAfter.name);
+    if(typeof ccToast==='function') ccToast((res.ok?'✓ ':'')+res.text); else alert(res.text);
+  }
   closeModal('leadModalBackdrop');
   renderLeads();
   if(activeLeadsSubtab==='followups') renderFollowUpQueue();
+}
+/* ===================== STEP 2 · which AxisCare client is this lead? =====================
+   (2026-09-26, Lead to Client Plan.) A coordinator deliberately entering the
+   AxisCare client id for a lead is the human confirmation that they are the same
+   person, so the hub shows the lead and the AxisCare client SIDE BY SIDE before
+   saving. Confirming connects the lead's Journey to that client through the
+   journey-connect function (one transaction: person, admission case, Journey,
+   record of who/how). Nothing here connects on a name match: an id stamped by
+   software stays unconfirmed until a person checks it on the lead profile. */
+var JC={conn:{},loading:{}};
+async function jcCall(body){
+  const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+  if(!tok) throw new Error('Sign in first.');
+  const r=await fetch(CONFIG.supabase_url+'/functions/v1/journey-connect',{method:'POST',
+    headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>null);
+  if(!d) throw new Error('The connection service answered '+r.status);
+  return d;
+}
+async function jcLoadConn(leadId,force){
+  if(!force&&(JC.conn[leadId]!==undefined||JC.loading[leadId])) return JC.conn[leadId];
+  JC.loading[leadId]=true;
+  try{
+    const {data,error}=await sb.from('lead_journey_connection').select('axiscare_client_id,how,confirmed_by,confirmed_at,person_created').eq('lead_id',String(leadId));
+    JC.conn[leadId]=error?{error:error.message}:((data&&data[0])||null);
+  }catch(e){ JC.conn[leadId]={error:String(e.message||e)}; }
+  JC.loading[leadId]=false;
+  return JC.conn[leadId];
+}
+const JC_MSG={connected:'Connected. This inquiry\'s Journey is now the client\'s, and its Start Contract carries on.',
+  already_connected:'Already connected to this AxisCare client.',no_seat:'Saved the id, but connecting needs a Journey seat. A seat holder can confirm it from the lead profile.',
+  no_journey:'Saved the id. This inquiry\'s Journey is still being set up; connect it from the lead profile in a few minutes.',
+  journey_closed:'Saved the id, but this inquiry is closed (lost), so its Journey can\'t be connected.',
+  journey_taken:'This inquiry\'s Journey already belongs to someone else. That needs Owner / Decision.',
+  seat_required:'This AxisCare client\'s admission was escalated to Owner / Decision, so connecting it needs that seat.',
+  lead_id_mismatch:'The lead doesn\'t carry this AxisCare id yet. Save the lead first.'};
+function jcRefusedText(d){
+  const x=d&&d.detail||{};
+  if(x.outcome==='person_has_active_journey') return 'Not connected: this AxisCare client already has an active Journey. Connecting a second one is an Owner / Decision call. Nothing was saved to the Journey.';
+  return 'Not connected: '+(x.detail||x.outcome||'refused')+'. Nothing was saved to the Journey.';
+}
+/* The side-by-side panel. Resolves 'connect', 'save_only' or 'cancel'. */
+function jcSideBySide(lead, axId, mode){
+  return new Promise(async resolve=>{
+    const esc=escapeHtmlComms;
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+    ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:720px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+      +'<div style="font-weight:800;color:var(--navy);font-size:17px;">Is this the same person?</div>'
+      +'<div class="field-note" style="margin-top:4px;">Check both sides before saving. Confirming connects this inquiry\'s Journey, and its Start Contract, to the AxisCare client.</div>'
+      +'<div id="jcBody" style="margin-top:14px;"><div class="field-note">Looking up AxisCare client #'+esc(axId)+'…</div></div></div>';
+    document.body.appendChild(ov);
+    const done=v=>{ ov.remove(); resolve(v); };
+    let p=null;
+    try{ p=await jcCall({action:'preview',lead_id:lead.id,axiscare_client_id:axId}); }catch(e){ p={error:String(e.message||e)}; }
+    const leadName=[lead.client_first_name,lead.client_last_name].filter(Boolean).join(' ')||'(care recipient not named)';
+    const contact=[lead.first_name,lead.last_name].filter(Boolean).join(' ');
+    const col=(title,rows)=>'<div style="flex:1 1 260px;border:1px solid var(--border);border-radius:10px;padding:12px 14px;"><div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);">'+title+'</div>'
+      +rows.filter(r=>r[1]).map(r=>'<div style="display:flex;gap:8px;font-size:13.5px;padding:3px 0;"><span style="min-width:78px;color:var(--text-muted);">'+r[0]+'</span><b style="color:var(--navy);font-weight:600;">'+esc(r[1])+'</b></div>').join('')+'</div>';
+    const ax=p&&p.axiscare, warn=[];
+    if(p&&p.error) warn.push('Could not check AxisCare: '+p.error);
+    else if(p&&p.axiscare_error) warn.push(p.axiscare_error+'.');
+    if(p&&p.person&&p.person.active_journey) warn.push('This AxisCare client already has an active Journey'+(p.person.name?' ('+p.person.name+')':'')+'. Connecting would be refused; that needs Owner / Decision.');
+    else if(p&&p.person) warn.push('AxisCare #'+axId+' is already on file as '+(p.person.name||'a person')+' (an earlier Journey). Connecting starts their new Journey from this inquiry.');
+    if(p&&p.admission_case) warn.push('AxisCare listed this as a new client waiting to be confirmed'+(p.admission_case.escalated?'; it was escalated to Owner / Decision.':'. Confirming here settles that too.'));
+    if(p&&p.journey&&p.journey.connected) warn.push('This inquiry\'s Journey is already connected to a client.');
+    else if(p&&p.journey&&p.journey.state&&p.journey.state!=='provisional') warn.push('This inquiry is closed ('+p.journey.state+'), so its Journey can\'t be connected.');
+    else if(p&&!p.journey&&!p.error) warn.push('This inquiry\'s Journey is still being set up (within 15 minutes of the lead being added). The id can be saved now and connected from the lead profile later.');
+    const canConnect=!!(ax&&p.journey&&p.journey.state==='provisional'&&!p.journey.connected&&!(p.person&&p.person.active_journey));
+    const body=ov.querySelector('#jcBody');
+    body.innerHTML='<div style="display:flex;gap:12px;flex-wrap:wrap;">'
+      +col('This lead',[['Care for',leadName],['Contact',contact+(lead.relationship?' ('+lead.relationship+')':'')],['Phone',[lead.client_phone,lead.phone].filter(Boolean).join(' · ')],['City',lead.client_city],['Born',lead.client_dob]])
+      +col('AxisCare client #'+axId,ax?[['Name',ax.name],['Phone',(ax.phones||[]).join(' · ')],['City',ax.city],['Status',ax.status]]:[['',p&&p.error?'Not available':'Not found']])
+      +'</div>'
+      +(warn.length?'<div style="margin-top:12px;background:#FFFBF4;border:1px solid #F3D9B5;border-radius:8px;padding:8px 12px;font-size:13px;">'+warn.map(w=>'<div style="padding:2px 0;">'+esc(w)+'</div>').join('')+'</div>':'')
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">'
+      +(canConnect?'<button class="primary" id="jcYes">Yes, same person'+(mode==='save'?': save and connect':': connect')+'</button>':'')
+      +(mode==='save'?'<button class="secondary" id="jcSave">'+(canConnect?'Save the id only':'Save the id without connecting')+'</button>':'')
+      +'<button class="secondary" id="jcNo">'+(mode==='save'?'Cancel, go back':'Not the same person')+'</button></div>';
+    const yes=body.querySelector('#jcYes'), sv=body.querySelector('#jcSave'), no=body.querySelector('#jcNo');
+    if(yes) yes.onclick=()=>done({choice:'connect',name:ax&&ax.name});
+    if(sv) sv.onclick=()=>done({choice:'save_only'});
+    no.onclick=()=>done({choice:'cancel'});
+  });
+}
+async function jcConnect(lead, axId, how, name){
+  try{
+    const d=await jcCall({action:'connect',lead_id:lead.id,axiscare_client_id:axId,how,axiscare_name:name||null});
+    await jcLoadConn(lead.id,true);
+    if(d.outcome==='refused') return {ok:false,text:jcRefusedText(d)};
+    return {ok:d.outcome==='connected'||d.outcome==='already_connected',text:JC_MSG[d.outcome]||d.error||('Not connected: '+(d.outcome||'unknown answer'))};
+  }catch(e){ return {ok:false,text:'Not connected: '+String(e.message||e)}; }
+}
+/* Name matching is only ever a hint. Candidates: open leads without an AxisCare
+   id whose care recipient's or contact's name equals the row's client name,
+   when no lead already carries that id. */
+function jcNorm(x){ return String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,''); }
+function jcNameMatches(row){
+  if(!row||!row.client_name||!row.axiscare_client_id) return [];
+  if((DATA.leads||[]).some(l=>String(l.axiscare_client_id||'').trim()===String(row.axiscare_client_id))) return [];
+  const rn=jcNorm(row.client_name); if(!rn) return [];
+  return (DATA.leads||[]).filter(l=>l.status!=='Lost'&&!String(l.axiscare_client_id||'').trim()
+    &&(jcNorm((l.client_first_name||'')+(l.client_last_name||''))===rn||jcNorm((l.first_name||'')+(l.last_name||''))===rn));
+}
+async function jcSuggestionFor(l){
+  try{
+    const {data,error}=await sb.from('client_queue').select('id,client_name,axiscare_client_id').not('axiscare_client_id','is',null);
+    if(error) return null;
+    const hits=(data||[]).filter(row=>{ const m=jcNameMatches(row); return m.length===1&&m[0].id===l.id; });
+    const ids=[...new Set(hits.map(h=>String(h.axiscare_client_id)))];
+    return ids.length===1?hits[0]:null;
+  }catch(e){ return null; }
+}
+async function jcCheckSuggestion(ax, name){
+  const l=lpLead; if(!l) return;
+  const r=await jcSideBySide(l, String(ax), 'profile');
+  if(r.choice!=='connect') return;
+  l.axiscare_client_id=String(ax);
+  if(l.status!=='Lost'){ l.status='Converted'; l.converted_at=l.converted_at||new Date().toISOString(); }
+  await persist('leads', l);
+  const res=await jcConnect(l, String(ax), 'confirmed_match', r.name||name);
+  try{ if(l.soc && typeof socReadyCheck==='function') await socReadyCheck(l); }catch(e){}
+  if(typeof ccToast==='function') ccToast((res.ok?'✓ ':'')+res.text); else alert(res.text);
+  renderLeadProfile();
+}
+/* the Convert area's status line on the lead profile */
+async function jcRenderStatus(){
+  const el=document.getElementById('lp_converted'), l=lpLead; if(!el||!l) return;
+  const ax=String(l.axiscare_client_id||'').trim();
+  if(!ax){
+    el.style.display='none'; el.innerHTML='';
+    const sg=await jcSuggestionFor(l);
+    if(sg&&lpLead===l&&!String(l.axiscare_client_id||'').trim()){
+      el.style.display='block';
+      el.innerHTML='<span style="color:#92400E;">New Clients has AxisCare client #'+escapeHtmlComms(String(sg.axiscare_client_id))+' ('+escapeHtmlComms(sg.client_name)+') with the same name as this lead. Nothing is linked until someone checks.</span> '
+        +'<button class="linklike" onclick="jcCheckSuggestion(\''+escapeHtmlComms(String(sg.axiscare_client_id))+'\',\''+escapeHtmlComms(String(sg.client_name).replace(/'/g,''))+'\')">Check if it\'s the same person</button>';
+    }
+    return;
+  }
+  el.style.display='block'; el.innerHTML='AxisCare client #'+escapeHtmlComms(ax)+' · checking…';
+  const c=await jcLoadConn(l.id);
+  if(lpLead!==l) return;
+  const esc=escapeHtmlComms;
+  if(c&&c.error){ el.innerHTML='AxisCare client #'+esc(ax)+'. (Could not check the connection: '+esc(c.error)+')'; return; }
+  if(c&&String(c.axiscare_client_id)===ax){
+    el.innerHTML='✓ Connected to AxisCare client #'+esc(ax)+': this inquiry\'s Journey is the client\'s. Confirmed by '+esc(String(c.confirmed_by).split('@')[0])+', '
+      +esc(new Date(c.confirmed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}))+(c.how==='convert'?' (created from this lead)':'')+'.';
+    return;
+  }
+  el.innerHTML='<span style="color:#92400E;">AxisCare client #'+esc(ax)+' is on this lead, but nobody has confirmed they are the same person yet.</span> '
+    +'<button class="linklike" onclick="jcCheckFromProfile()">Check and connect</button>';
+}
+async function jcCheckFromProfile(){
+  const l=lpLead; if(!l) return; const ax=String(l.axiscare_client_id||'').trim(); if(!ax) return;
+  const r=await jcSideBySide(l, ax, 'profile');
+  if(r.choice!=='connect') return;
+  const res=await jcConnect(l, ax, 'confirmed_match', r.name);
+  if(typeof ccToast==='function') ccToast((res.ok?'✓ ':'')+res.text); else alert(res.text);
+  jcRenderStatus(); if(typeof lpScLoad==='function') lpScLoad(l,true);
 }
 function scheduleAssessmentFromLead(leadId){
   const l = DATA.leads.find(x=>x.id===leadId);
@@ -31443,35 +31628,33 @@ window.covLoadShifts=function(){};
     if(QUEUE===null||force===true){ if(!(await loadQueue())) return; autoConvertLeads(); }
     renderQueue();
   };
-  /* The Zapier handoff knows when a lead became a real AxisCare client —
-     so the lead record shouldn't wait on a human to notice. Any queue row
-     matching exactly ONE open lead (by AxisCare id, else by normalized
-     name) flips that lead to Converted and stamps the id. Ambiguity means
-     a human decides, so 0 or 2+ matches are left alone. */
+  /* The Zapier handoff knows when a lead became a real AxisCare client.
+     Changed 2026-09-26 (her ruling): a NAME match is only a suggestion, never a
+     write. Identity is attached by a person, with both records side by side.
+       * the lead already carries this exact AxisCare id (a person put it there):
+         the lead is marked Converted, as before, and a ready SOC hands off;
+       * name only: nothing is written. The card shows "Possible lead" and the
+         lead profile offers "Check if it's the same person". */
   async function autoConvertLeads(){
-    const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z]/g,'');
-    let flipped=0;
+    let flipped=0; const sug={};
     for(const row of QUEUE||[]){
       if(!row.client_name) continue;
-      const rn=norm(row.client_name);
       const open=(DATA.leads||[]).filter(l=>l.status!=='Converted'&&l.status!=='Lost');
-      let matches=row.axiscare_client_id
-        ? open.filter(l=>l.axiscare_client_id&&String(l.axiscare_client_id)===String(row.axiscare_client_id))
-        : [];
-      if(!matches.length) matches=open.filter(l=>
-        norm((l.client_first_name||'')+(l.client_last_name||''))===rn ||
-        norm((l.first_name||'')+(l.last_name||''))===rn);
-      if(matches.length!==1) continue;
-      const l=matches[0];
-      l.status='Converted';
-      l.converted_at=l.converted_at||new Date().toISOString();
-      if(row.axiscare_client_id&&!l.axiscare_client_id) l.axiscare_client_id=String(row.axiscare_client_id);
-      await persist('leads', l);
-      /* The backfilled AxisCare id may be the last thing a business-ready
-         SOC was waiting on — complete its handoff (idempotent). */
-      try{ if(l.soc && typeof socReadyCheck==='function') await socReadyCheck(l); }catch(e){}
-      flipped++;
+      const byId=row.axiscare_client_id
+        ? open.filter(l=>l.axiscare_client_id&&String(l.axiscare_client_id)===String(row.axiscare_client_id)) : [];
+      if(byId.length===1){
+        const l=byId[0];
+        l.status='Converted';
+        l.converted_at=l.converted_at||new Date().toISOString();
+        await persist('leads', l);
+        try{ if(l.soc && typeof socReadyCheck==='function') await socReadyCheck(l); }catch(e){}
+        flipped++;
+        continue;
+      }
+      const m=jcNameMatches(row);
+      if(m.length===1) sug[row.id]=m[0].id;
     }
+    window.CQ_SUGGEST=sug;
     if(flipped){ try{ if(activeTab==='leads') renderLeads(); }catch(e){} }
   }
   function renderQueue(){
@@ -31578,6 +31761,9 @@ window.covLoadShifts=function(){};
       +'<div id="cq-body-'+E(c.id)+'" style="display:'+(isOpen?'block':'none')+';padding:.75rem .9rem">'
       +(c.schedule_notes?'<div style="font-size:.74rem;color:#92400e;margin-bottom:.6rem;background:#fff7ed;border-radius:5px;padding:.25rem .5rem">📋 '+E(c.schedule_notes)+'</div>':'')
       +(c.axiscare_client_id?'<div style="font-size:.68rem;color:var(--text-muted);margin-bottom:.5rem">AxisCare ID: '+E(c.axiscare_client_id)+'</div>':'')
+      +((window.CQ_SUGGEST||{})[c.id]?(()=>{ const sl=(DATA.leads||[]).find(x=>x.id===window.CQ_SUGGEST[c.id]); if(!sl) return '';
+          return '<div style="font-size:.74rem;margin-bottom:.6rem;background:#FFFBF4;border:1px solid #F3D9B5;border-radius:6px;padding:.35rem .55rem">Possible lead: <b>'+E([sl.client_first_name,sl.client_last_name].filter(Boolean).join(' ')||[sl.first_name,sl.last_name].filter(Boolean).join(' '))+'</b> has the same name. Nothing is linked until a person checks. '
+            +'<button class="linklike" style="font-size:.74rem" onclick="event.stopPropagation();openLeadProfile(\''+E(sl.id)+'\')">Open the lead to check</button></div>'; })():'')
       +'<div style="display:flex;flex-direction:column;gap:.5rem">'
       +STEPS.map(s=>{
         const done=!!c[s.f], gated=s.needs&&!c[s.needs];
