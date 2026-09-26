@@ -859,6 +859,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="circles" onclick="switchTab('circles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family Circles</div>
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
     <div class="fpill" data-tab="careplans" onclick="switchTab('careplans')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Plan Reviews</div>
+    <div class="fpill" data-tab="journeys" onclick="switchTab('journeys')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Journeys</div>
     <span style="flex:1"></span>
     <!-- One hub, one truth, a lens per person: filters Leads, State
          Submissions, Check-ins, and Active Clients to one coordinator's
@@ -4638,6 +4639,52 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </section>
 
+<!-- ===================== TAB: JOURNEYS (read-only preview) =====================
+     Built 2026-09-26 for the Stage 3 soak (her ask). Three one-way mirrors copy
+     Leads, Cara coverage cases and linked Team Builder plans into the Journey
+     record every 15 minutes. This tab only READS that copy (select calls,
+     nothing else) so the team can check it against the screens they still
+     work from. Those screens stay the authority until cutover. -->
+<section class="tabpanel" id="tab-journeys">
+<style>
+  #tab-journeys .jv-tag{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--honey-ink,#8A4E0C);background:#FFF4E3;border-radius:6px;padding:3px 8px;vertical-align:middle;margin-left:6px}
+  #tab-journeys .jv-health{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:0 0 14px}
+  #tab-journeys .jv-hcard{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#fff}
+  #tab-journeys .jv-hcard b{color:var(--navy);font-size:13px}
+  #tab-journeys .jv-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  #tab-journeys .jv-att{border:1px solid #F3D9B5;background:#FFFBF4;border-radius:10px;padding:10px 12px;margin:0 0 14px}
+  #tab-journeys .jv-att-row{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid #F3E6D2;font-size:13px;cursor:pointer}
+  #tab-journeys .jv-att-row:first-of-type{border-top:none}
+  #tab-journeys .jv-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
+  #tab-journeys .jv-bar input{flex:1 1 200px;max-width:320px;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit}
+  #tab-journeys .jv-chip{font-size:12px;padding:5px 11px;border:1.5px solid var(--border);border-radius:999px;background:#fff;color:var(--navy);cursor:pointer;font-family:inherit;font-weight:600}
+  #tab-journeys .jv-chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  #tab-journeys .jv-row{border:1px solid var(--border);border-radius:10px;background:#fff;margin-bottom:8px}
+  #tab-journeys .jv-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:10px 12px;cursor:pointer}
+  #tab-journeys .jv-head b{color:var(--navy);font-size:14px}
+  #tab-journeys .jv-pill{font-size:11.5px;font-weight:700;border-radius:6px;padding:2px 7px;white-space:nowrap}
+  #tab-journeys .jv-body{border-top:1px solid var(--border);padding:10px 12px 12px;font-size:13px}
+  #tab-journeys .jv-sec{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin:12px 0 6px}
+  #tab-journeys .jv-sec:first-child{margin-top:0}
+  #tab-journeys .jv-kv{display:grid;grid-template-columns:minmax(120px,170px) 1fr;gap:4px 12px}
+  #tab-journeys .jv-kv span:nth-child(odd){color:var(--text-muted)}
+  #tab-journeys .jv-need{border-top:1px solid var(--border);padding:7px 0}
+  #tab-journeys .jv-need-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;cursor:pointer}
+  #tab-journeys .jv-asks{margin:6px 0 2px 12px;border-left:3px solid var(--border);padding-left:10px}
+  #tab-journeys .jv-ask{padding:4px 0;font-size:12.5px}
+  #tab-journeys .jv-quote{color:var(--text-muted);font-style:italic}
+  @media (max-width:600px){ #tab-journeys .jv-kv{grid-template-columns:1fr} #tab-journeys .jv-kv span:nth-child(odd){margin-top:6px} }
+</style>
+<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;">
+  <div style="flex:1 1 420px;">
+    <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Journeys<span class="jv-tag">Read-only preview</span></h2>
+    <div class="field-note" style="font-size:13.5px;margin-top:4px;max-width:86ch;">Every client and inquiry as one Journey, with the shifts, asks, replies and assignments behind it. It is copied every 15 minutes from <b>Leads</b>, <b>Cara</b> and <b>Team Builder</b>. Keep working from those screens. This view is for checking that the copy matches them; if the two disagree, the other screen is right and the difference is worth reporting.</div>
+  </div>
+  <button class="fb" onclick="jvLoad()">↻ Refresh</button>
+</div>
+<div id="jv-root"><div class="field-note">Loading…</div></div>
+</section>
+
 <!-- ===================== TAB: CARE PLAN REVIEWS =======================
      Built 2026-08-01 after two real stale-plan catches: a client's plan
      still said walker after she'd declined to a Hoyer lift, and a live-in
@@ -7197,7 +7244,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans','journeys'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7565,7 +7612,7 @@ const CC_SECTION_TITLES = {
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
   clientqueue:'New Clients — First-Caregiver Launch', cgdir:'Caregivers',
-  statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
+  statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', journeys:'Journeys (read-only preview)',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
@@ -7787,6 +7834,7 @@ function renderActiveTab(){
   if(activeTab==='clientqueue') cqRender();
   if(activeTab==='statesubs') renderStateSubs();
   if(activeTab==='careplans') cpRender();
+  if(activeTab==='journeys') jvRender();
   if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='clients') renderClients();
   if(activeTab==='soc') renderSocTab();
@@ -27545,6 +27593,216 @@ async function tbLinkPlan(planId,episodeId){
   }catch(e){ TB.linkMsg='Not linked: '+String(e.message||e); }
   await tbLoadJourneys(true);
 }
+/* ===================== JOURNEYS (read-only preview) =====================
+   Reads the Journey record and its staffing shadow for the Stage 3 soak.
+   Every call below is a select; the browser has no write grant on any of
+   these tables, and this tab never asks for one. The mirror run logs feed
+   the health strip so a stalled or drifting copy is visible at a glance. */
+var JV={data:null,loading:false,err:'',q:'',filter:'active',open:null,openNeed:null};
+var JV_ACTIVE=['provisional','open','converted','established'];
+var JV_STATE={provisional:'Inquiry',open:'Open',converted:'Converted',established:'Receiving care',lost:'Lost',abandoned:'Did not start',ended:'Ended',closed:'Closed',voided:'Voided'};
+var JV_NEED={needs_ask:['var(--red)','#FDECEA','Nobody asked yet'],asked:['var(--honey-ink,#8A4E0C)','#FFF4E3','Waiting on replies'],
+  yes_pending:['var(--red)','#FDECEA','Someone said yes, not assigned'],follow_up:['var(--honey-ink,#8A4E0C)','#FFF4E3','A reply needs follow-up'],
+  exhausted:['var(--red)','#FDECEA','Everyone asked said no'],filled:['var(--green)','#E7F1EF','Filled']};
+var JV_CLOSED={covered:'Covered',shift_passed:'Closed, shift passed',cancelled:'Cancelled',superseded:'Replaced by a newer version',not_needed:'Not needed'};
+var JV_ASK={open:'no reply yet',replied_yes:'said yes',replied_no:'said no',no_answer:'no answer',needs_follow_up:'needs follow-up',closed:'closed'};
+var JV_SRC={lead:'Inquiry in Leads',client_queue:'New Clients queue',axiscare_observation:'Seen in AxisCare',axiscare_event:'AxisCare event',booking:'Booking'};
+var JV_ORIGIN={coverage_case:'Cara coverage case',team_builder:'Team Builder plan',hub:'Hub',legacy_mirror:'Copied from the old screens'};
+var JV_DAY={mon:'Monday',tue:'Tuesday',wed:'Wednesday',thu:'Thursday',fri:'Friday',sat:'Saturday',sun:'Sunday'};
+var JV_CHAN={sms:'text',call:'call',in_person:'in person',axiscare_app:'AxisCare app',email:'email',other:'other'};
+async function jvLoad(){
+  if(JV.loading) return; JV.loading=true; JV.err=''; jvRender();
+  try{
+    var q=function(p){ return p.then(function(r){ if(r.error) throw r.error; return r.data||[]; }); };
+    var runs=function(t,cols){ return q(sb.from(t).select('run_id,finished_at,outcome,parity_mismatches,errors,'+cols).order('run_id',{ascending:false}).limit(100)); };
+    var r=await Promise.all([
+      q(sb.from('journey_episode_current').select('episode_id,person_id,state,counted,began_basis,began_lo,began_hi,ended_basis,ended_lo,ended_hi,prior_history_status,lifetime_ordinal,lifetime_ordinal_reason')),
+      q(sb.from('journey_directory').select('episode_id,kind,label,detail')),
+      q(sb.from('episode_source').select('episode_id,system,source_ref,role,linked_at')),
+      q(sb.from('episode_review').select('review_id,kind,seat,episode_id,created_at').eq('status','open')),
+      q(sb.from('staffing_need_status').select('*')),
+      q(sb.from('staffing_need').select('need_id,origin_system,note')),
+      q(sb.from('staffing_ask_current').select('ask_id,need_id,caregiver_name,caregiver_key,channel,sent_at,message_status,message_text,ask_status,current_reply_text,current_reply_at')),
+      q(sb.from('staffing_assignment').select('need_id,caregiver_name,state,decided_by,decided_at,release_reason')),
+      q(sb.from('client_admission_case').select('case_id,axiscare_client_id,observed_label,observed_at,needs_owner_decision').eq('status','open')),
+      q(sb.from('team_build_link_current').select('plan_id,episode_id,linked_by,linked_at')),
+      runs('legacy_mirror_run','legacy_unchanged'),
+      runs('lead_journey_mirror_run','leads_unchanged'),
+      runs('team_build_mirror_run','plans_unchanged')
+    ]);
+    var ids=[]; r[0].forEach(function(e){ if(e.person_id&&ids.indexOf(e.person_id)<0) ids.push(e.person_id); });
+    var people=ids.length?await q(sb.from('person_identity').select('id,display_name').in('id',ids)):[];
+    var extra={}; r[5].forEach(function(n){ extra[n.need_id]=n; });
+    JV.data={episodes:r[0],dir:r[1],sources:r[2],reviews:r[3],needs:r[4].map(function(n){ var x=extra[n.need_id]||{}; n.origin_system=x.origin_system; n.note=x.note; return n; }),
+      asks:r[6],assigns:r[7],admissions:r[8],links:r[9],runs:{coverage:r[10],leads:r[11],team:r[12]},people:people,at:new Date()};
+  }catch(e){ JV.err=String(e&&e.message||e); }
+  JV.loading=false;
+  jvRender();
+}
+function jvBy(list,key){ var m={}; (list||[]).forEach(function(x){ (m[x[key]]=m[x[key]]||[]).push(x); }); return m; }
+function jvDate(d){
+  if(!d||/infinity/.test(d)) return '';
+  var p=String(d).slice(0,10).split('-'); var dt=new Date(+p[0],+p[1]-1,+p[2]);
+  return dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:(+p[0]===new Date().getFullYear()?undefined:'numeric')});
+}
+function jvStamp(t){ if(!t) return ''; var d=new Date(t); return isNaN(d)?'':d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }
+function jvTime(t){
+  if(!t) return ''; var p=String(t).split(':'), h=+p[0], m=p[1]||'00';
+  return (h%12||12)+(m==='00'?'':':'+m)+(h<12?' am':' pm');
+}
+function jvWhen(n){
+  var span=jvTime(n.start_time)+' to '+jvTime(n.end_time)+(String(n.end_time)<=String(n.start_time)?' (next day)':'');
+  return n.kind==='recurring_slot'?('Every '+(JV_DAY[n.weekday]||n.weekday)+', '+span):(jvDate(n.shift_date)+', '+span);
+}
+function jvLabel(ep){
+  var D=JV.data, d=D.dir.find(function(x){ return x.episode_id===ep.episode_id; });
+  if(d&&d.label) return d.label;
+  if(ep.person_id){ var p=D.people.find(function(x){ return x.id===ep.person_id; }); if(p&&p.display_name) return p.display_name; }
+  var s=D.sources.find(function(x){ return x.episode_id===ep.episode_id&&x.system==='lead'&&x.role==='origin'; });
+  var l=s&&(DATA.leads||[]).find(function(x){ return x&&String(x.id)===s.source_ref; });
+  if(l){ var nm=[l.client_first_name,l.client_last_name].filter(Boolean).join(' ')||[l.first_name,l.last_name].filter(Boolean).join(' '); if(nm) return nm; }
+  return ep.person_id?'Unnamed client':'Unnamed inquiry';
+}
+function jvBegan(ep){
+  if(ep.began_basis==='documented') return 'Began '+jvDate(ep.began_lo);
+  if(ep.began_basis==='observed_window') return 'Began between '+jvDate(ep.began_lo)+' and '+jvDate(ep.began_hi);
+  if(ep.began_basis==='before_observation') return 'Began on or before '+jvDate(ep.began_hi);
+  return 'Start date not known';
+}
+function jvEnded(ep){
+  if(JV_ACTIVE.indexOf(ep.state)>=0) return 'Still going';
+  if(ep.ended_basis==='documented') return 'Ended '+jvDate(ep.ended_lo);
+  if(ep.ended_basis==='observed_window') return 'Ended between '+jvDate(ep.ended_lo)+' and '+jvDate(ep.ended_hi);
+  return 'End date not known';
+}
+function jvHealthCard(name,rows,unchangedKey,what){
+  var last=rows&&rows[0], now=Date.now();
+  if(!last) return '<div class="jv-hcard"><b>'+name+'</b><div class="field-note">No runs logged yet.</div></div>';
+  var age=Math.round((now-new Date(last.finished_at).getTime())/60000);
+  var day=rows.filter(function(x){ return now-new Date(x.finished_at).getTime()<864e5; });
+  var bad=day.filter(function(x){ return x.outcome==='errors'||x.outcome==='failed'; }).length;
+  var color='var(--green)', msg='Matches '+what;
+  if(last[unchangedKey]===false){ color='var(--red)'; msg='The old screen changed during a run. Report this now.'; }
+  else if(age>35){ color='var(--red)'; msg='Late: last ran '+age+' minutes ago (runs every 15)'; }
+  else if(last.outcome==='errors'||last.outcome==='failed'){ color='var(--red)'; msg='Last run '+(last.outcome==='failed'?'failed':'had errors'); }
+  else if(last.parity_mismatches>0){ color='var(--honey-ink,#8A4E0C)'; msg=last.parity_mismatches+' difference'+(last.parity_mismatches===1?'':'s')+' from '+what; }
+  else if(last.outcome==='skipped_busy'){ color='var(--honey-ink,#8A4E0C)'; msg='Last run skipped (the previous one was still going)'; }
+  return '<div class="jv-hcard"><b><span class="jv-dot" style="background:'+color+'"></span>'+name+'</b>'
+    +'<div style="font-size:12.5px;color:'+color+';font-weight:700;margin-top:3px;">'+esc(msg)+'</div>'
+    +'<div class="field-note" style="font-size:11.5px;margin-top:2px;">Last copy '+(age<1?'just now':age+' min ago')+' · '+day.length+' run'+(day.length===1?'':'s')+' in 24 hours'+(bad?' · <b style="color:var(--red)">'+bad+' with problems</b>':'')+'</div></div>';
+}
+function jvRender(){
+  var root=document.getElementById('jv-root'); if(!root) return;
+  if(!JV.data&&!JV.loading&&!JV.err){ jvLoad(); return; }
+  if(JV.err&&!JV.data){ root.innerHTML='<div class="field-note" style="color:var(--red)">Could not load Journeys: '+esc(JV.err)+'</div>'; return; }
+  if(!JV.data){ root.innerHTML='<div class="field-note">Loading…</div>'; return; }
+  var D=JV.data, epById={}; D.episodes.forEach(function(e){ epById[e.episode_id]=e; });
+  var h='';
+  if(JV.err) h+='<div class="field-note" style="color:var(--red);margin-bottom:8px;">Refresh failed, showing the last good copy: '+esc(JV.err)+'</div>';
+  h+='<div class="jv-health">'
+    +jvHealthCard('Cara coverage copy',D.runs.coverage,'legacy_unchanged','Cara')
+    +jvHealthCard('Leads copy',D.runs.leads,'leads_unchanged','Leads')
+    +jvHealthCard('Team Builder copy',D.runs.team,'plans_unchanged','Team Builder')
+    +'</div>';
+  /* What a person should look at: open shifts nobody has covered, new AxisCare
+     clients waiting for a human to confirm who they are, and open reviews. */
+  var att=[];
+  D.needs.filter(function(n){ return n.state==='open'&&n.status!=='filled'&&n.status!=='asked'; })
+    .forEach(function(n){ var ep=epById[n.episode_id]; var s=JV_NEED[n.status]||['var(--navy)','#fff',n.status];
+      att.push('<div class="jv-att-row" onclick="jvFocus(\''+esc(n.episode_id)+'\',\''+esc(n.need_id)+'\')"><span class="jv-pill" style="color:'+s[0]+';background:'+s[1]+'">'+esc(s[2])+'</span><b style="color:var(--navy)">'+esc(ep?jvLabel(ep):'Unknown Journey')+'</b><span>'+esc(jvWhen(n))+'</span></div>'); });
+  D.admissions.forEach(function(a){
+    att.push('<div class="jv-att-row" style="cursor:default"><span class="jv-pill" style="color:var(--honey-ink,#8A4E0C);background:#FFF4E3">New in AxisCare</span><b style="color:var(--navy)">'+esc(a.observed_label)+'</b><span>AxisCare '+esc(a.axiscare_client_id)+' · waiting for Client Intake to confirm who this is'+(a.needs_owner_decision?' (Owner / Decision)':'')+'</span></div>'); });
+  D.reviews.forEach(function(v){ var ep=epById[v.episode_id];
+    att.push('<div class="jv-att-row"'+(ep?' onclick="jvFocus(\''+esc(v.episode_id)+'\')"':' style="cursor:default"')+'><span class="jv-pill" style="color:var(--honey-ink,#8A4E0C);background:#FFF4E3">Review</span><b style="color:var(--navy)">'+esc(ep?jvLabel(ep):'Journey review')+'</b><span>'+esc(String(v.kind).replace(/_/g,' '))+' · for '+(v.seat==='owner_decision'?'Owner / Decision':'Client Intake')+'</span></div>'); });
+  if(att.length) h+='<div class="jv-att"><div class="jv-sec" style="margin-top:0;color:var(--honey-ink,#8A4E0C)">Worth a look ('+att.length+')</div>'+att.join('')+'</div>';
+  var F=[['active','Active'],['clients','Clients'],['inquiries','Inquiries'],['shifts','Open shifts'],['all','All, incl. closed']];
+  h+='<div class="jv-bar"><input type="search" placeholder="Find a name" value="'+esc(JV.q)+'" oninput="jvSearch(this.value)">'
+    +F.map(function(f){ return '<button class="jv-chip'+(JV.filter===f[0]?' on':'')+'" onclick="jvFilter(\''+f[0]+'\')">'+f[1]+'</button>'; }).join('')
+    +'<span class="field-note" style="font-size:11.5px;">Loaded '+esc(jvStamp(D.at))+'</span></div>';
+  h+='<div id="jv-list">'+jvListHtml()+'</div>';
+  root.innerHTML=h;
+}
+function jvListHtml(){
+  var D=JV.data, q=String(JV.q||'').toLowerCase().trim();
+  var needsBy=jvBy(D.needs,'episode_id'), linksBy=jvBy(D.links,'episode_id');
+  var list=D.episodes.filter(function(e){
+    var active=JV_ACTIVE.indexOf(e.state)>=0, open=(needsBy[e.episode_id]||[]).some(function(n){ return n.state==='open'; });
+    if(JV.filter==='active'&&!active) return false;
+    if(JV.filter==='clients'&&(!e.person_id||!active)) return false;
+    if(JV.filter==='inquiries'&&(e.person_id||!active)) return false;
+    if(JV.filter==='shifts'&&!open) return false;
+    return !q||jvLabel(e).toLowerCase().indexOf(q)>=0;
+  }).map(function(e){ return {e:e,label:jvLabel(e),open:(needsBy[e.episode_id]||[]).filter(function(n){ return n.state==='open'; }).length}; })
+    .sort(function(a,b){ return (b.open-a.open)||((a.e.person_id?0:1)-(b.e.person_id?0:1))||a.label.localeCompare(b.label); });
+  if(!list.length) return '<div class="field-note">No Journey matches.</div>';
+  return '<div class="field-note" style="font-size:12px;margin:0 0 6px;">'+list.length+' Journey'+(list.length===1?'':'s')+'</div>'+list.map(function(x){
+    var e=x.e, needs=needsBy[e.episode_id]||[], plans=linksBy[e.episode_id]||[], isOpen=JV.open===e.episode_id;
+    var kind=e.person_id?['Client','var(--teal)','#E6F6F5']:['Inquiry','var(--navy)','#EEF2F7'];
+    return '<div class="jv-row" id="jv-'+esc(e.episode_id)+'"><div class="jv-head" onclick="jvOpen(\''+esc(e.episode_id)+'\')">'
+      +'<b>'+esc(x.label)+'</b>'
+      +'<span class="jv-pill" style="color:'+kind[1]+';background:'+kind[2]+'">'+kind[0]+'</span>'
+      +'<span class="field-note" style="font-size:12px;">'+esc(JV_STATE[e.state]||e.state)+' · '+esc(jvBegan(e))+'</span>'
+      +'<span style="flex:1"></span>'
+      +(x.open?'<span class="jv-pill" style="color:var(--red);background:#FDECEA">'+x.open+' open shift'+(x.open===1?'':'s')+'</span>':'')
+      +(needs.length?'<span class="field-note" style="font-size:12px;">'+needs.length+' shift record'+(needs.length===1?'':'s')+'</span>':'')
+      +(plans.length?'<span class="field-note" style="font-size:12px;">Team Builder linked</span>':'')
+      +'<span style="color:var(--text-muted)">'+(isOpen?'▴':'▾')+'</span></div>'
+      +(isOpen?jvDetailHtml(e,needs,plans):'')+'</div>';
+  }).join('');
+}
+function jvDetailHtml(e,needs,plans){
+  var D=JV.data, h='<div class="jv-body">';
+  var PH={unobserved:'Not observed. This Journey was opened from what was current on the day tracking began; nothing earlier was assumed.',none_found:'None found',documented_complete:'Fully documented'};
+  h+='<div class="jv-sec">Lifecycle</div><div class="jv-kv">'
+    +'<span>Status</span><span>'+esc(JV_STATE[e.state]||e.state)+'</span>'
+    +'<span>Started</span><span>'+esc(jvBegan(e))+'</span>'
+    +'<span>Ended</span><span>'+esc(jvEnded(e))+'</span>'
+    +'<span>Earlier history</span><span>'+esc(PH[e.prior_history_status]||'Not recorded')+'</span>'
+    +'<span>Which time with us</span><span>'+(e.lifetime_ordinal?('#'+e.lifetime_ordinal):'Not known yet ('+esc(e.lifetime_ordinal_reason||'')+')')+'</span>'
+    +'</div>';
+  var src=D.sources.filter(function(s){ return s.episode_id===e.episode_id; });
+  if(src.length) h+='<div class="jv-sec">Where it came from</div>'+src.map(function(s){
+    return '<div>'+esc(JV_SRC[s.system]||s.system)+(s.role==='origin'?'':' ('+esc(s.role)+')')+' <span class="field-note" style="font-size:11.5px;">'+esc(s.source_ref)+' · linked '+esc(jvStamp(s.linked_at))+'</span></div>'; }).join('');
+  if(plans.length) h+='<div class="jv-sec">Team Builder</div>'+plans.map(function(l){
+    var p=(DATA.staffing_plans||[]).find(function(x){ return x&&x.id===l.plan_id; });
+    return '<div>'+esc(p&&p.client?p.client+' care team plan':l.plan_id)+' <span class="field-note" style="font-size:11.5px;">linked by '+esc(l.linked_by)+' · '+esc(jvStamp(l.linked_at))+'</span></div>'; }).join('');
+  h+='<div class="jv-sec">Shifts ('+needs.length+')</div>';
+  if(!needs.length) h+='<div class="field-note">No shift records for this Journey.</div>';
+  var asksBy=jvBy(D.asks,'need_id'), asgBy=jvBy(D.assigns,'need_id');
+  needs.slice().sort(function(a,b){ return ((a.state==='open'?0:1)-(b.state==='open'?0:1))||String(b.shift_date||'').localeCompare(String(a.shift_date||'')); })
+  .forEach(function(n){
+    var s=n.state==='closed'?['var(--text-muted)','#F3F4F6',JV_CLOSED[n.closed_reason]||'Closed']:(JV_NEED[n.status]||['var(--navy)','#fff',n.status]);
+    var asks=asksBy[n.need_id]||[], asg=asgBy[n.need_id]||[], isOpen=JV.openNeed===n.need_id;
+    h+='<div class="jv-need"><div class="jv-need-h" onclick="jvNeed(\''+esc(n.need_id)+'\')">'
+      +'<b style="color:var(--navy)">'+esc(jvWhen(n))+'</b>'
+      +'<span class="jv-pill" style="color:'+s[0]+';background:'+s[1]+'">'+esc(s[2])+'</span>'
+      +'<span class="field-note" style="font-size:12px;">'+asks.length+' asked · '+n.seats_filled+' of '+n.capacity+' filled'+(n.yes_unassigned?' · <b style="color:var(--red)">'+n.yes_unassigned+' yes not assigned</b>':'')+' · from '+esc(JV_ORIGIN[n.origin_system]||n.origin_system||'')+'</span>'
+      +'<span style="color:var(--text-muted)">'+(isOpen?'▴':'▾')+'</span></div>';
+    if(isOpen){
+      h+='<div class="jv-asks">';
+      if(n.note) h+='<div class="field-note" style="margin-bottom:4px;">'+esc(n.note)+'</div>';
+      asg.forEach(function(a){ h+='<div class="jv-ask"><b style="color:'+(a.state==='active'?'var(--green)':'var(--text-muted)')+'">'+(a.state==='active'?'Assigned':'Released')+':</b> '+esc(a.caregiver_name)+' <span class="field-note" style="font-size:11.5px;">decided by '+esc(a.decided_by)+' · '+esc(jvStamp(a.decided_at))+(a.release_reason?' · released: '+esc(a.release_reason):'')+'</span></div>'; });
+      if(!asks.length) h+='<div class="field-note">Nobody asked.</div>';
+      asks.slice().sort(function(a,b){ return String(a.sent_at).localeCompare(String(b.sent_at)); }).forEach(function(a){
+        h+='<div class="jv-ask"><b>'+esc(a.caregiver_name)+'</b> · '+esc(JV_CHAN[a.channel]||a.channel)+' '+esc(jvStamp(a.sent_at))+' · <b>'+esc(JV_ASK[a.ask_status]||a.ask_status)+'</b>'
+          +(a.current_reply_text?' <span class="jv-quote">"'+esc(a.current_reply_text)+'"</span>':'')
+          +(a.message_status==='not_retained_legacy'?' <span class="field-note" style="font-size:11px;">(the old screen did not keep the message text)</span>':'')+'</div>'; });
+      h+='</div>';
+    }
+    h+='</div>';
+  });
+  return h+'</div>';
+}
+function jvOpen(id){ JV.open=JV.open===id?null:id; JV.openNeed=null; var box=document.getElementById('jv-list'); if(box) box.innerHTML=jvListHtml(); }
+/* From "Worth a look": always show that Journey, whatever the filter or search */
+function jvFocus(id,needId){
+  JV.filter='all'; JV.q=''; JV.open=id; JV.openNeed=needId||null;
+  jvRender();
+  var el=document.getElementById('jv-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function jvNeed(id){ JV.openNeed=JV.openNeed===id?null:id; var box=document.getElementById('jv-list'); if(box) box.innerHTML=jvListHtml(); }
+function jvFilter(f){ JV.filter=f; jvRender(); }
+function jvSearch(v){ JV.q=v; var box=document.getElementById('jv-list'); if(box) box.innerHTML=jvListHtml(); }
 function tbRender(){
   var root=document.getElementById('tbRoot'); if(!root) return;
   if(!TB.pool&&!TB.loading){ tbLoadPool(); }
