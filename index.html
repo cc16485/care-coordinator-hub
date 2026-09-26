@@ -10528,6 +10528,9 @@ async function cqfLoad(rows,force){
           var cn=e&&conns.find(function(x){ return x.episode_id===e.episode_id; }); if(cn) b.lead_id=cn.lead_id; });
       }
     }
+    /* AxisCare clients waiting to be matched who have no launch here (the
+       admission scan found them in the census): they get a strip at the top */
+    CQF.openCases=await q(sb.from('client_admission_case').select('case_id,axiscare_client_id,axiscare_name,observed_label,observed_at,needs_owner_decision').eq('status','open'));
     CQF.byAx=by; CQF.key=key;
   }catch(e){ CQF.err=String(e&&e.message||e); }
   CQF.loading=false;
@@ -10602,14 +10605,29 @@ function cqfSection(c){
 /* called by renderQueue after it redraws; mounts only the open cards */
 function cqfAfterRender(pending,expanded){
   if(!CQF.loading) cqfLoad(pending);
+  var wt=document.getElementById('cqf-waiting');
+  if(wt){
+    var inLaunch={}; (pending||[]).forEach(function(c){ if(c.axiscare_client_id) inLaunch[String(c.axiscare_client_id).trim()]=1; });
+    var waiting=(CQF.openCases||[]).filter(function(x){ return !inLaunch[String(x.axiscare_client_id)]; });
+    var esc=escapeHtmlComms;
+    wt.innerHTML=waiting.length?'<div style="background:#FFFBF4;border:1.5px solid #F3D9B5;border-radius:10px;padding:.6rem .9rem;margin-bottom:.75rem;">'
+      +'<div style="font-size:.8rem;font-weight:800;color:var(--navy);">Waiting to be matched ('+waiting.length+')</div>'
+      +'<div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.35rem;">AxisCare lists these clients, but nobody has said who they are yet, and they have no launch here. Answering "Who is this?" gives them their Journey.</div>'
+      +waiting.map(function(x){ var nm=x.axiscare_name||('AxisCare client #'+x.axiscare_client_id);
+        return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:.3rem 0;border-top:1px dashed #F3E6D2;font-size:.8rem;">'
+          +'<b style="color:var(--navy);">'+esc(nm)+'</b><span style="color:var(--text-muted);font-size:.72rem;">AxisCare #'+esc(x.axiscare_client_id)+' · seen '+esc(lpscDate(String(x.observed_at||'').slice(0,10)))+(x.needs_owner_decision?' · escalated to Owner / Decision':'')+'</span>'
+          +'<span style="flex:1"></span><button class="linklike" style="font-size:.76rem" onclick="cqfWhoAx(\''+esc(String(x.axiscare_client_id))+'\',\''+esc(String(nm).replace(/\'/g,''))+'\')">Who is this?</button></div>'; }).join('')+'</div>':'';
+  }
   (pending||[]).forEach(function(c){
     var ch=document.getElementById('cqfchip-'+c.id); if(ch) ch.innerHTML=cqfChip(c);
     if(expanded&&expanded.has(c.id)) cqfSection(c);
   });
 }
 /* "Who is this?" for a client with no person yet */
+/* the same panel for a client who has no launch card */
+function cqfWhoAx(ax,name){ window.__cqAdhoc={id:'ax_'+ax,axiscare_client_id:ax,client_name:name}; cqfWho('ax_'+ax); }
 async function cqfWho(rowId){
-  var row=(window.__cqRows||[]).find(function(c){ return c.id===rowId; }); if(!row) return;
+  var row=(window.__cqRows||[]).find(function(c){ return c.id===rowId; })||(window.__cqAdhoc&&window.__cqAdhoc.id===rowId?window.__cqAdhoc:null); if(!row) return;
   var esc=escapeHtmlComms, ax=String(row.axiscare_client_id||'').trim();
   var ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
@@ -13681,8 +13699,28 @@ function autoOpen(){
     }).join('')
     + '<div class="field-note" style="margin-top:16px;border-top:1px solid var(--border);padding-top:10px;">'
     + 'Anybody can be taken out of all of it. Marking a lead do-not-contact, or a caregiver, stops every automatic '
-    + 'message to them immediately.</div>';
+    + 'message to them immediately.</div>'
+    /* Step 5 (2026-09-26): the copies that keep the family's Journey in step with
+       Leads, Cara and Team Builder. They message nobody; this is their health. */
+    + '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin:22px 0 4px;">Kept in step behind the scenes</div>'
+    + '<div class="field-note" style="margin-bottom:8px;">Every 15 minutes the hub copies Leads, Cara call-offs and linked Team Builder plans into each family\'s Journey. '
+    + 'These copies contact nobody and change nothing on those screens. If one goes red, tell the owner.</div>'
+    + '<div id="autoMirrorHealth"><div class="field-note">Checking…</div></div>';
   document.getElementById('autoBackdrop').classList.add('open');
+  autoMirrorHealth();
+}
+async function autoMirrorHealth(){
+  const box=document.getElementById('autoMirrorHealth'); if(!box) return;
+  const runs=t=>sb.from(t).select('run_id,finished_at,outcome,parity_mismatches,errors,'+({legacy_mirror_run:'legacy_unchanged',lead_journey_mirror_run:'leads_unchanged',team_build_mirror_run:'plans_unchanged'})[t])
+    .order('run_id',{ascending:false}).limit(100).then(r=>{ if(r.error) throw r.error; return r.data||[]; });
+  try{
+    const [cov,lds,tb]=await Promise.all([runs('legacy_mirror_run'),runs('lead_journey_mirror_run'),runs('team_build_mirror_run')]);
+    box.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">'
+      +[mirrorHealthCard('Cara coverage copy',cov,'legacy_unchanged','Cara'),mirrorHealthCard('Leads copy',lds,'leads_unchanged','Leads'),
+        mirrorHealthCard('Team Builder copy',tb,'plans_unchanged','Team Builder')]
+        .join('')
+      +'</div>';
+  }catch(e){ box.innerHTML='<div class="field-note">Could not check the copies: '+escapeHtmlComms(String(e&&e.message||e))+'</div>'; }
 }
 
 /* ---------------- MODAL HELPERS ---------------- */
@@ -28321,9 +28359,9 @@ function jvEnded(ep){
   if(ep.ended_basis==='observed_window') return 'Ended between '+jvDate(ep.ended_lo)+' and '+jvDate(ep.ended_hi);
   return 'End date not known';
 }
-function jvHealthCard(name,rows,unchangedKey,what){
+function mirrorHealthCard(name,rows,unchangedKey,what){
   var last=rows&&rows[0], now=Date.now();
-  if(!last) return '<div class="jv-hcard"><b>'+name+'</b><div class="field-note">No runs logged yet.</div></div>';
+  if(!last) return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#fff"><b style="color:var(--navy);font-size:13px">'+name+'</b><div class="field-note">No runs logged yet.</div></div>';
   var age=Math.round((now-new Date(last.finished_at).getTime())/60000);
   var day=rows.filter(function(x){ return now-new Date(x.finished_at).getTime()<864e5; });
   var bad=day.filter(function(x){ return x.outcome==='errors'||x.outcome==='failed'; }).length;
@@ -28333,7 +28371,7 @@ function jvHealthCard(name,rows,unchangedKey,what){
   else if(last.outcome==='errors'||last.outcome==='failed'){ color='var(--red)'; msg='Last run '+(last.outcome==='failed'?'failed':'had errors'); }
   else if(last.parity_mismatches>0){ color='var(--honey-ink,#8A4E0C)'; msg=last.parity_mismatches+' difference'+(last.parity_mismatches===1?'':'s')+' from '+what; }
   else if(last.outcome==='skipped_busy'){ color='var(--honey-ink,#8A4E0C)'; msg='Last run skipped (the previous one was still going)'; }
-  return '<div class="jv-hcard"><b><span class="jv-dot" style="background:'+color+'"></span>'+name+'</b>'
+  return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#fff"><b style="color:var(--navy);font-size:13px"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle;background:'+color+'"></span>'+name+'</b>'
     +'<div style="font-size:12.5px;color:'+color+';font-weight:700;margin-top:3px;">'+esc(msg)+'</div>'
     +'<div class="field-note" style="font-size:11.5px;margin-top:2px;">Last copy '+(age<1?'just now':age+' min ago')+' · '+day.length+' run'+(day.length===1?'':'s')+' in 24 hours'+(bad?' · <b style="color:var(--red)">'+bad+' with problems</b>':'')+'</div></div>';
 }
@@ -28346,9 +28384,9 @@ function jvRender(){
   var h='';
   if(JV.err) h+='<div class="field-note" style="color:var(--red);margin-bottom:8px;">Refresh failed, showing the last good copy: '+esc(JV.err)+'</div>';
   h+='<div class="jv-health">'
-    +jvHealthCard('Cara coverage copy',D.runs.coverage,'legacy_unchanged','Cara')
-    +jvHealthCard('Leads copy',D.runs.leads,'leads_unchanged','Leads')
-    +jvHealthCard('Team Builder copy',D.runs.team,'plans_unchanged','Team Builder')
+    +mirrorHealthCard('Cara coverage copy',D.runs.coverage,'legacy_unchanged','Cara')
+    +mirrorHealthCard('Leads copy',D.runs.leads,'leads_unchanged','Leads')
+    +mirrorHealthCard('Team Builder copy',D.runs.team,'plans_unchanged','Team Builder')
     +'</div>';
   /* What a person should look at: open shifts nobody has covered, new AxisCare
      clients waiting for a human to confirm who they are, and open reviews. */
@@ -31966,7 +32004,7 @@ window.covLoadShifts=function(){};
     const all=QUEUE||[];
     const pending=all.filter(c=>c.status!=='complete');
     const completed=all.filter(c=>c.status==='complete');
-    let html='';
+    let html='<div id="cqf-waiting"></div>';
     if(!pending.length){
       html+='<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:1.25rem;text-align:center;color:#166534;font-size:.82rem;margin-bottom:.75rem">✅ No launches in progress.'
         +'<div style="font-size:.7rem;margin-top:.3rem;color:var(--text-muted)">A launch opens here on its own when a lead\'s Start of Care reaches Ready for Staffing. <a href="#" onclick="cqAddManual();return false">Add Launch Exception →</a></div></div>';
