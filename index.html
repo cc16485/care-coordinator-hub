@@ -10494,6 +10494,184 @@ async function jcCheckSuggestion(ax, name){
   if(typeof ccToast==='function') ccToast((res.ok?'✓ ':'')+res.text); else alert(res.text);
   renderLeadProfile();
 }
+/* ===================== STEP 3 · the family on each New Clients card =====================
+   (2026-09-26.) A launch is the start phase of a Journey. Each card shows who
+   this is (the person and their Journey), the four dates, and the same
+   Start Contract the lead profile shows (the shared scx surface, editable here).
+   A client with no person yet gets "Who is this?": if they came from an inquiry,
+   that inquiry is connected (Step 2); if not, client-admit admits them. Nothing
+   here is guessed and nothing contacts anyone. */
+var CQF={byAx:{},key:'',loading:false,err:''};
+async function cqfLoad(rows,force){
+  var ids=[...new Set((rows||[]).map(function(c){ return String(c.axiscare_client_id||'').trim(); }).filter(Boolean))].sort();
+  var key=ids.join(',');
+  if(!force&&(CQF.key===key||CQF.loading)) return;
+  CQF.loading=true; CQF.err='';
+  var q=function(p){ return p.then(function(r){ if(r.error) throw r.error; return r.data||[]; }); };
+  try{
+    var by={};
+    ids.forEach(function(a){ by[a]={}; });
+    if(ids.length){
+      var links=await q(sb.from('person_source_id').select('person_id,source_id').eq('system','axiscare').eq('entity_type','client').in('source_id',ids));
+      var cases=await q(sb.from('client_admission_case').select('case_id,axiscare_client_id,needs_owner_decision').eq('status','open').in('axiscare_client_id',ids));
+      links.forEach(function(x){ by[String(x.source_id)].person_id=x.person_id; });
+      cases.forEach(function(x){ by[String(x.axiscare_client_id)].case_id=x.case_id; by[String(x.axiscare_client_id)].escalated=!!x.needs_owner_decision; });
+      var pids=links.map(function(x){ return x.person_id; });
+      if(pids.length){
+        var ppl=await q(sb.from('person_identity').select('id,display_name').in('id',pids));
+        var eps=await q(sb.from('journey_episode').select('episode_id,person_id,state').in('person_id',pids).in('state',['provisional','open','converted','established']));
+        var epIds=eps.map(function(e){ return e.episode_id; });
+        var conns=epIds.length?await q(sb.from('lead_journey_connection').select('episode_id,lead_id').in('episode_id',epIds)):[];
+        ids.forEach(function(a){ var b=by[a]; if(!b.person_id) return;
+          var pp=ppl.find(function(p){ return p.id===b.person_id; }); b.name=pp&&pp.display_name;
+          var e=eps.find(function(x){ return x.person_id===b.person_id; }); if(e){ b.ep=e.episode_id; b.state=e.state; }
+          var cn=e&&conns.find(function(x){ return x.episode_id===e.episode_id; }); if(cn) b.lead_id=cn.lead_id; });
+      }
+    }
+    CQF.byAx=by; CQF.key=key;
+  }catch(e){ CQF.err=String(e&&e.message||e); }
+  CQF.loading=false;
+  if(typeof cqRender==='function') cqRender();
+}
+function cqfInfo(c){
+  var ax=String(c.axiscare_client_id||'').trim(), b=ax?(CQF.byAx[ax]||null):null;
+  var lead=b&&b.lead_id?(DATA.leads||[]).find(function(l){ return String(l.id)===String(b.lead_id); }):null;
+  var carrier=ax&&!(b&&b.person_id)?(DATA.leads||[]).find(function(l){ return String(l.axiscare_client_id||'').trim()===ax; }):null;
+  return {ax:ax,b:b,lead:lead,carrier:carrier};
+}
+/* the chip on the collapsed card */
+function cqfChip(c){
+  var i=cqfInfo(c);
+  if(!i.ax||!i.b||CQF.loading) return '';
+  if(!i.b.person_id) return i.carrier?'<span style="font-size:.65rem;background:#FFF4E3;color:#8A4E0C;border-radius:4px;padding:.1rem .35rem;font-weight:700;white-space:nowrap">Lead not confirmed</span>'
+    :'<span style="font-size:.65rem;background:#FFF4E3;color:#8A4E0C;border-radius:4px;padding:.1rem .35rem;font-weight:700;white-space:nowrap">Who is this?</span>';
+  var st=i.b.ep&&SCX['cq_'+c.id]&&SCX['cq_'+c.id].d, ev=st&&st.c?scxPromise('cq_'+c.id):null;
+  var od=ev&&ev.items.length?ev.items[0]:null;
+  return od?'<span style="font-size:.65rem;background:#FDECEA;color:var(--red);border-radius:4px;padding:.1rem .35rem;font-weight:700;white-space:nowrap">'+(od.kind==='promise_lapsed'?'Promised date passed':'Family update owed')+'</span>':'';
+}
+/* the four dates: shown only from where each is recorded; never invented */
+function cqfDates(c,info,contract){
+  var esc=escapeHtmlComms, l=info.lead, rows=[];
+  rows.push(['Requested', l&&l.urgency&&LPSC_URG[l.urgency]?'Family asked for: '+esc(LPSC_URG[l.urgency])+' <span class="field-note" style="font-size:11px;">(on the inquiry; no date recorded)</span>':'<span class="field-note">not recorded</span>']);
+  rows.push(['Target', contract?(contract.target_date?'<b>'+esc(lpscDate(contract.target_date))+'</b> · '+esc((LPSC_CONF[contract.confidence]||[contract.confidence])[0]):esc((LPSC_CONF[contract.confidence]||[contract.confidence])[0])+', no date yet'):'<span class="field-note">no Start Contract yet</span>']);
+  var auth='<span class="field-note">not recorded</span>';
+  if(l){
+    var steps=(l.soc&&l.soc.steps)||[], hit=steps.find(function(s){ return s.done_at&&/Signed Care Agreement received|Authorization & care plan received/i.test(String(s.label||'')); });
+    if(hit) auth=esc(/Agreement/i.test(hit.label)?'Signed agreement received':'Authorization received')+' '+esc(lpscDate(String(hit.done_at).slice(0,10)))+' <span class="field-note" style="font-size:11px;">(Start of Care step)</span>';
+    else if(l.state_status==='authorized') auth='Authorized <span class="field-note" style="font-size:11px;">(State Submissions; date not recorded)</span>';
+  }
+  rows.push(['Authorized / Approved', auth]);
+  rows.push(['Actual SOC', c.first_shift_done&&c.first_shift_done_at?'Care began: first shift marked completed '+esc(lpscDate(String(c.first_shift_done_at).slice(0,10)))
+    :'<span class="field-note">not yet (set when the first shift is completed on this card)</span>']);
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 12px;margin:.4rem 0 .2rem;">'
+    +rows.map(function(r){ return '<div style="font-size:.76rem;"><div style="color:var(--text-muted);font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">'+r[0]+'</div><div>'+r[1]+'</div></div>'; }).join('')+'</div>';
+}
+function cqfSection(c){
+  var el=document.getElementById('cqf-'+c.id); if(!el) return;
+  var esc=escapeHtmlComms, i=cqfInfo(c), h='<div style="font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.25rem;">The family</div>';
+  if(!i.ax){ el.innerHTML=h+'<div class="field-note" style="font-size:.75rem;">No AxisCare id on this launch yet, so the family\'s Journey can\'t be shown.</div>'; return; }
+  if(CQF.err&&!i.b){ el.innerHTML=h+'<div class="field-note" style="font-size:.75rem;color:var(--red)">Could not load the family: '+esc(CQF.err)+'</div>'; return; }
+  if(!i.b){ el.innerHTML=h+'<div class="field-note" style="font-size:.75rem;">Loading…</div>'; return; }
+  var b=i.b;
+  if(!b.person_id){
+    if(i.carrier){
+      var cn=[i.carrier.client_first_name,i.carrier.client_last_name].filter(Boolean).join(' ')||[i.carrier.first_name,i.carrier.last_name].filter(Boolean).join(' ');
+      el.innerHTML=h+'<div style="font-size:.78rem;background:#FFFBF4;border:1px solid #F3D9B5;border-radius:6px;padding:.4rem .6rem;">The lead <b>'+esc(cn)+'</b> carries this AxisCare id, but nobody has confirmed they are the same person yet. '
+        +'<button class="linklike" style="font-size:.76rem" onclick="event.stopPropagation();openLeadProfile(\''+esc(i.carrier.id)+'\')">Open the lead to check and connect</button></div>';
+      return;
+    }
+    el.innerHTML=h+'<div style="font-size:.78rem;background:#FFFBF4;border:1px solid #F3D9B5;border-radius:6px;padding:.4rem .6rem;"><b>Who is this?</b> AxisCare client #'+esc(i.ax)+' hasn\'t been matched to a person yet'
+      +(b.escalated?' (escalated to Owner / Decision)':'')+'. '
+      +'<button class="linklike" style="font-size:.76rem" onclick="event.stopPropagation();cqfWho(\''+esc(c.id)+'\')">Answer "Who is this?"</button></div>';
+    return;
+  }
+  if(!b.ep){ el.innerHTML=h+'<div style="font-size:.78rem;">'+esc(b.name||'This client')+' is on file, but has no active Journey. Opening one is an Owner / Decision matter.</div>'; return; }
+  var st=SCX['cq_'+c.id], contract=st&&st.d?st.d.c:null;
+  h+='<div style="font-size:.8rem;">'+esc(b.name||c.client_name)+(i.lead?' · from the inquiry <button class="linklike" style="font-size:.76rem" onclick="event.stopPropagation();openLeadProfile(\''+esc(i.lead.id)+'\')">'+esc([i.lead.first_name,i.lead.last_name].filter(Boolean).join(' ')||'open lead')+'</button>':'')+'</div>'
+    +'<div id="cqfd-'+esc(c.id)+'">'+cqfDates(c,i,contract)+'</div>'
+    +'<div style="border:1px solid var(--border);border-radius:8px;padding:.5rem .7rem;margin-top:.35rem;background:#fff;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><b style="font-size:.8rem;color:var(--navy);">Start Contract</b><span style="flex:1"></span><span id="cqsca-'+esc(c.id)+'" style="display:flex;gap:6px;flex-wrap:wrap;"></span></div>'
+    +'<div id="cqsc-'+esc(c.id)+'" style="margin-top:.35rem;"></div></div>';
+  el.innerHTML=h;
+  scxMount('cq_'+c.id,{bodyId:'cqsc-'+c.id,actId:'cqsca-'+c.id,ep:b.ep,lead:i.lead||null,label:b.name||c.client_name,
+    onLoaded:function(d){ var x=document.getElementById('cqfd-'+c.id); if(x) x.innerHTML=cqfDates(c,cqfInfo(c),d&&d.c); var ch=document.getElementById('cqfchip-'+c.id); if(ch) ch.innerHTML=cqfChip(c); }});
+}
+/* called by renderQueue after it redraws; mounts only the open cards */
+function cqfAfterRender(pending,expanded){
+  if(!CQF.loading) cqfLoad(pending);
+  (pending||[]).forEach(function(c){
+    var ch=document.getElementById('cqfchip-'+c.id); if(ch) ch.innerHTML=cqfChip(c);
+    if(expanded&&expanded.has(c.id)) cqfSection(c);
+  });
+}
+/* "Who is this?" for a client with no person yet */
+async function cqfWho(rowId){
+  var row=(window.__cqRows||[]).find(function(c){ return c.id===rowId; }); if(!row) return;
+  var esc=escapeHtmlComms, ax=String(row.axiscare_client_id||'').trim();
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:680px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:17px;">Who is this?</div><div id="cqwBody" style="margin-top:10px;"><div class="field-note">Looking up AxisCare client #'+esc(ax)+'…</div></div></div>';
+  document.body.appendChild(ov);
+  var close=function(){ ov.remove(); };
+  var call=async function(body){
+    var sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+    if(!tok) throw new Error('Sign in first.');
+    var r=await fetch(CONFIG.supabase_url+'/functions/v1/client-admit',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var d=await r.json().catch(function(){ return null; }); if(!d) throw new Error('The admission service answered '+r.status); return d;
+  };
+  var body=ov.querySelector('#cqwBody'), p;
+  try{ p=await call({action:'prepare',axiscare_client_id:ax,client_name:row.client_name}); }catch(e){ p={error:String(e.message||e)}; }
+  if(p.outcome==='no_seat'){ body.innerHTML='<div>Answering this needs a Journey seat. Ask the owner to add you.</div><div style="margin-top:12px;"><button class="secondary" id="cqwX">Close</button></div>'; ov.querySelector('#cqwX').onclick=close; return; }
+  if(p.error||p.outcome!=='ready'){ body.innerHTML='<div>'+esc(p.error||(p.outcome==='already_linked'?'This AxisCare client is already matched to a person. Refresh New Clients.':'There is no open admission for this client.'))+'</div><div style="margin-top:12px;"><button class="secondary" id="cqwX">Close</button></div>'; ov.querySelector('#cqwX').onclick=close; return; }
+  var kase=p.case, sug=kase.suggestions||[], opts=p.lead_options||[];
+  opts.sort(function(a,b){ return (a.match?0:1)-(b.match?0:1)||String(a.label).localeCompare(String(b.label)); });
+  var radio=function(v,label,extra){ return '<label style="display:block;border:1px solid var(--border);border-radius:8px;padding:.5rem .7rem;margin-top:6px;cursor:pointer;"><input type="radio" name="cqw" value="'+v+'" style="width:auto;margin-right:6px;">'+label+(extra||'')+'</label>'; };
+  body.innerHTML='<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;"><div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);">AxisCare client #'+esc(ax)+'</div>'
+      +'<div style="font-size:14px;font-weight:700;color:var(--navy);">'+esc(kase.axiscare_name||row.client_name||'(no name)')+'</div>'
+      +(p.phones&&p.phones.length?'<div class="field-note">'+esc(p.phones.join(' · '))+'</div>':'')
+      +(p.axiscare_error?'<div class="field-note" style="color:#92400E;">'+esc(p.axiscare_error)+'</div>':'')+'</div>'
+    +(kase.needs_owner_decision?'<div style="margin-top:8px;font-size:13px;color:#92400E;">Escalated to Owner / Decision: '+esc(kase.escalation_reason||'')+'</div>':'')
+    +'<div style="font-size:13px;font-weight:700;color:var(--navy);margin-top:12px;">They are…</div>'
+    +(opts.length?radio('lead','From one of our inquiries','<select id="cqwLead" style="display:block;margin-top:6px;font-size:13px;width:100%;">'+opts.map(function(o){ return '<option value="'+esc(o.lead_id)+'">'+esc(o.label)+(o.match?' (same '+(o.match==='name'?'name':'last name')+')':'')+' · '+esc(o.detail||'')+'</option>'; }).join('')+'</select>'):'')
+    +(sug.length?radio('existing','Someone already on file','<select id="cqwPerson" style="display:block;margin-top:6px;font-size:13px;width:100%;">'+sug.map(function(s){ return '<option value="'+esc(s.person_id)+'">'+esc(s.display_name||'(no name)')+' · phone ending '+esc(s.phone_last4||'')+' ('+esc(s.strength)+' match, a suggestion only)</option>'; }).join('')+'</select>'):'')
+    +radio('new','A new person','<input id="cqwName" value="'+esc(kase.axiscare_name||row.client_name||'')+'" style="display:block;margin-top:6px;font-size:13px;" placeholder="Their name">')
+    +radio('dismiss','Not a real new client (a test or duplicate record)')
+    +'<label style="display:block;font-size:12.5px;font-weight:700;color:var(--text-muted);margin:12px 0 3px;" id="cqwReasonLab">Why there was no inquiry, or why it isn\'t a real client</label><input id="cqwReason" style="font-size:13px;" placeholder="e.g. Referred straight to AxisCare by the hospital">'
+    +'<div id="cqwMsg" style="margin-top:8px;font-size:12.5px;font-weight:700;"></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;"><button class="primary" id="cqwGo">Save</button><button class="secondary" id="cqwX">Cancel</button></div>';
+  ov.querySelector('#cqwX').onclick=close;
+  ov.querySelector('#cqwGo').onclick=async function(){
+    var pick=(ov.querySelector('input[name=cqw]:checked')||{}).value, msg=ov.querySelector('#cqwMsg'), reason=ov.querySelector('#cqwReason').value.trim();
+    var say=function(ok,t){ msg.style.color=ok?'var(--green)':'var(--red)'; msg.textContent=t; };
+    if(!pick) return say(false,'Pick one of the answers above.');
+    if(pick==='lead'){
+      var lid=ov.querySelector('#cqwLead').value, l=(DATA.leads||[]).find(function(x){ return String(x.id)===String(lid); });
+      if(!l) return say(false,'That inquiry is not loaded in the hub. Refresh and try again.');
+      if(String(l.axiscare_client_id||'').trim()&&String(l.axiscare_client_id).trim()!==ax) return say(false,'That inquiry already carries a different AxisCare id.');
+      close();
+      var r=await jcSideBySide(l, ax, 'profile'); if(r.choice!=='connect') return;
+      l.axiscare_client_id=ax; if(l.status!=='Lost'){ l.status='Converted'; l.converted_at=l.converted_at||new Date().toISOString(); }
+      await persist('leads', l);
+      var res=await jcConnect(l, ax, 'confirmed_match', r.name);
+      if(typeof ccToast==='function') ccToast((res.ok?'✓ ':'')+res.text); else alert(res.text);
+      await cqfLoad(window.__cqRows,true); return;
+    }
+    if(!reason) return say(false,pick==='dismiss'?'Say why this is not a real new client.':'Say why this client has no inquiry. If they came from one, pick "From one of our inquiries".');
+    var bodyReq=pick==='dismiss'?{action:'dismiss',case_id:kase.case_id,reason:reason}
+      :{action:'admit',case_id:kase.case_id,decision:pick==='existing'?'existing':'new',person_id:pick==='existing'?ov.querySelector('#cqwPerson').value:null,
+        display_name:pick==='new'?ov.querySelector('#cqwName').value.trim():null,no_lead_reason:reason};
+    say(true,'Saving…');
+    try{
+      var d=await call(bodyReq), o=d.outcome;
+      var M={admitted:'Admitted. Their Journey is on the card now.',dismissed:'Marked as not a real new client.',name_required:'Enter their name.',
+        invalid_person:'Pick who they are.',seat_required:'This one was escalated; it needs the Owner / Decision seat.',escalated:'Escalated to Owner / Decision: '+(d.reason||''),
+        already_closed:'Someone already answered this.',no_lead_reason_required:'Say why this client has no inquiry.',no_seat:'This needs a Journey seat.'};
+      if(o==='journey_refused') return say(false,'Not saved: '+((d.detail&&d.detail.outcome)==='boundary_unresolved'?'an earlier Journey for this person has no recorded end. That is an Owner / Decision matter.':((d.detail&&d.detail.outcome)||'refused'))+' Nothing was changed.');
+      if(o==='admitted'||o==='dismissed'){ close(); if(typeof ccToast==='function') ccToast('✓ '+M[o]); await cqfLoad(window.__cqRows,true); return; }
+      say(false,M[o]||d.error||('Not saved: '+o));
+    }catch(e){ say(false,'Not saved: '+String(e.message||e)); }
+  };
+}
 /* the Convert area's status line on the lead profile */
 async function jcRenderStatus(){
   const el=document.getElementById('lp_converted'), l=lpLead; if(!el||!l) return;
@@ -13858,27 +14036,28 @@ function socIsStuck(soc){
 }
 
 /* ---- SOC card on the lead profile ---- */
-/* ===================== START CONTRACT on the lead profile =====================
-   Step 1 of the Lead to Client Plan (2026-09-26). The Start Contract belongs to
-   this inquiry's Journey (start_contract_version / start_contract_update, keyed
-   by episode_id); this card is a surface for it, never a copy.
-   READS  episode_source (which Journey this lead started), journey_episode.state,
-          start_contract_current, start_contract_version, start_contract_update,
-          journey_seat_member (may this person record?), and from the lead itself
-          only by reference: urgency, state_status, funding_source (a temporary
-          bridge), quoted_price_amount, promised_callback_at.
+/* ===================== START CONTRACT surface (lead profile + New Clients) =====================
+   Step 1 built it on the lead profile; Step 3 (2026-09-26) made it one shared
+   surface so the New Clients card shows and edits the SAME Journey-owned
+   Start Contract. There is one copy of the contract (start_contract_version /
+   start_contract_update, keyed by episode_id) and one copy of this code.
+   READS  episode_source (a lead's Journey), journey_episode.state,
+          start_contract_current / _version / _update, journey_seat_member, and
+          from the lead only by reference: urgency, state_status, funding_source
+          (a temporary bridge), quoted_price_amount, promised_callback_at.
    WRITES nothing directly. Saving posts to the start-contract function, which
           records the signed-in person and seat through the audited Doors.
-   Talking points come from promise-engine.js, which decides and never writes.
-   Nothing here contacts the family or changes a promise without a person. */
-var LPSC={leadId:null,loading:false,d:null,err:'',form:null,msg:null,draft:null,udraft:null,open:{}};
+   Each place that shows it is a "mount": scxMount(key, {bodyId, actId, ep | lead, label}).
+   Talking points come from promise-engine.js (decides, never writes). Nothing
+   here contacts the family or changes a promise without a person. */
+var SCX={};
 var LPSC_CONF={early:['Early','#EEF2F7','var(--navy)'],likely:['Likely','#EEF2F7','var(--navy)'],expected:['Expected','#E6F6F5','var(--teal,#0F7A73)'],committed:['Committed','#E7F1EF','var(--green)']};
 var LPSC_VIA={call:'call',in_person:'in person',text:'text',email:'email',other:'other'};
 var LPSC_URG={today:'Needs care today','48hours':'Within 48 hours','7days':'Within 7 days',researching:'Just researching'};
 var LPSC_PAYER={private:'Private pay',ltc:'LTC insurance',va:'VA',cds:'CDS',medicaid:'Medicaid (IHS)',pace:'PACE'};
 var LPSC_MSG={recorded:'Start Contract saved.',changed:'Saved. The earlier version is kept in the history.',unchanged:'Nothing changed, so nothing new was saved.',
   next_update_set:'Next update owed is set.',update_logged:'Family update logged.',no_seat:'Your account does not hold a Journey seat yet. Ask the owner to add you.',
-  episode_not_active:'This inquiry is closed, so its Start Contract can no longer change.',target_date_required:'Pick a target date. Only Early can go without one.',
+  episode_not_active:'This Journey is closed, so its Start Contract can no longer change.',target_date_required:'Pick a target date. Only Early can go without one.',
   owner_required:'Say who owns this commitment.',promise_incomplete:'A promise needs the exact words, who they were said to, how, and when.',
   committed_needs_wording:'Committed means we told the family. Record the words we used.',promised_in_future:'The day it was said cannot be in the future.',
   next_update_in_past:'The next update owed cannot be in the past.',next_update_required:'Set when we owe the family their next update, or say why nothing more is owed.',
@@ -13888,15 +14067,25 @@ function lpscDate(d){ if(!d) return ''; var p=String(d).slice(0,10).split('-'); 
   return isNaN(x)?'':x.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }
 function lpscStamp(t){ if(!t) return ''; var x=new Date(t); return isNaN(x)?'':x.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }
 function lpscName(e){ return String(e||'').split('@')[0]; }
-async function lpScLoad(lead,force){
-  if(!lead) return;
-  if(!force&&LPSC.leadId===lead.id&&(LPSC.d||LPSC.loading)) return;
-  if(LPSC.leadId!==lead.id){ LPSC.d=null; LPSC.err=''; LPSC.form=null; LPSC.msg=null; LPSC.draft=null; LPSC.udraft=null; LPSC.open={}; }
-  LPSC.leadId=lead.id; LPSC.loading=true; LPSC.err='';
+function scxSt(key){ return SCX[key]||(SCX[key]={ctx:null,d:null,loading:false,err:'',form:null,msg:null,draft:null,udraft:null,open:{},gen:0}); }
+function scxId(key,n){ return 'scx_'+String(key).replace(/[^a-z0-9]/gi,'_')+'_'+n; }
+function scxQ(key){ return "'"+String(key).replace(/[^a-z0-9_-]/gi,'')+"'"; }
+/* Place (or re-place) the surface. A different Journey or lead resets it. */
+function scxMount(key,ctx){
+  var st=scxSt(key), o=st.ctx;
+  var same=o&&o.ep===ctx.ep&&((o.lead&&o.lead.id)||null)===((ctx.lead&&ctx.lead.id)||null);
+  if(!same){ st.d=null; st.err=''; st.form=null; st.msg=null; st.draft=null; st.udraft=null; st.open={}; st.gen++; }
+  st.ctx=ctx; scxRender(key);
+}
+async function scxLoad(key,force){
+  var st=scxSt(key), ctx=st.ctx; if(!ctx) return;
+  if(!force&&(st.d||st.loading)) return;
+  var gen=st.gen; st.loading=true; st.err='';
   var q=function(p){ return p.then(function(r){ if(r.error) throw r.error; return r.data||[]; }); };
   try{
-    var src=await q(sb.from('episode_source').select('episode_id').eq('system','lead').eq('role','origin').eq('source_ref',String(lead.id)));
-    var ep=src[0]&&src[0].episode_id, d={ep:ep||null};
+    var ep=ctx.ep||null;
+    if(!ep&&ctx.lead){ var src=await q(sb.from('episode_source').select('episode_id').eq('system','lead').eq('role','origin').eq('source_ref',String(ctx.lead.id))); ep=(src[0]&&src[0].episode_id)||null; }
+    var d={ep:ep};
     if(ep){
       var r=await Promise.all([
         q(sb.from('journey_episode').select('state').eq('episode_id',ep)),
@@ -13909,37 +14098,39 @@ async function lpScLoad(lead,force){
     }
     var sess=null; try{ sess=(await sb.auth.getSession()).data.session; }catch(e){}
     d.me=String((sess&&sess.user&&sess.user.email)||ME.email||'').toLowerCase();
-    if(LPSC.leadId===lead.id) LPSC.d=d;
-  }catch(e){ if(LPSC.leadId===lead.id) LPSC.err=String(e&&e.message||e); }
-  LPSC.loading=false;
-  if(lpLead&&lpLead.id===lead.id) lpScRender();
+    if(st.gen===gen) st.d=d;
+  }catch(e){ if(st.gen===gen) st.err=String(e&&e.message||e); }
+  st.loading=false;
+  if(st.gen===gen) scxRender(key);
+  if(st.ctx&&typeof st.ctx.onLoaded==='function') try{ st.ctx.onLoaded(st.d); }catch(e){}
 }
-function lpScCanEdit(){ var d=LPSC.d; return !!(d&&d.me&&(d.seats||[]).some(function(x){ return x.email===d.me; })&&['provisional','open','converted','established'].indexOf(d.state)>=0); }
-function lpScPromise(){
-  var d=LPSC.d, l=lpLead; if(!d||!d.c||typeof CCPromise==='undefined') return null;
-  var label=[l.client_first_name,l.client_last_name].filter(Boolean).join(' ')||[l.first_name,l.last_name].filter(Boolean).join(' ')||'this family';
-  var lab={}, st={}; lab[d.ep]=label; st[d.ep]=d.state;
-  return CCPromise.evaluate({contracts:[d.c],labels:lab,states:st,today:CCPromise.todayChicago()});
+function scxCanEdit(key){ var d=scxSt(key).d; return !!(d&&d.me&&(d.seats||[]).some(function(x){ return x.email===d.me; })&&['provisional','open','converted','established'].indexOf(d.state)>=0); }
+function scxPromise(key){
+  var st=scxSt(key), d=st.d; if(!d||!d.c||typeof CCPromise==='undefined') return null;
+  var lab={}, sta={}; lab[d.ep]=st.ctx.label||'this family'; sta[d.ep]=d.state;
+  return CCPromise.evaluate({contracts:[d.c],labels:lab,states:sta,today:CCPromise.todayChicago()});
 }
-function lpScRender(){
-  var body=document.getElementById('lp_sc_body'), act=document.getElementById('lp_sc_actions'); if(!body||!lpLead) return;
-  var esc=escapeHtmlComms, l=lpLead;
-  if(LPSC.leadId!==l.id||(!LPSC.d&&!LPSC.loading&&!LPSC.err)){ act.innerHTML=''; body.innerHTML='<div class="field-note">Loading…</div>'; lpScLoad(l); return; }
-  if(LPSC.err&&!LPSC.d){ act.innerHTML=''; body.innerHTML='<div class="field-note" style="color:var(--red)">Could not load the Start Contract: '+esc(LPSC.err)+'</div>'; return; }
-  if(!LPSC.d){ body.innerHTML='<div class="field-note">Loading…</div>'; return; }
-  var d=LPSC.d, c=d.c, can=lpScCanEdit(), h='';
-  if(!d.ep){ act.innerHTML=''; body.innerHTML='<div class="field-note">This inquiry\'s Journey is still being set up. It appears within 15 minutes of the lead being added.</div>'; return; }
-  act.innerHTML=can&&!LPSC.form?('<button class="linklike" onclick="lpScForm(\'contract\')">'+(c?'✎ Change':'+ Record the Start Contract')+'</button>'
-      +(c?'<button class="linklike" onclick="lpScForm(\'update\')">+ Log a family update</button>':'')):'';
-  if(LPSC.form){ body.innerHTML=(LPSC.form==='update'?lpScUpdateForm(c):lpScContractForm(c)); return; }
-  var urg=l.urgency&&LPSC_URG[l.urgency]?LPSC_URG[l.urgency]:'';
+function scxRender(key){
+  var st=scxSt(key), ctx=st.ctx; if(!ctx) return;
+  var body=document.getElementById(ctx.bodyId), act=ctx.actId?document.getElementById(ctx.actId):null; if(!body) return;
+  var esc=escapeHtmlComms, l=ctx.lead||null, K=scxQ(key), h='';
+  var setAct=function(x){ if(act) act.innerHTML=x; };
+  if(!st.d&&!st.loading&&!st.err){ setAct(''); body.innerHTML='<div class="field-note">Loading…</div>'; scxLoad(key); return; }
+  if(st.err&&!st.d){ setAct(''); body.innerHTML='<div class="field-note" style="color:var(--red)">Could not load the Start Contract: '+esc(st.err)+'</div>'; return; }
+  if(!st.d){ body.innerHTML='<div class="field-note">Loading…</div>'; return; }
+  var d=st.d, c=d.c, can=scxCanEdit(key);
+  if(!d.ep){ setAct(''); body.innerHTML='<div class="field-note">'+esc(ctx.noJourneyText||'This inquiry\'s Journey is still being set up. It appears within 15 minutes of the lead being added.')+'</div>'; return; }
+  setAct(can&&!st.form?('<button class="linklike" onclick="scxForm('+K+',\'contract\')">'+(c?'✎ Change':'+ Record the Start Contract')+'</button>'
+      +(c?'<button class="linklike" onclick="scxForm('+K+',\'update\')">+ Log a family update</button>':'')):'');
+  if(st.form){ body.innerHTML=(st.form==='update'?scxUpdateForm(key,c):scxContractForm(key,c)); return; }
+  var urg=l&&l.urgency&&LPSC_URG[l.urgency]?LPSC_URG[l.urgency]:'';
   if(!c){
     h+='<div style="font-size:13.5px;">Nothing has been recorded about starting care yet.</div>';
     if(urg) h+='<div class="field-note" style="margin-top:4px;">On the inquiry, the family asked for: <b>'+esc(urg)+'</b></div>';
     h+='<div class="field-note" style="margin-top:6px;">When you tell the family anything about when care can start, record it here: how confident we are, the exact words, and when we owe them the next update.'+(can?'':' Recording it needs a Journey seat.')+'</div>';
-    body.innerHTML=h+lpScMsg(); return;
+    body.innerHTML=h+scxMsg(key); return;
   }
-  var cf=LPSC_CONF[c.confidence]||[c.confidence,'#fff','var(--navy)'], ev=lpScPromise();
+  var cf=LPSC_CONF[c.confidence]||[c.confidence,'#fff','var(--navy)'], ev=scxPromise(key);
   var p=ev&&ev.promises.find(function(x){ return x.kind==='update'; }), lapsed=ev&&ev.promises.find(function(x){ return x.kind==='lapsed'; });
   var item=ev&&ev.items[0];
   var row=function(k,v){ return '<div style="display:grid;grid-template-columns:minmax(118px,150px) 1fr;gap:10px;padding:3px 0;align-items:baseline;"><span style="color:var(--text-muted);font-size:12.5px;">'+k+'</span><span style="font-size:13.5px;">'+v+'</span></div>'; };
@@ -13952,31 +14143,30 @@ function lpScRender(){
   h+=row('Family was told',c.promised_wording?'<span style="color:var(--navy);">"'+esc(c.promised_wording)+'"</span><div class="field-note" style="font-size:11.5px;">to '+esc(c.promised_to)+' by '+esc(LPSC_VIA[c.promised_via]||c.promised_via)+' on '+esc(lpscDate(c.promised_on))+' · recorded by '+esc(lpscName(c.recorded_by))+'</div>':'<span class="field-note">Nothing promised yet</span>');
   h+=row('Next update owed',owed);
   if(c.last_update_at) h+=row('Last update given',esc(lpscStamp(c.last_update_at))+' to '+esc(c.last_update_to)+' · <span style="font-style:italic;color:var(--text-muted);">"'+esc(c.last_update_summary)+'"</span>');
-  var callOpen=LPSC.open.call!==undefined?LPSC.open.call:!!item;
-  h+=lpScFold('call','Before you call',callOpen,item?'<div style="white-space:pre-wrap;font-size:13px;">'+esc(item.draft)+'</div><div class="field-note" style="font-size:11px;margin-top:4px;">Talking points only. Nothing is sent from here.</div>'
-      :'<div style="font-size:13px;white-space:pre-wrap;">'+esc(lpScTalking(c))+'</div>');
-  h+=lpScFold('told','What the family has been told',!!LPSC.open.told,lpScToldHtml());
-  h+=lpScFold('detail','Changes and details',!!LPSC.open.detail,lpScDetailHtml());
-  body.innerHTML=h+lpScMsg();
+  var callOpen=st.open.call!==undefined?st.open.call:!!item;
+  h+=scxFold(key,'call','Before you call',callOpen,item?'<div style="white-space:pre-wrap;font-size:13px;">'+esc(item.draft)+'</div><div class="field-note" style="font-size:11px;margin-top:4px;">Talking points only. Nothing is sent from here.</div>'
+      :'<div style="font-size:13px;white-space:pre-wrap;">'+esc(scxTalking(c))+'</div>');
+  h+=scxFold(key,'told','What the family has been told',!!st.open.told,scxToldHtml(key));
+  h+=scxFold(key,'detail','Changes and details',!!st.open.detail,scxDetailHtml(key));
+  body.innerHTML=h+scxMsg(key);
 }
-function lpScTalking(c){
+function scxTalking(c){
   var lines=[];
   if(c.promised_wording) lines.push('We told '+(c.promised_to||'them')+' on '+lpscDate(c.promised_on)+': "'+c.promised_wording+'"');
   if(c.last_update_at) lines.push('Last update, '+lpscStamp(c.last_update_at)+': "'+c.last_update_summary+'"');
   lines.push('Nothing is due yet. Before any call about starting care, check what has changed since then.');
   return lines.join('\n');
 }
-function lpScFold(k,title,open,inner){
-  return '<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:6px;"><button class="linklike" style="font-size:12.5px;font-weight:700;color:var(--navy);" onclick="lpScToggle(\''+k+'\','+(!open)+')">'+(open?'▾ ':'▸ ')+title+'</button>'
+function scxFold(key,k,title,open,inner){
+  return '<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:6px;"><button class="linklike" style="font-size:12.5px;font-weight:700;color:var(--navy);" onclick="scxToggle('+scxQ(key)+',\''+k+'\','+(!open)+')">'+(open?'▾ ':'▸ ')+title+'</button>'
     +(open?'<div style="margin-top:6px;">'+inner+'</div>':'')+'</div>';
 }
-function lpScToggle(k,v){ LPSC.open[k]=v; lpScRender(); }
-function lpScMsg(){ return LPSC.msg?'<div style="margin-top:8px;font-size:12.5px;font-weight:700;color:'+(LPSC.msg.ok?'var(--green)':'var(--red)')+';">'+escapeHtmlComms(LPSC.msg.text)+'</div>':''; }
-/* Everything said to the family, oldest to newest: each promise as first
+function scxToggle(key,k,v){ scxSt(key).open[k]=v; scxRender(key); }
+function scxMsg(key){ var m=scxSt(key).msg; return m?'<div style="margin-top:8px;font-size:12.5px;font-weight:700;color:'+(m.ok?'var(--green)':'var(--red)')+';">'+escapeHtmlComms(m.text)+'</div>':''; }
+/* Everything said to the family, newest first: each promise as first
    recorded, and each update given. */
-function lpScToldHtml(){
-  var esc=escapeHtmlComms, d=LPSC.d, ev=[];
-  var seen={};
+function scxToldHtml(key){
+  var esc=escapeHtmlComms, d=scxSt(key).d, ev=[], seen={};
   (d.versions||[]).slice().sort(function(a,b){ return String(a.recorded_at).localeCompare(String(b.recorded_at)); }).forEach(function(v){
     if(!v.promised_wording) return; var k=v.promised_wording+'|'+v.promised_to+'|'+v.promised_on; if(seen[k]) return; seen[k]=1;
     ev.push({at:String(v.promised_on||'')+'T12:00:00',html:'<b>Promise</b> to '+esc(v.promised_to)+' by '+esc(LPSC_VIA[v.promised_via]||v.promised_via)+', '+esc(lpscDate(v.promised_on))+': <span style="color:var(--navy);">"'+esc(v.promised_wording)+'"</span> <span class="field-note" style="font-size:11px;">recorded by '+esc(lpscName(v.recorded_by))+'</span>'}); });
@@ -13986,9 +14176,9 @@ function lpScToldHtml(){
   return ev.length?ev.map(function(x){ return '<div style="font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--border);">'+x.html+'</div>'; }).join(''):'<div class="field-note">Nothing recorded yet.</div>';
 }
 /* What changed and why: each version against the one before it, with who,
-   which seat and when. Plus facts shown from elsewhere, labeled as such. */
-function lpScDetailHtml(){
-  var esc=escapeHtmlComms, d=LPSC.d, c=d.c, l=lpLead, h='';
+   which seat and when. Plus facts shown from the lead, labeled as such. */
+function scxDetailHtml(key){
+  var esc=escapeHtmlComms, st=scxSt(key), d=st.d, c=d.c, l=st.ctx.lead||null, h='';
   var vs=(d.versions||[]).slice().sort(function(a,b){ return String(a.recorded_at).localeCompare(String(b.recorded_at)); });
   var cl=function(v){ return (LPSC_CONF[v]||[v])[0]; };
   var rows=vs.map(function(v,i){
@@ -14008,52 +14198,56 @@ function lpScDetailHtml(){
   var sched=(d.updates||[]).filter(function(u){ return u.kind==='next_scheduled'; }).length;
   h+='<div class="field-note" style="font-size:11.5px;margin-top:4px;">Next update rescheduled without a family update: '+sched+' time'+(sched===1?'':'s')+'. Owner: '+esc(c.commitment_owner)+'.</div>';
   var ref=[];
-  if(l.urgency&&LPSC_URG[l.urgency]) ref.push('Family asked for (on the inquiry): <b>'+esc(LPSC_URG[l.urgency])+'</b>. No requested start date is recorded anywhere yet.');
-  if(l.funding_source==='medicaid'||l.state_status) ref.push('Authorized / Approved: '+(l.state_status==='authorized'?'<b>authorized</b> (State Submissions status; the date is not recorded)':'not yet'+(l.state_status?' ('+esc(l.state_status)+')':'')));
-  if(l.funding_source) ref.push('Payer: '+esc(LPSC_PAYER[l.funding_source]||l.funding_source)+' <span class="field-note" style="font-size:11px;">(read from the lead for now, a temporary bridge)</span>');
-  if(l.quoted_price_amount) ref.push('Quoted: '+esc(l.quoted_price_amount));
-  if(l.promised_callback_at) ref.push('Promised call-back: '+esc(lpscStamp(l.promised_callback_at))+' <span class="field-note" style="font-size:11px;">(Leads follows this up)</span>');
+  if(l){
+    if(l.urgency&&LPSC_URG[l.urgency]) ref.push('Family asked for (on the inquiry): <b>'+esc(LPSC_URG[l.urgency])+'</b>. No requested start date is recorded anywhere yet.');
+    if(l.funding_source==='medicaid'||l.state_status) ref.push('Authorized / Approved: '+(l.state_status==='authorized'?'<b>authorized</b> (State Submissions status; the date is not recorded)':'not yet'+(l.state_status?' ('+esc(l.state_status)+')':'')));
+    if(l.funding_source) ref.push('Payer: '+esc(LPSC_PAYER[l.funding_source]||l.funding_source)+' <span class="field-note" style="font-size:11px;">(read from the lead for now, a temporary bridge)</span>');
+    if(l.quoted_price_amount) ref.push('Quoted: '+esc(l.quoted_price_amount));
+    if(l.promised_callback_at) ref.push('Promised call-back: '+esc(lpscStamp(l.promised_callback_at))+' <span class="field-note" style="font-size:11px;">(Leads follows this up)</span>');
+  }
   if(ref.length) h+='<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin:8px 0 2px;">From the lead, shown not copied</div>'+ref.map(function(x){ return '<div style="font-size:12.5px;">'+x+'</div>'; }).join('');
-  h+='<div class="field-note" style="font-size:11px;margin-top:8px;">This Start Contract belongs to the inquiry\'s Journey ('+esc(String(d.ep).slice(0,8))+'), not the lead record. Every save is kept; nothing is overwritten.</div>';
+  h+='<div class="field-note" style="font-size:11px;margin-top:8px;">This Start Contract belongs to the Journey ('+esc(String(d.ep).slice(0,8))+'), not to any one screen. Every save is kept; nothing is overwritten.</div>';
   return h;
 }
-function lpScSel(id,opts,val){ return '<select id="'+id+'" style="font-size:13px;width:auto;">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select>'; }
-function lpScIn(id,type,val,ph){ return '<input id="'+id+'" type="'+type+'" value="'+escapeHtmlComms(val||'')+'"'+(ph?' placeholder="'+escapeHtmlComms(ph)+'"':'')+' style="font-size:13px;">'; }
-function lpScLab(t,n){ return '<label style="font-size:12.5px;font-weight:700;color:var(--text-muted);display:block;margin:10px 0 3px;">'+t+(n?' <span style="font-weight:400;">'+n+'</span>':'')+'</label>'; }
-function lpScContractForm(c0){
-  var c=Object.assign({},c0||{},LPSC.draft||{}), esc=escapeHtmlComms, today=CCPromise.todayChicago();
+function scxSel(id,opts,val){ return '<select id="'+id+'" style="font-size:13px;width:auto;">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select>'; }
+function scxIn(id,type,val,ph){ return '<input id="'+id+'" type="'+type+'" value="'+escapeHtmlComms(val||'')+'"'+(ph?' placeholder="'+escapeHtmlComms(ph)+'"':'')+' style="font-size:13px;">'; }
+function scxLab(t,n){ return '<label style="font-size:12.5px;font-weight:700;color:var(--text-muted);display:block;margin:10px 0 3px;">'+t+(n?' <span style="font-weight:400;">'+n+'</span>':'')+'</label>'; }
+function scxContractForm(key,c0){
+  var st=scxSt(key), I=function(n){ return scxId(key,n); }, K=scxQ(key);
+  var c=Object.assign({},c0||{},st.draft||{}), esc=escapeHtmlComms, today=CCPromise.todayChicago();
   var VIA=[['','How?'],['call','Call'],['in_person','In person'],['text','Text'],['email','Email'],['other','Other']];
   return '<div style="font-size:13px;">'
-    +lpScLab('How confident are we?')+lpScSel('lpsc_conf',[['early','Early (no date yet)'],['likely','Likely'],['expected','Expected'],['committed','Committed (we told the family a date)']],c.confidence||'early')
-    +lpScLab('Target start date','the date we are working toward')+lpScIn('lpsc_target','date',c.target_date)
-    +lpScLab('What exactly did we tell the family?','their words matter; leave blank if nothing has been said yet')
-    +'<textarea id="lpsc_words" rows="2" style="font-size:13px;" placeholder="e.g. Expect to begin October 5, contingent on authorization and staffing.">'+esc(c.promised_wording||'')+'</textarea>'
-    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:6px;">'+lpScIn('lpsc_to','text',c.promised_to,'To whom, e.g. Cathy (daughter)')+lpScSel('lpsc_via',VIA,c.promised_via||'')+lpScIn('lpsc_on','date',c.promised_on)+'</div>'
-    +lpScLab('Who owns this commitment?')+lpScIn('lpsc_owner','email',c.commitment_owner||(LPSC.d&&LPSC.d.me))
-    +(function(){ var cur=(c0&&c0.next_update_owed_on)||'', past=cur&&cur<today, v=(LPSC.draft&&'next_update_owed_on' in LPSC.draft)?LPSC.draft.next_update_owed_on:(past?'':cur);
-        return lpScLab('Next update owed to the family',past?'it was due '+esc(lpscDate(cur))+' (overdue): set a new date, or leave blank to keep it':(c0?'leave as is to keep it':'from '+esc(lpscDate(today))+' on'))+lpScIn('lpsc_next','date',v); })()
-    +(c0&&c0.version_id?lpScLab('What changed and why?',c0.confidence==='committed'?'required: this changes a commitment already made to the family':'optional')
-      +'<textarea id="lpsc_reason" rows="2" style="font-size:13px;">'+esc((LPSC.draft&&LPSC.draft.change_reason)||'')+'</textarea>':'')
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px;"><button class="primary" onclick="lpScSave()">Save</button><button class="secondary" onclick="lpScForm(null)">Cancel</button>'
-    +'<span class="field-note" style="font-size:11.5px;">Saved as a new version; the earlier one stays in the history.</span></div>'+lpScMsg()+'</div>';
+    +scxLab('How confident are we?')+scxSel(I('conf'),[['early','Early (no date yet)'],['likely','Likely'],['expected','Expected'],['committed','Committed (we told the family a date)']],c.confidence||'early')
+    +scxLab('Target start date','the date we are working toward')+scxIn(I('target'),'date',c.target_date)
+    +scxLab('What exactly did we tell the family?','their words matter; leave blank if nothing has been said yet')
+    +'<textarea id="'+I('words')+'" rows="2" style="font-size:13px;" placeholder="e.g. Expect to begin October 5, contingent on authorization and staffing.">'+esc(c.promised_wording||'')+'</textarea>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:6px;">'+scxIn(I('to'),'text',c.promised_to,'To whom, e.g. Cathy (daughter)')+scxSel(I('via'),VIA,c.promised_via||'')+scxIn(I('on'),'date',c.promised_on)+'</div>'
+    +scxLab('Who owns this commitment?')+scxIn(I('owner'),'email',c.commitment_owner||(st.d&&st.d.me))
+    +(function(){ var cur=(c0&&c0.next_update_owed_on)||'', past=cur&&cur<today, v=(st.draft&&'next_update_owed_on' in st.draft)?st.draft.next_update_owed_on:(past?'':cur);
+        return scxLab('Next update owed to the family',past?'it was due '+esc(lpscDate(cur))+' (overdue): set a new date, or leave blank to keep it':(c0?'leave as is to keep it':'from '+esc(lpscDate(today))+' on'))+scxIn(I('next'),'date',v); })()
+    +(c0&&c0.version_id?scxLab('What changed and why?',c0.confidence==='committed'?'required: this changes a commitment already made to the family':'optional')
+      +'<textarea id="'+I('reason')+'" rows="2" style="font-size:13px;">'+esc((st.draft&&st.draft.change_reason)||'')+'</textarea>':'')
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px;"><button class="primary" onclick="scxSave('+K+')">Save</button><button class="secondary" onclick="scxForm('+K+',null)">Cancel</button>'
+    +'<span class="field-note" style="font-size:11.5px;">Saved as a new version; the earlier one stays in the history.</span></div>'+scxMsg(key)+'</div>';
 }
-function lpScUpdateForm(c){
-  var u=LPSC.udraft||{}, esc=escapeHtmlComms, VIA=[['call','Call'],['in_person','In person'],['text','Text'],['email','Email'],['other','Other']];
+function scxUpdateForm(key,c){
+  var st=scxSt(key), I=function(n){ return scxId(key,n); }, K=scxQ(key);
+  var u=st.udraft||{}, esc=escapeHtmlComms, VIA=[['call','Call'],['in_person','In person'],['text','Text'],['email','Email'],['other','Other']];
   var nowLocal=(function(){ var x=u.given_at?new Date(u.given_at):new Date(); x.setMinutes(x.getMinutes()-x.getTimezoneOffset()); return x.toISOString().slice(0,16); })();
   var none=u.none_owed_reason!==undefined&&u.none_owed_reason!==null;
   return '<div style="font-size:13px;">'
-    +lpScLab('When did we tell them?')+lpScIn('lpsu_at','datetime-local',nowLocal)
-    +lpScLab('To whom, and how?')+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;">'+lpScIn('lpsu_to','text',u.given_to||c.last_update_to||c.promised_to||'','e.g. Cathy (daughter)')+lpScSel('lpsu_via',VIA,u.given_via||'call')+'</div>'
-    +lpScLab('What did we tell them?')+'<textarea id="lpsu_sum" rows="2" style="font-size:13px;">'+esc(u.summary||'')+'</textarea>'
-    +lpScLab('Next update owed')+lpScIn('lpsu_next','date',u.next_update_owed_on||'')
-    +'<label style="display:flex;gap:6px;align-items:center;font-size:12.5px;margin-top:6px;"><input type="checkbox" id="lpsu_none" style="width:auto;"'+(none?' checked':'')+' onchange="document.getElementById(\'lpsu_noner\').style.display=this.checked?\'block\':\'none\'"> Nothing more is owed</label>'
-    +'<input id="lpsu_noner" value="'+esc(u.none_owed_reason||'')+'" placeholder="Why, e.g. Care has started" style="display:'+(none?'block':'none')+';margin-top:4px;font-size:13px;">'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"><button class="primary" onclick="lpScSaveUpdate()">Log update</button><button class="secondary" onclick="lpScForm(null)">Cancel</button></div>'+lpScMsg()+'</div>';
+    +scxLab('When did we tell them?')+scxIn(I('u_at'),'datetime-local',nowLocal)
+    +scxLab('To whom, and how?')+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;">'+scxIn(I('u_to'),'text',u.given_to||c.last_update_to||c.promised_to||'','e.g. Cathy (daughter)')+scxSel(I('u_via'),VIA,u.given_via||'call')+'</div>'
+    +scxLab('What did we tell them?')+'<textarea id="'+I('u_sum')+'" rows="2" style="font-size:13px;">'+esc(u.summary||'')+'</textarea>'
+    +scxLab('Next update owed')+scxIn(I('u_next'),'date',u.next_update_owed_on||'')
+    +'<label style="display:flex;gap:6px;align-items:center;font-size:12.5px;margin-top:6px;"><input type="checkbox" id="'+I('u_none')+'" style="width:auto;"'+(none?' checked':'')+' onchange="document.getElementById(\''+I('u_noner')+'\').style.display=this.checked?\'block\':\'none\'"> Nothing more is owed</label>'
+    +'<input id="'+I('u_noner')+'" value="'+esc(u.none_owed_reason||'')+'" placeholder="Why, e.g. Care has started" style="display:'+(none?'block':'none')+';margin-top:4px;font-size:13px;">'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"><button class="primary" onclick="scxSaveUpdate('+K+')">Log update</button><button class="secondary" onclick="scxForm('+K+',null)">Cancel</button></div>'+scxMsg(key)+'</div>';
 }
-function lpScForm(kind){ LPSC.form=kind; LPSC.msg=null; LPSC.draft=null; LPSC.udraft=null; lpScRender(); }
-function lpScVal(id){ var el=document.getElementById(id); return el?String(el.value||'').trim():''; }
-async function lpScPost(body){
-  LPSC.msg={ok:true,text:'Saving…'}; lpScRender();
+function scxForm(key,kind){ var st=scxSt(key); st.form=kind; st.msg=null; st.draft=null; st.udraft=null; scxRender(key); }
+function scxVal(key,n){ var el=document.getElementById(scxId(key,n)); return el?String(el.value||'').trim():''; }
+async function scxPost(key,body){
+  var st=scxSt(key); st.msg={ok:true,text:'Saving…'}; scxRender(key);
   try{
     var sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
     if(!tok) throw new Error('Sign in first.');
@@ -14062,24 +14256,29 @@ async function lpScPost(body){
     var d=await r.json().catch(function(){ return null; }), o=d&&d.outcome;
     if(!o) throw new Error((d&&d.error)||('The service answered '+r.status));
     if(['recorded','changed','unchanged','next_update_set','update_logged'].indexOf(o)>=0){
-      LPSC.form=null; LPSC.draft=null; LPSC.udraft=null; LPSC.msg={ok:true,text:LPSC_MSG[o]||o};
-      await lpScLoad(lpLead,true); return;
+      st.form=null; st.draft=null; st.udraft=null; st.msg={ok:true,text:LPSC_MSG[o]||o};
+      await scxLoad(key,true); return;
     }
-    LPSC.msg={ok:false,text:LPSC_MSG[o]||('Not saved: '+o)};
-  }catch(e){ LPSC.msg={ok:false,text:'Not saved: '+String(e.message||e)}; }
-  lpScRender();
+    st.msg={ok:false,text:LPSC_MSG[o]||('Not saved: '+o)};
+  }catch(e){ st.msg={ok:false,text:'Not saved: '+String(e.message||e)}; }
+  scxRender(key);
 }
-function lpScSave(){
-  LPSC.draft={confidence:lpScVal('lpsc_conf'),target_date:lpScVal('lpsc_target')||null,promised_wording:lpScVal('lpsc_words'),promised_to:lpScVal('lpsc_to'),
-    promised_via:lpScVal('lpsc_via')||null,promised_on:lpScVal('lpsc_on')||null,commitment_owner:lpScVal('lpsc_owner'),next_update_owed_on:lpScVal('lpsc_next')||null,change_reason:lpScVal('lpsc_reason')};
-  lpScPost(Object.assign({action:'contract',episode_id:LPSC.d.ep},LPSC.draft));
+function scxSave(key){
+  var st=scxSt(key), v=function(n){ return scxVal(key,n); };
+  st.draft={confidence:v('conf'),target_date:v('target')||null,promised_wording:v('words'),promised_to:v('to'),
+    promised_via:v('via')||null,promised_on:v('on')||null,commitment_owner:v('owner'),next_update_owed_on:v('next')||null,change_reason:v('reason')};
+  scxPost(key,Object.assign({action:'contract',episode_id:st.d.ep},st.draft));
 }
-function lpScSaveUpdate(){
-  var none=document.getElementById('lpsu_none'), at=lpScVal('lpsu_at');
-  LPSC.udraft={given_at:at?new Date(at).toISOString():null,given_to:lpScVal('lpsu_to'),given_via:lpScVal('lpsu_via'),summary:lpScVal('lpsu_sum'),
-    next_update_owed_on:(none&&none.checked)?null:(lpScVal('lpsu_next')||null),none_owed_reason:(none&&none.checked)?lpScVal('lpsu_noner'):null};
-  lpScPost(Object.assign({action:'update',episode_id:LPSC.d.ep},LPSC.udraft));
+function scxSaveUpdate(key){
+  var st=scxSt(key), v=function(n){ return scxVal(key,n); }, none=document.getElementById(scxId(key,'u_none')), at=v('u_at');
+  st.udraft={given_at:at?new Date(at).toISOString():null,given_to:v('u_to'),given_via:v('u_via'),summary:v('u_sum'),
+    next_update_owed_on:(none&&none.checked)?null:(v('u_next')||null),none_owed_reason:(none&&none.checked)?v('u_noner'):null};
+  scxPost(key,Object.assign({action:'update',episode_id:st.d.ep},st.udraft));
 }
+/* The lead profile's mount (Step 1). */
+function lpScLabel(l){ return [l.client_first_name,l.client_last_name].filter(Boolean).join(' ')||[l.first_name,l.last_name].filter(Boolean).join(' ')||'this family'; }
+function lpScRender(){ if(!lpLead) return; scxMount('lp',{bodyId:'lp_sc_body',actId:'lp_sc_actions',lead:lpLead,label:lpScLabel(lpLead)}); }
+function lpScLoad(l,force){ if(l&&lpLead&&l.id===lpLead.id) return scxLoad('lp',force); }
 function renderLpSoc(){
   const body=document.getElementById('lp_soc_body'), prog=document.getElementById('lp_soc_progress');
   if(!body||!lpLead) return;
@@ -31689,12 +31888,15 @@ window.covLoadShifts=function(){};
     el.innerHTML=html;
     const hdr=document.getElementById('cq-done-hdr'), body=document.getElementById('cq-done-body');
     if(hdr&&body) hdr.onclick=()=>{ body.style.display=body.style.display==='block'?'none':'block'; };
+    window.__cqRows=all;
+    if(typeof cqfAfterRender==='function') cqfAfterRender(pending,expanded);
   }
   window.cqToggle=function(id){
     if(expanded.has(id)) expanded.delete(id); else expanded.add(id);
     const body=document.getElementById('cq-body-'+id), arrow=document.getElementById('cq-arrow-'+id);
     if(body) body.style.display=expanded.has(id)?'block':'none';
     if(arrow) arrow.textContent=expanded.has(id)?'▲':'▼';
+    if(expanded.has(id)&&typeof cqfSection==='function'){ const row=(QUEUE||[]).find(c=>c.id===id); if(row) cqfSection(row); }
   };
   /* ── The launch checklist, data-driven (2026-09-20 restructure) ────────
      New Clients owns the ENTIRE first-caregiver launch: assign, brief,
@@ -31748,6 +31950,7 @@ window.covLoadShifts=function(){};
       +'<div onclick="cqToggle(\''+E(c.id)+'\')" style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;cursor:pointer;user-select:none;'+(isOpen?'border-bottom:1.5px solid #FAF9F6':'')+'">'
       +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">'
       +'<span style="font-size:.88rem;font-weight:700;color:var(--navy);white-space:nowrap">'+E(c.client_name)+'</span>'
+      +'<span id="cqfchip-'+E(c.id)+'"></span>'
       +((c.episode_n||1)>1?'<span title="This client has launched before — discharged and returned" style="font-size:.65rem;background:#EDE4F5;color:#6B4B9E;border-radius:4px;padding:.1rem .35rem;font-weight:700;white-space:nowrap">Episode '+E(c.episode_n)+'</span>':'')
       +(c.source==='exception'?'<span title="'+E(c.exception_reason||'Launch exception')+'" style="font-size:.65rem;background:#FFF7ED;color:#92400E;border-radius:4px;padding:.1rem .35rem;font-weight:700;white-space:nowrap">Exception</span>':'')
       +(c.payer?'<span style="font-size:.65rem;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:.1rem .35rem;font-weight:600;white-space:nowrap">'+E(c.payer)+'</span>':'')
@@ -31759,6 +31962,7 @@ window.covLoadShifts=function(){};
       +'<button onclick="event.stopPropagation();cqDelete(\''+E(c.id)+'\')" style="background:none;border:none;cursor:pointer;font-size:.8rem;color:#E8E2D8;padding:.1rem .25rem;line-height:1" title="Remove">✕</button>'
       +'<span id="cq-arrow-'+E(c.id)+'" style="font-size:.65rem;color:var(--text-muted);min-width:.7rem;text-align:center">'+(isOpen?'▲':'▼')+'</span></div></div>'
       +'<div id="cq-body-'+E(c.id)+'" style="display:'+(isOpen?'block':'none')+';padding:.75rem .9rem">'
+      +'<div id="cqf-'+E(c.id)+'" style="margin-bottom:.75rem;padding-bottom:.6rem;border-bottom:1px dashed var(--border)"></div>'
       +(c.schedule_notes?'<div style="font-size:.74rem;color:#92400e;margin-bottom:.6rem;background:#fff7ed;border-radius:5px;padding:.25rem .5rem">📋 '+E(c.schedule_notes)+'</div>':'')
       +(c.axiscare_client_id?'<div style="font-size:.68rem;color:var(--text-muted);margin-bottom:.5rem">AxisCare ID: '+E(c.axiscare_client_id)+'</div>':'')
       +((window.CQ_SUGGEST||{})[c.id]?(()=>{ const sl=(DATA.leads||[]).find(x=>x.id===window.CQ_SUGGEST[c.id]); if(!sl) return '';
