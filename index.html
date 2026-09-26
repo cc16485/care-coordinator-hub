@@ -4673,12 +4673,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   #tab-journeys .jv-asks{margin:6px 0 2px 12px;border-left:3px solid var(--border);padding-left:10px}
   #tab-journeys .jv-ask{padding:4px 0;font-size:12.5px}
   #tab-journeys .jv-quote{color:var(--text-muted);font-style:italic}
-  @media (max-width:600px){ #tab-journeys .jv-kv{grid-template-columns:1fr} #tab-journeys .jv-kv span:nth-child(odd){margin-top:6px} }
+  #tab-journeys .jv-save{background:var(--teal,#0F7A73);color:#fff;border:none;border-radius:8px;padding:.45rem 1rem;font-weight:700;font-family:inherit;font-size:.82rem;cursor:pointer}
+  #tab-journeys .jv-save:hover{filter:brightness(.93)}
+  @media (max-width:600px){ #tab-journeys .jv-kv{grid-template-columns:1fr} #tab-journeys .jv-kv span:nth-child(odd){margin-top:6px}
+    #tab-journeys .jv-form{grid-template-columns:1fr !important;gap:4px !important} #tab-journeys .jv-form>span:nth-child(odd){margin-top:6px;font-weight:600} }
 </style>
 <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;">
   <div style="flex:1 1 420px;">
-    <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Journeys<span class="jv-tag">Read-only preview</span></h2>
-    <div class="field-note" style="font-size:13.5px;margin-top:4px;max-width:86ch;">Every client and inquiry as one Journey, with the shifts, asks, replies and assignments behind it. It is copied every 15 minutes from <b>Leads</b>, <b>Cara</b> and <b>Team Builder</b>. Keep working from those screens. This view is for checking that the copy matches them; if the two disagree, the other screen is right and the difference is worth reporting.</div>
+    <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Journeys<span class="jv-tag">Preview</span></h2>
+    <div class="field-note" style="font-size:13.5px;margin-top:4px;max-width:86ch;">Every client and inquiry as one Journey. <b>Start Contracts are recorded here</b>, and this is their only home: what we are committing to, the exact words we told the family, and the next update we owe them. Everything else on this page (shifts, asks, replies, assignments) is a read-only copy of <b>Leads</b>, <b>Cara</b> and <b>Team Builder</b>, refreshed every 15 minutes. Keep working from those screens; if they disagree with the copy, they are right and the difference is worth reporting.</div>
   </div>
   <button class="fb" onclick="jvLoad()">↻ Refresh</button>
 </div>
@@ -6690,6 +6693,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
+<script src="promise-engine.js"></script>
 <!-- Operating layer, build 4. Shared by every hub, served from one place and
      pinned by version: cc-ops.v1.js is frozen now that a hub includes it, and
      changes go in v2 so one mistake cannot reach four production systems at
@@ -7612,7 +7616,7 @@ const CC_SECTION_TITLES = {
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
   clientqueue:'New Clients — First-Caregiver Launch', cgdir:'Caregivers',
-  statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', journeys:'Journeys (read-only preview)',
+  statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', journeys:'Journeys (preview)',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
@@ -27633,8 +27637,23 @@ async function jvLoad(){
     var ids=[]; r[0].forEach(function(e){ if(e.person_id&&ids.indexOf(e.person_id)<0) ids.push(e.person_id); });
     var people=ids.length?await q(sb.from('person_identity').select('id,display_name').in('id',ids)):[];
     var extra={}; r[5].forEach(function(n){ extra[n.need_id]=n; });
+    /* Start Contracts: the one thing on this tab that is recorded here. If the
+       tables are not installed yet the rest of the tab still loads. */
+    var sc=null;
+    try{
+      var s2=await Promise.all([
+        q(sb.from('start_contract_current').select('*')),
+        q(sb.from('start_contract_version').select('version_id,episode_id,confidence,target_date,promised_wording,promised_to,promised_via,promised_on,commitment_owner,change_reason,recorded_by,recorded_at')),
+        q(sb.from('start_contract_update').select('update_id,seq,episode_id,kind,given_at,given_to,given_via,summary,next_update_owed_on,owed_by,none_owed_reason,recorded_by,recorded_at')),
+        q(sb.from('journey_seat_member').select('email,seat'))
+      ]);
+      sc={current:s2[0],versions:s2[1],updates:s2[2],seats:s2[3]};
+    }catch(e){ sc={error:String(e&&e.message||e)}; }
+    var sess=null; try{ sess=(await sb.auth.getSession()).data.session; }catch(e){}
     JV.data={episodes:r[0],dir:r[1],sources:r[2],reviews:r[3],needs:r[4].map(function(n){ var x=extra[n.need_id]||{}; n.origin_system=x.origin_system; n.note=x.note; return n; }),
-      asks:r[6],assigns:r[7],admissions:r[8],links:r[9],runs:{coverage:r[10],leads:r[11],team:r[12]},people:people,at:new Date()};
+      asks:r[6],assigns:r[7],admissions:r[8],links:r[9],runs:{coverage:r[10],leads:r[11],team:r[12]},people:people,sc:sc,
+      me:String((sess&&sess.user&&sess.user.email)||ME.email||'').toLowerCase(),at:new Date()};
+    jvPromises();
   }catch(e){ JV.err=String(e&&e.message||e); }
   JV.loading=false;
   jvRender();
@@ -27707,6 +27726,8 @@ function jvRender(){
   /* What a person should look at: open shifts nobody has covered, new AxisCare
      clients waiting for a human to confirm who they are, and open reviews. */
   var att=[];
+  ((D.promise&&D.promise.items)||[]).forEach(function(it){
+    att.push('<div class="jv-att-row" onclick="jvFocus(\''+esc(it.episode_id)+'\')"><span class="jv-pill" style="color:var(--red);background:#FDECEA">'+(it.kind==='promise_lapsed'?'Promised date passed':'Update owed')+'</span><b style="color:var(--navy)">'+esc(it.title)+'</b><span>'+esc(it.detail)+' · '+esc(it.owner||'')+'</span></div>'); });
   D.needs.filter(function(n){ return n.state==='open'&&n.status!=='filled'&&n.status!=='asked'; })
     .forEach(function(n){ var ep=epById[n.episode_id]; var s=JV_NEED[n.status]||['var(--navy)','#fff',n.status];
       att.push('<div class="jv-att-row" onclick="jvFocus(\''+esc(n.episode_id)+'\',\''+esc(n.need_id)+'\')"><span class="jv-pill" style="color:'+s[0]+';background:'+s[1]+'">'+esc(s[2])+'</span><b style="color:var(--navy)">'+esc(ep?jvLabel(ep):'Unknown Journey')+'</b><span>'+esc(jvWhen(n))+'</span></div>'); });
@@ -27715,7 +27736,7 @@ function jvRender(){
   D.reviews.forEach(function(v){ var ep=epById[v.episode_id];
     att.push('<div class="jv-att-row"'+(ep?' onclick="jvFocus(\''+esc(v.episode_id)+'\')"':' style="cursor:default"')+'><span class="jv-pill" style="color:var(--honey-ink,#8A4E0C);background:#FFF4E3">Review</span><b style="color:var(--navy)">'+esc(ep?jvLabel(ep):'Journey review')+'</b><span>'+esc(String(v.kind).replace(/_/g,' '))+' · for '+(v.seat==='owner_decision'?'Owner / Decision':'Client Intake')+'</span></div>'); });
   if(att.length) h+='<div class="jv-att"><div class="jv-sec" style="margin-top:0;color:var(--honey-ink,#8A4E0C)">Worth a look ('+att.length+')</div>'+att.join('')+'</div>';
-  var F=[['active','Active'],['clients','Clients'],['inquiries','Inquiries'],['shifts','Open shifts'],['all','All, incl. closed']];
+  var F=[['active','Active'],['clients','Clients'],['inquiries','Inquiries'],['contracts','With a Start Contract'],['shifts','Open shifts'],['all','All, incl. closed']];
   h+='<div class="jv-bar"><input type="search" placeholder="Find a name" value="'+esc(JV.q)+'" oninput="jvSearch(this.value)">'
     +F.map(function(f){ return '<button class="jv-chip'+(JV.filter===f[0]?' on':'')+'" onclick="jvFilter(\''+f[0]+'\')">'+f[1]+'</button>'; }).join('')
     +'<span class="field-note" style="font-size:11.5px;">Loaded '+esc(jvStamp(D.at))+'</span></div>';
@@ -27731,18 +27752,24 @@ function jvListHtml(){
     if(JV.filter==='clients'&&(!e.person_id||!active)) return false;
     if(JV.filter==='inquiries'&&(e.person_id||!active)) return false;
     if(JV.filter==='shifts'&&!open) return false;
+    if(JV.filter==='contracts'&&!jvContractOf(e.episode_id)) return false;
     return !q||jvLabel(e).toLowerCase().indexOf(q)>=0;
-  }).map(function(e){ return {e:e,label:jvLabel(e),open:(needsBy[e.episode_id]||[]).filter(function(n){ return n.state==='open'; }).length}; })
-    .sort(function(a,b){ return (b.open-a.open)||((a.e.person_id?0:1)-(b.e.person_id?0:1))||a.label.localeCompare(b.label); });
+  }).map(function(e){ var pr=jvPromiseOf(e.episode_id), lp=jvPromiseOf(e.episode_id,'lapsed');
+      return {e:e,label:jvLabel(e),open:(needsBy[e.episode_id]||[]).filter(function(n){ return n.state==='open'; }).length,
+              owe:(lp||(pr&&pr.state!=='upcoming'&&pr.state!=='none_owed'))?1:0}; })
+    .sort(function(a,b){ return (b.owe-a.owe)||(b.open-a.open)||((a.e.person_id?0:1)-(b.e.person_id?0:1))||a.label.localeCompare(b.label); });
   if(!list.length) return '<div class="field-note">No Journey matches.</div>';
   return '<div class="field-note" style="font-size:12px;margin:0 0 6px;">'+list.length+' Journey'+(list.length===1?'':'s')+'</div>'+list.map(function(x){
     var e=x.e, needs=needsBy[e.episode_id]||[], plans=linksBy[e.episode_id]||[], isOpen=JV.open===e.episode_id;
-    var kind=e.person_id?['Client','var(--teal)','#E6F6F5']:['Inquiry','var(--navy)','#EEF2F7'];
+    var kind=e.person_id?['Client','var(--teal,#0F7A73)','#E6F6F5']:['Inquiry','var(--navy)','#EEF2F7'];
     return '<div class="jv-row" id="jv-'+esc(e.episode_id)+'"><div class="jv-head" onclick="jvOpen(\''+esc(e.episode_id)+'\')">'
       +'<b>'+esc(x.label)+'</b>'
       +'<span class="jv-pill" style="color:'+kind[1]+';background:'+kind[2]+'">'+kind[0]+'</span>'
       +'<span class="field-note" style="font-size:12px;">'+esc(JV_STATE[e.state]||e.state)+' · '+esc(jvBegan(e))+'</span>'
       +'<span style="flex:1"></span>'
+      +jvPromiseChip(e.episode_id)
+      +(function(){ var c=jvContractOf(e.episode_id); if(!c) return ''; var cf=JV_CONF[c.confidence]||[c.confidence,'#fff','var(--navy)'];
+          return '<span class="jv-pill" style="color:'+cf[2]+';background:'+cf[1]+'">'+cf[0]+(c.target_date?' · '+esc(jvDate(c.target_date)):'')+'</span>'; })()
       +(x.open?'<span class="jv-pill" style="color:var(--red);background:#FDECEA">'+x.open+' open shift'+(x.open===1?'':'s')+'</span>':'')
       +(needs.length?'<span class="field-note" style="font-size:12px;">'+needs.length+' shift record'+(needs.length===1?'':'s')+'</span>':'')
       +(plans.length?'<span class="field-note" style="font-size:12px;">Team Builder linked</span>':'')
@@ -27751,7 +27778,7 @@ function jvListHtml(){
   }).join('');
 }
 function jvDetailHtml(e,needs,plans){
-  var D=JV.data, h='<div class="jv-body">';
+  var D=JV.data, h='<div class="jv-body">'+jvContractHtml(e);
   var PH={unobserved:'Not observed. This Journey was opened from what was current on the day tracking began; nothing earlier was assumed.',none_found:'None found',documented_complete:'Fully documented'};
   h+='<div class="jv-sec">Lifecycle</div><div class="jv-kv">'
     +'<span>Status</span><span>'+esc(JV_STATE[e.state]||e.state)+'</span>'
@@ -27801,6 +27828,162 @@ function jvFocus(id,needId){
   var el=document.getElementById('jv-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function jvNeed(id){ JV.openNeed=JV.openNeed===id?null:id; var box=document.getElementById('jv-list'); if(box) box.innerHTML=jvListHtml(); }
+/* ---------- Start Contract + Promise engine (2026-09-26) ----------
+   The Start Contract is what we are committing to for this Journey and the
+   exact words we told the family. It is recorded here and nowhere else, through
+   the start-contract function as the signed-in seat holder (append-only; a
+   change is a new version). Payer, quoted price and the promised call-back stay
+   on the lead and are shown by reference. promise-engine.js decides what is owed;
+   nothing on this tab contacts a family. */
+var JV_CONF={early:['Early','#EEF2F7','var(--navy)'],likely:['Likely','#EEF2F7','var(--navy)'],expected:['Expected','#E6F6F5','var(--teal,#0F7A73)'],committed:['Committed','#E7F1EF','var(--green)']};
+var JV_VIA={call:'call',in_person:'in person',text:'text',email:'email',other:'other'};
+var JV_PAYER={private:'Private pay',ltc:'LTC insurance',va:'VA',cds:'CDS',medicaid:'Medicaid (IHS)',pace:'PACE'};
+var JV_SC_MSG={recorded:'Start Contract recorded.',changed:'Saved as a new version. The earlier one is kept.',unchanged:'Nothing changed, so nothing new was saved.',
+  next_update_set:'Next update owed is set.',update_logged:'Family update logged.',no_seat:'Your account does not hold a Journey seat yet. Ask the owner to add you.',
+  episode_not_active:'This Journey is no longer active.',target_date_required:'Pick a target start date (only Early can go without one).',
+  owner_required:'Say who owns this commitment.',promise_incomplete:'A promise needs the exact words, who they were said to, how, and when.',
+  committed_needs_wording:'Committed means we told the family. Record the words we used.',promised_in_future:'The date we said it cannot be in the future.',
+  next_update_in_past:'The next update owed cannot be in the past.',next_update_required:'Set the next update owed to the family, or say why nothing more is owed.',
+  reason_required:'This changes a commitment already made to the family. Say why.',update_incomplete:'Say when, to whom, how, and what we told them.',
+  given_in_future:'The update time cannot be in the future.',no_contract:'Record the Start Contract first.',invalid_via:'Pick how it was said.',
+  invalid_confidence:'Pick how sure we are.',episode_voided:'This Journey was voided.'};
+function jvPromises(){
+  var D=JV.data; D.promise=null;
+  if(!D.sc||!Array.isArray(D.sc.current)||typeof CCPromise==='undefined') return;
+  var labels={}, states={};
+  D.episodes.forEach(function(e){ labels[e.episode_id]=jvLabel(e); states[e.episode_id]=e.state; });
+  D.promise=CCPromise.evaluate({contracts:D.sc.current,labels:labels,states:states,today:CCPromise.todayChicago()});
+}
+function jvContractOf(id){ var sc=JV.data.sc; return sc&&Array.isArray(sc.current)?sc.current.find(function(x){ return x.episode_id===id; })||null:null; }
+function jvCanRecord(){ var sc=JV.data.sc, me=JV.data.me; return !!(me&&sc&&Array.isArray(sc.seats)&&sc.seats.some(function(x){ return x.email===me; })); }
+function jvLeadOf(ep){
+  var s=JV.data.sources.find(function(x){ return x.episode_id===ep.episode_id&&x.system==='lead'&&x.role==='origin'; });
+  return s?(DATA.leads||[]).find(function(x){ return x&&String(x.id)===s.source_ref; })||null:null;
+}
+function jvPromiseOf(id,kind){ var p=JV.data.promise; return p?p.promises.find(function(x){ return x.episode_id===id&&x.kind===(kind||'update'); })||null:null; }
+function jvPromiseChip(id){
+  var p=jvPromiseOf(id), lp=jvPromiseOf(id,'lapsed');
+  if(lp) return '<span class="jv-pill" style="color:var(--red);background:#FDECEA">Promised date passed</span>';
+  if(!p) return '';
+  if(p.state==='overdue') return '<span class="jv-pill" style="color:var(--red);background:#FDECEA">Update overdue</span>';
+  if(p.state==='due_today') return '<span class="jv-pill" style="color:var(--honey-ink,#8A4E0C);background:#FFF4E3">Update due today</span>';
+  return '';
+}
+function jvLocalNow(){ var d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,16); }
+function jvContractHtml(e){
+  var D=JV.data, sc=D.sc, c=jvContractOf(e.episode_id), lead=jvLeadOf(e), can=jvCanRecord();
+  var h='<div class="jv-sec">Start Contract</div>';
+  if(!sc||sc.error) return h+'<div class="field-note">'+(sc&&sc.error?'Start Contracts are not installed yet.':'Loading…')+'</div>';
+  var refs=[];
+  if(lead&&lead.funding_source) refs.push('<span>Payer</span><span>'+esc(JV_PAYER[lead.funding_source]||lead.funding_source)+' <span class="field-note" style="font-size:11px;">from Leads</span></span>');
+  if(lead&&lead.quoted_price_amount) refs.push('<span>Quoted</span><span>'+esc(lead.quoted_price_amount)+' <span class="field-note" style="font-size:11px;">from Leads</span></span>');
+  if(lead&&lead.promised_callback_at) refs.push('<span>Promised call-back</span><span>'+esc(jvStamp(lead.promised_callback_at))+' <span class="field-note" style="font-size:11px;">from Leads, which follows it up</span></span>');
+  if(!c){
+    h+='<div class="field-note" style="margin-bottom:6px;">No Start Contract yet. It records what we are committing to, the exact words we told the family, and the next update we owe them.</div>';
+    if(refs.length) h+='<div class="jv-kv" style="margin-bottom:6px;">'+refs.join('')+'</div>';
+  } else {
+    var cf=JV_CONF[c.confidence]||[c.confidence,'#fff','var(--navy)'];
+    var p=jvPromiseOf(e.episode_id), lp=jvPromiseOf(e.episode_id,'lapsed');
+    var owed=!c.next_update_owed_on?'Nothing more owed: '+esc(c.none_owed_reason||''):
+      esc(jvDate(c.next_update_owed_on))+' · '+esc(c.owed_by||'')+(p&&p.state==='overdue'?' · <b style="color:var(--red)">overdue by '+(-p.days)+' day'+(p.days===-1?'':'s')+'</b>':p&&p.state==='due_today'?' · <b style="color:var(--honey-ink,#8A4E0C)">due today</b>':'');
+    h+='<div class="jv-kv">'
+      +'<span>Start</span><span><span class="jv-pill" style="color:'+cf[2]+';background:'+cf[1]+'">'+cf[0]+'</span> '+(c.target_date?esc(jvDate(c.target_date)):'no date yet')
+        +(lp?' · <b style="color:var(--red)">this date has passed</b>':'')+'</span>'
+      +'<span>What we told them</span><span>'+(c.promised_wording?'<span class="jv-quote" style="font-style:normal;color:var(--navy)">"'+esc(c.promised_wording)+'"</span><br><span class="field-note" style="font-size:11.5px;">to '+esc(c.promised_to)+' by '+esc(JV_VIA[c.promised_via]||c.promised_via)+' on '+esc(jvDate(c.promised_on))+'</span>':'<span class="field-note">Nothing promised yet</span>')+'</span>'
+      +'<span>Owner</span><span>'+esc(c.commitment_owner)+'</span>'
+      +'<span>Next update owed</span><span>'+owed+'</span>'
+      +'<span>Last update</span><span>'+(c.last_update_at?esc(jvStamp(c.last_update_at))+' to '+esc(c.last_update_to)+': <span class="jv-quote">"'+esc(c.last_update_summary)+'"</span>':'<span class="field-note">None logged yet</span>')+'</span>'
+      +refs.join('')
+      +'</div>';
+    var item=D.promise&&D.promise.items.find(function(x){ return x.episode_id===e.episode_id; });
+    if(item) h+='<div style="margin-top:8px;padding:8px 10px;background:#FFFBF4;border:1px solid #F3D9B5;border-radius:8px;"><b style="color:var(--navy);font-size:12.5px;">Before you call</b><div style="white-space:pre-wrap;font-size:12.5px;margin-top:3px;">'+esc(item.draft)+'</div><div class="field-note" style="font-size:11px;margin-top:4px;">Talking points only. Nothing is sent from here.</div></div>';
+  }
+  if(JV.form&&JV.form.ep===e.episode_id) return h+(JV.form.kind==='update'?jvUpdateFormHtml(e,c):jvContractFormHtml(e,c));
+  if(can) h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">'
+    +'<button class="fb" onclick="jvForm(\''+esc(e.episode_id)+'\',\'contract\')">'+(c?'Change the contract':'Record the Start Contract')+'</button>'
+    +(c?'<button class="fb" onclick="jvForm(\''+esc(e.episode_id)+'\',\'update\')">Log a family update</button>':'')+'</div>';
+  else h+='<div class="field-note" style="font-size:11.5px;margin-top:6px;">Recording a Start Contract needs a Journey seat.</div>';
+  if(JV.formMsg&&JV.formMsg.ep===e.episode_id) h+='<div class="field-note" style="margin-top:6px;color:'+(JV.formMsg.ok?'var(--green)':'var(--red)')+';font-weight:700;">'+esc(JV.formMsg.text)+'</div>';
+  if(c) h+=jvContractHistoryHtml(e.episode_id);
+  return h;
+}
+function jvContractHistoryHtml(id){
+  var sc=JV.data.sc;
+  var vs=sc.versions.filter(function(v){ return v.episode_id===id; }).sort(function(a,b){ return String(b.recorded_at).localeCompare(String(a.recorded_at)); });
+  var us=sc.updates.filter(function(u){ return u.episode_id===id; }).sort(function(a,b){ return b.seq-a.seq; });
+  var ng=us.filter(function(u){ return u.kind==='update_given'; }).length;
+  var h='<details style="margin-top:8px;"><summary class="field-note" style="cursor:pointer;font-size:12px;">History: '+vs.length+' version'+(vs.length===1?'':'s')+', '+ng+' family update'+(ng===1?'':'s')+'</summary>';
+  vs.forEach(function(v){ h+='<div class="jv-ask">'+esc(jvStamp(v.recorded_at))+' · <b>'+esc((JV_CONF[v.confidence]||[v.confidence])[0])+'</b>'+(v.target_date?' '+esc(jvDate(v.target_date)):'')
+    +(v.promised_wording?' · <span class="jv-quote">"'+esc(v.promised_wording)+'"</span>':'')+' · by '+esc(v.recorded_by)+(v.change_reason?' · why: '+esc(v.change_reason):'')+'</div>'; });
+  us.forEach(function(u){ h+='<div class="jv-ask">'+esc(jvStamp(u.recorded_at))+' · '+(u.kind==='update_given'?'Told '+esc(u.given_to)+' ('+esc(JV_VIA[u.given_via]||u.given_via)+'): <span class="jv-quote">"'+esc(u.summary)+'"</span>':'Next update scheduled')
+    +' · next owed '+(u.next_update_owed_on?esc(jvDate(u.next_update_owed_on)):'none ('+esc(u.none_owed_reason||'')+')')+' · by '+esc(u.recorded_by)+'</div>'; });
+  return h+'</details>';
+}
+function jvSel(id,opts,val){ return '<select id="'+id+'" style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;">'
+  +opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===val?' selected':'')+'>'+o[1]+'</option>'; }).join('')+'</select>'; }
+function jvIn(id,type,val,ph){ return '<input id="'+id+'" type="'+type+'" value="'+esc(val||'')+'"'+(ph?' placeholder="'+esc(ph)+'"':'')+' style="font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;max-width:100%;">'; }
+var JV_FS='display:grid;grid-template-columns:minmax(120px,190px) 1fr;gap:8px 12px;align-items:start;margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:10px;background:#FAFBFC;';
+function jvContractFormHtml(e,c0){
+  var c0x=c0||{}, today=CCPromise.todayChicago();
+  var dr=(JV.draft&&JV.draft.episode_id===e.episode_id)?JV.draft:null;
+  var c=dr?Object.assign({},c0x,dr):c0x;
+  var VIA=[['','How?'],['call','Call'],['in_person','In person'],['text','Text'],['email','Email'],['other','Other']];
+  return '<div class="jv-form" style="'+JV_FS+'">'
+    +'<span>How sure are we?</span><span>'+jvSel('jvf-conf',[['early','Early, no date yet'],['likely','Likely'],['expected','Expected'],['committed','Committed (we told the family)']],c.confidence||'early')+'</span>'
+    +'<span>Target start date</span><span>'+jvIn('jvf-target','date',c.target_date)+'</span>'
+    +'<span>What we told the family</span><span><textarea id="jvf-words" rows="2" placeholder="The exact words, e.g. Expect to begin October 5, contingent on authorization and staffing." style="width:100%;font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;">'+esc(c.promised_wording||'')+'</textarea>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">'+jvIn('jvf-to','text',c.promised_to,'To whom, e.g. Cathy (daughter)')+jvSel('jvf-via',VIA,c.promised_via||'')+jvIn('jvf-on','date',c.promised_on||'')+'</div>'
+      +'<div class="field-note" style="font-size:11px;margin-top:3px;">Leave all of this blank if nothing has been promised yet.</div></span>'
+    +'<span>Owner</span><span>'+jvIn('jvf-owner','text',c.commitment_owner||JV.data.me)+'</span>'
+    +'<span>Next update owed</span><span>'+jvIn('jvf-next','date',c.next_update_owed_on||'')+'<div class="field-note" style="font-size:11px;margin-top:3px;">The day we owe the family an update. From '+esc(jvDate(today))+' on.</div></span>'
+    +(c0x.version_id?'<span>Why it changed</span><span><textarea id="jvf-reason" rows="2" placeholder="'+(c0x.confidence==='committed'?'Required: this changes a commitment already made to the family':'Optional')+'" style="width:100%;font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;">'+esc(dr&&dr.change_reason||'')+'</textarea></span>':'')
+    +'<span></span><span style="display:flex;gap:8px;flex-wrap:wrap;"><button class="jv-save" onclick="jvSaveContract(\''+esc(e.episode_id)+'\')">Save</button><button class="fb" onclick="jvForm(null)">Cancel</button>'
+    +(JV.formMsg&&JV.formMsg.ep===e.episode_id?'<span style="font-size:12.5px;font-weight:700;color:'+(JV.formMsg.ok?'var(--green)':'var(--red)')+'">'+esc(JV.formMsg.text)+'</span>':'')+'</span>'
+    +'</div>';
+}
+function jvUpdateFormHtml(e,c){
+  var u=(JV.udraft&&JV.udraft.episode_id===e.episode_id)?JV.udraft:null;
+  var atLocal=u&&u.given_at?(function(){ var d=new Date(u.given_at); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,16); })():jvLocalNow();
+  var VIA=[['call','Call'],['in_person','In person'],['text','Text'],['email','Email'],['other','Other']];
+  return '<div class="jv-form" style="'+JV_FS+'">'
+    +'<span>When</span><span>'+jvIn('jvu-at','datetime-local',atLocal)+'</span>'
+    +'<span>To whom</span><span style="display:flex;gap:6px;flex-wrap:wrap;">'+jvIn('jvu-to','text',u?u.given_to:(c.last_update_to||c.promised_to||''),'e.g. Cathy (daughter)')+jvSel('jvu-via',VIA,u&&u.given_via||'call')+'</span>'
+    +'<span>What we told them</span><span><textarea id="jvu-sum" rows="2" style="width:100%;font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;">'+esc(u&&u.summary||'')+'</textarea></span>'
+    +'<span>Next update owed</span><span>'+jvIn('jvu-next','date',u&&u.next_update_owed_on||'')+'<label style="display:flex;gap:6px;align-items:center;font-size:12.5px;margin-top:5px;"><input type="checkbox" id="jvu-none"'+(u&&u.none_owed_reason!==null&&u.none_owed_reason!==undefined?' checked':'')+' onchange="document.getElementById(\'jvu-noner\').style.display=this.checked?\'block\':\'none\'"> Nothing more is owed</label>'
+      +'<input id="jvu-noner" value="'+esc(u&&u.none_owed_reason||'')+'" placeholder="Why, e.g. Care has started" style="display:'+(u&&u.none_owed_reason!==null&&u.none_owed_reason!==undefined?'block':'none')+';margin-top:4px;font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-family:inherit;width:100%;"></span>'
+    +'<span></span><span style="display:flex;gap:8px;flex-wrap:wrap;"><button class="jv-save" onclick="jvSaveUpdate(\''+esc(e.episode_id)+'\')">Log update</button><button class="fb" onclick="jvForm(null)">Cancel</button>'
+    +(JV.formMsg&&JV.formMsg.ep===e.episode_id?'<span style="font-size:12.5px;font-weight:700;color:'+(JV.formMsg.ok?'var(--green)':'var(--red)')+'">'+esc(JV.formMsg.text)+'</span>':'')+'</span>'
+    +'</div>';
+}
+function jvForm(ep,kind){ JV.form=ep?{ep:ep,kind:kind}:null; JV.formMsg=null; JV.draft=null; JV.udraft=null; var box=document.getElementById('jv-list'); if(box) box.innerHTML=jvListHtml(); }
+function jvVal(id){ var el=document.getElementById(id); return el?String(el.value||'').trim():''; }
+async function jvPost(ep,body){
+  JV.formMsg={ep:ep,ok:true,text:'Saving…'}; var box=document.getElementById('jv-list'); if(box) box.innerHTML=jvListHtml();
+  try{
+    var sess=await sb.auth.getSession(); var tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+    if(!tok) throw new Error('Sign in first.');
+    var r=await fetch(CONFIG.supabase_url+'/functions/v1/start-contract',{method:'POST',
+      headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    var d=await r.json().catch(function(){ return null; }), o=d&&d.outcome;
+    if(!o) throw new Error((d&&d.error)||('The service answered '+r.status));
+    var ok=['recorded','changed','unchanged','next_update_set','update_logged'].indexOf(o)>=0;
+    if(ok){ JV.form=null; JV.draft=null; JV.udraft=null; JV.formMsg={ep:ep,ok:true,text:JV_SC_MSG[o]||o}; await jvLoad(); return; }
+    JV.formMsg={ep:ep,ok:false,text:JV_SC_MSG[o]||('Not saved: '+o)};
+  }catch(e){ JV.formMsg={ep:ep,ok:false,text:'Not saved: '+String(e.message||e)}; }
+  var b2=document.getElementById('jv-list'); if(b2) b2.innerHTML=jvListHtml();
+}
+function jvSaveContract(ep){
+  var body={action:'contract',episode_id:ep,confidence:jvVal('jvf-conf'),target_date:jvVal('jvf-target')||null,
+    promised_wording:jvVal('jvf-words'),promised_to:jvVal('jvf-to'),promised_via:jvVal('jvf-via')||null,promised_on:jvVal('jvf-on')||null,
+    commitment_owner:jvVal('jvf-owner'),next_update_owed_on:jvVal('jvf-next')||null,change_reason:jvVal('jvf-reason')};
+  /* keep what the person typed if the service refuses it */
+  JV.draft=body; jvPost(ep,body);
+}
+function jvSaveUpdate(ep){
+  var none=document.getElementById('jvu-none'), at=jvVal('jvu-at');
+  jvPost(ep,JV.udraft={action:'update',episode_id:ep,given_at:at?new Date(at).toISOString():null,given_to:jvVal('jvu-to'),given_via:jvVal('jvu-via'),
+    summary:jvVal('jvu-sum'),next_update_owed_on:(none&&none.checked)?null:(jvVal('jvu-next')||null),none_owed_reason:(none&&none.checked)?jvVal('jvu-noner'):null});
+}
 function jvFilter(f){ JV.filter=f; jvRender(); }
 function jvSearch(v){ JV.q=v; var box=document.getElementById('jv-list'); if(box) box.innerHTML=jvListHtml(); }
 function tbRender(){
