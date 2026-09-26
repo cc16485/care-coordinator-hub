@@ -27435,7 +27435,8 @@ async function swEvvText(key){
    from one team_pool read: stated windows (or unconfirmed), schedule
    conflicts on that weekday+time, same-town, and the running weekly hours
    as you pencil — so the OT math happens while you talk. */
-let TB={pool:null,loading:false,planId:null,cellOpen:null};
+let TB={pool:null,loading:false,planId:null,cellOpen:null,
+        journeys:null,links:null,jLoading:false,linkOpen:false,linkQ:'',linkMsg:''};
 const TB_DAYS=['mon','tue','wed','thu','fri','sat','sun'];
 const TB_DAYL={mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri',sat:'Sat',sun:'Sun'};
 const TB_PATTERNS={
@@ -27474,9 +27475,80 @@ async function tbLoadPool(){
   TB.loading=false;
   tbRender();
 }
+/* Which Journey each plan belongs to (2026-09-26). Read-only here: the
+   directory of active Journeys (clients and inquiries) and the current plan
+   links. Linking itself goes through the journey-link-plan function as the
+   signed-in person; the browser never writes Journey data. */
+async function tbLoadJourneys(force){
+  if(TB.jLoading||(!force&&TB.journeys)) return;
+  TB.jLoading=true;
+  try{
+    var d=await sb.from('journey_directory').select('episode_id,kind,label,detail,state');
+    var l=await sb.from('team_build_link_current').select('plan_id,episode_id,linked_by,linked_at');
+    if(d.error) throw d.error; if(l.error) throw l.error;
+    TB.journeys=d.data||[];
+    TB.links={}; (l.data||[]).forEach(function(x){ TB.links[x.plan_id]=x; });
+  }catch(e){ TB.journeys={error:String(e.message||e)}; TB.links=TB.links||{}; }
+  TB.jLoading=false;
+  tbRender();
+}
+function tbJourneyOf(planId){
+  var lk=TB.links&&TB.links[planId]; if(!lk) return null;
+  var j=Array.isArray(TB.journeys)?TB.journeys.find(function(x){ return x.episode_id===lk.episode_id; }):null;
+  return {link:lk, journey:j};
+}
+function tbJourneyChip(planId){
+  var jo=tbJourneyOf(planId);
+  if(!TB.links) return '';
+  if(!jo) return '<span style="font-size:11.5px;font-weight:700;color:var(--honey-ink);background:#FFF4E3;border-radius:6px;padding:2px 7px;">not linked to a Journey</span>';
+  return '<span style="font-size:11.5px;font-weight:700;color:var(--teal);background:#E6F6F5;border-radius:6px;padding:2px 7px;" title="Linked by '+esc(jo.link.linked_by||'')+'">Journey: '+esc(jo.journey?jo.journey.label:'(not active)')+'</span>';
+}
+function tbLinkToggle(){ TB.linkOpen=!TB.linkOpen; TB.linkMsg=''; if(TB.linkOpen) tbLoadJourneys(true); tbRender(); }
+function tbLinkFilter(v){ TB.linkQ=v; var box=document.getElementById('tbLinkList'); if(box){ box.innerHTML=tbLinkListHtml(tbPlan()); } }
+function tbLinkListHtml(plan){
+  if(!Array.isArray(TB.journeys)) return '<div class="field-note">'+(TB.journeys&&TB.journeys.error?('Could not load Journeys: '+esc(TB.journeys.error)):'Loading Journeys…')+'</div>';
+  var q=String(TB.linkQ||'').toLowerCase().trim();
+  var cur=tbJourneyOf(plan.id);
+  var list=TB.journeys.filter(function(j){ return !q||String(j.label||'').toLowerCase().indexOf(q)>=0||String(j.detail||'').toLowerCase().indexOf(q)>=0; })
+    .sort(function(a,b){ return (a.kind===b.kind?0:(a.kind==='inquiry'?-1:1))||String(a.label).localeCompare(String(b.label)); });
+  if(!list.length) return '<div class="field-note">No active Journey matches.</div>';
+  return list.slice(0,40).map(function(j){
+    var isCur=cur&&cur.link.episode_id===j.episode_id;
+    return '<div style="display:flex;gap:10px;align-items:baseline;padding:6px 4px;border-top:1px solid var(--border);">'
+      +'<b style="color:var(--navy);font-size:13px;">'+esc(j.label)+'</b>'
+      +'<span class="field-note" style="font-size:11.5px;">'+esc(j.kind==='client'?'current client':'inquiry')+' · '+esc(j.detail||'')+'</span>'
+      +'<span style="flex:1;"></span>'
+      +(isCur?'<span style="font-size:11.5px;color:var(--teal);font-weight:700;">✓ this plan</span>'
+             :'<button class="cara-btn" style="font-size:11.5px;" onclick="tbLinkPlan(\''+esc(plan.id)+'\',\''+esc(j.episode_id)+'\')">This plan is for them</button>')
+      +'</div>';
+  }).join('');
+}
+async function tbLinkPlan(planId,episodeId){
+  TB.linkMsg='Linking…'; tbRender();
+  try{
+    var sess=await sb.auth.getSession();
+    var tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+    if(!tok) throw new Error('Sign in first.');
+    var r=await fetch(CONFIG.supabase_url+'/functions/v1/journey-link-plan',{
+      method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},
+      body:JSON.stringify({plan_id:planId,episode_id:episodeId})});
+    var d=await r.json().catch(function(){return null;});
+    var o=d&&d.outcome;
+    var MSG={linked:'Linked.',relinked:'Moved to the new Journey.',already_linked:'Already linked to that Journey.',
+      no_seat:'Your account does not hold a Journey seat yet. Ask the owner to add you.',
+      seat_required:'Changing which Journey a plan belongs to is an Owner / Decision call.',
+      has_needs:'This plan\'s shifts already belong to its current Journey, so it cannot be moved.',
+      episode_not_active:'That Journey is no longer active.',plan_not_found:'This plan was not found. Refresh and try again.'};
+    if(!r.ok&&!o) throw new Error((d&&d.error)||('The link service answered '+r.status));
+    TB.linkMsg=MSG[o]||('Not linked: '+(o||'unknown answer'));
+    if(o==='linked'||o==='relinked'||o==='already_linked') TB.linkOpen=false;
+  }catch(e){ TB.linkMsg='Not linked: '+String(e.message||e); }
+  await tbLoadJourneys(true);
+}
 function tbRender(){
   var root=document.getElementById('tbRoot'); if(!root) return;
   if(!TB.pool&&!TB.loading){ tbLoadPool(); }
+  if(!TB.journeys&&!TB.jLoading){ tbLoadJourneys(); }
   var plan=tbPlan();
   root.innerHTML=plan?tbBoardHtml(plan):tbHomeHtml();
 }
@@ -27494,6 +27566,7 @@ function tbHomeHtml(){
       +'<b style="color:var(--navy);font-size:15px;">'+esc(p.client||'(client)')+'</b>'
       +'<span class="field-note">'+esc([p.city,p.level?('Level '+p.level):''].filter(Boolean).join(' · '))+'</span>'
       +'<span style="font-size:12.5px;"><b style="color:var(--green);">'+yes+'</b>/'+total+' confirmed · '+cells+' penciled</span>'
+      +tbJourneyChip(p.id)
       +(p.status==='done'?'<span style="color:var(--green);font-weight:700;font-size:12px;">✓ complete</span>':'')
       +'<span style="flex:1;"></span>'
       +'<button class="cara-btn" style="font-size:12px;" onclick="tbOpen(\''+esc(p.id)+'\')">Open the board →</button>'
@@ -27536,8 +27609,8 @@ async function tbCreate(){
   TB.planId=p.id; TB.cellOpen=null;
   tbRender(); swRenderBar();
 }
-function tbOpen(id){ TB.planId=id; TB.cellOpen=null; tbRender(); }
-function tbClose(){ TB.planId=null; TB.cellOpen=null; tbRender(); }
+function tbOpen(id){ TB.planId=id; TB.cellOpen=null; TB.linkOpen=false; TB.linkMsg=''; tbRender(); }
+function tbClose(){ TB.planId=null; TB.cellOpen=null; TB.linkOpen=false; TB.linkMsg=''; tbRender(); }
 /* Flexible shifts: add, remove, and retime shifts on a plan whenever you like,
    so the number of shifts per day and their hours are never locked to a preset. */
 async function tbAddShift(id){
@@ -27621,6 +27694,16 @@ function tbBoardHtml(plan){
     +(gaps?'<button class="cara-btn ghost" style="font-size:12px;" onclick="tbFlagGaps()">Flag gaps to recruiting</button>':'')
     +(yes===total&&total>0?'<button class="addlead" style="font-size:12px;" onclick="tbComplete()">✓ Plan complete — show the summary</button>':'')
     +'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">'
+    +tbJourneyChip(plan.id)
+    +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbLinkToggle()">'+(tbJourneyOf(plan.id)?'Change Journey':'Link to a Journey')+'</button>'
+    +(TB.linkMsg?'<span class="field-note" style="font-size:12px;">'+esc(TB.linkMsg)+'</span>':'')
+    +'</div>'
+    +(TB.linkOpen?'<div class="card" style="padding:10px 12px;margin:0 0 10px;">'
+      +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;"><b style="font-size:13px;color:var(--navy);">Whose care is this plan for?</b>'
+      +'<input placeholder="Search by name" value="'+esc(TB.linkQ||'')+'" oninput="tbLinkFilter(this.value)" style="flex:1;max-width:260px;font-size:12.5px;"></div>'
+      +'<div class="field-note" style="font-size:11.5px;margin-bottom:4px;">Pick the person this plan is really for: the inquiry that started it, or a current client. A plan can be moved later only by Owner / Decision, and never after its shifts are on that Journey.</div>'
+      +'<div id="tbLinkList">'+tbLinkListHtml(plan)+'</div></div>':'')
     +'<div class="card" style="padding:8px;overflow-x:auto;">'+grid+'</div>'
     +(teamRows?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span class="field-note" style="font-weight:700;">The team so far:</span>'+teamRows+'</div>':'')
     +'<div id="tbAssign" style="margin-top:10px;">'+(TB.cellOpen?tbAssignHtml(plan,TB.cellOpen):'<div class="field-note">Click any cell to pencil someone in. Click a filled cell to update or move them.</div>')+'</div>'
