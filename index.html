@@ -4951,6 +4951,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           <div style="min-width:0;">
             <div id="lp_name" style="font-size:18px;font-weight:800;color:var(--navy);"></div>
             <div id="lp_for" class="field-note"></div>
+            <div id="lp_returning"></div>
             <div id="famLead"></div>
           </div>
         </div>
@@ -9362,6 +9363,7 @@ function renderLeadProfile(){
   renderLpSoc();
   lpScRender();
   jcRenderStatus();
+  ckRenderReturning();
   famMount('famLead', { lead_id:l.id }, 'lead');
 }
 const NURTURE_INFO = {
@@ -10696,7 +10698,7 @@ function ckPanel(found, mode){
       const l=h.lead, who=[l.client_first_name,l.client_last_name].filter(Boolean).join(' ')||'(care recipient not named)';
       const contact=[l.first_name,l.last_name].filter(Boolean).join(' ');
       html+=row('Inquiry: '+esc(who)+(contact?' <span style="font-weight:400;">· caller '+esc(contact)+'</span>':''),
-        esc((l.status||'New')+' · '+why(h)), b('lead',i,'Open this inquiry'));
+        esc((l.status||'New')+' · '+why(h)), mode==='review'?b('lead',i,'Open it')+b('same',i,'Same family',true):b('lead',i,'Open this inquiry'));
     });
     found.clients.forEach((m,i)=>{
       const state=m.active===true?'Current client':(m.active===false?'Former client ('+(m.status||'inactive')+')':(m.status==='circle closed'?'Family Circle (closed)':'Family Circle'));
@@ -10704,22 +10706,26 @@ function ckPanel(found, mode){
       let btn='';
       if(m.axiscare_client_id&&m.active===true) btn=b('client',i,'Open their profile');
       else if(m.axiscare_client_id) btn=b('link',i,mode==='convert'?'Use this AxisCare record':'Same family: link to #'+esc(m.axiscare_client_id),m.strength>=3);
+      else if(mode==='review') btn=b('same_c',i,'Same family',true);
       html+=row(title,esc(state+' · '+why(m))+(m.axiscare_client_id&&m.active===true?'<br>A change in care for a current client is handled on their profile, not as a new start.':''),btn);
     });
     ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:720px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
-      +'<div style="font-weight:800;color:var(--navy);font-size:17px;">'+(mode==='convert'?'Does AxisCare already have this client?':'Is this family already known?')+'</div>'
+      +'<div style="font-weight:800;color:var(--navy);font-size:17px;">'+(mode==='convert'?'Does AxisCare already have this client?':mode==='review'?'Is this the same family?':'Is this family already known?')+'</div>'
       +'<div class="field-note" style="margin-top:4px;">'+(mode==='convert'
         ?'Before a new client is made in AxisCare: these may be the same person. Using their existing record keeps one client, one profile.'
+        :mode==='review'?'This inquiry came in automatically. If it is one of these families, say so; if not, say it is a different family. Either answer closes the item on My Work.'
         :'These look like the same family. Pick one, or save this as a new inquiry if they\'re different people.')+'</div>'
       +(found.note?'<div style="margin-top:10px;background:#FFFBF4;border:1px solid #F3D9B5;border-radius:8px;padding:8px 12px;font-size:13px;">'+esc(found.note)+'</div>':'')
       +html
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">'
-      +'<button class="secondary" data-ck="new" data-i="0">'+(mode==='convert'?'None of these: create a new client':'A different family: save as new')+'</button>'
-      +'<button class="secondary" data-ck="cancel" data-i="0">'+(mode==='convert'?'Close':'Go back')+'</button></div></div>';
+      +'<button class="secondary" data-ck="new" data-i="0">'+(mode==='convert'?'None of these: create a new client':mode==='review'?'A different family':'A different family: save as new')+'</button>'
+      +'<button class="secondary" data-ck="cancel" data-i="0">'+(mode==='save'?'Go back':'Close')+'</button></div></div>';
     document.body.appendChild(ov);
     ov.querySelectorAll('[data-ck]').forEach(el=>el.onclick=()=>{
       const k=el.getAttribute('data-ck'), i=+el.getAttribute('data-i'); ov.remove();
       if(k==='lead') return resolve({kind:'lead',id:found.leads[i].lead.id});
+      if(k==='same') return resolve({kind:'same',id:found.leads[i].lead.id});
+      if(k==='same_c') return resolve({kind:'same',id:null,name:found.clients[i].name});
       if(k==='client'||k==='link'){ const m=found.clients[i]; return resolve({kind:k,ax:String(m.axiscare_client_id),name:m.name}); }
       resolve({kind:k});
     });
@@ -10740,6 +10746,61 @@ async function ckUseExisting(l, ax, name){
     +(jcRes?'\n\nJourney: '+jcRes.text:'')
     +'\n\nIn AxisCare, set them back to active when care starts. Owner / Decision then confirms the returning client, and this inquiry\'s Journey carries on.');
   return true;
+}
+/* 5b C: an automatic front door (web form, booking, AI call, call disposition) flagged this new
+   inquiry as possibly a family we already know. A person answers here; answering closes the My Work item. */
+function ckReturningOpen(l){ const f=l&&l.possibly_returning; return !!(f&&Array.isArray(f.matches)&&f.matches.length&&!f.decision); }
+function ckRenderReturning(){
+  const box=document.getElementById('lp_returning'), l=lpLead; if(!box) return;
+  if(!ckReturningOpen(l)){ box.innerHTML=''; return; }
+  const esc=escapeHtmlComms, f=l.possibly_returning;
+  const line=m=>m.kind==='inquiry'?'an earlier inquiry for '+esc(m.name)+' ('+esc(m.status||'')+')'
+    :esc(m.name)+(m.axiscare_client_id?' (AxisCare #'+esc(m.axiscare_client_id)+')':'')+', '+(m.active===true?'current client':m.active===false?'former client':'Family Circle');
+  box.innerHTML='<div style="background:#FFFBF4;border:1px solid #F3D9B5;border-radius:10px;padding:10px 14px;margin:8px 0;">'
+    +'<div style="font-weight:800;color:var(--navy);">Is this the same family?</div>'
+    +'<div class="field-note" style="font-size:12.5px;margin-top:2px;">This inquiry came in by '+esc(f.by||'an automatic entry')+' and may be a family we already know: '+f.matches.map(line).join('; ')+'.'
+    +(f.axiscare_checked===false?' AxisCare couldn\'t be checked at the time.':'')+'</div>'
+    +'<button class="primary" style="margin-top:8px;padding:5px 12px;font-size:12.5px;" onclick="ckReviewReturning()">Check and answer</button></div>';
+}
+function ckFoundFromFlag(l){
+  const f=l.possibly_returning||{matches:[]};
+  const leads=f.matches.filter(m=>m.kind==='inquiry').map(m=>{
+    const lead=(DATA.leads||[]).find(x=>String(x.id)===String(m.lead_id))||{id:m.lead_id,client_first_name:m.name,status:m.status};
+    return {lead,why:m.why&&m.why.length?m.why:['phone'],strength:3};
+  });
+  const clients=f.matches.filter(m=>m.kind==='axiscare').map(m=>({axiscare_client_id:m.axiscare_client_id||null,name:m.name,active:m.active,status:m.status,why:m.why||[],family:m.family||[],strength:3}));
+  return {leads,clients,note:f.axiscare_checked===false?'AxisCare couldn\'t be checked when this came in.':''};
+}
+async function ckReviewReturning(){
+  const l=lpLead; if(!ckReturningOpen(l)) return;
+  const ch=await ckPanel(ckFoundFromFlag(l),'review');
+  if(ch.kind==='cancel') return;
+  if(ch.kind==='lead'){ openLeadProfile(ch.id); return; }
+  if(ch.kind==='client'){ openClient({ax:ch.ax},'summary'); return; }
+  if(ch.kind==='same'){ await ckAnswerReturning(l,'same_family',{same_as_lead:ch.id}); return; }
+  if(ch.kind==='link'){
+    const r=await jcSideBySide(l, ch.ax, 'save'); if(r.choice==='cancel') return;
+    l.axiscare_client_id=String(ch.ax);
+    let jcRes=null; if(r.choice==='connect'){ try{ jcRes=await jcConnect(l, String(ch.ax), 'typed', r.name||ch.name); }catch(e){} }
+    await ckAnswerReturning(l,'same_family',{axiscare_client_id:String(ch.ax)});
+    if(jcRes&&typeof ccToast==='function') ccToast(jcRes.text);
+    return;
+  }
+  if(ch.kind==='new') await ckAnswerReturning(l,'different_family',{});
+}
+async function ckAnswerReturning(l, decision, extra){
+  const now=new Date().toISOString(), who=(ME&&(ME.email||ME.name))||'';
+  l.possibly_returning=Object.assign({}, l.possibly_returning, extra, {decision, decided_by:who, decided_at:now});
+  await persist('leads', l);
+  const it=(DATA.ops_items||[]).find(x=>x.id==='ops_returning_'+l.id);
+  if(it&&it.status!=='done'){
+    it.status='done'; it.closed_at=now; it.closed_by=who;
+    it.close_note=decision==='same_family'?'Answered on the inquiry: the same family':'Answered on the inquiry: a different family';
+    await persist('ops_items', it);
+    try{ if(typeof myWorkRefresh==='function') myWorkRefresh(); }catch(e){}
+  }
+  try{ renderLeadProfile(); }catch(e){}
+  if(typeof ccToast==='function') ccToast(decision==='same_family'?'Recorded: the same family.':'Recorded: a different family.');
 }
 let CK_BUSY=false, CK_SET='';
 /* 5b B: a NEW inquiry (from the form or the guided call) is checked before it is saved. Acts on the
@@ -22593,6 +22654,13 @@ function obligationOpenAction(it){
     /* Step 6 (2026-09-26): promise and Journey-review items open the family's
        record. The Start Contract lives on the lead profile (or the client
        profile once there is no lead); logging the update there closes the item. */
+    /* 5b C: "is this the same family?" opens the new inquiry, where the answer is given */
+    if(it && it.source && it.source.type==='returning'){
+      const lead=(DATA.leads||[]).find(l=>String(l.id)===String(it.source.lead_id));
+      if(!lead) return '';
+      return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="openLeadProfile(\''+escapeHtmlComms(String(lead.id))+'\')">Open the inquiry</button>'
+        +'<span class="field-note" style="margin-left:8px;">Answering there (the same family, or a different family) closes this.</span></div>';
+    }
     if(it && it.source && it.source.type==='journey'){
       const esc=escapeHtmlComms, s=it.source;
       const lead=s.lead_id?(DATA.leads||[]).find(l=>String(l.id)===String(s.lead_id)):null;
