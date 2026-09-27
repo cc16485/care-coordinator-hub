@@ -1111,7 +1111,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <div class="card" id="nvAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
         <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1fr;gap:8px;">
-          <div><input id="nvName" list="nvClientList" autocomplete="off" placeholder="Client (pick from the list)" style="width:100%;"><datalist id="nvClientList"></datalist></div>
+          <div><input id="nvName" list="nvClientList" autocomplete="off" placeholder="Client (pick from the list)" oninput="nvPickChanged()" style="width:100%;"><datalist id="nvClientList"></datalist></div>
           <input id="nvPhone" placeholder="Phone">
           <input id="nvGhe1" type="month" title="First GHE month">
           <input id="nvGhe2" type="month" title="Second GHE month">
@@ -6507,7 +6507,8 @@ The HomeTogether team</pre>
 <div style="grid-column:1/-1"><label>Preferred Hospital</label><input id="assess_preferred_hospital"></div>
 <div>
 <label>Payer</label>
-<select id="assess_payer"><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>Other</option></select>
+<select id="assess_payer"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>PACE</option><option>Other</option></select>
+<div class="field-note" id="assess_payer_note"></div>
 </div>
 <div>
 <label>Transcript Source</label>
@@ -6546,7 +6547,7 @@ The HomeTogether team</pre>
 <div style="grid-column:1/-1"><label>Recommended Services</label><textarea id="plan_services_recommended" rows="2"></textarea></div>
 <div><label>Recommended Frequency</label><input id="plan_recommended_frequency" placeholder="e.g. 5x/week"></div>
 <div><label>Recommended Hours/Week</label><input id="plan_recommended_hours_per_week" type="number"></div>
-<div><label>Care Start Date</label><input type="date" id="plan_start_date"></div>
+<div><label>Care Start Date</label><input type="date" id="plan_start_date"><div class="field-note" id="plan_start_note"></div></div>
 <div><label>Plan Review Date</label><input type="date" id="plan_review_date"></div>
 </div>
 <div id="plan_tasks_box" style="margin-top:14px;"></div>
@@ -11872,7 +11873,15 @@ function openAssessmentModal(id, fromLead){
   document.getElementById('assess_physician_name').value = (a&&a.physician_name) || (fromLead&&fromLead.physician_name) || '';
   document.getElementById('assess_physician_phone').value = (a&&a.physician_phone) || (fromLead&&fromLead.physician_phone) || '';
   document.getElementById('assess_preferred_hospital').value = (a&&a.preferred_hospital) || (fromLead&&fromLead.preferred_hospital) || '';
-  document.getElementById('assess_payer').value = (a&&a.payer)||'Medicaid';
+  /* One profile, step 4: the payer has ONE editor, the intake (the Payer tab). When the family has an
+     inquiry, the assessment shows its payer read-only; only an assessment with no inquiry types its own. */
+  { const lp = fromLead || ((a&&a.lead_id) ? (DATA.leads||[]).find(l=>l.id===a.lead_id) : null);
+    const PAYER_LABEL = { medicaid:'Medicaid', private:'Private Pay', ltc:'LTC Insurance', va:'VA', cds:'CDS', pace:'PACE' };
+    const sel = document.getElementById('assess_payer'), note = document.getElementById('assess_payer_note');
+    const fromIntake = lp && lp.funding_source ? (PAYER_LABEL[lp.funding_source] || 'Other') : '';
+    sel.value = fromIntake || (a&&a.payer) || '';
+    sel.disabled = !!fromIntake;
+    if(note) note.textContent = fromIntake ? 'From the intake. Change it on the Payer tab (the intake form).' : (lp ? 'The intake has no payer yet. Set it on the Payer tab.' : ''); }
   document.getElementById('assess_transcript_source').value = (a&&a.transcript_source)||'Otter';
   document.getElementById('assess_transcript_link').value = (a&&a.transcript_link)||'';
   document.getElementById('assess_transcript_text').value = (a&&a.transcript_text)||'';
@@ -11948,6 +11957,30 @@ async function generateCarePlan(){
     box.textContent = 'Could not draft: '+(e&&e.message?e.message:'error')+' — you can still fill the plan by hand.';
   }
 }
+/* One profile, step 4: start dates have ONE editor, the Start Contract. The care plan shows its target
+   read-only (and saves that value, so the AxisCare note says the same date). With no Start Contract the
+   plan keeps its own date, since it is then the only place. */
+async function planStartFromContract(a){
+  const el=document.getElementById('plan_start_date'), note=document.getElementById('plan_start_note'); if(!el) return;
+  el.readOnly=false; if(note) note.textContent='';
+  if(!a) return;
+  try{
+    const q=async p=>{ const r=await p; if(r.error) throw r.error; return r.data||[]; };
+    let ep=null;
+    if(a.lead_id){ const src=await q(sb.from('episode_source').select('episode_id').eq('system','lead').eq('role','origin').eq('source_ref',String(a.lead_id))); ep=src[0]&&src[0].episode_id; }
+    if(!ep&&a.axiscare_client_id){
+      const ps=await q(sb.from('person_source_id').select('person_id').eq('system','axiscare').eq('entity_type','client').eq('source_id',String(a.axiscare_client_id)));
+      if(ps[0]){ const eps=await q(sb.from('journey_episode').select('episode_id,state').eq('person_id',ps[0].person_id)); const act=eps.find(e=>['provisional','open','converted','established'].includes(e.state)); ep=act&&act.episode_id; }
+    }
+    if(!ep) return;
+    const sc=await q(sb.from('start_contract_current').select('*').eq('episode_id',ep));
+    if(!sc[0]) return;
+    const target=String(sc[0].target_date||'').slice(0,10);
+    if(document.getElementById('plan_assessment_id').value!==a.id) return;   // the pop-up moved on
+    el.value=target; el.readOnly=true;
+    if(note) note.textContent=target?'From the Start Contract. Change it on the Start of Care tab.':'The Start Contract has no target date yet. Set it on the Start of Care tab.';
+  }catch(e){ if(note) note.textContent='Could not read the Start Contract; showing the plan\'s own date.'; }
+}
 function openPlanForAssessment(assessmentId){
   let plan = DATA.care_plans.find(p=>p.assessment_id===assessmentId);
   const a = DATA.care_assessments.find(x=>x.id===assessmentId);
@@ -11957,6 +11990,7 @@ function openPlanForAssessment(assessmentId){
   const f = (key) => document.getElementById('plan_'+key).value = plan ? (plan[key]||'') : '';
   ['adl_needs','iadl_needs','medical_conditions','medications','safety_concerns','client_goals',
    'services_recommended','recommended_frequency','recommended_hours_per_week','start_date','review_date'].forEach(f);
+  planStartFromContract(a);
   CPT.tasks=JSON.parse(JSON.stringify((plan&&plan.axiscare_tasks)||[])); CPT.clientName=a?a.client_name:'';
   cptRender(); cptLoadCatalog();
   document.getElementById('planModalBackdrop').classList.add('open');
@@ -28994,7 +29028,21 @@ function tbProjHours(plan,name){
   if(cg) cg.visits.forEach(function(v){ var a=v.start?(+v.start.slice(0,2)+v.start.slice(3,5)/60):0, b=v.end?(+v.end.slice(0,2)+v.end.slice(3,5)/60):a; if(b>a) sched+=(b-a); });
   return { board:Math.round(board*10)/10, axis:Math.round(sched/2*10)/10 };
 }
+/* One profile, step 4: care level has ONE truth, AxisCare's class. A plan whose client AxisCare knows
+   (through its Journey link) uses that level for matching; the typed level is only for a client
+   AxisCare doesn't have yet. */
+function tbLevelFromAx(plan){ const a=TB.axLv&&TB.axLv[plan.id]; return a&&a.level?a.level:null; }
+function tbLevel(plan){ return tbLevelFromAx(plan)||(plan.level?+plan.level:null); }
+async function tbResolveLevel(plan){
+  TB.axLv=TB.axLv||{}; if(TB.axLv[plan.id]!==undefined) return; TB.axLv[plan.id]=null;
+  try{
+    const f=await famResolve({ plan_id:plan.id }); if(!f||!f.ax) return;
+    const d=await ccLevelCall({ action:'client', axiscare_client_id:f.ax });
+    if(d&&d.outcome==='ok'&&d.level){ TB.axLv[plan.id]={ level:+d.level, ax:f.ax }; tbRender(); }
+  }catch(e){ /* no level: the typed one stays */ }
+}
 function tbBoardHtml(plan){
+  tbResolveLevel(plan);
   var STATUS={penciled:['#94A3B8','penciled'],asked:['var(--honey-ink)','asked'],yes:['var(--green)','confirmed ✓'],no:['var(--red)','declined']};
   var total=(plan.days||[]).length*(plan.slots||[]).length;
   var yes=0, filled=0;
@@ -29035,7 +29083,7 @@ function tbBoardHtml(plan){
   return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px;">'
     +(TB.profileRoot?'':'<button class="cara-btn ghost" style="font-size:12px;" onclick="tbClose()">← All plans</button>')
     +'<b style="font-size:16px;color:var(--navy);">'+esc(plan.client)+'</b>'
-    +'<span class="field-note">'+esc([plan.city,plan.level?('Level '+plan.level):''].filter(Boolean).join(' · '))+'</span>'
+    +'<span class="field-note">'+esc([plan.city,tbLevel(plan)?('Level '+tbLevel(plan)+(tbLevelFromAx(plan)?' (from AxisCare)':' (typed; not in AxisCare yet)')):''].filter(Boolean).join(' · '))+'</span>'
     +'<span style="font-size:12.5px;"><b style="color:var(--green);">'+yes+'</b>/'+total+' confirmed'+(gaps?' · <b style="color:var(--red);">'+gaps+' gap'+(gaps===1?'':'s')+'</b>':' · 🎉 every slot filled')+'</span>'
     +'<span style="flex:1;"></span>'
     +(gaps?'<button class="cara-btn ghost" style="font-size:12px;" onclick="tbFlagGaps()">Flag gaps to recruiting</button>':'')
@@ -29110,7 +29158,8 @@ function tbAssignHtml(plan,key){
   var wd2=[]; // the two dates in the 14-day window matching this weekday
   for(var i=0;i<14;i++){ var dt=new Date(Date.now()+i*86400000); var w=dt.toLocaleDateString('en-US',{weekday:'short',timeZone:'America/Chicago'}).toLowerCase(); if(w===d) wd2.push(dt.toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10)); }
   var list=TB.pool.map(function(cg){
-    var lvOK=!plan.level||cg.level==null||cg.level>=+plan.level;
+    var lvT=tbLevel(plan);
+    var lvOK=!lvT||cg.level==null||cg.level>=lvT;
     if(!lvOK) return null;
     var stated=null;
     if(cg.windows){ var have=[]; Object.keys(cg.windows).forEach(function(dd){ (cg.windows[dd]||[]).forEach(function(w){ have.push(dd+':'+w); }); });
@@ -30873,6 +30922,9 @@ async function cl360RenderInto(r, out, px, panes){
       + (f[0]===px+'cp_pets'?noneBox(px+'cp_pets_none', prof.pets_none===true, 'Explicitly: no pets in the home (blank is not an answer)'):'')
       + (f[0]===px+'cp_entrance'?noneBox(px+'cp_ent_none', prof.entrance_none===true, 'Explicitly: no special entrance instructions'):'')
     ).join('')
+    /* One profile, step 4: the intake's AxisCare checklist answers sit beside the home notes, so the two can't drift apart */
+    + (function(){ const ca=(lead&&lead.client_attributes)||{}; const say=v=>v==='yes'?'yes':v==='no'?'no':v==='preferred'?'preferred':'not answered';
+        return (lead&&lead.id)?'<div class="field-note" style="margin:8px 0 0;">From the intake checklist (Home &amp; Life tab, AxisCare Attributes): cats '+say(ca.cats)+' · dogs '+say(ca.dogs)+' · smoking in the home '+say(ca.smoking)+'.</div>':''; })()
     + '<div class="field-note" style="margin:8px 0 3px;">Care level now comes from AxisCare (shown at the top). A care plan review can update it.'+(prof.care_level?' This profile once noted '+esc(prof.care_level)+'.':'')+'</div>'
     + '<div style="margin-top:10px;"><button class="secondary" onclick="cl360SaveProfile(&quot;'+px+'&quot;)">Save home & life</button> <span class="field-note" id="'+px+'cp_saved"></span></div>'
     + (prof.updated_at ? '<div class="field-note" style="margin-top:6px;">last saved '+esc(String(prof.updated_at).slice(0,10))+'</div>' : '');
@@ -31661,6 +31713,12 @@ async function hwInvite(btn){
    visits, scheduled by the nurse directly with the client. The hub
    tracks due-ness only; the calendar belongs to the nurse.
    ================================================================ */
+/* One profile, step 4: the phone fills in from the client's record (AxisCare / identity); still editable,
+   because the nurse's GHL contact is made from it */
+function nvPickChanged(){
+  const o=ccPickParse((document.getElementById('nvName')||{}).value), ph=document.getElementById('nvPhone'); if(!o||!ph||ph.value.trim()) return;
+  const idr=(CL360_IDENTITY||[]).find(x=>String(x.axiscare_client_id)===o.ax); if(idr&&idr.phone) ph.value=idr.phone;
+}
 function nvToggleAdd(){ const w=document.getElementById('nvAddWrap'); w.style.display=w.style.display==='none'?'block':'none'; if(w.style.display==='block') ccPickFill('nvClientList'); }
 /* Change 8a: a nurse client added before the picker has no AxisCare id. A person links it once. */
 function nvLinkBtn(c, where){
@@ -31888,10 +31946,23 @@ function gheNew(clientName){
   gheSet('ghe_id',''); gheSet('ghe_provider','Caring Companions');
   gheSet('ghe_visit_date',today());
   gheSet('ghe_sig_nurse_date',today()); gheSet('ghe_sig_part_date',today()); gheSet('ghe_sig_sup_date',today());
-  if(clientName){ gheSet('ghe_client',clientName); const nc=(DATA.nurse_clients||[]).find(c=>c.name===clientName); if(nc&&nc.phone) gheSet('ghe_phone',nc.phone); }
+  if(clientName){ gheSet('ghe_client',clientName); const nc=(DATA.nurse_clients||[]).find(c=>c.name===clientName); if(nc&&nc.phone) gheSet('ghe_phone',nc.phone);
+    if(nc&&nc.axiscare_client_id) ghePrefillFromIntake(String(nc.axiscare_client_id)); }
   const gr=document.querySelector('#ghe_reason_grid input[value="ghe"]'); if(gr) gr.checked=true;
   document.getElementById('ghe_status').value='draft';
   gheTotal();
+}
+/* One profile, step 4: DCN, birth date, phone, address and county are typed once at intake. A new GHE
+   fills the empty ones from the CONFIRMED inquiry (found by AxisCare id, never by name); all stay editable. */
+async function ghePrefillFromIntake(ax){
+  try{
+    const f=await famResolve({ ax }); if(!f||!f.lead_confirmed||!f.lead) return;
+    const l=(DATA.leads||[]).find(x=>x.id===f.lead.id); if(!l) return;
+    const fill=(id,v)=>{ const el=document.getElementById(id); if(el&&!String(el.value||'').trim()&&v) el.value=v; };
+    fill('ghe_dcn', l.dcn); fill('ghe_dob', l.client_dob); fill('ghe_county', l.county);
+    fill('ghe_phone', l.client_phone);
+    fill('ghe_address', [l.client_address, l.client_city, [l.client_state, l.client_zip].filter(Boolean).join(' ')].filter(Boolean).join(', '));
+  }catch(e){ /* nothing to fill; the form is typed as before */ }
 }
 function gheOpen(id){
   const g=(DATA.ghe_forms||[]).find(x=>x.id===id); if(!g) return;
