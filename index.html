@@ -17898,8 +17898,11 @@ async function fcSyncAxis(btn){
     const d = await r.json();
     if(d && d.error) alert('Sync problem: '+d.error);
     else alert('Synced from AxisCare.\n\nNew circles: '+(d.circles_created||0)
+      +'\nCircles linked to their client: '+(d.circles_linked||0)
       +'\nPeople added: '+(d.contacts_added||0)
-      +'\nBlanks filled: '+(d.contacts_updated||0)
+      +'\nPeople updated from AxisCare: '+(d.contacts_updated||0)
+      +(d.contacts_marked_removed?'\nNo longer on AxisCare\'s list (kept, not texted): '+d.contacts_marked_removed:'')
+      +(d.waiting_for_person_link?'\nCircles waiting for a person to link them: '+d.waiting_for_person_link:'')
       +(d.clients_with_no_parties?'\nClients with nobody listed in AxisCare: '+d.clients_with_no_parties:''));
     await fcLoad();
   }catch(e){ alert('Could not sync: '+(e&&e.message||e)); }
@@ -17935,19 +17938,29 @@ function fcRender(){
   }
   box.innerHTML = FC.map(function(c,i){
     const people = FC_CONTACTS[c.id] || [];
-    const textable = people.filter(function(p){ return p.phone && p.sms_consent; }).length;
+    const textable = people.filter(function(p){ return p.phone && p.sms_consent && !p.stopped_at && !p.axiscare_removed_at; }).length;
+    const linked = !!c.axiscare_client_id;
     return '<details class="card" style="padding:0;margin-bottom:10px;">'
       + '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:14px 18px;">'
       + '<b style="font-size:15px;color:var(--navy);">' + esc(c.client_name) + '</b>'
+      + (linked?'<span style="font-size:11px;font-weight:700;color:#0F5E73;background:#E4F2F0;border-radius:999px;padding:2px 8px;">AxisCare #'+esc(c.axiscare_client_id)+'</span>'
+        :'<span style="font-size:11px;font-weight:700;color:#8A1F17;background:#FDECEA;border-radius:999px;padding:2px 8px;">not linked to a client · never texted</span>')
       + '<span class="field-note">' + people.length + ' in the circle'
         + (people.length ? ' · ' + textable + ' can be texted' : '') + '</span>'
       + '<span style="flex:1;"></span>'
       + '<span style="color:#A89C8B;font-size:.78rem;">open ▾</span></summary>'
       + '<div style="padding:0 18px 16px;">'
 
+      + (linked?'':'<div style="background:#FDECEA;border-radius:8px;padding:8px 10px;margin:4px 0 10px;font-size:13px;color:#8A1F17;">This circle isn\'t tied to a client yet, so nothing is sent from it (Cara\'s texts included). '
+          +'<button class="fb" style="font-size:12px;" onclick="fcLinkPick(\'' + esc(c.id) + '\')">Link to a client</button></div>')
       + (people.length ? people.map(function(p){
-          return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.5rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
+          const ax = p.source==='axiscare' && p.axiscare_list_number;
+          const yn = function(v){ return v===true?'yes':v===false?'no':'not answered'; };
+          return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.5rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;'+(p.axiscare_removed_at?'opacity:.55;':'')+'">'
             + '<b style="color:var(--navy);">' + esc(p.name) + '</b>'
+            + (ax?'<span title="HIPAA: '+yn(p.hipaa_authorized)+' · medical decisions: '+yn(p.can_make_medical_decisions)+' (set in AxisCare)" style="font-size:11px;font-weight:700;color:#0F5E73;background:#E4F2F0;border-radius:999px;padding:2px 8px;">AxisCare contact '+esc(p.axiscare_list_number)+'</span>':'')
+            + (p.axiscare_removed_at?'<span class="field-note" style="font-size:11.5px;">no longer on AxisCare\'s list · not texted</span>':'')
+            + (p.stopped_at?'<span class="field-note" style="font-size:11.5px;color:var(--red);">replied STOP</span>':'')
             + (p.relationship?'<span class="field-note">'+esc(p.relationship)+'</span>':'')
             + (p.is_primary?'<span style="font-size:11px;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:2px 8px;">main contact</span>':'')
             + '<span style="flex:1;"></span>'
@@ -17956,6 +17969,8 @@ function fcRender(){
               + '<input type="checkbox" ' + (p.sms_consent?'checked':'') + ' onchange="fcSet(\'' + esc(p.id) + '\',\'sms_consent\',this.checked)" style="width:15px;height:15px;accent-color:var(--yellow);"> texts ok</label>'
             + '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);">'
               + '<input type="checkbox" ' + (p.wants_changes!==false?'checked':'') + ' onchange="fcSet(\'' + esc(p.id) + '\',\'wants_changes\',this.checked)" style="width:15px;height:15px;accent-color:var(--yellow);"> caregiver changes</label>'
+            + (ax&&!p.axiscare_removed_at?'<button class="fb" style="padding:1px 8px;font-size:11.5px;" onclick="fcRpEdit(\'' + esc(p.id) + '\')">Edit in AxisCare</button>'
+              :(linked&&p.source!=='axiscare'?'<button class="fb" style="padding:1px 8px;font-size:11.5px;" onclick="fcRpAdd(\'' + esc(p.id) + '\')">Add to AxisCare</button>':''))
             + '<button class="fb" style="padding:1px 8px;" onclick="fcDel(\'' + esc(p.id) + '\')">✕</button>'
             + '</div>';
         }).join('') : '<div class="field-note" style="padding:.5rem 0;">Nobody in this circle yet.</div>')
@@ -17980,15 +17995,79 @@ function fcRender(){
   }).join('');
 }
 
-async function fcAdd(){
-  const name = prompt('Which client is this circle for?\n\nTheir name as the family would say it.');
-  if(name===null) return;
-  if(!name.trim()){ alert('It needs a name.'); return; }
-  try{
-    const { error } = await sb.from('care_circles').insert({ client_name: name.trim() });
-    if(error) throw error;
-    await fcLoad();
-  }catch(e){ alert('Could not add it: '+(e&&e.message||'error')); }
+/* Change 6a: a circle is created FOR a client (picked from the clients the hub
+   knows with an AxisCare id), and is linked to them in the same step. */
+async function fcAdd(){ fcLinkPick(null); }
+async function fcCall(body){
+  const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+  if(!tok) throw new Error('Sign in first.');
+  const r=await fetch(CONFIG.supabase_url+'/functions/v1/family-circles',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>null); if(!d) throw new Error('The Family Circles service answered '+r.status); return d;
+}
+async function fcLinkPick(circleId){
+  const esc=escapeHtmlComms;
+  const circle=circleId?FC.find(c=>String(c.id)===String(circleId)):null;
+  const taken={}; FC.forEach(c=>{ if(c.axiscare_client_id) taken[String(c.axiscare_client_id)]=c.client_name; });
+  const clients=(await cl360Identity()).filter(x=>x.axiscare_client_id&&x.role_status!=='former').sort((a,b)=>a.client_name.localeCompare(b.client_name));
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:17px;">'+(circle?'Which client is "'+esc(circle.client_name)+'" for?':'New Family Circle: which client?')+'</div>'
+    +'<input id="fclQ" placeholder="Search by name" style="margin-top:10px;">'
+    +'<div id="fclList" style="margin-top:8px;max-height:360px;overflow:auto;"></div>'
+    +'<div style="margin-top:12px;display:flex;gap:8px;align-items:center;"><button class="secondary" id="fclX">Cancel</button><span id="fclMsg" class="field-note"></span></div></div>';
+  document.body.appendChild(ov);
+  const close=()=>ov.remove(); ov.querySelector('#fclX').onclick=close;
+  const draw=()=>{ const q=ov.querySelector('#fclQ').value.trim().toLowerCase();
+    ov.querySelector('#fclList').innerHTML=clients.filter(x=>!q||x.client_name.toLowerCase().includes(q)).map(x=>{
+      const t=taken[String(x.axiscare_client_id)];
+      return '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:13.5px;"><b>'+esc(x.client_name)+'</b><span class="field-note">AxisCare #'+esc(x.axiscare_client_id)+'</span><span style="flex:1"></span>'
+        +(t?'<span class="field-note">has a circle ("'+esc(t)+'")</span>':'<button class="fb" style="font-size:12px;" data-ax="'+esc(x.axiscare_client_id)+'" data-nm="'+esc(x.client_name)+'">'+(circle?'Link':'Create')+'</button>')+'</div>'; }).join('')||'<div class="field-note">No client matches.</div>';
+    ov.querySelectorAll('#fclList button[data-ax]').forEach(b=>b.onclick=()=>pick(b.getAttribute('data-ax'),b.getAttribute('data-nm'))); };
+  const pick=async(ax,nm)=>{
+    const msg=ov.querySelector('#fclMsg'); msg.textContent='Saving…';
+    try{
+      let id=circle&&circle.id;
+      if(!id){ const ins=await sb.from('care_circles').insert({ client_name:nm }).select('id').single(); if(ins.error) throw ins.error; id=ins.data.id; }
+      const out=await fcCall({action:'link',circle_id:String(id),axiscare_client_id:String(ax)});
+      if(out.outcome!=='linked'&&out.outcome!=='already_linked'){ msg.innerHTML='<span style="color:var(--red)">'+esc(out.detail||out.error||out.outcome)+'</span>'; return; }
+      close(); await fcLoad();
+    }catch(e){ msg.innerHTML='<span style="color:var(--red)">'+esc(String(e.message||e))+'</span>'; }
+  };
+  ov.querySelector('#fclQ').oninput=draw; draw();
+}
+async function fcRpEdit(contactId){
+  const esc=escapeHtmlComms; let v;
+  try{ v=await fcCall({action:'rp_view',contact_id:contactId}); }catch(e){ alert(String(e.message||e)); return; }
+  if(v.outcome!=='ok'){ alert(v.detail||v.error||v.outcome); return; }
+  const a=v.axiscare;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+  const row=(k,label)=>'<div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;align-items:center;margin-top:6px;font-size:13px;"><span class="field-note">'+label+'</span><span>'+esc(a[k]||'—')+'</span><input id="fce_'+k+'" value="'+esc(a[k]||'')+'"></div>';
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:620px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:17px;">Edit AxisCare contact '+esc(a.list_number)+'</div>'
+    +'<div class="field-note">AxisCare owns this person\'s details; saving writes to AxisCare, reads it back, and updates the hub copy.</div>'
+    +'<div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;margin-top:10px;font-size:11px;font-weight:700;color:var(--text-muted);"><span></span><span>AxisCare now</span><span>Change to</span></div>'
+    +row('name','Name')+row('relationship','Relationship')+row('phone','Mobile phone')+row('email','Email')
+    +'<div class="field-note" style="margin-top:8px;">HIPAA authorization: <b>'+(a.hipaa_authorized===true?'yes':a.hipaa_authorized===false?'no':'not answered')+'</b> · Medical decisions: <b>'+(a.can_make_medical_decisions===true?'yes':a.can_make_medical_decisions===false?'no':'not answered')+'</b> (set these in AxisCare; they are kept as they are)</div>'
+    +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;"><button class="primary" id="fceGo">Save to AxisCare</button><button class="secondary" id="fceX">Cancel</button><span id="fceMsg" class="field-note"></span></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#fceX').onclick=()=>ov.remove();
+  ov.querySelector('#fceGo').onclick=async()=>{
+    const g=k=>ov.querySelector('#fce_'+k).value.trim(), msg=ov.querySelector('#fceMsg');
+    if(!g('name')){ msg.textContent='A name is needed.'; return; }
+    msg.textContent='Saving to AxisCare…';
+    let out; try{ out=await fcCall({action:'rp_write',contact_id:contactId,name:g('name'),relationship:g('relationship'),phone:g('phone'),email:g('email')}); }catch(e){ out={error:String(e.message||e)}; }
+    if(out.outcome==='saved'||out.outcome==='saved_differently'){ ov.remove(); await fcLoad(); if(out.outcome==='saved_differently') alert('Saved, but AxisCare shows it slightly differently than typed (it may format phone numbers). The hub now shows AxisCare\'s version.'); return; }
+    msg.innerHTML='<span style="color:var(--red)">'+esc(out.detail||out.error||out.outcome)+'</span>';
+  };
+}
+async function fcRpAdd(contactId){
+  const p=Object.values(FC_CONTACTS).flat().find(x=>String(x.id)===String(contactId)); if(!p) return;
+  if(!confirm('Add '+p.name+' to this client\'s responsible parties in AxisCare?\n\nThey go into the first free slot (of three). From then on AxisCare owns their details, and HIPAA / medical-decision answers are set in AxisCare.')) return;
+  let out; try{ out=await fcCall({action:'rp_add',contact_id:contactId}); }catch(e){ out={error:String(e.message||e)}; }
+  if(out.outcome==='added'){ await fcLoad(); alert(p.name+' is now AxisCare contact '+out.list_number+' (read back from AxisCare).'); return; }
+  alert(out.detail||out.error||out.outcome);
 }
 
 async function fcAddContact(circleId){
@@ -18020,6 +18099,8 @@ async function fcSet(id, field, value){
   }catch(e){ alert('Could not change that: '+(e&&e.message||'error')); }
 }
 async function fcDel(id){
+  const p=Object.values(FC_CONTACTS).flat().find(x=>String(x.id)===String(id));
+  if(p&&p.source==='axiscare'&&p.axiscare_list_number&&!p.axiscare_removed_at){ alert(p.name+' is on this client\'s AxisCare contacts, so removing them here would not stick: the nightly sync would bring them back. Remove them in AxisCare, and the hub marks them the next night.'); return; }
   if(!confirm('Take this person out of the circle?')) return;
   try{
     const { error } = await sb.from('circle_contacts').delete().eq('id', id);
@@ -18031,6 +18112,7 @@ async function fcDel(id){
 /* The message nobody wants to write at 7am, already written. */
 function fcCompose(circleId, kind){
   const c = FC.find(function(x){ return String(x.id)===String(circleId); }); if(!c) return;
+  if(!c.axiscare_client_id){ alert('Link this circle to its client first. An unlinked circle is never sent to.'); return; }
   const box = document.getElementById('fcbox_'+circleId);
   const pick = document.getElementById('fcpick_'+circleId);
   const msg  = document.getElementById('fcmsg_'+circleId);
@@ -30581,11 +30663,13 @@ async function cl360RenderInto(r, out, px){
   /* circle loads after paint; its tables are not in the DATA blob */
   try{
     const c = await sb.from('care_circles').select('*').eq('active', true);
-    const circ = (c.data||[]).find(x=>String(x.client_name||'').toLowerCase().includes(first));
+    /* Change 6a: the client's circle is the one linked to their AxisCare id, never a first-name match */
+    const axc = String((r&&r.axiscare_client_id)||'').trim();
+    const circ = axc ? (c.data||[]).find(x=>String(x.axiscare_client_id||'')===axc) : null;
     const box = document.getElementById(px+'cl360Circle'); if(!box) return;
-    if(!circ){ box.innerHTML = '<div class="field-note">No circle yet. Build one in Family Circles: the people around '+esc(name.split(' ')[0])+' who should hear the same thing at the same time.</div>'; return; }
+    if(!circ){ box.innerHTML = '<div class="field-note">No Family Circle is linked to '+esc(name.split(' ')[0])+' yet. Create or link one in Family Circles.</div>'; return; }
     const p2 = await sb.from('circle_contacts').select('*').eq('circle_id', circ.id);
-    const members = p2.data||[];
+    const members = (p2.data||[]).filter(m=>!m.axiscare_removed_at);
     box.innerHTML = members.length
       ? members.map(m=>'<div style="font-size:13.5px;padding:4px 0;border-bottom:1px solid var(--border);">'
           + '<b>'+esc(m.name||'(no name)')+'</b>'
