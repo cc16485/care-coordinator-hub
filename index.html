@@ -5087,8 +5087,9 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 </div>
     </div>
   </div></div>
-  <div class="cp-pane" data-cp-pane="care"><div id="cp_c_care"></div></div>
-  <div class="cp-pane" data-cp-pane="team"><div id="cp_c_team"></div></div>
+  <!-- the borrowed-form slots sit OUTSIDE anything that is redrawn, so a redraw never deletes a borrowed form -->
+  <div class="cp-pane" data-cp-pane="care"><div id="cp_care"></div><div id="cp_review_slot"></div><div id="cp_c_care"></div></div>
+  <div class="cp-pane" data-cp-pane="team"><div id="cp_team"></div><div id="cp_cm_slot"></div><div id="cp_c_team"></div></div>
   <div class="cp-pane" data-cp-pane="checkins"><div id="cp_checkins"></div></div>
   <div class="cp-pane" data-cp-pane="payer"><div id="cp_payer"></div></div>
   <div class="cp-pane" data-cp-pane="home">
@@ -7776,6 +7777,7 @@ function switchTab(tab){
   if(tab==='settings' && !ccCan('manage_settings')){ alert('You do not have permission to open Settings.'); return; }
   ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
+  if(lpv&&lpv.style.display==='block'&&typeof cpLeaving==='function') cpLeaving();
   if(lpv) lpv.style.display='none';
   const apv = document.getElementById('applicantProfileView');
   if(apv) apv.style.display='none';
@@ -9111,6 +9113,7 @@ function cpLeadClientName(l){
 async function openClient(seed, tab){
   seed=seed||{};
   const view=document.getElementById('leadProfileView'); if(!view) return;
+  cpLeaving();   /* step 3: the previous client's borrowed forms / circle / board go back first */
   if(view.style.display!=='block') CP.returnTab=(typeof activeTab!=='undefined'&&activeTab)?activeTab:'leads';
   let lead=seed.lead_id?(DATA.leads||[]).find(l=>l.id===seed.lead_id)||null:null;
   let r=seed.r||null, ax=String(seed.ax||(r&&r.axiscare_client_id)||'').trim(), carrier=null;
@@ -9147,14 +9150,15 @@ async function openClient(seed, tab){
     initCommsPanel(lead);
     document.querySelectorAll('#commsTabs .filter-pill').forEach(b=>b.classList.toggle('active', b.dataset.cf==='all'));
   }
-  const slots=['summary','start','family','care','team','home','history'];
+  /* 'family' is the editable Family Circle now (step 3), not Client 360's read-only copy */
+  const slots=['summary','start','care','team','home','history'];
   const panes={ noFam:!!lead }; slots.forEach(k=>{ panes[k]=document.getElementById('cp_c_'+k); if(panes[k]) panes[k].innerHTML=''; });
   if(r) await cl360RenderInto(r, null, 'cp_', panes);
   else {
     const note='<div class="card" style="padding:12px 16px;margin-bottom:12px;font-size:13px;color:var(--text-muted);">These fill in once they are a client (converted to AxisCare, or confirmed on the Journey).</div>';
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
-  cpRenderCheckins(); cpRenderPayer();
+  cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam();
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -9167,12 +9171,142 @@ function openLeadProfile(id, tab){
   return openClient({ lead_id:id }, tab);
 }
 function closeLeadProfile(){
+  cpLeaving();
   lpLead = null; CP.lead=null; CP.r=null; CP.launch=null;
-  if(typeof cqUnmountProfile==='function') cqUnmountProfile();
   document.getElementById('leadProfileView').style.display='none';
   const back=CP.returnTab||'leads'; CP.returnTab=null;
   switchTab(back);
 }
+/* ── One profile, step 3: the editors on their tabs ──────────────────────────
+   Forms that live on another screen are BORROWED into the profile while it is open (the node is
+   moved, so its ids stay unique) and handed back when you leave: the same pattern as the guided
+   call cockpit. Care: assessments + care plan (their usual pop-ups) and care plan reviews.
+   Family & Contacts: the client's Family Circle, fully editable. Team & Schedule: the client's
+   Team Builder board and their Care Match calls. */
+const CP_BORROW = {};
+function cpBorrow(id, slotId){
+  const node=document.getElementById(id), slot=document.getElementById(slotId); if(!node||!slot) return null;
+  if(!CP_BORROW[id]) CP_BORROW[id]={ parent:node.parentNode, next:node.nextSibling };
+  slot.appendChild(node); return node;
+}
+function cpReturnAll(){
+  Object.keys(CP_BORROW).forEach(id=>{ const b=CP_BORROW[id], node=document.getElementById(id);
+    if(node&&b.parent) b.parent.insertBefore(node, (b.next&&b.next.parentNode===b.parent)?b.next:null);
+    delete CP_BORROW[id]; });
+}
+/* leaving the profile (Back, another client, or any tab in the hub) hands everything back */
+function cpLeaving(){
+  cpReturnAll();
+  const cf=document.getElementById('cp-form'); if(cf) cf.style.display='none';
+  FC_PROFILE=null;
+  if(typeof TB!=='undefined'&&TB.profileRoot){ TB.profileRoot=null; }
+  if(typeof cqUnmountProfile==='function') cqUnmountProfile();
+}
+const cpOpen=()=>document.getElementById('leadProfileView').style.display==='block';
+function cpRefreshCare(){ if(cpOpen()) cpRenderCare(); }
+function cpRefreshTeam(){ if(cpOpen()) cpRenderTeamCalls(); }
+function cpRenderCare(){
+  const box=document.getElementById('cp_care'); if(!box) return;
+  const esc=escapeHtmlComms, ax=CP.ax, lead=CP.lead;
+  const q=v=>JSON.stringify(String(v)).replace(/"/g,'&quot;');
+  const as=(DATA.care_assessments||[]).filter(a=>(lead&&a.lead_id&&a.lead_id===lead.id)||(ax&&String(a.axiscare_client_id||'').trim()===ax))
+    .sort((a,b)=>String(b.visit_date||b.created_at||'').localeCompare(String(a.visit_date||a.created_at||'')));
+  const rv=ax?(DATA.care_plan_reviews||[]).filter(v=>v.kind==='review'&&String(v.axiscare_client_id||'')===ax).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||''))):[];
+  const canAdd=!!(lead||ax);
+  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">📝 Assessments & care plan</b><span style="flex:1;"></span>'
+    +(canAdd?'<button class="secondary" onclick="cpNewAssessment()">＋ New assessment</button>':'')+'</div>'
+    +(as.length?as.map(a=>{ const plan=(DATA.care_plans||[]).find(p=>p.assessment_id===a.id);
+        return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;">'
+          +'<b>'+esc(a.visit_date||String(a.created_at||'').slice(0,10))+'</b><span class="field-note">'+esc(a.status||'recorded')+(a.coordinator?' · '+esc(a.coordinator):'')+'</span>'
+          +(plan?'<span class="field-note">care plan '+esc(plan.status||'drafted')+(plan.axiscare_tasks&&plan.axiscare_tasks.length?' · '+plan.axiscare_tasks.length+' AxisCare tasks':'')+'</span>':'<span class="field-note">no care plan yet</span>')
+          +'<span style="flex:1;"></span><button class="linklike" onclick="openAssessmentModal('+q(a.id)+')">Open assessment</button>'
+          +'<button class="linklike" onclick="openPlanForAssessment('+q(a.id)+')">'+(plan?'Open care plan':'Write the care plan')+'</button></div>'; }).join('')
+      :'<div class="field-note">No assessment recorded yet.</div>')
+    +'</div>'
+    +'<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🔁 Care plan reviews</b><span style="flex:1;"></span>'
+    +(ax?'<button class="secondary" onclick="cpLogReview()">📝 Log a review</button>':'')+'</div>'
+    +(!ax?'<div class="field-note">Reviews start once they are an AxisCare client.</div>'
+      :rv.length?rv.slice(0,6).map(v=>'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);font-size:13px;">'
+          +'<b>'+esc(String(v.at||'').slice(0,10))+'</b>'+(v.care_level?'<span>Level '+esc(v.care_level)+'</span>':'')
+          +(v.findings?'<span class="field-note">'+esc(String(v.findings).slice(0,140))+'</span>':'')+(v.next_due?'<span class="field-note">next due '+esc(v.next_due)+'</span>':'')+'</div>').join('')
+      :'<div class="field-note">No reviews logged yet.</div>')
+    +'</div>';
+}
+function cpNewAssessment(){
+  const lead=CP.lead;
+  if(lead){
+    if(lead.status==='New'||lead.status==='Contacted'){ lead.status='Assessment Scheduled'; persist('leads', lead); }
+    openAssessmentModal(null, lead);
+  } else {
+    openAssessmentModal(null);
+    document.getElementById('assess_client_name').value=CP.r?CP.r.client_name:'';
+    document.getElementById('assess_axiscare_client_id').value=CP.ax||'';
+  }
+}
+function cpLogReview(){
+  if(!CP.ax) return;
+  const f=cpBorrow('cp-form','cp_review_slot'); if(!f) return;
+  if(typeof cpOpenForm==='function') cpOpenForm('ax:'+CP.ax);
+  if(f.style.display==='none'){
+    /* the reviews board hasn't listed this client yet: fill the form the same way it would */
+    const nm=CP.r?CP.r.client_name:'';
+    f.style.display='';
+    document.getElementById('cp-form-client').textContent=nm;
+    document.getElementById('cp-client-name').value=nm;
+    document.getElementById('cp-axis-id').value=CP.ax;
+    document.getElementById('cp-client-key').value='ax:'+CP.ax;
+    document.getElementById('cp-method').value='phone';
+    document.getElementById('cp-level').value='';
+    document.getElementById('cp-next-due').value=new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+    ['cpf-none','cpf-mobility','cpf-schedule','cpf-meds','cpf-home'].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=false; });
+    document.getElementById('cp-findings').value='';
+  }
+}
+async function cpRenderFamily(){
+  const box=document.getElementById('cp_c_family'); if(!box) return;
+  if(!CP.ax){ box.innerHTML='<div class="card" style="padding:12px 16px;font-size:13px;color:var(--text-muted);">The Family Circle starts once they are an AxisCare client.</div>'; return; }
+  FC_PROFILE={ el:'cp_c_family', ax:CP.ax };
+  box.innerHTML='<div class="field-note">Loading the Family Circle…</div>';
+  if(typeof fcLoad==='function') await fcLoad();
+}
+async function cpRenderTeam(){
+  const box=document.getElementById('cp_team'); if(!box) return;
+  const esc=escapeHtmlComms;
+  let f=null; try{ f=await famResolve(CP.ax?{ ax:CP.ax }:(CP.lead?{ lead_id:CP.lead.id }:{})); }catch(e){}
+  const plan=f&&f.plan;
+  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Care team plan</b></div>'
+    +(plan?'<div id="cp_tb"></div>'
+      :'<div class="field-note">No Team Builder plan is linked to this family yet. Start one in Team Builder and use "Link to a Journey" on the board; it will then show here.</div>'
+        +'<button class="secondary" style="margin-top:8px;" onclick="switchTab(\'hourswatch\');swSubGo(\'builder\');">Open Team Builder</button>')
+    +'</div>'
+    +'<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">📞 Care Match calls</b><span style="flex:1;"></span>'
+    +(CP.ax?'<button class="secondary" onclick="cpLogCareMatch()">＋ Log a Care Match call</button>':'')+'</div>'
+    +'<div id="cp_cm_list"></div></div>';
+  if(plan){ TB.profileRoot='cp_tb'; TB.planId=plan.id; TB.cellOpen=null; TB.linkOpen=false; tbRender(); }
+  cpRenderTeamCalls();
+}
+function cpRenderTeamCalls(){
+  const box=document.getElementById('cp_cm_list'); if(!box) return;
+  const esc=escapeHtmlComms, ax=CP.ax;
+  const R={love:'⭐ loves them',good:'👍 good',concern:'🚩 concern'};
+  const calls=ax?(DATA.client_checkins||[]).filter(e=>e.client&&e.caregiver&&String(e.axiscare_client_id||'')===ax).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||''))):[];
+  box.innerHTML=!ax?'<div class="field-note">Care Match calls start once they are an AxisCare client.</div>'
+    :calls.length?calls.slice(0,10).map(e=>'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);font-size:13px;">'
+        +'<b>'+esc(String(e.at||'').slice(0,10))+'</b><span>'+esc(e.caregiver)+'</span>'+(e.rating?'<span>'+esc(R[e.rating]||e.rating)+'</span>':'')
+        +(e.spoke_with?'<span class="field-note">spoke with '+esc(e.spoke_with)+'</span>':'')+(e.by?'<span class="field-note">by '+esc(e.by)+'</span>':'')
+        +(e.notes?'<div class="field-note" style="flex-basis:100%;">'+esc(String(e.notes).slice(0,200))+'</div>':'')+'</div>').join('')
+    :'<div class="field-note">No Care Match calls logged yet.</div>';
+}
+function cpLogCareMatch(){
+  const f=cpBorrow('ci-form','cp_cm_slot'); if(!f) return;
+  const r=CP.r;
+  if(typeof cmPrefill==='function') cmPrefill(r?r.client_name:'', '', CP.ax);
+}
+
 /* Check-ins tab: this client's monthly check-ins (by AxisCare id), opened in the usual form */
 function cpRenderCheckins(){
   const box=document.getElementById('cp_checkins'); if(!box) return;
@@ -11699,6 +11833,7 @@ function openFollowUpDetail(leadId){
 
 /* ---------------- CARE ASSESSMENTS ---------------- */
 function renderAssessments(){
+  if(typeof cpRefreshCare==='function') cpRefreshCare();   /* One profile, step 3: saves refresh the Care tab */
   renderFilterPills('assessmentsFilters', ['All','Scheduled','Completed — Awaiting Plan','Plan Drafted','Pushed to AxisCare'], activeFilters.assessments, 'assessments');
   let rows = DATA.care_assessments.filter(a => searchMatch(a.client_name));
   if(activeFilters.assessments!=='All') rows = rows.filter(a=>a.status===activeFilters.assessments);
@@ -17910,6 +18045,9 @@ async function ivqSelfTest(btn){
    actually want. Replies come back to the office line, so a worried daughter
    rings us rather than a caregiver's mobile. */
 let FC = [], FC_CONTACTS = {}, FC_INTROS = [];
+/* One profile, step 3: while a profile shows a client's circle, the Family Circles list leaves
+   that circle out (its element ids are per circle, so it can't be drawn twice) */
+let FC_PROFILE = null;
 
 /* The nightly cron runs the same sync at 4am; this is the "I just added
    someone in AxisCare and want it now" button. */
@@ -17953,15 +18091,27 @@ async function fcLoad(btn){
 }
 
 function fcRender(){
+  if(FC_PROFILE && document.getElementById('leadProfileView').style.display!=='block') FC_PROFILE=null;
   const box = document.getElementById('fcList'); if(!box) return;
-  const esc = escapeHtmlComms;
+  const mine = FC_PROFILE ? FC.find(function(c){ return String(c.axiscare_client_id||'')===FC_PROFILE.ax; }) : null;
+  if(FC_PROFILE){
+    const pb=document.getElementById(FC_PROFILE.el);
+    if(pb) pb.innerHTML = mine
+      ? fcCircleHtml(mine, 0).replace('<details class="card"', '<details open class="card"')
+      : '<div class="card" style="padding:14px 18px;"><div style="font-weight:800;color:var(--navy);font-size:15px;margin-bottom:6px;">👨‍👩‍👧 Family Circle</div>'
+        + '<div class="field-note">No Family Circle for this client yet. The family who should hear from you, in one place.</div>'
+        + '<button class="secondary" style="margin-top:8px;" onclick="fcLinkPick(null)">＋ Create the Family Circle</button></div>';
+  }
   if(!FC.length){
     box.innerHTML = '<div class="card" style="padding:16px 18px;"><div class="field-note">'
       + 'No circles yet. <b>＋ New circle</b> for a client, add the family who should hear from you, '
       + 'and every update after that is one message instead of four phone calls.</div></div>';
     return;
   }
-  box.innerHTML = FC.map(function(c,i){
+  box.innerHTML = FC.filter(function(c){ return c!==mine; }).map(fcCircleHtml).join('');
+}
+function fcCircleHtml(c,i){
+  const esc = escapeHtmlComms;
     const people = FC_CONTACTS[c.id] || [];
     const textable = people.filter(function(p){ return p.phone && p.sms_consent && !p.stopped_at && !p.axiscare_removed_at; }).length;
     const linked = !!c.axiscare_client_id;
@@ -18018,7 +18168,6 @@ function fcRender(){
         + '</div>'
         + '<div id="fcerr_' + esc(c.id) + '" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>'
       + '</div></div></details>';
-  }).join('');
 }
 
 /* Change 6a: a circle is created FOR a client (picked from the clients the hub
@@ -28739,12 +28888,16 @@ function mirrorHealthCard(name,rows,unchangedKey,what){
     +'<div class="field-note" style="font-size:11.5px;margin-top:2px;">Last copy '+(age<1?'just now':age+' min ago')+' · '+day.length+' run'+(day.length===1?'':'s')+' in 24 hours'+(bad?' · <b style="color:var(--red)">'+bad+' with problems</b>':'')+'</div></div>';
 }
 function tbRender(){
-  var root=document.getElementById('tbRoot'); if(!root) return;
+  /* One profile, step 3: the client's board draws on the profile's Team & Schedule tab; the
+     Team Builder spot is emptied meanwhile so no board element exists twice */
+  if(TB.profileRoot && document.getElementById('leadProfileView').style.display!=='block') TB.profileRoot=null;
+  var root=document.getElementById(TB.profileRoot||'tbRoot'); if(!root) return;
+  if(TB.profileRoot){ var tr=document.getElementById('tbRoot'); if(tr) tr.innerHTML='<div class="field-note">Open in a client\'s profile.</div>'; }
   if(!TB.pool&&!TB.loading){ tbLoadPool(); }
   if(!TB.journeys&&!TB.jLoading){ tbLoadJourneys(); }
   var plan=tbPlan();
   root.innerHTML=plan?tbBoardHtml(plan):tbHomeHtml();
-  if(plan) famMount('famTb', { plan_id:plan.id }, 'plan');
+  if(plan&&!TB.profileRoot) famMount('famTb', { plan_id:plan.id }, 'plan');
 }
 function tbHomeHtml(){
   var plans=tbPlans().slice().sort(function(a,b){ return String(b.created_at||'').localeCompare(String(a.created_at||'')); });
@@ -28880,7 +29033,7 @@ function tbBoardHtml(plan){
   }).join(' ');
   var gaps=total-filled;
   return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px;">'
-    +'<button class="cara-btn ghost" style="font-size:12px;" onclick="tbClose()">← All plans</button>'
+    +(TB.profileRoot?'':'<button class="cara-btn ghost" style="font-size:12px;" onclick="tbClose()">← All plans</button>')
     +'<b style="font-size:16px;color:var(--navy);">'+esc(plan.client)+'</b>'
     +'<span class="field-note">'+esc([plan.city,plan.level?('Level '+plan.level):''].filter(Boolean).join(' · '))+'</span>'
     +'<span style="font-size:12.5px;"><b style="color:var(--green);">'+yes+'</b>/'+total+' confirmed'+(gaps?' · <b style="color:var(--red);">'+gaps+' gap'+(gaps===1?'':'s')+'</b>':' · 🎉 every slot filled')+'</span>'
@@ -32242,7 +32395,7 @@ function renderNurseVisits(){
     document.getElementById('cp-findings').value='';
     document.getElementById('cp-form').scrollIntoView({behavior:'smooth',block:'start'});
   };
-  window.cpCloseForm=function(){ document.getElementById('cp-form').style.display='none'; };
+  window.cpCloseForm=function(){ document.getElementById('cp-form').style.display='none'; if(typeof cpRefreshCare==='function') cpRefreshCare(); };
 
   window.cpSave=async function(){
     const name=document.getElementById('cp-client-name').value;
@@ -33207,6 +33360,7 @@ window.covLoadShifts=function(){};
     if(ciEl) delete ciEl.dataset.prefilled;
     document.getElementById('ci-fav').checked=false; document.getElementById('ci-excl').checked=false;
     renderHistory(); renderPairs();
+    if(typeof cpRefreshTeam==='function') cpRefreshTeam();
   }
   let HIST_Q='';
   window.cmHistSearch=function(v){ HIST_Q=String(v||''); renderHistory(); };
