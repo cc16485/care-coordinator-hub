@@ -9972,47 +9972,88 @@ function renderReports(){
     : '<div class="field-note">No referral-linked leads yet — on intake, set source "Referral" and type the organization\'s name.</div>';
 }
 
-/* ---- Convert: create the real AxisCare client + note, queue for scheduling ---- */
+/* ---- Convert (Change 2, 2026-09-26): the whole client goes to AxisCare ----
+   client-convert (shared project, the coordinator's own sign-in) builds the
+   record from the lead as saved. The preview shows exactly what will be sent,
+   side by side with the lead; "Create in AxisCare" is the one confirmation.
+   The caller's phone and email never go on the client; they go on Responsible
+   Party 1 when the coordinator leaves it ticked. AxisCare is read back after. */
+const CCV_LABELS={firstName:'First name',lastName:'Last name',dateOfBirth:'Date of birth',gender:'Gender',residentialAddress:'Address',homePhone:'Home phone',
+  mobilePhone:'Mobile phone',personalEmail:'Email',medicaidNumber:'Medicaid number (DCN)',assessmentDate:'Assessment date',conversionDate:'Conversion date',externalId:'Hub tag (prevents a second copy)'};
+async function ccvCall(body){
+  const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+  if(!tok) throw new Error('Sign in first.');
+  const r=await fetch(CONFIG.supabase_url+'/functions/v1/client-convert',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>null); if(!d) throw new Error('The Convert service answered '+r.status); return d;
+}
 async function lpConvertLead(){
   const l = lpLead; if(!l) return;
-  if(!CONFIG.training_hub_key){ alert('Paste the Training Hub read key into ⚙️ Settings first.'); return; }
   if(l.axiscare_client_id){ alert('This lead is already linked to AxisCare client #'+l.axiscare_client_id+'.'); return; }
-  const who = l.client_name_not_provided ? [l.first_name,l.last_name] : [l.client_first_name||l.first_name, l.client_last_name||l.last_name];
-  if(!confirm('Convert this lead?\n\nThis creates '+who.filter(Boolean).join(' ')+' as a real client in AxisCare (with the intake note + attributes checklist attached) and adds them to the Staffing Hub scheduling queue.')) return;
-  const btn = document.getElementById('lp_convert_btn');
-  btn.disabled=true; btn.textContent='Converting…';
-  try{
-    const r = await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
-      method:'POST',
-      headers:{ 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'Content-Type':'application/json' },
-      body: JSON.stringify({ key: CONFIG.training_hub_key, lead: l })
-    });
-    const data = await r.json().catch(()=>({}));
-    if(!r.ok || data.error) throw new Error(data.error||('convert failed ('+r.status+')'));
-    l.status = 'Converted';
-    l.axiscare_client_id = data.client_id;
-    l.converted_at = new Date().toISOString();
+  const esc=escapeHtmlComms;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:720px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:17px;">Create in AxisCare</div><div id="ccvBody" style="margin-top:10px;"><div class="field-note">Building the record from the lead…</div></div></div>';
+  document.body.appendChild(ov);
+  const body=ov.querySelector('#ccvBody'), close=()=>ov.remove();
+  const closeBtn='<button class="secondary" id="ccvX">Close</button>';
+  const wireClose=()=>{ const x=ov.querySelector('#ccvX'); if(x) x.onclick=close; };
+  let pv; try{ pv=await ccvCall({action:'preview',lead_id:l.id}); }catch(e){ pv={error:String(e.message||e)}; }
+  if(pv.error||!pv.plan){ body.innerHTML='<div>'+esc(pv.error||'Could not build the record.')+'</div><div style="margin-top:12px;">'+closeBtn+'</div>'; wireClose(); return; }
+  if(pv.linked){ body.innerHTML='<div>This lead is already linked to AxisCare client #'+esc(pv.linked)+'.</div><div style="margin-top:12px;">'+closeBtn+'</div>'; wireClose(); return; }
+  const P=pv.plan;
+  if(!P.ok){ body.innerHTML='<div style="background:#FDECEA;border:1px solid #F5C2BC;border-radius:8px;padding:10px 12px;color:#8A1F17;">'+P.blockers.map(esc).join('<br>')+'</div><div style="margin-top:12px;">'+closeBtn+'</div>'; wireClose(); return; }
+  const phoneKey=P.client.homePhone!=null?'homePhone':(P.client.mobilePhone!=null?'mobilePhone':null);
+  const fmt=(k,v)=>k==='residentialAddress'?[v.streetAddress1,v.city,v.state,v.postalCode].filter(Boolean).join(', '):k==='gender'?(v==='M'?'Male (M)':'Female (F)'):k==='dateOfBirth'||/Date$/.test(k)?(function(d){ const q=String(d).slice(0,10).split('-'); return q.length===3?new Date(+q[0],+q[1]-1,+q[2]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):String(d); })(v):String(v);
+  const rows=Object.keys(P.client).filter(k=>k!==phoneKey).map(k=>'<tr><td style="padding:4px 8px;color:var(--text-muted);white-space:nowrap;">'+esc(CCV_LABELS[k]||k)+'</td><td style="padding:4px 8px;font-weight:600;">'+esc(fmt(k,P.client[k]))+'</td></tr>').join('')
+    +(phoneKey?'<tr><td style="padding:4px 8px;color:var(--text-muted);">Client\'s phone</td><td style="padding:4px 8px;font-weight:600;">'+esc(P.client[phoneKey])
+      +' <select id="ccvPhone" style="width:auto;font-size:12px;margin-left:6px;"><option value="home"'+(phoneKey==='homePhone'?' selected':'')+'>Home</option><option value="mobile"'+(phoneKey==='mobilePhone'?' selected':'')+'>Mobile</option></select></td></tr>':'')
+    +(P.referral?'<tr><td style="padding:4px 8px;color:var(--text-muted);">Referred by</td><td style="padding:4px 8px;font-weight:600;">'+esc(P.referral.name)+'</td></tr>':'');
+  const cand=P.rp1_candidate;
+  const rp=cand?'<label style="display:flex;gap:8px;align-items:flex-start;border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:10px;cursor:pointer;">'
+      +'<input type="checkbox" id="ccvRp" style="width:auto;margin-top:3px;"'+(P.rp1_default?' checked':'')+'><span><b>Add '+esc(cand.name)+' as Responsible Party 1</b>'
+      +'<div class="field-note" style="font-size:12px;">'+esc([cand.relationship,(cand.phones&&cand.phones[0]||{}).number,cand.email].filter(Boolean).join(' · '))+'</div>'
+      +'<div class="field-note" style="font-size:12px;">'+esc(P.rp1_reason)+'. HIPAA and medical-decision permissions are left blank for you to set in AxisCare.</div></span></label>'
+    :'<div class="field-note" style="margin-top:10px;">Responsible Party 1: '+esc(P.rp1_reason)+'</div>';
+  const miss=P.missing.length||P.notes.length?'<div style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:8px 10px;margin-top:10px;font-size:13px;color:#92400E;"><b>Not sent</b> (add on the lead first if you have it):<br>'
+      +P.missing.concat(P.notes).map(esc).join('<br>')+'</div>':'';
+  const ex=pv.existing&&pv.existing.length?'<div style="background:#E4F2F0;border-radius:8px;padding:8px 10px;margin-top:10px;font-size:13px;">AxisCare already has a client made from this lead (#'+esc(pv.existing.join(', #'))+'). Creating will reuse it, never make a second one.</div>':'';
+  body.innerHTML='<div style="font-size:13px;color:var(--text-muted);">Creating <b style="color:var(--navy);">'+esc(P.client_name)+'</b>'+(P.self?' (the caller is the client)':' · caller: '+esc(P.contact_name))+'</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px;border:1px solid var(--border);border-radius:8px;">'+rows+'</table>'
+    +rp+miss+ex
+    +'<div class="field-note" style="margin-top:10px;font-size:12px;">The intake note with the attributes checklist is attached, as before. Start date, care level and payer are not set here.</div>'
+    +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;"><button class="primary" id="ccvGo">Create in AxisCare</button>'+closeBtn+'<span id="ccvMsg" class="field-note"></span></div>';
+  wireClose();
+  ov.querySelector('#ccvGo').onclick=async()=>{
+    const go=ov.querySelector('#ccvGo'); go.disabled=true; go.textContent='Creating…';
+    const ph=ov.querySelector('#ccvPhone'), rpBox=ov.querySelector('#ccvRp');
+    let out; try{ out=await ccvCall({action:'convert',lead_id:l.id,phone_type:ph?ph.value:'home',rp1:rpBox?rpBox.checked:false}); }catch(e){ out={outcome:'error',detail:String(e.message||e)}; }
+    if(out.outcome!=='created'&&out.outcome!=='reused'){
+      const why={already_linked:'This lead is already linked to AxisCare client #'+(out.axiscare_client_id||'')+'.',blocked:(out.blockers||[]).join(' '),
+        duplicate:'AxisCare already has more than one client made from this lead (#'+(out.ids||[]).join(', #')+'). Pick the right one and type its id on the lead.'};
+      ov.querySelector('#ccvMsg').innerHTML='<span style="color:var(--red)">'+esc(why[out.outcome]||out.detail||out.error||'Not created.')+'</span>';
+      go.disabled=false; go.textContent='Create in AxisCare'; return;
+    }
+    l.status='Converted'; l.axiscare_client_id=String(out.axiscare_client_id); l.converted_at=l.converted_at||new Date().toISOString(); l.axiscare_convert=out.record;
     await persist('leads', l);
-    /* Step 2: the AxisCare client was just created FROM this lead, so the
-       coordinator's Convert click is the confirmation. Connect the Journey. */
-    let jcRes=null;
-    try{ jcRes=await jcConnect(l, String(data.client_id), 'convert', who.filter(Boolean).join(' ')); }catch(e){}
-    /* The direct client_queue insert that used to live here is retired
-       (2026-09-20): launch creation has ONE door, upsert_client_launch,
-       and the normal producer is Start of Care reaching Ready for
-       Staffing. If this lead's SOC is already business-ready, linking
-       the AxisCare id just now is what completes the handoff: */
+    let jcRes=null; try{ jcRes=await jcConnect(l, String(out.axiscare_client_id), 'convert', P.client_name); }catch(e){}
     try{ if(l.soc) await socReadyCheck(l); }catch(e){}
     renderLeadProfile(); renderLeads();
-    alert('Done! Client #'+data.client_id+' created in AxisCare'+(data.note_attached?' with the intake note attached':' (note could not attach — add it by hand)')
-      +(l.soc&&l.soc.launch_upserted_at?'\n\nStart of Care was ready, so their first-caregiver launch just opened in New Clients.':'\n\nWhen their Start of Care reaches Ready for Staffing, the New Clients launch opens on its own.')
-      +(jcRes?'\n\nJourney: '+jcRes.text:'')
-      +'\n\nLast hand step: enter the attributes on their AxisCare profile (checklist is in the note).');
-  }catch(e){
-    alert('Could not convert: '+(e&&e.message?e.message:'error'));
-  }finally{
-    btn.disabled=false; btn.textContent='✅ Convert → AxisCare client';
-  }
+    const rb=out.readback||{}, tick=(ok,label)=>'<div>'+(ok?'✓':'<span style="color:#92400E">✗</span>')+' '+esc(label)+'</div>';
+    const failed=Object.entries(out.steps||{}).filter(([k,v])=>!v.ok).map(([k,v])=>'<div style="color:#92400E">'+esc(k.replace(/_/g,' ')+': '+(v.detail||''))+'</div>').join('')
+      +(out.failed_fields||[]).map(f=>'<div style="color:#92400E">'+esc(f)+'</div>').join('');
+    body.innerHTML='<div style="font-size:15px;color:var(--navy);font-weight:700;">'+(out.outcome==='reused'?'Linked to the client AxisCare already had':'Created')+': AxisCare client #'+esc(out.axiscare_client_id)+'</div>'
+      +(out.readback?'<div style="margin-top:8px;font-size:13.5px;"><b>AxisCare now holds</b>'
+        +tick(rb.date_of_birth,'date of birth')+tick(rb.gender,'gender')+tick(rb.address,'address')+tick(rb.phone,'phone')+tick(rb.medicaid_number,'Medicaid number')
+        +tick(rb.referral,'referral source')+tick(rb.responsible_party_1,'Responsible Party 1')+'</div>'
+        :'<div class="field-note" style="margin-top:8px;">Could not read the client back from AxisCare: '+esc(out.readback_error||'')+'</div>')
+      +(failed?'<div style="margin-top:8px;font-size:13px;">'+failed+'</div>':'')
+      +'<div style="margin-top:8px;font-size:13px;"><b>Still by hand in AxisCare:</b> '+esc((out.hand_steps||[]).join('; '))+'.</div>'
+      +(jcRes?'<div class="field-note" style="margin-top:8px;">Journey: '+esc(jcRes.text)+'</div>':'')
+      +(l.soc&&l.soc.launch_upserted_at?'<div class="field-note" style="margin-top:6px;">Start of Care was ready, so their New Clients launch just opened.</div>':'<div class="field-note" style="margin-top:6px;">When their Start of Care reaches Ready for Staffing, the New Clients launch opens on its own.</div>')
+      +'<div style="margin-top:14px;">'+closeBtn+'</div>';
+    wireClose();
+  };
 }
 
 /* ---- Printable facesheet for the in-home assessment visit ---- */
