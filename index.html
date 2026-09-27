@@ -29561,14 +29561,12 @@ function covToggleAdd(attachCaseId){
   if(opening) covFillWho();
 }
 let COV_CG_CACHE=null;
-async function covFillWho(){
-  const sel=document.getElementById('covWho'); if(!sel) return;
-  /* The dropdown is AxisCare's LIVE active caregiver list — the hub roster's
-     active flag drifts, and inactive people were showing up. Cached for the
-     session; the roster is only the labeled fallback if AxisCare is down. */
+/* AxisCare's LIVE active caregiver list [{id (AxisCare), name}], cached for the session; the hub
+   roster is only the labeled fallback if AxisCare is down. Shared by the call-off dropdown and
+   the call-in plan's "only ask" list. */
+async function covLoadCaregivers(){
   let roster=COV_CG_CACHE, fromFallback=false;
   if(!roster){
-    sel.innerHTML='<option value="">loading active caregivers…</option>';
     try{
       const { data:{ session } } = await sb.auth.getSession();
       const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-shifts`,{
@@ -29585,6 +29583,12 @@ async function covFillWho(){
         .filter(g=>g.name).sort((a,b)=>a.name.localeCompare(b.name));
     }
   }
+  return { roster, fromFallback };
+}
+async function covFillWho(){
+  const sel=document.getElementById('covWho'); if(!sel) return;
+  if(!COV_CG_CACHE) sel.innerHTML='<option value="">loading active caregivers…</option>';
+  const { roster, fromFallback } = await covLoadCaregivers();
   sel.innerHTML='<option value="">'
     +(roster.length?(fromFallback?'Pick the caregiver… (AxisCare unreachable — hub list, may include inactive)':'Pick the caregiver…')
       :'No caregivers found — tell Claude')+'</option>'
@@ -30379,13 +30383,14 @@ function covCaseCard(c){
       +'<span style="color:var(--text-muted);font-size:12px;">'+(expanded?'▾':'▸')+'</span>'
       +'<b style="font-size:15.5px;color:var(--navy);"><a href="javascript:void(0)" data-open-client="'+esc(String(c.client_axiscare_id||c.client))+'" style="color:inherit;text-decoration:underline dotted;" title="Open their profile">'+esc(c.client)+'</a></b>'
       +'<span class="field-note">'+esc(c.shift_date||'')+' '+esc(covT12(c.shift_time||''))+' · '+esc(R[c.reason]||c.reason)+'</span>'
-      +caraPatternChip(c)+age+headTallies+pendChip
+      +caraPatternChip(c)+cipCaseChip(c)+age+headTallies+pendChip
       +(!open&&c.resolved_how?'<span style="font-size:12px;font-weight:700;color:'+(c.resolved_how==='covered'?'var(--green)':'var(--red)')+';">'+(c.resolved_how==='covered'?'covered by '+esc(c.covered_by||'?'):'closed uncovered')+'</span>':'')
       +'<span style="flex:1;"></span>'
       +'<span class="field-note" style="font-size:11.5px;">'+(expanded?'click to collapse':'click for details')+'</span>'
       +'</div>'
       +'<div style="display:'+(expanded?'block':'none')+';">'
       +covRailHtml(c)
+      +cipCaseHtml(c)
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-top:8px;">'
       +'<span style="flex:1;"></span>'
       +(open
@@ -30421,6 +30426,7 @@ function covCaseCard(c){
   }
 
 function renderCoverage(){
+  cipEnsureForCases();
   caraRenderCC();
   const box=document.getElementById('covList'); if(!box) return;
   try{ swRenderNewClients(); }catch(e){}   // the New clients workspace lives on Schedule Watch now
@@ -30691,12 +30697,14 @@ async function cl360RenderInto(r, out, px){
   out.innerHTML = '<div style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:4px;">'+esc(name)+'</div>'
     + meter
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start;">'
-    + '<div>' + cl360Card('Who they are', head) + cl360Card('Care picture', care + cl360Kv('Coverage', esc(covLine))) + cl360Card('🏠 Home & life <span class="field-note" style="font-weight:400;">typed once, gold for fill-ins</span>', home) + '</div>'
+    + '<div>' + cl360Card('Who they are', head) + cl360Card('Care picture', care + cl360Kv('Coverage', esc(covLine))) + cl360Card('🏠 Home & life <span class="field-note" style="font-weight:400;">typed once, gold for fill-ins</span>', home)
+      + cl360Card('📞 When a caregiver calls in <span class="field-note" style="font-weight:400;">every entry kept, with who told us</span>', '<div id="'+px+'cl360Callin"><div class="field-note">Loading…</div></div>') + '</div>'
     + '<div>' + cl360Card('Their start', '<div id="'+px+'cl360Start"><div class="field-note">Loading…</div></div>')
     + cl360Card('👨‍👩‍👧 Care circle', '<div id="'+px+'cl360Circle">'+circleHtml+'</div>') + cl360Card('📜 Timeline', '<div id="'+px+'cl360Tl">'+tl+'</div>') + '</div>'
     + '</div>';
   /* Step 4: the Journey history loads after paint and adds its events to the timeline */
   c360StartLoad(r, px, ev.slice());
+  cipProfileLoad(r, px);
   /* Change 6b: the care level is AxisCare's; the intake estimate and the latest review sit beside it */
   (async function(){
     const el=document.getElementById(px+'cl360Lv'); if(!el) return;
@@ -30850,6 +30858,148 @@ async function cl360SaveProfile(px){
   DATA.client_profiles = (DATA.client_profiles||[]).filter(p=>p.id!==item.id).concat([item]);
   persist('client_profiles', item);
   const n = document.getElementById(px+'cp_saved'); if(n){ n.textContent = 'Saved.'; setTimeout(()=>{ n.textContent=''; }, 2500); }
+}
+
+/* ===================== "WHEN A CAREGIVER CALLS IN" · each client's call-in plan =====================
+   (2026-09-27, her ask: "a notes section ... see who put in the info and where they got the info
+   on how the client or the clients family would like a call in to be handled".) Every entry is
+   kept (client_callin_entries is append-only); the plan in force is the latest entry. Any
+   signed-in staff may add one; who entered it comes from their sign-in. Cara follows only the
+   coverage choice and the only-ask list; the backup and the notes are for people. */
+const CIP_NEED={ must_cover:'Must be covered, no matter what', if_we_can:'Cover it if we can',
+  family_covers:'Family would rather cover it themselves (call them first)', flexible:'Flexible: the visit can move to another time or day' };
+const CIP_HOW={ phone:'by phone', in_person:'in person', assessment:'at the assessment', care_plan_review:'at a care plan review', text:'by text', email:'by email' };
+const CIP={ cur:{}, at:0, loading:false, hist:{} };
+function cipPhone(d){ d=String(d||''); return /^\d{10}$/.test(d)?'('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6):d; }
+function cipWhen(t){ try{ return new Date(t).toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return String(t||''); } }
+function cipPlanLines(p){
+  if(!p) return [];
+  const out=[];
+  out.push('<b>'+esc(p.coverage_need?CIP_NEED[p.coverage_need]||p.coverage_need:'Coverage preference: not asked yet')+'</b>');
+  if((p.only_ask||[]).length) out.push('Only ask: <b>'+esc(p.only_ask.map(o=>o.name).join(' or '))+'</b>');
+  if(p.backup_name) out.push('Outside backup: <b>'+esc(p.backup_name)+'</b>'+(p.backup_relationship?' ('+esc(p.backup_relationship)+')':'')+(p.backup_phone?' · '+esc(cipPhone(p.backup_phone)):'')+' <span class="field-note">(a person calls them; Cara never does)</span>');
+  return out;
+}
+function cipByline(p){ return 'Entered by '+esc(p.entered_by_name||p.entered_by)+', '+esc(cipWhen(p.entered_at))+' · from '+esc(p.source_who)+(p.source_how&&CIP_HOW[p.source_how]?' '+CIP_HOW[p.source_how]:''); }
+async function cipProfileLoad(r, px){
+  const box=document.getElementById(px+'cl360Callin'); if(!box) return;
+  const ax=String((r&&r.axiscare_client_id)||'').trim();
+  if(!/^\d+$/.test(ax)){ box.innerHTML='<div class="field-note">This client isn\'t linked to AxisCare yet, so a call-in plan can\'t be kept for them.</div>'; return; }
+  try{
+    const q=await sb.from('client_callin_entries').select('*').eq('axiscare_client_id', ax).order('entered_at',{ascending:false}).order('id',{ascending:false});
+    if(q.error) throw q.error;
+    CIP.hist[ax]=q.data||[]; CIP.cur[ax]=(q.data||[])[0]||null;
+    cipProfileRender(r, px);
+  }catch(e){ box.innerHTML='<div class="field-note">Could not load the call-in plan.</div>'; }
+}
+function cipProfileRender(r, px){
+  const box=document.getElementById(px+'cl360Callin'); if(!box) return;
+  const ax=String(r.axiscare_client_id), hist=CIP.hist[ax]||[], cur=hist[0]||null;
+  box.innerHTML=(cur
+      ? '<div style="font-size:13.5px;line-height:1.6;">'+cipPlanLines(cur).join('<br>')+'</div>'
+        +'<div class="field-note" style="margin-top:3px;">'+cipByline(cur)+'</div>'
+      : '<div class="field-note">Nothing recorded yet. Ask the client or family: when a caregiver calls in, what would you like us to do?</div>')
+    +'<div style="margin-top:8px;"><button class="secondary" onclick="cipOpenForm('+JSON.stringify(px).replace(/"/g,'&quot;')+')">＋ Add an update</button></div>'
+    +'<div id="'+px+'cipForm"></div>'
+    +(hist.length?'<details style="margin-top:8px;"'+(hist.length<=3?' open':'')+'><summary class="field-note" style="cursor:pointer;">History ('+hist.length+')</summary>'
+      +hist.map(h=>'<div style="font-size:12.5px;padding:6px 0;border-bottom:1px solid var(--border);">'
+        +'<div class="field-note">'+cipByline(h)+'</div>'
+        +'<div>'+cipPlanLines(h).join(' · ')+'</div>'
+        +(h.note?'<div style="margin-top:2px;">“'+esc(h.note)+'”</div>':'')
+        +'</div>').join('')+'</details>':'');
+}
+async function cipOpenForm(px){
+  const r=CL360_CURRENT[px]; if(!r) return;
+  const box=document.getElementById(px+'cipForm'); if(!box) return;
+  const ax=String(r.axiscare_client_id), cur=CIP.cur[ax]||{};
+  const onlyIds=new Set((cur.only_ask||[]).map(o=>String(o.axiscare_id)));
+  const needs=[['','Not asked yet']].concat(Object.entries(CIP_NEED));
+  box.innerHTML='<div style="margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:13px;">'
+    +'<div style="font-weight:700;margin-bottom:4px;">How important is coverage when a caregiver calls in?</div>'
+    +needs.map(([v,l])=>'<label style="display:block;margin:2px 0;"><input type="radio" name="'+px+'cipNeed" value="'+v+'" style="width:auto;" '+((cur.coverage_need||'')===v?'checked':'')+'> '+esc(l)+'</label>').join('')
+    +'<div style="font-weight:700;margin:10px 0 4px;">Only ask these caregivers <span class="field-note" style="font-weight:400;">(leave all unticked for anyone suitable)</span></div>'
+    +'<input id="'+px+'cipFind" placeholder="Filter names…" oninput="cipFilter('+JSON.stringify(px).replace(/"/g,'&quot;')+')" style="width:100%;font-size:13px;margin-bottom:4px;">'
+    +'<div id="'+px+'cipCgs" style="max-height:150px;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:4px 8px;background:var(--card,#fff);"><span class="field-note">loading active caregivers…</span></div>'
+    +'<div style="font-weight:700;margin:10px 0 4px;">Outside backup <span class="field-note" style="font-weight:400;">(optional: a friend or family member who covers; a person calls them, never Cara)</span></div>'
+    +'<input id="'+px+'cipBName" placeholder="Name" value="'+esc(cur.backup_name||'')+'" style="width:100%;font-size:13px;margin-bottom:4px;">'
+    +'<input id="'+px+'cipBPhone" placeholder="Phone" value="'+esc(cipPhone(cur.backup_phone||''))+'" style="width:100%;font-size:13px;margin-bottom:4px;">'
+    +'<input id="'+px+'cipBRel" placeholder="Relationship (e.g. friend who covers)" value="'+esc(cur.backup_relationship||'')+'" style="width:100%;font-size:13px;">'
+    +'<div style="font-weight:700;margin:10px 0 4px;">What did they tell you? <span class="field-note" style="font-weight:400;">(notes for staff; Cara doesn\'t act on these)</span></div>'
+    +'<textarea id="'+px+'cipNote" rows="3" maxlength="2000" style="width:100%;font-size:13px;"></textarea>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">'
+    +'<input id="'+px+'cipWho" placeholder="Who told us? (required, e.g. LeeAnn herself, daughter Dana)" style="flex:2;min-width:220px;font-size:13px;">'
+    +'<select id="'+px+'cipHow" style="flex:1;min-width:150px;font-size:13px;"><option value="">How? (optional)</option>'
+    +Object.entries(CIP_HOW).map(([v,l])=>'<option value="'+v+'">'+esc(l.replace(/^(by|at|in) /,'').replace(/^a /,''))+'</option>').join('')+'</select></div>'
+    +'<div style="margin-top:10px;"><button class="addlead" id="'+px+'cipSave" onclick="cipSave('+JSON.stringify(px).replace(/"/g,'&quot;')+')">Save this update</button> '
+    +'<button class="ghost" onclick="document.getElementById('+JSON.stringify(px+'cipForm').replace(/"/g,'&quot;')+').innerHTML=\'\'">Cancel</button> <span class="field-note" id="'+px+'cipMsg"></span></div>'
+    +'</div>';
+  box.dataset.req=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g,()=>(Math.random()*16|0).toString(16)));
+  const { roster, fromFallback } = await covLoadCaregivers();
+  const list=document.getElementById(px+'cipCgs'); if(!list) return;
+  const known=new Set(roster.map(g=>String(g.id)));
+  const extra=(cur.only_ask||[]).filter(o=>!known.has(String(o.axiscare_id))).map(o=>({ id:String(o.axiscare_id), name:o.name+' (not active in AxisCare now)' }));
+  list.innerHTML=(fromFallback?'<div class="field-note">AxisCare unreachable: this is the hub list and may include inactive caregivers.</div>':'')
+    +extra.concat(roster).map(g=>'<label data-n="'+esc(String(g.name).toLowerCase())+'" style="display:block;margin:1px 0;"><input type="checkbox" value="'+esc(g.id)+'" data-name="'+esc(String(g.name).replace(/ \(not active in AxisCare now\)$/,''))+'" style="width:auto;" '+(onlyIds.has(String(g.id))?'checked':'')+'> '+esc(g.name)+'</label>').join('');
+}
+function cipFilter(px){
+  const f=String((document.getElementById(px+'cipFind')||{}).value||'').toLowerCase().trim();
+  document.querySelectorAll('#'+CSS.escape(px+'cipCgs')+' label').forEach(l=>{ l.style.display=(!f||String(l.dataset.n||'').includes(f))?'block':'none'; });
+}
+async function cipSave(px){
+  const r=CL360_CURRENT[px]; if(!r) return;
+  const g=id=>(document.getElementById(px+id)||{}).value||'';
+  const msg=document.getElementById(px+'cipMsg'), btn=document.getElementById(px+'cipSave'), form=document.getElementById(px+'cipForm');
+  const need=(document.querySelector('input[name="'+CSS.escape(px+'cipNeed')+'"]:checked')||{}).value||'';
+  const only=[...document.querySelectorAll('#'+CSS.escape(px+'cipCgs')+' input[type=checkbox]:checked')].map(i=>({ axiscare_id:i.value, name:i.dataset.name }));
+  const who=g('cipWho').trim();
+  if(!who){ if(msg) msg.textContent='Who told us? It\'s required, so everyone can see where this came from.'; return; }
+  if(btn) btn.disabled=true; if(msg) msg.textContent='Saving…';
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    const resp=await fetch(`${CONFIG.supabase_url}/functions/v1/callin-plan`,{ method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+      body:JSON.stringify({ action:'add', request_id:form.dataset.req, axiscare_client_id:String(r.axiscare_client_id), client_name:r.client_name,
+        coverage_need:need, only_ask:only, backup_name:g('cipBName'), backup_phone:g('cipBPhone'), backup_relationship:g('cipBRel'),
+        note:g('cipNote'), source_who:who, source_how:g('cipHow') })});
+    const out=await resp.json().catch(()=>({}));
+    const WHY={ nothing_to_record:'Nothing to save yet: pick a choice, a caregiver, a backup, or write a note.', backup_phone_invalid:'That backup phone number doesn\'t look like 10 digits.',
+      backup_name_required:'Add the backup\'s name to go with the phone or relationship.', source_required:'Who told us? It\'s required.', note_too_long:'The note is over 2,000 characters.' };
+    if(out.outcome==='recorded'||out.outcome==='already_recorded'){
+      form.innerHTML=''; await cipProfileLoad(r, px); CIP.at=0;
+      try{ opEvent('callin_plan_updated',{ area:'coverage', item_id:String(r.axiscare_client_id), summary:'Call-in plan updated for '+r.client_name }); }catch(e){}
+    } else { if(msg) msg.textContent=WHY[out.outcome]||('Not saved: '+(out.error||out.outcome||'unknown')); if(btn) btn.disabled=false; }
+  }catch(e){ if(msg) msg.textContent='Not saved: could not reach the hub service.'; if(btn) btn.disabled=false; }
+}
+/* The plan on the call-off board: loaded for every open case's client, at most once a minute */
+async function cipEnsureForCases(){
+  if(CIP.loading || Date.now()-CIP.at < 60000) return;
+  const ids=[...new Set((DATA.coverage_cases||[]).filter(c=>c.status==='open').map(c=>String(c.client_axiscare_id||'')).filter(x=>/^\d+$/.test(x)))];
+  if(!ids.length){ CIP.at=Date.now(); return; }
+  CIP.loading=true;
+  try{
+    const q=await sb.from('client_callin_current').select('*').in('axiscare_client_id', ids);
+    if(!q.error){ const before=JSON.stringify(ids.map(i=>CIP.cur[i]||null)); for(const i of ids) CIP.cur[i]=null; for(const p of (q.data||[])) CIP.cur[String(p.axiscare_client_id)]=p;
+      CIP.at=Date.now(); CIP.loading=false; if(JSON.stringify(ids.map(i=>CIP.cur[i]||null))!==before) renderCoverage(); return; }
+  }catch(e){}
+  CIP.at=Date.now(); CIP.loading=false;
+}
+function cipCaseChip(c){
+  const p=CIP.cur[String(c.client_axiscare_id||'')]; if(!p||c.status!=='open') return '';
+  const t=p.coverage_need==='must_cover'?'🔴 must be covered':p.coverage_need==='family_covers'?'👪 call the family first':p.coverage_need==='flexible'?'🔁 flexible on time':((p.only_ask||[]).length?'📋 only certain caregivers':'📋 call-in plan');
+  return '<span style="font-size:12px;font-weight:800;color:'+(p.coverage_need==='must_cover'?'var(--red)':'var(--navy)')+';background:var(--bg);border-radius:6px;padding:2px 8px;">'+t+'</span>';
+}
+function cipCaseHtml(c){
+  const p=CIP.cur[String(c.client_axiscare_id||'')]; if(!p) return '';
+  const first=String(c.client||p.client_name||'').split(/\s+/)[0];
+  const step=p.coverage_need==='family_covers'?'<div style="font-weight:800;color:var(--navy);">First step: call the family. They would rather cover it themselves, so Cara won\'t text caregivers on her own.</div>'
+    :p.coverage_need==='flexible'?'<div style="font-weight:800;color:var(--navy);">First step: offer another time or day. Cara won\'t text caregivers on her own.</div>'
+    :p.coverage_need==='must_cover'?'<div style="font-weight:800;color:var(--red);">This shift must be covered, no matter what.</div>':'';
+  return '<div style="margin-top:8px;padding:8px 11px;border-radius:8px;border-left:4px solid '+(p.coverage_need==='must_cover'?'var(--red)':'var(--navy)')+';background:var(--bg);font-size:13px;line-height:1.55;">'
+    +'<div style="font-weight:800;margin-bottom:2px;">📞 '+esc(first)+'\'s call-in plan</div>'+step
+    +cipPlanLines(p).join('<br>')
+    +(p.note?'<div style="margin-top:3px;">“'+esc(p.note)+'”</div>':'')
+    +'<div class="field-note" style="margin-top:3px;">'+cipByline(p)+' · <a href="javascript:void(0)" data-open-client="'+esc(String(c.client_axiscare_id))+'">see the full history</a></div>'
+    +'</div>';
 }
 
 /* ── SLIDE-OVER OPENERS ──────────────────────────────────────────────────
