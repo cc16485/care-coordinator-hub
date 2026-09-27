@@ -98,13 +98,31 @@
       kind: 'client_issue',
       /* Care Match records share the client_checkins key and are shaped
          .client/.caregiver. Requiring client_name is what keeps them out. */
+      /* ONE CLIENT, ONE LIVE REMINDER (Change 8a, 2026-09-27). Logging a check-in as a NEW
+         record used to leave the older record's reminder open forever. Rows are copies that
+         know the client's latest check-in (grouped by AxisCare id; an older record with no id
+         joins the group only when its full name maps to exactly one AxisCare id). A record
+         that a newer one has replaced raises nothing, and its open reminder closes as done. */
       rows: function (d) {
-        return (d.client_checkins || []).filter(function (c) {
+        var list = (d.client_checkins || []).filter(function (c) {
           return c && c.client_name && c.next_checkin_due;
+        });
+        var nk = function (n) { return String(n || '').toLowerCase().replace(/[^a-z]/g, ''); };
+        var axByName = {};
+        list.forEach(function (c) { var a = String(c.axiscare_client_id || '').trim(); if (!a) return;
+          var k = nk(c.client_name); axByName[k] = axByName[k] && axByName[k] !== a ? '?' : a; });
+        var keyOf = function (c) { var a = String(c.axiscare_client_id || '').trim();
+          if (a) return 'ax:' + a; var m = axByName[nk(c.client_name)]; return m && m !== '?' ? 'ax:' + m : 'nm:' + nk(c.client_name); };
+        var order = function (c) { return [ymdOf(c.checkin_date) || '', String(c.created_at || ''), String(c.id)].join('|'); };
+        var latest = {};
+        list.forEach(function (c) { var k = keyOf(c); if (!latest[k] || order(c) > order(latest[k])) latest[k] = c; });
+        return list.map(function (c) {
+          var top = latest[keyOf(c)];
+          return Object.assign({}, c, { _superseded: top !== c, _client_latest: top.checkin_date || c.checkin_date || '' });
         });
       },
       id:     function (c) { return String(c.id); },
-      due:    function (c) { return ymdOf(c.next_checkin_due); },
+      due:    function (c) { return c._superseded ? '' : ymdOf(c.next_checkin_due); },
       who:    function (c) { return c.coordinator; },
       title:  function (c) { return 'Client check-in due — ' + c.client_name; },
       about:  function (c) { return c.client_name; },
@@ -121,7 +139,8 @@
          destroy everything that made the record worth keeping.
          Completing early counts: the work was done. */
       satisfied: function (c, dueYmd) {
-        return !!(c.checkin_date && ymdOf(c.checkin_date) >= dueYmd);
+        var d = c._client_latest || c.checkin_date;
+        return !!(d && ymdOf(d) >= dueYmd);
       },
       open: function (c) {
         return "openCheckinModal('" + String(c.id).replace(/'/g, "\\'") + "')";
