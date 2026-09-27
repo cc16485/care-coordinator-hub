@@ -8101,7 +8101,13 @@ async function tkDelete(id){
 }
 
 /* ---------------- CAMPAIGNS (Samantha's email library) ---------------- */
-const CAMPAIGN_ENDPOINT='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/campaign-send?token=htorder_078070ed7c3e8e7619e567dcfaddfc400e43147a';
+/* Security slice (2026-09-27): campaigns are called with the signed-in staff member's session, never the public
+   page token. The server checks the person and their role; this header is only how the Hub identifies itself. */
+const CAMPAIGN_ENDPOINT='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/campaign-send';
+async function cmpAuthHeaders(){
+  let tok=''; try{ const { data:{ session } } = await sb.auth.getSession(); tok=(session&&session.access_token)||''; }catch(e){}
+  return tok?{'Content-Type':'application/json','Authorization':'Bearer '+tok}:{'Content-Type':'application/json'};
+}
 const CMP_AUDS=[['monthly','📅 Monthly calendar'],['referrers','🤝 Referral partners'],['clients','💚 Current clients'],['client_contacts','👨‍👩‍👧 Client family contacts'],['caregivers','🧑‍⚕️ Our caregivers']];
 let cmpAud='monthly', cmpKey=null, cmpSending=false;
 function cmpLib(){ return (typeof CC_EMAIL_LIBRARY!=='undefined')?CC_EMAIL_LIBRARY:[]; }
@@ -8294,7 +8300,7 @@ async function cmpRecipients(){
   if(src==='ax_clients'||src==='ax_contacts'||src==='ax_caregivers'){
     const map={ax_clients:'clients',ax_contacts:'client_contacts',ax_caregivers:'caregivers'};
     try{
-      const r=await fetch(CAMPAIGN_ENDPOINT.replace('campaign-send','campaign-auto')+'&resolve='+map[src],{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+      const r=await fetch(CAMPAIGN_ENDPOINT.replace('campaign-send','campaign-auto')+'?resolve='+map[src],{method:'POST',headers:await cmpAuthHeaders(),body:'{}'});
       const d=await r.json(); out=(d.recipients||[]);
     }catch(e){ out=[]; }
   }
@@ -8313,7 +8319,7 @@ async function cmpCount(){
   if(el) el.innerHTML='<b>'+r.length+'</b> recipient'+(r.length===1?'':'s')+' with an email address.';
 }
 async function cmpCall(subject, html, recipients){
-  const res=await fetch(CAMPAIGN_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},
+  const res=await fetch(CAMPAIGN_ENDPOINT,{method:'POST',headers:await cmpAuthHeaders(),
     body:JSON.stringify({subject,html,recipients,campaign:cmpKey,
       tag:({monthly:'lead',clients:'client',client_contacts:'client-contact',caregivers:'caregiver',referrers:'referral-partner'})[cmpAud]||''})});
   return res.json();
