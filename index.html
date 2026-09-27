@@ -6641,32 +6641,7 @@ The HomeTogether team</pre>
 </div>
 </div>
 
-<!-- ============================= CLIENT HISTORY MODAL (read-only rollup) ============================= -->
-<div class="modal-backdrop" id="clientHistoryModalBackdrop">
-<div class="modal" style="max-width:680px;">
-<h2 id="clientHistoryTitle">Client History</h2>
-<div class="modal-sub" id="clientHistorySub"></div>
-
-<div class="section-title">Lead</div>
-<div class="ai-box" id="clientHistoryLead">No lead record on file.</div>
-
-<div class="section-title">Care Assessment &amp; Plan</div>
-<div class="ai-box" id="clientHistoryAssessment">No assessment on file.</div>
-
-<div class="section-title">Check-in History</div>
-<div id="clientHistoryCheckins"></div>
-
-<div class="section-title">Care Plan Reviews</div>
-<div id="clientHistoryCarePlans"></div>
-
-<div class="section-title">Care Match Calls</div>
-<div id="clientHistoryCareMatch"></div>
-
-<div class="modal-actions">
-<button class="secondary" onclick="closeModal('clientHistoryModalBackdrop')">Close</button>
-</div>
-</div>
-</div>
+<!-- The Client History pop-up was retired 2026-09-27 (One profile, step 5): the profile's History tab replaces it. -->
 
 <!-- ============================= SETTINGS (passcode-gated) ============================= -->
 <div class="lock-screen" id="settingsLock">
@@ -9118,6 +9093,16 @@ async function openClient(seed, tab){
   if(view.style.display!=='block') CP.returnTab=(typeof activeTab!=='undefined'&&activeTab)?activeTab:'leads';
   let lead=seed.lead_id?(DATA.leads||[]).find(l=>l.id===seed.lead_id)||null:null;
   let r=seed.r||null, ax=String(seed.ax||(r&&r.axiscare_client_id)||'').trim(), carrier=null;
+  /* One profile, step 5: a person id opens their profile (their AxisCare id, else their confirmed inquiry) */
+  if(seed.person_id&&!ax&&!lead){
+    try{
+      const ps=await sb.from('person_source_id').select('source_id').eq('person_id',seed.person_id).eq('system','axiscare').eq('entity_type','client');
+      if(ps.data&&ps.data[0]) ax=String(ps.data[0].source_id);
+      else { const lc=await sb.from('lead_journey_connection').select('lead_id,confirmed_at').eq('person_id',seed.person_id);
+        const c=(lc.data||[]).sort((x,y)=>String(y.confirmed_at||'').localeCompare(String(x.confirmed_at||'')))[0];
+        if(c) lead=(DATA.leads||[]).find(l=>l.id===c.lead_id)||null; }
+    }catch(e){}
+  }
   /* One profile, step 2: a New Clients launch opens its client's profile */
   let launch=null;
   if(seed.launch_id&&typeof cqLaunchFor==='function'){ try{ launch=await cqLaunchFor({ launch_id:seed.launch_id }); }catch(e){} if(launch&&!ax) ax=String(launch.axiscare_client_id||'').trim(); }
@@ -12749,77 +12734,11 @@ async function renderClients(){
       <td><button class="linklike" onclick="openClientHistory('${r.key.replace(/'/g,"\\'")}')">View History</button></td>
     </tr>`; }).join('')}</tbody></table>` + pastHtml;
 }
+/* One profile, step 5: "View History" opens the client's ONE profile on its History tab
+   (the read-only Client History pop-up is retired). */
 function openClientHistory(key){
-  const rec = getClientRoster().find(r=>r.key===key);
-  if(!rec){ openClientProfile(key.replace(/^ax:/,'').replace(/^nm:/,'')); return; }
-  document.getElementById('clientHistoryTitle').textContent = rec.client_name;
-  document.getElementById('clientHistorySub').textContent = rec.axiscare_client_id ? 'AxisCare Client ID: '+rec.axiscare_client_id : 'No AxisCare Client ID on file yet';
-
-  const leadEl = document.getElementById('clientHistoryLead');
-  leadEl.textContent = rec.lead
-    ? `Source: ${rec.lead.source}${rec.lead.referral_source_name?' — '+rec.lead.referral_source_name:''}\nAssigned: ${rec.lead.assigned_coordinator||'—'}\nNotes: ${rec.lead.interest_notes||'—'}`
-    : 'No lead record on file.';
-
-  const assessEl = document.getElementById('clientHistoryAssessment');
-  if(rec.assessment){
-    let text = `Visit date: ${rec.assessment.visit_date||'—'}   Coordinator: ${rec.assessment.coordinator||'—'}   Status: ${rec.assessment.status}`;
-    if(rec.plan){
-      text += `\n\nADL needs: ${rec.plan.adl_needs||'—'}\nIADL needs: ${rec.plan.iadl_needs||'—'}\nRecommended: ${rec.plan.recommended_frequency||'—'}${rec.plan.recommended_hours_per_week?' ('+rec.plan.recommended_hours_per_week+' hrs/wk)':''}`;
-    } else {
-      text += '\n\nNo care plan drafted yet.';
-    }
-    assessEl.textContent = text;
-  } else {
-    assessEl.textContent = 'No assessment on file.';
-  }
-
-  const checkinsEl = document.getElementById('clientHistoryCheckins');
-  const sorted = rec.checkins.slice().sort((a,b)=>(b.checkin_date||'').localeCompare(a.checkin_date||''));
-  checkinsEl.innerHTML = sorted.length ? `<table><thead><tr><th>Date</th><th>Method</th><th>Satisfaction</th><th>Notes</th></tr></thead><tbody>${
-    sorted.map(c=>`<tr><td>${c.checkin_date||''}</td><td>${c.method||''}</td><td>${'⭐'.repeat(c.satisfaction_rating||0)}${c.escalated?' <span class="badge bad">Escalated</span>':''}</td><td style="max-width:220px">${c.concerns_raised||c.caregiver_feedback||'—'}</td></tr>`).join('')
-  }</tbody></table>` : '<div class="empty">No check-ins logged yet.</div>';
-
-  // The full client story: care plan reviews and match calls join the
-  // timeline, so this modal answers "what's the whole picture" alone.
-  const esc2=escapeHtmlComms, nk=s=>String(s||'').trim().toLowerCase();
-  const cprs=(DATA.care_plan_reviews||[]).filter(r=>r.kind==='review'
-      &&((rec.axiscare_client_id&&String(r.axiscare_client_id)===String(rec.axiscare_client_id))||nk(r.client_name)===nk(rec.client_name)))
-    .sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-  const LVL={1:'L1 · Wellness',2:'L2 · Personal Care',3:'L3 · Advanced Care'};
-  // Custom updates texted to the client's caregivers join the story too —
-  // one line per send (they're logged per caregiver, so group by day+text).
-  const updGroups={};
-  (DATA.care_plan_reviews||[]).filter(r=>r.kind==='update'
-      &&((rec.axiscare_client_id&&String(r.client_key||'')==='ax:'+String(rec.axiscare_client_id))||nk(r.client_name)===nk(rec.client_name)))
-    .forEach(u=>{ const g=String(u.at).slice(0,10)+'|'+String(u.message||'');
-      (updGroups[g]=updGroups[g]||{at:u.at,message:u.message,by:u.by,cgs:[]}).cgs.push(u.caregiver); });
-  const updRows=Object.values(updGroups).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-  const updHtml=updRows.length
-    ? '<div style="font-size:.78rem;font-weight:700;color:var(--navy);margin:.7rem 0 .3rem">📢 Updates texted to the caregivers</div>'
-      +updRows.map(g=>'<div style="font-size:.78rem;padding:.25rem 0;border-bottom:1px dashed var(--border)">'
-        +'<b>'+String(g.at).slice(0,10)+'</b> · “'+esc2(String(g.message||'').slice(0,200))+'” · sent to '+g.cgs.length+': '+esc2(g.cgs.join(', '))
-        +(g.by?' · by '+esc2(g.by):'')+'</div>').join('')
-    : '';
-  document.getElementById('clientHistoryCarePlans').innerHTML = (cprs.length
-    ? '<table><thead><tr><th>Date</th><th>Method</th><th>Level</th><th>Changes</th><th>Plan updated</th></tr></thead><tbody>'
-      +cprs.map(r=>'<tr><td>'+String(r.at).slice(0,10)+'</td><td>'+esc2(r.method||'')+'</td><td>'+(LVL[r.care_level]||'—')+'</td>'
-        +'<td>'+((r.flags||[]).map(esc2).join(', ')||'none')+'</td>'
-        +'<td>'+(r.changes_needed?(r.plan_updated?'✅':'<span class="badge bad">not yet</span>'):'—')+'</td></tr>').join('')
-      +'</tbody></table>'
-    : (updRows.length?'':'<div class="empty">No care plan reviews yet.</div>'))+updHtml;
-  const cms=(DATA.client_checkins||[]).filter(c=>c.client&&c.caregiver&&nk(c.client)===nk(rec.client_name))
-    .sort((a,b)=>String(b.at).localeCompare(String(a.at)));
-  const RATE2={love:'⭐ They love them',good:'👍 Going fine',concern:'🚩 Concerns'};
-  const RATE2CG={love:'⭐ loves it',good:'👍 good',concern:'🚩 not a fit'};
-  document.getElementById('clientHistoryCareMatch').innerHTML = cms.length
-    ? '<table><thead><tr><th>Date</th><th>Caregiver</th><th>How it went</th><th>Outcome</th></tr></thead><tbody>'
-      +cms.map(c=>'<tr><td>'+String(c.at).slice(0,10)+'</td><td>'+esc2(c.caregiver||'')+'</td><td>'+(RATE2[c.rating]||esc2(c.rating||''))
-        +(c.cg_rating?'<br><span style="font-size:.72rem;color:#5b6673">caregiver: '+(RATE2CG[c.cg_rating]||esc2(c.cg_rating))+'</span>':'')+'</td>'
-        +'<td>'+(c.want_exclusion?'🚫 Do-Not-Return':c.want_favorite?'⭐ Favorite':c.coaching?'💬 Coaching passed':'—')+'</td></tr>').join('')
-      +'</tbody></table>'
-    : '<div class="empty">No match calls yet.</div>';
-
-  document.getElementById('clientHistoryModalBackdrop').classList.add('open');
+  const ref=String(key||'').replace(/^ax:/,'').replace(/^nm:/,'');
+  openClientProfile(ref, 'history');
 }
 
 /* ---------------- ON-CALL ---------------- */
@@ -30981,13 +30900,8 @@ async function cl360RenderInto(r, out, px, panes){
     put('summary', (panes.noFam?'':'<div id="'+px+'famC"></div>') + meter + SEC.who);
     put('care', SEC.care); put('home', SEC.home); put('team', SEC.callin);
     put('start', SEC.start); put('family', SEC.circle); put('history', SEC.timeline);
-  } else out.innerHTML = '<div style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:4px;">'+esc(name)+'</div>'
-    + '<div id="'+px+'famC"></div>'
-    + meter
-    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start;">'
-    + '<div>' + SEC.who + SEC.care + SEC.home + SEC.callin + '</div>'
-    + '<div>' + SEC.start + SEC.circle + SEC.timeline + '</div>'
-    + '</div>';
+  }
+  /* the old slide-in grid (Client 360 as its own profile) was retired 2026-09-27: One profile, step 5 */
   /* Step 4: the Journey history loads after paint and adds its events to the timeline */
   c360StartLoad(r, px, ev.slice());
   cipProfileLoad(r, px);
@@ -31394,7 +31308,7 @@ function famGo(kind, id){
    that itself has an onclick (a coverage case header) opens the profile
    instead of toggling the card. */
 let PD_R = null;
-async function openClientProfile(ref){
+async function openClientProfile(ref, tab){
   const wrap = document.getElementById('pdWrap'), body = document.getElementById('pdBody');
   if(!wrap || !body) return;
   wrap.style.display = ''; body.innerHTML = '<div class="field-note">Loading…</div>';
@@ -31416,7 +31330,7 @@ async function openClientProfile(ref){
   PD_R = r;
   /* One profile (step 1): a client name opens the full-page profile, not the slide-over */
   wrap.style.display = 'none';
-  await openClient({ r, ax:r.axiscare_client_id||'' });
+  await openClient({ r, ax:r.axiscare_client_id||'' }, tab);
 }
 function pdClose(){ const w=document.getElementById('pdWrap'); if(w) w.style.display='none'; }
 /* Deep links land on the FULL caregiver profile (Caregiver 360 retired,
