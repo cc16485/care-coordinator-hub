@@ -4994,7 +4994,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       </div>
 </div>
     </div>
-    <div><div id="cp_c_summary"></div></div>
+    <div><div id="cp_changes"></div><div id="cp_c_summary"></div></div>
   </div></div>
   <div class="cp-pane" data-cp-pane="start">
     <div id="cp_start_note"></div>
@@ -8995,7 +8995,7 @@ async function lpMarkDuplicate(){
     +'</select>'
     +'<div class="field-note" style="margin-top:9px;">This one is archived and points at the one '
     +'you keep. Nothing is deleted, so if it turns out they are different people you can restore '
-    +'it.</div>'
+    +'it. Its Journey closes by itself and points at the kept one, unless a client was already confirmed on it.</div>'
     +'<div style="display:flex;gap:8px;margin-top:12px;">'
     +'<button class="primary" id="ldGo" style="padding:7px 14px;font-size:13px;">Mark duplicate</button>'
     +'<button class="ghost" id="ldNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
@@ -9145,7 +9145,7 @@ async function openClient(seed, tab){
     const note='<div class="card" style="padding:12px 16px;margin-bottom:12px;font-size:13px;color:var(--text-muted);">These fill in once they are a client (converted to AxisCare, or confirmed on the Journey).</div>';
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
-  cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam();
+  cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges();
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -9321,6 +9321,67 @@ function cpNewCheckin(){
   const pk=document.getElementById('checkin_client_pick'); if(pk){ pk.value=ccPickLabelFor(r.client_name, CP.ax); pk.dataset.orig=pk.value; }
 }
 /* Payer tab: what the intake recorded (edited in the intake form for now) */
+/* ── 5b E (2026-09-27): a current client's family asks for a change ──────────────────
+   More hours, fewer, a schedule change, a different caregiver, another change in care: recorded on
+   the client's profile, not as a new inquiry. It is the same Staffing request as "Send to Staffing"
+   (it lands in the Staffing Hub's inbox), now tied to the client's AxisCare id, with who asked and how.
+   Only kinds the Staffing Hub already knows are sent (hours, schedule, todo); the change itself is in
+   the message. */
+const CPCH_KINDS=[['more','More hours','hours'],['fewer','Fewer hours','hours'],['schedule','A schedule change','schedule'],
+  ['caregiver','A different caregiver','todo'],['care','Another change in care','todo']];
+function cpChangesFor(ax){ return (DATA.staffing_tasks||[]).filter(t=>t&&String(t.axiscare_client_id||'')===String(ax)).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))); }
+function cpIsMedicaid(){ return /medicaid|ihs|dsds/i.test(String((CP.r&&CP.r.payer)||(CP.lead&&CP.lead.funding_source)||'')); }
+function cpRenderChanges(){
+  const box=document.getElementById('cp_changes'); if(!box) return;
+  if(!CP.ax){ box.innerHTML=''; return; }
+  const esc=escapeHtmlComms, pre=CP.changePrefill||null; CP.changePrefill=null;
+  const fmt=iso=>{ try{ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } };
+  const label=t=>{ const k=CPCH_KINDS.find(x=>x[0]===t.change_kind); return k?k[1]:({hours:'Hours',schedule:'Schedule change',todo:'To-do'}[t.kind]||t.kind||'Request'); };
+  const list=cpChangesFor(CP.ax);
+  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:14px;">'
+    +'<div style="display:flex;align-items:center;gap:8px;"><b style="font-size:15px;color:var(--navy);">Changes the family asked for</b><span style="flex:1;"></span>'
+    +'<button class="secondary" id="cpchOpen">Record a request</button></div>'
+    +'<div class="field-note" style="margin-top:2px;">A change for a current client is recorded here, not as a new inquiry. It goes to the Staffing Hub.</div>'
+    +'<div id="cpchForm" style="display:none;margin-top:10px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;">'
+      +'<label style="font-size:13px;font-weight:600;">What are they asking for?</label><select id="cpchKind">'+CPCH_KINDS.map(k=>'<option value="'+k[0]+'">'+k[1]+'</option>').join('')+'</select>'
+      +'<div id="cpchMed" style="display:none;font-size:12.5px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:8px 10px;margin-top:8px;color:#92400E;">This is a Medicaid client: more hours than DSDS authorized won\'t be paid. Staffing checks the authorized units first, and if it\'s over, the evening coordinator asks the DSDS case manager for a reassessment.</div>'
+      +'<label style="font-size:13px;font-weight:600;margin-top:8px;display:block;">The details</label><textarea id="cpchMsg" rows="3" placeholder="e.g. Daughter called: Mom needs mornings added on Tuesdays and Thursdays starting next week."></textarea>'
+      +'<div class="grid2"><div><label style="font-size:13px;font-weight:600;">Who asked?</label><input id="cpchWho" placeholder="e.g. Dana (daughter)"></div>'
+      +'<div><label style="font-size:13px;font-weight:600;">How?</label><select id="cpchHow"><option>Phone call</option><option>Text</option><option>Email</option><option>In person</option><option>Web form</option><option>Other</option></select></div></div>'
+      +'<label style="font-size:13px;font-weight:600;">How urgent?</label><select id="cpchUrg"><option>Today</option><option selected>This week</option><option>When you can</option></select>'
+      +'<div style="display:flex;gap:8px;margin-top:10px;align-items:center;"><button class="primary" id="cpchSend">Send to Staffing</button><button class="secondary" id="cpchCancel">Cancel</button><span id="cpchMsgOut" class="field-note"></span></div>'
+    +'</div>'
+    +(list.length?list.map(t=>'<div style="display:flex;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:13px;margin-top:6px;">'
+        +'<span>'+(t.status==='done'?'✅':'⏳')+'</span><div style="flex:1;min-width:0;"><b>'+esc(label(t))+'</b>: '+esc(t.message||'')
+        +'<div class="field-note">'+esc(t.from_name||'')+' · '+esc(fmt(t.created_at))+(t.source_who?' · asked by '+esc(t.source_who):'')
+        +(t.status==='done'?' · done'+(t.done_by?' by '+esc(t.done_by):''):' · waiting on Staffing')+(t.reply?' · Staffing: '+esc(t.reply):'')+'</div></div></div>').join('')
+      :'<div class="field-note" style="margin-top:8px;">Nothing recorded yet.</div>')
+    +'</div>';
+  const f=box.querySelector('#cpchForm'), med=box.querySelector('#cpchMed'), kind=box.querySelector('#cpchKind');
+  const syncMed=()=>{ med.style.display=(cpIsMedicaid()&&kind.value==='more')?'block':'none'; };
+  kind.onchange=syncMed;
+  box.querySelector('#cpchOpen').onclick=()=>{ f.style.display='block'; syncMed(); };
+  box.querySelector('#cpchCancel').onclick=()=>{ f.style.display='none'; };
+  box.querySelector('#cpchSend').onclick=cpSendChange;
+  if(pre){ f.style.display='block'; box.querySelector('#cpchMsg').value=pre.message||''; box.querySelector('#cpchWho').value=pre.who||'';
+    if(pre.how){ const h=box.querySelector('#cpchHow'); if([...h.options].some(o=>o.value===pre.how)) h.value=pre.how; }
+    syncMed(); }
+}
+async function cpSendChange(){
+  const box=document.getElementById('cp_changes'); if(!box||!CP.ax) return;
+  const v=id=>{ const el=box.querySelector('#'+id); return el?el.value.trim():''; }, out=box.querySelector('#cpchMsgOut');
+  const msg=v('cpchMsg'); if(!msg){ out.textContent='Write the details first.'; return; }
+  const k=CPCH_KINDS.find(x=>x[0]===v('cpchKind'))||CPCH_KINDS[4], who=v('cpchWho'), how=v('cpchHow');
+  const t={ id:uid(), direction:'to_staffing', kind:k[2], change_kind:k[0], urgency:v('cpchUrg')||'This week',
+    about:(CP.r&&CP.r.client_name)||'', axiscare_client_id:String(CP.ax), caregiver:'', lead_id:CP.lead?CP.lead.id:null,
+    message:k[1]+': '+msg+(who?' (asked by '+who+(how?', '+how.toLowerCase():'')+')':''), source_who:who, source_how:how,
+    created_at:new Date().toISOString(), from_name:ME.name||ME.email, from_email:ME.email,
+    status:'open', done_at:null, done_by:null, reply:'' };
+  DATA.staffing_tasks=DATA.staffing_tasks||[]; DATA.staffing_tasks.push(t);
+  await persist('staffing_tasks',t);
+  cpRenderChanges();
+  if(typeof ccToast==='function') ccToast('Sent to Staffing. It shows here until it is done.');
+}
 function cpRenderPayer(){
   const box=document.getElementById('cp_payer'); if(!box) return;
   const esc=escapeHtmlComms, l=CP.lead;
@@ -10698,13 +10759,13 @@ function ckPanel(found, mode){
       const l=h.lead, who=[l.client_first_name,l.client_last_name].filter(Boolean).join(' ')||'(care recipient not named)';
       const contact=[l.first_name,l.last_name].filter(Boolean).join(' ');
       html+=row('Inquiry: '+esc(who)+(contact?' <span style="font-weight:400;">· caller '+esc(contact)+'</span>':''),
-        esc((l.status||'New')+' · '+why(h)), mode==='review'?b('lead',i,'Open it')+b('same',i,'Same family',true):b('lead',i,'Open this inquiry'));
+        esc((l.status||'New')+' · '+why(h)), mode==='review'?b('lead',i,'Open it')+b('same',i,'Same family',!ckLeadOpen(l))+(ckLeadOpen(l)?b('fold_lead',i,'Fold into it',true):''):b('lead',i,'Open this inquiry'));
     });
     found.clients.forEach((m,i)=>{
       const state=m.active===true?'Current client':(m.active===false?'Former client ('+(m.status||'inactive')+')':(m.status==='circle closed'?'Family Circle (closed)':'Family Circle'));
       const title=esc(m.name)+(m.axiscare_client_id?' <span style="font-weight:400;">· AxisCare #'+esc(m.axiscare_client_id)+'</span>':'');
       let btn='';
-      if(m.axiscare_client_id&&m.active===true) btn=b('client',i,'Open their profile');
+      if(m.axiscare_client_id&&m.active===true) btn=b('client',i,'Open their profile')+(mode==='review'?b('fold_client',i,'Fold into the client',true):'');
       else if(m.axiscare_client_id) btn=b('link',i,mode==='convert'?'Use this AxisCare record':'Same family: link to #'+esc(m.axiscare_client_id),m.strength>=3);
       else if(mode==='review') btn=b('same_c',i,'Same family',true);
       html+=row(title,esc(state+' · '+why(m))+(m.axiscare_client_id&&m.active===true?'<br>A change in care for a current client is handled on their profile, not as a new start.':''),btn);
@@ -10725,6 +10786,8 @@ function ckPanel(found, mode){
       const k=el.getAttribute('data-ck'), i=+el.getAttribute('data-i'); ov.remove();
       if(k==='lead') return resolve({kind:'lead',id:found.leads[i].lead.id});
       if(k==='same') return resolve({kind:'same',id:found.leads[i].lead.id});
+      if(k==='fold_lead') return resolve({kind:'fold_lead',id:found.leads[i].lead.id});
+      if(k==='fold_client'){ const m=found.clients[i]; return resolve({kind:'fold_client',ax:String(m.axiscare_client_id),name:m.name}); }
       if(k==='same_c') return resolve({kind:'same',id:null,name:found.clients[i].name});
       if(k==='client'||k==='link'){ const m=found.clients[i]; return resolve({kind:k,ax:String(m.axiscare_client_id),name:m.name}); }
       resolve({kind:k});
@@ -10778,6 +10841,13 @@ async function ckReviewReturning(){
   if(ch.kind==='lead'){ openLeadProfile(ch.id); return; }
   if(ch.kind==='client'){ openClient({ax:ch.ax},'summary'); return; }
   if(ch.kind==='same'){ await ckAnswerReturning(l,'same_family',{same_as_lead:ch.id}); return; }
+  if(ch.kind==='fold_lead'){ const kept=await ckFold(l,{kind:'lead',lead_id:ch.id}); if(kept) openLeadProfile(kept.id); return; }
+  if(ch.kind==='fold_client'){
+    await ckFold(l,{kind:'client',axiscare_client_id:ch.ax});
+    const who=[l.first_name,l.last_name].filter(Boolean).join(' ')+(l.relationship?' ('+l.relationship+')':'');
+    CP.changePrefill={message:l.interest_notes||'',who:who.trim(),how:/web|form/i.test(String(l.source||''))?'Web form':'Phone call'};
+    openClient({ax:ch.ax},'summary'); return;
+  }
   if(ch.kind==='link'){
     const r=await jcSideBySide(l, ch.ax, 'save'); if(r.choice==='cancel') return;
     l.axiscare_client_id=String(ch.ax);
@@ -10787,6 +10857,30 @@ async function ckReviewReturning(){
     return;
   }
   if(ch.kind==='new') await ckAnswerReturning(l,'different_family',{});
+}
+function ckLeadOpen(l){ return !!l&&!l.archived&&l.status!=='Converted'&&l.status!=='Lost'; }
+/* 5b F: fold this inquiry into the one kept (an open inquiry) or into a current client. It is archived and
+   says where it went; the kept inquiry gets its notes. The lead mirror then voids this inquiry's Journey if
+   it is still empty and points it at the one kept (lead-journey-fold.sql). */
+async function ckFold(l, target){
+  const now=new Date().toISOString(), who=(ME&&(ME.email||ME.name))||'';
+  l.archived=true; l.archived_at=now; l.archived_by=who;
+  l.folded_into=Object.assign({}, target, {by:who, at:now});
+  if(target.kind==='lead'){ l.archive_reason='Duplicate'; l.duplicate_of=target.lead_id; }
+  else l.archive_reason='Folded into client';
+  let kept=null;
+  if(target.kind==='lead'){
+    kept=(DATA.leads||[]).find(x=>x.id===target.lead_id)||null;
+    if(kept){
+      kept.comm_log=Array.isArray(kept.comm_log)?kept.comm_log:[];
+      const notes=String(l.interest_notes||'').trim();
+      kept.comm_log.push({ body:'📎 Another inquiry for this family was folded into this one ('+((l.possibly_returning&&l.possibly_returning.by)||l.source||'added by hand')+', '+String(l.created_at||now).slice(0,10)+')'+(notes?': '+notes.slice(0,600):'.'), at:now, by:who });
+      await persist('leads', kept);
+    }
+  }
+  if(ckReturningOpen(l)) await ckAnswerReturning(l,'same_family',{folded_into:target});
+  else await persist('leads', l);
+  return kept;
 }
 async function ckAnswerReturning(l, decision, extra){
   const now=new Date().toISOString(), who=(ME&&(ME.email||ME.name))||'';
@@ -10819,7 +10913,11 @@ async function ckCheckNewInquiry(leave){
   const ch=await ckPanel(found,'save');
   if(ch.kind==='cancel') return {proceed:false};
   if(ch.kind==='lead'){ leave(); openLeadProfile(ch.id); return {proceed:false}; }
-  if(ch.kind==='client'){ leave(); openClient({ax:ch.ax},'summary'); return {proceed:false}; }
+  if(ch.kind==='client'){
+    /* 5b E: what was typed on the inquiry becomes the start of a change request on their profile */
+    const who=[v('lead_first_name'),v('lead_last_name')].filter(Boolean).join(' ')+(v('lead_relationship')?' ('+v('lead_relationship')+')':'');
+    CP.changePrefill={message:v('lead_interest_notes'),who:who.trim(),how:'Phone call'};
+    leave(); openClient({ax:ch.ax},'summary'); return {proceed:false}; }
   if(ch.kind==='link'&&axEl){ axEl.value=ch.ax; CK_SET=ch.ax; }   // the side-by-side check in saveLead confirms it
   return {proceed:true, note:''};
 }
