@@ -10056,6 +10056,85 @@ async function lpConvertLead(){
   };
 }
 
+/* ── Change 3: answer an AxisCare status change ──────────────────────────
+   Only a person's answer changes the hub. "Care ended" ends the Journey and
+   the client role on the day given; "Returning client" is Owner / Decision's.
+   Recorded through client-status-review -> client_status_decide(). */
+const CSR_REASONS=[['discharged','Discharged from our care'],['facility','Moved to a facility'],['moved','Moved away'],['deceased','Passed away'],['other','Other (say what)']];
+async function csrOpen(reviewId){
+  const esc=escapeHtmlComms;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:620px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:17px;">AxisCare changed a client\'s status</div><div id="csrBody" style="margin-top:10px;"><div class="field-note">Loading…</div></div></div>';
+  document.body.appendChild(ov);
+  const body=ov.querySelector('#csrBody'), close=()=>ov.remove();
+  let rv=null, name='';
+  try{
+    const r=await sb.from('client_status_review').select('*').eq('review_id',reviewId).maybeSingle(); if(r.error) throw r.error; rv=r.data;
+    if(rv){ const p=await sb.from('person_identity').select('display_name').eq('id',rv.person_id).maybeSingle(); name=(p.data&&p.data.display_name)||'this client'; }
+  }catch(e){ body.innerHTML='<div>Could not load it: '+esc(String(e.message||e))+'</div><div style="margin-top:12px;"><button class="secondary" id="csrX">Close</button></div>'; ov.querySelector('#csrX').onclick=close; return; }
+  if(!rv){ body.innerHTML='<div>That review no longer exists.</div><div style="margin-top:12px;"><button class="secondary" id="csrX">Close</button></div>'; ov.querySelector('#csrX').onclick=close; return; }
+  const seen=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date(rv.observed_at));
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date());
+  const head='<div style="font-size:14px;"><b>'+esc(name)+'</b> (AxisCare #'+esc(rv.axiscare_client_id)+') went from <b>'+esc(rv.old_label||'?')+'</b> to <b>'+esc(rv.new_label)+'</b>'
+    +' <span class="field-note">(seen '+esc(lpscDate(seen))+')</span></div>';
+  if(rv.status!=='open'){
+    const W={care_ended:'Care ended',on_hold:'On hold',no_change:'AxisCare mistake / nothing changed',returning:'Returning client'};
+    body.innerHTML=head+'<div style="margin-top:10px;">Already answered: <b>'+esc(W[rv.decision]||rv.decision)+'</b>'+(rv.decided_on?' ('+esc(lpscDate(rv.decided_on))+')':'')
+      +' by '+esc(lpscName(rv.decided_by))+(rv.note?': '+esc(rv.note):'')+'</div><div style="margin-top:12px;"><button class="secondary" id="csrX">Close</button></div>';
+    ov.querySelector('#csrX').onclick=close; return;
+  }
+  const opt=(v,label,sub)=>'<label style="display:block;border:1px solid var(--border);border-radius:8px;padding:.5rem .7rem;margin-top:6px;cursor:pointer;"><input type="radio" name="csrD" value="'+v+'" style="width:auto;margin-right:6px;"><b>'+label+'</b>'
+    +(sub?'<div class="field-note" style="font-size:12px;margin-left:22px;">'+sub+'</div>':'')+'</label>';
+  body.innerHTML=head
+    +'<div class="field-note" style="margin-top:6px;">Nothing in the hub has changed. What happened?</div>'
+    +opt('care_ended','Care ended','Ends their Journey and moves them to Past clients, on the day you give.')
+    +opt('on_hold','On hold, care will resume','Nothing ends.')
+    +opt('no_change','AxisCare mistake / nothing changed','Nothing ends. Say what happened.')
+    +opt('returning','Returning client','Opens their new Journey. Owner / Decision only.')
+    +'<div id="csrMore" style="margin-top:10px;"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;"><button class="primary" id="csrGo" disabled>Record the answer</button><button class="secondary" id="csrX">Close</button><span id="csrMsg" class="field-note"></span></div>';
+  ov.querySelector('#csrX').onclick=close;
+  const more=ov.querySelector('#csrMore'), go=ov.querySelector('#csrGo');
+  ov.querySelectorAll('input[name=csrD]').forEach(r=>r.onchange=()=>{
+    const d=r.value; go.disabled=false;
+    more.innerHTML=(d==='care_ended'?'<label style="font-size:13px;font-weight:600;">The day care ended <input type="date" id="csrDate" value="'+esc(seen<=today?seen:today)+'" max="'+today+'" style="width:auto;margin-left:6px;"></label>'
+        +'<label style="display:block;font-size:13px;font-weight:600;margin-top:8px;">Why <select id="csrReason" style="width:auto;margin-left:6px;"><option value="">Choose…</option>'+CSR_REASONS.map(x=>'<option value="'+x[0]+'">'+x[1]+'</option>').join('')+'</select></label>'
+      :d==='returning'?'<label style="font-size:13px;font-weight:600;">The day care resumed <input type="date" id="csrDate" value="'+today+'" max="'+today+'" style="width:auto;margin-left:6px;"></label>':'')
+      +'<textarea id="csrNote" rows="2" placeholder="'+(d==='no_change'?'What happened (required)':'Anything to add (optional)')+'" style="width:100%;margin-top:8px;box-sizing:border-box;font-size:13px;"></textarea>';
+  });
+  go.onclick=async()=>{
+    const d=(ov.querySelector('input[name=csrD]:checked')||{}).value, v=id=>{ const el=ov.querySelector('#'+id); return el?el.value.trim():''; }, msg=ov.querySelector('#csrMsg');
+    const b={action:'decide',review_id:reviewId,decision:d,date:v('csrDate')||null,reason:v('csrReason')||null,note:v('csrNote')||null};
+    if(d==='care_ended'&&!b.reason){ msg.textContent='Say why care ended.'; return; }
+    if((d==='no_change'||(d==='care_ended'&&b.reason==='other'))&&!b.note){ msg.textContent='Add a note saying what happened.'; return; }
+    go.disabled=true; msg.textContent='Saving…';
+    let out;
+    try{
+      const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+      if(!tok) throw new Error('Sign in first.');
+      const r=await fetch(CONFIG.supabase_url+'/functions/v1/client-status-review',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(b)});
+      out=await r.json().catch(()=>({error:'answered '+r.status}));
+    }catch(e){ out={error:String(e.message||e)}; }
+    if(out&&out.outcome==='decided'){
+      const it=(DATA.ops_items||[]).find(x=>x.id==='csr_'+reviewId); if(it){ it.status='done'; it.closed_at=new Date().toISOString(); }
+      CL360_IDENTITY=null;
+      body.innerHTML=head+'<div style="margin-top:10px;color:var(--teal);font-weight:700;">Recorded.</div>'
+        +(out.journey_ended?'<div class="field-note">Their Journey ended and they moved to Past clients.</div>':'')
+        +(out.journey_opened?'<div class="field-note">Their new Journey is open and they are an active client again.</div>':'')
+        +'<div style="margin-top:12px;"><button class="secondary" id="csrX">Close</button></div>';
+      ov.querySelector('#csrX').onclick=()=>{ close(); try{ if(typeof renderMyWork==='function') renderMyWork(); }catch(e){} };
+      return;
+    }
+    const why={seat_required:'A returning client is an Owner / Decision matter.',no_seat:'Your account does not hold a Journey seat. Ask the owner to add you.',
+      already_decided:'Someone already answered this.',date_required:'Give the date (not in the future).',reason_required:'Say why care ended.',note_required:'Add a note saying what happened.'};
+    const det=out&&out.detail&&typeof out.detail==='object'?(out.detail.detail||out.detail.outcome):out&&out.detail;
+    msg.innerHTML='<span style="color:var(--red)">'+esc(why[out&&out.outcome]||(out&&out.outcome==='refused'?'Not saved: '+(det||'refused'):'')||(out&&out.error)||'Not saved.')+'</span>';
+    go.disabled=false;
+  };
+}
+
 /* ---- Printable facesheet for the in-home assessment visit ---- */
 function lpPrintFacesheet(){
   const l = lpLead; if(!l) return;
@@ -12128,21 +12207,34 @@ async function renderClients(){
   else if(f==='No Recent Check-in') rows = rows.filter(r=>r.checkins.length===0 || !r.checkins.some(c=>c.next_checkin_due && c.next_checkin_due>=today()));
 
   const wrap = document.getElementById('clientsTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty">No clients match this filter.</div>'; return; }
+  /* Change 3: a client whose care a person confirmed ended moves to Past clients */
+  const past = rows.filter(r=>r.role_status==='former').sort((a,b)=>String(b.ended_at||'').localeCompare(String(a.ended_at||'')));
+  rows = rows.filter(r=>r.role_status!=='former');
+  if(rows.length===0 && !past.length){ wrap.innerHTML='<div class="empty">No clients match this filter.</div>'; return; }
   rows.sort((a,b)=>a.client_name.localeCompare(b.client_name));
+  const axCell = r=>{ const st=r.axiscare_client_id?CL360_AXSTATUS[String(r.axiscare_client_id)]:null;
+    if(!st) return '<span class="field-note">—</span>';
+    const ok=st.label==='Active';
+    return '<span class="badge '+(ok?'ok':'warn')+'" title="As of the status check on '+escapeHtmlComms(String(st.observed_at||'').slice(0,16).replace('T',' '))+' UTC">'+escapeHtmlComms(st.label)+'</span>'; };
+  const pastHtml = past.length ? '<details style="margin-top:14px;"><summary style="cursor:pointer;font-weight:700;color:var(--navy);">Past clients ('+past.length+')</summary>'
+    +'<table style="margin-top:8px;"><thead><tr><th>Client</th><th>AxisCare ID</th><th>AxisCare status</th><th>Care ended</th><th>Why</th></tr></thead><tbody>'
+    +past.map(r=>'<tr><td><a href="javascript:void(0)" data-open-client="'+escapeHtmlComms(String(r.axiscare_client_id||r.client_name))+'" style="color:inherit;text-decoration:underline dotted;">'+escapeHtmlComms(r.client_name)+'</a></td>'
+      +'<td>'+escapeHtmlComms(r.axiscare_client_id||'—')+'</td><td>'+axCell(r)+'</td><td>'+escapeHtmlComms(r.ended_at?lpscDate(r.ended_at):'—')+'</td><td>'+escapeHtmlComms(r.end_reason||'—')+'</td></tr>').join('')
+    +'</tbody></table></details>' : '';
   wrap.innerHTML = `<table><thead><tr>
-    <th>Client</th><th>AxisCare ID</th><th>Care Level</th><th>Assessment Status</th><th>Last Check-in</th><th>Actions</th>
+    <th>Client</th><th>AxisCare ID</th><th>AxisCare status</th><th>Care Level</th><th>Assessment Status</th><th>Last Check-in</th><th>Actions</th>
   </tr></thead><tbody>${rows.map(r=>{
     const lastCheckin = r.checkins.slice().sort((a,b)=>(b.checkin_date||'').localeCompare(a.checkin_date||''))[0];
     const declining = clientSatisfactionDeclining(r.client_name);
     return `<tr>
       <td><b><a href="javascript:void(0)" data-open-client="${escapeHtmlComms(String(r.axiscare_client_id||r.client_name))}" style="color:inherit;text-decoration:underline dotted;" title="Open their profile">${r.client_name}</a></b>${declining?' <span class="badge warn">📉 Declining</span>':''}</td>
       <td>${r.axiscare_client_id||'—'}</td>
+      <td>${axCell(r)}</td>
       <td>${(()=>{ const p=(DATA.client_profiles||[]).find(x=>x.id===cl360ProfileId(r)); return (p&&p.care_level)||'—'; })()}</td>
       <td>${r.assessment?statusBadge(r.assessment.status):'<span class="badge muted">No assessment</span>'}</td>
       <td>${lastCheckin ? lastCheckin.checkin_date+' ('+'⭐'.repeat(lastCheckin.satisfaction_rating||0)+')' : '—'}</td>
       <td><button class="linklike" onclick="openClientHistory('${r.key.replace(/'/g,"\\'")}')">View History</button></td>
-    </tr>`; }).join('')}</tbody></table>`;
+    </tr>`; }).join('')}</tbody></table>` + pastHtml;
 }
 function openClientHistory(key){
   const rec = getClientRoster().find(r=>r.key===key);
@@ -22039,6 +22131,11 @@ function myWorkRows(){
    registry, so no source-specific behaviour lives in the card. */
 function obligationOpenAction(it){
   try{
+    /* Change 3: AxisCare changed a client's status; a person answers what happened */
+    if(it && it.source && it.source.type==='status_review'){
+      return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="csrOpen(\''+escapeHtmlComms(String(it.source.review_id))+'\')">Answer</button>'
+        +'<span class="field-note" style="margin-left:8px;">Nothing changes until someone answers. Answering closes this.</span></div>';
+    }
     /* Step 6 (2026-09-26): promise and Journey-review items open the family's
        record. The Start Contract lives on the lead profile (or the client
        profile once there is no lead); logging the update there closes the item. */
@@ -30131,11 +30228,22 @@ function cl360ProfileId(r){
    and check-ins. So the tab is useful on day one, before hub records
    accumulate. */
 let CL360_IDENTITY = null;
+/* Change 3: AxisCare's status per client, as of the last 6-hourly check (a display
+   copy; AxisCare owns it). Empty until Change 3 is installed and switched on. */
+let CL360_AXSTATUS = {};
 async function cl360Identity(){
   if(CL360_IDENTITY) return CL360_IDENTITY;
   try{
-    const roles = await sb.from('person_role').select('person_id').eq('role','client');
-    const ids = (roles.data||[]).map(r=>r.person_id);
+    const cs = await sb.from('client_status_current').select('axiscare_client_id,label,observed_at');
+    CL360_AXSTATUS = {}; (cs.data||[]).forEach(x=>{ CL360_AXSTATUS[String(x.axiscare_client_id)] = x; });
+  }catch(e){ CL360_AXSTATUS = {}; }
+  try{
+    const roles = await sb.from('person_role').select('person_id,status,ended_at,end_reason').eq('role','client');
+    /* one line per person: their active client role, or else their latest ended one */
+    const roleOf = {};
+    (roles.data||[]).forEach(r=>{ const cur=roleOf[r.person_id];
+      if(!cur || (cur.status!=='active' && (r.status==='active' || String(r.ended_at||'')>String(cur.ended_at||'')))) roleOf[r.person_id]=r; });
+    const ids = Object.keys(roleOf);
     if(!ids.length) return (CL360_IDENTITY = []);
     const [pi, srcs] = await Promise.all([
       sb.from('person_identity').select('id, display_name, first_name, last_name, primary_phone').in('id', ids),
@@ -30145,8 +30253,10 @@ async function cl360Identity(){
       const mine = (srcs.data||[]).filter(x=>x.person_id===p.id);
       const ax = mine.find(x=>x.system==='axiscare' && x.entity_type==='client');
       const gh = mine.find(x=>x.system==='ghl');
+      const ro = roleOf[p.id]||{};
       return { client_name: p.display_name || ((p.first_name||'')+' '+(p.last_name||'')).trim() || '(unnamed)',
                axiscare_client_id: ax ? String(ax.source_id) : '',
+               role_status: ro.status||'active', ended_at: ro.ended_at||null, end_reason: ro.end_reason||null,
                phone: p.primary_phone || '', ghl_contact_id: gh ? String(gh.source_id) : '',
                lead:null, assessment:null, plan:null, checkins:[] };
     });
