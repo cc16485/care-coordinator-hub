@@ -6490,6 +6490,7 @@ The HomeTogether team</pre>
 <div><label>Care Start Date</label><input type="date" id="plan_start_date"></div>
 <div><label>Plan Review Date</label><input type="date" id="plan_review_date"></div>
 </div>
+<div id="plan_tasks_box" style="margin-top:14px;"></div>
 <div class="modal-actions">
 <button class="secondary" onclick="closeModal('planModalBackdrop')">Close</button>
 <button class="secondary" onclick="savePlan(false)">Save Draft</button>
@@ -11600,6 +11601,8 @@ function openPlanForAssessment(assessmentId){
   const f = (key) => document.getElementById('plan_'+key).value = plan ? (plan[key]||'') : '';
   ['adl_needs','iadl_needs','medical_conditions','medications','safety_concerns','client_goals',
    'services_recommended','recommended_frequency','recommended_hours_per_week','start_date','review_date'].forEach(f);
+  CPT.tasks=JSON.parse(JSON.stringify((plan&&plan.axiscare_tasks)||[])); CPT.clientName=a?a.client_name:'';
+  cptRender(); cptLoadCatalog();
   document.getElementById('planModalBackdrop').classList.add('open');
 }
 async function savePlan(pushToAxisCare){
@@ -11620,6 +11623,8 @@ async function savePlan(pushToAxisCare){
     recommended_hours_per_week: document.getElementById('plan_recommended_hours_per_week').value,
     start_date: document.getElementById('plan_start_date').value,
     review_date: document.getElementById('plan_review_date').value,
+    axiscare_tasks: CPT.tasks.filter(function(t){ return t&&t.adl_id; }).map(function(t){ return {adl_id:+t.adl_id,name:t.name,key:t.key||null,days:t.days||[],require:+t.require===2?2:1,when:+t.require===2?0:(+t.when||0),instructions:t.instructions||''}; }),
+    axiscare_tasks_push: existing.axiscare_tasks_push || null,
     drafted_by: existing.drafted_by || 'manual',
     reviewed_by: existing.reviewed_by || '',
     axiscare_synced: existing.axiscare_synced || false,
@@ -11638,32 +11643,131 @@ async function savePlan(pushToAxisCare){
     }
     await persist('care_plans', record);
     await handOffToStaffingHub(a, record);
-    // Real server-side push: the plan lands on the client's AxisCare profile
-    // as an important note (the API has no care-plan fields; a note is the
-    // honest vehicle). Token lives server-side — nothing in this browser.
-    if(a && a.axiscare_client_id && CONFIG.training_hub_key){
-      const planNote = 'CARE PLAN — '+(a.client_name||'')+' (assessment '+(a.visit_date||'')+')\n'
-        +['adl_needs','iadl_needs','medical_conditions','medications','safety_concerns','client_goals','services_recommended']
-          .filter(k=>record[k]).map(k=>k.replace(/_/g,' ').toUpperCase()+':\n'+record[k]).join('\n\n')
-        +'\n\nFREQUENCY: '+(record.recommended_frequency||'—')+' · HOURS/WEEK: '+(record.recommended_hours_per_week||'—')
-        +(record.start_date?' · START: '+record.start_date:'');
-      try{
-        const r = await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
-          method:'POST',
-          headers:{ 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'Content-Type':'application/json' },
-          body: JSON.stringify({ key: CONFIG.training_hub_key, action:'client_note', client_id: a.axiscare_client_id, note: planNote })
-        });
-        const res = await r.json().catch(()=>({}));
-        alert(r.ok && !res.error
-          ? 'Care plan attached to the client\'s AxisCare profile as an important note, and added to the Staffing Hub scheduling queue.'
-          : 'Saved here + Staffing Hub queue — but the AxisCare note failed: '+(res.error||'error')+'. Add it there by hand.');
-      }catch(e){ alert('Saved here + Staffing Hub queue — AxisCare push failed ('+e.message+'). Add the note by hand.'); }
-    } else {
-      alert('Saved + added to Staffing Hub\'s scheduling queue.'+(a&&!a.axiscare_client_id?' (No AxisCare client ID on the assessment yet — add it to push the plan note automatically.)':''));
-    }
+    /* Change 5 (2026-09-27): the note AND the ticked care tasks go to AxisCare
+       through careplan-tasks, with the coordinator's own sign-in (no shared key).
+       A preview comes first: tasks AxisCare already has are only changed when
+       ticked "update", and nothing is removed without its own tick. */
+    const planNote = 'CARE PLAN — '+((a&&a.client_name)||'')+' (assessment '+((a&&a.visit_date)||'')+')\n'
+      +['adl_needs','iadl_needs','medical_conditions','medications','safety_concerns','client_goals','services_recommended']
+        .filter(k=>record[k]).map(k=>k.replace(/_/g,' ').toUpperCase()+':\n'+record[k]).join('\n\n')
+      +'\n\nFREQUENCY: '+(record.recommended_frequency||'—')+' · HOURS/WEEK: '+(record.recommended_hours_per_week||'—')
+      +(record.start_date?' · START: '+record.start_date:'');
+    if(a && a.axiscare_client_id){ closeModal('planModalBackdrop'); renderAssessments(); cptPushFlow(record, a, planNote); return; }
+    alert('Saved. No AxisCare client ID on the assessment yet, so nothing went to AxisCare. Add the ID, then push again.');
   }
   closeModal('planModalBackdrop');
   renderAssessments();
+}
+
+/* ── Change 5: care tasks for AxisCare, picked from AxisCare's own task list ──
+   The plan's text is never turned into tasks by guessing: tasks named in the
+   ADL/IADL text are SUGGESTED, a person ticks them. Days (AxisCare letters:
+   N Sun, M, T, W, R Thu, F, S) default to the client's Team Builder plan. */
+let CPT={catalog:null,loading:false,err:null,tasks:[],clientName:''};
+const CPT_DAYS=[['N','Sun'],['M','Mon'],['T','Tue'],['W','Wed'],['R','Thu'],['F','Fri'],['S','Sat']];
+const CPT_WHEN=['Any time','Morning','Afternoon','Evening','Night'];
+async function cptCall(body){
+  const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+  if(!tok) throw new Error('Sign in first.');
+  const r=await fetch(CONFIG.supabase_url+'/functions/v1/careplan-tasks',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>null); if(!d) throw new Error('The care task service answered '+r.status); return d;
+}
+async function cptLoadCatalog(){
+  if(CPT.catalog||CPT.loading) return;
+  CPT.loading=true; CPT.err=null;
+  try{ const d=await cptCall({action:'catalog'}); if(d.error) throw new Error(d.error); CPT.catalog=d.catalog||[]; }catch(e){ CPT.err=String(e.message||e); }
+  CPT.loading=false; cptRender();
+}
+function cptDefaultDays(){
+  const nk=x=>String(x||'').toLowerCase().replace(/[^a-z]/g,'');
+  const tb=(DATA.staffing_plans||[]).filter(p=>p&&nk(p.client)===nk(CPT.clientName)).slice(-1)[0];
+  const map={sun:'N',mon:'M',tue:'T',wed:'W',thu:'R',fri:'F',sat:'S'};
+  const d=tb?(tb.days||[]).map(x=>map[x]).filter(Boolean):[];
+  return d.length?d:CPT_DAYS.map(x=>x[0]);
+}
+function cptAdd(adlId){
+  const c=(CPT.catalog||[]).find(x=>String(x.id)===String(adlId)); if(!c) return;
+  if(CPT.tasks.some(t=>+t.adl_id===+c.id)) return;
+  CPT.tasks.push({adl_id:c.id,name:c.name,key:c.adlKey||null,days:cptDefaultDays(),require:1,when:0,instructions:''});
+  cptRender();
+}
+function cptSet(i,field,val){ const t=CPT.tasks[i]; if(!t) return; t[field]=val; if(field==='require'&&+val===2) t.when=0; cptRender(); }
+function cptDay(i,d,on){ const t=CPT.tasks[i]; if(!t) return; t.days=(t.days||[]).filter(x=>x!==d); if(on) t.days.push(d); }
+function cptRemove(i){ CPT.tasks.splice(i,1); cptRender(); }
+function cptRender(){
+  const box=document.getElementById('plan_tasks_box'); if(!box) return;
+  const esc=escapeHtmlComms;
+  const text=((document.getElementById('plan_adl_needs')||{}).value||'')+' '+((document.getElementById('plan_iadl_needs')||{}).value||'');
+  const sug=(CPT.catalog||[]).filter(c=>c.name&&!CPT.tasks.some(t=>+t.adl_id===+c.id)&&new RegExp('\\b'+c.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b').test(text.toLowerCase()));
+  box.innerHTML='<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;">'
+    +'<div style="font-weight:800;color:var(--navy);">Care tasks for AxisCare</div>'
+    +'<div class="field-note" style="font-size:12px;">Picked from AxisCare\'s own task list. They go to the client\'s AxisCare profile on Save &amp; Push; the text above goes as the note, as before.</div>'
+    +(CPT.err?'<div class="field-note" style="color:var(--red);margin-top:6px;">Could not load AxisCare\'s task list: '+esc(CPT.err)+'</div>':'')
+    +(!CPT.catalog&&!CPT.err?'<div class="field-note" style="margin-top:6px;">Loading AxisCare\'s task list…</div>':'')
+    +(sug.length?'<div style="margin-top:6px;font-size:12.5px;">Named in the plan (not added until you click): '+sug.map(c=>'<button class="fb" style="font-size:11.5px;" onclick="cptAdd('+c.id+')">+ '+esc(c.name)+'</button>').join(' ')+'</div>':'')
+    +CPT.tasks.map((t,i)=>'<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;">'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><b style="color:var(--navy);">'+esc(t.name)+'</b>'
+      +'<select onchange="cptSet('+i+',\'require\',+this.value)" style="width:auto;font-size:12px;"><option value="1"'+(+t.require!==2?' selected':'')+'>Always</option><option value="2"'+(+t.require===2?' selected':'')+'>As needed</option></select>'
+      +'<select onchange="cptSet('+i+',\'when\',+this.value)" style="width:auto;font-size:12px;"'+(+t.require===2?' disabled title="As needed is always any time"':'')+'>'+CPT_WHEN.map((w,k)=>'<option value="'+k+'"'+(+t.when===k?' selected':'')+'>'+w+'</option>').join('')+'</select>'
+      +'<span style="flex:1"></span><button class="linklike" style="font-size:12px;color:var(--red);" onclick="cptRemove('+i+')">Remove from this plan</button></div>'
+      +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:5px;font-size:12.5px;">'+CPT_DAYS.map(d=>'<label style="display:inline-flex;gap:3px;align-items:center;"><input type="checkbox" style="width:auto;" '+((t.days||[]).includes(d[0])?'checked':'')+' onchange="cptDay('+i+',\''+d[0]+'\',this.checked)">'+d[1]+'</label>').join('')+'</div>'
+      +'<input value="'+esc(t.instructions||'')+'" placeholder="Instructions for the caregiver (optional)" oninput="CPT.tasks['+i+'].instructions=this.value" style="margin-top:5px;width:100%;font-size:12.5px;box-sizing:border-box;">'
+      +'</div>').join('')
+    +(CPT.catalog?'<div style="margin-top:8px;"><select onchange="if(this.value){ cptAdd(this.value); }" style="width:auto;font-size:12.5px;"><option value="">+ Add a task from AxisCare\'s list…</option>'
+      +CPT.catalog.filter(c=>!CPT.tasks.some(t=>+t.adl_id===+c.id)).map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('')+'</select></div>':'')
+    +'</div>';
+}
+async function cptPushFlow(plan, a, noteText){
+  const esc=escapeHtmlComms;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:720px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:17px;">Send '+esc(a.client_name||'the')+'\'s care plan to AxisCare</div><div id="cptBody" style="margin-top:10px;"><div class="field-note">Reading what AxisCare already has…</div></div></div>';
+  document.body.appendChild(ov);
+  const body=ov.querySelector('#cptBody'), close=()=>ov.remove(), closeBtn='<button class="secondary" id="cptX">Close</button>';
+  const wire=()=>{ const x=ov.querySelector('#cptX'); if(x) x.onclick=close; };
+  let pv; try{ pv=await cptCall({action:'preview',plan_id:plan.id}); }catch(e){ pv={error:String(e.message||e)}; }
+  if(pv.error||pv.outcome==='no_axiscare_id'){ body.innerHTML='<div>'+esc(pv.error||pv.detail)+'</div><div style="margin-top:12px;">'+closeBtn+'</div>'; wire(); return; }
+  const ev=list=>(list||[]).map(e=>{ const d=(CPT_DAYS.find(x=>x[0]===e.recur)||[0,e.recur])[1]; return d+(+e.require===2?' (as needed)':(+e.when?' '+CPT_WHEN[+e.when].toLowerCase():'')); }).join(', ');
+  const mine=t=>ev(t.days.map(d=>({recur:d,require:t.require,when:t.when})));
+  let h='<div class="field-note">The care plan text goes on the client\'s AxisCare profile as an important note, as before.</div>';
+  h+=(pv.task_errors||[]).length?'<div style="background:#FDECEA;border-radius:8px;padding:8px 10px;margin-top:8px;color:#8A1F17;">'+pv.task_errors.map(esc).join('<br>')+'</div>':'';
+  h+=(pv.tasks||[]).map(x=>'<div style="border-top:1px solid var(--border);padding:7px 0;font-size:13.5px;"><b>'+esc(x.name)+'</b> · '
+      +(x.state==='new'?'<span style="color:var(--teal);">will be added</span>':x.state==='same'?'<span class="field-note">already the same in AxisCare</span>'
+        :'<span style="color:#92400E;">AxisCare has it differently</span>')
+      +'<div class="field-note" style="font-size:12px;">This plan: '+esc(mine(x.task))+(x.task.instructions?' · "'+esc(x.task.instructions)+'"':'')+'</div>'
+      +(x.state==='different'?'<div class="field-note" style="font-size:12px;">AxisCare now: '+esc(ev(x.axiscare.events))+(x.axiscare.instructions?' · "'+esc(x.axiscare.instructions)+'"':'')+'</div>'
+        +'<label style="font-size:12.5px;"><input type="checkbox" class="cptUpd" value="'+x.task.adl_id+'" style="width:auto;margin-right:5px;">Update AxisCare to this plan\'s version</label>':'')
+      +'</div>').join('');
+  h+=(pv.others||[]).length?'<div style="margin-top:8px;font-weight:700;font-size:13px;">In AxisCare but not on this plan (kept unless you tick):</div>'
+      +pv.others.map(o=>'<label style="display:block;font-size:12.5px;"><input type="checkbox" class="cptRem" value="'+esc(String(o.assignment_id))+'" style="width:auto;margin-right:5px;">Remove <b>'+esc(o.name)+'</b> from AxisCare <span class="field-note">('+esc(ev(o.events))+')</span></label>').join(''):'';
+  h+='<div style="display:flex;gap:8px;margin-top:14px;align-items:center;"><button class="primary" id="cptGo">Send to AxisCare</button>'+closeBtn+'<span id="cptMsg" class="field-note"></span></div>';
+  body.innerHTML=h; wire();
+  ov.querySelector('#cptGo').onclick=async()=>{
+    const go=ov.querySelector('#cptGo'); go.disabled=true; go.textContent='Sending…';
+    const upd=[...ov.querySelectorAll('.cptUpd:checked')].map(x=>+x.value), rem=[...ov.querySelectorAll('.cptRem:checked')].map(x=>x.value);
+    let out; try{ out=await cptCall({action:'push',plan_id:plan.id,note_text:noteText,update:upd,remove:rem}); }catch(e){ out={error:String(e.message||e)}; }
+    if(!out.record){ ov.querySelector('#cptMsg').innerHTML='<span style="color:var(--red)">'+esc(out.error||(out.task_errors||[]).join(' ')||out.detail||'Nothing was sent.')+'</span>'; go.disabled=false; go.textContent='Send to AxisCare'; return; }
+    plan.axiscare_tasks_push=out.record; await persist('care_plans', plan);
+    let socNote='';
+    if(out.all_confirmed&&a.lead_id){
+      const lead=(DATA.leads||[]).find(l=>String(l.id)===String(a.lead_id));
+      const st=lead&&lead.soc&&(lead.soc.steps||[]).find(x=>/Enter the care plan/i.test(String(x.label||'')));
+      if(st&&!st.done_at){
+        st.done_at=new Date().toISOString(); st.done_by='Automatic: care tasks read back in AxisCare';
+        st.note=((st.note?st.note+' · ':'')+'Sent from the hub by '+lpscName(out.record.by)+'; '+out.record.readback.length+' task(s) read back in AxisCare.').slice(0,500);
+        await persist('leads', lead); try{ await socReadyCheck(lead); }catch(e){}
+        socNote='<div class="field-note" style="margin-top:6px;color:var(--teal);">Start of Care step "Enter the care plan in AxisCare" ticked, with this as the evidence.</div>';
+      }
+    }
+    const rb={}; (out.record.readback||[]).forEach(r=>{ rb[r.name]=r; });
+    body.innerHTML='<div style="font-size:15px;font-weight:700;color:var(--navy);">'+(out.all_confirmed?'Sent and confirmed in AxisCare':'Sent, with something to check')+'</div>'
+      +(out.record.steps||[]).map(x=>'<div style="border-top:1px solid var(--border);padding:5px 0;font-size:13.5px;">'+(x.ok?'✓':'<span style="color:var(--red)">✗</span>')+' '
+        +esc(x.step==='note'?'Care plan note':x.name+(x.action?' · '+x.action:''))+(x.step==='task'&&x.ok&&rb[x.name]&&!rb[x.name].in_axiscare?' <span style="color:#92400E">(not found on read-back)</span>':'')
+        +(x.detail?'<div class="field-note" style="color:#92400E;">'+esc(x.detail)+'</div>':'')+'</div>').join('')
+      +socNote+'<div style="margin-top:14px;">'+closeBtn+'</div>';
+    wire();
+  };
 }
 
 /* DORMANT (2026-09-20). This used to insert a client_queue row when a care
