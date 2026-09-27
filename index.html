@@ -10277,6 +10277,19 @@ async function ccvCall(body){
 async function lpConvertLead(){
   const l = lpLead; if(!l) return;
   if(l.axiscare_client_id){ alert('This lead is already linked to AxisCare client #'+l.axiscare_client_id+'.'); return; }
+  /* 5b D: AxisCare first (current and inactive clients). A returning client gets their existing record,
+     never a second one. If AxisCare can't be checked, creating needs a yes. */
+  if(CK_BUSY) return;
+  CK_BUSY=true; let found;
+  try{ found=await ckFind(ckQuery({phones:[l.phone,l.client_phone],first:l.client_first_name,last:l.client_last_name,dob:l.client_dob}), l.id, false); }
+  finally{ CK_BUSY=false; }
+  found.clients=found.clients.filter(m=>m.axiscare_client_id);
+  if(found.clients.length){
+    const ch=await ckPanel(found,'convert');
+    if(ch.kind==='cancel') return;
+    if(ch.kind==='client'){ openClient({ax:ch.ax},'summary'); return; }
+    if(ch.kind==='link'){ await ckUseExisting(l, ch.ax, ch.name); return; }
+  } else if(found.note && !confirm(found.note+'\n\nWithout that check this could make a second AxisCare client for someone already there. Create a new client anyway?')) return;
   const esc=escapeHtmlComms;
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
@@ -10410,7 +10423,7 @@ async function csrOpen(reviewId){
       CL360_IDENTITY=null;
       body.innerHTML=head+'<div style="margin-top:10px;color:var(--teal);font-weight:700;">Recorded.</div>'
         +(out.journey_ended?'<div class="field-note">Their Journey ended and they moved to Past clients.</div>':'')
-        +(out.journey_opened?'<div class="field-note">Their new Journey is open and they are an active client again.</div>':'')
+        +(out.journey_opened?'<div class="field-note">'+(out.journey_already_open?'They are an active client again. The Journey their new inquiry opened carries on (no second one).':'Their new Journey is open and they are an active client again.')+'</div>':'')
         +'<div style="margin-top:12px;"><button class="secondary" id="csrX">Close</button></div>';
       ov.querySelector('#csrX').onclick=()=>{ close(); try{ if(typeof renderMyWork==='function') renderMyWork(); }catch(e){} };
       return;
@@ -10614,19 +10627,150 @@ function ccRenderViewAs(){
     sel.style.fontWeight = CC_VIEW_AS ? '700' : '400';
   }
 }
-async function saveLead(){
-  // Duplicate-catcher: a NEW lead whose phone matches an existing record is
-  // usually the same person calling again — offer the existing profile.
-  if(!document.getElementById('lead_id').value){
-    const digits = document.getElementById('lead_phone').value.replace(/\D/g,'').slice(-10);
-    if(digits.length===10){
-      const dup = DATA.leads.find(l=> (l.phone||'').replace(/\D/g,'').slice(-10)===digits);
-      if(dup && confirm('⚠️ This phone number already belongs to '+(dup.first_name||'')+' '+(dup.last_name||'')+' ('+(dup.status||'lead')+').\n\nOpen their existing profile instead of creating a duplicate?')){
-        closeModal('leadModalBackdrop');
-        openLeadProfile(dup.id);
-        return;
-      }
+/* ===================== 5b B + D · is this family already known? (2026-09-27) =====================
+   A returning family must not become a second record. On a NEW inquiry's save, and before Convert
+   creates anything in AxisCare, the hub looks for them: past inquiries here, and (through
+   client-lookup) every AxisCare client, current and inactive, plus the Family Circle contacts, so a
+   relative's number counts too. AxisCare is checked live and nothing is copied (AxisCare owns
+   client identity). Software only suggests: a name alone is a hint, two different birth dates are two
+   people, and a person picks. "Link" goes through the same side-by-side "Is this the same person?"
+   check as typing an AxisCare id. */
+const CK_WHY={phone:'same phone number',family_phone:'a family member\'s phone',email:'same email',name_dob:'same name and birth date',
+  dob_last:'same last name and birth date',name_only:'same name only, no birth date to compare: check before choosing'};
+const CK_STRENGTH={phone:3,family_phone:3,email:3,name_dob:3,dob_last:2,name_only:1};
+function ckDigits(x){ const d=String(x||'').replace(/\D/g,''); return d.length>=10?d.slice(-10):''; }
+function ckName(x){ return String(x||'').trim().toLowerCase().replace(/[^a-z]/g,''); }
+function ckQuery(o){
+  return { phones:[...new Set((o.phones||[]).map(ckDigits).filter(Boolean))], first:ckName(o.first), last:ckName(o.last),
+    dob:/^\d{4}-\d{2}-\d{2}/.test(String(o.dob||''))?String(o.dob).slice(0,10):'', email:String(o.email||'').trim().toLowerCase() };
+}
+/* past inquiries in the hub (never the one being edited) */
+function ckLeadMatches(q, exceptId){
+  const out=[];
+  (DATA.leads||[]).forEach(l=>{
+    if(!l||l.id===exceptId) return;
+    const why=[], lp=[ckDigits(l.phone),ckDigits(l.client_phone)].filter(Boolean);
+    if(q.phones.some(p=>lp.indexOf(p)>-1)) why.push('phone');
+    if(q.email&&String(l.email||'').trim().toLowerCase()===q.email) why.push('email');
+    if(q.first&&q.last&&ckName(l.client_first_name)===q.first&&ckName(l.client_last_name)===q.last){
+      const d=String(l.client_dob||'').slice(0,10);
+      if(q.dob&&d){ if(q.dob===d) why.push('name_dob'); } else why.push('name_only');
     }
+    if(why.length) out.push({lead:l,why,strength:Math.max(...why.map(w=>CK_STRENGTH[w]))});
+  });
+  return out.sort((a,b)=>b.strength-a.strength).slice(0,8);
+}
+async function ckLookup(q){
+  if(!q.phones.length&&!(q.last&&(q.first||q.dob))) return {matches:[],axiscare_ok:true};
+  const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+  if(!tok) throw new Error('not signed in');
+  const r=await fetch(CONFIG.supabase_url+'/functions/v1/client-lookup',{method:'POST',
+    headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},
+    body:JSON.stringify({action:'find',phones:q.phones,first:q.first,last:q.last,dob:q.dob})});
+  const d=await r.json().catch(()=>null);
+  if(!r.ok||!d||d.error) throw new Error((d&&d.error)||('the lookup answered '+r.status));
+  return d;
+}
+/* Both lookups; never throws. {leads, clients, note} */
+async function ckFind(q, exceptId, withLeads){
+  const leads=withLeads?ckLeadMatches(q, exceptId):[];
+  let clients=[], note='';
+  try{
+    const d=await ckLookup(q);
+    clients=d.matches||[];
+    if(d.axiscare_ok===false) note='AxisCare couldn\'t be checked just now ('+(d.axiscare_error||'no answer')+'). Family Circles'+(withLeads?' and past inquiries':'')+' were checked.';
+  }catch(e){ note='AxisCare and the Family Circles couldn\'t be checked just now ('+String(e.message||e)+')'+(withLeads?'. Past inquiries were checked.':'.'); }
+  return {leads,clients,note};
+}
+/* The panel. mode 'save' (new inquiry) or 'convert'. Resolves {kind:'lead'|'client'|'link'|'new'|'cancel', id, ax, name} */
+function ckPanel(found, mode){
+  return new Promise(resolve=>{
+    const esc=escapeHtmlComms, ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+    const why=(m)=>m.why.map(w=>CK_WHY[w]+(w==='family_phone'&&m.family&&m.family.length?' ('+m.family.join('; ')+')':'')).join(' · ');
+    const row=(title,sub,btn)=>'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:8px;">'
+      +'<div style="flex:1 1 260px;"><div style="font-weight:700;color:var(--navy);">'+title+'</div><div class="field-note" style="font-size:12.5px;">'+sub+'</div></div>'+(btn||'')+'</div>';
+    const b=(k,i,label,primary)=>'<button class="'+(primary?'primary':'secondary')+'" data-ck="'+k+'" data-i="'+i+'" style="white-space:nowrap;">'+label+'</button>';
+    let html='';
+    found.leads.forEach((h,i)=>{
+      const l=h.lead, who=[l.client_first_name,l.client_last_name].filter(Boolean).join(' ')||'(care recipient not named)';
+      const contact=[l.first_name,l.last_name].filter(Boolean).join(' ');
+      html+=row('Inquiry: '+esc(who)+(contact?' <span style="font-weight:400;">· caller '+esc(contact)+'</span>':''),
+        esc((l.status||'New')+' · '+why(h)), b('lead',i,'Open this inquiry'));
+    });
+    found.clients.forEach((m,i)=>{
+      const state=m.active===true?'Current client':(m.active===false?'Former client ('+(m.status||'inactive')+')':(m.status==='circle closed'?'Family Circle (closed)':'Family Circle'));
+      const title=esc(m.name)+(m.axiscare_client_id?' <span style="font-weight:400;">· AxisCare #'+esc(m.axiscare_client_id)+'</span>':'');
+      let btn='';
+      if(m.axiscare_client_id&&m.active===true) btn=b('client',i,'Open their profile');
+      else if(m.axiscare_client_id) btn=b('link',i,mode==='convert'?'Use this AxisCare record':'Same family: link to #'+esc(m.axiscare_client_id),m.strength>=3);
+      html+=row(title,esc(state+' · '+why(m))+(m.axiscare_client_id&&m.active===true?'<br>A change in care for a current client is handled on their profile, not as a new start.':''),btn);
+    });
+    ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:720px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+      +'<div style="font-weight:800;color:var(--navy);font-size:17px;">'+(mode==='convert'?'Does AxisCare already have this client?':'Is this family already known?')+'</div>'
+      +'<div class="field-note" style="margin-top:4px;">'+(mode==='convert'
+        ?'Before a new client is made in AxisCare: these may be the same person. Using their existing record keeps one client, one profile.'
+        :'These look like the same family. Pick one, or save this as a new inquiry if they\'re different people.')+'</div>'
+      +(found.note?'<div style="margin-top:10px;background:#FFFBF4;border:1px solid #F3D9B5;border-radius:8px;padding:8px 12px;font-size:13px;">'+esc(found.note)+'</div>':'')
+      +html
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">'
+      +'<button class="secondary" data-ck="new" data-i="0">'+(mode==='convert'?'None of these: create a new client':'A different family: save as new')+'</button>'
+      +'<button class="secondary" data-ck="cancel" data-i="0">'+(mode==='convert'?'Close':'Go back')+'</button></div></div>';
+    document.body.appendChild(ov);
+    ov.querySelectorAll('[data-ck]').forEach(el=>el.onclick=()=>{
+      const k=el.getAttribute('data-ck'), i=+el.getAttribute('data-i'); ov.remove();
+      if(k==='lead') return resolve({kind:'lead',id:found.leads[i].lead.id});
+      if(k==='client'||k==='link'){ const m=found.clients[i]; return resolve({kind:k,ax:String(m.axiscare_client_id),name:m.name}); }
+      resolve({kind:k});
+    });
+  });
+}
+/* D: Convert used an existing AxisCare record instead of making a second client */
+async function ckUseExisting(l, ax, name){
+  const r=await jcSideBySide(l, ax, 'save');
+  if(r.choice==='cancel') return false;
+  l.axiscare_client_id=String(ax); l.status='Converted'; l.converted_at=l.converted_at||new Date().toISOString();
+  l.axiscare_convert={reused_existing:true,axiscare_client_id:String(ax),by:(ME&&(ME.email||ME.name))||'',at:new Date().toISOString()};
+  await persist('leads', l);
+  let jcRes=null;
+  if(r.choice==='connect'){ try{ jcRes=await jcConnect(l, String(ax), 'typed', r.name||name); }catch(e){} }
+  try{ if(l.soc) await socReadyCheck(l); }catch(e){}
+  try{ renderLeadProfile(); }catch(e){} try{ renderLeads(); }catch(e){}
+  alert('Linked to their existing AxisCare record #'+ax+(name?' ('+name+')':'')+'. No second client was made.'
+    +(jcRes?'\n\nJourney: '+jcRes.text:'')
+    +'\n\nIn AxisCare, set them back to active when care starts. Owner / Decision then confirms the returning client, and this inquiry\'s Journey carries on.');
+  return true;
+}
+let CK_BUSY=false, CK_SET='';
+/* 5b B: a NEW inquiry (from the form or the guided call) is checked before it is saved. Acts on the
+   person's choice; {proceed:false} means don't save. leave() closes whichever screen is open. */
+async function ckCheckNewInquiry(leave){
+  const v=id=>{ const el=document.getElementById(id); return el?el.value:''; };
+  if(CK_BUSY) return {proceed:false};
+  /* an AxisCare id this check filled in last time (and the person then backed out of) never carries over */
+  const axEl=document.getElementById('lead_axiscare_client_id');
+  if(CK_SET&&axEl&&axEl.value===CK_SET) axEl.value='';
+  CK_SET='';
+  const q=ckQuery({phones:[v('lead_phone'),v('lead_client_phone')],first:v('lead_client_first_name'),last:v('lead_client_last_name'),dob:v('lead_client_dob'),email:v('lead_email')});
+  CK_BUSY=true; let found;
+  try{ found=await ckFind(q, v('lead_id')||null, true); } finally{ CK_BUSY=false; }
+  if(!found.leads.length&&!found.clients.length) return {proceed:true, note:found.note};
+  const ch=await ckPanel(found,'save');
+  if(ch.kind==='cancel') return {proceed:false};
+  if(ch.kind==='lead'){ leave(); openLeadProfile(ch.id); return {proceed:false}; }
+  if(ch.kind==='client'){ leave(); openClient({ax:ch.ax},'summary'); return {proceed:false}; }
+  if(ch.kind==='link'&&axEl){ axEl.value=ch.ax; CK_SET=ch.ax; }   // the side-by-side check in saveLead confirms it
+  return {proceed:true, note:''};
+}
+async function saveLead(opts){
+  opts=opts||{};
+  /* this replaced the caller-phone-only check (where Cancel saved anyway) */
+  let ckNote=opts.ck_note||'';
+  const curId=document.getElementById('lead_id').value;
+  if(!opts.ck_done && !(curId && (DATA.leads||[]).some(x=>x.id===curId))){
+    const r=await ckCheckNewInquiry(()=>closeModal('leadModalBackdrop'));
+    if(!r.proceed) return;
+    ckNote=r.note||'';
   }
   const id = document.getElementById('lead_id').value || uid();
   const record = {
@@ -10726,6 +10870,7 @@ async function saveLead(){
   closeModal('leadModalBackdrop');
   renderLeads();
   if(activeLeadsSubtab==='followups') renderFollowUpQueue();
+  if(ckNote){ if(typeof ccToast==='function') ccToast('Saved. '+ckNote); else alert('Saved. '+ckNote); }
 }
 /* ===================== STEP 2 · which AxisCare client is this lead? =====================
    (2026-09-26, Lead to Client Plan.) A coordinator deliberately entering the
@@ -11337,23 +11482,18 @@ function ckptToForm(){
   document.getElementById('leadModalBackdrop').classList.add('open');
 }
 async function ckptSave(book){
-  // Duplicate net, run while the cockpit is still up (saveLead's own check
-  // is skipped because we pre-assign the id below).
-  if(!document.getElementById('lead_id').value){
-    const digits=ckptVal('lead_phone').replace(/\D/g,'').slice(-10);
-    if(digits.length===10){
-      const dup=DATA.leads.find(l=>(l.phone||'').replace(/\D/g,'').slice(-10)===digits);
-      if(dup && confirm('⚠️ This phone number already belongs to '+(dup.first_name||'')+' '+(dup.last_name||'')+' ('+(dup.status||'lead')+').\n\nOpen their existing profile instead of creating a duplicate?')){
-        ckptTeardown();
-        openLeadProfile(dup.id);
-        return;
-      }
-    }
+  // "Is this family already known?" runs while the call screen is still up (5b B), so Go back
+  // returns to the call; saveLead then skips its own check.
+  let ck={proceed:true,note:''};
+  const cur=document.getElementById('lead_id').value;
+  if(!(cur && (DATA.leads||[]).some(x=>x.id===cur))){
+    ck=await ckCheckNewInquiry(()=>ckptTeardown());
+    if(!ck.proceed) return;
   }
   let id=document.getElementById('lead_id').value;
   if(!id){ id=uid(); document.getElementById('lead_id').value=id; }
   ckptTeardown();                     // fields keep their values; saveLead reads by id
-  await saveLead();
+  await saveLead({ck_done:true, ck_note:ck.note||''});
   if(book) scheduleAssessmentFromLead(id);
 }
 /* ---------- Client rate card (Guided Call side panel) ----------
