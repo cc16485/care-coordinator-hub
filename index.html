@@ -1107,7 +1107,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <div class="card" id="nvAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
         <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1fr;gap:8px;">
-          <input id="nvName" placeholder="Client name">
+          <div><input id="nvName" list="nvClientList" autocomplete="off" placeholder="Client (pick from the list)" style="width:100%;"><datalist id="nvClientList"></datalist></div>
           <input id="nvPhone" placeholder="Phone">
           <input id="nvGhe1" type="month" title="First GHE month">
           <input id="nvGhe2" type="month" title="Second GHE month">
@@ -4563,7 +4563,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div id="ci-form" class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem">
   <div style="font-size:.92rem;font-weight:700;color:var(--navy);margin-bottom:.6rem">📞 Log a check-in call</div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.6rem;margin-bottom:.6rem">
-    <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Client</label><input id="ci-client" type="text" placeholder="Client name"></div>
+    <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Client</label><input id="ci-client" type="text" list="ci-client-list" autocomplete="off" placeholder="Pick the client" onfocus="ccPickFill('ci-client-list')"><datalist id="ci-client-list"></datalist><input type="hidden" id="ci-client-ax"></div>
     <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Caregiver</label><input id="ci-caregiver" type="text" placeholder="Caregiver name"></div>
     <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Spoke with</label><input id="ci-spoke" type="text" placeholder="Client / daughter / son…"></div>
   </div>
@@ -6507,8 +6507,9 @@ The HomeTogether team</pre>
 <h2>Log Client Check-in</h2>
 <input type="hidden" id="checkin_id">
 <div class="grid2">
-<div><label>Client Name</label><input id="checkin_client_name"></div>
-<div><label>AxisCare Client ID</label><input id="checkin_axiscare_client_id"></div>
+<div style="grid-column:1 / -1;"><label>Client</label><input id="checkin_client_pick" list="checkin_client_list" autocomplete="off" placeholder="Start typing a name, then pick them from the list" oninput="ckPickChanged()">
+<datalist id="checkin_client_list"></datalist><input type="hidden" id="checkin_client_name"><input type="hidden" id="checkin_axiscare_client_id">
+<div class="field-note" id="checkin_client_msg"></div></div>
 <div><label>Check-in Date</label><input type="date" id="checkin_date"></div>
 <div>
 <label>Method</label>
@@ -11899,6 +11900,12 @@ function openCheckinModal(id){
   document.getElementById('checkin_id').value = id||'';
   document.getElementById('checkin_client_name').value = (c&&c.client_name)||'';
   document.getElementById('checkin_axiscare_client_id').value = (c&&c.axiscare_client_id)||'';
+  /* Change 8a: the client is picked from the live list (name + AxisCare id), never typed */
+  document.getElementById('checkin_client_pick').value = (c&&c.client_name) ? ccPickLabelFor(c.client_name, c.axiscare_client_id) : '';
+  document.getElementById('checkin_client_pick').dataset.orig = document.getElementById('checkin_client_pick').value;
+  document.getElementById('checkin_client_msg').textContent = (c&&c.client_name&&!c.axiscare_client_id) ? 'This older check-in has no AxisCare id. Pick the client to add it.' : '';
+  ccPickFill('checkin_client_list').then(()=>{ const pk=document.getElementById('checkin_client_pick');
+    if(pk&&pk.value===pk.dataset.orig&&c&&c.client_name){ pk.value=ccPickLabelFor(c.client_name, c.axiscare_client_id); pk.dataset.orig=pk.value; } });
   document.getElementById('checkin_date').value = (c&&c.checkin_date)||today();
   document.getElementById('checkin_method').value = (c&&c.method)||'Phone';
   // Monthly check-ins are Angiel's (Samantha, 2026-08-02) — new logs default
@@ -11919,7 +11926,16 @@ function renderStars(){
   el.innerHTML = [1,2,3,4,5].map(n=>`<span onclick="setStars(${n})">${n<=current?'⭐':'☆'}</span>`).join('');
 }
 function setStars(n){ document.getElementById('checkin_satisfaction_rating').value = n; renderStars(); }
+function ckPickChanged(){
+  const pk=document.getElementById('checkin_client_pick'), o=ccPickParse(pk.value), msg=document.getElementById('checkin_client_msg');
+  if(o){ document.getElementById('checkin_client_name').value=o.name; document.getElementById('checkin_axiscare_client_id').value=o.ax; msg.textContent=''; }
+  else if(pk.value!==pk.dataset.orig){ document.getElementById('checkin_axiscare_client_id').value=''; msg.textContent=pk.value.trim()?'Pick the client from the list.':''; }
+}
 async function saveCheckin(){
+  const pk=document.getElementById('checkin_client_pick');
+  /* a new check-in, or a changed client, must be picked from the list; an older record kept as it was may stay */
+  if(!document.getElementById('checkin_axiscare_client_id').value.trim() && (!document.getElementById('checkin_id').value || pk.value!==pk.dataset.orig)){
+    document.getElementById('checkin_client_msg').textContent='Pick the client from the list first.'; pk.focus(); return; }
   const id = document.getElementById('checkin_id').value || uid();
   const existing = DATA.client_checkins.find(x=>x.id===id) || {};
   const record = {
@@ -30607,6 +30623,36 @@ async function cl360Identity(){
   }catch(e){ CL360_IDENTITY = []; }
   return CL360_IDENTITY;
 }
+/* ── THE CLIENT PICKER (Change 8a, 2026-09-27) ──────────────────────────
+   One list for every form that names a client: the live client list Client 360 and Cara use,
+   each shown with their AxisCare number so two clients with one name can't be mixed up.
+   A form stores the name AND the AxisCare id; a typed name that isn't picked is refused. */
+let CC_PICK_OPTS = null;
+async function ccPickOptions(){
+  if(CC_PICK_OPTS) return CC_PICK_OPTS;
+  const rows = await cl360Identity();
+  CC_PICK_OPTS = (rows||[]).filter(r=>r.axiscare_client_id)
+    .map(r=>({ name:String(r.client_name||'').trim(), ax:String(r.axiscare_client_id), past:r.role_status!=='active' }))
+    .sort((a,b)=>(a.past-b.past)||a.name.localeCompare(b.name));
+  return CC_PICK_OPTS;
+}
+function ccPickLabel(o){ return o.name+' · #'+o.ax+(o.past?' (past client)':''); }
+async function ccPickFill(listId){
+  const opts = await ccPickOptions();
+  const dl = document.getElementById(listId); if(!dl) return opts;
+  dl.innerHTML = opts.map(o=>'<option value="'+escapeHtmlComms(ccPickLabel(o))+'"></option>').join('');
+  return opts;
+}
+/* "Mary Smith · #501" -> {name:'Mary Smith', ax:'501'}; anything not on the list -> null */
+function ccPickParse(text){
+  const m = /#(\d+)/.exec(String(text||'')); if(!m) return null;
+  return (CC_PICK_OPTS||[]).find(o=>o.ax===m[1]) || null;
+}
+function ccPickLabelFor(name, ax){
+  const o = ax ? (CC_PICK_OPTS||[]).find(x=>x.ax===String(ax)) : null;
+  return o ? ccPickLabel(o) : (ax ? String(name||'')+' · #'+ax : String(name||''));
+}
+
 async function cl360Roster(){
   const census = await cl360Identity();
   const byKey = new Map();
@@ -30658,7 +30704,8 @@ async function cl360RenderInto(r, out, px){
   const a = r.assessment, p = r.plan;
   let care = cl360Kv('Assessment', a ? esc((a.status||'recorded')+' · '+String(a.created_at||'').slice(0,10)) : '(none recorded)')
     + cl360Kv('Care plan', p ? esc((p.status||'drafted')+' · '+String(p.created_at||'').slice(0,10)) : '(none yet)');
-  const nurseC = cl360UniqueName(name) ? (DATA.nurse_clients||[]).find(n=>cl360NameKey(n.name||n.client||n.client_name)===cl360NameKey(name)) : null;
+  const nurseC = (axisId && (DATA.nurse_clients||[]).find(n=>String(n.axiscare_client_id||'')===axisId))
+    || (cl360UniqueName(name) ? (DATA.nurse_clients||[]).find(n=>!n.axiscare_client_id && cl360NameKey(n.name||n.client||n.client_name)===cl360NameKey(name)) : null);
   if(nurseC) care += cl360Kv('Nursing', 'on the nurse caseload');
 
   /* care circle (its own tables, fetched fresh) */
@@ -31460,7 +31507,29 @@ async function hwInvite(btn){
    visits, scheduled by the nurse directly with the client. The hub
    tracks due-ness only; the calendar belongs to the nurse.
    ================================================================ */
-function nvToggleAdd(){ const w=document.getElementById('nvAddWrap'); w.style.display=w.style.display==='none'?'block':'none'; }
+function nvToggleAdd(){ const w=document.getElementById('nvAddWrap'); w.style.display=w.style.display==='none'?'block':'none'; if(w.style.display==='block') ccPickFill('nvClientList'); }
+/* Change 8a: a nurse client added before the picker has no AxisCare id. A person links it once. */
+function nvLinkBtn(c, where){
+  if(c.axiscare_client_id) return '';
+  return '<span id="nvLink'+where+'-'+esc(c.id)+'"><button class="ghost" style="padding:1px 8px;font-size:11px;color:var(--honey-ink);" onclick="nvLinkOpen(\''+esc(c.id)+'\',\''+where+'\')">🔗 link to their AxisCare record</button></span>';
+}
+async function nvLinkOpen(id, where){
+  const box=document.getElementById('nvLink'+where+'-'+id); if(!box) return;
+  box.innerHTML='<input id="nvLinkIn'+where+'-'+esc(id)+'" list="nvLinkList'+where+'-'+esc(id)+'" autocomplete="off" placeholder="pick the client" style="font-size:12px;min-width:220px;">'
+    +'<datalist id="nvLinkList'+where+'-'+esc(id)+'"></datalist> <button class="ghost" style="padding:1px 8px;font-size:11px;" onclick="nvLinkSave(\''+esc(id)+'\',\''+where+'\')">Link</button>';
+  await ccPickFill('nvLinkList'+where+'-'+id);
+}
+async function nvLinkSave(id, where){
+  const c=(DATA.nurse_clients||[]).find(x=>x.id===id); if(!c) return;
+  const o=ccPickParse((document.getElementById('nvLinkIn'+where+'-'+id)||{}).value);
+  if(!o){ alert('Pick the client from the list.'); return; }
+  if(String(c.name||'').trim().toLowerCase()!==o.name.toLowerCase()
+     && !confirm('The nurse board calls this client "'+c.name+'". AxisCare #'+o.ax+' is "'+o.name+'". Link them anyway?')) return;
+  if((DATA.nurse_clients||[]).some(x=>x.id!==id&&x.active!==false&&String(x.axiscare_client_id||'')===o.ax)){ alert(o.name+' is already linked to another client on the nurse board.'); return; }
+  c.axiscare_client_id=o.ax; c.linked_by=(typeof ME!=='undefined'&&(ME.name||ME.email))||''; c.linked_at=new Date().toISOString();
+  await persist('nurse_clients',c);
+  renderNurseVisits();
+}
 function nvMonth(){ return new Date().toISOString().slice(0,7); }
 function nvWeekStart(d){
   // Parse date-only strings as LOCAL, not UTC. new Date('2026-07-31') is UTC
@@ -31474,9 +31543,12 @@ function nvWeekStart(d){
   return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
 }
 async function nvAdd(){
-  const name=document.getElementById('nvName').value.trim();
-  if(!name){ alert('Client name first.'); return; }
-  const c={ id:uid(), name,
+  /* Change 8a: the client is picked from the live list, so their AxisCare id comes with them */
+  const o=ccPickParse(document.getElementById('nvName').value);
+  if(!o){ alert('Pick the client from the list (start typing their name).'); return; }
+  if((DATA.nurse_clients||[]).some(x=>x.active!==false&&String(x.axiscare_client_id||'')===o.ax)){ alert(o.name+' is already on the nurse board.'); return; }
+  const name=o.name;
+  const c={ id:uid(), name, axiscare_client_id:o.ax,
     phone:document.getElementById('nvPhone').value.trim(),
     ghe1:document.getElementById('nvGhe1').value||null,
     ghe2:document.getElementById('nvGhe2').value||null,
@@ -31984,7 +32056,7 @@ function renderNurseVisits(){
       return '<td style="padding:8px;border-top:1px solid var(--border);background:'+st.bg+';">'
         +'<span style="color:'+st.col+';font-weight:700;font-size:12.5px;">'+st.lbl+'</span>'+act+'</td>';
     }).join('');
-    return '<tr><td style="padding:8px;border-top:1px solid var(--border);"><b>'+esc(c.name)+'</b>'+phoneBit(c)
+    return '<tr><td style="padding:8px;border-top:1px solid var(--border);"><b>'+esc(c.name)+'</b>'+phoneBit(c)+' '+nvLinkBtn(c,'G')
       +(c.notes?'<div class="field-note">'+esc(c.notes)+'</div>':'')
       +'</td>'+cells
       +'<td style="padding:8px;border-top:1px solid var(--border);text-align:right;"><button class="ghost" style="padding:2px 8px;font-size:11px;" onclick="nvDeactivate(\''+c.id+'\')">remove</button></td></tr>';
@@ -32008,7 +32080,7 @@ function renderNurseVisits(){
       : daysAgo>9?{lbl:'⚠ '+daysAgo+' days since last visit',col:'#C0392B'}
       : {lbl:'due this week — last seen '+daysAgo+'d ago',col:'#94681D'});
     return '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'
-      +'<b>'+esc(c.name)+'</b>'+phoneBit(c)
+      +'<b>'+esc(c.name)+'</b>'+phoneBit(c)+nvLinkBtn(c,'M')
       +'<span style="color:'+st.col+';font-weight:700;">'+st.lbl+'</span>'
       +'<span style="flex:1;"></span>'
       +(thisWeekDone?'':'<button class="addlead" style="padding:4px 12px;font-size:12px;" onclick="nvComplete(\''+c.id+'\',\'meds\')">Log this week&#39;s visit</button>')
@@ -33026,19 +33098,26 @@ window.covLoadShifts=function(){};
         +'<div style="flex:1;min-width:220px"><b style="font-size:.85rem">'+E(p.client)+'</b> <span style="color:var(--text-muted)">×</span> <b style="font-size:.85rem">'+E(p.caregiver)+'</b>'
         +'<div style="font-size:.7rem;color:var(--text-muted)">'+p.visits+' shift'+(p.visits===1?'':'s')+' · '+p.hours+' hrs · last '+fmt(p.last_date)+'</div></div>'
         +tag+skip
-        +(i.due?'<button class="primary" style="font-size:.72rem" onclick="cmPrefill('+A(p.client)+','+A(p.caregiver)+')">📞 Log check-in</button>':'')
+        +(i.due?'<button class="primary" style="font-size:.72rem" onclick="cmPrefill('+A(p.client)+','+A(p.caregiver)+','+A(String(p.client_id||''))+')">📞 Log check-in</button>':'')
         +'</div>';
     }).join('')+doneNote;
   }
-  function prefill(client,caregiver){
-    const c=document.getElementById('ci-client'), g=document.getElementById('ci-caregiver');
-    if(c) c.value=client; if(g) g.value=caregiver;
+  function prefill(client,caregiver,clientAx){
+    const c=document.getElementById('ci-client'), g=document.getElementById('ci-caregiver'), ax=document.getElementById('ci-client-ax');
+    /* Change 8a: the pair already knows the AxisCare client; keep it with the call */
+    if(c) c.value=client; if(g) g.value=caregiver; if(ax) ax.value=String(clientAx||'');
+    if(c) c.dataset.prefilled=client;
     const f=document.getElementById('ci-form'); if(f) f.scrollIntoView({behavior:'smooth',block:'start'});
     const s=document.getElementById('ci-spoke'); if(s) setTimeout(()=>s.focus(),350);
   }
   async function save(){
     const val=id=>(document.getElementById(id)?document.getElementById(id).value.trim():'');
-    const client=val('ci-client'), caregiver=val('ci-caregiver'), spoke=val('ci-spoke');
+    let client=val('ci-client'); const caregiver=val('ci-caregiver'), spoke=val('ci-spoke');
+    /* Change 8a: the client comes with their AxisCare id: from the pair, or picked from the list */
+    const ciEl=document.getElementById('ci-client');
+    let clientAx=(ciEl&&ciEl.dataset.prefilled===client)?val('ci-client-ax'):'';
+    if(!clientAx){ const o=ccPickParse(client); if(o){ client=o.name; clientAx=o.ax; } }
+    if(client&&!clientAx){ alert('Pick the client from the list, so the call is kept with the right person.'); return; }
     const rating=val('ci-rating'), notes=val('ci-notes'), coaching=val('ci-coaching');
     const cgRating=val('ci-cg-rating'), cgNotes=val('ci-cg-notes');
     const fav=document.getElementById('ci-fav').checked, excl=document.getElementById('ci-excl').checked;
@@ -33047,14 +33126,14 @@ window.covLoadShifts=function(){};
     if(excl&&!notes){ alert('For a do-not-return, write what the client said in "What they said" — it goes on the permanent log.'); return; }
     if(cgRating==='concern'&&!cgNotes){ alert('If it\'s not a fit for the caregiver, write what they said — that\'s what scheduling needs to find them something better.'); return; }
     const who=me();
-    const e={ id:'ci'+Date.now()+Math.random().toString(36).slice(2,6), client, caregiver, spoke_with:spoke, rating, notes, coaching,
+    const e={ id:'ci'+Date.now()+Math.random().toString(36).slice(2,6), client, axiscare_client_id:clientAx, caregiver, spoke_with:spoke, rating, notes, coaching,
       cg_rating:cgRating, cg_notes:cgNotes,
       want_favorite:fav, want_exclusion:excl, at:new Date().toISOString(), by:who,
       fav_ax_done:false, coach_ax_noted:false, coach_ax_error:'' };
     DATA.client_checkins.push(e);
     await persist('client_checkins', e);
     if(excl){
-      const entry={ id:'dnr'+Date.now(), client, caregiver, reason:notes,
+      const entry={ id:'dnr'+Date.now(), client, axiscare_client_id:clientAx, caregiver, reason:notes,
         requested_by:(spoke||client)+' (check-in call)', requested_at:e.at, logged_at:e.at, logged_by:who, axiscare_entered:false, task_id:e.id };
       DATA.dnr_log.push(entry);
       await persist('dnr_log', entry);
@@ -33064,7 +33143,8 @@ window.covLoadShifts=function(){};
     if(fav){
       alert('⭐ Nice find. Make it stick in AxisCare: open '+client+'\'s profile and mark '+caregiver+' as a preferred caregiver so scheduling pairs them first. Then click "mark done" on the entry below.');
     }
-    ['ci-client','ci-caregiver','ci-spoke','ci-rating','ci-notes','ci-coaching','ci-cg-rating','ci-cg-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    ['ci-client','ci-client-ax','ci-caregiver','ci-spoke','ci-rating','ci-notes','ci-coaching','ci-cg-rating','ci-cg-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    if(ciEl) delete ciEl.dataset.prefilled;
     document.getElementById('ci-fav').checked=false; document.getElementById('ci-excl').checked=false;
     renderHistory(); renderPairs();
   }
