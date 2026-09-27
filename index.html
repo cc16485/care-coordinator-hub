@@ -4927,6 +4927,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           <div style="min-width:0;">
             <div id="lp_name" style="font-size:18px;font-weight:800;color:var(--navy);"></div>
             <div id="lp_for" class="field-note"></div>
+            <div id="famLead"></div>
           </div>
         </div>
         <div style="margin-top:12px;font-size:13.5px;line-height:2;">
@@ -6435,6 +6436,7 @@ The HomeTogether team</pre>
 <div class="modal-backdrop" id="assessmentModalBackdrop">
 <div class="modal">
 <h2 id="assessmentModalTitle">Add Care Assessment</h2>
+<div id="famAssess"></div>
 <input type="hidden" id="assess_id">
 <input type="hidden" id="assess_lead_id">
 <div class="grid2">
@@ -9076,6 +9078,7 @@ function renderLeadProfile(){
   renderLpSoc();
   lpScRender();
   jcRenderStatus();
+  famMount('famLead', { lead_id:l.id }, 'lead');
 }
 const NURTURE_INFO = {
   not_ready: { name:'Not-ready-yet drip', steps:4, desc:'warm text day 3, helpful email day 10, check-in text day 21, note day 45' },
@@ -10650,6 +10653,7 @@ function startDatesHtml(l, contract, firstShiftAt, whereShift, inCareBefore){
 }
 function cqfSection(c){
   var el=document.getElementById('cqf-'+c.id); if(!el) return;
+  famMount('famcq-'+c.id, { launch_id:c.id }, 'launch');
   leRefresh(c);
   var esc=escapeHtmlComms, i=cqfInfo(c), h='<div style="font-size:.66rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-bottom:.25rem;">The family</div>';
   if(!i.ax){ el.innerHTML=h+'<div class="field-note" style="font-size:.75rem;">No AxisCare id on this launch yet, so the family\'s Journey can\'t be shown.</div>'; return; }
@@ -10918,6 +10922,14 @@ async function jcCheckFromProfile(){
 }
 function scheduleAssessmentFromLead(leadId){
   const l = DATA.leads.find(x=>x.id===leadId);
+  /* Change 8c: a lead that already has an assessment opens it (found by the lead id, or the same
+     AxisCare client); a new one only when asked for, e.g. a reassessment */
+  const ax = String(l.axiscare_client_id||'').trim();
+  const have = (DATA.care_assessments||[]).filter(a=>a.lead_id===l.id || (ax && String(a.axiscare_client_id||'').trim()===ax))
+    .sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0];
+  if(have && confirm('This family already has an assessment'+(have.visit_date?' (visit '+have.visit_date+')':'')+'.\n\nOK = open it · Cancel = start a new one (a reassessment)')){
+    switchTab('assessments'); openAssessmentModal(have.id); return;
+  }
   l.status = 'Assessment Scheduled';
   persist('leads', l);
   openAssessmentModal(null, l);
@@ -11524,6 +11536,9 @@ function openAssessmentModal(id, fromLead){
   document.getElementById('assess_transcript_link').value = (a&&a.transcript_link)||'';
   document.getElementById('assess_transcript_text').value = (a&&a.transcript_text)||'';
   document.getElementById('assess_ai_summary_box').textContent = (a&&a.ai_summary) || 'No care plan generated yet. Save the visit details and transcript first, then click "Generate Care Plan."';
+  const famA=document.getElementById('famAssess'); if(famA) famA.innerHTML='';
+  if(id) famMount('famAssess', { assessment_id:id }, 'assessment');
+  else if(fromLead) famMount('famAssess', { lead_id:fromLead.id }, 'assessment');
   document.getElementById('assessmentModalBackdrop').classList.add('open');
 }
 async function saveAssessment(){
@@ -12275,7 +12290,10 @@ function getClientRoster(){
     return rec;
   };
   DATA.leads.filter(l=>l.status==='Converted').forEach(l=>{
-    const rec = ensure(l.axiscare_client_id, (l.first_name||'')+' '+(l.last_name||''));
+    /* the person receiving care, not the caller (Change 8c: the daughter's name split one family in two) */
+    const cn = !l.client_name_not_provided && (l.client_first_name||l.client_last_name)
+      ? ((l.client_first_name||'')+' '+(l.client_last_name||'')).trim() : ((l.first_name||'')+' '+(l.last_name||'')).trim();
+    const rec = ensure(l.axiscare_client_id, cn);
     rec.lead = l;
   });
   DATA.care_assessments.forEach(a=>{
@@ -17941,7 +17959,7 @@ function fcRender(){
     const people = FC_CONTACTS[c.id] || [];
     const textable = people.filter(function(p){ return p.phone && p.sms_consent && !p.stopped_at && !p.axiscare_removed_at; }).length;
     const linked = !!c.axiscare_client_id;
-    return '<details class="card" style="padding:0;margin-bottom:10px;">'
+    return '<details class="card" data-fc="' + esc(c.id) + '" ontoggle="if(this.open) famMount(\'famfc-' + esc(c.id) + '\', { circle_id:\'' + esc(c.id) + '\' }, \'family\')" style="padding:0;margin-bottom:10px;">'
       + '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:14px 18px;">'
       + '<b style="font-size:15px;color:var(--navy);">' + esc(c.client_name) + '</b>'
       + (linked?'<span style="font-size:11px;font-weight:700;color:#0F5E73;background:#E4F2F0;border-radius:999px;padding:2px 8px;">AxisCare #'+esc(c.axiscare_client_id)+'</span>'
@@ -17951,6 +17969,7 @@ function fcRender(){
       + '<span style="flex:1;"></span>'
       + '<span style="color:#A89C8B;font-size:.78rem;">open ▾</span></summary>'
       + '<div style="padding:0 18px 16px;">'
+      + '<div id="famfc-' + esc(c.id) + '"></div>'
 
       + (linked?'':'<div style="background:#FDECEA;border-radius:8px;padding:8px 10px;margin:4px 0 10px;font-size:13px;color:#8A1F17;">This circle isn\'t tied to a client yet, so nothing is sent from it (Cara\'s texts included). '
           +'<button class="fb" style="font-size:12px;" onclick="fcLinkPick(\'' + esc(c.id) + '\')">Link to a client</button></div>')
@@ -28719,6 +28738,7 @@ function tbRender(){
   if(!TB.journeys&&!TB.jLoading){ tbLoadJourneys(); }
   var plan=tbPlan();
   root.innerHTML=plan?tbBoardHtml(plan):tbHomeHtml();
+  if(plan) famMount('famTb', { plan_id:plan.id }, 'plan');
 }
 function tbHomeHtml(){
   var plans=tbPlans().slice().sort(function(a,b){ return String(b.created_at||'').localeCompare(String(a.created_at||'')); });
@@ -28865,6 +28885,7 @@ function tbBoardHtml(plan){
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">'
     +tbJourneyChip(plan.id)
     +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbLinkToggle()">'+(tbJourneyOf(plan.id)?'Change Journey':'Link to a Journey')+'</button>'
+    +'<div id="famTb" style="flex-basis:100%;"></div>'
     +(TB.linkMsg?'<span class="field-note" style="font-size:12px;">'+esc(TB.linkMsg)+'</span>':'')
     +'</div>'
     +(TB.linkOpen?'<div class="card" style="padding:10px 12px;margin:0 0 10px;">'
@@ -30533,6 +30554,14 @@ async function ccLevelSet(ax, level, clientName){
    Home & Life card -> app_data client_profiles, one item per client, because
    those facts (the dog, the parking, the story) have no other home. */
 let CL360_ROSTER = [];
+/* Change 8c: Client 360 never matches a client by FIRST name (two Marys would see each other's
+   history). An id first; a full name only when exactly one client in the roster has it. */
+function cl360NameKey(n){ return String(n||'').toLowerCase().replace(/[^a-z]/g,''); }
+function cl360UniqueName(n){ const k=cl360NameKey(n); return !!k && (CL360_ROSTER||[]).filter(x=>cl360NameKey(x.client_name)===k).length===1; }
+function cl360SameClient(recName, recAx, name, axisId){
+  if(recAx && String(recAx).trim()) return !!axisId && String(recAx).trim()===axisId;
+  return cl360NameKey(recName)===cl360NameKey(name) && cl360UniqueName(name);
+}
 function cl360ProfileId(r){
   const key = r.axiscare_client_id ? 'ax'+String(r.axiscare_client_id) : 'nm'+String(r.client_name||'').toLowerCase().replace(/[^a-z0-9]+/g,'_');
   return 'cp_'+key;
@@ -30629,7 +30658,7 @@ async function cl360RenderInto(r, out, px){
   const a = r.assessment, p = r.plan;
   let care = cl360Kv('Assessment', a ? esc((a.status||'recorded')+' · '+String(a.created_at||'').slice(0,10)) : '(none recorded)')
     + cl360Kv('Care plan', p ? esc((p.status||'drafted')+' · '+String(p.created_at||'').slice(0,10)) : '(none yet)');
-  const nurseC = (DATA.nurse_clients||[]).find(n=>String(n.name||n.client||n.client_name||'').toLowerCase().includes(first));
+  const nurseC = cl360UniqueName(name) ? (DATA.nurse_clients||[]).find(n=>cl360NameKey(n.name||n.client||n.client_name)===cl360NameKey(name)) : null;
   if(nurseC) care += cl360Kv('Nursing', 'on the nurse caseload');
 
   /* care circle (its own tables, fetched fresh) */
@@ -30656,9 +30685,7 @@ async function cl360RenderInto(r, out, px){
     + (prof.updated_at ? '<div class="field-note" style="margin-top:6px;">last saved '+esc(String(prof.updated_at).slice(0,10))+'</div>' : '');
 
   /* coverage history on this client's shifts */
-  const cases = (DATA.coverage_cases||[]).filter(c=>
-    (axisId && String(c.client_axiscare_id||'')===axisId)
-    || String(c.client||'').trim().toLowerCase().split(/\s+/)[0]===first);
+  const cases = (DATA.coverage_cases||[]).filter(c=>cl360SameClient(c.client, c.client_axiscare_id, name, axisId));
   const covFilled = cases.filter(c=>c.covered_by || c.status==='covered' || c.status==='filled').length;
   const covLine = cases.length
     ? cases.length+' callout'+(cases.length>1?'s':'')+' on their shifts · '+covFilled+' covered'
@@ -30669,7 +30696,7 @@ async function cl360RenderInto(r, out, px){
   const push = (at, what) => { if(at) ev.push({ at:String(at), what }); };
   push(lead.created_at, 'Became a lead ('+esc(lead.source||'unknown source')+')');
   if(lead.assessment_at) push(lead.assessment_at, 'Assessment booked');
-  (DATA.care_assessments||[]).filter(x=>String(x.axiscare_client_id||'')===axisId || String(x.client_name||'').toLowerCase().includes(first))
+  (DATA.care_assessments||[]).filter(x=>(lead.id && x.lead_id===lead.id) || cl360SameClient(x.client_name, x.axiscare_client_id, name, axisId))
     .forEach(x=>push(x.created_at, 'Care assessment '+esc(x.status||'recorded')));
   (r.checkins||[]).forEach(c=>push(c.checkin_date||c.created_at, 'Check-in'+(c.escalated?' · <b style="color:var(--red);">escalated</b>':'')));
   cases.forEach(c=>{
@@ -30678,7 +30705,7 @@ async function cl360RenderInto(r, out, px){
       + (c.covered_by?' · covered by '+esc(String(c.covered_by)):' · <b style="color:var(--red);">not covered</b>'));
     if(c.resolved_at) push(c.resolved_at, 'Callout resolved ('+esc(String(c.resolved_how||c.status||''))+')');
   });
-  (DATA.nurse_visits||[]).filter(v=>String(v.client||v.client_name||'').toLowerCase().includes(first))
+  (DATA.nurse_visits||[]).filter(v=>nurseC && v.client_id===nurseC.id)
     .forEach(v=>push(v.date||v.created_at, 'Nurse visit'));
   ev.sort((x,y)=>y.at.localeCompare(x.at));
   const tl = ev.length
@@ -30695,6 +30722,7 @@ async function cl360RenderInto(r, out, px){
     + '<span style="display:block;width:'+Math.round(done/checks.length*100)+'%;height:8px;background:var(--teal);border-radius:99px;"></span></span></div>';
 
   out.innerHTML = '<div style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:4px;">'+esc(name)+'</div>'
+    + '<div id="'+px+'famC"></div>'
     + meter
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start;">'
     + '<div>' + cl360Card('Who they are', head) + cl360Card('Care picture', care + cl360Kv('Coverage', esc(covLine))) + cl360Card('🏠 Home & life <span class="field-note" style="font-weight:400;">typed once, gold for fill-ins</span>', home)
@@ -30705,6 +30733,7 @@ async function cl360RenderInto(r, out, px){
   /* Step 4: the Journey history loads after paint and adds its events to the timeline */
   c360StartLoad(r, px, ev.slice());
   cipProfileLoad(r, px);
+  famMount(px+'famC', axisId ? { ax:axisId } : { lead_id:(r.lead&&r.lead.id)||'' }, 'client');
   /* Change 6b: the care level is AxisCare's; the intake estimate and the latest review sit beside it */
   (async function(){
     const el=document.getElementById(px+'cl360Lv'); if(!el) return;
@@ -31002,6 +31031,112 @@ function cipCaseHtml(c){
     +'</div>';
 }
 
+/* ===================== ONE FAMILY, ONE ROW OF LINKS (Change 8c, 2026-09-27) =====================
+   The same family lives on six screens: the inquiry (lead), the care assessment, the New Clients
+   launch, Client 360, the Team Builder plan and the Family Circle. Each shows the same row:
+   Inquiry · Assessment · Launch · Client 360 · Team plan · Family. Every link is found by an id
+   (the lead id, the AxisCare client id, the Journey, the plan's Journey link), NEVER by a name.
+   A piece that can't be found by id says so instead of guessing. */
+const FAM={ cache:{} };
+function famKey(seed){ return JSON.stringify(Object.keys(seed).sort().map(k=>[k,String(seed[k]||'')])); }
+async function famResolve(seed){
+  const key=famKey(seed), hit=FAM.cache[key];
+  if(hit&&Date.now()-hit.at<60000) return hit.data;
+  const q=async p=>{ const r=await p; if(r.error) throw r.error; return r.data||[]; };
+  const out={ lead:null, lead_confirmed:false, ax:'', assessment:null, launch:null, plan:null, circle:null, errors:[] };
+  let ax=String(seed.ax||'').trim(), leadId=String(seed.lead_id||'').trim(), episodes=new Set();
+  try{
+    if(seed.assessment_id){ const a=(DATA.care_assessments||[]).find(x=>x.id===seed.assessment_id); if(a){ leadId=leadId||String(a.lead_id||''); ax=ax||String(a.axiscare_client_id||'').trim(); out.assessment=a; } }
+    if(seed.circle_id){ const c=await q(sb.from('care_circles').select('id,client_name,axiscare_client_id,active').eq('id',seed.circle_id)); if(c[0]){ out.circle=c[0].active!==false?c[0]:null; ax=ax||String(c[0].axiscare_client_id||'').trim(); } }
+    if(seed.plan_id){ const l=await q(sb.from('team_build_link_current').select('plan_id,episode_id').eq('plan_id',seed.plan_id)); if(l[0]) episodes.add(l[0].episode_id); }
+    if(seed.launch_id){ const lc=await q(sb.from('client_queue').select('id,client_name,axiscare_client_id,status').eq('id',seed.launch_id)); if(lc[0]){ out.launch=lc[0]; ax=ax||String(lc[0].axiscare_client_id||'').trim(); } }
+    /* the confirmed inquiry <-> client link (a person confirmed it on the Journey) */
+    let conns=[];
+    if(leadId) conns=conns.concat(await q(sb.from('lead_journey_connection').select('episode_id,lead_id,axiscare_client_id,person_id,confirmed_at').eq('lead_id',leadId)));
+    if(episodes.size) conns=conns.concat(await q(sb.from('lead_journey_connection').select('episode_id,lead_id,axiscare_client_id,person_id,confirmed_at').in('episode_id',[...episodes])));
+    if(!ax&&conns[0]) ax=String(conns[0].axiscare_client_id||'').trim();
+    if(ax&&!/^\d+$/.test(ax)) ax='';
+    if(ax) conns=conns.concat(await q(sb.from('lead_journey_connection').select('episode_id,lead_id,axiscare_client_id,person_id,confirmed_at').eq('axiscare_client_id',ax)));
+    let personId=conns[0]&&conns[0].person_id;
+    if(ax&&!personId){ const ps=await q(sb.from('person_source_id').select('person_id').eq('system','axiscare').eq('entity_type','client').eq('source_id',ax)); personId=ps[0]&&ps[0].person_id; }
+    if(!ax&&episodes.size&&!conns.length){
+      const ep=await q(sb.from('journey_episode').select('episode_id,person_id').in('episode_id',[...episodes]));
+      personId=ep[0]&&ep[0].person_id;
+      if(personId){ const ps=await q(sb.from('person_source_id').select('source_id').eq('system','axiscare').eq('entity_type','client').eq('person_id',personId)); ax=String((ps[0]&&ps[0].source_id)||''); }
+    }
+    if(personId){ (await q(sb.from('journey_episode').select('episode_id').eq('person_id',personId))).forEach(e=>episodes.add(e.episode_id)); }
+    conns.forEach(c=>episodes.add(c.episode_id));
+    /* the inquiry: the confirmed one (latest), else the lead this screen came from, else a lead that
+       CARRIES this AxisCare id but was never confirmed (shown as such) */
+    const conf=conns.slice().sort((a,b)=>String(b.confirmed_at||'').localeCompare(String(a.confirmed_at||'')))[0];
+    const leads=DATA.leads||[];
+    if(conf){ out.lead=leads.find(l=>l.id===conf.lead_id)||{ id:conf.lead_id }; out.lead_confirmed=true; }
+    else if(leadId){ out.lead=leads.find(l=>l.id===leadId)||null; }
+    else if(ax){ const carriers=leads.filter(l=>String(l.axiscare_client_id||'').trim()===ax); if(carriers.length===1) out.lead=carriers[0]; }
+    out.ax=ax;
+    if(!out.assessment){
+      const as=(DATA.care_assessments||[]).filter(a=>(out.lead&&a.lead_id&&a.lead_id===out.lead.id)||(ax&&String(a.axiscare_client_id||'').trim()===ax));
+      out.assessment=as.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0]||null;
+    }
+    if(ax&&!out.launch){ const lc=await q(sb.from('client_queue').select('id,client_name,axiscare_client_id,status,created_at').eq('axiscare_client_id',ax));
+      out.launch=lc.sort((a,b)=>(a.status==='complete')-(b.status==='complete')||String(b.created_at||'').localeCompare(String(a.created_at||'')))[0]||null; }
+    if(episodes.size&&!out.plan){ const pl=await q(sb.from('team_build_link_current').select('plan_id,episode_id').in('episode_id',[...episodes]));
+      const plans=pl.map(x=>(DATA.staffing_plans||[]).find(p=>p.id===x.plan_id)).filter(Boolean);
+      out.plan=plans.sort((a,b)=>(a.status==='done')-(b.status==='done')||String(b.created_at||'').localeCompare(String(a.created_at||'')))[0]||null; }
+    if(seed.plan_id&&!out.plan) out.plan=(DATA.staffing_plans||[]).find(p=>p.id===seed.plan_id)||null;
+    if(ax&&!out.circle){ const c=await q(sb.from('care_circles').select('id,client_name,axiscare_client_id,active').eq('axiscare_client_id',ax).eq('active',true)); out.circle=c[0]||null; }
+  }catch(e){ out.errors.push(String(e.message||e)); }
+  FAM.cache[key]={ at:Date.now(), data:out };
+  return out;
+}
+function famStripHtml(f, here){
+  const chip=(k,icon,label,on,go,missing)=>{
+    const base='display:inline-flex;align-items:center;gap:4px;font-size:12px;border-radius:999px;padding:2px 9px;white-space:nowrap;';
+    if(k===here) return '<span style="'+base+'font-weight:800;color:#fff;background:var(--navy);" title="You are here">'+icon+' '+label+'</span>';
+    if(on) return '<a href="javascript:void(0)" onclick="event.stopPropagation();'+go+'" style="'+base+'font-weight:700;color:var(--navy);background:var(--blue-bg,#E8EEF6);text-decoration:none;">'+icon+' '+label+'</a>';
+    return '<span style="'+base+'color:var(--text-muted);background:var(--bg);" title="'+esc(missing)+'">'+icon+' '+esc(missing)+'</span>';
+  };
+  const j=v=>JSON.stringify(String(v)).replace(/"/g,'&quot;');
+  return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0;">'
+    +chip('lead','📞',f.lead_confirmed?'Inquiry':'Inquiry (not confirmed)',!!f.lead,f.lead?'famGo(\'lead\','+j(f.lead.id)+')':'','no inquiry linked')
+    +chip('assessment','📝','Assessment',!!f.assessment,f.assessment?'famGo(\'assessment\','+j(f.assessment.id)+')':'','no assessment yet')
+    +chip('launch','🚀','Launch',!!f.launch,f.launch?'famGo(\'launch\','+j(f.launch.id)+')':'','no launch yet')
+    +chip('client','👤','Client 360',!!f.ax,f.ax?'famGo(\'client\','+j(f.ax)+')':'','not an AxisCare client yet')
+    +chip('plan','🧩','Team plan',!!f.plan,f.plan?'famGo(\'plan\','+j(f.plan.id)+')':'','no team plan linked')
+    +chip('family','👪','Family',!!f.circle,f.circle?'famGo(\'family\','+j(f.circle.id)+')':'','no Family Circle linked')
+    +(f.errors.length?'<span class="field-note" style="font-size:11.5px;color:var(--red);">some links could not load</span>':'')
+    +'</div>';
+}
+async function famMount(elId, seed, here){
+  const el=document.getElementById(elId); if(!el) return;
+  el.dataset.famSeed=famKey(seed);
+  const f=await famResolve(seed);
+  const now=document.getElementById(elId); if(!now||now.dataset.famSeed!==famKey(seed)) return;   // the screen moved on
+  now.innerHTML=famStripHtml(f, here);
+}
+function famGo(kind, id){
+  if(kind==='lead'){ openLeadProfile(id); return; }
+  if(kind==='client'){ openClientProfile(id); return; }
+  if(typeof pdClose==='function') pdClose();
+  if(kind==='assessment'){ switchTab('assessments'); openAssessmentModal(id); return; }
+  if(kind==='launch'){
+    switchTab('clientqueue');
+    const tryOpen=(n)=>{ const body=document.getElementById('cq-body-'+id);
+      if(!body){ if(n<20) setTimeout(()=>tryOpen(n+1),250); return; }
+      if(body.style.display==='none'&&typeof cqToggle==='function') cqToggle(id);
+      body.scrollIntoView({behavior:'smooth',block:'center'}); };
+    tryOpen(0); return;
+  }
+  if(kind==='plan'){ switchTab('hourswatch'); swSubGo('builder'); tbOpen(id); return; }
+  if(kind==='family'){
+    switchTab('circles');
+    const tryOpen=(n)=>{ const d=document.querySelector('details[data-fc="'+CSS.escape(String(id))+'"]');
+      if(!d){ if(n<20) setTimeout(()=>tryOpen(n+1),250); return; }
+      d.open=true; d.scrollIntoView({behavior:'smooth',block:'start'}); };
+    tryOpen(0);
+  }
+}
+
 /* ── SLIDE-OVER OPENERS ──────────────────────────────────────────────────
    data-open-client / data-open-caregiver attributes anywhere in the hub
    become live. The listener runs in CAPTURE phase so a name inside a card
@@ -31013,10 +31148,19 @@ async function openClientProfile(ref){
   if(!wrap || !body) return;
   wrap.style.display = ''; body.innerHTML = '<div class="field-note">Loading…</div>';
   const roster = await cl360Roster();
-  const q = String(ref||'').trim().toLowerCase();
-  const r = roster.find(x=>String(x.axiscare_client_id||'')===String(ref))
-    || roster.find(x=>String(x.client_name||'').toLowerCase()===q)
-    || roster.find(x=>String(x.client_name||'').toLowerCase().split(/\s+/)[0]===q.split(/\s+/)[0]);
+  /* an AxisCare id, else a full name held by exactly one client (never a first name, Change 8c) */
+  let r = roster.find(x=>String(x.axiscare_client_id||'')===String(ref));
+  if(!r){
+    const k = cl360NameKey(ref), same = k ? roster.filter(x=>cl360NameKey(x.client_name)===k) : [];
+    if(same.length===1) r = same[0];
+    else if(same.length>1){
+      body.innerHTML = '<div class="field-note">More than one client is named "'+escapeHtmlComms(String(ref))+'". Pick the right one:</div>'
+        + same.map(x=>x.axiscare_client_id
+            ? '<div style="margin-top:6px;"><a href="javascript:void(0)" data-open-client="'+escapeHtmlComms(String(x.axiscare_client_id))+'">'+escapeHtmlComms(x.client_name)+' · AxisCare #'+escapeHtmlComms(String(x.axiscare_client_id))+'</a></div>'
+            : '<div class="field-note" style="margin-top:6px;">'+escapeHtmlComms(x.client_name)+' (no AxisCare id yet, open them from the Clients list)</div>').join('');
+      PD_R=null; return;
+    }
+  }
   if(!r){ body.innerHTML = '<div class="field-note">No profile found for "'+escapeHtmlComms(String(ref))+'". They may not be an active client.</div>'; PD_R=null; return; }
   PD_R = r;
   await cl360RenderInto(r, body, 'pd_');
@@ -32473,6 +32617,7 @@ window.covLoadShifts=function(){};
       +'<button onclick="event.stopPropagation();cqDelete(\''+E(c.id)+'\')" style="background:none;border:none;cursor:pointer;font-size:.8rem;color:#E8E2D8;padding:.1rem .25rem;line-height:1" title="Remove">✕</button>'
       +'<span id="cq-arrow-'+E(c.id)+'" style="font-size:.65rem;color:var(--text-muted);min-width:.7rem;text-align:center">'+(isOpen?'▲':'▼')+'</span></div></div>'
       +'<div id="cq-body-'+E(c.id)+'" style="display:'+(isOpen?'block':'none')+';padding:.75rem .9rem">'
+      +'<div id="famcq-'+E(c.id)+'"></div>'
       +'<div id="cqf-'+E(c.id)+'" style="margin-bottom:.75rem;padding-bottom:.6rem;border-bottom:1px dashed var(--border)"></div>'
       +(c.schedule_notes?'<div style="font-size:.74rem;color:#92400e;margin-bottom:.6rem;background:#fff7ed;border-radius:5px;padding:.25rem .5rem">📋 '+E(c.schedule_notes)+'</div>':'')
       +(c.axiscare_client_id?'<div style="font-size:.68rem;color:var(--text-muted);margin-bottom:.5rem">AxisCare ID: '+E(c.axiscare_client_id)+'</div>':'')
