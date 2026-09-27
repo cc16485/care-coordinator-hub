@@ -5023,6 +5023,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         <div id="lp_soc_body" style="margin-top:10px;"></div>
       </div>
 </div>
+    <div id="cp_launch"></div>
     <div id="cp_c_start"></div>
   </div>
   <div class="cp-pane" data-cp-pane="family"><div class="profile-grid">
@@ -9095,7 +9096,7 @@ async function lpDeleteLead(){
    inquiry its sections show; once someone has CONFIRMED who they are (the Journey connection) the
    client's sections fill the same page. A lead that only carries an AxisCare id is never treated
    as the client (identity is a person's decision). */
-const CP={ tab:'summary', returnTab:null, r:null, lead:null, ax:'' };
+const CP={ tab:'summary', returnTab:null, r:null, lead:null, ax:'', launch:null };
 function cpShowTab(t){
   const ok=[...document.querySelectorAll('#leadProfileView .cp-pane')].some(p=>p.dataset.cpPane===t);
   CP.tab=ok?t:'summary';
@@ -9113,6 +9114,9 @@ async function openClient(seed, tab){
   if(view.style.display!=='block') CP.returnTab=(typeof activeTab!=='undefined'&&activeTab)?activeTab:'leads';
   let lead=seed.lead_id?(DATA.leads||[]).find(l=>l.id===seed.lead_id)||null:null;
   let r=seed.r||null, ax=String(seed.ax||(r&&r.axiscare_client_id)||'').trim(), carrier=null;
+  /* One profile, step 2: a New Clients launch opens its client's profile */
+  let launch=null;
+  if(seed.launch_id&&typeof cqLaunchFor==='function'){ try{ launch=await cqLaunchFor({ launch_id:seed.launch_id }); }catch(e){} if(launch&&!ax) ax=String(launch.axiscare_client_id||'').trim(); }
   try{
     if(lead&&!ax){ const f=await famResolve({ lead_id:lead.id }); if(f.lead_confirmed&&f.ax) ax=f.ax; }
     if(ax&&!lead){ const f=await famResolve({ ax }); if(f.lead_confirmed&&f.lead) lead=(DATA.leads||[]).find(l=>l.id===f.lead.id)||null; else if(f.lead) carrier=f.lead; }
@@ -9121,15 +9125,17 @@ async function openClient(seed, tab){
   if(!r&&ax) r=roster.find(x=>String(x.axiscare_client_id||'')===ax)||null;
   if(!r&&!ax&&lead) r=roster.find(x=>x.lead&&x.lead.id===lead.id&&!x.axiscare_client_id)||null;
   if(!r&&ax) r={ client_name:cpLeadClientName(lead)||('AxisCare client #'+ax), axiscare_client_id:ax, lead:lead||null, assessment:null, plan:null, checkins:[], phone:'', ghl_contact_id:'' };
-  CP.lead=lead; CP.r=r; CP.ax=ax; lpLead=lead;
+  if(!launch&&ax&&typeof cqLaunchFor==='function'){ try{ launch=await cqLaunchFor({ ax }); }catch(e){} }
+  CP.lead=lead; CP.r=r; CP.ax=ax; CP.launch=launch; lpLead=lead;
   document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
   view.style.display='block';
   const esc=escapeHtmlComms;
-  document.getElementById('cpTitle').textContent=r?r.client_name:cpLeadClientName(lead);
+  document.getElementById('cpTitle').textContent=r?r.client_name:(lead?cpLeadClientName(lead):(launch?launch.client_name:''));
   const chip=(t,bg,fg)=>'<span style="font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:'+bg+';color:'+fg+';">'+esc(t)+'</span>';
   document.getElementById('cpChips').innerHTML=
-    (ax?chip('AxisCare #'+ax,'#E4F2F0','#0F5E73'):chip('Inquiry'+(lead&&lead.status?' · '+lead.status:''),'#FFF4E3','#92400E'))
+    (ax?chip('AxisCare #'+ax,'#E4F2F0','#0F5E73'):lead?chip('Inquiry'+(lead.status?' · '+lead.status:''),'#FFF4E3','#92400E'):chip('New client · no AxisCare id yet','#FFF4E3','#92400E'))
+    +(launch&&launch.status!=='complete'?chip('Launching','#EAF1F8','#0E3860'):'')
     +(r&&r.role_status&&r.role_status!=='active'?chip('Past client','#F1F5F9','#475569'):'');
   document.querySelectorAll('#leadProfileView .cp-lead').forEach(e=>{ e.style.display=lead?'':'none'; });
   document.getElementById('cp_start_note').innerHTML=(!lead&&carrier)
@@ -9149,6 +9155,10 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer();
+  const lslot=document.getElementById('cp_launch');
+  if(lslot){ lslot.innerHTML='';
+    if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
+    else if(typeof cqUnmountProfile==='function') cqUnmountProfile(); }
   cpShowTab(tab||'summary');
   window.scrollTo(0,0);
 }
@@ -9157,7 +9167,8 @@ function openLeadProfile(id, tab){
   return openClient({ lead_id:id }, tab);
 }
 function closeLeadProfile(){
-  lpLead = null; CP.lead=null; CP.r=null;
+  lpLead = null; CP.lead=null; CP.r=null; CP.launch=null;
+  if(typeof cqUnmountProfile==='function') cqUnmountProfile();
   document.getElementById('leadProfileView').style.display='none';
   const back=CP.returnTab||'leads'; CP.returnTab=null;
   switchTab(back);
@@ -10852,8 +10863,10 @@ function cqFollowupEvidence(c, side){
     .sort((a,b)=>String(a.at).localeCompare(String(b.at)));
   return hits[0]||null;
 }
-function cqFollowupGo(id){
-  const c=(window.__cqRows||[]).find(x=>x.id===id); if(!c) return;
+async function cqFollowupGo(id){
+  let c=(window.__cqRows||[]).find(x=>x.id===id);
+  if(!c&&typeof cqLaunchFor==='function') c=await cqLaunchFor({ launch_id:id });
+  if(!c) return;
   switchTab('carematch');
   setTimeout(()=>{ if(typeof cmPrefill==='function') cmPrefill(c.client_name||'', c.caregiver_assigned_name||'', String(c.axiscare_client_id||'')); },150);
 }
@@ -31159,14 +31172,7 @@ function famGo(kind, id){
   if(kind==='client'){ openClientProfile(id); return; }
   if(typeof pdClose==='function') pdClose();
   if(kind==='assessment'){ switchTab('assessments'); openAssessmentModal(id); return; }
-  if(kind==='launch'){
-    switchTab('clientqueue');
-    const tryOpen=(n)=>{ const body=document.getElementById('cq-body-'+id);
-      if(!body){ if(n<20) setTimeout(()=>tryOpen(n+1),250); return; }
-      if(body.style.display==='none'&&typeof cqToggle==='function') cqToggle(id);
-      body.scrollIntoView({behavior:'smooth',block:'center'}); };
-    tryOpen(0); return;
-  }
+  if(kind==='launch'){ openClient({ launch_id:id }, 'start'); return; }
   if(kind==='plan'){ switchTab('hourswatch'); swSubGo('builder'); tbOpen(id); return; }
   if(kind==='family'){
     switchTab('circles');
@@ -32538,6 +32544,7 @@ window.covLoadShifts=function(){};
       const { data, error } = await sb.from('client_queue').select('*').order('added_at',{ascending:false});
       if(error) throw error;
       QUEUE=data||[];
+      window.__cqRows=QUEUE;   /* the profile can load New Clients without the tab being opened */
     }catch(e){
       QUEUE=QUEUE||[];
       if(el) el.innerHTML='<div style="background:#fee2e2;border:1.5px solid #fca5a5;border-radius:8px;padding:.75rem 1rem;font-size:.82rem;color:#b91c1c">❌ Could not load the client queue: <b>'+E(e.message||'')+'</b></div>';
@@ -32588,7 +32595,7 @@ window.covLoadShifts=function(){};
       html+='<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:1.25rem;text-align:center;color:#166534;font-size:.82rem;margin-bottom:.75rem">✅ No launches in progress.'
         +'<div style="font-size:.7rem;margin-top:.3rem;color:var(--text-muted)">A launch opens here on its own when a lead\'s Start of Care reaches Ready for Staffing. <a href="#" onclick="cqAddManual();return false">Add Launch Exception →</a></div></div>';
     } else {
-      html+=pending.map(card).join('');
+      html+=pending.map(c=>card(c,'list')).join('');
       html+='<div style="font-size:.7rem;color:var(--text-muted);text-align:right;margin-bottom:.5rem"><a href="#" onclick="cqAddManual();return false">+ Add Launch Exception</a></div>';
     }
     if(completed.length){
@@ -32596,14 +32603,14 @@ window.covLoadShifts=function(){};
         +'<div id="cq-done-hdr" style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .9rem;background:#f0fdf4;cursor:pointer;user-select:none">'
         +'<span style="font-size:.77rem;font-weight:700;color:#166534">✅ Completed ('+completed.length+')</span><span style="font-size:.72rem;color:#166534">▼</span></div>'
         +'<div id="cq-done-body" style="display:none;padding:.65rem .9rem">'
-        +completed.map(c=>'<div style="display:flex;align-items:center;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid #d1fae5;font-size:.78rem;color:var(--navy)">'
+        +completed.map(c=>'<div onclick="openClient({launch_id:\''+E(c.id)+'\'},\'start\')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid #d1fae5;font-size:.78rem;color:var(--navy)">'
           +'<div><span style="font-weight:600">'+E(c.client_name)+'</span>'
           +((c.episode_n||1)>1?'<span style="font-size:.68rem;background:#EDE4F5;color:#6B4B9E;border-radius:4px;padding:.1rem .35rem;margin-left:.35rem;font-weight:700">Episode '+E(c.episode_n)+'</span>':'')
           +(c.caregiver_assigned_name?'<span style="color:var(--text-muted);margin-left:.5rem">→ '+E(c.caregiver_assigned_name)+'</span>':'')
           +(c.payer?'<span style="font-size:.68rem;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:.1rem .35rem;margin-left:.35rem">'+E(c.payer)+'</span>':'')+'</div>'
           +'<div style="display:flex;align-items:center;gap:.5rem">'
           +'<span style="font-size:.7rem;color:var(--text-muted)">'+(c.completed_at?new Date(c.completed_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'')+'</span>'
-          +'<button onclick="cqDelete(\''+E(c.id)+'\')" style="background:none;border:none;cursor:pointer;font-size:.78rem;color:#ccc;padding:.1rem .25rem" title="Remove">✕</button>'
+          +'<button onclick="event.stopPropagation();cqDelete(\''+E(c.id)+'\')" style="background:none;border:none;cursor:pointer;font-size:.78rem;color:#ccc;padding:.1rem .25rem" title="Remove">✕</button>'
           +'</div></div>').join('')
         +'</div></div>';
     }
@@ -32612,7 +32619,34 @@ window.covLoadShifts=function(){};
     if(hdr&&body) hdr.onclick=()=>{ body.style.display=body.style.display==='block'?'none':'block'; };
     window.__cqRows=all;
     if(typeof cqfAfterRender==='function') cqfAfterRender(pending,expanded);
+    renderProfileCard();
   }
+  /* ── The launch inside the one client profile (One profile, step 2) ──
+     The profile's Start of Care tab shows ONE launch's checklist. Every save here (tick, notes,
+     caregiver name, AxisCare read-outs) redraws the list, and the list redraw redraws this. */
+  let PROFILE={ el:null, id:null };
+  function renderProfileCard(){
+    if(!PROFILE.id) return;
+    const el=document.getElementById(PROFILE.el); if(!el){ PROFILE={ el:null, id:null }; return; }
+    const c=(QUEUE||[]).find(x=>x.id===PROFILE.id);
+    if(!c){ el.innerHTML='<div class="field-note">This launch is no longer in New Clients.</div>'; return; }
+    el.innerHTML='<div style="font-weight:800;color:var(--navy);font-size:15px;margin:4px 0 8px;">🚀 New Clients launch'+(c.status==='complete'?' · complete':'')+'</div>'+card(c,'profile');
+    if(typeof leRefresh==='function') leRefresh(c);
+  }
+  window.cqMountProfile=async function(elId, launchId){
+    PROFILE={ el:elId, id:launchId };
+    if(QUEUE===null){ if(!(await loadQueue())){ const el=document.getElementById(elId); if(el) el.innerHTML='<div class="field-note">Could not load New Clients.</div>'; return; } }
+    renderProfileCard();
+  };
+  window.cqUnmountProfile=function(){ PROFILE={ el:null, id:null }; };
+  window.cqLaunchFor=async function(q){
+    if(QUEUE===null) await loadQueue();
+    const all=QUEUE||[];
+    if(q.launch_id) return all.find(x=>x.id===q.launch_id)||null;
+    const ax=String(q.ax||'').trim(); if(!ax) return null;
+    const mine=all.filter(x=>String(x.axiscare_client_id||'').trim()===ax);
+    return mine.find(x=>x.status!=='complete')||mine[0]||null;
+  };
   window.cqToggle=function(id){
     if(expanded.has(id)) expanded.delete(id); else expanded.add(id);
     const body=document.getElementById('cq-body-'+id), arrow=document.getElementById('cq-arrow-'+id);
@@ -32650,7 +32684,11 @@ window.covLoadShifts=function(){};
         sub:'Services-began notice, plus the ongoing supervision & QA cadence.', needs:'first_shift_done' });
     return s;
   }
-  function card(c){
+  /* One profile, step 2: 'list' = the New Clients row (opens the profile at Start of Care);
+     'profile' = the full checklist inside the profile (always open; the family, dates and Start
+     Contract are already on that tab); no mode = the old card. */
+  function card(c, mode){
+    const inList=mode==='list', inProfile=mode==='profile';
     const STEPS=cqLaunchSteps(c);
     const allChecked=STEPS.every(s=>c[s.f]);
     const notesOk=(c.caregiver_call_notes||'').trim()&&(c.client_call_notes||'').trim();
@@ -32660,7 +32698,7 @@ window.covLoadShifts=function(){};
     const dateLabel=c.start_date?new Date(String(c.start_date).slice(0,10)+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'TBD';
     if(progress>0&&progress<stepTotal&&!expanded.has(c.id)) expanded.add(c.id);
     if(allChecked&&!notesOk&&!expanded.has(c.id)) expanded.add(c.id);
-    const isOpen=expanded.has(c.id);
+    const isOpen=inProfile||expanded.has(c.id);
     const fmtTs=ts=>ts?new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
     const stepDots=STEPS.map((s,i)=>'<span title="'+E(s.short)+'" style="display:inline-flex;align-items:center;justify-content:center;width:1.2rem;height:1.2rem;border-radius:50%;font-size:.62rem;font-weight:700;background:'+(c[s.f]?'#22c55e':'#F3EDE3')+';color:'+(c[s.f]?'#fff':'#A89C8B')+'">'+(c[s.f]?'✓':(i+1))+'</span>').join('');
     const borderColor=canComplete?'#fde68a':allChecked&&!notesOk?'#fca5a5':progress>0?'#86efac':'#F3EDE3';
@@ -32669,10 +32707,10 @@ window.covLoadShifts=function(){};
       +'<textarea rows="2" placeholder="'+placeholder+'" onblur="cqNotes(\''+E(c.id)+'\',\''+field+'\',this.value)" style="width:100%;padding:.35rem .55rem;border:1.5px solid '+((c[field]||'').trim()?'#86efac':'#fca5a5')+';border-radius:6px;font-family:inherit;font-size:.74rem;resize:vertical;box-sizing:border-box;background:#fff">'+E(c[field]||'')+'</textarea>'
       +(!(c[field]||'').trim()?'<div style="font-size:.68rem;color:#dc2626;margin-top:.15rem">⚠ Notes required</div>':'')+'</div>';
     return '<div style="background:#fff;border:2px solid '+borderColor+';border-radius:10px;margin-bottom:.5rem;overflow:hidden">'
-      +'<div onclick="cqToggle(\''+E(c.id)+'\')" style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;cursor:pointer;user-select:none;'+(isOpen?'border-bottom:1.5px solid #FAF9F6':'')+'">'
+      +'<div onclick="'+(inList?'openClient({launch_id:\''+E(c.id)+'\'},\'start\')':inProfile?'':'cqToggle(\''+E(c.id)+'\')')+'" style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;cursor:'+(inProfile?'default':'pointer')+';user-select:none;'+(isOpen?'border-bottom:1.5px solid #FAF9F6':'')+'">'
       +'<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">'
       +'<span style="font-size:.88rem;font-weight:700;color:var(--navy);white-space:nowrap">'+E(c.client_name)+'</span>'
-      +'<span id="cqfchip-'+E(c.id)+'"></span>'
+      +(inProfile?'':'<span id="cqfchip-'+E(c.id)+'"></span>')
       +((c.episode_n||1)>1?'<span title="This client has launched before — discharged and returned" style="font-size:.65rem;background:#EDE4F5;color:#6B4B9E;border-radius:4px;padding:.1rem .35rem;font-weight:700;white-space:nowrap">Episode '+E(c.episode_n)+'</span>':'')
       +(c.source==='exception'?'<span title="'+E(c.exception_reason||'Launch exception')+'" style="font-size:.65rem;background:#FFF7ED;color:#92400E;border-radius:4px;padding:.1rem .35rem;font-weight:700;white-space:nowrap">Exception</span>':'')
       +(c.payer?'<span style="font-size:.65rem;background:#e0f2fe;color:#0369a1;border-radius:4px;padding:.1rem .35rem;font-weight:600;white-space:nowrap">'+E(c.payer)+'</span>':'')
@@ -32681,11 +32719,13 @@ window.covLoadShifts=function(){};
       +(c.caregiver_assigned_name?'<div style="font-size:.7rem;color:#166534;margin-top:.15rem">👤 '+E(c.caregiver_assigned_name)+'</div>':'')+'</div>'
       +'<div style="display:flex;align-items:center;gap:.5rem;flex-shrink:0"><div style="display:flex;gap:.2rem">'+stepDots+'</div>'
       +'<span style="font-size:.7rem;font-weight:700;color:'+(progress===stepTotal?'#22c55e':'#92400e')+';background:'+(progress===stepTotal?'#f0fdf4':'#fff7ed')+';border-radius:5px;padding:.15rem .45rem;white-space:nowrap">'+progress+'/'+stepTotal+'</span>'
-      +'<button onclick="event.stopPropagation();cqDelete(\''+E(c.id)+'\')" style="background:none;border:none;cursor:pointer;font-size:.8rem;color:#E8E2D8;padding:.1rem .25rem;line-height:1" title="Remove">✕</button>'
-      +'<span id="cq-arrow-'+E(c.id)+'" style="font-size:.65rem;color:var(--text-muted);min-width:.7rem;text-align:center">'+(isOpen?'▲':'▼')+'</span></div></div>'
+      +(inProfile?'':'<button onclick="event.stopPropagation();cqDelete(\''+E(c.id)+'\')" style="background:none;border:none;cursor:pointer;font-size:.8rem;color:#E8E2D8;padding:.1rem .25rem;line-height:1" title="Remove">✕</button>')
+      +(inList?'<span style="font-size:.72rem;font-weight:700;color:var(--teal);white-space:nowrap">Open ›</span>':inProfile?'':'<span id="cq-arrow-'+E(c.id)+'" style="font-size:.65rem;color:var(--text-muted);min-width:.7rem;text-align:center">'+(isOpen?'▲':'▼')+'</span>')+'</div></div>'
+      +(inList?'</div>':'')
+      +(inList?'':(''
       +'<div id="cq-body-'+E(c.id)+'" style="display:'+(isOpen?'block':'none')+';padding:.75rem .9rem">'
-      +'<div id="famcq-'+E(c.id)+'"></div>'
-      +'<div id="cqf-'+E(c.id)+'" style="margin-bottom:.75rem;padding-bottom:.6rem;border-bottom:1px dashed var(--border)"></div>'
+      +(inProfile?'':'<div id="famcq-'+E(c.id)+'"></div>'
+      +'<div id="cqf-'+E(c.id)+'" style="margin-bottom:.75rem;padding-bottom:.6rem;border-bottom:1px dashed var(--border)"></div>')
       +(c.schedule_notes?'<div style="font-size:.74rem;color:#92400e;margin-bottom:.6rem;background:#fff7ed;border-radius:5px;padding:.25rem .5rem">📋 '+E(c.schedule_notes)+'</div>':'')
       +(c.axiscare_client_id?'<div style="font-size:.68rem;color:var(--text-muted);margin-bottom:.5rem">AxisCare ID: '+E(c.axiscare_client_id)+'</div>':'')
       +((window.CQ_SUGGEST||{})[c.id]?(()=>{ const sl=(DATA.leads||[]).find(x=>x.id===window.CQ_SUGGEST[c.id]); if(!sl) return '';
@@ -32755,7 +32795,7 @@ window.covLoadShifts=function(){};
       +'<div id="cq-prof-'+E(c.id)+'"></div>'
       +(allChecked&&!notesOk?'<div style="margin-top:.65rem;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:8px;padding:.5rem .75rem;font-size:.78rem;color:#dc2626">⚠ Please add the call notes on the two calls before completing the launch.</div>':'')
       +(canComplete?'<div style="margin-top:.65rem"><button onclick="cqComplete(\''+E(c.id)+'\')" style="padding:.4rem 1rem;background:#22c55e;color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:.8rem;font-weight:700;cursor:pointer">✅ Launch Complete</button></div>':'')
-      +'</div></div>';
+      +'</div></div>'));
   }
   /* AxisCare scheduling-summary note: fires when scheduling is actually
      confirmed (step 4 checked, both call notes written) rather than waiting
