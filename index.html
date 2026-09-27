@@ -10691,6 +10691,46 @@ function cqfSection(c){
   scxMount('cq_'+c.id,{bodyId:'cqsc-'+c.id,actId:'cqsca-'+c.id,ep:b.ep,lead:i.lead||null,label:b.name||c.client_name,
     onLoaded:function(d){ var x=document.getElementById('cqfd-'+c.id); if(x) x.innerHTML=cqfDates(c,cqfInfo(c),d&&d.c); var ch=document.getElementById('cqfchip-'+c.id); if(ch) ch.innerHTML=cqfChip(c); }});
 }
+/* ── ONE FIRST-SHIFT FOLLOW-UP (Change 8d, 2026-09-27) ──────────────────────
+   Care Match is the one place the 24–72h follow-up call is logged. A Care Match call ticks a
+   New Clients launch's follow-up only when it is the SAME client (AxisCare id), with the
+   launch's OWN caregiver, logged after the launch began: the client side from the client's
+   rating, the caregiver side from the caregiver's. Nothing is unticked, and nobody is contacted. */
+const cqNameKey=v=>String(v||'').toLowerCase().replace(/[^a-z]/g,'');
+function cqFollowupMatches(c, e){
+  return !!(e && e.client && e.caregiver && c && String(c.axiscare_client_id||'').trim()
+    && String(e.axiscare_client_id||'').trim()===String(c.axiscare_client_id).trim()
+    && c.caregiver_assigned_name && cqNameKey(e.caregiver)===cqNameKey(c.caregiver_assigned_name)
+    && String(e.at||'')>=String(c.created_at||''));
+}
+function cqFollowupEvidence(c, side){
+  const hits=(DATA.client_checkins||[]).filter(e=>cqFollowupMatches(c,e)&&(side==='client'?e.rating:e.cg_rating)&&!e.skip)
+    .sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  return hits[0]||null;
+}
+function cqFollowupGo(id){
+  const c=(window.__cqRows||[]).find(x=>x.id===id); if(!c) return;
+  switchTab('carematch');
+  setTimeout(()=>{ if(typeof cmPrefill==='function') cmPrefill(c.client_name||'', c.caregiver_assigned_name||'', String(c.axiscare_client_id||'')); },150);
+}
+async function cqFollowupFromCareMatch(e){
+  if(!e||!e.axiscare_client_id) return [];
+  const q=await sb.from('client_queue').select('id,client_name,axiscare_client_id,caregiver_assigned_name,created_at,status,followup_client_done,followup_caregiver_done')
+    .eq('axiscare_client_id', String(e.axiscare_client_id));
+  if(q.error) throw q.error;
+  const ticked=[];
+  for(const c of (q.data||[]).filter(x=>x.status!=='complete'&&cqFollowupMatches(x,e))){
+    for(const [f,on] of [['followup_client_done',!!e.rating],['followup_caregiver_done',!!e.cg_rating]]){
+      if(!on||c[f]) continue;
+      const cached=(window.__cqRows||[]).find(x=>x.id===c.id);
+      if(cached&&typeof cqStep==='function') await cqStep(c.id,f,true);
+      else{ const u=await sb.from('client_queue').update({ [f]:true, [f+'_at']:new Date().toISOString() }).eq('id',c.id); if(u.error) throw u.error; }
+      ticked.push({ id:c.id, client:c.client_name, field:f });
+    }
+  }
+  return ticked;
+}
+
 /* ── Launch evidence (Change 1): New Clients reads what AxisCare already knows ──
    The launch-evidence function reads this client's AxisCare visits and runs
    launch-evidence.js (the one copy of the rules). Assigned, Scheduled and First
@@ -32502,6 +32542,25 @@ window.covLoadShifts=function(){};
           extra+='<div style="font-size:.67rem;color:#166534;margin-top:.15rem">📋 Scheduling note pushed to AxisCare '+fmtTs(c.sched_note_pushed_at)+'</div>';
         const ts=c[s.f+'_at'];
         const slot=LE_STEP[s.f]?leSlot(c,s.f):'';
+        /* Change 8d (her ruling 2026-09-27): Care Match is the ONE place for the first-shift
+           follow-up call. These two rows read it; logging the call there ticks them. */
+        if(s.f==='followup_client_done'||s.f==='followup_caregiver_done'){
+          const side=s.f==='followup_client_done'?'client':'caregiver';
+          const ev=cqFollowupEvidence(c, side);
+          return '<div style="padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(done?'#86efac':'var(--border)')+';background:'+(done?'#f0fdf4':'#fafafa')+(gated&&!done?';opacity:.55':'')+'">'
+            +'<div style="display:flex;align-items:flex-start;gap:.65rem">'
+            +'<span style="display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;border-radius:50%;flex-shrink:0;margin-top:.15rem;font-size:.62rem;font-weight:700;background:'+(done?'#22c55e':'#E8E2D8')+';color:#fff">'+(done?'✓':'')+'</span>'
+            +'<div style="flex:1"><div style="font-size:.8rem;font-weight:600;color:var(--navy)">'+E(s.label)+' <span style="font-size:.64rem;font-weight:700;color:#0F5E73;background:#E4F2F0;border-radius:4px;padding:.05rem .3rem;margin-left:.2rem">from Care Match</span></div>'
+            +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.1rem">'+s.sub+'</div>'
+            +(done
+              ? (ev?'<div style="font-size:.67rem;color:#166534;margin-top:.15rem">✓ Care Match call '+fmtTs(ev.at)+(ev.by?' by '+E(ev.by):'')+(ev.spoke_with&&side==='client'?' · spoke with '+E(ev.spoke_with):'')+'</div>'
+                   :(ts?'<div style="font-size:.67rem;color:var(--text-muted);margin-top:.15rem">✓ ticked by hand '+fmtTs(ts)+' (before Care Match took this over)</div>':''))
+              : ev ? '<button class="linklike" style="font-size:.74rem;margin-top:.2rem" onclick="event.stopPropagation();cqStep(\''+E(c.id)+'\',\''+s.f+'\',true)">✓ Use the Care Match call from '+fmtTs(ev.at)+'</button>'
+              : (gated?'<div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem">After the first shift.</div>'
+                 :'<button class="linklike" style="font-size:.74rem;margin-top:.2rem" onclick="event.stopPropagation();cqFollowupGo(\''+E(c.id)+'\')">📞 Log the call in Care Match</button>'
+                  +(c.caregiver_assigned_name?'':'<div style="font-size:.68rem;color:#92400E;margin-top:.15rem">Add the caregiver\'s name above first, so the call is matched to this launch.</div>')))
+            +'</div></div></div>';
+        }
         if(leLive(c)&&LE_READOUT[s.f]){
           /* Change 1: AxisCare already knows this; show it, don't ask for it */
           const ro={caregiver_assigned:['Caregiver assigned','Assign in AxisCare as usual. This reads who is on the visits.'],
@@ -32925,6 +32984,11 @@ window.covLoadShifts=function(){};
       fav_ax_done:false, coach_ax_noted:false, coach_ax_error:'' };
     DATA.client_checkins.push(e);
     await persist('client_checkins', e);
+    /* Change 8d: this call is the New Clients launch's 24–72h follow-up when it matches */
+    let fuNote='';
+    try{ const t=await cqFollowupFromCareMatch(e);
+      if(t.length) fuNote='\n\n✓ Also ticked '+t.length+' follow-up'+(t.length===1?'':'s')+' on '+t[0].client+'\'s New Clients launch.'; }
+    catch(err){ fuNote='\n\n⚠ Saved, but the New Clients follow-up could not be ticked just now ('+String(err.message||err)+'). The launch card will offer "Use the Care Match call" to finish it.'; }
     if(excl){
       const entry={ id:'dnr'+Date.now(), client, axiscare_client_id:clientAx, caregiver, reason:notes,
         requested_by:(spoke||client)+' (check-in call)', requested_at:e.at, logged_at:e.at, logged_by:who, axiscare_entered:false, task_id:e.id };
@@ -32936,6 +33000,7 @@ window.covLoadShifts=function(){};
     if(fav){
       alert('⭐ Nice find. Make it stick in AxisCare: open '+client+'\'s profile and mark '+caregiver+' as a preferred caregiver so scheduling pairs them first. Then click "mark done" on the entry below.');
     }
+    if(fuNote) alert('Check-in saved.'+fuNote);
     ['ci-client','ci-client-ax','ci-caregiver','ci-spoke','ci-rating','ci-notes','ci-coaching','ci-cg-rating','ci-cg-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
     if(ciEl) delete ciEl.dataset.prefilled;
     document.getElementById('ci-fav').checked=false; document.getElementById('ci-excl').checked=false;
