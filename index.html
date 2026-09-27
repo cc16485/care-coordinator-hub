@@ -12311,6 +12311,7 @@ async function renderClients(){
   else if(f==='No Recent Check-in') rows = rows.filter(r=>r.checkins.length===0 || !r.checkins.some(c=>c.next_checkin_due && c.next_checkin_due>=today()));
 
   const wrap = document.getElementById('clientsTableWrap');
+  if(!CCLV.levels){ ccLevelsLoad().then(()=>{ if(typeof activeTab!=='undefined'&&activeTab==='clients') renderClients(); }); }
   /* Change 3: a client whose care a person confirmed ended moves to Past clients */
   const past = rows.filter(r=>r.role_status==='former').sort((a,b)=>String(b.ended_at||'').localeCompare(String(a.ended_at||'')));
   rows = rows.filter(r=>r.role_status!=='former');
@@ -12326,7 +12327,7 @@ async function renderClients(){
       +'<td>'+escapeHtmlComms(r.axiscare_client_id||'—')+'</td><td>'+axCell(r)+'</td><td>'+escapeHtmlComms(r.ended_at?lpscDate(r.ended_at):'—')+'</td><td>'+escapeHtmlComms(r.end_reason||'—')+'</td></tr>').join('')
     +'</tbody></table></details>' : '';
   wrap.innerHTML = `<table><thead><tr>
-    <th>Client</th><th>AxisCare ID</th><th>AxisCare status</th><th>Care Level</th><th>Assessment Status</th><th>Last Check-in</th><th>Actions</th>
+    <th>Client</th><th>AxisCare ID</th><th>AxisCare status</th><th>Care level (AxisCare)</th><th>Assessment Status</th><th>Last Check-in</th><th>Actions</th>
   </tr></thead><tbody>${rows.map(r=>{
     const lastCheckin = r.checkins.slice().sort((a,b)=>(b.checkin_date||'').localeCompare(a.checkin_date||''))[0];
     const declining = clientSatisfactionDeclining(r.client_name);
@@ -12334,7 +12335,7 @@ async function renderClients(){
       <td><b><a href="javascript:void(0)" data-open-client="${escapeHtmlComms(String(r.axiscare_client_id||r.client_name))}" style="color:inherit;text-decoration:underline dotted;" title="Open their profile">${r.client_name}</a></b>${declining?' <span class="badge warn">📉 Declining</span>':''}</td>
       <td>${r.axiscare_client_id||'—'}</td>
       <td>${axCell(r)}</td>
-      <td>${(()=>{ const p=(DATA.client_profiles||[]).find(x=>x.id===cl360ProfileId(r)); return (p&&p.care_level)||'—'; })()}</td>
+      <td>${ccLevelChip(((CCLV.levels||{})[String(r.axiscare_client_id||'')]||{}).level)}</td>
       <td>${r.assessment?statusBadge(r.assessment.status):'<span class="badge muted">No assessment</span>'}</td>
       <td>${lastCheckin ? lastCheckin.checkin_date+' ('+'⭐'.repeat(lastCheckin.satisfaction_rating||0)+')' : '—'}</td>
       <td><button class="linklike" onclick="openClientHistory('${r.key.replace(/'/g,"\\'")}')">View History</button></td>
@@ -14988,7 +14989,7 @@ function cgdSkillsMerged(axid, legacy){
 function cgdLevelOf(classes){
   let best=null;
   for(const t of (classes||[])){ const m=String(t).toLowerCase().match(/level\s*([123])/);
-    const lv=m?+m[1]:/complex/i.test(t)?3:/personal\s*care/i.test(t)?2:/wellness/i.test(t)?1:null;
+    const lv=m?+m[1]:/complex|advanced\s*care/i.test(t)?3:/personal\s*care/i.test(t)?2:/wellness/i.test(t)?1:null;   // same rule as _shared/care-level.ts (Change 6b)
     if(lv!=null&&(best==null||lv>best)) best=lv; }
   return best;
 }
@@ -28684,6 +28685,12 @@ async function tbLinkPlan(planId,episodeId){
     if(!r.ok&&!o) throw new Error((d&&d.error)||('The link service answered '+r.status));
     TB.linkMsg=MSG[o]||('Not linked: '+(o||'unknown answer'));
     if(o==='linked'||o==='relinked'||o==='already_linked') TB.linkOpen=false;
+    /* Change 6b: a linked plan with no level takes the client's AxisCare level (shown; still editable) */
+    if(o==='linked'||o==='relinked'){
+      var p=tbPlans().find(function(x){ return x.id===planId; });
+      if(p&&!p.level){ try{ var lv=await ccLevelCall({action:'client',episode_id:episodeId});
+        if(lv&&lv.outcome==='ok'&&lv.level){ p.level=String(lv.level); await tbSave(p); TB.linkMsg+=' Level '+lv.level+' set from AxisCare.'; } }catch(e){} }
+    }
   }catch(e){ TB.linkMsg='Not linked: '+String(e.message||e); }
   await tbLoadJourneys(true);
 }
@@ -30480,6 +30487,39 @@ function renderCoverage(){
       :'');
 }
 
+/* ── Change 6b: AxisCare's class is the care level once someone is in care ──
+   One census read (care-level function), cached ten minutes. The intake
+   estimate and each review's level are history beside it, never the current
+   level. The hub's own Client 360 level picker is retired. */
+let CCLV={at:0,levels:null,loading:null};
+async function ccLevelsLoad(force){
+  if(!force&&CCLV.levels&&Date.now()-CCLV.at<600000) return CCLV.levels;
+  if(CCLV.loading) return CCLV.loading;
+  CCLV.loading=(async()=>{
+    try{ const d=await ccLevelCall({action:'levels'}); if(d&&d.levels){ CCLV.levels=d.levels; CCLV.at=Date.now(); } }catch(e){}
+    CCLV.loading=null; return CCLV.levels||{};
+  })();
+  return CCLV.loading;
+}
+async function ccLevelCall(body){
+  const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+  if(!tok) throw new Error('Sign in first.');
+  const r=await fetch(CONFIG.supabase_url+'/functions/v1/care-level',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>null); if(!d) throw new Error('The care level service answered '+r.status); return d;
+}
+const CCLV_NAMES={1:'Level 1 · Wellness',2:'Level 2 · Personal Care',3:'Level 3 · Advanced Care'};
+function ccLevelChip(lv){ if(!lv) return '<span class="field-note">—</span>';
+  const c={1:['#1E8449','#E7F5EC'],2:['#B45309','#FCEED6'],3:['#DC2626','#FDE8E8']}[lv]||['#555','#eee'];
+  return '<span style="font-size:.7rem;font-weight:800;color:'+c[0]+';background:'+c[1]+';border-radius:5px;padding:.12rem .45rem;white-space:nowrap">'+CCLV_NAMES[lv]+'</span>'; }
+/* "Update AxisCare's care level" (after a review found a different level): only the
+   level class changes; every payer class is kept; AxisCare is read back. */
+async function ccLevelSet(ax, level, clientName){
+  if(!confirm('Update '+(clientName||'this client')+'\'s care level in AxisCare to '+CCLV_NAMES[level]+'?\n\nOnly the level class changes. Payer and every other class stay exactly as they are, and AxisCare is read back.')) return null;
+  let out; try{ out=await ccLevelCall({action:'set',axiscare_client_id:String(ax),level:+level}); }catch(e){ out={error:String(e.message||e)}; }
+  if(out.outcome==='updated'||out.outcome==='already'){ if(CCLV.levels) CCLV.levels[String(ax)]=out.after||out; alert('AxisCare now shows '+CCLV_NAMES[level]+' for '+(clientName||'this client')+(out.kept_classes&&out.kept_classes.length?' (kept: '+out.kept_classes.join(', ')+')':'')+'.'); return out; }
+  alert(out.detail||out.error||('Not changed: '+out.outcome)); return out;
+}
+
 /* ── CLIENT 360: one client, the whole picture ───────────────────────────
    Reads the same records the other Client Care tabs own (roster, blurbs,
    check-ins, assessments, plans, coverage cases, nurse visits, circles) and
@@ -30567,7 +30607,7 @@ async function cl360RenderInto(r, out, px){
   const phone = r.phone || lead.phone || prof.phone || '';
 
   /* header */
-  let head = cl360Kv('Care level', esc(prof.care_level || '(not set)'))
+  let head = cl360Kv('Care level', '<span id="'+px+'cl360Lv">'+(axisId?'reading AxisCare…':'no AxisCare client yet')+'</span>')
     + cl360Kv('Phone', phone ? esc(phone) : '(none on file)')
     + cl360Kv('AxisCare', axisId
         ? esc(axisId)+' · <a href="https://16485.axiscare.com/?clients-profile.php&id='+esc(axisId)+'" target="_blank" rel="noopener">open in AxisCare ↗</a>'
@@ -30605,9 +30645,7 @@ async function cl360RenderInto(r, out, px){
       + (f[0]===px+'cp_pets'?noneBox(px+'cp_pets_none', prof.pets_none===true, 'Explicitly: no pets in the home (blank is not an answer)'):'')
       + (f[0]===px+'cp_entrance'?noneBox(px+'cp_ent_none', prof.entrance_none===true, 'Explicitly: no special entrance instructions'):'')
     ).join('')
-    + '<label style="font-size:12.5px;font-weight:700;color:var(--text-muted);display:block;margin:8px 0 3px;">Care level (1 wellness · 2 personal · 3 complex)</label>'
-    + '<select id="'+px+'cp_level" style="font-size:13px;"><option value="">not set</option>'
-    + ['Level 1','Level 2','Level 3'].map(l=>'<option'+(prof.care_level===l?' selected':'')+'>'+l+'</option>').join('')+'</select>'
+    + '<div class="field-note" style="margin:8px 0 3px;">Care level now comes from AxisCare (shown at the top). A care plan review can update it.'+(prof.care_level?' This profile once noted '+esc(prof.care_level)+'.':'')+'</div>'
     + '<div style="margin-top:10px;"><button class="secondary" onclick="cl360SaveProfile(&quot;'+px+'&quot;)">Save home & life</button> <span class="field-note" id="'+px+'cp_saved"></span></div>'
     + (prof.updated_at ? '<div class="field-note" style="margin-top:6px;">last saved '+esc(String(prof.updated_at).slice(0,10))+'</div>' : '');
 
@@ -30643,7 +30681,7 @@ async function cl360RenderInto(r, out, px){
     : '<div class="field-note">Nothing recorded yet.</div>';
 
   /* completeness: half-filled profiles should look half-filled */
-  const checks = [blurb, prof.care_level, prof.home_notes||prof.pets||prof.entrance, prof.life_story, a, p,
+  const checks = [blurb, ((CCLV.levels||{})[axisId]||{}).level, prof.home_notes||prof.pets||prof.entrance, prof.life_story, a, p,
     (r.checkins||[]).some(c=>String(c.checkin_date||'')>=new Date(Date.now()-30*864e5).toISOString().slice(0,10)), phone];
   const done = checks.filter(Boolean).length;
   const meter = '<div style="font-size:13px;margin-bottom:12px;">Profile completeness: <b>'+done+' of '+checks.length+'</b>'
@@ -30659,6 +30697,22 @@ async function cl360RenderInto(r, out, px){
     + '</div>';
   /* Step 4: the Journey history loads after paint and adds its events to the timeline */
   c360StartLoad(r, px, ev.slice());
+  /* Change 6b: the care level is AxisCare's; the intake estimate and the latest review sit beside it */
+  (async function(){
+    const el=document.getElementById(px+'cl360Lv'); if(!el) return;
+    const est=lead&&lead.level_estimate?+lead.level_estimate:null;
+    const revs=(DATA.care_plan_reviews||[]).filter(v=>v.kind==='review'&&axisId&&String(v.axiscare_client_id||'')===axisId).sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+    const rv=revs[0]||null;
+    let d=null; if(axisId){ try{ d=await ccLevelCall({action:'client',axiscare_client_id:axisId}); }catch(e){} }
+    const now=d&&d.outcome==='ok'?d.level:null;
+    const bits=[];
+    if(est) bits.push('intake estimate Level '+est);
+    if(rv) bits.push('last review Level '+rv.care_level+' ('+esc(String(rv.at).slice(0,10))+')');
+    const differs=now&&rv&&+rv.care_level!==now;
+    el.innerHTML=(axisId?(d&&d.outcome==='ok'?(now?ccLevelChip(now)+' <span class="field-note" style="font-size:11px;">from AxisCare class "'+esc(d.from||'')+'"</span>':'<span class="field-note">no level class in AxisCare</span>'):'<span class="field-note">could not read AxisCare</span>'):'<span class="field-note">no AxisCare client yet</span>')
+      +(bits.length?'<div class="field-note" style="font-size:11.5px;">'+bits.join(' · ')+'</div>':'')
+      +(differs?'<div style="font-size:12px;color:#92400E;">The last review found Level '+rv.care_level+'. <button class="linklike" style="font-size:12px;" onclick="ccLevelSet(\''+esc(axisId)+'\','+(+rv.care_level)+',\''+esc(String(name).replace(/'/g,''))+'\')">Update AxisCare\'s care level</button></div>':'');
+  })();
 
   /* circle loads after paint; its tables are not in the DATA blob */
   try{
@@ -30791,7 +30845,7 @@ async function cl360SaveProfile(px){
     pets: g('cp_pets').trim(), entrance: g('cp_entrance').trim(),
     pets_none: chk('cp_pets_none'), entrance_none: chk('cp_ent_none'),
     home_notes: g('cp_home').trim(), life_story: g('cp_life').trim(),
-    care_level: g('cp_level'),
+    care_level: prev.care_level || '',   // Change 6b: kept as history; AxisCare's class is the level
     updated_at: new Date().toISOString(), updated_by: (ME && ME.name) || '' };
   DATA.client_profiles = (DATA.client_profiles||[]).filter(p=>p.id!==item.id).concat([item]);
   persist('client_profiles', item);
@@ -30892,6 +30946,9 @@ function hwAskClient(v){
   HW_ASK.clientName=v;
   var hit=(HW_CLIENTS||[]).find(function(c){ return c.client_name===v; });
   HW_ASK.clientId=hit?String(hit.axiscare_client_id||''):'';
+  /* Change 6b: the level defaults to the client's AxisCare level instead of asking */
+  if(HW_ASK.clientId&&!HW_ASK.level){ ccLevelsLoad().then(function(L){ var lv=(L[HW_ASK.clientId]||{}).level;
+    if(lv&&!HW_ASK.level){ HW_ASK.level=String(lv); if(typeof hwAskRender==='function') hwAskRender(); } }); }
 }
 /* The client list comes from the Hub's own identity source, which is memoised
    for the session. It is what makes knows_client_visits populate at all: the
@@ -31838,6 +31895,13 @@ function renderNurseVisits(){
       findings, next_due:document.getElementById('cp-next-due').value, by };
     DATA.care_plan_reviews.push(rv);
     await persist('care_plan_reviews', rv);
+    /* Change 6b: AxisCare's class is the care level; a review that finds a different one offers the update */
+    if(rv.axiscare_client_id){
+      try{ const d=await ccLevelCall({action:'client',axiscare_client_id:rv.axiscare_client_id});
+        if(d&&d.outcome==='ok'&&d.level!==rv.care_level){ rv.axiscare_level_at_review=d.level; await persist('care_plan_reviews', rv);
+          await ccLevelSet(rv.axiscare_client_id, rv.care_level, name); }
+      }catch(e){}
+    }
     if(rv.changes_needed){
       if(rv.axiscare_client_id&&CONFIG.training_hub_key){
         try{
