@@ -662,6 +662,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
   /* ---- Lead profile page ---- */
   .profile-grid{display:grid;grid-template-columns:360px 1fr;gap:16px;align-items:start;}
+  .cp-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:14px;}
+  .cp-tab{background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;padding:8px 12px;font:inherit;font-size:13.5px;font-weight:700;color:var(--text-muted);cursor:pointer;}
+  .cp-tab.on{color:var(--navy);border-bottom-color:var(--teal);}
+  .cp-pane{display:none;} .cp-pane.on{display:block;}
   @media(max-width:960px){.profile-grid{grid-template-columns:1fr;}.lp-docslots{grid-template-columns:1fr !important;}}
   .lp-attr-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px dashed #FDE68A;font-size:13px;}
   .lp-attr-row:last-child{border-bottom:none;}
@@ -4912,10 +4916,30 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 </section>
 
 <section id="leadProfileView" style="display:none;">
-  <button class="linklike" style="font-size:13px;margin-bottom:12px;" onclick="closeLeadProfile()">← Back to Leads</button>
-  <div class="profile-grid">
-    <div><!-- LEFT COLUMN -->
-      <div class="card" style="padding:18px;margin-bottom:14px;">
+  <!-- ONE CLIENT PROFILE (2026-09-27, her ruling: "I want clients to have ONE profile", "sub tabs to
+       keep organized", full page). The lead page and Client 360 are the same page now: the inquiry's
+       sections (class cp-lead) show while there is a lead; the client's sections fill the cp_c_*
+       slots once they are a client. Every list in the hub opens this page (openClient). -->
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+    <button class="linklike" style="font-size:13px;" id="cpBack" onclick="closeLeadProfile()">← Back</button>
+    <h2 id="cpTitle" style="margin:0;font-size:22px;font-weight:800;color:var(--navy);"></h2>
+    <span id="cpChips" style="display:flex;gap:6px;flex-wrap:wrap;"></span>
+  </div>
+  <div id="cpTabs" class="cp-tabs">
+    <button type="button" class="cp-tab" data-cp="summary" onclick="cpShowTab('summary')">Summary</button>
+    <button type="button" class="cp-tab" data-cp="start" onclick="cpShowTab('start')">Start of Care</button>
+    <button type="button" class="cp-tab" data-cp="family" onclick="cpShowTab('family')">Family &amp; Contacts</button>
+    <button type="button" class="cp-tab" data-cp="care" onclick="cpShowTab('care')">Care</button>
+    <button type="button" class="cp-tab" data-cp="team" onclick="cpShowTab('team')">Team &amp; Schedule</button>
+    <button type="button" class="cp-tab" data-cp="checkins" onclick="cpShowTab('checkins')">Check-ins</button>
+    <button type="button" class="cp-tab" data-cp="payer" onclick="cpShowTab('payer')">Payer</button>
+    <button type="button" class="cp-tab" data-cp="home" onclick="cpShowTab('home')">Home &amp; Life</button>
+    <button type="button" class="cp-tab" data-cp="history" onclick="cpShowTab('history')">History &amp; Documents</button>
+  </div>
+  <div class="cp-pane" data-cp-pane="summary"><div class="profile-grid">
+    <div>
+<div class="cp-lead">
+      <div class="card" id="lp_head_card" style="padding:18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
           <select id="lp_status" onchange="lpSetStatus(this.value)" style="width:auto;font-weight:600;">
             <option>New</option><option>Contacted</option><option>Assessment Scheduled</option><option>Converted</option><option>Lost</option>
@@ -4957,19 +4981,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         </div>
         <div id="lp_converted" class="field-note" style="margin-top:8px;display:none;"></div>
       </div>
-
-      <!-- What has actually been said to this person. Used to mean leaving the
-           hub for GoHighLevel and searching their name, so nobody looked. -->
-      <div class="card" style="padding:18px;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <b style="font-size:14px;color:var(--navy);">💬 Texts &amp; emails</b>
-          <span class="field-note" id="gt_lp_meta"></span>
-          <button class="linklike" style="margin-left:auto;" onclick="ghlThread('gt_lp', {phone:(lpLead||{}).phone, email:(lpLead||{}).email})">↻ Load</button>
-          <a class="linklike" id="gt_lp_open" href="#" target="_blank" rel="noopener" style="display:none;">Open in GHL ↗</a>
-        </div>
-        <div id="gt_lp" style="margin-top:10px;"></div>
-      </div>
-
+</div>
+<div class="cp-lead">
       <div class="card" style="padding:18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <b style="font-size:14px;color:var(--navy);">✨ AI Needs Summary</b>
@@ -4978,7 +4991,13 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         <div id="lp_ai_summary" style="font-size:13px;line-height:1.6;margin-top:8px;color:var(--text);">No summary yet — click 🤖 Summarize and the AI reads the call notes.</div>
         <div id="lp_ai_flags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
       </div>
-
+</div>
+    </div>
+    <div><div id="cp_c_summary"></div></div>
+  </div></div>
+  <div class="cp-pane" data-cp-pane="start">
+    <div id="cp_start_note"></div>
+<div class="cp-lead">
       <!-- The Start Contract (2026-09-26, Step 1 of the Lead to Client Plan).
            It belongs to this inquiry's Journey, not to the lead; this card is
            one of the places to see and edit it. Reads the Journey tables,
@@ -4993,7 +5012,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         </div>
         <div id="lp_sc_body" style="margin-top:10px;"><div class="field-note">Loading…</div></div>
       </div>
-
+</div>
+<div class="cp-lead">
       <div class="card" style="padding:18px;margin-bottom:14px;border-color:#BBD3E8;" id="lp_soc_card">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <b style="font-size:14px;color:var(--navy);"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Start of Care</b>
@@ -5002,24 +5022,34 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         </div>
         <div id="lp_soc_body" style="margin-top:10px;"></div>
       </div>
-
+</div>
+    <div id="cp_c_start"></div>
+  </div>
+  <div class="cp-pane" data-cp-pane="family"><div class="profile-grid">
+    <div>
+<div class="cp-lead">
+      <!-- What has actually been said to this person. Used to mean leaving the
+           hub for GoHighLevel and searching their name, so nobody looked. -->
+      <div class="card" style="padding:18px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="font-size:14px;color:var(--navy);">💬 Texts &amp; emails</b>
+          <span class="field-note" id="gt_lp_meta"></span>
+          <button class="linklike" style="margin-left:auto;" onclick="ghlThread('gt_lp', {phone:(lpLead||{}).phone, email:(lpLead||{}).email})">↻ Load</button>
+          <a class="linklike" id="gt_lp_open" href="#" target="_blank" rel="noopener" style="display:none;">Open in GHL ↗</a>
+        </div>
+        <div id="gt_lp" style="margin-top:10px;"></div>
+      </div>
+</div>
+<div class="cp-lead">
       <div class="card" style="padding:18px;margin-bottom:14px;">
         <b style="font-size:14px;color:var(--navy);">🌱 Nurture (runs by itself)</b>
         <div id="lp_nurture" style="margin-top:8px;font-size:13px;"></div>
       </div>
-
-      <div class="card" style="padding:18px;margin-bottom:14px;background:#FFFDF5;border-color:#FDE68A;">
-        <b style="font-size:14px;color:var(--navy);">📋 AxisCare Attributes (client)</b>
-        <div class="field-note" style="margin:4px 0 10px;">AxisCare's API can't set attributes — answer here, then copy the checklist and click down AxisCare's Attributes screen in the same order.</div>
-        <div id="lp_attrs"></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
-          <button class="secondary" onclick="lpCopyAttrs()">📋 Copy checklist</button>
-          <span id="lp_attr_entered"></span>
-        </div>
-      </div>
+</div>
+      <div id="cp_c_family"></div>
     </div>
-
-    <div><!-- RIGHT COLUMN -->
+    <div>
+<div class="cp-lead">
       <div class="card" style="padding:18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <b style="font-size:16px;color:var(--navy);">Communications</b>
@@ -5053,7 +5083,31 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           </details>
         </div>
       </div>
-
+</div>
+    </div>
+  </div></div>
+  <div class="cp-pane" data-cp-pane="care"><div id="cp_c_care"></div></div>
+  <div class="cp-pane" data-cp-pane="team"><div id="cp_c_team"></div></div>
+  <div class="cp-pane" data-cp-pane="checkins"><div id="cp_checkins"></div></div>
+  <div class="cp-pane" data-cp-pane="payer"><div id="cp_payer"></div></div>
+  <div class="cp-pane" data-cp-pane="home">
+    <div id="cp_c_home"></div>
+<div class="cp-lead">
+      <div class="card" style="padding:18px;margin-bottom:14px;background:#FFFDF5;border-color:#FDE68A;">
+        <b style="font-size:14px;color:var(--navy);">📋 AxisCare Attributes (client)</b>
+        <div class="field-note" style="margin:4px 0 10px;">AxisCare's API can't set attributes — answer here, then copy the checklist and click down AxisCare's Attributes screen in the same order.</div>
+        <div id="lp_attrs"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
+          <button class="secondary" onclick="lpCopyAttrs()">📋 Copy checklist</button>
+          <span id="lp_attr_entered"></span>
+        </div>
+      </div>
+</div>
+  </div>
+  <div class="cp-pane" data-cp-pane="history"><div class="profile-grid">
+    <div><div id="cp_c_history"></div></div>
+    <div>
+<div class="cp-lead">
       <div class="card" style="padding:18px;">
         <b style="font-size:16px;color:var(--navy);">Documents</b>
         <div class="field-note" style="margin:4px 0 12px;">Stored securely on this lead's record. (AxisCare's API can't receive documents — attach there by hand if a copy is needed in AxisCare too.)</div>
@@ -5072,8 +5126,9 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         </label>
         <div id="lp_docs" style="margin-top:12px;"></div>
       </div>
+</div>
     </div>
-  </div>
+  </div></div>
 </section>
 
 <!-- ===================== TAB: PLAYBOOK ===================== -->
@@ -8896,8 +8951,7 @@ async function lpArchiveLead(){
     L.archived=true; L.archived_at=new Date().toISOString(); L.archived_by=ME.email||'';
     if(why) L.archive_reason=why;
     await persist('leads', L);
-    const panel=document.getElementById('leadProfile'); if(panel) panel.style.display='none';
-    lpLead=null; renderActiveTab();
+    lpLead=null; closeLeadProfile();
   };
 }
 async function lpRestoreLead(){
@@ -8973,8 +9027,7 @@ async function lpMarkDuplicate(){
     L.archived=true; L.archived_at=new Date().toISOString(); L.archived_by=ME.email||'';
     L.archive_reason='Duplicate'; L.duplicate_of=keep;
     await persist('leads', L);
-    const panel=document.getElementById('leadProfile'); if(panel) panel.style.display='none';
-    lpLead=null; renderActiveTab();
+    lpLead=null; closeLeadProfile();
   };
 }
 
@@ -9032,31 +9085,122 @@ async function lpDeleteLead(){
     DATA.leads=(DATA.leads||[]).filter(x=>x.id!==L.id);
     await removeItem('leads', L.id);
     lpLead=null;
-    const panel=document.getElementById('leadProfile');
-    if(panel) panel.style.display='none';
-    renderActiveTab();
+    closeLeadProfile();
   };
 }
 
-function openLeadProfile(id){
-  const lead = DATA.leads.find(l=>l.id===id);
-  if(!lead) return;
-  lpLead = lead;
-  lpCommsKind = 'all';
+/* ── ONE CLIENT PROFILE (One profile, step 1, 2026-09-27) ────────────────────
+   Her ruling: ONE profile per client, sub-tabs, full page. openClient() opens it from anything:
+   a lead id (an inquiry), an AxisCare id or a Client 360 roster row (a client). While there is an
+   inquiry its sections show; once someone has CONFIRMED who they are (the Journey connection) the
+   client's sections fill the same page. A lead that only carries an AxisCare id is never treated
+   as the client (identity is a person's decision). */
+const CP={ tab:'summary', returnTab:null, r:null, lead:null, ax:'' };
+function cpShowTab(t){
+  const ok=[...document.querySelectorAll('#leadProfileView .cp-pane')].some(p=>p.dataset.cpPane===t);
+  CP.tab=ok?t:'summary';
+  document.querySelectorAll('#leadProfileView .cp-pane').forEach(p=>p.classList.toggle('on',p.dataset.cpPane===CP.tab));
+  document.querySelectorAll('#cpTabs .cp-tab').forEach(b=>b.classList.toggle('on',b.dataset.cp===CP.tab));
+}
+function cpLeadClientName(l){
+  if(!l) return '';
+  const c=!l.client_name_not_provided&&(l.client_first_name||l.client_last_name)?((l.client_first_name||'')+' '+(l.client_last_name||'')).trim():'';
+  return c||((l.first_name||'')+' '+(l.last_name||'')).trim()||'(no name)';
+}
+async function openClient(seed, tab){
+  seed=seed||{};
+  const view=document.getElementById('leadProfileView'); if(!view) return;
+  if(view.style.display!=='block') CP.returnTab=(typeof activeTab!=='undefined'&&activeTab)?activeTab:'leads';
+  let lead=seed.lead_id?(DATA.leads||[]).find(l=>l.id===seed.lead_id)||null:null;
+  let r=seed.r||null, ax=String(seed.ax||(r&&r.axiscare_client_id)||'').trim(), carrier=null;
+  try{
+    if(lead&&!ax){ const f=await famResolve({ lead_id:lead.id }); if(f.lead_confirmed&&f.ax) ax=f.ax; }
+    if(ax&&!lead){ const f=await famResolve({ ax }); if(f.lead_confirmed&&f.lead) lead=(DATA.leads||[]).find(l=>l.id===f.lead.id)||null; else if(f.lead) carrier=f.lead; }
+  }catch(e){ /* links are a convenience; the page still opens */ }
+  const roster=await cl360Roster();
+  if(!r&&ax) r=roster.find(x=>String(x.axiscare_client_id||'')===ax)||null;
+  if(!r&&!ax&&lead) r=roster.find(x=>x.lead&&x.lead.id===lead.id&&!x.axiscare_client_id)||null;
+  if(!r&&ax) r={ client_name:cpLeadClientName(lead)||('AxisCare client #'+ax), axiscare_client_id:ax, lead:lead||null, assessment:null, plan:null, checkins:[], phone:'', ghl_contact_id:'' };
+  CP.lead=lead; CP.r=r; CP.ax=ax; lpLead=lead;
   document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
-  document.getElementById('leadProfileView').style.display='block';
-  renderLeadProfile();
-  initCommsPanel(lead);
-  document.querySelectorAll('#commsTabs .filter-pill').forEach(b=>b.classList.toggle('active', b.dataset.cf==='all'));
+  view.style.display='block';
+  const esc=escapeHtmlComms;
+  document.getElementById('cpTitle').textContent=r?r.client_name:cpLeadClientName(lead);
+  const chip=(t,bg,fg)=>'<span style="font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:'+bg+';color:'+fg+';">'+esc(t)+'</span>';
+  document.getElementById('cpChips').innerHTML=
+    (ax?chip('AxisCare #'+ax,'#E4F2F0','#0F5E73'):chip('Inquiry'+(lead&&lead.status?' · '+lead.status:''),'#FFF4E3','#92400E'))
+    +(r&&r.role_status&&r.role_status!=='active'?chip('Past client','#F1F5F9','#475569'):'');
+  document.querySelectorAll('#leadProfileView .cp-lead').forEach(e=>{ e.style.display=lead?'':'none'; });
+  document.getElementById('cp_start_note').innerHTML=(!lead&&carrier)
+    ? '<div class="card" style="padding:12px 16px;margin-bottom:12px;font-size:13px;background:#FFFBF4;border-color:#F3D9B5;">An inquiry carries this AxisCare id, but nobody has confirmed they are the same family. <button class="linklike" onclick="openClient({lead_id:\''+esc(carrier.id)+'\'},\'start\')">Open the inquiry to check and connect</button></div>'
+    : (!lead&&r?'<div class="field-note" style="margin-bottom:10px;">No inquiry is connected to this client.</div>':'');
+  if(lead){
+    lpCommsKind='all';
+    renderLeadProfile();
+    initCommsPanel(lead);
+    document.querySelectorAll('#commsTabs .filter-pill').forEach(b=>b.classList.toggle('active', b.dataset.cf==='all'));
+  }
+  const slots=['summary','start','family','care','team','home','history'];
+  const panes={ noFam:!!lead }; slots.forEach(k=>{ panes[k]=document.getElementById('cp_c_'+k); if(panes[k]) panes[k].innerHTML=''; });
+  if(r) await cl360RenderInto(r, null, 'cp_', panes);
+  else {
+    const note='<div class="card" style="padding:12px 16px;margin-bottom:12px;font-size:13px;color:var(--text-muted);">These fill in once they are a client (converted to AxisCare, or confirmed on the Journey).</div>';
+    ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
+  }
+  cpRenderCheckins(); cpRenderPayer();
+  cpShowTab(tab||'summary');
   window.scrollTo(0,0);
 }
+function openLeadProfile(id, tab){
+  if(!(DATA.leads||[]).find(l=>l.id===id)) return;
+  return openClient({ lead_id:id }, tab);
+}
 function closeLeadProfile(){
-  lpLead = null;
+  lpLead = null; CP.lead=null; CP.r=null;
   document.getElementById('leadProfileView').style.display='none';
-  const btn = document.querySelector('nav.tabs button[data-tab="leads"]');
-  if(btn) btn.classList.add('active');
-  switchTab('leads');
+  const back=CP.returnTab||'leads'; CP.returnTab=null;
+  switchTab(back);
+}
+/* Check-ins tab: this client's monthly check-ins (by AxisCare id), opened in the usual form */
+function cpRenderCheckins(){
+  const box=document.getElementById('cp_checkins'); if(!box) return;
+  const esc=escapeHtmlComms, ax=CP.ax;
+  const rows=ax?(DATA.client_checkins||[]).filter(c=>c.client_name&&String(c.axiscare_client_id||'')===ax)
+    .sort((a,b)=>String(b.checkin_date||'').localeCompare(String(a.checkin_date||''))):[];
+  box.innerHTML='<div class="card" style="padding:14px 18px;">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><b style="font-size:15px;color:var(--navy);">Monthly check-ins</b><span style="flex:1;"></span>'
+    +(ax?'<button class="secondary" onclick="cpNewCheckin()">＋ Log a check-in</button>':'')+'</div>'
+    +(!ax?'<div class="field-note">Check-ins start once they are an AxisCare client.</div>'
+      :rows.length?rows.map(c=>'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);font-size:13px;">'
+        +'<b>'+esc(c.checkin_date||'')+'</b><span class="field-note">'+esc(c.method||'')+(c.coordinator?' · '+esc(c.coordinator):'')+'</span>'
+        +(c.satisfaction_rating?'<span>'+'⭐'.repeat(Math.max(0,Math.min(5,+c.satisfaction_rating)))+'</span>':'')
+        +(c.escalated?'<b style="color:var(--red);">escalated</b>':'')
+        +'<span class="field-note">next due '+esc(c.next_checkin_due||'?')+'</span><span style="flex:1;"></span>'
+        +'<button class="linklike" onclick="openCheckinModal(\''+esc(c.id)+'\')">open</button></div>').join('')
+      :'<div class="field-note">No check-ins yet.</div>')
+    +'</div>';
+}
+function cpNewCheckin(){
+  openCheckinModal(null);
+  const r=CP.r; if(!r||!CP.ax) return;
+  document.getElementById('checkin_client_name').value=r.client_name;
+  document.getElementById('checkin_axiscare_client_id').value=CP.ax;
+  const pk=document.getElementById('checkin_client_pick'); if(pk){ pk.value=ccPickLabelFor(r.client_name, CP.ax); pk.dataset.orig=pk.value; }
+}
+/* Payer tab: what the intake recorded (edited in the intake form for now) */
+function cpRenderPayer(){
+  const box=document.getElementById('cp_payer'); if(!box) return;
+  const esc=escapeHtmlComms, l=CP.lead;
+  const kv=(k,v)=>'<div style="display:flex;gap:10px;font-size:13.5px;padding:3px 0;"><span style="min-width:170px;color:var(--text-muted);font-weight:600;">'+k+'</span><span>'+(v?esc(v):'<span class="field-note">not recorded</span>')+'</span></div>';
+  box.innerHTML='<div class="card" style="padding:14px 18px;">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><b style="font-size:15px;color:var(--navy);">Payer</b><span style="flex:1;"></span>'
+    +(l?'<button class="secondary" onclick="openLeadModal(\''+esc(l.id)+'\')">✏️ Edit in the intake form</button>':'')+'</div>'
+    +(l?kv('Payer',l.funding_source)+kv('Medicaid DCN',l.dcn)+kv('County',l.county)
+        +kv('State submitted',l.state_submitted)+kv('State status',l.state_status)
+        +kv('Quoted price',l.price_quoted?(l.quoted_price_amount||'quoted, amount not recorded'):'')
+      :'<div class="field-note">No inquiry is connected, so there is no intake payer record. AxisCare holds this client\'s billing.</div>')
+    +'</div>';
 }
 function renderLeadProfile(){
   const l = lpLead; if(!l) return;
@@ -10673,7 +10817,7 @@ function cqfSection(c){
     if(i.carrier){
       var cn=[i.carrier.client_first_name,i.carrier.client_last_name].filter(Boolean).join(' ')||[i.carrier.first_name,i.carrier.last_name].filter(Boolean).join(' ');
       el.innerHTML=h+'<div style="font-size:.78rem;background:#FFFBF4;border:1px solid #F3D9B5;border-radius:6px;padding:.4rem .6rem;">The lead <b>'+esc(cn)+'</b> carries this AxisCare id, but nobody has confirmed they are the same person yet. '
-        +'<button class="linklike" style="font-size:.76rem" onclick="event.stopPropagation();openLeadProfile(\''+esc(i.carrier.id)+'\')">Open the lead to check and connect</button></div>';
+        +'<button class="linklike" style="font-size:.76rem" onclick="event.stopPropagation();openLeadProfile(\''+esc(i.carrier.id)+'\',\'start\')">Open the lead to check and connect</button></div>';
       return;
     }
     el.innerHTML=h+'<div style="font-size:.78rem;background:#FFFBF4;border:1px solid #F3D9B5;border-radius:6px;padding:.4rem .6rem;"><b>Who is this?</b> AxisCare client #'+esc(i.ax)+' hasn\'t been matched to a person yet'
@@ -15586,7 +15730,7 @@ function renderSocTab(){
       +'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">'+esc((SOC_PATHWAYS[soc.pathway]||{}).label||soc.pathway)+'</span>'
       +'<span style="flex:1;"></span>'
       +'<span class="field-note">'+done+'/'+total+'</span>'
-      +'<button class="linklike" onclick="openLeadProfile(\''+l.id+'\')">Open</button>'
+      +'<button class="linklike" onclick="openLeadProfile(\''+l.id+'\',\'start\')">Open</button>'
       +'</div>'
       +'<div style="height:5px;background:#faf9f6;border-radius:99px;overflow:hidden;margin:8px 0;"><i style="display:block;height:100%;width:'+Math.round(total?done/total*100:0)+'%;background:'+(stuck?'var(--red)':'var(--green)')+';"></i></div>'
       +(cur
@@ -27293,7 +27437,7 @@ function renderMgrStrip(){
   if(wuPending.length)
     rows.push(['📝',wuPending.length+' write-up'+(wuPending.length===1?'':'s')+' awaiting your approval'+(wuPending.some(a=>a.level==='Termination Review')?' — <b style="color:var(--red);">including a termination review</b>':''),'var d=document.getElementById(\'approvalsDetails\');if(d)d.open=true;d&&d.scrollIntoView({behavior:\'smooth\'})']);
   DATA.leads.filter(l=>l.soc&&socCurrentStep(l.soc)&&socIsStuck(l.soc)).forEach(l=>
-    rows.push(['🏥',esc((l.first_name||'')+' '+(l.last_name||''))+' — Start of Care stuck '+socWaitingDays(l.soc)+' days on: '+esc(socCurrentStep(l.soc).label),'openLeadProfile(\''+l.id+'\')']));
+    rows.push(['🏥',esc((l.first_name||'')+' '+(l.last_name||''))+' — Start of Care stuck '+socWaitingDays(l.soc)+' days on: '+esc(socCurrentStep(l.soc).label),'openLeadProfile(\''+l.id+'\',\'start\')']));
   const fourHrs=new Date(Date.now()-4*3600000).toISOString();
   DATA.leads.filter(l=>l.status==='New'&&!l.follow_up_due&&(l.created_at||'')<fourHrs).forEach(l=>
     rows.push(['🆕',esc((l.first_name||'')+' '+(l.last_name||''))+' — new lead, no one has set a next step ('+new Date(l.created_at).toLocaleString('en-US',{weekday:'short',hour:'numeric'})+')','openLeadProfile(\''+l.id+'\')']));
@@ -30511,8 +30655,11 @@ function cl360Kv(k, v){
 /* px keeps ids unique when the same profile renders in the slide-over while
    the tab also holds one. */
 let CL360_CURRENT = {};
-async function cl360RenderInto(r, out, px){
+async function cl360RenderInto(r, out, px, panes){
   const esc = escapeHtmlComms;
+  /* the Save / Add buttons look the client up here; nothing ever set it (Home & life "Save" and the
+     call-in plan "Add an update" silently did nothing since 2026-09-13). One profile, step 1. */
+  CL360_CURRENT[px] = r;
   const name = r.client_name, first = name.split(/\s+/)[0].toLowerCase();
   const axisId = String(r.axiscare_client_id||'');
   const blurb = (DATA.client_care_blurbs||[]).find(b=>axisId && String(b.id)===axisId);
@@ -30601,19 +30748,32 @@ async function cl360RenderInto(r, out, px){
     + ' <span style="display:inline-block;width:120px;height:8px;background:var(--border);border-radius:99px;vertical-align:middle;margin-left:6px;">'
     + '<span style="display:block;width:'+Math.round(done/checks.length*100)+'%;height:8px;background:var(--teal);border-radius:99px;"></span></span></div>';
 
-  out.innerHTML = '<div style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:4px;">'+esc(name)+'</div>'
+  const SEC = {
+    who: cl360Card('Who they are', head),
+    care: cl360Card('Care picture', care + cl360Kv('Coverage', esc(covLine))),
+    home: cl360Card('🏠 Home & life <span class="field-note" style="font-weight:400;">typed once, gold for fill-ins</span>', home),
+    callin: cl360Card('📞 When a caregiver calls in <span class="field-note" style="font-weight:400;">every entry kept, with who told us</span>', '<div id="'+px+'cl360Callin"><div class="field-note">Loading…</div></div>'),
+    start: cl360Card('Their start', '<div id="'+px+'cl360Start"><div class="field-note">Loading…</div></div>'),
+    circle: cl360Card('👨‍👩‍👧 Care circle', '<div id="'+px+'cl360Circle">'+circleHtml+'</div>'),
+    timeline: cl360Card('📜 Timeline', '<div id="'+px+'cl360Tl">'+tl+'</div>'),
+  };
+  if(panes){
+    /* the one client profile: each section in its tab (One profile, step 1) */
+    const put=(k,html)=>{ if(panes[k]) panes[k].innerHTML=html; };
+    put('summary', (panes.noFam?'':'<div id="'+px+'famC"></div>') + meter + SEC.who);
+    put('care', SEC.care); put('home', SEC.home); put('team', SEC.callin);
+    put('start', SEC.start); put('family', SEC.circle); put('history', SEC.timeline);
+  } else out.innerHTML = '<div style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:4px;">'+esc(name)+'</div>'
     + '<div id="'+px+'famC"></div>'
     + meter
     + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start;">'
-    + '<div>' + cl360Card('Who they are', head) + cl360Card('Care picture', care + cl360Kv('Coverage', esc(covLine))) + cl360Card('🏠 Home & life <span class="field-note" style="font-weight:400;">typed once, gold for fill-ins</span>', home)
-      + cl360Card('📞 When a caregiver calls in <span class="field-note" style="font-weight:400;">every entry kept, with who told us</span>', '<div id="'+px+'cl360Callin"><div class="field-note">Loading…</div></div>') + '</div>'
-    + '<div>' + cl360Card('Their start', '<div id="'+px+'cl360Start"><div class="field-note">Loading…</div></div>')
-    + cl360Card('👨‍👩‍👧 Care circle', '<div id="'+px+'cl360Circle">'+circleHtml+'</div>') + cl360Card('📜 Timeline', '<div id="'+px+'cl360Tl">'+tl+'</div>') + '</div>'
+    + '<div>' + SEC.who + SEC.care + SEC.home + SEC.callin + '</div>'
+    + '<div>' + SEC.start + SEC.circle + SEC.timeline + '</div>'
     + '</div>';
   /* Step 4: the Journey history loads after paint and adds its events to the timeline */
   c360StartLoad(r, px, ev.slice());
   cipProfileLoad(r, px);
-  famMount(px+'famC', axisId ? { ax:axisId } : { lead_id:(r.lead&&r.lead.id)||'' }, 'client');
+  if(!(panes&&panes.noFam)) famMount(px+'famC', axisId ? { ax:axisId } : { lead_id:(r.lead&&r.lead.id)||'' }, 'client');
   /* Change 6b: the care level is AxisCare's; the intake estimate and the latest review sit beside it */
   (async function(){
     const el=document.getElementById(px+'cl360Lv'); if(!el) return;
@@ -31043,7 +31203,9 @@ async function openClientProfile(ref){
   }
   if(!r){ body.innerHTML = '<div class="field-note">No profile found for "'+escapeHtmlComms(String(ref))+'". They may not be an active client.</div>'; PD_R=null; return; }
   PD_R = r;
-  await cl360RenderInto(r, body, 'pd_');
+  /* One profile (step 1): a client name opens the full-page profile, not the slide-over */
+  wrap.style.display = 'none';
+  await openClient({ r, ax:r.axiscare_client_id||'' });
 }
 function pdClose(){ const w=document.getElementById('pdWrap'); if(w) w.style.display='none'; }
 /* Deep links land on the FULL caregiver profile (Caregiver 360 retired,
@@ -32528,7 +32690,7 @@ window.covLoadShifts=function(){};
       +(c.axiscare_client_id?'<div style="font-size:.68rem;color:var(--text-muted);margin-bottom:.5rem">AxisCare ID: '+E(c.axiscare_client_id)+'</div>':'')
       +((window.CQ_SUGGEST||{})[c.id]?(()=>{ const sl=(DATA.leads||[]).find(x=>x.id===window.CQ_SUGGEST[c.id]); if(!sl) return '';
           return '<div style="font-size:.74rem;margin-bottom:.6rem;background:#FFFBF4;border:1px solid #F3D9B5;border-radius:6px;padding:.35rem .55rem">Possible lead: <b>'+E([sl.client_first_name,sl.client_last_name].filter(Boolean).join(' ')||[sl.first_name,sl.last_name].filter(Boolean).join(' '))+'</b> has the same name. Nothing is linked until a person checks. '
-            +'<button class="linklike" style="font-size:.74rem" onclick="event.stopPropagation();openLeadProfile(\''+E(sl.id)+'\')">Open the lead to check</button></div>'; })():'')
+            +'<button class="linklike" style="font-size:.74rem" onclick="event.stopPropagation();openLeadProfile(\''+E(sl.id)+'\',\'start\')">Open the lead to check</button></div>'; })():'')
       +'<div style="display:flex;flex-direction:column;gap:.5rem">'
       +STEPS.map(s=>{
         const done=!!c[s.f], gated=s.needs&&!c[s.needs];
