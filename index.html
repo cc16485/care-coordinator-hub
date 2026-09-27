@@ -994,9 +994,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- THE CARE TEAM BUILDER (2026-09-19, her ask: "an actual interactive
            thing… instead of writing it out on paper"). A week grid of shifts
            per new client: pencil caregivers in as you call, mark asked /
-           confirmed / declined, move people freely — NOTHING touches
-           AxisCare until the whole puzzle is pieced together and a human
-           enters it there. Plans live in shared app_data staffing_plans so
+           confirmed / declined, move people freely. NOTHING touches
+           AxisCare until the whole puzzle is pieced together and a person
+           confirms the schedules in the preview (Change 4, schedule-push). Plans live in shared app_data staffing_plans so
            the whole office sees the same board. -->
       <div id="swBuilderWrap" style="display:none;"><div id="tbRoot"><div class="field-note">Loading…</div></div></div>
 
@@ -28682,7 +28682,8 @@ function tbBoardHtml(plan){
     +'<div class="card" style="padding:8px;overflow-x:auto;">'+grid+'</div>'
     +(teamRows?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span class="field-note" style="font-weight:700;">The team so far:</span>'+teamRows+'</div>':'')
     +'<div id="tbAssign" style="margin-top:10px;">'+(TB.cellOpen?tbAssignHtml(plan,TB.cellOpen):'<div class="field-note">Click any cell to pencil someone in. Click a filled cell to update or move them.</div>')+'</div>'
-    +'<div class="field-note" style="margin-top:8px;">Nothing here touches AxisCare. When every cell is green, enter the finished schedule there.</div>'
+    +'<div class="field-note" style="margin-top:8px;">Nothing here touches AxisCare until the plan is complete and you confirm its schedules in the preview.</div>'
+    +(plan.axiscare_push&&(plan.axiscare_push.created||[]).length?'<div class="field-note" style="margin-top:4px;color:var(--teal);">Sent to AxisCare '+esc(lpscDate(String(plan.axiscare_push.at).slice(0,10)))+' by '+esc(lpscName(plan.axiscare_push.by))+' ('+plan.axiscare_push.created.length+' schedule'+(plan.axiscare_push.created.length===1?'':'s')+'). <button class="linklike" style="font-size:12px;" onclick="tbComplete()">Open</button></div>':'')
     +tbNotesHtml(plan);
 }
 /* Shared, append-only notes on a plan — the whole office collaborates here
@@ -28770,16 +28771,21 @@ function tbAssignHtml(plan,key){
       return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
         +'<b style="min-width:130px;">'+esc(x.cg.name)+'</b>'
         +'<span class="field-note" style="flex:1;">'+flags.join(' · ')+'</span>'
-        +'<button class="cara-btn" style="font-size:11.5px;" onclick="tbAssign(\''+esc(key)+'\','+"'"+esc(String(x.cg.name)).replace(/'/g,"\\'")+"'"+')">Pencil in</button>'
+        +'<button class="cara-btn" style="font-size:11.5px;" onclick="tbAssign(\''+esc(key)+'\','+"'"+esc(String(x.cg.name)).replace(/'/g,"\\'")+"'"+',\''+esc(String(x.cg.axiscare_id||''))+'\')">Pencil in</button>'
         +'</div>';
     }).join('')+'</div>';
 }
 async function tbSave(plan){ await persist('staffing_plans',plan); }
-async function tbAssign(key,name){
+async function tbAssign(key,name,axId){
   var plan=tbPlan(); if(!plan) return;
   plan.cells=plan.cells||{};
+  /* Change 4: keep the caregiver's AxisCare id with the name, so the finished
+     plan can become AxisCare schedules without guessing from a name */
+  var cgx=axId?{axiscare_id:axId}:(Array.isArray(TB.pool)?TB.pool.filter(function(x){ return x&&x.name===name; }):[]);
+  if(Array.isArray(cgx)) cgx=cgx.length===1?cgx[0]:null;   // a shared name without an id is never guessed
   plan.cells[key]={name:name,status:'penciled',at:new Date().toISOString(),
     by:(typeof ME!=='undefined'&&(ME.name||ME.email))||''};
+  if(cgx&&cgx.axiscare_id) plan.cells[key].cg_ax_id=String(cgx.axiscare_id);
   await tbSave(plan); tbRender();
 }
 async function tbSet(key,status){
@@ -28807,19 +28813,96 @@ async function tbFlagGaps(){
   await persist('ops_items',item);
   alert('📌 Flagged to the Operations Inbox with the exact hours and area:\n\n'+gaps.join('\n'));
 }
+/* Change 4 (2026-09-27): "Plan complete" opens a preview of the AxisCare
+   schedules this plan becomes (one per caregiver and shift, days grouped).
+   "Create in AxisCare" is the one confirmation; schedule-push creates each on
+   its own, reads AxisCare back, and offers a same-day undo. Billing setup in
+   AxisCare comes first: AxisCare only accepts a service set up for the client. */
+async function spCall(body){
+  var sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+  if(!tok) throw new Error('Sign in first.');
+  var r=await fetch(CONFIG.supabase_url+'/functions/v1/schedule-push',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  var d=await r.json().catch(function(){ return null; }); if(!d) throw new Error('The schedule service answered '+r.status); return d;
+}
+function spDays(days){ return (days||[]).map(function(d){ return String(d).slice(0,3); }).join(', '); }
 async function tbComplete(){
   var plan=tbPlan(); if(!plan) return;
-  var lines=[];
-  (plan.slots||[]).forEach(function(s){
-    (plan.days||[]).forEach(function(d){
-      var c=(plan.cells||{})[tbCellKey(d,s.k)];
-      if(c&&c.status==='yes') lines.push(TB_DAYL[d]+' '+tbT12(s.start)+'–'+tbT12(s.end)+': '+c.name);
-    });
-  });
-  plan.status='done'; plan.completed_at=new Date().toISOString();
-  await tbSave(plan);
-  alert('🎉 The '+plan.client+' care team is pieced together:\n\n'+lines.join('\n')+'\n\nNow enter it in AxisCare — this board never writes there itself.');
-  tbRender(); swRenderBar();
+  var esc=escapeHtmlComms;
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:760px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:17px;">'+esc(plan.client)+'\'s schedules in AxisCare</div><div id="spBody" style="margin-top:10px;"><div class="field-note">Reading AxisCare…</div></div></div>';
+  document.body.appendChild(ov);
+  var body=ov.querySelector('#spBody'), close=function(){ ov.remove(); tbRender(); swRenderBar(); };
+  var closeBtn='<button class="secondary" id="spX">Close</button>', wire=function(){ var x=ov.querySelector('#spX'); if(x) x.onclick=close; };
+  var pv; try{ pv=await spCall({action:'preview',plan_id:plan.id}); }catch(e){ pv={error:String(e.message||e)}; }
+  if(pv.error){ body.innerHTML='<div>'+esc(pv.error)+'</div><div style="margin-top:12px;">'+closeBtn+'</div>'; wire(); return; }
+  var today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date());
+  var box=function(bg,bd,col,html){ return '<div style="background:'+bg+';border:1px solid '+bd+';border-radius:8px;padding:8px 10px;margin-top:10px;font-size:13px;color:'+col+';">'+html+'</div>'; };
+  var h='';
+  if(pv.client) h+='<div style="font-size:13px;color:var(--text-muted);">AxisCare client <b style="color:var(--navy);">'+esc(pv.client.name||'')+'</b> #'+esc(pv.client.axiscare_client_id)+'</div>';
+  if(pv.problems&&pv.problems.length) h+=box('#FDECEA','#F5C2BC','#8A1F17',pv.problems.map(esc).join('<br>'));
+  if(pv.already_pushed&&(pv.already_pushed.created||[]).length) h+=box('#E4F2F0','#BFE3DE','var(--navy)','Already sent to AxisCare on '+esc(lpscDate(String(pv.already_pushed.at).slice(0,10)))+' by '+esc(lpscName(pv.already_pushed.by))+'.');
+  h+='<table style="width:100%;border-collapse:collapse;font-size:13.5px;margin-top:10px;border:1px solid var(--border);">'
+    +'<thead><tr style="background:#FAF9F6;"><th style="text-align:left;padding:5px 8px;">Caregiver</th><th style="text-align:left;padding:5px 8px;">Days</th><th style="text-align:left;padding:5px 8px;">Hours</th><th style="text-align:left;padding:5px 8px;"></th></tr></thead><tbody>'
+    +(pv.schedules||[]).map(function(x){ return '<tr style="border-top:1px solid var(--border);"><td style="padding:5px 8px;font-weight:600;">'+esc(x.caregiver)+'</td><td style="padding:5px 8px;">'+esc(spDays(x.days))+'</td>'
+      +'<td style="padding:5px 8px;">'+esc(tbT12(x.start)+'–'+tbT12(x.end))+(x.overnight?' <span class="field-note">overnight</span>':'')+'</td>'
+      +'<td style="padding:5px 8px;font-size:12px;">'+(x.already?'<span style="color:var(--teal);">already in AxisCare, skipped</span>':x.partly?'<span style="color:#92400E;">partly in AxisCare already; check before creating</span>':'will be created')+'</td></tr>'; }).join('')
+    +'</tbody></table>';
+  if((pv.blocked||[]).length) h+=box('#FFF7ED','#FCD9A8','#92400E','<b>Not sent</b> (fix on the board, or enter by hand):<br>'+pv.blocked.map(function(x){ return esc(x.day+' '+x.slot+': '+x.why); }).join('<br>'));
+  if((pv.unconfirmed||[]).length) h+=box('#FFF7ED','#FCD9A8','#92400E','<b>Not confirmed, not sent:</b> '+esc(pv.unconfirmed.join(', ')));
+  if((pv.existing||[]).length) h+='<div class="field-note" style="margin-top:8px;">Already in AxisCare for this client: '+pv.existing.map(function(e){ return esc(e.day.slice(0,3)+' '+tbT12(e.start)+'–'+tbT12(e.end)+(e.caregiver?' '+e.caregiver:' (open)')); }).join(' · ')+'</div>';
+  if((pv.schedules||[]).some(function(x){ return x.overnight; })) h+='<div class="field-note" style="margin-top:6px;">Overnight shifts: if AxisCare refuses one, it will say so here and that one is entered by hand.</div>';
+  var sOpts=(pv.services||[]).map(function(x){ return '<option value="'+esc(x.code)+'">'+esc(x.code+(x.description?' · '+x.description:'')+(x.client?' (on this client\'s visits)':''))+'</option>'; }).join('');
+  var canCreate=!(pv.problems||[]).length && (pv.schedules||[]).some(function(x){ return !x.already; });
+  h+='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;align-items:center;font-size:13px;">'
+    +'<label style="font-weight:600;">Start date <input type="date" id="spStart" min="'+today+'" value="'+esc(pv.start_default||'')+'" style="width:auto;margin-left:6px;"></label>'
+    +'<label style="font-weight:600;">Service <select id="spSvc" style="width:auto;margin-left:6px;max-width:340px;">'+(sOpts||'<option value="">no services seen in AxisCare</option>')+'</select></label></div>'
+    +'<div class="field-note" style="margin-top:6px;">AxisCare only accepts a service already set up for this client (billing setup comes first). Nothing is created until you click below.</div>'
+    +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;">'
+    +(canCreate?'<button class="primary" id="spGo">Create '+(pv.schedules||[]).filter(function(x){ return !x.already; }).length+' schedule(s) in AxisCare</button>':'')
+    +closeBtn+'<span id="spMsg" class="field-note"></span></div>'
+    +'<div style="margin-top:10px;"><button class="linklike" id="spHand" style="font-size:12px;">Mark the plan complete without sending (I\'ll enter it in AxisCare by hand)</button></div>';
+  body.innerHTML=h; wire();
+  ov.querySelector('#spHand').onclick=async function(){ plan.status='done'; plan.completed_at=new Date().toISOString(); plan.completed_by_hand=true; await tbSave(plan); close(); };
+  var go=ov.querySelector('#spGo'); if(!go) return;
+  go.onclick=async function(){
+    var start=ov.querySelector('#spStart').value, svc=ov.querySelector('#spSvc').value, msg=ov.querySelector('#spMsg');
+    if(!start){ msg.textContent='Pick a start date.'; return; }
+    if(!svc){ msg.textContent='Pick a service.'; return; }
+    go.disabled=true; go.textContent='Creating…';
+    var out; try{ out=await spCall({action:'create',plan_id:plan.id,start_date:start,service_code:svc}); }catch(e){ out={error:String(e.message||e)}; }
+    if(!out.record){
+      var why={already_pushed:out.detail,blocked:(out.problems||[]).join(' '),start_date_required:'Pick a start date (today or later).',service_required:'Pick a service.'};
+      msg.innerHTML='<span style="color:var(--red)">'+esc(why[out.outcome]||out.detail||out.error||'Nothing was created.')+'</span>'; go.disabled=false; go.textContent='Create in AxisCare'; return;
+    }
+    var rec=out.record;
+    if((rec.created||[]).length){ plan.axiscare_push=rec; plan.status='done'; plan.completed_at=new Date().toISOString(); await tbSave(plan); }
+    var conf={}; (rec.confirmed||[]).forEach(function(c){ conf[c.key]=c.in_axiscare; });
+    var line=function(x,tag){ return '<div style="padding:4px 0;border-top:1px solid var(--border);font-size:13.5px;">'+tag+' <b>'+esc(x.caregiver)+'</b> · '+esc(spDays(x.days))+' · '+esc(tbT12(x.start||'')+'–'+tbT12(x.end||''))+(x.detail?'<div class="field-note" style="color:#92400E;">'+esc(x.detail)+(x.overnight?' Enter this overnight shift by hand.':'')+'</div>':'')+'</div>'; };
+    body.innerHTML='<div style="font-size:15px;font-weight:700;color:var(--navy);">'+({created:'Created in AxisCare',partly_created:'Partly created',none_created:'Nothing was created'}[out.outcome]||out.outcome)+'</div>'
+      +'<div class="field-note">Starting '+esc(lpscDate(rec.start_date))+' · service '+esc(rec.service_code)+'</div>'
+      +(rec.created||[]).map(function(x){ return line(x, conf[x.key]?'✓':'<span style="color:#92400E">?</span>'); }).join('')
+      +(rec.skipped||[]).map(function(x){ return line(x,'<span style="color:var(--teal)">=</span>'); }).join('')
+      +(rec.refused||[]).map(function(x){ return line(x,'<span style="color:var(--red)">✗</span>'); }).join('')
+      +((rec.created||[]).some(function(x){ return !conf[x.key]; })?'<div class="field-note" style="margin-top:6px;">"?" means AxisCare accepted it but the read-back could not find it yet. Check the client\'s schedule in AxisCare.</div>':'')
+      +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;">'+((rec.created||[]).length?'<button class="secondary" id="spUndo">Remove what I just created</button>':'')+closeBtn+'<span id="spMsg2" class="field-note"></span></div>';
+    wire();
+    var u=ov.querySelector('#spUndo'); if(u) u.onclick=function(){ spUndo(plan, ov.querySelector('#spMsg2')); };
+  };
+}
+async function spUndo(plan, msgEl){
+  var push=plan.axiscare_push; if(!push) return;
+  var ids=[]; (push.created||[]).forEach(function(c){ (c.schedule_ids||[]).forEach(function(i){ ids.push(String(i)); }); });
+  if(!ids.length){ if(msgEl) msgEl.textContent='AxisCare did not return the schedule ids; end them in AxisCare.'; return; }
+  if(!confirm('End the '+ids.length+' AxisCare schedule record(s) this plan just created? Their visits from '+push.start_date+' on will be removed.')) return;
+  var out; try{ out=await spCall({action:'undo',plan_id:plan.id,schedule_ids:ids}); }catch(e){ out={error:String(e.message||e)}; }
+  if(out.outcome==='removed'||out.outcome==='partly_removed'){
+    push.undone={at:out.at,by:out.by,effective:out.effective,results:out.results}; plan.status='building'; delete plan.completed_at;
+    plan.axiscare_push_history=(plan.axiscare_push_history||[]).concat([push]); delete plan.axiscare_push;
+    await tbSave(plan);
+    if(msgEl) msgEl.innerHTML=out.outcome==='removed'?'<span style="color:var(--teal)">Removed. The plan is open again.</span>':'<span style="color:var(--red)">Some could not be removed; check AxisCare.</span>';
+  } else if(msgEl) msgEl.innerHTML='<span style="color:var(--red)">'+escapeHtmlComms(out.detail||out.error||'Not removed.')+'</span>';
 }
 
 /* ── THE FRAGILITY FORECAST (her pick #6): today's likely break points,
