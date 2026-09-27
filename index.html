@@ -6663,6 +6663,14 @@ The HomeTogether team</pre>
 
 <script src="email-library.js"></script>
 <script src="promise-engine.js"></script>
+<script src="client-start.js"></script>
+<script>
+/* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
+   in client-start.js, the one copy the server's client-start-run also runs. These names are the
+   ones the page has always used. */
+(function(){ if(!globalThis.CCStart){ console.error('[client-start] client-start.js did not load'); return; }
+  ['socIsLaunchStep','socPreSteps','socCurrentStep','socWaitingDays','socIsStuck','csWindowFor','CS_STEP_DOMAIN','csDomainForStep','csAddBusinessDays','CS_ESCALATION_BUSINESS_DAYS','csEscalationDate','csItemId','csEvaluate'].forEach(function(n){ window[n]=CCStart[n]; }); })();
+</script>
 <!-- Operating layer, build 4. Shared by every hub, served from one place and
      pinned by version: cc-ops.v1.js is frozen now that a hub includes it, and
      changes go in v2 so one mistake cannot reach four production systems at
@@ -14144,10 +14152,7 @@ const SOC_MERGED = [
 /* Steps that OLD records still carry but that moved to the launch. The id
    sets differ because private pay's merged list was filtered before
    numbering (PP:m3 was "caregiver match"; A1:m3 is "welcome call"). */
-function socIsLaunchStep(pathway, id){
-  return (pathway==='PP' ? ['m3','m4','m5','m6'] : ['m6','m7','m8','m9','m10']).includes(String(id));
-}
-function socPreSteps(soc){ return (soc.steps||[]).filter(s=>!socIsLaunchStep(soc.pathway,s.id)); }
+/* socIsLaunchStep and socPreSteps live in client-start.js (Change 8b) */
 /* Business readiness is deliberately separate from the AxisCare technical
    handoff: "not ready for staffing" and "ready, but our AxisCare setup is
    incomplete" must be distinguishable at a glance. */
@@ -14218,220 +14223,8 @@ const socRoleChip = r => r==='evening'
 
    A start that is progressing normally creates NOTHING. */
 
-/* ── WHO OWNS EACH STEP — one explicit table, not keyword matching ────────
-   Ownership must not change because somebody rewrites a label. It also cannot
-   key on the step id alone: socBuildSteps FILTERS the merged steps for private
-   pay before numbering them, so PP:m2 is "Home safety assessment" while A1:m2
-   is "Enter the care plan". The stable key is pathway + step id.
-
-   New Start-of-Care records get `domain` stamped onto each step at creation
-   (see socBuildSteps). This table is what stamps them, and it is also the
-   fallback for records created before that existed. Keyword matching is gone. */
-const CS_STEP_DOMAIN = {
-  // A1 — new Medicaid referral, we submit to FUSION
-  'A1:p0':'family_enquiries', 'A1:p1':'family_enquiries', 'A1:p2':'family_enquiries',
-  'A1:p3':'payer_programs',   'A1:p4':'payer_programs',   'A1:p5':'payer_programs',
-  // A2 — PCCP provider change
-  'A2:p0':'family_enquiries', 'A2:p1':'family_enquiries',
-  'A2:p2':'payer_programs',   'A2:p3':'payer_programs',   'A2:p4':'payer_programs',
-  // B — DSDS offered us the case
-  'B:p0':'payer_programs',
-  'B:p1':'scheduling_coverage',      // "confirm we can staff it" is a staffing question
-  // PP — private pay (5 pre-steps since 2026-09-20: assessment, agreement
-  // provided, agreement received, agreement filed, billing setup)
-  'PP:p0':'client_care',             // in-home assessment completed
-  'PP:p1':'family_enquiries',        // Care Agreement provided / sent
-  'PP:p2':'family_enquiries',        // signed Care Agreement received (family-owned wait)
-  'PP:p3':'client_care',             // signed agreement uploaded to AxisCare
-  'PP:p4':'payer_programs',          // billing setup in AxisCare
-  // merged steps, numbered per pathway
-  'A1:m0':'payer_programs',      'A2:m0':'payer_programs',      'B:m0':'payer_programs',
-  'A1:m1':'payer_programs',      'A2:m1':'payer_programs',      'B:m1':'payer_programs',
-  'A1:m2':'client_care',         'A2:m2':'client_care',         'B:m2':'client_care',
-  'A1:m3':'client_care',         'A2:m3':'client_care',         'B:m3':'client_care',
-  'A1:m4':'client_care',         'A2:m4':'client_care',         'B:m4':'client_care',
-  'A1:m5':'client_care',         'A2:m5':'client_care',         'B:m5':'client_care',
-  'A1:m6':'scheduling_coverage', 'A2:m6':'scheduling_coverage', 'B:m6':'scheduling_coverage',
-  'A1:m7':'scheduling_coverage', 'A2:m7':'scheduling_coverage', 'B:m7':'scheduling_coverage',
-  'A1:m8':'scheduling_coverage', 'A2:m8':'scheduling_coverage', 'B:m8':'scheduling_coverage',
-  'A1:m9':'client_care',         'A2:m9':'client_care',         'B:m9':'client_care',
-  'A1:m10':'payer_programs',     'A2:m10':'payer_programs',     'B:m10':'payer_programs',
-  // PP's merged steps are renumbered because the authorization ones are filtered out
-  'PP:m0':'client_care',         // enter the care plan in AxisCare
-  'PP:m1':'client_care',         // welcome call
-  'PP:m2':'client_care',         // home safety
-  'PP:m3':'scheduling_coverage', // caregiver match
-  'PP:m4':'scheduling_coverage', // schedule + EVV
-  'PP:m5':'scheduling_coverage', // first shift
-  'PP:m6':'client_care'          // 24-72h follow-ups
-};
-
-/* A step stamped at creation wins; otherwise the table; otherwise nothing —
-   and "nothing" is reported rather than guessed, because an unmapped step
-   silently landing in a default domain is how work goes to the wrong person
-   for months without anybody noticing. */
-function csDomainForStep(step, pathway){
-  if(step && step.domain) return step.domain;
-  const key = (pathway||'') + ':' + ((step&&step.id)||'');
-  return CS_STEP_DOMAIN[key] || null;
-}
-
-/* ── TWO CLOCKS, DELIBERATELY DIFFERENT ───────────────────────────────────
-   "Has this step waited too long?" and "has the coordinator had a fair working
-   window to fix it before their supervisor is pulled in?" are different
-   questions and must not share a timer.
-
-   STUCK is calendar days, unchanged: 3 internal, 14 for a DSDS-owned step.
-   A client is objectively stuck on a Saturday; the calendar does not pause
-   because the office is shut.
-
-   ESCALATION is BUSINESS days: 2 working days after the operational due date.
-   An internal step overdue on Friday escalates Tuesday, not Sunday. Nobody
-   should be pulled in over a weekend because 48 elapsed hours passed.
-
-   Monday–Friday only. There is no holiday calendar anywhere in this estate to
-   reuse, and building one for this alone would be disproportionate — so a
-   public holiday counts as a working day for now. Worth revisiting if
-   escalations start landing on Thanksgiving.
-
-   ops-escalate is deliberately NOT changed: it measures elapsed minutes, which
-   is right for missed calls. A call missed at 6pm Friday should be chased. */
-function csAddBusinessDays(from, n){
-  /* Parsed at LOCAL NOON. `new Date('2026-08-13')` is UTC midnight, which in
-     Central time is the previous evening — so getDay() returned the wrong
-     weekday and a Thursday due date escalated to a Saturday. Noon is far
-     enough from either boundary that no timezone shifts the day. */
-  const d = (typeof from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(from))
-    ? new Date(from + 'T12:00:00')
-    : new Date(from);
-  let left = n;
-  while(left > 0){
-    d.setDate(d.getDate() + 1);
-    const day = d.getDay();
-    if(day !== 0 && day !== 6) left--;    // 0 Sun, 6 Sat
-  }
-  return d;
-}
-const CS_ESCALATION_BUSINESS_DAYS = 2;
-
-/* The date the coordinator's window runs out and the domain's escalation
-   person is pulled in. */
-function csEscalationDate(dueIso){
-  /* The string is passed through untouched so csAddBusinessDays can parse it
-     at local noon. Wrapping it in new Date() here was undoing that fix one
-     line above the function it was fixing. */
-  const d = csAddBusinessDays(String(dueIso).slice(0,10), CS_ESCALATION_BUSINESS_DAYS);
-  /* Formatted from local parts, not toISOString, which would convert back to
-     UTC and re-introduce the same off-by-one. */
-  const pad = n => String(n).padStart(2,'0');
-  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-}
-
-/* The window before a stalled step becomes work. A step owned by DSDS is not
-   our staff being slow, so it gets far longer — the existing socIsStuck()
-   already draws that distinction and this keeps it. */
-function csWindowFor(step){ return (step && step.role==='state') ? 14 : 3; }
-
-function csItemId(lead){ return 'cstart_'+lead.id; }
-
-/* Evaluates every open start and returns what should change. Pure: it decides,
-   it does not write, so it can be tested against fixtures without a database. */
-function csEvaluate(leads, items, nowIso){
-  const now = nowIso || new Date().toISOString();
-  const out = { create:[], update:[], resolve:[], quiet:0, unrouted:[] };
-  (leads||[]).forEach(l=>{
-    if(!l || !l.soc) return;
-    const existing = (items||[]).find(i=>i.id===csItemId(l));
-    const cur = socCurrentStep(l.soc);
-
-    // Start of Care finished, or the client is not starting: close it out.
-    if(!cur || l.soc.abandoned){
-      if(existing && existing.status==='open')
-        out.resolve.push({ id:existing.id,
-          close_reason: cur ? 'Client is not starting.' : 'Start of Care complete — care is established.' });
-      else out.quiet++;
-      return;
-    }
-
-    const waited = socWaitingDays(l.soc);
-    const window = csWindowFor(cur);
-    if(waited <= window){
-      /* Moving again. Resolve rather than leave a stale task sitting on
-         somebody's list describing a bottleneck that has cleared. */
-      if(existing && existing.status==='open')
-        out.resolve.push({ id:existing.id,
-          close_reason:'Moving again — now on: '+cur.label });
-      else out.quiet++;
-      return;
-    }
-
-    const who = ((l.first_name||'')+' '+(l.last_name||'')).trim() || l.id;
-    const domain = csDomainForStep(cur, l.soc.pathway);
-    if(!domain){
-      /* Unroutable. Reported as its own problem rather than dumped on a
-         default owner, because a wrong owner is worse than a named gap. */
-      out.unrouted.push({ lead:l.id, who:who, pathway:l.soc.pathway,
-                          step:cur.id, label:cur.label });
-      return;
-    }
-    const item = {
-      id: csItemId(l), kind:'client_start', source_id:l.id, about:who,
-      title: who+' — start of care stuck '+waited+' days',
-      detail: 'Waiting on: '+cur.label,
-      next_action: cur.role==='state'
-        ? 'Chase DSDS, or record what they have said and when to check again.'
-        : 'Complete this step, or move it to whoever can.',
-      status:'open', domain,
-      priority: waited > window*3 ? 'high' : 'normal',
-      created_at: existing ? existing.created_at : now,
-      last_activity_at: now,
-      /* Operational due date: when the step's own window ran out — derived
-         from the wait, not from when the evaluator happened to notice. */
-      due: existing ? existing.due
-         : new Date(Date.parse(now) - (waited - window)*86400000).toISOString().slice(0,10),
-      opened_by:'client-start',
-      client_start:{ step:cur.label, step_id:cur.id, role:cur.role,
-                     waited_days:waited, window,
-                     escalate_on: null }      // filled below, from the due date
-    };
-    item.client_start.escalate_on = csEscalationDate(item.due);
-    item.escalate_to_domain = domain;        // resolves to a person at send time
-    if(!existing) out.create.push(item);
-    else if(existing.status!=='open' ||
-            (existing.client_start||{}).step !== cur.label ||
-            existing.domain !== domain ||
-            (existing.client_start||{}).waited_days !== waited){
-      /* The same problem, described freshly. History records the move so the
-         item reads as one story rather than a task that changed its mind. */
-      item.history = (existing.history||[]).concat([{
-        at: now, by:'client-start',
-        what: (existing.client_start||{}).step === cur.label
-          ? 'Still waiting on: '+cur.label+' ('+waited+' days)'
-          : 'Bottleneck moved to: '+cur.label+
-            (existing.domain!==domain ? ' — now owned by '+domain : '') }]);
-      out.update.push(item);
-    } else out.quiet++;
-  });
-  return out;
-}
-
-/* Current step and completion are judged over the PRE-STAFFING steps only:
-   launch steps on old records belong to New Clients now, and a record must
-   not read as forever-stuck on work that moved. */
-function socCurrentStep(soc){ return socPreSteps(soc).find(s=>!s.done_at)||null; }
-function socWaitingDays(soc){
-  const cur=socCurrentStep(soc); if(!cur) return 0;
-  const done=(soc.steps||[]).filter(s=>s.done_at).map(s=>s.done_at).sort();
-  const since=done.length?done[done.length-1]:soc.started_at;
-  return Math.floor((Date.now()-new Date(since).getTime())/86400000);
-}
-function socIsStuck(soc){
-  const cur=socCurrentStep(soc); if(!cur) return false;
-  /* External owners get the long window: a DSDS assessment or a family
-     deciding about services is not the office being slow. Past 14 days
-     even an external wait becomes a chase. */
-  return socWaitingDays(soc) > ((cur.role==='state'||cur.role==='family')?14:3);
-}
+/* The step-owner table, the two clocks, csEvaluate and the soc* helpers moved to client-start.js
+   (Change 8b, 2026-09-27) so the server runs the exact rules this page shows. */
 
 /* ---- SOC card on the lead profile ---- */
 /* ===================== START CONTRACT surface (lead profile + New Clients) =====================
