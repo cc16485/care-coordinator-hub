@@ -4798,10 +4798,9 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     </select>
   </div>
   <div class="profile-grid" style="grid-template-columns:1fr 1fr;">
-    <div class="card" style="padding:16px;"><b style="color:var(--navy);">Sales funnel</b><div id="repFunnel" style="margin-top:10px;"></div></div>
-    <div class="card" style="padding:16px;"><b style="color:var(--navy);">Lead sources</b><div id="repSources" style="margin-top:10px;"></div></div>
+    <div class="card" style="padding:16px;grid-column:1/-1;"><b style="color:var(--navy);">Where leads come from, and what happens to them</b><div id="repSrcFunnel" style="margin-top:10px;"></div></div>
     <div class="card" style="padding:16px;"><b style="color:var(--navy);">Why we lose leads</b><div id="repLost" style="margin-top:10px;"></div></div>
-    <div class="card" style="padding:16px;"><b style="color:var(--navy);">Referral source leaderboard</b><div id="repRefs" style="margin-top:10px;"></div></div>
+    <div class="card" style="padding:16px;grid-column:1/-1;"><b style="color:var(--navy);">Referral partners</b><div id="repRefs" style="margin-top:10px;"></div></div>
   </div>
 </section>
 
@@ -10403,36 +10402,94 @@ function askLostReason(){
   const n=parseInt(pick,10);
   return (n>=1&&n<=LOST_REASONS.length)?LOST_REASONS[n-1]:(pick.trim()||'Other');
 }
+/* ── Lead numbers S2 · where leads come from (her approval 2026-09-28) ──────────────────────────────────
+   The families who first got in touch in the period picked, and what has happened to them since. Spam never counts.
+   Booked an assessment: ever booked or done (a booking time, an assessment record, the Assessment stage or later,
+   Start of Care begun, or a client). Closed: they became a client (Converted, or connected to their AxisCare
+   client). Started care: the profile's own rule (a hand record, else AxisCare's first clock-in, else the first-shift
+   tick), read through client-fact for each client's Journey, so the report and the profile never disagree. */
+const REP={ began:{}, epOf:null, loading:false, at:0 };
+function repBooked(l){
+  return !!(l.assessment_at||(DATA.care_assessments||[]).some(a=>a&&a.lead_id===l.id)||['Assessment Scheduled','Converted'].includes(l.status)
+    ||l.soc||String(l.axiscare_client_id||'').trim());
+}
+function repClosed(l){ return l.status==='Converted'||!!String(l.axiscare_client_id||'').trim(); }
+function repPartner(l){
+  const norm=x=>(x||'').toLowerCase().replace(/[^a-z0-9]/g,''), orgs=DATA.referral_orgs||[];
+  let o=l.referral_org_id?orgs.find(x=>x.id===l.referral_org_id):null;
+  if(!o){ const t=norm(l.referral_source_name); if(t) o=orgs.find(x=>{ const n=norm(x.name); return n&&(t.includes(n)||n.includes(t)); }); }
+  return o?o.name:(String(l.referral_source_name||'').trim()||null);
+}
+function repSource(l){
+  const src=String(l.source||'').trim(), partner=repPartner(l);
+  if(partner&&(src==='Referral'||l.referral_org_id)) return 'Referral: '+partner;
+  if(src==='Referral') return 'Referral (partner not recorded)';
+  if(src==='Website'||leadFromWebForm(l)) return 'Website';
+  if(src==='Phone'||src==='Inbound Call') return 'Phone';
+  if(src==='Assessment booking') return 'Assessment calendar';
+  if(src==='Consult booking') return 'Consult booking page';
+  if(/^HomeTogether/.test(src)) return 'HomeTogether';
+  return src||'Not recorded';
+}
+async function repLoadBegan(leads){
+  if(REP.loading) return; const need=leads.filter(l=>repClosed(l)&&!(l.id in REP.began)); if(!need.length) return;
+  REP.loading=true;
+  try{
+    if(!REP.epOf){ const r=await sb.from('episode_source').select('episode_id,source_ref').eq('system','lead').eq('role','origin'); REP.epOf={}; (r.data||[]).forEach(x=>{ REP.epOf[String(x.source_ref)]=x.episode_id; }); }
+    for(const l of need){
+      const ep=REP.epOf[String(l.id)];
+      if(!ep){ REP.began[l.id]={ began:null }; continue; }
+      try{ const b=await lpfCall({ action:'care_began', episode_id:ep }); REP.began[l.id]={ began:b.began===true?true:b.began===false?false:null, on:b.on||null }; }
+      catch(e){ REP.began[l.id]={ began:null }; }
+    }
+  }catch(e){}
+  REP.loading=false;
+  if(typeof activeTab!=='undefined'&&activeTab==='reports') renderReports();
+}
+function repRows(leads){
+  const g={};
+  leads.forEach(l=>{ const k=repSource(l); const r=g[k]=g[k]||{ src:k, n:0, booked:0, closed:0, started:0, unknown:0, open:0 };
+    r.n++; const bk=repBooked(l), cl=repClosed(l);
+    if(bk) r.booked++; if(cl) r.closed++;
+    if(cl){ const b=REP.began[l.id]; if(b&&b.began===true) r.started++; else if(!b||b.began===null) r.unknown++; }
+    if(!cl&&l.status!=='Lost'&&!l.archived) r.open++; });
+  return Object.values(g);
+}
+function repTable(rows, first){
+  const esc=escapeHtmlComms, pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
+  const cell=(n,of,what)=>'<td style="padding:7px 10px;font-variant-numeric:tabular-nums;"><b>'+n+'</b>'+(of?' <span class="field-note">· '+pct(n,of)+' of '+what+'</span>':'')+'</td>';
+  const tot=rows.reduce((t,r)=>{ ['n','booked','closed','started','unknown','open'].forEach(k=>t[k]+=r[k]); return t; },{ src:'All sources', n:0, booked:0, closed:0, started:0, unknown:0, open:0 });
+  const line=(r,bold)=>'<tr style="border-top:1px solid var(--border);'+(bold?'background:var(--bg);':'')+'"><td style="padding:7px 10px;'+(bold?'font-weight:800;':'font-weight:600;')+'color:var(--navy);">'+esc(r.src)+'</td>'
+    +cell(r.n)+cell(r.booked,r.n,'inquiries')+cell(r.closed,r.booked,'assessments')
+    +'<td style="padding:7px 10px;font-variant-numeric:tabular-nums;"><b>'+r.started+'</b>'+(r.closed?' <span class="field-note">· '+pct(r.started,r.closed)+' of closed</span>':'')
+      +(r.unknown?' <span class="field-note" title="their care start could not be checked yet">('+r.unknown+' checking)</span>':'')+'</td>'
+    +cell(r.open)+'</tr>';
+  rows.sort((a,b)=>b.n-a.n||a.src.localeCompare(b.src));
+  return '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px;"><thead><tr style="text-align:left;background:var(--bg);">'
+    +[first,'Inquiries','Booked an assessment','Closed','Started care','Still open'].map(h=>'<th style="padding:7px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">'+h+'</th>').join('')+'</tr></thead><tbody>'
+    +rows.map(r=>line(r,false)).join('')+(rows.length>1?line(tot,true):'')+'</tbody></table></div>';
+}
 function renderReports(){
   const esc=escapeHtmlComms;
   const days=parseInt(document.getElementById('reportRange').value,10);
   const cutoff=new Date(Date.now()-days*86400000).toISOString();
   const leads=leadsCounted().filter(l=>(l.created_at||'')>=cutoff);
-  const total=leads.length;
-  const assessed=leads.filter(l=>['Assessment Scheduled','Converted'].includes(l.status)).length;
-  const converted=leads.filter(l=>l.status==='Converted').length;
   const lost=leads.filter(l=>l.status==='Lost');
-  const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
-  const bar=(label,n,d,color)=>'<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:13px;"><span>'+label+'</span><b>'+n+' ('+pct(n,d)+')</b></div>'
-    +'<div style="background:#FAF9F6;border-radius:6px;height:10px;"><div style="width:'+(d?Math.max(2,Math.round(n/d*100)):0)+'%;background:'+color+';height:10px;border-radius:6px;"></div></div></div>';
-  document.getElementById('repFunnel').innerHTML = total
-    ? bar('New inquiries',total,total,'#3B82F6')+bar('→ Assessment scheduled',assessed,total,'#F59E0B')+bar('→ Converted to client',converted,total,'#15803D')
-      +'<div class="field-note">Leads created in the selected period. (Older leads that converted in the period aren\'t counted — this reads by inquiry date.)</div>'
-    : '<div class="field-note">No leads in this period'+(DATA.leads.length&&!DATA.leads.some(l=>l.created_at)?' — older leads saved before dates were tracked don\'t appear here':'')+'.</div>';
-  const bySrc={};
-  leads.forEach(l=>{ const s=l.source||'Unknown'; bySrc[s]=bySrc[s]||{n:0,c:0}; bySrc[s].n++; if(l.status==='Converted')bySrc[s].c++; });
-  document.getElementById('repSources').innerHTML = total
-    ? Object.entries(bySrc).sort((a,b)=>b[1].n-a[1].n).map(([s,v])=>'<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);"><span>'+esc(s)+'</span><span><b>'+v.n+'</b> leads · '+pct(v.c,v.n)+' converted</span></div>').join('')
-    : '<div class="field-note">No data yet.</div>';
+  repLoadBegan(leads);
+  document.getElementById('repSrcFunnel').innerHTML = leads.length
+    ? repTable(repRows(leads),'Where they came from')
+      +'<div class="field-note" style="margin-top:8px;">Families who first got in touch in this period, and what has happened to them since; a family from last week may not have had time to start care yet. <b>Booked an assessment</b>: ever booked or done. <b>Closed</b>: became a client. <b>Started care</b>: their first shift happened (the same rule as their profile). Spam never counts. With few leads, percentages swing a lot, so each sits beside its count.</div>'
+    : '<div class="field-note">No leads in this period'+(DATA.leads.length&&!DATA.leads.some(l=>l.created_at)?'; older leads saved before dates were tracked don\'t appear here':'')+'.</div>';
   const byReason={};
   lost.forEach(l=>{ const r=l.lost_reason||'(no reason recorded)'; byReason[r]=(byReason[r]||0)+1; });
   document.getElementById('repLost').innerHTML = lost.length
     ? Object.entries(byReason).sort((a,b)=>b[1]-a[1]).map(([r,n])=>'<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);"><span>'+esc(r)+'</span><b>'+n+'</b></div>').join('')
-    : '<div class="field-note">No lost leads in this period — or none marked Lost yet.</div>';
-  const orgs=(DATA.referral_orgs||[]).map(o=>({name:o.name,n:orgReferralCount(o)})).filter(x=>x.n>0).sort((a,b)=>b.n-a.n);
-  document.getElementById('repRefs').innerHTML = orgs.length
-    ? orgs.slice(0,10).map((o,i)=>'<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);"><span>'+(i+1)+'. '+esc(o.name)+'</span><b>'+o.n+'</b></div>').join('')
-    : '<div class="field-note">No referral-linked leads yet — on intake, set source "Referral" and type the organization\'s name.</div>';
+    : '<div class="field-note">No lost leads in this period, or none marked Lost yet.</div>';
+  const refRows=repRows(leads.filter(l=>repSource(l).indexOf('Referral: ')===0)).map(r=>Object.assign(r,{ src:r.src.slice(10) }));
+  refRows.sort((a,b)=>b.started-a.started||b.closed-a.closed||b.n-a.n);
+  document.getElementById('repRefs').innerHTML = refRows.length
+    ? repTable(refRows,'Partner')
+    : '<div class="field-note">No referral-linked leads in this period. On intake, set source "Referral" and pick the partner.</div>';
 }
 
 /* ---- Convert (Change 2, 2026-09-26): the whole client goes to AxisCare ----
