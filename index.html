@@ -4961,8 +4961,10 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <h2 id="cpTitle" style="margin:0;font-size:22px;font-weight:800;color:var(--navy);"></h2>
     <span id="cpChips" style="display:flex;gap:6px;flex-wrap:wrap;"></span>
   </div>
+  <!-- Gate 1a: who they are in one line (age, town, AxisCare's own status, payer). Computed, never typed. -->
+  <div id="cpFacts" class="cpx-facts"></div>
   <div id="cpTabs" class="cp-tabs">
-    <button type="button" class="cp-tab" data-cp="summary" onclick="cpShowTab('summary')">Summary</button>
+    <button type="button" class="cp-tab" data-cp="summary" onclick="cpShowTab('summary')">Overview</button>
     <button type="button" class="cp-tab" data-cp="start" onclick="cpShowTab('start')">Start of Care</button>
     <button type="button" class="cp-tab" data-cp="family" onclick="cpShowTab('family')">Family &amp; Contacts</button>
     <button type="button" class="cp-tab" data-cp="care" onclick="cpShowTab('care')">Care</button>
@@ -4970,9 +4972,19 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <button type="button" class="cp-tab" data-cp="checkins" onclick="cpShowTab('checkins')">Check-ins</button>
     <button type="button" class="cp-tab" data-cp="payer" onclick="cpShowTab('payer')">Payer</button>
     <button type="button" class="cp-tab" data-cp="home" onclick="cpShowTab('home')">Home &amp; Life</button>
-    <button type="button" class="cp-tab" data-cp="history" onclick="cpShowTab('history')">History &amp; Documents</button>
+    <button type="button" class="cp-tab" data-cp="history" onclick="cpShowTab('history')">Activity &amp; Documents</button>
   </div>
-  <div class="cp-pane" data-cp-pane="summary"><div class="profile-grid">
+  <div class="cp-pane" data-cp-pane="summary">
+  <!-- GATE 1a · THE OVERVIEW COMMAND AREA (2026-09-28). Nobody maintains it: cpRenderCommand() computes
+       every line from records other tabs own, and each line links to that tab. "Open right now"
+       (cpRenderOpenNow, unchanged) now sits here as a client's still-needed list. -->
+  <div id="cpCommand" class="cpx-cmd">
+    <div id="cpcPath"></div>
+    <div id="cpcGrid" class="cpx-grid"></div>
+    <div id="cpcCare"></div>
+    <div class="cpx-needed"><div id="cpcNeeded"></div><div id="cp_open_now"></div></div>
+  </div>
+  <div class="profile-grid">
     <div>
 <div class="cp-lead">
       <div class="card" id="lp_head_card" style="padding:18px;margin-bottom:14px;">
@@ -5023,6 +5035,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       <div class="card" style="padding:18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <b style="font-size:14px;color:var(--navy);">✨ AI Needs Summary</b>
+          <span class="field-note" style="font-size:11.5px;">written by AI from the call notes, not checked by a person</span>
           <button class="linklike" style="margin-left:auto;" id="lp_ai_btn" onclick="lpAiSummary()">🤖 Summarize</button>
         </div>
         <div id="lp_ai_summary" style="font-size:13px;line-height:1.6;margin-top:8px;color:var(--text);">No summary yet — click 🤖 Summarize and the AI reads the call notes.</div>
@@ -5030,7 +5043,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       </div>
 </div>
     </div>
-    <div><div id="cp_open_now"></div><div id="cp_changes"></div><div id="cp_c_summary"></div></div>
+    <div><div id="cp_changes"></div><div id="cp_c_summary"></div></div>
   </div></div>
   <div class="cp-pane" data-cp-pane="start">
     <div id="cp_start_note"></div>
@@ -9198,6 +9211,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
+  cpRenderCommand();
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -9550,6 +9564,7 @@ function renderLeadProfile(){
   jcRenderStatus();
   ckRenderReturning();
   famMount('famLead', { lead_id:l.id }, 'lead');
+  cpRenderCommand();
 }
 const NURTURE_INFO = {
   not_ready: { name:'Not-ready-yet drip', steps:4, desc:'warm text day 3, helpful email day 10, check-in text day 21, note day 45' },
@@ -27133,8 +27148,214 @@ async function cpRenderOpenNow(){
   };
   draw(Array.isArray(CL.issues)?CL.issues:[], null);
   if(!rr.person_id) return;
-  try{ const iss=await clLoadIssues(); CL.issues=iss; draw(iss, null); }
+  try{ const iss=await clLoadIssues(); CL.issues=iss; draw(iss, null); cpRenderCommand(); }
   catch(e){ draw([], String(e&&e.message||e)); }
+}
+/* ── GATE 1a · THE OVERVIEW COMMAND AREA (her approval, 2026-09-28) ──────────────────────────────
+   "Nobody manually maintains Overview." Every line is computed on each render from records other
+   screens own: the inquiry (intake form, Payer tab), its Journey's Start Contract, the First shift
+   checklist, check-ins, plan reviews, family requests, concerns, call-offs, AxisCare's status and
+   level. Nothing is stored, nothing is written, no field exists only for this screen. Each line
+   names where it came from and opens the tab that owns it. What the Hub can't prove reads "none
+   recorded", never a guess. AI output (ai_care_flags, the AI summary) is not surfaced here. */
+const CPX_URG={ today:'Today', '48hours':'Within 48 hours', '7days':'Within 7 days', researching:'Just researching' };
+const CPX_PAY={ private:'Private pay', ltc:'LTC insurance', va:'VA', cds:'CDS', medicaid:'Medicaid (IHS)', pace:'PACE' };
+const CPX_STATE={ not_submitted:'not submitted to the state yet', submitted:'submitted, waiting on the state assessment', assessed:'assessed, waiting on authorization', authorized:'authorized', denied:'denied or withdrawn' };
+function cpxAge(dob){
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(dob||'')); if(!m) return null;
+  const t=new Date(); let a=t.getFullYear()-(+m[1]);
+  if(t.getMonth()+1<+m[2]||(t.getMonth()+1===+m[2]&&t.getDate()<+m[3])) a--;
+  return a>0&&a<130?a:null;
+}
+/* care and safety, from the intake form only: safety first, then conditions, then preferences */
+function cpxCareChips(l){
+  if(!l) return [];
+  const out=[], seen={}, ca=l.client_attributes||{}, has=(a,v)=>Array.isArray(a)&&a.indexOf(v)>=0;
+  const add=(tone,t)=>{ if(!seen[t]){ seen[t]=1; out.push({ tone, t }); } };
+  if(has(l.safety,'fallRisk')) add('bad','Fall risk');
+  if(has(l.dementia_follow_up,'wandering')) add('bad','Wandering risk');
+  if(l.weight_bearing==='no') add('bad','Can\'t bear weight');
+  if(ca.hoyer_lift==='yes') add('bad','Hoyer lift');
+  if(l.mobility==='bedbound'||ca.bed_bound==='yes') add('bad','Bed bound');
+  if(has(l.dementia_follow_up,'aggression')) add('bad','Agitation');
+  if(has(l.safety,'livesAlone')) add('warn','Lives alone');
+  if(has(l.safety,'recentHospitalization')) add('warn','Recent hospital stay');
+  if(ca.hospice==='yes') add('warn','Hospice');
+  if(l.mobility==='wheelchair') add('warn','Wheelchair');
+  if(l.mobility==='walker') add('warn','Walker');
+  if(ca.gait_belt==='yes') add('warn','Gait belt');
+  if(has(l.dementia_follow_up,'sundowning')) add('warn','Sundowning');
+  const cond={ dementia:'Dementia', alzheimers:'Alzheimer\'s', parkinsons:'Parkinson\'s', stroke:'Stroke', diabetes:'Diabetes', copd:'COPD' };
+  (Array.isArray(l.medical_conditions)?l.medical_conditions:[]).forEach(c=>{ if(cond[c]) add('info',cond[c]); });
+  if(ca.dementia==='yes') add('info','Dementia');
+  if(ca.alzheimers==='yes') add('info','Alzheimer\'s');
+  /* gender: a legacy "yes" reads as Prefer until someone confirms it (her Require/Prefer ruling) */
+  ['female','male'].forEach(g=>{ const v=ca[g+'_caregiver'];
+    if(v==='yes'&&l.gender_pref_normalized===true) add('info',(g==='female'?'Female':'Male')+' caregiver required');
+    else if(v==='yes'||v==='preferred') add('info',(g==='female'?'Female':'Male')+' caregiver preferred'); });
+  if(ca.spanish_speaking==='yes') add('info','Spanish-speaking caregiver');
+  if(ca.smoking==='yes') add('info','Smoking in the home');
+  if(ca.dogs==='yes') add('info','Dog in the home');
+  if(ca.cats==='yes') add('info','Cat in the home');
+  return out;
+}
+/* the preview of what's still needed before their next step, from what the inquiry records.
+   tier 0 blocks the next step · 1 safety · 2 payer · 3 the rest */
+function cpxStillNeeded(l, st, sc){
+  if(!l||['new','talking','assessment','ready'].indexOf(st&&st.k)<0) return [];
+  const out=[], add=(tier,label,why,tab)=>out.push({ tier, label, why, tab });
+  const has=a=>Array.isArray(a)&&a.length>0, k=st.k, late=k==='assessment'||k==='ready';
+  const med=l.funding_source==='medicaid';
+  if(!l.phone&&!l.email&&!l.client_phone) add(0,'A way to reach them','no phone or email on the inquiry','intake');
+  if(k==='ready'&&!l.assessment_at&&!(DATA.care_assessments||[]).some(a=>a&&a.lead_id===l.id)) add(0,'The assessment visit','getting ready, and no assessment is booked or recorded','care');
+  if(k==='ready'&&!(sc&&sc.target_date)) add(0,'A start date for the family','no date on the Start Contract yet','start');
+  if(med&&late&&!l.state_submitted&&l.state_status!=='authorized'&&l.state_status!=='denied') add(0,'The state submission','Medicaid, not submitted to the state yet','payer');
+  if(!l.mobility) add(1,'How they get around','mobility not recorded','intake');
+  const transfers=has(l.personal_care)&&l.personal_care.indexOf('transfers')>=0||l.mobility==='wheelchair'||l.mobility==='bedbound';
+  if(transfers&&!l.weight_bearing) add(1,'Whether they can bear weight','they need help with transfers or use a wheelchair','intake');
+  const dem=Array.isArray(l.medical_conditions)&&(l.medical_conditions.indexOf('dementia')>=0||l.medical_conditions.indexOf('alzheimers')>=0);
+  if(dem&&!has(l.dementia_follow_up)) add(1,'Dementia behaviours','dementia reported; wandering, agitation and sundowning are all blank','intake');
+  if(!l.funding_source) add(2,'Who will pay','payer not recorded','payer');
+  if(med&&!l.dcn) add(2,'Their DCN','Medicaid, no Medicaid number yet','payer');
+  if(med&&!l.county) add(2,'Their county','Medicaid, county not recorded','payer');
+  if(l.client_name_not_provided||!(l.client_first_name||'').trim()) add(3,'The client\'s name','the inquiry doesn\'t name who needs care','intake');
+  if(!l.client_city&&!l.client_zip) add(3,'Their town','no city or zip','intake');
+  if(!l.urgency) add(3,'When they want care to start','urgency not recorded','intake');
+  if(!has(l.needs)&&!has(l.personal_care)) add(3,'What help they need','no needs checked','intake');
+  if(late&&!l.client_address) add(3,'Their full address','needed for the visit and the first shift','intake');
+  return out.sort((a,b)=>a.tier-b.tier);
+}
+function cpCommandModel(){
+  const l=CP.lead||null, r=CP.r||null, launch=CP.launch||null, ax=String(CP.ax||'').trim();
+  const st=ccClientStage({ lead:l, r, launch, ax }), t=today();
+  const dd=x=>x?lsDate(String(x).slice(0,10)):'';
+  const pre=['new','talking','assessment','ready'].indexOf(st.k)>=0;
+  const m={ st, lead:l, r, ax, pre, tiles:[] };
+  m.age=l?cpxAge(l.client_dob):null;
+  m.town=l?String(l.client_city||'').trim():'';
+  m.axStatus=(ax&&typeof CL360_AXSTATUS!=='undefined'&&CL360_AXSTATUS)?(CL360_AXSTATUS[ax]||null):null;
+  /* the lead-side row the Leads board uses (same function), while they're not yet receiving care */
+  let row=null, sc=null;
+  if(pre&&(l||launch)){
+    const F=LS.facts||{ epOf:{}, scOf:{}, planOf:{} }, ep=l?F.epOf[String(l.id)]:null;
+    sc=ep?F.scOf[ep]||null:null; const pid=ep?F.planOf[ep]:null;
+    row=lsRow({ lead:l, st, sc, launch, plan:pid?(DATA.staffing_plans||[]).find(p=>p.id===pid)||null:null });
+  }
+  m.sc=sc; m.factsLoaded=!!LS.facts; m.factsError=LS.facts&&LS.facts.error||'';
+  /* the client-side list Clients board uses (same function) */
+  const due=(ax&&r)?clDue(Object.assign({}, r, { axiscare_client_id:ax }), Array.isArray(CL.issues)?CL.issues:[]):[];
+  const rank={ bad:1, warn:2, dim:3, ok:4 };
+  due.sort((a,b)=>(rank[a.tone]||9)-(rank[b.tone]||9));
+  const ci=ax?(DATA.client_checkins||[]).filter(c=>c&&c.client_name&&String(c.axiscare_client_id||'')===ax).sort((a,b)=>String(b.checkin_date||'').localeCompare(String(a.checkin_date||'')))[0]||null:null;
+  const tile=(key,k,v,s,tab,tone)=>m.tiles.push({ key, k, v:v||'', s:s||'', tab:tab||'', tone:tone||'' });
+
+  /* 1 · talking to */
+  if(l){ const caller=((l.first_name||'')+' '+(l.last_name||'')).trim();
+    tile('talk','Talking to', caller?caller+(l.relationship?' ('+l.relationship+')':''):'No caller name recorded', 'from the intake form', 'family'); }
+  else tile('talk','Talking to','No inquiry on file','their contacts are on Family & Contacts','family');
+  /* 2 · owner */
+  if(l&&l.assigned_coordinator) tile('owner','Owner', l.assigned_coordinator, 'assigned on the inquiry', 'summary');
+  else if(row&&row.who) tile('owner','Owner', row.who, 'from the Start Contract or First shift checklist', 'start');
+  else if(launch&&launch.coordinator) tile('owner','Owner', launch.coordinator, 'from the First shift checklist', 'start');
+  else if(ci&&ci.coordinator) tile('owner','Owner', ci.coordinator, 'did their last check-in', 'checkins');
+  else tile('owner','Owner','Nobody assigned','no coordinator on any record','', 'warn');
+  /* 3 · next action */
+  if(st.k==='past'){
+    const ended=r&&r.role_status&&r.role_status!=='active';
+    tile('next','Next action','Nothing: '+(ended?'care ended'+(r.ended_at?' '+dd(r.ended_at):''):'did not start'), ended?(r.end_reason?'reason: '+r.end_reason:'from their client record'):(l&&l.lost_reason?'reason: '+l.lost_reason:'no reason recorded'), 'history');
+  }
+  else if(row&&row.move) tile('next','Next action', row.move, 'the same next move the Leads board shows', row.tab, 'next');
+  else if(due.length) tile('next','Next action', due[0].label.charAt(0).toUpperCase()+due[0].label.slice(1), 'the first thing open or due', due[0].tab, 'next');
+  else tile('next','Next action', ax?'Nothing open or due':'None found', ax?'check-ins, plan reviews, requests, concerns, call-offs':'', '', 'next');
+  /* 4 · blocker */
+  const blocks=(row&&row.risk.length)?row.risk:due.filter(x=>x.tone==='bad').map(x=>x.label);
+  if(blocks.length) tile('block','Blocker', blocks.slice(0,2).join(' · ')+(blocks.length>2?' (+'+(blocks.length-2)+')':''), row&&row.risk.length?'the same risks the Leads board flags':'from what\'s open or due', row?row.tab:(due.find(x=>x.tone==='bad')||{}).tab, 'block');
+  else tile('block','Blocker','None found', st.k==='past'?'':'nothing overdue or at risk on record');
+  /* 5 · last real conversation (a recorded two-way conversation or a check-in; attempts don't count) */
+  let talk=null;
+  if(l){ const ev=ldLastConnected(l);
+    if(ev) talk={ at:ev.at, v:dd(ev.at)+(ev.channel?' · '+ev.channel:'')+(ev.by?' · '+ev.by:''), s:'recorded on the inquiry' };
+    else if(l.first_human_contact_at) talk={ at:l.first_human_contact_at, v:dd(l.first_human_contact_at), s:'first conversation recorded on the inquiry' }; }
+  if(ci&&ci.checkin_date&&(!talk||String(ci.checkin_date)>String(talk.at).slice(0,10)))
+    talk={ at:ci.checkin_date, v:dd(ci.checkin_date)+' · check-in'+(ci.coordinator?' · '+ci.coordinator:''), s:'their last check-in', tab:'checkins' };
+  if(talk) tile('talked','Last real conversation', talk.v, talk.s, talk.tab||'family');
+  else { const at=l&&(ldLastHumanAttempt(l)||null), att=at?at.at:(l&&l.last_contacted_at);
+    tile('talked','Last real conversation','None recorded', att?'last attempt '+dd(att)+' (an attempt is not a conversation)':(l?'no calls or messages logged':'no check-ins yet'), 'family', l&&st.k!=='past'?'warn':''); }
+  /* 6 · next follow-up */
+  const fu=[];
+  if(l&&l.promised_callback_at) fu.push({ at:String(l.promised_callback_at).slice(0,10), v:'Promised call-back '+dd(l.promised_callback_at), s:'promised on the inquiry', tab:'summary' });
+  if(l&&l.follow_up_due&&pre) fu.push({ at:String(l.follow_up_due).slice(0,10), v:'Follow-up '+dd(l.follow_up_due), s:'follow-up date on the inquiry', tab:'summary' });
+  if(sc&&sc.next_update_owed_on) fu.push({ at:String(sc.next_update_owed_on).slice(0,10), v:'Family update owed '+dd(sc.next_update_owed_on), s:'from the Start Contract', tab:'start' });
+  if(ci&&ci.next_checkin_due&&st.k!=='past') fu.push({ at:String(ci.next_checkin_due).slice(0,10), v:'Check-in due '+dd(ci.next_checkin_due), s:'from their last check-in', tab:'checkins' });
+  fu.sort((a,b)=>a.at.localeCompare(b.at));
+  if(fu.length) tile('follow','Next follow-up', fu[0].v, fu[0].s+(fu[0].at<t?' · overdue':''), fu[0].tab, fu[0].at<t?'block':'');
+  else tile('follow','Next follow-up','None set', st.k==='past'?'':'no follow-up date on any record', '', pre?'warn':'');
+  /* 7 · start: what they asked for vs what we promised · or, once receiving care, AxisCare's level */
+  if(pre){
+    const asked=l&&l.urgency?CPX_URG[l.urgency]||l.urgency:'';
+    const prom=sc&&sc.target_date?dd(sc.target_date)+(sc.confidence?' ('+sc.confidence+')':''):(launch&&launch.start_date?dd(launch.start_date):'');
+    tile('start','Wants to start', (asked||'Not recorded')+(prom?' · promised '+prom:''),
+      (asked?'asked '+dd(l.created_at)+' on the intake form':'no urgency on the inquiry')+(prom?(sc&&sc.target_date?' · promise from the Start Contract':' · from the First shift checklist'):(m.factsLoaded?' · no date promised':' · reading the Start Contract…')), 'start');
+  } else tile('level','Care level', '', ax?'from AxisCare':'no AxisCare client', 'care');
+  /* 8 · paying */
+  if(l){ const fs=l.funding_source;
+    let v=fs?(CPX_PAY[fs]||fs):'Not recorded', s='from the Payer tab';
+    if(fs==='medicaid'){ const ss=l.state_status||(l.state_submitted?'submitted':'');
+      v+=' · '+(CPX_STATE[ss]||'state status not recorded');
+      if(l.state_submitted&&ss!=='authorized'&&ss!=='denied'){ const days=-lsDays(l.state_submitted); if(days>=0) s='the state has had it '+days+' day'+(days===1?'':'s'); } }
+    tile('pay','Paying', v, s, 'payer', fs?'':(pre?'warn':'')); }
+  else tile('pay','Paying','No intake payer record','AxisCare holds this client\'s billing','payer');
+  m.care=cpxCareChips(l);
+  m.blurb=ax?((DATA.client_care_blurbs||[]).find(b=>String(b.id)===ax)||null):null;
+  m.needed=cpxStillNeeded(l, st, sc);
+  return m;
+}
+function cpRenderCommand(){
+  const box=document.getElementById('cpCommand'); if(!box||!cpOpen()) return;
+  if(!CP.lead&&!CP.r&&!CP.launch){ box.style.display='none'; return; }
+  box.style.display='';
+  const esc=escapeHtmlComms, m=cpCommandModel(), key=(CP.lead&&CP.lead.id)||CP.ax||'';
+  box.dataset.for=key;
+  /* the Start Contract dates load once for the Leads board; read them here too if nobody has yet */
+  if(m.pre&&!LS.facts&&!LS.loading&&!box.dataset.factsAsked){ box.dataset.factsAsked='1';
+    lsLoadFacts().then(()=>{ if(cpOpen()&&box.dataset.for===key) cpRenderCommand(); }); }
+  const go=tab=>tab==='intake'?(CP.lead?'openLeadModal(\''+esc(CP.lead.id)+'\')':''):(tab?'cpShowTab(\''+tab+'\');window.scrollTo(0,0)':'');
+  /* who: age · town, AxisCare's own status, payer */
+  const facts=[];
+  if(m.age) facts.push('Age '+m.age); if(m.town) facts.push(esc(m.town));
+  const fx=document.getElementById('cpFacts');
+  if(fx) fx.innerHTML=(facts.length?'<span>'+facts.join(' · ')+'</span>':'')
+    +(m.axStatus&&m.axStatus.label?'<span class="cpx-chip info" title="AxisCare\'s own status, seen '+esc(String(m.axStatus.observed_at||'').slice(0,10))+'">AxisCare: '+esc(m.axStatus.label)+'</span>':'');
+  /* the six-stage path */
+  const cur=CC_STAGE_ORDER.indexOf(m.st.k);
+  document.getElementById('cpcPath').innerHTML='<div class="cpx-path" title="Where they are, from recorded facts">'
+    +CC_STAGE_ORDER.map((k,i)=>'<span class="'+(i===cur?'on':(i<cur&&m.st.k!=='past'?'done':''))+'">'+esc(CC_STAGE_META[k][0])+(i===cur&&m.st.d?' · '+esc(m.st.d):'')+'</span>').join('')+'</div>';
+  /* the tiles */
+  document.getElementById('cpcGrid').innerHTML=m.tiles.map(x=>{
+    const on=go(x.tab);
+    const v=x.key==='level'?'<span id="cpc_level">'+((CP.levelHtml&&CP.levelHtml.ax===CP.ax)?CP.levelHtml.html:(CP.ax?'reading AxisCare…':'none'))+'</span>':esc(x.v);
+    return '<div class="cpx-kv '+esc(x.tone)+(on?' link':'')+'"'+(on?' role="button" tabindex="0" onclick="'+on+'" onkeydown="if(event.key===\'Enter\')this.click()"':'')+' data-k="'+esc(x.key)+'">'
+      +'<div class="k">'+esc(x.k)+'</div><div class="v">'+v+'</div>'+(x.s?'<div class="s">'+esc(x.s)+'</div>':'')+'</div>'; }).join('');
+  /* care and safety */
+  const chips=m.care, shown=chips.slice(0,6), rest=chips.slice(6);
+  document.getElementById('cpcCare').innerHTML='<div class="cpx-row"><span class="cpx-lbl">Care &amp; safety</span>'
+    +(chips.length?shown.map(c=>'<span class="cpx-chip '+c.tone+'">'+esc(c.t)+'</span>').join('')
+        +(rest.length?'<span class="cpx-chip info" title="'+esc(rest.map(c=>c.t).join(', '))+'">+'+rest.length+' more</span>':'')
+        +'<span class="cpx-src">from the intake form</span>'
+      :'<span class="cpx-src">'+(CP.lead?'nothing recorded on the intake form yet':'no inquiry on file, so no intake care information')+'</span>')
+    +'</div>'
+    +(m.blurb&&m.blurb.blurb?'<div class="cpx-row"><span class="cpx-lbl">Care synopsis</span><span style="font-size:13.5px;">'+esc(m.blurb.blurb)+'</span></div>':'');
+  /* still needed (the inquiry's gaps for the next step); a client's open items render beside it (cpRenderOpenNow) */
+  const need=m.needed, top=need.slice(0,4), more=need.slice(4);
+  const TIER=['blocks the next step','safety','payer',''];
+  const li=n=>{ const on=go(n.tab); return '<li class="t'+n.tier+'">'+(on?'<a href="javascript:void(0)" onclick="'+on+'">'+esc(n.label)+'</a>':esc(n.label))
+    +'<span class="why">'+esc(n.why)+(TIER[n.tier]?' · '+TIER[n.tier]:'')+'</span></li>'; };
+  document.getElementById('cpcNeeded').innerHTML=m.pre&&CP.lead
+    ?'<div class="cpx-needhead"><b>Still needed</b><span class="cpx-src">for their next step, from what the inquiry records</span></div>'
+      +(need.length?'<ul class="cpx-need">'+top.map(li).join('')+'</ul>'
+        +(more.length?'<details class="cpx-more"><summary>'+more.length+' more</summary><ul class="cpx-need">'+more.map(li).join('')+'</ul></details>':'')
+        :'<div class="cpx-src" style="margin-top:4px;">Nothing missing that the Hub can check.</div>')
+    :'';
 }
 /* ── LEADS & STARTS (Client path step 4, her Sept 25 design, approved 2026-09-28) ─────────────
    One row per family from first call to first shift. Nothing is stored here: every cell comes from
@@ -31858,6 +32079,8 @@ async function cl360RenderInto(r, out, px, panes){
     if(est) bits.push('intake estimate Level '+est);
     if(rv) bits.push('last review Level '+rv.care_level+' ('+esc(String(rv.at).slice(0,10))+')');
     const differs=now&&rv&&+rv.care_level!==now;
+    if(px==='cp_'){ CP.levelHtml={ ax:axisId, html:axisId?(d&&d.outcome==='ok'?(now?ccLevelChip(now):'no level class in AxisCare'):'could not read AxisCare'):'no AxisCare client yet' };
+      const e2=document.getElementById('cpc_level'); if(e2) e2.innerHTML=CP.levelHtml.html; }
     el.innerHTML=(axisId?(d&&d.outcome==='ok'?(now?ccLevelChip(now)+' <span class="field-note" style="font-size:11px;">from AxisCare class "'+esc(d.from||'')+'"</span>':'<span class="field-note">no level class in AxisCare</span>'):'<span class="field-note">could not read AxisCare</span>'):'<span class="field-note">no AxisCare client yet</span>')
       +(bits.length?'<div class="field-note" style="font-size:11.5px;">'+bits.join(' · ')+'</div>':'')
       +(differs?'<div style="font-size:12px;color:#92400E;">The last review found Level '+rv.care_level+'. <button class="linklike" style="font-size:12px;" onclick="ccLevelSet(\''+esc(axisId)+'\','+(+rv.care_level)+',\''+esc(String(name).replace(/'/g,''))+'\')">Update AxisCare\'s care level</button></div>':'');
@@ -34759,6 +34982,52 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
   .cara-metric .v{ font-size:30px; }
   .cara-gap{ min-width:0; }
 }
+/* ── Gate 1a (2026-09-28): the profile's Overview command area and tab bar. The layout of the
+   approved Living Profile mock, drawn in this scope's own palette (her 2026-09-20 ruling), and
+   reaching nothing outside #leadProfileView. */
+#leadProfileView .cp-tabs{ gap:4px; border:1px solid var(--border); border-radius:14px; background:#fff;
+  padding:5px; margin-bottom:16px; box-shadow:var(--cara-shadow); }
+#leadProfileView .cp-tab{ border:none; margin:0; border-radius:999px; padding:7px 14px; font-size:13.5px; color:var(--text-muted); }
+#leadProfileView .cp-tab:hover{ background:var(--neutral); color:var(--navy); }
+#leadProfileView .cp-tab.on{ background:var(--navy); color:#fff; }
+#leadProfileView .cp-tab:focus-visible{ outline:2px solid var(--teal); outline-offset:2px; }
+#leadProfileView #cpTitle{ font-size:26px; letter-spacing:-0.01em; }
+.cpx-facts{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:14px; color:var(--text-muted); margin:-4px 0 12px; }
+.cpx-facts:empty{ display:none; }
+.cpx-cmd{ background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:var(--cara-shadow);
+  padding:16px 18px; margin-bottom:16px; display:flex; flex-direction:column; gap:14px; }
+.cpx-path{ display:flex; flex-wrap:wrap; font-size:12.5px; }
+.cpx-path span{ padding:5px 11px; border:1px solid var(--border); margin-right:-1px; color:var(--text-muted); background:var(--cream); white-space:nowrap; }
+.cpx-path span:first-child{ border-radius:999px 0 0 999px; } .cpx-path span:last-child{ border-radius:0 999px 999px 0; }
+.cpx-path span.done{ color:var(--green); font-weight:700; }
+.cpx-path span.on{ background:var(--navy); border-color:var(--navy); color:#fff; font-weight:700; }
+.cpx-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.cpx-kv{ background:var(--cream); border:1px solid transparent; border-radius:11px; padding:9px 11px; min-width:0; }
+.cpx-kv.link{ cursor:pointer; } .cpx-kv.link:hover{ border-color:var(--cream-line); }
+.cpx-kv.link:focus-visible{ outline:2px solid var(--teal); outline-offset:1px; }
+.cpx-kv .k{ font-size:10.5px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--text-dim); }
+.cpx-kv .v{ font-size:14.5px; font-weight:700; color:var(--navy); margin-top:2px; overflow-wrap:anywhere; }
+.cpx-kv .s{ font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+.cpx-kv.next{ background:var(--green-bg); } .cpx-kv.next .v{ color:var(--green); }
+.cpx-kv.block{ background:var(--red-bg); } .cpx-kv.block .v{ color:var(--red); }
+.cpx-kv.warn{ background:var(--amber-bg); } .cpx-kv.warn .v{ color:var(--honey-ink); }
+.cpx-row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.cpx-lbl{ font-size:10.5px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--text-dim); margin-right:4px; }
+.cpx-src{ font-size:11.5px; color:var(--text-muted); }
+.cpx-chip{ display:inline-block; font-size:12px; font-weight:700; border-radius:999px; padding:3px 10px; white-space:nowrap; }
+.cpx-chip.bad{ background:var(--red-bg); color:var(--red); } .cpx-chip.warn{ background:var(--amber-bg); color:var(--honey-ink); }
+.cpx-chip.info{ background:var(--neutral); color:var(--navy-2); }
+.cpx-needed{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; border-top:1px solid var(--border); padding-top:12px; }
+.cpx-needed>div:empty{ display:none; }
+.cpx-needhead{ display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; } .cpx-needhead b{ font-size:15px; color:var(--navy); }
+.cpx-need{ list-style:none; margin:6px 0 0; padding:0; }
+.cpx-need li{ display:flex; flex-direction:column; padding:5px 0 5px 12px; border-left:3px solid var(--neutral-2); margin-bottom:4px; font-size:13.5px; font-weight:700; }
+.cpx-need li.t0{ border-left-color:var(--red); } .cpx-need li.t1{ border-left-color:var(--honey); } .cpx-need li.t2{ border-left-color:var(--teal); }
+.cpx-need li a{ color:var(--navy); } .cpx-need .why{ font-size:11.5px; font-weight:400; color:var(--text-muted); }
+.cpx-more summary{ font-size:12.5px; color:var(--navy); cursor:pointer; font-weight:700; }
+#cpCommand #cp_open_now>.card{ border:none; box-shadow:none; padding:0; margin:0; background:transparent; }
+@media(max-width:960px){ .cpx-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:480px){ .cpx-grid{ grid-template-columns:1fr; } .cpx-cmd{ padding:14px; } }
 /* =================== END CARA SCOPE =================== */
 @keyframes caraspin{to{transform:rotate(360deg);}}
 </style>
