@@ -11159,7 +11159,10 @@ async function saveLead(opts){
       if(r.choice==='connect') jcAfter={name:r.name};
     }
   }
-  if(idx>=0) DATA.leads[idx]=merged; else DATA.leads.push(merged);
+  /* Gate 1b-0 (2026-09-28): update the lead IN PLACE. Swapping in a new object left the open profile
+     (lpLead, CP.lead) and the conversation panel (commsLead) holding the old one, so their next save
+     wrote the old intake values back to the database. */
+  if(idx>=0) Object.assign(DATA.leads[idx], merged); else DATA.leads.push(merged);
   await persist('leads', merged);
   if(jcAfter){
     const res=await jcConnect(merged, newAx, 'typed', jcAfter.name);
@@ -11168,6 +11171,8 @@ async function saveLead(opts){
   closeModal('leadModalBackdrop');
   renderLeads();
   if(activeLeadsSubtab==='followups') renderFollowUpQueue();
+  /* Gate 1b-0: an open profile of this lead redraws, so its Payer tab can't save old values back */
+  if(typeof cpOpen==='function'&&cpOpen()&&lpLead&&lpLead.id===id){ renderLeadProfile(); cpRenderPayer(); }
   if(ckNote){ if(typeof ccToast==='function') ccToast('Saved. '+ckNote); else alert('Saved. '+ckNote); }
 }
 /* ===================== STEP 2 · which AxisCare client is this lead? =====================
