@@ -820,7 +820,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="ftab" data-g="scheduling" onclick="ccGroupClick('scheduling')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Scheduling<span class="subtab-badge red" id="gb-sched" style="display:none;"></span></div>
     <span class="navrule"></span>
     <span class="navsec">Clients</span>
-    <div class="ftab" data-g="leads" onclick="ccGroupClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
+    <div class="ftab" data-g="leads" onclick="ccGroupClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads &amp; Starts</div>
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Care<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
     <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Marketing<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
     <span class="navrule"></span>
@@ -848,15 +848,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        Care begins. The tab keys did not change, so every old link keeps
        working. -->
   <div class="fsubbar" id="fsub-leads">
+    <div class="fpill" data-tab="leadsstarts" onclick="switchTab('leadsstarts')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Leads &amp; Starts</div>
+    <span class="pillsec" title="These stay until Oct 12, 2026 so the team can compare">Older lists</span>
     <div class="fpill" data-tab="leads" onclick="switchTab('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
     <div class="fpill" data-tab="statesubs" onclick="switchTab('statesubs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> State Submissions</div>
     <div class="fpill" data-tab="assessments" onclick="switchTab('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Assessments</div>
+    <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <span style="flex:1"></span>
     <select id="ccViewAsL" onchange="ccSetViewAs(this.value)" title="View one coordinator's book" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--navy);font-family:inherit;max-width:160px;align-self:center"></select>
   </div>
   <div class="fsubbar" id="fsub-clients">
-    <span class="pillsec">Starting Care</span>
-    <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <span class="pillsec">Current Clients</span>
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
     <div class="fpill" data-tab="circles" onclick="switchTab('circles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family Circles</div>
@@ -4210,6 +4211,24 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
     </section>
 
+    <!-- LEADS & STARTS (Client path step 4, 2026-09-28): the board she approved on Sept 25. Every family
+         from first call until the first shift is done, one row each, computed from the records the older
+         lists use. Clicking a row opens the family's profile on the tab its stage needs. -->
+    <section class="tabpanel" id="tab-leadsstarts">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Leads &amp; Starts</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:78ch;">Every family from their first call until their first shift is done. At-risk starts first, then the soonest start. Click a family to work on them.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <button class="linklike" onclick="lsLoadFacts(true)">↻ Refresh</button>
+      </div>
+      <div id="lsCounters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;"></div>
+      <div id="lsFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
+      <div id="lsBoard"><div class="field-note">Loading…</div></div>
+      <div class="field-note" style="margin-top:10px;font-size:12px;">The older lists (Leads, State Submissions, Care Assessments, Getting ready) stay in the menu until Oct 12 so the team can compare. Everything here is read from the same records they use.</div>
+    </section>
+
     <section class="tabpanel" id="tab-leads">
       <details class="guide">
         <summary>📋 How This Tab Works — Step by Step ▼</summary>
@@ -7259,7 +7278,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leads','statesubs','assessments'],clients:['soc','clientqueue','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','leads','statesubs','assessments','soc','clientqueue'],clients:['clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7630,7 +7649,7 @@ const CC_SECTION_TITLES = {
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
-  statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
+  statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads & Starts',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
@@ -7842,6 +7861,7 @@ function renderActiveTab(){
   if(activeTab==='referrers') renderReferrers();
   if(activeTab==='reports') renderReports();
   if(activeTab==='leads') renderLeads();
+  if(activeTab==='leadsstarts') renderLeadsStarts();
   if(activeTab==='community') renderCommunity();
   if(activeTab==='htlocal') renderHtLocal();
   if(activeTab==='assessments') renderAssessments();
@@ -26925,6 +26945,152 @@ const LEAD_STAGE_META={
   won:          ['Won',          '#E7F6EC', '#1F7A4D'],
   lost:         ['Lost',         '#F1F5F9', '#64748B'],
 };
+/* ── LEADS & STARTS (Client path step 4, her Sept 25 design, approved 2026-09-28) ─────────────
+   One row per family from first call to first shift. Nothing is stored here: every cell comes from
+   records the older lists already use (the inquiry, its Journey's Start Contract, the care
+   assessment, the state submission, the team plan, the First shift checklist). The dots say what
+   is ready (Care, Authorization, Staffing); "Next move" is the one thing the family needs next. */
+const LS={ facts:null, loading:false, filter:'All' };
+async function lsLoadFacts(force){
+  if(LS.loading||(LS.facts&&!force)) return;
+  LS.loading=true;
+  const q=p=>p.then(r=>{ if(r.error) throw r.error; return r.data||[]; });
+  try{
+    const [src, sc, links]=await Promise.all([
+      q(sb.from('episode_source').select('episode_id,source_ref').eq('system','lead').eq('role','origin')),
+      q(sb.from('start_contract_current').select('episode_id,confidence,target_date,next_update_owed_on,owed_by')),
+      q(sb.from('team_build_link_current').select('plan_id,episode_id')) ]);
+    const epOf={}, scOf={}, planOf={};
+    src.forEach(x=>{ epOf[String(x.source_ref)]=x.episode_id; });
+    sc.forEach(x=>{ scOf[x.episode_id]=x; });
+    links.forEach(x=>{ planOf[x.episode_id]=x.plan_id; });
+    LS.facts={ epOf, scOf, planOf };
+  }catch(e){ LS.facts={ epOf:{}, scOf:{}, planOf:{}, error:String(e&&e.message||e) }; }
+  if(typeof cqLaunchFor==='function'){ try{ await cqLaunchFor({}); }catch(e){} }
+  LS.loading=false;
+  if(activeTab==='leadsstarts') renderLeadsStarts();
+}
+function lsDate(ymd){ try{ return new Date(String(ymd).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return String(ymd||''); } }
+function lsDays(ymd){ return Math.round((new Date(String(ymd).slice(0,10)+'T12:00:00')-new Date(today()+'T12:00:00'))/864e5); }
+const LS_PAYER={ private:'private pay', ltc:'LTC insurance', va:'VA', cds:'CDS', pace:'PACE' };
+function lsRow(o){
+  const l=o.lead||null, c=o.launch||null, st=o.st, sc=o.sc||null, t=today(), risk=[], owe=[];
+  const pip=(tone,txt)=>({ tone, txt });
+  /* Care: the assessment and its plan */
+  let care=pip('dim','—');
+  if(l){
+    const as=(DATA.care_assessments||[]).filter(a=>a&&a.lead_id===l.id);
+    if(as.some(a=>a.status==='Plan Drafted'||a.status==='Pushed to AxisCare')) care=pip('ok','plan ready');
+    else if(as.some(a=>a.status==='Completed — Awaiting Plan')) care=pip('warn','plan not written');
+    else if(as.length) care=pip('dim','visit booked');
+    else if(st.k==='ready') care=pip('bad','no assessment');
+  }
+  /* Authorization: who pays, and for Medicaid how far the state has got */
+  let auth=pip('dim','payer?'), waitingState=false;
+  const fs=l&&l.funding_source;
+  if(fs==='medicaid'){
+    const ss=l.state_status||'', sub=l.state_submitted||'';
+    if(ss==='authorized') auth=pip('ok','authorized');
+    else if(ss==='denied') { auth=pip('bad','denied'); risk.push('Medicaid denied'); }
+    else if(sub||ss==='submitted'||ss==='assessed'){
+      const d=sub?-lsDays(sub):null; waitingState=true;
+      auth=pip(d!==null&&d>21?'bad':'warn', ss==='assessed'?'assessed · waiting':('waiting'+(d!==null?' '+d+'d':'')));
+      if(d!==null&&d>21) risk.push('state waiting '+d+' days');
+    } else auth=pip(st.k==='ready'?'bad':'warn','not submitted');
+  } else if(fs&&LS_PAYER[fs]) auth=pip('ok',LS_PAYER[fs]);
+  else if(!l) auth=pip('dim','—');
+  else if(st.k==='ready') auth=pip('bad','payer?');
+  /* Staffing: the team plan linked to their Journey, else the First shift checklist */
+  let staff=pip('dim','later');
+  const plan=o.plan||null;
+  if(plan){
+    const total=(plan.days||[]).length*(plan.slots||[]).length;
+    const yes=Object.values(plan.cells||{}).filter(x=>x&&x.status==='yes').length;
+    staff= total&&yes===total ? pip('ok','covered') : pip(yes/(total||1)>=.5?'warn':'bad', (total?Math.round(yes/total*100):0)+'% · '+(total-yes)+' open');
+  } else if(c&&c.caregiver_assigned) staff=pip('ok','assigned');
+  else if(st.k==='ready') staff=pip('warn','no team plan');
+  /* Start: the Start Contract's target date */
+  let start=null;
+  if(sc&&sc.target_date) start={ ymd:String(sc.target_date).slice(0,10), conf:sc.confidence||'' };
+  else if(c&&c.start_date) start={ ymd:String(c.start_date).slice(0,10), conf:'' };
+  const days=start?lsDays(start.ymd):null;
+  if(days!==null&&days<=14&&days>=-3&&(auth.tone==='bad'||auth.tone==='warn'||staff.tone==='bad'||staff.tone==='warn'||care.tone==='bad'))
+    risk.push('starts '+(days<0?Math.abs(days)+' days ago':days===0?'today':'in '+days+' days')+' and not ready');
+  /* the one next move */
+  let move='', who=(l&&l.assigned_coordinator)||(c&&c.coordinator)||'';
+  if(l&&l.promised_callback_at&&String(l.promised_callback_at)<=new Date().toISOString()){ move='Call back: it was promised for '+lsDate(l.promised_callback_at); owe.push(1); risk.push('promised call-back overdue'); }
+  else if(sc&&sc.next_update_owed_on&&String(sc.next_update_owed_on)<=t){ move='Give the family their update (owed '+lsDate(sc.next_update_owed_on)+')'; owe.push(1); if(String(sc.next_update_owed_on)<t) risk.push('family update overdue'); if(sc.owed_by) who=sc.owed_by; }
+  else if(st.k==='new') { move='Call them: no human contact yet'; if(l&&l.created_at&&Date.now()-Date.parse(l.created_at)>4*3600e3) risk.push('new for over 4 hours'); }
+  else if(st.k==='talking'){
+    if(l.follow_up_due){ move='Follow up '+(l.follow_up_due<t?'(was due '+lsDate(l.follow_up_due)+')':lsDate(l.follow_up_due)); if(l.follow_up_due<t){ owe.push(1); risk.push('follow-up overdue'); } }
+    else move='Set their next follow-up';
+  }
+  else if(st.k==='assessment') move=care.txt==='plan not written'?'Write the care plan':(l.assessment_at?'Assessment '+lsDate(l.assessment_at):'Book the assessment');
+  else if(st.k==='ready'&&st.d==='before staffing'&&l&&l.soc&&typeof socCurrentStep==='function'){
+    const cur=socCurrentStep(l.soc);
+    move=cur?cur.label:'Before staffing is done: open the First shift checklist';
+    if(cur&&typeof socIsStuck==='function'&&socIsStuck(l.soc)) risk.push('stuck '+socWaitingDays(l.soc)+' days on a step');
+  }
+  else if(st.k==='ready'&&c) move=(typeof cqNextStep==='function'&&cqNextStep(c))||'Finish the First shift checklist';
+  else if(st.k==='ready') move='Begin Getting ready';
+  const name=l?cpLeadClientName(l):(c&&c.client_name)||'(no name)';
+  const tab=st.k==='ready'?'start':st.k==='assessment'?'care':(waitingState?'payer':'summary');
+  return { l, c, st, name, start, days, care, auth, staff, move, who, risk, owe:owe.length>0, waitingState, tab,
+           created:(l&&l.created_at)||(c&&c.added_at)||'' };
+}
+function lsRows(){
+  const F=LS.facts||{ epOf:{}, scOf:{}, planOf:{} }, rows=[], launches=window.__cqRows||[];
+  (DATA.leads||[]).filter(l=>l&&!l.archived&&ccViewMatch(l.assigned_coordinator)).forEach(l=>{
+    const st=ccLeadStage(l); if(st.k==='care'||st.k==='past') return;
+    const ep=F.epOf[String(l.id)], sc=ep?F.scOf[ep]:null, pid=ep?F.planOf[ep]:null;
+    const ax=String(l.axiscare_client_id||'').trim();
+    const launch=ax?launches.find(c=>c.status!=='complete'&&String(c.axiscare_client_id||'').trim()===ax):null;
+    rows.push(lsRow({ lead:l, st, sc, launch, plan:pid?(DATA.staffing_plans||[]).find(p=>p.id===pid):null }));
+  });
+  /* First shift checklists with no inquiry behind them (clients AxisCare started directly) */
+  launches.filter(c=>c.status!=='complete'&&!(DATA.leads||[]).some(l=>l&&!l.archived&&String(l.axiscare_client_id||'').trim()&&String(l.axiscare_client_id).trim()===String(c.axiscare_client_id||'').trim())
+    && ccViewMatch(c.coordinator)).forEach(c=>rows.push(lsRow({ launch:c, st:{ k:'ready', d:'first shift' } })));
+  rows.sort((a,b)=>(b.risk.length?1:0)-(a.risk.length?1:0)
+    || (a.start?0:1)-(b.start?0:1) || (a.start&&b.start?a.start.ymd.localeCompare(b.start.ymd):0)
+    || CC_STAGE_ORDER.indexOf(b.st.k)-CC_STAGE_ORDER.indexOf(a.st.k)
+    || String(b.created).localeCompare(String(a.created)));
+  return rows;
+}
+function renderLeadsStarts(){
+  const box=document.getElementById('lsBoard'); if(!box) return;
+  if(!LS.facts&&!LS.loading) lsLoadFacts();
+  const esc=escapeHtmlComms, all=lsRows();
+  const FILTERS=['All','At risk','New','Talking','Waiting on the state','Assessment','Getting ready'];
+  const pass=r=>LS.filter==='All'||(LS.filter==='At risk'?r.risk.length>0:LS.filter==='Waiting on the state'?r.waitingState:CC_STAGE_META[r.st.k][0]===LS.filter);
+  const count=f=>all.filter(r=>f==='All'||(f==='At risk'?r.risk.length>0:f==='Waiting on the state'?r.waitingState:CC_STAGE_META[r.st.k][0]===f)).length;
+  document.getElementById('lsFilters').innerHTML=FILTERS.map(f=>'<button class="filter-pill'+(LS.filter===f?' active':'')+'" onclick="LS.filter=\''+f+'\';renderLeadsStarts()">'+f+' <span style="opacity:.65;">'+count(f)+'</span></button>').join('');
+  const tile=(n,l,col,f)=>'<button onclick="LS.filter=\''+f+'\';renderLeadsStarts()" style="text-align:left;background:#fff;border:1px solid var(--border);border-left:3px solid '+col+';border-radius:10px;padding:9px 12px;cursor:pointer;font-family:inherit;">'
+    +'<div style="font-size:22px;font-weight:800;color:var(--navy);line-height:1;font-variant-numeric:tabular-nums;">'+n+'</div><div class="field-note" style="font-size:12px;margin-top:3px;">'+l+'</div></button>';
+  document.getElementById('lsCounters').innerHTML=
+    tile(all.filter(r=>r.risk.length).length,'starts at risk','var(--red)','At risk')
+    +tile(all.filter(r=>r.owe).length,'family updates owed','var(--amber,#C17A12)','All')
+    +tile(all.filter(r=>r.waitingState).length,'waiting on Medicaid','#94A3B8','Waiting on the state')
+    +tile(all.filter(r=>r.start&&r.st.k==='ready').length,'upcoming starts','var(--teal)','Getting ready');
+  const rows=all.filter(pass);
+  if(!rows.length){ box.innerHTML='<div class="card" style="padding:16px 18px;color:var(--text-muted);">'+(LS.loading?'Loading…':'Nobody here right now.')+'</div>'; return; }
+  const P={ ok:['#E7F6EC','#1F7A4D'], warn:['#FDF3E3','#A8660E'], bad:['#FDE8E8','#B23B2E'], dim:['#F1F5F9','#64748B'] };
+  const pip=p=>'<span style="font-size:11.5px;font-weight:700;border-radius:6px;padding:2px 7px;white-space:nowrap;background:'+P[p.tone][0]+';color:'+P[p.tone][1]+';">'+esc(p.txt)+'</span>';
+  const open=r=>r.l?'data-open-lead="'+esc(r.l.id)+'" data-open-tab="'+r.tab+'"':'onclick="openClient({launch_id:\''+esc(r.c.id)+'\'},\'start\')"';
+  let lastRisk=null, h='<div class="card" style="padding:0;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:760px;">'
+    +'<thead><tr style="background:var(--bg);text-align:left;">'+['Family','Start','Stage','Care','Authorization','Staffing','Next move'].map(x=>'<th style="padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">'+x+'</th>').join('')+'</tr></thead><tbody>';
+  rows.forEach(r=>{
+    const isRisk=r.risk.length>0;
+    if(isRisk!==lastRisk){ lastRisk=isRisk; h+='<tr><td colspan="7" style="padding:5px 10px;background:var(--bg);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:'+(isRisk?'var(--red)':'var(--text-muted)')+';">'+(isRisk?'At risk':'On track')+'</td></tr>'; }
+    h+='<tr '+open(r)+' style="cursor:pointer;border-top:1px solid var(--border);'+(isRisk?'background:#FFFAF9;':'')+'" title="Open their profile">'
+      +'<td style="padding:9px 10px;"><div style="display:flex;align-items:center;gap:7px;"><span style="width:8px;height:8px;border-radius:50%;flex:none;background:'+(isRisk?'var(--red)':'var(--green)')+';"></span><b style="color:var(--navy);">'+esc(r.name)+'</b></div>'
+        +(isRisk?'<div style="font-size:11.5px;color:var(--red);margin-top:2px;">'+esc(r.risk.join(' · '))+'</div>':'')+'</td>'
+      +'<td style="padding:9px 10px;white-space:nowrap;">'+(r.start?'<b>'+esc(lsDate(r.start.ymd))+'</b> <span class="field-note">· '+(r.days===0?'today':r.days>0?r.days+' days':Math.abs(r.days)+' days ago')+'</span>'+(r.start.conf?'<div class="field-note" style="font-size:11px;">'+esc(r.start.conf)+'</div>':''):'<span class="field-note">no date promised</span>')+'</td>'
+      +'<td style="padding:9px 10px;">'+ccStageChip(r.st)+'</td>'
+      +'<td style="padding:9px 10px;">'+pip(r.care)+'</td><td style="padding:9px 10px;">'+pip(r.auth)+'</td><td style="padding:9px 10px;">'+pip(r.staff)+'</td>'
+      +'<td style="padding:9px 10px;"><b style="color:var(--navy);">'+esc(r.move)+'</b>'+(r.who?'<div class="field-note" style="font-size:11.5px;">'+esc(r.who)+'</div>':'')+'</td></tr>';
+  });
+  box.innerHTML=h+'</tbody></table></div>';
+}
 /* ONE SET OF STAGE WORDS (Client path step 2, her approval 2026-09-28): every screen names a
    family's place in one of six stages. They sit ON TOP of the facts each screen already reads:
    leadStage() (unchanged: the automation keys off it), the Start of Care record, the launch and
@@ -33289,6 +33455,7 @@ window.covLoadShifts=function(){};
     return true;
   }
   /* the family's inquiry, when its Before staffing half is still open (same AxisCare client) */
+  window.cqNextStep=function(c){ const st=cqLaunchSteps(c).find(x=>!c[x.f]); return st?st.label:null; };
   window.cqEarlyLead=function(c){
     const ax=String((c&&c.axiscare_client_id)||'').trim(); if(!ax) return null;
     return (DATA.leads||[]).find(l=>l&&l.soc&&!l.soc.launch_completed_at&&!l.soc.ready_for_staffing_at&&!l.soc.launch_upserted_at
