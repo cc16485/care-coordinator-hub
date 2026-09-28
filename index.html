@@ -856,8 +856,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   </div>
   <div class="fsubbar" id="fsub-clients">
     <span class="pillsec">Starting Care</span>
-    <div class="fpill" data-tab="soc" onclick="switchTab('soc')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Start of Care</div>
-    <div class="fpill" data-tab="clientqueue" onclick="switchTab('clientqueue')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> New Clients</div>
+    <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <span class="pillsec">Current Clients</span>
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
     <div class="fpill" data-tab="circles" onclick="switchTab('circles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family Circles</div>
@@ -1335,8 +1334,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </details>
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Start of Care</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Every accepted case, from referral to Ready for Staffing. Open the lead to check steps off — the launch itself runs in New Clients.</div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Getting ready · Before staffing</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">The first half of Getting ready: every accepted family, from referral until staffing can begin. Open the family to check steps off. The second half, First shift, opens on its own when this half is done.</div>
         </div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="socFilters">
@@ -4414,8 +4413,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div style="display:flex;align-items:center;gap:.6rem">
     <span style="font-size:1.1rem">🏠</span>
     <div>
-      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">New Clients — First-Caregiver Launch</div>
-      <div style="font-size:.72rem;color:var(--text-muted)">Opens automatically when Start of Care reaches Ready for Staffing; runs through first shift and the 24–72h follow-ups.</div>
+      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Getting ready · First shift</div>
+      <div style="font-size:.72rem;color:var(--text-muted)">The second half of Getting ready. Opens on its own when Before staffing is done; runs through the first shift and the 24–72h follow-ups. A family whose Before staffing half is still open shows there instead, so nobody is in both lists.</div>
     </div>
   </div>
   <button class="primary" style="font-size:.75rem" onclick="cqRender(true)">↻ Refresh</button>
@@ -5018,7 +5017,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 <div class="cp-lead">
       <div class="card" style="padding:18px;margin-bottom:14px;border-color:#BBD3E8;" id="lp_soc_card">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <b style="font-size:14px;color:var(--navy);"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Start of Care</b>
+          <b style="font-size:14px;color:var(--navy);"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready · Before staffing</b>
           <span style="flex:1;"></span>
           <span class="field-note" id="lp_soc_progress"></span>
         </div>
@@ -7268,7 +7267,10 @@ const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calend
    became a top-level section of its own (with State Submissions and Care
    Assessments, all lead-stage) and Client Care flattened to one strip.
    The machinery stays for the next time a section needs a third level. */
-const CC_SUBTABS = {};
+const CC_SUBTABS = {
+  /* Client path step 3 (2026-09-28): Start of Care and New Clients are two halves of ONE step */
+  gettingready:[ { t:'soc', l:'Before staffing', i:'i-hospital' }, { t:'clientqueue', l:'First shift', i:'i-family' } ],
+};
 /* page -> parent, derived so the two can never drift apart */
 const CC_PARENT_OF = (() => {
   const m = {};
@@ -7624,10 +7626,10 @@ const CC_SECTION_TITLES = {
   cgbackground:'Background & References', cgorient:'Orientations', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups',
   recruit:'Recruit',
   today:'Today', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
-  soc:'Start of Care', referrers:'Referral Partners', playbook:'Playbook',
+  soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
-  clientqueue:'New Clients — First-Caregiver Launch', cgdir:'Caregivers',
+  clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
@@ -15110,13 +15112,13 @@ function renderLpSoc(){
     /* Business readiness vs the AxisCare technical handoff — two different
        truths, shown as two different banners. */
     +(ready && soc.launch_upserted_at
-      ?'<div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:8px;padding:8px 12px;font-size:13px;color:#166534;margin-bottom:10px;">✅ Ready for Staffing — handed to <b>New Clients</b>'+((soc.launch_episode||1)>1?' (launch episode '+soc.launch_episode+')':'')+'. The first-caregiver launch is tracked there.</div>'
+      ?'<div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:8px;padding:8px 12px;font-size:13px;color:#166534;margin-bottom:10px;">✅ Before staffing is done. The <b>First shift</b> checklist is open'+((soc.launch_episode||1)>1?' (returning · start '+soc.launch_episode+')':'')+', just below on this tab.</div>'
       :ready && oldRecord
       ?'<div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:8px;padding:8px 12px;font-size:13px;color:#166534;margin-bottom:10px;">✅ Ready for Staffing. This start predates the launch split — its staffing work stays where it already is in <b>New Clients</b>.</div>'
       :ready && !hasAx
-      ?'<div style="background:#FFFBEB;border:1.5px solid #F0A63A;border-radius:8px;padding:8px 12px;font-size:13px;color:#92400E;margin-bottom:10px;"><b>⚠ Ready for Staffing — AxisCare client needed.</b> All the business steps are done; create or link their AxisCare client (the Convert button below) and the launch opens in New Clients on its own.</div>'
+      ?'<div style="background:#FFFBEB;border:1.5px solid #F0A63A;border-radius:8px;padding:8px 12px;font-size:13px;color:#92400E;margin-bottom:10px;"><b>⚠ Before staffing is done, but they need an AxisCare client.</b> Create or link it (the Convert button below) and the First shift checklist opens on its own.</div>'
       :ready
-      ?'<div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:8px;padding:8px 12px;font-size:13px;color:#166534;margin-bottom:10px;">✅ Ready for Staffing — opening the New Clients launch…</div>'
+      ?'<div style="background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:8px;padding:8px 12px;font-size:13px;color:#166534;margin-bottom:10px;">✅ Before staffing is done. Opening the First shift checklist…</div>'
       :'')
     +'<div style="height:6px;background:#faf9f6;border-radius:99px;overflow:hidden;margin-bottom:10px;"><i style="display:block;height:100%;width:'+Math.round(total?done/total*100:0)+'%;background:var(--green);"></i></div>'
     +soc.steps.map((s,i)=>{
@@ -16110,6 +16112,10 @@ function socFilter(f,btn){
 }
 function renderSocTab(){
   const wrap=document.getElementById('socList'); if(!wrap) return;
+  /* the first-shift checklists, so a row can say when one is already open (loaded once, then this redraws) */
+  if(window.__cqRows===undefined&&typeof cqLaunchFor==='function'&&!renderSocTab._loading){
+    renderSocTab._loading=true; cqLaunchFor({}).then(()=>{ renderSocTab._loading=false; if(activeTab==='soc') renderSocTab(); }).catch(()=>{ renderSocTab._loading=false; });
+  }
   const esc=escapeHtmlComms;
   let rows=DATA.leads.filter(l=>l.soc);
   /* "Done" means the start's own work is finished: business-ready AND the
@@ -16151,6 +16157,8 @@ function renderSocTab(){
       +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
       +'<a href="javascript:void(0)" data-open-lead="'+esc(l.id)+'" data-open-tab="start" style="font-weight:700;color:var(--navy);">'+esc(cpLeadClientName(l))+'</a>'
       +leadStageChip(l)
+      +(hasAx&&typeof cqEarlyLead==='function'&&(window.__cqRows||[]).some(c=>c.status!=='complete'&&cqEarlyLead(c)===l)
+        ?'<span class="tag-chip" style="background:#EFEAFB;color:#6B4FBB;" title="AxisCare opened the first-shift checklist before this half was done">first shift open too</span>':'')
       +'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">'+esc((SOC_PATHWAYS[soc.pathway]||{}).label||soc.pathway)+'</span>'
       +'<span style="flex:1;"></span>'
       +'<span class="field-note">'+done+'/'+total+'</span>'
@@ -16163,9 +16171,9 @@ function renderSocTab(){
           +'<span style="flex:1;min-width:0;">'+(cur.role==='family'&&!stuck?'<span style="color:#B45309;font-weight:600;">Waiting on client/family — </span>':'')+esc(cur.label)+'</span>'+socRoleChip(cur.role)
           +'<span class="field-note">'+(wd?wd+' day'+(wd===1?'':'s')+' on this step':'started today')+'</span></div>'
         :needsAx
-        ?'<div style="font-size:13px;color:#92400E;font-weight:600;">⚠ Before staffing is done, but they need an AxisCare client. Open them and use Convert; the first-shift checklist follows on its own.</div>'
+        ?'<div style="font-size:13px;color:#92400E;font-weight:600;">⚠ Before staffing is done, but they need an AxisCare client. Open them and use Convert; the First shift checklist follows on its own.</div>'
         :soc.launch_upserted_at
-        ?'<div style="font-size:13px;color:var(--green);font-weight:600;">✅ Before staffing is done. The first-shift checklist is open (New Clients, and their profile\'s Start tab).</div>'
+        ?'<div style="font-size:13px;color:var(--green);font-weight:600;">✅ Before staffing is done. The First shift checklist is open (the other half of Getting ready, and their profile\'s Start tab).</div>'
         :'<div style="font-size:13px;color:var(--green);font-weight:600;">✓ Business steps complete'+(l.status!=='Converted'?' (mark the lead Converted if you haven\'t)':'')+'</div>')
       +'</div>';
   }).join('');
@@ -31585,22 +31593,24 @@ async function c360StartLoad(r, px, baseEv){
   }
   if(past.length) h+=kv('Earlier Journeys', past.map(function(e){ return esc((C360J_STATE[e.state]||e.state)+': '+c360Began(e)+c360Ended(e)); }).join('<br>'));
   var myL=launches.slice().sort(function(a,b){ return (a.episode_n||1)-(b.episode_n||1); });
-  if(myL.length) h+=kv('Launch'+(myL.length>1?'es':''), myL.map(function(c){
+  if(myL.length) h+=kv('First shift', myL.map(function(c){
       var a=leActualSoc(c,levRows);
       return 'Opened '+esc(lpscDate(String(c.added_at||'').slice(0,10)))+(a?' · care began '+esc(lpscDate(a.ymd))+(a.how==='axiscare'?' (AxisCare clock-in)':a.how==='hand'?' (recorded by hand)':' (marked on the card)'):'')
         +(c.status==='complete'&&c.completed_at?' · complete '+esc(lpscDate(String(c.completed_at).slice(0,10))):' · in progress'); }).join('<br>'));
-  if(lead&&lead.soc) h+=kv('Start of Care', esc(((typeof SOC_PATHWAYS!=='undefined'&&SOC_PATHWAYS[lead.soc.pathway])||{}).label||lead.soc.pathway||'')
-      +(lead.soc.ready_for_staffing_at?' · ready for staffing '+esc(lpscDate(String(lead.soc.ready_for_staffing_at).slice(0,10))):' · not ready for staffing yet'));
+  if(lead&&lead.soc) h+=kv('Before staffing', esc(((typeof SOC_PATHWAYS!=='undefined'&&SOC_PATHWAYS[lead.soc.pathway])||{}).label||lead.soc.pathway||'')
+      +(lead.soc.ready_for_staffing_at?' · done '+esc(lpscDate(String(lead.soc.ready_for_staffing_at).slice(0,10))):' · still open'));
   var firstShift=myL.map(function(c){ return leActualSoc(c,levRows); }).filter(Boolean).sort(function(a,b){ return a.ymd.localeCompare(b.ymd); }).pop()||null;
   h+='<div id="'+px+'cl360Dates"></div>';
-  if(cur) h+='<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:8px;"><b style="font-size:13px;color:var(--navy);">Start Contract</b><div id="'+px+'cl360Sc" style="margin-top:6px;"></div></div>';
+  /* Client path step 3: with an inquiry, the editable Start Contract card is already on this tab; showing a
+     read-only copy under it put the same thing on the page twice. It still loads (hidden) for the dates. */
+  if(cur) h+='<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:8px;'+(lead?'display:none;':'')+'"><b style="font-size:13px;color:var(--navy);">Start Contract</b><div id="'+px+'cl360Sc" style="margin-top:6px;"></div></div>';
   box.innerHTML=h;
   /* a client already in care when tracking began has no recorded start; never say "not yet" for them */
   var inCareBefore=!!(cur&&!conn&&!adm&&!firstShift&&cur.state==='established');
-  var dates=function(contract){ var el=document.getElementById(px+'cl360Dates'); if(el) el.innerHTML=startDatesHtml(lead, contract, firstShift, 'on New Clients', inCareBefore); };
+  var dates=function(contract){ var el=document.getElementById(px+'cl360Dates'); if(el) el.innerHTML=startDatesHtml(lead, contract, firstShift, 'on the First shift checklist', inCareBefore); };
   dates(null);
   if(cur) scxMount('c360_'+(px||'tab')+'_'+ax,{bodyId:px+'cl360Sc',ep:cur.episode_id,lead:lead,label:r.client_name,readOnly:true,
-      readOnlyNote:'Shown here as history. Change it or log a family update on the lead profile or the New Clients card.',
+      readOnlyNote:'Shown here as history. Change it or log a family update from the First shift checklist on this tab.',
       onLoaded:function(d){ dates(d&&d.c); }});
   /* the same events, on the profile's own timeline */
   var add=[];
@@ -33278,6 +33288,12 @@ window.covLoadShifts=function(){};
     }
     return true;
   }
+  /* the family's inquiry, when its Before staffing half is still open (same AxisCare client) */
+  window.cqEarlyLead=function(c){
+    const ax=String((c&&c.axiscare_client_id)||'').trim(); if(!ax) return null;
+    return (DATA.leads||[]).find(l=>l&&l.soc&&!l.soc.launch_completed_at&&!l.soc.ready_for_staffing_at&&!l.soc.launch_upserted_at
+      &&String(l.axiscare_client_id||'').trim()===ax&&typeof socBusinessReady==='function'&&!socBusinessReady(l.soc))||null;
+  };
   window.cqRender=async function(force){
     if(QUEUE===null||force===true){ if(!(await loadQueue())) return; autoConvertLeads(); }
     renderQueue();
@@ -33314,9 +33330,12 @@ window.covLoadShifts=function(){};
   function renderQueue(){
     const el=document.getElementById('cq-list'); if(!el) return;
     const all=QUEUE||[];
-    const pending=all.filter(c=>c.status!=='complete');
+    const early=all.filter(c=>c.status!=='complete'&&cqEarlyLead(c));
+    const pending=all.filter(c=>c.status!=='complete'&&!cqEarlyLead(c));
     const completed=all.filter(c=>c.status==='complete');
-    let html='<div id="cqf-waiting"></div>';
+    let html='<div id="cqf-waiting"></div>'
+      +(early.length?'<div class="field-note" style="margin:0 0 .6rem;font-size:.75rem;">'+early.length+' first-shift checklist'+(early.length===1?'':'s')+' opened early, before the family\'s Before staffing half was done ('
+        +early.map(c=>'<a href="javascript:void(0)" data-open-lead="'+E(cqEarlyLead(c).id)+'" data-open-tab="start">'+E(c.client_name)+'</a>').join(', ')+'). They stay with the family under Before staffing, where both halves show.</div>':'');
     if(!pending.length){
       html+='<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:1.25rem;text-align:center;color:#166534;font-size:.82rem;margin-bottom:.75rem">✅ No launches in progress.'
         +'<div style="font-size:.7rem;margin-top:.3rem;color:var(--text-muted)">A launch opens here on its own when a lead\'s Start of Care reaches Ready for Staffing. <a href="#" onclick="cqAddManual();return false">Add Launch Exception →</a></div></div>';
@@ -33357,7 +33376,7 @@ window.covLoadShifts=function(){};
     const el=document.getElementById(PROFILE.el); if(!el){ PROFILE={ el:null, id:null }; return; }
     const c=(QUEUE||[]).find(x=>x.id===PROFILE.id);
     if(!c){ el.innerHTML='<div class="field-note">This launch is no longer in New Clients.</div>'; return; }
-    el.innerHTML='<div style="font-weight:800;color:var(--navy);font-size:15px;margin:4px 0 8px;">🚀 New Clients launch'+(c.status==='complete'?' · complete':'')+'</div>'+card(c,'profile');
+    el.innerHTML='<div style="font-weight:800;color:var(--navy);font-size:15px;margin:4px 0 8px;">🚀 Getting ready · First shift'+(c.status==='complete'?' · done, receiving care':'')+'</div>'+card(c,'profile');
     if(typeof leRefresh==='function') leRefresh(c);
   }
   window.cqMountProfile=async function(elId, launchId){
