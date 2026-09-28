@@ -5160,7 +5160,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 </div>
   </div>
   <div class="cp-pane" data-cp-pane="history"><div class="profile-grid">
-    <div><div id="cp_c_history"></div></div>
+    <div><div id="cp_change_log"></div><div id="cp_c_history"></div></div>
     <div>
 <div class="cp-lead">
       <div class="card" style="padding:18px;">
@@ -9222,7 +9222,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender();
+  cpRenderCommand(); lpiRender(); cpRenderChangeLog();
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -27574,6 +27574,76 @@ function lpiRender(){
 }
 /* leaving the page with unsaved chapter typing asks first (the browser's own question) */
 window.addEventListener('beforeunload', ev=>{ if(LPI.editing&&lpiDirty()){ ev.preventDefault(); ev.returnValue=''; } });
+/* ── GATE 2b · WHAT CHANGED ON THIS LEAD (read only, 2026-09-28) ─────────────────────────────────
+   The database records every field that changes on a lead, whoever or whatever changed it
+   (lead_change, written only by its own watcher). This list shows them, newest first, one entry per
+   save, and marks a value that went back to what it was within a day ("changed back": how the
+   intake undo bug looked). Nothing here can edit anything. */
+const CLG_LABEL={ first_name:'Caller first name', last_name:'Caller last name', phone:'Caller phone', email:'Caller email', relationship:'Relationship',
+  source:'How they found us', referral_org_id:'Referred by (partner)', referral_source_name:'Referred by', client_name_not_provided:'Client name not given',
+  client_first_name:'Client first name', client_last_name:'Client last name', client_dob:'Date of birth', client_gender:'Gender', client_address:'Street address',
+  client_city:'Town', client_state:'State', client_zip:'ZIP', client_phone:'Client phone', marital_status:'Marital status', language:'Language',
+  urgency:'Urgency', needs:'Kind of help', weight_bearing:'Bears weight and pivots', level_estimate:'Early level guess', safety:'Safety', mobility:'Mobility',
+  personal_care:'Hands-on help', medical_conditions:'Conditions', dementia_follow_up:'Dementia behaviours', physician_name:'Physician', physician_phone:'Physician phone',
+  preferred_hospital:'Preferred hospital', medical_notes:'Medical notes', days_needed:'Days', times_needed:'Times', number_of_hours:'Hours a week',
+  funding_source:'Payer', price_quoted:'Price quoted', quoted_price_amount:'Quoted price', status:'Status', assigned_coordinator:'Owner', axiscare_client_id:'AxisCare id',
+  dcn:'DCN', county:'County', state_submitted:'Submitted to the state', state_status:'Where the state is', interest_notes:'Call notes', follow_up_branch:'Follow-up plan',
+  last_contacted_at:'Last contacted', follow_up_due:'Follow-up due', promised_callback_at:'Promised call-back', intent_tags:'Tags', client_attributes:'AxisCare checklist',
+  soc:'Before staffing checklist', comm_log:'Call log', contact_events:'Contact history', docs:'Documents', ai_needs_summary:'AI summary', ai_suggestions:'AI suggestions',
+  ai_care_flags:'AI care flags', lost_reason:'Lost reason', archived:'Archived', possibly_returning:'Returning-family check' };
+/* the same words the profile uses for coded answers */
+function clgWords(field, v){
+  const M={ needs:LPI_L.needs, safety:LPI_L.safety, mobility:LPI_L.mobility, personal_care:LPI_L.pc, medical_conditions:LPI_L.cond,
+    dementia_follow_up:LPI_L.dfu, weight_bearing:LPI_L.wb, funding_source:CPX_PAY, urgency:CPX_URG, state_status:CPX_STATE }[field];
+  if(!M) return v;
+  return Array.isArray(v)?v.map(x=>M[x]||x):(typeof v==='string'&&M[v]?M[v]:v);
+}
+function clgValue(v){
+  if(v===null||v===undefined||v===''||(Array.isArray(v)&&!v.length)) return 'blank';
+  if(v===true) return 'yes'; if(v===false) return 'no';
+  if(typeof v==='object'&&!Array.isArray(v)){
+    if(typeof v.items==='number'&&Object.keys(v).length===1) return v.items+' item'+(v.items===1?'':'s');
+    if(v.too_long_to_keep) return '(too long to keep)';
+    return '(details)';
+  }
+  const s=Array.isArray(v)?v.map(x=>typeof x==='object'?'…':String(x)).join(', '):String(v);
+  return s.length>120?s.slice(0,120)+'…':s;
+}
+async function cpRenderChangeLog(){
+  const box=document.getElementById('cp_change_log'); if(!box) return;
+  const esc=escapeHtmlComms, l=CP.lead;
+  if(!l){ box.innerHTML=''; return; }
+  const key=l.id; box.dataset.for=key;
+  box.innerHTML='<div class="lp-card"><h3 class="lp-h" style="margin:0;">What changed</h3><p class="lp-prov">Loading…</p></div>';
+  let rows=[], err='';
+  try{
+    const { data, error }=await sb.from('lead_change').select('id,field,kind,old_value,new_value,changed_at,changed_by,changed_via')
+      .eq('lead_id', String(key)).order('changed_at',{ ascending:false }).order('id',{ ascending:false }).limit(300);
+    if(error) throw error; rows=data||[];
+  }catch(e){ err=(e&&(e.code==='42P01'||/lead_change/.test(String(e.message||''))&&/does not exist|not find/i.test(String(e.message||''))))?'off':String(e&&e.message||e); }
+  if(box.dataset.for!==key) return;
+  const head='<h3 class="lp-h" style="margin:0;">What changed</h3><p class="lp-prov">Every change to this inquiry\'s record, whoever or whatever made it. Recorded by the database; nothing here can be edited.</p>';
+  if(err==='off'){ box.innerHTML='<div class="lp-card">'+head+'<p class="lp-prov">Change history isn\'t switched on yet.</p></div>'; return; }
+  if(err){ box.innerHTML='<div class="lp-card">'+head+'<p class="lp-prov">Couldn\'t load the changes: '+esc(err)+'</p></div>'; return; }
+  if(!rows.length){ box.innerHTML='<div class="lp-card">'+head+'<p class="lp-prov">No changes recorded since change history was switched on.</p></div>'; return; }
+  /* "changed back": this change undoes an earlier one on the same field within a day */
+  const J=v=>JSON.stringify(v===undefined?null:v);
+  rows.forEach((r,i)=>{ if(r.kind!=='changed') return;
+    r.back=rows.slice(i+1).some(e=>e.kind==='changed'&&e.field===r.field&&J(e.new_value)===J(r.old_value)&&J(e.old_value)===J(r.new_value)
+      &&(Date.parse(r.changed_at)-Date.parse(e.changed_at))<=864e5); });
+  const who=r=>r.changed_via==='person'?(typeof lpscName==='function'?lpscName(r.changed_by):r.changed_by)||'someone'
+    :r.changed_via==='server'?'a server function or automation':'directly in the database';
+  const when=t=>{ try{ return new Date(t).toLocaleString('en-US',{ month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }catch(e){ return String(t); } };
+  const groups=[]; rows.forEach(r=>{ const g=groups[groups.length-1];
+    if(g&&g.at===r.changed_at&&g.by===r.changed_by&&g.via===r.changed_via) g.rows.push(r); else groups.push({ at:r.changed_at, by:r.changed_by, via:r.changed_via, rows:[r] }); });
+  const line=r=>r.kind==='added'?'<li>The inquiry was created</li>'
+    :r.kind==='removed'||r.kind==='removed_in_bulk'?'<li>The inquiry was removed</li>'
+    :'<li'+(r.back?' class="clg-back"':'')+'><b>'+esc(CLG_LABEL[r.field]||r.field.replace(/_/g,' '))+'</b>: '+esc(clgValue(clgWords(r.field,r.old_value)))+' → '+esc(clgValue(clgWords(r.field,r.new_value)))
+      +(r.back?' <span class="lp-tag clg-backtag">changed back</span>':'')+'</li>';
+  box.innerHTML='<div class="lp-card">'+head+(rows.some(r=>r.back)?'<p class="clg-warn">A value on this record went back to what it was within a day. If nobody meant to undo it, check it.</p>':'')
+    +groups.slice(0,60).map(g=>'<div class="clg-save"><div class="lp-prov">'+esc(when(g.at))+' · '+esc(who(g.rows[0]))+'</div><ul>'+g.rows.map(line).join('')+'</ul></div>').join('')
+    +(groups.length>60?'<p class="lp-prov">Showing the latest 60 saves.</p>':'')+'</div>';
+}
 /* ── LEADS & STARTS (Client path step 4, her Sept 25 design, approved 2026-09-28) ─────────────
    One row per family from first call to first shift. Nothing is stored here: every cell comes from
    records the older lists already use (the inquiry, its Journey's Start Contract, the care
@@ -35322,6 +35392,14 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 /* a chapter holding the guided call's own section: the Payer tab owns the price boxes, so they stay out of it */
 .lpi-slot{ display:flex; flex-direction:column; gap:4px; }
 #lpIntake #leadPriceRow{ display:none !important; }
+#cp_change_log{ margin-bottom:14px; }
+#cp_change_log .lp-card{ display:flex; flex-direction:column; gap:8px; }
+.clg-save{ border-top:1px solid var(--lp-line); padding-top:8px; }
+.clg-save ul{ margin:4px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:3px; font-size:14px; }
+.clg-save li{ overflow-wrap:anywhere; }
+.clg-back{ color:var(--lp-bad); }
+.lp-tag.clg-backtag{ background:var(--lp-bad-soft); color:var(--lp-bad); }
+.clg-warn{ margin:0; background:var(--lp-bad-soft); color:var(--lp-bad); border-radius:8px; padding:6px 10px; font-size:13.5px; font-weight:600; }
 .lpi-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-top:1px solid var(--lp-line); padding-top:10px; }
 .lpi-slot .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
 .lpi-slot > div > .section-title:first-child{ border-top:none; padding-top:0; margin-top:4px; }
