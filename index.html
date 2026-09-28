@@ -3071,14 +3071,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <label style="font-size:.8rem;font-weight:500;white-space:nowrap;color:var(--navy)">Site Number:</label>
       <input type="text" id="settings-ac-site" placeholder="e.g. 10856" style="flex:1;padding:.45rem .75rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:.83rem">
     </div>
-    <div style="background:#eef6ff;border:1.5px solid #93c5fd;border-radius:10px;padding:.85rem 1rem;margin-bottom:.65rem">
-      <div style="font-size:.7rem;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">🎓 Training Hub — live sync</div>
-      <p style="font-size:.78rem;color:var(--gray);margin:0 0 .5rem">Read key for the "Sync from Training Hub" button on the Training tab (pulls completion dates straight from training.mo-care.com). Ask Samantha or Claude for the key.</p>
-      <div style="display:flex;gap:.5rem;align-items:center">
-        <label style="font-size:.8rem;font-weight:500;white-space:nowrap;color:var(--navy)">Read key:</label>
-        <input type="text" id="settings-training-key" placeholder="cchub_..." style="flex:1;padding:.45rem .75rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:.83rem">
-      </div>
-    </div>
     <div style="background:#fff7ed;border:1.5px solid #f59e0b;border-radius:10px;padding:.85rem 1rem;margin-bottom:.65rem">
       <div style="font-size:.7rem;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">🏠 New Client Queue — AxisCare → Hub Webhook</div>
       <p style="font-size:.72rem;color:var(--gray);margin:0 0 .5rem">When a new client is created in AxisCare, Zapier automatically adds them to the Scheduling tab queue. Set up a Zap: <strong>AxisCare: New Client → Webhooks by Zapier: POST</strong> to the URL below.</p>
@@ -4017,7 +4009,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <h3>AxisCare Integration</h3>
 <p class="hint">Find your site number in your AxisCare URL: https://<b>XXXXX</b>.axiscare.com</p>
 <label>Site Number</label><input id="set_axiscare_site">
-<label>API Token (Admin → API Token in AxisCare)</label><input id="set_axiscare_token" type="password" placeholder="stored locally, never shared">
 </div>
 
 <!-- Was buried in the AxisCare section, where nobody could find it, which is
@@ -4071,12 +4062,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <button class="secondary" onclick="mbTest(this)">Send me a test brief now</button>
 <span class="field-note" id="mbStatus"></span>
 </div>
-</div>
-
-<div class="settings-section">
-<h3>💬 Communications &amp; Training Hub</h3>
-<p class="hint">One key switches on three things: the <b>texts, emails and calls</b> shown on a lead, the <b>Sync from Training Hub</b> button on the Training tab, and escalation alerts. It lives in the Training Platform project as <code>hub_read_key</code> and starts with <code>cchub_</code>.</p>
-<label>Training Hub read key</label><input id="set_training_hub_key" type="password" placeholder="cchub_...">
 </div>
 
 <div class="settings-section">
@@ -6707,6 +6692,9 @@ The HomeTogether team</pre>
 let sb = null; // Supabase client instance — named `sb`, not `supabase`, to avoid colliding
                 // with the `supabase` global the CDN script above already declares.
 let CONFIG = JSON.parse(localStorage.getItem('cch_config') || '{}');
+/* T3 (2026-09-28): the shared Training key and an AxisCare token no longer live in this browser or in shared settings.
+   Every Training call uses your own sign-in; AxisCare is reached only through our server. */
+if('training_hub_key' in CONFIG || 'axiscare_token' in CONFIG){ delete CONFIG.training_hub_key; delete CONFIG.axiscare_token; try{ localStorage.setItem('cch_config', JSON.stringify(CONFIG)); }catch(e){} }
 
 /* ── Settings belong to the agency, not to one laptop ──────────────────────
    These lived in localStorage, which meant a key pasted on Samantha's machine
@@ -6716,7 +6704,7 @@ let CONFIG = JSON.parse(localStorage.getItem('cch_config') || '{}');
    The Supabase URL and anon key deliberately stay local: they are what we need
    in order to reach Supabase in the first place. */
 const CC_CFG_KEY = 'cc_hub_config';
-const CC_SHARED_SETTINGS = ['axiscare_site','axiscare_token','training_hub_key','checkin_cadence',
+const CC_SHARED_SETTINGS = ['axiscare_site','checkin_cadence',
   'supervisory_window','auto_clear_transcript','careplan_webhook','escalation_protocol'];
 
 async function loadSharedConfig(){
@@ -8604,7 +8592,6 @@ function initCommsPanel(lead){
   const panel = document.getElementById('commsPanel');
   const lock = msg => { locked.textContent = msg; locked.style.display='block'; panel.style.display='none'; };
   if(!lead){ lock('Save the lead first — then their texts, emails and calls appear here.'); return; }
-  if(!CONFIG.training_hub_key){ lock('Paste the Training Hub read key into ⚙️ Settings to turn this panel on.'); return; }
   if(!lead.phone && !lead.email){ lock('Add a phone number or email for this lead to see and send messages.'); return; }
   locked.style.display='none'; panel.style.display='block';
   const call = document.getElementById('commsCallBtn');
@@ -8619,7 +8606,6 @@ async function commsCall(body){
     method:'POST',
     headers:{ 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'x-hub-token':await trainHubTok(), 'Content-Type':'application/json' },
     body: JSON.stringify(Object.assign({
-      key: CONFIG.training_hub_key,
       phone: commsLead.phone||undefined,
       email: commsLead.email||undefined,
       first_name: commsLead.first_name||undefined,
@@ -12735,17 +12721,13 @@ async function saveCheckin(){
 /* Escalated check-in → text the staff flagged for check-in alerts + email
    Samantha, through the same secured GHL functions the lead comms use. */
 async function notifyEscalation(c){
-  if(!CONFIG.training_hub_key){
-    alert('Marked as escalated — but automatic alerts need the Training Hub key in ⚙️ Settings. Tell Samantha directly.');
-    return;
-  }
   const msg = '🚨 ESCALATED CHECK-IN — '+(c.client_name||'client')
     +'\nConcern: '+((c.concerns_raised||c.caregiver_feedback||'(see hub)').slice(0,300))
     +'\nSatisfaction: '+(c.satisfaction_rating||'?')+'/5 · by '+(c.coordinator||'coordinator')
     +'\nOpen the CC Hub → Client Check-ins for the full record.';
   const call = async (body)=>fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
     method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
-    body:JSON.stringify(Object.assign({key:CONFIG.training_hub_key},body))}).then(r=>r.json()).catch(e=>({error:e.message}));
+    body:JSON.stringify(body)}).then(r=>r.json()).catch(e=>({error:e.message}));
   const sends=[];
   (DATA.coordinator_staff||[]).filter(s=>s.notify_checkins&&s.phone).forEach(s=>{
     sends.push(call({action:'send_sms',phone:s.phone,first_name:s.name||'Staff',message:msg}));
@@ -13319,8 +13301,6 @@ function fillSettingsPanel(){
   document.getElementById('set_supabase_url').value = CONFIG.supabase_url||'';
   document.getElementById('set_supabase_anon_key').value = CONFIG.supabase_anon_key||'';
   document.getElementById('set_axiscare_site').value = CONFIG.axiscare_site||'';
-  document.getElementById('set_axiscare_token').value = CONFIG.axiscare_token||'';
-  document.getElementById('set_training_hub_key').value = CONFIG.training_hub_key||'';
   document.getElementById('set_checkin_cadence').value = CONFIG.checkin_cadence||30;
   document.getElementById('set_supervisory_window').value = CONFIG.supervisory_window||60;
   document.getElementById('set_auto_clear_transcript').checked = !!CONFIG.auto_clear_transcript;
@@ -14553,8 +14533,6 @@ function saveSettings(){
   CONFIG.supabase_url = document.getElementById('set_supabase_url').value.trim();
   CONFIG.supabase_anon_key = document.getElementById('set_supabase_anon_key').value.trim();
   CONFIG.axiscare_site = document.getElementById('set_axiscare_site').value.trim();
-  CONFIG.axiscare_token = document.getElementById('set_axiscare_token').value.trim();
-  CONFIG.training_hub_key = document.getElementById('set_training_hub_key').value.trim();
   CONFIG.checkin_cadence = parseInt(document.getElementById('set_checkin_cadence').value||'30');
   CONFIG.supervisory_window = parseInt(document.getElementById('set_supervisory_window').value||'60');
   CONFIG.auto_clear_transcript = document.getElementById('set_auto_clear_transcript').checked;
@@ -17154,8 +17132,6 @@ async function submitJobOffer(){
   if(!first||!last){ err.textContent='First and last name are required.'; err.style.display='block'; return; }
   const phone=joNormPhone(g('jo_phone')), email=g('jo_email');
   if(!phone&&!email){ err.textContent='Add a mobile phone or an email so the welcome message can reach them.'; err.style.display='block'; return; }
-  const key=(CONFIG.training_hub_key||'').trim();
-  if(!key){ err.textContent='The Training Hub key is missing — paste it into ⚙️ Settings first (ask Samantha).'; err.style.display='block'; return; }
   const rate=parseFloat(g('jo_rate').replace(/[^0-9.]/g,''));
   const offer={ first_name:first,last_name:last,phone:phone||null,email:email||null,
     position:g('jo_position'),onboarding_plan:g('jo_plan')||null,interview_date:g('jo_date')||null,offered_by:g('jo_by')||null,
@@ -17169,7 +17145,7 @@ async function submitJobOffer(){
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/job-offer',{
       method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
-      body:JSON.stringify({key,offer})});
+      body:JSON.stringify({offer})});
     const res=await r.json();
     if(!r.ok||res.error) throw new Error(res.error||('save failed ('+r.status+')'));
     /* The terms, back onto the person. Their profile is then the whole story
@@ -20042,8 +20018,8 @@ async function apTrainingMount(r){
     + 'href="https://training.mo-care.com">Open the training platform ↗</a>';
 
   if(!rows.length){
-    host.innerHTML = '<div class="field-note">Cannot read the training platform from here. '
-      + 'Paste the Training Hub read key into ⚙️ Settings and this fills in.</div>'
+    host.innerHTML = '<div class="field-note">Cannot read the training platform from here right now. '
+      + 'Try again in a moment, or open it directly.</div>'
       + '<div style="margin-top:8px;">' + link + '</div>';
     return;
   }
@@ -29387,7 +29363,7 @@ async function loadOpenShiftsForStrip(){
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
       method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key:CONFIG.training_hub_key||undefined,days:14})});
+      body:JSON.stringify({days:14})});
     const d=await r.json();
     if(!d.error){
       const now=Date.now();
@@ -30560,7 +30536,7 @@ async function swEvvText(key){
   try{
     var resp=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
       method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
-      body:JSON.stringify({key:CONFIG.training_hub_key, action:'send_sms', phone:phone, first_name:first, message:msg})});
+      body:JSON.stringify({action:'send_sms', phone:phone, first_name:first, message:msg})});
     var d=await resp.json();
     if(d&&d.status==='sent'){ await swEvvMark(key,'texted'); }
     else alert('Could not send: '+((d&&d.error)||'unknown error'));
@@ -34142,7 +34118,7 @@ async function nvGhlSync(c,nurseName){
     const res=await fetch(NURSE_ASSIGN_API,{
       method:'POST',
       headers:{'x-hub-token':await trainHubTok(), 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'Content-Type':'application/json' },
-      body:JSON.stringify({ key:CONFIG.training_hub_key||undefined, phone:c.phone, client_name:c.name,
+      body:JSON.stringify({ phone:c.phone, client_name:c.name,
                             ghl_user_id:(nurse&&nurse.ghl_user_id)||'' }),
     });
     const data=await res.json().catch(()=>({}));
@@ -34569,11 +34545,10 @@ function renderNurseVisits(){
 
   async function loadPairs(){
     if(PAIRS!==null) return;
-    const k=(CONFIG.training_hub_key||'').trim()||undefined;
-    try{
+        try{
       const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
         method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
-        body:JSON.stringify({key:k, mode:'pairs', days:60})});
+        body:JSON.stringify({mode:'pairs', days:60})});
       const d=await r.json(); PAIRS=d.pairs||[];
     }catch(e){ PAIRS=[]; }
   }
@@ -34647,7 +34622,7 @@ function renderNurseVisits(){
     try{
       const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
         method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
-        body:JSON.stringify({key:CONFIG.training_hub_key, action:'send_sms', phone, first_name:first, message:askText(first,client)})});
+        body:JSON.stringify({action:'send_sms', phone, first_name:first, message:askText(first,client)})});
       const d=await r.json();
       if(d&&d.status==='sent'){ await logAsk(key,client,cg,'sms'); renderAskInto(key); cpRender(); }
       else alert('Could not send: '+((d&&d.error)||'unknown error')+'\n\nUse 📋 Copy ask instead and send it from your phone.');
@@ -34688,7 +34663,7 @@ function renderNurseVisits(){
       try{
         const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
           method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
-          body:JSON.stringify({key:CONFIG.training_hub_key, action:'send_sms', phone, first_name:first,
+          body:JSON.stringify({action:'send_sms', phone, first_name:first,
             message:'Hi '+first+'! Update about '+c.name+': '+msg+' — Caring Companions'})});
         const d=await r.json();
         if(d&&d.status==='sent'){ sent.push(cg); await logUpdate(key,c.name,cg,'sms',msg); }
@@ -35393,12 +35368,11 @@ window.covLoadShifts=function(){};
   }
   async function loadPairs(btn){
     const box=document.getElementById('ci-pairs-board');
-    const k=(CONFIG.training_hub_key||'').trim()||undefined;
-    if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
+        if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
     try{
       const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
         method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
-        body:JSON.stringify({key:k, mode:'pairs', days:60})});
+        body:JSON.stringify({mode:'pairs', days:60})});
       const data=await r.json();
       if(data.error){ PAIRS=null; if(box) box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not load matches: '+E(data.error)+'</div>'; return; }
       PAIRS=data.pairs||[];

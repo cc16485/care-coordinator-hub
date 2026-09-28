@@ -26,15 +26,6 @@ const sb = supabase.createClient(SB_URL, SB_KEY);
 // Stored in localStorage; set on first use via Settings.
 function getAdminPwd(){ return localStorage.getItem('cc_admin_pwd') || ''; }
 
-/* The Training-Hub key, from wherever this page keeps it. The Staffing hub
-   stores it in its own Settings (appSettings); the Care Coordinator Hub
-   stores it in CONFIG. Reading only appSettings meant every offer-card save
-   button failed on the care hub with "update failed" — the list loaded (that
-   call had the fallback) and nothing else worked. One lookup, used by all. */
-function hubKey(){
-  const fromCfg = (typeof CONFIG !== 'undefined' && CONFIG && CONFIG.training_hub_key) || '';
-  return String(appSettings.training_hub_key || fromCfg || '').trim();
-}
 function checkAdminPwd(val){ return val !== '' && btoa(val) === getAdminPwd(); }
 
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
@@ -1381,7 +1372,7 @@ function renderStaffHome(){
   const hr=new Date().getHours();
   document.getElementById('home-greeting').textContent=(hr<12?'Good morning':hr<17?'Good afternoon':'Good evening')+' — your day at a glance';
   // Kick the async sources once so the counts fill themselves in.
-  if(!_homeKicked && hubKey()){
+  if(!_homeKicked){
     _homeKicked=true;
     try{ loadOpenShifts(); }catch(e){}
     try{ loadCheckinPairs(); }catch(e){}
@@ -2179,13 +2170,11 @@ async function markOfferViventium(id,btn){
   }catch(e){ alert('Could not save: '+(e&&e.message?e.message:'error')); if(btn){btn.disabled=false;btn.textContent='☑ Entered in Viventium';} }
 }
 async function sendOfferWelcome(id,btn,quiet){
-  const key=hubKey();
-  if(!key){ if(!quiet) alert('Paste the Training Hub read key into ⚙️ Settings first.'); return {ok:false,error:'hub key missing'}; }
   if(btn){btn.disabled=true;btn.textContent='Sending…';}
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/job-offer',{
       method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'x-hub-token':await (window.trainHubTok ? window.trainHubTok() : ''),'Content-Type':'application/json'},
-      body:JSON.stringify({key, action:'send_welcome', offer_id:id})});
+      body:JSON.stringify({action:'send_welcome', offer_id:id})});
     const d=await r.json();
     if(d.error) throw new Error(d.error);
     if(!quiet){
@@ -2822,12 +2811,11 @@ async function issueWriteup(){
 }
 async function scanClockins(btn){
   const box=document.getElementById('att-scan-results');
-  const key=hubKey()||undefined;
   if(btn){btn.disabled=true;btn.textContent='Scanning…';}
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
       method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key,mode:'clockins',days:7,grace:attCfg().tardy_grace})});
+      body:JSON.stringify({mode:'clockins',days:7,grace:attCfg().tardy_grace})});
     const d=await r.json();
     if(d.error) throw new Error(d.error);
     const late=(d.flagged||[]).filter(f=>!f.missing_clock_in);
@@ -2855,12 +2843,11 @@ function prefillTardy(cg,date,time,mins){
 let _repliesData=null, repliesExpanded=true;
 async function loadRepliesWaiting(btn){
   const box=document.getElementById('repliesWaiting'); if(!box) return;
-  const key=hubKey()||undefined;
   if(btn&&btn.tagName==='BUTTON'){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-replies',{
       method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key})});
+      body:'{}'});
     const data=await r.json();
     if(!data||!Array.isArray(data.replies)) throw new Error((data&&data.error)||'unexpected response');
     _repliesData=data;
@@ -2898,7 +2885,7 @@ async function toggleThread(i){
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-thread',{
       method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key:hubKey()||undefined,conversation_id:el.dataset.conv})});
+      body:JSON.stringify({conversation_id:el.dataset.conv})});
     const data=await r.json();
     if(!data||!Array.isArray(data.thread)) throw new Error(data&&data.error?data.error:'no thread');
     const fmt=iso=>{try{return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}catch(e){return ''}};
@@ -2923,7 +2910,7 @@ async function sendReply(i){
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-reply',{
       method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'x-hub-token':await (window.trainHubTok ? window.trainHubTok() : ''),'Content-Type':'application/json'},
-      body:JSON.stringify({key:hubKey(),contact_id:el.dataset.contact,message:msg})});
+      body:JSON.stringify({contact_id:el.dataset.contact,message:msg})});
     const data=await r.json();
     if(!data||data.error) throw new Error(data&&data.error?data.error:'send failed');
     input.value='';
@@ -2940,7 +2927,7 @@ async function dismissReply(i){
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-reply',{
       method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'x-hub-token':await (window.trainHubTok ? window.trainHubTok() : ''),'Content-Type':'application/json'},
-      body:JSON.stringify({key:hubKey(),action:'dismiss',conversation_id:el.dataset.conv})});
+      body:JSON.stringify({action:'dismiss',conversation_id:el.dataset.conv})});
     const data=await r.json();
     if(!data||data.error) throw new Error(data&&data.error?data.error:'could not clear');
     await loadRepliesWaiting();
@@ -3028,12 +3015,11 @@ function updateCommsBadge(){
 let OPEN_SHIFTS=null; // null = not loaded yet
 async function loadOpenShifts(btn){
   const box=document.getElementById('open-shifts-board'); if(!box) return;
-  const key=hubKey()||undefined;
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
       method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key, days:14})});
+      body:JSON.stringify({days:14})});
     const data=await r.json();
     if(data.error){
       OPEN_SHIFTS=null;
@@ -3128,12 +3114,11 @@ function ciPairInfo(p){
 }
 async function loadCheckinPairs(btn){
   const box=document.getElementById('ci-pairs-board');
-  const key=hubKey()||undefined;
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
       method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key, mode:'pairs', days:60})});
+      body:JSON.stringify({mode:'pairs', days:60})});
     const data=await r.json();
     if(data.error){ CI_PAIRS=null; if(box) box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not load matches: '+creqEsc(data.error)+'</div>'; updateCheckinsBadge(); return; }
     CI_PAIRS=data.pairs||[];
@@ -3472,7 +3457,7 @@ async function loadFromSupabase(){
       if(row.key==='caregivers')     { caregivers=row.data; cgId=Math.max(cgId,...caregivers.map(c=>c.id+1),10); }
       if(row.key==='eod_reports')    { eodReports=row.data||[]; }
       if(row.key==='orient_sessions'){ orientSessions=row.data; orientId=Math.max(orientId,...orientSessions.map(s=>s.id+1),1); }
-      if(row.key==='settings')       { appSettings=row.data; localStorage.setItem('cc_settings',JSON.stringify(row.data)); }
+      if(row.key==='settings')       { appSettings=row.data; if(appSettings&&typeof appSettings==='object') delete appSettings.training_hub_key; /* T3: the key is retired */ localStorage.setItem('cc_settings',JSON.stringify(row.data)); }
       if(row.key==='evv_corrections'){ localStorage.setItem('cc_evv_corrections', JSON.stringify(row.data)); }
       if(row.key==='staffing_tasks') { STASKS=row.data||[]; }
       // One staff list across every hub. This is the same key the Care
@@ -3523,6 +3508,7 @@ function clearSeedPeople(){
 }
 
 let appSettings  = JSON.parse(localStorage.getItem('cc_settings'))    || { alert_recipients: [{name:'Samantha', email:'samantha@mo-care.com'}] };
+delete appSettings.training_hub_key;   /* T3 (2026-09-28): the shared Training key is retired; every Training call uses your own sign-in */
 let candidates   = JSON.parse(localStorage.getItem('cc_candidates'))   || SEED_CANDIDATES;
 let caregivers   = JSON.parse(localStorage.getItem('cc_caregivers'))   || SEED_CAREGIVERS;
 let obId  = parseInt(localStorage.getItem('cc_ob_id')  || '10');
@@ -7077,7 +7063,6 @@ document.getElementById('admin-pwd-input')?.addEventListener('keydown',e=>{if(e.
 function _openSettingsModal(){
   renderStaffUsers();
   document.getElementById('settings-ac-site').value=appSettings.axiscare_site||'';
-  if(document.getElementById('settings-training-key')) document.getElementById('settings-training-key').value=appSettings.training_hub_key||'';
   document.getElementById('settings-gdrive-client-id').value=appSettings.google_client_id||'';
   document.getElementById('settings-gdrive-folder-id').value=appSettings.google_drive_folder_id||'';
   document.getElementById('settings-gcal-id').value=appSettings.gcal_calendar_id||'';
@@ -7240,7 +7225,6 @@ function migrateOldRecipients(){
 }
 function saveSettings(){
   appSettings.axiscare_site = document.getElementById('settings-ac-site').value.trim();
-  appSettings.training_hub_key = document.getElementById('settings-training-key')?.value.trim() || appSettings.training_hub_key || '';
   const newClientId = document.getElementById('settings-gdrive-client-id').value.trim();
   appSettings.google_drive_folder_id = document.getElementById('settings-gdrive-folder-id').value.trim();
   appSettings.gcal_calendar_id = document.getElementById('settings-gcal-id').value.trim() || 'primary';

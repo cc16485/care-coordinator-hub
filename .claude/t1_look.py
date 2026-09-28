@@ -41,9 +41,9 @@ async()=>{
   /* nurse claim */
   const n3=__tr.length; DATA.nurse_staff=[{name:'Nurse N',ghl_user_id:'n1'}]; await nvGhlSync({phone:'4175550100',name:'A B'},'Nurse N'); await sleep(30);
   ok('a nurse claim still mirrors into GoHighLevel, with your sign-in and no key (it used to skip silently without one)', __tr.length>n3&&signed(last('ghl-nurse-assign'))&&!__alerts.length, [__tr.slice(-1),__alerts]);
-  /* with a saved key during the switch-over, it is still sent alongside, so the old functions keep working until deployed */
-  CONFIG.training_hub_key='cchub_x'; window._openShifts=undefined; await loadOpenShiftsForStrip(); await SCX.scanClockins();
-  ok('during the switch-over a saved key still rides along (old functions keep working until the new ones deploy)', (x=>x.tok==='preview-token'&&x.key==='cchub_x')(last('axiscare-open-shifts')), last('axiscare-open-shifts'));
+  /* T3: even with a key left in this browser, none is sent any more */
+  CONFIG.training_hub_key='cchub_x'; await SCX.scanClockins();
+  ok('a key left in a browser is never sent (T3)', (x=>x.tok==='preview-token'&&x.key===null)(last('axiscare-open-shifts')), last('axiscare-open-shifts'));
   ok('every call to these Training functions carried your sign-in', __tr.every(x=>x.tok==='preview-token'), __tr.filter(x=>x.tok!=='preview-token'));
   return R;
 }
