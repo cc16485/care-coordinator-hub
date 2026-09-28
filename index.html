@@ -27378,7 +27378,10 @@ async function lpiLoadBegan(l){
     if(epIds.length){
       /* 2 · the Journey this inquiry is connected to, when it records a beginning */
       if(!out.began){
-        const eps=await q(sb.from('journey_episode_current').select('episode_id,began_basis,began_lo,began_hi').in('episode_id',epIds));
+        /* only a Journey that did NOT start from an inquiry: an inquiry's Journey records the INQUIRY date as its
+           beginning, which is not when care began (found by Desktop 294, fixed 2026-09-28) */
+        const fromInquiry=new Set((await q(sb.from('episode_source').select('episode_id').in('episode_id',epIds).eq('system','lead').eq('role','origin'))).map(x=>x.episode_id));
+        const eps=await q(sb.from('journey_episode_current').select('episode_id,began_basis,began_lo,began_hi').in('episode_id',epIds.filter(id=>!fromInquiry.has(id))));
         eps.forEach(e=>{ if(['documented','observed_window','before_observation'].indexOf(e.began_basis)<0) return;
           const ymd=String(e.began_lo||e.began_hi||'').slice(0,10);
           if(!out.began) out.began={ ymd, basis:'the Journey ('+c360Began(e)+')' }; });
