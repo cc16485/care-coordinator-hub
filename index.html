@@ -6134,7 +6134,7 @@ The HomeTogether team</pre>
 
 <!-- The leadSec* wrappers exist so the Guided Call cockpit can borrow whole
      sections into its stage layout and hand them back. Wrap, never rename:
-     every field id in here is load-bearing for saveLead()/openLeadModal(). -->
+     every field id in here is load-bearing for LEAD_FIELDS (saveLead / openLeadModal). -->
 <div id="leadSecCaller">
 <div class="section-title" style="margin-top:0;border-top:none;padding-top:0;">Caller / Initiator Details</div>
 <div class="grid2">
@@ -8612,75 +8612,82 @@ async function aiSuggestBranch(){
   }
   statusEl.innerHTML = '✅ AI suggested — review before saving.' + (result.confidence_note ? ` <span style="color:var(--text-muted);">${result.confidence_note}</span>` : '');
 }
+/* ── ONE DEFINITION PER INTAKE QUESTION (Gate 1b-1a, 2026-09-28) ─────────────────────────────
+   Every intake field: the lead key, its box on the form, how it's read and how it's filled.
+   The intake form's fill (openLeadModal), its save (saveLead), the guided call (which uses both)
+   and, from Gate 1b-2, each Lead Intake chapter all read and fill through this one table, so how
+   a birth date or a checklist is read can never differ between screens. Kept in the save's own
+   field order, so a saved lead is byte-for-byte what it was before this table existed.
+   kinds: text = trimmed · raw = as is · upper = trimmed, upper case · check = a tick box ·
+   radio = one of a set · checks = the ticked boxes in a grid · org = a partner id or null ·
+   tags = comma list. The 4th item is the value a new form shows when the lead has none. */
+const LEAD_FIELDS=[
+  ['first_name','lead_first_name','text'], ['last_name','lead_last_name','text'], ['phone','lead_phone','text'],
+  ['email','lead_email','text'], ['relationship','lead_relationship','text'], ['source','lead_source','raw','Phone'],
+  ['referral_org_id','lead_referral_org_id','org'], ['referral_source_name','lead_referral_source_name','text'],
+  ['client_name_not_provided','lead_client_name_not_provided','check'],
+  ['client_first_name','lead_client_first_name','text'], ['client_last_name','lead_client_last_name','text'],
+  ['client_dob','lead_client_dob','raw'], ['client_gender','lead_client_gender','raw'],
+  ['client_address','lead_client_address','text'], ['client_city','lead_client_city','text'],
+  ['client_state','lead_client_state','upper'], ['client_zip','lead_client_zip','text'],
+  ['client_phone','lead_client_phone','text'], ['marital_status','lead_marital_status','raw'], ['language','lead_language','text'],
+  ['urgency','lead_urgency','radio'], ['needs','lead_needs_grid','checks'], ['weight_bearing','lead_weight_bearing','radio'],
+  ['level_estimate','lead_level_estimate','radio'], ['safety','lead_safety_grid','checks'], ['mobility','lead_mobility','radio'],
+  ['personal_care','lead_personal_care_grid','checks'], ['medical_conditions','lead_medical_conditions_grid','checks'],
+  ['dementia_follow_up','lead_dementia_follow_up_grid','checks'],
+  ['physician_name','lead_physician_name','text'], ['physician_phone','lead_physician_phone','text'],
+  ['preferred_hospital','lead_preferred_hospital','text'], ['medical_notes','lead_medical_notes','text'],
+  ['days_needed','lead_days_needed','text'], ['times_needed','lead_times_needed','text'], ['number_of_hours','lead_number_of_hours','text'],
+  ['funding_source','lead_funding_source','radio'], ['price_quoted','lead_price_quoted','check'],
+  ['quoted_price_amount','lead_quoted_price_amount','text'],
+  ['status','lead_status','raw','New'], ['assigned_coordinator','lead_assigned_coordinator','text'],
+  ['axiscare_client_id','lead_axiscare_client_id','text'], ['dcn','lead_dcn','text'], ['county','lead_county','text'],
+  ['state_submitted','lead_state_submitted','raw'], ['state_status','lead_state_status','raw'],
+  ['interest_notes','lead_interest_notes','text'],
+  ['follow_up_branch','lead_follow_up_branch','raw'], ['last_contacted_at','lead_last_contacted_at','raw'],
+  ['follow_up_due','lead_follow_up_due','raw'], ['intent_tags','lead_intent_tags','tags'],
+];
+function leadFieldRead(f){
+  const box=f[1], el=()=>document.getElementById(box);
+  switch(f[2]){
+    case 'text':   return el().value.trim();
+    case 'raw':    return el().value;
+    case 'upper':  return el().value.trim().toUpperCase();
+    case 'check':  return el().checked;
+    case 'radio':  return getRadioValue(box);
+    case 'checks': return getCheckedValues(box);
+    case 'org':    return el().value || null;
+    case 'tags':   return el().value.split(',').map(s=>s.trim()).filter(Boolean);
+  }
+  throw new Error('LEAD_FIELDS: unknown kind '+f[2]);
+}
+function leadFieldFill(f, l){
+  const box=f[1], v=l[f[0]], el=()=>document.getElementById(box);
+  switch(f[2]){
+    case 'check':  el().checked=!!v; return;
+    case 'radio':  setRadioValue(box, v||''); return;
+    case 'checks': setCheckedValues(box, v); return;
+    case 'org':    leadFillRefOrgs(v||''); return;
+    case 'tags':   el().value=(v||[]).join(', '); return;
+    default:       el().value=v||f[3]||'';
+  }
+}
+/* keys: fill or read only these fields (a Lead Intake chapter); omitted = the whole form */
+function leadFormRead(keys){ const out={}; LEAD_FIELDS.forEach(f=>{ if(!keys||keys.indexOf(f[0])>=0) out[f[0]]=leadFieldRead(f); }); return out; }
+function leadFormFill(l, keys){ LEAD_FIELDS.forEach(f=>{ if(!keys||keys.indexOf(f[0])>=0) leadFieldFill(f, l||{}); }); }
 function openLeadModal(id){
   const l = id ? DATA.leads.find(x=>x.id===id) : {};
   document.getElementById('leadModalTitle').textContent = id ? 'Edit Lead' : 'Add Lead';
   document.getElementById('lead_id').value = id || '';
-  document.getElementById('lead_first_name').value = l.first_name||'';
-  document.getElementById('lead_last_name').value = l.last_name||'';
-  document.getElementById('lead_phone').value = l.phone||'';
-  document.getElementById('lead_email').value = l.email||'';
-  document.getElementById('lead_relationship').value = l.relationship||'';
-  document.getElementById('lead_source').value = l.source||'Phone';
-  leadFillRefOrgs(l.referral_org_id||'');
-  document.getElementById('lead_referral_source_name').value = l.referral_source_name||'';
-
-  document.getElementById('lead_client_name_not_provided').checked = !!l.client_name_not_provided;
+  leadFormFill(l);
+  /* what shows depends on the answers (these only show and hide; they never change a value) */
   toggleClientNameFields(!!l.client_name_not_provided);
-  document.getElementById('lead_client_first_name').value = l.client_first_name||'';
-  document.getElementById('lead_client_last_name').value = l.client_last_name||'';
-  document.getElementById('lead_client_dob').value = l.client_dob||'';
   // Full address stays folded on a first call (city is enough); pop it open
   // when this lead already has one so edits never hide saved data.
   const af=document.getElementById('leadAddrFold');
   if(af) af.open = !!(l.client_address||l.client_state||l.client_zip);
-  document.getElementById('lead_client_gender').value = l.client_gender||'';
-  document.getElementById('lead_client_address').value = l.client_address||'';
-  document.getElementById('lead_client_city').value = l.client_city||'';
-  document.getElementById('lead_client_state').value = l.client_state||'';
-  document.getElementById('lead_client_zip').value = l.client_zip||'';
-  document.getElementById('lead_client_phone').value = l.client_phone||'';
-  document.getElementById('lead_marital_status').value = l.marital_status||'';
-  document.getElementById('lead_language').value = l.language||'';
-
-  setRadioValue('lead_urgency', l.urgency||'');
-  setCheckedValues('lead_needs_grid', l.needs);
-  setRadioValue('lead_weight_bearing', l.weight_bearing||'');
-  setRadioValue('lead_level_estimate', l.level_estimate||'');
-  setCheckedValues('lead_safety_grid', l.safety);
-  setRadioValue('lead_mobility', l.mobility||'');
-  setCheckedValues('lead_personal_care_grid', l.personal_care);
-  setCheckedValues('lead_medical_conditions_grid', l.medical_conditions);
-  setCheckedValues('lead_dementia_follow_up_grid', l.dementia_follow_up);
   toggleDementiaFollowUp();
-
-  document.getElementById('lead_physician_name').value = l.physician_name||'';
-  document.getElementById('lead_physician_phone').value = l.physician_phone||'';
-  document.getElementById('lead_preferred_hospital').value = l.preferred_hospital||'';
-  document.getElementById('lead_medical_notes').value = l.medical_notes||'';
-
-  document.getElementById('lead_days_needed').value = l.days_needed||'';
-  document.getElementById('lead_times_needed').value = l.times_needed||'';
-  document.getElementById('lead_number_of_hours').value = l.number_of_hours||'';
-  setRadioValue('lead_funding_source', l.funding_source||'');
-  document.getElementById('lead_price_quoted').checked = !!l.price_quoted;
   togglePriceQuotedAmount(!!l.price_quoted);
-  document.getElementById('lead_quoted_price_amount').value = l.quoted_price_amount||'';
-
-  document.getElementById('lead_status').value = l.status||'New';
-  document.getElementById('lead_assigned_coordinator').value = l.assigned_coordinator||'';
-  document.getElementById('lead_axiscare_client_id').value = l.axiscare_client_id||'';
-  document.getElementById('lead_dcn').value = l.dcn||'';
-  document.getElementById('lead_county').value = l.county||'';
-  document.getElementById('lead_state_submitted').value = l.state_submitted||'';
-  document.getElementById('lead_state_status').value = l.state_status||'';
-  document.getElementById('lead_interest_notes').value = l.interest_notes||'';
-
-  document.getElementById('lead_follow_up_branch').value = l.follow_up_branch||'';
-  document.getElementById('lead_last_contacted_at').value = l.last_contacted_at||'';
-  document.getElementById('lead_follow_up_due').value = l.follow_up_due||'';
-  document.getElementById('lead_intent_tags').value = (l.intent_tags||[]).join(', ');
-
   leadPayorUI();
   document.getElementById('leadModalBackdrop').classList.add('open');
 }
@@ -11071,69 +11078,11 @@ async function saveLead(opts){
     ckNote=r.note||'';
   }
   const id = document.getElementById('lead_id').value || uid();
-  const record = {
-    id,
-    first_name: document.getElementById('lead_first_name').value.trim(),
-    last_name: document.getElementById('lead_last_name').value.trim(),
-    phone: document.getElementById('lead_phone').value.trim(),
-    email: document.getElementById('lead_email').value.trim(),
-    relationship: document.getElementById('lead_relationship').value.trim(),
-    source: document.getElementById('lead_source').value,
-    referral_org_id: document.getElementById('lead_referral_org_id').value || null,
-    referral_source_name: document.getElementById('lead_referral_source_name').value.trim(),
-
-    client_name_not_provided: document.getElementById('lead_client_name_not_provided').checked,
-    client_first_name: document.getElementById('lead_client_first_name').value.trim(),
-    client_last_name: document.getElementById('lead_client_last_name').value.trim(),
-    client_dob: document.getElementById('lead_client_dob').value,
-    client_gender: document.getElementById('lead_client_gender').value,
-    client_address: document.getElementById('lead_client_address').value.trim(),
-    client_city: document.getElementById('lead_client_city').value.trim(),
-    client_state: document.getElementById('lead_client_state').value.trim().toUpperCase(),
-    client_zip: document.getElementById('lead_client_zip').value.trim(),
-    client_phone: document.getElementById('lead_client_phone').value.trim(),
-    marital_status: document.getElementById('lead_marital_status').value,
-    language: document.getElementById('lead_language').value.trim(),
-
-    urgency: getRadioValue('lead_urgency'),
-    needs: getCheckedValues('lead_needs_grid'),
-    weight_bearing: getRadioValue('lead_weight_bearing'),
-    level_estimate: getRadioValue('lead_level_estimate'),
-    safety: getCheckedValues('lead_safety_grid'),
-    mobility: getRadioValue('lead_mobility'),
-    personal_care: getCheckedValues('lead_personal_care_grid'),
-    medical_conditions: getCheckedValues('lead_medical_conditions_grid'),
-    dementia_follow_up: getCheckedValues('lead_dementia_follow_up_grid'),
-
-    physician_name: document.getElementById('lead_physician_name').value.trim(),
-    physician_phone: document.getElementById('lead_physician_phone').value.trim(),
-    preferred_hospital: document.getElementById('lead_preferred_hospital').value.trim(),
-    medical_notes: document.getElementById('lead_medical_notes').value.trim(),
-
-    days_needed: document.getElementById('lead_days_needed').value.trim(),
-    times_needed: document.getElementById('lead_times_needed').value.trim(),
-    number_of_hours: document.getElementById('lead_number_of_hours').value.trim(),
-    funding_source: getRadioValue('lead_funding_source'),
-    price_quoted: document.getElementById('lead_price_quoted').checked,
-    quoted_price_amount: document.getElementById('lead_quoted_price_amount').value.trim(),
-
-    status: document.getElementById('lead_status').value,
-    assigned_coordinator: document.getElementById('lead_assigned_coordinator').value.trim()
-      || PAYER_COORDINATOR[getRadioValue('lead_funding_source')] || '',
-    axiscare_client_id: document.getElementById('lead_axiscare_client_id').value.trim(),
-    dcn: document.getElementById('lead_dcn').value.trim(),
-    county: document.getElementById('lead_county').value.trim(),
-    state_submitted: document.getElementById('lead_state_submitted').value,
-    state_status: document.getElementById('lead_state_status').value,
-    interest_notes: document.getElementById('lead_interest_notes').value.trim(),
-
-    follow_up_branch: document.getElementById('lead_follow_up_branch').value,
-    last_contacted_at: document.getElementById('lead_last_contacted_at').value,
-    follow_up_due: document.getElementById('lead_follow_up_due').value,
-    intent_tags: document.getElementById('lead_intent_tags').value.split(',').map(s=>s.trim()).filter(Boolean),
-
+  /* every field through the one table (Gate 1b-1a); same fields, same order, same values */
+  const record = Object.assign({ id }, leadFormRead(), {
     created_at: (DATA.leads.find(x=>x.id===id)||{}).created_at || new Date().toISOString(),
-  };
+  });
+  record.assigned_coordinator = record.assigned_coordinator || PAYER_COORDINATOR[record.funding_source] || '';
   const idx = DATA.leads.findIndex(x=>x.id===id);
   // Merge over the existing record — the intake form doesn't know about
   // profile-side fields (comm_log, AI summary, attributes, docs, AxisCare
