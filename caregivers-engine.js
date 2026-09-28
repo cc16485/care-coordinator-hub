@@ -1449,13 +1449,12 @@ async function loadOffers(btn){
   const box=document.getElementById('offersList');
   /* Fetch even with no panel on screen: Background & References reads OFFERS
      to show Step 1 status without keeping a second copy of it. */
-  const key=hubKey();
-  if(!key){ if(box) box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings first.</div>'; return; }
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
-    const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/rest/v1/rpc/hub_job_offers',{
-      method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({p_key:key})});
+    /* T2 (2026-09-28): through hub-training-data with your own sign-in, not the shared key. */
+    const r=await fetch(TRAINING_DATA_FN+'?action=job_offers',{
+      method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
+      body:'{}'});
     const data=await r.json();
     if(!Array.isArray(data)) throw new Error((data&&data.error)||'unexpected response');
     OFFERS=data;
@@ -1660,10 +1659,10 @@ function renderPastOffers(){
   }).join('');
 }
 async function offerUpdate(id, payload){
-  const key=hubKey();
-  const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/rest/v1/rpc/hub_offer_update',{
-    method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-    body:JSON.stringify(Object.assign({p_key:key,p_id:id},payload))});
+  /* T2: your own sign-in; the server records you as "who", whatever the payload says. */
+  const r=await fetch(TRAINING_DATA_FN+'?action=offer_update',{
+    method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
+    body:JSON.stringify(Object.assign({p_id:id},payload))});
   const data=await r.json();
   if(!data||data.error||data.ok===false) throw new Error((data&&data.error)||'update failed');
 }
@@ -3585,15 +3584,14 @@ function saveCaregivers(){
 // record for training) and fills this tab's fields: orientation + ALZ
 // completion dates, hire date and first-client-contact date (fill-if-empty).
 // Matches caregivers by AxisCare ID when known, otherwise by name.
-const TRAINING_HUB_API='https://rdqujxiycycwhskyvrwa.supabase.co/rest/v1/rpc/hub_training_status';
+const TRAINING_DATA_FN='https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/hub-training-data';
+const TRAINING_HUB_API=TRAINING_DATA_FN+'?action=training_status';   /* T2: your own sign-in, not the shared key */
 const TRAINING_HUB_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkcXVqeGl5Y3ljd2hza3l2cndhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTg1NDgsImV4cCI6MjA5ODc5NDU0OH0.SFjAfj--b-tWrk8bMVLeM-tGwD8VBaPsEBtUAp5tPew';
 async function syncFromTrainingHub(btn){
-  const key=hubKey();
-  if(!key){ alert('First paste the Training Hub read key into ⚙️ Settings → Training Hub.'); return; }
   const orig=btn?btn.textContent:'';
   if(btn){ btn.textContent='☁ Syncing…'; btn.disabled=true; }
   try{
-    const r=await fetch(TRAINING_HUB_API,{method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},body:JSON.stringify({p_key:key})});
+    const r=await fetch(TRAINING_HUB_API,{method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},body:'{}'});
     const data=await r.json();
     if(!Array.isArray(data)) throw new Error((data&&data.error)?data.error:'unexpected response — is the read key correct?');
     const norm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'');
@@ -4925,16 +4923,19 @@ async function bgrPushDocToGHL(candId, which, proof){
     fname = String(proof).split('/').pop() || 'document.pdf';
     try{ const { data } = await sb.storage.from('lead-docs').createSignedUrl(proof, 31536000); fileUrl = (data && data.signedUrl) || ''; }catch(e){ fileUrl = ''; }
   }
-  const cfg = (typeof CONFIG !== 'undefined' && CONFIG) || (typeof window !== 'undefined' && window.CONFIG) || null;
-  const trainingKey = (cfg && cfg.training_hub_key) || '';
-  if(trainingKey){
-    try{
-      await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-attach-doc', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: trainingKey, first: c.first||'', last: c.last||'', email: c.email||'', phone: c.phone||'', label, file_url: fileUrl, file_name: fname })
-      });
-    }catch(e){ console.warn('GHL doc attach skipped', e); }
+  /* T2 (2026-09-28): filed onto the GoHighLevel contact with your own sign-in. The function fetches the document
+     from our storage by a 10-minute link right away; no long-lived link goes to GoHighLevel, and a pasted outside
+     link is never sent (the contact just gets a note that the document is in the Hub). */
+  let ghlLink = '';
+  if(!/^https?:\/\//i.test(proof)){
+    try{ const { data } = await sb.storage.from('lead-docs').createSignedUrl(proof, 600); ghlLink = (data && data.signedUrl) || ''; }catch(e){ ghlLink = ''; }
   }
+  try{
+    await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-attach-doc', {
+      method: 'POST', headers: { 'x-hub-token': await trainHubTok(), 'apikey': TRAINING_HUB_ANON, 'Authorization': 'Bearer '+TRAINING_HUB_ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ first: c.first||'', last: c.last||'', email: c.email||'', phone: c.phone||'', label, file_url: ghlLink || undefined, file_name: fname })
+    });
+  }catch(e){ console.warn('GHL doc attach skipped', e); }
   try{ zapFire('zapier_cand_webhook', { candidate_id: c.id, full_name: (c.first+' '+c.last).trim(), phone: c.phone||'', email: c.email||'', doc_label: label, doc_url: fileUrl, doc_name: fname, document: true, timestamp: new Date().toISOString() }); }catch(e){}
 }
 /* Open a proof: a pasted http link directly, or a private storage path via a

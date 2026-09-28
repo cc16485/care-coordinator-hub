@@ -20003,19 +20003,16 @@ async function apOnboardMount(r){
    Matched on the AxisCare number when we have it, on the name when we do not,
    and never on a name that belongs to two people. */
 let TRAIN_ROWS = null;
-const TRAIN_API  = 'https://rdqujxiycycwhskyvrwa.supabase.co/rest/v1/rpc/hub_training_status';
+const TRAIN_API  = 'https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/hub-training-data?action=training_status';   /* T2: your own sign-in, not the shared key */
 const TRAIN_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkcXVqeGl5Y3ljd2hza3l2cndhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTg1NDgsImV4cCI6MjA5ODc5NDU0OH0.SFjAfj--b-tWrk8bMVLeM-tGwD8VBaPsEBtUAp5tPew';
 const trainNorm = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'');
 
 async function trainLoad(){
   if(TRAIN_ROWS) return TRAIN_ROWS;
-  const key = ((typeof appSettings !== 'undefined' && appSettings.training_hub_key)
-    || (typeof CONFIG !== 'undefined' && CONFIG.training_hub_key) || '').trim();
-  if(!key){ TRAIN_ROWS = []; return TRAIN_ROWS; }
   try{
     const r = await fetch(TRAIN_API, { method:'POST',
-      headers:{ 'apikey':TRAIN_ANON, 'Authorization':'Bearer '+TRAIN_ANON, 'Content-Type':'application/json' },
-      body: JSON.stringify({ p_key: key }) });
+      headers:{ 'x-hub-token':await trainHubTok(), 'apikey':TRAIN_ANON, 'Authorization':'Bearer '+TRAIN_ANON, 'Content-Type':'application/json' },
+      body: '{}' });
     const data = await r.json();
     TRAIN_ROWS = Array.isArray(data) ? data : [];
   }catch(e){ TRAIN_ROWS = []; }
@@ -21640,13 +21637,11 @@ function offNavCounts(open, past){
 
 async function renderInterviewsLegacy(btn){
   const box=document.getElementById('interviewsList'); if(!box) return;
-  const key=(CONFIG.training_hub_key||'').trim();
-  if(!key){ box.innerHTML='<div class="field-note">Paste the Training Hub read key into ⚙️ Settings to see offer statuses here. You can still make offers with the button above.</div>'; return; }
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
-    const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/rest/v1/rpc/hub_job_offers',{
-      method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({p_key:key})});
+    const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/hub-training-data?action=job_offers',{
+      method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+      body:'{}'});
     const data=await r.json();
     if(!Array.isArray(data)) throw new Error((data&&data.error)||'unexpected response');
     const esc=escapeHtmlComms;
