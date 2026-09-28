@@ -1,3 +1,6 @@
+/* 2026-09-27: lead texts, GoHighLevel replies and job offers need the staff member's own Hub sign-in (x-hub-token), not
+   the shared Training key; the Training functions check it with the Hub and run the Hub's opt-out check. */
+/* (the page's own trainHubTok, defined in index.html, supplies the staff member's Hub session) */
 /* Caregiver lifecycle engine, moved from the Staffing Coordinator Hub
    on 2026-07-31. Wrapped so nothing here can reach the hub's own globals:
    switchTab, closeModal, addDays and renderCheckins exist in both and mean
@@ -2182,7 +2185,7 @@ async function sendOfferWelcome(id,btn,quiet){
   if(btn){btn.disabled=true;btn.textContent='Sending…';}
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/job-offer',{
-      method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
+      method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'x-hub-token':await (window.trainHubTok ? window.trainHubTok() : ''),'Content-Type':'application/json'},
       body:JSON.stringify({key, action:'send_welcome', offer_id:id})});
     const d=await r.json();
     if(d.error) throw new Error(d.error);
@@ -2928,7 +2931,7 @@ async function sendReply(i){
   if(btn){btn.textContent='Sending…';btn.disabled=true;}
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-reply',{
-      method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
+      method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'x-hub-token':await (window.trainHubTok ? window.trainHubTok() : ''),'Content-Type':'application/json'},
       body:JSON.stringify({key:hubKey(),contact_id:el.dataset.contact,message:msg})});
     const data=await r.json();
     if(!data||data.error) throw new Error(data&&data.error?data.error:'send failed');
@@ -2945,7 +2948,7 @@ async function dismissReply(i){
   if(btn){btn.textContent='Clearing…';btn.disabled=true;}
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-reply',{
-      method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
+      method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'x-hub-token':await (window.trainHubTok ? window.trainHubTok() : ''),'Content-Type':'application/json'},
       body:JSON.stringify({key:hubKey(),action:'dismiss',conversation_id:el.dataset.conv})});
     const data=await r.json();
     if(!data||data.error) throw new Error(data&&data.error?data.error:'could not clear');
