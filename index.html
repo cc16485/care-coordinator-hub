@@ -9092,7 +9092,8 @@ async function openClient(seed, tab){
   const chip=(t,bg,fg)=>'<span style="font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:'+bg+';color:'+fg+';">'+esc(t)+'</span>';
   document.getElementById('cpChips').innerHTML=
     ccStageChip(ccClientStage({ lead, r, launch, ax }), 'Where they are: New · Talking · Assessment · Getting ready · Receiving care · Past')
-    +(ax?' '+chip('AxisCare #'+ax,'#E4F2F0','#0F5E73'):(!lead?' '+chip('no AxisCare id yet','#FFF4E3','#92400E'):''));
+    +(ax?' '+chip('AxisCare #'+ax,'#E4F2F0','#0F5E73'):(!lead?' '+chip('no AxisCare id yet','#FFF4E3','#92400E'):''))
+    +(ax&&lead&&axMadeNote(lead,ax)?' <span class="field-note" style="font-size:11.5px;">'+esc(axMadeNote(lead,ax))+'</span>':'');
   document.querySelectorAll('#leadProfileView .cp-lead').forEach(e=>{ e.style.display=lead?'':'none'; });
   document.getElementById('cp_start_note').innerHTML=(!lead&&carrier)
     ? '<div class="card" style="padding:12px 16px;margin-bottom:12px;font-size:13px;background:#FFFBF4;border-color:#F3D9B5;">An inquiry carries this AxisCare id, but nobody has confirmed they are the same family. <button class="linklike" onclick="openClient({lead_id:\''+esc(carrier.id)+'\'},\'start\')">Open the inquiry to check and connect</button></div>'
@@ -9187,7 +9188,7 @@ function cpRenderCare(){
     +(as.length?as.map(a=>{ const plan=(DATA.care_plans||[]).find(p=>p.assessment_id===a.id);
         return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;">'
           +'<b>'+esc(a.visit_date||String(a.created_at||'').slice(0,10))+'</b><span class="field-note">'+esc(a.status||'recorded')+(a.coordinator?' · '+esc(a.coordinator):'')+'</span>'
-          +(plan?'<span class="field-note">care plan '+esc(plan.status||'drafted')+(plan.axiscare_tasks&&plan.axiscare_tasks.length?' · '+plan.axiscare_tasks.length+' AxisCare tasks':'')+'</span>':'<span class="field-note">no care plan yet</span>')
+          +(plan?'<span class="field-note">care plan '+esc(plan.status||'drafted')+'</span>'+(axPlanNote(plan,a)?'<span class="field-note" style="'+(/not confirmed|check AxisCare/.test(axPlanNote(plan,a))?'color:#92400E;':'')+'">'+esc(axPlanNote(plan,a))+'</span>':''):'<span class="field-note">no care plan yet</span>')
           +'<span style="flex:1;"></span><button class="linklike" onclick="openAssessmentModal('+q(a.id)+')">Open assessment</button>'
           +'<button class="linklike" onclick="openPlanForAssessment('+q(a.id)+')">'+(plan?'Open care plan':'Write the care plan')+'</button></div>'; }).join('')
       :'<div class="field-note">No assessment recorded yet.</div>')
@@ -9580,7 +9581,7 @@ function renderLpAttrs(){
   }).join('');
   const ent=document.getElementById('lp_attr_entered');
   ent.innerHTML = l.attributes_entered_at
-    ? '<span class="badge ok">Entered in AxisCare ✓</span>'
+    ? '<span class="badge ok">Entered in AxisCare ✓</span> <span class="field-note" style="font-size:11.5px;">marked by a person, '+escapeHtmlComms(lsDate(l.attributes_entered_at))+' (AxisCare can\'t confirm attributes)</span>'
     : '<button class="linklike" onclick="lpMarkAttrsEntered()">☑ Mark entered in AxisCare</button>';
 }
 async function lpSetAttr(key,val){
@@ -11527,7 +11528,8 @@ async function jcRenderStatus(){
   if(c&&c.error){ el.innerHTML='AxisCare client #'+esc(ax)+'. (Could not check the connection: '+esc(c.error)+')'; return; }
   if(c&&String(c.axiscare_client_id)===ax){
     el.innerHTML='✓ Connected to AxisCare client #'+esc(ax)+': this inquiry\'s Journey is the client\'s. Confirmed by '+esc(String(c.confirmed_by).split('@')[0])+', '
-      +esc(new Date(c.confirmed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}))+(c.how==='convert'?' (created from this lead)':'')+'.';
+      +esc(new Date(c.confirmed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}))+(c.how==='convert'?' (created from this lead)':'')+'.'
+      +(axMadeNote(l,ax)?' <span class="field-note">'+esc(axMadeNote(l,ax))+'.</span>':'');
     return;
   }
   el.innerHTML='<span style="color:#92400E;">AxisCare client #'+esc(ax)+' is on this lead, but nobody has confirmed they are the same person yet.</span> '
@@ -15108,7 +15110,9 @@ function renderLpSoc(){
         +'<input type="checkbox" style="width:auto;margin-top:2px;" '+(s.done_at?'checked':'')+(movedStep?' disabled':'')+' onchange="socToggleStep('+i+',this.checked)">'
         +'<div style="flex:1;min-width:0;'+(s.done_at?'color:var(--text-muted);':'')+'">'
         +esc(s.label)
-        +(s.done_at?'<div class="field-note">✓ '+new Date(s.done_at).toLocaleDateString()+(s.done_by?' — '+esc(s.done_by):'')+'</div>':'')
+        +(s.done_at?'<div class="field-note">✓ '+new Date(s.done_at).toLocaleDateString()+(/axiscare/i.test(s.label)
+            ?(/^Automatic/.test(String(s.done_by||''))?' · confirmed by AxisCare\'s read-back':' · marked done'+(s.done_by?' by '+esc(s.done_by):'')+' (a person\'s check, not read from AxisCare)')
+            :(s.done_by?' — '+esc(s.done_by):''))+'</div>':'')
         +(s.note?'<div class="field-note">📝 '+esc(s.note)+'</div>':'')
         +'</div>'
         +socRoleChip(s.role)
@@ -27870,9 +27874,28 @@ function lpcAxNote(m){
   if(!m||m.source!=='axiscare'||!m.axiscare_list_number) return '';
   return m.axiscare_sent_at?'Sent to AxisCare by '+lpcWho(m.axiscare_sent_by)+', '+lpcWhen(m.axiscare_sent_at):'From AxisCare (their list, read nightly)';
 }
+/* Profile First, step C1 (2026-09-28): notes on what went to AxisCare, from records the Hub already keeps.
+   A note shows only when its record exists; nothing says "sent" or "confirmed" without one. */
+function axMadeNote(l, ax){
+  const cv=l&&l.axiscare_convert; if(!cv) return '';
+  const id=String(cv.client_id||cv.axiscare_client_id||''); if(ax&&id&&id!==String(ax)) return '';
+  const tail=(cv.by?' by '+lpcWho(cv.by):'')+(cv.at?', '+lpcWhen(cv.at):'');
+  return (cv.reused_existing||cv.outcome==='reused'?'Linked to the client AxisCare already had':'Created in AxisCare from this inquiry')+tail;
+}
+function axPlanNote(plan, a){
+  const p=plan&&plan.axiscare_tasks_push;
+  if(p&&p.at){
+    const rb=p.readback||[], good=rb.filter(x=>x&&x.in_axiscare&&x.as_planned).length;
+    const all=(p.steps||[]).every(x=>x&&x.ok)&&rb.every(x=>x&&x.in_axiscare&&x.as_planned)&&!p.readback_error;
+    return 'Sent to AxisCare by '+lpcWho(p.by)+', '+lpcWhen(p.at)+' · '+(all?good+' task'+(good===1?'':'s')+' confirmed':good+' of '+rb.length+' tasks confirmed, check AxisCare');
+  }
+  if(a&&a.status==='Pushed to AxisCare') return 'not confirmed in AxisCare (no read-back on file)';
+  const n=((plan&&plan.axiscare_tasks)||[]).length;
+  return n?n+' AxisCare task'+(n===1?'':'s')+' planned, not sent yet':'';
+}
 function lpcHead(l){
-  const esc=escapeHtmlComms, cv=l.axiscare_convert;
-  const made=cv&&String(cv.client_id||'')===String(CP.ax)?' · '+(cv.outcome==='reused'?'linked to the client AxisCare already had':'created in AxisCare from this inquiry')+' by '+esc(lpcWho(cv.by))+', '+esc(lpcWhen(cv.at)):'';
+  const esc=escapeHtmlComms, mk=axMadeNote(l, CP.ax);
+  const made=mk?' · '+esc(mk.charAt(0).toLowerCase()+mk.slice(1)):'';
   return '<p class="lp-prov">AxisCare client #'+esc(CP.ax)+made+'. Pick who joins the Family Circle (care updates) and who becomes an AxisCare responsible party. Nothing is copied without a click.</p>';
 }
 function lpcClientRow(l,b){
