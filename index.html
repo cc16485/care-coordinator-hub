@@ -4847,6 +4847,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <div id="cpcPath"></div>
     <div id="cpcGrid" class="cpx-grid"></div>
     <div id="cpcCare"></div>
+    <div id="cpcLearned"></div>
     <div class="cpx-needed"><div id="cpcNeeded"></div><div id="cp_open_now"></div></div>
   </div>
   <div class="profile-grid">
@@ -27272,6 +27273,8 @@ function cpRenderCommand(){
         +(more.length?'<details class="cpx-more"><summary>'+more.length+' more</summary><ul class="cpx-need">'+more.map(li).join('')+'</ul></details>':'')
         :'<div class="cpx-src" style="margin-top:4px;">Nothing missing that the Hub can check.</div>')
     :'';
+
+  try{ cpRenderLearned(); }catch(e){ console.warn('learned from call:', e); }
 }
 /* ── GATE 1b-2 · THE LEAD INTAKE TAB (her approval, 2026-09-28) ────────────────────────────────
    The permanent record of what the family told us before care started, on the lead AND the client
@@ -27310,6 +27313,186 @@ const LPI_L={
   dfu:{ wandering:'Wandering', aggression:'Agitation', sundowning:'Sundowning' },
   wb:{ yes:'Yes', no:'No', unsure:'Not sure' },
 };
+/* ── CALLS INTO THE PROFILE · P2 · "LEARNED FROM THIS CALL" (her approval, 2026-09-28) ─────────────
+   What the call reader heard (lead.ai_suggestions, "suggested, not reviewed") offered item by item for
+   a person to accept or dismiss. Her three rulings:
+   · names, phone numbers and emails heard on a call are SHOWN, never offered as accept (software never
+     decides who is who); a person types one into the intake if they want it;
+   · one-choice items (mobility, how soon, who's paying, relationship) fill only an empty field; if
+     something is already there, it asks before replacing;
+   · a rate mentioned on the call is context, never saved as a quote.
+   The AI speaks in its own words and the form has fixed choices, so every accept shows the matching
+   choice for the person to confirm or change; anything with no matching choice can go to the notes.
+   Each decision re-reads the family's record first (so nothing another save added is lost), then saves
+   it the way a person typing it would: the "What changed" list records who, from their sign-in. */
+const LRN_NEED_GUESS=[[/bath|shower|dress|toilet|groom|hygien|personal/i,'personalCare'],[/dementia|memory|alzheim/i,'dementia'],
+  [/transport|driv|errand|appointment|ride/i,'transportation'],[/house|clean|laundry|meal|cook|chore/i,'housekeeping'],
+  [/respite|break for/i,'respite'],[/overnight|night/i,'overnight']];
+const LRN_COND_GUESS=[[/alzheim/i,'alzheimers'],[/dementia|memory/i,'dementia'],[/parkinson/i,'parkinsons'],[/stroke/i,'stroke'],
+  [/diabet|sugar/i,'diabetes'],[/copd|emphysema|lung|oxygen/i,'copd']];
+const LRN_ONE={
+  mobility:{ label:'Mobility', choices:LPI_L.mobility, guess:[[/bed/i,'bedbound'],[/wheel/i,'wheelchair'],[/walker|cane|rollator|unsteady/i,'walker'],[/independ|on (his|her|their) own|no help/i,'independent']] },
+  urgency:{ label:'How soon', choices:{ today:'Today', '48hours':'Within 48 hours', '7days':'Within 7 days', researching:'Researching' },
+    guess:[[/today|asap|immediat|right away|right now|tonight/i,'today'],[/48|two days|tomorrow|couple (of )?days/i,'48hours'],[/week|7 days|few days|soon/i,'7days'],[/research|explor|looking|not sure|future|later|month/i,'researching']] },
+  funding_source:{ label:'Who\'s paying', choices:{ private:'Private pay', ltc:'Long-term care insurance', va:'VA', cds:'CDS', medicaid:'Medicaid' },
+    guess:[[/medicaid|ihs|state/i,'medicaid'],[/\bva\b|veteran/i,'va'],[/long.?term|ltc|insurance/i,'ltc'],[/\bcds\b|consumer/i,'cds'],[/private|self.?pay|pocket|cash/i,'private']] },
+};
+const lrnGuess=(pairs,w)=>{ const hit=(pairs||[]).find(p=>p[0].test(String(w||''))); return hit?hit[1]:''; };
+const lrnDay=iso=>{ try{ return new Date(iso).toLocaleDateString('en-US',{ month:'short', day:'numeric' }); }catch(e){ return String(iso||'').slice(0,10); } };
+function lrnItems(s, l){
+  const f=s.fields||{}, out=[], rv=s.review||{};
+  (Array.isArray(f.needs)?f.needs:[]).forEach((w,i)=>{ if(String(w).trim()) out.push({ key:'needs:'+i, kind:'add', field:'needs', label:'Care need', words:String(w), choices:LPI_L.needs, guess:lrnGuess(LRN_NEED_GUESS,w), notes:'interest_notes' }); });
+  (Array.isArray(f.medical_conditions)?f.medical_conditions:[]).forEach((w,i)=>{ if(String(w).trim()) out.push({ key:'cond:'+i, kind:'add', field:'medical_conditions', label:'Health condition', words:String(w), choices:LPI_L.cond, guess:lrnGuess(LRN_COND_GUESS,w), notes:'medical_notes' }); });
+  ['mobility','urgency','funding_source'].forEach(k=>{ const w=String(f[k]||'').trim(); if(!w) return;
+    out.push({ key:k, kind:'one', field:k, label:LRN_ONE[k].label, words:w, choices:LRN_ONE[k].choices, guess:lrnGuess(LRN_ONE[k].guess,w), current:String(l[k]||'') }); });
+  if(String(f.relationship||'').trim()) out.push({ key:'relationship', kind:'text', field:'relationship', label:'Caller\'s relationship', words:String(f.relationship).trim(), current:String(l.relationship||'') });
+  if(String(l.interest_notes||'').indexOf('AI call summary, not reviewed ('+String(s.at||'').slice(0,10)+'):')>=0)
+    out.push({ key:'summary', kind:'relabel', label:'The AI\'s summary in the notes', words:'Mark it reviewed' });
+  return out.map(x=>Object.assign(x,{ done:rv[x.key]||null }));
+}
+function lrnOpen(l){ return (Array.isArray(l&&l.ai_suggestions)?l.ai_suggestions:[]).filter(s=>s&&!s.reviewed); }
+function cpRenderLearned(){
+  const box=document.getElementById('cpcLearned'); if(!box) return;
+  const l=CP.lead, esc=escapeHtmlComms;
+  if(!l||l.archived||leadIsSpam(l)){ box.innerHTML=''; return; }
+  const open=lrnOpen(l);
+  if(!open.length){ box.innerHTML=''; return; }
+  const opt=(ch,sel)=>Object.keys(ch).map(c=>'<option value="'+esc(c)+'"'+(c===sel?' selected':'')+'>'+esc(ch[c])+'</option>').join('');
+  const groups=open.map(s=>{
+    const f=s.fields||{}, items=lrnItems(s,l), pend=items.filter(x=>!x.done), sid=esc(s.id);
+    const flags=(Array.isArray(f.care_flags)?f.care_flags:[]).filter(Boolean);
+    const heard=[['Caller',[f.contact_first_name,f.contact_last_name].filter(Boolean).join(' ')],['Person needing care',f.client_first_name],['Phone heard',f.phone_found],['Email heard',f.email_found]].filter(x=>String(x[1]||'').trim());
+    const row=x=>{
+      const k=esc(x.key), id='lrn_'+sid+'_'+k.replace(/[^a-z0-9]/gi,'_');
+      let ctl='';
+      if(x.kind==='add') ctl='<select id="'+id+'" style="font-size:12.5px;width:auto;max-width:230px;padding:4px 6px;">'+(x.guess?'':'<option value="">Choose the matching box…</option>')+opt(x.choices,x.guess)
+        +'<option value="__notes">None fit: add to the '+(x.notes==='medical_notes'?'medical notes':'notes')+'</option></select>';
+      else if(x.kind==='one') ctl='<select id="'+id+'" style="font-size:12.5px;width:auto;max-width:230px;padding:4px 6px;">'+(x.guess?'':'<option value="">Choose…</option>')+opt(x.choices,x.guess)+'</select>'
+        +(x.current?'<span class="cpx-src" style="margin-left:6px;">now: '+esc(x.choices[x.current]||x.current)+'</span>':'');
+      else if(x.kind==='text') ctl='<input id="'+id+'" value="'+esc(x.words)+'" style="font-size:12.5px;width:140px;">'
+        +(x.current?'<span class="cpx-src" style="margin-left:6px;">now: '+esc(x.current)+'</span>':'');
+      return '<div class="lrn-item" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--border);">'
+        +'<span style="min-width:130px;font-size:12.5px;font-weight:600;">'+esc(x.label)+'</span>'
+        +(x.kind!=='relabel'?'<span style="font-size:12.5px;color:var(--text-muted);">heard: “'+esc(x.words)+'”</span>':'')
+        +'<span style="flex:1"></span>'+ctl
+        +'<button class="primary" style="padding:4px 10px;font-size:12px;" onclick="lrnAct(\''+sid+'\',\''+k+'\',\'accept\',this)">Accept</button>'
+        +'<button class="ghost" style="padding:4px 10px;font-size:12px;" onclick="lrnAct(\''+sid+'\',\''+k+'\',\'dismiss\',this)">Dismiss</button></div>';
+    };
+    const adds=pend.filter(x=>x.kind==='add'&&x.guess);
+    return '<div class="lrn-call" data-sid="'+sid+'" style="margin-top:8px;">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><b style="font-size:13px;">Call on '+esc(lrnDay(s.at))+'</b>'
+      +'<span class="cpx-src">'+esc(s.call_direction==='outbound'?'we called them':'they called us')+' · heard by the AI, not reviewed</span><span style="flex:1"></span>'
+      +(adds.length>1?'<button class="ghost" style="padding:4px 10px;font-size:12px;" onclick="lrnAcceptAdds(\''+sid+'\',this)">Accept the '+adds.length+' matched additions</button>':'')
+      +(!pend.length?'<button class="ghost" style="padding:4px 10px;font-size:12px;" onclick="lrnDone(\''+sid+'\',this)">Mark this call reviewed</button>':'')+'</div>'
+      +(flags.length?'<div style="margin-top:6px;">'+flags.map(t=>'<span class="cpx-chip bad" title="Raised by the AI from the call; act on it if it\'s real">'+esc(t)+'</span>').join(' ')+'</div>':'')
+      +pend.map(row).join('')
+      +(heard.length?'<div class="cpx-src" style="margin-top:6px;">Heard on the call (not saved; type it into the intake if it\'s right): '+heard.map(h=>esc(h[0])+' “'+esc(h[1])+'”').join(' · ')+'</div>':'')
+      +(String(f.rate_discussed||'').trim()?'<div class="cpx-src" style="margin-top:4px;">Rate mentioned on the call: “'+esc(f.rate_discussed)+'” (context only; a quote is recorded by a person)</div>':'')
+      +'</div>';
+  }).join('');
+  box.innerHTML='<div class="cpx-row" style="display:block;border:1px solid var(--border);border-left:3px solid #6B4FBB;border-radius:10px;padding:10px 12px;margin-top:10px;background:#fff;">'
+    +'<div style="display:flex;align-items:center;gap:8px;"><span class="cpx-lbl" style="margin:0;">Learned from this call</span>'
+    +'<span class="cpx-src">nothing here is saved until someone accepts it</span></div>'+groups
+    +'<div id="lrnMsg" class="cpx-src" style="margin-top:6px;"></div></div>';
+}
+/* the family's record as the server has it now (so a decision never overwrites something newer) */
+async function lrnFresh(id){
+  const { data, error }=await sb.from('app_data').select('data').eq('key','leads').maybeSingle();
+  if(error) throw error;
+  const arr=Array.isArray(data&&data.data)?data.data:[];
+  return arr.find(x=>x&&x.id===id)||null;
+}
+function lrnApply(fresh, s, x, decision, value, by, now){
+  if(decision==='accept'){
+    if(x.kind==='add'){
+      if(value==='__notes'){ const line='From the call on '+lrnDay(s.at)+': '+x.words;
+        fresh[x.notes]=[String(fresh[x.notes]||'').trim(), line].filter(Boolean).join('\n'); }
+      else { const cur=Array.isArray(fresh[x.field])?fresh[x.field].slice():[]; if(cur.indexOf(value)<0) cur.push(value); fresh[x.field]=cur; }
+    } else if(x.kind==='one'||x.kind==='text'){ fresh[x.field]=value; }
+    else if(x.kind==='relabel'){ const d=String(s.at||'').slice(0,10);
+      fresh.interest_notes=String(fresh.interest_notes||'').split('AI call summary, not reviewed ('+d+'):').join('AI call summary, reviewed by '+(lpscName(by)||'staff')+' on '+now.slice(0,10)+' (call '+d+'):'); }
+  }
+  s.review=Object.assign({}, s.review||{}, { [x.key]:{ decision:decision==='accept'?'accepted':'dismissed', value:decision==='accept'?value:null, by, at:now } });
+  const all=lrnItems(s, fresh);
+  if(all.every(i=>s.review[i.key])){ s.reviewed=true; s.reviewed_by=by; s.reviewed_at=now; }
+}
+async function lrnSave(id, mutate){
+  const msg=document.getElementById('lrnMsg'); if(msg) msg.textContent='Saving…';
+  let fresh;
+  try{ fresh=await lrnFresh(id); }catch(e){ if(msg) msg.textContent='Could not reach the server, so nothing was saved. Try again.'; return false; }
+  if(!fresh){ if(msg) msg.textContent='This inquiry is no longer on file, so nothing was saved.'; return false; }
+  const r=mutate(fresh); if(r===false){
+    const i0=(DATA.leads||[]).findIndex(x=>x.id===id); if(i0>=0) DATA.leads[i0]=fresh; if(CP.lead&&CP.lead.id===id) CP.lead=fresh;
+    try{ renderLeadProfile(); }catch(e){ cpRenderLearned(); }
+    const m2=document.getElementById('lrnMsg'); if(m2) m2.textContent='Nothing was saved: this changed since the card was shown. It\'s been refreshed; look again.'; return false; }
+  fresh.updated_at=new Date().toISOString();
+  await persist('leads', fresh);
+  const i=(DATA.leads||[]).findIndex(x=>x.id===id); if(i>=0) DATA.leads[i]=fresh;
+  if(CP.lead&&CP.lead.id===id) CP.lead=fresh;
+  try{ renderLeadProfile(); }catch(e){ cpRenderLearned(); }
+  return true;
+}
+async function lrnAct(sid, key, decision, btn){
+  const l=CP.lead; if(!l) return;
+  const s0=(l.ai_suggestions||[]).find(s=>s&&s.id===sid); if(!s0) return;
+  const x0=lrnItems(s0,l).find(i=>i.key===key); if(!x0) return;
+  const el=document.getElementById('lrn_'+sid+'_'+key.replace(/[^a-z0-9]/gi,'_'));
+  const value=decision==='accept'&&el?String(el.value||'').trim():null;
+  if(decision==='accept'&&x0.kind!=='relabel'&&!value){ const m=document.getElementById('lrnMsg'); if(m) m.textContent='Choose the matching answer first.'; return; }
+  /* one-choice items: fill an empty field; if something is there, ask before replacing (her ruling) */
+  if(decision==='accept'&&(x0.kind==='one'||x0.kind==='text')&&x0.current&&x0.current!==value&&!(btn&&btn.dataset.confirmed)){
+    const shown=x0.choices?(x0.choices[x0.current]||x0.current):x0.current, next=x0.choices?(x0.choices[value]||value):value;
+    const ok=ccPopOpen(btn||document.body,'<div style="font-size:13.5px;">Replace <b>'+escapeHtmlComms(shown)+'</b> with <b>'+escapeHtmlComms(next)+'</b>?</div>'
+      +'<div class="field-note" style="margin-top:4px;">'+escapeHtmlComms(x0.label)+' already has an answer on file.</div>'
+      +'<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" id="lrnYes" style="padding:6px 12px;font-size:12.5px;">Yes, replace</button>'
+      +'<button class="ghost" id="lrnNo" style="padding:6px 12px;font-size:12.5px;">Keep what\'s there</button></div>',{width:320});
+    ok.querySelector('#lrnNo').onclick=ccPopClose;
+    ok.querySelector('#lrnYes').onclick=()=>{ ccPopClose(); if(btn) btn.dataset.confirmed='1'; lrnAct(sid,key,decision,btn); };
+    return;
+  }
+  const by=(ME&&ME.email)||'', now=new Date().toISOString();
+  if(btn) btn.disabled=true;
+  const saved=await lrnSave(l.id, fresh=>{
+    const s=(fresh.ai_suggestions||[]).find(z=>z&&z.id===sid); if(!s||s.reviewed) return false;
+    const x=lrnItems(s,fresh).find(i=>i.key===key); if(!x||x.done) return false;
+    /* the field may have changed since the card was drawn: never replace without the person having seen it */
+    if(decision==='accept'&&(x.kind==='one'||x.kind==='text')&&x.current&&x.current!==value&&x.current!==x0.current) return false;
+    lrnApply(fresh, s, x, decision, value, by, now);
+  });
+  if(!saved&&btn&&btn.isConnected) btn.disabled=false;
+}
+async function lrnAcceptAdds(sid, btn){
+  const l=CP.lead; if(!l) return;
+  const s0=(l.ai_suggestions||[]).find(s=>s&&s.id===sid); if(!s0) return;
+  const picks=lrnItems(s0,l).filter(x=>!x.done&&x.kind==='add'&&x.guess).map(x=>{ const el=document.getElementById('lrn_'+sid+'_'+x.key.replace(/[^a-z0-9]/gi,'_'));
+    return { key:x.key, value:el?String(el.value||''):x.guess }; }).filter(p=>p.value);
+  if(!picks.length) return;
+  const by=(ME&&ME.email)||'', now=new Date().toISOString();
+  if(btn) btn.disabled=true;
+  const saved=await lrnSave(l.id, fresh=>{
+    const s=(fresh.ai_suggestions||[]).find(z=>z&&z.id===sid); if(!s||s.reviewed) return false;
+    picks.forEach(p=>{ const x=lrnItems(s,fresh).find(i=>i.key===p.key); if(x&&!x.done) lrnApply(fresh, s, x, 'accept', p.value, by, now); });
+  });
+  if(!saved&&btn&&btn.isConnected) btn.disabled=false;
+}
+async function lrnDone(sid, btn){
+  const l=CP.lead; if(!l) return;
+  const by=(ME&&ME.email)||'', now=new Date().toISOString();
+  if(btn) btn.disabled=true;
+  const saved=await lrnSave(l.id, fresh=>{
+    const s=(fresh.ai_suggestions||[]).find(z=>z&&z.id===sid); if(!s||s.reviewed) return false;
+    if(lrnItems(s,fresh).some(i=>!(s.review||{})[i.key])) return false;
+    s.reviewed=true; s.reviewed_by=by; s.reviewed_at=now;
+  });
+  if(!saved&&btn&&btn.isConnected) btn.disabled=false;
+}
+/* "What changed": a save that accepted something from a call says which call */
+function lrnSourceFor(l, at, by){
+  const t=Date.parse(at); let hit='';
+  (Array.isArray(l&&l.ai_suggestions)?l.ai_suggestions:[]).forEach(s=>Object.values(s.review||{}).forEach(r=>{
+    if(r&&r.decision==='accepted'&&r.by===by&&Math.abs(Date.parse(r.at)-t)<=120000) hit='from the call on '+lrnDay(s.at); }));
+  return hit;
+}
 function lpiChapter(k){ return LPI_CH.find(c=>c.key===k)||null; }
 function lpiOpenAt(){ return document.getElementById('leadModalBackdrop').classList.contains('open')||(typeof ckptOn!=='undefined'&&ckptOn); }
 
@@ -28081,7 +28264,7 @@ async function cpRenderChangeLog(){
     :'<li'+(r.back?' class="clg-back"':'')+'><b>'+esc(CLG_LABEL[r.field]||r.field.replace(/_/g,' '))+'</b>: '+esc(clgValue(clgWords(r.field,r.old_value)))+' → '+esc(clgValue(clgWords(r.field,r.new_value)))
       +(r.back?' <span class="lp-tag clg-backtag">changed back</span>':'')+'</li>';
   box.innerHTML='<div class="lp-card">'+head+(rows.some(r=>r.back)?'<p class="clg-warn">A value on this record went back to what it was within a day. If nobody meant to undo it, check it.</p>':'')
-    +groups.slice(0,60).map(g=>'<div class="clg-save"><div class="lp-prov">'+esc(when(g.at))+' · '+esc(who(g.rows[0]))+'</div><ul>'+g.rows.map(line).join('')+'</ul></div>').join('')
+    +groups.slice(0,60).map(g=>'<div class="clg-save"><div class="lp-prov">'+esc(when(g.at))+' · '+esc(who(g.rows[0]))+(g.via==='person'&&lrnSourceFor(l,g.at,g.by)?' · '+esc(lrnSourceFor(l,g.at,g.by)):'')+'</div><ul>'+g.rows.map(line).join('')+'</ul></div>').join('')
     +(groups.length>60?'<p class="lp-prov">Showing the latest 60 saves.</p>':'')+'</div>';
 }
 /* ── LEADS & STARTS (Client path step 4, her Sept 25 design, approved 2026-09-28) ─────────────
