@@ -29232,7 +29232,7 @@ async function tbAddShift(id){
   var p=tbPlan(); if(!p||p.id!==id) return;
   p.slots=p.slots||[];
   p.slots.push({k:'s'+Date.now().toString(36),label:'Shift '+(p.slots.length+1),start:'09:00',end:'17:00'});
-  await persist('staffing_plans',p); tbRender();
+  await tbSave(p); tbRender();
 }
 async function tbDelShift(id,k){
   var p=tbPlan(); if(!p||p.id!==id) return;
@@ -29240,13 +29240,13 @@ async function tbDelShift(id,k){
   if(!confirm('Remove this shift? Anyone penciled into it on this board will be cleared.')) return;
   p.slots=(p.slots||[]).filter(function(s){ return s.k!==k; });
   (p.days||[]).forEach(function(d){ if(p.cells) delete p.cells[tbCellKey(d,k)]; });
-  await persist('staffing_plans',p); tbRender();
+  await tbSave(p); tbRender();
 }
 async function tbSetShift(id,k,field,val){
   var p=tbPlan(); if(!p||p.id!==id) return;
   var s=(p.slots||[]).find(function(x){ return x.k===k; }); if(!s) return;
   s[field]=val;
-  await persist('staffing_plans',p); tbRender();
+  await tbSave(p); tbRender();
 }
 function tbCellKey(d,sk){ return d+'|'+sk; }
 /* Projected weekly hours for a caregiver: what this board gives them (any
@@ -29300,7 +29300,7 @@ function tbBoardHtml(plan){
           if(c&&c.status!=='no') filled++;
           var open=TB.cellOpen===key;
           var inner=c
-            ?'<div style="border-radius:7px;padding:3px 6px;background:'+(c.status==='yes'?'var(--green-bg)':c.status==='asked'?'#FFF4E3':c.status==='no'?'#FDE8E8':'#F1F5F9')+';color:'+STATUS[c.status][0]+';font-weight:700;'+(c.status==='no'?'text-decoration:line-through;':'')+'">'+esc(String(c.name).split(' ')[0]+' '+(String(c.name).split(' ')[1]||'').slice(0,1))+'<div style="font-size:9.5px;font-weight:600;">'+STATUS[c.status][1]+'</div></div>'
+            ?'<div style="border-radius:7px;padding:3px 6px;background:'+(c.status==='yes'?'var(--green-bg)':c.status==='asked'?'#FFF4E3':c.status==='no'?'#FDE8E8':'#F1F5F9')+';color:'+STATUS[c.status][0]+';font-weight:700;'+(c.status==='no'?'text-decoration:line-through;':'')+'">'+esc(String(c.name).split(' ')[0]+' '+(String(c.name).split(' ')[1]||'').slice(0,1))+'<div style="font-size:9.5px;font-weight:600;">'+(c.status==='asked'&&c.ask_channel==='sms'?'texted · '+tbAgo(c.at):STATUS[c.status][1])+'</div></div>'
             :'<span style="color:var(--text-dim);font-size:15px;">＋</span>';
           return '<td onclick="tbCell(\''+key+'\')" style="padding:.3rem;border-top:1px solid var(--border);border-left:1px solid var(--border);text-align:center;cursor:pointer;min-width:64px;'+(open?'outline:2px solid var(--teal);outline-offset:-2px;':'')+'">'+inner+'</td>';
         }).join('')+'</tr>';
@@ -29371,7 +29371,7 @@ async function tbAddNote(id){
   if(!text){ return; }
   p.notes=p.notes||[];
   p.notes.push({ by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'office', at:new Date().toISOString(), text:text.slice(0,4000) });
-  await persist('staffing_plans',p);
+  await tbSave(p);
   tbRender();
 }
 function tbCell(key){ TB.cellOpen=(TB.cellOpen===key)?null:key; tbRender(); }
@@ -29380,32 +29380,27 @@ function tbAssignHtml(plan,key){
   var slot=(plan.slots||[]).find(function(s){ return s.k===sk; }); if(!slot) return '';
   var cur=(plan.cells||{})[key];
   var head='<div style="font-weight:800;color:var(--navy);margin-bottom:6px;">'+TB_DAYL[d]+' · '+esc(slot.label)+' ('+tbT12(slot.start)+'–'+tbT12(slot.end)+')</div>';
+  var curAsk=cur&&cur.ask_id?(plan.asks||[]).find(function(a){ return a&&a.id===cur.ask_id; }):null;
   var curHtml=cur?'<div class="card" style="padding:9px 12px;margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
-    +'<b>'+esc(cur.name)+'</b><span class="field-note">currently '+esc(cur.status)+'</span><span style="flex:1;"></span>'
-    +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbSet(\''+esc(key)+'\',\'asked\')">📞 Asked</button>'
+    +'<b>'+esc(cur.name)+'</b><span class="field-note">currently '+esc(cur.status==='asked'&&cur.ask_channel==='sms'?'asked by text · '+tbAgo(cur.at)+(cur.by?' by '+cur.by:''):cur.status)+'</span><span style="flex:1;"></span>'
+    +(cur.status!=='yes'?'<button class="cara-btn" style="font-size:11.5px;" onclick="tbAskOpen(\''+esc(key)+'\')">💬 Send Text Asking</button>':'')
+    +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbSet(\''+esc(key)+'\',\'asked\')">📞 Asked by phone</button>'
     +'<button class="cara-btn" style="font-size:11.5px;" onclick="tbSet(\''+esc(key)+'\',\'yes\')">✓ Confirmed</button>'
     +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbSet(\''+esc(key)+'\',\'no\')">✗ Declined</button>'
     +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbSet(\''+esc(key)+'\',null)">Remove</button>'
+    +(curAsk?'<details style="flex-basis:100%;font-size:12.5px;"><summary style="cursor:pointer;color:var(--teal);font-weight:700;">The text we sent</summary>'
+      +'<div style="white-space:pre-wrap;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:6px;">'+esc(curAsk.text)+'</div>'
+      +'<div class="field-note" style="font-size:11.5px;margin-top:4px;">Sent '+esc(new Date(curAsk.sent_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))+' by '+esc(curAsk.by||'')+'. Their reply shows in GoHighLevel for now.</div></details>':'')
     +'</div>':'';
   if(!Array.isArray(TB.pool)) return head+curHtml+'<div class="field-note">'+(TB.pool&&TB.pool.error?('Could not load the roster: '+esc(TB.pool.error)):'Loading the roster…')+'</div>';
   var cats=tbCats(slot);
-  var wd2=[]; // the two dates in the 14-day window matching this weekday
-  for(var i=0;i<14;i++){ var dt=new Date(Date.now()+i*86400000); var w=dt.toLocaleDateString('en-US',{weekday:'short',timeZone:'America/Chicago'}).toLowerCase(); if(w===d) wd2.push(dt.toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10)); }
   var list=TB.pool.map(function(cg){
     var lvT=tbLevel(plan);
     var lvOK=!lvT||cg.level==null||cg.level>=lvT;
     if(!lvOK) return null;
-    var stated=null;
-    if(cg.windows){ var have=[]; Object.keys(cg.windows).forEach(function(dd){ (cg.windows[dd]||[]).forEach(function(w){ have.push(dd+':'+w); }); });
-      stated=cats.every(function(cN){ return have.indexOf(d+':'+cN)>=0; }); }
-    var conf=[];
-    cg.visits.forEach(function(v){ if(wd2.indexOf(v.day)<0) return;
-      var a=v.start,b=v.end; if(!a||!b) return;
-      var s1=slot.start,e1=slot.end; var overnight=e1<=s1;
-      var overlap = overnight ? (b>s1||a<e1) : (a<e1&&b>s1);
-      if(overlap) conf.push(tbT12(a)+'–'+tbT12(b)+' with '+v.client); });
+    var fit=tbCellFit(cg,d,slot);
     var h=tbProjHours(plan,cg.name); var tot=h.board+h.axis+tbSlotHours(slot);
-    return { cg:cg, stated:stated, conflicts:conf, sameTown:!!(plan.city&&cg.city&&plan.city.toLowerCase()===cg.city.toLowerCase()), proj:tot };
+    return { cg:cg, stated:fit.stated, conflicts:fit.conflicts, sameTown:!!(plan.city&&cg.city&&plan.city.toLowerCase()===cg.city.toLowerCase()), proj:tot };
   }).filter(Boolean);
   list.sort(function(a,b){
     return ((a.conflicts.length?1:0)-(b.conflicts.length?1:0))
@@ -29431,7 +29426,173 @@ function tbAssignHtml(plan,key){
         +'</div>';
     }).join('')+'</div>';
 }
-async function tbSave(plan){ await persist('staffing_plans',plan); }
+/* Texts sent from the board are written onto the plan by the server (plan.asks).
+   A board opened before that send must not wipe them when it saves, so every
+   save first carries over any asks the saved plan has and this copy lacks. */
+async function tbSave(plan){
+  try{
+    var r=await sb.from('app_data').select('data').eq('key','staffing_plans').maybeSingle();
+    var cur=r&&r.data&&Array.isArray(r.data.data)?r.data.data.find(function(p){ return p&&p.id===plan.id; }):null;
+    if(cur&&Array.isArray(cur.asks)){
+      plan.asks=Array.isArray(plan.asks)?plan.asks:[];
+      cur.asks.forEach(function(a){ if(a&&!plan.asks.some(function(x){ return x&&x.id===a.id; })) plan.asks.push(a); });
+    }
+  }catch(e){ /* the save still happens; the op_events record keeps every text either way */ }
+  await persist('staffing_plans',plan);
+}
+/* How one caregiver fits one day+shift: their stated availability (true / false /
+   null when not on file) and AxisCare visits that overlap it in the next 14 days. */
+function tbCellFit(cg,d,slot){
+  var cats=tbCats(slot), stated=null;
+  if(cg.windows){ var have=[]; Object.keys(cg.windows).forEach(function(dd){ (cg.windows[dd]||[]).forEach(function(w){ have.push(dd+':'+w); }); });
+    stated=cats.every(function(cN){ return have.indexOf(d+':'+cN)>=0; }); }
+  var wd2=[]; // the two dates in the 14-day window matching this weekday
+  for(var i=0;i<14;i++){ var dt=new Date(Date.now()+i*86400000); var w=dt.toLocaleDateString('en-US',{weekday:'short',timeZone:'America/Chicago'}).toLowerCase(); if(w===d) wd2.push(dt.toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10)); }
+  var conf=[];
+  (cg.visits||[]).forEach(function(v){ if(wd2.indexOf(v.day)<0) return;
+    var a=v.start,b=v.end; if(!a||!b) return;
+    var s1=slot.start,e1=slot.end; var overnight=e1<=s1;
+    var overlap = overnight ? (b>s1||a<e1) : (a<e1&&b>s1);
+    if(overlap) conf.push(tbT12(a)+'–'+tbT12(b)+' with '+v.client); });
+  return { stated:stated, conflicts:conf, cats:cats };
+}
+function tbAgo(iso){
+  var t=new Date(iso).getTime(); if(!t) return '';
+  var m=Math.round((Date.now()-t)/60000);
+  if(m<1) return 'just now'; if(m<60) return m+'m ago';
+  var h=Math.round(m/60); if(h<24) return h+'h ago';
+  var dd=Math.round(h/24); return dd===1?'yesterday':dd+' days ago';
+}
+function tbMine(c,axId,name){ return !!(c&&c.name&&(axId&&c.cg_ax_id?String(c.cg_ax_id)===String(axId):tbNk(c.name)===tbNk(name))); }
+function tbTimeLong(t){ var m=String(t||'').match(/^(\d\d):(\d\d)$/); if(!m) return t||''; var h=+m[1]%12||12; return h+(m[2]==='00'?'':':'+m[2])+(+m[1]>=12?'pm':'am'); }
+function tbDayList(ds){ var L=ds.map(function(d){ return TB_DAYL[d]; }); return L.length<=1?L.join(''):L.slice(0,-1).join(', ')+' & '+L[L.length-1]; }
+async function taCall(body){
+  var sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+  if(!tok) throw new Error('Sign in first.');
+  var r=await fetch(CONFIG.supabase_url+'/functions/v1/team-ask',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:CONFIG.supabase_anon_key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  var d=await r.json().catch(function(){ return null; }); if(!d) throw new Error('The texting service answered '+r.status); return d;
+}
+/* SEND TEXT ASKING (part 1, 2026-09-27). The board drafts the ask from the plan:
+   the shifts this caregiver is penciled into, the town (never the address), the
+   client's first name, the start date and the care line. A quick check flags a
+   bad ask first (their stated hours, other visits, overtime, level, distance,
+   already asked). The person edits the text and presses Send; the server
+   re-checks the board, the number and every opt-out before anything goes. */
+async function tbAskOpen(key){
+  var plan=tbPlan(); if(!plan) return; var cell=(plan.cells||{})[key]; if(!cell) return;
+  var esc=escapeHtmlComms, name=String(cell.name), axId=String(cell.cg_ax_id||'');
+  var mine=[];
+  (plan.slots||[]).forEach(function(s){ TB_DAYS.filter(function(d){ return (plan.days||[]).indexOf(d)>=0; }).forEach(function(d){
+    var k=tbCellKey(d,s.k), c=(plan.cells||{})[k];
+    if(tbMine(c,axId,name)&&c.status!=='yes') mine.push({k:k,d:d,s:s,c:c});
+  }); });
+  var cg=Array.isArray(TB.pool)?(TB.pool.find(function(x){ return axId&&String(x.axiscare_id)===axId; })||TB.pool.find(function(x){ return tbNk(x.name)===tbNk(name); })):null;
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:680px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:17px;">Text '+esc(name)+' about '+esc(plan.client)+'\'s care team</div><div id="taBody" style="margin-top:10px;"><div class="field-note">Getting the details…</div></div></div>';
+  document.body.appendChild(ov);
+  var body=ov.querySelector('#taBody'), close=function(){ ov.remove(); tbRender(); };
+  var dr; try{ dr=await taCall({action:'draft',plan_id:plan.id,caregiver_axiscare_id:axId,caregiver_name:name}); }catch(e){ dr={error:String(e.message||e)}; }
+  if(dr.error){ body.innerHTML='<div>'+esc(dr.error)+'</div><div style="margin-top:12px;"><button class="secondary" id="taX">Close</button></div>'; ov.querySelector('#taX').onclick=close; return; }
+  var asked=dr.asked_before||[], edited=false;
+  var askedOn=function(k){ var a=asked.filter(function(x){ return (x.cells||[]).indexOf(k)>=0; }).sort(function(p,q){ return String(q.sent_at).localeCompare(String(p.sent_at)); })[0]; return a||null; };
+  var blockers=[];
+  if(!dr.live) blockers.push('Sending from the Team Builder is switched off right now.');
+  if(!dr.caregiver.on_roster) blockers.push(name+' is not on the caregiver roster, so there is no number to text.');
+  else if(!dr.caregiver.phone_last4) blockers.push(name+' has no phone number on the roster.');
+  if((dr.caregiver.opt_out||[]).length) blockers.push(name+' has asked not to get texts ('+dr.caregiver.opt_out.join('; ')+').');
+  var hr=+new Date().toLocaleString('en-US',{timeZone:'America/Chicago',hour:'2-digit',hour12:false});
+  var late=hr<8||hr>=20;
+  body.innerHTML=
+    '<div style="font-weight:700;color:var(--navy);font-size:13px;">You\'re asking about</div>'
+    +'<div id="taCells" style="margin-top:4px;">'+mine.map(function(m){
+      var a=askedOn(m.k), on=(m.k===key)||(!a&&m.c.status==='penciled');
+      return '<label style="display:flex;gap:8px;align-items:baseline;justify-content:flex-start;text-align:left;font-size:13px;font-weight:400;padding:3px 0;margin:0;cursor:pointer;"><input type="checkbox" data-k="'+esc(m.k)+'"'+(on?' checked':'')+' style="width:auto;flex:none;margin:0;">'
+        +'<span style="flex:1;"><b>'+TB_DAYL[m.d]+'</b> · '+esc(m.s.label)+' ('+tbT12(m.s.start)+'–'+tbT12(m.s.end)+')'
+        +(a?' <span class="field-note" style="color:#8A4E0C;">texted '+esc(tbAgo(a.sent_at))+(a.by?' by '+esc(a.by):'')+'</span>':m.c.status==='no'?' <span class="field-note" style="color:var(--red);">declined before</span>':'')+'</span></label>';
+    }).join('')+'</div>'
+    +'<div id="taChecks" style="margin-top:10px;"></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1.6fr;gap:8px;margin-top:10px;">'
+    +'<label style="font-size:12px;font-weight:700;color:var(--navy);">Starting around<input type="date" id="taStart" value="'+esc(dr.client.start_target||'')+'" style="display:block;width:100%;margin-top:3px;font-family:inherit;"><span class="field-note" style="font-weight:400;font-size:11px;">'+(dr.client.start_target?'the Start Contract target':(dr.client.linked?'no Start Contract target yet; optional':'this plan isn\'t linked to a Journey; optional'))+'</span></label>'
+    +'<label style="font-size:12px;font-weight:700;color:var(--navy);">About the care (optional)<input id="taCare" value="'+esc(dr.client.care_line||'')+'" placeholder="e.g. Help with meals, bathing and short walks." style="display:block;width:100%;margin-top:3px;font-family:inherit;box-sizing:border-box;"><span class="field-note" style="font-weight:400;font-size:11px;">'+(dr.client.care_line?'the saved care line for this client':'no names, conditions or address details')+'</span></label>'
+    +'</div>'
+    +'<div style="margin-top:10px;display:flex;align-items:baseline;gap:8px;"><b style="font-size:13px;color:var(--navy);">The text</b><span class="field-note" style="font-size:11.5px;">to '+esc(dr.caregiver.first||name)+(dr.caregiver.phone_last4?' at ···'+esc(dr.caregiver.phone_last4):'')+'. Edit anything.</span><span style="flex:1;"></span><button class="linklike" id="taRedo" style="font-size:12px;">Rewrite from the shifts</button></div>'
+    +'<textarea id="taMsg" rows="6" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;margin-top:4px;"></textarea>'
+    +'<div class="field-note" id="taCount" style="font-size:11px;text-align:right;"></div>'
+    +(late?'<div style="background:#FFF4E3;border:1px solid #F3D19C;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:#8A4E0C;">It\'s '+esc(new Date().toLocaleTimeString('en-US',{timeZone:'America/Chicago',hour:'numeric',minute:'2-digit'}))+'. A text now reaches them late. You can still send it.</div>':'')
+    +(blockers.length?'<div style="background:#FDE8E8;border:1px solid #F5B5B5;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:var(--red);">'+blockers.map(esc).join('<br>')+' Nothing can be sent.</div>':'')
+    +'<div id="taRes" style="margin-top:8px;"></div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;"><button class="secondary" id="taX">Cancel</button><button class="cara-btn" id="taSend"'+(blockers.length?' disabled':'')+'>Send text</button></div>';
+  var $=function(s){ return ov.querySelector(s); };
+  var picked=function(){ return [].slice.call(ov.querySelectorAll('#taCells input:checked')).map(function(i){ return i.getAttribute('data-k'); }); };
+  var build=function(){
+    var ks=picked(), bySlot={}, hrs=0;
+    mine.forEach(function(m){ if(ks.indexOf(m.k)<0) return; (bySlot[m.s.k]=bySlot[m.s.k]||{s:m.s,ds:[]}).ds.push(m.d); hrs+=tbSlotHours(m.s); });
+    var when=Object.keys(bySlot).map(function(k){ var g=bySlot[k]; return tbDayList(g.ds)+' '+tbTimeLong(g.s.start)+'–'+tbTimeLong(g.s.end); }).join('; ');
+    if(when) when+=' ('+(Math.round(hrs*10)/10)+' hrs a week)';
+    var sd=$('#taStart').value, start=sd?', starting around '+new Date(sd+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'';
+    var care=$('#taCare').value.trim(); if(care&&!/[.!?]$/.test(care)) care+='.';
+    var cf=String(dr.client.first||'').trim();
+    return String(dr.template)
+      .replace('{client}, a new client', cf?'{client}, a new client':'a new client')
+      .replaceAll('{first_name}', dr.caregiver.first||'there').replaceAll('{client}', cf)
+      .replaceAll('{where}', dr.client.town?' in '+dr.client.town:'').replaceAll('{when}', when||'(pick a shift)')
+      .replaceAll('{start}', start).replaceAll('{care}', care?care+' ':'')
+      .replace(/\s{2,}/g,' ').trim();
+  };
+  var checks=function(){
+    var ks=picked(), rows=[];
+    var row=function(sym,col,txt){ rows.push('<div style="font-size:12.5px;padding:2px 0;"><b style="color:'+col+';display:inline-block;width:18px;">'+sym+'</b>'+txt+'</div>'); };
+    if(!cg) row('?','#8A4E0C','Their roster details didn\'t load, so availability, visits and hours can\'t be checked.');
+    else {
+      var fits=mine.filter(function(m){ return ks.indexOf(m.k)>=0; }).map(function(m){ return {m:m,f:tbCellFit(cg,m.d,m.s)}; });
+      var no=fits.filter(function(x){ return x.f.stated===false; }), unk=fits.filter(function(x){ return x.f.stated===null; });
+      if(no.length) row('✗','var(--red)','Their availability form says '+no.map(function(x){ return TB_DAYL[x.m.d]+' '+x.f.cats.join('/'); }).join(', ')+' doesn\'t work.');
+      else if(unk.length) row('?','#8A4E0C','Availability not on file for '+unk.map(function(x){ return TB_DAYL[x.m.d]; }).join(', ')+'.');
+      else if(fits.length) row('✓','var(--green)','Their availability form says these hours work.');
+      var cf=[]; fits.forEach(function(x){ x.f.conflicts.forEach(function(c){ cf.push(TB_DAYL[x.m.d]+' '+c); }); });
+      if(cf.length) row('✗','var(--red)','Already scheduled: '+esc(cf.slice(0,3).join('; '))+(cf.length>3?' and more':'')+'.');
+      else if(fits.length) row('✓','var(--green)','No other visits at these times in the next two weeks.');
+      var h=tbProjHours(plan,name), tot=Math.round((h.board+h.axis)*10)/10;
+      if(tot>40) row('⚠','var(--red)','Would be about '+tot+' hrs a week with this board ('+h.board+' here + '+h.axis+' existing): overtime.');
+      else row('✓','var(--green)','About '+tot+' hrs a week with this board, no overtime.');
+      var lv=tbLevel(plan);
+      if(lv&&cg.level!=null&&cg.level<lv) row('✗','var(--red)','Level '+cg.level+' caregiver for a Level '+lv+' client.');
+      else if(lv&&cg.level==null) row('?','#8A4E0C','Their care level isn\'t on file (client is Level '+lv+').');
+      if(plan.city&&cg.city) row(plan.city.toLowerCase()===cg.city.toLowerCase()?'✓':'·', plan.city.toLowerCase()===cg.city.toLowerCase()?'var(--green)':'var(--text-muted)', plan.city.toLowerCase()===cg.city.toLowerCase()?'Lives in '+esc(plan.city)+'.':'Lives in '+esc(cg.city)+'; the client is in '+esc(plan.city)+'.');
+    }
+    var again=ks.map(askedOn).filter(Boolean);
+    if(again.length) row('⚠','#8A4E0C','You already texted them about '+ks.filter(function(k){ return askedOn(k); }).map(function(k){ return TB_DAYL[k.split('|')[0]]; }).join(', ')+' ('+esc(tbAgo(again[0].sent_at))+').');
+    $('#taChecks').innerHTML='<div style="background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:7px 10px;"><div style="font-weight:700;font-size:12px;color:var(--navy);margin-bottom:2px;">Before you send</div>'+rows.join('')+'</div>';
+  };
+  var count=function(){ var n=$('#taMsg').value.length; $('#taCount').textContent=n+' characters'+(n>640?' (too long: keep it under 640)':n>320?' (sends as '+Math.ceil(n/153)+' texts)':''); };
+  var refresh=function(){ checks(); if(!edited){ $('#taMsg').value=build(); } count(); };
+  ov.querySelectorAll('#taCells input').forEach(function(i){ i.onchange=refresh; });
+  $('#taStart').onchange=refresh; $('#taCare').oninput=refresh;
+  $('#taMsg').oninput=function(){ edited=true; count(); };
+  $('#taRedo').onclick=function(){ edited=false; refresh(); };
+  $('#taX').onclick=close;
+  refresh();
+  var askId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('ta-'+Date.now().toString(36)+Math.random().toString(36).slice(2,10));
+  $('#taSend').onclick=async function(){
+    var ks=picked(), msg=$('#taMsg').value.trim(), res=$('#taRes');
+    if(!ks.length){ res.innerHTML='<div class="field-note" style="color:var(--red);">Pick at least one shift.</div>'; return; }
+    if(!msg||msg.length>640){ res.innerHTML='<div class="field-note" style="color:var(--red);">The text is '+(msg?'too long':'empty')+'.</div>'; return; }
+    this.disabled=true; this.textContent='Sending…';
+    var d; try{ d=await taCall({action:'send',plan_id:plan.id,caregiver_axiscare_id:axId,caregiver_name:name,cells:ks,message:msg,ask_id:askId}); }catch(e){ d={error:String(e.message||e)}; }
+    if(d&&(d.outcome==='sent'||d.outcome==='already_sent')){
+      if(d.plan){ var i=(DATA.staffing_plans||[]).findIndex(function(p){ return p&&p.id===plan.id; }); if(i>=0) DATA.staffing_plans[i]=d.plan; }
+      body.innerHTML='<div style="font-size:14px;color:var(--green);font-weight:700;">✓ Sent to '+esc(name)+'</div>'
+        +'<div class="field-note" style="margin-top:4px;">The shifts now show "texted". Their reply lands in GoHighLevel for now; mark Confirmed or Declined here when they answer.</div>'
+        +(d.warning?'<div style="color:#8A4E0C;font-size:12.5px;margin-top:6px;">'+esc(d.warning)+'</div>':'')
+        +'<div style="margin-top:12px;text-align:right;"><button class="cara-btn" id="taX">Done</button></div>';
+      ov.querySelector('#taX').onclick=close; swRenderBar(); return;
+    }
+    this.disabled=false; this.textContent='Send text';
+    res.innerHTML='<div style="background:#FDE8E8;border:1px solid #F5B5B5;border-radius:8px;padding:7px 10px;font-size:12.5px;color:var(--red);">'+esc((d&&d.error)||'Not sent.')+'</div>';
+  };
+}
 async function tbAssign(key,name,axId){
   var plan=tbPlan(); if(!plan) return;
   plan.cells=plan.cells||{};
