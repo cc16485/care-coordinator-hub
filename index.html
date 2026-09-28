@@ -5092,7 +5092,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 </div>
   </div>
   <div class="cp-pane" data-cp-pane="history"><div class="profile-grid">
-    <div><div id="cp_change_log"></div><div id="cp_c_history"></div></div>
+    <div><div id="cp_change_log"></div><div id="cp_ax_log"></div><div id="cp_c_history"></div></div>
     <div>
 <div class="cp-lead">
       <div class="card" style="padding:18px;">
@@ -9176,7 +9176,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender(); cpRenderChangeLog();
+  cpRenderCommand(); lpiRender(); cpRenderChangeLog(); axLogLoad();
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -9264,11 +9264,16 @@ function cpRenderCare(){
     +'</div>'
     +'<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🔁 Care plan reviews</b><span style="flex:1;"></span>'
+    +(function(){ const lv=ax?axLogRows(ax).find(x=>x.kind==='care_level'):null; if(!lv) return '';
+        const o=AXL_OUT[lv.outcome]||['sent',lv.outcome];
+        return '<span class="field-note" style="font-size:12px;">'+(lv.outcome==='refused'?'Care level NOT changed in AxisCare':'Care level changed in AxisCare')+': '+esc(lv.summary)+' · '+esc(typeof lpscName==='function'?lpscName(lv.by_who):lv.by_who)+', '+esc(lsDate(String(lv.at).slice(0,10)))
+          +' <span class="axl-chip '+o[0]+'">'+esc(o[1])+'</span></span>'; })()
     +(ax?'<button class="secondary" onclick="cpLogReview()">📝 Log a review</button>':'')+'</div>'
     +(!ax?'<div class="field-note">Reviews start once they are an AxisCare client.</div>'
       :rv.length?rv.slice(0,6).map(v=>'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);font-size:13px;">'
           +'<b>'+esc(String(v.at||'').slice(0,10))+'</b>'+(v.care_level?'<span>Level '+esc(v.care_level)+'</span>':'')
-          +(v.findings?'<span class="field-note">'+esc(String(v.findings).slice(0,140))+'</span>':'')+(v.next_due?'<span class="field-note">next due '+esc(v.next_due)+'</span>':'')+'</div>').join('')
+          +(v.findings?'<span class="field-note">'+esc(String(v.findings).slice(0,140))+'</span>':'')+(v.next_due?'<span class="field-note">next due '+esc(v.next_due)+'</span>':'')
+          +(v.ax_note?(v.ax_note.sent?'<span class="axl-chip ok">review note on AxisCare</span>':'<span class="axl-chip bad" title="'+esc(v.ax_note.error||'')+'">review note NOT sent to AxisCare</span>'):'')+'</div>').join('')
       :'<div class="field-note">No reviews logged yet.</div>')
     +'</div>';
 }
@@ -28093,6 +28098,39 @@ function clgValue(v){
   const s=Array.isArray(v)?v.map(x=>typeof x==='object'?'…':String(x)).join(', '):String(v);
   return s.length>120?s.slice(0,120)+'…':s;
 }
+/* ── C2a · AxisCare changes on the profile (2026-09-28) ─────────────────────────────────────────────────────
+   Read-only: the append-only record our own server keeps of every change the Hub made in AxisCare for this client
+   (who, when, what kind, how it went, a short summary; never note text). The Care tab reads the latest care-level
+   line from here too. */
+const AXL={ rows:{}, at:{} };
+const AXL_OUT={ sent_confirmed:['ok','Confirmed by AxisCare'], sent:['sent','Sent, not read back'], refused:['bad','Refused'], practice:['dry','Practice run'] };
+const AXL_VIA={ 'client-convert':'Convert', 'family-circles':'Family Circle', 'careplan-tasks':'Care plan', 'schedule-push':'Team Builder',
+  'care-level':'Care level', 'coverage-assign':'Coverage', 'call-disposition':'Call summary', 'axiscare-note':'Note' };
+async function axLogLoad(force){
+  const ax=String(CP.ax||''); if(!/^\d+$/.test(ax)){ axLogRender(); return; }
+  if(!force&&AXL.at[ax]&&Date.now()-AXL.at[ax]<60000){ axLogRender(); return; }
+  try{
+    const r=await sb.from('axiscare_change_log').select('id,at,kind,outcome,summary,detail,by_who,via,axiscare_caregiver_id').eq('axiscare_client_id',ax).order('at',{ascending:false}).limit(60);
+    AXL.rows[ax]=r.error?{ error:r.error.message||'could not load' }:(r.data||[]); AXL.at[ax]=Date.now();
+  }catch(e){ AXL.rows[ax]={ error:String(e&&e.message||e) }; }
+  if(String(CP.ax||'')===ax){ axLogRender(); try{ cpRenderCare(); }catch(e){} }
+}
+function axLogRows(ax){ const r=AXL.rows[String(ax||'')]; return Array.isArray(r)?r:[]; }
+function axLogRender(){
+  const box=document.getElementById('cp_ax_log'); if(!box) return;
+  const esc=escapeHtmlComms, ax=String(CP.ax||'');
+  if(!/^\d+$/.test(ax)){ box.innerHTML=''; return; }
+  const got=AXL.rows[ax];
+  const body=!got?'<div class="field-note">Loading…</div>':got.error?'<div class="field-note">The AxisCare record is not available right now ('+esc(got.error)+').</div>'
+    :!got.length?'<div class="field-note">Nothing the Hub has changed in AxisCare for this client is on record yet. Changes are recorded from Sep 28, 2026.</div>'
+    :got.map(x=>{ const o=AXL_OUT[x.outcome]||['sent',x.outcome];
+      return '<div class="axl-row"><b style="color:var(--navy);min-width:62px;">'+esc(lsDate(String(x.at).slice(0,10)))+'</b>'
+        +'<span>'+esc(x.summary)+'</span><span class="axl-chip '+o[0]+'">'+esc(o[1])+'</span>'
+        +'<span class="field-note">'+esc(AXL_VIA[x.via]||x.via)+' · '+esc(typeof lpscName==='function'&&/@/.test(x.by_who)?lpscName(x.by_who):x.by_who)+'</span>'
+        +(x.detail?'<span class="field-note" style="flex-basis:100%;">'+esc(x.detail)+'</span>':'')+'</div>'; }).join('');
+  box.innerHTML='<div class="card" style="padding:14px 18px;"><div style="display:flex;align-items:center;gap:8px;"><b style="font-size:15px;color:var(--navy);">AxisCare changes</b>'
+    +'<span class="field-note">what the Hub changed in AxisCare #'+esc(ax)+', newest first</span><span style="flex:1;"></span><button class="linklike" onclick="axLogLoad(true)">↻</button></div>'+body+'</div>';
+}
 async function cpRenderChangeLog(){
   const box=document.getElementById('cp_change_log'); if(!box) return;
   const esc=escapeHtmlComms, l=CP.lead;
@@ -36028,6 +36066,11 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 .lpi-slot{ display:flex; flex-direction:column; gap:4px; }
 #lpIntake #leadPriceRow{ display:none !important; }
 #cp_change_log{ margin-bottom:14px; }
+#cp_ax_log{ margin-bottom:14px; }
+.axl-row{ display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; padding:6px 0; border-top:1px solid var(--border); font-size:13px; }
+.axl-chip{ font-size:11px; font-weight:700; border-radius:999px; padding:2px 8px; white-space:nowrap; }
+.axl-chip.ok{ background:var(--green-bg); color:var(--green); } .axl-chip.sent{ background:var(--neutral); color:var(--navy-2); }
+.axl-chip.bad{ background:var(--red-bg); color:var(--red); } .axl-chip.dry{ background:var(--amber-bg); color:var(--honey-ink); }
 #cp_change_log .lp-card{ display:flex; flex-direction:column; gap:8px; }
 .clg-save{ border-top:1px solid var(--lp-line); padding-top:8px; }
 .clg-save ul{ margin:4px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:3px; font-size:14px; }
