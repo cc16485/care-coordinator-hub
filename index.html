@@ -9375,7 +9375,7 @@ async function cpSendChange(){
    edited in one place. Saves to the same inquiry fields the intake form writes; the steps check off
    exactly as they do on the Start tab (socToggleStep). A mismatch between the two is shown, and a
    person fixes it: nothing is changed on its own. */
-const CP_PAYERS=[['','Not recorded'],['private','Private pay'],['ltc','LTC insurance'],['va','VA'],['cds','CDS'],['medicaid','Medicaid (IHS)'],['pace','PACE']];
+const CP_PAYERS=[['','Not recorded'],['private','Private pay'],['ltc','LTC insurance'],['va','VA'],['cds','CDS'],['medicaid','Medicaid (IHS)']];
 const CP_STATE=[['','Not a state submission'],['not_submitted','Not yet submitted'],['submitted','Submitted, waiting on the assessment'],['assessed','Assessed, waiting on authorization'],['authorized','Authorized'],['denied','Denied or withdrawn']];
 function cpStateSteps(l){ return (l&&l.soc&&Array.isArray(l.soc.steps)?l.soc.steps:[]).map((st,i)=>({ st, i })).filter(x=>/FUSION|DSDS|authori[sz]ation/i.test(String(x.st.label||''))&&!(typeof socIsLaunchStep==='function'&&socIsLaunchStep(l.soc.pathway,x.st.id))); }
 function cpRenderPayer(){
@@ -27069,7 +27069,7 @@ async function cpRenderOpenNow(){
    names where it came from and opens the tab that owns it. What the Hub can't prove reads "none
    recorded", never a guess. AI output (ai_care_flags, the AI summary) is not surfaced here. */
 const CPX_URG={ today:'Today', '48hours':'Within 48 hours', '7days':'Within 7 days', researching:'Just researching' };
-const CPX_PAY={ private:'Private pay', ltc:'LTC insurance', va:'VA', cds:'CDS', medicaid:'Medicaid (IHS)', pace:'PACE' };
+const CPX_PAY={ private:'Private pay', ltc:'LTC insurance', va:'VA', cds:'CDS', medicaid:'Medicaid (IHS)' };
 const CPX_STATE={ not_submitted:'not submitted to the state yet', submitted:'submitted, waiting on the state assessment', assessed:'assessed, waiting on authorization', authorized:'authorized', denied:'denied or withdrawn' };
 function cpxAge(dob){
   const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(dob||'')); if(!m) return null;
@@ -28113,7 +28113,7 @@ async function lsLoadFacts(force){
 }
 function lsDate(ymd){ try{ return new Date(String(ymd).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return String(ymd||''); } }
 function lsDays(ymd){ return Math.round((new Date(String(ymd).slice(0,10)+'T12:00:00')-new Date(today()+'T12:00:00'))/864e5); }
-const LS_PAYER={ private:'private pay', ltc:'LTC insurance', va:'VA', cds:'CDS', pace:'PACE' };
+const LS_PAYER={ private:'private pay', ltc:'LTC insurance', va:'VA', cds:'CDS' };
 function lsRow(o){
   const l=o.lead||null, c=o.launch||null, st=o.st, sc=o.sc||null, t=today(), risk=[], owe=[];
   const pip=(tone,txt)=>({ tone, txt });
