@@ -29374,7 +29374,7 @@ async function tbAddNote(id){
   await tbSave(p);
   tbRender();
 }
-function tbCell(key){ TB.cellOpen=(TB.cellOpen===key)?null:key; tbRender(); }
+function tbCell(key){ TB.cellOpen=(TB.cellOpen===key)?null:key; TB.poolQ=''; tbRender(); }
 function tbAssignHtml(plan,key){
   var parts=key.split('|'), d=parts[0], sk=parts[1];
   var slot=(plan.slots||[]).find(function(s){ return s.k===sk; }); if(!slot) return '';
@@ -29393,39 +29393,54 @@ function tbAssignHtml(plan,key){
       +'<div class="field-note" style="font-size:11.5px;margin-top:4px;">Sent '+esc(new Date(curAsk.sent_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))+' by '+esc(curAsk.by||'')+'. Their reply shows in GoHighLevel for now.</div></details>':'')
     +'</div>':'';
   if(!Array.isArray(TB.pool)) return head+curHtml+'<div class="field-note">'+(TB.pool&&TB.pool.error?('Could not load the roster: '+esc(TB.pool.error)):'Loading the roster…')+'</div>';
-  var cats=tbCats(slot);
-  var list=TB.pool.map(function(cg){
-    var lvT=tbLevel(plan);
-    var lvOK=!lvT||cg.level==null||cg.level>=lvT;
-    if(!lvOK) return null;
+  return head+curHtml
+    +'<div style="display:flex;gap:8px;align-items:center;margin:0 0 6px;">'
+    +'<input id="tbPoolQ" placeholder="Find any active caregiver by name" value="'+esc(TB.poolQ||'')+'" oninput="tbPoolFilter(this.value)" style="flex:1;max-width:320px;font-size:12.5px;">'
+    +'<span class="field-note" style="font-size:11.5px;">All '+TB.pool.length+' active caregivers, best fit first. Anyone can be penciled in; problems are flagged, never hidden.</span></div>'
+    +'<div class="card" id="tbPoolList" style="padding:8px 12px;max-height:340px;overflow-y:auto;">'+tbPoolListHtml(plan,key)+'</div>';
+}
+/* The pencil-in list: EVERY active caregiver in the pool (her rule, 2026-09-27:
+   "I need to be able to choose any active caregiver"). Fit only orders the list
+   and flags problems (a lower care level, their hours, other visits, OT); it
+   never hides anyone. The search box narrows by name without redrawing the board. */
+function tbPoolFilter(v){ TB.poolQ=v; var el=document.getElementById('tbPoolList'), p=tbPlan(); if(el&&p&&TB.cellOpen) el.innerHTML=tbPoolListHtml(p,TB.cellOpen); }
+function tbPoolListHtml(plan,key){
+  var esc=escapeHtmlComms, parts=key.split('|'), d=parts[0], sk=parts[1];
+  var slot=(plan.slots||[]).find(function(s){ return s.k===sk; }); if(!slot||!Array.isArray(TB.pool)) return '';
+  var cats=tbCats(slot), lvT=tbLevel(plan), q=tbNk(TB.poolQ||'');
+  var list=TB.pool.map(function(cg,i){
+    if(q&&tbNk(cg.name).indexOf(q)<0) return null;
     var fit=tbCellFit(cg,d,slot);
     var h=tbProjHours(plan,cg.name); var tot=h.board+h.axis+tbSlotHours(slot);
-    return { cg:cg, stated:fit.stated, conflicts:fit.conflicts, sameTown:!!(plan.city&&cg.city&&plan.city.toLowerCase()===cg.city.toLowerCase()), proj:tot };
+    return { cg:cg, i:i, lowLevel:!!(lvT&&cg.level!=null&&cg.level<lvT), stated:fit.stated, conflicts:fit.conflicts, sameTown:!!(plan.city&&cg.city&&plan.city.toLowerCase()===cg.city.toLowerCase()), proj:tot };
   }).filter(Boolean);
   list.sort(function(a,b){
-    return ((a.conflicts.length?1:0)-(b.conflicts.length?1:0))
+    return (Number(a.lowLevel)-Number(b.lowLevel))
+      || ((a.conflicts.length?1:0)-(b.conflicts.length?1:0))
       || ((b.stated===true?1:0)-(a.stated===true?1:0))
       || ((a.stated===false?1:0)-(b.stated===false?1:0))
       || (Number(b.sameTown)-Number(a.sameTown))
       || (a.proj-b.proj);
   });
-  return head+curHtml
-    +'<div class="card" style="padding:8px 12px;max-height:340px;overflow-y:auto;">'
-    +list.map(function(x){
-      var flags=[];
-      if(x.stated===true) flags.push('<b style="color:var(--green);">✓ says they\'re free '+TB_DAYL[d]+' '+cats.join('/')+'</b>');
-      else if(x.stated===false) flags.push('<b style="color:var(--red);">their form says these hours don\'t work</b>');
-      else flags.push('<span style="color:#8A4E0C;font-weight:700;">availability not on file</span>');
-      if(x.conflicts.length) flags.push('<b style="color:var(--red);">📅 '+esc(x.conflicts[0])+'</b>');
-      if(x.sameTown) flags.push('<b style="color:var(--green);">📍 same town</b>'); else if(x.cg.city) flags.push('📍 '+esc(x.cg.city));
-      flags.push((x.proj>40?'<b style="color:var(--red);">would be '+Math.round(x.proj)+'h/wk ⚠ OT</b>':'~'+Math.round(x.proj)+'h/wk with this'));
-      return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
-        +'<b style="min-width:130px;">'+esc(x.cg.name)+'</b>'
-        +'<span class="field-note" style="flex:1;">'+flags.join(' · ')+'</span>'
-        +'<button class="cara-btn" style="font-size:11.5px;" onclick="tbAssign(\''+esc(key)+'\','+"'"+esc(String(x.cg.name)).replace(/'/g,"\\'")+"'"+',\''+esc(String(x.cg.axiscare_id||''))+'\')">Pencil in</button>'
-        +'</div>';
-    }).join('')+'</div>';
+  if(!list.length) return '<div class="field-note">No active caregiver matches "'+esc(TB.poolQ||'')+'". New hires appear once they are active in AxisCare.</div>';
+  return list.map(function(x){
+    var flags=[];
+    if(x.lowLevel) flags.push('<b style="color:var(--red);">Level '+x.cg.level+' caregiver, client is Level '+lvT+'</b>');
+    if(x.stated===true) flags.push('<b style="color:var(--green);">✓ says they\'re free '+TB_DAYL[d]+' '+cats.join('/')+'</b>');
+    else if(x.stated===false) flags.push('<b style="color:var(--red);">their form says these hours don\'t work</b>');
+    else flags.push('<span style="color:#8A4E0C;font-weight:700;">availability not on file</span>');
+    if(x.conflicts.length) flags.push('<b style="color:var(--red);">📅 '+esc(x.conflicts[0])+'</b>');
+    if(x.sameTown) flags.push('<b style="color:var(--green);">📍 same town</b>'); else if(x.cg.city) flags.push('📍 '+esc(x.cg.city));
+    flags.push((x.proj>40?'<b style="color:var(--red);">would be '+Math.round(x.proj)+'h/wk ⚠ OT</b>':'~'+Math.round(x.proj)+'h/wk with this'));
+    return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
+      +'<b style="min-width:130px;">'+esc(x.cg.name)+'</b>'
+      +'<span class="field-note" style="flex:1;">'+flags.join(' · ')+'</span>'
+      +'<button class="cara-btn" style="font-size:11.5px;" onclick="tbAssignPool(\''+esc(key)+'\','+x.i+')">Pencil in</button>'
+      +'</div>';
+  }).join('');
 }
+/* by position in the pool, so a name with an apostrophe (O'Brien) can't break the button */
+function tbAssignPool(key,i){ var cg=Array.isArray(TB.pool)?TB.pool[i]:null; if(cg) tbAssign(key,String(cg.name),String(cg.axiscare_id||'')); }
 /* Texts sent from the board are written onto the plan by the server (plan.asks).
    A board opened before that send must not wipe them when it saves, so every
    save first carries over any asks the saved plan has and this copy lacks. */
