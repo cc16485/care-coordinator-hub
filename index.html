@@ -2493,10 +2493,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       Four questions. Anything else can be added once it is on somebody's list.</p>
 
     <label style="font-size:.78rem;font-weight:700">Who is this about?</label>
-    <input id="issClient" placeholder="Client name — type it as you know it"
-      style="width:100%;font-size:.86rem" oninput="CCIssue.dupeCheck()">
-    <div class="field-note" style="margin-top:2px">A name is enough. We will link it to the
-      client record when AxisCare is connected.</div>
+    <input id="issClient" list="issClientList" placeholder="Start typing, then pick the client from the list"
+      style="width:100%;font-size:.86rem" oninput="CCIssue.dupeCheck()" autocomplete="off">
+    <datalist id="issClientList"></datalist>
+    <div class="field-note" id="issClientNote" style="margin-top:2px">Pick them from the list so this shows on their profile.
+      Someone who isn't a client yet can be typed in; it's saved with the name only.</div>
 
     <div id="issDupes" style="margin:.6rem 0"></div>
 
@@ -9166,6 +9167,17 @@ function openLeadProfile(id, tab){
   if(!(DATA.leads||[]).find(l=>l.id===id)) return;
   return openClient({ lead_id:id }, tab);
 }
+/* Client path step 1 (2026-09-28): the one way a list row names a client. It opens the ONE
+   profile on the given tab, from the most exact key the row carries: its inquiry, then its
+   AxisCare id, then a full name that exactly one client holds (openClientProfile refuses to
+   guess between two). */
+function cpOpenLink(rec, tab, label){
+  const esc=escapeHtmlComms, name=label||(rec&&(rec.client_name||rec.client||rec.name))||'(no name)';
+  const lead=rec&&rec.lead_id&&(DATA.leads||[]).some(l=>l.id===rec.lead_id)?rec.lead_id:'';
+  const ax=rec&&String(rec.axiscare_client_id||rec.client_axiscare_id||'').trim();
+  const attr=lead?'data-open-lead="'+esc(lead)+'"':('data-open-client="'+esc(ax||name)+'"');
+  return '<a href="javascript:void(0)" '+attr+(tab?' data-open-tab="'+esc(tab)+'"':'')+' title="Open their profile" style="font-weight:700;color:var(--navy);">'+esc(name)+'</a>';
+}
 function closeLeadProfile(){
   cpLeaving();
   lpLead = null; CP.lead=null; CP.r=null; CP.launch=null;
@@ -12138,7 +12150,7 @@ function renderAssessments(){
     <th>Client</th><th>Visit Date</th><th>Coordinator</th><th>Status</th><th>Transcript</th><th>Actions</th>
   </tr></thead><tbody>${rows.map(a=>`
     <tr>
-      <td><b>${a.client_name||''}</b></td>
+      <td>${cpOpenLink(a,'care')}</td>
       <td>${a.visit_date||''}</td>
       <td>${a.coordinator||''}</td>
       <td>${statusBadge(a.status)}</td>
@@ -12553,7 +12565,7 @@ function renderCheckins(){
   </tr></thead><tbody>${rows.map(c=>{
     const declining = clientSatisfactionDeclining(c.client_name);
     return `<tr>
-      <td><b>${c.client_name||''}</b>${c.escalated?' <span class="badge bad">Escalated</span>':''}${declining?' <span class="badge warn">📉 Declining</span>':''}</td>
+      <td>${cpOpenLink(c,'checkins')}${c.escalated?' <span class="badge bad">Escalated</span>':''}${declining?' <span class="badge warn">📉 Declining</span>':''}</td>
       <td>${c.checkin_date||''}</td>
       <td>${c.method||''}</td>
       <td>${'⭐'.repeat(c.satisfaction_rating||0)}</td>
@@ -16894,7 +16906,7 @@ function renderCommsPage(){
       +'<b>'+esc(t.from_name||'')+'</b><span class="field-note">'+(DIR_LABEL[t.direction]||'')+'</span>'
       +'<span class="tag-chip" style="background:#faf9f6;color:#3A342C;">'+(PG_KIND_LABEL[t.kind]||t.kind)+'</span>'
       +(t.urgency?'<span class="field-note">'+esc(t.urgency)+'</span>':'')+'</div>'
-      +'<div style="margin-top:2px;">'+(t.about?'<b>'+esc(t.about)+'</b>'+(t.caregiver?' / '+esc(t.caregiver):'')+' — ':'')+esc(t.message||'')+'</div>'
+      +'<div style="margin-top:2px;">'+(t.about?(t.axiscare_client_id||t.lead_id?cpOpenLink({client_name:t.about,axiscare_client_id:t.axiscare_client_id,lead_id:t.lead_id},'summary'):'<b>'+esc(t.about)+'</b>')+(t.caregiver?' / '+esc(t.caregiver):'')+' — ':'')+esc(t.message||'')+'</div>'
       +'<div class="field-note" style="margin-top:2px;">'+fmt(t.created_at)
       +(t.status==='done'?' · ✅ done by '+esc(t.done_by||'')+(t.done_at?' '+fmt(t.done_at):'')+(t.reply?' · 💬 “'+esc(t.reply)+'”':''):' · ⏳ open')+'</div>'
       +'</div>'
@@ -16921,7 +16933,7 @@ function renderInboxCc(){
   const open=mine.filter(t=>t.status==='open'), done=mine.filter(t=>t.status==='done').slice(0,20);
   const row=t=>'<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13.5px;">'
     +'<span>'+(t.direction==='to_owners'?'🏛️':(t.kind==='todo'?'☑️':'ℹ️'))+'</span>'
-    +'<div style="flex:1;min-width:0;">'+(t.about?'<b>'+esc(t.about)+'</b> — ':'')+esc(t.message||'')
+    +'<div style="flex:1;min-width:0;">'+(t.about?(t.axiscare_client_id||t.lead_id?cpOpenLink({client_name:t.about,axiscare_client_id:t.axiscare_client_id,lead_id:t.lead_id},'summary'):'<b>'+esc(t.about)+'</b>')+' — ':'')+esc(t.message||'')
     +'<div class="field-note">'+esc(t.from_name||'')+' · '+esc(t.urgency||'')+' · '+fmt(t.created_at)
     +(t.status==='done'?' · ✅ done by '+esc(t.done_by||'')+(t.reply?' · 💬 “'+esc(t.reply)+'”':''):'')+'</div></div>'
     +(t.status==='open'?'<button class="linklike" onclick="coordMsgDone(\''+t.id+'\');renderInboxCc()">Done ✓</button>':'')
@@ -18384,6 +18396,7 @@ function fcCircleHtml(c,i){
       + '<span class="field-note">' + people.length + ' in the circle'
         + (people.length ? ' · ' + textable + ' can be texted' : '') + '</span>'
       + '<span style="flex:1;"></span>'
+      + (linked ? '<a href="javascript:void(0)" data-open-client="' + esc(c.axiscare_client_id) + '" data-open-tab="family" style="font-size:12.5px;font-weight:700;color:var(--navy);">Open their profile →</a>' : '')
       + '<span style="color:#A89C8B;font-size:.78rem;">open ▾</span></summary>'
       + '<div style="padding:0 18px 16px;">'
       + '<div id="famfc-' + esc(c.id) + '"></div>'
@@ -22751,8 +22764,22 @@ function myWorkRows(){
    behind the menu. */
 /* The button that takes somebody from the prompt to the record. Driven by the
    registry, so no source-specific behaviour lives in the card. */
+/* Client path step 1: a concern opens the client it was filed against (their person id) */
+async function ccIssueOpenClient(issueId){
+  try{
+    const { data } = await sb.from('client_issue').select('client_person_id,client_name_free_text').eq('id', issueId).maybeSingle();
+    if(data&&data.client_person_id){ await openClient({ person_id:data.client_person_id }, 'summary'); return; }
+    alert('This concern was saved with a name only ('+((data&&data.client_name_free_text)||'no name')+'), so it isn\'t tied to a profile.');
+  }catch(e){ alert('Could not look up the client: '+(e&&e.message||e)); }
+}
 function obligationOpenAction(it){
   try{
+    if(it && it.kind==='new_lead' && it.source_id && (DATA.leads||[]).some(l=>String(l.id)===String(it.source_id))){
+      return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="openLeadProfile(\''+escapeHtmlComms(String(it.source_id))+'\')">Open the inquiry</button></div>';
+    }
+    if(it && it.kind==='client_issue' && it.issue_id){
+      return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="ccIssueOpenClient(\''+escapeHtmlComms(String(it.issue_id))+'\')">Open their profile</button></div>';
+    }
     /* Change 3: AxisCare changed a client's status; a person answers what happened */
     if(it && it.source && it.source.type==='status_review'){
       return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="csrOpen(\''+escapeHtmlComms(String(it.source.review_id))+'\')">Answer</button>'
@@ -22771,7 +22798,7 @@ function obligationOpenAction(it){
     if(it && it.source && it.source.type==='journey'){
       const esc=escapeHtmlComms, s=it.source;
       const lead=s.lead_id?(DATA.leads||[]).find(l=>String(l.id)===String(s.lead_id)):null;
-      const go=lead?'openLeadProfile(\''+esc(String(lead.id))+'\')':(s.axiscare_client_id?'openClientProfile(\''+esc(String(s.axiscare_client_id))+'\')':'');
+      const go=lead?'openLeadProfile(\''+esc(String(lead.id))+'\',\'start\')':(s.axiscare_client_id?'openClientProfile(\''+esc(String(s.axiscare_client_id))+'\',\'start\')':'');
       if(!go) return '';
       return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="'+go+'">Open the record</button>'
         +'<span class="field-note" style="margin-left:8px;">'+(s.kind==='review'?'This closes itself once the decision is made.'
@@ -22857,7 +22884,7 @@ function myWorkCard(it, i){
     +'<div style="flex:1;min-width:0;">'
     +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">'
     +'<b style="font-size:15px;">'+esc(it.about||it.title||'')+'</b>'
-    +'<span class="field-note">'+esc((OPS_KINDS[it.kind]||{}).label||it.kind)+' · '+esc(ago)
+    +'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(ago)
     +' · '+who+(att.level>=2?' · <b style="color:var(--red);">'+esc(att.label)+'</b>'
                 :(att.level===1?' · <b style="color:var(--amber);">due today</b>':''))+'</span>'
     +states
@@ -23351,7 +23378,8 @@ const CCIssue = {
     await this.loadCats();
     const sel=document.getElementById('issCategory');
     sel.innerHTML = this.cats.map(c=>'<option value="'+c.code+'">'+escapeHtmlComms(c.label)+'</option>').join('');
-    document.getElementById('issClient').value      = (prefill&&prefill.client_name)||'';
+    ccPickFill('issClientList').catch(()=>{});
+    document.getElementById('issClient').value      = prefill&&prefill.client_name ? ccPickLabelFor(prefill.client_name, prefill.axiscare_client_id) : '';
     document.getElementById('issSummary').value     = (prefill&&prefill.summary)||'';
     document.getElementById('issReporter').value    = (prefill&&prefill.reported_by_name)||'';
     if(prefill&&prefill.reported_by_role) document.getElementById('issReporterRole').value=prefill.reported_by_role;
@@ -23387,12 +23415,20 @@ const CCIssue = {
   /* Duplicates are OFFERED, never merged. The second call about the same late
      caregiver should thicken one history, not start a second complaint — but
      only a person can tell whether it is genuinely the same problem. */
+  /* Client path step 1: the picked client (their person id), else the typed name */
+  picked(){
+    const raw=(document.getElementById('issClient').value||'').trim(), o=ccPickParse(raw);
+    return o ? { name:o.name, pid:o.pid, ax:o.ax } : { name:raw, pid:null, ax:'' };
+  },
   async dupeCheck(){
-    const nm=(document.getElementById('issClient').value||'').trim();
+    const who=this.picked(), nm=who.name;
+    const note=document.getElementById('issClientNote');
+    if(note) note.innerHTML = who.pid ? '<b style="color:var(--teal)">✓ '+escapeHtmlComms(who.name)+'</b>: this will show on their profile.'
+      : 'Pick them from the list so this shows on their profile. Someone who isn\'t a client yet can be typed in; it\'s saved with the name only.';
     const box=document.getElementById('issDupes');
     if(nm.length<3){ box.innerHTML=''; this.dupes=[]; return; }
     const { data } = await sb.rpc('issue_candidates',
-      { p_client_text:nm, p_client_person:null, p_category:null });
+      { p_client_text:nm, p_client_person:who.pid||null, p_category:null });
     this.dupes=data||[];
     if(!this.dupes.length){ box.innerHTML=''; return; }
     box.innerHTML='<div class="card" style="padding:10px 12px;background:var(--bg);">'
@@ -23428,7 +23464,7 @@ const CCIssue = {
     document.getElementById('issMsg').innerHTML='Saving…';
     const body={
       category:cat, summary:summary,
-      client_name:(document.getElementById('issClient').value||'').trim(),
+      client_name:this.picked().name, client_person_id:this.picked().pid||undefined,
       urgency:document.getElementById('issUrgency').value||'',
       reported_by_name:(document.getElementById('issReporter').value||'').trim(),
       reported_by_role:document.getElementById('issReporterRole').value,
@@ -23608,7 +23644,7 @@ async function reviewMaybeCreate(it){
     if(!rule || reviewExistsFor(it.id)) return;
     if(String(rule.reviewer||'').toLowerCase()===who) return;   // nobody reviews themselves
 
-    const label=(OPS_KINDS[it.kind]||{}).label||it.kind;
+    const label=opsKindLabel(it);
     const person=opsOwnerName(who)||who;
     const now=new Date().toISOString();
     const rev={
@@ -24032,7 +24068,7 @@ function teamOwnershipHtml(email){
   /* Review progress, stated the way the rule states it. */
   rules.forEach(r=>{
     const done=reviewCountFor(e, r.kind);
-    const lbl=(OPS_KINDS[r.kind]||{}).label||r.kind;
+    const lbl=opsKindLabel(r);
     const bits=[];
     if(r.first_n) bits.push(done+' of '+r.first_n+' reviewed');
     if(r.until)   bits.push('until '+String(r.until).slice(0,10));
@@ -24077,7 +24113,7 @@ function homeDeveloping(){
   const live=mine.filter(r=>{ const s=reviewRuleSpent(r); return !(s&&s.spent); });
   if(!live.length) return '';
   const rows=live.map(r=>{
-    const label=(OPS_KINDS[r.kind]||{}).label||r.kind;
+    const label=opsKindLabel(r);
     const done=reviewCountFor(me, r.kind);
     const bits=[];
     if(r.first_n) bits.push(done+' of '+r.first_n+' reviewed');
@@ -24208,7 +24244,7 @@ function renderReviewRules(){
           limit=esc(bits.join(', ')).replace(/&lt;/g,'<');
         }
         return '<tr><td>'+esc(opsOwnerName(r.person)||r.person)+'</td>'
-        +'<td>'+esc((OPS_KINDS[r.kind]||{}).label||r.kind)+'</td>'
+        +'<td>'+esc(opsKindLabel(r))+'</td>'
         +'<td>'+esc(opsOwnerName(r.reviewer)||r.reviewer)+'</td>'
         +'<td style="font-size:12.5px;">'+limit+'</td>'
         +'<td style="text-align:right;"><button class="linklike" onclick="reviewRemoveRule(\''+r.id+'\')">Remove</button></td></tr>';
@@ -26723,6 +26759,12 @@ function renderHome(){
    Anything else is a conversation, and you all work in the same office. The
    moment this becomes a general to-do list the red badge stops meaning
    "something is late" and everyone learns to ignore it. */
+/* Client path step 1: a routine check-in reminder is filed as client_issue by the obligation engine;
+   it must not wear the same label as a real complaint. */
+function opsKindLabel(it){
+  if(it&&it.source&&it.source.type==='client_checkin') return 'Check-in due';
+  return (OPS_KINDS[it&&it.kind]||{}).label||(it&&it.kind)||'';
+}
 const OPS_KINDS = {
   missed_call:    { label:'Missed call',   hours:1  },
   review:         { label:'Review',       hours:24 },
@@ -31020,7 +31062,7 @@ function covCaseCard(c){
     return '<div class="card" id="covcase_'+esc(c.id)+'" style="padding:'+(expanded?'16px 18px':'10px 18px')+';margin-bottom:'+(expanded?'12px':'6px')+';'+(open?'border-left:4px solid var(--red);':'')+'">'
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;cursor:pointer;" onclick="covToggleCase(\''+esc(c.id)+'\')">'
       +'<span style="color:var(--text-muted);font-size:12px;">'+(expanded?'▾':'▸')+'</span>'
-      +'<b style="font-size:15.5px;color:var(--navy);"><a href="javascript:void(0)" data-open-client="'+esc(String(c.client_axiscare_id||c.client))+'" style="color:inherit;text-decoration:underline dotted;" title="Open their profile">'+esc(c.client)+'</a></b>'
+      +'<b style="font-size:15.5px;color:var(--navy);"><a href="javascript:void(0)" data-open-client="'+esc(String(c.client_axiscare_id||c.client))+'" data-open-tab="team" style="color:inherit;text-decoration:underline dotted;" title="Open their profile (Team &amp; Schedule)">'+esc(c.client)+'</a></b>'
       +'<span class="field-note">'+esc(c.shift_date||'')+' '+esc(covT12(c.shift_time||''))+' · '+esc(R[c.reason]||c.reason)+'</span>'
       +caraPatternChip(c)+cipCaseChip(c)+age+headTallies+pendChip
       +(!open&&c.resolved_how?'<span style="font-size:12px;font-weight:700;color:'+(c.resolved_how==='covered'?'var(--green)':'var(--red)')+';">'+(c.resolved_how==='covered'?'covered by '+esc(c.covered_by||'?'):'closed uncovered')+'</span>':'')
@@ -31217,6 +31259,7 @@ async function cl360Identity(){
       const gh = mine.find(x=>x.system==='ghl');
       const ro = roleOf[p.id]||{};
       return { client_name: p.display_name || ((p.first_name||'')+' '+(p.last_name||'')).trim() || '(unnamed)',
+               person_id: p.id,
                axiscare_client_id: ax ? String(ax.source_id) : '',
                role_status: ro.status||'active', ended_at: ro.ended_at||null, end_reason: ro.end_reason||null,
                phone: p.primary_phone || '', ghl_contact_id: gh ? String(gh.source_id) : '',
@@ -31234,7 +31277,7 @@ async function ccPickOptions(){
   if(CC_PICK_OPTS) return CC_PICK_OPTS;
   const rows = await cl360Identity();
   CC_PICK_OPTS = (rows||[]).filter(r=>r.axiscare_client_id)
-    .map(r=>({ name:String(r.client_name||'').trim(), ax:String(r.axiscare_client_id), past:r.role_status!=='active' }))
+    .map(r=>({ name:String(r.client_name||'').trim(), ax:String(r.axiscare_client_id), pid:r.person_id||null, past:r.role_status!=='active' }))
     .sort((a,b)=>(a.past-b.past)||a.name.localeCompare(b.name));
   return CC_PICK_OPTS;
 }
@@ -31690,7 +31733,7 @@ function cipCaseHtml(c){
     +'<div style="font-weight:800;margin-bottom:2px;">📞 '+esc(first)+'\'s call-in plan</div>'+step
     +cipPlanLines(p).join('<br>')
     +(p.note?'<div style="margin-top:3px;">“'+esc(p.note)+'”</div>':'')
-    +'<div class="field-note" style="margin-top:3px;">'+cipByline(p)+' · <a href="javascript:void(0)" data-open-client="'+esc(String(c.client_axiscare_id))+'">see the full history</a></div>'
+    +'<div class="field-note" style="margin-top:3px;">'+cipByline(p)+' · <a href="javascript:void(0)" data-open-client="'+esc(String(c.client_axiscare_id))+'" data-open-tab="history">see the full history</a></div>'
     +'</div>';
 }
 
@@ -31764,7 +31807,7 @@ function famStripHtml(f, here){
     +chip('lead','📞',f.lead_confirmed?'Inquiry':'Inquiry (not confirmed)',!!f.lead,f.lead?'famGo(\'lead\','+j(f.lead.id)+')':'','no inquiry linked')
     +chip('assessment','📝','Assessment',!!f.assessment,f.assessment?'famGo(\'assessment\','+j(f.assessment.id)+')':'','no assessment yet')
     +chip('launch','🚀','Launch',!!f.launch,f.launch?'famGo(\'launch\','+j(f.launch.id)+')':'','no launch yet')
-    +chip('client','👤','Client 360',!!f.ax,f.ax?'famGo(\'client\','+j(f.ax)+')':'','not an AxisCare client yet')
+    +chip('client','👤','Client profile',!!f.ax,f.ax?'famGo(\'client\','+j(f.ax)+','+j(({family:'family',plan:'team',assessment:'care',launch:'start'})[here]||'summary')+')':'','not an AxisCare client yet')
     +chip('plan','🧩','Team plan',!!f.plan,f.plan?'famGo(\'plan\','+j(f.plan.id)+')':'','no team plan linked')
     +chip('family','👪','Family',!!f.circle,f.circle?'famGo(\'family\','+j(f.circle.id)+')':'','no Family Circle linked')
     +(f.errors.length?'<span class="field-note" style="font-size:11.5px;color:var(--red);">some links could not load</span>':'')
@@ -31777,9 +31820,17 @@ async function famMount(elId, seed, here){
   const now=document.getElementById(elId); if(!now||now.dataset.famSeed!==famKey(seed)) return;   // the screen moved on
   now.innerHTML=famStripHtml(f, here);
 }
-function famGo(kind, id){
+/* Client path step 1 (2026-09-28): inside the profile these chips switch the profile's own tab
+   instead of sending you out to the old lists; outside it, "Client profile" opens the profile on
+   the tab that matches where you came from (a circle → Family, a team plan → Team & Schedule). */
+function famGo(kind, id, tab){
+  const inProfile=document.getElementById('leadProfileView')&&document.getElementById('leadProfileView').style.display==='block';
+  if(inProfile&&typeof cpShowTab==='function'){
+    const t={assessment:'care',launch:'start',plan:'team',family:'family',client:'summary'}[kind];
+    if(t){ cpShowTab(t); window.scrollTo(0,0); if(kind==='assessment') openAssessmentModal(id); return; }
+  }
   if(kind==='lead'){ openLeadProfile(id); return; }
-  if(kind==='client'){ openClientProfile(id); return; }
+  if(kind==='client'){ openClientProfile(id, tab); return; }
   if(typeof pdClose==='function') pdClose();
   if(kind==='assessment'){ switchTab('assessments'); openAssessmentModal(id); return; }
   if(kind==='launch'){ openClient({ launch_id:id }, 'start'); return; }
@@ -31851,9 +31902,14 @@ async function openCaregiverProfile(ref){
   const inp=document.getElementById('cgdSearch');
   if(inp){ inp.value=raw; cgdSearchGo(inp.value); }
 }
+/* Client path step 1 (2026-09-28): every client list opens the ONE profile on the tab that
+   matches it. data-open-client="<AxisCare id or full name>" or data-open-lead="<lead id>",
+   plus an optional data-open-tab="payer|care|checkins|family|team|start|history…". */
 document.addEventListener('click', function(e){
+  const l = e.target.closest && e.target.closest('[data-open-lead]');
+  if(l){ e.stopPropagation(); e.preventDefault(); openLeadProfile(l.getAttribute('data-open-lead'), l.getAttribute('data-open-tab')||undefined); return; }
   const c = e.target.closest && e.target.closest('[data-open-client]');
-  if(c){ e.stopPropagation(); e.preventDefault(); openClientProfile(c.getAttribute('data-open-client')); return; }
+  if(c){ e.stopPropagation(); e.preventDefault(); openClientProfile(c.getAttribute('data-open-client'), c.getAttribute('data-open-tab')||undefined); return; }
   const g = e.target.closest && e.target.closest('[data-open-caregiver]');
   if(g){ e.stopPropagation(); e.preventDefault(); openCaregiverProfile(g.getAttribute('data-open-caregiver')); }
 }, true);
@@ -32533,7 +32589,7 @@ function nvRenderCaseloads(){
         const flags=nvClientFlags(c);
         const needs=[c.weekly_meds?'weekly meds':'',(c.ghe1||c.ghe2)?'GHE':''].filter(Boolean).join(' + ')||'no set needs';
         const slot=nvSlotText(c);
-        return '<div class="nvcase-row"><b>'+esc(c.name)+'</b><span class="field-note">'+esc(needs)+'</span>'
+        return '<div class="nvcase-row">'+cpOpenLink({client_name:c.name,axiscare_client_id:c.axiscare_client_id},'history')+'<span class="field-note">'+esc(needs)+'</span>'
           +flags.map(f=>'<span class="badge '+(f.includes('missed')?'bad':'warn')+'">'+f+'</span>').join('')
           +(key?(slot
               ?'<span class="badge ok">🕐 '+esc(slot)+'</span>'
@@ -32845,7 +32901,7 @@ function renderNurseVisits(){
       const findings=c.latest&&c.latest.findings?'<div style="font-size:.74rem;color:#3A342C;margin-top:.25rem">“'+E(String(c.latest.findings).slice(0,160))+(c.latest.findings.length>160?'…':'')+'”</div>':'';
       return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+border+';border-radius:10px;padding:.7rem 1rem;margin-bottom:.5rem">'
         +'<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">'
-        +'<div style="flex:1;min-width:220px"><b style="font-size:.9rem">'+E(c.name)+'</b> '+lvChip
+        +'<div style="flex:1;min-width:220px"><span style="font-size:.9rem">'+cpOpenLink({client_name:c.name,axiscare_client_id:c.axisId},'care')+'</span> '+lvChip
         +'<div style="font-size:.72rem;color:var(--text-muted)">'+lastTxt+' · '+dueTxt+(askedN?' · 💬 '+askedN+' caregiver'+(askedN===1?'':'s')+' asked this week':'')+'</div>'+findings+pend+'</div>'
         +'<button style="font-size:.72rem" onclick="cpAsk(\''+E(c.key)+'\')">💬 Ask caregivers</button>'
         +'<button class="primary" style="font-size:.72rem" onclick="cpOpenForm(\''+E(c.key)+'\')">📝 Log review</button>'
@@ -33124,7 +33180,7 @@ function renderNurseVisits(){
           const fu=l.follow_up_due?(l.follow_up_due<t?'<b style="color:#DC2626">⚠ OVERDUE: '+E(l.follow_up_due)+'</b>':E(l.follow_up_due)):'not set';
           return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+color+';border-radius:10px;padding:.65rem 1rem;margin-bottom:.45rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">'
             +'<div style="min-width:56px;text-align:center"><div style="font-size:1.05rem;font-weight:800;color:'+color+'">'+(days===null?'NEW':days+'d')+'</div><div style="font-size:.6rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">IHS</div></div>'
-            +'<div style="flex:1;min-width:220px"><b style="font-size:.88rem">'+E(nameOf(l))+'</b>'+(l.county?' <span style="color:var(--text-muted)">— '+E(l.county)+'</span>':'')
+            +'<div style="flex:1;min-width:220px"><a href="javascript:void(0)" data-open-lead="'+E(l.id)+'" data-open-tab="payer" title="Open their profile (Payer)" style="font-size:.88rem;font-weight:700;color:var(--navy)">'+E(nameOf(l))+'</a>'+(l.county?' <span style="color:var(--text-muted)">— '+E(l.county)+'</span>':'')
             +'<div style="font-size:.72rem;color:var(--text-muted)">'+(l.dcn?'DCN '+E(l.dcn)+' · ':'')+(sub?'submitted '+E(sub)+' · ':'')+E(STATUS[l.state_status]||'Needs submitting')+' · follow-up: '+fu+'</div></div>'
             +'<span style="font-size:.72rem;font-weight:700;color:'+color+'">'+note+'</span>'
             +'<button class="primary" style="font-size:.72rem" onclick="openLeadModal(\''+E(l.id)+'\')">Update</button>'
@@ -33134,9 +33190,9 @@ function renderNurseVisits(){
     if(doneBox){
       doneBox.innerHTML=resolved.length?resolved.map(l=>
         '<div style="font-size:.8rem;padding:.35rem 0;border-bottom:1px solid var(--border)">'
-        +(l.state_status==='authorized'?'✅ ':'✕ ')+'<b>'+E(nameOf(l))+'</b>'
+        +(l.state_status==='authorized'?'✅ ':'✕ ')+'<a href="javascript:void(0)" data-open-lead="'+E(l.id)+'" data-open-tab="payer" style="font-weight:700;color:var(--navy)">'+E(nameOf(l))+'</a>'
         +' — '+E(STATUS[l.state_status]||'')+(l.state_submitted?' · submitted '+E(l.state_submitted):'')
-        +' <a href="#" style="font-size:.72rem" onclick="openLeadModal(\''+E(l.id)+'\');return false;">open</a></div>').join('')
+        +' <a href="#" style="font-size:.72rem" onclick="openLeadModal(\''+E(l.id)+'\');return false;">update</a></div>').join('')
         :'<div style="font-size:.8rem;color:var(--text-muted)">Nothing resolved yet.</div>';
     }
   };
@@ -33778,7 +33834,7 @@ window.covLoadShifts=function(){};
         :i.last?'<span style="font-size:.7rem;font-weight:700;color:#166534">✓ checked in '+fmt(String(i.last.at).slice(0,10))+' '+(RATE[i.last.rating]||'')+'</span>':'';
       const skip=i.due==='first'?'<a href="#" style="font-size:.68rem;color:var(--text-muted)" onclick="cmSkip('+A(p.client)+','+A(p.caregiver)+');return false;" title="No call needed — logs it as an established match">known good match ✓</a>':'';
       return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+border+';border-radius:10px;padding:.55rem 1rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">'
-        +'<div style="flex:1;min-width:220px"><b style="font-size:.85rem">'+E(p.client)+'</b> <span style="color:var(--text-muted)">×</span> <b style="font-size:.85rem">'+E(p.caregiver)+'</b>'
+        +'<div style="flex:1;min-width:220px"><span style="font-size:.85rem">'+cpOpenLink({client_name:p.client,axiscare_client_id:p.client_id},'team')+'</span> <span style="color:var(--text-muted)">×</span> <a href="javascript:void(0)" data-open-caregiver="'+E(String(p.caregiver_id||p.caregiver))+'" style="font-size:.85rem;font-weight:700;color:var(--navy)">'+E(p.caregiver)+'</a>'
         +'<div style="font-size:.7rem;color:var(--text-muted)">'+p.visits+' shift'+(p.visits===1?'':'s')+' · '+p.hours+' hrs · last '+fmt(p.last_date)+'</div></div>'
         +tag+skip
         +(i.due?'<button class="primary" style="font-size:.72rem" onclick="cmPrefill('+A(p.client)+','+A(p.caregiver)+','+A(String(p.client_id||''))+')">📞 Log check-in</button>':'')
