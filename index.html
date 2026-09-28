@@ -29387,12 +29387,12 @@ function renderCommLog(){
 /* ---------------- Samantha's manager strip ---------------- */
 let _openShifts; // undefined = not fetched, null = unavailable, else {count,urgent}
 async function loadOpenShiftsForStrip(){
-  if(_openShifts!==undefined || !CONFIG.training_hub_key){ return; }
+  if(_openShifts!==undefined){ return; }
   _openShifts=null;
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
-      method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key:CONFIG.training_hub_key,days:14})});
+      method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+      body:JSON.stringify({key:CONFIG.training_hub_key||undefined,days:14})});
     const d=await r.json();
     if(!d.error){
       const now=Date.now();
@@ -34141,13 +34141,13 @@ async function nvAssign(id,name){
 const NURSE_ASSIGN_API='https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-nurse-assign';
 async function nvGhlSync(c,nurseName){
   try{
-    if(!CONFIG.training_hub_key || !c.phone) return;   // nothing to sync with
+    if(!c.phone) return;   // nothing to sync with
     const nurse=(DATA.nurse_staff||[]).find(s=>s.name===nurseName);
     if(nurseName && !(nurse&&nurse.ghl_user_id)) return; // no GHL id on file yet
     const res=await fetch(NURSE_ASSIGN_API,{
       method:'POST',
-      headers:{ 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'Content-Type':'application/json' },
-      body:JSON.stringify({ key:CONFIG.training_hub_key, phone:c.phone, client_name:c.name,
+      headers:{'x-hub-token':await trainHubTok(), 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'Content-Type':'application/json' },
+      body:JSON.stringify({ key:CONFIG.training_hub_key||undefined, phone:c.phone, client_name:c.name,
                             ghl_user_id:(nurse&&nurse.ghl_user_id)||'' }),
     });
     const data=await res.json().catch(()=>({}));
@@ -34471,15 +34471,14 @@ function renderNurseVisits(){
 
   window.cpRender=function(){
     const box=document.getElementById('cp-board'); if(!box) return;
-    if(PAIRS===null&&(CONFIG.training_hub_key||'').trim()){
+    if(PAIRS===null){
       loadPairs().then(()=>{ try{ if(activeTab==='careplans') cpRender(); }catch(e){} });
     }
     const rows=clientRows();
     if(!rows.length){
       box.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">'
         +(PAIRS===null?'Loading active clients from AxisCare…'
-          :(CONFIG.training_hub_key||'').trim()?'No clients found — no completed AxisCare visits in the last 60 days'+(CC_VIEW_AS?' for '+E(CC_VIEW_AS)+'\'s book (unassigned clients show under Everyone)':'')+'.'
-          :'Paste the Training Hub read key into ⚙️ Settings to pull active clients from AxisCare.')
+          :'No clients found — no completed AxisCare visits in the last 60 days'+(CC_VIEW_AS?' for '+E(CC_VIEW_AS)+'\'s book (unassigned clients show under Everyone)':'')+'.')
         +'</div>';
       return;
     }
@@ -34575,10 +34574,10 @@ function renderNurseVisits(){
 
   async function loadPairs(){
     if(PAIRS!==null) return;
-    const k=(CONFIG.training_hub_key||'').trim(); if(!k){ PAIRS=[]; return; }
+    const k=(CONFIG.training_hub_key||'').trim()||undefined;
     try{
       const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
-        method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+        method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
         body:JSON.stringify({key:k, mode:'pairs', days:60})});
       const d=await r.json(); PAIRS=d.pairs||[];
     }catch(e){ PAIRS=[]; }
@@ -34608,7 +34607,6 @@ function renderNurseVisits(){
     const c=clientRows().find(x=>x.key===key); if(!c) return;
     const mine=(PAIRS||[]).filter(p=> c.axisId ? String(p.client_id)===String(c.axisId)
       : String(p.client||'').trim().toLowerCase()===String(c.name||'').trim().toLowerCase());
-    if(!(CONFIG.training_hub_key||'').trim()){ el.innerHTML='<span style="font-size:.8rem;color:#b45309">Paste the Training Hub read key into ⚙️ Settings to load caregivers.</span>'; return; }
     if(!mine.length){ el.innerHTML='<span style="font-size:.8rem;color:var(--text-muted)">No scheduled visits found for this client in the last 60 days.</span>'; return; }
     const asked=asks().filter(a=>(a.client_key||'')===key);
     const updated=updates().filter(u=>(u.client_key||'')===key);
@@ -35400,12 +35398,11 @@ window.covLoadShifts=function(){};
   }
   async function loadPairs(btn){
     const box=document.getElementById('ci-pairs-board');
-    const k=(CONFIG.training_hub_key||'').trim();
-    if(!k){ if(box) box.innerHTML='<div style="color:#b45309;font-size:.85rem">Paste the Training Hub read key into ⚙️ Settings to turn this board on.</div>'; return; }
+    const k=(CONFIG.training_hub_key||'').trim()||undefined;
     if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
     try{
       const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
-        method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+        method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
         body:JSON.stringify({key:k, mode:'pairs', days:60})});
       const data=await r.json();
       if(data.error){ PAIRS=null; if(box) box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not load matches: '+E(data.error)+'</div>'; return; }
