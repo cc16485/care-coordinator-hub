@@ -26,7 +26,7 @@
   html.embedded .topbar img{ display:none; }
   html.embedded .topbar{ padding-top:6px; padding-bottom:6px; }
 </style>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Poppins:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -4951,7 +4951,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       </div>
 </section>
 
-<section id="leadProfileView" style="display:none;">
+<section id="leadProfileView" class="lp-theme" style="display:none;">
   <!-- ONE CLIENT PROFILE (2026-09-27, her ruling: "I want clients to have ONE profile", "sub tabs to
        keep organized", full page). The lead page and Client 360 are the same page now: the inquiry's
        sections (class cp-lead) show while there is a lead; the client's sections fill the cp_c_*
@@ -4965,6 +4965,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <div id="cpFacts" class="cpx-facts"></div>
   <div id="cpTabs" class="cp-tabs">
     <button type="button" class="cp-tab" data-cp="summary" onclick="cpShowTab('summary')">Overview</button>
+    <button type="button" class="cp-tab" data-cp="intake" onclick="cpShowTab('intake')">Lead intake</button>
     <button type="button" class="cp-tab" data-cp="start" onclick="cpShowTab('start')">Start of Care</button>
     <button type="button" class="cp-tab" data-cp="family" onclick="cpShowTab('family')">Family &amp; Contacts</button>
     <button type="button" class="cp-tab" data-cp="care" onclick="cpShowTab('care')">Care</button>
@@ -5045,6 +5046,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     </div>
     <div><div id="cp_changes"></div><div id="cp_c_summary"></div></div>
   </div></div>
+  <!-- GATE 1b-2 · LEAD INTAKE: what the family told us before care started (lpiRender) -->
+  <div class="cp-pane" data-cp-pane="intake"><div id="lpIntake"></div></div>
   <div class="cp-pane" data-cp-pane="start">
     <div id="cp_start_note"></div>
 <div class="cp-lead">
@@ -8676,6 +8679,7 @@ function leadFieldFill(f, l){
 function leadFormRead(keys){ const out={}; LEAD_FIELDS.forEach(f=>{ if(!keys||keys.indexOf(f[0])>=0) out[f[0]]=leadFieldRead(f); }); return out; }
 function leadFormFill(l, keys){ LEAD_FIELDS.forEach(f=>{ if(!keys||keys.indexOf(f[0])>=0) leadFieldFill(f, l||{}); }); }
 function openLeadModal(id){
+  if(typeof lpiRelease==='function') lpiRelease('form');   /* Gate 1b-2 lock: a Lead intake chapter hands its sections back first */
   const l = id ? DATA.leads.find(x=>x.id===id) : {};
   document.getElementById('leadModalTitle').textContent = id ? 'Edit Lead' : 'Add Lead';
   document.getElementById('lead_id').value = id || '';
@@ -9218,7 +9222,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand();
+  cpRenderCommand(); lpiRender();
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -9267,6 +9271,7 @@ function cpReturnAll(){
 }
 /* leaving the profile (Back, another client, or any tab in the hub) hands everything back */
 function cpLeaving(){
+  if(typeof lpiRelease==='function') lpiRelease('leave');   /* unsaved chapter typing is kept as a draft */
   cpReturnAll();
   const cf=document.getElementById('cp-form'); if(cf) cf.style.display='none';
   FC_PROFILE=null;
@@ -9571,7 +9576,7 @@ function renderLeadProfile(){
   jcRenderStatus();
   ckRenderReturning();
   famMount('famLead', { lead_id:l.id }, 'lead');
-  cpRenderCommand();
+  cpRenderCommand(); lpiRender();
 }
 const NURTURE_INFO = {
   not_ready: { name:'Not-ready-yet drip', steps:4, desc:'warm text day 3, helpful email day 10, check-in text day 21, note day 45' },
@@ -27177,6 +27182,8 @@ function cpxStillNeeded(l, st, sc){
   if(!l.urgency) add(3,'When they want care to start','urgency not recorded','intake');
   if(!has(l.needs)&&!has(l.personal_care)) add(3,'What help they need','no needs checked','intake');
   if(late&&!l.client_address) add(3,'Their full address','needed for the visit and the first shift','intake');
+  if(k==='ready'&&!l.client_dob) add(3,'Their date of birth','needed before Getting ready is done','intake');
+  if(late&&!l.days_needed&&!l.times_needed&&!l.number_of_hours) add(3,'The schedule they\'re asking for','no days, times or hours yet','intake');
   return out.sort((a,b)=>a.tier-b.tier);
 }
 function cpCommandModel(){
@@ -27273,7 +27280,7 @@ function cpRenderCommand(){
   /* the Start Contract dates load once for the Leads board; read them here too if nobody has yet */
   if(m.pre&&!LS.facts&&!LS.loading&&!box.dataset.factsAsked){ box.dataset.factsAsked='1';
     lsLoadFacts().then(()=>{ if(cpOpen()&&box.dataset.for===key) cpRenderCommand(); }); }
-  const go=tab=>tab==='intake'?(CP.lead?'openLeadModal(\''+esc(CP.lead.id)+'\')':''):(tab?'cpShowTab(\''+tab+'\');window.scrollTo(0,0)':'');
+  const go=tab=>tab==='intake'?(CP.lead?'cpShowTab(\'intake\');window.scrollTo(0,0)':''):(tab?'cpShowTab(\''+tab+'\');window.scrollTo(0,0)':'');
   /* who: age · town, AxisCare's own status, payer */
   const facts=[];
   if(m.age) facts.push('Age '+m.age); if(m.town) facts.push(esc(m.town));
@@ -27311,6 +27318,262 @@ function cpRenderCommand(){
         :'<div class="cpx-src" style="margin-top:4px;">Nothing missing that the Hub can check.</div>')
     :'';
 }
+/* ── GATE 1b-2 · THE LEAD INTAKE TAB (her approval, 2026-09-28) ────────────────────────────────
+   The permanent record of what the family told us before care started, on the lead AND the client
+   profile. The guided call is how we first gather it; this is where it lives and keeps being filled in.
+   · Each chapter shows the guided call's own questions (the form's real sections, borrowed one
+     chapter at a time) and saves ONLY the fields it owns, through the one field table (LEAD_FIELDS):
+     same questions, same reading rules, same lead record, no second copy of anything.
+   · No chapter owns status, owner, AxisCare id, payer, tags or follow-up (LPI_FORBIDDEN).
+   · Lock: the intake pop-up and the guided call open through openLeadModal, which first hands back
+     any section a chapter holds (lpiRelease). Unsaved chapter typing is kept as an in-memory draft,
+     never thrown away and never saved without a person pressing Save.
+   · Once care has really begun (an actual start on the First shift checklist, else the Journey's
+     recorded beginning) Lead intake is read-only history. Nothing here is stored except the lead
+     fields a person saves. */
+const LPI_FORBIDDEN=['status','assigned_coordinator','axiscare_client_id','funding_source','intent_tags','follow_up_branch',
+  'follow_up_due','last_contacted_at','dcn','county','state_submitted','state_status','price_quoted','quoted_price_amount'];
+const LPI_CALLER=['first_name','last_name','phone','email','relationship','source','referral_org_id','referral_source_name'];
+const LPI_CH=[
+  { n:1, key:'found',  t:'How they found us',             secs:['leadSecCaller','leadSecUrgency'], keys:LPI_CALLER.concat(['urgency']) },
+  { n:2, key:'person', t:'The person who needs care',     secs:['leadSecClient'], keys:['client_name_not_provided','client_first_name','client_last_name','client_dob','client_gender','client_address','client_city','client_state','client_zip','client_phone','marital_status','language'] },
+  { n:3, key:'why',    t:'Why they\'re reaching out',     secs:['leadSecNeeds','leadSecNotes'], keys:['needs','interest_notes'] },
+  { n:4, key:'care',   t:'Care needs and safety, as reported', secs:['leadSecLevel','leadSecClinical'], keys:['weight_bearing','level_estimate','safety','mobility','personal_care','medical_conditions','dementia_follow_up','medical_notes'] },   /* physician: hidden, older intakes only; the assessment asks now, so it's shown, not edited */
+  { n:5, key:'help',   t:'Help they\'re asking for',      secs:['leadSecSchedule'], keys:['days_needed','times_needed','number_of_hours'] },
+  { n:6, key:'payer',  t:'Payer and program',             owner:'payer' },
+  { n:7, key:'home',   t:'Home and environment',          owner:'home' },
+  { n:8, key:'prefs',  t:'Preferences',                   owner:'home' },
+  { n:9, key:'people', t:'People involved',               secs:['leadSecCaller'], keys:LPI_CALLER },
+];
+const LPI={ editing:null, drafts:{}, began:{}, beganFor:null, stale:false };
+const LPI_L={
+  needs:{ personalCare:'Personal care', dementia:'Dementia care', transportation:'Transportation', housekeeping:'Housekeeping', respite:'Respite', overnight:'Overnight', cds:'CDS', va:'VA', privatePay:'Private pay' },
+  safety:{ fallRisk:'Fall risk', livesAlone:'Lives alone', recentHospitalization:'Recent hospital stay' },
+  mobility:{ independent:'Independent', walker:'Walker', wheelchair:'Wheelchair', bedbound:'Bedbound' },
+  pc:{ bathing:'Bathing', dressing:'Dressing', toileting:'Toileting', transfers:'Transfers' },
+  cond:{ dementia:'Dementia', alzheimers:'Alzheimer\'s', parkinsons:'Parkinson\'s', stroke:'Stroke', diabetes:'Diabetes', copd:'COPD' },
+  dfu:{ wandering:'Wandering', aggression:'Agitation', sundowning:'Sundowning' },
+  wb:{ yes:'Yes', no:'No', unsure:'Not sure' },
+};
+function lpiChapter(k){ return LPI_CH.find(c=>c.key===k)||null; }
+function lpiOpenAt(){ return document.getElementById('leadModalBackdrop').classList.contains('open')||(typeof ckptOn!=='undefined'&&ckptOn); }
+
+/* ── care began? (existing signals only, for the client a person confirmed) ── */
+async function lpiLoadBegan(l){
+  const key=l.id; if(LPI.began[key]&&LPI.began[key].at>Date.now()-60000) return LPI.began[key];
+  const out={ at:Date.now(), began:null, error:'', changes:[] };
+  const q=p=>p.then(r=>{ if(r.error) throw r.error; return r.data||[]; });
+  try{
+    const conns=await q(sb.from('lead_journey_connection').select('episode_id,lead_id').eq('lead_id',String(l.id)));
+    const epIds=conns.map(c=>c.episode_id).filter(Boolean);
+    const ax=String(CP.lead&&CP.lead.id===l.id?CP.ax:'').trim();
+    /* 1 · an actual start on a First shift checklist opened on or after this inquiry */
+    if(ax){
+      const launches=(await q(sb.from('client_queue').select('id,status,episode_n,added_at,first_shift_done,first_shift_done_at,completed_at').eq('axiscare_client_id',ax)))
+        .filter(c=>!l.created_at||!c.added_at||String(c.added_at)>=String(l.created_at).slice(0,10));
+      let rows=[]; if(launches.length) rows=await q(sb.from('launch_evidence').select('launch_id,fact,source,evidence,reason,recorded_by').eq('fact','first_shift').in('launch_id',launches.map(c=>c.id)));
+      launches.forEach(c=>{ const a=leActualSoc(c, rows); if(a&&(!out.began||a.ymd<out.began.ymd))
+        out.began={ ymd:a.ymd, basis:a.how==='hand'?'recorded by hand'+(a.reason?' ('+a.reason+')':''):a.how==='axiscare'?'AxisCare\'s first clock-in':'"first shift completed" on the checklist' }; });
+    }
+    if(epIds.length){
+      /* 2 · the Journey this inquiry is connected to, when it records a beginning */
+      if(!out.began){
+        const eps=await q(sb.from('journey_episode_current').select('episode_id,began_basis,began_lo,began_hi').in('episode_id',epIds));
+        eps.forEach(e=>{ if(['documented','observed_window','before_observation'].indexOf(e.began_basis)<0) return;
+          const ymd=String(e.began_lo||e.began_hi||'').slice(0,10);
+          if(!out.began) out.began={ ymd, basis:'the Journey ('+c360Began(e)+')' }; });
+      }
+      /* changes the Hub can prove: the Start Contract keeps every version */
+      const vers=await q(sb.from('start_contract_version').select('episode_id,target_date,confidence,recorded_by,recorded_at').in('episode_id',epIds));
+      vers.sort((a,b)=>String(a.recorded_at).localeCompare(String(b.recorded_at)));
+      for(let i=1;i<vers.length;i++) if(String(vers[i].target_date||'')!==String(vers[i-1].target_date||''))
+        out.changes.push({ what:'Promised start', from:vers[i-1].target_date?lsDate(vers[i-1].target_date):'none', to:vers[i].target_date?lsDate(vers[i].target_date):'none', at:vers[i].recorded_at, by:vers[i].recorded_by });
+    }
+  }catch(e){ out.error=String(e&&e.message||e); }
+  LPI.began[key]=out; return out;
+}
+
+/* ── borrowing the form's sections into one chapter, and handing them back ── */
+function lpiBorrow(ch, slot){
+  ch.secs.forEach(id=>{
+    const sec=document.getElementById(id); if(!sec) return;
+    if(!document.querySelector('.lpi-home[data-home="'+id+'"]')){
+      const ph=document.createElement('div'); ph.className='lpi-home'; ph.dataset.home=id; ph.style.display='none'; sec.before(ph); }
+    slot.appendChild(sec);
+  });
+  const det=document.querySelector('#leadSecClinical details');
+  if(det&&ch.secs.indexOf('leadSecClinical')>=0){ LPI.detWas=det.open; det.open=true; }
+}
+function lpiReturn(){
+  document.querySelectorAll('.lpi-home').forEach(ph=>{ const sec=document.getElementById(ph.dataset.home); if(sec) ph.replaceWith(sec); else ph.remove(); });
+  const det=document.querySelector('#leadSecClinical details');
+  if(det&&LPI.detWas!==undefined){ det.open=LPI.detWas; LPI.detWas=undefined; }
+}
+function lpiShowHide(){
+  toggleClientNameFields(!!(document.getElementById('lead_client_name_not_provided')||{}).checked);
+  toggleDementiaFollowUp();
+  const af=document.getElementById('leadAddrFold');
+  if(af&&(document.getElementById('lead_client_address').value||document.getElementById('lead_client_state').value||document.getElementById('lead_client_zip').value)) af.open=true;
+}
+function lpiDirty(){ const e=LPI.editing; if(!e) return false; return JSON.stringify(leadFormRead(e.keys))!==JSON.stringify(e.base); }
+/* Hand everything back. Unsaved typing is kept as a draft for that family (in memory only). */
+function lpiRelease(why){
+  const e=LPI.editing; if(!e) return true;
+  if(lpiDirty()) LPI.drafts[e.lead_id]={ ch:e.ch, values:leadFormRead(e.keys), base:e.base, at:new Date().toISOString(), why:why||'' };
+  LPI.editing=null; lpiReturn();
+  if(why!=='leave'&&cpOpen()) setTimeout(()=>{ if(cpOpen()) lpiRender(); },0);
+  return true;
+}
+function lpiEdit(key, resume){
+  const l=CP.lead, ch=lpiChapter(key); if(!l||!ch||!ch.secs) return;
+  const msg=document.getElementById('lpiMsg');
+  if(lpiOpenAt()){ if(msg) msg.textContent='The intake form or the guided call is open. Finish there first.'; return; }
+  if(LPI.editing) lpiRelease('switch');
+  const b=LPI.began[l.id]; if(!b||b.error||b.began) return;
+  LPI.editing={ ch:key, keys:ch.keys, lead_id:l.id, base:null };
+  lpiRender();
+  const slot=document.getElementById('lpiSlot'); if(!slot){ LPI.editing=null; return; }
+  lpiBorrow(ch, slot);
+  leadFormFill(l, ch.keys);                 /* fresh start: this chapter's fields, from the saved lead */
+  lpiShowHide();
+  LPI.editing.base=leadFormRead(ch.keys);
+  const d=LPI.drafts[l.id];
+  if(resume&&d&&d.ch===key){ leadFormFill(d.values, ch.keys); lpiShowHide(); delete LPI.drafts[l.id]; }
+  const first=slot.querySelector('input:not([type=hidden]),select,textarea'); if(first) first.focus({preventScroll:true});
+}
+function lpiCancel(){ const e=LPI.editing; if(!e) return; LPI.editing=null; lpiReturn(); lpiRender(); }
+async function lpiSave(){
+  const e=LPI.editing, l=CP.lead; if(!e||!l||l.id!==e.lead_id) return;
+  if(e.keys.some(k=>LPI_FORBIDDEN.indexOf(k)>=0)) throw new Error('A Lead intake chapter may not save '+e.keys.filter(k=>LPI_FORBIDDEN.indexOf(k)>=0).join(', '));
+  const patch=leadFormRead(e.keys);           /* only the fields this chapter owns, read by the one field table */
+  const target=(DATA.leads||[]).find(x=>x.id===l.id)||l;
+  Object.assign(target, patch);
+  LPI.editing=null; lpiReturn();
+  await persist('leads', target);
+  if(typeof renderLeads==='function') renderLeads();
+  renderLeadProfile();
+  const m=document.getElementById('lpiMsg'); if(m) m.textContent='Saved.';
+}
+function lpiDiscardDraft(){ const l=CP.lead; if(l) delete LPI.drafts[l.id]; lpiRender(); }
+
+/* ── what each chapter says ── */
+function lpiList(arr, map){ return (Array.isArray(arr)?arr:[]).map(v=>map[v]||v).filter(Boolean); }
+function lpiRender(){
+  const box=document.getElementById('lpIntake'); if(!box) return;
+  if(LPI.editing&&document.getElementById('lpiSlot')&&LPI.editing.lead_id===(CP.lead&&CP.lead.id)){ LPI.stale=true; return; }  /* never rebuild under an open chapter */
+  LPI.stale=false;
+  const esc=escapeHtmlComms, l=CP.lead;
+  if(!l){ box.innerHTML='<div class="lp-card"><p class="lp-prov" style="margin:0;">No inquiry is on file for this client, so there is no Lead intake. What we know now lives on Care, Home &amp; Life and Family &amp; Contacts.</p></div>'; return; }
+  const b=LPI.began[l.id];
+  if(!b){ box.innerHTML='<div class="lp-card"><p class="lp-prov" style="margin:0;">Loading…</p></div>'; lpiLoadBegan(l).then(()=>{ if(cpOpen()&&CP.lead&&CP.lead.id===l.id) lpiRender(); }); return; }
+  const locked=!!(b.began||b.error), e=LPI.editing, dd=x=>x?lsDate(String(x).slice(0,10)):'';
+  const has=v=>Array.isArray(v)?v.length>0:!!String(v==null?'':v).trim();
+  const unk='<span class="lp-tag unk">Unknown</span>';
+  const fact=(k,v)=>'<div class="lp-fact"><div class="k">'+k+'</div><div class="v">'+(has(v)?esc(Array.isArray(v)?v.join(', '):String(v)):unk)+'</div></div>';
+  const ca=l.client_attributes||{}, st=ccClientStage({ lead:l, r:CP.r, launch:CP.launch, ax:CP.ax });
+  const caller=((l.first_name||'')+' '+(l.last_name||'')).trim(), client=l.client_name_not_provided?'':((l.client_first_name||'')+' '+(l.client_last_name||'')).trim();
+  const age=cpxAge(l.client_dob), notes=String(l.interest_notes||'').trim(), firstLine=notes.split(/\n/)[0];
+  const dem=(l.medical_conditions||[]).some(c=>c==='dementia'||c==='alzheimers');
+  const chair=l.mobility==='wheelchair'||l.mobility==='bedbound';
+  const orgName=(DATA.referral_orgs||[]).find(o=>o.id===l.referral_org_id);
+  const ref=(orgName&&orgName.name)||l.referral_source_name||'';
+  /* the chapters, as sentences and facts */
+  const C={
+    found:{ sent:(caller||'Someone')+' reached us '+(l.created_at?'on '+dd(l.created_at):'')+(l.source?' by '+String(l.source).toLowerCase():'')+(ref?', referred by '+ref:'')+'.'+(l.urgency?' They wanted care '+(CPX_URG[l.urgency]||l.urgency).toLowerCase()+'.':''),
+      facts:fact('First contact',dd(l.created_at))+fact('How',l.source)+fact('Referred by',ref)+fact('Urgency when they called',l.urgency?CPX_URG[l.urgency]||l.urgency:'')
+        +(firstLine?'<div class="lp-fact wide"><div class="k">What they first said</div><div class="v">"'+esc(firstLine.slice(0,220))+'"</div><div class="lp-prov">the first line of the call notes, as typed</div></div>':''),
+      empty:!caller&&!l.source&&!l.urgency },
+    person:{ sent:client?client+(age?', '+age:'')+(l.client_city?', in '+l.client_city:'')+'.':(l.client_name_not_provided?'The caller didn\'t give the client\'s name.':'The client isn\'t named yet.'),
+      facts:fact('Name',l.client_name_not_provided?'not given':client)+fact('Born',l.client_dob?dd(l.client_dob)+(age?' · '+age:''):'')+fact('Town',l.client_city)
+        +fact('Lives alone',(l.safety||[]).indexOf('livesAlone')>=0?'Yes':'')+fact('Street address',l.client_address),
+      more:fact('Their phone',l.client_phone)+fact('State and ZIP',[l.client_state,l.client_zip].filter(Boolean).join(' '))+fact('Gender',l.client_gender)+fact('Language',l.language)+fact('Marital status',l.marital_status),
+      empty:!client&&!l.client_dob&&!l.client_city },
+    why:{ sent:has(l.needs)?'They asked for '+lpiList(l.needs.filter(n=>['cds','va','privatePay'].indexOf(n)<0),LPI_L.needs).join(', ').toLowerCase()+'.':'',
+      facts:fact('Kind of help',lpiList((l.needs||[]).filter(n=>['cds','va','privatePay'].indexOf(n)<0),LPI_L.needs))
+        +((l.needs||[]).some(n=>['cds','va','privatePay'].indexOf(n)>=0)?'<div class="lp-prov">Payer answers in this list ('+esc(lpiList((l.needs||[]).filter(n=>['cds','va','privatePay'].indexOf(n)>=0),LPI_L.needs).join(', '))+') show under Payer and program.</div>':''),
+      empty:!has(l.needs)&&!notes },
+    care:{ sent:[l.mobility?'Mobility: '+(LPI_L.mobility[l.mobility]||l.mobility).toLowerCase():'', has(l.personal_care)?'hands-on help with '+lpiList(l.personal_care,LPI_L.pc).join(', ').toLowerCase():'', has(l.medical_conditions)?lpiList(l.medical_conditions,LPI_L.cond).join(', '):''].filter(Boolean).join('; ')+(l.mobility||has(l.personal_care)||has(l.medical_conditions)?'.':''),
+      facts:fact('Mobility',LPI_L.mobility[l.mobility]||l.mobility)+fact('Bears weight and pivots',LPI_L.wb[l.weight_bearing]||l.weight_bearing)
+        +fact('Hands-on help',lpiList(l.personal_care,LPI_L.pc))+fact('Safety',lpiList(l.safety,LPI_L.safety))+fact('Conditions',lpiList(l.medical_conditions,LPI_L.cond))
+        +(dem?fact('Dementia behaviours',lpiList(l.dementia_follow_up,LPI_L.dfu)):'')
+        +(chair?fact('Hoyer lift',ca.hoyer_lift==='yes'?'Yes':ca.hoyer_lift==='no'?'No':'')+fact('Gait belt',ca.gait_belt==='yes'?'Yes':ca.gait_belt==='no'?'No':''):''),
+      more:fact('Medical notes',l.medical_notes)+fact('Our early guess at level',l.level_estimate?'Level '+l.level_estimate:'')
+        +((l.physician_name||l.physician_phone||l.preferred_hospital)?fact('Physician (older intake)',[l.physician_name,l.physician_phone,l.preferred_hospital].filter(Boolean).join(' · ')):''),
+      note:'Reported before the assessment. What the assessment finds goes on the Care tab and never overwrites this.',
+      empty:!l.mobility&&!has(l.personal_care)&&!has(l.safety)&&!has(l.medical_conditions)&&!l.weight_bearing },
+    help:{ sent:[l.days_needed,l.times_needed,l.number_of_hours?l.number_of_hours+' hours a week':''].filter(Boolean).join(', ')+((l.days_needed||l.times_needed||l.number_of_hours)?'.':''),
+      facts:fact('Days',l.days_needed)+fact('Times',l.times_needed)+fact('Hours a week',l.number_of_hours),
+      note:'What the family asked for. What we recommend lives in the care plan; what\'s promised lives in the Start Contract.',
+      empty:!l.days_needed&&!l.times_needed&&!l.number_of_hours },
+    payer:{ sent:l.funding_source?(CPX_PAY[l.funding_source]||l.funding_source)+'.':'',
+      facts:fact('Program',CPX_PAY[l.funding_source]||l.funding_source)
+        +(l.funding_source==='medicaid'?fact('DCN',l.dcn)+fact('County',l.county)+fact('State',CPX_STATE[l.state_status]||(l.state_submitted?'submitted':''))+(l.state_submitted?fact('Submitted',dd(l.state_submitted)):''):'')
+        +((l.funding_source==='private'||l.funding_source==='ltc')?fact('Price quoted',l.price_quoted?(l.quoted_price_amount||'yes'):''):''),
+      prov:'From the Payer tab', empty:!l.funding_source },
+    home:{ sent:'', facts:fact('Cats',ca.cats==='yes'?'Yes':ca.cats==='no'?'No':'')+fact('Dogs',ca.dogs==='yes'?'Yes':ca.dogs==='no'?'No':'')+fact('Smoking in the home',ca.smoking==='yes'?'Yes':ca.smoking==='no'?'No':''),
+      prov:'From the AxisCare checklist on Home & Life', empty:!ca.cats&&!ca.dogs&&!ca.smoking },
+    prefs:{ sent:'', facts:fact('Caregiver gender',['female','male'].map(g=>{ const v=ca[g+'_caregiver']; if(v==='yes'&&l.gender_pref_normalized===true) return (g==='female'?'Female':'Male')+' required'; if(v==='yes'||v==='preferred') return (g==='female'?'Female':'Male')+' preferred'; return ''; }).filter(Boolean).join(', '))
+        +fact('Spanish-speaking caregiver',ca.spanish_speaking==='yes'?'Yes':ca.spanish_speaking==='no'?'No':''),
+      prov:'From the AxisCare checklist on Home & Life', empty:!ca.female_caregiver&&!ca.male_caregiver&&!ca.spanish_speaking },
+    people:{ sent:caller?caller+(l.relationship?' ('+l.relationship+')':'')+' is the person who called.':'',
+      facts:fact('Caller',caller)+fact('Relationship',l.relationship)+fact('Phone',l.phone)+fact('Email',l.email),
+      note:'Today an inquiry holds one person, the caller. Everyone else is on Family & Contacts.', empty:!caller&&!l.phone&&!l.email },
+  };
+  const draft=LPI.drafts[l.id];
+  const chapter=ch=>{
+    const c=C[ch.key], editingThis=e&&e.ch===ch.key&&e.lead_id===l.id;
+    const act=locked?'':ch.owner==='payer'?'<button class="lp-link" onclick="cpShowTab(\'payer\');window.scrollTo(0,0)">Change on the Payer tab</button>'
+      :ch.owner==='home'?'<button class="lp-link" onclick="cpShowTab(\'home\');window.scrollTo(0,0)">Change on Home &amp; Life</button>'
+      :editingThis?'':'<button class="lp-link" onclick="lpiEdit(\''+ch.key+'\')">'+(c.empty?'Add':'Add or change')+'</button>';
+    const drafted=draft&&draft.ch===ch.key&&!editingThis&&!locked
+      ?'<div class="lp-draft">Unsaved changes from '+esc(lsDate(draft.at.slice(0,10)))+' are kept here. <button class="lp-link" onclick="lpiEdit(\''+ch.key+'\',true)">Resume</button> · <button class="lp-link" onclick="lpiDiscardDraft()">Discard</button></div>':'';
+    if(editingThis) return '<div class="lp-card lp-chap editing" id="lpiChap-'+ch.key+'"><div class="lp-chaptop"><h3 class="lp-h">'+ch.n+' · '+esc(ch.t)+'</h3></div>'
+      +'<div id="lpiSlot" class="lpi-slot"></div>'
+      +'<div class="lpi-actions"><button class="primary" onclick="lpiSave()">Save</button><button class="secondary" onclick="lpiCancel()">Cancel</button>'
+      +'<span class="lp-prov">Saves only this chapter\'s answers. The same questions as the guided call.</span></div></div>';
+    if(c.empty&&!drafted) return '<div class="lp-card lp-chap folded" id="lpiChap-'+ch.key+'"><h3 class="lp-h">'+ch.n+' · '+esc(ch.t)+'</h3><span class="lp-prov">Nothing recorded yet</span><span style="flex:1"></span>'+act+'</div>';
+    return '<div class="lp-card lp-chap" id="lpiChap-'+ch.key+'"><div class="lp-chaptop"><h3 class="lp-h">'+ch.n+' · '+esc(ch.t)+'</h3>'+act+'</div>'
+      +drafted+(c.sent?'<p class="lp-sent">'+esc(c.sent)+'</p>':'')
+      +'<div class="lp-facts">'+c.facts+'</div>'
+      +(c.more?'<details class="lp-more"><summary>more</summary><div class="lp-facts">'+c.more+'</div></details>':'')
+      +(c.note?'<p class="lp-prov">'+esc(c.note)+'</p>':'')
+      +'<p class="lp-prov">'+esc(c.prov||'From the intake form')+'</p></div>';
+  };
+  /* the side rail */
+  const need=cpxStillNeeded(l, st, CP.lead&&LS.facts&&LS.facts.epOf?LS.facts.scOf[LS.facts.epOf[String(l.id)]]:null);
+  const verify=[];
+  if(l.funding_source==='medicaid'&&l.state_status!=='authorized') verify.push('Medicaid: reported, the state hasn\'t authorized');
+  if(l.ai_needs_summary) verify.push('The AI summary: written by AI, never checked by a person');
+  const axT=String(l.axiscare_client_id||'').trim();
+  if(axT&&axT!==String(CP.ax||'').trim()) verify.push('AxisCare #'+axT+' is typed on the inquiry, but nobody has confirmed it\'s the same person');
+  if(typeof ckReturningOpen==='function'&&ckReturningOpen(l)) verify.push('Might be a returning family: nobody has answered that yet');
+  const helpful=[];
+  if(!ca.cats&&!ca.dogs) helpful.push('Pets'); if(!ca.smoking) helpful.push('Smoking in the home');
+  if(!ca.female_caregiver&&!ca.male_caregiver) helpful.push('Caregiver preference'); if(!String(l.language||'').trim()) helpful.push('Primary language');
+  const na=[];
+  if((l.mobility==='independent'||l.mobility==='walker')&&!(l.personal_care||[]).includes('transfers')&&l.weight_bearing!=='no') na.push(['Hoyer lift and gait belt questions','they '+(l.mobility==='walker'?'walk with a walker':'get around on their own')+' and need no help with transfers']);
+  if(!dem) na.push(['Dementia follow-up','no dementia reported']);
+  if(l.funding_source&&l.funding_source!=='medicaid') na.push(['Medicaid DCN, county and state',(CPX_PAY[l.funding_source]||l.funding_source)+' family']);
+  if(l.funding_source&&['private','ltc'].indexOf(l.funding_source)<0) na.push(['Private-pay rate',(CPX_PAY[l.funding_source]||l.funding_source)+' family']);
+  const ul=a=>'<ul>'+a.map(x=>'<li>'+x+'</li>').join('')+'</ul>';
+  const side='<div class="lp-panel attn"><h3 class="lp-h">Needs attention</h3>'
+      +(locked?'<p class="lp-prov">Care has begun, so nothing here is asked for any more.</p>':
+        '<div class="sub">Still needed before their next step</div>'+(need.length?ul(need.slice(0,6).map(n=>esc(n.label)+'<span class="lp-prov"> · '+esc(n.why)+'</span>')):'<p class="lp-prov">Nothing missing that the Hub can check.</p>'))
+      +'<div class="sub">Needs verification</div>'+(verify.length?ul(verify.map(esc)):'<p class="lp-prov">Nothing flagged.</p>')
+      +'<div class="sub">Changed</div>'+(b.changes.length?ul(b.changes.map(c=>esc(c.what+': '+c.from+' → '+c.to)+'<span class="lp-prov"> · '+esc(dd(c.at))+(c.by?' · '+esc(typeof lpscName==='function'?lpscName(c.by):c.by):'')+'</span>')):'<p class="lp-prov">Nothing the Hub can show. Only the Start Contract keeps its history today.</p>')
+    +'</div>'
+    +(helpful.length&&!locked?'<div class="lp-panel help"><h3 class="lp-h">Helpful to learn</h3>'+ul(helpful.map(esc))+'</div>':'')
+    +(na.length?'<div class="lp-panel na"><h3 class="lp-h">Doesn\'t apply</h3>'+ul(na.map(x=>esc(x[0])+'<span class="lp-prov">: '+esc(x[1])+'</span>'))+'</div>':'');
+  const banner=b.began?'<div class="lp-banner">Care began '+esc(dd(b.began.ymd)||'')+' ('+esc(b.began.basis)+'). This is what we learned before care started, kept as it was. What\'s current lives on Care, Home &amp; Life and the other tabs.</div>'
+    :b.error?'<div class="lp-banner warn">Couldn\'t check whether care has started ('+esc(b.error)+'), so editing is paused. Reopen the profile to try again.</div>':'';
+  const story='<div class="lp-story"><h3 class="lp-h">The story so far</h3>'
+    +(notes?'<p class="lp-quote">'+esc(notes.length>700?notes.slice(0,700)+'…':notes)+'</p><p class="lp-prov">From the call notes, as typed'+(notes.length>700?'. The rest is under Why they\'re reaching out, and in Activity &amp; Documents.':'.')+'</p>'
+      :'<p class="lp-prov">No call notes yet.'+(locked?'':' <button class="lp-link" onclick="lpiEdit(\'why\')">Add them</button>')+'</p>')
+    +(l.ai_needs_summary?'<div class="lp-ai"><span class="lp-tag ai">AI</span> '+esc(l.ai_needs_summary)+'<div class="lp-prov">Written by AI from the call notes. Not checked by a person.</div></div>':'')+'</div>';
+  box.innerHTML=banner+'<div class="lp-intake"><div class="lp-main">'+story+'<span id="lpiMsg" class="lp-prov" role="status"></span>'+LPI_CH.map(chapter).join('')+'</div><aside class="lp-side">'+side+'</aside></div>';
+}
+/* leaving the page with unsaved chapter typing asks first (the browser's own question) */
+window.addEventListener('beforeunload', ev=>{ if(LPI.editing&&lpiDirty()){ ev.preventDefault(); ev.returnValue=''; } });
 /* ── LEADS & STARTS (Client path step 4, her Sept 25 design, approved 2026-09-28) ─────────────
    One row per family from first call to first shift. Nothing is stored here: every cell comes from
    records the older lists already use (the inquiry, its Journey's Start Contract, the care
@@ -34982,6 +35245,87 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 #cpCommand #cp_open_now>.card{ border:none; box-shadow:none; padding:0; margin:0; background:transparent; }
 @media(max-width:960px){ .cpx-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:480px){ .cpx-grid{ grid-template-columns:1fr; } .cpx-cmd{ padding:14px; } }
+/* ── THE LIVING PROFILE DESIGN FOUNDATION (Gate 1b-2, 2026-09-28) ───────────────────────────────
+   The look from her approved Living Profile mock-up, as one reusable layer:
+   1 · tokens (--lp-*), 2 · the profile's existing tokens pointed at them, 3 · a few named parts
+   (.lp-card, .lp-chap, .lp-fact, .lp-panel, .lp-tag, .lp-banner, the tab bar).
+   It switches on with the class "lp-theme" on a profile container. Only the lead/client profile
+   has it today (her ruling: new foundation, limited rollout). Caregiver, applicant and referrer
+   profiles can opt in later by adding the class, with nothing copied. No dark mode (the Hub has none). */
+#leadProfileView.lp-theme, #applicantProfileView.lp-theme, #refProfileView.lp-theme, #tab-cgdir.lp-theme{
+  --lp-bg:#F4F7FB; --lp-surface:#FFFFFF; --lp-sunk:#F7F9FC; --lp-ink:#132A44; --lp-muted:#5A6B7E; --lp-dim:#8494A7; --lp-line:#DCE4EE;
+  --lp-navy:#0E3860; --lp-teal:#2E9C97; --lp-teal-soft:#E3F4F3; --lp-honey:#B7791F; --lp-honey-soft:#FFF3DF;
+  --lp-bad:#B4402F; --lp-bad-soft:#FBE7E3; --lp-good:#2F7D4E; --lp-good-soft:#E3F2E8; --lp-blue:#2F6FB0; --lp-blue-soft:#E8F0FB;
+  --lp-violet:#6B4FBB; --lp-violet-soft:#EFEAFB;
+  --lp-shadow:0 1px 2px rgba(14,56,96,.06),0 6px 20px rgba(14,56,96,.06);
+  --lp-font:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --lp-display:Poppins,"Source Sans 3",system-ui,sans-serif;
+  /* the tokens the profile's existing cards already use, pointed at the foundation */
+  --navy:var(--lp-navy); --navy-2:#2C4462; --border:var(--lp-line); --text:var(--lp-ink); --text-muted:var(--lp-muted); --text-dim:var(--lp-dim);
+  --teal:var(--lp-teal); --teal-line:#C6E6E4; --green:var(--lp-good); --green-bg:var(--lp-good-soft);
+  --amber:var(--lp-honey); --amber-bg:var(--lp-honey-soft); --honey:var(--lp-honey); --honey-ink:var(--lp-honey); --honey-soft:var(--lp-honey-soft); --honey-chip:var(--lp-honey-soft);
+  --red:var(--lp-bad); --red-bg:var(--lp-bad-soft); --red-ground:#FFF8F7; --red-line:#EBC0B8;
+  --cream:var(--lp-sunk); --cream-line:var(--lp-line); --neutral:#EEF2F7; --neutral-2:var(--lp-line);
+  --gold:var(--lp-honey); --gold-text:var(--lp-honey); --blue-bg:var(--lp-blue-soft); --bg:var(--lp-sunk);
+  --cara-shadow:var(--lp-shadow);
+  background:var(--lp-bg); color:var(--lp-ink); font-family:var(--lp-font);
+}
+.lp-theme h2, .lp-theme h3, .lp-theme .lp-h, .lp-theme #cpTitle{ font-family:var(--lp-display); color:var(--lp-navy); text-wrap:balance; }
+.lp-theme .card{ border-radius:14px; border-color:var(--lp-line); box-shadow:var(--lp-shadow); }
+/* the tab bar: the mock-up's sunk bar with a navy pill */
+#leadProfileView.lp-theme .cp-tabs{ background:var(--lp-sunk); border:1px solid var(--lp-line); border-radius:14px; box-shadow:none; padding:6px; gap:4px; }
+#leadProfileView.lp-theme .cp-tab{ font-family:var(--lp-font); font-size:14px; font-weight:600; color:var(--lp-muted); border-radius:999px; padding:6px 13px; }
+#leadProfileView.lp-theme .cp-tab:hover{ background:var(--lp-surface); color:var(--lp-navy); }
+#leadProfileView.lp-theme .cp-tab.on{ background:var(--lp-navy); color:var(--lp-surface); font-weight:700; }
+.lp-theme .cpx-kv .k, .lp-theme .cpx-lbl{ font-family:var(--lp-font); }
+.lp-theme .cpx-path span.on{ background:var(--lp-navy); }
+
+/* parts */
+.lp-card{ background:var(--lp-surface); border:1px solid var(--lp-line); border-radius:14px; padding:14px 16px; box-shadow:var(--lp-shadow); }
+.lp-intake{ display:grid; grid-template-columns:minmax(0,1.45fr) minmax(0,1fr); gap:16px; align-items:start; }
+@media(max-width:960px){ .lp-intake{ grid-template-columns:1fr; } }
+.lp-main, .lp-side{ display:flex; flex-direction:column; gap:12px; min-width:0; }
+.lp-story h3, .lp-panel h3, .lp-chap h3{ margin:0; }
+.lp-story{ background:var(--lp-sunk); border:1px solid var(--lp-line); border-radius:14px; padding:14px 16px; display:flex; flex-direction:column; gap:6px; }
+.lp-quote{ margin:0; font-size:15.5px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+.lp-ai{ font-size:14px; background:var(--lp-surface); border:1px dashed var(--lp-line); border-radius:10px; padding:8px 10px; }
+.lp-chap{ display:flex; flex-direction:column; gap:8px; }
+.lp-chap.folded{ flex-direction:row; align-items:center; gap:10px; background:var(--lp-sunk); box-shadow:none; padding:10px 16px; flex-wrap:wrap; }
+.lp-chap.folded h3{ font-size:14.5px; margin:0; }
+.lp-chap.editing{ border:1.5px solid var(--lp-teal); }
+.lp-chaptop{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap; }
+.lp-chaptop h3{ font-size:15.5px; margin:0; }
+.lp-sent{ margin:0; font-size:15.5px; }
+.lp-facts{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:8px 16px; }
+.lp-fact .k{ font:700 10.5px/1.2 var(--lp-font); letter-spacing:.07em; text-transform:uppercase; color:var(--lp-muted); }
+.lp-fact .v{ font-size:14.5px; font-weight:600; overflow-wrap:anywhere; }
+.lp-fact.wide{ grid-column:1/-1; }
+.lp-more summary{ font-size:13px; color:var(--lp-muted); cursor:pointer; }
+.lp-prov{ font-size:12.5px; color:var(--lp-muted); margin:0; }
+.lp-link{ background:none; border:none; padding:0; font:700 13.5px var(--lp-font); color:var(--lp-blue); cursor:pointer; white-space:nowrap; }
+.lp-link:hover{ text-decoration:underline; }
+.lp-link:focus-visible{ outline:2px solid var(--lp-teal); outline-offset:2px; }
+.lp-tag{ display:inline-block; font:700 10.5px/1 var(--lp-font); letter-spacing:.06em; text-transform:uppercase; padding:4px 7px; border-radius:5px; white-space:nowrap; }
+.lp-tag.unk{ background:var(--lp-sunk); color:var(--lp-muted); border:1px solid var(--lp-line); }
+.lp-tag.ai{ background:var(--lp-violet-soft); color:var(--lp-violet); }
+.lp-draft{ font-size:13.5px; background:var(--lp-honey-soft); color:var(--lp-ink); border-radius:8px; padding:6px 10px; }
+.lp-banner{ background:var(--lp-blue-soft); color:var(--lp-ink); border-radius:12px; padding:10px 14px; font-size:14.5px; margin-bottom:12px; }
+.lp-banner.warn{ background:var(--lp-honey-soft); }
+.lp-panel{ border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:6px; }
+.lp-panel h3{ font-size:14.5px; margin:0; }
+.lp-panel ul{ margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; font-size:14px; }
+.lp-panel .sub{ font:700 10.5px/1.2 var(--lp-font); letter-spacing:.07em; text-transform:uppercase; color:var(--lp-muted); margin-top:4px; }
+.lp-panel.attn{ background:var(--lp-surface); border:1.5px solid var(--lp-bad); }
+.lp-panel.help{ background:var(--lp-sunk); border:1px solid var(--lp-line); }
+.lp-panel.help li, .lp-panel.na li{ color:var(--lp-muted); }
+.lp-panel.na{ border:1px dashed var(--lp-line); }
+/* a chapter holding the guided call's own section: the Payer tab owns the price boxes, so they stay out of it */
+.lpi-slot{ display:flex; flex-direction:column; gap:4px; }
+#lpIntake #leadPriceRow{ display:none !important; }
+.lpi-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-top:1px solid var(--lp-line); padding-top:10px; }
+.lpi-slot .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
+.lpi-slot > div > .section-title:first-child{ border-top:none; padding-top:0; margin-top:4px; }
+@media(max-width:600px){ .lpi-slot .grid2{ grid-template-columns:1fr !important; } }
 /* =================== END CARA SCOPE =================== */
 @keyframes caraspin{to{transform:rotate(360deg);}}
 </style>
