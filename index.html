@@ -8632,6 +8632,9 @@ function openLeadModal(id){
    Timeline of every text, email and call with this lead (via the secured
    ghl-lead-comms function — GHL token stays server-side), plus send boxes
    and a manual call log for calls made on the office line. */
+/* 2026-09-27: lead texts, GoHighLevel replies and job offers need the staff member's own Hub sign-in (x-hub-token), not
+   the shared Training key; the Training functions check it with the Hub and run the Hub's opt-out check. */
+async function trainHubTok(){ try{ const {data:{session}}=await sb.auth.getSession(); return (session&&session.access_token)||''; }catch(e){ return ''; } }
 const COMMS_API = 'https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms';
 const COMMS_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkcXVqeGl5Y3ljd2hza3l2cndhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTg1NDgsImV4cCI6MjA5ODc5NDU0OH0.SFjAfj--b-tWrk8bMVLeM-tGwD8VBaPsEBtUAp5tPew';
 let commsLead = null;
@@ -8657,7 +8660,7 @@ function initCommsPanel(lead){
 async function commsCall(body){
   const res = await fetch(COMMS_API, {
     method:'POST',
-    headers:{ 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'Content-Type':'application/json' },
+    headers:{ 'apikey':COMMS_ANON, 'Authorization':'Bearer '+COMMS_ANON, 'x-hub-token':await trainHubTok(), 'Content-Type':'application/json' },
     body: JSON.stringify(Object.assign({
       key: CONFIG.training_hub_key,
       phone: commsLead.phone||undefined,
@@ -12636,8 +12639,8 @@ async function notifyEscalation(c){
     +'\nConcern: '+((c.concerns_raised||c.caregiver_feedback||'(see hub)').slice(0,300))
     +'\nSatisfaction: '+(c.satisfaction_rating||'?')+'/5 · by '+(c.coordinator||'coordinator')
     +'\nOpen the CC Hub → Client Check-ins for the full record.';
-  const call = (body)=>fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
-    method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+  const call = async (body)=>fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
+    method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
     body:JSON.stringify(Object.assign({key:CONFIG.training_hub_key},body))}).then(r=>r.json()).catch(e=>({error:e.message}));
   const sends=[];
   (DATA.coordinator_staff||[]).filter(s=>s.notify_checkins&&s.phone).forEach(s=>{
@@ -17040,7 +17043,7 @@ async function submitJobOffer(){
   btn.disabled=true; btn.textContent='Sending…';
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/job-offer',{
-      method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+      method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
       body:JSON.stringify({key,offer})});
     const res=await r.json();
     if(!r.ok||res.error) throw new Error(res.error||('save failed ('+r.status+')'));
@@ -29000,7 +29003,7 @@ async function swEvvText(key){
   if(!confirm('Text '+r.caregiver+' the correction-form request?\n\n"'+msg+'"')) return;
   try{
     var resp=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
-      method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+      method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
       body:JSON.stringify({key:CONFIG.training_hub_key, action:'send_sms', phone:phone, first_name:first, message:msg})});
     var d=await resp.json();
     if(d&&d.status==='sent'){ await swEvvMark(key,'texted'); }
@@ -32822,7 +32825,7 @@ function renderNurseVisits(){
     const first=cg.split(' ')[0]||cg;
     try{
       const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
-        method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+        method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
         body:JSON.stringify({key:CONFIG.training_hub_key, action:'send_sms', phone, first_name:first, message:askText(first,client)})});
       const d=await r.json();
       if(d&&d.status==='sent'){ await logAsk(key,client,cg,'sms'); renderAskInto(key); cpRender(); }
@@ -32863,7 +32866,7 @@ function renderNurseVisits(){
       const phone=CG_PHONES[cg.toLowerCase()];
       try{
         const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
-          method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
+          method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
           body:JSON.stringify({key:CONFIG.training_hub_key, action:'send_sms', phone, first_name:first,
             message:'Hi '+first+'! Update about '+c.name+': '+msg+' — Caring Companions'})});
         const d=await r.json();
