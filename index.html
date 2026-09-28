@@ -18355,7 +18355,27 @@ async function ivqSelfTest(btn){
    Everyone hears the same thing at the same moment, which is the bit families
    actually want. Replies come back to the office line, so a worried daughter
    rings us rather than a caregiver's mobile. */
-let FC = [], FC_CONTACTS = {}, FC_INTROS = [];
+let FC = [], FC_CONTACTS = {}, FC_INTROS = [], FC_RECOG = {};
+/* I3: whether the Hub recognises each member's calls, or why not (from the identity layer; ids and words only) */
+async function fcRecogLoad(){
+  try{ const r=await sb.rpc('family_recognition'); if(r.error) throw r.error;
+    FC_RECOG={}; (r.data||[]).forEach(function(x){ FC_RECOG[String(x.contact_id)]=x; });
+  }catch(e){ FC_RECOG={}; }
+}
+function fcRecogChip(p){
+  const r=FC_RECOG[String(p.id)]; if(!r) return '';
+  const esc=escapeHtmlComms;
+  const chip=function(t,fg,bg,tip){ return '<span title="'+esc(tip)+'" style="font-size:11px;font-weight:700;color:'+fg+';background:'+bg+';border-radius:999px;padding:2px 8px;">'+esc(t)+'</span>'; };
+  switch(r.state){
+    case 'recognised': return chip('calls recognised','#15803D','#DCFCE7','Their calls go on this client\'s AxisCare call log and Calls list with their name. This is not permission to text them.');
+    case 'home_line': return chip('calls on the home line','#0F5E73','#E4F2F0','They share the client\'s number, so calls from it stay with the client.');
+    case 'shared': return chip('shared number','#8A5A00','#FFF4DC','Another family member uses this number too, so it identifies neither. Their calls go to Calls nobody could match for a person to place.');
+    case 'no_number': return '<span class="field-note" style="font-size:11.5px;">no number, so calls aren\'t recognised</span>';
+    case 'clash': return chip('number is someone else\'s','#8A1F17','#FDECEA','This number already belongs to someone who is not family in a circle. Nothing was linked. For the owner to decide.');
+    case 'not_recognised': return '<span class="field-note" style="font-size:11.5px;">calls not recognised'+(r.reason?': '+esc(r.reason):'')+'</span>';
+    default: return '';
+  }
+}
 /* One profile, step 3: while a profile shows a client's circle, the Family Circles list leaves
    that circle out (its element ids are per circle, so it can't be drawn twice) */
 let FC_PROFILE = null;
@@ -18394,6 +18414,7 @@ async function fcLoad(btn){
     if(c.error) throw c.error;
     FC = c.data || []; FC_INTROS = i.data || [];
     FC_CONTACTS = {}; (p.data||[]).forEach(function(x){ (FC_CONTACTS[x.circle_id] = FC_CONTACTS[x.circle_id] || []).push(x); });
+    await fcRecogLoad();
     fcRender();
   }catch(e){
     box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load circles: '
@@ -18454,6 +18475,7 @@ function fcCircleHtml(c,i){
             + (p.carried_from&&typeof lpcWho==='function'?'<span class="field-note" style="font-size:11.5px;">added from People involved by '+esc(lpcWho(p.carried_by))+', '+esc(lpcWhen(p.carried_at))+'</span>':'')
             + (p.stopped_at?'<span class="field-note" style="font-size:11.5px;color:var(--red);">replied STOP</span>':'')
             + (p.relationship?'<span class="field-note">'+esc(p.relationship)+'</span>':'')
+            + fcRecogChip(p)
             + (p.is_primary?'<span style="font-size:11px;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:2px 8px;">main contact</span>':'')
             + '<span style="flex:1;"></span>'
             + (p.phone?'<span class="field-note">'+esc(p.phone)+'</span>':'')
