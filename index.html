@@ -31726,6 +31726,50 @@ let COV_CG_CACHE=null;
 /* AxisCare's LIVE active caregiver list [{id (AxisCare), name}], cached for the session; the hub
    roster is only the labeled fallback if AxisCare is down. Shared by the call-off dropdown and
    the call-in plan's "only ask" list. */
+/* ── C2b · notes into AxisCare (2026-09-28) ──────────────────────────────────────────────────────────────────
+   Notes go through our own server (axiscare-note) with the person's own sign-in, and every one is recorded (who, when,
+   which client or caregiver, how it went; never the text). A caregiver note goes by AxisCare number, never a name: a
+   person confirms which caregiver, picked from AxisCare's own list. Replaces the older Training-project route. */
+async function axNoteCall(body){
+  try{
+    const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+    if(!tok) return { error:'Sign in first.' };
+    const r=await fetch(CONFIG.supabase_url+'/functions/v1/axiscare-note',{ method:'POST',
+      headers:{ Authorization:'Bearer '+tok, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+    return await r.json().catch(()=>({ error:'The AxisCare note service answered '+r.status }));
+  }catch(e){ return { error:String(e&&e.message||e) }; }
+}
+function axCgNorm(x){ return String(x||'').toLowerCase().replace(/[^a-z]/g,''); }
+async function axCaregiverPick(name, remembered){
+  const esc=escapeHtmlComms, { roster, fromFallback }=await covLoadCaregivers(), want=axCgNorm(name);
+  const last=axCgNorm(String(name||'').trim().split(/\s+/).slice(-1)[0]);
+  const exact=roster.filter(g=>axCgNorm(g.name)===want), rem=remembered?roster.find(g=>String(g.id)===String(remembered)):null;
+  const near=exact.length?[]:roster.filter(g=>last&&axCgNorm(String(g.name).split(/\s+/).slice(-1)[0])===last);
+  return new Promise(resolve=>{
+    const ov=document.createElement('div'); ov.id='axCgPick';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+    const row=g=>'<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:13.5px;"><b>'+esc(g.name)+'</b><span class="field-note">AxisCare #'+esc(g.id)+'</span><span style="flex:1"></span>'
+      +'<button class="primary" style="font-size:12.5px;padding:4px 10px;" data-id="'+esc(g.id)+'" data-nm="'+esc(g.name)+'">Send to this caregiver</button></div>';
+    const top=rem?[rem]:exact.length?exact:near;
+    ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:18px 20px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+      +'<div style="font-weight:800;color:var(--navy);font-size:16px;">Which AxisCare caregiver gets this note?</div>'
+      +'<div class="field-note" style="margin-top:4px;">The record says <b>'+esc(name||'(no name)')+'</b>. The note goes only to the caregiver you pick'+(fromFallback?' (AxisCare could not be reached, so this is the Hub\'s own list)':'')+'.</div>'
+      +(exact.length>1?'<div style="margin-top:8px;font-size:13px;color:#92400E;">More than one caregiver has this name. Check the AxisCare number before sending.</div>':'')
+      +(top.length?'<div style="margin-top:8px;">'+top.map(row).join('')+'</div>':'<div class="field-note" style="margin-top:8px;">Nobody in AxisCare has exactly this name. Find them below.</div>')
+      +'<input id="axCgQ" placeholder="Search AxisCare caregivers by name" style="margin-top:10px;width:100%;"><div id="axCgList" style="max-height:220px;overflow:auto;"></div>'
+      +'<div style="margin-top:12px;"><button class="secondary" id="axCgX">Cancel (send nothing)</button></div></div>';
+    document.body.appendChild(ov);
+    const done=v=>{ ov.remove(); resolve(v); };
+    const wire=()=>ov.querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>done({ id:b.getAttribute('data-id'), name:b.getAttribute('data-nm') }));
+    ov.querySelector('#axCgQ').oninput=e=>{ const q=axCgNorm(e.target.value); ov.querySelector('#axCgList').innerHTML=q.length<2?'':roster.filter(g=>axCgNorm(g.name).includes(q)).slice(0,20).map(row).join(''); wire(); };
+    ov.querySelector('#axCgX').onclick=()=>done(null); wire();
+  });
+}
+async function axCaregiverNote(name, note, remembered){
+  const pick=await axCaregiverPick(name, remembered); if(!pick) return { outcome:'cancelled' };
+  const d=await axNoteCall({ action:'caregiver_note', axiscare_caregiver_id:pick.id, note });
+  return Object.assign({ picked:pick }, d||{});
+}
 async function covLoadCaregivers(){
   let roster=COV_CG_CACHE, fromFallback=false;
   if(!roster){
@@ -34469,17 +34513,17 @@ function renderNurseVisits(){
       }catch(e){}
     }
     if(rv.changes_needed){
-      if(rv.axiscare_client_id&&CONFIG.training_hub_key){
-        try{
-          const note='CARE PLAN REVIEW — changes flagged ('+rv.at.slice(0,10)+')\n'
-            +'Level: '+(LEVELS[rv.care_level]?LEVELS[rv.care_level][0]:rv.care_level)+'\n'
-            +'Changed: '+rv.flags.join(', ')+'\n'+findings+'\n— '+(by||'coordinator')+', Caring Companions hub';
-          await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
-            method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
-            body:JSON.stringify({key:CONFIG.training_hub_key, action:'client_note', client_id:rv.axiscare_client_id, note})});
-        }catch(e){}
+      let axMsg='';
+      if(rv.axiscare_client_id){
+        const note='CARE PLAN REVIEW — changes flagged ('+rv.at.slice(0,10)+')\n'
+          +'Level: '+(LEVELS[rv.care_level]?LEVELS[rv.care_level][0]:rv.care_level)+'\n'
+          +'Changed: '+rv.flags.join(', ')+'\n'+findings+'\n— '+(by||'coordinator')+', Caring Companions hub';
+        const d=await axNoteCall({ action:'client_note', axiscare_client_id:rv.axiscare_client_id, note, kind:'care_plan_note' });
+        rv.ax_note={ at:new Date().toISOString(), sent:d.outcome==='sent', error:d.outcome==='sent'?'':String(d.detail||d.error||'not sent') };
+        try{ await persist('care_plan_reviews', rv); }catch(e){}
+        axMsg=rv.ax_note.sent?'\n\n📝 The review note is on their AxisCare record.':'\n\n⚠ The review note did NOT reach AxisCare ('+rv.ax_note.error+'). Add it by hand.';
       }
-      alert('Saved, and the changes are flagged. ✍️ Now update the actual care plan in AxisCare (and tell scheduling if the Level moved) — then click "mark plan updated ✓" on the card. It stays red until you do.');
+      alert('Saved, and the changes are flagged. ✍️ Now update the actual care plan in AxisCare (and tell scheduling if the Level moved) — then click "mark plan updated ✓" on the card. It stays red until you do.'+axMsg);
     }
     cpCloseForm(); cpRender();
   };
@@ -34624,7 +34668,7 @@ function renderNurseVisits(){
     // profile (same path the flagged-changes note uses), so anyone opening
     // the client sees what went out, to whom, and when.
     let noted=false;
-    if(sent.length&&c.axisId&&(CONFIG.training_hub_key||'').trim()){
+    if(sent.length&&c.axisId){
       try{
         let by=''; try{ by=(ME&&ME.name)||''; }catch(e){}
         const note='UPDATE TEXTED TO CAREGIVERS ('+today()+')\n'
@@ -34632,10 +34676,8 @@ function renderNurseVisits(){
           +'Sent to: '+sent.join(', ')
           +(noPhone.length?'\nNo phone on file (send manually): '+noPhone.map(p=>p.caregiver).join(', '):'')
           +'\n— '+(by||'coordinator')+', Caring Companions hub';
-        const nr=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
-          method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
-          body:JSON.stringify({key:CONFIG.training_hub_key, action:'client_note', client_id:c.axisId, note})});
-        noted=nr.ok;
+        const nr=await axNoteCall({ action:'client_note', axiscare_client_id:String(c.axisId), note });
+        noted=nr.outcome==='sent';
       }catch(e){}
     }
     let report='📢 Update sent to '+sent.length+' of '+withPhone.length+' caregiver'+(withPhone.length===1?'':'s')+'.';
@@ -35472,23 +35514,17 @@ window.covLoadShifts=function(){};
   }
   async function pushCoach(id){
     const e=all().find(x=>x.id===id); if(!e) return;
-    const k=(CONFIG.training_hub_key||'').trim();
-    if(!k){ alert('Paste the Training Hub read key into ⚙️ Settings first.'); return; }
     const noteText='CLIENT PREFERENCE — from a check-in call ('+String(e.at).slice(0,10)+')\n'
       +'Client: '+e.client+(e.spoke_with?' (spoke with '+e.spoke_with+')':'')+'\n'
       +'“'+e.coaching+'”\n'
       +'Passed along as friendly coaching so the match stays strong. — '+(e.by||'coordinator');
-    try{
-      const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
-        method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
-        body:JSON.stringify({key:k, action:'caregiver_note', caregiver_name:e.caregiver, note:noteText})});
-      const d=await r.json();
-      if(d.error) throw new Error(d.error);
-      e.coach_ax_noted=true; e.coach_ax_error='';
-    }catch(err){ e.coach_ax_noted=false; e.coach_ax_error=(err&&err.message)||'failed'; }
+    const d=await axCaregiverNote(e.caregiver, noteText, e.coach_ax_caregiver_id);
+    if(d.outcome==='cancelled') return;
+    if(d.outcome==='sent'){ e.coach_ax_noted=true; e.coach_ax_error=''; e.coach_ax_caregiver_id=d.picked.id; }
+    else { e.coach_ax_noted=false; e.coach_ax_error=String(d.detail||d.error||'failed'); }
     await persist('client_checkins', e);
     renderHistory();
-    if(e.coach_ax_noted) alert('✅ Noted on '+e.caregiver+'\'s AxisCare record.\n\nRemember to also tell them directly — a quick friendly text or call lands better than a note they might not see.');
+    if(e.coach_ax_noted) alert('✅ Noted on '+d.picked.name+'\'s AxisCare record (#'+d.picked.id+').\n\nRemember to also tell them directly — a quick friendly text or call lands better than a note they might not see.');
     else alert('Could not attach the AxisCare note: '+e.coach_ax_error);
   }
   async function skip(client,caregiver){
