@@ -820,7 +820,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="ftab" data-g="scheduling" onclick="ccGroupClick('scheduling')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Scheduling<span class="subtab-badge red" id="gb-sched" style="display:none;"></span></div>
     <span class="navrule"></span>
     <span class="navsec">Clients</span>
-    <div class="ftab" data-g="leads" onclick="ccGroupClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads &amp; Starts</div>
+    <div class="ftab" data-g="leads" onclick="ccGroupClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Care<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
     <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Marketing<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
     <span class="navrule"></span>
@@ -848,14 +848,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        Care begins. The tab keys did not change, so every old link keeps
        working. -->
   <div class="fsubbar" id="fsub-leads">
-    <div class="fpill" data-tab="leadsstarts" onclick="switchTab('leadsstarts')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Leads &amp; Starts</div>
+    <div class="fpill" data-tab="leadsstarts" onclick="switchTab('leadsstarts')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Leads board</div>
     <span class="pillsec" title="These stay until Oct 12, 2026 so the team can compare">Older lists</span>
     <div class="fpill" data-tab="statesubs" onclick="switchTab('statesubs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> State Submissions</div>
-    <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <span style="flex:1"></span>
     <select id="ccViewAsL" onchange="ccSetViewAs(this.value)" title="View one coordinator's book" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--navy);font-family:inherit;max-width:160px;align-self:center"></select>
   </div>
   <div class="fsubbar" id="fsub-clients">
+    <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
     <span class="pillsec" title="These stay until Oct 12, 2026 so the team can compare">Older lists</span>
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
@@ -1335,7 +1335,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Getting ready · Before staffing</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">The first half of Getting ready: every accepted family, from referral until staffing can begin. Open the family to check steps off. The second half, First shift, opens on its own when this half is done.</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">The first half of Getting ready, the start of Client Care: every family who said yes, from referral until staffing can begin. Open the family to check steps off. The second half, First shift, opens on its own when this half is done.</div>
         </div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="socFilters">
@@ -4149,8 +4149,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <section class="tabpanel" id="tab-leadsstarts">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
         <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Leads &amp; Starts</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:78ch;">Every family from their first call until their first shift is done. At-risk starts first, then the soonest start. Click a family to work on them.</div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Leads</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:78ch;">Every family from their first call until they say yes. At-risk first. Once they say yes they move to Client Care → Getting ready. Click a family to work on them.</div>
         </div>
         <span style="flex:1;"></span>
         <button class="linklike" onclick="lsLoadFacts(true)">↻ Refresh</button>
@@ -4200,7 +4200,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="card"><div id="postCallTableWrap"></div></div>
 </div></details>
 </div>
-      <div class="field-note" style="margin-top:10px;font-size:12px;">The older lists (State Submissions, Getting ready) stay in the menu until Oct 12 so the team can compare. Everything here is read from the same records they use.</div>
+      <div class="field-note" style="margin-top:10px;font-size:12px;">The older list (State Submissions) stays in the menu until Oct 12 so the team can compare. Everything here is read from the same records they use.</div>
     </section>
 
     <!-- the old Leads tab retired 2026-09-28 (Profile First, step B): Leads & Starts is the one list; its Follow-ups view holds the queue and drafts. -->
@@ -7179,7 +7179,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','statesubs','soc','clientqueue'],clients:['clientsboard','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','statesubs'],clients:['soc','clientqueue','clientsboard','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7550,7 +7550,7 @@ const CC_SECTION_TITLES = {
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
-  statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads & Starts', clientsboard:'Clients',
+  statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
@@ -28188,6 +28188,7 @@ function lsRows(){
     /* a client AxisCare shows as no longer active is Past, the same as on their profile */
     const idr=ax&&Array.isArray(CL360_IDENTITY)?CL360_IDENTITY.find(x=>String(x.axiscare_client_id||'')===ax):null;
     let st=ccLeadStage(l); if(st.k==='care'&&idr&&idr.role_status&&idr.role_status!=='active') st={ k:'past', d:'ended care' };
+    if(st.k==='ready'&&!leadIsSpam(l)&&!l.archived) return;   /* said yes: they live in Client Care → Getting ready (her call, 2026-09-28) */
     const set=leadIsSpam(l)?'spam':l.archived?'archived':st.k==='care'?'care':st.k==='past'?'past':'work';
     const ep=F.epOf[String(l.id)], sc=ep?F.scOf[ep]:null, pid=ep?F.planOf[ep]:null;
     const launch=ax?launches.find(c=>c.status!=='complete'&&String(c.axiscare_client_id||'').trim()===ax):null;
@@ -28197,9 +28198,6 @@ function lsRows(){
         :set==='archived'?'Archived (restore it from their profile)':set==='care'?'Receiving care':(l.status==='Lost'?'Lost: '+(l.lost_reason||'no reason given'):'Care ended'); }
     rows.push(r);
   });
-  /* First shift checklists with no inquiry behind them (clients AxisCare started directly) */
-  launches.filter(c=>c.status!=='complete'&&!(DATA.leads||[]).some(l=>l&&!l.archived&&String(l.axiscare_client_id||'').trim()&&String(l.axiscare_client_id).trim()===String(c.axiscare_client_id||'').trim())
-    && ccViewMatch(c.coordinator)).forEach(c=>{ const r=lsRow({ launch:c, st:{ k:'ready', d:'first shift' } }); r.set='work'; rows.push(r); });
   rows.sort((a,b)=>(b.risk.length?1:0)-(a.risk.length?1:0)
     || (a.start?0:1)-(b.start?0:1) || (a.start&&b.start?a.start.ymd.localeCompare(b.start.ymd):0)
     || CC_STAGE_ORDER.indexOf(b.st.k)-CC_STAGE_ORDER.indexOf(a.st.k)
@@ -28262,7 +28260,7 @@ function lsSearchHit(r){
   const l=r.l, c=r.c;
   return searchMatch([r.name, l&&l.first_name, l&&l.last_name, l&&l.phone, l&&l.email, l&&l.client_first_name, l&&l.client_last_name, l&&l.client_phone, c&&c.client_name].filter(Boolean).join(' '));
 }
-const LS_FILTERS=['All','At risk','Updates owed','Follow-up due','New','Talking','Waiting on the state','Assessment','Getting ready','Receiving care','Past','Archived','Spam'];
+const LS_FILTERS=['All','At risk','Updates owed','Follow-up due','New','Talking','Waiting on the state','Assessment','Receiving care','Past','Archived','Spam'];
 function lsIn(r,f){
   if(f==='Receiving care') return r.set==='care'; if(f==='Past') return r.set==='past'; if(f==='Archived') return r.set==='archived'; if(f==='Spam') return r.set==='spam';
   if(r.set!=='work') return false;
@@ -28287,8 +28285,7 @@ function renderLeadsStarts(){
   document.getElementById('lsCounters').innerHTML=
     tile(all.filter(r=>r.risk.length).length,'starts at risk','var(--red)','At risk')
     +tile(all.filter(r=>r.owe).length,'family updates owed','var(--amber,#C17A12)','Updates owed')
-    +tile(all.filter(r=>r.waitingState).length,'waiting on Medicaid','#94A3B8','Waiting on the state')
-    +tile(all.filter(r=>r.start&&r.st.k==='ready').length,'upcoming starts','var(--teal)','Getting ready');
+    +tile(all.filter(r=>r.waitingState).length,'waiting on Medicaid','#94A3B8','Waiting on the state');
   { const ae=document.getElementById('lsAsmt'); if(ae) ae.innerHTML=lsAsmtHtml(); }
   const rows=every.filter(pass);
   if(LS.filter==='Follow-up due') rows.sort((a,b)=>String(a.l.follow_up_due).localeCompare(String(b.l.follow_up_due)));
