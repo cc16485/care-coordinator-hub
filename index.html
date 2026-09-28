@@ -9445,18 +9445,79 @@ async function cpSendChange(){
   cpRenderChanges();
   if(typeof ccToast==='function') ccToast('Sent to Staffing. It shows here until it is done.');
 }
+/* THE PAYER TAB (Client path step 6, 2026-09-28): the payer, the Medicaid state submission, how long
+   the state has had it, and the Before staffing steps that ARE that submission (FUSION entry, DSDS),
+   edited in one place. Saves to the same inquiry fields the intake form writes; the steps check off
+   exactly as they do on the Start tab (socToggleStep). A mismatch between the two is shown, and a
+   person fixes it: nothing is changed on its own. */
+const CP_PAYERS=[['','Not recorded'],['private','Private pay'],['ltc','LTC insurance'],['va','VA'],['cds','CDS'],['medicaid','Medicaid (IHS)'],['pace','PACE']];
+const CP_STATE=[['','Not a state submission'],['not_submitted','Not yet submitted'],['submitted','Submitted, waiting on the assessment'],['assessed','Assessed, waiting on authorization'],['authorized','Authorized'],['denied','Denied or withdrawn']];
+function cpStateSteps(l){ return (l&&l.soc&&Array.isArray(l.soc.steps)?l.soc.steps:[]).map((st,i)=>({ st, i })).filter(x=>/FUSION|DSDS|authori[sz]ation/i.test(String(x.st.label||''))&&!(typeof socIsLaunchStep==='function'&&socIsLaunchStep(l.soc.pathway,x.st.id))); }
 function cpRenderPayer(){
   const box=document.getElementById('cp_payer'); if(!box) return;
   const esc=escapeHtmlComms, l=CP.lead;
-  const kv=(k,v)=>'<div style="display:flex;gap:10px;font-size:13.5px;padding:3px 0;"><span style="min-width:170px;color:var(--text-muted);font-weight:600;">'+k+'</span><span>'+(v?esc(v):'<span class="field-note">not recorded</span>')+'</span></div>';
+  if(!l){ box.innerHTML='<div class="card" style="padding:14px 18px;"><b style="font-size:15px;color:var(--navy);">Payer</b><div class="field-note" style="margin-top:6px;">No inquiry is connected, so there is no intake payer record. AxisCare holds this client\'s billing.</div></div>'; return; }
+  const opt=(list,v)=>list.map(o=>'<option value="'+o[0]+'"'+(String(v||'')===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('');
+  const med=l.funding_source==='medicaid'||!!l.state_status||!!l.state_submitted;
+  const sub=l.state_submitted||'', ss=l.state_status||'';
+  const days=sub?Math.floor((Date.now()-new Date(sub+'T12:00:00').getTime())/864e5):null;
+  const waiting=med&&ss!=='authorized'&&ss!=='denied';
+  const tone=!waiting?null:days===null?['#FDE8E8','#B23B2E','Not submitted to the state yet']:days>21?['#FDE8E8','#B23B2E','The state has had it '+days+' days: follow up now']:days>10?['#FDF3E3','#A8660E','The state has had it '+days+' days: follow up soon']:['#E8F0FB','#2F6FB0','The state has had it '+days+' day'+(days===1?'':'s')];
+  const steps=cpStateSteps(l);
+  const fusion=steps.find(x=>/FUSION/i.test(x.st.label));
+  const mismatch=fusion&&fusion.st.done_at&&(!ss||ss==='not_submitted');
+  const lbl='style="font-size:12.5px;font-weight:600;color:var(--navy);display:block;margin-bottom:3px;"';
   box.innerHTML='<div class="card" style="padding:14px 18px;">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><b style="font-size:15px;color:var(--navy);">Payer</b><span style="flex:1;"></span>'
-    +(l?'<button class="secondary" onclick="openLeadModal(\''+esc(l.id)+'\')">✏️ Edit in the intake form</button>':'')+'</div>'
-    +(l?kv('Payer',l.funding_source)+kv('Medicaid DCN',l.dcn)+kv('County',l.county)
-        +kv('State submitted',l.state_submitted)+kv('State status',l.state_status)
-        +kv('Quoted price',l.price_quoted?(l.quoted_price_amount||'quoted, amount not recorded'):'')
-      :'<div class="field-note">No inquiry is connected, so there is no intake payer record. AxisCare holds this client\'s billing.</div>')
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><b style="font-size:15px;color:var(--navy);">Payer</b><span style="flex:1;"></span><span class="field-note" id="cpPayMsg"></span></div>'
+    +'<div class="grid2">'
+      +'<div><label '+lbl+'>Who pays</label><select id="cpPayFunding" onchange="cpPayerDraft()">'+opt(CP_PAYERS,l.funding_source)+'</select></div>'
+      +'<div><label '+lbl+'>Price quoted</label><div style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="cpPayQuoted" style="width:auto;"'+(l.price_quoted?' checked':'')+'><input id="cpPayAmount" placeholder="e.g. $35/hr" value="'+esc(l.quoted_price_amount||'')+'" style="flex:1;"></div></div>'
+    +'</div>'
+    +'<div id="cpPayMed" style="'+(med?'':'display:none;')+'margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">'
+      +'<b style="font-size:14px;color:var(--navy);">Medicaid state submission</b>'
+      +(tone?'<div style="margin:8px 0;padding:7px 10px;border-radius:8px;font-size:13px;font-weight:700;background:'+tone[0]+';color:'+tone[1]+';">'+esc(tone[2])+'</div>':'')
+      +'<div class="grid2" style="margin-top:6px;">'
+        +'<div><label '+lbl+'>DCN (Medicaid number)</label><input id="cpPayDcn" placeholder="8-digit DCN" value="'+esc(l.dcn||'')+'"></div>'
+        +'<div><label '+lbl+'>County</label><input id="cpPayCounty" placeholder="e.g. Greene" value="'+esc(l.county||'')+'"></div>'
+        +'<div><label '+lbl+'>Submitted to the state</label><input type="date" id="cpPaySubmitted" value="'+esc(sub)+'"></div>'
+        +'<div><label '+lbl+'>Where the state is</label><select id="cpPayStatus">'+opt(CP_STATE,ss)+'</select></div>'
+      +'</div>'
+      +(mismatch?'<div style="margin-top:8px;padding:7px 10px;border-radius:8px;font-size:12.5px;background:#FDF3E3;color:#A8660E;">FUSION entry is checked off ('+esc(String(fusion.st.done_at).slice(0,10))+') but the status says not submitted. '
+        +'<button class="linklike" style="font-size:12.5px;" onclick="cpPayerMarkSubmitted(\''+esc(String(fusion.st.done_at).slice(0,10))+'\')">Mark it submitted on that date</button></div>':'')
+      +(steps.length?'<div style="margin-top:12px;"><b style="font-size:13px;color:var(--navy);">The steps that go with it</b><span class="field-note" style="font-size:11.5px;"> · the same checkboxes as Before staffing on the Start tab</span>'
+        +steps.map(x=>'<label style="display:flex;gap:8px;align-items:baseline;font-size:13px;font-weight:400;padding:4px 0;border-top:1px solid var(--border);cursor:pointer;">'
+          +'<input type="checkbox" style="width:auto;flex:none;"'+(x.st.done_at?' checked':'')+' onchange="cpPayerStep('+x.i+',this.checked)">'
+          +'<span style="flex:1;">'+esc(x.st.label)+(x.st.done_at?'<span class="field-note" style="font-size:11.5px;"> · done '+esc(String(x.st.done_at).slice(0,10))+(x.st.done_by?' by '+esc(x.st.done_by):'')+'</span>':'')+'</span></label>').join('')+'</div>'
+        :(l.funding_source==='medicaid'?'<div class="field-note" style="margin-top:10px;">The FUSION and DSDS steps appear here once Before staffing is started on the Start tab.</div>':''))
+    +'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:14px;"><button class="primary" onclick="cpPayerSave()">Save</button>'
+    +'<button class="linklike" style="font-size:12px;" onclick="openLeadModal(\''+esc(l.id)+'\')">open the whole intake form</button></div>'
     +'</div>';
+}
+function cpPayerDraft(){ const f=document.getElementById('cpPayFunding'), m=document.getElementById('cpPayMed'); if(f&&m&&f.value==='medicaid') m.style.display=''; }
+async function cpPayerSave(){
+  const l=CP.lead; if(!l) return;
+  const v=id=>{ const e=document.getElementById(id); return e?String(e.value||'').trim():''; };
+  const msg=document.getElementById('cpPayMsg');
+  l.funding_source=v('cpPayFunding');
+  const q=document.getElementById('cpPayQuoted'); l.price_quoted=!!(q&&q.checked); l.quoted_price_amount=v('cpPayAmount');
+  if(document.getElementById('cpPayDcn')){ l.dcn=v('cpPayDcn'); l.county=v('cpPayCounty'); l.state_submitted=v('cpPaySubmitted'); l.state_status=v('cpPayStatus'); }
+  if(l.state_submitted&&(!l.state_status||l.state_status==='not_submitted')) l.state_status='submitted';
+  await persist('leads', l);
+  if(msg){ msg.textContent='Saved.'; msg.style.color='var(--green)'; }
+  cpRenderPayer(); cpRenderOpenNow&&cpRenderOpenNow();
+  try{ if(typeof renderLeadProfile==='function') renderLeadProfile(); }catch(e){}
+  const m2=document.getElementById('cpPayMsg'); if(m2){ m2.textContent='Saved.'; m2.style.color='var(--green)'; }
+}
+async function cpPayerMarkSubmitted(ymd){
+  const l=CP.lead; if(!l) return;
+  l.state_submitted=l.state_submitted||ymd; l.state_status='submitted';
+  await persist('leads', l); cpRenderPayer();
+}
+async function cpPayerStep(i, checked){
+  if(!CP.lead||lpLead!==CP.lead) return;
+  await socToggleStep(i, checked);
+  cpRenderPayer();
 }
 function renderLeadProfile(){
   const l = lpLead; if(!l) return;
@@ -33530,7 +33591,7 @@ function renderNurseVisits(){
             +'<div style="flex:1;min-width:220px"><a href="javascript:void(0)" data-open-lead="'+E(l.id)+'" data-open-tab="payer" title="Open their profile (Payer)" style="font-size:.88rem;font-weight:700;color:var(--navy)">'+E(nameOf(l))+'</a>'+(l.county?' <span style="color:var(--text-muted)">— '+E(l.county)+'</span>':'')
             +'<div style="font-size:.72rem;color:var(--text-muted)">'+(l.dcn?'DCN '+E(l.dcn)+' · ':'')+(sub?'submitted '+E(sub)+' · ':'')+E(STATUS[l.state_status]||'Needs submitting')+' · follow-up: '+fu+'</div></div>'
             +'<span style="font-size:.72rem;font-weight:700;color:'+color+'">'+note+'</span>'
-            +'<button class="primary" style="font-size:.72rem" onclick="openLeadModal(\''+E(l.id)+'\')">Update</button>'
+            +'<button class="primary" style="font-size:.72rem" data-open-lead="'+E(l.id)+'" data-open-tab="payer">Update</button>'
             +'</div>';
         }).join('');
     }
@@ -33539,7 +33600,7 @@ function renderNurseVisits(){
         '<div style="font-size:.8rem;padding:.35rem 0;border-bottom:1px solid var(--border)">'
         +(l.state_status==='authorized'?'✅ ':'✕ ')+'<a href="javascript:void(0)" data-open-lead="'+E(l.id)+'" data-open-tab="payer" style="font-weight:700;color:var(--navy)">'+E(nameOf(l))+'</a>'
         +' — '+E(STATUS[l.state_status]||'')+(l.state_submitted?' · submitted '+E(l.state_submitted):'')
-        +' <a href="#" style="font-size:.72rem" onclick="openLeadModal(\''+E(l.id)+'\');return false;">update</a></div>').join('')
+        +' <a href="javascript:void(0)" style="font-size:.72rem" data-open-lead="'+E(l.id)+'" data-open-tab="payer">update</a></div>').join('')
         :'<div style="font-size:.8rem;color:var(--text-muted)">Nothing resolved yet.</div>';
     }
   };
