@@ -858,7 +858,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <select id="ccViewAsL" onchange="ccSetViewAs(this.value)" title="View one coordinator's book" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--navy);font-family:inherit;max-width:160px;align-self:center"></select>
   </div>
   <div class="fsubbar" id="fsub-clients">
-    <span class="pillsec">Current Clients</span>
+    <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
+    <span class="pillsec" title="These stay until Oct 12, 2026 so the team can compare">Older lists</span>
     <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
     <div class="fpill" data-tab="circles" onclick="switchTab('circles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family Circles</div>
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
@@ -4744,6 +4745,22 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 </section>
 
 <!-- ===================== TAB: CLIENTS (roster / single view) ===================== -->
+<!-- CLIENTS (Client path step 5, 2026-09-28): everyone receiving care, each row saying what's open or due.
+     One function (clDue) decides "what's due" for both this board and the profile's "Open right now". -->
+<section class="tabpanel" id="tab-clientsboard">
+  <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+    <div>
+      <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Clients</h2>
+      <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:78ch;">Everyone receiving care, and what's open or due for each: check-ins, care plan reviews, concerns, family requests and call-offs. Click a client, or any item, to work on it.</div>
+    </div>
+    <span style="flex:1;"></span>
+    <button class="linklike" onclick="clLoad(true)">↻ Refresh</button>
+  </div>
+  <div id="clFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
+  <div id="clBoard"><div class="field-note">Loading…</div></div>
+  <div class="field-note" style="margin-top:10px;font-size:12px;">The older lists (Active Clients, Family Circles, Client Check-ins, Care Plan Reviews) stay in the menu until Oct 12 so the team can compare.</div>
+</section>
+
 <section class="tabpanel" id="tab-clients">
 <details class="guide">
 <summary>📋 How This Tab Works — Step by Step ▼</summary>
@@ -5013,7 +5030,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       </div>
 </div>
     </div>
-    <div><div id="cp_changes"></div><div id="cp_c_summary"></div></div>
+    <div><div id="cp_open_now"></div><div id="cp_changes"></div><div id="cp_c_summary"></div></div>
   </div></div>
   <div class="cp-pane" data-cp-pane="start">
     <div id="cp_start_note"></div>
@@ -7278,7 +7295,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','leads','statesubs','assessments','soc','clientqueue'],clients:['clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','leads','statesubs','assessments','soc','clientqueue'],clients:['clientsboard','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7649,7 +7666,7 @@ const CC_SECTION_TITLES = {
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
-  statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads & Starts',
+  statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads & Starts', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
@@ -7862,6 +7879,7 @@ function renderActiveTab(){
   if(activeTab==='reports') renderReports();
   if(activeTab==='leads') renderLeads();
   if(activeTab==='leadsstarts') renderLeadsStarts();
+  if(activeTab==='clientsboard') renderClientsBoard();
   if(activeTab==='community') renderCommunity();
   if(activeTab==='htlocal') renderHtLocal();
   if(activeTab==='assessments') renderAssessments();
@@ -9179,7 +9197,7 @@ async function openClient(seed, tab){
     const note='<div class="card" style="padding:12px 16px;margin-bottom:12px;font-size:13px;color:var(--text-muted);">These fill in once they are a client (converted to AxisCare, or confirmed on the Journey).</div>';
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
-  cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges();
+  cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -26945,6 +26963,118 @@ const LEAD_STAGE_META={
   won:          ['Won',          '#E7F6EC', '#1F7A4D'],
   lost:         ['Lost',         '#F1F5F9', '#64748B'],
 };
+/* ── CLIENTS + "OPEN RIGHT NOW" (Client path step 5, 2026-09-28) ─────────────────────────────
+   clDue(r, issues) is the one answer to "what is open or due for this client", used by the Clients
+   board and the profile's Summary alike. It reads what the older lists read: the latest check-in,
+   the latest care plan review, open concerns (client_issue, by person), open family requests
+   (staffing_tasks, by AxisCare id) and call-offs in the last 30 days (coverage_cases). */
+const CL={ roster:null, issues:null, loading:false, filter:'Needs something' };
+async function clLoadIssues(){
+  const { data, error }=await sb.from('client_issue').select('id,client_person_id,summary,state,urgency').not('state','in','(resolved,closed_no_action)');
+  if(error) throw error; return data||[];
+}
+async function clLoad(force){
+  if(CL.loading||(CL.roster&&!force)) return;
+  CL.loading=true;
+  try{ CL.roster=await cl360Roster(); }catch(e){ CL.roster=[]; }
+  try{ CL.issues=await clLoadIssues(); }catch(e){ CL.issues={ error:String(e&&e.message||e) }; }
+  CL.loading=false;
+  if(activeTab==='clientsboard') renderClientsBoard();
+}
+function clDue(r, issues){
+  const ax=String((r&&r.axiscare_client_id)||'').trim(), t=today(), wk=new Date(Date.now()+7*864e5).toISOString().slice(0,10), out=[];
+  const d=ymd=>{ try{ return new Date(String(ymd).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return String(ymd); } };
+  const add=(kind,tone,label,tab,due)=>out.push({ kind, tone, label, tab, due:due||'' });
+  if(ax){
+    const ci=(DATA.client_checkins||[]).filter(c=>c&&c.client_name&&String(c.axiscare_client_id||'')===ax).sort((a,b)=>String(b.checkin_date||'').localeCompare(String(a.checkin_date||'')))[0];
+    if(!ci) add('checkin','warn','no check-in yet','checkins');
+    else if(ci.next_checkin_due&&ci.next_checkin_due<t) add('checkin','bad','check-in overdue since '+d(ci.next_checkin_due),'checkins',ci.next_checkin_due);
+    else if(ci.next_checkin_due&&ci.next_checkin_due<=wk) add('checkin','warn','check-in due '+d(ci.next_checkin_due),'checkins',ci.next_checkin_due);
+    const rv=(DATA.care_plan_reviews||[]).filter(x=>x&&String(x.axiscare_client_id||'')===ax).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')))[0];
+    if(!rv) add('review','warn','first plan review needed','care');
+    else {
+      if(rv.changes_needed&&!rv.plan_updated) add('review','bad','plan changes not in AxisCare yet','care');
+      if(rv.next_due&&rv.next_due<t) add('review','bad','plan review overdue since '+d(rv.next_due),'care',rv.next_due);
+      else if(rv.next_due&&rv.next_due<=wk) add('review','warn','plan review due '+d(rv.next_due),'care',rv.next_due);
+    }
+    const req=(DATA.staffing_tasks||[]).filter(x=>x&&String(x.axiscare_client_id||'')===ax&&x.status!=='done');
+    if(req.length) add('request','warn',req.length+' family request'+(req.length===1?'':'s')+' waiting on Staffing','summary');
+    const since=new Date(Date.now()-30*864e5).toISOString();
+    const cov=(DATA.coverage_cases||[]).filter(c=>c&&String(c.client_axiscare_id||'')===ax&&String(c.opened_at||'')>=since);
+    const openCov=cov.filter(c=>c.status==='open');
+    if(openCov.length) add('calloff','bad',openCov.length+' open call-off'+(openCov.length===1?'':'s'),'team');
+    else if(cov.length) add('calloff','dim',cov.length+' call-off'+(cov.length===1?'':'s')+' in 30 days','team');
+  }
+  const pid=r&&r.person_id;
+  if(pid&&Array.isArray(issues)){
+    const mine=issues.filter(i=>i.client_person_id===pid);
+    if(mine.length) add('concern','bad',mine.length+' open concern'+(mine.length===1?'':'s')+(mine[0]&&mine[0].summary?': '+String(mine[0].summary).slice(0,60):''),'summary');
+  }
+  return out;
+}
+const CL_TONE={ ok:['#E7F6EC','#1F7A4D'], warn:['#FDF3E3','#A8660E'], bad:['#FDE8E8','#B23B2E'], dim:['#F1F5F9','#64748B'] };
+function clChip(r, it){
+  const esc=escapeHtmlComms, c=CL_TONE[it.tone]||CL_TONE.dim;
+  const ax=String((r&&r.axiscare_client_id)||'');
+  return '<a href="javascript:void(0)" '+(ax?'data-open-client="'+esc(ax)+'"':'data-open-client="'+esc(r.client_name||'')+'"')+' data-open-tab="'+esc(it.tab)+'" '
+    +'style="display:inline-block;font-size:12px;font-weight:700;border-radius:6px;padding:2px 8px;margin:2px 4px 2px 0;text-decoration:none;background:'+c[0]+';color:'+c[1]+';">'+esc(it.label)+'</a>';
+}
+function renderClientsBoard(){
+  const box=document.getElementById('clBoard'); if(!box) return;
+  if(!CL.roster){ if(!CL.loading) clLoad(); box.innerHTML='<div class="field-note">Loading the client list…</div>'; return; }
+  const esc=escapeHtmlComms, issues=Array.isArray(CL.issues)?CL.issues:[], wk=new Date(Date.now()+7*864e5).toISOString().slice(0,10);
+  const all=CL.roster.filter(r=>r&&r.axiscare_client_id).map(r=>{
+    const due=clDue(r, issues), past=!!(r.role_status&&r.role_status!=='active');
+    const ci=(DATA.client_checkins||[]).filter(c=>c&&c.client_name&&String(c.axiscare_client_id||'')===String(r.axiscare_client_id)).sort((a,b)=>String(b.checkin_date||'').localeCompare(String(a.checkin_date||'')))[0];
+    return { r, due, past, bad:due.filter(x=>x.tone==='bad').length, warn:due.filter(x=>x.tone==='warn').length, lastCi:ci, coord:(ci&&ci.coordinator)||'' };
+  }).filter(x=>!x.coord||ccViewMatch(x.coord));
+  const FILTERS=[
+    ['Needs something', x=>!x.past&&(x.bad+x.warn)>0],
+    ['Due this week', x=>!x.past&&x.due.some(i=>i.tone==='bad'||(i.due&&i.due<=wk))],
+    ['Concerns', x=>!x.past&&x.due.some(i=>i.kind==='concern')],
+    ['Family requests', x=>!x.past&&x.due.some(i=>i.kind==='request')],
+    ['Check-ins', x=>!x.past&&x.due.some(i=>i.kind==='checkin')],
+    ['Plan reviews', x=>!x.past&&x.due.some(i=>i.kind==='review')],
+    ['Call-offs', x=>!x.past&&x.due.some(i=>i.kind==='calloff')],
+    ['All current', x=>!x.past],
+    ['Past', x=>x.past] ];
+  const f=FILTERS.find(x=>x[0]===CL.filter)||FILTERS[0];
+  document.getElementById('clFilters').innerHTML=FILTERS.map(x=>'<button class="filter-pill'+(x[0]===f[0]?' active':'')+'" onclick="CL.filter=\''+x[0]+'\';renderClientsBoard()">'+x[0]+' <span style="opacity:.65;">'+all.filter(x[1]).length+'</span></button>').join('')
+    +(CL.issues&&CL.issues.error?'<span class="field-note" style="color:var(--red);align-self:center;">Concerns could not load: '+esc(CL.issues.error)+'</span>':'');
+  const rows=all.filter(f[1]).sort((a,b)=>(b.bad-a.bad)||(b.warn-a.warn)||String(a.r.client_name).localeCompare(String(b.r.client_name)));
+  if(!rows.length){ box.innerHTML='<div class="card" style="padding:16px 18px;color:var(--text-muted);">Nobody here right now.</div>'; return; }
+  box.innerHTML='<div class="card" style="padding:0;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:640px;">'
+    +'<thead><tr style="background:var(--bg);text-align:left;">'+['Client','Open or due','Last check-in'].map(h=>'<th style="padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">'+h+'</th>').join('')+'</tr></thead><tbody>'
+    +rows.map(x=>'<tr style="border-top:1px solid var(--border);'+(x.bad?'background:#FFFAF9;':'')+'">'
+      +'<td style="padding:9px 10px;vertical-align:top;"><a href="javascript:void(0)" data-open-client="'+esc(String(x.r.axiscare_client_id))+'" style="font-weight:700;color:var(--navy);">'+esc(x.r.client_name)+'</a>'
+        +'<div style="margin-top:3px;">'+ccStageChip(x.past?{k:'past',d:'ended care'}:{k:'care',d:''})+'</div></td>'
+      +'<td style="padding:9px 10px;vertical-align:top;">'+(x.due.length?x.due.map(i=>clChip(x.r,i)).join(''):'<span class="field-note">nothing open</span>')+'</td>'
+      +'<td style="padding:9px 10px;vertical-align:top;white-space:nowrap;">'+(x.lastCi?esc(x.lastCi.checkin_date||'')+(x.coord?'<div class="field-note" style="font-size:11.5px;">'+esc(x.coord)+'</div>':''):'<span class="field-note">none yet</span>')+'</td></tr>').join('')
+    +'</tbody></table></div>';
+}
+/* the profile's Summary: everything open or due for this client, each a link to the tab where it's done */
+async function cpRenderOpenNow(){
+  const box=document.getElementById('cp_open_now'); if(!box) return;
+  const r=CP.r; if(!r||!CP.ax){ box.innerHTML=''; return; }
+  const key=CP.ax; box.dataset.for=key;
+  const rr=Object.assign({}, r, { axiscare_client_id:CP.ax });
+  const draw=(issues,err)=>{
+    if(box.dataset.for!==key) return;
+    const due=clDue(rr, issues);
+    box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:14px;'+(due.some(i=>i.tone==='bad')?'border-color:#E8B4B4;':'')+'">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><b style="font-size:15px;color:var(--navy);">Open right now</b><span class="field-note" style="font-size:11.5px;">concerns, requests, what\'s due, call-offs</span></div>'
+      +(due.length?'<div style="margin-top:6px;">'+due.map(i=>{ const c=CL_TONE[i.tone]||CL_TONE.dim;
+          const go=i.kind==='concern'?"switchTab('mywork')":i.kind==='request'?"document.getElementById('cp_changes').scrollIntoView({behavior:'smooth'})":"cpShowTab('"+i.tab+"');window.scrollTo(0,0)";
+          return '<a href="javascript:void(0)" onclick="'+go+'" style="display:inline-block;font-size:12.5px;font-weight:700;border-radius:6px;padding:3px 9px;margin:3px 5px 3px 0;text-decoration:none;background:'+c[0]+';color:'+c[1]+';">'+escapeHtmlComms(i.label)+'</a>'; }).join('')+'</div>'
+        :'<div class="field-note" style="margin-top:6px;">Nothing open or due.</div>')
+      +(err?'<div class="field-note" style="color:var(--red);margin-top:4px;">Concerns could not load: '+escapeHtmlComms(err)+'</div>':'')
+      +'</div>';
+  };
+  draw(Array.isArray(CL.issues)?CL.issues:[], null);
+  if(!rr.person_id) return;
+  try{ const iss=await clLoadIssues(); CL.issues=iss; draw(iss, null); }
+  catch(e){ draw([], String(e&&e.message||e)); }
+}
 /* ── LEADS & STARTS (Client path step 4, her Sept 25 design, approved 2026-09-28) ─────────────
    One row per family from first call to first shift. Nothing is stored here: every cell comes from
    records the older lists already use (the inquiry, its Journey's Start Contract, the care
