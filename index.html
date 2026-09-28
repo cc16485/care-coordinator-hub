@@ -850,7 +850,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-leads">
     <div class="fpill" data-tab="leadsstarts" onclick="switchTab('leadsstarts')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Leads &amp; Starts</div>
     <span class="pillsec" title="These stay until Oct 12, 2026 so the team can compare">Older lists</span>
-    <div class="fpill" data-tab="leads" onclick="switchTab('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
     <div class="fpill" data-tab="statesubs" onclick="switchTab('statesubs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> State Submissions</div>
     <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <span style="flex:1"></span>
@@ -1276,7 +1275,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <b style="font-size:15.5px;font-weight:800;color:var(--navy);">Inquiry Pipeline (this month)</b>
           <span style="flex:1;"></span>
-          <button class="linklike" onclick="switchTab('leads')">Open pipeline</button>
+          <button class="linklike" onclick="switchTab('leadsstarts')">Open pipeline</button>
         </div>
         <div class="stage-grid" id="stageGrid"></div>
       </div>
@@ -4098,7 +4097,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 <div class="settings-section">
 <h3>🔗 Lead Intake (Website Form → Hub)</h3>
-<p class="hint">Every mo-care.com form posts to the token-gated <code>lead-intake</code> Edge Function (see assets/forms.js in the website repo) and lands in the Leads tab with source "Website" — verified end to end 2026-08-01. No Zapier involved. An earlier note here showed a raw database URL; that path was closed in the July security hardening and was never the real one.</p>
+<p class="hint">Every mo-care.com form posts to the token-gated <code>lead-intake</code> Edge Function (see assets/forms.js in the website repo) and lands on Leads &amp; Starts with source "Website" — verified end to end 2026-08-01. No Zapier involved. An earlier note here showed a raw database URL; that path was closed in the July security hardening and was never the real one.</p>
 <div class="webhook-box"><code id="leadWebhookUrl">POST https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/lead-intake?token=cclead_…</code></div>
 </div>
 
@@ -4222,48 +4221,25 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <span style="flex:1;"></span>
         <button class="linklike" onclick="lsLoadFacts(true)">↻ Refresh</button>
+        <button class="primary" onclick="openCallCockpit()">+ Add lead</button>
       </div>
+      <details class="guide" style="margin-bottom:10px;"><summary>📋 How this list works</summary><div class="guide-body">
+        <div class="guide-step"><span class="num">1</span>Phone leads: <b>+ Add lead</b> while you're on the call. Website and referral leads arrive by themselves.</div>
+        <div class="guide-step"><span class="num">2</span>Click a family to work on them. Their profile opens on the tab their stage needs; the assessment, Start of Care and everything else live there.</div>
+        <div class="guide-step"><span class="num">3</span>Not ready yet? Set a follow-up date on their profile. <b>Follow-up due</b> shows everyone you owe a call, soonest first, and the <b>Follow-ups</b> view holds the drafts waiting for approval.</div>
+        <div class="guide-step flag"><span class="num">!</span>A lead that goes cold is marked <b>Lost</b> with a reason (see <b>Past</b>). Archived leads leave the working list but are kept (see <b>Archived</b>).</div>
+      </div></details>
+      <div class="subtab-bar" id="lsViewBar" style="margin-bottom:10px;">
+        <button class="subtab active" id="lsViewBtn-board" onclick="switchLeadsSubtab('pipeline')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Board</button>
+        <button class="subtab" id="lsViewBtn-followups" onclick="switchLeadsSubtab('followups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Follow-ups<span class="subtab-badge red" id="subtabBadge-followups" style="display:none;"></span></button>
+      </div>
+      <div id="lsBoardView">
       <div id="lsCounters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;"></div>
       <div id="lsAsmt" style="margin-bottom:12px;"></div>
       <div id="lsFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
       <div id="lsBoard"><div class="field-note">Loading…</div></div>
-      <div class="field-note" style="margin-top:10px;font-size:12px;">The older lists (Leads, State Submissions, Getting ready) stay in the menu until Oct 12 so the team can compare. Everything here is read from the same records they use.</div>
-    </section>
-
-    <section class="tabpanel" id="tab-leads">
-      <details class="guide">
-        <summary>📋 How This Tab Works — Step by Step ▼</summary>
-        <div class="guide-body">
-          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-top:6px;">How leads get here</div>
-          <div class="guide-step"><span class="num">1</span>Leads come in by phone call, the website form, or a referral partner. Phone leads: add them manually with <b>+ Add Lead</b> while you're on the call. Website/referral leads can flow in automatically once the Lead Intake webhook is connected in Settings.</div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-top:14px;">Your checklist for each lead</div>
-          <div class="guide-step"><span class="num">2</span><b>Log the call</b> — capture their situation, who needs care, and urgency in the notes field.</div>
-          <div class="guide-step"><span class="num">3</span><b>Schedule the in-home care assessment</b> — open their profile and use "Book the assessment visit", then "Assessment" on the Care tab. A new lead moves to <b>Assessment Scheduled</b>.</div>
-          <div class="guide-step"><span class="num">4</span>If they're not ready yet, set a <b>follow-up due date</b> — the Follow-up Due filter surfaces anyone you owe a callback.</div>
-          <div class="guide-step flag"><span class="num">!</span>If a lead goes cold, mark them <b>Lost</b> with a reason — keeps your pipeline numbers honest without deleting the record.</div>
-          <div class="guide-step"><span class="num">5</span>Once they sign on and are set up in AxisCare, mark <b>Converted</b> and paste their AxisCare client ID — this links the lead to their later Care Assessment and Check-in records.</div>
-        </div>
-      </details>
-
-<div class="subtab-bar">
-<button class="subtab active" id="subtabBtn-pipeline" onclick="switchLeadsSubtab('pipeline')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Pipeline</button>
-<button class="subtab" id="subtabBtn-followups" onclick="switchLeadsSubtab('followups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Follow-ups<span class="subtab-badge red" id="subtabBadge-followups" style="display:none;"></span></button>
-</div>
-
-<!-- ---- Sub-tab: Pipeline ---- -->
-<div class="subtabpanel active" id="subtab-pipeline">
-<div class="toolbar" id="leadsFilters"></div>
-<div class="toolbar">
-<div class="spacer"></div>
-<div id="leadsDueBanner" style="display:none;background:var(--red-bg);border:1.5px solid #FCA5A5;color:var(--red);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;margin-bottom:12px;cursor:pointer;" onclick="switchLeadsSubtab('followups')"></div>
-<button class="secondary" onclick="switchLeadsSubtab('followups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> View Follow-ups</button>
-<button class="primary" onclick="openCallCockpit()">+ Add Lead</button>
-</div>
-<div class="card"><div id="leadsTableWrap"></div></div>
-</div>
-
-<!-- ---- Sub-tab: Follow-ups (queue + drafts, merged) ---- -->
-<div class="subtabpanel" id="subtab-followups">
+      </div>
+<div id="lsFollowView" style="display:none;">
 <div class="toolbar" style="margin-bottom:14px;">
 <div class="spacer"></div>
 <span class="badge bad" id="fqStatOverdue" style="font-size:12px;">0 Overdue</span>
@@ -4291,7 +4267,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="card"><div id="postCallTableWrap"></div></div>
 </div></details>
 </div>
-</section>
+      <div class="field-note" style="margin-top:10px;font-size:12px;">The older lists (State Submissions, Getting ready) stay in the menu until Oct 12 so the team can compare. Everything here is read from the same records they use.</div>
+    </section>
+
+    <!-- the old Leads tab retired 2026-09-28 (Profile First, step B): Leads & Starts is the one list; its Follow-ups view holds the queue and drafts. -->
 
 <!-- ===================== TAB: REFERRAL SOURCES ===================== -->
 <section class="tabpanel" id="tab-referrers">
@@ -6373,7 +6352,7 @@ The HomeTogether team</pre>
 
 </div>
 
-<div class="field-note" style="margin-top:14px;">💬 Texts, emails, calls and documents for this lead live on their profile page (Leads table → View Profile).</div>
+<div class="field-note" style="margin-top:14px;">💬 Texts, emails, calls and documents for this lead live on their profile page (click them on Leads &amp; Starts).</div>
 
 <div class="modal-actions">
 <button class="secondary" onclick="closeModal('leadModalBackdrop')">Cancel</button>
@@ -7265,7 +7244,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','leads','statesubs','soc','clientqueue'],clients:['clientsboard','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','statesubs','soc','clientqueue'],clients:['clientsboard','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7759,7 +7738,11 @@ function ccSetSectionTitle(tab){
    all, with no error, because the line threw before it did anything. */
 function gotoTab(tab){ return switchTab(tab); }
 
+/* Profile First (2026-09-28): the old Leads and Care Assessments tabs are gone; anything still asking for
+   them lands on Leads & Starts instead of failing. */
+const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts' };
 function switchTab(tab){
+  if(CC_RETIRED_TABS[tab]) tab=CC_RETIRED_TABS[tab];
   if(tab==='settings' && !ccCan('manage_settings')){ alert('You do not have permission to open Settings.'); return; }
   ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
@@ -7846,7 +7829,6 @@ function renderActiveTab(){
   if(activeTab==='myteam') renderMyTeam();
   if(activeTab==='referrers') renderReferrers();
   if(activeTab==='reports') renderReports();
-  if(activeTab==='leads') renderLeads();
   if(activeTab==='leadsstarts') renderLeadsStarts();
   if(activeTab==='clientsboard') renderClientsBoard();
   if(activeTab==='community') renderCommunity();
@@ -8381,15 +8363,22 @@ async function htDeleteOrder(id){
 }
 
 /* ---------------- LEADS ---------------- */
+/* Profile First, step B (2026-09-28): the old Leads tab's two sub-tabs are now Leads & Starts' two views,
+   Board and Follow-ups (the queue and the drafts, moved as they were). */
 function switchLeadsSubtab(name){
   if(name==='postcall'||name==='followupqueue') name='followups';
-  activeLeadsSubtab = name;
-  document.querySelectorAll('#tab-leads > .subtab-bar .subtab').forEach(b=>b.classList.remove('active'));
-  const _sb = document.getElementById('subtabBtn-'+(name==='followups'?'followups':'pipeline')); if(_sb) _sb.classList.add('active');
-  document.querySelectorAll('#tab-leads > .subtabpanel').forEach(p=>p.classList.remove('active'));
-  const _sp = document.getElementById('subtab-'+(name==='followups'?'followups':'pipeline')); if(_sp) _sp.classList.add('active');
-  if(name==='followups'){ renderFollowUpQueue(); renderPostCallFollowups(); }
+  activeLeadsSubtab = name==='followups'?'followups':'pipeline';
+  LS.view = activeLeadsSubtab==='followups'?'followups':'board';
+  if(typeof activeTab==='undefined'||activeTab!=='leadsstarts') switchTab('leadsstarts'); else lsShowView();
 }
+function lsShowView(){
+  const f=LS.view==='followups', bv=document.getElementById('lsBoardView'), fv=document.getElementById('lsFollowView');
+  if(bv) bv.style.display=f?'none':''; if(fv) fv.style.display=f?'':'none';
+  const b1=document.getElementById('lsViewBtn-board'), b2=document.getElementById('lsViewBtn-followups');
+  if(b1) b1.classList.toggle('active',!f); if(b2) b2.classList.toggle('active',f);
+  if(f){ try{ renderFollowUpQueue(); renderPostCallFollowups(); }catch(e){} }
+}
+function lsGo(filter){ LS.filter=filter||'All'; LS.view='board'; activeLeadsSubtab='pipeline'; if(typeof activeTab!=='undefined'&&activeTab==='leadsstarts') renderLeadsStarts(); else switchTab('leadsstarts'); }
 function updateLeadsSubtabBadges(){
   const pendingCount = DATA.post_call_followups.filter(f=>f.status==='pending_approval').length;
   const overdueLeads = DATA.leads.filter(l=>!l.archived && l.follow_up_due && l.follow_up_due<=today() && l.status!=='Converted' && l.status!=='Lost').length;
@@ -8404,60 +8393,9 @@ function updateLeadsSubtabBadges(){
   if(fBadge){ fBadge.textContent = queueCount; fBadge.style.display = queueCount>0 ? '' : 'none'; }
 }
 function renderLeads(){
-  updateLeadsSubtabBadges();
-  const archivedCount=(DATA.leads||[]).filter(l=>l.archived).length;
-  renderFilterPills('leadsFilters', ['All'].concat(CC_STAGE_ORDER.map(k=>CC_STAGE_META[k][0]),['Follow-up Due'])
-    .concat(archivedCount?['Archived ('+archivedCount+')']:[]), activeFilters.leads, 'leads');
-  const f = activeFilters.leads;
-  const wantArchived = String(f||'').indexOf('Archived')===0;
-  /* Archived leads leave the working list entirely. They are not lost — they
-     have their own pill and everything about them is intact — but a record
-     somebody archived should stop appearing in the day's work. */
-  let rows = DATA.leads.filter(l => (wantArchived ? !!l.archived : !l.archived)
-    && ccViewMatch(l.assigned_coordinator) && searchMatch(`${l.first_name} ${l.last_name} ${l.phone} ${l.email} ${l.client_first_name||''} ${l.client_last_name||''} ${l.client_phone||''}`));
-  if(f==='Follow-up Due') rows = rows.filter(l => l.follow_up_due && l.follow_up_due <= today());
-  else if(f!=='All' && !wantArchived){
-    const k=CC_STAGE_ORDER.find(x=>CC_STAGE_META[x][0]===f);
-    rows = k ? rows.filter(l => ccLeadStage(l).k === k) : rows.filter(l => l.status === f);
-  }
-
-  /* Newest inquiry on top — the storage order appends new leads to the end,
-     which buried exactly the person who most needs eyes. The Follow-up Due
-     view sorts by who was promised a call soonest instead. */
-  rows = rows.slice().sort((a,b)=> f==='Follow-up Due'
-    ? String(a.follow_up_due||'9999').localeCompare(String(b.follow_up_due||'9999'))
-    : String(b.created_at||'').localeCompare(String(a.created_at||'')));
-
-  const wrap = document.getElementById('leadsTableWrap');
-  if(rows.length===0){ wrap.innerHTML = '<div class="empty">No leads match.</div>'; return; }
-  const urgencyBadge = u => ({today:'<span class="badge bad">Today</span>',
-    '48hours':'<span class="badge warn">48 hrs</span>',
-    '7days':'<span class="badge new">7 days</span>',
-    researching:'<span class="badge muted">Researching</span>'}[u] || '');
-  wrap.innerHTML = `<table><thead><tr>
-    <th>Lead</th><th>Client</th><th>Urgency</th><th>Source</th><th>Stage</th><th>Next Action</th><th>Actions</th>
-  </tr></thead><tbody>${rows.map(l => {
-    const clientName = l.client_name_not_provided ? '<span style="color:var(--text-muted);">Not provided</span>'
-      : (l.client_first_name||l.client_last_name) ? `${l.client_first_name||''} ${l.client_last_name||''}`.trim() : '—';
-    return `
-    <tr onclick="openLeadProfile('${l.id}')" style="cursor:pointer;">
-      <td><div style="display:flex;align-items:center;gap:10px;">
-        ${leadAvatar(l)}
-        <div style="min-width:0;"><b style="color:var(--navy);">${l.first_name||''} ${l.last_name||''}</b>
-        <div style="color:#8A7F70;font-size:12px;">${l.relationship||l.phone||''}</div></div>
-      </div></td>
-      <td>${clientName}</td>
-      <td>${urgencyBadge(l.urgency)}</td>
-      <td style="color:var(--text-muted);">${l.source||''}${l.referral_source_name? ' — '+l.referral_source_name:''}</td>
-      <td>${leadTruthChips(l)}</td>
-      <td>${leadNextAction(l)}</td>
-      <td onclick="event.stopPropagation();">
-        <button class="linklike" style="font-weight:700;" onclick="openLeadProfile('${l.id}')">Profile</button>
-        <button class="linklike" onclick="openLeadModal('${l.id}')">Edit</button>
-        <button class="linklike" onclick="scheduleAssessmentFromLead('${l.id}')">Assess</button>
-      </td>
-    </tr>`;
-  }).join('')}</tbody></table>`;
+  /* the old Leads list is gone (Profile First, step B); saves still call this, so it refreshes Leads & Starts and never fails */
+  try{ updateLeadsSubtabBadges(); }catch(e){}
+  try{ if(typeof activeTab!=='undefined'&&activeTab==='leadsstarts') renderLeadsStarts(); }catch(e){}
 }
 const AVATAR_COLORS=[['#E4EDF6','#1F517F'],['#E1F1ED','#1E6E60'],['#FBF1D6','#8A6412'],['#E7F3EC','#1F6D45'],['#F8E3E0','#A93226'],['#F3EDE3','#6E6559']];
 function leadAvatar(l){
@@ -9120,7 +9058,7 @@ async function openClient(seed, tab){
   seed=seed||{};
   const view=document.getElementById('leadProfileView'); if(!view) return;
   cpLeaving();   /* step 3: the previous client's borrowed forms / circle / board go back first */
-  if(view.style.display!=='block') CP.returnTab=(typeof activeTab!=='undefined'&&activeTab)?activeTab:'leads';
+  if(view.style.display!=='block') CP.returnTab=(typeof activeTab!=='undefined'&&activeTab)?activeTab:'leadsstarts';
   let lead=seed.lead_id?(DATA.leads||[]).find(l=>l.id===seed.lead_id)||null:null;
   let r=seed.r||null, ax=String(seed.ax||(r&&r.axiscare_client_id)||'').trim(), carrier=null;
   /* One profile, step 5: a person id opens their profile (their AxisCare id, else their confirmed inquiry) */
@@ -9201,7 +9139,7 @@ function closeLeadProfile(){
   cpLeaving();
   lpLead = null; CP.lead=null; CP.r=null; CP.launch=null;
   document.getElementById('leadProfileView').style.display='none';
-  const back=CP.returnTab||'leads'; CP.returnTab=null;
+  const back=CC_RETIRED_TABS[CP.returnTab]||CP.returnTab||'leadsstarts'; CP.returnTab=null;
   switchTab(back);
 }
 /* ── One profile, step 3: the editors on their tabs ──────────────────────────
@@ -9737,8 +9675,7 @@ function leadDueRow(l){
 function standupPeople(){ return ccPeople(); }
 function standupOpen(name){
   ccSetViewAs(name||'');
-  switchTab('leads');
-  switchLeadsSubtab('followups');
+  lsGo('Follow-up due');
 }
 function renderStandup(){
   const host=document.getElementById('standupRows'); if(!host) return;
@@ -9820,7 +9757,7 @@ function renderTodayHero(){
   const chips=[];
   if(onOps.length+onLeads.length) chips.push(chip(onOps.length+onLeads.length,'overnight','var(--navy)','mywork'));
   if(myPass.length) chips.push(chip(myPass.length,'pass-alongs','#B45309','mywork'));
-  if(myLeadsDue.length) chips.push(chip(myLeadsDue.length,'leads to call','var(--navy)','leads'));
+  if(myLeadsDue.length) chips.push(chip(myLeadsDue.length,'leads to call','var(--navy)','leadsstarts').replace('onclick="','onclick="LS.filter=\'Follow-up due\';'));
   chips.push(chip(b.today.length,'my priorities',b.today.length?'var(--red)':'var(--teal)','mywork'));
   chips.push(chip(covOpen.length,'coverage cases',covOpen.length?'var(--red)':'var(--teal)','coverage'));
   chips.push('<div class="tg-chip" id="tbShiftChip" style="border-top-color:var(--gray);" onclick="switchTab(\'coverage\')">'
@@ -9848,7 +9785,7 @@ function renderTodayHero(){
       esc(String(i.detail||'').slice(0,110))+' · '+esc(when(i.created_at))+(i.created_by?' · '+esc(String(i.created_by).split('@')[0]):''),'mywork')).join('')
     +onLeads.slice(0,4).map(l=>row('<b>New lead: '+esc([l.first_name,l.last_name].filter(Boolean).join(' '))+'</b>'
       +(/quick capture|assessment booking/i.test(String(l.source||''))?' <span class="hero-badge" style="background:#FFF4DE;color:#B45309;">quick form</span>':''),
-      esc(String(l.interest_notes||'').slice(0,100))+' · '+esc(when(l.created_at)),'leads')).join('')
+      esc(String(l.interest_notes||'').slice(0,100))+' · '+esc(when(l.created_at)),'leadsstarts')).join('')
     +((onOps.length>8||onLeads.length>4)?'<div class="field-note" style="padding-top:6px;">plus '+(Math.max(0,onOps.length-8)+Math.max(0,onLeads.length-4))+' more in My Work</div>':''),
     'What PEOPLE sent in after 5pm '+((new Date().getDay()===1)?'Friday':'yesterday')+'. The robots\' overnight findings go to My Work, not here.');
   if(myPass.length) left+=card('📝','Passed along to you ('+myPass.length+')','#B45309',
@@ -28052,7 +27989,7 @@ async function cpRenderChangeLog(){
    records the older lists already use (the inquiry, its Journey's Start Contract, the care
    assessment, the state submission, the team plan, the First shift checklist). The dots say what
    is ready (Care, Authorization, Staffing); "Next move" is the one thing the family needs next. */
-const LS={ facts:null, loading:false, filter:'All' };
+const LS={ view:'board', facts:null, loading:false, filter:'All' };
 async function lsLoadFacts(force){
   if(LS.loading||(LS.facts&&!force)) return;
   LS.loading=true;
@@ -28069,6 +28006,8 @@ async function lsLoadFacts(force){
     LS.facts={ epOf, scOf, planOf };
   }catch(e){ LS.facts={ epOf:{}, scOf:{}, planOf:{}, error:String(e&&e.message||e) }; }
   if(typeof cqLaunchFor==='function'){ try{ await cqLaunchFor({}); }catch(e){} }
+  /* who AxisCare says has ended care, so Past matches the profile (Profile First, step B) */
+  if(typeof cl360Identity==='function'){ try{ await cl360Identity(); }catch(e){} }
   LS.loading=false;
   if(activeTab==='leadsstarts') renderLeadsStarts();
 }
@@ -28142,16 +28081,24 @@ function lsRow(o){
 }
 function lsRows(){
   const F=LS.facts||{ epOf:{}, scOf:{}, planOf:{} }, rows=[], launches=window.__cqRows||[];
-  (DATA.leads||[]).filter(l=>l&&!l.archived&&ccViewMatch(l.assigned_coordinator)).forEach(l=>{
-    const st=ccLeadStage(l); if(st.k==='care'||st.k==='past') return;
-    const ep=F.epOf[String(l.id)], sc=ep?F.scOf[ep]:null, pid=ep?F.planOf[ep]:null;
+  /* Profile First, step B: every lead is here, marked by its set. The working board is 'work' (as before);
+     Receiving care, Past (lost, with the reason) and Archived have their own filters. */
+  (DATA.leads||[]).filter(l=>l&&ccViewMatch(l.assigned_coordinator)).forEach(l=>{
     const ax=String(l.axiscare_client_id||'').trim();
+    /* a client AxisCare shows as no longer active is Past, the same as on their profile */
+    const idr=ax&&Array.isArray(CL360_IDENTITY)?CL360_IDENTITY.find(x=>String(x.axiscare_client_id||'')===ax):null;
+    let st=ccLeadStage(l); if(st.k==='care'&&idr&&idr.role_status&&idr.role_status!=='active') st={ k:'past', d:'ended care' };
+    const set=l.archived?'archived':st.k==='care'?'care':st.k==='past'?'past':'work';
+    const ep=F.epOf[String(l.id)], sc=ep?F.scOf[ep]:null, pid=ep?F.planOf[ep]:null;
     const launch=ax?launches.find(c=>c.status!=='complete'&&String(c.axiscare_client_id||'').trim()===ax):null;
-    rows.push(lsRow({ lead:l, st, sc, launch, plan:pid?(DATA.staffing_plans||[]).find(p=>p.id===pid):null }));
+    const r=lsRow({ lead:l, st, sc, launch, plan:pid?(DATA.staffing_plans||[]).find(p=>p.id===pid):null }); r.set=set;
+    if(set!=='work'){ r.risk=[]; r.owe=false; r.tab='summary';
+      r.move=set==='archived'?'Archived (restore it from their profile)':set==='care'?'Receiving care':(l.status==='Lost'?'Lost: '+(l.lost_reason||'no reason given'):'Care ended'); }
+    rows.push(r);
   });
   /* First shift checklists with no inquiry behind them (clients AxisCare started directly) */
   launches.filter(c=>c.status!=='complete'&&!(DATA.leads||[]).some(l=>l&&!l.archived&&String(l.axiscare_client_id||'').trim()&&String(l.axiscare_client_id).trim()===String(c.axiscare_client_id||'').trim())
-    && ccViewMatch(c.coordinator)).forEach(c=>rows.push(lsRow({ launch:c, st:{ k:'ready', d:'first shift' } })));
+    && ccViewMatch(c.coordinator)).forEach(c=>{ const r=lsRow({ launch:c, st:{ k:'ready', d:'first shift' } }); r.set='work'; rows.push(r); });
   rows.sort((a,b)=>(b.risk.length?1:0)-(a.risk.length?1:0)
     || (a.start?0:1)-(b.start?0:1) || (a.start&&b.start?a.start.ymd.localeCompare(b.start.ymd):0)
     || CC_STAGE_ORDER.indexOf(b.st.k)-CC_STAGE_ORDER.indexOf(a.st.k)
@@ -28192,23 +28139,58 @@ function lsAsmtHtml(){
     +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 18px;margin-top:8px;">'
     +col('Visits booked',I.booked,it=>when(it.when))+col('Plans to write',I.write,it=>it.why)+col('Plans not in AxisCare yet',I.send,it=>it.why)+'</div></div>';
 }
+/* who called and the markers the old Leads list showed (Profile First, step B) */
+function lsWho(l){
+  if(!l) return ''; const caller=((l.first_name||'')+' '+(l.last_name||'')).trim();
+  const self=(typeof lpcSelf==='function'&&lpcSelf(l))||caller===String(cpLeadClientName(l)||'').trim();
+  return (!caller||self)?(l.phone||''):caller+(l.relationship?' ('+l.relationship+')':'')+(l.phone?' · '+l.phone:'');
+}
+function lsSignals(l){
+  if(!l) return ''; const esc=escapeHtmlComms, out=[];
+  const U={ today:['bad','Today'], '48hours':['warn','48 hrs'], '7days':['new','7 days'], researching:['muted','Researching'] }[l.urgency];
+  if(U) out.push('<span class="badge '+U[0]+'" style="font-size:10px;">'+U[1]+'</span>');
+  try{ if(l.family_last_reply_at&&!ldLast(l,e=>e.actor==='human'&&e.direction==='out'&&e.at>l.family_last_reply_at)) out.push('<span class="badge bad" style="font-size:10px;">replied, answer them</span>'); }catch(e){}
+  if(l.do_not_contact) out.push('<span class="badge bad" style="font-size:10px;">🚫 do not contact</span>');
+  try{ const a=leadAttemptChip(l); if(a) out.push(a.trim()); }catch(e){}
+  if(l.nurture_sequence&&!l.nurture_stopped_at) out.push('<span class="badge ok" style="font-size:10px;">🌱 nurture running</span>');
+  const src=[l.source,l.referral_source_name].filter(Boolean).join(' · ');
+  if(src) out.push('<span class="field-note" style="font-size:11px;">'+esc(src)+'</span>');
+  return out.length?'<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:3px;">'+out.join('')+'</div>':'';
+}
+function lsSearchHit(r){
+  const l=r.l, c=r.c;
+  return searchMatch([r.name, l&&l.first_name, l&&l.last_name, l&&l.phone, l&&l.email, l&&l.client_first_name, l&&l.client_last_name, l&&l.client_phone, c&&c.client_name].filter(Boolean).join(' '));
+}
+const LS_FILTERS=['All','At risk','Updates owed','Follow-up due','New','Talking','Waiting on the state','Assessment','Getting ready','Receiving care','Past','Archived'];
+function lsIn(r,f){
+  if(f==='Receiving care') return r.set==='care'; if(f==='Past') return r.set==='past'; if(f==='Archived') return r.set==='archived';
+  if(r.set!=='work') return false;
+  if(f==='All') return true; if(f==='At risk') return r.risk.length>0; if(f==='Updates owed') return r.owe;
+  if(f==='Follow-up due') return !!(r.l&&r.l.follow_up_due&&r.l.follow_up_due<=today());
+  if(f==='Waiting on the state') return r.waitingState;
+  return CC_STAGE_META[r.st.k][0]===f;
+}
 function renderLeadsStarts(){
   const box=document.getElementById('lsBoard'); if(!box) return;
   if(!LS.facts&&!LS.loading) lsLoadFacts();
-  const esc=escapeHtmlComms, all=lsRows();
-  const FILTERS=['All','At risk','New','Talking','Waiting on the state','Assessment','Getting ready'];
-  const pass=r=>LS.filter==='All'||(LS.filter==='At risk'?r.risk.length>0:LS.filter==='Waiting on the state'?r.waitingState:CC_STAGE_META[r.st.k][0]===LS.filter);
-  const count=f=>all.filter(r=>f==='All'||(f==='At risk'?r.risk.length>0:f==='Waiting on the state'?r.waitingState:CC_STAGE_META[r.st.k][0]===f)).length;
+  try{ updateLeadsSubtabBadges(); }catch(e){}
+  lsShowView();
+  const esc=escapeHtmlComms, every=lsRows().filter(lsSearchHit), all=every.filter(r=>r.set==='work');
+  if(LS_FILTERS.indexOf(LS.filter)<0) LS.filter='All';
+  const FILTERS=LS_FILTERS;
+  const pass=r=>lsIn(r,LS.filter);
+  const count=f=>every.filter(r=>lsIn(r,f)).length;
   document.getElementById('lsFilters').innerHTML=FILTERS.map(f=>'<button class="filter-pill'+(LS.filter===f?' active':'')+'" onclick="LS.filter=\''+f+'\';renderLeadsStarts()">'+f+' <span style="opacity:.65;">'+count(f)+'</span></button>').join('');
   const tile=(n,l,col,f)=>'<button onclick="LS.filter=\''+f+'\';renderLeadsStarts()" style="text-align:left;background:#fff;border:1px solid var(--border);border-left:3px solid '+col+';border-radius:10px;padding:9px 12px;cursor:pointer;font-family:inherit;">'
     +'<div style="font-size:22px;font-weight:800;color:var(--navy);line-height:1;font-variant-numeric:tabular-nums;">'+n+'</div><div class="field-note" style="font-size:12px;margin-top:3px;">'+l+'</div></button>';
   document.getElementById('lsCounters').innerHTML=
     tile(all.filter(r=>r.risk.length).length,'starts at risk','var(--red)','At risk')
-    +tile(all.filter(r=>r.owe).length,'family updates owed','var(--amber,#C17A12)','All')
+    +tile(all.filter(r=>r.owe).length,'family updates owed','var(--amber,#C17A12)','Updates owed')
     +tile(all.filter(r=>r.waitingState).length,'waiting on Medicaid','#94A3B8','Waiting on the state')
     +tile(all.filter(r=>r.start&&r.st.k==='ready').length,'upcoming starts','var(--teal)','Getting ready');
   { const ae=document.getElementById('lsAsmt'); if(ae) ae.innerHTML=lsAsmtHtml(); }
-  const rows=all.filter(pass);
+  const rows=every.filter(pass);
+  if(LS.filter==='Follow-up due') rows.sort((a,b)=>String(a.l.follow_up_due).localeCompare(String(b.l.follow_up_due)));
   if(!rows.length){ box.innerHTML='<div class="card" style="padding:16px 18px;color:var(--text-muted);">'+(LS.loading?'Loading…':'Nobody here right now.')+'</div>'; return; }
   const P={ ok:['#E7F6EC','#1F7A4D'], warn:['#FDF3E3','#A8660E'], bad:['#FDE8E8','#B23B2E'], dim:['#F1F5F9','#64748B'] };
   const pip=p=>'<span style="font-size:11.5px;font-weight:700;border-radius:6px;padding:2px 7px;white-space:nowrap;background:'+P[p.tone][0]+';color:'+P[p.tone][1]+';">'+esc(p.txt)+'</span>';
@@ -28216,10 +28198,11 @@ function renderLeadsStarts(){
   let lastRisk=null, h='<div class="card" style="padding:0;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:760px;">'
     +'<thead><tr style="background:var(--bg);text-align:left;">'+['Family','Start','Stage','Care','Authorization','Staffing','Next move'].map(x=>'<th style="padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">'+x+'</th>').join('')+'</tr></thead><tbody>';
   rows.forEach(r=>{
-    const isRisk=r.risk.length>0;
-    if(isRisk!==lastRisk){ lastRisk=isRisk; h+='<tr><td colspan="7" style="padding:5px 10px;background:var(--bg);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:'+(isRisk?'var(--red)':'var(--text-muted)')+';">'+(isRisk?'At risk':'On track')+'</td></tr>'; }
+    const isRisk=r.risk.length>0, band=r.set!=='work'?{care:'Receiving care',past:'Past',archived:'Archived'}[r.set]:LS.filter==='Follow-up due'?'Follow-up due, soonest first':(isRisk?'At risk':'On track');
+    if(band!==lastRisk){ lastRisk=band; h+='<tr><td colspan="7" style="padding:5px 10px;background:var(--bg);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:'+(isRisk?'var(--red)':'var(--text-muted)')+';">'+esc(band)+'</td></tr>'; }
     h+='<tr '+open(r)+' style="cursor:pointer;border-top:1px solid var(--border);'+(isRisk?'background:#FFFAF9;':'')+'" title="Open their profile">'
-      +'<td style="padding:9px 10px;"><div style="display:flex;align-items:center;gap:7px;"><span style="width:8px;height:8px;border-radius:50%;flex:none;background:'+(isRisk?'var(--red)':'var(--green)')+';"></span><b style="color:var(--navy);">'+esc(r.name)+'</b></div>'
+      +'<td style="padding:9px 10px;"><div style="display:flex;align-items:center;gap:7px;"><span style="width:8px;height:8px;border-radius:50%;flex:none;background:'+(isRisk?'var(--red)':r.set!=='work'?'#94A3B8':'var(--green)')+';"></span><b style="color:var(--navy);">'+esc(r.name)+'</b></div>'
+        +(r.l&&lsWho(r.l)?'<div class="field-note" style="font-size:11.5px;margin-top:2px;">'+esc(lsWho(r.l))+'</div>':'')+lsSignals(r.l)
         +(isRisk?'<div style="font-size:11.5px;color:var(--red);margin-top:2px;">'+esc(r.risk.join(' · '))+'</div>':'')+'</td>'
       +'<td style="padding:9px 10px;white-space:nowrap;">'+(r.start?'<b>'+esc(lsDate(r.start.ymd))+'</b> <span class="field-note">· '+(r.days===0?'today':r.days>0?r.days+' days':Math.abs(r.days)+' days ago')+'</span>'+(r.start.conf?'<div class="field-note" style="font-size:11px;">'+esc(r.start.conf)+'</div>':''):'<span class="field-note">no date promised</span>')+'</td>'
       +'<td style="padding:9px 10px;">'+ccStageChip(r.st)+'</td>'
