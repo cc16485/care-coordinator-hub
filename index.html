@@ -9518,7 +9518,8 @@ function cpRenderPayer(){
     +'</div>'
     +'<div style="display:flex;gap:8px;align-items:center;margin-top:14px;"><button class="primary" onclick="cpPayerSave()">Save</button>'
     +'<button class="linklike" style="font-size:12px;" onclick="openLeadModal(\''+esc(l.id)+'\')">open the whole intake form</button></div>'
-    +'</div>';
+    +'</div><div id="cpPayFacts"></div>';
+  lpfRenderPayerFacts();
 }
 function cpPayerDraft(){ const f=document.getElementById('cpPayFunding'), m=document.getElementById('cpPayMed'); if(f&&m&&f.value==='medicaid') m.style.display=''; }
 async function cpPayerSave(){
@@ -27160,7 +27161,7 @@ function cpxCareChips(l){
 }
 /* the preview of what's still needed before their next step, from what the inquiry records.
    tier 0 blocks the next step · 1 safety · 2 payer · 3 the rest */
-function cpxStillNeeded(l, st, sc){
+function cpxStillNeeded(l, st, sc, fb){
   if(!l||['new','talking','assessment','ready'].indexOf(st&&st.k)<0) return [];
   const out=[], add=(tier,label,why,tab)=>out.push({ tier, label, why, tab });
   const has=a=>Array.isArray(a)&&a.length>0, k=st.k, late=k==='assessment'||k==='ready';
@@ -27183,6 +27184,7 @@ function cpxStillNeeded(l, st, sc){
   if(!has(l.needs)&&!has(l.personal_care)) add(3,'What help they need','no needs checked','intake');
   if(late&&!l.client_address) add(3,'Their full address','needed for the visit and the first shift','intake');
   if(k==='ready'&&!l.client_dob) add(3,'Their date of birth','needed before Getting ready is done','intake');
+  if(k==='ready'&&fb&&fb.kinds&&fb.kinds.length&&!lpfCur(fb,'allergies')) add(1,'Allergies (or "None known")','needed before the first shift','intake');
   if(late&&!l.days_needed&&!l.times_needed&&!l.number_of_hours) add(3,'The schedule they\'re asking for','no days, times or hours yet','intake');
   return out.sort((a,b)=>a.tier-b.tier);
 }
@@ -27255,7 +27257,8 @@ function cpCommandModel(){
   if(pre){
     const asked=l&&l.urgency?CPX_URG[l.urgency]||l.urgency:'';
     const prom=sc&&sc.target_date?dd(sc.target_date)+(sc.confidence?' ('+sc.confidence+')':''):(launch&&launch.start_date?dd(launch.start_date):'');
-    tile('start','Wants to start', (asked||'Not recorded')+(prom?' · promised '+prom:''),
+    const wantDate=l&&LPI.began[l.id]&&lpfVal(LPI.began[l.id],'requested_start_date');
+    tile('start','Wants to start', (asked||'Not recorded')+(wantDate?' · by '+lsDate(wantDate):'')+(prom?' · promised '+prom:''),
       (asked?'asked '+dd(l.created_at)+' on the intake form':'no urgency on the inquiry')+(prom?(sc&&sc.target_date?' · promise from the Start Contract':' · from the First shift checklist'):(m.factsLoaded?' · no date promised':' · reading the Start Contract…')), 'start');
   } else tile('level','Care level', '', ax?'from AxisCare':'no AxisCare client', 'care');
   /* 8 · paying */
@@ -27267,8 +27270,10 @@ function cpCommandModel(){
     tile('pay','Paying', v, s, 'payer', fs?'':(pre?'warn':'')); }
   else tile('pay','Paying','No intake payer record','AxisCare holds this client\'s billing','payer');
   m.care=cpxCareChips(l);
+  const fb=l&&LPI.began[l.id], allergy=fb&&lpfVal(fb,'allergies');
+  if(allergy&&allergy!=='None known') m.care.unshift({ tone:'warn', t:'Allergy: '+String(allergy).slice(0,40) });
   m.blurb=ax?((DATA.client_care_blurbs||[]).find(b=>String(b.id)===ax)||null):null;
-  m.needed=cpxStillNeeded(l, st, sc);
+  m.needed=cpxStillNeeded(l, st, sc, l?LPI.began[l.id]:null);
   return m;
 }
 function cpRenderCommand(){
@@ -27361,37 +27366,30 @@ function lpiOpenAt(){ return document.getElementById('leadModalBackdrop').classL
 /* ── care began? (existing signals only, for the client a person confirmed) ── */
 async function lpiLoadBegan(l){
   const key=l.id; if(LPI.began[key]&&LPI.began[key].at>Date.now()-60000) return LPI.began[key];
-  const out={ at:Date.now(), began:null, error:'', changes:[] };
+  const out={ at:Date.now(), began:null, error:'', changes:[], ep:null, kinds:[], cur:{}, hist:[], factErr:'' };
   const q=p=>p.then(r=>{ if(r.error) throw r.error; return r.data||[]; });
   try{
-    const conns=await q(sb.from('lead_journey_connection').select('episode_id,lead_id').eq('lead_id',String(l.id)));
-    const epIds=conns.map(c=>c.episode_id).filter(Boolean);
-    const ax=String(CP.lead&&CP.lead.id===l.id?CP.ax:'').trim();
-    /* 1 · an actual start on a First shift checklist opened on or after this inquiry */
-    if(ax){
-      const launches=(await q(sb.from('client_queue').select('id,status,episode_n,added_at,first_shift_done,first_shift_done_at,completed_at').eq('axiscare_client_id',ax)))
-        .filter(c=>!l.created_at||!c.added_at||String(c.added_at)>=String(l.created_at).slice(0,10));
-      let rows=[]; if(launches.length) rows=await q(sb.from('launch_evidence').select('launch_id,fact,source,evidence,reason,recorded_by').eq('fact','first_shift').in('launch_id',launches.map(c=>c.id)));
-      launches.forEach(c=>{ const a=leActualSoc(c, rows); if(a&&(!out.began||a.ymd<out.began.ymd))
-        out.began={ ymd:a.ymd, basis:a.how==='hand'?'recorded by hand'+(a.reason?' ('+a.reason+')':''):a.how==='axiscare'?'AxisCare\'s first clock-in':'"first shift completed" on the checklist' }; });
-    }
-    if(epIds.length){
-      /* 2 · the Journey this inquiry is connected to, when it records a beginning */
-      if(!out.began){
-        /* only a Journey that did NOT start from an inquiry: an inquiry's Journey records the INQUIRY date as its
-           beginning, which is not when care began (found by Desktop 294, fixed 2026-09-28) */
-        const fromInquiry=new Set((await q(sb.from('episode_source').select('episode_id').in('episode_id',epIds).eq('system','lead').eq('role','origin'))).map(x=>x.episode_id));
-        const eps=await q(sb.from('journey_episode_current').select('episode_id,began_basis,began_lo,began_hi').in('episode_id',epIds.filter(id=>!fromInquiry.has(id))));
-        eps.forEach(e=>{ if(['documented','observed_window','before_observation'].indexOf(e.began_basis)<0) return;
-          const ymd=String(e.began_lo||e.began_hi||'').slice(0,10);
-          if(!out.began) out.began={ ymd, basis:'the Journey ('+c360Began(e)+')' }; });
-      }
-      /* changes the Hub can prove: the Start Contract keeps every version */
-      const vers=await q(sb.from('start_contract_version').select('episode_id,target_date,confidence,recorded_by,recorded_at').in('episode_id',epIds));
+    /* the inquiry's own Journey (it carries on as the client's Journey once connected) */
+    const src=await q(sb.from('episode_source').select('episode_id').eq('system','lead').eq('role','origin').eq('source_ref',String(l.id)));
+    out.ep=src[0]&&src[0].episode_id||null;
+    if(out.ep){
+      /* Gate 3: the one "has care begun" rule, the same one the fact door uses */
+      const cb=await lpfCall({ action:'care_began', episode_id:out.ep });
+      if(cb.began===true) out.began={ ymd:String(cb.on||'').slice(0,10), basis:cb.basis||'recorded' };
+      else if(cb.began!==false) out.error=cb.reason==='could_not_check'?'the check could not run':(cb.error||'the check could not run');
+      const vers=await q(sb.from('start_contract_version').select('episode_id,target_date,confidence,recorded_by,recorded_at').eq('episode_id',out.ep));
       vers.sort((a,b)=>String(a.recorded_at).localeCompare(String(b.recorded_at)));
       for(let i=1;i<vers.length;i++) if(String(vers[i].target_date||'')!==String(vers[i-1].target_date||''))
         out.changes.push({ what:'Promised start', from:vers[i-1].target_date?lsDate(vers[i-1].target_date):'none', to:vers[i].target_date?lsDate(vers[i].target_date):'none', at:vers[i].recorded_at, by:vers[i].recorded_by });
+      try{
+        out.kinds=await q(sb.from('fact_kind').select('kind,label,fact_group,value_shape,choices,must_verify').eq('active',true));
+        (await q(sb.from('client_fact_current').select('fact_id,kind,layer,value,certainty,change_kind,reason,said_by,said_by_relationship,said_how,said_at,recorded_by,recorded_at,needs_verification').eq('episode_id',out.ep).eq('layer','intake')))
+          .forEach(f=>{ out.cur[f.kind]=f; });
+        out.hist=(await q(sb.from('client_fact').select('fact_id,kind,value,certainty,change_kind,reason,supersedes_fact_id,recorded_by,recorded_at').eq('episode_id',out.ep).eq('layer','intake')))
+          .sort((a,b)=>String(a.recorded_at).localeCompare(String(b.recorded_at)));
+      }catch(e){ out.factErr=String(e&&e.message||e); }
     }
+    /* no Journey yet (a brand-new inquiry before its Journey is opened): nothing can have begun; facts wait for it */
   }catch(e){ out.error=String(e&&e.message||e); }
   LPI.began[key]=out; return out;
 }
@@ -27418,11 +27416,12 @@ function lpiShowHide(){
   const af=document.getElementById('leadAddrFold');
   if(af&&(document.getElementById('lead_client_address').value||document.getElementById('lead_client_state').value||document.getElementById('lead_client_zip').value)) af.open=true;
 }
-function lpiDirty(){ const e=LPI.editing; if(!e) return false; return JSON.stringify(leadFormRead(e.keys))!==JSON.stringify(e.base); }
+function lpiDirty(){ const e=LPI.editing; if(!e) return false;
+  return JSON.stringify(leadFormRead(e.keys))!==JSON.stringify(e.base) || !!(e.fkeys&&e.fkeys.length&&!lpfSame(lpfReadAll(e.fkeys,'lpfE'),e.fbase)); }
 /* Hand everything back. Unsaved typing is kept as a draft for that family (in memory only). */
 function lpiRelease(why){
   const e=LPI.editing; if(!e) return true;
-  if(lpiDirty()) LPI.drafts[e.lead_id]={ ch:e.ch, values:leadFormRead(e.keys), base:e.base, at:new Date().toISOString(), why:why||'' };
+  if(lpiDirty()) LPI.drafts[e.lead_id]={ ch:e.ch, values:leadFormRead(e.keys), base:e.base, fvals:e.fkeys&&e.fkeys.length?lpfReadAll(e.fkeys,'lpfE'):null, at:new Date().toISOString(), why:why||'' };
   LPI.editing=null; lpiReturn();
   if(why!=='leave'&&cpOpen()) setTimeout(()=>{ if(cpOpen()) lpiRender(); },0);
   return true;
@@ -27432,14 +27431,18 @@ function lpiEdit(key, resume){
   const msg=document.getElementById('lpiMsg');
   if(lpiOpenAt()){ if(msg) msg.textContent='The intake form or the guided call is open. Finish there first.'; return; }
   if(LPI.editing) lpiRelease('switch');
+  LPI.flash=null;
   const b=LPI.began[l.id]; if(!b||b.error||b.began) return;
-  LPI.editing={ ch:key, keys:ch.keys, lead_id:l.id, base:null };
+  const dr=LPI.drafts[l.id];
+  LPI.editing={ ch:key, keys:ch.keys, lead_id:l.id, base:null, fdraft:resume&&dr&&dr.ch===key?dr.fvals:null };
   lpiRender();
   const slot=document.getElementById('lpiSlot'); if(!slot){ LPI.editing=null; return; }
   lpiBorrow(ch, slot);
   leadFormFill(l, ch.keys);                 /* fresh start: this chapter's fields, from the saved lead */
   lpiShowHide();
   LPI.editing.base=leadFormRead(ch.keys);
+  LPI.editing.fkeys=[...document.querySelectorAll('#lpfEHost .lpf-row')].map(r=>r.id.replace('lpfE-row-',''));
+  LPI.editing.fbase=lpfBaseFromCur(b, LPI.editing.fkeys);
   const d=LPI.drafts[l.id];
   if(resume&&d&&d.ch===key){ leadFormFill(d.values, ch.keys); lpiShowHide(); delete LPI.drafts[l.id]; }
   const first=slot.querySelector('input:not([type=hidden]),select,textarea'); if(first) first.focus({preventScroll:true});
@@ -27449,13 +27452,15 @@ async function lpiSave(){
   const e=LPI.editing, l=CP.lead; if(!e||!l||l.id!==e.lead_id) return;
   if(e.keys.some(k=>LPI_FORBIDDEN.indexOf(k)>=0)) throw new Error('A Lead intake chapter may not save '+e.keys.filter(k=>LPI_FORBIDDEN.indexOf(k)>=0).join(', '));
   const patch=leadFormRead(e.keys);           /* only the fields this chapter owns, read by the one field table */
+  /* Gate 3: this chapter's facts, each through the door (the editor stays on screen until they're done) */
+  const fb=LPI.began[l.id], fres=e.fkeys&&e.fkeys.length&&fb&&fb.ep?await lpfSaveFrom('lpfE', e.fkeys, e.fbase, fb, l):[];
   const target=(DATA.leads||[]).find(x=>x.id===l.id)||l;
   Object.assign(target, patch);
-  LPI.editing=null; lpiReturn();
+  if(LPI.editing===e){ LPI.editing=null; lpiReturn(); }
+  LPI.flash={ lead:l.id, text:'Saved.'+(fres.length?' '+lpfSummary(fres):'') };
   await persist('leads', target);
   if(typeof renderLeads==='function') renderLeads();
   renderLeadProfile();
-  const m=document.getElementById('lpiMsg'); if(m) m.textContent='Saved.';
 }
 function lpiDiscardDraft(){ const l=CP.lead; if(l) delete LPI.drafts[l.id]; lpiRender(); }
 
@@ -27468,7 +27473,7 @@ function lpiRender(){
   const esc=escapeHtmlComms, l=CP.lead;
   if(!l){ box.innerHTML='<div class="lp-card"><p class="lp-prov" style="margin:0;">No inquiry is on file for this client, so there is no Lead intake. What we know now lives on Care, Home &amp; Life and Family &amp; Contacts.</p></div>'; return; }
   const b=LPI.began[l.id];
-  if(!b){ box.innerHTML='<div class="lp-card"><p class="lp-prov" style="margin:0;">Loading…</p></div>'; lpiLoadBegan(l).then(()=>{ if(cpOpen()&&CP.lead&&CP.lead.id===l.id) lpiRender(); }); return; }
+  if(!b){ box.innerHTML='<div class="lp-card"><p class="lp-prov" style="margin:0;">Loading…</p></div>'; lpiLoadBegan(l).then(()=>{ if(cpOpen()&&CP.lead&&CP.lead.id===l.id){ lpiRender(); cpRenderCommand(); } }); return; }
   const locked=!!(b.began||b.error), e=LPI.editing, dd=x=>x?lsDate(String(x).slice(0,10)):'';
   const has=v=>Array.isArray(v)?v.length>0:!!String(v==null?'':v).trim();
   const unk='<span class="lp-tag unk">Unknown</span>';
@@ -27523,8 +27528,12 @@ function lpiRender(){
       note:'Today an inquiry holds one person, the caller. Everyone else is on Family & Contacts.', empty:!caller&&!l.phone&&!l.email },
   };
   const draft=LPI.drafts[l.id];
+  const factsOn=!!(b.ep&&!b.factErr&&b.kinds&&b.kinds.length);
   const chapter=ch=>{
     const c=C[ch.key], editingThis=e&&e.ch===ch.key&&e.lead_id===l.id;
+    const fks=factsOn?(LPF_CH[ch.key]||[]).filter(k=>lpfShown(l,b,k)):[];
+    const fhtml=fks.length?'<div class="lp-facts lpf-facts">'+fks.map(k=>lpfFactHtml(l,b,k,!!b.began)).join('')+'</div>':'';
+    if(fks.some(k=>lpfCur(b,k))) c.empty=false;
     const act=locked?'':ch.owner==='payer'?'<button class="lp-link" onclick="cpShowTab(\'payer\');window.scrollTo(0,0)">Change on the Payer tab</button>'
       :ch.owner==='home'?'<button class="lp-link" onclick="cpShowTab(\'home\');window.scrollTo(0,0)">Change on Home &amp; Life</button>'
       :editingThis?'':'<button class="lp-link" onclick="lpiEdit(\''+ch.key+'\')">'+(c.empty?'Add':'Add or change')+'</button>';
@@ -27532,38 +27541,52 @@ function lpiRender(){
       ?'<div class="lp-draft">Unsaved changes from '+esc(lsDate(draft.at.slice(0,10)))+' are kept here. <button class="lp-link" onclick="lpiEdit(\''+ch.key+'\',true)">Resume</button> · <button class="lp-link" onclick="lpiDiscardDraft()">Discard</button></div>':'';
     if(editingThis) return '<div class="lp-card lp-chap editing" id="lpiChap-'+ch.key+'"><div class="lp-chaptop"><h3 class="lp-h">'+ch.n+' · '+esc(ch.t)+'</h3></div>'
       +'<div id="lpiSlot" class="lpi-slot"></div>'
+      +'<div id="lpfEHost">'+(fks.length&&ch.secs?'<div class="lpf-head">More about this, with who told us</div>'+lpfEditorHtml(l,b,fks,'lpfE',e.fdraft):'')+'</div>'
       +'<div class="lpi-actions"><button class="primary" onclick="lpiSave()">Save</button><button class="secondary" onclick="lpiCancel()">Cancel</button>'
       +'<span class="lp-prov">Saves only this chapter\'s answers. The same questions as the guided call.</span></div></div>';
     if(c.empty&&!drafted) return '<div class="lp-card lp-chap folded" id="lpiChap-'+ch.key+'"><h3 class="lp-h">'+ch.n+' · '+esc(ch.t)+'</h3><span class="lp-prov">Nothing recorded yet</span><span style="flex:1"></span>'+act+'</div>';
     return '<div class="lp-card lp-chap" id="lpiChap-'+ch.key+'"><div class="lp-chaptop"><h3 class="lp-h">'+ch.n+' · '+esc(ch.t)+'</h3>'+act+'</div>'
       +drafted+(c.sent?'<p class="lp-sent">'+esc(c.sent)+'</p>':'')
-      +'<div class="lp-facts">'+c.facts+'</div>'
+      +'<div class="lp-facts">'+c.facts+'</div>'+fhtml
       +(c.more?'<details class="lp-more"><summary>more</summary><div class="lp-facts">'+c.more+'</div></details>':'')
       +(c.note?'<p class="lp-prov">'+esc(c.note)+'</p>':'')
       +'<p class="lp-prov">'+esc(c.prov||'From the intake form')+'</p></div>';
   };
   /* the side rail */
-  const need=cpxStillNeeded(l, st, CP.lead&&LS.facts&&LS.facts.epOf?LS.facts.scOf[LS.facts.epOf[String(l.id)]]:null);
+  const need=cpxStillNeeded(l, st, CP.lead&&LS.facts&&LS.facts.epOf?LS.facts.scOf[LS.facts.epOf[String(l.id)]]:null, b);
   const verify=[];
   if(l.funding_source==='medicaid'&&l.state_status!=='authorized') verify.push('Medicaid: reported, the state hasn\'t authorized');
   if(l.ai_needs_summary) verify.push('The AI summary: written by AI, never checked by a person');
   const axT=String(l.axiscare_client_id||'').trim();
   if(axT&&axT!==String(CP.ax||'').trim()) verify.push('AxisCare #'+axT+' is typed on the inquiry, but nobody has confirmed it\'s the same person');
   if(typeof ckReturningOpen==='function'&&ckReturningOpen(l)) verify.push('Might be a returning family: nobody has answered that yet');
+  Object.values(b.cur||{}).filter(f=>f.needs_verification).forEach(f=>verify.push(lpfLabel(b,f.kind)+': '+lpfWords(f.kind,f.value)+', '+(LPF_SURE[f.certainty]||f.certainty)+', not verified yet'));
+  /* conflicts the Hub can prove */
+  const conf=[], ls=lpfVal(b,'living_situation'), la=(l.safety||[]).includes('livesAlone');
+  if(ls&&ls!=='other'&&((ls==='alone')!==la)) conf.push('Living situation says "'+lpfWords('living_situation',ls)+'", but the intake\'s safety checklist '+(la?'says':'doesn\'t say')+' lives alone');
+  /* every recorded change to a fact: from, to, who, when (and why, for a correction) */
+  const byId={}; (b.hist||[]).forEach(r=>{ byId[r.fact_id]=r; });
+  const fchanged=(b.hist||[]).filter(r=>r.supersedes_fact_id&&byId[r.supersedes_fact_id]).map(r=>{ const p=byId[r.supersedes_fact_id];
+    const w=x=>x.certainty==='doesnt_apply'?'doesn\'t apply':x.change_kind==='withdrawn'?'removed':lpfWords(x.kind,x.value)||'blank';
+    return esc(lpfLabel(b,r.kind)+': '+w(p)+' → '+w(r))+(r.change_kind==='correction'||r.change_kind==='withdrawn'?' <span class="lp-tag chg">'+(r.change_kind==='correction'?'corrected':'removed')+'</span>':'')
+      +'<span class="lp-prov"> · '+esc(dd(r.recorded_at))+' · '+esc(typeof lpscName==='function'?lpscName(r.recorded_by):r.recorded_by)+(r.reason?' · '+esc(r.reason):'')+'</span>'; });
   const helpful=[];
   if(!ca.cats&&!ca.dogs) helpful.push('Pets'); if(!ca.smoking) helpful.push('Smoking in the home');
   if(!ca.female_caregiver&&!ca.male_caregiver) helpful.push('Caregiver preference'); if(!String(l.language||'').trim()) helpful.push('Primary language');
+  if(factsOn){ ['preferred_name','living_situation','why_now'].forEach(k=>{ if(!lpfCur(b,k)) helpful.push(lpfLabel(b,k)); }); }
   const na=[];
   if((l.mobility==='independent'||l.mobility==='walker')&&!(l.personal_care||[]).includes('transfers')&&l.weight_bearing!=='no') na.push(['Hoyer lift and gait belt questions','they '+(l.mobility==='walker'?'walk with a walker':'get around on their own')+' and need no help with transfers']);
   if(!dem) na.push(['Dementia follow-up','no dementia reported']);
   if(l.funding_source&&l.funding_source!=='medicaid') na.push(['Medicaid DCN, county and state',(CPX_PAY[l.funding_source]||l.funding_source)+' family']);
   if(l.funding_source&&['private','ltc'].indexOf(l.funding_source)<0) na.push(['Private-pay rate',(CPX_PAY[l.funding_source]||l.funding_source)+' family']);
+  Object.values(b.cur||{}).filter(f=>f.certainty==='doesnt_apply').forEach(f=>na.push([lpfLabel(b,f.kind),'marked by '+(typeof lpscName==='function'?lpscName(f.recorded_by):f.recorded_by)]));
   const ul=a=>'<ul>'+a.map(x=>'<li>'+x+'</li>').join('')+'</ul>';
   const side='<div class="lp-panel attn"><h3 class="lp-h">Needs attention</h3>'
       +(locked?'<p class="lp-prov">Care has begun, so nothing here is asked for any more.</p>':
         '<div class="sub">Still needed before their next step</div>'+(need.length?ul(need.slice(0,6).map(n=>esc(n.label)+'<span class="lp-prov"> · '+esc(n.why)+'</span>')):'<p class="lp-prov">Nothing missing that the Hub can check.</p>'))
       +'<div class="sub">Needs verification</div>'+(verify.length?ul(verify.map(esc)):'<p class="lp-prov">Nothing flagged.</p>')
-      +'<div class="sub">Changed</div>'+(b.changes.length?ul(b.changes.map(c=>esc(c.what+': '+c.from+' → '+c.to)+'<span class="lp-prov"> · '+esc(dd(c.at))+(c.by?' · '+esc(typeof lpscName==='function'?lpscName(c.by):c.by):'')+'</span>')):'<p class="lp-prov">Nothing the Hub can show. Only the Start Contract keeps its history today.</p>')
+      +(conf.length?'<div class="sub">Conflicts</div>'+ul(conf.map(esc)):'')
+      +'<div class="sub">Changed</div>'+((b.changes.length||fchanged.length)?ul(b.changes.map(c=>esc(c.what+': '+c.from+' → '+c.to)+'<span class="lp-prov"> · '+esc(dd(c.at))+(c.by?' · '+esc(typeof lpscName==='function'?lpscName(c.by):c.by):'')+'</span>').concat(fchanged)):'<p class="lp-prov">Nothing has changed since it was first recorded.</p>')
     +'</div>'
     +(helpful.length&&!locked?'<div class="lp-panel help"><h3 class="lp-h">Helpful to learn</h3>'+ul(helpful.map(esc))+'</div>':'')
     +(na.length?'<div class="lp-panel na"><h3 class="lp-h">Doesn\'t apply</h3>'+ul(na.map(x=>esc(x[0])+'<span class="lp-prov">: '+esc(x[1])+'</span>'))+'</div>':'');
@@ -27573,7 +27596,206 @@ function lpiRender(){
     +(notes?'<p class="lp-quote">'+esc(notes.length>700?notes.slice(0,700)+'…':notes)+'</p><p class="lp-prov">From the call notes, as typed'+(notes.length>700?'. The rest is under Why they\'re reaching out, and in Activity &amp; Documents.':'.')+'</p>'
       :'<p class="lp-prov">No call notes yet.'+(locked?'':' <button class="lp-link" onclick="lpiEdit(\'why\')">Add them</button>')+'</p>')
     +(l.ai_needs_summary?'<div class="lp-ai"><span class="lp-tag ai">AI</span> '+esc(l.ai_needs_summary)+'<div class="lp-prov">Written by AI from the call notes. Not checked by a person.</div></div>':'')+'</div>';
-  box.innerHTML=banner+'<div class="lp-intake"><div class="lp-main">'+story+'<span id="lpiMsg" class="lp-prov" role="status"></span>'+LPI_CH.map(chapter).join('')+'</div><aside class="lp-side">'+side+'</aside></div>';
+  box.innerHTML=banner+'<div class="lp-intake"><div class="lp-main">'+story+'<span id="lpiMsg" class="lp-prov" role="status">'+(LPI.flash&&LPI.flash.lead===l.id?esc(LPI.flash.text):'')+'</span>'+LPI_CH.map(chapter).join('')+'</div><aside class="lp-side">'+side+'</aside></div>';
+}
+/* ── GATE 3 · FACTS IN THE CHAPTERS (her approval, 2026-09-28) ─────────────────────────────────
+   Sixteen questions no lead field records are kept in the fact record (client_fact), each with who
+   told us, how, when and how sure. They're read straight from the database (people who can read
+   leads can read them) and recorded only through the client-fact function, which checks the caller
+   is office staff and refuses a save made on top of someone else's change ("stale"). Nothing here
+   writes a lead field. Payer questions are edited on the Payer tab; after care begins a fact can only
+   be corrected, with a reason. */
+const LPF_W={
+  living_situation:{ alone:'Alone', spouse_partner:'With spouse or partner', family:'With family', paid_help:'With paid help', facility:'In a facility or community', other:'Other' },
+  why_now:{ fall:'A fall', discharge:'Hospital or rehab discharge', caregiver_cant_continue:'Family caregiver can\'t continue', memory_worse:'Memory getting worse', provider_cant_staff:'Current provider can\'t staff', new_diagnosis:'New diagnosis', other:'Other' },
+  other_everyday_help:{ grooming:'Grooming', incontinence:'Incontinence care', eating:'Eating', meal_prep:'Meal prep', med_reminders:'Medication reminders', laundry:'Laundry', companionship:'Companionship' },
+  medicaid_existing_provider:{ no:'No', yes:'Yes', not_sure:'Not sure' },
+  va_veteran:{ client:'The client', spouse:'Their spouse (surviving)', other:'Other' },
+  va_program:{ aid_attendance:'Aid & Attendance', community_care:'Community care referral', not_sure:'Not sure' },
+};
+const LPF_CH={ person:['preferred_name','living_situation','facility_name'], why:['why_now'], care:['falls','recent_stay','allergies','other_everyday_help'],
+  help:['requested_start_date'], payer:['medicaid_existing_provider','medicaid_hours_authorized','medicaid_provider_change','va_veteran','va_program','private_minimums_explained','private_who_pays'] };
+const LPF_INPUT={ preferred_name:'text', living_situation:'choice', facility_name:'text', why_now:'choices', falls:'falls', recent_stay:'stay', allergies:'allergies',
+  other_everyday_help:'choices', requested_start_date:'date', medicaid_existing_provider:'choice', medicaid_hours_authorized:'number', medicaid_provider_change:'bool',
+  va_veteran:'choice', va_program:'choice', private_minimums_explained:'bool', private_who_pays:'text' };
+const LPF_HOW={ call:'call', text:'text', email:'email', in_person:'in person', form:'form', document:'document', state:'the state', axiscare:'AxisCare', staff_observation:'our staff', other:'other' };
+const LPF_SURE={ reported:'reported', confirmed:'confirmed', verified:'verified' };
+async function lpfCall(body){
+  const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+  if(!tok) throw new Error('Sign in first.');
+  const r=await fetch(CONFIG.supabase_url+'/functions/v1/client-fact',{ method:'POST',
+    headers:{ Authorization:'Bearer '+tok, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+  const d=await r.json().catch(()=>null);
+  if(!d) throw new Error('The fact service answered '+r.status);
+  if(r.status>=400&&!d.outcome) throw new Error(d.error||('The fact service answered '+r.status));
+  return d;
+}
+function lpfLabel(b,k){ const kk=(b&&b.kinds||[]).find(x=>x.kind===k); return kk?kk.label:k.replace(/_/g,' '); }
+function lpfCur(b,k){ return b&&b.cur&&b.cur[k]||null; }
+function lpfVal(b,k){ const f=lpfCur(b,k); return f&&f.certainty!=='doesnt_apply'?f.value:null; }
+function lpfShown(l,b,k){
+  const has=!!lpfCur(b,k), why=lpfVal(b,'why_now')||[];
+  switch(k){
+    case 'facility_name': return has||lpfVal(b,'living_situation')==='facility';
+    case 'falls': return has||(l.safety||[]).includes('fallRisk')||why.includes('fall');
+    case 'recent_stay': return has||(l.safety||[]).includes('recentHospitalization')||why.includes('discharge');
+    case 'medicaid_existing_provider': case 'medicaid_hours_authorized': return has||l.funding_source==='medicaid';
+    case 'medicaid_provider_change': return has||lpfVal(b,'medicaid_existing_provider')==='yes';
+    case 'va_veteran': case 'va_program': return has||l.funding_source==='va';
+    case 'private_minimums_explained': case 'private_who_pays': return has||l.funding_source==='private';
+    default: return true;
+  }
+}
+function lpfWords(k,v){
+  if(v===null||v===undefined) return '';
+  if(k==='falls'&&typeof v==='object') return [v.count!=null&&v.count!==''?v.count+' fall'+(+v.count===1?'':'s'):'', v.when||'', (v.where||[]).length?'where: '+v.where.join(', '):'',
+    v.injured===true?'injured':v.injured===false?'no injury':'', v.medical_alert===true?'has a medical alert':v.medical_alert===false?'no medical alert':''].filter(Boolean).join(' · ');
+  if(k==='recent_stay'&&typeof v==='object') return [v.where||'', v.why||'', v.discharge_date?'home '+lsDate(v.discharge_date):'',
+    v.home_health==='yes'?'home health arranged':v.home_health==='no'?'no home health':''].filter(Boolean).join(' · ');
+  if(typeof v==='boolean') return v?'Yes':'No';
+  if(Array.isArray(v)) return v.map(x=>(LPF_W[k]||{})[x]||x).join(', ');
+  if(k==='requested_start_date') return lsDate(v);
+  if(k==='medicaid_hours_authorized') return v+' hours a week';
+  return (LPF_W[k]||{})[v]||String(v);
+}
+function lpfProv(f){
+  const esc=escapeHtmlComms, when=x=>x?lsDate(String(x).slice(0,10)):'';
+  const who=typeof lpscName==='function'?lpscName(f.recorded_by):f.recorded_by;
+  if(f.certainty==='doesnt_apply') return 'marked by '+esc(who||'staff')+' · '+esc(when(f.recorded_at));
+  return [f.said_by?esc(f.said_by)+(f.said_by_relationship?' ('+esc(f.said_by_relationship)+')':''):'', f.said_how?esc(LPF_HOW[f.said_how]||f.said_how):'',
+    esc(when(f.said_at||f.recorded_at)), esc(LPF_SURE[f.certainty]||f.certainty||'')].filter(Boolean).join(' · ')
+    +(f.change_kind==='correction'?' · corrected: '+esc(f.reason||''):'')+' · recorded by '+esc(who||'staff');
+}
+function lpfFactHtml(l,b,k,locked){
+  const esc=escapeHtmlComms, f=lpfCur(b,k);
+  const val=f?(f.certainty==='doesnt_apply'?'<span class="lp-tag na">Doesn\'t apply</span>':esc(lpfWords(k,f.value))):'<span class="lp-tag unk">Unknown</span>';
+  return '<div class="lp-fact lpf'+(k==='falls'||k==='recent_stay'||k==='why_now'||k==='other_everyday_help'?' wide':'')+'" data-kind="'+k+'"><div class="k">'+esc(lpfLabel(b,k))+'</div><div class="v">'+val
+    +(f&&f.needs_verification?' <span class="lp-tag ver">needs verification</span>':'')+'</div>'
+    +(f?'<div class="lp-prov">'+lpfProv(f)+'</div>':'')
+    +(locked&&f?'<button class="lp-link lpf-correct" onclick="lpfCorrectOpen(\''+k+'\')">Correct intake record</button><div class="lpf-correct-box" id="lpfCorr-'+k+'"></div>':'')+'</div>';
+}
+/* one question's input; px keeps ids unique between the chapter, the Payer tab and a correction */
+function lpfInput(k, v, px){
+  const esc=escapeHtmlComms, id=px+'-'+k, t=LPF_INPUT[k], W=LPF_W[k]||{};
+  const box=(name,val,on,label)=>'<label class="lpf-ck"><input type="checkbox" name="'+name+'" value="'+esc(val)+'"'+(on?' checked':'')+'> '+esc(label)+'</label>';
+  const yn=(sel,cur)=>'<select id="'+sel+'"><option value=""></option><option value="yes"'+(cur===true||cur==='yes'?' selected':'')+'>Yes</option><option value="no"'+(cur===false||cur==='no'?' selected':'')+'>No</option></select>';
+  if(t==='text') return '<input id="'+id+'" value="'+esc(v||'')+'">';
+  if(t==='number') return '<input id="'+id+'" type="number" min="0" step="0.5" value="'+esc(v==null?'':v)+'">';
+  if(t==='date') return '<input id="'+id+'" type="date" value="'+esc(v||'')+'">';
+  if(t==='bool') return yn(id, v);
+  if(t==='choice') return '<select id="'+id+'"><option value=""></option>'+Object.keys(W).map(x=>'<option value="'+x+'"'+(v===x?' selected':'')+'>'+esc(W[x])+'</option>').join('')+'</select>';
+  if(t==='choices') return '<div id="'+id+'" class="lpf-cks">'+Object.keys(W).map(x=>box(id,x,(v||[]).includes(x),W[x])).join('')+'</div>';
+  if(t==='allergies') return '<input id="'+id+'" value="'+esc(v&&v!=='None known'?v:'')+'" placeholder="e.g. penicillin, latex"><label class="lpf-ck"><input type="checkbox" id="'+id+'-none"'+(v==='None known'?' checked':'')+'> None known</label>';
+  if(t==='falls'){ const o=v||{}; return '<div class="lpf-grid"><label>How many<input id="'+id+'-count" type="number" min="0" value="'+esc(o.count==null?'':o.count)+'"></label>'
+    +'<label>How recently<input id="'+id+'-when" value="'+esc(o.when||'')+'" placeholder="e.g. twice this month"></label>'
+    +'<label>Injured'+yn(id+'-injured',o.injured)+'</label><label>Has a medical alert'+yn(id+'-alert',o.medical_alert)+'</label></div>'
+    +'<div class="lpf-cks">'+['shower','stairs','night','other'].map(x=>box(id+'-where',x,(o.where||[]).includes(x),x.charAt(0).toUpperCase()+x.slice(1))).join('')+'</div>'; }
+  if(t==='stay'){ const o=v||{}; return '<div class="lpf-grid"><label>Where<input id="'+id+'-where" value="'+esc(o.where||'')+'"></label><label>Why<input id="'+id+'-why" value="'+esc(o.why||'')+'"></label>'
+    +'<label>Discharge date<input id="'+id+'-date" type="date" value="'+esc(o.discharge_date||'')+'"></label>'
+    +'<label>Home health arranged<select id="'+id+'-hh"><option value=""></option>'+['yes','no','not_sure'].map(x=>'<option value="'+x+'"'+(o.home_health===x?' selected':'')+'>'+({yes:'Yes',no:'No',not_sure:'Not sure'})[x]+'</option>').join('')+'</select></label></div>'; }
+  return '';
+}
+/* read one question's input: the value, or null when left blank */
+function lpfRead(k, px){
+  const id=px+'-'+k, g=x=>{ const e=document.getElementById(x); return e?String(e.value||'').trim():''; }, t=LPF_INPUT[k];
+  const checked=name=>[...document.querySelectorAll('input[name="'+name+'"]:checked')].map(e=>e.value);
+  if(t==='text') return g(id)||null;
+  if(t==='number'){ const s=g(id); return s===''?null:(isNaN(+s)?s:+s); }
+  if(t==='date'||t==='choice') return g(id)||null;
+  if(t==='bool'){ const s=g(id); return s==='yes'?true:s==='no'?false:null; }
+  if(t==='choices'){ const a=checked(id); return a.length?a:null; }
+  if(t==='allergies'){ const n=document.getElementById(id+'-none'); return n&&n.checked?'None known':(g(id)||null); }
+  if(t==='falls'){ const o={}, c=g(id+'-count'), w=checked(id+'-where'), inj=g(id+'-injured'), al=g(id+'-alert');
+    if(c!=='') o.count=+c; if(g(id+'-when')) o.when=g(id+'-when'); if(w.length) o.where=w;
+    if(inj) o.injured=inj==='yes'; if(al) o.medical_alert=al==='yes'; return Object.keys(o).length?o:null; }
+  if(t==='stay'){ const o={}; if(g(id+'-where')) o.where=g(id+'-where'); if(g(id+'-why')) o.why=g(id+'-why');
+    if(g(id+'-date')) o.discharge_date=g(id+'-date'); if(g(id+'-hh')) o.home_health=g(id+'-hh'); return Object.keys(o).length?o:null; }
+  return null;
+}
+function lpfNorm(v){ if(Array.isArray(v)) return v.map(lpfNorm); if(v&&typeof v==='object'){ const o={}; Object.keys(v).sort().forEach(k=>{ o[k]=lpfNorm(v[k]); }); return o; } return v; }
+function lpfSame(a,b){ return JSON.stringify(lpfNorm(a===undefined?null:a))===JSON.stringify(lpfNorm(b===undefined?null:b)); }
+function lpfBaseFromCur(b,keys){ const o={}; keys.forEach(k=>{ const f=lpfCur(b,k); o[k]=!f?null:f.certainty==='doesnt_apply'?'__na__':f.value; }); return o; }
+function lpfNa(k,px){ const e=document.getElementById(px+'-'+k+'-na'); return !!(e&&e.checked); }
+function lpfReadAll(keys,px){ const o={}; keys.forEach(k=>{ o[k]=lpfNa(k,px)?'__na__':lpfRead(k,px); }); return o; }
+/* the editor for a set of questions, plus one "who told us" block for the whole save */
+function lpfEditorHtml(l,b,keys,px,over){
+  const esc=escapeHtmlComms, caller=((l.first_name||'')+' '+(l.last_name||'')).trim();
+  return '<div class="lpf-edit">'+keys.map(k=>{ const f=lpfCur(b,k);
+      const o=over&&(k in over)?over[k]:undefined, na=o!==undefined?o==='__na__':!!(f&&f.certainty==='doesnt_apply'), v=o!==undefined?(o==='__na__'?null:o):(f&&f.certainty!=='doesnt_apply'?f.value:null);
+      return '<div class="lpf-row" id="'+px+'-row-'+k+'"><div class="lpf-lbl">'+esc(lpfLabel(b,k))+'</div><div class="lpf-in">'+lpfInput(k,v,px)+'</div>'
+        +'<label class="lpf-ck lpf-na"><input type="checkbox" id="'+px+'-'+k+'-na"'+(na?' checked':'')+'> Doesn\'t apply</label></div>'; }).join('')
+    +'<div class="lpf-who"><div class="lpf-lbl">Who told us</div><div class="lpf-grid">'
+    +'<label>Name<input id="'+px+'-said_by" value="'+esc(caller)+'"></label><label>Relationship<input id="'+px+'-rel" value="'+esc(l.relationship||'')+'"></label>'
+    +'<label>How<select id="'+px+'-how">'+Object.keys(LPF_HOW).map(x=>'<option value="'+x+'"'+(x==='call'?' selected':'')+'>'+esc(LPF_HOW[x])+'</option>').join('')+'</select></label>'
+    +'<label>How sure<select id="'+px+'-sure">'+Object.keys(LPF_SURE).map(x=>'<option value="'+x+'">'+esc(LPF_SURE[x])+'</option>').join('')+'</select></label></div>'
+    +'<p class="lp-prov">Applies to every answer changed in this save. A blank answer is left as it was; to remove one, use Correct.</p></div></div>';
+}
+/* record each changed answer through the door; returns plain lines for the screen */
+async function lpfSaveFrom(px, keys, base, b, l){
+  const now=lpfReadAll(keys,px), out=[];
+  const said_by=(document.getElementById(px+'-said_by')||{}).value||'', rel=(document.getElementById(px+'-rel')||{}).value||'';
+  const how=(document.getElementById(px+'-how')||{}).value||'call', sure=(document.getElementById(px+'-sure')||{}).value||'reported';
+  for(const k of keys){
+    const v=now[k]; if(lpfSame(v,base[k])||v===null) continue;
+    const cur=lpfCur(b,k), na=v==='__na__';
+    if(!na&&(LPF_INPUT[k]==='number')&&typeof v!=='number'){ out.push({ k, ok:false, text:'"'+lpfLabel(b,k)+'" needs a number' }); continue; }
+    try{
+      const r=await lpfCall({ action:'record', episode_id:b.ep, kind:k, layer:'intake', value:na?null:v, certainty:na?'doesnt_apply':sure,
+        change_kind:cur?'update':'first', supersedes_fact_id:cur?cur.fact_id:null, said_by:na?null:said_by, said_by_relationship:na?null:rel,
+        said_how:na?'staff_observation':how, said_at:new Date().toISOString() });
+      out.push(r.outcome==='recorded'?{ k, ok:true }:{ k, ok:false, text:'"'+lpfLabel(b,k)+'" was not saved: '+(r.message||r.reason||'refused') });
+    }catch(e){ out.push({ k, ok:false, text:'"'+lpfLabel(b,k)+'" was not saved: '+String(e&&e.message||e) }); }
+  }
+  if(out.length){ delete LPI.began[l.id]; }
+  return out;
+}
+function lpfSummary(res){
+  const ok=res.filter(x=>x.ok).length, bad=res.filter(x=>!x.ok);
+  return (ok?ok+' answer'+(ok===1?'':'s')+' recorded. ':'')+bad.map(x=>x.text).join(' ')+(bad.some(x=>/changed this after you opened it/.test(x.text))?' Their change is shown now.':'');
+}
+/* after care began: a deliberate correction, with a reason */
+function lpfCorrectOpen(k){
+  const l=CP.lead, b=l&&LPI.began[l.id], host=document.getElementById('lpfCorr-'+k); if(!l||!b||!host) return;
+  const f=lpfCur(b,k), esc=escapeHtmlComms;
+  host.innerHTML='<div class="lpf-edit"><div class="lpf-row" id="lpfC-row-'+k+'"><div class="lpf-lbl">Corrected answer</div><div class="lpf-in">'+lpfInput(k,f&&f.certainty!=='doesnt_apply'?f.value:null,'lpfC')+'</div>'
+    +'<label class="lpf-ck lpf-na"><input type="checkbox" id="lpfC-'+k+'-withdraw"> Remove it (it was never true)</label></div>'
+    +'<label class="lpf-lbl">Why it was wrong<textarea id="lpfC-'+k+'-reason" rows="2" placeholder="e.g. the intake paperwork says March 8"></textarea></label>'
+    +'<div class="lpi-actions"><button class="primary" onclick="lpfCorrectSave(\''+k+'\')">Save correction</button><button class="secondary" onclick="document.getElementById(\'lpfCorr-'+k+'\').innerHTML=\'\'">Cancel</button>'
+    +'<span class="lp-prov" id="lpfC-'+k+'-msg">Keeps the old answer, the corrected one, who and when.</span></div></div>';
+}
+async function lpfCorrectSave(k){
+  const l=CP.lead, b=l&&LPI.began[l.id], f=lpfCur(b,k), msg=document.getElementById('lpfC-'+k+'-msg'); if(!l||!b||!f) return;
+  const reason=String((document.getElementById('lpfC-'+k+'-reason')||{}).value||'').trim(), withdraw=!!(document.getElementById('lpfC-'+k+'-withdraw')||{}).checked;
+  if(!reason){ if(msg) msg.textContent='Say why it was wrong.'; return; }
+  const v=withdraw?null:lpfRead(k,'lpfC');
+  if(!withdraw&&v===null){ if(msg) msg.textContent='Enter the corrected answer, or tick Remove it.'; return; }
+  try{
+    const r=await lpfCall({ action:'record', episode_id:b.ep, kind:k, layer:'intake', value:v, certainty:withdraw?null:(f.certainty==='doesnt_apply'?'reported':f.certainty),
+      change_kind:withdraw?'withdrawn':'correction', supersedes_fact_id:f.fact_id, reason, said_how:'staff_observation', said_at:new Date().toISOString() });
+    if(r.outcome!=='recorded'){ if(msg) msg.textContent='Not saved: '+(r.message||r.reason); return; }
+  }catch(e){ if(msg) msg.textContent='Not saved: '+String(e&&e.message||e); return; }
+  delete LPI.began[l.id]; lpiRender(); cpRenderCommand();
+}
+/* the Payer tab's new questions (payer keeps one editor) */
+async function lpfRenderPayerFacts(){
+  const host=document.getElementById('cpPayFacts'), l=CP.lead; if(!host) return;
+  if(!l){ host.innerHTML=''; return; }
+  let b=LPI.began[l.id]; if(!b){ host.innerHTML='<div class="lp-card"><p class="lp-prov" style="margin:0;">Loading…</p></div>'; b=await lpiLoadBegan(l); if(CP.lead!==l) return; }
+  const keys=LPF_CH.payer.filter(k=>lpfShown(l,b,k)), esc=escapeHtmlComms;
+  if(!b.ep||b.factErr||!keys.length){ host.innerHTML=b.factErr?'<div class="lp-card"><p class="lp-prov" style="margin:0;">More payer questions aren\'t available right now ('+esc(b.factErr)+').</p></div>':''; return; }
+  const locked=!!(b.began||b.error);
+  host.innerHTML='<div class="lp-card" style="margin-top:12px;"><h3 class="lp-h" style="margin:0 0 6px;">More about '+esc(CPX_PAY[l.funding_source]||'this payer')+'</h3>'
+    +(locked?'<div class="lp-facts">'+keys.map(k=>lpfFactHtml(l,b,k,false)).join('')+'</div><p class="lp-prov">Care has begun, so these are history. Correct them on Lead intake.</p>'
+      :lpfEditorHtml(l,b,keys,'lpfP')+'<div class="lpi-actions"><button class="primary" onclick="lpfPayerSave()">Save these answers</button><span class="lp-prov" id="lpfPMsg"></span></div>')+'</div>';
+  if(!locked) LPF_P_BASE={ lead:l.id, keys, base:lpfReadAll(keys,'lpfP') };
+}
+let LPF_P_BASE=null;
+async function lpfPayerSave(){
+  const l=CP.lead, b=l&&LPI.began[l.id], m=document.getElementById('lpfPMsg'); if(!l||!b||!LPF_P_BASE||LPF_P_BASE.lead!==l.id) return;
+  if(m) m.textContent='Saving…';
+  const res=await lpfSaveFrom('lpfP', LPF_P_BASE.keys, LPF_P_BASE.base, b, l);
+  await lpiLoadBegan(l); await lpfRenderPayerFacts(); lpiRender(); cpRenderCommand();
+  const m2=document.getElementById('lpfPMsg'); if(m2) m2.textContent=res.length?lpfSummary(res):'Nothing changed.';
 }
 /* leaving the page with unsaved chapter typing asks first (the browser's own question) */
 window.addEventListener('beforeunload', ev=>{ if(LPI.editing&&lpiDirty()){ ev.preventDefault(); ev.returnValue=''; } });
@@ -35403,6 +35625,25 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 .clg-back{ color:var(--lp-bad); }
 .lp-tag.clg-backtag{ background:var(--lp-bad-soft); color:var(--lp-bad); }
 .clg-warn{ margin:0; background:var(--lp-bad-soft); color:var(--lp-bad); border-radius:8px; padding:6px 10px; font-size:13.5px; font-weight:600; }
+.lp-tag.na{ background:var(--lp-sunk); color:var(--lp-muted); border:1px dashed var(--lp-line); }
+.lp-tag.ver{ background:var(--lp-blue-soft); color:var(--lp-blue); }
+.lp-tag.chg{ background:var(--lp-violet-soft); color:var(--lp-violet); }
+.lpf-facts{ border-top:1px dashed var(--lp-line); padding-top:8px; }
+.lpf-correct{ font-size:12.5px; margin-top:2px; }
+.lpf-head{ font:700 10.5px/1.2 var(--lp-font); letter-spacing:.07em; text-transform:uppercase; color:var(--lp-muted); margin-top:10px; }
+.lpf-edit{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+.lpf-row{ display:grid; grid-template-columns:minmax(0,180px) minmax(0,1fr) auto; gap:8px 12px; align-items:start; border-top:1px solid var(--lp-line); padding-top:8px; }
+@media(max-width:700px){ .lpf-row{ grid-template-columns:1fr; } }
+.lpf-lbl{ font-size:13.5px; font-weight:700; color:var(--lp-navy); }
+.lpf-in input, .lpf-in select{ max-width:100%; }
+.lpf-cks{ display:flex; flex-wrap:wrap; gap:4px 12px; }
+.lpf-ck{ display:inline-flex; gap:6px; align-items:center; font-size:13.5px; font-weight:400; color:var(--lp-ink); margin:0; }
+.lpf-ck input{ width:auto; }
+.lpf-na{ color:var(--lp-muted); white-space:nowrap; }
+.lpf-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:6px 10px; }
+.lpf-grid label{ margin:0; font-size:12.5px; }
+.lpf-who{ background:var(--lp-sunk); border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:6px; }
+.lpf-correct-box:empty{ display:none; }
 .lpi-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-top:1px solid var(--lp-line); padding-top:10px; }
 .lpi-slot .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
 .lpi-slot > div > .section-title:first-child{ border-top:none; padding-top:0; margin-top:4px; }
