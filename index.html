@@ -852,7 +852,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span class="pillsec" title="These stay until Oct 12, 2026 so the team can compare">Older lists</span>
     <div class="fpill" data-tab="leads" onclick="switchTab('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
     <div class="fpill" data-tab="statesubs" onclick="switchTab('statesubs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> State Submissions</div>
-    <div class="fpill" data-tab="assessments" onclick="switchTab('assessments')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Assessments</div>
     <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <span style="flex:1"></span>
     <select id="ccViewAsL" onchange="ccSetViewAs(this.value)" title="View one coordinator's book" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--navy);font-family:inherit;max-width:160px;align-self:center"></select>
@@ -4052,7 +4051,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <textarea id="set_cov_escalation" rows="2" placeholder="Coverage alert: the callout for {client} {when} ran out of caregivers to ask ({asked} asked, nobody said yes). It needs a person now. Board: cc.mo-care.com"></textarea>
 <label>Availability invite (sends 10am-5pm only, from the Hours Watch button)</label>
 <textarea id="set_cov_avail_invite" rows="2" placeholder="Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability It takes 30 seconds and you can update it anytime."></textarea>
-<label>New Client Assessment booking link (from your GHL calendar; used by the Book assessment button on Quick Capture and embedded in Leads > Care Assessments)</label>
+<label>New Client Assessment booking link (from your GHL calendar; used by "Book the assessment visit" on the profile, Quick Capture and the Team Calendar)</label>
 <input id="set_cov_asmt_url" placeholder="https://link.mo-care.com/widget/booking/...">
 <label>Medicaid Assessment booking link (Angiel's GHL calendar; leave blank until it exists)</label>
 <input id="set_cov_medicaid_url" placeholder="https://link.mo-care.com/widget/booking/...">
@@ -4225,9 +4224,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="linklike" onclick="lsLoadFacts(true)">↻ Refresh</button>
       </div>
       <div id="lsCounters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;"></div>
+      <div id="lsAsmt" style="margin-bottom:12px;"></div>
       <div id="lsFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
       <div id="lsBoard"><div class="field-note">Loading…</div></div>
-      <div class="field-note" style="margin-top:10px;font-size:12px;">The older lists (Leads, State Submissions, Care Assessments, Getting ready) stay in the menu until Oct 12 so the team can compare. Everything here is read from the same records they use.</div>
+      <div class="field-note" style="margin-top:10px;font-size:12px;">The older lists (Leads, State Submissions, Getting ready) stay in the menu until Oct 12 so the team can compare. Everything here is read from the same records they use.</div>
     </section>
 
     <section class="tabpanel" id="tab-leads">
@@ -4238,7 +4238,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-step"><span class="num">1</span>Leads come in by phone call, the website form, or a referral partner. Phone leads: add them manually with <b>+ Add Lead</b> while you're on the call. Website/referral leads can flow in automatically once the Lead Intake webhook is connected in Settings.</div>
           <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-top:14px;">Your checklist for each lead</div>
           <div class="guide-step"><span class="num">2</span><b>Log the call</b> — capture their situation, who needs care, and urgency in the notes field.</div>
-          <div class="guide-step"><span class="num">3</span><b>Schedule the in-home care assessment</b> — click "Schedule Assessment" on their row. This creates a record in the Care Assessments tab and moves the lead to <b>Assessment Scheduled</b>.</div>
+          <div class="guide-step"><span class="num">3</span><b>Schedule the in-home care assessment</b> — open their profile and use "Book the assessment visit", then "Assessment" on the Care tab. A new lead moves to <b>Assessment Scheduled</b>.</div>
           <div class="guide-step"><span class="num">4</span>If they're not ready yet, set a <b>follow-up due date</b> — the Follow-up Due filter surfaces anyone you owe a callback.</div>
           <div class="guide-step flag"><span class="num">!</span>If a lead goes cold, mark them <b>Lost</b> with a reason — keeps your pipeline numbers honest without deleting the record.</div>
           <div class="guide-step"><span class="num">5</span>Once they sign on and are set up in AxisCare, mark <b>Converted</b> and paste their AxisCare client ID — this links the lead to their later Care Assessment and Check-in records.</div>
@@ -4344,54 +4344,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </section>
 
 <!-- ===================== TAB: CARE ASSESSMENTS ===================== -->
-<section class="tabpanel" id="tab-assessments">
-<style>
-  /* the GHL booking card (classes formerly scoped to the retired bookings tab) */
-  #tab-assessments .bkg-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:0 0 14px;box-shadow:0 1px 2px rgba(16,24,40,.03);}
-  #tab-assessments .bkg-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
-  #tab-assessments .bkg-type{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-radius:999px;padding:3px 10px;background:#FDF1DC;color:#B45309;}
-  #tab-assessments .bkg-ago{margin-left:auto;color:var(--text-muted);font-size:12.5px;white-space:nowrap;}
-  #tab-assessments .bkg-meta{font-size:14px;color:var(--text);margin:4px 0 0;line-height:1.6;}
-  #tab-assessments .bkg-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
-</style>
-<details class="guide">
-<summary>📋 How This Tab Works — Step by Step ▼</summary>
-<div class="guide-body">
-<div class="guide-step"><span class="num">1</span>Schedule the in-home visit from a lead (or click <b>+ Add Assessment</b> directly for an existing client). Bring your phone with your transcription app (Otter, Fireflies, etc.) running during the visit.</div>
-<div class="guide-step"><span class="num">2</span>After the visit, open the record and paste the <b>transcript link</b> (or the raw transcript text if you don't have a shareable link) into the assessment.</div>
-<div class="guide-step"><span class="num">3</span>Click <b>🪄 Generate Care Plan</b>. This sends the transcript to the Care Plan webhook (set up in Settings), which structures it into ADLs/IADLs, medical needs, goals, and a recommended service schedule, and drafts the AxisCare custom fields.</div>
-<div class="guide-step"><span class="num">4</span>Review the drafted plan in the <b>Care Plans</b> view — edit anything before it goes anywhere near AxisCare. You are always the final check, not the AI.</div>
-<div class="guide-step"><span class="num">5</span>Once it looks right, click <b>📤 Push to AxisCare</b> — this writes the care plan into the client's AxisCare custom fields and creates/updates their profile.</div>
-<div class="guide-step flag"><span class="num">!</span>AxisCare custom fields aren't finalized yet — see the <code>AxisCare_Care_Assessment_Fields_Setup.md</code> guide. Until those are created in AxisCare, pushes will save to Supabase but the AxisCare step will no-op.</div>
-</div>
-</details>
-  <!-- The GHL booking calendar, live inside the hub. GHL is the booking
-       front door now (confirmations + reminders in Samantha's own words);
-       the hub stays the record: booked assessments flow back in as leads,
-       prep items and Team Calendar entries via assessment-intake. -->
-  <div class="bkg-card" id="ghlBookCard" style="display:none;">
-    <div class="bkg-top">
-      <b style="font-size:15.5px;color:var(--navy);">📅 Book a New Client Assessment</b>
-      <span class="bkg-type home">GHL calendar</span>
-      <span class="bkg-ago">round robin; morning/afternoon split pending in GHL</span>
-    </div>
-    <div class="bkg-meta">The live booking calendar, the same one behind Quick Capture's button. Book here with a family on the phone; they get your confirmation and reminder texts automatically, and the booking lands on the Team Calendar and the lead board by itself.</div>
-    <div class="bkg-actions"><button class="fb" onclick="ghlBookOpen()">Open full size</button></div>
-    <iframe id="ghlBookFrame" loading="lazy" title="New Client Assessment booking" style="width:100%;height:640px;border:1px solid var(--border);border-radius:10px;margin-top:10px;background:#fff;"></iframe>
-    <div id="ghlBookMedicaid" style="display:none;margin-top:16px;">
-      <b style="font-size:14.5px;color:var(--navy);">Medicaid Assessment (Angiel)</b>
-      <iframe id="ghlBookFrameMed" loading="lazy" title="Medicaid Assessment booking" style="width:100%;height:640px;border:1px solid var(--border);border-radius:10px;margin-top:8px;background:#fff;"></iframe>
-    </div>
-  </div>
-
-
-<div class="toolbar" id="assessmentsFilters"></div>
-<div class="toolbar">
-<div class="spacer"></div>
-<button class="primary" onclick="openAssessmentModal()">+ Add Assessment</button>
-</div>
-<div class="card"><div id="assessmentsTableWrap"></div></div>
-</section>
+<!-- Care Assessments tab retired 2026-09-28 (Profile First, step A): assessments are booked and done from the profile. -->
 
 <!-- ===================== TAB: CLIENT CHECK-INS ===================== -->
 <section class="tabpanel" id="tab-checkins">
@@ -5020,7 +4973,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
           <button class="secondary" onclick="openLeadModal(lpLead.id)">✏️ Edit intake form</button>
-          <button class="secondary" onclick="scheduleAssessmentFromLead(lpLead.id)">📅 Schedule assessment</button>
+          <button class="secondary" onclick="scheduleAssessmentFromLead(lpLead.id)">📝 Assessment</button>
+          <button class="secondary" onclick="asmtBook(lpLead.id)">📅 Book the assessment visit</button>
           <button class="secondary" onclick="lpPrintFacesheet()">🖨 Print facesheet</button>
           <button class="secondary" onclick="openActivityModal(lpLead.id)">📅 Schedule activity</button>
           <button class="secondary" onclick="openStaffingModal(lpLead.id)">📨 Send to Staffing</button>
@@ -7311,7 +7265,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','leads','statesubs','assessments','soc','clientqueue'],clients:['clientsboard','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','leads','statesubs','soc','clientqueue'],clients:['clientsboard','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7677,7 +7631,7 @@ function ccGroupClick(g){
 const CC_SECTION_TITLES = {
   cgbackground:'Background & References', cgorient:'Orientations', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups',
   recruit:'Recruit',
-  today:'Today', leads:'Leads', bookings:'Consultations', assessments:'Assessments',
+  today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
   carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
@@ -7884,7 +7838,6 @@ function renderActiveTab(){
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); }
   if(activeTab==='hourswatch'){ swRenderAll(); }
-  if(activeTab==='assessments'){ ghlBookFill(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today') renderToday();
@@ -7898,7 +7851,6 @@ function renderActiveTab(){
   if(activeTab==='clientsboard') renderClientsBoard();
   if(activeTab==='community') renderCommunity();
   if(activeTab==='htlocal') renderHtLocal();
-  if(activeTab==='assessments') renderAssessments();
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='carematch') cmRenderAll();
   if(activeTab==='liveschedule') lsRender();
@@ -9292,6 +9244,7 @@ function cpRenderCare(){
   const canAdd=!!(lead||ax);
   box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">📝 Assessments & care plan</b><span style="flex:1;"></span>'
+    +(lead?'<button class="secondary" onclick="asmtBook('+q(lead.id)+')">📅 Book the visit</button>':'')
     +(canAdd?'<button class="secondary" onclick="cpNewAssessment()">＋ New assessment</button>':'')+'</div>'
     +(as.length?as.map(a=>{ const plan=(DATA.care_plans||[]).find(p=>p.assessment_id===a.id);
         return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;">'
@@ -9300,6 +9253,12 @@ function cpRenderCare(){
           +'<span style="flex:1;"></span><button class="linklike" onclick="openAssessmentModal('+q(a.id)+')">Open assessment</button>'
           +'<button class="linklike" onclick="openPlanForAssessment('+q(a.id)+')">'+(plan?'Open care plan':'Write the care plan')+'</button></div>'; }).join('')
       :'<div class="field-note">No assessment recorded yet.</div>')
+    /* the retired Care Assessments tab's guide lives here now */
+    +'<details style="margin-top:8px;"><summary class="field-note" style="cursor:pointer;">How assessments work</summary><ol style="font-size:13px;margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px;">'
+      +'<li>Book the in-home visit with "Book the visit" (Medicaid families get Angiel\'s calendar). Bring your transcription app (Otter, Fireflies) to the visit.</li>'
+      +'<li>After the visit, open the assessment and paste the transcript link, or the transcript text.</li>'
+      +'<li>Generate the care plan, then review and edit it. You are always the final check, not the AI.</li>'
+      +'<li>Save &amp; Push to AxisCare writes the care plan note and its tasks into AxisCare and reads them back.</li></ol></details>'
     +'</div>'
     +'<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🔁 Care plan reviews</b><span style="flex:1;"></span>'
@@ -9313,14 +9272,12 @@ function cpRenderCare(){
 }
 function cpNewAssessment(){
   const lead=CP.lead;
-  if(lead){
-    if(lead.status==='New'||lead.status==='Contacted'){ lead.status='Assessment Scheduled'; persist('leads', lead); }
-    openAssessmentModal(null, lead);
-  } else {
-    openAssessmentModal(null);
-    document.getElementById('assess_client_name').value=CP.r?CP.r.client_name:'';
-    document.getElementById('assess_axiscare_client_id').value=CP.ax||'';
-  }
+  if(lead){ scheduleAssessmentFromLead(lead.id); return; }
+  const have=asmtExisting(null, CP.ax);
+  if(have && confirm('This client already has an assessment'+(have.visit_date?' (visit '+have.visit_date+')':'')+'.\n\nOK = open it · Cancel = start a new one (a reassessment)')){ openAssessmentModal(have.id); return; }
+  openAssessmentModal(null);
+  document.getElementById('assess_client_name').value=CP.r?CP.r.client_name:'';
+  document.getElementById('assess_axiscare_client_id').value=CP.ax||'';
 }
 function cpLogReview(){
   if(!CP.ax) return;
@@ -11647,20 +11604,29 @@ async function jcCheckFromProfile(){
   if(typeof ccToast==='function') ccToast((res.ok?'✓ ':'')+res.text); else alert(res.text);
   jcRenderStatus(); if(typeof lpScLoad==='function') lpScLoad(l,true);
 }
-function scheduleAssessmentFromLead(leadId){
-  const l = DATA.leads.find(x=>x.id===leadId);
-  /* Change 8c: a lead that already has an assessment opens it (found by the lead id, or the same
-     AxisCare client); a new one only when asked for, e.g. a reassessment */
-  const ax = String(l.axiscare_client_id||'').trim();
-  const have = (DATA.care_assessments||[]).filter(a=>a.lead_id===l.id || (ax && String(a.axiscare_client_id||'').trim()===ax))
-    .sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0];
+/* Profile First, step A (2026-09-28): an assessment is opened or started INSIDE the family's profile, on
+   the Care tab; it never sends you out to another tab. Change 8c kept: a family that already has one is
+   asked whether to open it or start a reassessment. Only a New or Contacted lead moves to "Assessment
+   Scheduled" (a client being reassessed never moves backwards). */
+async function asmtToProfile(l, ax){
+  const inProfile=typeof cpOpen==='function'&&cpOpen()&&((l&&CP.lead&&CP.lead.id===l.id)||(!l&&ax&&String(CP.ax)===String(ax)));
+  if(inProfile){ cpShowTab('care'); window.scrollTo(0,0); return; }
+  if(l) await openClient({ lead_id:l.id },'care'); else if(ax) await openClient({ ax:String(ax) },'care');
+}
+function asmtExisting(l, ax){
+  ax=String(ax||(l&&l.axiscare_client_id)||'').trim();
+  return (DATA.care_assessments||[]).filter(a=>(l&&a.lead_id===l.id)||(ax&&String(a.axiscare_client_id||'').trim()===ax))
+    .sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0]||null;
+}
+async function scheduleAssessmentFromLead(leadId){
+  const l=(DATA.leads||[]).find(x=>x.id===leadId); if(!l) return;
+  const have=asmtExisting(l);
   if(have && confirm('This family already has an assessment'+(have.visit_date?' (visit '+have.visit_date+')':'')+'.\n\nOK = open it · Cancel = start a new one (a reassessment)')){
-    switchTab('assessments'); openAssessmentModal(have.id); return;
+    await asmtToProfile(l); openAssessmentModal(have.id); return;
   }
-  l.status = 'Assessment Scheduled';
-  persist('leads', l);
+  if(l.status==='New'||l.status==='Contacted'){ l.status='Assessment Scheduled'; persist('leads', l); }
+  await asmtToProfile(l);
   openAssessmentModal(null, l);
-  switchTab('assessments');
 }
 
 /* ---------------- GUIDED CALL COCKPIT ----------------
@@ -11750,7 +11716,9 @@ async function ckptSave(book){
   if(!id){ id=uid(); document.getElementById('lead_id').value=id; }
   ckptTeardown();                     // fields keep their values; saveLead reads by id
   await saveLead({ck_done:true, ck_note:ck.note||''});
-  if(book) scheduleAssessmentFromLead(id);
+  if(book){ const l=(DATA.leads||[]).find(x=>x.id===id);
+    if(l&&(l.status==='New'||l.status==='Contacted')){ l.status='Assessment Scheduled'; persist('leads', l); }
+    if(l) await asmtToProfile(l); asmtBook(id); }
 }
 /* ---------- Client rate card (Guided Call side panel) ----------
    Same deal as the caregiver pay rates: one shared record, id 'rates', in
@@ -12215,27 +12183,10 @@ function openFollowUpDetail(leadId){
 
 /* ---------------- CARE ASSESSMENTS ---------------- */
 function renderAssessments(){
-  if(typeof cpRefreshCare==='function') cpRefreshCare();   /* One profile, step 3: saves refresh the Care tab */
-  renderFilterPills('assessmentsFilters', ['All','Scheduled','Completed — Awaiting Plan','Plan Drafted','Pushed to AxisCare'], activeFilters.assessments, 'assessments');
-  let rows = DATA.care_assessments.filter(a => searchMatch(a.client_name));
-  if(activeFilters.assessments!=='All') rows = rows.filter(a=>a.status===activeFilters.assessments);
-
-  const wrap = document.getElementById('assessmentsTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty">No care assessments match.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr>
-    <th>Client</th><th>Visit Date</th><th>Coordinator</th><th>Status</th><th>Transcript</th><th>Actions</th>
-  </tr></thead><tbody>${rows.map(a=>`
-    <tr>
-      <td>${cpOpenLink(a,'care')}</td>
-      <td>${a.visit_date||''}</td>
-      <td>${a.coordinator||''}</td>
-      <td>${statusBadge(a.status)}</td>
-      <td>${a.transcript_link?`<a href="${a.transcript_link}" target="_blank">link ↗</a>`:(a.transcript_text?'pasted text':'—')}</td>
-      <td>
-        <button class="linklike" onclick="openAssessmentModal('${a.id}')">Edit</button>
-        <button class="linklike" onclick="openPlanForAssessment('${a.id}')">View Plan</button>
-      </td>
-    </tr>`).join('')}</tbody></table>`;
+  /* Profile First, step A: the Care Assessments tab is gone. Every save still calls this, so it only refreshes
+     what shows assessments now (the profile's Care tab and the Leads & Starts strip) and can never fail. */
+  try{ if(typeof cpRefreshCare==='function') cpRefreshCare(); }catch(e){}
+  try{ if(typeof activeTab!=='undefined'&&activeTab==='leadsstarts'&&typeof renderLeadsStarts==='function') renderLeadsStarts(); }catch(e){}
 }
 function openAssessmentModal(id, fromLead){
   const a = id ? DATA.care_assessments.find(x=>x.id===id) : {};
@@ -13164,34 +13115,45 @@ function covMsgsFill(){
     set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
 }
-/* ── GHL booking calendars, embedded in Leads > Care Assessments ───────
-   The widget URLs live in ops_settings (assessment_calendar_url,
-   medicaid_calendar_url) so swapping a calendar never needs a deploy.
-   Frames get their src on first open, not at page load, so the hub does
-   not carry two GHL iframes everywhere. */
-let GHL_BOOK_LOADED=false;
-async function ghlBookFill(){
-  if(GHL_BOOK_LOADED) return;
-  try{
-    const { data } = await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle();
-    const s=(data&&data.data)||{};
-    const u=String(s.assessment_calendar_url||'').trim();
-    const m=String(s.medicaid_calendar_url||'').trim();
-    if(!/^https:\/\//.test(u)) return;
-    document.getElementById('ghlBookFrame').src=u;
-    document.getElementById('ghlBookCard').style.display='';
-    if(/^https:\/\//.test(m)){
-      document.getElementById('ghlBookFrameMed').src=m;
-      document.getElementById('ghlBookMedicaid').style.display='';
-    }
-    GHL_BOOK_LOADED=true;
-  }catch(e){ /* card just stays hidden */ }
+/* ── GHL booking calendars (Profile First, step A, 2026-09-28) ─────────────
+   The widget URLs live in ops_settings (assessment_calendar_url, medicaid_calendar_url) so swapping a
+   calendar never needs a deploy. "Book the assessment visit" opens them from the profile, the Getting
+   ready step and Quick Capture: the Medicaid calendar for a Medicaid family, the New Client one
+   otherwise, with a switch between them. The Team Calendar's button opens the New Client one. */
+let ASMT_URLS=null;
+async function asmtBookUrls(){
+  if(ASMT_URLS) return ASMT_URLS;
+  const ok=u=>{ u=String(u||'').trim(); return /^https:\/\//.test(u)?u:''; };
+  let st=DATA.ops_settings&&!Array.isArray(DATA.ops_settings)?DATA.ops_settings:null;
+  if(!st||!('assessment_calendar_url' in st)){
+    try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle(); st=(data&&data.data)||st||{}; }catch(e){ st=st||{}; }
+  }
+  ASMT_URLS={ home:ok(st.assessment_calendar_url), med:ok(st.medicaid_calendar_url) };
+  return ASMT_URLS;
 }
-function ghlBookOpen(){ const f=document.getElementById('ghlBookFrame'); if(f&&f.src) window.open(f.src,'_blank'); }
+async function asmtBook(leadId, kind){
+  const esc=escapeHtmlComms, u=await asmtBookUrls();
+  const l=leadId?(DATA.leads||[]).find(x=>x.id===leadId):null;
+  if(!u.home&&!u.med){ alert('Paste the New Client Assessment booking link into Settings first (Callout texts card).'); return; }
+  kind=kind||(l&&l.funding_source==='medicaid'?'med':'home'); if(!u[kind]) kind=kind==='med'?'home':'med';
+  const old=document.getElementById('asmtBookOv'); if(old) old.remove();
+  const ov=document.createElement('div'); ov.id='asmtBookOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto;';
+  const who=l?(cpLeadClientName(l)||((l.first_name||'')+' '+(l.last_name||'')).trim()):'';
+  const lab={ home:'New Client assessment', med:'Medicaid assessment (Angiel)' };
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:860px;width:100%;padding:18px 20px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+    +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><b style="font-size:17px;color:var(--navy);">📅 Book the assessment visit'+(who?' · '+esc(who):'')+'</b><span style="flex:1;"></span>'
+    +(u.home&&u.med?['home','med'].map(k=>'<button class="'+(k===kind?'primary':'secondary')+'" data-k="'+k+'" style="font-size:12.5px;">'+lab[k]+'</button>').join(''):'')
+    +'<a href="'+esc(u[kind])+'" target="_blank" rel="noopener" class="linklike" style="font-size:13px;">Open full size ↗</a><button class="secondary" id="asmtBookX">Close</button></div>'
+    +'<div class="field-note" style="margin-top:6px;">'+esc(lab[kind])+(l&&l.funding_source?' · picked from how they pay ('+esc(l.funding_source)+')':'')+'. Book with the family on the phone; the booking lands on the Team Calendar and their profile by itself.</div>'
+    +'<iframe title="'+esc(lab[kind])+' booking" src="'+esc(u[kind])+'" style="width:100%;height:640px;border:1px solid var(--border);border-radius:10px;margin-top:10px;background:#fff;"></iframe></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#asmtBookX').onclick=()=>ov.remove();
+  ov.querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>asmtBook(leadId, b.getAttribute('data-k')));
+}
 async function calBookAssessment(){
-  await ghlBookFill();
-  const f=document.getElementById('ghlBookFrame');
-  if(f&&f.src) window.open(f.src,'_blank');
+  const u=await asmtBookUrls();
+  if(u.home) window.open(u.home,'_blank');
   else alert('Paste the New Client Assessment booking link into Settings first (Callout texts card).');
 }
 async function covMsgsSave(btn){
@@ -15213,6 +15175,7 @@ function renderLpSoc(){
         +(s.note?'<div class="field-note">📝 '+esc(s.note)+'</div>':'')
         +'</div>'
         +socRoleChip(s.role)
+        +(!s.done_at&&/in-home assessment completed/i.test(s.label)&&lpLead?'<button class="linklike" style="font-size:12px;white-space:nowrap;" onclick="asmtBook(\''+esc(lpLead.id)+'\')">📅 Book the visit</button>':'')
         +'<button class="linklike" style="font-size:12px;" onclick="socStepNote('+i+')" title="Add a note to this step">📝</button>'
         +'</div>';
     }).join('')
@@ -28195,6 +28158,40 @@ function lsRows(){
     || String(b.created).localeCompare(String(a.created)));
   return rows;
 }
+/* Profile First, step A (2026-09-28): what the Care Assessments tab listed, across every family, as three short
+   columns: visits booked, plans to write, plans not in AxisCare yet. Reassessments of current clients (no inquiry)
+   are included. A name opens that family's profile on the Care tab. */
+function lsAsmtItems(){
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date()), nowIso=new Date().toISOString();
+  const byId={}; (DATA.leads||[]).forEach(l=>{ if(l) byId[l.id]=l; });
+  const live=l=>!!l&&!l.archived&&l.status!=='Lost';
+  const lens=(c,l)=>typeof ccViewMatch!=='function'||ccViewMatch(c||(l&&l.assigned_coordinator));
+  const booked=[], write=[], send=[], seen=new Set();
+  (DATA.care_assessments||[]).forEach(a=>{
+    const l=a.lead_id?byId[a.lead_id]:null; if(a.lead_id&&!live(l)) return; if(!lens(a.coordinator,l)) return;
+    const it={ name:a.client_name||(l?cpLeadClientName(l):'')||'Unnamed', lead:l, ax:String(a.axiscare_client_id||'').trim(), when:a.visit_date||'' };
+    if(a.status==='Scheduled'&&a.visit_date&&a.visit_date>=today){ booked.push(it); if(l) seen.add(l.id); }
+    else if(a.status==='Scheduled'&&a.visit_date&&a.visit_date<today) write.push(Object.assign(it,{ why:'visit '+lsDate(a.visit_date)+', nothing recorded' }));
+    else if(a.status==='Completed — Awaiting Plan') write.push(Object.assign(it,{ why:'visit '+(a.visit_date?lsDate(a.visit_date):'done') }));
+    else if(a.status==='Plan Drafted') send.push(Object.assign(it,{ why:'plan drafted' }));
+  });
+  (DATA.leads||[]).forEach(l=>{ if(!live(l)||seen.has(l.id)||!l.assessment_at||String(l.assessment_at)<nowIso.slice(0,10)||!lens(null,l)) return;
+    booked.push({ name:cpLeadClientName(l)||'Unnamed', lead:l, ax:'', when:String(l.assessment_at) }); });
+  booked.sort((a,b)=>String(a.when).localeCompare(String(b.when)));
+  return { booked, write, send };
+}
+function lsAsmtHtml(){
+  const esc=escapeHtmlComms, I=lsAsmtItems();
+  const when=w=>{ if(!w) return ''; if(/T\d/.test(w)){ const d=new Date(w); return isNaN(d)?w:d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/Chicago'}); } return lsDate(w); };
+  const link=it=>it.lead?'<a href="javascript:void(0)" data-open-lead="'+esc(it.lead.id)+'" data-open-tab="care">'+esc(it.name)+'</a>'
+    :it.ax?'<a href="javascript:void(0)" onclick="openClient({ax:\''+esc(it.ax)+'\'},\'care\')">'+esc(it.name)+'</a>':esc(it.name);
+  const col=(title,list,sub)=>'<div style="min-width:0;"><div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);">'+title+' <span style="color:var(--navy);">'+list.length+'</span></div>'
+    +(list.length?list.slice(0,5).map(it=>'<div style="font-size:13px;padding:3px 0;">'+link(it)+' <span class="field-note" style="font-size:12px;">'+esc(sub(it))+'</span></div>').join('')
+      +(list.length>5?'<div class="field-note" style="font-size:12px;">and '+(list.length-5)+' more</div>':''):'<div class="field-note" style="font-size:12.5px;">None</div>')+'</div>';
+  return '<div class="card" style="padding:12px 16px;"><b style="font-size:14px;color:var(--navy);">📝 Upcoming assessments and plans to write</b>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 18px;margin-top:8px;">'
+    +col('Visits booked',I.booked,it=>when(it.when))+col('Plans to write',I.write,it=>it.why)+col('Plans not in AxisCare yet',I.send,it=>it.why)+'</div></div>';
+}
 function renderLeadsStarts(){
   const box=document.getElementById('lsBoard'); if(!box) return;
   if(!LS.facts&&!LS.loading) lsLoadFacts();
@@ -28210,6 +28207,7 @@ function renderLeadsStarts(){
     +tile(all.filter(r=>r.owe).length,'family updates owed','var(--amber,#C17A12)','All')
     +tile(all.filter(r=>r.waitingState).length,'waiting on Medicaid','#94A3B8','Waiting on the state')
     +tile(all.filter(r=>r.start&&r.st.k==='ready').length,'upcoming starts','var(--teal)','Getting ready');
+  { const ae=document.getElementById('lsAsmt'); if(ae) ae.innerHTML=lsAsmtHtml(); }
   const rows=all.filter(pass);
   if(!rows.length){ box.innerHTML='<div class="card" style="padding:16px 18px;color:var(--text-muted);">'+(LS.loading?'Loading…':'Nobody here right now.')+'</div>'; return; }
   const P={ ok:['#E7F6EC','#1F7A4D'], warn:['#FDF3E3','#A8660E'], bad:['#FDE8E8','#B23B2E'], dim:['#F1F5F9','#64748B'] };
@@ -33217,7 +33215,8 @@ function famGo(kind, id, tab){
   if(kind==='lead'){ openLeadProfile(id); return; }
   if(kind==='client'){ openClientProfile(id, tab); return; }
   if(typeof pdClose==='function') pdClose();
-  if(kind==='assessment'){ switchTab('assessments'); openAssessmentModal(id); return; }
+  if(kind==='assessment'){ const a=(DATA.care_assessments||[]).find(x=>x.id===id)||{}, l=a.lead_id?(DATA.leads||[]).find(x=>x.id===a.lead_id):null;
+    (async()=>{ await asmtToProfile(l, a.axiscare_client_id); openAssessmentModal(id); })(); return; }
   if(kind==='launch'){ openClient({ launch_id:id }, 'start'); return; }
   if(kind==='plan'){ switchTab('hourswatch'); swSubGo('builder'); tbOpen(id); return; }
   if(kind==='family'){
@@ -35439,6 +35438,8 @@ window.covLoadShifts=function(){};
                            #leads itself now reaches the Leads section, but
                            this older spelling keeps working */
                         leadboard:'leads',
+                        /* the Care Assessments tab retired 2026-09-28: assessments live in the profile */
+                        assessments:'leadsstarts',
                         /* IA revision 2026-09-15. The tab KEYS did not change,
                            so every old link keeps working; these are the new
                            names pointing at the same panels. */
