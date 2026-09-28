@@ -1104,15 +1104,7 @@ async function sendNewClientAlert(){
   statusEl.style.display='inline';
   statusEl.textContent='⏳ Sending…';
 
-  // Try Zapier webhook if configured
-  const webhook = appSettings.ac_new_client_webhook;
-  let sent = false;
-  if(webhook && !webhook.includes('REPLACE')){
-    try {
-      await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-      sent = true;
-    } catch(e){ console.warn('New client webhook failed', e); }
-  }
+  const sent = false;   /* Zapier removed 2026-09-28: the alert shows here for you to pass on */
 
   if(sent){
     statusEl.textContent = `✅ Staffing Coordinator notified about ${name}`;
@@ -1124,40 +1116,10 @@ async function sendNewClientAlert(){
   } else {
     // Fallback: show the notification as a visible alert in the hub
     statusEl.textContent='';
-    alert(`📋 New Client Alert\n\nClient: ${name}\nStart: ${dateLabel}\nPayer: ${payer||'—'}\nHrs/Week: ${authHrs||'—'}\n${notes?'Notes: '+notes+'\n':''}\nAdd the Zapier webhook in Settings → AxisCare to send this automatically via email.`);
+    alert(`📋 New Client Alert\n\nClient: ${name}\nStart: ${dateLabel}\nPayer: ${payer||'—'}\nHrs/Week: ${authHrs||'—'}\n${notes?'Notes: '+notes+'\n':''}`);
   }
 }
 
-// ── AxisCare Orientation Shift ────────────────────────────────────────
-async function axisCreateOrientShift(session){
-  const webhook = appSettings.ac_orient_webhook;
-  if(!webhook || webhook.includes('REPLACE')) return;
-  const [h, m] = (session.time||'10:00').split(':').map(Number);
-  const start = new Date(`${session.date}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
-  const end = new Date(start.getTime() + getOrientDuration()*60*60*1000);
-  const fmt = d => d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
-  const payload = {
-    session_id:       session.id,
-    date:             session.date,
-    time:             session.time,
-    end_time:         `${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`,
-    time_readable:    fmt(start),
-    end_time_readable:fmt(end),
-    duration_hours:   getOrientDuration(),
-    facilitator:      session.facilitator||'',
-    facilitator_role: session.facilitator_role||'',
-    location:         session.is_remote==='yes' ? (session.video_link||'Remote') : '1331 N Stewart Ave Ste B, Springfield MO 65802',
-    is_remote:        session.is_remote==='yes',
-    video_link:       session.video_link||'',
-    capacity:         session.capacity||6,
-    notes:            session.notes||'',
-    shift_type:       'Orientation',
-    agency:           'Caring Companions In-Home Senior Care',
-  };
-  try {
-    await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-  } catch(e){ console.warn('AxisCare orient shift webhook failed', e); }
-}
 
 async function gcalSyncAll(){
   if(!appSettings.google_client_id){
@@ -2289,18 +2251,6 @@ function badge(status,txt){
 }
 function proofLink(url){ return url?`<a class="proof-link" href="${url}" target="_blank">📄 proof</a>`:`<span style="color:#E8E2D8;font-size:.67rem">no proof</span>`; }
 
-// ── Zapier webhook helper — reads URLs from Settings (configurable without editing code) ─────────
-// Returns a Promise so callers can optionally await it.
-function zapFire(settingsKey, payload, json=false){
-  const url = (appSettings[settingsKey]||'').trim();
-  if(!url || url.includes('REPLACE') || !url.startsWith('http')) return Promise.resolve();
-  const opts = {method:'POST', body: JSON.stringify(payload)};
-  if(json) opts.headers = {'Content-Type':'application/json'};
-  return fetch(url, opts).catch(e=>console.warn(`Zapier ${settingsKey} skipped/error:`, e));
-}
-// Fires when a caregiver is cleared to schedule (orientation+ALZ done) or candidate is Ready for Orientation
-// Zap adds a note to their AxisCare profile so care coordinators can see status without hub access
-const ZAPIER_AC_STATUS_WEBHOOK = "https://hooks.zapier.com/hooks/catch/28062149/42aqc9c/";
 
 // ── Candidate texting via Supabase edge function + GoHighLevel ────────
 // Replaces the zapier_orient/not_hired webhooks. The send-candidate-message
@@ -3457,7 +3407,7 @@ async function loadFromSupabase(){
       if(row.key==='caregivers')     { caregivers=row.data; cgId=Math.max(cgId,...caregivers.map(c=>c.id+1),10); }
       if(row.key==='eod_reports')    { eodReports=row.data||[]; }
       if(row.key==='orient_sessions'){ orientSessions=row.data; orientId=Math.max(orientId,...orientSessions.map(s=>s.id+1),1); }
-      if(row.key==='settings')       { appSettings=row.data; if(appSettings&&typeof appSettings==='object') delete appSettings.training_hub_key; /* T3: the key is retired */ localStorage.setItem('cc_settings',JSON.stringify(row.data)); }
+      if(row.key==='settings')       { appSettings=row.data; if(appSettings&&typeof appSettings==='object') delete appSettings.training_hub_key; if(appSettings&&typeof appSettings==='object') ZAPIER_FIELDS.forEach(k=>{ delete appSettings[k]; }); /* T3: the key is retired */ localStorage.setItem('cc_settings',JSON.stringify(row.data)); }
       if(row.key==='evv_corrections'){ localStorage.setItem('cc_evv_corrections', JSON.stringify(row.data)); }
       if(row.key==='staffing_tasks') { STASKS=row.data||[]; }
       // One staff list across every hub. This is the same key the Care
@@ -3508,6 +3458,9 @@ function clearSeedPeople(){
 }
 
 let appSettings  = JSON.parse(localStorage.getItem('cc_settings'))    || { alert_recipients: [{name:'Samantha', email:'samantha@mo-care.com'}] };
+/* 2026-09-28: Zapier is gone; drop any Zapier address this browser kept. */
+const ZAPIER_FIELDS=['ac_orient_webhook','zapier_orient_webhook','zapier_attend_webhook','zapier_cand_webhook','zapier_not_hired_webhook','ac_new_client_webhook'];
+ZAPIER_FIELDS.forEach(k=>{ delete appSettings[k]; });
 delete appSettings.training_hub_key;   /* T3 (2026-09-28): the shared Training key is retired; every Training call uses your own sign-in */
 let candidates   = JSON.parse(localStorage.getItem('cc_candidates'))   || SEED_CANDIDATES;
 let caregivers   = JSON.parse(localStorage.getItem('cc_caregivers'))   || SEED_CAREGIVERS;
@@ -4821,7 +4774,7 @@ function bgrDrawerHTML(r, t){
 }
 
 /* Record a single background check (EDL / FCSR / Fingerprint) from the drawer.
-   Writes through bgrApplyBoardChange so the AxisCare + Zapier side effects fire. */
+   Writes through bgrApplyBoardChange so its side effects fire. */
 let _bgrCheckCand = null, _bgrCheckWhich = null;
 function bgrEnsureCheckModal(){
   if(document.getElementById('bgrCheckModal')) return;
@@ -4904,11 +4857,7 @@ async function bgrPushDocToGHL(candId, which, proof){
   const c = candidates.find(x => x.id === candId);
   if(!c || (!c.email && !c.phone) || !proof) return;
   const label = ({oig:'OIG',edl:'EDL',fcsr:'FCSR',fp:'Fingerprint'}[which] || which) + ' background check';
-  let fileUrl = proof, fname = 'document';
-  if(!/^https?:\/\//i.test(proof)){
-    fname = String(proof).split('/').pop() || 'document.pdf';
-    try{ const { data } = await sb.storage.from('lead-docs').createSignedUrl(proof, 31536000); fileUrl = (data && data.signedUrl) || ''; }catch(e){ fileUrl = ''; }
-  }
+  const fname = /^https?:\/\//i.test(proof) ? 'document' : (String(proof).split('/').pop() || 'document.pdf');
   /* T2 (2026-09-28): filed onto the GoHighLevel contact with your own sign-in. The function fetches the document
      from our storage by a 10-minute link right away; no long-lived link goes to GoHighLevel, and a pasted outside
      link is never sent (the contact just gets a note that the document is in the Hub). */
@@ -4922,7 +4871,6 @@ async function bgrPushDocToGHL(candId, which, proof){
       body: JSON.stringify({ first: c.first||'', last: c.last||'', email: c.email||'', phone: c.phone||'', label, file_url: ghlLink || undefined, file_name: fname })
     });
   }catch(e){ console.warn('GHL doc attach skipped', e); }
-  try{ zapFire('zapier_cand_webhook', { candidate_id: c.id, full_name: (c.first+' '+c.last).trim(), phone: c.phone||'', email: c.email||'', doc_label: label, doc_url: fileUrl, doc_name: fname, document: true, timestamp: new Date().toISOString() }); }catch(e){}
 }
 /* Open a proof: a pasted http link directly, or a private storage path via a
    short-lived signed URL. */
@@ -5488,16 +5436,6 @@ function saveOB(){
     saved = candidates[idx];
   }
   saveCandidates(); closeModal('ob-modal'); renderOB(); renderAlerts();
-  if(nowReady && !wasReady){
-    pushAxisCareStatus('orientation_ready', {
-      first: saved.first, last: saved.last,
-      axiscare_id: saved.axiscare_id||'',
-      phone: saved.phone||'',
-      note: `✅ Ready for Orientation — background checks clear, 2 positive references received. Ready to be scheduled for orientation.`
-    });
-  }
-  // Push to AxisCare + Google Drive via Zapier (URL configured in Settings)
-  zapFire('zapier_cand_webhook', obCandPayload(saved));
 }
 
 /* Candidate sync payload, shared by saveOB and any other path that persists a
@@ -5524,7 +5462,7 @@ function obCandPayload(saved){
 }
 /* Persist a single change to a candidate board with the SAME side effects saveOB
    applies: resolution stamp, the AxisCare "ready for orientation" push the first
-   time they become ready, and the Zapier sync. Used by the drawer's check
+   time they become ready. Used by the drawer's check
    recording so those never get skipped. */
 function bgrApplyBoardChange(candId, changes){
   const i = candidates.findIndex(x => x.id === candId);
@@ -5541,13 +5479,6 @@ function bgrApplyBoardChange(candId, changes){
     saved.resolvedStatus = nowStatus;
   }
   saveCandidates();
-  if(nowReady && !wasReady){
-    try{ pushAxisCareStatus('orientation_ready', {
-      first: saved.first, last: saved.last, axiscare_id: saved.axiscare_id||'', phone: saved.phone||'',
-      note: '✅ Ready for Orientation — background checks clear, 2 positive references received. Ready to be scheduled for orientation.'
-    }); }catch(e){}
-  }
-  try{ zapFire('zapier_cand_webhook', obCandPayload(saved)); }catch(e){}
   try{ renderOB(); renderAlerts(); renderPeopleChecks(); }catch(e){}
 }
 
@@ -5860,7 +5791,6 @@ function saveCG(){
   if(!g('cg-first')||!g('cg-last')){alert('Name required.');return;}
   // Capture pre-save state to detect status changes
   const oldCG = editingCG ? caregivers.find(x=>x.id===editingCG) : null;
-  const wasCleared = oldCG ? trainStatus(oldCG).preContactDone : false;
   const d={first:g('cg-first'),last:g('cg-last'),hire_date:g('cg-hire'),oos:g('cg-oos'),axiscare_id:g('cg-axiscare-id'),
     orient_date:g('cg-orient'),orient_proof:g('cg-orient-proof'),alz_date:g('cg-alz'),alz_hrs:g('cg-alz-hrs'),alz_proof:g('cg-alz-proof'),first_contact:g('cg-first-contact'),
     ojt_date:g('cg-ojt-date'),ojt_signed:g('cg-ojt-signed'),ojt_proof:g('cg-ojt-proof'),ojt_online:g('cg-ojt-online'),ojt_online_proof:g('cg-ojt-online-proof'),
@@ -5878,37 +5808,8 @@ function saveCG(){
   else { const rec={id:cgId++,...d}; caregivers.push(rec); savedCG=rec; }
   saveCaregivers(); closeModal('cg-modal'); renderAlerts();
   if(cgReturnTab==='training') renderTR(); else renderAC();
-  // Push to AxisCare if caregiver just became cleared to schedule (orientation + ALZ done)
-  const nowCleared = trainStatus(savedCG).preContactDone;
-  if(nowCleared && !wasCleared){
-    const ts = trainStatus(savedCG);
-    const hire = pd(savedCG.hire_date);
-    const ojtDeadline = hire ? addDays(hire,30).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : 'within 30 days of hire';
-    pushAxisCareStatus('cleared_to_schedule', {
-      first: savedCG.first, last: savedCG.last,
-      axiscare_id: savedCG.axiscare_id||'',
-      hire_date: savedCG.hire_date||'',
-      orient_date: savedCG.orient_date||'',
-      alz_date: savedCG.alz_date||'',
-      ojt_deadline: ojtDeadline,
-      note: `✅ Cleared for first shift — orientation and ALZ/dementia training complete. Remaining OJT (4hr in-home + 2hr online) must be completed by ${ojtDeadline}.`
-    });
-  }
 }
 
-// ── AXISCARE STATUS PUSH ──────────────────────────────────────────────
-function pushAxisCareStatus(type, data){
-  if(ZAPIER_AC_STATUS_WEBHOOK.includes('REPLACE_WITH_YOUR_URL')){
-    console.log('AxisCare status push skipped — webhook not configured:', type, data);
-    return;
-  }
-  // No Content-Type header → browser sends simple request with no CORS preflight → Zapier receives it
-  fetch(ZAPIER_AC_STATUS_WEBHOOK,{method:'POST',body:JSON.stringify({
-    type,
-    timestamp: new Date().toISOString(),
-    ...data
-  })}).catch(e=>console.warn('AxisCare status webhook error:', e));
-}
 
 function closeModal(id){ document.getElementById(id).classList.remove('open'); editingOB=null; editingCG=null; editingOrient=null; editScope='single'; pendingEditId=null; pendingDeleteId=null; pendingCancelSessId=null; pendingCancelBookingIdx=null; }
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) closeModal(o.id); }));
@@ -6617,7 +6518,6 @@ function saveOrient(){
       orientSessions[i]={...orientSessions[i],...base, date:g('or-date')};
       const s=orientSessions[i];
       if(s.gcal_event_id) gcalUpdateEvent(s); else gcalCreateEvent(s).then(eid=>{ if(eid){ s.gcal_event_id=eid; saveOrientStore(); } });
-      axisCreateOrientShift(s);
     }
   } else {
     const recur = g('or-recur');
@@ -6628,7 +6528,6 @@ function saveOrient(){
       const newSess = {id:orientId++, bookings:[], ...base, date, ...(seriesId?{series_id:seriesId}:{})};
       orientSessions.push(newSess);
       gcalCreateEvent(newSess).then(eid=>{ if(eid){ newSess.gcal_event_id=eid; saveOrientStore(); } });
-      axisCreateOrientShift(newSess);
     });
   }
   saveOrientStore();
@@ -6700,16 +6599,6 @@ function markAttendance(sessId, bookingIdx, status){
     }
     saveCandidates();
   }
-  // Push to AxisCare via Zapier
-  if(status){
-    const outcomeLabel={attended:'Attended',noshow:'No-Show',rescheduled:'Rescheduled'}[status]||status;
-    zapFire('zapier_attend_webhook',{
-      candidate_first:b.first, candidate_last:b.last, candidate_phone:b.phone||'',
-      outcome:status, outcome_label:outcomeLabel,
-      session_date:s.date, session_time:s.time||'',
-      timestamp:new Date().toISOString()
-    }, true);
-  }
   saveOrientStore();
   renderSessionsList();
 }
@@ -6746,16 +6635,6 @@ function saveCancelDetails(){
     candidates[cIdx].cancel_reason = reason;
     saveCandidates();
   }
-  // Push cancellation details to AxisCare via Zapier
-  const methodLabel={call:'Called us',text:'Texted us',other:'Other/Unknown'}[method]||method;
-  zapFire('zapier_attend_webhook',{
-    candidate_first:b.first, candidate_last:b.last, candidate_phone:b.phone||'',
-    outcome:'canceled', outcome_label:'Canceled',
-    cancel_method:method, cancel_method_label:methodLabel,
-    cancel_reason:reason,
-    session_date:s.date, session_time:s.time||'',
-    timestamp:new Date().toISOString()
-  }, true);
   saveOrientStore();
   closeModal('cancel-modal');
   renderSessionsList();
@@ -7066,12 +6945,6 @@ function _openSettingsModal(){
   document.getElementById('settings-gdrive-client-id').value=appSettings.google_client_id||'';
   document.getElementById('settings-gdrive-folder-id').value=appSettings.google_drive_folder_id||'';
   document.getElementById('settings-gcal-id').value=appSettings.gcal_calendar_id||'';
-  document.getElementById('settings-ac-orient-webhook').value=appSettings.ac_orient_webhook||'';
-  if(document.getElementById('settings-nc-webhook')) document.getElementById('settings-nc-webhook').value=appSettings.ac_new_client_webhook||'';
-  document.getElementById('settings-zapier-orient').value=appSettings.zapier_orient_webhook||'';
-  document.getElementById('settings-zapier-attend').value=appSettings.zapier_attend_webhook||'';
-  document.getElementById('settings-zapier-cand').value=appSettings.zapier_cand_webhook||'';
-  document.getElementById('settings-zapier-not-hired').value=appSettings.zapier_not_hired_webhook||'';
   document.getElementById('settings-admin-current').value='';
   document.getElementById('settings-admin-new').value='';
   document.getElementById('settings-admin-confirm').value='';
@@ -7228,12 +7101,6 @@ function saveSettings(){
   const newClientId = document.getElementById('settings-gdrive-client-id').value.trim();
   appSettings.google_drive_folder_id = document.getElementById('settings-gdrive-folder-id').value.trim();
   appSettings.gcal_calendar_id = document.getElementById('settings-gcal-id').value.trim() || 'primary';
-  appSettings.ac_orient_webhook = document.getElementById('settings-ac-orient-webhook').value.trim();
-  appSettings.ac_new_client_webhook = document.getElementById('settings-nc-webhook')?.value.trim() || appSettings.ac_new_client_webhook || '';
-  appSettings.zapier_orient_webhook = document.getElementById('settings-zapier-orient').value.trim();
-  appSettings.zapier_attend_webhook = document.getElementById('settings-zapier-attend').value.trim();
-  appSettings.zapier_cand_webhook = document.getElementById('settings-zapier-cand').value.trim();
-  appSettings.zapier_not_hired_webhook = document.getElementById('settings-zapier-not-hired').value.trim();
   if(newClientId !== appSettings.google_client_id){
     appSettings.google_client_id = newClientId;
     gdriveTokenClient = null;
