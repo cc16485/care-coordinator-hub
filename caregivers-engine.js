@@ -2777,21 +2777,15 @@ async function sendForApproval(){
 }
 async function pushAxNote(id){
   const a=DISC_ACTIONS.find(x=>x.id===id); if(!a) return;
-  const key=hubKey();
-  if(!key){ a.ax_note_error='Training Hub key missing in Settings'; await attPersist('discipline_actions',a); renderAttendance(); return; }
   const noteText='CORRECTIVE ACTION ISSUED — '+a.level+' ('+String(a.issued_at||'').slice(0,10)+')\n'
     +'Category: Attendance & Dependability (Handbook 2U/2V)\n'
     +'Reason: '+a.reason+'\n'
     +'Approved by: '+(a.approved_by||'Samantha Troutman')+' · Issued by: '+(a.created_by||'staffing')+'\n'
     +'Signed original filed in Viventium.';
-  try{
-    const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
-      method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key, action:'caregiver_note', caregiver_name:a.caregiver, note:noteText})});
-    const d=await r.json();
-    if(d.error) throw new Error(d.error);
-    a.ax_noted=true; a.ax_note_error='';
-  }catch(e){ a.ax_noted=false; a.ax_note_error=(e&&e.message)||'failed'; }
+  /* C2b: by AxisCare number, picked by a person, through our own server with their sign-in (recorded) */
+  const d=await axCaregiverNote(a.caregiver, noteText, a.ax_caregiver_id);
+  if(d.outcome==='sent'){ a.ax_noted=true; a.ax_note_error=''; a.ax_caregiver_id=d.picked.id; }
+  else { a.ax_noted=false; a.ax_note_error=d.outcome==='cancelled'?'not sent: no caregiver was picked':String(d.detail||d.error||'failed'); }
   await attPersist('discipline_actions',a);
   renderAttendance();
   return a.ax_noted;
@@ -3253,23 +3247,17 @@ async function ciMarkFav(id){
 }
 async function ciPushCoach(id){
   const e=(CHECKINS||[]).find(x=>x.id===id); if(!e) return;
-  const key=hubKey();
-  if(!key){ alert('Paste the Training Hub read key into ⚙️ Settings first.'); return; }
   const noteText='CLIENT PREFERENCE — from a check-in call ('+String(e.at).slice(0,10)+')\n'
     +'Client: '+e.client+(e.spoke_with?' (spoke with '+e.spoke_with+')':'')+'\n'
     +'“'+e.coaching+'”\n'
     +'Passed along as friendly coaching so the match stays strong. — '+(e.by||'staffing');
-  try{
-    const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-convert-lead',{
-      method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
-      body:JSON.stringify({key, action:'caregiver_note', caregiver_name:e.caregiver, note:noteText})});
-    const d=await r.json();
-    if(d.error) throw new Error(d.error);
-    e.coach_ax_noted=true; e.coach_ax_error='';
-  }catch(err){ e.coach_ax_noted=false; e.coach_ax_error=(err&&err.message)||'failed'; }
+  const d=await axCaregiverNote(e.caregiver, noteText, e.coach_ax_caregiver_id);
+  if(d.outcome==='cancelled') return;
+  if(d.outcome==='sent'){ e.coach_ax_noted=true; e.coach_ax_error=''; e.coach_ax_caregiver_id=d.picked.id; }
+  else { e.coach_ax_noted=false; e.coach_ax_error=String(d.detail||d.error||'failed'); }
   try{ await sb.rpc('upsert_app_data_item',{ target_key:'client_checkins', item:e }); }catch(err){}
   renderCheckins();
-  if(e.coach_ax_noted) alert('✅ Noted on '+e.caregiver+'\'s AxisCare record.\n\nRemember to also tell them directly — a quick friendly text or call lands better than a note they might not see.');
+  if(e.coach_ax_noted) alert('✅ Noted on '+d.picked.name+'\'s AxisCare record (#'+d.picked.id+').\n\nRemember to also tell them directly — a quick friendly text or call lands better than a note they might not see.');
   else alert('Could not attach the AxisCare note: '+e.coach_ax_error);
 }
 async function ciSkip(client,caregiver){
