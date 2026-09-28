@@ -8197,7 +8197,7 @@ function cmpSentThisYear(key){
 /* Who is actually on each list, counted the same way the sender counts them,
    so turning an audience on is not a leap of faith. */
 function cmpAudienceCount(aud){
-  const leads=DATA.leads||[];
+  const leads=leadsCounted();
   const live = l => l.status!=='Converted' && l.status!=='Lost';
   const inDrip = l => !!l.nurture_started_at && !l.nurture_stopped_at;
   if(aud==='monthly'){
@@ -8278,9 +8278,9 @@ async function cmpRecipients(){
   const src=document.getElementById('cmpSource').value;
   let out=[];
   const leadName=l=>((l.first_name||'')+' '+(l.last_name||'')).trim();
-  if(src==='leads_all') out=(DATA.leads||[]).filter(l=>l.email).map(l=>({email:l.email,name:leadName(l)}));
+  if(src==='leads_all') out=leadsCounted().filter(l=>l.email).map(l=>({email:l.email,name:leadName(l)}));
   if(src==='leads_open') out=(DATA.leads||[]).filter(l=>l.email&&!l.archived&&l.status!=='Converted'&&l.status!=='Lost').map(l=>({email:l.email,name:leadName(l)}));
-  if(src==='leads_lost') out=(DATA.leads||[]).filter(l=>l.email&&l.status==='Lost').map(l=>({email:l.email,name:leadName(l)}));
+  if(src==='leads_lost') out=leadsCounted().filter(l=>l.email&&l.status==='Lost').map(l=>({email:l.email,name:leadName(l)}));
   if(src==='orgs') out=(DATA.referral_orgs||[]).filter(o=>o.email).map(o=>({email:o.email,name:o.people||o.name||''}));
   if(src==='caregivers'){
     try{
@@ -8923,6 +8923,66 @@ async function lpRestoreLead(){
     renderActiveTab();
   };
 }
+/* ── Lead numbers S1 · Mark as spam (2026-09-28) ─────────────────────────────────────────────────
+   A submission that was not a real inquiry. It is kept, never deleted, but it leaves every list and every
+   count and is never contacted: it is set Lost ("Spam, not a real inquiry"), archived and do-not-contact,
+   which every contact path already honours, and lead.spam records who, when, the note and what it was
+   before. For a week "Not spam" puts it back exactly; after that the lead mirror has voided its Journey
+   (a void is final), so the family is added again instead. */
+const LEAD_SPAM_REASON='Spam (not a real inquiry)';
+function leadIsSpam(l){ return !!(l&&l.spam&&typeof l.spam==='object'&&l.spam.at); }
+function leadsCounted(){ return (DATA.leads||[]).filter(l=>l&&!leadIsSpam(l)); }
+function leadSpamUndoable(l){ return leadIsSpam(l)&&(Date.now()-Date.parse(l.spam.at))<7*864e5; }
+function leadFromWebForm(l){ return !!l&&(l.contact_events||[]).some(e=>e&&e.channel==='web'&&e.outcome==='inquiry'); }
+async function lpMarkSpam(id, anchor){
+  const L=(DATA.leads||[]).find(x=>x.id===id); if(!L||leadIsSpam(L)) return;
+  const esc=escapeHtmlComms;
+  const el=ccPopOpen(anchor||document.body,
+    '<div style="font-size:14px;font-weight:800;color:var(--navy);">Mark as spam?</div>'
+    +'<div style="font-size:13.5px;margin-top:8px;"><b>'+esc(leadDisplayName(L))+'</b></div>'
+    +'<div class="field-note">'+esc([L.phone,L.email,L.source].filter(Boolean).join(' · ')||'no contact details')+'</div>'
+    +(L.interest_notes?'<div class="field-note" style="margin-top:4px;max-height:60px;overflow:auto;">“'+esc(String(L.interest_notes).slice(0,240))+'”</div>':'')
+    +'<label style="display:block;margin:10px 0 4px;font-size:12.5px;font-weight:600;">Note (optional)</label>'
+    +'<input id="lsNote" placeholder="e.g. sales pitch, test message" style="width:100%;font-size:13px;">'
+    +'<div class="field-note" style="margin-top:8px;">It leaves every list and every count, and is never contacted. For a week, <b>Not spam</b> puts it back exactly as it was.</div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px;"><button class="primary" id="lsGo" style="padding:7px 14px;font-size:13px;">Mark as spam</button>'
+    +'<button class="ghost" id="lsNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>', {width:380});
+  el.querySelector('#lsNo').onclick=ccPopClose;
+  el.querySelector('#lsGo').onclick=async()=>{
+    const note=el.querySelector('#lsNote').value.trim(), now=new Date().toISOString(), by=(ME&&(ME.email||ME.name))||'';
+    ccPopClose();
+    const keep=k=>(L[k]===undefined?null:L[k]);
+    L.spam={ at:now, by, note:note||null, before:{ status:keep('status'), lost_reason:keep('lost_reason'), lost_at:keep('lost_at'), archived:!!L.archived,
+      archived_at:keep('archived_at'), archived_by:keep('archived_by'), archive_reason:keep('archive_reason'), do_not_contact:!!L.do_not_contact,
+      do_not_contact_at:keep('do_not_contact_at'), do_not_contact_reason:keep('do_not_contact_reason') } };
+    L.status='Lost'; L.lost_reason=LEAD_SPAM_REASON; L.lost_at=now;
+    L.archived=true; L.archived_at=now; L.archived_by=by; L.archive_reason='Spam';
+    L.do_not_contact=true; L.do_not_contact_at=now; L.do_not_contact_reason='Marked spam';
+    await persist('leads', L);
+    if(typeof ccToast==='function') ccToast('Marked as spam. It no longer counts anywhere.');
+    if(lpLead&&lpLead.id===L.id){ lpLead=null; closeLeadProfile(); } else renderActiveTab();
+  };
+}
+async function lpNotSpam(id, anchor){
+  const L=(DATA.leads||[]).find(x=>x.id===id); if(!L||!leadIsSpam(L)) return;
+  const esc=escapeHtmlComms;
+  if(!leadSpamUndoable(L)){
+    const el=ccPopOpen(anchor||document.body,'<div style="font-size:13.5px;">It was marked spam on '+esc(lsDate(L.spam.at))+', more than a week ago, so its Journey is closed for good.</div>'
+      +'<div class="field-note" style="margin-top:6px;">If they really are a family, add them again with <b>+ Add lead</b>. The same-family check will find this record.</div>'
+      +'<div style="margin-top:10px;"><button class="ghost" id="nsOk" style="padding:6px 12px;font-size:12.5px;">OK</button></div>', {width:360});
+    el.querySelector('#nsOk').onclick=ccPopClose; return;
+  }
+  const b=L.spam.before||{}, now=new Date().toISOString(), by=(ME&&(ME.email||ME.name))||'';
+  const put=(k,v)=>{ if(v===null||v===undefined) delete L[k]; else L[k]=v; };
+  put('status', b.status||'New'); put('lost_reason', b.lost_reason); put('lost_at', b.lost_at);
+  L.archived=!!b.archived; put('archived_at', b.archived_at); put('archived_by', b.archived_by); put('archive_reason', b.archive_reason);
+  L.do_not_contact=!!b.do_not_contact; put('do_not_contact_at', b.do_not_contact_at); put('do_not_contact_reason', b.do_not_contact_reason);
+  L.spam_history=(Array.isArray(L.spam_history)?L.spam_history:[]).concat([{ marked_at:L.spam.at, marked_by:L.spam.by, note:L.spam.note, unmarked_at:now, unmarked_by:by }]).slice(-10);
+  delete L.spam;
+  await persist('leads', L);
+  if(typeof ccToast==='function') ccToast('Not spam: it is back exactly as it was.');
+  renderActiveTab(); if(lpLead&&lpLead.id===L.id&&typeof renderLeadProfile==='function') renderLeadProfile();
+}
 /* More: the things you do rarely, kept away from the things you do daily. */
 function lpMoreOpen(){
   if(!lpLead) return;
@@ -8934,9 +8994,11 @@ function lpMoreOpen(){
   const el=ccPopOpen(document.getElementById('lpMoreBtn')||document.body,
     '<div style="font-size:14px;font-weight:800;color:var(--navy);">More</div>'
     +'<div class="field-note" style="margin:3px 0 6px;">'+esc(leadDisplayName(L))+'</div>'
-    + item('lmDup','Mark as duplicate','Archives it and records which one it duplicates')
-    + (L.archived ? item('lmRestore','Restore to the working list','')
-                  : item('lmArchive','Archive','Takes it off the list, keeps everything'))
+    + (leadIsSpam(L) ? item('lmNotSpam','Not spam','Puts it back exactly as it was before it was marked')
+       : item('lmSpam','Mark as spam','Not a real inquiry: it leaves every list and every count, and is never contacted')
+         + item('lmDup','Mark as duplicate','Archives it and records which one it duplicates')
+         + (L.archived ? item('lmRestore','Restore to the working list','')
+                       : item('lmArchive','Archive','Takes it off the list, keeps everything')))
     + item('lmDel','Delete permanently','Removes the record and its work items. Cannot be undone', true),
     {width:340});
   const on=(id,fn)=>{ const b=el.querySelector('#'+id); if(b) b.onclick=fn; };
@@ -8944,6 +9006,8 @@ function lpMoreOpen(){
   on('lmRestore',()=>{ ccPopClose(); lpRestoreLead(); });
   on('lmDel',   ()=>{ ccPopClose(); lpDeleteLead(); });
   on('lmDup',   ()=>{ ccPopClose(); lpMarkDuplicate(); });
+  on('lmSpam',  ()=>{ ccPopClose(); lpMarkSpam(L.id, document.getElementById('lpMoreBtn')); });
+  on('lmNotSpam',()=>{ ccPopClose(); lpNotSpam(L.id, document.getElementById('lpMoreBtn')); });
 }
 async function lpMarkDuplicate(){
   if(!lpLead) return;
@@ -9703,7 +9767,7 @@ function renderStandup(){
                        return o&&(o===em||als.indexOf(o)>-1);}).length;
     const due=openLeads.filter(l=>mine(l.assigned_coordinator)&&l.follow_up_due===t).length
       + checkins.filter(c=>mine(c.coordinator)&&c.next_checkin_due===t).length;
-    const closed=(DATA.leads||[]).filter(l=>mine(l.assigned_coordinator)&&l.last_contacted_at===yd).length
+    const closed=leadsCounted().filter(l=>mine(l.assigned_coordinator)&&l.last_contacted_at===yd).length
       + checkins.filter(c=>mine(c.coordinator)&&c.checkin_date===yd).length
       + (DATA.activities||[]).filter(a=>a.done_at&&String(a.done_at).slice(0,10)===yd&&em&&String(a.done_by||'').toLowerCase()===em).length;
     return row(p.name,'✓ '+closed+' closed '+ydLabel,due,late,p.name);
@@ -9965,7 +10029,7 @@ function renderOverviewTop(nOverdue,nDue){
     +(nOverdue?' — <b style="color:var(--red);">'+nOverdue+' overdue</b>':'')+'.';
   const monthStart=new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
   const mIso=monthStart.toISOString();
-  const mLeads=DATA.leads.filter(l=>(l.created_at||'')>=mIso);
+  const mLeads=leadsCounted().filter(l=>(l.created_at||'')>=mIso);
   const newInq=mLeads.length;
   const converted=DATA.leads.filter(l=>l.status==='Converted'&&(l.converted_at||l.created_at||'')>=mIso).length;
   const openLeads=DATA.leads.filter(l=>l.status!=='Converted'&&l.status!=='Lost').length;
@@ -10066,7 +10130,7 @@ function orgLastTouch(orgId){
 function orgReferralCount(o){
   const norm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
   const n=norm(o.name); if(!n) return 0;
-  return DATA.leads.filter(function(l){
+  return leadsCounted().filter(function(l){
     if(l.referral_org_id) return l.referral_org_id===o.id;
     const t=norm(l.referral_source_name);
     return !!t && (t.includes(n) || n.includes(t));
@@ -10148,8 +10212,8 @@ function renderRefDashboard(){
   const mIso=monthStart.toISOString();
   const newOrgs=orgs.filter(o=>(o.created_at||'')>=mIso).length;
   const f2f=(DATA.referral_activities||[]).filter(a=>(a.at||'')>=mIso&&(a.kind==='dropby'||a.kind==='appointment'||a.kind==='event')).length;
-  const refLeads=DATA.leads.filter(l=>l.source==='Referral'&&(l.created_at||'')>=mIso).length;
-  const refStarts=DATA.leads.filter(l=>l.source==='Referral'&&l.status==='Converted'&&(l.converted_at||l.created_at||'')>=mIso).length;
+  const refLeads=leadsCounted().filter(l=>l.source==='Referral'&&(l.created_at||'')>=mIso).length;
+  const refStarts=leadsCounted().filter(l=>l.source==='Referral'&&l.status==='Converted'&&(l.converted_at||l.created_at||'')>=mIso).length;
   const kpi=(label,val,sub,icon,wb,wf)=>'<div class="kpi"><div class="kl"><span>'+label+'</span><span class="kw" style="background:'+wb+';color:'+wf+';">'+icon+'</span></div>'
     +'<div class="kv">'+val+'</div><div class="ks">'+sub+'</div></div>';
   document.getElementById('refKpis').innerHTML =
@@ -10232,7 +10296,7 @@ function refActs(id){
 function refLeads(o){
   const norm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
   const n=norm(o.name);
-  return (DATA.leads||[]).filter(function(l){
+  return leadsCounted().filter(function(l){
     if(l.referral_org_id) return l.referral_org_id===o.id;
     const t=norm(l.referral_source_name);
     return !!t && n && (t.includes(n)||n.includes(t));
@@ -10343,7 +10407,7 @@ function renderReports(){
   const esc=escapeHtmlComms;
   const days=parseInt(document.getElementById('reportRange').value,10);
   const cutoff=new Date(Date.now()-days*86400000).toISOString();
-  const leads=DATA.leads.filter(l=>(l.created_at||'')>=cutoff);
+  const leads=leadsCounted().filter(l=>(l.created_at||'')>=cutoff);
   const total=leads.length;
   const assessed=leads.filter(l=>['Assessment Scheduled','Converted'].includes(l.status)).length;
   const converted=leads.filter(l=>l.status==='Converted').length;
@@ -16783,7 +16847,7 @@ function renderGoals(){
   const mStart=new Date(); mStart.setDate(1); mStart.setHours(0,0,0,0);
   const mIso=mStart.toISOString();
   const wkStart=new Date(); wkStart.setDate(wkStart.getDate()-((wkStart.getDay()+6)%7)); wkStart.setHours(0,0,0,0);
-  const inq=DATA.leads.filter(l=>(l.created_at||'')>=mIso).length;
+  const inq=leadsCounted().filter(l=>(l.created_at||'')>=mIso).length;
   const starts=DATA.leads.filter(l=>l.status==='Converted'&&(l.converted_at||l.created_at||'')>=mIso).length;
   const touches=(DATA.referral_activities||[]).filter(a=>(a.at||'')>=wkStart.toISOString()).length;
   const tile=(label,val,goal,sub)=>{
@@ -28111,12 +28175,13 @@ function lsRows(){
     /* a client AxisCare shows as no longer active is Past, the same as on their profile */
     const idr=ax&&Array.isArray(CL360_IDENTITY)?CL360_IDENTITY.find(x=>String(x.axiscare_client_id||'')===ax):null;
     let st=ccLeadStage(l); if(st.k==='care'&&idr&&idr.role_status&&idr.role_status!=='active') st={ k:'past', d:'ended care' };
-    const set=l.archived?'archived':st.k==='care'?'care':st.k==='past'?'past':'work';
+    const set=leadIsSpam(l)?'spam':l.archived?'archived':st.k==='care'?'care':st.k==='past'?'past':'work';
     const ep=F.epOf[String(l.id)], sc=ep?F.scOf[ep]:null, pid=ep?F.planOf[ep]:null;
     const launch=ax?launches.find(c=>c.status!=='complete'&&String(c.axiscare_client_id||'').trim()===ax):null;
     const r=lsRow({ lead:l, st, sc, launch, plan:pid?(DATA.staffing_plans||[]).find(p=>p.id===pid):null }); r.set=set;
     if(set!=='work'){ r.risk=[]; r.owe=false; r.tab='summary';
-      r.move=set==='archived'?'Archived (restore it from their profile)':set==='care'?'Receiving care':(l.status==='Lost'?'Lost: '+(l.lost_reason||'no reason given'):'Care ended'); }
+      r.move=set==='spam'?'Marked spam by '+lpscName(l.spam.by)+', '+lsDate(l.spam.at)+(leadSpamUndoable(l)?' (Not spam is in their profile\'s More menu)':'')
+        :set==='archived'?'Archived (restore it from their profile)':set==='care'?'Receiving care':(l.status==='Lost'?'Lost: '+(l.lost_reason||'no reason given'):'Care ended'); }
     rows.push(r);
   });
   /* First shift checklists with no inquiry behind them (clients AxisCare started directly) */
@@ -28184,9 +28249,9 @@ function lsSearchHit(r){
   const l=r.l, c=r.c;
   return searchMatch([r.name, l&&l.first_name, l&&l.last_name, l&&l.phone, l&&l.email, l&&l.client_first_name, l&&l.client_last_name, l&&l.client_phone, c&&c.client_name].filter(Boolean).join(' '));
 }
-const LS_FILTERS=['All','At risk','Updates owed','Follow-up due','New','Talking','Waiting on the state','Assessment','Getting ready','Receiving care','Past','Archived'];
+const LS_FILTERS=['All','At risk','Updates owed','Follow-up due','New','Talking','Waiting on the state','Assessment','Getting ready','Receiving care','Past','Archived','Spam'];
 function lsIn(r,f){
-  if(f==='Receiving care') return r.set==='care'; if(f==='Past') return r.set==='past'; if(f==='Archived') return r.set==='archived';
+  if(f==='Receiving care') return r.set==='care'; if(f==='Past') return r.set==='past'; if(f==='Archived') return r.set==='archived'; if(f==='Spam') return r.set==='spam';
   if(r.set!=='work') return false;
   if(f==='All') return true; if(f==='At risk') return r.risk.length>0; if(f==='Updates owed') return r.owe;
   if(f==='Follow-up due') return !!(r.l&&r.l.follow_up_due&&r.l.follow_up_due<=today());
@@ -28221,11 +28286,12 @@ function renderLeadsStarts(){
   let lastRisk=null, h='<div class="card" style="padding:0;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:760px;">'
     +'<thead><tr style="background:var(--bg);text-align:left;">'+['Family','Start','Stage','Care','Authorization','Staffing','Next move'].map(x=>'<th style="padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">'+x+'</th>').join('')+'</tr></thead><tbody>';
   rows.forEach(r=>{
-    const isRisk=r.risk.length>0, band=r.set!=='work'?{care:'Receiving care',past:'Past',archived:'Archived'}[r.set]:LS.filter==='Follow-up due'?'Follow-up due, soonest first':(isRisk?'At risk':'On track');
+    const isRisk=r.risk.length>0, band=r.set!=='work'?{care:'Receiving care',past:'Past',archived:'Archived',spam:'Spam'}[r.set]:LS.filter==='Follow-up due'?'Follow-up due, soonest first':(isRisk?'At risk':'On track');
     if(band!==lastRisk){ lastRisk=band; h+='<tr><td colspan="7" style="padding:5px 10px;background:var(--bg);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:'+(isRisk?'var(--red)':'var(--text-muted)')+';">'+esc(band)+'</td></tr>'; }
     h+='<tr '+open(r)+' style="cursor:pointer;border-top:1px solid var(--border);'+(isRisk?'background:#FFFAF9;':'')+'" title="Open their profile">'
       +'<td style="padding:9px 10px;"><div style="display:flex;align-items:center;gap:7px;"><span style="width:8px;height:8px;border-radius:50%;flex:none;background:'+(isRisk?'var(--red)':r.set!=='work'?'#94A3B8':'var(--green)')+';"></span><b style="color:var(--navy);">'+esc(r.name)+'</b></div>'
         +(r.l&&lsWho(r.l)?'<div class="field-note" style="font-size:11.5px;margin-top:2px;">'+esc(lsWho(r.l))+'</div>':'')+lsSignals(r.l)
+        +(r.set==='work'&&r.st.k==='new'&&leadFromWebForm(r.l)?'<div data-no-open="1" style="margin-top:2px;"><button class="linklike" style="font-size:11.5px;color:var(--text-muted);" onclick="lpMarkSpam(\''+esc(r.l.id)+'\',this)">Spam?</button></div>':'')
         +(isRisk?'<div style="font-size:11.5px;color:var(--red);margin-top:2px;">'+esc(r.risk.join(' · '))+'</div>':'')+'</td>'
       +'<td style="padding:9px 10px;white-space:nowrap;">'+(r.start?'<b>'+esc(lsDate(r.start.ymd))+'</b> <span class="field-note">· '+(r.days===0?'today':r.days>0?r.days+' days':Math.abs(r.days)+' days ago')+'</span>'+(r.start.conf?'<div class="field-note" style="font-size:11px;">'+esc(r.start.conf)+'</div>':''):'<span class="field-note">no date promised</span>')+'</td>'
       +'<td style="padding:9px 10px;">'+ccStageChip(r.st)+'</td>'
@@ -33296,6 +33362,7 @@ async function openCaregiverProfile(ref){
    matches it. data-open-client="<AxisCare id or full name>" or data-open-lead="<lead id>",
    plus an optional data-open-tab="payer|care|checkins|family|team|start|history…". */
 document.addEventListener('click', function(e){
+  if(e.target.closest && e.target.closest('[data-no-open]')) return;   /* a button inside a clickable row does its own thing */
   const l = e.target.closest && e.target.closest('[data-open-lead]');
   if(l){ e.stopPropagation(); e.preventDefault(); openLeadProfile(l.getAttribute('data-open-lead'), l.getAttribute('data-open-tab')||undefined); return; }
   const c = e.target.closest && e.target.closest('[data-open-client]');
