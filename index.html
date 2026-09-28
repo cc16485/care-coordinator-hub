@@ -27982,6 +27982,7 @@ function lpcClientRow(l,b){
 }
 function lpcLine(l,b,who,p){
   const esc=escapeHtmlComms, key=who==='person'?'person:'+(p&&p.person_key):who;
+  if(!String(l.axiscare_client_id||'').trim()) return '<div class="lpc"><span class="lpc-note">This inquiry doesn\'t have AxisCare #'+esc(CP.ax)+' saved on it yet (Convert, or connect it on Start of Care), so nobody can go into care from here yet.</span></div>';
   if(String(l.axiscare_client_id||'')!==String(CP.ax)) return '<div class="lpc"><span class="lpc-note">This inquiry holds a different AxisCare id from this client, so nobody can go into care from here until the connection is checked.</span></div>';
   const m=lpcMember(key), bits=[];
   if(m){
