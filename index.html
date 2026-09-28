@@ -5079,7 +5079,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <div id="cp_launch"></div>
     <div id="cp_c_start"></div>
   </div>
-  <div class="cp-pane" data-cp-pane="family"><div class="profile-grid">
+  <div class="cp-pane" data-cp-pane="family"><div id="lppFamHost"></div><div class="profile-grid">
     <div>
 <div class="cp-lead">
       <!-- What has actually been said to this person. Used to mean leaving the
@@ -9272,6 +9272,7 @@ function cpReturnAll(){
 /* leaving the profile (Back, another client, or any tab in the hub) hands everything back */
 function cpLeaving(){
   if(typeof lpiRelease==='function') lpiRelease('leave');   /* unsaved chapter typing is kept as a draft */
+  if(typeof lppRelease==='function') lppRelease();
   cpReturnAll();
   const cf=document.getElementById('cp-form'); if(cf) cf.style.display='none';
   FC_PROFILE=null;
@@ -27366,7 +27367,7 @@ function lpiOpenAt(){ return document.getElementById('leadModalBackdrop').classL
 /* ── care began? (existing signals only, for the client a person confirmed) ── */
 async function lpiLoadBegan(l){
   const key=l.id; if(LPI.began[key]&&LPI.began[key].at>Date.now()-60000) return LPI.began[key];
-  const out={ at:Date.now(), began:null, error:'', changes:[], ep:null, kinds:[], cur:{}, hist:[], factErr:'' };
+  const out={ at:Date.now(), began:null, error:'', changes:[], ep:null, kinds:[], cur:{}, hist:[], factErr:'', people:[], peopleHist:[], peopleErr:'' };
   const q=p=>p.then(r=>{ if(r.error) throw r.error; return r.data||[]; });
   try{
     /* the inquiry's own Journey (it carries on as the client's Journey once connected) */
@@ -27388,6 +27389,12 @@ async function lpiLoadBegan(l){
         out.hist=(await q(sb.from('client_fact').select('fact_id,kind,value,certainty,change_kind,reason,supersedes_fact_id,recorded_by,recorded_at').eq('episode_id',out.ep).eq('layer','intake')))
           .sort((a,b)=>String(a.recorded_at).localeCompare(String(b.recorded_at)));
       }catch(e){ out.factErr=String(e&&e.message||e); }
+      try{
+        out.people=(await q(sb.from('journey_person_current').select('row_id,person_key,is_caller,name,relationship,organization,roles,phone,email,reach_way,reach_time,permission,permission_asked_by,permission_asked_at,recorded_by,recorded_at').eq('episode_id',out.ep)))
+          .sort((a,b)=>String(a.recorded_at).localeCompare(String(b.recorded_at)));
+        out.peopleHist=(await q(sb.from('journey_person').select('row_id,person_key,is_caller,name,relationship,organization,roles,phone,email,permission,change_kind,reason,supersedes_row_id,recorded_by,recorded_at').eq('episode_id',out.ep)))
+          .sort((a,b)=>String(a.recorded_at).localeCompare(String(b.recorded_at)));
+      }catch(e){ out.peopleErr=String(e&&e.message||e); out.people=[]; out.peopleHist=[]; }
     }
     /* no Journey yet (a brand-new inquiry before its Journey is opened): nothing can have begun; facts wait for it */
   }catch(e){ out.error=String(e&&e.message||e); }
@@ -27468,6 +27475,7 @@ function lpiDiscardDraft(){ const l=CP.lead; if(l) delete LPI.drafts[l.id]; lpiR
 function lpiList(arr, map){ return (Array.isArray(arr)?arr:[]).map(v=>map[v]||v).filter(Boolean); }
 function lpiRender(){
   const box=document.getElementById('lpIntake'); if(!box) return;
+  setTimeout(lppRender,0);   /* People (Gate 4a) redraw with every profile, including one with no inquiry */
   if(LPI.editing&&document.getElementById('lpiSlot')&&LPI.editing.lead_id===(CP.lead&&CP.lead.id)){ LPI.stale=true; return; }  /* never rebuild under an open chapter */
   LPI.stale=false;
   const esc=escapeHtmlComms, l=CP.lead;
@@ -27525,7 +27533,7 @@ function lpiRender(){
       prov:'From the AxisCare checklist on Home & Life', empty:!ca.female_caregiver&&!ca.male_caregiver&&!ca.spanish_speaking },
     people:{ sent:caller?caller+(l.relationship?' ('+l.relationship+')':'')+' is the person who called.':'',
       facts:fact('Caller',caller)+fact('Relationship',l.relationship)+fact('Phone',l.phone)+fact('Email',l.email),
-      note:'Today an inquiry holds one person, the caller. Everyone else is on Family & Contacts.', empty:!caller&&!l.phone&&!l.email },
+      note:'Everyone involved, from the first call. Nothing here texts anyone.', empty:false },
   };
   const draft=LPI.drafts[l.id];
   const factsOn=!!(b.ep&&!b.factErr&&b.kinds&&b.kinds.length);
@@ -27547,7 +27555,7 @@ function lpiRender(){
     if(c.empty&&!drafted) return '<div class="lp-card lp-chap folded" id="lpiChap-'+ch.key+'"><h3 class="lp-h">'+ch.n+' · '+esc(ch.t)+'</h3><span class="lp-prov">Nothing recorded yet</span><span style="flex:1"></span>'+act+'</div>';
     return '<div class="lp-card lp-chap" id="lpiChap-'+ch.key+'"><div class="lp-chaptop"><h3 class="lp-h">'+ch.n+' · '+esc(ch.t)+'</h3>'+act+'</div>'
       +drafted+(c.sent?'<p class="lp-sent">'+esc(c.sent)+'</p>':'')
-      +'<div class="lp-facts">'+c.facts+'</div>'+fhtml
+      +(ch.key==='people'?'<div id="lppIntakeHost"></div>':'<div class="lp-facts">'+c.facts+'</div>')+fhtml
       +(c.more?'<details class="lp-more"><summary>more</summary><div class="lp-facts">'+c.more+'</div></details>':'')
       +(c.note?'<p class="lp-prov">'+esc(c.note)+'</p>':'')
       +'<p class="lp-prov">'+esc(c.prov||'From the intake form')+'</p></div>';
@@ -27561,6 +27569,8 @@ function lpiRender(){
   if(axT&&axT!==String(CP.ax||'').trim()) verify.push('AxisCare #'+axT+' is typed on the inquiry, but nobody has confirmed it\'s the same person');
   if(typeof ckReturningOpen==='function'&&ckReturningOpen(l)) verify.push('Might be a returning family: nobody has answered that yet');
   Object.values(b.cur||{}).filter(f=>f.needs_verification).forEach(f=>verify.push(lpfLabel(b,f.kind)+': '+lpfWords(f.kind,f.value)+', '+(LPF_SURE[f.certainty]||f.certainty)+', not verified yet'));
+  if(b.ep&&!b.peopleErr){ const keyNotAsked=lppPeople(b).filter(p=>(p.roles||[]).some(r=>['primary','decision_maker','poa'].includes(r))&&p.permission==='not_asked');
+    keyNotAsked.forEach(p=>verify.push('Permission to discuss care not asked yet: '+(p.is_caller?((l.first_name||'the caller')+' (the caller)'):p.name))); }
   /* conflicts the Hub can prove */
   const conf=[], ls=lpfVal(b,'living_situation'), la=(l.safety||[]).includes('livesAlone');
   if(ls&&ls!=='other'&&((ls==='alone')!==la)) conf.push('Living situation says "'+lpfWords('living_situation',ls)+'", but the intake\'s safety checklist '+(la?'says':'doesn\'t say')+' lives alone');
@@ -27574,6 +27584,7 @@ function lpiRender(){
   if(!ca.cats&&!ca.dogs) helpful.push('Pets'); if(!ca.smoking) helpful.push('Smoking in the home');
   if(!ca.female_caregiver&&!ca.male_caregiver) helpful.push('Caregiver preference'); if(!String(l.language||'').trim()) helpful.push('Primary language');
   if(factsOn){ ['preferred_name','living_situation','why_now'].forEach(k=>{ if(!lpfCur(b,k)) helpful.push(lpfLabel(b,k)); }); }
+  if(b.ep&&!b.peopleErr&&!lppPeople(b).some(p=>!p.is_caller)) helpful.push('Who else is involved (only the caller so far)');
   const na=[];
   if((l.mobility==='independent'||l.mobility==='walker')&&!(l.personal_care||[]).includes('transfers')&&l.weight_bearing!=='no') na.push(['Hoyer lift and gait belt questions','they '+(l.mobility==='walker'?'walk with a walker':'get around on their own')+' and need no help with transfers']);
   if(!dem) na.push(['Dementia follow-up','no dementia reported']);
@@ -27586,7 +27597,7 @@ function lpiRender(){
         '<div class="sub">Still needed before their next step</div>'+(need.length?ul(need.slice(0,6).map(n=>esc(n.label)+'<span class="lp-prov"> · '+esc(n.why)+'</span>')):'<p class="lp-prov">Nothing missing that the Hub can check.</p>'))
       +'<div class="sub">Needs verification</div>'+(verify.length?ul(verify.map(esc)):'<p class="lp-prov">Nothing flagged.</p>')
       +(conf.length?'<div class="sub">Conflicts</div>'+ul(conf.map(esc)):'')
-      +'<div class="sub">Changed</div>'+((b.changes.length||fchanged.length)?ul(b.changes.map(c=>esc(c.what+': '+c.from+' → '+c.to)+'<span class="lp-prov"> · '+esc(dd(c.at))+(c.by?' · '+esc(typeof lpscName==='function'?lpscName(c.by):c.by):'')+'</span>').concat(fchanged)):'<p class="lp-prov">Nothing has changed since it was first recorded.</p>')
+      +'<div class="sub">Changed</div>'+((b.changes.length||fchanged.length||lppChanges(b).length)?ul(b.changes.map(c=>esc(c.what+': '+c.from+' → '+c.to)+'<span class="lp-prov"> · '+esc(dd(c.at))+(c.by?' · '+esc(typeof lpscName==='function'?lpscName(c.by):c.by):'')+'</span>').concat(fchanged).concat(lppChanges(b))):'<p class="lp-prov">Nothing has changed since it was first recorded.</p>')
     +'</div>'
     +(helpful.length&&!locked?'<div class="lp-panel help"><h3 class="lp-h">Helpful to learn</h3>'+ul(helpful.map(esc))+'</div>':'')
     +(na.length?'<div class="lp-panel na"><h3 class="lp-h">Doesn\'t apply</h3>'+ul(na.map(x=>esc(x[0])+'<span class="lp-prov">: '+esc(x[1])+'</span>'))+'</div>':'');
@@ -27796,6 +27807,144 @@ async function lpfPayerSave(){
   const res=await lpfSaveFrom('lpfP', LPF_P_BASE.keys, LPF_P_BASE.base, b, l);
   await lpiLoadBegan(l); await lpfRenderPayerFacts(); lpiRender(); cpRenderCommand();
   const m2=document.getElementById('lpfPMsg'); if(m2) m2.textContent=res.length?lpfSummary(res):'Nothing changed.';
+}
+/* ── GATE 4a · PEOPLE ON THE JOURNEY (her approval, 2026-09-28) ─────────────────────────────────
+   Everyone we learn about sits on the family's Journey (journey_person), recorded only through the
+   client-fact function's "record a person" (office staff; a stale edit is refused; every version kept).
+   The caller's name and phone stay on the inquiry (Gate 5 moves them): People shows the caller first,
+   read live from the inquiry, and records only their roles and permission. Nobody is linked to anybody
+   automatically: a phone number already known elsewhere is SHOWN, and a person decides. Storing a number
+   lets nothing text them. Shown in Lead intake chapter 9 and on Family & Contacts. */
+const LPP_ROLES={ primary:'Primary contact', decision_maker:'Decision maker', poa:'POA / legal representative', billing:'Billing', emergency:'Emergency contact', professional:'Professional or referral' };
+const LPP_RELS=['daughter','son','spouse','sibling','grandchild','niece or nephew','friend','neighbor','case manager','social worker','discharge planner','other'];
+const LPP_PERM={ not_asked:'Not asked yet', yes:'Yes, we may discuss care', no:'No' };
+const LPP={ form:null, drafts:{}, msg:null };
+function lppPeople(b){ return (b&&b.people)||[]; }
+function lppCallerRow(b){ return lppPeople(b).find(p=>p.is_caller)||null; }
+function lppDigits(x){ const d=String(x||'').replace(/\D/g,''); return d.length>10?d.slice(-10):d; }
+function lppLine(l,b,p,ro){
+  const esc=escapeHtmlComms, caller=!p||p.is_caller;
+  const name=caller?((l.first_name||'')+' '+(l.last_name||'')).trim()||'The caller':p.name;
+  const rel=caller?(p&&p.relationship)||l.relationship:p.relationship;
+  const phone=caller?l.phone:p.phone, email=caller?l.email:p.email;
+  const roles=(p&&p.roles||[]).map(r=>LPP_ROLES[r]||r);
+  const perm=p?p.permission:'not_asked';
+  return '<div class="lpp-person" data-key="'+esc(p?p.person_key:'caller')+'">'
+    +'<div class="lpp-top"><b>'+esc(name)+'</b>'+(rel?' <span class="lp-prov">'+esc(rel)+(p&&p.organization?', '+esc(p.organization):'')+'</span>':'')
+      +(caller?' <span class="lp-tag unk">the caller</span>':'')+'</div>'
+    +(roles.length?'<div class="lpp-roles">'+roles.map(r=>'<span class="cpx-chip info">'+esc(r)+'</span>').join('')+'</div>':'')
+    +'<div class="lp-prov">'+[phone?esc(phone):'', email?esc(email):'', p&&p.reach_way?'best by '+esc(p.reach_way):'', p&&p.reach_time?esc(p.reach_time):''].filter(Boolean).join(' · ')+'</div>'
+    +'<div class="lp-prov">Permission to discuss care: <b>'+esc(LPP_PERM[perm]||perm)+'</b>'+(p&&p.permission!=='not_asked'?' · asked by '+esc(p.permission_asked_by||'')+', '+esc(lsDate(String(p.permission_asked_at||'').slice(0,10))):'')
+      +(caller?' · name and phone come from the inquiry':'')+'</div>'
+    +(ro?'':'<div class="lpp-acts"><button class="lp-link" onclick="lppOpen(\''+(p?p.person_key:'caller')+'\',this)">'+(caller&&!p?'Add roles and permission':'Change')+'</button>'
+      +(p&&!caller?' · <button class="lp-link" onclick="lppOpen(\''+p.person_key+'\',this,true)">Remove</button>':'')+'</div>')
+    +'<div class="lpp-formhost"></div></div>';
+}
+function lppHtml(l,b,host){
+  const esc=escapeHtmlComms;
+  if(!b||!b.ep) return '<p class="lp-prov">People can be added once this inquiry\'s Journey exists (it opens within a day of the first call).</p>';
+  if(b.peopleErr) return '<p class="lp-prov">People aren\'t available right now ('+esc(b.peopleErr)+').</p>';
+  const caller=lppCallerRow(b), others=lppPeople(b).filter(p=>!p.is_caller);
+  /* once care has begun, Lead intake is history: people are kept current on Family & Contacts */
+  const ro=host==='lppIntakeHost'&&!!(b.began||b.error);
+  return '<div class="lpp" data-host="'+host+'">'+lppLine(l,b,caller,ro)+others.map(p=>lppLine(l,b,p,ro)).join('')
+    +(ro?'<p class="lp-prov">Care has begun, so this is who we knew at the start. Keep people current on Family &amp; Contacts.</p></div>':'<div class="lpp-acts"><button class="lp-link" onclick="lppOpen(\'new\',this)">Add a person</button> <span class="lp-prov">A second child, a case manager, the POA, a neighbor who checks in…</span></div>'
+    +'<div class="lpp-formhost lpp-newhost"></div>'
+    +'<p class="lp-prov" id="lppMsg-'+host+'" role="status">'+(LPP.msg&&LPP.msg.host===host?esc(LPP.msg.text):'')+'</p></div>');
+}
+function lppRender(){
+  const l=CP.lead, b=l&&LPI.began[l.id];
+  ['lppIntakeHost','lppFamHost'].forEach(id=>{ const el=document.getElementById(id); if(!el) return;
+    if(!l){ el.innerHTML=''; return; }
+    if(LPP.form&&LPP.form.hostId===id&&document.getElementById('lppF-name')) return;       /* never rebuild under an open form */
+    el.innerHTML=(id==='lppFamHost'?'<div class="lp-card" style="margin-bottom:14px;"><h3 class="lp-h" style="margin:0 0 6px;">People involved</h3>':'')
+      +lppHtml(l,b,id)+(id==='lppFamHost'?'</div>':''); });
+  const d=l&&LPP.drafts[l.id];
+  if(d&&!LPP.form){ const host=document.getElementById(d.hostId); if(host){ const btn=d.key==='new'?host.querySelector('.lpp-newhost'):host.querySelector('.lpp-person[data-key="'+d.key+'"] .lpp-formhost');
+    if(btn){ lppOpen(d.key, btn, d.removing, d.values); const m=document.getElementById('lppF-note'); if(m) m.textContent='Unsaved changes from earlier, kept for you. Save or Cancel.'; } } }
+}
+function lppOpen(key, el, removing, values){
+  const l=CP.lead, b=l&&LPI.began[l.id], esc=escapeHtmlComms; if(!l||!b||!b.ep) return;
+  const hostEl=el.closest('[id^="lpp"][id$="Host"]'), person=key==='caller'?null:lppPeople(b).find(p=>p.person_key===key)||null;
+  const isCaller=key==='caller'||!!(person&&person.is_caller), cur=person||(isCaller?lppCallerRow(b):null);
+  document.querySelectorAll('.lpp-formhost').forEach(x=>{ x.innerHTML=''; });
+  const box=el.classList.contains('lpp-formhost')?el:(key==='new'?hostEl.querySelector('.lpp-newhost'):el.closest('.lpp-person').querySelector('.lpp-formhost'));
+  const v=Object.assign({ name:cur&&cur.name||'', relationship:cur&&cur.relationship||(isCaller?l.relationship||'':''), organization:cur&&cur.organization||'', roles:cur&&cur.roles||[],
+    phone:cur&&cur.phone||'', email:cur&&cur.email||'', reach_way:cur&&cur.reach_way||'', reach_time:cur&&cur.reach_time||'', permission:cur&&cur.permission||'not_asked',
+    permission_asked_by:cur&&cur.permission_asked_by||(ME&&(ME.name||ME.email))||'', permission_asked_at:cur&&cur.permission_asked_at?String(cur.permission_asked_at).slice(0,10):today(), reason:'' }, values||{});
+  LPP.form={ key, hostId:hostEl.id, isCaller, removing:!!removing, cur, lead:l.id };
+  const opt=(list,sel)=>list.map(x=>'<option value="'+esc(x)+'"'+(x===sel?' selected':'')+'>'+esc(x)+'</option>').join('');
+  box.innerHTML='<div class="lpf-edit lpp-form">'
+    +(removing?'<label class="lpf-lbl">Why remove '+esc(cur&&cur.name||'them')+'?<textarea id="lppF-reason" rows="2" placeholder="e.g. added to the wrong family">'+esc(v.reason)+'</textarea></label><input type="hidden" id="lppF-name" value="x">'
+      :'<div class="lpf-grid">'+(isCaller?'<input type="hidden" id="lppF-name" value="caller">':'<label>Name<input id="lppF-name" value="'+esc(v.name)+'"></label>')
+        +'<label>Relationship<select id="lppF-rel"><option value=""></option>'+opt(LPP_RELS,v.relationship)+(v.relationship&&LPP_RELS.indexOf(v.relationship)<0?'<option selected>'+esc(v.relationship)+'</option>':'')+'</select></label>'
+        +'<label>Organization (professionals)<input id="lppF-org" value="'+esc(v.organization)+'" placeholder="e.g. Mercy Hospital"></label></div>'
+      +'<div class="lpf-cks">'+Object.keys(LPP_ROLES).map(r=>'<label class="lpf-ck"><input type="checkbox" name="lppF-roles" value="'+r+'"'+(v.roles.includes(r)?' checked':'')+'> '+esc(LPP_ROLES[r])+'</label>').join('')+'</div>'
+      +(isCaller?'<p class="lp-prov">The caller\'s name, phone and email stay on the inquiry. Change them with "Add or change" in How they found us.</p>'
+        :'<div class="lpf-grid"><label>Phone<input id="lppF-phone" value="'+esc(v.phone)+'" onchange="lppCheckPhone()"></label><label>Email<input id="lppF-email" value="'+esc(v.email)+'"></label>'
+          +'<label>Best way<select id="lppF-way"><option value=""></option>'+['call','text','email'].map(x=>'<option'+(x===v.reach_way?' selected':'')+'>'+x+'</option>').join('')+'</select></label>'
+          +'<label>Best time<input id="lppF-time" value="'+esc(v.reach_time)+'" placeholder="e.g. after 3 PM"></label></div><p class="lp-prov" id="lppF-phonehint"></p>')
+      +'<div class="lpf-who"><div class="lpf-lbl">Permission to discuss care (asked by a person, never assumed)</div><div class="lpf-grid">'
+        +'<label>Answer<select id="lppF-perm">'+Object.keys(LPP_PERM).map(x=>'<option value="'+x+'"'+(x===v.permission?' selected':'')+'>'+esc(LPP_PERM[x])+'</option>').join('')+'</select></label>'
+        +'<label>Who asked<input id="lppF-askedby" value="'+esc(v.permission_asked_by)+'"></label><label>When<input id="lppF-askedat" type="date" value="'+esc(v.permission_asked_at)+'"></label></div>'
+        +'<p class="lp-prov">This is our office\'s note. AxisCare\'s legal HIPAA answer stays in AxisCare.</p></div>')
+    +'<div class="lpi-actions"><button class="primary" onclick="lppSave()">'+(removing?'Remove':'Save')+'</button><button class="secondary" onclick="lppCancel()">Cancel</button><span class="lp-prov" id="lppF-note"></span></div></div>';
+  if(!removing&&!isCaller&&v.phone) lppCheckPhone();
+}
+function lppFormValues(){
+  const g=id=>{ const e=document.getElementById(id); return e?String(e.value||'').trim():''; };
+  return { name:g('lppF-name'), relationship:g('lppF-rel'), organization:g('lppF-org'), roles:[...document.querySelectorAll('input[name="lppF-roles"]:checked')].map(e=>e.value),
+    phone:g('lppF-phone'), email:g('lppF-email'), reach_way:g('lppF-way'), reach_time:g('lppF-time'), permission:g('lppF-perm')||'not_asked',
+    permission_asked_by:g('lppF-askedby'), permission_asked_at:g('lppF-askedat'), reason:g('lppF-reason') };
+}
+/* a number already known elsewhere is shown, never linked: a person decides */
+async function lppCheckPhone(){
+  const hint=document.getElementById('lppF-phonehint'), l=CP.lead, b=l&&LPI.began[l.id]; if(!hint||!l||!b) return;
+  const d=lppDigits((document.getElementById('lppF-phone')||{}).value); if(d.length<7){ hint.textContent=''; return; }
+  const hits=[];
+  (DATA.leads||[]).forEach(x=>{ if(x.id!==l.id&&(lppDigits(x.phone)===d||lppDigits(x.client_phone)===d)) hits.push(cpLeadClientName(x)+'\'s inquiry'); });
+  try{ const r=await sb.from('journey_person_current').select('episode_id,name,relationship,phone').neq('episode_id',b.ep);
+    (r.data||[]).forEach(p=>{ if(lppDigits(p.phone)===d) hits.push(p.name+(p.relationship?' ('+p.relationship+')':'')+' on another family'); }); }catch(e){}
+  try{ const r=await sb.from('circle_contacts').select('name,relationship,phone');
+    (r.data||[]).forEach(p=>{ if(lppDigits(p.phone)===d) hits.push(p.name+(p.relationship?' ('+p.relationship+')':'')+' in a Family Circle'); }); }catch(e){}
+  hint.textContent=hits.length?'This number is also on: '+hits.slice(0,4).join('; ')+'. If it\'s the same person, that\'s fine; nothing is linked unless someone decides to.':'';
+}
+function lppCancel(){ const l=CP.lead; if(l) delete LPP.drafts[l.id]; LPP.form=null; lppRender(); }
+function lppDirty(){ const f=LPP.form; if(!f||!document.getElementById('lppF-name')) return false; const v=lppFormValues(), c=f.cur;
+  if(f.removing) return !!v.reason; if(!c) return !!(v.name&&v.name!=='caller'||v.roles.length||v.phone||v.email||v.permission!=='not_asked');
+  return JSON.stringify([v.relationship,v.organization||'',v.roles,v.phone||'',v.email||'',v.reach_way||'',v.reach_time||'',v.permission])!==JSON.stringify([c.relationship||'',c.organization||'',c.roles||[],c.phone||'',c.email||'',c.reach_way||'',c.reach_time||'',c.permission]); }
+/* leaving: unsaved typing is kept for that family, in memory only */
+function lppRelease(){ const f=LPP.form; if(!f) return; if(lppDirty()) LPP.drafts[f.lead]={ key:f.key, hostId:f.hostId, removing:f.removing, values:lppFormValues() }; LPP.form=null; }
+async function lppSave(){
+  const f=LPP.form, l=CP.lead, b=l&&LPI.began[l.id], note=document.getElementById('lppF-note'); if(!f||!l||!b) return;
+  const v=lppFormValues();
+  if(f.removing&&!v.reason){ if(note) note.textContent='Say why they\'re being removed.'; return; }
+  if(!f.removing&&!f.isCaller&&!v.name){ if(note) note.textContent='A person needs a name.'; return; }
+  if(v.permission!=='not_asked'&&(!v.permission_asked_by||!v.permission_asked_at)){ if(note) note.textContent='Say who asked about permission, and when.'; return; }
+  const body={ action:'record_person', episode_id:b.ep, is_caller:f.isCaller,
+    change_kind:f.removing?'removed':f.cur?'update':'first', person_key:f.cur?f.cur.person_key:null, supersedes_row_id:f.cur?f.cur.row_id:null,
+    reason:f.removing?v.reason:null, name:f.isCaller?null:(f.removing?(f.cur&&f.cur.name):v.name), relationship:f.removing?(f.cur&&f.cur.relationship):v.relationship,
+    organization:f.removing?null:v.organization, roles:f.removing?[]:v.roles, phone:f.isCaller||f.removing?null:v.phone, email:f.isCaller||f.removing?null:v.email,
+    reach_way:f.removing?null:v.reach_way||null, reach_time:f.removing?null:v.reach_time, permission:f.removing?'not_asked':v.permission,
+    permission_asked_by:v.permission!=='not_asked'&&!f.removing?v.permission_asked_by:null,
+    permission_asked_at:v.permission!=='not_asked'&&!f.removing?new Date(v.permission_asked_at+'T12:00:00').toISOString():null };
+  if(note) note.textContent='Saving…';
+  let r; try{ r=await lpfCall(body); }catch(e){ if(note) note.textContent='Not saved: '+String(e&&e.message||e); return; }
+  if(r.outcome!=='recorded'){ if(note) note.textContent='Not saved: '+(r.message||r.reason); if(r.reason==='stale'){ LPP.form=null; delete LPI.began[l.id]; await lpiLoadBegan(l); lppRender(); lpiRender(); } return; }
+  LPP.msg={ host:f.hostId, text:f.removing?'Removed. Their earlier details are kept in the history.':'Saved.' };
+  delete LPP.drafts[l.id]; LPP.form=null; delete LPI.began[l.id]; await lpiLoadBegan(l); lpiRender(); lppRender();
+}
+/* what changed about people (from, to, who, when) */
+function lppChanges(b){
+  const esc=escapeHtmlComms, hist=(b&&b.peopleHist)||[], byId={}; hist.forEach(r=>{ byId[r.row_id]=r; });
+  const nm=r=>r.is_caller?'The caller':(r.name||'someone');
+  return hist.filter(r=>r.supersedes_row_id&&byId[r.supersedes_row_id]).map(r=>{ const p=byId[r.supersedes_row_id], d=[];
+    if(r.change_kind==='removed') d.push('removed ('+(r.reason||'')+')');
+    else { const rs=x=>(x.roles||[]).map(y=>LPP_ROLES[y]||y).join(', ')||'no roles';
+      if(JSON.stringify(p.roles||[])!==JSON.stringify(r.roles||[])) d.push('roles: '+rs(p)+' → '+rs(r));
+      if(p.permission!==r.permission) d.push('permission: '+(LPP_PERM[p.permission]||p.permission)+' → '+(LPP_PERM[r.permission]||r.permission));
+      ['phone','email','relationship','name','organization'].forEach(k=>{ if((p[k]||'')!==(r[k]||'')) d.push(k+': '+(p[k]||'blank')+' → '+(r[k]||'blank')); }); }
+    return d.length?esc(nm(r)+', '+d.join('; '))+'<span class="lp-prov"> · '+esc(lsDate(String(r.recorded_at).slice(0,10)))+' · '+esc(typeof lpscName==='function'?lpscName(r.recorded_by):r.recorded_by)+'</span>':null; }).filter(Boolean);
 }
 /* leaving the page with unsaved chapter typing asks first (the browser's own question) */
 window.addEventListener('beforeunload', ev=>{ if(LPI.editing&&lpiDirty()){ ev.preventDefault(); ev.returnValue=''; } });
@@ -35644,6 +35793,12 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 .lpf-grid label{ margin:0; font-size:12.5px; }
 .lpf-who{ background:var(--lp-sunk); border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:6px; }
 .lpf-correct-box:empty{ display:none; }
+.lpp{ display:flex; flex-direction:column; gap:8px; }
+.lpp-person{ border-top:1px solid var(--lp-line); padding-top:8px; display:flex; flex-direction:column; gap:3px; }
+.lpp-top b{ color:var(--lp-navy); font-size:15px; }
+.lpp-roles{ display:flex; flex-wrap:wrap; gap:4px; }
+.lpp-acts{ font-size:13px; }
+.lpp-formhost:empty{ display:none; }
 .lpi-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; border-top:1px solid var(--lp-line); padding-top:10px; }
 .lpi-slot .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 14px; }
 .lpi-slot > div > .section-title:first-child{ border-top:none; padding-top:0; margin-top:4px; }
