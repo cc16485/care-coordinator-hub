@@ -6123,7 +6123,7 @@ The HomeTogether team</pre>
 <label><input type="radio" name="lead_funding_source" value="va" onchange="leadPayorUI()"> VA</label>
 <label><input type="radio" name="lead_funding_source" value="cds" onchange="leadPayorUI()"> CDS</label>
 <label><input type="radio" name="lead_funding_source" value="medicaid" onchange="leadPayorUI()"> Medicaid (IHS)</label>
-<label><input type="radio" name="lead_funding_source" value="pace" onchange="leadPayorUI()"> PACE</label>
+
 </div>
 <div id="leadPayorHint"></div>
 
@@ -6244,7 +6244,7 @@ The HomeTogether team</pre>
 <option>New</option><option>Contacted</option><option>Assessment Scheduled</option><option>Converted</option><option>Lost</option>
 </select>
 </div>
-<div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator" placeholder="auto-fills from funding source"><div class="field-note" style="font-size:10.5px;margin-top:2px;">Private Pay, LTC &amp; PACE → Krystal · Medicaid, VA &amp; CDS → Angiel. Auto-fills when blank; override any time.</div></div>
+<div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator" placeholder="auto-fills from funding source"><div class="field-note" style="font-size:10.5px;margin-top:2px;">Private Pay &amp; LTC → Krystal · Medicaid, VA &amp; CDS → Angiel. Auto-fills when blank; override any time.</div></div>
 <div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
 </div>
 
@@ -6425,7 +6425,7 @@ The HomeTogether team</pre>
 <div style="grid-column:1/-1"><label>Preferred Hospital</label><input id="assess_preferred_hospital"></div>
 <div>
 <label>Payer</label>
-<select id="assess_payer"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>PACE</option><option>Other</option></select>
+<select id="assess_payer"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>Other</option></select>
 <div class="field-note" id="assess_payer_note"></div>
 </div>
 <div>
@@ -10682,14 +10682,14 @@ function renderLeadDocs(){
 }
 
 /* Coordinator books are split by PAYER (Samantha, 2026-08-01): Krystal owns
-   Private Pay, LTC (bills private-side) and PACE (her call, 2026-08-02);
+   Private Pay and LTC (bills private-side); PACE removed 2026-09-27 (there are no PACE clients);
    Angiel owns Medicaid and VA. Ownership stays a label, never a wall —
    this only pre-fills the Assigned Coordinator when it's left blank. When
    the Medicaid+VA book grows enough to split, update this map.
    2026-08-02: Angiel also does the CDS intakes (the record still lives on
    the CDS side; assigning her here just puts the callback in her book)
    and owns the monthly client check-ins. */
-const PAYER_COORDINATOR={ private:'Krystal', ltc:'Krystal', pace:'Krystal', va:'Angiel', medicaid:'Angiel', cds:'Angiel' };
+const PAYER_COORDINATOR={ private:'Krystal', ltc:'Krystal', va:'Angiel', medicaid:'Angiel', cds:'Angiel' };
 
 /* The payor choice re-shapes the lead form: Medicaid opens the state block,
    private-side payors show pricing, CDS throws the refer-out banner. */
@@ -10706,7 +10706,6 @@ function leadPayorUI(){
     ltc:'📄 <b>LTC insurance → Krystal\'s book.</b> Get the carrier and policy number if they have it handy — the LTC Policy tab reads the policy and sets it up as a payor. Bills private-side until benefits kick in.',
     va:'🎖️ <b>VA → Angiel\'s book.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
     medicaid:'🏛️ <b>Medicaid IHS → Angiel\'s book.</b> First ask: <b>"Has [client] ever received in-home services through Medicaid before, or is this brand new?"</b> If they\'re new, walk them through the two options and the difference: <b>IHS</b>, we hire, train, and send the caregiver and handle everything, or <b>CDS</b>, they choose their own caregiver, often a family member who is already helping, and our sister company handles enrollment and payroll. If they pick CDS, switch the payor above to CDS. Staying IHS: minimum to get started is client <b>first name, last name, and DOB</b>. Get the DCN and county too if you can, the State Submission block just opened below and this lead rides the State Submissions tracker until DSDS authorizes. <b>Do not commit on this call:</b> tell them we\'ll make sure we can staff it and get back to them ASAP, then <b>read the notes before taking them</b> and call back.',
-    pace:'🧩 <b>PACE → Krystal\'s book.</b> Services flow through their PACE organization — capture the org name in the call notes.',
     cds:'↪️ <b>CDS → Angiel.</b> CDS is the sister company, but Angiel does the intake herself. If she\'s in, warm-transfer now. If not, take name and number and save this lead, it lands in her book for the callback. She runs the intake on the CDS side (caringcds.com · <b>(417) 218-2888</b>), then marks this lead <b>Lost</b> with reason "Referred to CDS" so the CC pipeline stays clean.'
   };
   hint.innerHTML = v&&H[v] ? '<div class="payor-note'+(v==='cds'?' refer':'')+'">'+H[v]+'</div>' : '';
@@ -12207,7 +12206,7 @@ function openAssessmentModal(id, fromLead){
   /* One profile, step 4: the payer has ONE editor, the intake (the Payer tab). When the family has an
      inquiry, the assessment shows its payer read-only; only an assessment with no inquiry types its own. */
   { const lp = fromLead || ((a&&a.lead_id) ? (DATA.leads||[]).find(l=>l.id===a.lead_id) : null);
-    const PAYER_LABEL = { medicaid:'Medicaid', private:'Private Pay', ltc:'LTC Insurance', va:'VA', cds:'CDS', pace:'PACE' };
+    const PAYER_LABEL = { medicaid:'Medicaid', private:'Private Pay', ltc:'LTC Insurance', va:'VA', cds:'CDS' };
     const sel = document.getElementById('assess_payer'), note = document.getElementById('assess_payer_note');
     const fromIntake = lp && lp.funding_source ? (PAYER_LABEL[lp.funding_source] || 'Other') : '';
     sel.value = fromIntake || (a&&a.payer) || '';
@@ -14879,7 +14878,7 @@ var SCX={};
 var LPSC_CONF={early:['Early','#EEF2F7','var(--navy)'],likely:['Likely','#EEF2F7','var(--navy)'],expected:['Expected','#E6F6F5','var(--teal,#0F7A73)'],committed:['Committed','#E7F1EF','var(--green)']};
 var LPSC_VIA={call:'call',in_person:'in person',text:'text',email:'email',other:'other'};
 var LPSC_URG={today:'Needs care today','48hours':'Within 48 hours','7days':'Within 7 days',researching:'Just researching'};
-var LPSC_PAYER={private:'Private pay',ltc:'LTC insurance',va:'VA',cds:'CDS',medicaid:'Medicaid (IHS)',pace:'PACE'};
+var LPSC_PAYER={private:'Private pay',ltc:'LTC insurance',va:'VA',cds:'CDS',medicaid:'Medicaid (IHS)'};
 var LPSC_MSG={recorded:'Start Contract saved.',changed:'Saved. The earlier version is kept in the history.',unchanged:'Nothing changed, so nothing new was saved.',
   next_update_set:'Next update owed is set.',update_logged:'Family update logged.',no_seat:'Your account does not hold a Journey seat yet. Ask the owner to add you.',
   episode_not_active:'This Journey is closed, so its Start Contract can no longer change.',target_date_required:'Pick a target date. Only Early can go without one.',
@@ -25277,7 +25276,7 @@ const OM_CORRECTIONS={
        payer map, and that migration was deliberately deferred. The model is
        true; the automation has not caught up. */
     { person:'krystal@mo-care.com', kind:'primary',
-      text:'Monthly check-ins — private, LTC and PACE clients', domain:'client_care' }]
+      text:'Monthly check-ins: private and LTC clients', domain:'client_care' }]
 };
 /* A qualified row that names no activity cannot answer "who may run this
    interview", which is the only question qualified exists to answer. Angiel's
