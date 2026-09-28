@@ -1526,6 +1526,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- Raise something by hand. Deliberately spare: a title, a person, a
            when. Anything needing discussion is a conversation, not a queue item. -->
 
+      <div id="opsUnmatchedCalls"></div>
       <div class="card" id="opsQueueCard" style="padding:16px 18px;margin-bottom:16px;display:none;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
           <b style="font-size:15px;color:var(--navy);">Open right now</b>
@@ -28262,8 +28263,18 @@ async function callsLoad(force){
     if(CP.lead&&CP.lead.id) rows=rows.concat(await q(sb.from('call_record').select(sel).eq('lead_id',String(CP.lead.id)).order('recorded_at',{ascending:false}).limit(200)));
     const ids=Object.keys(people);
     if(ids.length) rows=rows.concat(await q(sb.from('call_record').select(sel).in('person_id',ids).order('recorded_at',{ascending:false}).limit(200)));
+    /* K3: calls a person placed on this inquiry or client (shown with who placed them) */
+    const placed={};
+    try{
+      let pl=[];
+      if(CP.lead&&CP.lead.id) pl=pl.concat(await q(sb.from('call_placement').select('call_record_id,placed_by,placed_at').eq('lead_id',String(CP.lead.id))));
+      if(ids.length) pl=pl.concat(await q(sb.from('call_placement').select('call_record_id,placed_by,placed_at').in('person_id',ids)));
+      pl.forEach(p=>{ placed[p.call_record_id]=p; });
+      const want=Object.keys(placed).map(Number).filter(n=>!rows.some(r=>r.id===n));
+      if(want.length) rows=rows.concat(await q(sb.from('call_record').select(sel).in('id',want)));
+    }catch(e){ /* placements are extra; the matched calls still show */ }
     const seen={}; rows=rows.filter(r=>seen[r.id]?false:(seen[r.id]=true));
-    CALLS.data[key]={ rows, people }; CALLS.at[key]=Date.now();
+    CALLS.data[key]={ rows, people, placed }; CALLS.at[key]=Date.now();
   }catch(e){
     const m=String(e&&e.message||e);
     CALLS.data[key]={ error:/call_record/.test(m)&&/does not exist|not find/i.test(m)?'off':m };
@@ -28314,10 +28325,91 @@ function callsRender(){
       +sums.map(x=>'<div style="font-size:13px;margin-top:6px;"><span class="field-note" style="display:block;font-size:11.5px;">'
         +(x.summary_source==='our_ai'?'Our AI\'s reading (not reviewed; review it under Learned from this call)':'GoHighLevel\'s summary')+'</span>'+text(x.summary)+'</div>').join('')
       +(!sums.length?'<div class="field-note" style="margin-top:4px;">No summary of this call.</div>':'')
+      +((got.placed&&L.map(x=>got.placed[x.id]).find(Boolean))?(p0=>'<div class="field-note" style="margin-top:4px;">Placed here by '+esc(typeof lpscName==='function'?lpscName(p0.placed_by):p0.placed_by)+', '+esc(when(p0.placed_at))+' (the number didn\'t match one person)</div>')(L.map(x=>got.placed[x.id]).find(Boolean)):'')
       +'</div>';
   }).join('');
   box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:14px;"><div style="display:flex;align-items:center;gap:8px;"><b style="font-size:15px;color:var(--navy);">Calls</b>'
     +'<span class="field-note">every call the Hub heard about for this family, newest first</span><span style="flex:1;"></span><button class="linklike" onclick="callsLoad(true)">↻</button></div>'+body+'</div>';
+}
+/* ── K3 · CALLS NOBODY COULD MATCH (her approval, 2026-09-28) ─────────────────────────────────────
+   The call record never guesses who a call was with: a number nobody has, or more than one person or inquiry has,
+   leaves the call unmatched. Here someone says who it was: an inquiry, a client, or "not one of ours". Placing goes
+   through our server (call-place): who placed it is your sign-in, and a call can be placed once. Last 30 days. */
+const UC={ rows:null, placed:null, err:'', loading:false };
+async function ucLoad(){
+  if(UC.loading) return; UC.loading=true;
+  const q=async p=>{ const r=await p; if(r.error) throw r.error; return r.data||[]; };
+  try{
+    const since=new Date(Date.now()-30*864e5).toISOString();
+    const rows=await q(sb.from('call_record').select('id,recorded_at,kind,direction,caller_phone,ghl_contact_id,match,outcome,summary,summary_source,axiscare')
+      .neq('match','one').gte('recorded_at',since).order('recorded_at',{ascending:false}).limit(200));
+    const ids=rows.map(r=>r.id);
+    const pl=ids.length?await q(sb.from('call_placement').select('call_record_id').in('call_record_id',ids)):[];
+    const placed={}; pl.forEach(p=>{ placed[p.call_record_id]=true; });
+    UC.rows=rows.filter(r=>!placed[r.id]); UC.err='';
+  }catch(e){ const m=String(e&&e.message||e); UC.err=/call_(record|placement)/.test(m)&&/does not exist|not find/i.test(m)?'off':m; }
+  UC.loading=false; ucRender();
+}
+function ucPhone(d){ d=String(d||''); return d.length===10?'('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6):(d||'no number'); }
+function ucRender(){
+  const box=document.getElementById('opsUnmatchedCalls'); if(!box) return;
+  const esc=escapeHtmlComms;
+  if(UC.err==='off'||(!UC.rows&&!UC.err)){ box.innerHTML=''; return; }
+  if(UC.err){ box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:16px;"><b>Calls nobody could match</b><div class="field-note">Couldn\'t load them ('+esc(UC.err)+').</div></div>'; return; }
+  const calls=callsGroup(UC.rows);
+  if(!calls.length){ box.innerHTML=''; return; }
+  const when=t=>{ try{ return new Date(t).toLocaleString('en-US',{ month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }catch(e){ return String(t); } };
+  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:16px;border-left:3px solid var(--amber,#C17A12);">'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><b style="font-size:15px;color:var(--navy);">Calls nobody could match</b>'
+    +'<span class="field-note">'+calls.length+' in the last 30 days · the Hub never guesses who a call was with; say who it was and it joins their profile</span></div>'
+    +calls.map((c,i)=>{ const L=c.lines, dir=(L.find(x=>x.direction!=='unknown')||{}).direction, sev=L.some(x=>x.match==='several');
+      const outs=L.filter(x=>x.kind==='outcome'&&x.outcome).map(x=>x.outcome), sum=(L.find(x=>x.kind!=='outcome'&&x.summary)||{}).summary||'';
+      return '<div style="padding:9px 0;border-top:1px solid var(--border);"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+        +'<b style="color:var(--navy);">'+esc(when(c.first))+'</b><span class="field-note">'+(dir==='outbound'?'we called':'call from')+' '+esc(ucPhone(L[0].caller_phone))
+        +' · '+(sev?'more than one person or inquiry has this number':'nobody on file has this number')+'</span>'
+        +outs.map(o=>'<span class="axl-chip sent">'+esc(o)+'</span>').join('')+'<span style="flex:1;"></span>'
+        +'<button class="primary" style="padding:4px 12px;font-size:12.5px;" onclick="ucPick('+i+',this)">This was…</button></div>'
+        +(sum?'<div style="font-size:13px;margin-top:4px;">'+esc(sum.length>300?sum.slice(0,300)+'…':sum)+'</div>':'<div class="field-note">No summary of this call.</div>')+'</div>'; }).join('')
+    +'<div id="ucMsg" class="field-note" style="margin-top:6px;"></div></div>';
+  UC.calls=calls;
+}
+async function ucPlace(body){
+  try{
+    const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
+    if(!tok) return { error:'Sign in first.' };
+    const r=await fetch(CONFIG.supabase_url+'/functions/v1/call-place',{ method:'POST',
+      headers:{ Authorization:'Bearer '+tok, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+    return await r.json().catch(()=>({ error:'The call service answered '+r.status }));
+  }catch(e){ return { error:String(e&&e.message||e) }; }
+}
+async function ucPick(i, anchor){
+  const c=UC.calls&&UC.calls[i]; if(!c) return;
+  const esc=escapeHtmlComms, ids=c.lines.map(x=>x.id);
+  const leads=(DATA.leads||[]).filter(l=>l&&!l.archived&&!(typeof leadIsSpam==='function'&&leadIsSpam(l)));
+  let clients=[]; try{ clients=(await cl360Identity()||[]).filter(x=>x.axiscare_client_id&&x.role_status==='active'); }catch(e){}
+  const opts=leads.map(l=>({ k:'L:'+l.id, t:(typeof leadDisplayName==='function'?leadDisplayName(l):[l.first_name,l.last_name].join(' ')), s:'inquiry'+(l.phone?' · '+ucPhone(String(l.phone).replace(/\D/g,'').slice(-10)):'') }))
+    .concat(clients.map(x=>({ k:'C:'+x.person_id+':'+x.axiscare_client_id, t:x.client_name, s:'client · AxisCare #'+x.axiscare_client_id })));
+  const el=ccPopOpen(anchor||document.body,'<div style="font-size:14px;font-weight:800;color:var(--navy);">Who was this call with?</div>'
+    +'<div class="field-note" style="margin:3px 0 8px;">'+esc(ucPhone(c.lines[0].caller_phone))+'. Choose the inquiry or client; the call joins their profile, marked as placed by you.</div>'
+    +'<input id="ucQ" placeholder="Search by name or number" style="width:100%;font-size:13px;margin-bottom:6px;">'
+    +'<div id="ucList" style="max-height:260px;overflow:auto;"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:10px;"><button class="ghost" id="ucNot" style="padding:6px 12px;font-size:12.5px;">Not one of ours</button>'
+    +'<span style="flex:1;"></span><button class="ghost" id="ucX" style="padding:6px 12px;font-size:12.5px;">Cancel</button></div>'
+    +'<div id="ucErr" class="field-note" style="color:var(--red);margin-top:6px;"></div>',{width:400});
+  const list=el.querySelector('#ucList'), qEl=el.querySelector('#ucQ');
+  const draw=()=>{ const w=qEl.value.trim().toLowerCase(), wd=w.replace(/\D/g,'');
+    const hit=opts.filter(o=>!w||o.t.toLowerCase().includes(w)||(wd.length>=3&&o.s.replace(/\D/g,'').includes(wd))).slice(0,40);
+    list.innerHTML=hit.length?hit.map(o=>'<button class="ghost" data-k="'+esc(o.k)+'" style="display:block;width:100%;text-align:left;padding:6px 10px;margin:2px 0;font-size:13px;"><b>'+esc(o.t)+'</b> <span class="field-note">'+esc(o.s)+'</span></button>').join('')
+      :'<div class="field-note">Nobody matches. Try another name or number.</div>'; };
+  draw(); qEl.oninput=draw;
+  const go=async body=>{ el.querySelector('#ucErr').textContent='Saving…';
+    const r=await ucPlace(Object.assign({ call_ids:ids }, body));
+    if(r&&r.outcome==='placed'){ ccPopClose(); await ucLoad(); try{ CALLS.at={}; }catch(e){} if(typeof ccToast==='function') ccToast('Placed. It\'s on their profile now.'); }
+    else el.querySelector('#ucErr').textContent='Not placed: '+((r&&(r.reason||r.error))||'something went wrong'); };
+  list.onclick=e=>{ const b=e.target.closest('button[data-k]'); if(!b) return; const k=b.dataset.k.split(':');
+    if(k[0]==='L') go({ decision:'lead', lead_id:k.slice(1).join(':') }); else go({ decision:'client', person_id:k[1], axiscare_client_id:k[2] }); };
+  el.querySelector('#ucNot').onclick=()=>go({ decision:'not_ours' });
+  el.querySelector('#ucX').onclick=ccPopClose;
 }
 async function cpRenderChangeLog(){
   const box=document.getElementById('cp_change_log'); if(!box) return;
@@ -29231,6 +29323,7 @@ async function renderOps(btn){
   opsRenderStatus();
   opsRenderCallbacks();
   opsRenderQueue();
+  try{ ucLoad(); }catch(e){}
 }
 
 /* ---------------- Phone calls (GoHighLevel) ----------------
