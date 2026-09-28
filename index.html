@@ -5026,7 +5026,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 </div>
   </div>
   <div class="cp-pane" data-cp-pane="history"><div class="profile-grid">
-    <div><div id="cp_change_log"></div><div id="cp_ax_log"></div><div id="cp_c_history"></div></div>
+    <div><div id="cp_calls"></div><div id="cp_change_log"></div><div id="cp_ax_log"></div><div id="cp_c_history"></div></div>
     <div>
 <div class="cp-lead">
       <div class="card" style="padding:18px;">
@@ -9111,7 +9111,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender(); cpRenderChangeLog(); axLogLoad();
+  cpRenderCommand(); lpiRender(); cpRenderChangeLog(); axLogLoad(); callsLoad();
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -28231,6 +28231,93 @@ function axLogRender(){
         +(x.detail?'<span class="field-note" style="flex-basis:100%;">'+esc(x.detail)+'</span>':'')+'</div>'; }).join('');
   box.innerHTML='<div class="card" style="padding:14px 18px;"><div style="display:flex;align-items:center;gap:8px;"><b style="font-size:15px;color:var(--navy);">AxisCare changes</b>'
     +'<span class="field-note">what the Hub changed in AxisCare #'+esc(ax)+', newest first</span><span style="flex:1;"></span><button class="linklike" onclick="axLogLoad(true)">↻</button></div>'+body+'</div>';
+}
+/* ── K2 · CALLS ON THE PROFILE (her approval, 2026-09-28) ──────────────────────────────────────────
+   Every call the Hub heard about for this family, newest first, from the call record (K1): the outcome tapped after
+   it, GoHighLevel's summary and our AI's reading, whether it reached AxisCare's call log, and a link to the
+   conversation in GoHighLevel. Which calls belong here was decided by the record's door from the phone number (one
+   person or one lead, never by name): the inquiry's own calls, plus the client's and their family contacts' calls
+   once they are in AxisCare. Read only; nothing here is stored. */
+const CALLS={ data:{}, at:{} };
+const CALL_OUT_AX={ posted:['ok','In AxisCare\'s call log'], practice:['dry','AxisCare: practice run'], skipped:['sent','Not sent to AxisCare'], error:['bad','AxisCare: error'] };
+function callsKey(){ return (CP.lead&&CP.lead.id?'L:'+CP.lead.id:'')+'|'+(/^\d+$/.test(String(CP.ax||''))?'A:'+CP.ax:''); }
+async function callsLoad(force){
+  const key=callsKey(); if(key==='|'){ callsRender(); return; }
+  if(!force&&CALLS.at[key]&&Date.now()-CALLS.at[key]<60000){ callsRender(); return; }
+  const q=async p=>{ const r=await p; if(r.error) throw r.error; return r.data||[]; };
+  try{
+    const people={};
+    if(/^\d+$/.test(String(CP.ax||''))){
+      const ps=await q(sb.from('person_source_id').select('person_id').eq('system','axiscare').eq('entity_type','client').eq('source_id',String(CP.ax)));
+      const cp=ps[0]&&ps[0].person_id;
+      if(cp){ people[cp]={ rel:'the client' };
+        (await q(sb.from('person_relationship').select('person_id,relationship,active').eq('client_person_id',cp)))
+          .filter(r=>r.active!==false).forEach(r=>{ if(!people[r.person_id]) people[r.person_id]={ rel:r.relationship||'family' }; });
+        const ids=Object.keys(people);
+        (await q(sb.from('person_identity').select('id,display_name').in('id',ids))).forEach(p=>{ if(people[p.id]) people[p.id].name=p.display_name||''; });
+      }
+    }
+    const sel='id,recorded_at,kind,direction,caller_phone,ghl_contact_id,match,person_id,lead_id,outcome,summary,summary_source,axiscare,axiscare_detail,written_to';
+    let rows=[];
+    if(CP.lead&&CP.lead.id) rows=rows.concat(await q(sb.from('call_record').select(sel).eq('lead_id',String(CP.lead.id)).order('recorded_at',{ascending:false}).limit(200)));
+    const ids=Object.keys(people);
+    if(ids.length) rows=rows.concat(await q(sb.from('call_record').select(sel).in('person_id',ids).order('recorded_at',{ascending:false}).limit(200)));
+    const seen={}; rows=rows.filter(r=>seen[r.id]?false:(seen[r.id]=true));
+    CALLS.data[key]={ rows, people }; CALLS.at[key]=Date.now();
+  }catch(e){
+    const m=String(e&&e.message||e);
+    CALLS.data[key]={ error:/call_record/.test(m)&&/does not exist|not find/i.test(m)?'off':m };
+  }
+  if(callsKey()===key) callsRender();
+}
+/* one call = the lines for one number (or one GoHighLevel contact) within an hour of each other */
+function callsGroup(rows){
+  const calls=[];
+  rows.slice().sort((a,b)=>String(b.recorded_at).localeCompare(String(a.recorded_at))).forEach(r=>{
+    const who=r.caller_phone||r.ghl_contact_id||('#'+r.id);
+    const c=calls.find(x=>x.who===who&&Math.abs(Date.parse(x.first)-Date.parse(r.recorded_at))<=3600000);
+    if(c){ c.lines.push(r); if(String(r.recorded_at)<String(c.first)) c.first=r.recorded_at; }
+    else calls.push({ who, first:r.recorded_at, lines:[r] });
+  });
+  return calls;
+}
+function callsRender(){
+  const box=document.getElementById('cp_calls'); if(!box) return;
+  const esc=escapeHtmlComms, key=callsKey();
+  if(key==='|'){ box.innerHTML=''; return; }
+  const got=CALLS.data[key];
+  const when=t=>{ try{ return new Date(t).toLocaleString('en-US',{ month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }catch(e){ return String(t); } };
+  let body;
+  if(!got) body='<div class="field-note">Loading…</div>';
+  else if(got.error==='off') body='<div class="field-note">The call record isn\'t switched on yet.</div>';
+  else if(got.error) body='<div class="field-note">The calls couldn\'t be loaded right now ('+esc(got.error)+').</div>';
+  else if(!got.rows.length) body='<div class="field-note">No calls recorded for this family yet. Calls are recorded from Sep 28, 2026; earlier ones are in GoHighLevel and AxisCare.</div>';
+  else body=callsGroup(got.rows).map(c=>{
+    const L=c.lines, dir=(L.find(x=>x.direction!=='unknown')||{}).direction;
+    const pid=(L.find(x=>x.person_id&&got.people[x.person_id])||{}).person_id, p=pid?got.people[pid]:null;
+    const who=p?(p.rel==='the client'?(p.name||'the client'):(p.name?p.name+' ('+p.rel+')':p.rel)):'';
+    const outs=L.filter(x=>x.kind==='outcome'&&x.outcome).map(x=>x.outcome);
+    const sums=L.filter(x=>x.kind!=='outcome'&&x.summary);
+    const ax=(L.find(x=>x.axiscare==='posted')||L.find(x=>x.axiscare)||{});
+    const axc=ax.axiscare?CALL_OUT_AX[ax.axiscare]:null;
+    const ghl=(L.find(x=>x.ghl_contact_id)||{}).ghl_contact_id;
+    const text=t=>{ const s=String(t||''); return s.length>420?esc(s.slice(0,420))+'… <details style="display:inline;"><summary class="linklike" style="display:inline;cursor:pointer;">more</summary>'+esc(s.slice(420))+'</details>':esc(s); };
+    return '<div class="calls-row" style="padding:10px 0;border-top:1px solid var(--border);">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+      +'<b style="color:var(--navy);">'+esc(when(c.first))+'</b>'
+      +'<span class="field-note">'+(dir==='inbound'?'they called us':dir==='outbound'?'we called them':'call')+(who?' · '+esc(who):'')+'</span>'
+      +outs.map(o=>'<span class="axl-chip sent">'+esc(o)+'</span>').join('')
+      +'<span style="flex:1;"></span>'
+      +(axc?'<span class="axl-chip '+axc[0]+'"'+(ax.axiscare_detail?' title="'+esc(ax.axiscare_detail)+'"':'')+'>'+esc(axc[1])+'</span>':'')
+      +(ghl&&typeof GHL_LOC!=='undefined'?'<a class="linklike" style="font-size:12.5px;" target="_blank" rel="noopener" href="https://app.hirecara.com/v2/location/'+GHL_LOC+'/contacts/detail/'+encodeURIComponent(ghl)+'">GoHighLevel ↗</a>':'')
+      +'</div>'
+      +sums.map(x=>'<div style="font-size:13px;margin-top:6px;"><span class="field-note" style="display:block;font-size:11.5px;">'
+        +(x.summary_source==='our_ai'?'Our AI\'s reading (not reviewed; review it under Learned from this call)':'GoHighLevel\'s summary')+'</span>'+text(x.summary)+'</div>').join('')
+      +(!sums.length?'<div class="field-note" style="margin-top:4px;">No summary of this call.</div>':'')
+      +'</div>';
+  }).join('');
+  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:14px;"><div style="display:flex;align-items:center;gap:8px;"><b style="font-size:15px;color:var(--navy);">Calls</b>'
+    +'<span class="field-note">every call the Hub heard about for this family, newest first</span><span style="flex:1;"></span><button class="linklike" onclick="callsLoad(true)">↻</button></div>'+body+'</div>';
 }
 async function cpRenderChangeLog(){
   const box=document.getElementById('cp_change_log'); if(!box) return;
