@@ -4001,6 +4001,27 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" id="tkSettings">
+<h3>⏰ Missed clock-ins</h3>
+<p class="hint">When a caregiver hasn't clocked in a few minutes after their shift starts, they get one short text. At the same moment every admin gets a text with their own link, and it repeats until someone opens the link and marks it resolved (or she clocks in, or a coverage case covers the shift). The EVV form never goes out by itself: an admin sends it from the link page when a caregiver asks to be clocked in for their start time. Changes here take effect on the next check (every 2 minutes) and are recorded in the activity log.</p>
+<div id="tkLive" class="field-note" style="margin:6px 0 10px;"></div>
+<label>Minutes after the shift start before the texts go (caregiver and admins)</label>
+<input id="set_tk_grace" type="number" min="1" max="60" placeholder="5">
+<label>Repeat the admin text every (minutes), until resolved</label>
+<input id="set_tk_repeat" type="number" min="2" max="60" placeholder="5">
+<label>The caregiver's text ({first_name} her name, {client} the client's first name, {time} the shift start)</label>
+<textarea id="set_tk_msg" rows="2" placeholder="Hi {first_name}, this is Caring Companions. We don't see a clock-in yet for your {time} shift with {client}. Please clock in now in the AxisCare app."></textarea>
+<label>Admins who get these texts (emails, one per line). This is the same list that gets call-in alerts.</label>
+<textarea id="set_tk_admins" rows="3" placeholder="samantha@mo-care.com&#10;krystal@mo-care.com"></textarea>
+<div id="tkAdminPhones" class="field-note"></div>
+<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+<button class="primary" onclick="tkSave(this)">Save missed clock-in settings</button>
+<button class="secondary" id="tkLiveBtn" onclick="tkToggleLive(this)">Turn on admin texts</button>
+<span class="field-note" id="tkSaved"></span>
+</div>
+<div id="tkPractice" style="margin-top:12px;"></div>
+</div>
+
 <div class="settings-section">
 <h3>☀️ Morning Brief</h3>
 <p class="hint">A personal email at <b>6:45am on workdays</b>: anything that came in overnight, pass-along notes from the quick form, leads to call, and that person's top priorities, each line one tap into the hub. Everyone sees only their own book plus anything nobody owns yet. <b>Full picture</b> adds the admin sections: family-update calls from flagged care notes, write-ups for call-offs with under 4 hours notice, yesterday's EVV misses, and today's schedule from AxisCare with any open shifts. Pick who gets what:</p>
@@ -13499,8 +13520,83 @@ async function mbTest(btn){
   }catch(e){ if(s) s.textContent='Could not send: '+(e&&e.message||e); }
   finally{ if(btn){ btn.disabled=false; btn.textContent='Send me a test brief now'; } }
 }
+/* ── MISSED CLOCK-INS (C1, Samantha 2026-09-29). timekeeper-watch reads these ops_settings keys on every run:
+   timekeeper_grace_min, timekeeper_admin_repeat_min, timekeeper_msg, coverage_alert_admins (shared with call-in
+   alerts) and the switch timekeeper_admin_loop_live. Saved with a merge against the server copy (the engines write
+   ops_settings too), and every change is recorded in the activity log. ── */
+const TK_KEYS={ set_tk_grace:'timekeeper_grace_min', set_tk_repeat:'timekeeper_admin_repeat_min', set_tk_msg:'timekeeper_msg' };
+function tkFill(){
+  const st=DATA.ops_settings||{};
+  for(const [el,k] of Object.entries(TK_KEYS)){ const n=document.getElementById(el); if(n) n.value=st[k]!=null?String(st[k]):''; }
+  const a=document.getElementById('set_tk_admins');
+  if(a) a.value=(Array.isArray(st.coverage_alert_admins)?st.coverage_alert_admins:[]).join('\n');
+  tkRenderStatus();
+}
+function tkAdminsNow(){
+  const st=DATA.ops_settings||{};
+  const list=(Array.isArray(st.coverage_alert_admins)&&st.coverage_alert_admins.length)?st.coverage_alert_admins:['samantha@mo-care.com','krystal@mo-care.com'];
+  return list.map(e=>{ e=String(e).trim().toLowerCase(); const p=(DATA.coordinator_staff||[]).find(s=>String(s.email||'').toLowerCase()===e); return { email:e, name:(p&&p.name)||e, phone:!!(p&&String(p.phone||'').replace(/\D/g,'').length>=10) }; });
+}
+function tkRenderStatus(){
+  const st=DATA.ops_settings||{}, esc=escapeHtmlComms, live=st.timekeeper_admin_loop_live===true;
+  const lv=document.getElementById('tkLive'), btn=document.getElementById('tkLiveBtn');
+  if(lv) lv.innerHTML=live?'<b style="color:#1E8449;">Admin texts are ON.</b> Every admin below is texted until someone resolves it.'
+    :'<b style="color:#B7791F;">Practice run.</b> Caregivers get their text; the admin texts are only recorded (below), not sent. Turn them on when you\'re happy with a day of practice.';
+  if(btn) btn.textContent=live?'Turn off admin texts':'Turn on admin texts';
+  const ap=document.getElementById('tkAdminPhones');
+  if(ap){ const L=tkAdminsNow(); ap.innerHTML='Texts go to: '+L.map(a=>esc(a.name)+(a.phone?'':' <b style="color:#C0392B;">(no phone in the staff list, won\'t get texts)</b>')).join(', ')+'.'; }
+  const pr=document.getElementById('tkPractice'); if(!pr) return;
+  const t=today();
+  const rows=(DATA.timekeeper_cases||[]).filter(l=>l&&l.kind!=='clock_out'&&l.admin_loop&&(l.admin_loop.sends||[]).length&&String(l.shift_date)>=new Date(Date.now()-2*864e5).toISOString().slice(0,10))
+    .sort((a,b)=>String(b.admin_loop.started_at).localeCompare(String(a.admin_loop.started_at))).slice(0,12);
+  if(!rows.length){ pr.innerHTML='<div class="field-note">No missed clock-ins in the last two days.</div>'; return; }
+  const hm=iso=>iso?new Date(iso).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'';
+  const ended=l=>l.resolved_by_name?'resolved by '+esc(l.resolved_by_name)+(l.resolved_reason?' ('+esc(String(l.resolved_reason).replace(/_/g,' '))+')':''):
+    l.resolved_how==='clocked_in'?'she clocked in'+(l.minutes_late!=null?' '+l.minutes_late+' min late':''):l.resolved_how==='coverage_case'?'coverage case':l.resolved_at?esc(String(l.resolved_how||'closed').replace(/_/g,' ')):'<b style="color:#C0392B;">still open</b>';
+  pr.innerHTML='<div style="font-weight:800;color:var(--navy);font-size:13px;margin-bottom:4px;">Last two days</div><div style="overflow-x:auto;"><table class="compact" style="width:100%;font-size:12.5px;"><thead><tr><th>Shift</th><th>Caregiver</th><th>Admin texts</th><th>How it ended</th></tr></thead><tbody>'
+    +rows.map(l=>{ const s=l.admin_loop.sends||[], n=s.filter(x=>!String(x.stage).startsWith('final')).length, pr_=s.some(x=>x.practice);
+      const t12=(x=>{ const m=String(x||'').match(/^(\d{1,2}):(\d\d)/); if(!m) return String(x||''); const h=Number(m[1]); return ((h%12)||12)+(m[2]==='00'?'':':'+m[2])+(h>=12?'pm':'am'); })(l.shift_time);
+      return '<tr><td>'+esc(String(l.shift_date).slice(5))+' '+esc(l.client_first)+' '+esc(t12)+'</td><td>'+esc(String(l.caregiver||'').split(' ')[0])+'</td><td>'+n+' round'+(n===1?'':'s')+(pr_?' <span class="badge muted">practice</span>':'')+' · first '+hm(l.admin_loop.started_at)+'</td><td>'+ended(l)+'</td></tr>'; }).join('')
+    +'</tbody></table></div>';
+}
+async function tkMerge(apply){
+  let base={};
+  try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle(); base=(data&&data.data)||{}; }catch(e){}
+  const merged=Object.assign({}, base); const changed=apply(merged, base);
+  if(!changed.length) return { changed, error:null };
+  const { error }=await sb.from('app_data').upsert({ key:'ops_settings', data:merged, updated_at:new Date().toISOString() }, { onConflict:'key' });
+  if(!error){ DATA.ops_settings=merged; opEvent('setting_changed',{ item_id:'ops_settings', area:'coverage', summary:(ccActor().name||'Someone')+' changed missed clock-in settings: '+changed.join(', ') }); }
+  return { changed, error };
+}
+async function tkSave(btn){
+  const s=document.getElementById('tkSaved'); if(btn) btn.disabled=true;
+  const num=(id,lo,hi)=>{ const v=String((document.getElementById(id)||{}).value||'').trim(); if(!v) return null; const n=Math.round(Number(v)); return (n>=lo&&n<=hi)?n:NaN; };
+  const g=num('set_tk_grace',1,60), r=num('set_tk_repeat',2,60);
+  if(Number.isNaN(g)||Number.isNaN(r)){ if(s) s.textContent='Minutes must be whole numbers (1 to 60; the repeat at least 2).'; if(btn) btn.disabled=false; return; }
+  const msg=String((document.getElementById('set_tk_msg')||{}).value||'').trim();
+  const admins=String((document.getElementById('set_tk_admins')||{}).value||'').split(/[\s,;]+/).map(x=>x.trim().toLowerCase()).filter(Boolean);
+  if(admins.some(e=>!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(e))){ if(s) s.textContent='Each admin must be an email address.'; if(btn) btn.disabled=false; return; }
+  const out=await tkMerge((m, base)=>{ const ch=[];
+    const set=(k,v,label)=>{ const before=base[k]; if(v==null||v===''){ if(k in m){ delete m[k]; ch.push(label+' back to standard'); } return; } if(JSON.stringify(before)!==JSON.stringify(v)){ m[k]=v; ch.push(label); } };
+    set('timekeeper_grace_min', g, 'minutes before the texts'); set('timekeeper_admin_repeat_min', r, 'repeat minutes');
+    set('timekeeper_msg', msg, 'caregiver wording'); set('coverage_alert_admins', admins.length?admins:null, 'admin list');
+    return ch; });
+  if(btn) btn.disabled=false;
+  if(s) s.textContent=out.error?('Could not save: '+out.error.message):(out.changed.length?'Saved: '+out.changed.join(', ')+'.':'Nothing changed.');
+  tkRenderStatus();
+}
+async function tkToggleLive(btn){
+  const on=!((DATA.ops_settings||{}).timekeeper_admin_loop_live===true);
+  if(!confirm(on?'Turn on the admin texts? From the next missed clock-in, every admin is texted every few minutes until someone resolves it.':'Turn off the admin texts? Missed clock-ins go back to practice (recorded, not texted to admins). Caregivers still get their text.')) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.timekeeper_admin_loop_live=on; return [on?'admin texts ON':'admin texts OFF']; });
+  if(btn) btn.disabled=false;
+  const s=document.getElementById('tkSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):(on?'Admin texts are on.':'Admin texts are off (practice).');
+  tkRenderStatus();
+}
 function fillSettingsPanel(){
   covMsgsFill();
+  tkFill();
   mbFill();
   document.getElementById('set_supabase_url').value = CONFIG.supabase_url||'';
   document.getElementById('set_supabase_anon_key').value = CONFIG.supabase_anon_key||'';
