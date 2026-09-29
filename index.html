@@ -1526,6 +1526,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            when. Anything needing discussion is a conversation, not a queue item. -->
 
       <div id="opsUnmatchedCalls"></div>
+      <div id="opsNeedsClient"></div>
       <div class="card" id="opsQueueCard" style="padding:16px 18px;margin-bottom:16px;display:none;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
           <b style="font-size:15px;color:var(--navy);">Open right now</b>
@@ -7728,7 +7729,7 @@ function ccRenderPulse(){
     const me=String(opsMeKey()||'').toLowerCase();
     late=opsOverdue().filter(i=>{ const o=(i.owner||'').toLowerCase(); return !o||(me&&o===me); }).length;
   }catch(e){}
-  const ci=(DATA.client_checkins||[]).filter(c=>c.client_name && c.next_checkin_due && c.next_checkin_due<t).length;
+  const ci=ciLatestByClient().filter(c=>c.next_checkin_due && c.next_checkin_due<t).length;   /* R1: the latest check-in per client decides */
   const chips=[];
   /* The 'N follow-ups due' chip is gone. It existed to compensate for lead
      follow-up having no work item: the enquiry closed on first contact and
@@ -9205,12 +9206,16 @@ function cpRenderCare(){
         const o=AXL_OUT[lv.outcome]||['sent',lv.outcome];
         return '<span class="field-note" style="font-size:12px;">'+(lv.outcome==='refused'?'Care level NOT changed in AxisCare':'Care level changed in AxisCare')+': '+esc(lv.summary)+' · '+esc(typeof lpscName==='function'?lpscName(lv.by_who):lv.by_who)+', '+esc(lsDate(String(lv.at).slice(0,10)))
           +' <span class="axl-chip '+o[0]+'">'+esc(o[1])+'</span></span>'; })()
-    +(ax?'<button class="secondary" onclick="cpLogReview()">📝 Log a review</button>':'')+'</div>'
+    +(ax?'<button class="secondary" onclick="cpAskHere()">💬 Ask caregivers</button> <button class="secondary" onclick="cpLogReview()">📝 Log a review</button>':'')+'</div>'
+    +(ax?'<div id="cp-ask-ax:'+esc(ax)+'" style="display:none;margin:6px 0 10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);"></div>':'')
     +(!ax?'<div class="field-note">Reviews start once they are an AxisCare client.</div>'
       :rv.length?rv.slice(0,6).map(v=>'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);font-size:13px;">'
           +'<b>'+esc(String(v.at||'').slice(0,10))+'</b>'+(v.care_level?'<span>Level '+esc(v.care_level)+'</span>':'')
           +(v.findings?'<span class="field-note">'+esc(String(v.findings).slice(0,140))+'</span>':'')+(v.next_due?'<span class="field-note">next due '+esc(v.next_due)+'</span>':'')
-          +(v.ax_note?(v.ax_note.sent?'<span class="axl-chip ok">review note on AxisCare</span>':'<span class="axl-chip bad" title="'+esc(v.ax_note.error||'')+'">review note NOT sent to AxisCare</span>'):'')+'</div>').join('')
+          +(v.ax_note?(v.ax_note.sent?'<span class="axl-chip ok">review note on AxisCare</span>':'<span class="axl-chip bad" title="'+esc(v.ax_note.error||'')+'">review note NOT sent to AxisCare</span>'):'')
+          +(v.changes_needed&&!v.plan_updated?'<span style="color:#DC2626;font-weight:700;font-size:12px;">plan changes not in AxisCare yet · <a href="javascript:void(0)" onclick="cpMarkUpdatedHere(\''+esc(v.id)+'\')">mark plan updated ✓</a></span>'
+            :(v.changes_needed&&v.plan_updated?'<span class="field-note">plan updated in AxisCare'+(v.plan_updated_at?' '+esc(String(v.plan_updated_at).slice(0,10)):'')+'</span>':''))
+          +'</div>').join('')
       :'<div class="field-note">No reviews logged yet.</div>')
     +'</div>';
 }
@@ -9222,6 +9227,19 @@ function cpNewAssessment(){
   openAssessmentModal(null);
   document.getElementById('assess_client_name').value=CP.r?CP.r.client_name:'';
   document.getElementById('assess_axiscare_client_id').value=CP.ax||'';
+}
+/* R2 (2026-09-29): the care plan reviews board's two actions, from the profile */
+function cpAskHere(){
+  if(!CP.ax||typeof cpAsk!=='function') return;
+  const key='ax:'+CP.ax;
+  /* one panel per client on the page: the old board's copy (if it was drawn) steps aside while the profile is open */
+  document.querySelectorAll('[id="cp-ask-'+key+'"]').forEach(el=>{ if(!el.closest('#leadProfileView')) el.remove(); });
+  cpAsk(key);
+}
+async function cpMarkUpdatedHere(id){
+  if(typeof cpMarkUpdated!=='function') return;
+  await cpMarkUpdated(id);
+  try{ cpRenderCare(); }catch(e){} try{ cpRenderOpenNow(); }catch(e){}
 }
 function cpLogReview(){
   if(!CP.ax) return;
@@ -9300,6 +9318,8 @@ function cpRenderCheckins(){
         +(c.satisfaction_rating?'<span>'+'⭐'.repeat(Math.max(0,Math.min(5,+c.satisfaction_rating)))+'</span>':'')
         +(c.escalated?'<b style="color:var(--red);">escalated</b>':'')
         +'<span class="field-note">next due '+esc(c.next_checkin_due||'?')+'</span><span style="flex:1;"></span>'
+        +(ciCanAsk(c)?'<button class="linklike" style="color:#B8860B;" onclick="ciAskFeedback(\''+esc(c.id)+'\')">🌟 Ask for feedback</button>':'')
+        +(c.feedback_asked_at?'<span class="field-note">feedback asked '+esc(String(c.feedback_asked_at).slice(0,10))+'</span>':'')
         +'<button class="linklike" onclick="openCheckinModal(\''+esc(c.id)+'\')">open</button></div>').join('')
       :'<div class="field-note">No check-ins yet.</div>')
     +'</div>';
@@ -9691,6 +9711,7 @@ function renderStandup(){
   const ydLabel=monday?'Friday':'yesterday';
   const openLeads=(DATA.leads||[]).filter(l=>!l.archived && l.status!=='Converted'&&l.status!=='Lost');
   const checkins=(DATA.client_checkins||[]).filter(c=>c.client_name);
+  const ciLatest=ciLatestByClient();   /* R1: late and due come from each client's latest check-in */
   let od=[]; try{ od=opsOverdue(); }catch(e){}
   const row=(label,closedTxt,due,late,name)=>
     '<div class="standup-row"'+(name!==undefined?' data-n="'+esc(name)+'" onclick="standupOpen(this.dataset.n)" style="cursor:pointer;"':'')+'>'
@@ -9703,11 +9724,11 @@ function renderStandup(){
     const als=(p.aliases||[p.name]).map(a=>a.toLowerCase()), em=p.email;
     const mine=v=>als.indexOf(String(v||'').trim().toLowerCase())>-1;
     const late=openLeads.filter(l=>mine(l.assigned_coordinator)&&l.follow_up_due&&l.follow_up_due<t).length
-      + checkins.filter(c=>mine(c.coordinator)&&c.next_checkin_due&&c.next_checkin_due<t).length
+      + ciLatest.filter(c=>mine(c.coordinator)&&c.next_checkin_due&&c.next_checkin_due<t).length
       + od.filter(i=>{const o=String(i.owner||'').toLowerCase();
                        return o&&(o===em||als.indexOf(o)>-1);}).length;
     const due=openLeads.filter(l=>mine(l.assigned_coordinator)&&l.follow_up_due===t).length
-      + checkins.filter(c=>mine(c.coordinator)&&c.next_checkin_due===t).length;
+      + ciLatest.filter(c=>mine(c.coordinator)&&c.next_checkin_due===t).length;
     const closed=leadsCounted().filter(l=>mine(l.assigned_coordinator)&&l.last_contacted_at===yd).length
       + checkins.filter(c=>mine(c.coordinator)&&c.checkin_date===yd).length
       + (DATA.activities||[]).filter(a=>a.done_at&&String(a.done_at).slice(0,10)===yd&&em&&String(a.done_by||'').toLowerCase()===em).length;
@@ -12508,6 +12529,69 @@ async function handOffToStaffingHub(assessment, plan){
 // True when a client's most recent (up to 3) satisfaction ratings have been
 // dropping check-in over check-in — surfaced so a slow slide doesn't get
 // missed just because no single check-in looked alarming on its own.
+/* R1: the same "each of the last ratings lower than the one before" rule, by AxisCare id (what the board and profile use) */
+function ciDecliningAx(ax){
+  const h=(DATA.client_checkins||[]).filter(c=>c&&c.client_name&&String(c.axiscare_client_id||'')===String(ax)&&c.satisfaction_rating)
+    .sort((a,b)=>String(a.checkin_date||'').localeCompare(String(b.checkin_date||'')));
+  if(h.length<2) return false;
+  const r=h.slice(-3);
+  for(let i=1;i<r.length;i++){ if(r[i].satisfaction_rating>=r[i-1].satisfaction_rating) return false; }
+  return true;
+}
+/* R1: one check-in per client, the latest (by AxisCare id, or by name for an older one with no id) */
+function ciLatestByClient(){
+  const m=new Map();
+  (DATA.client_checkins||[]).filter(c=>c&&c.client_name).forEach(c=>{
+    const k=c.axiscare_client_id?'ax:'+String(c.axiscare_client_id):'n:'+String(c.client_name).trim().toLowerCase();
+    const p=m.get(k); if(!p||String(c.checkin_date||'')>String(p.checkin_date||'')) m.set(k,c); });
+  return [...m.values()];
+}
+/* R3 (2026-09-29): records that can't belong to a client yet live in Needs Attention (older check-ins with no client
+   picked, Family Circles not linked to a client), and the nightly Family Circle sync shows when it last ran. */
+const NA={ beat:null, beatRead:false };
+async function naBeatLoad(){
+  try{ const r=await sb.from('app_data').select('data').eq('key','automation_heartbeats').maybeSingle();
+    if(r.error) throw r.error;
+    NA.beat=(Array.isArray(r.data&&r.data.data)?r.data.data:[]).find(b=>b&&b.automation==='circles-sync')||null; NA.beatRead=true;
+  }catch(e){ NA.beatRead=false; }
+}
+function naSyncState(){
+  const b=NA.beat; if(!NA.beatRead||!b) return null;
+  const ageH=(Date.now()-new Date(b.at).getTime())/36e5;
+  return { at:b.at, ageH, bad: b.ok===false || !(ageH<=30), note:b.note||'' };
+}
+function naSyncLine(){
+  const st=naSyncState(); if(!st) return '';
+  const when=new Date(st.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+  return '<div class="field-note" style="margin-top:6px;font-size:12px;'+(st.bad?'color:var(--red);font-weight:700;':'')+'">'
+    +(st.bad?'The nightly Family Circle sync from AxisCare '+(st.ageH>30?'has not run since '+escapeHtmlComms(when):'failed on its last run ('+escapeHtmlComms(when)+')')+'. People added or removed in AxisCare may be missing here.'
+            :'Family contacts sync from AxisCare every night · last run '+escapeHtmlComms(when))+'</div>';
+}
+async function naLoad(){ try{ await fcLoad(); }catch(e){ try{ await naBeatLoad(); }catch(e2){} } naRender(); }
+function naRender(){
+  const box=document.getElementById('opsNeedsClient'); if(!box) return;
+  const esc=escapeHtmlComms;
+  const cks=(DATA.client_checkins||[]).filter(c=>c&&c.client_name&&!c.axiscare_client_id)
+    .sort((a,b)=>String(b.checkin_date||'').localeCompare(String(a.checkin_date||'')));
+  const circ=(typeof FC!=='undefined'&&Array.isArray(FC)?FC:[]).filter(c=>c&&!c.axiscare_client_id);
+  const st=naSyncState(), syncBad=!!(st&&st.bad);
+  if(!cks.length&&!circ.length&&!syncBad){ box.innerHTML=''; return; }
+  const row=(label,btn)=>'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);font-size:13.5px;">'+label+'<span style="flex:1;"></span>'+btn+'</div>';
+  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:16px;">'
+    +'<b style="font-size:15px;color:var(--navy);">Not tied to a client yet</b>'
+    +'<div class="field-note" style="margin:2px 0 6px;">These can\'t show on anyone\'s profile until a person picks the client.</div>'
+    +(circ.length?'<div style="margin-top:6px;font-weight:700;font-size:13px;">'+circ.length+' Family Circle'+(circ.length===1?' isn\'t':'s aren\'t')+' linked to a client</div>'
+      +circ.map(c=>row('<b>'+esc(c.client_name||'(no name)')+'</b><span class="field-note">'+((FC_CONTACTS[c.id]||[]).length)+' in the circle · never texted until linked</span>',
+        '<button class="fb" style="font-size:12px;" onclick="fcLinkPick(\''+esc(c.id)+'\')">Link to a client</button>')).join(''):'')
+    +(cks.length?'<div style="margin-top:10px;font-weight:700;font-size:13px;">'+cks.length+' older check-in'+(cks.length===1?' isn\'t':'s aren\'t')+' matched to a client</div>'
+      +cks.slice(0,15).map(c=>row('<b>'+esc(c.client_name)+'</b><span class="field-note">'+esc(c.checkin_date||'')+(c.coordinator?' · '+esc(c.coordinator):'')+(c.escalated?' · escalated':'')+'</span>',
+        '<button class="fb" style="font-size:12px;" onclick="openCheckinModal(\''+esc(c.id)+'\')">Pick the client</button>')).join('')
+      +(cks.length>15?'<div class="field-note">+'+(cks.length-15)+' more</div>':''):'')
+    +(syncBad?'<div style="margin-top:10px;">'+naSyncLine()+'</div>':'')
+    +'</div>';
+}
+/* R1: open the Clients board on one filter */
+function clOpen(filter){ CL.filter=filter; switchTab('clientsboard'); }
 function clientSatisfactionDeclining(clientName){
   const history = DATA.client_checkins
     .filter(c=>c.client_name===clientName && c.satisfaction_rating)
@@ -12570,6 +12654,7 @@ async function ciAskFeedback(id){
   c.feedback_asked_at = new Date().toISOString();
   try{ await persist('client_checkins', c); }catch(e){}
   renderCheckins();
+  if(typeof cpRenderCheckins==='function') cpRenderCheckins();
   alert('Copied, and noted on their check-in so nobody asks twice.\n\n'
     + 'Four or five stars on the page offers them Google. Anything lower comes '
     + 'straight to Samantha instead, privately.');
@@ -12665,6 +12750,7 @@ async function saveCheckin(){
   await persist('client_checkins', record);
   closeModal('checkinModalBackdrop');
   renderCheckins();
+  if(typeof naRender==='function') naRender();
   if(record.escalated && !existing.escalated) notifyEscalation(record);
 }
 
@@ -16857,8 +16943,10 @@ function renderGoals(){
 }
 function careStats(){
   const t=today();
-  const overdueCk=(DATA.client_checkins||[]).filter(c=>c.next_checkin_due&&c.next_checkin_due<t);
-  const escalated=(DATA.client_checkins||[]).filter(c=>c.escalated);
+  /* R1: the latest check-in per client decides (an old row's past due date, or an escalation a later call cleared, no longer counts) */
+  const latest=ciLatestByClient();
+  const overdueCk=latest.filter(c=>c.next_checkin_due&&c.next_checkin_due<t);
+  const escalated=latest.filter(c=>c.escalated);
   const svOver=(DATA.supervisory_visits||[]).filter(v=>v.due_date&&v.due_date<t);
   const d30=new Date(Date.now()-30*86400000).toISOString();
   const newStarts=DATA.leads.filter(l=>l.status==='Converted'&&(l.converted_at||'')>=d30);
@@ -16868,7 +16956,7 @@ function renderCareKpis(){
   const wrap=document.getElementById('careKpis'); if(!wrap) return;
   const s=careStats();
   const kpi=(label,val,sub,icon,bg,fg,alert)=>
-    '<div class="kpi" style="cursor:pointer;'+(alert&&val>0?'border-color:#E8B4B4;':'')+'" onclick="switchTab(\''+(label.includes('Supervisory')?'supervisory':label.includes('30')?'clientsboard':'checkins')+'\')">'
+    '<div class="kpi" style="cursor:pointer;'+(alert&&val>0?'border-color:#E8B4B4;':'')+'" onclick="'+(label.includes('Supervisory')?'switchTab(\'supervisory\')':label.includes('30')?'switchTab(\'clientsboard\')':label.includes('Escalated')?'clOpen(\'Check-in concerns\')':'clOpen(\'Check-ins\')')+'">'
     +'<div class="kl"><span>'+label+'</span><span class="kw" style="background:'+bg+';color:'+fg+';">'+icon+'</span></div>'
     +'<div class="kv"'+(alert&&val>0?' style="color:var(--red);"':'')+'>'+val+'</div><div class="ks">'+sub+'</div></div>';
   wrap.innerHTML=
@@ -16880,21 +16968,21 @@ function renderCareKpis(){
 function renderCareQueue(){
   const wrap=document.getElementById('careQueue'); if(!wrap) return;
   const esc=escapeHtmlComms, t=today(), s=careStats(), rows=[];
-  s.escalated.forEach(c=>rows.push(['🚨','<b>'+esc(c.client_name||'')+'</b> — escalated concern'+(c.concerns_raised?': '+esc(String(c.concerns_raised).slice(0,70)):''),'checkins']));
-  s.overdueCk.forEach(c=>rows.push(['💚','<b>'+esc(c.client_name||'')+'</b> — check-in '+daysBetween(c.next_checkin_due,t)+' days overdue','checkins']));
+  s.escalated.forEach(c=>rows.push(['🚨','<b>'+esc(c.client_name||'')+'</b> — escalated concern'+(c.concerns_raised?': '+esc(String(c.concerns_raised).slice(0,70)):''),'cl:Check-in concerns']));
+  s.overdueCk.forEach(c=>rows.push(['💚','<b>'+esc(c.client_name||'')+'</b> — check-in '+daysBetween(c.next_checkin_due,t)+' days overdue','cl:Check-ins']));
   s.svOver.forEach(v=>rows.push(['🛡','<b>'+esc(v.client_name||'')+'</b> — supervisory visit overdue','supervisory']));
   s.newStarts.forEach(l=>rows.push(['🌟','<b>'+esc((l.client_first_name||l.first_name||'')+' '+(l.client_last_name||l.last_name||''))+'</b> — new client ('+(l.converted_at?daysBetween(l.converted_at.slice(0,10),t):'?')+' days in) — check in weekly','checkins']));
   wrap.innerHTML = rows.length
     ? rows.slice(0,10).map(r=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">'
       +'<span>'+r[0]+'</span><span style="flex:1;min-width:0;">'+r[1]+'</span>'
-      +'<button class="linklike" onclick="switchTab(\''+r[2]+'\')">Open</button></div>').join('')
-      +(rows.length>10?'<div class="field-note" style="margin-top:4px;">+'+(rows.length-10)+' more — see the Check-ins and Supervisory tabs</div>':'')
+      +'<button class="linklike" onclick="'+(String(r[2]).startsWith('cl:')?'clOpen(\''+String(r[2]).slice(3)+'\')':'switchTab(\''+r[2]+'\')')+'">Open</button></div>').join('')
+      +(rows.length>10?'<div class="field-note" style="margin-top:4px;">+'+(rows.length-10)+' more on the Clients board and the Supervisory tab</div>':'')
     : '<div class="field-note">Every client is checked in, visited, and settled. That\'s the quality bar. 💚</div>';
 }
 function renderCareAlerts(){
   const wrap=document.getElementById('careAlerts'); if(!wrap) return;
   const esc=escapeHtmlComms;
-  const escd=(DATA.client_checkins||[]).filter(c=>c.escalated);
+  const escd=careStats().escalated;   /* R1: the latest check-in per client decides */
   wrap.innerHTML = escd.length
     ? '<div class="attsec">'
       +'<div style="font-size:13.5px;font-weight:700;color:var(--red);padding-bottom:4px;">🚨 Escalated client concerns — a client raised something real</div>'
@@ -18414,9 +18502,11 @@ async function fcLoad(btn){
     ]);
     if(c.error) throw c.error;
     FC = c.data || []; FC_INTROS = i.data || [];
+    await naBeatLoad();
     FC_CONTACTS = {}; (p.data||[]).forEach(function(x){ (FC_CONTACTS[x.circle_id] = FC_CONTACTS[x.circle_id] || []).push(x); });
     await fcRecogLoad();
     fcRender();
+    if(typeof naRender==='function') naRender();
   }catch(e){
     box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load circles: '
       + escapeHtmlComms(e && e.message || 'error') + '</div>';
@@ -18429,11 +18519,11 @@ function fcRender(){
   const mine = FC_PROFILE ? FC.find(function(c){ return String(c.axiscare_client_id||'')===FC_PROFILE.ax; }) : null;
   if(FC_PROFILE){
     const pb=document.getElementById(FC_PROFILE.el);
-    if(pb) pb.innerHTML = mine
+    if(pb) pb.innerHTML = (mine
       ? fcCircleHtml(mine, 0).replace('<details class="card"', '<details open class="card"')
       : '<div class="card" style="padding:14px 18px;"><div style="font-weight:800;color:var(--navy);font-size:15px;margin-bottom:6px;">👨‍👩‍👧 Family Circle</div>'
         + '<div class="field-note">No Family Circle for this client yet. The family who should hear from you, in one place.</div>'
-        + '<button class="secondary" style="margin-top:8px;" onclick="fcLinkPick(null)">＋ Create the Family Circle</button></div>';
+        + '<button class="secondary" style="margin-top:8px;" onclick="fcLinkPick(null)">＋ Create the Family Circle</button></div>') + naSyncLine();
   }
   if(!FC.length){
     box.innerHTML = '<div class="card" style="padding:16px 18px;"><div class="field-note">'
@@ -27001,6 +27091,9 @@ function clDue(r, issues){
     if(!ci) add('checkin','warn','no check-in yet','checkins');
     else if(ci.next_checkin_due&&ci.next_checkin_due<t) add('checkin','bad','check-in overdue since '+d(ci.next_checkin_due),'checkins',ci.next_checkin_due);
     else if(ci.next_checkin_due&&ci.next_checkin_due<=wk) add('checkin','warn','check-in due '+d(ci.next_checkin_due),'checkins',ci.next_checkin_due);
+    /* R1 (2026-09-29, her ruling): the LATEST check-in decides; a later one without the box clears the flag, history stays */
+    if(ci&&ci.escalated) add('ckconcern','bad','check-in escalated'+(ci.concerns_raised?': '+String(ci.concerns_raised).slice(0,50):''),'checkins',ci.checkin_date);
+    else if(ci&&ciDecliningAx(ax)) add('ckconcern','warn','satisfaction dropping','checkins');
     const rv=(DATA.care_plan_reviews||[]).filter(x=>x&&String(x.axiscare_client_id||'')===ax).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')))[0];
     if(!rv) add('review','warn','first plan review needed','care');
     else {
@@ -27043,6 +27136,7 @@ function renderClientsBoard(){
     ['Needs something', x=>!x.past&&(x.bad+x.warn)>0],
     ['Due this week', x=>!x.past&&x.due.some(i=>i.tone==='bad'||(i.due&&i.due<=wk))],
     ['Concerns', x=>!x.past&&x.due.some(i=>i.kind==='concern')],
+    ['Check-in concerns', x=>!x.past&&x.due.some(i=>i.kind==='ckconcern')],
     ['Family requests', x=>!x.past&&x.due.some(i=>i.kind==='request')],
     ['Check-ins', x=>!x.past&&x.due.some(i=>i.kind==='checkin')],
     ['Plan reviews', x=>!x.past&&x.due.some(i=>i.kind==='review')],
@@ -29347,6 +29441,7 @@ async function renderOps(btn){
   opsRenderCallbacks();
   opsRenderQueue();
   try{ ucLoad(); }catch(e){}
+  try{ naLoad(); }catch(e){}
 }
 
 /* ---------------- Phone calls (GoHighLevel) ----------------
@@ -34772,6 +34867,7 @@ function renderNurseVisits(){
 
   window.cpRender=function(){
     const box=document.getElementById('cp-board'); if(!box) return;
+    { const lpv=document.getElementById('leadProfileView'); if(lpv&&lpv.style.display==='block'){ box.innerHTML=''; return; } }   /* R2 */
     if(PAIRS===null){
       loadPairs().then(()=>{ try{ if(activeTab==='careplans') cpRender(); }catch(e){} });
     }
@@ -34904,7 +35000,8 @@ function renderNurseVisits(){
   function renderAskInto(key){
     const el=document.getElementById('cp-ask-'+key); if(!el) return;
     el.style.display='';
-    const c=clientRows().find(x=>x.key===key); if(!c) return;
+    const c=clientRows().find(x=>x.key===key);
+    if(!c){ el.innerHTML='<span style="font-size:.8rem;color:var(--text-muted)">No scheduled visits found for this client in the last 60 days.</span>'; return; }
     const mine=(PAIRS||[]).filter(p=> c.axisId ? String(p.client_id)===String(c.axisId)
       : String(p.client||'').trim().toLowerCase()===String(c.name||'').trim().toLowerCase());
     if(!mine.length){ el.innerHTML='<span style="font-size:.8rem;color:var(--text-muted)">No scheduled visits found for this client in the last 60 days.</span>'; return; }
