@@ -5008,7 +5008,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     </div>
   </div></div>
   <!-- the borrowed-form slots sit OUTSIDE anything that is redrawn, so a redraw never deletes a borrowed form -->
-  <div class="cp-pane" data-cp-pane="care"><div id="cp_care"></div><div id="cp_review_slot"></div><div id="cp_c_care"></div></div>
+  <div class="cp-pane" data-cp-pane="care"><div id="cp_care"></div><div id="cp_review_slot"></div><div id="cp_shift_notes"></div><div id="cp_c_care"></div></div>
   <div class="cp-pane" data-cp-pane="team"><div id="cp_team"></div><div id="cp_cm_slot"></div><div id="cp_c_team"></div></div>
   <div class="cp-pane" data-cp-pane="checkins"><div id="cp_checkins"></div></div>
   <div class="cp-pane" data-cp-pane="payer"><div id="cp_payer"></div></div>
@@ -9044,11 +9044,60 @@ async function lpDeleteLead(){
    client's sections fill the same page. A lead that only carries an AxisCare id is never treated
    as the client (identity is a person's decision). */
 const CP={ tab:'summary', returnTab:null, r:null, lead:null, ax:'', launch:null };
+/* N1 (2026-09-29): the caregivers' shift notes, read live from AxisCare each time (the care-notes function, your
+   sign-in, office staff only). Nothing is copied into the Hub. */
+const CN={ ax:'', at:0, data:null, busy:false };
+const CN_EP='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/care-notes';
+async function cnLoad(force){
+  const box=document.getElementById('cp_shift_notes'); if(!box) return;
+  const ax=String(CP.ax||'');
+  if(!/^\d+$/.test(ax)){ box.innerHTML=''; return; }
+  if(!force&&CN.ax===ax&&CN.data&&Date.now()-CN.at<5*60000){ cnRender(); return; }
+  if(CN.busy) return;
+  CN.busy=true; CN.ax=ax; CN.data=null; cnRender();
+  try{
+    const r=await fetch(CN_EP,{ method:'POST', headers:await cmpAuthHeaders(), body:JSON.stringify({ axiscare_client_id:ax }) });
+    const d=await r.json().catch(()=>({}));
+    if(String(CP.ax||'')!==ax) return;   /* they moved on to another client */
+    CN.data=(r.ok&&d&&d.ok)?d:{ error:(d&&d.error)||('could not load ('+r.status+')') }; CN.at=Date.now();
+  }catch(e){ CN.data={ error:'could not reach AxisCare' }; CN.at=Date.now(); }
+  finally{ CN.busy=false; }
+  cnRender();
+}
+function cnWhen(iso){ try{ return new Date(iso).toLocaleString('en-US',{ timeZone:'America/Chicago', weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }catch(e){ return String(iso||''); } }
+function cnRender(){
+  const box=document.getElementById('cp_shift_notes'); if(!box) return;
+  const esc=escapeHtmlComms, d=CN.data;
+  const head='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">📝 From the shifts</b>'
+    +'<span class="field-note">care notes and tasks from AxisCare, last 14 days</span><span style="flex:1;"></span>'
+    +'<button class="secondary" onclick="cnLoad(true)"'+(CN.busy?' disabled':'')+'>↻ Refresh</button></div>';
+  let body;
+  if(CN.busy||!d) body='<div class="field-note">Reading this client\'s visits from AxisCare…</div>';
+  else if(d.error) body='<div class="field-note" style="color:var(--red);">Could not load the shift notes: '+esc(d.error)+'</div>';
+  else if(!d.shifts.length) body='<div class="field-note">No visits in the last 14 days.</div>';
+  else body=d.shifts.map(sh=>{
+      const note=sh.care_note||'';
+      const long=note.length>320;
+      return '<div style="padding:8px 0;border-top:1px solid var(--border);font-size:13.5px;">'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;"><b>'+esc(cnWhen(sh.start))+'</b><span class="field-note">'+esc(sh.caregiver||'caregiver not listed')+'</span></div>'
+        +(note?(long?'<details style="margin-top:3px;"><summary style="cursor:pointer;list-style:none;">'+esc(note.slice(0,320))+'… <span style="color:var(--navy);font-weight:700;">more</span></summary><div style="margin-top:3px;">'+esc(note)+'</div></details>'
+                    :'<div style="margin-top:3px;">'+esc(note)+'</div>')
+          :(sh.same_note_as_earlier_visit?'<div class="field-note" style="margin-top:3px;">Same care note as the later visit that day (AxisCare keeps one per caregiver per day).</div>'
+             :'<div class="field-note" style="margin-top:3px;">No care note on this visit.</div>'))
+        +(sh.tasks_not_done.length?'<div style="margin-top:4px;color:#A8660E;font-size:12.5px;"><b>Not done:</b> '+sh.tasks_not_done.map(t=>esc(t.name)+(t.note?' ("'+esc(t.note)+'")':'')).join('; ')+'</div>':'')
+        +(sh.task_notes.length?'<div class="field-note" style="margin-top:3px;font-size:12.5px;">'+sh.task_notes.map(t=>'<b>'+esc(t.name)+':</b> '+esc(t.note)).join(' · ')+'</div>':'')
+        +'</div>'; }).join('')
+      +(d.slowed?'<div class="field-note">AxisCare asked us to slow down, so the oldest visits may be missing. Refresh in a minute.</div>':'')
+      +(d.more_than_shown?'<div class="field-note">Showing the 40 most recent visits.</div>':'');
+  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'+head+body
+    +'<div class="field-note" style="margin-top:6px;font-size:11.5px;">Read from AxisCare just now; nothing here is copied into the Hub. Notes are the caregivers\' own words.</div></div>';
+}
 function cpShowTab(t){
   const ok=[...document.querySelectorAll('#leadProfileView .cp-pane')].some(p=>p.dataset.cpPane===t);
   CP.tab=ok?t:'summary';
   document.querySelectorAll('#leadProfileView .cp-pane').forEach(p=>p.classList.toggle('on',p.dataset.cpPane===CP.tab));
   document.querySelectorAll('#cpTabs .cp-tab').forEach(b=>b.classList.toggle('on',b.dataset.cp===CP.tab));
+  if(CP.tab==='care') cnLoad(false);   /* N1: shift notes are read from AxisCare only when Care is opened */
 }
 function cpLeadClientName(l){
   if(!l) return '';
