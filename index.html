@@ -12659,6 +12659,105 @@ function naRender(){
     +(syncBad?'<div style="margin-top:10px;">'+naSyncLine()+'</div>':'')
     +'</div>';
 }
+/* N3 (2026-09-29): from a flagged shift note, a person tells the family, by their own choice. Only Family Circle
+   members with permission to discuss the client (AxisCare's HIPAA box) can be chosen; the message is the person's
+   own words (a suggested sentence from the note, edited); a gentle check asks "is all of this needed?" before a
+   medication, diagnosis or the caregiver's words go out. Recorded on the item and in the circle's messages. Nothing
+   is ever sent without the Send tap. */
+const N3_CLOSE={ calm:"We'll keep an eye on it. Call me any time at (417) 234-8494 if you'd like to talk.",
+  today:"We'd like to talk with you today about next steps. Please call me at (417) 234-8494.",
+  fyi:"We wanted you to know. Call me at (417) 234-8494 if you have questions." };
+function n3Draft(item, tone){
+  const me=String((typeof ccActor==='function'?ccActor().name:'')||'').split(/[ @]/)[0];
+  const line=String(item&&item.family_line||'').trim();
+  return 'this is '+(me||'the office')+' at Caring Companions. '+(line||'[what happened, and how they are now]')+' '+N3_CLOSE[tone||'calm'];
+}
+function n3TooMuch(text, item){
+  const t=String(text||'');
+  if(/\b(mg|milligram|tablets?|pills?|dose|insulin|warfarin|eliquis|lasix|metformin|oxycodone|hydrocodone|morphine|lorazepam|donepezil|diagnos\w*|dementia|alzheimer\w*|parkinson\w*|cancer|stroke|uti|infection|diabet\w*|copd|chf|hospice)\b/i.test(t)) return 'it names a medication or a condition';
+  const note=(String(item&&item.detail||'').match(/"([^"]{40,})"/)||[])[1]||'';
+  if(note){ const w=note.toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(Boolean);
+    const tt=' '+t.toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(Boolean).join(' ')+' ';
+    for(let i=0;i+8<=w.length;i++){ if(tt.includes(' '+w.slice(i,i+8).join(' ')+' ')) return 'it repeats the caregiver\'s note word for word'; } }
+  return '';
+}
+async function n3Open(itemId){
+  const esc=escapeHtmlComms, item=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!item) return;
+  const ax=String(item.client_ax||'');
+  let circle=null, members=[], err='';
+  try{
+    const c=await sb.from('care_circles').select('id,client_name,axiscare_client_id,active').eq('axiscare_client_id',ax).eq('active',true);
+    if(c.error) throw c.error; circle=(c.data||[])[0]||null;
+    if(circle){ const m=await sb.from('circle_contacts').select('*').eq('circle_id',circle.id); if(m.error) throw m.error;
+      members=(m.data||[]).filter(x=>!x.axiscare_removed_at); }
+  }catch(e){ err=String(e&&e.message||e); }
+  const ov=document.createElement('div'); ov.id='n3Ov';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+  const row=m=>{ const ok=m.hipaa_authorized===true, canText=!m.stopped_at&&((m.phone&&m.sms_consent)||m.email);
+    return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;">'
+      +'<label style="display:flex;gap:6px;align-items:center;'+(ok&&canText?'':'opacity:.6;')+'"><input type="checkbox" data-n3="'+esc(m.id)+'"'+(ok&&canText?'':' disabled')+'><b>'+esc(m.name||'')+'</b></label>'
+      +(m.relationship?'<span class="field-note">'+esc(m.relationship)+'</span>':'')
+      +(ok?'<span style="font-size:11px;font-weight:700;color:#1F7A4D;background:#E7F6EC;border-radius:999px;padding:2px 8px;">permission to discuss</span>'
+          :'<span style="font-size:11px;font-weight:700;color:#8A1F17;background:#FDECEA;border-radius:999px;padding:2px 8px;">permission not on file</span>')
+      +(m.stopped_at?'<span class="field-note">replied STOP</span>':(!canText?'<span class="field-note">no texting consent or email: call instead</span>':''))
+      +'<span style="flex:1;"></span>'
+      +(m.phone?'<span class="field-note">'+esc(m.phone)+'</span>':'')
+      +(ok&&m.phone?'<button class="fb" style="font-size:12px;" onclick="n3Called(\''+esc(itemId)+'\',\''+esc(m.id)+'\')">I called them</button>':'')
+      +'</div>'; };
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:640px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:17px;">Tell the family</div>'
+    +'<div class="field-note" style="margin:4px 0 10px;">'+esc(item.title||'')+'. Only people with permission to discuss '+esc(String(item.about||'the client').split(' ')[0])+' can be chosen. Nothing goes out until you press Send.</div>'
+    +(err?'<div class="field-note" style="color:var(--red);">Could not load the Family Circle: '+esc(err)+'</div>'
+      :!circle?'<div class="field-note">No Family Circle for this client yet. Create it on their profile (Family &amp; Contacts).</div>'
+      :(members.length?members.map(row).join(''):'<div class="field-note">Nobody in the Family Circle yet.</div>'))
+    +(circle&&members.length?'<div style="margin-top:12px;font-weight:700;font-size:13px;">The message</div>'
+      +'<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;margin:4px 0;">'
+      +[['calm','Not urgent'],['today','Today, please'],['fyi','Just letting you know']].map((t,i2)=>'<label><input type="radio" name="n3tone" value="'+t[0]+'"'+(i2===0?' checked':'')+'> '+t[1]+'</label>').join('')+'</div>'
+      +'<div class="field-note">Each person gets "Hi (their first name)," then:</div>'
+      +'<textarea id="n3Text" rows="4" style="width:100%;font:inherit;font-size:13.5px;margin-top:4px;">'+esc(n3Draft(item,'calm'))+'</textarea>'
+      +'<div class="field-note" style="margin-top:2px;">What happened, how they are now, what we are doing. No medication names or diagnoses, and not the caregiver\'s full note.</div>':'')
+    +'<div id="n3Msg" class="field-note" style="margin-top:8px;"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px;"><button class="secondary" id="n3X">Close</button>'
+    +(circle&&members.length?'<button class="primary" id="n3Send">Send</button>':'')+'</div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#n3X').onclick=()=>ov.remove();
+  ov.querySelectorAll('input[name="n3tone"]').forEach(r=>r.onchange=()=>{ const ta=ov.querySelector('#n3Text'); if(ta) ta.value=n3Draft(item,r.value); });
+  const send=ov.querySelector('#n3Send'); if(send) send.onclick=()=>n3Send(itemId, circle, members, ov);
+}
+async function n3Send(itemId, circle, members, ov){
+  const msg=ov.querySelector('#n3Msg'), item=(DATA.ops_items||[]).find(x=>x.id===itemId);
+  const ids=[...ov.querySelectorAll('input[data-n3]:checked')].map(x=>x.getAttribute('data-n3'));
+  const text=String((ov.querySelector('#n3Text')||{}).value||'').trim();
+  if(!ids.length){ msg.textContent='Choose who to tell.'; return; }
+  if(!text||/\[what happened/.test(text)){ msg.textContent='Write what happened first.'; return; }
+  const why=n3TooMuch(text,item);
+  if(why&&!ov.dataset.n3ok){ ov.dataset.n3ok='1'; msg.innerHTML='<b>Is all of this needed?</b> The message '+escapeHtmlComms(why)+'. Keep it to the least the family needs; press Send again to send it as it is.'; return; }
+  msg.textContent='Sending…'; const btn=ov.querySelector('#n3Send'); if(btn) btn.disabled=true;
+  const done=[], failed=[];
+  for(const id of ids){
+    const m=members.find(x=>String(x.id)===String(id)); if(!m) continue;
+    const first=String(m.name||'').split(' ')[0]||'there';
+    try{
+      const { data, error } = await sb.functions.invoke('circle-send',{ body:{ circle_id:String(circle.id), purpose:'care_note', contact_ids:[String(m.id)], body:'Hi '+first+', '+text, item_id:itemId } });
+      if(error||!data||!data.ok||!data.reached) throw new Error((data&&data.error)||(error&&error.message)||'not reached (opted out, or no way to reach them)');
+      done.push(m.name);
+      item.family_contacts=(item.family_contacts||[]).concat({ name:m.name, how:'text', at:new Date().toISOString(), by:(typeof ccActor==='function'?ccActor().name:'') });
+    }catch(e){ failed.push(m.name+': '+String(e&&e.message||e)); }
+  }
+  if(done.length){ try{ await persist('ops_items', item); }catch(e){} }
+  msg.innerHTML=(done.length?'Sent to '+escapeHtmlComms(done.join(', '))+'. ':'')+(failed.length?'<span style="color:var(--red);">Not sent: '+escapeHtmlComms(failed.join('; '))+'</span>':'');
+  if(btn) btn.disabled=false;
+  try{ opsRenderQueue(); }catch(e){}
+}
+async function n3Called(itemId, memberId){
+  const item=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!item) return;
+  let name='';
+  try{ const m=await sb.from('circle_contacts').select('name').eq('id',memberId); name=((m.data||[])[0]||{}).name||''; }catch(e){}
+  item.family_contacts=(item.family_contacts||[]).concat({ name:name||'a family member', how:'call', at:new Date().toISOString(), by:(typeof ccActor==='function'?ccActor().name:'') });
+  try{ await persist('ops_items', item); }catch(e){}
+  const msg=document.querySelector('#n3Ov #n3Msg'); if(msg) msg.textContent='Recorded: you called '+(name||'them')+'.';
+  try{ opsRenderQueue(); }catch(e){}
+}
 /* R1: open the Clients board on one filter */
 function clOpen(filter){ CL.filter=filter; switchTab('clientsboard'); }
 function clientSatisfactionDeclining(clientName){
@@ -29351,7 +29450,9 @@ function opsRow(i, showKind){
     +doneBtn
     +'</div>'
     +(i.detail?'<div class="field-note" style="margin-top:4px;white-space:pre-wrap;">'+esc(i.detail)+'</div>':'')
-    +(/^\d+$/.test(String(i.client_ax||''))?'<div style="margin-top:4px;"><a href="javascript:void(0)" data-open-client="'+esc(i.client_ax)+'" data-open-tab="care" style="font-size:12.5px;font-weight:700;color:var(--navy);">Open their profile (Care) →</a></div>':'')
+    +(/^\d+$/.test(String(i.client_ax||''))?'<div style="margin-top:4px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;"><a href="javascript:void(0)" data-open-client="'+esc(i.client_ax)+'" data-open-tab="care" style="font-size:12.5px;font-weight:700;color:var(--navy);">Open their profile (Care) →</a>'
+      +(i.kind==='care_note'?'<button class="secondary" style="font-size:12px;padding:4px 10px;" onclick="n3Open(\''+esc(i.id)+'\')">Tell the family…</button>':'')+'</div>':'')
+    +(Array.isArray(i.family_contacts)&&i.family_contacts.length?'<div class="field-note" style="margin-top:3px;">Family: '+i.family_contacts.map(f=>esc((f.how==='call'?'called ':'texted ')+f.name+' ('+String(f.by||'').split(' ')[0]+', '+callsFmtWhen(f.at)+')')).join(' · ')+'</div>':'')
     +(i.created_by?'<div class="field-note" style="margin-top:2px;">Raised by '+esc(i.created_by)+'</div>':'')
     +'<div id="rec-'+i.id+'" style="display:none;"></div>'
     +'</div>';
