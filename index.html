@@ -3973,6 +3973,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <textarea id="set_cov_other_sameday" rows="2" placeholder="Hi {first_name}, it's Caring Companions. Last-minute fill-in for {client} at {address}: {when}. {pattern}{care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
 <label>To everyone else, shift is a FUTURE day</label>
 <textarea id="set_cov_other_advance" rows="2" placeholder="Hi {first_name}, it's Caring Companions. We have an open shift for {client} at {address}: {when}. {pattern}{care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
+<label>To the PRN CNA Team (call-offs and one-time shifts)</label>
+<textarea id="set_cov_prn" rows="2" placeholder="Hi {first_name}, it's Caring Companions. PRN opportunity: {client} at {address}, {when}. {care}Can you take it? Reply YES or NO. No pressure either way."></textarea>
+<div class="field-note" style="margin:-4px 0 8px;">Leave pay out: a PRN CNA is always $20/hr, and nothing changes pay by shift.</div>
 <label>Instant reply to a YES</label>
 <textarea id="set_cov_ack_yes" rows="2" placeholder="Got it, {first_name}. Thank you! The office will confirm with you shortly."></textarea>
 <label>Reply to a YES that came after someone else already got it</label>
@@ -13360,7 +13363,7 @@ function checkSettingsPasscode(){
 function covMsgsFill(){
   const st=DATA.ops_settings||{};
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
-    set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
+    set_cov_other_advance:'coverage_msg_other_advance', set_cov_prn:'coverage_msg_prn', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
     set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
@@ -13410,7 +13413,7 @@ async function covMsgsSave(btn){
   /* ops_settings is an OBJECT, not an item array, so it saves whole with a
      merge; the engines read these keys on every run, so no deploy needed. */
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
-    set_cov_other_advance:'coverage_msg_other_advance', set_cov_ack_yes:'coverage_msg_ack_yes',
+    set_cov_other_advance:'coverage_msg_other_advance', set_cov_prn:'coverage_msg_prn', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
     set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
   if(btn) btn.disabled=true;
@@ -16026,14 +16029,15 @@ async function cgdOpenProfile(axid){
 let PRN_T = { at:0, tracks:[], history:[], apps:{} };
 async function prnLoad(force){
   if(!force && PRN_T.at && Date.now()-PRN_T.at < 60000) return PRN_T;
-  const [t, h] = await Promise.all([ sb.from('pay_tracks').select('*'), sb.from('pay_track_history').select('*').order('recorded_at') ]);
+  const [t, h, sh] = await Promise.all([ sb.from('pay_tracks').select('*'), sb.from('pay_track_history').select('*').order('recorded_at'),
+    sb.from('prn_shift_log').select('*').order('recorded_at') ]);
   if(t.error) throw t.error;
   const tracks = t.data || [], ids = tracks.map(x=>x.applicant_id), apps = {};
   if(ids.length){
     const a = await sb.from('job_applicants').select('id,first_name,last_name,phone,email,prn').in('id', ids);
     (a.data||[]).forEach(x=>{ apps[x.id] = x; });
   }
-  PRN_T = { at:Date.now(), tracks, history:(h.data||[]), apps };
+  PRN_T = { at:Date.now(), tracks, history:(h.data||[]), apps, shifts:(sh && !sh.error ? (sh.data||[]) : []) };
   return PRN_T;
 }
 async function prnCall(body){
@@ -16088,6 +16092,13 @@ async function cgdPrnMount(c){
           + kv('Times', esc(words(p.times, AP_PRN_TIME)) || '<span class="field-note">none given</span>')
           + kv('Notice', esc(AP_PRN_NOTICE[p.notice] || '') || '<span class="field-note">not given</span>')
           + kv('Interested in', esc(words(p.interests, AP_PRN_INT)) || '<span class="field-note">nothing picked</span>')
+          + (function(){ const mine=(PRN_T.shifts||[]).filter(x=>String(x.axiscare_caregiver_id)===String(c.id));
+              const took=mine.filter(x=>x.kind==='confirmed'), out=mine.filter(x=>x.kind==='backed_out');
+              const last=took.map(x=>x.shift_date||String(x.recorded_at).slice(0,10)).sort().pop();
+              return kv('PRN shifts taken', took.length ? took.length + (last ? ' <span class="field-note">(last ' + esc(prnDate(last)) + ')</span>' : '') : '<span class="field-note">none yet</span>')
+                + (out.length ? kv('Backed out after confirming', '<b style="color:#B45309;">' + out.length + '</b>') : ''); })()
+          + kv('Can be asked for open shifts', (DATA.caregivers||[]).some(g=>String(g.axiscare_id||'')===String(c.id) && g.phone && g.active!==false) ? 'yes'
+              : '<b style="color:#B45309;">not yet</b> <span class="field-note">(add them to the caregiver roster with their phone and AxisCare number)</span>')
           + kv('Availability confirmed', av && av.updated_at ? esc(prnDate(av.updated_at)) + (av.source === 'application' ? ' <span class="field-note">(from their application)</span>' : '') : '<span class="field-note">not on file</span>')
         : '')
     + kv('AxisCare classes', isPrn
@@ -32876,6 +32887,8 @@ function covComposeMsgs(f,opts){
   return {
     tier1: fill(String(f.msg_tier1||'')||String(st.coverage_msg_tier1||'')||"Hi {first_name}, can you cover {client} {when}? {pattern}It's Caring Companions. Reply YES or NO."),
     other: fill(String(f.msg_other||'')||otherDefault),
+    /* PRN3: the PRN wording, same default as the engine. No pay: a PRN member's rate is always $20. */
+    prn: fill(String(st.coverage_msg_prn||'')||"Hi {first_name}, it's Caring Companions. PRN opportunity: {client} at {address}, {when}. {care}Can you take it? Reply YES or NO. No pressure either way."),
   };
 }
 let COV_PENDING=null;
@@ -33085,6 +33098,9 @@ async function covResolve(id,how,byName){
   }
   c.status='done'; c.resolved_how=how; c.covered_by=by||null;
   c.resolved_at=new Date().toISOString();
+  /* PRN3: who confirmed it and when, on every case. */
+  c.confirmed_by=(typeof ccActor==='function'?ccActor().name:'')||(ME&&(ME.name||ME.email))||null; c.confirmed_at=c.resolved_at;
+  if(how==='covered') covPrnShift(c, by, 'confirmed');
   opEvent('coverage_closed',{item_id:c.id, area:'coverage',
     summary:'Coverage closed — '+(c.client||'')+(how==='covered'?' covered by '+(by||'?'):' ('+how+')')});
   await persist('coverage_cases',c); renderCoverage();
@@ -33116,6 +33132,33 @@ async function covResolve(id,how,byName){
     await persist('coverage_cases',c);
     renderCoverage();
   }
+}
+/* PRN3: a PRN CNA confirmed on (or backing out of) a call-off or one-time shift goes on their PRN record. The ask
+   carries their AxisCare number; the roster is the fallback. Best effort: the case itself never waits on it. */
+async function covPrnShift(c, name, kind){
+  try{
+    if(!name || covIsOngoing(c)) return;
+    const ask=(c.asked||[]).find(a=>String(a.name||'').toLowerCase()===String(name).toLowerCase());
+    let axid=ask&&ask.axiscare_id;
+    if(!axid){ const g=(DATA.caregivers||[]).find(x=>(((x.first||'')+' '+(x.last||'')).trim().toLowerCase())===String(name).toLowerCase()); axid=g&&g.axiscare_id; }
+    if(!axid) return;
+    await prnLoad();
+    const tr=(PRN_T.tracks||[]).find(t=>String(t.axiscare_caregiver_id||'')===String(axid));
+    if(!tr || tr.track!=='prn_team') return;
+    await prnCall({ action:'shift', axiscare_caregiver_id:String(axid), case_id:String(c.id), kind, shift_date:c.shift_date||null });
+    PRN_T.at=0;
+  }catch(e){ console.warn('PRN shift record', e); }
+}
+/* PRN3: "They backed out" after being confirmed. The shift reopens so it can be covered again, and it goes on their
+   record (and on their PRN record when they are on the PRN Team). Nothing is sent to them about it. */
+async function covBackedOut(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c || c.resolved_how!=='covered') return;
+  const who=c.covered_by||'?';
+  if(!confirm(who+' backed out after being confirmed?\n\nThe shift reopens so it can be covered again, and this is recorded against them. Nothing is sent to them.\n\nIf they were put on the AxisCare visit, take them off it there too.')) return;
+  c.backed_out=(c.backed_out||[]).concat([{ name:who, at:new Date().toISOString(), by:(typeof ccActor==='function'?ccActor().name:'')||(ME&&(ME.name||ME.email))||'' }]);
+  opEvent('coverage_backed_out',{item_id:c.id, area:'coverage', summary:who+' backed out of '+(c.client||'a shift')+' after being confirmed'});
+  await covPrnShift(c, who, 'backed_out');
+  await covReopen(id);
 }
 async function covReopen(id){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
@@ -33192,18 +33235,34 @@ function covPickerHtml(c){
       +(x.working_then?' · <b style="color:var(--red);">📅 already scheduled: '+esc(x.working_then.detail)+'</b>'
         :x.free_then===true?' · <b style="color:var(--green);">🟢 free those hours</b>':'')
       +'</span></label>';
-    body='<div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:2px 0;">'+(isInterest?'Everyone eligible for the interest check':'Group 1 — worked with '+esc(String(c.client||'this client').split(/\s+/)[0]))+(isInterest?'':' ('+g1n+')')+'</div>'
+    /* PRN3 (2026-09-29): the PRN CNA Team. For a call-off or one-time shift, the PRN CNAs whose days, time of day and
+       notice fit are listed first and ticked; PRN members who don't fit are listed with the reason, unticked. For a
+       regular opening they are listed apart and unticked: taking it would mean moving to ongoing at $18. */
+    const g0=d.group0||[], pOther=d.prn_other||[], pOng=d.prn_ongoing||[];
+    const prnTag=x=>'<span style="font-size:11px;font-weight:800;color:#8A5A00;background:#FBF1D9;border-radius:999px;padding:1px 8px;margin-right:4px;">PRN</span>';
+    const prnRow=(x,g,checked,note)=>row(x,g,checked).replace('<b>'+esc(x.name)+'</b>', prnTag(x)+'<b>'+esc(x.name)+'</b>').replace('<span class="field-note">', '<span class="field-note">'+(note?'<b style="color:#8A5A00;">'+esc(note)+'</b> · ':''));
+    body=((g0.length||pOther.length)
+        ? '<div style="font-weight:700;font-size:12.5px;color:#8A5A00;margin:2px 0;">PRN CNA Team who fit ('+g0.length+')</div>'
+          +(g0.length?g0.map(x=>prnRow(x,0,true,'fits: their day, time and notice')).join(''):'<div class="field-note" style="padding:2px 0;">No PRN CNA fits this one.</div>')
+          +pOther.map(x=>prnRow(x,0,false,'PRN, '+((x.prn&&x.prn.why)||'does not fit'))).join('')
+          +'<div style="height:6px;"></div>'
+        : '')
+      +'<div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:2px 0;">'+(isInterest?'Everyone eligible for the interest check':'Group 1 — worked with '+esc(String(c.client||'this client').split(/\s+/)[0]))+(isInterest?'':' ('+g1n+')')+'</div>'
       +(g1n?d.group1.map(x=>row(x,1,true)).join(''):(isInterest?'':'<div class="field-note" style="padding:2px 0;">Nobody on record has worked with this client'+(String(d.meta.client_resolution||'').startsWith('resolved')?'':' (client not matched in AxisCare — normal for a new client)')+'.</div>'))
       +(isInterest?'':'<div style="font-weight:700;font-size:12.5px;color:var(--navy);margin:8px 0 2px;">Group 2 — good matches, haven\'t worked with them ('+g2n+')'+(g2n>5?' <span class="field-note" style="font-weight:500;">top 5 checked — tick more to widen</span>':'')+'</div>')
       +(g2n?d.group2.map((x,i)=>row(x,2,isInterest?i<8:i<5)).join(''):'<div class="field-note" style="padding:2px 0;">Nobody else eligible.</div>')
       +(isInterest&&g2n>8?'<div class="field-note" style="padding:2px 0;">Top 8 checked — tick more to reach the wider team.</div>':'')
+      +(pOng.length?'<div style="margin-top:8px;padding:7px 10px;background:#FBF6EA;border:1px solid #ECD9AE;border-radius:8px;">'
+        +'<div style="font-size:12.5px;font-weight:700;color:#8A5A00;">PRN CNA Team members who fit this schedule ('+pOng.length+')</div>'
+        +'<div class="field-note" style="margin:2px 0 4px;">Taking a regular schedule would mean moving to ongoing at $18. Ask only someone who has told us they want regular hours; if they take it, use Move to ongoing on their caregiver page.</div>'
+        +pOng.map(x=>prnRow(x,'o',false,'')).join('')+'</div>':'')
       +(d.excluded.length?'<details style="margin-top:6px;"><summary class="field-note" style="cursor:pointer;">Not listed: '+d.excluded.length+' (each with the reason'+(d.meta.dnr_barred?', incl. '+d.meta.dnr_barred+' Do-Not-Return':'')+')</summary>'
         +d.excluded.map(x=>'<div class="field-note" style="padding:1px 0;">'+esc(x.name)+' — '+esc(x.why)+'</div>').join('')+'</details>':'')
       +'<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
       +(isInterest
         ?'<button class="addlead" onclick="covPickSend(\''+esc(c.id)+'\',true)">📣 Text everyone checked</button>'
-        :'<button class="addlead" onclick="covPickSend(\''+esc(c.id)+'\',false)">📱 Send to Group 1 only</button>'
-         +'<button class="addlead" onclick="covPickSend(\''+esc(c.id)+'\',true)">📱 Send to Groups 1 + 2</button>')
+        :'<button class="addlead" onclick="covPickSend(\''+esc(c.id)+'\',false)">📱 Send to '+((g0.length||pOther.length)?'PRN + ':'')+'Group 1 only</button>'
+         +'<button class="addlead" onclick="covPickSend(\''+esc(c.id)+'\',true)">📱 Send to '+((g0.length||pOther.length)?'PRN + ':'')+'Groups 1 + 2</button>')
       +'<button class="ghost" onclick="covPickBuild(\''+esc(c.id)+'\')">↻ Rebuild</button>'
       +(st.prebuilt_at?'<span class="field-note">Cara built this '+covAgo(st.prebuilt_at)+' ago — ready when you were.</span>':'')
       +'</div>'
@@ -33238,7 +33297,8 @@ async function covPickBuild(id){
 async function covPickSend(id,includeG2){
   const sel=g=>[...document.querySelectorAll('input[data-pick="'+id+'"][data-g="'+g+'"]')]
     .filter(el=>el.checked).map(el=>el.value);
-  const names=includeG2?[...sel(1),...sel(2)]:sel(1);
+  /* PRN3: whoever is ticked in the PRN groups is always included; the buttons say so. */
+  const names=[...sel(0),...sel('o'),...(includeG2?[...sel(1),...sel(2)]:sel(1))];
   if(!names.length){ alert('Nobody is checked — nothing to send.'); return; }
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id);
   const isInterest=c&&String(c.kind)==='interest';
@@ -33580,11 +33640,12 @@ function covCaseCard(c){
           +'<button class="ghost" onclick="covAsk(\''+esc(c.id)+'\')">＋ I asked someone</button>'
           +'<button class="addlead" onclick="covResolve(\''+esc(c.id)+'\',\'covered\')">Covered ✓</button>'
           +'<button class="ghost" onclick="covResolve(\''+esc(c.id)+'\',\'uncovered\')">Close uncovered</button>'
-        : '<button class="ghost" onclick="covReopen(\''+esc(c.id)+'\')">Reopen</button>')
+        : '<button class="ghost" onclick="covReopen(\''+esc(c.id)+'\')">Reopen</button>'
+          +(c.resolved_how==='covered'?'<button class="ghost" style="color:var(--red);" onclick="covBackedOut(\''+esc(c.id)+'\')">They backed out</button>':''))
       +'</div>'
       +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' called off'+(c.axiscare_visit_id?' — exact AxisCare shift attached; confirming a fill replaces them on it.':'')+'</div>':'')
       +(open?'<details style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
-        +(function(){ const m=covComposeMsgs(c); return '<div style="margin-top:4px;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12.5px;">'+(m.interest?'<b>Everyone you pick:</b> '+esc(m.tier1):'<b>Works with this client:</b> '+esc(m.tier1)+'<br style="margin-bottom:4px;"><b>Everyone else:</b> '+esc(m.other))+'</div>'; })()
+        +(function(){ const m=covComposeMsgs(c); return '<div style="margin-top:4px;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12.5px;">'+(m.interest?'<b>Everyone you pick:</b> '+esc(m.tier1):(covIsOngoing(c)?'':'<b>PRN CNA Team:</b> '+esc(m.prn)+'<br style="margin-bottom:4px;">')+'<b>Works with this client:</b> '+esc(m.tier1)+'<br style="margin-bottom:4px;"><b>Everyone else:</b> '+esc(m.other))+'</div>'; })()
         +'</details>':'')
       +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
       +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
@@ -34565,6 +34626,7 @@ async function hwAskOpen(){
   if(HW_ASK.open) hwAskRender();
 }
 async function hwMatch(btn){
+  try{ if(typeof prnLoad==='function') await prnLoad(); }catch(_){ /* PRN3: no PRN records = no PRN tags */ }
   var days=[...HW_ASK.days], wins=[...HW_ASK.wins];
   var out=document.getElementById('mOut'); if(!out) return;
   if(!days.length||!wins.length){
@@ -34610,6 +34672,8 @@ async function hwMatch(btn){
         chips.push('<span class="cara-rchip">'+esc(String(x.scheduled_next_week))+'h scheduled &middot; next 7 days</span>');
         return '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border);">'
           +'<b style="font-size:15px;font-weight:700;color:var(--navy);min-width:160px;">'+esc(x.name)+'</b>'
+          +((typeof cgdPrnFor==='function' && (cgdPrnFor(x.axiscare_id)||{}).track==='prn_team')
+            ? '<span class="cara-rchip" style="background:#FBF1D9;color:#8A5A00;">PRN Team: a regular schedule would mean moving to ongoing ($18)</span>' : '')
           +chips.join('')+'</div>';
       }).join('')
       : '<div style="font-size:13.5px;color:var(--text-muted);padding:6px 0;">Nobody fits that schedule — everyone who has filled the availability form says these hours are outside their windows.</div>')
