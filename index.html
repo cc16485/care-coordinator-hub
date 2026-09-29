@@ -4007,11 +4007,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 <div class="settings-section" id="mnSettings">
 <h3>📝 Missed care notes</h3>
-<p class="hint">A caregiver who clocks out (app or office/web) with no care note gets one text 1 hour later asking them to reply with it, and one reminder the next morning; texts only 8am to 9pm. A reply goes to Needs Attention for someone to put it in AxisCare (it still counts). No reply by 6pm the next day is unresolved. 3 in 30 days makes a DRAFT write-up for review; only Samantha or Zach can approve. The count starts when you turn this on. Fill-ins: <code>{first_name}</code> <code>{client}</code> <code>{day}</code> (reminder).</p>
+<p class="hint">Every shift needs a note the office and the family can read. A caregiver who clocks out with no care note (in the app, or the office clocked them out because they forgot or couldn't) gets a text right away asking them to text their shift note to the office, and one reminder the next morning; texts only 8am to 9pm. A reply goes to Needs Attention for someone to put it in AxisCare (it still counts). No reply by 6pm the next day is unresolved. 3 in 30 days makes a DRAFT write-up for review; only Samantha or Zach can approve. The count starts when you turn this on. Fill-ins: <code>{first_name}</code> <code>{client}</code> <code>{day}</code> (reminder).</p>
 <label>The text</label>
-<textarea id="set_mn_msg" rows="3" placeholder="Hi {first_name}, this is Caring Companions. We don't see a care note for your shift with {client} today. Please reply to this text with your note for that shift. Since the shift has ended, the office will enter your note into AxisCare."></textarea>
+<textarea id="set_mn_msg" rows="3" placeholder="Hi {first_name}, this is Caring Companions. You did not put in a care note for your shift with {client} today. Please text your shift note to the office as soon as possible so we can put it in your shift for you."></textarea>
 <label>The reminder the next morning</label>
-<textarea id="set_mn_remind" rows="2" placeholder="Hi {first_name}, a reminder from Caring Companions: please reply with your care note for your shift with {client} on {day}. The office will enter it into AxisCare."></textarea>
+<textarea id="set_mn_remind" rows="2" placeholder="Hi {first_name}, a reminder from Caring Companions: we still need your shift note for your shift with {client} on {day}. Please text it to the office as soon as possible so we can put it in your shift for you."></textarea>
 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
   <button class="primary" onclick="mnSetSave(this)">Save</button>
   <button class="fb" id="mnLiveBtn" onclick="mnSetToggle(this)">Turn on missed-note texts</button>
@@ -13645,7 +13645,7 @@ async function mnSetSave(btn){
 }
 async function mnSetToggle(btn){
   const on=!((DATA.ops_settings||{}).missed_notes_live===true);
-  if(!confirm(on?'Turn on missed-note texts? From the next run, a caregiver who clocks out with no care note is texted 1 hour later (8am to 9pm), and misses start counting toward 3 in 30 days from today.'
+  if(!confirm(on?'Turn on missed-note texts? From the next run, a caregiver who clocks out with no care note is texted right away (8am to 9pm), and misses start counting toward 3 in 30 days from today.'
                :'Turn off missed-note texts? It goes back to practice: misses are found and listed, nobody is texted, nothing new counts.')) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.missed_notes_live=on; if(on && !m.missed_notes_live_since) m.missed_notes_live_since=new Date().toISOString(); return [on?'missed-note texts ON':'missed-note texts OFF']; }, 'missed care notes settings');
