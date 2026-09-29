@@ -662,6 +662,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
   /* ---- Lead profile page ---- */
   .profile-grid{display:grid;grid-template-columns:360px 1fr;gap:16px;align-items:start;}
+  /* a profile section with nothing to show in one of its two columns uses the full width (cpFitGrids) */
+  #leadProfileView .profile-grid.cp-one{grid-template-columns:1fr !important;}
+  #leadProfileView .profile-grid > .cp-emptycol{display:none !important;}
   .cp-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:14px;}
   .cp-tab{background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;padding:8px 12px;font:inherit;font-size:13.5px;font-weight:700;color:var(--text-muted);cursor:pointer;}
   .cp-tab.on{color:var(--navy);border-bottom-color:var(--teal);}
@@ -4941,7 +4944,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <div id="cp_launch"></div>
     <div id="cp_c_start"></div>
   </div>
-  <div class="cp-pane" data-cp-pane="family"><div id="lppFamHost"></div><div class="profile-grid">
+  <div class="cp-pane" data-cp-pane="family"><div id="lppFamHost"></div><div id="cp_c_family"></div><div class="profile-grid">
     <div>
 <div class="cp-lead">
       <!-- What has actually been said to this person. Used to mean leaving the
@@ -4962,7 +4965,6 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         <div id="lp_nurture" style="margin-top:8px;font-size:13px;"></div>
       </div>
 </div>
-      <div id="cp_c_family"></div>
     </div>
     <div>
 <div class="cp-lead">
@@ -9043,6 +9045,25 @@ async function lpDeleteLead(){
    client's sections fill the same page. A lead that only carries an AxisCare id is never treated
    as the client (identity is a person's decision). */
 const CP={ tab:'summary', returnTab:null, r:null, lead:null, ax:'', launch:null };
+/* 2026-09-29: a profile section's two columns were built for a lead (their messages on the right). For a client, or
+   a lead without those parts, one column can be empty and the other gets squeezed; then it's one full-width column.
+   Re-checked whenever the profile's content changes. */
+function cpColHasContent(col){
+  return [...col.children].some(el=>{ const cs=getComputedStyle(el); if(cs.display==='none') return false;
+    return !!(el.textContent.trim()||el.querySelector('img,canvas,svg,input,button,select,textarea,iframe')); });
+}
+function cpFitGrids(){
+  document.querySelectorAll('#leadProfileView .profile-grid').forEach(g=>{
+    const cols=[...g.children]; if(cols.length<2) return;
+    cols.forEach(c=>c.classList.remove('cp-emptycol'));
+    const empty=cols.filter(c=>!cpColHasContent(c));
+    if(empty.length&&empty.length<cols.length){ empty.forEach(c=>c.classList.add('cp-emptycol')); g.classList.add('cp-one'); }
+    else g.classList.remove('cp-one');
+  });
+}
+let cpFitT=null;
+(function(){ const v=document.getElementById('leadProfileView'); if(!v||typeof MutationObserver==='undefined') return;
+  new MutationObserver(()=>{ clearTimeout(cpFitT); cpFitT=setTimeout(cpFitGrids,80); }).observe(v,{ childList:true, subtree:true, attributes:true, attributeFilter:['style'] }); })();
 /* N1 (2026-09-29): the caregivers' shift notes, read live from AxisCare each time (the care-notes function, your
    sign-in, office staff only). Nothing is copied into the Hub. */
 const CN={ ax:'', at:0, data:null, busy:false };
@@ -18568,10 +18589,10 @@ function fcRender(){
   if(FC_PROFILE){
     const pb=document.getElementById(FC_PROFILE.el);
     if(pb) pb.innerHTML = (mine
-      ? fcCircleHtml(mine, 0).replace('<details class="card"', '<details open class="card"')
+      ? fcCircleHtml(mine, 0, true)
       : '<div class="card" style="padding:14px 18px;"><div style="font-weight:800;color:var(--navy);font-size:15px;margin-bottom:6px;">👨‍👩‍👧 Family Circle</div>'
         + '<div class="field-note">No Family Circle for this client yet. The family who should hear from you, in one place.</div>'
-        + '<button class="secondary" style="margin-top:8px;" onclick="fcLinkPick(null)">＋ Create the Family Circle</button></div>') + naSyncLine();
+        + '<button class="secondary" style="margin-top:8px;" onclick="fcLinkPick(null)">＋ Create the Family Circle</button></div>');
   }
   if(!FC.length){
     box.innerHTML = '<div class="card" style="padding:16px 18px;"><div class="field-note">'
@@ -18583,11 +18604,18 @@ function fcRender(){
   box.innerHTML = FC.filter(function(c){ return c!==mine; }).map(fcCircleHtml).join('');
   if(FC_PROFILE&&typeof lppRender==='function') lppRender();   /* Gate 4b: People going into care shows who is in the circle */
 }
-function fcCircleHtml(c,i){
+function fcCircleHtml(c,i,inProfile){
   const esc = escapeHtmlComms;
     const people = FC_CONTACTS[c.id] || [];
     const textable = people.filter(function(p){ return p.phone && p.sms_consent && !p.stopped_at && !p.axiscare_removed_at; }).length;
     const linked = !!c.axiscare_client_id;
+    /* inside the client's own profile: a plain header, no link back to the profile, no journey strip */
+    if(inProfile) return '<details open class="card" data-fc="' + esc(c.id) + '" style="padding:0;margin-bottom:10px;">'
+      + '<summary style="list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:14px 18px;">'
+      + '<b style="font-size:15px;color:var(--navy);">👨‍👩‍👧 Family Circle</b>'
+      + '<span class="field-note">' + people.length + ' in the circle' + (people.length ? ' · ' + textable + ' can be texted' : '') + '</span>'
+      + '<span style="flex:1;"></span>' + (typeof naSyncLine==='function' ? naSyncLine().replace('margin-top:6px;','margin:0;') : '') + '</summary>'
+      + fcCircleBody(c, people, linked, esc);
     return '<details class="card" data-fc="' + esc(c.id) + '" ontoggle="if(this.open) famMount(\'famfc-' + esc(c.id) + '\', { circle_id:\'' + esc(c.id) + '\' }, \'family\')" style="padding:0;margin-bottom:10px;">'
       + '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:14px 18px;">'
       + '<b style="font-size:15px;color:var(--navy);">' + esc(c.client_name) + '</b>'
@@ -18598,8 +18626,11 @@ function fcCircleHtml(c,i){
       + '<span style="flex:1;"></span>'
       + (linked ? '<a href="javascript:void(0)" data-open-client="' + esc(c.axiscare_client_id) + '" data-open-tab="family" style="font-size:12.5px;font-weight:700;color:var(--navy);">Open their profile →</a>' : '')
       + '<span style="color:#A89C8B;font-size:.78rem;">open ▾</span></summary>'
-      + '<div style="padding:0 18px 16px;">'
-      + '<div id="famfc-' + esc(c.id) + '"></div>'
+      + '<div id="famfc-' + esc(c.id) + '" style="padding:0 18px;"></div>'
+      + fcCircleBody(c, people, linked, esc);
+}
+function fcCircleBody(c, people, linked, esc){
+    return '<div style="padding:0 18px 16px;">'
 
       + (linked?'':'<div style="background:#FDECEA;border-radius:8px;padding:8px 10px;margin:4px 0 10px;font-size:13px;color:#8A1F17;">This circle isn\'t tied to a client yet, so nothing is sent from it (Cara\'s texts included). '
           +'<button class="fb" style="font-size:12px;" onclick="fcLinkPick(\'' + esc(c.id) + '\')">Link to a client</button></div>')
@@ -33786,8 +33817,11 @@ function famKey(seed){ return JSON.stringify(Object.keys(seed).sort().map(k=>[k,
 async function famResolve(seed){
   const key=famKey(seed), hit=FAM.cache[key];
   if(hit&&Date.now()-hit.at<60000) return hit.data;
-  const q=async p=>{ const r=await p; if(r.error) throw r.error; return r.data||[]; };
   const out={ lead:null, lead_confirmed:false, ax:'', assessment:null, launch:null, plan:null, circle:null, errors:[] };
+  /* 2026-09-29: each lookup stands alone. One that fails is noted and the rest still run (it used to stop at the
+     first failure, so a later link, like the Family Circle, showed as missing when it wasn't). */
+  const q=async p=>{ try{ const r=await p; if(r.error){ out.errors.push(String(r.error.message||r.error.code||'error')); return []; } return r.data||[]; }
+    catch(e){ out.errors.push(String(e&&e.message||e)); return []; } };
   let ax=String(seed.ax||'').trim(), leadId=String(seed.lead_id||'').trim(), episodes=new Set();
   try{
     if(seed.assessment_id){ const a=(DATA.care_assessments||[]).find(x=>x.id===seed.assessment_id); if(a){ leadId=leadId||String(a.lead_id||''); ax=ax||String(a.axiscare_client_id||'').trim(); out.assessment=a; } }
@@ -33848,7 +33882,7 @@ function famStripHtml(f, here){
     +chip('client','👤','Client profile',!!f.ax,f.ax?'famGo(\'client\','+j(f.ax)+','+j(({family:'family',plan:'team',assessment:'care',launch:'start'})[here]||'summary')+')':'','not an AxisCare client yet')
     +chip('plan','🧩','Team plan',!!f.plan,f.plan?'famGo(\'plan\','+j(f.plan.id)+')':'','no team plan linked')
     +chip('family','👪','Family',!!f.circle,f.circle?'famGo(\'family\','+j(f.circle.id)+')':'','no Family Circle linked')
-    +(f.errors.length?'<span class="field-note" style="font-size:11.5px;color:var(--red);">some links could not load</span>':'')
+    +(f.errors.length?'<span class="field-note" style="font-size:11.5px;color:var(--red);cursor:help;" title="'+escapeHtmlComms([...new Set(f.errors)].join(' · ').slice(0,400))+'">some links could not load (hover for why)</span>':'')
     +'</div>';
 }
 async function famMount(elId, seed, here){
