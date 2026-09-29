@@ -858,7 +858,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
     <span class="pillsec" title="These stay until Oct 12, 2026 so the team can compare">Older lists</span>
-    <div class="fpill" data-tab="clients" onclick="switchTab('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Active Clients</div>
     <div class="fpill" data-tab="circles" onclick="switchTab('circles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family Circles</div>
     <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
     <div class="fpill" data-tab="careplans" onclick="switchTab('careplans')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Plan Reviews</div>
@@ -4291,7 +4290,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-step"><span class="num">1</span>A launch opens here <b>on its own</b> when a lead's Start of Care reaches Ready for Staffing (all business steps done, AxisCare client linked). Clients created directly in AxisCare arrive through the safety net. There's no routine reason to add one by hand — the Launch Exception link exists for deliberate cases like a readmission where staff decides a new Start of Care isn't needed, and it requires a written reason.</div>
 <div class="guide-step"><span class="num">2</span>Each card is the whole launch, in order: assign the caregiver, brief the caregiver, confirm with the client (notes required on both calls, since they're what saves you when anyone asks "what was agreed"), enter the schedule, verify EVV is ready, first shift completed, then the 24–72 hour follow-ups with the client AND the caregiver. Medicaid launches add the DSDS services-began notice. The caregiver, the schedule and the first shift are read from AxisCare when you open the card: do them in AxisCare as usual and the card fills in. The first shift counts only when AxisCare shows a real clock-in and clock-out, and that date becomes the client's Actual SOC. If AxisCare can't show it, record it by hand with a reason.</div>
 <div class="guide-step"><span class="num">3</span>The scheduling summary note pushes to the client's AxisCare profile when the schedule step is confirmed. When every step and both notes are done, <b>Launch Complete</b> closes the episode. A client who is later discharged and returns gets a fresh episode (Episode 2, 3…) — history is never overwritten.</div>
-<div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation + ALZ Training before their first client, check the Caregivers section before scheduling anyone new. And always check the Do-Not-Return log (Care Match Check-ins tab) before assigning. Launch Complete is our operational finish line; whether a client is <i>active</i> is always AxisCare's call, on the Active Clients tab.</div>
+<div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation + ALZ Training before their first client, check the Caregivers section before scheduling anyone new. And always check the Do-Not-Return log (Care Match Check-ins tab) before assigning. Launch Complete is our operational finish line; whether a client is <i>active</i> is always AxisCare's call, shown on the Clients board.</div>
 </div>
 </details>
 
@@ -4624,7 +4623,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   </div>
   <div id="clFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
   <div id="clBoard"><div class="field-note">Loading…</div></div>
-  <div class="field-note" style="margin-top:10px;font-size:12px;">The older lists (Active Clients, Family Circles, Client Check-ins, Care Plan Reviews) stay in the menu until Oct 12 so the team can compare.</div>
+  <div class="field-note" style="margin-top:10px;font-size:12px;">The older lists (Family Circles, Client Check-ins, Care Plan Reviews) stay in the menu until Oct 12 so the team can compare.</div>
 </section>
 
 <section class="tabpanel" id="tab-clients">
@@ -7181,7 +7180,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','statesubs'],clients:['soc','clientqueue','clientsboard','clients','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','statesubs'],clients:['soc','clientqueue','clientsboard','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7678,7 +7677,8 @@ function gotoTab(tab){ return switchTab(tab); }
 
 /* Profile First (2026-09-28): the old Leads and Care Assessments tabs are gone; anything still asking for
    them lands on Leads & Starts instead of failing. */
-const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts' };
+/* Active Clients retired 2026-09-29 (her call, ahead of Oct 12): old links and saved last-tabs land on the Clients board */
+const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:'clientsboard' };
 function switchTab(tab){
   if(CC_RETIRED_TABS[tab]) tab=CC_RETIRED_TABS[tab];
   if(tab==='settings' && !ccCan('manage_settings')){ alert('You do not have permission to open Settings.'); return; }
@@ -16868,7 +16868,7 @@ function renderCareKpis(){
   const wrap=document.getElementById('careKpis'); if(!wrap) return;
   const s=careStats();
   const kpi=(label,val,sub,icon,bg,fg,alert)=>
-    '<div class="kpi" style="cursor:pointer;'+(alert&&val>0?'border-color:#E8B4B4;':'')+'" onclick="switchTab(\''+(label.includes('Supervisory')?'supervisory':label.includes('30')?'clients':'checkins')+'\')">'
+    '<div class="kpi" style="cursor:pointer;'+(alert&&val>0?'border-color:#E8B4B4;':'')+'" onclick="switchTab(\''+(label.includes('Supervisory')?'supervisory':label.includes('30')?'clientsboard':'checkins')+'\')">'
     +'<div class="kl"><span>'+label+'</span><span class="kw" style="background:'+bg+';color:'+fg+';">'+icon+'</span></div>'
     +'<div class="kv"'+(alert&&val>0?' style="color:var(--red);"':'')+'>'+val+'</div><div class="ks">'+sub+'</div></div>';
   wrap.innerHTML=
