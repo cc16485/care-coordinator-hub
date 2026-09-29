@@ -3278,6 +3278,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
 
       <div class="offnav">
+        <button class="offnav-b" id="rcnav-prn"       onclick="rcView('prn')">🩺 PRN CNA Team</button>
         <button class="offnav-b" id="rcnav-postings"  onclick="rcView('postings')">📣 Job postings</button>
         <button class="offnav-b" id="rcnav-positions" onclick="rcView('positions')">🧩 Positions &amp; pre-screens</button>
         <button class="offnav-b" id="rcnav-words"     onclick="rcView('words')">📝 Job descriptions</button>
@@ -3288,6 +3289,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="offnav-b" id="rcnav-dnr"       onclick="rcView('dnr')">🚫 Do not rehire</button>
       </div>
 
+      <!-- PRN4 (2026-09-29): the PRN CNA Team bench against its minimum. Read only. -->
+      <div class="rcview" id="rcview-prn" style="display:none;"><div id="prnDash"><div class="field-note">Loading the PRN CNA Team…</div></div></div>
       <div class="rcview" id="rcview-postings">
       <!-- Postings we own. Augusta's pages are the ones Google indexes today,
            which is why the listing costs money. These publish to
@@ -4002,6 +4005,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" id="prnSettings">
+<h3>🩺 PRN CNA Team</h3>
+<p class="hint">The minimum bench shown on Recruit → PRN CNA Team, and the 60-day availability check-in text (weekdays 10am to 5pm, at most 20 a day, nobody twice in 14 days, STOP respected). Fill-ins: <code>{first_name}</code>, <code>{link}</code> (their own one-tap link; keep it in).</p>
+<div class="grid2"><div><label>PRN Team minimum</label><input id="set_prn_min" inputmode="numeric" placeholder="20"></div><div></div></div>
+<label>The check-in text</label>
+<textarea id="set_prn_msg" rows="2" placeholder="Hi {first_name}! We're updating our Caring Companions PRN Team availability. Are you still available for the times you gave us? Tap to confirm or update: {link}"></textarea>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+  <button class="primary" onclick="prnSetSave(this)">Save</button>
+  <button class="fb" id="prnLiveBtn" onclick="prnSetToggle(this)">Turn on check-in texts</button>
+  <span class="field-note" id="prnSetStatus"></span>
+</div>
+</div>
 <div class="settings-section" id="tkSettings">
 <h3>⏰ Missed clock-ins</h3>
 <p class="hint">When a caregiver hasn't clocked in a few minutes after their shift starts, they get one short text. At the same moment every admin gets a text with their own link, and it repeats until someone opens the link and marks it resolved (or she clocks in, or a coverage case covers the shift). The EVV form never goes out by itself: an admin sends it from the link page when a caregiver asks to be clocked in for their start time. Changes here take effect on the next check (every 2 minutes) and are recorded in the activity log.</p>
@@ -13547,13 +13562,13 @@ function tkRenderStatus(){
       return '<tr><td>'+esc(String(l.shift_date).slice(5))+' '+esc(l.client_first)+' '+esc(t12)+'</td><td>'+esc(String(l.caregiver||'').split(' ')[0])+'</td><td>'+n+' round'+(n===1?'':'s')+(pr_?' <span class="badge muted">practice</span>':'')+' · first '+hm(l.admin_loop.started_at)+'</td><td>'+ended(l)+'</td></tr>'; }).join('')
     +'</tbody></table></div>';
 }
-async function tkMerge(apply){
+async function tkMerge(apply, what){
   let base={};
   try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle(); base=(data&&data.data)||{}; }catch(e){}
   const merged=Object.assign({}, base); const changed=apply(merged, base);
   if(!changed.length) return { changed, error:null };
   const { error }=await sb.from('app_data').upsert({ key:'ops_settings', data:merged, updated_at:new Date().toISOString() }, { onConflict:'key' });
-  if(!error){ DATA.ops_settings=merged; opEvent('setting_changed',{ item_id:'ops_settings', area:'coverage', summary:(ccActor().name||'Someone')+' changed missed clock-in settings: '+changed.join(', ') }); }
+  if(!error){ DATA.ops_settings=merged; opEvent('setting_changed',{ item_id:'ops_settings', area:'coverage', summary:(ccActor().name||'Someone')+' changed '+(what||'missed clock-in settings')+': '+changed.join(', ') }); }
   return { changed, error };
 }
 async function tkSave(btn){
@@ -13592,8 +13607,42 @@ async function tkToggleLive(btn){
   const s=document.getElementById('tkSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):(on?'Admin texts are on.':'Admin texts are off (practice).');
   tkRenderStatus();
 }
+/* PRN4: the PRN Team card. Saved like the missed clock-in card: merged into the server copy, the change recorded. */
+function prnSetFill(){
+  const st = DATA.ops_settings||{};
+  const m = document.getElementById('set_prn_min'); if(m) m.value = st.prn_team_minimum!=null ? String(st.prn_team_minimum) : '';
+  const t = document.getElementById('set_prn_msg'); if(t) t.value = String(st.prn_reconfirm_msg||'');
+  const on = st.prn_reconfirm_live===true, b = document.getElementById('prnLiveBtn'), s = document.getElementById('prnSetStatus');
+  if(b) b.textContent = on ? 'Turn off check-in texts' : 'Turn on check-in texts';
+  if(s) s.textContent = on ? 'Check-in texts are ON.' : 'Check-in texts: practice (who would be texted is worked out daily; nothing is sent).';
+}
+async function prnSetSave(btn){
+  const s = document.getElementById('prnSetStatus');
+  const raw = String((document.getElementById('set_prn_min')||{}).value||'').trim();
+  const min = raw==='' ? null : Math.round(Number(raw));
+  if(raw!=='' && !(min>=1 && min<=200)){ if(s) s.textContent='The minimum must be a whole number from 1 to 200.'; return; }
+  const msg = String((document.getElementById('set_prn_msg')||{}).value||'').trim();
+  if(msg && !msg.includes('{link}')){ if(s) s.textContent='Keep {link} in the text: it is their one-tap link.'; return; }
+  if(btn) btn.disabled = true;
+  const out = await tkMerge((m, base)=>{ const ch=[];
+    const set=(k,v,label)=>{ if(v==null||v===''){ if(k in m){ delete m[k]; ch.push(label+' back to standard'); } return; } if(JSON.stringify(base[k])!==JSON.stringify(v)){ m[k]=v; ch.push(label); } };
+    set('prn_team_minimum', min, 'PRN Team minimum'); set('prn_reconfirm_msg', msg, 'PRN check-in wording'); return ch; }, 'PRN CNA Team settings');
+  if(btn) btn.disabled = false;
+  if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
+}
+async function prnSetToggle(btn){
+  const on = !((DATA.ops_settings||{}).prn_reconfirm_live===true);
+  if(!confirm(on ? 'Turn on the PRN check-in texts? From the next weekday run, PRN CNAs whose availability is 60+ days old get one text with their one-tap link.'
+                 : 'Turn off the PRN check-in texts? They go back to practice: worked out, nothing sent.')) return;
+  if(btn) btn.disabled = true;
+  const out = await tkMerge((m)=>{ m.prn_reconfirm_live = on; return [on ? 'PRN check-in texts ON' : 'PRN check-in texts OFF']; }, 'PRN CNA Team settings');
+  if(btn) btn.disabled = false;
+  prnSetFill();
+  const s = document.getElementById('prnSetStatus'); if(s && out.error) s.textContent = 'Could not save: '+out.error.message;
+}
 function fillSettingsPanel(){
   covMsgsFill();
+  try{ prnSetFill(); }catch(_){}
   tkFill();
   mbFill();
   document.getElementById('set_supabase_url').value = CONFIG.supabase_url||'';
@@ -17731,15 +17780,16 @@ function offView(name){
    Posting a job, deciding what a role pays and asks, the words we reuse, the
    posts that bring people in, the rules of the boards we post to, and whether
    any of it is working. */
-let rcCurrent = 'postings';
+let rcCurrent = 'prn';   // PRN4: Recruit opens on the PRN CNA Team
 function rcView(name){
   rcCurrent = name;
-  ['postings','positions','words','social','indeed','numbers','script','dnr'].forEach(function(v){
+  ['prn','postings','positions','words','social','indeed','numbers','script','dnr'].forEach(function(v){
     const panel = document.getElementById('rcview-'+v);
     const btn   = document.getElementById('rcnav-'+v);
     if(panel) panel.style.display = (v===name) ? '' : 'none';
     if(btn) btn.classList.toggle('on', v===name);
   });
+  if(name==='prn')     prnDashLoad();
   if(name==='words')   jtLoad().then(jtRenderList);
   if(name==='social')  scLoad();
   if(name==='numbers') rnLoad();
@@ -18086,6 +18136,98 @@ function scCopy(i, btn){
     const was = btn.textContent; btn.textContent = 'Copied ✓';
     setTimeout(function(){ btn.textContent = was; }, 1500);
   }).catch(function(){ alert('Could not copy. Select the text and copy it by hand.'); });
+}
+
+/* ═══ PRN CNA TEAM DASHBOARD (PRN4, 2026-09-29) ═════════════════════════════
+   The bench against its minimum (a setting, default 20). Recruiting is ALWAYS ON: the ad never closes by itself, and
+   20+ is a floor, not a finish line. One pay track at a time: Active counts only PRN Team members; moving to ongoing is
+   shown as a win (PRN as a pathway into the regular team), never counted. Read only. */
+const PRN_AVAIL_DAYS = 75, PRN_CALL_AFTER_DAYS = 14;
+async function prnDashLoad(){
+  const box = document.getElementById('prnDash'); if(!box) return;
+  const esc = escapeHtmlComms;
+  try{
+    await prnLoad(true);
+    const [pos, post, ck] = await Promise.all([
+      sb.from('job_positions').select('key').eq('track','prn'),
+      sb.from('job_postings').select('status,valid_through,position'),
+      sb.from('prn_checkins').select('*').order('sent_at'),
+    ]);
+    const keys = (pos.data||[]).map(x=>x.key);
+    const apps = keys.length ? ((await sb.from('job_applicants').select('id,first_name,last_name,created_at,completed_at,screen_grade,status,position,decline_reason').in('position', keys)).data||[]) : [];
+    const ids = apps.map(a=>a.id);
+    const bk = ids.length ? ((await sb.from('interview_bookings').select('applicant_id,status').in('applicant_id', ids).eq('status','booked')).data||[]) : [];
+    let census = null; try{ census = await cgdCensus(); }catch(_){ census = null; }
+    box.innerHTML = prnDashHtml({ tracks:PRN_T.tracks||[], history:PRN_T.history||[], shifts:PRN_T.shifts||[], apps:PRN_T.apps||{}, prnApps:apps, booked:bk,
+      postings:(post.data||[]).filter(p=>keys.includes(p.position)), checkins:(ck.data||[]), census, avail:DATA.caregiver_availability||[],
+      minimum:Number((DATA.ops_settings||{}).prn_team_minimum)||20, now:Date.now() });
+  }catch(e){ box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load the PRN CNA Team: '+esc(e&&e.message||'error')+'</div>'; }
+}
+/* Pure: the numbers and the table from what's already recorded (tested on its own). */
+function prnDashNumbers(d){
+  const cg = id => d.census ? ((d.census.caregivers||[]).find(c=>String(c.id)===String(id))||null) : null;
+  const avFor = id => d.avail.find(a=>String(a.axiscare_id||'')===String(id)||String(a.id||'')===String(id)) || null;
+  const days = iso => iso ? (d.now - new Date(iso).getTime())/864e5 : Infinity;
+  const prnTracks = d.tracks.filter(t=>t.track==='prn_team');
+  const active = prnTracks.filter(t=>t.axiscare_caregiver_id && (d.census ? !!(cg(t.axiscare_caregiver_id)||{}).active : true));
+  const onboarding = prnTracks.filter(t=>!t.axiscare_caregiver_id);
+  const available = active.filter(t=>{ const a=avFor(t.axiscare_caregiver_id); return a && days(a.updated_at) <= PRN_AVAIL_DAYS && Object.values(a.windows||{}).some(v=>Array.isArray(v)&&v.length); });
+  const onTrack = new Set(d.tracks.map(t=>String(t.applicant_id)));
+  const bookedIds = new Set(d.booked.map(b=>String(b.applicant_id)));
+  const interviewing = d.prnApps.filter(a=>bookedIds.has(String(a.id)) && !onTrack.has(String(a.id)));
+  const fresh = d.prnApps.filter(a=>a.completed_at && days(a.created_at) <= 14 && !a.decline_reason && a.status!=='declined'
+    && ['qualified','review'].includes(a.screen_grade) && !bookedIds.has(String(a.id)) && !onTrack.has(String(a.id)));
+  const everPrn = new Set(d.history.filter(h=>h.to_track==='prn_team').map(h=>String(h.applicant_id)));
+  const moved = d.tracks.filter(t=>t.track==='ongoing' && everPrn.has(String(t.applicant_id)));
+  const rows = active.map(t=>{
+    const a = avFor(t.axiscare_caregiver_id), app = d.apps[t.applicant_id]||{}, c = cg(t.axiscare_caregiver_id)||{};
+    const mine = d.shifts.filter(x=>String(x.axiscare_caregiver_id)===String(t.axiscare_caregiver_id));
+    const took = mine.filter(x=>x.kind==='confirmed'), out = mine.filter(x=>x.kind==='backed_out');
+    const openCk = d.checkins.filter(x=>String(x.axiscare_caregiver_id)===String(t.axiscare_caregiver_id) && !x.answered_at);
+    const lastOpen = openCk.length ? openCk[openCk.length-1] : null;
+    const callThem = !a || days(a.updated_at) > PRN_AVAIL_DAYS || (lastOpen && days(lastOpen.sent_at) > PRN_CALL_AFTER_DAYS);
+    return { name:((app.first_name||c.first||'')+' '+(app.last_name||c.last||'')).trim() || ('Caregiver '+t.axiscare_caregiver_id), axid:String(t.axiscare_caregiver_id),
+      town:c.city||'', windows:(a&&a.windows)||{}, same_day:((app.prn||{}).notice)==='same_day', notice:((app.prn||{}).notice)||null,
+      confirmed:a?a.updated_at:null, call_them:!!callThem, last_shift:took.map(x=>x.shift_date||String(x.recorded_at).slice(0,10)).sort().pop()||null,
+      taken:took.length, backed_out:out.length };
+  }).sort((x,y)=>(Number(y.call_them)-Number(x.call_them)) || x.name.localeCompare(y.name));
+  const alwaysOn = d.postings.some(p=>p.status==='published' && !p.valid_through);
+  return { minimum:d.minimum, active:active.length, available:available.length, onboarding:onboarding.length, interviewing:interviewing.length,
+    fresh:fresh.length, moved:moved.length, below:active.length < d.minimum, always_on:alwaysOn, rows };
+}
+function prnDashHtml(d){
+  const esc = escapeHtmlComms, n = prnDashNumbers(d);
+  const DW = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' }, TW = { morning:'morning', afternoon:'daytime', evening:'evening', overnight:'overnight' };
+  const summary = w => { const ds = Object.keys(DW).filter(k=>(w[k]||[]).length); const ts = [...new Set(ds.flatMap(k=>w[k]))];
+    return ds.length ? ds.map(k=>DW[k]).join(', ') + ' · ' + ['morning','afternoon','evening','overnight'].filter(t=>ts.includes(t)).map(t=>TW[t]).join(', ') : ''; };
+  const fmt = iso => iso ? new Date(String(iso).length<=10 ? iso+'T12:00:00' : iso).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+  const stat = (v,l,c) => '<span style="display:inline-flex;align-items:baseline;gap:6px;"><b style="font-size:24px;color:'+(c||'var(--navy)')+';">'+v+'</b><span style="font-size:13.5px;">'+l+'</span></span>';
+  const NOTICE = { few_hours:'a few hours', '24h':'24h', '48h':'48h+' };
+  return '<div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><b style="font-size:17px;color:var(--navy);">PRN CNA Recruiting: ALWAYS ON</b>'
+      + (n.always_on ? '<span style="font-size:12px;font-weight:800;color:#1c6b45;background:#e8f1ec;border-radius:999px;padding:2px 10px;">ad live, no end date</span>'
+                     : '<span style="font-size:12px;font-weight:800;color:#B91C1C;background:#FEE2E2;border-radius:999px;padding:2px 10px;">the PRN ad is not live: check Job postings</span>') + '</div>'
+    + (n.below
+        ? '<div style="background:#FEE2E2;border:1px solid #FCA5A5;border-radius:10px;padding:10px 12px;color:#991B1B;font-weight:700;">Below PRN Team minimum ('+n.active+' of '+n.minimum+') · continuous recruiting active</div>'
+        : '<div style="background:#DCFCE7;border:1px solid #86EFAC;border-radius:10px;padding:10px 12px;color:#166534;font-weight:700;">'+n.minimum+'+ PRN CNAs ('+n.active+') · recruiting stays on</div>')
+    + '<div style="display:flex;gap:20px;flex-wrap:wrap;">' + stat(n.active,'active PRN CNAs') + stat(n.available,'available (confirmed in '+PRN_AVAIL_DAYS+' days)')
+      + stat(n.onboarding,'onboarding') + stat(n.interviewing,'interviewing') + stat(n.fresh,'new applicants') + stat(n.moved,'moved to ongoing','#1F4E79') + '</div>'
+    + '<div class="field-note">Active counts toward the minimum. Moved to ongoing is a win (PRN into your regular team) and is not counted. One pay track at a time: PRN Team $20/hr, ongoing $18/hr.</div>'
+    + (n.rows.length
+        ? '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13.5px;"><thead><tr style="text-align:left;color:var(--text-muted);">'
+          + ['Name','Town','Availability','Same day','Confirmed','Last PRN shift','Taken','Backed out'].map(h=>'<th style="padding:6px 8px;border-bottom:1px solid var(--border);">'+h+'</th>').join('') + '</tr></thead><tbody>'
+          + n.rows.map(r=>'<tr>'
+              + '<td style="padding:6px 8px;border-bottom:1px solid #F2EFE8;"><a href="javascript:void 0" onclick="gotoTab(\'cgdir\');setTimeout(()=>cgdOpenProfile(\''+esc(r.axid)+'\'),300)">'+esc(r.name)+'</a></td>'
+              + '<td style="padding:6px 8px;border-bottom:1px solid #F2EFE8;">'+esc(r.town)+'</td>'
+              + '<td style="padding:6px 8px;border-bottom:1px solid #F2EFE8;">'+(esc(summary(r.windows))||'<span class="field-note">none on file</span>')+'</td>'
+              + '<td style="padding:6px 8px;border-bottom:1px solid #F2EFE8;">'+(r.same_day?'Yes':'No'+(r.notice&&NOTICE[r.notice]?' ('+NOTICE[r.notice]+')':''))+'</td>'
+              + '<td style="padding:6px 8px;border-bottom:1px solid #F2EFE8;'+(r.call_them?'color:#B45309;font-weight:700;':'')+'">'+(r.confirmed?esc(fmt(r.confirmed)):'never')+(r.call_them?' · call them':'')+'</td>'
+              + '<td style="padding:6px 8px;border-bottom:1px solid #F2EFE8;">'+(r.last_shift?esc(fmt(r.last_shift)):'')+'</td>'
+              + '<td style="padding:6px 8px;border-bottom:1px solid #F2EFE8;">'+r.taken+'</td>'
+              + '<td style="padding:6px 8px;border-bottom:1px solid #F2EFE8;'+(r.backed_out?'color:#B45309;font-weight:700;':'')+'">'+r.backed_out+'</td></tr>').join('')
+          + '</tbody></table></div>'
+        : '<div class="field-note">No active PRN CNAs yet. They appear here once a PRN hire is linked to their caregiver record (their caregiver page offers "Link them").</div>')
+    + '</div>';
 }
 
 /* ---- Positions and their pre-screens ---------------------------------------

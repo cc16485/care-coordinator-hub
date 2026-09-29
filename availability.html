@@ -55,6 +55,9 @@
 <div id="form" style="display:none;">
   <div class="card">
     <div id="hello" style="font-weight:800;color:var(--navy);font-size:16px;"></div>
+    <!-- PRN4: from a check-in text's personal link, "Still right" confirms what's on file in one tap, right at the top. -->
+    <button class="go" id="stillRight" style="display:none;margin:12px 0 4px;" onclick="stillRight()">✓ Still right</button>
+    <div id="stillDone"></div>
     <label>Hours per week you're hoping for</label>
     <input id="hours" type="number" inputmode="numeric" min="0" max="80" placeholder="e.g. 25">
     <label style="margin-top:14px;">When do you want to work? Tap everything that works for you.</label>
@@ -73,6 +76,11 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
 const WINS=[['morning','Morn'],['afternoon','Day'],['evening','Eve'],['overnight','Night']];   // 'afternoon' is shown as Daytime
 let SEL={};
+/* PRN4 (2026-09-29): a PRN CNA's 60-day check-in text links here with their own sealed link (c, e, t), so they don't
+   type their phone number. Anything forged or expired falls back to the phone number, as always. */
+const QS=new URLSearchParams(location.search);
+let LINK=(QS.get('c')&&QS.get('e')&&QS.get('t'))?{ c:QS.get('c'), e:QS.get('e'), t:QS.get('t') }:null;
+const who=()=>LINK?Object.assign({},LINK):{ phone:$('ph').value };
 
 async function call(body){
   try{
@@ -96,13 +104,15 @@ function tog(d,w,el){
 }
 async function lookup(){
   $('phErr').textContent='';
-  const out=await call({ phone:$('ph').value });
+  const out=await call(who());
   if(out.error){ $('phErr').textContent=out.error; return; }
-  if(out.unknown){ $('phErr').textContent=out.message; return; }
+  if(out.unknown){ $('phErr').textContent=out.message; if(LINK){ LINK_FAILED(); } return; }
   $('hello').textContent='Hi '+out.first_name+'!'+(out.updated_at?' Here is what you told us last time — change anything.':'');
   if(out.target_hours!=null) $('hours').value=out.target_hours;
   SEL=out.windows||{};
   grid();
+  const has=Object.values(SEL).some(v=>Array.isArray(v)&&v.length);
+  if(LINK&&has){ $('stillRight').style.display='block'; $('hello').textContent='Hi '+out.first_name+'! Here is what you told us. Still right? One tap. Or change anything and save.'; }
   $('phoneCard').style.display='none';
   $('form').style.display='block';
 }
@@ -110,13 +120,25 @@ let SAVING=false;
 async function save(){
   if(SAVING) return; SAVING=true;
   $('saveErr').textContent=''; $('done').innerHTML='';
-  const out=await call({ phone:$('ph').value, action:'save',
+  const out=await call({ ...who(), action:'save',
     target_hours:Number($('hours').value||0), windows:SEL });
   SAVING=false;
   if(out.error){ $('saveErr').textContent=out.error; return; }
   if(out.unknown){ $('saveErr').textContent=out.message; return; }
   $('done').innerHTML='<div class="ok">✅ '+esc(out.message||'Saved!')+'</div>';
 }
+async function stillRight(){
+  if(SAVING) return; SAVING=true;
+  $('saveErr').textContent=''; $('done').innerHTML='';
+  const out=await call({ ...who(), action:'confirm' });
+  SAVING=false;
+  if(out.error){ $('stillDone').innerHTML='<div class="err">'+esc(out.error)+'</div>'; return; }
+  if(out.unknown){ $('stillDone').innerHTML='<div class="err">'+esc(out.message)+'</div>'; return; }
+  $('stillDone').innerHTML='<div class="ok">✅ '+esc(out.message||'Confirmed!')+'</div>';
+  $('stillRight').style.display='none';
+}
+function LINK_FAILED(){ LINK=null; $('phoneCard').style.display='block'; $('form').style.display='none'; }
+if(LINK){ $('phoneCard').style.display='none'; lookup(); }
 </script>
 </body>
 </html>
