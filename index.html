@@ -4004,6 +4004,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="settings-section" id="tkSettings">
 <h3>⏰ Missed clock-ins</h3>
 <p class="hint">When a caregiver hasn't clocked in a few minutes after their shift starts, they get one short text. At the same moment every admin gets a text with their own link, and it repeats until someone opens the link and marks it resolved (or she clocks in, or a coverage case covers the shift). The EVV form never goes out by itself: an admin sends it from the link page when a caregiver asks to be clocked in for their start time. Changes here take effect on the next check (every 2 minutes) and are recorded in the activity log.</p>
+<div id="tkCg" class="field-note" style="margin:6px 0 4px;"></div>
+<button class="secondary" id="tkCgBtn" onclick="tkToggleCg(this)" style="margin-bottom:10px;">Turn on caregiver texts</button>
 <div id="tkLive" class="field-note" style="margin:6px 0 10px;"></div>
 <label>Minutes after the shift start before the texts go (caregiver and admins)</label>
 <input id="set_tk_grace" type="number" min="1" max="60" placeholder="5">
@@ -13541,8 +13543,15 @@ function tkRenderStatus(){
   const st=DATA.ops_settings||{}, esc=escapeHtmlComms, live=st.timekeeper_admin_loop_live===true;
   const lv=document.getElementById('tkLive'), btn=document.getElementById('tkLiveBtn');
   if(lv) lv.innerHTML=live?'<b style="color:#1E8449;">Admin texts are ON.</b> Every admin below is texted until someone resolves it.'
-    :'<b style="color:#B7791F;">Practice run.</b> Caregivers get their text; the admin texts are only recorded (below), not sent. Turn them on when you\'re happy with a day of practice.';
+    :'<b style="color:#B7791F;">Admin texts: practice run.</b> They are only recorded (below), not sent. Turn them on when you\'re happy with a day of practice.';
   if(btn) btn.textContent=live?'Turn off admin texts':'Turn on admin texts';
+  /* Caregiver texts (timekeeper_text_live): paused in Step 0 (2026-09-27); Samantha asked for this switch 2026-09-29. */
+  const cgOn=st.timekeeper_text_live===true, watchOn=st.timekeeper_watch_live===true;
+  const cg=document.getElementById('tkCg'), cb=document.getElementById('tkCgBtn');
+  if(cg) cg.innerHTML=!watchOn?'<b style="color:#C0392B;">The clock-in watcher itself is off</b>, so nothing is detected or texted. Ask Claude before turning it back on.'
+    :cgOn?'<b style="color:#1E8449;">Caregiver texts are ON.</b> A caregiver with no clock-in gets the short text once, at the minutes below.'
+    :'<b style="color:#B7791F;">Caregiver texts are OFF.</b> Missed clock-ins are still found and the admins still alerted, but the caregiver gets no text.';
+  if(cb){ cb.textContent=cgOn?'Turn off caregiver texts':'Turn on caregiver texts'; cb.disabled=!watchOn; }
   const ap=document.getElementById('tkAdminPhones');
   if(ap){ const L=tkAdminsNow(); ap.innerHTML='Texts go to: '+L.map(a=>esc(a.name)+(a.phone?'':' <b style="color:#C0392B;">(no phone in the staff list, won\'t get texts)</b>')).join(', ')+'.'; }
   const pr=document.getElementById('tkPractice'); if(!pr) return;
@@ -13583,6 +13592,16 @@ async function tkSave(btn){
     return ch; });
   if(btn) btn.disabled=false;
   if(s) s.textContent=out.error?('Could not save: '+out.error.message):(out.changed.length?'Saved: '+out.changed.join(', ')+'.':'Nothing changed.');
+  tkRenderStatus();
+}
+async function tkToggleCg(btn){
+  const st=DATA.ops_settings||{}; if(st.timekeeper_watch_live!==true) return;
+  const on=!(st.timekeeper_text_live===true);
+  if(!confirm(on?'Turn on caregiver texts? From the next missed clock-in, the caregiver gets one short text asking her to clock in (no EVV form).':'Turn off caregiver texts? Missed clock-ins are still found and the admins still alerted; caregivers get no text.')) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.timekeeper_text_live=on; return [on?'caregiver texts ON':'caregiver texts OFF']; });
+  if(btn) btn.disabled=false;
+  const s=document.getElementById('tkSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):(on?'Caregiver texts are on.':'Caregiver texts are off.');
   tkRenderStatus();
 }
 async function tkToggleLive(btn){
