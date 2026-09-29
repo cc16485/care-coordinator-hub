@@ -7437,7 +7437,8 @@ async function hlPayLink(id,btn,fam){
   if(!confirm(fam?'Send the "a family wants to move forward with you" email with the $45 payment link?':'Email this caregiver a standard $45 payment link for their background check?')) return;
   btn.disabled=true; btn.textContent='Sending…';
   try{
-    const r=await fetch(HL_EP,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'paylink',caregiver_id:id,family_interested:!!fam})});
+    /* S5: your sign-in goes with it; the server sends this email only for signed-in office staff */
+    const r=await fetch(HL_EP,{method:'POST',headers:await cmpAuthHeaders(),body:JSON.stringify({kind:'paylink',caregiver_id:id,family_interested:!!fam})});
     const d=await r.json();
     if(d&&d.ok){ const c=(DATA.local_caregivers||[]).find(x=>x.id===id); if(c){ c.status='background check'; c.pay_link_sent=new Date().toISOString(); } alert('Payment link emailed. When they pay, Checkr is ordered automatically and status updates itself.'); }
     else alert('Could not send: '+((d&&d.error)||'unknown error'));
@@ -7447,7 +7448,7 @@ async function hlPayLink(id,btn,fam){
 async function hlOig(id,btn){
   btn.disabled=true; btn.textContent='Checking…';
   try{
-    const r=await fetch(HL_EP,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'oig',caregiver_id:id})});
+    const r=await fetch(HL_EP,{method:'POST',headers:await cmpAuthHeaders(),body:JSON.stringify({kind:'oig',caregiver_id:id})});
     const d=await r.json();
     if(d&&d.ok){ await loadAllData(); renderHtLocal(); return; }
     alert('Screen failed: '+((d&&d.error)||'unknown'));
@@ -7505,7 +7506,7 @@ function renderCommunity(){
 async function cmApprovePost(id){ const p=(DATA.corner_posts||[]).find(x=>x.id===id); if(!p) return; p.status='approved'; p.seen=true; await persist('corner_posts',p); renderCommunity(); }
 async function cmRemovePost(id){ const p=(DATA.corner_posts||[]).find(x=>x.id===id); if(!p) return; if(!confirm('Remove this post'+(p.status==='approved'?' from the public site':'')+'?')) return; p.status='removed'; await persist('corner_posts',p); renderCommunity(); }
 const CM_EP='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/cc-corner?token=htorder_078070ed7c3e8e7619e567dcfaddfc400e43147a';
-function cmNotify(pid,rid){ try{ fetch(CM_EP,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'notify',post_id:pid,reply_id:rid})}); }catch(e){} }
+async function cmNotify(pid,rid){ try{ fetch(CM_EP,{method:'POST',headers:await cmpAuthHeaders(),body:JSON.stringify({action:'notify',post_id:pid,reply_id:rid})}); }catch(e){} }   /* S5: sent with your sign-in */
 async function cmApproveReply(pid,rid){ const p=(DATA.corner_posts||[]).find(x=>x.id===pid); if(!p) return; const r=(p.replies||[]).find(x=>x.id===rid); if(!r) return; r.status='approved'; p.pending_replies=(p.replies||[]).some(x=>x.status==='pending'&&x.id!==rid); await persist('corner_posts',p); cmNotify(pid,rid); renderCommunity(); }
 async function cmPinPrompt(){
   const title=document.getElementById('cmPromptTitle').value.trim(), body=document.getElementById('cmPromptBody').value.trim();
