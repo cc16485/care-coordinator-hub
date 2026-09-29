@@ -852,8 +852,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        working. -->
   <div class="fsubbar" id="fsub-leads">
     <div class="fpill" data-tab="leadsstarts" onclick="switchTab('leadsstarts')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Leads board</div>
-    <span class="pillsec" title="These stay until Oct 12, 2026 so the team can compare">Older lists</span>
-    <div class="fpill" data-tab="statesubs" onclick="switchTab('statesubs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> State Submissions</div>
     <span style="flex:1"></span>
     <select id="ccViewAsL" onchange="ccSetViewAs(this.value)" title="View one coordinator's book" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--navy);font-family:inherit;max-width:160px;align-self:center"></select>
   </div>
@@ -4223,7 +4221,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="card"><div id="postCallTableWrap"></div></div>
 </div></details>
 </div>
-      <div class="field-note" style="margin-top:10px;font-size:12px;">The older list (State Submissions) stays in the menu until Oct 12 so the team can compare. Everything here is read from the same records they use.</div>
+      <div class="field-note" style="margin-top:10px;font-size:12px;">The State Submissions list is now the <b>State submissions</b> filter here. Everything is read from the same records.</div>
     </section>
 
     <!-- the old Leads tab retired 2026-09-28 (Profile First, step B): Leads & Starts is the one list; its Follow-ups view holds the queue and drafts. -->
@@ -4364,39 +4362,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div id="cgdProfileBody" style="padding:16px 18px 40px;"></div>
 </div>
 
-<!-- ===================== TAB: STATE SUBMISSIONS (Medicaid IHS) ========
-     Modeled on the CDS hub's State Submission Tracker (2026-08-01): every
-     Medicaid IHS lead submitted to DSDS/DHSS, aged by days-since-submission
-     so no referral quietly dies waiting on the state. Data lives on the
-     lead records themselves (dcn / county / state_submitted / state_status)
-     — this tab is a lens over Leads, not a second list. -->
-<section class="tabpanel" id="tab-statesubs">
-<details class="guide">
-<summary>📋 How This Tab Works — State Submissions ▼</summary>
-<div class="guide-body">
-<div class="guide-step"><span class="num">1</span>When a Medicaid In-Home Services lead is referred to the state, record it on the lead: open the lead, fill in the <b>Medicaid IHS — State Submission</b> block (DCN, county, submitted date, status). The lead then appears here automatically.</div>
-<div class="guide-step"><span class="num">2</span>The state's pace is slow and silent, so this board ages every submission: <b>blue</b> is recently submitted, <b>amber at 10 days</b> means follow up soon, <b>red at 21 days</b> means call DSDS now. A referral with no submitted date shows red until it's actually sent.</div>
-<div class="guide-step"><span class="num">3</span>After each follow-up call, update the status and set the next <b>follow-up due</b> date on the lead. When the state authorizes, set the status to <b>Authorized</b>, then run the normal conversion: AxisCare setup, and they land in New Clients for scheduling.</div>
-<div class="guide-step flag"><span class="num">!</span>This board belongs to <b>Angiel</b> (the Medicaid &amp; VA coordinator) — chasing these submissions is part of the afternoon rhythm. CDS-only towns and pure CDS inquiries still don't belong here: Angiel does those intakes too, but on the CDS side, and they ride the CDS hub's own submission tracker.</div>
-</div>
-</details>
-
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;gap:.6rem;flex-wrap:wrap">
-  <div style="display:flex;align-items:center;gap:.6rem">
-    <span style="font-size:1.1rem">🏛️</span>
-    <div>
-      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Referrals Pending State Authorization</div>
-      <div style="font-size:.72rem;color:var(--text-muted)">Submitted to DSDS/DHSS and waiting. Follow up every 1–2 weeks; the day counter keeps score.</div>
-    </div>
-  </div>
-</div>
-<div id="statesubs-pending"></div>
-
-<div style="margin-top:1.5rem;padding-bottom:2rem">
-  <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">Recently resolved</div>
-  <div id="statesubs-resolved"></div>
-</div>
-</section>
+<!-- TAB: STATE SUBMISSIONS retired 2026-09-29: the list is the Leads & Starts "State submissions" filter (lsStateHtml). -->
 
 <!-- ===================== TAB: WHO HANDLES WHAT =====================
      The routing matrix (2026-09-19 product-direction session): per area,
@@ -6151,7 +6117,7 @@ The HomeTogether team</pre>
 
 <div id="leadStateBlock" style="display:none">
 <div class="section-title">Medicaid IHS — State Submission</div>
-<div class="field-note" style="margin-bottom:8px;">Get the DCN and county on this call if you can. Filling in a submitted date puts this lead on the State Submissions tracker with follow-up aging.</div>
+<div class="field-note" style="margin-bottom:8px;">Get the DCN and county on this call if you can. Filling in a submitted date puts this family on the <b>State submissions</b> filter of Leads &amp; Starts, with follow-up aging.</div>
 <div class="grid2">
 <div><label>DCN (Medicaid number)</label><input id="lead_dcn" placeholder="8-digit DCN"></div>
 <div><label>County</label><input id="lead_county" placeholder="e.g. Greene"></div>
@@ -7201,7 +7167,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','statesubs'],clients:['soc','clientqueue','clientsboard'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7702,10 +7668,14 @@ function gotoTab(tab){ return switchTab(tab); }
 const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:'clientsboard',
   /* R4 (2026-09-29): the older Client Care lists are gone; their jobs live in the profile, the Clients board and
      Needs Attention. Old links land on the board, on the matching filter. */
-  circles:'clientsboard', checkins:'clientsboard', careplans:'clientsboard' };
-const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews' };
+  circles:'clientsboard', checkins:'clientsboard', careplans:'clientsboard',
+  /* State Submissions retired 2026-09-29 (her call, ahead of Oct 12): its list is the Leads & Starts
+     "State submissions" filter, with the same people (Getting ready included) and the same aging. */
+  statesubs:'leadsstarts' };
+const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews', statesubs:'State submissions' };
 function switchTab(tab){
-  if(CC_RETIRED_TABS[tab]){ if(CC_RETIRED_FILTER[tab]&&typeof CL!=='undefined') CL.filter=CC_RETIRED_FILTER[tab]; tab=CC_RETIRED_TABS[tab]; }
+  if(CC_RETIRED_TABS[tab]){ const f=CC_RETIRED_FILTER[tab], to=CC_RETIRED_TABS[tab];
+    if(f&&to==='leadsstarts'&&typeof LS!=='undefined') LS.filter=f; else if(f&&typeof CL!=='undefined') CL.filter=f; tab=to; }
   if(tab==='settings' && !ccCan('manage_settings')){ alert('You do not have permission to open Settings.'); return; }
   ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
@@ -7802,7 +7772,6 @@ function renderActiveTab(){
   if(activeTab==='routing') rtRender();
   if(activeTab==='sops') sopRender();
   if(activeTab==='clientqueue') cqRender();
-  if(activeTab==='statesubs') renderStateSubs();
   if(activeTab==='careplans') cpRender();
   if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='clients') renderClients();
@@ -10821,7 +10790,7 @@ function leadPayorUI(){
     private:'💰 <b>Private Pay → Krystal\'s book.</b> Quote from the rate card in the side panel (levels and what each includes), track it below, and offer the free in-home assessment as the next step.',
     ltc:'📄 <b>LTC insurance → Krystal\'s book.</b> Get the carrier and policy number if they have it handy — the LTC Policy tab reads the policy and sets it up as a payor. Bills private-side until benefits kick in.',
     va:'🎖️ <b>VA → Angiel\'s book.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
-    medicaid:'🏛️ <b>Medicaid IHS → Angiel\'s book.</b> First ask: <b>"Has [client] ever received in-home services through Medicaid before, or is this brand new?"</b> If they\'re new, walk them through the two options and the difference: <b>IHS</b>, we hire, train, and send the caregiver and handle everything, or <b>CDS</b>, they choose their own caregiver, often a family member who is already helping, and our sister company handles enrollment and payroll. If they pick CDS, switch the payor above to CDS. Staying IHS: minimum to get started is client <b>first name, last name, and DOB</b>. Get the DCN and county too if you can, the State Submission block just opened below and this lead rides the State Submissions tracker until DSDS authorizes. <b>Do not commit on this call:</b> tell them we\'ll make sure we can staff it and get back to them ASAP, then <b>read the notes before taking them</b> and call back.',
+    medicaid:'🏛️ <b>Medicaid IHS → Angiel\'s book.</b> First ask: <b>"Has [client] ever received in-home services through Medicaid before, or is this brand new?"</b> If they\'re new, walk them through the two options and the difference: <b>IHS</b>, we hire, train, and send the caregiver and handle everything, or <b>CDS</b>, they choose their own caregiver, often a family member who is already helping, and our sister company handles enrollment and payroll. If they pick CDS, switch the payor above to CDS. Staying IHS: minimum to get started is client <b>first name, last name, and DOB</b>. Get the DCN and county too if you can, the State Submission block just opened below and this lead rides the State submissions filter on Leads &amp; Starts until DSDS authorizes. <b>Do not commit on this call:</b> tell them we\'ll make sure we can staff it and get back to them ASAP, then <b>read the notes before taking them</b> and call back.',
     cds:'↪️ <b>CDS → Angiel.</b> CDS is the sister company, but Angiel does the intake herself. If she\'s in, warm-transfer now. If not, take name and number and save this lead, it lands in her book for the callback. She runs the intake on the CDS side (caringcds.com · <b>(417) 218-2888</b>), then marks this lead <b>Lost</b> with reason "Referred to CDS" so the CC pipeline stays clean.'
   };
   hint.innerHTML = v&&H[v] ? '<div class="payor-note'+(v==='cds'?' refer':'')+'">'+H[v]+'</div>' : '';
@@ -29034,7 +29003,7 @@ function lsSearchHit(r){
   const l=r.l, c=r.c;
   return searchMatch([r.name, l&&l.first_name, l&&l.last_name, l&&l.phone, l&&l.email, l&&l.client_first_name, l&&l.client_last_name, l&&l.client_phone, c&&c.client_name].filter(Boolean).join(' '));
 }
-const LS_FILTERS=['All','At risk','Updates owed','Follow-up due','New','Talking','Waiting on the state','Assessment','Receiving care','Past','Archived','Spam'];
+const LS_FILTERS=['All','At risk','Updates owed','Follow-up due','New','Talking','Waiting on the state','State submissions','Assessment','Receiving care','Past','Archived','Spam'];
 function lsIn(r,f){
   if(f==='Receiving care') return r.set==='care'; if(f==='Past') return r.set==='past'; if(f==='Archived') return r.set==='archived'; if(f==='Spam') return r.set==='spam';
   if(r.set!=='work') return false;
@@ -29042,6 +29011,49 @@ function lsIn(r,f){
   if(f==='Follow-up due') return !!(r.l&&r.l.follow_up_due&&r.l.follow_up_due<=today());
   if(f==='Waiting on the state') return r.waitingState;
   return CC_STAGE_META[r.st.k][0]===f;
+}
+/* ── STATE SUBMISSIONS, now a Leads & Starts filter (2026-09-29, her call: "don't wait until Oct 12").
+   Exactly who and what the retired State Submissions list showed: every lead with a state status, a submitted date
+   or Medicaid funding, whatever its stage (Getting ready included: the FUSION/DSDS wait happens there), except
+   Lost; oldest submission first, never-submitted at the top; the 10/21-day aging; DCN, county, submitted date,
+   status and follow-up due; the ten most recently resolved. Every edit still happens on the profile's Payer tab. ── */
+const LS_STATE_STATUS={ not_submitted:'Not yet submitted', submitted:'Submitted, awaiting assessment',
+  assessed:'Assessment done, awaiting authorization', authorized:'Authorized', denied:'Denied / withdrawn' };
+function lsStateLeads(){
+  const all=(DATA.leads||[]).filter(l=>l&&(l.state_status||l.state_submitted||l.funding_source==='medicaid')&&l.status!=='Lost'&&ccViewMatch(l.assigned_coordinator)&&lsStateSearchHit(l));
+  return { pending:all.filter(l=>!['authorized','denied'].includes(l.state_status||'')).sort((a,b)=>String(a.state_submitted||'').localeCompare(String(b.state_submitted||''))),
+           resolved:all.filter(l=>['authorized','denied'].includes(l.state_status||'')).sort((a,b)=>String(b.state_submitted||'').localeCompare(String(a.state_submitted||''))).slice(0,10) };
+}
+function lsStateSearchHit(l){
+  try{ return searchMatch([cpLeadClientName(l), l.first_name, l.last_name, l.phone, l.email, l.client_first_name, l.client_last_name, l.dcn, l.county].filter(Boolean).join(' ')); }catch(e){ return true; }
+}
+function lsStateHtml(){
+  const E=escapeHtmlComms, S=lsStateLeads(), now=Date.now(), t=today();
+  const nm=l=>{ const client=((l.client_first_name||'')+' '+(l.client_last_name||'')).trim(), caller=((l.first_name||'')+' '+(l.last_name||'')).trim(); return client||caller||'(no name)'; };
+  const stage=l=>{ try{ const st=ccLeadStage(l); return (CC_STAGE_META[st.k]||[st.k])[0]+(st.d?' · '+st.d:''); }catch(e){ return ''; } };
+  let h='<div class="card" style="padding:12px 16px;margin-bottom:10px;"><b style="font-size:14px;color:var(--navy);">🏛️ Referrals pending state authorization</b>'
+    +'<div class="field-note" style="font-size:12.5px;margin-top:3px;">Submitted to DSDS/DHSS and waiting, whatever stage the family is in (Getting ready included). Blue is recent, <b>amber at 10 days</b> means follow up soon, <b>red at 21 days</b> means call DSDS now. Update means the Payer tab on their profile. This is Angiel\'s board.</div></div>';
+  if(!S.pending.length) h+='<div class="card" style="padding:14px 16px;font-size:13px;color:var(--text-muted);">No pending state submissions. A Medicaid IHS family appears here once their payer is Medicaid or a state date or status is filled in on the Payer tab.</div>';
+  else h+=S.pending.map(l=>{
+    const sub=l.state_submitted||null, days=sub?Math.floor((now-new Date(sub+'T12:00:00').getTime())/86400000):null;
+    const color=days===null?'#DC2626':days>21?'#DC2626':days>10?'#B45309':'#1B4E82';
+    const note=days===null?'⚠ Not yet submitted':days>21?'⚠ '+days+' days: follow up urgently':days>10?days+' days: follow up soon':days+' days in';
+    const fu=l.follow_up_due?(l.follow_up_due<t?'<b style="color:#DC2626">⚠ OVERDUE: '+E(l.follow_up_due)+'</b>':E(l.follow_up_due)):'not set';
+    return '<div data-state-row="'+E(l.id)+'" style="background:#fff;border:1px solid var(--border);border-left:4px solid '+color+';border-radius:10px;padding:.65rem 1rem;margin-bottom:.45rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">'
+      +'<div style="min-width:56px;text-align:center"><div style="font-size:1.05rem;font-weight:800;color:'+color+'">'+(days===null?'NEW':days+'d')+'</div><div style="font-size:.6rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">IHS</div></div>'
+      +'<div style="flex:1;min-width:220px"><a href="javascript:void(0)" data-open-lead="'+E(l.id)+'" data-open-tab="payer" title="Open their profile (Payer)" style="font-size:.88rem;font-weight:700;color:var(--navy)">'+E(nm(l))+'</a>'+(l.county?' <span style="color:var(--text-muted)">· '+E(l.county)+'</span>':'')
+      +' <span class="badge muted" style="font-size:10px;">'+E(stage(l))+'</span>'
+      +'<div style="font-size:.72rem;color:var(--text-muted)">'+(l.dcn?'DCN '+E(l.dcn)+' · ':'')+(sub?'submitted '+E(sub)+' · ':'')+E(LS_STATE_STATUS[l.state_status]||'Needs submitting')+' · follow-up: '+fu+'</div></div>'
+      +'<span style="font-size:.72rem;font-weight:700;color:'+color+'">'+note+'</span>'
+      +'<button class="primary" style="font-size:.72rem" data-open-lead="'+E(l.id)+'" data-open-tab="payer">Update</button></div>';
+  }).join('');
+  h+='<div style="margin-top:1rem;"><div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.4rem">Recently resolved</div>'
+    +(S.resolved.length?S.resolved.map(l=>'<div data-state-resolved="'+E(l.id)+'" style="font-size:.8rem;padding:.35rem 0;border-bottom:1px solid var(--border)">'
+      +(l.state_status==='authorized'?'✅ ':'✕ ')+'<a href="javascript:void(0)" data-open-lead="'+E(l.id)+'" data-open-tab="payer" style="font-weight:700;color:var(--navy)">'+E(nm(l))+'</a>'
+      +' · '+E(LS_STATE_STATUS[l.state_status]||'')+(l.state_submitted?' · submitted '+E(l.state_submitted):'')
+      +' <a href="javascript:void(0)" style="font-size:.72rem" data-open-lead="'+E(l.id)+'" data-open-tab="payer">update</a></div>').join('')
+      :'<div style="font-size:.8rem;color:var(--text-muted)">Nothing resolved yet.</div>')+'</div>';
+  return h;
 }
 function renderLeadsStarts(){
   const box=document.getElementById('lsBoard'); if(!box) return;
@@ -29052,7 +29064,7 @@ function renderLeadsStarts(){
   if(LS_FILTERS.indexOf(LS.filter)<0) LS.filter='All';
   const FILTERS=LS_FILTERS;
   const pass=r=>lsIn(r,LS.filter);
-  const count=f=>every.filter(r=>lsIn(r,f)).length;
+  const count=f=>f==='State submissions'?lsStateLeads().pending.length:every.filter(r=>lsIn(r,f)).length;
   document.getElementById('lsFilters').innerHTML=FILTERS.map(f=>'<button class="filter-pill'+(LS.filter===f?' active':'')+'" onclick="LS.filter=\''+f+'\';renderLeadsStarts()">'+f+' <span style="opacity:.65;">'+count(f)+'</span></button>').join('');
   const tile=(n,l,col,f)=>'<button onclick="LS.filter=\''+f+'\';renderLeadsStarts()" style="text-align:left;background:#fff;border:1px solid var(--border);border-left:3px solid '+col+';border-radius:10px;padding:9px 12px;cursor:pointer;font-family:inherit;">'
     +'<div style="font-size:22px;font-weight:800;color:var(--navy);line-height:1;font-variant-numeric:tabular-nums;">'+n+'</div><div class="field-note" style="font-size:12px;margin-top:3px;">'+l+'</div></button>';
@@ -29061,6 +29073,7 @@ function renderLeadsStarts(){
     +tile(all.filter(r=>r.owe).length,'family updates owed','var(--amber,#C17A12)','Updates owed')
     +tile(all.filter(r=>r.waitingState).length,'waiting on Medicaid','#94A3B8','Waiting on the state');
   { const ae=document.getElementById('lsAsmt'); if(ae) ae.innerHTML=lsAsmtHtml(); }
+  if(LS.filter==='State submissions'){ box.innerHTML=lsStateHtml(); return; }
   const rows=every.filter(pass);
   if(LS.filter==='Follow-up due') rows.sort((a,b)=>String(a.l.follow_up_due).localeCompare(String(b.l.follow_up_due)));
   if(!rows.length){ box.innerHTML='<div class="card" style="padding:16px 18px;color:var(--text-muted);">'+(LS.loading?'Loading…':'Nobody here right now.')+'</div>'; return; }
@@ -35438,56 +35451,7 @@ function renderNurseVisits(){
 })();
 </script>
 <script>
-/* ── STATE SUBMISSIONS (Medicaid IHS) ─────────────────────────────────
-   A lens over DATA.leads: any lead with a state_status or a submitted
-   date (or Medicaid funding) shows here, aged CDS-tracker style. */
-(function(){
-  const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const STATUS={not_submitted:'Not yet submitted',submitted:'Submitted — awaiting assessment',
-    assessed:'Assessment done — awaiting authorization',authorized:'✅ Authorized',denied:'Denied / withdrawn'};
-  const nameOf=l=>{
-    const client=((l.client_first_name||'')+' '+(l.client_last_name||'')).trim();
-    const caller=((l.first_name||'')+' '+(l.last_name||'')).trim();
-    return client||caller||'(no name)';
-  };
-  window.renderStateSubs=function(){
-    const pendBox=document.getElementById('statesubs-pending'), doneBox=document.getElementById('statesubs-resolved');
-    if(!pendBox) return;
-    const all=(DATA.leads||[]).filter(l=>(l.state_status||l.state_submitted||l.funding_source==='medicaid') && l.status!=='Lost' && ccViewMatch(l.assigned_coordinator));
-    const pending=all.filter(l=>!['authorized','denied'].includes(l.state_status||''));
-    const resolved=all.filter(l=>['authorized','denied'].includes(l.state_status||''))
-      .sort((a,b)=>String(b.state_submitted||'').localeCompare(String(a.state_submitted||''))).slice(0,10);
-    const now=Date.now(), t=new Date().toISOString().slice(0,10);
-    if(!pending.length){
-      pendBox.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">No pending state submissions. Medicaid IHS leads appear here once their State Submission block is filled in on the lead.</div>';
-    } else {
-      pendBox.innerHTML=pending
-        .sort((a,b)=>String(a.state_submitted||'').localeCompare(String(b.state_submitted||'')))
-        .map(l=>{
-          const sub=l.state_submitted||null;
-          const days=sub?Math.floor((now-new Date(sub+'T12:00:00').getTime())/86400000):null;
-          const color=days===null?'#DC2626':days>21?'#DC2626':days>10?'#B45309':'#1B4E82';
-          const note=days===null?'⚠ Not yet submitted':days>21?'⚠ '+days+' days — follow up urgently':days>10?days+' days — follow up soon':days+' days in';
-          const fu=l.follow_up_due?(l.follow_up_due<t?'<b style="color:#DC2626">⚠ OVERDUE: '+E(l.follow_up_due)+'</b>':E(l.follow_up_due)):'not set';
-          return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+color+';border-radius:10px;padding:.65rem 1rem;margin-bottom:.45rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">'
-            +'<div style="min-width:56px;text-align:center"><div style="font-size:1.05rem;font-weight:800;color:'+color+'">'+(days===null?'NEW':days+'d')+'</div><div style="font-size:.6rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em">IHS</div></div>'
-            +'<div style="flex:1;min-width:220px"><a href="javascript:void(0)" data-open-lead="'+E(l.id)+'" data-open-tab="payer" title="Open their profile (Payer)" style="font-size:.88rem;font-weight:700;color:var(--navy)">'+E(nameOf(l))+'</a>'+(l.county?' <span style="color:var(--text-muted)">— '+E(l.county)+'</span>':'')
-            +'<div style="font-size:.72rem;color:var(--text-muted)">'+(l.dcn?'DCN '+E(l.dcn)+' · ':'')+(sub?'submitted '+E(sub)+' · ':'')+E(STATUS[l.state_status]||'Needs submitting')+' · follow-up: '+fu+'</div></div>'
-            +'<span style="font-size:.72rem;font-weight:700;color:'+color+'">'+note+'</span>'
-            +'<button class="primary" style="font-size:.72rem" data-open-lead="'+E(l.id)+'" data-open-tab="payer">Update</button>'
-            +'</div>';
-        }).join('');
-    }
-    if(doneBox){
-      doneBox.innerHTML=resolved.length?resolved.map(l=>
-        '<div style="font-size:.8rem;padding:.35rem 0;border-bottom:1px solid var(--border)">'
-        +(l.state_status==='authorized'?'✅ ':'✕ ')+'<a href="javascript:void(0)" data-open-lead="'+E(l.id)+'" data-open-tab="payer" style="font-weight:700;color:var(--navy)">'+E(nameOf(l))+'</a>'
-        +' — '+E(STATUS[l.state_status]||'')+(l.state_submitted?' · submitted '+E(l.state_submitted):'')
-        +' <a href="javascript:void(0)" style="font-size:.72rem" data-open-lead="'+E(l.id)+'" data-open-tab="payer">update</a></div>').join('')
-        :'<div style="font-size:.8rem;color:var(--text-muted)">Nothing resolved yet.</div>';
-    }
-  };
-})();
+/* The State Submissions list (renderStateSubs) retired 2026-09-29: see lsStateHtml on Leads & Starts. */
 </script>
 <script>
 /* The Open Shifts board script that lived here was removed 2026-09-12 with
@@ -36392,6 +36356,7 @@ window.covLoadShifts=function(){};
       if(h==='coverage' && typeof caraSetOpenBoard==='function') caraSetOpenBoard();
       try{
         if(typeof CC_GROUPS!=='undefined' && CC_GROUPS[h]){ ccGroupClick(h); ok=true; }
+        else if(typeof CC_RETIRED_TABS!=='undefined' && CC_RETIRED_TABS[h]){ switchTab(h); ok=true; }   /* a retired list: its board and filter */
         else if(document.getElementById('tab-'+h)){ switchTab(h); ok=true; }
       }catch(e){}
       /* A bare #cara means the command-centre home, so a filter left behind
