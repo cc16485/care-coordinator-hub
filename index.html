@@ -20106,7 +20106,7 @@ function apCloseProfile(){
 
 /* ---- The PRN CNA Team (PRN1) ------------------------------------------------
    What a PRN applicant told us about being called for shifts, and whether they
-   accepted the pay (PRN Team shifts $20, an ongoing schedule $18), shown first
+   accepted the PRN Team pay ($20; our CNAs on an ongoing client are $18, never both), shown first
    wherever the office looks at them, so the interview starts from it. */
 const AP_PRN_DAY = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
 const AP_PRN_TIME = { morning:'Morning', daytime:'Daytime', evening:'Evening', overnight:'Overnight' };
@@ -20127,8 +20127,11 @@ function apPrnHtml(r){
   return '<div style="background:#FBF6EA;border:1px solid #ECD9AE;border-radius:11px;padding:12px 14px;">'
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">'
       + '<b style="font-size:14.5px;color:var(--navy);">PRN CNA</b>'
-      + '<span style="font-size:12px;font-weight:800;color:#1c6b45;background:#e8f1ec;border-radius:999px;padding:2px 10px;">' + esc(rate) + ' PRN shifts</span>'
-      + '<span class="field-note">ongoing schedules are $18/hr</span></div>'
+      + '<span style="font-size:12px;font-weight:800;color:#1c6b45;background:#e8f1ec;border-radius:999px;padding:2px 10px;">' + esc(rate) + ' PRN Team</span>'
+      + '</div>'
+    /* One pay track at a time (her rule, 2026-09-29). $20 is the offer; $18 is only the note. */
+    + '<div class="field-note" style="margin:0 0 8px;line-height:1.55;">Tell them: $20/hr on the PRN Team. We text them opportunities; they accept or decline, '
+      + 'no pressure, but once they accept and are confirmed we count on them. (If they would like to switch to taking an ongoing client, our CNAs are paid $18/hr.)</div>'
     + apProfRow('Days', esc(words(p.days, AP_PRN_DAY)) || '<b style="color:#B45309;">none given</b>')
     + apProfRow('Times', esc(words(p.times, AP_PRN_TIME)) || '<b style="color:#B45309;">none given</b>')
     + apProfRow('Notice', esc(AP_PRN_NOTICE[p.notice] || '') || '<span class="field-note">not given</span>')
