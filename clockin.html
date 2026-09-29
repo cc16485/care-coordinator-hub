@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Missed clock-in · Caring Companions</title>
+<!-- ============================================================
+     MISSED CLOCK-IN (C1, Samantha 2026-09-29): "keep texting the office until we click a link and say if it is
+     resolved". Opened from the link in an admin's missed clock-in text. The link is that admin's alone, for that one
+     alert, and expires the next day; the server (clockin-alert) checks it on every tap. Opening this page changes
+     nothing: only the buttons do (phones preview links automatically, and a preview must never count).
+     Nothing here ever contacts a client or family. The EVV form goes to the caregiver only when a person taps.
+     ============================================================ -->
+<style>
+  :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#FFC671; --bg:#F6F9FD; --border:#E2E8F0; --gray:#6B7280; --red:#C0392B; --green:#1E8449; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:#1f2a36;
+        padding:16px; padding-bottom:40px; max-width:560px; margin-inline:auto; }
+  h1{ font-size:20px; color:var(--navy); margin:6px 0 2px; }
+  .sub{ font-size:13.5px; color:var(--gray); margin-bottom:14px; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  .big{ font-size:17px; font-weight:800; color:var(--navy); }
+  .late{ display:inline-block; background:#FDECEA; color:var(--red); font-weight:800; font-size:13px; padding:3px 9px; border-radius:99px; margin-top:6px; }
+  .done{ background:#E8F6EE; border:1px solid var(--green); color:var(--green); border-radius:12px; padding:12px 14px; font-weight:700; }
+  a.call, button{ display:block; width:100%; text-align:center; font-size:16px; font-weight:800; padding:12px; border-radius:11px; border:0;
+        cursor:pointer; text-decoration:none; margin-top:8px; }
+  a.call{ background:#fff; border:1px solid var(--border); color:var(--navy); }
+  .primary{ background:var(--teal); color:#fff; }
+  .navy{ background:var(--navy); color:#fff; }
+  .ghost{ background:#fff; border:1px solid var(--border); color:var(--navy); }
+  .reasons label{ display:flex; gap:10px; align-items:center; padding:10px 12px; border:1px solid var(--border); border-radius:10px; margin-top:7px;
+        font-size:15px; cursor:pointer; }
+  .reasons input{ width:20px; height:20px; }
+  textarea{ width:100%; font-size:15px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; margin-top:8px; font-family:inherit; }
+  .note{ font-size:12.5px; color:var(--gray); margin-top:6px; }
+  .err{ color:var(--red); font-size:14px; margin-top:8px; font-weight:600; }
+  .practice{ background:#FFF6E3; border:1px solid var(--honey); border-radius:10px; padding:9px 12px; font-size:13px; margin-bottom:10px; }
+  h2{ font-size:14px; color:var(--navy); margin:0 0 4px; text-transform:uppercase; letter-spacing:.04em; }
+</style>
+</head>
+<body>
+<h1>Missed clock-in</h1>
+<div class="sub" id="who">Caring Companions</div>
+<div id="app"><div class="card">Loading…</div></div>
+<script>
+const SUPA_URL='https://zngsgedlsxinbygwmxwn.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const P=Object.fromEntries(new URLSearchParams(location.search));
+const LINK={ c:P.c||'', a:P.a||'', e:Number(P.e||0), t:P.t||'' };
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tel=p=>String(p||'').replace(/[^\d+]/g,'');
+const pretty=p=>{ const d=String(p||'').replace(/\D/g,'').slice(-10); return d.length===10?'('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6):String(p||''); };
+let D=null, busy=false;
+async function call(action, extra){
+  const r=await fetch(SUPA_URL+'/functions/v1/clockin-alert',{ method:'POST',
+    headers:{ 'Content-Type':'application/json', apikey:ANON, Authorization:'Bearer '+ANON },
+    body:JSON.stringify(Object.assign({}, LINK, { action }, extra||{})) });
+  let j=null; try{ j=await r.json(); }catch(e){}
+  if(!r.ok) throw new Error((j&&j.error)||('Something went wrong ('+r.status+').'));
+  return j;
+}
+function render(msg){
+  const app=document.getElementById('app');
+  if(!D){ app.innerHTML='<div class="card"><div class="err">'+esc(msg||'This link is not valid.')+'</div></div>'; return; }
+  document.getElementById('who').textContent='For '+D.me+' · Caring Companions';
+  let h='';
+  if(D.practice) h+='<div class="practice">Practice run: admin reminder texts aren\'t switched on yet, so nobody else is being texted. The buttons still work.</div>';
+  h+='<div class="card"><div class="big">'+esc(D.caregiver_first)+' · '+esc(D.client_first)+'\'s '+esc(D.shift_time)+' shift</div>'
+    +(D.open?'<span class="late">'+esc(D.minutes_past_start)+' min past start, no clock-in</span>':'')
+    +'<div class="note">'+(D.texted_at?esc(D.caregiver_first)+' was texted at '+esc(D.texted_at)+'.':'No text went to '+esc(D.caregiver_first)+'.')+'</div></div>';
+  if(!D.open){
+    const r=D.resolved||{};
+    h+='<div class="done">'+(r.how==='admin'||r.how==='coverage_case'&&r.by?'Resolved by '+esc(r.by)+(r.at?' at '+esc(r.at):'')+(r.reason?': '+esc(r.reason):'')+(r.note?'. '+esc(r.note):''):
+        r.how==='clocked_in'?esc(D.caregiver_first)+' clocked in. Nothing more to do.':
+        r.how==='coverage_case'?'A coverage case has this shift now.':'This alert is closed.')+'</div>';
+  }
+  h+='<div class="card"><h2>Call</h2>'
+    +(D.caregiver_phone?'<a class="call" href="tel:'+esc(tel(D.caregiver_phone))+'">📞 Call '+esc(D.caregiver_first)+' · '+esc(pretty(D.caregiver_phone))+'</a>':'<div class="note">No phone for '+esc(D.caregiver_first)+' on the roster.</div>')
+    +(D.client_phone?'<a class="call" href="tel:'+esc(tel(D.client_phone))+'">🏠 Call '+esc(D.client_first)+'\'s home · '+esc(pretty(D.client_phone))+'</a><div class="note">To check whether '+esc(D.caregiver_first)+' is there and just forgot to clock in.</div>':'')
+    +'</div>';
+  if(D.open){
+    h+='<div class="card"><h2>What happened?</h2><div class="reasons">'
+      +Object.entries(D.reasons).filter(([k])=>k!=='calling_off').map(([k,v])=>'<label><input type="radio" name="why" value="'+esc(k)+'"> '+esc(v.charAt(0).toUpperCase()+v.slice(1))+'</label>').join('')
+      +'</div><textarea id="note" rows="2" maxlength="300" placeholder="Note (optional), for example: called her, 5 minutes out"></textarea>'
+      +'<button class="primary" id="bResolve">Resolved</button>'
+      +'<button class="navy" id="bCov">She\'s calling off: open a coverage case</button>'
+      +'<button class="ghost" id="bSnooze">'+(D.snoozed_until?'Reminders paused for you until '+esc(D.snoozed_until):'Remind me in 10 minutes')+'</button>'
+      +'<div class="note">Resolved stops the reminders for every admin and closes it in Needs Attention. Remind me in 10 minutes pauses them for you only.</div></div>';
+  }
+  h+='<div class="card"><h2>EVV form</h2>'
+    +(D.evv_sent_at?'<div class="done">EVV form texted to '+esc(D.caregiver_first)+' at '+esc(D.evv_sent_at)+'.</div>'
+      :'<div class="note">Only if '+esc(D.caregiver_first)+' says she\'s been there and asks to be clocked in for the start time. She gets the form link and is told '+esc(D.client_first)+' must sign it, and that no manual changes can be made without it.</div>'
+       +'<button class="ghost" id="bEvv">Text '+esc(D.caregiver_first)+' the EVV form</button>')
+    +'</div><div class="err" id="err">'+esc(msg||'')+'</div>';
+  document.getElementById('app').innerHTML=h;
+  const on=(id,fn)=>{ const b=document.getElementById(id); if(b) b.onclick=fn; };
+  on('bResolve', ()=>act('resolve', ()=>{ const w=document.querySelector('input[name=why]:checked'); if(!w) throw new Error('Pick what happened first.'); return { reason:w.value, note:(document.getElementById('note')||{}).value||'' }; }));
+  on('bCov', ()=>act('coverage', ()=>({ note:(document.getElementById('note')||{}).value||'' }), 'Open a coverage case for this shift? The call-in process takes it from there.'));
+  on('bSnooze', ()=>act('snooze'));
+  on('bEvv', ()=>act('evv', null, 'Text '+D.caregiver_first+' the EVV correction form now?'));
+}
+function confirmBox(q){ return new Promise(res=>{ const e=document.getElementById('err'); e.innerHTML='<div class="card" style="margin-top:10px;"><div style="font-weight:700;color:var(--navy);">'+esc(q)+'</div><button class="primary" id="cYes">Yes</button><button class="ghost" id="cNo">Cancel</button></div>';
+  document.getElementById('cYes').onclick=()=>{ e.innerHTML=''; res(true); }; document.getElementById('cNo').onclick=()=>{ e.innerHTML=''; res(false); }; }); }
+async function act(action, extraFn, ask){
+  if(busy) return; let extra={};
+  try{ extra=extraFn?extraFn():{}; }catch(e){ document.getElementById('err').textContent=e.message; return; }
+  if(ask && !(await confirmBox(ask))) return;
+  busy=true;
+  try{ const j=await call(action, extra); D=await call('view'); render(j&&j.already?'Someone already resolved this.':(j&&j.others_told?'Done. The other admins were told.':'')); }
+  catch(e){ const el=document.getElementById('err'); if(el) el.textContent=e.message; }
+  busy=false;
+}
+(async()=>{ try{ D=await call('view'); render(); }catch(e){ D=null; render(e.message); } })();
+</script>
+</body>
+</html>
