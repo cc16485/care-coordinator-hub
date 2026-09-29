@@ -59,7 +59,7 @@
     <input id="hours" type="number" inputmode="numeric" min="0" max="80" placeholder="e.g. 25">
     <label style="margin-top:14px;">When do you want to work? Tap everything that works for you.</label>
     <table id="grid"></table>
-    <div class="note">Morning is roughly 6am-12pm, afternoon 12-5pm, evening 5-10pm, overnight 10pm-6am.</div>
+    <div class="note">Morning is roughly 6am-12pm, daytime 12-5pm, evening 5-10pm, overnight 10pm-6am.</div>
     <button class="go" onclick="save()">Save my hours</button>
     <div class="err" id="saveErr"></div>
     <div id="done"></div>
@@ -71,7 +71,7 @@ const SUPA_URL='https://zngsgedlsxinbygwmxwn.supabase.co';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
-const WINS=[['morning','Morn'],['afternoon','Aft'],['evening','Eve'],['overnight','Night']];
+const WINS=[['morning','Morn'],['afternoon','Day'],['evening','Eve'],['overnight','Night']];   // 'afternoon' is shown as Daytime
 let SEL={};
 
 async function call(body){
