@@ -4018,6 +4018,32 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <span class="field-note" id="mnSetStatus"></span>
 </div>
 </div>
+<div class="settings-section" id="lnSettings">
+<h3>🕒 Running late</h3>
+<p class="hint">When a caregiver texts (or calls) the office that they're running late or can't make it, in the 2 hours before a shift until they clock in, the AI reads it and works out when they expect to arrive. It never guesses a time. Three switches, one at a time: <b>notices</b> (a "Running late" card in Needs Attention, and the missed clock-in texts wait until 5 minutes after the time they gave), <b>caregiver replies</b> (one thank-you with their time, or one "about what time?"), <b>admin texts</b> (every admin, every 5 minutes, until someone taps Seen). The family is only ever texted when a person taps "Send to the family" on the card or the admin's link, and only Family Circle members who agreed to texts, 6am to 9pm. The client is never texted. Fill-ins: <code>{first_name}</code> <code>{client}</code> <code>{eta}</code> (caregiver texts); <code>{caregiver}</code> <code>{client}</code> <code>{time}</code> <code>{eta}</code> (family texts, which start "Hi" and each person's first name).</p>
+<div id="lnStatus" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+  <button class="fb" id="lnLiveBtn" onclick="lnSetToggle('late_watch_live',this)">Turn on running-late notices</button>
+  <button class="fb" id="lnCgBtn" onclick="lnSetToggle('late_cg_reply_live',this)">Turn on caregiver replies</button>
+  <button class="fb" id="lnAdminBtn" onclick="lnSetToggle('late_admin_live',this)">Turn on admin texts</button>
+</div>
+<div class="grid2"><div><label>Look back before a shift (minutes)</label><input id="set_ln_look" inputmode="numeric" placeholder="120"></div><div><label>Family hears when this many minutes late or more</label><input id="set_ln_fam" inputmode="numeric" placeholder="10"></div></div>
+<label>Thank-you to the caregiver (they gave a time)</label>
+<textarea id="set_ln_thanks" rows="2" placeholder="Thanks for letting us know, {first_name}. We'll plan on you getting to {client}'s around {eta}. Drive safe."></textarea>
+<label>Question to the caregiver (no time given)</label>
+<textarea id="set_ln_ask" rows="2" placeholder="Thanks for letting us know, {first_name}. About what time do you think you'll get to {client}'s?"></textarea>
+<label>Family text (after "Hi" and their first name)</label>
+<textarea id="set_ln_family" rows="3" placeholder="A quick update from Caring Companions. {caregiver} is running a little late for {client}'s {time} visit today and expects to arrive around {eta}. We're sorry for the wait. Questions? Call us at (417) 234-8494."></textarea>
+<label>Family update (a new time)</label>
+<textarea id="set_ln_update" rows="2" placeholder="An update from Caring Companions: {caregiver} now expects to get to {client}'s around {eta}."></textarea>
+<label>Family, they arrived</label>
+<textarea id="set_ln_arrived" rows="2" placeholder="An update from Caring Companions: {caregiver} has arrived at {client}'s. Thank you for your patience."></textarea>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+  <button class="primary" onclick="lnSetSave(this)">Save</button>
+  <span class="field-note" id="lnSetSaved"></span>
+</div>
+<div id="lnPractice" style="margin-top:10px;"></div>
+</div>
 <div class="settings-section" id="prnSettings">
 <h3>🩺 PRN CNA Team</h3>
 <p class="hint">The minimum bench shown on Recruit → PRN CNA Team, and the 60-day availability check-in text (weekdays 10am to 5pm, at most 20 a day, nobody twice in 14 days, STOP respected). Fill-ins: <code>{first_name}</code>, <code>{link}</code> (their own one-tap link; keep it in).</p>
@@ -5026,7 +5052,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     </div>
   </div></div>
   <!-- the borrowed-form slots sit OUTSIDE anything that is redrawn, so a redraw never deletes a borrowed form -->
-  <div class="cp-pane" data-cp-pane="care"><div id="cp_care"></div><div id="cp_review_slot"></div><div id="cp_shift_notes"></div><div id="cp_c_care"></div></div>
+  <div class="cp-pane" data-cp-pane="care"><div id="cp_care"></div><div id="cp_review_slot"></div><div id="cp_shift_notes"></div><div id="cp_arrivals"></div><div id="cp_c_care"></div></div>
   <div class="cp-pane" data-cp-pane="team"><div id="cp_team"></div><div id="cp_cm_slot"></div><div id="cp_c_team"></div></div>
   <div class="cp-pane" data-cp-pane="checkins"><div id="cp_checkins"></div></div>
   <div class="cp-pane" data-cp-pane="payer"><div id="cp_payer"></div></div>
@@ -9147,7 +9173,7 @@ function cpShowTab(t){
   CP.tab=ok?t:'summary';
   document.querySelectorAll('#leadProfileView .cp-pane').forEach(p=>p.classList.toggle('on',p.dataset.cpPane===CP.tab));
   document.querySelectorAll('#cpTabs .cp-tab').forEach(b=>b.classList.toggle('on',b.dataset.cp===CP.tab));
-  if(CP.tab==='care') cnLoad(false);   /* N1: shift notes are read from AxisCare only when Care is opened */
+  if(CP.tab==='care'){ cnLoad(false); try{ lnArrivals(); }catch(_){} }   /* N1: shift notes are read from AxisCare only when Care is opened; running-late arrival updates */
 }
 function cpLeadClientName(l){
   if(!l) return '';
@@ -13690,6 +13716,7 @@ function fillSettingsPanel(){
   covMsgsFill();
   try{ prnSetFill(); }catch(_){}
   try{ mnSetFill(); }catch(_){}
+  try{ lnSetFill(); }catch(_){}
   tkFill();
   mbFill();
   document.getElementById('set_supabase_url').value = CONFIG.supabase_url||'';
@@ -16098,7 +16125,7 @@ async function cgdOpenProfile(axid){
       +'<div id="cgdSkills"></div>')
     +'</div>'
 
-    +'<div id="cgdSec-performance" style="display:none;">'+cgdPerformanceHtml(c,nm)+'<div id="cgdMissedNotes"></div></div>'
+    +'<div id="cgdSec-performance" style="display:none;">'+cgdPerformanceHtml(c,nm)+'<div id="cgdMissedNotes"></div><div id="cgdLate"></div></div>'
 
     +'<div id="cgdSec-work" style="display:none;">'+cgdWorkHtml(c,g,nm)+'</div>'
 
@@ -16114,6 +16141,7 @@ async function cgdOpenProfile(axid){
   cgdLoadReadiness(c);
   cgdPrnMount(c);
   cgdMissedNotesMount(c);
+  try{ cgdLateMount(c); }catch(_){}
   try{ document.getElementById('tab-cgdir').scrollIntoView({block:'start'}); }catch(e){}
 }
 
@@ -16242,6 +16270,146 @@ async function cgdPrnAfter(msg){
   const c = (CGD.census && CGD.census.caregivers || []).find(x=>String(x.id)===String(CGD.openId));
   if(c) await cgdPrnMount(c);
   const m = document.getElementById('cgdPrnMsg'); if(m && msg) m.textContent = msg;
+}
+/* ── RUNNING LATE (L1, 2026-09-29): the card, the Settings card, the caregiver's and the client's lines ─────────── */
+const LN_EP='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/late-alert';
+const LN_VIEW={};
+async function lnCall(id, action, extra){
+  const r=await fetch(LN_EP,{ method:'POST', headers:await cmpAuthHeaders(), body:JSON.stringify(Object.assign({ id, action }, extra||{})) });
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||j.error) throw new Error(j.error||('late-alert '+r.status));
+  return j;
+}
+function lnCardHtml(i){
+  const esc=escapeHtmlComms;
+  return '<div id="lnBox_'+esc(i.id)+'" style="margin-top:8px;">'+(LN_VIEW[i.id]?lnBody(i.id):'<button class="secondary" style="font-size:12.5px;padding:5px 12px;" onclick="lnOpen(\''+esc(i.id)+'\')">Open: what they said, Seen, the time, the family</button>')+'</div>';
+}
+async function lnOpen(itemId, msg){
+  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  const box=document.getElementById('lnBox_'+itemId); if(box) box.innerHTML='<div class="field-note">Loading…</div>';
+  try{ LN_VIEW[itemId]=await lnCall(it.late_notice_id,'view'); }catch(e){ if(box) box.innerHTML='<div class="field-note" style="color:var(--red);">Could not load: '+escapeHtmlComms(e.message)+'</div>'; return; }
+  const b2=document.getElementById('lnBox_'+itemId); if(b2) b2.innerHTML=lnBody(itemId, msg);
+}
+function lnBody(itemId, msg){
+  const esc=escapeHtmlComms, D=LN_VIEW[itemId]; if(!D) return '';
+  const F=D.family||{}, btn='font-size:12.5px;padding:5px 12px;';
+  let h='<div style="background:#fff;border:1px solid var(--border);border-radius:9px;padding:9px 11px;">'
+    +(D.said||[]).map(s=>'<div style="background:#F1F5F9;border-radius:8px;padding:6px 9px;margin-bottom:5px;font-size:13px;">'+esc(s.text)+'<div class="field-note">'+(s.channel==='call'?'Call':'Text')+' at '+esc(s.at)+'</div></div>').join('')
+    +'<div style="font-size:13px;margin:4px 0;"><b>'+(D.kind==='cant_make_it'?'Can\'t make it':(D.eta?'Expected about '+esc(D.eta)+(D.eta_by?' ('+esc(D.eta_by)+')':''):'No arrival time yet'))+'</b>'+(D.sure===false?' · <span style="color:#B45309;">the Hub wasn\'t sure which visit, check with them</span>':'')+'</div>';
+  if(!D.closed){
+    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;">'
+      +(D.seen?'<span class="field-note">Seen by '+esc(D.seen.by)+' at '+esc(D.seen.at)+'</span>':'<button class="primary" style="'+btn+'" onclick="lnDo(\''+esc(itemId)+'\',\'seen\')">Seen</button>')
+      +(D.kind==='late'?'<input type="time" id="lnEta_'+esc(itemId)+'" value="'+esc(D.eta_hhmm||'')+'" style="font-size:12.5px;padding:4px 6px;width:auto;"><button class="secondary" style="'+btn+'" onclick="lnDo(\''+esc(itemId)+'\',\'eta\')">Save time</button>':'')
+      +(D.kind==='cant_make_it'?'<button class="secondary" style="'+btn+'" onclick="lnDo(\''+esc(itemId)+'\',\'coverage\')">Open a coverage case</button>':'')
+      +'</div>';
+  }
+  if(D.kind==='late'){
+    (F.sent||[]).forEach(s=>{ h+='<div class="field-note" style="margin-top:5px;color:var(--green);">Family '+(s.what==='arrived'?'told they arrived':s.what==='update'?'sent the update':'told')+' by '+esc(s.by)+' at '+esc(s.at)+' ('+esc(s.count)+')</div>'; });
+    if(F.skipped) h+='<div class="field-note" style="margin-top:5px;">'+esc(F.skipped.by)+' chose not to tell the family.</div>';
+    if(F.can){
+      h+='<div class="field-note" style="margin-top:8px;">To '+esc((F.first_names||[]).join(', '))+' (Family Circle, agreed to texts). Each starts "Hi" and their first name.</div>'
+        +'<textarea id="lnFam_'+esc(itemId)+'" rows="3" style="width:100%;font-size:13px;padding:7px;border-radius:7px;">'+esc(F.draft||'')+'</textarea>'
+        +'<div style="display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;"><button class="primary" style="'+btn+'" onclick="lnDo(\''+esc(itemId)+'\',\'family\')">'+(F.is_update?'Send the update':'Send to the family')+'</button>'
+        +(!(F.sent||[]).length&&!F.skipped?'<button class="ghost" style="'+btn+'" onclick="lnDo(\''+esc(itemId)+'\',\'skip\')">Don\'t tell the family</button>':'')+'</div>';
+    } else if(!F.arrived_can && !(F.sent||[]).length) h+='<div class="field-note" style="margin-top:6px;">Family: '+esc(F.why||'')+'.</div>';
+    if(F.arrived_can) h+='<textarea id="lnArr_'+esc(itemId)+'" rows="2" style="width:100%;font-size:13px;padding:7px;border-radius:7px;margin-top:6px;">'+esc(F.arrived_draft||'')+'</textarea><button class="primary" style="'+btn+'" onclick="lnDo(\''+esc(itemId)+'\',\'arrived\')">Tell the family '+esc(D.caregiver_first)+' arrived</button>';
+  }
+  const pp=p=>{ const d=String(p||'').replace(/\D/g,'').slice(-10); return d.length===10?'('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6):''; };
+  h+='<div class="field-note" style="margin-top:6px;">'+(D.caregiver_phone?'Call '+esc(D.caregiver_first)+': '+esc(pp(D.caregiver_phone)):'No phone for '+esc(D.caregiver_first)+' on the roster')+(D.client_phone?' · '+esc(D.client_first)+'\'s home: '+esc(pp(D.client_phone)):'')+'</div>'
+    +'<div class="field-note" id="lnMsg_'+esc(itemId)+'" style="margin-top:4px;">'+esc(msg||'')+'</div></div>';
+  return h;
+}
+async function lnDo(itemId, action){
+  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  const D=LN_VIEW[itemId]||{}, F=D.family||{};
+  let extra={};
+  if(action==='eta'){ const v=(document.getElementById('lnEta_'+itemId)||{}).value||''; if(!v){ const m=document.getElementById('lnMsg_'+itemId); if(m) m.textContent='Pick a time first.'; return; } extra={ hhmm:v }; }
+  if(action==='family'){ const t=((document.getElementById('lnFam_'+itemId)||{}).value||'').trim(); if(!t) return; if(!confirm('Text '+(F.first_names||[]).join(', ')+' now?')) return; extra={ text:t }; }
+  if(action==='arrived'){ if(!confirm('Tell the family '+D.caregiver_first+' arrived?')) return; extra={ text:((document.getElementById('lnArr_'+itemId)||{}).value||'').trim() }; }
+  if(action==='coverage' && !confirm('Open a coverage case for this shift? The call-in process takes it from there.')) return;
+  const m=document.getElementById('lnMsg_'+itemId); if(m) m.textContent='Working…';
+  try{ const j=await lnCall(it.late_notice_id, action, extra);
+    opEvent('late_'+action,{ item_id:it.id, area:'coverage', summary:(ccActor().name||'Someone')+': '+({ seen:'saw', eta:'changed the arrival time on', family:'texted the family about', skip:'chose not to tell the family about', arrived:'told the family about the arrival for', coverage:'opened a coverage case from' }[action]||action)+' the running-late notice ('+(it.caregiver||'')+')' });
+    await lnOpen(itemId, j.count?'Sent to '+j.count+'.':(j.others_told?'Done. The other admins were told.':'Done.')); }
+  catch(e){ if(m) m.textContent='Could not: '+e.message; }
+}
+/* Settings: the three switches, the wording, and what practice has found */
+async function lnSetFill(){
+  const st=DATA.ops_settings||{};
+  const setv=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v==null?'':String(v); };
+  setv('set_ln_look', st.late_lookback_min); setv('set_ln_fam', st.late_family_min);
+  setv('set_ln_thanks', st.late_msg_thanks||''); setv('set_ln_ask', st.late_msg_ask||''); setv('set_ln_family', st.late_msg_family||''); setv('set_ln_update', st.late_msg_family_update||''); setv('set_ln_arrived', st.late_msg_arrived||'');
+  const on=k=>st[k]===true;
+  const lbl={ lnLiveBtn:['late_watch_live','running-late notices'], lnCgBtn:['late_cg_reply_live','caregiver replies'], lnAdminBtn:['late_admin_live','admin texts'] };
+  Object.entries(lbl).forEach(([id,[k,w]])=>{ const b=document.getElementById(id); if(b){ b.textContent=(on(k)?'Turn off ':'Turn on ')+w; b.disabled=(k!=='late_watch_live'&&!on('late_watch_live')); } });
+  const s=document.getElementById('lnStatus');
+  if(s) s.textContent=!on('late_watch_live')?'Practice: running-late messages are found and listed below; nothing is texted and no card opens.'
+    :'Notices ON · caregiver replies '+(on('late_cg_reply_live')?'ON':'off')+' · admin texts '+(on('late_admin_live')?'ON':'off')+'. The family is only texted by a person\'s tap.';
+  const box=document.getElementById('lnPractice'); if(!box) return;
+  let rows=[]; try{ const r=await sb.from('late_notices').select('*').eq('status','practice').gte('shift_date', new Date(Date.now()-7*864e5).toISOString().slice(0,10)).order('shift_start',{ascending:false}); rows=r.data||[]; }catch(_){ return; }
+  const esc=escapeHtmlComms, clk=x=>{ try{ return new Date(x).toLocaleString('en-US',{ timeZone:'America/Chicago', weekday:'short', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } };
+  box.innerHTML='<div style="font-weight:700;color:var(--navy);font-size:13px;">Practice, last 7 days: '+rows.length+' found</div>'
+    +rows.slice(0,8).map(n=>'<div style="border-top:1px solid var(--border);padding:6px 0;font-size:12.5px;"><b>'+esc(clk(n.shift_start))+' · '+esc(n.caregiver_name||'')+' for '+esc(n.client_first||'')+'</b> · '+(n.kind==='cant_make_it'?'can\'t make it':'running late'+(n.eta?', about '+esc(clk(n.eta)):' (no time)'))
+      +'<div class="field-note">They said: "'+esc(((n.said||[]).at(-1)||{}).text||'')+'"</div>'
+      +(n.would||[]).map(w=>'<div class="field-note">Would have texted '+esc(w.to==='admins'?'the admins':w.to==='family'?'the family ('+(w.count||0)+')':'them')+': '+esc(String(w.text||'').replace('[their link]','(link)'))+'</div>').join('')+'</div>').join('');
+}
+async function lnSetSave(btn){
+  const s=document.getElementById('lnSetSaved');
+  const g=id=>String((document.getElementById(id)||{}).value||'').trim();
+  const look=g('set_ln_look'), fam=g('set_ln_fam');
+  if(look && !(Number(look)>=30 && Number(look)<=360)){ if(s) s.textContent='The look-back must be 30 to 360 minutes.'; return; }
+  if(fam && !(Number(fam)>=0 && Number(fam)<=120)){ if(s) s.textContent='The family minutes must be 0 to 120.'; return; }
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m, base)=>{ const ch=[];
+    const set=(k,v,label)=>{ if(v===''||v==null){ if(k in m){ delete m[k]; ch.push(label+' back to standard'); } return; } if(JSON.stringify(base[k])!==JSON.stringify(v)){ m[k]=v; ch.push(label); } };
+    set('late_lookback_min', look?Math.round(Number(look)):'', 'look-back'); set('late_family_min', fam!==''?Math.round(Number(fam)):'', 'family minutes');
+    set('late_msg_thanks', g('set_ln_thanks'), 'caregiver thank-you'); set('late_msg_ask', g('set_ln_ask'), 'caregiver question');
+    set('late_msg_family', g('set_ln_family'), 'family text'); set('late_msg_family_update', g('set_ln_update'), 'family update'); set('late_msg_arrived', g('set_ln_arrived'), 'family arrived text');
+    return ch; }, 'running late settings');
+  if(btn) btn.disabled=false;
+  if(s) s.textContent=out.error?('Could not save: '+out.error.message):(out.changed.length?'Saved: '+out.changed.join(', ')+'.':'Nothing changed.');
+}
+async function lnSetToggle(key, btn){
+  const st=DATA.ops_settings||{}, on=!(st[key]===true);
+  if(key!=='late_watch_live' && on && st.late_watch_live!==true) return;
+  const ask={ late_watch_live:on?'Turn on running-late notices? From the next check, a caregiver\'s running-late message opens a card in Needs Attention, and their missed clock-in texts wait until 5 minutes after the time they gave. Nothing is texted yet.':'Turn off running-late notices? It goes back to practice (found and listed, nothing else).',
+    late_cg_reply_live:on?'Turn on caregiver replies? A caregiver who texts that they\'re running late gets one thank-you with their time, or one "about what time?"':'Turn off caregiver replies?',
+    late_admin_live:on?'Turn on admin texts? Every admin is texted a link now and every 5 minutes until someone taps Seen.':'Turn off admin texts? The card still opens in Needs Attention.' }[key];
+  if(!confirm(ask)) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m[key]=on; if(key==='late_watch_live' && !on){ m.late_cg_reply_live=false; m.late_admin_live=false; } return [key.replace(/_/g,' ')+(on?' ON':' OFF')]; }, 'running late settings');
+  if(btn) btn.disabled=false;
+  const s=document.getElementById('lnSetSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  lnSetFill();
+}
+/* The caregiver's page, Performance: when they told us ahead */
+async function cgdLateMount(c){
+  const host=document.getElementById('cgdLate'); if(!host) return;
+  let rows=[]; try{ const r=await sb.from('late_notices').select('*').eq('axiscare_caregiver_id', String(c.id)).neq('status','practice').gte('shift_date', new Date(Date.now()-90*864e5).toISOString().slice(0,10)).order('shift_start',{ascending:false}); rows=r.data||[]; }catch(_){ return; }
+  if(String(CGD.openId)!==String(c.id)) return;
+  const esc=escapeHtmlComms, clk=x=>{ try{ return new Date(x).toLocaleString('en-US',{ timeZone:'America/Chicago', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } };
+  const tm=x=>{ try{ return new Date(x).toLocaleString('en-US',{ timeZone:'America/Chicago', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } };
+  host.innerHTML='<div class="card" style="padding:14px 16px;margin-top:10px;"><div style="font-weight:800;color:var(--navy);font-size:14px;margin-bottom:6px;">Told us ahead (running late, can\'t make it)</div>'
+    +(rows.length?rows.slice(0,12).map(n=>'<div class="field-note" style="padding:2px 0;">'+esc(clk(n.shift_start))+' · '+esc(n.client_first||'')+' · '
+        +(n.kind==='cant_make_it'?'can\'t make it':'running late'+(n.eta?', said about '+esc(tm(n.eta)):''))+' · told us at '+esc(tm(n.said_at))
+        +(n.clock_in_at?' · clocked in '+esc(tm(n.clock_in_at)):n.closed_how==='coverage_case'?' · coverage case':'')+'</div>').join('')
+      +'<div class="field-note" style="margin-top:4px;">Late clock-ins are still recorded as tardies by the nightly sweep; this shows which ones they told us about.</div>'
+      :'<div class="field-note">None in the last 90 days.</div>')+'</div>';
+}
+/* The client's Care tab: arrival updates (what the caregiver said, what the family was told) */
+async function lnArrivals(){
+  const box=document.getElementById('cp_arrivals'); if(!box) return;
+  const ax=String(CP.ax||''); if(!/^\d+$/.test(ax)){ box.innerHTML=''; return; }
+  let rows=[]; try{ const r=await sb.from('late_notices').select('*').eq('axiscare_client_id', ax).neq('status','practice').gte('shift_date', new Date(Date.now()-30*864e5).toISOString().slice(0,10)).order('shift_start',{ascending:false}); rows=r.data||[]; }catch(_){ return; }
+  if(String(CP.ax||'')!==ax) return;
+  if(!rows.length){ box.innerHTML=''; return; }
+  const esc=escapeHtmlComms, clk=x=>{ try{ return new Date(x).toLocaleString('en-US',{ timeZone:'America/Chicago', weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } };
+  const tm=x=>{ try{ return new Date(x).toLocaleString('en-US',{ timeZone:'America/Chicago', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } };
+  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;"><b style="font-size:15px;color:var(--navy);">🕒 Arrival updates</b> <span class="field-note">last 30 days</span>'
+    +rows.map(n=>{ const fam=(n.family||[]); return '<div style="padding:7px 0;border-top:1px solid var(--border);font-size:13px;"><b>'+esc(clk(n.shift_start))+'</b> · '+esc(n.caregiver_name||'')+' · '
+      +(n.kind==='cant_make_it'?'couldn\'t make it':'running late'+(n.eta?', expected about '+esc(tm(n.eta)):''))+(n.clock_in_at?', arrived '+esc(tm(n.clock_in_at)):'')
+      +'<div class="field-note">'+(fam.length?fam.map(f=>'Family '+(f.what==='arrived'?'told they arrived':f.what==='update'?'sent an update':'told')+' by '+esc(f.by)+' at '+esc(tm(f.at))+' ('+esc(f.count)+')').join(' · ')
+        :n.family_skipped_by?esc(n.family_skipped_by)+' chose not to tell the family':'The family was not texted')+'</div></div>'; }).join('')+'</div>';
 }
 /* Missed care notes on the caregiver's page: recovered by text and unresolved kept apart (her rule). */
 async function cgdMissedNotesMount(c){
@@ -27644,6 +27812,8 @@ const OPS_KINDS = {
   care_note:      { label:'Shift note',    hours:24 },
   /* Missed shift notes (2026-09-29): a caregiver replied with the note they didn't write, or never replied. */
   missed_note:    { label:'Care note',     hours:24 },
+  /* Running late (L1, 2026-09-29): a caregiver texted or called that they're running late, or can't make it. */
+  late_notice:    { label:'Running late',  hours:1  },
   /* Step 6 (2026-09-26): made by the promise-run producer from Start Contracts
      and Journey reviews. They close themselves when the source is satisfied. */
   promise_update: { label:'Family update owed',    hours:24 },
@@ -30066,6 +30236,7 @@ function opsRow(i, showKind){
     +(/^\d+$/.test(String(i.client_ax||''))?'<div style="margin-top:4px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;"><a href="javascript:void(0)" data-open-client="'+esc(i.client_ax)+'" data-open-tab="care" style="font-size:12.5px;font-weight:700;color:var(--navy);">Open their profile (Care) →</a>'
       +(i.kind==='care_note'?'<button class="secondary" style="font-size:12px;padding:4px 10px;" onclick="n3Open(\''+esc(i.id)+'\')">Tell the family…</button>':'')+'</div>':'')
     +(i.kind==='missed_note' && i.reply_text && i.status!=='done' ? mnCardHtml(i) : '')
+    +(i.kind==='late_notice' && i.late_notice_id && i.status!=='done' && i.status!=='resolved' ? lnCardHtml(i) : '')
     +(Array.isArray(i.family_contacts)&&i.family_contacts.length?'<div class="field-note" style="margin-top:3px;">Family: '+i.family_contacts.map(f=>esc((f.how==='call'?'called ':'texted ')+f.name+' ('+String(f.by||'').split(' ')[0]+', '+callsFmtWhen(f.at)+')')).join(' · ')+'</div>':'')
     +(i.created_by?'<div class="field-note" style="margin-top:2px;">Raised by '+esc(i.created_by)+'</div>':'')
     +'<div id="rec-'+i.id+'" style="display:none;"></div>'
