@@ -69,7 +69,9 @@ function render(msg){
   if(D.practice) h+='<div class="practice">Practice run: admin reminder texts aren\'t switched on yet, so nobody else is being texted. The buttons still work.</div>';
   h+='<div class="card"><div class="big">'+esc(D.caregiver_first)+' · '+esc(D.client_first)+'\'s '+esc(D.shift_time)+' shift</div>'
     +(D.open?'<span class="late">'+esc(D.minutes_past_start)+' min past start, no clock-in</span>':'')
-    +'<div class="note">'+(D.texted_at?esc(D.caregiver_first)+' was texted at '+esc(D.texted_at)+'.':'No text went to '+esc(D.caregiver_first)+'.')+'</div></div>';
+    +'<div class="note">'+(D.texted_at?esc(D.caregiver_first)+' was texted at '+esc(D.texted_at)+'.':'No text went to '+esc(D.caregiver_first)+'.')+'</div>'
+    +((D.replies||[]).length?'<div style="margin-top:10px;"><h2>'+esc(D.caregiver_first)+' replied</h2>'+D.replies.map(r=>'<div style="background:#F1F5F9;border-radius:10px;padding:8px 11px;margin-top:6px;font-size:14.5px;">'+esc(r.text)+'<div class="note">'+esc(r.at||'')+'</div></div>').join('')+'</div>':'')
+    +'</div>';
   if(!D.open){
     const r=D.resolved||{};
     h+='<div class="done">'+(r.how==='admin'||r.how==='coverage_case'&&r.by?'Resolved by '+esc(r.by)+(r.at?' at '+esc(r.at):'')+(r.reason?': '+esc(r.reason):'')+(r.note?'. '+esc(r.note):''):
