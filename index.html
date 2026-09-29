@@ -4778,6 +4778,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           <button class="ghost" onclick="document.getElementById('apIntCard').style.display='none'">Close</button>
         </div>
         <input type="hidden" id="apIntId">
+        <div id="apIntPrn" style="margin-top:12px;"></div>
         <!-- What we could actually offer them, on screen while they are sitting
              there. "Mrs K is in Nixa, twelve minutes from you" closes an
              interview; "we will be in touch" does not. -->
@@ -18166,6 +18167,7 @@ function jpRender(){
       + '<span class="field-note">'+esc((p.city||'Springfield'))+' · '+esc(String(p.employment_type||'').replace('_',' ').toLowerCase())
       + (p.pay_min?' · $'+Number(p.pay_min).toFixed(2)+(p.pay_max?'–$'+Number(p.pay_max).toFixed(2):'')+'/hr':'')+'</span>'
       + (stale(p)?'<span style="font-size:11.5px;font-weight:700;color:#B91C1C;background:#FEE2E2;border-radius:999px;padding:2px 9px;">expired '+esc(p.valid_through)+'</span>':'')
+      + (p.status==='published'&&!p.valid_through?'<span style="font-size:11.5px;font-weight:700;color:#1c6b45;background:#e8f1ec;border-radius:999px;padding:2px 9px;">always on</span>':'')
       + (p.indeed_feed&&p.status==='published'?'<span style="font-size:11.5px;font-weight:700;color:#1D4ED8;background:#DBEAFE;border-radius:999px;padding:2px 9px;">on Indeed</span>':'')
       + '<span style="flex:1;"></span>'
       + (p.status==='published'?'<a class="fb" style="text-decoration:none;" target="_blank" rel="noopener" href="https://mo-care.com/jobs/'+esc(p.slug)+'">View page ↗</a>':'')
@@ -19427,6 +19429,7 @@ function apRender(){
       + '<b style="font-size:.95rem;color:#0D365F;cursor:pointer;text-decoration:underline;text-decoration-color:#CBD5E1;'
         + 'text-underline-offset:3px;" onclick="event.preventDefault();event.stopPropagation();apOpenProfile(\''+esc(r.id)+'\')">'
         + esc((r.first_name||'')+' '+(r.last_name||'')) + '</b>'
+      + (apIsPrn(r) ? '<span style="font-size:11px;font-weight:800;color:#8A5A00;background:#FBF1D9;border-radius:999px;padding:2px 9px;">PRN</span>' : '')
       + '<span style="font-size:.76rem;color:#6E6559;">'+esc(apPosLabel(r.position)||r.posting_title||'Caregiver')
         + (r.city||r.zip?' · '+esc(r.city||r.zip):'') + ' · applied '+esc(ago(r.created_at))+'</span>'
       + '<span style="flex:1;"></span>' + line
@@ -20101,6 +20104,41 @@ function apCloseProfile(){
   switchTab('applicants');
 }
 
+/* ---- The PRN CNA Team (PRN1) ------------------------------------------------
+   What a PRN applicant told us about being called for shifts, and whether they
+   accepted the pay (PRN Team shifts $20, an ongoing schedule $18), shown first
+   wherever the office looks at them, so the interview starts from it. */
+const AP_PRN_DAY = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' };
+const AP_PRN_TIME = { morning:'Morning', daytime:'Daytime', evening:'Evening', overnight:'Overnight' };
+const AP_PRN_NOTICE = { same_day:'Same day OK', few_hours:'A few hours', '24h':'24 hours', '48h':'48 hours or more' };
+const AP_PRN_INT = { calloffs:'Call-offs and same-day', evenings:'Evenings', overnights:'Overnights', weekends:'Weekends',
+                     short:'Short shifts', long:'Long shifts', multiday:'Temporary multi-day' };
+const apPrnRole = r => AP_POS.find(p => p.key === (r && r.position) && p.track === 'prn') || null;
+const apIsPrn = r => !!(r && (r.prn || apPrnRole(r)));
+function apPrnHtml(r){
+  const esc = escapeHtmlComms, p = r.prn || {}, role = apPrnRole(r);
+  const words = (list, map) => (Array.isArray(list) ? list : []).map(k => map[k] || k).join(', ');
+  const yn = v => v===true ? 'Yes' : v===false ? '<b style="color:#B45309;">No</b>' : '<span class="field-note">not answered</span>';
+  const rate = role && role.pay_min ? '$' + Number(role.pay_min).toFixed(2).replace(/\.00$/,'') + '/hr' : '$20/hr';
+  const pay = r.pay_ack_at
+    ? '<span style="color:#15803D;font-weight:700;">✓ Accepted</span> ' + esc(new Date(r.pay_ack_at).toLocaleString('en-US',{month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'}))
+      + (r.pay_ack_version ? ' <span class="field-note">(' + esc(r.pay_ack_version) + ')</span>' : '')
+    : '<b style="color:#B91C1C;">Not accepted</b>';
+  return '<div style="background:#FBF6EA;border:1px solid #ECD9AE;border-radius:11px;padding:12px 14px;">'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">'
+      + '<b style="font-size:14.5px;color:var(--navy);">PRN CNA</b>'
+      + '<span style="font-size:12px;font-weight:800;color:#1c6b45;background:#e8f1ec;border-radius:999px;padding:2px 10px;">' + esc(rate) + ' PRN shifts</span>'
+      + '<span class="field-note">ongoing schedules are $18/hr</span></div>'
+    + apProfRow('Days', esc(words(p.days, AP_PRN_DAY)) || '<b style="color:#B45309;">none given</b>')
+    + apProfRow('Times', esc(words(p.times, AP_PRN_TIME)) || '<b style="color:#B45309;">none given</b>')
+    + apProfRow('Notice', esc(AP_PRN_NOTICE[p.notice] || '') || '<span class="field-note">not given</span>')
+    + apProfRow('Interested in', esc(words(p.interests, AP_PRN_INT)))
+    + apProfRow('Currently a CNA', yn(p.cna))
+    + apProfRow('A year or more of experience', yn(p.one_year))
+    + apProfRow('PRN Team pay', pay)
+    + '</div>';
+}
+
 const apProfCard = (title, body, note) =>
   '<div class="card" style="padding:16px 18px;margin-bottom:14px;">'
   + '<b style="font-size:15px;color:var(--navy);">' + title + '</b>'
@@ -20228,7 +20266,8 @@ function apRenderProfile(){
     : '<div class="field-note">Nothing outstanding.</div>';
 
   document.getElementById('apProfRight').innerHTML =
-      apProfCard('What they told us', told, 'Their own answers, on the day they applied.')
+      (apIsPrn(r) ? apProfCard('PRN CNA Team', apPrnHtml(r), 'When they can be called for shifts, and the pay they accepted.') : '')
+    + apProfCard('What they told us', told, 'Their own answers, on the day they applied.')
     + apProfCard('The screen', flags,
         r.miles_out!=null ? Number(r.miles_out).toFixed(0) + ' miles from the office, straight line.' : '')
     + apProfCard('Where they have worked', apProfWork(r),
@@ -20969,6 +21008,7 @@ async function apInterview(id){
     window.__apInt.build_up = r.will_build_up ? 'yes' : 'no';
   document.getElementById('apIntId').value = id;
   document.getElementById('apIntWho').textContent = (r.first_name||'')+' '+(r.last_name||'');
+  document.getElementById('apIntPrn').innerHTML = apIsPrn(r) ? apPrnHtml(r) : '';
   document.getElementById('apIntNotes').value = (r.post_interview && r.post_interview.notes) || '';
   document.getElementById('apIntErr').style.display='none';
   apIntRender();
