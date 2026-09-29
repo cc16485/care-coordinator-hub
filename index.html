@@ -16127,7 +16127,8 @@ async function cgdPrnMount(c){
   }
   const a = PRN_T.apps[tr.applicant_id] || {}, p = a.prn || {}, isPrn = tr.track === 'prn_team';
   const words = (list, map) => (Array.isArray(list) ? list : []).map(k => map[k] || k).join(', ');
-  const cls = c.classes || [], hasPrn = cls.some(x => /\bprn\b/i.test(x)), hasCna = cls.some(x => /\bcna\b|certified nurs/i.test(x));
+  /* A CNA may not be on the PRN Team (her point, 2026-09-29): "PRN TEAM - CNA" is the PRN Team class, and CNA is the plain one. */
+  const cls = c.classes || [], hasPrn = cls.some(x => /\bprn\b/i.test(x)), hasCna = cls.some(x => /\bcna\b|certified nurs/i.test(x) && !/\bprn\b/i.test(x));
   const av = cgdAvailFor(String(c.id), ((c.first||'')+' '+(c.last||'')).trim());
   const hist = (PRN_T.history||[]).filter(h => String(h.applicant_id) === String(tr.applicant_id));
   const kv = (k, v) => '<div style="display:flex;gap:8px;font-size:13.5px;padding:2px 0;"><span class="field-note" style="min-width:150px;">' + k + '</span><span style="min-width:0;">' + v + '</span></div>';
@@ -16152,7 +16153,8 @@ async function cgdPrnMount(c){
         : '')
     + kv('AxisCare classes', isPrn
         ? (hasPrn && hasCna ? '<span style="color:var(--green);">✓ PRN Team and CNA</span>' + (tr.axiscare_marked_by ? ' <span class="field-note">(' + esc(tr.axiscare_marked_by) + ', ' + esc(prnDate(tr.axiscare_marked_at)) + ')</span>' : '')
-           : '<button class="fb" onclick="cgdPrnMark(\'' + esc(tr.applicant_id) + '\',this)">Mark as PRN Team in AxisCare</button>')
+           : (hasPrn ? '<span style="color:var(--green);">✓ PRN Team</span> <span class="field-note">(no CNA class on their record)</span> ' : '')
+             + '<button class="fb" onclick="cgdPrnMark(\'' + esc(tr.applicant_id) + '\',this)">' + (hasPrn ? 'Add CNA in AxisCare' : 'Mark as PRN Team in AxisCare') + '</button>')
         : (hasPrn ? '<b style="color:#B45309;">still has PRN Team in AxisCare</b> <span class="field-note">(take it off there)</span>' : 'CNA' + (hasCna ? ' ✓' : ' <span class="field-note">(not on their AxisCare record)</span>')))
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
       + (isPrn ? '<button class="fb" onclick="cgdPrnMoveOpen(\'ongoing\')">Move to ongoing…</button>' : '<button class="fb" onclick="cgdPrnMoveOpen(\'prn_team\')">Back on the PRN Team…</button>')
@@ -16202,7 +16204,8 @@ async function cgdPrnLink(appId, cgId, btn){
 async function cgdPrnMark(appId, btn){
   btn.disabled = true; btn.textContent = 'Asking AxisCare…';
   try{ const r = await prnCall({ action:'mark', applicant_id:appId });
-       await cgdPrnAfter(PRN_SAY[r.outcome] || r.detail || r.outcome); const m = document.getElementById('cgdPrnMsg'); if(m && r.detail) m.textContent = r.detail; }
+       await cgdPrnAfter(PRN_SAY[r.outcome] || r.detail || r.outcome); const m = document.getElementById('cgdPrnMsg');
+       if(m && (r.detail || r.note)) m.textContent = [PRN_SAY[r.outcome] || '', r.detail || '', r.note ? r.note + '. Create a CNA class in AxisCare (Settings, Classes) and tap again.' : ''].filter(Boolean).join(' '); }
   catch(e){ btn.disabled = false; btn.textContent = 'Mark as PRN Team in AxisCare'; const m = document.getElementById('cgdPrnMsg'); if(m) m.textContent = 'Could not: ' + (e && e.message || 'error'); }
 }
 async function cgdPrnMoveGo(appId, from, to, btn){
