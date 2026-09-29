@@ -6678,7 +6678,7 @@ CONFIG.supabase_url = CONFIG.supabase_url || 'https://zngsgedlsxinbygwmxwn.supab
 CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
 // Fixed slug this hub checks against a signed-in user's app_metadata.hub_access.
 // Must exactly match this hub's row (id/slug "care_coordinator") in Team Hub's
-// hub_portals list — managed from Team Hub → Manage Team Access.
+// hub_portals list (a Team Hub record). Access itself is given from My Team here.
 const HUB_SLUG = 'care_coordinator';
 
 let DATA = { caregivers: [], caregiver_overlay: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
@@ -6714,6 +6714,9 @@ function today(){ const d=new Date(), p=n=>String(n).padStart(2,'0');
 function addDays(dateStr, days){ const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
 function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000); }
 
+/* Team Access A2 (2026-09-29): someone arriving from an invitation email is asked to choose a password before
+   anything else. The invitation link carries type=invite; read it before the sign-in library tidies the address. */
+const CC_ARRIVED_BY_INVITE=/(^|[#&?])type=invite(&|$)/.test(String(location.hash||'')+'&'+String(location.search||''));
 function initSupabase(){
   if(!CONFIG.supabase_url || !CONFIG.supabase_anon_key) return;
   sb = window.supabase.createClient(CONFIG.supabase_url, CONFIG.supabase_anon_key);
@@ -6742,19 +6745,20 @@ async function forgotPassword(){
   alert(error?('Could not send the reset email: '+error.message)
              :('Reset link sent to '+email+'.\nCheck your inbox (and spam). The link brings you back here to set a new password.'));
 }
-sb.auth.onAuthStateChange(function(event){ if(event==='PASSWORD_RECOVERY') showSetNewPassword(); });
-function showSetNewPassword(){
+sb.auth.onAuthStateChange(function(event){ if(event==='PASSWORD_RECOVERY') showSetNewPassword(); else if(CC_ARRIVED_BY_INVITE&&event==='SIGNED_IN') showSetNewPassword('invite'); });
+function showSetNewPassword(mode){
   if(document.getElementById('pwResetOverlay')) return;
+  const invite=mode==='invite';
   var d=document.createElement('div');
   d.id='pwResetOverlay';
   d.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.78);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
   d.innerHTML='<div style="background:#fff;border-radius:14px;padding:26px;width:100%;max-width:360px;font-family:inherit">'
-    +'<h2 style="margin:0 0 6px;color:#0D365F;font-size:18px">Set a new password</h2>'
-    +'<p style="margin:0 0 14px;font-size:13px;color:#6E6559">Your email link signed you in — now choose a new password.</p>'
+    +'<h2 style="margin:0 0 6px;color:#0D365F;font-size:18px">'+(invite?'Welcome! Choose your password':'Set a new password')+'</h2>'
+    +'<p style="margin:0 0 14px;font-size:13px;color:#6E6559">'+(invite?'Your invitation signed you in. Choose a password now; it is what you will sign in with from now on, on every Caring Companions hub you have access to.':'Your email link signed you in. Now choose a new password.')+'</p>'
     +'<input id="pwNew1" type="password" placeholder="New password (8+ characters)" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #e4e1d8;border-radius:8px;font-size:16px;margin-bottom:8px;font-family:inherit">'
     +'<input id="pwNew2" type="password" placeholder="Type it again" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #e4e1d8;border-radius:8px;font-size:16px;margin-bottom:10px;font-family:inherit">'
     +'<div id="pwErr" style="display:none;color:#DC2626;font-size:12.5px;margin-bottom:10px"></div>'
-    +'<button id="pwSaveBtn" style="width:100%;background:#0D365F;color:#fff;border:none;padding:12px;border-radius:999px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Save new password</button>'
+    +'<button id="pwSaveBtn" style="width:100%;background:#0D365F;color:#fff;border:none;padding:12px;border-radius:999px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">'+(invite?'Save my password':'Save new password')+'</button>'
     +'</div>';
   document.body.appendChild(d);
   document.getElementById('pwSaveBtn').onclick=async function(){
@@ -6766,7 +6770,7 @@ function showSetNewPassword(){
     var res=await sb.auth.updateUser({password:p1});
     if(res.error){ err.textContent=res.error.message; err.style.display='block'; this.disabled=false; this.textContent='Save new password'; return; }
     d.remove();
-    alert('Password updated — you\'re signed in.');
+    alert(invite?'Password saved. You\'re signed in.':'Password updated. You\'re signed in.');
     window.location.reload();
   };
 }
@@ -6781,7 +6785,7 @@ async function signIn(){
   if(error){ errEl.textContent = error.message; errEl.style.display = 'block'; return; }
   if(!hasHubAccess(data.user)){
     await sb.auth.signOut();
-    errEl.textContent = "No hub access is recorded for this account yet. Ask Samantha or Zach to grant it from Team Hub → Manage Team Access, then sign in again.";
+    errEl.textContent = "No hub access is recorded for this account yet. Ask Samantha or Zach to give it from My Team (Care Coordinator Hub), then sign in again.";
     errEl.style.display = 'block';
     return;
   }
@@ -14398,7 +14402,7 @@ function staffAddOpen(){
    not end their job, move their work, stop their duty windows or touch a single
    line of history. Those are different decisions and they stay separate. */
 const HUB_ACCESS_FN = (CONFIG.supabase_url||'')+'/functions/v1/hub-access';
-async function hubAccessCall(action, email){
+async function hubAccessCall(action, email, hub){
   const { data:{ session } } = await sb.auth.getSession();
   if(!session) return { error:'Your session has expired. Sign in again.' };
   const r = await fetch(HUB_ACCESS_FN, { method:'POST',
@@ -14406,7 +14410,7 @@ async function hubAccessCall(action, email){
               'Authorization':'Bearer '+session.access_token,
               'apikey': CONFIG.supabase_anon_key },
     body: JSON.stringify({ action, target_email:String(email||'').toLowerCase(),
-                           hub:'care_coordinator' }) });
+                           hub:hub||'care_coordinator' }) });
   let body={}; try{ body = await r.json(); }catch(e){}
   if(!r.ok) return { error: body.error || ('Request failed ('+r.status+')'), detail: body.detail };
   return body;
@@ -14417,35 +14421,43 @@ const HUB_STATE={
   revoked: { label:'Access removed',         tone:'var(--text-muted)' },
   none:    { label:'No account',             tone:'var(--text-muted)' }
 };
+/* Team Access A1 (2026-09-29): every hub from here. One status call gives the account's state and its hub list;
+   each hub has its own row. The FIRST hub given to someone with no account sends the one invitation email
+   ('invite'); every later hub just adds access ('restore'), so nobody gets a second email. Removing is per hub.
+   The server (hub-access) still decides everything: owners only, the fixed hub list, never the last owner. */
+const HUB_ROWS=[['care_coordinator','Care Coordinator Hub','cc.mo-care.com'],['staffing','Staffing Hub','sc.mo-care.com'],['team_hub','Team Hub','hub.mo-care.com']];
 async function hubAccessOpen(email){
   if(!ccCan('manage_access')) return;
   const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
   const nm=posPersonName(e);
   const el=ccPopOpen(document.body,
     '<div style="font-size:14px;font-weight:800;color:var(--navy);">Hub access</div>'
-    +'<div class="field-note" style="margin:3px 0 10px;">'+esc(nm)+'</div>'
-    +'<div id="haBody" class="field-note">Checking…</div>', {width:400});
+    +'<div class="field-note" style="margin:3px 0 10px;">'+esc(nm)+' · '+esc(e)+'</div>'
+    +'<div id="haBody" class="field-note">Checking…</div>', {width:430});
   const body=el.querySelector('#haBody');
-  const st=await hubAccessCall('status', e);
+  const st=await hubAccessCall('status', e, 'care_coordinator');
   if(st.error){
     body.innerHTML='<span style="color:var(--red);">'+esc(st.error)+'</span>'
       +(st.detail?'<div class="field-note" style="margin-top:4px;">'+esc(st.detail)+'</div>':'');
     return;
   }
-  const S=HUB_STATE[st.state]||HUB_STATE.none;
-  const act=(id,label,primary)=>'<button class="'+(primary?'primary':'ghost')
-    +'" id="'+id+'" style="padding:6px 12px;font-size:12.5px;">'+label+'</button>';
-  let buttons='';
-  if(st.state==='none')    buttons=act('haInvite','Invite to Hub',true);
-  if(st.state==='invited') buttons=act('haResend','Resend invitation',true)+act('haRevoke','Cancel access');
-  if(st.state==='active')  buttons=act('haRevoke','Remove access');
-  if(st.state==='revoked') buttons=act('haRestore','Restore access',true);
-  body.innerHTML='<div style="font-size:13.5px;color:'+S.tone+';font-weight:600;">'+S.label+'</div>'
-    +'<div class="field-note" style="margin:4px 0 12px;">'+esc(e)+'</div>'
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'+buttons+'</div>'
+  const noAccount=st.state==='none', invited=st.state==='invited';
+  const has=h=>!noAccount&&(st.access==null||(Array.isArray(st.access)&&st.access.includes(h)));
+  const acct=noAccount?'<span style="color:var(--text-muted);">No sign-in yet. Giving the first hub sends them one invitation email.</span>'
+    :invited?'<span style="color:var(--amber);font-weight:600;">Invitation sent, not accepted yet.</span> They choose their password when they open it.'
+    :'<span style="color:var(--teal);font-weight:600;">Has a sign-in.</span>';
+  const row=([h,label,host])=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);">'
+    +'<div style="flex:1;min-width:0;"><div style="font-weight:700;color:var(--navy);font-size:13.5px;">'+esc(label)+'</div><div class="field-note" style="font-size:12px;">'+esc(host)+'</div></div>'
+    +(has(h)?'<span class="badge ok" style="font-size:11px;">Has access</span><button class="ghost" data-ha-remove="'+h+'" style="padding:5px 10px;font-size:12px;">Remove</button>'
+            :'<span class="badge muted" style="font-size:11px;">No access</span><button class="primary" data-ha-give="'+h+'" style="padding:5px 10px;font-size:12px;">'+(noAccount?'Invite':'Give access')+'</button>')
+    +'</div>';
+  body.innerHTML='<div style="font-size:13px;margin-bottom:8px;">'+acct+'</div>'
+    +HUB_ROWS.map(row).join('')
+    +(invited?'<div style="margin-top:10px;"><button class="ghost" id="haResend" style="padding:6px 12px;font-size:12.5px;">Resend the invitation email</button></div>':'')
     +'<div id="haMsg" class="field-note" style="margin-top:10px;"></div>';
   const msg=body.querySelector('#haMsg');
-  const run=async (action, confirmHtml)=>{
+  const label=h=>(HUB_ROWS.find(r=>r[0]===h)||[h,h])[1];
+  const run=async (action, hub, confirmHtml)=>{
     if(confirmHtml){
       msg.innerHTML=confirmHtml
         +'<div style="display:flex;gap:8px;margin-top:9px;">'
@@ -14453,11 +14465,11 @@ async function hubAccessOpen(email){
         +'background:var(--red);border-color:var(--red);">Remove access</button>'
         +'<button class="ghost" id="haNo" style="padding:6px 12px;font-size:12.5px;">Keep it</button></div>';
       msg.querySelector('#haNo').onclick=()=>{ msg.innerHTML=''; };
-      msg.querySelector('#haYes').onclick=()=>run(action);
+      msg.querySelector('#haYes').onclick=()=>run(action, hub);
       return;
     }
     msg.textContent='Working…';
-    const r=await hubAccessCall(action, e);
+    const r=await hubAccessCall(action, e, hub);
     if(r.error){
       msg.innerHTML='<span style="color:var(--red);">'+esc(r.error)+'</span>'
         +(r.detail?'<div style="margin-top:3px;">'+esc(r.detail)+'</div>':'');
@@ -14465,16 +14477,11 @@ async function hubAccessOpen(email){
     }
     ccPopClose(); hubAccessOpen(e);
   };
-  const on=(id,fn)=>{ const b=body.querySelector('#'+id); if(b) b.onclick=fn; };
-  on('haInvite', ()=>run('invite'));
-  on('haResend', ()=>run('resend'));
-  on('haRestore',()=>run('restore'));
-  on('haRevoke', ()=>run('revoke',
-    '<div style="color:var(--ink);font-size:13px;">This stops <b>'+esc(nm)
-    +'</b> signing into the Hub.</div>'
-    +'<div style="margin-top:5px;">It does <b>not</b> end their employment, move their work, '
-    +'stop their duty windows, or remove anything they have done. Their history stays '
-    +'exactly as it is.</div>'));
+  body.querySelectorAll('[data-ha-give]').forEach(b=>b.onclick=()=>{ const h=b.getAttribute('data-ha-give'); run(noAccount?'invite':'restore', h); });
+  body.querySelectorAll('[data-ha-remove]').forEach(b=>b.onclick=()=>{ const h=b.getAttribute('data-ha-remove'); run('revoke', h,
+    '<div style="color:var(--ink);font-size:13px;">This stops <b>'+esc(nm)+'</b> signing into the <b>'+esc(label(h))+'</b>.</div>'
+    +'<div style="margin-top:5px;">It does <b>not</b> end their employment, move their work, stop their duty windows, or remove anything they have done. Their history stays exactly as it is.</div>'); });
+  const rs=body.querySelector('#haResend'); if(rs) rs.onclick=()=>run('resend','care_coordinator');
 }
 
 /* ═══════════════ OFFBOARDING ══════════════════════════════════════════════
@@ -14781,7 +14788,9 @@ async function staffDeactivate(email){
     /* Access last, and never allowed to undo the rest if it fails. */
     const dropAccess=!!(el.querySelector('#sdAccess')&&el.querySelector('#sdAccess').checked);
     if(dropAccess){
-      const r=await hubAccessCall('revoke', e);
+      /* Team Access A1: every hub they have, not just this one (Care Coordinator last). */
+      let r=null;
+      for(const h of ['team_hub','staffing','care_coordinator']){ const x=await hubAccessCall('revoke', e, h); if(x&&x.error&&!/no account/i.test(x.error)) r=x; }
       if(r && r.error) ccPopOpen(document.body,
         '<div style="font-size:13.5px;">'+esc(nm)+' was deactivated.</div>'
         +'<div class="field-note" style="margin-top:5px;color:var(--amber);">Their Hub access '
@@ -30164,7 +30173,7 @@ function renderMgrStrip(){
       if(!hasHubAccess(session.user)){
         await sb.auth.signOut();
         const errEl = document.getElementById('loginError');
-        errEl.textContent = "No hub access is recorded for this account yet. Ask Samantha or Zach to grant it from Team Hub → Manage Team Access, then sign in again.";
+        errEl.textContent = "No hub access is recorded for this account yet. Ask Samantha or Zach to give it from My Team (Care Coordinator Hub), then sign in again.";
         errEl.style.display = 'block';
         return;
       }
