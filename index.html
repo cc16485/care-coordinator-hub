@@ -857,10 +857,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-clients">
     <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
-    <span class="pillsec" title="These stay until Oct 12, 2026 so the team can compare">Older lists</span>
-    <div class="fpill" data-tab="circles" onclick="switchTab('circles')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family Circles</div>
-    <div class="fpill" data-tab="checkins" onclick="switchTab('checkins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Check-ins</div>
-    <div class="fpill" data-tab="careplans" onclick="switchTab('careplans')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Care Plan Reviews</div>
     <span style="flex:1"></span>
     <!-- One hub, one truth, a lens per person: filters Leads, State
          Submissions, Check-ins, and Active Clients to one coordinator's
@@ -4624,7 +4620,6 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   </div>
   <div id="clFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
   <div id="clBoard"><div class="field-note">Loading…</div></div>
-  <div class="field-note" style="margin-top:10px;font-size:12px;">The older lists (Family Circles, Client Check-ins, Care Plan Reviews) stay in the menu until Oct 12 so the team can compare.</div>
 </section>
 
 <section class="tabpanel" id="tab-clients">
@@ -7181,7 +7176,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','statesubs'],clients:['soc','clientqueue','clientsboard','circles','checkins','careplans'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','statesubs'],clients:['soc','clientqueue','clientsboard'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7679,9 +7674,13 @@ function gotoTab(tab){ return switchTab(tab); }
 /* Profile First (2026-09-28): the old Leads and Care Assessments tabs are gone; anything still asking for
    them lands on Leads & Starts instead of failing. */
 /* Active Clients retired 2026-09-29 (her call, ahead of Oct 12): old links and saved last-tabs land on the Clients board */
-const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:'clientsboard' };
+const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:'clientsboard',
+  /* R4 (2026-09-29): the older Client Care lists are gone; their jobs live in the profile, the Clients board and
+     Needs Attention. Old links land on the board, on the matching filter. */
+  circles:'clientsboard', checkins:'clientsboard', careplans:'clientsboard' };
+const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews' };
 function switchTab(tab){
-  if(CC_RETIRED_TABS[tab]) tab=CC_RETIRED_TABS[tab];
+  if(CC_RETIRED_TABS[tab]){ if(CC_RETIRED_FILTER[tab]&&typeof CL!=='undefined') CL.filter=CC_RETIRED_FILTER[tab]; tab=CC_RETIRED_TABS[tab]; }
   if(tab==='settings' && !ccCan('manage_settings')){ alert('You do not have permission to open Settings.'); return; }
   ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
@@ -7741,7 +7740,7 @@ function ccRenderPulse(){
      unchanged — the same opsOverdue() filtered to mine-or-unowned that My Work's
      Today bucket shows — so this is a label and a destination, not a new metric. */
   if(late) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Overdue, yours or nobody\'s"><b>'+late+'</b> overdue</span>');
-  if(ci) chips.push('<span class="tp-chip" onclick="switchTab(\'checkins\')" title="Client check-ins past due"><b>'+ci+'</b> check-in'+(ci===1?'':'s')+' overdue</span>');
+  if(ci) chips.push('<span class="tp-chip" onclick="clOpen(\'Check-ins\')" title="Client check-ins past due"><b>'+ci+'</b> check-in'+(ci===1?'':'s')+' overdue</span>');
   const gr=(DATA.ghe_forms||[]).filter(g=>g.status==='ready').length;
   if(gr) chips.push('<span class="tp-chip" onclick="switchTab(\'nursevisits\')" title="Completed GHEs waiting for the coordinator\'s Fusion upload"><b>'+gr+'</b> GHE'+(gr===1?'':'s')+' ready for Fusion</span>');
   box.innerHTML = chips.length ? chips.join('') : '<span class="tp-chip ok">✓ Caught up</span>';
@@ -17037,7 +17036,7 @@ function renderCareAlerts(){
       +'<div style="font-size:13.5px;font-weight:700;color:var(--red);padding-bottom:4px;">🚨 Escalated client concerns — a client raised something real</div>'
       +escd.map(c=>'<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;">'
         +'<span>💚</span><span style="flex:1;min-width:0;"><b>'+esc(c.client_name||'')+'</b>'+(c.concerns_raised?' — '+esc(String(c.concerns_raised).slice(0,90)):'')+'</span>'
-        +'<button class="linklike" onclick="switchTab(\'checkins\')">Open</button></div>').join('')
+        +'<button class="linklike" onclick="clOpen(\'Check-in concerns\')">Open</button></div>').join('')
       +'</div>'
     : '';
   updateAttnCard();
@@ -29867,7 +29866,7 @@ function renderMgrStrip(){
   }catch(e){}
   try{
     const cpN=(typeof cpOverdueCount==='function')?cpOverdueCount():0;
-    if(cpN) rows.push(['🗂️',cpN+' care plan'+(cpN===1?'':'s')+' overdue for monthly review or flagged but not yet updated in AxisCare','switchTab(\'careplans\')']);
+    if(cpN) rows.push(['🗂️',cpN+' care plan'+(cpN===1?'':'s')+' overdue for monthly review or flagged but not yet updated in AxisCare','clOpen(\'Plan reviews\')']);
   }catch(e){}
   const wuPending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
   if(wuPending.length)
@@ -33876,11 +33875,12 @@ function famGo(kind, id, tab){
   if(kind==='launch'){ openClient({ launch_id:id }, 'start'); return; }
   if(kind==='plan'){ switchTab('hourswatch'); swSubGo('builder'); tbOpen(id); return; }
   if(kind==='family'){
-    switchTab('circles');
-    const tryOpen=(n)=>{ const d=document.querySelector('details[data-fc="'+CSS.escape(String(id))+'"]');
-      if(!d){ if(n<20) setTimeout(()=>tryOpen(n+1),250); return; }
-      d.open=true; d.scrollIntoView({behavior:'smooth',block:'start'}); };
-    tryOpen(0);
+    /* R4: circles live on the client's profile; one not linked to a client yet is in Needs Attention */
+    (async()=>{ try{ if(typeof fcLoad==='function') await fcLoad(); }catch(e){}
+      const c=(typeof FC!=='undefined'&&Array.isArray(FC)?FC:[]).find(x=>String(x.id)===String(id));
+      if(c&&c.axiscare_client_id){ openClientProfile(String(c.axiscare_client_id),'family'); return; }
+      switchTab('ops'); try{ naLoad(); }catch(e){} })();
+    return;
   }
 }
 
