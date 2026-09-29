@@ -27004,6 +27004,8 @@ const OPS_KINDS = {
   client_issue:   { label:'Client issue',  hours:24 },
   staffing_issue: { label:'Staffing',      hours:24 },
   capture:        { label:'Captured',      hours:8  },
+  /* N2 (2026-09-29): a caregiver's shift note the AI thought someone should read (care-notes, every two hours) */
+  care_note:      { label:'Shift note',    hours:24 },
   /* Step 6 (2026-09-26): made by the promise-run producer from Start Contracts
      and Journey reviews. They close themselves when the source is satisfied. */
   promise_update: { label:'Family update owed',    hours:24 },
@@ -29349,6 +29351,7 @@ function opsRow(i, showKind){
     +doneBtn
     +'</div>'
     +(i.detail?'<div class="field-note" style="margin-top:4px;white-space:pre-wrap;">'+esc(i.detail)+'</div>':'')
+    +(/^\d+$/.test(String(i.client_ax||''))?'<div style="margin-top:4px;"><a href="javascript:void(0)" data-open-client="'+esc(i.client_ax)+'" data-open-tab="care" style="font-size:12.5px;font-weight:700;color:var(--navy);">Open their profile (Care) →</a></div>':'')
     +(i.created_by?'<div class="field-note" style="margin-top:2px;">Raised by '+esc(i.created_by)+'</div>':'')
     +'<div id="rec-'+i.id+'" style="display:none;"></div>'
     +'</div>';
