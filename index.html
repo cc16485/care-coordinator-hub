@@ -4106,6 +4106,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <span class="field-note" id="mnSetStatus"></span>
 </div>
 </div>
+<div class="settings-section" id="cpSettings">
+<h3>📞 Calls from GoHighLevel</h3>
+<p class="hint">Every 10 minutes the Hub fetches answered calls from GoHighLevel and its transcript, and the call reader writes the summary. For a new-client call it creates the lead, drafts a follow-up email and text for your approval in Post-Call Follow-Up, and tags the GoHighLevel contact "lead" (which your AxisCare sync watches). Nothing is ever sent. In <b>practice</b> it only shows what it would do. Missed calls are left to the Operations Inbox.</p>
+<div id="cpStatus" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+  <button class="fb" id="cpLiveBtn" onclick="cpSetToggle(this)">Turn on</button>
+  <button class="fb" onclick="cpLoad(this)">↻ Refresh the list</button>
+</div>
+<div id="cpList"></div>
+</div>
 <div class="settings-section" id="aiSettings">
 <h3>📨 Send the application</h3>
 <p class="hint">The text sent when someone calls about a job and you press <b>Applicants → Send the application</b>. Fill-ins: <code>{first_name}</code>, <code>{position}</code>, <code>{link}</code> (their application; keep it in). "Reply STOP to opt out." is added if the text doesn't mention STOP. Leave blank for the standard wording.</p>
@@ -13740,6 +13750,43 @@ async function mnSetSave(btn){
   if(btn) btn.disabled=false;
   if(s) s.textContent=out.error?('Could not save: '+out.error.message):(out.changed.length?'Saved: '+out.changed.join(', ')+'.':'Nothing changed.');
 }
+/* Calls from GoHighLevel (call-pull, Desktop 372): the switch and what it did with recent calls. */
+function cpSetFill(){
+  const st = DATA.ops_settings||{}, on = st.call_pull_live===true;
+  const b = document.getElementById('cpLiveBtn'), s = document.getElementById('cpStatus');
+  if(b) b.textContent = on ? 'Switch back to practice' : 'Turn on (create leads and drafts)';
+  if(s) s.innerHTML = on ? '<b style="color:#15803D;">ON.</b> New-client calls become leads with a draft follow-up waiting for approval.'
+    : '<b>Practice.</b> Calls are read and judged; nothing is created.' + (st.call_pull_since ? ' Calls from ' + escapeHtmlComms(new Date(st.call_pull_since).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})) + ' on.' : '');
+}
+async function cpLoad(btn){
+  const box = document.getElementById('cpList'); if(!box) return;
+  if(btn){ btn.disabled = true; }
+  try{
+    const { data, error } = await sb.from('call_pull_seen').select('*').order('call_at',{ascending:false}).limit(25);
+    if(error) throw error;
+    const esc = escapeHtmlComms, rows = data||[];
+    const tone = { practice:['#6E6559','#F4F2ED','practice'], done:['#15803D','#DCFCE7','done'], no_transcript:['#B45309','#FEF3C7','no transcript'], error:['#B91C1C','#FEE2E2','problem'] };
+    box.innerHTML = rows.length ? rows.map(r=>{ const t = tone[r.stage]||tone.practice;
+      return '<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;padding:.4rem 0;border-bottom:1px solid #F0EDE6;font-size:13px;">'
+        + '<span style="min-width:8.5rem;color:#6E6559;">'+esc(new Date(r.call_at).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))+'</span>'
+        + '<span>'+(r.direction==='out'?'↗ out':'↙ in')+' · '+esc(Math.round((r.seconds||0)/60*10)/10)+' min</span>'
+        + '<b style="color:var(--navy);">'+esc(r.caller||'Unknown caller')+'</b>'
+        + '<span style="font-size:11.5px;font-weight:700;color:'+t[0]+';background:'+t[1]+';border-radius:999px;padding:1px 9px;">'+t[2]+'</span>'
+        + '<span class="field-note">'+esc(r.outcome||'')+'</span></div>'; }).join('')
+      : '<div class="field-note">No answered calls since it started. The list fills in as calls come in (checked every 10 minutes).</div>';
+  }catch(e){ box.innerHTML = '<div class="field-note">Not installed yet (Desktop 372), or the list could not load.</div>'; }
+  finally{ if(btn) btn.disabled = false; }
+}
+async function cpSetToggle(btn){
+  const on = !((DATA.ops_settings||{}).call_pull_live===true);
+  if(!confirm(on ? 'Turn on calls from GoHighLevel?\n\nFrom the next run (within 10 minutes), a new-client call creates the lead, drafts a follow-up for your approval (nothing is sent), and tags the GoHighLevel contact "lead", which your AxisCare sync picks up. Calls already read in practice are not redone.'
+                 : 'Switch back to practice? Calls are still read and listed, but nothing is created.')) return;
+  if(btn) btn.disabled = true;
+  const out = await tkMerge((m)=>{ m.call_pull_live = on; if(on && !m.call_pull_live_since) m.call_pull_live_since = new Date().toISOString(); return [on ? 'calls from GoHighLevel ON' : 'calls from GoHighLevel back to practice']; }, 'Calls from GoHighLevel settings');
+  if(btn) btn.disabled = false;
+  cpSetFill();
+  const s = document.getElementById('cpStatus'); if(s && out.error) s.textContent = 'Could not save: '+out.error.message;
+}
 async function mnSetToggle(btn){
   const on=!((DATA.ops_settings||{}).missed_notes_live===true);
   if(!confirm(on?'Turn on missed-note texts? From the next run, a caregiver who clocks out with no care note is texted right away (8am to 9pm), and misses start counting toward 3 in 30 days from today.'
@@ -13801,6 +13848,7 @@ function fillSettingsPanel(){
   covMsgsFill();
   try{ prnSetFill(); }catch(_){}
   try{ aiSetFill(); }catch(_){}
+  try{ cpSetFill(); cpLoad(); }catch(_){}
   try{ mnSetFill(); }catch(_){}
   tkFill();
   mbFill();
