@@ -1693,6 +1693,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everyone who has ever applied, kept for good. Somebody who was right but early is the cheapest hire you will ever make.</div>
         </div>
         <span style="flex:1;"></span>
+        <button class="secondary" onclick="apAddOpen()">＋ Add an applicant</button>
         <button class="secondary" onclick="apReengage()">🎯 Find someone for a case</button>
         <button class="ghost" onclick="apLoad(this)">↻ Refresh</button>
       </div>
@@ -1714,6 +1715,52 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 
 
+
+      <!-- Somebody who applied somewhere the Hub cannot see (Augusta, a phone
+           call, a walk-in) is typed in here so they live on the same record. -->
+      <div class="card" id="apAddCard" style="display:none;padding:16px 18px;margin-top:14px;">
+        <b style="font-size:15px;color:var(--navy);">＋ Add an applicant by hand</b>
+        <div class="field-note" style="margin-top:3px;">
+          For someone who applied through Augusta, called in, or walked in. They are screened the same way as an
+          online application (duplicate and do-not-rehire checks, distance from the office). Nothing is sent to them
+          and nobody is alerted when you save. Once they are in, open their page to book an interview.
+        </div>
+        <div class="grid2" style="margin-top:10px;">
+          <div><label>First name</label><input id="apAddFirst" autocomplete="off"></div>
+          <div><label>Last name</label><input id="apAddLast" autocomplete="off"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Phone</label><input id="apAddPhone" inputmode="tel" autocomplete="off"></div>
+          <div><label>Email</label><input id="apAddEmail" type="email" autocomplete="off"></div>
+        </div>
+        <div class="grid2">
+          <div><label>City</label><input id="apAddCity" autocomplete="off"></div>
+          <div><label>Zip</label><input id="apAddZip" inputmode="numeric" maxlength="10" autocomplete="off"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Position</label><select id="apAddPos"></select></div>
+          <div><label>Where they applied</label>
+            <select id="apAddChannel">
+              <option value="augusta">Augusta</option>
+              <option value="phone">Called the office</option>
+              <option value="walk-in">Walked in</option>
+              <option value="referral">Referred by someone</option>
+              <option value="other">Somewhere else</option>
+            </select></div>
+        </div>
+        <label>Notes (experience, availability, anything from their Augusta application)</label>
+        <textarea id="apAddNotes" rows="3"></textarea>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:8px;">
+          <input type="checkbox" id="apAddSms" style="width:auto;margin-top:3px;">
+          <span>They agreed to texts from us. Only tick this if they told you so. It lets the interview
+          confirmation and reminders go by text as well as email.</span>
+        </label>
+        <div id="apAddErr" class="field-note" style="display:none;color:var(--red);margin-top:8px;"></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+          <button class="primary" id="apAddSave" onclick="apAddSave(this)">Save applicant</button>
+          <button class="ghost" onclick="apAddClose()">Cancel</button>
+        </div>
+      </div>
 
       <!-- Reaching back out to people who were right but early. -->
       <div class="card" id="apReCard" style="display:none;padding:16px 18px;margin-top:14px;background:#FFF8E8;border-color:#F5D9A0;">
@@ -20489,6 +20536,82 @@ function apOpenProfile(id){
   apRenderProfile();
   window.scrollTo(0,0);
 }
+/* ---- Adding somebody by hand ----------------------------------------------
+   Augusta applicants, phone calls and walk-ins never touch the apply page, so
+   without this they lived outside the Hub. The row is saved as already
+   "reviewing" and already announced: the office typed it, so the office does
+   not need telling, and the booking-link nudges (which only chase "new" and
+   "partial" rows) leave them alone. completed_at is set so the screen grades
+   them like any finished application. */
+function apAddOpen(){
+  const sel = document.getElementById('apAddPos');
+  sel.innerHTML = AP_POS.map(p=>'<option value="'+escapeHtmlComms(p.key)+'"'+(p.key==='caregiver'?' selected':'')+'>'
+    + escapeHtmlComms(p.label)+'</option>').join('') || '<option value="caregiver">Caregiver</option>';
+  ['apAddFirst','apAddLast','apAddPhone','apAddEmail','apAddCity','apAddZip','apAddNotes']
+    .forEach(id=>{ document.getElementById(id).value=''; });
+  document.getElementById('apAddChannel').value = 'augusta';
+  document.getElementById('apAddSms').checked = false;
+  document.getElementById('apAddErr').style.display = 'none';
+  const card = document.getElementById('apAddCard');
+  card.style.display = 'block';
+  card.scrollIntoView({behavior:'smooth', block:'center'});
+  document.getElementById('apAddFirst').focus();
+}
+function apAddClose(){ document.getElementById('apAddCard').style.display = 'none'; }
+
+async function apAddSave(btn){
+  const v = id => (document.getElementById(id).value || '').trim();
+  const err = document.getElementById('apAddErr');
+  const say = m => { err.textContent = m; err.style.display = 'block'; };
+  err.style.display = 'none';
+  const first = v('apAddFirst'), last = v('apAddLast'), phone = v('apAddPhone'), email = v('apAddEmail');
+  if(!first) return say('A first name is needed.');
+  if(!phone && !email) return say('Add a phone number or an email, or there is no way to reach them.');
+  const digits = phone.replace(/[^0-9]/g,'').replace(/^1(?=\d{10}$)/,'');
+  if(phone && digits.length !== 10) return say('That phone number does not look like 10 digits.');
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return say('That email does not look right.');
+
+  /* Same person already on file? Say so before making a second row. The
+     screen would mark it a duplicate anyway, but a warning now saves a mess. */
+  const same = AP_ROWS.find(r =>
+    (digits && String(r.phone||'').replace(/[^0-9]/g,'').slice(-10) === digits) ||
+    (email && String(r.email||'').toLowerCase() === email.toLowerCase()));
+  if(same){
+    const nm = ((same.first_name||'')+' '+(same.last_name||'')).trim() || 'someone';
+    const when = same.created_at ? new Date(same.created_at).toLocaleDateString('en-US',{month:'short', day:'numeric', year:'numeric'}) : '';
+    if(!confirm(nm + ' already applied with this phone or email' + (when?' on '+when:'') + '.\n\n'
+      + 'OK opens their existing page instead. Cancel goes back to the form.')) return;
+    apAddClose(); apOpenProfile(same.id); return;
+  }
+
+  const posKey = v('apAddPos') || 'caregiver';
+  const pos = AP_POS.find(p=>p.key===posKey);
+  const chan = v('apAddChannel') || 'augusta';
+  const now = new Date().toISOString();
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    let who = 'office';
+    try{ const { data:{ user } } = await sb.auth.getUser(); if(user && user.email) who = user.email; }catch(_){}
+    const { data, error } = await sb.from('job_applicants').insert({
+      first_name: first, last_name: last || null,
+      phone: digits || null, email: email || null,
+      city: v('apAddCity') || null, zip: v('apAddZip') || null,
+      position: posKey, posting_title: pos ? pos.label : null,
+      channel: chan, source: 'entered by hand',
+      notes: v('apAddNotes') || null,
+      sms_consent: document.getElementById('apAddSms').checked,
+      status: 'reviewing', completed_at: now, seen_at: now, office_alerted_at: now,
+      reviewed_by: who,
+    }).select('id').single();
+    if(error) throw error;
+    apAddClose();
+    await apLoad();
+    apOpenProfile(data.id);
+  }catch(e){
+    say('Could not save: ' + String(e && e.message || e));
+  }finally{ btn.disabled = false; btn.textContent = 'Save applicant'; }
+}
+
 function apCloseProfile(){
   AP_PROF = null;
   document.getElementById('applicantProfileView').style.display='none';
