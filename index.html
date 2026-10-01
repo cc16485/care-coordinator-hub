@@ -1824,8 +1824,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="card" id="apReCard" style="display:none;padding:16px 18px;margin-top:14px;background:#FFF8E8;border-color:#F5D9A0;">
         <b style="font-size:15px;color:var(--navy);">🎯 Find someone for a case</b>
         <div class="field-note" style="margin-top:3px;">
-          Everyone who ever applied, filtered down to the ones who could actually take these hours. They cleared the
-          screen, were never hired, and have not heard from us in 30 days.
+          Search everyone who ever applied, filtered down to the ones who could actually take these hours (cleared the
+          screen, never hired, not contacted in 30 days). <b>Nothing is sent until you tick who to contact and press Send.</b>
         </div>
         <div class="grid2" style="margin-top:10px;">
           <div><label>Which opening are we pointing them at?</label><select id="apRePosting"></select></div>
@@ -1862,11 +1862,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div class="field-note" style="margin:-4px 0 8px;">We only know somebody's days and shift once they have been interviewed. Anyone we have not asked yet is still included, and says so in the list.</div>
 
         <label>What to say <span style="font-weight:400;color:var(--text-muted);">(their first name is added at the front)</span></label>
-        <textarea id="apReMsg" rows="3" placeholder="we have a new caregiver opening in Nixa with weekday day shifts, and we thought of you. If you are still looking, you can pick an interview time here:"></textarea>
+        <textarea id="apReMsg" rows="3" oninput="apRePreviewRender()" placeholder="we have a new caregiver opening in Nixa with weekday day shifts, and we thought of you. If you are still looking, you can pick an interview time here:"></textarea>
         <div id="apReCount" class="field-note" style="margin-top:8px;white-space:pre-wrap;"></div>
         <div id="apReWhoList" style="margin-top:8px;"></div>
+        <div id="apRePreview" style="margin-top:10px;"></div>
         <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
-          <button class="primary" onclick="apReSend(this)">Send it</button>
+          <button class="primary" id="apReSendBtn" onclick="apReSend(this)" disabled>Send to the people you ticked</button>
           <button class="ghost" onclick="document.getElementById('apReCard').style.display='none'">Cancel</button>
         </div>
         <div id="apReErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
@@ -22654,32 +22655,61 @@ function apReCount(){
     + (list.length ? '\n\nHolding out for: '
         + ([...new Set(list.map(r=>r.pool_wants).filter(Boolean))].join(', ') || 'nothing recorded') : '');
 
-  /* Seeing the names is what stops a send going out to the wrong twelve
-     people, and it is the same list the message goes to. */
+  /* 2026-10-01 (Samantha): "I would rather it be more of a search feature and be able to choose which applicants to
+     text instead of it auto texting without seeing who would be getting the text/email". The matches are a list to
+     tick; nobody is ticked to start with, and only the ticked people are sent anything. */
   const box = document.getElementById('apReWhoList'); if(!box) return;
+  const ids = new Set(list.map(r=>String(r.id)));
+  [...AP_RE_SEL].forEach(id=>{ if(!ids.has(id)) AP_RE_SEL.delete(id); });   // a tick only counts while they still match
   box.innerHTML = !list.length ? '' :
-    '<details style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 12px;">'
-    + '<summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">Who these are</summary>'
-    + '<div style="margin-top:7px;max-height:230px;overflow:auto;">'
-    + list.map(r=>'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;padding:4px 0;border-bottom:1px dashed var(--border);">'
+    '<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 12px;">'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      + '<b style="font-size:13px;color:var(--navy);">Search results: tick who to contact</b><span style="flex:1;"></span>'
+      + '<button class="fb" style="font-size:12px;" onclick="apReTickAll(true)">Tick all</button>'
+      + '<button class="fb" style="font-size:12px;" onclick="apReTickAll(false)">Clear</button></div>'
+    + '<div style="margin-top:7px;max-height:340px;overflow:auto;">'
+    + list.map(r=>{ const id=String(r.id);
+        return '<label style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;padding:6px 0;border-bottom:1px dashed var(--border);cursor:pointer;margin:0;">'
+        + '<input type="checkbox" '+(AP_RE_SEL.has(id)?'checked ':'')+'onchange="apReTick(\''+esc(id)+'\',this.checked)" style="width:auto;margin:0;">'
         + '<b style="color:var(--navy);">'+esc(((r.first_name||'')+' '+(r.last_name||'')).trim())+'</b>'
-        + '<span class="field-note">'+esc([r.city||r.zip, r.pool_wants, (r.post_interview||{}).travel_areas].filter(Boolean).join(' · '))+'</span>'
+        + '<span class="field-note">'+esc([apPosLabel(r.position), r.city||r.zip, r.pool_wants, (r.post_interview||{}).travel_areas].filter(Boolean).join(' · '))+'</span>'
+        + '<a href="javascript:void(0)" style="font-size:12px;color:var(--navy);" onclick="event.preventDefault();event.stopPropagation();apOpenProfile(\''+esc(id)+'\')">profile →</a>'
         + '<span style="flex:1;"></span>'
         + (apReKnown(r) ? '' : '<span style="font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 8px;">hours not asked yet</span>')
-        + (r.phone && r.sms_consent ? '<span style="font-size:11px;color:#15803D;">text ok</span>' : '<span style="font-size:11px;color:#B45309;">email only</span>')
-        + '</div>').join('')
-    + '</div></details>';
+        + (r.phone && r.sms_consent ? '<span style="font-size:11px;color:#15803D;">text + email</span>' : r.email ? '<span style="font-size:11px;color:#B45309;">email only</span>' : '<span style="font-size:11px;color:#B91C1C;">no way to reach</span>')
+        + '</label>'; }).join('')
+    + '</div></div>';
+  apRePreviewRender();
 }
+const AP_RE_SEL = new Set();
+function apReTick(id, on){ if(on) AP_RE_SEL.add(String(id)); else AP_RE_SEL.delete(String(id)); apRePreviewRender(); }
+function apReTickAll(on){ apReengageList().forEach(r=>{ if(on) AP_RE_SEL.add(String(r.id)); else AP_RE_SEL.delete(String(r.id)); }); apReCount(); }
+function apReSelected(){ return apReengageList().filter(r=>AP_RE_SEL.has(String(r.id))); }
+function apRePreviewRender(){
+  const esc = escapeHtmlComms, box = document.getElementById('apRePreview'), btn = document.getElementById('apReSendBtn');
+  const sel = apReSelected(), msg = ((document.getElementById('apReMsg')||{}).value||'').trim();
+  if(btn){ btn.disabled = !sel.length; btn.textContent = sel.length ? 'Send to the ' + sel.length + ' ' + (sel.length===1?'person':'people') + ' you ticked' : 'Tick who to contact first'; }
+  if(!box) return;
+  if(!sel.length){ box.innerHTML = '<div class="field-note">Nobody ticked yet, so nothing will be sent.</div>'; return; }
+  const first = sel[0].first_name || 'there';
+  box.innerHTML = '<div style="background:#F7F5F0;border-radius:10px;padding:10px 12px;font-size:13px;">'
+    + '<b>What '+esc(first)+' will get</b> (each person gets their own name and booking link)'
+    + '<div style="white-space:pre-wrap;margin-top:6px;">'+esc('Hi ' + first + ', ' + (msg || '[what to say]') + ' https://mo-care.com/apply?book=… Reply STOP to hear no more from us.')+'</div>'
+    + '<div class="field-note" style="margin-top:6px;">Text only to people who said yes to texts; everyone with an email gets it by email. Sending to: '
+    + esc(sel.map(r=>((r.first_name||'')+' '+(r.last_name||'')).trim()).join(', ')) + '</div></div>';
+}
+window.apReTick = apReTick; window.apReTickAll = apReTickAll;
 
 async function apReSend(btn){
   const err = document.getElementById('apReErr');
   const msg = (document.getElementById('apReMsg').value||'').trim();
   const slug = (document.getElementById('apRePosting')||{}).value || '';
-  const list = apReengageList();
+  const list = apReSelected();   // ONLY the people ticked (2026-10-01)
   if(!msg){ err.textContent='Write what you want to say.'; err.style.display='block'; return; }
   if(!slug){ err.textContent='Publish a job posting first, so there is something to point them at.'; err.style.display='block'; return; }
-  if(!list.length){ err.textContent='Nobody matches. Everyone eligible has heard from us in the last 30 days.'; err.style.display='block'; return; }
-  if(!confirm('Send this to ' + list.length + ' ' + (list.length===1?'person':'people') + '?')) return;
+  if(!list.length){ err.textContent='Tick who to contact first. Nothing was sent.'; err.style.display='block'; return; }
+  if(!confirm('Send this to these ' + list.length + ' ' + (list.length===1?'person':'people') + '?\n\n'
+    + list.map(r=>'• ' + ((r.first_name||'')+' '+(r.last_name||'')).trim()).join('\n'))) return;
   err.style.display='none';
   btn.disabled = true; btn.textContent = 'Sending…';
   try{
@@ -22688,13 +22718,14 @@ async function apReSend(btn){
     });
     if(error) throw error;
     document.getElementById('apReCard').style.display='none';
+    AP_RE_SEL.clear();
     /* NO SILENT FAILURES (2026-10-01): say who it didn't reach (each also has a "Didn't go through" card) */
     alert('Sent to ' + ((data && data.sent) ?? list.length) + '.' + (data && data.ok === false && data.error ? '\n\n' + data.error : ''));
     await apLoad();
   }catch(e){
     err.textContent = 'Could not send: ' + (e&&e.message||'error');
     err.style.display='block';
-  }finally{ btn.disabled=false; btn.textContent='Send it'; }
+  }finally{ apRePreviewRender(); }
 }
 
 /* ---- A coordinator's own calendar ------------------------------------------
