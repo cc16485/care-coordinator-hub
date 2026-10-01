@@ -3896,8 +3896,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <details style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
           <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">Interview length, notice and how far ahead</summary>
           <div class="grid2" style="margin-top:10px;">
-            <div><label>How long is an interview? <span style="font-weight:400;color:var(--text-muted);">(minutes)</span></label>
+            <div><label>Calendar slot per interview <span style="font-weight:400;color:var(--text-muted);">(minutes, includes time between)</span></label>
               <input id="iv_len" inputmode="numeric" placeholder="30"></div>
+            <!-- 2026-10-01 (Samantha): "say 20 minutes for the interview, we want a 30 minutes slot to give the
+                 interviewer time in between". Applicants are told this; the slot above is what the calendar blocks. -->
+            <div><label>Interview length we tell applicants <span style="font-weight:400;color:var(--text-muted);">(minutes)</span></label>
+              <input id="iv_talk" inputmode="numeric" placeholder="20"></div>
             <div><label>Least notice you will accept <span style="font-weight:400;color:var(--text-muted);">(hours)</span></label>
               <input id="iv_lead" inputmode="numeric" placeholder="20"></div>
           </div>
@@ -22920,7 +22924,7 @@ async function ivLoad(btn){
     }
     const it = IV_ACTS.find(x=>x.key==='interview');
     if(it){ const iv=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v==null?'':v; };
-      iv('iv_len', it.minutes); iv('iv_lead', it.lead_hours); iv('iv_horizon', it.horizon_days); }
+      iv('iv_len', it.minutes); iv('iv_talk', it.talk_minutes); iv('iv_lead', it.lead_hours); iv('iv_horizon', it.horizon_days); }
     ivRenderFilter(); ivRender();
     /* Deliberately after the roster is on screen and in its own guard: a
        problem reading somebody else's JSON must never blank this card. */
@@ -23204,7 +23208,7 @@ async function ivSaveSettings(btn){
   if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   try{
     const a = await sb.from('activity_types')
-      .update({ minutes: n('iv_len') || 30, lead_hours: n('iv_lead') ?? 20, horizon_days: n('iv_horizon') || 14 })
+      .update({ minutes: n('iv_len') || 30, talk_minutes: n('iv_talk') || 20, lead_hours: n('iv_lead') ?? 20, horizon_days: n('iv_horizon') || 14 })
       .eq('key','interview');
     if(a.error) throw a.error;
     const ds = t('iv_daystart') || '07:00', de = t('iv_dayend') || '19:00';
