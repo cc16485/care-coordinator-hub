@@ -25,6 +25,9 @@
   html.embedded.focused .fbar{ display:none; }
   html.embedded .topbar img{ display:none; }
   html.embedded .topbar{ padding-top:6px; padding-bottom:6px; }
+/* Applicant pop-ups (2026-10-01): "Send the application" and "Add an applicant" open over the page */
+.ap-pop{position:fixed !important;z-index:10001;top:50%;left:50%;transform:translate(-50%,-50%);width:min(640px,calc(100vw - 32px));max-height:88vh;overflow:auto;margin:0 !important;box-shadow:0 20px 60px rgba(14,56,96,.28);}
+#apPopBg{position:fixed;inset:0;background:rgba(14,56,96,.38);z-index:10000;display:none;}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Poppins:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <title>Leads, Clients &amp; Care — Caring Companions</title>
@@ -1716,112 +1719,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="ghost" onclick="apLoad(this)">↻ Refresh</button>
       </div>
 
-      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
-        <div id="apFilter" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
-        <span style="flex:1;"></span>
-        <select id="apPos" onchange="apRender()" style="font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;">
-          <option value="">All positions</option>
-        </select>
-        <input id="apSearch" type="search" placeholder="Search by name" oninput="apRender()"
-               style="flex:0 1 220px;font:inherit;font-size:13px;padding:7px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;">
-      </div>
-
-      <div class="card" style="padding:16px 18px;">
-        <div id="apList"><div class="field-note">Loading…</div></div>
-      </div>
-
-
-
-
-
-      <!-- Somebody phoned asking about a job: send them that position's application.
-           Server-side (applicant-invite): staff only, fixed wording, opt-out door, 8am to 6pm. -->
-      <div class="card" id="apInvCard" style="display:none;padding:16px 18px;margin-top:14px;">
-        <b style="font-size:15px;color:var(--navy);">📨 Send the application</b>
-        <div class="field-note" style="margin-top:3px;">
-          For someone who called asking about a job. They get a link to that position's application. Nothing goes out
-          until you press Send, and you see exactly what they will get first. The wording is in Settings.
-        </div>
-        <div class="grid2" style="margin-top:10px;">
-          <div><label>First name</label><input id="apInvFirst" autocomplete="off"></div>
-          <div><label>Last name</label><input id="apInvLast" autocomplete="off"></div>
-        </div>
-        <div class="grid2">
-          <div><label>Phone</label><input id="apInvPhone" inputmode="tel" autocomplete="off"></div>
-          <div><label>Email</label><input id="apInvEmail" type="email" autocomplete="off"></div>
-        </div>
-        <div class="grid2">
-          <div><label>Position they asked about</label><select id="apInvPos"></select></div>
-          <div></div>
-        </div>
-        <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:8px;">
-          <input type="checkbox" id="apInvSms" style="width:auto;margin-top:3px;">
-          <span>They asked us to text it. Without this tick it goes by email only.</span>
-        </label>
-        <div id="apInvPreview" style="display:none;margin-top:10px;"></div>
-        <div id="apInvMsg" class="field-note" style="display:none;margin-top:8px;"></div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;">
-          <button class="secondary" id="apInvPrevBtn" onclick="apInvPreview(this)">Preview</button>
-          <button class="primary" id="apInvSendBtn" onclick="apInvSend(this)" disabled>Send</button>
-          <button class="ghost" onclick="apInvClose()">Cancel</button>
-        </div>
-      </div>
-
-      <div class="card" id="apInvListCard" style="display:none;padding:16px 18px;margin-top:14px;">
-        <b style="font-size:15px;color:var(--navy);">Sent the link, hasn't applied</b>
-        <div class="field-note" style="margin-top:3px;">People who called and were sent the application in the last 30 days
-          but have not applied yet. After 2 days, give them a call. Nobody is texted again automatically.</div>
-        <div id="apInvList" style="margin-top:8px;"></div>
-      </div>
-
-      <!-- Somebody who applied somewhere the Hub cannot see (Augusta, a phone
-           call, a walk-in) is typed in here so they live on the same record. -->
-      <div class="card" id="apAddCard" style="display:none;padding:16px 18px;margin-top:14px;">
-        <b style="font-size:15px;color:var(--navy);">＋ Add an applicant by hand</b>
-        <div class="field-note" style="margin-top:3px;">
-          For someone who applied through Augusta, called in, or walked in. They are screened the same way as an
-          online application (duplicate and do-not-rehire checks, distance from the office). Nothing is sent to them
-          and nobody is alerted when you save. Once they are in, open their page to book an interview.
-        </div>
-        <div class="grid2" style="margin-top:10px;">
-          <div><label>First name</label><input id="apAddFirst" autocomplete="off"></div>
-          <div><label>Last name</label><input id="apAddLast" autocomplete="off"></div>
-        </div>
-        <div class="grid2">
-          <div><label>Phone</label><input id="apAddPhone" inputmode="tel" autocomplete="off"></div>
-          <div><label>Email</label><input id="apAddEmail" type="email" autocomplete="off"></div>
-        </div>
-        <div class="grid2">
-          <div><label>City</label><input id="apAddCity" autocomplete="off"></div>
-          <div><label>Zip</label><input id="apAddZip" inputmode="numeric" maxlength="10" autocomplete="off"></div>
-        </div>
-        <div class="grid2">
-          <div><label>Position</label><select id="apAddPos"></select></div>
-          <div><label>Where they applied</label>
-            <select id="apAddChannel">
-              <option value="augusta">Augusta</option>
-              <option value="phone">Called the office</option>
-              <option value="walk-in">Walked in</option>
-              <option value="referral">Referred by someone</option>
-              <option value="other">Somewhere else</option>
-            </select></div>
-        </div>
-        <label>Notes (experience, availability, anything from their Augusta application)</label>
-        <textarea id="apAddNotes" rows="3"></textarea>
-        <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:8px;">
-          <input type="checkbox" id="apAddSms" style="width:auto;margin-top:3px;">
-          <span>They agreed to texts from us. Only tick this if they told you so. It lets the interview
-          confirmation and reminders go by text as well as email.</span>
-        </label>
-        <div id="apAddErr" class="field-note" style="display:none;color:var(--red);margin-top:8px;"></div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;">
-          <button class="primary" id="apAddSave" onclick="apAddSave(this)">Save applicant</button>
-          <button class="ghost" onclick="apAddClose()">Cancel</button>
-        </div>
-      </div>
-
-      <!-- Reaching back out to people who were right but early. -->
-      <div class="card" id="apReCard" style="display:none;padding:16px 18px;margin-top:14px;background:#FFF8E8;border-color:#F5D9A0;">
+      <!-- 2026-10-01 (Samantha): "Find someone for a case" opens here at the top of the page -->
+      <div class="card" id="apReCard" style="display:none;scroll-margin-top:150px;padding:16px 18px;margin:0 0 14px;background:#FFF8E8;border-color:#F5D9A0;">
         <b style="font-size:15px;color:var(--navy);">🎯 Find someone for a case</b>
         <div class="field-note" style="margin-top:3px;">
           Search everyone who ever applied, filtered down to the ones who could actually take these hours (cleared the
@@ -1872,6 +1771,112 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div id="apReErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
       </div>
+
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+        <div id="apFilter" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        <span style="flex:1;"></span>
+        <select id="apPos" onchange="apRender()" style="font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;">
+          <option value="">All positions</option>
+        </select>
+        <input id="apSearch" type="search" placeholder="Search by name" oninput="apRender()"
+               style="flex:0 1 220px;font:inherit;font-size:13px;padding:7px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;">
+      </div>
+
+      <div class="card" style="padding:16px 18px;">
+        <div id="apList"><div class="field-note">Loading…</div></div>
+      </div>
+
+
+
+
+
+      <!-- Somebody phoned asking about a job: send them that position's application.
+           Server-side (applicant-invite): staff only, fixed wording, opt-out door, 8am to 6pm. -->
+      <div class="card ap-pop" id="apInvCard" role="dialog" aria-modal="true" style="display:none;padding:16px 18px;">
+        <b style="font-size:15px;color:var(--navy);">📨 Send the application</b>
+        <div class="field-note" style="margin-top:3px;">
+          For someone who called asking about a job. They get a link to that position's application. Nothing goes out
+          until you press Send, and you see exactly what they will get first. The wording is in Settings.
+        </div>
+        <div class="grid2" style="margin-top:10px;">
+          <div><label>First name</label><input id="apInvFirst" autocomplete="off"></div>
+          <div><label>Last name</label><input id="apInvLast" autocomplete="off"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Phone</label><input id="apInvPhone" inputmode="tel" autocomplete="off"></div>
+          <div><label>Email</label><input id="apInvEmail" type="email" autocomplete="off"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Position they asked about</label><select id="apInvPos"></select></div>
+          <div></div>
+        </div>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:8px;">
+          <input type="checkbox" id="apInvSms" style="width:auto;margin-top:3px;">
+          <span>They asked us to text it. Without this tick it goes by email only.</span>
+        </label>
+        <div id="apInvPreview" style="display:none;margin-top:10px;"></div>
+        <div id="apInvMsg" class="field-note" style="display:none;margin-top:8px;"></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+          <button class="secondary" id="apInvPrevBtn" onclick="apInvPreview(this)">Preview</button>
+          <button class="primary" id="apInvSendBtn" onclick="apInvSend(this)" disabled>Send</button>
+          <button class="ghost" onclick="apInvClose()">Cancel</button>
+        </div>
+      </div>
+
+      <div class="card" id="apInvListCard" style="display:none;padding:16px 18px;margin-top:14px;">
+        <b style="font-size:15px;color:var(--navy);">Sent the link, hasn't applied</b>
+        <div class="field-note" style="margin-top:3px;">People who called and were sent the application in the last 30 days
+          but have not applied yet. After 2 days, give them a call. Nobody is texted again automatically.</div>
+        <div id="apInvList" style="margin-top:8px;"></div>
+      </div>
+
+      <!-- Somebody who applied somewhere the Hub cannot see (Augusta, a phone
+           call, a walk-in) is typed in here so they live on the same record. -->
+      <div class="card ap-pop" id="apAddCard" role="dialog" aria-modal="true" style="display:none;padding:16px 18px;">
+        <b style="font-size:15px;color:var(--navy);">＋ Add an applicant by hand</b>
+        <div class="field-note" style="margin-top:3px;">
+          For someone who applied through Augusta, called in, or walked in. They are screened the same way as an
+          online application (duplicate and do-not-rehire checks, distance from the office). Nothing is sent to them
+          and nobody is alerted when you save. Once they are in, open their page to book an interview.
+        </div>
+        <div class="grid2" style="margin-top:10px;">
+          <div><label>First name</label><input id="apAddFirst" autocomplete="off"></div>
+          <div><label>Last name</label><input id="apAddLast" autocomplete="off"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Phone</label><input id="apAddPhone" inputmode="tel" autocomplete="off"></div>
+          <div><label>Email</label><input id="apAddEmail" type="email" autocomplete="off"></div>
+        </div>
+        <div class="grid2">
+          <div><label>City</label><input id="apAddCity" autocomplete="off"></div>
+          <div><label>Zip</label><input id="apAddZip" inputmode="numeric" maxlength="10" autocomplete="off"></div>
+        </div>
+        <div class="grid2">
+          <div><label>Position</label><select id="apAddPos"></select></div>
+          <div><label>Where they applied</label>
+            <select id="apAddChannel">
+              <option value="augusta">Augusta</option>
+              <option value="phone">Called the office</option>
+              <option value="walk-in">Walked in</option>
+              <option value="referral">Referred by someone</option>
+              <option value="other">Somewhere else</option>
+            </select></div>
+        </div>
+        <label>Notes (experience, availability, anything from their Augusta application)</label>
+        <textarea id="apAddNotes" rows="3"></textarea>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:8px;">
+          <input type="checkbox" id="apAddSms" style="width:auto;margin-top:3px;">
+          <span>They agreed to texts from us. Only tick this if they told you so. It lets the interview
+          confirmation and reminders go by text as well as email.</span>
+        </label>
+        <div id="apAddErr" class="field-note" style="display:none;color:var(--red);margin-top:8px;"></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+          <button class="primary" id="apAddSave" onclick="apAddSave(this)">Save applicant</button>
+          <button class="ghost" onclick="apAddClose()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Reaching back out to people who were right but early. -->
     </section>
 
     <!-- ===================== TAB: INTERVIEWS ===================== -->
@@ -21160,11 +21165,10 @@ function apInvOpen(){
   ['apInvFirst','apInvLast','apInvPhone','apInvEmail','apInvPos','apInvSms'].forEach(id=>{
     const el = document.getElementById(id); el.oninput = apInvReset; el.onchange = apInvReset; });
   const card = document.getElementById('apInvCard');
-  card.style.display = 'block';
-  card.scrollIntoView({behavior:'smooth', block:'center'});
+  apPopShow(card);
   document.getElementById('apInvFirst').focus();
 }
-function apInvClose(){ document.getElementById('apInvCard').style.display = 'none'; }
+function apInvClose(){ apPopHide(document.getElementById('apInvCard')); }
 /* Any change after a preview means the preview no longer shows what would go. */
 function apInvReset(){
   AP_INV_OK = null;
@@ -21253,11 +21257,24 @@ function apAddOpen(){
   document.getElementById('apAddSms').checked = false;
   document.getElementById('apAddErr').style.display = 'none';
   const card = document.getElementById('apAddCard');
-  card.style.display = 'block';
-  card.scrollIntoView({behavior:'smooth', block:'center'});
+  apPopShow(card);
   document.getElementById('apAddFirst').focus();
 }
-function apAddClose(){ document.getElementById('apAddCard').style.display = 'none'; }
+function apAddClose(){ apPopHide(document.getElementById('apAddCard')); }
+/* 2026-10-01 (Samantha): "Send the application" and "Add an applicant" pop up over the page instead of opening at the
+   bottom of it. Closes with Cancel, a click outside, or Esc. */
+function apPopShow(card){
+  let bg = document.getElementById('apPopBg');
+  if(!bg){ bg = document.createElement('div'); bg.id = 'apPopBg';
+    bg.onclick = () => document.querySelectorAll('.ap-pop').forEach(apPopHide); document.body.appendChild(bg); }
+  if(card.parentElement !== document.body) document.body.appendChild(card);   // above every tab and frame
+  bg.style.display = 'block'; card.style.display = 'block';
+}
+function apPopHide(card){
+  if(card) card.style.display = 'none';
+  if(![...document.querySelectorAll('.ap-pop')].some(c=>c.style.display==='block')){ const bg=document.getElementById('apPopBg'); if(bg) bg.style.display='none'; }
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.ap-pop').forEach(c=>{ if(c.style.display==='block') apPopHide(c); }); });
 
 async function apAddSave(btn){
   const v = id => (document.getElementById(id).value || '').trim();
@@ -22631,7 +22648,7 @@ function apReengage(){
   ['apRePos','apReWho','apReExp','apReShift'].forEach(id=>{
     const el = document.getElementById(id); if(el) el.onchange = apReCount;
   });
-  card.scrollIntoView({behavior:'smooth', block:'center'});
+  card.scrollIntoView({behavior:'smooth', block:'start'});
 }
 function apReDay(k){
   AP_RE_DAYS[k] = !AP_RE_DAYS[k];
