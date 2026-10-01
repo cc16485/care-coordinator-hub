@@ -20142,7 +20142,7 @@ const apDays = iso => (Date.now() - new Date(iso).getTime()) / 864e5;
 const AP_VIEWS = [
   ['new','New'], ['qualified','Qualified'], ['review','Needs a look'], ['booked','Interview booked'],
   ['starting','Starting soon'],
-  ['pool','Candidate pool'], ['unqualified','Not qualified'], ['inactive','Inactive'], ['all','Everyone'],
+  ['pool','Candidate pool'], ['noshow','🚫 No-shows'], ['unqualified','Not qualified'], ['inactive','Inactive'], ['all','Everyone'],
 ];
 
 async function apLoad(btn){
@@ -20211,8 +20211,11 @@ function apMatching(k, ignorePosition){
   return AP_ROWS.filter(r=>{
     if(pos && r.position !== pos) return false;
     if(q && !((r.first_name||'')+' '+(r.last_name||'')).toLowerCase().includes(q)) return false;
-    const booked = !!AP_BOOK[r.id];
+    /* NO-SHOW (2026-10-01): a no-show's interview row is kept, but it is not a booking. */
+    const booked = !!(AP_BOOK[r.id] && AP_BOOK[r.id].status==='booked');
+    if(r.status==='noshow' && k!=='noshow' && k!=='all') return false;
     switch(k){
+      case 'noshow':     return r.status==='noshow';
       case 'all':        return true;
       /* A second application is the same person twice. It stays on the record
          and out of every working list, so nobody rings them about it. */
@@ -20273,6 +20276,8 @@ function apChips(r){
   if(r.work_auth===false) out.push(chip('Not authorized to work','bad'));
   if(r.has_transport===false) out.push(chip('No transport','bad'));
   if(r.screen_grade==='duplicate') out.push(chip('Applied before','warn'));
+  if(r.status!=='noshow' && r.noshow_excused_at) out.push(chip('No-show excused','warn'));
+  if(r.status!=='noshow' && apNoshowElsewhere(r)) out.push(chip('🚫 Previous NO-SHOW','bad'));
   /* Reliability, before it costs a client a shift. At two their self-serve
      changes stop and any further moves come through the phone. */
   if(AP_CHURN[r.id]) out.push(chip('🔁 Moved/cancelled interview ×'+AP_CHURN[r.id], AP_CHURN[r.id]>=2?'warn':''));
@@ -20341,7 +20346,9 @@ function apRender(){
   box.innerHTML = sweep + rows.map(r=>{
     const b = AP_BOOK[r.id];
     const nudges = [r.nudge_1_at,r.nudge_2_at,r.nudge_3_at].filter(Boolean).length;
-    const line = b
+    const line = r.status==='noshow'
+      ? apNoshowBadge(r)
+      : b && b.status==='booked'
       ? '<span style="font-size:12px;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:2px 10px;">'
         + '📅 ' + esc(when(b.starts_at)) + (AP_COORD[b.coordinator_id]?' with '+esc(AP_COORD[b.coordinator_id]):'') + '</span>'
       : r.status==='pool'
@@ -20401,6 +20408,7 @@ function apRender(){
                 ? '<button class="fb" onclick="apToPool(\''+esc(r.id)+'\')">🗂 Candidate pool</button>' : ''))
         /* Everything that needs a form now happens on their page, so a list of
            hundreds never has one opening underneath it. */
+        + (r.status==='noshow' ? '<button class="fb" style="color:#15803D;font-weight:700;" onclick="apNoshowExcuse(\''+esc(r.id)+'\')">✅ Excuse no-show &amp; rebook</button>' : '')
         + '<button class="secondary" onclick="apOpenProfile(\''+esc(r.id)+'\')">👤 Open their profile</button>'
         + (r.status==='new'?'<button class="fb" onclick="apSetStatus(\''+esc(r.id)+'\',\'reviewing\')">Mark as reviewing</button>':'')
         + (r.status!=='declined'?'<button class="fb" style="color:var(--red);" onclick="apDecline(\''+esc(r.id)+'\')">Not moving forward</button>'
@@ -21360,6 +21368,7 @@ function apRenderProfile(){
     /* When they were turned down, the profile must say WHY — the reason was
        being saved but never shown here. Falls back to `notes` so reasons saved
        before the column fix are still visible. */
+    + apNoshowPanel(r)
     + (r.status==='declined'
         ? '<div style="margin-top:12px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:9px;padding:10px 12px;font-size:13px;color:#991B1B;">'
           + '<b>Not moving forward</b>'
@@ -22206,7 +22215,97 @@ async function apInterview(id){
   c.scrollIntoView({behavior:'smooth', block:'center'});
 }
 
+/* ---- Interview no-shows (2026-10-01, Samantha) -------------------------------
+   "We are pushing the no show button and nothing happens. We want them labeled largely", "send both text and email",
+   "they need to be in a no-show category and not allowed to re-apply", "Give us the option to excuse the no-show and
+   rebook the interview if they call us and give us a reason". The server (applicant-noshow) marks them, sends her
+   fixed text + email through GoHighLevel (so they show in Conversations) and records an excuse; the database refuses
+   a new application or a booking from a no-show's phone or email. */
+function apNoshowBadge(r){
+  return '<span style="font-size:13.5px;font-weight:900;letter-spacing:.02em;color:#fff;background:#B91C1C;border-radius:8px;padding:4px 12px;">'
+    + '🚫 NO-SHOW · not eligible to reapply</span>';
+}
+function apNoshowElsewhere(r){
+  const d = s => String(s||'').replace(/\D/g,'').slice(-10), e = s => String(s||'').trim().toLowerCase();
+  const p = d(r.phone), m = e(r.email);
+  return AP_ROWS.some(x => x.id!==r.id && x.status==='noshow' && ((p.length===10 && d(x.phone)===p) || (m && e(x.email)===m)));
+}
+function apNoshowPanel(r){
+  const esc = escapeHtmlComms;
+  const day = iso => iso ? new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
+  if(r.status==='noshow'){
+    return '<div style="margin-top:12px;background:#B91C1C;color:#fff;border-radius:10px;padding:12px 14px;">'
+      + '<div style="font-size:18px;font-weight:900;letter-spacing:.02em;">🚫 NO-SHOW</div>'
+      + '<div style="font-size:13px;margin-top:3px;">Missed their interview' + (r.noshow_at ? ' · marked ' + esc(day(r.noshow_at)) + (r.noshow_by ? ' by ' + esc(r.noshow_by) : '') : '')
+      + '. Not eligible to reapply or to book.</div>'
+      + '<div style="font-size:12.5px;margin-top:4px;opacity:.95;">' + (r.noshow_msg_at ? '✓ No-show text/email sent ' + esc(day(r.noshow_msg_at)) : 'The no-show message has not gone yet.') + '</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
+      + '<button class="secondary" style="background:#fff;color:#15803D;font-weight:800;" onclick="apNoshowExcuse(\''+esc(r.id)+'\')">✅ Excuse no-show &amp; rebook</button>'
+      + (!r.noshow_msg_at ? '<button class="secondary" style="background:#fff;color:#B91C1C;" onclick="apNoshowSend(\''+esc(r.id)+'\',this)">Send the no-show message</button>' : '')
+      + '</div></div>';
+  }
+  if(r.noshow_excused_at){
+    return '<div style="margin-top:12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:9px;padding:10px 12px;font-size:13px;color:#92400E;">'
+      + '<b>No-show excused</b> ' + esc(day(r.noshow_excused_at)) + (r.noshow_excused_by ? ' by ' + esc(r.noshow_excused_by) : '')
+      + (r.noshow_excuse_reason ? '<div style="margin-top:4px;">Reason they gave: ' + esc(r.noshow_excuse_reason) + '</div>' : '') + '</div>';
+  }
+  return apNoshowElsewhere(r)
+    ? '<div style="margin-top:12px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:9px;padding:10px 12px;font-size:13px;color:#991B1B;"><b>🚫 Previous NO-SHOW</b><div style="margin-top:4px;">An earlier application with this phone or email was a no-show.</div></div>'
+    : '';
+}
+async function apNoshowCall(body){
+  const { data, error } = await sb.functions.invoke('applicant-noshow', { body });
+  if(error){ let m = error.message || 'error'; try{ const j = await error.context.json(); if(j && j.error) m = j.error; }catch(_){} throw new Error(m); }
+  if(data && data.error && !data.marked) throw new Error(data.error);
+  return data || {};
+}
+function apNoshowResult(d){
+  if(d.already_sent) return 'Marked as a no-show. The no-show message had already been sent.';
+  if(d.held) return 'Marked as a no-show.\n\n' + d.held;
+  const sent = [d.texted ? 'text' : '', d.emailed ? 'email' : ''].filter(Boolean);
+  return 'Marked as a no-show.' + (sent.length ? '\n\nSent by ' + sent.join(' and ') + '. It shows in their GoHighLevel conversation.' : '\n\nNo message went.')
+    + ((d.not_sent && d.not_sent.length) ? '\n\nNot sent: ' + d.not_sent.join('; ') : '') + (d.error ? '\n\n' + d.error : '');
+}
+async function apNoshowMark(id, btn){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id));
+  if(!r){ alert('Could not match this to an applicant on the list. Reload the page and open their interview again. Nothing was recorded.'); return; }
+  if(btn) btn.disabled = true;
+  try{
+    const p = await apNoshowCall({ action:'preview', id });
+    const who = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'this applicant';
+    const goes = [p.text ? 'a TEXT' : '', p.email ? 'an EMAIL' : ''].filter(Boolean).join(' and ') || 'no message (no usable phone or email)';
+    if(!confirm('Mark ' + who + ' as a NO-SHOW?\n\nThey will not be able to reapply or book again unless you excuse it.\n\nThis sends ' + goes + ':'
+      + (p.text ? '\n\n— TEXT —\n' + p.text : '') + (p.no_text_why ? '\n\n(No text: ' + p.no_text_why + '.)' : '')
+      + (p.email ? '\n\n— EMAIL — ' + p.email.subject : ''))) return;
+    const d = await apNoshowCall({ action:'mark', id });
+    const card = document.getElementById('apIntCard'); if(card) card.style.display='none';
+    await apLoad();
+    alert(apNoshowResult(d));
+  }catch(e){ alert('Could not mark the no-show: ' + (e && e.message || e) + '\n\nNothing was sent.'); }
+  finally{ if(btn) btn.disabled = false; }
+}
+async function apNoshowSend(id, btn){
+  if(!confirm('Send the no-show text and email now?')) return;
+  if(btn) btn.disabled = true;
+  try{ const d = await apNoshowCall({ action:'send', id }); await apLoad(); alert(apNoshowResult(d)); }
+  catch(e){ alert('Could not send it: ' + (e && e.message || e)); }
+  finally{ if(btn) btn.disabled = false; }
+}
+async function apNoshowExcuse(id){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  const reason = prompt('Excuse ' + ((r.first_name||'')+' '+(r.last_name||'')).trim() + "'s no-show?\n\nWrite down the reason they gave (kept on their record). Then pick a new interview time.", '');
+  if(reason===null) return;
+  if(!reason.trim()){ alert('Write down the reason they gave. Nothing was changed.'); return; }
+  try{
+    await apNoshowCall({ action:'excuse', id, reason: reason.trim() });
+    await apLoad();
+    apBookFor(id);
+  }catch(e){ alert('Could not excuse it: ' + (e && e.message || e)); }
+}
+window.apNoshowMark = apNoshowMark; window.apNoshowSend = apNoshowSend; window.apNoshowExcuse = apNoshowExcuse;
+
 async function apOutcome(outcome, btn){
+  if(outcome==='noshow') return apNoshowMark(document.getElementById('apIntId').value, btn);
   const id = document.getElementById('apIntId').value;
   const r = AP_ROWS.find(x=>String(x.id)===String(id));
   if(!r){ alert('Could not match this to an applicant on the list — reload the page and open their interview again. Nothing was recorded.'); return; }
