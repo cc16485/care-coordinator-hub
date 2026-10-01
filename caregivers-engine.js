@@ -1678,7 +1678,8 @@ async function createRefRequests(c){
      load means no mutation and no outreach, full stop. */
   if (!HYDRATED) { console.warn('BLOCKED createRefRequests: shared data not loaded, no reference rows created and no chase invoked'); return []; }
   const slots = [1,2,3,4]
-    .map(n => ({ n, name: c['r'+n+'n'], phone: c['r'+n+'_phone'], email: c['r'+n+'_email'], rel: c['r'+n+'_rel'], status: c['r'+n+'s'] }))
+    .map(n => ({ n, name: c['r'+n+'n'], phone: c['r'+n+'_phone'], email: c['r'+n+'_email'], rel: c['r'+n+'_rel'], status: c['r'+n+'s'],
+                 type: obRefType(c['r'+n+'_type']), company: c['r'+n+'_company'] || '' }))
     .filter(r => r.name && (r.phone || r.email) && r.status === 'Pending');
   if (!slots.length) return [];
   let existing = [];
@@ -1699,6 +1700,8 @@ async function createRefRequests(c){
          started the chase clock on a message nobody received, so the reference's
          first contact was a reminder to answer a question never asked. */
       ref_relationship: r.rel || null, sent_at: null,
+      /* R1: which question set the reference is shown (refs_r1r5.sql). */
+      ref_type: r.type || null, ref_company: r.company || null,
     }))).select();
   if (error) throw error;
   /* Ask them now rather than at tomorrow's run. The function only touches rows
@@ -1761,9 +1764,10 @@ async function askReferences(candId, btn){
     const url = 'https://cc.mo-care.com/reference.html?r=' + encodeURIComponent(r.id)
       + '&c=' + encodeURIComponent(cname)
       + '&n=' + encodeURIComponent(r.ref_name || '')
-      + (r.ref_relationship ? '&rel=' + encodeURIComponent(r.ref_relationship) : '');
+      + (r.ref_relationship ? '&rel=' + encodeURIComponent(r.ref_relationship) : '')
+      + obRefLinkExtra(r.ref_type || c['r' + r.slot + '_type'], r.ref_company || c['r' + r.slot + '_company']);
     const msg = 'Hi ' + (r.ref_name || 'there') + ", this is Caring Companions In-Home Senior Care. "
-      + cname + ' listed you as a reference for a caregiving job. Five quick questions, about two minutes: '
+      + cname + ' listed you as a reference for a caregiving job. A few quick questions, about two minutes: '
       + url + ' Thank you!';
     const digits = String(r.ref_phone || '').replace(/[^0-9+]/g, '');
     /* Email goes out on its own now, so these buttons are for a personal nudge
@@ -1881,6 +1885,7 @@ async function refReconcile(){
   if (!rows.length) return 0;
 
   let merged = 0;
+  const answered = [];                 // R3: each merged answer gets its dates check + PDF after the save below
   for (const r of rows) {
     const c = candidates.find(x => x.id === r.candidate_id);
     if (!c) continue;
@@ -1890,12 +1895,22 @@ async function refReconcile(){
       staff: 'answered by the reference', via: 'Online form',
       date: String(r.responded_at || '').slice(0,10),
       name: r.responder_name || r.ref_name || '',
-      type: '', relationship: r.ref_relationship || '', how_long: r.how_long || '',
+      type: obRefType(r.ref_type || c['r'+n+'_type']), relationship: r.ref_relationship || '', how_long: r.how_long || '',
       recommend: r.recommend || '', reliability: r.reliability || '',
       interpersonal: r.interpersonal || '', honesty: r.honesty || '',
       concerns: r.concerns || '', notes: r.notes || '',
+      /* R2: the professional and personal answers (refs_r1r5.sql). */
+      rel_answer: r.rel_answer || '', employer_confirmed: r.employer_confirmed || '',
+      emp_from: r.emp_from || '', emp_to: r.emp_to || '', job_title: r.job_title || '',
+      hours_type: r.hours_type || '', rehire: r.rehire || '', trust_family: r.trust_family || '',
+      responder_title: r.responder_title || '', date_check: '',
     };
-    const score = scoreManualRef(r.recommend, r.reliability, r.interpersonal, r.honesty, r.concerns) || 'Pending';
+    if (r.ref_type && !c['r'+n+'_type']) c['r'+n+'_type'] = obRefType(r.ref_type);
+    if (r.ref_company && !c['r'+n+'_company']) c['r'+n+'_company'] = r.ref_company;
+    const m0 = c['r'+n+'_manual'];
+    const score = scoreManualRef(r.recommend, r.reliability, r.interpersonal, r.honesty, r.concerns,
+      { type: m0.type, rehire: m0.rehire, trust_family: m0.trust_family }) || 'Pending';
+    if (score !== 'Pending') answered.push({ id: c.id, n });
     c['r'+n+'s'] = score;
     merged++;
     /* A negative reference on someone about to be alone in a client's home is
@@ -1923,8 +1938,20 @@ async function refReconcile(){
     catch (e) { /* correct locally already; it will retry next pass */ }
   }
   if (merged) {
-    saveCandidates();
+    await saveCandidates();
     try { renderOB(); renderAlerts(); } catch (e) {}
+    /* The answers are saved above, first. The dates check and the PDF come
+       after, so a failure there can never lose what the reference said. */
+    let fails = 0;
+    for (const a of answered) {
+      const ok = await obAfterRefRecorded(a.id, a.n, { save: false, quiet: true });
+      if (!ok) fails++;
+    }
+    if (answered.length) {
+      await saveCandidates();
+      try { renderOB(); } catch (e) {}
+    }
+    if (fails) obToast(fails + ' reference PDF' + (fails === 1 ? '' : 's') + ' could not be made. The answers are saved. Use "Make reference PDFs" to try again.');
   }
   return merged;
 }
@@ -1980,8 +2007,12 @@ async function intakeReconcile(){
         c['r' + n + '_phone'] = ref.phone || '';
         c['r' + n + '_email'] = ref.email || '';
         c['r' + n + '_rel'] = ref.relationship || '';
+        c['r' + n + '_type'] = obRefType(ref.type);
+        c['r' + n + '_company'] = ref.company || '';
+        c['r' + n + '_howlong'] = ref.how_long || '';
       }
     });
+    if (r.no_employer_history != null && c.no_employer_history == null) c.no_employer_history = !!r.no_employer_history;
 
     try {
       /* candidate_id is the AxisCare identity field (script 185; the
@@ -2077,7 +2108,11 @@ async function offerToCandidate(offerId, btn){
     rec['r' + n + '_phone'] = r.phone || '';
     rec['r' + n + '_email'] = r.email || '';
     rec['r' + n + '_rel'] = r.relationship || '';
+    rec['r' + n + '_type'] = obRefType(r.type);
+    rec['r' + n + '_company'] = r.company || '';
+    rec['r' + n + '_howlong'] = r.how_long || '';
   });
+  if (intake && intake.no_employer_history != null) rec.no_employer_history = !!intake.no_employer_history;
   candidates.push(rec);
   saveCandidates();
   renderOB(); renderAlerts();
@@ -3982,9 +4017,17 @@ async function intakeImport(intakeId, btn){
      ssn column, which authenticated is deliberately denied (SSN column-lock), so
      the read failed with "permission denied" and Import was broken for every
      coordinator. These 7 columns are all SELECT-granted to authenticated. */
-  const { data: row, error } = await sb.from('hire_intake')
-    .select('id, first_name, last_name, phone, email, lived_outside_mo, refs')
+  /* no_employer_history (refs_r1r5.sql) is SELECT-granted too. If that script
+     has not run yet the column is missing, so retry without it rather than
+     breaking Import. */
+  let { data: row, error } = await sb.from('hire_intake')
+    .select('id, first_name, last_name, phone, email, lived_outside_mo, refs, no_employer_history')
     .eq('id', intakeId).maybeSingle();
+  if (error && /no_employer_history/.test(String(error.message || ''))) {
+    ({ data: row, error } = await sb.from('hire_intake')
+      .select('id, first_name, last_name, phone, email, lived_outside_mo, refs')
+      .eq('id', intakeId).maybeSingle());
+  }
   if (error || !row) {
     alert('Could not read that submission: ' + (error ? error.message : 'not found'));
     if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
@@ -4010,7 +4053,11 @@ async function intakeImport(intakeId, btn){
     rec['r'+n+'_phone'] = ref.phone || '';
     rec['r'+n+'_email'] = ref.email || '';
     rec['r'+n+'_rel'] = ref.relationship || '';
+    rec['r'+n+'_type'] = obRefType(ref.type);
+    rec['r'+n+'_company'] = ref.company || '';
+    rec['r'+n+'_howlong'] = ref.how_long || '';
   });
+  if (row.no_employer_history != null) rec.no_employer_history = !!row.no_employer_history;
   candidates.push(rec);
   /* Gate A (owner ruling 2026-09-22): the workspace must be CONFIRMED in the
      shared database before we mark this submission seen. seen_at is what drops
@@ -4853,10 +4900,11 @@ async function bgrSaveCheck(btn){
    medias.write scope — no code change needed then) and send a Google Drive copy
    through the candidate webhook. This files a document; it never messages the
    caregiver. */
-async function bgrPushDocToGHL(candId, which, proof){
+async function bgrPushDocToGHL(candId, which, proof, labelOverride){
   const c = candidates.find(x => x.id === candId);
   if(!c || (!c.email && !c.phone) || !proof) return;
-  const label = ({oig:'OIG',edl:'EDL',fcsr:'FCSR',fp:'Fingerprint'}[which] || which) + ' background check';
+  /* labelOverride (R3): a reference PDF reads "Reference 1 (Professional): Jane Doe". */
+  const label = labelOverride || (({oig:'OIG',edl:'EDL',fcsr:'FCSR',fp:'Fingerprint'}[which] || which) + ' background check');
   const fname = /^https?:\/\//i.test(proof) ? 'document' : (String(proof).split('/').pop() || 'document.pdf');
   /* T2 (2026-09-28): filed onto the GoHighLevel contact with your own sign-in. The function fetches the document
      from our storage by a 10-minute link right away; no long-lived link goes to GoHighLevel, and a pasted outside
@@ -4983,6 +5031,15 @@ async function bgrOnOpen(){
    One screen a state auditor can scan: every person and their four pre-hire
    screenings (OIG / EDL / FCSR / Fingerprint) with the document on file.
    Read-only. Kept separate from ongoing/annual checks. */
+/* prehire.refs shape (SPEC): [{slot, name, type, company, status, date, pdf}] */
+function obPrehireRefs(c){
+  return [1,2,3,4].filter(n=>String(c[`r${n}n`]||'').trim()).map(n=>{
+    const m=c[`r${n}_manual`]||{};
+    return { slot:n, name:String(c[`r${n}n`]).trim(), type:obRefType(m.type||c[`r${n}_type`]),
+      company:c[`r${n}_company`]||m.employer_confirmed||'', status:c[`r${n}s`]||'Pending',
+      date:m.date||'', pdf:c[`r${n}_pdf`]||'' };
+  });
+}
 function preHireRows(){
   const rows = [];
   const cand = (typeof candidates !== 'undefined' && candidates) ? candidates : [];
@@ -4992,19 +5049,19 @@ function preHireRows(){
       oig:{s:c.oig||'',d:c.oig_date||'',p:c.oig_proof||''},
       edl:{s:c.edl||'',d:c.edl_date||'',p:c.edl_proof||''},
       fcsr:{s:c.fcsr||'',d:c.fcsr_date||'',p:c.fcsr_proof||''},
-      fp:{s:c.fp||'',d:c.fp_date||'',p:c.fp_proof||'',applicable:c.oos==='yes'} });
+      fp:{s:c.fp||'',d:c.fp_date||'',p:c.fp_proof||'',applicable:c.oos==='yes'}, refs:obPrehireRefs(c) });
   });
   const cgs = (typeof caregivers !== 'undefined' && caregivers) ? caregivers : [];
   cgs.forEach(cg => {
     if(cg.not_hired) return;
     const ph = cg.prehire;
     rows.push(ph
-      ? { name:(cg.first+' '+cg.last).trim(), stage:'Hired', oig:ph.oig, edl:ph.edl, fcsr:ph.fcsr, fp:ph.fp }
+      ? { name:(cg.first+' '+cg.last).trim(), stage:'Hired', oig:ph.oig, edl:ph.edl, fcsr:ph.fcsr, fp:ph.fp, refs:Array.isArray(ph.refs)?ph.refs:null }
       : { name:(cg.first+' '+cg.last).trim(), stage:'Hired',
           oig:{s:cg.oig_status||'',d:cg.oig_date||'',p:cg.oig_proof||''},
           edl:{s:cg.edl_status||'',d:cg.edl_date||'',p:cg.edl_proof||''},
           fcsr:{s:cg.fcsr_status||'',d:cg.fcsr_date||'',p:cg.fcsr_proof||''},
-          fp:{s:cg.fp||'',d:cg.fp_date||'',p:cg.fp_proof||'',applicable:cg.oos==='yes'} });
+          fp:{s:cg.fp||'',d:cg.fp_date||'',p:cg.fp_proof||'',applicable:cg.oos==='yes'}, refs:null });
   });
   rows.sort((a,b)=>a.name.localeCompare(b.name));
   return rows;
@@ -5029,19 +5086,34 @@ function bgrAuditHTML(forPrint){
       : (naFp ? '' : '<div style="font-size:.62rem;color:#B45309">no document</div>');
     return '<td style="padding:.4rem .5rem;vertical-align:top">'+badge+date+doc+'</td>';
   };
+  /* References column (R3). null = hired before references were carried over. */
+  const refCell = refs => {
+    if(!Array.isArray(refs)) return '<td style="padding:.4rem .5rem;vertical-align:top;font-size:.7rem;color:#8A7F70">Kept in the hiring file (hired before Oct 2026)</td>';
+    if(!refs.length) return '<td style="padding:.4rem .5rem;vertical-align:top">'+bgrOff('None given')+'</td>';
+    const pos = refs.filter(x=>x.status==='Positive').length;
+    const lines = refs.map(x => {
+      const st = x.status||'Pending';
+      const col = st==='Positive'?'#15803D':st==='Negative'?'#B91C1C':st==='Conditional'?'#B45309':'#8A7F70';
+      const tl = obRefTypeLabel(x.type, x.company);
+      const pdf = x.pdf ? (forPrint ? ' · PDF on file' : ' <a class="proof-link" style="cursor:pointer" onclick="bgrViewProof(\''+bgrEsc(x.pdf).replace(/\x27/g,'')+'\')">📄 PDF</a>') : '';
+      return '<div style="font-size:.7rem;line-height:1.35"><b style="color:'+col+'">'+bgrEsc(st)+'</b> '+bgrEsc(x.name||'')+(tl?' <span style="color:#8A7F70">('+bgrEsc(tl)+')</span>':'')+pdf+'</div>';
+    }).join('');
+    return '<td style="padding:.4rem .5rem;vertical-align:top"><div style="font-size:.74rem;font-weight:700;color:'+(pos>=2?'#15803D':'#B45309')+'">'+pos+' of '+refs.length+' positive</div>'+lines+'</td>';
+  };
   const body = rows.map(r => {
     const s = preHireStatus(r);
     const overall = s==='complete' ? bgrOn('✓ Complete') : s==='attention' ? bgrBad('Needs attention') : bgrWarn('In progress');
     return '<tr style="border-top:1px solid #ece9e1">'
       + '<td style="padding:.4rem .5rem;vertical-align:top;font-weight:700;color:#0D365F">'+bgrEsc(r.name)+'<div style="font-size:.66rem;font-weight:600;color:#8A7F70">'+bgrEsc(r.stage)+'</div></td>'
       + chkCell('OIG', r.oig, 'CLEAR') + chkCell('EDL', r.edl, 'Clear') + chkCell('FCSR', r.fcsr, 'Clear') + chkCell('FP', r.fp, 'Clear')
+      + refCell(r.refs)
       + '<td style="padding:.4rem .5rem;vertical-align:top">'+overall+'</td>'
       + '</tr>';
   }).join('');
-  const head = ['Caregiver','OIG','EDL','FCSR','Fingerprint','Pre-hire status'].map(h=>'<th style="text-align:left;padding:.4rem .5rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;background:#F6F3EC">'+h+'</th>').join('');
+  const head = ['Caregiver','OIG','EDL','FCSR','Fingerprint','References','Pre-hire status'].map(h=>'<th style="text-align:left;padding:.4rem .5rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;background:#F6F3EC">'+h+'</th>').join('');
   const total = rows.length, complete = rows.filter(r=>preHireStatus(r)==='complete').length, attn = rows.filter(r=>preHireStatus(r)==='attention').length;
   const summary = total ? '<div style="font-size:.82rem;color:#0D365F;margin:.2rem 0 .6rem"><b>'+complete+' of '+total+'</b> have all pre-hire screenings clear'+(attn?' · <span style="color:#B91C1C;font-weight:700">'+attn+' need attention</span>':'')+'.</div>' : '';
-  return summary + '<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse"><thead><tr>'+head+'</tr></thead><tbody>'+(body||'<tr><td colspan="6" style="padding:.6rem;color:#A89C8B">Nobody on record yet.</td></tr>')+'</tbody></table></div>';
+  return summary + '<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse"><thead><tr>'+head+'</tr></thead><tbody>'+(body||'<tr><td colspan="7" style="padding:.6rem;color:#A89C8B">Nobody on record yet.</td></tr>')+'</tbody></table></div>';
 }
 function renderPreHireAudit(){
   const box = document.getElementById('bgrAudit'); if(!box) return;
@@ -5084,14 +5156,318 @@ function renderBGRTab(){
    "shared data has not loaded" after a load that actually succeeded. Read-only. */
 try{ window.addEventListener('scx-hydrated', function(){ try{ bgrOnOpen(); }catch(e){} }); }catch(e){}
 
+/* ── References R1–R5 (2026-10-01, her "yes to all") ─────────────────────────
+   Professional vs personal references, the dates check, the reference PDF and
+   reference search. See refs_r1r5 SPEC. Pure helpers first, then the few that
+   read or write, which only ever run from an explicit click (Save Reference,
+   Sync reference answers, Make reference PDFs). Nothing here runs at boot. */
+function obRefType(v){
+  const t=String(v||'').trim().toLowerCase();
+  return t==='professional'?'professional':t==='personal'?'personal':'';
+}
+function obRefTypeLabel(type, company){
+  const t=obRefType(type);
+  if(t==='professional') return 'Professional'+(company?' · '+company:'');
+  if(t==='personal') return 'Personal';
+  return '';
+}
+/* Under the name in the B&R cell (her ask, 2026-10-01): who they are to the
+   applicant at a glance. "Professional · <Company> · <role>" or
+   "Personal · <relationship> · <how long>". */
+function obRefCellTypeLine(c,n){
+  const m=c[`r${n}_manual`]||{};
+  const t=obRefType(m.type||c[`r${n}_type`]);
+  const rel=String(c[`r${n}_rel`]||'').trim();
+  if(t==='professional') return ['Professional', c[`r${n}_company`]||m.employer_confirmed||'', rel].filter(Boolean).join(' · ');
+  if(t==='personal') return ['Personal', rel, c[`r${n}_howlong`]||m.how_long||''].filter(Boolean).join(' · ');
+  return '';
+}
+/* &t= and &co= on the reference link. No type means no t, which the form
+   treats as the personal set, exactly as before. */
+function obRefLinkExtra(type, company){
+  const t=obRefType(type);
+  return (t?'&t='+t:'') + (t==='professional'&&company?'&co='+encodeURIComponent(company):'');
+}
+/* R5: which of a candidate's reference slots match a search. Names and emails
+   by contains; phones by digits only (last 10), when the search is a run of
+   at least four digits. */
+function obRefMatchSlots(c, q){
+  const s=String(q||'').trim().toLowerCase();
+  if(!s||!c) return [];
+  const qd=s.replace(/\D/g,'');
+  const phoneQ=qd.length>=4 && /^[\d\s()+.\-]+$/.test(s);
+  const hits=[];
+  [1,2,3,4].forEach(n=>{
+    const nm=String(c[`r${n}n`]||'').toLowerCase(), em=String(c[`r${n}_email`]||'').toLowerCase();
+    let d=String(c[`r${n}_phone`]||'').replace(/\D/g,''); if(d.length>10) d=d.slice(-10);
+    if((nm&&nm.includes(s)) || (em&&em.includes(s)) || (phoneQ&&d&&d.includes(qd.slice(-10)))) hits.push(n);
+  });
+  return hits;
+}
+/* Used by the Hub's top search: "<ref name> · reference for <candidate>". */
+function obRefSearch(q){
+  const out=[];
+  (candidates||[]).forEach(c=>{
+    if(c.not_hired) return;
+    obRefMatchSlots(c,q).forEach(n=>out.push({ candId:c.id, slot:n, ref:String(c[`r${n}n`]||'').trim()||('Reference '+n),
+      cand:((c.first||'')+' '+(c.last||'')).trim() }));
+  });
+  return out;
+}
+
+/* ── Dates check (her decision 3) ─────────────────────────────────────────── */
+function obYear(s){ const m=String(s==null?'':s).match(/\b(19|20)\d{2}\b/); return m?m[0]:''; }
+function obIsPresent(s){ return /\b(present|current|currently|now|still)\b/i.test(String(s||'')); }
+function obCoNorm(s){
+  return String(s||'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9 ]/g,' ')
+    .replace(/\b(inc|llc|l l c|co|corp|corporation|company|ltd|the)\b/g,' ').replace(/\s+/g,' ').trim();
+}
+function obCoMatch(a,b){ a=obCoNorm(a); b=obCoNorm(b); return !!(a&&b&&(a.includes(b)||b.includes(a))); }
+/* 'matches' | 'differs: applicant said A to B, employer said C to D' | ''.
+   '' whenever there is nothing fair to compare. Never blocks anything. */
+function obDateCheckCompare(workHistory, companies, empFrom, empTo){
+  let wh=workHistory;
+  if(typeof wh==='string'){ try{ wh=JSON.parse(wh); }catch(e){ return ''; } }
+  if(!Array.isArray(wh)||!wh.length) return '';
+  const cos=(Array.isArray(companies)?companies:[companies]).filter(Boolean);
+  if(!cos.length) return '';
+  const job=wh.find(j=>j&&typeof j==='object'&&cos.some(co=>obCoMatch(j.employer||j.company||'',co)));
+  if(!job) return '';
+  const eTp=obIsPresent(empTo), eF=obYear(empFrom), eT=eTp?'present':obYear(empTo);
+  const aTp=job.current===true||String(job.current)==='true'||obIsPresent(job.to), aF=obYear(job.from), aT=aTp?'present':obYear(job.to);
+  const pairs=[]; if(eF&&aF) pairs.push(eF===aF); if(eT&&aT) pairs.push(eT===aT);
+  if(!pairs.length) return '';
+  if(pairs.every(Boolean)) return 'matches';
+  return 'differs: applicant said '+(aF||'?')+' to '+(aT||'?')+', employer said '+(eF||'?')+' to '+(eT||'?');
+}
+function obDateCheckText(dc){
+  if(dc==='matches') return 'The dates match what the applicant told us.';
+  if(/^differs:/.test(String(dc||''))) return 'The dates differ. '+String(dc).replace(/^differs:\s*/,'').replace(/^./,ch=>ch.toUpperCase())+'.';
+  return '';
+}
+/* Their application's work history. Linked through reference_requests or
+   hire_intake (applicant_id, the same link the applicant profile uses), and
+   otherwise matched on email, then phone digits. Read-only. */
+const OB_WH_CACHE={};
+async function obFindWorkHistory(c){
+  if(!c) return null;
+  if(Object.prototype.hasOwnProperty.call(OB_WH_CACHE,c.id)) return OB_WH_CACHE[c.id];
+  let appId=null, wh=null;
+  try{
+    const { data } = await sb.from('reference_requests').select('applicant_id').eq('candidate_id', c.id).limit(8);
+    appId=((data||[]).find(r=>r&&r.applicant_id)||{}).applicant_id||null;
+  }catch(e){}
+  if(!appId && c.intake_id){
+    try{ const { data } = await sb.from('hire_intake').select('applicant_id').eq('id', c.intake_id).maybeSingle(); appId=(data&&data.applicant_id)||null; }catch(e){}
+  }
+  try{
+    if(appId){
+      const { data } = await sb.from('job_applicants').select('id,work_history').eq('id', appId).maybeSingle();
+      wh=(data&&data.work_history)||null;
+    }
+    if(!wh && c.email){
+      const { data } = await sb.from('job_applicants').select('id,work_history,created_at').ilike('email', String(c.email).trim()).order('created_at',{ascending:false}).limit(5);
+      wh=((data||[]).find(r=>r&&r.work_history)||{}).work_history||null;
+    }
+    const d=String(c.phone||'').replace(/\D/g,'').slice(-10);
+    if(!wh && d.length===10){
+      const { data } = await sb.from('job_applicants').select('id,phone,work_history,created_at').ilike('phone', '%'+d.slice(-4)).order('created_at',{ascending:false}).limit(25);
+      wh=((data||[]).find(r=>r&&r.work_history&&String(r.phone||'').replace(/\D/g,'').slice(-10)===d)||{}).work_history||null;
+    }
+  }catch(e){ wh=null; }
+  OB_WH_CACHE[c.id]=wh;
+  return wh;
+}
+async function obDateCheck(c, n){
+  const m=c&&c[`r${n}_manual`]; if(!m) return '';
+  if(obRefType(m.type||c[`r${n}_type`])!=='professional'){ m.date_check=''; return ''; }
+  let wh=null; try{ wh=await obFindWorkHistory(c); }catch(e){ wh=null; }
+  m.date_check=obDateCheckCompare(wh, [m.employer_confirmed, c[`r${n}_company`]], m.emp_from, m.emp_to);
+  return m.date_check;
+}
+
+/* ── Plain words for every answer, shared by the PDF and the printed record ── */
+const OB_ANS={
+  recommend:{yes:'Yes, without reservation',reservations:'Yes, with reservations',no:'No'},
+  concerns:{none:'None at all',minor:'Minor, nothing serious',serious:'Yes, something serious'},
+  hours_type:{full:'Full time',part:'Part time',both:'Both at different times',unsure:'Not sure'},
+  rehire:{yes:'Yes',no:'No',policy:"Their policy doesn't allow them to say"},
+  trust_family:{yes:'Yes',reservations:'Yes, with some reservations',no:'No'},
+};
+function obRefQA(m, type){
+  m=m||{};
+  const a=(k,v)=>{ const raw=v!==undefined?v:m[k]; return raw?((OB_ANS[k]&&OB_ANS[k][raw])||String(raw)):'Not answered'; };
+  const t=obRefType(type||m.type);
+  if(t==='professional'){
+    const to=String(m.emp_to||'').toLowerCase()==='present'?'still works there':(m.emp_to||'?');
+    return [
+      ['Company or employer, as they gave it', a('employer_confirmed')],
+      ['When they worked there', (m.emp_from||m.emp_to)?((m.emp_from||'?')+' to '+to):'Not answered'],
+      ['Their job title', a('job_title')],
+      ['Full time or part time?', a('hours_type')],
+      ['Eligible for rehire?', a('rehire')],
+      ['Reliability and attendance', a('reliability')],
+      ['Any concerns about them working with older or vulnerable adults?', a('concerns')],
+      ['Would they recommend them for this kind of work?', a('recommend')],
+      ['Anything they added', m.notes||'Nothing added'],
+    ];
+  }
+  const rows=[
+    ['How long they have known them', a('how_long')],
+    ['How they know them', a('rel_answer')],
+    ['Would they trust them to care for someone in their own family?', a('trust_family')],
+    ['Reliability and attendance', a('reliability')],
+    ['How they are with people', a('interpersonal')],
+    ['Honesty and trustworthiness', a('honesty')],
+    ['Any concerns about them working with older or vulnerable adults?', a('concerns')],
+    ['Would they recommend them for this kind of work?', a('recommend')],
+    ['Anything they added', m.notes||'Nothing added'],
+  ];
+  /* Answers recorded before the two sets existed never asked these two. */
+  return t ? rows : rows.filter(r=>!((r[0]==='How they know them'&&!m.rel_answer)||(r[0].indexOf('own family')>-1&&!m.trust_family)));
+}
+function obRefHowCollected(m){
+  m=m||{};
+  const d=m.date?(fmtD(m.date)||m.date):'';
+  if(m.via==='Online form') return 'Online form, answered by the reference'+(d?' on '+d:'');
+  return (m.via||'Phone call')+(m.staff?' by '+m.staff:'')+(d?' on '+d:'');
+}
+
+/* ── The reference PDF (R3) ─────────────────────────────────────────────── */
+function obPdfSafe(t){
+  return String(t==null?'':t).replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"')
+    .replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...').replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g,'');
+}
+/* Builds the document. JsPDF is the constructor (window.jspdf.jsPDF), passed
+   in so this stays testable. */
+function obRefPdfDoc(JsPDF, c, n, nowDate){
+  const m=c[`r${n}_manual`]||{};
+  const type=obRefType(m.type||c[`r${n}_type`]);
+  const company=c[`r${n}_company`]||m.employer_confirmed||'';
+  const doc=new JsPDF({ unit:'pt', format:'letter' });
+  const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight(), L=54, R=W-54;
+  let y=60;
+  const need=h=>{ if(y+h>H-54){ doc.addPage(); y=60; } };
+  const line=(txt,o)=>{ o=o||{};
+    doc.setFont('helvetica', o.bold?'bold':'normal'); doc.setFontSize(o.size||10.5);
+    doc.setTextColor.apply(doc, o.color||[22,40,58]);
+    const parts=doc.splitTextToSize(obPdfSafe(txt), (R-L)-(o.indent||0));
+    parts.forEach(p=>{ need((o.size||10.5)*1.35); doc.text(p, L+(o.indent||0), y); y+=(o.size||10.5)*1.35; });
+  };
+  const rule=()=>{ need(10); doc.setDrawColor(216,211,200); doc.line(L,y,R,y); y+=12; };
+  const kv=(k,v)=>{ if(!v) return; line(k+': '+v); };
+  line('Caring Companions In-Home Senior Care · Reference Check', { bold:true, size:14, color:[13,54,95] });
+  y+=4; rule();
+  kv('Candidate', ((c.first||'')+' '+(c.last||'')).trim());
+  line('Reference '+n+': '+(m.name||c[`r${n}n`]||''), { bold:true, size:12, color:[13,54,95] });
+  kv('Type', type==='professional'?('Professional'+(company?', '+company:'')):type==='personal'?'Personal':'Not recorded');
+  kv('Relationship', m.relationship||c[`r${n}_rel`]||'');
+  kv('Contact', [c[`r${n}_phone`], c[`r${n}_email`]].filter(Boolean).join(' · '));
+  kv('How collected', obRefHowCollected(m));
+  const who=[m.name, m.responder_title].filter(Boolean).join(', ');
+  if(who && m.via==='Online form') kv('Answered by', who);
+  y+=4; rule();
+  obRefQA(m, type).forEach(([q,ans])=>{ line(q, { bold:true }); line(ans, { indent:12 }); y+=3; });
+  rule();
+  if(type==='professional') kv('Dates check', obDateCheckText(m.date_check)||'Nothing to compare. Their application has no matching job with dates.');
+  const res=c[`r${n}s`]||'Pending';
+  line('Result: '+res, { bold:true, size:12, color: res==='Positive'?[21,128,61]:res==='Negative'?[176,0,32]:res==='Conditional'?[180,83,9]:[110,101,89] });
+  y+=6;
+  const when=(nowDate||new Date()).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  line('Generated '+when+' from the Caring Companions hiring record. References were contacted under the signed Reference Check and Authorization on file.', { size:9, color:[110,101,89] });
+  return doc;
+}
+let _obJsPdfLoading=null;
+function obLoadJsPDF(){
+  if(window.jspdf&&window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if(_obJsPdfLoading) return _obJsPdfLoading;
+  _obJsPdfLoading=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload=()=>{ (window.jspdf&&window.jspdf.jsPDF)?resolve(window.jspdf.jsPDF):reject(new Error('PDF library did not load')); };
+    s.onerror=()=>{ _obJsPdfLoading=null; reject(new Error('PDF library could not be downloaded')); };
+    document.head.appendChild(s);
+  });
+  return _obJsPdfLoading;
+}
+function obRefPdfLabel(c,n){
+  const m=c[`r${n}_manual`]||{}, t=obRefType(m.type||c[`r${n}_type`]);
+  return 'Reference '+n+(t?' ('+(t==='professional'?'Professional':'Personal')+')':'')+': '+(m.name||c[`r${n}n`]||'');
+}
+/* Makes, stores and files one reference PDF. Throws on failure; the caller
+   decides how to say so. Explicit-click paths only. */
+async function obMakeRefPdf(c, n){
+  const JsPDF=await obLoadJsPDF();
+  const blob=obRefPdfDoc(JsPDF, c, n).output('blob');
+  const path=`refs/${c.id}/ref${n}-${Date.now()}.pdf`;
+  const { error } = await sb.storage.from('lead-docs').upload(path, blob, { contentType:'application/pdf' });
+  if(error) throw error;
+  c[`r${n}_pdf`]=path;
+  try{ await sb.from('reference_requests').update({ pdf_path:path }).eq('candidate_id', c.id).eq('slot', n); }catch(e){ /* the board holds the path either way */ }
+  try{ bgrPushDocToGHL(c.id, 'ref'+n, path, obRefPdfLabel(c,n)); }catch(e){}   // fire-and-forget, files a document, messages nobody
+  return path;
+}
+function obToast(msg){
+  if(typeof document==='undefined'||!document.body) return;
+  const el=document.createElement('div');
+  el.style.cssText='position:fixed;right:18px;bottom:18px;z-index:9999;max-width:380px;background:#FFF7ED;border:1px solid #FCD9A8;color:#7C2D12;padding:10px 14px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);font-size:13px;line-height:1.45;';
+  el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 9000);
+}
+/* After a reference is recorded (office form) or merged (Sync): dates check,
+   then the PDF. The answer itself is already saved before this runs. Returns
+   true when the PDF was made. */
+async function obAfterRefRecorded(candId, n, opts){
+  opts=opts||{};
+  const c=candidates.find(x=>x.id===candId); if(!c||!c[`r${n}_manual`]) return false;
+  try{ await obDateCheck(c, n); }catch(e){}
+  let ok=true;
+  if((c[`r${n}s`]||'Pending')!=='Pending'){
+    try{ await obMakeRefPdf(c, n); }
+    catch(e){ ok=false; console.warn('reference PDF', e); if(!opts.quiet) obToast('The reference is saved, but its PDF could not be made ('+((e&&e.message)||'error')+'). Use "Make reference PDFs" to try again.'); }
+  }
+  if(opts.save!==false){ await saveCandidates(); try{ renderOB(); }catch(e){} }
+  return ok;
+}
+/* R4: one button that makes every missing PDF. Explicit click only. */
+function obRefPdfTodo(){
+  const out=[];
+  (candidates||[]).forEach(c=>[1,2,3,4].forEach(n=>{
+    if(c[`r${n}_manual`] && (c[`r${n}s`]||'Pending')!=='Pending' && !c[`r${n}_pdf`]) out.push({ c, n });
+  }));
+  return out;
+}
+async function bgrMakeRefPdfs(btn){
+  if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then try again.'); return; }
+  const todo=obRefPdfTodo();
+  if(!todo.length){ alert('Every answered reference already has its PDF.'); return; }
+  if(!confirm('Make '+todo.length+' reference PDF'+(todo.length===1?'':'s')+'?\n\nEach one is saved to the hiring record and filed to the person\'s GoHighLevel contact, the same way background checks are. Nobody is messaged.')) return;
+  if(btn){ btn.disabled=true; btn._t=btn.textContent; }
+  let made=0, failed=0;
+  for(let i=0;i<todo.length;i++){
+    const { c, n }=todo[i];
+    if(btn) btn.textContent='Making '+(i+1)+' of '+todo.length+'…';
+    try{
+      if(c[`r${n}_manual`].date_check===undefined) await obDateCheck(c, n);
+      await obMakeRefPdf(c, n); made++;
+    }catch(e){ failed++; console.warn('reference PDF', e); }
+  }
+  await saveCandidates();
+  try{ renderOB(); }catch(e){}
+  if(btn){ btn.disabled=false; btn.textContent=btn._t||'📄 Make reference PDFs'; }
+  alert('Made '+made+' reference PDF'+(made===1?'':'s')+'.'+(failed?'\n'+failed+' could not be made. You can run it again.':''));
+}
 /* People & Checks table cells (2026-10-01, her ask: "make these references look less jumbled"). Each reference is a
    small stack: name, phone (one format), email, then status + Record on one line. Pure: they only build HTML. */
 function obFmtPhone(ph){
   let d=String(ph||'').replace(/\D/g,''); if(d.length===11&&d[0]==='1') d=d.slice(1);
   return d.length===10 ? { show:`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`, tel:'+1'+d } : { show:String(ph||'').trim(), tel:String(ph||'').replace(/[^\d+]/g,'') };
 }
-function obRefCellHTML(c,n){
+function obRefCellHTML(c,n,hit){
   const s=c[`r${n}s`]||'Pending', nm=String(c[`r${n}n`]||'').trim(), pf=c[`r${n}_proof`], mn=c[`r${n}_manual`];
+  const tl=obRefCellTypeLine(c,n);
+  const pdf=c[`r${n}_pdf`], dc=mn&&mn.date_check;
   const ph=c[`r${n}_phone`], em=c[`r${n}_email`];
   const badge={Positive:'b-green',Conditional:'b-amber',Negative:'b-red',Pending:'b-gray'}[s]||'b-gray';
   const p=ph?obFmtPhone(ph):null;
@@ -5099,18 +5475,22 @@ function obRefCellHTML(c,n){
   const btn=s==='Pending'
     ? `<button class="refc-btn" onclick="openManualRef(${c.id},${n})">📞 Record</button>`
     : `<button class="refc-btn refc-btn-quiet" onclick="openManualRef(${c.id},${n})">✏️ Edit</button>`;
-  return `<td class="refc-td"><div class="refc">`
+  return `<td class="refc-td${hit?' refc-hit':''}"><div class="refc">`
     + (given ? `<div class="refc-name">${nm||'Name not given'}</div>` : `<div class="refc-none">No reference given</div>`)
+    + (tl ? `<div class="refc-type">${bgrEsc(tl)}</div>` : '')
     + (p ? `<a class="refc-line" href="tel:${p.tel}" title="Call">${p.show}</a>` : '')
     + (em ? `<a class="refc-line refc-em" href="mailto:${em}" title="${em}">${em}</a>` : '')
     + (mn ? `<div class="refc-note">📞 ${mn.via||''}${mn.date?' · '+(fmtD(mn.date)||''):''}${mn.staff?' · '+mn.staff:''}</div>` : '')
     + (pf ? `<a class="proof-link refc-note" href="${pf}" target="_blank" rel="noopener">📄 View form</a>` : '')
+    + (dc==='matches' ? `<div class="refc-dc" style="color:#15803D" title="${bgrEsc(obDateCheckText(dc))}">✓ Dates match</div>`
+      : /^differs:/.test(String(dc||'')) ? `<div class="refc-dc" style="color:#B45309" title="${bgrEsc(obDateCheckText(dc))}">⚠ Dates differ: ${bgrEsc(String(dc).replace(/^differs:\s*/,''))}</div>` : '')
+    + (pdf ? `<a class="proof-link refc-note" style="cursor:pointer" onclick="bgrViewProof('${bgrEsc(pdf).replace(/\x27/g,'')}')" title="Open the reference PDF">📄 PDF</a>` : '')
     + `<div class="refc-foot">${given||s!=='Pending'?`<span class="badge ${badge}">${s}</span>`:''}${btn}</div>`
     + `</div></td>`;
 }
 function renderOB(){
   try{ renderHirePipeline(); }catch(e){}
-  const q=((document.querySelector('#panel-onboarding input')||{value:''}).value||globalSearch).toLowerCase();
+  const q=String(((document.getElementById('ob-search')||document.querySelector('#panel-onboarding input')||{value:''}).value||globalSearch)).trim().toLowerCase();
   const today=new Date(); today.setHours(0,0,0,0);
   const list=candidates.filter(c=>{
     const n=`${c.first} ${c.last}`.toLowerCase();
@@ -5122,7 +5502,7 @@ function renderOB(){
     else if(obFilterVal==='refs')   matchF=[c.r1s,c.r2s,c.r3s,c.r4s].some(r=>r==='Pending');
     else if(obFilterVal==='bg')     matchF=(!c.oig||c.oig==='Pending')||(!c.edl||c.edl==='Pending')||(!c.fcsr||c.fcsr==='Pending');
     else if(obFilterVal==='review') matchF=st==='Needs Review';
-    return (!q||n.includes(q))&&matchF;
+    return (!q||n.includes(q)||obRefMatchSlots(c,q).length>0)&&matchF;
   });
   const tbody=document.getElementById('ob-tbody');
   document.getElementById('ob-empty').style.display=list.length?'none':'block';
@@ -5149,7 +5529,7 @@ function renderOB(){
     const proofLink=(url,label)=>url?`<a class="proof-link" href="${url}" target="_blank" rel="noopener">📄 ${label}</a>`:'';
     return `<tr>
       <td class="cand-td"><div class="name-cell" style="cursor:pointer;color:var(--navy)" onclick="openProfile('${c.first}','${c.last}')" title="View full profile">${c.first} ${c.last} <span style="font-size:.65rem;color:var(--teal)">↗</span></div>${c.oos==='yes'?'<div><span class="cand-chip">Out of state</span></div>':''}${addedLabel?`<div class="cand-meta">Added ${addedTs?new Date(addedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}${daysPending!==null&&st==='Awaiting'?` · <b style="color:${urgencyColor}">${daysPending}d in pipeline</b>`:''}</div>`:''}${staleBadge?`<div style="margin-top:2px">${staleBadge}</div>`:''}</td>
-      ${[1,2,3,4].map(n=>obRefCellHTML(c,n)).join('')}
+      ${(()=>{ const hits=q?obRefMatchSlots(c,q):[]; return [1,2,3,4].map(n=>obRefCellHTML(c,n,hits.includes(n))).join(''); })()}
       <td><div class="chk"><span onclick="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?`bgrRecordCheck(${c.id},'oig')`:`bgrRunOIG(${c.id})`}" title="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'Update the OIG result or attach the proof':'Run the OIG exclusion check now'}" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.oig==='CLEAR'?'b-green':c.oig==='FLAGGED'?'b-red':'b-gray'}">${c.oig||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'✎':'▸ run'}</span></span>${c.oig_date?`<span class="chk-date">${fmtD(c.oig_date)}</span>`:''}${bgrCheckProofHtml(c.oig_proof)}</div></td>
       <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'edl')" title="Record the EDL result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.edl==='Clear'?'b-green':c.edl==='Issues Found'?'b-red':'b-gray'}">${c.edl||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.edl_date?`<span class="chk-date">${fmtD(c.edl_date)}</span>`:''}${bgrCheckProofHtml(c.edl_proof)}</div></td>
       <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'fcsr')" title="Record the FCSR result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.fcsr==='Clear'?'b-green':c.fcsr==='Issues Found'?'b-red':'b-gray'}">${c.fcsr||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fcsr_date?`<span class="chk-date">${fmtD(c.fcsr_date)}</span>`:''}${bgrCheckProofHtml(c.fcsr_proof)}</div></td>
@@ -5407,6 +5787,8 @@ function openOBModal(id=null){
     g('ob-r2n').value=c.r2n||'';g('ob-r2s').value=c.r2s||'Pending';g('ob-r2-phone').value=c.r2_phone||'';g('ob-r2-email').value=c.r2_email||'';
     g('ob-r3n').value=c.r3n||'';g('ob-r3s').value=c.r3s||'Pending';g('ob-r3-phone').value=c.r3_phone||'';g('ob-r3-email').value=c.r3_email||'';
     g('ob-r4n').value=c.r4n||'';g('ob-r4s').value=c.r4s||'Pending';g('ob-r4-phone').value=c.r4_phone||'';g('ob-r4-email').value=c.r4_email||'';
+    [1,2,3,4].forEach(n=>{ g(`ob-r${n}-type`).value=obRefType(c[`r${n}_type`]); g(`ob-r${n}-company`).value=c[`r${n}_company`]||'';
+      g(`ob-r${n}-rel`).value=c[`r${n}_rel`]||''; g(`ob-r${n}-howlong`).value=c[`r${n}_howlong`]||''; });
     g('ob-r1-proof').value=c.r1_proof||'';g('ob-r2-proof').value=c.r2_proof||'';
     g('ob-r3-proof').value=c.r3_proof||'';g('ob-r4-proof').value=c.r4_proof||'';
     g('ob-oig').value=c.oig;g('ob-oig-date').value=c.oig_date;g('ob-oig-proof').value=c.oig_proof||'';
@@ -5417,7 +5799,9 @@ function openOBModal(id=null){
     ['ob-first','ob-last','ob-phone','ob-email','ob-r1n','ob-r1-phone','ob-r1-email','ob-r2n','ob-r2-phone','ob-r2-email',
      'ob-r3n','ob-r3-phone','ob-r3-email','ob-r4n','ob-r4-phone','ob-r4-email',
      'ob-oig-date','ob-edl-date','ob-fcsr-date','ob-fp-date','ob-notes',
-     'ob-r1-proof','ob-r2-proof','ob-r3-proof','ob-r4-proof','ob-oig-proof','ob-edl-proof','ob-fcsr-proof','ob-fp-proof'].forEach(k=>g(k).value='');
+     'ob-r1-proof','ob-r2-proof','ob-r3-proof','ob-r4-proof','ob-oig-proof','ob-edl-proof','ob-fcsr-proof','ob-fp-proof',
+     'ob-r1-type','ob-r2-type','ob-r3-type','ob-r4-type','ob-r1-company','ob-r2-company','ob-r3-company','ob-r4-company',
+     'ob-r1-rel','ob-r2-rel','ob-r3-rel','ob-r4-rel','ob-r1-howlong','ob-r2-howlong','ob-r3-howlong','ob-r4-howlong'].forEach(k=>g(k).value='');
     g('ob-oos').value='';g('ob-r1s').value='Pending';g('ob-r2s').value='Pending';g('ob-r3s').value='Pending';g('ob-r4s').value='Pending';
     g('ob-oig').value='Pending';g('ob-edl').value='Pending';g('ob-fcsr').value='Pending';g('ob-fp').value='N/A';
   }
@@ -5436,6 +5820,10 @@ function saveOB(){
     r3n:g('ob-r3n'),r3s:g('ob-r3s'),r3_phone:g('ob-r3-phone'),r3_email:g('ob-r3-email'),
     r4n:g('ob-r4n'),r4s:g('ob-r4s'),r4_phone:g('ob-r4-phone'),r4_email:g('ob-r4-email'),
     r1_proof:g('ob-r1-proof'),r2_proof:g('ob-r2-proof'),r3_proof:g('ob-r3-proof'),r4_proof:g('ob-r4-proof'),
+    r1_type:obRefType(g('ob-r1-type')),r2_type:obRefType(g('ob-r2-type')),r3_type:obRefType(g('ob-r3-type')),r4_type:obRefType(g('ob-r4-type')),
+    r1_company:g('ob-r1-company').trim(),r2_company:g('ob-r2-company').trim(),r3_company:g('ob-r3-company').trim(),r4_company:g('ob-r4-company').trim(),
+    r1_rel:g('ob-r1-rel').trim(),r2_rel:g('ob-r2-rel').trim(),r3_rel:g('ob-r3-rel').trim(),r4_rel:g('ob-r4-rel').trim(),
+    r1_howlong:g('ob-r1-howlong').trim(),r2_howlong:g('ob-r2-howlong').trim(),r3_howlong:g('ob-r3-howlong').trim(),r4_howlong:g('ob-r4-howlong').trim(),
     oig:g('ob-oig'),oig_date:g('ob-oig-date'),oig_proof:g('ob-oig-proof'),
     edl:g('ob-edl'),edl_date:g('ob-edl-date'),edl_proof:g('ob-edl-proof'),
     fcsr:g('ob-fcsr'),fcsr_date:g('ob-fcsr-date'),fcsr_proof:g('ob-fcsr-proof'),
@@ -5636,22 +6024,60 @@ function reactivateOB(id){
 
 // ── MANUAL REFERENCE ──────────────────────────────────────────────────
 let _mrefCandId=null, _mrefSlot=null;
-function scoreManualRef(recommend,reliability,interpersonal,honesty,concerns){
+/* extra (R2, 2026-10-01) = { type, rehire, trust_family }. Her decision 1:
+   "not eligible for rehire" makes a reference at most Conditional, never
+   Negative on its own, and "our policy doesn't allow us to say" is neutral.
+   A personal reference who would not, or only with reservations, trust them
+   with their own family is at least Conditional too. The Negative rules are
+   unchanged. A past employer is only asked about attendance, so for a
+   professional reference the average is over the scales actually asked;
+   everything else keeps the original divide-by-three. */
+function scoreManualRef(recommend,reliability,interpersonal,honesty,concerns,extra){
   if(!recommend) return null;
   if(recommend==='no'||concerns==='serious') return 'Negative';
+  const x=extra||{};
   const scores={Excellent:3,Good:2,Fair:1,Poor:0};
-  const avg=([reliability,interpersonal,honesty].filter(Boolean).map(r=>scores[r]||0).reduce((a,b)=>a+b,0))/3;
+  const given=[reliability,interpersonal,honesty].filter(Boolean);
+  const denom=obRefType(x.type)==='professional' ? Math.max(1,given.length) : 3;
+  const avg=(given.map(r=>scores[r]||0).reduce((a,b)=>a+b,0))/denom;
   if(recommend==='reservations'||concerns==='minor'||avg<1.5) return 'Conditional';
+  if(x.rehire==='no') return 'Conditional';
+  if(x.trust_family==='no'||x.trust_family==='reservations') return 'Conditional';
   return 'Positive';
 }
+/* The office phone form shows the same two question sets as the online form.
+   Answers belong to the set that is showing; the other set's fields are
+   ignored on save. */
+function mrefIsPro(){ return obRefType(document.getElementById('mref-type').value)==='professional'; }
+function mrefTypeUI(){
+  const pro=mrefIsPro();
+  document.querySelectorAll('#manual-ref-modal .mref-pro').forEach(el=>{ el.style.display=pro?'':'none'; });
+  document.querySelectorAll('#manual-ref-modal .mref-per').forEach(el=>{ el.style.display=pro?'none':''; });
+  const st=document.getElementById('mref-still'), to=document.getElementById('mref-emp-to');
+  if(st&&to){ to.disabled=st.checked; if(st.checked) to.value=''; }
+  updateMrefPreview();
+}
+function mrefCollect(){
+  const g=k=>{ const el=document.getElementById(k); return el?String(el.value||'').trim():''; };
+  const pro=mrefIsPro();
+  const still=!!(document.getElementById('mref-still')||{}).checked;
+  return {
+    type: pro?'professional':'personal',
+    recommend:g('mref-recommend'), reliability:g('mref-reliability'),
+    interpersonal: pro?'':g('mref-interpersonal'), honesty: pro?'':g('mref-honesty'),
+    concerns:g('mref-concerns'), notes:g('mref-notes'),
+    how_long: pro?'':g('mref-howlong'), rel_answer: pro?'':g('mref-rel-answer'),
+    trust_family: pro?'':g('mref-trust'),
+    employer_confirmed: pro?g('mref-employer'):'', emp_from: pro?g('mref-emp-from'):'',
+    emp_to: pro?(still?'present':g('mref-emp-to')):'', job_title: pro?g('mref-job-title'):'',
+    hours_type: pro?g('mref-hours'):'', rehire: pro?g('mref-rehire'):'',
+    responder_title: pro?g('mref-resp-title'):'',
+  };
+}
 function updateMrefPreview(){
-  const score=scoreManualRef(
-    document.getElementById('mref-recommend').value,
-    document.getElementById('mref-reliability').value,
-    document.getElementById('mref-interpersonal').value,
-    document.getElementById('mref-honesty').value,
-    document.getElementById('mref-concerns').value
-  );
+  const a=mrefCollect();
+  const score=scoreManualRef(a.recommend,a.reliability,a.interpersonal,a.honesty,a.concerns,
+    { type:a.type, rehire:a.rehire, trust_family:a.trust_family });
   const el=document.getElementById('mref-score-preview');
   if(!score){el.style.display='none';return;}
   const colors={Positive:'#d1fae5',Conditional:'#fef3c7',Negative:'#fee2e2'};
@@ -5669,16 +6095,29 @@ function openManualRef(candidateId, slot){
   g('mref-via').value=existing.via||'Phone call';
   g('mref-date').value=existing.date||new Date().toISOString().split('T')[0];
   g('mref-name').value=c[`r${slot}n`]||existing.name||'';
-  g('mref-type').value=existing.type||'Professional';
-  g('mref-rel').value=existing.relationship||'';
-  g('mref-howlong').value=existing.how_long||'';
+  /* Older records said 'Professional' / 'Personal'; the board now stores the
+     lower-case word. Default stays Professional, as it always was. */
+  g('mref-type').value=obRefType(existing.type)||obRefType(c[`r${slot}_type`])||'professional';
+  g('mref-rel').value=existing.relationship||c[`r${slot}_rel`]||'';
+  g('mref-howlong').value=existing.how_long||c[`r${slot}_howlong`]||'';
   g('mref-recommend').value=existing.recommend||'';
   g('mref-reliability').value=existing.reliability||'';
   g('mref-interpersonal').value=existing.interpersonal||'';
   g('mref-honesty').value=existing.honesty||'';
   g('mref-concerns').value=existing.concerns||'none';
   g('mref-notes').value=existing.notes||'';
-  updateMrefPreview();
+  g('mref-rel-answer').value=existing.rel_answer||'';
+  g('mref-trust').value=existing.trust_family||'';
+  g('mref-employer').value=existing.employer_confirmed||c[`r${slot}_company`]||'';
+  g('mref-emp-from').value=existing.emp_from||'';
+  const still=String(existing.emp_to||'').toLowerCase()==='present';
+  g('mref-still').checked=still;
+  g('mref-emp-to').value=still?'':(existing.emp_to||'');
+  g('mref-job-title').value=existing.job_title||'';
+  g('mref-hours').value=existing.hours_type||'';
+  g('mref-rehire').value=existing.rehire||'';
+  g('mref-resp-title').value=existing.responder_title||'';
+  mrefTypeUI();
   document.getElementById('manual-ref-modal').classList.add('open');
 }
 /* ---- Reference check record (printable) --------------------------------
@@ -5718,12 +6157,16 @@ function refReport(idOrRecord){
       + '<tr><th>Relationship</th><td>' + esc(m.relationship || '') + '</td>'
       + '<th>Known for</th><td>' + esc(m.how_long || '') + '</td></tr>'
       + '<tr><th>Contact</th><td>' + esc(r.phone || '') + (r.email ? ' · ' + esc(r.email) : '') + '</td>'
-      + '<th>Type</th><td>' + esc(m.type || '') + '</td></tr>'
+      + '<th>Type</th><td>' + esc(obRefTypeLabel(m.type || c['r'+r.n+'_type'], c['r'+r.n+'_company'] || m.employer_confirmed || '') || m.type || '') + '</td></tr>'
       + '<tr><th>Contacted on</th><td>' + esc(m.date || '') + '</td>'
       + '<th>Method</th><td>' + esc(m.via || '') + '</td></tr>'
       + '<tr><th>Collected by</th><td colspan="3">' + esc(m.staff || '') + '</td></tr>'
       + '</table>'
-      + '<table class="ans">' + Object.keys(REF_LABELS).map(k => answer(m, k)).join('') + '</table>'
+      + '<table class="ans">' + (r.m
+          ? obRefQA(m, m.type || c['r'+r.n+'_type']).filter(([q]) => q !== 'Anything they added')
+              .map(([q, a]) => '<tr><th>' + esc(q) + '</th><td>' + esc(a) + '</td></tr>').join('')
+          : Object.keys(REF_LABELS).map(k => answer(m, k)).join('')) + '</table>'
+      + (m.date_check ? '<p class="notes"><b>Dates check:</b> ' + esc(obDateCheckText(m.date_check)) + '</p>' : '')
       + (m.notes ? '<p class="notes"><b>Notes:</b> ' + esc(m.notes) + '</p>' : '')
       + '</section>';
   };
@@ -5763,20 +6206,29 @@ function refReport(idOrRecord){
   w.onload = () => { w.focus(); w.print(); };
   setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 400);
 }
-function saveManualRef(){
+async function saveManualRef(){
   const g=k=>document.getElementById(k).value;
   if(!g('mref-recommend')){ alert('Please select a recommendation.'); return; }
-  const score=scoreManualRef(g('mref-recommend'),g('mref-reliability'),g('mref-interpersonal'),g('mref-honesty'),g('mref-concerns'));
-  const manual={staff:g('mref-staff'),via:g('mref-via'),date:g('mref-date'),name:g('mref-name'),type:g('mref-type'),
-    relationship:g('mref-rel'),how_long:g('mref-howlong'),recommend:g('mref-recommend'),
-    reliability:g('mref-reliability'),interpersonal:g('mref-interpersonal'),honesty:g('mref-honesty'),
-    concerns:g('mref-concerns'),notes:g('mref-notes')};
+  const a=mrefCollect();
+  const score=scoreManualRef(a.recommend,a.reliability,a.interpersonal,a.honesty,a.concerns,
+    { type:a.type, rehire:a.rehire, trust_family:a.trust_family });
+  const manual=Object.assign({staff:g('mref-staff'),via:g('mref-via'),date:g('mref-date'),name:g('mref-name'),
+    relationship:g('mref-rel')}, a, {date_check:''});
   const i=candidates.findIndex(x=>x.id===_mrefCandId);
-  candidates[i][`r${_mrefSlot}n`]=g('mref-name');
-  candidates[i][`r${_mrefSlot}s`]=score;
-  candidates[i][`r${_mrefSlot}_manual`]=manual;
+  if(i<0) return;
+  const id=candidates[i].id, slot=_mrefSlot;
+  candidates[i][`r${slot}n`]=g('mref-name');
+  candidates[i][`r${slot}s`]=score;
+  candidates[i][`r${slot}_manual`]=manual;
+  candidates[i][`r${slot}_type`]=a.type;
+  if(a.type==='professional' && a.employer_confirmed && !candidates[i][`r${slot}_company`]) candidates[i][`r${slot}_company`]=a.employer_confirmed;
+  /* A new answer means the old PDF no longer matches it. */
+  delete candidates[i][`r${slot}_pdf`];
   saveCandidates(); closeModal('manual-ref-modal'); renderOB(); renderAlerts();
   try{ renderPeopleChecks(); renderReferenceActivity(); }catch(e){}
+  /* R3: the dates check and the PDF happen after the answer is saved, so a
+     failure in either never loses the answer. */
+  await obAfterRefRecorded(id, slot, { save:true, quiet:false });
 }
 
 let cgReturnTab='training';
@@ -6695,7 +7147,10 @@ function promoteToCaregiver(candidateId){
       oig:  { status: c.oig||'',  date: c.oig_date||'',  proof: c.oig_proof||''  },
       edl:  { status: c.edl||'',  date: c.edl_date||'',  proof: c.edl_proof||''  },
       fcsr: { status: c.fcsr||'', date: c.fcsr_date||'', proof: c.fcsr_proof||'' },
-      fp:   { status: c.fp||'',   date: c.fp_date||'',   proof: c.fp_proof||'',  applicable: c.oos==='yes' }
+      fp:   { status: c.fp||'',   date: c.fp_date||'',   proof: c.fp_proof||'',  applicable: c.oos==='yes' },
+      /* R3: the references travel with them too. Before this, every reference
+         detail was deleted with the candidate record below. */
+      refs: obPrehireRefs(c)
     }
   });
   saveCaregivers();
@@ -7769,5 +8224,9 @@ window.bgrCloseCheckModal = bgrCloseCheckModal;
 window.bgrSaveCheck = bgrSaveCheck;
 window.bgrViewProof = bgrViewProof;
 window.bgrPrintAudit = bgrPrintAudit;
+/* References R1–R5 (2026-10-01): inline handlers and the Hub's top search. */
+window.bgrMakeRefPdfs = bgrMakeRefPdfs;
+window.mrefTypeUI = mrefTypeUI;
+window.obRefSearch = obRefSearch;
 window.dispatchEvent(new Event('scx-ready'));
 })();

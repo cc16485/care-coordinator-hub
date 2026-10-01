@@ -792,7 +792,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="field-note" id="fbarDate" style="font-size:11px;color:rgba(255,255,255,.65);"></div>
     </div>
     <div id="topbarPulse"></div>
-    <input class="search" id="globalSearch" placeholder="🔍 Search leads, clients, referrers…" oninput="renderActiveTab()">
+    <input class="search" id="globalSearch" placeholder="🔍 Search leads, clients, referrers…" oninput="renderActiveTab();ccRefSearchShow(this.value)" onfocus="ccRefSearchShow(this.value)" onblur="setTimeout(ccRefSearchHide,200)" autocomplete="off">
     <div class="spacer"></div>
     <!-- On every page, because a coordinator seeing "sent" on a record should
          be able to find out in one click what was sent, to whom, and when the
@@ -1910,6 +1910,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- People & Checks is one clean view: the candidates table below. -->
       <div class="bgr-people" style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:10px">
         <button class="ibtn" onclick="bgrSyncRefAnswers(this)" title="Bring any reference answers that came in through the online form onto their candidate, and clear anyone now fully done. Sends nothing.">&#8635; Sync reference answers</button>
+        <button class="ibtn" onclick="bgrMakeRefPdfs(this)" title="Make a PDF for every answered reference that does not have one yet, and file it to the caregiver's GoHighLevel contact. Messages nobody.">&#128196; Make reference PDFs</button>
         <span class="field-note" style="flex:1;min-width:180px">Everyone in the hiring pipeline. Use the row actions to record checks and references. Nothing here sends on its own.</span>
       </div>
 
@@ -2193,7 +2194,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="card bgr-people" style="padding:14px 16px 4px;margin-bottom:14px;">
       <div class="stats bgr-people" id="ob-stats"></div>
       <div class="controls bgr-people">
-        <input type="text" placeholder="Search candidate..." oninput="SCX.renderOB()">
+        <input type="text" id="ob-search" placeholder="Search candidate or reference (name, phone, email)" oninput="SCX.renderOB()">
         <button class="fb active" onclick="SCX.obFilter('all',this)">All</button>
         <button class="fb" onclick="SCX.obFilter('ready',this)">✅ Ready for Orientation</button>
         <button class="fb" onclick="SCX.obFilter('refs',this)">📋 Awaiting References</button>
@@ -2218,6 +2219,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         #ob-tbody .cand-td{min-width:150px}
         #ob-tbody .cand-chip{display:inline-block;margin-top:3px;font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:1px 8px}
         #ob-tbody .cand-meta{font-size:12px;color:var(--gray);margin-top:3px}
+        #ob-tbody .refc-type{font-size:11.5px;color:var(--gray);line-height:1.3}
+        #ob-tbody .refc-dc{font-size:11.5px;line-height:1.3}
+        #ob-tbody .refc-hit{outline:2px solid #F0A63A;outline-offset:-2px;background:#FFF8E1}
       </style>
       <div class="tbl-wrap bgr-people">
         <table>
@@ -3010,6 +3014,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp"><label>Ref 1 Status</label>
         <select id="ob-r1s"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
       </div>
+      <div class="grp"><label>Ref 1 Type</label>
+        <select id="ob-r1-type"><option value="">Not set</option><option value="professional">Professional</option><option value="personal">Personal</option></select>
+      </div>
+      <div class="grp"><label>Ref 1 Company</label><input type="text" id="ob-r1-company" placeholder="For a professional reference"></div>
+      <div class="grp"><label>Ref 1 Role or relationship</label><input type="text" id="ob-r1-rel" placeholder="e.g. Supervisor, Neighbor"></div>
+      <div class="grp"><label>Ref 1 Known how long</label><input type="text" id="ob-r1-howlong" placeholder="For a personal reference, e.g. 5 years"></div>
       <div class="grp full"><label>Ref 1 Form Link</label><input type="url" id="ob-r1-proof" placeholder="https://…"></div>
       <div class="grp"><label>Ref 2 Name</label><input type="text" id="ob-r2n" placeholder="Full name"></div>
       <div class="grp"><label>Ref 2 Phone</label><input type="tel" id="ob-r2-phone" placeholder="417-555-0000"></div>
@@ -3017,6 +3027,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp"><label>Ref 2 Status</label>
         <select id="ob-r2s"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
       </div>
+      <div class="grp"><label>Ref 2 Type</label>
+        <select id="ob-r2-type"><option value="">Not set</option><option value="professional">Professional</option><option value="personal">Personal</option></select>
+      </div>
+      <div class="grp"><label>Ref 2 Company</label><input type="text" id="ob-r2-company" placeholder="For a professional reference"></div>
+      <div class="grp"><label>Ref 2 Role or relationship</label><input type="text" id="ob-r2-rel" placeholder="e.g. Supervisor, Neighbor"></div>
+      <div class="grp"><label>Ref 2 Known how long</label><input type="text" id="ob-r2-howlong" placeholder="For a personal reference, e.g. 5 years"></div>
       <div class="grp full"><label>Ref 2 Form Link</label><input type="url" id="ob-r2-proof" placeholder="https://…"></div>
       <div class="grp"><label>Ref 3 Name</label><input type="text" id="ob-r3n" placeholder="Full name"></div>
       <div class="grp"><label>Ref 3 Phone</label><input type="tel" id="ob-r3-phone" placeholder="417-555-0000"></div>
@@ -3024,6 +3040,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp"><label>Ref 3 Status</label>
         <select id="ob-r3s"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
       </div>
+      <div class="grp"><label>Ref 3 Type</label>
+        <select id="ob-r3-type"><option value="">Not set</option><option value="professional">Professional</option><option value="personal">Personal</option></select>
+      </div>
+      <div class="grp"><label>Ref 3 Company</label><input type="text" id="ob-r3-company" placeholder="For a professional reference"></div>
+      <div class="grp"><label>Ref 3 Role or relationship</label><input type="text" id="ob-r3-rel" placeholder="e.g. Supervisor, Neighbor"></div>
+      <div class="grp"><label>Ref 3 Known how long</label><input type="text" id="ob-r3-howlong" placeholder="For a personal reference, e.g. 5 years"></div>
       <div class="grp full"><label>Ref 3 Form Link</label><input type="url" id="ob-r3-proof" placeholder="https://…"></div>
       <div class="grp"><label>Ref 4 Name</label><input type="text" id="ob-r4n" placeholder="Full name"></div>
       <div class="grp"><label>Ref 4 Phone</label><input type="tel" id="ob-r4-phone" placeholder="417-555-0000"></div>
@@ -3031,6 +3053,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp"><label>Ref 4 Status</label>
         <select id="ob-r4s"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
       </div>
+      <div class="grp"><label>Ref 4 Type</label>
+        <select id="ob-r4-type"><option value="">Not set</option><option value="professional">Professional</option><option value="personal">Personal</option></select>
+      </div>
+      <div class="grp"><label>Ref 4 Company</label><input type="text" id="ob-r4-company" placeholder="For a professional reference"></div>
+      <div class="grp"><label>Ref 4 Role or relationship</label><input type="text" id="ob-r4-rel" placeholder="e.g. Supervisor, Neighbor"></div>
+      <div class="grp"><label>Ref 4 Known how long</label><input type="text" id="ob-r4-howlong" placeholder="For a personal reference, e.g. 5 years"></div>
       <div class="grp full"><label>Ref 4 Form Link</label><input type="url" id="ob-r4-proof" placeholder="https://…"></div>
       <div class="sect-lbl">Background &amp; Compliance</div>
       <div style="background:var(--blue-bg);border-radius:8px;padding:.6rem .85rem;margin-bottom:.75rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem">
@@ -3306,30 +3334,48 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="sect-lbl">Reference Information</div>
       <div class="grp"><label>Reference Name</label><input type="text" id="mref-name"></div>
       <div class="grp"><label>Reference Type</label>
-        <select id="mref-type"><option value="Professional">Professional</option><option value="Personal">Personal</option></select>
+        <select id="mref-type" onchange="mrefTypeUI()"><option value="professional">Professional (a past employer or supervisor)</option><option value="personal">Personal</option></select>
       </div>
-      <div class="grp"><label>Relationship to Applicant</label><input type="text" id="mref-rel" placeholder="e.g. Former supervisor, Friend"></div>
-      <div class="grp"><label>How Long Have They Known the Applicant?</label><input type="text" id="mref-howlong" placeholder="e.g. 3 years"></div>
+      <div class="grp"><label>Relationship the applicant gave</label><input type="text" id="mref-rel" placeholder="e.g. Former supervisor, Friend"></div>
+      <!-- Professional set: the same questions as reference.html?t=professional -->
+      <div class="grp mref-pro"><label>Company or employer, as they say it</label><input type="text" id="mref-employer"></div>
+      <div class="grp mref-pro"><label>Their job title</label><input type="text" id="mref-job-title" placeholder="e.g. Caregiver, CNA"></div>
+      <div class="grp mref-pro"><label>Started</label><input type="text" id="mref-emp-from" placeholder="e.g. March 2023"></div>
+      <div class="grp mref-pro"><label>Finished</label><input type="text" id="mref-emp-to" placeholder="e.g. June 2025">
+        <label style="display:flex;align-items:center;gap:6px;font-weight:500;margin-top:4px"><input type="checkbox" id="mref-still" onchange="mrefTypeUI()" style="width:auto"> Still works there</label></div>
+      <div class="grp mref-pro"><label>Full time or part time?</label>
+        <select id="mref-hours"><option value="">--</option><option value="full">Full time</option><option value="part">Part time</option><option value="both">Both at different times</option><option value="unsure">Not sure</option></select>
+      </div>
+      <div class="grp mref-pro"><label>Eligible for rehire?</label>
+        <select id="mref-rehire" onchange="SCX.updateMrefPreview()"><option value="">--</option><option value="yes">Yes</option><option value="no">No</option><option value="policy">Our policy doesn't allow us to say</option></select>
+      </div>
+      <div class="grp mref-pro"><label>Their own job title</label><input type="text" id="mref-resp-title" placeholder="e.g. Office manager"></div>
+      <!-- Personal set: the same questions as reference.html?t=personal -->
+      <div class="grp mref-per"><label>How long have they known the applicant?</label><input type="text" id="mref-howlong" placeholder="e.g. 3 years"></div>
+      <div class="grp mref-per"><label>How do they know them?</label><input type="text" id="mref-rel-answer" placeholder="In their words"></div>
+      <div class="grp full mref-per"><label>Would they trust them to care for someone in their own family?</label>
+        <select id="mref-trust" onchange="SCX.updateMrefPreview()"><option value="">--</option><option value="yes">Yes</option><option value="reservations">Yes, with some reservations</option><option value="no">No</option></select>
+      </div>
       <div class="sect-lbl">Reference Responses</div>
       <div class="grp full"><label>Would you recommend this person for a caregiving position?</label>
         <select id="mref-recommend" onchange="SCX.updateMrefPreview()">
           <option value="">-- Select --</option>
-          <option value="yes">Yes — highly recommend</option>
+          <option value="yes">Yes, without reservation</option>
           <option value="reservations">Yes, with reservations</option>
-          <option value="no">No — would not recommend</option>
+          <option value="no">No, would not recommend</option>
         </select>
       </div>
-      <div class="grp"><label>Reliability / Dependability</label>
+      <div class="grp"><label>Reliability and attendance</label>
         <select id="mref-reliability" onchange="SCX.updateMrefPreview()"><option value="">--</option><option value="Excellent">Excellent</option><option value="Good">Good</option><option value="Fair">Fair</option><option value="Poor">Poor</option></select>
       </div>
-      <div class="grp"><label>Works Well With Others</label>
+      <div class="grp mref-per"><label>How they are with people</label>
         <select id="mref-interpersonal" onchange="SCX.updateMrefPreview()"><option value="">--</option><option value="Excellent">Excellent</option><option value="Good">Good</option><option value="Fair">Fair</option><option value="Poor">Poor</option></select>
       </div>
-      <div class="grp"><label>Honesty / Trustworthiness</label>
+      <div class="grp mref-per"><label>Honesty and trustworthiness</label>
         <select id="mref-honesty" onchange="SCX.updateMrefPreview()"><option value="">--</option><option value="Excellent">Excellent</option><option value="Good">Good</option><option value="Fair">Fair</option><option value="Poor">Poor</option></select>
       </div>
-      <div class="grp full"><label>Any concerns about this person working with vulnerable adults?</label>
-        <select id="mref-concerns" onchange="SCX.updateMrefPreview()"><option value="none">No concerns</option><option value="minor">Minor concerns noted</option><option value="serious">Serious concerns</option></select>
+      <div class="grp full"><label>Any concerns about them working with older or vulnerable adults?</label>
+        <select id="mref-concerns" onchange="SCX.updateMrefPreview()"><option value="none">None at all</option><option value="minor">Minor, nothing serious</option><option value="serious">Yes, something serious</option></select>
       </div>
       <div class="grp full"><label>Additional Comments / Notes</label>
         <textarea id="mref-notes" rows="3" style="width:100%;padding:.45rem .75rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:.83rem;resize:vertical"></textarea>
@@ -7988,6 +8034,74 @@ function renderFilterPills(containerId, options, activeKey, tabKey){
   ).join('');
 }
 function setFilter(tabKey, value){ activeFilters[tabKey] = value; renderActiveTab(); }
+/* ── Reference search in the top search box (R5, 2026-10-01) ───────────────
+   The Hub has no separate command palette, so references show as a small
+   list under the top search: "<ref name> · reference for <candidate>".
+   Clicking one opens Background & References with its search filled in.
+   Read-only: it reads the engine's board when loaded, otherwise this
+   browser's cached copy. */
+function ccRefMatchSlots(c, q){
+  const s=String(q||'').trim().toLowerCase();
+  if(!s||!c) return [];
+  const qd=s.replace(/\D/g,'');
+  const phoneQ=qd.length>=4 && /^[\d\s()+.\-]+$/.test(s);
+  const hits=[];
+  [1,2,3,4].forEach(function(n){
+    const nm=String(c['r'+n+'n']||'').toLowerCase(), em=String(c['r'+n+'_email']||'').toLowerCase();
+    let d=String(c['r'+n+'_phone']||'').replace(/\D/g,''); if(d.length>10) d=d.slice(-10);
+    if((nm&&nm.includes(s)) || (em&&em.includes(s)) || (phoneQ&&d&&d.includes(qd.slice(-10)))) hits.push(n);
+  });
+  return hits;
+}
+function ccRefSearchResults(q){
+  q=String(q||'').trim();
+  if(q.length<3) return [];
+  if(typeof window.obRefSearch==='function'){ try{ return window.obRefSearch(q); }catch(e){} }
+  let list=[];
+  try{ list=JSON.parse(localStorage.getItem('cc_candidates')||'[]')||[]; }catch(e){ list=[]; }
+  const out=[];
+  (Array.isArray(list)?list:[]).forEach(function(c){
+    if(!c||c.not_hired) return;
+    ccRefMatchSlots(c,q).forEach(function(n){
+      out.push({ candId:c.id, slot:n, ref:String(c['r'+n+'n']||'').trim()||('Reference '+n), cand:((c.first||'')+' '+(c.last||'')).trim() });
+    });
+  });
+  return out;
+}
+function ccRefSearchHide(){ const b=document.getElementById('ccRefSearchBox'); if(b) b.style.display='none'; }
+function ccRefSearchShow(q){
+  const inp=document.getElementById('globalSearch'); if(!inp) return;
+  let box=document.getElementById('ccRefSearchBox');
+  const res=ccRefSearchResults(q).slice(0,8);
+  if(!res.length){ if(box) box.style.display='none'; return; }
+  if(!box){
+    box=document.createElement('div'); box.id='ccRefSearchBox';
+    box.style.cssText='position:fixed;z-index:9990;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 32px rgba(14,56,96,.18);padding:6px;max-width:92vw;';
+    document.body.appendChild(box);
+  }
+  const r=inp.getBoundingClientRect();
+  box.style.left=Math.max(8,r.left)+'px'; box.style.top=(r.bottom+6)+'px'; box.style.width=Math.max(280,r.width)+'px';
+  const esc=escapeHtmlComms;
+  box.innerHTML='<div class="field-note" style="padding:4px 8px;">References</div>'+res.map(function(x){
+    return '<button type="button" class="ccrefhit" onmousedown="event.preventDefault()" data-q="'+esc(String(q).trim())+'" onclick="ccOpenRefSearch(this.dataset.q)" '
+      +'style="display:block;width:100%;text-align:left;background:none;border:0;border-radius:7px;padding:7px 8px;font:inherit;font-size:13px;cursor:pointer;color:var(--navy);">'
+      +'<b>'+esc(x.ref)+'</b> <span class="field-note">· reference for '+esc(x.cand)+'</span></button>';
+  }).join('');
+  box.style.display='block';
+}
+function ccOpenRefSearch(q){
+  ccRefSearchHide();
+  const fill=function(){
+    const s=document.getElementById('ob-search');
+    if(s) s.value=q;
+    try{ if(typeof window.bgrSub==='function') window.bgrSub('people'); }catch(e){}
+    try{ if(window.SCX&&SCX.renderOB) SCX.renderOB(); }catch(e){}
+    if(s) try{ s.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){}
+  };
+  switchTab('cgbackground');
+  if(window.SCX&&SCX.renderOB) fill();
+  else window.addEventListener('scx-ready', function(){ setTimeout(fill,0); }, { once:true });
+}
 function searchMatch(str){
   const q = (document.getElementById('globalSearch').value || '').toLowerCase().trim();
   if(!q) return true;
@@ -16234,6 +16348,30 @@ function cgdPreHireHtml(g){
     : '<div class="field-note" style="margin-top:8px;">Shown from the current check fields — no frozen pre-hire snapshot (hired before it was captured). New hires capture this automatically.</div>';
   return rows+note;
 }
+/* References card (R3, 2026-10-01). Reads prehire.refs, frozen at promotion
+   ([{slot,name,type,company,status,date,pdf}]). PDFs open through the
+   engine's signed-URL viewer. Read-only. */
+function cgdRefsHtml(g){
+  const esc=escapeHtmlComms;
+  if(!g) return '<div class="field-note">No hub operational record is connected yet, so references are not on file here.</div>';
+  const refs=g.prehire&&Array.isArray(g.prehire.refs)?g.prehire.refs:null;
+  if(!refs) return '<div class="field-note">Hired before references were carried into the profile. Their reference record is in the hiring file.</div>';
+  if(!refs.length) return '<div class="field-note">No references were on record at hire.</div>';
+  const col={Positive:'#15803D',Conditional:'#B45309',Negative:'#B91C1C'};
+  return refs.map(function(r){
+    const st=r.status||'Pending';
+    const t=String(r.type||'').toLowerCase();
+    const tl=t==='professional'?('Professional'+(r.company?' · '+esc(r.company):'')):t==='personal'?'Personal':'';
+    const pdf=r.pdf?' · <a class="linklike" style="cursor:pointer" onclick="bgrViewProof(\''+esc(String(r.pdf)).replace(/\x27/g,'')+'\')">📄 PDF</a>'
+                   :' · <span class="field-note">no PDF</span>';
+    return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:13.5px;padding:5px 0;border-bottom:1px solid #F6F3EC;">'
+      +'<b style="color:var(--navy);min-width:140px;">'+esc(r.name||('Reference '+(r.slot||'')))+'</b>'
+      +(tl?'<span class="field-note">'+tl+'</span>':'')
+      +'<span style="font-weight:700;color:'+(col[st]||'#8A7F70')+'">'+esc(st)+'</span>'
+      +(r.date?'<span class="field-note">'+esc(String(r.date).slice(0,10))+'</span>':'')
+      +'<span>'+pdf+'</span></div>';
+  }).join('');
+}
 async function cgdOpenProfile(axid){
   const full=document.getElementById('cgdFull'), list=document.getElementById('cgdListView');
   if(!full||!list) return;
@@ -16293,6 +16431,7 @@ async function cgdOpenProfile(axid){
 
     +'<div id="cgdSec-compliance" style="display:none;">'
     +card('Pre-Hire Background Checks <span class="field-note" style="font-weight:400;">— screenings completed before hire, with the document on file (for audits)</span>', cgdPreHireHtml(g), 'cgdPreHireCard')
+    +card('References <span class="field-note" style="font-weight:400;">checked before hire, with the PDF of what each one said</span>', cgdRefsHtml(g), 'cgdRefsCard')
     +card('Compliance & Training <span class="field-note" style="font-weight:400;">— ongoing and annual</span>', cgdComplianceHtml(c,g), 'cgdComplCard')
     +'</div>'
 

@@ -4,14 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>A quick reference — Caring Companions</title>
+<title>A quick reference · Caring Companions</title>
 <!--
   Public reference form. The link carries ?r=<request uuid> plus names for
   display, so this page never reads the table; it only writes answers back to
   its own row, and only while that row is unanswered. See reference-requests.sql.
 
-  The five questions are deliberately the same five the office asks on the
-  phone, so a typed answer and a called answer score identically.
+  Two question sets (R2, 2026-10-01): &t=professional asks a past employer the
+  employment questions (dates, title, hours, eligible for rehire); &t=personal,
+  or no t at all (every link sent before this change), asks the personal set.
+  The office phone form in the Hub asks the same questions, so a typed answer
+  and a called answer score identically.
+
+  Submit (changed 2026-10-01): answers go through the security-definer RPC
+  reference_answer(p_id, p_answers). A direct .update() as anon matched zero
+  rows (anon cannot SELECT the table), so it never saved. The RPC sets
+  responded_at itself and returns 'saved' | 'already' | 'not_found'.
 -->
 <style>
   :root{ --navy:#0D365F; --gold:#F0A63A; --bg:#faf9f6; --card:#fff; --border:#e4e1d8;
@@ -45,6 +53,12 @@
          font-size:30px;line-height:56px;margin:0 auto;}
   .foot{text-align:center;font-size:13px;color:var(--muted);margin-top:24px;}
   .priv{font-size:12.5px;color:var(--muted);margin-top:10px;}
+  .row2{display:flex;gap:10px;flex-wrap:wrap;}
+  .row2 > div{flex:1 1 150px;min-width:0;}
+  .chk{display:flex;align-items:center;gap:8px;font-size:14.5px;margin-top:8px;cursor:pointer;}
+  .chk input{width:18px;height:18px;margin:0;accent-color:var(--gold);}
+  .req{color:var(--red);font-weight:700;}
+  .set{display:none;}
 </style>
 </head>
 <body>
@@ -58,38 +72,94 @@
     <p class="lede" id="lede"></p>
     <div class="why">
       Someone you know has applied to care for older adults in their own homes.
-      Five quick questions is all we need, and your answers stay between you and our office.
+      A few quick questions is all we need, and your answers stay between you and our office.
     </div>
 
-    <div class="card">
-      <p class="q">Would you recommend them for this kind of work?</p>
-      <div class="opts" id="q_recommend">
-        <label class="opt"><input type="radio" name="recommend" value="yes"> Yes, without reservation</label>
-        <label class="opt"><input type="radio" name="recommend" value="reservations"> Yes, with reservations</label>
-        <label class="opt"><input type="radio" name="recommend" value="no"> No</label>
+    <!-- ===== Professional set (t=professional) ===== -->
+    <div class="set" id="setPro">
+      <div class="card">
+        <p class="q">About their time with you</p>
+        <label class="f" for="employer">Company or employer</label>
+        <input class="t" id="employer" placeholder="e.g. Sunrise Senior Living">
+        <div class="row2">
+          <div><label class="f" for="empFrom">Started</label>
+            <input class="t" id="empFrom" placeholder="e.g. March 2023"></div>
+          <div><label class="f" for="empTo">Finished</label>
+            <input class="t" id="empTo" placeholder="e.g. June 2025"></div>
+        </div>
+        <label class="chk"><input type="checkbox" id="stillHere" onchange="stillUI()"> Still works here</label>
+        <label class="f" for="jobTitle">Their job title</label>
+        <input class="t" id="jobTitle" placeholder="e.g. Caregiver, CNA, Cashier">
+      </div>
+
+      <div class="card">
+        <p class="q">Did they work full time or part time?</p>
+        <div class="opts" id="q_hours">
+          <label class="opt"><input type="radio" name="hours" value="full"> Full time</label>
+          <label class="opt"><input type="radio" name="hours" value="part"> Part time</label>
+          <label class="opt"><input type="radio" name="hours" value="both"> Both at different times</label>
+          <label class="opt"><input type="radio" name="hours" value="unsure"> Not sure</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="q">Would they be eligible for rehire? <span class="req">*</span></p>
+        <div class="opts" id="q_rehire">
+          <label class="opt"><input type="radio" name="rehire" value="yes"> Yes</label>
+          <label class="opt"><input type="radio" name="rehire" value="no"> No</label>
+          <label class="opt"><input type="radio" name="rehire" value="policy"> Our policy doesn't allow us to say</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Personal set (t=personal, or an older link with no t) ===== -->
+    <div class="set" id="setPer">
+      <div class="card">
+        <label class="f" for="howlong" style="margin-top:0">How long have you known them?</label>
+        <input class="t" id="howlong" placeholder="e.g. 2 years">
+        <label class="f" for="rel">How do you know them?</label>
+        <input class="t" id="rel" placeholder="e.g. We go to the same church">
+      </div>
+
+      <div class="card">
+        <p class="q">Would you trust them to care for someone in your own family? <span class="req">*</span></p>
+        <div class="opts" id="q_trust">
+          <label class="opt"><input type="radio" name="trust" value="yes"> Yes</label>
+          <label class="opt"><input type="radio" name="trust" value="reservations"> Yes, with some reservations</label>
+          <label class="opt"><input type="radio" name="trust" value="no"> No</label>
+        </div>
       </div>
     </div>
 
     <div class="card" id="scaleCards"></div>
 
     <div class="card">
-      <p class="q">Any concerns we should know about?</p>
+      <p class="q">Any concerns about them working with older or vulnerable adults? <span class="req">*</span></p>
       <div class="opts" id="q_concerns">
         <label class="opt"><input type="radio" name="concerns" value="none"> None at all</label>
         <label class="opt"><input type="radio" name="concerns" value="minor"> Minor, nothing serious</label>
         <label class="opt"><input type="radio" name="concerns" value="serious"> Yes, something serious</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="q">Would you recommend them for this kind of work? <span class="req">*</span></p>
+      <div class="opts" id="q_recommend">
+        <label class="opt"><input type="radio" name="recommend" value="yes"> Yes, without reservation</label>
+        <label class="opt"><input type="radio" name="recommend" value="reservations"> Yes, with reservations</label>
+        <label class="opt"><input type="radio" name="recommend" value="no"> No</label>
       </div>
       <label class="f" for="notes">Anything you would like to add</label>
       <textarea id="notes" rows="3" placeholder="Optional, and genuinely useful. A sentence is plenty."></textarea>
     </div>
 
     <div class="card">
-      <label class="f" for="howlong">How long have you known them?</label>
-      <input class="t" id="howlong" placeholder="e.g. 2 years">
-      <label class="f" for="rel">How do you know them?</label>
-      <input class="t" id="rel" placeholder="e.g. I was their supervisor">
-      <label class="f" for="who">Your name</label>
+      <label class="f" for="who" style="margin-top:0">Your name <span class="req">*</span></label>
       <input class="t" id="who" placeholder="So we know who we spoke with">
+      <div id="titleWrap" style="display:none">
+        <label class="f" for="whoTitle">Your job title</label>
+        <input class="t" id="whoTitle" placeholder="e.g. Office manager">
+      </div>
       <button class="go" id="submitBtn" onclick="send()">Send my answers</button>
       <div class="err" id="err"></div>
       <p class="priv">We ask because Missouri requires references for anyone working in a client's home.
@@ -117,20 +187,41 @@ const REQ=P.get('r')||'';
 const who=P.get('c')||'the applicant';       // candidate name, for display only
 const you=P.get('n')||'';                    // reference name, for display only
 const g=id=>document.getElementById(id);
+/* Which question set. Anything other than "professional" (including no t at
+   all, which is every link sent before 2026-10-01) gets the personal set. */
+const MODE = (P.get('t')||'').toLowerCase()==='professional' ? 'professional' : 'personal';
+const CO = P.get('co')||'';
 
 g('head').textContent = you ? 'Hi ' + you + ', a quick reference?' : 'A quick reference, if you have two minutes.';
-g('lede').textContent = who + ' listed you as a reference for a caregiving job with Caring Companions.';
+/* Say plainly which kind of reference they are, and how the applicant
+   described them, so they know what they are being asked about. */
+const REL = P.get('rel')||'';
+const T = (P.get('t')||'').toLowerCase();
+g('lede').textContent =
+  T==='professional' ? who + ' listed you as a professional reference' + (CO ? ' from ' + CO : '') + (REL ? ' (' + REL + ')' : '') + '.'
+  : T==='personal'   ? who + ' listed you as a personal reference' + (REL ? ' (' + REL + ')' : '') + '.'
+  : who + ' listed you as a reference for a caregiving job with Caring Companions.';
 g('doneLede').textContent = 'That is everything we needed for ' + who + '. It genuinely helps.';
 if (you) g('who').value = you;
 if (P.get('rel')) g('rel').value = P.get('rel');
+if (CO) g('employer').value = CO;
+g(MODE==='professional' ? 'setPro' : 'setPer').style.display = 'block';
+g('titleWrap').style.display = MODE==='professional' ? 'block' : 'none';
 
-/* The three scored qualities share a layout, so build them rather than repeat
-   the markup three times. */
-const SCALES=[
-  ['reliability','Reliability and attendance'],
-  ['interpersonal','How they are with people'],
-  ['honesty','Honesty and trustworthiness'],
-];
+function stillUI(){
+  const on = g('stillHere').checked;
+  g('empTo').disabled = on;
+  if (on) g('empTo').value = '';
+}
+
+/* The scored qualities share a layout, so build them rather than repeat the
+   markup. A past employer is asked about attendance only; someone who knows
+   them personally is asked all three. */
+const SCALES = MODE==='professional'
+  ? [['reliability','Reliability and attendance']]
+  : [['reliability','Reliability and attendance'],
+     ['interpersonal','How they are with people'],
+     ['honesty','Honesty and trustworthiness']];
 g('scaleCards').innerHTML = SCALES.map(([k,label]) =>
   '<p class="q">' + label + '</p><div class="opts" id="q_' + k + '" style="margin-bottom:18px;">' +
   ['Excellent','Good','Fair','Poor'].map(v =>
@@ -139,36 +230,85 @@ g('scaleCards').innerHTML = SCALES.map(([k,label]) =>
 
 // Selected options get a visible state, since a bare radio is easy to miss on a phone.
 document.addEventListener('change', e => {
+  g('err').style.display = 'none';
   if (e.target.type !== 'radio') return;
   document.getElementsByName(e.target.name).forEach(r =>
     r.closest('.opt').classList.toggle('sel', r.checked));
 });
 
 const pick = n => (document.querySelector('input[name="' + n + '"]:checked') || {}).value || '';
+const txt = id => (g(id).value || '').trim();
+
+/* The only answer keys the reference_answer RPC accepts. Built per set, so a
+   professional answer never carries personal keys and the other way round,
+   and empty answers are left out. The RPC stamps responded_at itself. */
+const ANSWER_KEYS = ['recommend','reliability','interpersonal','honesty','concerns',
+  'how_long','notes','responder_name','rel_answer','employer_confirmed','emp_from','emp_to',
+  'job_title','hours_type','rehire','trust_family','responder_title'];
+function buildPayload(){
+  const base = {
+    recommend: pick('recommend'),
+    reliability: pick('reliability') || null,
+    concerns: pick('concerns'),
+    notes: txt('notes') || null,
+    responder_name: txt('who'),
+  };
+  if (MODE === 'professional') {
+    return Object.assign(base, {
+      employer_confirmed: txt('employer') || null,
+      emp_from: txt('empFrom') || null,
+      emp_to: g('stillHere').checked ? 'present' : (txt('empTo') || null),
+      job_title: txt('jobTitle') || null,
+      hours_type: pick('hours') || null,
+      rehire: pick('rehire'),
+      responder_title: txt('whoTitle') || null,
+    });
+  }
+  return Object.assign(base, {
+    interpersonal: pick('interpersonal') || null,
+    honesty: pick('honesty') || null,
+    how_long: txt('howlong') || null,
+    rel_answer: txt('rel') || null,
+    trust_family: pick('trust'),
+  });
+}
+function buildAnswers(){
+  const p = buildPayload(), out = {};
+  ANSWER_KEYS.forEach(k => { if (p[k] != null && p[k] !== '') out[k] = p[k]; });
+  return out;
+}
+function missingAnswers(){
+  const m = [];
+  if (MODE === 'professional' && !pick('rehire')) m.push('whether they are eligible for rehire');
+  if (MODE === 'personal' && !pick('trust')) m.push('whether you would trust them with your own family');
+  if (!pick('concerns')) m.push('whether you have concerns');
+  if (!pick('recommend')) m.push('whether you would recommend them');
+  if (!txt('who')) m.push('your name');
+  return m;
+}
 
 async function send(){
   const err=g('err');
   if(!REQ){ err.textContent='This link is missing its code. Please call the office and we will sort it out.'; err.style.display='block'; return; }
-  const missing=[];
-  if(!pick('recommend')) missing.push('whether you would recommend them');
-  if(!pick('concerns')) missing.push('whether you have concerns');
-  if(!g('who').value.trim()) missing.push('your name');
+  const missing=missingAnswers();
   if(missing.length){ err.textContent='Still needed: '+missing.join(', ')+'.'; err.style.display='block'; return; }
 
   const btn=g('submitBtn'); btn.disabled=true; btn.textContent='Sending…'; err.style.display='none';
   try{
-    const { error } = await sb.from('reference_requests').update({
-      responded_at: new Date().toISOString(),
-      recommend: pick('recommend'),
-      reliability: pick('reliability') || null,
-      interpersonal: pick('interpersonal') || null,
-      honesty: pick('honesty') || null,
-      concerns: pick('concerns'),
-      how_long: g('howlong').value.trim() || null,
-      notes: g('notes').value.trim() || null,
-      responder_name: g('who').value.trim(),
-    }).eq('id', REQ);
+    const { data, error } = await sb.rpc('reference_answer', { p_id: REQ, p_answers: buildAnswers() });
     if(error) throw error;
+    const res = String(data == null ? '' : data).trim();
+    if(res === 'not_found'){
+      btn.disabled=false; btn.textContent='Send my answers';
+      err.textContent="This link doesn't match a reference request. Please call us at (417) 234-8494.";
+      err.style.display='block';
+      return;
+    }
+    if(res === 'already'){
+      g('doneLede').textContent='Thanks, we already have your answers for this one.';
+    } else if(res !== 'saved'){
+      throw new Error('unexpected reply: ' + res);
+    }
     g('formView').style.display='none';
     g('doneView').style.display='block';
     window.scrollTo(0,0);

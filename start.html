@@ -41,6 +41,18 @@
   .hint{font-size:12.5px;color:var(--muted);margin-top:4px;}
   .refbox{border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#FCFBF8;}
   .refbox b{font-size:13.5px;color:var(--navy);}
+  .refsec{border-top:1px solid var(--border);padding-top:14px;margin-top:14px;}
+  .refsec:first-of-type{border-top:0;padding-top:0;margin-top:4px;}
+  .refsec h3{font-size:15.5px;color:var(--navy);margin:0 0 2px;display:flex;align-items:center;gap:8px;}
+  .refsec h3 .tag{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:2px 9px;}
+  .tag-pro{background:#E6EEF7;color:#0D365F;} .tag-per{background:#F0F7F4;color:#1F6F5C;}
+  .refbox.pro{border-left:4px solid #0D365F;} .refbox.per{border-left:4px solid #8FD1C7;}
+  .addref{background:none;border:1px dashed var(--border);border-radius:8px;padding:10px;width:100%;
+       font:inherit;font-size:14px;color:var(--navy);cursor:pointer;}
+  .noemp{display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:500;color:var(--text);
+       margin:6px 0 10px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:#fff;cursor:pointer;}
+  .noemp input{width:18px;height:18px;margin:0;flex:none;accent-color:var(--gold);}
+  .okmsg{display:none;background:#F0F7F4;border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:6px;}
   .tip{background:#F0F7F4;border-left:3px solid #8FD1C7;padding:10px 12px;border-radius:0 8px 8px 0;
        font-size:14px;margin:14px 0 0;}
   .consent{font-size:14.5px;background:#FAF9F6;border:1px solid var(--border);border-radius:10px;padding:14px;}
@@ -130,11 +142,26 @@
     <div class="card">
       <h2>Your references</h2>
       <p class="sub">Two is enough to get started. Three or four is better and usually faster.</p>
-      <p style="font-size:14.5px;margin:0 0 12px;">They can be <b>professional or personal</b>. A former supervisor, a coworker,
-      a family you cared for, a neighbor, a pastor, anyone who knows you and can speak to your character or your work.
-      The only rule is that they cannot be <b>related to you</b>, so no parents, siblings, spouse, children or grandparents.</p>
-      <div id="refs"></div>
-      <button type="button" onclick="addRef()" style="background:none;border:1px dashed var(--border);border-radius:8px;padding:10px;width:100%;font:inherit;font-size:14px;color:var(--navy);cursor:pointer;">+ Add another reference</button>
+      <p style="font-size:14.5px;margin:0 0 4px;">Please include at least <b>one professional reference</b>.
+      None of your references can be <b>related to you</b>, so no parents, siblings, spouse, children or grandparents.</p>
+
+      <div class="refsec" id="proSec">
+        <h3><span class="tag tag-pro">Work</span> Professional references</h3>
+        <p class="sub">Someone you worked for or with: a supervisor, manager, or coworker.</p>
+        <label class="noemp"><input type="checkbox" id="noEmployer" onchange="noEmpUI()"> I haven't worked for an employer before</label>
+        <div class="okmsg" id="proNote">No problem. Please give two personal references.</div>
+        <div id="proBody">
+          <div id="proRefs"></div>
+          <button type="button" class="addref" onclick="addRef('professional')">+ Add a professional reference</button>
+        </div>
+      </div>
+
+      <div class="refsec" id="perSec">
+        <h3><span class="tag tag-per">Personal</span> Personal references</h3>
+        <p class="sub">Someone who knows you well outside of work. Not a family member.</p>
+        <div id="perRefs"></div>
+        <button type="button" class="addref" onclick="addRef('personal')">+ Add a personal reference</button>
+      </div>
       <div class="tip">Give your references a heads-up that we will reach out. One text from you and they answer, which is usually the difference between starting this week and starting next week.</div>
     </div>
 
@@ -202,21 +229,49 @@ function ssnFmt(el){
            : d.length > 3 ? d.slice(0,3)+'-'+d.slice(3) : d;
 }
 
-let refCount = 0;
-function addRef(){
-  refCount++;
+/* References come in two clearly separate sections (her ask, 2026-10-01), so
+   nobody has to guess which kind a person is: a professional reference names
+   the company and their role; a personal one says how they know you and for
+   how long. Saved into refs as type, company, relationship, how_long. */
+const PRO_ROLES = ['Supervisor','Manager','Coworker','Business owner','Other'];
+const PER_HOW = ['Friend','Neighbor','Church or faith community','School or teacher','Former client or family you helped','Other'];
+const optList = (list, first) => '<option value="">' + first + '</option>' + list.map(v => '<option>' + v + '</option>').join('');
+let proCount = 0, perCount = 0;
+function addRef(kind){
+  const pro = kind === 'professional';
+  const n = pro ? ++proCount : ++perCount;
   const d = document.createElement('div');
-  d.className = 'refbox';
-  d.innerHTML =
-    '<b>Reference ' + refCount + '</b>' +
-    '<label>Their name</label><input class="rname">' +
-    '<label>How do they know you?</label><input class="rrel" placeholder="Former supervisor, coworker, family you cared for, neighbor" oninput="relCheck(this)">' +
-    '<div class="relwarn" style="display:none;font-size:12.5px;color:#B45309;margin-top:4px;">Heads up: references cannot be relatives. Please use someone outside your family.</div>' +
-    '<div class="row"><div><label>Phone</label><input class="rphone" type="tel"></div>' +
-    '<div><label>Email (if you have it)</label><input class="remail" type="email"></div></div>';
-  g('refs').appendChild(d);
+  d.className = 'refbox ' + (pro ? 'pro' : 'per');
+  d.innerHTML = pro
+    ? '<b>Professional reference ' + n + '</b>' +
+      '<label>Their name</label><input class="rname">' +
+      '<label>Company or employer</label><input class="rco" placeholder="Where you worked together">' +
+      '<label>Their role</label><select class="rrole" onchange="otherUI(this)">' + optList(PRO_ROLES, 'Choose one') + '</select>' +
+      '<input class="rother" style="display:none;margin-top:6px;" placeholder="Their role, in a few words">' +
+      '<div class="row"><div><label>Phone</label><input class="rphone" type="tel"></div>' +
+      '<div><label>Email (if you have it)</label><input class="remail" type="email"></div></div>'
+    : '<b>Personal reference ' + n + '</b>' +
+      '<label>Their name</label><input class="rname">' +
+      '<label>How do you know them?</label><select class="rhow" onchange="otherUI(this)">' + optList(PER_HOW, 'Choose one') + '</select>' +
+      '<input class="rother" style="display:none;margin-top:6px;" placeholder="How you know them" oninput="relCheck(this)">' +
+      '<div class="relwarn" style="display:none;font-size:12.5px;color:#B45309;margin-top:4px;">Heads up: references cannot be relatives. Please use someone outside your family.</div>' +
+      '<label>How long have you known them?</label><input class="rlong" placeholder="e.g. 5 years">' +
+      '<div class="row"><div><label>Phone</label><input class="rphone" type="tel"></div>' +
+      '<div><label>Email (if you have it)</label><input class="remail" type="email"></div></div>';
+  g(pro ? 'proRefs' : 'perRefs').appendChild(d);
 }
-addRef(); addRef();
+addRef('professional'); addRef('personal');
+function otherUI(sel){
+  const o = sel.parentElement.querySelector('.rother');
+  o.style.display = sel.value === 'Other' ? 'block' : 'none';
+  if (sel.value !== 'Other') { o.value = ''; relCheck(o); }
+}
+function noEmpUI(){
+  const on = g('noEmployer').checked;
+  g('proBody').style.display = on ? 'none' : 'block';
+  g('proNote').style.display = on ? 'block' : 'none';
+  if (on) while (document.querySelectorAll('#perRefs .refbox').length < 2) addRef('personal');
+}
 
 /* A soft nudge, never a block. Someone typing "sister-in-law" or "Sister Ruth
    at church" is fine and should not be argued with by a web form. */
@@ -228,12 +283,39 @@ function relCheck(el){
   if (warn) warn.style.display = related ? 'block' : 'none';
 }
 function collectRefs(){
-  return [...document.querySelectorAll('.refbox')].map(b => ({
+  const noEmp = g('noEmployer').checked;
+  const pick = (b, sel) => {
+    const v = b.querySelector(sel).value;
+    return v === 'Other' ? (b.querySelector('.rother').value.trim() || 'Other') : v;
+  };
+  const pros = noEmp ? [] : [...document.querySelectorAll('#proRefs .refbox')].map(b => ({
+    type: 'professional',
     name: b.querySelector('.rname').value.trim(),
-    relationship: b.querySelector('.rrel').value.trim(),
+    company: b.querySelector('.rco').value.trim(),
+    relationship: pick(b, '.rrole'),
     phone: b.querySelector('.rphone').value.trim(),
     email: b.querySelector('.remail').value.trim(),
-  })).filter(r => r.name && (r.phone || r.email));
+  }));
+  const pers = [...document.querySelectorAll('#perRefs .refbox')].map(b => ({
+    type: 'personal',
+    name: b.querySelector('.rname').value.trim(),
+    relationship: pick(b, '.rhow'),
+    how_long: b.querySelector('.rlong').value.trim(),
+    phone: b.querySelector('.rphone').value.trim(),
+    email: b.querySelector('.remail').value.trim(),
+  }));
+  // Professional first, so they take the first reference slots.
+  return pros.concat(pers).filter(r => r.name && (r.phone || r.email));
+}
+/* Reference rules (R1, her decision 2026-10-01): at least two, and at least
+   one professional unless they tick that they have never had an employer. */
+function refProblems(refs, noEmployer){
+  const p = [];
+  if (refs.length < 2) p.push('at least two references with a phone or email');
+  if (refs.some(r => r.type === 'professional' && !r.company)) p.push('the company or employer for each professional reference');
+  if (!noEmployer && !refs.some(r => r.type === 'professional'))
+    p.push("at least one professional reference (or tick \"I haven't worked for an employer before\")");
+  return p;
 }
 
 let SIGNED = null;
@@ -246,7 +328,7 @@ async function submitForm(){
   if (!val('dob')) problems.push('your date of birth');
   if (!g('oos').value) problems.push('whether you have lived outside Missouri');
   if (val('ssn').replace(/\D/g,'').length !== 9) problems.push('your full social security number');
-  if (refs.length < 2) problems.push('at least two references with a phone or email');
+  problems.push(...refProblems(refs, g('noEmployer').checked));
   if (!val('sig')) problems.push('your typed signature');
   if (problems.length) {
     err.textContent = 'Still needed: ' + problems.join(', ') + '.';
@@ -266,7 +348,7 @@ async function submitForm(){
     ssn: val('ssn').replace(/\D/g,'') || null,
     lived_outside_mo: g('oos').value === 'yes',
     states_lived: val('states') || null,
-    refs, signature_name: val('sig'),
+    refs, no_employer_history: g('noEmployer').checked, signature_name: val('sig'),
     consent_text: g('consentBox').textContent.replace(/\s+/g,' ').trim(),
   };
   try {
@@ -294,7 +376,10 @@ function printCopy(){
   const r = SIGNED;
   const refRows = (r.refs || []).map((x,i) =>
     '<tr><th>Reference ' + (i+1) + '</th><td>' + esc(x.name) +
-    (x.relationship ? ' <span style="color:#6E6559">(' + esc(x.relationship) + ')</span>' : '') +
+    (x.type ? ' <span style="color:#6E6559">' + (x.type === 'professional'
+        ? 'Professional' + (x.company ? ', ' + esc(x.company) : '') + (x.relationship ? ', ' + esc(x.relationship) : '')
+        : 'Personal' + (x.relationship ? ', ' + esc(x.relationship) : '') + (x.how_long ? ', known ' + esc(x.how_long) : '')) + '</span>'
+      : (x.relationship ? ' <span style="color:#6E6559">(' + esc(x.relationship) + ')</span>' : '')) +
     (x.phone ? ' &middot; ' + esc(x.phone) : '') + (x.email ? ' &middot; ' + esc(x.email) : '') +
     '</td></tr>').join('');
   const html = '<!doctype html><html><head><meta charset="utf-8"><title>Authorization - ' +
