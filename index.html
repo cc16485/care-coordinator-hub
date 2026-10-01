@@ -28414,6 +28414,9 @@ const OPS_KINDS = {
   missed_note:    { label:'Care note',     hours:24 },
   /* Running late (L1, 2026-09-29): a caregiver texted or called that they're running late, or can't make it. */
   late_notice:    { label:'Running late',  hours:1  },
+  /* NO SILENT FAILURES (2026-10-01): a text or email that was held back or that GoHighLevel refused (send-problems.ts).
+     Who, which message, why and the next step are in the card's title and detail. */
+  send_problem:   { label:"Didn't go through", hours:8 },
   /* Step 6 (2026-09-26): made by the promise-run producer from Start Contracts
      and Journey reviews. They close themselves when the source is satisfied. */
   promise_update: { label:'Family update owed',    hours:24 },
