@@ -874,6 +874,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-interviews">
     <div class="fpill" data-tab="recruit" onclick="switchTab('recruit')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Recruit</div>
     <div class="fpill" data-tab="applicants" onclick="switchTab('applicants')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Applicants<span class="subtab-badge red" id="apNewBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="apjourney" onclick="switchTab('apjourney')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Applicant journey</div>
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
     <!-- Offer a Job left normal navigation 2026-09-21 (owner ruling): offers
          are made FROM the person (Applicants/Interviews hand off here with
@@ -1686,6 +1687,20 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     </section>
 
     <!-- ===================== TAB: APPLICANTS ===================== -->
+    <!-- Applicant journey & messages (2026-10-01): every message an applicant gets, its wording, timing, trigger and
+         whether it shows in GoHighLevel Conversations. Data: applicant-journey.js, loaded the first time this opens. -->
+    <section class="tabpanel" id="tab-apjourney">
+      <div class="card" style="padding:18px;">
+        <div style="font-size:19px;font-weight:800;color:var(--navy);">Applicant journey &amp; messages</div>
+        <div class="field-note" style="margin-top:4px;">Every text and email an applicant or new hire gets, from applying to their first shifts: when it goes, what sends it, and the exact words. Messages marked <b>In GoHighLevel</b> also show in that person's GoHighLevel conversation.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center;">
+          <input id="apjSearch" placeholder="Search the messages…" oninput="apjRender()" style="flex:1;min-width:200px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font:inherit;">
+          <label class="field-note" style="display:flex;gap:5px;align-items:center;"><input type="checkbox" id="apjApplicantOnly" onchange="apjRender()" checked> Messages to the applicant only</label>
+        </div>
+      </div>
+      <div id="apjBody" style="margin-top:14px;"><div class="field-note">Loading…</div></div>
+    </section>
+
     <section class="tabpanel" id="tab-applicants">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
@@ -7400,7 +7415,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','apjourney','interviews','cgbackground','cgorient','offers'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8003,6 +8018,7 @@ function renderActiveTab(){
   if(activeTab==='evv') evvOpen();
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
+  if(activeTab==='apjourney') apjOpen();
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); }
   if(activeTab==='hourswatch'){ swRenderAll(); }
@@ -22304,6 +22320,69 @@ async function apNoshowExcuse(id){
 }
 window.apNoshowMark = apNoshowMark; window.apNoshowSend = apNoshowSend; window.apNoshowExcuse = apNoshowExcuse;
 
+/* ---- Applicant journey & messages (2026-10-01) ---- */
+function apjOpen(){
+  if(window.AP_JOURNEY) return apjRender();
+  const sc = document.createElement('script'); sc.src = 'applicant-journey.js?v=20261001';
+  sc.onload = apjRender; sc.onerror = () => { const b=document.getElementById('apjBody'); if(b) b.innerHTML='<div class="field-note">Could not load the journey list. Reload the page.</div>'; };
+  document.head.appendChild(sc);
+}
+function apjRender(){
+  const box = document.getElementById('apjBody'); if(!box || !window.AP_JOURNEY) return;
+  const esc = escapeHtmlComms;
+  const q = ((document.getElementById('apjSearch')||{}).value||'').trim().toLowerCase();
+  const onlyApplicant = !!(document.getElementById('apjApplicantOnly')||{}).checked;
+  const STAGE_NOTE = {
+    'applying':'From the moment they hear about the job until they book an interview.',
+    'interview booking':'Once an interview time is booked.',
+    'interview reminders':'Before the interview.',
+    'no-show':'When they miss the interview without calling.',
+    'after interview (offer / pool / declined)':'After the interview: offer, candidate pool or not hiring.',
+    'references':'Checking their references.',
+    'start paperwork':'New-hire paperwork.',
+    'orientation & training':'Orientation and required training.',
+    'first shift':'Getting them onto the schedule.',
+    'after first shift (PRN only)':'PRN CNA Team only.' };
+  const toRef = x => /^To the reference/.test(x.name);
+  const rows = window.AP_JOURNEY.filter(x => (!onlyApplicant || !toRef(x))
+    && (!q || JSON.stringify(x).toLowerCase().includes(q)));
+  const chip = (t,c,bg) => '<span style="font-size:11px;font-weight:800;color:'+c+';background:'+bg+';border-radius:999px;padding:2px 9px;">'+esc(t)+'</span>';
+  let html = '', stage = '';
+  rows.forEach(x => {
+    if(x.stage !== stage){
+      stage = x.stage;
+      html += '<div style="margin:18px 0 8px;"><div style="font-size:15px;font-weight:800;color:var(--navy);text-transform:capitalize;">'+esc(stage)+'</div>'
+        + (STAGE_NOTE[stage] ? '<div class="field-note">'+esc(STAGE_NOTE[stage])+'</div>' : '') + '</div>';
+    }
+    const none = /none/i.test(x.channel||'');
+    html += '<details class="card" style="padding:12px 14px;margin-bottom:8px;"><summary style="cursor:pointer;list-style:none;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+      + '<b style="color:var(--navy);font-size:14px;">'+esc(x.name)+'</b>'
+      + chip(x.automatic ? 'Automatic' : 'Office button', x.automatic?'#1E40AF':'#6E6559', x.automatic?'#DBEAFE':'#F4F2ED')
+      + (none ? chip('No message','#6E6559','#F4F2ED') : chip(x.channel,'#0D365F','#E6F5F4'))
+      + (none ? '' : x.shows_in_ghl ? chip('✓ In GoHighLevel','#15803D','#DCFCE7') : chip('Not in GoHighLevel','#B45309','#FEF3C7'))
+      + (x.warning ? chip('⚠ Not running','#B91C1C','#FEE2E2') : '')
+      + '<span style="flex:1;"></span><span class="field-note">details ▾</span></summary>'
+      + '<div style="margin-top:10px;font-size:13px;display:grid;gap:6px;">'
+      + (x.warning ? '<div style="background:#FEE2E2;color:#991B1B;border-radius:8px;padding:8px 10px;"><b>'+esc(x.warning)+'</b></div>' : '')
+      + (x.timing ? '<div><b>When:</b> '+esc(x.timing)+'</div>' : '')
+      + (x.button ? '<div><b>Button:</b> '+esc(x.button)+'</div>' : '')
+      + (x.trigger ? '<div><b>What sends it:</b> '+esc(x.trigger)+'</div>' : '')
+      + (x.rule ? '<div><b>Rules:</b> '+esc(x.rule)+'</div>' : '')
+      + (x.ghl_note ? '<div style="color:#B45309;"><b>'+esc(x.ghl_note)+'</b></div>' : '')
+      + (x.text ? '<div><b>'+(/email only/i.test(x.channel||'')?'Wording':'Text')+':</b><div style="white-space:pre-wrap;background:#F7F5F0;border-radius:8px;padding:9px 11px;margin-top:4px;">'+esc(x.text)+'</div></div>' : '')
+      + (x.subject ? '<div><b>Email subject:</b> '+esc(x.subject)+'</div>' : '')
+      + (x.email_summary ? '<div><b>Email says:</b> '+esc(x.email_summary)+'</div>' : '')
+      + '</div></details>';
+  });
+  if(!rows.length) html = '<div class="field-note">Nothing matches that search.</div>';
+  const issues = (window.AP_JOURNEY_ISSUES||[]);
+  html += issues.length ? '<div class="card" style="padding:14px;margin-top:18px;background:#FFFBEB;border-color:#FCD34D;"><b style="color:#92400E;">Things to decide or fix</b><ul style="margin:8px 0 0 18px;font-size:13px;color:#78350F;">'
+    + issues.map(i=>'<li style="margin-bottom:4px;">'+esc(i)+'</li>').join('') + '</ul></div>' : '';
+  html += '<div class="field-note" style="margin-top:10px;">Checked against the Hub\'s code on '+esc(window.AP_JOURNEY_CHECKED||'')+'.</div>';
+  box.innerHTML = html;
+}
+window.apjRender = apjRender; window.apjOpen = apjOpen;
+
 async function apOutcome(outcome, btn){
   if(outcome==='noshow') return apNoshowMark(document.getElementById('apIntId').value, btn);
   const id = document.getElementById('apIntId').value;
@@ -22512,6 +22591,8 @@ function apReengageList(){
      (they may be mid-paperwork) is as excluded as hired. */
   return AP_ROWS.filter(r=>
     apQualified(r) && r.status!=='hired' && r.status!=='offer'
+    /* 2026-10-01: a no-show is never told "pick an interview time" (they can't book). */
+    && r.status!=='noshow' && r.status!=='left'
     && (who==='pool' ? r.status==='pool' : !AP_BOOK[r.id])
     && (!pos || r.position===pos)
     && (r.phone || r.email)
