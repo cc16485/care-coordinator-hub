@@ -5059,8 +5059,17 @@ function preHireRows(){
   cgs.forEach(cg => {
     if(cg.not_hired) return;
     const ph = cg.prehire;
+    /* The hire snapshot stores {status, date, proof}; this list reads {s, d, p}. Reading only the latter made every
+       hired caregiver show "Pending / no document" (fixed 2026-10-01). Either shape is accepted, and a missing piece
+       falls back to the caregiver's own check fields. */
+    const own = { oig:{s:cg.oig_status,d:cg.oig_date,p:cg.oig_proof}, edl:{s:cg.edl_status,d:cg.edl_date,p:cg.edl_proof},
+                  fcsr:{s:cg.fcsr_status,d:cg.fcsr_date,p:cg.fcsr_proof}, fp:{s:cg.fp,d:cg.fp_date,p:cg.fp_proof} };
+    const nz = (k) => { const o = (ph && ph[k]) || {}, f = own[k];
+      const r = { s: o.s ?? o.status ?? f.s ?? '', d: o.d ?? o.date ?? f.d ?? '', p: o.p ?? o.proof ?? f.p ?? '' };
+      if(k === 'fp') r.applicable = (o.applicable !== undefined) ? o.applicable : cg.oos === 'yes';
+      return r; };
     rows.push(ph
-      ? { name:(cg.first+' '+cg.last).trim(), stage:'Hired', oig:ph.oig, edl:ph.edl, fcsr:ph.fcsr, fp:ph.fp, refs:Array.isArray(ph.refs)?ph.refs:null }
+      ? { name:(cg.first+' '+cg.last).trim(), stage:'Hired', oig:nz('oig'), edl:nz('edl'), fcsr:nz('fcsr'), fp:nz('fp'), refs:Array.isArray(ph.refs)?ph.refs:null }
       : { name:(cg.first+' '+cg.last).trim(), stage:'Hired',
           oig:{s:cg.oig_status||'',d:cg.oig_date||'',p:cg.oig_proof||''},
           edl:{s:cg.edl_status||'',d:cg.edl_date||'',p:cg.edl_proof||''},
