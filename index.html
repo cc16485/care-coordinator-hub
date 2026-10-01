@@ -4576,6 +4576,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <button class="filter-pill" data-cf="attention" onclick="cgdFilter('attention',this)">Needs attention</button>
       <button class="filter-pill" data-cf="needsdata" onclick="cgdFilter('needsdata',this)">Needs data connection</button>
     </div>
+    <div id="cgdAutoLine" class="field-note" style="display:none;font-size:13px;margin:0 0 10px;padding:8px 12px;border-radius:10px;background:#F4FAF8;border:1px solid #D5EAE4;"></div>
     <div id="cgdList"><div class="field-note">Loading…</div></div>
   </div>
   <!-- The FULL caregiver profile page (her UX ruling, 2026-09-20): the
@@ -7445,6 +7446,12 @@ function scxEnsure(tab){
     note.textContent = 'Loading…';
     panel.prepend(note);
   }
+  scxLoadEngine();
+}
+/* The loader on its own, so a page that is not one of the engine's panels
+   (the Caregivers directory's connection check) can load it without a tab
+   switch and without a visible "Loading…" note in a hidden panel. */
+function scxLoadEngine(){
   if(scxState !== 'idle') return;
   scxState = 'loading';
   window.addEventListener('scx-ready', function(){
@@ -16237,6 +16244,122 @@ async function cgdOpen(){ // tab open
   const el=document.getElementById('cgdList');
   try{ await cgdCensus(); }catch(e){ if(el) el.innerHTML='<div class="card" style="padding:16px;">Could not load the AxisCare census: '+escapeHtmlComms(String(e.message||e))+'</div>'; return; }
   cgdRenderList();
+  cgdAutoConnectOnce();
+}
+
+/* ── Connect each AxisCare caregiver to their Hub record (2026-10-01) ──────
+   Samantha approved: automatic only when CERTAIN (same phone or email, one
+   possible record), Needs Attention when not. The matching and every write
+   live in the engine (scxAutoConnect), which refuses to run before its shared
+   data has loaded (HYDRATED). Runs once per page load, when the directory
+   opens. Never messages anyone; never writes to AxisCare. */
+let cgdAutoRan=false, cgdAutoSum=null;
+/* Loads the caregiver engine without switching tabs, then waits until its
+   shared data has loaded. Resolves true when it is safe to read and write. */
+function cgdEngineReady(timeoutMs){
+  return new Promise(function(resolve){
+    const ok=function(){ return typeof window.scxIsHydrated==='function' && window.scxIsHydrated(); };
+    if(ok()) return resolve(true);
+    let done=false;
+    const fin=function(v){ if(done) return; done=true; window.removeEventListener('scx-hydrated',on); clearTimeout(t); resolve(v); };
+    const on=function(){ if(ok()) fin(true); };
+    window.addEventListener('scx-hydrated',on);
+    const t=setTimeout(function(){ fin(ok()); }, timeoutMs||60000);
+    try{ scxLoadEngine(); }catch(e){ fin(false); }
+  });
+}
+async function cgdReloadCaregivers(){
+  try{ const { data, error }=await sb.from('app_data').select('data').eq('key','caregivers').single();
+    if(!error && data) DATA.caregivers=data.data||[]; }catch(e){}
+}
+async function cgdAutoConnectOnce(){
+  if(cgdAutoRan || !CGD.census) return;
+  cgdAutoRan=true;
+  if(!(await cgdEngineReady())) return;            // not loaded: change nothing, say nothing
+  let sum=null;
+  try{ sum=await window.scxAutoConnect(CGD.census.caregivers||[]); }catch(e){ console.warn('caregiver auto-connect:', e); return; }
+  if(!sum || sum.skipped){ if(sum) console.warn('caregiver auto-connect skipped:', sum.skipped); return; }
+  cgdAutoSum=sum;
+  if(sum.linked.length||sum.moved.length||sum.created.length) await cgdReloadCaregivers();
+  cgdAutoLineRender();
+  cgdRenderList();
+  if(CGD.openId) cgdConnectMount(CGD.openId);
+}
+function cgdAutoLineRender(){
+  const el=document.getElementById('cgdAutoLine'); if(!el) return;
+  const s=cgdAutoSum;
+  if(!s){ el.style.display='none'; return; }
+  const n=s.linked.length+s.moved.length+s.created.length;
+  const by=function(h){ return s.linked.filter(x=>x.how===h).length; };
+  const parts=[];
+  if(by('phone')) parts.push(by('phone')+' by phone');
+  if(by('email')) parts.push(by('email')+' by email');
+  if(s.moved.length) parts.push(s.moved.length+' moved from Background & References');
+  if(s.created.length) parts.push(s.created.length+' new Hub record'+(s.created.length>1?'s':''));
+  const names=[].concat(s.linked,s.moved,s.created).map(x=>x.name).join(', ');
+  const bits=[];
+  if(n) bits.push('<span title="'+escapeHtmlComms(names)+'">Connected automatically: <b>'+n+'</b>'+(parts.length?' ('+parts.join(', ')+')':'')+'</span>');
+  if(s.review.length) bits.push('<a href="#ops" onclick="switchTab(\'ops\');return false;" style="color:#B45309;font-weight:700;">'+s.review.length+' need'+(s.review.length>1?'':'s')+' a look</a>');
+  if(!s.saved) bits.push('<span style="color:var(--red);font-weight:700;">Not saved: '+escapeHtmlComms(s.errors.join('; '))+'</span>');
+  if(!bits.length){ el.style.display='none'; return; }
+  el.innerHTML=bits.join(' · ');
+  el.style.display='block';
+}
+/* The "Connect this caregiver" card on a needs-data-connection profile. */
+async function cgdConnectMount(axid){
+  const box=document.getElementById('cgdConnect'); if(!box) return;
+  const c=(CGD.census&&CGD.census.caregivers||[]).find(x=>String(x.id)===String(axid)); if(!c) return;
+  const nm=(c.first+' '+c.last).trim();
+  if(!c.active || cgdLegacyFor(c.id,nm) || cgdOverlayFor(c.id)){ box.innerHTML=''; return; }
+  const esc=escapeHtmlComms;
+  const wrap=inner=>'<div class="card" style="padding:14px 16px;margin-bottom:10px;border:1.5px solid #F5D9B5;background:#FFFBF5;">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:14px;margin-bottom:4px;">Connect this caregiver</div>'
+    +'<div class="field-note" style="margin-bottom:8px;">Pick the Hub record that is really '+esc(nm)+'. Their checks, references and training then show here.</div>'+inner+'</div>';
+  box.innerHTML=wrap('<div class="field-note">Looking for their records…</div>');
+  if(!(await cgdEngineReady())){ box.innerHTML=wrap('<div class="field-note">The Hub records could not load, so nothing can be connected right now. Refresh the page and try again.</div>'); return; }
+  if(String(CGD.openId)!==String(axid)) return;
+  const o=window.scxConnectOptions(c)||{options:[]};
+  const btn=(label,act,id,primary)=>'<button class="'+(primary?'primary':'secondary')+'" style="font-size:.8rem;padding:.35rem .8rem;" onclick="cgdConnectDo(\''+esc(String(axid))+'\',\''+act+'\',\''+esc(String(id==null?'':id))+'\',this)">'+label+'</button>';
+  const rows=(o.options||[]).map(function(x){
+    const where=x.where==='hub'?'Hub record':'Background & References';
+    const extra=[x.why.join(', ')];
+    if(x.linked_to) extra.push('already connected to another AxisCare caregiver');
+    if(x.where==='bgr'&&x.state&&x.state!=='open') extra.push(x.state);
+    const action = x.where==='hub' ? (x.linked_to ? '' : btn('This is their Hub record','link',x.id,true))
+                                   : btn('Move over from Background &amp; References','move',x.id,true);
+    return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid #F3EFE7;">'
+      +'<div style="flex:1;min-width:200px;"><b style="color:var(--navy);">'+esc(x.name)+'</b> <span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">'+where+'</span>'
+      +'<div class="field-note">'+esc(extra.join(' · '))+'</div></div>'+action+'</div>';
+  }).join('');
+  box.innerHTML=wrap(
+    (rows||'<div class="field-note" style="padding:4px 0;">No Hub record or Background &amp; References candidate has their phone, email or a similar name.</div>')
+    +(o.why?'<div class="field-note" style="margin-top:6px;">Not connected automatically because '+esc(o.why)+'.</div>':'')
+    +'<div style="padding-top:10px;border-top:1px solid #F3EFE7;margin-top:6px;">'+btn('Start a new Hub record','new','',false)
+    +' <span class="field-note">only if none of the records above is them</span></div>');
+}
+async function cgdConnectDo(axid, action, recId, btnEl){
+  const c=(CGD.census&&CGD.census.caregivers||[]).find(x=>String(x.id)===String(axid)); if(!c) return;
+  const nm=(c.first+' '+c.last).trim();
+  const o=(typeof window.scxConnectOptions==='function'&&window.scxConnectOptions(c))||{options:[]};
+  const rec=(o.options||[]).find(x=>String(x.id)===String(recId) && (action==='link'?x.where==='hub':action==='move'?x.where==='bgr':false));
+  const msg = action==='link' ? 'Connect '+nm+' (AxisCare) to the Hub record for '+(rec?rec.name:'this person')+'?\n\nTheir checks, references and training on that record will show on this profile. Nobody is contacted.'
+    : action==='move' ? 'Move '+(rec?rec.name:'this candidate')+' over from Background & References as '+nm+'?\n\nTheir pre-hire checks and references come with them, and they leave the Background & References list. Nobody is contacted.'
+      +(rec&&rec.state&&rec.state!=='open'?'\n\nNote: this candidate is '+rec.state+'.':'')
+    : 'Start a new, empty Hub record for '+nm+'?\n\nDo this only if none of the records listed is them. Nobody is contacted.';
+  if(!confirm(msg)) return;
+  if(btnEl){ btnEl.disabled=true; btnEl.textContent='Saving…'; }
+  try{
+    const a=(typeof ccActor==='function')?ccActor():{};
+    const r=await window.scxConnectManual(c, action, recId, a.name||a.email||'');
+    await cgdReloadCaregivers();
+    if(r.closedItem){ try{ const it=(DATA.ops_items||[]).find(x=>x.id==='ops_cgconnect_'+String(axid)); if(it) it.status='done'; }catch(e){} }
+    if(cgdAutoSum){ cgdAutoSum.review=cgdAutoSum.review.filter(x=>String(x.axiscare_id)!==String(axid)); cgdAutoLineRender(); }
+    cgdOpenProfile(axid);
+    try{ ccToast('Connected: '+nm); }catch(e){}
+  }catch(e){
+    if(btnEl){ btnEl.disabled=false; btnEl.textContent='Try again'; }
+    alert(String((e&&e.message)||e));
+  }
 }
 function cgdFilter(f,btn){ CGD.filter=f; document.querySelectorAll('#cgdFilters .filter-pill').forEach(b=>b.classList.toggle('active',b===btn)); cgdRenderList(); }
 let cgdSearchT=null;
@@ -16459,6 +16582,7 @@ async function cgdOpenProfile(axid){
     +'</div>'
 
     +'<div id="cgdSec-overview">'
+    +'<div id="cgdConnect"></div>'
     +'<div id="cgdPrn"></div>'
     +card('At a glance',
       kv('Status', esc(c.status_label||(c.active?'Active':'Inactive')))
@@ -16512,6 +16636,7 @@ async function cgdOpenProfile(axid){
   cgdLoadTraining(c,nm);
   cgdLoadReadiness(c);
   cgdPrnMount(c);
+  try{ cgdConnectMount(String(c.id)); }catch(_){}
   cgdMissedNotesMount(c);
   try{ cgdLateMount(c); }catch(_){}
   try{ document.getElementById('tab-cgdir').scrollIntoView({block:'start'}); }catch(e){}

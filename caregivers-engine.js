@@ -3539,6 +3539,7 @@ async function saveCandidates(){
   // depends on its exact true/false contract); we react to its result here.
   const ok = await syncToSupabase('candidates', candidates);
   bgrSharedSaveResult(ok);
+  return ok;
 }
 // Visible, actionable warning when a shared candidates save did not go through.
 function bgrSharedSaveResult(ok){
@@ -3574,7 +3575,9 @@ function bgrSharedSaveResult(ok){
 function saveCaregivers(){
   localStorage.setItem('cc_caregivers', JSON.stringify(caregivers));
   localStorage.setItem('cc_cg_id', String(cgId));
-  syncToSupabase('caregivers', caregivers);
+  /* Returned so a caller that must know the shared write landed (the automatic
+     AxisCare connection) can wait for it. Existing callers ignore it. */
+  return syncToSupabase('caregivers', caregivers);
 }
 
 // ── TRAINING HUB LIVE SYNC ────────────────────────────────────────────
@@ -7323,12 +7326,17 @@ function saveCancelDetails(){
 }
 
 // ── Promote / Close Out / Reopen ──────────────────────────────────────
-function promoteToCaregiver(candidateId){
-  const c = candidates.find(x=>x.id===candidateId);
-  if(!c) return;
-  if(!confirm(`Promote ${c.first} ${c.last} to caregiver?\n\nThey will be added to Training & Active Compliance and removed from Background & References.`)) return;
-  const hireDate = c.orient_session_date || new Date().toISOString().split('T')[0];
-  caregivers.push({
+/* The ONE place a caregiver row is built from a Background & References
+   candidate. promoteToCaregiver (the Promote button) and the automatic
+   AxisCare connection (scxAutoConnect / scxConnectManual) both use it, so the
+   two can never drift apart. Takes cgId (the next caregiver id) exactly as the
+   Promote button always did. opts.hireDate / opts.orientDate default to the
+   Promote button's own rule (orientation date, else today). */
+function obCaregiverRowFromCandidate(c, opts){
+  opts = opts || {};
+  const hireDate = opts.hireDate || c.orient_session_date || new Date().toISOString().split('T')[0];
+  const orientDate = (opts.orientDate !== undefined) ? opts.orientDate : hireDate;
+  return {
     id: cgId++, first: c.first, last: c.last,
     // Carry the contact details and the SOURCE ID forward. Without these the
     // promotion destroys the identity trail: the candidate record is deleted
@@ -7344,7 +7352,7 @@ function promoteToCaregiver(candidateId){
     // the candidate record and its evidence are deleted just below.
     hiring_snapshot: (typeof hiringSnapshot === 'function' ? hiringSnapshot(c) : null),
     hire_date: hireDate, oos: c.oos||'no',
-    orient_date: hireDate, alz_date: '',
+    orient_date: orientDate, alz_date: '',
     ojt_date: '', ojt_signed: 'no', ojt_proof: '', ojt_online: '',
     annual_date: '', annual_proof: '', annual_online: '',
     oig_date: c.oig_date||'', oig_status: c.oig||'', oig_proof: c.oig_proof||'',
@@ -7365,12 +7373,390 @@ function promoteToCaregiver(candidateId){
          detail was deleted with the candidate record below. */
       refs: obPrehireRefs(c)
     }
-  });
+  };
+}
+function promoteToCaregiver(candidateId){
+  const c = candidates.find(x=>x.id===candidateId);
+  if(!c) return;
+  if(!confirm(`Promote ${c.first} ${c.last} to caregiver?\n\nThey will be added to Training & Active Compliance and removed from Background & References.`)) return;
+  caregivers.push(obCaregiverRowFromCandidate(c));
   saveCaregivers();
   candidates = candidates.filter(x=>x.id!==candidateId);
   saveCandidates();
   renderOB(); renderTR(); renderAC();
   alert(`🎉 ${c.first} ${c.last} has been promoted! They now appear in Training and Active Compliance.`);
+}
+/* ── Caregivers directory: connect each AxisCare caregiver to their Hub record ──
+   Approved by Samantha 2026-10-01 ("yes build it that way"). Automatic only
+   when CERTAIN, a person decides everything else:
+     A. LINK       one Hub record (no AxisCare id yet) has their phone or email,
+                   and no Background & References candidate does
+     B. MOVE OVER  no Hub record has it, exactly ONE open candidate does: the
+                   candidate becomes their Hub record (same row the Promote
+                   button builds, via obCaregiverRowFromCandidate)
+     C. CREATE     nobody has their phone or email and no record has a similar
+                   name: a fresh Hub record
+     D. REVIEW     anything else (similar name only, several possible records,
+                   a phone shared with someone else): ONE Needs Attention item
+   A name alone NEVER links or moves anyone. Inactive AxisCare caregivers are
+   never touched. Nothing here messages anyone or writes to AxisCare, and
+   nothing runs before HYDRATED. Running twice changes nothing more: everything
+   connected carries axiscare_id, and an existing review item is never doubled. */
+function cgcPhone(s){ const d=String(s||'').replace(/\D/g,''); return d.length>=10 ? d.slice(-10) : ''; }
+function cgcEmail(s){ const e=String(s||'').trim().toLowerCase(); return e.indexOf('@')>0 ? e : ''; }
+function cgcNorm(s){ return String(s||'').toLowerCase().replace(/[^a-z]/g,''); }   /* same rule as the directory's cgdNorm */
+function cgcName(x){ return ((x&&x.first||'')+' '+(x&&x.last||'')).trim(); }
+function cgcEdit(a,b){
+  if(a===b) return 0;
+  if(Math.abs(a.length-b.length)>2) return 3;
+  let prev=[]; for(let j=0;j<=b.length;j++) prev[j]=j;
+  for(let i=1;i<=a.length;i++){
+    const cur=[i];
+    for(let j=1;j<=b.length;j++) cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    prev=cur;
+  }
+  return prev[b.length];
+}
+/* Similar name: same last name and first names sharing their first 3 letters,
+   OR whole names within 2 letters of each other. AxisCare's "goes by" name is
+   tried as a first name too. */
+function cgcSimilar(ax, rec){
+  const l1=cgcNorm(ax.last), l2=cgcNorm(rec.last), f2=cgcNorm(rec.first);
+  if(!(f2+l2)) return false;
+  return [ax.first, ax.goes_by].filter(Boolean).some(function(f){
+    const f1=cgcNorm(f);
+    if(!(f1+l1)) return false;
+    if(l1 && l1===l2 && f1.length>=3 && f2.length>=3 && f1.slice(0,3)===f2.slice(0,3)) return true;
+    return cgcEdit(f1+l1, f2+l2) <= 2;
+  });
+}
+/* 'phone' | 'email' | '' : how a record matches an AxisCare caregiver. */
+function cgcContact(ax, rec){
+  const p=cgcPhone(ax.mobile||ax.phone), e=cgcEmail(ax.email);
+  if(p && (cgcPhone(rec.phone)===p || cgcPhone(rec.mobile)===p)) return 'phone';
+  if(e && cgcEmail(rec.email)===e) return 'email';
+  return '';
+}
+function cgcCandOpen(c){ return !c.not_hired && !c.closed_out; }
+function cgcCandState(c){ return c.not_hired ? 'marked not hired' : (c.closed_out ? 'closed out' : 'open'); }
+/* PURE: works out what to do, changes nothing. census = the directory's live
+   AxisCare list; cgs = Hub caregiver rows; cands = B&R candidates. */
+function scxConnectPlan(census, cgs, cands){
+  census = Array.isArray(census) ? census : [];
+  cgs = Array.isArray(cgs) ? cgs : [];
+  cands = Array.isArray(cands) ? cands : [];
+  const out = { link:[], move:[], create:[], review:[], connected:[] };
+  const byAx = {};
+  cgs.forEach(function(r){ if(r && r.axiscare_id!=null && String(r.axiscare_id)!=='') byAx[String(r.axiscare_id)] = r; });
+  /* Rows the directory already connects by a unique exact name (cgdLegacyFor's
+     rule) belong to that caregiver, so nobody else may take them. */
+  const nameOwner = new Map();
+  const nameRowFor = function(c){
+    const n=cgcNorm((c.first||'')+(c.last||'')); if(!n) return null;
+    const hits=cgs.filter(function(r){ return cgcNorm((r.first||'')+(r.last||''))===n; });
+    return hits.length===1 ? hits[0] : null;
+  };
+  census.forEach(function(c){
+    if(!c || c.id==null || byAx[String(c.id)]) return;
+    const r=nameRowFor(c); if(r && !nameOwner.has(r)) nameOwner.set(r, String(c.id));
+  });
+  const active = census.filter(function(c){ return c && c.active===true && c.id!=null; })
+    .slice().sort(function(a,b){ return String(a.id).localeCompare(String(b.id)); });
+  const todo = [];
+  active.forEach(function(c){
+    const ax=String(c.id);
+    if(byAx[ax]){ out.connected.push(ax); return; }
+    const nr=nameRowFor(c);
+    if(nr){                                   /* already connected by name: leave alone */
+      out.connected.push(ax);
+      if(!nr.axiscare_id){                    /* ...but record the id when phone/email agree */
+        const how=cgcContact(c, nr);
+        if(how) out.link.push({ ax:c, row:nr, how:how, byName:true });
+      }
+      return;
+    }
+    todo.push(c);
+  });
+  /* Who touches which record by phone/email. A record reached from two
+     AxisCare caregivers (a shared household phone) is never certain. */
+  const reach = new Map();
+  const info = todo.map(function(c){
+    const ax=String(c.id);
+    const legacyHits=[], linkedHits=[], candOpen=[], candClosed=[];
+    cgs.forEach(function(r){
+      const how=cgcContact(c, r); if(!how) return;
+      const owner = (r.axiscare_id!=null && String(r.axiscare_id)!=='') ? String(r.axiscare_id) : (nameOwner.get(r)||'');
+      if(owner && owner!==ax) linkedHits.push({ rec:r, how:how });
+      else legacyHits.push({ rec:r, how:how });
+    });
+    cands.forEach(function(k){
+      const how=cgcContact(c, k); if(!how) return;
+      (cgcCandOpen(k) ? candOpen : candClosed).push({ rec:k, how:how });
+    });
+    legacyHits.concat(candOpen, candClosed).forEach(function(h){ reach.set(h.rec, (reach.get(h.rec)||0)+1); });
+    const simLegacy=cgs.filter(function(r){ return cgcSimilar(c, r); });
+    const simCands=cands.filter(function(k){ return cgcSimilar(c, k); });
+    return { c:c, legacyHits:legacyHits, linkedHits:linkedHits, candOpen:candOpen, candClosed:candClosed, simLegacy:simLegacy, simCands:simCands };
+  });
+  info.forEach(function(x){
+    const hits=x.legacyHits.concat(x.candOpen, x.candClosed);
+    const shared = x.linkedHits.length>0 || hits.some(function(h){ return (reach.get(h.rec)||0)>1; });
+    if(!shared && x.legacyHits.length===1 && !x.candOpen.length && !x.candClosed.length){
+      out.link.push({ ax:x.c, row:x.legacyHits[0].rec, how:x.legacyHits[0].how }); return;
+    }
+    if(!shared && !x.legacyHits.length && x.candOpen.length===1 && !x.candClosed.length){
+      out.move.push({ ax:x.c, cand:x.candOpen[0].rec, how:x.candOpen[0].how }); return;
+    }
+    if(!hits.length && !x.linkedHits.length && !x.simLegacy.length && !x.simCands.length){
+      if(cgcName(x.c)) out.create.push({ ax:x.c });
+      return;
+    }
+    const why = shared ? "this phone or email is also on another person's record"
+      : hits.length>1 ? 'more than one record could be theirs'
+      : x.candClosed.length ? 'the matching Background & References candidate is ' + cgcCandState(x.candClosed[0].rec)
+      : 'the name is similar, but no phone or email matches';
+    out.review.push({ ax:x.c, why:why, options:cgcOptionsFrom(x) });
+  });
+  return out;
+}
+/* The possible records for one caregiver, for the review item and the card. */
+function cgcOptionsFrom(x){
+  const opts=[], seen=new Set();
+  const add=function(rec, where, why){
+    const k=where+':'+rec.id;
+    const o=opts.find(function(z){ return z.key===k; });
+    if(o){ if(o.why.indexOf(why)<0) o.why.push(why); return; }
+    seen.add(k);
+    opts.push({ key:k, where:where, id:rec.id, name:cgcName(rec) || '(no name)', why:[why],
+      linked_to: where==='hub' && rec.axiscare_id ? String(rec.axiscare_id) : '',
+      state: where==='bgr' ? cgcCandState(rec) : '' });
+  };
+  const how=function(h){ return 'same '+h.how; };
+  x.legacyHits.forEach(function(h){ add(h.rec,'hub',how(h)); });
+  x.linkedHits.forEach(function(h){ add(h.rec,'hub',how(h)); });
+  x.candOpen.forEach(function(h){ add(h.rec,'bgr',how(h)); });
+  x.candClosed.forEach(function(h){ add(h.rec,'bgr',how(h)); });
+  x.simLegacy.forEach(function(r){ add(r,'hub','similar name'); });
+  x.simCands.forEach(function(k){ add(k,'bgr','similar name'); });
+  return opts;
+}
+function cgcOptionText(o){
+  return o.name + ' (' + (o.where==='hub' ? 'Hub record' : 'Background & References')
+    + (o.linked_to ? ', already connected to AxisCare ' + o.linked_to : '')
+    + (o.where==='bgr' && o.state && o.state!=='open' ? ', ' + o.state : '')
+    + '; ' + o.why.join(', ') + ')';
+}
+function cgcAxHire(ax){ const d=String(ax.hire_date||'').slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : ''; }
+/* A brand-new Hub record: the same empty compliance fields the Promote button
+   starts from, and no prehire (no pre-hire record exists for them). */
+function cgcNewRow(ax, connected, via){
+  return {
+    id: cgId++, first: ax.first||'', last: ax.last||'',
+    phone: ax.mobile||'', email: ax.email||'',
+    axiscare_id: String(ax.id),
+    hire_date: cgcAxHire(ax),
+    created_via: via,
+    connected: connected,
+    oos: 'no',
+    orient_date: '', alz_date: '',
+    ojt_date: '', ojt_signed: 'no', ojt_proof: '', ojt_online: '',
+    annual_date: '', annual_proof: '', annual_online: '',
+    oig_date: '', oig_status: '', oig_proof: '',
+    edl_date: '', edl_status: '', edl_proof: '',
+    fcsr_date: '', fcsr_status: '', fcsr_proof: '',
+    fp: 'N/A', fp_date: '', fp_proof: '',
+    supv_date: '', supv_proof: '',
+    perf_date: '', perf_proof: ''
+  };
+}
+/* Rule B, without any dialog: the candidate's row, as the Promote button builds
+   it, hired on AxisCare's hire date. The orientation date is only what B&R
+   actually recorded, never invented. */
+function cgcMovedRow(cand, ax, connected){
+  const row = obCaregiverRowFromCandidate(cand, {
+    hireDate: cgcAxHire(ax) || '',
+    orientDate: cand.orient_session_date || ''
+  });
+  row.axiscare_id = String(ax.id);
+  row.connected = connected;
+  return row;
+}
+/* Fresh copies of the shared lists right before any change, so a whole-blob
+   save never writes back an older copy than the database holds. */
+async function cgcFreshRead(){
+  const { data, error } = await sb.from('app_data').select('key,data').in('key', ['caregivers','candidates','ops_items']);
+  if(error || !Array.isArray(data)) throw new Error((error && error.message) || 'shared data did not load');
+  const m = {}; data.forEach(function(r){ m[r.key] = r.data; });
+  if(!Array.isArray(m.caregivers) || !Array.isArray(m.candidates)) throw new Error('shared caregiver lists did not load');
+  caregivers = m.caregivers; cgId = Math.max(cgId, ...caregivers.map(function(c){ return (+c.id||0)+1; }), 10);
+  candidates = m.candidates; obId = Math.max(obId, ...candidates.map(function(c){ return (+c.id||0)+1; }), 10);
+  return Array.isArray(m.ops_items) ? m.ops_items : [];
+}
+function cgcItemOpen(it){ return it && !/^(done|closed|dismissed|resolved|cancelled|canceled)$/i.test(String(it.status||'open')); }
+async function cgcPutItem(item){
+  const { error } = await sb.rpc('upsert_app_data_item', { target_key:'ops_items', item:item });
+  if(error) throw new Error(error.message);
+  try{ if(window.DATA && Array.isArray(window.DATA.ops_items)){
+    const i=window.DATA.ops_items.findIndex(function(x){ return x && x.id===item.id; });
+    if(i>=0) window.DATA.ops_items[i]=item; else window.DATA.ops_items.push(item);
+  } }catch(e){}
+}
+async function cgcCloseItem(items, ax, by, note){
+  const it = (items||[]).find(function(x){ return x && x.id==='ops_cgconnect_'+ax; });
+  if(!cgcItemOpen(it)) return false;
+  const now = new Date().toISOString();
+  const done = Object.assign({}, it, { status:'done', closed_at:now, closed_by:by, last_activity_at:now,
+    resolution_code:'connected', close_note:note });
+  done.log = (Array.isArray(it.log) ? it.log.slice() : []).concat([{ at:now, by:by, text:note }]);
+  await cgcPutItem(done);
+  const i = items.indexOf(it); if(i>=0) items[i] = done;
+  return true;
+}
+async function cgcWho(){
+  try { const s = await sb.auth.getSession(); return (s && s.data && s.data.session && s.data.session.user && s.data.session.user.email) || ''; } catch(e){ return ''; }
+}
+async function cgcAudit(entry){
+  try { await sb.rpc('upsert_app_data_item', { target_key:'audit_log', item:entry }); } catch(e){ /* best-effort, like bgrSyncRefAnswers */ }
+}
+let cgcRunning = false;
+async function scxAutoConnect(census){
+  if(!HYDRATED) return { skipped:'not loaded' };
+  if(cgcRunning) return { skipped:'already running' };
+  cgcRunning = true;
+  try {
+    let items;
+    try { items = await cgcFreshRead(); } catch(e){ return { skipped:'could not read shared data: '+((e&&e.message)||e) }; }
+    const plan = scxConnectPlan(census, caregivers, candidates);
+    const now = new Date().toISOString();
+    const sum = { linked:[], moved:[], created:[], review:[], closed:0, saved:true, errors:[] };
+    plan.link.forEach(function(a){
+      a.row.axiscare_id = String(a.ax.id);
+      a.row.connected = { at:now, how:a.how, by:'auto' };
+      sum.linked.push({ name:cgcName(a.ax), how:a.how, axiscare_id:String(a.ax.id), record:cgcName(a.row) });
+    });
+    const movedOut = [];
+    plan.move.forEach(function(a){
+      const row = cgcMovedRow(a.cand, a.ax, { at:now, how:a.how, by:'auto', from:'background & references' });
+      caregivers.push(row); movedOut.push(a.cand);
+      sum.moved.push({ name:cgcName(a.ax), how:a.how, axiscare_id:String(a.ax.id), record:cgcName(a.cand) });
+    });
+    plan.create.forEach(function(a){
+      caregivers.push(cgcNewRow(a.ax, { at:now, by:'auto', how:'new' }, 'auto from AxisCare'));
+      sum.created.push({ name:cgcName(a.ax), how:'new', axiscare_id:String(a.ax.id) });
+    });
+    const changedCg = plan.link.length + plan.move.length + plan.create.length;
+    if(changedCg){
+      const ok = await saveCaregivers();
+      if(!ok){
+        sum.saved = false; sum.errors.push('the Hub caregiver list did not save');
+      } else if(movedOut.length){
+        const gone = new Set(movedOut);
+        candidates = candidates.filter(function(k){ return !gone.has(k); });
+        const ok2 = await saveCandidates();
+        if(!ok2){ sum.saved = false; sum.errors.push('Background & References did not save; the moved candidates may still show there'); }
+      }
+    }
+    /* Close review items for anyone now connected. */
+    const nowConnected = plan.connected.concat(plan.link.map(function(a){ return String(a.ax.id); }),
+      plan.move.map(function(a){ return String(a.ax.id); }), plan.create.map(function(a){ return String(a.ax.id); }));
+    if(sum.saved){
+      for(const ax of new Set(nowConnected)){
+        try { if(await cgcCloseItem(items, ax, 'automation', 'Connected to their Hub record.')) sum.closed++; }
+        catch(e){ sum.errors.push('closing a Needs Attention item: '+((e&&e.message)||e)); }
+      }
+    }
+    /* One review item per AxisCare caregiver. Never doubled; one a person
+       already closed stays closed. */
+    for(const r of plan.review){
+      const ax = String(r.ax.id), id = 'ops_cgconnect_'+ax, name = cgcName(r.ax);
+      const ex = items.find(function(x){ return x && x.id===id; });
+      if(ex && !cgcItemOpen(ex)) continue;   /* a person closed it: respect that */
+      sum.review.push({ name:name, axiscare_id:ax, why:r.why, options:r.options.map(cgcOptionText), isNew:!ex });
+      if(ex) continue;
+      let owner = '';
+      try { owner = (typeof opsDomainOwner==='function' && opsDomainOwner('caregivers')) || ''; } catch(e){}
+      const item = {
+        id:id, kind:'caregiver_connect', domain:'caregivers', axiscare_id:ax, about:name,
+        title:'Connect caregiver: '+name,
+        detail:'Possible records: '+r.options.map(cgcOptionText).join('; ')+'. Not connected automatically because '+r.why+'.',
+        next_action:'Open '+name+' in Caregivers and choose their record in "Connect this caregiver".',
+        status:'open', created_at:now, last_activity_at:now, opened_by:'system',
+        owner:owner, owner_name:'',
+        log:[{ at:now, by:'automation', text:'Opened by the Caregivers directory connection check.' }]
+      };
+      try { await cgcPutItem(item); } catch(e){ sum.errors.push('adding a Needs Attention item: '+((e&&e.message)||e)); }
+    }
+    if(changedCg){
+      const list = function(a){ return a.map(function(x){ return x.name+' ('+(x.how==='new'?'new Hub record':'by '+x.how)+')'; }).join(', '); };
+      await cgcAudit({
+        id:'cgconnect_'+Date.now(), kind:'caregiver_auto_connect', at:now, by:(await cgcWho()) || 'automation',
+        linked:sum.linked, moved:sum.moved, created:sum.created, review:sum.review.map(function(x){ return x.name; }), ok:sum.saved,
+        note:[sum.linked.length?'linked: '+list(sum.linked):'', sum.moved.length?'moved from Background & References: '+list(sum.moved):'',
+              sum.created.length?'new Hub records: '+list(sum.created):'', sum.saved?'':'NOT SAVED: '+sum.errors.join('; ')].filter(Boolean).join(' | ')
+      });
+    }
+    if(movedOut.length && sum.saved){ try{ renderOB(); renderTR(); renderAC(); }catch(e){} }
+    return sum;
+  } finally { cgcRunning = false; }
+}
+/* The Connect card on a "needs data connection" profile: the records that
+   could be theirs (phone/email matches and similar names). Read only. */
+function scxConnectOptions(ax){
+  if(!HYDRATED) return { hydrated:false, options:[] };
+  const plan = scxConnectPlan([Object.assign({}, ax, { active:true })], caregivers, candidates);
+  const r = plan.review[0];
+  let options = r ? r.options : [];
+  if(!r){
+    const a = plan.link[0], m = plan.move[0];
+    if(a) options = [{ key:'hub:'+a.row.id, where:'hub', id:a.row.id, name:cgcName(a.row), why:['same '+a.how], linked_to:'', state:'' }];
+    else if(m) options = [{ key:'bgr:'+m.cand.id, where:'bgr', id:m.cand.id, name:cgcName(m.cand), why:['same '+m.how], linked_to:'', state:'open' }];
+  }
+  return { hydrated:true, why: r ? r.why : '', options:options.map(function(o){ return Object.assign({}, o, { text:cgcOptionText(o) }); }) };
+}
+/* The three buttons on that card. action: 'link' (this is their Hub record),
+   'move' (move over from Background & References), 'new' (start a new Hub record). */
+async function scxConnectManual(ax, action, recId, actor){
+  if(!HYDRATED) throw new Error('Shared data has not loaded, so nothing was changed. Refresh the page and try again.');
+  if(!ax || ax.id==null) throw new Error('No AxisCare caregiver given.');
+  if(cgcRunning) throw new Error('The automatic check is running. Try again in a moment.');
+  cgcRunning = true;
+  try {
+    const items = await cgcFreshRead();
+    const axid = String(ax.id), name = cgcName(ax);
+    const by = String(actor||'') || (await cgcWho()) || 'staff';
+    const already = caregivers.find(function(r){ return String(r.axiscare_id||'')===axid; });
+    if(already) throw new Error(name+' is already connected to the Hub record for '+cgcName(already)+'. Nothing was changed.');
+    const now = new Date().toISOString();
+    const connected = { at:now, by:by, how:'manual' };
+    let what = '';
+    if(action==='link'){
+      const row = caregivers.find(function(r){ return String(r.id)===String(recId); });
+      if(!row) throw new Error('That Hub record is no longer there. Nothing was changed.');
+      if(row.axiscare_id) throw new Error('That Hub record is already connected to another AxisCare caregiver. Nothing was changed.');
+      row.axiscare_id = axid; row.connected = connected;
+      if(!(await saveCaregivers())) throw new Error('The Hub caregiver list did not save. Nothing was connected.');
+      what = 'linked to Hub record '+cgcName(row);
+    } else if(action==='move'){
+      const cand = candidates.find(function(k){ return String(k.id)===String(recId); });
+      if(!cand) throw new Error('That Background & References candidate is no longer there. Nothing was changed.');
+      const row = cgcMovedRow(cand, ax, Object.assign({}, connected, { from:'background & references' }));
+      caregivers.push(row);
+      if(!(await saveCaregivers())){ caregivers = caregivers.filter(function(r){ return r!==row; }); throw new Error('The Hub caregiver list did not save. Nothing was moved.'); }
+      candidates = candidates.filter(function(k){ return k!==cand; });
+      if(!(await saveCandidates())) what = 'moved from Background & References (the candidate may still show there until the next save)';
+      else what = 'moved from Background & References ('+cgcName(cand)+')';
+      try{ renderOB(); renderTR(); renderAC(); }catch(e){}
+    } else if(action==='new'){
+      caregivers.push(cgcNewRow(ax, Object.assign({}, connected, { how:'manual' }), 'manual from AxisCare'));
+      if(!(await saveCaregivers())) throw new Error('The Hub caregiver list did not save. No record was started.');
+      what = 'new Hub record started';
+    } else throw new Error('Unknown choice.');
+    let closed = false;
+    try { closed = await cgcCloseItem(items, axid, by, 'Connected by '+by+': '+what+'.'); } catch(e){}
+    await cgcAudit({ id:'cgconnect_'+Date.now(), kind:'caregiver_connect_manual', at:now, by:by,
+      axiscare_id:axid, name:name, action:action, record:String(recId||''), note:name+': '+what });
+    return { ok:true, name:name, what:what, closedItem:closed };
+  } finally { cgcRunning = false; }
 }
 function closeOutCandidate(candidateId){
   const c = candidates.find(x=>x.id===candidateId);
@@ -8447,5 +8833,12 @@ window.obRefEmailOpen = obRefEmailOpen;
 window.obRefTextOpen = obRefTextOpen;
 window.obRefSendClose = obRefSendClose;
 window.obRefSendGo = obRefSendGo;
+/* Caregivers directory connection (2026-10-01). scxConnectPlan is pure (read
+   only); the other two refuse to write before HYDRATED. */
+window.scxAutoConnect = scxAutoConnect;
+window.scxConnectPlan = scxConnectPlan;
+window.scxConnectOptions = scxConnectOptions;
+window.scxConnectManual = scxConnectManual;
+window.scxIsHydrated = function(){ return HYDRATED; };
 window.dispatchEvent(new Event('scx-ready'));
 })();
