@@ -22477,7 +22477,8 @@ async function apReSend(btn){
     });
     if(error) throw error;
     document.getElementById('apReCard').style.display='none';
-    alert('Sent to ' + ((data && data.sent) ?? list.length) + '.');
+    /* NO SILENT FAILURES (2026-10-01): say who it didn't reach (each also has a "Didn't go through" card) */
+    alert('Sent to ' + ((data && data.sent) ?? list.length) + '.' + (data && data.ok === false && data.error ? '\n\n' + data.error : ''));
     await apLoad();
   }catch(e){
     err.textContent = 'Could not send: ' + (e&&e.message||'error');
