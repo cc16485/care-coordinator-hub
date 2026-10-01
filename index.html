@@ -7687,8 +7687,23 @@ function cmBadges(){
   const b=document.getElementById('cmPillBadge'); if(b){ b.textContent=n; b.style.display=n?'':'none'; }
 }
 function cmWhen(iso){ return iso?new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):''; }
+/* RETRY (2026-10-01, Samantha "yes make them retry"): a reply email GoHighLevel refused is not marked notified
+   (cc-corner records notify_failed_at). Opening Caregivers Corner resends it: 10+ minutes after the last try, at most
+   3 tries (the server enforces the cap too), once per page load. Never touches a reply that has not failed before. */
+const cmRetried=new Set();
+function cmRetryFailed(){
+  (DATA.corner_posts||[]).forEach(function(p){
+    if(!p||!p.email) return;
+    (p.replies||[]).forEach(function(r){
+      if(!r||r.status!=='approved'||r.notified||!r.notify_failed_at||(Number(r.notify_tries)||0)>=3) return;
+      if(Date.now()-Date.parse(r.notify_failed_at)<10*60000||cmRetried.has(r.id)) return;
+      cmRetried.add(r.id); cmNotify(p.id,r.id);
+    });
+  });
+}
 function renderCommunity(){
   const pend=document.getElementById('cmPending'); if(!pend) return;
+  cmRetryFailed();
   const posts=(DATA.corner_posts||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
   let ph='';
   posts.forEach(function(p){
