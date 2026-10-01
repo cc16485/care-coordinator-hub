@@ -1672,6 +1672,23 @@ function offerCopyLink(btn, url){
    Nothing here replaces the phone: it just stops the phone being the only way. */
 /* Creating the request rows is the half that can happen on its own; showing
    the links is the half that needs a person looking at the screen. */
+/* One reference_requests row for one slot. Shared by createRefRequests and
+   obEnsureRefRequest so both write exactly the same shape. */
+function obRefRequestRow(c, n){
+  return {
+    candidate_id: c.id, slot: n, candidate_name: ((c.first || '') + ' ' + (c.last || '')).trim(),
+    /* Carried so the chase can go back to the applicant when a reference
+       goes quiet. They gave us these on their start link. */
+    candidate_phone: c.phone || null, candidate_email: c.email || null,
+    ref_name: c['r'+n+'n'] || null, ref_phone: c['r'+n+'_phone'] || null, ref_email: c['r'+n+'_email'] || null,
+    /* sent_at stays null until something actually goes out. Stamping it here
+       started the chase clock on a message nobody received, so the reference's
+       first contact was a reminder to answer a question never asked. */
+    ref_relationship: c['r'+n+'_rel'] || null, sent_at: null,
+    /* R1: which question set the reference is shown (refs_r1r5.sql). */
+    ref_type: obRefType(c['r'+n+'_type']) || null, ref_company: c['r'+n+'_company'] || null,
+  };
+}
 async function createRefRequests(c){
   /* Gate A read-only guard (owner ruling 2026-09-22): this is the ONLY place
      reference rows are inserted and reference-chase is invoked. No fresh shared
@@ -1690,19 +1707,7 @@ async function createRefRequests(c){
   const wanted = slots.filter(r => !existing.includes(r.n));
   if (!wanted.length) return [];
   const { data, error } = await sb.from('reference_requests').insert(
-    wanted.map(r => ({
-      candidate_id: c.id, slot: r.n, candidate_name: (c.first + ' ' + c.last).trim(),
-      /* Carried so the chase can go back to the applicant when a reference
-         goes quiet. They gave us these on their start link. */
-      candidate_phone: c.phone || null, candidate_email: c.email || null,
-      ref_name: r.name || null, ref_phone: r.phone || null, ref_email: r.email || null,
-      /* sent_at stays null until something actually goes out. Stamping it here
-         started the chase clock on a message nobody received, so the reference's
-         first contact was a reminder to answer a question never asked. */
-      ref_relationship: r.rel || null, sent_at: null,
-      /* R1: which question set the reference is shown (refs_r1r5.sql). */
-      ref_type: r.type || null, ref_company: r.company || null,
-    }))).select();
+    wanted.map(r => obRefRequestRow(c, r.n))).select();
   if (error) throw error;
   /* Ask them now rather than at tomorrow's run. The function only touches rows
      with no sent_at, so calling it twice costs nothing. Awaited, because a
@@ -1717,6 +1722,25 @@ async function createRefRequests(c){
     console.warn('reference-chase: immediate send failed, the weekday-morning run will send these —', e && e.message || e);
   }
   return data || [];
+}
+
+/* Office send (Desktop 377, 2026-10-01): the one open request row for ONE
+   slot, so the office can email or text that reference their form. Reuses the
+   newest unanswered row; otherwise inserts a single row for this slot only.
+   Never calls createRefRequests (that would set up every slot and the morning
+   job would email them all) and never sends anything itself. */
+async function obEnsureRefRequest(c, n){
+  if (!HYDRATED) throw new Error('Shared data has not loaded, so nothing was sent. Use Try again at the top, then retry.');
+  if (!c || ![1,2,3,4].includes(n) || !String(c['r'+n+'n'] || '').trim()) throw new Error('Add the reference\'s name first.');
+  const { data: found, error: findErr } = await sb.from('reference_requests').select('*')
+    .eq('candidate_id', c.id).eq('slot', n).is('responded_at', null)
+    .order('created_at', { ascending: false }).limit(1);
+  if (findErr) throw new Error('Could not look up the reference request: ' + (findErr.message || 'error'));
+  if (found && found.length) return found[0];
+  const { data, error } = await sb.from('reference_requests').insert([obRefRequestRow(c, n)]).select();
+  if (error) throw new Error('Could not set up the reference request: ' + (error.message || 'error'));
+  if (!data || !data[0]) throw new Error('Could not set up the reference request.');
+  return data[0];
 }
 
 /* References arriving from a start link is the signal to ask them, so the ask
@@ -5041,6 +5065,8 @@ function obPrehireRefs(c){
       date:m.date||'', pdf:c[`r${n}_pdf`]||'',
       relationship:m.relationship||c[`r${n}_rel`]||'', how_long:m.how_long||c[`r${n}_howlong`]||'',
       phone:c[`r${n}_phone`]||'', email:c[`r${n}_email`]||'',
+      /* Office send (Desktop 377): their OK to a text, and how the form went out. */
+      sms_ok:c[`r${n}_sms_ok`]?Object.assign({},c[`r${n}_sms_ok`]):null, sent:c[`r${n}_sent`]?Object.assign({},c[`r${n}_sent`]):null,
       answers:(c[`r${n}_manual`]&&typeof c[`r${n}_manual`]==='object')?JSON.parse(JSON.stringify(c[`r${n}_manual`])):null };
   });
 }
@@ -5377,6 +5403,7 @@ function obRefPdfDoc(JsPDF, c, n, nowDate){
   kv('Relationship', m.relationship||c[`r${n}_rel`]||'');
   kv('Contact', [c[`r${n}_phone`], c[`r${n}_email`]].filter(Boolean).join(' · '));
   kv('How collected', obRefHowCollected(m));
+  obRefSendRecordLines(c, n).forEach(([k,v])=>kv(k, v));
   const who=[m.name, m.responder_title].filter(Boolean).join(', ');
   if(who && m.via==='Online form') kv('Answered by', who);
   y+=4; rule();
@@ -5487,12 +5514,17 @@ function obRefCellHTML(c,n,hit){
   const given=!!(nm||ph||em);
   const btn=s==='Pending'
     ? `<button class="refc-btn" onclick="openManualRef(${c.id},${n})">📞 Record</button>`
+      /* Office send (Desktop 377): email the form now, or text it once they said OK on the phone. Click only. */
+      + (nm ? `<button class="refc-btn refc-btn-quiet" onclick="obRefEmailOpen(${c.id},${n})" title="Email ${bgrEsc(nm)} the reference form">✉️ Email</button>`
+            + `<button class="refc-btn refc-btn-quiet" onclick="obRefTextOpen(${c.id},${n})" title="Text ${bgrEsc(nm)} the reference form (only after they said OK on the phone)">💬 Text</button>` : '')
     : `<button class="refc-btn refc-btn-quiet" onclick="openManualRef(${c.id},${n})">✏️ Edit</button>`;
+  const sentLine=obRefSentLine(c,n);
   return `<td class="refc-td${hit?' refc-hit':''}"><div class="refc">`
     + (given ? `<div class="refc-name">${nm||'Name not given'}</div>` : `<div class="refc-none">No reference given</div>`)
     + (tl ? `<div class="refc-type">${bgrEsc(tl)}</div>` : '')
     + (p ? `<a class="refc-line" href="tel:${p.tel}" title="Call">${p.show}</a>` : '')
     + (em ? `<a class="refc-line refc-em" href="mailto:${em}" title="${em}">${em}</a>` : '')
+    + (sentLine ? `<div class="refc-sent">${bgrEsc(sentLine)}</div>` : '')
     + (mn ? `<div class="refc-note">📞 ${mn.via||''}${mn.date?' · '+(fmtD(mn.date)||''):''}${mn.staff?' · '+mn.staff:''}</div>` : '')
     + (pf ? `<a class="proof-link refc-note" href="${pf}" target="_blank" rel="noopener">📄 View form</a>` : '')
     + (dc==='matches' ? `<div class="refc-dc" style="color:#15803D" title="${bgrEsc(obDateCheckText(dc))}">✓ Dates match</div>`
@@ -5500,6 +5532,173 @@ function obRefCellHTML(c,n,hit){
     + (pdf ? `<a class="proof-link refc-note" style="cursor:pointer" onclick="bgrViewProof('${bgrEsc(pdf).replace(/\x27/g,'')}')" title="Open the reference PDF">📄 PDF</a>` : '')
     + `<div class="refc-foot">${given||s!=='Pending'?`<span class="badge ${badge}">${s}</span>`:''}${btn}</div>`
     + `</div></td>`;
+}
+/* ── Office send: email or text a reference their form (Desktop 377, 2026-10-01) ──
+   Samantha approved ("yes to all"): email needs no recorded permission; a text
+   needs the reference's OK on the phone recorded first, every time, per
+   reference; no automatic follow-up texts. Everything here runs only from a
+   click. The server (reference-send) enforces the same rules and the hours. */
+function obSendDay(iso){ const d=iso?new Date(iso):null; return d&&!isNaN(d)?d.toLocaleDateString('en-US',{month:'short',day:'numeric'}):''; }
+function obSendDayLong(iso){ const d=iso?new Date(iso):null; return d&&!isNaN(d)?d.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}):''; }
+/* "✉️ Emailed the form · Oct 1 · Krystal" / "💬 Texted the form · OK'd by phone · Oct 1 · Krystal" */
+function obRefSentLine(c,n){
+  const t=c&&c[`r${n}_sent`]; if(!t||!t.how) return '';
+  const tail=[obSendDay(t.at), t.by].filter(Boolean);
+  return t.how==='text'
+    ? ['💬 Texted the form',"OK'd by phone"].concat(tail).join(' · ')
+    : ['✉️ Emailed the form'].concat(tail).join(' · ');
+}
+/* Lines for the PDF and the printed record. Plain text, no em dashes. */
+function obRefSendRecordLines(c,n){
+  const out=[], ok=c&&c[`r${n}_sms_ok`], t=c&&c[`r${n}_sent`];
+  if(ok&&ok.at) out.push(["Text permission","OK'd by phone"+(ok.by?' by '+ok.by:'')+' on '+obSendDayLong(ok.at)]);
+  if(t&&t.how) out.push(['Form sent','by '+(t.how==='text'?'text':'email')+' on '+obSendDayLong(t.at)+(t.by?' by '+t.by:'')]);
+  return out;
+}
+function obEmailLooksRight(e){ return /^[^\s@",()<>]+@[^\s@",()<>]+\.[^\s@",()<>]+$/.test(String(e||'').trim()); }
+function obDigits10(p){ let d=String(p||'').replace(/\D/g,''); if(d.length===11&&d[0]==='1') d=d.slice(1); return d.length===10?d:''; }
+/* Calls reference-send and returns its JSON either way. Non-2xx bodies are read
+   from error.context, like sendCandidateSMS does. Throws only when there is no
+   readable answer at all. */
+async function obRefSendCall(body){
+  const { data, error } = await sb.functions.invoke('reference-send', { body });
+  if(error){
+    let j=null;
+    try{ j = await error.context.json(); }catch(_){}
+    if(j && (j.error || j.held)) return Object.assign({ ok:false }, j);
+    throw new Error(error.message || 'The sending service did not answer.');
+  }
+  return data || { ok:false, error:'The sending service did not answer.' };
+}
+let _obSend = null;   // { candId, n, mode: 'email' | 'permit' | 'text' }
+function obEnsureSendModal(){
+  if(document.getElementById('obSendModal')) return;
+  const w=document.createElement('div');
+  w.id='obSendModal';
+  w.style.cssText='display:none;position:fixed;inset:0;z-index:10001;background:rgba(15,54,95,.35);align-items:center;justify-content:center;padding:1rem';
+  const lbl='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;margin:.6rem 0 .25rem';
+  const inp='width:100%;padding:.5rem .6rem;border:1px solid var(--border,#d9d4c8);border-radius:8px;font-size:.9rem;box-sizing:border-box';
+  w.innerHTML=
+      '<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2)">'
+    +   '<div id="obSendTitle" style="font-weight:800;color:#0D365F;font-size:1rem;margin-bottom:.25rem"></div>'
+    +   '<div id="obSendHelp" style="font-size:.82rem;color:#6E6559;line-height:1.45"></div>'
+    +   '<div id="obSendFieldWrap"><div id="obSendLabel" style="'+lbl+'"></div><input id="obSendInput" style="'+inp+'"></div>'
+    +   '<div id="obSendMsg" style="display:none;margin-top:.7rem;font-size:.82rem;line-height:1.45;border-radius:8px;padding:.5rem .65rem"></div>'
+    +   '<div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem">'
+    +     '<button class="ibtn" id="obSendCancel" onclick="obRefSendClose()">Cancel</button>'
+    +     '<button class="ibtn ibtn-strong" id="obSendGo" onclick="obRefSendGo(this)">Send</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(w);
+}
+function obSendMsg(text, tone){
+  const el=document.getElementById('obSendMsg'); if(!el) return;
+  if(!text){ el.style.display='none'; el.textContent=''; return; }
+  el.style.display='block'; el.textContent=text;
+  el.style.background = tone==='held' ? '#FFF7ED' : '#FEF2F2';
+  el.style.color = tone==='held' ? '#7C2D12' : '#991B1B';
+  el.style.border = '1px solid ' + (tone==='held' ? '#FCD9A8' : '#FECACA');
+}
+function obSendSetMode(mode){
+  const st=_obSend; if(!st) return;
+  const c=candidates.find(x=>x.id===st.candId); if(!c) return;
+  const n=st.n, nm=String(c[`r${n}n`]||'').trim()||'this reference';
+  st.mode=mode;
+  const g=id=>document.getElementById(id);
+  const input=g('obSendInput');
+  if(mode==='email'){
+    const em=c[`r${n}_email`]||'';
+    g('obSendTitle').textContent='Email '+nm+' the form';
+    g('obSendHelp').textContent=em
+      ? 'We will email the reference form to the address below. Change it if they gave you a different one.'
+      : 'Did they give you an email on the phone? Type it here and we will email them the form right away.';
+    g('obSendLabel').textContent='Their email';
+    input.type='email'; input.placeholder='name@example.com'; input.value=em;
+    g('obSendGo').textContent='Send';
+  } else {
+    const ph=c[`r${n}_phone`]||'';
+    input.type='tel'; input.placeholder='(417) 555-0123'; input.value=ph?obFmtPhone(ph).show:'';
+    g('obSendLabel').textContent='Their mobile number';
+    if(mode==='permit'){
+      g('obSendTitle').textContent='Did '+nm+' say OK to a text on the phone?';
+      g('obSendHelp').textContent='We only text a reference after they tell us it is OK. Saying yes records that they OK\'d it by phone, with your name and today\'s date, and then sends the form from the office number.';
+      g('obSendGo').textContent='Yes, they said OK';
+    } else {
+      const ok=c[`r${n}_sms_ok`]||{};
+      g('obSendTitle').textContent='Text '+nm+' the form'+(ph?' at '+obFmtPhone(ph).show:'')+'?';
+      g('obSendHelp').textContent="They OK'd a text by phone"+(ok.by?' (recorded by '+ok.by+(ok.at?', '+obSendDay(ok.at):'')+')':'')+'. The text comes from the office number.';
+      g('obSendGo').textContent='Send';
+    }
+  }
+  obSendMsg('');
+}
+function obRefSendOpen(candId, n, mode){
+  if(!HYDRATED){ alert('Shared data has not loaded, so nothing can be sent right now. Use Try again at the top, then retry.'); return; }
+  const c=candidates.find(x=>x.id===candId);
+  if(!c){ alert('That candidate could not be found. Refresh the tab and try again.'); return; }
+  if(!String(c[`r${n}n`]||'').trim()){ alert('Add the reference\'s name first.'); return; }
+  obEnsureSendModal();
+  _obSend={ candId, n, mode };
+  obSendSetMode(mode);
+  const go=document.getElementById('obSendGo'); go.disabled=false;
+  document.getElementById('obSendModal').style.display='flex';
+  try{ document.getElementById('obSendInput').focus(); }catch(e){}
+}
+function obRefEmailOpen(candId, n){ obRefSendOpen(candId, n, 'email'); }
+function obRefTextOpen(candId, n){
+  const c=(candidates||[]).find(x=>x.id===candId);
+  obRefSendOpen(candId, n, (c && c[`r${n}_sms_ok`] && c[`r${n}_sms_ok`].at) ? 'text' : 'permit');
+}
+function obRefSendClose(){ const m=document.getElementById('obSendModal'); if(m) m.style.display='none'; _obSend=null; }
+async function obRefSendDone(c, n, res, how){
+  c[`r${n}_sent`]={ how, at:res.at||new Date().toISOString(), by:res.by||'', to:res.to||'' };
+  obRefSendClose();
+  await saveCandidates();
+  try{ renderOB(); }catch(e){}
+  obToast(how==='email' ? 'Emailed the form to '+(res.to||'them')+'.' : 'Texted the form to '+(res.to?obFmtPhone(res.to).show:'them')+'.');
+}
+async function obRefSendGo(btn){
+  const st=_obSend; if(!st) return;
+  const c=candidates.find(x=>x.id===st.candId); if(!c){ obSendMsg('That candidate could not be found. Refresh the tab and try again.'); return; }
+  const n=st.n, val=String((document.getElementById('obSendInput')||{}).value||'').trim();
+  const label=btn?btn.textContent:'';
+  const busy=t=>{ if(btn){ btn.disabled=true; btn.textContent=t; } };
+  const idle=()=>{ if(btn){ btn.disabled=false; btn.textContent=(_obSend&&_obSend.mode==='permit')?'Yes, they said OK':(label==='Yes, they said OK'?'Send':label); } };
+  obSendMsg('');
+  try{
+    if(st.mode==='email'){
+      if(!val){ obSendMsg('Add their email first.'); return; }
+      if(!obEmailLooksRight(val)){ obSendMsg('That email does not look right.'); return; }
+      busy('Sending…');
+      const row=await obEnsureRefRequest(c, n);
+      const res=await obRefSendCall({ action:'email', id:row.id, email:val.toLowerCase() });
+      if(res.held){ obSendMsg(res.held,'held'); idle(); return; }
+      if(!res.ok){ obSendMsg(res.error||'The email was not sent.'); idle(); return; }
+      c[`r${n}_email`]=res.to||val.toLowerCase();
+      await obRefSendDone(c, n, res, 'email');
+      return;
+    }
+    const d=obDigits10(val);
+    if(!d){ obSendMsg('Add their mobile number first.'); return; }
+    busy(st.mode==='permit'?'Recording…':'Sending…');
+    const row=await obEnsureRefRequest(c, n);
+    if(st.mode==='permit'){
+      const p=await obRefSendCall({ action:'permit_text', id:row.id });
+      if(!p.ok){ obSendMsg(p.error||'Their OK could not be recorded, so nothing was sent.'); idle(); return; }
+      c[`r${n}_sms_ok`]={ at:p.sms_ok_at||new Date().toISOString(), by:p.sms_ok_by||'', how:'verbal, by phone' };
+      await saveCandidates();      // the OK is on record even if the text below is held
+      obSendSetMode('text');
+      busy('Sending…');
+    }
+    const res=await obRefSendCall({ action:'text', id:row.id, phone:d });
+    if(res.held){ obSendMsg(res.held,'held'); idle(); return; }
+    if(!res.ok){ obSendMsg(res.error||'The text was not sent.'); idle(); return; }
+    if(obDigits10(c[`r${n}_phone`])!==d) c[`r${n}_phone`]=d;
+    await obRefSendDone(c, n, res, 'text');
+  }catch(e){
+    obSendMsg((e&&e.message)||'Something went wrong. Nothing was sent.');
+    idle();
+  }
 }
 function renderOB(){
   try{ renderHirePipeline(); }catch(e){}
@@ -6174,6 +6373,7 @@ function refReport(idOrRecord){
       + '<tr><th>Contacted on</th><td>' + esc(m.date || '') + '</td>'
       + '<th>Method</th><td>' + esc(m.via || '') + '</td></tr>'
       + '<tr><th>Collected by</th><td colspan="3">' + esc(m.staff || '') + '</td></tr>'
+      + obRefSendRecordLines(c, r.n).map(([k, v]) => '<tr><th>' + esc(k) + '</th><td colspan="3">' + esc(v) + '</td></tr>').join('')
       + '</table>'
       + '<table class="ans">' + (r.m
           ? obRefQA(m, m.type || c['r'+r.n+'_type']).filter(([q]) => q !== 'Anything they added')
@@ -8242,5 +8442,10 @@ window.bgrPrintAudit = bgrPrintAudit;
 window.bgrMakeRefPdfs = bgrMakeRefPdfs;
 window.mrefTypeUI = mrefTypeUI;
 window.obRefSearch = obRefSearch;
+/* Office send (Desktop 377): the cell's Email / Text buttons and the send modal. */
+window.obRefEmailOpen = obRefEmailOpen;
+window.obRefTextOpen = obRefTextOpen;
+window.obRefSendClose = obRefSendClose;
+window.obRefSendGo = obRefSendGo;
 window.dispatchEvent(new Event('scx-ready'));
 })();
