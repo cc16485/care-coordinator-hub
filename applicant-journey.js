@@ -16,7 +16,7 @@ window.AP_JOURNEY = [
   "rule": "Text only if staff ticked 'They asked us to text it'; email whenever there is an address. Opt-out door on both. 'Reply STOP to opt out.' appended. Wording editable in Settings (ops_settings.applicant_invite_msg). FAILURE: GoHighLevel refusal is shown only in the Send pop-up (raw fetch, no Needs Attention card); opt-out holds raise a card.",
   "subject": "Your application for {position} at Caring Companions",
   "text": "Hi {first_name}, thanks for calling Caring Companions! Here's the application for {position}. It takes about 2 minutes: {link} Reply STOP to opt out.",
-  "email_summary": "Hi {first}, thanks for calling about our {position} position. Here is the application. It takes about 2 minutes, and at the end you can pick an interview time. [Start the application] Questions? Call us at {office phone}.",
+  "email_summary": "Hi {first}, thanks for calling about our {position} position. Here is the application. It takes about 2 minutes, and at the end you can pick a time for your in-person interview at our office. [Start the application] Questions? Call us at {office phone}.",
   "shows_in_ghl": true,
   "failure_visible": true
  },
@@ -31,7 +31,7 @@ window.AP_JOURNEY = [
   "channel": "text + email",
   "rule": "Text only with their yes to texts (their yes to texts); email to anyone with an address. Opt-out door per channel. No STOP wording in the text.",
   "subject": "Pick a time to come and meet us",
-  "text": "Hi {first}, thanks for applying to Caring Companions. You are one step from an interview, and you can pick a time that suits you here: https://mo-care.com/apply?book={applicant_id}",
+  "text": "Hi {first}, thanks for applying to Caring Companions. You are one step from an in-person interview at our office, and you can pick a time that suits you here: https://mo-care.com/apply?book={applicant_id}",
   "email_summary": "Same words as the text with the link clickable, plus the 'Where to come' block (office name, address, map link, note, entrance photo).",
   "shows_in_ghl": true,
   "failure_visible": true
@@ -46,8 +46,8 @@ window.AP_JOURNEY = [
   "timing": "10 minutes after they finish the application; 8am–6pm Central.",
   "channel": "text + email",
   "rule": "Text only with their yes to texts; email to anyone with an address.",
-  "subject": "Choose your interview time: PRN CNA Team",
-  "text": "Hi {first}! Thanks for applying for Caring Companions' PRN CNA Team. Based on your Priority Application, we'd like to meet you. Choose an interview time here: https://mo-care.com/apply?book={applicant_id}",
+  "subject": "Choose your in-person interview time: PRN CNA Team",
+  "text": "Hi {first}! Thanks for applying for Caring Companions' PRN CNA Team. Based on your Priority Application, we'd like to meet you in person. Choose an in-person interview time at our office here: https://mo-care.com/apply?book={applicant_id}",
   "email_summary": "Same words as the text plus the 'Where to come' block.",
   "shows_in_ghl": true,
   "failure_visible": true
@@ -63,7 +63,7 @@ window.AP_JOURNEY = [
   "channel": "text + email",
   "rule": "Text only with their yes to texts; email to anyone with an address.",
   "subject": "Pick a time to come and meet us",
-  "text": "Hi {first}, we still have interview times open this week if you would like one: https://mo-care.com/apply?book={applicant_id} Or call us on {office phone} and we will book it with you.",
+  "text": "Hi {first}, we still have in-person interview times open at our office this week if you would like one: https://mo-care.com/apply?book={applicant_id} Or call us on {office phone} and we will book it with you.",
   "email_summary": "Same words as the text (no address block).",
   "shows_in_ghl": true,
   "failure_visible": true
@@ -94,9 +94,9 @@ window.AP_JOURNEY = [
   "timing": "Next 15-minute run after booking, 8am–6pm Central only (a 9pm booking is confirmed after 8am next day). If booked within 30h of the interview this also counts as the day-before reminder.",
   "channel": "text + email",
   "rule": "Text only with their yes to texts; email to anyone with an address. No STOP wording.",
-  "subject": "Your interview: {day} at {time}",
-  "text": "Hi {first}, your interview with Caring Companions is booked for {Weekday, Month D} at {h:mm AM}, at {location line1, line2}. {location note} Need to move or cancel it? https://mo-care.com/apply?book={applicant_id} — or call {office phone}.",
-  "email_summary": "'Your interview is booked for {day} at {time}.' + Where to come block (name, address, map, note, photo) + 'It takes about 30 minutes. Need to move or cancel it? You can do that here in a few taps, or call or text us on {phone}.' + 'We are looking forward to meeting you.'",
+  "subject": "Your in-person interview: {day} at {time}",
+  "text": "Hi {first}, your IN-PERSON interview with Caring Companions is booked for {Weekday, Month D} at {h:mm AM}. Please come to our office: {location}. {location note} This is not a phone interview, so we will not call you. Need to move or cancel it? https://mo-care.com/apply?book={applicant_id} — or call {office phone}. Reply STOP to opt out.",
+  "email_summary": "'Your in-person interview is booked for {day} at {time}.' + Where to come block (name, address, map, note, photo) + 'This is an in-person interview at our office, not a phone call, and it takes about 30 minutes. Need to move or cancel it? You can do that here, or call or text us.' + 'We are looking forward to meeting you.'",
   "shows_in_ghl": true,
   "failure_visible": true
  },
@@ -126,9 +126,9 @@ window.AP_JOURNEY = [
   "timing": "Window opens 30h before; first run 8am–6pm Central inside that window. Skipped when the confirmation itself went inside 30h.",
   "channel": "text + email",
   "rule": "Text only with their yes to texts; email to anyone with an address.",
-  "subject": "Tomorrow: your interview at {time}",
-  "text": "Hi {first}, reminder: your interview is {day} at {time}, at {location}. {note} Need to move or cancel it? https://mo-care.com/apply?book={applicant_id} — or call {office phone}.",
-  "email_summary": "'A reminder that your interview is tomorrow, {day} at {time}.' + Where to come block + 'It takes about 30 minutes...' + move/cancel link.",
+  "subject": "Tomorrow: your in-person interview at {time}",
+  "text": "Hi {first}, reminder: your IN-PERSON interview is {Weekday, Month D} at {h:mm AM}. Please come to our office: {location}. {location note} This is not a phone interview, so we will not call you. Need to move or cancel it? {manage link} — or call {office phone}. Reply STOP to opt out.",
+  "email_summary": "'A reminder that your interview is tomorrow, {day} at {time}.' + Where to come block + 'It takes about {interview length from the Interviews settings, e.g. 45} minutes...' + move/cancel link.",
   "shows_in_ghl": true,
   "failure_visible": true
  },
@@ -143,7 +143,7 @@ window.AP_JOURNEY = [
   "channel": "text only",
   "rule": "Text only with their yes to texts. Email-only applicants get NO hour-before reminder.",
   "subject": null,
-  "text": "Hi {first}, your interview with Caring Companions is at {time} today. We are at {location}. {note} See you shortly!",
+  "text": "Hi {first}, your IN-PERSON interview with Caring Companions is at {time} today. Please come to our office: {location}. {location note} This is not a phone interview. See you shortly! Reply STOP to opt out.",
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true
@@ -274,8 +274,8 @@ window.AP_JOURNEY = [
   "channel": "text + email",
   "rule": "Text only with their yes to texts on the apply form (by applicant id, or every application with that number said yes). Opt-out door. 'Reply STOP to opt out.' included.",
   "subject": "We cannot reach {reference name}",
-  "text": "Hi {first}, Caring Companions here. We have not been able to reach {reference name} for your reference, and it is the last thing holding up your start. Give them a nudge if you can. Or if you have a better number or email for them, or want to use someone else, do it here: https://cc.mo-care.com/fix-reference.html?r=..&cid=..&n=.. Reply STOP to opt out.",
-  "email_summary": "'We have not been able to reach {ref} for your reference, and it is the last thing holding up your start with us. Could you give them a nudge? ... Or if you have a better number or email, or would rather use someone else, tell us here: [Give us a different contact]'",
+  "text": "Hi {first}, Caring Companions here. We have not been able to reach {reference name} for your reference, and we need it before you can start. Give them a nudge if you can. Or if you have a better number or email for them, or want to use someone else, do it here: https://cc.mo-care.com/fix-reference.html?r=..&cid=..&n=.. Reply STOP to opt out.",
+  "email_summary": "'We have not been able to reach {ref} for your reference, and it is we need it before you can start with us. Could you give them a nudge? ... Or if you have a better number or email, or would rather use someone else, tell us here: [Give us a different contact]'",
   "shows_in_ghl": true,
   "failure_visible": true
  },
@@ -307,7 +307,7 @@ window.AP_JOURNEY = [
   "rule": "Email only.",
   "subject": "A quick reference for {candidate name}",
   "text": null,
-  "email_summary": "'A gentle nudge. {candidate} is waiting on one reference before they can start, and yours is the last one we need.' [Answer a few quick questions]",
+  "email_summary": "'A gentle nudge. {candidate} cannot start with us until their references are in, and we still need yours.' [Answer a few quick questions]",
   "shows_in_ghl": true,
   "failure_visible": true
  },
@@ -483,7 +483,7 @@ window.AP_JOURNEY = [
   "channel": "text only",
   "rule": "Text with \"Reply STOP to opt out.\"; held (not lost) outside 8am–6pm. A refused text raises a card.",
   "subject": null,
-  "text": "Hi {first}, now that you've completed your Alzheimer's & Dementia training, you are cleared to work with clients. Welcome to the team!\nFrom now on, use our office number for everything — save it in your phone: (417) 234-8494. This automated number isn't monitored day to day.\n— Caring Companions",
+  "text": "Hi {first}, now that you've completed your Alzheimer's & Dementia training, you are cleared to work with clients. Welcome to the team!\nFrom now on, use our office number for everything — save it in your phone: (417) 234-8494. For anything you need, call or text the office — save it in your phone: (417) 234-8494.\n— Caring Companions",
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": false
@@ -556,8 +556,6 @@ window.AP_JOURNEY = [
 ];
 window.AP_JOURNEY_ISSUES = [
  "The start and orientation links carry the person's name, phone and email in the web address.",
- "Wording that does not match: the interview confirmation email says about 30 minutes, the apply page says 45; the apply page promises an hour-before reminder, which only goes by text.",
- "The welcome email lists 6 hours of training (Orientation 2 + Alzheimer's 4); the full basic training requirement is longer.",
  "\"Not hiring\" and \"Candidate pool\" send nothing to the applicant.",
  "The orientation day-before reminder lives in a GoHighLevel workflow: its wording and time are set in GoHighLevel, not here."
 ];
