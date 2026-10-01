@@ -16355,23 +16355,75 @@ function cgdRefsHtml(g){
   const esc=escapeHtmlComms;
   if(!g) return '<div class="field-note">No hub operational record is connected yet, so references are not on file here.</div>';
   const refs=g.prehire&&Array.isArray(g.prehire.refs)?g.prehire.refs:null;
+  CGD.refsShown=refs||[];
   if(!refs) return '<div class="field-note">Hired before references were carried into the profile. Their reference record is in the hiring file.</div>';
   if(!refs.length) return '<div class="field-note">No references were on record at hire.</div>';
   const col={Positive:'#15803D',Conditional:'#B45309',Negative:'#B91C1C'};
-  return refs.map(function(r){
+  return refs.map(function(r,i){
     const st=r.status||'Pending';
     const t=String(r.type||'').toLowerCase();
-    const tl=t==='professional'?('Professional'+(r.company?' · '+esc(r.company):'')):t==='personal'?'Personal':'';
-    const pdf=r.pdf?' · <a class="linklike" style="cursor:pointer" onclick="bgrViewProof(\''+esc(String(r.pdf)).replace(/\x27/g,'')+'\')">📄 PDF</a>'
-                   :' · <span class="field-note">no PDF</span>';
+    const tl=t==='professional'?('Professional'+(r.company?' · '+esc(r.company):'')):t==='personal'?('Personal'+(r.relationship?' · '+esc(r.relationship):'')):'';
+    const can=!!(r.pdf||r.answers);
+    /* The name opens the PDF if there is one, otherwise what they said (her ask, 2026-10-01). */
+    const nm=esc(r.name||('Reference '+(r.slot||'')));
+    const name=can?'<a class="linklike" style="cursor:pointer;font-weight:700;color:var(--navy);min-width:140px;" title="Open this reference" onclick="cgdRefOpen('+i+')">'+nm+'</a>'
+                  :'<b style="color:var(--navy);min-width:140px;">'+nm+'</b>';
+    const links=(r.answers?'<a class="linklike" style="cursor:pointer" onclick="cgdRefAnswers('+i+')">What they said</a>':'')
+      +(r.pdf?(r.answers?' · ':'')+'<a class="linklike" style="cursor:pointer" onclick="cgdRefPdf('+i+')">📄 PDF</a>':'')
+      +(!can?'<span class="field-note">nothing recorded</span>':'');
     return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:13.5px;padding:5px 0;border-bottom:1px solid #F6F3EC;">'
-      +'<b style="color:var(--navy);min-width:140px;">'+esc(r.name||('Reference '+(r.slot||'')))+'</b>'
-      +(tl?'<span class="field-note">'+tl+'</span>':'')
+      +name+(tl?'<span class="field-note">'+tl+'</span>':'')
       +'<span style="font-weight:700;color:'+(col[st]||'#8A7F70')+'">'+esc(st)+'</span>'
       +(r.date?'<span class="field-note">'+esc(String(r.date).slice(0,10))+'</span>':'')
-      +'<span>'+pdf+'</span></div>';
+      +'<span>'+links+'</span></div>';
   }).join('');
 }
+function cgdRefOpen(i){ const r=(CGD.refsShown||[])[i]; if(!r) return; if(r.pdf) cgdRefPdf(i); else cgdRefAnswers(i); }
+function cgdRefPdf(i){ const r=(CGD.refsShown||[])[i]; if(r&&r.pdf&&typeof window.bgrViewProof==='function') window.bgrViewProof(r.pdf); }
+/* What a reference said, in plain words, without leaving the profile. Read-only. */
+function cgdRefAnswers(i){
+  const r=(CGD.refsShown||[])[i]; if(!r) return;
+  const esc=escapeHtmlComms, m=r.answers||{};
+  const t=String(r.type||m.type||'').toLowerCase();
+  let qa=[];
+  try{ if(typeof window.obRefQA==='function') qa=window.obRefQA(m,t)||[]; }catch(e){ qa=[]; }
+  if(!qa.length){
+    const L={recommend:'Would they recommend them?',reliability:'Reliability and attendance',interpersonal:'How they are with people',honesty:'Honesty and trustworthiness',concerns:'Any concerns?',notes:'Anything they added'};
+    qa=Object.keys(L).filter(k=>m[k]).map(k=>[L[k],String(m[k])]);
+  }
+  let how=''; try{ if(typeof window.obRefHowCollected==='function') how=window.obRefHowCollected(m)||''; }catch(e){}
+  let dc=''; try{ if(m.date_check&&typeof window.obDateCheckText==='function') dc=window.obDateCheckText(m.date_check)||''; }catch(e){}
+  const st=r.status||'Pending', tone={Positive:'#15803D',Conditional:'#B45309',Negative:'#B91C1C'}[st]||'#6E6559';
+  const meta=[
+    t==='professional'?'Professional'+(r.company?' · '+r.company:''):t==='personal'?'Personal':'',
+    r.relationship, r.how_long?'Known '+r.how_long:'', [r.phone,r.email].filter(Boolean).join(' · '), how
+  ].filter(Boolean).map(x=>'<div class="field-note">'+esc(x)+'</div>').join('');
+  let ov=document.getElementById('cgdRefModal');
+  if(!ov){ ov=document.createElement('div'); ov.id='cgdRefModal'; document.body.appendChild(ov);
+    document.addEventListener('keydown',function(ev){ if(ev.key==='Escape'){ const o=document.getElementById('cgdRefModal'); if(o) o.style.display='none'; } }); }
+  ov.style.cssText='position:fixed;inset:0;background:rgba(16,30,48,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto;';
+  ov.onclick=function(ev){ if(ev.target===ov) ov.style.display='none'; };
+  ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25);">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;"><b style="font-size:18px;color:var(--navy);">'+esc(r.name||'Reference')+'</b>'
+    +'<span style="font-weight:700;color:'+tone+'">'+esc(st)+'</span><span style="flex:1"></span>'
+    +'<button class="fb" onclick="document.getElementById(\'cgdRefModal\').style.display=\'none\'">Close</button></div>'
+    +'<div style="margin:6px 0 12px;">'+meta+'</div>'
+    +(qa.length?qa.map(([q,a])=>'<div style="padding:7px 0;border-top:1px solid #F3EFE7;"><div style="font-size:12.5px;font-weight:700;color:#6E6559;">'+esc(q)+'</div><div style="font-size:14px;margin-top:2px;">'+esc(a)+'</div></div>').join('')
+              :'<div class="field-note">No answers were recorded for this reference.</div>')
+    +(dc?'<div style="margin-top:10px;font-size:13px;"><b>Dates check:</b> '+esc(dc)+'</div>':'')
+    +(r.pdf?'<div style="margin-top:14px;"><button class="fb" onclick="cgdRefPdf('+i+')">📄 Open the PDF</button></div>':'')
+    +'</div>';
+  ov.style.display='flex';
+}
+/* Overview: one line so nobody has to know references live under Compliance. */
+function cgdRefsSummary(g){
+  const refs=g&&g.prehire&&Array.isArray(g.prehire.refs)?g.prehire.refs:null;
+  if(!refs||!refs.length) return '';
+  const n={}; refs.forEach(r=>{ const s=r.status||'Pending'; n[s]=(n[s]||0)+1; });
+  const words=['Positive','Conditional','Negative','Pending'].filter(s=>n[s]).map(s=>n[s]+' '+s).join(' · ');
+  return escapeHtmlComms(words)+' · <a class="linklike" style="cursor:pointer" onclick="cgdGoRefs()">View</a>';
+}
+function cgdGoRefs(){ cgdSection('compliance'); const el=document.getElementById('cgdRefsCard'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
 async function cgdOpenProfile(axid){
   const full=document.getElementById('cgdFull'), list=document.getElementById('cgdListView');
   if(!full||!list) return;
@@ -16414,6 +16466,7 @@ async function cgdOpenProfile(axid){
       +kv('Email', c.email?esc(c.email):'(none)')
       +kv('City', esc([c.city,c.zip].filter(Boolean).join(' ')||'(none)'))
       +kv('Hired', esc((c.hire_date||'?').slice(0,10)))
+      +(cgdRefsSummary(g)?kv('References', cgdRefsSummary(g)):'')
       +kv('AxisCare', '<a href="https://16485.axiscare.com/?caregivers-profile.php&id='+esc(String(c.id))+'" target="_blank" rel="noopener">open their AxisCare profile ↗</a>')
       +kv('Hours they want', av&&av.target_hours?esc(String(av.target_hours))+'/week <span class="field-note">(self-reported '+esc(String(av.updated_at||'').slice(0,10))+')</span>':'<span class="field-note">not recorded</span>')
       +'<div style="margin-top:8px;border-top:1px solid #F3EFE7;padding-top:6px;">'

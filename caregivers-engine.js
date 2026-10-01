@@ -5031,13 +5031,17 @@ async function bgrOnOpen(){
    One screen a state auditor can scan: every person and their four pre-hire
    screenings (OIG / EDL / FCSR / Fingerprint) with the document on file.
    Read-only. Kept separate from ongoing/annual checks. */
-/* prehire.refs shape (SPEC): [{slot, name, type, company, status, date, pdf}] */
+/* prehire.refs shape (SPEC): [{slot, name, type, company, status, date, pdf}] plus (2026-10-01, her ask: open what they
+   said from the caregiver profile even without a PDF) relationship, how_long, phone, email and answers (the r{n}_manual). */
 function obPrehireRefs(c){
   return [1,2,3,4].filter(n=>String(c[`r${n}n`]||'').trim()).map(n=>{
     const m=c[`r${n}_manual`]||{};
     return { slot:n, name:String(c[`r${n}n`]).trim(), type:obRefType(m.type||c[`r${n}_type`]),
       company:c[`r${n}_company`]||m.employer_confirmed||'', status:c[`r${n}s`]||'Pending',
-      date:m.date||'', pdf:c[`r${n}_pdf`]||'' };
+      date:m.date||'', pdf:c[`r${n}_pdf`]||'',
+      relationship:m.relationship||c[`r${n}_rel`]||'', how_long:m.how_long||c[`r${n}_howlong`]||'',
+      phone:c[`r${n}_phone`]||'', email:c[`r${n}_email`]||'',
+      answers:(c[`r${n}_manual`]&&typeof c[`r${n}_manual`]==='object')?JSON.parse(JSON.stringify(c[`r${n}_manual`])):null };
   });
 }
 function preHireRows(){
@@ -8223,6 +8227,7 @@ window.bgrRecordCheck = bgrRecordCheck;
 window.bgrCloseCheckModal = bgrCloseCheckModal;
 window.bgrSaveCheck = bgrSaveCheck;
 window.bgrViewProof = bgrViewProof;
+window.obRefQA = obRefQA; window.obDateCheckText = obDateCheckText; window.obRefHowCollected = obRefHowCollected;
 window.bgrPrintAudit = bgrPrintAudit;
 /* References R1–R5 (2026-10-01): inline handlers and the Hub's top search. */
 window.bgrMakeRefPdfs = bgrMakeRefPdfs;
