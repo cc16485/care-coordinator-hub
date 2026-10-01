@@ -20166,6 +20166,10 @@ let AP_ROWS = [], AP_BOOK = {}, AP_COORD = {}, AP_CHURN = {}, AP_POS = [], AP_PO
 const apQualified = r => !r.decline_reason && r.status !== 'declined'
   && r.age_ok !== false && r.work_auth !== false && r.has_transport !== false;
 const apDays = iso => (Date.now() - new Date(iso).getTime()) / 864e5;
+/* 2026-10-01 (Samantha: "why is Holly Means still listed in qualified when she's already been offered"): once someone
+   has an offer out, is hired, is in the candidate pool or has left, they are past the working lists (New, Qualified,
+   Needs a look, Inactive) and show only where they belong (Starting soon, Candidate pool, Everyone). */
+const AP_DECIDED = ['offer','hired','pool','left','declined'];
 
 const AP_VIEWS = [
   ['new','New'], ['qualified','Qualified'], ['review','Needs a look'], ['booked','Interview booked'],
@@ -20251,10 +20255,10 @@ function apMatching(k, ignorePosition){
                                  && !['duplicate','declined'].includes(r.screen_grade);
       case 'booked':     return booked;
       case 'review':     return r.screen_grade==='review' && !booked
-                                 && !['hired','pool','declined'].includes(r.status);
+                                 && !AP_DECIDED.includes(r.status);
       /* Once somebody is booked the grade has done its job, so a flag no
          longer holds them out of the list you work from. */
-      case 'qualified':  return apQualified(r) && !['hired','pool'].includes(r.status)
+      case 'qualified':  return apQualified(r) && !AP_DECIDED.includes(r.status)
                                  && r.screen_grade!=='duplicate'
                                  && (booked || (r.screen_grade!=='review' && apDays(r.created_at) <= 60));
       /* Between saying yes and turning up is where hires evaporate, and it was
@@ -20272,7 +20276,7 @@ function apMatching(k, ignorePosition){
       case 'unqualified':return !apQualified(r);
       /* Nobody is thrown away. Inactive is "we tried, they went quiet, and
          they are exactly who to ring when something opens". */
-      case 'inactive':   return apQualified(r) && r.status!=='pool' && !booked && apDays(r.created_at) > 60;
+      case 'inactive':   return apQualified(r) && !AP_DECIDED.includes(r.status) && !booked && apDays(r.created_at) > 60;
       default:           return true;
     }
   });
