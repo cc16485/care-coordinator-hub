@@ -2199,7 +2199,9 @@ async function sendOfferWelcome(id,btn,quiet){
     const d=await r.json();
     if(d.error) throw new Error(d.error);
     if(!quiet){
-      alert(d.already_sent?'Already sent earlier ✓':'Welcome '+[d.sms?'text':null,d.email?'email':null].filter(Boolean).join(' + ')+' sent ✓');
+      /* TRAINING TEXTS (2026-10-01): a part that did not go (after hours, no yes to texts, refused) is said, not hidden */
+      alert(d.already_sent?'Already sent earlier ✓':'Welcome '+[d.sms?'text':null,d.email?'email':null].filter(Boolean).join(' + ')+' sent ✓'
+        +((d.not_sent&&d.not_sent.length)?'\n\nNot sent: '+d.not_sent.join('; '):''));
       await loadOffers();
     }
     return {ok:true};

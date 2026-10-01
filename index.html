@@ -18323,6 +18323,12 @@ async function submitJobOffer(){
     const steps=[];
     steps.push('✓ Interview record saved — it\'s now in the Staffing Hub\'s New Offers queue');
     steps.push(res.axiscare?'✓ Created in AxisCare as an Applicant with the interview note':'! AxisCare: '+(res.axiscare_error||'not pushed')+' — the record is saved either way');
+    /* TRAINING TEXTS (2026-10-01): say which part of the start link went, and why anything did not */
+    if('start_sms' in res || 'start_email' in res){
+      const went=[res.start_sms?'text':null,res.start_email?'email':null].filter(Boolean);
+      steps.push(went.length ? '✓ Start link sent by '+went.join(' + ') : '! Start link was not sent');
+    }
+    (res.not_sent||[]).forEach(n=>steps.push('! Not sent: '+n));
     if(res.prn_track) steps.push(res.prn_track==='started'||res.prn_track==='already' ? '✓ On the PRN CNA Team pay track ($20/hr), recorded in their history'
       : '! PRN CNA Team pay track: ' + res.prn_track + ' (open their page and try again)');
     steps.push('✓ Welcome text + email are queued — they send automatically when Staffing enters '+first+' in Viventium (so the "watch for the Viventium email" message lands right as that email goes out)');
