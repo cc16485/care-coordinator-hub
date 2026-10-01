@@ -6115,10 +6115,9 @@ function buildBookingUrl(c){
     notes:s.notes||'', spots:parseInt(s.capacity)-(s.bookings||[]).length,
     dur:getOrientDuration()
   }))));
-  const base = window.location.href.replace(/[^/]*$/, '');
   // email + office ride along so the GoHighLevel relay can match the contact
   // that already exists from the offer stage, and tag the right office.
-  return `${base}orientation-booking.html?sessions=${encoded}&first=${encodeURIComponent(c.first)}&last=${encodeURIComponent(c.last)}&phone=${encodeURIComponent(c.phone||'')}&email=${encodeURIComponent(c.email||'')}&office=${encodeURIComponent(c.office||'springfield')}&id=${encodeURIComponent(c.id)}`;
+  return `${ORIENT_BOOKING_URL}?sessions=${encoded}&first=${encodeURIComponent(c.first)}&last=${encodeURIComponent(c.last)}&phone=${encodeURIComponent(c.phone||'')}&email=${encodeURIComponent(c.email||'')}&office=${encodeURIComponent(c.office||'springfield')}&id=${encodeURIComponent(c.id)}`;
 }
 
 function buildInviteMsg(c, url){
@@ -6502,6 +6501,9 @@ document.getElementById('or-recur-end-date')?.addEventListener('change', updateR
 // ── ORIENTATIONS ──────────────────────────────────────────────────────
 const ORIENT_ADDR = '1331 N Stewart Ave Ste B, Springfield MO 65802';
 const BOOKING_PAGE = 'orientation-booking.html';
+/* 2026-10-01: the booking page lives on the Staffing hub only. Built from this page's own address it pointed at
+   cc.mo-care.com/orientation-booking.html, which does not exist (404), whenever the invite came from the CC hub. */
+const ORIENT_BOOKING_URL = 'https://sc.mo-care.com/orientation-booking.html';
 
 let orientSessions = JSON.parse(localStorage.getItem('cc_orient_sessions') || '[]');
 let eodReports = [];
@@ -7950,7 +7952,7 @@ function openBookingLinkModal(sessId){
     spots:parseInt(s.capacity)-(s.bookings||[]).length,
     dur:getOrientDuration()
   }))));
-  const url=`${window.location.href.replace('Compliance_Hub.html','').replace(/\?.*$/,'').replace(/#.*$/,'')}orientation-booking.html?sessions=${encoded}`;
+  const url=`${ORIENT_BOOKING_URL}?sessions=${encoded}`;
   document.getElementById('bl-cand-name').textContent='Booking link for all available sessions';
   document.getElementById('bl-url').textContent=url;
   document.getElementById('booking-link-modal').classList.add('open');
