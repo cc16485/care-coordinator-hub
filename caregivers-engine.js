@@ -5084,6 +5084,30 @@ function renderBGRTab(){
    "shared data has not loaded" after a load that actually succeeded. Read-only. */
 try{ window.addEventListener('scx-hydrated', function(){ try{ bgrOnOpen(); }catch(e){} }); }catch(e){}
 
+/* People & Checks table cells (2026-10-01, her ask: "make these references look less jumbled"). Each reference is a
+   small stack: name, phone (one format), email, then status + Record on one line. Pure: they only build HTML. */
+function obFmtPhone(ph){
+  let d=String(ph||'').replace(/\D/g,''); if(d.length===11&&d[0]==='1') d=d.slice(1);
+  return d.length===10 ? { show:`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`, tel:'+1'+d } : { show:String(ph||'').trim(), tel:String(ph||'').replace(/[^\d+]/g,'') };
+}
+function obRefCellHTML(c,n){
+  const s=c[`r${n}s`]||'Pending', nm=String(c[`r${n}n`]||'').trim(), pf=c[`r${n}_proof`], mn=c[`r${n}_manual`];
+  const ph=c[`r${n}_phone`], em=c[`r${n}_email`];
+  const badge={Positive:'b-green',Conditional:'b-amber',Negative:'b-red',Pending:'b-gray'}[s]||'b-gray';
+  const p=ph?obFmtPhone(ph):null;
+  const given=!!(nm||ph||em);
+  const btn=s==='Pending'
+    ? `<button class="refc-btn" onclick="openManualRef(${c.id},${n})">📞 Record</button>`
+    : `<button class="refc-btn refc-btn-quiet" onclick="openManualRef(${c.id},${n})">✏️ Edit</button>`;
+  return `<td class="refc-td"><div class="refc">`
+    + (given ? `<div class="refc-name">${nm||'Name not given'}</div>` : `<div class="refc-none">No reference given</div>`)
+    + (p ? `<a class="refc-line" href="tel:${p.tel}" title="Call">${p.show}</a>` : '')
+    + (em ? `<a class="refc-line refc-em" href="mailto:${em}" title="${em}">${em}</a>` : '')
+    + (mn ? `<div class="refc-note">📞 ${mn.via||''}${mn.date?' · '+(fmtD(mn.date)||''):''}${mn.staff?' · '+mn.staff:''}</div>` : '')
+    + (pf ? `<a class="proof-link refc-note" href="${pf}" target="_blank" rel="noopener">📄 View form</a>` : '')
+    + `<div class="refc-foot">${given||s!=='Pending'?`<span class="badge ${badge}">${s}</span>`:''}${btn}</div>`
+    + `</div></td>`;
+}
 function renderOB(){
   try{ renderHirePipeline(); }catch(e){}
   const q=((document.querySelector('#panel-onboarding input')||{value:''}).value||globalSearch).toLowerCase();
@@ -5124,15 +5148,8 @@ function renderOB(){
 
     const proofLink=(url,label)=>url?`<a class="proof-link" href="${url}" target="_blank" rel="noopener">📄 ${label}</a>`:'';
     return `<tr>
-      <td><div class="name-cell" style="cursor:pointer;color:var(--navy)" onclick="openProfile('${c.first}','${c.last}')" title="View full profile">${c.first} ${c.last} <span style="font-size:.65rem;color:var(--teal)">↗</span></div>${c.oos==='yes'?'<span class="sub" style="color:#F97316">⚠ Out-of-state</span>':''}${addedLabel?`<span class="sub" style="color:var(--gray)">Added ${addedLabel}</span>`:''}${daysPending!==null&&st==='Awaiting'?`<span class="sub" style="color:${urgencyColor};font-weight:600">${daysPending}d in pipeline</span>`:''}${staleBadge?`<div style="margin-top:2px">${staleBadge}</div>`:''}</td>
-      ${[1,2,3,4].map(n=>{
-        const s=c[`r${n}s`],nm=c[`r${n}n`],pf=c[`r${n}_proof`],mn=c[`r${n}_manual`];
-        const manualTag=mn?`<span class="sub" style="color:var(--teal)">📞 ${mn.via} · ${fmtD(mn.date)||''}${mn.staff?' · '+mn.staff:''}</span>`:'';
-        const recordBtn=s==='Pending'?`<button onclick="openManualRef(${c.id},${n})" style="margin-top:3px;background:none;border:1px solid var(--teal);color:var(--teal);border-radius:5px;font-size:.68rem;padding:.18rem .45rem;cursor:pointer;font-family:inherit">📞 Record</button>`:`<button onclick="openManualRef(${c.id},${n})" style="margin-top:3px;background:none;border:1px solid var(--border);color:var(--gray);border-radius:5px;font-size:.68rem;padding:.18rem .45rem;cursor:pointer;font-family:inherit">✏️ Edit</button>`;
-        const ph=c[`r${n}_phone`],em=c[`r${n}_email`];
-        const contactLine=ph||em?`<span class="sub">${ph?`<a href="tel:${ph}" style="color:var(--teal);text-decoration:none" title="Call">📞 ${ph}</a>`:''}${ph&&em?' · ':''} ${em?`<a href="mailto:${em}" style="color:var(--teal);text-decoration:none" title="Email">✉️ ${em}</a>`:''}</span>`:'';
-        return `<td><span class="badge ${refBadge(s)}">${s}</span>${nm?`<span class="sub">${nm}</span>`:''}${contactLine}${manualTag}${pf?proofLink(pf,'View form'):''}${recordBtn}</td>`;
-      }).join('')}
+      <td class="cand-td"><div class="name-cell" style="cursor:pointer;color:var(--navy)" onclick="openProfile('${c.first}','${c.last}')" title="View full profile">${c.first} ${c.last} <span style="font-size:.65rem;color:var(--teal)">↗</span></div>${c.oos==='yes'?'<div><span class="cand-chip">Out of state</span></div>':''}${addedLabel?`<div class="cand-meta">Added ${addedTs?new Date(addedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}${daysPending!==null&&st==='Awaiting'?` · <b style="color:${urgencyColor}">${daysPending}d in pipeline</b>`:''}</div>`:''}${staleBadge?`<div style="margin-top:2px">${staleBadge}</div>`:''}</td>
+      ${[1,2,3,4].map(n=>obRefCellHTML(c,n)).join('')}
       <td><div class="chk"><span onclick="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?`bgrRecordCheck(${c.id},'oig')`:`bgrRunOIG(${c.id})`}" title="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'Update the OIG result or attach the proof':'Run the OIG exclusion check now'}" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.oig==='CLEAR'?'b-green':c.oig==='FLAGGED'?'b-red':'b-gray'}">${c.oig||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'✎':'▸ run'}</span></span>${c.oig_date?`<span class="chk-date">${fmtD(c.oig_date)}</span>`:''}${bgrCheckProofHtml(c.oig_proof)}</div></td>
       <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'edl')" title="Record the EDL result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.edl==='Clear'?'b-green':c.edl==='Issues Found'?'b-red':'b-gray'}">${c.edl||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.edl_date?`<span class="chk-date">${fmtD(c.edl_date)}</span>`:''}${bgrCheckProofHtml(c.edl_proof)}</div></td>
       <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'fcsr')" title="Record the FCSR result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.fcsr==='Clear'?'b-green':c.fcsr==='Issues Found'?'b-red':'b-gray'}">${c.fcsr||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fcsr_date?`<span class="chk-date">${fmtD(c.fcsr_date)}</span>`:''}${bgrCheckProofHtml(c.fcsr_proof)}</div></td>
