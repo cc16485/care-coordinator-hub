@@ -96,7 +96,7 @@ window.AP_JOURNEY = [
   "rule": "Text only with their yes to texts; email to anyone with an address. No STOP wording.",
   "subject": "Your in-person interview: {day} at {time}",
   "text": "Hi {first}, your IN-PERSON interview with Caring Companions is booked for {Weekday, Month D} at {h:mm AM}. Please come to our office: {location}. {location note} This is not a phone interview, so we will not call you. Need to move or cancel it? https://mo-care.com/apply?book={applicant_id} — or call {office phone}. Reply STOP to opt out.",
-  "email_summary": "'Your in-person interview is booked for {day} at {time}.' + Where to come block (name, address, map, note, photo) + 'This is an in-person interview at our office, not a phone call, and it takes about 30 minutes. Need to move or cancel it? You can do that here, or call or text us.' + 'We are looking forward to meeting you.'",
+  "email_summary": "'Your in-person interview is booked for {day} at {time}.' + Where to come block (name, address, map, note, photo) + 'This is an in-person interview at our office, not a phone call, and it takes about 20 minutes (the calendar keeps a 30-minute slot). Need to move or cancel it? You can do that here, or call or text us.' + 'We are looking forward to meeting you.'",
   "shows_in_ghl": true,
   "failure_visible": true
  },
