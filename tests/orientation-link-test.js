@@ -15,6 +15,7 @@ const code = [
   cut('function wcCard(', 'function renderWelcomeCalls('),
   cut('const WC_GUIDE =', 'async function wcNotes('),
   cut('async function wcAct(', 'function renderOrientReadyQueue('),
+  cut('function cgRecordFromCandidate(', '// ── Promote / Close Out'),
 ].join('\n');
 
 let pass = 0, fail = 0;
@@ -23,7 +24,8 @@ const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'F
 function world(opts = {}) {
   const log = [], alerts = [], fetches = [];
   const ctx = {
-    console, Date, JSON, Promise, Set, String, Array, Object, Number, Error, RegExp,
+    console, Date, JSON, Promise, Set, String, Array, Object, Number, Error, RegExp, Intl,
+    caregivers: [], cgId: 100, obPrehireRefs: () => [], saveCaregivers: async () => true, localStorage: { setItem() {} },
     candidates: [{ id: 41, first: 'Ava', last: 'Applicant', phone: '417-555-0199', email: 'ava@x.com', offer_id: opts.noOffer ? null : 'offer-uuid-1' }],
     TRAINING_HUB_ANON: 'training-anon',
     window: { trainHubTok: async () => 'staff-hub-token', CGP2: opts.published ? { isLive: () => true, rowFor: () => ({}) } : { isLive: () => false, rowFor: () => null } },
@@ -55,7 +57,7 @@ function world(opts = {}) {
   ck('done: the offer id, the welcome call id and every phone and email the Hub has (no duplicates)', f.body.offer_id === 'offer-uuid-1' && f.body.welcome_call_id === 'w1' && f.body.phone === '(417) 555-0100' && JSON.stringify(f.body.phones) === '["417-555-0199"]' && f.body.email === 'ava@x.com' && f.body.emails.length === 0 && f.body.first === 'Ava', f.body);
   const confirmText = (W.log.find((l) => l[0] === 'confirm') || [])[1] || '';
   ck('done: the confirm says they must be In Training in AxisCare first', /hired in AxisCare with status In Training/.test(confirmText) && /I-9 Section 2/.test(confirmText), confirmText);
-  ck('done: one message: marked done + sent + the profile reminder from 2c kept', W.alerts.length === 1 && /^Welcome call marked done\.\n\nOrientation link sent by text and email\./.test(W.alerts[0]) && /caregiver profile is not published yet/.test(W.alerts[0]), W.alerts);
+  ck('done: one message: marked done + sent + the profile reminder from 2c kept', W.alerts.length === 1 && /^Welcome call marked done\.\n\nAdded to the caregiver roster \(hire date \w{3} \d{1,2}, \d{4}\)\.\n\nOrientation link sent by text and email\./.test(W.alerts[0]) && /caregiver profile is not published yet/.test(W.alerts[0]), W.alerts);
 
   W = world({ doneFails: true });
   await W.X.wcAct('w1', 'done', '', null);

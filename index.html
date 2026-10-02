@@ -2057,141 +2057,135 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- ── 📹 Welcome calls (remote orientation, slice 1a, 2026-10-01). Rendered by renderWelcomeCalls() in caregivers-engine.js. -->
       <div id="wc-section" style="margin-bottom:1rem"></div>
 
-      <div class="tab-guide">
-        <div class="tab-guide-hdr" onclick="SCX.toggleGuide('orient')">
-          <span class="tab-guide-title">📋 How This Tab Works — Step by Step</span>
-          <span class="tab-guide-arrow" id="guide-arrow-orient">▼</span>
-        </div>
-        <div class="tab-guide-body" id="guide-body-orient">
-          <div class="guide-section-lbl" style="border-top:none;padding-top:0;margin-top:0">Scheduling a session</div>
-          <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">Click <strong>+ Add Session</strong> to create an orientation. Set the date, start time (default 10am), capacity, location, and who is running it (facilitator + role).<span class="tip">The session will automatically sync to Google Calendar and create a shift in AxisCare if those webhooks are configured in Settings.</span></div></div>
-          <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body">To schedule repeating sessions, use the <strong>Repeat</strong> dropdown (weekly, biweekly, or monthly). The hub creates all sessions in one step and tags them as a series.</div></div>
-          <div class="guide-section-lbl">Booking candidates in</div>
-          <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body">Once a candidate is <strong>Ready for Orientation</strong> in the Background &amp; References tab, click <strong>🔗 Copy Booking Link</strong> on a session and send it to them. They pick their preferred time from a self-serve page.<span class="tip">Or click <strong>+ Add Booking</strong> to manually add a candidate (useful for phone/text bookings).</span></div></div>
-          <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body">Session capacity fills up automatically. A <strong>FULL</strong> badge appears when there are no open spots.</div></div>
-          <div class="guide-section-lbl">Day of orientation</div>
-          <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body">After the session, switch to <strong>Past Sessions &amp; Attendance</strong> and mark each attendee: ✅ Attended, 🚫 No-Show, 📅 Rescheduled, or ❌ Canceled.</div></div>
-          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">For anyone who <strong>Attended</strong>, click the <strong>🎓 Promote</strong> button to move them into the Active Compliance tab as a new caregiver.</div></div>
-          <div class="guide-step"><div class="guide-step-num">7</div><div class="guide-step-body">For <strong>No-Shows</strong>, follow up and rebook them into the next available session using a new booking link.</div></div>
-        </div>
-      </div>
-
       <!-- ── Ready for Orientation Queue ──────────────────────────────── -->
       <div id="orient-ready-queue" style="margin-bottom:1rem"></div>
 
-      <!-- ── Orientation Settings (collapsible, Augusta-inspired) ──────── -->
-      <div class="tab-guide" style="margin-bottom:1rem">
-        <div class="tab-guide-hdr" onclick="SCX.toggleGuide('orient-cfg')">
-          <span class="tab-guide-title">⚙️ Orientation Settings — Schedule &amp; Defaults</span>
-          <span class="tab-guide-arrow" id="guide-arrow-orient-cfg">▼</span>
+      <!-- ── 🏢 Office orientation (backup only), 2026-10-02 ──────────────
+           Samantha: "fold it away". Most new hires do orientation from home after their welcome call. The office
+           session settings, calendar and sessions list (attendance + 🎓 Promote) live here, closed by default.
+           Toggled by SCX.toggleOfficeOrient(); everything inside keeps its old ids and still renders while hidden. -->
+      <div class="tab-guide" id="orient-office" style="margin-top:1.25rem;border-color:var(--border)">
+        <div class="tab-guide-hdr" onclick="SCX.toggleOfficeOrient()" style="background:#f7f7f5">
+          <span class="tab-guide-title" style="color:var(--navy)">🏢 Office orientation (backup only)</span>
+          <span class="tab-guide-arrow" id="guide-arrow-orient-office" style="color:var(--navy)">▼</span>
         </div>
-        <div class="tab-guide-body" id="guide-body-orient-cfg">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
-
-            <!-- LEFT: Weekly Recurring Schedule -->
-            <div>
-              <div style="font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Recurring Weekly Schedule</div>
-              <div id="orient-schedule-days" style="display:flex;flex-direction:column;gap:0">
-                <!-- Rows rendered by initOrientSettings() -->
-              </div>
-              <div style="margin-top:1.1rem">
-                <div style="font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Generate Sessions</div>
-                <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
-                  <select id="orient-gen-weeks" onchange="SCX.updateOrientGenPreview()" style="padding:.32rem .6rem;border:1.5px solid var(--border);border-radius:7px;font-size:.8rem;font-family:inherit">
-                    <option value="4">Next 4 weeks</option>
-                    <option value="8" selected>Next 8 weeks</option>
-                    <option value="12">Next 12 weeks</option>
-                    <option value="16">Next 16 weeks</option>
-                  </select>
-                  <button onclick="SCX.generateOrientSessions()" style="padding:.32rem .95rem;background:var(--navy);color:#fff;border:none;border-radius:7px;font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit">Generate Sessions</button>
-                </div>
-                <div id="orient-gen-preview" style="font-size:.72rem;color:var(--gray);margin-top:.4rem;line-height:1.5"></div>
-              </div>
+        <div class="tab-guide-body" id="guide-body-orient-office">
+          <div style="font-size:.82rem;color:var(--navy);line-height:1.5;margin-bottom:.9rem">Most new hires do orientation from home after their welcome call. Use this only when someone needs to come into the office: set up a session here, then use <b>📅 In the office instead</b> on their row. After the session, mark attendance and press <b>🎓 Promote</b> for anyone who attended.</div>
+          <!-- ── Orientation Settings (collapsible, Augusta-inspired) ──────── -->
+          <div class="tab-guide" style="margin-bottom:1rem">
+            <div class="tab-guide-hdr" onclick="SCX.toggleGuide('orient-cfg')">
+              <span class="tab-guide-title">⚙️ Orientation Settings: Schedule &amp; Defaults</span>
+              <span class="tab-guide-arrow" id="guide-arrow-orient-cfg">▼</span>
             </div>
+            <div class="tab-guide-body" id="guide-body-orient-cfg">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
 
-            <!-- RIGHT: Session Defaults -->
-            <div>
-              <div style="font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Session Defaults</div>
-              <div style="display:flex;flex-direction:column;gap:.7rem">
+                <!-- LEFT: Weekly Recurring Schedule -->
                 <div>
-                  <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Duration</label>
-                  <select id="orient-cfg-duration" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit">
-                    <option value="1">1 hour</option>
-                    <option value="1.5">1.5 hours</option>
-                    <option value="2" selected>2 hours</option>
-                    <option value="2.5">2.5 hours</option>
-                    <option value="3">3 hours</option>
-                  </select>
-                </div>
-                <div>
-                  <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Max Capacity (per session)</label>
-                  <select id="orient-cfg-capacity" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit">
-                    <option value="2">2 people</option>
-                    <option value="3">3 people</option>
-                    <option value="4">4 people</option>
-                    <option value="5">5 people</option>
-                    <option value="6" selected>6 people</option>
-                    <option value="8">8 people</option>
-                    <option value="10">10 people</option>
-                  </select>
-                </div>
-                <div>
-                  <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Default Facilitator</label>
-                  <input type="text" id="orient-cfg-facilitator" placeholder="e.g. Samantha" list="facilitator-list" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit;box-sizing:border-box">
-                </div>
-                <div>
-                  <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Location</label>
-                  <div style="display:flex;gap:.85rem;margin-bottom:.4rem">
-                    <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer">
-                      <input type="radio" name="orient-cfg-loc" value="inperson" checked style="accent-color:var(--navy)"> In-Person
-                    </label>
-                    <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer">
-                      <input type="radio" name="orient-cfg-loc" value="remote" style="accent-color:var(--navy)"> Remote
-                    </label>
+                  <div style="font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Recurring Weekly Schedule</div>
+                  <div id="orient-schedule-days" style="display:flex;flex-direction:column;gap:0">
+                    <!-- Rows rendered by initOrientSettings() -->
                   </div>
-                  <input type="text" id="orient-cfg-address" value="1331 N Stewart Ave Ste B, Springfield MO 65802" placeholder="Location address" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit;box-sizing:border-box">
+                  <div style="margin-top:1.1rem">
+                    <div style="font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Generate Sessions</div>
+                    <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+                      <select id="orient-gen-weeks" onchange="SCX.updateOrientGenPreview()" style="padding:.32rem .6rem;border:1.5px solid var(--border);border-radius:7px;font-size:.8rem;font-family:inherit">
+                        <option value="4">Next 4 weeks</option>
+                        <option value="8" selected>Next 8 weeks</option>
+                        <option value="12">Next 12 weeks</option>
+                        <option value="16">Next 16 weeks</option>
+                      </select>
+                      <button onclick="SCX.generateOrientSessions()" style="padding:.32rem .95rem;background:var(--navy);color:#fff;border:none;border-radius:7px;font-size:.8rem;font-weight:600;cursor:pointer;font-family:inherit">Generate Sessions</button>
+                    </div>
+                    <div id="orient-gen-preview" style="font-size:.72rem;color:var(--gray);margin-top:.4rem;line-height:1.5"></div>
+                  </div>
+                </div>
+
+                <!-- RIGHT: Session Defaults -->
+                <div>
+                  <div style="font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem">Session Defaults</div>
+                  <div style="display:flex;flex-direction:column;gap:.7rem">
+                    <div>
+                      <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Duration</label>
+                      <select id="orient-cfg-duration" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit">
+                        <option value="1">1 hour</option>
+                        <option value="1.5">1.5 hours</option>
+                        <option value="2" selected>2 hours</option>
+                        <option value="2.5">2.5 hours</option>
+                        <option value="3">3 hours</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Max Capacity (per session)</label>
+                      <select id="orient-cfg-capacity" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit">
+                        <option value="2">2 people</option>
+                        <option value="3">3 people</option>
+                        <option value="4">4 people</option>
+                        <option value="5">5 people</option>
+                        <option value="6" selected>6 people</option>
+                        <option value="8">8 people</option>
+                        <option value="10">10 people</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Default Facilitator</label>
+                      <input type="text" id="orient-cfg-facilitator" placeholder="e.g. Samantha" list="facilitator-list" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit;box-sizing:border-box">
+                    </div>
+                    <div>
+                      <label style="font-size:.75rem;color:var(--gray);display:block;margin-bottom:.25rem;font-weight:600">Location</label>
+                      <div style="display:flex;gap:.85rem;margin-bottom:.4rem">
+                        <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer">
+                          <input type="radio" name="orient-cfg-loc" value="inperson" checked style="accent-color:var(--navy)"> In-Person
+                        </label>
+                        <label style="display:flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer">
+                          <input type="radio" name="orient-cfg-loc" value="remote" style="accent-color:var(--navy)"> Remote
+                        </label>
+                      </div>
+                      <input type="text" id="orient-cfg-address" value="1331 N Stewart Ave Ste B, Springfield MO 65802" placeholder="Location address" style="width:100%;padding:.38rem .65rem;border:1.5px solid var(--border);border-radius:7px;font-size:.82rem;font-family:inherit;box-sizing:border-box">
+                    </div>
+                  </div>
+                  <div style="margin-top:1rem;display:flex;justify-content:flex-end">
+                    <button onclick="SCX.saveOrientSettings()" id="orient-cfg-save-btn" style="padding:.38rem 1.1rem;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit">Save Settings</button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <div class="or-layout">
+            <!-- Left: Calendar -->
+            <div>
+              <div class="cal-card">
+                <div class="cal-hdr">
+                  <button class="cal-nav-btn" onclick="SCX.calPrev()">‹</button>
+                  <h3 id="cal-month-label">June 2026</h3>
+                  <button class="cal-nav-btn" onclick="SCX.calNext()">›</button>
+                </div>
+                <div class="cal-dow"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>
+                <div class="cal-days" id="cal-days"></div>
+              </div>
+              <div style="font-size:.72rem;color:var(--gray);text-align:center;margin-top:.25rem">Click a highlighted day to view its sessions</div>
+              <div class="stats" id="or-stats" style="margin-top:.75rem;margin-bottom:0;grid-template-columns:1fr 1fr"></div>
+            </div>
+
+            <!-- Right: Sessions list -->
+            <div class="or-sessions-panel">
+              <div class="or-sessions-hdr">
+                <h3 id="or-list-title">All Upcoming Sessions</h3>
+                <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+                  <span id="or-session-count" style="font-size:.75rem;color:var(--gray)"></span>
+                  <button class="add-btn" style="padding:.3rem .7rem;font-size:.75rem" onclick="SCX.openOrientModal()">+ Add Session</button>
+                  <button class="add-btn" style="padding:.3rem .7rem;font-size:.75rem;background:var(--teal)" onclick="SCX.gcalSyncAll()" title="Create/update all upcoming sessions in Google Calendar">📅 Sync to GCal</button>
                 </div>
               </div>
-              <div style="margin-top:1rem;display:flex;justify-content:flex-end">
-                <button onclick="SCX.saveOrientSettings()" id="orient-cfg-save-btn" style="padding:.38rem 1.1rem;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:.82rem;font-weight:600;cursor:pointer;font-family:inherit">Save Settings</button>
+              <div class="past-sess-toggle" style="border-bottom:1px solid var(--border);border-radius:0;padding:.5rem .85rem">
+                <button id="pts-upcoming" class="pts-btn active" onclick="SCX.setPastView(false)">📅 Upcoming</button>
+                <button id="pts-past" class="pts-btn" onclick="SCX.setPastView(true)">📋 Past Sessions &amp; Attendance</button>
               </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-
-      <div class="or-layout">
-        <!-- Left: Calendar -->
-        <div>
-          <div class="cal-card">
-            <div class="cal-hdr">
-              <button class="cal-nav-btn" onclick="SCX.calPrev()">‹</button>
-              <h3 id="cal-month-label">June 2026</h3>
-              <button class="cal-nav-btn" onclick="SCX.calNext()">›</button>
-            </div>
-            <div class="cal-dow"><div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div></div>
-            <div class="cal-days" id="cal-days"></div>
-          </div>
-          <div style="font-size:.72rem;color:var(--gray);text-align:center;margin-top:.25rem">Click a highlighted day to view its sessions</div>
-          <div class="stats" id="or-stats" style="margin-top:.75rem;margin-bottom:0;grid-template-columns:1fr 1fr"></div>
-        </div>
-
-        <!-- Right: Sessions list -->
-        <div class="or-sessions-panel">
-          <div class="or-sessions-hdr">
-            <h3 id="or-list-title">All Upcoming Sessions</h3>
-            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
-              <span id="or-session-count" style="font-size:.75rem;color:var(--gray)"></span>
-              <button class="add-btn" style="padding:.3rem .7rem;font-size:.75rem" onclick="SCX.openOrientModal()">+ Add Session</button>
-              <button class="add-btn" style="padding:.3rem .7rem;font-size:.75rem;background:var(--teal)" onclick="SCX.gcalSyncAll()" title="Create/update all upcoming sessions in Google Calendar">📅 Sync to GCal</button>
+              <div id="or-sessions-list"></div>
             </div>
           </div>
-          <div class="past-sess-toggle" style="border-bottom:1px solid var(--border);border-radius:0;padding:.5rem .85rem">
-            <button id="pts-upcoming" class="pts-btn active" onclick="SCX.setPastView(false)">📅 Upcoming</button>
-            <button id="pts-past" class="pts-btn" onclick="SCX.setPastView(true)">📋 Past Sessions &amp; Attendance</button>
-          </div>
-          <div id="or-sessions-list"></div>
         </div>
       </div>
     </div>
@@ -2209,7 +2203,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div class="tab-guide-body" id="guide-body-training">
           <div class="guide-section-lbl" style="border-top:none;padding-top:0;margin-top:0">How caregivers get here</div>
-          <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">Caregivers appear here after completing orientation and being <strong>promoted</strong> from the Orientations tab. You can also add them manually with <strong>+ Add Caregiver</strong>.</div></div>
+          <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">New hires appear here when their welcome call is marked done (hire date that day), or when they are <strong>promoted</strong> after an office orientation session. You can also add them manually with <strong>+ Add Caregiver</strong>.</div></div>
           <div class="guide-section-lbl">Training milestones to track</div>
           <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body"><strong>Agency Orientation + ALZ Training</strong> (6 hrs total) — must be completed before the caregiver can be scheduled with their first client.</div></div>
           <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>First Client Contact</strong> — log the date the caregiver was first scheduled with a client. This starts the 30-day OJT clock.</div></div>
