@@ -3658,7 +3658,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
               <div>
                 <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">✉️ The email</div>
                 <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
-                  <div style="background:#FAF9F6;padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);"><b>Subject:</b> Welcome to Caring Companions — here's what happens next</div>
+                  <div style="background:#FAF9F6;padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);"><b>Subject:</b> Welcome to Caring Companions, here's what happens next</div>
                   <div id="jo_prev_email" style="padding:12px 14px;font-size:13px;line-height:1.65;"></div>
                 </div>
               </div>
@@ -17891,7 +17891,7 @@ function joPreviewMsgs(){
     +"We're excited to begin the onboarding process with you.\n\n"
     +'Your next step is to watch your email for a message from Viventium, our secure onboarding system. It will contain your official job offer and the first portion of your onboarding paperwork.\n\n'
     +'Please complete it as soon as possible. This paperwork gives us permission to begin your background check and contact your professional references.\n\n'
-    +"Once your background check and references have been successfully completed, we'll contact you to schedule your paid new employee orientation.\n\n"
+    +"Once your background check and references are complete, we'll text you to book a quick 15-minute welcome video call. After that, you'll do your paid training from home on your phone or computer.\n\n"
     +"📞 Please save our office number: (417) 234-8494. This is our main office number and the one you'll use to call or text us if you have any questions.\n\n"
     +'Welcome to the Caring Companions team!';
   document.getElementById('jo_prev_email').innerHTML=
@@ -17904,8 +17904,10 @@ function joPreviewMsgs(){
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 2: Background Check &amp; Reference Checks</b></p>'
     +'<p style="margin:4px 0;">Once you\'ve completed your onboarding paperwork, we\'ll begin your background check and contact your professional references.</p>'
     +'<p style="margin:4px 0;">We\'ll let you know as soon as everything has been successfully completed.</p>'
-    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 3: Schedule Your Paid Orientation</b></p>'
-    +'<p style="margin:4px 0;">After your background check and references have been completed, we\'ll contact you to schedule your paid new employee orientation and discuss the next steps before your first day.</p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 3: Your 15-Minute Welcome Video Call</b></p>'
+    +'<p style="margin:4px 0;">Once your background check and references are complete, we\'ll send Step 2 of your Viventium paperwork and a link to book a quick welcome call. Join from your phone or computer.</p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 4: Paid Training From Home</b></p>'
+    +'<p style="margin:4px 0;">After the call, we\'ll text you a private link to your paid orientation and Alzheimer\'s and dementia training. Do it on your phone or computer, in pieces if you like.</p>'
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Save Our Office Number</b></p>'
     +'<p style="margin:4px 0;">Please save our office number: <b>(417) 234-8494</b>.<br>This is our main office number and the one you\'ll use to call or text us if you have questions during the onboarding process or after you join our team.</p>'
     +'<p style="margin:4px 0;">We\'re excited to welcome you to Caring Companions and look forward to working with you!</p>'
@@ -21905,7 +21907,7 @@ window.apNoshowMark = apNoshowMark; window.apNoshowSend = apNoshowSend; window.a
 /* ---- Applicant journey & messages (2026-10-01) ---- */
 function apjOpen(){
   if(window.AP_JOURNEY) return apjRender();
-  const sc = document.createElement('script'); sc.src = 'applicant-journey.js?v=20261002';
+  const sc = document.createElement('script'); sc.src = 'applicant-journey.js?v=20261002b';
   sc.onload = apjRender; sc.onerror = () => { const b=document.getElementById('apjBody'); if(b) b.innerHTML='<div class="field-note">Could not load the journey list. Reload the page.</div>'; };
   document.head.appendChild(sc);
 }
