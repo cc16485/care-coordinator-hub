@@ -5762,8 +5762,7 @@ function renderOB(){
       </td>
       <td><div class="acts">
         ${c.not_hired?`<button class="ibtn" onclick="reactivateOB(${c.id})" style="color:var(--teal);border-color:var(--teal)" title="Reactivate candidate">↩ Reactivate</button>`:`
-        ${st==='Ready for Orientation'&&!c.invite_sent?`<button class="ibtn" style="background:var(--teal);color:#fff;border-color:var(--teal);font-weight:600;padding:.28rem .65rem;" onclick="openInviteModal(${c.id})">📅 Invite</button>`:''}
-        ${st==='Ready for Orientation'&&c.invite_sent?`<button class="ibtn" style="color:var(--teal);border-color:var(--teal);" onclick="openInviteModal(${c.id})">📅 Re-send</button>`:''}
+        ${st==='Ready for Orientation'?`<span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${step2Html(c)}</span><span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${wcInviteHtml(c)}</span><button class="ibtn" onclick="openInviteModal(${c.id})" title="Invite to an in-person orientation session at the office">📅 In the office instead${c.invite_sent?' (re-send)':''}</button>`:''}
         ${[1,2,3,4].some(n=>c['r'+n+'n']&&c['r'+n+'s']==='Pending')?`<button class="ibtn" onclick="askReferences(${c.id},this)" title="Send each reference a two-minute form">📨 Ask refs</button>`:''}
         ${[1,2,3,4].some(n=>c['r'+n+'_manual'])?`<button class="ibtn" onclick="refReport(${c.id})" title="Reference check record for the personnel file">📄 Refs</button>`:''}
         <button class="ibtn" onclick="openOBModal(${c.id})">✏️</button>
@@ -6813,6 +6812,261 @@ async function mergePendingBookings(){
   } catch(e){ console.warn('mergePendingBookings:', e); }
 }
 
+/* ── Remote orientation, slice 1a: Viventium Step 2 + welcome calls (2026-10-01) ──
+   Samantha: once references and background checks are clear (Ready for
+   Orientation) the office sends Viventium Step 2 in Viventium. Viventium has no
+   link to the Hub, so staff mark "Step 2 sent" and "Step 2 done" here. The I-9
+   documents are uploaded in Step 2, so Step 2 must be DONE before the welcome
+   call. "Invite to welcome call" is a button, never automatic. The new hire
+   books a 15-minute Google Meet call (one shared room) on welcome.html.
+   Server side: welcome_calls.sql + the staff-only welcome-call edge function
+   (Staffing-Coordinator-Hub repo). The function owns every word that is sent. */
+const WC_MEET = 'https://meet.google.com/yqj-nzuo-tgp';
+const WC_TZ = 'America/Chicago';
+const WC_TICKS = [
+  ['i9_checked', 'I-9 documents checked on camera'],
+  ['app_setup', 'AxisCare app set up (code 16485)'],
+  ['profile_reviewed', 'Caregiver profile reviewed'],
+  ['photo_link_sent', 'Photo link sent'],
+];
+let WC_ROWS = [], WC_LOADED = false, WC_ERR = '', WC_AT = 0;
+const wcEsc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const wcDay = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric', timeZone: WC_TZ }) : '';
+const wcWhen = iso => { const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', timeZone: WC_TZ })
+    + ' at ' + d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZone: WC_TZ }); };
+const wcName = w => ([w.first_name, w.last_name].filter(Boolean).join(' ').trim() || 'this new hire');
+async function wcWho(){
+  try{ const { data:{ session } } = await sb.auth.getSession(); return (session && session.user && session.user.email) || 'staff'; }
+  catch(e){ return 'staff'; }
+}
+/* Same pattern as apNoshowCall in index.html: the function's own error text wins. */
+async function wcCall(body){
+  const { data, error } = await sb.functions.invoke('welcome-call', { body });
+  if(error){ let m = error.message || 'error'; try{ const j = await error.context.json(); if(j && j.error) m = j.error; }catch(_){} throw new Error(m); }
+  if(data && data.error) throw new Error(data.error);
+  return data || {};
+}
+function wcResult(head, d){
+  const sent = [d.texted ? 'text' : '', d.emailed ? 'email' : ''].filter(Boolean);
+  return head + (sent.length ? '\n\nSent by ' + sent.join(' and ') + '. It shows in their GoHighLevel conversation.' : '\n\nNo message went.')
+    + ((d.not_sent && d.not_sent.length) ? '\n\nNot sent: ' + d.not_sent.join('; ') : '');
+}
+/* The newest welcome call for a candidate (by the Hub's candidate id). */
+function wcRowFor(c){
+  const rows = WC_ROWS.filter(w => String(w.candidate_id) === String(c.id) && w.status !== 'cancelled');
+  rows.sort((a,b) => String(b.invited_at||'').localeCompare(String(a.invited_at||'')));
+  return rows[0] || null;
+}
+
+/* ── Step 2 tracking on the candidate record ── */
+async function step2Mark(id, which, undo){
+  const c = candidates.find(x => String(x.id) === String(id)); if(!c) return;
+  if(undo){
+    if(!confirm('Undo "Step 2 ' + which + '" for ' + c.first + ' ' + c.last + '?')) return;
+    c['step2_' + which + '_at'] = null; c['step2_' + which + '_by'] = null;
+  } else {
+    const who = await wcWho(), now = new Date().toISOString();
+    c['step2_' + which + '_at'] = now; c['step2_' + which + '_by'] = who;
+    if(which === 'done' && !c.step2_sent_at){ c.step2_sent_at = now; c.step2_sent_by = who; }
+  }
+  await saveCandidates();
+  renderOrientReadyQueue();
+  if(typeof renderOB === 'function') renderOB();
+}
+function step2Html(c){
+  const by = (k) => c[k] ? ' by ' + wcEsc(String(c[k]).split('@')[0]) : '';
+  const chip = (bg, fg, txt, title) => `<span class="badge" title="${title||''}" style="background:${bg};color:${fg};font-size:.66rem">${txt}</span>`;
+  const undo = (w) => `<button class="ibtn" style="font-size:.66rem;padding:.14rem .45rem;color:var(--gray)" onclick="event.stopPropagation();step2Mark(${c.id},'${w}',true)">Undo</button>`;
+  const btn = (w, label) => `<button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" onclick="event.stopPropagation();step2Mark(${c.id},'${w}')">${label}</button>`;
+  if(c.step2_done_at) return chip('#DCFCE7', '#15803D', 'Step 2 done ✓', 'Marked done ' + wcDay(c.step2_done_at) + by('step2_done_by')) + undo('done');
+  if(c.step2_sent_at) return chip('#FEF3C7', '#92400E', 'Step 2 sent ' + wcDay(c.step2_sent_at), 'Marked sent' + by('step2_sent_by'))
+    + undo('sent') + btn('done', 'Step 2 done');
+  return chip('#F3F4F6', '#4B5563', 'Step 2 not sent', 'Send Viventium Step 2 in Viventium, then mark it here') + btn('sent', 'Step 2 sent') + btn('done', 'Step 2 done');
+}
+/* "📹 Invite to welcome call": gated on Step 2 done; after inviting, the
+   booked/done state or "Invited [date] · Re-send". */
+function wcInviteHtml(c){
+  const w = wcRowFor(c);
+  if(w && w.status === 'done') return `<span class="badge" style="background:#DCFCE7;color:#15803D;font-size:.66rem">📹 Welcome call done ${wcDay(w.done_at)}</span>`;
+  if(w && w.status === 'booked' && w.starts_at) return `<span class="badge" style="background:#E0F2FE;color:#075985;font-size:.66rem">📹 Booked ${wcEsc(wcWhen(w.starts_at))}</span>`;
+  const invitedAt = (w && w.invited_at) || c.welcome_invited_at;
+  const ok = !!c.step2_done_at;
+  const tip = ok ? '' : 'Viventium Step 2 must be done first';
+  if(invitedAt) return `<span style="font-size:.7rem;color:#0e7490;font-weight:600">📹 Invited ${wcDay(invitedAt)}${w && w.status === 'noshow' ? ' (missed the call)' : ''} ·</span>`
+    + `<span title="${tip}"><button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" ${ok ? '' : 'disabled'} title="${tip}" onclick="event.stopPropagation();wcInvite(${c.id},this)">Re-send</button></span>`;
+  return `<span title="${tip}"><button class="ibtn" style="font-size:.72rem;padding:.22rem .65rem;${ok ? 'background:var(--teal);color:#fff;border-color:var(--teal)' : ''}" ${ok ? '' : 'disabled'} title="${tip}" onclick="event.stopPropagation();wcInvite(${c.id},this)">📹 Invite to welcome call</button></span>`;
+}
+async function wcInvite(id, btn){
+  const c = candidates.find(x => String(x.id) === String(id)); if(!c) return;
+  if(!c.step2_done_at){ alert('Viventium Step 2 must be done first. Mark "Step 2 done" once it is finished in Viventium.'); return; }
+  if(!c.phone && !c.email){ alert(c.first + ' has no phone number or email on file. Add one first (✏️ on the Background tab). Nothing was sent.'); return; }
+  const name = (c.first + ' ' + c.last).trim();
+  if(btn) btn.disabled = true;
+  try{
+    const p = await wcCall({ action:'preview', first: c.first || '' });
+    if(!confirm('Invite ' + name + ' to a 15-minute welcome video call?\n\n'
+      + 'This sends a TEXT (only if they said yes to texts, 8am to 6pm Central) and an EMAIL. The link (shown as …) is their own booking page.\n\n'
+      + 'TEXT:\n' + (p.text || '') + '\n\nEMAIL: ' + (p.subject || ''))) return;
+    const d = await wcCall({ action:'invite', candidate_id: String(c.id), first: c.first || '', last: c.last || '', phone: c.phone || '', email: c.email || '' });
+    c.welcome_invited_at = new Date().toISOString();
+    if(d.id) c.welcome_call_id = d.id;
+    await saveCandidates();
+    await wcLoad();
+    alert(wcResult(d.reused ? 'Invitation sent again (same booking link as before).' : 'Invitation sent.', d));
+  }catch(e){ alert('Could not send the invitation: ' + (e && e.message || e)); }
+  finally{ if(btn) btn.disabled = false; }
+}
+
+/* ── 📹 Welcome calls section (top of the Orientations tab) ── */
+async function wcLoad(){
+  try{
+    const { data, error } = await sb.from('welcome_calls').select('*').order('starts_at');
+    if(error) throw error;
+    WC_ROWS = data || []; WC_ERR = '';
+  }catch(e){ WC_ERR = (e && e.message) || 'error'; console.warn('welcome_calls load failed:', e); }
+  WC_LOADED = true;
+  renderWelcomeCalls();
+  renderOrientReadyQueue();
+  if(typeof renderOB === 'function'){ try{ renderOB(); }catch(_){} }
+}
+function wcCard(w){
+  const now = Date.now(), t = w.starts_at ? new Date(w.starts_at).getTime() : 0;
+  const past = t && t < now - 15*60000;
+  const allTicked = WC_TICKS.every(([k]) => w[k]);
+  const id = wcEsc(w.id);
+  return `<div style="background:#fff;border:1.5px solid ${past ? '#FCD34D' : '#BAE6FD'};border-radius:10px;padding:.7rem .85rem;margin-bottom:.55rem">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .8rem">
+      <span style="font-size:.9rem;font-weight:700;color:var(--navy)">${wcEsc(wcName(w))}</span>
+      <span style="font-size:.8rem;color:#075985;font-weight:600">${wcEsc(wcWhen(w.starts_at))}</span>
+      ${past ? '<span class="badge" style="background:#FEF3C7;color:#92400E;font-size:.62rem">Time has passed. Mark it done, missed or moved.</span>' : ''}
+      <a href="${WC_MEET}" target="_blank" rel="noopener" class="ibtn" style="text-decoration:none;background:#0D365F;color:#fff;border-color:#0D365F">📹 Join the call</a>
+      ${w.phone ? `<span style="font-size:.72rem;color:var(--gray)">${wcEsc(w.phone)}</span>` : ''}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:.35rem 1rem;margin:.55rem 0 .45rem">
+      ${WC_TICKS.map(([k, label]) => `<label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:var(--navy);cursor:pointer">
+        <input type="checkbox" ${w[k] ? 'checked' : ''} onchange="wcTick('${id}','${k}',this)"> ${label}</label>`).join('')}
+    </div>
+    <textarea placeholder="Notes from the call" onchange="wcNotes('${id}',this)" style="width:100%;min-height:42px;font:inherit;font-size:.78rem;padding:.4rem .5rem;border:1px solid var(--border);border-radius:7px;box-sizing:border-box">${wcEsc(w.notes || '')}</textarea>
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.45rem">
+      <button class="ibtn" style="${allTicked ? 'background:#15803D;color:#fff;border-color:#15803D' : 'opacity:.55'}" title="${allTicked ? '' : 'Tick all four boxes first'}" onclick="wcAct('${id}','done','',this)">✓ Welcome call done</button>
+      <button class="ibtn" style="color:#B45309;border-color:#FCD9A8" onclick="wcAct('${id}','reschedule','step2',this)">Reschedule: Step 2 not done</button>
+      <button class="ibtn" onclick="wcAct('${id}','reschedule','other',this)">Reschedule (other)</button>
+      <button class="ibtn" style="color:#B00020;border-color:#FCA5A5" onclick="wcAct('${id}','noshow','',this)">Did not show</button>
+      ${t > now + 15*60000 ? `<button class="ibtn" onclick="wcAct('${id}','now','',this)">📞 Call them now</button>` : ''}
+    </div>
+  </div>`;
+}
+function renderWelcomeCalls(){
+  const el = document.getElementById('wc-section'); if(!el) return;
+  const now = Date.now();
+  const booked = WC_ROWS.filter(w => w.status === 'booked' && w.starts_at)
+    .sort((a,b) => new Date(a.starts_at) - new Date(b.starts_at));
+  const waiting = WC_ROWS.filter(w => w.status === 'invited' || w.status === 'noshow')
+    .sort((a,b) => String(a.invited_at||'').localeCompare(String(b.invited_at||'')));
+  const done = WC_ROWS.filter(w => w.status === 'done' && w.done_at && new Date(w.done_at).getTime() > now - 14*86400000)
+    .sort((a,b) => String(b.done_at).localeCompare(String(a.done_at)));
+  const h = (txt, n) => `<div style="font-size:.74rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin:.8rem 0 .45rem">${txt}${n != null ? ` <span style="color:var(--gray);font-weight:600">(${n})</span>` : ''}</div>`;
+  const body = !WC_LOADED ? '<div style="font-size:.8rem;color:var(--gray)">Loading welcome calls…</div>'
+    : WC_ERR ? `<div style="font-size:.8rem;color:#B00020">Could not load welcome calls: ${wcEsc(WC_ERR)} <button class="ibtn" onclick="wcLoad()">Try again</button></div>`
+    : h('Today and upcoming', booked.length)
+      + (booked.length ? booked.map(wcCard).join('') : '<div style="font-size:.8rem;color:var(--gray)">No welcome calls booked.</div>')
+      + h('Waiting to book', waiting.length)
+      + (waiting.length ? waiting.map(w => `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .8rem;background:#fff;border:1px solid var(--border);border-radius:9px;padding:.45rem .8rem;margin-bottom:.4rem">
+          <span style="font-size:.84rem;font-weight:600;color:var(--navy)">${wcEsc(wcName(w))}</span>
+          <span style="font-size:.72rem;color:var(--gray)">Invited ${wcDay(w.invited_at)}</span>
+          ${w.status === 'noshow' ? '<span class="badge" style="background:#FEE2E2;color:#991B1B;font-size:.62rem">Missed the call</span>' : ''}
+          ${w.closed_reason && w.status === 'invited' ? `<span style="font-size:.7rem;color:#92400E">${wcEsc(w.closed_reason)}</span>` : ''}
+          <button class="ibtn" onclick="wcAct('${wcEsc(w.id)}','now','',this)">📞 Call them now</button>
+        </div>`).join('') : '<div style="font-size:.8rem;color:var(--gray)">Nobody is waiting to book.</div>')
+      + `<details style="margin-top:.8rem"><summary style="cursor:pointer;font-size:.78rem;font-weight:700;color:var(--navy)">Done recently (last 14 days, ${done.length})</summary>
+          ${done.length ? done.map(w => `<div style="font-size:.78rem;color:var(--navy);padding:.3rem 0;border-bottom:1px solid #f1f1f1">✓ <b>${wcEsc(wcName(w))}</b> · ${wcDay(w.done_at)}${w.done_by ? ' by ' + wcEsc(String(w.done_by).split('@')[0]) : ''}${w.notes ? ` · <span style="color:var(--gray)">${wcEsc(w.notes)}</span>` : ''}</div>`).join('') : '<div style="font-size:.78rem;color:var(--gray);padding:.3rem 0">None yet.</div>'}
+        </details>`;
+  el.innerHTML = `<div style="background:linear-gradient(135deg,#f0f9ff,#fefce8);border:1.5px solid #7DD3FC;border-radius:12px;padding:.85rem 1rem">
+    <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+      <span style="font-size:.95rem">📹</span>
+      <span style="font-size:.95rem;font-weight:700;color:var(--navy)">Welcome calls</span>
+      <span style="font-size:.75rem;color:var(--gray)">15-minute Google Meet calls in one shared room. I-9 documents, AxisCare app, caregiver profile.</span>
+      <button class="ibtn" style="margin-left:auto" onclick="wcLoad()">↻ Refresh</button>
+    </div>
+    ${body}
+    ${WC_GUIDE}
+  </div>`;
+}
+const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px solid var(--border);border-radius:9px;padding:.5rem .8rem">
+  <summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:var(--navy)">📖 How welcome calls work + the call script</summary>
+  <div style="font-size:.8rem;line-height:1.6;color:#1f2a36">
+    <h4 style="margin:.7rem 0 .3rem;color:var(--navy)">How it works</h4>
+    <ol style="margin:0;padding-left:1.3rem">
+      <li>Ready for Orientation, then send Viventium Step 2, then mark Step 2 done in the Hub.</li>
+      <li>Press <b>Invite to welcome call</b>. They book a 15-minute time, during interview hours, never overlapping an interview. Confirmations and reminders with the Meet link go out on their own.</li>
+      <li>At the time, join the shared room from the "Caring Companions Welcome Calls" event on your own Google Calendar, signed in with your own @mo-care.com account (never a shared login). Join a minute early and admit them when they ask to join.</li>
+      <li>If Step 2 turns out not to be done, press <b>Reschedule: Step 2 not done</b>, which tells them to finish it and rebook.</li>
+      <li>Had an interview no-show? Use <b>Call them now</b> on someone waiting.</li>
+      <li>After the call, tick the checklist and press <b>Welcome call done</b>.</li>
+    </ol>
+    <h4 style="margin:.9rem 0 .3rem;color:var(--navy)">The call script</h4>
+    <p style="margin:.3rem 0"><b>Before the call:</b> open their profile and check that Step 2 is done.</p>
+    <ol style="margin:0;padding-left:1.3rem">
+      <li><b>Welcome:</b> "Hi [first name], it's [your name] from Caring Companions. Welcome to the team! Can you hear and see me okay? This call takes about 15 minutes: we'll check your ID for your employment paperwork, set up the app you'll use to clock in, go over your caregiver profile together, and walk through what happens next. This call and your orientation are paid time."</li>
+      <li><b>ID check for the I-9:</b> "You uploaded photos of your documents in Viventium. Now I need to see the same original documents on camera. Hold up your [document 1], front first please, now the back. Thank you, and your [document 2], front and back." After the call, tick the remote examination box and complete Section 2 in Viventium (E-Verify remote procedure).</li>
+      <li><b>Viventium:</b> confirm that Step 2 is done. If it is not, reschedule.</li>
+      <li><b>AxisCare app:</b> "Open the App Store (iPhone) or Google Play (Android) and search for AxisCare Mobile. Install it and open it. Enter our company code: 16485. [Office: full instructions coming.] You'll clock in when you arrive at a client's home and clock out when you leave. If you ever forget, call the office right away."</li>
+      <li><b>Caregiver profile:</b> "Families see a short profile of you so they know who's coming. I've written a first draft from your application and interview. Let me read it to you; tell me what you'd change or add." Then: "I'm texting you a link now for your photo. It's required: a clear, friendly photo from the shoulders up, in good light. A short video of about 30 seconds is encouraged: say hi and tell families one thing you love about caregiving."</li>
+      <li><b>What happens next:</b> "Your training is online, on your phone or computer, on your own schedule: Agency Orientation (about 2 hours), then Alzheimer's &amp; Dementia Care (about 4 hours), both before your first client; then on-the-job training within 30 days. Once you're done and your profile is published, we'll text you that you're cleared to work. Please save our office number: (417) 234-8494."</li>
+      <li><b>Close:</b> "What questions do you have for me? Thank you, [first name], we're really glad you're here."</li>
+    </ol>
+    <p style="margin:.5rem 0 .2rem"><b>After the call:</b> tick the checklist, press Welcome call done, and complete I-9 Section 2 in Viventium.</p>
+  </div>
+</details>`;
+async function wcTick(id, key, box){
+  const w = WC_ROWS.find(x => String(x.id) === String(id)); if(!w) return;
+  const val = !!box.checked;
+  box.disabled = true;
+  const { error } = await sb.from('welcome_calls').update({ [key]: val, updated_at: new Date().toISOString() }).eq('id', id);
+  if(error){ box.checked = !val; box.disabled = false; alert('Could not save that tick: ' + error.message); return; }
+  w[key] = val;
+  renderWelcomeCalls();
+}
+async function wcNotes(id, ta){
+  const w = WC_ROWS.find(x => String(x.id) === String(id)); if(!w) return;
+  const v = ta.value.trim();
+  const { error } = await sb.from('welcome_calls').update({ notes: v || null, updated_at: new Date().toISOString() }).eq('id', id);
+  if(error){ alert('Could not save the notes: ' + error.message + '\n\nCopy them somewhere safe and try again.'); return; }
+  w.notes = v || null;
+}
+async function wcAct(id, action, reason, btn){
+  const w = WC_ROWS.find(x => String(x.id) === String(id)); if(!w) return;
+  const name = wcName(w), when = w.starts_at ? wcWhen(w.starts_at) : '';
+  let ask = '';
+  if(action === 'done'){
+    if(!WC_TICKS.every(([k]) => w[k]) && !confirm('Not every checklist box is ticked for ' + name + '.\n\nMark the welcome call done anyway?')) return;
+    ask = 'Mark the welcome call with ' + name + ' as done?\n\nRemember to complete I-9 Section 2 in Viventium.';
+  } else if(action === 'reschedule' && reason === 'step2'){
+    ask = 'Move ' + name + "'s " + when + ' call because Viventium Step 2 is not done?\n\nThe time is freed and they get a text and email asking them to finish Step 2, then pick a new time.';
+  } else if(action === 'reschedule'){
+    ask = 'Move ' + name + "'s " + when + ' call?\n\nThe time is freed and they get a text and email asking them to pick a new time.';
+  } else if(action === 'noshow'){
+    ask = 'Mark ' + name + ' as a no-show for the ' + when + ' call?\n\nThe time is freed and they get a text and email with a link to pick a new time.';
+  } else if(action === 'now'){
+    ask = 'Text and email ' + name + " now: 'We have an opening right now for your welcome call, join in the next 10 minutes'? Their booked time (if any) stays the same unless the call happens.";
+  } else return;
+  if(!confirm(ask)) return;
+  if(btn) btn.disabled = true;
+  try{
+    const d = await wcCall(reason ? { action, id: w.id, reason } : { action, id: w.id });
+    let head = { done:'Welcome call marked done.', reschedule:'Call moved. Their invitation stays open so they can pick a new time.',
+      noshow:'Marked as missed.', now:'Sent. Join the shared room and admit them when they ask to join.' }[action];
+    /* Step 2 was marked done but is not: clear it so the record matches Viventium. */
+    if(action === 'reschedule' && reason === 'step2'){
+      const c = candidates.find(x => String(x.id) === String(w.candidate_id));
+      if(c && c.step2_done_at){ c.step2_done_at = null; c.step2_done_by = null; await saveCandidates(); head += '\n\n"Step 2 done" was cleared on their record. Mark it again once Viventium shows it finished.'; }
+    }
+    await wcLoad();
+    alert(action === 'done' ? head : wcResult(head, d));
+  }catch(e){ alert('That did not go through: ' + (e && e.message || e) + '\n\nNothing was changed.'); if(btn) btn.disabled = false; }
+}
+
 function renderOrientReadyQueue(){
   const el = document.getElementById('orient-ready-queue');
   if(!el) return;
@@ -6825,19 +7079,23 @@ function renderOrientReadyQueue(){
         <span style="font-size:.95rem">✅</span>
         <span style="font-size:.88rem;font-weight:700;color:var(--navy)">Ready for Orientation</span>
         <span style="background:var(--teal);color:#fff;font-size:.68rem;font-weight:700;border-radius:12px;padding:.1rem .5rem">${ready.length}</span>
-        <span style="font-size:.75rem;color:var(--gray)">${ready.length===1?'candidate is':'candidates are'} cleared and waiting to be invited</span>
+        <span style="font-size:.75rem;color:var(--gray)">${ready.length===1?'candidate is':'candidates are'} cleared. Send Viventium Step 2, mark it done, then invite to a welcome call.</span>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:.5rem">
+      <div style="display:flex;flex-direction:column;gap:.45rem">
         ${ready.map(c=>{
           const resolvedAt = c.resolvedAt ? new Date(c.resolvedAt) : null;
           const days = resolvedAt ? Math.floor((now-resolvedAt)/(1000*60*60*24)) : null;
           const wait = days===null?'':days===0?'Cleared today':days===1?'1 day waiting':`${days} days waiting`;
           const invited = c.invite_sent;
-          return `<div style="display:flex;align-items:center;gap:.55rem;background:#fff;border:1.5px solid ${invited?'#86efac':'var(--teal)'};border-radius:9px;padding:.4rem .8rem">
+          return `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:.45rem .6rem;background:#fff;border:1.5px solid ${c.step2_done_at?'#86efac':'var(--teal)'};border-radius:9px;padding:.45rem .8rem">
             <span style="font-size:.84rem;font-weight:600;color:var(--navy)">${c.first} ${c.last}</span>
             ${wait?`<span style="font-size:.7rem;color:var(--gray)">${wait}</span>`:''}
-            ${invited?`<span style="font-size:.68rem;color:#16a34a;font-weight:600">📩 Invited</span>`:''}
-            <button onclick="openInviteModal(${c.id})" style="padding:.22rem .65rem;background:${invited?'#f0fdf4':'var(--teal)'};color:${invited?'#16a34a':'#fff'};border:1.5px solid ${invited?'#86efac':'var(--teal)'};border-radius:6px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit">${invited?'📅 Re-send':'📅 Invite'}</button>
+            <span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${step2Html(c)}</span>
+            <span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${wcInviteHtml(c)}</span>
+            <span style="margin-left:auto;display:inline-flex;align-items:center;gap:.35rem">
+              ${invited?`<span style="font-size:.68rem;color:#16a34a;font-weight:600">📩 Office session invite sent</span>`:''}
+              <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" onclick="openInviteModal(${c.id})" title="Invite to an in-person orientation session at the office">📅 In the office instead</button>
+            </span>
           </div>`;
         }).join('')}
       </div>
@@ -6846,6 +7104,9 @@ function renderOrientReadyQueue(){
 
 function renderOrientations(){
   renderOrientReadyQueue();
+  /* Welcome calls: draw what we have, refresh from the table at most every 30 seconds. */
+  renderWelcomeCalls();
+  if(Date.now() - WC_AT > 30000){ WC_AT = Date.now(); wcLoad(); }
   renderCalendar();
   renderSessionsList();
   // Stats
@@ -8451,5 +8712,7 @@ window.obRefEmailOpen = obRefEmailOpen;
 window.obRefTextOpen = obRefTextOpen;
 window.obRefSendClose = obRefSendClose;
 window.obRefSendGo = obRefSendGo;
+/* Remote orientation, slice 1a (2026-10-01): Step 2 tracking + welcome calls. */
+Object.assign(window, { step2Mark, wcInvite, wcLoad, wcTick, wcNotes, wcAct });
 window.dispatchEvent(new Event('scx-ready'));
 })();
