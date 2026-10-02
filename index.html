@@ -3850,7 +3850,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <input id="set_cov_asmt_url" placeholder="https://link.mo-care.com/widget/booking/...">
 <label>Medicaid Assessment booking link (Angiel's GHL calendar; leave blank until it exists)</label>
 <input id="set_cov_medicaid_url" placeholder="https://link.mo-care.com/widget/booking/...">
-<label>Family circle text when a caregiver changes (sent automatically to consented circle members when a callout is covered; {off} = who called off, {client} {when} {caregiver} {meet})</label>
+<label>Family circle text when a caregiver changes (sent automatically to consented circle members when a callout is covered; {off} = who called off, {client} {when} {caregiver}; {meet} = "Meet Sarah here:" and a link to their caregiver card, only when they have a published profile)</label>
 <textarea id="set_cov_circle_change" rows="3" placeholder="Hello, this is Caring Companions. {off} is unable to make {client}'s visit {when}, so {caregiver} from our team will be coming instead. Everything else about the visit stays the same.{meet} Any questions at all, call us at (417) 234-8494."></textarea>
 <div style="margin-top:10px;display:flex;gap:8px;align-items:center;">
 <button class="primary" onclick="covMsgsSave(this)">Save callout texts</button>
@@ -6534,7 +6534,7 @@ The HomeTogether team</pre>
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
-<script src="caregiver-profile-panel.js?v=20261001"></script>
+<script src="caregiver-profile-panel.js?v=20261001b"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -12963,219 +12963,8 @@ async function notifyEscalation(c){
 }
 
 /* ---------------- SUPERVISORY VISITS ---------------- */
-// ============================================================================
-// CAREGIVER PROFILES
-//
-// These live in their own table rather than the app_data key store, because a
-// caregiver writes one at orientation without being signed in and app_data is
-// closed to anonymous writers, correctly. So this loads on its own.
-//
-// The rule the whole thing hangs on: nothing published until somebody here has
-// read it. A profile arrives from orientation with published = false, and a
-// family cannot be sent a link to something nobody has looked at.
-// ============================================================================
-const CGP_BUCKET = 'caregiver-profiles';
-let CGPROFILES = [];
-let cgpLoaded = false;
-
-function cgpPublicUrl(path){
-  if(!path) return '';
-  return CONFIG.supabase_url + '/storage/v1/object/public/' + CGP_BUCKET + '/' + path;
-}
-
-async function cgpOpenSend(id){
-  const host = document.getElementById('cgp-send-' + id);
-  if(!host) return;
-  if(host.style.display === 'block'){ host.style.display = 'none'; return; }
-  host.style.display = 'block';
-  host.innerHTML = '<div class="field-note">Loading clients…</div>';
-
-  if(!CGP_CIRCLES){
-    const { data, error } = await sb.from('care_circles').select('*').eq('active', true).order('client_name');
-    if(error){ host.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load clients, ' + esc(error.message) + '</div>'; return; }
-    CGP_CIRCLES = data || [];
-  }
-
-  host.innerHTML =
-    '<b style="font-size:14px;color:var(--navy);">Introduce to a family</b>' +
-    '<div class="field-note" style="margin:3px 0 9px;">Who is this caregiver going to?</div>' +
-    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">' +
-      '<div style="flex:1;min-width:190px;"><label>Client</label>' +
-        '<select id="cgp-circle-' + id + '" onchange="cgpPickClient(\'' + id + '\')">' +
-          '<option value="">Choose a client…</option>' +
-          CGP_CIRCLES.map(c => '<option value="' + esc(c.id) + '">' + esc(c.client_name) + '</option>').join('') +
-        '</select></div>' +
-      '<div style="flex:1;min-width:170px;"><label>Why</label>' +
-        '<select id="cgp-reason-' + id + '">' +
-          '<option value="first_time">First time with this client</option>' +
-          '<option value="start_of_care">Start of care</option>' +
-          '<option value="change">A change of caregiver</option>' +
-        '</select></div>' +
-    '</div>' +
-    (CGP_CIRCLES.length ? '' :
-      '<div class="field-note" style="color:#B45309;margin-top:8px;">No care circles yet. ' +
-      'Make one for this client on the <b>Circles</b> tab first, so the family list has somewhere to live.</div>') +
-    '<div id="cgp-who-' + id + '" style="margin-top:10px;"></div>' +
-    '<div id="cgp-sendmsg-' + id + '" class="field-note" style="margin-top:8px;"></div>';
-}
-
-async function cgpPickClient(id){
-  const circleId = document.getElementById('cgp-circle-' + id).value;
-  const who = document.getElementById('cgp-who-' + id);
-  if(!circleId){ who.innerHTML = ''; return; }
-  who.innerHTML = '<div class="field-note">Loading who would hear…</div>';
-
-  const { data, error } = await sb.from('circle_contacts').select('*').eq('circle_id', circleId);
-  if(error){ who.innerHTML = '<div class="field-note" style="color:var(--red);">' + esc(error.message) + '</div>'; return; }
-  const people = data || [];
-
-  const PREF = { every:'every change', new_only:'only somebody new', never:'nothing' };
-  who.innerHTML =
-    (people.length
-      ? '<div style="font-size:12.5px;">' + people.map(c =>
-          '<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">' +
-          '<b>' + esc(c.name) + '</b>' +
-          (c.relationship ? '<span class="field-note">' + esc(c.relationship) + '</span>' : '') +
-          '<span class="badge" style="background:var(--bg);">' + esc(PREF[c.caregiver_intro_pref] || 'only somebody new') + '</span>' +
-          (c.stopped_at ? '<span class="badge" style="background:#FEE2E2;color:#991B1B;">replied STOP</span>' : '') +
-          ((c.phone && c.sms_consent) || c.email ? '' : '<span class="badge" style="background:#FEF3C7;color:#92400E;">no way to reach them</span>') +
-          '</div>').join('') + '</div>'
-      : '<div class="field-note">Nobody on this circle yet. Add whoever should hear about it.</div>') +
-
-    '<details style="margin-top:9px;"' + (people.length ? '' : ' open') + '>' +
-      '<summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">＋ Add somebody</summary>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">' +
-        '<div style="flex:1;min-width:130px;"><label>Name</label><input type="text" id="cgp-nn-' + id + '"></div>' +
-        '<div style="flex:1;min-width:110px;"><label>Relationship</label><input type="text" id="cgp-nr-' + id + '" placeholder="daughter"></div>' +
-        '<div style="flex:1;min-width:120px;"><label>Mobile</label><input type="tel" id="cgp-np-' + id + '"></div>' +
-        '<div style="flex:1;min-width:150px;"><label>Email</label><input type="text" id="cgp-ne-' + id + '"></div>' +
-        '<div style="flex:1;min-width:150px;"><label>Wants to hear about</label>' +
-          '<select id="cgp-npref-' + id + '">' +
-            '<option value="new_only">Only somebody new</option>' +
-            '<option value="every">Every change</option>' +
-            '<option value="never">Nothing</option>' +
-          '</select></div>' +
-      '</div>' +
-      '<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:400;font-size:13px;">' +
-        '<input type="checkbox" id="cgp-nsms-' + id + '"> They are happy to be texted</label>' +
-      '<div class="field-note" style="margin-top:4px;">Without that ticked they will only be emailed, which is the ' +
-        'right default: nobody should get an unexpected text from us.</div>' +
-    '</details>' +
-
-    '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:12px;">' +
-      '<button class="secondary" onclick="cgpSend(\'' + id + '\', true)">See who this would reach</button>' +
-      '<button class="primary" onclick="cgpSend(\'' + id + '\', false)">Send it</button>' +
-    '</div>';
-}
-
-function cgpNewContact(id){
-  const v = k => (document.getElementById('cgp-' + k + '-' + id) || {}).value || '';
-  const name = v('nn').trim();
-  if(!name) return null;
-  return {
-    name,
-    relationship: v('nr').trim() || null,
-    phone: v('np').trim() || null,
-    email: v('ne').trim() || null,
-    pref: v('npref') || 'new_only',
-    sms_consent: (document.getElementById('cgp-nsms-' + id) || {}).checked === true,
-  };
-}
-
-async function cgpSend(id, dry){
-  const msg = document.getElementById('cgp-sendmsg-' + id);
-  const circleId = (document.getElementById('cgp-circle-' + id) || {}).value || '';
-  if(!circleId){ msg.style.color = 'var(--red)'; msg.textContent = 'Choose a client first.'; return; }
-  const circle = (CGP_CIRCLES || []).find(c => String(c.id) === String(circleId));
-  const reason = (document.getElementById('cgp-reason-' + id) || {}).value || 'first_time';
-  const extra = cgpNewContact(id);
-
-  msg.style.color = 'var(--text-muted)';
-  msg.textContent = dry ? 'Checking…' : 'Sending…';
-  try{
-    const { data:{ session } } = await sb.auth.getSession();
-    const res = await fetch(CONFIG.supabase_url + '/functions/v1/caregiver-intro' + (dry ? '?dry=1' : ''), {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + (session && session.access_token) },
-      body: JSON.stringify({
-        profile_id: id, client_name: circle && circle.client_name, circle_id: circleId,
-        reason, contacts: extra ? [extra] : undefined, dry: !!dry,
-      }),
-    });
-    const b = await res.json().catch(() => ({}));
-    if(!res.ok || b.error) throw new Error(b.error || ('HTTP ' + res.status));
-
-    if(dry){
-      msg.style.color = 'var(--navy)';
-      msg.innerHTML = (b.would_reach || []).length
-        ? '<b>Would reach ' + (b.would_reach||[]).map(esc).join(', ') + '</b> · ' +
-          b.by_text + ' by text, ' + b.by_email + ' by email' +
-          (b.not_wanted ? ' · ' + b.not_wanted + ' did not want this one' : '') +
-          (b.held_back ? ' · ' + b.held_back + ' with no way to reach them' : '') +
-          '<div style="margin-top:6px;background:var(--bg);border-radius:8px;padding:8px 10px;">' + esc(b.example) + '</div>'
-        : 'Nobody would hear about this one. ' +
-          (b.not_wanted ? 'Their settings say they do not want it.' : 'Nobody on this circle can be reached.');
-    }else{
-      msg.style.color = '#15803D';
-      msg.innerHTML = b.reached
-        ? '✓ Sent to ' + (b.who||[]).map(esc).join(', ')
-        : 'Nothing sent, nobody on this circle wanted it or could be reached.';
-      cgpPickClient(id);
-    }
-  }catch(e){
-    msg.style.color = 'var(--red)';
-    msg.textContent = (dry ? 'Could not check: ' : 'Did not send: ') + (e.message || 'unknown error');
-  }
-}
-
-function cgpMsg(id, text, bad){
-  const el = document.getElementById('cgp-msg-' + id);
-  if(el){ el.innerHTML = text; el.style.color = bad ? 'var(--red)' : '#15803D'; }
-}
-
-async function cgpSave(id){
-  const patch = {
-    experience: document.getElementById('cgp-exp-' + id).value.trim() || null,
-    about: document.getElementById('cgp-about-' + id).value.trim() || null,
-    why_this_work: document.getElementById('cgp-why-' + id).value.trim() || null,
-    axiscare_id: document.getElementById('cgp-axid-' + id).value.trim() || null,
-    updated_at: new Date().toISOString(),
-  };
-  const { error } = await sb.from('caregiver_profiles').update(patch).eq('id', id);
-  if(error) return cgpMsg(id, 'Did not save, ' + esc(error.message), true);
-  Object.assign(CGPROFILES.find(p => p.id === id) || {}, patch);
-  cgpMsg(id, '✓ Saved.');
-}
-
-async function cgpPublish(id, on){
-  const p = CGPROFILES.find(x => x.id === id);
-  // Their permission is the gate, not ours. A profile without consent should
-  // not exist, but if one ever does it does not go out.
-  if(on && p && !p.consent){
-    return cgpMsg(id, 'This one has no consent recorded, so it cannot be published. Ask them again.', true);
-  }
-  const patch = { published: !!on, status: on ? 'approved' : 'new', updated_at: new Date().toISOString() };
-  const { error } = await sb.from('caregiver_profiles').update(patch).eq('id', id);
-  if(error) return cgpMsg(id, 'Did not save, ' + esc(error.message), true);
-  Object.assign(p || {}, patch);
-  renderCgProfiles();
-}
-
-async function cgpRemove(id){
-  const p = CGPROFILES.find(x => x.id === id);
-  if(!p) return;
-  if(!confirm('Remove ' + (p.preferred_name || p.first_name) + '\'s profile?\n\n' +
-     'This deletes their photo and video for good, which is the right thing when somebody withdraws their ' +
-     'permission or leaves. The record stays, marked withdrawn, so you can see it happened.')) return;
-  const paths = [p.photo_path, p.video_path].filter(Boolean);
-  if(paths.length) await sb.storage.from(CGP_BUCKET).remove(paths);
-  const patch = { published:false, status:'withdrawn', photo_path:null, video_path:null,
-                  updated_at:new Date().toISOString() };
-  const { error } = await sb.from('caregiver_profiles').update(patch).eq('id', id);
-  if(error) return cgpMsg(id, 'Files removed but the record did not update, ' + esc(error.message), true);
-  Object.assign(p, patch);
-  renderCgProfiles();
-}
+/* The older caregiver profile list (cgp*) was removed in 2b (2026-10-01): it had no caller since renderCgProfiles was
+   deleted. The ONE caregiver profile now lives in caregiver-profile-panel.js (CGP2), with "Introduce to a family". */
 
 function renderSupervisory(){
   renderFilterPills('supervisoryFilters', ['All','Due Soon','Overdue','Completed This Year'], activeFilters.supervisory, 'supervisory');
@@ -19360,7 +19149,7 @@ async function ivqSelfTest(btn){
    Everyone hears the same thing at the same moment, which is the bit families
    actually want. Replies come back to the office line, so a worried daughter
    rings us rather than a caregiver's mobile. */
-let FC = [], FC_CONTACTS = {}, FC_INTROS = [], FC_RECOG = {};
+let FC = [], FC_CONTACTS = {}, FC_PROFILES = [], FC_RECOG = {};
 /* I3: whether the Hub recognises each member's calls, or why not (from the identity layer; ids and words only) */
 async function fcRecogLoad(){
   try{ const r=await sb.rpc('family_recognition'); if(r.error) throw r.error;
@@ -19384,6 +19173,9 @@ function fcRecogChip(p){
 /* One profile, step 3: while a profile shows a client's circle, the Family Circles list leaves
    that circle out (its element ids are per circle, so it can't be drawn twice) */
 let FC_PROFILE = null;
+let FC_PROFILES_ERR = '';
+function fcCardName(g){ return window.CGP2 ? CGP2.cardName(g) : String(g.preferred_name||g.first_name||''); }
+function fcCardFirst(g){ return String(g.preferred_name||g.first_name||'').trim().split(/\s+/)[0]; }
 
 /* The nightly cron runs the same sync at 4am; this is the "I just added
    someone in AxisCare and want it now" button. */
@@ -19414,10 +19206,11 @@ async function fcLoad(btn){
     const [c, p, i] = await Promise.all([
       sb.from('care_circles').select('*').eq('active',true).order('client_name'),
       sb.from('circle_contacts').select('*'),
-      sb.from('caregiver_intros').select('*').order('name'),
+      /* 2b: the ONE caregiver profile (published, not withdrawn) is what a caregiver-change text links to */
+      sb.from('caregiver_profiles').select('id,first_name,last_name,preferred_name,photo_path,photo_url,published,status').eq('published',true).neq('status','withdrawn').order('first_name'),
     ]);
     if(c.error) throw c.error;
-    FC = c.data || []; FC_INTROS = i.data || [];
+    FC = c.data || []; FC_PROFILES = i.error ? [] : (i.data || []); FC_PROFILES_ERR = i.error ? (i.error.message || 'error') : '';
     await naBeatLoad();
     FC_CONTACTS = {}; (p.data||[]).forEach(function(x){ (FC_CONTACTS[x.circle_id] = FC_CONTACTS[x.circle_id] || []).push(x); });
     await fcRecogLoad();
@@ -19650,11 +19443,14 @@ function fcCompose(circleId, kind){
 
   if(kind==='change'){
     pick.innerHTML = '<label>Who is going instead?</label>'
-      + '<select id="fccg_'+escapeHtmlComms(circleId)+'" onchange="fcChangeText(\''+escapeHtmlComms(circleId)+'\')">'
+      + '<div style="display:flex;gap:10px;align-items:center;">'
+      + '<span id="fcph_'+escapeHtmlComms(circleId)+'" style="flex:none;"></span>'
+      + '<select id="fccg_'+escapeHtmlComms(circleId)+'" style="flex:1;" onchange="fcChangeText(\''+escapeHtmlComms(circleId)+'\')">'
       + '<option value="">Somebody else from our team</option>'
-      + FC_INTROS.map(function(g){ return '<option value="'+escapeHtmlComms(g.id)+'">'+escapeHtmlComms(g.name)+'</option>'; }).join('')
-      + '</select>'
-      + '<div class="field-note" style="margin-top:4px;">The line about them comes from what you wrote once on their record. Blank is fine.</div>';
+      + FC_PROFILES.map(function(g){ return '<option value="'+escapeHtmlComms(g.id)+'">'+escapeHtmlComms(fcCardName(g))+'</option>'; }).join('')
+      + '</select></div>'
+      + '<div class="field-note" id="fcnote_'+escapeHtmlComms(circleId)+'" style="margin-top:4px;"></div>'
+      + (FC_PROFILES_ERR ? '<div class="field-note" style="margin-top:4px;color:var(--red);">Could not load caregiver profiles ('+escapeHtmlComms(FC_PROFILES_ERR)+'), so no card link can be added. The text can still go.</div>' : '');
     fcChangeText(circleId);
   } else {
     pick.innerHTML = '';
@@ -19677,18 +19473,24 @@ function fcCompose(circleId, kind){
 function fcChangeText(circleId){
   const c = FC.find(function(x){ return String(x.id)===String(circleId); });
   const sel = document.getElementById('fccg_'+circleId);
-  const g = FC_INTROS.find(function(x){ return String(x.id)===String((sel||{}).value); });
-  /* Same shape as the automatic covered-callout text: first names, the
-     caregiver actually going, their intro line, and the meet-the-caregiver
-     link when their card exists. */
+  const g = FC_PROFILES.find(function(x){ return String(x.id)===String((sel||{}).value); });
+  /* Same shape as the automatic covered-callout text: first names, the caregiver actually going, and (2b) a link to
+     their ONE caregiver profile card. Only published profiles are in the list; "Somebody else" means no card, no link. */
   const clientFirst = String(c.client_name||'').trim().split(/\s+/)[0] || 'your loved one';
-  const whoFirst = g ? String(g.name||'').trim().split(/\s+/)[0] : '';
+  const whoFirst = g ? fcCardFirst(g) : '';
   const who = g ? (whoFirst + ' from our team') : 'a different caregiver from our team';
-  const line = g && g.intro ? ' ' + g.intro.trim() : '';
-  const meet = g ? ' Meet ' + (whoFirst||'them') + ' here: https://cc.mo-care.com/meet.html?cg=' + g.id : '';
+  const meet = g ? ' Meet ' + (whoFirst||'them') + ' here: https://cc.mo-care.com/caregiver.html?id=' + encodeURIComponent(g.id) : '';
+  const ph = document.getElementById('fcph_'+circleId), note = document.getElementById('fcnote_'+circleId);
+  const photo = g && window.CGP2 ? CGP2.photoOf(g) : '';
+  if(ph) ph.innerHTML = g ? (photo
+      ? '<img src="'+escapeHtmlComms(photo)+'" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--honey,#F0A63A);display:block;">'
+      : '<span style="width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;">'+escapeHtmlComms((whoFirst||'?').charAt(0))+'</span>') : '';
+  if(note) note.innerHTML = g
+    ? 'The text links to ' + escapeHtmlComms(fcCardName(g)) + '\'s caregiver card. <a href="https://cc.mo-care.com/caregiver.html?id=' + encodeURIComponent(g.id) + '" target="_blank" rel="noopener">See the card ↗</a>'
+    : 'No published profile picked, so no link. Only caregivers with a published profile are in this list.';
   document.getElementById('fcmsg_'+circleId).value =
     'Hello, this is Caring Companions. The caregiver scheduled for ' + clientFirst + "'s visit today "
-    + 'is unable to make it, so ' + who + ' will be coming instead.' + line + meet
+    + 'is unable to make it, so ' + who + ' will be coming instead.' + meet
     + ' Everything else about the visit stays the same. If you have any questions at all, please call us at (417) 234-8494.';
 }
 

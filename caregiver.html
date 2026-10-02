@@ -2,147 +2,174 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Your caregiver &mdash; Caring Companions</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your caregiver | Caring Companions</title>
 <!-- A private link, not a public page. Nothing here should ever turn up in a
      search result for a caregiver's name. -->
 <meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<!-- ============================================================
+     THE ONE CAREGIVER CARD (part 2, slice 2b, 2026-10-01).
+     Samantha: one profile for "introduce your caregiver" AND
+     "caregiver change". An older adult reads this, maybe days or
+     weeks after the first visit, so it has to remind them who the
+     person is and make them comfortable: a big friendly photo,
+     "Sarah T.", short warm sections, big text, and the office
+     phone as a big button. The name is used instead of he or she.
+     Data comes from the caregiver-card function, which returns a
+     published profile only, and never more than the last initial.
+     ============================================================ -->
 <style>
   :root{
-    --navy:#0D365F; --teal:#54BDB8; --honey:#F0A830;
-    --cream:#FAF9F6; --border:#E8E2D8; --muted:#6E6559;
+    --navy:#0E3860; --teal:#54BDB8; --honey:#F0A63A; --bg:#F6F9FD;
+    --ink:#1B2B3C; --muted:#4A5868; --border:#DCE6F0; --teal-soft:#E4F4F3; --honey-soft:#FFF5E6;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Poppins','Segoe UI',system-ui,sans-serif;background:var(--cream);color:#3A342C;
-       font-size:16px;line-height:1.6;padding:26px 18px 60px;}
-  .wrap{max-width:560px;margin:0 auto;}
-  .brand{text-align:center;margin-bottom:16px;}
-  .brand img{width:180px;max-width:58%;height:auto;display:inline-block;}
-  .card{background:#fff;border:1px solid var(--border);border-radius:18px;overflow:hidden;
-        box-shadow:0 2px 14px rgba(13,54,95,.06);}
-  .hero{padding:26px 24px 20px;text-align:center;border-bottom:1px solid var(--border);}
-  .hero img{width:132px;height:132px;object-fit:cover;border-radius:50%;border:4px solid #fff;
-            box-shadow:0 3px 14px rgba(13,54,95,.16);display:block;margin:0 auto 14px;}
-  h1{color:var(--navy);font-size:26px;letter-spacing:-.01em;}
-  .meet{color:var(--muted);font-size:14px;margin-top:2px;}
-  .years{display:inline-block;margin-top:11px;background:#E4F4F3;color:#06312F;border-radius:999px;
-         padding:5px 14px;font-size:13.5px;font-weight:700;}
-  .body{padding:22px 24px 26px;}
-  h2{color:var(--navy);font-size:14px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 7px;}
-  .body p{font-size:16px;white-space:pre-wrap;margin-bottom:20px;}
-  .tags{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px;}
-  .tag{background:var(--cream);border:1px solid var(--border);border-radius:999px;padding:6px 13px;font-size:13.5px;}
-  video{width:100%;border-radius:14px;border:1px solid var(--border);margin-bottom:20px;display:block;background:#000;}
-  .foot{text-align:center;color:var(--muted);font-size:13.5px;margin-top:20px;line-height:1.7;}
-  .foot a{color:var(--navy);font-weight:600;}
-  .state{text-align:center;padding:50px 20px;color:var(--muted);}
-  .state h1{font-size:20px;margin-bottom:8px;}
-  .demo{background:#FFF8EC;border:1.5px solid #F0D8A8;border-radius:11px;padding:10px 13px;
-        font-size:13px;color:#7A5410;margin-bottom:14px;text-align:center;line-height:1.5;}
+  html{-webkit-text-size-adjust:100%;}
+  body{font-family:'Poppins','Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);
+       font-size:19px;line-height:1.65;padding:22px 16px 48px;}
+  .wrap{max-width:600px;margin:0 auto;}
+  .brand{text-align:center;margin-bottom:18px;}
+  .brand img{width:200px;max-width:60%;height:auto;display:inline-block;}
+  .card{background:#fff;border:1px solid var(--border);border-radius:24px;overflow:hidden;
+        box-shadow:0 4px 22px rgba(14,56,96,.08);}
+  .hero{padding:30px 22px 24px;text-align:center;background:linear-gradient(180deg,var(--teal-soft) 0%,#fff 100%);}
+  .photo{width:220px;height:220px;max-width:70vw;max-height:70vw;object-fit:cover;border-radius:50%;
+         border:6px solid #fff;outline:4px solid var(--honey);box-shadow:0 6px 22px rgba(14,56,96,.18);
+         display:block;margin:6px auto 18px;background:var(--teal-soft);}
+  .initial{width:220px;height:220px;max-width:70vw;max-height:70vw;border-radius:50%;margin:6px auto 18px;
+           background:var(--teal);color:#fff;font-size:96px;font-weight:800;display:flex;align-items:center;justify-content:center;
+           border:6px solid #fff;outline:4px solid var(--honey);box-shadow:0 6px 22px rgba(14,56,96,.18);}
+  h1{color:var(--navy);font-size:40px;line-height:1.15;font-weight:800;letter-spacing:-.01em;overflow-wrap:anywhere;}
+  .role{color:var(--muted);font-size:19px;margin-top:6px;}
+  .years{display:inline-block;margin-top:14px;background:var(--honey-soft);color:#6B4200;border:1.5px solid #F6D39A;
+         border-radius:999px;padding:6px 18px;font-size:17px;font-weight:700;}
+  .body{padding:8px 24px 26px;}
+  section{padding:20px 0;border-top:1px solid var(--border);}
+  section:first-child{border-top:0;}
+  h2{color:var(--navy);font-size:23px;line-height:1.3;font-weight:700;margin-bottom:8px;overflow-wrap:anywhere;}
+  .body p{font-size:19px;white-space:pre-wrap;overflow-wrap:anywhere;}
+  .tags{display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{background:var(--teal-soft);color:#0B4744;border-radius:999px;padding:7px 15px;font-size:17px;font-weight:600;}
+  video{width:100%;border-radius:16px;border:1px solid var(--border);display:block;background:#000;}
+  .trust{background:var(--teal-soft);border-radius:16px;padding:16px 18px;margin-top:6px;font-size:19px;color:#0B3B39;}
+  .trust b{color:var(--navy);}
+  .call{display:block;text-align:center;background:var(--navy);color:#fff;text-decoration:none;font-weight:700;
+        border-radius:16px;padding:18px 16px;font-size:22px;line-height:1.3;margin-top:22px;min-height:64px;}
+  .call span{display:block;font-size:17px;font-weight:600;color:#CFE3F5;margin-bottom:2px;}
+  .call:focus-visible{outline:4px solid var(--honey);outline-offset:3px;}
+  .foot{text-align:center;color:var(--muted);font-size:16px;margin-top:20px;line-height:1.6;}
+  .state{text-align:center;padding:44px 22px;}
+  .state h1{font-size:28px;margin-bottom:10px;}
+  .state p{color:var(--muted);font-size:19px;}
+  .demo{background:var(--honey-soft);border:1.5px solid #F6D39A;border-radius:14px;padding:12px 14px;
+        font-size:17px;color:#6B4200;margin-bottom:16px;text-align:center;line-height:1.5;}
+  @media (max-width:380px){ body{font-size:18px;} h1{font-size:34px;} .body{padding:6px 18px 22px;} }
+  @media print{
+    body{background:#fff;padding:0;font-size:15pt;}
+    .card{box-shadow:none;border:1px solid #999;}
+    .hero{background:#fff;}
+    .photo,.initial{box-shadow:none;}
+    video{display:none;}
+    .call{background:#fff;color:var(--navy);border:2px solid var(--navy);}
+    .call span{color:var(--muted);}
+    section{break-inside:avoid;}
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="brand"><img src="cc-logo.png" alt="Caring Companions In-Home Senior Care"></div>
-  <div id="host"><div class="state">Loading…</div></div>
-  <div class="foot" id="foot" style="display:none">
-    Questions, or something you would like us to know before the first visit?<br>
-    Call us on <a href="tel:4172348494">(417) 234-8494</a>, any time.
-  </div>
+  <main id="host"><div class="card"><div class="state"><p>One moment…</p></div></div></main>
+  <div class="foot">Caring Companions In-Home Senior Care<br>Springfield, Missouri</div>
 </div>
 
 <script>
 const SB_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const OFFICE = '(417) 234-8494', OFFICE_TEL = 'tel:+14172348494';
 
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
   .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
+const callBtn = () => '<a class="call" href="' + OFFICE_TEL + '"><span>Questions? Tap to call the office</span>' + OFFICE + '</a>';
+
 function state(title, line){
   document.getElementById('host').innerHTML =
-    '<div class="state"><h1>' + esc(title) + '</h1><p>' + esc(line) + '</p></div>';
+    '<div class="card"><div class="state"><h1>' + esc(title) + '</h1><p>' + esc(line) + '</p>' + callBtn() + '</div></div>';
 }
 
-/* An example, so a caregiver at orientation can see what they are filling in
-   for, and the office can show a family what to expect. Made-up on purpose and
-   labelled as such: a real caregiver's profile should never be used as the
-   sample, and nobody should mistake this for somebody who works here. */
+/* An example, so a caregiver can see what they are filling in for, and the
+   office can show a family what to expect. Made up on purpose and labelled as
+   such: a real caregiver's profile is never used as the sample. */
 const DEMO = {
-  name: 'Sarah',
-  photo: null,
-  video: null,
-  experience: 'Four years on a dementia unit at a care home in Nixa, then two with hospice. ' +
-    'Most of what I do now is one-to-one in people\u2019s own homes, which I much prefer.',
+  name: 'Sarah T.', first: 'Sarah', photo: null, video: null,
+  experience: 'Sarah spent four years on a memory care unit, then two years with hospice. ' +
+    'Now Sarah cares for people one to one in their own homes.',
   years: '6 to 10 years',
-  about: 'I\u2019m patient and I talk a lot. I make a good cup of coffee and I\u2019ll always find ' +
-    'something to laugh about.\n\nTwo grandkids, a very bad dog, and I grow tomatoes.',
-  why: 'I looked after my grandma for four years and I just never stopped.',
-  specialties: ['Dementia & memory care', 'Hospice & end of life', 'Cooking & meals',
-                'Companionship & conversation'],
+  about: 'Sarah is patient, calm and loves a good chat. Sarah makes a great cup of coffee and always finds something to smile about.',
+  why: 'Sarah looked after a grandmother for four years and never wanted to stop helping people.',
+  specialties: ['Memory care', 'Cooking and meals', 'Good company and conversation'],
 };
 
 async function load(){
   const params = new URLSearchParams(location.search);
   const id = params.get('id') || '';
-
-  if(params.get('demo') === '1'){
-    render(DEMO, true);
-    return;
-  }
-  if(!id) return state('Nothing to show here', 'This link is missing its address. Ask us to send it again.');
-
+  if(params.get('demo') === '1') return render(DEMO, true);
+  if(!id) return state('Nothing to show here', 'This link is missing a piece. Call us and we will send it again.');
   let p;
   try{
     const res = await fetch(SB_URL + '/functions/v1/caregiver-card?id=' + encodeURIComponent(id), {
       headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY },
     });
     if(res.status === 404){
-      return state('This profile is not available',
+      return state('This card is not available',
         'It may have been taken down. Call the office and we will tell you who is coming.');
     }
     if(!res.ok) throw new Error('http ' + res.status);
     p = await res.json();
   }catch(e){
-    return state('We could not load this just now',
-      'Please try again in a moment, or call us on (417) 234-8494.');
+    return state('We could not load this just now', 'Please try again in a moment, or call us.');
   }
-
   render(p, false);
 }
 
 function render(p, isDemo){
-  const name = esc(p.name);
-  document.title = (isDemo ? 'Example profile' : name + ' — your caregiver') + ' — Caring Companions';
+  const full = String(p.name || '').trim() || 'Your caregiver';
+  const first = String(p.first || full.split(/\s+/)[0] || 'your caregiver').trim();
+  const F = esc(first), N = esc(full);
+  document.title = (isDemo ? 'Example caregiver card' : full + ', your caregiver') + ' | Caring Companions';
+  const sec = (h, body) => '<section><h2>' + h + '</h2>' + body + '</section>';
+  const para = t => '<p>' + esc(t) + '</p>';
 
   document.getElementById('host').innerHTML =
     (isDemo ? '<div class="demo"><b>This is an example.</b> Sarah is not a real caregiver. ' +
-              'It is here to show what a profile looks like.</div>' : '') +
-    '<div class="card">' +
+              'It shows what a caregiver card looks like.</div>' : '') +
+    '<article class="card">' +
       '<div class="hero">' +
         (p.photo
-          ? '<img src="' + esc(p.photo) + '" alt="' + name + '">'
-          : '<div style="width:132px;height:132px;border-radius:50%;margin:0 auto 14px;' +
-            'background:var(--teal);color:#fff;font-size:52px;font-weight:700;display:flex;' +
-            'align-items:center;justify-content:center;box-shadow:0 3px 14px rgba(13,54,95,.16)">' +
-            name.slice(0,1) + '</div>') +
-        '<h1>' + name + '</h1>' +
-        '<div class="meet">Your caregiver from Caring Companions</div>' +
+          ? '<img class="photo" src="' + esc(p.photo) + '" alt="Photo of ' + N + '">'
+          : '<div class="initial" aria-hidden="true">' + esc(first.charAt(0).toUpperCase()) + '</div>') +
+        '<h1>' + N + '</h1>' +
+        '<div class="role">Your caregiver from Caring Companions</div>' +
         (p.years ? '<div class="years">' + esc(p.years) + ' caring for people</div>' : '') +
       '</div>' +
       '<div class="body">' +
-        (p.video ? '<video controls playsinline preload="metadata" src="' + esc(p.video) + '"></video>' : '') +
-        (p.experience ? '<h2>' + name + '\u2019s experience</h2><p>' + esc(p.experience) + '</p>' : '') +
-        (p.about ? '<h2>A little about ' + name + '</h2><p>' + esc(p.about) + '</p>' : '') +
-        (p.why ? '<h2>Why ' + name + ' does this work</h2><p>' + esc(p.why) + '</p>' : '') +
+        (p.about ? sec('A little about ' + F, para(p.about)) : '') +
+        (p.video ? sec('Say hello to ' + F, '<video controls playsinline preload="metadata" src="' + esc(p.video) + '"></video>') : '') +
+        (p.experience ? sec(F + '’s experience caring for others', para(p.experience)) : '') +
+        (p.why ? sec('Why ' + F + ' loves caregiving', para(p.why)) : '') +
         (p.specialties && p.specialties.length
-          ? '<h2>What ' + name + ' is best at</h2><div class="tags">' +
-            p.specialties.map(t => '<span class="tag">' + esc(t) + '</span>').join('') + '</div>'
+          ? sec('Things ' + F + ' is good at', '<div class="tags">' + p.specialties.map(t => '<span class="tag">' + esc(t) + '</span>').join('') + '</div>')
           : '') +
+        '<div class="trust"><b>' + F + ' works for Caring Companions</b>, and is background checked and trained by our care team.</div>' +
+        callBtn() +
       '</div>' +
-    '</div>';
-  document.getElementById('foot').style.display = 'block';
+    '</article>';
 }
 load();
 </script>
