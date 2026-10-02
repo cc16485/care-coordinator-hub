@@ -3844,7 +3844,7 @@ function renderOBStats(){
    State is FOUR INDEPENDENT dimensions, never inferred from identity:
      offerState  : none | sent | stalled           (from job_offers columns)
      linkState   : none | waiting | submitted      (does an intake row exist)
-     checksState : none | active | ready | not_hired  (board workspace)
+     checksState : none | active | ready | not_hired  (board workspace) | roster (moved to the caregiver roster)
      attention[] : inconsistencies rendered loudly, never skipped
    hire_intake.candidate_id is the AxisCare identity (script 185; the
    hiring-history reader depends on it). It informs the identity chip and
@@ -3856,6 +3856,13 @@ function lifecycleRows(){
   const usedBoard = new Set();
 
   const boardFor = i => candidates.find(c => c.intake_id === i.id);
+  /* Moved to the caregiver roster (welcome call done or office Promote): matched ONLY by the links the roster
+     record carries over from the board, intake_id and offer_id. hire_intake.candidate_id is an AxisCare
+     applicant id, never a board id, so it is never compared with the roster's candidate_id. */
+  const rosterList = typeof caregivers !== 'undefined' ? caregivers : [];
+  const rosterFor = (offer, intakes) => rosterList.find(g =>
+      (g.intake_id != null && g.intake_id !== '' && intakes.some(i => i && String(i.id) === String(g.intake_id)))
+   || (offer && g.offer_id != null && g.offer_id !== '' && String(g.offer_id) === String(offer.id))) || null;
   const rosterHit = axid => (typeof caregivers !== 'undefined' ? caregivers : [])
     .some(g => String(g.axiscare_id || '') === String(axid));
 
@@ -3952,6 +3959,7 @@ function lifecycleRows(){
   return rows.sort((a, b) => rank(a) - rank(b));
 
   function mkRow(offer, intake, board, approxPair, person){
+    const roster = board ? null : rosterFor(offer, person ? person.submissions : (intake ? [intake] : []));
     const name = (offer && (offer.first_name + ' ' + offer.last_name))
               || (intake && (intake.first_name + ' ' + intake.last_name))
               || (board && (board.first + ' ' + board.last)) || '(unnamed)';
@@ -3959,10 +3967,11 @@ function lifecycleRows(){
       : (offer.stall_alerted_at && !offer.step1_done_at) ? 'stalled' : 'sent';
     const linkState = intake ? 'submitted' : (offer ? 'waiting' : 'none');
     let checksState = 'none';
+    if (!board && roster) checksState = 'roster';
     if (board) checksState = board.not_hired ? 'not_hired'
       : (obDeriveStatus(board) === 'Ready for Orientation' ? 'ready' : 'active');
     const attention = [];
-    if (intake && intake.seen_at && !board)
+    if (intake && intake.seen_at && !board && !roster)
       attention.push('was imported before but the workspace is gone. Review.');
     /* Identity: applicant vs caregiver. hire_intake.candidate_id is an AxisCare
        APPLICANT id (pre-hire); a pre-hire applicant is NOT expected on the hired-
@@ -3984,7 +3993,7 @@ function lifecycleRows(){
     const submissions = person ? person.submissions : (intake ? [intake] : []);
     if (person && person.conflict)
       attention.push('submissions were grouped as one person but their AxisCare id / email / phone disagree. Review whether they are the same person.');
-    return { name: name.trim(), offer, intake, board, approxPair,
+    return { name: name.trim(), offer, intake, board, roster, approxPair,
              offerState, linkState, checksState, attention, identity,
              submissions, submissionCount: submissions.length };
   }
@@ -4033,18 +4042,19 @@ function renderHirePipeline(){
     if (r.checksState === 'active') pips.push(on('checks in progress'));
     if (r.checksState === 'ready') pips.push(on('READY for orientation'));
     if (r.checksState === 'not_hired') pips.push(off('not hired'));
+    if (r.checksState === 'roster') pips.push(on('On the caregiver roster' + (r.roster.hire_date ? ' (hired ' + esc(r.roster.hire_date) + ')' : '')));
     if (r.identity) pips.push(chip('#E0E7FF', '#3730A3',
       'AxisCare ' + (r.identity.kind === 'caregiver' ? 'caregiver' : 'applicant') + ' #' + esc(r.identity.axid)
       + (r.identity.onRoster === true ? ' · on roster' : (r.identity.onRoster === false ? ' · not on roster' : ''))));
 
     const actions = [];
-    if (r.intake && !r.board)
+    if (r.intake && !r.board && !r.roster)
       actions.push('<button class="ibtn" onclick="intakeImport(\'' + r.intake.id + '\',this)">Import</button>');
     if (r.board)
       actions.push('<button class="ibtn" onclick="openOBModal(' + r.board.id + ')">open</button>');
     if (r.board && !r.board.not_hired && [1,2,3,4].some(n => r.board['r'+n+'n'] && r.board['r'+n+'s'] === 'Pending'))
       actions.push('<button class="ibtn" onclick="askReferences(' + r.board.id + ',this)">Ask references</button>');
-    if (r.offer && !r.intake && !r.board)
+    if (r.offer && !r.intake && !r.board && !r.roster)
       actions.push('<button class="ibtn" onclick="offerStartLink(\'' + r.offer.id + '\',this)">Start link</button>');
     /* Gate B: the offer's own step actions live on the person row, so the
        retired Offer a Job tab is not needed to finish an offer. */
@@ -4054,7 +4064,7 @@ function renderHirePipeline(){
       actions.push('<button class="ibtn" onclick="markOfferViventium(\'' + r.offer.id + '\',this)">☑ Viventium</button>');
     if (r.offer && r.offer.viventium_entered_at && !r.offer.step1_done_at)
       actions.push('<button class="ibtn" onclick="markOfferStep1(\'' + r.offer.id + '\',this)">☑ Step 1</button>');
-    if (r.offer && !r.intake && !r.board)
+    if (r.offer && !r.intake && !r.board && !r.roster)
       actions.push('<button class="ibtn" title="Optional: open a checks workspace before their start link arrives"'
         + ' onclick="offerToCandidate(\'' + r.offer.id + '\',this)">Start checks early</button>');
 
@@ -4075,6 +4085,9 @@ async function intakeImport(intakeId, btn){
   if (!HYDRATED) { alert('Shared data has not loaded. This section is read-only right now.'); return; }
   const existing = candidates.find(c => c.intake_id === intakeId);
   if (existing) { openOBModal(existing.id); return; }
+  /* Already moved to the caregiver roster (welcome call done or office Promote): importing again would make a duplicate. */
+  const hired = (typeof caregivers !== 'undefined' ? caregivers : []).find(g => g.intake_id != null && g.intake_id !== '' && String(g.intake_id) === String(intakeId));
+  if (hired) { alert(((hired.first || '') + ' ' + (hired.last || '')).trim() + ' is already on the caregiver roster (Training tab). Nothing was imported.'); return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
   let who = '';
   try { const { data:{ session } } = await sb.auth.getSession(); who = (session && session.user && session.user.email) || ''; } catch(e){}
@@ -4204,6 +4217,7 @@ function bgrGroupColor(key){
   return key==='attention' ? ['#FEE2E2','#B91C1C']
        : key==='nextstep'  ? ['#E4EDF7','#2C5A86']
        : key==='ready'     ? ['#DCFCE7','#15803D']
+       : key==='roster'    ? ['#DCFCE7','#15803D']
        : ['#EEF2F7','#5B6472'];
 }
 
@@ -4515,6 +4529,9 @@ function bgrTriage(r){
     return { stage:'Data needs review', waitingOn:'Us', why:r.attention[0], next:'Review record', group:'attention' };
   if(board && obDeriveStatus(board) === 'Needs Review')
     return { stage:'Needs review', waitingOn:'Us', why:'A check is flagged or a reference is negative', next:'Review and decide', group:'attention' };
+  // 1b) moved on to the caregiver roster: done here, nothing to import
+  if(r.roster && !board)
+    return { stage:'On the caregiver roster', waitingOn:'Nobody', why:'Hired'+(r.roster.hire_date?' '+r.roster.hire_date:'')+'. Training and Compliance track them now', next:'Training tab', group:'roster' };
   // 2) submitted but not imported
   if(intake && !board)
     return { stage:'Submitted, not imported', waitingOn:'Us', why:'Their start-link submission has not been imported', next:'Import', group:'nextstep' };
@@ -4572,6 +4589,7 @@ const BGR_GROUPS = [
   { key:'others',       title:'Waiting on others',   note:'reference, applicant, or an external check' },
   { key:'startunknown', title:'Start not confirmed', note:'offer made, no submission, send status not recorded' },
   { key:'ready',        title:'Ready',               note:'all required checks clear' },
+  { key:'roster',       title:'On the caregiver roster', note:'hired; Training and Compliance track them now' },
   { key:'closed',       title:'Closed',              note:'not hired' },
 ];
 /* "Us" is operational blue (our action), not amber; the waiting states are
@@ -4646,6 +4664,8 @@ function bgrTimelineHTML(r, t){
     h += chk('FCSR', board.fcsr, board.fcsr==='Clear', !!board.fcsr_date, board.fcsr_date);
     if(board.oos==='yes') h += chk('Fingerprint', board.fp, board.fp==='Clear', !!board.fp_date, board.fp_date);
     else h += bgrTLrow(unk, 'Fingerprint', 'n/a (in state)', dim);
+  } else if(r.roster){
+    h += bgrTLrow(done, 'Caregiver roster', 'On the roster'+(r.roster.hire_date?', hired '+bgrEsc(r.roster.hire_date):'')+' (checks moved with them)', '#15803D');
   } else {
     h += bgrTLrow(unk, 'Imported', 'Not imported', dim);
     h += bgrTLrow(unk, 'Background checks', 'Not started (no workspace)', dim);
@@ -4673,7 +4693,7 @@ function bgrPersonCard(r, t){
      work read as separate things. Open/Timeline are plain navigation; the
      Background and References clusters each carry a small label + divider. */
   const open = r.board ? '<button class="ibtn" onclick="openOBModal('+r.board.id+')">Open</button>'
-             : (r.intake ? '<button class="ibtn" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>' : '');
+             : (r.intake && !r.roster ? '<button class="ibtn" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>' : '');
   const bgBtns = [], refBtns = [];
   if(r.board){
     const b = r.board;
@@ -4850,7 +4870,7 @@ function bgrDrawerHTML(r, t){
     if(refsPending) refBtns.push('<button class="ibtn" onclick="askReferences('+b.id+',this)">&#128233; Ask refs</button>');
     if([1,2,3,4].some(n => b['r'+n+'n'])) refBtns.push('<button class="ibtn" onclick="bgrRecordForPerson('+b.id+')">Record answer</button>');
     if(bgrReqsFor(b).length) refBtns.push('<button class="ibtn" onclick="bgrLogForPerson('+b.id+')">+ Log</button>');
-  } else if(r.intake){
+  } else if(r.intake && !r.roster){
     bgBtns.push('<button class="ibtn ibtn-strong" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>');
   }
   const grp = (label, btns) => btns.length
@@ -7836,6 +7856,10 @@ function cgRecordFromCandidate(c, hireDate, orientDate){
     // that actually runs, and it was still losing them.)
     phone: c.phone||'', email: c.email||'',
     candidate_id: c.id,
+    /* The deterministic hiring-pipeline links travel too, so the pipeline shows them as on the roster
+       instead of "workspace is gone" with an Import button (a duplicate risk). 2026-10-02. */
+    offer_id: c.offer_id!=null && c.offer_id!=='' ? String(c.offer_id) : '',
+    intake_id: c.intake_id!=null ? c.intake_id : '',
     promoted_at: new Date().toISOString(),
     // Why we were allowed to hire them, frozen at the only moment it can be —
     // the candidate record and its evidence are deleted just below.
