@@ -34,7 +34,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, thanks for applying to Caring Companions. You are one step from an in-person interview at our office, and you can pick a time that suits you here: https://mo-care.com/apply?book={applicant_id}",
   "email_summary": "Same words as the text with the link clickable, plus the 'Where to come' block (office name, address, map link, note, entrance photo).",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "page": "https://mo-care.com/apply"
  },
  {
   "stage": "applying",
@@ -195,7 +196,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, it's Caring Companions! We would love to bring you onto the team. One quick step before your offer letter goes out: https://cc.mo-care.com/start.html?first=..&last=..&phone=..&email=.. It takes about two minutes and lets us start your reference checks today.",
   "email_summary": "'We would love to bring you onto the team. Your official offer letter and new-hire paperwork are on their way... Reference checks are the slowest part of hiring, so we start them the same day. This takes about two minutes: [Get started]' + office number.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "page": "https://cc.mo-care.com/start.html?first=Jordan&last=Ellis"
  },
  {
   "stage": "after interview (offer / pool / declined)",
@@ -277,7 +279,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, Caring Companions here. We have not been able to reach {reference name} for your reference, and we need it before you can start. Give them a nudge if you can. Or if you have a better number or email for them, or want to use someone else, do it here: https://cc.mo-care.com/fix-reference.html?r=..&cid=..&n=.. Reply STOP to opt out.",
   "email_summary": "'We have not been able to reach {ref} for your reference, and it is we need it before you can start with us. Could you give them a nudge? ... Or if you have a better number or email, or would rather use someone else, tell us here: [Give us a different contact]'",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "page": "https://cc.mo-care.com/fix-reference.html?r=preview&cid=0&n=Denise%20Hollan"
  },
  {
   "stage": "references",
@@ -293,7 +296,8 @@ window.AP_JOURNEY = [
   "text": null,
   "email_summary": "'{candidate} listed you as a reference for a caregiving job with us... a few quick questions, no wrong answers. An honest middling answer helps us more than a glowing one.' [Answer a few quick questions]",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "page": "https://cc.mo-care.com/reference.html?r=preview&c=Jordan%20Ellis&n=Denise%20Hollan&rel=Charge%20nurse"
  },
  {
   "stage": "references",
