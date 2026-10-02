@@ -5821,7 +5821,7 @@ function renderTR(){
   const profBlocked=caregivers.filter(c=>pgOf[c.id]&&pgOf[c.id].blocked);
   const profUnchecked=caregivers.filter(c=>pgOf[c.id]&&pgOf[c.id].new_hire&&!pgOf[c.id].checked&&pgOf[c.id].err);
   document.getElementById('train-alert').innerHTML=(blocked.length
-    ?`<div class="alert-banner">⛔ ${blocked.length} caregiver(s) not cleared for client contact — pre-contact training incomplete: ${blocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'')
+    ?`<div class="alert-banner">⛔ ${blocked.length} caregiver(s) not cleared for client contact, pre-contact training incomplete: ${blocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'')
     +(profBlocked.length
     ?`<div class="alert-banner">🪪 ${profBlocked.length} new hire${profBlocked.length===1?'':'s'}: profile needed before first shift. Publish their caregiver profile (the photo is required) before their first client visit: ${profBlocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'')
     +(profUnchecked.length
