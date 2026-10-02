@@ -1950,20 +1950,25 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           🧭 How hiring runs now — read this once
         </summary>
         <div style="font-size:13.5px;line-height:1.7;margin-top:10px;color:var(--text);">
+          <!-- Rewritten 2026-10-01 (Samantha: "we need to update the how it works in background and references"),
+               checked against the code that day. Keep in step with Recruit → Applicant journey. -->
           <p style="margin:0 0 10px;">Most of this happens without you. Your job is the judgement calls and the screenings only you can run.</p>
           <ol style="margin:0 0 10px;padding-left:20px;">
-            <li><b>You make the offer</b> on the Offer a Job tab. Paste their details from Augusta rather than retyping.</li>
-            <li><b>Their start link is sent by hand.</b> There is no automatic send yet, and whether a link was sent is not recorded. Open the offer and use Text it or Email it to send the link that asks for references and the Family Care Safety Registry details. Sending it promptly is what gets reference checks moving, the slowest part of hiring.</li>
-            <li><b>They appear here on their own</b> once they fill it in, with references already in place and a fingerprint check flagged if they have lived outside Missouri.</li>
-            <li><b>References with an email are asked automatically</b> and answer five questions on their phone; the answers score themselves. A reference who left only a phone number is <b>not</b> texted automatically (an unconsented text is a TCPA risk), so it becomes a call or text for you to make by hand from People &amp; Checks.</li>
-            <li><b>You run OIG, EDL and FCSR</b>, because those are state systems only a person can use.</li>
-            <li><b>Two positive references and three clear screenings</b> turns them green and lights up the orientation invite.</li>
+            <li><b>They apply and book their own interview.</b> Applications come in on mo-care.com (or the office uses <b>📨 Send the application</b> / <b>＋ Add an applicant</b> on Applicants). They pick a time for an <b>in-person interview at our office</b> (about 20 minutes); confirmations and reminders go out on their own. If they do not come, press <b>Did not show</b>.</li>
+            <li><b>You make the offer from their interview.</b> <b>✅ Hire — make the offer</b> opens the offer form already filled in. <b>Save offer &amp; send their start link</b> sends the start link by itself: by email, and by text 8am to 6pm if they said yes to texts. Anything that did not go is listed on the screen.</li>
+            <li><b>They fill in the start link:</b> their references (professional and personal, in separate sections) and their Family Care Safety Registry details. They then show up here as <b>submitted, waiting to be imported</b>; press <b>Import</b>. Anyone who has lived outside Missouri is flagged for a fingerprint check.</li>
+            <li><b>Press 📩 Ask refs.</b> References with an email get the form automatically (weekdays, 8am to 6pm). Professional and personal references get their own questions; the answers score themselves, and each one is saved as a PDF in the caregiver's profile.</li>
+            <li><b>A reference with only a phone number is never texted automatically.</b> Call them and press <b>📞 Record</b> to type in their answers, or use <b>✉️ Email</b> to send them the form, or <b>💬 Text</b> once they have said OK on the phone.</li>
+            <li><b>You run OIG, EDL and FCSR</b> (and fingerprints if they lived outside Missouri), because those are state systems only a person can use.</li>
+            <li><b>Ready for Orientation</b> comes on by itself with <b>two positive references</b> (none negative; a conditional one needs a supervisor's decision) and <b>OIG, EDL and FCSR all clear</b> (plus fingerprints when needed). Then send the orientation invite.</li>
           </ol>
           <p style="margin:0 0 6px;"><b>What still needs you, and when:</b></p>
           <ul style="margin:0;padding-left:20px;">
             <li>A <b>negative reference or a flagged screening</b> shows up in Needs Attention within four hours. Read it before that person goes any further.</li>
-            <li>An <b>emailed</b> reference who goes quiet gets <b>one email reminder after two days</b>. After five we text the applicant to help, since it is their job waiting. After nine it becomes a phone call for the office. A phone-only reference is a call for the office from the start. Automatic emails and reminders go out on weekdays, 8am to 6pm.</li>
-            <li><b>Viventium Step 1</b> is their paperwork, not yours, but nobody gets an orientation until it is done. The Step 1 chip on their row tells you.</li>
+            <li>An <b>emailed</b> reference who goes quiet gets <b>one email reminder after 2 days</b>. After <b>5 days</b> we ask the applicant to nudge them (or give us a different contact). After <b>9 days</b> it becomes a call for the office on Needs Attention. A phone-only reference is a call for the office from the start.</li>
+            <li>Any text or email that <b>did not go through</b> shows up as a card on Needs Attention, with who it was for and why.</li>
+            <li><b>Viventium Step 1</b> is their paperwork, not yours, but nobody gets an orientation until it is done. The Step 1 chip on their offer row tells you.</li>
+            <li>Looking for someone? The search box finds a candidate <b>or one of their references</b> by name, phone or email.</li>
           </ul>
         </div>
       </details>
@@ -2044,7 +2049,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
               { type:'sms', label:'Text message', body:
                 `Hi ${FIRST}, it's Caring Companions! We would love to bring you onto the team. `
                 + `One quick step before your offer letter goes out: ${LINK} `
-                + `It takes about two minutes and lets us start your reference checks today.` },
+                + `It takes about two minutes and lets us start your reference checks today. Reply STOP to opt out.` },
               { type:'email', label:'And an email', subject:'Getting you started at Caring Companions',
                 paras:[`Hi ${FIRST},`,
                   'We would love to bring you onto the team. Your official offer letter and new-hire paperwork are on their way, and before they land there is one quick thing.',
@@ -2052,7 +2057,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
                 cta:'Get started' },
               { type:'page', label:'The page it opens', page:'start.html?first=Jordan&last=Ellis' },
             ],
-            you: 'Send this by hand from the offer (Text it or Email it). There is no automatic send or three-day chase yet, and whether it was sent is not recorded.',
+            you: 'Nothing. It goes by itself when you press Save offer & send their start link: by email, and by text 8am to 6pm if they said yes to texts. Anything that did not go is listed on the offer screen and raises a card on Needs Attention.',
           },
           {
             title: 'Each reference gets asked',
@@ -2061,12 +2066,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
               { type:'email', label:'What the reference gets', subject:`A quick reference for ${NAME}`,
                 paras:[`Hi ${REF},`,
                   `<b>${NAME}</b> listed you as a reference for a caregiving job with us, and we would be grateful for two minutes of your time.`,
-                  'It is five questions, and there are no wrong answers. An honest middling answer helps us place someone well far more than a glowing one does.'],
-                cta:'Answer five quick questions' },
-              { type:'page', label:'The five questions',
+                  'It is a few quick questions, and there are no wrong answers. An honest middling answer helps us place someone well far more than a glowing one does.'],
+                cta:'Answer a few quick questions' },
+              { type:'page', label:'The questions (a professional reference sees work questions; a personal one sees character questions)',
                 page:'reference.html?r=preview&c=Jordan%20Ellis&n=Denise%20Hollan&rel=Charge%20nurse' },
             ],
-            you: 'Nothing. Answers score themselves and land on the candidate. A negative one interrupts you within four hours.',
+            you: 'Nothing. Answers score themselves, land on the candidate, and are saved as a PDF in the caregiver\'s profile. A negative one interrupts you within four hours.',
           },
           {
             title: 'Two days of silence',
@@ -2074,8 +2079,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             pieces: [
               { type:'email', label:'The only reminder they get', subject:`A quick reference for ${NAME}`,
                 paras:[`Hi ${REF},`,
-                  `A gentle nudge. ${NAME} is waiting on one reference before they can start, and yours is the last one we need.`],
-                cta:'Answer five quick questions' },
+                  `A gentle nudge. ${NAME} cannot start with us until their references are in, and we still need yours.`],
+                cta:'Answer a few quick questions' },
             ],
             you: 'Nothing yet. They are strangers doing you a favor, so a second nag costs more goodwill than it recovers.',
           },
@@ -2085,12 +2090,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             pieces: [
               { type:'sms', label:'Text to the applicant', body:
                 `Hi ${FIRST}, Caring Companions here. We have not been able to reach ${REF} for your reference, `
-                + `and it is the last thing holding up your start. Give them a nudge if you can. `
+                + `and we need it before you can start. Give them a nudge if you can. `
                 + `Or if you have a better number or email for them, or want to use someone else, do it here: `
-                + SITE + 'fix-reference.html' },
+                + SITE + 'fix-reference.html Reply STOP to opt out.' },
               { type:'email', label:'And an email', subject:`We cannot reach ${REF}`,
                 paras:[`Hi ${FIRST},`,
-                  `We have not been able to reach <b>${REF}</b> for your reference, and it is the last thing holding up your start with us.`,
+                  `We have not been able to reach <b>${REF}</b> for your reference, and we need it before you can start with us.`,
                   '<b>Could you give them a nudge?</b> A quick message from you works better than anything we can send. It takes them about two minutes.',
                   'Or if you have a better number or email for them, or you would rather use someone else entirely, tell us here and we will reach out straight away:'],
                 cta:'Give us a different contact' },
@@ -2203,11 +2208,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-section-lbl" style="border-top:none;padding-top:0;margin-top:0">How candidates get here</div>
           <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">The candidate taps the <strong>start link</strong> in their offer message and submits their references. The moment they finish, they appear above as <strong>submitted, waiting to be imported</strong>. Click <strong>Import</strong> to open their checks workspace.<span class="tip">If someone accepted an offer but hasn't appeared, they haven't finished their start link yet; their row shows "waiting for start link" with a button to resend it. Importing never contacts their references; <strong>Ask References</strong> is its own separate button.</span></div></div>
           <div class="guide-section-lbl">Your checklist for each candidate</div>
-          <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body"><strong>Run OIG Exclusion Check</strong> — click the OIG button on their row. Must be clear before proceeding.<span class="tip">You can also run a batch OIG check for all pending candidates at once using the Batch OIG button.</span></div></div>
-          <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>Order FCSR Background Check</strong> — done manually through FCSR. Log the date ordered and mark clear/failed when results arrive.</div></div>
-          <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body"><strong>Ask References.</strong> Click "Ask refs" to request the references the candidate listed. Anyone with an <b>email</b> is emailed the form automatically. Anyone with only a <b>phone number</b> is not texted automatically (TCPA), so you text or call them by hand from their row. An emailed reference who stays quiet gets one reminder after 2 days, then the applicant is asked at 5 days, then the office at 9. Requires 2 positive references.<span class="tip">Reference form: cc.mo-care.com/reference.html. Responses are auto-scored and appear in the candidate record. Automatic emails send weekdays, 8am to 6pm.</span></div></div>
+          <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body"><strong>Run the OIG, EDL and FCSR checks</strong> — use the buttons on their row and record each result. All three must be clear before they can move on.</div></div>
+          <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>FCSR</strong> is done by hand in the state system. Log the date ordered, then mark it clear or failed when the result arrives.</div></div>
+          <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body"><strong>Ask References.</strong> Press "📩 Ask refs". Anyone with an <b>email</b> gets the form automatically, with questions for a <b>professional</b> or a <b>personal</b> reference. Anyone with only a phone number is never texted automatically: call them and press <b>📞 Record</b>, or send the form with <b>✉️ Email</b>, or <b>💬 Text</b> once they said OK on the phone. A quiet emailed reference gets one reminder after 2 days, the applicant is asked to help at 5 days, and the office gets a card at 9. Two positive references are needed.<span class="tip">Answers score themselves, show on the candidate, and are saved as a PDF in the caregiver's profile. Automatic emails go weekdays, 8am to 6pm.</span></div></div>
           <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body"><strong>Fingerprint</strong> — schedule if required. Log the date completed.</div></div>
-          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">Once <strong>OIG ✅ + FCSR ✅ + 2 Refs ✅</strong>, the candidate's status automatically changes to <strong>Ready for Orientation</strong>. Notify the team to book them into an orientation session.</div></div>
+          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">Once <strong>2 positive references ✅ + OIG ✅ + EDL ✅ + FCSR ✅</strong> (and fingerprints ✅ if they lived outside Missouri), the status changes to <strong>Ready for Orientation</strong> by itself. Then send them the orientation invite.</div></div>
           <div class="guide-step"><div class="guide-step-num">7</div><div class="guide-step-body">If any check fails, status moves to <strong>Needs Review</strong>. Document the reason and determine next steps with management.</div></div>
           <div class="guide-section-lbl">Processing Stats</div>
           <div class="guide-step"><div class="guide-step-num">📊</div><div class="guide-step-body">Use the <strong>Stats</strong> filter button to see how long each candidate is taking — we aim to get applicants to orientation as fast as possible.</div></div>
@@ -18329,7 +18334,7 @@ async function submitJobOffer(){
     renderInterviews();
   }catch(e){
     err.textContent='Could not send: '+(e&&e.message?e.message:'error'); err.style.display='block';
-    btn.disabled=false; btn.textContent='Save offer — starts onboarding';
+    btn.disabled=false; btn.textContent='Save offer & send their start link';
   }
 }
 function joPreviewMsgs(){
@@ -18393,7 +18398,7 @@ function joReset(){
   ['jo_first','jo_last','jo_phone','jo_email','jo_rate','jo_avail','jo_exp','jo_pers','jo_notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('jo_position').value='Caregiver'; joSyncPlan();
   JO_ATTRS.forEach(a=>joState[a[0]]=true); joInited=false; joLevel=null; joInit();
-  const btn=document.getElementById('jo_send'); btn.disabled=false; btn.textContent='Save offer — starts onboarding';
+  const btn=document.getElementById('jo_send'); btn.disabled=false; btn.textContent='Save offer & send their start link';
 }
 
 /* ---------------- Interviews tab (job offers, read-only view) ---------------- */
