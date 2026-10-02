@@ -659,6 +659,14 @@ function toggleGuide(id){
   arrow.classList.toggle('open', open);
 }
 
+/* 🏢 Office orientation (backup only), collapsed at the bottom of the Orientations tab. Its calendar and sessions
+   list render while hidden; opening it draws them again so it always shows the latest. */
+function toggleOfficeOrient(){
+  toggleGuide('orient-office');
+  const body = document.getElementById('guide-body-orient-office');
+  if(body && body.classList.contains('open')){ try{ renderCalendar(); renderSessionsList(); }catch(e){ console.warn('office orientation render:', e); } }
+}
+
 // ── Google Calendar Sync ─────────────────────────────────────────────
 function getOrientDuration(){ return parseFloat(appSettings.orient_config?.duration)||2; }
 
@@ -1559,7 +1567,9 @@ function renderOffers(){
 
 /* Linked when the offer was moved across; the candidate carries the offer id. */
 function offerMovedOn(o){
-  return candidates.some(c=>String(c.offer_id)===String(o.id));
+  return candidates.some(c=>String(c.offer_id)===String(o.id))
+    /* welcome call done moves them to the roster with their offer id (2026-10-02) */
+    || (typeof caregivers!=='undefined' ? caregivers : []).some(g=>g.offer_id!=null && String(g.offer_id)===String(o.id));
 }
 
 /* "Jul 31" reads faster than "2026-07-31" in a list you scan. The year only
@@ -1601,7 +1611,8 @@ function renderPastOffers(){
 
   box.innerHTML=rows.map(o=>{
     const c=candidates.find(x=>String(x.offer_id)===String(o.id));
-    const where=c ? (c.not_hired ? 'Not hired' : obDeriveStatus(c)) : 'In background & references';
+    const onRoster=!c && (typeof caregivers!=='undefined' ? caregivers : []).some(g=>g.offer_id!=null && String(g.offer_id)===String(o.id));
+    const where=c ? (c.not_hired ? 'Not hired' : obDeriveStatus(c)) : (onRoster ? 'On the caregiver roster' : 'In background & references');
     const tone=where==='Ready for Orientation' ? ['#15803D','#DCFCE7']
              : where==='Not hired'             ? ['#B91C1C','#FEE2E2']
              : ['#6E6559','#F4F2ED'];
@@ -3602,7 +3613,9 @@ function bgrSharedSaveResult(ok){
 function saveCaregivers(){
   localStorage.setItem('cc_caregivers', JSON.stringify(caregivers));
   localStorage.setItem('cc_cg_id', String(cgId));
-  syncToSupabase('caregivers', caregivers);
+  /* Returns the shared-save outcome (true/false) for callers that must know it
+     (the welcome-call roster add). Older callers ignore it, as before. */
+  return syncToSupabase('caregivers', caregivers);
 }
 
 // ── TRAINING HUB LIVE SYNC ────────────────────────────────────────────
@@ -3831,7 +3844,7 @@ function renderOBStats(){
    State is FOUR INDEPENDENT dimensions, never inferred from identity:
      offerState  : none | sent | stalled           (from job_offers columns)
      linkState   : none | waiting | submitted      (does an intake row exist)
-     checksState : none | active | ready | not_hired  (board workspace)
+     checksState : none | active | ready | not_hired  (board workspace) | roster (moved to the caregiver roster)
      attention[] : inconsistencies rendered loudly, never skipped
    hire_intake.candidate_id is the AxisCare identity (script 185; the
    hiring-history reader depends on it). It informs the identity chip and
@@ -3843,6 +3856,13 @@ function lifecycleRows(){
   const usedBoard = new Set();
 
   const boardFor = i => candidates.find(c => c.intake_id === i.id);
+  /* Moved to the caregiver roster (welcome call done or office Promote): matched ONLY by the links the roster
+     record carries over from the board, intake_id and offer_id. hire_intake.candidate_id is an AxisCare
+     applicant id, never a board id, so it is never compared with the roster's candidate_id. */
+  const rosterList = typeof caregivers !== 'undefined' ? caregivers : [];
+  const rosterFor = (offer, intakes) => rosterList.find(g =>
+      (g.intake_id != null && g.intake_id !== '' && intakes.some(i => i && String(i.id) === String(g.intake_id)))
+   || (offer && g.offer_id != null && g.offer_id !== '' && String(g.offer_id) === String(offer.id))) || null;
   const rosterHit = axid => (typeof caregivers !== 'undefined' ? caregivers : [])
     .some(g => String(g.axiscare_id || '') === String(axid));
 
@@ -3939,6 +3959,7 @@ function lifecycleRows(){
   return rows.sort((a, b) => rank(a) - rank(b));
 
   function mkRow(offer, intake, board, approxPair, person){
+    const roster = board ? null : rosterFor(offer, person ? person.submissions : (intake ? [intake] : []));
     const name = (offer && (offer.first_name + ' ' + offer.last_name))
               || (intake && (intake.first_name + ' ' + intake.last_name))
               || (board && (board.first + ' ' + board.last)) || '(unnamed)';
@@ -3946,10 +3967,11 @@ function lifecycleRows(){
       : (offer.stall_alerted_at && !offer.step1_done_at) ? 'stalled' : 'sent';
     const linkState = intake ? 'submitted' : (offer ? 'waiting' : 'none');
     let checksState = 'none';
+    if (!board && roster) checksState = 'roster';
     if (board) checksState = board.not_hired ? 'not_hired'
       : (obDeriveStatus(board) === 'Ready for Orientation' ? 'ready' : 'active');
     const attention = [];
-    if (intake && intake.seen_at && !board)
+    if (intake && intake.seen_at && !board && !roster)
       attention.push('was imported before but the workspace is gone. Review.');
     /* Identity: applicant vs caregiver. hire_intake.candidate_id is an AxisCare
        APPLICANT id (pre-hire); a pre-hire applicant is NOT expected on the hired-
@@ -3971,7 +3993,7 @@ function lifecycleRows(){
     const submissions = person ? person.submissions : (intake ? [intake] : []);
     if (person && person.conflict)
       attention.push('submissions were grouped as one person but their AxisCare id / email / phone disagree. Review whether they are the same person.');
-    return { name: name.trim(), offer, intake, board, approxPair,
+    return { name: name.trim(), offer, intake, board, roster, approxPair,
              offerState, linkState, checksState, attention, identity,
              submissions, submissionCount: submissions.length };
   }
@@ -4020,18 +4042,19 @@ function renderHirePipeline(){
     if (r.checksState === 'active') pips.push(on('checks in progress'));
     if (r.checksState === 'ready') pips.push(on('READY for orientation'));
     if (r.checksState === 'not_hired') pips.push(off('not hired'));
+    if (r.checksState === 'roster') pips.push(on('On the caregiver roster' + (r.roster.hire_date ? ' (hired ' + esc(r.roster.hire_date) + ')' : '')));
     if (r.identity) pips.push(chip('#E0E7FF', '#3730A3',
       'AxisCare ' + (r.identity.kind === 'caregiver' ? 'caregiver' : 'applicant') + ' #' + esc(r.identity.axid)
       + (r.identity.onRoster === true ? ' · on roster' : (r.identity.onRoster === false ? ' · not on roster' : ''))));
 
     const actions = [];
-    if (r.intake && !r.board)
+    if (r.intake && !r.board && !r.roster)
       actions.push('<button class="ibtn" onclick="intakeImport(\'' + r.intake.id + '\',this)">Import</button>');
     if (r.board)
       actions.push('<button class="ibtn" onclick="openOBModal(' + r.board.id + ')">open</button>');
     if (r.board && !r.board.not_hired && [1,2,3,4].some(n => r.board['r'+n+'n'] && r.board['r'+n+'s'] === 'Pending'))
       actions.push('<button class="ibtn" onclick="askReferences(' + r.board.id + ',this)">Ask references</button>');
-    if (r.offer && !r.intake && !r.board)
+    if (r.offer && !r.intake && !r.board && !r.roster)
       actions.push('<button class="ibtn" onclick="offerStartLink(\'' + r.offer.id + '\',this)">Start link</button>');
     /* Gate B: the offer's own step actions live on the person row, so the
        retired Offer a Job tab is not needed to finish an offer. */
@@ -4041,7 +4064,7 @@ function renderHirePipeline(){
       actions.push('<button class="ibtn" onclick="markOfferViventium(\'' + r.offer.id + '\',this)">☑ Viventium</button>');
     if (r.offer && r.offer.viventium_entered_at && !r.offer.step1_done_at)
       actions.push('<button class="ibtn" onclick="markOfferStep1(\'' + r.offer.id + '\',this)">☑ Step 1</button>');
-    if (r.offer && !r.intake && !r.board)
+    if (r.offer && !r.intake && !r.board && !r.roster)
       actions.push('<button class="ibtn" title="Optional: open a checks workspace before their start link arrives"'
         + ' onclick="offerToCandidate(\'' + r.offer.id + '\',this)">Start checks early</button>');
 
@@ -4062,6 +4085,9 @@ async function intakeImport(intakeId, btn){
   if (!HYDRATED) { alert('Shared data has not loaded. This section is read-only right now.'); return; }
   const existing = candidates.find(c => c.intake_id === intakeId);
   if (existing) { openOBModal(existing.id); return; }
+  /* Already moved to the caregiver roster (welcome call done or office Promote): importing again would make a duplicate. */
+  const hired = (typeof caregivers !== 'undefined' ? caregivers : []).find(g => g.intake_id != null && g.intake_id !== '' && String(g.intake_id) === String(intakeId));
+  if (hired) { alert(((hired.first || '') + ' ' + (hired.last || '')).trim() + ' is already on the caregiver roster (Training tab). Nothing was imported.'); return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
   let who = '';
   try { const { data:{ session } } = await sb.auth.getSession(); who = (session && session.user && session.user.email) || ''; } catch(e){}
@@ -4191,6 +4217,7 @@ function bgrGroupColor(key){
   return key==='attention' ? ['#FEE2E2','#B91C1C']
        : key==='nextstep'  ? ['#E4EDF7','#2C5A86']
        : key==='ready'     ? ['#DCFCE7','#15803D']
+       : key==='roster'    ? ['#DCFCE7','#15803D']
        : ['#EEF2F7','#5B6472'];
 }
 
@@ -4502,6 +4529,9 @@ function bgrTriage(r){
     return { stage:'Data needs review', waitingOn:'Us', why:r.attention[0], next:'Review record', group:'attention' };
   if(board && obDeriveStatus(board) === 'Needs Review')
     return { stage:'Needs review', waitingOn:'Us', why:'A check is flagged or a reference is negative', next:'Review and decide', group:'attention' };
+  // 1b) moved on to the caregiver roster: done here, nothing to import
+  if(r.roster && !board)
+    return { stage:'On the caregiver roster', waitingOn:'Nobody', why:'Hired'+(r.roster.hire_date?' '+r.roster.hire_date:'')+'. Training and Compliance track them now', next:'Training tab', group:'roster' };
   // 2) submitted but not imported
   if(intake && !board)
     return { stage:'Submitted, not imported', waitingOn:'Us', why:'Their start-link submission has not been imported', next:'Import', group:'nextstep' };
@@ -4559,6 +4589,7 @@ const BGR_GROUPS = [
   { key:'others',       title:'Waiting on others',   note:'reference, applicant, or an external check' },
   { key:'startunknown', title:'Start not confirmed', note:'offer made, no submission, send status not recorded' },
   { key:'ready',        title:'Ready',               note:'all required checks clear' },
+  { key:'roster',       title:'On the caregiver roster', note:'hired; Training and Compliance track them now' },
   { key:'closed',       title:'Closed',              note:'not hired' },
 ];
 /* "Us" is operational blue (our action), not amber; the waiting states are
@@ -4633,6 +4664,8 @@ function bgrTimelineHTML(r, t){
     h += chk('FCSR', board.fcsr, board.fcsr==='Clear', !!board.fcsr_date, board.fcsr_date);
     if(board.oos==='yes') h += chk('Fingerprint', board.fp, board.fp==='Clear', !!board.fp_date, board.fp_date);
     else h += bgrTLrow(unk, 'Fingerprint', 'n/a (in state)', dim);
+  } else if(r.roster){
+    h += bgrTLrow(done, 'Caregiver roster', 'On the roster'+(r.roster.hire_date?', hired '+bgrEsc(r.roster.hire_date):'')+' (checks moved with them)', '#15803D');
   } else {
     h += bgrTLrow(unk, 'Imported', 'Not imported', dim);
     h += bgrTLrow(unk, 'Background checks', 'Not started (no workspace)', dim);
@@ -4660,7 +4693,7 @@ function bgrPersonCard(r, t){
      work read as separate things. Open/Timeline are plain navigation; the
      Background and References clusters each carry a small label + divider. */
   const open = r.board ? '<button class="ibtn" onclick="openOBModal('+r.board.id+')">Open</button>'
-             : (r.intake ? '<button class="ibtn" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>' : '');
+             : (r.intake && !r.roster ? '<button class="ibtn" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>' : '');
   const bgBtns = [], refBtns = [];
   if(r.board){
     const b = r.board;
@@ -4837,7 +4870,7 @@ function bgrDrawerHTML(r, t){
     if(refsPending) refBtns.push('<button class="ibtn" onclick="askReferences('+b.id+',this)">&#128233; Ask refs</button>');
     if([1,2,3,4].some(n => b['r'+n+'n'])) refBtns.push('<button class="ibtn" onclick="bgrRecordForPerson('+b.id+')">Record answer</button>');
     if(bgrReqsFor(b).length) refBtns.push('<button class="ibtn" onclick="bgrLogForPerson('+b.id+')">+ Log</button>');
-  } else if(r.intake){
+  } else if(r.intake && !r.roster){
     bgBtns.push('<button class="ibtn ibtn-strong" onclick="intakeImport(\''+r.intake.id+'\',this)">Import</button>');
   }
   const grp = (label, btns) => btns.length
@@ -6891,7 +6924,9 @@ function wcResult(head, d){
 }
 /* The newest welcome call for a candidate (by the Hub's candidate id). */
 function wcRowFor(c){
-  const rows = WC_ROWS.filter(w => String(w.candidate_id) === String(c.id) && w.status !== 'cancelled');
+  /* A caregiver roster record (added at welcome call done) is keyed by the candidate id it carries. */
+  const key = (c && typeof caregivers !== 'undefined' && caregivers.includes(c)) ? c.candidate_id : (c && c.id);
+  const rows = WC_ROWS.filter(w => String(w.candidate_id) === String(key) && w.status !== 'cancelled');
   rows.sort((a,b) => String(b.invited_at||'').localeCompare(String(a.invited_at||'')));
   return rows[0] || null;
 }
@@ -6901,7 +6936,7 @@ function wcRowFor(c){
    they change, sends their personal photo link (photo required, video encouraged), then publishes it. The panel
    itself lives in caregiver-profile-panel.js (window.CGP2), shared with the employee's page. */
 function cgpCtxFor(candId, w){
-  const c = candidates.find(x => String(x.id) === String(candId));
+  const c = wcSrcFor(candId);
   const src = c ? { first:c.first, last:c.last, phone:c.phone, email:c.email, intake_id:c.intake_id }
                 : { first:w && w.first_name, last:w && w.last_name, phone:w && w.phone, email:w && w.email };
   return { mode:'onboarding', candidate_id:String(candId), first:src.first||'', last:src.last||'', phone:src.phone||'',
@@ -6923,7 +6958,8 @@ function cgpBtnHtml(candId){
 
 /* ── Step 2 tracking on the candidate record ── */
 async function step2Mark(id, which, undo){
-  const c = candidates.find(x => String(x.id) === String(id)); if(!c) return;
+  const c = wcSrcFor(id); if(!c) return;
+  const onRoster = !candidates.includes(c);
   if(undo){
     if(!confirm('Undo "Step 2 ' + which + '" for ' + c.first + ' ' + c.last + '?')) return;
     c['step2_' + which + '_at'] = null; c['step2_' + which + '_by'] = null;
@@ -6932,7 +6968,8 @@ async function step2Mark(id, which, undo){
     c['step2_' + which + '_at'] = now; c['step2_' + which + '_by'] = who;
     if(which === 'done' && !c.step2_sent_at){ c.step2_sent_at = now; c.step2_sent_by = who; }
   }
-  await saveCandidates();
+  if(onRoster){ if(!(await saveCaregivers())){ alert('That did not reach the shared workspace, so the rest of the team will not see it. Check your connection and try again.'); return; } }
+  else await saveCandidates();
   renderOrientReadyQueue();
   if(typeof renderOB === 'function') renderOB();
 }
@@ -7050,7 +7087,7 @@ function renderWelcomeCalls(){
           <button class="ibtn" onclick="wcAct('${wcEsc(w.id)}','now','',this)">📞 Call them now</button>
         </div>`).join('') : '<div style="font-size:.8rem;color:var(--gray)">Nobody is waiting to book.</div>')
       + `<details style="margin-top:.8rem"${done.some(w => { const r = window.CGP2 && CGP2.rowFor(w.candidate_id); return r && r.photo_path && !r.published; }) ? ' open' : ''}><summary style="cursor:pointer;font-size:.78rem;font-weight:700;color:var(--navy)">Done recently (last 14 days, ${done.length})</summary>
-          ${done.length ? done.map(w => `<div style="font-size:.78rem;color:var(--navy);padding:.3rem 0;border-bottom:1px solid #f1f1f1;display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .5rem"><span>✓ <b>${wcEsc(wcName(w))}</b> · ${wcDay(w.done_at)}${w.done_by ? ' by ' + wcEsc(String(w.done_by).split('@')[0]) : ''}${w.notes ? ` · <span style="color:var(--gray)">${wcEsc(w.notes)}</span>` : ''}</span> ${cgpBtnHtml(w.candidate_id)} <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" title="Finds them in AxisCare (In Training, by phone or email) and sends their orientation link. Never sends twice." onclick="wcOrientLink('${wcEsc(w.id)}',this)">Send orientation link</button></div>`).join('') : '<div style="font-size:.78rem;color:var(--gray);padding:.3rem 0">None yet.</div>'}
+          ${done.length ? done.map(w => `<div style="font-size:.78rem;color:var(--navy);padding:.3rem 0;border-bottom:1px solid #f1f1f1;display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .5rem"><span>✓ <b>${wcEsc(wcName(w))}</b> · ${wcDay(w.done_at)}${w.done_by ? ' by ' + wcEsc(String(w.done_by).split('@')[0]) : ''}${w.notes ? ` · <span style="color:var(--gray)">${wcEsc(w.notes)}</span>` : ''}</span> ${cgpBtnHtml(w.candidate_id)} <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" title="Finds them in AxisCare (In Training, by phone or email) and sends their orientation link. Never sends twice." onclick="wcOrientLink('${wcEsc(w.id)}',this)">Send orientation link</button>${wcNeedsRoster(w) ? ` <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem;color:#B45309;border-color:#FCD9A8" title="Not on the caregiver roster yet. Adds them with today's hire date so Training and Compliance track them." onclick="wcRosterAdd('${wcEsc(w.id)}',this)">Add to caregiver roster</button>` : ''}</div>`).join('') : '<div style="font-size:.78rem;color:var(--gray);padding:.3rem 0">None yet.</div>'}
         </details>`;
   el.innerHTML = `<div style="background:linear-gradient(135deg,#f0f9ff,#fefce8);border:1.5px solid #7DD3FC;border-radius:12px;padding:.85rem 1rem">
     <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
@@ -7076,6 +7113,7 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
       <li>Had an interview no-show? Use <b>Call them now</b> on someone waiting.</li>
       <li>During the call, if they are still an applicant in AxisCare, hire them in AxisCare and set their status to <b>In Training</b>. Their phone number or email in AxisCare must match the one they gave us.</li>
       <li>After the call, tick the checklist and press <b>Welcome call done – send orientation link</b>. The Training Platform finds them in AxisCare (In Training, by phone or email, never by name), assigns their courses and sends their orientation link by text and email. Texts only go 8am to 6pm: after 6pm it goes at 9am.</li>
+      <li>Pressing done also adds them to the caregiver roster (hire date today). Training and Compliance then track their orientation and dementia training.</li>
       <li>If the Hub says they were not found, set them to <b>In Training</b> in AxisCare, then press <b>Send orientation link</b> on their row under <b>Done recently</b>. Until then a card stays on Needs Attention.</li>
       <li>Once their photo is in, the profile chip says <b>Photo in, ready to publish</b>. Open <b>🪪 Caregiver profile</b>, check the photo and the words, and press <b>Publish</b>. The profile must be published before their first shift: until it is, the Hub shows <b>Profile needed before first shift</b> for them.</li>
     </ol>
@@ -7102,8 +7140,16 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
    9am run. Not found: nothing is sent, a card goes on Needs Attention, and the office is told to set In Training in
    AxisCare and press Send orientation link (on the row under Done recently). It never sends twice. */
 const WC_ORIENT_LABEL = 'Welcome call done – send orientation link';
-async function wcOrientCall(w){
-  const c = (typeof candidates !== 'undefined' ? candidates : []).find(x => String(x.id) === String(w.candidate_id)) || null;
+/* Who a welcome call is about: their Background & References record, or (once welcome call done has moved them)
+   their caregiver roster record, which carries the same candidate id, offer id, intake id, phone and email. */
+function wcSrcFor(candId){
+  if(candId == null || candId === '') return null;
+  const c = (typeof candidates !== 'undefined' ? candidates : []).find(x => String(x.id) === String(candId));
+  if(c) return c;
+  return (typeof caregivers !== 'undefined' ? caregivers : []).find(g => g.candidate_id != null && String(g.candidate_id) === String(candId)) || null;
+}
+async function wcOrientCall(w, src){
+  const c = src || wcSrcFor(w.candidate_id);
   const uniq = a => [...new Set(a.map(x => String(x == null ? '' : x).trim()).filter(Boolean))];
   const phones = uniq([w.phone, c && c.phone]), emails = uniq([w.email, c && c.email]);
   const body = { action:'orientation_link', offer_id: c && c.offer_id ? String(c.offer_id) : '', welcome_call_id: String(w.id),
@@ -7185,9 +7231,15 @@ async function wcAct(id, action, reason, btn){
       const c = candidates.find(x => String(x.id) === String(w.candidate_id));
       if(c && c.step2_done_at){ c.step2_done_at = null; c.step2_done_by = null; await saveCandidates(); head += '\n\n"Step 2 done" was cleared on their record. Mark it again once Viventium shows it finished.'; }
     }
-    /* 1b: then the orientation link (Training finds them in AxisCare and sends the welcome). The call stays done either way. */
+    /* Then the caregiver roster (2026-10-02), so Training and Compliance track them from day one. Their contact
+       details and offer id are captured first: the Background & References record is removed once the roster saves. */
     if(action === 'done'){
-      try{ head += '\n\n' + wcOrientMsg(await wcOrientCall(w)); }
+      const src0 = wcSrcFor(w.candidate_id);
+      const src = src0 ? { offer_id: src0.offer_id, phone: src0.phone, email: src0.email, first: src0.first, last: src0.last } : null;
+      try{ head += '\n\n' + wcRosterMsg(await wcAddToRoster(w)); }
+      catch(e){ head += '\n\n' + wcRosterMsg({ status:'save_failed', why: (e && e.message) || String(e) }); }
+      /* 1b: then the orientation link (Training finds them in AxisCare and sends the welcome). The call stays done either way. */
+      try{ head += '\n\n' + wcOrientMsg(await wcOrientCall(w, src)); }
       catch(e){ head += '\n\nThe orientation link step did not run: ' + ((e && e.message) || e) + '.\n\nPress Send orientation link on their row under Done recently to try again.'; }
     }
     await wcLoad();
@@ -7196,6 +7248,76 @@ async function wcAct(id, action, reason, btn){
       head += '\n\nNext: their caregiver profile is not published yet. It must be published (the photo is required) before their first shift. Open 🪪 Caregiver profile once their photo is in.';
     alert(action === 'done' ? head : wcResult(head, d));
   }catch(e){ alert('That did not go through: ' + (e && e.message || e) + '\n\nNothing was changed.'); if(btn) btn.disabled = false; }
+}
+
+/* ── Welcome call done -> caregiver roster (Samantha, 2026-10-02) ──
+   Pressing "Welcome call done – send orientation link" also adds them to the caregiver roster with today's hire date
+   (Central), so Training and Compliance track their orientation and dementia training from day one. Same record as
+   the office 🎓 Promote, except orient_date stays '' (orientation is done online AFTER this; it is never marked done
+   here). Never twice: a roster record carrying this candidate id means it already happened. The Background &
+   References record is removed ONLY after the roster reached the shared workspace; if that save fails, nothing is
+   removed and the office is told (no silent failures). The office-session Promote is unchanged. */
+function wcCentralYmd(d){
+  try{
+    const p = new Intl.DateTimeFormat('en-CA', { timeZone: WC_TZ, year:'numeric', month:'2-digit', day:'2-digit' }).formatToParts(d || new Date());
+    const g = t => (p.find(x => x.type === t) || {}).value || '';
+    return g('year') + '-' + g('month') + '-' + g('day');
+  }catch(_){ return (d || new Date()).toISOString().slice(0, 10); }
+}
+function wcYmdLabel(ymd){
+  const m = String(ymd || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); if(!m) return String(ymd || '');
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2] - 1] + ' ' + (+m[3]) + ', ' + m[1];
+}
+const WC_CARRY = ['offer_id', 'intake_id', 'position', 'welcome_call_id', 'welcome_invited_at',
+  'step2_sent_at', 'step2_sent_by', 'step2_done_at', 'step2_done_by', 'previous_names'];
+async function wcAddToRoster(w){
+  const candId = w && w.candidate_id;
+  if(candId == null || candId === '') return { status:'no_candidate' };
+  const roster = typeof caregivers !== 'undefined' ? caregivers : [];
+  const c = candidates.find(x => String(x.id) === String(candId)) || null;
+  const already = roster.find(g => g.candidate_id != null && String(g.candidate_id) === String(candId));
+  if(already) return { status:'already', hire_date: already.hire_date || '' };
+  if(!c) return { status:'no_candidate' };
+  const hireDate = wcCentralYmd(new Date());
+  const rec = cgRecordFromCandidate(c, hireDate, '');
+  rec.orient_date = ''; rec.alz_date = '';
+  WC_CARRY.forEach(k => { if(c[k] != null && c[k] !== '') rec[k] = c[k]; });
+  if(!rec.welcome_call_id && w.id) rec.welcome_call_id = w.id;
+  rec.promoted_via = 'welcome_call';
+  caregivers.push(rec);
+  let ok = false, why = '';
+  try{ ok = (await saveCaregivers()) === true; }catch(e){ why = (e && e.message) || String(e); }
+  if(!ok){
+    /* Undo the local add so this device matches the shared workspace; the next press tries again. */
+    caregivers = caregivers.filter(g => g !== rec);
+    try{ localStorage.setItem('cc_caregivers', JSON.stringify(caregivers)); }catch(_){}
+    return { status:'save_failed', why };
+  }
+  candidates = candidates.filter(x => x !== c);
+  await saveCandidates();
+  try{ if(typeof renderOB === 'function') renderOB(); if(typeof renderTR === 'function') renderTR(); if(typeof renderAC === 'function') renderAC(); }catch(_){}
+  return { status:'added', hire_date: hireDate };
+}
+function wcRosterMsg(r){
+  if(r.status === 'added') return 'Added to the caregiver roster (hire date ' + wcYmdLabel(r.hire_date) + ').';
+  if(r.status === 'already') return 'Already on the caregiver roster' + (r.hire_date ? ' (hire date ' + wcYmdLabel(r.hire_date) + ')' : '') + '.';
+  if(r.status === 'save_failed') return 'NOT added to the caregiver roster: the save did not reach the shared workspace'
+    + (r.why ? ' (' + r.why + ')' : '') + '. They are still in Background & References. Check your connection, then press Add to caregiver roster on their row under Done recently.';
+  return 'Not added to the caregiver roster: their Background & References record was not found. If they are not on the Training tab, add them there with + Add Caregiver.';
+}
+/* The button on a Done recently row whose person is not on the roster yet: the retry after a failed save, and the
+   catch-up for welcome calls marked done before this change. */
+async function wcRosterAdd(id, btn){
+  const w = WC_ROWS.find(x => String(x.id) === String(id)); if(!w) return;
+  if(!confirm('Add ' + wcName(w) + ' to the caregiver roster with today\'s hire date?\n\nTraining and Compliance then track their orientation and dementia training. They move out of Background & References. Nothing is sent to them.')) return;
+  if(btn) btn.disabled = true;
+  try{ alert(wcRosterMsg(await wcAddToRoster(w))); renderWelcomeCalls(); }
+  catch(e){ alert('That did not go through: ' + ((e && e.message) || e) + '\n\nNothing was changed.'); }
+  finally{ if(btn) btn.disabled = false; }
+}
+function wcNeedsRoster(w){
+  const has = (typeof caregivers !== 'undefined' ? caregivers : []).some(g => g.candidate_id != null && String(g.candidate_id) === String(w.candidate_id));
+  return !has && (typeof candidates !== 'undefined' ? candidates : []).some(c => String(c.id) === String(w.candidate_id));
 }
 
 function renderOrientReadyQueue(){
@@ -7719,13 +7841,11 @@ function saveCancelDetails(){
   renderSessionsList();
 }
 
-// ── Promote / Close Out / Reopen ──────────────────────────────────────
-function promoteToCaregiver(candidateId){
-  const c = candidates.find(x=>x.id===candidateId);
-  if(!c) return;
-  if(!confirm(`Promote ${c.first} ${c.last} to caregiver?\n\nThey will be added to Training & Active Compliance and removed from Background & References.`)) return;
-  const hireDate = c.orient_session_date || new Date().toISOString().split('T')[0];
-  caregivers.push({
+/* The caregiver roster record built from a Background & References candidate. Shared by the office-session
+   🎓 Promote (orientDate = the session date, they attended) and the welcome-call done path (orientDate = '',
+   orientation is done online after the call). */
+function cgRecordFromCandidate(c, hireDate, orientDate){
+  return {
     id: cgId++, first: c.first, last: c.last,
     // Carry the contact details and the SOURCE ID forward. Without these the
     // promotion destroys the identity trail: the candidate record is deleted
@@ -7736,12 +7856,16 @@ function promoteToCaregiver(candidateId){
     // that actually runs, and it was still losing them.)
     phone: c.phone||'', email: c.email||'',
     candidate_id: c.id,
+    /* The deterministic hiring-pipeline links travel too, so the pipeline shows them as on the roster
+       instead of "workspace is gone" with an Import button (a duplicate risk). 2026-10-02. */
+    offer_id: c.offer_id!=null && c.offer_id!=='' ? String(c.offer_id) : '',
+    intake_id: c.intake_id!=null ? c.intake_id : '',
     promoted_at: new Date().toISOString(),
     // Why we were allowed to hire them, frozen at the only moment it can be —
     // the candidate record and its evidence are deleted just below.
     hiring_snapshot: (typeof hiringSnapshot === 'function' ? hiringSnapshot(c) : null),
     hire_date: hireDate, oos: c.oos||'no',
-    orient_date: hireDate, alz_date: '',
+    orient_date: orientDate, alz_date: '',
     ojt_date: '', ojt_signed: 'no', ojt_proof: '', ojt_online: '',
     annual_date: '', annual_proof: '', annual_online: '',
     oig_date: c.oig_date||'', oig_status: c.oig||'', oig_proof: c.oig_proof||'',
@@ -7762,7 +7886,15 @@ function promoteToCaregiver(candidateId){
          detail was deleted with the candidate record below. */
       refs: obPrehireRefs(c)
     }
-  });
+  };
+}
+// ── Promote / Close Out / Reopen ──────────────────────────────────────
+function promoteToCaregiver(candidateId){
+  const c = candidates.find(x=>x.id===candidateId);
+  if(!c) return;
+  if(!confirm(`Promote ${c.first} ${c.last} to caregiver?\n\nThey will be added to Training & Active Compliance and removed from Background & References.`)) return;
+  const hireDate = c.orient_session_date || new Date().toISOString().split('T')[0];
+  caregivers.push(cgRecordFromCandidate(c, hireDate, hireDate));
   saveCaregivers();
   candidates = candidates.filter(x=>x.id!==candidateId);
   saveCandidates();
@@ -8762,7 +8894,7 @@ function renderEVVCorrections() {
 }
 
 /* the only things the panels' handlers need */
-window.SCX = {loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+window.SCX = {loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
 /* The offer cards are built with inline onclick handlers, so these have to be
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;
