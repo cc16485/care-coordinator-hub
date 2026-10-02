@@ -2,7 +2,7 @@
    messages they receive and attached somewhere in the hub pages so that our office admin know"). Built from the code as
    of 2026-10-01: every message an applicant / new hire gets, its exact wording, when it goes, what triggers it, and
    whether it shows in GoHighLevel Conversations. If a message is changed, update this list too. */
-window.AP_JOURNEY_CHECKED = 'October 1, 2026 (welcome calls + orientation link added)';
+window.AP_JOURNEY_CHECKED = 'October 2, 2026 (welcome calls + orientation link added; hiring wording 415: welcome message, in-office bring list)';
 window.AP_JOURNEY = [
  {
   "stage": "applying",
@@ -341,9 +341,9 @@ window.AP_JOURNEY = [
   "timing": "When Staffing marks them entered in Viventium. The text only goes 8am–6pm Central; the email any time. Once.",
   "channel": "text + email",
   "rule": "Same text rules as the start link (hours, their yes to texts, opt-out check, STOP line). Anything not sent is shown to the office.",
-  "subject": "Welcome to Caring Companions — here’s what happens next",
-  "text": "Hi {first}! Congratulations, and welcome to Caring Companions! 🎉\nWe're excited to begin the onboarding process with you.\n\nYour next step is to watch your email for a message from Viventium, our secure onboarding system. It will contain your official job offer and the first portion of your onboarding paperwork.\n\nPlease complete it as soon as possible. This paperwork gives us permission to begin your background check and contact your professional references.\n\nOnce your background check and references have been successfully completed, we'll contact you to schedule your paid new employee orientation.\n\n📞 Please save our office number: (417) 234-8494. This is our main office number and the one you'll use to call or text us if you have any questions.\n\nWelcome to the Caring Companions team!",
-  "email_summary": "Congratulations + Step 1 complete Viventium paperwork (official offer + first paperwork; authorizes background check and references) / Step 2 background and reference checks / Step 3 we will contact you to schedule paid orientation / save office number (417) 234-8494.",
+  "subject": "Welcome to Caring Companions, here’s what happens next",
+  "text": "Hi {first}! Congratulations, and welcome to Caring Companions! 🎉\nWe're excited to begin the onboarding process with you.\n\nYour next step is to watch your email for a message from Viventium, our secure onboarding system. It will contain your official job offer and the first portion of your onboarding paperwork.\n\nPlease complete it as soon as possible. This paperwork gives us permission to begin your background check and contact your professional references.\n\nOnce your background check and references are complete, we'll text you to book a quick 15-minute welcome video call. After that, you'll do your paid training from home on your phone or computer.\n\n📞 Please save our office number: (417) 234-8494. This is our main office number and the one you'll use to call or text us if you have any questions.\n\nWelcome to the Caring Companions team!",
+  "email_summary": "Congratulations + Step 1 complete Viventium paperwork (official offer + first paperwork; authorizes background check and references) / Step 2 background and reference checks / Step 3 your 15-minute welcome video call (once checks and references are complete we send Viventium Step 2 and a link to book it; join from phone or computer) / Step 4 paid training from home (after the call, a private link by text to the paid orientation and Alzheimer's and dementia training, in pieces if they like) / save office number (417) 234-8494.",
   "shows_in_ghl": true,
   "failure_visible": true
  },
@@ -535,7 +535,7 @@ window.AP_JOURNEY = [
   "channel": "text only",
   "rule": "Texts 8am–6pm Central only, never to someone whose application said no to texts, and they end with \"Reply STOP to opt out.\" Otherwise nothing is sent and the office is told why. The link opens the booking page on sc.mo-care.com.",
   "subject": null,
-  "text": "Hi {first}! Congratulations — you've been cleared to join Caring Companions! 🎉 Please choose your orientation date here: https://sc.mo-care.com/orientation-booking.html?sessions=..&first=..&last=..&phone=..&email=..&office=..&id=..\n\nQuestions? Call/text (417) 234-8494. We can't wait to meet you!",
+  "text": "Hi {first}! Congratulations, you've been cleared to join Caring Companions! 🎉 Please choose your orientation date here: https://sc.mo-care.com/orientation-booking.html?sessions=..&first=..&last=..&phone=..&email=..&office=..&id=..\n\nQuestions? Call/text (417) 234-8494. We can't wait to meet you!",
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true
@@ -551,7 +551,7 @@ window.AP_JOURNEY = [
   "channel": "text only",
   "rule": "Opt-out door. No their yes to texts check, no hours gate, no STOP wording. Failure raises a Needs Attention card (reportSendProblem). Address hardcoded. Ends with \"Reply STOP to opt out.\" Goes right away (they just booked it themselves).",
   "subject": null,
-  "text": "You're all set, {first}! 🎉 Your Caring Companions orientation is {Weekday, Month D, YYYY} at {h:mm AM}. Location: 1331 N Stewart Ave Ste B, Springfield MO 65802. [or: This is a video call: {link} / — we will send you the link.] Please bring your photo ID, Social Security card, and a voided check or bank info for direct deposit. Questions? Call/text (417) 234-8494.",
+  "text": "You're all set, {first}! 🎉 Your Caring Companions orientation is {Weekday, Month D, YYYY} at {h:mm AM}. Location: 1331 N Stewart Ave Ste B, Springfield MO 65802. [or: This is a video call: {link}. / This is a video call. We will send you the link.] Please bring [video call: Please have ready] the original ID documents you uploaded in Viventium Step 2 (for example, your photo ID). Questions? Call/text (417) 234-8494.",
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true
