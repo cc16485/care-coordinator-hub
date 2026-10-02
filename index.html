@@ -6533,6 +6533,8 @@ The HomeTogether team</pre>
 <script src="email-library.js"></script>
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
+<!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
+<script src="caregiver-profile-panel.js?v=20261001"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -16024,7 +16026,7 @@ function cgdBackToList(){
   if(f) f.style.display='none'; if(l) l.style.display='block';
   cgdRenderList();
 }
-const CGD_SECTIONS=[['overview','Overview'],['hiring','Hiring & Experience'],['compliance','Compliance'],
+const CGD_SECTIONS=[['overview','Overview'],['profile','Caregiver profile'],['hiring','Hiring & Experience'],['compliance','Compliance'],
   ['skills','Skills'],['performance','Performance'],['work','Work'],['conversations','Conversations']];
 function cgdSection(name){
   CGD.section=name;
@@ -16186,6 +16188,7 @@ async function cgdOpenProfile(axid){
       +kv('Hired', esc((c.hire_date||'?').slice(0,10)))
       +(cgdRefsSummary(g)?kv('References', cgdRefsSummary(g)):'')
       +kv('AxisCare', '<a href="https://16485.axiscare.com/?caregivers-profile.php&id='+esc(String(c.id))+'" target="_blank" rel="noopener">open their AxisCare profile ↗</a>')
+      +kv('Caregiver profile', '<span id="cgdCgpChip"></span> <a href="javascript:void(0)" onclick="cgdSection(\'profile\')">open</a> <span class="field-note">(the card families see)</span>')
       +kv('Hours they want', av&&av.target_hours?esc(String(av.target_hours))+'/week <span class="field-note">(self-reported '+esc(String(av.updated_at||'').slice(0,10))+')</span>':'<span class="field-note">not recorded</span>')
       +'<div style="margin-top:8px;border-top:1px solid #F3EFE7;padding-top:6px;">'
       +kv('Hub operational data', g?'<span style="color:var(--green);">connected</span>'+(g.axiscare_id?'':' <span class="field-note">(matched by name — id not recorded on the legacy row)</span>'):(ov?'<span style="color:var(--green);">connected (overlay)</span>':'<span style="color:#B45309;">needs data connection</span> <span class="field-note">— they are still a real caregiver; the Hub just holds no operational data yet</span>'))
@@ -16194,6 +16197,13 @@ async function cgdOpenProfile(axid){
       +'</div>'
       +'<div class="field-note" style="margin-top:6px;">Assigned hours · current clients · last worked · attendance arrive with Performance &amp; Work (Phase 2).</div>')
     +card('Anything in the way of scheduling?','<div id="cgdReady"><div class="field-note">Checking…</div></div>')
+    +'</div>'
+
+    /* Caregiver profile (2a, 2026-10-01; Samantha: "can their profile link be linked in the employees profile so we
+       can always access it and edit it when needed"). Drawn by caregiver-profile-panel.js (window.CGP2). */
+    +'<div id="cgdSec-profile" style="display:none;">'
+    +card('Caregiver profile <span class="field-note" style="font-weight:400;">(the card families see before a visit: photo, first name and last initial, about me, experience, why they enjoy caregiving)</span>',
+      '<div id="cgdCgp"><div class="field-note">Loading…</div></div>')
     +'</div>'
 
     +'<div id="cgdSec-hiring" style="display:none;">'
@@ -16223,6 +16233,10 @@ async function cgdOpenProfile(axid){
       '<div id="cgdThread" style="max-width:720px;"><div class="field-note">Loading the thread…</div></div>','cgdThreadCard')
     +'</div>';
   cgdRenderSkills(c,g);
+  try{ if(window.CGP2) CGP2.mount(document.getElementById('cgdCgp'), { mode:'employee', axiscare_id:String(c.id),
+    legacy_candidate_id:(g&&g.candidate_id!=null)?String(g.candidate_id):'', first:c.first||'', last:c.last||'',
+    phone:c.mobile||'', email:c.email||'', chipEl:'cgdCgpChip' });
+    else { const h=document.getElementById('cgdCgp'); if(h) h.innerHTML='<div class="field-note">Caregiver profiles did not load. Refresh the page.</div>'; } }catch(e){ console.warn('caregiver profile panel:', e); }
   cgdKnowledgeLoad(String(c.id));
   cgdHiringLoad(String(c.id), lvl);
   cgdLoadThread(c,nm);

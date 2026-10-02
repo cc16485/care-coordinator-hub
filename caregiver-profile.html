@@ -3,196 +3,159 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Your caregiver profile &mdash; Caring Companions</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<title>Your caregiver profile · Caring Companions</title>
+<!-- Caregiver profile, part 2 slice 2a (2026-10-01). The new hire's own page, opened from the personal link the office
+     texts or emails them (?t=<their token>). No sign-in: everything goes through the caregiver-profile function, which
+     only knows them by that token. The office drafted the words before the welcome call; here they add a photo
+     (required), a short video if they like, check the words and give their permission. Once the office publishes the
+     profile this page is read-only. -->
 <style>
   :root{
-    --navy:#0D365F; --teal:#54BDB8; --honey:#F0A830;
+    --navy:#0E3860; --teal:#54BDB8; --honey:#F0A63A;
     --cream:#FAF9F6; --border:#E8E2D8; --muted:#6E6559; --red:#B3261E; --green:#15803D;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:'Poppins','Segoe UI',system-ui,sans-serif;background:var(--cream);color:#3A342C;
-       font-size:16px;line-height:1.55;padding:22px 18px 60px;}
+       font-size:16px;line-height:1.55;padding:22px 16px 60px;}
   .wrap{max-width:640px;margin:0 auto;}
   .logo{display:block;width:190px;max-width:60%;height:auto;margin:0 auto 18px;}
   h1{color:var(--navy);font-size:24px;letter-spacing:-.01em;margin-bottom:6px;}
-  .lede{color:var(--muted);font-size:15px;margin-bottom:22px;}
-  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 18px 20px;margin-bottom:14px;}
-  .card h2{color:var(--navy);font-size:16px;margin-bottom:4px;}
-  .hint{color:var(--muted);font-size:13.5px;margin-bottom:12px;}
-  label{display:block;font-weight:600;font-size:14px;margin:14px 0 5px;color:#4A4238;}
-  label .opt{font-weight:400;color:var(--muted);font-size:13px;}
-  input[type=text],input[type=tel],select,textarea{
-    width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:10px;
-    font-family:inherit;font-size:15px;background:#fff;color:inherit;}
-  textarea{resize:vertical;min-height:84px;}
-  input[type=file]{font-size:14px;margin-top:4px;}
-  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
-  .chip{border:1.5px solid var(--border);background:#fff;border-radius:999px;padding:7px 13px;
-        font-size:14px;cursor:pointer;user-select:none;}
-  .chip.on{background:var(--teal);border-color:var(--teal);color:#06312F;font-weight:700;}
-  .consent{background:#F4F8FF;border:1.5px solid #CBD9EC;border-radius:12px;padding:14px 15px;margin-top:6px;}
-  .consent label{display:flex;gap:10px;align-items:flex-start;font-weight:600;font-size:14.5px;margin:0;cursor:pointer;}
-  .consent input{margin-top:3px;flex:none;width:18px;height:18px;}
-  .consent .what{font-weight:400;color:var(--muted);font-size:13.5px;margin-top:8px;}
-  button.go{width:100%;padding:15px;border:none;border-radius:12px;background:var(--navy);color:#fff;
-            font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;}
-  button.go[disabled]{opacity:.55;cursor:not-allowed;}
-  .err{color:var(--red);font-size:14px;margin-top:10px;display:none;}
-  .prog{font-size:13.5px;color:var(--muted);margin-top:10px;display:none;}
-  .done{display:none;text-align:center;padding:26px 18px;}
-  .done .tick{font-size:44px;}
-  .done h2{color:var(--green);font-size:20px;margin:8px 0 6px;}
-.spellbtn{margin-top:7px;background:#fff;border:1.5px solid var(--border);border-radius:9px;
-             padding:8px 13px;font-family:inherit;font-size:13.5px;cursor:pointer;color:var(--navy);font-weight:600;}
+  .lede{color:var(--muted);font-size:15px;margin-bottom:20px;}
+  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 16px 20px;margin-bottom:14px;}
+  .card h2{color:var(--navy);font-size:17px;margin-bottom:4px;}
+  .need{display:inline-block;background:var(--honey);color:#3A2A08;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;margin-left:6px;vertical-align:middle;}
+  .opt{display:inline-block;background:#EEF2F7;color:#475569;font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 9px;margin-left:6px;vertical-align:middle;}
+  .hint{color:var(--muted);font-size:14px;margin-bottom:10px;}
+  label.f{display:block;font-weight:700;font-size:14.5px;margin:16px 0 4px;color:var(--navy);}
+  label.f .sub{display:block;font-weight:400;color:var(--muted);font-size:13px;}
+  input[type=text],textarea{width:100%;padding:11px 12px;border:1.5px solid var(--border);border-radius:10px;
+    font-family:inherit;font-size:16px;background:#fff;color:inherit;}
+  textarea{resize:vertical;min-height:110px;}
+  textarea.ask{border-color:var(--honey);background:#FFFBF2;}
+  .askline{font-size:13px;color:#92400E;margin-top:5px;display:none;}
+  .pick{display:block;width:100%;text-align:center;border:2px dashed #B8C4D3;border-radius:12px;padding:16px;
+        font-weight:700;color:var(--navy);cursor:pointer;background:#F7FAFD;}
+  .pick input{display:none;}
+  .preview{margin-top:12px;display:none;text-align:center;}
+  .preview img{width:160px;height:160px;object-fit:cover;border-radius:16px;border:1px solid var(--border);}
+  .preview video{max-width:100%;border-radius:12px;border:1px solid var(--border);}
+  .spellbtn{margin-top:7px;background:#fff;border:1.5px solid var(--border);border-radius:9px;
+            padding:8px 13px;font-family:inherit;font-size:13.5px;cursor:pointer;color:var(--navy);font-weight:600;}
   .spellbtn[disabled]{opacity:.5;cursor:wait;}
-  .askbox{display:none;margin-top:10px;background:#FFF8EC;border:1.5px solid #F0D8A8;border-radius:11px;padding:12px 13px;}
-  .askbox .q{font-size:15px;font-weight:600;color:#7A5410;}
-  .askbox .sub{font-size:12.5px;color:var(--muted);margin-top:5px;}
-  .askbox .done{font-size:13.5px;color:var(--green);font-weight:600;}
   .polish{display:none;margin-top:10px;background:#F4F8FF;border:1.5px solid #CBD9EC;border-radius:11px;padding:12px 13px;}
   .polish .h{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:5px;}
-  .polish .txt{font-size:14.5px;white-space:pre-wrap;background:#fff;border:1px solid var(--border);
-               border-radius:9px;padding:9px 11px;}
+  .polish .txt{font-size:14.5px;white-space:pre-wrap;background:#fff;border:1px solid var(--border);border-radius:9px;padding:9px 11px;}
   .polish .row{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap;}
-  .polish button{border:none;border-radius:9px;padding:9px 14px;font-family:inherit;font-size:13.5px;
-                 font-weight:700;cursor:pointer;}
+  .polish button{border:none;border-radius:9px;padding:9px 14px;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;}
   .polish .use{background:var(--navy);color:#fff;}
   .polish .keep{background:#fff;border:1.5px solid var(--border);color:#4A4238;}
   .polish .none{font-size:13.5px;color:var(--green);font-weight:600;}
-  .ideas{margin-top:6px;font-size:13px;color:var(--muted);}
-  .ideas b{color:#4A4238;}
-  .preview{margin-top:10px;display:none;}
-  .preview img{max-width:150px;border-radius:12px;display:block;border:1px solid var(--border);}
-  .preview video{max-width:100%;border-radius:12px;border:1px solid var(--border);}
+  .consent{background:#F4F8FF;border:1.5px solid #CBD9EC;border-radius:12px;padding:14px 15px;}
+  .consent label{display:flex;gap:10px;align-items:flex-start;font-weight:600;font-size:15px;cursor:pointer;}
+  .consent input{margin-top:4px;flex:none;width:20px;height:20px;}
+  .consent .what{font-weight:400;color:var(--muted);font-size:13.5px;margin-top:8px;}
+  button.go{width:100%;padding:16px;border:none;border-radius:12px;background:var(--navy);color:#fff;
+            font-family:inherit;font-size:17px;font-weight:700;cursor:pointer;margin-top:6px;}
+  button.go[disabled]{opacity:.55;cursor:not-allowed;}
+  .err{color:var(--red);font-size:14.5px;margin-top:10px;display:none;}
+  .prog{font-size:14px;color:var(--muted);margin-top:10px;display:none;}
+  .center{text-align:center;padding:26px 8px;}
+  .center .big{font-size:44px;}
+  .center h2{color:var(--navy);font-size:20px;margin:8px 0 6px;}
+  .ro p{white-space:pre-wrap;margin-top:4px;}
+  .ro h3{color:var(--navy);font-size:15px;margin-top:14px;}
+  a.tel{color:var(--navy);font-weight:700;}
 </style>
 </head>
 <body>
 <div class="wrap">
+  <img class="logo" src="cc-logo.png" alt="Caring Companions In-Home Senior Care">
 
-  <img class="logo" src="cc-logo.png"
-       alt="Caring Companions In-Home Senior Care">
+  <div id="loading" class="center"><p class="lede">Opening your profile…</p></div>
 
-  <div id="form">
-    <h1>Your caregiver profile</h1>
+  <div id="nolink" class="center" style="display:none">
+    <div class="big">🔗</div>
+    <h2>Please use your personal link</h2>
+    <p class="lede">Please use the personal link we texted or emailed you, or call <a class="tel" href="tel:4172348494">417-234-8494</a>.</p>
+  </div>
+
+  <div id="form" style="display:none">
+    <h1>Hi <span id="hiName"></span>, let's finish your profile</h1>
     <p class="lede">
-      When we put you on a family's schedule, we introduce you first, with your photo and a little about you.
-      Families tell us it is the difference between a stranger at the door and someone they were expecting.
-      It takes about five minutes, it starts with the easy part, and you decide what goes in it.
-      <br><a href="caregiver.html?demo=1" target="_blank" rel="noopener"
-             style="color:var(--navy);font-weight:600">See an example first &nearr;</a>
+      Before your first visit, the family sees a short profile of you, so they know a friendly face is coming.
+      We wrote the words from your interview. Please add a photo, check the words, and save. It takes about five minutes.
     </p>
 
     <div class="card">
-      <h2>Your experience</h2>
-      <label>Tell us about your experience. What kind of care have you done?</label>
-      <div class="hint" style="margin:0 0 6px">
-        In your own words. Where you have worked, who you have looked after, anything you have got good at.
-      </div>
-      <textarea id="experience" placeholder="Four years on a dementia unit, then two with hospice. A lot of one-to-one at home…"></textarea>
-      <div class="ideas">Most people start with <b>where</b> they have worked, then <b>who</b> they cared for.</div>
-      <button type="button" class="spellbtn" onclick="polish('experience',this)">✓ Check my spelling</button>
-      <button type="button" class="spellbtn" onclick="askMore('experience',this)">💬 What else should I say?</button>
-      <div class="askbox" id="ask-experience"></div>
-      <div class="polish" id="polish-experience"></div>
-
-      <label>How long have you been caring for people?</label>
-      <select id="years">
-        <option value="">Choose…</option>
-        <option>Less than a year</option>
-        <option>1 to 2 years</option>
-        <option>3 to 5 years</option>
-        <option>6 to 10 years</option>
-        <option>More than 10 years</option>
-      </select>
-
-      <label>What are you best at? <span class="opt">choose any</span></label>
-      <div class="chips" id="specs"></div>
+      <h2>Your photo <span class="need">Needed</span></h2>
+      <div class="hint">A clear, friendly photo of your face, from the shoulders up, in good light. A phone selfie is perfect.</div>
+      <label class="pick" id="photoPick">📷 <span id="photoPickTxt">Choose or take a photo</span><input type="file" id="photo" accept="image/*"></label>
+      <div class="preview" id="photoPrev"><img id="photoImg" alt="Your photo"></div>
     </div>
 
     <div class="card">
-      <h2>About you</h2>
-      <label>What would you want a family to know about you?</label>
-      <div class="hint" style="margin:0 0 6px">
-        Two or three sentences. What you are like to have in the house.
-      </div>
-      <textarea id="about" placeholder="I'm patient, I talk a lot, and I make a good cup of coffee…"></textarea>
-      <div class="ideas">Stuck? People often say: <b>how they are around the house</b> (quiet, chatty, always
-        cooking), <b>what they are patient with</b>, or <b>what a good day looks like</b> to them.</div>
-      <button type="button" class="spellbtn" onclick="polish('about',this)">✓ Check my spelling</button>
-      <button type="button" class="spellbtn" onclick="askMore('about',this)">💬 What else should I say?</button>
-      <div class="askbox" id="ask-about"></div>
-      <div class="polish" id="polish-about"></div>
-
-      <label>Why do you do this work?</label>
-      <textarea id="why" placeholder="I looked after my grandmother for four years and…"></textarea>
-      <div class="ideas">Most people have one story that started it. That is usually the answer.</div>
-      <button type="button" class="spellbtn" onclick="polish('why',this)">✓ Check my spelling</button>
-      <button type="button" class="spellbtn" onclick="askMore('why',this)">💬 What else should I say?</button>
-      <div class="askbox" id="ask-why"></div>
-      <div class="polish" id="polish-why"></div>
-
-      <label>Something about you outside of work <span class="opt">optional</span></label>
-      <textarea id="outside" rows="2" placeholder="Two grandkids, a very bad dog, and I grow tomatoes."></textarea>
-      <button type="button" class="spellbtn" onclick="polish('outside',this)">✓ Check my spelling</button>
-      <div class="polish" id="polish-outside"></div>
-    </div>
-
-    <div class="card">
-      <h2>Your name</h2>
-      <div class="hint">Families see your first name only. Never your last name, address or phone number.</div>
-      <label>First name</label>
-      <input type="text" id="first" autocomplete="given-name">
-      <label>What you like to be called <span class="opt">if it is different</span></label>
-      <input type="text" id="preferred" placeholder="e.g. Sam, Kate">
-    </div>
-
-    <div class="card">
-      <h2>Your photo</h2>
-      <div class="hint">A clear, friendly photo of your face. A phone selfie in good light is perfect.</div>
-      <input type="file" id="photo" accept="image/*" capture="user">
-      <div class="preview" id="photoPrev"><img id="photoImg" alt=""></div>
-    </div>
-
-    <div class="card">
-      <h2>A short video <span class="opt" style="font-weight:400;font-size:14px;color:var(--muted)">optional</span></h2>
-      <div class="hint">
-        Up to a minute, saying hello and why you do this work. Plenty of people would rather not be on camera,
-        and that is genuinely fine, what you write below matters more.
-      </div>
-      <input type="file" id="video" accept="video/*" capture="user">
+      <h2>A short hello video <span class="opt">If you like</span></h2>
+      <div class="hint">About 30 seconds. Say hi and tell families one thing you love about caregiving. If you would rather not be on camera, that is fine.</div>
+      <label class="pick">🎥 <span id="videoPickTxt">Choose or record a video</span><input type="file" id="video" accept="video/*"></label>
       <div class="preview" id="videoPrev"><video id="videoEl" controls playsinline></video></div>
     </div>
 
     <div class="card">
-      <h2>Your permission</h2>
+      <h2>What families will read about you</h2>
+      <div class="hint">It is written about you, using your first name, the way a family will see it. Change anything that does not sound like you.</div>
+
+      <label class="f" for="preferred">What you like to be called<span class="sub">Only if it is different from <b id="firstName"></b>.</span></label>
+      <input type="text" id="preferred" maxlength="40" autocomplete="nickname" placeholder="e.g. Sam, Kate">
+
+      <label class="f" for="about">About me<span class="sub">What you are like to have around.</span></label>
+      <textarea id="about" maxlength="900"></textarea>
+      <div class="askline" id="ask-about">The part in [brackets] is a question for you. Please replace it with your answer.</div>
+      <button type="button" class="spellbtn" onclick="polish('about',this)">✓ Check my spelling</button>
+      <div class="polish" id="polish-about"></div>
+
+      <label class="f" for="experience">My experience caring for others<span class="sub">Who you have cared for, and for how long.</span></label>
+      <textarea id="experience" maxlength="900"></textarea>
+      <div class="askline" id="ask-experience">The part in [brackets] is a question for you. Please replace it with your answer.</div>
+      <button type="button" class="spellbtn" onclick="polish('experience',this)">✓ Check my spelling</button>
+      <div class="polish" id="polish-experience"></div>
+
+      <label class="f" for="why">Why I enjoy caregiving<span class="sub">What you love about this work.</span></label>
+      <textarea id="why" maxlength="900"></textarea>
+      <div class="askline" id="ask-why">The part in [brackets] is a question for you. Please replace it with your answer.</div>
+      <button type="button" class="spellbtn" onclick="polish('why',this)">✓ Check my spelling</button>
+      <div class="polish" id="polish-why"></div>
+    </div>
+
+    <div class="card">
+      <h2>Your permission <span class="need">Needed</span></h2>
       <div class="consent">
-        <label>
-          <input type="checkbox" id="consent">
-          <span>Yes, Caring Companions can show my first name, photo, video and what I have written here to
-                families we place me with.</span>
-        </label>
-        <div class="what">
-          It is only ever sent to the family a caregiver is scheduled with, on a private link, never posted
-          publicly and never given a search listing. You can change your mind at any time, just tell the office
-          and it comes down.
-        </div>
+        <label><input type="checkbox" id="consent">
+          <span>Yes, Caring Companions can show my photo, video, first name and last initial, and these words to the families I am scheduled with.</span></label>
+        <div class="what">It is only sent to families you are scheduled with, on a private link. It is never posted publicly. You can change your mind at any time: just call the office and we take it down.</div>
       </div>
     </div>
 
-    <button class="go" id="go" onclick="submitProfile()">Save my profile</button>
+    <button class="go" id="go" onclick="save()">Save my profile</button>
     <div class="prog" id="prog"></div>
     <div class="err" id="err"></div>
   </div>
 
-  <div class="done" id="done">
-    <div class="tick">✅</div>
-    <h2>That's saved. Thank you.</h2>
-    <p class="lede" style="margin-top:8px">
-      The office will check it over and it will be ready before your first family.
-      If you want to change anything, just tell your coordinator.
-    </p>
+  <div id="done" class="center" style="display:none">
+    <div class="big">✅</div>
+    <h2>Thank you, it's saved!</h2>
+    <p class="lede">The office will look it over and publish it before your first visit. Want to change something? Open this link again any time before then, or call <a class="tel" href="tel:4172348494">417-234-8494</a>.</p>
   </div>
 
+  <div id="published" style="display:none">
+    <div class="center" style="padding-bottom:6px">
+      <div class="big">🌟</div>
+      <h2>Your profile is published</h2>
+      <p class="lede">Your profile is published. Call the office at <a class="tel" href="tel:4172348494">417-234-8494</a> to change it.</p>
+    </div>
+    <div class="card ro" id="roCard"></div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -200,211 +163,146 @@
 const SB_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
 const BUCKET = 'caregiver-profiles';
-const sb = supabase.createClient(SB_URL, SB_KEY);
+const sb = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: false } });
+const T = new URLSearchParams(location.search).get('t') || '';
+const MAX_VIDEO = 100 * 1024 * 1024;     // the bucket's own limit
+const IMG = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
+const VID = { mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' };
+const $ = id => document.getElementById(id);
+const show = id => ['loading', 'nolink', 'form', 'done', 'published'].forEach(x => $(x).style.display = x === id ? 'block' : 'none');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+let ME = null, havePhoto = false;
 
-/* The link handed out at orientation can carry who this is, so the office does
-   not have to match a profile to a roster row by hand afterwards. */
-const params = new URLSearchParams(location.search);
-document.getElementById('first').value = params.get('first') || '';
-
-const SPECIALTIES = [
-  'Dementia & memory care', 'Hospice & end of life', 'Parkinson’s', 'Stroke recovery',
-  'Bathing & personal care', 'Mobility & transfers', 'Cooking & meals', 'Medication reminders',
-  'Companionship & conversation', 'Housekeeping', 'Errands & appointments', 'Overnight care',
-];
-const chosen = new Set();
-document.getElementById('specs').innerHTML = SPECIALTIES.map((s, i) =>
-  '<span class="chip" data-i="' + i + '">' + s + '</span>').join('');
-document.querySelectorAll('#specs .chip').forEach(el => el.onclick = () => {
-  const s = SPECIALTIES[+el.dataset.i];
-  if (chosen.has(s)) { chosen.delete(s); el.classList.remove('on'); }
-  else { chosen.add(s); el.classList.add('on'); }
-});
-
-/* Show people what they just picked. A caregiver who cannot see their own photo
-   has no idea whether it is the right way up. */
-function preview(inputId, wrapId, cb) {
-  document.getElementById(inputId).onchange = (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const url = URL.createObjectURL(f);
-    document.getElementById(wrapId).style.display = 'block';
-    cb(url);
-  };
+async function fn(body) {
+  const r = await fetch(SB_URL + '/functions/v1/caregiver-profile', { method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) { const e = new Error(j.error || 'Something went wrong. Please try again.'); e.status = r.status; e.published = !!j.published; throw e; }
+  return j;
 }
-preview('photo', 'photoPrev', u => document.getElementById('photoImg').src = u);
-preview('video', 'videoPrev', u => document.getElementById('videoEl').src = u);
 
-const MAX_VIDEO = 100 * 1024 * 1024;   // matches the bucket's own limit
+function markAsks() {
+  ['about', 'experience', 'why'].forEach(k => {
+    const has = /\[/.test($(k).value);
+    $(k).classList.toggle('ask', has); $('ask-' + k).style.display = has ? 'block' : 'none';
+  });
+}
 
-/* Spellcheck, and only spellcheck. The caregiver sees their own words and the
-   corrected words side by side and picks; nothing is ever swapped underneath
-   them. The button says "check my spelling" rather than anything about
-   improving writing, because the people it helps most are the ones who would
-   be embarrassed by the second phrasing. */
+function showPublished(m) {
+  const name = esc(m.preferred_name || m.first_name || '');
+  $('roCard').innerHTML = (m.photo_url ? '<div style="text-align:center"><img src="' + esc(m.photo_url) + '" alt="" style="width:140px;height:140px;object-fit:cover;border-radius:16px"></div>' : '')
+    + '<h3>About me</h3><p>' + esc(m.about || '') + '</p>'
+    + '<h3>My experience caring for others</h3><p>' + esc(m.experience || '') + '</p>'
+    + '<h3>Why I enjoy caregiving</h3><p>' + esc(m.why_this_work || '') + '</p>';
+  document.title = name + ' · your caregiver profile';
+  show('published');
+}
+
+async function start() {
+  if (!/^[0-9a-f-]{36}$/i.test(T)) { show('nolink'); return; }
+  try { ME = await fn({ action: 'mine', t: T }); }
+  catch (e) { $('nolink').querySelector('p').textContent = e.status === 404 ? e.message : 'We could not open your profile just now. Please try again in a minute, or call 417-234-8494.'; show('nolink'); return; }
+  if (ME.published) { showPublished(ME); return; }
+  $('hiName').textContent = ME.preferred_name || ME.first_name || 'there';
+  $('firstName').textContent = ME.first_name || 'your first name';
+  $('preferred').value = ME.preferred_name || '';
+  $('about').value = ME.about || '';
+  $('experience').value = ME.experience || '';
+  $('why').value = ME.why_this_work || '';
+  $('consent').checked = !!ME.consent;
+  if (ME.photo_url) { havePhoto = true; $('photoImg').src = ME.photo_url; $('photoPrev').style.display = 'block'; $('photoPickTxt').textContent = 'Choose a different photo'; }
+  if (ME.video_url) { $('videoEl').src = ME.video_url; $('videoPrev').style.display = 'block'; $('videoPickTxt').textContent = 'Choose a different video'; }
+  ['about', 'experience', 'why'].forEach(k => $(k).addEventListener('input', markAsks));
+  markAsks();
+  show('form');
+}
+
+$('photo').onchange = e => { const f = e.target.files[0]; if (!f) return; $('photoImg').src = URL.createObjectURL(f); $('photoPrev').style.display = 'block'; $('photoPickTxt').textContent = 'Choose a different photo'; };
+$('video').onchange = e => { const f = e.target.files[0]; if (!f) return; $('videoEl').src = URL.createObjectURL(f); $('videoPrev').style.display = 'block'; $('videoPickTxt').textContent = 'Choose a different video'; };
+
+/* Photos from a phone are often huge (and HEIC on iPhone, which most browsers cannot show). If the browser can read
+   the photo, send a smaller JPEG; if it cannot, send the original. */
+async function photoBlob(f) {
+  try {
+    const bmp = await createImageBitmap(f);
+    const scale = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const b = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.88));
+    if (b && b.size > 1000) return { blob: b, ext: 'jpg', type: 'image/jpeg' };
+  } catch (e) { /* use the original */ }
+  const ext = extOf(f, IMG);
+  return ext ? { blob: f, ext, type: IMG[ext] } : null;
+}
+function extOf(f, map) {
+  let ext = String(f.name || '').split('.').pop().toLowerCase();
+  if (map[ext]) return ext;
+  ext = Object.keys(map).find(k => map[k] === f.type);
+  return ext || '';
+}
+async function upload(kind, blob, ext, type) {
+  const u = await fn({ action: 'upload_url', t: T, kind, ext });
+  const { error } = await sb.storage.from(BUCKET).uploadToSignedUrl(u.path, u.token, blob, { contentType: type });
+  if (error) throw new Error('Your ' + kind + ' did not upload. Please try again, or try a different one.');
+  return u.path;
+}
+
+/* Spelling only. They see both versions and pick; nothing is swapped underneath them. */
 async function polish(field, btn) {
-  const ta = document.getElementById(field);
-  const box = document.getElementById('polish-' + field);
-  const text = ta.value.trim();
+  const ta = $(field), box = $('polish-' + field), text = ta.value.trim();
   if (!text) { box.style.display = 'none'; return; }
-
-  if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
-  box.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Checking…'; box.style.display = 'none';
   try {
-    const res = await fetch(SB_URL + '/functions/v1/profile-polish', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY },
-      body: JSON.stringify({ text }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || body.error) throw new Error(body.error || 'could not check');
-
-    if (body.unchanged || body.polished.trim() === text) {
-      box.innerHTML = '<div class="none">✓ Nothing to fix. That reads well.</div>';
-    } else {
-      box.innerHTML =
-        '<div class="h">Spelling and punctuation tidied. Your words, unchanged.</div>' +
-        '<div class="txt" id="polished-' + field + '"></div>' +
-        '<div class="row">' +
-          '<button type="button" class="use" onclick="usePolish(\'' + field + '\')">Use this</button>' +
-          '<button type="button" class="keep" onclick="document.getElementById(\'polish-' + field + '\').style.display=\'none\'">Keep mine</button>' +
-        '</div>';
-      document.getElementById('polished-' + field).textContent = body.polished;
+    const r = await fetch(SB_URL + '/functions/v1/profile-polish', { method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, body: JSON.stringify({ text }) });
+    const b = await r.json().catch(() => ({}));
+    if (!r.ok || b.error) throw new Error('could not check');
+    if (b.unchanged || String(b.polished).trim() === text) box.innerHTML = '<div class="none">✓ Nothing to fix. That reads well.</div>';
+    else {
+      box.innerHTML = '<div class="h">Spelling and punctuation tidied. Your words, unchanged.</div><div class="txt" id="polished-' + field + '"></div>'
+        + '<div class="row"><button type="button" class="use" onclick="usePolish(\'' + field + '\')">Use this</button>'
+        + '<button type="button" class="keep" onclick="$(\'polish-' + field + '\').style.display=\'none\'">Keep mine</button></div>';
+      $('polished-' + field).textContent = b.polished;
     }
-    box.style.display = 'block';
-  } catch (e) {
-    box.innerHTML = '<div class="none" style="color:var(--muted)">Could not check just now. ' +
-      'What you have written is fine to save as it is.</div>';
-    box.style.display = 'block';
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '✓ Check my spelling'; }
-  }
+  } catch (e) { box.innerHTML = '<div class="none" style="color:var(--muted)">Could not check just now. What you have is fine to save.</div>'; }
+  box.style.display = 'block'; btn.disabled = false; btn.textContent = '✓ Check my spelling';
 }
+function usePolish(field) { const el = $('polished-' + field); if (el) $(field).value = el.textContent; $('polish-' + field).style.display = 'none'; markAsks(); }
 
-/* The other half of the help, and the more useful half. Somebody who has
-   written one flat line does not need their spelling fixed, they need
-   somebody to ask them a question. So this asks one, and they answer it
-   themselves. Nothing they wrote is touched, and no example answer is offered,
-   because an example is just a rewrite somebody will copy. */
-async function askMore(field, btn) {
-  const ta = document.getElementById(field);
-  const box = document.getElementById('ask-' + field);
-  const text = ta.value.trim();
-  if (!text) {
-    box.innerHTML = '<div class="sub">Write a line or two first, then this can ask you about it.</div>';
-    box.style.display = 'block';
-    return;
-  }
-  if (btn) { btn.disabled = true; btn.textContent = 'Thinking…'; }
-  box.style.display = 'none';
+function fail(msg) { $('err').textContent = msg; $('err').style.display = 'block'; $('prog').style.display = 'none'; $('go').disabled = false; }
+
+async function save() {
+  $('err').style.display = 'none';
+  const photo = $('photo').files[0], video = $('video').files[0];
+  if (!photo && !havePhoto) return fail('Please add a photo of yourself. Families look for it first.');
+  if (!$('consent').checked) return fail('Please tick the permission box so we can show your profile to families.');
+  if (video && video.size > MAX_VIDEO) return fail('That video is too big. Please try a shorter one (about 30 seconds), or leave it out.');
+  if (video && !extOf(video, VID)) return fail('Please choose an MP4, MOV or WEBM video.');
+  $('go').disabled = true; const prog = $('prog'); prog.style.display = 'block';
   try {
-    const res = await fetch(SB_URL + '/functions/v1/profile-polish', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY },
-      body: JSON.stringify({ text, mode: 'ask' }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || body.error) throw new Error(body.error || 'could not ask');
-
-    box.innerHTML = body.enough
-      ? '<div class="done">✓ That reads well. A family would feel they knew you.</div>'
-      : '<div class="q">' + String(body.question).replace(/[<>&]/g, '') + '</div>' +
-        '<div class="sub">Answer it in the box above, in your own words. There is no right answer, ' +
-        'and you can ignore it.</div>';
-    box.style.display = 'block';
-  } catch (e) {
-    box.innerHTML = '<div class="sub">Could not think of anything just now. What you have written is fine.</div>';
-    box.style.display = 'block';
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '💬 What else should I say?'; }
-  }
-}
-
-function usePolish(field) {
-  const el = document.getElementById('polished-' + field);
-  if (el) document.getElementById(field).value = el.textContent;
-  document.getElementById('polish-' + field).style.display = 'none';
-}
-
-function fail(msg) {
-  const el = document.getElementById('err');
-  el.textContent = msg; el.style.display = 'block';
-  document.getElementById('prog').style.display = 'none';
-  document.getElementById('go').disabled = false;
-}
-
-async function upload(id, file, kind) {
-  const ext = (file.name.split('.').pop() || 'dat').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const path = id + '/' + kind + '.' + ext;
-  const { error } = await sb.storage.from(BUCKET).upload(path, file, { upsert: true });
-  if (error) throw new Error(kind + ' would not upload: ' + error.message);
-  return path;
-}
-
-async function submitProfile() {
-  const first = document.getElementById('first').value.trim();
-  const photo = document.getElementById('photo').files[0];
-  const video = document.getElementById('video').files[0];
-
-  if (!first)  return fail('Please put your first name in.');
-  if (!photo)  return fail('Please add a photo. It is the part families notice.');
-  if (!document.getElementById('consent').checked)
-    return fail('We need your permission before we can show any of this to a family.');
-  if (video && video.size > MAX_VIDEO)
-    return fail('That video is too big. Try one under a minute, or leave it out, what you have written matters more.');
-
-  document.getElementById('go').disabled = true;
-  document.getElementById('err').style.display = 'none';
-  const prog = document.getElementById('prog');
-  prog.style.display = 'block';
-
-  /* The id is generated here and used for both the file paths and the row, so
-     the profile and its files agree even though anon cannot read the row back
-     to find out what id the database chose. */
-  const id = (crypto.randomUUID && crypto.randomUUID()) ||
-             (Date.now() + '-' + Math.random().toString(16).slice(2));
-
-  try {
-    prog.textContent = 'Uploading your photo…';
-    const photoPath = await upload(id, photo, 'photo');
-
-    let videoPath = null;
+    let photo_path = null, video_path = null;
+    if (photo) {
+      prog.textContent = 'Uploading your photo…';
+      const p = await photoBlob(photo);
+      if (!p) return fail('Please choose a photo (JPG, PNG, HEIC or WEBP).');
+      photo_path = await upload('photo', p.blob, p.ext, p.type);
+    }
     if (video) {
-      prog.textContent = 'Uploading your video, this can take a minute on a phone…';
-      videoPath = await upload(id, video, 'video');
+      prog.textContent = 'Uploading your video. This can take a minute on a phone…';
+      const ext = extOf(video, VID);
+      video_path = await upload('video', video, ext, VID[ext]);
     }
-
     prog.textContent = 'Saving…';
-    const about = document.getElementById('about').value.trim();
-    const outside = document.getElementById('outside').value.trim();
-    // Note: no .select() after .insert() — anon has no SELECT permission.
-    const { error } = await sb.from('caregiver_profiles').insert([{
-      id,
-      first_name: first,
-      preferred_name: document.getElementById('preferred').value.trim() || null,
-      caregiver_id: params.get('id') || null,
-      photo_path: photoPath,
-      video_path: videoPath,
-      experience: document.getElementById('experience').value.trim() || null,
-      years_experience: document.getElementById('years').value || null,
-      specialties: [...chosen],
-      about: [about, outside].filter(Boolean).join('\n\n') || null,
-      why_this_work: document.getElementById('why').value.trim() || null,
-      consent: true,
-      consent_at: new Date().toISOString(),
-      published: false,          // the office looks at it before any family does
-      status: 'new',
-    }]);
-    if (error) throw new Error(error.message);
-
-    document.getElementById('form').style.display = 'none';
-    document.getElementById('done').style.display = 'block';
-    window.scrollTo(0, 0);
+    await fn({ action: 'submit', t: T, preferred_name: $('preferred').value, about: $('about').value, experience: $('experience').value,
+      why_this_work: $('why').value, photo_path, video_path, consent: true });
+    show('done'); window.scrollTo(0, 0);
   } catch (e) {
-    fail('Sorry, that did not save. ' + (e.message || 'Please tell your coordinator.') +
-         ' Nothing you typed has been lost, try Save again.');
+    if (e.published) { try { showPublished(await fn({ action: 'mine', t: T })); return; } catch (_) {} }
+    fail((e.message || 'That did not save.') + ' What you typed is still here, so you can try Save again.');
   }
 }
+
+start();
 </script>
 </body>
 </html>

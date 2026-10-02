@@ -5762,7 +5762,7 @@ function renderOB(){
       </td>
       <td><div class="acts">
         ${c.not_hired?`<button class="ibtn" onclick="reactivateOB(${c.id})" style="color:var(--teal);border-color:var(--teal)" title="Reactivate candidate">↩ Reactivate</button>`:`
-        ${st==='Ready for Orientation'?`<span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${step2Html(c)}</span><span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${wcInviteHtml(c)}</span><button class="ibtn" onclick="openInviteModal(${c.id})" title="Invite to an in-person orientation session at the office">📅 In the office instead${c.invite_sent?' (re-send)':''}</button>`:''}
+        ${st==='Ready for Orientation'?`<span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${step2Html(c)}</span><span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${wcInviteHtml(c)}</span><span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${cgpBtnHtml(c.id)}</span><button class="ibtn" onclick="openInviteModal(${c.id})" title="Invite to an in-person orientation session at the office">📅 In the office instead${c.invite_sent?' (re-send)':''}</button>`:''}
         ${[1,2,3,4].some(n=>c['r'+n+'n']&&c['r'+n+'s']==='Pending')?`<button class="ibtn" onclick="askReferences(${c.id},this)" title="Send each reference a two-minute form">📨 Ask refs</button>`:''}
         ${[1,2,3,4].some(n=>c['r'+n+'_manual'])?`<button class="ibtn" onclick="refReport(${c.id})" title="Reference check record for the personnel file">📄 Refs</button>`:''}
         <button class="ibtn" onclick="openOBModal(${c.id})">✏️</button>
@@ -6859,6 +6859,27 @@ function wcRowFor(c){
   return rows[0] || null;
 }
 
+/* ── Caregiver profile (part 2, slice 2a, 2026-10-01) ──
+   Samantha: the office drafts the profile with AI before the welcome call, reads it to them on the call, types what
+   they change, sends their personal photo link (photo required, video encouraged), then publishes it. The panel
+   itself lives in caregiver-profile-panel.js (window.CGP2), shared with the employee's page. */
+function cgpCtxFor(candId, w){
+  const c = candidates.find(x => String(x.id) === String(candId));
+  const src = c ? { first:c.first, last:c.last, phone:c.phone, email:c.email, intake_id:c.intake_id }
+                : { first:w && w.first_name, last:w && w.last_name, phone:w && w.phone, email:w && w.email };
+  return { mode:'onboarding', candidate_id:String(candId), first:src.first||'', last:src.last||'', phone:src.phone||'',
+    email:src.email||'', intake_id:src.intake_id||'', onChange: () => wcLoad() };
+}
+function cgpOpen(candId){
+  if(!window.CGP2){ alert('Caregiver profiles did not load. Refresh the page and try again.'); return; }
+  const w = WC_ROWS.find(x => String(x.candidate_id) === String(candId));
+  CGP2.open(cgpCtxFor(candId, w));
+}
+function cgpBtnHtml(candId){
+  const chip = window.CGP2 ? CGP2.chipHtml(CGP2.rowFor(candId)) : '';
+  return chip + `<button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" title="Draft, read, send the photo link, publish" onclick="event.stopPropagation();cgpOpen('${wcEsc(String(candId))}')">🪪 Caregiver profile</button>`;
+}
+
 /* ── Step 2 tracking on the candidate record ── */
 async function step2Mark(id, which, undo){
   const c = candidates.find(x => String(x.id) === String(id)); if(!c) return;
@@ -6925,6 +6946,11 @@ async function wcLoad(){
     if(error) throw error;
     WC_ROWS = data || []; WC_ERR = '';
   }catch(e){ WC_ERR = (e && e.message) || 'error'; console.warn('welcome_calls load failed:', e); }
+  /* the profile chip on each welcome call and on the Ready for Orientation rows */
+  if(window.CGP2){
+    const ready = (typeof candidates !== 'undefined' ? candidates : []).filter(c => { try{ return obDeriveStatus(c) === 'Ready for Orientation'; }catch(_){ return false; } }).map(c => c.id);
+    try{ await CGP2.loadForCandidates(WC_ROWS.map(w => w.candidate_id).concat(ready)); }catch(_){ /* chips show "Not started" */ }
+  }
   WC_LOADED = true;
   renderWelcomeCalls();
   renderOrientReadyQueue();
@@ -6947,6 +6973,8 @@ function wcCard(w){
       ${WC_TICKS.map(([k, label]) => `<label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:var(--navy);cursor:pointer">
         <input type="checkbox" ${w[k] ? 'checked' : ''} onchange="wcTick('${id}','${k}',this)"> ${label}</label>`).join('')}
     </div>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.35rem .6rem;margin:0 0 .45rem">${cgpBtnHtml(w.candidate_id)}
+      <span style="font-size:.7rem;color:var(--gray)">Draft it before the call, read it to them, then send the photo link.</span></div>
     <textarea placeholder="Notes from the call" onchange="wcNotes('${id}',this)" style="width:100%;min-height:42px;font:inherit;font-size:.78rem;padding:.4rem .5rem;border:1px solid var(--border);border-radius:7px;box-sizing:border-box">${wcEsc(w.notes || '')}</textarea>
     <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.45rem">
       <button class="ibtn" style="${allTicked ? 'background:#15803D;color:#fff;border-color:#15803D' : 'opacity:.55'}" title="${allTicked ? '' : 'Tick all four boxes first'}" onclick="wcAct('${id}','done','',this)">✓ Welcome call done</button>
@@ -6977,10 +7005,11 @@ function renderWelcomeCalls(){
           <span style="font-size:.72rem;color:var(--gray)">Invited ${wcDay(w.invited_at)}</span>
           ${w.status === 'noshow' ? '<span class="badge" style="background:#FEE2E2;color:#991B1B;font-size:.62rem">Missed the call</span>' : ''}
           ${w.closed_reason && w.status === 'invited' ? `<span style="font-size:.7rem;color:#92400E">${wcEsc(w.closed_reason)}</span>` : ''}
+          <span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${cgpBtnHtml(w.candidate_id)}</span>
           <button class="ibtn" onclick="wcAct('${wcEsc(w.id)}','now','',this)">📞 Call them now</button>
         </div>`).join('') : '<div style="font-size:.8rem;color:var(--gray)">Nobody is waiting to book.</div>')
-      + `<details style="margin-top:.8rem"><summary style="cursor:pointer;font-size:.78rem;font-weight:700;color:var(--navy)">Done recently (last 14 days, ${done.length})</summary>
-          ${done.length ? done.map(w => `<div style="font-size:.78rem;color:var(--navy);padding:.3rem 0;border-bottom:1px solid #f1f1f1">✓ <b>${wcEsc(wcName(w))}</b> · ${wcDay(w.done_at)}${w.done_by ? ' by ' + wcEsc(String(w.done_by).split('@')[0]) : ''}${w.notes ? ` · <span style="color:var(--gray)">${wcEsc(w.notes)}</span>` : ''}</div>`).join('') : '<div style="font-size:.78rem;color:var(--gray);padding:.3rem 0">None yet.</div>'}
+      + `<details style="margin-top:.8rem"${done.some(w => { const r = window.CGP2 && CGP2.rowFor(w.candidate_id); return r && r.photo_path && !r.published; }) ? ' open' : ''}><summary style="cursor:pointer;font-size:.78rem;font-weight:700;color:var(--navy)">Done recently (last 14 days, ${done.length})</summary>
+          ${done.length ? done.map(w => `<div style="font-size:.78rem;color:var(--navy);padding:.3rem 0;border-bottom:1px solid #f1f1f1;display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .5rem"><span>✓ <b>${wcEsc(wcName(w))}</b> · ${wcDay(w.done_at)}${w.done_by ? ' by ' + wcEsc(String(w.done_by).split('@')[0]) : ''}${w.notes ? ` · <span style="color:var(--gray)">${wcEsc(w.notes)}</span>` : ''}</span> ${cgpBtnHtml(w.candidate_id)}</div>`).join('') : '<div style="font-size:.78rem;color:var(--gray);padding:.3rem 0">None yet.</div>'}
         </details>`;
   el.innerHTML = `<div style="background:linear-gradient(135deg,#f0f9ff,#fefce8);border:1.5px solid #7DD3FC;border-radius:12px;padding:.85rem 1rem">
     <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
@@ -7000,23 +7029,26 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
     <ol style="margin:0;padding-left:1.3rem">
       <li>Ready for Orientation, then send Viventium Step 2, then mark Step 2 done in the Hub.</li>
       <li>Press <b>Invite to welcome call</b>. They book a 15-minute time, during interview hours, never overlapping an interview. Confirmations and reminders with the Meet link go out on their own.</li>
+      <li>Before the call, press <b>🪪 Caregiver profile</b>, then <b>Draft with AI</b>. It writes a first draft from their application and interview. Anything in [ask: …] is a question to ask them on the call.</li>
       <li>At the time, join the shared room from the "Caring Companions Welcome Calls" event on your own Google Calendar, signed in with your own @mo-care.com account (never a shared login). Join a minute early and admit them when they ask to join.</li>
       <li>If Step 2 turns out not to be done, press <b>Reschedule: Step 2 not done</b>, which tells them to finish it and rebook.</li>
       <li>Had an interview no-show? Use <b>Call them now</b> on someone waiting.</li>
       <li>After the call, tick the checklist and press <b>Welcome call done</b>.</li>
+      <li>Once their photo is in, the profile chip says <b>Photo in, ready to publish</b>. Open <b>🪪 Caregiver profile</b>, check the photo and the words, and press <b>Publish</b>. A new hire needs a published profile before they start working.</li>
     </ol>
     <h4 style="margin:.9rem 0 .3rem;color:var(--navy)">The call script</h4>
-    <p style="margin:.3rem 0"><b>Before the call:</b> open their profile and check that Step 2 is done.</p>
+    <p style="margin:.3rem 0"><b>Before the call:</b> check that Step 2 is done, then open <b>🪪 Caregiver profile</b> and press <b>Draft with AI</b>. Read the draft through so you are ready to read it aloud.</p>
     <ol style="margin:0;padding-left:1.3rem">
       <li><b>Welcome:</b> "Hi [first name], it's [your name] from Caring Companions. Welcome to the team! Can you hear and see me okay? This call takes about 15 minutes: we'll check your ID for your employment paperwork, set up the app you'll use to clock in, go over your caregiver profile together, and walk through what happens next. This call and your orientation are paid time."</li>
       <li><b>ID check for the I-9:</b> "You uploaded photos of your documents in Viventium. Now I need to see the same original documents on camera. Hold up your [document 1], front first please, now the back. Thank you, and your [document 2], front and back." After the call, tick the remote examination box and complete Section 2 in Viventium (E-Verify remote procedure).</li>
       <li><b>Viventium:</b> confirm that Step 2 is done. If it is not, reschedule.</li>
       <li><b>AxisCare app:</b> "Open the App Store (iPhone) or Google Play (Android) and search for AxisCare Mobile. Install it and open it. Enter our company code: 16485. [Office: full instructions coming.] You'll clock in when you arrive at a client's home and clock out when you leave. If you ever forget, call the office right away."</li>
-      <li><b>Caregiver profile:</b> "Families see a short profile of you so they know who's coming. I've written a first draft from your application and interview. Let me read it to you; tell me what you'd change or add." Then: "I'm texting you a link now for your photo. It's required: a clear, friendly photo from the shoulders up, in good light. A short video of about 30 seconds is encouraged: say hi and tell families one thing you love about caregiving."</li>
+      <li><b>Caregiver profile:</b> open <b>🪪 Caregiver profile</b>. "Before your first visit, the family sees a short profile of you, so they know who's coming. I've written a first draft from your application and interview. Let me read it to you; tell me what you'd change or add." Read each part aloud. Ask any [ask: …] questions and type their answers in their own words (take the brackets out). Type their changes and press <b>Save</b>.
+        Then press <b>Send photo link</b> and say: "I'm sending you a text and an email now with your own link. Please add a photo, it's required: a clear, friendly photo from the shoulders up, in good light. A short video of about 30 seconds is encouraged: say hi and tell families one thing you love about caregiving. You can check the words there too."</li>
       <li><b>What happens next:</b> "Your training is online, on your phone or computer, on your own schedule: Agency Orientation (about 2 hours), then Alzheimer's &amp; Dementia Care (about 4 hours), both before your first client; then on-the-job training within 30 days. Once you're done and your profile is published, we'll text you that you're cleared to work. Please save our office number: (417) 234-8494."</li>
       <li><b>Close:</b> "What questions do you have for me? Thank you, [first name], we're really glad you're here."</li>
     </ol>
-    <p style="margin:.5rem 0 .2rem"><b>After the call:</b> tick the checklist, press Welcome call done, and complete I-9 Section 2 in Viventium.</p>
+    <p style="margin:.5rem 0 .2rem"><b>After the call:</b> tick the checklist, press Welcome call done, and complete I-9 Section 2 in Viventium. When their photo is in, open <b>🪪 Caregiver profile</b> and press <b>Publish</b>.</p>
   </div>
 </details>`;
 async function wcTick(id, key, box){
@@ -7092,6 +7124,7 @@ function renderOrientReadyQueue(){
             ${wait?`<span style="font-size:.7rem;color:var(--gray)">${wait}</span>`:''}
             <span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${step2Html(c)}</span>
             <span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${wcInviteHtml(c)}</span>
+            <span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${cgpBtnHtml(c.id)}</span>
             <span style="margin-left:auto;display:inline-flex;align-items:center;gap:.35rem">
               ${invited?`<span style="font-size:.68rem;color:#16a34a;font-weight:600">📩 Office session invite sent</span>`:''}
               <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" onclick="openInviteModal(${c.id})" title="Invite to an in-person orientation session at the office">📅 In the office instead</button>
@@ -8713,6 +8746,6 @@ window.obRefTextOpen = obRefTextOpen;
 window.obRefSendClose = obRefSendClose;
 window.obRefSendGo = obRefSendGo;
 /* Remote orientation, slice 1a (2026-10-01): Step 2 tracking + welcome calls. */
-Object.assign(window, { step2Mark, wcInvite, wcLoad, wcTick, wcNotes, wcAct });
+Object.assign(window, { step2Mark, wcInvite, wcLoad, wcTick, wcNotes, wcAct, cgpOpen });
 window.dispatchEvent(new Event('scx-ready'));
 })();

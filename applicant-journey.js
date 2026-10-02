@@ -493,6 +493,22 @@ window.AP_JOURNEY = [
   "failure_visible": true
  },
  {
+  "stage": "welcome call (remote orientation)",
+  "order": 22.9,
+  "name": "Caregiver profile photo link",
+  "trigger": "On the welcome call, after reading their drafted profile to them, the office presses '🪪 Caregiver profile' → 'Send photo link', reviews the message, confirms.",
+  "automatic": false,
+  "button": "Welcome call card / Ready for Orientation row / Background tab / the employee's page → '🪪 Caregiver profile' → 'Send photo link'",
+  "timing": "Immediately when pressed. Can be sent again until the profile is published (then their link is locked).",
+  "channel": "text + email",
+  "rule": "Texts 8am–6pm Central only, never to someone whose application said no to texts, and they end with \"Reply STOP to opt out.\" The email always goes. Anything not sent is shown to the office and refused messages raise a Needs Attention card. The link is their own (personal token), not the public card link. Sending ticks 'Photo link sent' on their open welcome call.",
+  "subject": "Add your photo to your Caring Companions profile",
+  "text": "Hi {first}, it's Caring Companions! Please finish your caregiver profile here: https://cc.mo-care.com/caregiver-profile.html?t=.. Add a friendly photo of yourself (we need this one) and, if you like, a short hello video. Then check the words we wrote about you. Families see your profile before you visit, so they know who is coming. Reply STOP to opt out.",
+  "email_summary": "Before your first visit the family sees a short profile of you; 1. add a friendly photo (needed; a phone selfie in good light, shoulders up), 2. if you like, a short hello video of about 30 seconds, 3. read the words we wrote and change anything that does not sound like you; 'Finish my profile' button; the link is just for you; office phone.",
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
   "stage": "orientation & training",
   "order": 23,
   "name": "Orientation invite (pick your date)",
