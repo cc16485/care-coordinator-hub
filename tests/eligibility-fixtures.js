@@ -54,3 +54,24 @@ const CG_FIXTURES = [
 ];
 if (typeof module !== 'undefined') module.exports.CG_FIXTURES = CG_FIXTURES;
 if (typeof globalThis !== 'undefined') globalThis.CCEligFixtures.CG_FIXTURES = CG_FIXTURES;
+
+/* CAREGIVER PROFILE BEFORE THE FIRST SHIFT (part 2, slice 2c, 2026-10-01).
+   New hires only; only an explicit profile_published === false blocks.
+   has_welcome_call marks the new hire so these stay true on any date; the
+   date line itself is tested directly in tests/eligibility-profile-test.js. */
+const NEW_HIRE = { first:"New", last:"Hire", hire_date:iso(-3), has_welcome_call:true,
+  orient_date:iso(-2), alz_date:iso(-2), ojt_date:"", ojt_online:"", ojt_signed:"",
+  annual_date:"", oig_date:iso(-5), edl_date:iso(-5), fcsr_date:iso(-5), fcsr_reg_date:iso(-1),
+  supv_date:"", perf_date:"" };
+const N = o => Object.assign({}, NEW_HIRE, o);
+const PROFILE_FIXTURES = [
+  ["new hire, no published profile",          N({profile_published:false}),            "not_eligible", "caregiver_profile"],
+  ["new hire, published profile",             N({profile_published:true}),             "eligible",     null],
+  ["new hire, profile not looked up",         N({}),                                   "eligible",     null],
+  ["new hire, no orientation, no profile",    N({orient_date:"",alz_date:"",profile_published:false}), "not_eligible", "caregiver_profile"],
+  ["current caregiver, no profile",           G({profile_published:false}),            "eligible",     null],
+  ["current caregiver, profile not looked up",G({}),                                   "eligible",     null],
+  ["current caregiver lapsed, no profile",    G({oig_date:iso(-120),profile_published:false}), "lapsed", null],
+];
+if (typeof module !== 'undefined') module.exports.PROFILE_FIXTURES = PROFILE_FIXTURES;
+if (typeof globalThis !== 'undefined') globalThis.CCEligFixtures.PROFILE_FIXTURES = PROFILE_FIXTURES;

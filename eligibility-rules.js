@@ -185,7 +185,57 @@ function fcsrRegStatus(c){
    work-removal consequence has not been established, so V1 raises serious
    compliance work without silently stopping somebody working. Moving it is a
    one-line change once that is settled. */
-const ELIG_LEGAL = 'legal', ELIG_MGMT = 'management';
+const ELIG_LEGAL = 'legal', ELIG_MGMT = 'management', ELIG_AGENCY = 'agency';
+
+/* ── CAREGIVER PROFILE BEFORE THE FIRST SHIFT (part 2, slice 2c, 2026-10-01) ──
+   Samantha: "must have profile before can start work. The video is encouraged,
+   the photo is required." Publishing already demands the photo, their OK and no
+   [ask] prompts left, so "published" is the whole test here.
+
+   NEW HIRES ONLY. Current caregivers are never blocked or flagged for having no
+   profile; they get one over time through "Start a profile". A new hire is
+   somebody who, by the record itself, joined on or after PROFILE_REQUIRED_FROM:
+     · hire_date on or after it, or
+     · promoted_at (the Hub's promote-to-caregiver stamp) on or after it, read
+       as a Central date, or
+     · has_welcome_call === true (filled by the Hub from welcome_calls; the
+       remote welcome call only exists for people being hired now).
+   One constant, so the line is obvious and moving it is a one-line change.
+
+   profile_published is FILLED BY THE HUB, never stored on the record:
+     true   a published, not withdrawn caregiver_profiles row was found
+     false  looked, and there is none (or it is not published yet)
+     undefined  nobody looked (the server sweep, older callers)
+   UNKNOWN IS NOT FAILED: only an explicit false, for a new hire, blocks. This is
+   why the server sweep and the obligations runner, which never fill it, are
+   unaffected by this rule. It is agency policy, not a state requirement, so it
+   carries its own kind and never becomes a lapse or a work restriction. */
+const PROFILE_REQUIRED_FROM = '2026-10-02';
+const PROFILE_WHY = 'Profile needed before first shift: new hires need a published caregiver profile, with their photo, before their first client visit.';
+function centralYmd(iso){
+  if(!iso) return '';
+  const d = new Date(iso); if(isNaN(d)) return '';
+  try{
+    const p = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);
+    const g = t => (p.find(x=>x.type===t)||{}).value || '';
+    return g('year')+'-'+g('month')+'-'+g('day');
+  }catch(e){ return d.toISOString().slice(0,10); }
+}
+function profileNewHire(c){
+  if(!c) return false;
+  if(c.has_welcome_call === true) return true;
+  const hd = String(c.hire_date||'').slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(hd) && hd >= PROFILE_REQUIRED_FROM) return true;
+  const pr = centralYmd(c.promoted_at);
+  return !!pr && pr >= PROFILE_REQUIRED_FROM;
+}
+function profileGate(c){
+  const v = c ? c.profile_published : undefined;
+  const newHire = profileNewHire(c);
+  const blocked = newHire && v === false;
+  return { new_hire:newHire, checked: v === true || v === false, published: v === true,
+           blocked, why: blocked ? PROFILE_WHY : '' };
+}
 
 function eligibilityFacts(c){
   const ts = trainStatus(c);
@@ -252,6 +302,10 @@ function eligibility(c){
           : "Alzheimer's / dementia training not completed."});
     }
   }
+
+  // ── CAREGIVER PROFILE: new hires only, explicit false only (see profileGate) ──
+  const pg = profileGate(c);
+  if(pg.blocked) blockers.push({code:'caregiver_profile', kind:ELIG_AGENCY, why:pg.why});
 
   // ── OJT: a task until the 30-day deadline, a work restriction after ───
   /* A missed OJT deadline is a LAPSE — something that took work away from
@@ -414,6 +468,7 @@ function eligRecordRefDecision(c, outcome, note){
 root.CCElig = { chkStatus, trainStatus, refPolicy, refDecisionCovers, obDeriveStatus,
                 candidateProgress, hiringSnapshot,
                 fcsrRegStatus, eligibility, eligibilityFacts, eligEntry, eligRecord,
-                eligRecordRefDecision, ELIG_LEGAL, ELIG_MGMT,
+                eligRecordRefDecision, ELIG_LEGAL, ELIG_MGMT, ELIG_AGENCY,
+                PROFILE_REQUIRED_FROM, profileNewHire, profileGate,
                 _helpers:{ pd, addDays, daysLeft, fmtD, today } };
 })(typeof globalThis!=='undefined' ? globalThis : this);
