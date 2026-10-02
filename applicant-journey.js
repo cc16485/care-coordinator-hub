@@ -375,8 +375,8 @@ window.AP_JOURNEY = [
   "channel": "text + email",
   "rule": "Texts 8am–6pm Central only, never to someone whose application said no to texts, and they end with \"Reply STOP to opt out.\" The email always goes. Anything not sent is shown to the office and refused messages raise a Needs Attention card.",
   "subject": "Book your welcome call with Caring Companions",
-  "text": "Hi {first}, great news from Caring Companions! Your background check and references are complete. Next step: book a quick 15-minute welcome video call with our office here: https://cc.mo-care.com/welcome.html?w=.. Reply STOP to opt out.",
-  "email_summary": "Background and references complete; book a 15-minute welcome video call (button); on the call we check ID for paperwork, set up the AxisCare app and go over the caregiver profile; have the original ID documents uploaded in Viventium; join from the phone, no app needed.",
+  "text": "Hi {first}, great news from Caring Companions! Your background check and references are complete. Next step: a quick 15-minute welcome video call where we show you how to complete your paid orientation from your phone or computer. Book a time here: https://cc.mo-care.com/welcome.html?w=.. Reply STOP to opt out.",
+  "email_summary": "Background and references complete; a 15-minute welcome video call where we show them how to complete their paid orientation from their phone or computer (button: Book my welcome call); we also check ID for paperwork, set up the AxisCare app and go over the caregiver profile; have the original ID documents uploaded in Viventium; join from the phone, no app needed.",
   "shows_in_ghl": true,
   "failure_visible": true
  },
