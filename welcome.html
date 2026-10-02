@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Your welcome call · Caring Companions</title>
+<!--
+  Public welcome-call booking page (remote orientation, slice 1a, 2026-10-01).
+  The link carries ?w=<welcome_calls uuid>. This page never reads the table: it
+  only calls the security-definer functions in welcome_calls.sql
+  (Staffing-Coordinator-Hub repo): welcome_mine, welcome_open_slots,
+  welcome_book (book or move) and welcome_cancel. welcome_book raises
+  'TAKEN:', 'CLOSED:' or 'NOT_FOUND:'. Modelled on the booking part of the
+  website's apply.html.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy:#0D365F; --gold:#F0A63A; --bg:#faf9f6; --card:#fff; --border:#e4e1d8;
+         --text:#16283a; --muted:#6E6559; --green:#15803D; --red:#B00020;
+         --serif:'Source Serif 4',Georgia,serif; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+       line-height:1.55;-webkit-text-size-adjust:100%;}
+  .wrap{max-width:560px;margin:0 auto;padding:22px 16px 60px;}
+  header{text-align:center;padding:8px 0 4px;} header img{height:50px;}
+  h1{font-family:var(--serif);font-size:27px;line-height:1.25;font-weight:600;color:var(--navy);margin:14px 0 8px;text-align:center;}
+  .lede{font-size:15.5px;line-height:1.65;margin:0 auto 6px;max-width:440px;text-align:center;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin:16px 0 0;}
+  .lbl{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;}
+  .when{font-size:18px;color:var(--navy);line-height:1.5;}
+  .sub{font-size:13.5px;color:var(--muted);margin:0;line-height:1.55;}
+  .day{font-size:14.5px;font-weight:700;color:var(--navy);margin:0 0 8px;}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px;}
+  .chips button{font:inherit;font-size:15px;font-weight:600;padding:11px 16px;border-radius:10px;border:1px solid var(--border);background:#fff;color:var(--navy);cursor:pointer;min-width:96px;}
+  .chips button:disabled{opacity:.55;cursor:default;}
+  .join{display:block;text-align:center;background:var(--gold);color:#122F52;text-decoration:none;font-weight:700;font-size:17px;border-radius:11px;padding:16px;margin:14px 0 8px;}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+  .row button{flex:1 1 140px;font:inherit;font-size:15px;font-weight:600;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:#fff;color:var(--navy);cursor:pointer;}
+  .row button.cancel{color:var(--red);}
+  .row button:disabled{opacity:.55;cursor:default;}
+  .back{background:none;border:0;font:inherit;font-size:14px;color:var(--muted);cursor:pointer;padding:14px 0 0;text-decoration:underline;display:block;margin:0 auto;}
+  .err{color:var(--red);font-size:14px;margin:0 0 12px;line-height:1.5;}
+  .check{width:58px;height:58px;border-radius:50%;background:#dcfce7;color:var(--green);font-size:30px;line-height:58px;margin:8px auto 0;text-align:center;}
+  .note{background:#FFF7ED;border:1px solid #FCD9A8;border-radius:10px;padding:12px 14px;font-size:14.5px;margin:14px 0 0;}
+  .foot{text-align:center;font-size:13px;color:var(--muted);margin-top:24px;}
+  .foot a{color:var(--navy);font-weight:600;}
+  .hide{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions">
+  </header>
+
+  <div id="loadView"><p class="lede" style="margin-top:30px;">Loading…</p></div>
+
+  <!-- A message with nothing to do: invalid link, done, closed. -->
+  <div id="msgView" class="hide">
+    <div class="check" id="msgIcon">&#10003;</div>
+    <h1 id="msgHead"></h1>
+    <p class="lede" id="msgText"></p>
+  </div>
+
+  <!-- They have a time: join, move or cancel. -->
+  <div id="bookedView" class="hide">
+    <h1 id="bookedHead">Welcome back.</h1>
+    <div class="card">
+      <div class="lbl">Your welcome call</div>
+      <div class="when" id="bookedWhen"></div>
+      <a class="join" id="bookedJoin" href="#" target="_blank" rel="noopener">Join the video call</a>
+      <p class="sub" style="text-align:center;">At your call time, tap this button. No app needed.</p>
+      <div class="note">Please have the original ID documents you uploaded in Viventium with you.</div>
+      <div class="row">
+        <button type="button" onclick="startMove()">Move it</button>
+        <button type="button" class="cancel" onclick="cancelCall(this)">Cancel</button>
+      </div>
+      <p class="err hide" id="bookedErr" style="margin:12px 0 0;"></p>
+    </div>
+  </div>
+
+  <!-- Pick a time. -->
+  <div id="pickView" class="hide">
+    <h1 id="pickHead">Pick a time for your welcome call.</h1>
+    <p class="lede">A quick <b>15-minute video call</b> with our office. We will check your ID for your employment paperwork, help you set up the AxisCare app and go over your caregiver profile. You can join from your phone, no app needed.</p>
+    <div class="card">
+      <div id="slotsBody"><p class="sub">Finding times…</p></div>
+    </div>
+    <button class="back hide" id="keepBtn" type="button" onclick="keepTime()">Actually, keep the time I have</button>
+  </div>
+
+  <p class="foot">Questions? Call the office at <a href="tel:+14172348494">(417) 234-8494</a>.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+
+const TZ = 'America/Chicago';
+const MEET_FALLBACK = 'https://meet.google.com/yqj-nzuo-tgp';
+const g = id => document.getElementById(id);
+const dayLabel = d => d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', timeZone:TZ });
+const timeLabel = d => d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZone:TZ });
+const whenLabel = iso => { const d = new Date(iso); return dayLabel(d) + ' at ' + timeLabel(d); };
+const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+const W = (new URLSearchParams(location.search).get('w') || '').trim();
+let MINE = null;          // what welcome_mine returned
+let HAVE_BOOKING = false; // moving a time vs booking a first one
+
+function show(view){
+  ['loadView','msgView','bookedView','pickView'].forEach(v => g(v).classList.toggle('hide', v !== view));
+  window.scrollTo(0, 0);
+}
+function message(head, text, icon){
+  g('msgHead').textContent = head;
+  g('msgText').innerHTML = text;
+  g('msgIcon').innerHTML = icon || '&#10003;';
+  g('msgIcon').style.background = icon ? '#fdf1e3' : '#dcfce7';
+  g('msgIcon').style.color = icon ? '#b45309' : 'var(--green)';
+  show('msgView');
+}
+const INVALID = () => message('This link is not valid.', 'Call <a href="tel:+14172348494" style="color:var(--navy);font-weight:600;">(417) 234-8494</a> and we will help you book your welcome call.', '!');
+const CLOSED = () => message('This invitation is closed.', 'This welcome call invitation is no longer open. If you still need a welcome call, call <a href="tel:+14172348494" style="color:var(--navy);font-weight:600;">(417) 234-8494</a>.', '!');
+const meet = () => (MINE && MINE.meet) || MEET_FALLBACK;
+
+async function load(){
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(W)) { INVALID(); return; }
+  try {
+    const { data, error } = await sb.rpc('welcome_mine', { p_id: W });
+    if (error) throw error;
+    MINE = data;
+  } catch (e) {
+    console.error(e);
+    message('We could not load your invitation.', 'Please try again in a minute, or call <a href="tel:+14172348494" style="color:var(--navy);font-weight:600;">(417) 234-8494</a>.', '!');
+    return;
+  }
+  route();
+}
+function route(){
+  if (!MINE) { INVALID(); return; }
+  const st = MINE.status;
+  if (st === 'done') { message('Your welcome call is done.', 'Welcome to the team!'); return; }
+  if (st === 'cancelled') { CLOSED(); return; }
+  if (st === 'booked' && MINE.starts_at) { showBooked(); return; }
+  HAVE_BOOKING = false;
+  showPick();
+}
+function showBooked(){
+  HAVE_BOOKING = true;
+  g('bookedHead').textContent = 'Welcome back' + (MINE.first ? ', ' + MINE.first : '') + '.';
+  g('bookedWhen').innerHTML = 'You are booked for <b>' + esc(whenLabel(MINE.starts_at)) + '</b> (Central time).';
+  g('bookedJoin').href = meet();
+  g('bookedErr').classList.add('hide');
+  show('bookedView');
+}
+function showPick(){
+  g('pickHead').textContent = (MINE && MINE.first ? 'Hi ' + MINE.first + ', pick' : 'Pick') + (HAVE_BOOKING ? ' a new time for your welcome call.' : ' a time for your welcome call.');
+  g('keepBtn').classList.toggle('hide', !HAVE_BOOKING);
+  show('pickView');
+  loadSlots();
+}
+function startMove(){ showPick(); }
+function keepTime(){ showBooked(); }
+
+async function loadSlots(note){
+  const box = g('slotsBody');
+  box.innerHTML = (note ? '<p class="err">' + note + '</p>' : '') + '<p class="sub">Finding times…</p>';
+  try {
+    const { data: slots, error } = await sb.rpc('welcome_open_slots');
+    if (error) throw error;
+    if (!slots || !slots.length) {
+      box.innerHTML = (note ? '<p class="err">' + note + '</p>' : '') + '<p class="sub">We do not have times online just now. Call us at <a href="tel:+14172348494" style="color:var(--navy);font-weight:600;">(417) 234-8494</a> and we will set one up.</p>';
+      return;
+    }
+    /* Grouped by day, because "Tuesday" is how people think about it. */
+    const byDay = new Map();
+    slots.forEach(s => {
+      const d = new Date(s.starts_at);
+      const key = d.toLocaleDateString('en-CA', { timeZone: TZ });
+      if (!byDay.has(key)) byDay.set(key, { label: dayLabel(d), times: [] });
+      byDay.get(key).times.push({ iso: s.starts_at, label: timeLabel(d) });
+    });
+    box.innerHTML = (note ? '<p class="err">' + note + '</p>' : '')
+      + '<p class="sub" style="margin:0 0 14px;">Times are Central. Tap one to book it.</p>'
+      + [...byDay.values()].map(day =>
+          '<div class="day">' + esc(day.label) + '</div><div class="chips">'
+          + day.times.map(t => '<button type="button" data-iso="' + esc(t.iso) + '" onclick="bookSlot(this)">' + esc(t.label) + '</button>').join('')
+          + '</div>').join('');
+  } catch (e) {
+    console.error(e);
+    box.innerHTML = '<p class="sub">We could not load times just now. Please try again in a minute, or call <a href="tel:+14172348494" style="color:var(--navy);font-weight:600;">(417) 234-8494</a>.</p>';
+  }
+}
+
+async function bookSlot(btn){
+  const iso = btn.getAttribute('data-iso');
+  const all = [...document.querySelectorAll('#slotsBody button')];
+  all.forEach(b => b.disabled = true);
+  btn.textContent = 'Booking…';
+  try {
+    /* welcome_book both books and moves: it frees their old time first. */
+    const { error } = await sb.rpc('welcome_book', { p_id: W, p_starts: iso });
+    if (error) throw error;
+    const moved = HAVE_BOOKING;
+    MINE = Object.assign({}, MINE, { status: 'booked', starts_at: iso });
+    showBooked();
+    g('bookedHead').textContent = moved ? 'All moved.' : 'You are booked' + (MINE.first ? ', ' + MINE.first : '') + '.';
+  } catch (e) {
+    const m = String(e && e.message || '');
+    console.error(e);
+    if (/NOT_FOUND/.test(m)) { INVALID(); return; }
+    if (/CLOSED/.test(m)) { CLOSED(); return; }
+    /* TAKEN, or anything else: reload rather than leave a time that no longer exists. */
+    loadSlots(/TAKEN/.test(m) ? 'That time was just taken, here are the ones still free.' : 'That did not go through. Please pick a time again.');
+  }
+}
+
+async function cancelCall(btn){
+  if (!confirm('Cancel your welcome call? You can pick a new time right after.')) return;
+  btn.disabled = true;
+  try {
+    const { error } = await sb.rpc('welcome_cancel', { p_id: W });
+    if (error) throw error;
+    HAVE_BOOKING = false;
+    MINE = Object.assign({}, MINE, { status: 'invited', starts_at: null });
+    showPick();
+    g('pickHead').textContent = 'Your call is cancelled. Pick a new time when you are ready.';
+  } catch (e) {
+    console.error(e);
+    g('bookedErr').textContent = 'That did not go through. Call us at (417) 234-8494 and we will cancel it for you.';
+    g('bookedErr').classList.remove('hide');
+  } finally { btn.disabled = false; }
+}
+
+load();
+</script>
+</body>
+</html>
