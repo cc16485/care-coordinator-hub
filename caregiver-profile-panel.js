@@ -75,17 +75,22 @@
     return '<span class="badge" title="Caregiver profile" style="background:' + s[1] + ';color:' + s[2] + ';font-size:.66rem;font-weight:700;border-radius:999px;padding:.12rem .55rem;white-space:nowrap">🪪 ' + esc(s[0]) + '</span>';
   }
   function rowFor(candidateId) { return BY_CAND[String(candidateId)] || null; }
+  /* 2c: whether the chips on lists can be trusted. A failed load is said on the list, never shown as "Not started". */
+  var CACHE = { ok: false, err: '' };
   async function loadForCandidates(ids) {
-    var c = client(); if (!c) return;
+    var c = client(); if (!c) { CACHE.err = 'not signed in'; return; }
     ids = Array.from(new Set((ids || []).map(String).filter(Boolean)));
-    if (!ids.length) return;
+    if (!ids.length) { CACHE.ok = true; return; }
     try {
       var r = await c.from('caregiver_profiles').select(COLS).in('candidate_id', ids).neq('status', 'withdrawn');
       if (r.error) throw r.error;
       ids.forEach(function (id) { if (!(r.data || []).some(function (x) { return String(x.candidate_id) === id; })) delete BY_CAND[id]; });
       (r.data || []).forEach(function (x) { BY_CAND[String(x.candidate_id)] = x; });
-    } catch (e) { console.warn('caregiver profiles load failed:', e); }
+      CACHE.ok = true; CACHE.err = '';
+    } catch (e) { CACHE.err = (e && e.message) || 'error'; console.warn('caregiver profiles load failed:', e); }
   }
+  function cacheState() { return { ok: CACHE.ok, err: CACHE.err }; }
+  function isLive(row) { return !!(row && row.published && row.status !== 'withdrawn'); }
 
   /* The function: office actions carry the staff member's own sign-in. */
   async function call(body, fn) {
@@ -433,6 +438,130 @@
     await reload(k);
   }
 
+  /* =============================================================================
+     2c · PROFILE BEFORE THE FIRST SHIFT (2026-10-01)
+     Samantha: "must have profile before can start work. The video is encouraged, the photo is required."
+     NEW HIRES ONLY (the rule and the "new hire" line live in eligibility-rules.js: CCElig.profileGate). This part only
+     looks the profiles up, ONE query for everybody, with the SAME order find() uses for an employee: their AxisCare id
+     first, then the candidate id the Hub carried over when they were promoted. A name match is only a suggestion the
+     office confirms in the panel ("Yes, link it"), so it never counts as having a profile here.
+     The answer is handed to the rule as profile_published on a COPY of the caregiver record. It is never saved on the
+     record, so the server sweep and the obligations runner (which never fill it) see "unknown", and unknown never blocks.
+       CGP2.gateLoad(roster, force)   load (cached 3 minutes); roster = the Hub's app_data caregivers. Each finished
+                                      load fires window 'cgp-gate-changed' so the lists redraw.
+       CGP2.gateFor(g)                the rule's answer for one Hub caregiver record
+       CGP2.gateForAx(axid, name)     the same, found by AxisCare id (then a unique exact name) in the last roster
+       CGP2.gateHtml(g, pg)           "Profile needed before first shift" + the button to open their profile ('' if not)
+       CGP2.gateOverride(list, what)  a deliberate go-ahead with a typed reason, saved with who and when
+     ============================================================================= */
+  var G = { at: 0, err: '', rows: null, wc: null, roster: [], busy: null };
+  var GCTX = {}, gseq = 0;
+  function rulesReady() {
+    if (root.CCElig && root.CCElig.profileGate) return Promise.resolve(true);
+    return new Promise(function (res) {
+      var t = document.getElementById('cceligrules');
+      if (!t) {
+        /* same id as the engine's loader, so it is never loaded twice; ordered, so the engine still runs after it */
+        t = document.createElement('script'); t.id = 'cceligrules'; t.src = 'eligibility-rules.js?v=' + Date.now(); t.async = false;
+        document.head.appendChild(t);
+      }
+      var n = 0, iv = setInterval(function () {
+        if (root.CCElig && root.CCElig.profileGate) { clearInterval(iv); res(true); }
+        else if (++n > 100) { clearInterval(iv); res(false); }
+      }, 100);
+    });
+  }
+  function pick(rows, axId, candId) {
+    var a = axId ? rows.find(function (r) { return String(r.axiscare_id || '') === String(axId); }) : null;
+    if (a) return a;
+    return (candId != null && candId !== '') ? (rows.find(function (r) { return String(r.candidate_id || '') === String(candId); }) || null) : null;
+  }
+  async function gateLoad(roster, force) {
+    if (Array.isArray(roster)) G.roster = roster;
+    if (!force && G.at && !G.err && Date.now() - G.at < 3 * 60000) return G;
+    if (G.busy) return G.busy;
+    G.busy = (async function () {
+      try {
+        var c = client(); if (!c) throw new Error('not signed in');
+        if (!(await rulesReady())) throw new Error('the eligibility rules did not load');
+        var r = await c.from('caregiver_profiles').select('id,candidate_id,axiscare_id,published,status,updated_at').neq('status', 'withdrawn').order('updated_at', { ascending: false });
+        if (r.error) throw r.error;
+        var w = await c.from('welcome_calls').select('candidate_id,status');
+        if (w.error) throw w.error;
+        var wc = {}; (w.data || []).forEach(function (x) { if (x.candidate_id != null && x.status !== 'cancelled') wc[String(x.candidate_id)] = true; });
+        G.rows = r.data || []; G.wc = wc; G.err = '';
+      } catch (e) { G.err = (e && e.message) || 'error'; console.warn('caregiver profile check failed:', e); }
+      G.at = Date.now(); G.busy = null;
+      /* every list showing the gate redraws on this (the Training tab, coverage, Team Builder, the first-shift checklist) */
+      try { root.dispatchEvent(new CustomEvent('cgp-gate-changed')); } catch (e) { /* a redraw is a nicety */ }
+      return G;
+    })();
+    return G.busy;
+  }
+  function gateFor(g) {
+    var E = root.CCElig;
+    if (!g || !E || !E.profileGate) return { new_hire: false, checked: false, published: false, blocked: false, why: '', err: G.err || (g ? 'the eligibility rules have not loaded' : '') };
+    var row = G.rows ? pick(G.rows, g.axiscare_id, g.candidate_id) : null;
+    var rec = Object.assign({}, g, {
+      profile_published: G.rows ? isLive(row) : undefined,
+      has_welcome_call: G.wc ? !!(g.candidate_id != null && G.wc[String(g.candidate_id)]) : undefined });
+    var pg = E.profileGate(rec);
+    pg.row = row; pg.err = G.err; pg.loaded = !!G.rows;
+    return pg;
+  }
+  function norm(s) { return String(s || '').toLowerCase().replace(/[^a-z]/g, ''); }
+  function rosterFind(axid, name) {
+    var r = G.roster || [];
+    var g = axid ? r.find(function (x) { return x && String(x.axiscare_id || '') === String(axid); }) : null;
+    if (g || !name) return g || null;
+    var n = norm(name), hits = r.filter(function (x) { return x && norm((x.first || '') + (x.last || '')) === n; });
+    return hits.length === 1 ? hits[0] : null;            // a shared name is never guessed
+  }
+  function gateForAx(axid, name) { var g = rosterFind(axid, name); return g ? Object.assign(gateFor(g), { g: g }) : null; }
+  function gateCtx(g) {
+    var ax = g.axiscare_id ? String(g.axiscare_id) : '', cand = g.candidate_id != null ? String(g.candidate_id) : '';
+    var base = { first: g.first || '', last: g.last || '', phone: g.phone || g.mobile || '', email: g.email || '',
+      onChange: function () { gateLoad(null, true); } };
+    /* AxisCare id known: the employee view (it can also link a name match). Not yet in AxisCare: their onboarding profile. */
+    return ax ? Object.assign(base, { mode: 'employee', axiscare_id: ax, legacy_candidate_id: cand })
+              : Object.assign(base, { mode: 'onboarding', candidate_id: cand });
+  }
+  function gateOpen(k) { var ctx = GCTX[k]; if (!ctx) { alert('Refresh the page and try again.'); return; } open(ctx); }
+  function gateHtml(g, pg) {
+    pg = pg || gateFor(g);
+    if (!g) return '';
+    var k = 'g' + (++gseq); GCTX[k] = gateCtx(g);
+    var b = '<button class="ibtn" style="font-size:.7rem;padding:.15rem .5rem" onclick="event.stopPropagation();CGP2.gateOpen(\'' + k + '\')">🪪 Open their profile</button>';
+    if (pg.blocked) return '<span style="display:inline-flex;align-items:center;gap:.35rem;flex-wrap:wrap"><span class="badge" title="' + esc(pg.why) + '" style="background:#FEE2E2;color:#991B1B;font-size:.68rem;font-weight:700;border-radius:999px;padding:.12rem .55rem;white-space:nowrap">🪪 Profile needed before first shift</span>' + b + '</span>';
+    if (pg.new_hire && !pg.checked && pg.err) return '<span style="display:inline-flex;align-items:center;gap:.35rem;flex-wrap:wrap"><span class="badge" style="background:#FEF3C7;color:#92400E;font-size:.68rem;font-weight:700;border-radius:999px;padding:.12rem .55rem">Could not check their caregiver profile: ' + esc(pg.err) + '</span>' + b + '</span>';
+    return '';
+  }
+  /* NOT A SILENT BYPASS: going ahead for a new hire with no published profile (emergency coverage, say) takes a typed
+     reason, and the reason, who and when are saved to the office event log. Cancel stops the action. */
+  async function gateOverride(list, what) {
+    list = (list || []).filter(Boolean); if (!list.length) return true;
+    var names = list.map(function (x) { return x.name; }).join(', ');
+    var why = prompt(names + (list.length === 1 ? ' is a new hire whose caregiver profile is not published yet.' : ' are new hires whose caregiver profiles are not published yet.')
+      + ' New hires need a published profile, with their photo, before their first shift.\n\n'
+      + 'To ' + what + ' anyway (for example, emergency coverage), type the reason. It is saved with your name and the time.\n\n'
+      + 'Press Cancel to stop and publish the profile first.');
+    if (why === null) return false;
+    why = String(why).trim();
+    if (!why) { alert('A reason is needed to go ahead. Nothing was done.'); return false; }
+    var c = client(), email = '';
+    try { var s = await c.auth.getSession(); email = (s && s.data && s.data.session && s.data.session.user && s.data.session.user.email) || ''; } catch (e) { /* recorded without the email */ }
+    var at = new Date().toISOString();
+    var r = null;
+    try {
+      r = await c.from('op_events').insert({ actor_email: email, actor_name: email.split('@')[0], verb: 'profile_gate_override',
+        item_id: list.map(function (x) { return x.axiscare_id || x.id || x.name; }).join(','), area: 'caregiver_profile',
+        summary: (email.split('@')[0] || 'Someone') + ' went ahead (' + what + ') for ' + names + ' without a published profile. Reason: ' + why,
+        data: { action: what, reason: why, at: at, by: email, caregivers: list.map(function (x) { return { name: x.name, axiscare_id: x.axiscare_id || null, hub_id: x.id || null }; }) } });
+    } catch (e) { r = { error: e }; }
+    if (r && r.error) return confirm('Your reason could not be saved (' + ((r.error && r.error.message) || r.error) + ').\n\nGo ahead anyway? If you do, tell Samantha the reason.');
+    return true;
+  }
+
   /* The pop-over, for lists (welcome calls, the Ready for Orientation queue, the Background tab). */
   function open(ctx) {
     var old = document.getElementById('cgp2-pop'); if (old) old.remove();
@@ -455,5 +584,7 @@
 
   root.CGP2 = { mount: mount, open: open, close: close, act: act, link: link, upload: upload, reload: reload,
     chipHtml: chipHtml, status: status, rowFor: rowFor, loadForCandidates: loadForCandidates, prompts: prompts, noDash: noDash,
-    introPick: introPick, introReason: introReason, cardName: cardName, photoOf: photoOf };
+    introPick: introPick, introReason: introReason, cardName: cardName, photoOf: photoOf,
+    cacheState: cacheState, isLive: isLive,
+    gateReady: function () { return !!G.rows; }, gateLoad: gateLoad, gateFor: gateFor, gateForAx: gateForAx, gateHtml: gateHtml, gateOpen: gateOpen, gateOverride: gateOverride };
 })(typeof window !== 'undefined' ? window : globalThis);

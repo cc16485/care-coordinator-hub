@@ -4240,7 +4240,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-step"><span class="num">1</span>A launch opens here <b>on its own</b> when a lead's Start of Care reaches Ready for Staffing (all business steps done, AxisCare client linked). Clients created directly in AxisCare arrive through the safety net. There's no routine reason to add one by hand — the Launch Exception link exists for deliberate cases like a readmission where staff decides a new Start of Care isn't needed, and it requires a written reason.</div>
 <div class="guide-step"><span class="num">2</span>Each card is the whole launch, in order: assign the caregiver, brief the caregiver, confirm with the client (notes required on both calls, since they're what saves you when anyone asks "what was agreed"), enter the schedule, verify EVV is ready, first shift completed, then the 24–72 hour follow-ups with the client AND the caregiver. Medicaid launches add the DSDS services-began notice. The caregiver, the schedule and the first shift are read from AxisCare when you open the card: do them in AxisCare as usual and the card fills in. The first shift counts only when AxisCare shows a real clock-in and clock-out, and that date becomes the client's Actual SOC. If AxisCare can't show it, record it by hand with a reason.</div>
 <div class="guide-step"><span class="num">3</span>The scheduling summary note pushes to the client's AxisCare profile when the schedule step is confirmed. When every step and both notes are done, <b>Launch Complete</b> closes the episode. A client who is later discharged and returns gets a fresh episode (Episode 2, 3…) — history is never overwritten.</div>
-<div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation + ALZ Training before their first client, check the Caregivers section before scheduling anyone new. And always check the Do-Not-Return log (Care Match Check-ins tab) before assigning. Launch Complete is our operational finish line; whether a client is <i>active</i> is always AxisCare's call, shown on the Clients board.</div>
+<div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation + ALZ Training before their first client, check the Caregivers section before scheduling anyone new. A new hire also needs a published caregiver profile (photo required) before their first shift; the Hub shows <b>Profile needed before first shift</b> until it is. And always check the Do-Not-Return log (Care Match Check-ins tab) before assigning. Launch Complete is our operational finish line; whether a client is <i>active</i> is always AxisCare's call, shown on the Clients board.</div>
 </div>
 </details>
 
@@ -15985,7 +15985,7 @@ async function cgdOpenProfile(axid){
       +kv('GHL communications', '<span id="cgdGhlLink">resolving…</span>')
       +'</div>'
       +'<div class="field-note" style="margin-top:6px;">Assigned hours · current clients · last worked · attendance arrive with Performance &amp; Work (Phase 2).</div>')
-    +card('Anything in the way of scheduling?','<div id="cgdReady"><div class="field-note">Checking…</div></div>')
+    +card('Anything in the way of scheduling?','<div id="cgdProfGate"></div><div id="cgdReady"><div class="field-note">Checking…</div></div>')
     +'</div>'
 
     /* Caregiver profile (2a, 2026-10-01; Samantha: "can their profile link be linked in the employees profile so we
@@ -16024,17 +16024,74 @@ async function cgdOpenProfile(axid){
   cgdRenderSkills(c,g);
   try{ if(window.CGP2) CGP2.mount(document.getElementById('cgdCgp'), { mode:'employee', axiscare_id:String(c.id),
     legacy_candidate_id:(g&&g.candidate_id!=null)?String(g.candidate_id):'', first:c.first||'', last:c.last||'',
-    phone:c.mobile||'', email:c.email||'', chipEl:'cgdCgpChip' });
+    phone:c.mobile||'', email:c.email||'', chipEl:'cgdCgpChip', onChange:function(){ if(window.CGP2) CGP2.gateLoad(null,true); } });
     else { const h=document.getElementById('cgdCgp'); if(h) h.innerHTML='<div class="field-note">Caregiver profiles did not load. Refresh the page.</div>'; } }catch(e){ console.warn('caregiver profile panel:', e); }
   cgdKnowledgeLoad(String(c.id));
   cgdHiringLoad(String(c.id), lvl);
   cgdLoadThread(c,nm);
   cgdLoadTraining(c,nm);
   cgdLoadReadiness(c);
+  cgdProfGateMount(c,g);
   cgdPrnMount(c);
   cgdMissedNotesMount(c);
   try{ cgdLateMount(c); }catch(_){}
   try{ document.getElementById('tab-cgdir').scrollIntoView({block:'start'}); }catch(e){}
+}
+
+/* ═══ PROFILE BEFORE THE FIRST SHIFT (part 2, slice 2c, 2026-10-01) ═══════════
+   Samantha: "must have profile before can start work. The video is encouraged,
+   the photo is required." NEW HIRES ONLY: the rule and the "new hire" line are
+   CCElig.profileGate (eligibility-rules.js); the lookup is the profile panel's
+   own (CGP2.gateLoad / gateFor, one query, AxisCare id then the candidate id
+   carried over at promotion). Current caregivers are never shown as blocked.
+   Every list here is keyed by AxisCare id (or a unique exact name), so the
+   Hub's caregiver roster is the bridge to hire date and candidate id; somebody
+   not on the roster is not judged at all.
+   Where a person OFFERS work (Send Text Asking, coverage texts, confirming who
+   covers) it is a confirm override with a typed reason, saved with who and
+   when, never a silent bypass and never a hard stop: emergency coverage must
+   still be possible. Lists only flag; they never hide anybody. */
+let _cgpgHubKick=false, _cgdProfG=null, _cgpgCovStale=false;
+function cgpgAx(axid,name){
+  if(!window.CGP2||!CGP2.gateForAx) return null;
+  if(!_cgpgHubKick){ _cgpgHubKick=true; window.addEventListener('cgp-gate-changed', cgpgHubRedraw); CGP2.gateLoad(DATA.caregivers||[]); }
+  if(!CGP2.gateReady()) _cgpgCovStale=true;
+  return CGP2.gateForAx(axid,name);
+}
+function cgpgAxHtml(axid,name){ const pg=cgpgAx(axid,name); return pg&&pg.g?CGP2.gateHtml(pg.g,pg):''; }
+/* The first-shift checklist only knows the typed name (AxisCare does the assigning), so this is display only. */
+function cqProfGateHtml(name){
+  const h=cgpgAxHtml('',name);
+  return h?'<div style="margin-top:.3rem;font-weight:400;">'+h+' <span class="field-note">Publish it before their first shift.</span></div>':'';
+}
+function cgpgHubRedraw(){
+  /* coverage redraws only if it was drawn before the check answered, so ticks someone changed are never reset */
+  try{ if(_cgpgCovStale&&CGP2.gateReady()&&activeTab==='coverage'){ _cgpgCovStale=false; renderCoverage(); } }catch(e){}
+  try{ if(TB&&TB.cellOpen&&document.getElementById('tbPoolList')) tbPoolFilter(TB.poolQ||''); }catch(e){}
+  try{ if(_cgdProfG) cgdProfGateDraw(); }catch(e){}
+  try{ if(typeof window.cqRedraw==='function') window.cqRedraw(); }catch(e){}
+}
+/* people = [{axiscare_id, name}]. true = go ahead (nobody blocked, or a reason was given and saved). */
+async function cgpgBeforeOffer(people, what){
+  if(!window.CGP2||!CGP2.gateLoad) return true;
+  await CGP2.gateLoad(DATA.caregivers||[]);
+  const hits=[];
+  (people||[]).forEach(p=>{ const pg=CGP2.gateForAx(p.axiscare_id,p.name); if(pg&&pg.blocked) hits.push({ name:p.name, axiscare_id:p.axiscare_id||(pg.g&&pg.g.axiscare_id)||null, id:pg.g&&pg.g.id }); });
+  return CGP2.gateOverride(hits, what);
+}
+/* The employee page: the first thing in "Anything in the way of scheduling?" */
+function cgdProfGateMount(c,g){
+  _cgdProfG={ c, g: g || (DATA.caregivers||[]).find(x=>String(x.axiscare_id||'')===String(c.id)) || null };
+  if(window.CGP2&&CGP2.gateLoad){ if(!_cgpgHubKick){ _cgpgHubKick=true; window.addEventListener('cgp-gate-changed', cgpgHubRedraw); } CGP2.gateLoad(DATA.caregivers||[]); }
+  cgdProfGateDraw();
+}
+function cgdProfGateDraw(){
+  const el=document.getElementById('cgdProfGate'); if(!el||!_cgdProfG) return;
+  const g=_cgdProfG.g; if(!g||!window.CGP2){ el.innerHTML=''; return; }
+  const pg=CGP2.gateFor(Object.assign({}, g, { axiscare_id: g.axiscare_id || String(_cgdProfG.c.id) }));
+  const h=CGP2.gateHtml(Object.assign({}, g, { axiscare_id: g.axiscare_id || String(_cgdProfG.c.id) }), pg);
+  el.innerHTML=h?'<div style="background:#FFF5F5;border:1.5px solid #F5B5B5;border-radius:9px;padding:.5rem .7rem;margin-bottom:.5rem;font-size:.8rem;">'
+    +h+(pg.blocked?'<div class="field-note" style="margin-top:.3rem;">New hires need a published caregiver profile, with their photo, before their first client visit. The video is encouraged, not required.</div>':'')+'</div>':'';
 }
 
 /* ═══ PRN CNA TEAM on the caregiver page (PRN2, 2026-09-29) ════════════════
@@ -32713,6 +32770,8 @@ function tbPoolListHtml(plan,key){
     if(x.conflicts.length) flags.push('<b style="color:var(--red);">📅 '+esc(x.conflicts[0])+'</b>');
     if(x.sameTown) flags.push('<b style="color:var(--green);">📍 same town</b>'); else if(x.cg.city) flags.push('📍 '+esc(x.cg.city));
     flags.push((x.proj>40?'<b style="color:var(--red);">would be '+Math.round(x.proj)+'h/wk ⚠ OT</b>':'~'+Math.round(x.proj)+'h/wk with this'));
+    var pgH=cgpgAxHtml(x.cg.axiscare_id,x.cg.name);   /* 2c: new hire, profile not published (flagged, never hidden) */
+    if(pgH) flags.unshift(pgH);
     return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
       +'<b style="min-width:130px;">'+esc(x.cg.name)+'</b>'
       +'<span class="field-note" style="flex:1;">'+flags.join(' · ')+'</span>'
@@ -32858,6 +32917,10 @@ async function tbAskOpen(key){
       else if(lv&&cg.level==null) row('?','#8A4E0C','Their care level isn\'t on file (client is Level '+lv+').');
       if(plan.city&&cg.city) row(plan.city.toLowerCase()===cg.city.toLowerCase()?'✓':'·', plan.city.toLowerCase()===cg.city.toLowerCase()?'var(--green)':'var(--text-muted)', plan.city.toLowerCase()===cg.city.toLowerCase()?'Lives in '+esc(plan.city)+'.':'Lives in '+esc(cg.city)+'; the client is in '+esc(plan.city)+'.');
     }
+    /* 2c: a new hire with no published caregiver profile */
+    var pgA=cgpgAx(axId,name);
+    if(pgA&&pgA.blocked) row('✗','var(--red)','Profile needed before first shift: '+esc(name)+' is a new hire and their caregiver profile is not published yet. '+CGP2.gateHtml(pgA.g,pgA)+' You can still send, with a reason.');
+    else if(pgA&&pgA.new_hire&&!pgA.checked&&pgA.err) row('?','#8A4E0C','Could not check their caregiver profile ('+esc(pgA.err)+').');
     var again=ks.map(askedOn).filter(Boolean);
     if(again.length) row('⚠','#8A4E0C','You already texted them about '+ks.filter(function(k){ return askedOn(k); }).map(function(k){ return TB_DAYL[k.split('|')[0]]; }).join(', ')+' ('+esc(tbAgo(again[0].sent_at))+').');
     $('#taChecks').innerHTML='<div style="background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:7px 10px;"><div style="font-weight:700;font-size:12px;color:var(--navy);margin-bottom:2px;">Before you send</div>'+rows.join('')+'</div>';
@@ -32875,6 +32938,7 @@ async function tbAskOpen(key){
     var ks=picked(), msg=$('#taMsg').value.trim(), res=$('#taRes');
     if(!ks.length){ res.innerHTML='<div class="field-note" style="color:var(--red);">Pick at least one shift.</div>'; return; }
     if(!msg||msg.length>640){ res.innerHTML='<div class="field-note" style="color:var(--red);">The text is '+(msg?'too long':'empty')+'.</div>'; return; }
+    if(!(await cgpgBeforeOffer([{axiscare_id:axId,name:name}],'send this text'))){ res.innerHTML='<div class="field-note" style="color:var(--red);">Not sent.</div>'; return; }
     this.disabled=true; this.textContent='Sending…';
     var d; try{ d=await taCall({action:'send',plan_id:plan.id,caregiver_axiscare_id:axId,caregiver_name:name,cells:ks,message:msg,ask_id:askId}); }catch(e){ d={error:String(e.message||e)}; }
     if(d&&(d.outcome==='sent'||d.outcome==='already_sent')){
@@ -33849,6 +33913,11 @@ async function covResolve(id,how,byName){
   if(how==='covered' && !by && yesL.length===1) by=yesL[0].name;
   if(how==='covered' && !by && c.pending_fill && c.pending_fill.name) by=c.pending_fill.name;
   if(how==='covered' && !by){ by=prompt('Covered by whom?'); if(!by||!by.trim()) return; by=by.trim(); }
+  /* 2c: confirming a new hire with no published caregiver profile takes a reason (saved with who and when) */
+  if(how==='covered' && by){
+    const ask=(c.asked||[]).find(a=>String(a.name||'').toLowerCase().trim()===String(by).toLowerCase().trim());
+    if(!(await cgpgBeforeOffer([{axiscare_id:(ask&&ask.axiscare_id)||'',name:by}],'confirm them for this shift'))) return;
+  }
   /* THE OTHERS WHO SAID YES (her rule, 2026-09-19): the coordinator decides
      what they hear — the default thank-you, custom wording, or nothing. */
   if(how==='covered'){
@@ -33993,9 +34062,11 @@ function covPickerHtml(c){
     /* Anyone already scheduled during the proposed time wears the red
        calendar with EXACTLY what they're working, and starts unchecked —
        sending to them is a deliberate tick, never an accident. */
+    /* 2c: a new hire whose caregiver profile is not published starts unchecked and says why (never hidden) */
+    const pgRow=x=>{ const pg=cgpgAx(x.axiscare_id,x.name); return pg&&pg.blocked?pg:null; };
     const row=(x,g,checked)=>'<label style="display:flex;gap:8px;align-items:baseline;font-size:13px;padding:2.5px 0;cursor:pointer;">'
-      +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'"'+((checked&&!x.working_then)?' checked':'')+' style="width:auto;">'
-      +'<b>'+esc(x.name)+'</b><span class="field-note">'+esc(x.why)
+      +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'" data-ax="'+esc(String(x.axiscare_id||''))+'"'+((checked&&!x.working_then&&!pgRow(x))?' checked':'')+' style="width:auto;">'
+      +'<b>'+esc(x.name)+'</b><span class="field-note">'+(pgRow(x)?cgpgAxHtml(x.axiscare_id,x.name)+' · ':'')+esc(x.why)
       +(x.level?' · Level '+x.level:'')+(x.wants_more_hours?' · wants +'+x.wants_more_hours+'h':'')
       +(x.city?' · 📍 '+esc(x.city)+(x.same_town?' <b style="color:var(--green);">same town</b>':(x.miles!=null?' ~'+x.miles+' mi':'')):'')
       +(x.this_client&&x.this_client.favorite?' · <b style="color:var(--green);">💛 this client\'s ⭐ favorite</b>'
@@ -34071,6 +34142,9 @@ async function covPickSend(id,includeG2){
   /* PRN3: whoever is ticked in the PRN groups is always included; the buttons say so. */
   const names=[...sel(0),...sel('o'),...(includeG2?[...sel(1),...sel(2)]:sel(1))];
   if(!names.length){ alert('Nobody is checked — nothing to send.'); return; }
+  /* 2c: anyone ticked who is a new hire without a published profile needs a reason to go ahead */
+  const axOf={}; document.querySelectorAll('input[data-pick="'+id+'"]').forEach(el=>{ if(el.checked) axOf[el.value]=el.getAttribute('data-ax')||''; });
+  if(!(await cgpgBeforeOffer(names.map(n=>({axiscare_id:axOf[n]||'',name:n})),'text them about this shift'))) return;
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id);
   const isInterest=c&&String(c.kind)==='interest';
   /* Late-night check: the button works around the clock on purpose (a human
@@ -36569,6 +36643,8 @@ window.covLoadShifts=function(){};
     if(QUEUE===null||force===true){ if(!(await loadQueue())) return; autoConvertLeads(); }
     renderQueue();
   };
+  /* 2c: redraw (never reload) when the caregiver profile check answers */
+  window.cqRedraw=function(){ if(QUEUE!==null) renderQueue(); };
   /* The Zapier handoff knows when a lead became a real AxisCare client.
      Changed 2026-09-26 (her ruling): a NAME match is only a suggestion, never a
      write. Identity is attached by a person, with both records side by side.
@@ -36756,7 +36832,8 @@ window.covLoadShifts=function(){};
         if(s.f==='caregiver_assigned'){
           extra=(done&&!c.caregiver_assigned_name?'<input type="text" placeholder="Enter caregiver name…" onblur="cqCgName(\''+E(c.id)+'\',this.value)" onclick="event.stopPropagation()" style="margin-top:.3rem;width:100%;padding:.3rem .55rem;border:1.5px solid #86efac;border-radius:6px;font-family:inherit;font-size:.75rem;background:#fff;box-sizing:border-box">':'')
                +(c.caregiver_assigned_name?'<div style="font-size:.73rem;font-weight:600;color:#166534;margin-top:.2rem">👤 '+E(c.caregiver_assigned_name)
-                 +' <button class="linklike" style="font-size:.7rem;margin-left:.4rem" onclick="event.stopPropagation();cqCgCheck(\''+E(c.id)+'\')">🔎 Shadow readiness check</button></div>':'');
+                 +' <button class="linklike" style="font-size:.7rem;margin-left:.4rem" onclick="event.stopPropagation();cqCgCheck(\''+E(c.id)+'\')">🔎 Shadow readiness check</button>'
+                 +cqProfGateHtml(c.caregiver_assigned_name)+'</div>':'');
         }
         if(s.f==='schedule_added'&&c.sched_note_pushed_at)
           extra+='<div style="font-size:.67rem;color:#166534;margin-top:.15rem">📋 Scheduling note pushed to AxisCare '+fmtTs(c.sched_note_pushed_at)+'</div>';
@@ -36788,7 +36865,8 @@ window.covLoadShifts=function(){};
                     first_shift_done:['First shift completed','Counts only when AxisCare shows a real clock-in and clock-out. A scheduled visit never counts.']}[s.f];
           const axRow=((LEV[c.id]&&LEV[c.id].data&&LEV[c.id].data.evidence)||[]).some(r=>r.fact===LE_STEP[s.f]&&r.source==='axiscare');
           const nameLine=s.f==='caregiver_assigned'&&c.caregiver_assigned_name?'<div style="font-size:.73rem;font-weight:600;color:#166534;margin-top:.2rem">👤 '+E(c.caregiver_assigned_name)
-              +' <button class="linklike" style="font-size:.7rem;margin-left:.4rem" onclick="event.stopPropagation();cqCgCheck(\''+E(c.id)+'\')">🔎 Shadow readiness check</button></div>':'';
+              +' <button class="linklike" style="font-size:.7rem;margin-left:.4rem" onclick="event.stopPropagation();cqCgCheck(\''+E(c.id)+'\')">🔎 Shadow readiness check</button>'
+              +cqProfGateHtml(c.caregiver_assigned_name)+'</div>':'';
           return '<div style="padding:.5rem .7rem;border-radius:8px;border:1.5px solid '+(done?'#86efac':'var(--border)')+';background:'+(done?'#f0fdf4':'#fafafa')+'">'
             +'<div style="display:flex;align-items:flex-start;gap:.65rem">'
             +'<span title="Read from AxisCare" style="display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;border-radius:50%;flex-shrink:0;margin-top:.15rem;font-size:.62rem;font-weight:700;background:'+(done?'#22c55e':'#E8E2D8')+';color:#fff">'+(done?'✓':'')+'</span>'

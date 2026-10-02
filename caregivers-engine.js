@@ -1343,6 +1343,9 @@ function renderStaffHome(){
   }
   const today10=new Date().toISOString().slice(0,10);
   let blocked=0; try{ blocked=(caregivers||[]).filter(c=>{try{return !trainStatus(c).preContactDone;}catch(e){return false;}}).length; }catch(e){}
+  /* 2c: new hires whose caregiver profile is not published (null until the lookup answers) */
+  let profN=null; try{ const st=(caregivers||[]).map(c=>cgpgFor(c)).filter(Boolean);
+    if(st.length && st[0].loaded) profN=st.filter(x=>x.blocked).length; }catch(e){}
   const attN=(typeof attCaregivers==='function')?attCaregivers().reduce((a,cg)=>a+attStatus(cg).triggers.length,0)+DISC_ACTIONS.filter(a=>a.status==='draft'||a.status==='approved').length:0;
   const reqN=STASKS.filter(t=>t.direction==='to_staffing'&&t.status==='open').length;
   const repN=(_repliesData&&_repliesData.replies)?_repliesData.replies.length:null;
@@ -1379,6 +1382,7 @@ function renderStaffHome(){
     +'<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gray);text-transform:uppercase;margin:.8rem 0 .4rem">📋 Onboarding &amp; Compliance</div>'
     +row('🤝',offN,'New offers — enter AxisCare attributes','Interviewed caregivers waiting on their profile checklist','offers',false)
     +row('⛔',blocked,'Blocked from first client contact','Orientation/dementia training incomplete — can\'t be scheduled yet','training',true)
+    +row('🪪',profN,'New hires: profile needed before first shift','Publish their caregiver profile (photo required) before their first client visit','training',true)
     +row('⏰',attN,'Attendance needs action','Write-ups due, drafted, or approved and ready to issue','attendance',true)
     +'<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gray);text-transform:uppercase;margin:.8rem 0 .4rem">🤝 Team &amp; Reports</div>'
     +row('📨',reqN,'Coordinator requests waiting','Coverage gaps, do-not-returns, hours changes from the coordinators','coordreq',true)
@@ -2303,6 +2307,28 @@ function eligibility(c){ return __elig().eligibility(c); }
 function eligibilityFacts(c){ return __elig().eligibilityFacts(c); }
 function eligRecord(c,e){ return __elig().eligRecord(c,e); }
 function eligRecordRefDecision(c,o,n){ return __elig().eligRecordRefDecision(c,o,n); }
+
+/* ── PROFILE BEFORE THE FIRST SHIFT (part 2, slice 2c, 2026-10-01) ─────────
+   "must have profile before can start work". NEW HIRES ONLY: the rule and the
+   "new hire" line are CCElig.profileGate in eligibility-rules.js; the lookup is
+   CGP2.gateLoad / gateFor in caregiver-profile-panel.js (one query, the panel's
+   own AxisCare-id-then-candidate-id order). Nothing is saved on the caregiver
+   record. Before the lookup has answered, nobody shows as blocked; a lookup that
+   FAILED says so on the screen for any new hire it could not check. */
+let _cgpgKicked=false;
+function cgpgFor(c){
+  if(!window.CGP2 || !CGP2.gateFor) return null;
+  if(!_cgpgKicked){
+    _cgpgKicked=true;
+    window.addEventListener('cgp-gate-changed', cgpgRedraw);
+    CGP2.gateLoad(caregivers);
+  }
+  return CGP2.gateFor(c);
+}
+function cgpgRedraw(){
+  try{ if(document.getElementById('tr-tbody')) renderTR(); }catch(e){}
+  try{ if(typeof activeTab!=='undefined' && activeTab==='home') renderStaffHome(); }catch(e){}
+}
 
 function badge(status,txt){
   const cls={Current:'b-green','Due Soon':'b-amber',Overdue:'b-red',Pending:'b-gray',
@@ -5790,8 +5816,16 @@ function trFilter(f,btn){ trFilterVal=f; document.querySelectorAll('#panel-train
 function renderTR(){
   const q=((document.querySelector('#panel-training input')||{value:''}).value||globalSearch).toLowerCase();
   const blocked=caregivers.filter(c=>!trainStatus(c).preContactDone);
-  document.getElementById('train-alert').innerHTML=blocked.length
-    ?`<div class="alert-banner">⛔ ${blocked.length} caregiver(s) not cleared for client contact — pre-contact training incomplete: ${blocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'' ;
+  /* 2c: new hires only; current caregivers are never listed here for having no profile */
+  const pgOf={}; caregivers.forEach(c=>{ pgOf[c.id]=cgpgFor(c); });
+  const profBlocked=caregivers.filter(c=>pgOf[c.id]&&pgOf[c.id].blocked);
+  const profUnchecked=caregivers.filter(c=>pgOf[c.id]&&pgOf[c.id].new_hire&&!pgOf[c.id].checked&&pgOf[c.id].err);
+  document.getElementById('train-alert').innerHTML=(blocked.length
+    ?`<div class="alert-banner">⛔ ${blocked.length} caregiver(s) not cleared for client contact, pre-contact training incomplete: ${blocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'')
+    +(profBlocked.length
+    ?`<div class="alert-banner">🪪 ${profBlocked.length} new hire${profBlocked.length===1?'':'s'}: profile needed before first shift. Publish their caregiver profile (the photo is required) before their first client visit: ${profBlocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'')
+    +(profUnchecked.length
+    ?`<div class="alert-banner">⚠ Could not check the caregiver profile for ${profUnchecked.length} new hire${profUnchecked.length===1?'':'s'} (${wcEsc(pgOf[profUnchecked[0].id].err)}). <button class="ibtn" onclick="CGP2.gateLoad(null,true)">Try again</button></div>`:'');
 
   const list=caregivers.filter(c=>{
     const n=`${c.first} ${c.last}`.toLowerCase();
@@ -5810,8 +5844,11 @@ function renderTR(){
   tbody.innerHTML=list.map(c=>{
     const ts=trainStatus(c);
     // Pre-contact cell
-    const preBadge=ts.preContactDone?'b-green':'b-red';
-    const preLabel=ts.preContactDone?'✓ Cleared to Schedule':'⛔ Blocked';
+    const pg=pgOf[c.id];
+    const profBlock=!!(pg&&pg.blocked);
+    const preBadge=ts.preContactDone&&!profBlock?'b-green':'b-red';
+    const preLabel=ts.preContactDone?(profBlock?'🪪 Profile needed before first shift':'✓ Cleared to Schedule'):'⛔ Blocked';
+    const profLine=pg&&window.CGP2?CGP2.gateHtml(c,pg):'';
     const orientLine=c.orient_date?`<span class="chk-date">Agency Orientation (2hr): ${fmtD(c.orient_date)} ✓${c.orient_proof?` <a class="proof-link" href="${c.orient_proof}" target="_blank">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}</span>`:`<span class="chk-date" style="color:var(--red)">Agency Orientation: missing</span>`;
     const alzLine=c.alz_date?`<span class="chk-date">ALZ/Dementia (4hr): ${fmtD(c.alz_date)} ✓${c.alz_proof?` <a class="proof-link" href="${c.alz_proof}" target="_blank">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}</span>`:`<span class="chk-date" style="color:var(--red)">ALZ/Dementia Training: missing</span>`;
     const alzHrsLine=c.alz_hrs?(parseInt(c.alz_hrs)>=4?`<span class="chk-date" style="color:var(--green)">ALZ hours: ${c.alz_hrs} ✓</span>`:`<span class="chk-date" style="color:var(--amber)">⚠ ALZ hours: ${c.alz_hrs}/4 required</span>`):'';
@@ -5842,7 +5879,7 @@ function renderTR(){
     return `<tr>
       <td><div class="name-cell" style="cursor:pointer" onclick="openProfile('${c.first}','${c.last}')" title="View full profile">${c.first} ${c.last} <span style="font-size:.65rem;color:var(--teal)">↗</span></div></td>
       <td><span class="chk-date">${fmtD(c.hire_date)||'—'}</span></td>
-      <td><div class="chk"><span class="badge ${preBadge}">${preLabel}</span>${orientLine}${alzLine}${alzHrsLine}</div></td>
+      <td><div class="chk"><span class="badge ${preBadge}">${preLabel}</span>${orientLine}${alzLine}${alzHrsLine}${profLine?`<span class="chk-date">${profLine}</span>`:''}</div></td>
       <td>${(()=>{
         if(!c.first_contact){ return ts.preContactDone?`<div class="chk"><span class="badge b-gray">Not recorded</span><span class="chk-date" style="color:var(--gray)">Required in training file</span></div>`:`<div class="chk"><span class="badge b-gray">—</span></div>`; }
         const fcD=pd(c.first_contact);
@@ -6877,7 +6914,11 @@ function cgpOpen(candId){
 }
 function cgpBtnHtml(candId){
   const chip = window.CGP2 ? CGP2.chipHtml(CGP2.rowFor(candId)) : '';
-  return chip + `<button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" title="Draft, read, send the photo link, publish" onclick="event.stopPropagation();cgpOpen('${wcEsc(String(candId))}')">🪪 Caregiver profile</button>`;
+  /* 2c: everyone in onboarding is a new hire, so an unpublished profile is said out loud (never "Not started" from a failed load) */
+  const st = window.CGP2 && CGP2.cacheState ? CGP2.cacheState() : { ok:false, err:'' };
+  const need = st.err ? `<span style="font-size:.7rem;font-weight:700;color:#92400E">Could not check the profile: ${wcEsc(st.err)}</span>`
+    : (st.ok && !CGP2.isLive(CGP2.rowFor(candId))) ? '<span style="font-size:.7rem;font-weight:700;color:#B00020">Profile needed before first shift</span>' : '';
+  return chip + `<button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" title="Draft, read, send the photo link, publish" onclick="event.stopPropagation();cgpOpen('${wcEsc(String(candId))}')">🪪 Caregiver profile</button>` + need;
 }
 
 /* ── Step 2 tracking on the candidate record ── */
@@ -7034,7 +7075,7 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
       <li>If Step 2 turns out not to be done, press <b>Reschedule: Step 2 not done</b>, which tells them to finish it and rebook.</li>
       <li>Had an interview no-show? Use <b>Call them now</b> on someone waiting.</li>
       <li>After the call, tick the checklist and press <b>Welcome call done</b>.</li>
-      <li>Once their photo is in, the profile chip says <b>Photo in, ready to publish</b>. Open <b>🪪 Caregiver profile</b>, check the photo and the words, and press <b>Publish</b>. A new hire needs a published profile before they start working.</li>
+      <li>Once their photo is in, the profile chip says <b>Photo in, ready to publish</b>. Open <b>🪪 Caregiver profile</b>, check the photo and the words, and press <b>Publish</b>. The profile must be published before their first shift: until it is, the Hub shows <b>Profile needed before first shift</b> for them.</li>
     </ol>
     <h4 style="margin:.9rem 0 .3rem;color:var(--navy)">The call script</h4>
     <p style="margin:.3rem 0"><b>Before the call:</b> check that Step 2 is done, then open <b>🪪 Caregiver profile</b> and press <b>Draft with AI</b>. Read the draft through so you are ready to read it aloud.</p>
@@ -7048,7 +7089,7 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
       <li><b>What happens next:</b> "Your training is online, on your phone or computer, on your own schedule: Agency Orientation (about 2 hours), then Alzheimer's &amp; Dementia Care (about 4 hours), both before your first client; then on-the-job training within 30 days. Once you're done and your profile is published, we'll text you that you're cleared to work. Please save our office number: (417) 234-8494."</li>
       <li><b>Close:</b> "What questions do you have for me? Thank you, [first name], we're really glad you're here."</li>
     </ol>
-    <p style="margin:.5rem 0 .2rem"><b>After the call:</b> tick the checklist, press Welcome call done, and complete I-9 Section 2 in Viventium. When their photo is in, open <b>🪪 Caregiver profile</b> and press <b>Publish</b>.</p>
+    <p style="margin:.5rem 0 .2rem"><b>After the call:</b> tick the checklist, press Welcome call done, and complete I-9 Section 2 in Viventium. When their photo is in, open <b>🪪 Caregiver profile</b> and press <b>Publish</b>. The profile must be published before their first shift.</p>
   </div>
 </details>`;
 async function wcTick(id, key, box){
@@ -7095,6 +7136,9 @@ async function wcAct(id, action, reason, btn){
       if(c && c.step2_done_at){ c.step2_done_at = null; c.step2_done_by = null; await saveCandidates(); head += '\n\n"Step 2 done" was cleared on their record. Mark it again once Viventium shows it finished.'; }
     }
     await wcLoad();
+    /* 2c: done without a published profile is allowed (the photo often comes after the call); the next step is said */
+    if(action === 'done' && window.CGP2 && !CGP2.isLive(CGP2.rowFor(w.candidate_id)))
+      head += '\n\nNext: their caregiver profile is not published yet. It must be published (the photo is required) before their first shift. Open 🪪 Caregiver profile once their photo is in.';
     alert(action === 'done' ? head : wcResult(head, d));
   }catch(e){ alert('That did not go through: ' + (e && e.message || e) + '\n\nNothing was changed.'); if(btn) btn.disabled = false; }
 }
@@ -7668,7 +7712,10 @@ function promoteToCaregiver(candidateId){
   candidates = candidates.filter(x=>x.id!==candidateId);
   saveCandidates();
   renderOB(); renderTR(); renderAC();
-  alert(`🎉 ${c.first} ${c.last} has been promoted! They now appear in Training and Active Compliance.`);
+  /* 2c: a new hire needs a published caregiver profile before their first shift */
+  const live=!!(window.CGP2&&CGP2.isLive&&CGP2.isLive(CGP2.rowFor(c.id)));
+  alert(`🎉 ${c.first} ${c.last} has been promoted! They now appear in Training and Active Compliance.`
+    +(live?'':`\n\nProfile needed before first shift: their caregiver profile is not published yet. Publish it (the photo is required) before their first client visit. The Training tab shows it until then.`));
 }
 function closeOutCandidate(candidateId){
   const c = candidates.find(x=>x.id===candidateId);
