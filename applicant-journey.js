@@ -2,7 +2,7 @@
    messages they receive and attached somewhere in the hub pages so that our office admin know"). Built from the code as
    of 2026-10-01: every message an applicant / new hire gets, its exact wording, when it goes, what triggers it, and
    whether it shows in GoHighLevel Conversations. If a message is changed, update this list too. */
-window.AP_JOURNEY_CHECKED = 'October 1, 2026 (welcome calls added)';
+window.AP_JOURNEY_CHECKED = 'October 1, 2026 (welcome calls + orientation link added)';
 window.AP_JOURNEY = [
  {
   "stage": "applying",
@@ -510,6 +510,22 @@ window.AP_JOURNEY = [
  },
  {
   "stage": "orientation & training",
+  "order": 22.95,
+  "name": "Orientation link (training welcome)",
+  "trigger": "Office presses 'Welcome call done – send orientation link' at the end of the welcome call (or 'Send orientation link' on their row under Done recently). The Training Platform finds them in AxisCare by phone number or email (never by name; exactly one active caregiver In Training), assigns their courses, links their offer and sends it. The Training Platform's 9am run sends the same message to anyone In Training who has not had it yet.",
+  "automatic": false,
+  "button": "Orientations → Welcome calls → 'Welcome call done – send orientation link'; to retry: Done recently → 'Send orientation link'",
+  "timing": "Right after the welcome call, 8am–6pm Central. After 6pm (or before 8am) the whole welcome is held and goes with the 9am run. Never sent twice.",
+  "channel": "text + email",
+  "rule": "Only once they are an active caregiver In Training in AxisCare (the office hires them and sets In Training during the welcome call). Not found, or more than one match: nothing is sent, the office is told to set In Training in AxisCare and press Send orientation link, and a card goes on Needs Attention. Text only if their application did not say no to texts (if it did, the email still goes); 8am–6pm Central; ends with \"Reply STOP to opt out.\" Opt-out check on both. Anything that stops it (Do Not Disturb, no phone or email, an opt-out list that could not be checked, a GoHighLevel refusal) raises a \"Didn't go through\" card, once per person.",
+  "subject": "Welcome to Caring Companions, your orientation is ready",
+  "text": "Hi {first}, welcome to Caring Companions! Your orientation is ready. Start any time on your phone or computer:\nhttps://training.mo-care.com/#/me/{token}\nIt's 2 hours of orientation plus 4 hours of dementia care training, and you can do it in pieces. This private link is just for you, no login needed. Questions? Call or text the office at (417) 234-8494. Caring Companions.\nReply STOP to opt out.",
+  "email_summary": "Welcome, your orientation is ready on your phone, tablet or computer; private link, no login needed; [Start my orientation] (and the link to paste); before your first client visit complete Agency Orientation (2 hours) and Alzheimer's & Dementia Care (4 hours), in pieces if you like, progress saves; once your training is done and your caregiver profile is published we will let you know you are cleared to work; office (417) 234-8494.",
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "orientation & training",
   "order": 23,
   "name": "Orientation invite (pick your date)",
   "trigger": "Office presses '📅 Invite' (or '📅 Re-send') on a candidate who is 'Ready for Orientation', reviews the text, confirms.",
@@ -553,22 +569,6 @@ window.AP_JOURNEY = [
   "subject": null,
   "text": null,
   "email_summary": null,
-  "shows_in_ghl": true,
-  "failure_visible": false
- },
- {
-  "stage": "orientation & training",
-  "order": 26,
-  "name": "Training welcome (nightly sync)",
-  "trigger": "Training Platform nightly sync-axiscare: a caregiver now 'In Training' in AxisCare with a personal link and no once only.",
-  "automatic": true,
-  "button": null,
-  "timing": "Daily at about 9am Central (moved from 2–3am on 2026-10-01).",
-  "channel": "text + email",
-  "rule": "Only \"In Training\" caregivers. Text 8am–6pm Central with \"Reply STOP to opt out.\"; held and retried rather than sent at night. Opt-out check. A refused message raises a \"Didn't go through\" card.",
-  "subject": "Welcome to Caring Companions — your training is ready",
-  "text": "Hi {first}, welcome to Caring Companions! Your required training is ready — start any time on your phone:\nhttps://training.mo-care.com/#/me/{token}\nThis private link is just for you (no login needed).\nQuestions? Call or text the office: (417) 234-8494\n— Caring Companions",
-  "email_summary": "Welcome; training link [Start my training]; 'Before your first client visit, please complete Agency Orientation (2 hours) and Alzheimer's & Dementia Care (4 hours)'; 'When you finish, you'll get a message confirming you're cleared to work with clients.'",
   "shows_in_ghl": true,
   "failure_visible": false
  },

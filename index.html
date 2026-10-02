@@ -21905,7 +21905,7 @@ window.apNoshowMark = apNoshowMark; window.apNoshowSend = apNoshowSend; window.a
 /* ---- Applicant journey & messages (2026-10-01) ---- */
 function apjOpen(){
   if(window.AP_JOURNEY) return apjRender();
-  const sc = document.createElement('script'); sc.src = 'applicant-journey.js?v=20261001';
+  const sc = document.createElement('script'); sc.src = 'applicant-journey.js?v=20261002';
   sc.onload = apjRender; sc.onerror = () => { const b=document.getElementById('apjBody'); if(b) b.innerHTML='<div class="field-note">Could not load the journey list. Reload the page.</div>'; };
   document.head.appendChild(sc);
 }
