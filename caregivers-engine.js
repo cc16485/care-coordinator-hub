@@ -5761,8 +5761,31 @@ async function obRefSendGo(btn){
     idle();
   }
 }
+/* Start forms waiting to be imported (2026-10-02). The Sept 25 "one clean table" change removed the pipeline view,
+   and with it the only Import button, so a start-link submission with no Background & References record (never
+   imported, or its record was removed) had no way back in. This strip shows ONLY those people, above the table,
+   and is hidden when there are none. Same Import as before (intakeImport: duplicate and roster guards included). */
+function renderImportStrip(){
+  const box = document.getElementById('obImportStrip'); if(!box) return;
+  let rows = [];
+  try{ rows = lifecycleRows().filter(r => r.intake && !r.board && !r.roster); }catch(e){ rows = []; }
+  if(!rows.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  const esc = s => String(s==null?'':s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  const day = t => t ? new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+  box.style.display = 'block';
+  box.innerHTML = '<div style="font-weight:800;color:var(--navy);font-size:.85rem;margin-bottom:.35rem">📥 Start forms waiting to be imported ('+rows.length+')</div>'
+    + '<div style="font-size:.75rem;color:var(--gray);margin-bottom:.5rem">These people filled in their start form but are not in the table below yet. Import brings them in with their details and references.</div>'
+    + rows.map(r => {
+        const i = r.intake, why = (r.attention && r.attention[0]) ? ' · <span style="color:#B91C1C">'+esc(r.attention[0].replace(/\. Review\.$/,''))+'</span>' : '';
+        return '<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.35rem 0;border-top:1px solid var(--border)">'
+          + '<b style="font-size:.85rem">'+esc(r.name)+'</b>'
+          + '<span style="font-size:.75rem;color:var(--gray)">start form '+esc(day(i.signed_at||i.created_at))+why+'</span>'
+          + '<button class="ibtn ibtn-strong" style="margin-left:auto" onclick="intakeImport(\''+esc(i.id)+'\',this)">Import</button></div>';
+      }).join('');
+}
 function renderOB(){
   try{ renderHirePipeline(); }catch(e){}
+  try{ renderImportStrip(); }catch(e){}
   const q=String(((document.getElementById('ob-search')||document.querySelector('#panel-onboarding input')||{value:''}).value||globalSearch)).trim().toLowerCase();
   const today=new Date(); today.setHours(0,0,0,0);
   const list=candidates.filter(c=>{
