@@ -11,6 +11,8 @@
      paragraph turn "a stranger is coming" into "oh, Marie sounds
      lovely." Public, read-only, and it shows nothing but what belongs
      on a team page: name, photo, the intro. No schedules, no clients.
+     2b (2026-10-01): nothing links here any more. Old links forward to
+     the ONE caregiver profile card (caregiver.html) when there is one.
      ============================================================ -->
 <style>
   :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#FFC671; --bg:#F6F9FD; --border:#E2E8F0; --gray:#6B7280; }
@@ -43,10 +45,20 @@
 </div>
 <script>
 const FN='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/meet-caregiver';
+const CARD='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/caregiver-card';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 (async function(){
   const card=document.getElementById('card');
   const cg=new URLSearchParams(location.search).get('cg')||'';
+  /* 2b (2026-10-01): this older card was moved into the ONE caregiver profile. An old link in a family's phone opens
+     the new card (caregiver.html) when the profile it became is published; otherwise it shows what it always did. */
+  try{
+    if(cg){
+      const r0=await fetch(CARD+'?legacy='+encodeURIComponent(cg),{headers:{apikey:KEY,Authorization:'Bearer '+KEY}});
+      if(r0.ok){ const p=await r0.json(); if(p&&p.id){ location.replace('caregiver.html?id='+encodeURIComponent(p.id)); return; } }
+    }
+  }catch(e){ /* fall back to the older card below */ }
   try{
     const r=await fetch(FN+'?cg='+encodeURIComponent(cg));
     const d=await r.json();

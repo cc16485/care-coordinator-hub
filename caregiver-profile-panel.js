@@ -23,7 +23,7 @@
   var SB_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
   var ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
   var BUCKET = 'caregiver-profiles';
-  var COLS = 'id,candidate_id,axiscare_id,applicant_id,first_name,last_name,preferred_name,about,experience,why_this_work,years_experience,photo_path,video_path,consent,consent_at,published,status,drafted_at,drafted_by,link_sent_at,link_sent_by,submitted_at,published_at,published_by,updated_at,created_at';
+  var COLS = 'id,candidate_id,axiscare_id,applicant_id,first_name,last_name,preferred_name,about,experience,why_this_work,years_experience,photo_path,video_path,consent,consent_at,published,status,drafted_at,drafted_by,link_sent_at,link_sent_by,submitted_at,published_at,published_by,updated_at,created_at,photo_url,needs_review,legacy_intro_id';
   var IMG = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
   var VID = { mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' };
   var FIELDS = [
@@ -45,6 +45,14 @@
   function day(iso) { return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Chicago' }) : ''; }
   function who(s) { return s ? String(s).split('@')[0] : ''; }
   function publicUrl(p) { return p ? SB_URL + '/storage/v1/object/public/' + BUCKET + '/' + p : ''; }
+  /* 2b: an older intro moved over keeps its photo address (photo_url) until a proper photo is uploaded */
+  function photoOf(row) { return row ? (row.photo_path ? publicUrl(row.photo_path) : (/^https:\/\//i.test(String(row.photo_url || '')) ? String(row.photo_url) : '')) : ''; }
+  /* "Sarah T.": what families see on the card */
+  function cardName(row) {
+    var f = String((row && (row.preferred_name || row.first_name)) || '').trim();
+    var l = String((row && row.last_name) || '').trim().replace(/^[^A-Za-z]+/, '').charAt(0).toUpperCase();
+    return f && l ? f + ' ' + l + '.' : f;
+  }
   function cardUrl(row) { return 'https://cc.mo-care.com/caregiver.html?id=' + encodeURIComponent(row.id); }
   function prompts(row) {
     var out = [];
@@ -55,6 +63,7 @@
   function status(row) {
     if (!row) return ['Not started', '#F3F4F6', '#4B5563'];
     if (row.status === 'withdrawn') return ['Withdrawn', '#FEE2E2', '#991B1B'];
+    if (row.published && row.needs_review) return ['Published, older: check it', '#FEF3C7', '#92400E'];
     if (row.published) return ['Published', '#DCFCE7', '#15803D'];
     if (row.photo_path) return ['Photo in, ready to publish', '#E0F7F6', '#0F766E'];
     if (row.link_sent_at) return ['Link sent', '#E0F2FE', '#075985'];
@@ -79,11 +88,11 @@
   }
 
   /* The function: office actions carry the staff member's own sign-in. */
-  async function call(body) {
+  async function call(body, fn) {
     var c = client(); if (!c) throw new Error('Sign in first.');
     var s = await c.auth.getSession(); var session = s && s.data && s.data.session;
     if (!session) throw new Error('Sign in again, then try once more.');
-    var r = await fetch(SB_URL + '/functions/v1/caregiver-profile', { method: 'POST',
+    var r = await fetch(SB_URL + '/functions/v1/' + (fn || 'caregiver-profile'), { method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: ANON, Authorization: 'Bearer ' + session.access_token }, body: JSON.stringify(body) });
     var j = await r.json().catch(function () { return {}; });
     if (!r.ok || j.error) { var e = new Error(j.error || ('error ' + r.status)); e.problems = j.problems; throw e; }
@@ -161,12 +170,18 @@
     if (m.viaCandidate && x.axiscare_id && !row.axiscare_id) h += '<div style="font-size:.74rem;color:var(--gray,#6B7280);margin-bottom:.4rem">Found from their onboarding record. Saving links it to this AxisCare caregiver too.</div>';
     h += '<div style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:flex-start">'
       + '<div style="flex:none;width:96px;text-align:center">'
-      + (row.photo_path ? '<a href="' + esc(publicUrl(row.photo_path)) + '" target="_blank" rel="noopener"><img src="' + esc(publicUrl(row.photo_path)) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid var(--border,#E2E8F0)"></a>'
+      + (photoOf(row) ? '<a href="' + esc(photoOf(row)) + '" target="_blank" rel="noopener"><img src="' + esc(photoOf(row)) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid var(--border,#E2E8F0)"></a>'
+        + (row.photo_path ? '' : '<div style="font-size:.66rem;color:#92400E;margin-top:.2rem">Older photo. Upload a proper one.</div>')
         : '<div style="width:96px;height:96px;border-radius:12px;border:1.5px dashed #CBD5E1;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:#64748B;padding:.3rem">No photo yet (required)</div>')
       + (row.video_path ? '<a href="' + esc(publicUrl(row.video_path)) + '" target="_blank" rel="noopener" style="display:block;font-size:.72rem;margin-top:.25rem">▶ Their video</a>' : '<div style="font-size:.68rem;color:#94A3B8;margin-top:.25rem">No video (optional)</div>')
       + '<label class="ibtn" style="display:block;margin-top:.35rem;cursor:pointer;font-size:.68rem">Replace photo<input type="file" accept="image/*" style="display:none" onchange="CGP2.upload(\'' + k + '\',\'photo\',this)"></label>'
       + '<label class="ibtn" style="display:block;margin-top:.25rem;cursor:pointer;font-size:.68rem">' + (row.video_path ? 'Replace video' : 'Add a video') + '<input type="file" accept="video/*" style="display:none" onchange="CGP2.upload(\'' + k + '\',\'video\',this)"></label>'
       + '</div><div style="flex:1;min-width:240px">';
+    if (row.needs_review) h += '<div style="background:#FFF8EC;border:1.5px solid #F0A63A;border-radius:9px;padding:.5rem .7rem;margin-bottom:.5rem;font-size:.8rem">'
+      + '<b style="color:#92400E">Older profile: check the words, add a proper photo and get their OK.</b> '
+      + 'It came from the older intro list, which families were already being shown, so it stays live and is linked in family texts. '
+      + (row.photo_path && row.consent ? btn('reviewed', '✓ Checked: words, photo and their OK', 'margin-top:.3rem') : '<span style="color:#64748B">Still needed: ' + [row.photo_path ? '' : 'a proper photo (Replace photo, or Send photo link)', row.consent ? '' : 'their OK (they tick it on their page)'].filter(Boolean).join(' and ') + '.</span>')
+      + '</div>';
     var ps = prompts(row);
     if (ps.length) h += '<div style="background:#FFF8EC;border:1.5px solid #F0A63A;border-radius:9px;padding:.5rem .7rem;margin-bottom:.5rem;font-size:.8rem">'
       + '<b style="color:#92400E">Ask on the call</b> (type their answer in their words, and take the [brackets] out):<ul style="margin:.25rem 0 0;padding-left:1.1rem">'
@@ -182,7 +197,8 @@
       + '<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.55rem">'
       + btn('save', '💾 Save', 'background:var(--navy,#0E3860);color:#fff;border-color:var(--navy,#0E3860)')
       + btn('draft', '✨ Redo draft', '', 'Ask the AI for a fresh draft from their application and interview')
-      + (row.published ? '' : btn('send', row.link_sent_at ? '📲 Send photo link again' : '📲 Send photo link', '', 'Texts and emails their personal link to add a photo and video'))
+      + (row.published && !row.needs_review ? '' : btn('send', row.link_sent_at ? '📲 Send photo link again' : '📲 Send photo link', '', 'Texts and emails their personal link to add a photo and video'))
+      + (row.published ? btn('intro', '💌 Introduce to a family', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)', 'Text and email a family this card, after you see a preview') : '')
       + (row.published ? btn('unpublish', 'Unpublish', 'color:#B00020;border-color:#FCA5A5') : btn('publish', '✓ Publish', 'background:#15803D;color:#fff;border-color:#15803D', 'Needs a photo, their permission, and no [ask] prompts left'))
       + '</div><div id="' + k + '-msg" style="font-size:.8rem;margin-top:.45rem;white-space:pre-wrap"></div>'
       + '<div style="font-size:.7rem;color:#64748B;margin-top:.45rem;line-height:1.5">'
@@ -191,9 +207,94 @@
          row.submitted_at ? 'They saved it ' + day(row.submitted_at) : '',
          row.consent ? 'Permission given ' + day(row.consent_at) : 'No permission yet (they tick it on their page)',
          row.published ? 'Published ' + day(row.published_at) + (row.published_by ? ' by ' + esc(who(row.published_by)) : '') + '. Edits you save go live right away.' : ''].filter(Boolean).join(' · ')
-      + '</div></div></div>';
+      + '</div></div></div>'
+      + '<div id="' + k + '-intro"></div>';
     m.host.innerHTML = h;
     if (m.msg) say(m, m.msg[0], m.msg[1]);
+    drawIntro(m);
+  }
+
+  /* ── Introduce to a family (2b) ────────────────────────────────────────────────────────────────────────────────
+     A person presses this, picks the client, sees exactly who would hear and the words, then confirms. The
+     caregiver-intro function does the deciding (each contact's caregiver-intro setting, STOP, texting consent, the
+     universal opt-out) and the sending; nothing here sends on its own. Only a published card can be sent, and
+     only to a circle linked to its AxisCare client (an unlinked circle is never sent to, same as the Circles tab).
+     Family contacts are kept on the Circles tab (synced from AxisCare), so they are not added here. */
+  var PREF = { every: 'every change', new_only: 'only somebody new', never: 'does not want these' };
+  var REASONS = [['first_time', 'First time with this client'], ['start_of_care', 'Start of care'], ['change', 'A change of caregiver']];
+  function drawIntro(m) {
+    var el = document.getElementById(m.k + '-intro'), I = m.intro, k = m.k;
+    if (!el) return;
+    if (!I || !I.open || !m.row || !m.row.published) { el.innerHTML = ''; return; }
+    var h = '<div style="margin-top:.8rem;border:1.5px solid var(--teal,#54BDB8);border-radius:11px;padding:.7rem .8rem;background:#F4FBFB">'
+      + '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem"><b style="color:var(--navy,#0E3860)">Introduce ' + esc(cardName(m.row)) + ' to a family</b><span style="flex:1"></span>'
+      + '<button class="ibtn" onclick="CGP2.act(\'' + k + '\',\'intro\',this)">Close</button></div>';
+    if (I.err) h += '<div style="font-size:.8rem;color:#B00020;margin-bottom:.4rem">' + esc(I.err) + '</div>';
+    if (!I.circles) { el.innerHTML = h + '<div style="font-size:.8rem;color:#64748B">Loading clients…</div></div>'; return; }
+    h += '<div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end">'
+      + '<label style="flex:1;min-width:190px;font-size:.74rem;font-weight:700;color:var(--navy,#0E3860)">Client<br><select id="' + k + '-icl" onchange="CGP2.introPick(\'' + k + '\',this.value)" style="width:100%;font:inherit;font-size:.82rem;padding:.3rem">'
+      + '<option value="">Choose a client…</option>'
+      + I.circles.map(function (c) { return '<option value="' + esc(c.id) + '"' + (String(c.id) === String(I.circleId) ? ' selected' : '') + '>' + esc(c.client_name) + '</option>'; }).join('')
+      + '</select></label>'
+      + '<label style="flex:1;min-width:170px;font-size:.74rem;font-weight:700;color:var(--navy,#0E3860)">Why<br><select id="' + k + '-irs" onchange="CGP2.introReason(\'' + k + '\',this.value)" style="width:100%;font:inherit;font-size:.82rem;padding:.3rem">'
+      + REASONS.map(function (r) { return '<option value="' + r[0] + '"' + (r[0] === I.reason ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('')
+      + '</select></label></div>';
+    if (!I.circles.length) h += '<div style="font-size:.8rem;color:#92400E;margin-top:.5rem">No client circle is linked to AxisCare yet. Link one on the Circles tab first.</div>';
+    if (I.circleId) {
+      if (!I.people) h += '<div style="font-size:.8rem;color:#64748B;margin-top:.5rem">Loading the family…</div>';
+      else if (!I.people.length) h += '<div style="font-size:.8rem;color:#92400E;margin-top:.5rem">Nobody is in this client\'s circle yet. Add the family on the Circles tab first.</div>';
+      else h += '<div style="font-size:.78rem;margin-top:.5rem">' + I.people.map(function (c) {
+        var chip = function (t, bg, fg) { return '<span style="background:' + bg + ';color:' + fg + ';border-radius:999px;padding:.05rem .45rem;font-size:.68rem;font-weight:700">' + esc(t) + '</span>'; };
+        return '<div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;padding:.15rem 0"><b>' + esc(c.name) + '</b>'
+          + (c.relationship ? '<span style="color:#64748B">' + esc(c.relationship) + '</span>' : '')
+          + chip(PREF[c.caregiver_intro_pref] || PREF.new_only, '#EEF2F7', '#334155')
+          + (c.stopped_at ? chip('replied STOP', '#FEE2E2', '#991B1B') : '')
+          + (c.axiscare_removed_at ? chip('no longer on AxisCare contacts', '#F3F4F6', '#4B5563') : '')
+          + ((c.phone && c.sms_consent) || c.email ? '' : chip('no way to reach them', '#FEF3C7', '#92400E'))
+          + '</div>';
+      }).join('') + '</div>';
+      h += '<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.55rem">' + btn('ipreview', '👀 Preview who hears and the words')
+        + (I.preview && I.preview.would_reach && I.preview.would_reach.length ? btn('isend', '💌 Send it', 'background:var(--navy,#0E3860);color:#fff;border-color:var(--navy,#0E3860)') : '') + '</div>';
+    }
+    if (I.preview) {
+      var p = I.preview;
+      h += '<div style="margin-top:.5rem;font-size:.8rem">' + (p.would_reach && p.would_reach.length
+        ? '<b>Would go to ' + p.would_reach.map(esc).join(', ') + '</b> (' + p.by_text + ' by text, ' + p.by_email + ' by email)'
+          + (p.not_wanted ? '. ' + p.not_wanted + ' did not want this one' : '') + (p.held_back ? '. ' + p.held_back + ' with no way to reach them' : '') + '.'
+          + '<div style="margin-top:.35rem;background:#fff;border:1px solid var(--border,#E2E8F0);border-radius:8px;padding:.45rem .6rem;white-space:pre-wrap">' + esc(p.example) + '</div>'
+          + '<div style="color:#64748B;margin-top:.25rem">Emails say the same, with a "Meet ' + esc(p.caregiver) + '" button. Anyone who has opted out is skipped when it sends.</div>'
+        : '<b>Nobody would hear about this one.</b> ' + (p.not_wanted ? 'Their settings say they do not want it.' : 'Nobody in this circle can be reached.')) + '</div>';
+    }
+    if (I.result) h += '<div style="margin-top:.5rem;font-size:.8rem;white-space:pre-wrap;color:' + (I.result[1] ? '#B00020' : '#15803D') + '">' + esc(I.result[0]) + '</div>';
+    el.innerHTML = h + '</div>';
+  }
+  async function introOpen(m) {
+    var c = client();
+    m.intro = { open: true, circles: null, circleId: '', people: null, reason: 'first_time', preview: null, result: null, err: '' };
+    drawIntro(m);
+    try {
+      var r = await c.from('care_circles').select('id,client_name,axiscare_client_id').eq('active', true).order('client_name');
+      if (r.error) throw r.error;
+      m.intro.circles = (r.data || []).filter(function (x) { return x.axiscare_client_id; });
+    } catch (e) { m.intro.circles = []; m.intro.err = 'Could not load clients: ' + ((e && e.message) || e); }
+    drawIntro(m);
+  }
+  async function introPick(k, circleId) {
+    var m = M[k]; if (!m || !m.intro) return; var c = client();
+    m.intro.circleId = circleId; m.intro.people = null; m.intro.preview = null; m.intro.result = null; m.intro.err = '';
+    drawIntro(m);
+    if (!circleId) return;
+    try {
+      var r = await c.from('circle_contacts').select('id,name,relationship,phone,email,sms_consent,caregiver_intro_pref,intro_on_start,stopped_at,axiscare_removed_at').eq('circle_id', circleId);
+      if (r.error) throw r.error;
+      if (m.intro.circleId === circleId) m.intro.people = r.data || [];
+    } catch (e) { m.intro.people = []; m.intro.err = 'Could not load the family: ' + ((e && e.message) || e); }
+    drawIntro(m);
+  }
+  function introReason(k, v) { var m = M[k]; if (!m || !m.intro) return; m.intro.reason = v; m.intro.preview = null; m.intro.result = null; drawIntro(m); }
+  function introBody(m, dry) {
+    var I = m.intro, cl = (I.circles || []).find(function (x) { return String(x.id) === String(I.circleId); });
+    return { profile_id: m.row.id, client_name: cl ? cl.client_name : '', circle_id: I.circleId, reason: I.reason, dry: !!dry };
   }
 
   function ctxBody(x) {
@@ -231,7 +332,8 @@
         var patch = { preferred_name: (document.getElementById(k + '-preferred_name').value || '').trim() || null, updated_at: new Date().toISOString() };
         FIELDS.forEach(function (f) { patch[f[0]] = noDash(document.getElementById(k + '-' + f[0]).value).trim() || null; });
         if (row.published) {
-          var miss = FIELDS.filter(function (f) { return !patch[f[0]] || /\[/.test(patch[f[0]]); });
+          /* an older profile still being checked (needs_review) may have empty sections; never a [bracket] prompt */
+          var miss = FIELDS.filter(function (f) { return (!patch[f[0]] && !row.needs_review) || /\[/.test(patch[f[0]] || ''); });
           if (miss.length) { say(m, 'This profile is live, so families would see it. Fill in "' + miss.map(function (f) { return f[1]; }).join('", "') + '" and take any [brackets] out, then Save.', true); return; }
         }
         if (x.mode === 'employee' && x.axiscare_id && !row.axiscare_id) patch.axiscare_id = String(x.axiscare_id);
@@ -248,6 +350,39 @@
         var s = await call({ action: 'send_link', profile_id: row.id, phone: x.phone || '', email: x.email || '' });
         m.msg = [sent(s), !(s.texted || s.emailed)];
         alert((s.texted || s.emailed ? 'Photo link sent.\n\n' : 'The photo link did NOT go.\n\n') + sent(s));
+        await reload(k); return;
+      }
+      if (what === 'intro') {
+        if (m.intro && m.intro.open) { m.intro = null; drawIntro(m); return; }
+        await introOpen(m); return;
+      }
+      if (what === 'ipreview') {
+        m.intro.preview = null; m.intro.result = null; m.intro.err = ''; drawIntro(m);
+        try { m.intro.preview = await call(introBody(m, true), 'caregiver-intro'); }
+        catch (e) { m.intro.err = 'Could not preview: ' + ((e && e.message) || e) + '. Nothing was sent.'; }
+        drawIntro(m); return;
+      }
+      if (what === 'isend') {
+        var pv = m.intro && m.intro.preview;
+        if (!pv || !pv.would_reach || !pv.would_reach.length) return;
+        if (!confirm('Send ' + cardName(row) + '\'s card to ' + pv.would_reach.join(', ') + '?\n\nTEXT:\n' + pv.example + '\n\nEmails say the same, with a button to the card.')) return;
+        try {
+          var sr = await call(introBody(m, false), 'caregiver-intro');
+          var lines = [];
+          lines.push(sr.reached ? 'Sent to ' + (sr.who || []).join(', ') + '. It shows in their GoHighLevel conversation.' : 'Nothing was sent.');
+          if (sr.failed && sr.failed.length) lines.push('NOT sent to ' + sr.failed.join(', ') + '. GoHighLevel refused it; it is on Needs Attention. Call them instead.');
+          if (sr.opted_out) lines.push(sr.opted_out + ' had opted out, so they were skipped.');
+          m.intro.result = [lines.join('\n'), !sr.reached || !!(sr.failed && sr.failed.length)];
+          m.intro.preview = null;
+        } catch (e) { m.intro.result = ['Did not send: ' + ((e && e.message) || e) + '. Nothing went.', true]; }
+        drawIntro(m); return;
+      }
+      if (what === 'reviewed') {
+        if (!row.photo_path || !row.consent) return;
+        if (!confirm('You have read ' + cardName(row) + '\'s words, the photo is a proper one, and they gave their OK?')) return;
+        var rv = await c.from('caregiver_profiles').update({ needs_review: false, updated_at: new Date().toISOString() }).eq('id', row.id);
+        if (rv.error) { say(m, 'Did not save: ' + rv.error.message, true); return; }
+        m.msg = ['Marked as checked.', false];
         await reload(k); return;
       }
       if (what === 'publish') {
@@ -319,5 +454,6 @@
   }
 
   root.CGP2 = { mount: mount, open: open, close: close, act: act, link: link, upload: upload, reload: reload,
-    chipHtml: chipHtml, status: status, rowFor: rowFor, loadForCandidates: loadForCandidates, prompts: prompts, noDash: noDash };
+    chipHtml: chipHtml, status: status, rowFor: rowFor, loadForCandidates: loadForCandidates, prompts: prompts, noDash: noDash,
+    introPick: introPick, introReason: introReason, cardName: cardName, photoOf: photoOf };
 })(typeof window !== 'undefined' ? window : globalThis);
