@@ -7018,7 +7018,7 @@ function wcCard(w){
       <span style="font-size:.7rem;color:var(--gray)">Draft it before the call, read it to them, then send the photo link.</span></div>
     <textarea placeholder="Notes from the call" onchange="wcNotes('${id}',this)" style="width:100%;min-height:42px;font:inherit;font-size:.78rem;padding:.4rem .5rem;border:1px solid var(--border);border-radius:7px;box-sizing:border-box">${wcEsc(w.notes || '')}</textarea>
     <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.45rem">
-      <button class="ibtn" style="${allTicked ? 'background:#15803D;color:#fff;border-color:#15803D' : 'opacity:.55'}" title="${allTicked ? '' : 'Tick all four boxes first'}" onclick="wcAct('${id}','done','',this)">✓ Welcome call done</button>
+      <button class="ibtn" style="${allTicked ? 'background:#15803D;color:#fff;border-color:#15803D' : 'opacity:.55'}" title="${allTicked ? '' : 'Tick all four boxes first'}" onclick="wcAct('${id}','done','',this)">${WC_ORIENT_LABEL}</button>
       <button class="ibtn" style="color:#B45309;border-color:#FCD9A8" onclick="wcAct('${id}','reschedule','step2',this)">Reschedule: Step 2 not done</button>
       <button class="ibtn" onclick="wcAct('${id}','reschedule','other',this)">Reschedule (other)</button>
       <button class="ibtn" style="color:#B00020;border-color:#FCA5A5" onclick="wcAct('${id}','noshow','',this)">Did not show</button>
@@ -7050,7 +7050,7 @@ function renderWelcomeCalls(){
           <button class="ibtn" onclick="wcAct('${wcEsc(w.id)}','now','',this)">📞 Call them now</button>
         </div>`).join('') : '<div style="font-size:.8rem;color:var(--gray)">Nobody is waiting to book.</div>')
       + `<details style="margin-top:.8rem"${done.some(w => { const r = window.CGP2 && CGP2.rowFor(w.candidate_id); return r && r.photo_path && !r.published; }) ? ' open' : ''}><summary style="cursor:pointer;font-size:.78rem;font-weight:700;color:var(--navy)">Done recently (last 14 days, ${done.length})</summary>
-          ${done.length ? done.map(w => `<div style="font-size:.78rem;color:var(--navy);padding:.3rem 0;border-bottom:1px solid #f1f1f1;display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .5rem"><span>✓ <b>${wcEsc(wcName(w))}</b> · ${wcDay(w.done_at)}${w.done_by ? ' by ' + wcEsc(String(w.done_by).split('@')[0]) : ''}${w.notes ? ` · <span style="color:var(--gray)">${wcEsc(w.notes)}</span>` : ''}</span> ${cgpBtnHtml(w.candidate_id)}</div>`).join('') : '<div style="font-size:.78rem;color:var(--gray);padding:.3rem 0">None yet.</div>'}
+          ${done.length ? done.map(w => `<div style="font-size:.78rem;color:var(--navy);padding:.3rem 0;border-bottom:1px solid #f1f1f1;display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .5rem"><span>✓ <b>${wcEsc(wcName(w))}</b> · ${wcDay(w.done_at)}${w.done_by ? ' by ' + wcEsc(String(w.done_by).split('@')[0]) : ''}${w.notes ? ` · <span style="color:var(--gray)">${wcEsc(w.notes)}</span>` : ''}</span> ${cgpBtnHtml(w.candidate_id)} <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" title="Finds them in AxisCare (In Training, by phone or email) and sends their orientation link. Never sends twice." onclick="wcOrientLink('${wcEsc(w.id)}',this)">Send orientation link</button></div>`).join('') : '<div style="font-size:.78rem;color:var(--gray);padding:.3rem 0">None yet.</div>'}
         </details>`;
   el.innerHTML = `<div style="background:linear-gradient(135deg,#f0f9ff,#fefce8);border:1.5px solid #7DD3FC;border-radius:12px;padding:.85rem 1rem">
     <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
@@ -7074,7 +7074,9 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
       <li>At the time, join the shared room from the "Caring Companions Welcome Calls" event on your own Google Calendar, signed in with your own @mo-care.com account (never a shared login). Join a minute early and admit them when they ask to join.</li>
       <li>If Step 2 turns out not to be done, press <b>Reschedule: Step 2 not done</b>, which tells them to finish it and rebook.</li>
       <li>Had an interview no-show? Use <b>Call them now</b> on someone waiting.</li>
-      <li>After the call, tick the checklist and press <b>Welcome call done</b>.</li>
+      <li>During the call, if they are still an applicant in AxisCare, hire them in AxisCare and set their status to <b>In Training</b>. Their phone number or email in AxisCare must match the one they gave us.</li>
+      <li>After the call, tick the checklist and press <b>Welcome call done – send orientation link</b>. The Training Platform finds them in AxisCare (In Training, by phone or email, never by name), assigns their courses and sends their orientation link by text and email. Texts only go 8am to 6pm: after 6pm it goes at 9am.</li>
+      <li>If the Hub says they were not found, set them to <b>In Training</b> in AxisCare, then press <b>Send orientation link</b> on their row under <b>Done recently</b>. Until then a card stays on Needs Attention.</li>
       <li>Once their photo is in, the profile chip says <b>Photo in, ready to publish</b>. Open <b>🪪 Caregiver profile</b>, check the photo and the words, and press <b>Publish</b>. The profile must be published before their first shift: until it is, the Hub shows <b>Profile needed before first shift</b> for them.</li>
     </ol>
     <h4 style="margin:.9rem 0 .3rem;color:var(--navy)">The call script</h4>
@@ -7083,15 +7085,61 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
       <li><b>Welcome:</b> "Hi [first name], it's [your name] from Caring Companions. Welcome to the team! Can you hear and see me okay? This call takes about 15 minutes: we'll check your ID for your employment paperwork, set up the app you'll use to clock in, go over your caregiver profile together, and walk through what happens next. This call and your orientation are paid time."</li>
       <li><b>ID check for the I-9:</b> "You uploaded photos of your documents in Viventium. Now I need to see the same original documents on camera. Hold up your [document 1], front first please, now the back. Thank you, and your [document 2], front and back." After the call, tick the remote examination box and complete Section 2 in Viventium (E-Verify remote procedure).</li>
       <li><b>Viventium:</b> confirm that Step 2 is done. If it is not, reschedule.</li>
+      <li><b>Hire them in AxisCare (office, while you talk):</b> if they are still an applicant in AxisCare, hire them now and set their status to <b>In Training</b>. Check that their mobile phone or email in AxisCare is the one they use: that is how their orientation link finds them.</li>
       <li><b>AxisCare app:</b> "Open the App Store (iPhone) or Google Play (Android) and search for AxisCare Mobile. Install it and open it. Enter our company code: 16485. [Office: full instructions coming.] You'll clock in when you arrive at a client's home and clock out when you leave. If you ever forget, call the office right away."</li>
       <li><b>Caregiver profile:</b> open <b>🪪 Caregiver profile</b>. "Before your first visit, the family sees a short profile of you, so they know who's coming. I've written a first draft from your application and interview. Let me read it to you; tell me what you'd change or add." Read each part aloud. Ask any [ask: …] questions and type their answers in their own words (take the brackets out). Type their changes and press <b>Save</b>.
         Then press <b>Send photo link</b> and say: "I'm sending you a text and an email now with your own link. Please add a photo, it's required: a clear, friendly photo from the shoulders up, in good light. A short video of about 30 seconds is encouraged: say hi and tell families one thing you love about caregiving. You can check the words there too."</li>
-      <li><b>What happens next:</b> "Your training is online, on your phone or computer, on your own schedule: Agency Orientation (about 2 hours), then Alzheimer's &amp; Dementia Care (about 4 hours), both before your first client; then on-the-job training within 30 days. Once you're done and your profile is published, we'll text you that you're cleared to work. Please save our office number: (417) 234-8494."</li>
+      <li><b>What happens next:</b> "Right after this call you'll get a text and an email with your own private orientation link (if it's after 6pm, it comes at 9am). Your training is online, on your phone or computer, on your own schedule, and you can do it in pieces: Agency Orientation (about 2 hours), then Alzheimer's &amp; Dementia Care (about 4 hours), both before your first client; then on-the-job training within 30 days. Once you're done and your profile is published, we'll let you know you're cleared to work. Please save our office number: (417) 234-8494."</li>
       <li><b>Close:</b> "What questions do you have for me? Thank you, [first name], we're really glad you're here."</li>
     </ol>
-    <p style="margin:.5rem 0 .2rem"><b>After the call:</b> tick the checklist, press Welcome call done, and complete I-9 Section 2 in Viventium. When their photo is in, open <b>🪪 Caregiver profile</b> and press <b>Publish</b>. The profile must be published before their first shift.</p>
+    <p style="margin:.5rem 0 .2rem"><b>After the call:</b> make sure they are In Training in AxisCare, tick the checklist, press <b>Welcome call done – send orientation link</b>, and complete I-9 Section 2 in Viventium. When their photo is in, open <b>🪪 Caregiver profile</b> and press <b>Publish</b>. The profile must be published before their first shift.</p>
   </div>
 </details>`;
+/* ── Orientation link (slice 1b, 2026-10-01). Samantha: "Welcome call done – send orientation link". ──
+   After the call is marked done, the Training Platform (job-offer action 'orientation_link', the staff member's own
+   Hub sign-in) finds the new hire in AxisCare by phone or email (never by name; exactly one active caregiver In
+   Training), saves them so their courses are assigned, links their offer and sends the same training welcome as the
+   9am run. Not found: nothing is sent, a card goes on Needs Attention, and the office is told to set In Training in
+   AxisCare and press Send orientation link (on the row under Done recently). It never sends twice. */
+const WC_ORIENT_LABEL = 'Welcome call done – send orientation link';
+async function wcOrientCall(w){
+  const c = (typeof candidates !== 'undefined' ? candidates : []).find(x => String(x.id) === String(w.candidate_id)) || null;
+  const uniq = a => [...new Set(a.map(x => String(x == null ? '' : x).trim()).filter(Boolean))];
+  const phones = uniq([w.phone, c && c.phone]), emails = uniq([w.email, c && c.email]);
+  const body = { action:'orientation_link', offer_id: c && c.offer_id ? String(c.offer_id) : '', welcome_call_id: String(w.id),
+    phone: phones[0] || '', email: emails[0] || '', phones: phones.slice(1), emails: emails.slice(1),
+    first: w.first_name || (c && c.first) || '', last: w.last_name || (c && c.last) || '' };
+  const r = await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/job-offer', { method:'POST',
+    headers:{ 'apikey':TRAINING_HUB_ANON, 'Authorization':'Bearer '+TRAINING_HUB_ANON, 'x-hub-token':await (window.trainHubTok ? window.trainHubTok() : ''), 'Content-Type':'application/json' },
+    body: JSON.stringify(body) });
+  let d = {}; try{ d = await r.json(); }catch(_){ d = {}; }
+  if(!d || !d.status){ throw new Error((d && d.error) || ('the Training Platform answered ' + r.status)); }
+  return d;
+}
+/* What the office sees for each answer. */
+function wcOrientMsg(d){
+  const notSent = (d.not_sent && d.not_sent.length) ? '\n\nNot sent: ' + d.not_sent.join('; ') : '';
+  const offer = d.offer_note ? '\n\n' + d.offer_note : '';
+  const day = iso => { try{ return new Date(iso).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZone: WC_TZ }); }catch(_){ return ''; } };
+  if(d.status === 'sent') return 'Orientation link sent by ' + [d.sms ? 'text' : '', d.email ? 'email' : ''].filter(Boolean).join(' and ')
+    + '. It shows in their GoHighLevel conversation, and their courses are assigned in the Training Platform.' + notSent + offer;
+  if(d.status === 'held') return 'The orientation link goes out at 9am (texts only go 8am to 6pm). They are set up in the Training Platform, so there is nothing else to do.' + offer;
+  if(d.status === 'already_sent') return 'Their orientation link was already sent' + (d.sent_at ? ' (' + day(d.sent_at) + ')' : '') + '. Nothing new went.' + offer;
+  if(d.status === 'not_found') return 'No orientation link went: ' + (d.why || 'they were not found in AxisCare') + '.\n\n'
+    + 'Set them to In Training in AxisCare, then press Send orientation link (on their row under Done recently).'
+    + (d.card ? ' A card is on Needs Attention so this is not forgotten.' : '') + offer;
+  if(d.status === 'not_sent') return 'No orientation link went.' + notSent + '\n\nEach reason is on Needs Attention. Fix it and press Send orientation link again, or call them.' + offer;
+  if(d.status === 'no_contact') return 'No orientation link went: ' + (d.why || 'there is no phone number or email for them') + '. Add one on their record, then press Send orientation link.';
+  return 'No orientation link went: ' + (d.why || d.error || 'something went wrong') + (/\.$/.test(d.why || '') ? '' : '.');
+}
+async function wcOrientLink(id, btn){
+  const w = WC_ROWS.find(x => String(x.id) === String(id)); if(!w) return;
+  if(!confirm('Send ' + wcName(w) + ' their orientation link now?\n\nThe Training Platform finds them in AxisCare (an active caregiver In Training, by phone or email) and sends the text and email. It never sends twice.')) return;
+  if(btn) btn.disabled = true;
+  try{ alert(wcOrientMsg(await wcOrientCall(w))); }
+  catch(e){ alert('That did not go through: ' + ((e && e.message) || e) + '\n\nNothing was sent.'); }
+  finally{ if(btn) btn.disabled = false; }
+}
 async function wcTick(id, key, box){
   const w = WC_ROWS.find(x => String(x.id) === String(id)); if(!w) return;
   const val = !!box.checked;
@@ -7114,7 +7162,9 @@ async function wcAct(id, action, reason, btn){
   let ask = '';
   if(action === 'done'){
     if(!WC_TICKS.every(([k]) => w[k]) && !confirm('Not every checklist box is ticked for ' + name + '.\n\nMark the welcome call done anyway?')) return;
-    ask = 'Mark the welcome call with ' + name + ' as done?\n\nRemember to complete I-9 Section 2 in Viventium.';
+    ask = 'Mark the welcome call with ' + name + ' as done and send their orientation link?\n\n'
+      + 'First: they must be hired in AxisCare with status In Training. The Training Platform finds them there by phone or email and sends their orientation link by text and email.\n\n'
+      + 'Remember to complete I-9 Section 2 in Viventium.';
   } else if(action === 'reschedule' && reason === 'step2'){
     ask = 'Move ' + name + "'s " + when + ' call because Viventium Step 2 is not done?\n\nThe time is freed and they get a text and email asking them to finish Step 2, then pick a new time.';
   } else if(action === 'reschedule'){
@@ -7134,6 +7184,11 @@ async function wcAct(id, action, reason, btn){
     if(action === 'reschedule' && reason === 'step2'){
       const c = candidates.find(x => String(x.id) === String(w.candidate_id));
       if(c && c.step2_done_at){ c.step2_done_at = null; c.step2_done_by = null; await saveCandidates(); head += '\n\n"Step 2 done" was cleared on their record. Mark it again once Viventium shows it finished.'; }
+    }
+    /* 1b: then the orientation link (Training finds them in AxisCare and sends the welcome). The call stays done either way. */
+    if(action === 'done'){
+      try{ head += '\n\n' + wcOrientMsg(await wcOrientCall(w)); }
+      catch(e){ head += '\n\nThe orientation link step did not run: ' + ((e && e.message) || e) + '.\n\nPress Send orientation link on their row under Done recently to try again.'; }
     }
     await wcLoad();
     /* 2c: done without a published profile is allowed (the photo often comes after the call); the next step is said */
@@ -8793,6 +8848,6 @@ window.obRefTextOpen = obRefTextOpen;
 window.obRefSendClose = obRefSendClose;
 window.obRefSendGo = obRefSendGo;
 /* Remote orientation, slice 1a (2026-10-01): Step 2 tracking + welcome calls. */
-Object.assign(window, { step2Mark, wcInvite, wcLoad, wcTick, wcNotes, wcAct, cgpOpen });
+Object.assign(window, { step2Mark, wcInvite, wcLoad, wcTick, wcNotes, wcAct, wcOrientLink, cgpOpen });
 window.dispatchEvent(new Event('scx-ready'));
 })();
