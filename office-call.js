@@ -34,14 +34,14 @@
   function ocAttrs(phone, o) {
     o = o || {};
     return ' href="#" role="button" data-oc-phone="' + e(phone) + '"' + (o.email ? ' data-oc-email="' + e(o.email) + '"' : '')
-      + (o.client ? ' data-oc-client="' + e(o.client) + '"' : '') + ' title="Call from office line (LeadConnector)"';
+      + (o.client ? ' data-oc-client="' + e(o.client) + '"' : '') + ' title="Call (LeadConnector)"';
   }
   /** a link page's call block, from the server's lookup (ghl: {contact_id, app_url, web_url} or null) */
   function ocInline(phone, label, ghl, cls) {
     if (!digits(phone) && !(ghl && okApp(ghl.app_url))) return '';
     var num = phone ? ' · ' + e(pretty(phone)) : '';
     if (ghl && okApp(ghl.app_url)) {
-      return '<a class="' + e(cls || 'call') + ' oc-office" href="' + e(ghl.app_url) + '" target="_blank" rel="noopener">📞 ' + e(label) + ' from office line' + num + '</a>'
+      return '<a class="' + e(cls || 'call') + ' oc-office" href="' + e(ghl.app_url) + '" target="_blank" rel="noopener">📞 ' + e(label) + num + '</a>'
         + '<div class="oc-alt">' + (okWeb(ghl.web_url) ? '<a href="' + e(ghl.web_url) + '" target="_blank" rel="noopener">Open in browser</a>' : '')
         + (digits(phone) ? ' · ' + cellLink(phone) : '') + '</div>';
     }
@@ -90,7 +90,7 @@
       cache[key] = f;
       var opened = null;
       try { opened = window.open(f.app_url, '_blank'); if (opened) opened.opener = null; } catch (err) { opened = null; }
-      show(head + '<a class="oc-go" href="' + e(f.app_url) + '" target="_blank" rel="noopener">📞 Call from office line</a>'
+      show(head + '<a class="oc-go" href="' + e(f.app_url) + '" target="_blank" rel="noopener">📞 Call</a>'
         + '<div class="oc-msg" style="margin-top:8px">' + (opened ? 'Opened in LeadConnector. ' : '') + 'Tap Call on their contact there; it uses the office number.</div>'
         + '<div class="oc-alt">' + (okWeb(f.web_url) ? '<a href="' + e(f.web_url) + '" target="_blank" rel="noopener">Open in browser</a> · ' : '') + cellLink(phone) + '</div>');
     } else {

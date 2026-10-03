@@ -8656,7 +8656,7 @@ function initCommsPanel(lead){
   if(!lead.phone && !lead.email){ lock('Add a phone number or email for this lead to see and send messages.'); return; }
   locked.style.display='none'; panel.style.display='block';
   const call = document.getElementById('commsCallBtn');
-  if(lead.phone){ call.href = '#'; call.dataset.ocPhone = lead.phone; if(lead.email) call.dataset.ocEmail = lead.email; else delete call.dataset.ocEmail; call.title = 'Call from office line (LeadConnector)'; call.textContent = '📞 Call from office line'; call.style.display='inline-flex'; }
+  if(lead.phone){ call.href = '#'; call.dataset.ocPhone = lead.phone; if(lead.email) call.dataset.ocEmail = lead.email; else delete call.dataset.ocEmail; call.title = 'Call (office line (LeadConnector)'; call.textContent = '📞 Call from office line'; call.style.display='inline-flex'; }
   else { call.style.display='none'; }
   document.getElementById('commsSmsInput').value='';
   renderCommsTimeline();
@@ -9866,7 +9866,7 @@ function actRow(a, overdue){
     +'<span>'+(ACT_ICON[a.kind]||'•')+'</span>'
     +'<div style="flex:1;min-width:0;"><b'+(overdue?' style="color:var(--red);"':'')+'>'+esc(a.title)+'</b>'
     +'<div class="field-note">'+actAboutHtml(a)+(a.due?' · due '+a.due:'')+'</div></div>'
-    +(ph?'<a'+ocAttrs(ph)+' class="linklike" style="text-decoration:none;">📞 Call from office line</a>':'')
+    +(ph?'<a'+ocAttrs(ph)+' class="linklike" style="text-decoration:none;">📞 Call</a>':'')
     +'<button class="linklike" style="color:var(--green);font-weight:700;" onclick="markActivityDone(\''+a.id+'\')">✓ Done</button>'
     +'</div>';
 }
@@ -9875,7 +9875,7 @@ function leadDueRow(l){
   return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">'
     +'<span>📞</span><div style="flex:1;min-width:0;"><b>Follow up: '+esc((l.first_name||'')+' '+(l.last_name||''))+'</b>'
     +'<div class="field-note">'+(l.follow_up_branch?esc(l.follow_up_branch)+' · ':'')+'due '+l.follow_up_due+'</div></div>'
-    +(l.phone?'<a'+ocAttrs(l.phone,{email:l.email})+' class="linklike" style="text-decoration:none;">📞 Call from office line</a>':'')
+    +(l.phone?'<a'+ocAttrs(l.phone,{email:l.email})+' class="linklike" style="text-decoration:none;">📞 Call</a>':'')
     +'<button class="linklike" onclick="openLeadProfile(\''+l.id+'\')">Open</button>'
     +'</div>';
 }
@@ -10292,7 +10292,7 @@ function leadNoPlanRow(l){
     +'</div>';
 }
 function myDayRow(color, iconId, title, sub, tag, tagColor, tagBg, callPhone, actionLabel, actionJs){
-  const tel = callPhone ? '<a'+ocAttrs(callPhone)+' class="linklike" style="text-decoration:none;white-space:nowrap;font-size:13px;">📞 Call from office line</a>' : '';
+  const tel = callPhone ? '<a'+ocAttrs(callPhone)+' class="linklike" style="text-decoration:none;white-space:nowrap;font-size:13px;">📞 Call</a>' : '';
   return '<div style="display:flex;align-items:center;gap:11px;font-size:13px;background:#fff;border:1px solid var(--border);border-left:3px solid '+color+';border-radius:9px;padding:9px 13px;margin-bottom:8px;">'
     +'<svg style="width:22px;height:22px;flex:none;" aria-hidden="true"><use href="icons.svg#'+iconId+'"/></svg>'
     +'<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+title+'</div>'
@@ -10658,7 +10658,7 @@ function renderRefProfile(){
     + '<div style="font-size:19px;font-weight:800;color:var(--navy);letter-spacing:-.01em;">'+esc(o.name)+'</div>'
     + (o.type?'<div class="field-note">'+esc(o.type)+'</div>':'')
     + '<div style="margin-top:12px;display:flex;flex-direction:column;gap:7px;font-size:13.5px;">'
-      + (o.phone?'<a'+ocAttrs(o.phone,{email:o.email})+' style="color:var(--navy);text-decoration:none;">📞 '+esc(o.phone)+' · office line</a>':'')
+      + (o.phone?'<a'+ocAttrs(o.phone,{email:o.email})+' style="color:var(--navy);text-decoration:none;">📞 '+esc(o.phone)+'</a>':'')
       + (o.email?'<a href="mailto:'+esc(o.email)+'" style="color:var(--navy);text-decoration:none;word-break:break-all;">✉️ '+esc(o.email)+'</a>':'')
     + '</div>'
     + (o.people?'<div style="margin-top:12px;"><div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);">Who we know there</div>'
@@ -12528,7 +12528,7 @@ function renderFollowUpQueueList(){
         ${(l.intent_tags&&l.intent_tags.length) ? `<div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;">${l.intent_tags.map(t=>`<span class="tag-chip">"${t}"</span>`).join('')}</div>` : ''}
         <div style="margin-top:9px;display:flex;gap:12px;align-items:center;">
           ${pdraft ? `<button class="linklike" style="font-weight:700;color:var(--gold-text);" onclick="event.stopPropagation();openFollowUpModal('${pdraft.id}')">Review draft</button>` : ''}
-          ${ph ? `<a${ocAttrs(ph,{email:l.email})} class="linklike" style="text-decoration:none;" onclick="event.stopPropagation();">📞 Call from office line</a>` : ''}
+          ${ph ? `<a${ocAttrs(ph,{email:l.email})} class="linklike" style="text-decoration:none;" onclick="event.stopPropagation();">📞 Call</a>` : ''}
           <button class="linklike" onclick="event.stopPropagation();openFollowUpDetail('${l.id}')">Details</button>
         </div>
       </div>
@@ -12573,7 +12573,7 @@ function openFollowUpDetail(leadId){
       <div style="margin-top:8px;"><button class="linklike" onclick="closeModal('fqDetailModalBackdrop');openFollowUpModal(null,'${l.id}')">🤖 Start a follow-up draft</button></div>`;
   }
   html += `<div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;">
-    ${phone ? `<a class="primary" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;" ${ocAttrs(phone,{email:l.email})}>📞 Call from office line</a>` : ''}
+    ${phone ? `<a class="primary" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;" ${ocAttrs(phone,{email:l.email})}>📞 Call</a>` : ''}
     <button class="secondary" onclick="closeModal('fqDetailModalBackdrop');openLeadModal('${l.id}')">✏️ Edit Lead</button>
   </div>`;
   document.getElementById('fqDetailContent').innerHTML = html;
@@ -16316,7 +16316,7 @@ async function cgdOpenProfile(axid){
         return (t!=null&&t>=0&&t<60)?'<span class="tag-chip" style="background:var(--honey-chip,#F7E7CD);color:var(--honey-ink,#8A4E0C);">New hire — day '+t+'</span>':''; })()
     +'<span class="field-note">AxisCare ID '+esc(String(c.id))+'</span>'
     +'<span style="flex:1;"></span>'
-    +(c.mobile?'<a class="secondary" style="text-decoration:none;padding:.38rem .85rem;border-radius:8px;border:1.5px solid var(--border);background:#fff;color:var(--navy);font-size:.8rem;font-weight:700;"'+ocAttrs(c.mobile,{email:c.email})+'>📞 Call from office line</a> '+act('sms:'+esc(c.mobile),'💬 Text'):'')
+    +(c.mobile?'<a class="secondary" style="text-decoration:none;padding:.38rem .85rem;border-radius:8px;border:1.5px solid var(--border);background:#fff;color:var(--navy);font-size:.8rem;font-weight:700;"'+ocAttrs(c.mobile,{email:c.email})+'>📞 Call</a> '+act('sms:'+esc(c.mobile),'💬 Text'):'')
     +(c.email?act('mailto:'+esc(c.email),'✉ Email'):'')
     +'</div>'
     +'<div class="subtab-bar" style="margin-bottom:14px;">'
@@ -20616,7 +20616,7 @@ function apRender(){
           + '<option value="">—</option>'
           + AP_POS.map(p=>'<option value="'+esc(p.key)+'"'+(r.position===p.key?' selected':'')+'>'+esc(p.label)+'</option>').join('')
           + '</select></label>'
-        + (r.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(r.phone,{email:r.email})+'>📞 Call from office line</a>':'')
+        + (r.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(r.phone,{email:r.email})+'>📞 Call</a>':'')
         + (r.status!=='declined'
             ? (b && b.status==='booked'
                 ? '<button class="fb" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Move their interview</button>'
@@ -21623,7 +21623,7 @@ function apRenderProfile(){
           + '</div>'
         : '')
     + '<div style="margin-top:14px;display:flex;flex-direction:column;gap:7px;font-size:13.5px;">'
-      + (r.phone ? '<a'+ocAttrs(r.phone,{email:r.email})+' style="color:var(--navy);text-decoration:none;">📞 '+esc(r.phone)+' · office line</a>' : '')
+      + (r.phone ? '<a'+ocAttrs(r.phone,{email:r.email})+' style="color:var(--navy);text-decoration:none;">📞 '+esc(r.phone)+'</a>' : '')
       + (r.email ? '<a href="mailto:'+esc(r.email)+'" style="color:var(--navy);text-decoration:none;word-break:break-all;">✉️ '+esc(r.email)+'</a>' : '')
       + '<span class="field-note">' + (r.sms_consent ? '✓ happy to be texted' : 'no texting consent') + '</span>'
     + '</div>'
@@ -22012,7 +22012,7 @@ function apProfWork(r){
           + (v.at ? ' on ' + esc(new Date(v.at).toLocaleDateString('en-US',{month:'short', day:'numeric'})) : '') + '</div>' : '')
       + '<div style="display:flex;gap:7px;margin-top:9px;flex-wrap:wrap;">'
         + (w.supervisor_phone ? '<a class="fb" style="text-decoration:none;"'
-            + ocAttrs(w.supervisor_phone) + '>📞 Call them from office line</a>' : '')
+            + ocAttrs(w.supervisor_phone) + '>📞 Call them</a>' : '')
         + '<button class="fb" onclick="apVerifyWork('+i+',\'yes\')">✓ Confirmed</button>'
         + '<button class="fb" onclick="apVerifyWork('+i+',\'no\')">✕ Could not confirm</button>'
         + (v.state ? '<button class="fb" onclick="apVerifyWork('+i+',null)">Undo</button>' : '')
@@ -36776,7 +36776,7 @@ function nursePortalRender(me){
   const clients=(DATA.nurse_clients||[]).filter(c=>c.active!==false);
   const mine=clients.filter(c=>c.assigned_nurse===me.name);
   const open=clients.filter(c=>!String(c.assigned_nurse||'').trim());
-  const tel=c=>c.phone?'<a class="addlead" style="padding:5px 14px;font-size:12px;text-decoration:none;"'+ocAttrs(c.phone)+'>📞 Call from office line</a>':'';
+  const tel=c=>c.phone?'<a class="addlead" style="padding:5px 14px;font-size:12px;text-decoration:none;"'+ocAttrs(c.phone)+'>📞 Call</a>':'';
   const needs=c=>[c.weekly_meds?'weekly meds':'',(c.ghe1||c.ghe2)?'GHE ('+[c.ghe1,c.ghe2].filter(Boolean).join(', ')+')':''].filter(Boolean).join(' + ')||'no set needs';
   const mineBox=document.getElementById('npMine');
   if(mineBox) mineBox.innerHTML=mine.map(c=>{

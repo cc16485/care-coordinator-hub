@@ -64,8 +64,8 @@ const fakeSb = (answer, log) => ({ functions: { invoke: async (name, o) => { log
     ck('a tap shows a spinner while it looks', /oc-spin/.test(t.spinner) && /Finding them in GoHighLevel/.test(t.spinner), t.spinner);
     ck('it asks ghl-call-link only, with the phone, email and client id', log.length === 1 && log[0].name === 'ghl-call-link' && log[0].body.phone === '(417) 555-0777' && log[0].body.email === 'ann@example.com' && log[0].body.axiscare_client_id === '701', log);
     ck('found: it opens the contact in LeadConnector (app.leadconnectorhq.com)', P.opened.length === 1 && P.opened[0][0] === APP('g1'), P.opened);
-    ck('found: the panel has "Call from office line" (LeadConnector), "Open in browser" (app.hirecara.com) and "Call from my cell"',
-       t.html.includes('href="' + APP('g1') + '"') && /📞 Call from office line/.test(t.html) && t.html.includes('href="' + WEB('g1') + '"') && /Open in browser/.test(t.html)
+    ck('found: the panel has "Call" (LeadConnector), "Open in browser" (app.hirecara.com) and "Call from my cell"',
+       t.html.includes('href="' + APP('g1') + '"') && /📞 Call</.test(t.html) && t.html.includes('href="' + WEB('g1') + '"') && /Open in browser/.test(t.html)
        && /href="tel:4175550777"[^>]*>Call from my cell/.test(t.html) && /Tap Call on their contact there/.test(t.html), t.html);
     const t2 = await P.tap(at);
     ck('the same number again: no second lookup (remembered for the page)', log.length === 1 && P.opened.length === 2, log.length); }
@@ -103,8 +103,8 @@ const fakeSb = (answer, log) => ({ functions: { invoke: async (name, o) => { log
       : { ok: true, me: 'Samantha', kind: 'late', caregiver_first: 'Maria', client_first: 'Ruth', shift_time: '9am', said: [], family: { can: false, why: 'x', members: 0, first_names: [], sent: [] } };
     let h = await draw({ ...base, caregiver_phone: '+14175550111', client_phone: '+14175550777',
       caregiver_ghl: { contact_id: 'gM', app_url: APP('gM'), web_url: WEB('gM') }, client_ghl: { contact_id: 'gR', app_url: APP('gR'), web_url: WEB('gR') } });
-    ck(file + ': found: "Call Maria from office line" and "Call Ruth\'s home from office line" open LeadConnector, numbers shown',
-       h.includes('href="' + APP('gM') + '"') && /📞 Call Maria from office line · \(417\) 555-0111/.test(h) && h.includes('href="' + APP('gR') + '"') && /📞 Call Ruth&#39;s home from office line · \(417\) 555-0777/.test(h), h.match(/<h2>Call[\s\S]*$/)?.[0]);
+    ck(file + ': found: "Call Maria" and "Call Ruth\'s home" open LeadConnector, numbers shown',
+       h.includes('href="' + APP('gM') + '"') && /📞 Call Maria · \(417\) 555-0111/.test(h) && h.includes('href="' + APP('gR') + '"') && /📞 Call Ruth&#39;s home · \(417\) 555-0777/.test(h), h.match(/<h2>Call[\s\S]*$/)?.[0]);
     ck(file + ': found: each has a small "Open in browser" (app.hirecara.com) and "Call from my cell"', h.includes('href="' + WEB('gR') + '"') && /href="tel:\+14175550777"[^>]*>Call from my cell/.test(h) && /href="tel:\+14175550111"[^>]*>Call from my cell/.test(h));
     h = await draw({ ...base, caregiver_phone: '+14175550111', client_phone: '+14175550777', caregiver_ghl: null, client_ghl: null });
     ck(file + ': not in GoHighLevel: says so, no LeadConnector button, cell link kept', /Not in GoHighLevel/.test(h) && !/leadconnectorhq/.test(h) && /href="tel:\+14175550777"/.test(h), h.match(/<h2>Call[\s\S]*$/)?.[0]);
