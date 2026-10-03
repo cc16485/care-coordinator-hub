@@ -3839,6 +3839,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <textarea id="set_cov_covered" rows="2" placeholder="Caring Companions: that shift is covered now. Thank you! No action needed."></textarea>
 <label>Admin alert text when a call-in is detected (all admins, SMS + email)</label>
 <textarea id="set_cov_admin_alert" rows="2" placeholder="New call-in: {client} {when}.{who} The callout engine is texting caregivers. Board: cc.mo-care.com"></textarea>
+<div id="cvAfter" class="field-note" style="margin:2px 0 4px;"></div>
+<button class="secondary" id="cvAfterBtn" onclick="ahToggle('callin',this)" style="margin-bottom:10px;">Turn off after-hours texts</button>
 <label>Escalation text to the on-call person when a callout runs out of caregivers</label>
 <textarea id="set_cov_escalation" rows="2" placeholder="Coverage alert: the callout for {client} {when} ran out of caregivers to ask ({asked} asked, nobody said yes). It needs a person now. Board: cc.mo-care.com"></textarea>
 <label>Availability invite (sends 10am-5pm only, from the Hours Watch button)</label>
@@ -3928,10 +3930,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="settings-section" id="tkSettings">
 <h3>⏰ Missed clock-ins</h3>
 <p class="hint">When a caregiver hasn't clocked in a few minutes after their shift starts, they get one short text. At the same moment every admin gets a text with their own link, and it repeats until someone opens the link and marks it resolved (or she clocks in, or a coverage case covers the shift). The EVV form never goes out by itself: an admin sends it from the link page when a caregiver asks to be clocked in for their start time. Changes here take effect on the next check (every 2 minutes) and are recorded in the activity log.</p>
-<p class="hint" id="tkQuietHint"><b>Office quiet hours:</b> no admin or office text from 8pm to 7am Central. A missed clock-in overnight still opens in Needs Attention; if it is still open at 7am, each admin gets one text then. Each admin gets at most 6 texts about one missed clock-in, and every text has the link to mark it resolved.</p>
+<p class="hint" id="tkQuietHint"><b>Office quiet hours:</b> no admin or office text from 8pm to 7am Central, except missed clock-ins and call-ins while their after-hours switches are on. Each admin gets at most 6 texts about one missed clock-in, and every text has the link to mark it resolved.</p>
 <div id="tkCg" class="field-note" style="margin:6px 0 4px;"></div>
 <button class="secondary" id="tkCgBtn" onclick="tkToggleCg(this)" style="margin-bottom:10px;">Turn on caregiver texts</button>
 <div id="tkLive" class="field-note" style="margin:6px 0 10px;"></div>
+<div id="tkAfter" class="field-note" style="margin:6px 0 4px;"></div>
+<button class="secondary" id="tkAfterBtn" onclick="ahToggle('missed_clockin',this)" style="margin-bottom:10px;">Turn off after-hours texts</button>
 <label>Minutes after the shift start before the texts go (caregiver and admins)</label>
 <input id="set_tk_grace" type="number" min="1" max="60" placeholder="5">
 <label>Repeat the admin text every (minutes), until resolved</label>
@@ -13586,15 +13590,59 @@ function tkQuiet(){
   const now=s===e?false:s>e?(h>=s||h<e):(h>=s&&h<e);
   return { off:s===e, from:w(s), to:w(e), now };
 }
+/* AFTER HOURS (Samantha, 2026-10-03, Desktop 426: "i want the missed clock ins to be live after hours too, that and
+   call ins"). Two exceptions to the office quiet hours, each ON unless switched off here (same rule as the server,
+   _shared/quiet-hours.ts afterHoursAllowed): ops_settings.missed_clockin_after_hours and callin_after_hours. Saved
+   with tkMerge (merge against the server copy, recorded in the activity log). */
+const AH_KEYS={ missed_clockin:'missed_clockin_after_hours', callin:'callin_after_hours' };
+function ahOn(kind){ const v=(DATA.ops_settings||{})[AH_KEYS[kind]]; return !(v===false||v==='false'); }
+function ahLabel(kind){ const q=tkQuiet(); return (kind==='callin'?'Call-ins':'Missed clock-ins')+' text admins after hours ('+q.from+' to '+q.to+')'; }
+function tkCap(){ const st=DATA.ops_settings||{}; return Number(st.timekeeper_admin_max_texts)>0?Math.floor(Number(st.timekeeper_admin_max_texts)):6; }
+async function ahToggle(kind, btn){
+  const on=!ahOn(kind), q=tkQuiet(), cap=tkCap(), loopOn=(DATA.ops_settings||{}).timekeeper_admin_loop_live===true;
+  const msg=kind==='callin'
+    ?(on?'Turn on after-hours texts for call-ins? Every call-in will text the admins at any hour, including '+q.from+' to '+q.to+' (the email goes too).'
+       :'Turn off after-hours texts for call-ins? From '+q.from+' to '+q.to+' a call-in only emails the admins and waits on the board. A client whose call-in plan says "must be covered" still texts at any hour.')
+    :(on?'Turn on after-hours texts for missed clock-ins? A missed clock-in from '+q.from+' to '+q.to+' will text every admin the same as in the day (at most '+cap+' texts each, Resolved stops them).'+(loopOn?'':' The missed clock-in admin texts themselves are OFF right now, so nothing is texted until they are turned on.')
+       :'Turn off after-hours texts for missed clock-ins? From '+q.from+' to '+q.to+' nobody is texted about a missed clock-in: it waits in Needs Attention, and if it is still open at '+q.to+' each admin gets one text then.');
+  if(!confirm(msg)) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m[AH_KEYS[kind]]=on; return [ahLabel(kind)+(on?' ON':' OFF')]; }, kind==='callin'?'call-in alert settings':'missed clock-in settings');
+  if(btn) btn.disabled=false;
+  const s=document.getElementById(kind==='callin'?'covMsgsSaved':'tkSaved');
+  if(s) s.textContent=out.error?('Could not save: '+out.error.message):(ahLabel(kind)+(on?': on.':': off.'));
+  tkRenderStatus();
+}
+function ahRender(){
+  const q=tkQuiet(), cap=tkCap(), loopOn=(DATA.ops_settings||{}).timekeeper_admin_loop_live===true;
+  const put=(id,html)=>{ const n=document.getElementById(id); if(n) n.innerHTML=html; };
+  const btn=(id,on)=>{ const b=document.getElementById(id); if(b) b.textContent=on?'Turn off after-hours texts':'Turn on after-hours texts'; };
+  const offNote=q.off?' (Office quiet hours are off, so texts can go at any hour anyway.)':'';
+  const mc=ahOn('missed_clockin');
+  put('tkAfter', (mc?'<b style="color:#1E8449;">'+ahLabel('missed_clockin')+': ON.</b> A missed clock-in at night texts every admin the same as in the day (at most '+cap+' each).'
+      :'<b style="color:#B7791F;">'+ahLabel('missed_clockin')+': OFF.</b> At night nobody is texted about a missed clock-in; it waits in Needs Attention, and if it is still open at '+q.to+' each admin gets one text then.')
+    +(loopOn?'':' <b>This only matters once the admin texts are on; they are OFF now.</b>')
+    +' The Saturday EVV reminder, running late and lead texts stay quiet at night either way.'+offNote);
+  btn('tkAfterBtn', mc);
+  const ci=ahOn('callin');
+  put('cvAfter', (ci?'<b style="color:#1E8449;">'+ahLabel('callin')+': ON.</b> Every call-in texts the admins at any hour (the email goes too).'
+      :'<b style="color:#B7791F;">'+ahLabel('callin')+': OFF.</b> From '+q.from+' to '+q.to+' a call-in only emails the admins and waits on the board; a "must be covered" client still texts at any hour.')+offNote);
+  btn('cvAfterBtn', ci);
+}
 function tkRenderStatus(){
   const st=DATA.ops_settings||{}, esc=escapeHtmlComms, live=st.timekeeper_admin_loop_live===true;
   const q=tkQuiet(), qh=document.getElementById('tkQuietHint');
+  const ah=ahOn('missed_clockin'), cap=tkCap();
   if(qh) qh.innerHTML=q.off?'<b>Office quiet hours are off:</b> admin texts can go at any hour.'
-    :'<b>Office quiet hours:</b> no admin or office text from '+q.from+' to '+q.to+' Central. A missed clock-in overnight still opens in Needs Attention; if it is still open at '+q.to+', each admin gets one text then. Each admin gets at most '+(Number(st.timekeeper_admin_max_texts)>0?Math.floor(Number(st.timekeeper_admin_max_texts)):6)+' texts about one missed clock-in, and every text has the link to mark it resolved.';
+    :'<b>Office quiet hours:</b> no admin or office text from '+q.from+' to '+q.to+' Central, except missed clock-ins and call-ins while their after-hours switches are on. '
+      +(ah?'Missed clock-ins: after hours ON, so an overnight missed clock-in texts the admins too. '
+          :'Missed clock-ins: after hours OFF, so an overnight missed clock-in waits in Needs Attention; if it is still open at '+q.to+', each admin gets one text then. ')
+      +'Each admin gets at most '+cap+' texts about one missed clock-in, and every text has the link to mark it resolved.';
   const lv=document.getElementById('tkLive'), btn=document.getElementById('tkLiveBtn');
-  if(lv) lv.innerHTML=live?'<b style="color:#1E8449;">Admin texts are ON'+(q.off?'':' ('+q.to+' to '+q.from+' Central)')+'.</b> Every admin below is texted until someone resolves it'+(q.off?'':', never between '+q.from+' and '+q.to)+'.'+(q.now?' <b>It is quiet hours now:</b> nobody is being texted.':'')
-    :'<b style="color:#B7791F;">Admin texts: practice run.</b> They are only recorded (below), not sent. Turn them on when you\'re happy with a day of practice.';
+  if(lv) lv.innerHTML=live?'<b style="color:#1E8449;">Admin texts are ON'+(q.off||ah?' (any hour)':' ('+q.to+' to '+q.from+' Central)')+'.</b> Every admin below is texted until someone resolves it'+(q.off||ah?'':', never between '+q.from+' and '+q.to)+'.'+(q.now&&!ah?' <b>It is quiet hours now:</b> nobody is being texted.':'')
+    :'<b style="color:#B7791F;">Admin texts are OFF (practice run).</b> No admin is texted about a missed clock-in, day or night, until you turn them on with the button below. They are only recorded (below). Turn them on when you\'re happy with a day of practice.';
   if(btn) btn.textContent=live?'Turn off admin texts':'Turn on admin texts';
+  ahRender();
   /* Caregiver texts (timekeeper_text_live): paused in Step 0 (2026-09-27); Samantha asked for this switch 2026-09-29. */
   const cgOn=st.timekeeper_text_live===true, watchOn=st.timekeeper_watch_live===true;
   const cg=document.getElementById('tkCg'), cb=document.getElementById('tkCgBtn');
@@ -13656,8 +13704,10 @@ async function tkToggleCg(btn){
 }
 async function tkToggleLive(btn){
   const on=!((DATA.ops_settings||{}).timekeeper_admin_loop_live===true);
-  const q=tkQuiet(), cap=Number((DATA.ops_settings||{}).timekeeper_admin_max_texts)>0?Math.floor(Number(DATA.ops_settings.timekeeper_admin_max_texts)):6;
+  const q=tkQuiet(), cap=tkCap();
+  /* 426: with the missed clock-in after-hours switch on (the default), these texts go at any hour */
   const hrs=q.off?' Office quiet hours are OFF, so these texts can go at ANY hour, including overnight.'
+    :ahOn('missed_clockin')?' Hours: ANY hour, including '+q.from+' to '+q.to+' (missed clock-ins text admins after hours is on), so a missed clock-in overnight texts every admin too. To keep '+q.from+' to '+q.to+' quiet, turn that switch off on this card.'
     :' Hours: '+q.to+' to '+q.from+' Central only. From '+q.from+' to '+q.to+' nobody is texted: an overnight missed clock-in waits in Needs Attention, and if it is still open at '+q.to+' each admin gets one text then.'+(q.now?' It is quiet hours right now, so nothing will be texted before '+q.to+'.':'');
   if(!confirm(on?'Turn on the admin texts? From the next missed clock-in, every admin is texted every few minutes (at most '+cap+' texts each) until someone taps Resolved on their link.'+hrs:'Turn off the admin texts? Missed clock-ins go back to practice (recorded, not texted to admins). Caregivers still get their text.')) return;
   if(btn) btn.disabled=true;

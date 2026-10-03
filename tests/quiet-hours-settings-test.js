@@ -3,7 +3,9 @@
    the Settings card and the "Turn on the admin texts" confirm must state the hours. The real tkQuiet /
    tkRenderStatus / tkToggleLive, cut out of index.html and run with a fake clock, a fake page and a fake confirm().
    Proves: the hours (8pm to 7am by default, or ops_settings.office_quiet_start/end), the cap, "quiet hours now" at
-   3am, the confirm wording, a cancelled confirm changes nothing, no em dashes in the new copy. */
+   3am, the confirm wording, a cancelled confirm changes nothing, no em dashes in the new copy.
+   426: these checks run with the missed clock-in after-hours switch OFF (missed_clockin_after_hours false), which is
+   the 425 behaviour; the default (switch on) is tested in tests/after-hours-settings-test.js. */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const src = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
@@ -43,7 +45,7 @@ for (const [iso, quiet, label] of [
 
 /* 2 · the confirm states the hours */
 ;(async () => {
-  let w = world('2026-10-03T15:00:00Z', { timekeeper_admin_loop_live: false })
+  let w = world('2026-10-03T15:00:00Z', { timekeeper_admin_loop_live: false, missed_clockin_after_hours: false })
   await w.ctx.tkToggleLive(null)
   const t = w.asked[0] || ''
   ck('confirm (10am) · says the hours, 7am to 8pm Central only', /Hours: 7am to 8pm Central only\./.test(t), t)
@@ -52,11 +54,11 @@ for (const [iso, quiet, label] of [
   ck('confirm (10am) · does not claim it is quiet hours now', !/quiet hours right now/.test(t), t)
   ck('confirm (10am) · yes turns it on', w.merged[0]?.timekeeper_admin_loop_live === true, w.merged)
 
-  w = world('2026-10-03T08:00:00Z', { timekeeper_admin_loop_live: false })
+  w = world('2026-10-03T08:00:00Z', { timekeeper_admin_loop_live: false, missed_clockin_after_hours: false })
   await w.ctx.tkToggleLive(null)
   ck('confirm (3am) · says it is quiet hours right now, nothing before 7am', /It is quiet hours right now, so nothing will be texted before 7am\./.test(w.asked[0] || ''), w.asked[0])
 
-  w = world('2026-10-03T15:00:00Z', { timekeeper_admin_loop_live: false, timekeeper_admin_max_texts: 3, office_quiet_start: 21, office_quiet_end: 6 })
+  w = world('2026-10-03T15:00:00Z', { timekeeper_admin_loop_live: false, timekeeper_admin_max_texts: 3, office_quiet_start: 21, office_quiet_end: 6, missed_clockin_after_hours: false })
   await w.ctx.tkToggleLive(null)
   ck('confirm · follows the settings (cap 3, 6am to 9pm)', /at most 3 texts each/.test(w.asked[0]) && /Hours: 6am to 9pm Central only/.test(w.asked[0]), w.asked[0])
 
@@ -64,7 +66,7 @@ for (const [iso, quiet, label] of [
   await w.ctx.tkToggleLive(null)
   ck('confirm · quiet hours switched off is said plainly (ANY hour, including overnight)', /Office quiet hours are OFF, so these texts can go at ANY hour, including overnight\./.test(w.asked[0]), w.asked[0])
 
-  w = world('2026-10-03T15:00:00Z', { timekeeper_admin_loop_live: false }, false)
+  w = world('2026-10-03T15:00:00Z', { timekeeper_admin_loop_live: false, missed_clockin_after_hours: false }, false)
   await w.ctx.tkToggleLive(null)
   ck('confirm · Cancel changes nothing', w.merged.length === 0, w.merged)
 
@@ -73,7 +75,7 @@ for (const [iso, quiet, label] of [
   ck('turning it OFF keeps its own plain confirm', /^Turn off the admin texts\?/.test(w.asked[0]) && w.merged[0]?.timekeeper_admin_loop_live === false, w.asked[0])
 
   /* 3 · the Settings card */
-  w = world('2026-10-03T08:00:00Z', { timekeeper_admin_loop_live: true })
+  w = world('2026-10-03T08:00:00Z', { timekeeper_admin_loop_live: true, missed_clockin_after_hours: false })
   w.ctx.tkRenderStatus()
   ck('card · ON shows the hours and "quiet hours now" at 3am', /Admin texts are ON \(7am to 8pm Central\)/.test(w.els.tkLive.innerHTML) && /It is quiet hours now/.test(w.els.tkLive.innerHTML), w.els.tkLive.innerHTML)
   ck('card · the quiet-hours note names the hours and the cap', /no admin or office text from 8pm to 7am Central/.test(w.els.tkQuietHint.innerHTML) && /at most 6 texts/.test(w.els.tkQuietHint.innerHTML), w.els.tkQuietHint.innerHTML)
