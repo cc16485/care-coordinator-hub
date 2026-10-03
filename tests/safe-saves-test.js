@@ -343,9 +343,10 @@ const applies = (S) => S.calls.filter((c) => c.name === 'app_data_items_apply');
   ck('index.html: older queued changes to people are kept in the quarantine, never sent', /const peopleKey = entry\.key==='caregivers' \|\| entry\.key==='candidates';/.test(html));
 
   // ── no em dash in anything this change adds ──
-  const BASE = process.env.BASE421 || 'b9a0fe5';
+  let BASE = process.env.BASE421 || '';
+  if (!BASE) { try { BASE = cp.execFileSync('git', ['merge-base', 'origin/main', 'HEAD'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch (_) { BASE = 'b9a0fe5'; } }
   let added = null;
-  try { added = cp.execFileSync('git', ['diff', BASE, '--', 'caregivers-engine.js', 'index.html', 'tests'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++')); } catch (_) {}
+  try { added = cp.execFileSync('git', ['diff', BASE, '--', 'caregivers-engine.js', 'index.html', 'tests'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++') && !l.includes('no em dash in any line this change adds')); } catch (_) {}
   if (added === null) console.log('(git history not available: the em dash check is skipped)');
   else ck('no em dash in any line this change adds', added.length > 0 && !added.some((l) => /[—―]/.test(l)), added.filter((l) => /[—―]/.test(l)).slice(0, 5));
 
