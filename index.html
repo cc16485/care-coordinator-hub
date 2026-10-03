@@ -1227,11 +1227,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="primary" onclick="openActivityModal()">＋ Schedule an activity</button>
       </div>
       <!-- THE MORNING HERO (Samantha, 2026-09-14: "a really good page for our
-           dashboard/today"). The live twin of the 6:45 Morning Brief email:
+           dashboard/today"). The live twin of the 8am Morning Brief email:
            the same numbers, the same sections, same order, so the email and
            the hub teach each other. Chips are doors, not decorations. -->
       <div id="todayGlance"></div>
       <div id="todayHero"></div>
+      <!-- Booked today: interviews and assessments, the same two lists as the Morning Brief. -->
+      <div id="todayBooked"></div>
       <!-- The Responsible Now board moved here when the Home tab retired
            (Samantha, 2026-09-14: "i dont think we need the home tab"). Who
            holds each function right now belongs on the page everyone opens. -->
@@ -3948,12 +3950,25 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 <div class="settings-section">
 <h3>☀️ Morning Brief</h3>
-<p class="hint">A personal email at <b>6:45am on workdays</b>: anything that came in overnight, pass-along notes from the quick form, leads to call, and that person's top priorities, each line one tap into the hub. Everyone sees only their own book plus anything nobody owns yet. <b>Full picture</b> adds the admin sections: family-update calls from flagged care notes, write-ups for call-offs with under 4 hours notice, yesterday's EVV misses, and today's schedule from AxisCare with any open shifts. Pick who gets what:</p>
+<p class="hint">A personal email at <b>8am Central on workdays</b>: today's interviews and booked assessments, anything that came in overnight, pass-along notes from the quick form, leads to call, and that person's top priorities, each line one tap into the hub. Everyone sees only their own book plus anything nobody owns yet. <b>Full picture</b> adds the admin sections: family-update calls from flagged care notes, write-ups for call-offs with under 4 hours notice, yesterday's EVV misses, and today's schedule from AxisCare with any open shifts. Pick who gets what:</p>
 <div id="mbRecips" style="display:flex;flex-direction:column;gap:5px;margin:8px 0;"></div>
 <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
 <button class="primary" onclick="mbSave(this)">Save recipients</button>
 <button class="secondary" onclick="mbTest(this)">Send me a test brief now</button>
 <span class="field-note" id="mbStatus"></span>
+</div>
+</div>
+
+<div class="settings-section">
+<h3>🕑 Afternoon interviews</h3>
+<p class="hint">Interviews that start at this time or later are marked as this person's interviews on Today, on the Interviews tab and in the Morning Brief. Earlier interviews get no name. Every change is recorded.</p>
+<div class="grid2">
+<div><label>From</label><input type="time" id="set_aiv_from"></div>
+<div><label>Whose interviews</label><input id="set_aiv_name" placeholder="Samantha"></div>
+</div>
+<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+<button class="primary" onclick="aivSave(this)">Save</button>
+<span class="field-note" id="aivStatus"></span>
 </div>
 </div>
 
@@ -6228,7 +6243,7 @@ The HomeTogether team</pre>
 <div class="modal-backdrop" id="activityModalBackdrop">
 <div class="modal" style="max-width:480px;">
 <h2>Schedule an Activity</h2>
-<p class="modal-sub">Lands on the 📅 Today tab when due (and in the 7 AM email).</p>
+<p class="modal-sub">Lands on the 📅 Today tab when due.</p>
 <label>What *</label><input id="act_title" placeholder="e.g. Call Eleanor about start date · Drop by Cox rehab">
 <div class="grid2">
   <div><label>Kind</label><select id="act_kind"><option value="call">☎ Call</option><option value="dropby">🏢 Drop-by</option><option value="email">✉️ Email</option><option value="other">Other</option></select></div>
@@ -9821,7 +9836,7 @@ function renderStandup(){
   host.innerHTML=rows.join('');
 }
 /* ── THE TODAY HERO ──────────────────────────────────────────────────────
-   The live twin of the 6:45 Morning Brief email: overnight news, pass-alongs,
+   The live twin of the 8am Morning Brief email: overnight news, pass-alongs,
    the floor (coverage cases, open shifts pulled live from AxisCare, family
    updates from flagged notes, yesterday's EVV). Same numbers, same order, so
    the email and this page teach each other. Chips are doors: every one opens
@@ -9947,10 +9962,199 @@ async function heroLoadShifts(){
   }catch(e){ paint(null); }
   finally{ TB_LOADING=false; }
 }
+/* ---- BOOKED TODAY: interviews and assessments (Samantha, 2026-10-02: "can
+   interviews and booked assessments be on 'Today' and also be in the email
+   that goes out every morning ... mark interviews 2pm and after as Samantha's
+   interviews"). The Morning Brief (lead-digest) builds the same two lists with
+   the same rules, so the page and the email agree.
+   "Today" is the Chicago calendar day, whatever the computer's clock says.
+   Interviews come from interview_bookings (booked, done or no-show; cancelled
+   ones are gone). Assessments come from two places: a visit saved in the Hub
+   (care_assessments: a date, the address, who is going) and a booking made on
+   the GHL "New Client Assessment" calendar (the inquiry's assessment_at, sent
+   as words in Chicago time). The same family is listed once.
+   The afternoon rule is business config: ops_settings.afternoon_interviews
+   {from:'14:00', name:'Samantha'}, edited in Settings, with these defaults
+   until somebody saves it. Before the cutoff an interview gets no name. */
+const BT_AFTERNOON_DEFAULT = { from:'14:00', name:'Samantha' };
+const BT_MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+function btAfternoonRule(settings){
+  const s = (settings && settings.afternoon_interviews) || {};
+  const from = /^\d{1,2}:\d{2}$/.test(String(s.from||'')) ? String(s.from) : BT_AFTERNOON_DEFAULT.from;
+  const name = (s.name === undefined || s.name === null) ? BT_AFTERNOON_DEFAULT.name : String(s.name).trim();
+  const [h, m] = from.split(':').map(Number);
+  return { from, name, fromMin: h*60 + m };
+}
+/* A moment as Chicago {date:'YYYY-MM-DD', min: minutes after midnight (or null)}. Takes a real timestamp, a
+   date-only value, a zone-less local time, or GHL's words ("Monday, September 14, 2026 10:00 AM"). */
+function btChi(x){
+  const s = String(x||'').trim(); if(!s) return null;
+  if(/^\d{4}-\d\d-\d\d$/.test(s)) return { date:s, min:null };
+  let m = s.match(/^(\d{4}-\d\d-\d\d)[T ](\d\d):(\d\d)(:\d\d(\.\d+)?)?$/);
+  if(m) return { date:m[1], min:Number(m[2])*60 + Number(m[3]) };
+  m = s.match(/([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})(?:\D+?(\d{1,2}):(\d{2})\s*([AaPp])\.?[Mm])?/);
+  if(m){
+    const mi = BT_MONTHS.findIndex(n=>n.startsWith(m[1].toLowerCase().slice(0,3)));
+    if(mi >= 0){
+      const date = m[3]+'-'+String(mi+1).padStart(2,'0')+'-'+String(m[2]).padStart(2,'0');
+      if(!m[4]) return { date, min:null };
+      const h = (Number(m[4]) % 12) + (/p/i.test(m[6]) ? 12 : 0);
+      return { date, min: h*60 + Number(m[5]) };
+    }
+  }
+  const t = Date.parse(s); if(isNaN(t)) return null;
+  const c = new Date(t).toLocaleString('sv-SE', { timeZone:'America/Chicago' });
+  return { date:c.slice(0,10), min:Number(c.slice(11,13))*60 + Number(c.slice(14,16)) };
+}
+function btChiToday(){ return new Date().toLocaleString('sv-SE', { timeZone:'America/Chicago' }).slice(0,10); }
+function btTime(min){
+  if(min === null || min === undefined) return 'time not set';
+  const h = Math.floor(min/60), mm = min % 60;
+  return ((h % 12) || 12) + ':' + String(mm).padStart(2,'0') + (h < 12 ? 'am' : 'pm');
+}
+/* Whose interview this is by the afternoon rule, or '' (before the cutoff, or no name saved). */
+function btAfternoonName(startsAt, rule){
+  const p = btChi(startsAt); if(!p || p.min === null || !rule || !rule.name) return '';
+  return p.min >= rule.fromMin ? rule.name : '';
+}
+/* Interviews on a Chicago day: [{id, applicant_id, name, min, status:'booked'|'done'|'no-show', who}] by time. */
+function btInterviewsOn(day, bookings, applicants, rule){
+  const byId = {}; (applicants||[]).forEach(a=>{ if(a) byId[a.id] = a; });
+  return (bookings||[]).filter(b=>b && ['booked','attended','noshow'].includes(b.status))
+    .map(b=>({ b, p:btChi(b.starts_at) })).filter(x=>x.p && x.p.date === day)
+    .map(({ b, p })=>{ const a = byId[b.applicant_id] || {};
+      return { id:b.id, applicant_id:b.applicant_id, min:p.min,
+        name: ((a.first_name||'')+' '+(a.last_name||'')).trim() || 'Applicant',
+        status: b.status==='attended' ? 'done' : b.status==='noshow' ? 'no-show' : 'booked',
+        who: btAfternoonName(b.starts_at, rule) }; })
+    .sort((x, y)=>(x.min ?? 9999) - (y.min ?? 9999));
+}
+/* Assessments on a Chicago day: [{name, min, status, address, who, lead_id, assessment_id, ax}] by time. */
+function btAssessmentsOn(day, assessments, leads){
+  const leadById = {}; (leads||[]).forEach(l=>{ if(l) leadById[l.id] = l; });
+  const liveLead = l=>!!l && !l.archived && l.status!=='Lost';
+  const clientName = l=>{ if(!l) return '';
+    const c = !l.client_name_not_provided && (l.client_first_name||l.client_last_name) ? ((l.client_first_name||'')+' '+(l.client_last_name||'')).trim() : '';
+    return c || ((l.first_name||'')+' '+(l.last_name||'')).trim(); };
+  const out = [], seenLead = new Set();
+  (assessments||[]).forEach(a=>{
+    if(!a || !a.visit_date || /cancel/i.test(String(a.status||''))) return;
+    const p = btChi(a.visit_date); if(!p || p.date !== day) return;
+    const l = a.lead_id ? leadById[a.lead_id] : null; if(a.lead_id && l && !liveLead(l)) return;
+    let min = p.min;
+    if(min === null && l && l.assessment_at){ const lp = btChi(l.assessment_at); if(lp && lp.date === day) min = lp.min; }
+    if(l) seenLead.add(l.id);
+    out.push({ name: a.client_name || clientName(l) || 'Unnamed', min,
+      status: String(a.status||'Scheduled')==='Scheduled' ? 'booked' : 'done',
+      address: String(a.address || (l && l.client_address) || '').trim(), who: String(a.coordinator||'').trim(),
+      lead_id: l ? l.id : (a.lead_id || ''), assessment_id: a.id || '', ax: String(a.axiscare_client_id||'').trim() });
+  });
+  (leads||[]).forEach(l=>{
+    if(!liveLead(l) || seenLead.has(l.id) || !l.assessment_at) return;
+    const p = btChi(l.assessment_at); if(!p || p.date !== day) return;
+    out.push({ name: clientName(l) || 'Unnamed', min:p.min, status:'booked',
+      address: String(l.client_address||'').trim(), who:'', lead_id:l.id, assessment_id:'', ax:'' });
+  });
+  return out.sort((x, y)=>(x.min ?? 9999) - (y.min ?? 9999));
+}
+
+let BT_IV = null, BT_IV_AT = 0, BT_IV_LOADING = false;
+function btChip(txt, bg, fg){ return ' <span class="hero-badge" style="background:'+bg+';color:'+fg+';">'+escapeHtmlComms(txt)+'</span>'; }
+function btStatusChip(s){
+  return s==='no-show' ? btChip('no-show','#FDE8E8','var(--red)') : s==='done' ? btChip('done','#E3F4EA','#1F6D45') : btChip('booked','#E6F4F3','#1F6F6B');
+}
+function btWhoChip(who){ return who ? btChip(who+"'s interview",'#FFF4DE','#8A5A00') : ''; }
+function btOpenApplicant(id){
+  gotoTab('applicants');
+  setTimeout(async ()=>{ try{ if(!AP_ROWS.length) await apLoad(); apOpenProfile(id); }catch(e){} }, 260);
+}
+function btOpenAssessment(i){
+  const it = (window.__btAsmt||[])[i]; if(!it) return;
+  if(it.lead_id && (DATA.leads||[]).some(l=>l.id===it.lead_id)) return openLeadProfile(it.lead_id, 'care');
+  if(it.ax) return openClient({ ax:it.ax }, 'care');
+  if(it.assessment_id) return openAssessmentModal(it.assessment_id);
+}
+function renderTodayBooked(){
+  const host = document.getElementById('todayBooked'); if(!host) return;
+  const esc = escapeHtmlComms, day = btChiToday();
+  const card = (icon, title, color, inner)=>'<div class="hero-card" style="border-left-color:'+color+';"><div class="hc-t">'+icon+'&nbsp; '+esc(title)+'</div>'+inner+'</div>';
+  let iv;
+  if(BT_IV && BT_IV.error) iv = card('🧑‍💼', 'Interviews today', 'var(--red)',
+    '<div class="field-note" style="color:var(--red);">Could not load today\'s interviews: '+esc(BT_IV.error)+'. Check the Interviews tab before anyone arrives.</div>');
+  else if(!BT_IV) iv = card('🧑‍💼', 'Interviews today', 'var(--navy)', '<div class="field-note">Loading today\'s interviews…</div>');
+  else {
+    const rows = btInterviewsOn(day, BT_IV.bookings, BT_IV.applicants, btAfternoonRule(DATA.ops_settings));
+    iv = card('🧑‍💼', 'Interviews today ('+rows.length+')', 'var(--navy)', rows.length
+      ? rows.map(r=>'<div class="hero-row" onclick="btOpenApplicant(\''+esc(r.applicant_id)+'\')"><div class="m"><b>'+esc(btTime(r.min))+'</b> · '+esc(r.name)
+          +btStatusChip(r.status)+btWhoChip(r.who)+'<div class="sub">In person at the office</div></div><div class="go">Open →</div></div>').join('')
+      : '<div class="field-note">No interviews booked today.</div>');
+  }
+  let as;
+  try{
+    const rows = btAssessmentsOn(day, DATA.care_assessments, DATA.leads);
+    window.__btAsmt = rows;
+    as = card('🏠', 'Assessments today ('+rows.length+')', 'var(--teal)', rows.length
+      ? rows.map((r, i)=>'<div class="hero-row" onclick="btOpenAssessment('+i+')"><div class="m"><b>'+esc(btTime(r.min))+'</b> · '+esc(r.name)
+          +btStatusChip(r.status)
+          +'<div class="sub">'+esc([r.address || 'address not on file', r.who ? 'with '+r.who : 'who is going is not on file'].join(' · '))+'</div></div><div class="go">Open →</div></div>').join('')
+      : '<div class="field-note">No assessments booked today.</div>');
+  }catch(e){
+    as = card('🏠', 'Assessments today', 'var(--red)', '<div class="field-note" style="color:var(--red);">Could not list today\'s assessments: '+esc(e && e.message || e)+'.</div>');
+  }
+  host.innerHTML = '<div class="hero-grid"><div>'+iv+'</div><div>'+as+'</div></div>';
+  if(!BT_IV || Date.now() - BT_IV_AT > 2*60000) btLoadInterviews();
+}
+async function btLoadInterviews(){
+  if(BT_IV_LOADING) return; BT_IV_LOADING = true;
+  try{
+    const day = btChiToday(), mid = Date.parse(day+'T00:00:00Z');
+    const b = await sb.from('interview_bookings').select('id,applicant_id,starts_at,status,coordinator_id')
+      .in('status', ['booked','attended','noshow'])
+      .gte('starts_at', new Date(mid - 864e5).toISOString()).lt('starts_at', new Date(mid + 2*864e5).toISOString()).order('starts_at');
+    if(b.error) throw b.error;
+    const ids = [...new Set((b.data||[]).map(x=>x.applicant_id).filter(Boolean))];
+    let apps = [];
+    if(ids.length){
+      const a = await sb.from('job_applicants').select('id,first_name,last_name').in('id', ids);
+      if(a.error) throw a.error;
+      apps = a.data || [];
+    }
+    BT_IV = { bookings:b.data||[], applicants:apps };
+  }catch(e){ BT_IV = { error: String(e && e.message || e || 'error') }; }
+  finally{ BT_IV_AT = Date.now(); BT_IV_LOADING = false; }
+  renderTodayBooked();
+}
+/* Settings: the afternoon rule. Business config, so it is edited here and every change is recorded. */
+function aivFill(){
+  const r = btAfternoonRule(DATA.ops_settings);
+  const f = document.getElementById('set_aiv_from'), n = document.getElementById('set_aiv_name');
+  if(f) f.value = r.from.padStart(5,'0'); if(n) n.value = r.name;
+}
+async function aivSave(btn){
+  const f = (document.getElementById('set_aiv_from')||{}).value || '', n = ((document.getElementById('set_aiv_name')||{}).value || '').trim();
+  const s = document.getElementById('aivStatus');
+  if(!/^\d{1,2}:\d{2}$/.test(f)){ if(s) s.textContent = 'Pick a time first.'; return; }
+  if(btn) btn.disabled = true;
+  let base = {};
+  try{ const { data } = await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle(); base = (data && data.data) || {}; }catch(e){}
+  const before = btAfternoonRule(base);
+  const merged = Object.assign({}, base, { afternoon_interviews:{ from:f, name:n } });
+  const { error } = await sb.from('app_data').upsert({ key:'ops_settings', data:merged, updated_at:new Date().toISOString() }, { onConflict:'key' });
+  if(btn) btn.disabled = false;
+  if(!error){
+    DATA.ops_settings = merged;
+    opEvent('config_changed', { item_id:'afternoon_interviews', area:'interviews',
+      summary:'Afternoon interviews changed: from '+btTime(before.fromMin)+' '+(before.name||'(no name)')+' to from '+btTime(btAfternoonRule(merged).fromMin)+' '+(n||'(no name)'),
+      data:{ before:{ from:before.from, name:before.name }, after:{ from:f, name:n } } });
+  }
+  if(s) s.textContent = error ? ('Could not save: '+error.message)
+    : (n ? ('Saved. Interviews from '+btTime(btAfternoonRule(merged).fromMin)+' on are marked '+n+'\'s.') : 'Saved. No interview is marked with a name.');
+}
 function renderToday(){
   renderStandup();
   try{ renderSinceYouLeft(); }catch(e){}
   try{ renderTodayHero(); }catch(e){}
+  try{ renderTodayBooked(); }catch(e){}
   try{ const dd=document.getElementById('dutyDock'); if(dd) dd.innerHTML=dutyPanelHtml(); }catch(e){}
   const t = today();
   const acts = (DATA.activities||[]).filter(a=>!a.done_at);
@@ -13235,7 +13439,7 @@ async function covMsgsSave(btn){
 }
 /* ── MORNING BRIEF (Samantha, 2026-09-13: "an email with priorities of the
    day... something they will actually use every day"). The engine is the
-   lead-digest function (its 7am cron already existed); these controls choose
+   lead-digest function (weekdays at 8am Central since 2026-10-02); these controls choose
    who gets one and let anybody send themselves a test. ── */
 function mbFill(){
   const box=document.getElementById('mbRecips'); if(!box) return;
@@ -13280,7 +13484,7 @@ async function mbSave(btn){
   if(!error) DATA.ops_settings=merged;
   const s=document.getElementById('mbStatus');
   if(s) s.textContent=error?('Could not save: '+error.message)
-    :(picks.length?('Saved. '+picks.length+' brief'+(picks.length>1?'s':'')+' go out at 6:45am.')
+    :(picks.length?('Saved. '+picks.length+' brief'+(picks.length>1?'s':'')+' go out at 8am.')
                   :'Saved. Nobody gets a brief until you check somebody.');
 }
 async function mbTest(btn){
@@ -13516,6 +13720,7 @@ function fillSettingsPanel(){
   try{ lnSetFill(); }catch(_){}
   tkFill();
   mbFill();
+  try{ aivFill(); }catch(e){}
   document.getElementById('set_supabase_url').value = CONFIG.supabase_url||'';
   document.getElementById('set_supabase_anon_key').value = CONFIG.supabase_anon_key||'';
   document.getElementById('set_axiscare_site').value = CONFIG.axiscare_site||'';
@@ -14938,10 +15143,11 @@ const AUTO_GROUPS = [
       how: '—',
       says: 'The recording goes, the written transcript stays.',
       note: 'A recording that never transcribed is never deleted, because then the audio is the only copy.' },
-    { name: 'The daily lead digest',
-      when: 'Every morning',
-      how: 'Email, to the office',
-      says: 'What is due today and what is overdue.' },
+    { name: 'The Morning Brief',
+      when: 'Every weekday at 8am Central',
+      how: 'Email, to the people on the Morning Brief list in Settings',
+      says: 'Today\'s interviews (from 2pm marked as Samantha\'s; the time and name are in Settings) and booked assessments, what came in overnight, leads to call and the top priorities.',
+      note: 'If the interviews or assessments cannot be loaded, the email says so instead of leaving them out.' },
     { name: 'A backup of the whole hub',
       when: 'Every Monday',
       how: '—' },
@@ -19065,6 +19271,7 @@ function ivqRender(){
     return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.55rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
       + '<span style="min-width:5.2rem;font-weight:700;color:'+(overdue?'#B45309':'#6E6559')+';font-variant-numeric:tabular-nums;">'+esc(timeLabel(d))+'</span>'
       + '<b style="color:var(--navy);">'+esc(name)+'</b>'
+      + btWhoChip(btAfternoonName(b.starts_at, btAfternoonRule(DATA.ops_settings)))
       + '<span class="field-note">'+esc(a.posting_title||'Caregiver')
         + (IVQ_CO[b.coordinator_id]?' · with '+esc(IVQ_CO[b.coordinator_id]):'')+'</span>'
       + '<span style="flex:1;"></span>'
