@@ -25,7 +25,7 @@ function world(opts = {}) {
   const log = [], alerts = [], fetches = [];
   const ctx = {
     console, Date, JSON, Promise, Set, String, Array, Object, Number, Error, RegExp, Intl,
-    caregivers: [], cgId: 100, obPrehireRefs: () => [], saveCaregivers: async () => true, localStorage: { setItem() {} },
+    caregivers: [], cgId: 100, safeTmpId: (() => { let n = -1; return () => n--; })(), safeIsTmp: (id) => typeof id === 'number' && id < 0,   /* 421: temporary numbers until the database gives the real one */ obPrehireRefs: () => [], saveCaregivers: async () => true, localStorage: { setItem() {} },
     candidates: [{ id: 41, first: 'Ava', last: 'Applicant', phone: '417-555-0199', email: 'ava@x.com', offer_id: opts.noOffer ? null : 'offer-uuid-1' }],
     TRAINING_HUB_ANON: 'training-anon',
     window: { trainHubTok: async () => 'staff-hub-token', CGP2: opts.published ? { isLive: () => true, rowFor: () => ({}) } : { isLive: () => false, rowFor: () => null } },

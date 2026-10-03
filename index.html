@@ -3944,6 +3944,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="settings-section" id="tkSettings">
 <h3>⏰ Missed clock-ins</h3>
 <p class="hint">When a caregiver hasn't clocked in a few minutes after their shift starts, they get one short text. At the same moment every admin gets a text with their own link, and it repeats until someone opens the link and marks it resolved (or she clocks in, or a coverage case covers the shift). The EVV form never goes out by itself: an admin sends it from the link page when a caregiver asks to be clocked in for their start time. Changes here take effect on the next check (every 2 minutes) and are recorded in the activity log.</p>
+<p class="hint" id="tkQuietHint"><b>Office quiet hours:</b> no admin or office text from 8pm to 7am Central. A missed clock-in overnight still opens in Needs Attention; if it is still open at 7am, each admin gets one text then. Each admin gets at most 6 texts about one missed clock-in, and every text has the link to mark it resolved.</p>
 <div id="tkCg" class="field-note" style="margin:6px 0 4px;"></div>
 <button class="secondary" id="tkCgBtn" onclick="tkToggleCg(this)" style="margin-bottom:10px;">Turn on caregiver texts</button>
 <div id="tkLive" class="field-note" style="margin:6px 0 10px;"></div>
@@ -6948,6 +6949,9 @@ function syncOpenPanel(){
 }
 
 async function persist(key, item){
+  /* 421: people are saved one at a time, based on the _rev this page read. */
+  if(key==='caregivers' && item) return ccCaregiverPut(item);
+  if(key==='candidates'){ console.error('persist(candidates) refused: candidates are saved by the engine (saveCandidates).'); syncSay('⚠ Not saved'); return; }
   if(!sb){ document.getElementById('syncPill').textContent = '⚠ Not connected'; return; }
   if(!item){ console.warn('persist() called without an item for key', key, '— nothing sent.'); return; }
   /* upsert_app_data_item finds the row by item.id. Without one the write goes
@@ -6984,6 +6988,51 @@ async function persist(key, item){
     console.error('persist('+key+') failed ['+kind+']', e);
     syncSay(SYNC_TEXT[kind]);
   }
+}
+/* 421 (safe saves part 2): a caregiver in the shared 'caregivers' list is saved
+   ONE PERSON AT A TIME through app_data_items_apply, based on the _rev this page
+   read, never with upsert_app_data_item (which would save over a change someone
+   else made to the same person since this page loaded). Refused or not reached:
+   the list is reloaded from the database and the office is told. Never silent. */
+async function ccReloadCaregivers(){
+  try{
+    const { data, error } = await sb.from('app_data').select('data').eq('key','caregivers').maybeSingle();
+    if(error) throw error;
+    DATA.caregivers = (data && Array.isArray(data.data)) ? data.data : [];
+    return true;
+  }catch(e){ return false; }
+}
+async function ccCaregiverPut(g){
+  const name = ((g && (g.first||'')) + ' ' + (g && (g.last||''))).trim() || 'this caregiver';
+  if(!sb){ syncSay('⚠ Not connected'); alert('Not saved: not connected to the shared workspace.'); return false; }
+  syncSay('⏳ Saving…');
+  let res = null;
+  try{
+    const { data, error } = await sb.rpc('app_data_items_apply', { p_key:'caregivers',
+      p_changes:[{ op:'put', id:g.id, base_rev:Number(g._rev)||0, record:g }] });
+    if(error) throw error;
+    res = data;
+  }catch(e){
+    const kind = syncClassify(e);
+    syncRecordError('caregivers', g, e, kind);
+    syncSay(SYNC_TEXT[kind]);
+    await ccReloadCaregivers();
+    alert('Not saved: the change to '+name+' did not reach the shared workspace ('+String((e&&e.message)||e).slice(0,160)+'). We loaded the latest; please try again in a moment.');
+    return false;
+  }
+  if(res && res.ok){
+    const rv = (res.revs||{})[String(g.id)];
+    if(rv!=null) g._rev = Number(rv);
+    syncSay('☁ Synced');
+    try{ if(typeof window.safeSavesAdopt==='function') window.safeSavesAdopt('caregivers', g); }catch(_){}
+    return true;
+  }
+  syncSay('⚠ Not saved');
+  await ccReloadCaregivers();
+  alert(res && res.reason==='conflict'
+    ? 'Someone else changed '+name+' since this page opened. We loaded the latest; please redo your last change.'
+    : 'Not saved: the change to '+name+' was refused ('+String((res&&res.reason)||'no answer')+'). We loaded the latest; please try again.');
+  return false;
 }
 async function removeItem(key, itemId){
   if(!sb){ document.getElementById('syncPill').textContent = '⚠ Not connected'; return; }
@@ -7082,7 +7131,11 @@ async function flushPendingSync(){
     if(entry.key==='role_profiles' && (!it.id || !String(it.id).trim()) && (it.person || it.email)){
       it.id = String(it.person || it.email).toLowerCase();
     }
-    if(!it.id || !String(it.id).trim()){
+    /* 421: candidates and caregivers are saved one person at a time now; an
+       older queued change to them would save over newer work, so it is kept
+       in the quarantine (visible in the sync panel), never sent. */
+    const peopleKey = entry.key==='caregivers' || entry.key==='candidates';
+    if(peopleKey || !it.id || !String(it.id).trim()){
       let quarantined=false;
       try{
         const qr = JSON.parse(localStorage.getItem('cch_sync_quarantine') || '[]');
@@ -7093,7 +7146,9 @@ async function flushPendingSync(){
       /* Only leave the pending queue once the quarantine copy EXISTS —
          otherwise the data would be dropped while the panel says kept. */
       if(quarantined){ delete pending[pk]; localStorage.setItem('cch_pending_sync', JSON.stringify(pending)); }
-      syncRecordError(entry.key, it, quarantined?'no id and no way to derive one — moved to quarantine (data kept, see the sync panel)':'no id — quarantine write failed, left in the queue', 'server');
+      syncRecordError(entry.key, it, peopleKey
+        ? (quarantined?'an older queued change to a person, not sent (they are saved one at a time now); kept in the quarantine, see the sync panel':'an older queued change to a person; quarantine write failed, left in the queue')
+        : (quarantined?'no id and no way to derive one: moved to quarantine (data kept, see the sync panel)':'no id; quarantine write failed, left in the queue'), 'server');
       continue;
     }
     try{
@@ -13262,20 +13317,21 @@ async function saveSupervisoryVisit(){
   if(idx>=0) DATA.supervisory_visits[idx]=record; else DATA.supervisory_visits.push(record);
   await persist('supervisory_visits', record);
 
-  // Mirror the date into Staffing Hub's caregivers blob, same record, two views.
-  // Uses the atomic upsert RPC too — Staffing Hub could be editing this same
-  // caregiver at the same moment, so this can't be a plain read-then-overwrite.
+  // Mirror the date into the shared caregivers list, same record, two views.
+  // 421: read fresh, then save that ONE caregiver based on the _rev just read
+  // (ccCaregiverPut); a failure is shown, never swallowed. The visit itself is
+  // saved above either way.
   try{
-    const { data } = await sb.from('app_data').select('data').eq('key','caregivers').single();
-    if(data && data.data){
-      const cg = data.data.find(g => (g.first && g.last && (g.first+' '+g.last)===record.caregiver_name) || g.axiscare_id===record.axiscare_caregiver_id);
+    const { data } = await sb.from('app_data').select('data').eq('key','caregivers').maybeSingle();
+    if(data && Array.isArray(data.data)){
+      const cg = data.data.find(g => (g.first && g.last && (g.first+' '+g.last)===record.caregiver_name) || (record.axiscare_caregiver_id && g.axiscare_id===record.axiscare_caregiver_id));
       if(cg){
         cg.supv_date = record.visit_date;
         cg.supervisory_proof_link = record.proof_link;
-        await sb.rpc('upsert_app_data_item', { target_key: 'caregivers', item: cg });
+        await ccCaregiverPut(cg);
       }
     }
-  }catch(e){ /* Staffing Hub table may not exist in this project yet, or its caregiver records use a different id shape — non-fatal */ }
+  }catch(e){ alert('The visit is saved, but its date did not reach the caregiver roster ('+String((e&&e.message)||e).slice(0,120)+'). Add it on the Training tab.'); }
 
   closeModal('supervisoryModalBackdrop');
   renderSupervisory();
@@ -13549,10 +13605,23 @@ function tkAdminsNow(){
   const list=(Array.isArray(st.coverage_alert_admins)&&st.coverage_alert_admins.length)?st.coverage_alert_admins:['samantha@mo-care.com','krystal@mo-care.com'];
   return list.map(e=>{ e=String(e).trim().toLowerCase(); const p=(DATA.coordinator_staff||[]).find(s=>String(s.email||'').toLowerCase()===e); return { email:e, name:(p&&p.name)||e, phone:!!(p&&String(p.phone||'').replace(/\D/g,'').length>=10) }; });
 }
+/* OFFICE QUIET HOURS (Samantha, 2026-10-03): the server (_shared/quiet-hours.ts) never texts the office, an admin or a
+   coordinator between office_quiet_start (20) and office_quiet_end (7), Chicago time. The same words here. */
+function tkQuiet(){
+  const st=DATA.ops_settings||{}, ok=v=>v!==''&&v!=null&&Number.isInteger(Number(v))&&Number(v)>=0&&Number(v)<=23;
+  const s=ok(st.office_quiet_start)&&ok(st.office_quiet_end)?Number(st.office_quiet_start):20, e=ok(st.office_quiet_start)&&ok(st.office_quiet_end)?Number(st.office_quiet_end):7;
+  const w=h=>((h%12)||12)+(h>=12?'pm':'am');
+  const h=Number(new Date().toLocaleString('en-US',{timeZone:'America/Chicago',hour:'2-digit',hourCycle:'h23'}))%24;
+  const now=s===e?false:s>e?(h>=s||h<e):(h>=s&&h<e);
+  return { off:s===e, from:w(s), to:w(e), now };
+}
 function tkRenderStatus(){
   const st=DATA.ops_settings||{}, esc=escapeHtmlComms, live=st.timekeeper_admin_loop_live===true;
+  const q=tkQuiet(), qh=document.getElementById('tkQuietHint');
+  if(qh) qh.innerHTML=q.off?'<b>Office quiet hours are off:</b> admin texts can go at any hour.'
+    :'<b>Office quiet hours:</b> no admin or office text from '+q.from+' to '+q.to+' Central. A missed clock-in overnight still opens in Needs Attention; if it is still open at '+q.to+', each admin gets one text then. Each admin gets at most '+(Number(st.timekeeper_admin_max_texts)>0?Math.floor(Number(st.timekeeper_admin_max_texts)):6)+' texts about one missed clock-in, and every text has the link to mark it resolved.';
   const lv=document.getElementById('tkLive'), btn=document.getElementById('tkLiveBtn');
-  if(lv) lv.innerHTML=live?'<b style="color:#1E8449;">Admin texts are ON.</b> Every admin below is texted until someone resolves it.'
+  if(lv) lv.innerHTML=live?'<b style="color:#1E8449;">Admin texts are ON'+(q.off?'':' ('+q.to+' to '+q.from+' Central)')+'.</b> Every admin below is texted until someone resolves it'+(q.off?'':', never between '+q.from+' and '+q.to)+'.'+(q.now?' <b>It is quiet hours now:</b> nobody is being texted.':'')
     :'<b style="color:#B7791F;">Admin texts: practice run.</b> They are only recorded (below), not sent. Turn them on when you\'re happy with a day of practice.';
   if(btn) btn.textContent=live?'Turn off admin texts':'Turn on admin texts';
   /* Caregiver texts (timekeeper_text_live): paused in Step 0 (2026-09-27); Samantha asked for this switch 2026-09-29. */
@@ -13616,7 +13685,10 @@ async function tkToggleCg(btn){
 }
 async function tkToggleLive(btn){
   const on=!((DATA.ops_settings||{}).timekeeper_admin_loop_live===true);
-  if(!confirm(on?'Turn on the admin texts? From the next missed clock-in, every admin is texted every few minutes until someone resolves it.':'Turn off the admin texts? Missed clock-ins go back to practice (recorded, not texted to admins). Caregivers still get their text.')) return;
+  const q=tkQuiet(), cap=Number((DATA.ops_settings||{}).timekeeper_admin_max_texts)>0?Math.floor(Number(DATA.ops_settings.timekeeper_admin_max_texts)):6;
+  const hrs=q.off?' Office quiet hours are OFF, so these texts can go at ANY hour, including overnight.'
+    :' Hours: '+q.to+' to '+q.from+' Central only. From '+q.from+' to '+q.to+' nobody is texted: an overnight missed clock-in waits in Needs Attention, and if it is still open at '+q.to+' each admin gets one text then.'+(q.now?' It is quiet hours right now, so nothing will be texted before '+q.to+'.':'');
+  if(!confirm(on?'Turn on the admin texts? From the next missed clock-in, every admin is texted every few minutes (at most '+cap+' texts each) until someone taps Resolved on their link.'+hrs:'Turn off the admin texts? Missed clock-ins go back to practice (recorded, not texted to admins). Caregivers still get their text.')) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.timekeeper_admin_loop_live=on; return [on?'admin texts ON':'admin texts OFF']; });
   if(btn) btn.disabled=false;
@@ -15874,14 +15946,14 @@ async function ccSkillSet(cgId,key,val){
     const note=prompt('Optional evidence note (Enter to skip):','')||'';
     g.skills[key]={ have:val, evidence, by:(ME&&(ME.name||ME.email))||'', at:new Date().toISOString(), note:note.trim() };
   }
-  await persist('caregivers', g);
+  await ccCaregiverPut(g);   /* 421: one person, based on the _rev this page read */
   Object.keys(CC_PROF_CACHE).forEach(k=>{ if(k.startsWith('cg:')) delete CC_PROF_CACHE[k]; });
   ccSkillsMount();
 }
 async function ccSkillSpanish(cgId,val){
   const g=(DATA.caregivers||[]).find(x=>String(x.id)===String(cgId)); if(!g) return;
   if(val==='') delete g.spanish_ability; else g.spanish_ability=val;
-  await persist('caregivers', g);
+  await ccCaregiverPut(g);   /* 421 */
   Object.keys(CC_PROF_CACHE).forEach(k=>{ if(k.startsWith('cg:')) delete CC_PROF_CACHE[k]; });
   ccSkillsMount();
 }

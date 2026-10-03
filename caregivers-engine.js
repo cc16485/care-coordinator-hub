@@ -1709,6 +1709,7 @@ async function createRefRequests(c){
      reference rows are inserted and reference-chase is invoked. No fresh shared
      load means no mutation and no outreach, full stop. */
   if (!HYDRATED) { console.warn('BLOCKED createRefRequests: shared data not loaded, no reference rows created and no chase invoked'); return []; }
+  if (safeIsTmp(c.id)) { console.warn('BLOCKED createRefRequests: the candidate has no database number yet'); return []; }
   const slots = [1,2,3,4]
     .map(n => ({ n, name: c['r'+n+'n'], phone: c['r'+n+'_phone'], email: c['r'+n+'_email'], rel: c['r'+n+'_rel'], status: c['r'+n+'s'],
                  type: obRefType(c['r'+n+'_type']), company: c['r'+n+'_company'] || '' }))
@@ -1774,6 +1775,7 @@ async function askReferences(candId, btn){
   const c = candidates.find(x => x.id === candId);
   if (!c) return;
   if (!HYDRATED) { alert('Shared data has not loaded, so this section is read-only right now. No reference requests were created and nothing was sent. Use Try again at the top, then retry.'); return; }
+  if (safeIsTmp(c.id)) { alert(c.first + ' ' + c.last + ' is still being saved. Nothing was sent. Try again in a moment.'); return; }
   const slots = [1,2,3,4]
     .map(n => ({ n, name: c['r'+n+'n'], phone: c['r'+n+'_phone'], email: c['r'+n+'_email'], rel: c['r'+n+'_rel'], status: c['r'+n+'s'] }))
     .filter(r => r.name && (r.phone || r.email) && r.status === 'Pending');
@@ -2020,7 +2022,7 @@ async function intakeReconcile(){
         (digits(o.phone) && digits(o.phone) === digits(r.phone)) ||
         (o.email && r.email && String(o.email).toLowerCase() === String(r.email).toLowerCase()));
       c = {
-        id: obId++,
+        id: safeTmpId(),   /* 421: the database gives the real number */
         first: r.first_name || '', last: r.last_name || '',
         phone: r.phone || '', email: r.email || '',
         oig: 'Pending', edl: 'Pending', fcsr: 'Pending',
@@ -2127,7 +2129,7 @@ async function offerToCandidate(offerId, btn){
   } catch (e) { /* table may not exist yet — carry on without it */ }
 
   const rec = {
-    id: obId++,
+    id: safeTmpId(),   /* 421: the database gives the real number when it saves */
     first: o.first_name || '', last: o.last_name || '',
     phone: o.phone || '', email: o.email || '',
     oos: intake ? (intake.lived_outside_mo ? 'yes' : 'no') : '',
@@ -2153,7 +2155,14 @@ async function offerToCandidate(offerId, btn){
   });
   if (intake && intake.no_employer_history != null) rec.no_employer_history = !!intake.no_employer_history;
   candidates.push(rec);
-  saveCandidates();
+  /* 421: wait for the database's number before anything shows or uses it. */
+  if (!(await saveCandidates({ quiet: true }))) {
+    candidates = candidates.filter(c => c !== rec);
+    try { renderOB(); } catch (e) {}
+    alert('Could not move ' + (rec.first + ' ' + rec.last).trim() + ' to Background & References: the save did not reach the shared workspace, so nothing was added. Check your connection and try again.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Start checks early'; }
+    return;
+  }
   renderOB(); renderAlerts();
   gotoTab('onboarding');
   const gotRefs = (intake && (intake.refs || []).length) || 0;
@@ -3467,7 +3476,260 @@ function renderEod(){
 
 // ── SUPABASE — client initialized at top of script ────────────────────
 
+/* ── SAFE SAVES (421, Samantha 2026-10-02/03) ─────────────────────────────
+   Candidates and caregivers are saved ONE PERSON AT A TIME through the
+   database function app_data_items_apply (Staffing repo safe_saves_2.sql),
+   never as a whole list. Why: Aimee Driggers was lost because her Import got
+   a number another candidate already had (each tab counted numbers on its
+   own) and every save wrote the whole list, so a page opened earlier could
+   save its old list over newer work.
+   · loadFromSupabase keeps, per list, the version it loaded and a copy of
+     each person as loaded (SAFE[key].snap).
+   · saveCandidates()/saveCaregivers() compare the list now with that copy and
+     send only what changed: put (a changed person, with the _rev it was
+     based on), add (a new person, with a temporary negative number), remove.
+   · NEW PEOPLE GET THEIR NUMBER FROM THE DATABASE. Until it answers they
+     carry a temporary negative number (safeTmpId); nothing that leaves this
+     page (reference requests, welcome calls, the roster link) may use it.
+     The real number replaces it in place before the save resolves.
+   · If the database is unreachable, a new person is taken back off the list
+     and the office is told: no person ever exists on this device only.
+   · Someone else changed that person since this page loaded: nothing is
+     saved, the list is reloaded and the office is told who to redo.
+   · More than 2 people removed in one save is refused by the database (no
+     Hub path removes more than one at a time today).
+   · Saves of one list run one after another (SAFE[key].chain), so a new
+     person is never sent twice.
+   · Boot never saves (bootHydrate / showApp only load), and nothing is sent
+     until a fresh shared load succeeded (HYDRATED + a loaded snapshot). */
+const SAFE_KEYS = ['candidates', 'caregivers'];
+const SAFE = { candidates: { snap: null, dups: null, version: null, chain: Promise.resolve() },
+               caregivers: { snap: null, dups: null, version: null, chain: Promise.resolve() } };
+let SAFE_TMP = -1;
+function safeTmpId(){ return SAFE_TMP--; }
+function safeIsTmp(id){ return typeof id === 'number' && id < 0; }
+function safeCopy(v){ return v == null ? v : JSON.parse(JSON.stringify(v)); }
+function safeCanon(v){
+  if (Array.isArray(v)) return '[' + v.map(x => x === undefined ? 'null' : safeCanon(x)).join(',') + ']';
+  if (v && typeof v === 'object') return '{' + Object.keys(v).filter(k => v[k] !== undefined && typeof v[k] !== 'function').sort()
+    .map(k => JSON.stringify(k) + ':' + safeCanon(v[k])).join(',') + '}';
+  return JSON.stringify(v === undefined ? null : v);
+}
+function safeList(key){ return key === 'candidates' ? candidates : caregivers; }
+function safeSetList(key, arr){ if (key === 'candidates') candidates = arr; else caregivers = arr; }
+function safeCacheLocal(key){
+  try { localStorage.setItem(key === 'candidates' ? 'cc_candidates' : 'cc_caregivers', JSON.stringify(safeList(key))); } catch(_){}
+}
+function safeName(r){ return r ? (String(r.first || '') + ' ' + String(r.last || '')).trim() : ''; }
+function safeNames(arr){
+  const n = arr.filter(Boolean);
+  if (n.length <= 1) return n[0] || 'a person';
+  return n.slice(0, -1).join(', ') + ' and ' + n[n.length - 1];
+}
+function safeListLabel(key){ return key === 'candidates' ? 'Background & References' : 'the caregiver roster'; }
+/* What the page loaded: a copy of each person by number. Numbers two records
+   share are kept apart (dups): changes to them are never sent, and the office
+   is told, because the database cannot know which of the two is meant. */
+function safeRemember(key, rows, version){
+  const snap = new Map(), count = {}, dups = new Map();
+  (rows || []).forEach(r => { if (r && typeof r === 'object' && r.id != null && r.id !== '') count[String(r.id)] = (count[String(r.id)] || 0) + 1; });
+  (rows || []).forEach(r => {
+    if (!r || typeof r !== 'object' || r.id == null || r.id === '') return;
+    const id = String(r.id);
+    if (count[id] > 1) { if (!dups.has(id)) dups.set(id, []); dups.get(id).push(safeCanon(r)); }
+    else snap.set(id, safeCopy(r));
+  });
+  SAFE[key].snap = snap; SAFE[key].dups = dups; SAFE[key].version = version == null ? null : version;
+}
+/* The list now against what was loaded: the changes to send. */
+function safeDiff(key){
+  const st = SAFE[key], arr = safeList(key) || [];
+  const changes = [], adds = [], puts = [], removes = [], seen = new Set(), dupNow = new Map(), dupChanged = [];
+  arr.forEach(rec => {
+    if (!rec || typeof rec !== 'object') return;
+    const id = rec.id == null ? '' : String(rec.id);
+    if (id && st.dups.has(id)) { if (!dupNow.has(id)) dupNow.set(id, []); dupNow.get(id).push(rec); return; }
+    if (!id || safeIsTmp(rec.id) || !st.snap.has(id) || seen.has(id)) {
+      if (rec.id == null || rec.id === '' || seen.has(id) || !safeIsTmp(rec.id)) rec.id = safeTmpId();
+      const sent = safeCopy(rec);
+      adds.push({ rec, tmp: String(rec.id), sent });
+      changes.push({ op: 'add', tmp: String(rec.id), record: sent });
+      return;
+    }
+    seen.add(id);
+    const was = st.snap.get(id);
+    if (safeCanon(rec) !== safeCanon(was)) {
+      const sent = safeCopy(rec);
+      puts.push({ rec, sent });
+      changes.push({ op: 'put', id: rec.id, base_rev: Number(was._rev) || 0, record: sent });
+    }
+  });
+  st.snap.forEach((was, id) => {
+    if (!seen.has(id)) { removes.push(was); changes.push({ op: 'remove', id: was.id, base_rev: Number(was._rev) || 0 }); }
+  });
+  st.dups.forEach((canons, id) => {
+    const now = (dupNow.get(id) || []).map(safeCanon).sort().join('\n');
+    if (now !== canons.slice().sort().join('\n')) dupChanged.push(id);
+  });
+  return { changes, adds, puts, removes, dupChanged };
+}
+/* Fixed-position notice, one per kind; the office closes it. Never silent. */
+function safeNotice(id, html){
+  if (!(typeof document !== 'undefined' && document.body && document.createElement)) return null;
+  let el = document.getElementById ? document.getElementById(id) : null;
+  if (el && el.remove) el.remove();
+  el = document.createElement('div');
+  el.id = id;
+  el.setAttribute('role', 'alert');
+  el.style.cssText = 'position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:10000;max-width:560px;'
+    + 'background:#FEF2F2;border:1px solid #FCA5A5;color:#991B1B;padding:12px 14px;border-radius:12px;'
+    + 'box-shadow:0 8px 24px rgba(0,0,0,.12);font-size:13px;line-height:1.45;';
+  el.innerHTML = html + '<br><button type="button" class="safe-notice-close" style="margin-top:8px;background:#991B1B;color:#fff;border:0;border-radius:8px;padding:5px 11px;font-size:12px;cursor:pointer">OK</button>';
+  document.body.appendChild(el);
+  try { const b = el.querySelector && el.querySelector('.safe-notice-close'); if (b) b.onclick = function(){ if (el.remove) el.remove(); }; } catch(_){}
+  return el;
+}
+function safeEsc(t){ return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function safeConflictMsg(names){
+  return 'Someone else changed ' + safeNames(names) + ' since this page opened. We loaded the latest; please redo your last change.';
+}
+function safeRerender(){
+  try { if (typeof renderAll === 'function') renderAll(); } catch(_){}
+  try { if (typeof renderPeopleChecks === 'function') renderPeopleChecks(); } catch(_){}
+  try { if (typeof renderOrientReadyQueue === 'function') renderOrientReadyQueue(); } catch(_){}
+}
+/* The latest list from the database (after a refusal). */
+async function safeReload(key){
+  try {
+    const { data, error } = await sb.from('app_data').select('data, version').eq('key', key).maybeSingle();
+    if (error) throw error;
+    const rows = data && Array.isArray(data.data) ? data.data : [];
+    safeSetList(key, rows);
+    safeRemember(key, rows, data ? data.version : null);
+    safeCacheLocal(key);
+    safeRerender();
+    return true;
+  } catch (e) {
+    safeNotice('safeReloadWarn', '<b>Could not load the latest ' + safeEsc(safeListLabel(key)) + '.</b> Refresh this page before changing anything else.');
+    return false;
+  }
+}
+/* A record the database has just numbered: the temporary number is replaced
+   everywhere this page holds it, before anything else can use it. */
+function safeAdoptId(key, tmp, id){
+  if (key === 'candidates') {
+    if (typeof editingOB !== 'undefined' && String(editingOB) === String(tmp)) editingOB = id;
+    (typeof caregivers !== 'undefined' ? caregivers : []).forEach(g => { if (g && String(g.candidate_id) === String(tmp)) g.candidate_id = id; });
+  } else {
+    if (typeof editingCG !== 'undefined' && String(editingCG) === String(tmp)) editingCG = id;
+    try { if (typeof acSelected !== 'undefined' && acSelected.has(Number(tmp))) { acSelected.delete(Number(tmp)); acSelected.add(id); } } catch(_){}
+  }
+}
+async function safeRun(key, opts){
+  const st = SAFE[key];
+  if (!HYDRATED || !st.snap) {
+    console.warn('BLOCKED save of', key, '- shared data never loaded this session');
+    try { hydrateBanner(); } catch(_){}
+    return { ok: false, reason: 'not_loaded' };
+  }
+  let session = null;
+  try { ({ data: { session } } = await sb.auth.getSession()); } catch(_){}
+  if (!session) {
+    if (!opts.quiet) safeNotice('safeSaveWarn', '<b>Not saved: you are signed out.</b> Sign in again, then redo your last change.');
+    return { ok: false, reason: 'signed_out' };
+  }
+  const d = safeDiff(key);
+  if (d.dupChanged.length) {
+    safeNotice('safeDupWarn', '<b>Not saved:</b> two records in ' + safeEsc(safeListLabel(key)) + ' share number ' + safeEsc(d.dupChanged.join(', '))
+      + ', so a change to them cannot be saved until that is fixed. Tell Claude.');
+  }
+  if (!d.changes.length) return { ok: !d.dupChanged.length, nothing: true, reason: d.dupChanged.length ? 'duplicate_id' : undefined };
+  const changes = d.changes.slice();
+  if (opts.allowBulkRemove) changes.push({ op: 'allow_bulk_remove' });
+  try { setSyncStatus('syncing'); } catch(_){}
+  let data = null, error = null;
+  try { ({ data, error } = await sb.rpc('app_data_items_apply', { p_key: key, p_changes: changes })); }
+  catch (e) { error = e; }
+  if (error || !data) {
+    const why = String((error && (error.message || error.hint)) || error || 'no answer');
+    const missing = /app_data_items_apply|PGRST202|could not find the function/i.test(why + ' ' + String(error && error.code || ''));
+    /* A new person must never exist on this device only: take them back off. */
+    if (d.adds.length) { const gone = new Set(d.adds.map(a => a.rec)); safeSetList(key, safeList(key).filter(r => !gone.has(r))); safeCacheLocal(key); safeRerender(); }
+    try { setSyncStatus('offline'); } catch(_){}
+    if (missing) {
+      safeNotice('safeSaveWarn', '<b>Not saved.</b> The new safe-save step is not installed on the database yet (421), so nothing in '
+        + safeEsc(safeListLabel(key)) + ' can be saved. Tell Claude.');
+    } else if (d.adds.length && !opts.quiet) {
+      safeNotice('safeAddWarn', '<b>Could not add ' + safeEsc(safeNames(d.adds.map(a => safeName(a.rec)))) + ':</b> the shared workspace did not answer, so nothing was saved and they were not added. Check your connection and try again.');
+    }
+    return { ok: false, reason: missing ? 'rpc_missing' : 'error', why, kept: d.puts.length + d.removes.length };
+  }
+  if (data.ok) {
+    const ids = data.ids || {}, revs = data.revs || {};
+    d.adds.forEach(a => {
+      const nid = ids[a.tmp];
+      if (nid == null) return;
+      a.rec.id = nid; a.sent.id = nid;
+      const rv = Number(revs[String(nid)]) || 0;
+      if (rv || a.rec._rev != null) { a.rec._rev = rv; a.sent._rev = rv; }
+      st.snap.set(String(nid), a.sent);
+      safeAdoptId(key, Number(a.tmp), nid);
+    });
+    d.puts.forEach(p => {
+      const rv = revs[String(p.rec.id)];
+      if (rv != null) { p.rec._rev = Number(rv); p.sent._rev = Number(rv); }
+      st.snap.set(String(p.rec.id), p.sent);
+    });
+    d.removes.forEach(was => st.snap.delete(String(was.id)));
+    st.version = data.version == null ? st.version : data.version;
+    safeCacheLocal(key);
+    try { setSyncStatus('ok'); } catch(_){}
+    if (d.adds.length) safeRerender();
+    return { ok: true, ids };
+  }
+  /* Refused: nothing in this save was saved. Show the truth, then say why. */
+  const conflicts = Array.isArray(data.conflicts) ? data.conflicts : [];
+  const local = id => safeList(key).find(r => r && String(r.id) === String(id)) || (st.snap.get(String(id)) || null);
+  const dupIds = conflicts.filter(c => c.reason === 'duplicate_id').map(c => String(c.id));
+  const names = conflicts.filter(c => c.reason !== 'duplicate_id').map(c => safeName(c.current_record) || safeName(local(c.id)) || ('number ' + c.id));
+  await safeReload(key);
+  if (data.reason === 'bulk_remove') {
+    safeNotice('safeBulkWarn', '<b>Not saved:</b> that save would have removed ' + Number(data.removes || 0) + ' people from ' + safeEsc(safeListLabel(key))
+      + ' at once, so it was stopped and nothing was saved. We loaded the latest list. If this was meant to happen, tell Claude.');
+    return { ok: false, reason: 'bulk_remove' };
+  }
+  if (dupIds.length) {
+    safeNotice('safeDupWarn', '<b>Not saved:</b> two records in ' + safeEsc(safeListLabel(key)) + ' share number ' + safeEsc(dupIds.join(', '))
+      + ', so a change to them cannot be saved until that is fixed. Tell Claude.');
+  }
+  if (names.length || !dupIds.length) safeNotice('safeConflictWarn', '<b>' + safeEsc(safeConflictMsg(names.length ? names : [])) + '</b>');
+  return { ok: false, reason: 'conflict', names };
+}
+/* One save per list at a time; each starts from what the previous one left. */
+function safeSave(key, opts){
+  const st = SAFE[key];
+  const run = () => safeRun(key, opts || {}).catch(e => { console.error('safeSave', key, e); return { ok: false, reason: 'error', why: String((e && e.message) || e) }; });
+  const p = st.chain.then(run, run);
+  st.chain = p.then(() => {}, () => {});
+  return p;
+}
+/* index.html saved one caregiver itself (skills, supervisory visit): take the
+   database's copy here too, unless this page holds an unsaved change to them. */
+function safeSavesAdopt(key, rec){
+  const st = SAFE[key];
+  if (!st || !st.snap || !rec || rec.id == null) return false;
+  const id = String(rec.id), arr = safeList(key) || [];
+  const i = arr.findIndex(r => r && String(r.id) === id);
+  const was = st.snap.get(id);
+  if (i < 0 || !was || safeCanon(arr[i]) !== safeCanon(was)) return false;
+  arr[i] = safeCopy(rec); st.snap.set(id, safeCopy(rec)); safeCacheLocal(key);
+  return true;
+}
+if (typeof window !== 'undefined') window.safeSavesAdopt = safeSavesAdopt;
+
 async function syncToSupabase(key, data){
+  /* 421: candidates and caregivers are never saved as a whole list (safeSave). */
+  if(SAFE_KEYS.includes(key)){ console.error('BLOCKED whole-list save of', key, '- use saveCandidates/saveCaregivers'); return false; }
   try {
     /* Guard 1: NEVER write before a fresh shared load has succeeded. These
        saves replace the WHOLE blob, so a stale localStorage copy written
@@ -3499,10 +3761,13 @@ async function loadFromSupabase(){
        hydrated — silent failure here is how stale local caches ended up
        being the only data this hub ever showed. */
     if(error || !data) { setSyncStatus('offline'); return false; }
+    /* 421: a list with no row in the database is empty there, so it is empty
+       here too: a cached copy from this device is never saved as if it were new. */
+    SAFE_KEYS.forEach(k => { if(!data.some(r => r && r.key === k && r.data)){ safeSetList(k, []); safeRemember(k, [], null); } });
     data.forEach(row => {
       if(!row.data) return;
-      if(row.key==='candidates')     { candidates=row.data; obId=Math.max(obId,...candidates.map(c=>c.id+1),10); }
-      if(row.key==='caregivers')     { caregivers=row.data; cgId=Math.max(cgId,...caregivers.map(c=>c.id+1),10); }
+      if(row.key==='candidates')     { candidates=Array.isArray(row.data)?row.data:[]; safeRemember('candidates', candidates, row.version); }
+      if(row.key==='caregivers')     { caregivers=Array.isArray(row.data)?row.data:[]; safeRemember('caregivers', caregivers, row.version); }
       if(row.key==='eod_reports')    { eodReports=row.data||[]; }
       if(row.key==='orient_sessions'){ orientSessions=row.data; orientId=Math.max(orientId,...orientSessions.map(s=>s.id+1),1); }
       if(row.key==='settings')       { appSettings=row.data; if(appSettings&&typeof appSettings==='object') delete appSettings.training_hub_key; if(appSettings&&typeof appSettings==='object') ZAPIER_FIELDS.forEach(k=>{ delete appSettings[k]; }); /* T3: the key is retired */ localStorage.setItem('cc_settings',JSON.stringify(row.data)); }
@@ -3562,25 +3827,26 @@ ZAPIER_FIELDS.forEach(k=>{ delete appSettings[k]; });
 delete appSettings.training_hub_key;   /* T3 (2026-09-28): the shared Training key is retired; every Training call uses your own sign-in */
 let candidates   = JSON.parse(localStorage.getItem('cc_candidates'))   || SEED_CANDIDATES;
 let caregivers   = JSON.parse(localStorage.getItem('cc_caregivers'))   || SEED_CAREGIVERS;
-let obId  = parseInt(localStorage.getItem('cc_ob_id')  || '10');
-let cgId  = parseInt(localStorage.getItem('cc_cg_id')  || '10');
+/* 421: no per-tab number counters any more (obId/cgId gave Aimee a number already in use).
+   New people get a temporary negative number (safeTmpId) until the database gives the real one. */
 clearSeedPeople();
 
-async function saveCandidates(){
+async function saveCandidates(opts){
   // Local cache is written synchronously first (before any await), so callers
   // that read localStorage right after calling this still see the update.
   localStorage.setItem('cc_candidates', JSON.stringify(candidates));
-  localStorage.setItem('cc_ob_id', String(obId));
-  // Then attempt the shared write and SURFACE its outcome. Previously this was
-  // fire-and-forget: a rejected shared write (no access / offline) left the user
-  // believing the checks workspace was saved for the whole team when it only
-  // reached this device. syncToSupabase is left untouched (Gate A's intakeImport
-  // depends on its exact true/false contract); we react to its result here.
-  const ok = await syncToSupabase('candidates', candidates);
-  bgrSharedSaveResult(ok);
+  // 421: only what changed is sent, one person at a time (safeSave). The outcome
+  // is SURFACED: a refusal or a conflict has its own notice; a save that did not
+  // reach the database shows the "Saved on this device only" warning below.
+  // Resolves true only when the database confirmed every change.
+  const r = await safeSave('candidates', opts);
+  if(r.ok) bgrSharedSaveResult(true, 'candidates');
+  else if(r.reason === 'error' && r.kept && !(opts && opts.quiet)) bgrSharedSaveResult(false, 'candidates');
+  return r.ok === true;
 }
 // Visible, actionable warning when a shared candidates save did not go through.
-function bgrSharedSaveResult(ok){
+function bgrSharedSaveResult(ok, key){
+  key = key || 'candidates';
   let el = (typeof document!=='undefined' && document.getElementById) ? document.getElementById('scxSharedSaveWarn') : null;
   if(ok){ if(el && el.remove) el.remove(); return; }
   // A false result while shared data never loaded this session is the "stale
@@ -3607,15 +3873,20 @@ function bgrSharedSaveResult(ok){
   const d = document.getElementById('scxSharedSaveDismiss');
   // Remove the stale banner before retrying so a fresh outcome (success = no
   // banner, failure = a new banner) is shown cleanly.
-  if(r) r.onclick = function(){ if(el.remove) el.remove(); saveCandidates(); };
+  if(r) r.onclick = function(){ if(el.remove) el.remove(); if(key === 'caregivers') saveCaregivers(); else saveCandidates(); };
   if(d) d.onclick = function(){ if(el.remove) el.remove(); };
 }
-function saveCaregivers(){
+function saveCaregivers(opts){
   localStorage.setItem('cc_caregivers', JSON.stringify(caregivers));
-  localStorage.setItem('cc_cg_id', String(cgId));
-  /* Returns the shared-save outcome (true/false) for callers that must know it
-     (the welcome-call roster add). Older callers ignore it, as before. */
-  return syncToSupabase('caregivers', caregivers);
+  /* Returns the shared-save outcome (a promise of true/false) for callers that
+     must know it (the welcome-call roster add, Step 2 marks). Older callers
+     ignore it, as before. 421: one person at a time (safeSave); when it is
+     true, every new caregiver already carries the number the database gave. */
+  return safeSave('caregivers', opts).then(r => {
+    if(r.ok) bgrSharedSaveResult(true, 'caregivers');
+    else if(r.reason === 'error' && r.kept && !(opts && opts.quiet)) bgrSharedSaveResult(false, 'caregivers');
+    return r.ok === true;
+  });
 }
 
 // ── TRAINING HUB LIVE SYNC ────────────────────────────────────────────
@@ -4112,7 +4383,7 @@ async function intakeImport(intakeId, btn){
     return;
   }
   const rec = {
-    id: obId++,
+    id: safeTmpId(),   /* 421: a temporary number; the database gives the real one below */
     first: row.first_name || '', last: row.last_name || '',
     phone: row.phone || '', email: row.email || '',
     oos: row.lived_outside_mo ? 'yes' : 'no',
@@ -4143,8 +4414,9 @@ async function intakeImport(intakeId, btn){
      person could vanish (imported here, never saved there). Persist first, and
      stamp seen_at only if that persist truly succeeded. */
   localStorage.setItem('cc_candidates', JSON.stringify(candidates));
-  localStorage.setItem('cc_ob_id', String(obId));
-  const persisted = await syncToSupabase('candidates', candidates);
+  /* 421: saved one person at a time; true means the database confirmed it AND
+     rec.id is now the number the database gave (never a number in use). */
+  const persisted = await saveCandidates({ quiet: true });
   if (!persisted) {
     /* Roll the workspace back out of memory and local cache so state stays
        consistent and they REMAIN importable. Nothing was stamped, so their row
@@ -6113,7 +6385,7 @@ function openOBModal(id=null){
   }
   document.getElementById('ob-modal').classList.add('open');
 }
-function saveOB(){
+async function saveOB(){
   const g=k=>document.getElementById(k).value;
   if(!g('ob-first')||!g('ob-last')){alert('Name required.');return;}
   // Capture pre-save state
@@ -6136,7 +6408,7 @@ function saveOB(){
     fp:g('ob-fp'),fp_date:g('ob-fp-date'),fp_proof:g('ob-fp-proof'),notes:g('ob-notes')};
   let saved;
   if(editingOB){ const i=candidates.findIndex(x=>x.id===editingOB); candidates[i]={...candidates[i],...d}; saved=candidates[i]; }
-  else { const rec={id:obId++,...d,invite_sent:false,invite_sent_date:'',addedAt:new Date().toISOString()}; candidates.push(rec); saved=rec; }
+  else { const rec={id:safeTmpId(),...d,invite_sent:false,invite_sent_date:'',addedAt:new Date().toISOString()}; candidates.push(rec); saved=rec; }
   // Auto-stamp resolvedAt the first time a candidate reaches a terminal status
   const nowStatus = obDeriveStatus(saved);
   const nowReady = nowStatus==='Ready for Orientation';
@@ -6146,6 +6418,9 @@ function saveOB(){
     candidates[idx].resolvedStatus = nowStatus;
     saved = candidates[idx];
   }
+  /* 421: a NEW person is shown only once the database has given their number
+     (a failed add is taken back off and the office is told). */
+  if(!editingOB){ closeModal('ob-modal'); await saveCandidates(); renderOB(); renderAlerts(); return; }
   saveCandidates(); closeModal('ob-modal'); renderOB(); renderAlerts();
 }
 
@@ -6561,7 +6836,7 @@ function openCGModal(tab,id=null){ cgReturnTab=tab; editingCG=id;
   } else { fields.forEach(k=>g(k).value=''); g('cg-oos').value='no';g('cg-ojt-signed').value='no';g('cg-oig-s').value='';g('cg-edl-s').value='';g('cg-fcsr-s').value='';g('cg-fp').value='N/A'; }
   document.getElementById('cg-modal').classList.add('open');
 }
-function saveCG(){
+async function saveCG(){
   const g=k=>document.getElementById(k).value;
   if(!g('cg-first')||!g('cg-last')){alert('Name required.');return;}
   // Capture pre-save state to detect status changes
@@ -6580,9 +6855,13 @@ function saveCG(){
     perf_date:g('cg-perf-date'),perf_proof:g('cg-perf-proof')};
   let savedCG;
   if(editingCG){ const i=caregivers.findIndex(x=>x.id===editingCG); caregivers[i]={...caregivers[i],...d}; savedCG=caregivers[i]; }
-  else { const rec={id:cgId++,...d}; caregivers.push(rec); savedCG=rec; }
-  saveCaregivers(); closeModal('cg-modal'); renderAlerts();
-  if(cgReturnTab==='training') renderTR(); else renderAC();
+  else { const rec={id:safeTmpId(),...d}; caregivers.push(rec); savedCG=rec; }
+  const isNew=!editingCG, back=cgReturnTab;
+  /* 421: a NEW caregiver is shown only once the database has given their number. */
+  if(isNew){ closeModal('cg-modal'); await saveCaregivers(); }
+  else { saveCaregivers(); closeModal('cg-modal'); }
+  renderAlerts();
+  if(back==='training') renderTR(); else renderAC();
 }
 
 
@@ -7022,6 +7301,7 @@ function wcInviteHtml(c){
 async function wcInvite(id, btn){
   const c = candidates.find(x => String(x.id) === String(id)); if(!c) return;
   if(!c.step2_done_at){ alert('Viventium Step 2 must be done first. Mark "Step 2 done" once it is finished in Viventium.'); return; }
+  if(safeIsTmp(c.id)){ alert(c.first + ' is still being saved. Nothing was sent. Try again in a moment.'); return; }
   if(!c.phone && !c.email){ alert(c.first + ' has no phone number or email on file. Add one first (✏️ on the Background tab). Nothing was sent.'); return; }
   const name = (c.first + ' ' + c.last).trim();
   if(btn) btn.disabled = true;
@@ -7301,6 +7581,7 @@ async function wcAddToRoster(w){
   const already = roster.find(g => g.candidate_id != null && String(g.candidate_id) === String(candId));
   if(already) return { status:'already', hire_date: already.hire_date || '' };
   if(!c) return { status:'no_candidate' };
+  if(typeof safeIsTmp === 'function' && safeIsTmp(c.id)) return { status:'save_failed', why:'their Background & References record is still being saved' };
   const hireDate = wcCentralYmd(new Date());
   const rec = cgRecordFromCandidate(c, hireDate, '');
   rec.orient_date = ''; rec.alz_date = '';
@@ -7309,7 +7590,7 @@ async function wcAddToRoster(w){
   rec.promoted_via = 'welcome_call';
   caregivers.push(rec);
   let ok = false, why = '';
-  try{ ok = (await saveCaregivers()) === true; }catch(e){ why = (e && e.message) || String(e); }
+  try{ ok = (await saveCaregivers({ quiet:true })) === true; }catch(e){ why = (e && e.message) || String(e); }
   if(!ok){
     /* Undo the local add so this device matches the shared workspace; the next press tries again. */
     caregivers = caregivers.filter(g => g !== rec);
@@ -7869,7 +8150,7 @@ function saveCancelDetails(){
    orientation is done online after the call). */
 function cgRecordFromCandidate(c, hireDate, orientDate){
   return {
-    id: cgId++, first: c.first, last: c.last,
+    id: safeTmpId(), first: c.first, last: c.last,   /* 421: the database gives the real number when it saves */
     // Carry the contact details and the SOURCE ID forward. Without these the
     // promotion destroys the identity trail: the candidate record is deleted
     // a few lines below, taking the only copy of their phone and email with
@@ -7912,15 +8193,22 @@ function cgRecordFromCandidate(c, hireDate, orientDate){
   };
 }
 // ── Promote / Close Out / Reopen ──────────────────────────────────────
-function promoteToCaregiver(candidateId){
+async function promoteToCaregiver(candidateId){
   const c = candidates.find(x=>x.id===candidateId);
   if(!c) return;
+  if(safeIsTmp(c.id)){ alert(`${c.first} ${c.last} is still being saved. Try again in a moment.`); return; }
   if(!confirm(`Promote ${c.first} ${c.last} to caregiver?\n\nThey will be added to Training & Active Compliance and removed from Background & References.`)) return;
   const hireDate = c.orient_session_date || new Date().toISOString().split('T')[0];
   caregivers.push(cgRecordFromCandidate(c, hireDate, hireDate));
-  saveCaregivers();
+  /* 421: their Background & References record is removed ONLY after the roster
+     record reached the shared workspace (it carries the only copy of their checks). */
+  if(!(await saveCaregivers({ quiet: true }))){
+    alert(`${c.first} ${c.last} was NOT promoted: the roster did not reach the shared workspace. They are still in Background & References. Check your connection and try again.`);
+    renderOB(); renderTR(); renderAC();
+    return;
+  }
   candidates = candidates.filter(x=>x.id!==candidateId);
-  saveCandidates();
+  await saveCandidates();
   renderOB(); renderTR(); renderAC();
   /* 2c: a new hire needs a published caregiver profile before their first shift */
   const live=!!(window.CGP2&&CGP2.isLive&&CGP2.isLive(CGP2.rowFor(c.id)));
@@ -8461,13 +8749,15 @@ function previewCSV(){
   }
 }
 
-function confirmCSVImport(){
+async function confirmCSVImport(){
   if(!_csvParsed.length) return;
-  _csvParsed.forEach(d => caregivers.push({id:cgId++,...d}));
-  saveCaregivers();
+  _csvParsed.forEach(d => caregivers.push({id:safeTmpId(),...d}));
   closeModal('csv-import-modal');
+  /* 421: numbers come from the database; say "imported" only when it confirmed. */
+  const ok = await saveCaregivers({ quiet: true });
   renderTR(); renderAC(); renderAlerts();
-  alert(`✅ Imported ${_csvParsed.length} caregiver${_csvParsed.length>1?'s':''}. They now appear in Training and Active Compliance.`);
+  if(ok) alert(`✅ Imported ${_csvParsed.length} caregiver${_csvParsed.length>1?'s':''}. They now appear in Training and Active Compliance.`);
+  else alert(`Not imported: the ${_csvParsed.length} caregiver${_csvParsed.length>1?'s':''} did not reach the shared workspace, so none were added. Check your connection and try again.`);
   _csvParsed = [];
 }
 
