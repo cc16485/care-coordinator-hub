@@ -14,7 +14,7 @@ const lib = fs.readFileSync(path.join(ROOT, 'evv-forms.js'), 'utf8');
 const formPage = fs.readFileSync(path.join(ROOT, 'evv-form.html'), 'utf8');
 require(path.join(ROOT, 'evv-forms.js'));
 const F = globalThis.EVVF;
-const DASH = /[—―]/;
+const DASH = /[\u2014\u2015]/;
 const PNG = 'data:image/png;base64,iVBORw0KGgo=';
 const BASE = { id: '9a1c2d3e-4a5b-4c6d-8e7f-001122334455', attendant: 'Maria Lopez', consumer: 'Ruth A.', visitdate: '2026-09-30', new_in: '09:00', new_out: '13:00', orig_in: '09:04',
   reason: 'Forgot to clock in or out', notes: 'Phone died', processed: false, outcome: null, sig_attendant: PNG, sig_consumer: null,
