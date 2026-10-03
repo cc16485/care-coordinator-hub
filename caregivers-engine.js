@@ -8652,6 +8652,7 @@ function copyEVVFormLink(btn) {
 }
 
 // ── Pending submissions from Supabase ─────────────────────────────────
+const evvEsc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 // Cache of pending rows keyed by id — used by the Accept button so we don't
 // have to embed the full record (signatures included) in the onclick attribute.
 let _evvPendingCache = {};
@@ -8708,7 +8709,7 @@ async function loadPendingEVVSubmissions() {
       return `<div style="border:1.5px solid var(--border);border-radius:8px;padding:1rem 1.1rem;margin-bottom:.75rem;background:var(--bg)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem;margin-bottom:.65rem">
           <div>
-            <div style="font-weight:700;font-size:.9rem">${sub.attendant} <span style="color:var(--gray)">→</span> ${sub.consumer}</div>
+            <div style="font-weight:700;font-size:.9rem">${evvEsc(sub.attendant)} <span style="color:var(--gray)">→</span> ${evvEsc(sub.consumer)}</div>
             <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem;align-items:center">
               <span class="badge b-blue">📅 Visit: ${sub.visitdate||'—'}</span>
               ${lateTag}
@@ -8716,6 +8717,7 @@ async function loadPendingEVVSubmissions() {
             </div>
           </div>
           <div style="display:flex;gap:.4rem;flex-shrink:0">
+            <a class="ibtn" style="font-size:.75rem;text-decoration:none" href="evv-form.html?id=${encodeURIComponent(sub.id)}" target="_blank" rel="noopener">📄 View form</a>
             <button class="add-btn" style="background:var(--green);font-size:.75rem;padding:.3rem .65rem" onclick="acceptEVVSubmission('${sub.id}')">✓ Accept &amp; Log</button>
             <button class="ibtn" style="color:var(--red);font-size:.75rem" onclick="dismissEVVSubmission('${sub.id}')">✕ Dismiss</button>
           </div>
@@ -8723,9 +8725,9 @@ async function loadPendingEVVSubmissions() {
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;font-size:.78rem;margin-bottom:.5rem">
           <div><span style="color:var(--gray)">Original:</span><br><strong>${origTime}</strong></div>
           <div><span style="color:var(--gray)">Corrected:</span><br><strong>${newTime}</strong></div>
-          <div><span style="color:var(--gray)">Reason:</span><br><strong>${sub.reason||'—'}</strong></div>
+          <div><span style="color:var(--gray)">Reason:</span><br><strong>${evvEsc(sub.reason||'—')}</strong></div>
         </div>
-        ${sub.notes ? `<div style="font-size:.78rem;background:var(--white);border-radius:6px;padding:.4rem .65rem;margin-bottom:.3rem"><span style="color:var(--gray)">Notes:</span> ${sub.notes}</div>` : ''}
+        ${sub.notes ? `<div style="font-size:.78rem;background:var(--white);border-radius:6px;padding:.4rem .65rem;margin-bottom:.3rem"><span style="color:var(--gray)">Notes:</span> ${evvEsc(sub.notes)}</div>` : ''}
         <div style="display:flex;gap:1rem;flex-wrap:wrap">
           ${sigHtml(sub.sig_attendant,'Attendant signature')}
           ${sigHtml(sub.sig_consumer,'Client signature')}
@@ -8747,6 +8749,7 @@ async function acceptEVVSubmission(subId) {
   const corrections = getEVVCorrections();
   corrections.unshift({
     id: Date.now().toString(),
+    submission_id: String(sub.id),   // 422: the log entry opens its signed form
     attendant:    sub.attendant,
     consumer:     sub.consumer,
     visitdate:    sub.visitdate,
@@ -8766,12 +8769,8 @@ async function acceptEVVSubmission(subId) {
   saveEVVCorrections(corrections);
 
   // Mark processed + log which admin acted
-  const { error: procErr } = await sb.from('evv_submissions').update({
-    processed:    true,
-    processed_by: adminEmail,
-    processed_at: new Date().toISOString()
-  }).eq('id', sub.id);
-  if(procErr){ alert('Logged locally, but could not mark the submission processed in Supabase: ' + procErr.message); }
+  const procRes = window.EVVF ? await EVVF.linkSave(sb, sub, {}, { by: adminEmail, accept: true }) : { ok: false, error: 'evv-forms.js did not load' };
+  if(!procRes.ok){ alert('Logged locally, but could not mark the submission processed: ' + procRes.error); }
 
   await loadPendingEVVSubmissions();
   renderEVVCorrections();
@@ -8782,11 +8781,8 @@ async function dismissEVVSubmission(id) {
   if (!confirm('Dismiss this submission? It will be removed from the pending list.')) return;
   const { data: { user } } = await sb.auth.getUser();
   const adminEmail = user?.email || 'unknown';
-  await sb.from('evv_submissions').update({
-    processed:    true,
-    processed_by: adminEmail,
-    processed_at: new Date().toISOString()
-  }).eq('id', id);
+  const r = window.EVVF ? await EVVF.linkSave(sb, { id }, {}, { by: adminEmail, dismiss: true }) : { ok: false, error: 'evv-forms.js did not load' };
+  if(!r.ok){ alert('Could not dismiss: ' + r.error); return; }
   loadPendingEVVSubmissions();
 }
 
@@ -8864,6 +8860,7 @@ function renderEVVCorrections() {
         <td>${wsCell}</td>
         <td>${evvStatusBadge(status)}</td>
         <td class="acts">
+          ${c.submission_id ? `<a class="ibtn" style="text-decoration:none" href="evv-form.html?id=${encodeURIComponent(c.submission_id)}" target="_blank" rel="noopener" title="The signed form">📄</a>` : ''}
           <button class="ibtn" style="color:var(--red)" onclick="evvRemove('${c.id}')">✕</button>
         </td>
       </tr>`;

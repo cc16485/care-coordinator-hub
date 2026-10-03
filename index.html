@@ -1669,6 +1669,22 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <a href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:var(--teal);text-decoration:none;">Staffing hub's copy ↗</a>
       </div>
       <div id="evvLogNative"></div>
+
+      <!-- 422 (2026-10-03, Samantha: "We need the real form that was completed and signed by caregiver and client to be
+           saved and able to be viewed by office staff"). Every form ever sent, processed ones too, each opening the
+           signed form itself. Link = confirm which caregiver and client it is for (then it shows on their profiles). -->
+      <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:22px 0 8px;">
+        <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">4 · Past forms</h3>
+        <span class="field-note">every signed form already accepted or dismissed, newest first · 📄 View form opens the form itself, with both signatures</span>
+        <span style="flex:1;"></span>
+        <button class="cara-btn ghost" onclick="evvLoadPast(true)">↻ Refresh</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+        <input id="evvPastQ" type="search" placeholder="Search caregiver or client" oninput="evvPastFilter()" style="flex:1 1 220px;max-width:320px;">
+        <label class="field-note" style="display:flex;gap:5px;align-items:center;">Visit from <input id="evvPastFrom" type="date" onchange="evvPastFilter()"></label>
+        <label class="field-note" style="display:flex;gap:5px;align-items:center;">to <input id="evvPastTo" type="date" onchange="evvPastFilter()"></label>
+      </div>
+      <div id="evvPastNative"><div class="field-note">Loading…</div></div>
     </section>
 
     <!-- ===================== TAB: TRAINING HUB ===================== -->
@@ -4953,7 +4969,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 </div>
   </div>
   <div class="cp-pane" data-cp-pane="history"><div class="profile-grid">
-    <div><div id="cp_calls"></div><div id="cp_change_log"></div><div id="cp_ax_log"></div><div id="cp_c_history"></div></div>
+    <div><div id="cp_evv_forms"></div><div id="cp_calls"></div><div id="cp_change_log"></div><div id="cp_ax_log"></div><div id="cp_c_history"></div></div>
     <div>
 <div class="cp-lead">
       <div class="card" style="padding:18px;">
@@ -6545,6 +6561,8 @@ The HomeTogether team</pre>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261001b"></script>
+<!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
+<script src="evv-forms.js?v=422"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -9145,6 +9163,17 @@ function cpShowTab(t){
   document.querySelectorAll('#cpTabs .cp-tab').forEach(b=>b.classList.toggle('on',b.dataset.cp===CP.tab));
   if(CP.tab==='care'){ cnLoad(false); try{ lnArrivals(); }catch(_){} }   /* N1: shift notes are read from AxisCare only when Care is opened; running-late arrival updates */
 }
+/* 422 (2026-10-03): the signed EVV correction forms the office linked to this client, under Activity & Documents. */
+async function cpRenderEvvForms(){
+  const box=document.getElementById('cp_evv_forms'); if(!box) return;
+  const ax=String(CP.ax||'');
+  if(!/^\d+$/.test(ax)){ box.innerHTML=''; return; }   /* not an AxisCare client yet: no forms can be linked */
+  if(!window.EVVF){ box.innerHTML='<div class="card" style="padding:14px 16px;margin-bottom:12px;color:var(--red);font-size:13px;">EVV correction forms could not load. Refresh the page.</div>'; return; }
+  box.innerHTML=EVVF.sectionHtml({ loading:true, kind:'client' });
+  const r=await EVVF.loadFor(sb,'client',ax);
+  if(String(CP.ax||'')!==ax) return;
+  box.innerHTML=EVVF.sectionHtml({ rows:r.rows, error:r.error, kind:'client' });
+}
 function cpLeadClientName(l){
   if(!l) return '';
   const c=!l.client_name_not_provided&&(l.client_first_name||l.client_last_name)?((l.client_first_name||'')+' '+(l.client_last_name||'')).trim():'';
@@ -9209,7 +9238,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender(); cpRenderChangeLog(); axLogLoad(); callsLoad();
+  cpRenderCommand(); lpiRender(); cpRenderChangeLog(); axLogLoad(); callsLoad(); cpRenderEvvForms();
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -16214,7 +16243,7 @@ async function cgdOpenProfile(axid){
       +'<div id="cgdSkills"></div>')
     +'</div>'
 
-    +'<div id="cgdSec-performance" style="display:none;">'+cgdPerformanceHtml(c,nm)+'<div id="cgdMissedNotes"></div><div id="cgdLate"></div></div>'
+    +'<div id="cgdSec-performance" style="display:none;">'+cgdPerformanceHtml(c,nm)+'<div id="cgdMissedNotes"></div><div id="cgdLate"></div><div id="cgdEvvForms"></div></div>'
 
     +'<div id="cgdSec-work" style="display:none;">'+cgdWorkHtml(c,g,nm)+'</div>'
 
@@ -16236,6 +16265,7 @@ async function cgdOpenProfile(axid){
   cgdPrnMount(c);
   cgdMissedNotesMount(c);
   try{ cgdLateMount(c); }catch(_){}
+  cgdEvvFormsMount(c);
   try{ document.getElementById('tab-cgdir').scrollIntoView({block:'start'}); }catch(e){}
 }
 
@@ -16562,6 +16592,15 @@ async function lnArrivals(){
         :n.family_skipped_by?esc(n.family_skipped_by)+' chose not to tell the family':'The family was not texted')+'</div></div>'; }).join('')+'</div>';
 }
 /* Missed care notes on the caregiver's page: recovered by text and unresolved kept apart (her rule). */
+/* 422 (2026-10-03): the signed EVV correction forms the office linked to this caregiver (Accept & Log, or Link). */
+async function cgdEvvFormsMount(c){
+  const host=document.getElementById('cgdEvvForms'); if(!host) return;
+  if(!window.EVVF){ host.innerHTML='<div class="card" style="padding:14px 16px;margin-top:10px;color:var(--red);font-size:13px;">EVV correction forms could not load. Refresh the page.</div>'; return; }
+  host.innerHTML=EVVF.sectionHtml({ loading:true, kind:'caregiver' });
+  const r=await EVVF.loadFor(sb,'caregiver',String(c.id));
+  if(String(CGD.openId)!==String(c.id)) return;
+  host.innerHTML=EVVF.sectionHtml({ rows:r.rows, error:r.error, kind:'caregiver' });
+}
 async function cgdMissedNotesMount(c){
   const host=document.getElementById('cgdMissedNotes'); if(!host) return;
   let rows=[]; try{ const r=await sb.from('missed_notes').select('*').eq('axiscare_caregiver_id', String(c.id)).neq('status','practice').order('shift_date',{ascending:false}); rows=r.data||[]; }catch(_){ return; }
@@ -19808,9 +19847,14 @@ function trainhubOpen(){ framedOpen('trainhubFrame','https://training.mo-care.co
    received (evv_submissions table), and the corrections log (read-only:
    the Staffing hub is the only writer of that array on purpose). */
 let EVV_SUBS={data:null,loading:false};
+/* 422 (2026-10-03): the signed form itself. EVV_PAST = every processed form (no signatures in the list; the
+   📄 View form page reads the whole form). EVV_LINK = the "Who is this form for?" picker while it is open. */
+let EVV_PAST={data:null,loading:false,noLink:false,open:{},ax:{},autoAt:0,autoMsg:''};
+let EVV_LINK=null;
 function evvOpen(){
   if(!SW_EVV.data&&!SW_EVV.loading) swEvvLoad(); else swEvvPaint();
   evvLoadSubs();
+  evvLoadPast();
   evvPaintLog();
 }
 async function evvLoadSubs(){
@@ -19825,52 +19869,122 @@ async function evvLoadSubs(){
   evvPaintSubs(); evvPaintStats();
   try{ swEvvPaint(); }catch(e){}   // re-match the missing rows against the fresh forms
 }
+function evvMe(){ return (typeof ME!=='undefined'&&(ME.email||ME.name))||'coordinator'; }
+function evvAllSubs(){ return ((EVV_SUBS.data&&EVV_SUBS.data.rows)||[]).concat((EVV_PAST.data&&EVV_PAST.data.rows)||[]); }
+function evvSubById(id){ return evvAllSubs().find(function(x){ return String(x.id)===String(id); })||null; }
 function evvPaintSubs(){
   const box=document.getElementById('evvPendingNative'); if(!box||!EVV_SUBS.data) return;
   const d=EVV_SUBS.data;
   if(d.error){ box.innerHTML='<div style="color:var(--red);font-size:12.5px;">Could not load submissions: '+esc(d.error)+'</div>'; return; }
+  if(!window.EVVF){ box.innerHTML='<div style="color:var(--red);font-size:12.5px;">The EVV form tools did not load (evv-forms.js). Refresh the page.</div>'; return; }
   if(!d.rows.length){ box.innerHTML='<div class="card" style="padding:14px 18px;color:var(--text-muted);font-size:13.5px;">No forms waiting. ✅</div>'; return; }
   box.innerHTML=d.rows.map(function(s){
-    const orig=[s.orig_in,s.orig_out].filter(Boolean).join('–')||'—';
-    const neu=[s.new_in,s.new_out].filter(Boolean).join('–')||'—';
+    const orig=EVVF.span(s.orig_in,s.orig_out)||'?';
+    const neu=EVVF.span(s.new_in,s.new_out)||'?';
+    const sigs=(EVVF.safeSig(s.sig_attendant)?'':'no caregiver signature')+(EVVF.safeSig(s.sig_consumer)?'':(EVVF.safeSig(s.sig_attendant)?'':', ')+'no client signature');
     return '<div class="card" style="padding:12px 16px;margin:0 0 7px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;border-left:4px solid var(--honey);">'
       +'<b style="color:var(--navy);">'+esc(s.attendant||'?')+'</b>'
       +'<span class="field-note">visit '+esc(s.visitdate||'?')+' with '+esc(s.consumer||'?')+'</span>'
       +'<span style="font-size:12.5px;">'+esc(orig)+' → <b>'+esc(neu)+'</b></span>'
       +(s.reason?'<span class="field-note">'+esc(String(s.reason).slice(0,60))+'</span>':'')
+      +(sigs?'<span style="color:var(--red);font-size:12px;font-weight:700;">'+esc(sigs)+'</span>':'')
       +'<span style="flex:1;"></span>'
       +'<span class="field-note">'+(s.submitted_at?new Date(s.submitted_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'')+'</span>'
-      +'<button class="cara-btn" style="font-size:12px;" onclick="evvProcessSub(\''+esc(String(s.id))+'\')">✓ Log it</button>'
+      +EVVF.viewBtnHtml(s.id)
+      +'<button class="cara-btn" style="font-size:12px;" onclick="evvProcessSub(\''+esc(String(s.id))+'\')">✓ Accept &amp; Log</button>'
       +'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvDismissSub(\''+esc(String(s.id))+'\')">Dismiss</button>'
       +'</div>';
   }).join('')
-  +'<div class="field-note" style="margin-top:6px;">Log it moves the form into the corrections log below — then update AxisCare and tap "AxisCare updated ✓" on the row. (Both hubs share one log; writes merge safely since 2026-09-19.)</div>';
+  +'<div class="field-note" style="margin-top:6px;">Accept &amp; Log asks who the form is for (so it shows on the caregiver\'s and the client\'s profiles), then moves it into the corrections log below. Then correct the visit in AxisCare and press Check AxisCare on the log row.</div>';
 }
-/* NATIVE PROCESSING (her ask, 2026-09-19: no more jumping to the Staffing
-   hub). Item-level writes, and the Staffing hub's whole-array save now
-   merges with the database first — both hubs share one log safely. */
-async function evvProcessSub(id){
-  var rows=(EVV_SUBS.data&&EVV_SUBS.data.rows)||[];
-  var s=rows.find(function(x){ return String(x.id)===String(id); }); if(!s) return;
-  if(!confirm('Log '+s.attendant+'\'s correction for '+s.visitdate+'?\n\nAfter logging: update the times in AxisCare, then tap "AxisCare updated ✓" on the log row.')) return;
-  var me=(typeof ME!=='undefined'&&(ME.email||ME.name))||'coordinator';
-  var e={ id:Date.now().toString(), attendant:s.attendant, consumer:s.consumer,
-    visitdate:s.visitdate, submitdate:s.submitdate||'',
-    origIn:s.orig_in||'', origOut:s.orig_out||'', newIn:s.new_in||'', newOut:s.new_out||'',
-    reason:s.reason||'', formReceived:'yes', wellskyDone:'no', admin:me,
-    wellskyDate:'', notes:s.notes||'', loggedAt:new Date().toISOString() };
-  DATA.evv_corrections=DATA.evv_corrections||[]; DATA.evv_corrections.unshift(e);
-  await persist('evv_corrections',e);
-  try{ await sb.from('evv_submissions').update({processed:true,processed_by:me,processed_at:new Date().toISOString()}).eq('id',s.id); }
-  catch(err){ alert('Logged, but could not mark the submission processed: '+String(err&&err.message||err)); }
-  EVV_SUBS.data=null; evvLoadSubs(); evvPaintLog();
+
+/* ── "Who is this form for?" (Accept & Log, or Link on a past form). A name match is only ever a suggestion:
+      nothing is saved until the office presses the confirm button. ── */
+async function evvPeopleLists(){
+  const out={ cgs:[], cls:[], cgErr:'', clErr:'' };
+  try{ const j=await cgdCensus(false);
+       out.cgs=(j&&j.caregivers||[]).map(function(c){ return { id:String(c.id), name:((c.first||'')+' '+(c.last||'')).trim()||('#'+c.id), active:!!c.active }; }); }
+  catch(e){ out.cgErr=String(e&&e.message||e); }
+  try{ const roster=await cl360Roster();
+       out.cls=(roster||[]).filter(function(r){ return /^\d+$/.test(String(r.axiscare_client_id||'')); }).map(function(r){
+         const st=(typeof CL360_AXSTATUS!=='undefined'&&CL360_AXSTATUS&&CL360_AXSTATUS[String(r.axiscare_client_id)])||null;
+         return { id:String(r.axiscare_client_id), name:r.client_name||('#'+r.axiscare_client_id), active:!st||/active/i.test(String(st.label||'')) }; }); }
+  catch(e){ out.clErr=String(e&&e.message||e); }
+  if(!out.clErr&&!out.cls.length) out.clErr='no clients with an AxisCare number were found';
+  return out;
 }
+async function evvOpenLinker(id, mode){
+  if(!window.EVVF){ alert('The EVV form tools did not load. Refresh the page and try again.'); return; }
+  const sub=evvSubById(id); if(!sub){ alert('This form is no longer in the list. Press Refresh and try again.'); return; }
+  if(mode==='link'&&EVV_PAST.noLink){ alert('Linking needs the database update first (Desktop 422). Nothing was changed.'); return; }
+  EVV_LINK={ sub, mode, lists:null };
+  evvPaintLinker();
+  EVV_LINK.lists=await evvPeopleLists();
+  if(!EVV_LINK||EVV_LINK.sub!==sub) return;
+  EVV_LINK.model=EVVF.pickerModel(sub, EVV_LINK.lists.cgs, EVV_LINK.lists.cls);
+  evvPaintLinker();
+}
+function evvPaintLinker(){
+  let ov=document.getElementById('evvLinkModal');
+  if(!EVV_LINK){ if(ov) ov.style.display='none'; return; }
+  if(!ov){ ov=document.createElement('div'); ov.id='evvLinkModal'; document.body.appendChild(ov); }
+  ov.style.cssText='position:fixed;inset:0;background:rgba(16,30,48,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto;';
+  const L=EVV_LINK, s=L.sub, accept=L.mode==='accept';
+  const body=!L.model
+    ?'<div class="field-note" style="padding:14px 0;">Loading the caregiver and client lists…</div>'
+    :'<div style="margin:10px 0 4px;font-weight:700;color:var(--navy);font-size:13.5px;">Caregiver</div>'+EVVF.selectHtml('evvLinkCg', L.model.cg, L.lists.cgErr)
+     +'<div style="margin:14px 0 4px;font-weight:700;color:var(--navy);font-size:13.5px;">Client</div>'+EVVF.selectHtml('evvLinkCl', L.model.cl, L.lists.clErr);
+  ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25);">'
+    +'<div style="display:flex;align-items:baseline;gap:10px;"><b style="font-size:18px;color:var(--navy);">Who is this form for?</b><span style="flex:1"></span>'
+    +'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvLinkCancel()">Cancel</button></div>'
+    +'<div class="field-note" style="margin-top:6px;">On the form the caregiver typed <b>'+esc(s.attendant||'?')+'</b> and the client <b>'+esc(s.consumer||'?')+'</b> (visit '+esc(s.visitdate||'?')+'). '
+    +'Choose the right people. The signed form is then kept on both of their profiles.</div>'
+    +body
+    +'<div id="evvLinkMsg" style="color:var(--red);font-size:13px;margin-top:10px;"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">'
+    +'<button class="cara-btn" id="evvLinkGo" onclick="evvLinkConfirm()"'+(L.model?'':' disabled')+'>'+(accept?'✓ Confirm and log':'✓ Confirm link')+'</button>'
+    +EVVF.viewBtnHtml(s.id)
+    +'</div>'
+    +(accept?'<div class="field-note" style="margin-top:8px;">After logging: correct the times in AxisCare, then press Check AxisCare on the log row.</div>':'')
+    +'</div>';
+  ov.style.display='flex';
+}
+function evvLinkCancel(){ EVV_LINK=null; evvPaintLinker(); }
+async function evvLinkConfirm(){
+  const L=EVV_LINK; if(!L||!L.model) return;
+  const msg=document.getElementById('evvLinkMsg'), go=document.getElementById('evvLinkGo');
+  const cgSel=document.getElementById('evvLinkCg'), clSel=document.getElementById('evvLinkCl');
+  const cg=cgSel?cgSel.value:'', cl=clSel?clSel.value:'';
+  if(!cg||!cl){ if(msg) msg.textContent='Choose the '+(!cg?'caregiver':'client')+', or "Not on this list", before you confirm.'; return; }
+  const nameOf=function(list,id){ const p=(list||[]).find(function(x){ return String(x.id)===String(id); }); return p?p.name:''; };
+  const choice={ cg, cgName:nameOf(L.model.cg.people,cg), cl, clName:nameOf(L.model.cl.people,cl) };
+  if(go){ go.disabled=true; go.textContent='Saving…'; }
+  const me=evvMe();
+  const r=await EVVF.linkSave(sb, L.sub, choice, { by:me, accept:L.mode==='accept' });
+  if(!r.ok){ if(go){ go.disabled=false; go.textContent=L.mode==='accept'?'✓ Confirm and log':'✓ Confirm link'; } if(msg) msg.textContent='Not saved: '+r.error; return; }
+  const s=L.sub;
+  if(L.mode==='accept'){
+    const e={ id:Date.now().toString(), submission_id:String(s.id), attendant:s.attendant, consumer:s.consumer,
+      visitdate:s.visitdate, submitdate:s.submitdate||'',
+      origIn:s.orig_in||'', origOut:s.orig_out||'', newIn:s.new_in||'', newOut:s.new_out||'',
+      reason:s.reason||'', formReceived:'yes', wellskyDone:'no', admin:me,
+      wellskyDate:'', notes:s.notes||'', loggedAt:new Date().toISOString() };
+    DATA.evv_corrections=DATA.evv_corrections||[]; DATA.evv_corrections.unshift(e);
+    await persist('evv_corrections',e);   /* persist shows its own "not saved" and retries */
+  }
+  EVV_LINK=null; evvPaintLinker();
+  if(r.fellBack) alert('Logged, but who the form is for was NOT saved: the database needs its update first (Desktop 422). Link it later from Past forms.');
+  EVV_SUBS.data=null; evvLoadSubs(); evvLoadPast(true); evvPaintLog();
+}
+function evvProcessSub(id){ return evvOpenLinker(id,'accept'); }
+function evvLinkPast(id){ return evvOpenLinker(id,'link'); }
 async function evvDismissSub(id){
-  if(!confirm('Dismiss this submission without logging it? It disappears from the pending list.')) return;
-  var me=(typeof ME!=='undefined'&&(ME.email||ME.name))||'coordinator';
-  try{ await sb.from('evv_submissions').update({processed:true,processed_by:me,processed_at:new Date().toISOString()}).eq('id',id); }
-  catch(err){ alert('Could not dismiss: '+String(err&&err.message||err)); return; }
-  EVV_SUBS.data=null; evvLoadSubs();
+  if(!confirm('Dismiss this submission without logging it? It moves to Past forms, marked Dismissed.')) return;
+  const sub=evvSubById(id)||{ id };
+  const r=window.EVVF?await EVVF.linkSave(sb, sub, {}, { by:evvMe(), dismiss:true })
+    :{ ok:false, error:'the EVV form tools did not load; refresh the page' };
+  if(!r.ok){ alert('Could not dismiss: '+r.error); return; }
+  EVV_SUBS.data=null; evvLoadSubs(); evvLoadPast(true);
 }
 async function evvMarkAx(id){
   var e=(DATA.evv_corrections||[]).find(function(x){ return x&&String(x.id)===String(id); }); if(!e) return;
@@ -19880,19 +19994,120 @@ async function evvMarkAx(id){
 }
 function evvPaintLog(){
   const box=document.getElementById('evvLogNative'); if(!box) return;
-  const log=(DATA.evv_corrections||[]).slice(0,25);
+  const log=(DATA.evv_corrections||[]).slice(0,25), F=window.EVVF, all=evvAllSubs();
   if(!log.length){ box.innerHTML='<div class="card" style="padding:14px 18px;color:var(--text-muted);font-size:13.5px;">Nothing in the log yet.</div>'; return; }
   box.innerHTML='<div class="card" style="padding:6px 18px 10px;">'+log.map(function(e){
     const done=String(e.wellskyDone||'').toLowerCase()==='yes';
+    const sub=F?F.logMatch(e, all):null, live=sub&&!sub._notLoaded?sub:null;
+    const axs=live&&F?F.axStatus(Object.assign({ _accepted:true }, live)):null;
     return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">'
       +'<b>'+esc(e.attendant||'?')+'</b>'
       +'<span class="field-note">'+esc(e.visitdate||'')+' with '+esc(e.consumer||'')+' · '+esc([e.newIn,e.newOut].filter(Boolean).join('–'))+'</span>'
+      +(axs?F.axChipHtml(axs):'')
       +'<span style="flex:1;"></span>'
+      +(sub?F.viewBtnHtml(sub.id):'')
+      +(live&&live.outcome!=='dismissed'?'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="evvAxToggle(\''+esc(String(live.id))+'\')">'+(EVV_PAST.open[live.id]?'Hide AxisCare':'Fix in AxisCare')+'</button>':'')
       +(done?'<span style="color:var(--green);font-weight:700;font-size:12px;">✓ AxisCare updated'+(e.wellskyDate?' '+esc(e.wellskyDate):'')+'</span>'
             :'<button class="cara-btn" style="font-size:11.5px;" onclick="evvMarkAx(\''+esc(String(e.id))+'\')">AxisCare updated ✓</button>')
+      +(live&&EVV_PAST.open[live.id]?'<div style="flex-basis:100%;">'+F.axHelperHtml(live, EVV_PAST.ax[live.id], 'evvAxCheck', 'evvAxPick')+'</div>':'')
       +'</div>';
   }).join('')+'</div>'
-  +((DATA.evv_corrections||[]).length>25?'<div class="field-note" style="margin-top:5px;">Showing the latest 25 — the full log is in the Staffing hub.</div>':'');
+  +((DATA.evv_corrections||[]).length>25?'<div class="field-note" style="margin-top:5px;">Showing the latest 25. Every form is in Past forms below.</div>':'');
+}
+
+/* ── Past forms: every processed form, searchable ── */
+async function evvLoadPast(force){
+  if(EVV_PAST.loading) return;
+  if(EVV_PAST.data&&!force){ evvPaintPast(); return; }
+  if(!window.EVVF){ EVV_PAST.data={ error:'the EVV form tools did not load (evv-forms.js); refresh the page' }; evvPaintPast(); return; }
+  EVV_PAST.loading=true;
+  const q=function(cols){ return sb.from('evv_submissions').select(cols).eq('processed',true).order('submitted_at',{ascending:false}).limit(1000); };
+  try{
+    let r=await q(EVVF.LIST_COLS+','+EVVF.LINK_COLS), noLink=false;
+    if(r.error&&EVVF.isMissingCol(r.error)){ noLink=true; r=await q(EVVF.LIST_COLS+',tasks'); }
+    EVV_PAST.noLink=noLink;
+    EVV_PAST.data=r.error?{ error:r.error.message||String(r.error) }:{ rows:r.data||[] };
+  }catch(e){ EVV_PAST.data={ error:String(e&&e.message||e) }; }
+  EVV_PAST.loading=false;
+  evvPaintPast(); evvPaintLog();
+  evvAutoAxCheck();
+}
+function evvPastFilter(){ evvPaintPast(); }
+function evvPaintPast(){
+  const box=document.getElementById('evvPastNative'); if(!box) return;
+  const d=EVV_PAST.data, F=window.EVVF;
+  if(!d){ box.innerHTML='<div class="field-note">Loading…</div>'; return; }
+  if(d.error){ box.innerHTML='<div style="color:var(--red);font-size:12.5px;">Could not load past forms: '+esc(d.error)+'. Press Refresh to try again.</div>'; return; }
+  const val=function(id){ const el=document.getElementById(id); return el?el.value:''; };
+  const rows=F.filterPast(d.rows,{ q:val('evvPastQ'), from:val('evvPastFrom'), to:val('evvPastTo') });
+  const log=DATA.evv_corrections||[];
+  const head=(EVV_PAST.noLink?'<div class="field-note" style="color:#92400E;margin-bottom:6px;">Linking forms to caregivers and clients, and the AxisCare check, start once the database update (Desktop 422) has run. The forms themselves open now.</div>':'')
+    +(EVV_PAST.autoMsg?'<div style="color:var(--red);font-size:12.5px;margin-bottom:6px;">'+esc(EVV_PAST.autoMsg)+'</div>':'')
+    +'<div class="field-note" style="margin-bottom:4px;">'+rows.length+' of '+d.rows.length+' form'+(d.rows.length===1?'':'s')+'</div>';
+  if(!rows.length){ box.innerHTML=head+'<div class="card" style="padding:14px 18px;color:var(--text-muted);font-size:13.5px;">'+(d.rows.length?'No past forms match the search.':'No past forms yet.')+'</div>'; return; }
+  box.innerHTML=head+'<div class="card" style="padding:6px 18px 10px;">'+rows.slice(0,200).map(function(s){
+    const st=F.statusOf(s, log), accepted=st.key==='accepted';
+    const axs=F.axStatus(Object.assign({ _accepted:accepted }, s));
+    const linked=s.caregiver_axiscare_id||s.client_axiscare_id;
+    const who=linked?'<span class="field-note">linked: '+esc(s.caregiver_linked_name||(s.caregiver_axiscare_id?'caregiver #'+s.caregiver_axiscare_id:'no caregiver'))+' · '+esc(s.client_linked_name||(s.client_axiscare_id?'client #'+s.client_axiscare_id:'no client'))+'</span>'
+      :'<span class="field-note" style="color:#92400E;">not linked to a caregiver or client yet</span>';
+    return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);font-size:13px;">'
+      +'<b>'+esc(F.dateWord(s.visitdate))+'</b>'
+      +'<span><b>'+esc(s.attendant||'?')+'</b> <span class="field-note">with</span> '+esc(s.consumer||'?')+'</span>'
+      +'<span>'+esc(F.span(s.new_in,s.new_out)||'?')+'</span>'
+      +(s.reason?'<span class="field-note">'+esc(String(s.reason).slice(0,50))+'</span>':'')
+      +F.chipHtml(st)+(axs?' '+F.axChipHtml(axs):'')
+      +'<span style="flex:1;"></span>'
+      +F.viewBtnHtml(s.id)
+      +(EVV_PAST.noLink?'':'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="evvLinkPast(\''+esc(String(s.id))+'\')">'+(linked?'Change link':'Link')+'</button>')
+      +(!EVV_PAST.noLink&&accepted?'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="evvAxToggle(\''+esc(String(s.id))+'\')">'+(EVV_PAST.open[s.id]?'Hide AxisCare':'Fix in AxisCare')+'</button>':'')
+      +'<div style="flex-basis:100%;margin-top:-2px;">'+who+(s.processed_by?' <span class="field-note">· '+esc(st.key==='dismissed'?'dismissed':'processed')+' by '+esc(String(s.processed_by).split('@')[0])+(s.processed_at?' '+esc(F.whenWord(s.processed_at)):'')+'</span>':'')+'</div>'
+      +(EVV_PAST.open[s.id]?'<div style="flex-basis:100%;">'+F.axHelperHtml(s, EVV_PAST.ax[s.id], 'evvAxCheck', 'evvAxPick')+'</div>':'')
+      +'</div>';
+  }).join('')+'</div>'
+  +(rows.length>200?'<div class="field-note" style="margin-top:5px;">Showing the newest 200. Search by name or date to find older forms.</div>':'');
+}
+
+/* ── AxisCare: a person corrects the visit; the Hub checks it (read only) ── */
+function evvAxToggle(id){ EVV_PAST.open[id]=!EVV_PAST.open[id]; evvPaintPast(); evvPaintLog(); if(EVV_PAST.open[id]&&!EVV_PAST.ax[id]){ const s=evvSubById(id); if(s&&s.client_axiscare_id&&!s.axiscare_done_at) evvAxCheck(id); } }
+function evvAxApply(s, r){
+  if(!s||!r) return;
+  if(r.outcome==='match'||r.outcome==='mismatch'){
+    s.axiscare_visit_id=r.visit&&r.visit.id; s.axiscare_seen=r.seen; s.axiscare_checked_at=r.checked_at; s.axiscare_done_at=r.done_at||null;
+    if(r.outcome==='match'){   /* the log row's "AxisCare updated" follows the check */
+      const e=window.EVVF&&EVVF.logFor(s, DATA.evv_corrections||[]);
+      if(e&&String(e.wellskyDone||'').toLowerCase()!=='yes'){ e.wellskyDone='yes'; e.wellskyDate=ccChiToday(); e.axiscareChecked=true; persist('evv_corrections',e); }
+    }
+  }
+}
+async function evvAxCheck(id, visitId){
+  const s=evvSubById(id); if(!s||!window.EVVF) return;
+  EVV_PAST.open[id]=true;
+  EVV_PAST.ax[id]={ busy:true, result:(EVV_PAST.ax[id]||{}).result }; evvPaintPast(); evvPaintLog();
+  const body={ submission_id:String(id) }; if(visitId) body.visit_id=visitId;
+  const r=await EVVF.axCall(sb, body);
+  evvAxApply(s, r);
+  EVV_PAST.ax[id]={ busy:false, result:r }; evvPaintPast(); evvPaintLog(); evvPaintStats();
+}
+function evvAxPick(id, visitId){ return evvAxCheck(id, visitId); }
+/* When the lists open: re-check the accepted forms still waiting for AxisCare (up to 8, at most every 5 minutes). */
+async function evvAutoAxCheck(){
+  if(!window.EVVF||EVV_PAST.noLink||!EVV_PAST.data||!EVV_PAST.data.rows) return;
+  if(Date.now()-EVV_PAST.autoAt<5*60000) return;
+  const log=DATA.evv_corrections||[];
+  const wait=EVV_PAST.data.rows.filter(function(s){ return s.client_axiscare_id&&!s.axiscare_done_at&&EVVF.statusOf(s,log).key==='accepted'; }).slice(0,8);
+  if(!wait.length) return;
+  EVV_PAST.autoAt=Date.now();
+  const r=await EVVF.axCall(sb,{ submission_ids:wait.map(function(s){ return String(s.id); }) });
+  if(!r||r.outcome==='error'||!r.results){ EVV_PAST.autoMsg='Could not check AxisCare for the forms waiting on it: '+((r&&r.error)||'no answer')+'. Use Check AxisCare on a form to try again.'; evvPaintPast(); return; }
+  EVV_PAST.autoMsg='';
+  const errs=[], needs=[];
+  wait.forEach(function(s){ const x=r.results[String(s.id)]; if(!x) return; evvAxApply(s,x);
+    if(x.outcome!=='match') EVV_PAST.ax[s.id]={ busy:false, result:x };
+    if(x.outcome==='error') errs.push(x.error); else if(x.outcome==='several'||x.outcome==='none') needs.push(s); });
+  if(errs.length) EVV_PAST.autoMsg='AxisCare could not be checked for '+errs.length+' form'+(errs.length===1?'':'s')+': '+errs[0];
+  else if(needs.length) EVV_PAST.autoMsg=needs.length+' accepted form'+(needs.length===1?'':'s')+' could not be matched to one AxisCare visit (none found, or several that day). Press Fix in AxisCare on '+(needs.length===1?'it':'them')+' to pick or check.';
+  evvPaintPast(); evvPaintLog(); evvPaintStats();
 }
 function evvPaintStats(){
   const row=document.getElementById('evvStatRow'); if(!row) return;

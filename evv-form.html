@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<title>EVV Correction Form (completed) · Caring Companions</title>
+<link rel="icon" href="cc-logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="evv-forms.js?v=422"></script>
+<!-- 422 (2026-10-03). The completed EVV Correction Form, exactly as the caregiver filled it in at
+     sc.mo-care.com/evv-correction-form: the same sections, headings and order, every answer, both signatures.
+     STAFF ONLY: it reads the form with the signed-in office session (the public can only send a form, never read one).
+     Read only. Opened from the Hub: EVV Corrections, Past forms, the corrections log, and both profiles. -->
+<style>
+:root {
+  --navy:#0D365F; --yellow:#FFC671; --teal:#54BDB8;
+  --bg:#F6F9FD; --white:#fff; --gray:#6B7280; --border:#e4e1d8;
+  --green:#22C55E; --green-bg:#dcfce7; --green-text:#15803d;
+  --amber-bg:#fef3c7; --amber-text:#92400e;
+  --red:#EF4444; --red-bg:#fee2e2; --red-text:#b91c1c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--navy);min-height:100vh}
+
+/* Office toolbar (not printed) */
+.toolbar{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--border);padding:.6rem 1rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+.toolbar .note{font-size:.75rem;color:var(--gray);flex:1;min-width:180px}
+.toolbar a,.toolbar button{font-family:inherit;font-size:.8rem;font-weight:700;border-radius:8px;padding:.45rem .9rem;cursor:pointer;text-decoration:none}
+.toolbar .back{color:var(--navy);border:1.5px solid var(--border);background:#fff}
+.toolbar .print{background:var(--navy);color:#fff;border:none}
+
+/* Header (same as the form) */
+.form-header{background:var(--navy);padding:1.1rem 1.5rem;display:flex;align-items:center;gap:1rem}
+.form-header img{height:42px;filter:brightness(0) invert(1)}
+.form-header-text h1{color:#fff;font-size:1rem;font-weight:700}
+.form-header-text p{color:rgba(255,255,255,.6);font-size:.75rem;margin-top:.1rem}
+.deadline-bar{background:var(--yellow);padding:.55rem 1.5rem;font-size:.8rem;font-weight:700;color:var(--navy);text-align:center}
+.form-wrap{max-width:700px;margin:1.5rem auto;padding:0 1rem 3rem}
+.section{background:var(--white);border-radius:12px;box-shadow:0 2px 12px rgba(14,56,96,.07);padding:1.25rem 1.4rem;margin-bottom:1.1rem}
+.section-title{font-size:.88rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.9rem;padding-bottom:.55rem;border-bottom:2px solid var(--yellow);display:flex;align-items:center;gap:.4rem}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+@media(max-width:520px){.fg{grid-template-columns:1fr}}
+.grp{display:flex;flex-direction:column;gap:.2rem}
+.vrow{margin-top:.75rem}
+.grp label,.grp .lbl{font-size:.72rem;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.03em}
+.val{padding:.5rem .75rem;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem;color:var(--navy);background:var(--white);min-height:2.1rem;white-space:pre-wrap;word-break:break-word}
+.val.empty{color:#9CA3AF}
+.req{color:var(--red)}
+.task-checklist{display:flex;flex-direction:column;gap:.4rem;margin-top:.4rem}
+.task-item{display:flex;align-items:flex-start;gap:.6rem;font-size:.84rem;padding:.4rem .6rem;border-radius:6px;border:1.5px solid var(--border);background:var(--bg)}
+.task-item.on{border-color:var(--navy);background:#dce8f5}
+.task-item input{accent-color:var(--navy);margin-top:.15rem;flex-shrink:0}
+.reason-list{display:flex;flex-direction:column;gap:.5rem}
+.reason-item{display:flex;align-items:flex-start;gap:.6rem;font-size:.84rem;padding:.4rem .6rem;border-radius:6px;border:1.5px solid var(--border);background:var(--bg)}
+.reason-item.selected{border-color:var(--teal);background:#e6f8f7}
+.reason-item input{accent-color:var(--teal);margin-top:.15rem;flex-shrink:0}
+.sig-wrap{border:1.5px solid var(--border);border-radius:8px;overflow:hidden;background:#fff}
+.sig-wrap img{display:block;width:100%;height:auto;max-height:180px;object-fit:contain;background:#fff}
+.sig-wrap .missing{padding:1.2rem;font-size:.82rem;color:var(--red-text);font-weight:600}
+.sig-toolbar{display:flex;justify-content:space-between;align-items:center;padding:.35rem .7rem;background:var(--bg);border-top:1px solid var(--border)}
+.sig-toolbar span{font-size:.72rem;color:var(--gray)}
+.sig-required-note{font-size:.72rem;color:var(--gray);margin-top:.3rem}
+.notice{background:var(--amber-bg);border:1.5px solid #fcd34d;border-radius:8px;padding:.75rem 1rem;font-size:.8rem;color:var(--amber-text);line-height:1.6}
+.para{font-size:.8rem;color:var(--gray);margin-bottom:.75rem}
+.office{border:2px solid var(--navy)}
+.office .row{display:flex;gap:.6rem;font-size:.82rem;padding:.2rem 0;flex-wrap:wrap}
+.office .row .k{min-width:150px;color:var(--gray);font-weight:600}
+.chip{font-size:.72rem;font-weight:700;border-radius:999px;padding:.12rem .6rem}
+.axwrap{max-width:700px;margin:1rem auto 0;padding:0 1rem}
+.msg{max-width:560px;margin:4rem auto;padding:1.6rem 1.8rem;background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(14,56,96,.12);font-size:.92rem;line-height:1.6}
+.msg h2{font-size:1.1rem;margin-bottom:.5rem}
+.msg.bad h2{color:var(--red-text)}
+.msg a{color:var(--teal);font-weight:700}
+
+@media print{
+  @page{size:letter;margin:.3in}
+  html{font-size:15px}
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .toolbar,.axwrap{display:none!important}
+  .form-header{padding:.3rem .7rem}
+  .form-header img{height:24px}
+  .form-header-text h1{font-size:.85rem}
+  .deadline-bar{padding:.18rem .7rem;font-size:.6rem}
+  .form-wrap{max-width:none;margin:.3rem 0 0;padding:0}
+  .notice{padding:.25rem .5rem;font-size:.56rem;line-height:1.3;margin-bottom:.3rem!important}
+  .section{box-shadow:none;border:1px solid var(--border);border-radius:6px;padding:.3rem .55rem;margin-bottom:.3rem;break-inside:avoid;page-break-inside:avoid}
+  .section-title{font-size:.62rem;margin-bottom:.25rem;padding-bottom:.15rem}
+  .fg{gap:.3rem;grid-template-columns:1fr 1fr!important}
+  .vrows{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem}
+  .vrow{margin-top:0}
+  .grp label,.grp .lbl{font-size:.5rem;letter-spacing:0}
+  .val{padding:.1rem .35rem;font-size:.66rem;min-height:0}
+  .task-checklist{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.12rem .3rem;margin-top:.15rem}
+  .reason-list{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.12rem .3rem}
+  .task-item,.reason-item{font-size:.54rem;line-height:1.25;padding:.1rem .3rem;gap:.25rem}
+  .task-item input,.reason-item input{width:9px;height:9px;margin-top:.05rem}
+  .para,.sig-required-note,.sig-toolbar span{font-size:.54rem;line-height:1.3;margin-bottom:.15rem}
+  .sig-wrap img{max-height:58px}
+  .sig-toolbar{padding:.05rem .4rem}
+  .fg-sigs{display:grid;grid-template-columns:1fr 1fr;gap:.3rem}
+  .office{display:grid;grid-template-columns:1fr 1fr;column-gap:.8rem}
+  .office .section-title{grid-column:1/-1}
+  .office .row{font-size:.58rem;padding:0;gap:.3rem}
+  .office .row .k{min-width:95px}
+}
+</style>
+</head>
+<body>
+<div id="page"><div class="msg"><h2>Loading the form…</h2></div></div>
+<script>
+/* Read-only. Everything shown comes from one evv_submissions row, read with the signed-in office session. */
+(function (root) {
+  'use strict';
+  var SB_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+  var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+  var HUB_SLUG = 'care_coordinator';
+  var LOGO = 'https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png';
+  var F = root.EVVF, esc = F.esc;
+
+  function usDate(d) { var m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[2] + '/' + m[3] + '/' + m[1] : String(d || ''); }
+  function val(v, fmt) { var s = v == null ? '' : String(v); return s ? '<div class="val">' + esc(fmt ? fmt(s) : s) + '</div>' : '<div class="val empty">(left blank)</div>'; }
+  function grp(label, v, fmt, full) { return '<div class="grp' + (full ? ' full' : '') + '"><div class="lbl">' + label + '</div>' + val(v, fmt) + '</div>'; }
+  function sig(data, caption) {
+    var src = F.safeSig(data);
+    return '<div class="sig-wrap">' + (src ? '<img alt="' + esc(caption) + '" src="' + src + '">' : '<div class="missing">No signature was saved with this form.</div>')
+      + '<div class="sig-toolbar"><span>' + esc(caption) + '</span></div></div>';
+  }
+  function msg(title, body, bad) { return '<div class="msg' + (bad ? ' bad' : '') + '"><h2>' + title + '</h2>' + body + '</div>'; }
+
+  /* sub = the evv_submissions row; ctx = { log: corrections log array | null, viewer } */
+  function render(sub, ctx) {
+    ctx = ctx || {};
+    var tasks = String(sub.tasks || '').split(/;\s*/).map(function (t) { return t.trim(); }).filter(Boolean);
+    var extraTasks = tasks.filter(function (t) { return F.TASKS.indexOf(t) < 0; });
+    var reason = String(sub.reason || '');
+    var known = F.REASONS.some(function (r) { return r[0] === reason; });
+    var pick = known ? reason : (reason ? 'Other' : '');
+    var other = known ? (reason === 'Other' ? 'Other' : '') : reason;
+    var st = F.statusOf(sub, ctx.log || null);
+    var h = '';
+    h += '<div class="toolbar"><a class="back" href="./">← Back to the Hub</a>'
+      + '<span class="note">The completed form as the caregiver submitted it, with both signatures. Read only.</span>'
+      + '<button class="print" type="button" onclick="window.print()">🖨 Print / Save as PDF</button></div>';
+    h += '<div class="axwrap" id="axwrap"></div>';
+    h += '<div class="form-header"><img src="' + LOGO + '" alt="Caring Companions"><div class="form-header-text"><h1>EVV Correction Form</h1><p>Caring Companions In-Home Senior Care</p></div></div>';
+    h += '<div class="deadline-bar">⏰ Corrections must be submitted by Sunday Midnight of the pay period in which the visit occurred.</div>';
+    h += '<div class="form-wrap" id="form-screen">';
+    h += '<div class="notice" style="margin-bottom:1.1rem">⚠️ <strong>Before submitting this form:</strong> Make sure you have attempted to clock in/out correctly in the AxisCare app. This form is for legitimate errors only — it does not guarantee approval. <strong>Do not exaggerate or falsify times.</strong> Falsifying EVV records is fraud and may result in termination and legal consequences.</div>';
+
+    h += '<div class="section"><div class="section-title">👤 1. You &amp; Your Client</div><div class="fg">'
+      + grp('Your Name <span class="req">*</span>', sub.attendant) + grp('Client\'s Name <span class="req">*</span>', sub.consumer) + '</div></div>';
+
+    h += '<div class="section"><div class="section-title">📅 2. Visit Details</div>'
+      + '<div class="vrows"><div class="fg">' + grp('Date of Visit <span class="req">*</span>', sub.visitdate, usDate) + grp('Date You Are Submitting This', sub.submitdate, usDate) + '</div>'
+      + '<div class="fg vrow">' + grp('Original Clock-In (what the system shows)', sub.orig_in, F.time12) + grp('Original Clock-Out (what the system shows)', sub.orig_out, F.time12) + '</div>'
+      + '<div class="fg vrow">' + grp('Corrected Clock-In <span class="req">*</span>', sub.new_in, F.time12) + grp('Corrected Clock-Out <span class="req">*</span>', sub.new_out, F.time12) + '</div></div>'
+      + '<div class="grp full" style="margin-top:.75rem"><div class="lbl">Tasks Performed During This Visit (check all that apply)</div><div class="task-checklist">'
+      + F.TASKS.map(function (t) { var on = tasks.indexOf(t) >= 0; return '<div class="task-item' + (on ? ' on' : '') + '"><input type="checkbox" disabled' + (on ? ' checked' : '') + ' aria-label="' + esc(t) + '"> ' + esc(t) + '</div>'; }).join('')
+      + extraTasks.map(function (t) { return '<div class="task-item on"><input type="checkbox" disabled checked> ' + esc(t) + '</div>'; }).join('')
+      + '</div>' + (tasks.length ? '' : '<div class="sig-required-note">No tasks were checked.</div>') + '</div></div>';
+
+    h += '<div class="section"><div class="section-title">❓ 3. Reason for Correction</div>'
+      + '<p class="para">Select the reason that best describes what happened. <span class="req">*</span></p><div class="reason-list">'
+      + F.REASONS.map(function (r) { var on = r[0] === pick; return '<div class="reason-item' + (on ? ' selected' : '') + '"><input type="radio" disabled' + (on ? ' checked' : '') + '> ' + esc(r[1]) + '</div>'; }).join('')
+      + '</div>' + (pick === 'Other' ? '<div class="grp full" style="margin-top:.75rem"><div class="lbl">Explain the reason <span class="req">*</span></div>' + val(other) + '</div>' : '')
+      + (pick ? '' : '<div class="sig-required-note" style="color:var(--red-text)">No reason was saved with this form.</div>') + '</div>';
+
+    h += '<div class="section"><div class="section-title">📝 4. What Happened</div>'
+      + grp('Describe in your own words what happened <span class="req">*</span>', sub.notes, null, true) + '</div>';
+
+    h += '<div class="fg-sigs">';
+    h += '<div class="section"><div class="section-title">✍️ 5. Caregiver Signature</div>'
+      + '<p class="para">By signing below, I certify that the information on this form is true and accurate to the best of my knowledge. I understand that falsifying EVV records is a serious violation that may result in termination and legal consequences.</p>'
+      + sig(sub.sig_attendant, 'Caregiver signature') + '<p class="sig-required-note">This signature confirms the times and reason above are accurate.</p></div>';
+    h += '<div class="section"><div class="section-title">👤 6. Client Signature (required)</div>'
+      + '<p class="para">The client\'s signature confirms they were receiving care during the corrected timeframe. The office cannot make any manual changes to recorded time without it, so a correction submitted unsigned cannot be processed.</p>'
+      + sig(sub.sig_consumer, 'Client signature') + '</div>';
+    h += '</div>';
+
+    var row = function (k, v) { return '<div class="row"><span class="k">' + k + '</span><span>' + v + '</span></div>'; };
+    h += '<div class="section office"><div class="section-title">🏢 Office record</div>'
+      + row('Submitted', esc(F.whenWord(sub.submitted_at) || '(not recorded)') + (sub.submitted_at ? ' (Central)' : ''))
+      + row('Status', F.chipHtml(st))
+      + (sub.processed ? row(st.key === 'dismissed' ? 'Dismissed by' : 'Processed by', esc(sub.processed_by || '(not recorded)') + (sub.processed_at ? ' on ' + esc(F.whenWord(sub.processed_at)) : '')) : '')
+      + row('Caregiver (linked)', sub.caregiver_axiscare_id ? esc(sub.caregiver_linked_name || 'AxisCare caregiver') + ' · AxisCare #' + esc(sub.caregiver_axiscare_id) : '<span style="color:var(--gray)">not linked yet</span>')
+      + row('Client (linked)', sub.client_axiscare_id ? esc(sub.client_linked_name || 'AxisCare client') + ' · AxisCare #' + esc(sub.client_axiscare_id) : '<span style="color:var(--gray)">not linked yet</span>')
+      + (sub.linked_by ? row('Linked by', esc(sub.linked_by) + (sub.linked_at ? ' on ' + esc(F.whenWord(sub.linked_at)) : '')) : '')
+      + row('Form number', '<span style="font-family:monospace;font-size:.75rem">' + esc(sub.id) + '</span>')
+      + '</div>';
+    h += '</div>';
+    return h;
+  }
+
+  function idFromUrl(search) { var m = String(search || '').match(/[?&]id=([^&#]+)/); return m ? decodeURIComponent(m[1]).trim() : ''; }
+
+  async function boot(env) {
+    env = env || {};
+    var page = env.page || document.getElementById('page');
+    var show = function (html) { page.innerHTML = html; };
+    var id = idFromUrl(env.search != null ? env.search : location.search);
+    var home = '<a href="./">Open the Hub</a>';
+    if (!id) return show(msg('No form was chosen', '<p>Open a form from the Hub: EVV Corrections, then "📄 View form" on the form you want.</p><p>' + home + '</p>', true));
+    var lib = env.supabase || root.supabase;
+    if (!lib || !lib.createClient) return show(msg('The page could not load', '<p>The sign-in library did not load. Check the internet connection and refresh.</p>', true));
+    var sb = env.sb || lib.createClient(SB_URL, SB_KEY);
+    var s;
+    try { s = await sb.auth.getSession(); } catch (e) { return show(msg('Could not check your sign-in', '<p>' + esc((e && e.message) || e) + '. Refresh to try again.</p>', true)); }
+    var session = s && s.data && s.data.session;
+    if (!session) return show(msg('Sign in first', '<p>EVV correction forms are for signed-in office staff only. Sign in to the Hub in this browser, then open this form again.</p><p>' + home + '</p>', true));
+    var access = session.user && session.user.app_metadata && session.user.app_metadata.hub_access;
+    if (!Array.isArray(access) || access.indexOf(HUB_SLUG) < 0) return show(msg('Your account cannot open this', '<p>EVV correction forms open for Care Coordinator Hub staff only, and your account does not have that access yet. Ask Samantha to add it in My Team.</p>', true));
+    var r;
+    try { r = await sb.from('evv_submissions').select('*').eq('id', id).maybeSingle(); } catch (e) { r = { error: e }; }
+    if (r && r.error) {
+      var code = String(r.error.code || '');
+      if (code === '22P02') return show(msg('Form not found', '<p>That form number is not right. Go back to the Hub and use "📄 View form" again.</p><p>' + home + '</p>', true));
+      return show(msg('The form could not be loaded', '<p>' + esc(r.error.message || r.error) + '</p><p>Refresh to try again. If it keeps happening, tell Samantha.</p>', true));
+    }
+    if (!r || !r.data) return show(msg('Form not found', '<p>No EVV correction form with this number was found. It may have been removed, or the link is incomplete.</p><p>' + home + '</p>', true));
+    var sub = r.data, log = null;
+    if (sub.processed && !sub.outcome) {
+      try { var lr = await sb.from('app_data').select('data').eq('key', 'evv_corrections').maybeSingle(); if (!lr.error && lr.data && Array.isArray(lr.data.data)) log = lr.data.data; } catch (e) { log = null; }
+    }
+    show(render(sub, { log: log }));
+    try { document.title = 'EVV form · ' + (sub.attendant || '') + ' · ' + (sub.visitdate || ''); } catch (e) { /* tests */ }
+    AXP.sb = sb; AXP.sub = sub; AXP.state = {}; AXP.fetch = env.fetch; AXP.box = env.axbox || (typeof document !== 'undefined' && document.getElementById ? document.getElementById('axwrap') : null);
+    axPaint();
+    if (sub.client_axiscare_id) await axCheck(sub.id);   /* the automatic check when the form opens */
+    return sub;
+  }
+
+  /* AxisCare helper on this page (not printed). The check is read only against AxisCare. */
+  var AXP = { sb: null, sub: null, state: {}, box: null, fetch: null };
+  function axPaint() { if (AXP.box && AXP.sub) AXP.box.innerHTML = F.axHelperHtml(AXP.sub, AXP.state, 'evvPageCheck', 'evvPagePick'); }
+  async function axCheck(id, visitId) {
+    if (!AXP.sub || String(AXP.sub.id) !== String(id)) return;
+    AXP.state = { busy: true, result: AXP.state.result }; axPaint();
+    var body = { submission_id: AXP.sub.id }; if (visitId) body.visit_id = visitId;
+    var r = await F.axCall(AXP.sb, body, AXP.fetch);
+    if (r && (r.outcome === 'match' || r.outcome === 'mismatch')) {
+      AXP.sub.axiscare_visit_id = r.visit && r.visit.id; AXP.sub.axiscare_seen = r.seen; AXP.sub.axiscare_checked_at = r.checked_at; AXP.sub.axiscare_done_at = r.done_at;
+    }
+    AXP.state = { busy: false, result: r }; axPaint();
+    return r;
+  }
+  root.evvPageCheck = function (id) { return axCheck(id); };
+  root.evvPagePick = function (id, visitId) { return axCheck(id, visitId); };
+
+  root.EVVPAGE = { render: render, boot: boot, idFromUrl: idFromUrl, axCheck: axCheck, AXP: AXP };
+  if (typeof document !== 'undefined' && document.getElementById && document.getElementById('page') && !root.__EVV_TEST__) boot();
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+</body>
+</html>
