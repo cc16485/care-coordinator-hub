@@ -3928,6 +3928,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="settings-section" id="tkSettings">
 <h3>⏰ Missed clock-ins</h3>
 <p class="hint">When a caregiver hasn't clocked in a few minutes after their shift starts, they get one short text. At the same moment every admin gets a text with their own link, and it repeats until someone opens the link and marks it resolved (or she clocks in, or a coverage case covers the shift). The EVV form never goes out by itself: an admin sends it from the link page when a caregiver asks to be clocked in for their start time. Changes here take effect on the next check (every 2 minutes) and are recorded in the activity log.</p>
+<p class="hint" id="tkQuietHint"><b>Office quiet hours:</b> no admin or office text from 8pm to 7am Central. A missed clock-in overnight still opens in Needs Attention; if it is still open at 7am, each admin gets one text then. Each admin gets at most 6 texts about one missed clock-in, and every text has the link to mark it resolved.</p>
 <div id="tkCg" class="field-note" style="margin:6px 0 4px;"></div>
 <button class="secondary" id="tkCgBtn" onclick="tkToggleCg(this)" style="margin-bottom:10px;">Turn on caregiver texts</button>
 <div id="tkLive" class="field-note" style="margin:6px 0 10px;"></div>
@@ -13520,10 +13521,23 @@ function tkAdminsNow(){
   const list=(Array.isArray(st.coverage_alert_admins)&&st.coverage_alert_admins.length)?st.coverage_alert_admins:['samantha@mo-care.com','krystal@mo-care.com'];
   return list.map(e=>{ e=String(e).trim().toLowerCase(); const p=(DATA.coordinator_staff||[]).find(s=>String(s.email||'').toLowerCase()===e); return { email:e, name:(p&&p.name)||e, phone:!!(p&&String(p.phone||'').replace(/\D/g,'').length>=10) }; });
 }
+/* OFFICE QUIET HOURS (Samantha, 2026-10-03): the server (_shared/quiet-hours.ts) never texts the office, an admin or a
+   coordinator between office_quiet_start (20) and office_quiet_end (7), Chicago time. The same words here. */
+function tkQuiet(){
+  const st=DATA.ops_settings||{}, ok=v=>v!==''&&v!=null&&Number.isInteger(Number(v))&&Number(v)>=0&&Number(v)<=23;
+  const s=ok(st.office_quiet_start)&&ok(st.office_quiet_end)?Number(st.office_quiet_start):20, e=ok(st.office_quiet_start)&&ok(st.office_quiet_end)?Number(st.office_quiet_end):7;
+  const w=h=>((h%12)||12)+(h>=12?'pm':'am');
+  const h=Number(new Date().toLocaleString('en-US',{timeZone:'America/Chicago',hour:'2-digit',hourCycle:'h23'}))%24;
+  const now=s===e?false:s>e?(h>=s||h<e):(h>=s&&h<e);
+  return { off:s===e, from:w(s), to:w(e), now };
+}
 function tkRenderStatus(){
   const st=DATA.ops_settings||{}, esc=escapeHtmlComms, live=st.timekeeper_admin_loop_live===true;
+  const q=tkQuiet(), qh=document.getElementById('tkQuietHint');
+  if(qh) qh.innerHTML=q.off?'<b>Office quiet hours are off:</b> admin texts can go at any hour.'
+    :'<b>Office quiet hours:</b> no admin or office text from '+q.from+' to '+q.to+' Central. A missed clock-in overnight still opens in Needs Attention; if it is still open at '+q.to+', each admin gets one text then. Each admin gets at most '+(Number(st.timekeeper_admin_max_texts)>0?Math.floor(Number(st.timekeeper_admin_max_texts)):6)+' texts about one missed clock-in, and every text has the link to mark it resolved.';
   const lv=document.getElementById('tkLive'), btn=document.getElementById('tkLiveBtn');
-  if(lv) lv.innerHTML=live?'<b style="color:#1E8449;">Admin texts are ON.</b> Every admin below is texted until someone resolves it.'
+  if(lv) lv.innerHTML=live?'<b style="color:#1E8449;">Admin texts are ON'+(q.off?'':' ('+q.to+' to '+q.from+' Central)')+'.</b> Every admin below is texted until someone resolves it'+(q.off?'':', never between '+q.from+' and '+q.to)+'.'+(q.now?' <b>It is quiet hours now:</b> nobody is being texted.':'')
     :'<b style="color:#B7791F;">Admin texts: practice run.</b> They are only recorded (below), not sent. Turn them on when you\'re happy with a day of practice.';
   if(btn) btn.textContent=live?'Turn off admin texts':'Turn on admin texts';
   /* Caregiver texts (timekeeper_text_live): paused in Step 0 (2026-09-27); Samantha asked for this switch 2026-09-29. */
@@ -13587,7 +13601,10 @@ async function tkToggleCg(btn){
 }
 async function tkToggleLive(btn){
   const on=!((DATA.ops_settings||{}).timekeeper_admin_loop_live===true);
-  if(!confirm(on?'Turn on the admin texts? From the next missed clock-in, every admin is texted every few minutes until someone resolves it.':'Turn off the admin texts? Missed clock-ins go back to practice (recorded, not texted to admins). Caregivers still get their text.')) return;
+  const q=tkQuiet(), cap=Number((DATA.ops_settings||{}).timekeeper_admin_max_texts)>0?Math.floor(Number(DATA.ops_settings.timekeeper_admin_max_texts)):6;
+  const hrs=q.off?' Office quiet hours are OFF, so these texts can go at ANY hour, including overnight.'
+    :' Hours: '+q.to+' to '+q.from+' Central only. From '+q.from+' to '+q.to+' nobody is texted: an overnight missed clock-in waits in Needs Attention, and if it is still open at '+q.to+' each admin gets one text then.'+(q.now?' It is quiet hours right now, so nothing will be texted before '+q.to+'.':'');
+  if(!confirm(on?'Turn on the admin texts? From the next missed clock-in, every admin is texted every few minutes (at most '+cap+' texts each) until someone taps Resolved on their link.'+hrs:'Turn off the admin texts? Missed clock-ins go back to practice (recorded, not texted to admins). Caregivers still get their text.')) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.timekeeper_admin_loop_live=on; return [on?'admin texts ON':'admin texts OFF']; });
   if(btn) btn.disabled=false;
