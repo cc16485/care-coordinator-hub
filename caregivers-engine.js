@@ -8329,7 +8329,7 @@ function openProfile(first, last){
   let html = `<div style="border-bottom:2px solid var(--border);padding-bottom:1rem;margin-bottom:1rem">`;
   html += `<h2 style="font-size:1.25rem;font-weight:700;color:var(--navy);margin-bottom:.25rem">👤 ${nm}</h2>`;
   html += `<div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;font-size:.82rem;color:var(--gray)">`;
-  if(phone) html += `<a${ocAttrs(phone)} style="color:var(--teal);text-decoration:none">📞 ${phone} · office line</a>`;
+  if(phone) html += `<a${ocAttrs(phone)} style="color:var(--teal);text-decoration:none">📞 ${phone}</a>`;
   if(hireDate) html += `<span>${hireDate}</span>`;
   if(cg?.axiscare_id) html += `<span style="color:var(--gray)">AxisCare ID: ${cg.axiscare_id}</span>`;
   html += `</div>`;
