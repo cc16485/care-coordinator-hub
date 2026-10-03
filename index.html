@@ -21999,10 +21999,14 @@ async function apOutcome(outcome, btn){
 
     const b = AP_BOOK[id];
     if(b){
-      await sb.from('interview_bookings').update({
+      /* NO SILENT FAILURES (2026-10-02): this update failed on every press for weeks (the columns did not exist,
+         fixed by Desktop 419) and nobody saw it, so interviews stayed "waiting on an outcome". Say so if it fails. */
+      const { error: bErr } = await sb.from('interview_bookings').update({
         status: outcome==='noshow' ? 'noshow' : 'attended',
         post_interview: A, outcome_notes: A.notes || null, outcome_at: new Date().toISOString(),
       }).eq('applicant_id', id).eq('status','booked');
+      if(bErr) alert('Their outcome was saved, but their interview could not be closed, so it may still show as waiting on an outcome.\n\n'
+        + 'Reason: ' + bErr.message + '\n\nTell Samantha (or Claude).');
     }
     document.getElementById('apIntCard').style.display='none';
     if(outcome==='hired') apToOffer(id, A);
