@@ -42,7 +42,7 @@
   .said{ background:#fff; border-radius:10px; padding:8px 11px; margin-top:6px; font-size:14.5px; }
   h2{ font-size:14px; color:var(--navy); margin:0 0 4px; text-transform:uppercase; letter-spacing:.04em; }
 </style>
-<script src="office-call.js?v=431"></script>
+<script src="office-call.js?v=433"></script>
 </head>
 <body>
 <h1>Missed clock-in</h1>
@@ -57,6 +57,8 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const tel=p=>String(p||'').replace(/[^\d+]/g,'');
 const pretty=p=>{ const d=String(p||'').replace(/\D/g,'').slice(-10); return d.length===10?'('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6):String(p||''); };
 let D=null, busy=false;
+/* 433: "Call" rings this admin's phone first (the link names the admin); office-call.js shows what happened */
+window.ocBridge=(target)=>call('bridge',{ target });
 async function call(action, extra){
   const r=await fetch(SUPA_URL+'/functions/v1/clockin-alert',{ method:'POST',
     headers:{ 'Content-Type':'application/json', apikey:ANON, Authorization:'Bearer '+ANON },
@@ -97,9 +99,9 @@ function render(msg){
         r.how==='coverage_case'?'A coverage case has this shift now.':'This alert is closed.')+'</div>';
   }
   h+='<div class="card"><h2>Call</h2>'
-    /* 431: calls go from the office line (LeadConnector); the cell is a small backup (office-call.js) */
-    +((D.caregiver_phone||D.caregiver_ghl)?ocInline(D.caregiver_phone,'Call '+D.caregiver_first,D.caregiver_ghl):'<div class="note">No phone for '+esc(D.caregiver_first)+' on the roster.</div>')
-    +((D.client_phone||D.client_ghl)?ocInline(D.client_phone,'Call '+D.client_first+'\'s home',D.client_ghl)+'<div class="note">To check whether '+esc(D.caregiver_first)+' is there and just forgot to clock in.</div>':'')
+    /* 431: calls go from the office line; 433: the tap rings your phone first (GoHighLevel call bridge), the browser and the cell stay as backups (office-call.js) */
+    +((D.caregiver_phone||D.caregiver_ghl)?ocInline(D.caregiver_phone,'Call '+D.caregiver_first,D.caregiver_ghl&&Object.assign({ name:D.caregiver_first },D.caregiver_ghl),null,'caregiver'):'<div class="note">No phone for '+esc(D.caregiver_first)+' on the roster.</div>')
+    +((D.client_phone||D.client_ghl)?ocInline(D.client_phone,'Call '+D.client_first+'\'s home',D.client_ghl&&Object.assign({ name:D.client_first },D.client_ghl),null,'client')+'<div class="note">To check whether '+esc(D.caregiver_first)+' is there and just forgot to clock in.</div>':'')
     +'</div>';
   if(D.open){
     h+='<div class="card"><h2>What happened?</h2><div class="reasons">'

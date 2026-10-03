@@ -48,7 +48,7 @@
   .callline{ font-size:16px; font-weight:800; color:var(--navy); }
   button:disabled{ opacity:.5; cursor:not-allowed; }
 </style>
-<script src="office-call.js?v=431"></script>
+<script src="office-call.js?v=433"></script>
 </head>
 <body>
 <h1>Running late</h1>
@@ -63,6 +63,8 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const tel=p=>String(p||'').replace(/[^\d+]/g,'');
 const pretty=p=>{ const d=String(p||'').replace(/\D/g,'').slice(-10); return d.length===10?'('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6):String(p||''); };
 let D=null, busy=false;
+/* 433: "Call" rings this admin's phone first (the link names the admin); office-call.js shows what happened */
+window.ocBridge=(target)=>call('bridge',{ target });
 async function call(action, extra){
   const r=await fetch(SUPA_URL+'/functions/v1/late-alert',{ method:'POST',
     headers:{ 'Content-Type':'application/json', apikey:ANON, Authorization:'Bearer '+ANON },
@@ -109,9 +111,9 @@ function render(msg){
     h+='</div>';
   }
   h+='<div class="card"><h2>Call</h2>'
-    /* 431: calls go from the office line (LeadConnector); the cell is a small backup (office-call.js) */
-    +((D.caregiver_phone||D.caregiver_ghl)?ocInline(D.caregiver_phone,'Call '+D.caregiver_first,D.caregiver_ghl):'<div class="note">No phone for '+esc(D.caregiver_first)+' on the roster.</div>')
-    +((D.client_phone||D.client_ghl)?ocInline(D.client_phone,'Call '+D.client_first+'\'s home',D.client_ghl)+'<div class="note">The client is never texted by this. A call is yours to make.</div>':'')
+    /* 431: calls go from the office line; 433: the tap rings your phone first (GoHighLevel call bridge), the browser and the cell stay as backups (office-call.js) */
+    +((D.caregiver_phone||D.caregiver_ghl)?ocInline(D.caregiver_phone,'Call '+D.caregiver_first,D.caregiver_ghl&&Object.assign({ name:D.caregiver_first },D.caregiver_ghl),null,'caregiver'):'<div class="note">No phone for '+esc(D.caregiver_first)+' on the roster.</div>')
+    +((D.client_phone||D.client_ghl)?ocInline(D.client_phone,'Call '+D.client_first+'\'s home',D.client_ghl&&Object.assign({ name:D.client_first },D.client_ghl),null,'client')+'<div class="note">The client is never texted by this. A call is yours to make.</div>':'')
     +'</div><div class="err" id="err">'+esc(msg||'')+'</div>';
   app.innerHTML=h;
   const on=(id,fn)=>{ const b=document.getElementById(id); if(b) b.onclick=fn; };

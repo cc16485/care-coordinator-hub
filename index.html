@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Poppins:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="office-call.js?v=431"></script><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
+<script src="office-call.js?v=433"></script><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
     --navy:#0D365F;
@@ -3916,6 +3916,27 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <span class="field-note" id="lnSetSaved"></span>
 </div>
 <div id="lnPractice" style="margin-top:10px;"></div>
+</div>
+<div class="settings-section" id="cbSettings">
+<h3>📞 Calls: your phone rings first</h3>
+<p class="hint">Every staff <b>Call</b> button in the Hub (and on the missed clock-in and running-late links) asks GoHighLevel to ring <b>your</b> phone first. You answer, hear "Caring Companions call to Ruth Adams. Press any key to connect.", press a key, and GoHighLevel connects you from the office number and logs the call. To do that, the tap assigns the GoHighLevel contact to you (the assignment changes with each call) and adds the tag <code>hub-call-bridge</code>. Only a person's tap starts a call. No contact is ever created and nothing is texted.</p>
+<div class="field-note" style="margin:4px 0 8px;"><b>One-time setup in GoHighLevel</b> (full steps: GHL-CALL-BRIDGE-SETUP.md):
+<ol style="margin:6px 0 0 18px;padding:0;">
+<li>Automation, Workflows, Create Workflow, Start from scratch. Name it exactly <b>Hub call bridge</b>.</li>
+<li>Trigger: <b>Contact Tag</b>, filter Tag Added = <code>hub-call-bridge</code>.</li>
+<li>Action: <b>Call</b>. Whisper: <code>Caring Companions call to {{contact.first_name}} {{contact.last_name}}. Press any key to connect.</code> Turn ON "Connect call after keypress". Timeout about 25 seconds.</li>
+<li>Action: <b>Remove Contact Tag</b>, <code>hub-call-bridge</code>.</li>
+<li>Settings (top of the workflow): <b>Allow re-entry ON</b>, so the same person can be called again. Save, then <b>Publish</b>.</li>
+<li>Settings, My Staff: check every office person has their own cell number on their GoHighLevel user (that is the phone that rings).</li>
+</ol></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;"><button class="fb" onclick="cbCheck(this)">Check the setup</button></div>
+<div id="cbStatus" class="field-note" style="margin:0 0 8px;"></div>
+<label>Link a person to their GoHighLevel user by hand (only if the check says GoHighLevel won't list its users, or their GoHighLevel email is different). One per line: email = GoHighLevel user id</label>
+<textarea id="set_cb_users" rows="3" placeholder="krystal@mo-care.com = aBcD1234efGH"></textarea>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+  <button class="primary" onclick="cbSave(this)">Save</button>
+  <span class="field-note" id="cbSaved"></span>
+</div>
 </div>
 <div class="settings-section" id="cpSettings">
 <h3>📞 Calls from GoHighLevel</h3>
@@ -13874,6 +13895,7 @@ function fillSettingsPanel(){
   try{ cpSetFill(); cpLoad(); }catch(_){}
   try{ mnSetFill(); }catch(_){}
   try{ lnSetFill(); }catch(_){}
+  try{ cbFill(); }catch(_){}
   tkFill();
   mbFill();
   try{ aivFill(); }catch(e){}
@@ -16642,6 +16664,49 @@ async function lnDo(itemId, action){
     opEvent('late_'+action,{ item_id:it.id, area:'coverage', summary:(ccActor().name||'Someone')+': '+({ seen:'saw', eta:'changed the arrival time on', family:'texted the family about', skip:'chose not to tell the family about', arrived:'told the family about the arrival for', coverage:'opened a coverage case from' }[action]||action)+' the running-late notice ('+(it.caregiver||'')+')' });
     await lnOpen(itemId, j.count?'Sent to '+j.count+'.':(j.others_told?'Done. The other admins were told.':'Done.')); }
   catch(e){ if(m) m.textContent='Could not: '+e.message; }
+}
+/* 433 · Settings, Calls: "your phone rings first" (GoHighLevel call bridge). Who is linked to a GoHighLevel user,
+   whether the "Hub call bridge" workflow is published, and the by-hand links (ops_settings.ghl_user_ids). */
+function cbFill(){
+  const st=DATA.ops_settings||{}, m=(st.ghl_user_ids&&typeof st.ghl_user_ids==='object')?st.ghl_user_ids:{};
+  const t=document.getElementById('set_cb_users'); if(t) t.value=Object.entries(m).map(([k,v])=>k+' = '+v).join('\n');
+}
+function cbParse(text){
+  const out={}, bad=[];
+  String(text||'').split(/\n+/).map(x=>x.trim()).filter(Boolean).forEach(line=>{
+    const mm=line.match(/^([^\s=,;]+@[^\s=,;]+\.[a-z]{2,})\s*[=,:;\s]\s*([A-Za-z0-9_-]{1,64})$/i);
+    if(mm) out[mm[1].toLowerCase()]=mm[2]; else bad.push(line);
+  });
+  return { map:out, bad };
+}
+async function cbSave(btn){
+  const s=document.getElementById('cbSaved');
+  const p=cbParse((document.getElementById('set_cb_users')||{}).value);
+  if(p.bad.length){ if(s) s.textContent='Each line must be: email = GoHighLevel user id. Not understood: '+p.bad.slice(0,2).join(' | '); return; }
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m, base)=>{ const before=JSON.stringify(base.ghl_user_ids||{}), now=JSON.stringify(p.map);
+    if(before===now) return [];
+    if(Object.keys(p.map).length) m.ghl_user_ids=p.map; else delete m.ghl_user_ids;
+    return ['GoHighLevel user links ('+Object.keys(p.map).length+')']; }, 'call settings');
+  if(btn) btn.disabled=false;
+  if(s) s.textContent=out.error?('Could not save: '+out.error.message):(out.changed.length?'Saved.':'Nothing changed.');
+}
+async function cbCheck(btn){
+  const box=document.getElementById('cbStatus'); if(!box) return;
+  const esc=escapeHtmlComms; box.textContent='Checking GoHighLevel…'; if(btn) btn.disabled=true;
+  let j=null, err='';
+  try{ const r=await sb.functions.invoke('ghl-call-link',{ body:{ action:'setup' } }); if(r.error||!r.data) err='Could not reach the Hub\'s call service.'; else j=r.data; }
+  catch(e){ err='Could not reach the Hub\'s call service.'; }
+  if(btn) btn.disabled=false;
+  if(!j){ box.textContent=err; return; }
+  if(j.configured===false){ box.textContent='GoHighLevel is not set up on the server (no token or location).'; return; }
+  const wf={ published:'✓ The "Hub call bridge" workflow is published.', draft:'✗ The "Hub call bridge" workflow is there but not published yet. Publish it.',
+    missing:'✗ There is no workflow named "Hub call bridge" in GoHighLevel yet. Calls will not ring until it is published.',
+    unknown:'· GoHighLevel won\'t show its workflows to the Hub, so this can\'t be checked here. Test one call.' }[j.workflow]||'';
+  const us={ ok:'✓ GoHighLevel lists its users ('+(j.users_count||0)+'), so people link by their email.', no_scope:'· GoHighLevel won\'t list its users to the Hub, so link each person by hand below.',
+    error:'· Could not list GoHighLevel\'s users just now.' }[j.users_api]||'';
+  box.innerHTML='<div>'+esc(wf)+'</div><div>'+esc(us)+'</div><div style="margin-top:4px;"><b>'+(j.staff_linked||0)+' of '+(j.staff_total||0)+' office people linked</b></div>'
+    +(j.staff||[]).map(p=>'<div>'+(p.linked?'✓ ':'✗ ')+esc(p.name||p.email)+(p.linked?(p.via==='settings'?' (linked by hand)':''):' (not linked: their Hub email is not a GoHighLevel user)')+(String(p.email).toLowerCase()===String(j.me||'').toLowerCase()?' · you':'')+'</div>').join('');
 }
 /* Settings: the three switches, the wording, and what practice has found */
 async function lnSetFill(){

@@ -1,20 +1,22 @@
 /* =============================================================================
-   office-call.js · 431 "Call from office line" (Samantha 2026-10-03: "I want it to be like that across the hub for
-   everything that is a click to call, it should call from leadconnector app, or just have it say call from office line")
+   office-call.js · every staff click-to-call in the Hub
+   431 (Samantha 2026-10-03): calls go from the office line, never a bare tel: link. This is the ONLY place in the staff
+   Hub that builds a tel: link.
+   433 (2026-10-03, her option 1) "Call rings your phone first": no GoHighLevel web link opens the LeadConnector app, so
+   a tap now asks the server to start a GoHighLevel call bridge: the contact is assigned to the person who tapped and
+   tagged hub-call-bridge, and her GoHighLevel workflow "Hub call bridge" rings THEIR phone (the number on their
+   GoHighLevel user), then connects them to the contact from the business number when they press a key. Logged in
+   GoHighLevel. The panel says "Ringing your phone now. Answer, then press any key to connect to Ruth." with a small
+   "Didn't ring? Open in browser · Call from my cell".
    =============================================================================
-   GoHighLevel has no way for us to start a call. So every staff click-to-call in the Hub opens the person's EXISTING
-   GHL contact in the LeadConnector app (the business number), and she taps Call there. The cell phone stays as a small
-   backup. This is the ONLY place in the staff Hub that builds a tel: link.
-
    Two ways to use it:
-   1. In the Hub (signed in): put ocAttrs(phone, {email, client}) in place of href="tel:...". Nothing is looked up when
-      the page draws. On a tap a small panel opens, asks ghl-call-link (staff sign-in) for the contact, then opens it
-      in LeadConnector, with "Open in browser" and "Call from my cell". Not found: "Not in GoHighLevel" + my cell.
-   2. On a link page (clockin.html, late.html: no sign-in): the server already looked the contact up, so
-      ocInline(phone, label, ghl) draws the buttons straight away (ghl null means not found).
-   The lookup only ever SEARCHES GoHighLevel. It never creates a contact.
-   Which link opens the LeadConnector app (app.leadconnectorhq.com) rather than the browser must be confirmed on her
-   phone; "Open in browser" uses app.hirecara.com.
+   1. In the Hub (signed in): put ocAttrs(phone, {email, client}) in place of href="tel:...". Nothing is asked when
+      the page draws. On a tap a small panel opens and asks ghl-call-link {action:'bridge'} (staff sign-in).
+   2. On a link page (clockin.html, late.html: no sign-in): the server already found the contact, so
+      ocInline(phone, label, ghl, cls, target) draws the button straight away (ghl null means not found). When the page
+      defines window.ocBridge(target) and gives a target ('client' or 'caregiver'), the tap rings the admin's phone
+      through that page's own function (the admin is named by the sealed link).
+   The contact is only ever SEARCHED for. Nothing here creates a contact or sends a text or email.
    ============================================================================= */
 (function () {
   'use strict';
@@ -26,20 +28,31 @@
   /* only links we built, to the two GHL hosts, ever go into an href */
   var okApp = function (u) { return typeof u === 'string' && u.indexOf(APP + 'v2/location/') === 0 && /^[\w:/.-]+$/.test(u); };
   var okWeb = function (u) { return typeof u === 'string' && u.indexOf(WEB + 'v2/location/') === 0 && /^[\w:/.-]+$/.test(u); };
-  var WHY = { not_found: 'Not in GoHighLevel. No contact there has this number.', several: 'Not opened: more than one GoHighLevel contact has this number, so pick the right one in GoHighLevel.',
-    no_number: 'There is no usable number to look up.', error: 'Could not check GoHighLevel just now.', not_set_up: 'GoHighLevel is not set up for this lookup.' };
+  var WHY = { not_found: 'Not in GoHighLevel. No contact there has this number.', several: 'Not called: more than one GoHighLevel contact has this number, so pick the right one in GoHighLevel.',
+    no_number: 'There is no usable number to look up.', error: 'Could not check GoHighLevel just now.', not_set_up: 'GoHighLevel is not set up for this lookup.',
+    no_user: 'Your GoHighLevel user isn\'t linked yet (Settings \u2192 Calls).',
+    no_workflow: 'GoHighLevel can\'t ring you yet: the workflow "Hub call bridge" isn\'t published in GoHighLevel (Settings \u2192 Calls has the steps).',
+    assign_failed: 'GoHighLevel did not start the call.', tag_failed: 'GoHighLevel did not start the call.' };
   var cellLink = function (phone, txt) { var t = digits(phone); return t ? '<a class="oc-cell" href="tel:' + e(t) + '">' + e(txt || 'Call from my cell') + '</a>' : ''; };
 
   /** attributes for a Hub call button: use in place of href="tel:..." (keeps the element's own class and style) */
   function ocAttrs(phone, o) {
     o = o || {};
     return ' href="#" role="button" data-oc-phone="' + e(phone) + '"' + (o.email ? ' data-oc-email="' + e(o.email) + '"' : '')
-      + (o.client ? ' data-oc-client="' + e(o.client) + '"' : '') + ' title="Call (LeadConnector)"';
+      + (o.client ? ' data-oc-client="' + e(o.client) + '"' : '') + ' title="Call (rings your phone first)"';
   }
-  /** a link page's call block, from the server's lookup (ghl: {contact_id, app_url, web_url} or null) */
-  function ocInline(phone, label, ghl, cls) {
+  /** a link page's call block, from the server's lookup (ghl: {contact_id, app_url, web_url} or null).
+      433: with a target ('client' | 'caregiver') and a page that defines window.ocBridge, the button rings your phone. */
+  function ocInline(phone, label, ghl, cls, target) {
     if (!digits(phone) && !(ghl && okApp(ghl.app_url))) return '';
     var num = phone ? ' · ' + e(pretty(phone)) : '';
+    if (ghl && okApp(ghl.app_url) && (target === 'client' || target === 'caregiver') && typeof window.ocBridge === 'function') {
+      return '<a class="' + e(cls || 'call') + ' oc-office" href="#" role="button" data-oc-phone="' + e(phone || '') + '" data-oc-bridge="' + e(target) + '"'
+        + (ghl.name ? ' data-oc-name="' + e(ghl.name) + '"' : '') + (okWeb(ghl.web_url) ? ' data-oc-web="' + e(ghl.web_url) + '"' : '') + '>📞 ' + e(label) + num + '</a>'
+        + '<div class="oc-alt">Rings your phone first, then connects from the office number.'
+        + ((okWeb(ghl.web_url) || digits(phone)) ? ' Or: ' + (okWeb(ghl.web_url) ? '<a href="' + e(ghl.web_url) + '" target="_blank" rel="noopener">Open in browser</a>' : '')
+          + (okWeb(ghl.web_url) && digits(phone) ? ' · ' : '') + cellLink(phone) : '') + '</div>';
+    }
     if (ghl && okApp(ghl.app_url)) {
       return '<a class="' + e(cls || 'call') + ' oc-office" href="' + e(ghl.app_url) + '" target="_blank" rel="noopener">📞 ' + e(label) + num + '</a>'
         + '<div class="oc-alt">' + (okWeb(ghl.web_url) ? '<a href="' + e(ghl.web_url) + '" target="_blank" rel="noopener">Open in browser</a>' : '')
@@ -60,7 +73,7 @@
     + '@keyframes ocs{to{transform:rotate(360deg)}}'
     + '@media (prefers-color-scheme:dark){.oc-panel{background:#1b2633;color:#e8eef5;border-color:#2c3a4a}.oc-panel .oc-h{color:#cfe3f5}.oc-panel .oc-alt a,.oc-panel a.oc-cell{color:#9fd6d3}}';
   function addCss() { if (document.getElementById('oc-css')) return; var s = document.createElement('style'); s.id = 'oc-css'; s.textContent = css; document.head.appendChild(s); }
-  var panel = null, cache = {};
+  var panel = null;
   function close() { if (panel) { panel.remove(); panel = null; } }
   function show(html) {
     addCss(); close();
@@ -69,34 +82,50 @@
     panel.querySelector('.oc-x').addEventListener('click', close);
     document.body.appendChild(panel);
   }
-  /* the default lookup: the Hub's signed-in Supabase client (the global sb in index.html) */
-  async function lookup(q) {
-    if (typeof window.ocLookup === 'function') return window.ocLookup(q);
+  /* 433: the Hub's bridge: the signed-in Supabase client (the global sb in index.html) asks ghl-call-link */
+  async function bridge(q) {
+    if (typeof window.ocHubBridge === 'function') return window.ocHubBridge(q);
     var client = (typeof sb !== 'undefined' && sb) ? sb : null; // eslint-disable-line no-undef
-    if (!client || !client.functions) return { found: false, why: 'error' };
+    if (!client || !client.functions) return { ok: false, why: 'error' };
     var r = await client.functions.invoke('ghl-call-link', { body: q });
-    if (r.error || !r.data) return { found: false, why: 'error' };
+    if (r.error || !r.data) return { ok: false, why: 'error', message: 'Could not reach the Hub\'s call service.' };
     return r.data;
   }
+  var busy = false;
+  function fallbacks(phone, web, lead) {
+    var parts = [];
+    if (okWeb(web)) parts.push('<a href="' + e(web) + '" target="_blank" rel="noopener">Open in browser</a>');
+    var c = cellLink(phone); if (c) parts.push(c);
+    return '<div class="oc-alt">' + (parts.length ? (lead ? e(lead) + ' ' : '') + parts.join(' · ') : 'No number to call.') + '</div>';
+  }
   async function onTap(a) {
+    if (busy) return;
     var phone = a.getAttribute('data-oc-phone') || '', email = a.getAttribute('data-oc-email') || '', client = a.getAttribute('data-oc-client') || '';
-    var head = '<div class="oc-h">Call ' + e(pretty(phone) || email) + '</div>';
-    show(head + '<div class="oc-msg"><span class="oc-spin"></span>Finding them in GoHighLevel…</div>');
-    var mine = panel, key = ten(phone) + '|' + email.toLowerCase() + '|' + client, f;
-    try { f = cache[key] || await lookup({ phone: phone, email: email || undefined, axiscare_client_id: client || undefined }); }
-    catch (err) { f = { found: false, why: 'error' }; }
-    if (panel !== mine) return;                                   // closed, or another call tapped meanwhile
-    if (f && f.found && okApp(f.app_url)) {
-      cache[key] = f;
-      var opened = null;
-      try { opened = window.open(f.app_url, '_blank'); if (opened) opened.opener = null; } catch (err) { opened = null; }
-      show(head + '<a class="oc-go" href="' + e(f.app_url) + '" target="_blank" rel="noopener">📞 Call</a>'
-        + '<div class="oc-msg" style="margin-top:8px">' + (opened ? 'Opened in LeadConnector. ' : '') + 'Tap Call on their contact there; it uses the office number.</div>'
-        + '<div class="oc-alt">' + (okWeb(f.web_url) ? '<a href="' + e(f.web_url) + '" target="_blank" rel="noopener">Open in browser</a> · ' : '') + cellLink(phone) + '</div>');
-    } else {
-      if (f && f.found === false && f.why !== 'error') cache[key] = f;
-      show(head + '<div class="oc-msg">' + e(WHY[(f && f.why) || 'error'] || WHY.error) + '</div><div class="oc-alt">' + (cellLink(phone) || 'No number to call.') + '</div>');
+    var target = a.getAttribute('data-oc-bridge') || '', name0 = a.getAttribute('data-oc-name') || '', web0 = a.getAttribute('data-oc-web') || '';
+    var head = '<div class="oc-h">Call ' + e(name0 || pretty(phone) || email) + '</div>';
+    show(head + '<div class="oc-msg"><span class="oc-spin"></span>Asking GoHighLevel to ring your phone…</div>');
+    var mine = panel, f;
+    busy = true;
+    try {
+      if (target) f = typeof window.ocBridge === 'function' ? await window.ocBridge(target) : { ok: false, why: 'error' };
+      else f = await bridge({ action: 'bridge', phone: phone, email: email || undefined, axiscare_client_id: client || undefined });
+    } catch (err) { f = { ok: false, why: 'error', message: err && err.message ? String(err.message) : '' }; }
+    busy = false;
+    if (panel !== mine) return;                                   // closed meanwhile
+    f = f || { ok: false, why: 'error' };
+    var web = okWeb(f.web_url) ? f.web_url : web0;
+    if (f.ok === true && f.ringing === 'you') {
+      var who = f.name || name0 || 'them';
+      show('<div class="oc-h">Calling ' + e(who) + '</div>'
+        + '<div class="oc-msg" style="font-size:14.5px;color:inherit"><b>Ringing your phone now.</b> Answer, then press any key to connect to ' + e(who) + '.</div>'
+        + fallbacks(phone, web, 'Didn\'t ring?'));
+      return;
     }
+    var why = f.why || 'error', msg;
+    if (why === 'too_soon') msg = 'You just started a call. Try again in ' + (Number(f.wait_sec) > 0 ? Number(f.wait_sec) : 30) + ' seconds.';
+    else msg = WHY[why] || WHY.error;
+    if (f.message && why !== 'not_found' && why !== 'several') msg += ' ' + String(f.message);
+    show(head + '<div class="oc-msg">' + e(msg) + '</div>' + fallbacks(phone, web, why === 'no_user' || why === 'no_workflow' || why === 'too_soon' ? 'For now:' : ''));
   }
   document.addEventListener('click', function (ev) {
     var a = ev.target && ev.target.closest ? ev.target.closest('[data-oc-phone]') : null;
@@ -106,5 +135,5 @@
   document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') close(); });
   if (document.head) addCss(); else document.addEventListener('DOMContentLoaded', addCss);
   window.ocAttrs = ocAttrs; window.ocInline = ocInline; window.ocPretty = pretty;
-  window.__oc = { onTap: onTap, close: close, cache: cache, okApp: okApp, okWeb: okWeb };
+  window.__oc = { onTap: onTap, close: close, okApp: okApp, okWeb: okWeb };
 })();
