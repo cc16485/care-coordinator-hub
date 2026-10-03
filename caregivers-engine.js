@@ -8725,7 +8725,7 @@ async function loadPendingEVVSubmissions() {
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;font-size:.78rem;margin-bottom:.5rem">
           <div><span style="color:var(--gray)">Original:</span><br><strong>${origTime}</strong></div>
           <div><span style="color:var(--gray)">Corrected:</span><br><strong>${newTime}</strong></div>
-          <div><span style="color:var(--gray)">Reason:</span><br><strong>${evvEsc(sub.reason||'—')}</strong></div>
+          <div><span style="color:var(--gray)">Reason:</span><br><strong>${evvEsc(sub.reason||'?')}</strong></div>
         </div>
         ${sub.notes ? `<div style="font-size:.78rem;background:var(--white);border-radius:6px;padding:.4rem .65rem;margin-bottom:.3rem"><span style="color:var(--gray)">Notes:</span> ${evvEsc(sub.notes)}</div>` : ''}
         <div style="display:flex;gap:1rem;flex-wrap:wrap">

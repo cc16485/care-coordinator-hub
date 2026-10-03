@@ -266,11 +266,11 @@ const client = (o) => ({ auth: { getSession: async () => o.session === undefined
   ck('index.html loads evv-forms.js; the EVV tab has "4 · Past forms" with search and dates', idx.includes('<script src="evv-forms.js?v=422"></script>') && idx.includes('4 · Past forms') && idx.includes('id="evvPastQ"') && idx.includes('id="evvPastFrom"'));
 
   /* ── 6. words ── */
-  const VERBATIM = F.TASKS.concat(F.REASONS.map(r => r[1]), ['This form is for legitimate errors only — it does not guarantee approval.']);
+  const VERBATIM = F.TASKS.concat(F.REASONS.map(r => r[1]), ['This form is for legitimate errors only \u2014 it does not guarantee approval.']);
   const strip = (t) => VERBATIM.reduce((a, v) => a.split(v).join('').split(F.esc(v)).join(''), t);
   const newIdx = block + cgFn + cpFn + idx.slice(idx.indexOf('4 · Past forms') - 600, idx.indexOf('id="evvPastNative"'));
-  ck('no em dashes in any new words (the public form\'s own task and reason wording is reproduced exactly, as signed)', ![strip(lib), strip(html), newIdx].some(t => /[—―]/.test(t)),
-    [strip(lib), strip(html), newIdx].map(t => (t.match(/.{30}[—―].{10}/) || [''])[0]));
+  ck('no em dashes in any new words (the public form\'s own task and reason wording is reproduced exactly, as signed)', ![strip(lib), strip(html), newIdx].some(t => /[\u2014\u2015]/.test(t)),
+    [strip(lib), strip(html), newIdx].map(t => (t.match(/.{30}[\u2014\u2015].{10}/) || [''])[0]));
   ck('never "plain language" / "plain English"', ![lib, html, newIdx].some(t => /plain (language|english)/i.test(t)));
 
   console.log(`\n${pass} passed, ${fail} failed`);
