@@ -17,6 +17,15 @@
      EVVF.statusOf(sub, log)              Waiting / Accepted and logged / Dismissed / Processed
      EVVF.loadFor(client, 'caregiver'|'client', id)   the forms linked to a caregiver or a client (for the profiles)
      EVVF.sectionHtml(state)              the "EVV correction forms" list on a profile
+   429 (2026-10-03, her rule: "completed at the time of the shift ... or worst case scenario the next time they are
+   with that client --- if client doesnt sign we can call the client and verify over the phone"):
+     EVVF.sigStatus(sub)                  signed / waiting / phone_verified / refused (older forms: from the signature)
+     EVVF.sigChipHtml(sub)                "✍ Waiting for client signature", "📞 Verified by phone", "Signed", "Client declined"
+     EVVF.acceptBlock(sub)                why Accept & Log is not allowed yet (null = allowed). Dismiss is always allowed.
+     EVVF.phoneWords(sub)                 "Client signature: verified by phone by X with Y on <date> at <time>"
+     EVVF.signLineWords(sub, signRow)     where the next-visit signature stands (texted / practice / no visit / no link)
+     EVVF.openPhoneDialog(opts)           the office's "📞 Verified by phone" / "Client declined to confirm" dialog. A
+                                          person makes the call; the Hub only records it (evv_client_phone_record).
    Plain file, no build; works in the browser (window.EVVF) and in node tests (globalThis.EVVF).
    ============================================================================= */
 (function (root) {
@@ -46,6 +55,9 @@
   var LIST_COLS = 'id,attendant,consumer,visitdate,submitdate,orig_in,orig_out,new_in,new_out,reason,processed,processed_by,processed_at,submitted_at';
   var LINK_COLS = 'outcome,caregiver_axiscare_id,client_axiscare_id,caregiver_linked_name,client_linked_name,linked_by,linked_at,axiscare_visit_id,axiscare_checked_at,axiscare_seen,axiscare_done_at,tasks';
   var NONE = '__none';
+  /* 429: the client signature columns (the lists ask for them, and fall back if the database is not updated yet) */
+  var SIG_COLS = 'client_sig_status,client_signed_at,client_sign_via,phone_verified_by,phone_verified_at,phone_call_at,phone_verified_with,phone_verified_relationship,phone_verified_confirmed,phone_verified_notes';
+  var SIGN_PAGE = 'https://sc.mo-care.com/evv-client-sign.html';
   /* 427: a form sent from a pre-filled link (the "Text <caregiver> the EVV form" button, or the clock-out reminder)
      arrives already linked to the caregiver, the client and the AxisCare visit, taken from the visit itself (never
      from what the caregiver typed). linked_by carries this marker. */
@@ -225,7 +237,8 @@
     if (!id) return { rows: [] };
     var col = kind === 'client' ? 'client_axiscare_id' : 'caregiver_axiscare_id';
     try {
-      var r = await client.from('evv_submissions').select(LIST_COLS + ',' + LINK_COLS).eq(col, String(id)).order('visitdate', { ascending: false });
+      var r = await client.from('evv_submissions').select(LIST_COLS + ',' + LINK_COLS + ',' + SIG_COLS).eq(col, String(id)).order('visitdate', { ascending: false });
+      if (r.error && isMissingCol(r.error)) r = await client.from('evv_submissions').select(LIST_COLS + ',' + LINK_COLS).eq(col, String(id)).order('visitdate', { ascending: false });   /* before Desktop 429 */
       if (r.error) return { error: isMissingCol(r.error) ? 'the database is not ready for this yet (Desktop 422)' : (r.error.message || String(r.error)) };
       return { rows: r.data || [] };
     } catch (e) { return { error: (e && e.message) || String(e) }; }
@@ -246,7 +259,7 @@
         + '<span class="field-note">' + (state.kind === 'client' ? 'caregiver ' : 'with ') + esc(other || '?') + '</span>'
         + '<span>corrected to <b>' + esc(span(s.new_in, s.new_out) || '?') + '</b></span>'
         + (s.reason ? '<span class="field-note">' + esc(String(s.reason).slice(0, 70)) + '</span>' : '')
-        + chipHtml(statusOf(s)) + ' ' + axChipHtml(axStatus(s)) + (fromVisit(s) ? ' ' + visitChipHtml(s) : '')
+        + chipHtml(statusOf(s)) + ' ' + sigChipHtml(s) + ' ' + axChipHtml(axStatus(s)) + (fromVisit(s) ? ' ' + visitChipHtml(s) : '')
         + '<span style="flex:1;"></span>' + viewBtnHtml(s.id) + '</div>';
     }).join('');
     return '<div class="card" style="padding:14px 16px;margin-top:10px;margin-bottom:12px;">' + head + body + '</div>';
@@ -355,7 +368,140 @@
     try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(ok, no); else no(); } catch (e) { no(); }
   }
 
+  /* ── 429: the client signature ──────────────────────────────────────────────────────────────────────────────── */
+  /* sub -> { key, label } ; key '' = not known (a list that did not load the signature, on an older form) */
+  function sigStatus(sub) {
+    sub = sub || {};
+    var k = sub.client_sig_status;
+    if (!k) { if (!('sig_consumer' in sub)) return { key: '', label: '' }; k = safeSig(sub.sig_consumer) ? 'signed' : 'waiting'; }
+    if (k === 'waiting') return { key: 'waiting', label: '✍ Waiting for client signature' };
+    if (k === 'phone_verified') return { key: 'phone_verified', label: '📞 Verified by phone' };
+    if (k === 'refused') return { key: 'refused', label: '✋ Client declined to confirm' };
+    return { key: 'signed', label: sub.client_sign_via === 'sign_link' ? 'Signed (at the next visit)' : 'Signed' };
+  }
+  var SIGCHIP = { waiting: ['#FEF3C7', '#92400E'], phone_verified: ['#DBEAFE', '#1E40AF'], refused: ['#FEE2E2', '#B91C1C'], signed: ['#DCFCE7', '#15803D'] };
+  function sigChipHtml(sub) {
+    var st = sigStatus(sub); if (!st.key) return '';
+    var c = SIGCHIP[st.key];
+    return '<span class="evvf-sig evvf-sig-' + st.key + '" style="font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:' + c[0] + ';color:' + c[1] + ';white-space:nowrap;">' + esc(st.label) + '</span>';
+  }
+  var ACCEPT_WAIT = 'The client has not signed yet. Wait for the next visit, or verify by phone first.';
+  var ACCEPT_REFUSED = 'The client declined to confirm these times, so the time cannot be corrected. Dismiss the form instead.';
+  function acceptBlock(sub) { var k = sigStatus(sub).key; return k === 'waiting' ? ACCEPT_WAIT : k === 'refused' ? ACCEPT_REFUSED : null; }
+  function canPhone(sub) { var k = sigStatus(sub).key; return !!sub && !sub.processed && (k === 'waiting' || k === 'refused'); }
+  function callWhen(iso) {
+    if (!iso) return { date: '', time: '' };
+    try {
+      var d = new Date(iso);
+      return { date: d.toLocaleDateString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric' }),
+               time: d.toLocaleTimeString('en-US', { timeZone: 'America/Chicago', hour: 'numeric', minute: '2-digit' }) };
+    } catch (e) { return { date: String(iso), time: '' }; }
+  }
+  function staffName(by) { var b = String(by || '').trim(); return b.indexOf('@') > 0 ? b.split('@')[0].replace(/[._]+/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }) : (b || 'the office'); }
+  /* the line that stands in for the client's signature (form view, printout, lists) */
+  function phoneWords(sub) {
+    sub = sub || {}; var k = sigStatus(sub).key, w = callWhen(sub.phone_call_at);
+    var withWho = String(sub.phone_verified_with || 'the client') + (sub.phone_verified_relationship ? ' (' + sub.phone_verified_relationship + ')' : '');
+    if (k === 'phone_verified') return 'Client signature: verified by phone by ' + staffName(sub.phone_verified_by) + ' with ' + withWho + ' on ' + w.date + ' at ' + w.time;
+    if (k === 'refused') return 'Client declined to confirm: phone call by ' + staffName(sub.phone_verified_by) + ' with ' + withWho + ' on ' + w.date + ' at ' + w.time;
+    return '';
+  }
+  /* sign = the evv_sign row for a waiting form (staff can read it), or null */
+  function signLink(sign) { return sign && sign.token ? SIGN_PAGE + '?t=' + encodeURIComponent(String(sign.token)) : ''; }
+  function signLineWords(sub, sign) {
+    if (sigStatus(sub).key !== 'waiting') return '';
+    if (!sign) return (sub && sub.caregiver_axiscare_id && sub.client_axiscare_id)
+      ? 'Waiting for client signature: the signing link is made within a few minutes (the next timekeeper run).'
+      : 'Waiting for client signature, no visit link: this form was sent without its visit. Link it to the caregiver and client so the next visit can be found, or verify by phone.';
+    if (sign.closed_at || sign.used_at) return '';
+    if (sign.next_visit_texted_at) return 'Signing link texted to the caregiver at her visit (' + whenWord(sign.next_visit_texted_at) + '). Waiting for the client to sign.';
+    if (sign.no_visit_item_at && /no_visit/.test(String(sign.last_note || ''))) return 'No visit with this client in the next 14 days: call the client to verify (Needs Attention).';
+    if (sign.next_visit_refused_at) return 'The caregiver could not be texted the signing link (opted out, no phone, or the text failed). Call the client to verify, or send her the link yourself.';
+    if (Date.parse(sign.expires_at) <= Date.now()) return 'The 14-day signing link ran out: call the client to verify.';
+    if (sign.next_visit_practice_at) return 'Practice: the caregiver WOULD have been texted the signing link at her visit (' + whenWord(sign.next_visit_practice_at) + '). Next-visit texts are off.';
+    return 'Waiting for her next visit with this client' + (sign.next_visit_seen ? ' (' + dateWord(String(sign.next_visit_seen).slice(0, 10)) + ')' : '') + '. The link runs out ' + whenWord(sign.expires_at) + '.';
+  }
+  /* the office's phone record: form fields -> { ok, payload } or { ok:false, error } */
+  function phonePayload(mode, f) {
+    f = f || {};
+    var withWho = String(f.spoke_with || '').trim(), rel = String(f.relationship || '').trim(), notes = String(f.notes || '').trim();
+    var when = String(f.call_at || '').trim(), d = when ? new Date(when) : null;
+    if (!withWho) return { ok: false, error: 'Who did you speak with? Type their name.' };
+    if (!d || isNaN(d.getTime())) return { ok: false, error: 'When was the call? Choose the date and time.' };
+    if (d.getTime() > Date.now() + 10 * 60000) return { ok: false, error: 'The call time is in the future. Check the date and time.' };
+    if (mode === 'verify' && !f.confirmed) return { ok: false, error: 'Tick the box only if the client (or family member) confirmed the caregiver was there at those times. If they did not, use "Client declined to confirm".' };
+    if (mode === 'refuse' && !notes) return { ok: false, error: 'Write what the client said (why they did not confirm).' };
+    return { ok: true, payload: { outcome: mode === 'verify' ? 'phone_verified' : 'refused', spoke_with: withWho.slice(0, 120), relationship: rel.slice(0, 60) || null,
+      call_at: d.toISOString(), confirmed: mode === 'verify', notes: notes.slice(0, 2000) || null } };
+  }
+  var PHONE_ERR = { closed: 'This form was already accepted or dismissed.', already: 'This form is already signed or verified.', not_found: 'This form could not be found. Refresh and try again.',
+    not_staff: 'Only signed-in office staff can record this. Sign in again.' };
+  async function phoneSave(client, sub, payload) {
+    if (!client || typeof client.rpc !== 'function') return { ok: false, error: 'Not signed in. Sign in to the Hub, then try again.' };
+    try {
+      var r = await client.rpc('evv_client_phone_record', { p_id: String(sub.id), p_payload: payload });
+      if (r && r.error) return { ok: false, error: /Could not find the function|function .*does not exist|PGRST202|42883/i.test(String(r.error.message || '') + ' ' + String(r.error.code || '')) ? 'The database is not updated for this yet (Desktop 429).' : (r.error.message || String(r.error)) };
+      var d = r && r.data;
+      if (!d || !d.ok) return { ok: false, error: (d && (PHONE_ERR[d.error] || (d.error === 'invalid' ? 'Check ' + String(d.field || 'the answers').replace(/_/g, ' ') + '.' : d.error))) || 'Nothing was saved.' };
+      return { ok: true, data: d };
+    } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
+  }
+  function localNow() { var d = new Date(Date.now() - new Date().getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16); }
+  /* the dialog. opts = { sb, sub, mode: 'verify'|'refuse', me, onDone(result), doc } */
+  var PD = null;
+  function phoneDialogHtml(sub, mode, me) {
+    var verify = mode === 'verify', span12 = span(sub.new_in, sub.new_out) || 'the corrected times', cg = sub.caregiver_linked_name || sub.attendant || 'the caregiver';
+    var inp = 'width:100%;padding:8px 10px;border:1.5px solid #E8E2D8;border-radius:9px;font:inherit;font-size:14px;';
+    var lab = function (t) { return '<div style="margin:12px 0 4px;font-weight:700;color:#0E3860;font-size:13.5px;">' + t + '</div>'; };
+    return '<div style="background:#fff;border-radius:14px;max-width:540px;width:100%;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25);">'
+      + '<div style="display:flex;align-items:baseline;gap:10px;"><b style="font-size:18px;color:#0E3860;">' + (verify ? '📞 Verified by phone' : 'Client declined to confirm') + '</b><span style="flex:1"></span>'
+      + '<button type="button" onclick="EVVF.closePhoneDialog()" style="font:inherit;font-size:12px;font-weight:700;border:1.5px solid #E8E2D8;background:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;">Cancel</button></div>'
+      + '<div style="font-size:13px;color:#6E6559;margin-top:6px;">' + esc(cg) + ' with ' + esc(sub.client_linked_name || sub.consumer || 'the client') + ', ' + esc(dateWord(sub.visitdate)) + ', corrected to <b>' + esc(span12) + '</b>. '
+      + 'A person calls the client (or the family member who handles the care); this only records what they said.</div>'
+      + lab('Who called') + '<div style="font-size:14px;">' + esc(me || 'You') + ' <span style="color:#6E6559;font-size:12.5px;">(from your sign-in)</span></div>'
+      + lab('Who did you speak with?') + '<input id="evvPhWith" type="text" maxlength="120" placeholder="Name" style="' + inp + '">'
+      + '<select id="evvPhRel" style="' + inp + 'margin-top:6px;"><option value="client">The client</option><option value="daughter">Daughter</option><option value="son">Son</option><option value="spouse">Spouse</option>'
+      + '<option value="other family">Other family</option><option value="other">Someone else (say who in the notes)</option></select>'
+      + lab('Date and time of the call') + '<input id="evvPhWhen" type="datetime-local" value="' + esc(localNow()) + '" style="' + inp + '">'
+      + (verify ? '<label style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-size:14px;font-weight:600;cursor:pointer;"><input id="evvPhConf" type="checkbox" style="margin-top:3px;width:17px;height:17px;flex-shrink:0;"> '
+        + '<span>The client confirmed ' + esc(cg) + ' was there ' + esc(span12) + ' on ' + esc(dateWord(sub.visitdate)) + '.</span></label>' : '')
+      + lab(verify ? 'Notes (optional)' : 'What did they say? (required)') + '<textarea id="evvPhNotes" rows="3" maxlength="2000" style="' + inp + '"></textarea>'
+      + '<div id="evvPhMsg" style="color:#B3261E;font-size:13px;margin-top:10px;"></div>'
+      + '<div style="display:flex;gap:8px;margin-top:12px;"><button type="button" id="evvPhGo" onclick="EVVF.savePhoneDialog()" style="font:inherit;font-size:14px;font-weight:700;border:none;background:' + (verify ? '#0E3860' : '#B91C1C') + ';color:#fff;border-radius:9px;padding:8px 16px;cursor:pointer;">'
+      + (verify ? 'Save: verified by phone' : 'Save: client declined') + '</button></div>'
+      + (verify ? '' : '<div style="font-size:12.5px;color:#6E6559;margin-top:8px;">The form then cannot be accepted, so the time is not corrected. Dismiss it when you are done.</div>')
+      + '</div>';
+  }
+  function openPhoneDialog(opts) {
+    var doc = opts.doc || root.document; if (!doc) return;
+    PD = opts;
+    var ov = doc.getElementById('evvPhoneModal');
+    if (!ov) { ov = doc.createElement('div'); ov.id = 'evvPhoneModal'; doc.body.appendChild(ov); }
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(16,30,48,.45);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto;';
+    ov.innerHTML = phoneDialogHtml(opts.sub, opts.mode, opts.me);
+    ov.style.display = 'flex';
+  }
+  function closePhoneDialog() { var doc = (PD && PD.doc) || root.document; var ov = doc && doc.getElementById('evvPhoneModal'); if (ov) ov.style.display = 'none'; PD = null; }
+  async function savePhoneDialog() {
+    if (!PD) return null;
+    var o = PD, doc = o.doc || root.document, g = function (id) { return doc.getElementById(id); };
+    var msg = g('evvPhMsg'), go = g('evvPhGo');
+    var rel = (g('evvPhRel') || {}).value || '';
+    var p = phonePayload(o.mode, { spoke_with: (g('evvPhWith') || {}).value, relationship: rel === 'client' ? 'the client' : rel, call_at: (g('evvPhWhen') || {}).value,
+      confirmed: !!(g('evvPhConf') || {}).checked, notes: (g('evvPhNotes') || {}).value });
+    if (!p.ok) { if (msg) msg.textContent = p.error; return p; }
+    if (go) { go.disabled = true; go.textContent = 'Saving…'; }
+    var r = await phoneSave(o.sb, o.sub, p.payload);
+    if (!r.ok) { if (go) { go.disabled = false; go.textContent = o.mode === 'verify' ? 'Save: verified by phone' : 'Save: client declined'; } if (msg) msg.textContent = 'Not saved: ' + r.error; return r; }
+    closePhoneDialog();
+    if (o.onDone) o.onDone(r);
+    return r;
+  }
+
   root.EVVF = {
+    SIG_COLS: SIG_COLS, SIGN_PAGE: SIGN_PAGE, sigStatus: sigStatus, sigChipHtml: sigChipHtml, acceptBlock: acceptBlock, canPhone: canPhone, phoneWords: phoneWords, callWhen: callWhen,
+    signLink: signLink, signLineWords: signLineWords, phonePayload: phonePayload, phoneSave: phoneSave, phoneDialogHtml: phoneDialogHtml,
+    openPhoneDialog: openPhoneDialog, closePhoneDialog: closePhoneDialog, savePhoneDialog: savePhoneDialog, ACCEPT_WAIT: ACCEPT_WAIT, ACCEPT_REFUSED: ACCEPT_REFUSED,
     AX_COLS: AX_COLS, axClientUrl: axClientUrl, axCall: axCall, axStatus: axStatus, axChipHtml: axChipHtml, axResultWords: axResultWords, axHelperHtml: axHelperHtml, copy: copy, seenWords: seenWords,
     VISIT_MARK: VISIT_MARK, VISIT_WORDS: VISIT_WORDS, fromVisit: fromVisit, visitChipHtml: visitChipHtml, linkedWords: linkedWords,
     TASKS: TASKS, REASONS: REASONS, NONE: NONE, LIST_COLS: LIST_COLS, LINK_COLS: LINK_COLS,

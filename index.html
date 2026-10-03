@@ -1661,6 +1661,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">2 · Forms received — waiting to be processed</h3>
         <span class="field-note">signed correction forms from sc.mo-care.com/evv-correction-form · deadline Sunday midnight</span>
       </div>
+      <!-- 429 (2026-10-03): the next-visit signature text switch (evv_next_visit_live), and forms waiting for the client -->
+      <div id="evvNextVisitCard" style="margin-bottom:10px;"></div>
       <div id="evvPendingNative" style="margin-bottom:22px;"><div class="field-note">Loading…</div></div>
 
       <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 8px;">
@@ -6568,7 +6570,7 @@ The HomeTogether team</pre>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261001b"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
-<script src="evv-forms.js?v=427"></script>
+<script src="evv-forms.js?v=429"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -19976,6 +19978,7 @@ let EVV_PAST={data:null,loading:false,noLink:false,open:{},ax:{},autoAt:0,autoMs
 let EVV_LINK=null;
 function evvOpen(){
   if(!SW_EVV.data&&!SW_EVV.loading) swEvvLoad(); else swEvvPaint();
+  evvPaintNextVisit();
   evvLoadSubs();
   evvLoadPast();
   evvPaintLog();
@@ -19988,6 +19991,15 @@ async function evvLoadSubs(){
       .order('submitted_at',{ascending:false});
     EVV_SUBS.data=r.error?{error:r.error.message}:{rows:r.data||[]};
   }catch(e){ EVV_SUBS.data={error:String(e.message||e)}; }
+  /* 429: the signing link rows for forms waiting for the client (staff can read them; only the server writes them) */
+  EVV_SUBS.sign={};
+  try{
+    const wait=((EVV_SUBS.data&&EVV_SUBS.data.rows)||[]).filter(function(s){ return window.EVVF&&EVVF.sigStatus(s).key==='waiting'; }).map(function(s){ return String(s.id); });
+    if(wait.length){
+      const sr=await sb.from('evv_sign').select('submission_id,token,expires_at,used_at,closed_at,next_visit_texted_at,next_visit_practice_at,next_visit_start,next_visit_refused_at,next_visit_seen,no_visit_item_at,last_note').in('submission_id',wait);
+      ((sr&&sr.data)||[]).forEach(function(x){ EVV_SUBS.sign[String(x.submission_id)]=x; });
+    }
+  }catch(e){ /* before Desktop 429 the table is not there: the forms still list */ }
   EVV_SUBS.loading=false;
   evvPaintSubs(); evvPaintStats();
   try{ swEvvPaint(); }catch(e){}   // re-match the missing rows against the fresh forms
@@ -20004,19 +20016,32 @@ function evvPaintSubs(){
   box.innerHTML=d.rows.map(function(s){
     const orig=EVVF.span(s.orig_in,s.orig_out)||'?';
     const neu=EVVF.span(s.new_in,s.new_out)||'?';
-    const sigs=(EVVF.safeSig(s.sig_attendant)?'':'no caregiver signature')+(EVVF.safeSig(s.sig_consumer)?'':(EVVF.safeSig(s.sig_attendant)?'':', ')+'no client signature');
-    return '<div class="card" style="padding:12px 16px;margin:0 0 7px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;border-left:4px solid var(--honey);">'
+    /* 429: the client signature has its own badge (waiting / verified by phone / declined / signed) */
+    const sig=EVVF.sigStatus(s), block=EVVF.acceptBlock(s), id=esc(String(s.id));
+    const sigs=EVVF.safeSig(s.sig_attendant)?'':'no caregiver signature';
+    const line=EVVF.signLineWords(s, (EVV_SUBS.sign||{})[String(s.id)]||null);
+    const link=EVVF.signLink((EVV_SUBS.sign||{})[String(s.id)]||null);
+    const ph=EVVF.phoneWords(s);
+    return '<div class="card" style="padding:12px 16px;margin:0 0 7px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;border-left:4px solid '+(sig.key==='waiting'||sig.key==='refused'?'#F59E0B':'var(--honey)')+';">'
       +'<b style="color:var(--navy);">'+esc(s.attendant||'?')+'</b>'
       +'<span class="field-note">visit '+esc(s.visitdate||'?')+' with '+esc(s.consumer||'?')+'</span>'
-      +EVVF.visitChipHtml(s)
+      +EVVF.visitChipHtml(s)+EVVF.sigChipHtml(s)
       +'<span style="font-size:12.5px;">'+esc(orig)+' → <b>'+esc(neu)+'</b></span>'
       +(s.reason?'<span class="field-note">'+esc(String(s.reason).slice(0,60))+'</span>':'')
       +(sigs?'<span style="color:var(--red);font-size:12px;font-weight:700;">'+esc(sigs)+'</span>':'')
       +'<span style="flex:1;"></span>'
       +'<span class="field-note">'+(s.submitted_at?new Date(s.submitted_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'')+'</span>'
       +EVVF.viewBtnHtml(s.id)
-      +'<button class="cara-btn" style="font-size:12px;" onclick="evvProcessSub(\''+esc(String(s.id))+'\')">✓ Accept &amp; Log</button>'
-      +'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvDismissSub(\''+esc(String(s.id))+'\')">Dismiss</button>'
+      +'<button class="cara-btn" style="font-size:12px;'+(block?'opacity:.55;':'')+'"'+(block?' title="'+esc(block)+'"':'')+' onclick="evvProcessSub(\''+id+'\')">✓ Accept &amp; Log</button>'
+      +'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvDismissSub(\''+id+'\')">Dismiss</button>'
+      +(EVVF.canPhone(s)?'<div style="flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:2px;">'
+        +(line?'<span class="field-note" style="color:#92400E;flex:1 1 260px;">'+esc(line)+'</span>':(sig.key==='refused'?'<span class="field-note" style="color:#B91C1C;flex:1 1 260px;">'+esc(ph)+'. Dismiss it: the time is not corrected.</span>':''))
+        +'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvPhone(\''+id+'\',\'verify\')">📞 Verified by phone</button>'
+        +(sig.key==='waiting'?'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvPhone(\''+id+'\',\'refuse\')">Client declined to confirm</button>':'')
+        +(link?'<button class="cara-btn ghost" style="font-size:12px;" data-link="'+esc(link)+'" onclick="evvCopySign(this)" title="To text the caregiver yourself at her visit. Never send it to the client or family.">Copy signing link</button>':'')
+        +(!(s.caregiver_axiscare_id&&s.client_axiscare_id)?'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvLinkPast(\''+id+'\')">Link</button>':'')
+        +'</div>'
+       :(ph?'<div style="flex-basis:100%;" class="field-note">'+esc(ph)+'</div>':''))
       +'</div>';
   }).join('')
   +'<div class="field-note" style="margin-top:6px;">Accept &amp; Log asks who the form is for (so it shows on the caregiver\'s and the client\'s profiles), then moves it into the corrections log below. Then correct the visit in AxisCare and press Check AxisCare on the log row.</div>';
@@ -20123,7 +20148,46 @@ async function evvLinkSave(L, choice, msg, go){
   if(r.fellBack) alert('Logged, but who the form is for was NOT saved: the database needs its update first (Desktop 422). Link it later from Past forms.');
   EVV_SUBS.data=null; evvLoadSubs(); evvLoadPast(true); evvPaintLog();
 }
-function evvProcessSub(id){ return evvOpenLinker(id,'accept'); }
+function evvProcessSub(id){
+  /* 429: no Accept until the client signed or the office verified by phone (Dismiss is always allowed) */
+  const sub=evvSubById(id), block=sub&&window.EVVF?EVVF.acceptBlock(sub):null;
+  if(block){ alert(block); return; }
+  return evvOpenLinker(id,'accept');
+}
+/* 429: the office's phone verification. A person calls; the Hub records who called (the sign-in), who they spoke with,
+   when, what was confirmed. Nothing here contacts a client. */
+function evvPhone(id, mode){
+  const sub=evvSubById(id); if(!sub||!window.EVVF){ alert('This form is no longer in the list. Refresh and try again.'); return; }
+  EVVF.openPhoneDialog({ sb, sub, mode, me:evvMe(), doc:document, onDone:function(){ EVV_SUBS.data=null; evvLoadSubs(); } });
+}
+function evvCopySign(btn){
+  const v=btn&&btn.getAttribute('data-link'); if(!v) return;
+  const ok=function(){ const t=btn.textContent; btn.textContent='Copied: text it to the caregiver only'; setTimeout(function(){ btn.textContent=t; },2200); };
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(ok,function(){ prompt('Copy the signing link (for the caregiver only):',v); }); else prompt('Copy the signing link (for the caregiver only):',v); }catch(e){ prompt('Copy the signing link (for the caregiver only):',v); }
+}
+/* 429: the next-visit signature text switch. OFF = practice (the timekeeper records who it WOULD text). */
+function evvPaintNextVisit(){
+  const box=document.getElementById('evvNextVisitCard'); if(!box) return;
+  const st=DATA.ops_settings||{}, on=st.evv_next_visit_live===true, cgOn=st.timekeeper_text_live===true;
+  box.innerHTML='<div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;">'
+    +'<span style="flex:1 1 320px;">'+(on
+      ?(cgOn?'<b style="color:#1E8449;">Next-visit signature texts: ON.</b> When a form is waiting for the client, the caregiver gets one text with the signing link at her next visit with that client (10 minutes after she clocks in, never 8pm to 7am). Never the client or family.'
+            :'<b style="color:#B7791F;">Next-visit signature texts: ON, but caregiver texts are OFF</b> (Settings, Missed clock-ins), so nothing is sent.')
+      :'<b style="color:#B7791F;">Next-visit signature texts: OFF (practice).</b> Forms waiting for the client show who WOULD have been texted. Use Copy signing link to text the caregiver yourself, or verify by phone.')
+    +' No visit within 14 days = a Needs Attention item to call the client.</span>'
+    +'<button class="cara-btn ghost" style="font-size:12px;" id="evvNvBtn" onclick="evvToggleNextVisit(this)">'+(on?'Turn off next-visit texts':'Turn on next-visit texts')+'</button>'
+    +'<span class="field-note" id="evvNvSaved"></span></div>';
+}
+async function evvToggleNextVisit(btn){
+  const on=!((DATA.ops_settings||{}).evv_next_visit_live===true);
+  if(!confirm(on?'Turn on next-visit signature texts? When a correction form is waiting for the client\'s signature, the caregiver gets ONE text with the signing link at her next visit with that client (10 minutes after she clocks in, never 8pm to 7am). Nothing is ever sent to the client or family.'
+    :'Turn off next-visit signature texts? Waiting forms go back to practice (who would be texted is recorded; nobody is texted).')) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge(function(m){ m.evv_next_visit_live=on; return [on?'next-visit signature texts ON':'next-visit signature texts OFF']; }, 'EVV next-visit settings');
+  if(btn) btn.disabled=false;
+  evvPaintNextVisit();
+  const s=document.getElementById('evvNvSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):(on?'Saved: on.':'Saved: off.');
+}
 function evvLinkPast(id){ return evvOpenLinker(id,'link'); }
 async function evvDismissSub(id){
   if(!confirm('Dismiss this submission without logging it? It moves to Past forms, marked Dismissed.')) return;
@@ -20170,7 +20234,8 @@ async function evvLoadPast(force){
   EVV_PAST.loading=true;
   const q=function(cols){ return sb.from('evv_submissions').select(cols).eq('processed',true).order('submitted_at',{ascending:false}).limit(1000); };
   try{
-    let r=await q(EVVF.LIST_COLS+','+EVVF.LINK_COLS), noLink=false;
+    let r=await q(EVVF.LIST_COLS+','+EVVF.LINK_COLS+','+EVVF.SIG_COLS), noLink=false;
+    if(r.error&&EVVF.isMissingCol(r.error)) r=await q(EVVF.LIST_COLS+','+EVVF.LINK_COLS);   /* before Desktop 429 */
     if(r.error&&EVVF.isMissingCol(r.error)){ noLink=true; r=await q(EVVF.LIST_COLS+',tasks'); }
     EVV_PAST.noLink=noLink;
     EVV_PAST.data=r.error?{ error:r.error.message||String(r.error) }:{ rows:r.data||[] };
@@ -20203,7 +20268,7 @@ function evvPaintPast(){
       +'<span><b>'+esc(s.attendant||'?')+'</b> <span class="field-note">with</span> '+esc(s.consumer||'?')+'</span>'
       +'<span>'+esc(F.span(s.new_in,s.new_out)||'?')+'</span>'
       +(s.reason?'<span class="field-note">'+esc(String(s.reason).slice(0,50))+'</span>':'')
-      +F.chipHtml(st)+(axs?' '+F.axChipHtml(axs):'')
+      +F.chipHtml(st)+' '+F.sigChipHtml(s)+(axs?' '+F.axChipHtml(axs):'')
       +'<span style="flex:1;"></span>'
       +F.viewBtnHtml(s.id)
       +(EVV_PAST.noLink?'':'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="evvLinkPast(\''+esc(String(s.id))+'\')">'+(linked?'Change link':'Link')+'</button>')

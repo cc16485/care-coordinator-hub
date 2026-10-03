@@ -9,7 +9,7 @@
 <link rel="icon" href="cc-logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="evv-forms.js?v=427"></script>
+<script src="evv-forms.js?v=429"></script>
 <!-- 422 (2026-10-03). The completed EVV Correction Form, exactly as the caregiver filled it in at
      sc.mo-care.com/evv-correction-form: the same sections, headings and order, every answer, both signatures.
      STAFF ONLY: it reads the form with the signed-in office session (the public can only send a form, never read one).
@@ -70,6 +70,12 @@ body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--navy);min
 .office .row .k{min-width:150px;color:var(--gray);font-weight:600}
 .chip{font-size:.72rem;font-weight:700;border-radius:999px;padding:.12rem .6rem}
 .axwrap{max-width:700px;margin:1rem auto 0;padding:0 1rem}
+.sigbar{max-width:700px;margin:1rem auto 0;padding:0 1rem}
+.sigbar .box{border:1.5px solid #FCD34D;background:#FFFBEB;border-radius:11px;padding:10px 12px;font-size:13px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sigbar button{font:inherit;font-size:12.5px;font-weight:700;border:1.5px solid #E8E2D8;background:#fff;border-radius:8px;padding:5px 12px;cursor:pointer}
+.phone-sig{border:1.5px dashed #93C5FD;background:#EFF6FF;border-radius:8px;padding:.9rem 1rem;font-size:.86rem;line-height:1.55;color:#1E3A8A}
+.phone-sig.refused{border-color:#FCA5A5;background:#FEF2F2;color:#991B1B}
+.phone-sig.waiting{border-color:#FCD34D;background:#FFFBEB;color:#92400E}
 .msg{max-width:560px;margin:4rem auto;padding:1.6rem 1.8rem;background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(14,56,96,.12);font-size:.92rem;line-height:1.6}
 .msg h2{font-size:1.1rem;margin-bottom:.5rem}
 .msg.bad h2{color:var(--red-text)}
@@ -80,6 +86,8 @@ body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--navy);min
   html{font-size:15px}
   body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .toolbar,.axwrap{display:none!important}
+  .sigbar{display:none!important}
+  .phone-sig{font-size:.6rem;padding:.25rem .45rem;line-height:1.3}
   .form-header{padding:.3rem .7rem}
   .form-header img{height:24px}
   .form-header-text h1{font-size:.85rem}
@@ -144,6 +152,7 @@ body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--navy);min
     h += '<div class="toolbar"><a class="back" href="./">← Back to the Hub</a>'
       + '<span class="note">The completed form as the caregiver submitted it, with both signatures. Read only.</span>'
       + '<button class="print" type="button" onclick="window.print()">🖨 Print / Save as PDF</button></div>';
+    h += '<div class="sigbar" id="sigbar"></div>';
     h += '<div class="axwrap" id="axwrap"></div>';
     h += '<div class="form-header"><img src="' + LOGO + '" alt="Caring Companions"><div class="form-header-text"><h1>EVV Correction Form</h1><p>Caring Companions In-Home Senior Care</p></div></div>';
     h += '<div class="deadline-bar">⏰ Corrections must be submitted by Sunday Midnight of the pay period in which the visit occurred.</div>';
@@ -175,15 +184,28 @@ body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--navy);min
     h += '<div class="section"><div class="section-title">✍️ 5. Caregiver Signature</div>'
       + '<p class="para">By signing below, I certify that the information on this form is true and accurate to the best of my knowledge. I understand that falsifying EVV records is a serious violation that may result in termination and legal consequences.</p>'
       + sig(sub.sig_attendant, 'Caregiver signature') + '<p class="sig-required-note">This signature confirms the times and reason above are accurate.</p></div>';
+    /* 429: the client signature, or what stands in for it (waiting / verified by phone / declined) */
+    var sg = F.sigStatus(Object.assign({ sig_consumer: sub.sig_consumer || null }, sub)), cw = F.callWhen(sub.phone_call_at);
+    var phoneBox = function (cls, head) {
+      return '<div class="phone-sig ' + cls + '"><b>' + esc(head) + '</b>'
+        + (sg.key === 'phone_verified' && sub.phone_verified_confirmed ? '<br>Confirmed on the call: ' + esc(sub.caregiver_linked_name || sub.attendant || 'the caregiver') + ' was there ' + esc(F.span(sub.new_in, sub.new_out) || '') + ' on ' + esc(F.dateWord(sub.visitdate)) + '.' : '')
+        + (sub.phone_verified_notes ? '<br>Notes: ' + esc(sub.phone_verified_notes) : '')
+        + (sub.phone_verified_at ? '<br><span style="font-size:.9em;opacity:.85">Recorded ' + esc(F.whenWord(sub.phone_verified_at)) + ' (Central).</span>' : '') + '</div>';
+    };
     h += '<div class="section"><div class="section-title">👤 6. Client Signature (required)</div>'
       + '<p class="para">The client\'s signature confirms they were receiving care during the corrected timeframe. The office cannot make any manual changes to recorded time without it, so a correction submitted unsigned cannot be processed.</p>'
-      + sig(sub.sig_consumer, 'Client signature') + '</div>';
+      + (sg.key === 'phone_verified' ? phoneBox('', F.phoneWords(sub))
+        : sg.key === 'refused' ? phoneBox('refused', F.phoneWords(sub))
+        : sub.client_sig_status === 'waiting' ? '<div class="phone-sig waiting"><b>Waiting for the client\'s signature.</b> The caregiver sent her part without it ("the client will sign at my next visit"). It is signed at her next visit with the client, or the office verifies by phone.</div>'
+        : sig(sub.sig_consumer, 'Client signature') + (sub.client_sign_via === 'sign_link' && sub.client_signed_at ? '<p class="sig-required-note">Signed by the client at the caregiver\'s next visit, ' + esc(F.whenWord(sub.client_signed_at)) + ' (Central).</p>' : ''))
+      + '</div>';
     h += '</div>';
 
     var row = function (k, v) { return '<div class="row"><span class="k">' + k + '</span><span>' + v + '</span></div>'; };
     h += '<div class="section office"><div class="section-title">🏢 Office record</div>'
       + row('Submitted', esc(F.whenWord(sub.submitted_at) || '(not recorded)') + (sub.submitted_at ? ' (Central)' : ''))
       + row('Status', F.chipHtml(st))
+      + (sg.key ? row('Client signature', F.sigChipHtml(sub) + (F.phoneWords(sub) ? ' <span>' + esc(F.phoneWords(sub).replace(/^Client signature: /, '')) + '</span>' : '')) : '')
       + (sub.processed ? row(st.key === 'dismissed' ? 'Dismissed by' : 'Processed by', esc(sub.processed_by || '(not recorded)') + (sub.processed_at ? ' on ' + esc(F.whenWord(sub.processed_at)) : '')) : '')
       + row('Caregiver (linked)', sub.caregiver_axiscare_id ? esc(sub.caregiver_linked_name || 'AxisCare caregiver') + ' · AxisCare #' + esc(sub.caregiver_axiscare_id) : '<span style="color:var(--gray)">not linked yet</span>')
       + row('Client (linked)', sub.client_axiscare_id ? esc(sub.client_linked_name || 'AxisCare client') + ' · AxisCare #' + esc(sub.client_axiscare_id) : '<span style="color:var(--gray)">not linked yet</span>')
@@ -225,11 +247,24 @@ body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--navy);min
       try { var lr = await sb.from('app_data').select('data').eq('key', 'evv_corrections').maybeSingle(); if (!lr.error && lr.data && Array.isArray(lr.data.data)) log = lr.data.data; } catch (e) { log = null; }
     }
     show(render(sub, { log: log }));
+    sigBar(sb, sub, (session.user && session.user.email) || 'you', env.sigbox);
     try { document.title = 'EVV form · ' + (sub.attendant || '') + ' · ' + (sub.visitdate || ''); } catch (e) { /* tests */ }
     AXP.sb = sb; AXP.sub = sub; AXP.state = {}; AXP.fetch = env.fetch; AXP.box = env.axbox || (typeof document !== 'undefined' && document.getElementById ? document.getElementById('axwrap') : null);
     axPaint();
     if (sub.client_axiscare_id) await axCheck(sub.id);   /* the automatic check when the form opens */
     return sub;
+  }
+
+  /* 429: the office's phone verification on this page (not printed). A person calls; the Hub records it. */
+  function sigBar(sb, sub, me, box) {
+    box = box || (typeof document !== 'undefined' && document.getElementById ? document.getElementById('sigbar') : null);
+    if (!box || !F.canPhone(sub)) { if (box) box.innerHTML = ''; return; }
+    var waiting = F.sigStatus(sub).key === 'waiting';
+    root.evvPagePhone = function (mode) { F.openPhoneDialog({ sb: sb, sub: sub, mode: mode, me: me, doc: typeof document !== 'undefined' ? document : null, onDone: function () { try { location.reload(); } catch (e) { /* tests */ } } }); };
+    box.innerHTML = '<div class="box"><span style="flex:1 1 260px;">' + (waiting ? '<b>Waiting for the client\'s signature.</b> If the client cannot sign at the next visit, call them and record what they said.'
+        : '<b>The client declined to confirm.</b> Dismiss the form in the Hub (the time is not corrected), or record a later call if they now confirm.') + '</span>'
+      + '<button type="button" onclick="evvPagePhone(\'verify\')">📞 Verified by phone</button>'
+      + (waiting ? '<button type="button" onclick="evvPagePhone(\'refuse\')">Client declined to confirm</button>' : '') + '</div>';
   }
 
   /* AxisCare helper on this page (not printed). The check is read only against AxisCare. */
@@ -249,7 +284,7 @@ body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--navy);min
   root.evvPageCheck = function (id) { return axCheck(id); };
   root.evvPagePick = function (id, visitId) { return axCheck(id, visitId); };
 
-  root.EVVPAGE = { render: render, boot: boot, idFromUrl: idFromUrl, axCheck: axCheck, AXP: AXP };
+  root.EVVPAGE = { render: render, boot: boot, idFromUrl: idFromUrl, axCheck: axCheck, AXP: AXP, sigBar: sigBar };
   if (typeof document !== 'undefined' && document.getElementById && document.getElementById('page') && !root.__EVV_TEST__) boot();
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
