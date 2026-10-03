@@ -42,6 +42,7 @@
   input[type=time]{ font-size:16px; padding:9px 10px; border:1px solid var(--border); border-radius:10px; width:100%; margin-top:6px; }
   .row{ display:flex; gap:8px; } .row > *{ flex:1; }
 </style>
+<script src="office-call.js?v=431"></script>
 </head>
 <body>
 <h1>Running late</h1>
@@ -96,8 +97,9 @@ function render(msg){
     h+='</div>';
   }
   h+='<div class="card"><h2>Call</h2>'
-    +(D.caregiver_phone?'<a class="call" href="tel:'+esc(tel(D.caregiver_phone))+'">📞 Call '+esc(D.caregiver_first)+' · '+esc(pretty(D.caregiver_phone))+'</a>':'<div class="note">No phone for '+esc(D.caregiver_first)+' on the roster.</div>')
-    +(D.client_phone?'<a class="call" href="tel:'+esc(tel(D.client_phone))+'">🏠 Call '+esc(D.client_first)+'\'s home · '+esc(pretty(D.client_phone))+'</a><div class="note">The client is never texted by this. A call is yours to make.</div>':'')
+    /* 431: calls go from the office line (LeadConnector); the cell is a small backup (office-call.js) */
+    +((D.caregiver_phone||D.caregiver_ghl)?ocInline(D.caregiver_phone,'Call '+D.caregiver_first,D.caregiver_ghl):'<div class="note">No phone for '+esc(D.caregiver_first)+' on the roster.</div>')
+    +((D.client_phone||D.client_ghl)?ocInline(D.client_phone,'Call '+D.client_first+'\'s home',D.client_ghl)+'<div class="note">The client is never texted by this. A call is yours to make.</div>':'')
     +'</div><div class="err" id="err">'+esc(msg||'')+'</div>';
   app.innerHTML=h;
   const on=(id,fn)=>{ const b=document.getElementById(id); if(b) b.onclick=fn; };

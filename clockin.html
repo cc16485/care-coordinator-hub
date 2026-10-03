@@ -39,6 +39,7 @@
   .practice{ background:#FFF6E3; border:1px solid var(--honey); border-radius:10px; padding:9px 12px; font-size:13px; margin-bottom:10px; }
   h2{ font-size:14px; color:var(--navy); margin:0 0 4px; text-transform:uppercase; letter-spacing:.04em; }
 </style>
+<script src="office-call.js?v=431"></script>
 </head>
 <body>
 <h1>Missed clock-in</h1>
@@ -79,8 +80,9 @@ function render(msg){
         r.how==='coverage_case'?'A coverage case has this shift now.':'This alert is closed.')+'</div>';
   }
   h+='<div class="card"><h2>Call</h2>'
-    +(D.caregiver_phone?'<a class="call" href="tel:'+esc(tel(D.caregiver_phone))+'">📞 Call '+esc(D.caregiver_first)+' · '+esc(pretty(D.caregiver_phone))+'</a>':'<div class="note">No phone for '+esc(D.caregiver_first)+' on the roster.</div>')
-    +(D.client_phone?'<a class="call" href="tel:'+esc(tel(D.client_phone))+'">🏠 Call '+esc(D.client_first)+'\'s home · '+esc(pretty(D.client_phone))+'</a><div class="note">To check whether '+esc(D.caregiver_first)+' is there and just forgot to clock in.</div>':'')
+    /* 431: calls go from the office line (LeadConnector); the cell is a small backup (office-call.js) */
+    +((D.caregiver_phone||D.caregiver_ghl)?ocInline(D.caregiver_phone,'Call '+D.caregiver_first,D.caregiver_ghl):'<div class="note">No phone for '+esc(D.caregiver_first)+' on the roster.</div>')
+    +((D.client_phone||D.client_ghl)?ocInline(D.client_phone,'Call '+D.client_first+'\'s home',D.client_ghl)+'<div class="note">To check whether '+esc(D.caregiver_first)+' is there and just forgot to clock in.</div>':'')
     +'</div>';
   if(D.open){
     h+='<div class="card"><h2>What happened?</h2><div class="reasons">'

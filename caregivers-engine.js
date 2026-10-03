@@ -5835,7 +5835,7 @@ async function bgrMakeRefPdfs(btn){
    small stack: name, phone (one format), email, then status + Record on one line. Pure: they only build HTML. */
 function obFmtPhone(ph){
   let d=String(ph||'').replace(/\D/g,''); if(d.length===11&&d[0]==='1') d=d.slice(1);
-  return d.length===10 ? { show:`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`, tel:'+1'+d } : { show:String(ph||'').trim(), tel:String(ph||'').replace(/[^\d+]/g,'') };
+  return d.length===10 ? { show:`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`, dial:'+1'+d } : { show:String(ph||'').trim(), dial:String(ph||'').replace(/[^\d+]/g,'') };
 }
 function obRefCellHTML(c,n,hit){
   const s=c[`r${n}s`]||'Pending', nm=String(c[`r${n}n`]||'').trim(), pf=c[`r${n}_proof`], mn=c[`r${n}_manual`];
@@ -5855,7 +5855,7 @@ function obRefCellHTML(c,n,hit){
   return `<td class="refc-td${hit?' refc-hit':''}"><div class="refc">`
     + (given ? `<div class="refc-name">${nm||'Name not given'}</div>` : `<div class="refc-none">No reference given</div>`)
     + (tl ? `<div class="refc-type">${bgrEsc(tl)}</div>` : '')
-    + (p ? `<a class="refc-line" href="tel:${p.tel}" title="Call">${p.show}</a>` : '')
+    + (p ? `<a class="refc-line"${ocAttrs(p.dial,{email:em})}>📞 ${p.show}</a>` : '')
     + (em ? `<a class="refc-line refc-em" href="mailto:${em}" title="${em}">${em}</a>` : '')
     + (sentLine ? `<div class="refc-sent">${bgrEsc(sentLine)}</div>` : '')
     + (mn ? `<div class="refc-note">📞 ${mn.via||''}${mn.date?' · '+(fmtD(mn.date)||''):''}${mn.staff?' · '+mn.staff:''}</div>` : '')
@@ -8329,7 +8329,7 @@ function openProfile(first, last){
   let html = `<div style="border-bottom:2px solid var(--border);padding-bottom:1rem;margin-bottom:1rem">`;
   html += `<h2 style="font-size:1.25rem;font-weight:700;color:var(--navy);margin-bottom:.25rem">👤 ${nm}</h2>`;
   html += `<div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;font-size:.82rem;color:var(--gray)">`;
-  if(phone) html += `<a href="tel:${phone}" style="color:var(--teal);text-decoration:none">📞 ${phone}</a>`;
+  if(phone) html += `<a${ocAttrs(phone)} style="color:var(--teal);text-decoration:none">📞 ${phone} · office line</a>`;
   if(hireDate) html += `<span>${hireDate}</span>`;
   if(cg?.axiscare_id) html += `<span style="color:var(--gray)">AxisCare ID: ${cg.axiscare_id}</span>`;
   html += `</div>`;
@@ -8349,7 +8349,7 @@ function openProfile(first, last){
       html+=`<div style="background:var(--slate-bg);border-radius:8px;padding:.5rem .65rem">`;
       html+=`<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem"><span style="font-size:.72rem;font-weight:600;color:var(--gray)">REF ${n}</span><span class="badge ${refBadge(s)}" style="font-size:.65rem">${s}</span></div>`;
       html+=nm2?`<div style="font-size:.8rem;font-weight:600;color:var(--navy)">${nm2}</div>`:miss;
-      if(ph) html+=`<a href="tel:${ph}" style="font-size:.72rem;color:var(--teal);text-decoration:none;display:block">📞 ${ph}</a>`;
+      if(ph) html+=`<a${ocAttrs(ph,{email:em})} style="font-size:.72rem;color:var(--teal);text-decoration:none;display:block">📞 ${ph}</a>`;
       if(em) html+=`<a href="mailto:${em}" style="font-size:.72rem;color:var(--teal);text-decoration:none;display:block">✉️ ${em}</a>`;
       if(mn) html+=`<span style="font-size:.67rem;color:var(--teal);display:block;margin-top:.15rem">📞 Staff completed · ${mn.via} · ${fmtD(mn.date)||''}</span>`;
       if(cand[`r${n}_proof`]) html+=`<a class="proof-link" href="${cand[`r${n}_proof`]}" target="_blank" style="display:block;margin-top:.2rem">📄 form</a>`;
