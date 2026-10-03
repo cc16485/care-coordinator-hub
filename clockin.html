@@ -37,6 +37,9 @@
   .note{ font-size:12.5px; color:var(--gray); margin-top:6px; }
   .err{ color:var(--red); font-size:14px; margin-top:8px; font-weight:600; }
   .practice{ background:#FFF6E3; border:1px solid var(--honey); border-radius:10px; padding:9px 12px; font-size:13px; margin-bottom:10px; }
+  .callbox{ background:#EEF7F6; border-color:var(--teal); }
+  .callline{ font-size:16px; font-weight:800; color:var(--navy); }
+  .said{ background:#fff; border-radius:10px; padding:8px 11px; margin-top:6px; font-size:14.5px; }
   h2{ font-size:14px; color:var(--navy); margin:0 0 4px; text-transform:uppercase; letter-spacing:.04em; }
 </style>
 <script src="office-call.js?v=431"></script>
@@ -73,6 +76,20 @@ function render(msg){
     +'<div class="note">'+(D.texted_at?esc(D.caregiver_first)+' was texted at '+esc(D.texted_at)+'.':'No text went to '+esc(D.caregiver_first)+'.')+'</div>'
     +((D.replies||[]).length?'<div style="margin-top:10px;"><h2>'+esc(D.caregiver_first)+' replied</h2>'+D.replies.map(r=>'<div style="background:#F1F5F9;border-radius:10px;padding:8px 11px;margin-top:6px;font-size:14.5px;">'+esc(r.text)+'<div class="note">'+esc(r.at||'')+'</div></div>').join('')+'</div>':'')
     +'</div>';
+  /* 432: what they said on a call (in or out, the office line), whether these texts are paused, and the family by a tap */
+  const C=D.late_call;
+  if(C){
+    h+='<div class="card callbox"><h2>From the call</h2><div class="callline">'+esc(C.line)+'</div>'
+      +(C.quote?'<div class="said">"'+esc(C.quote)+'"<div class="note">'+esc(D.caregiver_first)+'\'s words on the call</div></div>':'')
+      +(C.practice?'<div class="note">Practice: calls are switched off in Settings (Running late), so nothing is paused because of this call.</div>':'')
+      +(C.paused_until?'<div class="note"><b>The reminder texts are paused until '+esc(C.paused_until)+'.</b> If there\'s still no clock-in then, they start again.</div>'
+        :C.resumed_after?'<div class="note">The reminder texts were paused until '+esc(C.resumed_after)+'. Still no clock-in, so they started again.</div>':'')
+      +(C.kind==='cant_make_it'&&D.open?'<button class="navy" id="bCov2">Open coverage case</button><div class="note">Nothing opens by itself. The call-in process takes the shift from there.</div>':'')
+      +(C.kind==='late'&&!C.closed&&C.family_ok&&C.late_link?'<a class="call" href="'+esc(C.late_link)+'">Tell the family</a><div class="note">Opens the running-late page: you see the exact text and who gets it before anything is sent. Only Family Circle members who agreed to texts, 6am to 9pm. The client is never texted.</div>'
+        :C.kind==='late'&&C.family_told?'<div class="note">The family has been told (see the running-late page).</div>'
+        :C.kind==='late'&&C.family_why?'<div class="note">Family: '+esc(C.family_why)+'.</div>':'')
+      +'</div>';
+  }
   if(!D.open){
     const r=D.resolved||{};
     h+='<div class="done">'+(r.how==='admin'||r.how==='coverage_case'&&r.by?'Resolved by '+esc(r.by)+(r.at?' at '+esc(r.at):'')+(r.reason?': '+esc(r.reason):'')+(r.note?'. '+esc(r.note):''):
@@ -102,6 +119,7 @@ function render(msg){
   const on=(id,fn)=>{ const b=document.getElementById(id); if(b) b.onclick=fn; };
   on('bResolve', ()=>act('resolve', ()=>{ const w=document.querySelector('input[name=why]:checked'); if(!w) throw new Error('Pick what happened first.'); return { reason:w.value, note:(document.getElementById('note')||{}).value||'' }; }));
   on('bCov', ()=>act('coverage', ()=>({ note:(document.getElementById('note')||{}).value||'' }), 'Open a coverage case for this shift? The call-in process takes it from there.'));
+  on('bCov2', ()=>act('coverage', ()=>({ note:'Said on the call' }), 'Open a coverage case for this shift? The call-in process takes it from there.'));
   on('bSnooze', ()=>act('snooze'));
   on('bEvv', ()=>act('evv', null, 'Text '+D.caregiver_first+' the EVV correction form now?'));
 }

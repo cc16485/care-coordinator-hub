@@ -11,7 +11,10 @@
      admin's alone, for that one notice, and expires the next day; the server (late-alert) checks it on every tap.
      Opening this page changes nothing: only the buttons do (phones preview links automatically).
      The family is texted ONLY when a person taps "Send to the family" here (her decision 1), only Family Circle
-     members who agreed to texts, 6am to 9pm. The client is never texted.
+     members who agreed to texts, 6am to 9pm. The client is never texted. (Samantha, 2026-10-03: one tap by a
+     person, permanently. There is no automatic family text.)
+     432: a notice that came from a CALL shows "Mary said on your 4:31pm call: running late, about 8 minutes (around
+     4:39pm)" and their words, and the time reads "from your call".
      ============================================================ -->
 <style>
   :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#FFC671; --bg:#F6F9FD; --border:#E2E8F0; --gray:#6B7280; --red:#C0392B; --green:#1E8449; }
@@ -41,6 +44,9 @@
   .said{ background:#F1F5F9; border-radius:10px; padding:8px 11px; margin-top:6px; font-size:14.5px; }
   input[type=time]{ font-size:16px; padding:9px 10px; border:1px solid var(--border); border-radius:10px; width:100%; margin-top:6px; }
   .row{ display:flex; gap:8px; } .row > *{ flex:1; }
+  .callbox{ background:#EEF7F6; border-color:var(--teal); }
+  .callline{ font-size:16px; font-weight:800; color:var(--navy); }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
 </style>
 <script src="office-call.js?v=431"></script>
 </head>
@@ -71,6 +77,10 @@ function render(msg){
   document.getElementById('who').textContent='For '+D.me+' · Caring Companions';
   const F=D.family||{}; let h='';
   if(D.practice) h+='<div class="practice">Practice run: this notice was found while running-late is in practice. Nothing is sent from here yet.</div>';
+  if(D.call) h+='<div class="card callbox"><h2>From the call</h2><div class="callline">'+esc(D.call.line)+'</div>'
+    +(D.call.quote?'<div class="said">"'+esc(D.call.quote)+'"<div class="note">'+esc(D.caregiver_first)+'\'s words on the call</div></div>':'')
+    +(D.call.missed_clockin_paused_until?'<div class="note">The missed clock-in texts to the admins are paused until '+esc(D.call.missed_clockin_paused_until)+'. If there\'s still no clock-in then, they start again.</div>':'')
+    +'</div>';
   h+='<div class="card"><div class="big">'+esc(D.caregiver_first)+' · '+esc(D.client_first)+'\'s '+esc(D.shift_time)+' shift</div>'
     +'<span class="late">'+(D.kind==='cant_make_it'?'Can\'t make it':(D.eta?'Running late, expected about '+esc(D.eta):'Running late, no time given yet'))+'</span>'
     +(D.eta&&D.eta_by?'<div class="note">Time '+esc(D.eta_by)+'.</div>':'')
@@ -90,7 +100,9 @@ function render(msg){
     if(F.can){
       h+='<div class="note" style="margin-top:6px;">Goes to '+esc((F.first_names||[]).join(', '))+' (Family Circle, agreed to texts). Each text starts "Hi '+esc((F.first_names||['there'])[0])+'," with their own name.</div>'
         +'<textarea id="famText" rows="4" maxlength="600">'+esc(F.draft||'')+'</textarea>'
-        +'<button class="primary" id="bFam">'+(F.is_update?'Send the update to the family':'Send to the family')+'</button>'
+        +(F.hours_ok===false?'<div class="note"><b>Family texts go '+esc(F.hours||'6am to 9pm')+'.</b> It\'s outside those hours now, so nothing can be sent. Call the family instead if it can\'t wait.</div>':'')
+        +'<button class="primary" id="bFam"'+(F.hours_ok===false?' disabled':'')+'>'+(F.is_update?'Send the update to the family':'Send to the family')+'</button>'
+        +'<div class="note">Only when you tap. '+esc(D.client_first)+' is never texted.</div>'
         +(!(F.sent||[]).length&&!F.skipped?'<button class="ghost" id="bSkip">Don\'t tell the family</button>':'');
     } else if(!F.arrived_can && !(F.sent||[]).length) h+='<div class="note">The family can\'t be texted from here: '+esc(F.why||'')+'.</div>';
     if(F.arrived_can) h+='<textarea id="arrText" rows="2" maxlength="600">'+esc(F.arrived_draft||'')+'</textarea><button class="primary" id="bArr">Tell the family '+esc(D.caregiver_first)+' arrived</button>';
