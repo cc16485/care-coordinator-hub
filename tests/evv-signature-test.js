@@ -182,6 +182,17 @@ ck('phone answers: a good one; who called is NOT in it (the server takes it from
   const lr = await F.loadFor(fb, 'client', '701');
   ck('profiles: before Desktop 429 the list still loads (asks again without the new columns)', lr.rows && lr.rows.length === 1 && cols.length === 2 && cols[0].includes('client_sig_status') && !cols[1].includes('client_sig_status'), [lr, cols]);
 
+  /* ── 4b. the caregiver engine's EVV list (the same Accept rule) ── */
+  { const eng = fs.readFileSync(path.join(ROOT, 'caregivers-engine.js'), 'utf8');
+    const code = eng.slice(eng.indexOf('async function acceptEVVSubmission(subId)'), eng.indexOf('async function dismissEVVSubmission(id)'));
+    const AL2 = [], SAVED = [];
+    const c2 = { _evvPendingCache: { w: WAIT, s: SIGNED }, alert: (m) => AL2.push(m), window: { EVVF: F }, EVVF: F, getEVVCorrections: () => [], saveEVVCorrections: (x) => SAVED.push(x),
+      sb: { auth: { getUser: async () => ({ data: { user: { email: 'k@x' } } }) } }, loadPendingEVVSubmissions: async () => {}, renderEVVCorrections() {}, Date, String };
+    vm.createContext(c2); vm.runInContext(code, c2);
+    await vm.runInContext("acceptEVVSubmission('w')", c2);
+    ck('engine EVV list: Accept on a waiting form says why and logs nothing', AL2[0] === F.ACCEPT_WAIT && SAVED.length === 0, AL2);
+    ck('engine EVV list: shows the signature badge', /EVVF\.sigChipHtml\(sub\)/.test(eng)); }
+
   /* ── 5. words ── */
   const added = lib.slice(lib.indexOf('/* ── 429: the client signature'), lib.indexOf('root.EVVF = {'));
   const idxAdded = cut('function evvProcessSub(id){', 'function evvLinkPast(id)') + cut('/* 429: the client signature has its own badge', "Accept &amp; Log asks who the form is for");
