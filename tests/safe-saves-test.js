@@ -348,7 +348,8 @@ const applies = (S) => S.calls.filter((c) => c.name === 'app_data_items_apply');
   let added = null;
   try { added = cp.execFileSync('git', ['diff', BASE, '--', 'caregivers-engine.js', 'index.html', 'tests'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++') && !l.includes('no em dash in any line this change adds')); } catch (_) {}
   if (added === null) console.log('(git history not available: the em dash check is skipped)');
-  else ck('no em dash in any line this change adds', added.length > 0 && !added.some((l) => /[—―]/.test(l)), added.filter((l) => /[—―]/.test(l)).slice(0, 5));
+  else if (!added.length) console.log('(nothing new on this branch: the em dash check is skipped)');
+  else ck('no em dash in any line this change adds', !added.some((l) => /[—―]/.test(l)), added.filter((l) => /[—―]/.test(l)).slice(0, 5));
 
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
 })();
