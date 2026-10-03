@@ -34,7 +34,7 @@ function world(opts = {}) {
   const ctx = {
     console, Date, JSON, Promise, Set, String, Array, Object, Number, Error, RegExp, Intl,
     candidates: opts.noCandidate ? [] : [cand],
-    caregivers: (opts.roster || []).slice(), cgId: 100,
+    caregivers: (opts.roster || []).slice(), cgId: 100, safeTmpId: (() => { let n = -1; return () => n--; })(), safeIsTmp: (id) => typeof id === 'number' && id < 0,   /* 421: temporary numbers until the database gives the real one */
     obPrehireRefs: () => [{ slot: 1, name: 'Ref One' }], hiringSnapshot: (c) => ({ frozen_for: c.id }),
     localStorage: { setItem(k, v) { local[k] = v; } },
     TRAINING_HUB_ANON: 'training-anon',
@@ -135,7 +135,7 @@ function world(opts = {}) {
   // ---- office Promote unchanged ----
   W = world();
   W.cand.orient_session_date = '2026-10-01';
-  W.X.promoteToCaregiver(41);
+  await W.X.promoteToCaregiver(41);   // 421: async (waits for the roster save before removing the candidate)
   const pr = W.ctx.caregivers[0] || {};
   ck('office Promote: still asks, orient_date = hire date = the session date, candidate removed', W.log.some((l) => l[0] === 'confirm' && /Promote Ava Applicant/.test(l[1])) && pr.hire_date === '2026-10-01' && pr.orient_date === '2026-10-01' && W.ctx.candidates.length === 0, pr);
   ck('office Promote: no welcome-call extras (only the pipeline links offer_id/intake_id travel)', pr.promoted_via === undefined && pr.welcome_call_id === undefined && pr.step2_done_at === undefined && pr.offer_id === 'offer-uuid-1' && pr.intake_id === 'intake-9', pr);

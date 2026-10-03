@@ -30,7 +30,7 @@ function world() {
     orient_session_date: '2026-10-01', step2_done_at: '2026-10-01T15:00:00Z' };
   const ctx = {
     console, Date, JSON, Promise, Set, Map, String, Array, Object, Number, Error, RegExp, Intl, Math, isFinite,
-    candidates: [cand], caregivers: [], cgId: 100, REF_REQUESTS: [], HYDRATED: true,
+    candidates: [cand], caregivers: [], cgId: 100, safeTmpId: (() => { let n = -1; return () => n--; })(), safeIsTmp: (id) => typeof id === 'number' && id < 0,   /* 421: temporary numbers until the database gives the real one */ REF_REQUESTS: [], HYDRATED: true,
     OFFERS: [{ id: 'offer-1', first_name: 'Ava', last_name: 'Applicant', phone: '417-555-0199', email: 'ava@x.com', created_at: '2026-09-15T10:00:00Z',
       attributes_entered_at: '2026-09-15', viventium_entered_at: '2026-09-15', step1_done_at: '2026-09-16' }],
     /* hire_intake.candidate_id is an AxisCare applicant id that HAPPENS to equal the board id here, to prove it is never used */
@@ -91,14 +91,14 @@ function checkMoved(label, W) {
 
   // path 2: office Promote
   W = world();
-  W.X.promoteToCaregiver(41);
+  await W.X.promoteToCaregiver(41);   // 421: async (waits for the roster save before removing the candidate)
   const pr = W.ctx.caregivers[0] || {};
   ck('office Promote: orient_date = hire date (unchanged) and now carries intake_id and offer_id', pr.orient_date === '2026-10-01' && pr.hire_date === '2026-10-01' && pr.intake_id === 'intake-1' && pr.offer_id === 'offer-1' && !W.ctx.candidates.length, pr);
   checkMoved('office Promote', W);
 
   // offer-only person (no start link submitted) moved on: matched by offer_id
   W = world(); W.ctx.INTAKE_ROWS = []; W.ctx.candidates[0].intake_id = undefined;
-  W.X.promoteToCaregiver(41);
+  await W.X.promoteToCaregiver(41);   // 421: async (waits for the roster save before removing the candidate)
   r0 = W.X.lifecycleRows()[0];
   W.X.renderHirePipeline();
   ck('offer only: matched by offer_id, no Start link / Start checks early', r0.roster && r0.checksState === 'roster' && !/offerStartLink\(|offerToCandidate\(/.test(W.box.innerHTML));
