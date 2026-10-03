@@ -14,7 +14,7 @@ const formPage = fs.readFileSync(path.join(ROOT, 'evv-form.html'), 'utf8');
 const clockin = fs.readFileSync(path.join(ROOT, 'clockin.html'), 'utf8');
 require(path.join(ROOT, 'evv-forms.js'));
 const F = globalThis.EVVF;
-const DASH = /[—―]/;
+const DASH = /[\u2014\u2015]/;
 const VSUB = { id: '7a1c2d3e-4a5b-4c6d-8e7f-001122334455', attendant: 'Maria Lopez', consumer: 'Ruth A.', visitdate: '2026-09-30', new_in: '09:00', new_out: '13:00',
   reason: 'Forgot to clock in or out', processed: false, outcome: null, caregiver_axiscare_id: '501', caregiver_linked_name: 'Maria Lopez',
   client_axiscare_id: '701', client_linked_name: 'Ruth Adams', linked_by: 'axiscare-visit', linked_at: '2026-09-30T15:00:00Z', axiscare_visit_id: '9001' };
