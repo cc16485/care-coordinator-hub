@@ -9002,6 +9002,7 @@ async function loadPendingEVVSubmissions() {
             <div style="font-weight:700;font-size:.9rem">${evvEsc(sub.attendant)} <span style="color:var(--gray)">→</span> ${evvEsc(sub.consumer)}</div>
             <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem;align-items:center">
               <span class="badge b-blue">📅 Visit: ${sub.visitdate||'—'}</span>
+              ${window.EVVF && EVVF.sigChipHtml ? EVVF.sigChipHtml(sub) : ''}
               ${lateTag}
               <span style="font-size:.72rem;color:var(--gray)">Submitted: ${submitted}</span>
             </div>
@@ -9033,6 +9034,9 @@ async function loadPendingEVVSubmissions() {
 async function acceptEVVSubmission(subId) {
   const sub = _evvPendingCache[subId];
   if(!sub){ alert('Could not find this submission — click ↻ Refresh and try again.'); return; }
+  /* 429: no accept until the client signed at the shift or the next visit, or the office verified by phone */
+  const sigBlock = window.EVVF && EVVF.acceptBlock ? EVVF.acceptBlock(sub) : null;
+  if(sigBlock){ alert(sigBlock); return; }
   const { data: { user } } = await sb.auth.getUser();
   const adminEmail = user?.email || 'unknown';
 

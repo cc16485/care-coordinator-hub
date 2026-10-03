@@ -94,7 +94,9 @@ const fakeSb = () => { const calls = []; return { calls, from: () => { let patch
   globalThis.__EVV_TEST__ = true; vm.runInThisContext(inline[inline.length - 1]);
   const out = globalThis.EVVPAGE.render(VSUB, {});
   ck('signed-form page: "Linked by" says it came from the visit (never the raw marker)', out.includes('From the visit (AxisCare), sent from the link filled in for this visit (AxisCare visit 9001)') && !out.includes('>axiscare-visit'), out.slice(out.indexOf('Linked by') - 20, out.indexOf('Linked by') + 300));
-  ck('evv-form.html and index.html load the new evv-forms.js', formPage.includes('evv-forms.js?v=427') && idx.includes('evv-forms.js?v=427'));
+  /* 429 bumped the version again: any version from 427 on carries the pre-fill code */
+  const ver = (t) => Number((t.match(/evv-forms\.js\?v=(\d+)/) || [])[1] || 0);
+  ck('evv-form.html and index.html load the new evv-forms.js', ver(formPage) >= 427 && ver(idx) >= 427);
   ck('link page: after the tap it says the form opens already filled in; before, what the link carries', clockin.includes("(D.evv_prefilled?' The form opens already filled in for this visit.':'')")
     && clockin.includes('She gets the form link (filled in for this visit: her name, '));
   ck('link page: still only a person\'s tap sends it (one button, with a confirm)', (clockin.match(/act\('evv'/g) || []).length === 1 && /act\('evv', null, 'Text '\+D\.caregiver_first\+' the EVV correction form now\?'\)/.test(clockin));
