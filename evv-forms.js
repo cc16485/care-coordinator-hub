@@ -46,6 +46,12 @@
   var LIST_COLS = 'id,attendant,consumer,visitdate,submitdate,orig_in,orig_out,new_in,new_out,reason,processed,processed_by,processed_at,submitted_at';
   var LINK_COLS = 'outcome,caregiver_axiscare_id,client_axiscare_id,caregiver_linked_name,client_linked_name,linked_by,linked_at,axiscare_visit_id,axiscare_checked_at,axiscare_seen,axiscare_done_at,tasks';
   var NONE = '__none';
+  /* 427: a form sent from a pre-filled link (the "Text <caregiver> the EVV form" button, or the clock-out reminder)
+     arrives already linked to the caregiver, the client and the AxisCare visit, taken from the visit itself (never
+     from what the caregiver typed). linked_by carries this marker. */
+  var VISIT_MARK = 'axiscare-visit';
+  var VISIT_WORDS = 'From the visit (AxisCare)';
+  function fromVisit(sub) { return !!(sub && sub.linked_by === VISIT_MARK && (sub.caregiver_axiscare_id || sub.client_axiscare_id)); }
 
   function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function tokens(s) { return String(s || '').toLowerCase().replace(/[^a-z]+/g, ' ').trim().split(' ').filter(Boolean); }
@@ -83,7 +89,7 @@
     return { best: clear ? top.p : null, score: top ? top.score : 0, ambiguous: !!(top && top.score >= 75 && !clear), ranked: ranked.slice(0, 6) };
   }
 
-  function side(formName, people, linkedId, linkedName) {
+  function side(formName, people, linkedId, linkedName, visit) {
     var s = suggest(formName, people);
     var list = (people || []).slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
     var known = linkedId && list.some(function (p) { return String(p.id) === String(linkedId); });
@@ -91,14 +97,16 @@
     return {
       formName: formName || '', people: list, ranked: s.ranked, suggestion: s.best, ambiguous: s.ambiguous,
       selected: linkedId ? String(linkedId) : (s.best ? String(s.best.id) : ''),
-      already: !!linkedId,
+      already: !!linkedId, fromVisit: !!(visit && linkedId),
     };
   }
   /* What the two pickers start with. Nothing here writes anything. */
   function pickerModel(sub, caregivers, clients) {
     sub = sub || {};
-    return { cg: side(sub.attendant, caregivers, sub.caregiver_axiscare_id, sub.caregiver_linked_name),
-             cl: side(sub.consumer, clients, sub.client_axiscare_id, sub.client_linked_name) };
+    var v = fromVisit(sub);
+    return { fromVisit: v,
+             cg: side(sub.attendant, caregivers, sub.caregiver_axiscare_id, sub.caregiver_linked_name, v),
+             cl: side(sub.consumer, clients, sub.client_axiscare_id, sub.client_linked_name, v) };
   }
   function selectHtml(id, m, loadErr) {
     var opt = function (p, sel) { return '<option value="' + esc(p.id) + '"' + (String(p.id) === sel ? ' selected' : '') + '>' + esc(p.name) + (p.active === false ? ' (not active)' : '') + '</option>'; };
@@ -109,6 +117,7 @@
     if (rest.length) h += '<optgroup label="' + (m.ranked.length ? 'Everyone else' : 'Everyone') + '">' + rest.map(function (p) { return opt(p, m.selected); }).join('') + '</optgroup>';
     h += '<option value="' + NONE + '">Not on this list (leave unlinked for now)</option></select>';
     var note = loadErr ? '<div style="color:#B3261E;font-size:12.5px;margin-top:4px;">The list could not load: ' + esc(loadErr) + '. You can leave it unlinked and link it later from Past forms.</div>'
+      : m.fromVisit ? '<div style="font-size:12.5px;color:#15803D;margin-top:4px;">' + esc(VISIT_WORDS) + ': the form was filled in for this visit, so nothing was guessed.</div>'
       : m.already ? '<div style="font-size:12.5px;color:#6E6559;margin-top:4px;">Already linked. Change it if it is wrong.</div>'
       : m.suggestion ? '<div style="font-size:12.5px;color:#92400E;margin-top:4px;">Suggested from the name on the form ("' + esc(m.formName) + '"). Check it is the right person before you confirm.</div>'
       : m.ambiguous ? '<div style="font-size:12.5px;color:#92400E;margin-top:4px;">More than one person is close to "' + esc(m.formName) + '". Pick the right one.</div>'
@@ -128,11 +137,14 @@
     var cg = choice.cg && choice.cg !== NONE ? String(choice.cg) : null, cl = choice.cl && choice.cl !== NONE ? String(choice.cl) : null;
     var base = {};
     if (meta.accept || meta.dismiss) { base.processed = true; base.processed_by = meta.by || 'office'; base.processed_at = now; }
-    var patch = Object.assign({}, base, {
+    /* 427: a form linked from its visit, confirmed as it is, keeps that link (and its "From the visit" mark) */
+    var keepVisit = fromVisit(sub) && String(cg || '') === String(sub.caregiver_axiscare_id || '') && String(cl || '') === String(sub.client_axiscare_id || '');
+    var patch = keepVisit ? Object.assign({}, base) : Object.assign({}, base, {
       caregiver_axiscare_id: cg, caregiver_linked_name: cg ? (choice.cgName || null) : null,
       client_axiscare_id: cl, client_linked_name: cl ? (choice.clName || null) : null,
       linked_by: (cg || cl) ? (meta.by || 'office') : null, linked_at: (cg || cl) ? now : null,
     });
+    if (keepVisit && !meta.accept && !meta.dismiss) return { ok: true, unchanged: true };
     if (meta.accept) patch.outcome = 'accepted';
     if (meta.dismiss) { patch = Object.assign({}, base, { outcome: 'dismissed' }); }
     try {
@@ -183,6 +195,18 @@
   var CHIP = { waiting: ['#FEF3C7', '#92400E'], accepted: ['#DCFCE7', '#15803D'], dismissed: ['#F3F4F6', '#4B5563'], processed: ['#E0F2FE', '#075985'], unknown: ['#F3F4F6', '#4B5563'] };
   function chipHtml(st) { var c = CHIP[st.key] || CHIP.unknown; return '<span style="font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:' + c[0] + ';color:' + c[1] + ';white-space:nowrap;">' + esc(st.label) + '</span>'; }
 
+  /* the green "From the visit (AxisCare)" chip, for a form sent from a pre-filled link */
+  function visitChipHtml(sub) {
+    if (!fromVisit(sub)) return '';
+    return '<span title="Sent from the pre-filled link for this visit: the caregiver, client and AxisCare visit came from the visit" style="font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:#DCFCE7;color:#15803D;white-space:nowrap;">' + esc(VISIT_WORDS) + '</span>';
+  }
+  /* "linked: ..." under a past form */
+  function linkedWords(sub) {
+    if (!sub || !(sub.caregiver_axiscare_id || sub.client_axiscare_id)) return '';
+    return (fromVisit(sub) ? VISIT_WORDS.toLowerCase().replace('axiscare', 'AxisCare') + ': ' : 'linked: ')
+      + (sub.caregiver_linked_name || (sub.caregiver_axiscare_id ? 'caregiver #' + sub.caregiver_axiscare_id : 'no caregiver')) + ' · '
+      + (sub.client_linked_name || (sub.client_axiscare_id ? 'client #' + sub.client_axiscare_id : 'no client'));
+  }
   function formUrl(id) { return 'evv-form.html?id=' + encodeURIComponent(String(id || '')); }
   function viewBtnHtml(id, cls) {
     return '<a class="' + (cls || 'cara-btn ghost') + '" style="font-size:12px;text-decoration:none;white-space:nowrap;" href="' + esc(formUrl(id)) + '" target="_blank" rel="noopener" title="The completed form with both signatures">📄 View form</a>';
@@ -222,7 +246,7 @@
         + '<span class="field-note">' + (state.kind === 'client' ? 'caregiver ' : 'with ') + esc(other || '?') + '</span>'
         + '<span>corrected to <b>' + esc(span(s.new_in, s.new_out) || '?') + '</b></span>'
         + (s.reason ? '<span class="field-note">' + esc(String(s.reason).slice(0, 70)) + '</span>' : '')
-        + chipHtml(statusOf(s)) + ' ' + axChipHtml(axStatus(s))
+        + chipHtml(statusOf(s)) + ' ' + axChipHtml(axStatus(s)) + (fromVisit(s) ? ' ' + visitChipHtml(s) : '')
         + '<span style="flex:1;"></span>' + viewBtnHtml(s.id) + '</div>';
     }).join('');
     return '<div class="card" style="padding:14px 16px;margin-top:10px;margin-bottom:12px;">' + head + body + '</div>';
@@ -308,7 +332,7 @@
         + (link ? '<a href="' + esc(link) + '" target="_blank" rel="noopener" style="font-size:12.5px;font-weight:700;color:#0F766E;">Open the client in AxisCare ↗</a>' : '')
         + '<button type="button" onclick="' + checkFn + '(\'' + esc(sub.id) + '\')"' + (state.busy ? ' disabled' : '') + ' style="font:inherit;font-size:12.5px;font-weight:700;border:none;background:#0E3860;color:#fff;border-radius:8px;padding:5px 12px;cursor:pointer;">' + (state.busy ? 'Checking AxisCare…' : 'Check AxisCare') + '</button>'
         + '</div>';
-      if (visit) h += '<div style="font-size:12.5px;margin-bottom:4px;">Visit: <b>' + esc(dateWord(sub.visitdate)) + '</b>' + (visit.scheduled ? ', scheduled ' + esc(visit.scheduled) : '') + (visit.caregiver ? ', ' + esc(visit.caregiver) : '') + ' <span style="color:#6E6559;">(AxisCare visit ' + esc(visit.id) + ')</span></div>';
+      if (visit) h += '<div style="font-size:12.5px;margin-bottom:4px;">Visit: <b>' + esc(dateWord(sub.visitdate)) + '</b>' + (visit.scheduled ? ', scheduled ' + esc(visit.scheduled) : '') + (visit.caregiver ? ', ' + esc(visit.caregiver) : '') + ' <span style="color:#6E6559;">(AxisCare visit ' + esc(visit.id) + (fromVisit(sub) && String(visit.id) === String(sub.axiscare_visit_id) ? ', from the pre-filled link' : '') + ')</span></div>';
       if (r) h += '<div style="font-size:13px;font-weight:600;margin:4px 0;color:' + (r.outcome === 'match' ? '#15803D' : r.outcome === 'mismatch' || r.outcome === 'error' ? '#B91C1C' : '#92400E') + ';">' + esc(axResultWords(r)) + '</div>';
       else if (sub.axiscare_done_at) h += '<div style="font-size:13px;font-weight:600;color:#15803D;margin:4px 0;">✅ Done in AxisCare (checked ' + esc(whenWord(sub.axiscare_checked_at || sub.axiscare_done_at)) + ')</div>';
       else if (sub.axiscare_seen) h += '<div style="font-size:13px;font-weight:600;color:#B91C1C;margin:4px 0;">⚠ AxisCare still shows ' + esc(seenWords(sub.axiscare_seen)) + ' (checked ' + esc(whenWord(sub.axiscare_checked_at)) + ')</div>';
@@ -333,6 +357,7 @@
 
   root.EVVF = {
     AX_COLS: AX_COLS, axClientUrl: axClientUrl, axCall: axCall, axStatus: axStatus, axChipHtml: axChipHtml, axResultWords: axResultWords, axHelperHtml: axHelperHtml, copy: copy, seenWords: seenWords,
+    VISIT_MARK: VISIT_MARK, VISIT_WORDS: VISIT_WORDS, fromVisit: fromVisit, visitChipHtml: visitChipHtml, linkedWords: linkedWords,
     TASKS: TASKS, REASONS: REASONS, NONE: NONE, LIST_COLS: LIST_COLS, LINK_COLS: LINK_COLS,
     esc: esc, nameScore: nameScore, suggest: suggest, pickerModel: pickerModel, selectHtml: selectHtml, linkSave: linkSave,
     isMissingCol: isMissingCol, logMatch: logMatch, logFor: logFor, statusOf: statusOf, chipHtml: chipHtml, formUrl: formUrl, viewBtnHtml: viewBtnHtml,

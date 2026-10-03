@@ -92,8 +92,8 @@ function render(msg){
       +'<div class="note">Resolved stops the reminders for every admin and closes it in Needs Attention. Remind me in 10 minutes pauses them for you only.</div></div>';
   }
   h+='<div class="card"><h2>EVV form</h2>'
-    +(D.evv_sent_at?'<div class="done">EVV form texted to '+esc(D.caregiver_first)+' at '+esc(D.evv_sent_at)+'.</div>'
-      :'<div class="note">Only if '+esc(D.caregiver_first)+' says she\'s been there and asks to be clocked in for the start time. She gets the form link and is told '+esc(D.client_first)+' must sign it, and that no manual changes can be made without it.</div>'
+    +(D.evv_sent_at?'<div class="done">EVV form texted to '+esc(D.caregiver_first)+' at '+esc(D.evv_sent_at)+'.'+(D.evv_prefilled?' The form opens already filled in for this visit.':'')+'</div>'
+      :'<div class="note">Only if '+esc(D.caregiver_first)+' says she\'s been there and asks to be clocked in for the start time. She gets the form link (filled in for this visit: her name, '+esc(D.client_first)+', the date and the scheduled times) and is told '+esc(D.client_first)+' must sign it, and that no manual changes can be made without it.</div>'
        +'<button class="ghost" id="bEvv">Text '+esc(D.caregiver_first)+' the EVV form</button>')
     +'</div><div class="err" id="err">'+esc(msg||'')+'</div>';
   document.getElementById('app').innerHTML=h;

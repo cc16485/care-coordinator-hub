@@ -9,7 +9,7 @@
 <link rel="icon" href="cc-logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="evv-forms.js?v=422"></script>
+<script src="evv-forms.js?v=427"></script>
 <!-- 422 (2026-10-03). The completed EVV Correction Form, exactly as the caregiver filled it in at
      sc.mo-care.com/evv-correction-form: the same sections, headings and order, every answer, both signatures.
      STAFF ONLY: it reads the form with the signed-in office session (the public can only send a form, never read one).
@@ -187,7 +187,7 @@ body{font-family:'Poppins',sans-serif;background:var(--bg);color:var(--navy);min
       + (sub.processed ? row(st.key === 'dismissed' ? 'Dismissed by' : 'Processed by', esc(sub.processed_by || '(not recorded)') + (sub.processed_at ? ' on ' + esc(F.whenWord(sub.processed_at)) : '')) : '')
       + row('Caregiver (linked)', sub.caregiver_axiscare_id ? esc(sub.caregiver_linked_name || 'AxisCare caregiver') + ' · AxisCare #' + esc(sub.caregiver_axiscare_id) : '<span style="color:var(--gray)">not linked yet</span>')
       + row('Client (linked)', sub.client_axiscare_id ? esc(sub.client_linked_name || 'AxisCare client') + ' · AxisCare #' + esc(sub.client_axiscare_id) : '<span style="color:var(--gray)">not linked yet</span>')
-      + (sub.linked_by ? row('Linked by', esc(sub.linked_by) + (sub.linked_at ? ' on ' + esc(F.whenWord(sub.linked_at)) : '')) : '')
+      + (sub.linked_by ? row('Linked by', (F.fromVisit && F.fromVisit(sub) ? esc(F.VISIT_WORDS) + ', sent from the link filled in for this visit' + (sub.axiscare_visit_id ? ' (AxisCare visit ' + esc(sub.axiscare_visit_id) + ')' : '') : esc(sub.linked_by)) + (sub.linked_at ? ' on ' + esc(F.whenWord(sub.linked_at)) : '')) : '')
       + row('Form number', '<span style="font-family:monospace;font-size:.75rem">' + esc(sub.id) + '</span>')
       + '</div>';
     h += '</div>';
