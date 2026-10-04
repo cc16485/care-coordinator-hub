@@ -5221,6 +5221,9 @@ function bgrRecordCheck(candId, which){
   document.getElementById('bgrCheckCurrent').innerHTML = curDoc
     ? 'On file: <a class="proof-link" style="cursor:pointer;color:var(--teal)" onclick="bgrViewProof(\''+bgrEsc(curDoc).replace(/\x27/g,'')+'\')">📄 View document</a> — upload a new one to replace it.'
     : '<span style="color:#A89C8B">No document on file yet.</span>';
+  /* GoHighLevel's copy, shown only (2026-10-04): recording the check stays a person's choice */
+  const ghlDocs = (typeof PHD !== 'undefined' && PHD.rows) ? phdFor('candidate', candId).filter(d => d.check_key === which) : [];
+  if(ghlDocs.length) document.getElementById('bgrCheckCurrent').innerHTML += '<div style="margin-top:4px">From GoHighLevel: '+ghlDocs.map(d => phdLink(d)).join(' · ')+'</div>';
   document.getElementById('bgrCheckModal').style.display = 'flex';
 }
 function bgrCloseCheckModal(){ const m = document.getElementById('bgrCheckModal'); if(m) m.style.display = 'none'; _bgrCheckCand = null; _bgrCheckWhich = null; }
@@ -5408,7 +5411,7 @@ function preHireRows(){
   const cand = (typeof candidates !== 'undefined' && candidates) ? candidates : [];
   cand.forEach(c => {
     if(c.not_hired) return;
-    rows.push({ name:(c.first+' '+c.last).trim(), stage:'In pipeline',
+    rows.push({ name:(c.first+' '+c.last).trim(), stage:'In pipeline', kind:'candidate', pid:c.id, cand:null,
       oig:{s:c.oig||'',d:c.oig_date||'',p:c.oig_proof||''},
       edl:{s:c.edl||'',d:c.edl_date||'',p:c.edl_proof||''},
       fcsr:{s:c.fcsr||'',d:c.fcsr_date||'',p:c.fcsr_proof||''},
@@ -5428,8 +5431,8 @@ function preHireRows(){
       if(k === 'fp') r.applicable = (o.applicable !== undefined) ? o.applicable : cg.oos === 'yes';
       return r; };
     rows.push(ph
-      ? { name:(cg.first+' '+cg.last).trim(), stage:'Hired', oig:nz('oig'), edl:nz('edl'), fcsr:nz('fcsr'), fp:nz('fp'), refs:Array.isArray(ph.refs)?ph.refs:null }
-      : { name:(cg.first+' '+cg.last).trim(), stage:'Hired',
+      ? { name:(cg.first+' '+cg.last).trim(), stage:'Hired', kind:'caregiver', pid:cg.id, cand:cg.candidate_id, oig:nz('oig'), edl:nz('edl'), fcsr:nz('fcsr'), fp:nz('fp'), refs:Array.isArray(ph.refs)?ph.refs:null }
+      : { name:(cg.first+' '+cg.last).trim(), stage:'Hired', kind:'caregiver', pid:cg.id, cand:cg.candidate_id,
           oig:{s:cg.oig_status||'',d:cg.oig_date||'',p:cg.oig_proof||''},
           edl:{s:cg.edl_status||'',d:cg.edl_date||'',p:cg.edl_proof||''},
           fcsr:{s:cg.fcsr_status||'',d:cg.fcsr_date||'',p:cg.fcsr_proof||''},
@@ -5446,22 +5449,38 @@ function preHireStatus(r){
 }
 function bgrAuditHTML(forPrint){
   const rows = preHireRows();
-  const chkCell = (label, obj, clearVal) => {
+  /* GoHighLevel's documents (2026-10-04): shown with where they came from; never change a status (her ruling) */
+  const PH = (typeof PHD !== 'undefined' && PHD.rows) ? PHD : null;
+  const ghlOf = (r, key) => PH ? phdFor(r.kind, r.pid, r.cand).filter(d => d.check_key === key) : [];
+  let docsHub = 0, docsGhl = 0;
+  const ghlBits = (r, key, hasHub) => ghlOf(r, key).map(d => { docsGhl++;
+    return forPrint ? '<div style="font-size:.62rem;color:#15803D">'+(hasHub?'also ':'')+'document on file (GoHighLevel'+(d.result_text?': '+bgrEsc(phdResult(d.result_text)):'')+')</div>'
+      : '<div style="font-size:.66rem">'+(hasHub?'also ':'')+'<a class="proof-link" style="cursor:pointer" onclick="phdOpen(\''+bgrEsc(d.storage_path).replace(/\x27/g,'')+'\')">📄 GHL</a>'+(d.result_text?' <span style="color:#8A7F70">'+bgrEsc(phdResult(d.result_text))+'</span>':'')+'</div>'; }).join('');
+  const chkCell = (label, obj, clearVal, r, key) => {
     const st = obj.s || 'Pending';
     const isClear = obj.s===clearVal || obj.s==='N/A';
     const isBad = obj.s==='FLAGGED' || obj.s==='Issues Found';
     const naFp = (label==='FP' && obj.applicable===false && !obj.s);
     const badge = naFp ? bgrOff('n/a') : (isClear ? bgrOn(st) : isBad ? bgrBad(st) : bgrOff(st));
     const date = obj.d ? '<div style="font-size:.66rem;color:#8A7F70">'+bgrD(obj.d)+'</div>' : '';
+    if(obj.p) docsHub++;
+    const ghl = (r && key) ? ghlBits(r, key, !!obj.p) : '';
     const doc = obj.p
       ? (forPrint ? '<div style="font-size:.62rem;color:#15803D">document on file</div>' : '<div>'+bgrCheckProofHtml(obj.p)+'</div>')
-      : (naFp ? '' : '<div style="font-size:.62rem;color:#B45309">no document</div>');
-    return '<td style="padding:.4rem .5rem;vertical-align:top">'+badge+date+doc+'</td>';
+      : (naFp || ghl ? '' : '<div style="font-size:.62rem;color:#B45309">no document</div>');
+    return '<td style="padding:.4rem .5rem;vertical-align:top">'+badge+date+doc+ghl+'</td>';
   };
+  const checkrCell = r => { const g = ghlBits(r, 'checkr', false);
+    return '<td style="padding:.4rem .5rem;vertical-align:top">'+(g || '<span style="font-size:.66rem;color:#A89C8B">'+(PH?'nothing on file':'…')+'</span>')+'</td>'; };
   /* References column (R3). null = hired before references were carried over. */
-  const refCell = refs => {
-    if(!Array.isArray(refs)) return '<td style="padding:.4rem .5rem;vertical-align:top;font-size:.7rem;color:#8A7F70">Kept in the hiring file (hired before Oct 2026)</td>';
-    if(!refs.length) return '<td style="padding:.4rem .5rem;vertical-align:top">'+bgrOff('None given')+'</td>';
+  const ghlRefs = r => { const ds = PH ? phdFor(r.kind, r.pid, r.cand).filter(d => /^ref_/.test(d.check_key)).sort((a,b)=>a.check_key.localeCompare(b.check_key)) : [];
+    if(!ds.length) return ''; docsGhl += ds.length;
+    return '<div style="font-size:.68rem;margin-top:3px;color:#5B5246"><b>From GoHighLevel:</b> '+ds.map(d => forPrint ? bgrEsc(PHD_LABEL[d.check_key]||d.check_key)
+      : '<a class="proof-link" style="cursor:pointer" onclick="phdOpen(\''+bgrEsc(d.storage_path).replace(/\x27/g,'')+'\')">📄 '+bgrEsc(PHD_LABEL[d.check_key]||d.check_key)+'</a>').join(' · ')+'</div>'; };
+  const refCell = (refs, r) => {
+    const gr = r ? ghlRefs(r) : '';
+    if(!Array.isArray(refs)) return '<td style="padding:.4rem .5rem;vertical-align:top;font-size:.7rem;color:#8A7F70">Kept in the hiring file (hired before Oct 2026)'+gr+'</td>';
+    if(!refs.length) return '<td style="padding:.4rem .5rem;vertical-align:top">'+bgrOff('None given')+gr+'</td>';
     const pos = refs.filter(x=>x.status==='Positive').length;
     const lines = refs.map(x => {
       const st = x.status||'Pending';
@@ -5470,22 +5489,24 @@ function bgrAuditHTML(forPrint){
       const pdf = x.pdf ? (forPrint ? ' · PDF on file' : ' <a class="proof-link" style="cursor:pointer" onclick="bgrViewProof(\''+bgrEsc(x.pdf).replace(/\x27/g,'')+'\')">📄 PDF</a>') : '';
       return '<div style="font-size:.7rem;line-height:1.35"><b style="color:'+col+'">'+bgrEsc(st)+'</b> '+bgrEsc(x.name||'')+(tl?' <span style="color:#8A7F70">('+bgrEsc(tl)+')</span>':'')+pdf+'</div>';
     }).join('');
-    return '<td style="padding:.4rem .5rem;vertical-align:top"><div style="font-size:.74rem;font-weight:700;color:'+(pos>=2?'#15803D':'#B45309')+'">'+pos+' of '+refs.length+' positive</div>'+lines+'</td>';
+    return '<td style="padding:.4rem .5rem;vertical-align:top"><div style="font-size:.74rem;font-weight:700;color:'+(pos>=2?'#15803D':'#B45309')+'">'+pos+' of '+refs.length+' positive</div>'+lines+gr+'</td>';
   };
   const body = rows.map(r => {
     const s = preHireStatus(r);
     const overall = s==='complete' ? bgrOn('✓ Complete') : s==='attention' ? bgrBad('Needs attention') : bgrWarn('In progress');
     return '<tr style="border-top:1px solid #ece9e1">'
       + '<td style="padding:.4rem .5rem;vertical-align:top;font-weight:700;color:#0D365F">'+bgrEsc(r.name)+'<div style="font-size:.66rem;font-weight:600;color:#8A7F70">'+bgrEsc(r.stage)+'</div></td>'
-      + chkCell('OIG', r.oig, 'CLEAR') + chkCell('EDL', r.edl, 'Clear') + chkCell('FCSR', r.fcsr, 'Clear') + chkCell('FP', r.fp, 'Clear')
-      + refCell(r.refs)
+      + chkCell('OIG', r.oig, 'CLEAR', r, 'oig') + chkCell('EDL', r.edl, 'Clear', r, 'edl') + chkCell('FCSR', r.fcsr, 'Clear', r, 'fcsr') + chkCell('FP', r.fp, 'Clear') + checkrCell(r)
+      + refCell(r.refs, r)
       + '<td style="padding:.4rem .5rem;vertical-align:top">'+overall+'</td>'
       + '</tr>';
   }).join('');
-  const head = ['Caregiver','OIG','EDL','FCSR','Fingerprint','References','Pre-hire status'].map(h=>'<th style="text-align:left;padding:.4rem .5rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;background:#F6F3EC">'+h+'</th>').join('');
+  const head = ['Caregiver','OIG','EDL','FCSR','Fingerprint','Checkr','References','Pre-hire status'].map(h=>'<th style="text-align:left;padding:.4rem .5rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;background:#F6F3EC">'+h+'</th>').join('');
   const total = rows.length, complete = rows.filter(r=>preHireStatus(r)==='complete').length, attn = rows.filter(r=>preHireStatus(r)==='attention').length;
-  const summary = total ? '<div style="font-size:.82rem;color:#0D365F;margin:.2rem 0 .6rem"><b>'+complete+' of '+total+'</b> have all pre-hire screenings clear'+(attn?' · <span style="color:#B91C1C;font-weight:700">'+attn+' need attention</span>':'')+'.</div>' : '';
-  return summary + '<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse"><thead><tr>'+head+'</tr></thead><tbody>'+(body||'<tr><td colspan="7" style="padding:.6rem;color:#A89C8B">Nobody on record yet.</td></tr>')+'</tbody></table></div>';
+  const ghlNote = PH ? ' Documents on file: '+docsHub+' from the Hub, '+docsGhl+' from GoHighLevel (marked GHL).'
+    : ((typeof PHD !== 'undefined' && PHD.err) ? ' <span style="color:#B91C1C">Couldn\'t load the GoHighLevel documents ('+bgrEsc(PHD.err)+').</span>' : ' Loading the GoHighLevel documents…');
+  const summary = total ? '<div style="font-size:.82rem;color:#0D365F;margin:.2rem 0 .6rem"><b>'+complete+' of '+total+'</b> have all pre-hire screenings clear'+(attn?' · <span style="color:#B91C1C;font-weight:700">'+attn+' need attention</span>':'')+'.'+ghlNote+'</div>' : '';
+  return summary + '<div class="tbl-wrap"><table style="width:100%;border-collapse:collapse"><thead><tr>'+head+'</tr></thead><tbody>'+(body||'<tr><td colspan="8" style="padding:.6rem;color:#A89C8B">Nobody on record yet.</td></tr>')+'</tbody></table></div>';
 }
 function renderPreHireAudit(){
   const box = document.getElementById('bgrAudit'); if(!box) return;
@@ -5497,6 +5518,9 @@ function renderPreHireAudit(){
     +   '<span class="field-note" style="flex:1;min-width:200px">The screenings completed before hire, with the document on file. Separate from ongoing and annual checks.</span>'
     + '</div>'
     + bgrAuditHTML(false);
+  /* GoHighLevel's documents: read once, then redraw */
+  if(typeof phdLoad === 'function' && !(typeof PHD !== 'undefined' && PHD.rows && Date.now()-PHD.at < 5*60000))
+    phdLoad().then(() => { if(document.getElementById('bgrAudit')) renderPreHireAudit(); });
 }
 function bgrPrintAudit(){
   const w = window.open('', '_blank'); if(!w){ alert('Please allow pop-ups to print the binder.'); return; }
@@ -6056,6 +6080,8 @@ function renderImportStrip(){
       }).join('');
 }
 function renderOB(){
+  /* GoHighLevel's pre-hire documents for the check cells: read once, then draw again (2026-10-04) */
+  if(typeof phdLoad === 'function' && typeof PHD !== 'undefined' && !PHD.rows && !PHD.err && !PHD.busy) phdLoad().then(() => { if(PHD.rows) renderOB(); });
   try{ renderHirePipeline(); }catch(e){}
   try{ renderImportStrip(); }catch(e){}
   const q=String(((document.getElementById('ob-search')||document.querySelector('#panel-onboarding input')||{value:''}).value||globalSearch)).trim().toLowerCase();
@@ -6098,9 +6124,9 @@ function renderOB(){
     return `<tr>
       <td class="cand-td"><div class="name-cell" style="cursor:pointer;color:var(--navy)" onclick="openProfile('${c.first}','${c.last}')" title="View full profile">${c.first} ${c.last} <span style="font-size:.65rem;color:var(--teal)">↗</span></div>${c.oos==='yes'?'<div><span class="cand-chip">Out of state</span></div>':''}${addedLabel?`<div class="cand-meta">Added ${addedTs?new Date(addedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}${daysPending!==null&&st==='Awaiting'?` · <b style="color:${urgencyColor}">${daysPending}d in pipeline</b>`:''}</div>`:''}${staleBadge?`<div style="margin-top:2px">${staleBadge}</div>`:''}</td>
       ${(()=>{ const hits=q?obRefMatchSlots(c,q):[]; return [1,2,3,4].map(n=>obRefCellHTML(c,n,hits.includes(n))).join(''); })()}
-      <td><div class="chk"><span onclick="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?`bgrRecordCheck(${c.id},'oig')`:`bgrRunOIG(${c.id})`}" title="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'Update the OIG result or attach the proof':'Run the OIG exclusion check now'}" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.oig==='CLEAR'?'b-green':c.oig==='FLAGGED'?'b-red':'b-gray'}">${c.oig||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'✎':'▸ run'}</span></span>${c.oig_date?`<span class="chk-date">${fmtD(c.oig_date)}</span>`:''}${bgrCheckProofHtml(c.oig_proof)}</div></td>
-      <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'edl')" title="Record the EDL result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.edl==='Clear'?'b-green':c.edl==='Issues Found'?'b-red':'b-gray'}">${c.edl||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.edl_date?`<span class="chk-date">${fmtD(c.edl_date)}</span>`:''}${bgrCheckProofHtml(c.edl_proof)}</div></td>
-      <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'fcsr')" title="Record the FCSR result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.fcsr==='Clear'?'b-green':c.fcsr==='Issues Found'?'b-red':'b-gray'}">${c.fcsr||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fcsr_date?`<span class="chk-date">${fmtD(c.fcsr_date)}</span>`:''}${bgrCheckProofHtml(c.fcsr_proof)}</div></td>
+      <td><div class="chk"><span onclick="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?`bgrRecordCheck(${c.id},'oig')`:`bgrRunOIG(${c.id})`}" title="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'Update the OIG result or attach the proof':'Run the OIG exclusion check now'}" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.oig==='CLEAR'?'b-green':c.oig==='FLAGGED'?'b-red':'b-gray'}">${c.oig||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'✎':'▸ run'}</span></span>${c.oig_date?`<span class="chk-date">${fmtD(c.oig_date)}</span>`:''}${bgrCheckProofHtml(c.oig_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'oig'):''}</div></td>
+      <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'edl')" title="Record the EDL result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.edl==='Clear'?'b-green':c.edl==='Issues Found'?'b-red':'b-gray'}">${c.edl||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.edl_date?`<span class="chk-date">${fmtD(c.edl_date)}</span>`:''}${bgrCheckProofHtml(c.edl_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'edl'):''}</div></td>
+      <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'fcsr')" title="Record the FCSR result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.fcsr==='Clear'?'b-green':c.fcsr==='Issues Found'?'b-red':'b-gray'}">${c.fcsr||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fcsr_date?`<span class="chk-date">${fmtD(c.fcsr_date)}</span>`:''}${bgrCheckProofHtml(c.fcsr_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'fcsr'):''}</div></td>
       <td><div class="chk">${fpShow?`<span onclick="bgrRecordCheck(${c.id},'fp')" title="Record the fingerprint result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${fpBadge}">${c.fp}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fp_date?`<span class="chk-date">${fmtD(c.fp_date)}</span>`:''}${bgrCheckProofHtml(c.fp_proof)}`:`<span class="badge b-gray">Not required</span>`}</div></td>
       <td>
         ${c.not_hired?`

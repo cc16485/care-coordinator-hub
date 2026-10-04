@@ -16258,6 +16258,54 @@ function cgdSection(name){
    prehire snapshot (from promotion) if present, else the caregiver's current
    check fields. Documents open via the engine's signed-URL viewer. Kept apart
    from ongoing/annual checks for the state audit. */
+/* ── PRE-HIRE DOCUMENTS FROM GOHIGHLEVEL (2026-10-04, her "yes to all" on the plan) ─────────────────────────────
+   Desktop 381 copied 254 background-check and reference documents out of GoHighLevel into the Hub's private storage
+   (bucket lead-docs), one row each in public.prehire_docs, keyed by the person's own Hub record (person_kind +
+   person_id). This shows them; it never changes a record. Her rulings: GoHighLevel's result is shown ("GoHighLevel
+   says: Clear"), never copied into the Hub's check; the Hub's own document stays first and both show; Checkr gets a
+   line and an audit column; GoHighLevel's reference checks are a separate list (never guessed into the Hub's slots).
+   Read once, kept 5 minutes. A failed read says so (never an empty-looking card). */
+const PHD={ rows:null, at:0, err:null, busy:null };
+const PHD_LABEL={ edl:'EDL', oig:'OIG', fcsr:'FCSR', checkr:'Checkr', ref_pro_1:'Professional reference check 1', ref_pro_2:'Professional reference check 2',
+  ref_pro_3:'Professional reference check 3', ref_personal_1:'Personal reference check 1', ref_personal_2:'Personal reference check 2' };
+async function phdLoad(force){
+  if(!force && PHD.rows && Date.now()-PHD.at<5*60000) return PHD;
+  if(PHD.busy) return PHD.busy;
+  PHD.busy=(async()=>{
+    try{ const r=await sb.from('prehire_docs').select('id,person_kind,person_id,check_key,storage_path,result_text,imported_at').order('imported_at',{ascending:false});
+      if(r.error) throw new Error(r.error.message||'read failed');
+      PHD.rows=r.data||[]; PHD.err=null; PHD.at=Date.now();
+    }catch(e){ PHD.err=(e&&e.message)||'could not load'; if(!PHD.rows) PHD.rows=null; }
+    PHD.busy=null; return PHD;
+  })();
+  return PHD.busy;
+}
+/* every document for a Hub caregiver record (their own, and the candidate record they were hired from) or a candidate */
+function phdFor(kind, id, candidateId){
+  const all=PHD.rows||[]; const out=[];
+  all.forEach(d=>{ if((d.person_kind===kind && String(d.person_id)===String(id)) || (candidateId!=null && candidateId!=='' && d.person_kind==='candidate' && String(d.person_id)===String(candidateId))) out.push(d); });
+  return out;
+}
+/* "✅ Not on List - CLEAR" -> "Not on List - CLEAR" */
+function phdResult(t){ return String(t||'').replace(/^[^A-Za-z0-9]+/,'').trim(); }
+function phdWhen(d){ try{ return new Date(d.imported_at).toLocaleDateString('en-US',{ month:'short', day:'numeric', timeZone:'America/Chicago' }); }catch(e){ return ''; } }
+async function phdOpen(path){
+  if(typeof window.bgrViewProof==='function') return window.bgrViewProof(path);
+  try{ const { data, error }=await sb.storage.from('lead-docs').createSignedUrl(path, 3600);
+    if(error||!data){ alert('Could not open the document: '+(error?error.message:'unknown')); return; }
+    window.open(data.signedUrl,'_blank','noopener'); }catch(e){ alert('Could not open the document.'); }
+}
+function phdLink(d, text){
+  const esc=escapeHtmlComms;
+  return '<a class="linklike" style="cursor:pointer" title="Imported from GoHighLevel '+esc(phdWhen(d))+'" onclick="phdOpen(\''+esc(String(d.storage_path)).replace(/\x27/g,'')+'\')">'+esc(text||'📄 from GoHighLevel')+'</a>'
+    +(d.result_text?' <span class="field-note">GoHighLevel says: '+esc(phdResult(d.result_text))+'</span>':'');
+}
+/* B&R check cell (candidates): a small "📄 GHL" under the Hub's own entry */
+function phdCellHtml(candId, key){
+  if(!PHD.rows) return '';
+  const ds=phdFor('candidate', candId).filter(d=>d.check_key===key);
+  return ds.map(d=>'<div style="font-size:.62rem;">'+phdLink(d,'📄 GHL')+'</div>').join('');
+}
 function cgdPreHireHtml(g){
   if(!g) return '<div class="field-note">No hub operational record is connected yet, so pre-hire checks are not on file here.</div>';
   const esc=escapeHtmlComms;
@@ -16268,8 +16316,11 @@ function cgdPreHireHtml(g){
        ['EDL',{status:g.edl_status||'',date:g.edl_date||'',proof:g.edl_proof||''},'Clear'],
        ['FCSR',{status:g.fcsr_status||'',date:g.fcsr_date||'',proof:g.fcsr_proof||''},'Clear'],
        ['Fingerprint',{status:g.fp||'',date:g.fp_date||'',proof:g.fp_proof||'',applicable:g.oos==='yes'},'Clear']];
+  const docs=PHD.rows?phdFor('caregiver', g.id, g.candidate_id):null;
+  const keyOf={ OIG:'oig', EDL:'edl', FCSR:'fcsr' };
   const rows=checks.map(function(t){
     const label=t[0], o=t[1]||{}, clearVal=t[2];
+    const ghl=(docs||[]).filter(d=>d.check_key===keyOf[label]).map(d=>' · '+phdLink(d)).join('');
     const naFp=(label==='Fingerprint' && o.applicable===false && !o.status);
     const st=o.status||'Pending';
     const isClear=o.status===clearVal||o.status==='N/A';
@@ -16279,9 +16330,13 @@ function cgdPreHireHtml(g){
     const date=o.date?' <span class="field-note">'+esc(String(o.date).slice(0,10))+'</span>':'';
     const doc=o.proof
       ? ' · <a class="linklike" style="cursor:pointer" onclick="bgrViewProof(\''+esc(String(o.proof)).replace(/\x27/g,'')+'\')">📄 document</a>'
-      : (naFp?'':' · <span class="field-note" style="color:#B45309">no document</span>');
-    return '<div style="display:flex;gap:8px;font-size:13.5px;padding:4px 0;border-bottom:1px solid #F6F3EC;"><span class="field-note" style="min-width:110px;">'+label+'</span><span>'+badge+date+doc+'</span></div>';
-  }).join('');
+      : (naFp||ghl?'':' · <span class="field-note" style="color:#B45309">no document</span>');
+    return '<div style="display:flex;gap:8px;font-size:13.5px;padding:4px 0;border-bottom:1px solid #F6F3EC;"><span class="field-note" style="min-width:110px;">'+label+'</span><span>'+badge+date+doc+ghl+'</span></div>';
+  }).join('')
+    /* Checkr: the Hub has never kept a Checkr result; GoHighLevel's document and result show here */
+    +'<div style="display:flex;gap:8px;font-size:13.5px;padding:4px 0;border-bottom:1px solid #F6F3EC;"><span class="field-note" style="min-width:110px;">Checkr</span><span>'
+      +((docs||[]).filter(d=>d.check_key==='checkr').map(d=>phdLink(d)).join(' · ')||'<span class="field-note">'+(docs?'nothing on file':'…')+'</span>')+'</span></div>'
+    +(PHD.err&&!PHD.rows?'<div class="field-note" style="color:#B91C1C;margin-top:4px;">Couldn\'t load the GoHighLevel documents ('+esc(PHD.err)+'). Reopen the profile to try again.</div>':'');
   const note=ph
     ? '<div class="field-note" style="margin-top:8px;">Frozen at hire'+(ph.hired_at?(' ('+esc(String(ph.hired_at).slice(0,10))+')'):'')+'. Ongoing and annual checks are in the section below.</div>'
     : '<div class="field-note" style="margin-top:8px;">Shown from the current check fields — no frozen pre-hire snapshot (hired before it was captured). New hires capture this automatically.</div>';
@@ -16295,8 +16350,13 @@ function cgdRefsHtml(g){
   if(!g) return '<div class="field-note">No hub operational record is connected yet, so references are not on file here.</div>';
   const refs=g.prehire&&Array.isArray(g.prehire.refs)?g.prehire.refs:null;
   CGD.refsShown=refs||[];
-  if(!refs) return '<div class="field-note">Hired before references were carried into the profile. Their reference record is in the hiring file.</div>';
-  if(!refs.length) return '<div class="field-note">No references were on record at hire.</div>';
+  /* GoHighLevel's reference checks: a separate list, never placed into the Hub's slots (her ruling) */
+  const gd=PHD.rows?phdFor('caregiver', g.id, g.candidate_id).filter(d=>/^ref_/.test(d.check_key)).sort((a,b)=>a.check_key.localeCompare(b.check_key)):[];
+  const ghlList=gd.length?'<div style="margin-top:8px;"><div class="field-note" style="font-weight:700;">Reference checks from GoHighLevel</div>'
+    +gd.map(d=>'<div style="font-size:13.5px;padding:3px 0;">'+esc(PHD_LABEL[d.check_key]||d.check_key)+' · '+phdLink(d,'📄 document')+' <span class="field-note">imported '+esc(phdWhen(d))+'</span></div>').join('')+'</div>'
+    :(PHD.err&&!PHD.rows?'<div class="field-note" style="color:#B91C1C;margin-top:6px;">Couldn\'t load the GoHighLevel reference checks.</div>':'');
+  if(!refs) return '<div class="field-note">Hired before references were carried into the profile. Their reference record is in the hiring file.</div>'+ghlList;
+  if(!refs.length) return '<div class="field-note">No references were on record at hire.</div>'+ghlList;
   const col={Positive:'#15803D',Conditional:'#B45309',Negative:'#B91C1C'};
   return refs.map(function(r,i){
     const st=r.status||'Pending';
@@ -16315,7 +16375,7 @@ function cgdRefsHtml(g){
       +'<span style="font-weight:700;color:'+(col[st]||'#8A7F70')+'">'+esc(st)+'</span>'
       +(r.date?'<span class="field-note">'+esc(String(r.date).slice(0,10))+'</span>':'')
       +'<span>'+links+'</span></div>';
-  }).join('');
+  }).join('')+ghlList;
 }
 function cgdRefOpen(i){ const r=(CGD.refsShown||[])[i]; if(!r) return; if(r.pdf) cgdRefPdf(i); else cgdRefAnswers(i); }
 function cgdRefPdf(i){ const r=(CGD.refsShown||[])[i]; if(r&&r.pdf&&typeof window.bgrViewProof==='function') window.bgrViewProof(r.pdf); }
@@ -16430,8 +16490,8 @@ async function cgdOpenProfile(axid){
     +'</div>'
 
     +'<div id="cgdSec-compliance" style="display:none;">'
-    +card('Pre-Hire Background Checks <span class="field-note" style="font-weight:400;">— screenings completed before hire, with the document on file (for audits)</span>', cgdPreHireHtml(g), 'cgdPreHireCard')
-    +card('References <span class="field-note" style="font-weight:400;">checked before hire, with the PDF of what each one said</span>', cgdRefsHtml(g), 'cgdRefsCard')
+    +card('Pre-Hire Background Checks <span class="field-note" style="font-weight:400;">screenings completed before hire, with the document on file (for audits)</span>', '<div id="cgdPreHireBody">'+cgdPreHireHtml(g)+'</div>', 'cgdPreHireCard')
+    +card('References <span class="field-note" style="font-weight:400;">checked before hire, with the PDF of what each one said</span>', '<div id="cgdRefsBody">'+cgdRefsHtml(g)+'</div>', 'cgdRefsCard')
     +card('Compliance & Training <span class="field-note" style="font-weight:400;">— ongoing and annual</span>', cgdComplianceHtml(c,g), 'cgdComplCard')
     +'</div>'
 
@@ -16464,6 +16524,10 @@ async function cgdOpenProfile(axid){
   cgdProfGateMount(c,g);
   cgdPrnMount(c);
   cgdMissedNotesMount(c);
+  /* pre-hire documents from GoHighLevel: read, then redraw the two cards */
+  if(g) phdLoad().then(()=>{ if(String(CGD.openId)!==String(c.id)) return;
+    const a=document.getElementById('cgdPreHireBody'); if(a) a.innerHTML=cgdPreHireHtml(g);
+    const b=document.getElementById('cgdRefsBody'); if(b) b.innerHTML=cgdRefsHtml(g); });
   try{ cgdLateMount(c); }catch(_){}
   cgdEvvFormsMount(c);
   try{ document.getElementById('tab-cgdir').scrollIntoView({block:'start'}); }catch(e){}
