@@ -87,7 +87,7 @@ async()=>{
   const tbl=rows=>{ const b={ select(){return b;}, order(){return b;}, limit(){ return Promise.resolve(__missing?{ data:null, error:{ message:'relation does not exist', code:'42P01' } }:{ data:rows(), error:null }); } }; return b; };
   const base2=sb.from; sb.from=t=>t==='orient_reminders'?tbl(()=>__rr):t==='orient_remind_runs'?tbl(()=>__runs):base2(t);
   const s=document.getElementById('orrSet'), list=document.getElementById('orrList');
-  ok('the Settings section is there', !!s && !!list && /Orientation reminders/.test(s.closest('.settings-section').querySelector('h3').textContent));
+  ok('the Settings section is there', !!s && !!list && /Office orientation reminders/.test(s.closest('.settings-section').querySelector('h3').textContent));
   DATA.ops_settings={ orient_remind_live:false };
   __runs=[{ at:iso(5), mode:'practice', ok:true, sessions:1, due:2, skipped:1 }];
   __rr=[{ at:iso(5), mode:'practice', session_date:'2026-10-06', who:'Ava S', result:'would', detail:'Hi Ava...' },
