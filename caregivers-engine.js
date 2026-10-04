@@ -4435,31 +4435,14 @@ async function intakeImport(intakeId, btn){
     if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
     return;
   }
-  const rec = {
-    id: safeTmpId(),   /* 421: a temporary number; the database gives the real one below */
-    first: row.first_name || '', last: row.last_name || '',
-    phone: row.phone || '', email: row.email || '',
-    oos: row.lived_outside_mo ? 'yes' : 'no',
-    fp: row.lived_outside_mo ? 'Required' : 'N/A',
-    oig: 'Pending', edl: 'Pending', fcsr: 'Pending',
-    r1s: 'Pending', r2s: 'Pending', r3s: 'Pending', r4s: 'Pending',
-    intake_id: row.id,
-    imported_by: who, imported_at: new Date().toISOString(),
-    notes: 'Imported from their start link by ' + (who || 'staff') + '.',
-    invite_sent: false, invite_sent_date: '',
-    addedAt: new Date().toISOString(),
-  };
-  (Array.isArray(row.refs) ? row.refs : []).slice(0, 4).forEach((ref, i) => {
-    const n = i + 1;
-    rec['r'+n+'n'] = ref.name || '';
-    rec['r'+n+'_phone'] = ref.phone || '';
-    rec['r'+n+'_email'] = ref.email || '';
-    rec['r'+n+'_rel'] = ref.relationship || '';
-    rec['r'+n+'_type'] = obRefType(ref.type);
-    rec['r'+n+'_company'] = ref.company || '';
-    rec['r'+n+'_howlong'] = ref.how_long || '';
-  });
-  if (row.no_employer_history != null) rec.no_employer_history = !!row.no_employer_history;
+  /* Safe saves step 6 (2026-10-04): the candidate a start form becomes is built by intake-import-rules.js, the ONE copy
+     the server's start form check also runs, so a form it imports is exactly what this button makes. */
+  if (!globalThis.CCIntake) {
+    alert('The start form rules did not load. Refresh the page and try again. Nothing was imported.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Import'; }
+    return;
+  }
+  const rec = CCIntake.candidateFromIntake(row, { id: safeTmpId(), who, at: new Date().toISOString() });   /* 421: a temporary number; the database gives the real one below */
   candidates.push(rec);
   /* Gate A (owner ruling 2026-09-22): the workspace must be CONFIRMED in the
      shared database before we mark this submission seen. seen_at is what drops
