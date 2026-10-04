@@ -67,6 +67,12 @@ async()=>{
   __calls=[]; __conf=[]; AP_ROWS=[row({ status:'pool' })]; await apToPool(ID);
   ok('editing what a pool member is waiting for sends nothing and asks nothing', __calls.length===0 && __conf.length===0, __calls);
 
+  /* 446: someone already given an offer or hired never gets this message (a background issue gets the background review's notice) */
+  for(const st of ['offer','hired']){ __calls=[]; __conf=[]; AP_ROWS=[row({ status:st })]; window.prompt=()=> 'background'; await apDecline(ID);
+    ok('Not moving forward on someone marked '+st+': saved, but the not-hiring message is not offered (no double messages)', AP_ROWS[0].status==='declined' && __calls.length===0 && __conf.length===0, __calls); }
+  __calls=[]; __conf=[]; AP_ROWS=[row({ status:'hired' })]; window.prompt=(q,d)=>d||'Weekdays'; await apToPool(ID);
+  ok('Candidate pool on someone marked hired: no pool message offered', AP_ROWS[0].status==='pool' && __calls.length===0, __calls);
+
   /* the panel on their profile and list card */
   const P=r=>{ const d=document.createElement('div'); d.innerHTML=apDecisionPanel(r); return d; };
   let d=P(row({ status:'declined', decision_msg_at:'2026-10-04T15:00:00Z', decision_msg_kind:'declined', decision_msg_by:'Krystal' }));
