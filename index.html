@@ -1730,14 +1730,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <ol style="font-size:13.5px;line-height:1.7;margin:10px 0 0;padding-left:20px;">
           <li><b>They apply</b> on mo-care.com, or the office uses <b>📨 Send the application</b> / <b>＋ Add an applicant</b> on Applicants. Not booked yet? They get up to three nudges over five days.</li>
           <li><b>They book their own in-person interview</b> at our office (about 20 minutes; the calendar keeps a 30-minute slot). Confirmation, day-before and hour-before reminders go out on their own. If they do not come, press <b>Did not show</b>: they are marked a No-Show, get the no-show message, and cannot reapply or book unless you <b>Excuse no-show &amp; rebook</b>.</li>
-          <li><b>After the interview</b> choose <b>✅ Hire — make the offer</b>, <b>🗂 Candidate pool</b> or <b>Not hiring</b>. Saving the offer sends their <b>start link</b> by itself (email, and text 8am to 6pm if they said yes to texts).</li>
-          <li><b>They fill in the start link</b> (professional and personal references, FCSR details). In <b>Background &amp; References</b> press <b>Import</b>, then <b>📩 Ask refs</b>: references with an email get the form automatically; phone-only ones are yours to call (📞 Record), email (✉️) or text after they say OK (💬). Answers score themselves and are saved as a PDF in the caregiver's profile.</li>
-          <li><b>You run OIG, EDL and FCSR</b> (and fingerprints if they lived outside Missouri). <b>Ready for Orientation</b> comes on with 2 positive references and all checks clear.</li>
-          <li><b>Viventium Step 1</b> paperwork, then the <b>orientation invite</b> (they pick their date; a confirmation and a day-before reminder follow).</li>
+          <li><b>After the interview</b> choose <b>✅ Hire, make the offer</b>, <b>🗂 Candidate pool</b> or <b>Not hiring</b>. Saving the offer sends their <b>start link</b> by itself (email, and text 8am to 6pm if they said yes to texts). The link is private: it carries no name, phone or email. <b>Not hiring</b> and <b>Candidate pool</b> show you a short, kind message first: OK sends it, Cancel sends nothing.</li>
+          <li><b>They fill in the start link</b> (professional and personal references, FCSR details). In <b>Background &amp; References</b> press <b>Import</b> (or, once <b>Start forms import themselves</b> is switched on, it imports itself), then <b>📩 Ask refs</b>: references with an email get the form automatically; phone-only ones are yours to call (📞 Record), email (✉️) or text after they say OK (💬). Answers score themselves and are saved as a PDF in the caregiver's profile.</li>
+          <li><b>You run OIG, EDL and FCSR</b> (and fingerprints if they lived outside Missouri). <b>Ready for Orientation</b> comes on with 2 positive references and all checks clear. If a check comes back flagged, press <b>🛡 Something came up</b>: you see the message first (the text never says which check), they have 5 business days to call, and you decide (cleared, a Good Cause Waiver, or the final notice). Nothing about a background check is ever sent or decided by itself.</li>
+          <li><b>Viventium Step 2</b>, then the <b>welcome call</b>: press <b>Invite to welcome call</b> and they book a 15-minute video call. On the call (I-9 documents, the AxisCare app, their caregiver profile) press <b>Welcome call done – send orientation link</b>: they do their orientation online. The <b>in-person office orientation</b> is the backup (the invite, they pick a date, a confirmation, then a day-before reminder).</li>
           <li><b>Training:</b> 2 hours of orientation and 4 hours of dementia training before the first client, then 6 hours of supervised on-the-job training within 30 days (5 hours a year from year two). The Training Platform sends the welcome, reminders and "cleared to work".</li>
           <li><b>First shifts:</b> the availability link, then a "how did your first shift go?" text the morning after.</li>
         </ol>
-        <div class="field-note" style="margin-top:8px;">Anything that does not send shows up as a <b>"Didn't go through"</b> card on Needs Attention. Every message and its exact wording is below.</div>
+        <div class="field-note" style="margin-top:8px;">Anything that does not send shows up as a <b>"Didn't go through"</b> card on Needs Attention. Every message and its exact wording is below. Messages that are switched off (practice) are switched on in Settings, or on the Owners Hub Admin page under <b>Switches</b>.</div>
       </details>
       <div id="apjBody" style="margin-top:14px;"><div class="field-note">Loading…</div></div>
     </section>
@@ -4819,7 +4819,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         <textarea id="apIntNotes" rows="2" placeholder="How they came across, anything that decided it either way…"></textarea>
 
         <div style="display:flex;gap:9px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
-          <button class="primary" onclick="apOutcome('hired',this)">✅ Hire &mdash; make the offer</button>
+          <button class="primary" onclick="apOutcome('hired',this)">✅ Hire, make the offer</button>
           <button class="secondary" onclick="apOutcome('pool',this)">🗂 Candidate pool</button>
           <button class="ghost" style="color:var(--red);" onclick="apOutcome('declined',this)">Not hiring</button>
           <span style="flex:1;"></span>
