@@ -2,7 +2,7 @@
    messages they receive and attached somewhere in the hub pages so that our office admin know"). Built from the code as
    of 2026-10-01: every message an applicant / new hire gets, its exact wording, when it goes, what triggers it, and
    whether it shows in GoHighLevel Conversations. If a message is changed, update this list too. */
-window.AP_JOURNEY_CHECKED = 'October 4, 2026 (Not hiring and Candidate pool messages; the Hub sends the orientation reminder)';
+window.AP_JOURNEY_CHECKED = 'October 4, 2026 (background review: Something came up, and the final notice)';
 window.AP_JOURNEY = [
  {
   "stage": "applying",
@@ -257,7 +257,7 @@ window.AP_JOURNEY = [
   "button": "Onboarding board → 🚫 (Not moving forward) → confirm 'Send a courtesy text'",
   "timing": "Immediately when pressed, 8am–6pm Central.",
   "channel": "text only",
-  "rule": "Texts 8am–6pm Central only, never to someone whose application said no to texts, and they end with \"Reply STOP to opt out.\" Otherwise nothing is sent and the office is told why.",
+  "rule": "Texts 8am–6pm Central only, never to someone whose application said no to texts, and they end with \"Reply STOP to opt out.\" Otherwise nothing is sent and the office is told why. Never for the reason \"Background check issue\": that gets the background review's final notice instead, so nobody gets both.",
   "subject": null,
   "text": "Hi {first}, thank you for your interest in joining Caring Companions. After careful review, we won't be moving forward with your application at this time. We appreciate the time you invested and wish you all the best. — Caring Companions (417) 234-8494",
   "email_summary": null,
@@ -277,6 +277,38 @@ window.AP_JOURNEY = [
   "subject": "A new opening at Caring Companions",
   "text": "Hi {first}, {staff message} https://mo-care.com/apply?book={applicant_id} Reply STOP to hear no more from us.",
   "email_summary": "'Hi {first}, {staff message}' + [Pick an interview time] button + 'You applied with us before, which is why we thought of you. If you would rather we did not get in touch again, just reply and say so.'",
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "background checks",
+  "order": 16.5,
+  "name": "Something came up (background check, step 1)",
+  "trigger": "A check is recorded as flagged (OIG FLAGGED; EDL, FCSR or fingerprints Issues Found). The office opens the background review and presses OK on the message. A finding is never an automatic not hired: the office picks the review result.",
+  "automatic": false,
+  "button": "Background & References → 🛡 Something came up (or 🛡 Background review) → OK",
+  "timing": "When OK is pressed. Sets the Applicant response due date: 5 business days (Monday to Friday).",
+  "channel": "text + email",
+  "rule": "Only after an office person presses OK on the exact words shown; Cancel sends nothing. Our own direct checks only (FCSR, EDL, OIG, fingerprints). The text never names the check; the email names it, never any detail. Texts 8am to 6pm Central, only with their yes to texts, ending with \"Reply STOP to opt out.\"; the email goes when there is one; outside those hours nothing goes. Every step is recorded on the review (bg_reviews) with who and when. Instead of the message the office can record \"told them by phone or in person\".",
+  "subject": "About your background screening",
+  "text": "Hi {first}, this is Caring Companions. Something came up in your background screening that we'd like to go over with you before we continue your application. Please call us at (417) 234-8494 within 5 business days. Reply STOP to opt out.",
+  "email_summary": "Names the check (Missouri Family Care Safety Registry screening / Missouri Employee Disqualification List check / federal OIG exclusion list check / fingerprint background check), says no decision has been made, asks them to call by the due date, and invites them to tell us anything, including a Good Cause Waiver. No details of the finding.",
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "background checks",
+  "order": 16.6,
+  "name": "Background final notice (step 2)",
+  "trigger": "The office presses 'Send the final notice' on the background review, then OK. Only after step 1 (or told by phone), a review result of Waiver needed, Can't be employed, or No waiver needed with a written reason, the response due date passed or 'Spoke with them' recorded, and not while waiting on a Good Cause Waiver. They are then marked Not hired (Background check issue).",
+  "automatic": false,
+  "button": "Background review → Send the final notice → OK",
+  "timing": "When OK is pressed.",
+  "channel": "text + email",
+  "rule": "Only after an office person presses OK on the exact words shown; Cancel sends nothing. Our own direct checks only (FCSR, EDL, OIG, fingerprints). The text never names the check; the email names it, never any detail. Texts 8am to 6pm Central, only with their yes to texts, ending with \"Reply STOP to opt out.\"; the email goes when there is one; outside those hours nothing goes. Every step is recorded on the review (bg_reviews) with who and when. Cleared (not them, an error corrected, no waiver needed, or a waiver approved with the letter) sends nothing.",
+  "subject": "Your application with Caring Companions",
+  "text": "Hi {first}, thank you for your time. After reviewing your background screening, we're not able to move forward with your application for a caregiving position. We've emailed you more information. Reply STOP to opt out.",
+  "email_summary": "One of four: FCSR or fingerprints needing a waiver (Missouri rules; how to apply for a Good Cause Waiver, 1-866-422-6872; welcome to reapply if granted) · our decision (no rules claim) · EDL (Missouri law; contact DHSS if in error) · OIG (federal list; reinstatement information at oig.hhs.gov/exclusions).",
   "shows_in_ghl": true,
   "failure_visible": true
  },

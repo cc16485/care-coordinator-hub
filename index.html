@@ -21378,10 +21378,13 @@ async function apSetStatus(id, status, reason){
 
 async function apDecline(id){
   const r = AP_ROWS.find(x=>String(x.id)===String(id));
+  /* 446: someone already given an offer or hired is past the interview stage; a background check issue is handled by
+     the background review's final notice, so this message is not offered and nobody gets both. */
+  const pastOffer = !!r && (r.status==='offer' || r.status==='hired');
   const why = prompt('Why are we not moving forward with '
     + ((r&&r.first_name)||'this applicant') + '?\n\nKept for our own records only, never sent.', '');
   if(why===null) return;
-  if(await apSetStatus(id, 'declined', why.trim() || null)) await apDecisionOffer(id, 'declined');
+  if(await apSetStatus(id, 'declined', why.trim() || null) && !pastOffer) await apDecisionOffer(id, 'declined');
 }
 
 /* Which applicant the offer form is currently about, so what gets agreed can
@@ -23372,7 +23375,7 @@ function apPoolPrompts(r, A){
 
 async function apToPool(id){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
-  const wasPool = r.status==='pool';
+  const wasPool = r.status==='pool', pastOffer = r.status==='offer' || r.status==='hired';
   const p = apPoolPrompts(r);
   if(!p) return;
   try{
@@ -23384,7 +23387,7 @@ async function apToPool(id){
     }).eq('id', id);
     if(error) throw error;
     await apLoad();
-    if(!wasPool) await apDecisionOffer(id, 'pool');
+    if(!wasPool && !pastOffer) await apDecisionOffer(id, 'pool');
   }catch(e){
     const m = String(e&&e.message||'error');
     alert(/constraint/i.test(m)
