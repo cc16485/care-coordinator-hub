@@ -4014,8 +4014,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 
 <div class="settings-section">
-<h3>🔔 Orientation reminders</h3>
-<p class="hint">The text the day before someone's orientation, sent by the Hub instead of GoHighLevel.</p>
+<h3>🔔 Office orientation reminders</h3>
+<p class="hint">The text the day before someone's in-person office orientation (the backup for someone who can't do it online), sent by the Hub instead of GoHighLevel. Online new hires get their welcome call reminders instead.</p>
 <div id="orrSet" class="field-note" style="margin:6px 0 4px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
   <button class="secondary" id="orrSetBtn" onclick="orrToggle(this)">Turn on</button>
@@ -16399,8 +16399,8 @@ function orrSetRender(){
   const box=document.getElementById('orrSet'), b=document.getElementById('orrSetBtn'), list=document.getElementById('orrList'); if(!box) return;
   const st=DATA.ops_settings||{}, on=st.orient_remind_live===true, run=(ORR.runs||[])[0], esc=escapeHtmlComms;
   const when=iso=>new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
-  box.innerHTML=(on?'<b style="color:#1E8449;">Orientation reminders from the Hub: ON.</b> ':'<b style="color:#B7791F;">Orientation reminders from the Hub: OFF (practice).</b> ')
-    +'The day before an orientation, from 10am, everyone still booked on it gets one text (only with their yes to texts, and it ends with "Reply STOP to opt out."). '
+  box.innerHTML=(on?'<b style="color:#1E8449;">Office orientation reminders from the Hub: ON.</b> ':'<b style="color:#B7791F;">Office orientation reminders from the Hub: OFF (practice).</b> ')
+    +'The day before an in-person office orientation, from 10am, everyone still booked on it gets one text (only with their yes to texts, and it ends with "Reply STOP to opt out."). '
     +'Someone who booked that same day is skipped: their booking confirmation covers it. '
     +(on?'Make sure the GoHighLevel workflow "Orientation booked - remind" is off, or people get two reminders.'
         :'Until it is on, it only lists who it would remind and nothing is sent. Turn it on when you turn off the GoHighLevel workflow "Orientation booked - remind".')
@@ -16420,8 +16420,8 @@ function orrSetRender(){
 async function orrSetFill(){ orrSetRender(); await orrLoad(true); orrSetRender(); }
 async function orrToggle(btn){
   const on=!((DATA.ops_settings||{}).orient_remind_live===true);
-  if(!confirm(on?'Turn on orientation reminders from the Hub?\n\nFrom 10am tomorrow (or today, if it is before 6pm and someone is booked for tomorrow), everyone still booked on the next day\'s orientation gets one reminder text.\n\nTurn off the GoHighLevel workflow "Orientation booked - remind" at the same time, or people get two reminders.'
-                :'Turn off orientation reminders from the Hub? It goes back to practice: it only lists who it would remind, and nobody gets a reminder unless the GoHighLevel workflow is on.')) return;
+  if(!confirm(on?'Turn on office orientation reminders from the Hub?\n\nFrom 10am tomorrow (or today, if it is before 6pm and someone is booked for tomorrow), everyone still booked on the next day\'s in-person office orientation gets one reminder text.\n\nTurn off the GoHighLevel workflow "Orientation booked - remind" at the same time, or people get two reminders.'
+                :'Turn off office orientation reminders from the Hub? It goes back to practice: it only lists who it would remind, and nobody gets a reminder unless the GoHighLevel workflow is on.')) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.orient_remind_live=on; return ['orientation reminders from the Hub '+(on?'ON':'OFF')]; }, 'orientation reminders');
   if(btn) btn.disabled=false;
