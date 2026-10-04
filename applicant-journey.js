@@ -2,7 +2,7 @@
    messages they receive and attached somewhere in the hub pages so that our office admin know"). Built from the code as
    of 2026-10-01: every message an applicant / new hire gets, its exact wording, when it goes, what triggers it, and
    whether it shows in GoHighLevel Conversations. If a message is changed, update this list too. */
-window.AP_JOURNEY_CHECKED = 'October 4, 2026 (private start and orientation links: no personal details in either)';
+window.AP_JOURNEY_CHECKED = 'October 4, 2026 (Not hiring and Candidate pool messages; the Hub sends the orientation reminder)';
 window.AP_JOURNEY = [
  {
   "stage": "applying",
@@ -219,19 +219,34 @@ window.AP_JOURNEY = [
  {
   "stage": "after interview (offer / pool / declined)",
   "order": 14,
-  "name": "Candidate pool / Not hiring (no message)",
-  "trigger": "Office presses '🗂 Candidate pool' or 'Not hiring' on the interview card.",
+  "name": "Not hiring message",
+  "trigger": "Office presses 'Not hiring' on the interview card, or 'Not moving forward' on the applicant, then OK on the message shown.",
   "automatic": false,
-  "button": "Applicant interview card → '🗂 Candidate pool' / 'Not hiring'",
-  "timing": "n/a",
-  "channel": "none",
-  "rule": "Nothing is sent. The Not hiring reason is 'kept for our records, never sent'. Applicant hears nothing.",
-  "subject": null,
-  "text": null,
-  "email_summary": null,
-  "shows_in_ghl": false,
-  "failure_visible": false,
-  "ghl_note": "Does not appear in GoHighLevel Conversations."
+  "button": "Applicant → 'Not hiring' / 'Not moving forward' → OK on the message",
+  "timing": "When OK is pressed, 8am to 6pm Central.",
+  "channel": "text (or email if they said no to texts)",
+  "rule": "Never automatic: after the office marks them, the Hub shows the exact message with OK (send) or Cancel (send nothing). One message per decision. A text needs their yes to texts on the application; without it the email goes instead, if we have one. Texts and emails go 8am to 6pm Central only and texts end with \"Reply STOP to opt out.\" Outside those hours it waits and their profile shows \"Send the message\" / \"Don't send it\". The reason the office wrote is never sent. A refused message raises a Needs Attention card.",
+  "subject": "Your application with Caring Companions",
+  "text": "Hi {first}, thank you for applying with Caring Companions and for your time. We've decided not to move forward right now. We wish you the very best. Reply STOP to opt out.",
+  "email_summary": "Same words, signed Caring Companions In-Home Senior Care, 417-234-8494.",
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "after interview (offer / pool / declined)",
+  "order": 14.5,
+  "name": "Candidate pool message",
+  "trigger": "Office presses '🗂 Candidate pool' (interview card or applicant list), then OK on the message shown. Not sent when only editing what a pool member is waiting for, or when the whole Inactive list is moved into the pool.",
+  "automatic": false,
+  "button": "Applicant → '🗂 Candidate pool' → OK on the message",
+  "timing": "When OK is pressed, 8am to 6pm Central.",
+  "channel": "text (or email if they said no to texts)",
+  "rule": "Never automatic: after the office marks them, the Hub shows the exact message with OK (send) or Cancel (send nothing). One message per decision. A text needs their yes to texts on the application; without it the email goes instead, if we have one. Texts and emails go 8am to 6pm Central only and texts end with \"Reply STOP to opt out.\" Outside those hours it waits and their profile shows \"Send the message\" / \"Don't send it\". The reason the office wrote is never sent. A refused message raises a Needs Attention card.",
+  "subject": "Your application with Caring Companions",
+  "text": "Hi {first}, thank you for applying with Caring Companions. We don't have the right opening for you today, but we've kept your application and will reach out when one comes up. Reply STOP to opt out.",
+  "email_summary": "Same words, signed Caring Companions In-Home Senior Care, 417-234-8494.",
+  "shows_in_ghl": true,
+  "failure_visible": true
  },
  {
   "stage": "after interview (offer / pool / declined)",
@@ -559,18 +574,18 @@ window.AP_JOURNEY = [
  {
   "stage": "orientation & training",
   "order": 25,
-  "name": "Orientation day-before reminder (GoHighLevel workflow)",
-  "trigger": "orientation-booking.html calls orientation-booked, which posts to the GHL inbound webhook (GHL_HOOK_ORIENTATION), starting the GHL workflow 'Orientation booked - remind'.",
+  "name": "Orientation day-before reminder",
+  "trigger": "Automatic: the Hub's hourly orientation reminder check (orientation-remind) looks at tomorrow's orientation sessions and texts everyone still booked. Practice (lists who it would remind, sends nothing) until the switch in Settings, Orientation reminders, is on. When it goes on, the GoHighLevel workflow 'Orientation booked - remind' is turned off.",
   "automatic": true,
   "button": null,
-  "timing": "Day before orientation (reminder_date); exact time set in GHL.",
-  "channel": "text (per code comment)",
-  "rule": "Wording, timing and consent rules live in the GHL workflow, not in code. Webhook failure is only logged; the page ignores it.",
+  "timing": "The day before, from 10am Central (later that day if the 10am check could not run). Skipped if they booked the same day (the booking confirmation covers it).",
+  "channel": "text only",
+  "rule": "Once per person per session. Never to someone whose application said no to texts or who opted out; ends with \"Reply STOP to opt out.\" Who was reminded, skipped (and why) or not reached is listed in Settings, Orientation reminders. A refused text raises a Needs Attention card; a check that cannot run raises one too.",
   "subject": null,
-  "text": null,
+  "text": "Hi {first}, a reminder that your Caring Companions orientation is tomorrow, {Weekday, Month D} at {h:mm AM}. Location: 1331 N Stewart Ave Ste B, Springfield MO 65802. [or: This is a video call: {link}.] Please bring [video call: Please have ready] the original ID documents you uploaded in Viventium Step 2 (for example, your photo ID). Need to change it? Call or text us at (417) 234-8494. Reply STOP to opt out.",
   "email_summary": null,
   "shows_in_ghl": true,
-  "failure_visible": false
+  "failure_visible": true
  },
  {
   "stage": "orientation & training",
@@ -702,7 +717,4 @@ window.AP_JOURNEY = [
   "failure_visible": true
  }
 ];
-window.AP_JOURNEY_ISSUES = [
- "\"Not hiring\" and \"Candidate pool\" send nothing to the applicant.",
- "The orientation day-before reminder lives in a GoHighLevel workflow: its wording and time are set in GoHighLevel, not here."
-];
+window.AP_JOURNEY_ISSUES = [];
