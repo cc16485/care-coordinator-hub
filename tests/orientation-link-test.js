@@ -40,6 +40,7 @@ function world(opts = {}) {
   };
   ctx.window.CGP2 && (ctx.CGP2 = ctx.window.CGP2);
   vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'caregiver-connect-rules.js'), 'utf8'), ctx);   /* the one copy the engine's hire record comes from */
   vm.runInContext(code + '\nthis.__x = { wcAct, wcOrientCall, wcOrientMsg, wcOrientLink, wcCard, WC_GUIDE, WC_ORIENT_LABEL, setRows: r => { WC_ROWS = r; } };', ctx);
   const X = ctx.__x;
   X.setRows([{ id: 'w1', candidate_id: '41', first_name: 'Ava', last_name: 'Applicant', phone: '(417) 555-0100', email: 'ava@x.com', status: 'booked', starts_at: '2026-10-06T15:00:00Z',

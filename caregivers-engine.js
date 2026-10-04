@@ -5391,20 +5391,10 @@ async function bgrOnOpen(){
    One screen a state auditor can scan: every person and their four pre-hire
    screenings (OIG / EDL / FCSR / Fingerprint) with the document on file.
    Read-only. Kept separate from ongoing/annual checks. */
-/* prehire.refs shape (SPEC): [{slot, name, type, company, status, date, pdf}] plus (2026-10-01, her ask: open what they
-   said from the caregiver profile even without a PDF) relationship, how_long, phone, email and answers (the r{n}_manual). */
+/* prehire.refs shape: see caregiver-connect-rules.js (the one copy; the hire record and this list read it alike). */
 function obPrehireRefs(c){
-  return [1,2,3,4].filter(n=>String(c[`r${n}n`]||'').trim()).map(n=>{
-    const m=c[`r${n}_manual`]||{};
-    return { slot:n, name:String(c[`r${n}n`]).trim(), type:obRefType(m.type||c[`r${n}_type`]),
-      company:c[`r${n}_company`]||m.employer_confirmed||'', status:c[`r${n}s`]||'Pending',
-      date:m.date||'', pdf:c[`r${n}_pdf`]||'',
-      relationship:m.relationship||c[`r${n}_rel`]||'', how_long:m.how_long||c[`r${n}_howlong`]||'',
-      phone:c[`r${n}_phone`]||'', email:c[`r${n}_email`]||'',
-      /* Office send (Desktop 377): their OK to a text, and how the form went out. */
-      sms_ok:c[`r${n}_sms_ok`]?Object.assign({},c[`r${n}_sms_ok`]):null, sent:c[`r${n}_sent`]?Object.assign({},c[`r${n}_sent`]):null,
-      answers:(c[`r${n}_manual`]&&typeof c[`r${n}_manual`]==='object')?JSON.parse(JSON.stringify(c[`r${n}_manual`])):null };
-  });
+  if(!globalThis.CCConnect) throw new Error('The caregiver rules did not load. Refresh the page and try again.');
+  return CCConnect.prehireRefs(c);
 }
 function preHireRows(){
   const rows = [];
@@ -7609,7 +7599,8 @@ async function wcAddToRoster(w){
   if(!c) return { status:'no_candidate' };
   if(typeof safeIsTmp === 'function' && safeIsTmp(c.id)) return { status:'save_failed', why:'their Background & References record is still being saved' };
   const hireDate = wcCentralYmd(new Date());
-  const rec = cgRecordFromCandidate(c, hireDate, '');
+  let rec;
+  try{ rec = cgRecordFromCandidate(c, hireDate, ''); }catch(e){ return { status:'save_failed', why:(e && e.message) || String(e) }; }
   rec.orient_date = ''; rec.alz_date = '';
   WC_CARRY.forEach(k => { if(c[k] != null && c[k] !== '') rec[k] = c[k]; });
   if(!rec.welcome_call_id && w.id) rec.welcome_call_id = w.id;
@@ -8173,50 +8164,16 @@ function saveCancelDetails(){
 
 /* The caregiver roster record built from a Background & References candidate. Shared by the office-session
    🎓 Promote (orientDate = the session date, they attended) and the welcome-call done path (orientDate = '',
-   orientation is done online after the call). */
+   orientation is done online after the call). 2026-10-03: the record itself is built by caregiver-connect-rules.js,
+   the ONE copy the server's hourly connect job also runs, so a caregiver moved over automatically gets exactly the
+   record this button makes. */
 function cgRecordFromCandidate(c, hireDate, orientDate){
-  return {
-    id: safeTmpId(), first: c.first, last: c.last,   /* 421: the database gives the real number when it saves */
-    // Carry the contact details and the SOURCE ID forward. Without these the
-    // promotion destroys the identity trail: the candidate record is deleted
-    // a few lines below, taking the only copy of their phone and email with
-    // it, and nothing links the new caregiver back to who they came from.
-    // That is why 56 caregivers ended up with no way to recognise their calls.
-    // (This fix already lived in the Staffing hub's copy; this is the copy
-    // that actually runs, and it was still losing them.)
-    phone: c.phone||'', email: c.email||'',
-    candidate_id: c.id,
-    /* The deterministic hiring-pipeline links travel too, so the pipeline shows them as on the roster
-       instead of "workspace is gone" with an Import button (a duplicate risk). 2026-10-02. */
-    offer_id: c.offer_id!=null && c.offer_id!=='' ? String(c.offer_id) : '',
-    intake_id: c.intake_id!=null ? c.intake_id : '',
+  if(!globalThis.CCConnect) throw new Error('The caregiver rules did not load. Refresh the page and try again.');
+  return CCConnect.recordFromCandidate(c, hireDate, orientDate, {
+    id: safeTmpId(),   /* 421: the database gives the real number when it saves */
     promoted_at: new Date().toISOString(),
-    // Why we were allowed to hire them, frozen at the only moment it can be —
-    // the candidate record and its evidence are deleted just below.
-    hiring_snapshot: (typeof hiringSnapshot === 'function' ? hiringSnapshot(c) : null),
-    hire_date: hireDate, oos: c.oos||'no',
-    orient_date: orientDate, alz_date: '',
-    ojt_date: '', ojt_signed: 'no', ojt_proof: '', ojt_online: '',
-    annual_date: '', annual_proof: '', annual_online: '',
-    oig_date: c.oig_date||'', oig_status: c.oig||'', oig_proof: c.oig_proof||'',
-    edl_date: c.edl_date||'', edl_status: c.edl||'', edl_proof: c.edl_proof||'',
-    fcsr_date: c.fcsr_date||'', fcsr_status: c.fcsr||'', fcsr_proof: c.fcsr_proof||'',
-    fp: c.fp||'N/A', fp_date: c.fp_date||'', fp_proof: c.fp_proof||'',
-    supv_date: '', supv_proof: '',
-    perf_date: '', perf_proof: '',
-    // Frozen pre-hire background-check record for the state audit binder, kept
-    // separate from the ongoing/annual checks above so the two never blur.
-    prehire: {
-      hired_at: hireDate,
-      oig:  { status: c.oig||'',  date: c.oig_date||'',  proof: c.oig_proof||''  },
-      edl:  { status: c.edl||'',  date: c.edl_date||'',  proof: c.edl_proof||''  },
-      fcsr: { status: c.fcsr||'', date: c.fcsr_date||'', proof: c.fcsr_proof||'' },
-      fp:   { status: c.fp||'',   date: c.fp_date||'',   proof: c.fp_proof||'',  applicable: c.oos==='yes' },
-      /* R3: the references travel with them too. Before this, every reference
-         detail was deleted with the candidate record below. */
-      refs: obPrehireRefs(c)
-    }
-  };
+    hiring_snapshot: (typeof hiringSnapshot === 'function' ? hiringSnapshot(c) : null)
+  });
 }
 // ── Promote / Close Out / Reopen ──────────────────────────────────────
 async function promoteToCaregiver(candidateId){
@@ -8225,7 +8182,10 @@ async function promoteToCaregiver(candidateId){
   if(safeIsTmp(c.id)){ alert(`${c.first} ${c.last} is still being saved. Try again in a moment.`); return; }
   if(!confirm(`Promote ${c.first} ${c.last} to caregiver?\n\nThey will be added to Training & Active Compliance and removed from Background & References.`)) return;
   const hireDate = c.orient_session_date || new Date().toISOString().split('T')[0];
-  caregivers.push(cgRecordFromCandidate(c, hireDate, hireDate));
+  let rec;
+  try{ rec = cgRecordFromCandidate(c, hireDate, hireDate); }
+  catch(e){ alert(`${c.first} ${c.last} was NOT promoted: ${(e && e.message) || e} They are still in Background & References.`); return; }
+  caregivers.push(rec);
   /* 421: their Background & References record is removed ONLY after the roster
      record reached the shared workspace (it carries the only copy of their checks). */
   if(!(await saveCaregivers({ quiet: true }))){

@@ -7294,6 +7294,14 @@ function scxEnsure(tab){
     r.async=false;                      // ordered against the engine below
     document.head.appendChild(r);
   }
+  /* 2026-10-03: the caregiver record a candidate becomes, and which Hub record is whose (the one copy the server's
+     connect job also runs). */
+  if(!globalThis.CCConnect && !document.getElementById('ccconnectrules')){
+    const k=document.createElement('script');
+    k.id='ccconnectrules'; k.src='caregiver-connect-rules.js?v=' + Date.now();
+    k.async=false;                      // ordered against the engine below
+    document.head.appendChild(k);
+  }
   s.async = false;
   s.src = 'caregivers-engine.js?v=' + Date.now();
   s.onerror = function(){

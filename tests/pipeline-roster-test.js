@@ -44,6 +44,7 @@ function world() {
   };
   ctx.window.CGP2 = ctx.CGP2;
   vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'caregiver-connect-rules.js'), 'utf8'), ctx);   /* the one copy the engine's hire record comes from */
   vm.runInContext(code + '\nthis.__x = { wcAddToRoster, promoteToCaregiver, lifecycleRows, renderHirePipeline, bgrTriage, bgrPersonCard, bgrDrawerHTML, bgrTimelineHTML };', ctx);
   return { X: ctx.__x, ctx, box, alerts };
 }
@@ -108,6 +109,7 @@ function checkMoved(label, W) {
   const alerts2 = [];
   const ctx2 = { caregivers: [{ first: 'Ava', last: 'Applicant', intake_id: 'intake-1' }], candidates: [], HYDRATED: true, alert: (m) => alerts2.push(m), openOBModal() {} };
   vm.createContext(ctx2);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'caregiver-connect-rules.js'), 'utf8'), ctx2);   /* the one copy the engine's hire record comes from */
   try {
     vm.runInContext(imp.slice(0, imp.indexOf('if (btn) { btn.disabled = true;')) + '}\nthis.__imp = intakeImport;', ctx2);
     await ctx2.__imp('intake-1', null);
