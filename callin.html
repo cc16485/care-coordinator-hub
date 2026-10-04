@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Call-in · Caring Companions</title>
+<!-- ============================================================
+     CALL-IN (CI2, Samantha 2026-10-03, "yes to all" on the call-ins plan): opened from the link in an admin's call-in
+     text. The link is that admin's alone, for that one call-in, and expires the day after the shift; the server
+     (callin-alert) checks it on every tap. Opening this page changes nothing: only the buttons do (phones preview
+     links automatically, and a preview must never count). Built like the missed clock-in page.
+     Confirm: exactly one confirm wins (the server). Ask more: the board's own list and rules. Call: rings your phone
+     first. The client and the family are never texted from here.
+     ============================================================ -->
+<style>
+  :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#FFC671; --bg:#F6F9FD; --border:#E2E8F0; --gray:#6B7280; --red:#C0392B; --green:#1E8449; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:#1f2a36;
+        padding:16px; padding-bottom:40px; max-width:560px; margin-inline:auto; }
+  h1{ font-size:20px; color:var(--navy); margin:6px 0 2px; }
+  .sub{ font-size:13.5px; color:var(--gray); margin-bottom:14px; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  .big{ font-size:17px; font-weight:800; color:var(--navy); }
+  .late{ display:inline-block; background:#FDECEA; color:var(--red); font-weight:800; font-size:13px; padding:3px 9px; border-radius:99px; margin-top:6px; }
+  .done{ background:#E8F6EE; border:1px solid var(--green); color:var(--green); border-radius:12px; padding:12px 14px; font-weight:700; }
+  a.call, button{ display:block; width:100%; text-align:center; font-size:16px; font-weight:800; padding:12px; border-radius:11px; border:0;
+        cursor:pointer; text-decoration:none; margin-top:8px; }
+  a.call{ background:#fff; border:1px solid var(--border); color:var(--navy); }
+  .primary{ background:var(--teal); color:#fff; }
+  .navy{ background:var(--navy); color:#fff; }
+  .ghost{ background:#fff; border:1px solid var(--border); color:var(--navy); }
+  .reasons label{ display:flex; gap:10px; align-items:center; padding:10px 12px; border:1px solid var(--border); border-radius:10px; margin-top:7px;
+        font-size:15px; cursor:pointer; }
+  .reasons input{ width:20px; height:20px; }
+  textarea{ width:100%; font-size:15px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; margin-top:8px; font-family:inherit; }
+  .note{ font-size:12.5px; color:var(--gray); margin-top:6px; }
+  .err{ color:var(--red); font-size:14px; margin-top:8px; font-weight:600; }
+  .practice{ background:#FFF6E3; border:1px solid var(--honey); border-radius:10px; padding:9px 12px; font-size:13px; margin-bottom:10px; }
+  .callbox{ background:#EEF7F6; border-color:var(--teal); }
+  .callline{ font-size:16px; font-weight:800; color:var(--navy); }
+  .said{ background:#fff; border-radius:10px; padding:8px 11px; margin-top:6px; font-size:14.5px; }
+  h2{ font-size:14px; color:var(--navy); margin:0 0 4px; text-transform:uppercase; letter-spacing:.04em; }
+  .said{ background:#F1F5F9; border-radius:10px; padding:8px 11px; margin-top:6px; font-size:14.5px; }
+  .row{ display:flex; gap:8px; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--border); }
+  .row:first-of-type{ border-top:0; }
+  .nm{ font-weight:700; color:var(--navy); font-size:15px; }
+  .st{ font-size:12.5px; color:var(--gray); }
+  .mini{ display:inline-block; width:auto; font-size:13.5px; padding:7px 12px; margin:0; }
+  .must{ display:inline-block; background:#FDECEA; color:var(--red); font-weight:800; font-size:12px; padding:3px 9px; border-radius:99px; margin:6px 6px 0 0; }
+  .soon{ display:inline-block; background:#FFF6E3; color:#8A5A00; font-weight:800; font-size:12px; padding:3px 9px; border-radius:99px; margin:6px 6px 0 0; }
+  .grp h3{ font-size:13px; color:var(--navy); margin:12px 0 2px; }
+  .pick{ display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-top:1px solid var(--border); font-size:14.5px; }
+  .pick input{ width:20px; height:20px; margin-top:2px; }
+  .busy{ color:var(--red); font-size:12.5px; }
+  .okmsg{ color:var(--green); font-weight:700; font-size:14px; margin-top:8px; }
+  select{ width:100%; font-size:15px; padding:10px; border:1px solid var(--border); border-radius:10px; margin-top:8px; background:#fff; }
+</style>
+</head>
+<body>
+<h1>Call-in</h1>
+<div class="sub" id="who">Caring Companions</div>
+<div id="app"><div class="card">Loading…</div></div>
+<script>
+const SUPA_URL='https://zngsgedlsxinbygwmxwn.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const P=Object.fromEntries(new URLSearchParams(location.search));
+const LINK={ c:P.c||'', a:P.a||'', e:Number(P.e||0), t:P.t||'' };
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const first=s=>String(s||'').trim().split(/\s+/)[0]||'';
+let D=null, busy=false, CANDS=null, MODE=null;
+async function call(action, extra){
+  const r=await fetch(SUPA_URL+'/functions/v1/callin-alert',{ method:'POST',
+    headers:{ 'Content-Type':'application/json', apikey:ANON, Authorization:'Bearer '+ANON },
+    body:JSON.stringify(Object.assign({}, LINK, { action }, extra||{})) });
+  let j=null; try{ j=await r.json(); }catch(e){}
+  if(!r.ok) throw new Error((j&&j.error)||('Something went wrong ('+r.status+').'));
+  return j;
+}
+const startsIn=m=>m==null?'':(m<0?'started '+(-m<60?(-m)+' min ago':Math.round(-m/60)+' h ago'):'starts in '+(m<60?m+' min':Math.floor(m/60)+' h '+(m%60)+' min'));
+function render(msg){
+  const app=document.getElementById('app');
+  if(!D){ app.innerHTML='<div class="card"><div class="err">'+esc(msg||'This link is not valid.')+'</div></div>'; return; }
+  document.getElementById('who').textContent='For '+D.me+' · Caring Companions';
+  let h='<div class="card"><div class="big">'+esc(D.what)+'</div>'
+    +(D.must_cover?'<span class="must">MUST BE COVERED</span>':'')
+    +(D.open&&D.mins_to_start!=null?'<span class="'+(D.mins_to_start<180?'late':'soon')+'">'+esc(startsIn(D.mins_to_start))+'</span>':'')
+    +'<div class="note" style="margin-top:6px;">'+(D.calling_off?esc(D.calling_off)+' called off':'Opened')+(D.called_in_at?' at '+esc(D.called_in_at):'')+'.</div></div>';
+  if(!D.open && D.filled){
+    const f=D.filled, ax=f.axiscare;
+    h+='<div class="done">'+(f.covered_by?'Filled'+(f.by?' by '+esc(first(f.by)):'')+': '+esc(f.covered_by)+' covers it'+(f.at?' ('+esc(f.at)+')':'')+'.':
+        'Closed'+(f.by?' by '+esc(first(f.by)):'')+': '+esc({uncovered:'not covered',covered_other_way:'covered another way',client_cancelled:'the client cancelled'}[f.how]||'closed')+'.'+(f.note?' '+esc(f.note):''))+'</div>'
+      +(ax?'<div class="card"><h2>AxisCare</h2><div class="note" style="color:'+(ax.status==='assigned'||ax.status==='already'?'var(--green)':'var(--red)')+';">'+esc(ax.detail||ax.status)+'</div></div>':'');
+  }
+  if(D.open){
+    h+='<div class="card"><h2>Who has it</h2>'+(D.claimed?'<div class="note" style="font-size:14.5px;color:inherit;"><b>'+esc(D.claimed.me?'You have it':D.claimed.by+' has it')+'</b>'+(D.claimed.at?' (since '+esc(D.claimed.at)+')':'')+'</div>'+(D.claimed.me?'':'<button class="ghost" id="bTake">Take it over</button>')
+      :'<button class="primary" id="bClaim">I\'ve got it</button><div class="note">The other admins see your name, so nobody doubles up.</div>')+'</div>';
+    h+='<div class="card"><h2>Said yes</h2>'+(D.yes.length?D.yes.map(y=>'<div class="row"><div><div class="nm">'+esc(y.name)+'</div><div class="st">'+esc(y.at?'said yes at '+y.at:'said yes')+(y.reply?' · "'+esc(y.reply)+'"':'')+'</div></div><button class="primary mini" data-confirm="'+esc(y.name)+'">Confirm '+esc(first(y.name))+'</button></div>').join('')
+      :'<div class="note">Nobody yet.</div>')+'</div>';
+  }
+  h+='<div class="card"><h2>Asked ('+D.asked.length+')</h2>'+(D.asked.length?D.asked.map(a=>'<div class="row"><div><div class="nm">'+esc(a.name)+'</div><div class="st">'+esc(a.state)+(a.at?' · asked '+esc(a.at):'')+(a.replied_at?' · replied '+esc(a.replied_at):'')+'</div></div>'
+      +(a.can_call?'<button class="ghost mini" data-call="'+esc(a.id)+'" data-name="'+esc(first(a.name))+'">📞 Call</button>':'')+'</div>').join(''):'<div class="note">Nobody has been asked yet.</div>')+'</div>';
+  if(D.open){
+    h+='<div class="card"><h2>Ask more</h2>'+(D.send_live?'':'<div class="practice">Texting caregivers is switched off in Settings, so the list shows but nothing can be sent.</div>')
+      +(CANDS?candHtml():'<button class="ghost" id="bCands">Show who else can be asked</button><div class="note">The same list and rules as the board. Only the people you tick are texted. Caregivers aren\'t texted 9pm to 8am unless the shift starts within 3 hours.</div>')+'</div>';
+  }
+  h+='<div class="card"><h2>Call</h2>'
+    +(D.can_call.caller&&D.calling_off?'<button class="ghost" data-call="caller" data-name="'+esc(first(D.calling_off))+'">📞 Call '+esc(first(D.calling_off))+' (called off)</button>':'')
+    +(D.can_call.client?'<button class="ghost" data-call="client" data-name="'+esc(first(D.client))+'">🏠 Call '+esc(first(D.client))+'\'s home</button>':'')
+    +'<div class="note">Rings your phone first, then connects from the office number. The client and family are never texted from here.</div><div class="note" id="callMsg"></div></div>';
+  if(D.open){
+    h+='<div class="card"><h2>Close it</h2><select id="closeHow"><option value="">How was it settled?</option><option value="other_way">Covered another way</option><option value="client_cancelled">Client cancelled</option><option value="uncovered">Couldn\'t cover it</option></select>'
+      +'<textarea id="closeNote" rows="2" maxlength="300" placeholder="Note (optional)"></textarea><button class="navy" id="bClose">Close the call-in</button></div>';
+  }
+  h+='<div class="err" id="err">'+esc(msg||'')+'</div>';
+  app.innerHTML=h;
+  const on=(id,fn)=>{ const b=document.getElementById(id); if(b) b.onclick=fn; };
+  on('bClaim', ()=>act('claim'));
+  on('bTake', ()=>act('claim', ()=>({ take_over:true }), 'Take over the call-in from '+(D.claimed&&D.claimed.by)+'?'));
+  on('bCands', async()=>{ try{ busy=true; const j=await call('candidates'); CANDS=j.groups||[]; busy=false; render(); }catch(e){ busy=false; document.getElementById('err').textContent=e.message; } });
+  on('bAsk', ()=>{ const names=[...document.querySelectorAll('input[name=ask]:checked')].map(x=>x.value); if(!names.length){ document.getElementById('err').textContent='Tick who to ask first.'; return; }
+    act('ask', ()=>({ recipients:names }), 'Text '+names.length+' caregiver'+(names.length===1?'':'s')+' now? ('+names.map(first).join(', ')+')'); });
+  on('bClose', ()=>{ const how=(document.getElementById('closeHow')||{}).value; if(!how){ document.getElementById('err').textContent='Pick how it was settled.'; return; }
+    act('close', ()=>({ how, note:(document.getElementById('closeNote')||{}).value||'' }), 'Close the call-in? Caregivers still waiting get the "no action needed" text.'); });
+  document.querySelectorAll('[data-confirm]').forEach(b=>b.onclick=()=>confirmFlow(b.getAttribute('data-confirm')));
+  document.querySelectorAll('[data-call]').forEach(b=>b.onclick=()=>bridge(b.getAttribute('data-call'), b.getAttribute('data-name')));
+}
+function candHtml(){
+  if(!CANDS.length) return '<div class="note">Nobody else can be asked right now (everyone who fits has been asked, or is excluded).</div>';
+  return CANDS.map(g=>'<div class="grp"><h3>'+esc(g.label)+'</h3>'+g.people.map(p=>'<label class="pick"><input type="checkbox" name="ask" value="'+esc(p.name)+'"'+(D.send_live?'':' disabled')+'><span><b>'+esc(p.name)+'</b>'
+    +(p.why?'<br><span class="st">'+esc(p.why)+'</span>':'')+(p.town?'<br><span class="st">'+esc(p.town)+(p.miles!=null?' · '+esc(p.miles)+' mi':'')+'</span>':'')
+    +(p.working_then?'<br><span class="busy">Working then: '+esc(p.working_then)+'</span>':'')+'</span></label>').join('')+'</div>').join('')
+    +(D.send_live?'<button class="primary" id="bAsk">Ask the people I ticked</button>':'');
+}
+function confirmFlow(name){
+  const others=D.yes.filter(y=>y.name!==name);
+  const e=document.getElementById('err');
+  e.innerHTML='<div class="card" style="margin-top:10px;"><div style="font-weight:700;color:var(--navy);">Give '+esc(D.what)+' to '+esc(name)+'?</div>'
+    +'<div class="note">'+esc(first(name))+' gets the confirmation text, AxisCare is updated (only if nobody else is on the visit), and the caregivers still waiting are told it\'s covered. The other admins hear who filled it.</div>'
+    +(others.length?'<div style="margin-top:8px;font-size:14px;"><b>'+esc(others.map(o=>first(o.name)).join(', '))+'</b> also said yes. What should they hear?</div>'
+      +'<label class="pick"><input type="radio" name="nc" value="msg" checked><span>A thank-you:<textarea id="ncMsg" rows="2" maxlength="400">'+esc(D.not_chosen_default)+'</textarea></span></label>'
+      +'<label class="pick"><input type="radio" name="nc" value="silent"><span>Nothing</span></label>':'')
+    +'<button class="primary" id="cYes">Yes, '+esc(first(name))+' covers it</button><button class="ghost" id="cNo">Cancel</button></div>';
+  document.getElementById('cNo').onclick=()=>{ e.innerHTML=''; };
+  document.getElementById('cYes').onclick=()=>{ const sel=(document.querySelector('input[name=nc]:checked')||{}).value;
+    const nc=!others.length?undefined:(sel==='silent'?{ silent:true }:{ msg:(document.getElementById('ncMsg')||{}).value||'' });
+    e.innerHTML=''; act('confirm', ()=>({ covered_by:name, not_chosen:nc })); };
+}
+async function bridge(target, name){
+  const m=document.getElementById('callMsg'); if(m) m.textContent='Asking GoHighLevel to ring your phone…';
+  try{ const j=await call('bridge',{ target });
+    if(m) m.textContent=j.ok?'Ringing your phone now. Answer, then press any key to connect to '+(j.name||name)+'.'
+      :({ too_soon:'You just started a call. Try again in '+(j.wait_sec||30)+' seconds.', no_user:'Your GoHighLevel user isn\'t linked yet (Hub Settings, Calls).', no_workflow:'GoHighLevel can\'t ring you yet (the Hub call bridge workflow isn\'t published).',
+          not_found:'Not in GoHighLevel: no contact has this number.', several:'More than one GoHighLevel contact has this number, so it wasn\'t called.' }[j.why]||'The call did not start.')+(j.message&&j.why!=='not_found'&&j.why!=='several'?' '+j.message:'');
+  }catch(e){ if(m) m.textContent=e.message; }
+}
+function confirmBox(q){ return new Promise(res=>{ const e=document.getElementById('err'); e.innerHTML='<div class="card" style="margin-top:10px;"><div style="font-weight:700;color:var(--navy);">'+esc(q)+'</div><button class="primary" id="cYes">Yes</button><button class="ghost" id="cNo">Cancel</button></div>';
+  document.getElementById('cYes').onclick=()=>{ e.innerHTML=''; res(true); }; document.getElementById('cNo').onclick=()=>{ e.innerHTML=''; res(false); }; }); }
+async function act(action, extraFn, ask){
+  if(busy) return; let extra={};
+  try{ extra=extraFn?extraFn():{}; }catch(e){ document.getElementById('err').textContent=e.message; return; }
+  if(ask && !(await confirmBox(ask))) return;
+  busy=true;
+  try{ const j=await call(action, extra); D=await call('view'); if(action==='ask') CANDS=null;
+    let say='', good=true;
+    if(j.already){ good=false; say=j.already.covered_by?'Already filled'+(j.already.by?' by '+first(j.already.by):'')+': '+j.already.covered_by+' covers it. Nothing was changed.':'Already closed'+(j.already.by?' by '+first(j.already.by):'')+'. Nothing was changed.'; }
+    else if(j.claimed_by_other){ good=false; say=j.claimed_by_other.by+' already has it'+(j.claimed_by_other.at?' (since '+j.claimed_by_other.at+')':'')+'. Tap Take it over if you are taking it.'; }
+    else if(j.filled) say='Done. '+j.filled.covered_by+' covers it.'+(j.filled.axiscare&&j.filled.axiscare.status!=='assigned'&&j.filled.axiscare.status!=='already'?' AxisCare: '+j.filled.axiscare.detail:'')+(j.others_told?' The other admins were told.':'');
+    else if(action==='ask') say='Asked '+(j.sent||[]).length+'.'+((j.already_asked||[]).length?' Already asked: '+j.already_asked.join(', ')+'.':'')+((j.failed||[]).length?' Not sent: '+j.failed.join('; ')+'.':'')+((j.not_eligible||[]).length?' Not on the list any more: '+j.not_eligible.join(', ')+'.':'');
+    else if(j.others_told) say='Done. The other admins were told.';
+    render(); const el=document.getElementById('err'); if(el&&say){ el.className=good?'okmsg':'err'; el.textContent=say; } }
+  catch(e){ const el=document.getElementById('err'); if(el) el.textContent=e.message; }
+  busy=false;
+}
+(async()=>{ try{ D=await call('view'); render(); }catch(e){ D=null; render(e.message); } })();
+</script>
+</body>
+</html>
