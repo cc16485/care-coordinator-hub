@@ -16335,10 +16335,19 @@ async function cgcLineRender(){
   const lk='<a href="javascript:void(0)" onclick="cgcToggleList()">'+(CGC.open?'hide the list':'see the list')+'</a>';
   el.innerHTML=bad+(live
     ? 'Connected automatically this week: <b>'+done.length+'</b>'+(parts.length?' ('+parts.join(', ')+')':'')+' · <b>'+look+'</b> need'+(look===1?'s':'')+' a look · '+lk
-    : '<b style="color:#B7791F;">Caregiver connect is in practice.</b> The hourly check would connect <b>'+((run.linked||0)+(run.moved||0)+(run.created||0))+'</b> ('+(run.linked||0)+' to their Hub record, '+(run.moved||0)+' moved from Background &amp; References, '+(run.created||0)+' new Hub record'+(run.created===1?'':'s')+') · <b>'+(run.review||0)+'</b> need'+(run.review===1?'s':'')+' a look · '+lk+' · turn it on in Settings, Caregiver connect')
+      +(cgcCanSwitch()?' · <a href="javascript:void(0)" onclick="cgcToggle(this)">'+((DATA.ops_settings||{}).cg_connect_live===true?'turn off':'turn back on (it is off now)')+'</a> <span class="field-note" id="cgcLineSaved"></span>':'')
+    : ((DATA.ops_settings||{}).cg_connect_live===true
+        ? '<b style="color:#1E8449;">Caregiver connect is ON.</b> The next hourly check (at :17) makes these changes; the last practice check would connect'
+        : '<b style="color:#B7791F;">Caregiver connect is in practice.</b> The hourly check would connect')+' <b>'+((run.linked||0)+(run.moved||0)+(run.created||0))+'</b> ('+(run.linked||0)+' to their Hub record, '+(run.moved||0)+' moved from Background &amp; References, '+(run.created||0)+' new Hub record'+(run.created===1?'':'s')+') · <b>'+(run.review||0)+'</b> need'+(run.review===1?'s':'')+' a look · '+lk
+      /* 2026-10-03, Samantha couldn't find the switch in Settings: the same switch, here, for whoever may change settings */
+      +((DATA.ops_settings||{}).cg_connect_live===true
+        ? (cgcCanSwitch()?' · <a href="javascript:void(0)" onclick="cgcToggle(this)">turn off</a> <span class="field-note" id="cgcLineSaved"></span>':'')
+        : cgcCanSwitch()?' <button class="secondary" style="font-size:12.5px;padding:4px 11px;margin-left:6px;" onclick="cgcToggle(this)">Turn on caregiver connect</button> <span class="field-note" id="cgcLineSaved"></span>'
+                        :' · an owner turns it on in Settings, Caregiver connect'))
     +(CGC.open?cgcListHtml(live):'');
 }
 function cgcToggleList(){ CGC.open=!CGC.open; cgcLineRender(); }
+function cgcCanSwitch(){ try{ return typeof ccCan==='function' && ccCan('manage_settings'); }catch(_){ return false; } }
 function cgcListHtml(live){
   const esc=escapeHtmlComms, nm=x=>esc(x.ax_name||('AxisCare '+x.axiscare_id));
   const open=x=>'<a href="javascript:void(0)" onclick="cgdOpenProfile(\''+esc(String(x.axiscare_id))+'\')"><b>'+nm(x)+'</b></a>';
@@ -16475,8 +16484,12 @@ async function cgcToggle(btn){
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.cg_connect_live=on; return ['caregiver connect '+(on?'ON':'OFF')]; }, 'caregiver connect');
   if(btn) btn.disabled=false;
-  const s=document.getElementById('cgcSetSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):(on?'Caregiver connect is on from the next hourly check.':'Caregiver connect is off (practice).');
+  const msg=out.error?('Could not save: '+out.error.message):(on?'Caregiver connect is on from the next hourly check.':'Caregiver connect is off (practice).');
+  const s=document.getElementById('cgcSetSaved'); if(s) s.textContent=msg;
   cgcSetRender();
+  if(!out.error) await cgcLineRender();
+  const l=document.getElementById('cgcLineSaved'); if(l) l.textContent=msg;
+  if(out.error&&!s&&!l) alert(msg);
 }
 
 /* ---- the FULL caregiver profile page (one workspace, sectioned) ---- */
