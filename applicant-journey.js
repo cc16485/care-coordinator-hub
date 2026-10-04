@@ -2,7 +2,7 @@
    messages they receive and attached somewhere in the hub pages so that our office admin know"). Built from the code as
    of 2026-10-01: every message an applicant / new hire gets, its exact wording, when it goes, what triggers it, and
    whether it shows in GoHighLevel Conversations. If a message is changed, update this list too. */
-window.AP_JOURNEY_CHECKED = 'October 4, 2026 (everything added today: private links, Not hiring and Candidate pool messages, the office orientation reminder, the background review, and the Admin page switches)';
+window.AP_JOURNEY_CHECKED = 'October 4, 2026 (checked by the journey check against the real messages; no em dashes)';
 window.AP_JOURNEY = [
  {
   "stage": "applying",
@@ -96,7 +96,7 @@ window.AP_JOURNEY = [
   "channel": "text + email",
   "rule": "Text only with their yes to texts; email to anyone with an address. No STOP wording.",
   "subject": "Your in-person interview: {day} at {time}",
-  "text": "Hi {first}, your IN-PERSON interview with Caring Companions is booked for {Weekday, Month D} at {h:mm AM}. Please come to our office: {location}. {location note} This is not a phone interview, so we will not call you. Need to move or cancel it? https://mo-care.com/apply?book={applicant_id} — or call {office phone}. Reply STOP to opt out.",
+  "text": "Hi {first}, your IN-PERSON interview with Caring Companions is booked for {Weekday, Month D} at {h:mm AM}. Please come to our office: {location}. {location note} This is not a phone interview, so we will not call you. Need to move or cancel it? https://mo-care.com/apply?book={applicant_id} or call {office phone}. Reply STOP to opt out.",
   "email_summary": "'Your in-person interview is booked for {day} at {time}.' + Where to come block (name, address, map, note, photo) + 'This is an in-person interview at our office, not a phone call, and it takes about 20 minutes (the calendar keeps a 30-minute slot). Need to move or cancel it? You can do that here, or call or text us.' + 'We are looking forward to meeting you.'",
   "shows_in_ghl": true,
   "failure_visible": true
@@ -112,7 +112,7 @@ window.AP_JOURNEY = [
   "channel": "text + email",
   "rule": "Text only with their yes to texts; email to anyone with an address. A cancel followed by a rebook before the run sends nothing (the new confirmation covers it).",
   "subject": "Your interview on {day} is cancelled",
-  "text": "Hi {first}, your interview with Caring Companions for {day} at {time} is cancelled — nothing more to do. Want a different time? Pick one here: https://mo-care.com/apply?book={applicant_id} or call {office phone}.",
+  "text": "Hi {first}, your interview with Caring Companions for {day} at {time} is cancelled, so there is nothing more to do. Want a different time? Pick one here: https://mo-care.com/apply?book={applicant_id} or call {office phone}.",
   "email_summary": "'Your interview for {day} at {time} is cancelled, nothing more to do on your side. If you would like a different time, pick one here whenever suits you, or call us on {phone}.'",
   "shows_in_ghl": true,
   "failure_visible": true
@@ -128,7 +128,7 @@ window.AP_JOURNEY = [
   "channel": "text + email",
   "rule": "Text only with their yes to texts; email to anyone with an address.",
   "subject": "Tomorrow: your in-person interview at {time}",
-  "text": "Hi {first}, reminder: your IN-PERSON interview is {Weekday, Month D} at {h:mm AM}. Please come to our office: {location}. {location note} This is not a phone interview, so we will not call you. Need to move or cancel it? {manage link} — or call {office phone}. Reply STOP to opt out.",
+  "text": "Hi {first}, reminder: your IN-PERSON interview is {Weekday, Month D} at {h:mm AM}. Please come to our office: {location}. {location note} This is not a phone interview, so we will not call you. Need to move or cancel it? {manage link} or call {office phone}. Reply STOP to opt out.",
   "email_summary": "'A reminder that your interview is tomorrow, {day} at {time}.' + Where to come block + 'It takes about {interview length from the Interviews settings, e.g. 45} minutes...' + move/cancel link.",
   "shows_in_ghl": true,
   "failure_visible": true
@@ -629,8 +629,8 @@ window.AP_JOURNEY = [
   "timing": "Immediately when the office assigns the course. The text only goes 8am–6pm Central; the email any time.",
   "channel": "text + email",
   "rule": "Text 8am–6pm Central with \"Reply STOP to opt out.\"; after hours the email still goes and the office is told the text did not. Failures raise a card.",
-  "subject": "Your training invitation — {course title}",
-  "text": "Hi {first}, welcome to Caring Companions! You've been assigned your required training: {course} ({hours} hrs, due by {Month D}).\nStart any time on your phone — your private link, no login needed:\nhttps://training.mo-care.com/#/me/{token}\nQuestions? Call or text the office: (417) 234-8494\n— Caring Companions",
+  "subject": "Your training invitation: {course title}",
+  "text": "Hi {first}, welcome to Caring Companions! You've been assigned your required training: {course} ({hours} hrs, due by {Month D}).\nStart any time on your phone. Your private link, no login needed:\nhttps://training.mo-care.com/#/me/{token}\nQuestions? Call or text the office: (417) 234-8494\nCaring Companions",
   "email_summary": "Welcome; course name + hours + due date; [Start my training]; works on any device, progress saves, completions recorded for your training file.",
   "shows_in_ghl": true,
   "failure_visible": true
@@ -645,8 +645,8 @@ window.AP_JOURNEY = [
   "timing": "Office button: immediately (text 8am–6pm only). Automatic: the daily run at about 9am Central.",
   "channel": "text + email",
   "rule": "Texts 8am–6pm Central with \"Reply STOP to opt out.\"; automatic ones after hours are held and sent on the next run. Failures raise a card.",
-  "subject": "Training reminder — Caring Companions  |  One quick step — sign off on your training",
-  "text": "Hi {first}, a friendly reminder from Caring Companions — you still have required training to finish (due by {date}): {up to 3 course titles}.\nYour personal training link: https://training.mo-care.com/#/me/{token}\nQuestions? Call or text the office: (417) 234-8494\n— Caring Companions   ||   Sign-off version: Hi {first}, one quick step from Caring Companions — please sign off on your completed training ({titles}). Open your personal link and tap Sign: {link} ...",
+  "subject": "Training reminder from Caring Companions  |  One quick step: sign off on your training",
+  "text": "Hi {first}, a friendly reminder from Caring Companions: you still have required training to finish (due by {date}): {up to 3 course titles}.\nYour personal training link: https://training.mo-care.com/#/me/{token}\nQuestions? Call or text the office: (417) 234-8494\nCaring Companions   ||   Sign-off version: Hi {first}, one quick step from Caring Companions: please sign off on your completed training ({titles}). Open your personal link and tap Sign: {link} ...",
   "email_summary": "Reminder with [Continue my training], or sign-off version with [Sign off now] ('type your name to confirm you completed the training yourself').",
   "shows_in_ghl": true,
   "failure_visible": false
@@ -661,7 +661,7 @@ window.AP_JOURNEY = [
   "timing": "Immediately on completion, any hour.",
   "channel": "email only",
   "rule": "Email only. A refused email raises a \"Didn't go through\" card.",
-  "subject": "Your certificate — {course title}",
+  "subject": "Your certificate: {course title}",
   "text": null,
   "email_summary": "'Congratulations! 🎉 You've completed {course} on {date}, and your official certificate is ready.' [Download my certificate] (1-year signed link).",
   "shows_in_ghl": true,
@@ -678,7 +678,7 @@ window.AP_JOURNEY = [
   "channel": "text only",
   "rule": "Text with \"Reply STOP to opt out.\"; held (not lost) outside 8am–6pm. A refused text raises a card.",
   "subject": null,
-  "text": "Hi {first}, now that you've completed your Alzheimer's & Dementia training, you are cleared to work with clients. Welcome to the team!\nFrom now on, use our office number for everything — save it in your phone: (417) 234-8494. For anything you need, call or text the office — save it in your phone: (417) 234-8494.\n— Caring Companions",
+  "text": "Hi {first}, now that you've completed your Alzheimer's & Dementia training, you are cleared to work with clients. Welcome to the team!\nFor anything you need, call or text the office, and save the number in your phone: (417) 234-8494.\nCaring Companions",
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": false
