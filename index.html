@@ -7768,6 +7768,9 @@ const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews', states
 function switchTab(tab){
   if(CC_RETIRED_TABS[tab]){ const f=CC_RETIRED_FILTER[tab], to=CC_RETIRED_TABS[tab];
     if(f&&to==='leadsstarts'&&typeof LS!=='undefined') LS.filter=f; else if(f&&typeof CL!=='undefined') CL.filter=f; tab=to; }
+  /* 2026-10-03: the Hub Settings link (GoHighLevel menu, cc.mo-care.com/#settings) opens the page before the roles are
+     read, so this used to refuse everyone, owners included. Until the roles are known, wait and decide then. */
+  if(tab==='settings' && !CC_ROLES_CHECKED){ CC_SETTINGS_PENDING=true; ccSetSectionTitle('settings'); return; }
   if(tab==='settings' && !ccCan('manage_settings')){ alert('You do not have permission to open Settings.'); return; }
   ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
@@ -16335,10 +16338,19 @@ async function cgcLineRender(){
   const lk='<a href="javascript:void(0)" onclick="cgcToggleList()">'+(CGC.open?'hide the list':'see the list')+'</a>';
   el.innerHTML=bad+(live
     ? 'Connected automatically this week: <b>'+done.length+'</b>'+(parts.length?' ('+parts.join(', ')+')':'')+' · <b>'+look+'</b> need'+(look===1?'s':'')+' a look · '+lk
-    : '<b style="color:#B7791F;">Caregiver connect is in practice.</b> The hourly check would connect <b>'+((run.linked||0)+(run.moved||0)+(run.created||0))+'</b> ('+(run.linked||0)+' to their Hub record, '+(run.moved||0)+' moved from Background &amp; References, '+(run.created||0)+' new Hub record'+(run.created===1?'':'s')+') · <b>'+(run.review||0)+'</b> need'+(run.review===1?'s':'')+' a look · '+lk+' · turn it on in Settings, Caregiver connect')
+      +(cgcCanSwitch()?' · <a href="javascript:void(0)" onclick="cgcToggle(this)">'+((DATA.ops_settings||{}).cg_connect_live===true?'turn off':'turn back on (it is off now)')+'</a> <span class="field-note" id="cgcLineSaved"></span>':'')
+    : ((DATA.ops_settings||{}).cg_connect_live===true
+        ? '<b style="color:#1E8449;">Caregiver connect is ON.</b> The next hourly check (at :17) makes these changes; the last practice check would connect'
+        : '<b style="color:#B7791F;">Caregiver connect is in practice.</b> The hourly check would connect')+' <b>'+((run.linked||0)+(run.moved||0)+(run.created||0))+'</b> ('+(run.linked||0)+' to their Hub record, '+(run.moved||0)+' moved from Background &amp; References, '+(run.created||0)+' new Hub record'+(run.created===1?'':'s')+') · <b>'+(run.review||0)+'</b> need'+(run.review===1?'s':'')+' a look · '+lk
+      /* 2026-10-03, Samantha couldn't find the switch in Settings: the same switch, here, for whoever may change settings */
+      +((DATA.ops_settings||{}).cg_connect_live===true
+        ? (cgcCanSwitch()?' · <a href="javascript:void(0)" onclick="cgcToggle(this)">turn off</a> <span class="field-note" id="cgcLineSaved"></span>':'')
+        : cgcCanSwitch()?' <button class="secondary" style="font-size:12.5px;padding:4px 11px;margin-left:6px;" onclick="cgcToggle(this)">Turn on caregiver connect</button> <span class="field-note" id="cgcLineSaved"></span>'
+                        :' · an owner turns it on in Settings, Caregiver connect'))
     +(CGC.open?cgcListHtml(live):'');
 }
 function cgcToggleList(){ CGC.open=!CGC.open; cgcLineRender(); }
+function cgcCanSwitch(){ try{ return typeof ccCan==='function' && ccCan('manage_settings'); }catch(_){ return false; } }
 function cgcListHtml(live){
   const esc=escapeHtmlComms, nm=x=>esc(x.ax_name||('AxisCare '+x.axiscare_id));
   const open=x=>'<a href="javascript:void(0)" onclick="cgdOpenProfile(\''+esc(String(x.axiscare_id))+'\')"><b>'+nm(x)+'</b></a>';
@@ -16475,8 +16487,12 @@ async function cgcToggle(btn){
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.cg_connect_live=on; return ['caregiver connect '+(on?'ON':'OFF')]; }, 'caregiver connect');
   if(btn) btn.disabled=false;
-  const s=document.getElementById('cgcSetSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):(on?'Caregiver connect is on from the next hourly check.':'Caregiver connect is off (practice).');
+  const msg=out.error?('Could not save: '+out.error.message):(on?'Caregiver connect is on from the next hourly check.':'Caregiver connect is off (practice).');
+  const s=document.getElementById('cgcSetSaved'); if(s) s.textContent=msg;
   cgcSetRender();
+  if(!out.error) await cgcLineRender();
+  const l=document.getElementById('cgcLineSaved'); if(l) l.textContent=msg;
+  if(out.error&&!s&&!l) alert(msg);
 }
 
 /* ---- the FULL caregiver profile page (one workspace, sectioned) ---- */
@@ -17853,6 +17869,8 @@ async function coordMsgDone(id){
 let CC_ROLES=[];                       // roles held by the signed-in person
 let CC_ROLE_BY_EMAIL={};               // every person's roles, for owner identity
 let CC_ROLES_LOADED=false;             // did the read actually succeed?
+let CC_ROLES_CHECKED=false;            // has the read finished at all (succeeded or not)?
+let CC_SETTINGS_PENDING=false;         // Settings was asked for before the roles were known
 
 /* The default policy. Overridden by app_data 'role_permissions' when present,
    so the mapping itself is data and does not need a deploy to change. */
@@ -17944,6 +17962,8 @@ function ccRolesFor(email){
 function ccApplyRoleUi(){
   const sft=document.getElementById('settingsFtab');
   if(sft) sft.style.display=ccCan('manage_settings')?'flex':'none';
+  if(CC_SETTINGS_PENDING && CC_ROLES_CHECKED){ CC_SETTINGS_PENDING=false; switchTab('settings'); }
+  try{ if(document.getElementById('cgcLine') && CGC.log) cgcLineRender(); }catch(_){}
 }
 function ccRolesBanner(){
   const id='ccRolesWarn';
@@ -24211,6 +24231,7 @@ async function opsLoadRouting(){
     OPS_ROUTING={}; OPS_DOMAINS=[]; OPS_PEOPLE=[];
     CC_ROLES=[]; CC_ROLE_BY_EMAIL={}; CC_ROLES_LOADED=false;
   }
+  CC_ROLES_CHECKED=true;
   ccApplyRoleUi();
   ccRolesBanner();
 }

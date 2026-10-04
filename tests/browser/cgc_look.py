@@ -39,7 +39,18 @@ async()=>{
          { id:2, at:iso(10), mode:'practice', action:'move', result:'would', axiscare_id:'103', ax_name:'Casey Moreno', how:'phone', record_name:'Casey Moreno' },
          { id:3, at:iso(10), mode:'practice', action:'review', result:'would', axiscare_id:'105', ax_name:'Taylor Brandt', why:'the name is similar, but no phone or email matches' }];
   await cgcLoad(true); await cgcLineRender();
-  ok('practice: the directory line says practice, what it would do, and where to turn it on', /Caregiver connect is in practice\. The hourly check would connect 2 \(1 to their Hub record, 1 moved from Background & References, 0 new Hub records\) · 1 needs a look · see the list · turn it on in Settings, Caregiver connect/.test(line.innerText), line.innerText);
+  ok('practice: the directory line says practice, what it would do, and where to turn it on', /Caregiver connect is in practice\. The hourly check would connect 2 \(1 to their Hub record, 1 moved from Background & References, 0 new Hub records\) · 1 needs a look · see the list · an owner turns it on in Settings, Caregiver connect/.test(line.innerText), line.innerText);
+  window.ccCan=()=>false; await cgcLineRender();
+  ok('practice, someone who may not change settings: no button, told an owner turns it on', !line.querySelector('button') && /an owner turns it on in Settings, Caregiver connect/.test(line.innerText), line.innerText);
+  window.ccCan=k=>k==='manage_settings'; DATA.ops_settings={}; await cgcLineRender();
+  const tb=[...line.querySelectorAll('button')].find(b=>b.textContent==='Turn on caregiver connect');
+  ok('practice, an owner: the switch is right on the Caregivers page', !!tb, line.innerText);
+  let lm=null; const keepMerge=window.tkMerge; window.tkMerge=async(fn)=>{ const m={}; const ch=fn(m,{}); lm=m; DATA.ops_settings=Object.assign({},DATA.ops_settings,m); return { changed:ch, error:null }; };
+  tb.click(); await sleep(80);
+  ok('pressing it turns caregiver connect on; the line says ON from the next hourly check, with a way to turn it off', lm&&lm.cg_connect_live===true && /Caregiver connect is ON\. The next hourly check \(at :17\) makes these changes/.test(line.innerText)
+     && /turn off/.test(line.innerText) && !line.querySelector('button') && /on from the next hourly check/.test(line.innerText), line.innerText);
+  window.tkMerge=keepMerge; DATA.ops_settings={};
+  await cgcLineRender();
   cgcToggleList(); await sleep(50);
   ok('practice list: every would-do with its reason, needs-a-look first', /What the check would do \(practice, nothing has changed\)\s*Taylor Brandt · needs a look: the name is similar[\s\S]*Jordan Pike · would connect to their Hub record Jo Pike \(same phone\)[\s\S]*Casey Moreno · would move over from Background & References/.test(line.innerText), line.innerText);
   [...line.querySelectorAll('a')].find(a=>a.textContent==='Taylor Brandt').click();
