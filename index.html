@@ -7768,6 +7768,9 @@ const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews', states
 function switchTab(tab){
   if(CC_RETIRED_TABS[tab]){ const f=CC_RETIRED_FILTER[tab], to=CC_RETIRED_TABS[tab];
     if(f&&to==='leadsstarts'&&typeof LS!=='undefined') LS.filter=f; else if(f&&typeof CL!=='undefined') CL.filter=f; tab=to; }
+  /* 2026-10-03: the Hub Settings link (GoHighLevel menu, cc.mo-care.com/#settings) opens the page before the roles are
+     read, so this used to refuse everyone, owners included. Until the roles are known, wait and decide then. */
+  if(tab==='settings' && !CC_ROLES_CHECKED){ CC_SETTINGS_PENDING=true; ccSetSectionTitle('settings'); return; }
   if(tab==='settings' && !ccCan('manage_settings')){ alert('You do not have permission to open Settings.'); return; }
   ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
@@ -17866,6 +17869,8 @@ async function coordMsgDone(id){
 let CC_ROLES=[];                       // roles held by the signed-in person
 let CC_ROLE_BY_EMAIL={};               // every person's roles, for owner identity
 let CC_ROLES_LOADED=false;             // did the read actually succeed?
+let CC_ROLES_CHECKED=false;            // has the read finished at all (succeeded or not)?
+let CC_SETTINGS_PENDING=false;         // Settings was asked for before the roles were known
 
 /* The default policy. Overridden by app_data 'role_permissions' when present,
    so the mapping itself is data and does not need a deploy to change. */
@@ -17957,6 +17962,8 @@ function ccRolesFor(email){
 function ccApplyRoleUi(){
   const sft=document.getElementById('settingsFtab');
   if(sft) sft.style.display=ccCan('manage_settings')?'flex':'none';
+  if(CC_SETTINGS_PENDING && CC_ROLES_CHECKED){ CC_SETTINGS_PENDING=false; switchTab('settings'); }
+  try{ if(document.getElementById('cgcLine') && CGC.log) cgcLineRender(); }catch(_){}
 }
 function ccRolesBanner(){
   const id='ccRolesWarn';
@@ -24224,6 +24231,7 @@ async function opsLoadRouting(){
     OPS_ROUTING={}; OPS_DOMAINS=[]; OPS_PEOPLE=[];
     CC_ROLES=[]; CC_ROLE_BY_EMAIL={}; CC_ROLES_LOADED=false;
   }
+  CC_ROLES_CHECKED=true;
   ccApplyRoleUi();
   ccRolesBanner();
 }
