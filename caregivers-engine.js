@@ -6933,7 +6933,7 @@ async function confirmNotHire(){
     return;
   }
   if(c.phone && reason!=='withdrew'){
-    const msg=`Hi ${c.first}, thank you for your interest in joining Caring Companions. After careful review, we won't be moving forward with your application at this time. We appreciate the time you invested and wish you all the best. — Caring Companions (417) 234-8494`;
+    const msg=`Hi ${c.first}, thank you for your interest in joining Caring Companions. After careful review, we won't be moving forward with your application at this time. We appreciate the time you invested and wish you all the best. Caring Companions (417) 234-8494`;
     if(confirm(`Send ${c.first} a courtesy text letting them know?\n\n"${msg}"`)){
       try {
         await sendCandidateSMS({ first:c.first, last:c.last, phone:c.phone, email:c.email||'', message:msg });
