@@ -6088,6 +6088,7 @@ async function obRefSendGo(btn){
    imported, or its record was removed) had no way back in. This strip shows ONLY those people, above the table,
    and is hidden when there are none. Same Import as before (intakeImport: duplicate and roster guards included). */
 function renderImportStrip(){
+  try{ if(window.iimLineRender) window.iimLineRender(); }catch(_){}   /* the start form check's line (safe saves step 6) */
   const box = document.getElementById('obImportStrip'); if(!box) return;
   let rows = [];
   try{ rows = lifecycleRows().filter(r => r.intake && !r.board && !r.roster); }catch(e){ rows = []; }
