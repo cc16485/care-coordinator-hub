@@ -135,6 +135,7 @@ async function world(init, opts = {}) {
   };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'caregiver-connect-rules.js'), 'utf8'), ctx);   /* the one copy the engine's hire record comes from */
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'eligibility-rules.js'), 'utf8'), ctx);   /* the hire snapshot (CCElig.hiringSnapshot) */
   vm.runInContext(code + `
 async function loadIntake(){ INTAKE_ROWS = []; }
 this.__x = { get candidates(){ return candidates; }, set candidates(v){ candidates = v; }, get caregivers(){ return caregivers; }, set caregivers(v){ caregivers = v; },

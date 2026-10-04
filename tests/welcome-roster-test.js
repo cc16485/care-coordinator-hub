@@ -53,6 +53,7 @@ function world(opts = {}) {
   ctx.window.CGP2 = ctx.CGP2;
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'caregiver-connect-rules.js'), 'utf8'), ctx);   /* the one copy the engine's hire record comes from */
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'eligibility-rules.js'), 'utf8'), ctx);   /* the hire snapshot (CCElig.hiringSnapshot) */
   vm.runInContext(code + '\nthis.__x = { wcAct, wcAddToRoster, wcRosterMsg, wcRosterAdd, wcOrientLink, wcSrcFor, wcRowFor, wcNeedsRoster, promoteToCaregiver, WC_GUIDE, setRows: r => { WC_ROWS = r; } };', ctx);
   const X = ctx.__x;
   X.setRows([{ id: 'w1', candidate_id: '41', first_name: 'Ava', last_name: 'Applicant', phone: '(417) 555-0100', email: 'ava@x.com', status: 'booked', starts_at: '2026-10-06T15:00:00Z',
@@ -69,7 +70,7 @@ function world(opts = {}) {
   ck('done: hire date is today in Central, promoted_at now', g.hire_date === todayCentral && g.prehire.hired_at === todayCentral && Math.abs(Date.now() - Date.parse(g.promoted_at)) < 60000, [g.hire_date, todayCentral]);
   ck('done: orient_date and alz_date are EMPTY (orientation is online after this, never marked trained)', g.orient_date === '' && g.alz_date === '', g);
   ck('done: phone, email, checks, prehire and hiring snapshot carried like Promote', g.phone === '417-555-0199' && g.email === 'ava@x.com' && g.oig_status === 'Clear' && g.oig_date === '2026-09-20'
-     && g.fcsr_date === '2026-09-21' && g.fp === 'N/A' && g.prehire.oig.status === 'Clear' && g.prehire.refs[0].name === 'Ref One' && g.hiring_snapshot.frozen_for === 41, g);
+     && g.fcsr_date === '2026-09-21' && g.fp === 'N/A' && g.prehire.oig.status === 'Clear' && g.prehire.refs[0].name === 'Ref One' && g.hiring_snapshot && g.hiring_snapshot.event === 'pre_hire_clearance' && g.hiring_snapshot.oig === 'Clear' && g.hiring_snapshot.refs === 'Positive|||' && Array.isArray(g.hiring_snapshot.outstanding), g);
   ck('done: offer id, intake id, step 2 and welcome call fields carried', g.offer_id === 'offer-uuid-1' && g.intake_id === 'intake-9' && g.step2_done_at === '2026-10-01T15:00:00Z'
      && g.step2_sent_by === 'angiel@mo-care.com' && g.welcome_call_id === 'w1' && g.welcome_invited_at && g.position === 'Caregiver' && g.promoted_via === 'welcome_call', g);
   ck('done: the B&R record is removed only AFTER the roster saved', W.ctx.candidates.length === 0
