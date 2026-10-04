@@ -3727,6 +3727,57 @@ function safeSavesAdopt(key, rec){
 }
 if (typeof window !== 'undefined') window.safeSavesAdopt = safeSavesAdopt;
 
+/* ── Safe saves step 2 (2026-10-04, Samantha "yes to all"): the other shared records this page saves whole ──────────
+   settings (staff, webhooks, orientation setup), orient_sessions (with their bookings and attendance), eod_reports and
+   evv_corrections were saved by writing this page's whole copy back, so a page left open since the morning could undo
+   everything saved since. Now each save says which version it was based on (app_data_save, the 421 compare-and-save):
+   - settings: only the fields this page changed are applied to the latest saved record (someone else's other changes
+     are kept), read again and reapplied if anyone saved in between.
+   - the three lists: saved only if nobody saved that list since this page loaded it. If someone did, nothing is saved,
+     the page loads the latest and says so, and the person redoes their change (her decision 2). */
+const WHOLE_KEYS = ['settings', 'orient_sessions', 'eod_reports', 'evv_corrections'];
+const WHOLE_LABEL = { settings:'staff settings', orient_sessions:'orientation sessions', eod_reports:'end-of-day reports', evv_corrections:'EVV correction log' };
+const WHOLE_SNAP = {};   // key -> { version, json } as this page last loaded or saved it
+function wholeRemember(key, data, version){ WHOLE_SNAP[key] = { version: Number(version) || 0, json: JSON.stringify(data === undefined ? null : data) }; }
+function wholeAdopt(key, data, version){
+  if(key === 'orient_sessions'){ orientSessions = Array.isArray(data) ? data : []; orientId = Math.max(orientId, ...orientSessions.map(x=>(+x.id||0)+1), 1);
+    try{ localStorage.setItem('cc_orient_sessions', JSON.stringify(orientSessions)); localStorage.setItem('cc_orient_id', String(orientId)); }catch(_){} }
+  if(key === 'eod_reports') eodReports = Array.isArray(data) ? data : [];
+  if(key === 'evv_corrections'){ try{ localStorage.setItem('cc_evv_corrections', JSON.stringify(Array.isArray(data) ? data : [])); }catch(_){} }
+  if(key === 'settings' && data && typeof data === 'object'){ appSettings = data; try{ localStorage.setItem('cc_settings', JSON.stringify(data)); }catch(_){} }
+  wholeRemember(key, data, version);
+  try{ window.dispatchEvent(new Event('scx-hydrated')); }catch(_){}
+}
+async function wholeSave(key, data){
+  const label = WHOLE_LABEL[key] || key;
+  const snap = WHOLE_SNAP[key];
+  if(!snap){ console.warn('BLOCKED save of', key, '- this page never loaded it'); return false; }
+  if(key === 'settings'){
+    const before = JSON.parse(snap.json || 'null') || {}, now = (data && typeof data === 'object') ? data : {};
+    const changed = [...new Set([...Object.keys(before), ...Object.keys(now)])].filter(k => JSON.stringify(before[k]) !== JSON.stringify(now[k]));
+    if(!changed.length) return true;
+    for(let i = 0; i < 5; i++){
+      const { data:row, error:re } = await sb.from('app_data').select('data, version').eq('key', key).maybeSingle();
+      if(re){ setSyncStatus('offline'); safeNotice('wholeWarn_' + key, '<b>Not saved:</b> the ' + safeEsc(label) + ' could not be read just now, so nothing was saved. Check your connection and try again.'); return false; }
+      const base = (row && row.data && typeof row.data === 'object' && !Array.isArray(row.data)) ? row.data : {};
+      const next = JSON.parse(JSON.stringify(base));
+      changed.forEach(k => { if(k in now) next[k] = JSON.parse(JSON.stringify(now[k])); else delete next[k]; });
+      const { data:out, error } = await sb.rpc('app_data_save', { p_key:key, p_data:next, p_expected_version: row ? (Number(row.version) || 0) : 0 });
+      if(error){ setSyncStatus('offline'); safeNotice('wholeWarn_' + key, '<b>Not saved:</b> the ' + safeEsc(label) + ' did not reach the shared workspace (' + safeEsc(error.message || 'no answer') + '). Try again.'); return false; }
+      if(out && out.ok){ wholeAdopt(key, next, out.version); setSyncStatus('ok'); return true; }
+    }
+    safeNotice('wholeWarn_' + key, '<b>Not saved:</b> someone else kept changing the ' + safeEsc(label) + ' at the same moment. Try again.');
+    return false;
+  }
+  const { data:out, error } = await sb.rpc('app_data_save', { p_key:key, p_data:data, p_expected_version: snap.version });
+  if(error){ setSyncStatus('offline'); safeNotice('wholeWarn_' + key, '<b>Not saved:</b> the ' + safeEsc(label) + ' did not reach the shared workspace (' + safeEsc(error.message || 'no answer') + '). Try again.'); return false; }
+  if(out && out.ok){ wholeRemember(key, data, out.version); setSyncStatus('ok'); return true; }
+  /* someone else saved this list since this page loaded it: show the truth, then ask for the change again */
+  wholeAdopt(key, out ? out.data : null, out ? out.version : 0);
+  setSyncStatus('ok');
+  safeNotice('wholeWarn_' + key, '<b>Not saved:</b> someone else changed the ' + safeEsc(label) + ' since this page loaded. We loaded the latest; please redo your change.');
+  return false;
+}
 async function syncToSupabase(key, data){
   /* 421: candidates and caregivers are never saved as a whole list (safeSave). */
   if(SAFE_KEYS.includes(key)){ console.error('BLOCKED whole-list save of', key, '- use saveCandidates/saveCaregivers'); return false; }
@@ -3745,10 +3796,10 @@ async function syncToSupabase(key, data){
     // in Supabase (this happened — see clearSeedPeople).
     const { data:{ session } } = await sb.auth.getSession();
     if(!session){ console.warn('Skipped Supabase sync for', key, '— not signed in'); return false; }
-    const { error } = await sb.from('app_data').upsert({ key, data, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-    if(error){ console.warn('Supabase sync failed for', key, error); setSyncStatus('offline'); return false; }
-    setSyncStatus('ok');
-    return true;
+    if(WHOLE_KEYS.includes(key)) return await wholeSave(key, data);
+    /* safe saves step 2: no other record is ever saved whole from this page (none is today; this keeps it that way) */
+    console.error('BLOCKED whole save of', key, '- not a record this page saves whole');
+    return false;
   } catch(e){ console.warn('Supabase sync:', e); setSyncStatus('offline'); return false; }
 }
 
@@ -3764,6 +3815,8 @@ async function loadFromSupabase(){
     /* 421: a list with no row in the database is empty there, so it is empty
        here too: a cached copy from this device is never saved as if it were new. */
     SAFE_KEYS.forEach(k => { if(!data.some(r => r && r.key === k && r.data)){ safeSetList(k, []); safeRemember(k, [], null); } });
+    /* safe saves step 2: what each whole record looked like when this page loaded it (before anything below edits it) */
+    WHOLE_KEYS.forEach(k => { const r = data.find(x => x && x.key === k); wholeRemember(k, r ? r.data : null, r ? r.version : 0); });
     data.forEach(row => {
       if(!row.data) return;
       if(row.key==='candidates')     { candidates=Array.isArray(row.data)?row.data:[]; safeRemember('candidates', candidates, row.version); }

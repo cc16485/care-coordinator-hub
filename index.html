@@ -10278,11 +10278,9 @@ async function aivSave(btn){
   const s = document.getElementById('aivStatus');
   if(!/^\d{1,2}:\d{2}$/.test(f)){ if(s) s.textContent = 'Pick a time first.'; return; }
   if(btn) btn.disabled = true;
-  let base = {};
-  try{ const { data } = await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle(); base = (data && data.data) || {}; }catch(e){}
-  const before = btAfternoonRule(base);
-  const merged = Object.assign({}, base, { afternoon_interviews:{ from:f, name:n } });
-  const { error } = await sb.from('app_data').upsert({ key:'ops_settings', data:merged, updated_at:new Date().toISOString() }, { onConflict:'key' });
+  let before = null;
+  const out = await ccMergeSave('ops_settings', (m, base) => { before = btAfternoonRule(base); m.afternoon_interviews = { from:f, name:n }; return ['afternoon_interviews']; });
+  const error = out.error, merged = out.data || DATA.ops_settings;
   if(btn) btn.disabled = false;
   if(!error){
     DATA.ops_settings = merged;
@@ -13566,18 +13564,12 @@ async function covMsgsSave(btn){
   /* Merge against the CURRENT server object, not the page-load copy — the
      engine and other tabs write flags into ops_settings too, and a stale
      whole-object write would erase them (review finding). */
-  let base={};
-  try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle();
-       base=(data&&data.data)||{}; }catch(e){}
-  const merged=Object.assign({}, base);
-  for(const [el,k] of Object.entries(map)){
-    const n=document.getElementById(el); if(!n) continue;
-    const v=n.value.trim(); if(v) merged[k]=v; else delete merged[k];
-  }
-  const { error }=await sb.from('app_data').upsert({ key:'ops_settings', data:merged,
-    updated_at:new Date().toISOString() }, { onConflict:'key' });
+  const vals={};
+  for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) vals[k]=n.value.trim(); }
+  const { error }=await ccMergeSave('ops_settings', (m, base)=>{ const ch=[];
+    for(const [k,v] of Object.entries(vals)){ if(v){ if(base[k]!==v){ m[k]=v; ch.push(k); } } else if(k in m){ delete m[k]; ch.push(k); } }
+    return ch; });
   if(btn) btn.disabled=false;
-  if(!error) DATA.ops_settings=merged;
   const s=document.getElementById('covMsgsSaved');
   if(s) s.textContent=error?('Could not save: '+error.message):'Saved. Every callout from now on uses these words.';
 }
@@ -13618,14 +13610,8 @@ async function mbSave(btn){
   const picks=[...document.querySelectorAll('.mbChk:checked')]
     .map(c=>({ name:c.dataset.name, email:c.dataset.email, admin:admins.has(c.dataset.email) }));
   if(btn) btn.disabled=true;
-  let base={};
-  try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle();
-       base=(data&&data.data)||{}; }catch(e){}
-  const merged=Object.assign({}, base, { morning_brief_recipients:picks });
-  const { error }=await sb.from('app_data').upsert({ key:'ops_settings', data:merged,
-    updated_at:new Date().toISOString() }, { onConflict:'key' });
+  const { error }=await ccMergeSave('ops_settings', (m)=>{ m.morning_brief_recipients=picks; return ['morning_brief_recipients']; });
   if(btn) btn.disabled=false;
-  if(!error) DATA.ops_settings=merged;
   const s=document.getElementById('mbStatus');
   if(s) s.textContent=error?('Could not save: '+error.message)
     :(picks.length?('Saved. '+picks.length+' brief'+(picks.length>1?'s':'')+' go out at 8am.')
@@ -13794,14 +13780,28 @@ function tkRenderStatus(){
       return '<tr><td>'+esc(String(l.shift_date).slice(5))+' '+esc(l.client_first)+' '+esc(t12)+'</td><td>'+esc(String(l.caregiver||'').split(' ')[0])+'</td><td>'+n+' round'+(n===1?'':'s')+(pr_?' <span class="badge muted">practice</span>':'')+' · first '+hm(l.admin_loop.started_at)+'</td><td>'+ended(l)+'</td></tr>'; }).join('')
     +'</tbody></table></div>';
 }
+/* Safe saves step 2 (2026-10-04, Samantha "yes to all"). A shared settings record is changed ONE FIELD AT A TIME, never
+   saved whole from this page's copy: read the current record and its version, apply only this change, and save with
+   app_data_save (the 421 compare-and-save); if anyone (a person or a server job) saved in between, read again and
+   reapply. A failed read saves NOTHING: the old saves started from an empty object when the read failed, which would
+   have saved a settings record holding only the one change, wiping every other switch. Answers { changed, error, data }. */
+async function ccMergeSave(key, apply){
+  for(let i=0;i<5;i++){
+    const { data:row, error:re }=await sb.from('app_data').select('data, version').eq('key',key).maybeSingle();
+    if(re) return { changed:[], error:{ message:'could not read the current settings, so nothing was saved ('+re.message+')' } };
+    const base=(row && row.data && typeof row.data==='object' && !Array.isArray(row.data)) ? row.data : {};
+    const merged=JSON.parse(JSON.stringify(base)); const changed=apply(merged, base)||[];
+    if(!changed.length) return { changed, error:null, data:base };
+    const { data:out, error }=await sb.rpc('app_data_save', { p_key:key, p_data:merged, p_expected_version: row ? (Number(row.version)||0) : 0 });
+    if(error) return { changed:[], error };
+    if(out && out.ok){ if(key==='ops_settings') DATA.ops_settings=merged; return { changed, error:null, data:merged }; }
+  }
+  return { changed:[], error:{ message:'someone else kept saving at the same moment; try again' } };
+}
 async function tkMerge(apply, what){
-  let base={};
-  try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle(); base=(data&&data.data)||{}; }catch(e){}
-  const merged=Object.assign({}, base); const changed=apply(merged, base);
-  if(!changed.length) return { changed, error:null };
-  const { error }=await sb.from('app_data').upsert({ key:'ops_settings', data:merged, updated_at:new Date().toISOString() }, { onConflict:'key' });
-  if(!error){ DATA.ops_settings=merged; opEvent('setting_changed',{ item_id:'ops_settings', area:'coverage', summary:(ccActor().name||'Someone')+' changed '+(what||'missed clock-in settings')+': '+changed.join(', ') }); }
-  return { changed, error };
+  const out=await ccMergeSave('ops_settings', apply);
+  if(!out.error && out.changed.length) opEvent('setting_changed',{ item_id:'ops_settings', area:'coverage', summary:(ccActor().name||'Someone')+' changed '+(what||'missed clock-in settings')+': '+out.changed.join(', ') });
+  return { changed:out.changed, error:out.error };
 }
 async function tkSave(btn){
   const s=document.getElementById('tkSaved'); if(btn) btn.disabled=true;
@@ -16130,12 +16130,8 @@ async function ccEnfMount(){
 }
 async function ccEnfSave(key,val,el){
   if(val && !confirm('Turn ON enforcement?\n\n"'+key+'" will start BLOCKING (grandfathered records excepted). The shadow proof should be reviewed first. Continue?')){ el.checked=false; return; }
-  let base={};
-  try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle(); base=(data&&data.data)||{}; }catch(e){}
-  const merged=Object.assign({}, base, { [key]: val===true });
-  const { error }=await sb.from('app_data').upsert({ key:'ops_settings', data:merged, updated_at:new Date().toISOString() }, { onConflict:'key' });
+  const { error }=await ccMergeSave('ops_settings', (m)=>{ m[key]=(val===true); return [key]; });
   if(error){ alert('Could not save: '+error.message); el.checked=!val; return; }
-  DATA.ops_settings=merged;
   try{ ccToast(val?('⚠ '+key+' is ON'):('✓ '+key+' is off — shadow only')); }catch(e){}
 }
 /* mount hook: run after the original without touching it. (The Caregiver
