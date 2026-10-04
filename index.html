@@ -7313,6 +7313,13 @@ function scxEnsure(tab){
     k.async=false;                      // ordered against the engine below
     document.head.appendChild(k);
   }
+  /* 2026-10-04 (safe saves step 6): the candidate a start form becomes (the one copy the server's check also runs) */
+  if(!globalThis.CCIntake && !document.getElementById('ccintakerules')){
+    const t=document.createElement('script');
+    t.id='ccintakerules'; t.src='intake-import-rules.js?v=' + Date.now();
+    t.async=false;                      // ordered against the engine below
+    document.head.appendChild(t);
+  }
   s.async = false;
   s.src = 'caregivers-engine.js?v=' + Date.now();
   s.onerror = function(){
