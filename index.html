@@ -3857,11 +3857,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <label>To everyone still waiting when the case is covered</label>
 <textarea id="set_cov_covered" rows="2" placeholder="Caring Companions: that shift is covered now. Thank you! No action needed."></textarea>
 <label>Admin alert text when a call-in is detected (all admins, SMS + email)</label>
-<textarea id="set_cov_admin_alert" rows="2" placeholder="New call-in: {client} {when}.{who} The callout engine is texting caregivers. Board: cc.mo-care.com"></textarea>
+<textarea id="set_cov_admin_alert" rows="2" placeholder="New call-in: {client} {when}.{who} Called in at {called_at}. Choose who to ask, confirm, or call from your link: {link}"></textarea>
 <div id="cvAfter" class="field-note" style="margin:2px 0 4px;"></div>
 <button class="secondary" id="cvAfterBtn" onclick="ahToggle('callin',this)" style="margin-bottom:10px;">Turn off after-hours texts</button>
+<div id="crRemind" class="field-note" style="margin:6px 0 4px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+  <button class="secondary" id="crRemindBtn" onclick="crToggle(this)">Turn on call-in reminders</button>
+  <label style="margin:0;font-size:12.5px;">every <input id="set_cr_every" inputmode="numeric" placeholder="15" style="width:52px;padding:4px 6px;"> min, at most <input id="set_cr_max" inputmode="numeric" placeholder="4" style="width:44px;padding:4px 6px;"></label>
+  <button class="ghost" style="font-size:12.5px;padding:5px 10px;" onclick="crSave(this)">Save</button>
+  <span class="field-note" id="crSaved"></span>
+</div>
 <label>Escalation text to the on-call person when a callout runs out of caregivers</label>
-<textarea id="set_cov_escalation" rows="2" placeholder="Coverage alert: the callout for {client} {when} ran out of caregivers to ask ({asked} asked, nobody said yes). It needs a person now. Board: cc.mo-care.com"></textarea>
+<textarea id="set_cov_escalation" rows="2" placeholder="Coverage alert: the callout for {client} {when} ran out of caregivers to ask ({asked} asked, nobody said yes). It needs a person now: {link}"></textarea>
 <label>Availability invite (sends 10am-5pm only, from the Hours Watch button)</label>
 <textarea id="set_cov_avail_invite" rows="2" placeholder="Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability It takes 30 seconds and you can update it anytime."></textarea>
 <label>New Client Assessment booking link (from your GHL calendar; used by "Book the assessment visit" on the profile, Quick Capture and the Team Calendar)</label>
@@ -13683,6 +13690,49 @@ function ahRender(){
   put('cvAfter', (ci?'<b style="color:#1E8449;">'+ahLabel('callin')+': ON.</b> Every call-in texts the admins at any hour (the email goes too).'
       :'<b style="color:#B7791F;">'+ahLabel('callin')+': OFF.</b> From '+q.from+' to '+q.to+' a call-in only emails the admins and waits on the board; a "must be covered" client still texts at any hour.')+offNote);
   btn('cvAfterBtn', ci);
+  try{ crRender(); }catch(_){}
+}
+/* CI3 (2026-10-04, her decision 1 on the call-ins plan): reminders until someone has the call-in. Every admin who got
+   the call-in text is reminded (with their link) every 15 minutes, at most 4, until someone taps "I've got it",
+   confirms or closes it. At night only for MUST BE COVERED shifts, or ones within 3 hours while call-ins may text after
+   hours. OFF until switched on here; while off, the Hub records what would have gone (shown below). */
+function crSettings(){ const st=DATA.ops_settings||{}, n=(v,lo,hi,d)=>{ const x=Number(v); return Number.isInteger(x)&&x>=lo&&x<=hi?x:d; };
+  return { on:st.callin_reminders_live===true, every:n(st.callin_reminder_every_min,5,60,15), max:n(st.callin_reminder_max,1,8,4) }; }
+function crRender(){
+  const c=crSettings(), q=tkQuiet(), box=document.getElementById('crRemind'), b=document.getElementById('crRemindBtn');
+  const e=document.getElementById('set_cr_every'), m=document.getElementById('set_cr_max'); const st=DATA.ops_settings||{};
+  if(e&&document.activeElement!==e) e.value=st.callin_reminder_every_min!=null?String(st.callin_reminder_every_min):'';
+  if(m&&document.activeElement!==m) m.value=st.callin_reminder_max!=null?String(st.callin_reminder_max):'';
+  const since=Date.now()-7*864e5; let would=0, sent=0, cases=0;
+  (DATA.coverage_cases||[]).forEach(cs=>{ const r=(cs.callin_reminders||[]).filter(x=>Date.parse(x.at)>since); if(r.length) cases++; r.forEach(x=>{ if(x.practice) would++; else sent++; }); });
+  if(box) box.innerHTML=(c.on?'<b style="color:#1E8449;">Call-in reminders: ON.</b> ':'<b style="color:#B7791F;">Call-in reminders: OFF (practice).</b> ')
+    +'If nobody taps "I\'ve got it", confirms or closes a call-in, every admin who got its text is reminded every '+c.every+' minutes, at most '+c.max+' times, with their link. '
+    +(q.off?'':'From '+q.from+' to '+q.to+' only for MUST BE COVERED shifts, or shifts starting within 3 hours. ')
+    +(c.on?'Last 7 days: '+sent+' reminder text'+(sent===1?'':'s')+'.':'Last 7 days, practice: '+would+' reminder'+(would===1?'':'s')+' would have gone'+(cases?' ('+cases+' call-in'+(cases===1?'':'s')+')':'')+'.');
+  if(b) b.textContent=c.on?'Turn off call-in reminders':'Turn on call-in reminders';
+}
+async function crToggle(btn){
+  const c=crSettings(), on=!c.on, q=tkQuiet();
+  if(!confirm(on?'Turn on call-in reminders? From the next check (every 3 minutes), a call-in nobody has claimed, confirmed or closed reminds every admin who got its text every '+c.every+' minutes, at most '+c.max+' times.'+(q.off?'':' From '+q.from+' to '+q.to+' only for MUST BE COVERED shifts or shifts within 3 hours.')
+                 :'Turn off call-in reminders? They go back to practice: recorded, not texted.')) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.callin_reminders_live=on; return ['call-in reminders '+(on?'ON':'OFF')]; }, 'call-in alert settings');
+  if(btn) btn.disabled=false;
+  const s=document.getElementById('crSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):(on?'Reminders are on.':'Reminders are off (practice).');
+  crRender();
+}
+async function crSave(btn){
+  const s=document.getElementById('crSaved'), g=id=>String((document.getElementById(id)||{}).value||'').trim();
+  const ev=g('set_cr_every'), mx=g('set_cr_max');
+  if(ev&&!(Number.isInteger(Number(ev))&&Number(ev)>=5&&Number(ev)<=60)){ if(s) s.textContent='Every: 5 to 60 minutes.'; return; }
+  if(mx&&!(Number.isInteger(Number(mx))&&Number(mx)>=1&&Number(mx)<=8)){ if(s) s.textContent='At most: 1 to 8.'; return; }
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m, base)=>{ const ch=[];
+    const set=(k,v,label)=>{ if(v===''){ if(k in m){ delete m[k]; ch.push(label+' back to standard'); } return; } const n=Number(v); if(base[k]!==n){ m[k]=n; ch.push(label); } };
+    set('callin_reminder_every_min', ev, 'call-in reminder minutes'); set('callin_reminder_max', mx, 'call-in reminder count'); return ch; }, 'call-in alert settings');
+  if(btn) btn.disabled=false;
+  if(s) s.textContent=out.error?('Could not save: '+out.error.message):(out.changed.length?'Saved: '+out.changed.join(', ')+'.':'Nothing changed.');
+  crRender();
 }
 function tkRenderStatus(){
   const st=DATA.ops_settings||{}, esc=escapeHtmlComms, live=st.timekeeper_admin_loop_live===true;
