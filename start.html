@@ -216,12 +216,52 @@ const val = id => (g(id).value || '').trim();
 const todayLong = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
 g('todayTxt').textContent = todayLong;
 
-// Prefill from the link the office sends.
-['first','last','phone','email'].forEach(k => { if (P.get(k)) g(k).value = P.get(k); });
-if (P.get('first')) {
-  g('greeting').textContent = 'Great news, ' + P.get('first') + '.';
-  g('thanks').textContent = 'Thank you, ' + P.get('first') + '.';
+/* Private applicant links (2026-10-04, Samantha "yes to all"). The office's link now carries only the job offer's
+   number and a code (o, e, t), never the person's name, phone or email. This page asks the Hub's server who it is for
+   and fills in what we already know (her decision 1). Old links that carry the details keep working until Nov 3
+   (decision 2). With no link, or one that is made up or has run out, the page asks them to get a new one from the
+   office instead of showing the form. */
+const LINK = { o: P.get('o') || '', e: P.get('e') || '', t: P.get('t') || '' };
+const HAS_CODE = !!(LINK.o && LINK.t);
+const OLD_UNTIL = Date.parse('2026-11-03T06:00:00Z');
+const OLD = !HAS_CODE && !!(P.get('first') || P.get('phone') || P.get('email')) && Date.now() < OLD_UNTIL;
+function prefill(d){
+  ['first','last','phone','email'].forEach(k => { if (d[k]) g(k).value = d[k]; });
+  if (d.first) {
+    g('greeting').textContent = 'Great news, ' + d.first + '.';
+    g('thanks').textContent = 'Thank you, ' + d.first + '.';
+  }
 }
+function needNewLink(){
+  /* the form stays in the page (hidden), so nothing else on the page breaks; only the message shows */
+  if (g('linkGone')) return;
+  const d = document.createElement('div');
+  d.id = 'linkGone';
+  d.innerHTML = '<h1>This link has run out</h1><p class="lede">Please ask the office for a new one: call or text '
+    + '<a href="tel:+14172348494">(417) 234-8494</a>. We will send it right away.</p>';
+  g('formView').style.display = 'none';
+  g('formView').parentNode.insertBefore(d, g('formView'));
+}
+const OLD_DETAILS = OLD ? { first: P.get('first') || '', last: P.get('last') || '', phone: P.get('phone') || '', email: P.get('email') || '' } : null;
+/* keep personal details out of this tab's address and history (the code stays, so a reload works) */
+try {
+  const keep = new URLSearchParams();
+  if (HAS_CODE) { keep.set('o', LINK.o); keep.set('e', LINK.e); keep.set('t', LINK.t); }
+  if (P.get('preview') === '1') keep.set('preview', '1');
+  history.replaceState(null, '', location.pathname + (keep.toString() ? '?' + keep.toString() : ''));
+} catch(_) {}
+/* The Applicant journey page shows this page in a frame: ?preview=1 shows the form with a sample name and saves nothing. */
+const PREVIEW = P.get('preview') === '1';
+(async function(){
+  if (PREVIEW) { prefill({ first: 'Jordan', last: 'Ellis' }); const sb2 = g('submitBtn'); if (sb2) { sb2.disabled = true; sb2.textContent = 'Preview only: nothing is sent'; } return; }
+  if (OLD) { prefill(OLD_DETAILS); return; }
+  if (!HAS_CODE) { needNewLink(); return; }
+  try {
+    const { data, error } = await sb.functions.invoke('applicant-link', { body: { action: 'open', kind: 'start', o: LINK.o, e: LINK.e, t: LINK.t } });
+    if (error || !data || !data.ok) { needNewLink(); return; }
+    prefill(data);
+  } catch (_) { needNewLink(); }
+})();
 
 function oosUI(){ g('oosWrap').style.display = g('oos').value === 'yes' ? 'block' : 'none'; }
 function ssnFmt(el){
@@ -352,8 +392,15 @@ async function submitForm(){
     refs, no_employer_history: g('noEmployer').checked, signature_name: val('sig'),
     consent_text: g('consentBox').textContent.replace(/\s+/g,' ').trim(),
   };
+  /* the private link it came through, so the server can tie this form to its job offer (it checks the code itself) */
+  if (HAS_CODE) Object.assign(row, { start_offer_id: LINK.o, start_link_exp: Number(LINK.e) || null, start_link_sig: LINK.t });
   try {
-    const { error } = await sb.from('hire_intake').insert(row);
+    let { error } = await sb.from('hire_intake').insert(row);
+    /* never lose a start form over the link columns (if the database step that adds them has not run yet) */
+    if (error && HAS_CODE && /start_offer_id|start_link_/.test(String(error.message || ''))) {
+      delete row.start_offer_id; delete row.start_link_exp; delete row.start_link_sig;
+      ({ error } = await sb.from('hire_intake').insert(row));
+    }
     if (error) throw error;
     SIGNED = row;
     g('formView').style.display = 'none';

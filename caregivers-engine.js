@@ -1637,27 +1637,36 @@ async function offerUpdate(id, payload){
 /* The candidate's start link. Prefilled from the offer so they are not asked
    for anything we already know, and offered three ways out because the
    coordinator might be on a phone in a parking lot or at a desk. */
-function offerStartLink(id, btn){
+/* Private applicant links (2026-10-04, Samantha "yes to all"): the start link and the orientation link carry only a
+   record number and a code the Hub's server makes (applicant-link), never the person's name, phone or email. */
+async function appLinkMint(body){
+  const r = await sb.functions.invoke('applicant-link', { body: Object.assign({ action: 'mint' }, body) });
+  if (r.error || !r.data || !r.data.ok || !r.data.url) {
+    let why = (r.data && r.data.error) || '';
+    try { if (!why && r.error && r.error.context && r.error.context.json) why = (await r.error.context.json()).error || ''; } catch(_) {}
+    throw new Error(why || (r.error && r.error.message) || 'the link service did not answer');
+  }
+  return r.data.url;
+}
+async function offerStartLink(id, btn){
   const o = OFFERS.find(x => String(x.id) === String(id));
   if (!o) return;
   const box = document.getElementById('sl_' + id);
   if (!box) return;
   if (box.style.display === 'block') { box.style.display = 'none'; return; }
-  const q = new URLSearchParams();
-  if (o.first_name) q.set('first', o.first_name);
-  if (o.last_name)  q.set('last',  o.last_name);
-  if (o.phone)      q.set('phone', o.phone);
-  if (o.email)      q.set('email', o.email);
-  const url = 'https://cc.mo-care.com/start.html?' + q.toString();
+  box.style.display = 'block';
+  box.innerHTML = '<div style="font-size:.78rem;color:var(--gray)">Making their private link…</div>';
+  let url = '';
+  try { url = await appLinkMint({ kind: 'start', offer_id: String(o.id) }); }
+  catch (e) { box.innerHTML = '<div style="font-size:.78rem;color:#B91C1C">Their link could not be made (' + String(e.message || e).replace(/</g, '&lt;') + '). Try again in a moment.</div>'; return; }
   const first = o.first_name || 'there';
   const msg = 'Hi ' + first + ", it's Caring Companions! We would love to bring you onto the team. "
             + 'One quick step before your offer letter goes out: ' + url
             + ' It takes about two minutes and lets us start your reference checks today.';
   const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const digits = String(o.phone || '').replace(/[^0-9+]/g, '');
-  box.style.display = 'block';
   box.innerHTML =
-    '<div style="font-weight:700;color:#0D365F;margin-bottom:.35rem">Their link</div>'
+    '<div style="font-weight:700;color:#0D365F;margin-bottom:.35rem">Their link <span style="font-weight:400;color:var(--gray);font-size:.72rem">(private: works for 30 days, carries no personal details)</span></div>'
     + '<div style="word-break:break-all;background:#FAF9F6;border-radius:6px;padding:.4rem .5rem;font-size:.74rem;margin-bottom:.5rem">' + esc(url) + '</div>'
     + '<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">'
     + (digits ? '<a class="fb" style="text-decoration:none" href="sms:' + esc(digits) + '&body=' + encodeURIComponent(msg) + '">💬 Text it</a>' : '<span style="color:#b45309;font-size:.76rem">No phone on this offer</span>')
@@ -6525,7 +6534,7 @@ function bgrApplyBoardChange(candId, changes){
 let invitingId=null;
 function fmtPhone(p){ const d=p.replace(/\D/g,''); return d.length===10?`+1${d}`:d.length===11&&d[0]==='1'?`+${d}`:`+1${d}`; }
 
-function buildBookingUrl(c){
+function bookingSessionsParam(){
   const now=new Date(); now.setHours(0,0,0,0);
   const available=orientSessions.filter(s=>{
     const sd=new Date(s.date+'T00:00:00');
@@ -6537,15 +6546,19 @@ function buildBookingUrl(c){
     notes:s.notes||'', spots:parseInt(s.capacity)-(s.bookings||[]).length,
     dur:getOrientDuration()
   }))));
-  // email + office ride along so the GoHighLevel relay can match the contact
-  // that already exists from the offer stage, and tag the right office.
-  return `${ORIENT_BOOKING_URL}?sessions=${encoded}&first=${encodeURIComponent(c.first)}&last=${encodeURIComponent(c.last)}&phone=${encodeURIComponent(c.phone||'')}&email=${encodeURIComponent(c.email||'')}&office=${encodeURIComponent(c.office||'springfield')}&id=${encodeURIComponent(c.id)}`;
+  return encoded;
+}
+/* The orientation link for one candidate: their private code + the open sessions (no name, phone or email). */
+async function buildBookingUrl(c){
+  if (typeof safeIsTmp === 'function' && safeIsTmp(c.id)) throw new Error('they are still being saved; try again in a moment');
+  return appLinkMint({ kind: 'orient', candidate_id: String(c.id), sessions: bookingSessionsParam() });
 }
 
 function buildInviteMsg(c, url){
   return `Hi ${c.first}! Congratulations, you've been cleared to join Caring Companions! 🎉 Please choose your orientation date here: ${url}\n\nQuestions? Call/text (417) 234-8494. We can't wait to meet you!`;
 }
 
+let INVITE_URL = null;   /* the private orientation link made for the person in the invite window */
 function openInviteModal(id){
   invitingId=id;
   const c=candidates.find(x=>x.id===id);
@@ -6574,10 +6587,14 @@ function openInviteModal(id){
     }).join('');
   }
 
-  const url = buildBookingUrl(c);
-  document.getElementById('inv-msg').textContent = buildInviteMsg(c, url);
+  INVITE_URL = null;
+  document.getElementById('inv-msg').textContent = 'Making their private link…';
+  buildBookingUrl(c).then(u => { if (invitingId !== id) return; INVITE_URL = u; document.getElementById('inv-msg').textContent = buildInviteMsg(c, u); })
+    .catch(e => { if (invitingId !== id) return; document.getElementById('inv-msg').textContent = 'Their link could not be made (' + (e.message || e) + '). Close this and try again in a moment.'; });
   document.getElementById('inv-copy-link').onclick=(e)=>{
     e.preventDefault();
+    const url = INVITE_URL;
+    if (!url) { alert('Their private link is not ready yet. Wait a moment, or close this and try again.'); return; }
     navigator.clipboard.writeText(url).then(()=>{
       document.getElementById('inv-copy-link').textContent='✅ Copied!';
       setTimeout(()=>document.getElementById('inv-copy-link').textContent='Copy link only',2000);
@@ -6593,7 +6610,12 @@ async function confirmSendInvite(){
   if(!c.phone){alert('No phone number on file. Please edit the candidate and add a cell number first.');return;}
   document.getElementById('inv-sending').style.display='block';
   document.getElementById('inv-actions').style.display='none';
-  const url=buildBookingUrl(c);
+  let url = INVITE_URL;
+  if (!url) {
+    try { url = await buildBookingUrl(c); }
+    catch (e) { alert('Their private link could not be made (' + (e.message || e) + '), so nothing was sent. Try again in a moment.');
+      document.getElementById('inv-sending').style.display='none'; document.getElementById('inv-actions').style.display='flex'; return; }
+  }
   try {
     await sendCandidateSMS({
       first: c.first, last: c.last,
