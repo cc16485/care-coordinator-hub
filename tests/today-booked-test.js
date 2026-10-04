@@ -9,7 +9,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const src = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const cut = (from, to) => { const a = src.indexOf(from), b = src.indexOf(to, a + 1); if (a < 0 || b < 0) throw new Error('not found: ' + from); return src.slice(a, b); };
-const block = cut('const BT_AFTERNOON_DEFAULT', 'function renderToday(){');
+const block = cut('const BT_AFTERNOON_DEFAULT', 'function renderToday(){') + cut('async function ccMergeSave(', 'async function tkMerge(');   /* safe saves step 2: settings save one field at a time */
 const ivq = cut('function ivqRender(){', '/* The outcome belongs on the person');
 
 let pass = 0, fail = 0;
@@ -24,7 +24,7 @@ function world(opts = {}) {
     const b = {
       select() { return b }, order() { return b }, in(c, v) { st.f.push(['in', c, v]); return b }, gte(c, v) { st.f.push(['gte', c, v]); return b },
       lt(c, v) { st.f.push(['lt', c, v]); return b }, eq(c, v) { st.f.push(['eq', c, v]); return b },
-      maybeSingle() { return Promise.resolve({ data: name === 'app_data' ? { data: opts.ops || {} } : null, error: null }) },
+      maybeSingle() { return Promise.resolve({ data: name === 'app_data' ? { data: JSON.parse(JSON.stringify(opts.ops || {})), version: 3 } : null, error: null }) },
       upsert(row) { upserts.push(row); return Promise.resolve({ error: opts.saveFails ? { message: 'denied' } : null }) },
       then(ok, ko) { q.push(st); let r;
         if (name === 'interview_bookings') r = opts.ivFails ? { data: null, error: { message: 'permission denied for table interview_bookings' } } : { data: opts.bookings || [], error: null };
@@ -35,7 +35,9 @@ function world(opts = {}) {
   const ctx = {
     console, Date: opts.now ? class extends Date { constructor(...a) { super(...(a.length ? a : [opts.now])) } static now() { return opts.now } } : Date, JSON, Promise, Set, Map, String, Array, Object, Number, Error, RegExp, Intl, Math, setTimeout,
     escapeHtmlComms: esc, window: {}, DATA: { ops_settings: opts.ops || null, care_assessments: opts.cas || [], leads: opts.leads || [] },
-    document: { getElementById: el }, sb: { from: table },
+    document: { getElementById: el }, sb: { from: table, rpc: async (fn, a) => { if (fn !== 'app_data_save') return { error: { message: 'unexpected ' + fn } };
+      if (opts.saveFails) return { data: null, error: { message: 'denied' } };
+      upserts.push({ key: a.p_key, data: a.p_data, expected: a.p_expected_version }); return { data: { ok: true, version: 4 }, error: null }; } },
     opEvent: (v, o) => events.push([v, o]), gotoTab() {}, AP_ROWS: [], apLoad: async () => {}, apOpenProfile() {}, openLeadProfile() {}, openClient() {}, openAssessmentModal() {},
     IVQ_APP: {}, IVQ_CO: {},
   };
@@ -123,7 +125,7 @@ function world(opts = {}) {
   W.els.set_aiv_from.value = '15:00'; W.els.set_aiv_name.value = 'Krystal';
   await W.X.aivSave(null);
   const up = W.upserts[0];
-  ck('Settings: saves into ops_settings and keeps everything else there', up && up.key === 'ops_settings' && up.data.afternoon_interviews.from === '15:00' && up.data.afternoon_interviews.name === 'Krystal' && up.data.morning_brief_recipients.length === 1, up);
+  ck('Settings: saves into ops_settings and keeps everything else there (compare-and-save on the version it read)', up && up.key === 'ops_settings' && up.expected === 3 && up.data.afternoon_interviews.from === '15:00' && up.data.afternoon_interviews.name === 'Krystal' && up.data.morning_brief_recipients.length === 1, up);
   ck('Settings: the change is recorded (config_changed, before and after)', W.events.length === 1 && W.events[0][0] === 'config_changed' && /from 2:00pm Samantha to from 3:00pm Krystal/.test(W.events[0][1].summary), W.events);
   ck('Settings: says what it saved', /Interviews from 3:00pm on are marked Krystal&#39;s|Interviews from 3:00pm on are marked Krystal's/.test(W.els.aivStatus.textContent), W.els.aivStatus.textContent);
   W = world({ saveFails: true }); W.els.set_aiv_from = { value: '14:00' }; W.els.set_aiv_name = { value: 'Samantha' };

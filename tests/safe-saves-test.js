@@ -332,7 +332,9 @@ const applies = (S) => S.calls.filter((c) => c.name === 'app_data_items_apply');
   // ── static: every number is the database's; no whole-list save of people anywhere in the engine ──
   ck('no per-tab number counter is left (obId++ / cgId++ gone)', !/\bobId\+\+|\bcgId\+\+/.test(src) && !/let obId|let cgId/.test(src));
   ck('every place that makes a person uses a temporary number (7 places)', (src.match(/id: ?safeTmpId\(\)/g) || []).length === 7, (src.match(/id: ?safeTmpId\(\)/g) || []).length);
-  ck('the engine never writes candidates/caregivers as a whole (only syncToSupabase writes app_data, and it refuses them first)', (src.match(/from\('app_data'\)\.(upsert|insert|update|delete)\(/g) || []).length === 1
+  /* safe saves step 2 (2026-10-04): the engine writes no whole record directly at all any more; syncToSupabase refuses
+     candidates/caregivers first and sends the four other records through app_data_save */
+  ck('the engine never writes candidates/caregivers as a whole (no direct app_data write; syncToSupabase refuses them first)', (src.match(/from\('app_data'\)\.(upsert|insert|update|delete)\(/g) || []).length === 0
     && /async function syncToSupabase\(key, data\)\{\n  \/\* 421[^\n]*\*\/\n  if\(SAFE_KEYS\.includes\(key\)\)/.test(src));
   ck('boot paths never call a save (bootHydrate, showApp)', !/save(Candidates|Caregivers)\(/.test(cut('async function bootHydrate(', 'async function retryHydrate(')) && !/save(Candidates|Caregivers)\(/.test(cut('async function showApp(', 'function hydrateBanner(')));
 
