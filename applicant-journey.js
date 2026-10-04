@@ -2,7 +2,7 @@
    messages they receive and attached somewhere in the hub pages so that our office admin know"). Built from the code as
    of 2026-10-01: every message an applicant / new hire gets, its exact wording, when it goes, what triggers it, and
    whether it shows in GoHighLevel Conversations. If a message is changed, update this list too. */
-window.AP_JOURNEY_CHECKED = 'October 2, 2026 (welcome calls + orientation link added; hiring wording 415: welcome message, in-office bring list)';
+window.AP_JOURNEY_CHECKED = 'October 4, 2026 (private start and orientation links: no personal details in either)';
 window.AP_JOURNEY = [
  {
   "stage": "applying",
@@ -193,11 +193,11 @@ window.AP_JOURNEY = [
   "channel": "text + email",
   "rule": "Text only 8am–6pm Central, only if their application said yes to texts, and through the opt-out check; ends with \"Reply STOP to opt out.\" Anything not sent is listed on the offer screen and a refused message raises a \"Didn't go through\" card.",
   "subject": "Getting you started at Caring Companions",
-  "text": "Hi {first}, it's Caring Companions! We would love to bring you onto the team. One quick step before your offer letter goes out: https://cc.mo-care.com/start.html?first=..&last=..&phone=..&email=.. It takes about two minutes and lets us start your reference checks today.",
+  "text": "Hi {first}, it's Caring Companions! We would love to bring you onto the team. One quick step before your offer letter goes out: https://cc.mo-care.com/start.html?o=..&e=..&t=.. (private: no name, phone or email in it) It takes about two minutes and lets us start your reference checks today.",
   "email_summary": "'We would love to bring you onto the team. Your official offer letter and new-hire paperwork are on their way... Reference checks are the slowest part of hiring, so we start them the same day. This takes about two minutes: [Get started]' + office number.",
   "shows_in_ghl": true,
   "failure_visible": true,
-  "page": "https://cc.mo-care.com/start.html?first=Jordan&last=Ellis"
+  "page": "https://cc.mo-care.com/start.html?preview=1"
  },
  {
   "stage": "after interview (offer / pool / declined)",
@@ -535,7 +535,7 @@ window.AP_JOURNEY = [
   "channel": "text only",
   "rule": "Texts 8am–6pm Central only, never to someone whose application said no to texts, and they end with \"Reply STOP to opt out.\" Otherwise nothing is sent and the office is told why. The link opens the booking page on sc.mo-care.com.",
   "subject": null,
-  "text": "Hi {first}! Congratulations, you've been cleared to join Caring Companions! 🎉 Please choose your orientation date here: https://sc.mo-care.com/orientation-booking.html?sessions=..&first=..&last=..&phone=..&email=..&office=..&id=..\n\nQuestions? Call/text (417) 234-8494. We can't wait to meet you!",
+  "text": "Hi {first}! Congratulations, you've been cleared to join Caring Companions! 🎉 Please choose your orientation date here: https://sc.mo-care.com/orientation-booking.html?sessions=..&c=..&e=..&t=.. (private: no name, phone or email in it)\n\nQuestions? Call/text (417) 234-8494. We can't wait to meet you!",
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true
@@ -703,7 +703,6 @@ window.AP_JOURNEY = [
  }
 ];
 window.AP_JOURNEY_ISSUES = [
- "The start and orientation links carry the person's name, phone and email in the web address.",
  "\"Not hiring\" and \"Candidate pool\" send nothing to the applicant.",
  "The orientation day-before reminder lives in a GoHighLevel workflow: its wording and time are set in GoHighLevel, not here."
 ];
