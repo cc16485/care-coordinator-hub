@@ -32323,6 +32323,8 @@ function covWaitingRow(c){
   return '<div class="card" style="padding:10px 14px;margin:0 0 6px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
     +'<b style="color:var(--navy);">'+esc(c.client||'?')+'</b>'
     +(cd?'<span style="font-size:12px;font-weight:800;color:'+(soon?'var(--red)':'var(--honey-ink)')+';">\u23f1 '+cd+'</span>':'')
+    /* CI2: "I've got it" from the call-in link */
+    +(c.claimed_by_name?'<span class="tag-chip" style="background:#E8F6EE;color:#1E8449;">'+esc(c.claimed_by_name)+' has it</span>':'')
     +'<span class="field-note">asked '+asked.length+(last?' \u00b7 last ask '+covAgo(new Date(last).toISOString())+' ago':'')+'</span>'
     +(t('no')?'<span style="color:var(--red);font-weight:700;font-size:12.5px;">\u2716 '+t('no')+' no</span>':'')
     +(t('waiting')?'<span style="color:var(--honey-ink);font-weight:700;font-size:12.5px;">\u23f3 '+t('waiting')+' waiting</span>':'')
