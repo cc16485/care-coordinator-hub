@@ -4003,6 +4003,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 
 <div class="settings-section">
+<h3>🔗 Caregiver connect</h3>
+<p class="hint">Ties each AxisCare caregiver to their Hub record, so their checks, references and compliance show on their profile instead of "needs data connection".</p>
+<div id="cgcSet" class="field-note" style="margin:6px 0 4px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+  <button class="secondary" id="cgcSetBtn" onclick="cgcToggle(this)">Turn on caregiver connect</button>
+  <span class="field-note" id="cgcSetSaved"></span>
+</div>
+</div>
+
+<div class="settings-section">
 <h3>☀️ Morning Brief</h3>
 <p class="hint">A personal email at <b>8am Central on workdays</b>: today's interviews and booked assessments, anything that came in overnight, pass-along notes from the quick form, leads to call, and that person's top priorities, each line one tap into the hub. Everyone sees only their own book plus anything nobody owns yet. <b>Full picture</b> adds the admin sections: family-update calls from flagged care notes, write-ups for call-offs with under 4 hours notice, yesterday's EVV misses, and today's schedule from AxisCare with any open shifts. Pick who gets what:</p>
 <div id="mbRecips" style="display:flex;flex-direction:column;gap:5px;margin:8px 0;"></div>
@@ -4341,6 +4351,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <button class="filter-pill" data-cf="attention" onclick="cgdFilter('attention',this)">Needs attention</button>
       <button class="filter-pill" data-cf="needsdata" onclick="cgdFilter('needsdata',this)">Needs data connection</button>
     </div>
+    <div id="cgcLine" class="field-note" style="margin:-4px 0 10px;font-size:13px;"></div>
     <div id="cgdList"><div class="field-note">Loading…</div></div>
   </div>
   <!-- The FULL caregiver profile page (her UX ruling, 2026-09-20): the
@@ -13956,6 +13967,7 @@ function fillSettingsPanel(){
   try{ lnSetFill(); }catch(_){}
   try{ cbFill(); }catch(_){}
   tkFill();
+  try{ cgcSetFill(); }catch(_){}
   mbFill();
   try{ aivFill(); }catch(e){}
   document.getElementById('set_supabase_url').value = CONFIG.supabase_url||'';
@@ -16183,6 +16195,7 @@ async function cgdOpen(){ // tab open
   const el=document.getElementById('cgdList');
   try{ await cgdCensus(); }catch(e){ if(el) el.innerHTML='<div class="card" style="padding:16px;">Could not load the AxisCare census: '+escapeHtmlComms(String(e.message||e))+'</div>'; return; }
   cgdRenderList();
+  cgcLineRender();
 }
 function cgdFilter(f,btn){ CGD.filter=f; document.querySelectorAll('#cgdFilters .filter-pill').forEach(b=>b.classList.toggle('active',b===btn)); cgdRenderList(); }
 let cgdSearchT=null;
@@ -16244,6 +16257,226 @@ function cgdRenderList(){
       +'</div>';
   }).join('')+'</div>'
   +(rows.length>cap?'<div class="field-note" style="margin-top:6px;">Showing '+cap+' of '+rows.length+' — narrow with search.</div>':'');
+}
+
+/* ═══ CAREGIVER AUTO-CONNECT (AC2, 2026-10-03; her plan "yes to all": https://claude.ai/artifact/FJUZg3aU2neZBgGNDbCCLm) ═══
+   The hourly server check (caregiver-connect, Desktop 438) connects each AxisCare caregiver to their Hub record when it
+   is certain (same phone or email), moves them over from Background & References, or starts a new Hub record, and puts
+   everyone else in Needs Attention. Her switch (Settings, Caregiver connect; ops_settings.cg_connect_live) is OFF until
+   she turns it on: until then it only lists what it WOULD do. This page READS the check's lists (caregiver_connect_log,
+   _runs, _blocked) and sends a person's choice (the Connect card, "Not this person") to the server, which makes the
+   change. Nothing here writes a caregiver or candidate record itself. Which records could be theirs comes from
+   caregiver-connect-rules.js, the same copy the server runs. */
+const CGC={ log:null, runs:null, blocked:null, cands:null, at:0, err:null, missing:false, open:false, busy:false };
+const CGC_COLS='id,at,run_id,mode,action,result,axiscare_id,ax_name,how,record_kind,record_id,record_name,caregiver_id,why,options,by,undone_at,undone_by,undo_of';
+async function cgcLoad(force){
+  if(CGC.log && !force && Date.now()-CGC.at<2*60*1000) return;
+  try{
+    const [l, r, b, k] = await Promise.all([
+      sb.from('caregiver_connect_log').select(CGC_COLS).order('at',{ascending:false}).limit(400),
+      sb.from('caregiver_connect_runs').select('at,mode,ok,census_total,census_active,linked,moved,created,review,refused,error,note').order('at',{ascending:false}).limit(6),
+      sb.from('caregiver_connect_blocked').select('axiscare_id,kind,record_id,at,by'),
+      sb.from('app_data').select('data').eq('key','candidates').maybeSingle()
+    ]);
+    const e=l.error||r.error||b.error||k.error;
+    if(e) throw e;
+    CGC.log=l.data||[]; CGC.runs=r.data||[]; CGC.blocked=b.data||[]; CGC.cands=(k.data&&Array.isArray(k.data.data))?k.data.data:[];
+    CGC.at=Date.now(); CGC.err=null; CGC.missing=false;
+  }catch(e){
+    const m=String((e&&(e.message||e.code))||e);
+    CGC.missing=/does not exist|PGRST205|schema cache|42P01/i.test(m+' '+String(e&&e.code||''));
+    CGC.err=CGC.missing?null:m;
+    if(!CGC.log){ CGC.log=[]; CGC.runs=[]; CGC.blocked=[]; CGC.cands=CGC.cands||[]; }
+  }
+}
+/* The rules file loads with the caregiver engine; the directory can be opened without it, so load it here when needed. */
+function cgcRules(){
+  if(globalThis.CCConnect) return Promise.resolve(globalThis.CCConnect);
+  return new Promise(function(ok, no){
+    let s=document.getElementById('ccconnectrules');
+    const done=function(){ globalThis.CCConnect ? ok(globalThis.CCConnect) : no(new Error('The caregiver connect rules did not load. Refresh the page.')); };
+    if(!s){ s=document.createElement('script'); s.id='ccconnectrules'; s.src='caregiver-connect-rules.js?v=' + Date.now(); document.head.appendChild(s); }
+    s.addEventListener('load', done, { once:true }); s.addEventListener('error', done, { once:true });
+    setTimeout(done, 8000);
+  });
+}
+const cgcDay=t=>{ try{ return new Date(t).toLocaleString('en-US',{ timeZone:'America/Chicago', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }catch(_){ return String(t||'').slice(0,16); } };
+const cgcWho=b=>{ const s=String(b||''); return s==='auto'?'the hourly check':(s.split('@')[0]||'someone'); };
+function cgcDoneText(x){
+  const how = x.action==='move' ? 'moved over from Background &amp; References'
+    : x.action==='create' ? 'started a new Hub record'
+    : x.how==='phone' ? 'connected by phone number' : x.how==='email' ? 'connected by email' : 'connected to '+escapeHtmlComms(x.record_name||'their Hub record');
+  return how+(x.by==='auto'?' automatically':' by '+escapeHtmlComms(cgcWho(x.by)));
+}
+const cgcUndoable=x=>x&&x.result==='done'&&!x.undone_at&&['link','move','create'].includes(x.action);
+function cgcWouldText(x){
+  const esc=escapeHtmlComms;
+  if(x.action==='link') return 'would connect to their Hub record '+esc(x.record_name||'')+' (same '+esc(x.how||'phone')+')';
+  if(x.action==='move') return 'would move over from Background &amp; References (same '+esc(x.how||'phone')+')';
+  if(x.action==='create') return 'would start a new Hub record (nothing in the Hub matches them)';
+  return 'needs a look: '+esc(x.why||'');
+}
+/* the line above the directory */
+async function cgcLineRender(){
+  const el=document.getElementById('cgcLine'); if(!el) return;
+  await cgcLoad(false);
+  const esc=escapeHtmlComms;
+  if(CGC.missing){ el.innerHTML=''; return; }
+  if(CGC.err){ el.innerHTML='<span style="color:var(--red);">Couldn\'t load the caregiver connect list ('+esc(CGC.err)+').</span>'; return; }
+  const run=(CGC.runs||[])[0];
+  if(!run){ el.innerHTML='<span>The hourly caregiver connect check has not run yet.</span>'; return; }
+  const live=run.mode==='live';
+  const since=Date.now()-7*864e5;
+  const done=(CGC.log||[]).filter(x=>x.result==='done'&&x.mode!=='manual'&&['link','move','create'].includes(x.action)&&!x.undone_at&&Date.parse(x.at)>since);
+  const look=(CGC.log||[]).filter(x=>x.result==='would'&&x.action==='review').length;
+  const by=k=>done.filter(x=>k==='phone'?(x.action==='link'&&x.how==='phone'):k==='email'?(x.action==='link'&&x.how==='email'):x.action===k).length;
+  const parts=[by('phone')&&by('phone')+' by phone', by('email')&&by('email')+' by email', by('move')&&by('move')+' moved from Background &amp; References', by('create')&&by('create')+' new Hub record'+(by('create')===1?'':'s')].filter(Boolean);
+  const bad=!run.ok?'<span style="color:var(--red);">⚠ The last connect check ('+esc(cgcDay(run.at))+') could not finish: '+esc(run.error||'unknown')+'.</span> ':'';
+  const lk='<a href="javascript:void(0)" onclick="cgcToggleList()">'+(CGC.open?'hide the list':'see the list')+'</a>';
+  el.innerHTML=bad+(live
+    ? 'Connected automatically this week: <b>'+done.length+'</b>'+(parts.length?' ('+parts.join(', ')+')':'')+' · <b>'+look+'</b> need'+(look===1?'s':'')+' a look · '+lk
+    : '<b style="color:#B7791F;">Caregiver connect is in practice.</b> The hourly check would connect <b>'+((run.linked||0)+(run.moved||0)+(run.created||0))+'</b> ('+(run.linked||0)+' to their Hub record, '+(run.moved||0)+' moved from Background &amp; References, '+(run.created||0)+' new Hub record'+(run.created===1?'':'s')+') · <b>'+(run.review||0)+'</b> need'+(run.review===1?'s':'')+' a look · '+lk+' · turn it on in Settings, Caregiver connect')
+    +(CGC.open?cgcListHtml(live):'');
+}
+function cgcToggleList(){ CGC.open=!CGC.open; cgcLineRender(); }
+function cgcListHtml(live){
+  const esc=escapeHtmlComms, nm=x=>esc(x.ax_name||('AxisCare '+x.axiscare_id));
+  const open=x=>'<a href="javascript:void(0)" onclick="cgdOpenProfile(\''+esc(String(x.axiscare_id))+'\')"><b>'+nm(x)+'</b></a>';
+  const would=(CGC.log||[]).filter(x=>x.result==='would');
+  const since=Date.now()-30*864e5;
+  const done=(CGC.log||[]).filter(x=>x.result==='done'&&['link','move','create'].includes(x.action)&&Date.parse(x.at)>since);
+  const refused=(CGC.log||[]).filter(x=>x.result==='refused'&&Date.parse(x.at)>Date.now()-7*864e5);
+  const row=inner=>'<div style="padding:5px 0;border-top:1px solid #F3EFE7;">'+inner+'</div>';
+  let h='<div class="card" style="padding:12px 14px;margin-top:8px;color:var(--text);font-size:13px;">';
+  const ord=['review','link','move','create'];
+  const w=would.slice().sort((a,b)=>ord.indexOf(a.action)-ord.indexOf(b.action)||String(a.ax_name).localeCompare(String(b.ax_name)));
+  h+='<div style="font-weight:800;color:var(--navy);margin-bottom:4px;">'+(live?'Needs a person to decide':'What the check would do (practice, nothing has changed)')+'</div>';
+  h+=w.length?w.map(x=>row(open(x)+' · '+cgcWouldText(x))).join(''):'<div class="field-note">Nobody.</div>';
+  h+='<div style="font-weight:800;color:var(--navy);margin:10px 0 4px;">Connected in the last 30 days</div>';
+  h+=done.length?done.map(x=>row(open(x)+' · '+cgcDoneText(x)+' · '+esc(cgcDay(x.at))
+      +(x.undone_at?' · <span class="field-note">undone by '+esc(cgcWho(x.undone_by))+' '+esc(cgcDay(x.undone_at))+'</span>'
+        :' <button class="ghost" style="font-size:12px;padding:3px 9px;margin-left:6px;" onclick="cgcUndo('+Number(x.id)+',this)">Not this person</button>'))).join('')
+    :'<div class="field-note">Nobody yet.</div>';
+  if(refused.length){
+    h+='<div style="font-weight:800;color:var(--navy);margin:10px 0 4px;">Not done this week (tried again next hour)</div>';
+    h+=refused.map(x=>row(open(x)+' · '+esc(x.why||'')+' · '+esc(cgcDay(x.at)))).join('');
+  }
+  return h+'</div>';
+}
+/* the profile: how they were connected (with "Not this person"), or the Connect card */
+async function cgcMount(c, g){
+  const el=document.getElementById('cgcCard'); if(!el) return;
+  const esc=escapeHtmlComms, ax=String(c.id);
+  await cgcLoad(true);
+  if(String(CGD.openId)!==ax) return;
+  if(CGC.missing){ el.innerHTML=''; return; }
+  const mine=(CGC.log||[]).filter(x=>String(x.axiscare_id)===ax);
+  const last=mine.find(x=>x.result==='done'&&['link','move','create'].includes(x.action));
+  if(g||cgdOverlayFor(ax)){
+    el.innerHTML=(last&&cgcUndoable(last)&&g&&String(g.axiscare_id||'')===ax)
+      ? '<div class="card" style="padding:10px 14px;margin-bottom:10px;font-size:13px;">🔗 Hub record '+cgcDoneText(last)+' on '+esc(cgcDay(last.at))+'. '
+        +'<button class="ghost" style="font-size:12px;padding:3px 9px;margin-left:6px;" onclick="cgcUndo('+Number(last.id)+',this)">Not this person</button>'
+        +'<div class="field-note">Wrong match? "Not this person" takes the connection back off, and the hourly check never makes that match again.</div></div>'
+      : '';
+    return;
+  }
+  if(!c.active){ el.innerHTML=''; return; }
+  let C;
+  try{ C=await cgcRules(); }catch(e){ el.innerHTML='<div class="card" style="padding:12px 14px;margin-bottom:10px;color:var(--red);">'+esc(e.message)+'</div>'; return; }
+  if(CGC.err){ el.innerHTML='<div class="card" style="padding:12px 14px;margin-bottom:10px;color:var(--red);">Couldn\'t load the possible records ('+esc(CGC.err)+'). Refresh and try again.</div>'; return; }
+  const blocked=(CGC.blocked||[]).map(b=>({ axiscare_id:String(b.axiscare_id), kind:b.kind, id:String(b.record_id||'') }));
+  const o=C.options(c, DATA.caregivers||[], CGC.cands||[], { census:(CGD.census&&CGD.census.caregivers)||[], blocked });
+  const rev=mine.find(x=>x.result==='would'&&x.action==='review');
+  const btn=(label, js)=>'<button class="secondary" style="font-size:12.5px;padding:5px 11px;" onclick="'+js+'">'+label+'</button>';
+  const rows=o.options.map(op=>{
+    const k=esc(String(op.id));
+    const action = op.where==='hub'
+      ? (op.linked_to ? '<span class="field-note">already connected to AxisCare '+esc(op.linked_to)+'</span>' : btn('This is their Hub record', "cgcAct('link','"+esc(ax)+"','"+k+"',this)"))
+      : btn('Move over from Background &amp; References', "cgcAct('move','"+esc(ax)+"','"+k+"',this)");
+    return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0;border-top:1px solid #F3EFE7;">'
+      +'<span style="flex:1;min-width:220px;"><b>'+esc(op.name)+'</b> <span class="field-note">'+(op.where==='hub'?'Hub record':'Background &amp; References'+(op.state&&op.state!=='open'?', '+esc(op.state):''))+'; '+esc(op.why.join(', '))+'</span></span>'+action+'</div>';
+  }).join('');
+  el.innerHTML='<div class="card" style="padding:14px 16px;margin-bottom:10px;border:1.5px solid #F5D9A8;background:#FFFBF3;">'
+    +'<div style="font-weight:800;color:var(--navy);font-size:14px;margin-bottom:4px;">Connect this caregiver</div>'
+    +'<div class="field-note" style="margin-bottom:6px;">The Hub has no record tied to '+esc((c.first+' '+c.last).trim())+' yet, so their checks, references and compliance don\'t show here. '
+    +(o.certain?'The hourly check is sure this is theirs (same phone or email) and will connect it'+((CGC.runs||[])[0]&&CGC.runs[0].mode==='live'?' at the next check':' once caregiver connect is turned on')+'; you can do it now.'
+      :(rev?'The hourly check didn\'t connect them because '+esc(rev.why)+'.':(o.why?'Not automatic because '+esc(o.why)+'.':'')))+'</div>'
+    +(rows||'<div class="field-note" style="padding:6px 0;border-top:1px solid #F3EFE7;">No Hub record or Background &amp; References candidate has their phone, email or a similar name.</div>')
+    +'<div style="padding-top:8px;border-top:1px solid #F3EFE7;">'+btn('Start a new Hub record', "cgcAct('new','"+esc(ax)+"','',this)")
+    +' <span class="field-note">for someone the Hub never had; their checks are added to it afterwards.</span></div>'
+    +'<div class="field-note" id="cgcMsg" style="margin-top:6px;"></div></div>';
+}
+async function cgcCall(body){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session||!session.access_token) return { ok:false, message:'You are not signed in, so nothing was changed. Sign in and try again.' };
+  try{
+    const r=await fetch(`${CONFIG.supabase_url}/functions/v1/caregiver-connect`,{ method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' }, body:JSON.stringify(body) });
+    const j=await r.json().catch(()=>null);
+    if(!j) return { ok:false, message:'The connect service answered '+r.status+'. Nothing was changed.' };
+    return j.ok ? j : { ok:false, message:j.message||j.error||('The connect service answered '+r.status+'. Nothing was changed.') };
+  }catch(e){ return { ok:false, message:'Could not reach the connect service. Nothing was changed.' }; }
+}
+async function cgcAct(action, ax, recId, btn){
+  if(CGC.busy) return;
+  const c=(CGD.census&&CGD.census.caregivers||[]).find(x=>String(x.id)===String(ax)); if(!c) return;
+  const name=(c.first+' '+c.last).trim();
+  const rec = action==='link' ? (DATA.caregivers||[]).find(x=>String(x.id)===String(recId))
+    : action==='move' ? (CGC.cands||[]).find(x=>String(x.id)===String(recId)) : null;
+  const rn=rec?((rec.first||'')+' '+(rec.last||'')).trim():'';
+  const q = action==='link' ? 'Connect '+name+' (AxisCare) to the Hub record "'+rn+'"?\n\nTheir checks, references and compliance on that record will show on this profile. Only do this if it is the same person.'
+    : action==='move' ? 'Move "'+rn+'" over from Background & References as '+name+'?\n\nThey become a caregiver record carrying their checks, references and documents (the same as the Move to caregiver button), and leave Background & References. Only do this if it is the same person.'
+    : 'Start a new, empty Hub record for '+name+'?\n\nOnly if the Hub never had them. Their checks and references can be added to it afterwards.';
+  if(!confirm(q)) return;
+  CGC.busy=true; if(btn) btn.disabled=true;
+  const m=document.getElementById('cgcMsg'); if(m) m.textContent='Saving…';
+  const body = action==='link' ? { action, axiscare_id:ax, caregiver_id:recId } : action==='move' ? { action, axiscare_id:ax, candidate_id:recId } : { action:'new', axiscare_id:ax };
+  const out=await cgcCall(body);
+  CGC.busy=false; if(btn) btn.disabled=false;
+  if(!out.ok){ if(m){ m.style.color='var(--red)'; m.textContent=out.message; } else alert(out.message); return; }
+  await ccReloadCaregivers(); await cgcLoad(true);
+  if(String(CGD.openId)===String(ax)) cgdOpenProfile(ax);
+}
+async function cgcUndo(logId, btn){
+  if(CGC.busy) return;
+  const x=(CGC.log||[]).find(r=>Number(r.id)===Number(logId)); if(!x) return;
+  const nm=x.ax_name||'this caregiver';
+  const q = x.action==='move' ? 'Not this person? This puts "'+(x.record_name||'')+'" back in Background & References and takes the caregiver record back off '+nm+'.\n\nThe hourly check will never make this match again.'
+    : x.action==='create' ? 'Not this person? This removes the new Hub record started for '+nm+'.\n\nThe hourly check will not start one for them again; a person decides instead.'
+    : 'Not this person? This takes the connection between '+nm+' and the Hub record "'+(x.record_name||'')+'" back off. Nothing on the record is deleted.\n\nThe hourly check will never make this match again.';
+  if(!confirm(q)) return;
+  CGC.busy=true; if(btn) btn.disabled=true;
+  const out=await cgcCall({ action:'undo', log_id:Number(logId) });
+  CGC.busy=false; if(btn) btn.disabled=false;
+  if(!out.ok){ alert(out.message); return; }
+  await ccReloadCaregivers(); await cgcLoad(true);
+  if(CGD.openId) cgdOpenProfile(CGD.openId); else { cgdRenderList(); cgcLineRender(); }
+}
+/* Settings, Caregiver connect */
+function cgcSetRender(){
+  const box=document.getElementById('cgcSet'), b=document.getElementById('cgcSetBtn'); if(!box) return;
+  const on=(DATA.ops_settings||{}).cg_connect_live===true, esc=escapeHtmlComms, run=(CGC.runs||[])[0];
+  box.innerHTML=(on?'<b style="color:#1E8449;">Caregiver connect: ON.</b> Once an hour, ':'<b style="color:#B7791F;">Caregiver connect: OFF (practice).</b> Once an hour the check lists what it would do; when on, ')
+    +'each active AxisCare caregiver with the same phone or email as exactly one Hub record is connected to it, someone still in Background &amp; References is moved over (the same as Move to caregiver), and someone the Hub never had gets a new record. Anyone it isn\'t sure about goes to Needs Attention. A name alone never connects anyone, and nobody is texted.'
+    +(CGC.missing?' <b>Not installed yet (Desktop 438).</b>'
+      :run?'<br>Last check '+esc(cgcDay(run.at))+' ('+(run.mode==='live'?'live':'practice')+'): '
+        +(run.ok?(run.mode==='live'?(run.linked||0)+' connected, '+(run.moved||0)+' moved, '+(run.created||0)+' started, '+(run.review||0)+' need a look'+(run.refused?', '+run.refused+' tried again next hour':'')
+                                   :'would connect '+(run.linked||0)+', move '+(run.moved||0)+', start '+(run.created||0)+'; '+(run.review||0)+' need a look')
+                 :'<span style="color:var(--red);">could not finish: '+esc(run.error||'unknown')+'</span>')
+        +'. The list is on the Caregivers page.'
+      :' It has not run yet.');
+  if(b) b.textContent=on?'Turn off caregiver connect':'Turn on caregiver connect';
+}
+async function cgcSetFill(){ cgcSetRender(); await cgcLoad(true); cgcSetRender(); }
+async function cgcToggle(btn){
+  const on=!((DATA.ops_settings||{}).cg_connect_live===true);
+  if(!confirm(on?'Turn on caregiver connect? From the next hourly check, AxisCare caregivers it is sure about are connected to their Hub record, moved over from Background & References, or given a new Hub record. Everyone else goes to Needs Attention. Each one shows on the Caregivers list with "Not this person" to undo it.'
+                :'Turn off caregiver connect? The hourly check goes back to practice: it only lists what it would do.')) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.cg_connect_live=on; return ['caregiver connect '+(on?'ON':'OFF')]; }, 'caregiver connect');
+  if(btn) btn.disabled=false;
+  const s=document.getElementById('cgcSetSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):(on?'Caregiver connect is on from the next hourly check.':'Caregiver connect is off (practice).');
+  cgcSetRender();
 }
 
 /* ---- the FULL caregiver profile page (one workspace, sectioned) ---- */
@@ -16465,6 +16698,7 @@ async function cgdOpenProfile(axid){
     +'</div>'
 
     +'<div id="cgdSec-overview">'
+    +'<div id="cgcCard"></div>'
     +'<div id="cgdPrn"></div>'
     +card('At a glance',
       kv('Status', esc(c.status_label||(c.active?'Active':'Inactive')))
@@ -16532,6 +16766,7 @@ async function cgdOpenProfile(axid){
   cgdProfGateMount(c,g);
   cgdPrnMount(c);
   cgdMissedNotesMount(c);
+  try{ cgcMount(c, g); }catch(e){ console.warn('caregiver connect card:', e); }
   /* pre-hire documents from GoHighLevel: read, then redraw the two cards */
   if(g) phdLoad().then(()=>{ if(String(CGD.openId)!==String(c.id)) return;
     const a=document.getElementById('cgdPreHireBody'); if(a) a.innerHTML=cgdPreHireHtml(g);
