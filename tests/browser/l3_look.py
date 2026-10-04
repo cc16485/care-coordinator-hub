@@ -93,7 +93,7 @@ async()=>{
   __rr=[{ at:iso(5), mode:'practice', session_date:'2026-10-06', who:'Ava S', result:'would', detail:'Hi Ava...' },
         { at:iso(5), mode:'practice', session_date:'2026-10-06', who:'Di E', result:'skipped', detail:'no usable phone number' }];
   await orrSetFill();
-  ok('OFF (practice): what it does, that nothing is sent, when to turn it on (with the GoHighLevel workflow), the last check', /Orientation reminders from the Hub: OFF \(practice\)\./.test(s.innerText) && /nothing is sent/.test(s.innerText) && /Orientation booked - remind/.test(s.innerText) && /Last check .*: 2 due for tomorrow, 1 skipped\./.test(s.innerText), s.innerText);
+  ok('OFF (practice): what it does, that nothing is sent, when to turn it on (with the GoHighLevel workflow), the last check', /Office orientation reminders from the Hub: OFF \(practice\)\./.test(s.innerText) && /nothing is sent/.test(s.innerText) && /Orientation booked - remind/.test(s.innerText) && /Last check .*: 2 due for tomorrow, 1 skipped\./.test(s.innerText), s.innerText);
   ok('...the list: who it would remind and who it would skip, and why', /Ava S · orientation Tue, Oct 6 · would be reminded/.test(list.innerText) && /Di E · orientation Tue, Oct 6 · skipped \(no usable phone number\)/.test(list.innerText), list.innerText);
   let merged=null; window.tkMerge=async(fn)=>{ const m={}; const ch=fn(m,{}); merged=m; DATA.ops_settings=Object.assign({},DATA.ops_settings,m); return { changed:ch, error:null }; };
   __conf=[]; await orrToggle(document.getElementById('orrSetBtn'));
@@ -102,7 +102,7 @@ async()=>{
         { at:iso(3), mode:'live', session_date:'2026-10-06', who:'Bo N', result:'not_sent', detail:'they did not agree to texts on their application' },
         { at:iso(3), mode:'live', session_date:'2026-10-06', who:'Cy D', result:'failed', detail:'GoHighLevel did not accept it (a card is on Needs Attention)' }];
   await orrSetFill();
-  ok('ON: says so, reminds to keep the GoHighLevel workflow off; the button says Turn off', /Orientation reminders from the Hub: ON\./.test(s.innerText) && /workflow "Orientation booked - remind" is off/.test(s.innerText) && document.getElementById('orrSetBtn').textContent==='Turn off', s.innerText);
+  ok('ON: says so, reminds to keep the GoHighLevel workflow off; the button says Turn off', /Office orientation reminders from the Hub: ON\./.test(s.innerText) && /workflow "Orientation booked - remind" is off/.test(s.innerText) && document.getElementById('orrSetBtn').textContent==='Turn off', s.innerText);
   ok('...the live list: reminded, not texted (why), could not be texted (why)', /Ava S · orientation Tue, Oct 6 · reminded/.test(list.innerText) && /Bo N .* not texted \(they did not agree to texts/.test(list.innerText) && /Cy D .* could not be texted \(GoHighLevel did not accept it/.test(list.innerText), list.innerText);
   __runs=[{ at:iso(1), mode:'live', ok:false, error:'the orientation sessions could not be read' }]; await orrSetFill();
   ok('a check that could not finish says so', /could not finish: the orientation sessions could not be read/.test(s.innerText), s.innerText);
