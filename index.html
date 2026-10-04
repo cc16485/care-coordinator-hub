@@ -13704,7 +13704,8 @@ function crRender(){
   if(e&&document.activeElement!==e) e.value=st.callin_reminder_every_min!=null?String(st.callin_reminder_every_min):'';
   if(m&&document.activeElement!==m) m.value=st.callin_reminder_max!=null?String(st.callin_reminder_max):'';
   const since=Date.now()-7*864e5; let would=0, sent=0, cases=0;
-  (DATA.coverage_cases||[]).forEach(cs=>{ const r=(cs.callin_reminders||[]).filter(x=>Date.parse(x.at)>since); if(r.length) cases++; r.forEach(x=>{ if(x.practice) would++; else sent++; }); });
+  /* the ongoing sweep's standing open shifts are not call-ins (practice entries recorded on them before the 436 fix are left out) */
+  (DATA.coverage_cases||[]).filter(cs=>!(cs.opened_by==='ongoing-sweep'||cs.reason==='open'||String(cs.id||'').startsWith('cwo_'))).forEach(cs=>{ const r=(cs.callin_reminders||[]).filter(x=>Date.parse(x.at)>since); if(r.length) cases++; r.forEach(x=>{ if(x.practice) would++; else sent++; }); });
   if(box) box.innerHTML=(c.on?'<b style="color:#1E8449;">Call-in reminders: ON.</b> ':'<b style="color:#B7791F;">Call-in reminders: OFF (practice).</b> ')
     +'If nobody taps "I\'ve got it", confirms or closes a call-in, every admin who got its text is reminded every '+c.every+' minutes, at most '+c.max+' times, with their link. '
     +(q.off?'':'From '+q.from+' to '+q.to+' only for MUST BE COVERED shifts, or shifts starting within 3 hours. ')
