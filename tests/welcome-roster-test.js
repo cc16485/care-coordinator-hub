@@ -27,7 +27,7 @@ const todayCentral = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chica
 
 function world(opts = {}) {
   const log = [], alerts = [], fetches = [], local = {};
-  const cand = { id: 41, first: 'Ava', last: 'Applicant', phone: '417-555-0199', email: 'ava@x.com', offer_id: 'offer-uuid-1', intake_id: 'intake-9',
+  const cand = { id: 41, first: 'Ava', last: 'Applicant', phone: '417-555-0199', email: 'ava@x.com', offer_id: 'offer-uuid-1', intake_id: 'intake-9', r1n: 'Ref One', r1s: 'Positive',   /* the real reference list (caregiver-connect-rules.js) carries it */
     position: 'Caregiver', step2_sent_at: '2026-10-01T14:00:00Z', step2_sent_by: 'angiel@mo-care.com', step2_done_at: '2026-10-01T15:00:00Z', step2_done_by: 'angiel@mo-care.com',
     welcome_call_id: 'w1', welcome_invited_at: '2026-10-01T16:00:00Z', oos: 'no', oig: 'Clear', oig_date: '2026-09-20', edl: 'Clear', edl_date: '2026-09-20',
     fcsr: 'Clear', fcsr_date: '2026-09-21', fp: 'N/A', orient_session_date: '' };
@@ -52,6 +52,7 @@ function world(opts = {}) {
   };
   ctx.window.CGP2 = ctx.CGP2;
   vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'caregiver-connect-rules.js'), 'utf8'), ctx);   /* the one copy the engine's hire record comes from */
   vm.runInContext(code + '\nthis.__x = { wcAct, wcAddToRoster, wcRosterMsg, wcRosterAdd, wcOrientLink, wcSrcFor, wcRowFor, wcNeedsRoster, promoteToCaregiver, WC_GUIDE, setRows: r => { WC_ROWS = r; } };', ctx);
   const X = ctx.__x;
   X.setRows([{ id: 'w1', candidate_id: '41', first_name: 'Ava', last_name: 'Applicant', phone: '(417) 555-0100', email: 'ava@x.com', status: 'booked', starts_at: '2026-10-06T15:00:00Z',
