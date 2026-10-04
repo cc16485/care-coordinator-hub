@@ -4014,6 +4014,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 
 <div class="settings-section">
+<h3>🔔 Orientation reminders</h3>
+<p class="hint">The text the day before someone's orientation, sent by the Hub instead of GoHighLevel.</p>
+<div id="orrSet" class="field-note" style="margin:6px 0 4px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+  <button class="secondary" id="orrSetBtn" onclick="orrToggle(this)">Turn on</button>
+  <span class="field-note" id="orrSetSaved"></span>
+</div>
+<div id="orrList"></div>
+</div>
+
+<div class="settings-section">
 <h3>🔗 Caregiver connect</h3>
 <p class="hint">Ties each AxisCare caregiver to their Hub record, so their checks, references and compliance show on their profile instead of "needs data connection".</p>
 <div id="cgcSet" class="field-note" style="margin:6px 0 4px;"></div>
@@ -13990,6 +14001,7 @@ function fillSettingsPanel(){
   tkFill();
   try{ cgcSetFill(); }catch(_){}
   try{ iimSetFill(); }catch(_){}
+  try{ orrSetFill(); }catch(_){}
   mbFill();
   try{ aivFill(); }catch(e){}
   document.getElementById('set_supabase_url').value = CONFIG.supabase_url||'';
@@ -16360,6 +16372,63 @@ async function iimToggle(btn){
   const s=document.getElementById('iimSaved'); if(s) s.textContent=msg;
 }
 window.iimLineRender=iimLineRender;
+
+/* ═══ ORIENTATION DAY-BEFORE REMINDER (445, 2026-10-04; her "yes to all", decision 4) ═══
+   The server's hourly check (orientation-remind) texts everyone still booked on tomorrow's orientation sessions, from
+   10am Central, once each, with their yes to texts and STOP. It replaces the GoHighLevel workflow "Orientation booked -
+   remind". Her switch (ops_settings.orient_remind_live) is OFF until she turns it on: until then it only lists who it
+   WOULD remind. This card READS the check's lists (orient_reminders, orient_remind_runs) and flips the switch. */
+const ORR={ rows:null, runs:null, at:0, err:null, missing:false };
+async function orrLoad(force){
+  if(ORR.rows && !force && Date.now()-ORR.at<60*1000) return;
+  try{
+    const [l, r] = await Promise.all([
+      sb.from('orient_reminders').select('at,mode,session_date,who,result,detail,sent_at').order('at',{ascending:false}).limit(60),
+      sb.from('orient_remind_runs').select('at,mode,ok,sessions,due,skipped,would,sent,not_sent,failed,error').order('at',{ascending:false}).limit(3)
+    ]);
+    const e=l.error||r.error; if(e) throw e;
+    ORR.rows=l.data||[]; ORR.runs=r.data||[]; ORR.at=Date.now(); ORR.err=null; ORR.missing=false;
+  }catch(e){
+    const m=String((e&&(e.message||e.code))||e);
+    ORR.missing=/does not exist|PGRST205|schema cache|42P01/i.test(m+' '+String(e&&e.code||'')); ORR.err=ORR.missing?null:m;
+    if(!ORR.rows){ ORR.rows=[]; ORR.runs=[]; }
+  }
+}
+const ORR_RESULT={ would:'would be reminded', skipped:'skipped', sending:'was being sent (may not have gone)', sent:'reminded', not_sent:'not texted', failed:'could not be texted' };
+function orrSetRender(){
+  const box=document.getElementById('orrSet'), b=document.getElementById('orrSetBtn'), list=document.getElementById('orrList'); if(!box) return;
+  const st=DATA.ops_settings||{}, on=st.orient_remind_live===true, run=(ORR.runs||[])[0], esc=escapeHtmlComms;
+  const when=iso=>new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+  box.innerHTML=(on?'<b style="color:#1E8449;">Orientation reminders from the Hub: ON.</b> ':'<b style="color:#B7791F;">Orientation reminders from the Hub: OFF (practice).</b> ')
+    +'The day before an orientation, from 10am, everyone still booked on it gets one text (only with their yes to texts, and it ends with "Reply STOP to opt out."). '
+    +'Someone who booked that same day is skipped: their booking confirmation covers it. '
+    +(on?'Make sure the GoHighLevel workflow "Orientation booked - remind" is off, or people get two reminders.'
+        :'Until it is on, it only lists who it would remind and nothing is sent. Turn it on when you turn off the GoHighLevel workflow "Orientation booked - remind".')
+    +(ORR.missing?' <b>Not installed yet (Desktop 445).</b>':ORR.err?' <span style="color:var(--red);">Couldn\'t load the reminder lists ('+esc(ORR.err)+').</span>'
+      :run?'<br>Last check '+esc(when(run.at))+(run.ok?': '+(run.due||0)+' due for tomorrow'+(run.skipped?', '+run.skipped+' skipped':'')+'.':': <span style="color:var(--red);">could not finish: '+esc(run.error||'unknown')+'</span>'):'<br>No check yet: the first one is at 10am.');
+  if(b) b.textContent=on?'Turn off':'Turn on';
+  if(!list) return;
+  const rows=(ORR.rows||[]).filter(x=>x.mode===(on?'live':'practice')).slice(0,30);
+  list.innerHTML=ORR.missing||!rows.length?'':'<div style="font-size:.78rem;max-height:260px;overflow:auto;border-top:1px solid var(--border);">'+rows.map(x=>{
+    const bad=x.result==='failed'||x.result==='sending';
+    const why=(x.result==='skipped'||x.result==='not_sent'||bad)&&x.detail?' ('+esc(x.detail)+')':'';
+    return '<div style="padding:4px 0;border-bottom:1px solid var(--border);"><b>'+esc(x.who||'Someone')+'</b> · orientation '+esc(new Date(x.session_date+'T12:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'UTC'}))
+      +' · <span style="color:'+(bad?'var(--red)':x.result==='sent'?'#1E8449':'inherit')+';">'+esc(ORR_RESULT[x.result]||x.result)+'</span>'+why
+      +' · <span class="field-note">'+esc(when(x.sent_at||x.at))+'</span></div>';
+  }).join('')+'</div>';
+}
+async function orrSetFill(){ orrSetRender(); await orrLoad(true); orrSetRender(); }
+async function orrToggle(btn){
+  const on=!((DATA.ops_settings||{}).orient_remind_live===true);
+  if(!confirm(on?'Turn on orientation reminders from the Hub?\n\nFrom 10am tomorrow (or today, if it is before 6pm and someone is booked for tomorrow), everyone still booked on the next day\'s orientation gets one reminder text.\n\nTurn off the GoHighLevel workflow "Orientation booked - remind" at the same time, or people get two reminders.'
+                :'Turn off orientation reminders from the Hub? It goes back to practice: it only lists who it would remind, and nobody gets a reminder unless the GoHighLevel workflow is on.')) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.orient_remind_live=on; return ['orientation reminders from the Hub '+(on?'ON':'OFF')]; }, 'orientation reminders');
+  if(btn) btn.disabled=false;
+  const s=document.getElementById('orrSetSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next check.':'Off (practice).');
+  await orrSetFill();
+}
+window.orrToggle=orrToggle;
 
 /* ═══ CAREGIVER AUTO-CONNECT (AC2, 2026-10-03; her plan "yes to all": https://claude.ai/artifact/FJUZg3aU2neZBgGNDbCCLm) ═══
    The hourly server check (caregiver-connect, Desktop 438) connects each AxisCare caregiver to their Hub record when it
@@ -21149,6 +21218,7 @@ function apRender(){
         + (r.reengage_count?'<span>told about '+r.reengage_count+' opening'+(r.reengage_count>1?'s':'')+'</span>':'')
       + '</div>'
       + (r.status==='pool' && r.pool_note?'<div style="margin-top:.5rem;font-size:.82rem;background:#F7F5FF;border:1px solid #EDE9FE;border-radius:8px;padding:.5rem .7rem;"><b>In the pool because:</b> '+esc(r.pool_note)+'</div>':'')
+      + apDecisionPanel(r)
       + (r.availability?'<div style="margin-top:.5rem;font-size:.82rem;"><b>Available:</b> '+esc(r.availability)+'</div>':'')
       + (r.experience?'<div style="margin-top:.3rem;font-size:.82rem;"><b>Experience:</b> '+esc(r.experience)+'</div>':'')
       + ((r.experience_kinds&&r.experience_kinds.length)?'<div style="margin-top:.3rem;font-size:.82rem;color:#6E6559;">'+esc(r.experience_kinds.join(' · '))+'</div>':'')
@@ -21302,7 +21372,8 @@ async function apSetStatus(id, status, reason){
     const { error } = await sb.from('job_applicants').update(patch).eq('id', id);
     if(error) throw error;
     await apLoad();
-  }catch(e){ alert('Could not update them: '+(e&&e.message||'error')); }
+    return true;
+  }catch(e){ alert('Could not update them: '+(e&&e.message||'error')); return false; }
 }
 
 async function apDecline(id){
@@ -21310,7 +21381,7 @@ async function apDecline(id){
   const why = prompt('Why are we not moving forward with '
     + ((r&&r.first_name)||'this applicant') + '?\n\nKept for our own records only, never sent.', '');
   if(why===null) return;
-  await apSetStatus(id, 'declined', why.trim() || null);
+  if(await apSetStatus(id, 'declined', why.trim() || null)) await apDecisionOffer(id, 'declined');
 }
 
 /* Which applicant the offer form is currently about, so what gets agreed can
@@ -22147,6 +22218,7 @@ function apRenderProfile(){
        being saved but never shown here. Falls back to `notes` so reasons saved
        before the column fix are still visible. */
     + apNoshowPanel(r)
+    + apDecisionPanel(r)
     + (r.status==='declined'
         ? '<div style="margin-top:12px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:9px;padding:10px 12px;font-size:13px;color:#991B1B;">'
           + '<b>Not moving forward</b>'
@@ -23082,6 +23154,65 @@ async function apNoshowExcuse(id){
 }
 window.apNoshowMark = apNoshowMark; window.apNoshowSend = apNoshowSend; window.apNoshowExcuse = apNoshowExcuse;
 
+/* ---- "Not hiring" and "Candidate pool" messages (445, 2026-10-04) --------------------------------------------
+   Her plan ("yes to all", https://claude.ai/artifact/MQgrEVdZ8Kr65LBLsha1Aq), decision 3: an applicant marked Not hiring
+   or Candidate pool used to hear nothing. After the office marks them, this shows the exact message (OK sends it,
+   Cancel sends nothing). The server (applicant-decision-msg) owns the wording and sends it through GoHighLevel: a text
+   with their yes to texts, otherwise the email; 8am to 6pm only (outside that it waits, and their profile offers
+   "Send the message" / "Don't send it"); once per decision. The reason the office wrote is never sent. */
+const AP_DEC_LABEL = { declined:'not-hiring message', pool:'candidate pool message' };
+async function apDecisionCall(body){
+  const { data, error } = await sb.functions.invoke('applicant-decision-msg', { body });
+  if(error){ let m = error.message || 'error'; try{ const j = await error.context.json(); if(j && j.error) m = j.error; }catch(_){} throw new Error(m); }
+  if(data && data.error && !data.ok) throw new Error(data.error);
+  return data || {};
+}
+function apDecisionResult(d, label){
+  if(d.already_sent) return 'The ' + label + ' had already been sent.';
+  if(d.held) return 'Nothing went yet. ' + d.held;
+  const sent = [d.texted ? 'text' : '', d.emailed ? 'email' : ''].filter(Boolean);
+  return (sent.length ? 'Sent by ' + sent.join(' and ') + '. It shows in their GoHighLevel conversation.' : 'No message went.')
+    + ((d.not_sent && d.not_sent.length) ? '\n\nNot sent: ' + d.not_sent.join('; ') : '') + (d.error ? '\n\n' + d.error : '');
+}
+const apDecisionEmailText = html => String(html||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n\n').replace(/<[^>]+>/g,'')
+  .replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').trim();
+/* After they are marked (or from the "Send the message" button): show the message, send only on OK. */
+async function apDecisionOffer(id, kind){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id));
+  const first = (r && r.first_name) || 'them', label = AP_DEC_LABEL[kind];
+  let p;
+  try{ p = await apDecisionCall({ action:'preview', id, kind }); }
+  catch(e){ alert('They are marked, but the ' + label + ' could not be shown (' + (e && e.message || e) + '). Nothing was sent. Tell Samantha (or Claude).'); return; }
+  if(p.already_sent) return;
+  if(!p.text && !p.email){ alert('They are marked. No ' + label + ' can go to ' + first + ': ' + (p.no_text_why || 'no phone number') + ', and there is no email on file. Nothing was sent.'); return; }
+  const how = p.text ? 'a TEXT' : 'an EMAIL' + (p.no_text_why ? ' (no text: ' + p.no_text_why + ')' : '');
+  const words = p.text || ('Subject: ' + p.email.subject + '\n\n' + apDecisionEmailText(p.email.html));
+  if(!confirm('Send ' + first + ' the ' + label + '?\n\nThis sends ' + how + ':\n\n' + words + '\n\nOK sends it. Cancel sends nothing.')) return;
+  try{ const d = await apDecisionCall({ action:'send', id, kind }); await apLoad(); alert(apDecisionResult(d, label)); }
+  catch(e){ alert('Could not send the ' + label + ': ' + (e && e.message || e) + '\n\nThey are still marked.'); }
+}
+async function apDecisionSkip(id){
+  if(!confirm("Don't send this message? Nothing goes to them, and the button goes away.")) return;
+  try{ await apDecisionCall({ action:'skip', id }); await apLoad(); }
+  catch(e){ alert('Could not change it: ' + (e && e.message || e)); }
+}
+/* What their profile (and list card) says about the message: sent, or waiting for texting hours. */
+function apDecisionPanel(r){
+  if(!r || (r.status!=='declined' && r.status!=='pool')) return '';
+  const esc = escapeHtmlComms, label = AP_DEC_LABEL[r.status];
+  const day = iso => iso ? new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
+  if(r.decision_msg_at && r.decision_msg_kind===r.status)
+    return '<div style="margin-top:.5rem;font-size:.8rem;color:#15803D;">✓ The ' + esc(label) + ' was sent ' + esc(day(r.decision_msg_at)) + (r.decision_msg_by ? ' by ' + esc(r.decision_msg_by) : '') + '.</div>';
+  if(r.decision_msg_held_at)
+    return '<div style="margin-top:.5rem;background:#FFFBEB;border:1px solid #FCD34D;border-radius:9px;padding:.55rem .75rem;font-size:.82rem;color:#92400E;">'
+      + 'The ' + esc(label) + ' is waiting: messages to applicants go 8am to 6pm.'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:.45rem;">'
+      + '<button class="fb" onclick="apDecisionOffer(\'' + esc(r.id) + '\',\'' + esc(r.status) + '\')">Send the ' + esc(label) + '</button>'
+      + '<button class="fb" onclick="apDecisionSkip(\'' + esc(r.id) + '\')">Don\'t send it</button></div></div>';
+  return '';
+}
+window.apDecisionOffer = apDecisionOffer; window.apDecisionSkip = apDecisionSkip;
+
 /* ---- Applicant journey & messages (2026-10-01) ---- */
 function apjOpen(){
   if(window.AP_JOURNEY) return apjRender();
@@ -23194,6 +23325,7 @@ async function apOutcome(outcome, btn){
     document.getElementById('apIntCard').style.display='none';
     if(outcome==='hired') apToOffer(id, A);
     await apLoad();
+    if(outcome==='declined' || outcome==='pool') await apDecisionOffer(id, outcome);
   }catch(e){
     /* An outcome that fails quietly is worse than one that fails loudly: the
        card closes, the day moves on, and the interview is never recorded. The
@@ -23240,6 +23372,7 @@ function apPoolPrompts(r, A){
 
 async function apToPool(id){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  const wasPool = r.status==='pool';
   const p = apPoolPrompts(r);
   if(!p) return;
   try{
@@ -23251,6 +23384,7 @@ async function apToPool(id){
     }).eq('id', id);
     if(error) throw error;
     await apLoad();
+    if(!wasPool) await apDecisionOffer(id, 'pool');
   }catch(e){
     const m = String(e&&e.message||'error');
     alert(/constraint/i.test(m)
