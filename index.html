@@ -34630,6 +34630,7 @@ async function covResolve(id,how,byName){
   }
   /* THE OTHERS WHO SAID YES (her rule, 2026-09-19): the coordinator decides
      what they hear — the default thank-you, custom wording, or nothing. */
+  let notChosen;
   if(how==='covered'){
     const others=yesL.filter(a=>String(a.name||'').toLowerCase()!==String(by||'').toLowerCase());
     if(others.length){
@@ -34638,50 +34639,43 @@ async function covResolve(id,how,byName){
         const dflt=(DATA.ops_settings&&DATA.ops_settings.coverage_msg_not_chosen)
           ||'Caring Companions: that shift got covered this time — thank you so much for offering, {first_name}! Next one is yours.';
         const m=prompt('What should it say? ({first_name} becomes their name)',dflt);
-        c.not_chosen_msg=(m&&m.trim())||dflt;
-        delete c.not_chosen_silent;
-      }else{
-        c.not_chosen_silent=true;
-        delete c.not_chosen_msg;
-      }
+        notChosen={ msg:(m&&m.trim())||dflt };
+      }else notChosen={ silent:true };
     }
   }
-  c.status='done'; c.resolved_how=how; c.covered_by=by||null;
-  c.resolved_at=new Date().toISOString();
-  /* PRN3: who confirmed it and when, on every case. */
-  c.confirmed_by=(typeof ccActor==='function'?ccActor().name:'')||(ME&&(ME.name||ME.email))||null; c.confirmed_at=c.resolved_at;
+  /* CI1 (2026-10-03, the safe fill): the SERVER confirms or closes it. Exactly one confirm wins (the case must still be
+     open), only the fill is saved (a YES that just arrived is never lost), and AxisCare is changed only where nobody
+     else is on the visit. The page no longer saves its own copy of a confirmed case. */
+  let out=null, err='';
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session||!session.access_token) err='You are not signed in, so nothing was changed. Sign in and try again.';
+    else{
+      const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-assign`,{ method:'POST',
+        headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+        body: JSON.stringify(how==='covered' ? { action:'confirm', case_id:id, covered_by:by, not_chosen:notChosen } : { action:'close', case_id:id, how:'uncovered' }) });
+      out=await r.json().catch(()=>null);
+      if(!r.ok) err=(out&&out.error)||('the confirm service answered '+r.status);
+    }
+  }catch(e){ err='could not reach the confirm service'; }
+  if(err||!out){ alert('Not saved: '+(err||'no answer')+'. Nothing was changed; the case is still open.'); return; }
+  if(out.outcome==='already'){
+    await covReloadCases();
+    alert(out.resolved_how==='covered'
+      ? 'Already filled'+(out.confirmed_by?' by '+out.confirmed_by:'')+': '+(out.covered_by||'someone')+' covers it. Nothing was changed.'
+      : 'Already closed'+(out.confirmed_by?' by '+out.confirmed_by:'')+'. Nothing was changed.');
+    return;
+  }
   if(how==='covered') covPrnShift(c, by, 'confirmed');
   opEvent('coverage_closed',{item_id:c.id, area:'coverage',
     summary:'Coverage closed — '+(c.client||'')+(how==='covered'?' covered by '+(by||'?'):' ('+how+')')});
-  await persist('coverage_cases',c); renderCoverage();
-  /* Confirming a fill also puts them ON THE AXISCARE SCHEDULE — the click is
-     the authorization, the server does the write and reads it back to verify.
-     When the visit can't be identified with certainty the card says "assign
-     by hand" instead of guessing. */
-  if(how==='covered'){
-    try{
-      const { data:{ session } } = await sb.auth.getSession();
-      if(session&&session.access_token){
-        const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-assign`,{
-          method:'POST',
-          headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
-          body: JSON.stringify({ case_id:id })});
-        const out=await r.json().catch(()=>({}));
-        /* The function stamped the case server-side; mirror it locally so the
-           board updates without a reload. If the service could not be reached
-           or answered nothing, say so on the card — a silent skip here is a
-           false "covered" (review finding). */
-        c.axiscare_assignment=(out&&out.status)
-          ? { status:out.status, detail:out.detail||'', at:new Date().toISOString() }
-          : { status:'unknown', detail:'the assign service gave no answer — verify the schedule in AxisCare by hand', at:new Date().toISOString() };
-      } else {
-        c.axiscare_assignment={ status:'unknown', detail:'not signed in — the AxisCare assignment was NOT attempted; do it by hand', at:new Date().toISOString() };
-      }
-    }catch(e){ console.warn('coverage-assign call failed', e);
-      c.axiscare_assignment={ status:'unknown', detail:'could not reach the assign service — verify the schedule in AxisCare by hand', at:new Date().toISOString() }; }
-    await persist('coverage_cases',c);
-    renderCoverage();
-  }
+  await covReloadCases();
+}
+/* CI1: the cases as the server has them now */
+async function covReloadCases(){
+  try{ const r=await sb.from('app_data').select('data').eq('key','coverage_cases').maybeSingle();
+       if(r&&r.data&&Array.isArray(r.data.data)) DATA.coverage_cases=r.data.data; }catch(_){}
+  renderCoverage();
 }
 /* PRN3: a PRN CNA confirmed on (or backing out of) a call-off or one-time shift goes on their PRN record. The ask
    carries their AxisCare number; the roster is the fallback. Best effort: the case itself never waits on it. */
@@ -34712,6 +34706,9 @@ async function covBackedOut(id){
 }
 async function covReopen(id){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  /* CI1: a deliberate reopen names the close it reopens; the server keeps a closed case closed against any copy
+     that doesn't (an older page saving over a fill). */
+  if(c.resolved_at) c.reopened_from=c.resolved_at;
   c.status='open'; c.resolved_how=null; c.covered_by=null; c.resolved_at=null;
   opEvent('coverage_reopened',{item_id:c.id, area:'coverage', summary:'Coverage reopened — '+(c.client||'')});
   delete c.closure_notified; delete c.pending_fill; delete c.axiscare_assignment;

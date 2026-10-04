@@ -44,7 +44,7 @@
 </head>
 <body>
 <h1>📵 Caregiver Call-Off</h1>
-<div class="sub">Opens a Coverage Help case. The callout engine texts caregivers within 5 minutes.</div>
+<div class="sub">Opens a Coverage Help case and alerts the office right away.</div>
 
 <div class="card" id="loginCard" style="display:none;">
   <label>Hub email</label><input id="liEmail" type="email" autocomplete="username">
@@ -192,7 +192,7 @@ async function openCase(){
       item:{ id:String(myPick.client_axiscare_id), blurb:care, updated_at:new Date().toISOString() } });
   }
   $('confirmCard').style.display='none'; $('who').value=''; $('shifts').innerHTML='';
-  $('done').innerHTML='<div class="ok">✅ Case opened for '+esc(myPick.client)+'. The first texts go out within 5 minutes. Replies land on the Coverage Help board.</div>';
+  $('done').innerHTML='<div class="ok">✅ Case opened for '+esc(myPick.client)+'. The office has been alerted and will find someone to cover. Replies land on the Coverage Help board.</div>';
   OPENING=false;
 }
 boot();
