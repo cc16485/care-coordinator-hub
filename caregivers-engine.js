@@ -8169,10 +8169,14 @@ function saveCancelDetails(){
    record this button makes. */
 function cgRecordFromCandidate(c, hireDate, orientDate){
   if(!globalThis.CCConnect) throw new Error('The caregiver rules did not load. Refresh the page and try again.');
+  /* 2026-10-04 (her "fix the hire snapshot"): hiringSnapshot lives in eligibility-rules.js as CCElig.hiringSnapshot, never
+     as a page global, so the old "typeof hiringSnapshot" test was always false and every hire saved null. Missing rules
+     now stop the hire with a message instead of saving an empty snapshot. */
+  if(!(globalThis.CCElig && typeof CCElig.hiringSnapshot === 'function')) throw new Error('The hiring rules did not load. Refresh the page and try again.');
   return CCConnect.recordFromCandidate(c, hireDate, orientDate, {
     id: safeTmpId(),   /* 421: the database gives the real number when it saves */
     promoted_at: new Date().toISOString(),
-    hiring_snapshot: (typeof hiringSnapshot === 'function' ? hiringSnapshot(c) : null)
+    hiring_snapshot: CCElig.hiringSnapshot(c)
   });
 }
 // ── Promote / Close Out / Reopen ──────────────────────────────────────

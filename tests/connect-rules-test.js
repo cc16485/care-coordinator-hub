@@ -75,6 +75,22 @@ if (!hadOld) {
   const ins = ['professional', 'Professional ', 'PERSONAL', 'personal', '', null, undefined, 'friend', 'pro'];
   ck("the rules' refType agrees with the engine's obRefType", ins.every((v) => C.refType(v) === engineType(v)));
 }
+{
+  /* 2026-10-04: the hire snapshot. The engine's builder with the page's real hiring rules saves a real snapshot (it was
+     null on every hire); without the hiring rules it stops with a message instead of saving an empty one. */
+  const mk = (withElig) => { const ctx = { console, JSON, Object, String, Date, Array, safeTmpId: () => -1 }; vm.createContext(ctx); ctx.globalThis = ctx;
+    vm.runInContext(RULES, ctx); if (withElig) vm.runInContext(fs.readFileSync(path.join(ROOT, 'eligibility-rules.js'), 'utf8'), ctx);
+    vm.runInContext(cut(ENGINE, 'function cgRecordFromCandidate(', '// ── Promote / Close Out') + '\nthis.__f = cgRecordFromCandidate;', ctx); return ctx.__f; };
+  const cl = Object.assign(clone(CASEY), { oig: 'CLEAR', edl: 'Clear', fcsr: 'Clear', r1s: 'Positive', r2s: 'Positive' });
+  const rec = mk(true)(cl, '2026-10-04', '2026-10-04');
+  const hs = rec.hiring_snapshot;
+  ck('Move to caregiver saves a real hire snapshot (why they were allowed to be hired)', hs && hs.event === 'pre_hire_clearance' && hs.ready === true && hs.status === 'Ready for Orientation'
+     && hs.oig === 'CLEAR' && hs.refs === 'Positive|Positive||' && JSON.stringify(hs.outstanding) === '[]' && /^\d{4}-\d\d-\d\dT/.test(hs.at), hs);
+  const not = mk(true)(Object.assign(clone(CASEY), { oig: 'Pending' }), '2026-10-04', '');
+  ck('...and records what was still outstanding when they were hired', not.hiring_snapshot.ready === false && not.hiring_snapshot.outstanding.includes('oig'), not.hiring_snapshot);
+  let msg = ''; try { mk(false)(clone(CASEY), '2026-10-04', ''); } catch (e) { msg = e.message; }
+  ck('hiring rules missing: the hire stops with a message (never an empty snapshot)', /hiring rules did not load/.test(msg), msg);
+}
 ck('the page loads the rules before the engine, in order', (() => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const k = html.indexOf("k.src='caregiver-connect-rules.js"), e = html.indexOf("s.src = 'caregivers-engine.js");
