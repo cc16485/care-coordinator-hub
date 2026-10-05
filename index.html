@@ -841,7 +841,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Dashboard</div>
     <div class="fpill" data-tab="mywork" onclick="switchTab('mywork')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> My Work<span class="subtab-badge red" id="gb-mywork" style="display:none;"></span></div>
     <div class="fpill" data-tab="myrole" onclick="switchTab('myrole')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> My Role</div>
-    <div class="fpill" data-tab="myteam" onclick="switchTab('myteam')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> My Team</div>
+    <!-- 2026-10-05 (her call): no My Team tab. The team tools open from the Owners Hub Admin page (Team), which links
+         here: #myteam, #myteam/add, #myteam/access/<email>, #myteam/role/<email>. -->
     <div class="fpill" data-tab="standup" onclick="switchTab('standup')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Stand-Up</div>
     <div class="fpill" data-tab="teammeetings" onclick="switchTab('teammeetings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Team Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="calendar" onclick="switchTab('calendar')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Calendar</div>
@@ -6840,7 +6841,7 @@ async function signIn(){
   if(error){ errEl.textContent = error.message; errEl.style.display = 'block'; return; }
   if(!hasHubAccess(data.user)){
     await sb.auth.signOut();
-    errEl.textContent = "No hub access is recorded for this account yet. Ask Samantha or Zach to give it from My Team (Care Coordinator Hub), then sign in again.";
+    errEl.textContent = "No hub access is recorded for this account yet. Ask Samantha or Zach to give it from the Owners Hub Admin page (Team), then sign in again.";
     errEl.style.display = 'block';
     return;
   }
@@ -13663,7 +13664,7 @@ function mbFill(){
   });
   (saved||[]).forEach(r=>{ const em=String(r.email||'').toLowerCase();
     if(em.includes('@') && !people.some(p=>p.email===em)) people.push({ name:String(r.name||em.split('@')[0]), email:em }); });
-  if(!people.length){ box.innerHTML='<span class="field-note">Add your staff (with emails) on My Team first.</span>'; return; }
+  if(!people.length){ box.innerHTML='<span class="field-note">Add your staff (with emails) on the Owners Hub Admin page (Team) first.</span>'; return; }
   /* No saved list yet = the function's old default pair; show that honestly. */
   const savedAdmins=new Set((saved||[]).filter(r=>r.admin===true).map(r=>String(r.email||'').toLowerCase()));
   box.innerHTML=people.map(p=>{
@@ -14681,6 +14682,22 @@ async function staffChangeEmail(oldEmail){
 
    This asks business questions and does the record-keeping itself. It says what
    it will create, in plain words, before it creates anything. */
+/* Run a team tool once the roles and the team are loaded (up to 30 seconds). Nothing happens for someone without
+   permission: each tool checks for itself, as it always has. */
+function ccTeamRoute(what, who){
+  let tries=0;
+  const go=()=>{
+    tries++;
+    const ready=(typeof CC_ROLES_CHECKED==='undefined'||CC_ROLES_CHECKED) && Array.isArray(DATA.positions);
+    if(!ready && tries<100) return setTimeout(go,300);
+    try{
+      if(what==='add' && typeof staffAddOpen==='function') staffAddOpen();
+      else if(what==='access' && who && typeof hubAccessOpen==='function') hubAccessOpen(who);
+      else if(what==='role' && who && typeof roleOpen==='function') roleOpen(who);
+    }catch(e){}
+  };
+  go();
+}
 function staffAddOpen(){
   if(!ccCan('manage_staff')) return;
   const esc=escapeHtmlComms;
@@ -27559,9 +27576,9 @@ function renderMyRole(email){
       +'<b style="font-size:15px;">No role written for '+esc(name)+' yet.</b>'
       +'<div class="field-note" style="margin-top:6px;">A role says why the job exists, what '
       +'is owned, what is supported, and where to escalate. '
-      +(roleCanEdit()?'You can write one from My Team.':'Ask Samantha to write one.')+'</div>'
+      +(roleCanEdit()?'You can write one from the Owners Hub Admin page (Team).':'Ask Samantha to write one.')+'</div>'
       +(roleCanEdit()?'<button class="primary" style="margin-top:12px;padding:7px 14px;font-size:13px;" '
-        +'onclick="switchTab(\'myteam\')">Open My Team</button>':'')+'</div>';
+        +'onclick="window.open(\'https://hub.mo-care.com/admin.html#team\',\'_blank\')">Open Team (Admin page)</button>':'')+'</div>';
     return;
   }
 
@@ -27790,7 +27807,7 @@ function renderMyTeam(){
   const staff=roleEveryone();
   let h='<div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:12px;">'
     +'<div><h2 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">'
-    +'My Team</h2><div class="field-note">Who does what, and what is temporary</div></div>'
+    +'Team</h2><div class="field-note">Who does what, and what is temporary. Opened from the <a href="https://hub.mo-care.com/admin.html#team">Owners Hub Admin page</a>.</div></div>'
     +'<span style="flex:1;"></span>'
     /* One-time setup does not live beside everyday management for ever.
        It disappears as soon as there is nothing left for it to write. */
@@ -32889,7 +32906,7 @@ function renderMgrStrip(){
       if(!hasHubAccess(session.user)){
         await sb.auth.signOut();
         const errEl = document.getElementById('loginError');
-        errEl.textContent = "No hub access is recorded for this account yet. Ask Samantha or Zach to give it from My Team (Care Coordinator Hub), then sign in again.";
+        errEl.textContent = "No hub access is recorded for this account yet. Ask Samantha or Zach to give it from the Owners Hub Admin page (Team), then sign in again.";
         errEl.style.display = 'block';
         return;
       }
@@ -39142,6 +39159,14 @@ window.covLoadShifts=function(){};
         if(sub==='case'&&seg[2]){ switchTab('coverage');
           var cid=decodeURIComponent(seg.slice(2).join('/'));
           if(typeof caraShowCase==='function') caraShowCase(cid); return true; }
+      }
+      /* 2026-10-05: the team tools, opened from the Owners Hub Admin page (Team). They wait until the roles are read,
+         because each checks permission (like the Settings link). */
+      if(head==='myteam'){
+        var what=String(seg[1]||'').toLowerCase(), who=decodeURIComponent(seg.slice(2).join('/')||'').toLowerCase();
+        switchTab('myteam');
+        ccTeamRoute(what, who);
+        return true;
       }
       if(head==='schedwatch'||head==='hourswatch'||head==='schedule-watch'){
         if(String(seg[1]||'').toLowerCase()==='shift'&&seg[2]){ switchTab('hourswatch');
