@@ -17,7 +17,7 @@ async()=>{
   (0,eval)(`sb.from=(t)=>{ let patch=null; const f={}; const b={ select(){return b;}, neq(){return b;}, in(){return b;}, eq(c,v){ f[c]=v; return b; }, order(){return b;}, limit(){return b;}, is(){return b;}, ilike(){return b;},
       update(p){ patch=p; return b; },
       then(ok){ if(patch){ window.__UP.push(patch); Object.assign(window.__ROW, patch); return Promise.resolve({ data:null, error:null }).then(ok); }
-        if(t==='caregiver_application_facts') return Promise.resolve({ data: (f.hub_caregiver_id==='77'||f.axiscare_id==='5') ? [{ facts: window.__FACTS, extracted_at:new Date().toISOString(), pages:9 }] : [], error:null }).then(ok);
+        if(t==='caregiver_application_facts') return Promise.resolve({ data: (f.hub_caregiver_id==='77'||f.axiscare_id==='5') ? [{ facts: window.__FACTS, extracted_at:new Date().toISOString(), pages:9, ghl_contact_id:'C123' }] : [], error:null }).then(ok);
         return Promise.resolve({ data: t==='caregiver_profiles' ? [Object.assign({}, window.__ROW)] : [], error:null }).then(ok); } }; return b; };
     sb.auth.getSession=async()=>({data:{session:{access_token:'t'}}});`);
   window.__FACTS=FACTS;
@@ -27,7 +27,11 @@ async()=>{
     return F0(u,o); };
   /* ── the Step 1 section ── */
   const s1=document.createElement('div'); document.body.appendChild(s1);
-  await S1.render(s1,{ axiscare_id:'5', hub_id:'77' }); const t=s1.innerText;
+  await S1.render(s1,{ axiscare_id:'5', hub_id:'77' });
+  const link=s1.querySelector('a[href*="contacts/detail/"]');
+  ok('the link to their Step 1 application (their GoHighLevel contact) and "Hired before Viventium" come first', link && link.href==='https://app.hirecara.com/v2/location/Recp0AhyMh8lrtKJ9kaj/contacts/detail/C123' && /Open their Step 1 application/.test(link.textContent) && /Hired before Viventium/.test(s1.innerText.split('Show what it says')[0]), s1.innerText.slice(0,300));
+  ok('...and what it says is folded away until you open it', s1.querySelector('details') && !s1.querySelector('details').open);
+  s1.querySelector('details').open=true; const t=s1.innerText;
   ok('Step 1 section: their own words, experience, matching, availability, favorites', /IN THEIR OWN WORDS/.test(t) && /I love hearing their stories\./.test(t) && /Gardening and baking/.test(t)
      && /CNA\s+2019 to 2023/.test(t) && /Education: High school/.test(t) && /Dementia and Alzheimer's care/.test(t) && /Clients on hospice: Yes/.test(t) && /Will travel up to 25 miles/.test(t)
      && /Can start: Oct 15/.test(t) && /Part-time/.test(t) && /ideal 25, minimum 15, maximum 32/.test(t) && /Monday\s+8:00-14:00/.test(t) && /Candy bar: Snickers/.test(t), t);
