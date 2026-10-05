@@ -13,7 +13,9 @@
 (function(){
   var d = document.documentElement, emb = false;
   try { emb = (window.self !== window.top); } catch (e) { emb = true; }
-  if (emb || /[?&]embed=1/.test(location.search)) {
+  /* 2026-10-05: ?embed=settings is the Owners Hub Admin page's Hub settings tab: just the one setting, no Hub around it. */
+  if (/[?&]embed=settings/.test(location.search)) d.classList.add('setonly');
+  if (emb || /[?&]embed=(1|settings)/.test(location.search)) {
     d.classList.add('embedded');
     if ((location.hash || '').length > 1) d.classList.add('focused');
   }
@@ -23,6 +25,9 @@
   /* Kept with the class that sets it, in the head, so the rule exists before
      the element it hides is parsed. */
   html.embedded.focused .fbar{ display:none; }
+  html.setonly header.topbar, html.setonly .fbar, html.setonly .fsubbar, html.setonly #settingsFocusBar,
+  html.setonly #settingsHead{ display:none !important; }
+  html.setonly #tab-settings > .card{ max-width:none !important; border:0 !important; box-shadow:none !important; padding:2px 4px !important; }
   html.embedded .topbar img{ display:none; }
   html.embedded .topbar{ padding-top:6px; padding-bottom:6px; }
 /* Applicant pop-ups (2026-10-01): "Send the application" and "Add an applicant" open over the page */
@@ -3832,7 +3837,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
     <!-- ===================== TAB: SETTINGS (owners only) ===================== -->
     <section class="tabpanel" id="tab-settings">
-      <div style="margin-bottom:14px;">
+      <div id="settingsHead" style="margin-bottom:14px;">
         <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Settings</h2>
         <div class="field-note" style="font-size:13.5px;margin-top:3px;">Owners only — keys, integrations, staff roster, cadences and goals. Changes apply to every coordinator.</div>
       </div>
@@ -14069,9 +14074,16 @@ async function prnSetToggle(btn){
    to all of them. The page-wide Save button shows only for the settings that use it. */
 let CC_SETTINGS_FOCUS=null;
 const SETTINGS_BOTTOM_SAVE=['supabase','axiscare','cadences','transcripts','careplan-webhook','staff','after-hours','passcode'];
+/* Inside the Admin page (?embed=settings) the frame tells the page how tall the setting is, so there is no inner
+   scroll bar. Only a height is sent. */
+(function(){
+  if(!document.documentElement.classList.contains('setonly') || window.parent===window) return;
+  let last=0; const say=()=>{ const h=Math.ceil(document.documentElement.scrollHeight); if(Math.abs(h-last)>4){ last=h; try{ window.parent.postMessage({ type:'cc-settings-height', h }, '*'); }catch(e){} } };
+  window.addEventListener('load', say); setInterval(say, 700);
+})();
 function settingsFocusApply(){
   const panel=document.getElementById('tab-settings'); if(!panel) return;
-  const f=CC_SETTINGS_FOCUS, secs=[...panel.querySelectorAll('.settings-section')];
+  const f=CC_SETTINGS_FOCUS, secs=[...panel.querySelectorAll('[data-set]')];
   const hit=f?secs.find(x=>x.dataset.set===f):null;
   secs.forEach(x=>{ x.style.display=(!hit||x===hit)?'':'none'; });
   if(hit && hit.id==='freshSection') hit.style.display=ccIsOwner()?'':'none';
@@ -14079,7 +14091,7 @@ function settingsFocusApply(){
   let bar=document.getElementById('settingsFocusBar');
   if(!bar){ bar=document.createElement('div'); bar.id='settingsFocusBar'; bar.className='field-note'; bar.style.cssText='margin:0 0 12px;';
     const card=panel.querySelector('.card'); if(card) card.parentNode.insertBefore(bar, card); }
-  bar.innerHTML=hit?'Showing one setting: <b>'+escapeHtmlComms(hit.querySelector('h3').textContent)+'</b> · <a href="#settings" onclick="CC_SETTINGS_FOCUS=null;settingsFocusApply();">Show all settings</a>':'';
+  bar.innerHTML=hit?'Showing one setting: <b>'+escapeHtmlComms((hit.querySelector('h3')||hit.querySelector('b')||{}).textContent||'')+'</b> · <a href="#settings" onclick="CC_SETTINGS_FOCUS=null;settingsFocusApply();">Show all settings</a>':'';
   if(f && !hit) bar.innerHTML='That setting was not found, so all settings are shown.';
   window.scrollTo(0,0);
 }
@@ -16261,7 +16273,7 @@ async function ccEnfMount(){
   const tab=document.getElementById('tab-settings'); if(!tab) return;
   if(document.getElementById('ccEnfCard')) return;
   const card=document.createElement('div');
-  card.id='ccEnfCard'; card.className='card'; card.style.cssText='padding:14px 16px;margin-bottom:14px;border-left:4px solid #8AA9C8;';
+  card.id='ccEnfCard'; card.className='card'; card.dataset.set='profile-enforcement'; card.style.cssText='padding:14px 16px;margin-bottom:14px;border-left:4px solid #8AA9C8;';
   tab.prepend(card);
   let st={};
   try{ const { data }=await sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle(); st=(data&&data.data)||{}; }catch(e){}
@@ -16274,6 +16286,7 @@ async function ccEnfMount(){
     +SW.map(([k,label])=>'<label style="display:flex;gap:8px;align-items:center;font-size:13px;padding:3px 0;">'
       +'<input type="checkbox" style="width:auto;" '+(st[k]===true?'checked':'')+' onchange="ccEnfSave(\''+k+'\',this.checked,this)"> '+label
       +'</label>').join('');
+  try{ settingsFocusApply(); }catch(_){}
 }
 async function ccEnfSave(key,val,el){
   if(val && !confirm('Turn ON enforcement?\n\n"'+key+'" will start BLOCKING (grandfathered records excepted). The shadow proof should be reviewed first. Continue?')){ el.checked=false; return; }

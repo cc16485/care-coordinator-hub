@@ -8,7 +8,7 @@ async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,500)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const alerts=[]; window.alert=m=>alerts.push(m);
   const P=()=>document.getElementById('tab-settings');
-  const vis=()=>[...P().querySelectorAll('.settings-section')].filter(x=>x.style.display!=='none').map(x=>x.dataset.set);
+  const all=()=>P().querySelectorAll('[data-set]').length; const vis=()=>[...P().querySelectorAll('[data-set]')].filter(x=>x.style.display!=='none').map(x=>x.dataset.set);
   document.getElementById('appScreen').classList.add('on'); await sleep(600);
   CC_ROLES=[]; CC_ROLES_CHECKED=false; CC_SETTINGS_PENDING=false; switchTab('cgdir'); await sleep(30);
   location.hash='#settings/missed-clockins'; await sleep(150);
@@ -23,9 +23,9 @@ async()=>{
   location.hash='#settings/fresh-start'; await sleep(200);
   ok('Fresh start opens by itself for an owner', JSON.stringify(vis())==='["fresh-start"]', vis());
   location.hash='#settings'; await sleep(200);
-  ok('#settings shows them all again', vis().length===26 && !document.getElementById('settingsFocusBar').innerText.trim(), vis().length);
+  ok('#settings shows them all again', vis().length===all() && all()>=26 && !document.getElementById('settingsFocusBar').innerText.trim(), vis().length);
   location.hash='#settings/nope'; await sleep(200);
-  ok('an unknown name shows all, and says so', vis().length===26 && /was not found/.test(document.getElementById('settingsFocusBar').innerText));
+  ok('an unknown name shows all, and says so', vis().length===all() && /was not found/.test(document.getElementById('settingsFocusBar').innerText));
   ok('the sidebar has no Settings tab, even for an owner', document.getElementById('settingsFtab').style.display==='none');
   return R;
 }
