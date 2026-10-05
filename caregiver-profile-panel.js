@@ -23,7 +23,7 @@
   var SB_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
   var ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
   var BUCKET = 'caregiver-profiles';
-  var COLS = 'id,candidate_id,axiscare_id,applicant_id,first_name,last_name,preferred_name,about,experience,why_this_work,years_experience,photo_path,video_path,consent,consent_at,published,status,drafted_at,drafted_by,link_sent_at,link_sent_by,submitted_at,published_at,published_by,updated_at,created_at,photo_url,needs_review,legacy_intro_id,self_complete';
+  var COLS = 'id,candidate_id,axiscare_id,applicant_id,first_name,last_name,preferred_name,about,experience,why_this_work,years_experience,photo_path,video_path,consent,consent_at,published,status,drafted_at,drafted_by,link_sent_at,link_sent_by,submitted_at,published_at,published_by,updated_at,created_at,photo_url,needs_review,legacy_intro_id,self_complete,photo_hidden,video_hidden';
   var IMG = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
   var VID = { mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' };
   var FIELDS = [
@@ -154,6 +154,15 @@
   }
   function say(m, text, bad) { m.msg = text ? [text, !!bad] : ''; var el = document.getElementById(m.k + '-msg'); if (el) { el.textContent = text || ''; el.style.color = bad ? '#B00020' : '#15803D'; } }
 
+  /* 455 (Samantha, 2026-10-05: "i want to be able to choose to hide a photo or video from a caregivers profile"): the
+     office hides or shows the photo or the video on the family card. The file is kept; a new one they send is shown. */
+  function hideLine(k, row, kind) {
+    var hidden = row[kind + '_hidden'] === true;
+    return '<div style="font-size:.66rem;margin-top:.2rem;line-height:1.35">'
+      + (hidden ? '<span style="color:#B00020;font-weight:700">Hidden from families</span><br>' : '')
+      + '<a href="#" onclick="CGP2.act(\'' + k + '\',\'' + (hidden ? 'show_' : 'hide_') + kind + '\',this);return false;" style="color:var(--navy,#0E3860)">'
+      + (hidden ? 'Show to families' : 'Hide from families') + '</a></div>';
+  }
   function draw(m) {
     if (!document.body.contains(m.host)) { delete M[m.k]; return; }
     var row = m.row, x = m.ctx, k = m.k;
@@ -183,10 +192,11 @@
     if (m.viaCandidate && x.axiscare_id && !row.axiscare_id) h += '<div style="font-size:.74rem;color:var(--gray,#6B7280);margin-bottom:.4rem">Found from their onboarding record. Saving links it to this AxisCare caregiver too.</div>';
     h += '<div style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:flex-start">'
       + '<div style="flex:none;width:96px;text-align:center">'
-      + (photoOf(row) ? '<a href="' + esc(photoOf(row)) + '" target="_blank" rel="noopener"><img src="' + esc(photoOf(row)) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid var(--border,#E2E8F0)"></a>'
+      + (photoOf(row) ? '<a href="' + esc(photoOf(row)) + '" target="_blank" rel="noopener"><img src="' + esc(photoOf(row)) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid var(--border,#E2E8F0)' + (row.photo_hidden ? ';opacity:.35' : '') + '"></a>'
+        + hideLine(k, row, 'photo')
         + (row.photo_path ? '' : '<div style="font-size:.66rem;color:#92400E;margin-top:.2rem">Older photo. Upload a proper one.</div>')
         : '<div style="width:96px;height:96px;border-radius:12px;border:1.5px dashed #CBD5E1;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:#64748B;padding:.3rem">No photo yet (required)</div>')
-      + (row.video_path ? '<a href="' + esc(publicUrl(row.video_path)) + '" target="_blank" rel="noopener" style="display:block;font-size:.72rem;margin-top:.25rem">▶ Their video</a>' : (row.self_complete ? '<div style="font-size:.68rem;color:#B00020;margin-top:.25rem">No video yet (required)</div>' : '<div style="font-size:.68rem;color:#94A3B8;margin-top:.25rem">No video (optional)</div>'))
+      + (row.video_path ? '<a href="' + esc(publicUrl(row.video_path)) + '" target="_blank" rel="noopener" style="display:block;font-size:.72rem;margin-top:.25rem">▶ Their video</a>' + hideLine(k, row, 'video') : (row.self_complete ? '<div style="font-size:.68rem;color:#B00020;margin-top:.25rem">No video yet (required)</div>' : '<div style="font-size:.68rem;color:#94A3B8;margin-top:.25rem">No video (optional)</div>'))
       + '<label class="ibtn" style="display:block;margin-top:.35rem;cursor:pointer;font-size:.68rem">Replace photo<input type="file" accept="image/*" style="display:none" onchange="CGP2.upload(\'' + k + '\',\'photo\',this)"></label>'
       + '<label class="ibtn" style="display:block;margin-top:.25rem;cursor:pointer;font-size:.68rem">' + (row.video_path ? 'Replace video' : 'Add a video') + '<input type="file" accept="video/*" style="display:none" onchange="CGP2.upload(\'' + k + '\',\'video\',this)"></label>'
       + '</div><div style="flex:1;min-width:240px">';
@@ -341,6 +351,16 @@
         say(m, 'Writing a draft from their application and interview…');
         var d = await call(Object.assign({ action: 'draft', redo: redo }, ctxBody(x)));
         m.msg = [(d.note ? d.note : 'Draft ready. Read it through, and ask anything in [brackets] on the call.'), !!d.note];
+        await reload(k); return;
+      }
+      if (/^(hide|show)_(photo|video)$/.test(what)) {
+        var hp = what.split('_'), hide = hp[0] === 'hide', kind = hp[1], word = kind === 'photo' ? 'photo' : 'video';
+        if (hide && !confirm('Hide ' + name + '\'s ' + word + ' from families?\n\nIt comes off their family card' + (row.published ? ' right away' : '') + '. The file is kept, and you can show it again any time.' + (kind === 'photo' ? '\n\nTheir card will have no photo until you show it again or they send a new one.' : ''))) return;
+        var hpatch = { updated_at: new Date().toISOString() }; hpatch[kind + '_hidden'] = hide;
+        var hr = await c.from('caregiver_profiles').update(hpatch).eq('id', row.id);
+        if (hr.error) { say(m, 'Did not save: ' + hr.error.message, true); return; }
+        try { if (typeof root.opEvent === 'function') root.opEvent(hide ? 'profile_media_hidden' : 'profile_media_shown', { summary: name + '\'s profile ' + word + (hide ? ' hidden from' : ' shown to') + ' families' }); } catch (e) { /* the record is a nicety */ }
+        m.msg = [hide ? ('Hidden. Families no longer see ' + name.split(' ')[0] + '\'s ' + word + '.') : ('Shown. Families see ' + name.split(' ')[0] + '\'s ' + word + ' again.'), false];
         await reload(k); return;
       }
       if (what === 'catchup') {
