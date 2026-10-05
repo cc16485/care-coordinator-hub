@@ -16778,16 +16778,17 @@ function routeSetRender(){
     return '<select onchange="routeSetDefault(\''+area+'\',this.value)" style="width:auto;font-size:12.5px;padding:3px 6px;">'
       +'<option value="">(first on the alert list)</option>'
       +people.map(p=>'<option value="'+esc(String(p.email).toLowerCase())+'"'+(String(p.email).toLowerCase()===cur?' selected':'')+'>'+esc(p.name||p.email)+'</option>').join('')+'</select>'; };
-  const s=routeSeatNow('staffing'), e=routeSeatNow('owner_escalation');
+  const o=routeSeatNow('operations'), s=routeSeatNow('staffing'), e=routeSeatNow('owner_escalation');
   box.innerHTML=(on?'<b style="color:#1E8449;">On.</b> ':'<b style="color:#B7791F;">Off (practice).</b> The check only lists what it would route and escalate. ')
     +'<div style="margin-top:6px;line-height:1.9;">'
+    +'<b>Operations</b> now: '+esc(nm(o.person))+' <span class="field-note">('+esc(o.from)+')</span> · when nobody is scheduled: '+sel('operations')+'<br>'
     +'<b>Staffing</b> now: '+esc(nm(s.person))+' <span class="field-note">('+esc(s.from)+')</span> · when nobody is scheduled: '+sel('staffing')+'<br>'
     +'<b>Owner Escalation</b> now: '+esc(nm(e.person))+' <span class="field-note">('+esc(e.from)+')</span> · when nobody is scheduled: '+sel('owner_escalation')
     +'</div>';
   if(b) b.textContent=on?'Turn off':'Turn on';
 }
 async function routeSetDefault(area, email){
-  const out=await tkMerge((m)=>{ m['duty_default_'+area]=email||''; return [(area==='staffing'?'Staffing':'Owner Escalation')+' when nobody is scheduled: '+(email?(opsOwnerName(email)||email):'first on the alert list')]; }, 'on-duty seats');
+  const out=await tkMerge((m)=>{ m['duty_default_'+area]=email||''; return [dutyAreaLabel(area)+' when nobody is scheduled: '+(email?(opsOwnerName(email)||email):'first on the alert list')]; }, 'on-duty seats');
   const sv=document.getElementById('routeSetSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
   routeSetRender();
 }
@@ -16806,13 +16807,17 @@ async function routeToggle(btn){
    the rest close as Done with a note and resolution_code 'fresh_start'. The batch (who, when, which ids) is kept in
    ops_settings.fresh_start_last so Undo can reopen exactly those for 7 days. Uncovered shift cards whose case is still
    open are left unticked: the coverage job rewrites them every few minutes until the case itself is handled. */
+/* Checked 2026-10-05 against every job that writes work items: these are rewritten as open on the job's next run for
+   as long as the problem itself is still there (references-run, client-start-run, eligibility-sweep, issues-run, and
+   coverage-run's AxisCare-unreadable card), so closing them would not stick. */
+const FRESH_COMES_BACK=/^(ops_ref_|cstart_|elig_|eligsched_|ops_issue_|ops_cov_censusdown_)/;
 function freshCandidates(){
   const now=Date.now();
   const cases=new Map((DATA.coverage_cases||[]).map(c=>[String(c.id),c]));
   return (DATA.ops_items||[]).filter(i=>i&&i.status==='open'&&opsCanSee(i)&&i.due&&Date.parse(i.due)<now&&!opsParked(i))
     .map(i=>{ const c=i.coverage_case_id!=null?cases.get(String(i.coverage_case_id)):null;
-      const comesBack=i.kind==='coverage'&&c&&c.status==='open';
-      return { it:i, group:comesBack?'Uncovered shift cards for cases still open (they come back until the case is handled)':(opsKindLabel(i)||i.kind||'Other'), keep:comesBack }; });
+      const comesBack=(i.kind==='coverage'&&c&&c.status==='open') || FRESH_COMES_BACK.test(String(i.id||''));
+      return { it:i, group:comesBack?'Come back by themselves while the problem is still there (open shift, references, start of care, eligibility, client issue)':(opsKindLabel(i)||i.kind||'Other'), keep:comesBack }; });
 }
 function freshRender(){
   const box=document.getElementById('freshSet'), u=document.getElementById('freshUndoBtn'); if(!box) return;
@@ -28645,8 +28650,8 @@ const POS_SEED=[
   { id:'pos_staffing_coordinator', title:'Staffing Coordinator', entity:'cc_ihs',
     role_email:'staffing@mo-care.com', status:'vacant', person:null,
     transfer_from:'samantha@mo-care.com',
-    note:'Samantha is carrying this function temporarily so the workflow is '
-        +'proven in real operations before anybody inherits it.' }];
+    note:'To hire: 8 hours a day, 5 days a week, hours flexible (set on the duty schedule when hired). Until then '
+        +'Krystal has Staffing 8am to 2pm on weekdays and Samantha the rest of the time.' }];
 /* Titles I wrote before the real ones were confirmed. Repaired the same way as
    names: a profile that exists is never rewritten by a seeder. */
 const PROFILE_FIX={
@@ -28817,10 +28822,8 @@ const PLAN_DUTY=[
   /* 2026-10-05 (Samantha): Krystal's staffing hours are 8am to 2pm, Monday to Friday. */
   {id:'dw_plan_kry_staff_mt', area:'staffing', person:'krystal@mo-care.com',
    days:[1,2,3,4,5], from:'08:00', to:'14:00'},
-  {id:'dw_plan_sc_weekday',   area:'staffing', position:'pos_staffing_coordinator',
-   days:[3,4,5], from:'11:00', to:'19:00'},
-  {id:'dw_plan_sc_weekend',   area:'staffing', position:'pos_staffing_coordinator',
-   days:[6,0], from:'08:00', to:'16:00'}
+  /* 2026-10-05 (Samantha): the Staffing Coordinator will work 8 hours a day, 5 days a week, hours flexible. No
+     planned window until they are hired; their real hours go on the schedule then, and beat the fallback. */
 ];
 /* What the vacant position is holding open, so it is not an empty shell. */
 const PLAN_POS_RESP=[
@@ -29346,6 +29349,8 @@ const DUTY_AREAS=[
 /* Areas that mean "you are available to respond". Direct care is not one of
    them, and that is the whole basis of the conflict rule. */
 const DUTY_RESPONDING=['operations','staffing','after_hours','owner_escalation'];
+/* The seats the office always has someone in: whoever is scheduled, else the "when nobody is scheduled" person. */
+const DUTY_CORE=['operations','staffing','owner_escalation'];
 
 function dutyAreaLabel(code){ return (DUTY_AREAS.find(a=>a[0]===code)||[])[1]||code; }
 function dutyAreaDomains(code){ return (DUTY_AREAS.find(a=>a[0]===code)||[])[3]||[]; }
@@ -29495,11 +29500,13 @@ function dutyEscalation(area){
 
 function dutyPanelHtml(){
   const esc=escapeHtmlComms, now=new Date();
-  const rows=dutyNow(now), nxt=dutyNextChange(now);
+  /* 2026-10-05 (Samantha): "keep it simple". Today it is Samantha and Krystal: Operations, Staffing and Owner
+     Escalation always show; Field Response, Advanced Care and After Hours show only while someone is scheduled in them. */
+  const rows=dutyNow(now).filter(r=>DUTY_CORE.includes(r.area) || !r.gap), nxt=dutyNextChange(now);
   /* 2026-10-05: Staffing and Owner Escalation are never really empty: when nobody is scheduled, routing uses the
      "when nobody is scheduled" person (Settings), so this says who that is instead of "nobody assigned". */
   const fb={};
-  rows.forEach(r=>{ if(r.gap && (r.area==='staffing'||r.area==='owner_escalation') && typeof routeSeatNow==='function') fb[r.area]=routeSeatNow(r.area); });
+  rows.forEach(r=>{ if(r.gap && DUTY_CORE.includes(r.area) && typeof routeSeatNow==='function') fb[r.area]=routeSeatNow(r.area); });
   const gaps=rows.filter(r=>r.gap && !fb[r.area]);
   let h='<div class="card" style="padding:16px 18px;margin-bottom:12px;">'
     +'<div style="display:flex;align-items:baseline;gap:10px;">'
