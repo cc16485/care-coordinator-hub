@@ -21,11 +21,21 @@
 
   async function load(w) {
     var c = client(); if (!c) throw new Error('Sign in first.');
-    var q = function () { return c.from('caregiver_application_facts').select('facts,extracted_at,pages').order('extracted_at', { ascending: false }).limit(1); };
+    var q = function () { return c.from('caregiver_application_facts').select('facts,extracted_at,pages,ghl_contact_id').order('extracted_at', { ascending: false }).limit(1); };
     var r = w.hub_id ? await q().eq('hub_caregiver_id', String(w.hub_id)) : { data: [] };
     if (r.error) throw r.error;
     if (!(r.data || []).length && w.axiscare_id) { r = await q().eq('axiscare_id', String(w.axiscare_id)); if (r.error) throw r.error; }
     return (r.data || [])[0] || null;
+  }
+  /* 2026-10-05 (her ask: "a spot to link the step one doc in the hiring & experience and note that they were hired prior to
+     Viventium"): the link and the note come first; what the AI pulled out is folded away (Beef it up still uses it). */
+  var GHL_CONTACT = 'https://app.hirecara.com/v2/location/Recp0AhyMh8lrtKJ9kaj/contacts/detail/';
+  function head(row) {
+    var cid = String(row.ghl_contact_id || '').replace(/[^A-Za-z0-9]/g, '');
+    return '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">'
+      + (cid ? '<a class="ghost" style="text-decoration:none;font-size:13px;padding:6px 12px;" target="_blank" rel="noopener" href="' + GHL_CONTACT + cid + '">📄 Open their Step 1 application ↗</a>' : '')
+      + '<span class="tag-chip" style="background:#FFF4DC;color:#8A5A00;">Hired before Viventium</span></div>'
+      + '<div class="field-note" style="margin-bottom:8px;">Their hiring paperwork is the Step 1 Application Packet in GoHighLevel' + (cid ? ' (it opens their contact; the PDF is under "Upload Step 1 Application Packet")' : '') + '.</div>';
   }
   function html(row) {
     var f = row.facts || {}, w = f.own_words || {}, x = f.experience || {}, m = f.matching || {}, a = f.availability || {}, fav = f.favorites || {};
@@ -57,7 +67,9 @@
     var body = sec('IN THEIR OWN WORDS', words, 'Beef it up (on their Caregiver profile) can use these, their hobbies and their jobs.')
       + sec('EXPERIENCE', jobs + edu) + sec('FOR MATCHING THEM TO CLIENTS', match, 'For the office only.') + sec('AVAILABILITY (WHEN THEY APPLIED)', avail, 'For the office only.')
       + sec('THEIR FAVORITES', favs, 'For thank-yous. For the office only.');
-    return (body || '<div class="field-note">Their Step 1 application was read, but nothing on the approved list was filled in.</div>')
+    return head(row) + '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size:13px;color:var(--navy);font-weight:600;">Show what it says</summary>'
+      + (body || '<div class="field-note">Nothing on the approved list was filled in on this packet.</div>')
+      + '</details>'
       + '<div class="field-note" style="margin-top:10px;">Read from their Step 1 application in GoHighLevel on ' + esc(day(row.extracted_at)) + (row.pages ? ' (' + esc(row.pages) + ' pages)' : '')
       + '. Only the approved details are kept; nothing private (no Social Security or licence numbers, birth date, address, contacts or background answers). The PDF stays in GoHighLevel.</div>';
   }
