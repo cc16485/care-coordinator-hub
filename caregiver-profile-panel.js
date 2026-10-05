@@ -23,7 +23,7 @@
   var SB_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
   var ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
   var BUCKET = 'caregiver-profiles';
-  var COLS = 'id,candidate_id,axiscare_id,applicant_id,first_name,last_name,preferred_name,about,experience,why_this_work,years_experience,photo_path,video_path,consent,consent_at,published,status,drafted_at,drafted_by,link_sent_at,link_sent_by,submitted_at,published_at,published_by,updated_at,created_at,photo_url,needs_review,legacy_intro_id';
+  var COLS = 'id,candidate_id,axiscare_id,applicant_id,first_name,last_name,preferred_name,about,experience,why_this_work,years_experience,photo_path,video_path,consent,consent_at,published,status,drafted_at,drafted_by,link_sent_at,link_sent_by,submitted_at,published_at,published_by,updated_at,created_at,photo_url,needs_review,legacy_intro_id,self_complete';
   var IMG = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
   var VID = { mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' };
   var FIELDS = [
@@ -65,6 +65,12 @@
     if (row.status === 'withdrawn') return ['Withdrawn', '#FEE2E2', '#991B1B'];
     if (row.published && row.needs_review) return ['Published, older: check it', '#FEF3C7', '#92400E'];
     if (row.published) return ['Published', '#DCFCE7', '#15803D'];
+    /* 452: a current caregiver fills it in themselves; it is ready for you once they send it complete */
+    if (row.self_complete) {
+      if (row.submitted_at && row.photo_path && row.video_path && row.consent) return ['Sent in: check and publish', '#E0F7F6', '#0F766E'];
+      if (row.link_sent_at) return ['Link sent, waiting for them', '#E0F2FE', '#075985'];
+      return ['Not sent yet', '#F3F4F6', '#4B5563'];
+    }
     if (row.photo_path) return ['Photo in, ready to publish', '#E0F7F6', '#0F766E'];
     if (row.link_sent_at) return ['Link sent', '#E0F2FE', '#075985'];
     if (row.drafted_at) return ['Draft ready', '#FEF3C7', '#92400E'];
@@ -167,8 +173,10 @@
           + '<button class="ibtn" onclick="CGP2.link(\'' + k + '\',\'' + esc(s.id) + '\',this)">Yes, link it</button></div>';
       }).join('');
       h += '<div style="font-size:.8rem;color:var(--gray,#6B7280);margin-bottom:.5rem">'
-        + (x.mode === 'employee' ? 'No profile yet. Families see this card before a visit, so it is worth starting one.' : 'No profile yet. Draft it with AI before the welcome call, then read it to them on the call.')
-        + '</div>' + btn('draft', x.mode === 'employee' ? '✨ Start a profile (AI draft)' : '✨ Draft with AI', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)')
+        + (x.mode === 'employee' ? 'No profile yet. Families see this card before a visit. Current caregivers fill it in themselves from their own link.' : 'No profile yet. Draft it with AI before the welcome call, then read it to them on the call.')
+        + '</div>' + (x.mode === 'employee'
+          ? btn('catchup', '📲 Set up their link (they fill it in)', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)', 'Starts their profile for them to fill in themselves; then press Send profile link')
+          : btn('draft', '✨ Draft with AI', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)'))
         + '<div id="' + k + '-msg" style="font-size:.8rem;margin-top:.45rem"></div>';
       m.host.innerHTML = h; if (m.msg) say(m, m.msg[0], m.msg[1]); return;
     }
@@ -178,7 +186,7 @@
       + (photoOf(row) ? '<a href="' + esc(photoOf(row)) + '" target="_blank" rel="noopener"><img src="' + esc(photoOf(row)) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid var(--border,#E2E8F0)"></a>'
         + (row.photo_path ? '' : '<div style="font-size:.66rem;color:#92400E;margin-top:.2rem">Older photo. Upload a proper one.</div>')
         : '<div style="width:96px;height:96px;border-radius:12px;border:1.5px dashed #CBD5E1;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:#64748B;padding:.3rem">No photo yet (required)</div>')
-      + (row.video_path ? '<a href="' + esc(publicUrl(row.video_path)) + '" target="_blank" rel="noopener" style="display:block;font-size:.72rem;margin-top:.25rem">▶ Their video</a>' : '<div style="font-size:.68rem;color:#94A3B8;margin-top:.25rem">No video (optional)</div>')
+      + (row.video_path ? '<a href="' + esc(publicUrl(row.video_path)) + '" target="_blank" rel="noopener" style="display:block;font-size:.72rem;margin-top:.25rem">▶ Their video</a>' : (row.self_complete ? '<div style="font-size:.68rem;color:#B00020;margin-top:.25rem">No video yet (required)</div>' : '<div style="font-size:.68rem;color:#94A3B8;margin-top:.25rem">No video (optional)</div>'))
       + '<label class="ibtn" style="display:block;margin-top:.35rem;cursor:pointer;font-size:.68rem">Replace photo<input type="file" accept="image/*" style="display:none" onchange="CGP2.upload(\'' + k + '\',\'photo\',this)"></label>'
       + '<label class="ibtn" style="display:block;margin-top:.25rem;cursor:pointer;font-size:.68rem">' + (row.video_path ? 'Replace video' : 'Add a video') + '<input type="file" accept="video/*" style="display:none" onchange="CGP2.upload(\'' + k + '\',\'video\',this)"></label>'
       + '</div><div style="flex:1;min-width:240px">';
@@ -187,6 +195,8 @@
       + 'It came from the older intro list, which families were already being shown, so it stays live and is linked in family texts. '
       + (row.photo_path && row.consent ? btn('reviewed', '✓ Checked: words, photo and their OK', 'margin-top:.3rem') : '<span style="color:#64748B">Still needed: ' + [row.photo_path ? '' : 'a proper photo (Replace photo, or Send photo link)', row.consent ? '' : 'their OK (they tick it on their page)'].filter(Boolean).join(' and ') + '.</span>')
       + '</div>';
+    if (row.self_complete) h += '<div style="background:#F0F7FF;border:1px solid #BFD7F2;border-radius:9px;padding:.45rem .7rem;margin-bottom:.5rem;font-size:.78rem">'
+      + '<b style="color:var(--navy,#0E3860)">Current caregiver: they fill this in themselves</b> from their profile link, in their own words, with a photo and a video (both required). Read it, fix anything that should not go to a family, then publish.</div>';
     var ps = prompts(row);
     if (ps.length) h += '<div style="background:#FFF8EC;border:1.5px solid #F0A63A;border-radius:9px;padding:.5rem .7rem;margin-bottom:.5rem;font-size:.8rem">'
       + '<b style="color:#92400E">Ask on the call</b> (type their answer in their words, and take the [brackets] out):<ul style="margin:.25rem 0 0;padding-left:1.1rem">'
@@ -198,11 +208,11 @@
       h += '<label style="display:block;font-size:.74rem;font-weight:700;color:var(--navy,#0E3860);margin:.5rem 0 .15rem">' + esc(f[1]) + ' <span style="font-weight:400;color:#64748B">' + esc(f[2]) + '</span></label>'
         + '<textarea id="' + k + '-' + f[0] + '" style="width:100%;box-sizing:border-box;min-height:62px;font:inherit;font-size:.82rem;padding:.4rem .5rem;border:' + (flag ? '2px solid #F0A63A;background:#FFFBF2' : '1px solid var(--border,#E2E8F0)') + ';border-radius:7px">' + esc(v) + '</textarea>';
     });
-    h += '<div style="font-size:.7rem;color:#64748B;margin-top:.2rem">Written about them, using their first name. The card shows their first name and last initial.</div>'
+    h += '<div style="font-size:.7rem;color:#64748B;margin-top:.2rem">' + (row.self_complete ? 'In their own words. ' : 'Written about them, using their first name. ') + 'The card shows their first name and last initial.</div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.55rem">'
       + btn('save', '💾 Save', 'background:var(--navy,#0E3860);color:#fff;border-color:var(--navy,#0E3860)')
-      + btn('draft', '✨ Redo draft', '', 'Ask the AI for a fresh draft from their application and interview')
-      + (row.published && !row.needs_review ? '' : btn('send', row.link_sent_at ? '📲 Send photo link again' : '📲 Send photo link', '', 'Texts and emails their personal link to add a photo and video'))
+      + (row.self_complete ? '' : btn('draft', '✨ Redo draft', '', 'Ask the AI for a fresh draft from their application and interview'))
+      + (row.published && !row.needs_review ? '' : btn('send', row.self_complete ? (row.link_sent_at ? '📲 Send profile link again' : '📲 Send profile link') : (row.link_sent_at ? '📲 Send photo link again' : '📲 Send photo link'), '', row.self_complete ? 'Texts and emails their personal link to fill in their profile' : 'Texts and emails their personal link to add a photo and video'))
       + (row.published ? btn('intro', '💌 Introduce to a family', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)', 'Text and email a family this card, after you see a preview') : '')
       + (row.published ? btn('unpublish', 'Unpublish', 'color:#B00020;border-color:#FCA5A5') : btn('publish', '✓ Publish', 'background:#15803D;color:#fff;border-color:#15803D', 'Needs a photo, their permission, and no [ask] prompts left'))
       + '</div><div id="' + k + '-msg" style="font-size:.8rem;margin-top:.45rem;white-space:pre-wrap"></div>'
@@ -333,6 +343,12 @@
         m.msg = [(d.note ? d.note : 'Draft ready. Read it through, and ask anything in [brackets] on the call.'), !!d.note];
         await reload(k); return;
       }
+      if (what === 'catchup') {
+        say(m, 'Setting up their profile…');
+        var cu = await call({ action: 'catchup', axiscare_id: x.axiscare_id || '', first: x.first || '', last: x.last || '', legacy_candidate_id: x.legacy_candidate_id || '' });
+        m.msg = [cu.skipped === 'published' ? 'Their profile is already published.' : 'Ready. Now press Send profile link.', false];
+        await reload(k); return;
+      }
       if (what === 'save') {
         var patch = { preferred_name: (document.getElementById(k + '-preferred_name').value || '').trim() || null, updated_at: new Date().toISOString() };
         FIELDS.forEach(function (f) { patch[f[0]] = noDash(document.getElementById(k + '-' + f[0]).value).trim() || null; });
@@ -351,10 +367,10 @@
         var p = await call({ action: 'send_link', profile_id: row.id, dry: true, phone: x.phone || '', email: x.email || '' });
         var to = [p.to && p.to.phone ? 'TEXT to ' + p.to.phone + ' (only if they said yes to texts, 8am to 6pm Central)' : '', p.to && p.to.email ? 'EMAIL to ' + p.to.email : ''].filter(Boolean);
         if (!to.length) { alert(name + ' has no phone number or email on file. Add one first. Nothing was sent.'); return; }
-        if (!confirm('Send ' + name + ' their personal photo link?\n\nThis sends a ' + to.join(' and an ') + '.\n\nTEXT:\n' + p.text + '\n\nEMAIL: ' + p.subject)) return;
+        if (!confirm('Send ' + name + ' their personal ' + (row.self_complete ? 'profile' : 'photo') + ' link?\n\nThis sends a ' + to.join(' and an ') + '.\n\nTEXT:\n' + p.text + '\n\nEMAIL: ' + p.subject)) return;
         var s = await call({ action: 'send_link', profile_id: row.id, phone: x.phone || '', email: x.email || '' });
         m.msg = [sent(s), !(s.texted || s.emailed)];
-        alert((s.texted || s.emailed ? 'Photo link sent.\n\n' : 'The photo link did NOT go.\n\n') + sent(s));
+        alert((s.texted || s.emailed ? 'Link sent.\n\n' : 'The link did NOT go.\n\n') + sent(s));
         await reload(k); return;
       }
       if (what === 'intro') {
@@ -582,9 +598,133 @@
     document.removeEventListener('keydown', escClose);
   }
 
+  /* ── PROFILE CATCH-UP for current caregivers (452; Samantha, 2026-10-05: "i need the current active caregivers to fully
+     complete their own caregiver profile and submit the photo and video as well"; "everyone who still needs a profile at
+     once"). The Caregivers directory's Profiles view: every active AxisCare caregiver and where their profile stands,
+     one button that sends the link to everyone who still needs one (a person presses it; preview first), and one that
+     sends it again to anyone still waiting after 3 days. New hires (hired from 2026-10-02) keep their welcome-call flow
+     and are only listed. Texts go 8am to 6pm Central (the server's rule); the email goes either way. */
+  var NEWHIRE_FROM = '2026-10-02', AGAIN_DAYS = 3;
+  var CU = { el: null, people: null, rows: null, err: '', busy: false, result: null };
+  function cuClass(pp, row) {
+    if (String(pp.hire_date || '').slice(0, 10) >= NEWHIRE_FROM) return 'newhire';
+    if (row && row.published && !row.needs_review) return 'published';
+    if (row && row.submitted_at && row.photo_path && row.consent && (!row.self_complete || row.video_path)) return 'check';
+    if (row && row.self_complete && row.link_sent_at) return 'sent';
+    return 'none';
+  }
+  async function cuLoad() {
+    var c = client(); CU.err = '';
+    if (!c) { CU.err = 'Sign in first.'; return; }
+    try {
+      var ids = CU.people.map(function (p) { return String(p.id); }), leg = CU.people.map(function (p) { return p.legacy ? String(p.legacy) : ''; }).filter(Boolean);
+      var got = [];
+      for (var i = 0; i < ids.length; i += 150) { var r = await c.from('caregiver_profiles').select(COLS).neq('status', 'withdrawn').in('axiscare_id', ids.slice(i, i + 150)); if (r.error) throw r.error; got = got.concat(r.data || []); }
+      for (var j = 0; j < leg.length; j += 150) { var r2 = await c.from('caregiver_profiles').select(COLS).neq('status', 'withdrawn').in('candidate_id', leg.slice(j, j + 150)); if (r2.error) throw r2.error; got = got.concat(r2.data || []); }
+      var newest = function (a, b) { return String(b.updated_at || '').localeCompare(String(a.updated_at || '')); };
+      CU.rows = {};
+      CU.people.forEach(function (p) {
+        var mine = got.filter(function (x) { return String(x.axiscare_id || '') === String(p.id); }).sort(newest);
+        if (!mine.length && p.legacy) mine = got.filter(function (x) { return String(x.candidate_id || '') === String(p.legacy); }).sort(newest);
+        CU.rows[p.id] = mine[0] || null;
+      });
+    } catch (e) { CU.err = (e && e.message) || 'error'; CU.rows = null; }
+  }
+  function cuGroups() {
+    var g = { check: [], none: [], sent: [], published: [], newhire: [] };
+    CU.people.forEach(function (p) { g[cuClass(p, CU.rows[p.id])].push(p); });
+    return g;
+  }
+  function cuAgain(g) {
+    var cut = Date.now() - AGAIN_DAYS * 864e5;
+    return g.sent.filter(function (p) { var r = CU.rows[p.id]; return r && Date.parse(r.link_sent_at || 0) < cut; });
+  }
+  function cuInTextHours() { var h = Number(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', hour: '2-digit', hour12: false })) % 24; return h >= 8 && h < 18; }
+  function cuHow(p) { return p.mobile && p.email ? 'text and email' : p.mobile ? 'text only (no email on file)' : p.email ? 'email only (no mobile on file)' : ''; }
+  async function catchupRender(el, people) {
+    if (el) CU.el = el; if (people) { CU.people = people; CU.rows = null; CU.err = ''; }   /* opened from the directory: fresh */
+    if (!CU.el || !CU.people) return;
+    if (!CU.rows && !CU.err) { CU.el.innerHTML = '<div class="field-note">Loading everyone\'s profile…</div>'; await cuLoad(); }
+    cuDraw();
+  }
+  function cuDraw() {
+    var el = CU.el; if (!el || !document.body.contains(el)) return;
+    if (CU.err) { el.innerHTML = '<div class="card" style="padding:16px">Could not load the profiles: ' + esc(CU.err) + ' <button class="ibtn" onclick="CGP2.catchupReload()">Try again</button></div>'; return; }
+    var g = cuGroups(), again = cuAgain(g), need = g.none.length + g.sent.length + g.check.length, cur = CU.people.length - g.newhire.length;
+    var chip = function (t, bg, fg) { return '<span style="background:' + bg + ';color:' + fg + ';border-radius:999px;padding:.12rem .6rem;font-size:.74rem;font-weight:700;white-space:nowrap">' + t + '</span>'; };
+    var row = function (p) {
+      var r = CU.rows[p.id], st = cuClass(p, r);
+      var when = st === 'sent' ? 'Link sent ' + day(r.link_sent_at) : st === 'check' ? 'Sent in ' + day(r.submitted_at) : st === 'published' ? 'Published ' + day(r.published_at) : st === 'newhire' ? 'Hired ' + day(p.hire_date) : '';
+      return '<div onclick="cgdOpenProfile(\'' + esc(p.id) + '\')" style="display:flex;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid #F3EFE7;cursor:pointer;font-size:13.5px">'
+        + '<b style="min-width:170px;color:var(--navy,#0E3860)">' + esc((p.first + ' ' + p.last).trim()) + '</b>'
+        + '<span class="field-note" style="flex:1">' + esc(when) + '</span>'
+        + '<span class="field-note">' + (cuHow(p) ? esc(cuHow(p)) : '<span style="color:#B00020">no mobile or email on file</span>') + '</span></div>';
+    };
+    var sec = function (title, list, note) {
+      if (!list.length) return '';
+      return '<div style="font-size:.74rem;font-weight:800;letter-spacing:.06em;color:var(--navy,#0E3860);margin:14px 0 6px">' + title + ' · ' + list.length + '</div>'
+        + (note ? '<div class="field-note" style="margin:-2px 0 6px">' + note + '</div>' : '')
+        + '<div class="card" style="padding:0;overflow:hidden">' + list.map(row).join('') + '</div>';
+    };
+    var h = '<div class="card" style="padding:14px 16px">'
+      + '<div style="font-size:15px;font-weight:800;color:var(--navy,#0E3860)">' + (need ? need + ' of ' + cur + ' current caregivers don\'t have a published profile yet' : 'Every current caregiver has a published profile') + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">' + chip('Not sent yet · ' + g.none.length, '#F3F4F6', '#4B5563') + chip('Link sent, waiting · ' + g.sent.length, '#E0F2FE', '#075985')
+      + chip('Sent in, needs your check · ' + g.check.length, '#E0F7F6', '#0F766E') + chip('Published · ' + g.published.length, '#DCFCE7', '#15803D') + '</div>'
+      + '<div class="field-note" style="margin-bottom:8px">They fill it in themselves: three questions in their own words, a photo and a short video (both required), and their permission. You check and publish each one from their page. Texts go 8am to 6pm; the email goes either way. Nothing is sent until you press a button.</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="primary" ' + (g.none.length && !CU.busy ? '' : 'disabled ') + 'onclick="CGP2.catchupSend(\'new\',this)">📲 Send profile links to everyone who needs one (' + g.none.length + ')</button>'
+      + '<button class="ghost" ' + (again.length && !CU.busy ? '' : 'disabled ') + 'title="Anyone whose link went ' + AGAIN_DAYS + '+ days ago and who has not sent it in" onclick="CGP2.catchupSend(\'again\',this)">Send again to those waiting ' + AGAIN_DAYS + '+ days (' + again.length + ')</button>'
+      + '</div>' + (CU.result ? '<div style="margin-top:10px;font-size:13px;white-space:pre-wrap;color:' + (CU.result[1] ? '#B00020' : '#15803D') + '">' + esc(CU.result[0]) + '</div>' : '')
+      + '</div>'
+      + sec('SENT IN: CHECK AND PUBLISH', g.check, 'Open each one, read it, then press ✓ Publish.')
+      + sec('NOT SENT YET', g.none)
+      + sec('LINK SENT, WAITING FOR THEM', g.sent)
+      + sec('PUBLISHED', g.published)
+      + sec('NEW HIRES (THEIR WELCOME-CALL FLOW, NOT SENT FROM HERE)', g.newhire);
+    el.innerHTML = h;
+  }
+  async function catchupSend(which, btn) {
+    if (CU.busy) return;
+    var g = cuGroups(), list = which === 'again' ? cuAgain(g) : g.none;
+    var reach = list.filter(function (p) { return cuHow(p); }), none = list.filter(function (p) { return !cuHow(p); });
+    if (!reach.length) { alert('Nobody on this list has a mobile or email on file. Nothing was sent.'); return; }
+    var pop = typeof root.ccPopOpen === 'function' ? root.ccPopOpen : null;
+    var html = '<div style="font-size:15px;font-weight:800;color:var(--navy,#0E3860)">' + (which === 'again' ? 'Send the link again to ' : 'Send profile links to ') + reach.length + ' caregiver' + (reach.length === 1 ? '' : 's') + '?</div>'
+      + (cuInTextHours() ? '' : '<div style="background:#FFF8EC;border:1px solid #F0D8A8;border-radius:8px;padding:6px 9px;margin:8px 0;font-size:12.5px"><b>It is outside 8am to 6pm, so only the emails would go now.</b> Better to press this between 8am and 6pm so they get the text too.</div>')
+      + '<div class="field-note" style="margin:6px 0">Each gets their own link by ' + 'text and email where we have them. They write it themselves; nothing is published until you check it.</div>'
+      + '<div style="max-height:220px;overflow:auto;font-size:12.5px;border:1px solid #E2E8F0;border-radius:8px;padding:6px 9px">' + reach.map(function (p) { return esc((p.first + ' ' + p.last).trim()) + ' <span style="color:#64748B">· ' + esc(cuHow(p)) + '</span>'; }).join('<br>') + '</div>'
+      + (none.length ? '<div style="font-size:12.5px;color:#B00020;margin-top:6px">Can\'t be reached (no mobile or email in AxisCare): ' + none.map(function (p) { return esc((p.first + ' ' + p.last).trim()); }).join(', ') + '</div>' : '')
+      + '<div style="display:flex;gap:8px;margin-top:10px"><button class="primary" id="cuGo">Send to ' + reach.length + '</button><button class="ghost" id="cuNo">Cancel</button></div><div id="cuProg" class="field-note" style="margin-top:6px"></div>';
+    var el = pop ? pop(btn, html, { width: 520 }) : null;
+    var go = async function () {
+      CU.busy = true; CU.result = null; if (el) { el.querySelector('#cuGo').disabled = true; el.querySelector('#cuNo').disabled = true; }
+      var ok = 0, tx = 0, em = 0, fails = [];
+      for (var i = 0; i < reach.length; i++) {
+        var p = reach[i], nm = (p.first + ' ' + p.last).trim();
+        if (el) el.querySelector('#cuProg').textContent = 'Sending ' + (i + 1) + ' of ' + reach.length + '…';
+        try {
+          var cu = await call({ action: 'catchup', axiscare_id: String(p.id), first: p.first || '', last: p.last || '', legacy_candidate_id: p.legacy || '' });
+          if (cu.skipped === 'published') continue;
+          var sres = await call({ action: 'send_link', profile_id: cu.profile.id, phone: p.mobile || '', email: p.email || '' });
+          if (sres.texted || sres.emailed) { ok++; if (sres.texted) tx++; if (sres.emailed) em++; }
+          if (sres.not_sent && sres.not_sent.length) fails.push(nm + ': ' + sres.not_sent.join('; '));
+        } catch (e) { fails.push(nm + ': ' + ((e && e.message) || e)); }
+      }
+      try { if (typeof root.opEvent === 'function') root.opEvent('profile_links_sent', { summary: 'Caregiver profile links ' + (which === 'again' ? 'sent again' : 'sent') + ' to ' + ok + ' current caregivers (' + tx + ' texts, ' + em + ' emails)' }); } catch (e) { /* the record is a nicety */ }
+      CU.result = ['Sent to ' + ok + ' of ' + reach.length + ' (' + tx + ' by text, ' + em + ' by email).' + (fails.length ? '\n\nNot everything went:\n' + fails.join('\n') : ''), !!fails.length && !ok];
+      CU.busy = false; if (el && typeof root.ccPopClose === 'function') root.ccPopClose();
+      CU.rows = null; await catchupRender();
+    };
+    if (!el) { if (confirm('Send profile links to ' + reach.length + ' caregivers?')) await go(); return; }
+    el.querySelector('#cuNo').onclick = function () { root.ccPopClose(); };
+    el.querySelector('#cuGo').onclick = go;
+  }
+  function catchupReload() { CU.rows = null; CU.err = ''; return catchupRender(); }
+
   root.CGP2 = { mount: mount, open: open, close: close, act: act, link: link, upload: upload, reload: reload,
     chipHtml: chipHtml, status: status, rowFor: rowFor, loadForCandidates: loadForCandidates, prompts: prompts, noDash: noDash,
     introPick: introPick, introReason: introReason, cardName: cardName, photoOf: photoOf,
     cacheState: cacheState, isLive: isLive,
+    catchupRender: catchupRender, catchupSend: catchupSend, catchupReload: catchupReload, cuClass: cuClass, CU: CU,
     gateReady: function () { return !!G.rows; }, gateLoad: gateLoad, gateFor: gateFor, gateForAx: gateForAx, gateHtml: gateHtml, gateOpen: gateOpen, gateOverride: gateOverride };
 })(typeof window !== 'undefined' ? window : globalThis);

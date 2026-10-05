@@ -4448,6 +4448,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <button class="filter-pill" data-cf="inactive" onclick="cgdFilter('inactive',this)">Inactive</button>
       <button class="filter-pill" data-cf="attention" onclick="cgdFilter('attention',this)">Needs attention</button>
       <button class="filter-pill" data-cf="needsdata" onclick="cgdFilter('needsdata',this)">Needs data connection</button>
+      <button class="filter-pill" data-cf="profiles" onclick="cgdFilter('profiles',this)" title="Who still needs a finished caregiver profile, and the button that sends them their link">🪪 Profiles</button>
     </div>
     <div id="cgcLine" class="field-note" style="margin:-4px 0 10px;font-size:13px;"></div>
     <div id="cgdList"><div class="field-note">Loading…</div></div>
@@ -6707,7 +6708,7 @@ The HomeTogether team</pre>
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
-<script src="caregiver-profile-panel.js?v=20261001b"></script>
+<script src="caregiver-profile-panel.js?v=20261005c"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
 <script src="standup-board.js?v=4"></script>
@@ -16422,6 +16423,12 @@ function cgdRenderList(){
   const cnt=document.getElementById('cgdCount');
   if(cnt) cnt.textContent=nAct+' active caregivers · live from AxisCare ('+all.length+' total on record)';
   const q=cgdNorm(CGD.q);
+  /* 452 (2026-10-05): the profile catch-up for current caregivers. caregiver-profile-panel.js draws it. */
+  if(CGD.filter==='profiles' && !q && typeof CGP2!=='undefined' && CGP2.catchupRender){
+    CGP2.catchupRender(el, all.filter(c=>c.active).map(c=>{ const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
+      return { id:c.id, first:c.first||'', last:c.last||'', mobile:c.mobile||'', email:c.email||'', hire_date:c.hire_date||'', legacy:(g&&g.candidate_id)||'' }; }));
+    return;
+  }
   let rows;
   if(q){ rows=all.filter(c=>cgdNorm(c.first+c.last).includes(q)||String(c.mobile||'').replace(/\D/g,'').includes(String(CGD.q).replace(/\D/g,'')||'ZZZ')); }
   else if(CGD.filter==='inactive'){ rows=all.filter(c=>!c.active); }
