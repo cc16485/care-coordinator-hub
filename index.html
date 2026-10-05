@@ -1232,6 +1232,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            the hub teach each other. Chips are doors, not decorations. -->
       <!-- 2026-10-05 (her call): the Stand-Up board's open items sit at the top of the Dashboard, so the board is the
            first thing the office sees, not a tab nobody opens. standup-board.js draws it. -->
+      <!-- Today cockpit Phase 5 (2026-10-05): an end-of-shift handoff to me sits on top until I tap Got it. end-shift.js. -->
+      <div id="hoCardDash"></div>
       <div id="suTodayLine" style="margin-bottom:16px;"></div>
       <!-- Today cockpit Phase 4 (2026-10-05): the Staffing view, open for whoever is on Staffing duty. staffing-view.js. -->
       <div id="staffingView" style="margin-bottom:16px;"></div>
@@ -1474,7 +1476,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="addlead" onclick="CCIssue.open()" style="background:var(--navy);color:#fff;"
           title="Somebody has told us about a problem">＋ Report a concern</button>
         <button class="addlead" onclick="opsToggleAdd()">＋ Add work</button>
+        <button class="addlead" onclick="eoOpen(this)" style="background:#fff;color:var(--navy);border:1.5px solid var(--navy);"
+          title="Hand off what is still moving to whoever is on duty next">End my shift</button>
       </div>
+      <div id="hoCardWork"></div>
       <div class="subtab-bar" id="myWorkTabs"></div>
       <div id="myWorkApprovals" style="display:none;"><div id="approvalsCard"></div></div>
       <div class="card" id="opsAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
@@ -6683,6 +6688,7 @@ The HomeTogether team</pre>
 <script src="evv-forms.js?v=429"></script>
 <script src="standup-board.js?v=4"></script>
 <script src="staffing-view.js?v=1"></script>
+<script src="end-shift.js?v=1"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -7933,8 +7939,8 @@ function renderActiveTab(){
   if(activeTab==='hourswatch'){ swRenderAll(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
-  if(activeTab==='today'){ renderToday(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); }
-  if(activeTab==='mywork') renderMyWork();
+  if(activeTab==='today'){ renderToday(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
+  if(activeTab==='mywork'){ renderMyWork(); if(typeof hoRefresh==='function') hoRefresh(); }
   if(activeTab==='myrole') renderMyRole();
   if(activeTab==='myteam') renderMyTeam();
   if(activeTab==='referrers') renderReferrers();
@@ -26349,6 +26355,7 @@ function opsWaitOpen(id, anchorId){
 
 function renderMyWork(){
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
+  if(typeof hoRender==='function') try{ hoRender(); }catch(e){}
   const who=document.getElementById('myWorkWho');
   if(who) who.textContent=(ME.name?('Signed in as '+ME.name):'')+'   ·   press ? for shortcuts';
   const b=myWorkBuckets();
