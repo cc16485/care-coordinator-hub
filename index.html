@@ -3838,14 +3838,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
       <div class="card" style="padding:20px;max-width:820px;">
 
-<div class="settings-section">
+<div class="settings-section" data-set="supabase">
 <h3>Supabase Connection</h3>
 <p class="hint">Use the same project as Staffing Hub — coordinators sign in with the same accounts, and this hub's tables live alongside <code>caregivers</code> in <code>app_data</code>.</p>
 <label>Project URL</label><input id="set_supabase_url" placeholder="https://abcdefghijkl.supabase.co">
 <label>Anon / Public Key</label><input id="set_supabase_anon_key" placeholder="eyJ...">
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="axiscare">
 <h3>AxisCare Integration</h3>
 <p class="hint">Find your site number in your AxisCare URL: https://<b>XXXXX</b>.axiscare.com</p>
 <label>Site Number</label><input id="set_axiscare_site">
@@ -3853,12 +3853,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 <!-- Was buried in the AxisCare section, where nobody could find it, which is
      why the Communications panel sat switched off. -->
-<div class="settings-section" style="background:var(--slate-bg,#f2f0e9);">
+<div class="settings-section" style="background:var(--slate-bg,#f2f0e9);" data-set="agency-note">
 <h3>⚙️ These belong to the agency now</h3>
 <p class="hint">Everything below except the Supabase connection is shared with the whole team, on every device. Pasting a key here switches it on for Krystal too. You can also manage the same settings from the <a href="https://hub.mo-care.com/admin" target="_blank" rel="noopener"><b>Admin page</b></a>.</p>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="callout-texts">
 <h3>📣 Callout texts (canned responses)</h3>
 <p class="hint">Every message the callout engine sends, in your words. Blank means the standard wording shown in grey. Fill-ins that get replaced per text: <code>{first_name}</code> the caregiver's name, <code>{client}</code> the client's first name, <code>{when}</code> day and time, <code>{address}</code> street name and city (never the house number), <code>{care}</code> the care note, <code>{pattern}</code> "could become your regular Friday shift" / "One time only" when the calendar says which. "Last-minute" wording is used for same-day shifts only; future shifts use the open-shift message.</p>
 <label>To caregivers who work with the client</label>
@@ -3905,7 +3905,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
-<div class="settings-section" id="mnSettings">
+<div class="settings-section" id="mnSettings" data-set="missed-notes">
 <h3>📝 Missed care notes</h3>
 <p class="hint">Every shift needs a note the office and the family can read. A caregiver who clocks out with no care note (in the app, or the office clocked them out because they forgot or couldn't) gets a text right away asking them to text their shift note to the office, and one reminder the next morning; texts only 8am to 9pm. A reply goes to Needs Attention for someone to put it in AxisCare (it still counts). No reply by 6pm the next day is unresolved. 3 in 30 days makes a DRAFT write-up for review; only Samantha or Zach can approve. The count starts when you turn this on. Fill-ins: <code>{first_name}</code> <code>{client}</code> <code>{day}</code> (reminder).</p>
 <label>The text</label>
@@ -3918,7 +3918,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <span class="field-note" id="mnSetStatus"></span>
 </div>
 </div>
-<div class="settings-section" id="lnSettings">
+<div class="settings-section" id="lnSettings" data-set="running-late">
 <h3>🕒 Running late</h3>
 <p class="hint">When a caregiver texts (or calls) the office that they're running late or can't make it, in the 2 hours before a shift until they clock in, the AI reads it and works out when they expect to arrive. It never guesses a time. Three switches, one at a time: <b>notices</b> (a "Running late" card in Needs Attention, and the missed clock-in texts wait until 5 minutes after the time they gave), <b>caregiver replies</b> (one thank-you with their time, or one "about what time?"), <b>admin texts</b> (every admin, every 5 minutes, until someone taps Seen). The family is only ever texted when a person taps "Send to the family" on the card or the admin's link, and only Family Circle members who agreed to texts, 6am to 9pm. The client is never texted. Fill-ins: <code>{first_name}</code> <code>{client}</code> <code>{eta}</code> (caregiver texts); <code>{caregiver}</code> <code>{client}</code> <code>{time}</code> <code>{eta}</code> (family texts, which start "Hi" and each person's first name).</p>
 <div id="lnStatus" class="field-note" style="margin:6px 0 8px;"></div>
@@ -3946,7 +3946,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 <div id="lnPractice" style="margin-top:10px;"></div>
 </div>
-<div class="settings-section" id="cbSettings">
+<div class="settings-section" id="cbSettings" data-set="calls-ring">
 <h3>📞 Calls: your phone rings first</h3>
 <p class="hint">Every staff <b>Call</b> button in the Hub (and on the missed clock-in and running-late links) asks GoHighLevel to ring <b>your</b> phone first. You answer, hear "Caring Companions call to Ruth Adams. Press any key to connect.", press a key, and GoHighLevel connects you from the office number and logs the call. To do that, the tap assigns the GoHighLevel contact to you (the assignment changes with each call) and adds the tag <code>hub-call-bridge</code>. Only a person's tap starts a call. No contact is ever created and nothing is texted.</p>
 <div class="field-note" style="margin:4px 0 8px;"><b>One-time setup in GoHighLevel</b> (full steps: GHL-CALL-BRIDGE-SETUP.md):
@@ -3967,7 +3967,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <span class="field-note" id="cbSaved"></span>
 </div>
 </div>
-<div class="settings-section" id="cpSettings">
+<div class="settings-section" id="cpSettings" data-set="calls-ghl">
 <h3>📞 Calls from GoHighLevel</h3>
 <p class="hint">Every 10 minutes the Hub fetches answered calls from GoHighLevel and its transcript, and the call reader writes the summary. For a new-client call it creates the lead, drafts a follow-up email and text for your approval in Post-Call Follow-Up, and tags the GoHighLevel contact "lead" (which your AxisCare sync watches). Nothing is ever sent. In <b>practice</b> it only shows what it would do. Missed calls are left to the Operations Inbox.</p>
 <div id="cpStatus" class="field-note" style="margin:6px 0 8px;"></div>
@@ -3977,7 +3977,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 <div id="cpList"></div>
 </div>
-<div class="settings-section" id="aiSettings">
+<div class="settings-section" id="aiSettings" data-set="send-application">
 <h3>📨 Send the application</h3>
 <p class="hint">The text sent when someone calls about a job and you press <b>Applicants → Send the application</b>. Fill-ins: <code>{first_name}</code>, <code>{position}</code>, <code>{link}</code> (their application; keep it in). "Reply STOP to opt out." is added if the text doesn't mention STOP. Leave blank for the standard wording.</p>
 <textarea id="set_ai_msg" rows="2" placeholder="Hi {first_name}, thanks for calling Caring Companions! Here's the application for {position}. It takes about 2 minutes: {link}"></textarea>
@@ -3986,7 +3986,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <span class="field-note" id="aiSetStatus"></span>
 </div>
 </div>
-<div class="settings-section" id="prnSettings">
+<div class="settings-section" id="prnSettings" data-set="prn">
 <h3>🩺 PRN CNA Team</h3>
 <p class="hint">The minimum bench shown on Recruit → PRN CNA Team, and the 60-day availability check-in text (weekdays 10am to 5pm, at most 20 a day, nobody twice in 14 days, STOP respected). Fill-ins: <code>{first_name}</code>, <code>{link}</code> (their own one-tap link; keep it in).</p>
 <div class="grid2"><div><label>PRN Team minimum</label><input id="set_prn_min" inputmode="numeric" placeholder="20"></div><div></div></div>
@@ -3998,7 +3998,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <span class="field-note" id="prnSetStatus"></span>
 </div>
 </div>
-<div class="settings-section" id="tkSettings">
+<div class="settings-section" id="tkSettings" data-set="missed-clockins">
 <h3>⏰ Missed clock-ins</h3>
 <p class="hint">When a caregiver hasn't clocked in a few minutes after their shift starts, they get one short text. At the same moment every admin gets a text with their own link, and it repeats until someone opens the link and marks it resolved (or she clocks in, or a coverage case covers the shift). The EVV form never goes out by itself: an admin sends it from the link page when a caregiver asks to be clocked in for their start time. Changes here take effect on the next check (every 2 minutes) and are recorded in the activity log.</p>
 <p class="hint" id="tkQuietHint"><b>Office quiet hours:</b> no admin or office text from 8pm to 7am Central, except missed clock-ins and call-ins while their after-hours switches are on. Each admin gets at most 6 texts about one missed clock-in, and every text has the link to mark it resolved.</p>
@@ -4024,7 +4024,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div id="tkPractice" style="margin-top:12px;"></div>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="start-forms">
 <h3>📥 Start forms</h3>
 <p class="hint">Whether a new start form becomes a Background &amp; References candidate by itself.</p>
 <div id="iimSet" class="field-note" style="margin:6px 0 4px;"></div>
@@ -4034,7 +4034,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="orientation-reminders">
 <h3>🔔 Office orientation reminders</h3>
 <p class="hint">The text the day before someone's in-person office orientation (the backup for someone who can't do it online), sent by the Hub instead of GoHighLevel. Online new hires get their welcome call reminders instead.</p>
 <div id="orrSet" class="field-note" style="margin:6px 0 4px;"></div>
@@ -4045,7 +4045,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div id="orrList"></div>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="caregiver-connect">
 <h3>🔗 Caregiver connect</h3>
 <p class="hint">Ties each AxisCare caregiver to their Hub record, so their checks, references and compliance show on their profile instead of "needs data connection".</p>
 <div id="cgcSet" class="field-note" style="margin:6px 0 4px;"></div>
@@ -4055,7 +4055,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="loops">
 <h3>🔁 The Hub closes its own loops</h3>
 <p class="hint">Finished shifts close their coverage case (or ask "Was it covered?"), case cards close with the case, an uncovered shift asks a person to call the family, a missed clock-in becomes an "EVV fix needed" item when the shift ends, and EVV reviews come weekly. Sends nothing.</p>
 <div id="loopsSet" class="field-note" style="margin:6px 0 4px;"></div>
@@ -4065,7 +4065,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="routing">
 <h3>👥 Right person first, then escalate</h3>
 <p class="hint">Scheduling work goes to whoever is on Staffing duty now; work nobody takes pulls in whoever holds Owner Escalation. The duty schedule itself is under Dashboard, Responsible now, Manage.</p>
 <div id="routeSet" class="field-note" style="margin:6px 0 4px;"></div>
@@ -4075,7 +4075,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
-<div class="settings-section" id="freshSection">
+<div class="settings-section" id="freshSection" data-set="fresh-start">
 <h3>🧹 Fresh start: clear past-due work</h3>
 <p class="hint">Closes work that is already past due, so My Work starts clean. You see exactly what would close first and can keep any group. Items are closed with a note, never deleted, and you can undo it for 7 days. Nothing is sent.</p>
 <div id="freshSet" class="field-note" style="margin:6px 0 4px;"></div>
@@ -4086,7 +4086,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="morning-brief">
 <h3>☀️ Morning Brief</h3>
 <p class="hint">A personal email at <b>8am Central on workdays</b>: today's interviews and booked assessments, anything that came in overnight, pass-along notes from the quick form, leads to call, and that person's top priorities, each line one tap into the hub. Everyone sees only their own book plus anything nobody owns yet. <b>Full picture</b> adds the admin sections: family-update calls from flagged care notes, write-ups for call-offs with under 4 hours notice, yesterday's EVV misses, and today's schedule from AxisCare with any open shifts. Pick who gets what:</p>
 <div id="mbRecips" style="display:flex;flex-direction:column;gap:5px;margin:8px 0;"></div>
@@ -4097,7 +4097,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="afternoon-interviews">
 <h3>🕑 Afternoon interviews</h3>
 <p class="hint">Interviews that start at this time or later are marked as this person's interviews on Today, on the Interviews tab and in the Morning Brief. Earlier interviews get no name. Every change is recorded.</p>
 <div class="grid2">
@@ -4110,7 +4110,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="cadences">
 <h3>Cadences</h3>
 <div class="grid2">
 <div><label>Client check-in cadence (days)</label><input type="number" id="set_checkin_cadence" value="30"></div>
@@ -4118,7 +4118,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="transcripts">
 <h3>Transcript Retention</h3>
 <p class="hint">Visit transcripts can contain medical detail. Once a care plan is pushed to AxisCare, the structured plan is the record of truth — the raw transcript doesn't need to stick around.</p>
 <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);">
@@ -4126,19 +4126,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </label>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="lead-intake">
 <h3>🔗 Lead Intake (Website Form → Hub)</h3>
 <p class="hint">Every mo-care.com form posts to the token-gated <code>lead-intake</code> Edge Function (see assets/forms.js in the website repo) and lands on Leads &amp; Starts with source "Website" — verified end to end 2026-08-01. No Zapier involved. An earlier note here showed a raw database URL; that path was closed in the July security hardening and was never the real one.</p>
 <div class="webhook-box"><code id="leadWebhookUrl">POST https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/lead-intake?token=cclead_…</code></div>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="careplan-webhook">
 <h3>🪄 Care Plan Generation Webhook (Hub → Zapier → AxisCare)</h3>
 <p class="hint">Fires when you click "Generate Care Plan." Zapier structures the transcript with AI and pushes the result back here and into AxisCare custom fields.</p>
 <label>Webhook URL</label><input id="set_careplan_webhook">
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="staff">
 <h3>Staff &amp; Notifications</h3>
 <p class="hint">Add each coordinator with the <b>email they sign in with</b> — that's how the hub knows who's who: it shapes their view, stamps their work, and powers the stand-up counts. Samantha's account always sees everything.</p>
 <div id="staffListWrap"></div>
@@ -4221,13 +4221,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <button class="secondary" onclick="addStaffMember()">+ Add Staff Member</button>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="after-hours">
 <h3>🚨 After-Hours Escalation Protocol</h3>
 <p class="hint">Kept for reference (the On-Call tab was removed) — after-hours escalation steps live here if you ever want them surfaced again.</p>
 <textarea id="set_escalation_protocol" rows="4"></textarea>
 </div>
 
-<div class="settings-section">
+<div class="settings-section" data-set="passcode">
 <h3>Admin Passcode</h3>
 <p class="hint">Keep this separate from staff login passwords.</p>
 <div class="grid2">
@@ -14065,8 +14065,27 @@ async function prnSetToggle(btn){
   prnSetFill();
   const s = document.getElementById('prnSetStatus'); if(s && out.error) s.textContent = 'Could not save: '+out.error.message;
 }
+/* One setting at a time (opened from the Owners Hub Admin page, #settings/<name>): the others are hidden, with a way back
+   to all of them. The page-wide Save button shows only for the settings that use it. */
+let CC_SETTINGS_FOCUS=null;
+const SETTINGS_BOTTOM_SAVE=['supabase','axiscare','cadences','transcripts','careplan-webhook','staff','after-hours','passcode'];
+function settingsFocusApply(){
+  const panel=document.getElementById('tab-settings'); if(!panel) return;
+  const f=CC_SETTINGS_FOCUS, secs=[...panel.querySelectorAll('.settings-section')];
+  const hit=f?secs.find(x=>x.dataset.set===f):null;
+  secs.forEach(x=>{ x.style.display=(!hit||x===hit)?'':'none'; });
+  if(hit && hit.id==='freshSection') hit.style.display=ccIsOwner()?'':'none';
+  const save=panel.querySelector('.modal-actions'); if(save) save.style.display=(!hit||SETTINGS_BOTTOM_SAVE.includes(f))?'':'none';
+  let bar=document.getElementById('settingsFocusBar');
+  if(!bar){ bar=document.createElement('div'); bar.id='settingsFocusBar'; bar.className='field-note'; bar.style.cssText='margin:0 0 12px;';
+    const card=panel.querySelector('.card'); if(card) card.parentNode.insertBefore(bar, card); }
+  bar.innerHTML=hit?'Showing one setting: <b>'+escapeHtmlComms(hit.querySelector('h3').textContent)+'</b> · <a href="#settings" onclick="CC_SETTINGS_FOCUS=null;settingsFocusApply();">Show all settings</a>':'';
+  if(f && !hit) bar.innerHTML='That setting was not found, so all settings are shown.';
+  window.scrollTo(0,0);
+}
 function fillSettingsPanel(){
   covMsgsFill();
+  try{ settingsFocusApply(); }catch(_){}
   try{ prnSetFill(); }catch(_){}
   try{ aiSetFill(); }catch(_){}
   try{ cpSetFill(); cpLoad(); }catch(_){}
@@ -14096,6 +14115,7 @@ function fillSettingsPanel(){
   // stop the rest of Settings from opening.
   renderStaffAccess();
   renderReviewRules();
+  try{ settingsFocusApply(); }catch(_){}   /* last, so a filler that shows its own section cannot undo the focus */
 }
 function renderStaffList(){
   const wrap = document.getElementById('staffListWrap');
@@ -16827,7 +16847,7 @@ function freshCandidates(){
 }
 function freshRender(){
   const box=document.getElementById('freshSet'), u=document.getElementById('freshUndoBtn'); if(!box) return;
-  const sec=document.getElementById('freshSection'); if(sec) sec.style.display=ccIsOwner()?'':'none';
+  const sec=document.getElementById('freshSection'); if(sec) sec.style.display=(ccIsOwner() && (!CC_SETTINGS_FOCUS || CC_SETTINGS_FOCUS==='fresh-start'))?'':'none';
   const st=DATA.ops_settings||{}, last=st.fresh_start_last;
   const n=freshCandidates().length;
   const undoable=last&&last.at&&(Date.now()-Date.parse(last.at)<7*864e5)&&Array.isArray(last.ids)&&last.ids.length&&!last.undone_at;
@@ -16872,7 +16892,7 @@ function freshPreview(btn){
     const rec=await tkMerge(m=>{ m.fresh_start_last={ id:batch, at, by:a.email, by_name:a.name, ids }; return ['fresh start: '+ids.length+' past-due items closed']; }, 'fresh start');
     ccPopClose();
     if(rec.error) ccToast('⚠ '+ids.length+' items were cleared, but the Undo record did not save ('+(rec.error.message||'error')+'). Tell Claude: batch '+batch+'.');
-    else ccToast('✓ '+ids.length+' past-due item'+(ids.length===1?'':'s')+' cleared. Undo is in Settings for 7 days.');
+    else ccToast('✓ '+ids.length+' past-due item'+(ids.length===1?'':'s')+' cleared. Undo is under Hub settings, Fresh start, for 7 days.');
     const sv=document.getElementById('freshSaved'); if(sv) sv.textContent='Cleared '+ids.length+'.';
     freshRender(); myWorkRefresh(); try{ ccRenderPulse(); }catch(e){}
   };
@@ -18374,7 +18394,9 @@ function ccRolesFor(email){
    already runs late enough. */
 function ccApplyRoleUi(){
   const sft=document.getElementById('settingsFtab');
-  if(sft) sft.style.display=ccCan('manage_settings')?'flex':'none';
+  /* 2026-10-05 (her call): Hub settings open from the Owners Hub Admin page (Hub settings), each one by itself
+     (#settings/<name>); the sidebar has no Settings tab. #settings still opens them all. */
+  if(sft) sft.style.display='none';
   if(CC_SETTINGS_PENDING && CC_ROLES_CHECKED){ CC_SETTINGS_PENDING=false; switchTab('settings'); }
   try{ if(document.getElementById('cgcLine') && CGC.log) cgcLineRender(); }catch(_){}
 }
@@ -18521,7 +18543,7 @@ async function opsCheckRender(){
     const sft=document.getElementById('settingsFtab');
     const sv=!!(sft&&sft.style.display!=='none');
     const wu=!!document.querySelector('[data-tab="cgwriteups"]');
-    say('Settings tab visible  : '+sv+'   '+yn(sv===owner));
+    say('Settings tab visible  : '+sv+'   '+yn(sv===false)+'   (settings open from the Owners Hub Admin page)');
     say('Write-Ups tab present : '+wu+'   '+yn(wu===true)+'   (everyone should see this)');
     say('');
     say('── ATTRIBUTION ────────────────────────────────────');
@@ -39371,6 +39393,12 @@ window.covLoadShifts=function(){};
       }
       /* 2026-10-05: the team tools, opened from the Owners Hub Admin page (Team). They wait until the roles are read,
          because each checks permission (like the Settings link). */
+      /* 2026-10-05: one Hub setting by itself, opened from the Owners Hub Admin page (Hub settings). */
+      if(head==='settings'){
+        CC_SETTINGS_FOCUS=String(seg[1]||'').toLowerCase()||null;
+        switchTab('settings'); try{ settingsFocusApply(); }catch(e){}
+        return true;
+      }
       if(head==='myteam'){
         var what=String(seg[1]||'').toLowerCase(), who=decodeURIComponent(seg.slice(2).join('/')||'').toLowerCase();
         switchTab('myteam');
@@ -39393,6 +39421,7 @@ window.covLoadShifts=function(){};
     var h=raw.toLowerCase();
     if(!ok){
       if(CC_HASH_ALIAS[h]) h=CC_HASH_ALIAS[h];
+      if(h==='settings'){ CC_SETTINGS_FOCUS=null; try{ settingsFocusApply(); }catch(e){} }
       /* A bare #cara means the command-centre home, so a filter left behind
          by #cara/history does not silently persist. Deep routes are handled
          above and set their own filter, so this never runs for them. */
