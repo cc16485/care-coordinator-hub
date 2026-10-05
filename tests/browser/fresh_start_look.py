@@ -71,7 +71,7 @@ async()=>{
   const last=DATA.ops_settings.fresh_start_last;
   ok('the batch is recorded for Undo (who, when, which)', last && last.ids.sort().join()==='cv2,l1,l2' && last.by==='samantha@mo-care.com' && /^fs_/.test(last.id), last);
   ok('it is in the record of what happened', L.fn.some(f=>/^event:fresh_start:Samantha Troutman cleared 3 past-due items/.test(f)), L.fn);
-  ok('she is told how many and where Undo is', L.toasts.some(t=>/3 past-due items cleared\. Undo is in Settings for 7 days\./.test(t)), L.toasts);
+  ok('she is told how many and where Undo is', L.toasts.some(t=>/3 past-due items cleared\. Undo is under Hub settings, Fresh start, for 7 days\./.test(t)), L.toasts);
   freshRender();
   ok('Settings now offers Undo and shows the last fresh start', document.getElementById('freshUndoBtn').style.display==='' && /3 closed/.test(document.getElementById('freshSet').innerText), document.getElementById('freshSet').innerText);
   /* someone reopens one by hand meanwhile; Undo must only reopen what is still closed by this fresh start */

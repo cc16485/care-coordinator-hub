@@ -8,7 +8,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const cut = (from, to) => { const a = src.indexOf(from), b = src.indexOf(to, a + 1); if (a < 0 || b < 0) throw new Error('not found: ' + from); return src.slice(a, b); };
 const block = cut('/* 433 · Settings, Calls', '/* Settings: the three switches');
-const card = cut('<div class="settings-section" id="cbSettings">', '<div class="settings-section" id="cpSettings">');
+const card = cut('<div class="settings-section" id="cbSettings" data-set="calls-ring">', '<div class="settings-section" id="cpSettings" data-set="calls-ghl">');
 let pass = 0, fail = 0;
 const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'FAIL  ') + n + (ok || x === undefined ? '' : '  ' + JSON.stringify(x).slice(0, 700))); };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
