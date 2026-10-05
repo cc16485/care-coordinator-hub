@@ -395,7 +395,8 @@
       + '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;cursor:pointer;" onclick="tmToggle(\'' + id + '\')">'
       + '<b style="color:var(--navy);">' + esc(dayStr((m.meeting_date || '') + 'T12:00:00')) + ' · ' + esc(m.meeting_name || 'Meeting') + '</b>'
       + '<span class="field-note">' + esc(att) + '</span><span style="flex:1;"></span>'
-      + '<span class="field-note">' + acts.filter(i => i.status !== 'done').length + ' of ' + acts.length + ' action items open ' + (open ? '▾' : '▸') + '</span></div>'
+      + '<span class="field-note">' + (acts.length ? acts.filter(i => i.status !== 'done').length + ' of ' + acts.length + ' action items open'
+          : (legacy.length ? 'notes only (older action items)' : 'notes only')) + ' ' + (open ? '▾' : '▸') + '</span></div>'
       + (open ? '<div style="margin-top:8px;">'
         + (m.notes ? '<div style="white-space:pre-wrap;font-size:13px;">' + esc(m.notes) + '</div>' : '')
         + (carried.length ? '<div style="margin-top:8px;"><b style="font-size:12.5px;">Carried from last time</b>' + carried.map(itemLine).join('') + '</div>' : '')

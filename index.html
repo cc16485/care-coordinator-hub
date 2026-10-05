@@ -1254,8 +1254,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="card" id="standupCard" style="padding:15px 18px 9px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <svg style="width:20px;height:20px;flex:none;" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg>
-          <b style="font-size:16px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Stand-up</b>
-          <span class="field-note">One row per person: closed, due, late. Click a row to open their book.</span>
+          <b style="font-size:16px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Team scorecard</b>
+          <span class="field-note">One row per person: closed, due, late. Click a row to open their book. (The Stand-Up board is its own tab.)</span>
         </div>
         <div id="standupRows" style="margin-top:6px;"></div>
         <details class="guide" style="margin:10px 0 6px;border:none;background:none;">
@@ -1469,7 +1469,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="field-note" id="myWorkWho"></div>
         </div>
         <div style="flex:1;"></div>
-        <button class="addlead" onclick="CCIssue.open()" style="background:var(--navy);"
+        <button class="addlead" onclick="CCIssue.open()" style="background:var(--navy);color:#fff;"
           title="Somebody has told us about a problem">＋ Report a concern</button>
         <button class="addlead" onclick="opsToggleAdd()">＋ Add work</button>
       </div>
@@ -6648,7 +6648,7 @@ The HomeTogether team</pre>
 <script src="caregiver-profile-panel.js?v=20261001b"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
-<script src="standup-board.js?v=1"></script>
+<script src="standup-board.js?v=2"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -7861,11 +7861,9 @@ function ccRenderPulse(){
   const box=document.getElementById('topbarPulse'); if(!box) return;
   if(!DATA || !Array.isArray(DATA.leads)){ box.innerHTML=''; return; }
   const t=today();
-  let late=0;
-  try{
-    const me=String(opsMeKey()||'').toLowerCase();
-    late=opsOverdue().filter(i=>{ const o=(i.owner||'').toLowerCase(); return !o||(me&&o===me); }).length;
-  }catch(e){}
+  /* 2026-10-05: one meaning of late, said by whose it is (opsLateFor / opsLateUnowned). */
+  let late=0, lateNo=0;
+  try{ late=opsLateFor(opsMeKey()).length; lateNo=opsLateUnowned().length; }catch(e){}
   const ci=ciLatestByClient().filter(c=>c.next_checkin_due && c.next_checkin_due<t).length;   /* R1: the latest check-in per client decides */
   const chips=[];
   /* The 'N follow-ups due' chip is gone. It existed to compensate for lead
@@ -7877,7 +7875,8 @@ function ccRenderPulse(){
   /* Points at My Work, which is where a late item is actually worked. `late` is
      unchanged — the same opsOverdue() filtered to mine-or-unowned that My Work's
      Today bucket shows — so this is a label and a destination, not a new metric. */
-  if(late) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Overdue, yours or nobody\'s"><b>'+late+'</b> overdue</span>');
+  if(late) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Your items that are past due (waiting items count only once they come back)"><b>'+late+'</b> late for you</span>');
+  if(lateNo) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'unassigned\')" title="Past due and nobody owns them yet"><b>'+lateNo+'</b> late, no owner</span>');
   if(ci) chips.push('<span class="tp-chip" onclick="clOpen(\'Check-ins\')" title="Client check-ins past due"><b>'+ci+'</b> check-in'+(ci===1?'':'s')+' overdue</span>');
   const gr=(DATA.ghe_forms||[]).filter(g=>g.status==='ready').length;
   if(gr) chips.push('<span class="tp-chip" onclick="switchTab(\'nursevisits\')" title="Completed GHEs waiting for the coordinator\'s Fusion upload"><b>'+gr+'</b> GHE'+(gr===1?'':'s')+' ready for Fusion</span>');
@@ -10051,9 +10050,12 @@ function renderTodayHero(){
   /* Overnight means PEOPLE: a note someone banked, a text a caregiver sent,
      a booking a family made. The midnight automation sweeps also stamp
      created_at overnight, and 20 machine rows drown the 3 human ones. */
-  const humanBorn=i=>!/^automation:/.test(String(i.created_by||''))
-    && !/^(attendance|coverage)-watch$/.test(String(i.opened_by||''));
-  const onOps=open.filter(i=>born(i.created_at)&&humanBorn(i));
+  /* 2026-10-05 fix: the nightly checks stamp WHO made the item in created_by ("attendance-watch"), not opened_by, so
+     all of them got through. Robots are recognised by either field now. */
+  const robot=/^automation:|^(attendance|coverage|timekeeper)-watch$|^timekeeper$|-run$|^cara$/i;
+  const humanBorn=i=>!robot.test(String(i.created_by||'')) && !robot.test(String(i.opened_by||''));
+  const onOps=open.filter(i=>born(i.created_at)&&humanBorn(i))
+    .sort((a,c)=>String(c.created_at||'').localeCompare(String(a.created_at||'')));   // newest first
   const openLeads=(DATA.leads||[]).filter(l=>l.status!=='Converted'&&l.status!=='Lost');
   const onLeads=openLeads.filter(l=>born(l.created_at));
   const myPass=open.filter(i=>i.opened_by==='quick-capture'&&String(i.owner||'').toLowerCase()===me);
@@ -10071,7 +10073,7 @@ function renderTodayHero(){
   if(onOps.length+onLeads.length) chips.push(chip(onOps.length+onLeads.length,'overnight','var(--navy)','mywork'));
   if(myPass.length) chips.push(chip(myPass.length,'pass-alongs','#B45309','mywork'));
   if(myLeadsDue.length) chips.push(chip(myLeadsDue.length,'leads to call','var(--navy)','leadsstarts').replace('onclick="','onclick="LS.filter=\'Follow-up due\';'));
-  chips.push(chip(b.today.length,'my priorities',b.today.length?'var(--red)':'var(--teal)','mywork'));
+  chips.push(chip(b.today.length,'for you today',b.today.length?'var(--red)':'var(--teal)','mywork'));
   chips.push(chip(covOpen.length,'coverage cases',covOpen.length?'var(--red)':'var(--teal)','coverage'));
   chips.push('<div class="tg-chip" id="tbShiftChip" style="border-top-color:var(--gray);" onclick="switchTab(\'coverage\')">'
     +'<div class="n" id="tbShiftN" style="color:var(--gray);">…</div><div class="l">open shifts today</div></div>');
@@ -10092,18 +10094,25 @@ function renderTodayHero(){
     return ds===t?t12+' this morning':(ds===yd?t12+' last night':t12+' '+(d.getMonth()+1)+'/'+d.getDate()); };
   const urgent='<span class="hero-badge" style="background:#FDE8E8;color:var(--red);">urgent</span> ';
 
-  let left='';
-  if(onOps.length||onLeads.length) left+=card('🌙','While you were out','var(--navy)',
-    onOps.slice(0,8).map(i=>row('<b>'+esc(i.about||i.title||'')+'</b> '+(i.urgency==='high'?urgent:''),
-      esc(String(i.detail||'').slice(0,110))+' · '+esc(when(i.created_at))+(i.created_by?' · '+esc(String(i.created_by).split('@')[0]):''),'mywork')).join('')
+  /* ONE information view (2026-10-05, her rule): what came in after hours, what was passed along to you, and what
+     the team did since you were last here (op_events) live in one card, "Updates & While You Were Out". Nothing
+     here asks for action by itself; the work behind any of it is in My Work. */
+  const sec=(title,body)=>'<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--text-muted);margin:10px 0 2px;">'+esc(title)+'</div>'+body;
+  let info='';
+  if(onOps.length||onLeads.length) info+=sec('CAME IN AFTER 5 PM '+((new Date().getDay()===1)?'FRIDAY':'YESTERDAY'),
+    onOps.slice(0,8).map(i=>row('<b>'+esc(i.about||i.title||'')+'</b> '+((i.urgency==='high'||i.urgency==='urgent')?urgent:''),
+      [String(i.detail||'').slice(0,110), when(i.created_at), i.created_by?String(i.created_by).split('@')[0]:''].filter(Boolean).map(esc).join(' · '),'mywork')).join('')
     +onLeads.slice(0,4).map(l=>row('<b>New lead: '+esc([l.first_name,l.last_name].filter(Boolean).join(' '))+'</b>'
       +(/quick capture|assessment booking/i.test(String(l.source||''))?' <span class="hero-badge" style="background:#FFF4DE;color:#B45309;">quick form</span>':''),
       esc(String(l.interest_notes||'').slice(0,100))+' · '+esc(when(l.created_at)),'leadsstarts')).join('')
-    +((onOps.length>8||onLeads.length>4)?'<div class="field-note" style="padding-top:6px;">plus '+(Math.max(0,onOps.length-8)+Math.max(0,onLeads.length-4))+' more in My Work</div>':''),
-    'What PEOPLE sent in after 5pm '+((new Date().getDay()===1)?'Friday':'yesterday')+'. The robots\' overnight findings go to My Work, not here.');
-  if(myPass.length) left+=card('📝','Passed along to you ('+myPass.length+')','#B45309',
-    myPass.map(i=>row('<b>'+esc(i.about||i.title||'')+'</b> '+(i.urgency==='high'?urgent:''),
+    +((onOps.length>8||onLeads.length>4)?'<div class="field-note" style="padding-top:6px;">plus '+(Math.max(0,onOps.length-8)+Math.max(0,onLeads.length-4))+' more in My Work</div>':''));
+  if(myPass.length) info+=sec('PASSED ALONG TO YOU ('+myPass.length+')',
+    myPass.map(i=>row('<b>'+esc(i.about||i.title||'')+'</b> '+((i.urgency==='high'||i.urgency==='urgent')?urgent:''),
       esc(String(i.detail||'').slice(0,130)),'mywork')).join(''));
+  info+='<div id="sylSlot"></div>';
+  let left='<div class="hero-card" id="infoCard" style="border-left-color:var(--navy);"><div class="hc-t">🌙&nbsp; Updates &amp; While You Were Out</div>'
+    +info+'<div class="field-note" id="infoEmpty" style="padding:6px 0 2px;'+((onOps.length||onLeads.length||myPass.length)?'display:none;':'')+'">Nothing new since you were last here.</div>'
+    +'<div class="field-note" style="padding:6px 0 2px;">Information only. Anything that needs doing is already in My Work. The automatic overnight checks go to My Work, not here.</div></div>';
 
   let right='';
   if(covOpen.length) right+=card('🚨','Coverage cases open ('+covOpen.length+')','var(--red)',
@@ -10122,7 +10131,8 @@ function renderTodayHero(){
       (inn.length?row('<b>No clock-in:</b> '+esc(inn.join(', ')),'','cgattendance','Review'):'')
       +(out.length?row('<b>No clock-out:</b> '+esc(out.join(', ')),'','cgattendance','Review'):''));
   }
-  h.innerHTML=(left||right)?'<div class="hero-grid"><div>'+left+'</div><div>'+right+'</div></div>':'';
+  h.innerHTML='<div class="hero-grid"><div>'+left+'</div><div>'+right+'</div></div>';
+  try{ renderSinceYouLeft(); }catch(e){}
   heroLoadShifts();
 }
 async function heroLoadShifts(){
@@ -10459,9 +10469,15 @@ function renderOverviewTop(nOverdue,nDue){
   const hr=new Date().getHours();
   const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
   document.getElementById('todayHeading').textContent = greet+(navUserFirst?(', '+navUserFirst):'');
+  /* 2026-10-05: the greeting uses My Work's own lanes and the one meaning of late, so it agrees with every
+     other number on the page. */
+  let L={act:0,due:0,lateMine:0,lateUnowned:0}; try{ L=opsTodayCounts(); }catch(e){}
   document.getElementById('todayHello').innerHTML =
-    'You have <b style="color:var(--gold-text);">'+(nOverdue+nDue)+' follow-up'+((nOverdue+nDue)===1?'':'s')+'</b> on today\'s list'
-    +(nOverdue?' — <b style="color:var(--red);">'+nOverdue+' overdue</b>':'')+'.';
+    'You have <b style="color:'+(L.act?'var(--red)':'var(--gold-text)')+';">'+L.act+' to act on now</b>'
+    +(L.lateMine?' ('+L.lateMine+' late)':'')
+    +' and <b style="color:var(--gold-text);">'+L.due+' due today</b>.'
+    +(L.lateUnowned?' <span style="cursor:pointer;text-decoration:underline;" onclick="switchTab(\'mywork\');myWorkGo(\'unassigned\')">'
+      +L.lateUnowned+' late item'+(L.lateUnowned===1?' has':'s have')+' no owner.</span>':'');
   const monthStart=new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
   const mIso=monthStart.toISOString();
   const mLeads=leadsCounted().filter(l=>(l.created_at||'')>=mIso);
@@ -14090,7 +14106,7 @@ const OWN_AREAS=[
   ['payer_programs',     'Payer Programs & Enrollment','Medicaid IHS · CDS · Veterans Affairs'],
   ['recruiting_orientation','Recruiting & Orientation','Hiring and starting people'],
   ['training_compliance','Training & Compliance','Required training and records'],
-  ['program_administration','Programme Administration',''],
+  ['program_administration','Program Administration',''],
   ['money',              'Money & Approvals','']
 ];
 function ownDomain(code){ return (OPS_DOMAINS||[]).find(d=>d.code===code)||null; }
@@ -23760,7 +23776,9 @@ function calGrid(days){
             + 'style="position:absolute;left:3px;right:3px;top:'+top+'px;height:'+h+'px;overflow:hidden;'
             + 'background:'+tone[1]+';border-left:3px solid '+tone[0]+';border-radius:6px;padding:2px 6px;'
             + 'font-size:11.5px;line-height:1.3;color:'+tone[0]+';">'
-            + '<b>'+esc(calHM(st))+'</b> '+esc(r.label||actLabel(r.source))+'</div>';
+            /* 2026-10-05: who it is with comes first, so a 30-minute block never cuts the name off */
+            + (function(){ const L=String(r.label||actLabel(r.source)); const m=/^(.+?)\s+[\u2014\u2013-]\s+(.+)$/.exec(L);
+                return m ? '<b>'+esc(m[2])+'</b><br>'+esc(calHM(st))+' '+esc(m[1]) : '<b>'+esc(calHM(st))+'</b> '+esc(L); })()+'</div>';
         }).join('')
       + '</div>';
   }
@@ -25125,11 +25143,10 @@ function myWorkStrips(){
         +' — assessment '+(l.assessment_at||'scheduled')});
     }
   });
-  const watching=(DATA.ops_items||[]).filter(i=>i.status==='open'&&i.sub_state==='waiting'
-      &&String(i.owner||'').toLowerCase()===meE&&i.check_back)
-    .map(i=>({text:'Waiting on '+(i.waiting_on||'someone')
-      +' · back '+String(i.check_back).slice(5,10).replace('-','/')
-      +' — '+(i.about||i.title||'')}));
+  const watching=(DATA.ops_items||[]).filter(i=>i.status==='open'&&String(i.owner||'').toLowerCase()===meE&&opsParked(i))
+    .map(i=>({text:(i.about||i.title||'')+' · waiting on '+(i.waiting_on||'someone')
+      +' · comes back '+new Date(String(i.check_back).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})
+      +' at the latest'}));
   (DATA.leads||[]).filter(l=>!l.archived).forEach(l=>{
     if(typeof leadStage!=='function') return;
     if(leadStage(l)!=='deciding') return;
@@ -25142,7 +25159,7 @@ function myWorkStrips(){
       :('follow-up '+String(l.follow_up_due).slice(5,10).replace('-','/')))+' — '+whoL});
   });
   const strip=(title,note,list)=>!list.length?''
-    :'<div class="card" style="padding:12px 16px;margin-top:14px;background:var(--bg);">'
+    :'<div class="card" style="padding:12px 16px;margin-top:6px;background:var(--bg);">'
     +'<div style="display:flex;gap:8px;align-items:baseline;">'
     +'<b style="font-size:12px;letter-spacing:.04em;color:var(--text-muted);">'+title+'</b>'
     +'<span class="field-note">'+note+'</span></div>'
@@ -25156,26 +25173,33 @@ function myWorkStrips(){
 }
 
 function renderSinceYouLeft(){
-  const box=document.getElementById('sylWrap'); if(!box) return;
+  /* Lives inside the one information card on the Dashboard (#sylSlot). The old separate panel (#sylWrap) stays empty. */
+  const old=document.getElementById('sylWrap'); if(old) old.innerHTML='';
+  const box=document.getElementById('sylSlot'); if(!box) return;
   const esc=escapeHtmlComms;
-  if(!CC_SINCE.length){ box.innerHTML=''; return; }
-  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:16px;border-left:4px solid var(--teal);">'
-    +'<div style="display:flex;align-items:baseline;gap:10px;">'
-    +'<b style="font-size:13px;letter-spacing:.04em;color:var(--navy);">SINCE YOU LEFT</b>'
-    +'<span class="field-note">what other people did, oldest first</span>'
+  const empty=document.getElementById('infoEmpty');
+  if(!CC_SINCE.length){
+    box.innerHTML='';
+    const card=document.getElementById('infoCard');
+    if(empty && card && !card.querySelector('.hero-row')) empty.style.display='';
+    return;
+  }
+  if(empty) empty.style.display='none';
+  box.innerHTML='<div style="display:flex;align-items:baseline;gap:10px;margin:10px 0 2px;">'
+    +'<b style="font-size:11.5px;letter-spacing:.06em;color:var(--text-muted);">WHAT THE TEAM DID SINCE YOU WERE LAST HERE</b>'
     +'<span style="flex:1;"></span>'
-    +'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="CC_SINCE=[];renderSinceYouLeft()">dismiss</span></div>'
+    +'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="CC_SINCE=[];renderSinceYouLeft()">mark as seen</span></div>'
     +CC_SINCE.slice(-30).map(e=>
       '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;">'
       +'<span class="field-note">'+esc(callsFmtWhen(e.at))+'</span> · <b>'
-      +esc(e.actor_name||e.actor_email||'system')+'</b> — '+esc(e.summary||e.verb)+'</div>').join('')
-    +(CC_SINCE.length>30?'<div class="field-note" style="margin-top:4px;">'+(CC_SINCE.length-30)+' earlier entr'+(CC_SINCE.length-30===1?'y':'ies')+' not shown</div>':'')
-    +'</div>';
+      +esc(e.actor_name||e.actor_email||'system')+'</b> · '+esc(e.summary||e.verb)+'</div>').join('')
+    +(CC_SINCE.length>30?'<div class="field-note" style="margin-top:4px;">'+(CC_SINCE.length-30)+' earlier entr'+(CC_SINCE.length-30===1?'y':'ies')+' not shown</div>':'');
 }
 
 async function opsSetOwner(id, email, name, note){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
   const was=it.owner_name||opsOwnerName(it.owner)||'nobody';
+  const wasEmail=String(it.owner||'').toLowerCase();
   it.owner=String(email||'').trim().toLowerCase();
   it.owner_name=it.owner?(name||opsOwnerName(it.owner)):'';
   /* A transfer clears a claim that no longer matches: whoever was actively
@@ -25185,6 +25209,8 @@ async function opsSetOwner(id, email, name, note){
     it.claimed_by=null; it.claimed_by_name=null; it.claimed_at=null;
     if(it.sub_state==='working') it.sub_state=null;
   }
+  if(wasEmail!==it.owner) opsOwnerHistory(it,{ from:wasEmail, from_name:wasEmail?was:'', to:it.owner, to_name:it.owner_name||'',
+    how:!it.owner?'unassigned':(wasEmail?'handed':'assigned'), note:note||'' });
   opsLog(it, it.owner
     ? (was==='nobody' ? 'Assigned to '+it.owner_name : 'Handed from '+was+' to '+it.owner_name)
       + (note?' — '+note:'')
@@ -25252,7 +25278,7 @@ function myWorkHandOff(id, anchorId){
 /* ── MY WORK ─────────────────────────────────────────────────────────────── */
 /* Lands on Today, because "what do I need to do now" is the question somebody
    opens this screen to answer. */
-let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0;
+let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0, MYWORK_LATER_OPEN=false;
 /* Buckets are FILTERS over one list, never separate lists. Overdue and
    escalated used to be their own destinations, but both are computed from
    `mine` — they are states of your work, not categories of it. Today carries
@@ -25443,6 +25469,128 @@ function opsAttentionAudience(it){
   return {level:a.level, label:a.label, audience:[...new Set(out)]};
 }
 
+/* ── TODAY AS A COCKPIT · Phase 1 (approved 2026-10-05, plan https://claude.ai/artifact/DbCMKyppvK2mRVPnZr9TWN) ──
+   Her rules, applied here:
+   · ONE meaning for late, always said by whose it is: "late for you" and "late, no owner". Every count on the page
+     (header, greeting, tile, My Work badge, My Team) uses these two.
+   · Every card says whose it is and by when ("Krystal · by 2:00 PM", "Unassigned · needs owner"), and a card that is
+     in front of you without being yours says WHY.
+   · Take it is real ownership: the item becomes yours, and owner_history keeps who had it, who took it and when.
+   · Nothing disappears into Waiting: parked means waiting WITH a wake-up date still ahead. Waiting with no wake-up
+     is not parked; it stays in Due Today, marked "no wake-up set", until someone sets one.
+   · Done (a person finished it) and Resolved (the situation cleared, written by the server) stay separate: nothing
+     here rewrites either; both simply leave the open lists. */
+function opsParked(i){
+  if(!i || i.sub_state!=='waiting' || !i.check_back) return false;
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(i.check_back)); if(!m) return false;
+  const e=new Date(); e.setHours(23,59,59,999);
+  return new Date(+m[1], +m[2]-1, +m[3], 12, 0, 0).getTime() > e.getTime();
+}
+function opsLateFor(email){
+  const e=String(email||'').toLowerCase(); if(!e) return [];
+  return opsOverdue().filter(i=>String(i.owner||'').toLowerCase()===e && !opsParked(i));
+}
+function opsLateUnowned(){ return opsOverdue().filter(i=>!i.owner && !opsParked(i)); }
+/* The four lanes of Today, counted once for every place that shows them. */
+function opsTodayCounts(){
+  const b=myWorkBuckets();
+  const act=b.today.filter(i=>opsPriorityKey(i)[0]<=2).length;
+  return { act, due:b.today.length-act, lateMine:opsLateFor(opsMeKey()).length, lateUnowned:opsLateUnowned().length };
+}
+/* "by 2:00 PM", "was due Sep 29, 2:36 PM", "by Fri Oct 9". A date-only due is a whole day, never a time. */
+function opsDueText(it){
+  const raw=String((it&&it.due)||'');
+  const now=new Date();
+  const dOnly=/^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  const md=x=>x.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  if(dOnly){
+    const d=new Date(+dOnly[1], +dOnly[2]-1, +dOnly[3], 23, 59, 59);
+    if(d<now) return 'was due '+md(d);
+    if(d.toDateString()===now.toDateString()) return 'by end of today';
+    return 'by '+d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  }
+  const d=raw?new Date(raw):null;
+  if(!d||isNaN(d)) return 'no time set';
+  const tm=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  const same=d.toDateString()===now.toDateString();
+  if(d<now) return 'was due '+(same?tm:md(d)+', '+tm);
+  if(same) return 'by '+tm;
+  const tom=new Date(now); tom.setDate(tom.getDate()+1);
+  if(d.toDateString()===tom.toDateString()) return 'by tomorrow '+tm;
+  return 'by '+d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+function opsOwnerTag(it){
+  const o=String(it.owner||'').toLowerCase();
+  if(!o) return 'Unassigned · needs owner'+(it.due?' · '+opsDueText(it):'');
+  return String(it.owner_name||opsOwnerName(o)||o).split(' ')[0]+' · '+opsDueText(it);
+}
+/* Why is this card in front of me? Said only when it isn't simply my own work that I made or took. */
+function opsWhyHere(it){
+  const me=String(opsMeKey()||'').toLowerCase(), o=String(it.owner||'').toLowerCase();
+  const dl=c=>{ const d=opsAllDomains().find(x=>x.code===c); return d?d.label:c; };
+  const first=e=>String(opsOwnerName(e)||e||'').split(' ')[0];
+  if(!o){
+    if(!it.domain) return 'Nobody owns this, and it isn’t filed under an area yet, so every admin sees it.';
+    const r=String(opsDomainOwner(it.domain)||'').toLowerCase();
+    if(!r) return 'Nobody owns this, and '+dl(it.domain)+' has no owner set, so every admin sees it.';
+    if(r===me) return 'Nobody owns this yet, and '+dl(it.domain)+' is your area.';
+    return 'Nobody owns this yet. '+dl(it.domain)+' is '+first(r)+'’s area.';
+  }
+  if(o!==me){
+    if(String(it.help_from||'').toLowerCase()===me) return first(o)+' asked you for help. It stays '+first(o)+'’s.';
+    return '';
+  }
+  const oh=Array.isArray(it.owner_history)?it.owner_history:[];
+  const last=oh[oh.length-1];
+  if(last && String(last.to||'').toLowerCase()===me){
+    if(last.how==='took' || String(last.by||'').toLowerCase()===me) return '';
+    return (last.how==='assigned'?'Assigned':'Handed')+' to you by '+(last.by_name||first(last.by))+(last.note?': '+last.note:'.');
+  }
+  const h=(it.history||[]).slice().reverse().find(x=>/^(Assigned to|Handed from)/.test(String(x.text||'')));
+  if(h && h.by && String(h.by).toLowerCase()!==String((ME&&ME.name)||'').toLowerCase())
+    return 'Handed to you by '+String(h.by).split(' ')[0]+'.';
+  const src=String(it.created_by||'')+' '+String(it.opened_by||'');
+  if(/timekeeper|attendance|coverage/.test(src)) return 'You’re first on the scheduling alert list, so automatic staffing alerts come to you.';
+  if(it.domain && String(opsDomainOwner(it.domain)||'').toLowerCase()===me) return 'You own '+dl(it.domain)+'.';
+  return '';
+}
+function opsOwnerHistory(it, e){
+  const a=ccActor();
+  it.owner_history=(Array.isArray(it.owner_history)?it.owner_history:[])
+    .concat([Object.assign({ at:new Date().toISOString(), by:String(a.email||'').toLowerCase(), by_name:a.name||'' }, e)]).slice(-30);
+}
+/* "Unassigned → Krystal (took it, 10:42 AM) → Samantha (handed, Oct 4)" */
+function opsOwnerTrail(it){
+  const oh=Array.isArray(it.owner_history)?it.owner_history:[];
+  if(!oh.length) return '';
+  const when=x=>{ const d=new Date(x); if(isNaN(d)) return '';
+    return d.toDateString()===new Date().toDateString()?d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})
+      :d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+  const nm=(e,n)=>e?String(n||opsOwnerName(e)||e).split(' ')[0]:'Unassigned';
+  const how={took:'took it',assigned:'assigned',handed:'handed',unassigned:'put back'};
+  const parts=[nm(oh[0].from,oh[0].from_name)].concat(oh.slice(-4).map(x=>nm(x.to,x.to_name)+' ('+(how[x.how]||x.how||'')+(x.how==='took'?'':' by '+String(x.by_name||'').split(' ')[0])+', '+when(x.at)+')'));
+  return parts.join(' → ');
+}
+/* TAKE IT. One press and it is yours: owner, on it, and the history says who had it. Taking your own item is the
+   old "I've got it" (you're on it now). */
+async function opsTakeIt(id){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  const a=ccActor(); if(!a.email) return;
+  const me=String(a.email).toLowerCase(), was=String(it.owner||'').toLowerCase();
+  if(was===me) return opsClaim(id);
+  const wasName=was?(it.owner_name||opsOwnerName(was)||was):'';
+  const at=new Date().toISOString();
+  it.owner=me; it.owner_name=a.name||opsOwnerName(me)||me;
+  it.claimed_by=me; it.claimed_by_name=a.name; it.claimed_at=at;
+  if(it.sub_state!=='waiting'){ it.sub_state='working'; if(!it.started_at) it.started_at=at; }
+  opsOwnerHistory(it,{ from:was, from_name:wasName, to:me, to_name:it.owner_name, how:'took' });
+  opsLog(it, was?('Took it from '+wasName):'Took it (it had no owner)');
+  opEvent(was?'item_taken_over':'item_claimed',
+    {item:it, summary:(a.name||me)+' took '+(it.about||it.title||'this')+(was?' from '+wasName:'')});
+  await persist('ops_items',it);
+  ccToast('✓ It’s yours now'+(was?' (it was '+String(wasName).split(' ')[0]+'’s)':''));
+  myWorkRefresh();
+}
 function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
@@ -25459,7 +25607,8 @@ function myWorkBuckets(){
     if(!m) return false;
     return new Date(+m[1], +m[2]-1, +m[3], 12, 0, 0).getTime() <= endOfToday;
   };
-  const parked=i=>i.sub_state==='waiting' && !backNow(i);
+  /* Parked = waiting with a wake-up still ahead (opsParked). Waiting with no wake-up is not parked. */
+  const parked=i=>opsParked(i);
   return {
     mine:       mine.filter(i=>!parked(i)),
     unassigned: open.filter(i=>!i.owner),
@@ -25480,6 +25629,7 @@ function myWorkBuckets(){
     today:      mine.filter(i=>{
                   if(parked(i)) return false;
                   if(backNow(i)) return true;
+                  if(i.sub_state==='waiting') return true;        // waiting with no wake-up: never hidden
                   if(!i.due) return false;
                   const d=Date.parse(i.due); if(isNaN(d)) return false;
                   return d<now || d<=endOfToday;
@@ -25630,7 +25780,8 @@ function myWorkCard(it, i){
     const bits=['waiting'];
     if(it.waiting_on) bits.push('on '+it.waiting_on);
     if(it.check_back) bits.push('· back '+String(it.check_back).slice(5).replace('-','/'));
-    states+=stateChip(bits.join(' '),'var(--amber');
+    else bits.push('· no wake-up set');
+    states+=stateChip(bits.join(' '),it.check_back?'var(--amber':'var(--red');
   }
   if(it.help_from) states+=stateChip('help asked of '+(opsOwnerName(it.help_from)||it.help_from),'var(--navy');
   if(it.sub_state==='escalated') states+=stateChip('escalated','var(--red');
@@ -25670,9 +25821,11 @@ function myWorkCard(it, i){
     +'<div style="flex:1;min-width:0;">'
     +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">'
     +'<b style="font-size:15px;">'+esc(it.about||it.title||'')+'</b>'
-    +'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(ago)
-    +' · '+who+(att.level>=2?' · <b style="color:var(--red);">'+esc(att.label)+'</b>'
-                :(att.level===1?' · <b style="color:var(--amber);">due today</b>':''))+'</span>'
+    /* Whose it is and by when, on every card (2026-10-05). */
+    +'<span class="tag-chip" title="Owner · when it is due" style="font-weight:700;background:'
+      +(att.level>=2?'var(--red-bg);color:var(--red)':att.level===1?'var(--amber-bg);color:var(--amber)':(it.owner?'var(--bg);color:var(--navy)':'var(--amber-bg);color:var(--amber)'))+';">'
+      +esc(opsOwnerTag(it))+(att.level>=2?' · '+esc(att.label):'')+'</span>'
+    +'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(ago)+'</span>'
     +states
     +'<span style="flex:1;"></span>'
     +'<span class="wkchip" id="dom_'+it.id+'" onclick="opsDomainFromCard(\''+it.id+'\',\'dom_'+it.id+'\')" '
@@ -25680,6 +25833,8 @@ function myWorkCard(it, i){
     +'<span class="wkmore" id="more_'+it.id+'" onclick="myWorkMore(\''+it.id+'\',\'more_'+it.id+'\')">⋯</span>'
     +'</div>';
 
+  const why=opsWhyHere(it);
+  if(why) h+='<div class="field-note" style="margin-top:3px;color:var(--navy);"><b>Why you’re seeing this:</b> '+esc(why)+'</div>';
   if(it.about && it.title && it.about!==it.title)
     h+='<div style="font-size:13.5px;margin-top:3px;">'+esc(it.title)+'</div>';
   if(it.detail) h+='<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;">“'+esc(it.detail)+'”</div>';
@@ -25734,7 +25889,7 @@ function myWorkCard(it, i){
        yours and marks you on it. Assigning it to somebody ELSE is still one
        click away. */
     h+='<button class="primary" style="padding:6px 13px;font-size:12.5px;" '
-      +'onclick="opsClaim(\''+it.id+'\')">I’ve got it</button>'
+      +'onclick="opsTakeIt(\''+it.id+'\')">Take it</button>'
       +'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
       +'onclick="opsSetOwner(\''+it.id+'\',\''+esc(sug.email)+'\')">Assign '
       +esc((opsOwnerName(sug.email)||'').split(' ')[0])+'</button>'
@@ -25743,9 +25898,14 @@ function myWorkCard(it, i){
       +'<span class="field-note" style="flex-basis:100%;color:var(--teal);">Suggested: '+esc(sug.reason)+'</span>';
   } else if(!it.owner){
     h+='<button class="primary" style="padding:6px 13px;font-size:12.5px;" '
-      +'onclick="opsClaim(\''+it.id+'\')">I’ve got it</button>'
+      +'onclick="opsTakeIt(\''+it.id+'\')">Take it</button>'
       +'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
       +'onclick="opsAssignFromCard(\''+it.id+'\',\'act_'+it.id+'\')">Assign…</button>';
+  } else if(String(it.owner).toLowerCase()!==String(ccActor().email||'').toLowerCase()){
+    /* Somebody else's card in front of me (a help request, a shared view): one press makes it mine, with history. */
+    h+='<button class="primary" style="padding:6px 13px;font-size:12.5px;" '
+      +'onclick="opsTakeIt(\''+it.id+'\')">Take it</button>'
+      +'<span class="field-note">It becomes yours; '+esc(String(it.owner_name||opsOwnerName(it.owner)||'they').split(' ')[0])+' sees that you took it.</span>';
   } else if(it.kind==='review'){
     // A review is finished by doing it, not by pressing Done.
     h+='<button class="primary" style="padding:6px 13px;font-size:12.5px;" '
@@ -25763,8 +25923,13 @@ function myWorkCard(it, i){
       +'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
       +'onclick="myWorkHandOff(\''+it.id+'\',\'act_'+it.id+'\')">Hand off</button>';
   }
+  if(it.sub_state==='waiting' && !it.check_back)
+    h+='<button class="ghost" style="padding:6px 13px;font-size:12.5px;color:var(--red);" '
+      +'onclick="opsWaitOpen(\''+it.id+'\',\'act_'+it.id+'\')">Set a wake-up</button>';
   h+='</div>';
 
+  const trail=opsOwnerTrail(it);
+  if(trail) h+='<div class="field-note" style="margin-top:6px;"><b>Owner:</b> '+esc(trail)+'</div>';
   const hist=(it.history||[]).slice(-2);
   if(hist.length) h+='<div class="field-note" style="margin-top:8px;">'
     +hist.map(x=>esc(callsFmtWhen(x.at))+' · '+esc(x.by)+' — '+esc(x.text)).join('<br>')+'</div>';
@@ -25779,10 +25944,12 @@ function myWorkMore(id, anchorId){
     +(warn?'color:var(--red);':'')+'">'+label+'</div>';
   let h='';
   const meCl=ccActor().email;
-  if(it.claimed_by && it.claimed_by!==meCl)
-    h+=opt('claim','Take it over from '+((it.claimed_by_name||opsOwnerName(it.claimed_by)||it.claimed_by).split(' ')[0]));
-  else if(!it.claimed_by && it.owner && String(it.owner).toLowerCase()!==meCl)
-    h+=opt('claim','I’ve got it (stays '+((it.owner_name||opsOwnerName(it.owner)||'their').split(' ')[0])+'’s)');
+  /* Take it = ownership (2026-10-05). The old "I've got it (stays theirs)" is gone: a claim without ownership was
+     the invisible kind of ownership her rule replaces. */
+  if(String(it.owner||'').toLowerCase()!==meCl)
+    h+=opt('claim','Take it'+(it.owner?' from '+((it.owner_name||opsOwnerName(it.owner)||'them').split(' ')[0])+' (it becomes yours)':' (it becomes yours)'));
+  else if(it.claimed_by && it.claimed_by!==meCl)
+    h+=opt('claim','Take it back from '+((it.claimed_by_name||opsOwnerName(it.claimed_by)||it.claimed_by).split(' ')[0]));
   if(it.owner) h+=opt('working', it.sub_state==='working'?'Not working on it right now':'I am working on this');
   if(it.owner) h+=opt('waiting', it.sub_state==='waiting'?'No longer waiting':'Waiting on someone…');
   if(it.owner) h+=opt(it.help_from?'help_done':'ask_help',
@@ -25814,7 +25981,7 @@ function myWorkMore(id, anchorId){
       /* Waiting without a date is how work disappears. Marking something
          waiting asks the only two questions that matter, and the answer is
          what brings it back on its own. */
-      if(r.dataset.what==='claim') return opsClaim(id);
+      if(r.dataset.what==='claim') return opsTakeIt(id);
       if(r.dataset.what==='waiting' && it.sub_state!=='waiting')
         return opsWaitOpen(id, anchorId);
       opsTriage(id, r.dataset.what);
@@ -25830,16 +25997,18 @@ function opsWaitOpen(id, anchorId){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
   const esc=escapeHtmlComms;
   const d=new Date(); d.setDate(d.getDate()+3);
-  const def=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  /* Re-opening keeps what is already there (2026-10-05): setting a wake-up must not wipe what it waits on. */
+  const def=/^\d{4}-\d{2}-\d{2}/.test(String(it.check_back||''))?String(it.check_back).slice(0,10)
+    :d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   const el=ccPopOpen(document.getElementById(anchorId)||document.body,
     '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">What are you waiting on?</div>'
-    +'<input id="owWho" placeholder="the state, the family, Dr Patel…" '
+    +'<input id="owWho" value="'+esc(it.waiting_on||'')+'" placeholder="the state, the family, Dr Patel…" '
     +'style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);border-radius:8px;">'
     +'<div style="font-size:13.5px;font-weight:700;margin:10px 0 6px;">Check back on</div>'
     +'<input id="owWhen" type="date" value="'+def+'" '
     +'style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);border-radius:8px;">'
-    +'<div class="field-note" style="margin-top:6px;">It leaves your list until then, '
-    +'and comes back on its own. It stays yours the whole time.</div>'
+    +'<div class="field-note" style="margin-top:6px;">It moves to Waiting &amp; Watching and comes back on its own '
+    +'that day at the latest (sooner if you open it). It stays yours the whole time.</div>'
     +'<div style="display:flex;gap:8px;margin-top:12px;">'
     +'<button class="primary" id="owGo" style="padding:6px 12px;font-size:13px;">Park it</button>'
     +'<button class="ghost" id="owNo" style="padding:6px 12px;font-size:13px;">Cancel</button></div>',
@@ -25848,6 +26017,8 @@ function opsWaitOpen(id, anchorId){
   el.querySelector('#owGo').onclick=async ()=>{
     const who=el.querySelector('#owWho').value.trim();
     const when=el.querySelector('#owWhen').value;
+    /* Her rule: nothing waits without a wake-up. No date, no parking. */
+    if(!when){ ccToast('Pick a day for it to come back'); el.querySelector('#owWhen').focus(); return; }
     ccPopClose();
     const x=(DATA.ops_items||[]).find(y=>y.id===id); if(!x) return;
     x.sub_state='waiting';
@@ -25896,11 +26067,7 @@ function renderMyWork(){
   [...MYWORK_SEL].forEach(id=>{ if(!rows.some(r=>r.id===id)) MYWORK_SEL.delete(id); });
   if(MYWORK_FOCUS>=rows.length) MYWORK_FOCUS=Math.max(0,rows.length-1);
 
-  /* Today reads as three honest states: NEEDS YOU (cards, worst first, per
-     opsPriorityKey), BEING HANDLED and WATCHING (lines, no buttons). The
-     old unclaimed-first divider is gone — priority already floats an
-     uncovered morning shift above tomorrow's unhurried pick, and each
-     unclaimed card still says nobody has it and offers "I've got it". */
+  /* Today reads as four lanes (see below). Each unclaimed card says nobody has it and offers Take it. */
   if(MYWORK_TAB==='today' && (typeof CC_RECENT!=='undefined')
      && Date.now()-(CC_RECENT.tried||0)>5*60000){
     CC_RECENT.tried=Date.now();
@@ -25910,8 +26077,12 @@ function renderMyWork(){
        sign-in to reach an OPEN Today tab. Same five-minute pulse. */
     ccOpsRefresh();
   }
-  if(!rows.length){
-    const msg={today:'Nothing needs you right now.',
+  /* TODAY IN FOUR LANES (2026-10-05): Act Now, Due Today, Waiting & Watching, Later. The card list is still one
+     list in priority order (opsPriorityKey), so keyboard focus and bulk select are unchanged; the lane headings sit
+     at the tier boundary. Act Now = tiers 0-2: missed clock-ins, urgent, escalated, a shift within 3 hours with
+     nobody, anything late. Due Today = the rest of today's list. Waiting & Watching = parked work (always with a
+     wake-up) and what Cara or a colleague is already handling. Later = the rest of what is mine, folded away. */
+  const msg={today:'Nothing needs you right now.',
       mine:'Nothing on your list right now.',
       unassigned:'Everything open has somebody\'s name on it.',
       overdue:'Nothing of yours is late. Good.',
@@ -25919,17 +26090,33 @@ function renderMyWork(){
       reviews:'No work is waiting for your review.',
       helping:'Nobody has asked you for help.',
       waiting:'You are not waiting on anybody.'}[MYWORK_TAB];
-    wrap.innerHTML='<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>'
-      +(MYWORK_TAB==='today'?myWorkStrips():'');
+  if(MYWORK_TAB!=='today'){
+    wrap.innerHTML=rows.length ? myWorkBulkBar(rows)+rows.map((it,i)=>myWorkCard(it,i)).join('')
+      : '<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>';
     return;
   }
-  let cards='';
-  if(MYWORK_TAB==='today'){
-    cards+='<div class="field-note" style="margin:2px 0 8px;font-weight:700;letter-spacing:.03em;color:var(--navy);">NEEDS YOU ('+rows.length+')</div>'
-      +rows.map((it,i)=>myWorkCard(it,i)).join('')
-      +myWorkStrips();
-  } else cards=rows.map((it,i)=>myWorkCard(it,i)).join('');
-  wrap.innerHTML=myWorkBulkBar(rows)+cards;
+  const lane=(label,note,color,count,body)=>'<div style="margin:16px 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
+    +'<b style="font-size:12.5px;letter-spacing:.06em;color:'+color+';">'+label+(count!=null?' · '+count:'')+'</b>'
+    +'<span class="field-note">'+note+'</span></div>'+body;
+  const act=rows.filter(r=>opsPriorityKey(r)[0]<=2), due=rows.filter(r=>opsPriorityKey(r)[0]>2);
+  const inToday=new Set(rows.map(r=>r.id));
+  const later=b.mine.filter(i=>!inToday.has(i.id))
+    .sort((a,c)=>String(a.due||'9999').localeCompare(String(c.due||'9999')));
+  const none=t=>'<div class="field-note" style="padding:4px 2px 2px;">'+t+'</div>';
+  let h='';
+  h+=lane('ACT NOW','emergencies, shifts about to start with nobody, anything late','var(--red)',act.length,
+    act.length?act.map((it,i)=>myWorkCard(it,i)).join(''):none('Nothing urgent or late. Good.'));
+  h+=lane('DUE TODAY','everything else that needs doing today','var(--amber)',due.length,
+    due.length?due.map((it,i)=>myWorkCard(it,act.length+i)).join(''):none('Nothing else due today.'));
+  const watch=myWorkStrips();
+  h+=lane('WAITING & WATCHING','comes back on its own; nothing waits without a wake-up','var(--navy)',b.waiting.length||null,
+    watch||none('Nothing waiting.'));
+  h+=lane('LATER','yours, not due today','var(--text-muted)',later.length,
+    !later.length?none('Nothing else on your list.')
+    :(MYWORK_LATER_OPEN
+      ? later.map(it=>myWorkCard(it,-1)).join('')+'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="MYWORK_LATER_OPEN=false;renderMyWork()">Fold away</span>'
+      : '<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="MYWORK_LATER_OPEN=true;renderMyWork()">Show '+later.length+' later item'+(later.length===1?'':'s')+'</button>'));
+  wrap.innerHTML=(rows.length?myWorkBulkBar(rows):'')+h;
 }
 function myWorkGo(t){ MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
 
@@ -27501,10 +27688,16 @@ function renderMyTeam(){
       +'onclick="roleSeedStarting()">Write the starting roles ('+roleSeedPending().length+')</button>':'')
     /* Same rule as the seeder: a one-time control disappears the moment there
        is nothing left for it to do. */
-    +((roleCanEdit()&&omCount())?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
-      +'onclick="roleApplyCorrections()">Apply model corrections ('+omCount()+')</button>':'')
-    +((roleCanEdit()&&planCount())?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" '
-      +'onclick="roleSeedPlanned()">Write the planned model ('+planCount()+')</button>':'')+'</div>';
+    /* 2026-10-05: the two one-time setup buttons read as developer jargon on the page everyone opens. They sit
+       behind one owner-only disclosure, worded for the person who decides. Same buttons, same functions. */
+    +((roleCanEdit()&&(omCount()||planCount()))?'<details style="display:inline-block;position:relative;"><summary class="ghost" '
+      +'style="padding:6px 12px;font-size:12.5px;border:1px solid var(--border);border-radius:8px;cursor:pointer;list-style:none;">'
+      +'Review role changes ('+(omCount()+planCount())+')</summary>'
+      +'<div class="card" style="position:absolute;right:0;z-index:20;width:300px;padding:12px;margin-top:6px;display:flex;flex-direction:column;gap:8px;">'
+      +'<div class="field-note">Waiting role-setup changes. Owners only.</div>'
+      +(omCount()?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="roleApplyCorrections()">Apply corrections to the role model ('+omCount()+')</button>':'')
+      +(planCount()?'<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="roleSeedPlanned()">Add the planned roles ('+planCount()+')</button>':'')
+      +'</div></details>':'')+'</div>';
 
   h+=staff.map(s=>{
     const e=String(s.email).toLowerCase();
@@ -27512,7 +27705,7 @@ function renderMyTeam(){
     const cnt=k=>rs.filter(r=>r.kind===k).length;
     const temp=rs.filter(r=>r.temporary).length;
     const open=(DATA.ops_items||[]).filter(i=>i.status==='open'&&String(i.owner||'').toLowerCase()===e);
-    const late=open.filter(i=>i.due&&Date.parse(i.due)<Date.now());
+    const late=open.filter(i=>i.due&&Date.parse(i.due)<Date.now()&&!opsParked(i));   // same meaning as "late for you"
     const owed=open.filter(i=>i.kind==='review');
     const planned=p&&p.status==='planned';
     return '<div class="card" style="padding:15px 17px;margin-bottom:10px;">'
@@ -27534,7 +27727,7 @@ function renderMyTeam(){
       +'<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;">'
       +'<span>'+open.length+' open work</span>'
       +(typeof suTeamCountHtml==='function'?suTeamCountHtml(e):'')
-      +(late.length?'<span style="color:var(--red);">'+late.length+' overdue</span>':'')
+      +(late.length?'<span style="color:var(--red);">'+late.length+' late</span>':'')
       +(owed.length?'<span>'+owed.length+' reviews owed</span>':'')
       +'</div>'
       /* Surfacing reality rather than scoring it. If six of eight domains are
@@ -27841,7 +28034,7 @@ async function roleSeedStarting(){
       resp:[
         ['primary','Strategy and growth'],['primary','Major financial decisions'],
         ['primary','Major compliance and safety decisions'],
-        ['primary','Programme administration', 'program_administration', true,
+        ['primary','Program administration', 'program_administration', true,
          'Temporary — planned to move to office staff as they are trained'],
         ['primary','Final escalations'],['primary','Owner approvals, including discipline'],
         /* Deliberately primary, deliberately temporary. Samantha is working the
@@ -31815,11 +32008,9 @@ function opsBadges(){
   // And deliberately YOURS or NOBODY'S: a badge that nags you about work
   // someone else already owns is noise, but late work with no name on it has
   // to nag somebody or it is exactly what falls through.
-  const me=String(opsMeKey()||'').toLowerCase();
-  const late = opsOverdue().filter(i=>{
-    const owner=(i.owner||'').toLowerCase();
-    return !owner || (me && owner===me);
-  }).length;
+  /* 2026-10-05: the pill carries "late for you", the same number as the header chip. Late with no owner has its
+     own header chip, so it still nags somebody without being counted as yours. */
+  const late = opsLateFor(opsMeKey()).length;
   /* gb-mywork has existed in the markup since the tab was added and was never
      populated, so the My Work pill has never carried a count. Same number as
      the header chip and the Today bucket — one source, three renderings. */
