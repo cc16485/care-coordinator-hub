@@ -4059,6 +4059,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 
 <div class="settings-section">
+<h3>👥 Right person first, then escalate</h3>
+<p class="hint">Scheduling work goes to whoever is on Staffing duty now; work nobody takes pulls in whoever holds Owner Escalation. The duty schedule itself is under Dashboard, Responsible now, Manage.</p>
+<div id="routeSet" class="field-note" style="margin:6px 0 4px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+  <button class="secondary" id="routeSetBtn" onclick="routeToggle(this)">Turn on</button>
+  <span class="field-note" id="routeSetSaved"></span>
+</div>
+</div>
+
+<div class="settings-section">
 <h3>☀️ Morning Brief</h3>
 <p class="hint">A personal email at <b>8am Central on workdays</b>: today's interviews and booked assessments, anything that came in overnight, pass-along notes from the quick form, leads to call, and that person's top priorities, each line one tap into the hub. Everyone sees only their own book plus anything nobody owns yet. <b>Full picture</b> adds the admin sections: family-update calls from flagged care notes, write-ups for call-offs with under 4 hours notice, yesterday's EVV misses, and today's schedule from AxisCare with any open shifts. Pick who gets what:</p>
 <div id="mbRecips" style="display:flex;flex-direction:column;gap:5px;margin:8px 0;"></div>
@@ -14046,6 +14056,7 @@ function fillSettingsPanel(){
   tkFill();
   try{ cgcSetFill(); }catch(_){}
   try{ loopsSetRender(); }catch(_){}
+  try{ routeSetRender(); }catch(_){}
   try{ iimSetFill(); }catch(_){}
   try{ orrSetFill(); }catch(_){}
   mbFill();
@@ -16730,6 +16741,50 @@ async function loopsToggle(btn){
   if(btn) btn.disabled=false;
   const sv=document.getElementById('loopsSetSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next check.':'Off (practice).');
   loopsSetRender();
+}
+/* Today cockpit Phase 3 (2026-10-05): right person first, then escalate (ops_settings.routing_live; server work-route).
+   Seats come from the duty schedule; when nobody is scheduled, the person chosen here (duty_default_staffing /
+   duty_default_owner_escalation) holds the seat, else the first scheduling alert admin. Same words as the Admin page. */
+function routeSeatNow(area){
+  const st=DATA.ops_settings||{};
+  const h=(typeof dutyHolder==='function')?dutyHolder(area,new Date()):null;
+  if(h&&h.person) return { person:String(h.person).toLowerCase(), from:'the schedule' };
+  const d=String(st['duty_default_'+area]||'').toLowerCase();
+  if(d) return { person:d, from:'when nobody is scheduled' };
+  const f=(Array.isArray(st.coverage_alert_admins)&&st.coverage_alert_admins[0])||'samantha@mo-care.com';
+  return { person:String(f).toLowerCase(), from:'first on the alert list' };
+}
+function routeSetRender(){
+  const box=document.getElementById('routeSet'), b=document.getElementById('routeSetBtn'); if(!box) return;
+  const esc=escapeHtmlComms, st=DATA.ops_settings||{}, on=st.routing_live===true;
+  const people=(typeof roleEveryone==='function'?roleEveryone():[]).filter(p=>p&&p.email);
+  const nm=e=>opsOwnerName(e)||e;
+  const sel=(area)=>{ const cur=String(st['duty_default_'+area]||'').toLowerCase();
+    return '<select onchange="routeSetDefault(\''+area+'\',this.value)" style="width:auto;font-size:12.5px;padding:3px 6px;">'
+      +'<option value="">(first on the alert list)</option>'
+      +people.map(p=>'<option value="'+esc(String(p.email).toLowerCase())+'"'+(String(p.email).toLowerCase()===cur?' selected':'')+'>'+esc(p.name||p.email)+'</option>').join('')+'</select>'; };
+  const s=routeSeatNow('staffing'), e=routeSeatNow('owner_escalation');
+  box.innerHTML=(on?'<b style="color:#1E8449;">On.</b> ':'<b style="color:#B7791F;">Off (practice).</b> The check only lists what it would route and escalate. ')
+    +'<div style="margin-top:6px;line-height:1.9;">'
+    +'<b>Staffing</b> now: '+esc(nm(s.person))+' <span class="field-note">('+esc(s.from)+')</span> · when nobody is scheduled: '+sel('staffing')+'<br>'
+    +'<b>Owner Escalation</b> now: '+esc(nm(e.person))+' <span class="field-note">('+esc(e.from)+')</span> · when nobody is scheduled: '+sel('owner_escalation')
+    +'</div>';
+  if(b) b.textContent=on?'Turn off':'Turn on';
+}
+async function routeSetDefault(area, email){
+  const out=await tkMerge((m)=>{ m['duty_default_'+area]=email||''; return [(area==='staffing'?'Staffing':'Owner Escalation')+' when nobody is scheduled: '+(email?(opsOwnerName(email)||email):'first on the alert list')]; }, 'on-duty seats');
+  const sv=document.getElementById('routeSetSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  routeSetRender();
+}
+async function routeToggle(btn){
+  const on=!((DATA.ops_settings||{}).routing_live===true);
+  if(!confirm(on?'Turn on right person first, then escalate?\n\nFrom the next check (within 2 minutes):\n· new scheduling work goes to whoever is on Staffing duty now (the schedule under Dashboard, Responsible now; when nobody is scheduled, the person set in Settings)\n· work nobody has taken pulls in whoever holds Owner Escalation: after 5 minutes for an uncovered shift starting within the hour, after 15 minutes for other urgent staffing and missed clock-ins, otherwise once it is overdue. It stays with its owner.\n· missed clock-in texts go to the person on Staffing duty first, and after 15 minutes also to Owner Escalation (daytime only)\n\nNothing is texted to caregivers, clients or families by this.'
+    :'Turn off right person first, then escalate? Work goes back to how it was: scheduling alerts go to the alert list, and nothing escalates by itself.')) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.routing_live=on; if(on && !m.routing_since) m.routing_since=new Date().toISOString(); return ['right person first, then escalate '+(on?'ON':'OFF')]; }, 'routing');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('routeSetSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next check.':'Off (practice).');
+  routeSetRender();
 }
 async function cgcSetFill(){ cgcSetRender(); await cgcLoad(true); cgcSetRender(); }
 async function cgcToggle(btn){
@@ -24894,6 +24949,7 @@ async function opsClaim(id){
   if((it.claimed_by||'')===a.email) return;
   const before=it.claimed_by||'';
   it.claimed_by=a.email; it.claimed_by_name=a.name; it.claimed_at=new Date().toISOString();
+  if(it.escalation && !it.escalation.cleared_at){ it.escalation.cleared_at=it.claimed_at; it.escalation.cleared_why='taken'; }
   if(!it.owner){ it.owner=a.email; it.owner_name=a.name; }
   const mine=String(it.owner||'').toLowerCase()===a.email;
   if(mine && it.sub_state!=='waiting'){
@@ -25350,6 +25406,8 @@ function myWorkTabs(b){
   /* Only offered when somebody has actually asked. A permanently empty tab
      teaches people to ignore a tab. */
   if(b && b.helping && b.helping.length) t.splice(4,0,['helping','Helping']);
+  /* Phase 3: overdue and urgent work escalated to you. Only offered when there is some. */
+  if(b && b.escalated && b.escalated.length) t.splice(1,0,['escalated','Escalated to you']);
   /* An approval is work that requires a specific person, so it belongs in that
      person's work. The gate is the same ccCan the approve/reject handlers use;
      this only decides whether the bucket is offered. */
@@ -25589,6 +25647,7 @@ function opsWhyHere(it){
   const dl=c=>{ const d=opsAllDomains().find(x=>x.code===c); return d?d.label:c; };
   const first=e=>String(opsOwnerName(e)||e||'').split(' ')[0];
   if(!o){
+    if(opsEscalatedToMe(it, me)) return 'Escalated to you (Owner Escalation): '+String(it.escalation.why||'')+'.';
     if(!it.domain) return 'Nobody owns this, and it isn’t filed under an area yet, so every admin sees it.';
     const r=String(opsDomainOwner(it.domain)||'').toLowerCase();
     if(!r) return 'Nobody owns this, and '+dl(it.domain)+' has no owner set, so every admin sees it.';
@@ -25596,12 +25655,14 @@ function opsWhyHere(it){
     return 'Nobody owns this yet. '+dl(it.domain)+' is '+first(r)+'’s area.';
   }
   if(o!==me){
+    if(opsEscalatedToMe(it, me)) return 'Escalated to you (Owner Escalation): '+String(it.escalation.why||'')+'. It stays '+first(o)+'’s unless you take it.';
     if(String(it.help_from||'').toLowerCase()===me) return first(o)+' asked you for help. It stays '+first(o)+'’s.';
     return '';
   }
   const oh=Array.isArray(it.owner_history)?it.owner_history:[];
   const last=oh[oh.length-1];
   if(last && String(last.to||'').toLowerCase()===me){
+    if(last.how==='routed') return 'You’re on Staffing duty now, so it came to you first.';
     if(last.how==='took' || String(last.by||'').toLowerCase()===me) return '';
     return (last.how==='assigned'?'Assigned':'Handed')+' to you by '+(last.by_name||first(last.by))+(last.note?': '+last.note:'.');
   }
@@ -25643,6 +25704,7 @@ async function opsTakeIt(id){
   it.claimed_by=me; it.claimed_by_name=a.name; it.claimed_at=at;
   if(it.sub_state!=='waiting'){ it.sub_state='working'; if(!it.started_at) it.started_at=at; }
   opsOwnerHistory(it,{ from:was, from_name:wasName, to:me, to_name:it.owner_name, how:'took' });
+  if(it.escalation && !it.escalation.cleared_at){ it.escalation.cleared_at=at; it.escalation.cleared_why='taken'; }
   opsLog(it, was?('Took it from '+wasName):'Took it (it had no owner)');
   opEvent(was?'item_taken_over':'item_claimed',
     {item:it, summary:(a.name||me)+' took '+(it.about||it.title||'this')+(was?' from '+wasName:'')});
@@ -25704,6 +25766,12 @@ async function famCallDone(itemId, how){
   await persist('ops_items', it);
   ccToast('✓ '+it.close_note); myWorkRefresh();
 }
+/* An active escalation to this person: not cleared, not theirs, nobody has taken it. */
+function opsUniq(list){ const seen=new Set(); return list.filter(i=>{ if(!i||seen.has(i.id)) return false; seen.add(i.id); return true; }); }
+function opsEscalatedToMe(i, me){
+  const e=i&&i.escalation; me=String(me||'').toLowerCase();
+  return !!(e && !e.cleared_at && me && String(e.to||'').toLowerCase()===me && String(i.owner||'').toLowerCase()!==me && !i.claimed_by && i.status==='open');
+}
 function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
@@ -25726,7 +25794,9 @@ function myWorkBuckets(){
     mine:       mine.filter(i=>!parked(i)),
     unassigned: open.filter(i=>!i.owner),
     overdue:    mine.filter(i=>!parked(i) && i.due && Date.parse(i.due)<now),
-    escalated:  mine.filter(i=>i.sub_state==='escalated' || (i.escalation_level||0)>0),
+    /* Phase 3 (2026-10-05): work escalated TO me (the Owner Escalation seat) that someone else still owns and nobody
+       has taken, plus my own items marked escalated. Urgent ones also sit in Today's Act Now. */
+    escalated:  open.filter(i=>opsEscalatedToMe(i, me)).concat(mine.filter(i=>i.sub_state==='escalated' || (i.escalation_level||0)>0)),
     waiting:    mine.filter(parked),
     /* Work somebody asked ME about. They still own it — this is a question,
        not a handover — so it is deliberately not part of `mine`. */
@@ -25739,7 +25809,7 @@ function myWorkBuckets(){
        late / urgent, and in an area I'm responsible for; when the area has
        no resolvable owner (or the item has no area yet), it shows to every
        admin rather than to nobody — hidden is the only wrong answer. */
-    today:      mine.filter(i=>{
+    today:      opsUniq(mine.filter(i=>{
                   if(parked(i)) return false;
                   if(backNow(i)) return true;
                   if(i.sub_state==='waiting') return true;        // waiting with no wake-up: never hidden
@@ -25754,7 +25824,7 @@ function myWorkBuckets(){
                   if(!i.domain) return true;
                   const resp=opsDomainOwner(i.domain);
                   return !resp || resp===me;
-                })),
+                })).concat(open.filter(i=>opsEscalatedToMe(i, me) && i.escalation.level==='urgent'))),
     /* Reviews are ordinary items owned by the reviewer. This is a lens on
        `mine`, not a removal from it, so a review is never only in one place. */
     reviews:    mine.filter(i=>i.kind==='review' && !parked(i)),
@@ -25789,7 +25859,7 @@ function opsMinsToShift(it){
 function opsPriorityKey(it){
   if(it.kind==='staffing_issue' && /timekeeper/.test(String(it.opened_by||'')))
     return [0, Date.parse(it.created_at||0)||0];
-  if(it.urgency==='urgent' || it.sub_state==='escalated')
+  if(it.urgency==='urgent' || it.sub_state==='escalated' || (it.escalation && !it.escalation.cleared_at && it.escalation.level==='urgent'))
     return [0, Date.parse(it.due||it.created_at||0)||0];
   const m=opsMinsToShift(it);
   if(m!=null && m<=180) return [1, m];
@@ -25914,6 +25984,8 @@ function myWorkCard(it, i){
   }
   if(it.help_from) states+=stateChip('help asked of '+(opsOwnerName(it.help_from)||it.help_from),'var(--navy');
   if(it.sub_state==='escalated') states+=stateChip('escalated','var(--red');
+  if(it.escalation && !it.escalation.cleared_at && String(it.escalation.to||'').toLowerCase()!==String(ccActor().email||'').toLowerCase())
+    states+=stateChip(String(it.escalation.to_name||'').split(' ')[0]+' pulled in','var(--red');
   /* The claim chip appears only when it says something the card does not
      already say — somebody OTHER than the owner is on it, or it is claimed
      without being marked in progress. The everyday case (owner working
