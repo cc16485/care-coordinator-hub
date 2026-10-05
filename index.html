@@ -4029,6 +4029,25 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div id="tkPractice" style="margin-top:12px;"></div>
 </div>
 
+<!-- 2026-10-05 (her ask, "there is no missed clock out"): the clock-out reminder (timekeeper-watch pass 3) always had
+     its own wording and minutes in ops_settings, but no box here. -->
+<div class="settings-section" id="tkoSettings" data-set="missed-clockouts">
+<h3>⏱️ Missed clock-outs</h3>
+<p class="hint">When a caregiver clocked in but there's no clock-out a few minutes after the shift ends, they get one text, once. No admin texts: the client was served, only the time record is at stake. It goes out with the caregiver texts switch under Missed clock-ins. Keep the form link (sc.mo-care.com/evv-correction-form) in the text: each caregiver gets it already filled in for that visit. Changes take effect on the next check (every 2 minutes) and are recorded in the activity log.</p>
+<div id="tkoState" class="field-note" style="margin:6px 0 10px;"></div>
+<label>Minutes after the shift ends before the text goes</label>
+<input id="set_tko_grace" type="number" min="1" max="120" placeholder="10">
+<label>The caregiver's text ({first_name} their name, {client} the client's first name, {time} when the shift ended)</label>
+<textarea id="set_tko_msg" rows="4" oninput="tkoWarn()" placeholder="Hi {first_name}, it's Caring Companions. Your shift with {client} ended at {time} but there's no clock-out yet. Please clock out in the AxisCare app now. If you need your time corrected, fill in this form before you leave and have {client} sign it: sc.mo-care.com/evv-correction-form. If you didn't put in your shift note, text it to the office now so we can put it in your shift for you."></textarea>
+<div class="field-note" style="margin-top:4px;"><a href="#" onclick="tkoCopyStd();return false;">Copy the standard wording into the box to edit it</a> · leave the box empty to use the standard wording</div>
+<div id="tkoWarn" class="field-note" style="color:#B23B2E;"></div>
+<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+<button class="primary" onclick="tkoSave(this)">Save missed clock-out settings</button>
+<span class="field-note" id="tkoSaved"></span>
+</div>
+<div id="tkoRecent" class="field-note" style="margin-top:10px;"></div>
+</div>
+
 <div class="settings-section" data-set="start-forms">
 <h3>📥 Start forms</h3>
 <p class="hint">Whether a new start form becomes a Background &amp; References candidate by itself.</p>
@@ -13747,6 +13766,41 @@ async function mbTest(btn){
    alerts) and the switch timekeeper_admin_loop_live. Saved with a merge against the server copy (the engines write
    ops_settings too), and every change is recorded in the activity log. ── */
 const TK_KEYS={ set_tk_grace:'timekeeper_grace_min', set_tk_repeat:'timekeeper_admin_repeat_min', set_tk_msg:'timekeeper_msg' };
+/* Missed clock-outs (timekeeper-watch pass 3): ops_settings.timekeeper_clockout_grace_min and timekeeper_msg_out. */
+function tkoFill(){
+  const st=DATA.ops_settings||{}, esc=escapeHtmlComms;
+  const g=document.getElementById('set_tko_grace'), m=document.getElementById('set_tko_msg'); if(!g||!m) return;
+  g.value=st.timekeeper_clockout_grace_min!=null?String(st.timekeeper_clockout_grace_min):'';
+  m.value=String(st.timekeeper_msg_out||'');
+  tkoWarn();
+  const on=st.timekeeper_watch_live===true && st.timekeeper_text_live===true;
+  document.getElementById('tkoState').innerHTML=on?'<b style="color:#1E8449;">On.</b> Caregiver texts are on, so this text goes out.'
+    :'<b style="color:#B7791F;">Not going out now.</b> '+(st.timekeeper_watch_live===true?'Caregiver texts are off (Missed clock-ins).':'The clock-in watcher itself is off.')+' Who would have been texted is only recorded.';
+  const since=new Date(Date.now()-2*864e5).toISOString().slice(0,10);
+  const rows=(DATA.timekeeper_cases||[]).filter(l=>l&&l.kind==='clock_out'&&String(l.shift_date||'')>=since);
+  document.getElementById('tkoRecent').innerHTML=rows.length
+    ?'<b>Last two days:</b> '+rows.length+' clock-out text'+(rows.length===1?'':'s')+'<br>'+rows.slice(0,10).map(l=>esc(l.shift_date)+' · '+esc(l.caregiver||'')+' · '+esc(l.client_first||'')+(l.resolved_at?' · clocked out':'')).join('<br>')
+    :'No missed clock-out texts in the last two days.';
+}
+function tkoWarn(){
+  const m=String((document.getElementById('set_tko_msg')||{}).value||'').trim(), w=document.getElementById('tkoWarn'); if(!w) return;
+  w.textContent=(m && !/sc\.mo-care\.com\/evv-correction-form/.test(m))?'This wording has no form link (sc.mo-care.com/evv-correction-form), so caregivers will not get their filled-in correction form.':'';
+}
+function tkoCopyStd(){ const m=document.getElementById('set_tko_msg'); if(m){ m.value=m.getAttribute('placeholder')||''; m.focus(); tkoWarn(); } }
+async function tkoSave(btn){
+  const s=document.getElementById('tkoSaved'); if(btn) btn.disabled=true;
+  const gv=String((document.getElementById('set_tko_grace')||{}).value||'').trim();
+  const g=gv?Math.round(Number(gv)):null;
+  if(gv && !(g>=1&&g<=120)){ if(s) s.textContent='Minutes must be a whole number from 1 to 120.'; if(btn) btn.disabled=false; return; }
+  const msg=String((document.getElementById('set_tko_msg')||{}).value||'').trim();
+  const out=await tkMerge((m, base)=>{ const ch=[];
+    const set=(k,v,label)=>{ if(v==null||v===''){ if(k in m){ delete m[k]; ch.push(label+' back to standard'); } return; } if(JSON.stringify(base[k])!==JSON.stringify(v)){ m[k]=v; ch.push(label); } };
+    set('timekeeper_clockout_grace_min', g, 'clock-out minutes'); set('timekeeper_msg_out', msg, 'clock-out wording');
+    return ch; }, 'missed clock-out settings');
+  if(btn) btn.disabled=false;
+  if(s) s.textContent=out.error?('Could not save: '+out.error.message):(out.changed.length?'Saved: '+out.changed.join(', ')+'.':'Nothing changed.');
+  tkoFill();
+}
 function tkFill(){
   const st=DATA.ops_settings||{};
   for(const [el,k] of Object.entries(TK_KEYS)){ const n=document.getElementById(el); if(n) n.value=st[k]!=null?String(st[k]):''; }
@@ -14105,6 +14159,7 @@ function fillSettingsPanel(){
   try{ lnSetFill(); }catch(_){}
   try{ cbFill(); }catch(_){}
   tkFill();
+  try{ tkoFill(); }catch(_){}
   try{ cgcSetFill(); }catch(_){}
   try{ loopsSetRender(); }catch(_){}
   try{ routeSetRender(); }catch(_){}
