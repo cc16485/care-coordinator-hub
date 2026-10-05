@@ -14839,7 +14839,9 @@ const HUB_STATE={
    each hub has its own row. The FIRST hub given to someone with no account sends the one invitation email
    ('invite'); every later hub just adds access ('restore'), so nobody gets a second email. Removing is per hub.
    The server (hub-access) still decides everything: owners only, the fixed hub list, never the last owner. */
-const HUB_ROWS=[['care_coordinator','Care Coordinator Hub','cc.mo-care.com'],['staffing','Staffing Hub','sc.mo-care.com'],['team_hub','Team Hub','hub.mo-care.com']];
+/* 2026-10-05 (Samantha, "yes remove it"): the Staffing Hub page (sc.mo-care.com) was retired Oct 4, so its row is gone
+   from Hub access. Deactivate still removes 'staffing' along with the others, so nobody keeps an old grant. */
+const HUB_ROWS=[['care_coordinator','Care Coordinator Hub','cc.mo-care.com'],['team_hub','Team Hub','hub.mo-care.com']];
 async function hubAccessOpen(email){
   if(!ccCan('manage_access')) return;
   const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
