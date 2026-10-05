@@ -845,6 +845,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="mywork" onclick="switchTab('mywork')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> My Work<span class="subtab-badge red" id="gb-mywork" style="display:none;"></span></div>
     <div class="fpill" data-tab="myrole" onclick="switchTab('myrole')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> My Role</div>
     <div class="fpill" data-tab="myteam" onclick="switchTab('myteam')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> My Team</div>
+    <div class="fpill" data-tab="standup" onclick="switchTab('standup')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Stand-Up</div>
+    <div class="fpill" data-tab="teammeetings" onclick="switchTab('teammeetings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Team Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="calendar" onclick="switchTab('calendar')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Calendar</div>
     <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
   </div>
@@ -873,7 +875,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-team">
     <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="comms" onclick="switchTab('comms')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Send a Message</div>
-    <div class="fpill" data-tab="meetings" onclick="switchTab('meetings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
 </div>
   <div class="fsubbar" id="fsub-interviews">
     <div class="fpill" data-tab="recruit" onclick="switchTab('recruit')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Recruit</div>
@@ -1249,6 +1250,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div id="myDayList"></div>
       </div>
+      <div id="suTodayLine" style="margin-bottom:16px;"></div>
       <div class="card" id="standupCard" style="padding:15px 18px 9px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <svg style="width:20px;height:20px;flex:none;" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg>
@@ -1412,14 +1414,26 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="card" style="padding:18px;"><div id="inboxList"></div></div>
     </section>
 
-    <!-- ===================== TAB: MEETINGS ===================== -->
-    <section class="tabpanel" id="tab-meetings">
-      <div style="margin-bottom:14px;">
-        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Meetings</h2>
-        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Request a meeting — when it's accepted, both sides get a Join Video button. Camera, mic and screen sharing run in the browser; nothing to install.</div>
+    <!-- ===================== TAB: STAND-UP (Today, 2026-10-05) =====================
+         The team's handoff board, moved in from the Team Hub. standup-board.js draws it.
+         Internal only: nothing on this board texts or emails anyone. -->
+    <section class="tabpanel" id="tab-standup"><div id="suWrap"></div></section>
+
+    <!-- ===================== TAB: TEAM MEETINGS (Today, 2026-10-05) =====================
+         Meeting notes and action items (moved in from the Team Hub; each action item is a
+         Stand-Up item with an owner and a due date), the team video room, and the old
+         Meetings tab's "Request a meeting" (same ids, so its code did not change). -->
+    <section class="tabpanel" id="tab-teammeetings">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div><h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Team Meetings</h2>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Notes from each meeting, and its action items on the Stand-Up board with an owner and a due date. Open items from the last meeting carry into the next one.</div></div>
+        <span style="flex:1;"></span>
+        <button class="secondary" onclick="tmVideo()"><svg style="width:15px;height:15px;vertical-align:-2px;" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Join the team video room</button>
       </div>
+      <div id="tmWrap" style="margin-bottom:18px;"></div>
       <div class="card" style="padding:18px;margin-bottom:16px;">
-        <b style="font-size:14px;color:var(--navy);">＋ Request a meeting</b>
+        <b style="font-size:14px;color:var(--navy);">＋ Request a meeting with one person</b>
+        <div class="field-note" style="margin-top:3px;">When it's accepted, both sides get a Join Video button. Camera, mic and screen sharing run in the browser; nothing to install.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
           <select id="mpg_with" style="width:auto;"></select>
           <input id="mpg_topic" placeholder="What's it about?" style="flex:1;min-width:180px;">
@@ -6634,6 +6648,7 @@ The HomeTogether team</pre>
 <script src="caregiver-profile-panel.js?v=20261001b"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
+<script src="standup-board.js?v=1"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -7256,7 +7271,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','meetings'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','myrole','myteam','standup','teammeetings','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7660,7 +7675,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  meetings:'Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
+  meetings:'Team Meetings', standup:'Stand-Up', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
@@ -7792,7 +7807,9 @@ const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:
   circles:'clientsboard', checkins:'clientsboard', careplans:'clientsboard',
   /* State Submissions retired 2026-09-29 (her call, ahead of Oct 12): its list is the Leads & Starts
      "State submissions" filter, with the same people (Getting ready included) and the same aging. */
-  statesubs:'leadsstarts' };
+  statesubs:'leadsstarts',
+  /* 2026-10-05: one-to-one meeting requests moved into Team Meetings (Today) */
+  meetings:'teammeetings' };
 const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews', statesubs:'State submissions' };
 function switchTab(tab){
   if(CC_RETIRED_TABS[tab]){ const f=CC_RETIRED_FILTER[tab], to=CC_RETIRED_TABS[tab];
@@ -7883,7 +7900,7 @@ function renderActiveTab(){
   if(activeTab==='hourswatch'){ swRenderAll(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
-  if(activeTab==='today') renderToday();
+  if(activeTab==='today'){ renderToday(); if(typeof suTodayRender==='function') suTodayRender(); }
   if(activeTab==='mywork') renderMyWork();
   if(activeTab==='myrole') renderMyRole();
   if(activeTab==='myteam') renderMyTeam();
@@ -7905,7 +7922,9 @@ function renderActiveTab(){
   if(activeTab==='soc') renderSocTab();
   if(activeTab==='comms') renderCommsPage();
   if(activeTab==='inbox') renderInboxCc();
-  if(activeTab==='meetings') renderMeetingsPage();
+  /* standup-board.js: guarded, so the rest of the Hub never depends on that file loading */
+  if(activeTab==='teammeetings'){ renderMeetingsPage(); if(typeof tmOpen==='function') tmOpen(); }
+  if(activeTab==='standup' && typeof suOpen==='function') suOpen();
   /* the Augusta interview feed was removed 2026-10-01 */
   if(activeTab==='offers'){ offView(offCurrentView); renderInterviews(); }
   if(activeTab==='calls') renderCalls();
@@ -27512,6 +27531,7 @@ function renderMyTeam(){
       +teamOwnershipHtml(e)
       +'<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12.5px;">'
       +'<span>'+open.length+' open work</span>'
+      +(typeof suTeamCountHtml==='function'?suTeamCountHtml(e):'')
       +(late.length?'<span style="color:var(--red);">'+late.length+' overdue</span>':'')
       +(owed.length?'<span>'+owed.length+' reviews owed</span>':'')
       +'</div>'
