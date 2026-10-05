@@ -28,6 +28,7 @@ STUB = r"""
       escalation:{ to:S, to_name:'Samantha', level:'overdue', why:'it is overdue', at:H(-4) } },
     { id:'cv1', kind:'coverage', status:'open', about:'Uncovered shift, Ruth (fake)', coverage_case_id:'cOpen', owner:K, due:H(-1), created_at:H(-3) },
     { id:'cv2', kind:'coverage', status:'open', about:'Uncovered shift, Ted (fake)', coverage_case_id:'cDone', owner:K, due:H(-40), created_at:H(-60) },
+    { id:'ops_ref_77', kind:'reference', status:'open', about:'References still out (fake)', owner:K, due:H(-8), created_at:H(-40) },
     { id:'fut', kind:'promise_update', status:'open', about:'Not due yet (fake)', owner:K, due:H(20), created_at:H(-3) },
     { id:'park', kind:'promise_update', status:'open', about:'Parked with a wake-up (fake)', owner:K, due:H(-10), sub_state:'waiting', check_back:chi(3), created_at:H(-30) },
     { id:'dn', kind:'promise_update', status:'done', about:'Already done (fake)', owner:K, due:H(-100), created_at:H(-200) },
@@ -46,26 +47,26 @@ async()=>{
   ok('...and the button refuses', L.toasts.some(t=>/Only an owner/.test(t)) && !document.getElementById('freshGo'));
   (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman', shift:'day' };");
   freshRender();
-  ok('owner: the card shows, with how many are past due now', document.getElementById('freshSection').style.display==='' && /5 items are past due right now\./.test(document.getElementById('freshSet').innerText), document.getElementById('freshSet').innerText);
-  ok('past due only: not the future one, the parked one, the done one or the one with no due date', freshCandidates().map(x=>x.it.id).sort().join()==='cv1,cv2,l1,l2,p1', freshCandidates().map(x=>x.it.id));
+  ok('owner: the card shows, with how many are past due now', document.getElementById('freshSection').style.display==='' && /6 items are past due right now\./.test(document.getElementById('freshSet').innerText), document.getElementById('freshSet').innerText);
+  ok('past due only: not the future one, the parked one, the done one or the one with no due date', freshCandidates().map(x=>x.it.id).sort().join()==='cv1,cv2,l1,l2,ops_ref_77,p1', freshCandidates().map(x=>x.it.id));
   ok('no Undo before anything was cleared', document.getElementById('freshUndoBtn').style.display==='none');
   freshPreview(document.getElementById('freshSet')); await sleep(150);
   const pop=[...document.querySelectorAll('.ccpop')].pop(), txt=pop.innerText;
-  ok('the preview counts and splits by whose', /Fresh start: 5 past-due items/.test(txt) && /1 yours · 1 with no owner · 3 other people’s/.test(txt), txt.slice(0,300));
+  ok('the preview counts and splits by whose', /Fresh start: 6 past-due items/.test(txt) && /1 yours · 1 with no owner · 4 other people’s/.test(txt), txt.slice(0,300));
   const grp=[...pop.querySelectorAll('.freshGrp')].map(x=>({ on:x.checked, t:x.closest('div').innerText }));
   ok('grouped by type with counts and examples', grp.length===4 && grp.some(g=>/Lead|lead/.test(g.t) && /2/.test(g.t) && /Call the Smiths back/.test(g.t)), grp);
-  const comes=grp.find(g=>/cases still open/.test(g.t));
-  ok('the uncovered shift whose case is still open is its own group, unticked (it would come back)', comes && !comes.on && /Ruth/.test(comes.t), grp);
+  const comes=grp.find(g=>/Come back by themselves/.test(g.t));
+  ok('things a job would reopen (open-case shift, outstanding references) are their own group, unticked', comes && !comes.on && /Ruth/.test(comes.t) && /References still out/.test(comes.t) && !/Ted/.test(comes.t), grp);
   ok('everything else starts ticked', grp.filter(g=>g!==comes).every(g=>g.on));
   ok('the preview says nothing is sent and Undo works for 7 days', /Nothing is sent/.test(txt) && /7 days/.test(txt));
   /* keep the promises group */
   const promise=[...pop.querySelectorAll('.freshGrp')].find(x=>/Promise to Betsy/.test(x.closest('div').innerText)); promise.checked=false;
   L.writes.length=0; pop.querySelector('#freshGo').click(); await sleep(400);
   ok('ticked items closed: both leads and the finished-case shift card', ['l1','l2','cv2'].every(id=>it(id).status==='done'), DATA.ops_items.map(x=>x.id+':'+x.status));
-  ok('kept: the unticked promise and the open-case shift card', it('p1').status==='open' && it('cv1').status==='open');
+  ok('kept: the unticked promise, the open-case shift card and the references card', it('p1').status==='open' && it('cv1').status==='open' && it('ops_ref_77').status==='open');
   ok('untouched: future, parked, already done, no due date', it('fut').status==='open' && it('park').status==='open' && it('nodue').status==='open' && !it('dn').fresh_start);
   const l1=it('l1');
-  ok('closed WITH a note, a reason code, who and when (not deleted)', l1.resolution_code==='fresh_start' && /^Fresh start \d{4}-\d\d-\d\d: past due, cleared without action$/.test(l1.close_note) && l1.closed_by==='samantha@mo-care.com' && !!l1.closed_at && l1.history.slice(-1)[0].text==='Cleared in the fresh start (it was past due)' && DATA.ops_items.length===9, l1);
+  ok('closed WITH a note, a reason code, who and when (not deleted)', l1.resolution_code==='fresh_start' && /^Fresh start \d{4}-\d\d-\d\d: past due, cleared without action$/.test(l1.close_note) && l1.closed_by==='samantha@mo-care.com' && !!l1.closed_at && l1.history.slice(-1)[0].text==='Cleared in the fresh start (it was past due)' && DATA.ops_items.length===10, l1);
   ok('each closed item saved one at a time', L.writes.sort().join()==='ops_items:cv2:done,ops_items:l1:done,ops_items:l2:done', L.writes);
   const last=DATA.ops_settings.fresh_start_last;
   ok('the batch is recorded for Undo (who, when, which)', last && last.ids.sort().join()==='cv2,l1,l2' && last.by==='samantha@mo-care.com' && /^fs_/.test(last.id), last);
