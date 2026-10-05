@@ -4049,6 +4049,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 
 <div class="settings-section">
+<h3>🔁 The Hub closes its own loops</h3>
+<p class="hint">Finished shifts close their coverage case (or ask "Was it covered?"), case cards close with the case, an uncovered shift asks a person to call the family, a missed clock-in becomes an "EVV fix needed" item when the shift ends, and EVV reviews come weekly. Sends nothing.</p>
+<div id="loopsSet" class="field-note" style="margin:6px 0 4px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+  <button class="secondary" id="loopsSetBtn" onclick="loopsToggle(this)">Turn on</button>
+  <span class="field-note" id="loopsSetSaved"></span>
+</div>
+</div>
+
+<div class="settings-section">
 <h3>☀️ Morning Brief</h3>
 <p class="hint">A personal email at <b>8am Central on workdays</b>: today's interviews and booked assessments, anything that came in overnight, pass-along notes from the quick form, leads to call, and that person's top priorities, each line one tap into the hub. Everyone sees only their own book plus anything nobody owns yet. <b>Full picture</b> adds the admin sections: family-update calls from flagged care notes, write-ups for call-offs with under 4 hours notice, yesterday's EVV misses, and today's schedule from AxisCare with any open shifts. Pick who gets what:</p>
 <div id="mbRecips" style="display:flex;flex-direction:column;gap:5px;margin:8px 0;"></div>
@@ -14035,6 +14045,7 @@ function fillSettingsPanel(){
   try{ cbFill(); }catch(_){}
   tkFill();
   try{ cgcSetFill(); }catch(_){}
+  try{ loopsSetRender(); }catch(_){}
   try{ iimSetFill(); }catch(_){}
   try{ orrSetFill(); }catch(_){}
   mbFill();
@@ -16683,6 +16694,26 @@ function cgcSetRender(){
         +'. The list is on the Caregivers page.'
       :' It has not run yet.');
   if(b) b.textContent=on?'Turn off caregiver connect':'Turn on caregiver connect';
+}
+/* Today cockpit Phase 2 (2026-10-05): the Hub closes its own loops (ops_settings.loops_close_live). The same switch
+   and the same words as the Owners Hub Admin page. Turning it on stamps loops_close_since (only shifts closed as not
+   covered from then on ask for a family call). */
+function loopsSetRender(){
+  const box=document.getElementById('loopsSet'), b=document.getElementById('loopsSetBtn'); if(!box) return;
+  const st=DATA.ops_settings||{}, on=st.loops_close_live===true;
+  box.innerHTML=on?'<b style="color:#1E8449;">On.</b> The checks close and ask as described; nothing is texted or emailed.'
+    :'<b style="color:#B7791F;">Off (practice).</b> The checks only list what they would close or ask.';
+  if(b) b.textContent=on?'Turn off':'Turn on';
+}
+async function loopsToggle(btn){
+  const on=!((DATA.ops_settings||{}).loops_close_live===true);
+  if(!confirm(on?'Turn on the Hub closing its own loops?\n\nFrom the next check (within 5 minutes):\n· a coverage case whose shift is over closes when AxisCare shows who worked it, or asks "Was it covered?"\n· a card that belongs to a closed case closes with it\n· a shift closed as not covered puts a "call the family" card on someone\'s list (a person calls; the Hub never contacts families)\n· a missed clock-in becomes one "EVV fix needed" item when the shift ends, and the admin texts about it stop\n· EVV: one weekly Caregiver EVV Review (under 90%) for the owner of caregiver performance, instead of nightly cards\n\nNothing is texted or emailed by any of this.'
+    :'Turn off the Hub closing its own loops? It goes back to practice: the checks only list what they would close or ask. Missed clock-ins keep texting the admins after the shift ends, and the nightly EVV cards come back.')) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.loops_close_live=on; if(on && !m.loops_close_since) m.loops_close_since=new Date().toISOString(); return ['the Hub closing its own loops '+(on?'ON':'OFF')]; }, 'closing loops');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('loopsSetSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next check.':'Off (practice).');
+  loopsSetRender();
 }
 async function cgcSetFill(){ cgcSetRender(); await cgcLoad(true); cgcSetRender(); }
 async function cgcToggle(btn){
@@ -25550,7 +25581,7 @@ function opsWhyHere(it){
   if(h && h.by && String(h.by).toLowerCase()!==String((ME&&ME.name)||'').toLowerCase())
     return 'Handed to you by '+String(h.by).split(' ')[0]+'.';
   const src=String(it.created_by||'')+' '+String(it.opened_by||'');
-  if(/timekeeper|attendance|coverage/.test(src)) return 'You’re first on the scheduling alert list, so automatic staffing alerts come to you.';
+  if(/timekeeper|attendance/.test(src) && it.opened_by!=='loops') return 'You’re first on the scheduling alert list, so automatic staffing alerts come to you.';
   if(it.domain && String(opsDomainOwner(it.domain)||'').toLowerCase()===me) return 'You own '+dl(it.domain)+'.';
   return '';
 }
@@ -25590,6 +25621,60 @@ async function opsTakeIt(id){
   await persist('ops_items',it);
   ccToast('✓ It’s yours now'+(was?' (it was '+String(wasName).split(' ')[0]+'’s)':''));
   myWorkRefresh();
+}
+/* "Was it covered?" (Phase 2): a person's answer closes the case (status done, a person) and the question card
+   (Done). Not covered opens a "call the family" card for whoever answered. Nothing is sent: a case closed after the
+   shift carries the no-texts marks so the server's closure pass never texts anyone about it. */
+async function covOutcome(itemId, how){
+  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  const a=ccActor(), now=new Date().toISOString();
+  let c=null;
+  try{ const { data } = await sb.from('app_data').select('data').eq('key','coverage_cases').maybeSingle();
+    c=(Array.isArray(data&&data.data)?data.data:[]).find(x=>String(x.id)===String(it.case_id))||null; }catch(e){ c=null; }
+  if(!c){ ccToast('Could not find that coverage case just now. Nothing was changed.'); return; }
+  const words={covered_other_way:'covered',uncovered:'not covered',client_cancelled:'cancelled by the client'}[how]||how;
+  if(c.status==='needs_outcome'||c.status==='open'){
+    c.status='done'; c.resolved_at=now; c.resolved_how=how; c.resolved_by=a.email; c.resolved_by_name=a.name; c.outcome_answered_at=now;
+    if(!c.closure_notified){ c.closure_notified=now; c.closure_courtesy_count=0; c.closure_skip_reason='Answered after the shift was over; no texts sent.'; }
+    if(how!=='uncovered' && !c.family_notified){ c.family_notified=now; c.family_notified_count=0; c.family_no_recipients=true; c.family_skip_reason='Answered after the shift was over; no texts sent.'; }
+    c.note=[String(c.note||'').trim(), 'After the shift, '+(a.name||a.email)+' recorded: '+words+'.'].filter(Boolean).join('\n');
+  }
+  let famId='';
+  if(how==='uncovered' && !c.family_contact && !c.family_call_item){
+    famId='ops_famcall_'+c.id; c.family_call_item=famId;
+  }
+  await persist('coverage_cases', c);
+  const k=(DATA.coverage_cases||[]).findIndex(x=>String(x.id)===String(c.id)); if(k>=0) DATA.coverage_cases[k]=c;
+  it.status='done'; it.closed_at=now; it.closed_by=a.email; it.close_note='Answered: '+words;
+  opsLog(it,'Answered: the shift was '+words);
+  opEvent('item_resolved',{item:it, summary:(c.client||'A client')+'’s shift was '+words+' (recorded after the shift)'});
+  await persist('ops_items', it);
+  if(famId && !(DATA.ops_items||[]).some(x=>x.id===famId)){
+    const fam={ id:famId, kind:'family_call', case_id:c.id, status:'open', domain:'scheduling_coverage',
+      title:'Call '+(c.client||'the client')+'’s family: the shift wasn’t covered', about:c.client||'',
+      detail:'Nobody covered this shift. A person calls the family; the Hub never contacts them by itself. Record the call on this card.',
+      owner:a.email, owner_name:a.name, urgency:'urgent', due:new Date(Date.now()+3600000).toISOString(),
+      created_at:now, created_by:a.email, opened_by:'loops' };
+    opsOwnerHistory(fam,{ from:'', from_name:'', to:a.email, to_name:a.name, how:'assigned', note:'You recorded the shift as not covered' });
+    (DATA.ops_items=DATA.ops_items||[]).push(fam); await persist('ops_items', fam);
+  }
+  ccToast(how==='uncovered'?'✓ Recorded. A "call the family" card is on your list.':'✓ Recorded: '+words);
+  myWorkRefresh();
+}
+async function famCallDone(itemId, how){
+  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  const a=ccActor(), now=new Date().toISOString();
+  try{
+    const { data } = await sb.from('app_data').select('data').eq('key','coverage_cases').maybeSingle();
+    const c=(Array.isArray(data&&data.data)?data.data:[]).find(x=>String(x.id)===String(it.case_id));
+    if(c){ c.family_contact={ at:now, by:a.email, by_name:a.name, how }; await persist('coverage_cases', c);
+      const k=(DATA.coverage_cases||[]).findIndex(x=>String(x.id)===String(c.id)); if(k>=0) DATA.coverage_cases[k]=c; }
+  }catch(e){}
+  it.status='done'; it.closed_at=now; it.closed_by=a.email; it.close_note=how==='knew'?'The family already knew':'Called the family';
+  opsLog(it, it.close_note);
+  opEvent('item_resolved',{item:it, summary:(it.about||'A family')+': '+it.close_note.toLowerCase()});
+  await persist('ops_items', it);
+  ccToast('✓ '+it.close_note); myWorkRefresh();
 }
 function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
@@ -25710,6 +25795,22 @@ async function ccIssueOpenClient(issueId){
 }
 function obligationOpenAction(it){
   try{
+    /* Today cockpit Phase 2 (2026-10-05): the cards the Hub opens when it closes its own loops answer in place. */
+    if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix') && it.status==='open'){
+      const esc=escapeHtmlComms, b=(on,label,primary)=>'<button class="'+(primary?'primary':'ghost')+'" style="padding:5px 11px;font-size:12px;" onclick="'+on+'">'+label+'</button>';
+      const id=esc(String(it.id));
+      if(it.kind==='coverage_outcome') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
+        +b("covOutcome('"+id+"','covered_other_way')",'Covered',true)+b("covOutcome('"+id+"','uncovered')",'Not covered')
+        +b("covOutcome('"+id+"','client_cancelled')",'Client cancelled')
+        +'<span class="field-note">Answering closes the case. No texts are sent.</span></div>';
+      if(it.kind==='family_call') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
+        +b("famCallDone('"+id+"','called')",'I called the family',true)+b("famCallDone('"+id+"','knew')",'They already knew')
+        +'<span class="field-note">The Hub never calls or texts the family itself.</span></div>';
+      if(it.kind==='evv_review') return '<div style="margin-top:6px;">'+b("switchTab('cgattendance')",'Open Attendance')
+        +'<span class="field-note" style="margin-left:8px;">Mark Done when you have reviewed each one.</span></div>';
+      if(it.kind==='evv_fix') return '<div style="margin-top:6px;">'+b("switchTab('hourswatch')",'Open Missing EVV')
+        +'<span class="field-note" style="margin-left:8px;">Mark Done once the clock-in is fixed in AxisCare.</span></div>';
+    }
     if(it && it.kind==='new_lead' && it.source_id && (DATA.leads||[]).some(l=>String(l.id)===String(it.source_id))){
       return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="openLeadProfile(\''+escapeHtmlComms(String(it.source_id))+'\')">Open the inquiry</button></div>';
     }
@@ -29769,6 +29870,11 @@ const OPS_KINDS = {
   promise_update: { label:'Family update owed',    hours:24 },
   promise_lapsed: { label:'Promised start passed', hours:8  },
   journey_review: { label:'Journey decision',      hours:72 },
+  /* Today cockpit Phase 2 (2026-10-05): the Hub closes its own loops (_shared/loops.ts on the server). */
+  coverage_outcome:{ label:'Was it covered?',       hours:4  },
+  family_call:    { label:'Call the family',       hours:1  },
+  evv_review:     { label:'Caregiver EVV review',  hours:48 },
+  evv_fix:        { label:'EVV fix needed',        hours:4  },
 };
 // Urgency overrides the default window for anything raised by hand.
 const OPS_URGENCY = { urgent:1, today:8, normal:null };
@@ -35930,6 +36036,15 @@ function covConfirmHtml(c){
    here — coverage-run's closure pass already sends every text and stamps
    closure_notified / family_notified / confirm_sent. */
 function covLoopHtml(c){
+  /* Phase 2: a case closed as not covered shows whether a person has called the family (never a text). */
+  if(c.resolved_how==='uncovered'){
+    const fc=c.family_contact;
+    return '<div class="cov-loop"><b style="font-size:13px;color:var(--navy);">Closing the loop</b>'
+      +'<div class="cov-loop-row"><span class="st" style="color:'+(fc?'var(--green)':'var(--honey-ink)')+';">'+(fc?'✓':'●')+'</span><span>'
+      +(fc?escapeHtmlComms((fc.how==='knew'?'The family already knew':'The family was called')+' · '+(fc.by_name||fc.by||'')+' · '+callsFmtWhen(fc.at))
+          :'Call the family: nobody covered this shift'+(c.family_call_item?' <span class="field-note">(on a My Work card)</span>':''))
+      +'</span></div></div>';
+  }
   if(c.resolved_how!=='covered') return '';
   const verified=c.axiscare_assignment&&c.axiscare_assignment.status==='assigned';
   const winnerTold=(c.asked||[]).some(a=>a.confirm_sent);
@@ -35950,12 +36065,14 @@ function covLoopHtml(c){
      never means complete: only the completion flag does. */
   const cCount=c.closure_courtesy_count;
   const courtesyDone=!c.closure_notified?null
+    : (c.closure_skip_reason&&!(cCount>0))?escapeHtmlComms(c.closure_skip_reason)
     : (c.closure_backfilled&&!(cCount>0))?'Historical notification closed without sending'
     : (cCount===0)?'Nobody was left waiting to tell'
     : (cCount>0)?'The other caregivers asked were told it’s covered ('+cCount+' text'+(cCount===1?'':'s')+')'
     : 'Everyone else asked was thanked and told it’s covered';
   const fCount=c.family_notified_count;
   const familyDone=!c.family_notified?null
+    : (c.family_skip_reason&&c.closed_after_shift&&!(fCount>0))?escapeHtmlComms(c.family_skip_reason)
     : (c.family_backfilled&&!(fCount>0))?'Historical notification closed without sending'
     : (c.family_no_recipients||fCount===0)?'No family members have texting consent on file'
     : (fCount>0)?'Family circle notified ('+fCount+' text'+(fCount===1?'':'s')+')'
