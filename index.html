@@ -6708,7 +6708,8 @@ The HomeTogether team</pre>
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
-<script src="caregiver-profile-panel.js?v=20261005h"></script>
+<script src="caregiver-profile-panel.js?v=20261005j"></script>
+<script src="step1-facts.js?v=1"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
 <script src="standup-board.js?v=4"></script>
@@ -17253,6 +17254,9 @@ async function cgdOpenProfile(axid){
 
     +'<div id="cgdSec-hiring" style="display:none;">'
     +'<div id="cgdHiring"><div class="field-note">Loading the hiring history…</div></div>'
+    /* 458: what they wrote on their Step 1 application (GoHighLevel), the approved details only. step1-facts.js */
+    +card('From their Step 1 application <span class="field-note" style="font-weight:400;">their own words, experience, what they will do, availability and favorites</span>',
+      '<div id="cgdStep1"><div class="field-note">Loading…</div></div>', 'cgdStep1Card')
     +'</div>'
 
     +'<div id="cgdSec-compliance" style="display:none;">'
@@ -17284,6 +17288,7 @@ async function cgdOpenProfile(axid){
     else { const h=document.getElementById('cgdCgp'); if(h) h.innerHTML='<div class="field-note">Caregiver profiles did not load. Refresh the page.</div>'; } }catch(e){ console.warn('caregiver profile panel:', e); }
   cgdKnowledgeLoad(String(c.id));
   cgdHiringLoad(String(c.id), lvl);
+  try{ if(window.S1) S1.render(document.getElementById('cgdStep1'), { axiscare_id:String(c.id), hub_id:(g&&g.id!=null)?String(g.id):'' }); }catch(e){}
   cgdLoadThread(c,nm);
   cgdLoadTraining(c,nm);
   cgdLoadReadiness(c);

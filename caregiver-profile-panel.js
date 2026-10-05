@@ -163,6 +163,47 @@
       + '<a href="#" onclick="CGP2.act(\'' + k + '\',\'' + (hidden ? 'show_' : 'hide_') + kind + '\',this);return false;" style="color:var(--navy,#0E3860)">'
       + (hidden ? 'Show to families' : 'Hide from families') + '</a></div>';
   }
+  /* 458 BEEF IT UP (Samantha, 2026-10-05: "I wanted ai to help beef up the profiles a bit"; office panel; their words +
+     their application, including their Step 1 application from GoHighLevel). Side by side, section by section: Use this /
+     Keep theirs. Nothing is saved until Save; a published profile's Save goes live as usual. */
+  function beefHtml(m) {
+    var B = m.beef; if (!B) return '';
+    if (B.busy) return '<div style="margin-top:.7rem;font-size:.8rem;color:#64748B">Writing a fuller version from their words and their application…</div>';
+    if (B.err) return '<div style="margin-top:.7rem;font-size:.8rem;color:#B00020">' + esc(B.err) + '</div>';
+    var k = m.k, s = B.suggestion || {};
+    var map = { about: 'about', experience: 'experience', why_this_work: 'why' };
+    return '<div style="margin-top:.8rem;border:1.5px solid var(--teal,#54BDB8);border-radius:11px;padding:.7rem .8rem;background:#F4FBFB">'
+      + '<div style="display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap;margin-bottom:.3rem"><b style="color:var(--navy,#0E3860)">A fuller version</b>'
+      + '<span style="font-size:.74rem;color:#64748B">from their words' + (B.step1 ? ', their Step 1 application' : (B.app ? ' and their application' : '')) + '. Choose per section, then press Save.</span>'
+      + '<span style="flex:1"></span><button class="ibtn" onclick="CGP2.act(\'' + k + '\',\'beefclose\',this)">Close</button></div>'
+      + FIELDS.map(function (f) {
+        var sug = s[map[f[0]]] || '', cur = (document.getElementById(k + '-' + f[0]) || {}).value;
+        if (cur == null) cur = (m.row && m.row[f[0]]) || '';
+        var same = String(sug).trim() === String(cur).trim();
+        return '<div style="margin-top:.55rem"><div style="font-size:.74rem;font-weight:700;color:var(--navy,#0E3860)">' + esc(f[1]) + '</div>'
+          + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.5rem;margin-top:.2rem">'
+          + '<div style="font-size:.78rem;background:#fff;border:1px solid var(--border,#E2E8F0);border-radius:8px;padding:.4rem .55rem;white-space:pre-wrap"><div style="font-size:.66rem;color:#64748B;margin-bottom:.15rem">THEIRS NOW</div>' + esc(cur) + '</div>'
+          + '<div style="font-size:.78rem;background:#fff;border:1.5px solid var(--teal,#54BDB8);border-radius:8px;padding:.4rem .55rem;white-space:pre-wrap"><div style="font-size:.66rem;color:#0F766E;margin-bottom:.15rem">FULLER</div>' + esc(sug) + '</div></div>'
+          + (same ? '<div style="font-size:.72rem;color:#64748B;margin-top:.2rem">Nothing more to add here.</div>'
+            : '<div style="display:flex;gap:.4rem;margin-top:.3rem"><button class="ibtn" style="background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)" onclick="CGP2.beefUse(\'' + k + '\',\'' + f[0] + '\')">Use this</button>'
+              + '<span style="font-size:.72rem;color:#64748B;align-self:center">or leave it and theirs stays</span></div>')
+          + '</div>';
+      }).join('') + '</div>';
+  }
+  /* a redraw must never lose what the office typed but has not saved yet */
+  function keepEdits(m) {
+    var ids = ['preferred_name'].concat(FIELDS.map(function (f) { return f[0]; }));
+    var vals = {}; ids.forEach(function (i) { var el = document.getElementById(m.k + '-' + i); if (el) vals[i] = el.value; });
+    return function () { ids.forEach(function (i) { var el = document.getElementById(m.k + '-' + i); if (el && vals[i] != null) el.value = vals[i]; }); };
+  }
+  function beefUse(k, field) {
+    var m = M[k]; if (!m || !m.beef || !m.beef.suggestion) return;
+    var map = { about: 'about', experience: 'experience', why_this_work: 'why' };
+    var ta = document.getElementById(k + '-' + field); if (!ta) return;
+    ta.value = m.beef.suggestion[map[field]] || ta.value;
+    say(m, 'Put in the box. Press Save to keep it.');
+    var host = m.host.querySelector('[data-beef]'); if (host) host.outerHTML = beefHtml(m).replace('<div style="margin-top:.8rem', '<div data-beef="1" style="margin-top:.8rem');
+  }
   function draw(m) {
     if (!document.body.contains(m.host)) { delete M[m.k]; return; }
     var row = m.row, x = m.ctx, k = m.k;
@@ -221,6 +262,7 @@
     h += '<div style="font-size:.7rem;color:#64748B;margin-top:.2rem">' + (row.self_complete ? 'In their own words. ' : 'Written about them, using their first name. ') + 'The card shows their first name and last initial.</div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.55rem">'
       + btn('save', '💾 Save', 'background:var(--navy,#0E3860);color:#fff;border-color:var(--navy,#0E3860)')
+      + (FIELDS.some(function (f) { return String(row[f[0]] || '').trim(); }) ? btn('beef', '✨ Beef it up with AI', '', 'A fuller version from their words and their application. You compare and choose; nothing is saved until you press Save.') : '')
       + (row.self_complete ? '' : btn('draft', '✨ Redo draft', '', 'Ask the AI for a fresh draft from their application and interview'))
       + (row.published && !row.needs_review ? '' : btn('send', row.self_complete ? (row.link_sent_at ? '📲 Send profile link again' : '📲 Send profile link') : (row.link_sent_at ? '📲 Send photo link again' : '📲 Send photo link'), '', row.self_complete ? 'Texts and emails their personal link to fill in their profile' : 'Texts and emails their personal link to add a photo and video'))
       + (row.published ? btn('intro', '💌 Introduce to a family', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)', 'Text and email a family this card, after you see a preview') : '')
@@ -234,6 +276,7 @@
          row.published ? 'Published ' + day(row.published_at) + (row.published_by ? ' by ' + esc(who(row.published_by)) : '') + '. Edits you save go live right away.' : ''].filter(Boolean).join(' · ')
       + '</div></div></div>'
       + '<div id="' + k + '-intro"></div>';
+    h += beefHtml(m).replace('<div style="margin-top:.8rem', '<div data-beef="1" style="margin-top:.8rem');
     m.host.innerHTML = h;
     if (m.msg) say(m, m.msg[0], m.msg[1]);
     drawIntro(m);
@@ -353,6 +396,16 @@
         m.msg = [(d.note ? d.note : 'Draft ready. Read it through, and ask anything in [brackets] on the call.'), !!d.note];
         await reload(k); return;
       }
+      if (what === 'beef') {
+        var kept = keepEdits(m);
+        m.beef = { busy: true }; draw(m); kept();
+        try {
+          var bf = await call({ action: 'enhance', profile_id: row.id, phone: x.phone || '', email: x.email || '' });
+          m.beef = { suggestion: bf.suggestion || {}, app: !!bf.application_found, step1: !!bf.step1_found };
+        } catch (e) { m.beef = { err: 'The AI could not help just now: ' + ((e && e.message) || e) + '. Nothing was changed.' }; }
+        var kept2 = keepEdits(m); draw(m); kept2(); return;
+      }
+      if (what === 'beefclose') { var kept3 = keepEdits(m); m.beef = null; draw(m); kept3(); return; }
       if (/^(hide|show)_(photo|video)$/.test(what)) {
         var hp = what.split('_'), hide = hp[0] === 'hide', kind = hp[1], word = kind === 'photo' ? 'photo' : 'video';
         if (hide && !confirm('Hide ' + name + '\'s ' + word + ' from families?\n\nIt comes off their family card' + (row.published ? ' right away' : '') + '. The file is kept, and you can show it again any time.' + (kind === 'photo' ? '\n\nTheir card will have no photo until you show it again or they send a new one.' : ''))) return;
@@ -745,6 +798,6 @@
     chipHtml: chipHtml, status: status, rowFor: rowFor, loadForCandidates: loadForCandidates, prompts: prompts, noDash: noDash,
     introPick: introPick, introReason: introReason, cardName: cardName, photoOf: photoOf,
     cacheState: cacheState, isLive: isLive,
-    catchupRender: catchupRender, catchupSend: catchupSend, catchupReload: catchupReload, cuClass: cuClass, CU: CU,
+    beefUse: beefUse, catchupRender: catchupRender, catchupSend: catchupSend, catchupReload: catchupReload, cuClass: cuClass, CU: CU,
     gateReady: function () { return !!G.rows; }, gateLoad: gateLoad, gateFor: gateFor, gateForAx: gateForAx, gateHtml: gateHtml, gateOpen: gateOpen, gateOverride: gateOverride };
 })(typeof window !== 'undefined' ? window : globalThis);
