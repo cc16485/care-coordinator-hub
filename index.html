@@ -4070,6 +4070,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" id="freshSection">
+<h3>🧹 Fresh start: clear past-due work</h3>
+<p class="hint">Closes work that is already past due, so My Work starts clean. You see exactly what would close first and can keep any group. Items are closed with a note, never deleted, and you can undo it for 7 days. Nothing is sent.</p>
+<div id="freshSet" class="field-note" style="margin:6px 0 4px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+  <button class="secondary" onclick="freshPreview(this)">See what would close</button>
+  <button class="secondary" id="freshUndoBtn" style="display:none;" onclick="freshUndo(this)">Undo the last fresh start</button>
+  <span class="field-note" id="freshSaved"></span>
+</div>
+</div>
+
 <div class="settings-section">
 <h3>☀️ Morning Brief</h3>
 <p class="hint">A personal email at <b>8am Central on workdays</b>: today's interviews and booked assessments, anything that came in overnight, pass-along notes from the quick form, leads to call, and that person's top priorities, each line one tap into the hub. Everyone sees only their own book plus anything nobody owns yet. <b>Full picture</b> adds the admin sections: family-update calls from flagged care notes, write-ups for call-offs with under 4 hours notice, yesterday's EVV misses, and today's schedule from AxisCare with any open shifts. Pick who gets what:</p>
@@ -14060,6 +14071,7 @@ function fillSettingsPanel(){
   try{ cgcSetFill(); }catch(_){}
   try{ loopsSetRender(); }catch(_){}
   try{ routeSetRender(); }catch(_){}
+  try{ freshRender(); }catch(_){}
   try{ iimSetFill(); }catch(_){}
   try{ orrSetFill(); }catch(_){}
   mbFill();
@@ -16788,6 +16800,86 @@ async function routeToggle(btn){
   if(btn) btn.disabled=false;
   const sv=document.getElementById('routeSetSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next check.':'Off (practice).');
   routeSetRender();
+}
+/* FRESH START (Samantha, 2026-10-05: "please clear out past due so we can start using it fresh"). Owners only. Every
+   open item already past due (parked work with a wake-up is not past due) is listed by kind; she unticks what to keep;
+   the rest close as Done with a note and resolution_code 'fresh_start'. The batch (who, when, which ids) is kept in
+   ops_settings.fresh_start_last so Undo can reopen exactly those for 7 days. Uncovered shift cards whose case is still
+   open are left unticked: the coverage job rewrites them every few minutes until the case itself is handled. */
+function freshCandidates(){
+  const now=Date.now();
+  const cases=new Map((DATA.coverage_cases||[]).map(c=>[String(c.id),c]));
+  return (DATA.ops_items||[]).filter(i=>i&&i.status==='open'&&opsCanSee(i)&&i.due&&Date.parse(i.due)<now&&!opsParked(i))
+    .map(i=>{ const c=i.coverage_case_id!=null?cases.get(String(i.coverage_case_id)):null;
+      const comesBack=i.kind==='coverage'&&c&&c.status==='open';
+      return { it:i, group:comesBack?'Uncovered shift cards for cases still open (they come back until the case is handled)':(opsKindLabel(i)||i.kind||'Other'), keep:comesBack }; });
+}
+function freshRender(){
+  const box=document.getElementById('freshSet'), u=document.getElementById('freshUndoBtn'); if(!box) return;
+  const sec=document.getElementById('freshSection'); if(sec) sec.style.display=ccIsOwner()?'':'none';
+  const st=DATA.ops_settings||{}, last=st.fresh_start_last;
+  const n=freshCandidates().length;
+  const undoable=last&&last.at&&(Date.now()-Date.parse(last.at)<7*864e5)&&Array.isArray(last.ids)&&last.ids.length&&!last.undone_at;
+  box.innerHTML=n+' item'+(n===1?' is':'s are')+' past due right now.'
+    +(last&&last.at?' Last fresh start: '+escapeHtmlComms(callsFmtWhen(last.at))+' by '+escapeHtmlComms(last.by_name||last.by||'')+', '+(last.ids||[]).length+' closed'+(last.undone_at?' (undone)':'')+'.':'');
+  if(u) u.style.display=undoable?'':'none';
+}
+function freshPreview(btn){
+  if(!ccIsOwner()){ ccToast('Only an owner can do a fresh start.'); return; }
+  const esc=escapeHtmlComms, list=freshCandidates();
+  if(!list.length){ ccToast('Nothing is past due. Nothing to clear.'); return; }
+  const me=String(opsMeKey()||'').toLowerCase();
+  const groups={}; list.forEach(x=>{ (groups[x.group]=groups[x.group]||{ keep:x.keep, rows:[] }).rows.push(x.it); });
+  const names=Object.keys(groups).sort((a,b)=>groups[b].rows.length-groups[a].rows.length);
+  const mine=list.filter(x=>String(x.it.owner||'').toLowerCase()===me).length, none=list.filter(x=>!x.it.owner).length;
+  const el=ccPopOpen(btn,
+    '<div style="font-size:15px;font-weight:800;color:var(--navy);">Fresh start: '+list.length+' past-due item'+(list.length===1?'':'s')+'</div>'
+    +'<div class="field-note" style="margin:3px 0 8px;">'+mine+' yours · '+none+' with no owner · '+(list.length-mine-none)+' other people’s. Untick anything to keep. Closed items stay on the record with the note "Fresh start"; Undo works for 7 days. Nothing is sent.</div>'
+    +names.map((g,k)=>'<div style="border:1px solid var(--border);border-radius:8px;padding:7px 9px;margin-bottom:6px;">'
+      +'<label style="display:flex;gap:8px;align-items:baseline;"><input type="checkbox" class="freshGrp" data-g="'+k+'" style="width:auto;margin:0;"'+(groups[g].keep?'':' checked')+'>'
+      +'<b>'+esc(g)+'</b><span class="field-note">'+groups[g].rows.length+'</span></label>'
+      +'<div class="field-note" style="margin:3px 0 0 22px;">'+esc(groups[g].rows.slice(0,3).map(i=>(i.about||i.title||'').slice(0,60)).join(' · '))+(groups[g].rows.length>3?' · and '+(groups[g].rows.length-3)+' more':'')+'</div></div>').join('')
+    +'<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" id="freshGo">Close the ticked items</button><button class="ghost" id="freshNo">Cancel</button></div>',
+    { width:560 });
+  el.querySelector('#freshNo').onclick=ccPopClose;
+  el.querySelector('#freshGo').onclick=async (ev)=>{
+    const pick=[...el.querySelectorAll('.freshGrp:checked')].map(x=>names[Number(x.dataset.g)]);
+    const items=pick.flatMap(g=>groups[g].rows);
+    if(!items.length){ ccToast('Nothing ticked. Nothing closed.'); return; }
+    ev.target.disabled=true;
+    const a=ccActor(), at=new Date().toISOString(), batch='fs_'+Date.now().toString(36), ids=[];
+    let k=0;
+    for(const it of items){
+      ev.target.textContent='Closing '+(++k)+' of '+items.length+'…';
+      it.status='done'; it.closed_at=at; it.closed_by=a.email; it.resolution_code='fresh_start'; it.fresh_start=batch;
+      it.close_note='Fresh start '+at.slice(0,10)+': past due, cleared without action';
+      if(it.escalation&&!it.escalation.cleared_at){ it.escalation.cleared_at=at; it.escalation.cleared_why='fresh start'; }
+      opsLog(it,'Cleared in the fresh start (it was past due)');
+      await persist('ops_items', it); ids.push(it.id);
+    }
+    opEvent('fresh_start',{ summary:(a.name||a.email)+' cleared '+ids.length+' past-due items (fresh start)', data:{ batch, count:ids.length } });
+    const rec=await tkMerge(m=>{ m.fresh_start_last={ id:batch, at, by:a.email, by_name:a.name, ids }; return ['fresh start: '+ids.length+' past-due items closed']; }, 'fresh start');
+    ccPopClose();
+    if(rec.error) ccToast('⚠ '+ids.length+' items were cleared, but the Undo record did not save ('+(rec.error.message||'error')+'). Tell Claude: batch '+batch+'.');
+    else ccToast('✓ '+ids.length+' past-due item'+(ids.length===1?'':'s')+' cleared. Undo is in Settings for 7 days.');
+    const sv=document.getElementById('freshSaved'); if(sv) sv.textContent='Cleared '+ids.length+'.';
+    freshRender(); myWorkRefresh(); try{ ccRenderPulse(); }catch(e){}
+  };
+}
+async function freshUndo(btn){
+  const last=(DATA.ops_settings||{}).fresh_start_last; if(!last||!Array.isArray(last.ids)) return;
+  if(btn) btn.disabled=true;
+  let n=0; const a=ccActor();
+  for(const id of last.ids){
+    const it=(DATA.ops_items||[]).find(x=>x.id===id);
+    if(!it||it.status!=='done'||it.fresh_start!==last.id) continue;   // only what this fresh start closed, still closed
+    it.status='open'; it.closed_at=null; it.closed_by=null; it.close_note=null; it.resolution_code=null; delete it.fresh_start;
+    opsLog(it,'Fresh start undone; open again'); await persist('ops_items', it); n++;
+  }
+  await tkMerge(m=>{ if(m.fresh_start_last) m.fresh_start_last.undone_at=new Date().toISOString(); return ['fresh start undone: '+n+' reopened']; }, 'fresh start');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('freshSaved'); if(sv) sv.textContent='Undone: '+n+' reopened.';
+  freshRender(); myWorkRefresh(); try{ ccRenderPulse(); }catch(e){}
 }
 async function cgcSetFill(){ cgcSetRender(); await cgcLoad(true); cgcSetRender(); }
 async function cgcToggle(btn){
