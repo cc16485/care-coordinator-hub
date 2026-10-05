@@ -162,6 +162,17 @@ async()=>{
   /* --- Today line and My Team --- */
   const tl=$('#suTodayLine'); suTodayRender(); await sleep(30);
   ok('Today shows my open and urgent count', /1 open for you · 1 urgent/.test(tl.textContent), tl.textContent);
+  ok('Dashboard: the Stand-Up card sits at the TOP (above the day\'s numbers)', !!(tl.compareDocumentPosition($('#todayGlance')) & Node.DOCUMENT_POSITION_FOLLOWING));
+  ok('Dashboard: lists the open items, urgent first, with an Add button', /Stand-Up/.test(tl.innerText) && /＋ Add to Stand-Up/.test(tl.innerText)
+     && tl.innerText.indexOf('URGENT') < tl.innerText.indexOf('Due soon item') && /Open the board/.test(tl.innerText), tl.innerText);
+  ok('Dashboard: typed HTML stays text there too', !tl.querySelector('img') && window.__pwned===undefined);
+  ccAddOpen(document.getElementById('ccAddBtn')); await sleep(60);
+  let pp=popTop();
+  ok('top bar "＋ Add": Stand-Up board first, then a reminder', !!pp && pp.querySelectorAll('button')[0].id==='ccAddSu' && /Stand-Up board/.test(pp.innerText) && /A reminder/.test(pp.innerText));
+  pp.querySelector('#ccAddSu').click(); await sleep(100);
+  ok('...choosing Stand-Up opens the Add to Stand-Up form', !!popTop() && /Add to Stand-Up/.test(popTop().innerText));
+  ccPopClose();
+  ok('the top bar says "＋ Add" (no separate Capture button)', /＋ Add/.test($('#ccAddBtn').textContent) && ![...document.querySelectorAll('header button, .topbar button')].some(b=>/✎ Capture/.test(b.textContent)));
   const mt=suTeamCountHtml('kat@mo-care.com'), mj=suTeamCountHtml('jess@mo-care.com');
   ok('My Team card line: open and urgent stand-up items per person', /1 open stand-up · <b[^>]*>1 urgent<\/b>/.test(mt) && /^<span[^>]*>1 open stand-up<\/span>$/.test(mj), [mt,mj]);
 
@@ -250,6 +261,7 @@ def static(n, c, d=''):
 
 static('the board code never sends anything (no functions, fetch, texts, emails)', not re.search(r'functions\.invoke|fetch\(|sendCandidateSMS|ghlSend|\.rpc\(', SRC))
 static('My Team cards carry the stand-up count', "suTeamCountHtml(e)" in HUB)
+static('the "What runs by itself" button is gone from the top bar (her call)', 'onclick="autoOpen()"' not in HUB)
 static('standup-board.js is loaded by the Hub', '<script src="standup-board.js?v=' in HUB)
 
 with sync_playwright() as pw:

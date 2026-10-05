@@ -362,15 +362,33 @@
   }
 
   /* ---------------------------------------------- Today line + My Team counts ---------------------------------------------- */
+  /* TOP OF THE DASHBOARD (2026-10-05, her call: "i want to make sure stand up board isnt a seperate thing that is not
+     used"). The open board items, urgent first, up to five, with whose and how old, and the button to add one. */
   function suTodayRender(){
     const box = document.getElementById('suTodayLine'); if(!box) return;
     if(!SU.items){ suLoad().then(suTodayRender); return; }
-    const m = suOpenFor(SU.items, me().email), team = SU.items.filter(i => !i.archived_at && i.status !== 'done');
-    box.innerHTML = '<div class="card" style="padding:11px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;cursor:pointer;" onclick="switchTab(\'standup\')">'
-      + '<b style="color:var(--navy);">Stand-Up</b>'
-      + '<span>' + m.open + ' open for you' + (m.urgent ? ' · <b style="color:var(--red);">' + m.urgent + ' urgent</b>' : '') + (m.overdue ? ' · <b style="color:var(--amber);">' + m.overdue + ' overdue</b>' : '') + '</span>'
-      + '<span class="field-note">' + team.length + ' open for the team · ' + team.filter(i => !i.assigned_to_email && !i.assigned_to).length + ' unassigned</span>'
-      + '<span style="flex:1;"></span><span class="field-note">Open the board ›</span></div>';
+    const list = people(), mineC = suOpenFor(SU.items, me().email);
+    const open = suSort(SU.items.filter(i => !i.archived_at && i.status !== 'done'));
+    const urgent = open.filter(i => i.urgent).length;
+    const row = i => { const age = suAge(i), who = i.assigned_to_email ? nameOf(i.assigned_to_email, list).split(' ')[0] : (i.assigned_to || '');
+      return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);cursor:pointer;" onclick="switchTab(\'standup\')">'
+        + (i.urgent ? chip('URGENT', 'var(--red)', '#fff') : '')
+        + '<b style="flex:1 1 220px;min-width:0;color:var(--navy);">' + esc(i.summary || '(no description)') + '</b>'
+        + (i.client ? '<span class="field-note">' + esc(i.client) + '</span>' : '')
+        + '<span class="field-note">' + (who ? esc(who) : '<span style="color:var(--amber);">Unassigned</span>') + ' · <span style="color:'
+        + (age.tone === 'red' ? 'var(--red)' : age.tone === 'amber' ? 'var(--amber)' : 'inherit') + ';">' + esc(age.label) + '</span></span></div>'; };
+    box.innerHTML = '<div class="card" style="padding:13px 16px;">'
+      + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px;">'
+      + '<b style="font-size:16px;color:var(--navy);">Stand-Up</b>'
+      + '<span class="field-note">' + open.length + ' open' + (urgent ? ' · <b style="color:var(--red);">' + urgent + ' urgent</b>' : '')
+      + ' · ' + mineC.open + ' open for you' + (mineC.urgent ? ' · ' + mineC.urgent + ' urgent' : '') + (mineC.overdue ? ' · ' + mineC.overdue + ' overdue' : '') + '</span>'
+      + '<span style="flex:1;"></span>'
+      + '<button class="primary" style="padding:6px 12px;font-size:12.5px;" onclick="suEdit()">＋ Add to Stand-Up</button>'
+      + '<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="switchTab(\'standup\')">Open the board</button></div>'
+      + (open.length ? open.slice(0, 5).map(row).join('')
+          + (open.length > 5 ? '<div class="field-note" style="padding-top:6px;">plus ' + (open.length - 5) + ' more on the board</div>' : '')
+        : '<div class="field-note" style="padding:6px 0 2px;">Nothing open. When something happens the team needs to know (a call-out, a client or caregiver issue), add it here.</div>')
+      + '</div>';
   }
   /* the line on each My Team card (renderMyTeam calls this) */
   function suTeamCountHtml(email){

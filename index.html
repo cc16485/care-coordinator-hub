@@ -798,17 +798,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div id="topbarPulse"></div>
     <input class="search" id="globalSearch" placeholder="🔍 Search leads, clients, referrers…" oninput="renderActiveTab();ccRefSearchShow(this.value)" onfocus="ccRefSearchShow(this.value)" onblur="setTimeout(ccRefSearchHide,200)" autocomplete="off">
     <div class="spacer"></div>
-    <!-- On every page, because a coordinator seeing "sent" on a record should
-         be able to find out in one click what was sent, to whom, and when the
-         next thing happens. Nothing here is a setting: it is a plain account
-         of what runs without anybody pressing anything. -->
-    <button class="pill" onclick="autoOpen()" title="Everything that happens without anybody pressing a button"
-            style="cursor:pointer;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;">🤖 What runs by itself</button>
+    <!-- 2026-10-05 (her call): the "What runs by itself" button is removed; the panel is no longer reachable. -->
     <span class="pill" id="syncPill" onclick="syncOpenPanel()" style="cursor:pointer;" title="What has and has not reached the database">☁ Synced</span>
     <!-- The sticky note that cannot get lost. On every page, because the
          moment worth capturing never happens on the right tab. -->
-    <button class="addlead" onclick="ccCaptureOpen()" title="Write it down before it's gone — one sentence, lands on somebody's list"
-            style="background:transparent;border:1.5px solid rgba(255,255,255,.55);">✎ Capture</button>
+    <!-- 2026-10-05 (her call): one "＋ Add" button, Stand-Up first, so the board is where team news goes, and personal
+         reminders (Capture) still have a home. -->
+    <button class="addlead" id="ccAddBtn" onclick="ccAddOpen(this)" title="Add to the Stand-Up board, or capture a reminder"
+            style="background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">＋ Add</button>
     <button class="addlead" onclick="openCallCockpit()">＋ Add Lead</button>
     <span id="userChip" style="display:flex;align-items:center;gap:8px;padding:3px 12px 3px 4px;border:1px solid var(--border);border-radius:999px;background:#fff;flex:0 0 auto;">
       <span class="su-avatar" id="navAvatar">·</span>
@@ -1232,6 +1229,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            dashboard/today"). The live twin of the 8am Morning Brief email:
            the same numbers, the same sections, same order, so the email and
            the hub teach each other. Chips are doors, not decorations. -->
+      <!-- 2026-10-05 (her call): the Stand-Up board's open items sit at the top of the Dashboard, so the board is the
+           first thing the office sees, not a tab nobody opens. standup-board.js draws it. -->
+      <div id="suTodayLine" style="margin-bottom:16px;"></div>
       <div id="todayGlance"></div>
       <div id="todayHero"></div>
       <!-- Booked today: interviews and assessments, the same two lists as the Morning Brief. -->
@@ -1250,7 +1250,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div id="myDayList"></div>
       </div>
-      <div id="suTodayLine" style="margin-bottom:16px;"></div>
       <div class="card" id="standupCard" style="padding:15px 18px 9px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <svg style="width:20px;height:20px;flex:none;" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg>
@@ -6658,7 +6657,7 @@ The HomeTogether team</pre>
 <script src="caregiver-profile-panel.js?v=20261001b"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
-<script src="standup-board.js?v=2"></script>
+<script src="standup-board.js?v=3"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -24941,6 +24940,18 @@ function ccCapChips(){
   wk.innerHTML=h;
 }
 function ccCaptureClose(){ const d=document.getElementById('ccCapWrap'); if(d) d.style.display='none'; }
+/* "＋ Add" (2026-10-05): Stand-Up first (the team needs to know), then a personal reminder (Capture). */
+function ccAddOpen(anchor){
+  const el=ccPopOpen(anchor||document.getElementById('ccAddBtn'),
+    '<div style="font-size:13px;font-weight:800;color:var(--navy);margin:2px 2px 8px;">What are you adding?</div>'
+    +'<button class="primary" id="ccAddSu" style="width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;"><b>Stand-Up board</b><br>'
+    +'<span style="font-weight:400;font-size:12px;">The team needs to know: a call-out, a client or caregiver issue, anything for the morning huddle</span></button>'
+    +'<button class="ghost" id="ccAddCap" style="width:100%;text-align:left;padding:10px 12px;"><b>A reminder</b><br>'
+    +'<span style="font-weight:400;font-size:12px;">Lands on someone’s list (yours or a colleague’s) and comes back when it’s due</span></button>',
+    { width:320 });
+  el.querySelector('#ccAddSu').onclick=()=>{ ccPopClose(); if(typeof suEdit==='function') suEdit(); else switchTab('standup'); };
+  el.querySelector('#ccAddCap').onclick=()=>{ ccPopClose(); ccCaptureOpen(); };
+}
 function ccCaptureOpen(){
   let d=document.getElementById('ccCapWrap');
   if(!d){
