@@ -1233,6 +1233,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- 2026-10-05 (her call): the Stand-Up board's open items sit at the top of the Dashboard, so the board is the
            first thing the office sees, not a tab nobody opens. standup-board.js draws it. -->
       <div id="suTodayLine" style="margin-bottom:16px;"></div>
+      <!-- Today cockpit Phase 4 (2026-10-05): the Staffing view, open for whoever is on Staffing duty. staffing-view.js. -->
+      <div id="staffingView" style="margin-bottom:16px;"></div>
       <div id="todayGlance"></div>
       <div id="todayHero"></div>
       <!-- Booked today: interviews and assessments, the same two lists as the Morning Brief. -->
@@ -6668,7 +6670,8 @@ The HomeTogether team</pre>
 <script src="caregiver-profile-panel.js?v=20261001b"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
-<script src="standup-board.js?v=3"></script>
+<script src="standup-board.js?v=4"></script>
+<script src="staffing-view.js?v=1"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -7919,7 +7922,7 @@ function renderActiveTab(){
   if(activeTab==='hourswatch'){ swRenderAll(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
-  if(activeTab==='today'){ renderToday(); if(typeof suTodayRender==='function') suTodayRender(); }
+  if(activeTab==='today'){ renderToday(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); }
   if(activeTab==='mywork') renderMyWork();
   if(activeTab==='myrole') renderMyRole();
   if(activeTab==='myteam') renderMyTeam();

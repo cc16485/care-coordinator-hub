@@ -21,7 +21,7 @@
   const SU_KEY = 'standup_notes', TM_KEY = 'team_meetings';
   const SU_CATS = ['Caregiver / Scheduling', 'Client', 'Lead', 'Incident', 'General', 'Meeting action'];
   const SU_STATUS = { open: 'Open', working: 'Working on it', done: 'Done' };
-  const TM_NAMES = ['Weekly Team Meeting', 'Care Coordination Sync', 'Staffing Sync', 'All-Staff Meeting'];
+  const TM_NAMES = ['Weekly Team Meeting', 'Care Coordination Sync', 'Staffing Sync', 'All-Staff Meeting', 'Daily Stand-Up'];
   const AGE_AMBER_DAYS = 2, AGE_RED_DAYS = 5, REFRESH_MS = 45000;
   const SU = { items: null, at: 0, err: null, busy: null, f: { status: 'active', who: 'all', cat: 'all', q: '' } };
   const TM = { items: null, at: 0, err: null, busy: null, q: '', open: {}, showArchived: false, editing: null };
@@ -278,7 +278,7 @@
     box.innerHTML = '<div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">'
       + '<div><h2 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Stand-Up</h2>'
       + '<div class="field-note">What the team needs to know and act on: after-hours calls, call-outs, client and caregiver issues. Internal only; nothing here texts or emails anyone.</div></div>'
-      + '<span style="flex:1;"></span><button class="primary" onclick="suEdit()">＋ Add to Stand-Up</button></div>'
+      + '<span style="flex:1;"></span><button class="secondary" onclick="tmPrepare()">Prepare Stand-Up</button><button class="primary" onclick="suEdit()">＋ Add to Stand-Up</button></div>'
       + (SU.err ? '<div class="field-note" style="color:var(--red);margin-bottom:8px;">Couldn\'t refresh the board (' + esc(SU.err) + '). What you see may be out of date.</div>' : '')
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">'
       + tab('active', 'Open (' + act.length + ')') + tab('done', 'Done') + tab('archived', 'Archived')
@@ -384,6 +384,7 @@
       + ' · ' + mineC.open + ' open for you' + (mineC.urgent ? ' · ' + mineC.urgent + ' urgent' : '') + (mineC.overdue ? ' · ' + mineC.overdue + ' overdue' : '') + '</span>'
       + '<span style="flex:1;"></span>'
       + '<button class="primary" style="padding:6px 12px;font-size:12.5px;" onclick="suEdit()">＋ Add to Stand-Up</button>'
+      + '<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="tmPrepare()">Prepare Stand-Up</button>'
       + '<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="switchTab(\'standup\')">Open the board</button></div>'
       + (open.length ? open.slice(0, 5).map(row).join('')
           + (open.length > 5 ? '<div class="field-note" style="padding-top:6px;">plus ' + (open.length - 5) + ' more on the board</div>' : '')
@@ -437,7 +438,8 @@
     const months = {}; shown.forEach(m => { const k = String(m.meeting_date || '').slice(0, 7); (months[k] = months[k] || []).push(m); });
     const keys = Object.keys(months).sort().reverse();
     box.innerHTML = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">'
-      + '<button class="primary" onclick="tmEdit()">＋ Log a meeting</button>'
+      + '<button class="primary" onclick="tmPrepare()">Prepare Stand-Up</button>'
+      + '<button class="secondary" onclick="tmEdit()">＋ Log a meeting</button>'
       + '<input placeholder="Search notes and action items" value="' + esc(TM.q) + '" oninput="tmSearch(this.value)" style="width:240px;font-size:12.5px;padding:5px 8px;">'
       + '<label class="field-note" style="display:flex;gap:6px;align-items:center;"><input type="checkbox" style="width:auto;"' + (TM.showArchived ? ' checked' : '') + ' onchange="tmShowArchived(this.checked)"> Show archived</label>'
       + (TM.err ? '<span class="field-note" style="color:var(--red);">Couldn\'t refresh (' + esc(TM.err) + ')</span>' : '') + '</div>'
@@ -543,6 +545,100 @@
     }catch(e){ if(w) w.close(); say('Could not open the team video room just now. Try again in a moment.'); }
   }
 
+
+  /* ---------------------------------------------- Prepare Stand-Up (Phase 4) ----------------------------------------------
+     Her words (2026-10-05): "The Hub should automatically assemble unresolved/high-risk items, coverage concerns, client
+     issues, staffing issues, promises due, and yesterday's carryovers. The team can then review that short list together
+     and make decisions." One list, each item once, in that order. For each: who has it, and room to decide (owner, by
+     when, a note). Log this stand-up writes the decisions onto the items themselves (with the history saying "Stand-up")
+     and keeps the meeting under Team Meetings as "Daily Stand-Up". Nothing is texted or emailed. */
+  function prepList(){
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+    const tom = new Date(Date.now() + 864e5).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+    const eod = (() => { const e = new Date(); e.setHours(23, 59, 59, 999); return e.getTime(); })();
+    const ops = ((typeof DATA !== 'undefined' && DATA.ops_items) || []).filter(i => i && i.status === 'open');
+    const seen = new Set(), out = [];
+    const ownerTag = i => (typeof opsOwnerTag === 'function' ? opsOwnerTag(i) : (i.owner_name || i.owner || 'Unassigned'));
+    const add = (sec, kind, id, title, sub) => { const k = kind + ':' + id; if(seen.has(k)) return; seen.add(k); out.push({ sec, kind, id: String(id), title, sub }); };
+    const tier0 = i => typeof opsPriorityKey === 'function' && opsPriorityKey(i)[0] === 0;
+    ops.filter(i => i.urgency === 'urgent' || (i.escalation && !i.escalation.cleared_at && i.escalation.level === 'urgent') || tier0(i))
+      .forEach(i => add('Urgent and high-risk, not resolved', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
+    ((typeof DATA !== 'undefined' && DATA.coverage_cases) || []).filter(c => c && c.status === 'open' && String(c.kind) !== 'interest' && [today, tom].includes(String(c.shift_date)))
+      .sort((a, b) => String(a.shift_date + a.shift_time).localeCompare(String(b.shift_date + b.shift_time)))
+      .forEach(c => add('Coverage today and tomorrow', 'case', c.id, (c.client || 'Client') + ' · ' + (String(c.shift_date) === today ? 'today' : 'tomorrow') + ' '
+        + String(c.shift_time || '').split('-').map(x => { const m = /^(\d{1,2}):(\d{2})$/.exec(x.trim()); if(!m) return x; let h = +m[1]; const ap = h < 12 ? 'am' : 'pm'; h = h % 12 || 12; return h + (m[2] === '00' ? '' : ':' + m[2]) + ap; }).join('-'),
+        (c.calling_off ? c.calling_off + ' called off · ' : '') + ((c.asked || []).length ? (c.asked || []).length + ' asked' : 'nobody asked yet')));
+    ops.filter(i => i.kind === 'client_issue').forEach(i => add('Client issues', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
+    ops.filter(i => ['staffing_issue', 'evv_fix', 'coverage_outcome', 'family_call', 'coverage'].includes(i.kind)).forEach(i => add('Staffing issues', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
+    ops.filter(i => ['promise_update', 'promise_lapsed'].includes(i.kind) && Date.parse(i.due || '') <= eod).forEach(i => add('Promises due', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
+    suSort((SU.items || []).filter(i => !i.archived_at && i.status !== 'done')).forEach(i => add('Carried over: the Stand-Up board', 'su', i.id,
+      (i.urgent ? 'URGENT · ' : '') + (i.summary || ''), (i.assigned_to_email ? nameOf(i.assigned_to_email) : (i.assigned_to || 'Unassigned')) + ' · ' + suAge(i).label));
+    const c = tmCarry(TM.items || [], SU.items || [], today, 'Daily Stand-Up');
+    (c.open || []).forEach(i => add('Carried over: the Stand-Up board', 'su', i.id, i.summary || '', 'from ' + (c.prior ? c.prior.meeting_name : 'the last meeting')));
+    return out;
+  }
+  async function tmPrepare(){
+    await Promise.all([suLoad(true), tmLoad(true)]);
+    const list = people(), rows = prepList(), today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+    let lastSec = '';
+    const opt = list.map(p => '<option value="' + esc(p.email) + '">' + esc(p.name) + '</option>').join('');
+    const body = rows.map((r, n) => { const head = r.sec !== lastSec ? '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--text-muted);margin:12px 0 4px;">' + esc(r.sec.toUpperCase()) + '</div>' : ''; lastSec = r.sec;
+      return head + '<div class="prepRow" data-n="' + n + '" style="border:1px solid var(--border);border-radius:8px;padding:7px 9px;margin-bottom:5px;">'
+        + '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;"><label style="display:flex;gap:6px;align-items:baseline;flex:1 1 260px;min-width:0;"><input type="checkbox" class="prepDone" style="width:auto;margin:0;"><b style="color:var(--navy);">' + esc(r.title) + '</b></label>'
+        + '<span class="field-note">' + esc(r.sub || '') + '</span></div>'
+        + '<div class="su-grid" style="grid-template-columns:1fr 1fr 2fr;margin-top:5px;">'
+        + '<select class="prepOwner" style="font-size:12.5px;"><option value="">Owner: keep</option>' + opt + '</select>'
+        + '<input class="prepDue" type="date" title="By when" style="font-size:12.5px;">'
+        + '<input class="prepNote" placeholder="Decision or next step" style="font-size:12.5px;"></div></div>'; }).join('');
+    const el = pop('<div style="font-size:16px;font-weight:800;color:var(--navy);">Prepare Stand-Up · ' + esc(dayStr(today + 'T12:00:00')) + '</div>'
+      + '<div class="field-note" style="margin:3px 0 8px;">The Hub assembled this. Go down it together: tick what you discussed, and set an owner, a by-when or a decision where you made one. Logging writes each decision onto its item. Nothing is texted or emailed.</div>'
+      + (rows.length ? body : '<div class="field-note" style="padding:10px 0;">Nothing urgent, no open coverage for today or tomorrow, no client or staffing issues, no promises due, and the board is clear.</div>')
+      + '<div style="margin-top:10px;"><b style="font-size:12.5px;">Who was there</b><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">'
+      + list.map(p => '<label style="display:flex;gap:5px;align-items:center;font-size:13px;"><input type="checkbox" class="prepAtt" value="' + esc(p.email) + '" style="width:auto;margin:0;">' + esc(p.name) + '</label>').join('') + '</div></div>'
+      + '<div style="display:flex;gap:8px;margin-top:12px;"><button class="primary" id="prepLog">Log this stand-up</button><button class="secondary" id="prepCancel">Close without logging</button></div>',
+      780);
+    el.querySelector('#prepCancel').onclick = () => ccPopClose();
+    el.querySelector('#prepLog').onclick = async (ev) => {
+      ev.target.disabled = true;
+      const lines = [], who = me(), reviewed = [];
+      for(const node of el.querySelectorAll('.prepRow')){
+        const r = rows[Number(node.dataset.n)];
+        const owner = node.querySelector('.prepOwner').value, due = node.querySelector('.prepDue').value, note = node.querySelector('.prepNote').value.trim().slice(0, 500);
+        const done = node.querySelector('.prepDone').checked;
+        if(!(owner || due || note || done)) continue;
+        reviewed.push(r.kind + ':' + r.id);
+        const what = [owner ? 'owner ' + nameOf(owner, list) : '', due ? 'by ' + dayStr(due + 'T12:00:00') : '', note].filter(Boolean).join(', ');
+        lines.push('• ' + r.title + (what ? ': ' + what : ': discussed'));
+        try{
+          if(r.kind === 'ops'){
+            const it = (DATA.ops_items || []).find(x => String(x.id) === r.id); if(!it) continue;
+            if(owner && owner !== String(it.owner || '').toLowerCase() && typeof opsSetOwner === 'function') await opsSetOwner(it.id, owner, nameOf(owner, list), 'Stand-up' + (note ? ': ' + note : ''));
+            const it2 = (DATA.ops_items || []).find(x => String(x.id) === r.id) || it;
+            let touched = false;
+            if(due){ it2.due = new Date(due + 'T17:00:00').toISOString(); touched = true; }
+            if(note && !owner){ if(typeof opsLog === 'function') opsLog(it2, 'Stand-up: ' + note); touched = true; }
+            if(touched) await persist('ops_items', it2);
+          } else if(r.kind === 'su'){
+            await suMutate(r.id, (it, before) => { if(owner) it.assigned_to_email = owner; if(due) it.due = due;
+              if(note) it.updates = it.updates.concat([{ at: iso(), by: who.name, by_email: who.email, text: 'Stand-up: ' + note }]);
+              const d = suDiff(before, it, list); return d.length || note ? (d.length ? d : ['Discussed at stand-up']) : 'Discussed at stand-up'; });
+          } else if(r.kind === 'case'){
+            const fresh = (await readKey('coverage_cases')).find(x => String(x.id) === r.id);
+            if(fresh){ if(owner) fresh.owner = owner; if(note) fresh.note = [String(fresh.note || '').trim(), 'Stand-up (' + who.name + '): ' + note].filter(Boolean).join('\n');
+              if(owner || note) await persist('coverage_cases', fresh); }
+          }
+        }catch(e){ lines.push('  (could not save that decision: ' + String(e && e.message || e).slice(0, 80) + ')'); }
+      }
+      const att = [...el.querySelectorAll('.prepAtt:checked')].map(x => x.value);
+      const rec = { id: newId('tm_'), meeting_name: 'Daily Stand-Up', meeting_date: today, attendee_emails: att, attendees_other: '',
+        attendees: att.map(e => nameOf(e, list)).join(', '), notes: lines.length ? 'Decisions:\n' + lines.join('\n') : 'Reviewed the list; no changes.',
+        action_ids: [], carried_ids: rows.filter(r => r.kind === 'su').map(r => r.id), reviewed, items_on_list: rows.length,
+        source: 'prepare', created_at: iso(), created_by: who.name, history: [{ at: iso(), by: who.name, by_email: who.email, what: 'Logged from Prepare Stand-Up (' + rows.length + ' items, ' + reviewed.length + ' discussed)' }] };
+      await persist(TM_KEY, rec); (TM.items = TM.items || []).push(rec);
+      ccPopClose(); say('✓ Stand-up logged: ' + reviewed.length + ' discussed'); tmRender(); suRender(); suTodayRender();
+    };
+  }
+
   /* ---------------------------------------------- tab hooks ---------------------------------------------- */
   async function suOpen(){ suRender(); await suLoad(true); suRender(); }
   async function tmOpen(){ tmRender(); await Promise.all([tmLoad(true), suLoad(true)]); tmRender(); }
@@ -554,6 +650,6 @@
     }catch(e){}
   }, REFRESH_MS);
 
-  Object.assign(window, { suOpen, suRender, suSet, suEdit, suAct, suTodayRender, suTeamCountHtml, tmOpen, tmRender, tmToggle, tmSearch, tmShowArchived, tmEdit, tmAct, tmVideo,
+  Object.assign(window, { suOpen, suRender, suSet, suEdit, suAct, suTodayRender, suTeamCountHtml, tmOpen, tmRender, tmToggle, tmSearch, tmShowArchived, tmEdit, tmAct, tmVideo, tmPrepare, prepList,
     SUB: { suNorm, suAge, suSort, suFilter, suOpenFor, suDiff, tmPrior, tmCarry, safeUrl, isOverdue, SU, TM, SU_CATS } });
 })();
