@@ -8,6 +8,9 @@ async()=>{
   const alerts=[]; window.alert=m=>alerts.push(m);
   const shown=()=>{ const p=document.getElementById('tab-settings'); return !!p && (p.classList.contains('active') || getComputedStyle(p).display!=='none'); };
   document.getElementById('appScreen').classList.add('on');
+  /* the Hub reads the address once, up to 400ms after it is shown; let that happen first, or it can land mid-test
+     and open Settings a second time (a test timing race, not a page fault) */
+  await sleep(600);
   CC_ROLES=[]; CC_ROLES_CHECKED=false; CC_SETTINGS_PENDING=false;
   switchTab('cgdir'); await sleep(30);
   location.hash='#settings'; await sleep(150);
