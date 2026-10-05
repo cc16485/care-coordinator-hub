@@ -138,6 +138,12 @@ async()=>{
   ok('the nightly EVV-count item is NOT (it was getting through before)', !/EVV problems/.test(info.innerText));
   ok('the tile says "for you today" with My Work’s count', /\b7\s*for you today/i.test($('#todayGlance').innerText.replace(/\n/g,' ')) || new RegExp(myWorkBuckets().today.length+'\\s*for you today','i').test($('#todayGlance').innerText.replace(/\n/g,' ')), $('#todayGlance').innerText);
   CC_SINCE=[{ at:new Date().toISOString(), actor_name:'Jess Lee', summary:'closed the Smith (fake) case' }]; renderSinceYouLeft();
+  CC_SINCE=[{ at:new Date().toISOString(), actor_name:'Jess Lee', summary:'closed the Smith (fake) case', verb:'item_resolved' }]
+    .concat(Array.from({length:40},(_, i)=>({ at:new Date(Date.now()-i*1000).toISOString(), actor_name:'Cara', verb:'item_escalated', summary:"Escalated to Krystal Land: it's overdue (it was due Sep 26, 10:30 AM)" })));
+  renderSinceYouLeft();
+  ok('Cara\'s escalations are ONE line with a count and a link to the list, not 40 lines', /Cara · escalated 40 items to Krystal Land \(overdue\) · open the list/.test(info.innerText) && (info.innerText.match(/Escalated to Krystal/g)||[]).length===0, info.innerText.slice(0,800));
+  ok('the person\'s event still shows on its own line', /Jess Lee · closed the Smith \(fake\) case/.test(info.innerText));
+  ok('a sweep finding (ongoing-sweep) is not "came in after 5 PM"', (()=>{ DATA.ops_items.push({ id:'sw1', kind:'request', status:'open', about:'Sweep finding (fake)', created_by:'ongoing-sweep', created_at:new Date(Date.now()-3600e3).toISOString(), owner:'' }); renderTodayHero(); return !/Sweep finding \(fake\)/.test(document.getElementById('infoCard').innerText); })());
   ok('what the team did shows INSIDE the same card; the old separate panel stays empty', /WHAT THE TEAM DID SINCE YOU WERE LAST HERE/.test(info.innerText) && /Jess Lee · closed the Smith \(fake\) case/.test(info.innerText) && ($('#sylWrap')?$('#sylWrap').innerHTML==='':true));
 
   /* small fixes */

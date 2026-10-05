@@ -10075,7 +10075,7 @@ function renderTodayHero(){
      created_at overnight, and 20 machine rows drown the 3 human ones. */
   /* 2026-10-05 fix: the nightly checks stamp WHO made the item in created_by ("attendance-watch"), not opened_by, so
      all of them got through. Robots are recognised by either field now. */
-  const robot=/^automation:|^(attendance|coverage|timekeeper)-watch$|^timekeeper$|-run$|^cara$/i;
+  const robot=/^automation:|^(attendance|coverage|timekeeper)-watch$|^timekeeper$|-run$|-sweep$|^cara$/i;   // -sweep: e.g. ongoing-sweep (2026-10-05)
   const humanBorn=i=>!robot.test(String(i.created_by||'')) && !robot.test(String(i.opened_by||''));
   const onOps=open.filter(i=>born(i.created_at)&&humanBorn(i))
     .sort((a,c)=>String(c.created_at||'').localeCompare(String(a.created_at||'')));   // newest first
@@ -25303,15 +25303,28 @@ function renderSinceYouLeft(){
     return;
   }
   if(empty) empty.style.display='none';
+  /* 2026-10-05: Cara's escalations are one line, not one per item (routing's first pass escalated the whole overdue
+     backlog and filled this card). The items themselves are on My Work's "Escalated to you". */
+  const escEv=CC_SINCE.filter(e=>e.verb==='item_escalated');
+  const rest=CC_SINCE.filter(e=>e.verb!=='item_escalated');
+  const byTo={};
+  escEv.forEach(e=>{ const m=/^Escalated to (.+?): /.exec(String(e.summary||'')); const to=m?m[1]:'someone';
+    const k=to; (byTo[k]=byTo[k]||{to, n:0, overdue:0, at:e.at}); byTo[k].n++; if(/overdue/.test(String(e.summary||''))) byTo[k].overdue++; if(String(e.at)>String(byTo[k].at)) byTo[k].at=e.at; });
+  const meName=String((ME&&ME.name)||'').toLowerCase();
+  const escLines=Object.values(byTo).map(g=>'<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+    +'<span class="field-note">'+esc(callsFmtWhen(g.at))+'</span> · <b>Cara</b> · escalated '+g.n+' item'+(g.n===1?'':'s')+' to '+esc(g.to)
+    +(g.overdue===g.n?' (overdue)':g.overdue?' ('+g.overdue+' overdue)':'')
+    +(String(g.to).toLowerCase()===meName?' · <span style="cursor:pointer;text-decoration:underline;" onclick="switchTab(\'mywork\');myWorkGo(\'escalated\')">open the list</span>':'')+'</div>').join('');
   box.innerHTML='<div style="display:flex;align-items:baseline;gap:10px;margin:10px 0 2px;">'
     +'<b style="font-size:11.5px;letter-spacing:.06em;color:var(--text-muted);">WHAT THE TEAM DID SINCE YOU WERE LAST HERE</b>'
     +'<span style="flex:1;"></span>'
     +'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="CC_SINCE=[];renderSinceYouLeft()">mark as seen</span></div>'
-    +CC_SINCE.slice(-30).map(e=>
+    +escLines
+    +rest.slice(-30).map(e=>
       '<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;">'
       +'<span class="field-note">'+esc(callsFmtWhen(e.at))+'</span> · <b>'
       +esc(e.actor_name||e.actor_email||'system')+'</b> · '+esc(e.summary||e.verb)+'</div>').join('')
-    +(CC_SINCE.length>30?'<div class="field-note" style="margin-top:4px;">'+(CC_SINCE.length-30)+' earlier entr'+(CC_SINCE.length-30===1?'y':'ies')+' not shown</div>':'');
+    +(rest.length>30?'<div class="field-note" style="margin-top:4px;">'+(rest.length-30)+' earlier entr'+(rest.length-30===1?'y':'ies')+' not shown</div>':'');
 }
 
 async function opsSetOwner(id, email, name, note){
