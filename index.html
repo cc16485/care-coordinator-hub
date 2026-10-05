@@ -12762,7 +12762,7 @@ async function generateCarePlan(){
     });
     renderAssessments();
   }catch(e){
-    box.textContent = 'Could not draft: '+(e&&e.message?e.message:'error')+' — you can still fill the plan by hand.';
+    box.textContent = 'Could not draft: '+(e&&e.message?e.message:'error')+'. You can still fill the plan by hand.';
   }
 }
 /* One profile, step 4: start dates have ONE editor, the Start Contract. The care plan shows its target
@@ -33658,7 +33658,7 @@ async function swEvvText(key){
   var first=(cg&&cg.first)||String(r.caregiver).split(' ')[0];
   var clientFirst=String(r.client).split(' ')[0];
   var when=(r.date===ccChiToday()?'today':'yesterday');
-  var msg='Hi '+first+", it's the Caring Companions office. Your "+when+' visit with '+clientFirst+' is missing its '+r.miss.replace('no ','')+' in AxisCare. Please complete the EVV correction form and have the client sign it: sc.mo-care.com/evv-correction-form — thank you!';
+  var msg='Hi '+first+", it's the Caring Companions office. Your "+when+' visit with '+clientFirst+' is missing its '+r.miss.replace('no ','')+' in AxisCare. Please complete the EVV correction form and have the client sign it. Thank you! sc.mo-care.com/evv-correction-form';
   if(!phone){
     try{ await navigator.clipboard.writeText(msg); }catch(e){}
     alert('No phone on file for '+r.caregiver+' in the hub roster. The message is copied — paste it into a text from your phone, then it will be logged as texted.');
@@ -37870,7 +37870,7 @@ function renderNurseVisits(){
         const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
           method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
           body:JSON.stringify({action:'send_sms', phone, first_name:first,
-            message:'Hi '+first+'! Update about '+c.name+': '+msg+' — Caring Companions'})});
+            message:'Hi '+first+'! Update about '+c.name+': '+msg+'\nCaring Companions'})});
         const d=await r.json();
         if(d&&d.status==='sent'){ sent.push(cg); await logUpdate(key,c.name,cg,'sms',msg); }
         else failed.push(cg);
