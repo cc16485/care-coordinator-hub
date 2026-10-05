@@ -747,6 +747,22 @@ window.AP_JOURNEY = [
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true
+ },
+ {
+  "stage": "current caregivers (profile catch-up)",
+  "order": 35,
+  "name": "Caregiver profile link (current caregivers fill it in themselves)",
+  "trigger": "The office presses Caregivers → '🪪 Profiles' → 'Send profile links to everyone who needs one' (or 'Send again to those waiting 3+ days'), sees who gets it and who can't be reached, confirms. One caregiver at a time: their page → '🪪 Caregiver profile' → 'Set up their link (they fill it in)' → 'Send profile link'.",
+  "automatic": false,
+  "button": "Caregivers → '🪪 Profiles' → 'Send profile links to everyone who needs one' / 'Send again to those waiting 3+ days'; or the employee's page → '🪪 Caregiver profile' → 'Send profile link'",
+  "timing": "Immediately when pressed. Only caregivers already working with us (hired before 2026-10-02) who have no published profile; new hires keep the welcome-call photo link.",
+  "channel": "text + email",
+  "rule": "Texts 8am–6pm Central only, never to someone whose application said no to texts, and they end with \"Reply STOP to opt out.\" The email always goes. Anything not sent is shown to the office and refused messages raise a Needs Attention card. On their page they answer three questions in their own words ('Help me say it' and 'Check my spelling' are there if they want them), add a photo AND a short video (both required for them), and tick the permission, which is required. The office checks and publishes.",
+  "subject": "Your Caring Companions profile: 3 questions, a photo and a short video",
+  "text": "Hi {first}, it's Caring Companions! We're adding a short profile that our families see before you visit, so they know who's coming. Please fill it in yourself here: https://cc.mo-care.com/caregiver-profile.html?t=.. Answer 3 short questions in your own words, and add a friendly photo and a short hello video. It takes about 10 minutes. Reply STOP to opt out.",
+  "email_summary": "We're adding a short profile families see before you visit; please fill yours in yourself, about 10 minutes: 1. answer 3 short questions in your own words, 2. a friendly photo (a phone selfie in good light, shoulders up), 3. a short hello video of about 30 seconds; 'Fill in my profile' button; the link is just for you; office phone.",
+  "shows_in_ghl": true,
+  "failure_visible": true
  }
 ];
 window.AP_JOURNEY_ISSUES = [];
