@@ -94,6 +94,13 @@ async()=>{
   ok('...then red flag texts (8am to 9pm only, it says so)', /between 8am and 9pm only/.test(asked[1]) && window.__merged.at(-1).m.care_notes_red_text_live===true);
   btns()[0].click(); await sleep(150);
   ok('...turning red and yellow flags off turns the texts off too', window.__merged.at(-1).m.care_notes_levels_live===false && window.__merged.at(-1).m.care_notes_red_text_live===false && DATA.ops_settings.care_notes_red_text_live===false);
+  // the Dashboard's overnight list
+  const rowF=(m,sub,tab)=>'<div class="hero-row" onclick="switchTab(\''+tab+'\')"><div class="m">'+m+'<div class="sub">'+sub+'</div></div></div>', whenF=()=>'9:15am this morning';
+  const dv=document.createElement('div');
+  dv.innerHTML=dashOvernightRow(Object.assign({}, DATA.ops_items.find(x=>x.id==='ops_carenote_red2')), rowF, whenF, '');
+  ok('Dashboard overnight: a red flag says Red flag and why, not the first words of the note', /Red flag/.test(dv.innerText) && /Ruth slipped getting out of the bath/.test(dv.innerText) && !/wrote after/.test(dv.innerText) && /suOpenWork\('ops_carenote_red2'\)/.test(dv.innerHTML), dv.innerHTML);
+  dv.innerHTML=dashOvernightRow({ id:'old9', kind:'care_note', about:'Nora Fine (fake)', title:"Possible concern on Nora's Tue, Oct 6 visit: something else worth a look", detail:'Kim wrote after the visit: "x"' }, rowF, whenF, '');
+  ok('...an older flag says what it is ("Shift note", "Possible concern: ...")', /Shift note/.test(dv.innerText) && /Possible concern: Nora's Tue, Oct 6 visit/.test(dv.innerText) && !/wrote after/.test(dv.innerText), dv.innerText);
   ok('nothing was texted or emailed', window.__log.fn.length===0 && window.__log.rpc.length===0);
   window.__me={ email:'krystal@mo-care.com', name:'Krystal Land' }; (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Land', shift:'day' };");
   return R;

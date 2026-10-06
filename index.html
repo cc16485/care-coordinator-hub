@@ -10194,8 +10194,7 @@ function renderTodayHero(){
   const sec=(title,body)=>'<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--text-muted);margin:10px 0 2px;">'+esc(title)+'</div>'+body;
   let info='';
   if(onOps.length||onLeads.length) info+=sec('CAME IN AFTER 5 PM '+((new Date().getDay()===1)?'FRIDAY':'YESTERDAY'),
-    onOps.slice(0,8).map(i=>row('<b>'+esc(i.about||i.title||'')+'</b> '+((i.urgency==='high'||i.urgency==='urgent')?urgent:''),
-      [String(i.detail||'').slice(0,110), when(i.created_at), i.created_by?String(i.created_by).split('@')[0]:''].filter(Boolean).map(esc).join(' · '),'mywork')).join('')
+    onOps.slice(0,8).map(i=>dashOvernightRow(i,row,when,urgent)).join('')
     +onLeads.slice(0,4).map(l=>row('<b>New lead: '+esc([l.first_name,l.last_name].filter(Boolean).join(' '))+'</b>'
       +(/quick capture|assessment booking/i.test(String(l.source||''))?' <span class="hero-badge" style="background:#FFF4DE;color:#B45309;">quick form</span>':''),
       esc(String(l.interest_notes||'').slice(0,100))+' · '+esc(when(l.created_at)),'leadsstarts')).join('')
@@ -25597,6 +25596,20 @@ function myWorkStrips(){
         +strip('WATCHING','comes back on its own',watching);
 }
 
+/* One overnight row. A shift-note flag says red or yellow and why (2026-10-06, Samantha: "the notes arent showing the
+   updates we made"), not the first words of the caregiver's note; an older flag says what it is. Clicking opens the card
+   on My Work. */
+function dashOvernightRow(i,row,when,urgent){
+  const esc=escapeHtmlComms;
+  if(i.kind==='care_note'){
+    const lv=i.level==='red'?['Red flag','#FCEBEB','#A32D2D']:i.level==='yellow'?['Yellow flag','#FAEEDA','#854F0B']:i.level==='unread'?['Please read','#EEF1F5','#3C4A58']:null;
+    const main='<b>'+esc(i.about||'')+'</b> '+(lv?'<span class="hero-badge" style="background:'+lv[1]+';color:'+lv[2]+';">'+lv[0]+'</span>':'<span class="hero-badge" style="background:#EEF1F5;color:#3C4A58;">Shift note</span>');
+    const sub=[lv?(i.why||i.flag_kind||''):String(i.title||'').replace(/^Possible concern on /,'Possible concern: '), when(i.created_at)].filter(Boolean).map(esc).join(' · ');
+    return row(main, sub, 'mywork').replace('onclick="switchTab(\'mywork\')"','onclick="if(typeof suOpenWork===\'function\')suOpenWork(\''+esc(String(i.id).replace(/[^A-Za-z0-9_-]/g,''))+'\');else switchTab(\'mywork\')"');
+  }
+  return row('<b>'+esc(i.about||i.title||'')+'</b> '+((i.urgency==='high'||i.urgency==='urgent')?urgent:''),
+    [String(i.detail||'').slice(0,110), when(i.created_at), i.created_by?String(i.created_by).split('@')[0]:''].filter(Boolean).map(esc).join(' · '),'mywork');
+}
 function renderSinceYouLeft(){
   /* Lives inside the one information card on the Dashboard (#sylSlot). The old separate panel (#sylWrap) stays empty. */
   const old=document.getElementById('sylWrap'); if(old) old.innerHTML='';
