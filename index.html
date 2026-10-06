@@ -6734,6 +6734,29 @@ The HomeTogether team</pre>
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
+<script>
+/* NO SILENT FAILURES ON THE PAGE (2026-10-06: buttons, ticks and My Work sub-tabs did nothing on Samantha's screen and the
+   same clicks worked everywhere we could test). A script error used to fail quietly; now it shows a small red note
+   with what broke, where, so the next click says why. Never more than one note every 10 seconds; the last few are kept
+   in window.__ccErrors. Nothing is sent anywhere. */
+(function(){
+  let last=0; window.__ccErrors=[];
+  function show(msg, where){
+    const m=String(msg||'unknown error').slice(0,180), w=String(where||'').split('/').pop().slice(0,80);
+    window.__ccErrors.push({ at:new Date().toISOString(), msg:m, where:w }); if(window.__ccErrors.length>20) window.__ccErrors.shift();
+    if(/ResizeObserver loop|Script error\.?$/.test(m)) return;
+    const n=Date.now(); if(n-last<10000) return; last=n;
+    let el=document.getElementById('ccErrNote');
+    if(!el){ el=document.createElement('div'); el.id='ccErrNote';
+      el.style.cssText='position:fixed;left:16px;bottom:16px;z-index:99999;max-width:520px;background:#FCEBEB;color:#7A1F1F;border:1px solid #E7A0A0;border-radius:10px;padding:10px 32px 10px 12px;font:13px/1.4 system-ui,sans-serif;box-shadow:0 8px 20px -8px rgba(0,0,0,.35);';
+      el.addEventListener('click',()=>{ el.remove(); }); document.body.appendChild(el); }
+    el.innerHTML='<b>Something on this page didn\'t work.</b> Tell Claude (a screenshot is perfect):<br><code style="font-size:12px;">'
+      +m.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+(w?' · '+w.replace(/[&<>]/g,''):'')+'</code><span style="position:absolute;right:10px;top:6px;cursor:pointer;">×</span>';
+  }
+  window.addEventListener('error', e=>{ if(e && e.message) show(e.message, (e.filename||'')+(e.lineno?':'+e.lineno:'')); });
+  window.addEventListener('unhandledrejection', e=>{ const r=e&&e.reason; show(r&&r.message?r.message:String(r||'a step that waits failed'), r&&r.stack?String(r.stack).split('\n')[1]:''); });
+})();
+</script>
 <script src="shift-flags.js?v=1"></script>
 <script src="standup-board.js?v=8"></script>
 <script src="staffing-view.js?v=1"></script>
