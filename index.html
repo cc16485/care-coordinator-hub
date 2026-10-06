@@ -3921,6 +3921,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" id="suSettings" data-set="talk-emails">
+<h3>💬 To talk about emails</h3>
+<p class="hint">When someone tags a person or replies on To talk about, everyone on that thread except the writer gets one email with the whole card and the thread, and a button to open it in the Hub. Office staff only; never clients or families.</p>
+<div id="suSet"></div>
+</div>
 <div class="settings-section" id="cnSettings" data-set="shift-flags">
 <h3>🚩 Shift-note flags</h3>
 <p class="hint">Every two hours the Hub reads the caregivers' shift notes. Red flags (act today) and yellow flags (look within 24 hours) go to whoever owns Client Care; red ones also show on the Incidents owner's My Work. Nothing is sent to a family or caregiver by itself.</p>
@@ -6758,7 +6763,7 @@ The HomeTogether team</pre>
 })();
 </script>
 <script src="shift-flags.js?v=1"></script>
-<script src="standup-board.js?v=8"></script>
+<script src="standup-board.js?v=9"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
 <script src="desk.js?v=9"></script>
@@ -14210,6 +14215,7 @@ function fillSettingsPanel(){
   try{ cpSetFill(); cpLoad(); }catch(_){}
   try{ mnSetFill(); }catch(_){}
   try{ if(typeof cnSetFill==='function') cnSetFill(); }catch(_){}
+  try{ if(typeof suSetFill==='function') suSetFill(); }catch(_){}
   try{ lnSetFill(); }catch(_){}
   try{ cbFill(); }catch(_){}
   tkFill();
