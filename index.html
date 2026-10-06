@@ -1243,6 +1243,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            first thing the office sees, not a tab nobody opens. standup-board.js draws it. -->
       <!-- Today cockpit Phase 5 (2026-10-05): an end-of-shift handoff to me sits on top until I tap Got it. end-shift.js. -->
       <div id="hoCardDash"></div>
+      <!-- My Desk (Stage 5, her yes 2026-10-06): one line about MY OWN desk. Owners never see anyone else's desk numbers here. desk.js. -->
+      <div id="dkDashLine"></div>
       <div id="suTodayLine" style="margin-bottom:16px;"></div>
       <!-- Today cockpit Phase 4 (2026-10-05): the Staffing view, open for whoever is on Staffing duty. staffing-view.js. -->
       <div id="staffingView" style="margin-bottom:16px;"></div>
@@ -6730,7 +6732,7 @@ The HomeTogether team</pre>
 <script src="standup-board.js?v=5"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=2"></script>
-<script src="desk.js?v=4"></script>
+<script src="desk.js?v=5"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -7981,7 +7983,7 @@ function renderActiveTab(){
   if(activeTab==='hourswatch'){ swRenderAll(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
-  if(activeTab==='today'){ renderToday(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
+  if(activeTab==='today'){ renderToday(); if(typeof dkDashRender==='function') dkDashRender(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
   if(activeTab==='mywork'){ renderMyWork(); if(typeof hoRefresh==='function') hoRefresh(); }
   if(activeTab==='myrole') renderMyRole();
   if(activeTab==='myteam') renderMyTeam();
@@ -26424,6 +26426,10 @@ function myWorkCard(it, i){
   if(it.sub_state==='waiting' && !it.check_back)
     h+='<button class="ghost" style="padding:6px 13px;font-size:12.5px;color:var(--red);" '
       +'onclick="opsWaitOpen(\''+it.id+'\',\'act_'+it.id+'\')">Set a wake-up</button>';
+  /* My Desk (Stage 5, her yes 2026-10-06): my own steps for this card, with a paperclip back to it. Ticking them never
+     closes the card. */
+  if(typeof dkAllowed==='function' && dkAllowed())
+    h+='<button class="ghost" style="padding:6px 13px;font-size:12.5px;" onclick="dkJotWork(\''+it.id+'\',this)">Jot on my desk</button>';
   h+='</div>';
 
   const trail=opsOwnerTrail(it);

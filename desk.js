@@ -19,7 +19,12 @@
    lists tray cards first; afterwards they come back "talked about": All set, or Something to do), the tray's label from the
    Stand-Up schedule in Team Meetings, "Jot on my desk" in ＋ Add, a desk step in End My Shift that moves the ribbon to
    the next page, and the Friday "Your week" card (no totals, never compared).
-   LATER STAGES: the desk following you around the Hub (5); kind words (6).
+   STAGE 5 ADDS: the desk follows you around the Hub. A yellow My Desk tab on every screen (or N) opens today's page in
+   a drawer; jotting from a client, caregiver, applicant or My Work card adds a paperclip back to it; select any words and
+   "Jot it on my desk"; a small "On your desk" note on a profile when lines are about them; phone numbers written on a
+   line call from the office line; "Make it a Hub follow-up" (the one bridge into My Work, always a person's tap);
+   "Jot on my desk" on My Work cards; one line on your own Dashboard (never anyone else's numbers).
+   LATER STAGES: kind words (6).
 
    WHERE IT LIVES: the private tables made by Desktop 463 (desk_lines, desk_stickies, desk_settings, desk_pages). The
    database decides who may read or change what; this file never assumes it may. Each line is saved on its own, with its
@@ -62,6 +67,11 @@
     const h = +m[1]; if(h < 1 || h > 12) return null;
     let ap = (m[3] || '').toLowerCase().replace(/\./g, ''); if(!ap) ap = (h >= 7 && h <= 11) ? 'am' : 'pm';
     return h + ':' + (m[2] || '00') + ' ' + ap.toUpperCase();
+  }
+  const PROMISE = /\b(call|text|email|ring)\b.*\b(back|tomorrow|monday|tuesday|wednesday|thursday|friday)\b|\btold\b.*\bI'?d\b|\bpromised\b|\bget back to\b|\bwill call\b/i;
+  /* A phone number written on a line calls from the office line (office-call.js), never a bare tel: link. */
+  function linkify(t){
+    return esc(t).replace(/\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g, m => typeof ocAttrs === 'function' ? '<a class="dk-phone"' + ocAttrs(m) + '>' + m + '</a>' : m);
   }
   function carryInfo(line, day){
     if(!day || !line.origin_day || line.kind !== 'todo') return null;
@@ -355,10 +365,10 @@
     const l = lineById(id); if(!l || l.kind !== 'todo') return;
     action(null, ctx => ctx.setLine(id, { done_at: l.done_at ? null : new Date().toISOString() }));
   }
-  function addLine(text, note, onDay){
+  function addLine(text, note, onDay, link){
     text = String(text || '').trim().slice(0, 1000); if(!text) return;
     const day = onDay || DK.day, arr = inPlace(DK.lines, 'day', day);
-    action(null, ctx => ctx.addLine({ place:'day', day, origin_day:day, pos:(arr.length ? arr[arr.length - 1].pos : 0) + 1, kind:note ? 'note' : 'todo', body:text, time_text:note ? null : parseTime(text) }));
+    action(null, ctx => ctx.addLine({ place:'day', day, origin_day:day, pos:(arr.length ? arr[arr.length - 1].pos : 0) + 1, kind:note ? 'note' : 'todo', body:text, time_text:note ? null : parseTime(text), link:link || null }));
   }
   function nudge(id, dir){
     const l = lineById(id); if(!l) return;
@@ -385,9 +395,11 @@
     const grip = R ? '' : '<span class="dk-grip" aria-hidden="true">' + icon('grip') + '</span>';
     const attrs = ' data-dkid="' + l.id + '" data-idx="' + idx + '" tabindex="0"' + (R ? '' : ' data-dkdrag="line"');
     const ed = R ? '' : ' data-dk="edit"';
-    if(l.kind === 'note') return '<li class="dk-row dk-note"' + attrs + '>' + grip + '<span class="dk-tw"' + jit + '><span class="dk-txt"' + ed + '>' + esc(l.body) + '</span></span>' + tools + '</li>';
+    if(l.kind === 'note') return '<li class="dk-row dk-note"' + attrs + '>' + grip + '<span class="dk-tw"' + jit + '><span class="dk-txt"' + ed + '>' + linkify(l.body) + '</span></span>' + tools + '</li>';
     const c = carryInfo(l, day), c4 = c && c.n >= 4 && !l.done_at;
     const chips = [];
+    if(l.link && l.link.type && l.link.type !== 'work' && l.link.name) chips.push('<button class="dk-chip dk-clip" data-dk="link" title="Open ' + esc(l.link.name) + '">' + icon('clip') + esc(l.link.name) + '</button>');
+    if(l.link && (l.link.type === 'work' || l.link.work_id)) chips.push('<button class="dk-chip dk-work" data-dk="link" data-work="1" title="Open it in My Work">' + icon('clip') + 'My Work</button>');
     if(l.time_text && !l.done_at) chips.push('<span class="dk-chip dk-time">' + icon('clock') + esc(l.time_text) + '</span>');
     if(c) chips.push('<span class="dk-chip dk-carry' + (c4 ? ' dk-carry4' : '') + '">' + esc(c.label) + '</span>');
     if(c4 && R && iOwn()) chips.push('<span class="dk-chip dk-hand">might need a hand?</span>');
@@ -396,9 +408,10 @@
     return '<li class="dk-row' + (l.done_at ? ' dk-done' : '') + (c4 ? ' dk-c4' : '') + '"' + attrs + (R && iOwn() && l.done_at ? ' data-dk="ostar" title="' + (l.owner_star_by ? 'Take your star back' : 'Give this a star') + '"' : '') + '>' + star
       + (c4 ? '<svg class="dk-marginclip" aria-hidden="true"><use href="#dk-clip"/></svg>' : '') + grip
       + '<button class="dk-cb" ' + (R ? 'disabled tabindex="-1"' : 'data-dk="toggle"') + ' aria-label="' + (l.done_at ? 'Uncheck' : 'Check off') + '"><svg viewBox="0 0 24 24"><use href="#dk-box"/><path class="dk-tick" d="' + TICKS[h % 3] + '"/></svg></button>'
-      + '<span class="dk-tw"' + jit + '><span class="dk-txt"' + ed + '>' + esc(l.body) + '</span>'
+      + '<span class="dk-tw"' + jit + '><span class="dk-txt"' + ed + '>' + linkify(l.body) + '</span>'
       + (l.circle ? '<svg class="dk-circ" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M8 6 C30 -1 80 0 95 9 C102 16 90 28 50 28 C14 28 -2 22 3 13 C6 7 16 4 26 3"/></svg>' : '')
-      + (chips.length ? '<span class="dk-chips">' + chips.join('') + '</span>' : '') + '</span>' + ost + tools + '</li>';
+      + (chips.length ? '<span class="dk-chips">' + chips.join('') + '</span>' : '') + '</span>' + ost + tools + '</li>'
+      + (!R && !l.done_at && PROMISE.test(l.body) && !(l.link && (l.link.work_id || l.link.nohint || l.link.type === 'work')) ? '<li class="dk-hint" data-for="' + l.id + '">This sounds like a promise to a family. Want the Hub to keep track of it too? <button class="dk-yes" data-dk="follow" data-id="' + l.id + '">Make it a Hub follow-up</button><button data-dk="nohint" data-id="' + l.id + '">Just for me</button></li>' : '');
   }
   function pageHtml(day, cls){
     const d = D(day), arr = inPlace(DK.lines, 'day', day), prev = prevBiz(day), next = nextBiz(day), t = T();
@@ -511,10 +524,10 @@
   async function ownDesk(){
     if(DK.meEmail !== myEmail() || !DK.loaded || ro()){ DK.view = 'day'; await openDesk(null); }
   }
-  async function dkQuickJot(text, note){
+  async function dkQuickJot(text, note, link){
     if(!dkAllowed()) return false;
     await ownDesk(); if(!DK.me) return false;
-    addLine(text, note, T()); return true;
+    addLine(text, note, T(), link || null); drawerRender(); return true;
   }
   function dkJotOpen(anchor){
     if(typeof ccPopOpen !== 'function') return;
@@ -545,7 +558,147 @@
       if(what === 'next') moveLine(id, { place:'day', day:nextBiz(T()) }, true); else if(what === 'later') moveLine(id, { place:'later' }, true); else if(what === 'tray') moveLine(id, { place:'tray' }, true); });
     setPage(T(), { wrapped_at:new Date().toISOString() }); render();
   }
-  function dkRefresh(){ if($('#dkRoot')) render(); }
+  function dkRefresh(){ if($('#dkRoot')) render(); drawerRender(); }
+
+  /* ---------------------------------------------- the desk follows you around the Hub (Stage 5) ---------------------------------------------- */
+  const vis = el => !!el && el.style.display !== 'none' && el.offsetParent !== null;
+  /* What the person is looking at right now: a client or lead profile, a caregiver, an applicant. Read from the Hub's own
+     open-profile state; never guessed from names. */
+  function deskContext(){
+    try{ if(vis(document.getElementById('leadProfileView')) && typeof CP !== 'undefined' && (CP.ax || CP.lead)){
+      const name = (CP.r && CP.r.client_name) || (typeof cpLeadClientName === 'function' && CP.lead ? cpLeadClientName(CP.lead) : '') || 'this client';
+      return { type:CP.ax ? 'client' : 'lead', ax:String(CP.ax || ''), lead_id:CP.lead ? String(CP.lead.id) : '', name:String(name).slice(0, 80) }; } }catch(e){}
+    try{ const f = document.getElementById('cgdFull'); if(f && f.style.display === 'block' && typeof CGD !== 'undefined' && CGD.openId){
+      const c = ((CGD.census && CGD.census.caregivers) || []).find(x => String(x.id) === String(CGD.openId));
+      return { type:'caregiver', id:String(CGD.openId), name:(c ? (c.first + ' ' + c.last).trim() : 'this caregiver').slice(0, 80) }; } }catch(e){}
+    try{ const a = document.getElementById('applicantProfileView'); if(a && a.style.display === 'block' && typeof AP_PROF !== 'undefined' && AP_PROF){
+      return { type:'applicant', id:String(AP_PROF.id), name:([AP_PROF.first_name, AP_PROF.last_name].filter(Boolean).join(' ') || 'this applicant').slice(0, 80) }; } }catch(e){}
+    return null;
+  }
+  const sameAs = (a, b) => !!a && !!b && a.type !== 'work' && ((a.ax && a.ax === b.ax) || (a.lead_id && a.lead_id === b.lead_id) || (a.id && a.type === b.type && a.id === b.id));
+  /* A paperclip opens what it is clipped to. */
+  function openLink(link, work){
+    try{
+      if(work || link.type === 'work'){ const id = link.work_id || link.id; switchTab('mywork'); setTimeout(() => { const c = document.querySelector('.wkcard[data-id="' + (window.CSS && window.CSS.escape ? window.CSS.escape(id) : id) + '"]');
+          if(c){ c.scrollIntoView({ block:'center', behavior:'smooth' }); c.classList.add('dk-flash'); setTimeout(() => c.classList.remove('dk-flash'), 1600); } else say('That one isn\'t on your My Work list any more.'); }, 400); return; }
+      if(link.type === 'client' || link.type === 'lead'){ if(typeof openClient === 'function') openClient(link.ax ? { ax:link.ax } : { lead_id:link.lead_id }); return; }
+      if(link.type === 'caregiver'){ switchTab('cgdir'); let n = 0; const t = setInterval(() => { n++; if(typeof CGD !== 'undefined' && CGD.census){ clearInterval(t); cgdOpenProfile(link.id); } else if(n > 40) clearInterval(t); }, 250); return; }
+      if(link.type === 'applicant'){ switchTab('applicants'); setTimeout(async () => { try{ if(!AP_ROWS.length && typeof apLoad === 'function') await apLoad(); apOpenProfile(link.id); }catch(e){} }, 300); return; }
+    }catch(e){ say("Couldn't open that just now."); }
+  }
+  /* "Make it a Hub follow-up": the one bridge into My Work, always the person's own tap. Opens Capture with the words; if
+     they save it, the line gets a paperclip to the follow-up. */
+  function followUp(id){
+    const l = lineById(id); if(!l || typeof ccCaptureOpen !== 'function') return;
+    const since = Date.now(), before = new Set(((typeof DATA !== 'undefined' && DATA.ops_items) || []).map(x => x.id));
+    ccCaptureOpen();
+    setTimeout(() => { const w = document.getElementById('capWhat'), ab = document.getElementById('capAbout');
+      if(w){ w.value = l.body; w.focus(); } if(ab && l.link && l.link.name && l.link.type !== 'work') ab.value = l.link.name; }, 30);
+    let n = 0; const t = setInterval(() => {
+      n++; const wrap = document.getElementById('ccCapWrap'), open = wrap && wrap.style.display !== 'none';
+      if(open && n < 1200) return;
+      clearInterval(t);
+      const made = ((DATA && DATA.ops_items) || []).find(x => !before.has(x.id) && x.kind === 'capture' && lc(x.created_by_email) === myEmail() && Date.parse(x.created_at) >= since - 1000);
+      if(made){ const fresh = lineById(id); if(fresh) action('Made a Hub follow-up. It will come back to you on its own.', ctx => ctx.setLine(id, { link:Object.assign({}, fresh.link || {}, fresh.link && fresh.link.type ? { work_id:made.id } : { type:'work', id:made.id, name:String(made.title || '').slice(0, 80) }) })); }
+    }, 250);
+  }
+  function dkJotWork(id, anchor){
+    const it = ((typeof DATA !== 'undefined' && DATA.ops_items) || []).find(x => x.id === id); if(!it) return;
+    jotPop(anchor, { type:'work', id:it.id, name:String(it.about || it.title || 'My Work card').slice(0, 80) }, 'Your own steps for this card. Ticking them never closes the card.');
+  }
+  function jotPop(anchor, link, hint){
+    if(typeof ccPopOpen !== 'function') return;
+    const el = ccPopOpen(anchor, '<div style="font-size:13px;font-weight:800;color:var(--navy);margin:2px 2px 6px;">Jot on my desk</div>'
+      + (link ? '<div class="field-note" style="margin:0 2px 6px;">With a paperclip to ' + esc(link.type === 'work' ? 'this My Work card' : link.name) + '</div>' : '')
+      + '<input id="dkQuick" maxlength="1000" placeholder="jot something down…" style="width:100%;font-size:15px;padding:8px 10px;" autocomplete="off">'
+      + '<div class="field-note" style="margin-top:6px;">' + esc(hint || 'Enter puts it on today\'s page. Shift+Enter makes it a note. Only you see it.') + '</div>', { width:340 });
+    const i = el && el.querySelector('#dkQuick'); if(!i) return;
+    setTimeout(() => i.focus(), 30);
+    i.addEventListener('keydown', async e => { if(e.key !== 'Enter') return; e.preventDefault(); e.stopPropagation(); const v = i.value.trim(); if(!v) return;
+      try{ ccPopClose(); }catch(x){} const ok = await dkQuickJot(v, e.shiftKey, link); say(ok ? "On today's page" + (link ? ', with a paperclip' : '') : "Couldn't open your desk just now."); });
+  }
+  /* The yellow tab on every screen, its drawer, and the "On your desk" note. */
+  let drawerOpen = false, ctxKey = '';
+  function chromeEnsure(){
+    if($('#dkTab')) return;
+    const tab = document.createElement('button'); tab.id = 'dkTab'; tab.className = 'dk-edge'; tab.hidden = true; tab.innerHTML = 'MY DESK <b id="dkTabN"></b>';
+    tab.addEventListener('click', () => toggleDrawer()); document.body.appendChild(tab);
+    const dr = document.createElement('div'); dr.id = 'dkDrawer'; dr.className = 'dk dk-drawer'; dr.hidden = true; document.body.appendChild(dr);
+    dr.addEventListener('click', e => {
+      const b = e.target.closest('[data-dd]'); if(!b) return;
+      if(b.dataset.dd === 'close') toggleDrawer(false);
+      else if(b.dataset.dd === 'toggle'){ toggle(b.closest('[data-dkid]').dataset.dkid); drawerRender(); }
+      else if(b.dataset.dd === 'open'){ toggleDrawer(false); switchTab('mydesk'); }
+      else if(b.dataset.dd === 'link'){ const l = lineById(b.closest('[data-dkid]').dataset.dkid); if(l && l.link) openLink(l.link, l.link.type === 'work'); }
+    });
+    dr.addEventListener('keydown', async e => { if(e.target.id !== 'dkDJot' || e.key !== 'Enter') return; e.preventDefault(); e.stopPropagation(); const v = e.target.value.trim(); if(!v) return;
+      const c = deskContext(); await dkQuickJot(v, e.shiftKey, c); say("On today's page" + (c ? ', with ' + c.name + '\'s paperclip' : '')); const j = $('#dkDJot'); if(j) j.focus(); });
+    const note = document.createElement('button'); note.id = 'dkOnDesk'; note.className = 'dk-ondesk'; note.hidden = true; note.addEventListener('click', e => { if(e.target.closest('.dk-ox')){ note.hidden = true; note.dataset.off = ctxKey; return; } toggleDrawer(true); }); document.body.appendChild(note);
+    setInterval(chromeTick, 1200);
+  }
+  function chromeTick(){
+    const tab = $('#dkTab'); if(!tab) return;
+    const show = dkAllowed() && DK.loaded && !ro() && !(typeof activeTab !== 'undefined' && activeTab === 'mydesk');
+    tab.hidden = !show; if(!show && drawerOpen) toggleDrawer(false);
+    if(!show){ $('#dkOnDesk').hidden = true; return; }
+    $('#dkTabN').textContent = openOf(inPlace(DK.lines, 'day', T())).length || '';
+    const c = deskContext(), key = c ? c.type + ':' + (c.ax || c.lead_id || c.id) : '';
+    const about = c ? DK.lines.filter(l => !l.erased_at && !l.done_at && l.kind !== 'ghost' && l.link && sameAs(l.link, c)) : [];
+    const note = $('#dkOnDesk');
+    if(key !== ctxKey){ ctxKey = key; if(drawerOpen) drawerRender(); }
+    if(about.length && note.dataset.off !== key){
+      note.innerHTML = '<span class="dk-ox" title="Hide">×</span><b>' + icon('clip') + 'On your desk</b>' + about.slice(0, 4).map(l => '<div>' + esc(l.body) + (l.place === 'day' && l.day !== T() ? ' <i>(' + esc(fmtTiny(l.day)) + ')</i>' : l.place === 'later' ? ' <i>(Later)</i>' : l.place === 'tray' ? ' <i>(Stand-Up tray)</i>' : '') + '</div>').join('');
+      note.hidden = false;
+    } else note.hidden = true;
+  }
+  async function toggleDrawer(on){
+    drawerOpen = on == null ? !drawerOpen : !!on;
+    const dr = $('#dkDrawer'); if(!dr) return;
+    if(!drawerOpen){ dr.hidden = true; return; }
+    if(ro() || !DK.loaded) await ownDesk();
+    dr.hidden = false; drawerRender(); setTimeout(() => { const j = $('#dkDJot'); if(j) j.focus(); }, 40);
+  }
+  function drawerRender(){
+    const dr = $('#dkDrawer'); if(!dr || dr.hidden) return;
+    const arr = inPlace(DK.lines, 'day', T()), c = deskContext();
+    dr.innerHTML = '<button class="dk-round dk-dx" data-dd="close" aria-label="Close">' + icon('x') + '</button>'
+      + '<div class="dk-dow">My Desk</div><div class="dk-date" style="font-size:23px">' + dowName(T()) + ', ' + fmtLong(T()) + '</div>'
+      + (c ? '<div class="dk-ctx">' + icon('clip') + 'Jotting from ' + esc(c.name) + ', so new lines get the paperclip</div>' : '')
+      + '<ol class="dk-list">' + arr.map(l => l.kind === 'ghost' ? '' : l.kind === 'note' ? '<li class="dk-row dk-note" data-dkid="' + l.id + '"><span class="dk-tw"><span class="dk-txt">' + linkify(l.body) + '</span></span></li>'
+          : '<li class="dk-row' + (l.done_at ? ' dk-done' : '') + '" data-dkid="' + l.id + '"><button class="dk-cb" data-dd="toggle" aria-label="Check off"><svg viewBox="0 0 24 24"><use href="#dk-box"/><path class="dk-tick" d="' + TICKS[hash(l.id) % 3] + '"/></svg></button><span class="dk-tw"><span class="dk-txt">' + linkify(l.body) + '</span>'
+          + (l.link && l.link.name && l.link.type !== 'work' ? '<span class="dk-chips"><button class="dk-chip dk-clip" data-dd="link">' + icon('clip') + esc(l.link.name) + '</button></span>' : '') + '</span></li>').join('')
+      + '<li class="dk-jot"><span class="dk-mode">' + icon('box') + '</span><input id="dkDJot" maxlength="1000" placeholder="jot something down…" autocomplete="off" aria-label="Jot something down"></li></ol>'
+      + '<button class="dk-open" data-dd="open">Open My Desk</button>';
+  }
+  /* Select any words in the Hub, then "Jot it on my desk". */
+  let pill = null;
+  function onSelect(e){
+    if(!dkAllowed() || !DK.loaded || e.target.closest('.dk-jotpill, #dkWrap, #dkDrawer, input, textarea, [contenteditable="true"]')) return;
+    setTimeout(() => {
+      const sel = getSelection(), t = String(sel || '').trim().replace(/\s+/g, ' ');
+      if(pill){ pill.remove(); pill = null; }
+      if(!t || t.length < 3 || t.length > 200 || !sel.rangeCount) return;
+      const node = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement);
+      const app = document.getElementById('appScreen'); if(!node || !app || !app.contains(node) || node.closest('#dkWrap, #dkDrawer')) return;
+      const r = sel.getRangeAt(0).getBoundingClientRect(), c = deskContext();
+      pill = document.createElement('button'); pill.className = 'dk-jotpill'; pill.innerHTML = icon('clip') + 'Jot it on my desk';
+      pill.style.left = Math.max(8, Math.min(innerWidth - 190, r.left)) + 'px'; pill.style.top = Math.max(8, r.top - 40) + 'px';
+      pill.onclick = async () => { const txt = t.charAt(0).toUpperCase() + t.slice(1); pill.remove(); pill = null; try{ getSelection().removeAllRanges(); }catch(x){}
+        const ok = await dkQuickJot(txt, false, c); say(ok ? "On today's page" + (c ? ', with ' + c.name + '\'s paperclip' : '') : "Couldn't open your desk just now."); };
+      document.body.appendChild(pill);
+    }, 10);
+  }
+  /* My Dashboard: one line about my own desk (never anyone else's numbers). */
+  function dkDashRender(){
+    const box = document.getElementById('dkDashLine'); if(!box) return;
+    if(!dkAllowed() || !DK.loaded || ro()){ box.innerHTML = ''; if(dkAllowed() && !DK.warm) dkWarm().then(() => dkDashRender()); return; }
+    const open = openOf(inPlace(DK.lines, 'day', T())).length, tray = inPlace(DK.lines, 'tray').filter(l => l.kind !== 'note').length;
+    const notes = DK.stickies.filter(x => x.from_person_id && x.from_person_id !== DK.me && !x.ack_at && !x.erased_at);
+    const bits = [open ? open + ' open on today\'s page' : 'today\'s page is all crossed off'];
+    notes.forEach(x => bits.push(firstName(x.from_person_id) + ' left you a note'));
+    if(tray) bits.push(tray + ' in your Stand-Up tray');
+    box.innerHTML = '<button class="dk-dash" onclick="switchTab(\'mydesk\')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-desk"/></svg><b>My Desk:</b> ' + esc(bits.join(' · ')) + '</button>';
+  }
 
   function calHtml(){
     const [y, m] = DK.day.slice(0, 7).split('-').map(Number), t = T();
@@ -804,6 +957,7 @@
       + (onDay && todo ? '<hr><button data-m="star">' + icon('hstar') + (l.star ? 'Remove the star' : 'Star it in the margin') + '<span class="dk-k">*</span></button><button data-m="circle">' + icon('circle') + (l.circle ? 'Remove the circle' : 'Circle it') + '<span class="dk-k">C</span></button>' : '')
       + (onDay ? '<hr>' + (todo ? '<button data-m="noteunder">' + icon('pencil') + 'Scribble a note under it</button>' : '<button data-m="todo">' + icon('box') + 'Make it a to-do</button>')
         + '<button data-m="up">' + icon('up') + 'Up one line<span class="dk-k">Alt ↑</span></button><button data-m="down">' + icon('down') + 'Down one line<span class="dk-k">Alt ↓</span></button>' : '')
+      + (todo && !(l.link && (l.link.work_id || l.link.type === 'work')) ? '<button data-m="follow">' + icon('later') + 'Make it a Hub follow-up</button>' : '')
       + '<button data-m="edit">' + icon('pencil') + 'Change the words<span class="dk-k">Enter</span></button><hr>'
       + '<button data-m="erase">' + icon('erase') + 'Erase<span class="dk-k">Del</span></button>';
     document.body.appendChild(m);
@@ -829,6 +983,7 @@
     else if(a === 'up' || a === 'down') nudge(id, a === 'up' ? -1 : 1);
     else if(a === 'edit'){ const t = $('[data-dkid="' + id + '"] .dk-txt') || $('[data-dkid="' + id + '"] .dk-st'); if(t) startEdit(t, id); }
     else if(a === 'erase') eraseLine(id);
+    else if(a === 'follow') followUp(id);
   }
   function noteUnder(id){
     const l = lineById(id); if(!l || l.place !== 'day') return;
@@ -921,6 +1076,9 @@
     's-color': a => { const s = stickById(a.closest('[data-sid]').dataset.sid); if(s) action(null, ctx => ctx.setStick(s.id, { color:nextColor(s.color) })); },
     's-peel': a => { const el = a.closest('[data-sid]'), sid = el.dataset.sid; el.classList.add('dk-peel'); setTimeout(() => action('Sticky peeled off', ctx => ctx.setStick(sid, { erased_at:new Date().toISOString() })), 300); },
     'erase-help': () => say('Drop a line or a sticky on the eraser to erase it'),
+    link: a => { const l = lineById(a.closest('[data-dkid]').dataset.dkid); if(l && l.link) openLink(l.link, !!a.dataset.work); },
+    follow: a => followUp(a.dataset.id),
+    nohint: a => { const l = lineById(a.dataset.id); if(l) action(null, ctx => ctx.setLine(l.id, { link:Object.assign({}, l.link || {}, { nohint:true }) })); },
     desk: a => openDesk(a.dataset.who || null),
     everyone: () => openEveryone(),
     ostar: a => { if(!ro() || !iOwn()) return; const id = a.closest('[data-dkid]').dataset.dkid, l = lineById(id); if(!l || !l.done_at) return;
@@ -972,7 +1130,13 @@
 
   /* ---------------------------------------------- keys ---------------------------------------------- */
   function onKey(e){
-    if(typeof activeTab === 'undefined' || activeTab !== 'mydesk') return;
+    if(typeof activeTab === 'undefined') return;
+    if(activeTab !== 'mydesk'){
+      const tt = e.target;
+      if((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey && !e.altKey && dkAllowed() && DK.loaded && !(tt.matches && (tt.matches('input, textarea, select') || tt.isContentEditable))){ e.preventDefault(); toggleDrawer(true); }
+      else if(e.key === 'Escape' && drawerOpen) toggleDrawer(false);
+      return;
+    }
     const t = e.target;
     if(t.id === 'dkJot' && e.key === 'Enter'){ e.preventDefault(); const v = t.value; if(!v.trim()) return; addLine(v, DK.noteMode || e.shiftKey); const j = $('#dkJot'); if(j) j.focus(); return; }
     if(e.key === 'Escape' && $('#dkMenu')){ closeMenu(); return; }
@@ -1127,6 +1291,7 @@
   function dkPill(){
     const pill = $('#fsub-today [data-tab="mydesk"]'); if(!pill) return;
     pill.style.display = dkAllowed() ? '' : 'none';
+    try{ chromeTick(); }catch(e){}
     if(dkAllowed() && !DK.warm) setTimeout(() => dkWarm(), 1500);
   }
 
@@ -1175,6 +1340,9 @@
     document.addEventListener('pointermove', onMove, { passive:false });
     document.addEventListener('pointerup', onUp);
     document.addEventListener('pointercancel', onCancel);
+    document.addEventListener('mouseup', onSelect);
+    document.addEventListener('mousedown', e => { if(pill && !e.target.closest('.dk-jotpill')){ pill.remove(); pill = null; } });
+    chromeEnsure();
     let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if($('#dkRoot')) placeStickies(); }, 120); });
     try{ const f = document.createElement('link'); f.rel = 'stylesheet'; f.href = 'https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Homemade+Apple&family=Patrick+Hand&family=Young+Serif&display=swap'; document.head.appendChild(f);
       if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeStickies()); }catch(e){}
@@ -1454,6 +1622,34 @@ body.dk-dragging, body.dk-dragging *{ cursor:grabbing !important; user-select:no
 .dk-narrow .dk-mgrid{ grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; } .dk-narrow .dk-wkcol{ display:none; }
 .dk-narrow .dk-mini{ min-height:84px; padding:6px; } .dk-narrow .dk-ml{ display:none; } .dk-narrow .dk-ms{ width:36px; height:36px; }
 .dk-narrow .dk-mstar{ left:-36px; } .dk-narrow .dk-ribbon{ right:60px; } .dk-narrow .dk-nav{ margin-right:0; }
+/* Stage 5: the desk follows you around */
+.dk-edge{ position:fixed; right:0; top:42%; z-index:250; border:0; background:#fde68a; color:#3a3222; writing-mode:vertical-rl; transform:rotate(180deg); padding:16px 9px; border-radius:0 10px 10px 0;
+  font-weight:800; font-size:12.5px; letter-spacing:.06em; box-shadow:3px 0 12px -4px rgba(40,25,10,.4); transition:padding .15s; cursor:pointer; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; }
+.dk-edge:hover{ padding-right:14px; } .dk-edge[hidden]{ display:none; }
+.dk-edge b{ font-size:11px; background:#0D365F; color:#fff; border-radius:9px; padding:5px 3px; margin-top:8px; } .dk-edge b:empty{ display:none; }
+.dk-drawer{ position:fixed; right:0; top:0; bottom:0; width:min(390px, 100vw); z-index:260; background:#fffdf6; color:#0D365F; box-shadow:-18px 0 40px -18px rgba(0,0,0,.5); padding:22px 20px 20px 50px; overflow-y:auto; animation:dkSlide .28s ease-out; }
+.dk-drawer[hidden]{ display:none; }
+.dk-drawer::before{ content:""; position:absolute; left:36px; top:0; bottom:0; width:2px; background:#f3b9a4; opacity:.7; }
+@keyframes dkSlide{ from{ transform:translateX(100%); } }
+.dk-dx{ position:absolute; right:12px; top:12px; }
+.dk-ctx{ font-size:12.5px; color:#155A68; margin:4px 0 8px; display:flex; gap:5px; align-items:center; } .dk-ctx svg{ width:15px; height:15px; }
+.dk-drawer .dk-list{ min-height:calc(var(--lh) * 8); font-size:19px; }
+.dk-open{ margin-top:14px; border:0; background:#0D365F; color:#fff !important; border-radius:16px; padding:6px 13px; font-weight:700; font-size:12.5px; }
+.dk-ondesk{ position:fixed; right:52px; top:150px; z-index:240; background:#fde68a; color:#3a3222; padding:10px 26px 10px 12px; transform:rotate(1.5deg); max-width:260px; box-shadow:0 8px 12px -8px rgba(0,0,0,.35); border:0; text-align:left; cursor:pointer; }
+.dk-ondesk[hidden]{ display:none; }
+.dk-ondesk b{ display:flex; gap:5px; align-items:center; font-family:system-ui,sans-serif; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; } .dk-ondesk b svg{ width:14px; height:14px; }
+.dk-ondesk div{ font-family:'Patrick Hand',cursive; font-size:16px; line-height:1.25; margin-top:3px; } .dk-ondesk i{ font-style:normal; opacity:.6; font-size:13px; }
+.dk-ox{ position:absolute; right:7px; top:3px; font-size:15px; opacity:.55; }
+.dk-jotpill{ position:fixed; z-index:9994; border:0; background:#0D365F; color:#fff; border-radius:16px; padding:6px 12px; font-size:12.5px; font-weight:700; box-shadow:0 10px 20px -8px rgba(0,0,0,.5); display:flex; gap:6px; align-items:center; cursor:pointer; }
+.dk-jotpill svg{ width:14px; height:14px; }
+button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale); color:#155A68; } .dk-work{ background:rgba(31,122,140,.12); color:#155A68; }
+.dk-phone{ color:inherit; text-decoration:underline dotted; text-underline-offset:4px; cursor:pointer; }
+.dk-hint{ list-style:none; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12.5px; color:#7a4d06; line-height:1.4; padding:2px 0 8px 35px; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+.dk-hint button{ font-size:11.5px; font-weight:700; border-radius:14px; padding:2px 10px; border:1px solid var(--honey); background:var(--paper); color:#7a4d06 !important; }
+.dk-hint .dk-yes{ background:var(--honey); color:#2b1d00 !important; }
+.dk-dash{ display:flex; gap:8px; align-items:center; width:100%; text-align:left; border:1px solid #f0d78a; background:#fff8e1; color:#4d3500; border-radius:10px; padding:9px 12px; font-size:13.5px; cursor:pointer; margin-bottom:12px; }
+.dk-dash b{ color:#0D365F; } .dk-dash svg{ width:18px; height:18px; flex:none; }
+.wkcard.dk-flash{ outline:3px solid #F0A63A; outline-offset:2px; transition:outline .3s; }
 /* Stage 4: the Stand-Up tray, the Friday card */
 .dk-tray{ position:relative; height:186px; border:0; background:transparent; padding:0; width:100%; text-align:left; display:block; font:inherit; }
 .dk-tback{ position:absolute; left:6%; right:6%; top:26px; bottom:30px; border-radius:6px 6px 0 0; background:linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.10)); border:1.5px solid rgba(255,255,255,.4); border-bottom:0; }
@@ -1521,6 +1717,6 @@ body.dk-dragging, body.dk-dragging *{ cursor:grabbing !important; user-select:no
 @media (prefers-reduced-motion: reduce){ .dk *, .dk *::before, .dk *::after{ animation-duration:.001s !important; transition-duration:.001s !important; } }
 `;
 
-  Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkAllowed, dkWarm, dkQuickJot, dkJotOpen, dkShiftHtml, dkShiftApply, dkRefresh });
-  window.DKX = { fridayWeek, weekCard, trayOpen, nextStandup, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
+  Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkAllowed, dkWarm, dkQuickJot, dkJotOpen, dkShiftHtml, dkShiftApply, dkRefresh, dkJotWork, dkDashRender, dkDrawer:toggleDrawer });
+  window.DKX = { deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, trayOpen, nextStandup, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
 })();
