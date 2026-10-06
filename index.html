@@ -6766,7 +6766,7 @@ The HomeTogether team</pre>
 <script src="standup-board.js?v=9"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
-<script src="desk.js?v=9"></script>
+<script src="desk.js?v=10"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -17331,7 +17331,7 @@ async function cgdOpenProfile(axid){
       +'<div id="cgdSkills"></div>')
     +'</div>'
 
-    +'<div id="cgdSec-performance" style="display:none;">'+cgdPerformanceHtml(c,nm)+'<div id="cgdMissedNotes"></div><div id="cgdLate"></div><div id="cgdEvvForms"></div></div>'
+    +'<div id="cgdSec-performance" style="display:none;">'+cgdPerformanceHtml(c,nm)+'<div id="cgdKind"></div><div id="cgdMissedNotes"></div><div id="cgdLate"></div><div id="cgdEvvForms"></div></div>'
 
     +'<div id="cgdSec-work" style="display:none;">'+cgdWorkHtml(c,g,nm)+'</div>'
 
@@ -17359,6 +17359,7 @@ async function cgdOpenProfile(axid){
     const a=document.getElementById('cgdPreHireBody'); if(a) a.innerHTML=cgdPreHireHtml(g);
     const b=document.getElementById('cgdRefsBody'); if(b) b.innerHTML=cgdRefsHtml(g); });
   try{ cgdLateMount(c); }catch(_){}
+  try{ cgdKindMount(c); }catch(_){}
   cgdEvvFormsMount(c);
   try{ document.getElementById('tab-cgdir').scrollIntoView({block:'start'}); }catch(e){}
 }
@@ -17703,6 +17704,30 @@ async function lnSetToggle(key, btn){
   if(btn) btn.disabled=false;
   const s=document.getElementById('lnSetSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
   lnSetFill();
+}
+/* The caregiver's page, Performance: compliments (2026-10-06, Samantha: "also put in the caregivers profile under
+   performance if they got a compliment"). Kind words in the jar about this caregiver: a paperclip to them, their exact
+   name, or "First L."; plus any kind words someone texted them (kind_tells). Shows whether and when they were told. */
+async function cgdKindMount(c){
+  const host=document.getElementById('cgdKind'); if(!host) return;
+  const nk=s=>String(s||'').toLowerCase().replace(/[^a-z]/g,''), fullN=((c.first||'')+' '+(c.last||'')).trim(), ax=String(c.id);
+  let words=[], tells={};
+  try{ const r=await sb.from('kind_words').select('id,quote,who,about,about_role,source,said_on,link,created_at').eq('status','kind').eq('about_role','caregiver').order('created_at',{ascending:false}).limit(500); words=r.data||[]; }catch(e){}
+  try{ const { data }=await sb.from('app_data').select('data').eq('key','kind_tells').maybeSingle(); (Array.isArray(data&&data.data)?data.data:[]).forEach(x=>{ if(x&&x.id) tells[x.id]=x.tells||[]; }); }catch(e){}
+  if(String(CGD.openId)!==ax) return;
+  const mine=words.filter(k=>{
+    if(k.link&&k.link.type==='caregiver'&&String(k.link.id)===ax) return true;
+    if((tells[k.id]||[]).some(t=>String(t.caregiver_ax)===ax)) return true;
+    const a=String(k.about||'').trim(); if(!a) return false;
+    if(nk(a)===nk(fullN)) return true;
+    const m=a.match(/^([A-Za-z'-]+)\s+([A-Za-z])\.?$/); return !!(m&&nk(m[1])===nk(c.first)&&String(c.last||'').trim().toLowerCase().startsWith(m[2].toLowerCase()));
+  });
+  const esc=escapeHtmlComms, d=x=>{ try{ return new Date(String(x).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } };
+  host.innerHTML=cgdSectionCard('Compliments <span class="field-note" style="font-weight:400;">(from the Kind Words jar)</span>',
+    mine.length?mine.map(k=>{ const t=(tells[k.id]||[]).filter(x=>String(x.caregiver_ax)===ax).slice(-1)[0];
+      return '<div style="padding:7px 0;border-top:1px solid var(--border);"><div style="font-family:Georgia,serif;font-size:14px;color:#3a3222;">“'+esc(k.quote)+'”</div>'
+        +'<div class="field-note">'+esc(k.who||'Someone')+(k.said_on?' · '+esc(d(k.said_on)):'')+(t?' · <b style="color:#1F7A8C;">told '+esc(String(c.first||'them'))+' '+esc(d(t.at))+'</b>':'')+'</div></div>'; }).join('')
+      :'<div class="field-note">No kind words about '+esc(c.first||'them')+' yet. Clip them from a note, a text or a call, or say yes to one the shift notes suggest.</div>');
 }
 /* The caregiver's page, Performance: when they told us ahead */
 async function cgdLateMount(c){

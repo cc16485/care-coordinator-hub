@@ -74,8 +74,7 @@ async()=>{
   ok('it unfolds: the words, who said them, about whom, from where', /Maria is the best/.test(p.innerText) && /The Henderson family, about Maria R\. \(caregiver\)/.test(p.innerText) && /Shift note/.test(p.innerText));
   ok('...with Into the jar, Tape it to my desk, Read it at Stand-Up, Tell Maria', ['jar','tape','standup','tell'].every(k=>!!p.querySelector('[data-k="'+k+'"]')) && /Tell Maria/.test(p.innerText));
   p.querySelector('[data-k="tell"]').click(); await sleep(150);
-  const tell=document.getElementById('dkTell');
-  ok('"Tell Maria" is a draft to send yourself (nothing goes out on its own)', tell && /^Hi Maria, the Henderson family said this about you: "Maria is the best/.test(tell.value) && /Krystal$/.test(tell.value) && /Nothing goes out on its own/.test(lastPop().innerText));
+  ok('"Tell Maria" opens the text to Maria (from the office number, sent only on Send; tested in kind_tell_look.py)', /Tell Maria/.test(lastPop().innerText));
   try{ ccPopClose(); }catch(e){}
   W().querySelector('.dk-kindtuck').click(); await sleep(150);
   lastPop().querySelector('[data-k="tape"]').click(); await sleep(400);

@@ -759,17 +759,60 @@
       if(tucked().length) setTimeout(() => kindOpen(anchor), 300);
     });
   }
-  function tellOpen(anchor, k){
-    const first = String(k.about || '').split(' ')[0];
-    const msg = 'Hi ' + first + ', ' + String(k.who || 'someone').replace(/^The /, 'the ') + ' said this about you: "' + k.quote + '" Thank you for the care you give. ' + String(myName()).split(' ')[0];
-    const el = ccPopOpen(anchor, '<div class="dk-clipbox"><b style="font-size:16px;color:#0D365F">Tell ' + esc(first) + '</b><p class="field-note">A draft for you to read and send yourself, from the office line like every staff text. Nothing goes out on its own.</p>'
-      + '<textarea id="dkTell" rows="5" style="width:100%;font-size:14px;">' + esc(msg) + '</textarea><div style="margin-top:8px"><button class="primary" data-c="copy">Copy the words</button></div></div>', { width:460 });
-    if(el) el.addEventListener('click', e => { if(!e.target.closest('[data-c]')) return; const t = el.querySelector('#dkTell');
-      try{ navigator.clipboard.writeText(t.value).then(() => say('Copied. Send it from the office line.'), () => { t.select(); say('Select the words and copy them.'); }); }catch(x){ t.select(); } });
+  /* TELL THE CAREGIVER (2026-10-06, Samantha: "send from the real office number, send it"). The server (kind-tell) drafts
+     it from the jar and the roster, then sends the exact words the person approved from the office number, after the same
+     opt-out checks as every caregiver text. Nothing goes out without Send. */
+  async function ktCall(body){
+    const sess = await sb.auth.getSession(), tok = sess && sess.data && sess.data.session && sess.data.session.access_token;
+    if(!tok) throw new Error('Sign in first.');
+    const r = await fetch(CONFIG.supabase_url + '/functions/v1/kind-tell', { method:'POST', headers:{ Authorization:'Bearer ' + tok, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+    const d = await r.json().catch(() => null); if(!d) throw new Error('The texting service answered ' + r.status); return d;
+  }
+  async function tellOpen(anchor, k, pickAx){
+    if(typeof ccPopOpen !== 'function') return;
+    const el = ccPopOpen(anchor, '<div class="dk-clipbox" id="dkTellBox"><b style="font-size:16px;color:#0D365F">Tell ' + esc(String(k.about || 'them').split(' ')[0]) + '</b><div class="field-note" style="margin-top:6px">Getting the details…</div></div>', { width:480 });
+    if(!el) return;
+    let d; try{ d = await ktCall({ action:'draft', kind_word_id:k.id, caregiver_ax:pickAx || '' }); }catch(e){ d = { error:String(e.message || e) }; }
+    const box = el.querySelector('#dkTellBox'); if(!box) return;
+    if(d.error){ box.innerHTML = '<b style="font-size:16px;color:#0D365F">Tell ' + esc(String(k.about || 'them').split(' ')[0]) + '</b><p class="field-note" style="color:#B23B2E">Couldn\'t get the text ready: ' + esc(d.error) + '</p>'; return; }
+    const cg = d.caregiver, hr = Number(new Date().toLocaleString('en-US', { timeZone:'America/Chicago', hour:'2-digit', hour12:false })) % 24, late = hr < 8 || hr >= 20;
+    const blockers = [];
+    if(!d.live) blockers.push('Texting kind words is switched off right now (Owners Hub Admin page).');
+    if(cg && !cg.phone_last4) blockers.push(cg.name + ' has no phone number on the roster.');
+    if(cg && (cg.opt_out || []).length) blockers.push(cg.name + ' has asked not to get texts.');
+    const pick = !cg ? '<p class="field-note">Which caregiver is this about? "' + esc(k.about || '') + '" isn\'t one exact name on the roster.</p>'
+      + (d.candidates.length ? '<select id="dkTellPick" style="width:100%"><option value="">Pick the caregiver…</option>' + d.candidates.map(c => '<option value="' + esc(c.ax) + '">' + esc(c.name) + '</option>').join('') + '</select>'
+        : '<p class="field-note" style="color:#B23B2E">Nobody on the roster matches. Open the caregiver\'s profile and clip the kind words from there so they carry a paperclip to them.</p>') : '';
+    box.innerHTML = '<b style="font-size:16px;color:#0D365F">Tell ' + esc(cg ? cg.first : String(k.about || 'them').split(' ')[0]) + '</b>'
+      + '<p class="field-note">From the office number. Read it, change anything you like, and press Send. Nothing goes out on its own.</p>'
+      + (d.told.length ? '<p class="field-note" style="color:#1F7A8C">Already told: ' + d.told.map(t => esc(t.caregiver) + ' by ' + esc(String(t.by || '').split(' ')[0]) + ', ' + esc(fmtShort(String(t.at).slice(0, 10)))).join('; ') + '</p>' : '')
+      + pick
+      + (cg ? '<div class="field-note">To ' + esc(cg.name) + (cg.phone_last4 ? ' · ending ' + esc(cg.phone_last4) : '') + '</div><textarea id="dkTell" rows="5" maxlength="640" style="width:100%;font-size:14px;">' + esc(d.message) + '</textarea>' : '')
+      + (cg && late ? '<div class="field-note" style="background:#FFF4E3;border-radius:8px;padding:6px 9px;color:#8A4E0C;margin-top:6px">It\'s after hours. It will go now if you press Send.</div>' : '')
+      + (blockers.length ? '<div class="field-note" style="background:#FDE8E8;border-radius:8px;padding:6px 9px;color:#B23B2E;margin-top:6px">' + blockers.map(esc).join('<br>') + ' Nothing can be sent.</div>' : '')
+      + '<div id="dkTellRes" class="field-note" style="margin-top:6px"></div>'
+      + (cg ? '<div style="margin-top:8px"><button class="primary" data-c="send"' + (blockers.length ? ' disabled' : '') + '>Send text</button></div>' : '');
+    const sel = box.querySelector('#dkTellPick'); if(sel) sel.addEventListener('change', () => { if(sel.value){ try{ ccPopClose(); }catch(x){} tellOpen(anchor, k, sel.value); } });
+    const sendId = 'kt-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    box.addEventListener('click', async e => { const b = e.target.closest('[data-c="send"]'); if(!b || b.disabled) return;
+      const msg = (box.querySelector('#dkTell') || {}).value || '', res = box.querySelector('#dkTellRes');
+      if(!msg.trim()){ res.textContent = 'Write the text first.'; return; }
+      b.disabled = true; res.textContent = 'Sending…';
+      let r; try{ r = await ktCall({ action:'send', kind_word_id:k.id, caregiver_ax:cg.ax, message:msg, send_id:sendId }); }catch(x){ r = { error:String(x.message || x) }; }
+      if(r.outcome === 'sent' || r.outcome === 'already_sent'){ try{ ccPopClose(); }catch(x){} say('Sent to ' + cg.first + ' from the office number.' + (r.warning ? ' ' + r.warning : '')); DK.tells = null; return; }
+      b.disabled = false; res.style.color = '#B23B2E'; res.textContent = r.error || 'Not sent.'; });
+  }
+  async function tellsMap(){
+    if(DK.tells) return DK.tells;
+    const m = {};
+    try{ const { data } = await sb.from('app_data').select('data').eq('key', 'kind_tells').maybeSingle();
+      (Array.isArray(data && data.data) ? data.data : []).forEach(x => { if(x && x.id) m[x.id] = Array.isArray(x.tells) ? x.tells : []; }); }catch(e){}
+    return (DK.tells = m);
   }
   async function jarOpen(anchor){
     if(typeof ccPopOpen !== 'function') return;
     let list = []; try{ list = await ST().jar(); }catch(e){ say("The jar couldn't be opened just now."); return; }
+    const told = await tellsMap();
     let wait = []; try{ wait = ST().waiting ? await ST().waiting() : []; }catch(e){ wait = []; }
     DK.jarN = list.length; DK.waitN = wait.length;
     const cols = ['#f8c5d2', '#fde68a', '#bde2ee', '#cde8c2', '#ffe4ac', '#f2eee3'];
@@ -781,9 +824,12 @@
             + '<div class="dk-wbtns"><button class="primary" data-w="yes">Yes, that\'s kind</button><button class="secondary" data-w="no">Not this one</button>'
             + (k.link && k.link.name ? '<button class="dk-chip dk-clip" data-w="open">' + icon('clip') + esc(k.link.name) + '</button>' : '') + '</div></div>').join('') + '</div>' : '')
       + '<div class="dk-jarwall">' + (list.length ? list.map(k => '<div class="dk-jslip" style="--c:' + cols[hash(k.id) % cols.length] + ';--r:' + (((hash(k.id) % 5) - 2) * .7) + 'deg"><q>' + esc(k.quote) + '</q><div>' + kLine(k)
-          + (k.created_by ? '<br>Saved by ' + esc(firstName(k.created_by)) : '') + '</div></div>').join('') : '<p class="field-note">The jar is empty for now. Clip the first kind word.</p>') + '</div></div>', { width:880 });
+          + (k.created_by ? '<br>Saved by ' + esc(firstName(k.created_by)) : '') + '</div>'
+          + ((told[k.id] || []).length ? '<div class="dk-told">Told ' + esc(String(told[k.id].at(-1).caregiver || '').split(' ')[0]) + ', ' + esc(fmtShort(String(told[k.id].at(-1).at).slice(0, 10))) + '</div>' : '')
+          + (k.about_role === 'caregiver' && k.about ? '<button class="secondary dk-tellbtn" data-j="tell" data-kid="' + esc(k.id) + '">Tell ' + esc(String(k.about).split(' ')[0]) + '</button>' : '') + '</div>').join('') : '<p class="field-note">The jar is empty for now. Clip the first kind word.</p>') + '</div></div>', { width:880 });
     if(el){ if(innerWidth >= 900){ el.style.left = Math.max(8, (innerWidth - 880) / 2) + 'px'; el.style.top = '60px'; }
       el.addEventListener('click', async e => { if(e.target.closest('[data-j="clip"]')){ try{ ccPopClose(); }catch(x){} clipOpen(anchor, ''); return; }
+        const tb = e.target.closest('[data-j="tell"]'); if(tb){ const k = list.find(x => x.id === tb.dataset.kid); if(k){ try{ ccPopClose(); }catch(x){} tellOpen(anchor, k); } return; }
         const b = e.target.closest('[data-w]'); if(!b) return; const slip = b.closest('[data-wid]'), k = wait.find(x => x.id === slip.dataset.wid); if(!k) return;
         if(b.dataset.w === 'open'){ try{ ccPopClose(); }catch(x){} openLink(k.link); return; }
         slip.querySelectorAll('button').forEach(x => x.disabled = true);
@@ -1437,12 +1483,25 @@
   /* Stage 6b: the kind-words switch (the same one, and the same questions, as the Owners Hub Admin page). */
   const KIND_ON = 'Turn on kind words from shift notes?\n\nFrom the next shift-note run (every two hours), kind words a client or family member said, copied word for word from the caregiver\'s note, wait in the Kind Words jar under "Waiting for a yes". Only owners and coordinators see them. Nothing goes in the jar or on anyone\'s desk until one of you says yes.\n\nNobody is texted or emailed.';
   const KIND_OFF = 'Turn off kind words from shift notes? Nothing new is suggested. Anything already waiting stays in the jar\'s "Waiting for a yes" until someone answers it.';
+  const TELL_ON = 'Turn on texting kind words to caregivers?\n\nOn a kind word about a caregiver, Tell opens the text: the person reads it, edits it, and presses Send, and it goes from the office number after the same opt-out checks as every caregiver text. Nothing is sent without Send.';
+  const TELL_OFF = 'Turn off texting kind words to caregivers? Tell still shows the words; nothing can be sent.';
+  async function dkTellToggle(btn){
+    const on = !((DATA.ops_settings || {}).kind_tell_live === true);
+    if(!confirm(on ? TELL_ON : TELL_OFF)) return;
+    if(btn) btn.disabled = true;
+    const out = await tkMerge(m => { m.kind_tell_live = on; return ['texting kind words ' + (on ? 'ON' : 'OFF')]; }, 'My Desk settings');
+    if(btn) btn.disabled = false;
+    if(!out.error) DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { kind_tell_live:on });
+    dkSetFill();
+  }
   function kindSetHtml(){
     const st = DATA.ops_settings || {}, on = st.kind_words_suggest_live === true, can = st.care_notes_flag_live === true;
     return '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border,#E2E8F0);"><b style="font-size:14px;">Kind words from shift notes</b>'
       + '<p class="field-note" style="margin:4px 0 8px;">When a client or family member said something kind in a caregiver\'s shift note, the words wait in the Kind Words jar under "Waiting for a yes" for an owner or coordinator. Sends nothing.</p>'
       + '<div style="display:flex;gap:8px;align-items:center;"><button class="' + (on ? 'secondary' : 'primary') + '" onclick="dkKindToggle(this)"' + (!on && !can ? ' disabled title="Can\'t turn on yet: shift-note flags are not running."' : '') + '>' + (on ? 'Turn off' : 'Turn on') + '</button>'
-      + '<span class="field-note" id="dkKindSt">' + (on ? 'On.' : can ? 'Off.' : 'Off. Can\'t turn on yet: shift-note flags are not running.') + '</span></div></div>';
+      + '<span class="field-note" id="dkKindSt">' + (on ? 'On.' : can ? 'Off.' : 'Off. Can\'t turn on yet: shift-note flags are not running.') + '</span></div></div>'
+      + '<div style="margin-top:14px;"><b style="font-size:14px;">Texting kind words to caregivers</b><p class="field-note" style="margin:4px 0 8px;">Tell on a kind word about a caregiver sends it to them from the office number, after you read it and press Send.</p>'
+      + '<div style="display:flex;gap:8px;align-items:center;"><button class="' + (st.kind_tell_live === true ? 'secondary' : 'primary') + '" onclick="dkTellToggle(this)">' + (st.kind_tell_live === true ? 'Turn off' : 'Turn on') + '</button><span class="field-note">' + (st.kind_tell_live === true ? 'On.' : 'Off.') + '</span></div></div>';
   }
   async function dkKindToggle(btn){
     const on = !((DATA.ops_settings || {}).kind_words_suggest_live === true);
@@ -1837,6 +1896,7 @@ button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale
 .dk-dash{ display:flex; gap:8px; align-items:center; width:100%; text-align:left; border:1px solid #f0d78a; background:#fff8e1; color:#4d3500; border-radius:10px; padding:9px 12px; font-size:13.5px; cursor:pointer; margin-bottom:12px; }
 .dk-dash b{ color:#0D365F; } .dk-dash svg{ width:18px; height:18px; flex:none; }
 .wkcard.dk-flash{ outline:3px solid #F0A63A; outline-offset:2px; transition:outline .3s; }
+.dk-tellbtn{ margin-top:8px; padding:4px 10px; font-size:12px; } .dk-told{ margin-top:6px; font:700 11.5px system-ui,sans-serif; color:#1F7A8C; }
 /* Talk about: the little bubble on a flagged line */
 .dk-chip.dk-talk{ background:#E3F4F3; color:#1F7A8C; } .dk-tool.dk-on{ color:#1F7A8C; background:#E3F4F3; }
 /* Stage 4: the Stand-Up tray, the Friday card */
@@ -1906,6 +1966,6 @@ button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale
 @media (prefers-reduced-motion: reduce){ .dk *, .dk *::before, .dk *::after{ animation-duration:.001s !important; transition-duration:.001s !important; } }
 `;
 
-  Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkKindToggle, dkAllowed, dkWarm, dkQuickJot, dkJotOpen, dkShiftHtml, dkShiftApply, dkRefresh, dkJotWork, dkDashRender, dkDrawer:toggleDrawer });
+  Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkKindToggle, dkTellToggle, dkTellsMap:() => tellsMap(), dkAllowed, dkWarm, dkQuickJot, dkJotOpen, dkShiftHtml, dkShiftApply, dkRefresh, dkJotWork, dkDashRender, dkDrawer:toggleDrawer });
   window.DKX = { kindOpen, jarOpen, clipOpen, kindState, tucked, deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, talkToggle, talkSync, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
 })();
