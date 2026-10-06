@@ -6767,7 +6767,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
 <script src="team-builder-2.js?v=4"></script>
-<script src="live-calendar.js?v=3"></script>
+<script src="live-calendar.js?v=4"></script>
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -35713,7 +35713,7 @@ function lsPaint(){
   const nowChi=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'});
   const isToday=d.date===nowChi.slice(0,10), nowHM=nowChi.slice(11,16);
   const unF=rowsF.filter(v=>!v.caregiver).length;
-  box.innerHTML=top+'<div class="field-note" style="margin-bottom:.5rem;">'+rowsF.length+' visit'+(rowsF.length===1?'':'s')+(unF?' · <b style="color:var(--red);">'+unF+' unassigned</b>':' · all assigned')+(rowsF.length!==d.rows.length?' (filtered)':'')+'</div>'
+  box.innerHTML=top+(typeof lcKeyHtml==='function'?lcKeyHtml(rowsF):'')+'<div class="field-note" style="margin-bottom:.5rem;">'+rowsF.length+' visit'+(rowsF.length===1?'':'s')+(unF?' · <b style="color:var(--red);">'+unF+' unassigned</b>':' · all assigned')+(rowsF.length!==d.rows.length?' (filtered)':'')+'</div>'
     +'<table style="width:100%;border-collapse:collapse;font-size:.84rem;">'
     +'<thead><tr style="text-align:left;color:var(--text-muted);font-size:.72rem;"><th style="padding:.3rem .4rem;">Time</th><th style="padding:.3rem .4rem;">Client</th><th style="padding:.3rem .4rem;">Caregiver</th><th style="padding:.3rem .4rem;">Status</th></tr></thead><tbody>'
     +rowsF.map(v=>{
@@ -35728,6 +35728,9 @@ function lsPaint(){
       else if(isToday&&v.time&&v.time<nowHM&&(!v.end||v.end>nowHM)) st='<span style="color:var(--red);font-weight:700;">no clock-in yet</span>';
       else if(isToday&&v.end&&v.end<=nowHM) st='<span style="color:var(--text-muted);">ended (no EVV shown)</span>';
       else st='<span style="color:var(--text-muted);">upcoming</span>';
+      /* the same colour code as the calendar (live-calendar.js) */
+      const sk=typeof lcStateOf==='function'?lcStateOf(v):null;
+      if(sk){ tint='background:'+sk.bg+';box-shadow:inset 5px 0 0 '+sk.bar+';'; st='<span class="ls-state" data-state="'+sk.key+'" style="color:'+sk.ink+';font-weight:800;">'+sk.label+(sk.key==='done'?' '+t12(v.clock_in)+'–'+t12(v.clock_out):sk.key==='live'?', clocked in '+t12(v.clock_in):'')+'</span>'+(un?' · <a href="#" onclick="switchTab(\'coverage\');covOpenAdd(\'calloff\');return false;">open a case</a>':''); }
       return '<tr class="ls-row" style="border-top:1px solid var(--border);cursor:pointer;'+tint+'" title="Click to change this visit" onclick="if(typeof lcVisitOpen===\'function\'&&!event.target.closest(\'a\'))lcVisitOpen(\''+esc(v.visit_id)+'\')">'
         +'<td style="padding:.35rem .4rem;white-space:nowrap;">'+t12(v.time)+(v.end?'–'+t12(v.end):'')+'</td>'
         +'<td style="padding:.35rem .4rem;"><b>'+esc(v.client)+'</b></td>'
