@@ -802,6 +802,69 @@
       if(r.outcome === 'sent' || r.outcome === 'already_sent'){ try{ ccPopClose(); }catch(x){} say('Sent to ' + cg.first + ' from the office number.' + (r.warning ? ' ' + r.warning : '')); DK.tells = null; return; }
       b.disabled = false; res.style.color = '#B23B2E'; res.textContent = r.error || 'Not sent.'; });
   }
+  /* THE COFFEE MUG (2026-10-06, Samantha: "when we click the coffee cup could it pop up with an inspirational quote for
+     home care office admin or a bible verse if you choose"). Each person picks quotes or Bible verses (King James, in the
+     public domain) right in the popup; the choice rides in their desk settings (pad_labels._mug, so no new storage). The
+     quotes without a name are written for this office. */
+  const MUG_QUOTES = [
+    ['Every schedule you fix is a family that gets to breathe easier tonight.'], ['The calls you return today are someone\'s peace of mind.'],
+    ['Behind every filled shift is a client who isn\'t alone.'], ['You don\'t hold the hand, but you make sure someone does.'],
+    ['Care at home starts at a desk like yours.'], ['One calm voice on the phone can change a family\'s whole day.'],
+    ['The work nobody sees is the work that holds everything together.'], ['A covered shift is a kindness, even when it took ten phone calls.'],
+    ['You are the reason the caregiver knew where to be.'], ['Progress, not perfection. Cross one thing off and breathe.'],
+    ['Hard days in this office are still days someone got cared for.'], ['Be as patient with yourself as you are with the families.'],
+    ['The best care teams are built one honest conversation at a time.'], ['Every form you finish keeps a promise we made.'],
+    ['Small things done faithfully add up to safe care.'], ['Caregivers carry the client. You carry the caregivers.'],
+    ['Today you\'ll solve problems nobody will ever know existed. That\'s the job, and it matters.'], ['Kindness on the phone is never wasted.'],
+    ['When the day gets loud, do the next right thing.'], ['You make home possible for people who want to stay there.'],
+    ['Thank you for answering the call, every time it rings.'], ['Someone is safer at home today because of the work at this desk.'],
+    ['Do what you can, with what you have, where you are.', 'Theodore Roosevelt'], ['Alone we can do so little; together we can do so much.', 'Helen Keller'],
+    ['No act of kindness, no matter how small, is ever wasted.', 'Aesop'], ['Well done is better than well said.', 'Benjamin Franklin'],
+    ['The best way to find yourself is to lose yourself in the service of others.', 'Mahatma Gandhi'] ];
+  const MUG_VERSES = [
+    ['And let us not be weary in well doing: for in due season we shall reap, if we faint not.', 'Galatians 6:9'],
+    ['And whatsoever ye do, do it heartily, as to the Lord, and not unto men.', 'Colossians 3:23'],
+    ['I can do all things through Christ which strengtheneth me.', 'Philippians 4:13'],
+    ['But they that wait upon the LORD shall renew their strength; they shall mount up with wings as eagles; they shall run, and not be weary; and they shall walk, and not faint.', 'Isaiah 40:31'],
+    ['Come unto me, all ye that labour and are heavy laden, and I will give you rest.', 'Matthew 11:28'],
+    ['Commit thy works unto the LORD, and thy thoughts shall be established.', 'Proverbs 16:3'],
+    ['Be strong and of a good courage; be not afraid, neither be thou dismayed: for the LORD thy God is with thee whithersoever thou goest.', 'Joshua 1:9'],
+    ['This is the day which the LORD hath made; we will rejoice and be glad in it.', 'Psalm 118:24'],
+    ['It is of the LORD\'s mercies that we are not consumed, because his compassions fail not. They are new every morning: great is thy faithfulness.', 'Lamentations 3:22-23'],
+    ['Bear ye one another\'s burdens, and so fulfil the law of Christ.', 'Galatians 6:2'],
+    ['As every man hath received the gift, even so minister the same one to another, as good stewards of the manifold grace of God.', '1 Peter 4:10'],
+    ['But to do good and to communicate forget not: for with such sacrifices God is well pleased.', 'Hebrews 13:16'],
+    ['God is our refuge and strength, a very present help in trouble.', 'Psalm 46:1'],
+    ['Trust in the LORD with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths.', 'Proverbs 3:5-6'],
+    ['Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee; yea, I will uphold thee with the right hand of my righteousness.', 'Isaiah 41:10'],
+    ['Inasmuch as ye have done it unto one of the least of these my brethren, ye have done it unto me.', 'Matthew 25:40'],
+    ['And even to your old age I am he; and even to hoar hairs will I carry you: I have made, and I will bear; even I will carry, and will deliver you.', 'Isaiah 46:4'],
+    ['Be kindly affectioned one to another with brotherly love; in honour preferring one another.', 'Romans 12:10'],
+    ['And be ye kind one to another, tenderhearted, forgiving one another, even as God for Christ\'s sake hath forgiven you.', 'Ephesians 4:32'],
+    ['If any of you lack wisdom, let him ask of God, that giveth to all men liberally, and upbraideth not; and it shall be given him.', 'James 1:5'],
+    ['Therefore, my beloved brethren, be ye stedfast, unmoveable, always abounding in the work of the Lord, forasmuch as ye know that your labour is not in vain in the Lord.', '1 Corinthians 15:58'],
+    ['And let the beauty of the LORD our God be upon us: and establish thou the work of our hands upon us.', 'Psalm 90:17'],
+    ['And what doth the LORD require of thee, but to do justly, and to love mercy, and to walk humbly with thy God?', 'Micah 6:8'],
+    ['The joy of the LORD is your strength.', 'Nehemiah 8:10'],
+    ['Cast thy burden upon the LORD, and he shall sustain thee.', 'Psalm 55:22'] ];
+  let mugLast = -1;
+  function mugKind(){ const l = (DK.settings && DK.settings.pad_labels) || {}; return l._mug === 'verse' ? 'verse' : 'quote'; }
+  function mugPick(kind){ const list = kind === 'verse' ? MUG_VERSES : MUG_QUOTES; let i; do{ i = Math.floor(Math.random() * list.length); }while(list.length > 1 && i === mugLast); mugLast = i; return list[i]; }
+  function mugOpen(anchor, kindIn){
+    if(typeof ccPopOpen !== 'function') return;
+    const kind = kindIn || mugKind(), q = mugPick(kind);
+    const tab = (k, l) => '<button class="dk-mugtab' + (kind === k ? ' dk-on' : '') + '" data-mug="' + k + '">' + l + '</button>';
+    const el = ccPopOpen(anchor, '<div class="dk-mugbox"><div class="dk-tkick">A little something with your coffee</div>'
+      + '<div class="dk-mugq">' + (kind === 'verse' ? '' : '“') + esc(q[0]) + (kind === 'verse' ? '' : '”') + '</div>'
+      + (q[1] ? '<div class="dk-mugby">' + esc(q[1]) + (kind === 'verse' ? ' (KJV)' : '') + '</div>' : '')
+      + '<div class="dk-mugrow"><span class="dk-mugtabs">' + tab('quote', 'Quotes') + tab('verse', 'Bible verses') + '</span><button class="secondary" data-mug="again">Another one</button></div></div>', { width:420 });
+    if(!el) return;
+    el.addEventListener('click', e => { const b = e.target.closest('[data-mug]'); if(!b) return;
+      const k = b.dataset.mug === 'again' ? kind : b.dataset.mug;
+      if(k !== kind && !ro() && DK.me){ const labels = Object.assign({}, (DK.settings && DK.settings.pad_labels) || {}, { _mug:k });
+        DK.settings = Object.assign({}, DK.settings || {}, { pad_labels:labels }); ST().saveSettings({ person_id:DK.me, pad_labels:labels }).catch(x => saveFailed(x)); }
+      try{ ccPopClose(); }catch(x){} mugOpen(anchor, k); });
+  }
   async function tellsMap(){
     if(DK.tells) return DK.tells;
     const m = {};
@@ -1057,7 +1120,7 @@
       + (ro() ? '' : '<button class="dk-cup" data-dk="prefs" title="Make it yours" aria-label="Make it yours"><svg viewBox="0 0 52 78" aria-hidden="true"><path d="M14 30l6-26" stroke="#F0A63A" stroke-width="5" stroke-linecap="round"/><path d="M26 30V6" stroke="#8FD1C7" stroke-width="5" stroke-linecap="round"/><path d="M36 30l5-22" stroke="#f8c5d2" stroke-width="5" stroke-linecap="round"/><path d="M8 30h36l-3 44H11z" fill="#0D365F"/><path d="M8 30h36" stroke="#E8C988" stroke-width="3"/></svg></button>') + '</div>'
       + '<input type="file" id="dkPhotoIn" accept="image/*" hidden></div>';
     const right = '<div class="dk-rail dk-r"><div class="dk-zone dk-zr"></div>' + (ro() ? '' : tapedHtml()) + folderHtml()
-      + '<div class="dk-bits"><button class="dk-jar" data-dk="jar" title="The office\'s Kind Words jar" aria-label="The Kind Words jar">' + jarSvg(DK.jarN) + (DK.waitN && !ro() ? '<span class="dk-jarwait">' + DK.waitN + ' waiting</span>' : '') + '</button><div class="dk-mug" aria-hidden="true"><div class="dk-steam"><i></i><i></i><i></i></div><svg viewBox="0 0 64 78"><path d="M8 22h40v38c0 8-6 13-14 13H22c-8 0-14-5-14-13z" fill="#f2eee3"/><path d="M48 32h5a8 8 0 0 1 0 16h-5" fill="none" stroke="#f2eee3" stroke-width="5"/><ellipse cx="28" cy="22" rx="20" ry="4" fill="#7a4a22"/><path d="M28 54c-4-2.6-5.8-4.6-5.8-6.6 0-1.6 1.2-2.6 2.5-2.6s2.2.7 3.3 2c1-1.3 2-2 3.3-2s2.5 1 2.5 2.6c0 2-1.8 4-5.8 6.6z" fill="#1F7A8C"/></svg></div>'
+      + '<div class="dk-bits"><button class="dk-jar" data-dk="jar" title="The office\'s Kind Words jar" aria-label="The Kind Words jar">' + jarSvg(DK.jarN) + (DK.waitN && !ro() ? '<span class="dk-jarwait">' + DK.waitN + ' waiting</span>' : '') + '</button><button class="dk-mug" data-dk="mug" title="A little something with your coffee" aria-label="A quote or a Bible verse"><div class="dk-steam"><i></i><i></i><i></i></div><svg viewBox="0 0 64 78"><path d="M8 22h40v38c0 8-6 13-14 13H22c-8 0-14-5-14-13z" fill="#f2eee3"/><path d="M48 32h5a8 8 0 0 1 0 16h-5" fill="none" stroke="#f2eee3" stroke-width="5"/><ellipse cx="28" cy="22" rx="20" ry="4" fill="#7a4a22"/><path d="M28 54c-4-2.6-5.8-4.6-5.8-6.6 0-1.6 1.2-2.6 2.5-2.6s2.2.7 3.3 2c1-1.3 2-2 3.3-2s2.5 1 2.5 2.6c0 2-1.8 4-5.8 6.6z" fill="#1F7A8C"/></svg></button>'
       + (ro() ? '' : '<button class="dk-eraser" data-dkdrop="erase" data-dk="erase-help" title="Drop a line or a sticky here to erase it">ERASE</button>')
       + '<button class="dk-help" data-dk="help">How to</button></div></div>';
     if(DK.view === 'everyone') return everyoneHtml();
@@ -1218,6 +1281,7 @@
     't-talk': a => talkToggle(a.closest('[data-dkid]').dataset.dkid),
     kind: a => kindOpen(a),
     jar: a => jarOpen(a),
+    mug: a => mugOpen(a),
     'taped-jar': a => kindState(a.dataset.k, 'done', 'Into the jar it goes'),
     week: a => weekCard(a),
     more: a => menu(a, a.closest('[data-dkid]').dataset.dkid),
@@ -1733,7 +1797,10 @@ body.dk-dragging .dk-ptabs{ pointer-events:none; }
 .dk-eraser{ border:0; width:92px; height:36px; border-radius:7px; background:linear-gradient(90deg,#f2b8c6 0 64%, #4f86b8 64% 100%); transform:rotate(-10deg); box-shadow:0 8px 10px -6px var(--shadow); color:#5a2232 !important; font-size:10.5px; font-weight:800; letter-spacing:.1em; padding:0 30px 0 0; transition:transform .15s; }
 .dk-eraser.dk-over{ transform:rotate(-4deg) scale(1.12); }
 .dk-help{ border:1px solid rgba(255,255,255,.45); background:transparent; color:#fff !important; border-radius:14px; padding:4px 11px; font-size:12px; font-weight:700; }
-.dk-mug{ width:60px; height:74px; position:relative; } .dk-mug svg{ width:60px; height:74px; }
+.dk-mug{ width:60px; height:74px; position:relative; border:0; background:transparent; padding:0; cursor:pointer; transition:transform .15s; } .dk-mug:hover{ transform:rotate(-4deg) translateY(-2px); } .dk-mug svg{ width:60px; height:74px; }
+.dk-mugbox{ padding:4px 2px; } .dk-mugq{ font-family:'Young Serif',Georgia,serif; font-size:20px; line-height:1.35; color:#0D365F; margin:8px 0 6px; }
+.dk-mugby{ font:600 13px system-ui,sans-serif; color:#6b5a3c; } .dk-mugrow{ display:flex; gap:8px; align-items:center; justify-content:space-between; margin-top:14px; flex-wrap:wrap; }
+.dk-mugtab{ border:1px solid #d9cfbd; background:#fffdf6; color:#3a3222; border-radius:14px; padding:4px 11px; font-size:12.5px; margin-right:4px; } .dk-mugtab.dk-on{ background:#0D365F; color:#fff; border-color:#0D365F; }
 .dk-steam{ position:absolute; top:-6px; left:14px; width:30px; height:24px; }
 .dk-steam i{ position:absolute; bottom:0; width:3px; height:18px; border-radius:3px; background:rgba(255,255,255,.55); animation:dkSteam 3.2s ease-in-out infinite; }
 .dk-steam i:nth-child(2){ left:10px; animation-delay:.9s; } .dk-steam i:nth-child(3){ left:20px; animation-delay:1.7s; }
@@ -1967,5 +2034,5 @@ button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale
 `;
 
   Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkKindToggle, dkTellToggle, dkTellsMap:() => tellsMap(), dkAllowed, dkWarm, dkQuickJot, dkJotOpen, dkShiftHtml, dkShiftApply, dkRefresh, dkJotWork, dkDashRender, dkDrawer:toggleDrawer });
-  window.DKX = { kindOpen, jarOpen, clipOpen, kindState, tucked, deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, talkToggle, talkSync, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
+  window.DKX = { mugOpen, mugKind, kindOpen, jarOpen, clipOpen, kindState, tucked, deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, talkToggle, talkSync, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
 })();
