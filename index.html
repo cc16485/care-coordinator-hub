@@ -26185,6 +26185,15 @@ function opsPriorityKey(it){
   if(!isNaN(d) && d<=e.getTime()) return [3, d-(it.urgency==='high'?36e5:0)];
   return [4, isNaN(d)?Infinity:d];
 }
+/* What can be ticked (2026-10-06, Samantha: "i am trying to click multiple cards on my work and its not letting me"):
+   on Today that is the Act Now and Due Today cards AND the Later cards once they are shown. Before, a Later card's tick
+   was undone the moment the page redrew, because only the Act Now / Due Today list counted. */
+function myWorkSelectable(all){
+  const rows=myWorkRows(); if(MYWORK_TAB!=='today') return rows;
+  const ids=new Set(rows.map(r=>r.id));
+  const later=myWorkBuckets().mine.filter(i=>!ids.has(i.id));
+  return (all||MYWORK_LATER_OPEN)?rows.concat(later):rows;
+}
 function myWorkRows(){
   const b=myWorkBuckets();
   const rows=(b[MYWORK_TAB]||[]).slice()
@@ -26348,8 +26357,9 @@ function myWorkCard(it, i){
   let h='<div class="wkcard'+(focused?' focused':'')+(sel?' selected':'')+'" data-id="'+it.id+'" '
     +'style="padding:13px 15px;margin-bottom:8px;">'
     +'<div style="display:flex;gap:10px;align-items:flex-start;">'
+    +'<label class="wkchkhit" title="Select" style="flex:0 0 auto;padding:4px 6px;margin:-4px -2px -4px -6px;cursor:pointer;">'
     +'<input type="checkbox" class="wkchk" '+(sel?'checked':'')+' onchange="myWorkToggle(\''+it.id+'\')" '
-    +'style="width:16px;height:16px;margin-top:3px;flex:0 0 auto;cursor:pointer;">'
+    +'style="width:18px;height:18px;margin-top:2px;cursor:pointer;"></label>'
     +'<div style="flex:1;min-width:0;">'
     +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">'
     +'<b style="font-size:15px;">'+esc(it.about||it.title||'')+'</b>'
@@ -26608,7 +26618,8 @@ function renderMyWork(){
   }
 
   const rows=myWorkRows();
-  [...MYWORK_SEL].forEach(id=>{ if(!rows.some(r=>r.id===id)) MYWORK_SEL.delete(id); });
+  const tickable=new Set(myWorkSelectable(true).map(r=>r.id));
+  [...MYWORK_SEL].forEach(id=>{ if(!tickable.has(id)) MYWORK_SEL.delete(id); });
   if(MYWORK_FOCUS>=rows.length) MYWORK_FOCUS=Math.max(0,rows.length-1);
 
   /* Today reads as four lanes (see below). Each unclaimed card says nobody has it and offers Take it. */
@@ -26660,7 +26671,8 @@ function renderMyWork(){
     :(MYWORK_LATER_OPEN
       ? later.map(it=>myWorkCard(it,-1)).join('')+'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="MYWORK_LATER_OPEN=false;renderMyWork()">Fold away</span>'
       : '<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="MYWORK_LATER_OPEN=true;renderMyWork()">Show '+later.length+' later item'+(later.length===1?'':'s')+'</button>'));
-  wrap.innerHTML=(rows.length?myWorkBulkBar(rows):'')+h;
+  const sel=myWorkSelectable();
+  wrap.innerHTML=((sel.length||MYWORK_SEL.size)?myWorkBulkBar(sel):'')+h;
 }
 function myWorkGo(t){ MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
 
@@ -26674,7 +26686,7 @@ function myWorkToggle(id){
 }
 function myWorkSelectAll(on){
   MYWORK_SEL.clear();
-  if(on) myWorkRows().forEach(r=>MYWORK_SEL.add(r.id));
+  if(on) myWorkSelectable().forEach(r=>MYWORK_SEL.add(r.id));
   renderMyWork();
 }
 function myWorkBulkBar(rows){
@@ -26687,7 +26699,7 @@ function myWorkBulkBar(rows){
     +'style="width:16px;height:16px;cursor:pointer;"> '
     +(n?('<b>'+n+' selected</b>'):('Select all '+rows.length))+'</label>';
   if(n){
-    const sel=rows.filter(r=>MYWORK_SEL.has(r.id));
+    const sel=myWorkSelectable(true).filter(r=>MYWORK_SEL.has(r.id));
     // Only offered when it means the same thing for everything selected.
     const canAssign = sel.every(r=>true);
     const anyClaimed = sel.some(r=>r.owner);
@@ -26710,7 +26722,7 @@ function myWorkBulkBar(rows){
   return h+'</div>';
 }
 function myWorkBulkAssign(){
-  const rows=myWorkRows().filter(r=>MYWORK_SEL.has(r.id));
+  const rows=myWorkSelectable(true).filter(r=>MYWORK_SEL.has(r.id));
   ccPickPerson(document.getElementById('bulkAssign'), {
     onPick: async (e,n)=>{
       for(const it of rows) await opsSetOwner(it.id,e,n);
@@ -26718,7 +26730,7 @@ function myWorkBulkAssign(){
     }});
 }
 function myWorkBulkDomain(){
-  const rows=myWorkRows().filter(r=>MYWORK_SEL.has(r.id));
+  const rows=myWorkSelectable(true).filter(r=>MYWORK_SEL.has(r.id));
   ccPickDomain(document.getElementById('bulkDomain'), {
     onPick: async (c)=>{ for(const it of rows) await opsSetDomain(it.id,c);
       MYWORK_SEL.clear(); myWorkRefresh(); }});
@@ -26726,7 +26738,7 @@ function myWorkBulkDomain(){
 /* Named, counted, and it lists them. "Mark all handled" against a filtered
    list of forty is exactly the click somebody regrets. */
 function myWorkBulkClose(what){
-  const rows=myWorkRows().filter(r=>MYWORK_SEL.has(r.id));
+  const rows=myWorkSelectable(true).filter(r=>MYWORK_SEL.has(r.id));
   if(!rows.length) return;
   const label={already_handled:'already handled elsewhere',duplicate:'duplicates',
                informational:'informational, no action needed',stale:'stale'}[what];
