@@ -97,18 +97,29 @@ async()=>{
   ok('...more than a week late is counted, not listed (left to Needs Attention)', !/Ancient thing/.test(wrap().innerText) && /1 older item \(more than a week late\) isn't shown here/.test(wrap().innerText));
   await suWorthFlag('ops_d1'); await sleep(200);
   ok('...Talk about it flags it (it moves up to the flagged list, no longer under Worth mentioning)', S.standup_notes.some(x=>x.source==='work' && x.ops_id==='ops_d1' && x.status==='open') && !cardFor("Possible concern on Ann's visit").missing);
-  // notes (2026-10-06: "I would like to tell Krystal that Pat's family called...")
+  // notes, tags and threads (2026-10-06: "can we tag who we want to talk to about it - and let us have a thread?")
   let np=suWorthNote('ops_d2'); await sleep(120); let nf=popTop();
-  ok('Add a note on something the Hub found: words and who it is for (defaults to its owner)', /Add a note/.test(nf.innerText) && nf.querySelector('[data-a=to]') && /Nothing is texted or emailed/.test(nf.innerText));
-  nf.querySelector('[data-a=t]').value="Ann's family called: a friend of theirs wants to apply"; nf.querySelector('[data-a=to]').value='jess@mo-care.com'; nf.querySelector('[data-a=y]').click(); await np; await sleep(200);
+  ok('Add a note on something the Hub found: the words and who to tag', /Add a note/.test(nf.innerText) && nf.querySelectorAll('[data-tag]').length===3 && /Type @Name to tag someone/.test(nf.innerText));
+  nf.querySelector('[data-a=t]').value="Ann's family called: a friend of theirs wants to apply"; nf.querySelector('[data-tag][value="jess@mo-care.com"]').checked=true; nf.querySelector('[data-a=y]').click(); await np; await sleep(250);
   const nflag=S.standup_notes.find(x=>x.ops_id==='ops_d2' && x.status==='open');
-  ok('...it becomes a flag to talk about, on Jess\'s part of the list, with the note on it', nflag && nflag.assigned_to_email==='jess@mo-care.com' && nflag.updates.at(-1).text==="Ann's family called: a friend of theirs wants to apply" && nflag.updates.at(-1).for==='jess@mo-care.com', nflag);
-  ok('...the note shows on the list, "Kat for Jess: ..."', cards().some(c=>/Kat for Jess: Ann's family called/.test(c.innerText)), wrap().innerText.slice(0,1500));
+  ok('...it becomes a flag with the note, Jess tagged', nflag && JSON.stringify(nflag.tagged)==='["jess@mo-care.com"]' && nflag.updates.at(-1).text==="Ann's family called: a friend of theirs wants to apply" && JSON.stringify(nflag.updates.at(-1).tags)==='["jess@mo-care.com"]', nflag);
+  ok('...on the list with "@Jess", in the thread, and under Jess\'s name', cards().some(c=>/Kat @Jess/.test(c.innerText) && /Ann's family called/.test(c.innerText)) && [...document.querySelectorAll('#suWrap .su-tgroup')].some(g=>/^Jess Lee/.test(g.innerText) && /Ann's family called/.test(g.innerText)), wrap().innerText.slice(0,1500));
   ok('...and on the My Work card\'s history', (DATA.ops_items.find(x=>x.id==='ops_d2').history||[]).some(h=>/Note for Jess: Ann's family called/.test(h.text)));
-  np=suAct(nflag.id,'note'); await sleep(120); nf=popTop(); nf.querySelector('[data-a=t]').value='Jess, call them back today'; nf.querySelector('[data-a=to]').value='kat@mo-care.com'; nf.querySelector('[data-a=y]').click(); await np; await sleep(150);
+  ok('...the server is asked to email whoever should know (it decides; the page picks no address)', L.fn.includes('talk-notify'), L.fn);
+  // a reply with @mention, from the box under the item
+  const box=cards().find(c=>/Ann's family called/.test(c.innerText)).querySelector('.su-reply');
+  box.value='@Kat can you call them back today?'; box.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); await sleep(250);
   const nflag2=S.standup_notes.find(x=>x.id===nflag.id);
-  ok('Add a note on a flag: kept in order, and it can move it to someone else', nflag2.updates.length===2 && nflag2.assigned_to_email==='kat@mo-care.com' && nflag2.history.some(h=>/Now on Kat Smith's list/.test(h.what)), nflag2);
-  ok('nothing was sent by the notes', L.fn.length===0 && L.rpc.length===0);
+  ok('Reply: Enter adds it to the thread in order, and @Kat tags Kat', nflag2.updates.length===2 && nflag2.updates[1].text==='@Kat can you call them back today?' && JSON.stringify(nflag2.updates[1].tags)==='["kat@mo-care.com"]' && nflag2.tagged.includes('kat@mo-care.com') && nflag2.tagged.includes('jess@mo-care.com'), nflag2);
+  ok('...the reply box is empty again and the thread shows both', cards().some(c=>/Ann's family called/.test(c.innerText) && /can you call them back today/.test(c.innerText)) && !cards().find(c=>/Ann's family called/.test(c.innerText)).querySelector('.su-reply').value);
+  // Tag someone with no words
+  np=suAct(nflag.id,'tag'); await sleep(120); nf=popTop(); nf.querySelector('[data-tag][value="sam@mo-care.com"]').checked=true; nf.querySelector('[data-a=y]').click(); await np; await sleep(200);
+  const nflag3=S.standup_notes.find(x=>x.id===nflag.id);
+  ok('Tag someone: no words needed ("Tagged Samantha"), and they are on the item', nflag3.tagged.includes('sam@mo-care.com') && nflag3.updates.at(-1).text==='Tagged Samantha' && nflag3.history.some(h=>/^Tagged, tagged Samantha/.test(h.what)), nflag3);
+  ok('...the item never changes hands by a tag (it stays with whoever it was with)', nflag3.assigned_to_email===nflag.assigned_to_email);
+  suTodayRender(); await sleep(30);
+  ok('Dashboard: "1 tagged for you" for Kat', /1 tagged for you/.test($('#suTodayLine').innerText), $('#suTodayLine').innerText);
+  ok('nothing was texted by the notes, and the only function asked is the email one', L.fn.every(f=>f==='talk-notify') && L.rpc.length===0, L.fn);
   L.writes.length=0;
   [...cardFor('Brand new urgent').querySelectorAll('button')].find(b=>/Talked/.test(b.textContent)).click(); await sleep(200);
   let it=item('old5');
@@ -204,7 +215,7 @@ async()=>{
   ok('the Hub never reads the Team Hub settings list', !L.reads.some(r=>r.startsWith('app_data:team_hub_settings')), L.reads.filter(r=>/team_hub/.test(r)));
 
   /* --- no messages --- */
-  ok('nothing was texted, emailed or called: no functions, no RPCs, no outside requests', L.fn.length===0 && L.rpc.length===0 && L.fetch.length===0, [L.fn,L.rpc,L.fetch]);
+  ok('nothing was texted or called: the only function asked is the To talk about email one (it decides who, and is off until switched on); no RPCs, no outside requests', L.fn.every(f=>f==='talk-notify') && L.rpc.length===0 && L.fetch.length===0, [L.fn,L.rpc,L.fetch]);
   ok('no browser alert/confirm/prompt boxes were used', !window.__dialogs);
   return R;
 }
@@ -230,7 +241,7 @@ R = []
 def static(n, c, d=''):
     R.append(['PASS' if c else 'FAIL', n, '' if c else d])
 
-static('the board code never sends anything (no functions, fetch, texts, emails)', not re.search(r'functions\.invoke|fetch\(|sendCandidateSMS|ghlSend|\.rpc\(', SRC))
+static('the board code never sends anything itself: its only server call is talk-notify (which reads the saved item and decides who, office staff only)', re.findall(r"functions\.invoke\('([a-z-]+)'", SRC)==['talk-notify'] and not re.search(r'fetch\(|sendCandidateSMS|ghlSend|\.rpc\(', SRC))
 static('My Team cards carry the to-talk-about count', "suTeamCountHtml(e)" in HUB)
 static('the "What runs by itself" button is gone from the top bar (her call)', 'onclick="autoOpen()"' not in HUB)
 static('standup-board.js is loaded by the Hub', '<script src="standup-board.js?v=' in HUB)

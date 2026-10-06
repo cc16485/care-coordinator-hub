@@ -84,28 +84,72 @@
 
   /* A note for someone (2026-10-06, Samantha: "can we add comments, like on uncovered with Pat, I would like to tell Krystal
      that Pat's family called"). The words, and who it's for (they get it on their part of the To talk about list). */
-  function noteForm(title, forEmail){
+  /* A note that can tag people (2026-10-06, Samantha: "can we tag who we want to talk to about it - and let us have a
+     thread? ... email a note that shows the full card"). Tick who to tag; typing @Name in the words tags them too. A
+     tagged person sees it under their name and, with To talk about emails on, gets one email with the whole card. */
+  function noteForm(title, tagDefault, opts){
+    opts = opts || {};
     return new Promise(res => {
-      const list = people(), cur = lc(forEmail);
+      const list = people(), cur = new Set([].concat(tagDefault || []).map(lc).filter(Boolean));
       const el = pop('<div style="font-size:14.5px;font-weight:800;color:var(--navy);">' + esc(title) + '</div>'
-        + '<div class="field-note" style="margin:3px 0 8px;">It shows on the To talk about list and on the card. Nothing is texted or emailed.</div>'
-        + '<textarea data-a="t" rows="4" style="width:100%;" placeholder="Pat\'s family called: someone they know wants to apply"></textarea>'
-        + '<label class="field-note" style="display:block;margin-top:8px;">For</label><select data-a="to" style="width:100%;">'
-        + list.map(p => '<option value="' + esc(p.email) + '"' + (p.email === cur ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('')
-        + (cur && !list.some(p => p.email === cur) ? '<option value="' + esc(cur) + '" selected>' + esc(cur) + '</option>' : '') + '</select>'
-        + '<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" data-a="y">Save the note</button><button class="secondary" data-a="n">Cancel</button></div>', 460, true);
+        + '<div class="field-note" style="margin:3px 0 8px;">Everyone you tag sees it under their name on To talk about' + (emailOn() ? ' and gets an email with the whole card' : '') + '. Type @Name to tag someone as you write.</div>'
+        + '<textarea data-a="t" rows="4" style="width:100%;" placeholder="' + esc(opts.placeholder || 'Pat\'s family called: someone they know wants to apply. @Krystal can you send her the application?') + '"></textarea>'
+        + '<div class="field-note" style="margin-top:8px;">Tag</div><div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:3px;">'
+        + list.map(p => '<label style="display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer;"><input type="checkbox" data-tag value="' + esc(p.email) + '"' + (cur.has(p.email) ? ' checked' : '') + ' style="width:auto;margin:0;"> ' + esc(p.name) + '</label>').join('')
+        + '</div><div class="field-note" data-a="err" style="color:var(--red);margin-top:6px;"></div>'
+        + '<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" data-a="y">' + esc(opts.save || 'Save the note') + '</button><button class="secondary" data-a="n">Cancel</button></div>', 480, true);
       let done = false; const fin = v => { if(done) return; done = true; ccPopClose(); res(v); };
-      el.querySelector('[data-a=y]').onclick = () => { const v = el.querySelector('[data-a=t]').value.trim(); if(v) fin({ text:v.slice(0, 1000), to:el.querySelector('[data-a=to]').value }); };
+      el.querySelector('[data-a=y]').onclick = () => {
+        const v = el.querySelector('[data-a=t]').value.trim();
+        const tags = new Set([...el.querySelectorAll('[data-tag]:checked')].map(x => lc(x.value)).concat(mentions(v)));
+        if(!v && !(opts.allowEmpty && tags.size)){ el.querySelector('[data-a=err]').textContent = opts.allowEmpty ? 'Tick someone to tag, or write a note.' : 'Write the note first.'; return; }
+        fin({ text:(v || ('Tagged ' + [...tags].map(e => String(nameOf(e, list)).split(' ')[0]).join(', '))).slice(0, 1000), tags:[...tags] }); };
       el.querySelector('[data-a=n]').onclick = () => fin(null);
       setTimeout(() => { const t = el.querySelector('[data-a=t]'); if(t) t.focus(); }, 30);
       const t = setInterval(() => { if(!document.body.contains(el)){ clearInterval(t); if(!done){ done = true; res(null); } } }, 150);
     });
   }
+  /* @Krystal, @krystal, @Krystal Land: the people a note names */
+  function mentions(text){
+    const list = people(), out = new Set();
+    String(text || '').replace(/@([A-Za-z][A-Za-z'-]*)/g, (_, w) => { const n = lc(w);
+      const hit = list.filter(p => lc(String(p.name).split(' ')[0]) === n || lc(String(p.email).split('@')[0]) === n);
+      if(hit.length === 1) out.add(hit[0].email); return _; });
+    return [...out];
+  }
+  const emailOn = () => { try{ return !!(DATA.ops_settings && DATA.ops_settings.talk_email_live === true); }catch(e){ return false; } };
+  /* add a message to an item's thread (a note, a reply or a tag), then let the server email whoever should know */
+  async function addToThread(id, text, tags, how){
+    const m = me(), list = people(), tg = [...new Set((tags || []).map(lc).filter(Boolean))];
+    const ok = await suMutate(id, it => {
+      it.updates = it.updates.concat([{ id:newId('m_'), at:iso(), by:m.name, by_email:m.email, text, tags:tg }]);
+      it.tagged = [...new Set((Array.isArray(it.tagged) ? it.tagged : []).map(lc).concat(tg))];
+      return (how || 'Note') + (tg.length ? ', tagged ' + tg.map(e => String(nameOf(e, list)).split(' ')[0]).join(', ') : '');
+    });
+    if(!ok) return false;
+    const it = (SU.items || []).find(x => x.id === id);
+    if(it && it.source === 'work' && it.ops_id) await noteOnCard(it.ops_id, text, tg);
+    tellServer(id);
+    return true;
+  }
+  /* the email itself is the server's (talk-notify): it reads the saved item, so nothing here picks an address */
+  async function tellServer(id){
+    try{
+      if(typeof sb === 'undefined' || !sb || !sb.functions) return;
+      const { data, error } = await sb.functions.invoke('talk-notify', { body:{ item_id:id } });
+      if(error || (data && data.error)){ say('Saved. The email didn\'t go: ' + String((data && data.error) || (error && error.message) || 'unknown').slice(0, 120)); return; }
+      if(data && data.live){ const bits = [];
+        if((data.emailed || []).length) bits.push('Emailed ' + data.emailed.join(', ') + '.');
+        if((data.later || []).length) bits.push(data.later.join(', ') + ' get' + (data.later.length === 1 ? 's' : '') + ' the latest in a few minutes.');
+        if(bits.length) say('Saved. ' + bits.join(' ')); }
+    }catch(e){ say('Saved. The email didn\'t go: ' + String(e && e.message || e).slice(0, 120)); }
+  }
   /* the same note on the My Work card the flag is about, so it is there too */
   async function noteOnCard(opsId, text, to){
     try{
       const it = ((typeof DATA !== 'undefined' && DATA.ops_items) || []).find(x => x && x.id === opsId); if(!it) return;
-      const line = 'Note' + (to ? ' for ' + String(nameOf(to)).split(' ')[0] : '') + ': ' + text;
+      const tg = [].concat(to || []).filter(Boolean);
+      const line = 'Note' + (tg.length ? ' for ' + tg.map(e => String(nameOf(e)).split(' ')[0]).join(', ') : '') + ': ' + text;
       if(typeof opsLog === 'function') opsLog(it, line); else { it.history = (it.history || []).concat([{ at:iso(), by:me().name, text:line }]); }
       await persist('ops_items', it);
     }catch(e){}
@@ -309,16 +353,32 @@
   const mineTo = (i, m) => lc(i.assigned_to_email) === m.email || lc(i.reported_by_email) === m.email;
   function talkRow(i, list, m){
     const id = esc(i.id), age = suAge(i), old = i.source !== 'desk' && i.source !== 'work';
-    const acts = btn('Talked ✓', "suAct('" + id + "','talked')", 'primary') + btn('Add a note', "suAct('" + id + "','note')")
+    const tagged = (Array.isArray(i.tagged) ? i.tagged : []).map(lc);
+    const acts = btn('Talked ✓', "suAct('" + id + "','talked')", 'primary') + btn('Tag someone', "suAct('" + id + "','tag')")
       + (i.source === 'work' && i.ops_id ? btn('Open in My Work', "suOpenWork('" + esc(i.ops_id) + "')") : '')
       + (old ? btn('Still needs doing: put it on My Work', "suAct('" + id + "','towork')") : '')
       + (mineTo(i, m) ? btn('Take the flag off', "suAct('" + id + "','unflag')", 'secondary', 'color:var(--text-muted);') : '');
+    const tagChip = e => '<span class="su-tag" style="font-size:12px;font-weight:700;background:#E3F4F3;color:#1F7A8C;padding:2px 8px;border-radius:8px;">@' + esc(String(nameOf(e, list)).split(' ')[0]) + '</span>';
+    const ups = i.updates, shown = ups.length > 8 ? ups.slice(-8) : ups;
+    const msg = u => { const tg = Array.isArray(u.tags) ? u.tags : (u.for ? [u.for] : []);
+      return '<div class="su-msg" style="font-size:13.5px;background:var(--bg,#F6F9FD);border-radius:8px;padding:6px 10px;margin-top:5px;"><b>' + esc(String(u.by || 'Someone').split(' ')[0]) + '</b>'
+        + (tg.length ? ' ' + tg.map(e => '<span style="color:#1F7A8C;font-weight:700;">@' + esc(String(nameOf(e, list)).split(' ')[0]) + '</span>').join(' ') : '')
+        + ' <span class="field-note">' + esc(whenStr(u.at)) + '</span><div style="margin-top:2px;">' + esc(u.text) + '</div></div>'; };
     return '<div class="card su-talk" data-id="' + id + '" style="padding:10px 13px;margin-bottom:7px;border-left:4px solid ' + (i.urgent ? 'var(--red)' : 'var(--teal)') + ';">'
       + '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">' + (i.urgent ? chip('URGENT', 'var(--red)', '#fff') : '')
-      + '<b style="flex:1;min-width:200px;color:var(--navy);font-size:14.5px;">' + esc(i.summary || '(no description)') + '</b></div>'
+      + '<b style="flex:1;min-width:200px;color:var(--navy);font-size:14.5px;">' + esc(i.summary || '(no description)') + '</b>' + tagged.map(tagChip).join(' ') + '</div>'
       + '<div class="field-note" style="margin-top:3px;font-size:12px;">' + esc(fromOf(i)) + (i.client ? ' · ' + esc(i.client) : '') + (age.label ? ' · flagged ' + esc(age.label.replace(/^open /, '')) + ' ago' : '') + '</div>'
-      + (i.updates.length ? '<div class="su-notes" style="margin-top:6px;">' + i.updates.slice(-4).map(u => '<div style="font-size:13px;background:var(--bg,#F6F9FD);border-radius:8px;padding:5px 9px;margin-top:4px;"><b>' + esc(String(u.by || 'Someone').split(' ')[0]) + (u.for ? ' for ' + esc(String(nameOf(u.for, list)).split(' ')[0]) : '') + ':</b> ' + esc(u.text) + ' <span class="field-note">' + esc(whenStr(u.at)) + '</span></div>').join('') + '</div>' : '')
+      + (ups.length ? '<div class="su-notes" style="margin-top:6px;">' + (ups.length > shown.length ? '<div class="field-note">' + (ups.length - shown.length) + ' earlier message' + (ups.length - shown.length === 1 ? '' : 's') + '</div>' : '') + shown.map(msg).join('') + '</div>' : '')
+      + '<div style="display:flex;gap:6px;margin-top:7px;align-items:center;"><input class="su-reply" data-id="' + id + '" placeholder="' + (ups.length ? 'Reply' : 'Add a note') + '… (type @ to tag someone)" style="flex:1;font-size:13px;padding:6px 9px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();suReply(\'' + id + '\',this)}">'
+      + btn(ups.length ? 'Reply' : 'Add', "suReply('" + id + "',this.previousElementSibling)") + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;">' + acts + '</div></div>';
+  }
+  async function suReply(id, input){
+    const v = String((input && input.value) || '').trim(); if(!v){ if(input) input.focus(); return; }
+    if(input) input.disabled = true;
+    const ok = await addToThread(id, v.slice(0, 1000), mentions(v), 'Reply');
+    if(input){ input.disabled = false; if(ok) input.value = ''; }
+    suRender(); suTodayRender();
   }
   function suRender(){
     const box = document.getElementById('suWrap'); if(!box) return;
@@ -326,8 +386,11 @@
     const list = people(), m = me();
     const open = suSort(SU.items.filter(i => !i.archived_at && i.status !== 'done'));
     const groups = new Map();
+    /* an item sits under the person it is with and under everyone tagged on it */
     open.forEach(i => { const name = whoOf(i, list), k = lc(i.assigned_to_email) || 'name:' + lc(name);
-      if(!groups.has(k)) groups.set(k, { name, email:lc(i.assigned_to_email), items:[] }); groups.get(k).items.push(i); });
+      const put = (key, nm, em) => { if(!groups.has(key)) groups.set(key, { name:nm, email:em, items:[] }); const g = groups.get(key); if(!g.items.includes(i)) g.items.push(i); };
+      put(k, name, lc(i.assigned_to_email));
+      (Array.isArray(i.tagged) ? i.tagged : []).map(lc).filter(e => e && e !== lc(i.assigned_to_email)).forEach(e => put(e, nameOf(e, list), e)); });
     const gs = [...groups.values()].sort((a, b) => ((b.email === m.email) - (a.email === m.email)) || a.name.localeCompare(b.name));
     const flaggedOps = new Set(open.filter(i => i.source === 'work' && i.ops_id).map(i => String(i.ops_id)));
     let hub = []; try{ hub = prepList().filter(r => r.kind !== 'su' && !(r.kind === 'ops' && flaggedOps.has(String(r.id)))); }catch(e){}   /* already flagged: shown once, above */
@@ -391,16 +454,11 @@
   /* a note on something the Hub found: it becomes a flag to talk about, for that person, with the note on it */
   async function suWorthNote(opsId){
     const it = ((typeof DATA !== 'undefined' && DATA.ops_items) || []).find(x => String(x.id) === String(opsId)); if(!it) return;
-    const n = await noteForm('Add a note: ' + String(it.about || it.title || '').slice(0, 60), it.owner || me().email); if(!n) return;
-    const m = me(), to = lc(n.to);
+    const n = await noteForm('Add a note: ' + String(it.about || it.title || '').slice(0, 60), it.owner && lc(it.owner) !== me().email ? [it.owner] : []); if(!n) return;
     try{
-      const fid = await suTalk.flagWork(it, { to });
-      await suMutate(fid, x => { x.updates = x.updates.concat([{ at:iso(), by:m.name, by_email:m.email, text:n.text, for:to }]);
-        const lines = ['Note for ' + String(nameOf(to)).split(' ')[0]];
-        if(to && to !== lc(x.assigned_to_email)){ x.assigned_to_email = to; lines.push('Now on ' + nameOf(to) + '\'s list'); }
-        return lines; });
-      await noteOnCard(it.id, n.text, to);
-      say('Note saved for ' + String(nameOf(to)).split(' ')[0] + ', on the To talk about list.');
+      const fid = await suTalk.flagWork(it, { to:n.tags[0] });
+      await addToThread(fid, n.text, n.tags, 'Note');
+      say('Note saved' + (n.tags.length ? ' and ' + n.tags.map(e => String(nameOf(e)).split(' ')[0]).join(', ') + ' tagged' : '') + ', on the To talk about list.');
     }catch(e){ say("Couldn't save the note just now."); }
     suRender(); suTodayRender();
   }
@@ -469,16 +527,10 @@
   }
   async function suAct(id, what){
     const m = me();
-    if(what === 'note'){
+    if(what === 'note' || what === 'tag'){
       const it0 = (SU.items || []).find(x => x.id === id); if(!it0) return;
-      const n = await noteForm('Add a note', it0.assigned_to_email || m.email); if(!n) return;
-      const to = lc(n.to), list = people();
-      await suMutate(id, it => { it.updates = it.updates.concat([{ at:iso(), by:m.name, by_email:m.email, text:n.text, for:to }]);
-        const lines = ['Note for ' + String(nameOf(to, list)).split(' ')[0]];
-        if(to && to !== lc(it.assigned_to_email)){ it.assigned_to_email = to; lines.push('Now on ' + nameOf(to, list) + '\'s list'); }
-        return lines; });
-      if(it0.source === 'work' && it0.ops_id) await noteOnCard(it0.ops_id, n.text, to);
-      say('Note saved for ' + String(nameOf(to)).split(' ')[0] + '.');
+      const n = await noteForm(what === 'tag' ? 'Tag someone' : 'Add a note', what === 'tag' ? [] : (it0.tagged || []), what === 'tag' ? { allowEmpty:true, save:'Tag them', placeholder:'Why are you tagging them? (optional)' } : {}); if(!n) return;
+      if(await addToThread(id, n.text, n.tags, what === 'tag' ? 'Tagged' : 'Note')) say(n.tags.length ? 'Tagged ' + n.tags.map(e => String(nameOf(e)).split(' ')[0]).join(', ') + '.' : 'Note saved.');
     } else if(what === 'talked'){
       await suMutate(id, it => { if(it.status === 'done') return null; it.status = 'done'; it.talked_at = iso(); it.done_at = it.talked_at; it.done_by = m.name;
         it.resolved_at = it.done_at; it.resolved_by = m.name; return 'Talked about'; });
@@ -521,6 +573,7 @@
     const list = people(), m = me();
     const open = suSort(SU.items.filter(i => !i.archived_at && i.status !== 'done'));
     const mine = open.filter(i => lc(i.assigned_to_email) === m.email).length;
+    const taggedMe = open.filter(i => (Array.isArray(i.tagged) ? i.tagged : []).map(lc).includes(m.email) && lc(i.assigned_to_email) !== m.email).length;
     const row = i => '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);cursor:pointer;" onclick="switchTab(\'standup\')">'
       + (i.urgent ? chip('URGENT', 'var(--red)', '#fff') : '')
       + '<b style="flex:1 1 220px;min-width:0;color:var(--navy);">' + esc(i.summary || '(no description)') + '</b>'
@@ -529,6 +582,7 @@
       + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px;">'
       + '<b style="font-size:16px;color:var(--navy);">To talk about</b>'
       + '<span class="field-note">' + open.length + ' flagged' + (mine ? ' · ' + mine + ' yours' : '') + '</span>'
+      + (taggedMe ? '<span class="tag-chip" style="background:#E3F4F3;color:#1F7A8C;font-weight:700;">' + taggedMe + ' tagged for you</span>' : '')
       + '<span style="flex:1;"></span>'
       + '<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="switchTab(\'standup\')">Open the list</button></div>'
       + (open.length ? open.slice(0, 5).map(row).join('') + (open.length > 5 ? '<div class="field-note" style="padding-top:6px;">plus ' + (open.length - 5) + ' more</div>' : '')
@@ -869,6 +923,23 @@
     finish: (id, what) => suMutate(id, it => { if(it.status === 'done') return null; it.status = 'done'; it.done_at = iso(); it.done_by = me().name; it.resolved_at = it.done_at; it.resolved_by = me().name; return what || 'All set after Stand-Up'; })
   };
 
+  /* Settings > To talk about emails: the switch (the same one, with the same questions, as the Owners Hub Admin page) */
+  const SU_EMAIL_ON = 'Turn on To talk about emails?\n\nWhen someone tags a person or replies on To talk about, everyone on that thread except the writer gets one email with the whole card, the thread, and a button to open it in the Hub. Office staff only. Someone who just got one waits 10 minutes, then gets the latest in one email.';
+  const SU_EMAIL_OFF = 'Turn off To talk about emails? Tags and threads still work in the Hub; nobody is emailed.';
+  function suSetFill(){
+    const box = document.getElementById('suSet'); if(!box) return;
+    const on = emailOn();
+    box.innerHTML = '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="' + (on ? 'secondary' : 'primary') + '" onclick="suSetToggle(this)">' + (on ? 'Turn off' : 'Turn on') + '</button><span class="field-note" id="suSetMsg">' + (on ? 'On.' : 'Off: tags and threads work in the Hub; nobody is emailed.') + '</span></div>';
+  }
+  async function suSetToggle(b){
+    const on = !emailOn();
+    if(!confirm(on ? SU_EMAIL_ON : SU_EMAIL_OFF)) return;
+    if(b) b.disabled = true;
+    const out = typeof tkMerge === 'function' ? await tkMerge(mm => { mm.talk_email_live = on; return ['To talk about emails ' + (on ? 'ON' : 'OFF')]; }, 'To talk about emails') : { error:{ message:'the settings save is not on this page' } };
+    if(b) b.disabled = false;
+    if(!out.error) DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { talk_email_live:on });
+    suSetFill(); const msg = document.getElementById('suSetMsg'); if(msg && out.error) msg.textContent = 'Could not save: ' + out.error.message;
+  }
   /* the flag on a My Work card (an ops item): one open flag per item, on the list under whoever owns it */
   const suTalk = {
     forWork: opsId => (SU.items || []).find(i => i.source === 'work' && i.ops_id === opsId && !i.archived_at && i.status !== 'done') || null,
@@ -883,7 +954,7 @@
     unflagWork: async opsId => { await suLoad(true); const f = suTalk.forWork(opsId); if(f) await suMutate(f.id, x => { if(x.archived_at) return null; x.archived_at = iso(); x.archived_by = me().name; return 'Flag taken off'; }); return true; },
     load: f => suLoad(f), ready: () => !!SU.items
   };
-  Object.assign(window, { suSchedule, suSchedWords, suNextStandup, suSchedEdit, suDesk, suTalk, suOpenWork, suTalkNew, suWorthFlag, suWorthNote });
+  Object.assign(window, { suSchedule, suSchedWords, suNextStandup, suSchedEdit, suDesk, suTalk, suOpenWork, suTalkNew, suWorthFlag, suWorthNote, suReply, suSetFill, suSetToggle });
   Object.assign(window, { suOpen, suRender, suSet, suEdit, suAct, suTodayRender, suTeamCountHtml, tmOpen, tmRender, tmToggle, tmSearch, tmShowArchived, tmEdit, tmAct, tmVideo, tmPrepare, prepList,
     SUB: { suNorm, suAge, suSort, suFilter, suOpenFor, suDiff, tmPrior, tmCarry, safeUrl, isOverdue, SU, TM, SU_CATS } });
 })();
