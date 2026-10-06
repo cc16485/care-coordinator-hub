@@ -83,7 +83,7 @@ async()=>{
   p.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); await sleep(80);
   const pill=document.querySelector('.dk-jotpill');
   ok('selecting words shows "Jot it on my desk"', !!pill);
-  pill.click(); await sleep(300);
+  pill.querySelector('[data-p="jot"]').click(); await sleep(300);
   const SL=db.desk_lines.find(l=>/Saturday mornings/.test(l.body));
   ok('...which puts them on today\'s page with Linda\'s paperclip', SL && SL.link && SL.link.ax==='123' && /^Rachel asked/.test(SL.body));
   lpv.style.display='none'; X.chromeTick(); await sleep(50);

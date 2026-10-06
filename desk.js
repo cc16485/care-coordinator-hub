@@ -24,7 +24,11 @@
    "Jot it on my desk"; a small "On your desk" note on a profile when lines are about them; phone numbers written on a
    line call from the office line; "Make it a Hub follow-up" (the one bridge into My Work, always a person's tap);
    "Jot on my desk" on My Work cards; one line on your own Dashboard (never anyone else's numbers).
-   LATER STAGES: kind words (6).
+   STAGE 6a ADDS: kind words. Clip any words in the Hub (or type one into the jar) and they go straight into the office's
+   shared Kind Words jar (kind_word_clip, Desktop 465), tucked under the right desks: the owners, Client Care for a
+   compliment about a client's care, everyone for a review. Under your page: Into the jar, Tape it to my desk, Read it at
+   Stand-Up, Tell the caregiver (a draft you send yourself; nothing goes out on its own).
+   LATER: suggestions the Hub finds in shift notes (6b, practice first).
 
    WHERE IT LIVES: the private tables made by Desktop 463 (desk_lines, desk_stickies, desk_settings, desk_pages). The
    database decides who may read or change what; this file never assumes it may. Each line is saved on its own, with its
@@ -138,6 +142,12 @@
       const e = l.error || st.error || sk.error; if(e) throw e;
       return { lines:l.data || [], settings:st.data || [], stickies:sk.data || [] };
     },
+    /* Stage 6a: kind words (465) */
+    async kindDrops(me){ const { data, error } = await sb.from('kind_word_drops').select('kind_word_id,state,dropped_at,kind_words(id,quote,who,about,about_role,source,said_on,link,created_by,created_at)').eq('person_id', me).neq('state', 'done'); if(error) throw error; return data || []; },
+    async dropState(kwid, me, state){ const { error } = await sb.from('kind_word_drops').update({ state }).eq('kind_word_id', kwid).eq('person_id', me); if(error) throw error; return true; },
+    async jar(){ const { data, error } = await sb.from('kind_words').select('id,quote,who,about,about_role,source,said_on,link,created_by,created_at').eq('status', 'kind').order('created_at', { ascending:false }).limit(300); if(error) throw error; return data || []; },
+    async jarCount(){ const { count, error } = await sb.from('kind_words').select('id', { count:'exact', head:true }).eq('status', 'kind'); if(error) throw error; return count || 0; },
+    async clip(f){ const { data, error } = await sb.rpc('kind_word_clip', { p_quote:f.quote, p_who:f.who || '', p_about:f.about || '', p_about_role:f.about_role || '', p_source:f.source || 'other', p_said_on:f.said_on || null, p_link:f.link || null }); if(error) throw error; return data; },
     async insert(table, row){ const { data, error } = await sb.from(table).insert(row).select().single(); if(error) throw error; return data; },
     /* Only applies when nobody changed the row since we read it (rev). null = it changed elsewhere. */
     async update(table, id, rev, patch){
@@ -153,7 +163,7 @@
 
   /* ---------------------------------------------- state ---------------------------------------------- */
   const DK = { me:null, loaded:false, err:null, lines:[], stickies:[], settings:null, pages:{}, day:null, laterOpen:false, noteMode:false,
-               turn:null, receive:null, born:null, sig:'', editing:false, timer:null, view:'day', month:null, monthData:{}, justStamped:null, who:null, visits:[], ev:null, tray:{}, warm:false };
+               turn:null, receive:null, born:null, sig:'', editing:false, timer:null, view:'day', month:null, monthData:{}, justStamped:null, who:null, visits:[], ev:null, tray:{}, warm:false, kind:[], jarN:0 };
   window.DK = DK;
   const T = () => todayStr();
   const lineById = id => DK.lines.find(l => l.id === id);
@@ -278,6 +288,7 @@
         const now = new Date().toISOString(), onScreen = typeof activeTab !== 'undefined' && activeTab === 'mydesk' && !document.hidden;
         if(onScreen) DK.stickies.filter(x => x.from_person_id && x.from_person_id !== DK.me && !x.seen_at).forEach(x => action(null, ctx => ctx.setStick(x.id, { seen_at:now })));
         try{ DK.visits = (await ST().visits(DK.me, T())).filter(v => v.visitor_person_id !== DK.me); }catch(e){ DK.visits = []; }
+        try{ DK.kind = ST().kindDrops ? (await ST().kindDrops(DK.me)).filter(d => d.kind_words) : []; DK.jarN = ST().jarCount ? await ST().jarCount() : 0; }catch(e){ DK.kind = []; }
       }
       const sig = signature(); if(sig !== DK.sig || force){ DK.sig = sig; render(); }
     }catch(e){ DK.err = String((e && e.message) || e); DK.loaded = true; render(); }
@@ -432,6 +443,7 @@
       + (left.length ? '<div class="dk-left"><span>' + left.length + ' left on ' + dowName(prevBiz(t)) + "'s page</span><span class=\"dk-sp\"></span>"
           + '<button class="dk-lbtn" data-dk="lo-bring">Bring them over</button><button class="dk-lbtn dk-ghosty" data-dk="lo-look">Let me look</button>'
           + '<button class="dk-lbtn dk-x" data-dk="lo-x" aria-label="Leave them there" title="Leave them there">' + icon('x') + '</button></div>' : '')
+      + (!R && tucked().length ? '<button class="dk-mtuck" data-dk="kind">Kind words came in (' + tucked().length + ')</button>' : '')
       + '<ol class="dk-list" data-dkdrop="list" data-day="' + day + '">'
       +   arr.map((l, i) => rowHtml(l, i, day)).join('')
       +   (R ? '' : '<li class="dk-jot' + (DK.noteMode ? ' dk-notemode' : '') + '"><button class="dk-mode" data-dk="jotmode" title="' + (DK.noteMode ? 'Writing a note. Click for a to-do' : 'Writing a to-do. Click to scribble a note instead (or Shift+Enter)') + '" aria-label="Switch between a to-do and a note">'
@@ -449,6 +461,7 @@
       + (DK.receive === d ? '<span class="dk-plus1">+1</span>' : '') + '</button>';
     return '<div class="dk-planner" id="dkPlanner">' + peek('prev', prev) + peek('next', next)
       + '<div class="dk-ptabs"><button class="dk-ptab" style="--c:#bde2ee" data-dk="go" data-day="' + T() + '">Today</button><button class="dk-ptab" style="--c:#fde68a" data-dk="month">Month</button><button class="dk-ptab" style="--c:#d5b077" data-dk="later" data-dkdrop="later">Later</button></div>'
+      + (!ro() && tucked().length ? '<button class="dk-tuck dk-kindtuck" data-dk="kind" aria-label="Kind words came in"><span class="dk-kn">' + tucked().length + '</span><div class="dk-kk">Kind words came in</div><div class="dk-kq">' + esc(tucked()[0].kind_words.quote) + '</div></button>' : '')
       + (!ro() && fridayWeek() ? '<button class="dk-tuck dk-weektuck" data-dk="week"><b>Your week</b><span>Have a look ›</span></button>' : '')
       + pageHtml(day, DK.turn ? ' dk-turn-' + DK.turn : '') + '</div>';
   }
@@ -681,9 +694,10 @@
       const node = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement);
       const app = document.getElementById('appScreen'); if(!node || !app || !app.contains(node) || node.closest('#dkWrap, #dkDrawer')) return;
       const r = sel.getRangeAt(0).getBoundingClientRect(), c = deskContext();
-      pill = document.createElement('button'); pill.className = 'dk-jotpill'; pill.innerHTML = icon('clip') + 'Jot it on my desk';
+      pill = document.createElement('div'); pill.className = 'dk-jotpill'; pill.innerHTML = '<button data-p="jot">' + icon('clip') + 'Jot it on my desk</button><button data-p="kind">Clip as kind words</button>';
       pill.style.left = Math.max(8, Math.min(innerWidth - 190, r.left)) + 'px'; pill.style.top = Math.max(8, r.top - 40) + 'px';
-      pill.onclick = async () => { const txt = t.charAt(0).toUpperCase() + t.slice(1); pill.remove(); pill = null; try{ getSelection().removeAllRanges(); }catch(x){}
+      pill.onclick = async ev => { const which = ev.target.closest('[data-p]'); if(!which) return; const txt = t.charAt(0).toUpperCase() + t.slice(1); pill.remove(); pill = null; try{ getSelection().removeAllRanges(); }catch(x){}
+        if(which.dataset.p === 'kind'){ clipOpen(document.getElementById('ccAddBtn'), t); return; }
         const ok = await dkQuickJot(txt, false, c); say(ok ? "On today's page" + (c ? ', with ' + c.name + '\'s paperclip' : '') : "Couldn't open your desk just now."); };
       document.body.appendChild(pill);
     }, 10);
@@ -698,6 +712,93 @@
     notes.forEach(x => bits.push(firstName(x.from_person_id) + ' left you a note'));
     if(tray) bits.push(tray + ' in your Stand-Up tray');
     box.innerHTML = '<button class="dk-dash" onclick="switchTab(\'mydesk\')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-desk"/></svg><b>My Desk:</b> ' + esc(bits.join(' · ')) + '</button>';
+  }
+
+  /* ---------------------------------------------- kind words (Stage 6a) ---------------------------------------------- */
+  const tucked = () => (DK.kind || []).filter(d => d.state === 'tucked' && d.kind_words);
+  const KSRC = { shift_note:'Shift note', text:'Text to the office', call:'Phone call', email:'Email', review:'Review', other:'' };
+  const kWhen = k => k.said_on ? fmtShort(String(k.said_on).slice(0, 10)) : '';
+  function kLine(k){ return esc(k.who || 'Someone') + (k.about ? ', about ' + esc(k.about) + (k.about_role ? ' (' + esc(k.about_role) + ')' : '') : '') + '<br>' + [KSRC[k.source] || '', kWhen(k)].filter(Boolean).map(esc).join(' · '); }
+  function jarSvg(n){
+    let slips = ''; const cols = ['#f8c5d2', '#fde68a', '#bde2ee', '#cde8c2', '#ffe4ac'];
+    for(let i = 0; i < Math.min(n, 14); i++){ const x = 22 + (i * 17) % 40, y = 84 - Math.floor(i / 3) * 9 - (i % 2) * 3;
+      slips += '<rect x="' + x + '" y="' + y + '" width="16" height="8" rx="1.5" fill="' + cols[i % 5] + '" transform="rotate(' + ((i * 37) % 30 - 15) + ' ' + (x + 8) + ' ' + (y + 4) + ')"/>'; }
+    return '<svg viewBox="0 0 84 100" aria-hidden="true"><rect x="22" y="6" width="40" height="11" rx="3" fill="#C17A12"/><rect x="22" y="9" width="40" height="2" fill="#9C6410"/>'
+      + '<path d="M24 17h36c0 4 8 6 8 14v55c0 6-4 9-10 9H26c-6 0-10-3-10-9V31c0-8 8-10 8-14z" fill="rgba(255,255,255,.18)" stroke="rgba(255,255,255,.7)" stroke-width="2"/>'
+      + slips + '<path d="M22 36c-1 12-1 30 0 44" stroke="rgba(255,255,255,.55)" stroke-width="3" stroke-linecap="round" fill="none"/>'
+      + '<rect x="27" y="40" width="30" height="14" rx="2" fill="#fffdf6"/><text x="42" y="49.5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="6" font-weight="800" fill="#0D365F" letter-spacing=".3">KIND WORDS</text></svg>';
+  }
+  function tapedHtml(){
+    return (DK.kind || []).filter(d => d.state === 'taped' && d.kind_words).map(d => { const k = d.kind_words;
+      return '<div class="dk-taped"><span class="dk-tape" style="left:14px;transform:rotate(-8deg)"></span><span class="dk-tape" style="right:14px;transform:rotate(7deg)"></span><q>' + esc(k.quote) + '</q><div class="dk-tsrc">' + esc(k.who || '') + (k.about ? ', about ' + esc(k.about) : '') + '</div>'
+        + '<button class="dk-tx" data-dk="taped-jar" data-k="' + esc(k.id) + '">Take it down (it stays in the jar)</button></div>'; }).join('');
+  }
+  function kindState(kwid, state, msg){
+    const d = (DK.kind || []).find(x => x.kind_word_id === kwid); if(d) d.state = state;
+    if(state === 'done') DK.kind = (DK.kind || []).filter(x => x.kind_word_id !== kwid);
+    render(); if(msg) say(msg);
+    ST().dropState(kwid, DK.me, state).catch(e => saveFailed(e));
+  }
+  function kindOpen(anchor){
+    const d = tucked()[0]; if(!d || typeof ccPopOpen !== 'function') return;
+    const k = d.kind_words, first = String(k.about || '').split(' ')[0];
+    const el = ccPopOpen(anchor, '<div class="dk-clipbox"><div class="dk-tkick">Kind words came in</div><div class="dk-bigq">“' + esc(k.quote) + '”</div><div class="dk-ksrc">' + kLine(k) + '</div>'
+      + '<div class="dk-kacts"><button class="primary" data-k="jar">Into the jar</button><button class="secondary" data-k="tape">Tape it to my desk</button><button class="secondary" data-k="standup">Read it at Stand-Up</button>'
+      + (k.about_role === 'caregiver' && first ? '<button class="secondary" data-k="tell">Tell ' + esc(first) + '</button>' : '') + '</div>'
+      + '<p class="field-note" style="margin-top:10px">It is already in the office\'s jar. This is only about where it sits on your desk.' + (tucked().length > 1 ? ' ' + (tucked().length - 1) + ' more tucked under your page.' : '') + '</p></div>', { width:480 });
+    if(!el) return;
+    el.addEventListener('click', e => { const b = e.target.closest('[data-k]'); if(!b) return; const w = b.dataset.k;
+      if(w === 'tell'){ tellOpen(anchor, k); return; }
+      try{ ccPopClose(); }catch(x){}
+      if(w === 'jar') kindState(k.id, 'done', 'Into the jar it goes');
+      else if(w === 'tape') kindState(k.id, 'taped', 'Taped to your desk');
+      else if(w === 'standup'){ const x = action(null, ctx => ctx.addLine({ place:'tray', day:null, origin_day:T(), pos:Date.now() / 1e10, kind:'todo', body:('Read out loud: ' + (k.who || 'someone') + (k.about ? ' about ' + k.about : '') + ', "' + k.quote + '"').slice(0, 1000) }));
+        DK.landId = x.id; trayIn(x.id, x.body); kindState(k.id, 'done', 'In your Stand-Up tray, to read out loud'); }
+      if(tucked().length) setTimeout(() => kindOpen(anchor), 300);
+    });
+  }
+  function tellOpen(anchor, k){
+    const first = String(k.about || '').split(' ')[0];
+    const msg = 'Hi ' + first + ', ' + String(k.who || 'someone').replace(/^The /, 'the ') + ' said this about you: "' + k.quote + '" Thank you for the care you give. ' + String(myName()).split(' ')[0];
+    const el = ccPopOpen(anchor, '<div class="dk-clipbox"><b style="font-size:16px;color:#0D365F">Tell ' + esc(first) + '</b><p class="field-note">A draft for you to read and send yourself, from the office line like every staff text. Nothing goes out on its own.</p>'
+      + '<textarea id="dkTell" rows="5" style="width:100%;font-size:14px;">' + esc(msg) + '</textarea><div style="margin-top:8px"><button class="primary" data-c="copy">Copy the words</button></div></div>', { width:460 });
+    if(el) el.addEventListener('click', e => { if(!e.target.closest('[data-c]')) return; const t = el.querySelector('#dkTell');
+      try{ navigator.clipboard.writeText(t.value).then(() => say('Copied. Send it from the office line.'), () => { t.select(); say('Select the words and copy them.'); }); }catch(x){ t.select(); } });
+  }
+  async function jarOpen(anchor){
+    if(typeof ccPopOpen !== 'function') return;
+    let list = []; try{ list = await ST().jar(); }catch(e){ say("The jar couldn't be opened just now."); return; }
+    DK.jarN = list.length;
+    const cols = ['#f8c5d2', '#fde68a', '#bde2ee', '#cde8c2', '#ffe4ac', '#f2eee3'];
+    const el = ccPopOpen(anchor, '<div class="dk-jarbox"><div class="dk-tkick">Caring Companions</div><b style="font-size:22px;color:#0D365F;font-family:Young Serif,Georgia,serif;font-weight:400">The Kind Words jar</b>'
+      + '<p class="field-note">Kind words from families, caregivers and reviews that someone on the team saved. Everyone in the office shares this jar.</p>'
+      + '<button class="secondary" data-j="clip">＋ Clip a kind word</button>'
+      + '<div class="dk-jarwall">' + (list.length ? list.map(k => '<div class="dk-jslip" style="--c:' + cols[hash(k.id) % cols.length] + ';--r:' + (((hash(k.id) % 5) - 2) * .7) + 'deg"><q>' + esc(k.quote) + '</q><div>' + kLine(k)
+          + (k.created_by ? '<br>Saved by ' + esc(firstName(k.created_by)) : '') + '</div></div>').join('') : '<p class="field-note">The jar is empty for now. Clip the first kind word.</p>') + '</div></div>', { width:880 });
+    if(el){ if(innerWidth >= 900){ el.style.left = Math.max(8, (innerWidth - 880) / 2) + 'px'; el.style.top = '60px'; }
+      el.addEventListener('click', e => { if(e.target.closest('[data-j="clip"]')){ try{ ccPopClose(); }catch(x){} clipOpen(anchor, ''); } }); }
+  }
+  /* Clip a kind word: straight into the jar, tucked under the right desks by the database (465). */
+  function clipOpen(anchor, quote){
+    if(typeof ccPopOpen !== 'function') return;
+    const c = deskContext();
+    const el = ccPopOpen(anchor, '<div class="dk-clipbox"><b style="font-size:16px;color:#0D365F">Clip a kind word</b><p class="field-note">It goes straight into the office\'s jar and is tucked under the right desks (the owners; Client Care for a compliment about a client\'s care; everyone for a review). Nobody is texted.</p>'
+      + '<label class="field-note">The kind words</label><textarea id="dkKq" rows="3" maxlength="1200" style="width:100%">' + esc(quote || '') + '</textarea>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px"><div><label class="field-note">Who said it</label><input id="dkKw" placeholder="The Henderson family" style="width:100%"></div>'
+      + '<div><label class="field-note">About whom (optional)</label><input id="dkKa" placeholder="Maria R." value="' + esc(c && c.type === 'caregiver' ? c.name : '') + '" style="width:100%"></div>'
+      + '<div><label class="field-note">They are</label><select id="dkKr" style="width:100%"><option value="">the office / the whole company</option><option value="caregiver"' + (c && c.type === 'caregiver' ? ' selected' : '') + '>a caregiver</option><option value="client care">about a client\'s care</option></select></div>'
+      + '<div><label class="field-note">Where it came from</label><select id="dkKs" style="width:100%"><option value="shift_note">Shift note</option><option value="text">Text to the office</option><option value="call">Phone call</option><option value="email">Email</option><option value="review">Review</option><option value="other">Other</option></select></div></div>'
+      + (c ? '<p class="field-note" style="margin-top:6px">With a paperclip to ' + esc(c.name) + '</p>' : '')
+      + '<div style="margin-top:10px;display:flex;gap:8px;align-items:center"><button class="primary" data-k="save">Into the jar</button><span class="field-note" id="dkKmsg"></span></div></div>', { width:520 });
+    if(!el) return;
+    el.addEventListener('click', async e => { if(!e.target.closest('[data-k="save"]')) return;
+      const quote = el.querySelector('#dkKq').value.trim(); if(!quote){ el.querySelector('#dkKmsg').textContent = 'The kind words themselves, please.'; return; }
+      const role = el.querySelector('#dkKr').value;
+      e.target.disabled = true;
+      try{ const r = await ST().clip({ quote, who:el.querySelector('#dkKw').value.trim(), about:el.querySelector('#dkKa').value.trim(), about_role:role === 'client care' ? 'client care' : role, source:el.querySelector('#dkKs').value, said_on:T(), link:c || (role === 'client care' ? { type:'client' } : null) });
+        try{ ccPopClose(); }catch(x){} DK.jarN++; render(); say('Into the jar' + (r && r.tucked ? '. Tucked under ' + r.tucked + ' desk' + (r.tucked === 1 ? '' : 's') + '.' : '.'));
+      }catch(x){ e.target.disabled = false; el.querySelector('#dkKmsg').textContent = "Couldn't save it just now."; }
+    });
   }
 
   function calHtml(){
@@ -887,8 +988,8 @@
       + '<div class="dk-bits"><button class="dk-polaroid" ' + (ro() ? 'tabindex="-1"' : 'data-dk="photo" title="Put your own photo here"') + '><div class="dk-img"' + (st.photo ? ' style="background-image:url(\'' + esc(st.photo) + '\')"' : '') + '>' + (st.photo ? '' : '<svg aria-hidden="true"><use href="#dk-heart"/></svg>') + '</div><span class="dk-cap">' + (st.photo || ro() ? '' : 'your photo') + '</span></button>'
       + (ro() ? '' : '<button class="dk-cup" data-dk="prefs" title="Make it yours" aria-label="Make it yours"><svg viewBox="0 0 52 78" aria-hidden="true"><path d="M14 30l6-26" stroke="#F0A63A" stroke-width="5" stroke-linecap="round"/><path d="M26 30V6" stroke="#8FD1C7" stroke-width="5" stroke-linecap="round"/><path d="M36 30l5-22" stroke="#f8c5d2" stroke-width="5" stroke-linecap="round"/><path d="M8 30h36l-3 44H11z" fill="#0D365F"/><path d="M8 30h36" stroke="#E8C988" stroke-width="3"/></svg></button>') + '</div>'
       + '<input type="file" id="dkPhotoIn" accept="image/*" hidden></div>';
-    const right = '<div class="dk-rail dk-r"><div class="dk-zone dk-zr"></div>' + trayHtml() + folderHtml()
-      + '<div class="dk-bits"><div class="dk-mug" aria-hidden="true"><div class="dk-steam"><i></i><i></i><i></i></div><svg viewBox="0 0 64 78"><path d="M8 22h40v38c0 8-6 13-14 13H22c-8 0-14-5-14-13z" fill="#f2eee3"/><path d="M48 32h5a8 8 0 0 1 0 16h-5" fill="none" stroke="#f2eee3" stroke-width="5"/><ellipse cx="28" cy="22" rx="20" ry="4" fill="#7a4a22"/><path d="M28 54c-4-2.6-5.8-4.6-5.8-6.6 0-1.6 1.2-2.6 2.5-2.6s2.2.7 3.3 2c1-1.3 2-2 3.3-2s2.5 1 2.5 2.6c0 2-1.8 4-5.8 6.6z" fill="#1F7A8C"/></svg></div>'
+    const right = '<div class="dk-rail dk-r"><div class="dk-zone dk-zr"></div>' + (ro() ? '' : tapedHtml()) + trayHtml() + folderHtml()
+      + '<div class="dk-bits"><button class="dk-jar" data-dk="jar" title="The office\'s Kind Words jar" aria-label="The Kind Words jar">' + jarSvg(DK.jarN) + '</button><div class="dk-mug" aria-hidden="true"><div class="dk-steam"><i></i><i></i><i></i></div><svg viewBox="0 0 64 78"><path d="M8 22h40v38c0 8-6 13-14 13H22c-8 0-14-5-14-13z" fill="#f2eee3"/><path d="M48 32h5a8 8 0 0 1 0 16h-5" fill="none" stroke="#f2eee3" stroke-width="5"/><ellipse cx="28" cy="22" rx="20" ry="4" fill="#7a4a22"/><path d="M28 54c-4-2.6-5.8-4.6-5.8-6.6 0-1.6 1.2-2.6 2.5-2.6s2.2.7 3.3 2c1-1.3 2-2 3.3-2s2.5 1 2.5 2.6c0 2-1.8 4-5.8 6.6z" fill="#1F7A8C"/></svg></div>'
       + (ro() ? '' : '<button class="dk-eraser" data-dkdrop="erase" data-dk="erase-help" title="Drop a line or a sticky here to erase it">ERASE</button>')
       + '<button class="dk-help" data-dk="help">How to</button></div></div>';
     if(DK.view === 'everyone') return everyoneHtml();
@@ -1048,6 +1149,9 @@
     't-later': a => moveLine(a.closest('[data-dkid]').dataset.dkid, { place:'later' }),
     't-tray': a => moveLine(a.closest('[data-dkid]').dataset.dkid, { place:'tray' }),
     tray: a => trayOpen(a),
+    kind: a => kindOpen(a),
+    jar: a => jarOpen(a),
+    'taped-jar': a => kindState(a.dataset.k, 'done', 'Into the jar it goes'),
     week: a => weekCard(a),
     more: a => menu(a, a.closest('[data-dkid]').dataset.dkid),
     'lo-bring': () => {
@@ -1622,6 +1726,34 @@ body.dk-dragging, body.dk-dragging *{ cursor:grabbing !important; user-select:no
 .dk-narrow .dk-mgrid{ grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; } .dk-narrow .dk-wkcol{ display:none; }
 .dk-narrow .dk-mini{ min-height:84px; padding:6px; } .dk-narrow .dk-ml{ display:none; } .dk-narrow .dk-ms{ width:36px; height:36px; }
 .dk-narrow .dk-mstar{ left:-36px; } .dk-narrow .dk-ribbon{ right:60px; } .dk-narrow .dk-nav{ margin-right:0; }
+/* Stage 6a: kind words */
+.dk-kindtuck{ right:-86px; top:40px; width:150px; transform:rotate(7deg); background:#f2eee3; padding:12px 12px 12px 40px; box-shadow:0 10px 16px -10px var(--shadow); animation:dkArrive .8s cubic-bezier(.3,.7,.2,1); }
+.dk-kindtuck:hover{ transform:translateX(18px) rotate(9deg); }
+@keyframes dkArrive{ from{ transform:translateX(90px) rotate(18deg); opacity:0; } }
+.dk-kk{ font-size:9.5px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--honey-deep); }
+.dk-kq{ font-family:var(--print); font-size:12px; line-height:1.35; color:#2d2a24; margin-top:3px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.dk-kn{ position:absolute; top:-7px; right:-7px; background:var(--honey); color:#2b1d00; font-size:11px; font-weight:800; border-radius:9px; padding:1px 6px; }
+.dk-mtuck{ display:none; border:0; border-radius:14px; padding:5px 11px; font-size:12px; font-weight:700; background:var(--honey-pale); color:#4d3500; margin:0 0 10px; }
+.dk-narrow .dk-mtuck{ display:inline-block; }
+.dk-taped{ background:#f2eee3; color:#2d2a24; padding:16px 14px 12px; transform:rotate(1.6deg); position:relative; box-shadow:0 12px 16px -12px var(--shadow);
+  clip-path:polygon(0 2%, 7% 0, 16% 2%, 27% 0, 39% 1.5%, 52% 0, 64% 2%, 77% 0, 89% 1.5%, 100% 0, 99% 50%, 100% 100%, 88% 98.5%, 74% 100%, 60% 98%, 45% 100%, 30% 98.5%, 15% 100%, 0 98%); }
+.dk-taped q{ display:block; font-family:var(--print); font-size:13.5px; line-height:1.38; quotes:"“" "”"; }
+.dk-tsrc{ font-size:11px; color:#5d574a; margin-top:6px; }
+.dk-tape{ position:absolute; top:-5px; width:48px; height:15px; background:rgba(240,166,58,.55); }
+.dk-tx{ border:0; background:transparent; font-size:11px; font-weight:700; color:#0D365F !important; padding:4px 0 0; text-decoration:underline; }
+.dk-jar{ border:0; background:transparent; padding:0; } .dk-jar svg{ width:70px; height:86px; }
+.dk-clipbox, .dk-jarbox{ font-size:13.5px; }
+.dk-bigq{ font-family:'Young Serif',Georgia,serif; font-size:20px; line-height:1.45; color:#2d2a24; margin:12px 0 8px; }
+.dk-ksrc{ font-size:12.5px; color:#5d574a; line-height:1.4; }
+.dk-kacts{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.dk-jarwall{ columns:3 220px; column-gap:14px; margin-top:14px; max-height:65vh; overflow:auto; }
+.dk-jslip{ break-inside:avoid; background:var(--c); padding:14px 14px 12px; margin:0 0 14px; transform:rotate(var(--r)); box-shadow:0 6px 10px -6px rgba(0,0,0,.3); color:#2d2a24; }
+.dk-jslip q{ display:block; font-family:'Young Serif',Georgia,serif; font-size:14.5px; line-height:1.42; quotes:"“" "”"; }
+.dk-jslip div{ font-size:11.5px; color:#5d574a; margin-top:8px; line-height:1.35; }
+.dk-jotpill{ gap:0 !important; padding:0 !important; overflow:hidden; }
+.dk-jotpill button{ border:0; background:transparent; color:#fff; padding:6px 12px; font-size:12.5px; font-weight:700; display:flex; gap:6px; align-items:center; cursor:pointer; }
+.dk-jotpill button + button{ border-left:1px solid rgba(255,255,255,.3); }
+.dk-jotpill button svg{ width:14px; height:14px; }
 /* Stage 5: the desk follows you around */
 .dk-edge{ position:fixed; right:0; top:42%; z-index:250; border:0; background:#fde68a; color:#3a3222; writing-mode:vertical-rl; transform:rotate(180deg); padding:16px 9px; border-radius:0 10px 10px 0;
   font-weight:800; font-size:12.5px; letter-spacing:.06em; box-shadow:3px 0 12px -4px rgba(40,25,10,.4); transition:padding .15s; cursor:pointer; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; }
@@ -1718,5 +1850,5 @@ button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale
 `;
 
   Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkAllowed, dkWarm, dkQuickJot, dkJotOpen, dkShiftHtml, dkShiftApply, dkRefresh, dkJotWork, dkDashRender, dkDrawer:toggleDrawer });
-  window.DKX = { deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, trayOpen, nextStandup, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
+  window.DKX = { kindOpen, jarOpen, clipOpen, kindState, tucked, deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, trayOpen, nextStandup, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
 })();
