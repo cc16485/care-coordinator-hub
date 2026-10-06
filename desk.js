@@ -9,7 +9,10 @@
    menu or keys: reorder, the next day, any day, the Later folder), the eraser with Undo, "N left on Friday's page",
    carried labels, and sticky notes (peel one off a pad or drag it off, write on it, put it anywhere, recolor, peel it
    off, your own pad labels, drop it on the page to turn it into lines, drop a line on it).
-   LATER STAGES: Month, stamps, ribbon, folded corners, star and circle, Make it yours (2); owners' desk tabs, notes,
+   STAGE 2 ADDS: Month (today's page shrinks into October and the other pages are dealt out from the planner; click one to
+   open it), completion stamps, the ribbon, folded corners, a star in the margin and a hand-drawn circle, the tent calendar
+   (click a date, or drop a line on it), and Make it yours (desk mat, pen color, handwriting or neat print, your photo).
+   LATER STAGES: owners' desk tabs, notes,
    stars (3); the Stand-Up tray and End My Shift (4); the desk following you around the Hub (5); kind words (6).
 
    WHERE IT LIVES: the private tables made by Desktop 463 (desk_lines, desk_stickies, desk_settings, desk_pages). The
@@ -83,7 +86,7 @@
   }
 
   /* ---------------------------------------------- storage (Desktop 463 tables) ---------------------------------------------- */
-  const LINE_COLS = 'id,person_id,place,day,pos,kind,body,done_at,origin_day,moved_to,ghost_of,link,time_text,owner_star_by,erased_at,rev,updated_at';
+  const LINE_COLS = 'id,person_id,place,day,pos,kind,body,done_at,origin_day,moved_to,ghost_of,star,circle,link,time_text,owner_star_by,erased_at,rev,updated_at';
   const STICK_COLS = 'id,person_id,color,body,side,x,y,rot,z,from_person_id,seen_at,ack_at,erased_at,rev,updated_at';
   const store = {
     async me(){ const { data, error } = await sb.rpc('desk_me'); if(error) throw error; return data || null; },
@@ -91,11 +94,20 @@
       const [l, s, st, pg] = await Promise.all([
         sb.from('desk_lines').select(LINE_COLS).eq('person_id', me).is('erased_at', null).or('place.neq.day,day.gte.' + from),
         sb.from('desk_stickies').select(STICK_COLS).eq('person_id', me).is('erased_at', null),
-        sb.from('desk_settings').select('person_id,pad_labels,mat,ink,neat').eq('person_id', me).maybeSingle(),
-        sb.from('desk_pages').select('day,leftovers_done').eq('person_id', me).gte('day', from)
+        sb.from('desk_settings').select('person_id,pad_labels,mat,ink,neat,photo').eq('person_id', me).maybeSingle(),
+        sb.from('desk_pages').select('day,leftovers_done,stamp,dogear,wrapped_at').eq('person_id', me).gte('day', from)
       ]);
       const e = l.error || s.error || st.error || pg.error; if(e) throw e;
       return { lines: l.data || [], stickies: s.data || [], settings: st.data || null, pages: pg.data || [] };
+    },
+    /* Older pages, for Month (desks only load the last 75 days up front). */
+    async loadDays(me, from, to){
+      const [l, pg] = await Promise.all([
+        sb.from('desk_lines').select(LINE_COLS).eq('person_id', me).is('erased_at', null).eq('place', 'day').gte('day', from).lte('day', to),
+        sb.from('desk_pages').select('day,leftovers_done,stamp,dogear,wrapped_at').eq('person_id', me).gte('day', from).lte('day', to)
+      ]);
+      const e = l.error || pg.error; if(e) throw e;
+      return { lines: l.data || [], pages: pg.data || [] };
     },
     async insert(table, row){ const { data, error } = await sb.from(table).insert(row).select().single(); if(error) throw error; return data; },
     /* Only applies when nobody changed the row since we read it (rev). null = it changed elsewhere. */
@@ -112,7 +124,7 @@
 
   /* ---------------------------------------------- state ---------------------------------------------- */
   const DK = { me:null, loaded:false, err:null, lines:[], stickies:[], settings:null, pages:{}, day:null, laterOpen:false, noteMode:false,
-               turn:null, receive:null, born:null, sig:'', editing:false, timer:null };
+               turn:null, receive:null, born:null, sig:'', editing:false, timer:null, view:'day', month:null, monthData:{}, justStamped:null };
   window.DK = DK;
   const T = () => todayStr();
   const lineById = id => DK.lines.find(l => l.id === id);
@@ -156,11 +168,11 @@
 
   /* One action = several changes, saved row by row, undoable together. */
   function action(msg, fn){
-    const inv = [], touched = { l:new Set(), s:new Set() };
+    const inv = [], touched = { l:new Set(), s:new Set() }, days = new Set();
     const ctx = {
       addLine(f){ const l = Object.assign({ id:uid(), person_id:DK.me, kind:'todo', body:'', pos:0, done_at:null, erased_at:null, rev:1 }, f, { _new:true, _dirty:{} });
         DK.lines.push(l); touched.l.add(l.id); inv.push(['lerase', l.id]); return l; },
-      setLine(id, p){ const l = lineById(id); if(!l) return; const old = {}; Object.keys(p).forEach(k => { old[k] = l[k] === undefined ? null : l[k]; });
+      setLine(id, p){ const l = lineById(id); if(!l) return; const old = {}; Object.keys(p).forEach(k => { old[k] = l[k] === undefined ? null : l[k]; }); if(l.day) days.add(l.day); if(p.day) days.add(p.day);
         Object.assign(l, p); l._dirty = Object.assign(l._dirty || {}, p); touched.l.add(id); inv.push(['lset', id, old]); },
       addStick(f){ const s = Object.assign({ id:uid(), person_id:DK.me, color:'yellow', body:'', side:'L', x:20, y:120, rot:0, z:1, erased_at:null, rev:1 }, f, { _new:true, _dirty:{} });
         DK.stickies.push(s); touched.s.add(s.id); inv.push(['serase', s.id]); return s; },
@@ -169,6 +181,7 @@
     };
     const r = fn(ctx);
     touched.l.forEach(persistLine); touched.s.forEach(persistStick);
+    days.forEach(stampCheck);
     render();
     if(msg) say(msg, inv.length ? () => undo(inv) : null);
     return r;
@@ -185,6 +198,21 @@
     say('Undone');
   }
 
+  /* ---------------------------------------------- page facts: stamp, folded corner ---------------------------------------------- */
+  function setPage(day, p){
+    DK.pages[day] = Object.assign({ day }, DK.pages[day] || {}, p);
+    ST().savePage(Object.assign({ person_id:DK.me, day }, p)).catch(e => saveFailed(e));
+  }
+  const STAMPS = ['house', 'sun', 'cup'];
+  /* A page earns its stamp when it has at least 3 to-dos and every one is crossed off; it comes off if one is unchecked. */
+  function stampCheck(day){
+    if(!day) return false;
+    const t = todos(inPlace(DK.lines, 'day', day)), all = t.length >= 3 && t.every(l => l.done_at), pg = DK.pages[day] || {};
+    if(all && !pg.stamp){ DK.justStamped = day; setPage(day, { stamp:STAMPS[D(day).getDate() % 3] }); return true; }
+    if(!all && pg.stamp){ setPage(day, { stamp:null }); return true; }
+    return false;
+  }
+
   /* ---------------------------------------------- loading ---------------------------------------------- */
   const signature = () => JSON.stringify([DK.lines.map(l => [l.id, l.rev, l.erased_at]), DK.stickies.map(s => [s.id, s.rev, s.erased_at])]);
   async function load(force){
@@ -197,10 +225,12 @@
       if(DK.editing || drag) return;
       const pending = DK.lines.some(l => l._dirty || l._new) || DK.stickies.some(s => s._dirty || s._new);
       if(pending && !force) return;
-      DK.lines = r.lines.map(l => Object.assign({}, l, { pos:Number(l.pos) }));
+      const got = new Set(r.lines.map(l => l.id)), older = DK.lines.filter(l => l.place === 'day' && l.day < from && !got.has(l.id) && !l.erased_at);
+      DK.lines = r.lines.map(l => Object.assign({}, l, { pos:Number(l.pos) })).concat(older);
       DK.stickies = r.stickies;
       DK.settings = r.settings;
-      DK.pages = {}; (r.pages || []).forEach(p => { DK.pages[p.day] = p; });
+      const oldPages = {}; Object.keys(DK.pages).forEach(k => { if(k < from) oldPages[k] = DK.pages[k]; });
+      DK.pages = oldPages; (r.pages || []).forEach(p => { DK.pages[p.day] = p; });
       DK.loaded = true; DK.err = null;
       const sig = signature(); if(sig !== DK.sig || force){ DK.sig = sig; render(); }
     }catch(e){ DK.err = String((e && e.message) || e); DK.loaded = true; render(); }
@@ -271,23 +301,30 @@
     const chips = [];
     if(l.time_text && !l.done_at) chips.push('<span class="dk-chip dk-time">' + icon('clock') + esc(l.time_text) + '</span>');
     if(c) chips.push('<span class="dk-chip dk-carry' + (c4 ? ' dk-carry4' : '') + '">' + esc(c.label) + '</span>');
-    return '<li class="dk-row' + (l.done_at ? ' dk-done' : '') + (c4 ? ' dk-c4' : '') + '"' + attrs + '>'
+    const star = '<button class="dk-mstar' + (l.star ? ' dk-on' : '') + '" data-dk="mstar" aria-label="' + (l.star ? 'Remove the star' : 'Star it in the margin') + '" title="' + (l.star ? 'Remove the star' : 'Star it') + '"><svg viewBox="0 0 24 24"><use href="#dk-hstar"/></svg></button>';
+    return '<li class="dk-row' + (l.done_at ? ' dk-done' : '') + (c4 ? ' dk-c4' : '') + '"' + attrs + '>' + star
       + (c4 ? '<svg class="dk-marginclip" aria-hidden="true"><use href="#dk-clip"/></svg>' : '') + grip
       + '<button class="dk-cb" data-dk="toggle" aria-label="' + (l.done_at ? 'Uncheck' : 'Check off') + '"><svg viewBox="0 0 24 24"><use href="#dk-box"/><path class="dk-tick" d="' + TICKS[h % 3] + '"/></svg></button>'
       + '<span class="dk-tw"' + jit + '><span class="dk-txt" data-dk="edit">' + esc(l.body) + '</span>'
+      + (l.circle ? '<svg class="dk-circ" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M8 6 C30 -1 80 0 95 9 C102 16 90 28 50 28 C14 28 -2 22 3 13 C6 7 16 4 26 3"/></svg>' : '')
       + (chips.length ? '<span class="dk-chips">' + chips.join('') + '</span>' : '') + '</span>' + tools + '</li>';
   }
   function pageHtml(day, cls){
     const d = D(day), arr = inPlace(DK.lines, 'day', day), prev = prevBiz(day), next = nextBiz(day), t = T();
     const pg = DK.pages[t] || {};
     const left = (day === t && !pg.leftovers_done) ? openOf(inPlace(DK.lines, 'day', prevBiz(t))) : [];
+    const pf = DK.pages[day] || {}, hd = hash(day);
     return '<article class="dk-page' + (cls || '') + '" data-day="' + day + '">'
       + '<div class="dk-rings">' + '<i></i>'.repeat(14) + '</div>'
+      + (day === t ? '<div class="dk-ribbon" title="Your ribbon marks today"></div>' : '')
+      + (hd % 4 === 1 ? '<div class="dk-coffee" style="left:' + (60 + hd % 300) + 'px;bottom:' + (40 + hd % 90) + 'px"></div>' : '')
+      + '<button class="dk-dogear' + (pf.dogear ? ' dk-on' : '') + '" data-dk="dogear" title="' + (pf.dogear ? 'Unfold the corner' : 'Fold the corner to come back to this page') + '" aria-label="Fold the corner"></button>'
       + '<div class="dk-head">' + (d.getMonth() === 9 ? '<svg class="dk-doodle" aria-hidden="true"><use href="#dk-leaf"/></svg>' : '')
       +   '<div><div class="dk-dow">' + dowName(day) + (day === t ? ' · today' : '') + '</div><h2 class="dk-date">' + fmtLong(day) + '</h2><div class="dk-motto">' + (MOTTO[d.getDay()] || '') + '</div></div>'
       +   '<span class="dk-sp"></span><div class="dk-nav">' + (day !== t ? '<button class="dk-back" data-dk="go" data-day="' + t + '">Back to today</button>' : '')
       +     '<button class="dk-round" data-dk="go" data-day="' + prev + '" aria-label="Previous page">' + icon('prev') + '</button>'
-      +     '<button class="dk-round" data-dk="go" data-day="' + next + '" aria-label="Next page">' + icon('next') + '</button></div></div>'
+      +     '<button class="dk-round" data-dk="go" data-day="' + next + '" aria-label="Next page">' + icon('next') + '</button>'
+      +     '<button class="dk-round" data-dk="month" aria-label="Month" title="Month">' + icon('day') + '</button></div></div>'
       + (left.length ? '<div class="dk-left"><span>' + left.length + ' left on ' + dowName(prevBiz(t)) + "'s page</span><span class=\"dk-sp\"></span>"
           + '<button class="dk-lbtn" data-dk="lo-bring">Bring them over</button><button class="dk-lbtn dk-ghosty" data-dk="lo-look">Let me look</button>'
           + '<button class="dk-lbtn dk-x" data-dk="lo-x" aria-label="Leave them there" title="Leave them there">' + icon('x') + '</button></div>' : '')
@@ -297,6 +334,7 @@
       +     icon(DK.noteMode ? 'pencil' : 'box') + '</button><input id="dkJot" data-day="' + day + '" maxlength="1000" placeholder="' + (DK.noteMode ? 'scribble a note…' : 'jot something down…') + '" autocomplete="off" aria-label="Jot something down">'
       +     '<span class="dk-tip">Enter for a to-do · Shift+Enter for a note</span></li>'
       + '</ol><div class="dk-blank" data-dk="focusjot" aria-hidden="true"></div>'
+      + (pf.stamp ? '<div class="dk-stamp' + (DK.justStamped === day ? ' dk-thunk' : '') + '"><svg><use href="#dk-st-' + esc(pf.stamp) + '"/></svg><div>' + (day === t ? "Good day's work, " + esc(String(myName()).split(' ')[0]) + '.' : '') + '</div></div>' : '')
       + '<button class="dk-curl" data-dk="go" data-day="' + next + '" aria-label="Turn the page" title="Turn to ' + fmtShort(next) + '"></button>'
       + '</article>';
   }
@@ -305,7 +343,7 @@
     const peek = (cls, d) => '<button class="dk-peek dk-' + cls + (DK.receive === d ? ' dk-receive' : '') + '" data-dk="go" data-day="' + d + '" data-dkdrop="day" data-dayto="' + d + '" aria-label="' + fmtShort(d) + '"><span class="dk-pl">' + fmtTiny(d) + '</span>'
       + (DK.receive === d ? '<span class="dk-plus1">+1</span>' : '') + '</button>';
     return '<div class="dk-planner" id="dkPlanner">' + peek('prev', prev) + peek('next', next)
-      + '<div class="dk-ptabs"><button class="dk-ptab" style="--c:#bde2ee" data-dk="go" data-day="' + T() + '">Today</button><button class="dk-ptab" style="--c:#d5b077" data-dk="later" data-dkdrop="later">Later</button></div>'
+      + '<div class="dk-ptabs"><button class="dk-ptab" style="--c:#bde2ee" data-dk="go" data-day="' + T() + '">Today</button><button class="dk-ptab" style="--c:#fde68a" data-dk="month">Month</button><button class="dk-ptab" style="--c:#d5b077" data-dk="later" data-dkdrop="later">Later</button></div>'
       + pageHtml(day, DK.turn ? ' dk-turn-' + DK.turn : '') + '</div>';
   }
   function folderHtml(){
@@ -330,16 +368,158 @@
     return '<div class="dk-pads">' + [['yellow','-3deg'],['pink','2deg'],['blue','-1deg'],['green','3deg']].map(([c, r]) => '<div class="dk-padc"><button class="dk-pad dk-c-' + c + '" style="--r:' + r + '" data-dk="pad" data-c="' + c + '" aria-label="New ' + c + ' sticky note"></button>'
       + '<span class="dk-plabel" data-dk="plabel" data-c="' + c + '" title="Give this color your own meaning, if you like">' + esc(labels[c] || '') + '</span></div>').join('') + '</div>';
   }
+  function calHtml(){
+    const [y, m] = DK.day.slice(0, 7).split('-').map(Number), t = T();
+    const first = new Date(y, m - 1, 1), days = new Date(y, m, 0).getDate(), lead = (first.getDay() + 6) % 7;
+    let h = '<div class="dk-tent"><div class="dk-face"><div class="dk-coil">' + '<i></i>'.repeat(9) + '</div><div class="dk-band"><span>' + MON[m - 1].toUpperCase() + '</span><button data-dk="month">MONTH</button></div><div class="dk-calg">'
+      + ['M','T','W','T','F','S','S'].map(w => '<span class="dk-w">' + w + '</span>').join('') + '<span></span>'.repeat(lead);
+    for(let i = 1; i <= days; i++){
+      const d = S(new Date(y, m - 1, i)), wk = isWk(d), has = todos(inPlace(DK.lines, 'day', d)).length;
+      h += '<button ' + (wk ? 'disabled' : 'data-dk="go" data-day="' + d + '" data-dkdrop="day" data-dayto="' + d + '"') + ' class="' + (has ? 'dk-has ' : '') + (d === DK.day && d !== t ? 'dk-sel' : '') + '" aria-label="' + fmtShort(d) + '">' + i
+        + (d === t ? '<svg class="dk-ring" viewBox="0 0 30 24" preserveAspectRatio="none" aria-hidden="true"><path d="M4 9C8 2 25 1 27 9c2 8-10 13-19 11C2 18 1 12 6 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' : '') + '</button>';
+    }
+    return h + '</div></div><div class="dk-base"></div></div>';
+  }
+  /* The lines and page facts for any day: the loaded window, or an older month fetched for Month. */
+  function dayData(d){
+    const md = DK.monthData[d.slice(0, 7)];
+    const lines = md && d < addDays(T(), -75) ? md.lines : DK.lines;
+    const pages = md && d < addDays(T(), -75) ? md.pages : DK.pages;
+    return { arr:inPlace(lines, 'day', d), page:pages[d] || {} };
+  }
+  function monthHtml(){
+    const [y, m] = DK.month.split('-').map(Number), t = T();
+    const first = new Date(y, m - 1, 1), days = new Date(y, m, 0).getDate(), lead = (first.getDay() + 6) % 7;
+    let h = '<div class="dk-mh2"><button class="dk-round dk-onmat" data-dk="mnav" data-n="-1" aria-label="Previous month">' + icon('prev') + '</button>'
+      + '<h2>' + MON[m - 1] + ' ' + y + '</h2><button class="dk-round dk-onmat" data-dk="mnav" data-n="1" aria-label="Next month">' + icon('next') + '</button><span class="dk-sp"></span>'
+      + '<button class="dk-backp" data-dk="mday" data-day="' + DK.day + '">Back to the page</button></div>';
+    if(DK.monthLoading) return h + '<div class="dk-msg">Opening ' + MON[m - 1] + '…</div>';
+    h += '<div class="dk-mgrid">' + ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((w, i) => '<div class="dk-mw' + (i > 4 ? ' dk-wkcol' : '') + '">' + w + '</div>').join('');
+    for(let i = 0; i < lead; i++) h += '<div class="dk-mblank' + (i > 4 ? ' dk-wkcol' : '') + '"></div>';
+    let stamps = 0;
+    for(let i = 1; i <= days; i++){
+      const d = S(new Date(y, m - 1, i));
+      if(isWk(d)){ h += '<div class="dk-mini dk-wk dk-wkcol"><div class="dk-md">' + DOW[D(d).getDay()].slice(0, 3).toUpperCase() + '<b>' + i + '</b></div></div>'; continue; }
+      const { arr, page } = dayData(d), td = todos(arr), done = td.filter(l => l.done_at).length, open = td.length - done, notes = arr.filter(l => l.kind === 'note').length;
+      if(page.stamp) stamps++;
+      const counts = [open ? open + ' open' : '', done ? done + ' ✓' : '', notes ? notes + ' note' + (notes > 1 ? 's' : '') : ''].filter(Boolean).join(' · ');
+      h += '<button class="dk-mini' + (d > t ? ' dk-future' : '') + (d === t ? ' dk-today' : '') + '" data-dk="mday" data-day="' + d + '" data-mday="' + d + '" style="--r:' + (((i * 37) % 7 - 3) * .35) + 'deg">'
+        + '<div class="dk-md">' + DOW[D(d).getDay()].slice(0, 3).toUpperCase() + '<b>' + i + '</b></div>'
+        + arr.filter(l => l.kind !== 'ghost').slice(0, 5).map(l => '<div class="dk-ml' + (l.done_at ? ' dk-d' : '') + (l.kind === 'note' ? ' dk-n' : '') + '">' + esc(l.body) + '</div>').join('')
+        + '<div class="dk-mc">' + (counts || (d > t ? '' : 'blank page')) + '</div>'
+        + (page.dogear ? '<span class="dk-de" title="corner folded"></span>' : '')
+        + (page.stamp ? '<svg class="dk-ms" aria-label="stamped"><use href="#dk-st-' + esc(page.stamp) + '"/></svg>' : '') + '</button>';
+    }
+    return h + '</div><div class="dk-mfoot">' + (stamps ? stamps + ' stamped page' + (stamps === 1 ? '' : 's') + ' in ' + MON[m - 1] + '. ' : '') + 'Click any page to open it. Folded corners are pages you marked to come back to.</div>';
+  }
+  function matClass(){
+    const st = DK.settings || {};
+    return ' dk-mat-' + (['teal','navy','sage','cork'].includes(st.mat) ? st.mat : 'teal') + (st.ink === 'teal' || st.ink === 'plum' ? ' dk-ink-' + st.ink : '') + (st.neat ? ' dk-neat' : '');
+  }
+  async function openMonth(month){
+    DK.month = month;
+    if(month + '-01' < addDays(T(), -75)){
+      if(!DK.monthData[month]){
+        DK.monthLoading = true; render();
+        try{ const [y, m] = month.split('-').map(Number); const r = await ST().loadDays(DK.me, month + '-01', S(new Date(y, m, 0)));
+          const pages = {}; (r.pages || []).forEach(p => { pages[p.day] = p; });
+          DK.monthData[month] = { lines:(r.lines || []).map(l => Object.assign({}, l, { pos:Number(l.pos) })), pages };
+        }catch(e){ DK.monthLoading = false; say("That month couldn't be opened just now."); render(); return; }
+        DK.monthLoading = false;
+      }
+    }
+    render();
+  }
+  /* Zooming out: today's page shrinks into its spot while the rest of the month's pages are dealt out from the planner. */
+  function zoomOut(){
+    const page = $('#dkWrap .dk-page:not(.dk-out)');
+    if(!page || reduced()){ DK.view = 'month'; openMonth(DK.day.slice(0, 7)); return; }
+    const r1 = page.getBoundingClientRect(), clone = page.cloneNode(true);
+    clone.classList.add('dk-flipclone'); clone.classList.remove('dk-turn-next', 'dk-turn-prev');
+    clone.querySelectorAll('[id],[data-dkdrop],[data-dk]').forEach(e => { e.removeAttribute('id'); e.removeAttribute('data-dkdrop'); e.removeAttribute('data-dk'); });
+    Object.assign(clone.style, { left:r1.left + 'px', top:r1.top + 'px', width:r1.width + 'px', height:r1.height + 'px' });
+    DK.view = 'month'; DK.month = DK.day.slice(0, 7); render();
+    const root = $('#dkRoot'); if(root) root.appendChild(clone);
+    const cx = r1.left + r1.width / 2, cy = r1.top + r1.height / 3;
+    document.querySelectorAll('#dkWrap .dk-mini:not(.dk-wk)').forEach((m, i) => {
+      if(m.dataset.mday === DK.day){ m.style.visibility = 'hidden'; return; }
+      const r = m.getBoundingClientRect(), mx = cx - (r.left + r.width / 2), my = cy - (r.top + r.height / 2);
+      m.style.transition = 'none'; m.style.transform = 'translate(' + mx + 'px,' + my + 'px) scale(.5) rotate(' + ((i % 5) - 2) * 4 + 'deg)'; m.style.opacity = '0';
+      requestAnimationFrame(() => requestAnimationFrame(() => { m.style.transition = 'transform .55s cubic-bezier(.3,.7,.2,1) ' + (i * .012) + 's, opacity .4s ' + (i * .012) + 's'; m.style.transform = ''; m.style.opacity = ''; }));
+      setTimeout(() => { m.style.transition = ''; }, 1100);
+    });
+    const cell = $('#dkWrap [data-mday="' + DK.day + '"]');
+    if(!cell){ clone.remove(); return; }
+    const r2 = cell.getBoundingClientRect();
+    requestAnimationFrame(() => { clone.style.transform = 'translate(' + (r2.left - r1.left) + 'px,' + (r2.top - r1.top) + 'px) scale(' + (r2.width / r1.width) + ',' + (r2.height / r1.height) + ')'; clone.style.opacity = '.5'; });
+    setTimeout(() => { clone.remove(); cell.style.visibility = ''; }, 520);
+  }
+  function zoomIn(day){
+    const cell = $('#dkWrap [data-mday="' + day + '"]'), r1 = cell ? cell.getBoundingClientRect() : null;
+    DK.view = 'day'; DK.day = day; DK.turn = null;
+    if(day < addDays(T(), -75)){ const md = DK.monthData[day.slice(0, 7)];   /* an older page: bring its lines onto the desk so it opens as usual */
+      if(md){ const have = new Set(DK.lines.map(l => l.id)); md.lines.forEach(l => { if(!have.has(l.id)) DK.lines.push(l); }); Object.keys(md.pages).forEach(k => { if(!DK.pages[k]) DK.pages[k] = md.pages[k]; }); } }
+    render();
+    const page = $('#dkWrap .dk-page');
+    if(!page || !r1 || reduced()) return;
+    const r2 = page.getBoundingClientRect();
+    page.style.transformOrigin = '0 0'; page.style.transition = 'none';
+    page.style.transform = 'translate(' + (r1.left - r2.left) + 'px,' + (r1.top - r2.top) + 'px) scale(' + (r1.width / r2.width) + ',' + (r1.height / r2.height) + ')'; page.style.opacity = '.5';
+    requestAnimationFrame(() => requestAnimationFrame(() => { page.style.transition = 'transform .5s cubic-bezier(.4,.1,.2,1), opacity .5s'; page.style.transform = ''; page.style.opacity = ''; }));
+    setTimeout(() => { page.style.transition = ''; page.style.transformOrigin = ''; }, 560);
+  }
+
+  /* ---------------------------------------------- Make it yours ---------------------------------------------- */
+  function saveMine(p){
+    DK.settings = Object.assign({}, DK.settings || {}, p);
+    render();
+    ST().saveSettings(Object.assign({ person_id:DK.me }, p)).catch(e => saveFailed(e));
+  }
+  function prefs(){
+    const st = DK.settings || {};
+    const grp = (k, title, opts) => '<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#C17A12;margin-bottom:6px">' + title + '</div><div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + opts.map(([v, l, sw]) => '<button class="dk-pref' + (String(st[k] == null ? (k === 'mat' ? 'teal' : k === 'ink' ? 'navy' : 'false') : st[k]) === String(v) ? ' dk-on' : '') + '" data-pk="' + k + '" data-pv="' + v + '">' + (sw ? '<span style="width:14px;height:14px;border-radius:50%;display:inline-block;background:' + sw + '"></span>' : '') + l + '</button>').join('') + '</div></div>';
+    const html = '<div class="dk-prefbox"><b style="font-size:16px;color:#0D365F">Make it yours</b><p class="field-note" style="margin:4px 0 0">Your desk, your way. Owners who stop by see it the way you set it up.</p>'
+      + grp('mat', 'Desk mat', [['teal','Teal felt','#1d6f7d'],['navy','Navy linen','#24405e'],['sage','Sage','#5f8370'],['cork','Cork','#b08452']])
+      + grp('ink', 'Pen', [['navy','Navy ink','#0D365F'],['teal','Teal ink','#155A68'],['plum','Plum ink','#5b2a5e']])
+      + grp('neat', 'Writing', [['false','Handwriting'],['true','Neat print']])
+      + '<p class="field-note" style="margin-top:14px">Also yours: the photo on your desk (click it) and the little labels under your sticky pads.' + (st.photo ? ' <button class="dk-pref" data-pk="photo" data-pv="">Take my photo off</button>' : '') + '</p></div>';
+    if(typeof ccPopOpen !== 'function') return;
+    const el = ccPopOpen(null, html, { width:460 });
+    if(el && innerWidth >= 700){ el.style.left = Math.max(8, (innerWidth - 460) / 2) + 'px'; el.style.top = '80px'; }
+    if(el) el.addEventListener('click', e => { const b = e.target.closest('[data-pk]'); if(!b) return;
+      const k = b.dataset.pk; let v = b.dataset.pv; if(k === 'neat') v = v === 'true'; if(k === 'photo') v = null;
+      saveMine({ [k]:v }); el.querySelectorAll('[data-pk="' + k + '"]').forEach(x => x.classList.toggle('dk-on', x === b)); if(k === 'photo') b.remove(); });
+  }
+  /* A photo is made small here (240 x 240, a JPEG of at most about 60 KB) before it is saved. */
+  function photoPicked(file){
+    if(!file || !/^image\//.test(file.type || '')){ say('That isn\'t a picture.'); return; }
+    const rd = new FileReader();
+    rd.onload = () => { const img = new Image(); img.onload = () => {
+        const c = document.createElement('canvas'), sz = 240, sq = Math.min(img.width, img.height); c.width = c.height = sz;
+        c.getContext('2d').drawImage(img, (img.width - sq) / 2, (img.height - sq) / 2, sq, sq, 0, 0, sz, sz);
+        let q = .85, url = c.toDataURL('image/jpeg', q); while(url.length > 78000 && q > .3){ q -= .1; url = c.toDataURL('image/jpeg', q); }
+        if(url.length > 78000){ say('That picture is too detailed to keep on your desk. Try another.'); return; }
+        saveMine({ photo:url }); say('Your photo is on your desk');
+      }; img.onerror = () => say('That picture couldn\'t be opened.'); img.src = rd.result; };
+    rd.readAsDataURL(file);
+  }
+
   function deskHtml(){
     if(!DK.loaded) return '<div class="dk-mat"><div class="dk-msg">Opening your desk…</div></div>';
     if(DK.err === 'nolink') return '<div class="dk-mat"><div class="dk-msg">Your sign-in isn\'t connected to your name in the Hub yet, so there is no desk to open. An owner can fix that under Team on the Admin page.</div></div>';
     if(DK.err) return '<div class="dk-mat"><div class="dk-msg">Your desk couldn\'t be opened just now (' + esc(DK.err).slice(0, 160) + '). <button class="dk-lbtn" data-dk="reload">Try again</button></div></div>';
-    const left = '<div class="dk-rail dk-l">' + padsHtml() + '<div class="dk-zone"></div></div>';
+    const st = DK.settings || {};
+    const left = '<div class="dk-rail dk-l">' + padsHtml() + '<div class="dk-zone"></div>' + calHtml()
+      + '<div class="dk-bits"><button class="dk-polaroid" data-dk="photo" title="Put your own photo here"><div class="dk-img"' + (st.photo ? ' style="background-image:url(\'' + esc(st.photo) + '\')"' : '') + '>' + (st.photo ? '' : '<svg aria-hidden="true"><use href="#dk-heart"/></svg>') + '</div><span class="dk-cap">' + (st.photo ? '' : 'your photo') + '</span></button>'
+      + '<button class="dk-cup" data-dk="prefs" title="Make it yours" aria-label="Make it yours"><svg viewBox="0 0 52 78" aria-hidden="true"><path d="M14 30l6-26" stroke="#F0A63A" stroke-width="5" stroke-linecap="round"/><path d="M26 30V6" stroke="#8FD1C7" stroke-width="5" stroke-linecap="round"/><path d="M36 30l5-22" stroke="#f8c5d2" stroke-width="5" stroke-linecap="round"/><path d="M8 30h36l-3 44H11z" fill="#0D365F"/><path d="M8 30h36" stroke="#E8C988" stroke-width="3"/></svg></button></div>'
+      + '<input type="file" id="dkPhotoIn" accept="image/*" hidden></div>';
     const right = '<div class="dk-rail dk-r"><div class="dk-zone dk-zr"></div>' + folderHtml()
       + '<div class="dk-bits"><div class="dk-mug" aria-hidden="true"><div class="dk-steam"><i></i><i></i><i></i></div><svg viewBox="0 0 64 78"><path d="M8 22h40v38c0 8-6 13-14 13H22c-8 0-14-5-14-13z" fill="#f2eee3"/><path d="M48 32h5a8 8 0 0 1 0 16h-5" fill="none" stroke="#f2eee3" stroke-width="5"/><ellipse cx="28" cy="22" rx="20" ry="4" fill="#7a4a22"/><path d="M28 54c-4-2.6-5.8-4.6-5.8-6.6 0-1.6 1.2-2.6 2.5-2.6s2.2.7 3.3 2c1-1.3 2-2 3.3-2s2.5 1 2.5 2.6c0 2-1.8 4-5.8 6.6z" fill="#1F7A8C"/></svg></div>'
       + '<button class="dk-eraser" data-dkdrop="erase" data-dk="erase-help" title="Drop a line or a sticky here to erase it">ERASE</button>'
       + '<button class="dk-help" data-dk="help">How to</button></div></div>';
-    return '<div class="dk-mat" id="dkMat"><div class="dk-stickies">' + DK.stickies.filter(s => !s.erased_at).map(stickyHtml).join('') + '</div>'
+    if(DK.view === 'month') return '<div class="dk-mat' + matClass() + '" id="dkMat">' + monthHtml() + '</div>';
+    return '<div class="dk-mat' + matClass() + '" id="dkMat"><div class="dk-stickies">' + DK.stickies.filter(s => !s.erased_at).map(stickyHtml).join('') + '</div>'
       + '<div class="dk-grid">' + left + plannerHtml(DK.day) + right + '</div></div>';
   }
   function render(){
@@ -348,7 +528,8 @@
     if(!DK.day) DK.day = T();
     w.innerHTML = '<div class="dk" id="dkRoot">' + deskHtml() + '</div>';
     placeStickies();
-    DK.turn = null; DK.receive = null; DK.born = null;
+    const pin = $('#dkPhotoIn'); if(pin) pin.onchange = e => { photoPicked(e.target.files && e.target.files[0]); e.target.value = ''; };
+    DK.turn = null; DK.receive = null; DK.born = null; DK.justStamped = null;
   }
 
   /* Stickies remember which side of the page they sit on, so they stay put when the window changes size. */
@@ -396,6 +577,7 @@
       + (!onDay ? '<button data-m="today">' + icon('prev') + "Back on today's page</button>" : (todo ? '<button data-m="next">' + icon('next') + 'Move to ' + fmtShort(nextBiz(base)) + '<span class="dk-k">T</span></button>' : ''))
       + (todo ? '<div class="dk-mh">' + icon('day') + 'Pick a day</div><div class="dk-days">' + days.slice(0, 5).map(s => '<button data-m="day" data-day="' + s + '">' + (s === T() ? 'Today' : fmtTiny(s)) + '</button>').join('') + '</div>' : '')
       + (todo && l.place !== 'later' ? '<button data-m="later">' + icon('later') + 'Into the Later folder<span class="dk-k">L</span></button>' : '')
+      + (onDay && todo ? '<hr><button data-m="star">' + icon('hstar') + (l.star ? 'Remove the star' : 'Star it in the margin') + '<span class="dk-k">*</span></button><button data-m="circle">' + icon('circle') + (l.circle ? 'Remove the circle' : 'Circle it') + '<span class="dk-k">C</span></button>' : '')
       + (onDay ? '<hr>' + (todo ? '<button data-m="noteunder">' + icon('pencil') + 'Scribble a note under it</button>' : '<button data-m="todo">' + icon('box') + 'Make it a to-do</button>')
         + '<button data-m="up">' + icon('up') + 'Up one line<span class="dk-k">Alt ↑</span></button><button data-m="down">' + icon('down') + 'Down one line<span class="dk-k">Alt ↓</span></button>' : '')
       + '<button data-m="edit">' + icon('pencil') + 'Change the words<span class="dk-k">Enter</span></button><hr>'
@@ -417,6 +599,7 @@
     else if(a === 'day') moveLine(id, { place:'day', day:el.dataset.day });
     else if(a === 'later') moveLine(id, { place:'later' });
     else if(a === 'noteunder') noteUnder(id);
+    else if(a === 'star' || a === 'circle') action(null, ctx => ctx.setLine(id, { [a]:!l[a] }));
     else if(a === 'todo') action(null, ctx => ctx.setLine(id, { kind:'todo' }));
     else if(a === 'up' || a === 'down') nudge(id, a === 'up' ? -1 : 1);
     else if(a === 'edit'){ const t = $('[data-dkid="' + id + '"] .dk-txt') || $('[data-dkid="' + id + '"] .dk-st'); if(t) startEdit(t, id); }
@@ -476,7 +659,7 @@
   let justDragged = false;
   const ACT = {
     reload: () => { DK.err = null; DK.loaded = false; render(); load(true); },
-    go: a => flipTo(a.dataset.day),
+    go: a => { if(DK.view !== 'day'){ DK.view = 'day'; DK.day = a.dataset.day; render(); return; } flipTo(a.dataset.day); },
     later: () => { DK.laterOpen = !DK.laterOpen; render(); },
     toggle: a => toggle(a.closest('[data-dkid]').dataset.dkid),
     edit: a => startEdit(a, a.closest('[data-dkid]').dataset.dkid),
@@ -510,6 +693,13 @@
     's-color': a => { const s = stickById(a.closest('[data-sid]').dataset.sid); if(s) action(null, ctx => ctx.setStick(s.id, { color:nextColor(s.color) })); },
     's-peel': a => { const el = a.closest('[data-sid]'), sid = el.dataset.sid; el.classList.add('dk-peel'); setTimeout(() => action('Sticky peeled off', ctx => ctx.setStick(sid, { erased_at:new Date().toISOString() })), 300); },
     'erase-help': () => say('Drop a line or a sticky on the eraser to erase it'),
+    mstar: a => { const id = a.closest('[data-dkid]').dataset.dkid, l = lineById(id); if(l) action(null, ctx => ctx.setLine(id, { star:!l.star })); },
+    dogear: () => { const pf = DK.pages[DK.day] || {}; setPage(DK.day, { dogear:!pf.dogear }); render(); },
+    month: () => zoomOut(),
+    mday: a => zoomIn(a.dataset.day),
+    mnav: a => { const [y, m] = DK.month.split('-').map(Number); openMonth(S(new Date(y, m - 1 + Number(a.dataset.n), 1)).slice(0, 7)); },
+    photo: () => { const i = $('#dkPhotoIn'); if(i) i.click(); },
+    prefs: () => prefs(),
     help: () => help()
   };
   function onClick(e){
@@ -526,6 +716,7 @@
       + '<kbd>Jot</kbd><span>Type and press Enter for a to-do. Shift+Enter (or the little pencil) writes a note with no checkbox.</span>'
       + '<kbd>Drag</kbd><span>Grab a line and drop it up or down the page, on the page peeking out behind (hold it there and the page turns), the Later folder, a sticky, or the eraser. Notes under a line travel with it.</span>'
       + '<kbd>Stickies</kbd><span>Click a pad, or drag a new sticky straight off it. Click to write. Drag it anywhere. Drop it on the page to turn its lines into to-dos. Click under a pad to give that color your own meaning.</span>'
+      + '<kbd>Margin</kbd><span>Click the margin beside a line for a star. Press C to circle it.</span><kbd>Corner</kbd><span>Fold a page\'s top corner to come back to it. Folded pages show in Month.</span><kbd>Calendar</kbd><span>Click a date to open its page, or drop a line on it.</span>'
       + '<kbd>Space</kbd><span>Check off the selected line</span><kbd>T · L</kbd><span>The next day · the Later folder</span>'
       + '<kbd>Alt ↑ ↓</kbd><span>Move a line up or down</span><kbd>← →</kbd><span>Turn the page (swipe on a phone)</span><kbd>Del</kbd><span>Erase the selected line (Undo is right there)</span><kbd>N</kbd><span>Jump to the jot line</span></div>'
       + '<p class="field-note" style="margin-top:10px;">Only you see your desk. Owners can look at it, and in a later step they will be able to leave you a signed note. Nothing on your desk texts, emails or reminds anyone.</p></div>';
@@ -557,6 +748,7 @@
       if((e.key === ' ' || e.key === 'x') && l.kind === 'todo'){ e.preventDefault(); toggle(id); refocus(); return; }
       if(e.key === 't' && l.kind === 'todo'){ moveLine(id, { place:'day', day:nextBiz(l.day || T()) }); return; }
       if(e.key === 'l' && l.kind === 'todo'){ moveLine(id, { place:'later' }); return; }
+      if((e.key === '*' || e.key === 'c') && l.kind === 'todo' && l.place === 'day'){ const k = e.key === '*' ? 'star' : 'circle'; action(null, ctx => ctx.setLine(id, { [k]:!l[k] })); refocus(); return; }
       if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); eraseLine(id); return; }
       if(e.key === 'Enter'){ e.preventDefault(); const tx = row.querySelector('.dk-txt, .dk-st'); if(tx) startEdit(tx, id); return; }
       if(e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){ e.preventDefault(); nudge(id, e.key === 'ArrowUp' ? -1 : 1); return; }
@@ -564,7 +756,7 @@
     }
     if(e.metaKey || e.ctrlKey || e.altKey) return;
     if(e.key === 'n' || e.key === 'N'){ const j = $('#dkJot'); if(j){ e.preventDefault(); j.focus(); } return; }
-    if(e.key === 'ArrowLeft' || e.key === 'ArrowRight') flipTo(e.key === 'ArrowLeft' ? prevBiz(DK.day) : nextBiz(DK.day));
+    if((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && DK.view === 'day') flipTo(e.key === 'ArrowLeft' ? prevBiz(DK.day) : nextBiz(DK.day));
   }
 
   /* ---------------------------------------------- drag and drop ---------------------------------------------- */
@@ -624,6 +816,7 @@
       drag.target = { place:'day', day:tgt.dataset.day, index:before ? Number(before.dataset.idx) : inPlace(DK.lines, 'day', tgt.dataset.day).length };
     } else if(kind === 'day'){
       tgt.classList.add('dk-over'); const d = tgt.dataset.dayto; drag.target = { place:'day', day:d };
+      if(!tgt.classList.contains('dk-peek')){ tip('Move to ' + (d === T() ? 'today' : fmtShort(d)), e.clientX, e.clientY); return; }
       tip('Drop it on ' + dowName(d) + ', or hold to open the page', e.clientX, e.clientY);
       if(drag.springDay !== d){ clearTimeout(drag.spring); drag.springDay = d; drag.spring = setTimeout(() => { if(drag && drag.springDay === d){ flipTo(d); drag.springDay = null; drag.target = null; clearOver(); } }, 800); }
     }
@@ -766,6 +959,12 @@
     + '<symbol id="dk-grip" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></g></symbol>'
     + '<symbol id="dk-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>'
     + '<symbol id="dk-leaf" viewBox="0 0 40 40"><path d="M20 4l3 7 6-3-2 7 7 1-5 5 4 4-7 1 1 7-7-4-3 6-1-7-6 2 2-6-7-2 6-4-3-6 7 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M20 12v26" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>'
+    + '<symbol id="dk-hstar" viewBox="0 0 24 24"><path d="M12.3 3.2c.9 2.2 1.7 4.1 2.6 6 2.2.1 4.4.2 6.4.5-1.7 1.4-3.3 2.8-4.9 4.3.5 2.1 1 4.1 1.4 6.2-1.9-1.2-3.7-2.3-5.6-3.3-1.9 1.1-3.8 2.2-5.6 3.4.5-2.1 1-4.2 1.6-6.3C6.6 12.6 5 11.2 3.3 9.8c2.1-.3 4.2-.4 6.4-.5.8-2.1 1.7-4 2.6-6.1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>'
+    + '<symbol id="dk-circle" viewBox="0 0 24 24"><path d="M5 9c3-5 14-5 15 1 1 6-9 9-14 6-3-2-2-6 1-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>'
+    + '<symbol id="dk-heart" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 17.5c-3-1.9-4.3-3.4-4.3-4.8 0-1.2.9-2 1.9-2s1.7.6 2.4 1.4c.7-.8 1.4-1.4 2.4-1.4s1.9.8 1.9 2c0 1.4-1.3 2.9-4.3 4.8z" fill="currentColor"/></symbol>'
+    + '<symbol id="dk-st-house" viewBox="0 0 120 120"><circle cx="60" cy="60" r="55" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="60" cy="60" r="38" fill="none" stroke="currentColor" stroke-width="2"/><path id="dk-ring1" d="M60 60 m-46 0 a46 46 0 1 1 92 0 a46 46 0 1 1 -92 0" fill="none"/><text font-family="system-ui, sans-serif" font-weight="800" font-size="11" letter-spacing="2.4" fill="currentColor"><textPath href="#dk-ring1" startOffset="2%">GOOD DAY\'S WORK ✦ CARING COMPANIONS ✦</textPath></text><path d="M40 60l20-17 20 17v20H40z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M60 75c-7-4.5-10-8-10-11.3 0-2.8 2.1-4.6 4.5-4.6 2.3 0 4 1.3 5.5 3.3 1.5-2 3.2-3.3 5.5-3.3 2.4 0 4.5 1.8 4.5 4.6 0 3.3-3 6.8-10 11.3z" fill="currentColor"/></symbol>'
+    + '<symbol id="dk-st-sun" viewBox="0 0 120 120"><circle cx="60" cy="60" r="55" fill="none" stroke="currentColor" stroke-width="4"/><path id="dk-ring2" d="M60 60 m-46 0 a46 46 0 1 1 92 0 a46 46 0 1 1 -92 0" fill="none"/><text font-family="system-ui, sans-serif" font-weight="800" font-size="11" letter-spacing="2.4" fill="currentColor"><textPath href="#dk-ring2" startOffset="2%">WELL DONE TODAY ✦ CARING COMPANIONS ✦</textPath></text><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="60" cy="60" r="11"/><path d="M60 34v8M60 78v8M34 60h8M78 60h8M42 42l6 6M72 72l6 6M78 42l-6 6M48 72l-6 6"/></g></symbol>'
+    + '<symbol id="dk-st-cup" viewBox="0 0 120 120"><circle cx="60" cy="60" r="55" fill="none" stroke="currentColor" stroke-width="4"/><path id="dk-ring3" d="M60 60 m-46 0 a46 46 0 1 1 92 0 a46 46 0 1 1 -92 0" fill="none"/><text font-family="system-ui, sans-serif" font-weight="800" font-size="11" letter-spacing="2.4" fill="currentColor"><textPath href="#dk-ring3" startOffset="2%">PUT THE KETTLE ON ✦ ALL DONE ✦ </textPath></text><g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M40 56h34v6c0 9-7.6 16-17 16s-17-7-17-16z"/><path d="M74 59h4a5 5 0 0 1 0 10h-6"/><path d="M38 82h38"/><path d="M50 50c-2-3 2-5 0-8M58 50c-2-3 2-5 0-8M66 50c-2-3 2-5 0-8"/></g></symbol>'
     + '</defs></svg>';
 
   const CSS = `
@@ -942,10 +1141,80 @@ body.dk-dragging, body.dk-dragging *{ cursor:grabbing !important; user-select:no
 .dk-narrow .dk-sbtns{ opacity:1; }
 .dk-narrow .dk-page{ padding:20px 12px 28px 50px; min-height:0; } .dk-narrow .dk-page::before{ left:38px; }
 .dk-narrow .dk-mat{ padding:20px 12px 40px; }
+/* Stage 2: the planner's lived-in touches */
+.dk-mat-navy{ --mat:#24405e; --mat-2:#1d3550; } .dk-mat-sage{ --mat:#5f8370; --mat-2:#527562; } .dk-mat-cork{ --mat:#b08452; --mat-2:#9f7546; }
+.dk-ink-teal{ --ink:#155A68; --strike:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='8' viewBox='0 0 100 8' preserveAspectRatio='none'><path d='M0 4.6 C20 3.2 38 4.8 55 3.9 S85 3.1 100 3.6' stroke='%23155A68' stroke-width='1.9' fill='none' stroke-linecap='round'/></svg>"); }
+.dk-ink-plum{ --ink:#5b2a5e; --strike:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='8' viewBox='0 0 100 8' preserveAspectRatio='none'><path d='M0 4.6 C20 3.2 38 4.8 55 3.9 S85 3.1 100 3.6' stroke='%235b2a5e' stroke-width='1.9' fill='none' stroke-linecap='round'/></svg>"); }
+.dk-neat{ --hand:system-ui,-apple-system,'Segoe UI',sans-serif; } .dk-neat .dk-list{ font-size:17px; } .dk-neat .dk-note{ font-size:15.5px; }
+.dk-ribbon{ position:absolute; top:-6px; right:96px; width:16px; height:calc(100% + 46px); pointer-events:none; z-index:3; background:linear-gradient(90deg, #155A68, #1F7A8C 50%, #155A68);
+  clip-path:polygon(0 0,100% 0,100% 100%,50% calc(100% - 9px),0 100%); opacity:.9;
+  -webkit-mask:linear-gradient(#000 0 30px, transparent 30px calc(100% - 46px), #000 calc(100% - 46px)); mask:linear-gradient(#000 0 30px, transparent 30px calc(100% - 46px), #000 calc(100% - 46px)); }
+.dk-coffee{ position:absolute; width:118px; height:118px; border-radius:50%; pointer-events:none; background:radial-gradient(circle, transparent 55%, rgba(120,78,38,.10) 57%, rgba(120,78,38,.05) 61%, transparent 63%); }
+.dk-dogear{ position:absolute; top:0; right:0; width:34px; height:34px; border:0; padding:0; z-index:3; background:transparent; border-radius:0 5px 0 0; }
+.dk-dogear:hover{ background:linear-gradient(225deg, transparent 0 46%, rgba(0,0,0,.06) 47%, transparent 60%); }
+.dk-dogear.dk-on{ width:38px; height:38px; background:linear-gradient(225deg, var(--mat) 0 50%, var(--paper-edge) 50%, var(--paper-2)); box-shadow:-2px 2px 3px -1px var(--shadow); }
+.dk-nav{ margin-right:22px; }
+.dk-stamp{ position:absolute; right:34px; bottom:50px; width:132px; text-align:center; pointer-events:none; color:var(--dk-teal); transform:rotate(-12deg); }
+.dk-stamp svg{ width:112px; height:112px; mix-blend-mode:multiply; opacity:.8; }
+.dk-stamp div{ font-family:var(--hand); font-size:17px; color:var(--ink); margin-top:-4px; }
+.dk-thunk svg{ animation:dkThunk .5s cubic-bezier(.2,1.6,.4,1); } @keyframes dkThunk{ 0%{ transform:scale(2.2); opacity:0; } 60%{ opacity:1; } 100%{ transform:scale(1); } }
+.dk-mstar{ position:absolute; left:-46px; top:5px; width:24px; height:24px; border:0; background:transparent; padding:0; color:var(--ink); opacity:0; transition:opacity .15s; }
+.dk-row:hover .dk-mstar{ opacity:.18; } .dk-mstar.dk-on{ opacity:1 !important; } .dk-mstar svg{ width:24px; height:24px; overflow:visible; }
+.dk-mstar.dk-on svg{ animation:dkPop .35s ease-out; } @keyframes dkPop{ from{ transform:scale(1.8) rotate(-30deg); opacity:0; } }
+.dk-circ{ position:absolute; left:-9px; top:2px; width:calc(100% + 18px); height:calc(var(--lh) - 2px); pointer-events:none; overflow:visible; color:var(--honey-deep); }
+.dk-circ path{ fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; vector-effect:non-scaling-stroke; stroke-dasharray:1400; animation:dkDraw .6s ease-out; }
+@keyframes dkDraw{ from{ stroke-dashoffset:1400; } }
+.dk-tent{ position:relative; padding-top:6px; }
+.dk-face{ position:relative; background:var(--paper); border-radius:3px; padding:0 10px 10px; transform:perspective(600px) rotateX(9deg); transform-origin:50% 100%; box-shadow:0 2px 0 var(--paper-edge), 0 10px 14px -10px var(--shadow); }
+.dk-coil{ position:absolute; top:-7px; left:14px; right:14px; display:flex; justify-content:space-between; z-index:1; }
+.dk-coil i{ width:5px; height:13px; border-radius:4px; background:linear-gradient(90deg,#8d96a0,#e6eaee 45%,#8d96a0); }
+.dk-band{ display:flex; justify-content:space-between; align-items:center; margin:0 -10px 7px; padding:9px 10px 6px; background:#0D365F; color:#fff; border-radius:3px 3px 0 0; font-size:11px; font-weight:800; letter-spacing:.16em; }
+.dk-band button{ border:0; background:rgba(255,255,255,.16); color:#fff !important; font-size:10px; font-weight:800; letter-spacing:.08em; border-radius:9px; padding:2px 7px; }
+.dk-base{ height:9px; margin:0 8px; background:linear-gradient(var(--paper-edge), #b9ab8a); border-radius:0 0 6px 6px; box-shadow:0 8px 10px -6px var(--shadow); }
+.dk-calg{ display:grid; grid-template-columns:repeat(7,1fr); gap:1px; text-align:center; font-size:11.5px; font-variant-numeric:tabular-nums; }
+.dk-w{ font-size:9.5px; font-weight:800; color:var(--pencil); padding-bottom:2px; }
+.dk-calg button{ border:0; background:transparent; padding:3px 0 5px; border-radius:6px; color:#16283a !important; position:relative; font-weight:600; font-size:11.5px; }
+.dk-calg button:disabled{ color:var(--faint) !important; cursor:default; font-weight:400; }
+.dk-calg .dk-has::after{ content:""; position:absolute; left:50%; bottom:1px; width:4px; height:4px; margin-left:-2px; border-radius:50%; background:var(--dk-teal); }
+.dk-calg .dk-sel{ background:var(--teal-pale); } .dk-calg button.dk-over{ background:var(--honey-pale); }
+.dk-calg button:not(:disabled):hover{ background:var(--teal-pale); }
+.dk-ring{ position:absolute; inset:-3px -2px; width:calc(100% + 4px); height:calc(100% + 6px); pointer-events:none; color:var(--honey-deep); }
+.dk-polaroid{ border:0; background:#fffdf8; padding:8px 8px 24px; width:112px; transform:rotate(-4deg); box-shadow:0 12px 16px -10px var(--shadow); position:relative; }
+.dk-img{ width:100%; aspect-ratio:1; background:var(--teal-pale) center/cover no-repeat; display:grid; place-items:center; color:#1F7A8C; }
+.dk-img svg{ width:44px; height:44px; }
+.dk-cap{ position:absolute; left:6px; right:6px; bottom:4px; font-family:var(--sticky-font); font-size:13px; text-align:center; color:#6b6355; }
+.dk-polaroid::before{ content:""; position:absolute; top:-8px; left:36%; width:40px; height:15px; background:rgba(240,166,58,.55); transform:rotate(4deg); }
+.dk-cup{ border:0; background:transparent; padding:0; width:48px; height:72px; } .dk-cup svg{ width:48px; height:72px; }
+.dk-pref{ border:1px solid #e6dcc4; background:#fff; border-radius:16px; padding:5px 12px; font-size:12.5px; font-weight:700; color:#0D365F; display:inline-flex; gap:6px; align-items:center; cursor:pointer; }
+.dk-pref.dk-on{ outline:2.5px solid #1F7A8C; }
+.dk-mh2{ display:flex; align-items:center; gap:12px; margin-bottom:18px; color:#fff; flex-wrap:wrap; position:relative; }
+.dk-mh2 h2{ font-family:var(--print); font-weight:400; font-size:30px; margin:0; color:#fff; }
+.dk-onmat{ border-color:rgba(255,255,255,.3) !important; background:rgba(255,255,255,.1) !important; color:#fff !important; }
+.dk-backp{ border:0; background:var(--paper); color:#0D365F !important; border-radius:16px; padding:6px 13px; font-weight:700; font-size:12.5px; }
+.dk-mgrid{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)) repeat(2, minmax(0,.42fr)); gap:16px 12px; position:relative; }
+.dk-mw{ color:rgba(255,255,255,.75); font-size:10.5px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+.dk-mini{ position:relative; display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch; align-self:start; height:auto; border:0; text-align:left; font:inherit; line-height:normal; padding:8px 9px; background:var(--paper); border-radius:3px 3px 7px 7px; min-height:132px; color:var(--ink);
+  box-shadow:0 1px 0 var(--paper-edge), 0 3px 0 var(--paper-2), 0 10px 14px -10px var(--shadow); transform:rotate(var(--r,0deg)); min-width:0; overflow:hidden; }
+.dk-mini:hover{ transform:rotate(0) translateY(-4px); }
+.dk-md{ font-size:10px; font-weight:800; letter-spacing:.12em; color:var(--honey-deep); }
+.dk-md b{ font-family:var(--print); font-size:18px; letter-spacing:0; color:#0D365F; font-weight:400; margin-left:3px; }
+.dk-ml{ font-family:var(--hand); font-size:12.5px; line-height:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-bottom:1px solid var(--rule); }
+.dk-ml.dk-d{ text-decoration:line-through; opacity:.5; } .dk-ml.dk-n{ color:var(--pencil); padding-left:8px; }
+.dk-mc{ font-size:10.5px; font-weight:700; color:var(--pencil); margin-top:5px; font-variant-numeric:tabular-nums; }
+.dk-ms{ position:absolute; right:-6px; bottom:-6px; width:56px; height:56px; color:var(--dk-teal); opacity:.75; transform:rotate(-14deg); mix-blend-mode:multiply; }
+.dk-de{ position:absolute; top:0; right:0; width:18px; height:18px; background:linear-gradient(225deg, var(--mat) 0 50%, var(--paper-edge) 50%); }
+.dk-mini.dk-future{ opacity:.6; } .dk-mini.dk-today{ outline:3px solid var(--honey); outline-offset:2px; }
+.dk-mini.dk-wk{ min-height:60px; background:rgba(255,255,255,.12); box-shadow:none; color:rgba(255,255,255,.7); cursor:default; }
+.dk-mini.dk-wk .dk-md, .dk-mini.dk-wk .dk-md b{ color:rgba(255,255,255,.7); }
+.dk-mblank{ min-height:20px; } .dk-mfoot{ margin-top:20px; color:rgba(255,255,255,.88); font-size:13px; position:relative; }
+.dk-flipclone{ position:fixed !important; z-index:50; transform-origin:0 0; pointer-events:none; transition:transform .5s cubic-bezier(.4,.1,.2,1), opacity .5s; margin:0; }
+.dk-narrow .dk-mgrid{ grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; } .dk-narrow .dk-wkcol{ display:none; }
+.dk-narrow .dk-mini{ min-height:84px; padding:6px; } .dk-narrow .dk-ml{ display:none; } .dk-narrow .dk-ms{ width:36px; height:36px; }
+.dk-narrow .dk-mstar{ left:-36px; } .dk-narrow .dk-ribbon{ right:60px; } .dk-narrow .dk-nav{ margin-right:0; }
 @media (hover:none){ .dk-grip{ display:flex; } .dk-tools{ display:none; } }
 @media (prefers-reduced-motion: reduce){ .dk *, .dk *::before, .dk *::after{ animation-duration:.001s !important; transition-duration:.001s !important; } }
 `;
 
   Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkAllowed });
-  window.DKX = { parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
+  window.DKX = { stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
 })();
