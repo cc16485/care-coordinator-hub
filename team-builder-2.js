@@ -89,6 +89,68 @@
   async function sync(plan){
     const p = projectFor(plan); if(!p || typeof pjAutoStep !== 'function') return;
     await pjAutoStep(p.id, 'shifts', allConfirmed(plan), readinessWords(plan));
+    const sent = !!(plan.axiscare_push && (plan.axiscare_push.created || []).length);
+    if(sent) await pjAutoStep(p.id, 'axis', true, 'schedules created in AxisCare from this board');
+  }
+
+  /* ── a plan as a project on My Work (2026-10-06, Samantha: "maybe we should just be able to make a team builder a
+     project that will show up under my work"). The project and the plan are linked both ways; the project's conversation,
+     team, all-hands and Act Now all apply, and its shift step follows the board. ── */
+  function anyProject(plan){
+    const all = ((typeof DATA !== 'undefined' && DATA.ops_items) || []).filter(i => i && i.kind === 'project' && (i.id === plan.project_id || i.plan_id === plan.id));
+    return all.find(i => i.status === 'open') || all[0] || null;
+  }
+  function crew(){ const r = (typeof CC_ROLE_BY_EMAIL !== 'undefined' && CC_ROLE_BY_EMAIL) || {}; return Object.keys(r).filter(e => (r[e] || []).length).sort(); }
+  function nameOf(e){ try{ return (typeof opsOwnerName === 'function' && opsOwnerName(e)) || String(e).split('@')[0]; }catch(_){ return String(e).split('@')[0]; } }
+  function defaultOwner(){
+    const r = (typeof CC_ROLE_BY_EMAIL !== 'undefined' && CC_ROLE_BY_EMAIL) || {}, mine = String((ccActor() || {}).email || '').toLowerCase();
+    if((r[mine] || []).indexOf('care_coordinator') > -1) return mine;
+    return Object.keys(r).filter(e => (r[e] || []).indexOf('care_coordinator') > -1).sort()[0] || mine;
+  }
+  function shiftWords(plan){
+    const dl = (plan.days || []).length === 7 ? '7 days a week' : (plan.days || []).map(d => TB_DAYL[d]).join(', ');
+    return (plan.slots || []).map(s => tbT12(s.start) + '–' + tbT12(s.end)).join(' and ') + (dl ? ', ' + dl : '');
+  }
+  function inDays(n){ const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  async function makeProject(planId, o){
+    const plan = (DATA.staffing_plans || []).find(x => x && x.id === planId); if(!plan || typeof pjBuild !== 'function') return null;
+    const had = anyProject(plan); if(had && had.status === 'open'){ ccToast('This plan is already a project on My Work.'); return had; }
+    o = o || {};
+    const kind = o.kind === 'client_start' ? 'client_start' : 'care_team';
+    const pj = pjBuild({ template:kind, title:plan.client + (kind === 'client_start' ? ' coming home' : ' care team'), about:plan.client,
+      owner:o.owner || defaultOwner(), ready_by:o.ready_by || inDays(7), shifts:shiftWords(plan), plan_id:plan.id });
+    (DATA.ops_items = DATA.ops_items || []).push(pj);
+    if(typeof opsLog === 'function') opsLog(pj, 'Project made from the Team Builder plan by ' + ((ccActor() || {}).name || ''));
+    await persist('ops_items', pj);
+    opEvent('item_created', { item:pj, summary:'New project from the Team Builder: ' + pj.title });
+    plan.project_id = pj.id; await tbSave(plan);
+    ccToast('✓ On My Work as a project' + (pj.all_hands && pj.all_hands.on ? '. All hands on deck is on.' : ''));
+    await sync(plan);
+    return pj;
+  }
+  function makeOpen(planId, anchor){
+    const plan = (DATA.staffing_plans || []).find(x => x && x.id === planId); if(!plan) return;
+    const own = defaultOwner();
+    const el = ccPopOpen(anchor || document.body,
+      '<div style="font-size:14px;font-weight:800;color:var(--navy);">Put ' + esc(plan.client) + '’s plan on My Work</div>'
+      + '<div class="field-note" style="margin:3px 0 8px;">It becomes a project: the team sees it on My Work, talks in its conversation, and its shift step follows this board.</div>'
+      + '<div class="field-note">Kind</div><select id="tb2K" style="width:100%;padding:6px;font-size:13px;"><option value="care_team">Just this care team (shifts confirmed, then AxisCare)</option><option value="client_start">Client start / coming home (all the steps)</option></select>'
+      + '<div style="display:flex;gap:8px;margin-top:8px;"><div style="flex:1;"><div class="field-note">Owner</div><select id="tb2O" style="width:100%;padding:6px;font-size:13px;">' + crew().map(e => '<option value="' + esc(e) + '"' + (e === own ? ' selected' : '') + '>' + esc(nameOf(e)) + '</option>').join('') + '</select></div>'
+      + '<div style="flex:1;"><div class="field-note">Ready by</div><input id="tb2R" type="date" value="' + inDays(7) + '" style="width:100%;padding:5px;font-size:13px;"></div></div>'
+      + '<div style="display:flex;gap:8px;margin-top:12px;"><button class="primary" id="tb2Go" style="padding:6px 12px;font-size:13px;">Put it on My Work</button><button class="ghost" id="tb2No" style="padding:6px 12px;font-size:13px;">Cancel</button></div>', { width:400 });
+    el.querySelector('#tb2No').onclick = ccPopClose;
+    el.querySelector('#tb2Go').onclick = async () => {
+      const o = { kind:el.querySelector('#tb2K').value, owner:el.querySelector('#tb2O').value, ready_by:el.querySelector('#tb2R').value };
+      if(!o.ready_by){ ccToast('Pick a ready-by date'); return; }
+      ccPopClose(); await makeProject(planId, o); tbRender();
+    };
+  }
+  function projectBoxHtml(plan){
+    const p = anyProject(plan);
+    if(p && p.status === 'open') return '<span class="tb2-pjbox" style="font-size:12px;font-weight:700;color:var(--navy);background:#E8F0FB;border-radius:7px;padding:3px 9px;">On My Work: ' + esc(p.title || '') + ' · ' + esc(String(nameOf(p.owner)).split(' ')[0]) + ' owns it</span>'
+      + '<button class="cara-btn ghost" style="font-size:11.5px;" onclick="pjOpen(\'' + esc(p.id) + '\')">Open the project</button>';
+    return '<button class="cara-btn tb2-make" style="font-size:11.5px;" onclick="tb2MakeOpen(\'' + esc(plan.id) + '\',this)">Make this a project on My Work</button>'
+      + (p ? '<span class="field-note" style="font-size:11px;">(its last project is closed)</span>' : '');
   }
 
   /* ── offered applicants (accepted an offer, not on the AxisCare roster yet) ── */
@@ -209,5 +271,5 @@
     tb2Readiness:readiness, tb2ReadinessWords:readinessWords, tb2AllConfirmed:allConfirmed, tb2Sync:sync,
     tb2AppsHtml:appsHtml, tb2SkillRank:skillRank, tb2SkillFlags:skillFlags, tb2Skill:setSkill, tb2Need:toggleNeed, tb2NeedsHtml:needsHtml,
     tb2ReadinessHtml:readinessHtml, tb2RowCount:rowCount, tb2MoreChip:moreChip, tb2PeopleHtml:peopleHtml, tb2ProjectLine:projectLine,
-    tb2OpenPlan:openPlan, TB2_APPS:APPS, TB2_ANSWER:ANSWER });
+    tb2OpenPlan:openPlan, TB2_APPS:APPS, TB2_ANSWER:ANSWER, tb2MakeProject:makeProject, tb2MakeOpen:makeOpen, tb2ProjectBox:projectBoxHtml });
 })();

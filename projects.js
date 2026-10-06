@@ -502,8 +502,13 @@
     let st;
     if(o.template === 'client_start') st = CLIENT_START.map((s, k) => ({ id:'s' + (k + 1), key:s.k, label:s.label(o), who:whoFor(s.who),
       due:clamp(s.from != null ? addDays(t, s.from) : addDays(ready || t, -s.before)) }));
+    /* a Team Builder plan made into a project (2026-10-06, Samantha: "maybe we should just be able to make a team builder
+       a project that will show up under my work"): two steps the board fills in by itself, plus any the team adds */
+    else if(o.template === 'care_team') st = [
+      { id:'s1', key:'shifts', label:'Every shift confirmed' + (o.shifts ? ' (' + o.shifts + ')' : ''), who:whoFor('both'), due:clamp(addDays(ready || t, -1)) },
+      { id:'s2', key:'axis', label:'Schedules sent to AxisCare', who:[owner], due:clamp(ready || t) }];
     else st = (o.steps || []).map((label, k) => ({ id:'s' + (k + 1), label, who:[owner], due:o.ready_by || null }));
-    const tm = [...new Set([owner].concat(o.template === 'client_start' && sc ? [sc] : []).concat((o.team || []).map(lc)).filter(Boolean))];
+    const tm = [...new Set([owner].concat((o.template === 'client_start' || o.template === 'care_team') && sc ? [sc] : []).concat((o.team || []).map(lc)).filter(Boolean))];
     const a = actor();
     return {
       id:'ops_proj_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), kind:'project', status:'open',
@@ -511,7 +516,7 @@
       owner, owner_name:nameOf(owner), team:tm.filter(e => e !== owner), also_for:tm.filter(e => e !== owner),
       ready_by:o.ready_by, due:ready ? ready.toISOString() : null,
       date_contact:o.date_contact || '', notice:o.notice || '', shifts:o.shifts || '', care_level:o.care_level || '',
-      steps:st, signoff:{ needed:o.template === 'client_start' || !!o.signoff },
+      steps:st, signoff:{ needed:o.template === 'client_start' || !!o.signoff }, plan_id:o.plan_id || undefined,
       all_hands:o.template === 'client_start' ? { on:true, on_at:now, on_by:a.email, on_by_name:a.name, auto:true } : {},
       urgency:'normal', created_at:now, created_by:a.email, created_by_email:a.email, opened_by:'person'
     };

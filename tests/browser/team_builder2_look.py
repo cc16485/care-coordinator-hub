@@ -85,6 +85,30 @@ async()=>{
   switchTab('mywork'); await sleep(300); myWorkGo('today'); await sleep(200);
   const C=document.querySelector('#myWorkWrap .wkcard[data-id="ops_proj_ed"]');
   ok('the project card shows the board: Mornings 7 of 7, Evenings 6 of 7, and Open the Team Builder', C && /Mornings: 7 of 7 confirmed/.test(C.innerText) && /Evenings: 6 of 7 confirmed/.test(C.innerText) && /Open the Team Builder/.test(C.innerText), C&&C.innerText.slice(0,700));
+  // a plan as a project on My Work
+  switchTab('hourswatch'); await sleep(150); swSubGo('builder'); tbClose(); await sleep(150);
+  tbNewForm(); await sleep(50);
+  ok('the new-plan form offers "Put it on My Work as a project" (ticked) with a ready-by date', document.getElementById('tb-asproject').checked && /^\d{4}-\d{2}-\d{2}$/.test(document.getElementById('tb-ready').value));
+  document.getElementById('tb-client').value='Bea Fake'; document.getElementById('tb-townzip').value='Nixa 65714'; document.getElementById('tb-pattern').value='daily4';
+  await tbCreate(); await sleep(400);
+  const bea=S.staffing_plans.find(x=>x.client==='Bea Fake'), bp=S.ops_items.find(x=>x.plan_id===bea.id);
+  ok('creating the board puts it on My Work: a "care team" project, linked both ways, Krystal owns it', bp && bp.kind==='project' && bp.template==='care_team' && bp.title==='Bea Fake care team' && bea.project_id===bp.id && bp.owner==='krystal@mo-care.com', [bea, bp]);
+  ok('...its steps: Every shift confirmed (with the hours) and Schedules sent to AxisCare', bp.steps.length===2 && bp.steps[0].key==='shifts' && /Every shift confirmed \(9a–1p, 7 days a week\)/.test(bp.steps[0].label) && bp.steps[1].key==='axis', bp.steps);
+  ok('...the board says it is on My Work', /On My Work: Bea Fake care team · Krystal owns it/.test(root().innerText));
+  const B2=S.staffing_plans.find(x=>x.client==='Bea Fake'); B2.days.forEach(d=>{ B2.cells[d+'|main']={ name:'Kim Aide', cg_ax_id:'11', status:'yes' }; });
+  B2.axiscare_push={ at:new Date().toISOString(), created:[{ id:'x' }] }; DATA.staffing_plans=DATA.staffing_plans.map(x=>x.id===B2.id?JSON.parse(JSON.stringify(B2)):x);
+  await tb2Sync(DATA.staffing_plans.find(x=>x.id===B2.id)); await sleep(300);
+  const bp2=S.ops_items.find(x=>x.id===bp.id);
+  ok('...the board fills both steps in by itself (all confirmed, schedules in AxisCare)', bp2.steps.every(s=>s.done_at && s.auto), bp2.steps);
+  // an older plan without a project
+  const old={ id:'tb_old', client:'Cal Fake', days:['mon','tue'], slots:[{k:'s1',label:'Days',start:'08:00',end:'12:00'}], cells:{}, status:'building' };
+  S.staffing_plans.push(JSON.parse(JSON.stringify(old))); DATA.staffing_plans.push(old); tbOpen('tb_old'); await sleep(150);
+  root().querySelector('.tb2-make').click(); await sleep(120);
+  const pp=[...document.querySelectorAll('.ccpop')].pop(); pp.querySelector('#tb2K').value='client_start'; pp.querySelector('#tb2Go').click(); await sleep(500);
+  const cp=S.ops_items.find(x=>x.plan_id==='tb_old');
+  ok('"Make this a project" on an existing plan: Client start makes the full project, all hands on', cp && cp.template==='client_start' && cp.steps.length===8 && cp.all_hands.on && /Cal Fake coming home/.test(cp.title) && S.staffing_plans.find(x=>x.id==='tb_old').project_id===cp.id);
+  window.__toasts=[]; await tb2MakeProject('tb_old',{});
+  ok('...never twice', S.ops_items.filter(x=>x.plan_id==='tb_old').length===1 && /already a project/.test(window.__toasts.join(' ')));
   ok('nothing was texted or emailed', window.__log.fn.length===0 && !window.__log.fetch.some(u=>/team-ask/.test(u)));
   return R;
 }

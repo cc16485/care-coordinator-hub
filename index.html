@@ -6768,8 +6768,8 @@ The HomeTogether team</pre>
 })();
 </script>
 <script src="shift-flags.js?v=1"></script>
-<script src="projects.js?v=4"></script>
-<script src="team-builder-2.js?v=1"></script>
+<script src="projects.js?v=5"></script>
+<script src="team-builder-2.js?v=2"></script>
 <script src="standup-board.js?v=11"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -34767,6 +34767,8 @@ function tbNewForm(){
     +'<span class="field-note" style="font-weight:700;">Days:</span>'
     +TB_DAYS.map(function(d){ return '<button type="button" class="fb active" data-tbday="'+d+'" onclick="this.classList.toggle(\'active\')">'+TB_DAYL[d]+'</button>'; }).join('')
     +'<span style="flex:1;"></span>'
+    +'<label style="display:flex;gap:6px;align-items:center;font-size:12.5px;font-weight:700;color:var(--navy);margin:0;"><input type="checkbox" id="tb-asproject" checked style="width:auto;margin:0;"> Put it on My Work as a project, ready by</label>'
+    +'<input type="date" id="tb-ready" value="'+(function(){ var d=new Date(); d.setDate(d.getDate()+7); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })()+'" style="width:auto;font-size:12.5px;">'
     +'<button class="addlead" onclick="tbCreate()">Create the board</button>'
     +'</div></div>';
 }
@@ -34787,6 +34789,9 @@ async function tbCreate(){
   DATA.staffing_plans=DATA.staffing_plans||[]; DATA.staffing_plans.push(p);
   await persist('staffing_plans',p);
   TB.planId=p.id; TB.cellOpen=null;
+  /* 2026-10-06: a new plan goes on My Work as a project unless the box is unticked */
+  var asP=document.getElementById('tb-asproject'), rdy=document.getElementById('tb-ready');
+  if(asP&&asP.checked&&typeof tb2MakeProject==='function') await tb2MakeProject(p.id,{ ready_by:(rdy&&rdy.value)||'' });
   tbRender(); swRenderBar();
 }
 function tbOpen(id){ TB.planId=id; TB.cellOpen=null; TB.linkOpen=false; TB.linkMsg=''; tbRender(); }
@@ -34890,6 +34895,7 @@ function tbBoardHtml(plan){
     +(yes===total&&total>0?'<button class="addlead" style="font-size:12px;" onclick="tbComplete()">✓ Plan complete — show the summary</button>':'')
     +'</div>'
     +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">'
+    +(typeof tb2ProjectBox==='function'?tb2ProjectBox(plan):'')
     +tbJourneyChip(plan.id)
     +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbLinkToggle()">'+(tbJourneyOf(plan.id)?'Change Journey':'Link to a Journey')+'</button>'
     +'<div id="famTb" style="flex-basis:100%;"></div>'
