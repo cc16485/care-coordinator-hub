@@ -12,8 +12,10 @@
    STAGE 2 ADDS: Month (today's page shrinks into October and the other pages are dealt out from the planner; click one to
    open it), completion stamps, the ribbon, folded corners, a star in the margin and a hand-drawn circle, the tent calendar
    (click a date, or drop a line on it), and Make it yours (desk mat, pen color, handwriting or neat print, your photo).
-   LATER STAGES: owners' desk tabs, notes,
-   stars (3); the Stand-Up tray and End My Shift (4); the desk following you around the Hub (5); kind words (6).
+   STAGE 3 ADDS (owners): desk tabs (My Desk, each person's desk, Everyone), built from who has a desk; looking at
+   someone's desk is read-only; owners can leave a signed note (washi tape, Seen / Got it), star a finished line, and the
+   person sees "Samantha stopped by your desk today". "Might need a hand?" on lines carried 4+ days, owners only.
+   LATER STAGES: the Stand-Up tray and End My Shift (4); the desk following you around the Hub (5); kind words (6).
 
    WHERE IT LIVES: the private tables made by Desktop 463 (desk_lines, desk_stickies, desk_settings, desk_pages). The
    database decides who may read or change what; this file never assumes it may. Each line is saved on its own, with its
@@ -109,6 +111,19 @@
       const e = l.error || pg.error; if(e) throw e;
       return { lines: l.data || [], pages: pg.data || [] };
     },
+    /* Stage 3 (owners). The database lets only owners do these on someone else's desk. */
+    async visit(deskPerson, me, day){ const { error } = await sb.from('desk_visits').upsert({ desk_person_id:deskPerson, visitor_person_id:me, day, at:new Date().toISOString() }, { onConflict:'desk_person_id,visitor_person_id,day' }); if(error) throw error; return true; },
+    async visits(deskPerson, day){ const { data, error } = await sb.from('desk_visits').select('visitor_person_id,at').eq('desk_person_id', deskPerson).eq('day', day); if(error) throw error; return data || []; },
+    async star(lineId, on){ const { error } = await sb.rpc('desk_star_line', { p_line:lineId, p_on:on }); if(error) throw error; return true; },
+    async everyone(ids, day){
+      const [l, st, sk] = await Promise.all([
+        sb.from('desk_lines').select('id,person_id,kind,body,done_at,pos,place,day').in('person_id', ids).is('erased_at', null).eq('place', 'day').eq('day', day),
+        sb.from('desk_settings').select('person_id,mat').in('person_id', ids),
+        sb.from('desk_stickies').select('person_id,color,from_person_id').in('person_id', ids).is('erased_at', null)
+      ]);
+      const e = l.error || st.error || sk.error; if(e) throw e;
+      return { lines:l.data || [], settings:st.data || [], stickies:sk.data || [] };
+    },
     async insert(table, row){ const { data, error } = await sb.from(table).insert(row).select().single(); if(error) throw error; return data; },
     /* Only applies when nobody changed the row since we read it (rev). null = it changed elsewhere. */
     async update(table, id, rev, patch){
@@ -124,13 +139,22 @@
 
   /* ---------------------------------------------- state ---------------------------------------------- */
   const DK = { me:null, loaded:false, err:null, lines:[], stickies:[], settings:null, pages:{}, day:null, laterOpen:false, noteMode:false,
-               turn:null, receive:null, born:null, sig:'', editing:false, timer:null, view:'day', month:null, monthData:{}, justStamped:null };
+               turn:null, receive:null, born:null, sig:'', editing:false, timer:null, view:'day', month:null, monthData:{}, justStamped:null, who:null, visits:[], ev:null };
   window.DK = DK;
   const T = () => todayStr();
   const lineById = id => DK.lines.find(l => l.id === id);
   const stickById = id => DK.stickies.find(s => s.id === id);
   const myName = () => { try{ return ccActor().name || 'you'; }catch(e){ return 'you'; } };
   const myEmail = () => { try{ return lc(ccActor().email); }catch(e){ return ''; } };
+  /* Whose desk is open: null = my own. */
+  const deskOf = () => DK.who || DK.me;
+  const ro = () => !!DK.who && DK.who !== DK.me;
+  const iOwn = () => { try{ return typeof ccIsOwner === 'function' && ccIsOwner(myEmail()); }catch(e){ return false; } };
+  const people = () => { try{ return (OPS_PEOPLE || []).filter(p => p && p.person_id && p.primary_email); }catch(e){ return []; } };
+  const personById = id => people().find(p => p.person_id === id) || null;
+  const firstName = id => { const p = personById(id); return p ? String(p.full_name || p.primary_email).split(' ')[0] : 'Someone'; };
+  /* Everyone the Hub gives a desk (role or job title), for the owners' tabs. */
+  const deskPeople = () => people().filter(p => p.active !== false && hasDesk(p.primary_email)).sort((a, b) => String(a.full_name).localeCompare(String(b.full_name)));
 
   /* Saves go one at a time per row, and each uses the row's newest version. */
   const queues = {};
@@ -157,7 +181,7 @@
       const s = stickById(id); if(!s || !s._dirty) return;
       const patch = Object.assign({}, s._dirty); s._dirty = null;
       try{
-        if(s._new){ const row = await ST().insert('desk_stickies', pick(s, ['id','person_id','color','body','side','x','y','rot','z','erased_at'])); s._new = false; s.rev = row.rev; return; }
+        if(s._new){ const row = await ST().insert('desk_stickies', pick(s, ['id','person_id','from_person_id','color','body','side','x','y','rot','z','erased_at'])); s._new = false; s.rev = row.rev; return; }
         const row = await ST().update('desk_stickies', id, s.rev, patch);
         if(!row) return saveFailed(null, true);
         s.rev = row.rev;
@@ -174,7 +198,7 @@
         DK.lines.push(l); touched.l.add(l.id); inv.push(['lerase', l.id]); return l; },
       setLine(id, p){ const l = lineById(id); if(!l) return; const old = {}; Object.keys(p).forEach(k => { old[k] = l[k] === undefined ? null : l[k]; }); if(l.day) days.add(l.day); if(p.day) days.add(p.day);
         Object.assign(l, p); l._dirty = Object.assign(l._dirty || {}, p); touched.l.add(id); inv.push(['lset', id, old]); },
-      addStick(f){ const s = Object.assign({ id:uid(), person_id:DK.me, color:'yellow', body:'', side:'L', x:20, y:120, rot:0, z:1, erased_at:null, rev:1 }, f, { _new:true, _dirty:{} });
+      addStick(f){ const s = Object.assign({ id:uid(), person_id:deskOf(), from_person_id:ro() ? DK.me : null, color:'yellow', body:'', side:'L', x:20, y:120, rot:0, z:1, erased_at:null, rev:1 }, f, { _new:true, _dirty:{} });
         DK.stickies.push(s); touched.s.add(s.id); inv.push(['serase', s.id]); return s; },
       setStick(id, p){ const s = stickById(id); if(!s) return; const old = {}; Object.keys(p).forEach(k => { old[k] = s[k] === undefined ? null : s[k]; });
         Object.assign(s, p); s._dirty = Object.assign(s._dirty || {}, p); touched.s.add(id); inv.push(['sset', id, old]); }
@@ -217,11 +241,12 @@
   const signature = () => JSON.stringify([DK.lines.map(l => [l.id, l.rev, l.erased_at]), DK.stickies.map(s => [s.id, s.rev, s.erased_at])]);
   async function load(force){
     try{
+      if(DK.meEmail !== myEmail()){ DK.me = null; DK.who = null; DK.meEmail = myEmail(); }   /* a different person signed in: start over */
       if(!DK.me) DK.me = await ST().me();
       if(!DK.me){ DK.err = 'nolink'; DK.loaded = true; render(); return; }
       if(!force && DK.loaded && (DK.editing || drag)) return;
-      const from = addDays(T(), -75);
-      const r = await ST().load(DK.me, from);
+      const from = addDays(T(), -75), whose = deskOf();
+      const r = await ST().load(whose, from);
       if(DK.editing || drag) return;
       const pending = DK.lines.some(l => l._dirty || l._new) || DK.stickies.some(s => s._dirty || s._new);
       if(pending && !force) return;
@@ -232,6 +257,12 @@
       const oldPages = {}; Object.keys(DK.pages).forEach(k => { if(k < from) oldPages[k] = DK.pages[k]; });
       DK.pages = oldPages; (r.pages || []).forEach(p => { DK.pages[p.day] = p; });
       DK.loaded = true; DK.err = null;
+      if(!ro()){
+        /* notes an owner left me: seen now that my desk is open */
+        const now = new Date().toISOString();
+        DK.stickies.filter(x => x.from_person_id && x.from_person_id !== DK.me && !x.seen_at).forEach(x => action(null, ctx => ctx.setStick(x.id, { seen_at:now })));
+        try{ DK.visits = (await ST().visits(DK.me, T())).filter(v => v.visitor_person_id !== DK.me); }catch(e){ DK.visits = []; }
+      }
       const sig = signature(); if(sig !== DK.sig || force){ DK.sig = sig; render(); }
     }catch(e){ DK.err = String((e && e.message) || e); DK.loaded = true; render(); }
   }
@@ -288,37 +319,40 @@
   function rowHtml(l, idx, day){
     if(l.kind === 'ghost') return '<li class="dk-row dk-ghost" data-idx="' + idx + '"><span class="dk-gt">' + esc(l.body) + '<em>→ ' + esc(fmtTiny(l.moved_to || day)) + '</em></span></li>';
     const h = hash(l.id), jit = ' style="--jr:' + (((h % 7) - 3) * .12).toFixed(2) + 'deg;--jx:' + ((h % 5) - 2) + 'px"';
-    const nb = day ? nextBiz(day) : T();
-    const tools = '<span class="dk-tools">'
+    const nb = day ? nextBiz(day) : T(), R = ro();
+    const tools = R ? '' : '<span class="dk-tools">'
       + (l.kind === 'todo' ? (day ? '<button class="dk-tool" data-dk="t-next" title="Move to ' + esc(fmtShort(nb)) + ' (T)">' + icon('next') + DOW[D(nb).getDay()].slice(0, 3) + '</button>'
           : '<button class="dk-tool" data-dk="t-today" title="Back to today\'s page">' + icon('prev') + 'Today</button>')
         + (l.place !== 'later' ? '<button class="dk-tool" data-dk="t-later" title="Into the Later folder (L)">' + icon('later') + '</button>' : '') : '')
       + '<button class="dk-tool" data-dk="more" title="More" aria-label="More">' + icon('dots') + '</button></span>';
-    const grip = '<span class="dk-grip" aria-hidden="true">' + icon('grip') + '</span>';
-    const attrs = ' data-dkid="' + l.id + '" data-idx="' + idx + '" tabindex="0" data-dkdrag="line"';
-    if(l.kind === 'note') return '<li class="dk-row dk-note"' + attrs + '>' + grip + '<span class="dk-tw"' + jit + '><span class="dk-txt" data-dk="edit">' + esc(l.body) + '</span></span>' + tools + '</li>';
+    const grip = R ? '' : '<span class="dk-grip" aria-hidden="true">' + icon('grip') + '</span>';
+    const attrs = ' data-dkid="' + l.id + '" data-idx="' + idx + '" tabindex="0"' + (R ? '' : ' data-dkdrag="line"');
+    const ed = R ? '' : ' data-dk="edit"';
+    if(l.kind === 'note') return '<li class="dk-row dk-note"' + attrs + '>' + grip + '<span class="dk-tw"' + jit + '><span class="dk-txt"' + ed + '>' + esc(l.body) + '</span></span>' + tools + '</li>';
     const c = carryInfo(l, day), c4 = c && c.n >= 4 && !l.done_at;
     const chips = [];
     if(l.time_text && !l.done_at) chips.push('<span class="dk-chip dk-time">' + icon('clock') + esc(l.time_text) + '</span>');
     if(c) chips.push('<span class="dk-chip dk-carry' + (c4 ? ' dk-carry4' : '') + '">' + esc(c.label) + '</span>');
-    const star = '<button class="dk-mstar' + (l.star ? ' dk-on' : '') + '" data-dk="mstar" aria-label="' + (l.star ? 'Remove the star' : 'Star it in the margin') + '" title="' + (l.star ? 'Remove the star' : 'Star it') + '"><svg viewBox="0 0 24 24"><use href="#dk-hstar"/></svg></button>';
-    return '<li class="dk-row' + (l.done_at ? ' dk-done' : '') + (c4 ? ' dk-c4' : '') + '"' + attrs + '>' + star
+    if(c4 && R && iOwn()) chips.push('<span class="dk-chip dk-hand">might need a hand?</span>');
+    const ost = l.owner_star_by ? '<svg class="dk-ostar"><title>' + esc(firstName(l.owner_star_by)) + ' gave this a star</title><use href="#dk-gstar"/></svg>' : '';
+    const star = '<button class="dk-mstar' + (l.star ? ' dk-on' : '') + '" ' + (R ? 'disabled tabindex="-1"' : 'data-dk="mstar"') + ' aria-label="' + (l.star ? 'Remove the star' : 'Star it in the margin') + '" title="' + (l.star ? 'Remove the star' : 'Star it') + '"><svg viewBox="0 0 24 24"><use href="#dk-hstar"/></svg></button>';
+    return '<li class="dk-row' + (l.done_at ? ' dk-done' : '') + (c4 ? ' dk-c4' : '') + '"' + attrs + (R && iOwn() && l.done_at ? ' data-dk="ostar" title="' + (l.owner_star_by ? 'Take your star back' : 'Give this a star') + '"' : '') + '>' + star
       + (c4 ? '<svg class="dk-marginclip" aria-hidden="true"><use href="#dk-clip"/></svg>' : '') + grip
-      + '<button class="dk-cb" data-dk="toggle" aria-label="' + (l.done_at ? 'Uncheck' : 'Check off') + '"><svg viewBox="0 0 24 24"><use href="#dk-box"/><path class="dk-tick" d="' + TICKS[h % 3] + '"/></svg></button>'
-      + '<span class="dk-tw"' + jit + '><span class="dk-txt" data-dk="edit">' + esc(l.body) + '</span>'
+      + '<button class="dk-cb" ' + (R ? 'disabled tabindex="-1"' : 'data-dk="toggle"') + ' aria-label="' + (l.done_at ? 'Uncheck' : 'Check off') + '"><svg viewBox="0 0 24 24"><use href="#dk-box"/><path class="dk-tick" d="' + TICKS[h % 3] + '"/></svg></button>'
+      + '<span class="dk-tw"' + jit + '><span class="dk-txt"' + ed + '>' + esc(l.body) + '</span>'
       + (l.circle ? '<svg class="dk-circ" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M8 6 C30 -1 80 0 95 9 C102 16 90 28 50 28 C14 28 -2 22 3 13 C6 7 16 4 26 3"/></svg>' : '')
-      + (chips.length ? '<span class="dk-chips">' + chips.join('') + '</span>' : '') + '</span>' + tools + '</li>';
+      + (chips.length ? '<span class="dk-chips">' + chips.join('') + '</span>' : '') + '</span>' + ost + tools + '</li>';
   }
   function pageHtml(day, cls){
     const d = D(day), arr = inPlace(DK.lines, 'day', day), prev = prevBiz(day), next = nextBiz(day), t = T();
     const pg = DK.pages[t] || {};
-    const left = (day === t && !pg.leftovers_done) ? openOf(inPlace(DK.lines, 'day', prevBiz(t))) : [];
+    const R = ro(), left = (!R && day === t && !pg.leftovers_done) ? openOf(inPlace(DK.lines, 'day', prevBiz(t))) : [];
     const pf = DK.pages[day] || {}, hd = hash(day);
     return '<article class="dk-page' + (cls || '') + '" data-day="' + day + '">'
       + '<div class="dk-rings">' + '<i></i>'.repeat(14) + '</div>'
       + (day === t ? '<div class="dk-ribbon" title="Your ribbon marks today"></div>' : '')
       + (hd % 4 === 1 ? '<div class="dk-coffee" style="left:' + (60 + hd % 300) + 'px;bottom:' + (40 + hd % 90) + 'px"></div>' : '')
-      + '<button class="dk-dogear' + (pf.dogear ? ' dk-on' : '') + '" data-dk="dogear" title="' + (pf.dogear ? 'Unfold the corner' : 'Fold the corner to come back to this page') + '" aria-label="Fold the corner"></button>'
+      + '<button class="dk-dogear' + (pf.dogear ? ' dk-on' : '') + '" ' + (R ? 'disabled tabindex="-1"' : 'data-dk="dogear"') + ' title="' + (pf.dogear ? 'Unfold the corner' : 'Fold the corner to come back to this page') + '" aria-label="Fold the corner"></button>'
       + '<div class="dk-head">' + (d.getMonth() === 9 ? '<svg class="dk-doodle" aria-hidden="true"><use href="#dk-leaf"/></svg>' : '')
       +   '<div><div class="dk-dow">' + dowName(day) + (day === t ? ' · today' : '') + '</div><h2 class="dk-date">' + fmtLong(day) + '</h2><div class="dk-motto">' + (MOTTO[d.getDay()] || '') + '</div></div>'
       +   '<span class="dk-sp"></span><div class="dk-nav">' + (day !== t ? '<button class="dk-back" data-dk="go" data-day="' + t + '">Back to today</button>' : '')
@@ -330,11 +364,11 @@
           + '<button class="dk-lbtn dk-x" data-dk="lo-x" aria-label="Leave them there" title="Leave them there">' + icon('x') + '</button></div>' : '')
       + '<ol class="dk-list" data-dkdrop="list" data-day="' + day + '">'
       +   arr.map((l, i) => rowHtml(l, i, day)).join('')
-      +   '<li class="dk-jot' + (DK.noteMode ? ' dk-notemode' : '') + '"><button class="dk-mode" data-dk="jotmode" title="' + (DK.noteMode ? 'Writing a note. Click for a to-do' : 'Writing a to-do. Click to scribble a note instead (or Shift+Enter)') + '" aria-label="Switch between a to-do and a note">'
+      +   (R ? '' : '<li class="dk-jot' + (DK.noteMode ? ' dk-notemode' : '') + '"><button class="dk-mode" data-dk="jotmode" title="' + (DK.noteMode ? 'Writing a note. Click for a to-do' : 'Writing a to-do. Click to scribble a note instead (or Shift+Enter)') + '" aria-label="Switch between a to-do and a note">'
       +     icon(DK.noteMode ? 'pencil' : 'box') + '</button><input id="dkJot" data-day="' + day + '" maxlength="1000" placeholder="' + (DK.noteMode ? 'scribble a note…' : 'jot something down…') + '" autocomplete="off" aria-label="Jot something down">'
-      +     '<span class="dk-tip">Enter for a to-do · Shift+Enter for a note</span></li>'
-      + '</ol><div class="dk-blank" data-dk="focusjot" aria-hidden="true"></div>'
-      + (pf.stamp ? '<div class="dk-stamp' + (DK.justStamped === day ? ' dk-thunk' : '') + '"><svg><use href="#dk-st-' + esc(pf.stamp) + '"/></svg><div>' + (day === t ? "Good day's work, " + esc(String(myName()).split(' ')[0]) + '.' : '') + '</div></div>' : '')
+      +     '<span class="dk-tip">Enter for a to-do · Shift+Enter for a note</span></li>')
+      + '</ol>' + (R ? '<div class="dk-ronote">' + esc(firstName(DK.who)) + "'s page, in " + esc(firstName(DK.who)) + "'s handwriting. You can leave a note on the desk, or give a finished line a star.</div>" : '<div class="dk-blank" data-dk="focusjot" aria-hidden="true"></div>')
+      + (pf.stamp ? '<div class="dk-stamp' + (DK.justStamped === day ? ' dk-thunk' : '') + '"><svg><use href="#dk-st-' + esc(pf.stamp) + '"/></svg><div>' + (day === t ? "Good day's work, " + esc(R ? firstName(DK.who) : String(myName()).split(' ')[0]) + '.' : '') + '</div></div>' : '')
       + '<button class="dk-curl" data-dk="go" data-day="' + next + '" aria-label="Turn the page" title="Turn to ' + fmtShort(next) + '"></button>'
       + '</article>';
   }
@@ -351,22 +385,33 @@
     return '<div class="dk-pocket"><button class="dk-folder' + (DK.laterOpen ? ' dk-open' : '') + '" data-dk="later" data-dkdrop="later" aria-label="Later folder, ' + n + ' inside">'
       + '<div class="dk-ftab"></div><div class="dk-fb"></div><div class="dk-papers">' + [0,1,2].slice(0, Math.min(3, n)).map(i => '<i style="top:' + (24 + i * 5) + 'px;transform:rotate(' + (i - 1) + 'deg)"></i>').join('') + '</div>'
       + '<div class="dk-ff"><div class="dk-flabel"><b>LATER</b><span>' + (n ? n + ' tucked away' : 'empty') + '</span></div></div></button>'
-      + (DK.laterOpen ? '<ol class="dk-later" data-dkdrop="later">' + (arr.length ? arr.map((l, i) => '<li class="dk-slip' + (l.kind === 'note' ? ' dk-slipnote' : '') + '" data-dkid="' + l.id + '" data-idx="' + i + '" data-dkdrag="line" tabindex="0"><span class="dk-st">' + esc(l.body) + '</span>'
-          + '<button class="dk-tool" data-dk="more" aria-label="More">' + icon('dots') + '</button></li>').join('') : '<li class="dk-slip-empty">Nothing tucked away.</li>') + '</ol>' : '') + '</div>';
+      + (DK.laterOpen ? '<ol class="dk-later" data-dkdrop="later">' + (arr.length ? arr.map((l, i) => '<li class="dk-slip' + (l.kind === 'note' ? ' dk-slipnote' : '') + '" data-dkid="' + l.id + '" data-idx="' + i + '"' + (ro() ? '' : ' data-dkdrag="line"') + ' tabindex="0"><span class="dk-st">' + esc(l.body) + '</span>'
+          + (ro() ? '' : '<button class="dk-tool" data-dk="more" aria-label="More">' + icon('dots') + '</button>') + '</li>').join('') : '<li class="dk-slip-empty">Nothing tucked away.</li>') + '</ol>' : '') + '</div>';
   }
   function stickyHtml(s){
-    const owner = !!s.from_person_id;
-    return '<div class="dk-sticky dk-c-' + esc(s.color) + (owner ? ' dk-owner' : '') + (DK.born === s.id ? ' dk-born' : '') + '" data-sid="' + s.id + '" data-dkdrop="sticky" style="--r:' + (Number(s.rot) || 0) + 'deg;z-index:' + (s.z || 1) + '"' + (owner ? '' : ' data-dkdrag="sticky"') + '>'
-      + '<div class="dk-stt"' + (owner ? '' : ' data-dk="s-edit"') + '>' + esc(s.body) + '</div>'
-      + (owner ? '' : '<div class="dk-sbtns"><button class="dk-sbtn" data-dk="s-color" aria-label="Change color"><span class="dk-dot dk-c-' + nextColor(s.color) + '"></span></button><button class="dk-sbtn" data-dk="s-peel">Peel off</button></div>')
-      + '</div>';
+    const note = !!s.from_person_id, mineNote = note && s.from_person_id === DK.me, toMe = note && !mineNote && !ro();
+    const movable = ro() ? mineNote : true, editable = ro() ? mineNote : !note;
+    let head = '', foot = '', btns = [];
+    if(note){
+      head = '<div class="dk-from">' + (mineNote ? 'Your note to ' + esc(firstName(s.person_id)) : esc(firstName(s.from_person_id)) + ' left you a note') + '</div>';
+      const t = x => { try{ return new Date(x).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZone:TZ }); }catch(e){ return ''; } };
+      const rc = mineNote ? (s.ack_at ? firstName(s.person_id) + ' said got it' : s.seen_at ? 'Seen ' + t(s.seen_at) : 'Not seen yet') : (s.ack_at ? 'You said got it' : '');
+      foot = '<div class="dk-sig">' + esc(firstName(s.from_person_id)) + '</div><div class="dk-rcpt">' + esc(rc) + '</div>';
+    }
+    if(!note && !ro()) btns = ['<button class="dk-sbtn" data-dk="s-color" aria-label="Change color"><span class="dk-dot dk-c-' + nextColor(s.color) + '"></span></button>', '<button class="dk-sbtn" data-dk="s-peel">Peel off</button>'];
+    if(toMe) btns = (s.ack_at ? [] : ['<button class="dk-sbtn" data-dk="s-ack">Got it</button>']).concat(['<button class="dk-sbtn" data-dk="s-peel">Peel off</button>']);
+    if(mineNote && ro()) btns = ['<button class="dk-sbtn" data-dk="s-back">Take it back</button>'];
+    return '<div class="dk-sticky dk-c-' + esc(s.color) + (note ? ' dk-owner' : '') + (DK.born === s.id ? ' dk-born' : '') + '" data-sid="' + s.id + '" data-dkdrop="sticky" style="--r:' + (Number(s.rot) || 0) + 'deg;z-index:' + (s.z || 1) + '"' + (movable ? ' data-dkdrag="sticky"' : '') + '>'
+      + head + '<div class="dk-stt"' + (editable ? ' data-dk="s-edit"' : '') + '>' + esc(s.body) + '</div>' + foot
+      + (btns.length ? '<div class="dk-sbtns">' + btns.join('') + '</div>' : '') + '</div>';
   }
   const COLORS = ['yellow','pink','blue','green'];
   const nextColor = c => COLORS[(COLORS.indexOf(c) + 1) % COLORS.length] || 'yellow';
   function padsHtml(){
     const labels = (DK.settings && DK.settings.pad_labels) || {};
-    return '<div class="dk-pads">' + [['yellow','-3deg'],['pink','2deg'],['blue','-1deg'],['green','3deg']].map(([c, r]) => '<div class="dk-padc"><button class="dk-pad dk-c-' + c + '" style="--r:' + r + '" data-dk="pad" data-c="' + c + '" aria-label="New ' + c + ' sticky note"></button>'
-      + '<span class="dk-plabel" data-dk="plabel" data-c="' + c + '" title="Give this color your own meaning, if you like">' + esc(labels[c] || '') + '</span></div>').join('') + '</div>';
+    const R = ro();
+    return '<div class="dk-pads">' + (R ? '<div class="dk-padh">Leave ' + esc(firstName(DK.who)) + ' a note</div>' : '') + [['yellow','-3deg'],['pink','2deg'],['blue','-1deg'],['green','3deg']].map(([c, r]) => '<div class="dk-padc"><button class="dk-pad dk-c-' + c + '" style="--r:' + r + '" data-dk="pad" data-c="' + c + '" aria-label="' + (R ? 'Leave a ' + c + ' note, signed from you' : 'New ' + c + ' sticky note') + '"></button>'
+      + (R ? '' : '<span class="dk-plabel" data-dk="plabel" data-c="' + c + '" title="Give this color your own meaning, if you like">' + esc(labels[c] || '') + '</span>') + '</div>').join('') + '</div>';
   }
   function calHtml(){
     const [y, m] = DK.day.slice(0, 7).split('-').map(Number), t = T();
@@ -411,6 +456,47 @@
         + (page.stamp ? '<svg class="dk-ms" aria-label="stamped"><use href="#dk-st-' + esc(page.stamp) + '"/></svg>' : '') + '</button>';
     }
     return h + '</div><div class="dk-mfoot">' + (stamps ? stamps + ' stamped page' + (stamps === 1 ? '' : 's') + ' in ' + MON[m - 1] + '. ' : '') + 'Click any page to open it. Folded corners are pages you marked to come back to.</div>';
+  }
+  /* Owners: a tab for each desk, built from who has one (Hub role or Team job title), never typed in. */
+  function tabsHtml(){
+    if(!iOwn() || !DK.me) return '';
+    const cur = DK.view === 'everyone' ? 'everyone' : (DK.who || DK.me);
+    const others = deskPeople().filter(p => p.person_id !== DK.me);
+    const col = ['#bde2ee', '#cde8c2', '#fde68a', '#f8c5d2', '#e3c48d'];
+    return '<div class="dk-tabs"><button class="dk-tab" style="--c:#f8c5d2" data-dk="desk" data-who="" aria-current="' + (cur === DK.me) + '">My Desk</button>'
+      + others.map((p, i) => '<button class="dk-tab" style="--c:' + col[i % col.length] + '" data-dk="desk" data-who="' + esc(p.person_id) + '" aria-current="' + (cur === p.person_id) + '">' + esc(String(p.full_name || '').split(' ')[0]) + "'s Desk</button>").join('')
+      + '<button class="dk-tab" style="--c:#f2eee3" data-dk="everyone" aria-current="' + (cur === 'everyone') + '">Everyone</button></div>';
+  }
+  async function openDesk(who){
+    if(DK.meEmail !== myEmail()){ DK.me = null; DK.meEmail = myEmail(); }
+    try{ if(!DK.me) DK.me = await ST().me(); }catch(e){}
+    DK.who = who && who !== DK.me ? who : null;
+    DK.view = 'day'; DK.day = T(); DK.monthData = {}; DK.lines = []; DK.stickies = []; DK.settings = null; DK.pages = {}; DK.visits = []; DK.loaded = false; DK.sig = ''; DK.laterOpen = false;
+    render(); await load(true);
+    if(ro()) ST().visit(DK.who, DK.me, T()).catch(() => {});   /* the person sees "Samantha stopped by" */
+  }
+  async function openEveryone(){
+    DK.view = 'everyone'; DK.who = null; DK.ev = null; render();
+    const ids = deskPeople().map(p => p.person_id).filter(id => id !== DK.me);
+    try{ DK.ev = Object.assign({ ids }, await ST().everyone(ids, T())); }catch(e){ DK.ev = { ids, err:String((e && e.message) || e) }; }
+    render();
+  }
+  function everyoneHtml(){
+    const ev = DK.ev;
+    let h = '<div class="dk-mat dk-mat-teal" id="dkMat"><h2 class="dk-evh">Everyone\'s desks</h2><p class="dk-evsub">Today\'s page on each desk. Click one to stop by; they will see that you did. A desk appears on its own for anyone set up as an Owner, Care Coordinator or Staffing Coordinator (by Hub role or job title).</p>';
+    if(!ev) return h + '<div class="dk-msg">Opening the desks…</div></div>';
+    if(ev.err) return h + '<div class="dk-msg">The desks couldn\'t be opened just now.</div></div>';
+    h += '<div class="dk-evgrid">' + ev.ids.map(id => {
+      const p = personById(id) || {}, mat = ((ev.settings || []).find(x => x.person_id === id) || {}).mat || 'teal';
+      const arr = (ev.lines || []).filter(l => l.person_id === id && l.kind !== 'ghost').sort((a, b) => a.pos - b.pos);
+      const st = (ev.stickies || []).filter(x => x.person_id === id).slice(0, 4);
+      return '<button class="dk-evcard dk-mat-' + esc(mat) + '" data-dk="desk" data-who="' + esc(id) + '"><span class="dk-evn">' + esc(String(p.full_name || '').split(' ')[0]) + "'s Desk</span>"
+        + '<div class="dk-evpage"><div class="dk-evd">' + dowName(T()) + ', ' + fmtLong(T()) + '</div>'
+        + arr.slice(0, 7).map(l => '<div class="dk-evl' + (l.done_at ? ' dk-d' : '') + (l.kind === 'note' ? ' dk-n' : '') + '">' + esc(l.body) + '</div>').join('')
+        + (arr.length > 7 ? '<div class="dk-evm">and ' + (arr.length - 7) + ' more lines</div>' : '') + (arr.length ? '' : '<div class="dk-evm">A fresh page so far.</div>')
+        + '<div class="dk-evstk">' + st.map((x, i) => '<i class="dk-c-' + esc(x.color) + '" style="--r:' + (i % 2 ? 4 : -5) + 'deg"></i>').join('') + '</div></div></button>';
+    }).join('') + (ev.ids.length ? '' : '<div class="dk-msg">Nobody else has a desk yet.</div>') + '</div></div>';
+    return h;
   }
   function matClass(){
     const st = DK.settings || {};
@@ -511,22 +597,25 @@
     if(DK.err) return '<div class="dk-mat"><div class="dk-msg">Your desk couldn\'t be opened just now (' + esc(DK.err).slice(0, 160) + '). <button class="dk-lbtn" data-dk="reload">Try again</button></div></div>';
     const st = DK.settings || {};
     const left = '<div class="dk-rail dk-l">' + padsHtml() + '<div class="dk-zone"></div>' + calHtml()
-      + '<div class="dk-bits"><button class="dk-polaroid" data-dk="photo" title="Put your own photo here"><div class="dk-img"' + (st.photo ? ' style="background-image:url(\'' + esc(st.photo) + '\')"' : '') + '>' + (st.photo ? '' : '<svg aria-hidden="true"><use href="#dk-heart"/></svg>') + '</div><span class="dk-cap">' + (st.photo ? '' : 'your photo') + '</span></button>'
-      + '<button class="dk-cup" data-dk="prefs" title="Make it yours" aria-label="Make it yours"><svg viewBox="0 0 52 78" aria-hidden="true"><path d="M14 30l6-26" stroke="#F0A63A" stroke-width="5" stroke-linecap="round"/><path d="M26 30V6" stroke="#8FD1C7" stroke-width="5" stroke-linecap="round"/><path d="M36 30l5-22" stroke="#f8c5d2" stroke-width="5" stroke-linecap="round"/><path d="M8 30h36l-3 44H11z" fill="#0D365F"/><path d="M8 30h36" stroke="#E8C988" stroke-width="3"/></svg></button></div>'
+      + '<div class="dk-bits"><button class="dk-polaroid" ' + (ro() ? 'tabindex="-1"' : 'data-dk="photo" title="Put your own photo here"') + '><div class="dk-img"' + (st.photo ? ' style="background-image:url(\'' + esc(st.photo) + '\')"' : '') + '>' + (st.photo ? '' : '<svg aria-hidden="true"><use href="#dk-heart"/></svg>') + '</div><span class="dk-cap">' + (st.photo || ro() ? '' : 'your photo') + '</span></button>'
+      + (ro() ? '' : '<button class="dk-cup" data-dk="prefs" title="Make it yours" aria-label="Make it yours"><svg viewBox="0 0 52 78" aria-hidden="true"><path d="M14 30l6-26" stroke="#F0A63A" stroke-width="5" stroke-linecap="round"/><path d="M26 30V6" stroke="#8FD1C7" stroke-width="5" stroke-linecap="round"/><path d="M36 30l5-22" stroke="#f8c5d2" stroke-width="5" stroke-linecap="round"/><path d="M8 30h36l-3 44H11z" fill="#0D365F"/><path d="M8 30h36" stroke="#E8C988" stroke-width="3"/></svg></button>') + '</div>'
       + '<input type="file" id="dkPhotoIn" accept="image/*" hidden></div>';
     const right = '<div class="dk-rail dk-r"><div class="dk-zone dk-zr"></div>' + folderHtml()
       + '<div class="dk-bits"><div class="dk-mug" aria-hidden="true"><div class="dk-steam"><i></i><i></i><i></i></div><svg viewBox="0 0 64 78"><path d="M8 22h40v38c0 8-6 13-14 13H22c-8 0-14-5-14-13z" fill="#f2eee3"/><path d="M48 32h5a8 8 0 0 1 0 16h-5" fill="none" stroke="#f2eee3" stroke-width="5"/><ellipse cx="28" cy="22" rx="20" ry="4" fill="#7a4a22"/><path d="M28 54c-4-2.6-5.8-4.6-5.8-6.6 0-1.6 1.2-2.6 2.5-2.6s2.2.7 3.3 2c1-1.3 2-2 3.3-2s2.5 1 2.5 2.6c0 2-1.8 4-5.8 6.6z" fill="#1F7A8C"/></svg></div>'
-      + '<button class="dk-eraser" data-dkdrop="erase" data-dk="erase-help" title="Drop a line or a sticky here to erase it">ERASE</button>'
+      + (ro() ? '' : '<button class="dk-eraser" data-dkdrop="erase" data-dk="erase-help" title="Drop a line or a sticky here to erase it">ERASE</button>')
       + '<button class="dk-help" data-dk="help">How to</button></div></div>';
+    if(DK.view === 'everyone') return everyoneHtml();
     if(DK.view === 'month') return '<div class="dk-mat' + matClass() + '" id="dkMat">' + monthHtml() + '</div>';
-    return '<div class="dk-mat' + matClass() + '" id="dkMat"><div class="dk-stickies">' + DK.stickies.filter(s => !s.erased_at).map(stickyHtml).join('') + '</div>'
+    const strip = ro() ? '<div class="dk-strip">You are at ' + esc(firstName(DK.who)) + "'s desk. " + esc(firstName(DK.who)) + ' will see you stopped by.</div>' : '';
+    const vis = !ro() && DK.visits.length ? '<div class="dk-visit">' + icon('steps') + DK.visits.map(v => esc(firstName(v.visitor_person_id)) + ' stopped by your desk today at ' + esc(new Date(v.at).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZone:TZ }))).join('. ') + '.</div>' : '';
+    return '<div class="dk-mat' + matClass() + '" id="dkMat">' + strip + vis + '<div class="dk-stickies">' + DK.stickies.filter(s => !s.erased_at).map(stickyHtml).join('') + '</div>'
       + '<div class="dk-grid">' + left + plannerHtml(DK.day) + right + '</div></div>';
   }
   function render(){
     const w = $('#dkWrap'); if(!w) return;
     if(!dkAllowed()){ w.innerHTML = '<div class="dk"><div class="dk-mat"><div class="dk-msg">My Desk isn\'t switched on for you yet. An owner turns it on in Settings, under My Desk.</div></div></div>'; return; }
     if(!DK.day) DK.day = T();
-    w.innerHTML = '<div class="dk" id="dkRoot">' + deskHtml() + '</div>';
+    w.innerHTML = '<div class="dk" id="dkRoot">' + tabsHtml() + deskHtml() + '</div>';
     placeStickies();
     const pin = $('#dkPhotoIn'); if(pin) pin.onchange = e => { photoPicked(e.target.files && e.target.files[0]); e.target.value = ''; };
     DK.turn = null; DK.receive = null; DK.born = null; DK.justStamped = null;
@@ -684,7 +773,7 @@
     'lo-x': () => { const p = { person_id:DK.me, day:T(), leftovers_done:true }; DK.pages[T()] = Object.assign(DK.pages[T()] || {}, p); render(); ST().savePage(p).catch(e => saveFailed(e)); say('Left them on ' + dowName(prevBiz(T())) + "'s page"); },
     jotmode: () => { DK.noteMode = !DK.noteMode; render(); const j = $('#dkJot'); if(j) j.focus(); },
     focusjot: () => { const j = $('#dkJot'); if(j) j.focus(); },
-    pad: a => { const s = newSticky(a.dataset.c, a); editNew(s); },
+    pad: a => { const s = newSticky(a.dataset.c, a); editNew(s); if(ro()) say('Write your note. ' + firstName(DK.who) + ' sees it signed from you.'); },
     plabel: a => { a.contentEditable = 'true'; a.focus(); caretEnd(a); DK.editing = true;
       a.onkeydown = e => { e.stopPropagation(); if(e.key === 'Enter' || e.key === 'Escape'){ e.preventDefault(); a.blur(); } };
       a.onblur = () => { a.contentEditable = 'false'; DK.editing = false; const labels = Object.assign({}, (DK.settings && DK.settings.pad_labels) || {}); labels[a.dataset.c] = a.textContent.trim().slice(0, 14);
@@ -693,6 +782,14 @@
     's-color': a => { const s = stickById(a.closest('[data-sid]').dataset.sid); if(s) action(null, ctx => ctx.setStick(s.id, { color:nextColor(s.color) })); },
     's-peel': a => { const el = a.closest('[data-sid]'), sid = el.dataset.sid; el.classList.add('dk-peel'); setTimeout(() => action('Sticky peeled off', ctx => ctx.setStick(sid, { erased_at:new Date().toISOString() })), 300); },
     'erase-help': () => say('Drop a line or a sticky on the eraser to erase it'),
+    desk: a => openDesk(a.dataset.who || null),
+    everyone: () => openEveryone(),
+    ostar: a => { if(!ro() || !iOwn()) return; const id = a.closest('[data-dkid]').dataset.dkid, l = lineById(id); if(!l || !l.done_at) return;
+      const on = !l.owner_star_by; l.owner_star_by = on ? DK.me : null; render();
+      ST().star(id, on).then(() => say(on ? 'You gave that a star. ' + firstName(DK.who) + ' will see it.' : 'Star taken back')).catch(e => saveFailed(e)); },
+    's-ack': a => { const sid = a.closest('[data-sid]').dataset.sid, x = stickById(sid); if(!x) return; action(firstName(x.from_person_id) + ' will see "Got it"', ctx => ctx.setStick(sid, { ack_at:new Date().toISOString() })); },
+    's-back': a => { const sid = a.closest('[data-sid]').dataset.sid; DK.stickies = DK.stickies.filter(x => x.id !== sid); render();
+      ST().remove('desk_stickies', sid).then(() => say('Note taken back')).catch(e => saveFailed(e)); },
     mstar: a => { const id = a.closest('[data-dkid]').dataset.dkid, l = lineById(id); if(l) action(null, ctx => ctx.setLine(id, { star:!l.star })); },
     dogear: () => { const pf = DK.pages[DK.day] || {}; setPage(DK.day, { dogear:!pf.dogear }); render(); },
     month: () => zoomOut(),
@@ -742,7 +839,7 @@
     if(e.key === 'Escape' && $('#dkMenu')){ closeMenu(); return; }
     if(t.matches && (t.matches('input, textarea, select') || t.isContentEditable)) return;
     const row = t.closest && t.closest('[data-dkid]');
-    if(row && t.closest('#dkWrap')){
+    if(row && t.closest('#dkWrap') && !ro()){
       const id = row.dataset.dkid, l = lineById(id); if(!l) return;
       const refocus = () => { const r = $('[data-dkid="' + id + '"]'); if(r) r.focus(); };
       if((e.key === ' ' || e.key === 'x') && l.kind === 'todo'){ e.preventDefault(); toggle(id); refocus(); return; }
@@ -804,8 +901,9 @@
     if(!tgt) return;
     const kind = tgt.dataset.dkdrop;
     if(drag.kind === 'sticky'){
-      if(kind === 'list' && !drag.newSticky){ tgt.classList.add('dk-over'); tip('Let go to write this onto the page', e.clientX, e.clientY); drag.target = { type:'list', day:tgt.dataset.day }; }
-      else if(kind === 'erase'){ tgt.classList.add('dk-over'); drag.target = { type:'erase' }; tip('Erase', e.clientX, e.clientY); }
+      const sk = stickById(drag.sid) || {};
+      if(kind === 'list' && !drag.newSticky && !ro() && !sk.from_person_id){ tgt.classList.add('dk-over'); tip('Let go to write this onto the page', e.clientX, e.clientY); drag.target = { type:'list', day:tgt.dataset.day }; }
+      else if(kind === 'erase' && !ro()){ tgt.classList.add('dk-over'); drag.target = { type:'erase' }; tip('Erase', e.clientX, e.clientY); }
       return;
     }
     if(kind === 'list'){
@@ -936,7 +1034,7 @@
     document.addEventListener('pointerup', onUp);
     document.addEventListener('pointercancel', onCancel);
     let rz = null; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if($('#dkRoot')) placeStickies(); }, 120); });
-    try{ const f = document.createElement('link'); f.rel = 'stylesheet'; f.href = 'https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Patrick+Hand&family=Young+Serif&display=swap'; document.head.appendChild(f);
+    try{ const f = document.createElement('link'); f.rel = 'stylesheet'; f.href = 'https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Homemade+Apple&family=Patrick+Hand&family=Young+Serif&display=swap'; document.head.appendChild(f);
       if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeStickies()); }catch(e){}
     const st = document.createElement('style'); st.id = 'dkStyle'; st.textContent = CSS; document.head.appendChild(st);
     const sp = document.createElement('div'); sp.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden'; sp.setAttribute('aria-hidden', 'true'); sp.innerHTML = SPRITE; document.body.appendChild(sp);
@@ -959,6 +1057,8 @@
     + '<symbol id="dk-grip" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></g></symbol>'
     + '<symbol id="dk-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>'
     + '<symbol id="dk-leaf" viewBox="0 0 40 40"><path d="M20 4l3 7 6-3-2 7 7 1-5 5 4 4-7 1 1 7-7-4-3 6-1-7-6 2 2-6-7-2 6-4-3-6 7 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M20 12v26" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>'
+    + '<symbol id="dk-gstar" viewBox="0 0 24 24"><path d="M12 2.8l2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 16.7 6.4 19.8l1.3-6.2L3 9.3l6.3-.7z" fill="#F0A63A" stroke="#9C6410" stroke-width="1.1" stroke-linejoin="round"/></symbol>'
+    + '<symbol id="dk-steps" viewBox="0 0 24 24"><path d="M7 17.5c-1.6 0-2.4-1.4-2.2-3.4.3-2.6 1.4-4.6 2.9-4.4 1.4.2 1.7 2.4 1.3 4.6-.3 1.9-.8 3.2-2 3.2zM16.4 12.6c-1.2 0-1.9-1.1-1.7-2.7.2-2 1.1-3.6 2.3-3.4 1.1.2 1.3 1.9 1 3.6-.2 1.5-.6 2.5-1.6 2.5z" fill="currentColor"/></symbol>'
     + '<symbol id="dk-hstar" viewBox="0 0 24 24"><path d="M12.3 3.2c.9 2.2 1.7 4.1 2.6 6 2.2.1 4.4.2 6.4.5-1.7 1.4-3.3 2.8-4.9 4.3.5 2.1 1 4.1 1.4 6.2-1.9-1.2-3.7-2.3-5.6-3.3-1.9 1.1-3.8 2.2-5.6 3.4.5-2.1 1-4.2 1.6-6.3C6.6 12.6 5 11.2 3.3 9.8c2.1-.3 4.2-.4 6.4-.5.8-2.1 1.7-4 2.6-6.1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>'
     + '<symbol id="dk-circle" viewBox="0 0 24 24"><path d="M5 9c3-5 14-5 15 1 1 6-9 9-14 6-3-2-2-6 1-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>'
     + '<symbol id="dk-heart" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 17.5c-3-1.9-4.3-3.4-4.3-4.8 0-1.2.9-2 1.9-2s1.7.6 2.4 1.4c.7-.8 1.4-1.4 2.4-1.4s1.9.8 1.9 2c0 1.4-1.3 2.9-4.3 4.8z" fill="currentColor"/></symbol>'
@@ -1211,10 +1311,41 @@ body.dk-dragging, body.dk-dragging *{ cursor:grabbing !important; user-select:no
 .dk-narrow .dk-mgrid{ grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; } .dk-narrow .dk-wkcol{ display:none; }
 .dk-narrow .dk-mini{ min-height:84px; padding:6px; } .dk-narrow .dk-ml{ display:none; } .dk-narrow .dk-ms{ width:36px; height:36px; }
 .dk-narrow .dk-mstar{ left:-36px; } .dk-narrow .dk-ribbon{ right:60px; } .dk-narrow .dk-nav{ margin-right:0; }
+/* Stage 3: owners */
+.dk-tabs{ display:flex; gap:4px; padding:4px 6px 0; overflow-x:auto; }
+.dk-tab{ border:0; border-radius:12px 12px 0 0; padding:8px 15px 9px; font-weight:700; font-size:13px; color:#0D365F !important; background:var(--c); box-shadow:inset 0 -6px 8px -6px rgba(0,0,0,.25); transform:translateY(5px); transition:transform .15s; white-space:nowrap; }
+.dk-tab:hover{ transform:translateY(2px); } .dk-tab[aria-current="true"]{ transform:translateY(0); box-shadow:none; }
+.dk-strip{ position:absolute; left:50%; top:-1px; transform:translateX(-50%); z-index:6; background:var(--honey-pale); color:#3d2a00; font-size:12.5px; font-weight:600; padding:5px 14px 6px; border-radius:0 0 10px 10px; box-shadow:0 6px 10px -6px var(--shadow); white-space:nowrap; max-width:calc(100% - 40px); overflow:hidden; text-overflow:ellipsis; }
+.dk-visit{ position:absolute; left:30px; bottom:12px; font-size:12.5px; font-style:italic; color:rgba(255,255,255,.88); z-index:3; display:flex; gap:6px; align-items:center; }
+.dk-visit svg{ width:16px; height:16px; }
+.dk-ronote{ font-size:12.5px; color:var(--pencil); padding:8px 0 0 35px; }
+.dk-ostar{ width:24px; height:24px; flex:none; margin-top:5px; filter:drop-shadow(0 1px 0 rgba(0,0,0,.2)); animation:dkPop .35s ease-out; }
+.dk-row[data-dk="ostar"]{ cursor:pointer; } .dk-row[data-dk="ostar"]:hover{ background:rgba(240,166,58,.10); }
+.dk-hand{ background:transparent; color:var(--honey-deep); }
+.dk-padh{ width:100%; font-size:12px; font-weight:700; color:rgba(255,255,255,.9); margin-bottom:2px; }
+.dk-owner{ padding-top:28px; }
+.dk-owner::before{ content:""; position:absolute; top:-9px; left:50%; width:84px; height:20px; transform:translateX(-50%) rotate(-4deg); background:repeating-linear-gradient(45deg, rgba(31,122,140,.55) 0 6px, rgba(31,122,140,.32) 6px 12px); }
+.dk-from{ position:absolute; top:12px; left:13px; right:13px; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:9.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:rgba(58,50,34,.6); }
+.dk-sig{ font-family:'Homemade Apple','Gochi Hand',cursive; font-size:13px; margin-top:8px; color:#0D365F; }
+.dk-rcpt{ font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:10.5px; font-weight:600; color:#5b4a28; margin-top:3px; min-height:12px; }
+.dk-evh{ font-family:var(--print); font-weight:400; color:#fff; margin:0 0 4px; font-size:28px; position:relative; }
+.dk-evsub{ color:rgba(255,255,255,.82); margin:0 0 20px; font-size:13px; max-width:64ch; line-height:1.5; position:relative; }
+.dk-evgrid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:24px 20px; position:relative; }
+.dk-evcard{ display:block; border:0; padding:12px; border-radius:14px; text-align:left; transition:transform .15s; background:linear-gradient(160deg, var(--mat), var(--mat-2)); box-shadow:0 10px 18px -12px var(--shadow); outline:1.5px solid rgba(255,255,255,.25); font:inherit; }
+.dk-evcard:hover{ transform:translateY(-4px); }
+.dk-evn{ display:block; font-weight:800; font-size:12.5px; color:#fff; margin-bottom:8px; }
+.dk-evpage{ background:var(--paper); padding:10px 12px 12px 28px; border-radius:3px 3px 8px 8px; min-height:210px; position:relative; box-shadow:0 1px 0 var(--paper-edge), 0 3px 0 var(--paper-2); }
+.dk-evpage::before{ content:""; position:absolute; left:20px; top:0; bottom:0; width:1.5px; background:var(--margin); opacity:.7; }
+.dk-evd{ font-family:var(--print); color:#0D365F; font-size:14px; margin-bottom:4px; }
+.dk-evl{ font-family:var(--hand); color:var(--ink); font-size:15px; line-height:22px; border-bottom:1px solid var(--rule); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dk-evl.dk-d{ text-decoration:line-through; opacity:.5; } .dk-evl.dk-n{ color:var(--pencil); padding-left:10px; }
+.dk-evm{ font-size:12px; color:var(--pencil); margin-top:6px; }
+.dk-evstk{ position:absolute; right:-8px; top:20px; display:flex; flex-direction:column; gap:4px; }
+.dk-evstk i{ width:26px; height:24px; background:var(--sc); transform:rotate(var(--r)); box-shadow:0 3px 5px -2px var(--shadow); }
 @media (hover:none){ .dk-grip{ display:flex; } .dk-tools{ display:none; } }
 @media (prefers-reduced-motion: reduce){ .dk *, .dk *::before, .dk *::after{ animation-duration:.001s !important; transition-duration:.001s !important; } }
 `;
 
   Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkAllowed });
-  window.DKX = { stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
+  window.DKX = { openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
 })();
