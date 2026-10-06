@@ -1541,8 +1541,11 @@
   box-shadow:0 2px 0 rgba(255,255,255,.12) inset, 0 18px 40px -18px var(--shadow); }
 .dk-mat::before{ content:""; position:absolute; inset:9px; border:1.5px dashed rgba(255,255,255,.28); border-radius:14px; pointer-events:none; }
 .dk-msg{ position:relative; color:#fff; font-size:14.5px; padding:26px 10px; text-align:center; }
-.dk-grid{ display:grid; grid-template-columns:minmax(150px,210px) minmax(0,620px) minmax(150px,210px); gap:28px; justify-content:center; align-items:start; }
-.dk-rail{ display:flex; flex-direction:column; gap:28px; position:relative; z-index:1; min-width:0; }
+.dk-grid{ display:grid; grid-template-columns:minmax(160px,1fr) minmax(0,620px) minmax(160px,1fr); gap:clamp(28px,4vw,72px); justify-content:center; align-items:start; }
+/* 2026-10-06 (her ask: "why are they so close to the notebook"): the side columns share the width of the mat, and what
+   is on them sits in the middle of each side, not pressed against the notebook */
+.dk-rail{ display:flex; flex-direction:column; align-items:center; gap:28px; position:relative; z-index:1; min-width:0; }
+.dk-rail > *{ width:100%; max-width:230px; }
 /* 2026-10-06 spacing (her ask): the gap under the pads is just room for one new sticky; the right side starts at the top
    (the Stand-Up tray that used to sit there is gone) */
 .dk-zone{ height:150px; } .dk-zr{ height:58px; }   /* the right one: room for kind words peeking out from under the page */
