@@ -28,7 +28,9 @@
    shared Kind Words jar (kind_word_clip, Desktop 465), tucked under the right desks: the owners, Client Care for a
    compliment about a client's care, everyone for a review. Under your page: Into the jar, Tape it to my desk, Read it at
    Stand-Up, Tell the caregiver (a draft you send yourself; nothing goes out on its own).
-   LATER: suggestions the Hub finds in shift notes (6b, practice first).
+   STAGE 6b ADDS: kind words the shift-note reader finds (care-notes, Desktop 466; her switch on the Owners Hub Admin
+   page) wait in the jar under "Waiting for a yes" for owners and coordinators (only they can read them). Yes puts it in
+   the jar and tucks it under the right desks (kind_word_decide); Not this one leaves it out. Nobody is texted.
 
    WHERE IT LIVES: the private tables made by Desktop 463 (desk_lines, desk_stickies, desk_settings, desk_pages). The
    database decides who may read or change what; this file never assumes it may. Each line is saved on its own, with its
@@ -147,6 +149,11 @@
     async dropState(kwid, me, state){ const { error } = await sb.from('kind_word_drops').update({ state }).eq('kind_word_id', kwid).eq('person_id', me); if(error) throw error; return true; },
     async jar(){ const { data, error } = await sb.from('kind_words').select('id,quote,who,about,about_role,source,said_on,link,created_by,created_at').eq('status', 'kind').order('created_at', { ascending:false }).limit(300); if(error) throw error; return data || []; },
     async jarCount(){ const { count, error } = await sb.from('kind_words').select('id', { count:'exact', head:true }).eq('status', 'kind'); if(error) throw error; return count || 0; },
+    /* Stage 6b: kind words the shift-note reader found, waiting for a person's yes. Only owners and coordinators can
+       read them at all (463's rules); everyone else gets an empty list. */
+    async waiting(){ const { data, error } = await sb.from('kind_words').select('id,quote,who,about,about_role,source,said_on,link,suggested_by,created_at').eq('status', 'suggested').order('created_at', { ascending:false }).limit(100); if(error) throw error; return data || []; },
+    async waitCount(){ const { count, error } = await sb.from('kind_words').select('id', { count:'exact', head:true }).eq('status', 'suggested'); if(error) throw error; return count || 0; },
+    async decide(id, yes){ const { data, error } = await sb.rpc('kind_word_decide', { p_id:id, p_kind:!!yes }); if(error) throw error; return data; },
     async clip(f){ const { data, error } = await sb.rpc('kind_word_clip', { p_quote:f.quote, p_who:f.who || '', p_about:f.about || '', p_about_role:f.about_role || '', p_source:f.source || 'other', p_said_on:f.said_on || null, p_link:f.link || null }); if(error) throw error; return data; },
     async insert(table, row){ const { data, error } = await sb.from(table).insert(row).select().single(); if(error) throw error; return data; },
     /* Only applies when nobody changed the row since we read it (rev). null = it changed elsewhere. */
@@ -163,7 +170,7 @@
 
   /* ---------------------------------------------- state ---------------------------------------------- */
   const DK = { me:null, loaded:false, err:null, lines:[], stickies:[], settings:null, pages:{}, day:null, laterOpen:false, noteMode:false,
-               turn:null, receive:null, born:null, sig:'', editing:false, timer:null, view:'day', month:null, monthData:{}, justStamped:null, who:null, visits:[], ev:null, tray:{}, warm:false, kind:[], jarN:0 };
+               turn:null, receive:null, born:null, sig:'', editing:false, timer:null, view:'day', month:null, monthData:{}, justStamped:null, who:null, visits:[], ev:null, tray:{}, warm:false, kind:[], jarN:0, waitN:0 };
   window.DK = DK;
   const T = () => todayStr();
   const lineById = id => DK.lines.find(l => l.id === id);
@@ -289,6 +296,7 @@
         if(onScreen) DK.stickies.filter(x => x.from_person_id && x.from_person_id !== DK.me && !x.seen_at).forEach(x => action(null, ctx => ctx.setStick(x.id, { seen_at:now })));
         try{ DK.visits = (await ST().visits(DK.me, T())).filter(v => v.visitor_person_id !== DK.me); }catch(e){ DK.visits = []; }
         try{ DK.kind = ST().kindDrops ? (await ST().kindDrops(DK.me)).filter(d => d.kind_words) : []; DK.jarN = ST().jarCount ? await ST().jarCount() : 0; }catch(e){ DK.kind = []; }
+        try{ DK.waitN = ST().waitCount ? await ST().waitCount() : 0; }catch(e){ DK.waitN = 0; }
       }
       const sig = signature(); if(sig !== DK.sig || force){ DK.sig = sig; render(); }
     }catch(e){ DK.err = String((e && e.message) || e); DK.loaded = true; render(); }
@@ -768,15 +776,35 @@
   async function jarOpen(anchor){
     if(typeof ccPopOpen !== 'function') return;
     let list = []; try{ list = await ST().jar(); }catch(e){ say("The jar couldn't be opened just now."); return; }
-    DK.jarN = list.length;
+    let wait = []; try{ wait = ST().waiting ? await ST().waiting() : []; }catch(e){ wait = []; }
+    DK.jarN = list.length; DK.waitN = wait.length;
     const cols = ['#f8c5d2', '#fde68a', '#bde2ee', '#cde8c2', '#ffe4ac', '#f2eee3'];
     const el = ccPopOpen(anchor, '<div class="dk-jarbox"><div class="dk-tkick">Caring Companions</div><b style="font-size:22px;color:#0D365F;font-family:Young Serif,Georgia,serif;font-weight:400">The Kind Words jar</b>'
       + '<p class="field-note">Kind words from families, caregivers and reviews that someone on the team saved. Everyone in the office shares this jar.</p>'
       + '<button class="secondary" data-j="clip">＋ Clip a kind word</button>'
+      + (wait.length ? '<div class="dk-waitbox"><b>Waiting for a yes</b><p class="field-note">The Hub found these in caregivers\' shift notes. Nothing is in the jar or on anyone\'s desk until you say yes. Nobody is texted either way.</p>'
+          + wait.map(k => '<div class="dk-wslip" data-wid="' + esc(k.id) + '"><q>' + esc(k.quote) + '</q><div class="field-note">' + kLine(k) + '</div>'
+            + '<div class="dk-wbtns"><button class="primary" data-w="yes">Yes, that\'s kind</button><button class="secondary" data-w="no">Not this one</button>'
+            + (k.link && k.link.name ? '<button class="dk-chip dk-clip" data-w="open">' + icon('clip') + esc(k.link.name) + '</button>' : '') + '</div></div>').join('') + '</div>' : '')
       + '<div class="dk-jarwall">' + (list.length ? list.map(k => '<div class="dk-jslip" style="--c:' + cols[hash(k.id) % cols.length] + ';--r:' + (((hash(k.id) % 5) - 2) * .7) + 'deg"><q>' + esc(k.quote) + '</q><div>' + kLine(k)
           + (k.created_by ? '<br>Saved by ' + esc(firstName(k.created_by)) : '') + '</div></div>').join('') : '<p class="field-note">The jar is empty for now. Clip the first kind word.</p>') + '</div></div>', { width:880 });
     if(el){ if(innerWidth >= 900){ el.style.left = Math.max(8, (innerWidth - 880) / 2) + 'px'; el.style.top = '60px'; }
-      el.addEventListener('click', e => { if(e.target.closest('[data-j="clip"]')){ try{ ccPopClose(); }catch(x){} clipOpen(anchor, ''); } }); }
+      el.addEventListener('click', async e => { if(e.target.closest('[data-j="clip"]')){ try{ ccPopClose(); }catch(x){} clipOpen(anchor, ''); return; }
+        const b = e.target.closest('[data-w]'); if(!b) return; const slip = b.closest('[data-wid]'), k = wait.find(x => x.id === slip.dataset.wid); if(!k) return;
+        if(b.dataset.w === 'open'){ try{ ccPopClose(); }catch(x){} openLink(k.link); return; }
+        slip.querySelectorAll('button').forEach(x => x.disabled = true);
+        let gone = false;
+        try{ await ST().decide(k.id, b.dataset.w === 'yes'); }
+        catch(x){ gone = /not waiting/i.test(String(x && x.message));
+          if(!gone){ slip.querySelectorAll('button').forEach(y => y.disabled = false); say("Couldn't save that just now."); return; } }
+        slip.remove(); DK.waitN = Math.max(0, DK.waitN - 1);
+        if(gone) say('Someone already answered that one.');
+        else if(b.dataset.w === 'yes'){ DK.jarN++; say('Into the jar, and tucked under the right desks.'); if($('#dkRoot')) load(true);
+          const wall = el.querySelector('.dk-jarwall'); if(wall){ const e0 = wall.querySelector(':scope > p'); if(e0) e0.remove();
+            wall.insertAdjacentHTML('afterbegin', '<div class="dk-jslip" style="--c:' + cols[hash(k.id) % cols.length] + ';--r:0deg"><q>' + esc(k.quote) + '</q><div>' + kLine(k) + '<br>Said yes by you</div></div>'); } }
+        else say('Left out of the jar.');
+        const box = el.querySelector('.dk-waitbox'); if(box && !box.querySelector('[data-wid]')) box.remove();
+        render(); }); }
   }
   /* Clip a kind word: straight into the jar, tucked under the right desks by the database (465). */
   function clipOpen(anchor, quote){
@@ -989,7 +1017,7 @@
       + (ro() ? '' : '<button class="dk-cup" data-dk="prefs" title="Make it yours" aria-label="Make it yours"><svg viewBox="0 0 52 78" aria-hidden="true"><path d="M14 30l6-26" stroke="#F0A63A" stroke-width="5" stroke-linecap="round"/><path d="M26 30V6" stroke="#8FD1C7" stroke-width="5" stroke-linecap="round"/><path d="M36 30l5-22" stroke="#f8c5d2" stroke-width="5" stroke-linecap="round"/><path d="M8 30h36l-3 44H11z" fill="#0D365F"/><path d="M8 30h36" stroke="#E8C988" stroke-width="3"/></svg></button>') + '</div>'
       + '<input type="file" id="dkPhotoIn" accept="image/*" hidden></div>';
     const right = '<div class="dk-rail dk-r"><div class="dk-zone dk-zr"></div>' + (ro() ? '' : tapedHtml()) + trayHtml() + folderHtml()
-      + '<div class="dk-bits"><button class="dk-jar" data-dk="jar" title="The office\'s Kind Words jar" aria-label="The Kind Words jar">' + jarSvg(DK.jarN) + '</button><div class="dk-mug" aria-hidden="true"><div class="dk-steam"><i></i><i></i><i></i></div><svg viewBox="0 0 64 78"><path d="M8 22h40v38c0 8-6 13-14 13H22c-8 0-14-5-14-13z" fill="#f2eee3"/><path d="M48 32h5a8 8 0 0 1 0 16h-5" fill="none" stroke="#f2eee3" stroke-width="5"/><ellipse cx="28" cy="22" rx="20" ry="4" fill="#7a4a22"/><path d="M28 54c-4-2.6-5.8-4.6-5.8-6.6 0-1.6 1.2-2.6 2.5-2.6s2.2.7 3.3 2c1-1.3 2-2 3.3-2s2.5 1 2.5 2.6c0 2-1.8 4-5.8 6.6z" fill="#1F7A8C"/></svg></div>'
+      + '<div class="dk-bits"><button class="dk-jar" data-dk="jar" title="The office\'s Kind Words jar" aria-label="The Kind Words jar">' + jarSvg(DK.jarN) + (DK.waitN && !ro() ? '<span class="dk-jarwait">' + DK.waitN + ' waiting</span>' : '') + '</button><div class="dk-mug" aria-hidden="true"><div class="dk-steam"><i></i><i></i><i></i></div><svg viewBox="0 0 64 78"><path d="M8 22h40v38c0 8-6 13-14 13H22c-8 0-14-5-14-13z" fill="#f2eee3"/><path d="M48 32h5a8 8 0 0 1 0 16h-5" fill="none" stroke="#f2eee3" stroke-width="5"/><ellipse cx="28" cy="22" rx="20" ry="4" fill="#7a4a22"/><path d="M28 54c-4-2.6-5.8-4.6-5.8-6.6 0-1.6 1.2-2.6 2.5-2.6s2.2.7 3.3 2c1-1.3 2-2 3.3-2s2.5 1 2.5 2.6c0 2-1.8 4-5.8 6.6z" fill="#1F7A8C"/></svg></div>'
       + (ro() ? '' : '<button class="dk-eraser" data-dkdrop="erase" data-dk="erase-help" title="Drop a line or a sticky here to erase it">ERASE</button>')
       + '<button class="dk-help" data-dk="help">How to</button></div></div>';
     if(DK.view === 'everyone') return everyoneHtml();
@@ -1410,7 +1438,30 @@
           .map(([v, t]) => '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px;"><input type="radio" name="dkMode" value="' + v + '"' + (a.mode === v ? ' checked' : '') + '> ' + t + '</label>').join('')
       + '</div><div id="dkPeople" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 10px 22px;">'
       + ppl.map(p => '<label style="display:flex;gap:6px;align-items:center;font-size:13px;"><input type="checkbox" value="' + esc(p.email) + '"' + (on.has(p.email) ? ' checked' : '') + '> ' + esc(p.name) + (hasDesk(p.email) ? '' : ' <span class="field-note">(no desk role or title)</span>') + '</label>').join('')
-      + '</div><div style="display:flex;gap:8px;align-items:center;"><button class="secondary" onclick="dkSetSave(this)">Save</button><span class="field-note" id="dkSetSaved"></span></div>';
+      + '</div><div style="display:flex;gap:8px;align-items:center;"><button class="secondary" onclick="dkSetSave(this)">Save</button><span class="field-note" id="dkSetSaved"></span></div>'
+      + kindSetHtml();
+  }
+  /* Stage 6b: the kind-words switch (the same one, and the same questions, as the Owners Hub Admin page). */
+  const KIND_ON = 'Turn on kind words from shift notes?\n\nFrom the next shift-note run (every two hours), kind words a client or family member said, copied word for word from the caregiver\'s note, wait in the Kind Words jar under "Waiting for a yes". Only owners and coordinators see them. Nothing goes in the jar or on anyone\'s desk until one of you says yes.\n\nNobody is texted or emailed.';
+  const KIND_OFF = 'Turn off kind words from shift notes? Nothing new is suggested. Anything already waiting stays in the jar\'s "Waiting for a yes" until someone answers it.';
+  function kindSetHtml(){
+    const st = DATA.ops_settings || {}, on = st.kind_words_suggest_live === true, can = st.care_notes_flag_live === true;
+    return '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border,#E2E8F0);"><b style="font-size:14px;">Kind words from shift notes</b>'
+      + '<p class="field-note" style="margin:4px 0 8px;">When a client or family member said something kind in a caregiver\'s shift note, the words wait in the Kind Words jar under "Waiting for a yes" for an owner or coordinator. Sends nothing.</p>'
+      + '<div style="display:flex;gap:8px;align-items:center;"><button class="' + (on ? 'secondary' : 'primary') + '" onclick="dkKindToggle(this)"' + (!on && !can ? ' disabled title="Can\'t turn on yet: shift-note flags are not running."' : '') + '>' + (on ? 'Turn off' : 'Turn on') + '</button>'
+      + '<span class="field-note" id="dkKindSt">' + (on ? 'On.' : can ? 'Off.' : 'Off. Can\'t turn on yet: shift-note flags are not running.') + '</span></div></div>';
+  }
+  async function dkKindToggle(btn){
+    const on = !((DATA.ops_settings || {}).kind_words_suggest_live === true);
+    if(on && (DATA.ops_settings || {}).care_notes_flag_live !== true){ alert("Can't turn this on yet: shift-note flags are not running."); return; }
+    if(!confirm(on ? KIND_ON : KIND_OFF)) return;
+    if(btn) btn.disabled = true;
+    let refused = false;
+    const out = await tkMerge(m => { if(on && m.care_notes_flag_live !== true){ refused = true; return []; } m.kind_words_suggest_live = on; return [on ? 'kind words from shift notes ON' : 'kind words from shift notes OFF']; }, 'My Desk settings');
+    if(btn) btn.disabled = false;
+    if(!out.error && !refused) DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { kind_words_suggest_live:on });
+    dkSetFill();
+    const s0 = $('#dkKindSt'); if(s0) s0.textContent = out.error ? 'Could not save: ' + out.error.message : refused ? "Not changed: shift-note flags are not running." : (on ? 'On.' : 'Off.');
   }
   async function dkSetSave(btn){
     const mode = (document.querySelector('input[name="dkMode"]:checked') || {}).value || 'off';
@@ -1741,7 +1792,11 @@ body.dk-dragging, body.dk-dragging *{ cursor:grabbing !important; user-select:no
 .dk-tsrc{ font-size:11px; color:#5d574a; margin-top:6px; }
 .dk-tape{ position:absolute; top:-5px; width:48px; height:15px; background:rgba(240,166,58,.55); }
 .dk-tx{ border:0; background:transparent; font-size:11px; font-weight:700; color:#0D365F !important; padding:4px 0 0; text-decoration:underline; }
-.dk-jar{ border:0; background:transparent; padding:0; } .dk-jar svg{ width:70px; height:86px; }
+.dk-jar{ border:0; background:transparent; padding:0; position:relative; } .dk-jar svg{ width:70px; height:86px; }
+.dk-jarwait{ position:absolute; top:-4px; right:-14px; background:#C17A12; color:#fff; font:700 11px/1 system-ui,sans-serif; padding:4px 7px; border-radius:999px; box-shadow:0 1px 3px rgba(0,0,0,.25); white-space:nowrap; }
+.dk-waitbox{ margin:12px 0; padding:12px; border:2px dashed #e7c27a; border-radius:10px; background:#fffaf0; } .dk-waitbox > b{ color:#0D365F; font-size:15px; }
+.dk-wslip{ background:#fff; border-radius:8px; padding:10px 12px; margin-top:8px; box-shadow:0 1px 3px rgba(0,0,0,.08); } .dk-wslip q{ display:block; font-size:15px; color:#2b2b2b; margin-bottom:4px; }
+.dk-wbtns{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px; }
 .dk-clipbox, .dk-jarbox{ font-size:13.5px; }
 .dk-bigq{ font-family:'Young Serif',Georgia,serif; font-size:20px; line-height:1.45; color:#2d2a24; margin:12px 0 8px; }
 .dk-ksrc{ font-size:12.5px; color:#5d574a; line-height:1.4; }
@@ -1849,6 +1904,6 @@ button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale
 @media (prefers-reduced-motion: reduce){ .dk *, .dk *::before, .dk *::after{ animation-duration:.001s !important; transition-duration:.001s !important; } }
 `;
 
-  Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkAllowed, dkWarm, dkQuickJot, dkJotOpen, dkShiftHtml, dkShiftApply, dkRefresh, dkJotWork, dkDashRender, dkDrawer:toggleDrawer });
+  Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkKindToggle, dkAllowed, dkWarm, dkQuickJot, dkJotOpen, dkShiftHtml, dkShiftApply, dkRefresh, dkJotWork, dkDashRender, dkDrawer:toggleDrawer });
   window.DKX = { kindOpen, jarOpen, clipOpen, kindState, tucked, deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, trayOpen, nextStandup, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
 })();
