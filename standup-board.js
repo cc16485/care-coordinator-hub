@@ -440,6 +440,7 @@
     box.innerHTML = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">'
       + '<button class="primary" onclick="tmPrepare()">Prepare Stand-Up</button>'
       + '<button class="secondary" onclick="tmEdit()">＋ Log a meeting</button>'
+      + '<span class="field-note" id="suSchedLine">Stand-Up: ' + esc(suSchedWords()) + ' · <a href="#teammeetings" onclick="suSchedEdit(this);return false;">Change</a></span>'
       + '<input placeholder="Search notes and action items" value="' + esc(TM.q) + '" oninput="tmSearch(this.value)" style="width:240px;font-size:12.5px;padding:5px 8px;">'
       + '<label class="field-note" style="display:flex;gap:6px;align-items:center;"><input type="checkbox" style="width:auto;"' + (TM.showArchived ? ' checked' : '') + ' onchange="tmShowArchived(this.checked)"> Show archived</label>'
       + (TM.err ? '<span class="field-note" style="color:var(--red);">Couldn\'t refresh (' + esc(TM.err) + ')</span>' : '') + '</div>'
@@ -561,6 +562,9 @@
     const ownerTag = i => (typeof opsOwnerTag === 'function' ? opsOwnerTag(i) : (i.owner_name || i.owner || 'Unassigned'));
     const add = (sec, kind, id, title, sub) => { const k = kind + ':' + id; if(seen.has(k)) return; seen.add(k); out.push({ sec, kind, id: String(id), title, sub }); };
     const tier0 = i => typeof opsPriorityKey === 'function' && opsPriorityKey(i)[0] === 0;
+    /* My Desk (Stage 4): what people dropped in their Stand-Up tray comes first */
+    suSort((SU.items || []).filter(i => !i.archived_at && i.status !== 'done' && i.source === 'desk' && !i.talked_at)).forEach(i => add("From everyone's Stand-Up trays", 'su', i.id,
+      i.summary || '', (i.assigned_to_email ? nameOf(i.assigned_to_email) : (i.reported_by || 'Someone')) + "'s tray"));
     ops.filter(i => i.urgency === 'urgent' || (i.escalation && !i.escalation.cleared_at && i.escalation.level === 'urgent') || tier0(i))
       .forEach(i => add('Urgent and high-risk, not resolved', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
     ((typeof DATA !== 'undefined' && DATA.coverage_cases) || []).filter(c => c && c.status === 'open' && String(c.kind) !== 'interest' && [today, tom].includes(String(c.shift_date)))
@@ -620,6 +624,7 @@
             if(touched) await persist('ops_items', it2);
           } else if(r.kind === 'su'){
             await suMutate(r.id, (it, before) => { if(owner) it.assigned_to_email = owner; if(due) it.due = due;
+              if(it.source === 'desk' && !it.talked_at) it.talked_at = iso();   /* the card goes back to their desk stamped "talked about" */
               if(note) it.updates = it.updates.concat([{ at: iso(), by: who.name, by_email: who.email, text: 'Stand-up: ' + note }]);
               const d = suDiff(before, it, list); return d.length || note ? (d.length ? d : ['Discussed at stand-up']) : 'Discussed at stand-up'; });
           } else if(r.kind === 'case'){
@@ -650,6 +655,78 @@
     }catch(e){}
   }, REFRESH_MS);
 
+  /* ---------------------------------------------- the Stand-Up schedule (My Desk Stage 4, 2026-10-06) ----------------------------------------------
+     Samantha: "Stand-Up is every weekday at 9:00 AM Central. Please have My Desk read that from the Team Meetings schedule rather
+     than hard-coding it." It lives in ops_settings.standup_schedule { days:[1-7, Monday = 1], time:'HH:MM' } and is changed here,
+     in Team Meetings. Until somebody saves one, her answer is what is used. */
+  const SCHED_DEFAULT = { days:[1, 2, 3, 4, 5], time:'09:00' };
+  const DNAME = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  function suSchedule(){
+    const s = (typeof DATA !== 'undefined' && DATA.ops_settings && DATA.ops_settings.standup_schedule) || null;
+    const days = s && Array.isArray(s.days) ? s.days.map(Number).filter(d => d >= 1 && d <= 7) : [];
+    const time = s && /^\d{2}:\d{2}$/.test(String(s.time || '')) ? s.time : '';
+    return days.length && time ? { days:[...new Set(days)].sort(), time, saved:true } : Object.assign({ saved:false }, SCHED_DEFAULT);
+  }
+  const hm12 = t => { const [h, m] = t.split(':').map(Number); return (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); };
+  function suSchedWords(){
+    const s = suSchedule(), d = s.days.join();
+    const days = d === '1,2,3,4,5' ? 'every weekday' : d === '1,2,3,4,5,6,7' ? 'every day' : s.days.map(x => DNAME[x]).join(', ');
+    return days + ' at ' + hm12(s.time) + ' Central';
+  }
+  /* The next Stand-Up from now (Central time): { day:'YYYY-MM-DD', time:'HH:MM', label:'TUE 9:00', words:'Tuesday at 9:00 AM' }. */
+  function suNextStandup(now){
+    const s = suSchedule(), base = now ? new Date(now) : new Date();
+    const nowHm = base.toLocaleTimeString('en-GB', { timeZone:'America/Chicago', hour:'2-digit', minute:'2-digit' });
+    const today = base.toLocaleDateString('en-CA', { timeZone:'America/Chicago' });
+    for(let k = 0; k < 15; k++){
+      const [y, m, dd] = today.split('-').map(Number), d = new Date(y, m - 1, dd + k), dow = ((d.getDay() + 6) % 7) + 1;
+      if(!s.days.includes(dow) || (k === 0 && nowHm >= s.time)) continue;
+      const day = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      return { day, time:s.time, label:DNAME[dow].toUpperCase() + ' ' + hm12(s.time).replace(/ (AM|PM)$/, ''), words:(k === 0 ? 'today' : d.toLocaleDateString('en-US', { weekday:'long' })) + ' at ' + hm12(s.time) };
+    }
+    return null;
+  }
+  function suSchedEdit(anchor){
+    const s = suSchedule();
+    const el = ccPopOpen(anchor, '<div style="font-size:14.5px;font-weight:800;color:var(--navy);">When is Stand-Up?</div>'
+      + '<div class="field-note" style="margin:3px 0 10px;">Everyone\'s My Desk tray reads this, so changing it here changes it everywhere.</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' + [1, 2, 3, 4, 5, 6, 7].map(d => '<label style="display:flex;gap:4px;align-items:center;font-size:13px;"><input type="checkbox" class="suSD" value="' + d + '" style="width:auto;margin:0;"' + (s.days.includes(d) ? ' checked' : '') + '> ' + DNAME[d] + '</label>').join('') + '</div>'
+      + '<label class="field-note">Time (Central)</label> <input type="time" id="suST" value="' + s.time + '" style="width:auto;">'
+      + '<div style="display:flex;gap:8px;margin-top:12px;align-items:center;"><button class="primary" id="suSSave">Save</button><button class="secondary" id="suSNo">Cancel</button><span class="field-note" id="suSMsg"></span></div>', { width:360 });
+    el.querySelector('#suSNo').onclick = () => ccPopClose();
+    el.querySelector('#suSSave').onclick = async ev => {
+      const days = [...el.querySelectorAll('.suSD:checked')].map(x => Number(x.value)), time = el.querySelector('#suST').value;
+      const msg = el.querySelector('#suSMsg');
+      if(!days.length || !/^\d{2}:\d{2}$/.test(time)){ msg.textContent = 'Pick at least one day and a time.'; return; }
+      ev.target.disabled = true;
+      const who = me();
+      const out = typeof tkMerge === 'function' ? await tkMerge(m => { m.standup_schedule = { days, time, set_by:who.name, set_at:iso() }; return ['Stand-Up schedule']; }, 'the Stand-Up schedule') : { error:{ message:'the settings save is not on this page' } };
+      ev.target.disabled = false;
+      if(out.error){ msg.textContent = 'Could not save: ' + out.error.message; return; }
+      DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { standup_schedule:{ days, time } });
+      ccPopClose(); say('Stand-Up: ' + suSchedWords()); tmRender(); if(typeof dkRefresh === 'function') dkRefresh();
+    };
+  }
+  /* My Desk's Stand-Up tray: a card dropped in the tray is that person's item on this board (source 'desk'). Taking it back
+     out before Stand-Up archives it; after Stand-Up the person decides "All set" (done) or "Something to do" (done, back on
+     their desk). Nothing here texts or emails anyone. */
+  const suDesk = {
+    async create(summary, lineId){
+      const m = me();
+      const it = await suCreate({ summary:String(summary || '').slice(0, 500), category:'General', assigned_to_email:m.email, source:'desk', desk_line_id:lineId },
+        'Brought from ' + String(m.name).split(' ')[0] + "'s desk (the Stand-Up tray)");
+      return it.id;
+    },
+    async status(ids){
+      const all = await readKey(SU_KEY), out = {};
+      (ids || []).forEach(id => { const i = all.find(x => x && x.id === id); out[id] = i ? { talked_at:i.talked_at || null, status:SU_STATUS[i.status] ? i.status : (i.resolved ? 'done' : 'open'), archived_at:i.archived_at || null } : null; });
+      return out;
+    },
+    takeOut: id => suMutate(id, it => { if(it.archived_at) return null; it.archived_at = iso(); return 'Taken back out of the Stand-Up tray'; }),
+    finish: (id, what) => suMutate(id, it => { if(it.status === 'done') return null; it.status = 'done'; it.done_at = iso(); it.done_by = me().name; it.resolved_at = it.done_at; it.resolved_by = me().name; return what || 'All set after Stand-Up'; })
+  };
+
+  Object.assign(window, { suSchedule, suSchedWords, suNextStandup, suSchedEdit, suDesk });
   Object.assign(window, { suOpen, suRender, suSet, suEdit, suAct, suTodayRender, suTeamCountHtml, tmOpen, tmRender, tmToggle, tmSearch, tmShowArchived, tmEdit, tmAct, tmVideo, tmPrepare, prepList,
     SUB: { suNorm, suAge, suSort, suFilter, suOpenFor, suDiff, tmPrior, tmCarry, safeUrl, isOverdue, SU, TM, SU_CATS } });
 })();

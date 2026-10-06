@@ -6727,10 +6727,10 @@ The HomeTogether team</pre>
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
-<script src="standup-board.js?v=4"></script>
+<script src="standup-board.js?v=5"></script>
 <script src="staffing-view.js?v=1"></script>
-<script src="end-shift.js?v=1"></script>
-<script src="desk.js?v=3"></script>
+<script src="end-shift.js?v=2"></script>
+<script src="desk.js?v=4"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -25297,12 +25297,16 @@ function ccCaptureClose(){ const d=document.getElementById('ccCapWrap'); if(d) d
 function ccAddOpen(anchor){
   const el=ccPopOpen(anchor||document.getElementById('ccAddBtn'),
     '<div style="font-size:13px;font-weight:800;color:var(--navy);margin:2px 2px 8px;">What are you adding?</div>'
-    +'<button class="primary" id="ccAddSu" style="width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;"><b>Stand-Up board</b><br>'
+    /* My Desk (Stage 4): a line just for me comes first, for the people My Desk is on for */
+    +((typeof dkAllowed==='function'&&dkAllowed())?'<button class="primary" id="ccAddDk" style="width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;"><b>Jot on my desk</b><br>'
+      +'<span style="font-weight:400;font-size:12px;">Just for me: a line on today\'s page. Nobody else sees it</span></button>':'')
+    +'<button class="'+((typeof dkAllowed==='function'&&dkAllowed())?'ghost':'primary')+'" id="ccAddSu" style="width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;"><b>Stand-Up board</b><br>'
     +'<span style="font-weight:400;font-size:12px;">The team needs to know: a call-out, a client or caregiver issue, anything for the morning huddle</span></button>'
     +'<button class="ghost" id="ccAddCap" style="width:100%;text-align:left;padding:10px 12px;"><b>A reminder</b><br>'
     +'<span style="font-weight:400;font-size:12px;">Lands on someone’s list (yours or a colleague’s) and comes back when it’s due</span></button>',
     { width:320 });
   el.querySelector('#ccAddSu').onclick=()=>{ ccPopClose(); if(typeof suEdit==='function') suEdit(); else switchTab('standup'); };
+  const dk=el.querySelector('#ccAddDk'); if(dk) dk.onclick=()=>{ ccPopClose(); dkJotOpen(anchor||document.getElementById('ccAddBtn')); };
   el.querySelector('#ccAddCap').onclick=()=>{ ccPopClose(); ccCaptureOpen(); };
 }
 function ccCaptureOpen(){
