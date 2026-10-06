@@ -2,13 +2,12 @@
    A project is a My Work item (ops_items, kind 'project') with steps. Each step has a person and a due date, and the card shows
    a progress bar. A project can't be closed until every step is done. A client-start project also needs an owner's sign-off
    (owner_admin role: Samantha or Zachary). Any other project gets a tick box: "Needs owner sign-off".
-   ALL HANDS ON DECK (her words: "ALL HANDS ON DECK moments happen a lot in Home Care") works on any project or task:
-   - the whole office team (everyone with a Hub role) sees it on My Work, with a banner on My Work and the Dashboard
-     and a section on To talk about;
-   - anyone can take a step ("I've got this"), but the owner keeps the project.
-   It is on by itself for a client-start project, and for any project inside the alert window (9 days; ops_settings.project_alert_days can change it) that
-   still has open steps. One tap turns it off.
-   Inside the alert window a project with open steps sits in Act Now for its team and for the owners.
+   Anyone on the team can take a step ("I've got this"); the owner keeps the project.
+   Inside the alert window (9 days; ops_settings.project_alert_days can change it) a project with open steps sits in Act Now
+   for its team and for the owners.
+   ALL HANDS ON DECK was here (banner, whole-office visibility) and was taken out 2026-10-06 (her call: "let this take the
+   place of the all hands on deck project" → "Drop All hands entirely"): Team Builder projects on My Work are what the team
+   works from. Old all_hands fields on saved items are simply ignored.
    Nothing here texts or emails anyone. */
 (function(){
   const esc = s => (typeof escapeHtmlComms === 'function' ? escapeHtmlComms(s) : String(s == null ? '' : s));
@@ -38,33 +37,23 @@
   function openSteps(p){ return steps(p).filter(s => !s.done_at); }
   function team(p){ return [...new Set([lc(p.owner)].concat((p.team || []).map(lc)).filter(Boolean))]; }
 
-  /* ── All hands ──────────────────────────────────────────────────────────── */
-  function allHands(it){
-    if(!it || it.status !== 'open') return false;
-    const ah = it.all_hands || {};
-    if(ah.off_at && !(ah.on_at && ah.on_at > ah.off_at)) return false;     // turned off by a person, and not back on since
-    if(ah.on) return true;
-    if(!isPj(it)) return false;
-    const n = daysLeft(it);
-    return n != null && n <= alertDays() && openSteps(it).length > 0;
-  }
+  function waitsSignoff(it){ return isPj(it) && it.status === 'open' && !!(it.signoff && it.signoff.needed) && steps(it).length > 0 && openSteps(it).length === 0; }
   /* inside the alert window with open steps: Act Now for the team and the owners */
   function hot(it){
     if(!it || it.status !== 'open') return false;
-    if(!isPj(it)) return allHands(it);
+    if(!isPj(it)) return false;
+    if(waitsSignoff(it)) return true;
     const n = daysLeft(it);
-    return openSteps(it).length > 0 && (allHands(it) || (n != null && n <= alertDays()));
+    return openSteps(it).length > 0 && n != null && n <= alertDays();
   }
   function sees(it, me){
     me = lc(me || meEmail()); if(!me || !it || it.status !== 'open') return false;
-    if(allHands(it) && officeTeam().indexOf(me) > -1) return true;
     if(!isPj(it)) return false;
     if(team(it).indexOf(me) > -1) return true;
+    if(waitsSignoff(it) && isOwner(me)) return true;            // every step done: on the owners' My Work for sign-off
     const n = daysLeft(it);
     return isOwner(me) && n != null && n <= alertDays() && openSteps(it).length > 0;
   }
-  function list(){ return ((typeof DATA !== 'undefined' && DATA.ops_items) || []).filter(i => i && i.status === 'open' && (isPj(i) || (i.all_hands && i.all_hands.on))); }
-  function allHandsList(){ const me = meEmail(); return list().filter(i => allHands(i) && sees(i, me)).sort((a, b) => String(a.ready_by || a.due || '').localeCompare(String(b.ready_by || b.due || ''))); }
 
   /* ── Saving: read the latest copy first, change only what this click changes, then save ─────────────── */
   async function mutate(id, fn, said){
@@ -154,18 +143,6 @@
     }, done ? '✓ Every shift is confirmed: that step on the project ticked itself' : 'A shift is no longer confirmed: the project step reopened');
   }
 
-  /* ── All hands on / off ────────────────────────────────────────────────── */
-  async function setAllHands(id, on){
-    const a = actor(), now = new Date().toISOString();
-    await mutate(id, p => {
-      if(!on && !(lc(p.owner) === a.email || isOwner(a.email))){ ccToast('Only ' + first(p.owner) + ' (the owner) or an owner can turn it off.'); return false; }
-      const ah = p.all_hands = p.all_hands || {};
-      if(on){ ah.on = true; ah.on_at = now; ah.on_by = a.email; ah.on_by_name = a.name; }
-      else { ah.on = false; ah.off_at = now; ah.off_by = a.email; ah.off_by_name = a.name; }
-      return (on ? 'All hands on deck turned on' : 'All hands on deck turned off') + ' by ' + a.name;
-    }, on ? '✓ All hands on deck: the whole office team sees it now' : '✓ All hands off. It stays with its owner.');
-  }
-
   /* ── Closing: every step done, then sign-off (or the owner's tick) ─────────────────────────────────── */
   function closeBlocked(p){
     const left = openSteps(p).length;
@@ -192,7 +169,6 @@
         const w = closeBlocked(x); if(w){ ccToast(w); return false; }   // checked again on the latest copy
         if(x.signoff && x.signoff.needed){ x.signoff.at = now; x.signoff.by = a.email; x.signoff.by_name = a.name; }
         x.status = 'done'; x.closed_at = now; x.closed_by = a.email; x.close_note = note;
-        if(x.all_hands) x.all_hands.on = false;
         return (sign ? 'Signed off and closed by ' : 'Closed by ') + a.name + (note ? ': ' + note : '');
       }, sign ? '✓ Signed off. The project is closed.' : '✓ Project closed');
     };
@@ -325,14 +301,12 @@
   }
   function card(p, i){
     const me = meEmail(), st = steps(p), done = st.filter(s => s.done_at).length, n = daysLeft(p);
-    const ah = allHands(p), sign = !!(p.signoff && p.signoff.needed);
+    const ah = hot(p), sign = !!(p.signoff && p.signoff.needed);
     const focused = (typeof MYWORK_FOCUS !== 'undefined' && i === MYWORK_FOCUS);
-    const canOff = lc(p.owner) === me || isOwner();
     const blocked = closeBlocked(p);
     let h = '<div class="wkcard pj-card' + (focused ? ' focused' : '') + '" data-id="' + esc(p.id) + '" style="padding:13px 15px;margin-bottom:8px;' + (ah ? 'border:2px solid var(--red);' : 'border-left:4px solid var(--navy);') + '">'
       + '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">'
       + chip('PROJECT', 'var(--navy)', '#fff')
-      + (ah ? chip('ALL HANDS ON DECK', 'var(--red)', '#fff') : '')
       + '<b style="font-size:15px;">' + esc(p.title || p.about || '') + '</b>'
       + '<span class="tag-chip" style="font-weight:700;background:var(--bg);color:var(--navy);">' + esc(first(p.owner)) + ' owns it</span>'
       + (p.ready_by ? '<span class="tag-chip" style="font-weight:700;' + (n != null && n <= alertDays() && openSteps(p).length ? 'background:var(--red-bg);color:var(--red);' : 'background:var(--bg);color:var(--navy);') + '">ready by ' + esc(dWords(p.ready_by)) + ' · ' + esc(leftWords(n)) + '</span>' : '')
@@ -353,8 +327,6 @@
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:9px;">'
       + '<button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="pjStepAdd(\'' + esc(p.id) + '\',this)">＋ Add a step</button>'
       + (p.template === 'client_start' && !p.axiscare_client_id ? '<button class="ghost pj-axfind" style="padding:5px 11px;font-size:12px;" onclick="pjAxFind(\'' + esc(p.id) + '\',this)">Find in AxisCare</button>' : '')
-      + (ah ? (canOff ? '<button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="pjAllHandsSet(\'' + esc(p.id) + '\',false)">Turn all hands off</button>' : '')
-        : '<button class="ghost" style="padding:5px 11px;font-size:12px;color:var(--red);" onclick="pjAllHandsSet(\'' + esc(p.id) + '\',true)">All hands on deck</button>')
       + (window.suTalk ? '<button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="myWorkTalk(\'' + esc(p.id) + '\',this)">' + (suTalk.forWork(p.id) ? 'Flagged to talk about' : 'Talk about') + '</button>' : '')
       + '<span style="flex:1;"></span>'
       + (blocked ? '<span class="field-note pj-gate">' + esc(blocked) + '</span>'
@@ -362,9 +334,6 @@
       + '</div>';
     return h + '</div>';
   }
-  /* an all-hands task (not a project) gets its chip from the ordinary card */
-  function chipFor(it){ return (!isPj(it) && allHands(it)) ? chip('ALL HANDS ON DECK', 'var(--red)', '#fff') : ''; }
-
   function more(id, anchorId){
     const p = (DATA.ops_items || []).find(x => x.id === id); if(!p) return;
     const opt = (what, label) => '<div class="ccpick-row" data-what="' + what + '" style="padding:8px;border-radius:8px;cursor:pointer;font-size:13.5px;">' + label + '</div>';
@@ -437,23 +406,6 @@
     }catch(e){ ccToast('The project is linked; the Team Builder plan couldn’t be updated just now.'); }
   }
 
-  /* ── Banners: My Work and the Dashboard ───────────────────────────────────── */
-  function bannerHtml(){
-    const rows = allHandsList(); if(!rows.length) return '';
-    return '<div class="card pj-banner" style="padding:12px 15px;margin-bottom:12px;border:2px solid var(--red);background:#FFF5F4;">'
-      + '<div style="font-size:12.5px;font-weight:900;letter-spacing:.08em;color:var(--red);margin-bottom:4px;">ALL HANDS ON DECK</div>'
-      + rows.map(p => {
-        const st = steps(p), done = st.filter(s => s.done_at).length, n = daysLeft(p), mine = openSteps(p).filter(s => (s.who || []).map(lc).indexOf(meEmail()) > -1).length;
-        return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid #F3D3CF;">'
-          + '<b style="color:var(--navy);flex:1 1 240px;min-width:0;">' + esc(p.title || p.about || '') + '</b>'
-          + '<span class="field-note">' + (isPj(p) ? done + ' of ' + st.length + ' steps' + (p.ready_by ? ' · ready by ' + esc(dWords(p.ready_by)) + ' (' + esc(leftWords(n)) + ')' : '') + (mine ? ' · <b style="color:var(--red);">' + mine + ' step' + (mine === 1 ? '' : 's') + ' with your name</b>' : '') : 'a task · ' + esc(first(p.owner)) + ' owns it') + '</span>'
-          + '<button class="primary" style="padding:5px 12px;font-size:12px;" onclick="pjOpen(\'' + esc(p.id) + '\')">Open</button></div>';
-      }).join('') + '</div>';
-  }
-  function renderBanners(){
-    const h = bannerHtml();
-    ['pjDashBanner', 'pjWorkBanner'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = h; });
-  }
   function openCard(id){
     try{ if(typeof switchTab === 'function') switchTab('mywork'); }catch(e){}
     const go = () => { const it = (DATA.ops_items || []).find(x => x.id === id);
@@ -462,21 +414,6 @@
       const c = document.querySelector('#myWorkWrap .wkcard[data-id="' + id + '"]');
       if(c){ c.scrollIntoView({ behavior:'smooth', block:'center' }); c.style.boxShadow = '0 0 0 3px var(--teal)'; setTimeout(() => { c.style.boxShadow = ''; }, 1800); } };
     setTimeout(go, 60);
-  }
-
-  /* ── To talk about: an "All hands on deck" section at the top ─────────────────────────────────── */
-  function talkHtml(){
-    const rows = allHandsList(); if(!rows.length) return '';
-    return '<div class="pj-talk" style="margin-bottom:16px;"><div style="font-size:15px;font-weight:800;color:var(--red);margin:6px 0 6px;">All hands on deck <span class="field-note" style="font-weight:600;">(' + rows.length + ')</span></div>'
-      + rows.map(p => {
-        const open = openSteps(p);
-        return '<div style="border:1.5px solid var(--red);border-radius:8px;padding:8px 11px;margin-bottom:6px;background:#fff;">'
-          + '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;"><b style="color:var(--navy);flex:1 1 240px;">' + esc(p.title || p.about || '') + '</b>'
-          + '<span class="field-note">' + esc(first(p.owner)) + ' owns it' + (p.ready_by ? ' · ready by ' + esc(dWords(p.ready_by)) + ' (' + esc(leftWords(daysLeft(p))) + ')' : '') + '</span>'
-          + '<button class="ghost" style="padding:4px 10px;font-size:12px;" onclick="pjOpen(\'' + esc(p.id) + '\')">Open</button></div>'
-          + (open.length ? '<div class="field-note" style="margin-top:4px;">Still open: ' + open.map(s => esc(s.label) + ' (' + esc((s.who || []).map(first).join(' & ') || 'nobody') + ')').join(' · ') + '</div>' : (isPj(p) ? '<div class="field-note" style="margin-top:4px;">Every step is done.</div>' : ''))
-          + '</div>';
-      }).join('') + '</div>';
   }
 
   /* ── New project ────────────────────────────────────────────────────── */
@@ -517,7 +454,6 @@
       ready_by:o.ready_by, due:ready ? ready.toISOString() : null,
       date_contact:o.date_contact || '', notice:o.notice || '', shifts:o.shifts || '', care_level:o.care_level || '',
       steps:st, signoff:{ needed:o.template === 'client_start' || !!o.signoff }, plan_id:o.plan_id || undefined,
-      all_hands:o.template === 'client_start' ? { on:true, on_at:now, on_by:a.email, on_by_name:a.name, auto:true } : {},
       urgency:'normal', created_at:now, created_by:a.email, created_by_email:a.email, opened_by:'person'
     };
   }
@@ -539,7 +475,7 @@
       + '<div style="display:flex;gap:8px;"><div style="flex:2;">' + lab('Who tells us the date') + inp('pjNDC', 'Pamela Anderson (daughter)', '') + '</div><div style="flex:1;">' + lab('Notice to ask for') + inp('pjNNo', '48 hours', '48 hours') + '</div></div>'
       + lab('Shifts needed') + inp('pjNSh', '9am–2pm and 4pm–9pm, 7 days a week', '')
       + lab('Care level (or the possibilities)') + inp('pjNCL', 'bed bound, Hoyer lift or sit-to-stand', '')
-      + '<div class="field-note" style="margin-top:6px;">The Staffing Coordinator joins the team by themselves. All hands on deck is on from the start, and an owner signs it off at the end.</div></div>'
+      + '<div class="field-note" style="margin-top:6px;">The Staffing Coordinator joins the team by themselves. And an owner signs it off at the end.</div></div>'
       + '<div id="pjNBL" style="display:none;">' + lab('Steps, one per line')
       + '<textarea id="pjNSt" rows="4" style="width:100%;font-size:13px;padding:8px;border-radius:8px;"></textarea>'
       + '<label style="display:flex;gap:7px;align-items:center;font-size:13px;margin-top:6px;"><input type="checkbox" id="pjNSo" style="width:auto;margin:0;"> Needs owner sign-off</label></div>'
@@ -565,16 +501,16 @@
       if(typeof opsLog === 'function') opsLog(p, 'Project created by ' + actor().name);
       await persist('ops_items', p);
       opEvent('item_created', { item:p, summary:'New project: ' + p.title + ' (' + first(p.owner) + ', ready by ' + dWords(p.ready_by) + ')' });
-      ccToast('✓ Project created' + (allHands(p) ? '. All hands on deck is on.' : ''));
+      ccToast('✓ Project created');
       refresh(); openCard(p.id);
     };
     ab.focus();
   }
 
   Object.assign(window, {
-    pjIs:isPj, pjAllHands:allHands, pjHot:hot, pjSees:sees, pjCard:card, pjChip:chipFor, pjMore:more,
-    pjStepTick:stepTick, pjStepClaim:stepClaim, pjStepAdd:stepAdd, pjAllHandsSet:setAllHands, pjClose:close,
-    pjCloseBlocked:closeBlocked, pjNewOpen:newOpen, pjOpen:openCard, pjRenderBanners:renderBanners, pjTalkHtml:talkHtml,
+    pjIs:isPj, pjHot:hot, pjSees:sees, pjCard:card, pjMore:more,
+    pjStepTick:stepTick, pjStepClaim:stepClaim, pjStepAdd:stepAdd, pjClose:close,
+    pjCloseBlocked:closeBlocked, pjNewOpen:newOpen, pjOpen:openCard,
     pjBuild:build, pjAlertDays:alertDays, pjAxFind:axFind, pjAutoStep:autoStep,
     pjPost:post, pjDraft:draft, pjAboutSet:aboutSet, pjTag:tag, pjNoteAbout:noteAbout, pjStepEdit:stepEdit
   });

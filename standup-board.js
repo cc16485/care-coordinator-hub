@@ -406,7 +406,6 @@
       + '<div class="field-note">What people flagged to bring up the next time you\'re together, from My Work or a line on My Desk. Tap Talked once you\'ve covered it; it stays where it was. Nothing here texts or emails anyone.</div></div>'
       + '<span style="flex:1;"></span><button class="primary" onclick="suTalkNew(this)">＋ Something to talk about</button></div>'
       + (SU.err ? '<div class="field-note" style="color:var(--red);margin-bottom:8px;">Couldn\'t refresh (' + esc(SU.err) + '). What you see may be out of date.</div>' : '')
-      + (typeof pjTalkHtml === 'function' ? pjTalkHtml() : '')   /* Projects (2026-10-06): all hands on deck sits at the top */
       + (gs.length ? gs.map(g => '<div class="su-tgroup" style="margin-bottom:14px;"><div style="font-size:15px;font-weight:800;color:var(--navy);margin:6px 0 6px;">'
           + esc(g.email === m.email ? 'You' : g.name) + ' <span class="field-note" style="font-weight:600;">(' + g.items.length + ')</span></div>'
           + g.items.map(i => talkRow(i, list, m)).join('') + '</div>').join('')

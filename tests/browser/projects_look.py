@@ -1,4 +1,4 @@
-"""Projects on My Work + ALL HANDS ON DECK (Stage 1, 2026-10-06). The real Hub page, offline, made-up people; every save
+"""Projects on My Work (2026-10-06; All hands on deck taken out the same day). The real Hub page, offline, made-up people; every save
 lands in an in-memory copy. Nothing is texted or emailed. (python3 tests/browser/projects_look.py, static server on 8765)"""
 import re
 from playwright.sync_api import sync_playwright
@@ -40,17 +40,17 @@ async()=>{
   const P=S.ops_items.find(x=>x.kind==='project'); const id=P&&P.id;
   ok('the project is saved: kind project, Krystal owns it, ready in 7 days, 8 steps', P && P.owner==='krystal@mo-care.com' && P.ready_by===inDays(7) && P.steps.length===8, P);
   ok('...the Staffing Coordinator joined the team by themselves, and it shows on their My Work (also_for)', P.team.includes('sally@mo-care.com') && P.also_for.includes('sally@mo-care.com'));
-  ok('...it needs owner sign-off, and all hands is on', P.signoff.needed===true && P.all_hands.on===true);
+  ok('...it needs owner sign-off, and carries no All hands flag', P.signoff.needed===true && !P.all_hands);
   ok('...step 1 names Pamela and asks for 48 hours notice; step 5 carries the shifts', /Pamela Anderson \(daughter\), ask for 48 hours notice/.test(P.steps[0].label) && /Every shift confirmed \(9am–2pm and 4pm–9pm, 7 days a week\)/.test(P.steps[4].label));
   ok('...recruiting is the Staffing Coordinator\'s; shifts and transfer practice are both of theirs; the rest Krystal\'s',
     JSON.stringify(P.steps[3].who)==='["sally@mo-care.com"]' && JSON.stringify(P.steps[4].who)==='["krystal@mo-care.com","sally@mo-care.com"]' && JSON.stringify(P.steps[6].who)==='["krystal@mo-care.com"]');
   ok('...every step is due on or before the ready-by date, none in the past', P.steps.every(s=>s.due<=P.ready_by && s.due>=inDays(0)), P.steps.map(s=>s.due));
   await sleep(200); myWorkGo('today'); await sleep(200);
   let C=document.querySelector('#myWorkWrap .wkcard[data-id="'+id+'"]');
-  ok('the card is in Act Now with PROJECT, ALL HANDS ON DECK, owner, ready-by, Pamela and the shifts', C && /PROJECT/.test(C.innerText) && /ALL HANDS ON DECK/.test(C.innerText) && /Krystal owns it/.test(C.innerText) && /in 7 days/.test(C.innerText) && /Pamela Anderson/.test(C.innerText) && /9am–2pm and 4pm–9pm/.test(C.innerText) && opsPriorityKey(P)[0]===0, C&&C.innerText.slice(0,500));
+  ok('the card is in Act Now with PROJECT, owner, ready-by, Pamela and the shifts, and no All hands', C && /PROJECT/.test(C.innerText) && !/ALL HANDS|All hands/.test(C.innerText) && /Krystal owns it/.test(C.innerText) && /in 7 days/.test(C.innerText) && /Pamela Anderson/.test(C.innerText) && /9am–2pm and 4pm–9pm/.test(C.innerText) && opsPriorityKey(P)[0]===0, C&&C.innerText.slice(0,500));
   ok('...a progress bar: 0 of 8 steps, and the close is locked with the reason', /0 of 8 steps/.test(C.innerText) && /8 steps are still open\. A project closes when every step is done and an owner signs it off\./.test(C.innerText) && !C.querySelector('.pj-close'));
   ok('...no bulk tick box on a project, and it is not selectable', !C.querySelector('.wkchk') && !myWorkSelectable(true).some(r=>r.id===id));
-  ok('the ALL HANDS banner is on My Work', /ALL HANDS ON DECK/.test(document.getElementById('pjWorkBanner').innerText) && /Ed Anderson \(fake\) coming home/.test(document.getElementById('pjWorkBanner').innerText));
+  ok('no All hands banner anywhere', !document.getElementById('pjWorkBanner') && !document.getElementById('pjDashBanner') && !/ALL HANDS ON DECK/.test(document.body.innerText));
   // tick a step
   C.querySelector('.pj-step[data-sid="s1"] .pj-tick').click(); await sleep(300);
   C=document.querySelector('#myWorkWrap .wkcard[data-id="'+id+'"]');
@@ -68,17 +68,13 @@ async()=>{
   C.querySelector('.pj-step[data-sid="s7"] .pj-claim').click(); await sleep(300);
   ok('"I\'ve got this" shows only on steps not already theirs', !C.querySelector('.pj-step[data-sid="s4"] .pj-claim') && !C.querySelector('.pj-step[data-sid="s6"] .pj-claim') && !!C.querySelector('.pj-step[data-sid="s7"] .pj-claim'));
   ok('"I\'ve got this" takes a step: their name on it; the project stays Krystal\'s', storeP(id).steps[6].claimed_by==='sally@mo-care.com' && storeP(id).steps[6].who.includes('sally@mo-care.com') && storeP(id).owner==='krystal@mo-care.com');
-  window.__toasts=[]; await pjAllHandsSet(id,false);
-  ok('someone who is not the owner can\'t turn all hands off', storeP(id).all_hands.on===true && /Only Krystal/.test(window.__toasts.join(' ')), window.__toasts);
-  // a care coordinator NOT on the team, and Zach
+  // a care coordinator NOT on the team: not on their My Work until they're tagged or added
   window.__as('angie@mo-care.com','Angie Care');
-  ok('all hands: another Care Coordinator (not on the team) sees it too', myWorkBuckets().mine.some(x=>x.id===id));
-  window.__as('zach@mo-care.com','Zachary Owner'); switchTab('today'); await sleep(300);
-  ok('...and an owner: the banner is on the Dashboard', /ALL HANDS ON DECK/.test(document.getElementById('pjDashBanner').innerText) && /Ed Anderson/.test(document.getElementById('pjDashBanner').innerText));
-  // To talk about
+  ok('another Care Coordinator (not on the team) does not get it on their My Work', !myWorkBuckets().mine.some(x=>x.id===id));
+  window.__as('zach@mo-care.com','Zachary Owner');
+  ok('...an owner does, inside the 9 days, in Act Now', myWorkBuckets().mine.some(x=>x.id===id) && myWorkBuckets().today.some(x=>x.id===id));
   switchTab('standup'); await sleep(500);
-  const su=document.getElementById('suWrap');
-  ok('To talk about opens with an "All hands on deck" section and the open steps', su && /All hands on deck/.test(su.innerText) && /Still open: .*Care level set/.test(su.innerText), su&&su.innerText.slice(0,500));
+  ok('To talk about has no All hands section', !/All hands on deck/.test(document.getElementById('suWrap').innerText));
   // someone else ticked a step in another window: my stale copy must not undo it
   window.__as('krystal@mo-care.com','Krystal Land');
   storeP(id).steps[1].done_at=new Date().toISOString(); storeP(id).steps[1].done_by='sally@mo-care.com';
@@ -90,33 +86,28 @@ async()=>{
   ok('every step done: Krystal sees it waiting on an owner\'s sign-off, no close button', C && /8 of 8 steps/.test(C.innerText) && /needs an owner’s sign-off/.test(C.innerText) && !C.querySelector('.pj-close'), C&&C.innerText.slice(-300));
   window.__as('sam@mo-care.com','Samantha Owner'); myWorkGo('mine'); await sleep(200);
   C=document.querySelector('#myWorkWrap .wkcard[data-id="'+id+'"]');
+  ok('every step done: it is on the owners\' My Work, in Act Now, waiting for their sign-off', myWorkBuckets().mine.some(x=>x.id===id) && myWorkBuckets().today.some(x=>x.id===id));
   ok('...an owner sees "Sign off and close"', C && C.querySelector('.pj-close') && /Sign off and close/.test(C.querySelector('.pj-close').textContent), C&&C.innerText.slice(-300));
   C.querySelector('.pj-close').click(); await sleep(100); pop().querySelector('#pjCGo').click(); await sleep(400);
   ok('signing off closes it, with who signed', storeP(id).status==='done' && storeP(id).signoff.by==='sam@mo-care.com' && !!storeP(id).signoff.at);
-  ok('...and the banner is gone', !/ALL HANDS/.test(document.getElementById('pjWorkBanner').innerText));
-  // an ordinary project far out: no all hands; inside the window it turns on by itself
+  // an ordinary project far out: only its team; inside the window the owners too, in Act Now
   window.__as('krystal@mo-care.com','Krystal Land');
   const B=pjBuild({ template:'blank', title:'Move the office files', owner:'krystal@mo-care.com', ready_by:inDays(20), steps:['Boxes','Labels'] });
   DATA.ops_items.push(B); S.ops_items.push(JSON.parse(JSON.stringify(B)));
-  ok('another project 20 days out: no all hands, no sign-off needed, only its team sees it', !pjAllHands(B) && B.signoff.needed===false && (window.__as('angie@mo-care.com','A'), !myWorkBuckets().mine.some(x=>x.id===B.id)));
+  ok('another project 20 days out: no sign-off needed, only its team sees it', !pjHot(B) && B.signoff.needed===false && (window.__as('angie@mo-care.com','A'), !myWorkBuckets().mine.some(x=>x.id===B.id)));
   B.ready_by=inDays(5); B.due=new Date(Date.now()+5*864e5).toISOString();
-  ok('...5 days out with open steps: all hands by itself; Angie and the owners see it', pjAllHands(B) && myWorkBuckets().mine.some(x=>x.id===B.id) && (window.__as('zach@mo-care.com','Z'), myWorkBuckets().mine.some(x=>x.id===B.id)));
+  ok('...5 days out with open steps: Act Now; the owners see it, Angie still does not', pjHot(B) && !myWorkBuckets().mine.some(x=>x.id===B.id) && (window.__as('zach@mo-care.com','Z'), myWorkBuckets().mine.some(x=>x.id===B.id)));
   window.__as('krystal@mo-care.com','Krystal Land'); S.ops_items.find(x=>x.id===B.id).ready_by=B.ready_by;
-  await pjAllHandsSet(B.id,false);
-  ok('...one tap by the owner turns it off; Angie no longer sees it', pjAllHands(DATA.ops_items.find(x=>x.id===B.id))===false && (window.__as('angie@mo-care.com','A'), !myWorkBuckets().mine.some(x=>x.id===B.id)));
   window.__as('krystal@mo-care.com','Krystal Land');
   for(const s of ['s1','s2']) await pjStepTick(B.id,s);
   myWorkGo('mine'); await sleep(200);
   C=document.querySelector('#myWorkWrap .wkcard[data-id="'+B.id+'"]');
   ok('...steps done, no sign-off needed: the owner closes it', C && /Close the project/.test(C.innerText));
-  // all hands on an ordinary task
+  // no All hands on ordinary tasks either
   myWorkGo('mine'); await sleep(150);
   myWorkMore('ops_task_1','more_ops_task_1'); await sleep(100);
-  const row=[...document.querySelectorAll('.ccpop .ccpick-row')].find(r=>r.dataset.what==='all_hands');
-  ok('any task\'s ⋯ menu offers "All hands on deck"', !!row);
-  row.click(); await sleep(400);
-  ok('...turning it on: the chip on the card, and the whole team sees the task', storeP('ops_task_1').all_hands.on===true && /ALL HANDS ON DECK/.test(document.querySelector('#myWorkWrap .wkcard[data-id="ops_task_1"]').innerText) && (window.__as('sally@mo-care.com','S'), myWorkBuckets().mine.some(x=>x.id==='ops_task_1')));
-  window.__as('krystal@mo-care.com','Krystal Land');
+  ok('a task\'s ⋯ menu no longer offers "All hands on deck"', ![...document.querySelectorAll('.ccpop .ccpick-row')].some(r=>/all.hands/i.test(r.dataset.what+r.textContent)));
+  ccPopClose();
   // Find in AxisCare: live lookup, a person picks, the project and its plan keep the number
   const E=pjBuild({ template:'client_start', title:'Ed Anderson coming home', about:'Ed Anderson', owner:'krystal@mo-care.com', ready_by:inDays(7) });
   E.plan_id='tb_ed'; DATA.ops_items.push(E); S.ops_items.push(JSON.parse(JSON.stringify(E)));
