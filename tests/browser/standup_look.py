@@ -76,6 +76,7 @@ async()=>{
   S.standup_notes.push({ id:'xss', summary:'<img src=x onerror="window.__pwned=1">', occurred_at:window.__iso(-0.2), status:'open', assigned_to_email:'jess@mo-care.com', created_at:window.__iso(-0.2) });
   S.ops_items=[{ id:'ops_u1', kind:'client_issue', title:'Mary fell on Tuesday', about:'Mary Test', urgency:'urgent', status:'open', owner:'jess@mo-care.com', owner_name:'Jess Lee', created_at:new Date().toISOString(), due:new Date().toISOString() }];
   (0,eval)("DATA.ops_items=[{ id:'ops_u1', kind:'client_issue', title:'Mary fell on Tuesday', about:'Mary Test', urgency:'urgent', status:'open', owner:'jess@mo-care.com', owner_name:'Jess Lee', created_at:new Date().toISOString(), due:new Date().toISOString() }]");
+  (0,eval)("DATA.ops_items.push({ id:'ops_d1', kind:'care_note', title:'Possible concern on Ann\\'s visit: a fall or injury', about:'Ann Dup', detail:'Cara wrote: Ann slipped near the sink.', urgency:'urgent', status:'open', created_at:new Date().toISOString(), due:new Date(Date.now()+36e5).toISOString() }, { id:'ops_d2', kind:'care_note', title:'Possible concern on Ann\\'s visit: a fall or injury', about:'Ann Dup', urgency:'urgent', status:'open', created_at:new Date().toISOString(), due:new Date(Date.now()+36e5).toISOString() }, { id:'ops_old', kind:'client_issue', title:'Ancient thing nobody closed', about:'Old Client', urgency:'urgent', status:'open', created_at:new Date(Date.now()-20*864e5).toISOString(), due:new Date(Date.now()-10*864e5).toISOString() })");
   switchTab('standup'); await sleep(300);
   ok('the tab is called To talk about', /To talk about/.test($('[data-tab=standup]').textContent) && /To talk about/.test(wrap().querySelector('h2').textContent));
   ok('it says what it is: flags from My Work or My Desk, Talked clears it, nothing is sent', /flagged to bring up the next time you're together/.test(wrap().innerText) && /Tap Talked/.test(wrap().innerText) && /Nothing here texts or emails anyone/.test(wrap().innerText));
@@ -87,6 +88,15 @@ async()=>{
   ok('typed HTML shows as text and never runs', window.__pwned===undefined && !wrap().querySelector('img') && /<img/.test(wrap().textContent));
   window.__wm=[wrap().innerText.slice(-600), (()=>{ try{ return JSON.stringify(prepList()); }catch(e){ return String(e); } })()];
   ok('"Worth mentioning": what the Hub found on its own (an urgent client issue)', /Worth mentioning/.test(wrap().innerText) && /URGENT AND HIGH-RISK[\s\S]*Mary Test/.test(wrap().innerText), window.__wm);
+  const hr=()=>$$('#suWrap .su-hubrow');
+  const ann=hr().filter(d=>/Possible concern on Ann's visit/.test(d.querySelector('summary').textContent));
+  ok('Worth mentioning says what each thing IS (its kind and title) and who has it', ann.length===1 && /Shift note|Care note|care note/i.test(ann[0].querySelector('summary').textContent) && /Nobody has it yet/.test(ann[0].querySelector('summary').textContent), hr().map(d=>d.querySelector('summary').textContent));
+  ok('...the same thing twice shows once, "× 2"', /× 2/.test(ann[0].querySelector('summary').textContent));
+  ann[0].open=true;
+  ok('...click it to read it, with Talk about it and Open in Needs Attention', /Ann slipped near the sink/.test(ann[0].innerText) && /Talk about it/.test(ann[0].innerText) && /Open in Needs Attention/.test(ann[0].innerText));
+  ok('...more than a week late is counted, not listed (left to Needs Attention)', !/Ancient thing/.test(wrap().innerText) && /1 older item \(more than a week late\) isn't shown here/.test(wrap().innerText));
+  await suWorthFlag('ops_d1'); await sleep(200);
+  ok('...Talk about it flags it (it moves up to the flagged list, no longer under Worth mentioning)', S.standup_notes.some(x=>x.source==='work' && x.ops_id==='ops_d1' && x.status==='open') && !cardFor("Possible concern on Ann's visit").missing);
   L.writes.length=0;
   [...cardFor('Brand new urgent').querySelectorAll('button')].find(b=>/Talked/.test(b.textContent)).click(); await sleep(200);
   let it=item('old5');
@@ -112,7 +122,7 @@ async()=>{
   /* --- Today line and My Team --- */
   const tl=$('#suTodayLine'); suTodayRender(); await sleep(30);
   ok('Dashboard: the To talk about card sits at the TOP (above the day\'s numbers)', !!(tl.compareDocumentPosition($('#todayGlance')) & Node.DOCUMENT_POSITION_FOLLOWING));
-  ok('Dashboard: how many are flagged, and yours, with Open the list (no Add to Stand-Up)', /To talk about/.test(tl.innerText) && /\d+ flagged · 1 yours/.test(tl.innerText) && /Open the list/.test(tl.innerText) && !/Stand-Up/.test(tl.innerText), tl.innerText);
+  ok('Dashboard: how many are flagged, and yours, with Open the list (no Add to Stand-Up)', /To talk about/.test(tl.innerText) && /\d+ flagged · \d+ yours/.test(tl.innerText) && /Open the list/.test(tl.innerText) && !/Stand-Up/.test(tl.innerText), tl.innerText);
   ok('Dashboard: typed HTML stays text there too', !tl.querySelector('img') && window.__pwned===undefined);
   ccAddOpen(document.getElementById('ccAddBtn')); await sleep(60);
   let pp=popTop();
