@@ -224,12 +224,13 @@
   }
 
   /* ── what the board draws ── */
-  function readinessHtml(plan){
+  function readinessHtml(plan, noButton){
     const r = readiness(plan); if(!r.length) return '';
-    return '<div class="tb2-ready" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px;">' + r.map(x =>
+    return '<div class="tb2-ready" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px;">' + r.map(x =>
       '<span style="font-size:12.5px;font-weight:800;border-radius:8px;padding:4px 10px;' + (x.yes === x.total && x.total ? 'background:var(--green-bg);color:var(--green);' : x.yes ? 'background:#FFF4E3;color:#8A4E0C;' : 'background:#FDE8E8;color:var(--red);') + '">'
       + esc(x.slot.label) + ': ' + x.yes + ' of ' + x.total + ' confirmed</span>').join('')
-      + '<span class="field-note" style="font-size:11px;">Only a confirmed yes counts.</span></div>';
+      + '<span class="field-note" style="font-size:11px;">Only a confirmed yes counts.</span>'
+      + (!noButton && textable(plan).length ? '<span style="flex:1;"></span><button class="cara-btn tb2-several-btn" style="font-size:12px;" onclick="tb2TextSeveral()">💬 Text several people</button>' : '') + '</div>';
   }
   function rowCount(plan, s){ const x = readiness(plan).find(y => y.slot.k === s.k); return x ? '<div class="tb2-rowcount" style="font-size:10.5px;font-weight:800;color:' + (x.yes === x.total ? 'var(--green)' : 'var(--red)') + ';">' + x.yes + ' of ' + x.total + ' confirmed</div>' : ''; }
   function moreChip(plan, key){
@@ -251,18 +252,125 @@
           + '<span class="tag-chip" style="background:' + a[2] + ';color:' + a[1] + ';font-weight:700;">' + a[0] + '</span>'
           + '<span class="field-note" style="font-size:11px;">' + esc((p.status === 'asked' && p.ask_channel === 'sms' ? 'texted ' : '') + (p.at ? tbAgo(p.at) : '') + (p.by ? ' by ' + String(p.by).split(' ')[0] : '')) + '</span>'
           + '<span style="flex:1;"></span>'
-          + (p.main && p.status !== 'yes' && !p.applicant_id ? '<button class="cara-btn" style="font-size:11px;padding:3px 8px;" onclick="tbAskOpen(\'' + esc(key) + '\')">💬 Text</button>' : '')
+          + (p.status !== 'yes' && !p.applicant_id ? '<button class="cara-btn tb2-text" style="font-size:11px;padding:3px 8px;" onclick="' + (p.main ? 'tbAskOpen(\'' + esc(key) + '\')' : 'tb2TextSeveral(\'' + esc(key) + '\')') + '">💬 Text</button>' : '')
           + b(p.pid, 'asked', '📞 Asked', p.status) + b(p.pid, 'yes', '✓ Yes', p.status) + b(p.pid, 'maybe', 'Maybe', p.status) + b(p.pid, 'no', '✗ No', p.status) + b(p.pid, 'no_reply', 'No reply', p.status) + b(p.pid, null, 'Remove', '')
           + (ask ? '<details style="flex-basis:100%;font-size:12px;"><summary style="cursor:pointer;color:var(--teal);font-weight:700;">The text we sent</summary><div style="white-space:pre-wrap;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:6px 9px;margin-top:4px;">' + esc(ask.text) + '</div></details>' : '')
           + '</div>';
       }).join('')
-      + '<div class="field-note" style="font-size:11px;margin-top:4px;">Add more people from the list below. A Yes becomes the main person for this shift; only one Yes per shift.' + (list.length > 1 ? ' Texting from here goes to the main person; text the others from GoHighLevel for now.' : '') + '</div></div>';
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">' + (list.filter(p => !p.applicant_id && p.status !== 'yes').length > 1 ? '<button class="cara-btn tb2-textall" style="font-size:11.5px;" onclick="tb2TextSeveral(\'' + esc(key) + '\')">💬 Text everyone on this shift</button>' : '')
+      + '<span class="field-note" style="font-size:11px;">Add more people from the list below. A Yes becomes the main person for this shift; only one Yes per shift.</span></div></div>';
   }
+  /* ── TEXT SEVERAL AT ONCE (2026-10-06, Samantha: "build texting several people at once"). One window: everyone on the
+     board who can be texted (on the roster, not already a Yes), each with the shifts they're listed on. One message;
+     "[first name]" and "[their shifts]" are filled in for each person, and each person's own text is shown before
+     sending. Send goes one person at a time through team-ask, so every text gets every check (the switch, the roster
+     number, opt-outs, Do Not Disturb, a rejected number) and each result is shown. Nothing goes until Send. ── */
+  function textable(plan){
+    const by = new Map();
+    (plan.slots || []).forEach(s => (plan.days || []).forEach(d => {
+      const k = tbCellKey(d, s.k);
+      people(plan, k).forEach(p => {
+        if(p.applicant_id || p.status === 'yes' || !p.name) return;
+        const id = p.cg_ax_id ? 'ax:' + p.cg_ax_id : 'n:' + nk(p.name);
+        if(!by.has(id)) by.set(id, { name:p.name, ax:String(p.cg_ax_id || ''), cells:[] });
+        by.get(id).cells.push({ k, d, s, status:p.status, texted:p.status === 'asked' && p.ask_channel === 'sms' });
+      });
+    }));
+    return [...by.values()];
+  }
+  const TOK_FIRST = '[first name]', TOK_WHEN = '[their shifts]';
+  function whenFor(cells){
+    const bySlot = {}; let hrs = 0;
+    cells.forEach(c => { (bySlot[c.s.k] = bySlot[c.s.k] || { s:c.s, ds:[] }).ds.push(c.d); hrs += tbSlotHours(c.s); });
+    const w = Object.keys(bySlot).map(k => { const g = bySlot[k]; g.ds.sort((a, b) => TB_DAYS.indexOf(a) - TB_DAYS.indexOf(b)); return tbDayList(g.ds) + ' ' + tbTimeLong(g.s.start) + '–' + tbTimeLong(g.s.end); }).join('; ');
+    return w ? w + ' (' + (Math.round(hrs * 10) / 10) + ' hrs a week)' : '';
+  }
+  function baseText(dr){
+    const cf = String((dr.client && dr.client.first) || '').trim();
+    const start = dr.client && dr.client.start_target ? ', starting around ' + new Date(dr.client.start_target + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) : '';
+    let care = String((dr.client && dr.client.care_line) || '').trim(); if(care && !/[.!?]$/.test(care)) care += '.';
+    return String(dr.template).replace('{client}, a new client', cf ? '{client}, a new client' : 'a new client')
+      .replaceAll('{first_name}', TOK_FIRST).replaceAll('{client}', cf).replaceAll('{where}', dr.client && dr.client.town ? ' in ' + dr.client.town : '')
+      .replaceAll('{when}', TOK_WHEN).replaceAll('{start}', start).replaceAll('{care}', care ? care + ' ' : '').replace(/\s{2,}/g, ' ').trim();
+  }
+  async function textSeveral(onlyKey){
+    const plan = tbPlan(); if(!plan) return;
+    let list = textable(plan);
+    if(!list.length){ ccToast('Nobody on this board can be texted: add caregivers from the roster first (a Yes is never asked again).'); return; }
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto;';
+    ov.innerHTML = '<div role="dialog" aria-modal="true" class="tb2-several" style="background:#fff;border-radius:14px;max-width:760px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+      + '<div style="font-weight:800;color:var(--navy);font-size:17px;">Text several people about ' + esc(plan.client) + '’s care team</div><div id="tsBody" style="margin-top:10px;"><div class="field-note">Checking each person’s number and texting preferences…</div></div></div>';
+    document.body.appendChild(ov);
+    const body = ov.querySelector('#tsBody'), close = () => { ov.remove(); tbRender(); };
+    const drafts = await Promise.all(list.map(x => taCall({ action:'draft', plan_id:plan.id, caregiver_axiscare_id:x.ax, caregiver_name:x.name }).catch(e => ({ error:String(e.message || e) }))));
+    const dr0 = drafts.find(d => d && !d.error);
+    if(!dr0){ body.innerHTML = '<div>' + esc((drafts[0] && drafts[0].error) || 'The texting service didn’t answer.') + '</div><div style="margin-top:12px;"><button class="secondary" id="tsX">Close</button></div>'; ov.querySelector('#tsX').onclick = close; return; }
+    list = list.map((x, i) => { const d = drafts[i] || {}, why = [];
+      if(d.error) why.push(d.error);
+      else { if(!d.caregiver.on_roster) why.push('not on the caregiver roster, so there is no number');
+        else if(!d.caregiver.phone_last4) why.push('no phone number on the roster');
+        if((d.caregiver.opt_out || []).length) why.push('asked not to get texts (' + d.caregiver.opt_out.join('; ') + ')'); }
+      return Object.assign(x, { first:(d.caregiver && d.caregiver.first) || String(x.name).split(' ')[0], last4:d.caregiver && d.caregiver.phone_last4, why }); });
+    const live = !!dr0.live;
+    const hr = +new Date().toLocaleString('en-US', { timeZone:'America/Chicago', hour:'2-digit', hour12:false }), late = hr < 8 || hr >= 20;
+    const want = x => !x.why.length && (onlyKey ? x.cells.some(c => c.k === onlyKey) : x.cells.some(c => !c.texted));
+    body.innerHTML = '<div class="field-note">Everyone on this board who isn’t a Yes yet. Tick who to text and which of their shifts to ask about.</div>'
+      + '<div id="tsPeople" style="margin-top:8px;">' + list.map((x, i) => '<div class="ts-person" data-i="' + i + '" style="border:1px solid var(--border);border-radius:9px;padding:8px 11px;margin-top:6px;' + (x.why.length ? 'background:#FAFAFA;' : '') + '">'
+        + '<label style="display:flex;gap:8px;align-items:center;font-weight:700;color:var(--navy);margin:0;cursor:pointer;"><input type="checkbox" class="ts-on"' + (want(x) ? ' checked' : '') + (x.why.length ? ' disabled' : '') + ' style="width:auto;margin:0;"> ' + esc(x.name)
+        + '<span class="field-note" style="font-weight:400;">' + (x.last4 ? 'to ···' + esc(x.last4) : '') + '</span></label>'
+        + (x.why.length ? '<div class="field-note" style="color:var(--red);margin:3px 0 0 24px;">Can’t text: ' + esc(x.why.join('; ')) + '</div>' : '')
+        + '<div style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:4px 0 0 24px;">' + x.cells.map(c => '<label style="display:flex;gap:5px;align-items:center;font-size:12.5px;font-weight:400;margin:0;"><input type="checkbox" class="ts-cell" data-k="' + esc(c.k) + '"' + ((!onlyKey || c.k === onlyKey) && !c.texted && !x.why.length ? ' checked' : '') + (x.why.length ? ' disabled' : '') + ' style="width:auto;margin:0;"> '
+          + TB_DAYL[c.d] + ' ' + esc(c.s.label) + (c.texted ? ' <span class="field-note" style="color:#8A4E0C;">texted already</span>' : c.status !== 'penciled' ? ' <span class="field-note">(' + esc((ANSWER[c.status] || ANSWER.penciled)[0]) + ')</span>' : '') + '</label>').join('') + '</div>'
+        + '<div class="ts-preview field-note" style="margin:6px 0 0 24px;white-space:pre-wrap;background:#F8FAFC;border-radius:7px;padding:6px 9px;font-size:12.5px;color:var(--text);"></div></div>').join('') + '</div>'
+      + '<div style="margin-top:12px;display:flex;align-items:baseline;gap:8px;"><b style="font-size:13px;color:var(--navy);">The text</b><span class="field-note" style="font-size:11.5px;">' + esc(TOK_FIRST) + ' and ' + esc(TOK_WHEN) + ' are filled in for each person. Edit anything else.</span></div>'
+      + '<textarea id="tsMsg" rows="5" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;margin-top:4px;"></textarea>'
+      + (late ? '<div style="background:#FFF4E3;border:1px solid #F3D19C;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:#8A4E0C;">It’s ' + esc(new Date().toLocaleTimeString('en-US', { timeZone:'America/Chicago', hour:'numeric', minute:'2-digit' })) + '. These texts reach people late. You can still send them.</div>' : '')
+      + (!live ? '<div style="background:#FDE8E8;border:1px solid #F5B5B5;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:var(--red);">Sending from the Team Builder is switched off right now. Nothing can be sent.</div>' : '')
+      + '<div id="tsRes" style="margin-top:8px;"></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px;"><span class="field-note" id="tsCount"></span><button class="secondary" id="tsX">Cancel</button><button class="cara-btn" id="tsSend"' + (live ? '' : ' disabled') + '>Send</button></div>';
+    const $ = q => ov.querySelector(q);
+    $('#tsMsg').value = baseText(dr0);
+    const chosen = () => [...ov.querySelectorAll('.ts-person')].map(el => { const x = list[+el.dataset.i];
+      return { x, el, on:el.querySelector('.ts-on').checked, ks:[...el.querySelectorAll('.ts-cell:checked')].map(c => c.dataset.k) }; });
+    const textOf = (x, ks) => $('#tsMsg').value.split(TOK_FIRST).join(x.first || 'there').split(TOK_WHEN).join(whenFor(x.cells.filter(c => ks.indexOf(c.k) > -1)) || '(pick a shift)').replace(/\s{2,}/g, ' ').trim();
+    const refresh = () => { let n = 0;
+      chosen().forEach(c => { const pv = c.el.querySelector('.ts-preview');
+        if(c.on && c.ks.length && !c.x.why.length){ n++; pv.style.display = ''; pv.textContent = textOf(c.x, c.ks); } else pv.style.display = 'none'; });
+      $('#tsCount').textContent = n ? n + ' text' + (n === 1 ? '' : 's') + ', one per person' : 'Nobody picked';
+      return n; };
+    ov.querySelectorAll('.ts-on,.ts-cell').forEach(i => i.onchange = refresh); $('#tsMsg').oninput = refresh; $('#tsX').onclick = close;
+    refresh();
+    let sending = false;
+    $('#tsSend').onclick = async function(){
+      if(sending) return;
+      const go = chosen().filter(c => c.on && c.ks.length && !c.x.why.length);
+      if(!go.length){ $('#tsRes').innerHTML = '<div class="field-note" style="color:var(--red);">Tick at least one person and one of their shifts.</div>'; return; }
+      const bad = go.find(c => { const t = textOf(c.x, c.ks); return !t || t.length > 640; });
+      if(bad){ $('#tsRes').innerHTML = '<div class="field-note" style="color:var(--red);">' + esc(bad.x.name) + '’s text is ' + (textOf(bad.x, bad.ks) ? 'too long (keep it under 640 characters)' : 'empty') + '.</div>'; return; }
+      if(typeof cgpgBeforeOffer === 'function' && !(await cgpgBeforeOffer(go.map(c => ({ axiscare_id:c.x.ax, name:c.x.name })), 'send these texts'))){ $('#tsRes').innerHTML = '<div class="field-note" style="color:var(--red);">Not sent.</div>'; return; }
+      sending = true; this.disabled = true; this.textContent = 'Sending…';
+      const out = [];
+      for(const c of go){
+        const askId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('ta-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+        let d; try{ d = await taCall({ action:'send', plan_id:plan.id, caregiver_axiscare_id:c.x.ax, caregiver_name:c.x.name, cells:c.ks, message:textOf(c.x, c.ks), ask_id:askId }); }catch(e){ d = { error:String(e.message || e) }; }
+        const ok = d && (d.outcome === 'sent' || d.outcome === 'already_sent');
+        if(ok && d.plan){ const i = (DATA.staffing_plans || []).findIndex(p => p && p.id === plan.id); if(i >= 0) DATA.staffing_plans[i] = d.plan; }
+        out.push({ name:c.x.name, ok, why:ok ? (d.warning || '') : ((d && d.error) || 'Not sent.') });
+        $('#tsRes').innerHTML = out.map(r => '<div style="font-size:13px;padding:2px 0;color:' + (r.ok ? 'var(--green)' : 'var(--red)') + ';">' + (r.ok ? '✓ Sent to ' : '✗ ') + esc(r.name) + (r.why ? ': ' + esc(r.why) : '') + '</div>').join('');
+      }
+      const n = out.filter(r => r.ok).length;
+      body.insertAdjacentHTML('beforeend', '<div class="ts-done" style="margin-top:10px;font-weight:700;color:var(--navy);">' + n + ' of ' + out.length + ' sent. Their shifts now show "texted". Replies land in GoHighLevel for now; mark each answer on the board.</div>');
+      this.textContent = 'Sent'; $('#tsX').textContent = 'Done';
+      if(typeof swRenderBar === 'function') swRenderBar();
+    };
+  }
+
   /* the line on a project card: how the linked board stands */
   function projectLine(p){
     const plan = ((typeof DATA !== 'undefined' && DATA.staffing_plans) || []).find(x => x && (x.id === p.plan_id || x.project_id === p.id));
     if(!plan) return '';
-    return '<div class="tb2-pjline" style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' + readinessHtml(plan).replace('margin:0 0 8px', 'margin:0')
+    return '<div class="tb2-pjline" style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' + readinessHtml(plan, true).replace('margin:0 0 8px', 'margin:0')
       + '<button class="ghost" style="padding:4px 10px;font-size:12px;" onclick="tb2OpenPlan(\'' + esc(plan.id) + '\')">Open the Team Builder</button></div>';
   }
   function openPlan(id){ try{ switchTab('hourswatch'); }catch(e){} try{ swSubGo('builder'); }catch(e){} tbOpen(id); }
@@ -271,5 +379,5 @@
     tb2Readiness:readiness, tb2ReadinessWords:readinessWords, tb2AllConfirmed:allConfirmed, tb2Sync:sync,
     tb2AppsHtml:appsHtml, tb2SkillRank:skillRank, tb2SkillFlags:skillFlags, tb2Skill:setSkill, tb2Need:toggleNeed, tb2NeedsHtml:needsHtml,
     tb2ReadinessHtml:readinessHtml, tb2RowCount:rowCount, tb2MoreChip:moreChip, tb2PeopleHtml:peopleHtml, tb2ProjectLine:projectLine,
-    tb2OpenPlan:openPlan, TB2_APPS:APPS, TB2_ANSWER:ANSWER, tb2MakeProject:makeProject, tb2MakeOpen:makeOpen, tb2ProjectBox:projectBoxHtml });
+    tb2OpenPlan:openPlan, TB2_APPS:APPS, TB2_ANSWER:ANSWER, tb2MakeProject:makeProject, tb2MakeOpen:makeOpen, tb2ProjectBox:projectBoxHtml, tb2TextSeveral:textSeveral, tb2Textable:textable });
 })();
