@@ -39,6 +39,11 @@ async()=>{
   first.querySelector('.wkchk').click(); await sleep(50);
   ok('...and un-ticking works the same way', redraws===0 && !MYWORK_SEL.has(firstId) && !first.classList.contains('selected') && /Select all/.test(W.querySelector('#myWorkBulk').innerText));
   window.renderMyWork=orig;
+  // sub-tabs answer on press, so a redraw before letting go can't swallow the click
+  const st=[...document.querySelectorAll('#myWorkTabs .subtab')].find(x=>/All mine/.test(x.textContent));
+  st.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true})); await sleep(50);
+  ok('a sub-tab opens on press (no click needed)', MYWORK_TAB==='mine', MYWORK_TAB);
+  myWorkGo('today'); MYWORK_LATER_OPEN=true; renderMyWork(); await sleep(50);
   const hit=W.querySelector('.wkchkhit'); const r=hit.getBoundingClientRect();
   ok('the tick box has a bigger area to hit', r.width>=26 && r.height>=26, [r.width, r.height]);
   return R;

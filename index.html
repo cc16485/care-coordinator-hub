@@ -6735,7 +6735,7 @@ The HomeTogether team</pre>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
 <script src="shift-flags.js?v=1"></script>
-<script src="standup-board.js?v=7"></script>
+<script src="standup-board.js?v=8"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
 <script src="desk.js?v=9"></script>
@@ -26619,7 +26619,9 @@ function renderMyWork(){
   if(!TABS.some(([k])=>k===MYWORK_TAB)) MYWORK_TAB='today';
   const tabs=document.getElementById('myWorkTabs');
   if(tabs) tabs.innerHTML=TABS.map(([k,label])=>
-    '<div class="subtab'+(MYWORK_TAB===k?' active':'')+'" onclick="myWorkGo(\''+k+'\')">'
+    /* on press, not on click (2026-10-06, "i cant click on those"): a background redraw between pressing and letting go
+       used to swallow the click */
+    '<div class="subtab'+(MYWORK_TAB===k?' active':'')+'" onpointerdown="if(MYWORK_TAB!==\''+k+'\')myWorkGo(\''+k+'\')" onclick="if(MYWORK_TAB!==\''+k+'\')myWorkGo(\''+k+'\')">'
     +label+((b[k]||[]).length?' <span class="subtab-badge'
       +((k==='today'&&b.overdue.length)||k==='approvals'?' red':'')+'">'+b[k].length+'</span>':'')
     +'</div>').join('');
