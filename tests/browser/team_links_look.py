@@ -1,4 +1,4 @@
-"""2026-10-05 (her call): no My Team tab; the Owners Hub Admin page's Team buttons open the Hub's team tools by link
+"""2026-10-05 (her calls): no My Team tab and no My Role tab; the Owners Hub Admin page's Team buttons open the Hub's team tools by link
 (#myteam/add, #myteam/access/<email>, #myteam/role/<email>). Offline, made-up data; nothing is saved or sent.
 (python3 tests/browser/team_links_look.py, with the static server on 8765)"""
 from playwright.sync_api import sync_playwright
@@ -6,6 +6,11 @@ T = r"""
 async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,400)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   document.getElementById('appScreen').classList.add('on');
+  const realRoleOpen=window.roleOpen;
+  ok('no My Role tab in the Today row', !document.querySelector('#fsub-today [data-tab="myrole"]'));
+  ok('no "Open My Role" link left in the page source', !/Open My Role<\/button>/.test(document.documentElement.innerHTML));
+  realRoleOpen('kat@mo-care.com'); await sleep(300);
+  ok('a role still opens from a link (the My Role screen, without its tab)', activeTab==='myrole' && document.getElementById('tab-myrole').classList.contains('active'), [activeTab]);
   const calls=[]; window.staffAddOpen=()=>calls.push('add'); window.hubAccessOpen=(e)=>calls.push('access:'+e); window.roleOpen=(e)=>calls.push('role:'+e);
   DATA.positions=DATA.positions||[]; (0,eval)('CC_ROLES=["owner_admin"]; CC_ROLES_CHECKED=true;');
   ok('no My Team tab in the Today row', !document.querySelector('#fsub-today [data-tab="myteam"]'));
