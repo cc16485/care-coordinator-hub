@@ -119,16 +119,18 @@
   }
   const emailOn = () => { try{ return !!(DATA.ops_settings && DATA.ops_settings.talk_email_live === true); }catch(e){ return false; } };
   /* add a message to an item's thread (a note, a reply or a tag), then let the server email whoever should know */
-  async function addToThread(id, text, tags, how){
+  async function addToThread(id, text, tags, how, extra){
     const m = me(), list = people(), tg = [...new Set((tags || []).map(lc).filter(Boolean))];
     const ok = await suMutate(id, it => {
-      it.updates = it.updates.concat([{ id:newId('m_'), at:iso(), by:m.name, by_email:m.email, text, tags:tg }]);
+      it.updates = it.updates.concat([Object.assign({ id:newId('m_'), at:iso(), by:m.name, by_email:m.email, text, tags:tg }, extra || {})]);
       it.tagged = [...new Set((Array.isArray(it.tagged) ? it.tagged : []).map(lc).concat(tg))];
       return (how || 'Note') + (tg.length ? ', tagged ' + tg.map(e => String(nameOf(e, list)).split(' ')[0]).join(', ') : '');
     });
     if(!ok) return false;
     const it = (SU.items || []).find(x => x.id === id);
-    if(it && it.source === 'work' && it.ops_id) await noteOnCard(it.ops_id, text, tg);
+    /* a project shows the conversation itself, so its card isn't saved again here (that could undo a step someone just ticked) */
+    const card = it && it.ops_id ? ((typeof DATA !== 'undefined' && DATA.ops_items) || []).find(x => x && x.id === it.ops_id) : null;
+    if(it && it.source === 'work' && it.ops_id && !(card && card.kind === 'project')) await noteOnCard(it.ops_id, text, tg);
     tellServer(id);
     return true;
   }
@@ -953,7 +955,17 @@
       return made.id;
     },
     unflagWork: async opsId => { await suLoad(true); const f = suTalk.forWork(opsId); if(f) await suMutate(f.id, x => { if(x.archived_at) return null; x.archived_at = iso(); x.archived_by = me().name; return 'Flag taken off'; }); return true; },
-    load: f => suLoad(f), ready: () => !!SU.items
+    load: f => suLoad(f), ready: () => !!SU.items,
+    /* Projects (2026-10-06, Samantha: "we need to be able to make notes and interact with team members"): a project's
+       conversation is its To talk about thread. Every message on any flag for that project, oldest first, so a Talked ✓
+       never splits the conversation. */
+    threadFor: opsId => (SU.items || []).filter(i => i.source === 'work' && i.ops_id === opsId && !i.archived_at)
+      .reduce((a, i) => a.concat(i.updates.map(u => Object.assign({ item_id:i.id }, u))), []).sort((x, y) => String(x.at).localeCompare(String(y.at))),
+    async post(it, text, tags, extra){
+      const id = await suTalk.flagWork(it);
+      return addToThread(id, String(text).slice(0, 1000), [...new Set([].concat(tags || []).concat(mentions(text)))], 'Note', extra);
+    },
+    mentions: t => mentions(t), people: () => people()
   };
   Object.assign(window, { suSchedule, suSchedWords, suNextStandup, suSchedEdit, suDesk, suTalk, suOpenWork, suTalkNew, suWorthFlag, suWorthNote, suReply, suSetFill, suSetToggle });
   Object.assign(window, { suOpen, suRender, suSet, suEdit, suAct, suTodayRender, suTeamCountHtml, tmOpen, tmRender, tmToggle, tmSearch, tmShowArchived, tmEdit, tmAct, tmVideo, tmPrepare, prepList,

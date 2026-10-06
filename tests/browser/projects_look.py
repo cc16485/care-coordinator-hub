@@ -16,6 +16,7 @@ DATA = r"""
   DATA.ops_items=JSON.parse(JSON.stringify(items)); window.__store.ops_items=JSON.parse(JSON.stringify(items));
   DATA.ops_settings={}; DATA.coordinator_staff=[];
   window.__toasts=[]; window.ccToast=t=>window.__toasts.push(t);
+  window.roleEveryone=()=>[['krystal','Krystal Land'],['angie','Angie Care'],['sally','Sally Staffing'],['sam','Samantha Owner'],['zach','Zachary Owner']].map(([e,n])=>({ email:e+'@mo-care.com', name:n }));
 })();
 """
 T = r"""
@@ -135,7 +136,48 @@ async()=>{
   ok('...picking it links the project and its Team Builder plan to #812', storeP(E.id).axiscare_client_id==='812' && storeP(E.id).ax_active===false && S.staffing_plans[0].axiscare_client_id==='812');
   C=document.querySelector('#myWorkWrap .wkcard[data-id="'+E.id+'"]');
   ok('...the card links to his profile and the Find button is gone', C && /AxisCare: Ed Anderson #812 \(inactive in AxisCare\)/.test(C.innerText) && /openClientProfile\('812'\)/.test(C.innerHTML) && !C.querySelector('.pj-axfind'), C&&C.innerText.slice(0,600));
-  ok('nothing was texted or emailed', window.__log.fn.length===0 && window.__log.rpc.length===0, [window.__log.fn, window.__log.rpc]);
+  // the conversation and steps that can change
+  window.__as('krystal@mo-care.com','Krystal Land');
+  const Q=pjBuild({ template:'client_start', title:'Ruth Fake coming home', about:'Ruth Fake', owner:'krystal@mo-care.com', ready_by:inDays(6), date_contact:'Joe Fake' });
+  DATA.ops_items.push(Q); S.ops_items.push(JSON.parse(JSON.stringify(Q)));
+  await suTalk.load(true); myWorkGo('mine'); await sleep(300);
+  C=document.querySelector('#myWorkWrap .wkcard[data-id="'+Q.id+'"]');
+  ok('a project card has a Conversation with a note box, step picker and tag buttons', C && /Conversation/.test(C.innerText) && /No notes yet/.test(C.innerText) && C.querySelector('.pj-say') && C.querySelector('.pj-about') && [...C.querySelectorAll('.pj-tagbtn')].some(b=>/@Angie/.test(b.textContent)), C&&C.innerText.slice(-700));
+  ok('...every step has Note and Change', C.querySelectorAll('.pj-stepnote').length===8 && C.querySelectorAll('.pj-stepedit').length===8);
+  await pjStepTick(Q.id,'s2');
+  C.querySelector('.pj-step[data-sid="s1"] .pj-stepnote').click(); await sleep(150);
+  C=document.querySelector('#myWorkWrap .wkcard[data-id="'+Q.id+'"]');
+  ok('"Note" on a step sets the note to be about that step', C.querySelector('.pj-about').value==='s1');
+  C.querySelector('.pj-tagbtn[data-e="angie@mo-care.com"]').click(); await sleep(150);
+  C=document.querySelector('#myWorkWrap .wkcard[data-id="'+Q.id+'"]');
+  const say=C.querySelector('.pj-say'); say.value='Joe called, he thinks Thursday. @Sally can you start asking for mornings?'; say.dispatchEvent(new Event('input'));
+  C.querySelector('.pj-post').click(); await sleep(700);
+  const T2=(S.standup_notes||[]).find(i=>i.ops_id===Q.id);
+  ok('posting saves it on the project\'s To talk about thread: the words, the step, and both tags (tap + @Sally)', T2 && T2.updates.length===1 && T2.updates[0].about==='s1' && JSON.stringify(T2.updates[0].tags.slice().sort())==='["angie@mo-care.com","sally@mo-care.com"]' && T2.tagged.includes('angie@mo-care.com'), T2);
+  ok('...the server is asked about the email (it decides; the switch is off)', window.__log.fn.includes('talk-notify'));
+  ok('...Angie, tagged but not on the project, joins its team; the step ticked a moment before is still ticked', storeP(Q.id).team.includes('angie@mo-care.com') && storeP(Q.id).also_for.includes('angie@mo-care.com') && !!storeP(Q.id).steps[1].done_at, storeP(Q.id));
+  myWorkGo('mine'); await sleep(300);
+  C=document.querySelector('#myWorkWrap .wkcard[data-id="'+Q.id+'"]');
+  ok('the card shows the note, who wrote it, @tags and which step', /Conversation \(1\)/.test(C.innerText) && /Krystal\s*@Angie @Sally|Krystal\s*@Sally @Angie/.test(C.innerText) && /Joe called, he thinks Thursday/.test(C.querySelector('.pj-convo').innerText) && /Who tells us the date/.test(C.querySelector('.pj-msg').innerText), C.querySelector('.pj-convo').innerText);
+  ok('...and the step itself shows its latest note', /Krystal.*Joe called/.test(C.querySelector('.pj-step[data-sid="s1"] .pj-lastnote').innerText));
+  window.__as('angie@mo-care.com','Angie Care');
+  ok('Angie now has the project on her My Work', myWorkBuckets().mine.some(x=>x.id===Q.id));
+  switchTab('standup'); await sleep(500);
+  ok('the same note is on To talk about, under Angie', /Angie/.test(document.getElementById('suWrap').innerText) && /Joe called, he thinks Thursday/.test(document.getElementById('suWrap').innerText));
+  window.__as('krystal@mo-care.com','Krystal Land'); switchTab('mywork'); await sleep(300); myWorkGo('mine'); await sleep(200);
+  // change a step
+  C=document.querySelector('#myWorkWrap .wkcard[data-id="'+Q.id+'"]');
+  C.querySelector('.pj-step[data-sid="s7"] .pj-stepedit').click(); await sleep(150); p=pop();
+  p.querySelector('#pjEL').value='Hospital bed and Hoyer delivered';
+  p.querySelectorAll('.pjEW').forEach(x=>{ x.checked = x.value==='zach@mo-care.com'; });
+  p.querySelector('#pjED').value=inDays(2); p.querySelector('#pjEGo').click(); await sleep(400);
+  const s7=storeP(Q.id).steps.find(s=>s.id==='s7');
+  ok('Change: what the step says, who has it and when, saved and on the record', s7.label==='Hospital bed and Hoyer delivered' && JSON.stringify(s7.who)==='["zach@mo-care.com"]' && s7.due===inDays(2) && storeP(Q.id).team.includes('zach@mo-care.com') && storeP(Q.id).history.some(h=>/Step changed \(Hospital bed and Hoyer delivered\): now says/.test(h.text)), [s7, storeP(Q.id).history.slice(-1)]);
+  window.confirm=()=>true;
+  C=document.querySelector('#myWorkWrap .wkcard[data-id="'+Q.id+'"]');
+  C.querySelector('.pj-step[data-sid="s3"] .pj-stepedit').click(); await sleep(150); pop().querySelector('#pjERm').click(); await sleep(400);
+  ok('a step can be taken off (kept in the history)', !storeP(Q.id).steps.some(s=>s.id==='s3') && storeP(Q.id).steps.length===7 && storeP(Q.id).history.some(h=>/Step taken off: Family told the plan/.test(h.text)));
+  ok('nothing was texted; the only server call is the To talk about email check', window.__log.fn.every(f=>f==='talk-notify') && window.__log.rpc.length===0, [window.__log.fn, window.__log.rpc]);
   return R;
 }
 """
@@ -151,7 +193,12 @@ with sync_playwright() as pw:
     pg.evaluate("""async()=>{ const d=new Date(); d.setDate(d.getDate()+7); const r=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
       const P=pjBuild({ template:'client_start', title:'Ed Anderson (fake) coming home', about:'Ed Anderson (fake)', owner:'krystal@mo-care.com', ready_by:r, date_contact:'Pamela Anderson (daughter)', notice:'48 hours', shifts:'9am–2pm and 4pm–9pm, 7 days a week', care_level:'bed bound, Hoyer or sit-to-stand' });
       P.steps[0].done_at=new Date().toISOString(); P.steps[0].done_by_name='Krystal Land'; P.steps[3].claimed_by='sally@mo-care.com';
-      DATA.ops_items.push(P); window.__store.ops_items.push(P); switchTab('mywork'); await new Promise(r=>setTimeout(r,400)); myWorkGo('today'); await new Promise(r=>setTimeout(r,300)); window.scrollTo(0,0); }""")
+      P.id='ops_proj_pic'; DATA.ops_items.push(P); window.__store.ops_items.push(P);
+      const t=new Date(Date.now()-2*36e5).toISOString(), t2=new Date(Date.now()-40*6e4).toISOString();
+      window.__store.standup_notes=[{ id:'su_pic', summary:P.title, source:'work', ops_id:P.id, assigned_to_email:'krystal@mo-care.com', status:'open', created_at:t, tagged:['sally@mo-care.com'], history:[],
+        updates:[{ id:'m1', at:t, by:'Samantha Owner', text:'Pamela called: she thinks Thursday. Krystal, can you confirm with her by tomorrow?', tags:['krystal@mo-care.com'], about:'s1' },
+                 { id:'m2', at:t2, by:'Krystal Land', text:'Called her back, it is Thursday the 15th unless the doctor says otherwise. @Sally we still have nobody for mornings.', tags:['sally@mo-care.com'] }] }];
+      await suTalk.load(true); switchTab('mywork'); await new Promise(r=>setTimeout(r,400)); myWorkGo('today'); await new Promise(r=>setTimeout(r,300)); const c=document.querySelector('.wkcard[data-id="ops_proj_pic"]'); if(c) c.scrollIntoView({block:'start'}); }""")
     pg.screenshot(path='/tmp/projects.png', full_page=False)
     R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]]); b.close()
 for r in R: print(r[0], '·', r[1], ('→ ' + r[2]) if r[2] else '')

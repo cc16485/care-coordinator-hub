@@ -217,9 +217,111 @@
       + '<div class="field-note">' + esc(who)
       + (done ? ' · done ' + esc(dWords(String(s.done_at).slice(0, 10))) + (s.done_by_name ? ' by ' + esc(String(s.done_by_name).split(' ')[0]) : '')
         : (s.due ? ' · by ' + esc(dWords(s.due)) : '') + (late ? ' · <b style="color:var(--red);">late</b>' : '') + (claimed ? ' · ' + esc(claimed) : ''))
-      + '</div></div>'
+      + '</div>' + lastNoteHtml(p, s) + '</div>'
       + (!done && lc(s.claimed_by) !== me && (s.who || []).map(lc).indexOf(me) < 0 ? '<button class="ghost pj-claim" style="padding:4px 10px;font-size:12px;flex:0 0 auto;" onclick="pjStepClaim(\'' + esc(p.id) + '\',\'' + esc(s.id) + '\')">I’ve got this</button>' : '')
+      + '<button class="ghost pj-stepnote" title="Write a note about this step" style="padding:4px 8px;font-size:12px;flex:0 0 auto;" onclick="pjNoteAbout(\'' + esc(p.id) + '\',\'' + esc(s.id) + '\')">Note</button>'
+      + '<button class="ghost pj-stepedit" title="Change this step" style="padding:4px 8px;font-size:12px;flex:0 0 auto;" onclick="pjStepEdit(\'' + esc(p.id) + '\',\'' + esc(s.id) + '\',this)">Change</button>'
       + '</div>';
+  }
+  /* ── The conversation (2026-10-06, Samantha: "I don't think that a static check list is what we need" … "we need to be
+     able to make notes and interact with team members"). Notes and replies on the project, each optionally about one step,
+     with people tagged by @Name or a tap. It is the project's To talk about thread (standup-board.js), so the same words
+     show on To talk about, tagged people find it under their name and on their Dashboard, and with the To talk about
+     email switch on they get the email. Tagging someone who isn't on the project brings them onto its team. ── */
+  const DRAFT = {}, TAGS = {}, ABOUT = {};
+  function thread(p){ try{ return (window.suTalk && suTalk.ready()) ? suTalk.threadFor(p.id) : []; }catch(e){ return []; } }
+  function lastNoteHtml(p, s){
+    const m = thread(p).filter(u => u.about === s.id).pop(); if(!m) return '';
+    return '<div class="pj-lastnote" style="font-size:12.5px;margin-top:3px;background:var(--bg);border-radius:7px;padding:4px 8px;"><b>' + esc(String(m.by || '').split(' ')[0]) + '</b> <span class="field-note">' + esc(ago(m.at)) + '</span>: ' + esc(String(m.text).slice(0, 220)) + '</div>';
+  }
+  function ago(at){ const m = Math.round((Date.now() - Date.parse(at)) / 60000); if(!(m >= 0)) return ''; if(m < 1) return 'just now'; if(m < 60) return m + 'm ago'; const h = Math.round(m / 60); if(h < 24) return h + 'h ago'; const d = Math.round(h / 24); return d === 1 ? 'yesterday' : d + ' days ago'; }
+  function convoHtml(p){
+    const me = meEmail();
+    if(!window.suTalk) return '';
+    if(!suTalk.ready()){ if(!convoHtml._asked){ convoHtml._asked = true; suTalk.load().then(refresh); } return '<div class="field-note" style="margin-top:10px;">Loading the conversation…</div>'; }
+    const msgs = thread(p), shown = msgs.length > 12 ? msgs.slice(-12) : msgs;
+    const stepName = id => { const s = steps(p).find(x => x.id === id); return s ? s.label.split(':')[0] : ''; };
+    const tagged = new Set(TAGS[p.id] || []);
+    const crew = officeTeam();
+    return '<div class="pj-convo" style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">'
+      + '<div style="font-size:12.5px;font-weight:800;color:var(--navy);margin-bottom:4px;">Conversation' + (msgs.length ? ' (' + msgs.length + ')' : '') + '</div>'
+      + (msgs.length > shown.length ? '<div class="field-note">' + (msgs.length - shown.length) + ' earlier on To talk about</div>' : '')
+      + (shown.length ? shown.map(u => { const forMe = (u.tags || []).map(lc).indexOf(me) > -1;
+          return '<div class="pj-msg" style="font-size:13.5px;border-radius:8px;padding:6px 10px;margin-top:5px;background:' + (forMe ? '#E3F4F3' : 'var(--bg)') + ';">'
+            + '<b>' + esc(String(u.by || 'Someone').split(' ')[0]) + '</b>'
+            + ((u.tags || []).length ? ' ' + u.tags.map(e => '<span style="color:#1F7A8C;font-weight:700;">@' + esc(first(e)) + '</span>').join(' ') : '')
+            + (u.about ? ' <span class="tag-chip" style="background:#fff;color:var(--navy);">' + esc(stepName(u.about) || 'a step') + '</span>' : '')
+            + ' <span class="field-note">' + esc(ago(u.at)) + '</span><div style="margin-top:2px;white-space:pre-wrap;">' + esc(u.text) + '</div></div>'; }).join('')
+        : '<div class="field-note">No notes yet. Write what’s happening, ask a question, tag who needs to know.</div>')
+      + '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;">'
+      + '<select class="pj-about" onchange="pjAboutSet(\'' + esc(p.id) + '\',this.value)" style="flex:0 0 auto;max-width:200px;font-size:12.5px;padding:5px;"><option value="">The whole project</option>'
+      + steps(p).map(s => '<option value="' + esc(s.id) + '"' + (ABOUT[p.id] === s.id ? ' selected' : '') + '>' + esc(s.label.split(':')[0].slice(0, 40)) + '</option>').join('') + '</select>'
+      + '<input class="pj-say" data-id="' + esc(p.id) + '" value="' + esc(DRAFT[p.id] || '') + '" oninput="pjDraft(\'' + esc(p.id) + '\',this.value)" placeholder="Write a note… type @Name to tag someone" style="flex:1 1 240px;font-size:13px;padding:6px 9px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();pjPost(\'' + esc(p.id) + '\',this)}">'
+      + '<button class="primary pj-post" style="padding:6px 13px;font-size:12.5px;" onclick="pjPost(\'' + esc(p.id) + '\',this.previousElementSibling)">Post</button></div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;"><span class="field-note">Tag:</span>'
+      + crew.filter(e => e !== me).map(e => '<button class="fb pj-tagbtn' + (tagged.has(e) ? ' active' : '') + '" data-e="' + esc(e) + '" style="font-size:11.5px;padding:2px 9px;" onclick="pjTag(\'' + esc(p.id) + '\',\'' + esc(e) + '\')">' + (tagged.has(e) ? '✓ ' : '@') + esc(first(e)) + '</button>').join('')
+      + '<span class="field-note" style="font-size:11px;">Tagged people see it under their name on To talk about and on their Dashboard.</span></div>'
+      + '</div>';
+  }
+  function draft(id, v){ DRAFT[id] = v; }
+  function aboutSet(id, v){ ABOUT[id] = v; }
+  function tag(id, e){ const s = new Set(TAGS[id] || []); s.has(e) ? s.delete(e) : s.add(e); TAGS[id] = [...s]; refresh(); setTimeout(() => focusSay(id), 30); }
+  function focusSay(id){ const el = document.querySelector('.pj-card[data-id="' + id + '"] .pj-say'); if(el){ el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+  function noteAbout(id, sid){ ABOUT[id] = sid; refresh(); setTimeout(() => focusSay(id), 30); }
+  async function post(id, input){
+    const p = (DATA.ops_items || []).find(x => x.id === id); if(!p || !window.suTalk) return;
+    const text = String((input && input.value) || '').trim(); if(!text){ if(input) input.focus(); ccToast('Write the note first'); return; }
+    const tags = [...new Set((TAGS[id] || []).concat(suTalk.mentions(text)))];
+    const about = ABOUT[id] || '';
+    if(input) input.disabled = true;
+    const ok = await suTalk.post(p, text, tags, about ? { about, about_label:(steps(p).find(s => s.id === about) || {}).label || '' } : null);
+    if(input) input.disabled = false;
+    if(!ok) return;
+    DRAFT[id] = ''; TAGS[id] = []; ABOUT[id] = '';
+    const newcomers = tags.filter(e => team(p).indexOf(lc(e)) < 0);
+    if(newcomers.length) await mutate(id, x => { x.team = [...new Set((x.team || []).concat(newcomers.map(lc)))].filter(e => e !== lc(x.owner)); x.also_for = x.team.slice();
+      return 'Joined the team (tagged in a note): ' + newcomers.map(first).join(', '); });
+    else refresh();
+    ccToast('✓ Posted' + (tags.length ? ', tagged ' + tags.map(first).join(', ') : ''));
+  }
+  /* change a step: what it says, who has it, when it's due; or take it off */
+  function stepEdit(id, sid, anchor){
+    const p = (DATA.ops_items || []).find(x => x.id === id); if(!p) return;
+    const s = steps(p).find(x => x.id === sid); if(!s) return;
+    const crew = [...new Set(officeTeam().concat((s.who || []).map(lc)))];
+    const on = new Set((s.who || []).map(lc));
+    const el = ccPopOpen(anchor || document.body,
+      '<div style="font-size:14px;font-weight:800;color:var(--navy);margin-bottom:6px;">Change this step</div>'
+      + '<input id="pjEL" value="' + esc(s.label) + '" style="width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);border-radius:8px;">'
+      + '<div class="field-note" style="margin:8px 0 3px;">Who has it</div><div style="display:flex;flex-wrap:wrap;gap:4px 12px;">'
+      + crew.map(e => '<label style="display:flex;gap:5px;align-items:center;font-size:13px;"><input type="checkbox" class="pjEW" value="' + esc(e) + '"' + (on.has(e) ? ' checked' : '') + ' style="width:auto;margin:0;"> ' + esc(nameOf(e)) + '</label>').join('') + '</div>'
+      + '<div class="field-note" style="margin:8px 0 3px;">Due</div><input id="pjED" type="date" value="' + esc(s.due || '') + '" style="padding:6px;font-size:13px;">'
+      + '<div style="display:flex;gap:8px;margin-top:12px;"><button class="primary" id="pjEGo" style="padding:6px 12px;font-size:13px;">Save</button>'
+      + '<button class="ghost" id="pjENo" style="padding:6px 12px;font-size:13px;">Cancel</button><span style="flex:1;"></span>'
+      + '<button class="ghost" id="pjERm" style="padding:6px 12px;font-size:13px;color:var(--red);">Take this step off</button></div>', { width:380 });
+    el.querySelector('#pjENo').onclick = ccPopClose;
+    el.querySelector('#pjEGo').onclick = async () => {
+      const label = el.querySelector('#pjEL').value.trim(), who = [...el.querySelectorAll('.pjEW:checked')].map(x => lc(x.value)), due = el.querySelector('#pjED').value;
+      if(!label){ ccToast('Say what the step is'); return; }
+      if(!who.length){ ccToast('Pick who has it'); return; }
+      ccPopClose();
+      await mutate(id, x => {
+        const t = steps(x).find(y => y.id === sid); if(!t) return false;
+        const ch = [];
+        if(t.label !== label){ ch.push('now says "' + label + '"'); t.label = label; }
+        if(JSON.stringify((t.who || []).map(lc).sort()) !== JSON.stringify(who.slice().sort())){ ch.push('now ' + who.map(first).join(' & ') + '’s'); t.who = who; }
+        if((t.due || '') !== due){ ch.push(due ? 'due ' + dWords(due) : 'no due date'); t.due = due || null; }
+        if(!ch.length) return false;
+        const add = who.filter(e => team(x).indexOf(e) < 0);
+        if(add.length){ x.team = [...new Set((x.team || []).concat(add))].filter(e => e !== lc(x.owner)); x.also_for = x.team.slice(); }
+        return 'Step changed (' + t.label.split(':')[0] + '): ' + ch.join(', ');
+      }, '✓ Step changed');
+    };
+    el.querySelector('#pjERm').onclick = async () => {
+      if(!confirm('Take "' + s.label + '" off this project? It stays in the project’s history.')) return;
+      ccPopClose();
+      await mutate(id, x => { const k = steps(x).findIndex(y => y.id === sid); if(k < 0) return false; const t = x.steps.splice(k, 1)[0]; return 'Step taken off: ' + t.label; }, '✓ Step taken off');
+    };
   }
   function card(p, i){
     const me = meEmail(), st = steps(p), done = st.filter(s => s.done_at).length, n = daysLeft(p);
@@ -247,6 +349,7 @@
     h += bar(done, st.length);
     if(typeof tb2ProjectLine === 'function') h += tb2ProjectLine(p);
     h += '<div style="margin-top:6px;">' + st.map(s => stepRow(p, s)).join('') + '</div>';
+    h += convoHtml(p);
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:9px;">'
       + '<button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="pjStepAdd(\'' + esc(p.id) + '\',this)">＋ Add a step</button>'
       + (p.template === 'client_start' && !p.axiscare_client_id ? '<button class="ghost pj-axfind" style="padding:5px 11px;font-size:12px;" onclick="pjAxFind(\'' + esc(p.id) + '\',this)">Find in AxisCare</button>' : '')
@@ -467,6 +570,7 @@
     pjIs:isPj, pjAllHands:allHands, pjHot:hot, pjSees:sees, pjCard:card, pjChip:chipFor, pjMore:more,
     pjStepTick:stepTick, pjStepClaim:stepClaim, pjStepAdd:stepAdd, pjAllHandsSet:setAllHands, pjClose:close,
     pjCloseBlocked:closeBlocked, pjNewOpen:newOpen, pjOpen:openCard, pjRenderBanners:renderBanners, pjTalkHtml:talkHtml,
-    pjBuild:build, pjAlertDays:alertDays, pjAxFind:axFind, pjAutoStep:autoStep
+    pjBuild:build, pjAlertDays:alertDays, pjAxFind:axFind, pjAutoStep:autoStep,
+    pjPost:post, pjDraft:draft, pjAboutSet:aboutSet, pjTag:tag, pjNoteAbout:noteAbout, pjStepEdit:stepEdit
   });
 })();
