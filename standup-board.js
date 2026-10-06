@@ -301,6 +301,7 @@
     const gs = [...groups.values()].sort((a, b) => ((b.email === m.email) - (a.email === m.email)) || a.name.localeCompare(b.name));
     const flaggedOps = new Set(open.filter(i => i.source === 'work' && i.ops_id).map(i => String(i.ops_id)));
     let hub = []; try{ hub = prepList().filter(r => r.kind !== 'su' && !(r.kind === 'ops' && flaggedOps.has(String(r.id)))); }catch(e){}   /* already flagged: shown once, above */
+    const W8 = worthRows(hub);
     const week = Date.now() - 7 * 864e5;
     const recent = SU.items.filter(i => i.status === 'done' && !i.archived_at && (Date.parse(i.talked_at || i.done_at || '') || 0) > week)
       .sort((a, b) => String(b.talked_at || b.done_at || '').localeCompare(String(a.talked_at || a.done_at || '')));
@@ -314,12 +315,53 @@
           + esc(g.email === m.email ? 'You' : g.name) + ' <span class="field-note" style="font-weight:600;">(' + g.items.length + ')</span></div>'
           + g.items.map(i => talkRow(i, list, m)).join('') + '</div>').join('')
         : '<div class="card" style="padding:14px 16px;margin-bottom:12px;"><div class="field-note">Nothing flagged. On a My Work card tap <b>Talk about</b>, or on your desk press <b>S</b> on a line.</div></div>')
-      + (hub.length ? '<div style="margin-top:18px;"><div style="font-size:15px;font-weight:800;color:var(--navy);">Worth mentioning</div>'
-          + '<div class="field-note" style="margin-bottom:6px;">The Hub found these on its own: urgent work, coverage for today and tomorrow, client and staffing issues, promises due.</div>'
-          + hub.map(r => { const head = r.sec !== lastSec ? '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--text-muted);margin:10px 0 4px;">' + esc(r.sec.toUpperCase()) + '</div>' : ''; lastSec = r.sec;
-              return head + '<div class="su-hubrow" style="border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:5px;"><b style="color:var(--navy);">' + esc(r.title || '') + '</b> <span class="field-note">' + esc(r.sub || '') + '</span></div>'; }).join('') + '</div>' : '')
+      + (W8.rows.length || W8.older ? '<div style="margin-top:18px;"><div style="font-size:15px;font-weight:800;color:var(--navy);">Worth mentioning</div>'
+          + '<div class="field-note" style="margin-bottom:6px;">The Hub found these on its own this week: urgent work, coverage for today and tomorrow, client and staffing issues, promises due. Click one to read it.</div>'
+          + W8.rows.map(r => { const head = r.sec !== lastSec ? '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--text-muted);margin:10px 0 4px;">' + esc(r.sec.toUpperCase()) + '</div>' : ''; lastSec = r.sec;
+              return head + worthHtml(r); }).join('')
+          + (W8.older ? '<div class="field-note" style="margin-top:8px;">' + W8.older + ' older item' + (W8.older === 1 ? '' : 's') + ' (more than a week late) ' + (W8.older === 1 ? 'isn\'t' : 'aren\'t') + ' shown here. They\'re in <a href="#ops" onclick="switchTab(\'ops\');return false;">Needs Attention</a>.</div>' : '')
+          + '</div>' : '')
       + (recent.length ? '<details style="margin-top:16px;"><summary class="field-note" style="cursor:pointer;">Talked about this week (' + recent.length + ')</summary>'
           + recent.map(i => '<div class="field-note" style="font-size:12.5px;margin-top:4px;">' + esc(whenStr(i.talked_at || i.done_at)) + ' · ' + esc(whoOf(i, list)) + ': ' + esc(i.summary || '') + '</div>').join('') + '</details>' : '');
+  }
+  /* Worth mentioning: what each thing IS (its kind and title), who has it and how late; click to read it. The same
+     thing twice shows once ("× 3"). More than a week late = not news any more; counted, and left to Needs Attention. */
+  const WEEK = 7 * 864e5;
+  function worthRows(hub){
+    const ops = (typeof DATA !== 'undefined' && DATA.ops_items) || [], byId = new Map(ops.map(i => [String(i.id), i]));
+    const out = [], seen = new Map(); let older = 0;
+    hub.forEach(r => {
+      const it = r.kind === 'ops' ? byId.get(String(r.id)) : null;
+      const due = it && Date.parse(it.due || '');
+      if(it && due && Date.now() - due > WEEK){ older++; return; }
+      const kindL = it ? (typeof opsKindLabel === 'function' ? opsKindLabel(it) : it.kind) : (r.kind === 'case' ? 'Open shift' : '');
+      const what = it ? String(it.title || it.about || '') : String(r.title || '');
+      const key = r.sec + '|' + kindL + '|' + what + '|' + (it ? it.about || '' : '');
+      if(seen.has(key)){ seen.get(key).n++; return; }
+      const row = { sec:r.sec, id:String(r.id), kind:r.kind, it, kindL, what, n:1,
+        about:it && it.about && !what.toLowerCase().includes(String(it.about).toLowerCase()) ? it.about : '',
+        who:it ? (it.owner ? (it.owner_name || it.owner).split(' ')[0] : 'Nobody has it yet') : '',
+        when:it ? (due ? (due < Date.now() ? 'was due ' + whenStr(it.due) : 'due ' + whenStr(it.due)) : 'no time set') : (r.sub || '') };
+      seen.set(key, row); out.push(row);
+    });
+    return { rows:out, older };
+  }
+  function worthHtml(r){
+    const it = r.it, detail = it && it.detail ? String(it.detail).slice(0, 900) + (String(it.detail).length > 900 ? '…' : '') : '';
+    return '<details class="su-hubrow" style="border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:5px;background:#fff;">'
+      + '<summary style="cursor:pointer;list-style:none;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">'
+      + (r.kindL ? chip(r.kindL, '#F3EDE3', 'var(--navy)') : '')
+      + '<b style="color:var(--navy);flex:1 1 260px;min-width:0;">' + esc(r.what || '(no title)') + (r.n > 1 ? ' <span class="field-note">× ' + r.n + '</span>' : '') + '</b>'
+      + '<span class="field-note">' + esc([r.about, r.who, r.when].filter(Boolean).join(' · ')) + '</span></summary>'
+      + (detail ? '<div class="field-note" style="margin-top:6px;white-space:pre-wrap;font-size:12.5px;">' + esc(detail) + '</div>' : (it ? '' : '<div class="field-note" style="margin-top:6px;">' + esc(r.when) + '</div>'))
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;">'
+      + (it ? btn('Talk about it', "suWorthFlag('" + esc(r.id) + "')", 'primary') + btn('Open in Needs Attention', "switchTab('ops')") : btn('Open the shift', "switchTab('coverage')"))
+      + '</div></details>';
+  }
+  async function suWorthFlag(opsId){
+    const it = ((typeof DATA !== 'undefined' && DATA.ops_items) || []).find(x => String(x.id) === String(opsId)); if(!it) return;
+    try{ await suTalk.flagWork(it); say('Flagged to talk about'); }catch(e){ say("Couldn't flag that just now."); }
+    suRender(); suTodayRender();
   }
   function suOpenWork(opsId){
     switchTab('mywork');
@@ -785,7 +827,7 @@
     unflagWork: async opsId => { await suLoad(true); const f = suTalk.forWork(opsId); if(f) await suMutate(f.id, x => { if(x.archived_at) return null; x.archived_at = iso(); x.archived_by = me().name; return 'Flag taken off'; }); return true; },
     load: f => suLoad(f), ready: () => !!SU.items
   };
-  Object.assign(window, { suSchedule, suSchedWords, suNextStandup, suSchedEdit, suDesk, suTalk, suOpenWork, suTalkNew });
+  Object.assign(window, { suSchedule, suSchedWords, suNextStandup, suSchedEdit, suDesk, suTalk, suOpenWork, suTalkNew, suWorthFlag });
   Object.assign(window, { suOpen, suRender, suSet, suEdit, suAct, suTodayRender, suTeamCountHtml, tmOpen, tmRender, tmToggle, tmSearch, tmShowArchived, tmEdit, tmAct, tmVideo, tmPrepare, prepList,
     SUB: { suNorm, suAge, suSort, suFilter, suOpenFor, suDiff, tmPrior, tmCarry, safeUrl, isOverdue, SU, TM, SU_CATS } });
 })();
