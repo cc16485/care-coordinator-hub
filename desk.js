@@ -28,6 +28,11 @@
    shared Kind Words jar (kind_word_clip, Desktop 465), tucked under the right desks: the owners, Client Care for a
    compliment about a client's care, everyone for a review. Under your page: Into the jar, Tape it to my desk, Read it at
    Stand-Up, Tell the caregiver (a draft you send yourself; nothing goes out on its own).
+   TALK ABOUT (2026-10-06, Samantha: "maybe we just have my work and my desk - then we can have a little indication to
+   speak about this", informal chats between 9 and 11, no Stand-Up meeting). The Stand-Up tray is gone. Any to-do can carry a
+   "Talk about" flag (S, the speech bubble, or the line's menu): it stays where it is, shows a little bubble, and is on the
+   To talk about list (the same shared list, standup-board.js). When someone taps Talked there, the flag comes off here.
+   Cards still in the old tray land back on today's page, still flagged.
    STAGE 6b ADDS: kind words the shift-note reader finds (care-notes, Desktop 466; her switch on the Owners Hub Admin
    page) wait in the jar under "Waiting for a yes" for owners and coordinators (only they can read them). Yes puts it in
    the jar and tucks it under the right desks (kind_word_decide); Not this one leaves it out. Nobody is texted.
@@ -288,9 +293,8 @@
       const oldPages = {}; Object.keys(DK.pages).forEach(k => { if(k < from) oldPages[k] = DK.pages[k]; });
       DK.pages = oldPages; (r.pages || []).forEach(p => { DK.pages[p.day] = p; });
       DK.loaded = true; DK.err = null;
-      const sids = DK.lines.filter(l => l.place === 'tray' && l.standup_item_id).map(l => l.standup_item_id);
-      if(sids.length && window.suDesk){ try{ DK.tray = await window.suDesk.status(sids); }catch(e){} }
       if(!ro()){
+        await talkSync();
         /* notes an owner left me: seen once my desk is actually on screen (not when it is read in the background) */
         const now = new Date().toISOString(), onScreen = typeof activeTab !== 'undefined' && activeTab === 'mydesk' && !document.hidden;
         if(onScreen) DK.stickies.filter(x => x.from_person_id && x.from_person_id !== DK.me && !x.seen_at).forEach(x => action(null, ctx => ctx.setStick(x.id, { seen_at:now })));
@@ -327,57 +331,41 @@
     });
     if(t.place === 'tray' && fromPlace !== 'tray'){ DK.landId = l.id; render(); trayIn(l.id, block.map(b => b.body).join(' · ')); }
   }
-  /* ---------------------------------------------- the Stand-Up tray ---------------------------------------------- */
+  /* ---------------------------------------------- the Talk about flag ---------------------------------------------- */
   async function trayIn(id, summary){
     try{
-      if(!window.suDesk) throw new Error('the Stand-Up board is not on this page');
+      if(!window.suDesk) throw new Error('the To talk about list is not on this page');
       const sid = await window.suDesk.create(summary, id);
-      action(null, ctx => ctx.setLine(id, { standup_item_id:sid }));
-      DK.tray[sid] = { status:'open' };
-    }catch(e){ say("Couldn't put that on the Stand-Up board just now, so it went back to your page."); moveLine(id, { place:'day', day:T() }, true); }
+      action(null, ctx => ctx.setLine(id, { standup_item_id:sid, talked_at:null }));
+      DK.tray[sid] = { status:'open' }; render();
+      return true;
+    }catch(e){ say("Couldn't flag that just now. Try again in a moment."); return false; }
   }
   function trayOut(sid){ if(window.suDesk && sid) window.suDesk.takeOut(sid).catch(() => {}); }
   const talked = l => { const st = l.standup_item_id && DK.tray[l.standup_item_id]; return !!(st && (st.talked_at || st.status === 'done')); };
-  function nextStandup(){ try{ if(typeof suNextStandup === 'function'){ const n = suNextStandup(); if(n) return n; } }catch(e){} return { label:DOW[D(nextBiz(T())).getDay()].slice(0, 3).toUpperCase() + ' 9:00', words:dowName(nextBiz(T())) + ' at 9:00 AM' }; }
-  function trayHtml(){
-    const cards = inPlace(DK.lines, 'tray').filter(l => l.kind !== 'note'), show = cards.slice(-4), n = nextStandup();
-    return '<button class="dk-tray" data-dk="tray" data-dkdrop="tray" aria-label="Stand-Up tray, ' + cards.length + ' cards" title="The team sees what is in this tray at Stand-Up">'
-      + '<div class="dk-tback"></div><div class="dk-tcards">'
-      + show.map((l, i) => '<div class="dk-icard' + (talked(l) ? ' dk-talked' : '') + (DK.landId === l.id ? ' dk-land' : '') + '" style="top:' + (i * 20) + 'px;--r:' + (((hash(l.id) % 5) - 2) * .8) + 'deg"><div class="dk-ict">' + esc(l.body) + '</div></div>').join('')
-      + '</div>' + (cards.length ? '' : '<div class="dk-tempty">' + (ro() ? 'Nothing in the tray.' : 'Drop things here for Stand-Up') + '</div>')
-      + (cards.length > 4 ? '<span class="dk-tmore">+' + (cards.length - 4) + ' more</span>' : '')
-      + '<div class="dk-tfront"><span class="dk-dymo">STAND-UP · ' + esc(n.label) + '</span></div></button>';
+  const flagged = l => !!(l.standup_item_id && !talked(l));
+  /* flag a to-do to talk about, or take the flag off again (the line never moves) */
+  function talkToggle(id){
+    const l = lineById(id); if(!l || l.kind !== 'todo' || ro()) return;
+    if(flagged(l)){ const sid = l.standup_item_id; trayOut(sid); action('Flag taken off', ctx => ctx.setLine(id, { standup_item_id:null })); return; }
+    const block = blockOf(inPlace(DK.lines, l.place, l.day), id);
+    trayIn(id, block.map(b => b.body).join(' · ')).then(ok => { if(ok) say('Flagged to talk about next time you\'re together'); });
   }
-  function trayOpen(anchor){
-    const cards = inPlace(DK.lines, 'tray').filter(l => l.kind !== 'note'), n = nextStandup(), R = ro();
-    if(!cards.length){ say(R ? 'Nothing in ' + firstName(DK.who) + "'s tray." : 'Drag a line onto the tray, or press S on a line.'); return; }
-    const rows = cards.map(l => '<div class="dk-trow" data-id="' + l.id + '"><span class="dk-trt">' + esc(l.body) + (talked(l) ? ' <b class="dk-tk">TALKED ABOUT</b>' : '') + '</span>'
-      + (R ? '' : '<span class="dk-tbtns">' + (talked(l) ? '<button data-t="done">All set</button><button data-t="todo">Something to do: today\'s page</button>'
-          : '<button data-t="back">Back to today\'s page</button><button data-t="out">Take it out</button>') + '</span>') + '</div>').join('');
-    if(typeof ccPopOpen !== 'function') return;
-    const el = ccPopOpen(anchor, '<div class="dk-traybox"><div class="dk-tkick">Stand-Up · ' + esc(n.words) + '</div><b style="font-size:16px;color:#0D365F">' + (R ? esc(firstName(DK.who)) + "'s tray" : 'Your Stand-Up tray') + '</b>'
-      + '<p class="field-note" style="margin:4px 0 8px">The team sees the cards in this tray at Stand-Up (on the Stand-Up board and in Prepare Stand-Up). Nothing else on a desk.</p>' + rows + '</div>', { width:520 });
-    if(!el || R) return;
-    el.addEventListener('click', e => { const b = e.target.closest('[data-t]'); if(!b) return;
-      const id = b.closest('[data-id]').dataset.id, l = lineById(id); if(!l) return; const sid = l.standup_item_id;
-      try{ ccPopClose(); }catch(x){}
-      if(b.dataset.t === 'back' || b.dataset.t === 'out'){
-        if(b.dataset.t === 'back') moveLine(id, { place:'day', day:T() });
-        else { if(sid) trayOut(sid); action('Taken out of the tray', ctx => ctx.setLine(id, { erased_at:new Date().toISOString(), standup_item_id:null })); }
-      } else if(b.dataset.t === 'done'){
-        if(sid && window.suDesk) window.suDesk.finish(sid, 'All set after Stand-Up').catch(() => {});
-        action('Off the tray. All set.', ctx => ctx.setLine(id, { done_at:new Date().toISOString(), erased_at:new Date().toISOString() }));
-      } else if(b.dataset.t === 'todo'){
-        if(sid && window.suDesk) window.suDesk.finish(sid, 'Back on ' + String(myName()).split(' ')[0] + "'s desk after Stand-Up").catch(() => {});
-        action(null, ctx => ctx.setLine(id, { standup_item_id:null }));
-        moveLine(id, { place:'day', day:T() });
-      }
-    });
+  /* on my own desk: a flag somebody answered comes off; cards from the old tray go back on today's page, still flagged */
+  async function talkSync(){
+    if(ro() || !DK.me) return;
+    DK.lines.filter(l => l.place === 'tray' && !l.erased_at).forEach(l => action(null, ctx => ctx.setLine(l.id, { place:'day', day:T(), pos:Date.now() / 1e10 })));
+    const sids = DK.lines.filter(l => l.standup_item_id && !l.erased_at).map(l => l.standup_item_id);
+    if(!sids.length || !window.suDesk) return;
+    try{ DK.tray = await window.suDesk.status(sids); }catch(e){ return; }
+    DK.lines.filter(l => l.standup_item_id && !l.erased_at).forEach(l => { const st = DK.tray[l.standup_item_id];
+      if(st === undefined) return;
+      if(st === null || st.archived_at || st.status === 'done' || st.talked_at) action(null, ctx => ctx.setLine(l.id, { standup_item_id:null, talked_at:st && (st.talked_at || st.status === 'done') ? (st.talked_at || new Date().toISOString()) : null })); });
   }
   function eraseLine(id){
     const l = lineById(id); if(!l) return;
     const block = l.kind === 'todo' ? blockOf(inPlace(DK.lines, l.place, l.day), id) : [l];
-    if(l.place === 'tray' && l.standup_item_id && !talked(l)) trayOut(l.standup_item_id);
+    block.forEach(b => { if(flagged(b)) trayOut(b.standup_item_id); });
     action('Erased. Only you saw that.', ctx => { const now = new Date().toISOString(); block.forEach(b => ctx.setLine(b.id, { erased_at:now })); });
   }
   function toggle(id){
@@ -387,7 +375,7 @@
   function addLine(text, note, onDay, link){
     text = String(text || '').trim().slice(0, 1000); if(!text) return;
     const day = onDay || DK.day, arr = inPlace(DK.lines, 'day', day);
-    action(null, ctx => ctx.addLine({ place:'day', day, origin_day:day, pos:(arr.length ? arr[arr.length - 1].pos : 0) + 1, kind:note ? 'note' : 'todo', body:text, time_text:note ? null : parseTime(text), link:link || null }));
+    return action(null, ctx => ctx.addLine({ place:'day', day, origin_day:day, pos:(arr.length ? arr[arr.length - 1].pos : 0) + 1, kind:note ? 'note' : 'todo', body:text, time_text:note ? null : parseTime(text), link:link || null }));
   }
   function nudge(id, dir){
     const l = lineById(id); if(!l) return;
@@ -409,7 +397,7 @@
       + (l.kind === 'todo' ? (day ? '<button class="dk-tool" data-dk="t-next" title="Move to ' + esc(fmtShort(nb)) + ' (T)">' + icon('next') + DOW[D(nb).getDay()].slice(0, 3) + '</button>'
           : '<button class="dk-tool" data-dk="t-today" title="Back to today\'s page">' + icon('prev') + 'Today</button>')
         + (l.place !== 'later' ? '<button class="dk-tool" data-dk="t-later" title="Into the Later folder (L)">' + icon('later') + '</button>' : '')
-        + (l.place !== 'tray' ? '<button class="dk-tool" data-dk="t-tray" title="Into the Stand-Up tray (S)">' + icon('tray') + '</button>' : '') : '')
+        + '<button class="dk-tool' + (flagged(l) ? ' dk-on' : '') + '" data-dk="t-talk" title="' + (flagged(l) ? 'Don\'t need to talk about it (S)' : 'Talk about it next time you\'re together (S)') + '">' + icon('talk') + '</button>' : '')
       + '<button class="dk-tool" data-dk="more" title="More" aria-label="More">' + icon('dots') + '</button></span>';
     const grip = R ? '' : '<span class="dk-grip" aria-hidden="true">' + icon('grip') + '</span>';
     const attrs = ' data-dkid="' + l.id + '" data-idx="' + idx + '" tabindex="0"' + (R ? '' : ' data-dkdrag="line"');
@@ -419,6 +407,7 @@
     const chips = [];
     if(l.link && l.link.type && l.link.type !== 'work' && l.link.name) chips.push('<button class="dk-chip dk-clip" data-dk="link" title="Open ' + esc(l.link.name) + '">' + icon('clip') + esc(l.link.name) + '</button>');
     if(l.link && (l.link.type === 'work' || l.link.work_id)) chips.push('<button class="dk-chip dk-work" data-dk="link" data-work="1" title="Open it in My Work">' + icon('clip') + 'My Work</button>');
+    if(flagged(l)) chips.push('<span class="dk-chip dk-talk" title="Flagged to talk about">' + icon('talk') + 'to talk about</span>');
     if(l.time_text && !l.done_at) chips.push('<span class="dk-chip dk-time">' + icon('clock') + esc(l.time_text) + '</span>');
     if(c) chips.push('<span class="dk-chip dk-carry' + (c4 ? ' dk-carry4' : '') + '">' + esc(c.label) + '</span>');
     if(c4 && R && iOwn()) chips.push('<span class="dk-chip dk-hand">might need a hand?</span>');
@@ -545,38 +534,43 @@
   async function ownDesk(){
     if(DK.meEmail !== myEmail() || !DK.loaded || ro()){ DK.view = 'day'; await openDesk(null); }
   }
-  async function dkQuickJot(text, note, link){
+  async function dkQuickJot(text, note, link, talk){
     if(!dkAllowed()) return false;
     await ownDesk(); if(!DK.me) return false;
-    addLine(text, note, T(), link || null); drawerRender(); return true;
+    const x = addLine(text, note, T(), link || null); drawerRender();
+    if(talk && x && !note) return await trayIn(x.id, x.body) ? 'talk' : true;
+    return true;
   }
-  function dkJotOpen(anchor){
+  function dkJotOpen(anchor, opts){
     if(typeof ccPopOpen !== 'function') return;
+    opts = opts || {};
     const el = ccPopOpen(anchor, '<div style="font-size:13px;font-weight:800;color:var(--navy);margin:2px 2px 6px;">Jot on my desk</div>'
       + '<input id="dkQuick" maxlength="1000" placeholder="jot something down…" style="width:100%;font-size:15px;padding:8px 10px;" autocomplete="off">'
-      + '<div class="field-note" style="margin-top:6px;">Enter puts it on today\'s page. Shift+Enter makes it a note. Only you see it.</div>', { width:340 });
+      + '<label style="display:flex;gap:7px;align-items:center;margin-top:8px;font-size:13px;cursor:pointer;"><input type="checkbox" id="dkQTalk" style="width:auto;margin:0;"' + (opts.talk ? ' checked' : '') + '> Talk about it next time we\'re together</label>'
+      + '<div class="field-note" style="margin-top:6px;">Enter puts it on today\'s page. Shift+Enter makes it a note. Only you see it' + ' (a flagged line is also on the To talk about list).</div>', { width:360 });
     const i = el && el.querySelector('#dkQuick'); if(!i) return;
     setTimeout(() => i.focus(), 30);
     i.addEventListener('keydown', async e => { if(e.key !== 'Enter') return; e.preventDefault(); e.stopPropagation(); const v = i.value.trim(); if(!v) return;
-      try{ ccPopClose(); }catch(x){} const ok = await dkQuickJot(v, e.shiftKey); say(ok ? "On today's page" : "Couldn't open your desk just now."); });
+      const talk = !!(el.querySelector('#dkQTalk') || {}).checked;
+      try{ ccPopClose(); }catch(x){} const ok = await dkQuickJot(v, e.shiftKey, null, talk); say(ok === 'talk' ? "On today's page, flagged to talk about" : ok ? "On today's page" : "Couldn't open your desk just now."); });
   }
   /* End My Shift: a short desk step (decided per line, nothing moves unless chosen) and the ribbon moves on. */
   function dkShiftHtml(){
     if(!dkAllowed() || !DK.loaded || ro() || !DK.me) return '';
-    const open = openOf(inPlace(DK.lines, 'day', T())), tray = inPlace(DK.lines, 'tray').filter(l => l.kind !== 'note' && !talked(l)), n = nextStandup();
+    const open = openOf(inPlace(DK.lines, 'day', T())), tray = DK.lines.filter(l => !l.erased_at && l.kind === 'todo' && !l.done_at && flagged(l));
     return '<div class="dk-shift" style="margin-top:12px;"><div style="font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--navy);margin:6px 0;">YOUR DESK' + (open.length ? ' · ' + open.length + ' STILL OPEN ON TODAY\'S PAGE' : '') + '</div>'
       + (open.length ? '<div class="field-note" style="margin-bottom:6px;">Only you see these. Nothing moves unless you choose.</div>'
         + open.map(l => '<div class="dkEsRow" data-id="' + l.id + '" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);padding:5px 0;"><span style="flex:1 1 220px;min-width:0;font-size:13.5px;">' + esc(l.body) + '</span>'
-          + '<select class="dkEsWhat" style="width:auto;font-size:12.5px;padding:4px 6px;"><option value="keep">Leave it</option><option value="next">' + esc(dowName(nextBiz(T()))) + '</option><option value="later">Later folder</option><option value="tray">Stand-Up tray</option></select></div>').join('')
+          + '<select class="dkEsWhat" style="width:auto;font-size:12.5px;padding:4px 6px;"><option value="keep">Leave it</option><option value="next">' + esc(dowName(nextBiz(T()))) + '</option><option value="later">Later folder</option>' + (flagged(l) ? '' : '<option value="talk">Talk about it</option>') + '</select></div>').join('')
         : '<div class="field-note">Today\'s page is all crossed off.</div>')
-      + (tray.length ? '<div class="field-note" style="margin-top:6px;">In your Stand-Up tray for ' + esc(n.words) + ': ' + tray.map(l => '“' + esc(l.body) + '”').join(', ') + '.</div>' : '')
+      + (tray.length ? '<div class="field-note" style="margin-top:6px;">Flagged to talk about: ' + tray.map(l => '“' + esc(l.body) + '”').join(', ') + '.</div>' : '')
       + '<div class="field-note" style="margin-top:4px;">Your ribbon moves to ' + esc(dowName(nextBiz(T()))) + '\'s page.</div></div>';
   }
   async function dkShiftApply(el){
     if(!dkAllowed() || !DK.loaded || ro() || !DK.me) return;
     const rows = [...((el && el.querySelectorAll('.dkEsRow')) || [])];
     rows.forEach(r => { const what = r.querySelector('.dkEsWhat').value, id = r.dataset.id;
-      if(what === 'next') moveLine(id, { place:'day', day:nextBiz(T()) }, true); else if(what === 'later') moveLine(id, { place:'later' }, true); else if(what === 'tray') moveLine(id, { place:'tray' }, true); });
+      if(what === 'next') moveLine(id, { place:'day', day:nextBiz(T()) }, true); else if(what === 'later') moveLine(id, { place:'later' }, true); else if(what === 'talk') talkToggle(id); });
     setPage(T(), { wrapped_at:new Date().toISOString() }); render();
   }
   function dkRefresh(){ if($('#dkRoot')) render(); drawerRender(); }
@@ -714,11 +708,11 @@
   function dkDashRender(){
     const box = document.getElementById('dkDashLine'); if(!box) return;
     if(!dkAllowed() || !DK.loaded || ro()){ box.innerHTML = ''; if(dkAllowed() && !DK.warm) dkWarm().then(() => dkDashRender()); return; }
-    const open = openOf(inPlace(DK.lines, 'day', T())).length, tray = inPlace(DK.lines, 'tray').filter(l => l.kind !== 'note').length;
+    const open = openOf(inPlace(DK.lines, 'day', T())).length, tray = DK.lines.filter(l => !l.erased_at && !l.done_at && flagged(l)).length;
     const notes = DK.stickies.filter(x => x.from_person_id && x.from_person_id !== DK.me && !x.ack_at && !x.erased_at);
     const bits = [open ? open + ' open on today\'s page' : 'today\'s page is all crossed off'];
     notes.forEach(x => bits.push(firstName(x.from_person_id) + ' left you a note'));
-    if(tray) bits.push(tray + ' in your Stand-Up tray');
+    if(tray) bits.push(tray + ' flagged to talk about');
     box.innerHTML = '<button class="dk-dash" onclick="switchTab(\'mydesk\')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-desk"/></svg><b>My Desk:</b> ' + esc(bits.join(' · ')) + '</button>';
   }
 
@@ -751,7 +745,7 @@
     const d = tucked()[0]; if(!d || typeof ccPopOpen !== 'function') return;
     const k = d.kind_words, first = String(k.about || '').split(' ')[0];
     const el = ccPopOpen(anchor, '<div class="dk-clipbox"><div class="dk-tkick">Kind words came in</div><div class="dk-bigq">“' + esc(k.quote) + '”</div><div class="dk-ksrc">' + kLine(k) + '</div>'
-      + '<div class="dk-kacts"><button class="primary" data-k="jar">Into the jar</button><button class="secondary" data-k="tape">Tape it to my desk</button><button class="secondary" data-k="standup">Read it at Stand-Up</button>'
+      + '<div class="dk-kacts"><button class="primary" data-k="jar">Into the jar</button><button class="secondary" data-k="tape">Tape it to my desk</button><button class="secondary" data-k="standup">Talk about it</button>'
       + (k.about_role === 'caregiver' && first ? '<button class="secondary" data-k="tell">Tell ' + esc(first) + '</button>' : '') + '</div>'
       + '<p class="field-note" style="margin-top:10px">It is already in the office\'s jar. This is only about where it sits on your desk.' + (tucked().length > 1 ? ' ' + (tucked().length - 1) + ' more tucked under your page.' : '') + '</p></div>', { width:480 });
     if(!el) return;
@@ -760,8 +754,8 @@
       try{ ccPopClose(); }catch(x){}
       if(w === 'jar') kindState(k.id, 'done', 'Into the jar it goes');
       else if(w === 'tape') kindState(k.id, 'taped', 'Taped to your desk');
-      else if(w === 'standup'){ const x = action(null, ctx => ctx.addLine({ place:'tray', day:null, origin_day:T(), pos:Date.now() / 1e10, kind:'todo', body:('Read out loud: ' + (k.who || 'someone') + (k.about ? ' about ' + k.about : '') + ', "' + k.quote + '"').slice(0, 1000) }));
-        DK.landId = x.id; trayIn(x.id, x.body); kindState(k.id, 'done', 'In your Stand-Up tray, to read out loud'); }
+      else if(w === 'standup'){ const x = addLine(('Read out loud: ' + (k.who || 'someone') + (k.about ? ' about ' + k.about : '') + ', "' + k.quote + '"').slice(0, 1000), false, T());
+        if(x){ DK.landId = x.id; trayIn(x.id, x.body); } kindState(k.id, 'done', "On today's page, flagged to talk about"); }
       if(tucked().length) setTimeout(() => kindOpen(anchor), 300);
     });
   }
@@ -1016,7 +1010,7 @@
       + '<div class="dk-bits"><button class="dk-polaroid" ' + (ro() ? 'tabindex="-1"' : 'data-dk="photo" title="Put your own photo here"') + '><div class="dk-img"' + (st.photo ? ' style="background-image:url(\'' + esc(st.photo) + '\')"' : '') + '>' + (st.photo ? '' : '<svg aria-hidden="true"><use href="#dk-heart"/></svg>') + '</div><span class="dk-cap">' + (st.photo || ro() ? '' : 'your photo') + '</span></button>'
       + (ro() ? '' : '<button class="dk-cup" data-dk="prefs" title="Make it yours" aria-label="Make it yours"><svg viewBox="0 0 52 78" aria-hidden="true"><path d="M14 30l6-26" stroke="#F0A63A" stroke-width="5" stroke-linecap="round"/><path d="M26 30V6" stroke="#8FD1C7" stroke-width="5" stroke-linecap="round"/><path d="M36 30l5-22" stroke="#f8c5d2" stroke-width="5" stroke-linecap="round"/><path d="M8 30h36l-3 44H11z" fill="#0D365F"/><path d="M8 30h36" stroke="#E8C988" stroke-width="3"/></svg></button>') + '</div>'
       + '<input type="file" id="dkPhotoIn" accept="image/*" hidden></div>';
-    const right = '<div class="dk-rail dk-r"><div class="dk-zone dk-zr"></div>' + (ro() ? '' : tapedHtml()) + trayHtml() + folderHtml()
+    const right = '<div class="dk-rail dk-r"><div class="dk-zone dk-zr"></div>' + (ro() ? '' : tapedHtml()) + folderHtml()
       + '<div class="dk-bits"><button class="dk-jar" data-dk="jar" title="The office\'s Kind Words jar" aria-label="The Kind Words jar">' + jarSvg(DK.jarN) + (DK.waitN && !ro() ? '<span class="dk-jarwait">' + DK.waitN + ' waiting</span>' : '') + '</button><div class="dk-mug" aria-hidden="true"><div class="dk-steam"><i></i><i></i><i></i></div><svg viewBox="0 0 64 78"><path d="M8 22h40v38c0 8-6 13-14 13H22c-8 0-14-5-14-13z" fill="#f2eee3"/><path d="M48 32h5a8 8 0 0 1 0 16h-5" fill="none" stroke="#f2eee3" stroke-width="5"/><ellipse cx="28" cy="22" rx="20" ry="4" fill="#7a4a22"/><path d="M28 54c-4-2.6-5.8-4.6-5.8-6.6 0-1.6 1.2-2.6 2.5-2.6s2.2.7 3.3 2c1-1.3 2-2 3.3-2s2.5 1 2.5 2.6c0 2-1.8 4-5.8 6.6z" fill="#1F7A8C"/></svg></div>'
       + (ro() ? '' : '<button class="dk-eraser" data-dkdrop="erase" data-dk="erase-help" title="Drop a line or a sticky here to erase it">ERASE</button>')
       + '<button class="dk-help" data-dk="help">How to</button></div></div>';
@@ -1082,7 +1076,7 @@
       + (!onDay ? '<button data-m="today">' + icon('prev') + "Back on today's page</button>" : (todo ? '<button data-m="next">' + icon('next') + 'Move to ' + fmtShort(nextBiz(base)) + '<span class="dk-k">T</span></button>' : ''))
       + (todo ? '<div class="dk-mh">' + icon('day') + 'Pick a day</div><div class="dk-days">' + days.slice(0, 5).map(s => '<button data-m="day" data-day="' + s + '">' + (s === T() ? 'Today' : fmtTiny(s)) + '</button>').join('') + '</div>' : '')
       + (todo && l.place !== 'later' ? '<button data-m="later">' + icon('later') + 'Into the Later folder<span class="dk-k">L</span></button>' : '')
-      + (todo && l.place !== 'tray' ? '<button data-m="tray">' + icon('tray') + 'Into the Stand-Up tray<span class="dk-k">S</span></button>' : '')
+      + (todo ? '<button data-m="talk">' + icon('talk') + (flagged(l) ? 'Don\'t need to talk about it' : 'Talk about it') + '<span class="dk-k">S</span></button>' : '')
       + (onDay && todo ? '<hr><button data-m="star">' + icon('hstar') + (l.star ? 'Remove the star' : 'Star it in the margin') + '<span class="dk-k">*</span></button><button data-m="circle">' + icon('circle') + (l.circle ? 'Remove the circle' : 'Circle it') + '<span class="dk-k">C</span></button>' : '')
       + (onDay ? '<hr>' + (todo ? '<button data-m="noteunder">' + icon('pencil') + 'Scribble a note under it</button>' : '<button data-m="todo">' + icon('box') + 'Make it a to-do</button>')
         + '<button data-m="up">' + icon('up') + 'Up one line<span class="dk-k">Alt ↑</span></button><button data-m="down">' + icon('down') + 'Down one line<span class="dk-k">Alt ↓</span></button>' : '')
@@ -1105,7 +1099,7 @@
     else if(a === 'today') moveLine(id, { place:'day', day:T() });
     else if(a === 'day') moveLine(id, { place:'day', day:el.dataset.day });
     else if(a === 'later') moveLine(id, { place:'later' });
-    else if(a === 'tray') moveLine(id, { place:'tray' });
+    else if(a === 'talk') talkToggle(id);
     else if(a === 'noteunder') noteUnder(id);
     else if(a === 'star' || a === 'circle') action(null, ctx => ctx.setLine(id, { [a]:!l[a] }));
     else if(a === 'todo') action(null, ctx => ctx.setLine(id, { kind:'todo' }));
@@ -1175,8 +1169,7 @@
     't-next': a => { const id = a.closest('[data-dkid]').dataset.dkid, l = lineById(id); moveLine(id, { place:'day', day:nextBiz(l.day || T()) }); },
     't-today': a => moveLine(a.closest('[data-dkid]').dataset.dkid, { place:'day', day:T() }),
     't-later': a => moveLine(a.closest('[data-dkid]').dataset.dkid, { place:'later' }),
-    't-tray': a => moveLine(a.closest('[data-dkid]').dataset.dkid, { place:'tray' }),
-    tray: a => trayOpen(a),
+    't-talk': a => talkToggle(a.closest('[data-dkid]').dataset.dkid),
     kind: a => kindOpen(a),
     jar: a => jarOpen(a),
     'taped-jar': a => kindState(a.dataset.k, 'done', 'Into the jar it goes'),
@@ -1243,9 +1236,9 @@
       + '<kbd>Drag</kbd><span>Grab a line and drop it up or down the page, on the page peeking out behind (hold it there and the page turns), the Later folder, a sticky, or the eraser. Notes under a line travel with it.</span>'
       + '<kbd>Stickies</kbd><span>Click a pad, or drag a new sticky straight off it. Click to write. Drag it anywhere. Drop it on the page to turn its lines into to-dos. Click under a pad to give that color your own meaning.</span>'
       + '<kbd>Margin</kbd><span>Click the margin beside a line for a star. Press C to circle it.</span><kbd>Corner</kbd><span>Fold a page\'s top corner to come back to it. Folded pages show in Month.</span><kbd>Calendar</kbd><span>Click a date to open its page, or drop a line on it.</span>'
-      + '<kbd>Space</kbd><span>Check off the selected line</span><kbd>T · L</kbd><span>The next day · the Later folder</span>'
+      + '<kbd>Space</kbd><span>Check off the selected line</span><kbd>T · L · S</kbd><span>The next day · the Later folder · Talk about it (a little bubble; it is on the To talk about list until someone taps Talked)</span>'
       + '<kbd>Alt ↑ ↓</kbd><span>Move a line up or down</span><kbd>← →</kbd><span>Turn the page (swipe on a phone)</span><kbd>Del</kbd><span>Erase the selected line (Undo is right there)</span><kbd>N</kbd><span>Jump to the jot line</span></div>'
-      + '<p class="field-note" style="margin-top:10px;">Only you see your desk. Owners can look at it, and in a later step they will be able to leave you a signed note. Nothing on your desk texts, emails or reminds anyone.</p></div>';
+      + '<p class="field-note" style="margin-top:10px;">Only you see your desk. Owners can look at it and leave you a signed note. A line you flag to talk about is the only thing anyone else sees. Nothing on your desk texts, emails or reminds anyone.</p></div>';
     if(typeof ccPopOpen === 'function'){ const el = ccPopOpen(null, html, { width:520 }); if(el && innerWidth >= 700){ el.style.left = Math.max(8, (innerWidth - 520) / 2) + 'px'; el.style.top = '70px'; } }
   }
 
@@ -1280,7 +1273,7 @@
       if((e.key === ' ' || e.key === 'x') && l.kind === 'todo'){ e.preventDefault(); toggle(id); refocus(); return; }
       if(e.key === 't' && l.kind === 'todo'){ moveLine(id, { place:'day', day:nextBiz(l.day || T()) }); return; }
       if(e.key === 'l' && l.kind === 'todo'){ moveLine(id, { place:'later' }); return; }
-      if(e.key === 's' && l.kind === 'todo'){ moveLine(id, { place:'tray' }); return; }
+      if(e.key === 's' && l.kind === 'todo'){ talkToggle(id); return; }
       if((e.key === '*' || e.key === 'c') && l.kind === 'todo' && l.place === 'day'){ const k = e.key === '*' ? 'star' : 'circle'; action(null, ctx => ctx.setLine(id, { [k]:!l[k] })); refocus(); return; }
       if(e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); eraseLine(id); return; }
       if(e.key === 'Enter'){ e.preventDefault(); const tx = row.querySelector('.dk-txt, .dk-st'); if(tx) startEdit(tx, id); return; }
@@ -1522,6 +1515,7 @@
     + '<symbol id="dk-grip" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></g></symbol>'
     + '<symbol id="dk-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>'
     + '<symbol id="dk-leaf" viewBox="0 0 40 40"><path d="M20 4l3 7 6-3-2 7 7 1-5 5 4 4-7 1 1 7-7-4-3 6-1-7-6 2 2-6-7-2 6-4-3-6 7 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M20 12v26" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>'
+    + '<symbol id="dk-talk" viewBox="0 0 24 24"><path d="M4 5h12a2 2 0 0 1 2 2v6.5a2 2 0 0 1-2 2H9.5L6 18.5v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6.8" cy="10.3" r="1.1" fill="currentColor"/><circle cx="10" cy="10.3" r="1.1" fill="currentColor"/><circle cx="13.2" cy="10.3" r="1.1" fill="currentColor"/></symbol>'
     + '<symbol id="dk-tray" viewBox="0 0 24 24"><path d="M3 12l2.2 7.5h13.6L21 12" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M7.5 12V5.5h9V12" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M3 12h18" stroke="currentColor" stroke-width="1.9"/></symbol>'
     + '<symbol id="dk-gstar" viewBox="0 0 24 24"><path d="M12 2.8l2.7 5.8 6.3.7-4.7 4.3 1.3 6.2L12 16.7 6.4 19.8l1.3-6.2L3 9.3l6.3-.7z" fill="#F0A63A" stroke="#9C6410" stroke-width="1.1" stroke-linejoin="round"/></symbol>'
     + '<symbol id="dk-steps" viewBox="0 0 24 24"><path d="M7 17.5c-1.6 0-2.4-1.4-2.2-3.4.3-2.6 1.4-4.6 2.9-4.4 1.4.2 1.7 2.4 1.3 4.6-.3 1.9-.8 3.2-2 3.2zM16.4 12.6c-1.2 0-1.9-1.1-1.7-2.7.2-2 1.1-3.6 2.3-3.4 1.1.2 1.3 1.9 1 3.6-.2 1.5-.6 2.5-1.6 2.5z" fill="currentColor"/></symbol>'
@@ -1837,6 +1831,8 @@ button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale
 .dk-dash{ display:flex; gap:8px; align-items:center; width:100%; text-align:left; border:1px solid #f0d78a; background:#fff8e1; color:#4d3500; border-radius:10px; padding:9px 12px; font-size:13.5px; cursor:pointer; margin-bottom:12px; }
 .dk-dash b{ color:#0D365F; } .dk-dash svg{ width:18px; height:18px; flex:none; }
 .wkcard.dk-flash{ outline:3px solid #F0A63A; outline-offset:2px; transition:outline .3s; }
+/* Talk about: the little bubble on a flagged line */
+.dk-chip.dk-talk{ background:#E3F4F3; color:#1F7A8C; } .dk-tool.dk-on{ color:#1F7A8C; background:#E3F4F3; }
 /* Stage 4: the Stand-Up tray, the Friday card */
 .dk-tray{ position:relative; height:186px; border:0; background:transparent; padding:0; width:100%; text-align:left; display:block; font:inherit; }
 .dk-tback{ position:absolute; left:6%; right:6%; top:26px; bottom:30px; border-radius:6px 6px 0 0; background:linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.10)); border:1.5px solid rgba(255,255,255,.4); border-bottom:0; }
@@ -1905,5 +1901,5 @@ button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale
 `;
 
   Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkKindToggle, dkAllowed, dkWarm, dkQuickJot, dkJotOpen, dkShiftHtml, dkShiftApply, dkRefresh, dkJotWork, dkDashRender, dkDrawer:toggleDrawer });
-  window.DKX = { kindOpen, jarOpen, clipOpen, kindState, tucked, deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, trayOpen, nextStandup, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
+  window.DKX = { kindOpen, jarOpen, clipOpen, kindState, tucked, deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, talkToggle, talkSync, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
 })();

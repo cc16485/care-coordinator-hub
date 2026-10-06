@@ -76,7 +76,7 @@ async()=>{
   /* ── Prepare Stand-Up ── */
   const list=prepList();
   const secs=[...new Set(list.map(r=>r.sec))];
-  ok('the list, in her order: urgent, coverage today+tomorrow, client issues, staffing issues, promises due, carried over', JSON.stringify(secs)===JSON.stringify(['Urgent and high-risk, not resolved','Coverage today and tomorrow','Client issues','Staffing issues','Promises due','Carried over: the Stand-Up board']), secs);
+  ok('the list, in her order: urgent, coverage today+tomorrow, client issues, staffing issues, promises due, carried over', JSON.stringify(secs)===JSON.stringify(['Urgent and high-risk, not resolved','Coverage today and tomorrow','Client issues','Staffing issues','Promises due','From the old Stand-Up board']), secs);
   ok('each item once (the urgent staffing item is not repeated under staffing issues)', list.filter(r=>r.id==='u1').length===1 && list.some(r=>r.id==='ef' && r.sec==='Staffing issues'));
   ok('coverage: today\'s and tomorrow\'s open cases only', list.filter(r=>r.kind==='case').map(r=>r.id).sort().join()==='cn,ct,cw,cy');
   ok('promises: only those due by today', list.some(r=>r.id==='pr') && !list.some(r=>r.id==='pl'));

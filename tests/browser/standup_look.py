@@ -54,127 +54,77 @@ T = r"""
 async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,600)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const S=window.__store, L=window.__log, $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-  const item=id=>S.standup_notes.find(x=>x.id===id), wrap=()=>$('#suWrap'), cards=()=>$$('#suList > .card');
-  const cardFor=txt=>cards().find(c=>c.textContent.includes(txt));
+  const item=id=>S.standup_notes.find(x=>x.id===id), wrap=()=>$('#suWrap'), cards=()=>$$('#suWrap .su-talk');
+  const cardFor=txt=>cards().find(c=>c.textContent.includes(txt)) || { textContent:'', missing:true };
   const popTop=()=>{ const p=$$('.ccpop'); return p[p.length-1]; };
   const clickBtn=(root,txt)=>{ const b=[...root.querySelectorAll('button')].find(x=>x.textContent.trim()===txt); if(!b) throw new Error('no button '+txt); b.click(); };
   document.getElementById('appScreen').classList.add('on');
 
   /* --- where it lives --- */
   const today=$('#fsub-today');
-  ok('Stand-Up and Team Meetings are tabs under Today', !!today.querySelector('[data-tab=standup]') && !!today.querySelector('[data-tab=teammeetings]'));
+  ok('To talk about and Team Meetings are tabs under Today', !!today.querySelector('[data-tab=standup]') && !!today.querySelector('[data-tab=teammeetings]'));
   ok('the old Meetings tab is gone from the Team section', !$('[data-tab=meetings]') && !$('#tab-meetings'));
   switchTab('meetings'); await sleep(60);
   ok('an old #meetings link lands on Team Meetings', activeTab==='teammeetings', activeTab);
   location.hash='#standup'; await sleep(150);
-  ok('the Team Hub link cc.mo-care.com/#standup opens Stand-Up', activeTab==='standup', activeTab);
+  ok('the Team Hub link cc.mo-care.com/#standup opens To talk about', activeTab==='standup', activeTab);
   location.hash='#teammeetings'; await sleep(150);
   ok('...and #teammeetings opens Team Meetings', activeTab==='teammeetings', activeTab);
   ok('the request-a-meeting card moved into Team Meetings with the same fields', ['mpg_with','mpg_topic','mpg_when','meetingsPageList'].every(id=>$('#tab-teammeetings #'+id)));
 
-  /* --- the board, urgent first, aging --- */
+  /* --- To talk about (2026-10-06): the Stand-Up board became a list of flags --- */
+  S.standup_notes.push({ id:'xss', summary:'<img src=x onerror="window.__pwned=1">', occurred_at:window.__iso(-0.2), status:'open', assigned_to_email:'jess@mo-care.com', created_at:window.__iso(-0.2) });
+  S.ops_items=[{ id:'ops_u1', kind:'client_issue', title:'Mary fell on Tuesday', about:'Mary Test', urgency:'urgent', status:'open', owner:'jess@mo-care.com', owner_name:'Jess Lee', created_at:new Date().toISOString(), due:new Date().toISOString() }];
+  (0,eval)("DATA.ops_items=[{ id:'ops_u1', kind:'client_issue', title:'Mary fell on Tuesday', about:'Mary Test', urgency:'urgent', status:'open', owner:'jess@mo-care.com', owner_name:'Jess Lee', created_at:new Date().toISOString(), due:new Date().toISOString() }]");
+  switchTab('standup'); await sleep(300);
+  ok('the tab is called To talk about', /To talk about/.test($('[data-tab=standup]').textContent) && /To talk about/.test(wrap().querySelector('h2').textContent));
+  ok('it says what it is: flags from My Work or My Desk, Talked clears it, nothing is sent', /flagged to bring up the next time you're together/.test(wrap().innerText) && /Tap Talked/.test(wrap().innerText) && /Nothing here texts or emails anyone/.test(wrap().innerText));
+  const groups=()=>$$('#suWrap .su-tgroup').map(g=>g.firstElementChild.textContent.replace(/\s*\(\d+\)$/,'').trim());
+  ok('grouped by person, mine first ("You"), older typed names matched (Kat)', groups()[0]==='You' && groups().includes('Jess Lee'), groups());
+  ok('my group has my two open items, urgent first', (()=>{ const g=$$('#suWrap .su-tgroup')[0]; const t=[...g.querySelectorAll('.su-talk b')].map(b=>b.textContent); return t[0]==='Brand new urgent' && t.includes('Legacy call-out from Saturday'); })());
+  ok('a done item is not on the list', cardFor('Fixed the fax').missing);
+  ok('older board items say so, with "Still needs doing: put it on My Work"', /From the old Stand-Up board/.test(cardFor('Due soon item').textContent) && /Still needs doing: put it on My Work/.test(cardFor('Due soon item').textContent));
+  ok('typed HTML shows as text and never runs', window.__pwned===undefined && !wrap().querySelector('img') && /<img/.test(wrap().textContent));
+  window.__wm=[wrap().innerText.slice(-600), (()=>{ try{ return JSON.stringify(prepList()); }catch(e){ return String(e); } })()];
+  ok('"Worth mentioning": what the Hub found on its own (an urgent client issue)', /Worth mentioning/.test(wrap().innerText) && /URGENT AND HIGH-RISK[\s\S]*Mary Test/.test(wrap().innerText), window.__wm);
+  L.writes.length=0;
+  [...cardFor('Brand new urgent').querySelectorAll('button')].find(b=>/Talked/.test(b.textContent)).click(); await sleep(200);
+  let it=item('old5');
+  ok('Talked: done, stamped, in its history, off the list', it.status==='done' && !!it.talked_at && it.history.some(h=>h.what==='Talked about' && h.by==='Kat Smith') && cardFor('Brand new urgent').missing && L.writes.length===1, it);
+  ok('...and under "Talked about this week"', /Talked about this week \(1\)/.test(wrap().innerText));
+  // an older item that still needs doing goes onto My Work
+  await suAct('old4','towork'); await sleep(150);
+  ok('"Still needs doing" opens the My Work form with the words filled in', $('#ccCapWrap').style.display==='flex' && $('#capWhat').value==='Overdue thing');
+  await ccCaptureSave(); await sleep(250);
+  const made=(DATA.ops_items||[]).find(x=>x.title==='Overdue thing');
+  ok('...saved as a My Work item, and the old item is closed "Put on My Work"', !!made && S.ops_items.some(x=>x.id===made.id) && item('old4').status==='done' && item('old4').history.some(h=>h.what==='Put on My Work'), item('old4'));
+  // the flag on a My Work card
+  await myWorkTalk('ops_u1'); await sleep(200);
+  const fl=S.standup_notes.find(x=>x.source==='work' && x.ops_id==='ops_u1');
+  ok('Talk about on a My Work card: one flag, under whoever owns the card', !!fl && fl.assigned_to_email==='jess@mo-care.com' && fl.summary==='Mary fell on Tuesday' && /from My Work/.test(fl.history[0].what), fl);
+  ok('...the card shows "to talk about" and the button turns into "Don\'t need to talk about it"', /to talk about/.test(myWorkCard(DATA.ops_items[0],0)) && /Don’t need to talk about it/.test(myWorkCard(DATA.ops_items[0],0)));
+  await myWorkTalk('ops_u1'); await sleep(50); await myWorkTalk('ops_u1'); await sleep(150);
+  ok('...off and on again never makes two open flags', S.standup_notes.filter(x=>x.source==='work' && x.ops_id==='ops_u1' && !x.archived_at && x.status!=='done').length===1);
   switchTab('standup'); await sleep(250);
-  const order=cards().map(c=>c.querySelector('b').textContent);
-  ok('open work: urgent, then overdue, then due date, then the oldest', JSON.stringify(order)===JSON.stringify(['Brand new urgent','Overdue thing','Due soon item','Legacy call-out from Saturday']), order);
-  const c1=cardFor('Legacy call-out');
-  ok('6 days open shows in red', /open 6 days/.test(c1.textContent) && /var\(--red\)/.test(c1.innerHTML), c1.textContent.slice(0,300));
-  const c3=cardFor('Due soon item');
-  ok('3 days open shows in amber', /open 3 days/.test(c3.textContent) && /var\(--amber\)/.test(c3.querySelector('.field-note').innerHTML));
-  ok('older items keep working: the name typed as "Kat" is matched to Kat Smith', /Assigned to Kat Smith/.test(c1.textContent));
-  ok('overdue is marked', /Overdue since/.test(cardFor('Overdue thing').textContent));
-  ok('a resolved older item counts as Done, not open', !cardFor('Fixed the fax'));
-  suSet('status','done'); await sleep(20);
-  ok('...and shows under Done with who did it', /done by Jess/.test((cardFor('Fixed the fax')||{}).textContent||''));
-  suSet('status','active');
-
-  /* --- add, with HTML typed into every field --- */
-  const evil='<img src=x onerror="window.__pwned=1">Client fell <b>bold</b>';
-  clickBtn(wrap(),'＋ Add to Stand-Up'); await sleep(120);
-  let f=popTop();
-  ok('the add form opens with the client list filled in', !!f && f.querySelectorAll('#suClientList option').length===2);
-  f.querySelector('#suF_summary').value=evil; f.querySelector('#suF_category').value='Incident';
-  f.querySelector('#suF_client').value='Mary Test · #501'; f.querySelector('#suF_related').value='<script>window.__pwned=2</script>Aide';
-  f.querySelector('#suF_assign').value='jess@mo-care.com'; f.querySelector('#suF_due').value=window.__ymd(1); f.querySelector('#suF_urgent').checked=true;
-  L.writes.length=0; f.querySelector('#suF_save').click(); await sleep(150);
-  const nu=S.standup_notes[S.standup_notes.length-1];
-  ok('saved once, as one item', L.writes.length===1 && L.writes[0]==='standup_notes:'+nu.id, L.writes);
-  ok('client and category saved (client picked from the list keeps its AxisCare number)', nu.client==='Mary Test' && nu.client_ax==='501' && nu.category==='Incident', nu);
-  ok('reported by the signed-in person, automatically', nu.reported_by==='Kat Smith' && nu.reported_by_email==='kat@mo-care.com');
-  ok('assigned by person (email), with the name kept for older screens', nu.assigned_to_email==='jess@mo-care.com' && nu.assigned_to==='Jess Lee');
-  ok('history starts with who added it', nu.history.length===1 && nu.history[0].what==='Added' && nu.history[0].by==='Kat Smith');
-  ok('the new urgent item sorts with the urgent ones (it has a due date, so above the urgent one without)', cards()[0].textContent.includes('Client fell') && cards()[1].textContent.includes('Brand new urgent'), cards().map(c=>c.querySelector('b').textContent));
-  ok('typed HTML shows as text and never runs', window.__pwned===undefined && !wrap().querySelector('img') && !wrap().querySelector('script') && wrap().textContent.includes('<img src=x'), window.__pwned);
-
-  /* --- edit, status, update --- */
-  suEdit(nu.id); await sleep(100); f=popTop();
-  ok('the edit form shows the picked client the same way', f.querySelector('#suF_client').value==='Mary Test · #501', f.querySelector('#suF_client').value);
-  f.querySelector('#suF_assign').value=''; f.querySelector('#suF_due').value=window.__ymd(4); f.querySelector('#suF_save').click(); await sleep(150);
-  let it=item(nu.id), hw=it.history.map(h=>h.what);
-  ok('edits land in the history in words', hw.includes('Unassigned (was Jess Lee)') && hw.some(w=>/^Due \d{4}-/.test(w)) && it.rev===2, hw);
-  await suAct(nu.id,'working'); await suAct(nu.id,'done'); it=item(nu.id);
-  ok('Done records who and when (and the older resolved fields)', it.status==='done' && it.done_by==='Kat Smith' && it.resolved===true && it.resolved_by==='Kat Smith' && !!it.done_at);
-  await suAct(nu.id,'reopen'); it=item(nu.id);
-  ok('Reopen puts it back on the board', it.status==='open' && it.resolved===false && !it.done_by && it.history.some(h=>h.what==='Reopened'));
-  const pu=suAct(nu.id,'update'); await sleep(80); f=popTop();
-  f.querySelector('textarea').value='<img src=x onerror="window.__pwned=3">Called the family'; clickBtn(f,'Save'); await pu; it=item(nu.id);
-  ok('an update is saved with who and when', it.updates.length===1 && it.updates[0].by==='Kat Smith' && /Called the family/.test(it.updates[0].text));
-  ok('...and shows as text', window.__pwned===undefined && /Called the family/.test(cardFor('Client fell').textContent) && !wrap().querySelector('img'));
-
-  /* --- two people at once --- */
-  const o1=item('old1'); o1.assigned_to_email='jess@mo-care.com'; o1.updates=[{ at:new Date().toISOString(), by:'Jess Lee', text:'Jess found cover' }]; o1.rev=5;
-  await suAct('old1','done'); const a1=item('old1');
-  ok('an out-of-date page does not undo someone else\'s change', a1.status==='done' && a1.assigned_to_email==='jess@mo-care.com' && a1.updates[0].text==='Jess found cover' && a1.rev===6, a1);
-  S.standup_notes=S.standup_notes.filter(x=>x.id!=='old4'); L.writes.length=0;
-  await suAct('old4','working');
-  ok('an item that is gone is not written back', L.writes.length===0 && !S.standup_notes.some(x=>x.id==='old4'), L.writes);
-  window.__offline=true; L.writes.length=0; await suAct('old3','working'); window.__offline=false;
-  ok('when the Hub cannot be reached, nothing is changed', L.writes.length===0 && item('old3').status==='open');
-
-  /* --- delete is archive --- */
-  let pa=suAct(nu.id,'archive'); await sleep(80); clickBtn(popTop(),'Cancel'); await pa;
-  ok('Cancel on archive changes nothing', !item(nu.id).archived_at);
-  pa=suAct(nu.id,'archive'); await sleep(80); clickBtn(popTop(),'Archive'); await pa; it=item(nu.id);
-  ok('Archive keeps the item and its history, off the board', !!it.archived_at && it.archived_by==='Kat Smith' && S.standup_notes.some(x=>x.id===nu.id) && !cardFor('Client fell'));
-  suSet('status','archived'); await sleep(20);
-  ok('Archived shows it, with Restore', !!cardFor('Client fell') && /Restore/.test(cardFor('Client fell').textContent));
-  await suAct(nu.id,'restore'); it=item(nu.id);
-  ok('Restore brings it back', !it.archived_at && it.history.some(h=>h.what==='Restored from the archive'));
-  suSet('status','active');
-
-  /* --- filters --- */
-  const shown=()=>cards().map(c=>c.querySelector('b').textContent).sort();
-  suSet('who','mine'); ok('Mine = assigned to me', JSON.stringify(shown())===JSON.stringify(['Brand new urgent']), shown());
-  suSet('who','unassigned'); ok('Unassigned', shown().length===1 && shown()[0].includes('Client fell'), shown());
-  suSet('who','jess@mo-care.com'); ok('one person', JSON.stringify(shown())===JSON.stringify(['Due soon item']), shown());
-  suSet('who','all'); suSet('cat','Incident'); ok('category', shown().length===1 && shown()[0].includes('Client fell'), shown());
-  suSet('cat','all'); suSet('q','called the FAMILY',true); ok('search reaches the updates too', shown().length===1, shown());
-  suSet('q','mary',true); ok('search reaches the client', shown().length===1, shown()); suSet('q','');
-  ok('unassigning really unassigns, after a reload too', (await (async()=>{ SUB.SU.items=null; await suOpen(); return !item(nu.id).assigned_to && !SUB.SU.items.find(x=>x.id===nu.id).assigned_to_email; })()));
-  S.standup_notes.push({ id:'old6', summary:'Typed-name item', occurred_at:window.__iso(-1), assigned_to:'Night Nurse', resolved:false, created_at:window.__iso(-1) });
-  await suOpen(); suEdit('old6'); await sleep(100); f=popTop();
-  ok('an older typed name nobody matches is kept by an edit', f.querySelector('#suF_assign').value==='__keep');
-  f.querySelector('#suF_urgent').checked=true; f.querySelector('#suF_save').click(); await sleep(150);
-  ok('...and stays after saving', item('old6').assigned_to==='Night Nurse' && item('old6').urgent===true);
-  suEdit('old6'); await sleep(100); f=popTop(); f.querySelector('#suF_assign').value=''; f.querySelector('#suF_save').click(); await sleep(150);
-  ok('...until someone picks Unassigned', item('old6').assigned_to==='' && item('old6').history.some(h=>h.what==='Unassigned (was Night Nurse)'), item('old6'));
-  pa=suAct('old6','archive'); await sleep(80); clickBtn(popTop(),'Archive'); await pa;
+  ok('...on the list as "From My Work" with Open in My Work', !!(window.__dbg=wrap().innerText) && /From My Work/.test(cardFor('Mary fell on Tuesday').textContent) && /Open in My Work/.test(cardFor('Mary fell on Tuesday').textContent));
+  ok('"Take the flag off" for whoever flagged it or owns it, not on other people\'s (Jess\'s old item has none for Kat)', /Take the flag off/.test(cardFor('Mary fell on Tuesday').textContent) && !/Take the flag off/.test(cardFor('Due soon item').textContent) && /Take the flag off/.test(cardFor('Legacy call-out from Saturday').textContent), [cardFor('Mary fell on Tuesday').textContent, cardFor('Legacy call-out from Saturday').textContent]);
 
   /* --- Today line and My Team --- */
   const tl=$('#suTodayLine'); suTodayRender(); await sleep(30);
-  ok('Today shows my open and urgent count', /1 open for you · 1 urgent/.test(tl.textContent), tl.textContent);
-  ok('Dashboard: the Stand-Up card sits at the TOP (above the day\'s numbers)', !!(tl.compareDocumentPosition($('#todayGlance')) & Node.DOCUMENT_POSITION_FOLLOWING));
-  ok('Dashboard: lists the open items, urgent first, with an Add button', /Stand-Up/.test(tl.innerText) && /＋ Add to Stand-Up/.test(tl.innerText)
-     && tl.innerText.indexOf('URGENT') < tl.innerText.indexOf('Due soon item') && /Open the board/.test(tl.innerText), tl.innerText);
+  ok('Dashboard: the To talk about card sits at the TOP (above the day\'s numbers)', !!(tl.compareDocumentPosition($('#todayGlance')) & Node.DOCUMENT_POSITION_FOLLOWING));
+  ok('Dashboard: how many are flagged, and yours, with Open the list (no Add to Stand-Up)', /To talk about/.test(tl.innerText) && /\d+ flagged · 1 yours/.test(tl.innerText) && /Open the list/.test(tl.innerText) && !/Stand-Up/.test(tl.innerText), tl.innerText);
   ok('Dashboard: typed HTML stays text there too', !tl.querySelector('img') && window.__pwned===undefined);
   ccAddOpen(document.getElementById('ccAddBtn')); await sleep(60);
   let pp=popTop();
-  ok('top bar "＋ Add": Stand-Up board first, then a reminder', !!pp && pp.querySelectorAll('button')[0].id==='ccAddSu' && /Stand-Up board/.test(pp.innerText) && /A reminder/.test(pp.innerText));
-  pp.querySelector('#ccAddSu').click(); await sleep(100);
-  ok('...choosing Stand-Up opens the Add to Stand-Up form', !!popTop() && /Add to Stand-Up/.test(popTop().innerText));
-  ccPopClose();
+  ok('top bar "＋ Add": My Work (no Stand-Up board), with a Talk about tick', !!pp && !pp.querySelector('#ccAddSu') && !!pp.querySelector('#ccAddCap') && /My Work/.test(pp.innerText) && !!pp.querySelector('#ccAddTalk'));
+  pp.querySelector('#ccAddTalk').checked=true; pp.querySelector('#ccAddCap').click(); await sleep(120);
+  ok('...ticking it opens My Work with "Talk about it" already ticked', $('#capTalk').checked===true);
+  $('#capWhat').value='Ask about the weekend float'; await ccCaptureSave(); await sleep(250);
+  const wk=(DATA.ops_items||[]).find(x=>x.title==='Ask about the weekend float');
+  ok('...saved on My Work AND flagged to talk about', !!wk && S.standup_notes.some(x=>x.source==='work' && x.ops_id===wk.id && x.status==='open'));
   ok('the top bar says "＋ Add" (no separate Capture button)', /＋ Add/.test($('#ccAddBtn').textContent) && ![...document.querySelectorAll('header button, .topbar button')].some(b=>/✎ Capture/.test(b.textContent)));
-  const mt=suTeamCountHtml('kat@mo-care.com'), mj=suTeamCountHtml('jess@mo-care.com');
-  ok('My Team card line: open and urgent stand-up items per person', /1 open stand-up · <b[^>]*>1 urgent<\/b>/.test(mt) && /^<span[^>]*>1 open stand-up<\/span>$/.test(mj), [mt,mj]);
+  const mt=suTeamCountHtml('kat@mo-care.com');
+  ok('My Team card line: how many to talk about', /\d+ to talk about/.test(mt), mt);
 
   /* --- Team Meetings --- */
   switchTab('teammeetings'); await sleep(250);
@@ -183,7 +133,7 @@ async()=>{
   tmToggle('mt_old'); tmToggle('mt_staff'); await sleep(20);
   ok('older action items (typed lines) still show, marked as older', /Call the county.*older note/.test(tw.textContent));
   ok('a javascript: transcript is never a link; an https one is', ![...tw.querySelectorAll('a')].some(a=>/^javascript/i.test(a.getAttribute('href'))) && [...tw.querySelectorAll('a')].some(a=>a.getAttribute('href')==='https://example.com/transcript'));
-  ok('a meeting\'s board items show their live status', /Due soon item.*Open/.test(tw.textContent));
+  ok('a meeting\'s action items show their live status', /Due soon item.*Open/.test(tw.textContent));
 
   tmEdit(); await sleep(120); f=popTop();
   f.querySelector('#tmF_date').value=window.__ymd(0); f.querySelector('#tmF_date').onchange();
@@ -198,7 +148,8 @@ async()=>{
   ok('each action item is a Stand-Up item with its owner and due date', acts.length===2 && acts.every(a=>a.category==='Meeting action' && a.meeting_id===m1.id && /Weekly Team Meeting/.test(a.related_to))
      && acts[0].assigned_to_email==='jess@mo-care.com' && acts[0].due===window.__ymd(3) && acts[1].assigned_to_email==='kat@mo-care.com', acts);
   switchTab('standup'); await sleep(200);
-  ok('...and they are on the board', !!cardFor('Send the weekend schedule') && !!cardFor('Call the Smith family back'));
+  ok('...and they are on the To talk about list', !cardFor('Send the weekend schedule').missing && !cardFor('Call the Smith family back').missing);
+  ok('Team Meetings: no Stand-Up schedule any more, and "Prepare a meeting"', !$('#suSchedLine') && /Prepare a meeting/.test($('#tmWrap') ? $('#tmWrap').innerText : 'Prepare a meeting'));
   await suAct(acts[1].id,'done');
 
   switchTab('teammeetings'); await sleep(200);
@@ -241,15 +192,13 @@ PHONE = r"""
 async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,400)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   document.getElementById('appScreen').classList.add('on');
-  switchTab('standup'); await sleep(250);
-  const b=[...document.querySelectorAll('#suWrap button')].find(x=>x.textContent.includes('Add to Stand-Up'));
+  switchTab('standup'); await sleep(300);
+  const b=[...document.querySelectorAll('#suWrap button')].find(x=>x.textContent.includes('Something to talk about'));
   const r=b.getBoundingClientRect();
-  ok('phone: "＋ Add to Stand-Up" is on screen', r.width>0 && r.right<=window.innerWidth && r.left>=0, [r.left,r.right,window.innerWidth]);
+  ok('phone: "＋ Something to talk about" is on screen', r.width>0 && r.right<=window.innerWidth && r.left>=0, [r.left,r.right,window.innerWidth]);
+  ok('phone: Talked buttons fit', [...document.querySelectorAll('#suWrap .su-talk button')].every(x=>{ const q=x.getBoundingClientRect(); return q.right<=window.innerWidth+1; }));
   b.click(); await sleep(150);
-  const p=[...document.querySelectorAll('.ccpop')].pop(), pr=p.getBoundingClientRect();
-  ok('phone: the form is a bottom sheet the width of the screen', Math.round(pr.left)===0 && Math.round(pr.right)===window.innerWidth && Math.round(pr.bottom)===window.innerHeight, [pr.left,pr.right,pr.bottom,window.innerHeight]);
-  p.querySelector('#suF_summary').value='Phone test: caregiver called out'; p.querySelector('#suF_save').click(); await sleep(150);
-  ok('phone: saved', window.__store.standup_notes.some(x=>x.summary==='Phone test: caregiver called out'));
+  ok('phone: without a desk it opens My Work with Talk about ticked', document.getElementById('ccCapWrap').style.display==='flex' && document.getElementById('capTalk').checked===true);
   ok('phone: the page does not scroll sideways', document.documentElement.scrollWidth<=window.innerWidth, [document.documentElement.scrollWidth, window.innerWidth]);
   return R;
 }
@@ -260,7 +209,7 @@ def static(n, c, d=''):
     R.append(['PASS' if c else 'FAIL', n, '' if c else d])
 
 static('the board code never sends anything (no functions, fetch, texts, emails)', not re.search(r'functions\.invoke|fetch\(|sendCandidateSMS|ghlSend|\.rpc\(', SRC))
-static('My Team cards carry the stand-up count', "suTeamCountHtml(e)" in HUB)
+static('My Team cards carry the to-talk-about count', "suTeamCountHtml(e)" in HUB)
 static('the "What runs by itself" button is gone from the top bar (her call)', 'onclick="autoOpen()"' not in HUB)
 static('standup-board.js is loaded by the Hub', '<script src="standup-board.js?v=' in HUB)
 

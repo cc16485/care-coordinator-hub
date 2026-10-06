@@ -1,4 +1,4 @@
-"""My Desk, Stage 4: the Stand-Up tray (through the real Stand-Up board and Prepare Stand-Up), the Stand-Up schedule in
+"""My Desk, Stage 4 (updated 2026-10-06 for Talk about: the tray became a flag on the line), the Stand-Up schedule in
 Team Meetings, "Jot on my desk" in + Add, the desk step in End My Shift and the ribbon, and the Friday card. The real Hub
 page, offline, made-up people and lines; the desk and the Hub lists are pretend stores. Nothing is saved or sent.
 (python3 tests/browser/my_desk_stage4_look.py, with the static server on 8765)"""
@@ -58,57 +58,50 @@ async()=>{
   switchTab('mydesk'); await sleep(400);
   const W=()=>document.getElementById('dkWrap'), row=id=>W().querySelector('[data-dkid="'+id+'"]');
   const jot=v=>{ const i=document.getElementById('dkJot'); i.value=v; i.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); };
-  // the schedule
-  ok('with no schedule saved, Stand-Up is every weekday at 9:00 AM Central (her answer)', suSchedWords()==='every weekday at 9:00 AM Central' && suSchedule().saved===false);
-  const n=suNextStandup();
-  ok('the tray is on the desk, labelled with the next Stand-Up from the schedule', !!W().querySelector('.dk-tray') && W().querySelector('.dk-dymo').textContent==='STAND-UP · '+n.label, W().querySelector('.dk-dymo').textContent);
-  const mon=new Date('2026-10-05T13:00:00Z'), mon10=new Date('2026-10-05T15:30:00Z'), fri=new Date('2026-10-09T15:00:00Z');
-  ok('before 9 on a weekday the next Stand-Up is today; after 9 it is the next weekday; Friday afternoon it is Monday', suNextStandup(mon).day==='2026-10-05' && suNextStandup(mon10).day==='2026-10-06' && suNextStandup(fri).day==='2026-10-12');
-  DATA.ops_settings.standup_schedule={ days:[2,4], time:'10:30' };
-  ok('a saved schedule is what counts (Tue and Thu at 10:30 here)', suSchedWords()==='Tue, Thu at 10:30 AM Central' && suNextStandup(mon).label==='TUE 10:30');
-  delete DATA.ops_settings.standup_schedule;
-  // into the tray
+  // TALK ABOUT (2026-10-06): no tray, no schedule; a flag on the line
+  ok('there is no Stand-Up tray on the desk any more', !W().querySelector('.dk-tray') && !W().querySelector('.dk-dymo'));
   jot('Weekend coverage looks thin (fake)'); jot('Ask about the new gloves (fake)'); jot('Call Mary back (fake)'); await sleep(200);
   const [a,b,c]=db.desk_lines.filter(l=>l.day===today).map(l=>l.id);
   row(a).focus(); row(a).dispatchEvent(new KeyboardEvent('keydown',{key:'s',bubbles:true})); await sleep(400);
   const A=()=>db.desk_lines.find(l=>l.id===a), it=()=>S.standup_notes.find(x=>x.desk_line_id===a);
-  ok('S drops a line into the Stand-Up tray', A().place==='tray' && /Weekend coverage/.test(W().querySelector('.dk-tray').innerText));
-  ok('...where it becomes Krystal\'s item on the shared Stand-Up board', it() && it().source==='desk' && it().assigned_to_email==='krystal@mo-care.com' && /Weekend coverage/.test(it().summary) && A().standup_item_id===it().id, S.standup_notes);
-  row(b).querySelector('[data-dk="t-tray"]').click(); await sleep(400);
-  ok('the tray button does the same', db.desk_lines.find(l=>l.id===b).place==='tray' && S.standup_notes.length===2);
-  // Prepare Stand-Up lists tray cards first; discussing one marks it talked about
-  
+  ok('S flags a line to talk about: it stays on today\'s page with a little bubble', A().place==='day' && A().day===today && !!row(a).querySelector('.dk-talk') && /to talk about/.test(row(a).innerText));
+  ok('...and it is Krystal\'s item on the shared To talk about list', it() && it().source==='desk' && it().assigned_to_email==='krystal@mo-care.com' && /Weekend coverage/.test(it().summary) && A().standup_item_id===it().id && /Flagged to talk about from Krystal's desk/.test(it().history[0].what), it());
+  row(b).querySelector('[data-dk="t-talk"]').click(); await sleep(400);
+  ok('the bubble button does the same', !!db.desk_lines.find(l=>l.id===b).standup_item_id && S.standup_notes.length===2);
   const pl=prepList();
-  ok('Prepare Stand-Up lists everyone\'s tray cards first', pl[0] && pl[0].sec==="From everyone's Stand-Up trays" && pl.filter(r=>r.sec==="From everyone's Stand-Up trays").length===2 && /Krystal Land's tray/.test(pl[0].sub), pl.slice(0,3));
-  await tmPrepare(); await sleep(200);
-  const pop=[...document.querySelectorAll('#prepLog')].map(x=>x.closest('div[class]')).pop() && document.getElementById('prepLog').parentElement.parentElement, first=[...pop.querySelectorAll('.prepRow')].find(r=>/Weekend coverage/.test(r.innerText));
-  if(!first){ ok('Prepare Stand-Up popover shows the tray card', false, pop && pop.innerText.slice(0,500)); return R; }
-  first.querySelector('.prepDone').checked=true; pop.querySelector('#prepLog').click(); await sleep(500);
-  ok('ticking it at Stand-Up marks it "talked about" on the board', !!it().talked_at && !S.standup_notes.find(x=>x.desk_line_id===b).talked_at);
-  await X.load(true); await sleep(200);
-  ok('...and it comes back to the tray stamped "talked about"', !!W().querySelector('.dk-icard.dk-talked') && W().querySelectorAll('.dk-icard.dk-talked').length===1);
-  // after Stand-Up: All set / Something to do; before: back to the page / take it out
-  W().querySelector('.dk-tray').click(); await sleep(150);
-  let tp=[...document.querySelectorAll('.ccpop')].pop();
-  ok('clicking the tray lists its cards: the talked-about one asks All set or Something to do', /TALKED ABOUT/.test(tp.innerText) && !!tp.querySelector('[data-t="done"]') && !!tp.querySelector('[data-t="back"]'));
-  tp.querySelector('[data-id="'+a+'"] [data-t="done"]').click(); await sleep(400);
-  ok('"All set" takes it off the tray and closes the board item', !!A().erased_at && it().status==='done');
-  W().querySelector('.dk-tray').click(); await sleep(150); tp=[...document.querySelectorAll('.ccpop')].pop();
-  tp.querySelector('[data-id="'+b+'"] [data-t="back"]').click(); await sleep(400);
+  ok('Prepare a meeting lists the flags first', pl[0] && pl[0].sec==='Flagged to talk about' && pl.filter(r=>r.sec==='Flagged to talk about').length===2 && /Krystal Land's desk/.test(pl[0].sub), pl.slice(0,3));
+  switchTab('standup'); await sleep(300);
+  ok('on the To talk about list as "From their desk" under You', /You/.test(document.querySelector('#suWrap .su-tgroup').innerText) && /Weekend coverage[\s\S]*From their desk/.test(document.getElementById('suWrap').innerText));
+  await suAct(it().id,'talked'); await sleep(200);
+  switchTab('mydesk'); await X.load(true); await sleep(300);
+  ok('once someone taps Talked, the flag comes off the line (it stays on the page)', !A().standup_item_id && !!A().talked_at && A().place==='day' && !row(a).querySelector('.dk-talk'));
+  row(b).focus(); row(b).dispatchEvent(new KeyboardEvent('keydown',{key:'s',bubbles:true})); await sleep(400);
   const B=db.desk_lines.find(l=>l.id===b), Bi=S.standup_notes.find(x=>x.desk_line_id===b);
-  ok('taking a card back to the page before Stand-Up takes it off the board too', B.place==='day' && B.day===today && !!Bi.archived_at && !B.standup_item_id);
+  ok('S again takes the flag off, and off the list', !B.standup_item_id && !!Bi.archived_at && B.place==='day');
   row(c).focus(); row(c).dispatchEvent(new KeyboardEvent('keydown',{key:'s',bubbles:true})); await sleep(400);
-  row(c) || 0; const Ci=()=>S.standup_notes.find(x=>x.desk_line_id===c);
+  const Ci=()=>S.standup_notes.find(x=>x.desk_line_id===c);
   X.eraseLine(c); await sleep(300);
-  ok('erasing a card that wasn\'t talked about takes it off the board', !!Ci() && !!Ci().archived_at);
+  ok('erasing a flagged line takes it off the list', !!Ci() && !!Ci().archived_at);
+  // a card left in the old tray comes back to today's page, still flagged
+  S.standup_notes.push({ id:'su_oldtray', summary:'Old tray card (fake)', source:'desk', status:'open', assigned_to_email:'krystal@mo-care.com', created_at:new Date().toISOString(), history:[], updates:[] });
+  db.desk_lines.push({ id:'l_oldtray', person_id:'p_k', place:'tray', day:null, pos:1, kind:'todo', body:'Old tray card (fake)', standup_item_id:'su_oldtray', rev:1 });
+  await X.load(true); await sleep(300);
+  const OT=db.desk_lines.find(l=>l.id==='l_oldtray');
+  ok('a card still in the old tray lands back on today\'s page, still flagged', OT.place==='day' && OT.day===today && OT.standup_item_id==='su_oldtray' && !!row('l_oldtray') && !!row('l_oldtray').querySelector('.dk-talk'));
   // + Add
   switchTab('today'); await sleep(100);
   ccAddOpen(document.getElementById('ccAddBtn')); await sleep(100);
   let ap=[...document.querySelectorAll('.ccpop')].pop();
-  ok('＋ Add offers "Jot on my desk" first', ap.querySelector('button').id==='ccAddDk' && /Jot on my desk/.test(ap.innerText));
+  ok('＋ Add offers "Jot on my desk" first, then My Work, and a Talk about tick', ap.querySelector('button').id==='ccAddDk' && /Jot on my desk/.test(ap.innerText) && !!ap.querySelector('#ccAddCap') && !ap.querySelector('#ccAddSu') && !!ap.querySelector('#ccAddTalk'));
   ap.querySelector('#ccAddDk').click(); await sleep(150);
   const q=document.getElementById('dkQuick'); q.value='Ring the pharmacy (fake)'; q.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); await sleep(500);
-  ok('...and what you type lands on today\'s page without leaving where you are', db.desk_lines.some(l=>/pharmacy/.test(l.body) && l.day===today && l.kind==='todo') && activeTab==='today');
+  ok('...and what you type lands on today\'s page without leaving where you are', db.desk_lines.some(l=>/pharmacy/.test(l.body) && l.day===today && l.kind==='todo' && !l.standup_item_id) && activeTab==='today');
+  ccAddOpen(document.getElementById('ccAddBtn')); await sleep(100); ap=[...document.querySelectorAll('.ccpop')].pop();
+  ap.querySelector('#ccAddTalk').checked=true; ap.querySelector('#ccAddDk').click(); await sleep(150);
+  ok('...with the tick, the jot box opens already ticked', document.getElementById('dkQTalk').checked===true);
+  const q2=document.getElementById('dkQuick'); q2.value='Ask Samantha about mileage (fake)'; q2.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); await sleep(600);
+  const ML=db.desk_lines.find(l=>/mileage/.test(l.body));
+  ok('...and the line is flagged to talk about', !!ML && !!ML.standup_item_id && S.standup_notes.some(x=>x.id===ML.standup_item_id && x.source==='desk'));
   // End My Shift
   switchTab('mywork'); await sleep(300);
   const eb=[...document.querySelectorAll('#tab-mywork button')].find(x=>/End my shift/i.test(x.textContent));
