@@ -845,7 +845,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-today">
     <div class="fpill" data-tab="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Dashboard</div>
     <div class="fpill" data-tab="mywork" onclick="switchTab('mywork')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> My Work<span class="subtab-badge red" id="gb-mywork" style="display:none;"></span></div>
-    <div class="fpill" data-tab="myrole" onclick="switchTab('myrole')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> My Role</div>
+    <!-- 2026-10-05 (her call): no My Role tab either. A person's role still opens from the Owners Hub Admin page
+         (Team, #myteam/role/<email>) and from "Open role" on the whole-team list; #myrole still works as a link. -->
     <!-- 2026-10-05 (her call): no My Team tab. The team tools open from the Owners Hub Admin page (Team), which links
          here: #myteam, #myteam/add, #myteam/access/<email>, #myteam/role/<email>. -->
     <div class="fpill" data-tab="standup" onclick="switchTab('standup')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Stand-Up</div>
@@ -30218,11 +30219,7 @@ function renderHome(){
     /* ── Reviews they owe somebody else. ── */
     h+=homeReviewSections();
 
-    /* ── Their own role, one click away, because "what am I responsible for"
-         is a Home question even though the answer lives elsewhere. ── */
-    h+='<div class="card" style="padding:14px 18px;background:var(--bg);">'
-      +'<div class="field-note">Not sure what is yours? '
-      +'<button class="linklike" onclick="switchTab(\'myrole\')">Open My Role</button></div></div>';
+    /* (2026-10-05) The "Open My Role" link that sat here went with the My Role tab. */
   }
   wrap.innerHTML=h;
 }
