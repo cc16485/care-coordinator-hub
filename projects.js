@@ -138,6 +138,22 @@
     const f = el.querySelector('#pjSL'); if(f) f.focus();
   }
 
+  /* Team Builder, Stage 2: "Every shift confirmed" follows the board. It ticks itself when every shift has a confirmed Yes,
+     and reopens if a Yes is taken back (only when it was the board that ticked it). */
+  async function autoStep(id, key, done, words){
+    const p = (DATA.ops_items || []).find(x => x.id === id); if(!p) return;
+    const s = steps(p).find(x => x.key === key); if(!s) return;
+    if(done ? !!s.done_at : (!s.done_at || !s.auto)) return;     // nothing to change
+    await mutate(id, x => {
+      const t = steps(x).find(y => y.key === key); if(!t) return false;
+      if(done){ if(t.done_at) return false; t.done_at = new Date().toISOString(); t.done_by = 'team-builder'; t.done_by_name = 'the Team Builder'; t.auto = true;
+        return 'Step done by itself: ' + t.label + ' (' + words + ')'; }
+      if(!t.done_at || !t.auto) return false;
+      t.done_at = null; t.done_by = null; t.done_by_name = null; t.auto = false;
+      return 'Step reopened by itself: ' + t.label + ' (' + words + ')';
+    }, done ? '✓ Every shift is confirmed: that step on the project ticked itself' : 'A shift is no longer confirmed: the project step reopened');
+  }
+
   /* ── All hands on / off ────────────────────────────────────────────────── */
   async function setAllHands(id, on){
     const a = actor(), now = new Date().toISOString();
@@ -229,6 +245,7 @@
     if(facts.length) h += '<div class="field-note" style="margin-top:4px;line-height:1.6;">' + facts.join(' · ') + '</div>';
     if(p.detail) h += '<div style="font-size:13px;color:var(--text-muted);margin-top:3px;">' + esc(p.detail) + '</div>';
     h += bar(done, st.length);
+    if(typeof tb2ProjectLine === 'function') h += tb2ProjectLine(p);
     h += '<div style="margin-top:6px;">' + st.map(s => stepRow(p, s)).join('') + '</div>';
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:9px;">'
       + '<button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="pjStepAdd(\'' + esc(p.id) + '\',this)">＋ Add a step</button>'
@@ -450,6 +467,6 @@
     pjIs:isPj, pjAllHands:allHands, pjHot:hot, pjSees:sees, pjCard:card, pjChip:chipFor, pjMore:more,
     pjStepTick:stepTick, pjStepClaim:stepClaim, pjStepAdd:stepAdd, pjAllHandsSet:setAllHands, pjClose:close,
     pjCloseBlocked:closeBlocked, pjNewOpen:newOpen, pjOpen:openCard, pjRenderBanners:renderBanners, pjTalkHtml:talkHtml,
-    pjBuild:build, pjAlertDays:alertDays, pjAxFind:axFind
+    pjBuild:build, pjAlertDays:alertDays, pjAxFind:axFind, pjAutoStep:autoStep
   });
 })();
