@@ -25535,7 +25535,7 @@ function myWorkStrips(){
        contacts clients or families — she texts caregivers about the shift. */
     handled.push({go:'#cara/case/'+encodeURIComponent(String(c.id)),
       text:'Cara is finding caregiver coverage for '+(c.client||'a client')+'’s shift ('
-        +[dayWord,t12(c.shift_time)].filter(Boolean).join(' ')+') — '
+        +[dayWord,t12(c.shift_time)].filter(Boolean).join(' ')+'): '
         +c.asked.length+' caregiver'+(c.asked.length===1?'':'s')+' asked'
         +(noes?' · '+noes+' said no':'')
         +' · '+waiting+' repl'+(waiting===1?'y':'ies')+' pending'
@@ -25544,22 +25544,30 @@ function myWorkStrips(){
   (DATA.ops_items||[]).filter(i=>i.status==='open'&&i.claimed_by&&i.claimed_by!==meE
       &&String(i.owner||'').toLowerCase()===meE).forEach(i=>{
     handled.push({text:(i.claimed_by_name||opsOwnerName(i.claimed_by)||'Someone').split(' ')[0]
-      +' is on it — '+(i.about||i.title||'')
+      +' is on it: '+(i.about||i.title||'')
       +(i.claimed_at?' · '+agoM(Date.parse(i.claimed_at))+' in':'')});
   });
-  /* Leads with a real conversation behind them: awareness, not action. */
+  /* Booked assessments (2026-10-06, Samantha: "consultation set? where is that coming from? ... Theres not info"). Only
+     ones still ahead, with the day and time, and a click opens the lead. A lead still marked Assessment Scheduled with a
+     past date or no date isn't "being handled": one line says how many and where to update them. */
+  const tChi=(typeof btChiToday==='function')?btChiToday():today();
+  const stale=[];
   (DATA.leads||[]).filter(l=>!l.archived).forEach(l=>{
-    if(typeof leadStage!=='function') return;
-    const stg=leadStage(l);
+    if(typeof leadStage!=='function' || leadStage(l)!=='assessment') return;
     const whoL=[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'a family';
-    if(stg==='assessment'){
-      const cn=ldLastConnected(l);
-      handled.push({text:(cn?((opsOwnerName(cn.by)||String(cn.by||'').split('@')[0]||'We')+' connected with '+whoL
-          +(cn.duration_s?' ('+Math.round(cn.duration_s/60)+'-min call)':''))
-          :('Consultation set with '+whoL))
-        +' — assessment '+(l.assessment_at||'scheduled')});
-    }
+    const p=(typeof btChi==='function')?btChi(l.assessment_at):null;
+    if(!p || p.date<tChi){ stale.push(l); return; }
+    const day=p.date===tChi?'today':new Date(p.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    const cn=ldLastConnected(l);
+    handled.push({ js:'openLeadProfile(\''+String(l.id).replace(/[^A-Za-z0-9_-]/g,'')+'\',\'care\')', sort:p.date+(p.min==null?'9999':String(p.min).padStart(4,'0')), tip:'Open '+whoL,
+      text:'Assessment booked: '+whoL+', '+day+(p.min!=null?', '+btTime(p.min):'')
+        +(cn?' ('+(opsOwnerName(cn.by)||String(cn.by||'').split('@')[0]||'we')+' spoke with them'+(cn.duration_s?', '+Math.round(cn.duration_s/60)+'-min call':'')+')':'') });
   });
+  handled.sort((a,b)=>String(a.sort||'').localeCompare(String(b.sort||'')));
+  if(stale.length) handled.push({ js:"switchTab('leadsstarts')", tip:'Open Leads & Starts',
+    text:stale.length+' lead'+(stale.length===1?' still says':'s still say')+' Assessment Scheduled with a past date or no date: '
+      +stale.slice(0,4).map(l=>[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'unnamed').join(', ')+(stale.length>4?' and '+(stale.length-4)+' more':'')
+      +'. Update them in Leads & Starts.' });
   const watching=(DATA.ops_items||[]).filter(i=>i.status==='open'&&String(i.owner||'').toLowerCase()===meE&&opsParked(i))
     .map(i=>({text:(i.about||i.title||'')+' · waiting on '+(i.waiting_on||'someone')
       +' · comes back '+new Date(String(i.check_back).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})
@@ -25571,9 +25579,9 @@ function myWorkStrips(){
     const pr=l.promised_callback_at;
     if(pr && Date.parse(pr)<Date.now()) return;      // missed promise = NEEDS YOU, not watching
     if(!pr && !(l.follow_up_due&&l.follow_up_due>today())) return;
-    watching.push({text:'Family deciding — '+(pr
+    watching.push({text:'Family deciding: '+(pr
       ?('call promised '+new Date(pr).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}))
-      :('follow-up '+String(l.follow_up_due).slice(5,10).replace('-','/')))+' — '+whoL});
+      :('follow-up '+String(l.follow_up_due).slice(5,10).replace('-','/')))+', '+whoL});
   });
   const strip=(title,note,list)=>!list.length?''
     :'<div class="card" style="padding:12px 16px;margin-top:6px;background:var(--bg);">'
@@ -25581,11 +25589,11 @@ function myWorkStrips(){
     +'<b style="font-size:12px;letter-spacing:.04em;color:var(--text-muted);">'+title+'</b>'
     +'<span class="field-note">'+note+'</span></div>'
     +list.map(x=>'<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;'
-      +(x.go?'cursor:pointer;':'')+'" '
-      +(x.go?'onclick="location.hash=\''+esc(x.go)+'\'" title="Open the case on the Cara board"':'')
-      +'>'+esc(x.text)+'</div>').join('')
+      +(x.go||x.js?'cursor:pointer;':'')+'" '
+      +(x.go?'onclick="location.hash=\''+esc(x.go)+'\'" title="Open the case on the Cara board"':x.js?'onclick="'+esc(x.js)+'" title="'+esc(x.tip||'Open')+'"':'')
+      +'>'+esc(x.text)+(x.js?' <span style="color:var(--navy);font-weight:700;">›</span>':'')+'</div>').join('')
     +'</div>';
-  return strip('BEING HANDLED','no action needed — awareness only',handled)
+  return strip('BEING HANDLED','no action needed, awareness only',handled)
         +strip('WATCHING','comes back on its own',watching);
 }
 
