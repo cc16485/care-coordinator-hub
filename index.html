@@ -845,6 +845,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-today">
     <div class="fpill" data-tab="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Dashboard</div>
     <div class="fpill" data-tab="mywork" onclick="switchTab('mywork')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> My Work<span class="subtab-badge red" id="gb-mywork" style="display:none;"></span></div>
+    <!-- 2026-10-06 My Desk (Stage 1): each person's own planner page and sticky notes. desk.js draws it; the pill shows only
+         for the people My Desk is switched on for (Settings, My Desk). -->
+    <div class="fpill" data-tab="mydesk" onclick="switchTab('mydesk')" style="display:none"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-desk"/></svg> My Desk</div>
     <!-- 2026-10-05 (her call): no My Role tab either. A person's role still opens from the Owners Hub Admin page
          (Team, #myteam/role/<email>) and from "Open role" on the whole-team list; #myrole still works as a link. -->
     <!-- 2026-10-05 (her call): no My Team tab. The team tools open from the Owners Hub Admin page (Team), which links
@@ -1428,6 +1431,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          The team's handoff board, moved in from the Team Hub. standup-board.js draws it.
          Internal only: nothing on this board texts or emails anyone. -->
     <section class="tabpanel" id="tab-standup"><div id="suWrap"></div></section>
+
+    <!-- ===================== TAB: MY DESK (Today, 2026-10-06) =====================
+         Each person's own paper planner (desk.js). Private: the database lets only the person, and owners read-only, see it.
+         Nothing on a desk texts, emails, routes or becomes My Work. -->
+    <section class="tabpanel" id="tab-mydesk"><div id="dkWrap"></div></section>
 
     <!-- ===================== TAB: TEAM MEETINGS (Today, 2026-10-05) =====================
          Meeting notes and action items (moved in from the Team Hub; each action item is a
@@ -4080,6 +4088,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" data-set="my-desk">
+<h3>📒 My Desk</h3>
+<p class="hint">Each person's own planner page and sticky notes, under Today. Only the person sees their desk (owners can look at it). Nothing on a desk texts, emails or reminds anyone. While it is being tried, tick who sees it.</p>
+<div id="dkSet"></div>
+</div>
+
 <div class="settings-section" data-set="loops">
 <h3>🔁 The Hub closes its own loops</h3>
 <p class="hint">Finished shifts close their coverage case (or ask "Was it covered?"), case cards close with the case, an uncovered shift asks a person to call the family, a missed clock-in becomes an "EVV fix needed" item when the shift ends, and EVV reviews come weekly. Sends nothing.</p>
@@ -6716,6 +6730,7 @@ The HomeTogether team</pre>
 <script src="standup-board.js?v=4"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=1"></script>
+<script src="desk.js?v=1"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -7338,7 +7353,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','myrole','myteam','standup','teammeetings','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -7742,7 +7757,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  meetings:'Team Meetings', standup:'Stand-Up', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
+  meetings:'Team Meetings', standup:'Stand-Up', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
@@ -7991,6 +8006,9 @@ function renderActiveTab(){
   /* standup-board.js: guarded, so the rest of the Hub never depends on that file loading */
   if(activeTab==='teammeetings'){ renderMeetingsPage(); if(typeof tmOpen==='function') tmOpen(); }
   if(activeTab==='standup' && typeof suOpen==='function') suOpen();
+  /* desk.js: guarded the same way */
+  if(typeof dkPill==='function') dkPill();
+  if(activeTab==='mydesk' && typeof dkOpen==='function') dkOpen();
   /* the Augusta interview feed was removed 2026-10-01 */
   if(activeTab==='offers'){ offView(offCurrentView); renderInterviews(); }
   if(activeTab==='calls') renderCalls();
@@ -14156,6 +14174,7 @@ function fillSettingsPanel(){
   covMsgsFill();
   try{ settingsFocusApply(); }catch(_){}
   try{ prnSetFill(); }catch(_){}
+  try{ if(typeof dkSetFill==='function') dkSetFill(); }catch(_){}
   try{ aiSetFill(); }catch(_){}
   try{ cpSetFill(); cpLoad(); }catch(_){}
   try{ mnSetFill(); }catch(_){}
