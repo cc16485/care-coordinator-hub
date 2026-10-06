@@ -109,7 +109,50 @@ async()=>{
   ok('"Make this a project" on an existing plan: Client start makes the full project', cp && cp.template==='client_start' && cp.steps.length===8 && !cp.all_hands && /Cal Fake coming home/.test(cp.title) && S.staffing_plans.find(x=>x.id==='tb_old').project_id===cp.id);
   window.__toasts=[]; await tb2MakeProject('tb_old',{});
   ok('...never twice', S.ops_items.filter(x=>x.plan_id==='tb_old').length===1 && /already a project/.test(window.__toasts.join(' ')));
-  ok('nothing was texted or emailed', window.__log.fn.length===0 && !window.__log.fetch.some(u=>/team-ask/.test(u)));
+  // TEXT SEVERAL AT ONCE (team-ask is faked here: it records what would be sent)
+  window.cgpgBeforeOffer=async()=>true;
+  const TS={ drafts:[], sends:[], live:true };
+  window.taCall=async b=>{ if(b.action==='draft'){ TS.drafts.push(b); const opted=b.caregiver_name==='Opal Out';
+      return { live:TS.live, caregiver:{ first:String(b.caregiver_name).split(' ')[0], on_roster:true, phone_last4:'0'+String(b.caregiver_axiscare_id||'9').slice(-1)+'00', opt_out:opted?['opted out by text']:[] },
+        client:{ first:'Gus', town:'Ozark', start_target:null, care_line:'' }, template:"Hi {first_name}, it's Caring Companions. We're building a care team for {client}, a new client{where}: {when}{start}. {care}Would you be interested?", asked_before:[] }; }
+    TS.sends.push(b); const pl=JSON.parse(JSON.stringify(DATA.staffing_plans.find(x=>x.id===b.plan_id)));
+    return { outcome:'sent', plan:pl }; };
+  const G={ id:'tb_gus', client:'Gus Fake', days:['mon','tue','wed'], slots:[{k:'am',label:'Mornings',start:'09:00',end:'14:00'}],
+    cells:{ 'mon|am':{ name:'Kim Aide', cg_ax_id:'11', status:'penciled' }, 'tue|am':{ name:'Kim Aide', cg_ax_id:'11', status:'penciled' }, 'wed|am':{ name:'Lo Skill', cg_ax_id:'13', status:'yes' } },
+    options:{ 'mon|am':[{ id:'o1', name:'Di Aide', cg_ax_id:'12', status:'maybe' },{ id:'o2', name:'Opal Out', cg_ax_id:'22', status:'penciled' },{ id:'o3', name:'Ana New', applicant_id:'a1', status:'penciled' }] } };
+  S.staffing_plans.push(JSON.parse(JSON.stringify(G))); DATA.staffing_plans.push(G); tbOpen('tb_gus'); await sleep(200);
+  ok('the board has "Text several people"', !!root().querySelector('.tb2-several-btn'));
+  root().querySelector('.tb2-several-btn').click(); await sleep(400);
+  let W2=document.querySelector('.tb2-several');
+  const rows=[...W2.querySelectorAll('.ts-person')], txt=W2.innerText;
+  ok('it lists everyone who can be asked: Kim (2 shifts), Di, Opal; not the Yes (Lo) and not the applicant (Ana)', rows.length===3 && /Kim Aide/.test(txt) && /Di Aide/.test(txt) && /Opal Out/.test(txt) && !/Lo Skill/.test(txt) && !/Ana New/.test(txt), txt.slice(0,600));
+  const kim=rows.find(r=>/Kim Aide/.test(r.innerText)), di=rows.find(r=>/Di Aide/.test(r.innerText)), opal=rows.find(r=>/Opal Out/.test(r.innerText));
+  ok('...Opal can\'t be ticked and it says why', opal.querySelector('.ts-on').disabled && /Can’t text: asked not to get texts \(opted out by text\)/.test(opal.innerText));
+  ok('...each person sees their own text: first name and their own shifts', /Hi Kim, it's Caring Companions\. We're building a care team for Gus, a new client in Ozark: Mon & Tue 9am–2pm \(10 hrs a week\)\./.test(kim.querySelector('.ts-preview').textContent) && /Hi Di,.*: Mon 9am–2pm \(5 hrs a week\)/.test(di.querySelector('.ts-preview').textContent), [kim.querySelector('.ts-preview').textContent, di.querySelector('.ts-preview').textContent]);
+  ok('...the message box shows [first name] and [their shifts]', /\[first name\]/.test(W2.querySelector('#tsMsg').value) && /\[their shifts\]/.test(W2.querySelector('#tsMsg').value) && /2 texts, one per person/.test(W2.innerText));
+  const m=W2.querySelector('#tsMsg'); m.value=m.value.replace('Would you be interested?','Can you call me back today?'); m.dispatchEvent(new Event('input'));
+  ok('...editing the message updates every preview', /Can you call me back today\?/.test(kim.querySelector('.ts-preview').textContent) && /Can you call me back today\?/.test(di.querySelector('.ts-preview').textContent));
+  kim.querySelector('.ts-cell[data-k="tue|am"]').click(); await sleep(50);
+  ok('...unticking a shift changes only that person\'s text', /: Mon 9am–2pm \(5 hrs a week\)/.test(kim.querySelector('.ts-preview').textContent));
+  W2.querySelector('#tsSend').click(); await sleep(600);
+  ok('Send: one text per person through team-ask, each with their own shifts and words; nothing for Opal', TS.sends.length===2 && TS.sends.every(b=>b.action==='send' && b.plan_id==='tb_gus' && /^[a-z0-9-]{8,64}$/i.test(b.ask_id)) && TS.sends.some(b=>b.caregiver_axiscare_id==='11' && JSON.stringify(b.cells)==='["mon|am"]' && /^Hi Kim,/.test(b.message)) && TS.sends.some(b=>b.caregiver_axiscare_id==='12' && /^Hi Di,/.test(b.message) && /call me back/.test(b.message)) && !TS.sends.some(b=>/Opal/.test(b.caregiver_name)), TS.sends);
+  ok('...it shows each result and the total', /✓ Sent to Kim Aide/.test(W2.innerText) && /✓ Sent to Di Aide/.test(W2.innerText) && /2 of 2 sent/.test(W2.innerText));
+  W2.querySelector('#tsX').click(); await sleep(150);
+  // from one shift: only that shift is ticked
+  tbCell('tue|am'); await sleep(150); TS.sends=[];
+  const PP2=root().querySelector('.tb2-people');
+  ok('the main person on a shift still has the single Text', PP2 && PP2.querySelector('.tb2-text'));
+  tbCell('mon|am'); await sleep(150);
+  root().querySelector('.tb2-textall').click(); await sleep(400);
+  W2=[...document.querySelectorAll('.tb2-several')].pop();
+  const kim2=[...W2.querySelectorAll('.ts-person')].find(r=>/Kim Aide/.test(r.innerText));
+  ok('"Text everyone on this shift" ticks only that shift for each person', kim2.querySelector('.ts-cell[data-k="mon|am"]').checked && !kim2.querySelector('.ts-cell[data-k="tue|am"]').checked);
+  W2.querySelector('#tsX').click(); await sleep(100);
+  TS.live=false; root().querySelector('.tb2-several-btn').click(); await sleep(400);
+  W2=[...document.querySelectorAll('.tb2-several')].pop();
+  ok('switch off: it says so and Send can\'t be pressed', W2.querySelector('#tsSend').disabled && /switched off/.test(W2.innerText));
+  W2.querySelector('#tsX').click(); await sleep(100);
+  ok('nothing was texted or emailed outside the faked team-ask', window.__log.fn.length===0 && !window.__log.fetch.some(u=>/team-ask/.test(u)));
   return R;
 }
 """
