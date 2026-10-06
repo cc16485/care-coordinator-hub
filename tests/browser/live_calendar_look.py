@@ -12,6 +12,13 @@ DATA = r"""
   const ymdAdd=(ymd,n)=>{ const [y,m,d]=ymd.split('-').map(Number); return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10); };
   const V=(date,time,end,client,cg,extra)=>Object.assign({ visit_id:date+time+client, date, time, end, client, client_id:'1', caregiver:cg||null, caregiver_id:cg?'5':'', clock_in:null, clock_out:null }, extra||{});
   window.fetch=async(u,o)=>{ const b=JSON.parse((o&&o.body)||'{}'); window.__asks.push(b);
+    if(/visit-change/.test(String(u))){ window.__vc.push(b);
+      if(b.action==='reasons') return new Response(JSON.stringify({ live:window.__vcLive, reasons:[{id:5,name:'Staffing Change - Caregiver Change'},{id:6,name:'Staffing Change - Caregiver Call Off'},{id:8,name:'Staffing Change - No Show'},{id:10,name:'Schedule Change - Client Schedule Change'},{id:13,name:'Administrative Correction - Office Error'}] }),{status:200});
+      if(b.action==='get'){ const st=window.__vcVisit; return new Response(JSON.stringify({ live:window.__vcLive, visit:st, undo:window.__vcUndo||[] }),{status:200}); }
+      if(b.action==='change'){ if(window.__vcRefuse) return new Response(JSON.stringify({ outcome:'changed_meanwhile', error:'Someone changed this visit since you opened it. Look again. Nothing was changed.' }),{status:409});
+        return new Response(JSON.stringify({ outcome:'changed', confirmed:true, change_id:b.change_id, words:'caregiver Kim Aide → Lia Listed', reason:'Staffing Change - Caregiver Change' }),{status:200}); }
+      if(b.action==='undo') return new Response(JSON.stringify({ outcome:'changed', words:'caregiver Lia Listed → Kim Aide' }),{status:200});
+    }
     if(!/coverage-shifts/.test(String(u)) || !b.live_schedule) return new Response('{"open":[],"total":0}',{status:200});
     const from=b.start||b.date, to=b.end||b.date, rows=[];
     for(let d=from; d<=to; d=ymdAdd(d,1)){ rows.push(V(d,'09:00','14:00','Ed Anderson',null)); rows.push(V(d,'16:00','21:00','Ed Anderson','Kim Aide')); if(d.endsWith('-15')) rows.push(V(d,'08:00','12:00','Ruth Barnes','Di Aide')); }
@@ -19,6 +26,10 @@ DATA = r"""
     if(!b.start){ delete body.start; delete body.end; }
     return new Response(JSON.stringify(body),{status:200}); };
   try{ localStorage.removeItem('cch_lsview'); }catch(e){}
+  window.__vc=[]; window.__vcLive=true; window.__vcRefuse=false;
+  window.__vcVisit={ visit_id:'2026-10-1409:00Ed Anderson', client:'Ed Anderson', client_id:'1', caregiver_id:'5', caregiver:'Kim Aide', date:'2026-10-14', start:'09:00', end:'14:00', started:false, verified:false };
+  (0,eval)("TB.pool=[{ name:'Lia Listed', axiscare_id:'7', level:2, windows:null, visits:[] },{ name:'Bo Busy', axiscare_id:'8', level:2, windows:null, visits:[{ day:'2026-10-14', start:'08:00', end:'12:00', client:'Ruth Barnes' }] },{ name:'Kim Aide', axiscare_id:'5', level:2, windows:null, visits:[] }]; CC_ROLE_BY_EMAIL={ 'krystal@mo-care.com':['owner_admin'] };");
+  DATA.ops_settings={ visit_change_live:true };
 })();
 """
 T = r"""
@@ -50,6 +61,63 @@ async()=>{
   window.__oldServer=true; lcView('week'); await sleep(250);
   ok('before Desktop 478 runs, Week says it turns on after 478 (never shows one day as a week)', /turn on once Desktop step 478 has run/.test(B().innerText) && !B().querySelector('.lc-day'));
   window.__oldServer=false; lcView('day'); await sleep(200);
+  // CLICK A VISIT AND CHANGE IT
+  LS_STATE.date='2026-10-14'; await lsLoad(true); await sleep(150);
+  const ov=()=>document.querySelector('.vc-ov:last-of-type');
+  ok('the Day list and the Week chips open a visit when clicked', /lcVisitOpen/.test(B().querySelector('tr.ls-row').getAttribute('onclick')) && /Click a visit to change it/.test(B().innerText));
+  ok('an owner sees the switch above the calendar', /Changing visits from the Hub: On/.test(B().innerText));
+  await lcVisitOpen('2026-10-1409:00Ed Anderson'); await sleep(300);
+  let P=document.querySelector('.vc-panel');
+  ok('the panel reads the visit from AxisCare: client, day, time, caregiver, and three ways to change it', P && /Ed Anderson · Wednesday, Oct 14/.test(P.innerText) && /9:00am–2:00pm · Kim Aide/.test(P.innerText) && ['Change the caregiver','Take the caregiver off','Change the time or day'].every(t=>P.innerText.includes(t)) && window.__vc.some(x=>x.action==='get'), P&&P.innerText.slice(0,400));
+  const cgs=[...P.querySelectorAll('.vc-cg')].map(x=>x.innerText);
+  ok('...the roster, without the caregiver already on it; someone busy then is flagged and sorted last', cgs.length===2 && /Lia Listed/.test(cgs[0]) && /Bo Busy[\s\S]*already with Ruth Barnes 8a–12p/.test(cgs[1]), cgs);
+  ok('...the reason starts at "Staffing Change - Caregiver Change"', P.querySelector('.vc-r').selectedOptions[0].text==='Staffing Change - Caregiver Change');
+  P.querySelector('.vc-go').click(); await sleep(80);
+  ok('Review with nobody picked: asks to pick, nothing sent', /Pick a caregiver/.test(P.innerText) && !window.__vc.some(x=>x.action==='change'));
+  P.querySelector('.vc-cg[data-ax="7"]').click(); await sleep(50); P=document.querySelector('.vc-panel');
+  P.querySelector('.vc-go').click(); await sleep(80);
+  const rv=P.querySelector('.vc-review');
+  ok('Review shows exactly what will change in AxisCare, the reason, one visit only, nobody texted', rv && /In AxisCare, this one visit will change:/.test(rv.innerText) && /Caregiver: Kim Aide → Lia Listed/.test(rv.innerText) && /Reason: Staffing Change - Caregiver Change/.test(rv.innerText) && /repeating schedule is not changed\. Nobody is texted/.test(rv.innerText) && !window.__vc.some(x=>x.action==='change'), rv&&rv.innerText);
+  rv.querySelector('.vc-confirm').click(); await sleep(250);
+  const ch=window.__vc.find(x=>x.action==='change');
+  ok('Confirm sends the change: that visit, what you saw, the new caregiver, the reason, a fresh change id', ch && ch.visit_id==='2026-10-1409:00Ed Anderson' && JSON.stringify(ch.expect)==='{"caregiver_id":"5","date":"2026-10-14","start":"09:00","end":"14:00"}' && JSON.stringify(ch.set)==='{"caregiver_id":"7"}' && ch.reason_id===5 && /^[a-z0-9-]{8,64}$/i.test(ch.change_id), ch);
+  P=document.querySelector('.vc-panel');
+  ok('..."Changed in AxisCare and read back", with Undo', /✓ Changed in AxisCare and read back/.test(P.innerText) && P.querySelector('.vc-undo'));
+  P.querySelector('.vc-undo').click(); await sleep(250);
+  ok('Undo asks the server to put it back', window.__vc.some(x=>x.action==='undo' && x.change_id===ch.change_id) && /Put back as it was/.test(document.querySelector('.vc-panel').innerText));
+  document.querySelector('.vc-panel .vc-done-btn').click(); await sleep(200);
+  // take off, with a coverage case offered
+  window.__vc=[]; await lcVisitOpen('2026-10-1409:00Ed Anderson'); await sleep(300); P=document.querySelector('.vc-panel');
+  P.querySelector('.vc-tab[data-k="off"]').click(); await sleep(50); P=document.querySelector('.vc-panel');
+  ok('Take the caregiver off: the reason starts at "Caregiver Call Off"', P.querySelector('.vc-r').selectedOptions[0].text==='Staffing Change - Caregiver Call Off' && /Kim Aide comes off this visit/.test(P.innerText));
+  P.querySelector('.vc-go').click(); await sleep(60); P.querySelector('.vc-confirm').click(); await sleep(250);
+  ok('...sends caregiver: nobody, and offers a coverage case', JSON.stringify(window.__vc.find(x=>x.action==='change').set)==='{"caregiver_id":null}' && document.querySelector('.vc-panel .vc-cov'));
+  document.querySelector('.vc-panel .vc-done-btn').click(); await sleep(200);
+  // time
+  window.__vc=[]; await lcVisitOpen('2026-10-1409:00Ed Anderson'); await sleep(300); P=document.querySelector('.vc-panel');
+  P.querySelector('.vc-tab[data-k="time"]').click(); await sleep(50); P=document.querySelector('.vc-panel');
+  ok('Change the time or day: the reason starts at "Client Schedule Change"', P.querySelector('.vc-r').selectedOptions[0].text==='Schedule Change - Client Schedule Change');
+  P.querySelector('.vc-s').value='15:00'; P.querySelector('.vc-go').click(); await sleep(60);
+  ok('...an end before the start is caught before anything is sent', /end must be after the start/.test(P.innerText) && !window.__vc.some(x=>x.action==='change'));
+  P.querySelector('.vc-s').value='10:00'; P.querySelector('.vc-e').value='15:00'; P.querySelector('.vc-d').value='2026-10-15'; P.querySelector('.vc-go').click(); await sleep(60);
+  ok('...the review says the new day and time', /Day: Wednesday, Oct 14 → Thursday, Oct 15/.test(P.innerText) && /Time: 9:00am–2:00pm → 10:00am–3:00pm/.test(P.innerText), P.querySelector('.vc-review').innerText);
+  window.__vcRefuse=true; P.querySelector('.vc-confirm').click(); await sleep(250);
+  ok('...someone changed it meanwhile: the reason shows, the panel stays open', /Someone changed this visit since you opened it/.test(document.querySelector('.vc-panel').innerText) && JSON.stringify(window.__vc.find(x=>x.action==='change').set)==='{"date":"2026-10-15","start":"10:00","end":"15:00"}');
+  document.querySelector('.vc-panel .vc-x').click(); window.__vcRefuse=false;
+  // started, switched off, undo offered
+  window.__vcVisit=Object.assign({}, window.__vcVisit, { started:true }); await lcVisitOpen('2026-10-1409:00Ed Anderson'); await sleep(300);
+  ok('a visit that has started: no changes offered (an EVV correction in AxisCare)', /has started, so it isn’t changed here/.test(document.querySelector('.vc-panel').innerText) && !document.querySelector('.vc-panel .vc-tab'));
+  document.querySelector('.vc-panel .vc-x').click();
+  window.__vcVisit=Object.assign({}, window.__vcVisit, { started:false }); window.__vcLive=false; LC_VCQ; await lcVisitOpen('2026-10-1409:00Ed Anderson'); await sleep(300);
+  ok('switched off: says so, no changes offered', /switched off/.test(document.querySelector('.vc-panel').innerText) && !document.querySelector('.vc-panel .vc-tab'));
+  document.querySelector('.vc-panel .vc-x').click(); window.__vcLive=true;
+  window.__vcUndo=[{ change_id:'chg-1', words:'caregiver Kim Aide → Lia Listed', by:'Krystal Land' }]; await lcVisitOpen('2026-10-1409:00Ed Anderson'); await sleep(300);
+  ok('a change made today shows on the visit with Undo', /Changed today by Krystal: caregiver Kim Aide → Lia Listed/.test(document.querySelector('.vc-panel').innerText) && document.querySelector('.vc-panel .vc-undo'));
+  document.querySelector('.vc-panel .vc-x').click(); window.__vcUndo=[];
+  // the owner's switch
+  const asked=[]; window.confirm=t=>{ asked.push(t); return true; }; window.__merged=[]; window.tkMerge=async(fn)=>{ const m={}; const ch=fn(m); window.__merged.push(m); return { changed:ch, error:null }; };
+  B().querySelector('.vc-switch button').click(); await sleep(150);
+  ok('the switch asks first and saves only that setting', /^Turn off changing visits from the Live Schedule\?/.test(asked[0]) && JSON.stringify(window.__merged[0])==='{"visit_change_live":false}' && /Changing visits from the Hub: Off/.test(B().innerText));
   return R;
 }
 """
@@ -64,6 +132,8 @@ with sync_playwright() as pw:
     pg.screenshot(path='/tmp/lc_week.png')
     pg.evaluate("async()=>{ lcView('month'); await new Promise(r=>setTimeout(r,300)); window.scrollTo(0,0); }")
     pg.screenshot(path='/tmp/lc_month.png')
+    pg.evaluate("async()=>{ window.__vcLive=true; window.__vcUndo=[]; window.__vcVisit=Object.assign({}, window.__vcVisit, { started:false }); document.querySelectorAll('.vc-ov').forEach(x=>x.remove()); LS_STATE.date='2026-10-14'; lcView('day'); await new Promise(r=>setTimeout(r,300)); await lcVisitOpen('2026-10-1409:00Ed Anderson'); await new Promise(r=>setTimeout(r,300)); document.querySelector('.vc-panel .vc-cg[data-ax=\"7\"]').click(); await new Promise(r=>setTimeout(r,80)); document.querySelector('.vc-panel .vc-go').click(); await new Promise(r=>setTimeout(r,120)); }")
+    pg.screenshot(path='/tmp/vc_review.png')
     R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]]); b.close()
 for r in R: print(r[0], '·', r[1], ('→ ' + r[2]) if r[2] else '')
 print(f"{sum(1 for r in R if r[0]=='PASS')} / {len(R)}")
