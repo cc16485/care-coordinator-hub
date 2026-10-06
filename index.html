@@ -6767,6 +6767,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
 <script src="team-builder-2.js?v=4"></script>
+<script src="live-calendar.js?v=1"></script>
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -35688,7 +35689,7 @@ async function lsLoad(force){
     if(!session||!session.access_token) throw new Error('Sign in to the hub first.');
     const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-shifts`,{
       method:'POST', headers:{ Authorization:'Bearer '+session.access_token, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' },
-      body: JSON.stringify({ live_schedule:true, date:LS_STATE.date })});
+      body: JSON.stringify(typeof lcReqBody==='function'?lcReqBody():{ live_schedule:true, date:LS_STATE.date })});
     const d=await r.json().catch(()=>null);
     if(!r.ok||!d||d.error) throw new Error((d&&d.error)||('AxisCare answered '+r.status));
     LS_STATE.data=d;
@@ -35699,17 +35700,23 @@ async function lsLoad(force){
 function lsPaint(){
   const box=document.getElementById('ls-board'); if(!box) return;
   const d=LS_STATE.data; if(!d) return;
+  /* calendar views (live-calendar.js): Week and Month draw themselves; Day keeps this list, with the same bar and filters */
+  const lcOut=typeof lcPaint==='function'?lcPaint():null; if(lcOut===true) return;
+  const top=(lcOut&&lcOut.top)||'';
+  const rowsF=typeof lcFiltered==='function'?lcFiltered(d.rows):(d.rows||[]);
   const lbl=document.getElementById('ls-date-label');
   if(lbl) lbl.textContent=d.date?('— '+new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})):'';
-  if(d.error){ box.innerHTML='<div style="color:var(--red);font-size:.85rem">Could not load: '+esc(d.error)+' · <a href="https://16485.axiscare.com/?realtimeview.php" target="_blank" rel="noopener">open AxisCare instead ↗</a></div>'; return; }
-  if(!(d.rows||[]).length){ box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">No visits scheduled on '+esc(d.date)+'.</div>'; return; }
+  if(d.error){ box.innerHTML=top+'<div style="color:var(--red);font-size:.85rem">Could not load: '+esc(d.error)+' · <a href="https://16485.axiscare.com/?realtimeview.php" target="_blank" rel="noopener">open AxisCare instead ↗</a></div>'; return; }
+  if(!(d.rows||[]).length){ box.innerHTML=top+'<div style="color:var(--text-muted);font-size:.85rem">No visits scheduled on '+esc(d.date)+'.</div>'; return; }
+  if(!rowsF.length){ box.innerHTML=top+'<div style="color:var(--text-muted);font-size:.85rem">None of the '+d.rows.length+' visits on '+esc(d.date)+' match.</div>'; return; }
   const t12=s=>{ const m=String(s||'').match(/^(\d\d):(\d\d)$/); if(!m) return s||''; const h=Number(m[1])%12||12; return h+(m[2]==='00'?'':':'+m[2])+(Number(m[1])>=12?'p':'a'); };
   const nowChi=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'});
   const isToday=d.date===nowChi.slice(0,10), nowHM=nowChi.slice(11,16);
-  box.innerHTML='<div class="field-note" style="margin-bottom:.5rem;">'+d.total+' visit'+(d.total===1?'':'s')+(d.unassigned?' · <b style="color:var(--red);">'+d.unassigned+' unassigned</b>':' · all assigned')+'</div>'
+  const unF=rowsF.filter(v=>!v.caregiver).length;
+  box.innerHTML=top+'<div class="field-note" style="margin-bottom:.5rem;">'+rowsF.length+' visit'+(rowsF.length===1?'':'s')+(unF?' · <b style="color:var(--red);">'+unF+' unassigned</b>':' · all assigned')+(rowsF.length!==d.rows.length?' (filtered)':'')+'</div>'
     +'<table style="width:100%;border-collapse:collapse;font-size:.84rem;">'
     +'<thead><tr style="text-align:left;color:var(--text-muted);font-size:.72rem;"><th style="padding:.3rem .4rem;">Time</th><th style="padding:.3rem .4rem;">Client</th><th style="padding:.3rem .4rem;">Caregiver</th><th style="padding:.3rem .4rem;">Status</th></tr></thead><tbody>'
-    +d.rows.map(v=>{
+    +rowsF.map(v=>{
       const un=!v.caregiver;
       /* Color story (her call, 2026-09-18): GREEN = being worked right now,
          TEAL = completed, red = unassigned or missing a clock-in, gray =
