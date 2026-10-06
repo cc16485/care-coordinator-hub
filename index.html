@@ -4948,6 +4948,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   </div>
   <!-- Gate 1a: who they are in one line (age, town, AxisCare's own status, payer). Computed, never typed. -->
   <div id="cpFacts" class="cpx-facts"></div>
+  <!-- CLIENT JOURNEY (Stages 1-3, 2026-10-06): stage, rail, NEXT REQUIRED STEP and Coming next, on every tab. client-journey.js -->
+  <div id="cjHead"></div>
   <div id="cpTabs" class="cp-tabs">
     <button type="button" class="cp-tab" data-cp="summary" onclick="cpShowTab('summary')">Overview</button>
     <button type="button" class="cp-tab" data-cp="intake" onclick="cpShowTab('intake')">Lead intake</button>
@@ -5036,6 +5038,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <!-- GATE 1b-2 · LEAD INTAKE: what the family told us before care started (lpiRender) -->
   <div class="cp-pane" data-cp-pane="intake"><div id="lpIntake"></div></div>
   <div class="cp-pane" data-cp-pane="start">
+  <!-- the whole journey, grouped by stage, each step with its evidence and history (client-journey.js) -->
+  <div id="cjStart"></div>
     <div id="cp_start_note"></div>
 <div class="cp-lead">
       <!-- The Start Contract (2026-09-26, Step 1 of the Lead to Client Plan).
@@ -6768,6 +6772,8 @@ The HomeTogether team</pre>
 <script src="projects.js?v=6"></script>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=3"></script>
+<script src="journey-rules.js?v=1"></script>
+<script src="client-journey.js?v=1"></script>
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -9533,6 +9539,7 @@ async function openClient(seed, tab){
     else if(typeof cqUnmountProfile==='function') cqUnmountProfile(); }
   cpShowTab(tab||'summary');
   window.scrollTo(0,0);
+  if(typeof cjMountProfile==='function') cjMountProfile({ lead, ax });
 }
 function openLeadProfile(id, tab){
   if(!(DATA.leads||[]).find(l=>l.id===id)) return;
@@ -16979,7 +16986,7 @@ const FRESH_COMES_BACK=/^(ops_ref_|cstart_|elig_|eligsched_|ops_issue_|ops_cov_c
 function freshCandidates(){
   const now=Date.now();
   const cases=new Map((DATA.coverage_cases||[]).map(c=>[String(c.id),c]));
-  return (DATA.ops_items||[]).filter(i=>i&&i.status==='open'&&i.kind!=='project'&&opsCanSee(i)&&i.due&&Date.parse(i.due)<now&&!opsParked(i))
+  return (DATA.ops_items||[]).filter(i=>i&&i.status==='open'&&i.kind!=='project'&&i.kind!=='journey'&&opsCanSee(i)&&i.due&&Date.parse(i.due)<now&&!opsParked(i))
     .map(i=>{ const c=i.coverage_case_id!=null?cases.get(String(i.coverage_case_id)):null;
       const comesBack=(i.kind==='coverage'&&c&&c.status==='open') || FRESH_COMES_BACK.test(String(i.id||''));
       return { it:i, group:comesBack?'Come back by themselves while the problem is still there (open shift, references, start of care, eligibility, client issue)':(opsKindLabel(i)||i.kind||'Other'), keep:comesBack }; });
@@ -26276,9 +26283,9 @@ function opsPriorityKey(it){
    was undone the moment the page redrew, because only the Act Now / Due Today list counted. */
 function myWorkSelectable(all){
   /* a project is never bulk-closed or bulk-assigned: it closes when every step is done */
-  const rows=myWorkRows().filter(r=>r.kind!=='project'); if(MYWORK_TAB!=='today') return rows;
+  const rows=myWorkRows().filter(r=>r.kind!=='project'&&r.kind!=='journey'); if(MYWORK_TAB!=='today') return rows;
   const ids=new Set(rows.map(r=>r.id));
-  const later=myWorkBuckets().mine.filter(i=>!ids.has(i.id)&&i.kind!=='project');
+  const later=myWorkBuckets().mine.filter(i=>!ids.has(i.id)&&i.kind!=='project'&&i.kind!=='journey');
   return (all||MYWORK_LATER_OPEN)?rows.concat(later):rows;
 }
 function myWorkRows(){
@@ -26368,6 +26375,22 @@ function obligationOpenAction(it){
       +'recording it will bring it back.</span></div>';
   }catch(e){ return ''; }
 }
+/* CLIENT JOURNEY cards (2026-10-06): one per person per owner, written by the client-journey service. The step itself is
+   done on the person's profile, so the card's only move is Open (it lands on that exact step). */
+function jrCard(it, i){
+  const esc=escapeHtmlComms, k=it.card_kind||'next', focused=(i===MYWORK_FOCUS);
+  const chipT={ next:['Next','#E7EEFC','#1E4FB8'], blocked:['Blocked','#FDECEA','#B42318'], attention:['Needs attention','#B42318','#fff'], waiting:['Waiting','#FFF4E1','#9A6412'] }[k]||['Next','#E7EEFC','#1E4FB8'];
+  const what=String(it.title||'').replace(/^(Next|BLOCKED|NEEDS ATTENTION|Waiting): /,'');
+  const start=it.start_in!=null?(it.start_in<0?'start date passed':it.start_in===0?'starts today':'starts in '+it.start_in+' day'+(it.start_in===1?'':'s')):'';
+  return '<div class="wkcard wk-jr wk-jr-'+esc(k)+(focused?' focused':'')+'" data-id="'+esc(it.id)+'" style="padding:12px 15px;margin-bottom:8px;">'
+    +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;"><b style="font-size:15.5px;color:var(--navy);">'+esc(it.about||'')+'</b>'
+    +(it.is_test?'<span class="tag-chip" style="background:#F1EBFB;color:#6B3FB0;font-weight:800;">TEST</span>':'')
+    +'<span class="tag-chip" style="font-weight:800;background:'+chipT[1]+';color:'+chipT[2]+';">'+chipT[0]+'</span>'
+    +'<span style="flex:1;"></span><span class="field-note">'+esc([start, it.due?'due '+new Date(it.due).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'', it.check_back?'back '+String(it.check_back).slice(5).replace('-','/'):''].filter(Boolean).join(' · '))+'</span></div>'
+    +'<div style="font-size:14.5px;margin-top:3px;">'+esc(what)+'</div>'
+    +(it.detail?'<div class="field-note" style="margin-top:2px;">'+esc(it.detail)+'</div>':'')
+    +'<div style="margin-top:8px;"><button class="primary" style="padding:6px 14px;font-size:13px;" onclick="location.hash=\''+esc(String(it.link||'').replace(/^#/,''))+'\'">Open</button></div></div>';
+}
 /* the Talk about flag on a My Work card: on, or off again */
 async function myWorkTalk(id, btn){
   const it=(DATA.ops_items||[]).find(x=>x&&x.id===id); if(!it||!window.suTalk) return;
@@ -26381,6 +26404,7 @@ async function myWorkTalk(id, btn){
 }
 function myWorkCard(it, i){
   if(it && it.kind==='project' && typeof pjCard==='function') return pjCard(it, i);
+  if(it && it.kind==='journey') return jrCard(it, i);
   const esc=escapeHtmlComms;
   const late=it.due && Date.parse(it.due)<Date.now();
   /* Graded rather than a single "late". Two days and five days late are
@@ -26745,7 +26769,11 @@ function renderMyWork(){
     +'<span class="field-note">'+note+'</span></div>'+body;
   const act=rows.filter(r=>opsPriorityKey(r)[0]<=2), due=rows.filter(r=>opsPriorityKey(r)[0]>2);
   const inToday=new Set(rows.map(r=>r.id));
-  const later=b.mine.filter(i=>!inToday.has(i.id))
+  /* CLIENTS IN MOTION (2026-10-06, her: normal next steps show before they are ever late): a client journey's next step
+     that isn't due today has its own lane, not Later. Parked (waiting) ones stay in Waiting & Watching. */
+  const motion=b.mine.filter(i=>!inToday.has(i.id)&&i.kind==='journey'&&!opsParked(i))
+    .sort((a,c)=>String(a.due||'9999').localeCompare(String(c.due||'9999'))||((a.start_in==null?99:a.start_in)-(c.start_in==null?99:c.start_in)));
+  const later=b.mine.filter(i=>!inToday.has(i.id)&&!(i.kind==='journey'&&!opsParked(i)))
     .sort((a,c)=>String(a.due||'9999').localeCompare(String(c.due||'9999')));
   const none=t=>'<div class="field-note" style="padding:4px 2px 2px;">'+t+'</div>';
   let h='';
@@ -26753,6 +26781,8 @@ function renderMyWork(){
     act.length?act.map((it,i)=>myWorkCard(it,i)).join(''):none('Nothing urgent or late. Good.'));
   h+=lane('DUE TODAY','everything else that needs doing today','var(--amber)',due.length,
     due.length?due.map((it,i)=>myWorkCard(it,act.length+i)).join(''):none('Nothing else due today.'));
+  h+=lane('CLIENTS IN MOTION','your next steps for each client, before anything is late','var(--navy)',motion.length||null,
+    motion.length?motion.map(it=>myWorkCard(it,-1)).join(''):none('No client steps waiting on you.'));
   const watch=myWorkStrips();
   h+=lane('WAITING & WATCHING','comes back on its own; nothing waits without a wake-up','var(--navy)',b.waiting.length||null,
     watch||none('Nothing waiting.'));
@@ -26889,6 +26919,7 @@ document.addEventListener('keydown', myWorkKeys);
 async function opsTriage(id, what, quiet){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
   /* a project closes only when every step is done (projects.js), never by a quick-close reason */
+  if(it.kind==='journey'){ if(!quiet) ccToast('This is done on the person\'s journey: tap Open.'); return; }
   if(it.kind==='project' && what!=='waiting' && what!=='working'){ if(!quiet) ccToast((typeof pjCloseBlocked==='function'&&pjCloseBlocked(it))||'Close a project from its own card.'); return; }
   if(what==='waiting'){
     it.sub_state = it.sub_state==='waiting' ? null : 'waiting';
@@ -30425,6 +30456,8 @@ const OPS_KINDS = {
   capture:        { label:'Captured',      hours:8  },
   /* Projects (Stage 1, 2026-10-06): several steps, closes only when every step is done (projects.js) */
   project:        { label:'Project',       hours:168 },
+  /* Client journey (2026-10-06): one card per person per owner, written by the client-journey service */
+  journey:        { label:'Client step',   hours:24 },
   /* N2 (2026-09-29): a caregiver's shift note the AI thought someone should read (care-notes, every two hours) */
   care_note:      { label:'Shift note',    hours:24 },
   /* Missed shift notes (2026-09-29): a caregiver replied with the note they didn't write, or never replied. */
@@ -32764,6 +32797,7 @@ async function mnEnter(itemId, btn){
 function opsClose(id, anchorId){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
   if(it.kind==='project' && typeof pjClose==='function') return pjClose(id, document.getElementById(anchorId||('act_'+id)));
+  if(it.kind==='journey'){ if(it.link) location.hash=String(it.link).replace(/^#/,''); return; }
   const esc=escapeHtmlComms;
   const anchor=document.getElementById(anchorId||('act_'+id))||document.body;
   const el=ccPopOpen(anchor,
@@ -39728,6 +39762,8 @@ window.covLoadShifts=function(){};
       /* 2026-10-05: the team tools, opened from the Owners Hub Admin page (Team). They wait until the roles are read,
          because each checks permission (like the Settings link). */
       /* 2026-10-05: one Hub setting by itself, opened from the Owners Hub Admin page (Hub settings). */
+      /* 2026-10-06: a person, a tab, a step (client journey): #p/<A ax | L lead | J journey>/<tab>/<step>. Ids only. */
+      if(head==='p' && typeof cjRoute==='function'){ cjRoute(seg.slice(1)); return true; }
       if(head==='settings'){
         CC_SETTINGS_FOCUS=String(seg[1]||'').toLowerCase()||null;
         switchTab('settings'); try{ settingsFocusApply(); }catch(e){}
@@ -39782,7 +39818,7 @@ window.covLoadShifts=function(){};
     tries++;
     var app=document.getElementById('appScreen');
     if(app && app.classList.contains('on')){ applyHash(); clearInterval(iv); }
-    else if(tries>150) clearInterval(iv);
+    /* 2026-10-06: no time limit any more, so a link opened before a slow sign-in still lands (it used to give up after a minute) */
   }, 400);
 })();
 </script>
