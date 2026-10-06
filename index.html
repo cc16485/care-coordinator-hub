@@ -3921,6 +3921,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" id="cnSettings" data-set="shift-flags">
+<h3>🚩 Shift-note flags</h3>
+<p class="hint">Every two hours the Hub reads the caregivers' shift notes. Red flags (act today) and yellow flags (look within 24 hours) go to whoever owns Client Care; red ones also show on the Incidents owner's My Work. Nothing is sent to a family or caregiver by itself.</p>
+<div id="cnSet"></div>
+</div>
 <div class="settings-section" id="mnSettings" data-set="missed-notes">
 <h3>📝 Missed care notes</h3>
 <p class="hint">Every shift needs a note the office and the family can read. A caregiver who clocks out with no care note (in the app, or the office clocked them out because they forgot or couldn't) gets a text right away asking them to text their shift note to the office, and one reminder the next morning; texts only 8am to 9pm. A reply goes to Needs Attention for someone to put it in AxisCare (it still counts). No reply by 6pm the next day is unresolved. 3 in 30 days makes a DRAFT write-up for review; only Samantha or Zach can approve. The count starts when you turn this on. Fill-ins: <code>{first_name}</code> <code>{client}</code> <code>{day}</code> (reminder).</p>
@@ -6729,6 +6734,7 @@ The HomeTogether team</pre>
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
+<script src="shift-flags.js?v=1"></script>
 <script src="standup-board.js?v=7"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -9384,6 +9390,7 @@ function cnRender(){
     +'<span class="field-note">care notes and tasks from AxisCare, last 14 days</span><span style="flex:1;"></span>'
     +'<button class="secondary" onclick="cnLoad(true)"'+(CN.busy?' disabled':'')+'>↻ Refresh</button></div>';
   let body;
+  const flags=typeof cnProfileFlags==='function'?cnProfileFlags(CP.ax):'';
   if(CN.busy||!d) body='<div class="field-note">Reading this client\'s visits from AxisCare…</div>';
   else if(d.error) body='<div class="field-note" style="color:var(--red);">Could not load the shift notes: '+esc(d.error)+'</div>';
   else if(!d.shifts.length) body='<div class="field-note">No visits in the last 14 days.</div>';
@@ -9401,7 +9408,7 @@ function cnRender(){
         +'</div>'; }).join('')
       +(d.slowed?'<div class="field-note">AxisCare asked us to slow down, so the oldest visits may be missing. Refresh in a minute.</div>':'')
       +(d.more_than_shown?'<div class="field-note">Showing the 40 most recent visits.</div>':'');
-  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'+head+body
+  box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'+head+flags+body
     +'<div class="field-note" style="margin-top:6px;font-size:11.5px;">Read from AxisCare just now; nothing here is copied into the Hub. Notes are the caregivers\' own words.</div></div>';
 }
 function cpShowTab(t){
@@ -14180,6 +14187,7 @@ function fillSettingsPanel(){
   try{ aiSetFill(); }catch(_){}
   try{ cpSetFill(); cpLoad(); }catch(_){}
   try{ mnSetFill(); }catch(_){}
+  try{ if(typeof cnSetFill==='function') cnSetFill(); }catch(_){}
   try{ lnSetFill(); }catch(_){}
   try{ cbFill(); }catch(_){}
   tkFill();
@@ -26082,7 +26090,8 @@ function opsEscalatedToMe(i, me){
 function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
-  const mine=open.filter(i=>(i.owner||'').toLowerCase()===me && me);
+  /* also_for (2026-10-06): a red shift-note flag is Client Care's, and also on the Incidents owner's list */
+  const mine=open.filter(i=>me && ((i.owner||'').toLowerCase()===me || (Array.isArray(i.also_for)&&i.also_for.some(x=>String(x).toLowerCase()===me))));
   const now=Date.now();
   const endOfToday=(()=>{ const e=new Date(); e.setHours(23,59,59,999); return e.getTime(); })();
   /* THE CHASE. A parked item carries the date it should come back. When that
@@ -26358,9 +26367,15 @@ function myWorkCard(it, i){
 
   const why=opsWhyHere(it);
   if(why) h+='<div class="field-note" style="margin-top:3px;color:var(--navy);"><b>Why you’re seeing this:</b> '+esc(why)+'</div>';
+  /* a red or yellow shift-note flag draws its own card (shift-flags.js) */
+  const cnFlag=typeof cnIsFlag==='function'&&cnIsFlag(it);
+  if(cnFlag) h+=cnBlock(it);
+  else {
   if(it.about && it.title && it.about!==it.title)
     h+='<div style="font-size:13.5px;margin-top:3px;">'+esc(it.title)+'</div>';
   if(it.detail) h+='<div style="font-size:13.5px;color:var(--text-muted);margin-top:3px;">“'+esc(it.detail)+'”</div>';
+  }
+  if(cnFlag) h+=cnActions(it);
   if(it.next_action) h+='<div style="font-size:13.5px;margin-top:5px;">→ '+esc(it.next_action)+'</div>';
   /* Generated work is a PROMPT; the source record is the deliverable. Putting
      the record one click away is what stops somebody closing the prompt and
@@ -32640,6 +32655,7 @@ function opsClose(id, anchorId){
   const el=ccPopOpen(anchor,
     '<div style="font-size:13.5px;font-weight:700;margin-bottom:2px;">Mark this done</div>'
     +'<div class="field-note" style="margin-bottom:8px;">'+esc(it.about||it.title||'')+'</div>'
+    +(typeof cnCloseExtra==='function'?cnCloseExtra(it):'')
     +'<textarea id="clNote" rows="3" placeholder="What happened? Optional." '
     +'style="width:100%;font-size:13px;padding:8px;border-radius:8px;"></textarea>'
     +'<div style="display:flex;gap:8px;margin-top:10px;">'
@@ -32649,7 +32665,10 @@ function opsClose(id, anchorId){
   el.querySelector('#clNo').onclick=ccPopClose;
   el.querySelector('#clGo').onclick=async ()=>{
     const note=(el.querySelector('#clNote').value||'').trim();
+    const outcome=(typeof cnIsFlag==='function'&&cnIsFlag(it))?cnCloseRead(el):null;
+    if(outcome&&!outcome.length&&!note){ ccToast('Tick what was done (or write a note), so the record says.'); return; }
     ccPopClose();
+    if(outcome) it.outcome=outcome;
     it.status='done'; it.closed_at=new Date().toISOString();
     it.closed_by=(typeof ME!=='undefined'&&ME.email)?ME.email:'';
     it.close_note=note;
@@ -32727,7 +32746,7 @@ function opsRow(i, showKind){
       +opsStaffOptions(i.owner||'')+'</select>'
     +doneBtn
     +'</div>'
-    +(i.detail?'<div class="field-note" style="margin-top:4px;white-space:pre-wrap;">'+esc(i.detail)+'</div>':'')
+    +((typeof cnIsFlag==='function'&&cnIsFlag(i))?cnBlock(i)+cnActions(i):(i.detail?'<div class="field-note" style="margin-top:4px;white-space:pre-wrap;">'+esc(i.detail)+'</div>':''))
     +(/^\d+$/.test(String(i.client_ax||''))?'<div style="margin-top:4px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;"><a href="javascript:void(0)" data-open-client="'+esc(i.client_ax)+'" data-open-tab="care" style="font-size:12.5px;font-weight:700;color:var(--navy);">Open their profile (Care) →</a>'
       +(i.kind==='care_note'?'<button class="secondary" style="font-size:12px;padding:4px 10px;" onclick="n3Open(\''+esc(i.id)+'\')">Tell the family…</button>':'')+'</div>':'')
     +(i.kind==='missed_note' && i.reply_text && i.status!=='done' ? mnCardHtml(i) : '')
