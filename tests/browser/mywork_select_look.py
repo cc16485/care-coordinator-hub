@@ -31,6 +31,14 @@ async()=>{
   myWorkSelectAll(false); await sleep(100);
   DATA.ops_items=DATA.ops_items.filter(i=>/^later/.test(i.id)); window.__store.ops_items=JSON.parse(JSON.stringify(DATA.ops_items)); MYWORK_LATER_OPEN=true; renderMyWork(); await sleep(100);
   ok('nothing due today, only Later: the select bar still shows', /Select all 3/.test(W.innerText), W.innerText.slice(0,300));
+  // a tick no longer redraws the list (it used to, for every tick)
+  let redraws=0; const orig=window.renderMyWork; window.renderMyWork=function(){ redraws++; return orig.apply(this, arguments); };
+  const first=W.querySelector('.wkcard'); const firstId=first.dataset.id;
+  first.querySelector('.wkchk').click(); await sleep(50);
+  ok('a tick updates just that card and the select bar, no full redraw', redraws===0 && MYWORK_SEL.has(firstId) && W.querySelector('.wkcard[data-id="'+firstId+'"]')===first && first.classList.contains('selected') && /1 selected/.test(W.querySelector('#myWorkBulk').innerText), [redraws, [...MYWORK_SEL]]);
+  first.querySelector('.wkchk').click(); await sleep(50);
+  ok('...and un-ticking works the same way', redraws===0 && !MYWORK_SEL.has(firstId) && !first.classList.contains('selected') && /Select all/.test(W.querySelector('#myWorkBulk').innerText));
+  window.renderMyWork=orig;
   const hit=W.querySelector('.wkchkhit'); const r=hit.getBoundingClientRect();
   ok('the tick box has a bigger area to hit', r.width>=26 && r.height>=26, [r.width, r.height]);
   return R;

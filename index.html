@@ -26680,9 +26680,16 @@ function myWorkGo(t){ MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMy
    An action is offered in bulk only when it means the same thing for every
    item selected. Rather than being clever about mixed selections, the ones
    that would not be safe are simply not offered. */
+/* A tick changes only that card and the select bar (2026-10-06: "its not letting me click but every 5 seconds maybe").
+   It used to redraw the whole list for every tick; inside GoHighLevel on a long list that made ticks feel stuck. */
 function myWorkToggle(id){
   MYWORK_SEL.has(id)?MYWORK_SEL.delete(id):MYWORK_SEL.add(id);
-  renderMyWork();
+  const bar=document.getElementById('myWorkBulk');
+  if(!bar){ renderMyWork(); return; }
+  const on=MYWORK_SEL.has(id);
+  document.querySelectorAll('#myWorkWrap .wkcard[data-id="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]').forEach(c=>{
+    c.classList.toggle('selected', on); const cb=c.querySelector('.wkchk'); if(cb) cb.checked=on; });
+  bar.outerHTML=myWorkBulkBar(myWorkSelectable());
 }
 function myWorkSelectAll(on){
   MYWORK_SEL.clear();
@@ -26692,7 +26699,7 @@ function myWorkSelectAll(on){
 function myWorkBulkBar(rows){
   const n=MYWORK_SEL.size;
   const all=n>0 && n===rows.length;
-  let h='<div class="card" style="padding:9px 14px;margin-bottom:10px;display:flex;gap:10px;'
+  let h='<div class="card" id="myWorkBulk" style="padding:9px 14px;margin-bottom:10px;display:flex;gap:10px;'
     +'align-items:center;flex-wrap:wrap;'+(n?'background:#F0F7FF;border-color:#B7D4F5;':'')+'">'
     +'<label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer;">'
     +'<input type="checkbox" '+(all?'checked':'')+' onchange="myWorkSelectAll(this.checked)" '
