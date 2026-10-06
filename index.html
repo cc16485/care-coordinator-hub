@@ -20376,7 +20376,20 @@ function ivqRender(){
   const box = document.getElementById('ivqList'); if(!box) return;
   const esc = escapeHtmlComms;
   const now = Date.now();
-  const live = IVQ.filter(b=>b.status==='booked');
+  /* 461 (2026-10-05, Shakira Sutton showed twice): each PERSON once (same last 10 phone digits, or email). If someone holds
+     more than one live booking (two applications), their soonest upcoming one shows, else their latest, and the row says
+     what else is booked. */
+  const personKey = b => { const a = IVQ_APP[b.applicant_id] || {}; const ph = String(a.phone||'').replace(/\D/g,'').slice(-10);
+    return ph.length===10 ? 'p'+ph : (a.email ? 'e'+String(a.email).trim().toLowerCase() : 'a'+b.applicant_id); };
+  const allLive = IVQ.filter(b=>b.status==='booked');
+  const byPerson = new Map(); allLive.forEach(b=>{ const k=personKey(b); (byPerson.get(k)||byPerson.set(k,[]).get(k)).push(b); });
+  const ALSO = {};
+  const live = [...byPerson.values()].map(list=>{
+    const up = list.filter(b=>new Date(b.starts_at).getTime()>=Date.now()).sort((x,y)=>new Date(x.starts_at)-new Date(y.starts_at));
+    const keep = up[0] || list.slice().sort((x,y)=>new Date(y.starts_at)-new Date(x.starts_at))[0];
+    ALSO[keep.id] = list.filter(b=>b!==keep);
+    return keep;
+  }).sort((x,y)=>new Date(x.starts_at)-new Date(y.starts_at));
   const needsOutcome = live.filter(b=>new Date(b.starts_at).getTime() < now);
   const upcoming     = live.filter(b=>new Date(b.starts_at).getTime() >= now);
 
@@ -20401,6 +20414,8 @@ function ivqRender(){
       + '<span style="min-width:5.2rem;font-weight:700;color:'+(overdue?'#B45309':'#6E6559')+';font-variant-numeric:tabular-nums;">'+esc(timeLabel(d))+'</span>'
       + '<b style="color:var(--navy);">'+esc(name)+'</b>'
       + btWhoChip(btAfternoonName(b.starts_at, btAfternoonRule(DATA.ops_settings)))
+      + ((ALSO[b.id]||[]).length ? '<span class="tag-chip" style="background:#FEF3C7;color:#92400E;" title="They applied more than once and hold another booking">also booked '
+          + esc((ALSO[b.id]).map(x=>{ const dd=new Date(x.starts_at); return dayLabel(dd)+' '+timeLabel(dd); }).join(', ')) + ' under another application</span>' : '')
       + '<span class="field-note">'+esc(a.posting_title||'Caregiver')
         + (IVQ_CO[b.coordinator_id]?' · with '+esc(IVQ_CO[b.coordinator_id]):'')+'</span>'
       + '<span style="flex:1;"></span>'
@@ -22541,8 +22556,44 @@ const apProfRow = (k, v) => !v ? '' :
   '<div style="display:flex;gap:12px;justify-content:space-between;font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--border);">'
   + '<span style="color:var(--text-muted);">' + k + '</span><span style="text-align:right;">' + v + '</span></div>';
 
+/* 461 (Samantha, 2026-10-05: "reapply with us reviewing first"). Someone the office chose not to move forward with applied
+   again: they cannot book until the office approves this application. Same day, Amanda Peak: someone on the do-not-rehire
+   list cannot book at all; the office takes them off the list to change that. The database decides (applicant_review_reason:
+   'declined' | 'dnr' | null); this says so on their profile and gives the one button. */
+async function apReviewCheck(r){
+  const box=()=>document.getElementById('apReviewBox');
+  if(!r || !r.id) return;
+  let why=null;
+  try{ const { data, error } = await sb.rpc('applicant_review_reason', { p: r.id }); if(error) throw error; why = data||null; }
+  catch(e){ return; }   /* before 461 is installed the function is not there: say nothing */
+  const el=box(); if(!el || !AP_PROF || AP_PROF.id!==r.id) return;
+  const red = (title, body, btn) => '<div style="margin-top:12px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:9px;padding:10px 12px;font-size:13px;color:#991B1B;">'
+    + '<b>'+title+'</b><div style="margin-top:4px;color:#7F1D1D;">'+body+'</div>'+btn+'</div>';
+  el.innerHTML = why==='dnr'
+    ? red('On your do-not-rehire list', 'They cannot book an interview and get no booking reminders. Their page told them the office will review it and be in touch. '
+      + 'If that has changed, take them off the list first.',
+      '<button class="ghost" style="margin-top:8px;padding:6px 12px;font-size:12.5px;" onclick="rcView(\'dnr\')">🚫 Open the Do not rehire list</button>')
+    : why
+    ? red('Applied again: needs your review', 'You chose not to move forward with them before. '
+      + 'They cannot book an interview, and get no booking reminders, until you approve this application. Their page told them the office will review it and be in touch.',
+      '<button class="primary" style="margin-top:8px;padding:6px 12px;font-size:12.5px;" onclick="apReviewApprove(\''+escapeHtmlComms(String(r.id))+'\',this)">Approve, let them book</button>')
+    : (r.review_cleared_at ? '<div class="field-note" style="margin-top:8px;">Approved to book after applying again'+(r.review_cleared_by?' by '+escapeHtmlComms(String(r.review_cleared_by).split('@')[0]):'')+'.</div>' : '');
+}
+async function apReviewApprove(id, btn){
+  const r = AP_PROF && String(AP_PROF.id)===String(id) ? AP_PROF : (AP_ROWS||[]).find(x=>String(x.id)===String(id));
+  const who = r ? ((r.first_name||'')+' '+(r.last_name||'')).trim() : 'them';
+  if(!confirm('Approve '+who+' to book an interview?\n\nYou chose not to move forward with them before. After this they can pick a time from their link, and the usual booking reminders start. Nothing is sent right now.')) return;
+  if(btn) btn.disabled=true;
+  const at=new Date().toISOString();
+  const { error } = await sb.from('job_applicants').update({ review_cleared_at: at, review_cleared_by: (ME&&ME.email)||'' }).eq('id', id);
+  if(error){ alert('Could not approve them: '+error.message); if(btn) btn.disabled=false; return; }
+  try{ opEvent('applicant_review_cleared', { summary: (ME.name||ME.email)+' approved '+who+' to book (applied again after not moving forward)' }); }catch(e){}
+  if(r){ r.review_cleared_at=at; r.review_cleared_by=(ME&&ME.email)||''; }
+  apReviewCheck(r);
+}
 function apRenderProfile(){
   const r = AP_PROF; if(!r) return;
+  apReviewCheck(r);
   const esc = escapeHtmlComms;
   const b = AP_BOOK[r.id];
   const name = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'Applicant';
@@ -22586,6 +22637,7 @@ function apRenderProfile(){
              || '<div style="margin-top:4px;">There is an earlier application from this person — check it before proceeding.</div>')
           + '</div>'
         : '')
+    + '<div id="apReviewBox"></div>'
     + '<div style="margin-top:14px;display:flex;flex-direction:column;gap:7px;font-size:13.5px;">'
       + (r.phone ? '<a'+ocAttrs(r.phone,{email:r.email})+' style="color:var(--navy);text-decoration:none;">📞 '+esc(r.phone)+'</a>' : '')
       + (r.email ? '<a href="mailto:'+esc(r.email)+'" style="color:var(--navy);text-decoration:none;word-break:break-all;">✉️ '+esc(r.email)+'</a>' : '')
