@@ -106,7 +106,7 @@ async()=>{
   root().querySelector('.tb2-make').click(); await sleep(120);
   const pp=[...document.querySelectorAll('.ccpop')].pop(); pp.querySelector('#tb2K').value='client_start'; pp.querySelector('#tb2Go').click(); await sleep(500);
   const cp=S.ops_items.find(x=>x.plan_id==='tb_old');
-  ok('"Make this a project" on an existing plan: Client start makes the full project, all hands on', cp && cp.template==='client_start' && cp.steps.length===8 && cp.all_hands.on && /Cal Fake coming home/.test(cp.title) && S.staffing_plans.find(x=>x.id==='tb_old').project_id===cp.id);
+  ok('"Make this a project" on an existing plan: Client start makes the full project', cp && cp.template==='client_start' && cp.steps.length===8 && !cp.all_hands && /Cal Fake coming home/.test(cp.title) && S.staffing_plans.find(x=>x.id==='tb_old').project_id===cp.id);
   window.__toasts=[]; await tb2MakeProject('tb_old',{});
   ok('...never twice', S.ops_items.filter(x=>x.plan_id==='tb_old').length===1 && /already a project/.test(window.__toasts.join(' ')));
   ok('nothing was texted or emailed', window.__log.fn.length===0 && !window.__log.fetch.some(u=>/team-ask/.test(u)));

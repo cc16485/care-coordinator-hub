@@ -95,7 +95,7 @@
 
   /* ── a plan as a project on My Work (2026-10-06, Samantha: "maybe we should just be able to make a team builder a
      project that will show up under my work"). The project and the plan are linked both ways; the project's conversation,
-     team, all-hands and Act Now all apply, and its shift step follows the board. ── */
+     team and Act Now all apply, and its shift step follows the board. ── */
   function anyProject(plan){
     const all = ((typeof DATA !== 'undefined' && DATA.ops_items) || []).filter(i => i && i.kind === 'project' && (i.id === plan.project_id || i.plan_id === plan.id));
     return all.find(i => i.status === 'open') || all[0] || null;
@@ -124,7 +124,7 @@
     await persist('ops_items', pj);
     opEvent('item_created', { item:pj, summary:'New project from the Team Builder: ' + pj.title });
     plan.project_id = pj.id; await tbSave(plan);
-    ccToast('✓ On My Work as a project' + (pj.all_hands && pj.all_hands.on ? '. All hands on deck is on.' : ''));
+    ccToast('✓ On My Work as a project');
     await sync(plan);
     return pj;
   }
