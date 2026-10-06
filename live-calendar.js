@@ -46,23 +46,38 @@
       + '<label style="display:flex;gap:5px;align-items:center;font-size:.8rem;margin:0;"><input type="checkbox" id="lcOpen"' + (LC.open ? ' checked' : '') + ' onchange="lcOnlyOpen(this.checked)" style="width:auto;margin:0;"> Only open shifts</label></div>'
       + (typeof lcSwitchHtml === 'function' ? lcSwitchHtml() : '');
   }
-  function chip(v){
+  function chip(v, inRow){
     const s = state(v);
     return '<div class="lc-visit" data-state="' + s[0] + '" title="' + esc(t12(v.time) + (v.end ? '–' + t12(v.end) : '') + ' · ' + v.client + ' · ' + (v.caregiver || 'NOBODY') + ' · ' + s[3]) + '" onclick="lcVisitOpen(\'' + esc(v.visit_id) + '\')" style="cursor:pointer;border-left:3px solid ' + s[1] + ';background:' + s[2] + ';border-radius:6px;padding:3px 6px;margin-bottom:4px;font-size:11.5px;line-height:1.3;">'
-      + '<div><b>' + esc(t12(v.time)) + (v.end ? '–' + esc(t12(v.end)) : '') + '</b> ' + esc(short(v.client)) + '</div>'
+      + '<div><b>' + esc(t12(v.time)) + (v.end ? '–' + esc(t12(v.end)) : '') + '</b>' + (inRow ? '' : ' ' + esc(short(v.client))) + '</div>'
       + '<div style="color:' + (v.caregiver ? 'var(--text-muted)' : 'var(--red)') + ';font-weight:' + (v.caregiver ? '400' : '800') + ';">' + (v.caregiver ? esc(short(v.caregiver)) : 'NOBODY') + '</div></div>';
   }
+  /* Week (2026-10-06, Samantha: "it should show more like the client on the left side and each row is a clients weekly
+     schedule"): one row per client, Monday to Sunday across, each visit with its time and caregiver (NOBODY in red). */
+  function hrs(v){ const a = String(v.time || ''), b = String(v.end || ''); if(!/^\d\d:\d\d$/.test(a) || !/^\d\d:\d\d$/.test(b)) return 0;
+    let m = (+b.slice(0, 2) * 60 + +b.slice(3)) - (+a.slice(0, 2) * 60 + +a.slice(3)); if(m <= 0) m += 1440; return m / 60; }
   function weekHtml(d){
     const rows = filtered(d.rows), today = new Date().toLocaleString('sv-SE', { timeZone:'America/Chicago' }).slice(0, 10);
-    let h = '<div class="lc-week" style="display:grid;grid-template-columns:repeat(7,minmax(118px,1fr));gap:6px;overflow-x:auto;">';
-    for(let i = 0; i < 7; i++){
-      const day = ymdAdd(d.start, i), vs = rows.filter(v => v.date === day), all = (d.rows || []).filter(v => v.date === day), open = all.filter(v => !v.caregiver).length;
-      h += '<div class="lc-day" data-day="' + day + '" style="border:1px solid var(--border);border-radius:9px;padding:6px;background:' + (day === today ? '#F0F7FF' : '#fff') + ';min-height:120px;">'
-        + '<div style="display:flex;gap:4px;align-items:baseline;margin-bottom:5px;cursor:pointer;" onclick="lcOpenDay(\'' + day + '\')"><b style="color:var(--navy);font-size:12.5px;">' + DOW[i] + ' ' + Number(day.slice(8)) + '</b>'
-        + '<span class="field-note" style="font-size:10.5px;">' + all.length + '</span>' + (open ? '<span style="font-size:10.5px;font-weight:800;color:var(--red);">' + open + ' open</span>' : '') + '</div>'
-        + (vs.length ? vs.map(chip).join('') : '<div class="field-note" style="font-size:11px;">' + (all.length ? 'none match' : 'no visits') + '</div>') + '</div>';
-    }
-    return h + '</div>';
+    const days = [0, 1, 2, 3, 4, 5, 6].map(i => ymdAdd(d.start, i));
+    const byClient = new Map();
+    rows.forEach(v => { const k = String(v.client_id || v.client); if(!byClient.has(k)) byClient.set(k, { name:v.client, vs:[] }); byClient.get(k).vs.push(v); });
+    const clients = [...byClient.values()].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    const cell = 'border-top:1px solid var(--border);border-left:1px solid var(--border);padding:4px;vertical-align:top;';
+    let h = '<div style="overflow-x:auto;"><table class="lc-week" style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;background:#fff;border:1px solid var(--border);border-radius:9px;">'
+      + '<thead><tr><th style="position:sticky;left:0;background:#fff;z-index:1;text-align:left;padding:6px 8px;min-width:150px;color:var(--text-muted);font-size:11px;">Client</th>'
+      + days.map((day, i) => { const all = (d.rows || []).filter(v => v.date === day), open = all.filter(v => !v.caregiver).length;
+          return '<th class="lc-dayhead" data-day="' + day + '" onclick="lcOpenDay(\'' + day + '\')" style="cursor:pointer;padding:6px 4px;min-width:104px;text-align:left;border-left:1px solid var(--border);background:' + (day === today ? '#F0F7FF' : '#fff') + ';">'
+            + '<b style="color:var(--navy);font-size:12.5px;">' + DOW[i] + ' ' + Number(day.slice(8)) + '</b>'
+            + (open ? ' <span style="font-size:10.5px;font-weight:800;color:var(--red);">' + open + ' open</span>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>';
+    if(!clients.length) h += '<tr><td colspan="8" style="padding:12px;" class="field-note">' + ((d.rows || []).length ? 'No visits match.' : 'No visits this week.') + '</td></tr>';
+    clients.forEach(c => {
+      const open = c.vs.filter(v => !v.caregiver).length, total = Math.round(c.vs.reduce((t, v) => t + hrs(v), 0) * 10) / 10;
+      h += '<tr class="lc-client" data-client="' + esc(c.name) + '"><td style="position:sticky;left:0;background:' + (open ? '#FFF6F5' : '#fff') + ';z-index:1;border-top:1px solid var(--border);padding:6px 8px;vertical-align:top;">'
+        + '<b style="color:var(--navy);font-size:13px;">' + esc(c.name) + '</b><div class="field-note" style="font-size:10.5px;">' + c.vs.length + ' visit' + (c.vs.length === 1 ? '' : 's') + ' · ' + total + 'h'
+        + (open ? ' · <b style="color:var(--red);">' + open + ' open</b>' : '') + '</div></td>'
+        + days.map(day => '<td style="' + cell + (day === today ? 'background:#F7FAFF;' : '') + '">' + c.vs.filter(v => v.date === day).map(v => chip(v, true)).join('') + '</td>').join('') + '</tr>';
+    });
+    return h + '</tbody></table></div>';
   }
   function monthHtml(d){
     const rows = filtered(d.rows), month = String(LS_STATE.date || d.start).slice(0, 7), today = new Date().toLocaleString('sv-SE', { timeZone:'America/Chicago' }).slice(0, 10);

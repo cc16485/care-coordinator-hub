@@ -10,7 +10,7 @@ DATA = r"""
   window.__asks=[]; window.__oldServer=false;
   sb.auth.getSession=async()=>({ data:{ session:{ access_token:'t' } } });
   const ymdAdd=(ymd,n)=>{ const [y,m,d]=ymd.split('-').map(Number); return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10); };
-  const V=(date,time,end,client,cg,extra)=>Object.assign({ visit_id:date+time+client, date, time, end, client, client_id:'1', caregiver:cg||null, caregiver_id:cg?'5':'', clock_in:null, clock_out:null }, extra||{});
+  const V=(date,time,end,client,cg,extra)=>Object.assign({ visit_id:date+time+client, date, time, end, client, client_id:client==='Ed Anderson'?'1':'2', caregiver:cg||null, caregiver_id:cg?'5':'', clock_in:null, clock_out:null }, extra||{});
   window.fetch=async(u,o)=>{ const b=JSON.parse((o&&o.body)||'{}'); window.__asks.push(b);
     if(/visit-change/.test(String(u))){ window.__vc.push(b);
       if(b.action==='reasons') return new Response(JSON.stringify({ live:window.__vcLive, reasons:[{id:5,name:'Staffing Change - Caregiver Change'},{id:6,name:'Staffing Change - Caregiver Call Off'},{id:8,name:'Staffing Change - No Show'},{id:10,name:'Schedule Change - Client Schedule Change'},{id:13,name:'Administrative Correction - Office Error'}] }),{status:200});
@@ -42,11 +42,12 @@ async()=>{
   ok('...it asked AxisCare for that one day', window.__asks.at(-1).date==='2026-10-14' && !window.__asks.at(-1).start);
   lcView('week'); await sleep(250);
   ok('Week: asks for Monday to Sunday in one read', window.__asks.at(-1).start==='2026-10-12' && window.__asks.at(-1).end==='2026-10-18', window.__asks.at(-1));
-  const days=[...B().querySelectorAll('.lc-day')];
-  ok('...seven columns, Mon 12 to Sun 18, each with its visits and "1 open"', days.length===7 && /Mon 12/.test(days[0].innerText) && /Sun 18/.test(days[6].innerText) && days.every(d=>/1 open/.test(d.innerText)) && days[3].querySelectorAll('.lc-visit').length===3, days.map(d=>d.innerText.slice(0,40)));
-  ok('...an open shift says NOBODY in red; a covered one names the caregiver', /9a–2p Ed A\.\s*NOBODY/.test(days[0].innerText) && /4p–9p Ed A\.\s*Kim A\./.test(days[0].innerText) && days[0].querySelector('.lc-visit[data-state="open"]'));
+  const heads=[...B().querySelectorAll('.lc-dayhead')], crow=[...B().querySelectorAll('tr.lc-client')];
+  ok('...the week across the top, Mon 12 to Sun 18, each day saying how many are open', heads.length===7 && /Mon 12/.test(heads[0].innerText) && /Sun 18/.test(heads[6].innerText) && heads.every(h=>/1 open/.test(h.innerText)), heads.map(h=>h.innerText));
+  ok('...one row per client down the left, each with its visits, hours and open count', crow.length===2 && crow[0].dataset.client==='Ed Anderson' && crow[1].dataset.client==='Ruth Barnes' && /14 visits · 70h · 7 open/.test(crow[0].cells[0].innerText) && /1 visit · 4h/.test(crow[1].cells[0].innerText), crow.map(r=>r.cells[0].innerText));
+  ok('...each day cell has that client\'s visits: time and caregiver, NOBODY in red (no client name repeated)', /9a–2p\s*NOBODY/.test(crow[0].cells[1].innerText) && /4p–9p\s*Kim A\./.test(crow[0].cells[1].innerText) && !/Ed A\./.test(crow[0].cells[1].innerText) && crow[0].cells[1].querySelector('.lc-visit[data-state="open"]') && crow[1].cells[4].querySelectorAll('.lc-visit').length===1 && !crow[1].cells[1].innerText.trim(), [crow[0].cells[1].innerText, crow[1].cells[4].innerText]);
   lcFind('ruth'); await sleep(100);
-  ok('Find narrows to a client or caregiver (only Ruth\'s Thursday visit)', B().querySelectorAll('.lc-visit').length===1 && /Ruth B\./.test(B().innerText) && /\(filtered\)/.test(B().innerText));
+  ok('Find narrows to a client or caregiver (only Ruth\'s row, her Thursday visit)', B().querySelectorAll('.lc-visit').length===1 && B().querySelectorAll('tr.lc-client').length===1 && /Ruth Barnes/.test(B().innerText) && /\(filtered\)/.test(B().innerText));
   lcFind(''); lcOnlyOpen(true); await sleep(100);
   ok('Only open shifts: just the 7 with nobody', B().querySelectorAll('.lc-visit').length===7 && [...B().querySelectorAll('.lc-visit')].every(x=>x.dataset.state==='open'));
   lcOnlyOpen(false);
@@ -59,7 +60,7 @@ async()=>{
   cells.find(c=>c.dataset.day==='2026-10-15').click(); await sleep(250);
   ok('clicking a day opens that day', LC.view==='day' && window.__asks.at(-1).date==='2026-10-15' && /3 visits/.test(B().innerText), B().innerText.slice(0,300));
   window.__oldServer=true; lcView('week'); await sleep(250);
-  ok('before Desktop 478 runs, Week says it turns on after 478 (never shows one day as a week)', /turn on once Desktop step 478 has run/.test(B().innerText) && !B().querySelector('.lc-day'));
+  ok('before Desktop 478 runs, Week says it turns on after 478 (never shows one day as a week)', /turn on once Desktop step 478 has run/.test(B().innerText) && !B().querySelector('tr.lc-client'));
   window.__oldServer=false; lcView('day'); await sleep(200);
   // CLICK A VISIT AND CHANGE IT
   LS_STATE.date='2026-10-14'; await lsLoad(true); await sleep(150);
