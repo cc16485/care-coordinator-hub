@@ -116,6 +116,25 @@ async()=>{
   row.click(); await sleep(400);
   ok('...turning it on: the chip on the card, and the whole team sees the task', storeP('ops_task_1').all_hands.on===true && /ALL HANDS ON DECK/.test(document.querySelector('#myWorkWrap .wkcard[data-id="ops_task_1"]').innerText) && (window.__as('sally@mo-care.com','S'), myWorkBuckets().mine.some(x=>x.id==='ops_task_1')));
   window.__as('krystal@mo-care.com','Krystal Land');
+  // Find in AxisCare: live lookup, a person picks, the project and its plan keep the number
+  const E=pjBuild({ template:'client_start', title:'Ed Anderson coming home', about:'Ed Anderson', owner:'krystal@mo-care.com', ready_by:inDays(7) });
+  E.plan_id='tb_ed'; DATA.ops_items.push(E); S.ops_items.push(JSON.parse(JSON.stringify(E)));
+  S.staffing_plans=[{ id:'tb_ed', client:'Ed Anderson', slots:[] }]; DATA.staffing_plans=JSON.parse(JSON.stringify(S.staffing_plans));
+  window.__asked=[]; window.ckLookup=async q=>{ window.__asked.push(q); return { axiscare_ok:false, axiscare_error:'AxisCare answered 503' }; };
+  myWorkGo('mine'); await sleep(200);
+  C=document.querySelector('#myWorkWrap .wkcard[data-id="'+E.id+'"]');
+  ok('a client-start project offers "Find in AxisCare"', C && C.querySelector('.pj-axfind'));
+  C.querySelector('.pj-axfind').click(); await sleep(100); p=pop();
+  ok('...it fills in Ed / Anderson', p.querySelector('#pjAF').value==='Ed' && p.querySelector('#pjAL').value==='Anderson');
+  p.querySelector('#pjAGo').click(); await sleep(150);
+  ok('...AxisCare down: it says so and changes nothing', /couldn’t be checked just now \(AxisCare answered 503\)/.test(p.innerText) && !storeP(E.id).axiscare_client_id, p.innerText);
+  window.ckLookup=async q=>{ window.__asked.push(q); return { axiscare_ok:true, matches:[{ axiscare_client_id:'812', name:'Ed Anderson', active:false, why:['name_only'] },{ axiscare_client_id:null, name:'Family circle only' }] }; };
+  p.querySelector('#pjAGo').click(); await sleep(150);
+  ok('...a former client is shown as inactive with its AxisCare number', /Ed Anderson · AxisCare #812/.test(p.innerText) && /former client \(inactive\)/.test(p.innerText) && window.__asked.at(-1).first==='ed' && window.__asked.at(-1).last==='anderson', p.innerText);
+  p.querySelector('.pj-axpick').click(); await sleep(400);
+  ok('...picking it links the project and its Team Builder plan to #812', storeP(E.id).axiscare_client_id==='812' && storeP(E.id).ax_active===false && S.staffing_plans[0].axiscare_client_id==='812');
+  C=document.querySelector('#myWorkWrap .wkcard[data-id="'+E.id+'"]');
+  ok('...the card links to his profile and the Find button is gone', C && /AxisCare: Ed Anderson #812 \(inactive in AxisCare\)/.test(C.innerText) && /openClientProfile\('812'\)/.test(C.innerHTML) && !C.querySelector('.pj-axfind'), C&&C.innerText.slice(0,600));
   ok('nothing was texted or emailed', window.__log.fn.length===0 && window.__log.rpc.length===0, [window.__log.fn, window.__log.rpc]);
   return R;
 }
