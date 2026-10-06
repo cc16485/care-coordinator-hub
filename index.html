@@ -1242,6 +1242,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- 2026-10-05 (her call): the Stand-Up board's open items sit at the top of the Dashboard, so the board is the
            first thing the office sees, not a tab nobody opens. standup-board.js draws it. -->
       <!-- Today cockpit Phase 5 (2026-10-05): an end-of-shift handoff to me sits on top until I tap Got it. end-shift.js. -->
+      <!-- Projects (2026-10-06): ALL HANDS ON DECK banner for the whole office team. projects.js. -->
+      <div id="pjDashBanner"></div>
       <div id="hoCardDash"></div>
       <!-- My Desk (Stage 5, her yes 2026-10-06): one line about MY OWN desk. Owners never see anyone else's desk numbers here. desk.js. -->
       <div id="dkDashLine"></div>
@@ -1492,10 +1494,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="addlead" onclick="CCIssue.open()" style="background:var(--navy);color:#fff;"
           title="Somebody has told us about a problem">＋ Report a concern</button>
         <button class="addlead" onclick="opsToggleAdd()">＋ Add work</button>
+        <button class="addlead" onclick="pjNewOpen(this)" style="background:#fff;color:var(--navy);border:1.5px solid var(--navy);"
+          title="A job with several steps that can't close until every step is done">＋ New project</button>
         <button class="addlead" onclick="eoOpen(this)" style="background:#fff;color:var(--navy);border:1.5px solid var(--navy);"
           title="Hand off what is still moving to whoever is on duty next">End my shift</button>
       </div>
       <div id="hoCardWork"></div>
+      <div id="pjWorkBanner"></div>
       <div class="subtab-bar" id="myWorkTabs"></div>
       <div id="myWorkApprovals" style="display:none;"><div id="approvalsCard"></div></div>
       <div class="card" id="opsAddWrap" style="padding:16px 18px;margin-bottom:16px;display:none;">
@@ -6763,7 +6768,8 @@ The HomeTogether team</pre>
 })();
 </script>
 <script src="shift-flags.js?v=1"></script>
-<script src="standup-board.js?v=9"></script>
+<script src="projects.js?v=1"></script>
+<script src="standup-board.js?v=10"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
 <script src="desk.js?v=11"></script>
@@ -8017,7 +8023,7 @@ function renderActiveTab(){
   if(activeTab==='hourswatch'){ swRenderAll(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
-  if(activeTab==='today'){ renderToday(); if(typeof dkDashRender==='function') dkDashRender(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
+  if(activeTab==='today'){ renderToday(); if(typeof pjRenderBanners==='function') pjRenderBanners(); if(typeof dkDashRender==='function') dkDashRender(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
   if(activeTab==='mywork'){ renderMyWork(); if(typeof hoRefresh==='function') hoRefresh(); }
   if(activeTab==='myrole') renderMyRole();
   if(activeTab==='myteam') renderMyTeam();
@@ -16974,7 +16980,7 @@ const FRESH_COMES_BACK=/^(ops_ref_|cstart_|elig_|eligsched_|ops_issue_|ops_cov_c
 function freshCandidates(){
   const now=Date.now();
   const cases=new Map((DATA.coverage_cases||[]).map(c=>[String(c.id),c]));
-  return (DATA.ops_items||[]).filter(i=>i&&i.status==='open'&&opsCanSee(i)&&i.due&&Date.parse(i.due)<now&&!opsParked(i))
+  return (DATA.ops_items||[]).filter(i=>i&&i.status==='open'&&i.kind!=='project'&&opsCanSee(i)&&i.due&&Date.parse(i.due)<now&&!opsParked(i))
     .map(i=>{ const c=i.coverage_case_id!=null?cases.get(String(i.coverage_case_id)):null;
       const comesBack=(i.kind==='coverage'&&c&&c.status==='open') || FRESH_COMES_BACK.test(String(i.id||''));
       return { it:i, group:comesBack?'Come back by themselves while the problem is still there (open shift, references, start of care, eligibility, client issue)':(opsKindLabel(i)||i.kind||'Other'), keep:comesBack }; });
@@ -26166,7 +26172,9 @@ function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
   /* also_for (2026-10-06): a red shift-note flag is Client Care's, and also on the Incidents owner's list */
-  const mine=open.filter(i=>me && ((i.owner||'').toLowerCase()===me || (Array.isArray(i.also_for)&&i.also_for.some(x=>String(x).toLowerCase()===me))));
+  const mine=open.filter(i=>me && ((i.owner||'').toLowerCase()===me || (Array.isArray(i.also_for)&&i.also_for.some(x=>String(x).toLowerCase()===me))
+    /* Projects (2026-10-06): a project's team, the owners inside the alert window, and the whole office team when it is all hands */
+    || (typeof pjSees==='function'&&pjSees(i,me))));
   const now=Date.now();
   const endOfToday=(()=>{ const e=new Date(); e.setHours(23,59,59,999); return e.getTime(); })();
   /* THE CHASE. A parked item carries the date it should come back. When that
@@ -26215,7 +26223,9 @@ function myWorkBuckets(){
                   if(!i.domain) return true;
                   const resp=opsDomainOwner(i.domain);
                   return !resp || resp===me;
-                })).concat(open.filter(i=>opsEscalatedToMe(i, me) && i.escalation.level==='urgent'))),
+                })).concat(open.filter(i=>opsEscalatedToMe(i, me) && i.escalation.level==='urgent'))
+                /* Projects (2026-10-06): all hands, or inside the alert window with open steps */
+                .concat(mine.filter(i=>!parked(i) && typeof pjHot==='function' && pjHot(i)))),
     /* Reviews are ordinary items owned by the reviewer. This is a lens on
        `mine`, not a removal from it, so a review is never only in one place. */
     reviews:    mine.filter(i=>i.kind==='review' && !parked(i)),
@@ -26248,6 +26258,8 @@ function opsMinsToShift(it){
    must not outrank a client sitting alone this morning. The card still says
    nobody has it, and "I've got it" is still the button. */
 function opsPriorityKey(it){
+  /* Projects (2026-10-06): inside the alert window with open steps, or all hands on deck: Act Now */
+  if(typeof pjHot==='function' && pjHot(it)) return [0, Date.parse(it.due||it.created_at||0)||0];
   if(it.kind==='staffing_issue' && /timekeeper/.test(String(it.opened_by||'')))
     return [0, Date.parse(it.created_at||0)||0];
   if(it.urgency==='urgent' || it.sub_state==='escalated' || (it.escalation && !it.escalation.cleared_at && it.escalation.level==='urgent'))
@@ -26264,9 +26276,10 @@ function opsPriorityKey(it){
    on Today that is the Act Now and Due Today cards AND the Later cards once they are shown. Before, a Later card's tick
    was undone the moment the page redrew, because only the Act Now / Due Today list counted. */
 function myWorkSelectable(all){
-  const rows=myWorkRows(); if(MYWORK_TAB!=='today') return rows;
+  /* a project is never bulk-closed or bulk-assigned: it closes when every step is done */
+  const rows=myWorkRows().filter(r=>r.kind!=='project'); if(MYWORK_TAB!=='today') return rows;
   const ids=new Set(rows.map(r=>r.id));
-  const later=myWorkBuckets().mine.filter(i=>!ids.has(i.id));
+  const later=myWorkBuckets().mine.filter(i=>!ids.has(i.id)&&i.kind!=='project');
   return (all||MYWORK_LATER_OPEN)?rows.concat(later):rows;
 }
 function myWorkRows(){
@@ -26368,6 +26381,7 @@ async function myWorkTalk(id, btn){
   renderMyWork(); if(typeof suTodayRender==='function') suTodayRender();
 }
 function myWorkCard(it, i){
+  if(it && it.kind==='project' && typeof pjCard==='function') return pjCard(it, i);
   const esc=escapeHtmlComms;
   const late=it.due && Date.parse(it.due)<Date.now();
   /* Graded rather than a single "late". Two days and five days late are
@@ -26395,6 +26409,7 @@ function myWorkCard(it, i){
   }
   if(it.help_from) states+=stateChip('help asked of '+(opsOwnerName(it.help_from)||it.help_from),'var(--navy');
   if(it.sub_state==='escalated') states+=stateChip('escalated','var(--red');
+  if(typeof pjChip==='function') states+=pjChip(it);
   /* To talk about (2026-10-06): flagged for the next time you're together */
   const talkF=window.suTalk?suTalk.forWork(it.id):null;
   if(window.suTalk && !suTalk.ready() && !myWorkCard._askedTalk){ myWorkCard._askedTalk=true; suTalk.load().then(()=>{ try{ if(typeof activeTab!=='undefined'&&activeTab==='mywork') renderMyWork(); }catch(e){} }); }
@@ -26583,6 +26598,8 @@ function myWorkMore(id, anchorId){
   if(it.owner) h+=opt(it.help_from?'help_done':'ask_help',
     it.help_from?'Help no longer needed':'Ask for help (keeps it mine)');
   h+=opt('needs_samantha','Hand it over — needs Samantha');
+  /* ALL HANDS ON DECK on any task (2026-10-06): the whole office team sees it; it stays this owner's */
+  if(typeof pjAllHands==='function') h+=opt('all_hands', pjAllHands(it)?'Turn all hands off':'All hands on deck (the whole team sees it)');
   /* An issue is NOT closed by the generic triage reasons. Completing an action
      and resolving a problem are different acts and the menu has to say so, or
      somebody clicks Done because they finished today's phone call. */
@@ -26610,6 +26627,7 @@ function myWorkMore(id, anchorId){
          waiting asks the only two questions that matter, and the answer is
          what brings it back on its own. */
       if(r.dataset.what==='claim') return opsTakeIt(id);
+      if(r.dataset.what==='all_hands') return pjAllHandsSet(id, !pjAllHands(it));
       if(r.dataset.what==='waiting' && it.sub_state!=='waiting')
         return opsWaitOpen(id, anchorId);
       opsTriage(id, r.dataset.what);
@@ -26664,6 +26682,7 @@ function opsWaitOpen(id, anchorId){
 function renderMyWork(){
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
   if(typeof hoRender==='function') try{ hoRender(); }catch(e){}
+  if(typeof pjRenderBanners==='function') try{ pjRenderBanners(); }catch(e){}
   const who=document.getElementById('myWorkWho');
   if(who) who.textContent=(ME.name?('Signed in as '+ME.name):'')+'   ·   press ? for shortcuts';
   const b=myWorkBuckets();
@@ -26875,6 +26894,8 @@ document.addEventListener('keydown', myWorkKeys);
 
 async function opsTriage(id, what, quiet){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  /* a project closes only when every step is done (projects.js), never by a quick-close reason */
+  if(it.kind==='project' && what!=='waiting' && what!=='working'){ if(!quiet) ccToast((typeof pjCloseBlocked==='function'&&pjCloseBlocked(it))||'Close a project from its own card.'); return; }
   if(what==='waiting'){
     it.sub_state = it.sub_state==='waiting' ? null : 'waiting';
     if(it.sub_state!=='waiting'){ it.waiting_on=null; it.check_back=null; }
@@ -30408,6 +30429,8 @@ const OPS_KINDS = {
   client_issue:   { label:'Client issue',  hours:24 },
   staffing_issue: { label:'Staffing',      hours:24 },
   capture:        { label:'Captured',      hours:8  },
+  /* Projects (Stage 1, 2026-10-06): several steps, closes only when every step is done (projects.js) */
+  project:        { label:'Project',       hours:168 },
   /* N2 (2026-09-29): a caregiver's shift note the AI thought someone should read (care-notes, every two hours) */
   care_note:      { label:'Shift note',    hours:24 },
   /* Missed shift notes (2026-09-29): a caregiver replied with the note they didn't write, or never replied. */
@@ -32746,6 +32769,7 @@ async function mnEnter(itemId, btn){
 }
 function opsClose(id, anchorId){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  if(it.kind==='project' && typeof pjClose==='function') return pjClose(id, document.getElementById(anchorId||('act_'+id)));
   const esc=escapeHtmlComms;
   const anchor=document.getElementById(anchorId||('act_'+id))||document.body;
   const el=ccPopOpen(anchor,
