@@ -90,6 +90,8 @@
           + '<div class="field-note" style="margin-bottom:4px;">These go in the handoff and on the Stand-Up board.</div>'
           + L.attention.map(i => '<div style="font-size:13px;">· ' + esc8(i.about || i.title || '') + ' <span class="field-note">' + esc8(dueText(i)) + '</span></div>').join('')
         : '')
+      /* My Desk (Stage 4): a short step for my own desk, and the ribbon moves on */
+      + (typeof dkShiftHtml === 'function' ? dkShiftHtml() : '')
       + '<div style="margin-top:10px;"><label class="field-note">Anything else the next person should know</label>'
       + '<textarea id="eoGeneral" rows="2" style="width:100%;font-size:13px;padding:7px;border-radius:8px;"></textarea></div>'
       + '<div class="field-note" style="margin-top:6px;">Nobody is texted. The handoff shows at the top of their Today until they tap Got it, and stays on the record.</div>'
@@ -101,6 +103,7 @@
       const picks = [...el.querySelectorAll('.eoRow')].map(r => ({ it: L.moving[Number(r.dataset.k)], what: r.querySelector('.eoWhat').value, note: r.querySelector('.eoNote').value.trim() }));
       const general = el.querySelector('#eoGeneral').value.trim();
       const out = await eoPost(picks, L.attention, general, nx);
+      try{ if(typeof dkShiftApply === 'function') await dkShiftApply(el); }catch(e){ console.error('end of shift: my desk step', e); }
       ccPopClose();
       ccToast(out.to.length ? '✓ Handoff posted to ' + out.to.map(first).join(' and ') + '. Nobody was texted.' : '✓ Your shift is wrapped up. Nobody else is on duty, so nothing was handed off.');
       if(typeof myWorkRefresh === 'function') myWorkRefresh();
