@@ -6767,7 +6767,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
 <script src="team-builder-2.js?v=4"></script>
-<script src="live-calendar.js?v=1"></script>
+<script src="live-calendar.js?v=2"></script>
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -35728,13 +35728,13 @@ function lsPaint(){
       else if(isToday&&v.time&&v.time<nowHM&&(!v.end||v.end>nowHM)) st='<span style="color:var(--red);font-weight:700;">no clock-in yet</span>';
       else if(isToday&&v.end&&v.end<=nowHM) st='<span style="color:var(--text-muted);">ended (no EVV shown)</span>';
       else st='<span style="color:var(--text-muted);">upcoming</span>';
-      return '<tr style="border-top:1px solid var(--border);'+tint+'">'
+      return '<tr class="ls-row" style="border-top:1px solid var(--border);cursor:pointer;'+tint+'" title="Click to change this visit" onclick="if(typeof lcVisitOpen===\'function\'&&!event.target.closest(\'a\'))lcVisitOpen(\''+esc(v.visit_id)+'\')">'
         +'<td style="padding:.35rem .4rem;white-space:nowrap;">'+t12(v.time)+(v.end?'–'+t12(v.end):'')+'</td>'
         +'<td style="padding:.35rem .4rem;"><b>'+esc(v.client)+'</b></td>'
         +'<td style="padding:.35rem .4rem;">'+(un?'—':esc(v.caregiver))+'</td>'
         +'<td style="padding:.35rem .4rem;">'+st+'</td></tr>';
     }).join('')+'</tbody></table>'
-    +'<div class="field-note" style="margin-top:.5rem;">A window into AxisCare, loaded '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' — changes happen in AxisCare itself.</div>';
+    +'<div class="field-note" style="margin-top:.5rem;">Loaded from AxisCare '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+'. Click a visit to change it.</div>';
 }
 
 /* ── THE ADD PANEL'S TWO MODES (2026-09-18): call-off vs interest check. ── */
