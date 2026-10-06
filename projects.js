@@ -225,12 +225,14 @@
     if(p.shifts) facts.push('<b>Shifts:</b> ' + esc(p.shifts));
     if(p.care_level) facts.push('<b>Care level:</b> ' + esc(p.care_level));
     if(team(p).length > 1) facts.push('<b>Team:</b> ' + esc(team(p).map(first).join(', ')));
+    if(p.axiscare_client_id) facts.push('<b>AxisCare:</b> <a href="#" onclick="openClientProfile(\'' + esc(p.axiscare_client_id) + '\');return false;">' + esc(p.ax_name || p.about || 'client') + ' #' + esc(p.axiscare_client_id) + '</a>' + (p.ax_active === false ? ' (inactive in AxisCare)' : ''));
     if(facts.length) h += '<div class="field-note" style="margin-top:4px;line-height:1.6;">' + facts.join(' · ') + '</div>';
     if(p.detail) h += '<div style="font-size:13px;color:var(--text-muted);margin-top:3px;">' + esc(p.detail) + '</div>';
     h += bar(done, st.length);
     h += '<div style="margin-top:6px;">' + st.map(s => stepRow(p, s)).join('') + '</div>';
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:9px;">'
       + '<button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="pjStepAdd(\'' + esc(p.id) + '\',this)">＋ Add a step</button>'
+      + (p.template === 'client_start' && !p.axiscare_client_id ? '<button class="ghost pj-axfind" style="padding:5px 11px;font-size:12px;" onclick="pjAxFind(\'' + esc(p.id) + '\',this)">Find in AxisCare</button>' : '')
       + (ah ? (canOff ? '<button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="pjAllHandsSet(\'' + esc(p.id) + '\',false)">Turn all hands off</button>' : '')
         : '<button class="ghost" style="padding:5px 11px;font-size:12px;color:var(--red);" onclick="pjAllHandsSet(\'' + esc(p.id) + '\',true)">All hands on deck</button>')
       + (window.suTalk ? '<button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="myWorkTalk(\'' + esc(p.id) + '\',this)">' + (suTalk.forWork(p.id) ? 'Flagged to talk about' : 'Talk about') + '</button>' : '')
@@ -272,6 +274,47 @@
         }
       };
     });
+  }
+
+  /* ── Link a client-start project to the client's AxisCare record (2026-10-06, "is our client list not synced with
+     Axiscare?"). AxisCare owns the client list; the Hub looks it up live (client-lookup, the same check that recognises a
+     returning family) and copies nothing. A person picks the match; the project and its Team Builder plan keep the number.
+     Nothing changes in AxisCare. ── */
+  async function axFind(id, anchor){
+    const p = (DATA.ops_items || []).find(x => x.id === id); if(!p) return;
+    const parts = String(p.about || p.title || '').replace(/\s+coming home$/i, '').replace(/\(.*?\)/g, '').trim().split(/\s+/);
+    const box = '<div style="font-size:14px;font-weight:800;color:var(--navy);margin-bottom:6px;">Find ' + esc(parts.join(' ') || 'the client') + ' in AxisCare</div>'
+      + '<div style="display:flex;gap:6px;"><input id="pjAF" placeholder="First" value="' + esc(parts[0] || '') + '" style="flex:1;padding:6px;font-size:13px;"><input id="pjAL" placeholder="Last" value="' + esc(parts.slice(1).join(' ')) + '" style="flex:1;padding:6px;font-size:13px;">'
+      + '<button class="primary" id="pjAGo" style="padding:6px 12px;font-size:12.5px;">Look</button></div><div id="pjAOut" class="field-note" style="margin-top:8px;">Current and former clients are both checked. Nothing is copied or changed in AxisCare.</div>';
+    const el = ccPopOpen(anchor || document.body, box, { width:420 });
+    const go = async () => {
+      const out = el.querySelector('#pjAOut'), f = el.querySelector('#pjAF').value.trim(), l = el.querySelector('#pjAL').value.trim();
+      if(!l){ out.textContent = 'Type the last name.'; return; }
+      out.textContent = 'Looking in AxisCare…';
+      let d; try{ d = await ckLookup(ckQuery({ first:f, last:l })); }catch(e){ out.textContent = 'AxisCare couldn’t be checked just now (' + String(e.message || e) + '). Nothing was changed.'; return; }
+      if(d.axiscare_ok === false){ out.textContent = 'AxisCare couldn’t be checked just now (' + (d.axiscare_error || 'no answer') + '). Nothing was changed.'; return; }
+      const m = (d.matches || []).filter(x => x.axiscare_client_id);
+      if(!m.length){ out.innerHTML = 'No AxisCare client named ' + esc(f + ' ' + l) + '. Check the spelling (or try just the last name with the first name they go by).'; return; }
+      out.innerHTML = m.map((x, i) => '<div style="display:flex;gap:8px;align-items:center;border:1px solid var(--border);border-radius:8px;padding:7px 9px;margin-top:5px;">'
+        + '<div style="flex:1;"><b style="color:var(--navy);">' + esc(x.name) + '</b> · AxisCare #' + esc(x.axiscare_client_id) + '<div class="field-note">' + (x.active === true ? 'current client' : x.active === false ? 'former client (inactive)' : esc(x.status || '')) + '</div></div>'
+        + '<button class="secondary pj-axpick" data-i="' + i + '" style="padding:5px 10px;font-size:12px;">This is ' + esc(String(x.name).split(' ')[0]) + '</button></div>').join('');
+      out.querySelectorAll('.pj-axpick').forEach(b => b.onclick = async () => {
+        const x = m[+b.dataset.i]; ccPopClose();
+        const saved = await mutate(id, it => { it.axiscare_client_id = String(x.axiscare_client_id); it.ax_name = x.name; it.ax_active = x.active;
+          return 'Linked to AxisCare client ' + x.name + ' #' + x.axiscare_client_id + (x.active === false ? ' (inactive)' : ''); }, '✓ Linked to AxisCare #' + x.axiscare_client_id);
+        if(saved && saved.plan_id) await linkPlan(saved.plan_id, String(x.axiscare_client_id));
+      });
+    };
+    el.querySelector('#pjAGo').onclick = go; el.querySelector('#pjAL').onkeydown = e => { if(e.key === 'Enter') go(); };
+  }
+  /* the project's Team Builder plan keeps the same number (latest copy read first; only that one field changes) */
+  async function linkPlan(planId, ax){
+    try{
+      const { data, error } = await sb.from('app_data').select('data').eq('key', 'staffing_plans').maybeSingle(); if(error) throw error;
+      const pl = (Array.isArray(data && data.data) ? data.data : []).find(x => x && x.id === planId); if(!pl) return;
+      pl.axiscare_client_id = ax; await persist('staffing_plans', pl);
+      const k = (DATA.staffing_plans || []).findIndex(x => x && x.id === planId); if(k >= 0) DATA.staffing_plans[k] = pl;
+    }catch(e){ ccToast('The project is linked; the Team Builder plan couldn’t be updated just now.'); }
   }
 
   /* ── Banners: My Work and the Dashboard ───────────────────────────────────── */
@@ -407,6 +450,6 @@
     pjIs:isPj, pjAllHands:allHands, pjHot:hot, pjSees:sees, pjCard:card, pjChip:chipFor, pjMore:more,
     pjStepTick:stepTick, pjStepClaim:stepClaim, pjStepAdd:stepAdd, pjAllHandsSet:setAllHands, pjClose:close,
     pjCloseBlocked:closeBlocked, pjNewOpen:newOpen, pjOpen:openCard, pjRenderBanners:renderBanners, pjTalkHtml:talkHtml,
-    pjBuild:build, pjAlertDays:alertDays
+    pjBuild:build, pjAlertDays:alertDays, pjAxFind:axFind
   });
 })();
