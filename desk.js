@@ -1542,8 +1542,11 @@
 .dk-mat::before{ content:""; position:absolute; inset:9px; border:1.5px dashed rgba(255,255,255,.28); border-radius:14px; pointer-events:none; }
 .dk-msg{ position:relative; color:#fff; font-size:14.5px; padding:26px 10px; text-align:center; }
 .dk-grid{ display:grid; grid-template-columns:minmax(150px,210px) minmax(0,620px) minmax(150px,210px); gap:28px; justify-content:center; align-items:start; }
-.dk-rail{ display:flex; flex-direction:column; gap:24px; position:relative; z-index:1; min-width:0; }
-.dk-zone{ height:250px; } .dk-zr{ height:120px; }
+.dk-rail{ display:flex; flex-direction:column; gap:28px; position:relative; z-index:1; min-width:0; }
+/* 2026-10-06 spacing (her ask): the gap under the pads is just room for one new sticky; the right side starts at the top
+   (the Stand-Up tray that used to sit there is gone) */
+.dk-zone{ height:150px; } .dk-zr{ height:58px; }   /* the right one: room for kind words peeking out from under the page */
+.dk-r{ gap:30px; padding-left:20px; }                 /* clear of the page's Today / Month / Later tabs */
 .dk-planner{ position:relative; z-index:2; min-width:0; }
 .dk-page{ position:relative; z-index:1; background:var(--paper); border-radius:5px 5px 12px 12px; padding:22px 24px 30px 70px; min-height:620px;
   box-shadow:0 1px 0 var(--paper-edge), 0 2px 0 var(--paper-2), 0 3px 0 var(--paper-edge), 0 5px 0 var(--paper-2), 0 6px 0 var(--paper-edge), 0 22px 34px -16px var(--shadow); }
