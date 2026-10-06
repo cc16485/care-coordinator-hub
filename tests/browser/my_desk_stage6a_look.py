@@ -82,8 +82,8 @@ async()=>{
   ok('"Tape it to my desk": it is taped up on the desk', C.includes('drop:k1:taped') && /Maria is the best/.test(W().querySelector('.dk-taped').innerText));
   p=lastPop(); ok('...and the next one unfolds', p && /Kind, on time/.test(p.innerText));
   p.querySelector('[data-k="standup"]').click(); await sleep(600);
-  const card=db.desk_lines.find(l=>l.place==='tray' && /Read out loud/.test(l.body));
-  ok('"Read it at Stand-Up": a card in the tray to read out loud, on the Stand-Up board too', card && /A Google review about Caring Companions/.test(card.body) && C.includes('drop:k2:done') && S.standup_notes.some(x=>x.desk_line_id===card.id));
+  const card=db.desk_lines.find(l=>l.place==='day' && /Read out loud/.test(l.body) && l.standup_item_id);
+  ok('"Talk about it": a line on today\'s page to read out loud, flagged on the To talk about list', card && /A Google review about Caring Companions/.test(card.body) && C.includes('drop:k2:done') && S.standup_notes.some(x=>x.desk_line_id===card.id));
   p=lastPop(); p.querySelector('[data-k="jar"]').click(); await sleep(300);
   ok('"Into the jar": off the desk (it was already in the office jar)', C.includes('drop:k3:done') && !W().querySelector('.dk-kindtuck'));
   W().querySelector('.dk-taped [data-dk="taped-jar"]').click(); await sleep(200);

@@ -16,6 +16,13 @@
    EVERYTHING TYPED IS SHOWN AS TEXT. The old Team Hub board put some fields into the page unescaped, and its public
    quick-add page let anyone write to it; here every value goes through escapeHtmlComms, and links are only https.
    ===================================================================================================================== */
+/* TO TALK ABOUT (2026-10-06, Samantha: "maybe we just have my work and my desk - then we can have a little indication to
+   speak about this", "we have very informal meetings, basically i just get to the office between 9am-11am and stop and
+   chat", "yes go ahead, talk about"). There is no Stand-Up meeting and no board to add to any more. Anything on My Work or
+   a line on My Desk can carry a "Talk about" flag; the flag is an item on this same shared list (source 'work' with
+   ops_id, or 'desk' with desk_line_id), so nothing new is stored anywhere. The Stand-Up tab is now the To talk about list:
+   everyone's flags grouped by person, then what the Hub would mention on its own. "Talked" clears the flag; the thing itself
+   stays where it was. Older board items show there too until someone answers them, so nothing is lost. */
 (function(){
   'use strict';
   const SU_KEY = 'standup_notes', TM_KEY = 'team_meetings';
@@ -95,7 +102,7 @@
     const start = Date.parse(i.occurred_at || i.created_at || ''); if(isNaN(start)) return { days: 0, label: '', tone: '' };
     const end = i.status === 'done' ? Date.parse(i.done_at || i.resolved_at || '') : (now || Date.now());
     const ms = Math.max(0, (isNaN(end) ? Date.now() : end) - start), days = ms / 864e5;
-    const span = days >= 1 ? Math.floor(days) + ' day' + (Math.floor(days) === 1 ? '' : 's') : Math.max(1, Math.round(ms / 36e5)) + ' hour' + (Math.round(ms / 36e5) === 1 ? '' : 's');
+    const hrs = Math.max(1, Math.round(ms / 36e5)), span = days >= 1 ? Math.floor(days) + ' day' + (Math.floor(days) === 1 ? '' : 's') : hrs + ' hour' + (hrs === 1 ? '' : 's');
     if(i.status === 'done') return { days, label: 'done in ' + span, tone: '' };
     return { days, label: 'open ' + span, tone: days >= AGE_RED_DAYS ? 'red' : days >= AGE_AMBER_DAYS ? 'amber' : '' };
   }
@@ -267,27 +274,62 @@
       + hist.map(h => '<div class="field-note" style="font-size:11.5px;margin-top:2px;">' + esc(whenStr(h.at)) + ' · ' + esc(h.by || '') + ': ' + esc(h.what || '') + '</div>').join('')
       + '</details></div>';
   }
+  /* To talk about: everyone's flags, grouped by person (yours first), then what the Hub would mention on its own. */
+  const whoOf = (i, list) => i.assigned_to_email ? nameOf(i.assigned_to_email, list) : (i.assigned_to || i.reported_by || 'Someone');
+  const fromOf = i => i.source === 'desk' ? 'From their desk' : i.source === 'work' ? 'From My Work' : 'From the old Stand-Up board';
+  const mineTo = (i, m) => lc(i.assigned_to_email) === m.email || lc(i.reported_by_email) === m.email;
+  function talkRow(i, list, m){
+    const id = esc(i.id), age = suAge(i), old = i.source !== 'desk' && i.source !== 'work';
+    const acts = btn('Talked ✓', "suAct('" + id + "','talked')", 'primary')
+      + (i.source === 'work' && i.ops_id ? btn('Open in My Work', "suOpenWork('" + esc(i.ops_id) + "')") : '')
+      + (old ? btn('Still needs doing: put it on My Work', "suAct('" + id + "','towork')") : '')
+      + (mineTo(i, m) ? btn('Take the flag off', "suAct('" + id + "','unflag')", 'secondary', 'color:var(--text-muted);') : '');
+    return '<div class="card su-talk" data-id="' + id + '" style="padding:10px 13px;margin-bottom:7px;border-left:4px solid ' + (i.urgent ? 'var(--red)' : 'var(--teal)') + ';">'
+      + '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">' + (i.urgent ? chip('URGENT', 'var(--red)', '#fff') : '')
+      + '<b style="flex:1;min-width:200px;color:var(--navy);font-size:14.5px;">' + esc(i.summary || '(no description)') + '</b></div>'
+      + '<div class="field-note" style="margin-top:3px;font-size:12px;">' + esc(fromOf(i)) + (i.client ? ' · ' + esc(i.client) : '') + (age.label ? ' · flagged ' + esc(age.label.replace(/^open /, '')) + ' ago' : '') + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;">' + acts + '</div></div>';
+  }
   function suRender(){
     const box = document.getElementById('suWrap'); if(!box) return;
-    if(!SU.items){ box.innerHTML = '<div class="field-note">Loading the board…</div>'; return; }
-    const list = people(), m = me(), f = SU.f;
-    const all = SU.items, act = all.filter(i => !i.archived_at && i.status !== 'done');
-    const shown = suSort(suFilter(all, f, m.email));
-    const opt = (v, t, cur) => '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(t) + '</option>';
-    const tab = (v, t) => '<button class="' + (f.status === v ? 'primary' : 'secondary') + '" style="padding:5px 12px;font-size:12.5px;" onclick="suSet(\'status\',\'' + v + '\')">' + t + '</button>';
+    if(!SU.items){ box.innerHTML = '<div class="field-note">Loading…</div>'; return; }
+    const list = people(), m = me();
+    const open = suSort(SU.items.filter(i => !i.archived_at && i.status !== 'done'));
+    const groups = new Map();
+    open.forEach(i => { const name = whoOf(i, list), k = lc(i.assigned_to_email) || 'name:' + lc(name);
+      if(!groups.has(k)) groups.set(k, { name, email:lc(i.assigned_to_email), items:[] }); groups.get(k).items.push(i); });
+    const gs = [...groups.values()].sort((a, b) => ((b.email === m.email) - (a.email === m.email)) || a.name.localeCompare(b.name));
+    const flaggedOps = new Set(open.filter(i => i.source === 'work' && i.ops_id).map(i => String(i.ops_id)));
+    let hub = []; try{ hub = prepList().filter(r => r.kind !== 'su' && !(r.kind === 'ops' && flaggedOps.has(String(r.id)))); }catch(e){}   /* already flagged: shown once, above */
+    const week = Date.now() - 7 * 864e5;
+    const recent = SU.items.filter(i => i.status === 'done' && !i.archived_at && (Date.parse(i.talked_at || i.done_at || '') || 0) > week)
+      .sort((a, b) => String(b.talked_at || b.done_at || '').localeCompare(String(a.talked_at || a.done_at || '')));
+    let lastSec = '';
     box.innerHTML = '<div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">'
-      + '<div><h2 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Stand-Up</h2>'
-      + '<div class="field-note">What the team needs to know and act on: after-hours calls, call-outs, client and caregiver issues. Internal only; nothing here texts or emails anyone.</div></div>'
-      + '<span style="flex:1;"></span><button class="secondary" onclick="tmPrepare()">Prepare Stand-Up</button><button class="primary" onclick="suEdit()">＋ Add to Stand-Up</button></div>'
-      + (SU.err ? '<div class="field-note" style="color:var(--red);margin-bottom:8px;">Couldn\'t refresh the board (' + esc(SU.err) + '). What you see may be out of date.</div>' : '')
-      + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">'
-      + tab('active', 'Open (' + act.length + ')') + tab('done', 'Done') + tab('archived', 'Archived')
-      + '<select style="width:auto;font-size:12.5px;padding:4px 8px;" onchange="suSet(\'who\',this.value)">'
-      + opt('all', 'Everyone', f.who) + opt('mine', 'Mine', f.who) + opt('unassigned', 'Unassigned', f.who) + list.map(p => opt(p.email, p.name, f.who)).join('') + '</select>'
-      + '<select style="width:auto;font-size:12.5px;padding:4px 8px;" onchange="suSet(\'cat\',this.value)">' + opt('all', 'All categories', f.cat) + SU_CATS.map(c => opt(c, c, f.cat)).join('') + '</select>'
-      + '<input placeholder="Search" value="' + esc(f.q) + '" oninput="suSet(\'q\',this.value,true)" style="width:180px;font-size:12.5px;padding:5px 8px;">'
-      + '<span class="field-note" style="font-size:11.5px;">Updated ' + esc(whenStr(SU.at)) + '</span></div>'
-      + '<div id="suList">' + suListHtml(shown, list) + '</div>';
+      + '<div><h2 style="margin:0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">To talk about</h2>'
+      + '<div class="field-note">What people flagged to bring up the next time you\'re together, from My Work or a line on My Desk. Tap Talked once you\'ve covered it; it stays where it was. Nothing here texts or emails anyone.</div></div>'
+      + '<span style="flex:1;"></span><button class="primary" onclick="suTalkNew(this)">＋ Something to talk about</button></div>'
+      + (SU.err ? '<div class="field-note" style="color:var(--red);margin-bottom:8px;">Couldn\'t refresh (' + esc(SU.err) + '). What you see may be out of date.</div>' : '')
+      + (gs.length ? gs.map(g => '<div class="su-tgroup" style="margin-bottom:14px;"><div style="font-size:15px;font-weight:800;color:var(--navy);margin:6px 0 6px;">'
+          + esc(g.email === m.email ? 'You' : g.name) + ' <span class="field-note" style="font-weight:600;">(' + g.items.length + ')</span></div>'
+          + g.items.map(i => talkRow(i, list, m)).join('') + '</div>').join('')
+        : '<div class="card" style="padding:14px 16px;margin-bottom:12px;"><div class="field-note">Nothing flagged. On a My Work card tap <b>Talk about</b>, or on your desk press <b>S</b> on a line.</div></div>')
+      + (hub.length ? '<div style="margin-top:18px;"><div style="font-size:15px;font-weight:800;color:var(--navy);">Worth mentioning</div>'
+          + '<div class="field-note" style="margin-bottom:6px;">The Hub found these on its own: urgent work, coverage for today and tomorrow, client and staffing issues, promises due.</div>'
+          + hub.map(r => { const head = r.sec !== lastSec ? '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--text-muted);margin:10px 0 4px;">' + esc(r.sec.toUpperCase()) + '</div>' : ''; lastSec = r.sec;
+              return head + '<div class="su-hubrow" style="border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:5px;"><b style="color:var(--navy);">' + esc(r.title || '') + '</b> <span class="field-note">' + esc(r.sub || '') + '</span></div>'; }).join('') + '</div>' : '')
+      + (recent.length ? '<details style="margin-top:16px;"><summary class="field-note" style="cursor:pointer;">Talked about this week (' + recent.length + ')</summary>'
+          + recent.map(i => '<div class="field-note" style="font-size:12.5px;margin-top:4px;">' + esc(whenStr(i.talked_at || i.done_at)) + ' · ' + esc(whoOf(i, list)) + ': ' + esc(i.summary || '') + '</div>').join('') + '</details>' : '');
+  }
+  function suOpenWork(opsId){
+    switchTab('mywork');
+    setTimeout(() => { const c = document.querySelector('.wkcard[data-id="' + (window.CSS && CSS.escape ? CSS.escape(opsId) : opsId) + '"]');
+      if(c){ c.scrollIntoView({ block:'center', behavior:'smooth' }); c.classList.add('dk-flash'); setTimeout(() => c.classList.remove('dk-flash'), 1600); } else say('That one is not on your My Work list (it may be someone else\'s or already done).'); }, 350);
+  }
+  /* "＋ Something to talk about": a line on your desk with the flag on (or, without a desk, a My Work reminder). */
+  function suTalkNew(anchor){
+    if(typeof dkAllowed === 'function' && dkAllowed() && typeof dkJotOpen === 'function') dkJotOpen(anchor, { talk:true });
+    else if(typeof ccCaptureOpen === 'function') ccCaptureOpen({ talk:true });
   }
   const suListHtml = (shown, list) => shown.length ? shown.map(i => suCard(i, list)).join('') : '<div class="field-note">Nothing here.</div>';
   function suSet(k, v, keepFocus){
@@ -339,7 +381,18 @@
   }
   async function suAct(id, what){
     const m = me();
-    if(what === 'update'){
+    if(what === 'talked'){
+      await suMutate(id, it => { if(it.status === 'done') return null; it.status = 'done'; it.talked_at = iso(); it.done_at = it.talked_at; it.done_by = m.name;
+        it.resolved_at = it.done_at; it.resolved_by = m.name; return 'Talked about'; });
+      say('Talked about. The flag is off.');
+    } else if(what === 'unflag'){
+      await suMutate(id, it => { if(it.archived_at) return null; it.archived_at = iso(); it.archived_by = m.name; return 'Flag taken off'; });
+    } else if(what === 'towork'){
+      const it = (SU.items || []).find(x => x.id === id); if(!it || typeof ccCaptureOpen !== 'function') return;
+      ccCaptureOpen({ text:it.summary || '', about:it.client || it.related_to || '', after: async () => { await suMutate(id, x => { if(x.status === 'done') return null; x.status = 'done';
+        x.talked_at = iso(); x.done_at = x.talked_at; x.done_by = m.name; x.resolved_at = x.done_at; x.resolved_by = m.name; return 'Put on My Work'; }); suRender(); suTodayRender(); } });
+      return;
+    } else if(what === 'update'){
       const t = await askText('Add an update', 'What happened, or what was done. Internal only.');
       if(!t) return;
       await suMutate(id, it => { it.updates = it.updates.concat([{ at: iso(), by: m.name, by_email: m.email, text: t.trim().slice(0, 1000) }]); return 'Update added'; });
@@ -367,35 +420,28 @@
   function suTodayRender(){
     const box = document.getElementById('suTodayLine'); if(!box) return;
     if(!SU.items){ suLoad().then(suTodayRender); return; }
-    const list = people(), mineC = suOpenFor(SU.items, me().email);
+    const list = people(), m = me();
     const open = suSort(SU.items.filter(i => !i.archived_at && i.status !== 'done'));
-    const urgent = open.filter(i => i.urgent).length;
-    const row = i => { const age = suAge(i), who = i.assigned_to_email ? nameOf(i.assigned_to_email, list).split(' ')[0] : (i.assigned_to || '');
-      return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);cursor:pointer;" onclick="switchTab(\'standup\')">'
-        + (i.urgent ? chip('URGENT', 'var(--red)', '#fff') : '')
-        + '<b style="flex:1 1 220px;min-width:0;color:var(--navy);">' + esc(i.summary || '(no description)') + '</b>'
-        + (i.client ? '<span class="field-note">' + esc(i.client) + '</span>' : '')
-        + '<span class="field-note">' + (who ? esc(who) : '<span style="color:var(--amber);">Unassigned</span>') + ' · <span style="color:'
-        + (age.tone === 'red' ? 'var(--red)' : age.tone === 'amber' ? 'var(--amber)' : 'inherit') + ';">' + esc(age.label) + '</span></span></div>'; };
+    const mine = open.filter(i => lc(i.assigned_to_email) === m.email).length;
+    const row = i => '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);cursor:pointer;" onclick="switchTab(\'standup\')">'
+      + (i.urgent ? chip('URGENT', 'var(--red)', '#fff') : '')
+      + '<b style="flex:1 1 220px;min-width:0;color:var(--navy);">' + esc(i.summary || '(no description)') + '</b>'
+      + '<span class="field-note">' + esc(String(whoOf(i, list)).split(' ')[0]) + '</span></div>';
     box.innerHTML = '<div class="card" style="padding:13px 16px;">'
       + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px;">'
-      + '<b style="font-size:16px;color:var(--navy);">Stand-Up</b>'
-      + '<span class="field-note">' + open.length + ' open' + (urgent ? ' · <b style="color:var(--red);">' + urgent + ' urgent</b>' : '')
-      + ' · ' + mineC.open + ' open for you' + (mineC.urgent ? ' · ' + mineC.urgent + ' urgent' : '') + (mineC.overdue ? ' · ' + mineC.overdue + ' overdue' : '') + '</span>'
+      + '<b style="font-size:16px;color:var(--navy);">To talk about</b>'
+      + '<span class="field-note">' + open.length + ' flagged' + (mine ? ' · ' + mine + ' yours' : '') + '</span>'
       + '<span style="flex:1;"></span>'
-      + '<button class="primary" style="padding:6px 12px;font-size:12.5px;" onclick="suEdit()">＋ Add to Stand-Up</button>'
-      + '<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="tmPrepare()">Prepare Stand-Up</button>'
-      + '<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="switchTab(\'standup\')">Open the board</button></div>'
-      + (open.length ? open.slice(0, 5).map(row).join('')
-          + (open.length > 5 ? '<div class="field-note" style="padding-top:6px;">plus ' + (open.length - 5) + ' more on the board</div>' : '')
-        : '<div class="field-note" style="padding:6px 0 2px;">Nothing open. When something happens the team needs to know (a call-out, a client or caregiver issue), add it here.</div>')
+      + '<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="switchTab(\'standup\')">Open the list</button></div>'
+      + (open.length ? open.slice(0, 5).map(row).join('') + (open.length > 5 ? '<div class="field-note" style="padding-top:6px;">plus ' + (open.length - 5) + ' more</div>' : '')
+        : '<div class="field-note" style="padding:6px 0 2px;">Nothing flagged. Tap Talk about on anything in My Work or on your desk to bring it up next time you\'re together.</div>')
       + '</div>';
   }
   /* the line on each My Team card (renderMyTeam calls this) */
   function suTeamCountHtml(email){
     if(!SU.items){ if(!SU._teamAsked){ SU._teamAsked = true; suLoad().then(() => { try{ if(typeof activeTab !== 'undefined' && activeTab === 'myteam') renderMyTeam(); }catch(e){} }); } return ''; }
     const c = suOpenFor(SU.items, email);
-    return '<span style="cursor:pointer;" onclick="suSet(\'who\',\'' + esc(lc(email)) + '\');switchTab(\'standup\')">' + c.open + ' open stand-up'
+    return '<span style="cursor:pointer;" onclick="suSet(\'who\',\'' + esc(lc(email)) + '\');switchTab(\'standup\')">' + c.open + ' to talk about'
       + (c.urgent ? ' · <b style="color:var(--red);">' + c.urgent + ' urgent</b>' : '') + '</span>';
   }
 
@@ -438,9 +484,8 @@
     const months = {}; shown.forEach(m => { const k = String(m.meeting_date || '').slice(0, 7); (months[k] = months[k] || []).push(m); });
     const keys = Object.keys(months).sort().reverse();
     box.innerHTML = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">'
-      + '<button class="primary" onclick="tmPrepare()">Prepare Stand-Up</button>'
+      + '<button class="primary" onclick="tmPrepare()">Prepare a meeting</button>'
       + '<button class="secondary" onclick="tmEdit()">＋ Log a meeting</button>'
-      + '<span class="field-note" id="suSchedLine">Stand-Up: ' + esc(suSchedWords()) + ' · <a href="#teammeetings" onclick="suSchedEdit(this);return false;">Change</a></span>'
       + '<input placeholder="Search notes and action items" value="' + esc(TM.q) + '" oninput="tmSearch(this.value)" style="width:240px;font-size:12.5px;padding:5px 8px;">'
       + '<label class="field-note" style="display:flex;gap:6px;align-items:center;"><input type="checkbox" style="width:auto;"' + (TM.showArchived ? ' checked' : '') + ' onchange="tmShowArchived(this.checked)"> Show archived</label>'
       + (TM.err ? '<span class="field-note" style="color:var(--red);">Couldn\'t refresh (' + esc(TM.err) + ')</span>' : '') + '</div>'
@@ -562,9 +607,9 @@
     const ownerTag = i => (typeof opsOwnerTag === 'function' ? opsOwnerTag(i) : (i.owner_name || i.owner || 'Unassigned'));
     const add = (sec, kind, id, title, sub) => { const k = kind + ':' + id; if(seen.has(k)) return; seen.add(k); out.push({ sec, kind, id: String(id), title, sub }); };
     const tier0 = i => typeof opsPriorityKey === 'function' && opsPriorityKey(i)[0] === 0;
-    /* My Desk (Stage 4): what people dropped in their Stand-Up tray comes first */
-    suSort((SU.items || []).filter(i => !i.archived_at && i.status !== 'done' && i.source === 'desk' && !i.talked_at)).forEach(i => add("From everyone's Stand-Up trays", 'su', i.id,
-      i.summary || '', (i.assigned_to_email ? nameOf(i.assigned_to_email) : (i.reported_by || 'Someone')) + "'s tray"));
+    /* what people flagged to talk about comes first */
+    suSort((SU.items || []).filter(i => !i.archived_at && i.status !== 'done' && (i.source === 'desk' || i.source === 'work'))).forEach(i => add('Flagged to talk about', 'su', i.id,
+      i.summary || '', (i.assigned_to_email ? nameOf(i.assigned_to_email) : (i.reported_by || 'Someone')) + (i.source === 'desk' ? "'s desk" : ', My Work')));
     ops.filter(i => i.urgency === 'urgent' || (i.escalation && !i.escalation.cleared_at && i.escalation.level === 'urgent') || tier0(i))
       .forEach(i => add('Urgent and high-risk, not resolved', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
     ((typeof DATA !== 'undefined' && DATA.coverage_cases) || []).filter(c => c && c.status === 'open' && String(c.kind) !== 'interest' && [today, tom].includes(String(c.shift_date)))
@@ -575,7 +620,7 @@
     ops.filter(i => i.kind === 'client_issue').forEach(i => add('Client issues', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
     ops.filter(i => ['staffing_issue', 'evv_fix', 'coverage_outcome', 'family_call', 'coverage'].includes(i.kind)).forEach(i => add('Staffing issues', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
     ops.filter(i => ['promise_update', 'promise_lapsed'].includes(i.kind) && Date.parse(i.due || '') <= eod).forEach(i => add('Promises due', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
-    suSort((SU.items || []).filter(i => !i.archived_at && i.status !== 'done')).forEach(i => add('Carried over: the Stand-Up board', 'su', i.id,
+    suSort((SU.items || []).filter(i => !i.archived_at && i.status !== 'done')).forEach(i => add('From the old Stand-Up board', 'su', i.id,
       (i.urgent ? 'URGENT · ' : '') + (i.summary || ''), (i.assigned_to_email ? nameOf(i.assigned_to_email) : (i.assigned_to || 'Unassigned')) + ' · ' + suAge(i).label));
     const c = tmCarry(TM.items || [], SU.items || [], today, 'Daily Stand-Up');
     (c.open || []).forEach(i => add('Carried over: the Stand-Up board', 'su', i.id, i.summary || '', 'from ' + (c.prior ? c.prior.meeting_name : 'the last meeting')));
@@ -594,7 +639,7 @@
         + '<select class="prepOwner" style="font-size:12.5px;"><option value="">Owner: keep</option>' + opt + '</select>'
         + '<input class="prepDue" type="date" title="By when" style="font-size:12.5px;">'
         + '<input class="prepNote" placeholder="Decision or next step" style="font-size:12.5px;"></div></div>'; }).join('');
-    const el = pop('<div style="font-size:16px;font-weight:800;color:var(--navy);">Prepare Stand-Up · ' + esc(dayStr(today + 'T12:00:00')) + '</div>'
+    const el = pop('<div style="font-size:16px;font-weight:800;color:var(--navy);">Prepare a meeting · ' + esc(dayStr(today + 'T12:00:00')) + '</div>'
       + '<div class="field-note" style="margin:3px 0 8px;">The Hub assembled this. Go down it together: tick what you discussed, and set an owner, a by-when or a decision where you made one. Logging writes each decision onto its item. Nothing is texted or emailed.</div>'
       + (rows.length ? body : '<div class="field-note" style="padding:10px 0;">Nothing urgent, no open coverage for today or tomorrow, no client or staffing issues, no promises due, and the board is clear.</div>')
       + '<div style="margin-top:10px;"><b style="font-size:12.5px;">Who was there</b><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">'
@@ -624,7 +669,7 @@
             if(touched) await persist('ops_items', it2);
           } else if(r.kind === 'su'){
             await suMutate(r.id, (it, before) => { if(owner) it.assigned_to_email = owner; if(due) it.due = due;
-              if(it.source === 'desk' && !it.talked_at) it.talked_at = iso();   /* the card goes back to their desk stamped "talked about" */
+              if((it.source === 'desk' || it.source === 'work') && !it.talked_at) it.talked_at = iso();   /* the card goes back to their desk stamped "talked about" */
               if(note) it.updates = it.updates.concat([{ at: iso(), by: who.name, by_email: who.email, text: 'Stand-up: ' + note }]);
               const d = suDiff(before, it, list); return d.length || note ? (d.length ? d : ['Discussed at stand-up']) : 'Discussed at stand-up'; });
           } else if(r.kind === 'case'){
@@ -714,7 +759,7 @@
     async create(summary, lineId){
       const m = me();
       const it = await suCreate({ summary:String(summary || '').slice(0, 500), category:'General', assigned_to_email:m.email, source:'desk', desk_line_id:lineId },
-        'Brought from ' + String(m.name).split(' ')[0] + "'s desk (the Stand-Up tray)");
+        'Flagged to talk about from ' + String(m.name).split(' ')[0] + "'s desk");
       return it.id;
     },
     async status(ids){
@@ -722,11 +767,25 @@
       (ids || []).forEach(id => { const i = all.find(x => x && x.id === id); out[id] = i ? { talked_at:i.talked_at || null, status:SU_STATUS[i.status] ? i.status : (i.resolved ? 'done' : 'open'), archived_at:i.archived_at || null } : null; });
       return out;
     },
-    takeOut: id => suMutate(id, it => { if(it.archived_at) return null; it.archived_at = iso(); return 'Taken back out of the Stand-Up tray'; }),
+    takeOut: id => suMutate(id, it => { if(it.archived_at) return null; it.archived_at = iso(); return 'Flag taken off'; }),
     finish: (id, what) => suMutate(id, it => { if(it.status === 'done') return null; it.status = 'done'; it.done_at = iso(); it.done_by = me().name; it.resolved_at = it.done_at; it.resolved_by = me().name; return what || 'All set after Stand-Up'; })
   };
 
-  Object.assign(window, { suSchedule, suSchedWords, suNextStandup, suSchedEdit, suDesk });
+  /* the flag on a My Work card (an ops item): one open flag per item, on the list under whoever owns it */
+  const suTalk = {
+    forWork: opsId => (SU.items || []).find(i => i.source === 'work' && i.ops_id === opsId && !i.archived_at && i.status !== 'done') || null,
+    async flagWork(it){
+      await suLoad(true);
+      const had = suTalk.forWork(it.id); if(had) return had.id;
+      const m = me(), owner = lc(it.owner) || m.email;
+      const made = await suCreate({ summary:String(it.title || it.about || 'My Work item').slice(0, 500), related_to:String(it.about || '').slice(0, 200), category:'General',
+        assigned_to_email:owner, source:'work', ops_id:it.id }, 'Flagged to talk about by ' + String(m.name).split(' ')[0] + ' (from My Work)');
+      return made.id;
+    },
+    unflagWork: async opsId => { await suLoad(true); const f = suTalk.forWork(opsId); if(f) await suMutate(f.id, x => { if(x.archived_at) return null; x.archived_at = iso(); x.archived_by = me().name; return 'Flag taken off'; }); return true; },
+    load: f => suLoad(f), ready: () => !!SU.items
+  };
+  Object.assign(window, { suSchedule, suSchedWords, suNextStandup, suSchedEdit, suDesk, suTalk, suOpenWork, suTalkNew });
   Object.assign(window, { suOpen, suRender, suSet, suEdit, suAct, suTodayRender, suTeamCountHtml, tmOpen, tmRender, tmToggle, tmSearch, tmShowArchived, tmEdit, tmAct, tmVideo, tmPrepare, prepList,
     SUB: { suNorm, suAge, suSort, suFilter, suOpenFor, suDiff, tmPrior, tmCarry, safeUrl, isOverdue, SU, TM, SU_CATS } });
 })();

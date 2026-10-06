@@ -87,7 +87,7 @@
       + ((L.parked.length || L.later.length) ? '<div class="field-note" style="margin:6px 0;">' + [L.parked.length ? L.parked.length + ' waiting with a wake-up' : '', L.later.length ? L.later.length + ' later' : ''].filter(Boolean).join(' and ') + ' stay with you and come back by themselves.</div>' : '')
       + (L.attention.length
         ? '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--red);margin:10px 0 4px;">NEEDS ATTENTION, NOBODY HAS IT · ' + L.attention.length + '</div>'
-          + '<div class="field-note" style="margin-bottom:4px;">These go in the handoff and on the Stand-Up board.</div>'
+          + '<div class="field-note" style="margin-bottom:4px;">These go in the handoff and on the To talk about list.</div>'
           + L.attention.map(i => '<div style="font-size:13px;">· ' + esc8(i.about || i.title || '') + ' <span class="field-note">' + esc8(dueText(i)) + '</span></div>').join('')
         : '')
       /* My Desk (Stage 4): a short step for my own desk, and the ribbon moves on */

@@ -809,7 +809,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          moment worth capturing never happens on the right tab. -->
     <!-- 2026-10-05 (her call): one "＋ Add" button, Stand-Up first, so the board is where team news goes, and personal
          reminders (Capture) still have a home. -->
-    <button class="addlead" id="ccAddBtn" onclick="ccAddOpen(this)" title="Add to the Stand-Up board, or capture a reminder"
+    <button class="addlead" id="ccAddBtn" onclick="ccAddOpen(this)" title="Jot on your desk, or add to My Work"
             style="background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">＋ Add</button>
     <button class="addlead" onclick="openCallCockpit()">＋ Add Lead</button>
     <span id="userChip" style="display:flex;align-items:center;gap:8px;padding:3px 12px 3px 4px;border:1px solid var(--border);border-radius:999px;background:#fff;flex:0 0 auto;">
@@ -852,7 +852,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          (Team, #myteam/role/<email>) and from "Open role" on the whole-team list; #myrole still works as a link. -->
     <!-- 2026-10-05 (her call): no My Team tab. The team tools open from the Owners Hub Admin page (Team), which links
          here: #myteam, #myteam/add, #myteam/access/<email>, #myteam/role/<email>. -->
-    <div class="fpill" data-tab="standup" onclick="switchTab('standup')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Stand-Up</div>
+    <div class="fpill" data-tab="standup" onclick="switchTab('standup')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-talk"/></svg> To talk about</div>
     <div class="fpill" data-tab="teammeetings" onclick="switchTab('teammeetings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Team Meetings<span class="subtab-badge red" id="mtgTabBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="calendar" onclick="switchTab('calendar')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Calendar</div>
     <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
@@ -1270,7 +1270,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <svg style="width:20px;height:20px;flex:none;" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg>
           <b style="font-size:16px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Team scorecard</b>
-          <span class="field-note">One row per person: closed, due, late. Click a row to open their book. (The Stand-Up board is its own tab.)</span>
+          <span class="field-note">One row per person: closed, due, late. Click a row to open their book. (To talk about is its own tab.)</span>
         </div>
         <div id="standupRows" style="margin-top:6px;"></div>
         <details class="guide" style="margin:10px 0 6px;border:none;background:none;">
@@ -1446,7 +1446,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <section class="tabpanel" id="tab-teammeetings">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div><h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Team Meetings</h2>
-        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Notes from each meeting, and its action items on the Stand-Up board with an owner and a due date. Open items from the last meeting carry into the next one.</div></div>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;">Notes from each meeting, and its action items on the To talk about list with an owner and a due date. Open items from the last meeting carry into the next one.</div></div>
         <span style="flex:1;"></span>
         <button class="secondary" onclick="tmVideo()"><svg style="width:15px;height:15px;vertical-align:-2px;" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Join the team video room</button>
       </div>
@@ -6729,10 +6729,10 @@ The HomeTogether team</pre>
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
-<script src="standup-board.js?v=5"></script>
+<script src="standup-board.js?v=6"></script>
 <script src="staffing-view.js?v=1"></script>
-<script src="end-shift.js?v=2"></script>
-<script src="desk.js?v=7"></script>
+<script src="end-shift.js?v=3"></script>
+<script src="desk.js?v=8"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -7759,7 +7759,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  meetings:'Team Meetings', standup:'Stand-Up', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
+  meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
@@ -25294,24 +25294,26 @@ function ccCapChips(){
   }
   wk.innerHTML=h;
 }
-function ccCaptureClose(){ const d=document.getElementById('ccCapWrap'); if(d) d.style.display='none'; }
-/* "＋ Add" (2026-10-05): Stand-Up first (the team needs to know), then a personal reminder (Capture). */
+function ccCaptureClose(){ const d=document.getElementById('ccCapWrap'); if(d) d.style.display='none'; CC_CAP_AFTER=null; }
+let CC_CAP_AFTER=null;   /* To talk about: "Still needs doing: put it on My Work" closes the old item once this is saved */
+/* "＋ Add" (2026-10-06, Samantha: "maybe we just have my work and my desk"): two places, each with a "Talk about" tick
+   that flags it for the next time you're together (the To talk about list, which replaced Stand-Up). */
 function ccAddOpen(anchor){
+  const desk=(typeof dkAllowed==='function'&&dkAllowed());
   const el=ccPopOpen(anchor||document.getElementById('ccAddBtn'),
     '<div style="font-size:13px;font-weight:800;color:var(--navy);margin:2px 2px 8px;">What are you adding?</div>'
-    /* My Desk (Stage 4): a line just for me comes first, for the people My Desk is on for */
-    +((typeof dkAllowed==='function'&&dkAllowed())?'<button class="primary" id="ccAddDk" style="width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;"><b>Jot on my desk</b><br>'
+    +(desk?'<button class="primary" id="ccAddDk" style="width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;"><b>Jot on my desk</b><br>'
       +'<span style="font-weight:400;font-size:12px;">Just for me: a line on today\'s page. Nobody else sees it</span></button>':'')
-    +'<button class="'+((typeof dkAllowed==='function'&&dkAllowed())?'ghost':'primary')+'" id="ccAddSu" style="width:100%;text-align:left;padding:10px 12px;margin-bottom:8px;"><b>Stand-Up board</b><br>'
-    +'<span style="font-weight:400;font-size:12px;">The team needs to know: a call-out, a client or caregiver issue, anything for the morning huddle</span></button>'
-    +'<button class="ghost" id="ccAddCap" style="width:100%;text-align:left;padding:10px 12px;"><b>A reminder</b><br>'
-    +'<span style="font-weight:400;font-size:12px;">Lands on someone’s list (yours or a colleague’s) and comes back when it’s due</span></button>',
+    +'<button class="'+(desk?'ghost':'primary')+'" id="ccAddCap" style="width:100%;text-align:left;padding:10px 12px;"><b>My Work</b><br>'
+    +'<span style="font-weight:400;font-size:12px;">The Hub keeps track of it: it lands on someone’s list (yours or a colleague’s) and comes back when it’s due</span></button>'
+    +'<label style="display:flex;gap:7px;align-items:center;margin:10px 2px 2px;font-size:13px;cursor:pointer;"><input type="checkbox" id="ccAddTalk" style="width:auto;margin:0;"> Talk about it next time we’re together</label>',
     { width:320 });
-  el.querySelector('#ccAddSu').onclick=()=>{ ccPopClose(); if(typeof suEdit==='function') suEdit(); else switchTab('standup'); };
-  const dk=el.querySelector('#ccAddDk'); if(dk) dk.onclick=()=>{ ccPopClose(); dkJotOpen(anchor||document.getElementById('ccAddBtn')); };
-  el.querySelector('#ccAddCap').onclick=()=>{ ccPopClose(); ccCaptureOpen(); };
+  const talk=()=>!!(el.querySelector('#ccAddTalk')||{}).checked;
+  const dk=el.querySelector('#ccAddDk'); if(dk) dk.onclick=()=>{ const t=talk(); ccPopClose(); dkJotOpen(anchor||document.getElementById('ccAddBtn'), { talk:t }); };
+  el.querySelector('#ccAddCap').onclick=()=>{ const t=talk(); ccPopClose(); ccCaptureOpen({ talk:t }); };
 }
-function ccCaptureOpen(){
+function ccCaptureOpen(opts){
+  opts=opts||{};
   let d=document.getElementById('ccCapWrap');
   if(!d){
     d=document.createElement('div'); d.id='ccCapWrap';
@@ -25329,6 +25331,7 @@ function ccCaptureOpen(){
       +'<span id="capWhenChips" style="display:contents;"></span>'
       +'<input id="capDate" type="date" onchange="ccCapWhen(this)" style="font-size:12.5px;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;">'
       +'</div>'
+      +'<label style="display:flex;gap:7px;align-items:center;margin-top:10px;font-size:13px;cursor:pointer;"><input type="checkbox" id="capTalk" style="width:auto;margin:0;"> Talk about it next time we’re together</label>'
       +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;">'
       +'<button class="primary" onclick="ccCaptureSave()" style="padding:8px 18px;font-size:13.5px;">Capture</button>'
       +'<button class="ghost" onclick="ccCaptureClose()" style="padding:8px 14px;font-size:13.5px;">Cancel</button>'
@@ -25348,7 +25351,9 @@ function ccCaptureOpen(){
   sel.value=me.email;
   if(sel.value!==me.email && me.email)
     sel.insertAdjacentHTML('afterbegin','<option value="'+me.email+'" selected>'+escapeHtmlComms(me.name||me.email)+'</option>');
-  document.getElementById('capWhat').value=''; document.getElementById('capAbout').value='';
+  document.getElementById('capWhat').value=opts.text||''; document.getElementById('capAbout').value=opts.about||'';
+  const tk=document.getElementById('capTalk'); if(tk) tk.checked=!!opts.talk;
+  CC_CAP_AFTER=typeof opts.after==='function'?opts.after:null;
   const dt=document.getElementById('capDate'); if(dt) dt.value='';
   CC_CAP_WHEN='today'; CC_CAP_DATE='';
   ccCapChips();
@@ -25376,8 +25381,11 @@ async function ccCaptureSave(){
   DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(it);
   opEvent('captured',{item:it, summary:a.name+' captured: '+what});
   await persist('ops_items',it);
+  const talk=!!(document.getElementById('capTalk')||{}).checked, after=CC_CAP_AFTER;
   ccCaptureClose();
-  ccToast('✓ Captured'+(owner?(owner===a.email?' — on your list':' — on '+(it.owner_name||owner)+'’s list'):' — unassigned'));
+  ccToast('✓ Captured'+(owner?(owner===a.email?', on your list':', on '+(it.owner_name||owner)+'’s list'):', unassigned')+(talk?', flagged to talk about':''));
+  if(talk && window.suTalk){ try{ await suTalk.flagWork(it); }catch(e){ ccToast('Captured, but the Talk about flag didn’t save. Tap Talk about on the card.'); } }
+  if(after){ try{ await after(it); }catch(e){} }
   if(typeof myWorkRefresh==='function') myWorkRefresh();
   if(typeof opsRenderQueue==='function') opsRenderQueue();
 }
@@ -26255,6 +26263,17 @@ function obligationOpenAction(it){
       +'recording it will bring it back.</span></div>';
   }catch(e){ return ''; }
 }
+/* the Talk about flag on a My Work card: on, or off again */
+async function myWorkTalk(id, btn){
+  const it=(DATA.ops_items||[]).find(x=>x&&x.id===id); if(!it||!window.suTalk) return;
+  if(btn) btn.disabled=true;
+  try{
+    if(suTalk.forWork(id)){ await suTalk.unflagWork(id); ccToast('Flag taken off'); }
+    else { await suTalk.flagWork(it); ccToast('Flagged to talk about next time you’re together'); }
+  }catch(e){ ccToast('Couldn’t save that just now. Try again in a moment.'); }
+  if(btn) btn.disabled=false;
+  renderMyWork(); if(typeof suTodayRender==='function') suTodayRender();
+}
 function myWorkCard(it, i){
   const esc=escapeHtmlComms;
   const late=it.due && Date.parse(it.due)<Date.now();
@@ -26283,6 +26302,10 @@ function myWorkCard(it, i){
   }
   if(it.help_from) states+=stateChip('help asked of '+(opsOwnerName(it.help_from)||it.help_from),'var(--navy');
   if(it.sub_state==='escalated') states+=stateChip('escalated','var(--red');
+  /* To talk about (2026-10-06): flagged for the next time you're together */
+  const talkF=window.suTalk?suTalk.forWork(it.id):null;
+  if(window.suTalk && !suTalk.ready() && !myWorkCard._askedTalk){ myWorkCard._askedTalk=true; suTalk.load().then(()=>{ try{ if(typeof activeTab!=='undefined'&&activeTab==='mywork') renderMyWork(); }catch(e){} }); }
+  if(talkF) states+='<span class="tag-chip wk-talk" style="background:#E3F4F3;color:#1F7A8C;"><svg class="navi" aria-hidden="true" style="width:12px;height:12px;vertical-align:-2px;"><use href="icons.svg#i-talk"/></svg> to talk about</span>';
   if(it.escalation && !it.escalation.cleared_at && String(it.escalation.to||'').toLowerCase()!==String(ccActor().email||'').toLowerCase())
     states+=stateChip(String(it.escalation.to_name||'').split(' ')[0]+' pulled in','var(--red');
   /* The claim chip appears only when it says something the card does not
@@ -26430,6 +26453,7 @@ function myWorkCard(it, i){
      closes the card. */
   if(typeof dkAllowed==='function' && dkAllowed())
     h+='<button class="ghost" style="padding:6px 13px;font-size:12.5px;" onclick="dkJotWork(\''+it.id+'\',this)">Jot on my desk</button>';
+  if(window.suTalk) h+='<button class="ghost wk-talkbtn" style="padding:6px 13px;font-size:12.5px;" onclick="myWorkTalk(\''+it.id+'\',this)">'+(talkF?'Don’t need to talk about it':'Talk about')+'</button>';
   h+='</div>';
 
   const trail=opsOwnerTrail(it);
