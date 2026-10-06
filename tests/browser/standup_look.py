@@ -97,6 +97,18 @@ async()=>{
   ok('...more than a week late is counted, not listed (left to Needs Attention)', !/Ancient thing/.test(wrap().innerText) && /1 older item \(more than a week late\) isn't shown here/.test(wrap().innerText));
   await suWorthFlag('ops_d1'); await sleep(200);
   ok('...Talk about it flags it (it moves up to the flagged list, no longer under Worth mentioning)', S.standup_notes.some(x=>x.source==='work' && x.ops_id==='ops_d1' && x.status==='open') && !cardFor("Possible concern on Ann's visit").missing);
+  // notes (2026-10-06: "I would like to tell Krystal that Pat's family called...")
+  let np=suWorthNote('ops_d2'); await sleep(120); let nf=popTop();
+  ok('Add a note on something the Hub found: words and who it is for (defaults to its owner)', /Add a note/.test(nf.innerText) && nf.querySelector('[data-a=to]') && /Nothing is texted or emailed/.test(nf.innerText));
+  nf.querySelector('[data-a=t]').value="Ann's family called: a friend of theirs wants to apply"; nf.querySelector('[data-a=to]').value='jess@mo-care.com'; nf.querySelector('[data-a=y]').click(); await np; await sleep(200);
+  const nflag=S.standup_notes.find(x=>x.ops_id==='ops_d2' && x.status==='open');
+  ok('...it becomes a flag to talk about, on Jess\'s part of the list, with the note on it', nflag && nflag.assigned_to_email==='jess@mo-care.com' && nflag.updates.at(-1).text==="Ann's family called: a friend of theirs wants to apply" && nflag.updates.at(-1).for==='jess@mo-care.com', nflag);
+  ok('...the note shows on the list, "Kat for Jess: ..."', cards().some(c=>/Kat for Jess: Ann's family called/.test(c.innerText)), wrap().innerText.slice(0,1500));
+  ok('...and on the My Work card\'s history', (DATA.ops_items.find(x=>x.id==='ops_d2').history||[]).some(h=>/Note for Jess: Ann's family called/.test(h.text)));
+  np=suAct(nflag.id,'note'); await sleep(120); nf=popTop(); nf.querySelector('[data-a=t]').value='Jess, call them back today'; nf.querySelector('[data-a=to]').value='kat@mo-care.com'; nf.querySelector('[data-a=y]').click(); await np; await sleep(150);
+  const nflag2=S.standup_notes.find(x=>x.id===nflag.id);
+  ok('Add a note on a flag: kept in order, and it can move it to someone else', nflag2.updates.length===2 && nflag2.assigned_to_email==='kat@mo-care.com' && nflag2.history.some(h=>/Now on Kat Smith's list/.test(h.what)), nflag2);
+  ok('nothing was sent by the notes', L.fn.length===0 && L.rpc.length===0);
   L.writes.length=0;
   [...cardFor('Brand new urgent').querySelectorAll('button')].find(b=>/Talked/.test(b.textContent)).click(); await sleep(200);
   let it=item('old5');
