@@ -186,6 +186,29 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('Medicaid submitted 26 days ago with no waiting record: the 21-day rule still fires', bN.group === 'now' && bN.reason === 'dsds_21' && bN.when.big === 'With the state 26 days', bN.when);
 }
 
+/* Stage 5: the owners' numbers (last 30 days vs the 30 before), "now" = Oct 6 2026 10:10 am */
+{
+  const Ls = [
+    { id:'a', created_at:'2026-10-06T14:58:00Z', first_human_attempt_at:'2026-10-06T15:02:00Z', first_human_contact_at:'2026-10-06T15:02:00Z', assigned_coordinator:'Krystal' },               /* 4 min, reached */
+    { id:'b', created_at:'2026-10-06T02:02:00Z', first_human_attempt_at:'2026-10-06T13:12:00Z', assigned_coordinator:'Krystal' },                                                              /* 9 pm Mon → 8:12 am: 12 min from opening, voicemail only */
+    { id:'c', created_at:'2026-10-01T15:00:00Z', assigned_coordinator:'Krystal' },                                                                                                               /* never attempted, 5 days */
+    { id:'d', created_at:'2026-09-20T15:00:00Z', first_human_attempt_at:'2026-09-20T16:30:00Z', first_human_contact_at:'2026-09-20T16:30:00Z', said_yes_at:'2026-09-28T15:00:00Z', status:'Converted', converted_at:'2026-09-28T15:00:00Z', assigned_coordinator:'Samantha' },  /* 90 min, yes after 8 days */
+    { id:'e', created_at:'2026-09-25T15:00:00Z', first_human_attempt_at:'2026-09-25T15:03:00Z', status:'Lost', lost_at:'2026-10-02T15:00:00Z', lost_reason_key:'could_not_staff', lost_schedule:{ hours_per_week:20, city:'Ozark' }, assigned_coordinator:'Krystal' },
+    { id:'f', created_at:'2026-09-26T15:00:00Z', first_human_attempt_at:'2026-09-26T15:03:00Z', status:'Lost', lost_at:'2026-10-03T15:00:00Z', lost_reason:'Price', schedule:{ days:['Mon'], times:'', hours_per_week:8 }, assigned_coordinator:'Krystal' },
+    { id:'g', created_at:'2026-09-01T15:00:00Z', first_human_attempt_at:'2026-09-01T15:30:00Z', assigned_coordinator:'Krystal' },                                                              /* the period before */
+    { id:'s', created_at:'2026-10-05T15:00:00Z', spam:{ at:'x' } } ];
+  const N = R.ownerNumbers(Ls, HRS, { now:'2026-10-06T15:10:00Z', days:30 });
+  ck('this period: 6 inquiries (spam never counts), 5 attempted, median first attempt 12 min (4, 12, 90, 3, 3 → 4? no: median of 3,3,4,12,90 = 4)', N.now.inquiries === 6 && N.now.attempted === 5 && N.now.median_first_attempt_min === 4, N.now);
+  ck('...reached within 24 h: 2 of 6 (33%)', N.now.reached_24h === 2 && N.now.reached_24h_pct === 33, N.now.reached_24h);
+  ck('...never attempted after a day: 1 (the 5-day-old one; this morning\'s is not stale yet)', N.now.never_attempted === 1, N.now.never_attempted);
+  ck('...buckets: ≤5 min 3 · 5–15 min 1 · 1–4 h 1 · never 1', N.now.buckets['≤5 min'] === 3 && N.now.buckets['5–15 min'] === 1 && N.now.buckets['1–4 h'] === 1 && N.now.buckets.never === 1, N.now.buckets);
+  ck('...said yes 1, inquiry to yes 8 days', N.now.said_yes === 1 && N.now.inquiry_to_yes_median_days === 8, [N.now.said_yes, N.now.inquiry_to_yes_median_days]);
+  ck('...lost 2 for 28 hrs/wk; could not staff first (20 hrs, Ozark), then Price (8 hrs); none lost after a yes', N.now.lost === 2 && N.now.lost_hours_week === 28 && N.now.by_reason[0].key === 'could_not_staff' && N.now.by_reason[0].towns.Ozark === 1 && N.now.by_reason[1].key === 'price' && N.now.lost_after_yes === 0, N.now.by_reason);
+  ck('...by owner: Krystal 5 inquiries (median 4 min, 1 reached, 1 never), Samantha 1 (90 min, reached, said yes)', N.now.by_owner[0].owner === 'Krystal' && N.now.by_owner[0].inquiries === 5 && N.now.by_owner[0].median_first_attempt_min === 4 && N.now.by_owner[0].never_attempted === 1 && N.now.by_owner[1].owner === 'Samantha' && N.now.by_owner[1].said_yes === 1 && N.now.by_owner[1].median_first_attempt_min === 90, N.now.by_owner);
+  ck('the period before: 1 inquiry, 30 min', N.prior.inquiries === 1 && N.prior.median_first_attempt_min === 30, N.prior);
+  ck('nothing at all → nulls, not zeros pretending', R.ownerNumbers([], HRS, { now:'2026-10-06T15:10:00Z' }).now.median_first_attempt_min === null && R.ownerNumbers([], HRS, { now:'2026-10-06T15:10:00Z' }).now.reached_24h_pct === null);
+}
+
 /* the Hub page and the server run the same file */
 const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));
