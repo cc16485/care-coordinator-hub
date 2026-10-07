@@ -8708,10 +8708,28 @@ async function cmpRecipients(){
   }
   const seen={}; return out.filter(r=>{const k=r.email.toLowerCase(); if(seen[k])return false; seen[k]=true; return true;});
 }
+/* THE AUDIENCE GUARD (2026-10-07, her safety fix): the server checks every recipient against every client's care state.
+   Never anyone tied to a deceased, past or paused client; client and family emails only to people tied to an active or
+   starting client. The count below is after that check, and the send uses only who passed (the server checks again). */
+const CMP_TAG={monthly:'lead',clients:'client',client_contacts:'client-contact',caregivers:'caregiver',referrers:'referral-partner'};
+async function cmpScreened(){
+  const list=await cmpRecipients(); if(!list.length) return { allowed:[], left_out:[], error:'' };
+  try{
+    const r=await fetch(CAMPAIGN_ENDPOINT,{method:'POST',headers:await cmpAuthHeaders(),body:JSON.stringify({ screen:true, tag:CMP_TAG[cmpAud]||'', recipients:list })});
+    const d=await r.json();
+    if(d&&/subject, html and recipients are required/.test(d.error||'')) return { allowed:[], left_out:[], error:'The campaign safety check is not installed on the server yet (Desktop 497).' };
+    if(!d||!d.ok) return { allowed:[], left_out:(d&&d.left_out)||[], error:(d&&d.error)||'The check could not run.' };
+    return { allowed:d.allowed||[], left_out:d.left_out||[], error:'' };
+  }catch(e){ return { allowed:[], left_out:[], error:'The check could not run: '+(e.message||e) }; }
+}
 async function cmpCount(){
-  const r=await cmpRecipients();
-  const el=document.getElementById('cmpCountLine');
-  if(el) el.innerHTML='<b>'+r.length+'</b> recipient'+(r.length===1?'':'s')+' with an email address.';
+  const el=document.getElementById('cmpCountLine'); if(el) el.textContent='Checking who may get this…';
+  const r=await cmpScreened();
+  if(!el) return;
+  if(r.error){ el.innerHTML='<span style="color:var(--red);">'+escapeHtmlComms(r.error)+' Nothing can be sent until it does.</span>'; return; }
+  const why={}; r.left_out.forEach(x=>{ why[x.why]=(why[x.why]||0)+1; });
+  el.innerHTML='<b>'+r.allowed.length+'</b> recipient'+(r.allowed.length===1?'':'s')+' with an email address.'
+    +(r.left_out.length?'<div class="field-note" style="margin-top:4px;">'+r.left_out.length+' left out: '+Object.keys(why).map(k=>why[k]+' '+escapeHtmlComms(k)).join(' · ')+'. Past, paused and deceased clients and their families never get these emails.</div>':'');
 }
 async function cmpCall(subject, html, recipients){
   const res=await fetch(CAMPAIGN_ENDPOINT,{method:'POST',headers:await cmpAuthHeaders(),
@@ -8730,8 +8748,10 @@ async function cmpTest(){
 }
 async function cmpSend(){
   const e=cmpLib().find(x=>x.key===cmpKey); if(!e||cmpSending) return;
-  const recipients=await cmpRecipients();
-  if(!recipients.length){ alert('No recipients with email addresses in that group yet.'); return; }
+  const scr=await cmpScreened();
+  if(scr.error){ alert(scr.error+' Nothing was sent.'); return; }
+  const recipients=scr.allowed;
+  if(!recipients.length){ alert('Nobody in that group may get this email'+(scr.left_out.length?' ('+scr.left_out.length+' left out: past, paused or deceased clients and their families)':'')+'.'); return; }
   if(!confirm('Send "'+e.subj+'" to '+recipients.length+' recipient'+(recipients.length===1?'':'s')+'?\n\nThis sends real email through GoHighLevel.')) return;
   cmpSending=true;
   const st=document.getElementById('cmpStatus');
