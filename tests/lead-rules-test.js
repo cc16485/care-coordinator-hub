@@ -209,6 +209,36 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('nothing at all → nulls, not zeros pretending', R.ownerNumbers([], HRS, { now:'2026-10-06T15:10:00Z' }).now.median_first_attempt_min === null && R.ownerNumbers([], HRS, { now:'2026-10-06T15:10:00Z' }).now.reached_24h_pct === null);
 }
 
+/* clean-up 6.2: ONE next per lead */
+{
+  const now = '2026-10-06T15:10:00Z';
+  ck('no dates → no next', R.leadNext({}, now) === null);
+  let n = R.leadNext({ follow_up_due:'2026-10-09', follow_up_time:'14:30', follow_up_note:'Did Genworth send the policy?' }, now);
+  ck('a follow-up with a time: kind follow_up, at Fri 2:30 pm, not due, words "Follow up Fri 2:30 pm: Did Genworth…"', n.kind === 'follow_up' && n.at === '2026-10-09T19:30:00.000Z' && !n.due && R.nextWords(n, now) === 'Follow up Fri 2:30 pm: Did Genworth send the policy?', [n, R.nextWords(n, now)]);
+  n = R.leadNext({ follow_up_due:'2026-10-03' }, now);
+  ck('a late follow-up with no time: due, 9 am that day, words "Follow up"', n.due && n.at === '2026-10-03T14:00:00.000Z' && R.nextWords(n, now) === 'Follow up');
+  n = R.leadNext({ follow_up_due:'2026-10-09', promised_callback_at:'2026-10-06T09:00:00', contact_events:[] }, now);
+  ck('a promise outranks the follow-up; late: "Call back: we said 9 am (1 h 10 min late)"', n.kind === 'promise' && n.due && R.nextWords(n, now) === 'Call back: we said 9 am (1 h 10 min late)', R.nextWords(n, now));
+  n = R.leadNext({ promised_callback_at:'2026-10-06T09:00:00', contact_events:[{ at:'2026-10-06T14:05:00Z', actor:'human', direction:'out', channel:'call', outcome:'voicemail' }], follow_up_due:'2026-10-09' }, now);
+  ck('a promise we kept (a call after its time) drops away; the follow-up is next', n.kind === 'follow_up');
+  n = R.leadNext({ waiting:{ reason:'state', since:'2026-09-20', check_back:'2026-10-12', note:'DCN in' }, follow_up_due:'2026-10-08' }, now);
+  ck('a waiting check-back outranks a follow-up: "Check back Mon: the state · DCN in"', n.kind === 'check_back' && n.day === '2026-10-12' && R.nextWords(n, now) === 'Check back Mon: the state · DCN in', R.nextWords(n, now));
+  n = R.leadNext({ waiting:{ reason:'family_decision', since:'2026-10-01', check_back:'2026-10-06' } }, now);
+  ck('...on the day: "Check back day: family decision"', n.due && R.nextWords(n, now) === 'Check back day: family decision');
+  const l = {};
+  R.setNext(l, { kind:'follow_up', day:'2026-10-09', time:'14:30', why:'policy?' }, now);
+  ck('setNext follow_up writes the three follow-up fields', l.follow_up_due === '2026-10-09' && l.follow_up_time === '14:30' && l.follow_up_note === 'policy?');
+  R.setNext(l, { kind:'promise', day:'2026-10-07', time:'16:30' }, now);
+  ck('setNext promise writes promised_callback_at as Central wall-clock and the follow-up day', l.promised_callback_at === '2026-10-07T16:30:00' && l.follow_up_due === '2026-10-07');
+  const w = { waiting:{ reason:'state', since:'2026-09-20', check_back:'2026-10-12' } };
+  R.setNext(w, { kind:'follow_up', day:'2026-10-20' }, now);
+  ck('a follow-up on a waiting family moves its check-back', w.waiting.check_back === '2026-10-20' && w.follow_up_due === '2026-10-20');
+  R.setNext(w, { kind:'check_back', day:'2026-10-22', why:'ask DSDS' }, now);
+  ck('setNext check_back needs a waiting record and writes it', w.waiting.check_back === '2026-10-22' && w.waiting.note === 'ask DSDS');
+  let threw = false; try{ R.setNext({}, { kind:'check_back', day:'2026-10-22' }); }catch(e){ threw = true; } ck('...and refuses without one', threw);
+  R.setNext(l, { kind:'clear' }); ck('clear removes the follow-up (a promise is theirs and stays)', !l.follow_up_due && l.promised_callback_at === '2026-10-07T16:30:00');
+}
+
 /* the Hub page and the server run the same file */
 const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));

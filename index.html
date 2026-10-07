@@ -6855,7 +6855,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
-<script src="lead-rules.js?v=4"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=6"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -6892,7 +6892,7 @@ The HomeTogether team</pre>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
 <script src="client-journey.js?v=7"></script>
-<script src="leads-board.js?v=3"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="leads-board.js?v=4"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -9220,11 +9220,11 @@ async function ldLogCall(outcome, note, cbDate, cbTime){
   }
   if(outcome==='wrong_number') l.bad_number=true;
   if(outcome==='requested_callback'&&cbDate){
-    l.follow_up_due=cbDate;
     l.follow_up_branch='call-back-next-week';
     /* The promise, kept whole: "call me Monday after 3" is a datetime, not a
-       vibe. The reconciler turns a missed one into NEEDS YOU. */
-    l.promised_callback_at=cbDate+'T'+(cbTime||'09:00')+':00';
+       vibe. The reconciler turns a missed one into NEEDS YOU. One writer (clean-up 6.2): LeadRules.setNext. */
+    if(typeof LeadRules!=='undefined') LeadRules.setNext(l, { kind:'promise', day:cbDate, time:cbTime||'' });
+    else { l.follow_up_due=cbDate; l.promised_callback_at=cbDate+'T'+(cbTime||'09:00')+':00'; }
     l.comm_log.push({ body:'🤝 Promised to call back '+cbDate+(cbTime?' at '+cbTime:''), at:new Date().toISOString(), by:a.email });
   }
   await persist('leads', l);
@@ -32680,6 +32680,13 @@ function opsReconcileLeads(){
     if(it && it.status==='open'){
       const st=String(l.status||'New');
       const done=(st==='Converted'||st==='Lost');
+      /* ONE CARD PER FAMILY (clean-up 6.1, 2026-10-07): once a client journey carries this family (journeys live, not a
+         TEST), its card is the family's one card and the inquiry card hands over. */
+      let jr=null; try{ jr=(typeof cjJourneyFor==='function')?cjJourneyFor({ lead:l }):null; }catch(e){}
+      if(jr&&!jr.is_test&&jr.status!=='closed'){
+        it.status='done'; it.closed_at=new Date().toISOString(); it.closed_by='journey'; it.auto_closed_reason='The client journey card carries this family now';
+        opsLeadLog(it,'Handed over to the client journey card'); touched.set(it.id,it); return;
+      }
 
       if(done){
         it.status='done'; it.closed_at=new Date().toISOString(); it.closed_by='system';
@@ -32702,7 +32709,9 @@ function opsReconcileLeads(){
         }
 
         const contacted=!opsLeadUntouched(l);
-        const fu=String(l.follow_up_due||'').slice(0,10);
+        /* ONE NEXT (clean-up 6.2): the lead's one date with the family, read by leadNext (a promise, a check-back, a follow-up) */
+        const nx=(typeof LeadRules!=='undefined')?LeadRules.leadNext(l):null;
+        const fu=nx&&nx.kind!=='promise'?nx.day:String(l.follow_up_due||'').slice(0,10);
         const t=today();
 
         if(contacted && !it.lead_contacted_at){
@@ -32756,9 +32765,8 @@ function opsReconcileLeads(){
            its time passes with no human attempt after it, the item stops
            waiting, goes urgent, and says exactly what was broken. */
         if(l.promised_callback_at){
-          const pAt=Date.parse(l.promised_callback_at);
-          const laH=ldLastHumanAttempt(l);
-          const keptOrLater=laH && Date.parse(laH.at)>=pAt;
+          const pAt=nx&&nx.kind==='promise'?Date.parse(nx.at):Date.parse(l.promised_callback_at);
+          const keptOrLater=!(nx&&nx.kind==='promise');   /* leadNext drops a promise once a person called after its time */
           if(!isNaN(pAt) && pAt<Date.now() && !keptOrLater && stg!=='won' && stg!=='lost'){
             const label='Follow-up promised for '
               +new Date(pAt).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'})
@@ -32815,7 +32823,8 @@ function opsReconcileLeads(){
           }
           /* Waiting until the date arrives, then back to Today by itself. */
           const want = (nextDue>t) ? 'waiting' : null;
-          if((it.sub_state||null)!==want && it.sub_state!=='escalated'){
+          /* clean-up 6.2: a parked card follows its date when the date moves, not only when parking starts or ends */
+          if(((it.sub_state||null)!==want || (want && it.check_back!==nextDue)) && it.sub_state!=='escalated'){
             it.sub_state=want;
             it.waiting_on = want ? ((wRec&&wRec.check_back===nextDue&&typeof LeadRules!=='undefined')?LeadRules.WAITING[wRec.reason].on.toLowerCase()+', until '+nextDue:'the family, until '+nextDue) : null;
             it.check_back = want ? nextDue : null;

@@ -131,8 +131,7 @@
     el.querySelector('#lbFuGo').onclick = async () => {
       const d = el.querySelector('#lbFuDate').value, t = el.querySelector('#lbFuTime').value, n = el.querySelector('#lbFuNote').value.trim();
       if(!d){ alert('Pick the day.'); return; }
-      l.follow_up_due = d; l.follow_up_time = t || null; l.follow_up_note = n || null;
-      if(l.waiting && typeof R.compose === 'function'){ /* a follow-up date on a waiting family is its check-back */ l.waiting.check_back = d; }
+      R.setNext(l, { kind:'follow_up', day:d, time:t || '', why:n });   /* the one writer (clean-up 6.2); a waiting family's check-back moves with it */
       ccPopClose(); await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
     };
   }
