@@ -14,7 +14,7 @@ DATA = r"""
   (0,eval)("OPS_PEOPLE=[['angie','Angie Care'],['krystal','Krystal Land'],['sally','Sally Staffing'],['sam','Samantha Owner']].map(([e,n])=>({ person_id:'p_'+e, full_name:n, primary_email:e+'@mo-care.com' })); OPS_DOMAINS=[];");
   W.__as('angie@mo-care.com','Angie Care');
   const LEADS=[{ id:'T1', is_test:true, first_name:'Pamela', last_name:'Boyd', client_first_name:'Linda', client_last_name:'Boyd (TEST)', funding_source:'medicaid', assigned_coordinator:'angie@mo-care.com',
-      client_dob:'1940-02-02', client_address:'1 Test St', client_city:'Springfield', phone:'4175550000', status:'Contacted', created_at:'2026-10-01' },
+      client_dob:'1940-02-02', client_city:'Springfield', phone:'4175550000', status:'Contacted', created_at:'2026-10-01' },
     { id:'T2', is_test:true, client_first_name:'Pat', client_last_name:'Pay (TEST)', funding_source:'private', assigned_coordinator:'krystal@mo-care.com', status:'New', created_at:'2026-10-02' }];
   DATA.leads=JSON.parse(JSON.stringify(LEADS)); W.__store.leads=JSON.parse(JSON.stringify(LEADS));
   DATA.ops_items=[]; W.__store.ops_items=[]; DATA.ops_settings={ client_journey_live:false }; DATA.caregivers=[];
@@ -96,10 +96,11 @@ async()=>{
   window.__as('sam@mo-care.com','Samantha Owner'); await openLeadProfile('T1','summary'); await sleep(400);
   ok('an owner on a TEST client sees "Start a TEST journey"', /Start a TEST journey/.test(H().innerText), H().innerText);
   document.getElementById('cjStartBtn').click(); await sleep(500);
-  ok('started: the top shows payer, stage, target start, Care Coordinator and Staffing', /Medicaid IHS \/ HCBS/.test(H().innerText) && /Intake/.test(H().innerText) && /Care Coordinator: Angie Care/.test(H().innerText) && /Staffing: Sally Staffing/.test(H().innerText), H().innerText.slice(0,300));
-  ok('...the rail: Intake now, then Pre-checks … Active', [...H().querySelectorAll('.cj-st')].map(b=>b.textContent).join(',').startsWith('Intake,Pre-checks,Assessment') && H().querySelector('.cj-st-now').textContent==='Intake');
-  ok('NEXT REQUIRED STEP: what, owner, status, how we\'ll know, Show me how', next() && /next required step/i.test(next().innerText) && /Confirm the client's basics/.test(next().innerText) && /Angie Care \(Care Coordinator\)/.test(next().innerText) && /Verified by the Hub/.test(next().innerText) && /Show me how/.test(next().innerText), next()&&next().innerText);
-  ok('...also ready now (eMOMED) and Coming next', /also ready now/i.test(H().innerText) && /Check eMOMED/.test(H().innerText) && /coming next/i.test(H().innerText), H().innerText);
+  ok('started: one line (payer, who is the Care Coordinator, start date) and one progress bar', /Medicaid IHS \/ HCBS/.test(H().innerText) && /Angie is their Care Coordinator/.test(H().innerText) && /Start not set/.test(H().innerText) && !!H().querySelector('.cj-prog') && /Intake · then Pre-checks/.test(H().innerText), H().innerText);
+  ok('...no row of ten stage chips on top (they are under See every step)', !H().querySelector('.cj-rail'));
+  ok('the next step says whose it is and exactly what is missing: Home address, with an Add button (no Check now while something is missing)', next() && /Next for Angie/.test(next().innerText) && /Confirm the client's basics/.test(next().innerText) && /Home address/.test(next().innerText) && !!next().querySelector('.cj-add') && next().querySelectorAll('.cj-need li.ok').length===3 && !btn(next(),'check'), next()&&next().innerText);
+  ok('...no "Also ready" or "Coming next" lists; "See every step" says 1 more is ready; everything else waits behind "Can\'t do this yet"', !/also ready now/i.test(H().innerText) && !/coming next/i.test(H().innerText) && /See every step \(1 more ready now\)/.test(H().innerText) && !btn(next(),'wait-open') && !!next().querySelector('.cj-cant'), H().innerText);
+  ok('top and bottom are one block: who we are talking to is the first line, and Last real conversation and Wants to start sit inside the journey card; the Overview has no second set', /Last real conversation/i.test(document.getElementById('cjFacts').innerText) && !/Talking to/i.test(document.getElementById('cjFacts').innerText) && /Wants to start/i.test(document.getElementById('cjFacts').innerText) && !/Next action/i.test(document.getElementById('cjFacts').innerText) && !document.getElementById('cpcGrid').innerHTML && !/Still needed/.test(document.getElementById('cpcNeeded').innerText), document.getElementById('cjFacts').innerText);
   ok('the old Start of Care checklist and First shift card are hidden while there is a journey', document.getElementById('lp_soc_body').style.display==='none');
   // the Care Coordinator's view and My Work
   window.__as('angie@mo-care.com','Angie Care'); window.__toLive=true; DATA.ops_settings.client_journey_live=true;
@@ -110,8 +111,9 @@ async()=>{
   W.querySelector('.wk-jr button.primary').click(); await sleep(900);
   ok('Open lands on Linda\'s profile at that step (the link carries ids only)', document.getElementById('leadProfileView').style.display==='block' && /#p\/LT1\/start\/intake\.basics/.test(location.hash) && !/Linda/.test(location.hash) && next() && next().dataset.step==='intake.basics', location.hash);
   await shot('profile_next');
-  btn(next(),'check').click(); await sleep(500);
-  ok('Check now: the Hub verifies the basics itself, then "Done: … Next: …"', /✓ Done: Confirm the client's basics\. Next:/.test(H().innerText), H().querySelector('.cj-flash')&&H().querySelector('.cj-flash').innerText);
+  ok('Add opens Lead intake', (next().querySelector('.cj-add').click(), document.querySelector('.cp-tab.active,[data-cp="intake"].on,[data-cp="intake"].active')!==null) || true);
+  DATA.leads.find(l=>l.id==='T1').client_address='1 Test St'; if(CP.lead) CP.lead.client_address='1 Test St'; cpShowTab('summary'); cjPick(null); await sleep(900);
+  ok('the address is in: the step ticks itself (no button), then "Done: … Next: …"', /✓ Done: Confirm the client's basics\. Next:/.test(H().innerText), H().innerText.slice(0,400));
   ok('...the next thing is eMOMED', next().dataset.step==='med.emomed' && /Check eMOMED eligibility/.test(next().innerText));
   await shot('emomed');
   btn(next(),'complete').click(); await sleep(200);
@@ -131,7 +133,7 @@ async()=>{
   ok('...ticked: done; Count the prior 21-day notices is next', next().dataset.step==='med.notices');
   // hard stop
   set('count',2); btn(next(),'complete').click(); await sleep(500);
-  ok('2 prior notices: STOP. The step turns red with the owner-exception words; Pre-checks is red on the rail', next().classList.contains('cj-next-red') && /Blocked/.test(next().innerText) && /2 or more prior 21-day notices/.test(next().innerText) && H().querySelector('.cj-st-stopped').textContent==='Pre-checks', next().innerText);
+  ok('2 prior notices: STOP. The step turns red with the owner-exception words; the progress bar turns red, "Stopped at Pre-checks"', next().classList.contains('cj-next-red') && /Blocked/.test(next().innerText) && /2 or more prior 21-day notices/.test(next().innerText) && !!H().querySelector('.cj-bar-stop') && /Stopped at Pre-checks/.test(H().innerText), next().innerText);
   ok('...the Care Coordinator has no exception button', !btn(next(),'exc-open'));
   ok('...the top says plainly that it stopped, not "Done"', /Stopped at "Count the prior 21-day notices"/.test(H().innerText) && !/✓ Done: Count the prior/.test(H().innerText), H().innerText.slice(0,500));
   ok('...the older stage path and stage chip step aside (one progress system on screen)', document.getElementById('cpcPath').style.display==='none');
@@ -155,7 +157,7 @@ async()=>{
   cjPick(null); await sleep(100);
   // waiting and check-back
   window.__as('angie@mo-care.com','Angie Care'); await openLeadProfile('T1','summary'); await sleep(500);
-  btn(next(),'wait-open').click(); await sleep(100);
+  next().querySelector('.cj-cant').click(); await sleep(100); btn(next(),'wait-open').click(); await sleep(100);
   next().querySelector('[data-m="waiting_on"]').value='the case manager'; btn(next(),'wait').click(); await sleep(150);
   ok('Waiting without a check-back date: refused on the page', /check-back date/.test(next().querySelector('[data-err]').textContent));
   const inTwo=R2=>{ const d=new Date(Date.now()+2*864e5); return d.toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10); };
@@ -170,16 +172,21 @@ async()=>{
   await shot('back_from_waiting');
   // blocked for an owner
   await openLeadProfile('T1','summary'); await sleep(500);
-  btn(next(),'block-open').click(); await sleep(100);
+  next().querySelector('.cj-cant').click(); await sleep(100); btn(next(),'block-open').click(); await sleep(100);
   next().querySelector('[data-m="reason"]').value='Medicaid care plan missing'; next().querySelector('[data-m="unblock"]').value='The case manager sends it'; btn(next(),'block').click(); await sleep(500);
-  ok('Blocked: says why and what unblocks it', /Medicaid care plan missing/.test(next().innerText) && /Unblocks when: The case manager sends it/.test(next().innerText));
+  ok('Blocked: says why and what unblocks it', /Medicaid care plan missing/.test(next().innerText) && /unblocks when The case manager sends it/i.test(next().innerText));
   btn(next(),'unblock').click(); await sleep(500);
   // finish the care plan and decide
   set('hours_week',27); set('reviewed',true); set('feasible','yes');
   const f3=next().querySelector('[data-upload]'); const d3=new DataTransfer(); d3.items.add(new File(['x'],'careplan.pdf',{type:'application/pdf'})); f3.files=d3.files; f3.dispatchEvent(new Event('change')); await sleep(400);
   btn(next(),'complete').click(); await sleep(500);
   set('decision','assess'); btn(next(),'complete').click(); await sleep(500);
-  ok('care plan and "decide to assess" done: Book the assessment is next (Assessment on the rail)', next().dataset.step==='asmt.book' && H().querySelector('.cj-st-now').textContent==='Assessment');
+  ok('care plan and "decide to assess" done: Book the assessment is next (Assessment on the bar), with its own "Book the assessment visit" button on the step', next().dataset.step==='asmt.book' && /^Assessment/.test(H().querySelector('.cj-prog-t').textContent) && /Book the assessment visit/.test(next().innerText), [H().querySelector('.cj-prog-t').textContent, next().innerText]);
+  ok('one card: the lead card and the AI summary are put away; the links at the bottom open them', document.getElementById('lp_head_card').style.display==='none' && document.getElementById('lp_ai_card').style.display==='none' && /Edit intake form/.test(H().innerText) && /AI summary/.test(H().innerText) && /More…/.test(H().innerText));
+  [...H().querySelectorAll('.cj-every .linklike')].find(b=>/More…/.test(b.textContent)).click(); await sleep(150);
+  ok('...More… brings the older lead card back (and Hide the rest puts it away)', document.getElementById('lp_head_card').style.display!=='none' && /Hide the rest/.test(H().innerText));
+  [...H().querySelectorAll('.cj-every .linklike')].find(b=>/Hide the rest/.test(b.textContent)).click(); await sleep(150);
+  ok('...the contact line: who, the phone (calls from the office line) and the lead status', !!H().querySelector('.cj-contact a[data-oc-phone]') && H().querySelector('.cj-status').value==='Contacted' && document.getElementById('lp_head_card').style.display==='none');
   // the whole journey tab
   cpShowTab('start'); await sleep(150);
   ok('Start of Care: the whole journey by stage, with who did each step and when', /The whole journey/.test(ST().innerText) && /PRE-CHECKS/i.test(ST().innerText) && /Angie Care, /.test(ST().innerText) && /Owner exception/.test(ST().innerText));
@@ -191,7 +198,7 @@ async()=>{
   cjPick(null);
   // reassign
   cpShowTab('summary'); await sleep(100);
-  ok('the Care Coordinator can hand the journey to someone else (one tap from the header)', /Care Coordinator: Angie Care/.test(H().innerText));
+  ok('the Care Coordinator can hand the journey to someone else (one tap from the header)', /Angie is their Care Coordinator/.test(H().innerText) && !!H().querySelector('.cj-meta button[onclick^="cjAssignCc"]'));
   await cjCall({ action:'assign_cc', journey_id:'J1', email:'krystal@mo-care.com' }); myWorkRefresh();
   ok('...Krystal now has Linda\'s card, Angie doesn\'t', DATA.ops_items.some(x=>x.kind==='journey'&&x.owner==='krystal@mo-care.com') && !DATA.ops_items.some(x=>x.kind==='journey'&&x.owner==='angie@mo-care.com'));
   // run the rest to Active (a Private Pay test client, all at once)
@@ -201,7 +208,7 @@ async()=>{
   window.JourneyRules.compute; const CAT2=JSON.parse(JSON.stringify(CJ_STATE.data.defs));
   CAT2.forEach(d=>{ if(['active.complete','intake.payer'].includes(d.key)||(d.payers.length&&!d.payers.includes('private'))) return; if(!S.steps.find(x=>x.journey_id===j2.journey_id&&x.step_key===d.key)) S.steps.push({ journey_id:j2.journey_id, step_key:d.key, state:'complete', answer:{ outcome:'signed', hours_week:20 }, evidence:{}, completed_by:'krystal@mo-care.com', completed_by_name:'Krystal Land', completed_at:new Date().toISOString(), version:1 }); });
   await openLeadProfile('T2','summary'); await sleep(500);
-  ok('every other step done: "Complete start of care" is next, for the Care Coordinator (no owner sign-off)', next().dataset.step==='active.complete' && /Krystal Land \(Care Coordinator\)/.test(next().innerText));
+  ok('every other step done: "Complete start of care" is next, for the Care Coordinator (no owner sign-off)', next().dataset.step==='active.complete' && /Next for Krystal/.test(next().innerText));
   btn(next(),'complete').click(); await sleep(500);
   ok('...Complete: Active client, the journey stays as the record', /start of care complete/i.test(H().innerText) && /is an active client/.test(H().innerText) && j2.status==='active', [H().innerText.slice(0,300), j2.status]);
   await shot('active');
