@@ -188,7 +188,23 @@
     if(v === 'assessment_booked') return '<div class="cj-say">Book the visit with ' + who + '\'s family. When it\'s on the calendar, this ticks itself.</div>';
     if(v === 'axiscare_client') return '<div class="cj-say">Create ' + who + ' in AxisCare and put the AxisCare number on this profile. The Hub reads it back and ticks this.</div>';
     if(v === 'first_visit') return '<div class="cj-say">This ticks itself when the first clock-in shows in AxisCare.</div>';
+    if(v === 'schedule_entered' || v === 'shifts_staffed') return shiftsHtml(r);
     return '';
+  }
+  /* the new client's shifts as the Hub last read them from AxisCare (the two weeks from the start date) */
+  function shiftTime(at){ const d = new Date(String(at).slice(0, 10) + 'T12:00:00'); const hm = String(at).slice(11, 16); let h = Number(hm.slice(0, 2)); const ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12;
+    return d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + (hm ? ' ' + h + (hm.slice(3) !== '00' ? ':' + hm.slice(3) : '') + ' ' + ap : ''); }
+  function shiftsHtml(r){
+    const f = (r.st.evidence || {}).shifts, staffing = r.def.verify === 'shifts_staffed';
+    if(!f) return '<div class="cj-say">' + (staffing ? 'The Hub reads the client\'s shifts in AxisCare and ticks this once every shift in the first two weeks has a caregiver.' : 'The Hub ticks this once the shifts show in AxisCare.') + ' It checks every 10 minutes.</div>';
+    const from = day(f.from), checked = f.checked_at ? ' <span class="field-note">(read from AxisCare ' + esc(when(f.checked_at)) + ')</span>' : '';
+    if(!f.total) return '<div class="cj-say cj-wait">No shifts in AxisCare yet for the two weeks from ' + esc(from) + '.' + checked + '</div>';
+    if(!staffing) return '<div class="cj-say">' + f.total + ' shift' + (f.total === 1 ? '' : 's') + ' in AxisCare for the two weeks from ' + esc(from) + '.' + checked + '</div>';
+    if(!f.unassigned) return '<div class="cj-say">Every one of the ' + f.total + ' shifts from ' + esc(from) + ' has a caregiver.' + checked + '</div>';
+    return '<div class="cj-shifts"><div class="cj-shifts-n"><b>' + f.unassigned + ' of ' + f.total + '</b> shift' + (f.total === 1 ? '' : 's') + ' in the two weeks from ' + esc(from) + ' still ' + (f.unassigned === 1 ? 'has' : 'have') + ' no caregiver' + checked + '</div>'
+      + '<div class="cj-bar"><i style="width:' + Math.round((f.total - f.unassigned) / f.total * 100) + '%"></i></div>'
+      + '<ul class="cj-need">' + (f.open_at || []).map(a => '<li><span class="cj-dot"></span>' + esc(shiftTime(a)) + ' <span class="field-note">no caregiver yet</span></li>').join('') + (f.unassigned > (f.open_at || []).length ? '<li class="field-note">and ' + (f.unassigned - f.open_at.length) + ' more</li>' : '') + '</ul>'
+      + '<div class="field-note">Put a caregiver on each in AxisCare (the Team tab helps find one). This ticks itself when none are open.</div></div>';
   }
   /* the basics are all in on the page: ask the Hub to check now, once, instead of making anyone press a button */
   function autoCheck(r){
@@ -571,6 +587,10 @@
         if(!has(l.client_phone || l.phone)) miss.push('phone'); if(!has(l.client_dob)) miss.push('date of birth'); if(!has(l.client_address)) miss.push('home address');
         if(miss.length){ const who = String(l.client_first_name || '').trim(); return 'Add ' + (who ? who + '\'s ' : 'the client\'s ') + (miss.length > 1 ? miss.slice(0, -1).join(', ') + ' and ' + miss[miss.length - 1] : miss[0]); } } }
     if(n.status === 'waiting') return 'Waiting: ' + n.title + (n.why ? ' (' + n.why + ')' : '');
+    /* the shifts, as AxisCare has them: "Staff every shift: 2 of 3 still have no caregiver" */
+    if(n.shifts && (n.key === 'team.staffed' || n.key === 'sched.axiscare')){ const f = n.shifts;
+      if(!f.total) return n.title + ': no shifts in AxisCare yet';
+      if(n.key === 'team.staffed' && f.unassigned) return n.title + ': ' + f.unassigned + ' of ' + f.total + ' shift' + (f.total === 1 ? '' : 's') + ' still ' + (f.unassigned === 1 ? 'has' : 'have') + ' no caregiver'; }
     return n.title;
   }
   const PAYER_SHORT = { private:'Private Pay', medicaid:'Medicaid', va:'VA', ltc:'LTC', other:'Other' };
@@ -712,6 +732,7 @@
     '.cj-sc{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}.cj-sc th{text-align:left;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;background:var(--bg)}.cj-sc td{padding:9px 10px;border-top:1px solid var(--border);vertical-align:middle}',
     '.cj-sc-name{font-weight:700;color:var(--navy)}.cj-sc-where{display:flex;align-items:center;gap:8px;min-width:150px}.cj-sc-where .cj-bar{height:6px;max-width:90px}.cj-sc-where span{font-size:12.5px;color:var(--text-muted);white-space:nowrap}.cj-sc-old td{background:#FBFAF7}',
     '@media (max-width:720px){.wk-jr{flex-wrap:wrap}.wk-jr button.primary{width:100%;min-height:44px}}',
+    '.cj-shifts{margin:2px 0 8px}.cj-shifts-n{font-size:15px;margin-bottom:6px}.cj-shifts .cj-bar{max-width:320px;height:7px;margin-bottom:6px}.cj-shifts .cj-dot{border-color:#C98A1B}',
     '.cj-menu{display:flex;flex-wrap:wrap;gap:6px;width:100%;padding:8px;background:#F6F9FD;border-radius:8px}',
     '.cj-list{margin:0 0 14px}.cj-list-empty{margin:0 0 12px}.cj-li{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;background:#fff;border:1px solid var(--border);border-left:5px solid #1E4FB8;border-radius:10px;padding:10px 12px;margin-bottom:8px;color:inherit;text-decoration:none}',
     '.cj-li-blocked,.cj-li-attention{border-left-color:#B42318}.cj-li-waiting{border-left-color:#9A6412}.cj-li-name{font-weight:800;color:var(--navy)}.cj-li-next{flex:1 1 240px;min-width:0;font-size:13.5px}.cj-li-who{font-size:12.5px;color:var(--text-muted)}',

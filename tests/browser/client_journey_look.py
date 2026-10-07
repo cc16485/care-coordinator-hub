@@ -60,7 +60,7 @@ DATA = r"""
     if(b.action==='list'){ return { journeys:S.journeys.filter(x=>x.status==='open'||(b.include_active&&x.status==='active')).map(x=>{ const v=R.compute(CAT,x,stepsOf(x),ctx());
       return { journey_id:x.journey_id, ref:x.axiscare_client_id?'A'+x.axiscare_client_id:'L'+x.lead_id, client_name:x.client_name, payer:x.payer, status:x.status, stage:v.stage, stage_label:v.stageLabel, target_start:x.target_start,
         assigned_cc:x.assigned_cc, is_test:x.is_test, lead_id:x.lead_id, axiscare_client_id:x.axiscare_client_id||null, launch_id:x.launch_id||null,
-        next:v.next?{ key:v.next.key, title:v.next.def.title, status:v.next.status, why:v.next.attention||v.next.why||'', owner:v.next.owner.email }:null, stopped:!!v.stop }; }) }; }
+        next:v.next?{ key:v.next.key, title:v.next.def.title, status:v.next.status, why:v.next.attention||v.next.why||'', owner:v.next.owner.email, shifts:(v.next.st&&v.next.st.evidence&&v.next.st.evidence.shifts)||null }:null, stopped:!!v.stop }; }) }; }
     if(b.action!=='apply') return { error:'?' };
     const v=R.compute(CAT,j,stepsOf(j),ctx()), r=v.rows.find(x=>x.key===b.step_key), now=new Date().toISOString();
     if(b.op==='complete'){ const can=R.canComplete(r,{ answer:b.answer||{}, files:b.files||[], manual_reason:b.manual_reason }); if(!can.ok) return { outcome:'refused', error:can.why };
@@ -238,6 +238,9 @@ async()=>{
   ok('...the Starting care pill comes first, with its count', /^Starting care 3/.test((document.querySelector('#clFilters .filter-pill')||{}).textContent||''), (document.querySelector('#clFilters .filter-pill')||{}).textContent);
   CQF.openCases=[{ case_id:'c1', axiscare_client_id:'295', axiscare_name:'Peggy Thomason', observed_at:'2026-09-26T12:00:00Z' }]; renderClientsBoard(); await sleep(200);
   ok('"Waiting to be matched" (new AxisCare clients nobody has said who they are) shows at the top of Starting care, with Who is this?, and counts', /Waiting to be matched \(1\)/.test(SC.innerText) && /Peggy Thomason/.test(SC.innerText) && /Who is this\?/.test(SC.innerText) && /^Starting care 4/.test((document.querySelector('#clFilters .filter-pill')||{}).textContent||''), [SC.innerText.slice(0,300), (document.querySelector('#clFilters .filter-pill')||{}).textContent]);
+  S.steps.push({ journey_id:'J3', step_key:'team.staffed', state:'open', version:1, evidence:{ shifts:{ from:'2026-10-12', to:'2026-10-25', total:3, unassigned:2, open_at:['2026-10-13T09:00','2026-10-14T16:30'], checked_at:new Date().toISOString() } } });
+  cjListRefresh(); await sleep(300); renderClientsBoard(); await sleep(200);
+  ok('shifts: Starting care says how many of Rhoda\'s shifts still have no caregiver (read from AxisCare)', /Staff every shift: 2 of 3 shifts still have no caregiver/.test(SC.innerText), SC.innerText.slice(0,500));
   await shot('starting_care');
   cjNavTidy();
   ok('live: the Getting ready tab is gone from Client Care', [...document.querySelectorAll('.fpill[data-parent="gettingready"]')].every(e=>e.style.display==='none'));
@@ -246,6 +249,10 @@ async()=>{
   await cjCall({ action:'refresh', journey_id:'J3' }); switchTab('mywork'); await sleep(200); myWorkGo('today'); await sleep(200);
   const MW=document.getElementById('myWorkWrap'), rc=[...MW.querySelectorAll('.wk-jr')].find(c=>/Rhoda Real/.test(c.innerText));
   ok('My Work: Rhoda\'s card is like a project: payer, a progress bar with the stage, the next thing, and Open', rc && /Private Pay/.test(rc.innerText) && !!rc.querySelector('.cj-bar') && /Team/.test(rc.innerText) && /Staff every shift/.test(rc.innerText) && !!rc.querySelector('button.primary'), rc&&rc.innerText);
+  ok('...and her card says 2 of 3 shifts still have no caregiver', rc && /2 of 3 shifts still have no caregiver/.test(rc.innerText), rc&&rc.innerText);
+  await openLeadProfile('R3','summary'); await sleep(700);
+  ok('...her profile\'s next step lists the open shifts with day and time', /2 of 3/.test(H().innerText) && /Tue, Oct 13 9 am/.test(H().innerText) && /Wed, Oct 14 4:30 pm/.test(H().innerText) && /ticks itself when none are open/.test(H().innerText), H().innerText.slice(0,700));
+  await shot('shifts_step');
   window.__as('krystal@mo-care.com','Krystal Land'); DATA.leads.push({ id:'N9', client_first_name:'Nora', client_last_name:'New', funding_source:'private', status:'Contacted' });
   await openLeadProfile('N9','start'); await sleep(500);
   ok('live: a lead with no journey offers "Start the journey", and the older "Begin Start of Care" is gone', /Start the journey/.test(H().innerText) && document.getElementById('lp_soc_body').style.display==='none', [H().innerText, document.getElementById('lp_soc_body').style.display]);
