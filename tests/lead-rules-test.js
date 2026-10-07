@@ -78,7 +78,8 @@ ck('a drip whose next check is still ahead keeps it', R.migrationPatch({ nurture
 
 /* lead response hours and the first-attempt clock (Stage 1). October 2026 is CDT (UTC-5): 9:02 pm Chicago = 02:02Z next day. */
 const HRS = R.responseHours({});
-ck('no setting → Mon–Fri 8 to 6, marked default', HRS.days.join() === '1,2,3,4,5' && HRS.start === '08:00' && HRS.end === '18:00' && HRS.source === 'default');
+ck('no setting → every day 8 to 6 (her 2026-10-07 default: evenings off only), marked default', HRS.days.join() === '0,1,2,3,4,5,6' && HRS.start === '08:00' && HRS.end === '18:00' && HRS.source === 'default');
+const WK = R.responseHours({ lead_response_hours:{ days:[1, 2, 3, 4, 5], start:'08:00', end:'18:00' } });   /* weekdays only, as a setting */
 ck('a bad setting (end before start, or a bad day) falls back', R.responseHours({ lead_response_hours:{ days:[1], start:'18:00', end:'08:00' } }).source === 'default' && R.responseHours({ lead_response_hours:{ days:[9], start:'08:00', end:'18:00' } }).source === 'default');
 const SAT = R.responseHours({ lead_response_hours:{ days:[1, 2, 3, 4, 5, 6], start:'07:30', end:'17:00' } });
 ck('a good setting is kept and sorted', SAT.days.join() === '1,2,3,4,5,6' && SAT.start === '07:30' && SAT.source === 'setting');
@@ -88,8 +89,9 @@ ck('9:02 pm Tuesday is outside hours; 10:04 am is inside', !R.inResponseHours(tu
 ck('next opening after 9:02 pm Tue = Wed 8:00 am (13:00Z)', R.nextOpening(tue902pm, HRS) === '2026-10-07T13:00:00.000Z', R.nextOpening(tue902pm, HRS));
 ck('a 10:04 am inquiry: the clock starts now, due 5 minutes later', R.clockStart({ created_at:'2026-10-06T15:04:00Z' }, HRS) === '2026-10-06T15:04:00.000Z' && R.firstAttemptDue({ created_at:'2026-10-06T15:04:00Z' }, HRS) === '2026-10-06T15:09:00.000Z');
 ck('a 9:02 pm inquiry: due Wed 8:05 am', R.firstAttemptDue({ created_at:tue902pm }, HRS) === '2026-10-07T13:05:00.000Z', R.firstAttemptDue({ created_at:tue902pm }, HRS));
-ck('a Saturday 10 am inquiry waits for Monday 8:05 (weekends off)', R.firstAttemptDue({ created_at:'2026-10-10T15:00:00Z' }, HRS) === '2026-10-12T13:05:00.000Z', R.firstAttemptDue({ created_at:'2026-10-10T15:00:00Z' }, HRS));
-ck('...with Saturdays on, it is due at 10:05 that day', R.firstAttemptDue({ created_at:'2026-10-10T15:00:00Z' }, SAT) === '2026-10-10T15:05:00.000Z');
+ck('a Saturday 10 am inquiry is due 10:05 that day (every day is on)', R.firstAttemptDue({ created_at:'2026-10-10T15:00:00Z' }, HRS) === '2026-10-10T15:05:00.000Z', R.firstAttemptDue({ created_at:'2026-10-10T15:00:00Z' }, HRS));
+ck('...with weekdays only as the setting, it waits for Monday 8:05', R.firstAttemptDue({ created_at:'2026-10-10T15:00:00Z' }, WK) === '2026-10-12T13:05:00.000Z' && R.firstAttemptDue({ created_at:'2026-10-10T15:00:00Z' }, SAT) === '2026-10-10T15:05:00.000Z');
+ck('a Saturday 9 pm inquiry: due Sunday 8:05', R.firstAttemptDue({ created_at:'2026-10-11T02:00:00Z' }, HRS) === '2026-10-11T13:05:00.000Z', R.firstAttemptDue({ created_at:'2026-10-11T02:00:00Z' }, HRS));
 ck('a 6:30 am Wednesday inquiry: due 8:05 the same morning', R.firstAttemptDue({ created_at:'2026-10-07T11:30:00Z' }, HRS) === '2026-10-07T13:05:00.000Z');
 ck('a 5:59 pm inquiry is inside; 6:00 pm is the next morning', R.firstAttemptDue({ created_at:'2026-10-06T22:59:00Z' }, HRS) === '2026-10-06T23:04:00.000Z' && R.firstAttemptDue({ created_at:'2026-10-06T23:00:00Z' }, HRS) === '2026-10-07T13:05:00.000Z');
 ck('after the clocks change (Nov 2, CST): a 7:30 am inquiry is due 8:05 = 14:05Z', R.firstAttemptDue({ created_at:'2026-11-03T13:30:00Z' }, HRS) === '2026-11-03T14:05:00.000Z', R.firstAttemptDue({ created_at:'2026-11-03T13:30:00Z' }, HRS));
@@ -98,9 +100,12 @@ ck('words: came in 12 min ago · at 9:02 am · last night at 9:02 pm · yesterda
   && R.cameInWords(tue902pm, '2026-10-07T13:00:00Z') === 'came in last night at 9:02 pm' && R.cameInWords('2026-10-06T19:10:00Z', '2026-10-07T13:00:00Z') === 'came in yesterday at 2:10 pm'
   && R.cameInWords('2026-10-10T15:00:00Z', '2026-10-12T13:00:00Z') === 'came in Sat at 10 am',
   [R.cameInWords(tue902pm, '2026-10-07T13:00:00Z'), R.cameInWords('2026-10-06T19:10:00Z', '2026-10-07T13:00:00Z'), R.cameInWords('2026-10-10T15:00:00Z', '2026-10-12T13:00:00Z')]);
-ck('opening words for the ack: tomorrow at 8 am (Tue night) · Monday at 8 am (Saturday) · at 8 am (6:30 that morning)',
-  R.openingWords(tue902pm, HRS) === 'we open tomorrow at 8 am' && R.openingWords('2026-10-10T15:00:00Z', HRS) === 'we open Monday at 8 am' && R.openingWords('2026-10-07T11:30:00Z', HRS) === 'we open at 8 am',
-  [R.openingWords(tue902pm, HRS), R.openingWords('2026-10-10T15:00:00Z', HRS), R.openingWords('2026-10-07T11:30:00Z', HRS)]);
+ck('opening words: tomorrow at 8 am (Tue night) · Monday at 8 am (Saturday, weekdays-only setting) · at 8 am (6:30 that morning)',
+  R.openingWords(tue902pm, HRS) === 'we open tomorrow at 8 am' && R.openingWords('2026-10-10T15:00:00Z', WK) === 'we open Monday at 8 am' && R.openingWords('2026-10-07T11:30:00Z', HRS) === 'we open at 8 am',
+  [R.openingWords(tue902pm, HRS), R.openingWords('2026-10-10T15:00:00Z', WK), R.openingWords('2026-10-07T11:30:00Z', HRS)]);
+ck('her ack words: "tomorrow after 8 am" (Tue night) · "after 8 am" (6:30 that morning) · "Monday after 8 am" (Friday 7 pm with weekends off)',
+  R.callBackWords(tue902pm, HRS) === 'tomorrow after 8 am' && R.callBackWords('2026-10-07T11:30:00Z', HRS) === 'after 8 am' && R.callBackWords('2026-10-10T00:00:00Z', WK) === 'Monday after 8 am',
+  [R.callBackWords(tue902pm, HRS), R.callBackWords('2026-10-07T11:30:00Z', HRS), R.callBackWords('2026-10-10T00:00:00Z', WK)]);
 let fa = R.firstAttemptState({ created_at:tue902pm, ack_sent_at:'2026-10-07T02:02:30Z' }, HRS, '2026-10-07T03:00:00Z');
 ck('9:02 pm lead at 10 pm: after hours, not running, not overdue, says when the clock starts', fa.after_hours && !fa.running && !fa.overdue && fa.starts_words === 'the clock starts tomorrow at 8 am' && fa.ack === 'auto-acknowledged immediately', fa);
 fa = R.firstAttemptState({ created_at:tue902pm, ack_sent_at:'2026-10-07T02:02:30Z' }, HRS, '2026-10-07T13:12:00Z');
