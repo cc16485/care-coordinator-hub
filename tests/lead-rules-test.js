@@ -376,6 +376,25 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('no em dash in any partner line', !Object.values(R.PARTNER_DEFAULT).join(' ').includes('—') && R.PARTNER_KINDS.every(k => R.PARTNER_LABEL[k] && R.PARTNER_DEFAULT[k]));
 }
 
+/* item 4: the owners' funnel, by source, the team columns, the Medicaid pipeline, missing required (2026-10-07) */
+{
+  const HRS = R.responseHours({}), NOW = '2026-10-06T15:10:00Z';
+  const L = [
+    { id:'a', created_at:'2026-10-01T15:00:00Z', source:'Website', first_human_attempt_at:'2026-10-01T15:03:00Z', first_human_contact_at:'2026-10-01T16:00:00Z', assessment_at:'2026-10-03T15:00:00Z', said_yes_at:'2026-10-04T15:00:00Z', status:'Converted', converted_at:'2026-10-04T15:00:00Z', first_shift_at:'2026-10-06T13:00:00Z', schedule:{ days:['Mon'], hours_per_week:10 }, assigned_coordinator:'Krystal', rungs:{ owner_at:'2026-10-01T15:05:00Z' }, speed_miss:{ owner:'kry@mo-care.com', minutes:30 }, comm_log:[{ kind:'owner', body:'Angiel took this inquiry from Krystal' }] },
+    { id:'b', created_at:'2026-10-02T15:00:00Z', source:'Referral', referral_subtype:'hospital', funding_source:'medicaid', waiting:{ reason:'state', since:'2026-08-15', check_back:'2026-10-13' }, first_human_contact_at:'2026-10-02T16:00:00Z', assigned_coordinator:'Angiel', schedule:{ days:['Mon'], hours_per_week:20 }, client_first_name:'Ruth', why_called:'x', desired_start:{ kind:'asap' }, contact_events:[{ at:'2026-10-05T15:00:00Z', actor:'human', direction:'out', channel:'call', outcome:'voicemail' }] },
+    { id:'c', created_at:'2026-10-03T15:00:00Z', source:'Phone', funding_source:'medicaid', state_status:'submitted', state_submitted:'2026-10-01', first_human_contact_at:'2026-10-03T16:00:00Z', assigned_coordinator:'Angiel' },
+    { id:'s', created_at:'2026-10-05T15:00:00Z', spam:{ at:'x' } } ];
+  const N = R.ownerNumbers(L, HRS, { now:NOW, names:{ 'kry@mo-care.com':'Krystal Land' } }).now;
+  ck('funnel for the period\'s inquiries: 3 → contacted 3 → assessed 1 → won 1 → started 1 (spam never counts)', JSON.stringify(N.funnel) === '{"inquiries":3,"contacted":3,"assessed":1,"won":1,"started":1}', N.funnel);
+  ck('by source: Website (won, started, 10 hrs), Referral · Hospital (the subtype), Phone', N.by_source.map(r => r.source).join('|') === 'Website|Referral · Hospital|Phone' && N.by_source[0].started === 1 && N.by_source[0].hours === 10 && N.by_source[1].contacted === 1, N.by_source);
+  const k = N.by_owner.find(o => o.owner === 'Krystal'), an = N.by_owner.find(o => o.owner === 'Angiel');
+  ck('the team: Krystal late 1 (the 5-minute text went), 1 miss (by email, folded to her first name); Angiel took 1 as backup', k.late === 1 && k.misses === 1 && k.took === 0 && an.took === 1 && an.misses === 0, [k, an]);
+  const M = R.medicaidPipeline(L, '2026-10-06', NOW);
+  ck('Medicaid pipeline now: 2 waiting on the state (a waiting record, or submitted), 1 heard from us this week, 1 over 45 days (52), 20 hrs/wk, nobody offered bridge hours yet', M.waiting === 2 && M.checked_in_week === 1 && M.over_45 === 1 && M.hours_week === 20 && M.bridge_offered === 0 && M.long_days === 45, M);
+  const MR = R.missingRequired(L);
+  ck('missing required: only c (deciding, nothing asked) counts, against Angiel; b has what its stage needs; the converted one is not counted', MR.count === 1 && MR.by_owner.Angiel === 1 && MR.rows[0].id === 'c', MR);
+}
+
 /* the Hub page and the server run the same file */
 const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));
