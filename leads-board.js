@@ -19,7 +19,8 @@
     const asm = (DATA.care_assessments || []).filter(a => a && a.lead_id === l.id).map(a => ({ status:a.status, visit_date:a.visit_date }));
     let jn = null; try{ const j = (typeof cjJourneyFor === 'function') ? cjJourneyFor({ lead:l }) : null; if(j && j.next && j.status === 'open') jn = { title:j.next.title, why:j.next.why || '' }; }catch(e){}
     const org = l.referral_org_id ? (DATA.referral_orgs || []).find(o => o.id === l.referral_org_id) : null;
-    return { hours:R.responseHours(DATA.ops_settings || {}), stage, name:(typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || '', assessments:asm, journey_next:jn,
+    const drafts = (DATA.post_call_followups || []).filter(f => f && f.lead_id === l.id && f.status === 'pending_approval').map(f => f.id);
+    return { hours:R.responseHours(DATA.ops_settings || {}), stage, name:(typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || '', assessments:asm, journey_next:jn, drafts,
       referral:(org && org.name) || l.referral_source_name || '', payer_label:(typeof CPX_PAY !== 'undefined' && CPX_PAY[l.funding_source]) || null };
   }
   function first(n){ return String(n || '').trim().split(/\s+/)[0] || ''; }
@@ -30,6 +31,7 @@
       if(!l.phone) return '<span class="lb-btn lb-btn-dim" title="No phone number on the inquiry">No phone</span>';
       return '<a class="' + cls + '" href="#" role="button" data-oc-phone="' + esc(l.phone) + '"' + (l.email ? ' data-oc-email="' + esc(l.email) + '"' : '') + ' data-no-open="1" title="Call from the office line">Call</a>';
     }
+    if(k === 'draft') return '<button class="' + cls + '" data-no-open="1" onclick="lbDraft(\'' + id + '\', \'' + esc(a.id) + '\')">' + esc(a.label) + '</button>';
     const fn = { text:'lbText', log:'lbLog', followup:'lbFollowUp', schedule:'lbSchedule', open_asmt:'lbOpenAsmt', open:'lbOpen', dsds:'lbDsds' }[k];
     return '<button class="' + cls + '" data-no-open="1" onclick="' + fn + '(\'' + id + '\', this)">' + esc(a.label) + '</button>';
   }
@@ -89,7 +91,7 @@
       + '<button class="filter-pill" onclick="lbGettingReady()">Said yes this month ' + yesMonth + ' · Getting ready</button>'
       + [['care', 'Receiving care'], ['past', 'Past'], ['archived', 'Archived'], ['spam', 'Spam']].map(s => '<button class="filter-pill' + (LB.filter === 'set:' + s[0] ? ' active' : '') + '" onclick="lbFilter(\'set:' + s[0] + '\')">' + s[1] + ' ' + count(s[0]) + '</button>').join('')
       + '<button class="filter-pill' + (LB.filter === 'state' ? ' active' : '') + '" onclick="lbFilter(\'state\')">State submissions</button>'
-      + '<span style="flex:1;"></span><button class="linklike" onclick="switchLeadsSubtab(\'followups\')">Follow-up drafts waiting for approval' + (opts.draftCount ? ' (' + opts.draftCount + ')' : '') + '</button>';
+      + '<span style="flex:1;"></span><button class="linklike" onclick="switchLeadsSubtab(\'followups\')">All follow-up drafts (pending, approved, sent)</button>';
     /* the board itself */
     if(LB.filter === 'state'){ box.innerHTML = (typeof lsStateHtml === 'function') ? lsStateHtml() : ''; return; }
     if(LB.filter.indexOf('set:') === 0){
@@ -163,9 +165,11 @@
     await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
     if(typeof ccToast === 'function') ccToast('Noted: DSDS called. The 21-day clock restarts today.');
   }
+  /* clean-up 6.5: the AI draft review opens from the row (the Follow-ups tab is gone; its archive is under Look up) */
+  function lbDraft(id, draftId){ if(typeof openFollowUpModal === 'function') openFollowUpModal(draftId, id); }
   function lbYes(id, btn){ if(typeof cjSaidYes === 'function') cjSaidYes(id, btn); else alert('The client journey page did not load. Refresh and try again.'); }
   function lbFilter(f){ LB.filter = f; redraw(); }
   function lbOwner(o){ LB.owner = o || ''; redraw(); }
   function lbGettingReady(){ if(typeof ccParentClick === 'function') ccParentClick('gettingready'); else if(typeof switchTab === 'function') switchTab('soc'); }
-  Object.assign(window, { LeadsBoard:{ render, state:LB, ctxFor }, lbText, lbOpen, lbOpenAsmt, lbSchedule, lbLog, lbFollowUp, lbMore, lbLost, lbYes, lbDsds, lbFilter, lbOwner, lbGettingReady });
+  Object.assign(window, { LeadsBoard:{ render, state:LB, ctxFor }, lbText, lbOpen, lbOpenAsmt, lbSchedule, lbLog, lbFollowUp, lbMore, lbLost, lbYes, lbDsds, lbDraft, lbFilter, lbOwner, lbGettingReady });
 })();
