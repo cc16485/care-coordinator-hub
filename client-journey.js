@@ -51,6 +51,7 @@
     const key = lead ? 'L' + lead.id : ax ? 'A' + ax : null;
     CJ.key = key; CJ.data = null; CJ.view = null; CJ.sel = null; CJ.mode = null; CJ.more = false; CJ.oldOpen = false; CJ.flash = ''; CJ.err = '';
     head.innerHTML = ''; start.innerHTML = ''; showOld(true);
+    try{ if(typeof lwRender === 'function') lwRender(); }catch(e){}   /* before the yes, the lead workspace is the Overview */
     if(!key) return;
     const testLead = !!(lead && lead.is_test);
     if(!live() && !(owner() && testLead)) return;   /* switched off: only an owner, only on a TEST client */
@@ -138,6 +139,7 @@
     if(start) wireForm(start);
     autoCheck(r);
     try{ if(typeof cpRenderCommand === 'function') cpRenderCommand(); }catch(e){}
+    try{ if(typeof lwRender === 'function') lwRender(); }catch(e){}
   }
   /* is a journey showing for the profile that's open? (the Overview keeps only what the journey doesn't say) */
   function hasJourney(){ return !!(CJ.data && CJ.data.journey && CJ.view && document.getElementById('cjHead') && document.getElementById('cjHead').innerHTML); }

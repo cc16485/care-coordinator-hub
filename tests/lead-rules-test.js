@@ -276,6 +276,59 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('...a typed referral name counts as a partner too; a website lead is not one', patel.name === 'Dr. Patel office' && patel.sent === 1 && patel.assessed === 1 && N.now.by_partner.length === 2, N.now.by_partner);
 }
 
+/* the lead workspace (screen 2, 2026-10-07): steps, timeline, script lines, can we staff it */
+{
+  const NOW = '2026-10-06T15:10:00Z', HRS = R.responseHours({});   /* Tue Oct 6, 10:10 am Chicago */
+  const diane = { id:'d1', first_name:'Diane', last_name:'Teague', client_first_name:'Marjorie', client_last_name:'Teague', relationship:'daughter', source:'Website', client_city:'Nixa', funding_source:'private',
+    desired_start:{ kind:'by_date', date:'2026-10-09' }, schedule:{ days:['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], times:'9 am-1 pm', hours_per_week:20 }, why_called:'Mom fell last week, needs help mornings',
+    status:'Contacted', assigned_coordinator:'Krystal', created_at:'2026-10-06T02:52:00Z', ack_sent_at:'2026-10-06T02:52:10Z', ack_kind:'after_hours',
+    first_human_attempt_at:'2026-10-06T13:12:00Z', family_last_reply_at:'2026-10-06T14:48:00Z',
+    contact_events:[{ at:'2026-10-06T02:52:00Z', channel:'web', direction:'in', outcome:'inquiry', actor:'family', note:'Mom fell last week, needs help mornings' },
+      { at:'2026-10-06T02:52:10Z', channel:'sms', direction:'out', outcome:'sent', actor:'automation', note:'acknowledgment' }, { at:'2026-10-06T02:52:11Z', channel:'email', direction:'out', outcome:'sent', actor:'automation', note:'acknowledgment' },
+      { at:'2026-10-06T13:12:00Z', channel:'call', direction:'out', outcome:'voicemail', actor:'human', by:'krystal@mo-care.com', note:'left my name and the office number' },
+      { at:'2026-10-06T14:48:00Z', channel:'sms', direction:'in', outcome:'received', actor:'family', ref:'Can someone call me after 4 today? I am at work until then.' }],
+    comm_log:[{ body:'☎ call — voicemail: left my name and the office number', at:'2026-10-06T13:12:00Z', by:'krystal@mo-care.com' }] };
+  const ctx = { now:NOW, today:'2026-10-06', hours:HRS, stage:'reaching_out', assessments:[], names:{ 'krystal@mo-care.com':'Krystal Land' }, me:'Krystal Land', scripts:{} };
+  const st = R.steps(diane, ctx);
+  ck('steps: New done (after hours ack), Reaching out done (voicemail, 1 try), Reached is NOW, Assessment not booked, Yes todo', st.map(s => s.key + ':' + s.state).join(' ') === 'new:done reaching:done reached:now assessment:todo yes:todo'
+    && /auto-acknowledged immediately/.test(st[0].words) && st[1].words === 'voicemail 8:12 am · 1 try' && st[3].words === 'not booked' && st[4].words === 'then Getting ready', st);
+  const st2 = R.steps(Object.assign({}, diane, { first_human_contact_at:'2026-10-06T21:15:00Z', said_yes_at:'2026-10-08T15:00:00Z' }), Object.assign({}, ctx, { assessments:[{ status:'Scheduled', visit_date:'2026-10-07' }] }));
+  ck('...after a talk, a booked visit and the yes: Reached done, Assessment "booked tomorrow", Yes done "Thu"', st2[2].done && st2[3].words === 'booked tomorrow' && st2[4].done && st2[4].words === 'Thu', st2.map(s => s.words));
+  ck('...a lost lead has no NOW step', R.steps(Object.assign({}, diane, { status:'Lost' }), ctx).every(s => s.state !== 'now'));
+  const tl = R.timeline(diane, ctx);
+  ck('timeline newest first: her text, the voicemail, the clock opening, the acknowledgment (text and email, once), the inquiry (with her words); the comm_log copy of the call is not repeated',
+    tl.map(x => x.kind).join(' ') === 'family try clock auto inquiry' && tl[0].sub.indexOf('after 4 today') > -1 && tl[1].text === 'Krystal called · voicemail' && tl[2].sub === 'first call due 8:05 am'
+    && tl[3].text === 'Acknowledged by the Hub by text and email' && tl[4].text === 'Inquiry from Website · to Krystal' && tl[4].sub === 'Mom fell last week, needs help mornings', tl);
+  const lostL = Object.assign({}, diane, { status_history:[{ at:'2026-10-06T15:00:00Z', from:'Contacted', to:'Lost', by:'krystal@mo-care.com', why:'Price' }], said_yes_at:null });
+  ck('...a Lost move shows who and why; the automatic New → Contacted move is not listed', R.timeline(lostL, ctx)[0].text === 'Marked lost by Krystal' && R.timeline(lostL, ctx)[0].sub === 'Price'
+    && !R.timeline(Object.assign({}, diane, { status_history:[{ at:'2026-10-06T15:00:00Z', from:'New', to:'Contacted', by:'k', why:'first real conversation' }] }), ctx).some(x => x.kind === 'stage'));
+  /* script lines follow the board row */
+  const row = R.boardRow(diane, ctx);
+  const sc = R.scriptFor(diane, row, ctx);
+  ck('she replied → the "They replied" line, filled in', row.reason === 'replied' && sc.key === 'replied' && /^Hi Diane, thank you for getting back to me/.test(sc.text) && !sc.custom, sc);
+  const fresh = { id:'n1', first_name:'Patrice', client_first_name:'Ruth Ann', source:'Website', created_at:'2026-10-06T15:00:00Z', status:'New', referral_source_name:'' };
+  const sc2 = R.scriptFor(fresh, R.boardRow(fresh, Object.assign({}, ctx, { stage:'new' })), ctx);
+  ck('a new website inquiry → the first-call line with her name, the client, and me; the website hint', sc2.key === 'first_call' && sc2.text.indexOf('Hi Patrice, this is Krystal with Caring Companions. Thank you for reaching out about care for Ruth Ann.') === 0 && /website form/.test(sc2.hint), sc2);
+  const sc3 = R.scriptFor(fresh, R.boardRow(fresh, Object.assign({}, ctx, { stage:'new' })), Object.assign({}, ctx, { scripts:{ first_call:'Hey {first}! {me} here.' } }));
+  ck('...Settings can replace a line; fill-ins still work', sc3.text === 'Hey Patrice! Krystal here.' && sc3.custom, sc3);
+  const waitL = Object.assign({}, diane, { family_last_reply_at:null, contact_events:diane.contact_events.slice(0, 4), first_human_contact_at:'2026-10-02T15:00:00Z', funding_source:'medicaid', waiting:{ reason:'state', since:'2026-10-01', check_back:'2026-10-13', note:'' } });
+  const sc4 = R.scriptFor(waitL, R.boardRow(waitL, Object.assign({}, ctx, { stage:'deciding' })), ctx);
+  ck('waiting on the state → the state check-back line plus the "check Fusion first" hint', sc4.key === 'check_back_state' && /Medicaid authorization for Marjorie/.test(sc4.text) && /Fusion/.test(sc4.hint), sc4);
+  const asmL = Object.assign({}, waitL, { waiting:null, funding_source:'private', assessment_at:null });
+  const sc5 = R.scriptFor(asmL, R.boardRow(asmL, Object.assign({}, ctx, { stage:'assessment', assessments:[{ status:'Scheduled', visit_date:'2026-10-08' }] })), Object.assign({}, ctx, { assessments:[{ status:'Scheduled', visit_date:'2026-10-08' }] }));
+  ck('a booked visit → the confirmation line with the day', sc5.key === 'asmt_booked' && /confirming our visit Thu at the home/.test(sc5.text), sc5);
+  ck('no em dash in any default line or hint', !Object.values(R.SCRIPT_DEFAULT).join(' ').includes('—') && !JSON.stringify(sc.hint + sc2.hint + sc4.hint).includes('—'));
+  ck('every editable key has a label and a default', R.SCRIPT_KEYS.every(k => R.SCRIPT_LABEL[k] && R.SCRIPT_DEFAULT[k]));
+  /* can we staff it */
+  const people = [{ name:'A', town:'Nixa', windows:{ mon:['morning'], tue:['morning'], wed:['morning'], thu:['morning'], fri:['morning'] } }, { name:'B', town:'Ozark', windows:{ mon:['morning', 'afternoon'], tue:['morning'], wed:['morning'], thu:['morning'], fri:['morning'], sat:['morning'] } },
+    { name:'C', town:'Nixa', windows:{ mon:['evening'], tue:['evening'] } }, { name:'D', town:'', windows:{} }];
+  const look = R.staffingLook(diane, people);
+  ck('Mon–Fri 9 am-1 pm in Nixa → 2 of 3 with availability fit, 1 in Nixa', look.asked && look.count === 2 && look.same_town === 1 && look.total === 3 && look.words === '2 caregivers say they are available Mon–Fri mornings · 1 in Nixa · of 3 with availability on file', look);
+  ck('times parse: "9 am-1 pm" = mornings (10 to 3 = mornings + daytimes); "evenings" by word; "7-11" with no am/pm = mornings; nonsense = null', JSON.stringify(R.timeCats('9 am-1 pm')) === '["morning"]' && JSON.stringify(R.timeCats('10 am to 3 pm')) === '["morning","afternoon"]' && JSON.stringify(R.timeCats('evenings')) === '["evening"]' && JSON.stringify(R.timeCats('7-11')) === '["morning"]' && R.timeCats('flexible') === null);
+  ck('no schedule asked → says so; nobody on file → says so; nobody fits → says it takes a conversation', !R.staffingLook({}, people).asked && /No schedule asked/.test(R.staffingLook({}, people).words) && /No caregiver availability/.test(R.staffingLook(diane, []).words)
+    && /Nobody has said they are available Mon–Fri mornings/.test(R.staffingLook(Object.assign({}, diane, { schedule:{ days:['Sat', 'Sun'], times:'overnight' } }), people).words.replace('Weekends overnights', 'Mon–Fri mornings')));
+}
+
 /* the Hub page and the server run the same file */
 const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));
