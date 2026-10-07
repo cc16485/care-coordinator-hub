@@ -521,6 +521,8 @@
     if(!CJL.loading && Date.now() - CJL.at > 5 * 60e3){
       CJL.loading = true;
       call({ action:'list', include_active:true }).then(d => { CJL.rows = (d && d.journeys) || []; CJL.at = Date.now(); CJL.loading = false;
+        /* Pause care / End care: who is paused or ended right now (check-in work and the Clients list read these) */
+        window.CJ_QUIET = (d && d.quiet) || []; window.CJ_PAUSED = (d && d.paused) || [];
         try{ if(typeof activeTab !== 'undefined'){ if(activeTab === 'soc' && typeof renderSocTab === 'function') renderSocTab(); if(activeTab === 'clientqueue' && typeof cqRedraw === 'function') cqRedraw(); if(activeTab === 'leads' && typeof renderLeads === 'function') renderLeads(); } }catch(e){} })
         .catch(() => { CJL.loading = false; CJL.at = Date.now() - 4 * 60e3; });
     }
@@ -647,7 +649,7 @@
       switchTab('clientsboard');
     }
   }
-  setInterval(navTidy, 1500); setTimeout(navTidy, 50);
+  setInterval(() => { navTidy(); try{ if(live() && typeof sb !== 'undefined') listRows(); }catch(e){} }, 1500); setTimeout(navTidy, 50);
   /* a first name for an email, from the Hub's people list (never the email itself) */
   function personName(e){
     const x = lc(e); if(!x) return 'Nobody yet';

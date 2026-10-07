@@ -5036,6 +5036,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <!-- Gate 1a: who they are in one line (age, town, AxisCare's own status, payer). Computed, never typed. -->
   <div id="cpFacts" class="cpx-facts"></div>
   <!-- CLIENT JOURNEY (Stages 1-3, 2026-10-06): stage, rail, NEXT REQUIRED STEP and Coming next, on every tab. client-journey.js -->
+  <div id="ccCare"></div><!-- Pause care / End care (client-care.js) -->
   <div id="cjHead"></div>
   <div id="cpTabs" class="cp-tabs">
     <button type="button" class="cp-tab" data-cp="summary" onclick="cpShowTab('summary')">Overview</button>
@@ -6898,7 +6899,8 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
-<script src="client-journey.js?v=13"></script>
+<script src="client-journey.js?v=14"></script>
+<script src="client-care.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=3"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
@@ -9713,6 +9715,7 @@ async function openClient(seed, tab){
   cpShowTab(tab||'summary');
   window.scrollTo(0,0);
   if(typeof cjMountProfile==='function') cjMountProfile({ lead, ax });
+  if(typeof ccCareMount==='function') ccCareMount({ lead, ax });
 }
 function openLeadProfile(id, tab){
   if(!(DATA.leads||[]).find(l=>l.id===id)) return;
@@ -11364,10 +11367,10 @@ async function csrOpen(reviewId){
     +(sub?'<div class="field-note" style="font-size:12px;margin-left:22px;">'+sub+'</div>':'')+'</label>';
   body.innerHTML=head
     +'<div class="field-note" style="margin-top:6px;">Nothing in the hub has changed. What happened?</div>'
-    +opt('care_ended','Care ended','Ends their Journey and moves them to Past clients, on the day you give.')
-    +opt('on_hold','On hold, care will resume','Nothing ends.')
+    +opt('care_ended','Care ended','Opens End care: the reason, the last day of service and who told us. Their journey and open work close; nothing is deleted.')
+    +opt('on_hold','Paused (hospital, rehab, family away…)','Opens Pause care with a follow-up date. Nothing ends.')
     +opt('no_change','AxisCare mistake / nothing changed','Nothing ends. Say what happened.')
-    +opt('returning','Returning client','Opens their new Journey. Owner / Decision only.')
+    +opt('returning','Returning client','Opens Start a new episode on the same person. An owner decides.')
     +'<div id="csrMore" style="margin-top:10px;"></div>'
     +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;"><button class="primary" id="csrGo" disabled>Record the answer</button><button class="secondary" id="csrX">Close</button><span id="csrMsg" class="field-note"></span></div>';
   ov.querySelector('#csrX').onclick=close;
@@ -11381,6 +11384,10 @@ async function csrOpen(reviewId){
   });
   go.onclick=async()=>{
     const d=(ov.querySelector('input[name=csrD]:checked')||{}).value, v=id=>{ const el=ov.querySelector('#'+id); return el?el.value.trim():''; }, msg=ov.querySelector('#csrMsg');
+    /* Pause care / End care (2026-10-07): an AxisCare change never ends care by itself; these answers open the same forms */
+    if(typeof ccCareFromReview==='function'&&(d==='care_ended'||d==='on_hold'||d==='returning')){
+      close(); ccCareFromReview(d==='care_ended'?'end':d==='on_hold'?'pause':'return', rv.axiscare_client_id, reviewId, seen<=today?seen:today); return;
+    }
     const b={action:'decide',review_id:reviewId,decision:d,date:v('csrDate')||null,reason:v('csrReason')||null,note:v('csrNote')||null};
     if(d==='care_ended'&&!b.reason){ msg.textContent='Say why care ended.'; return; }
     if((d==='no_change'||(d==='care_ended'&&b.reason==='other'))&&!b.note){ msg.textContent='Add a note saying what happened.'; return; }
@@ -26096,8 +26103,9 @@ function runObligations(opts){
     return {ran:'obligations', created:[], stale:[], skipped:0, unroutable:[],
             errors:[{message:'obligations.js not loaded'}], bySource:{}};
   }
+  /* Pause care / End care: paused and ended clients get no check-in work (their AxisCare numbers come from the journey list) */
   const r=CCOblig.evaluate({
-    data: DATA, items: (DATA.ops_items||[]), today: ccTodayCentral(),
+    data: Object.assign({}, DATA, { quiet_clients: (window.CJ_QUIET||[]) }), items: (DATA.ops_items||[]), today: ccTodayCentral(),
     maxAgeDays: OBLIG_MAX_AGE_DAYS, maxPerRun: OBLIG_MAX_PER_RUN,
     resolveOwner: v=>(typeof opsCanonicalPerson==='function')?opsCanonicalPerson(v):'',
     domainOwner:  c=>opsDomainOwner(c)||'',
@@ -30699,6 +30707,9 @@ const OPS_KINDS = {
   project:        { label:'Project',       hours:168 },
   /* Client journey (2026-10-06): one card per person per owner, written by the client-journey service */
   journey:        { label:'Client step',   hours:24 },
+  /* Pause care / End care (2026-10-07): the one restart follow-up of a paused client, and the one sympathy card */
+  pause_followup: { label:'Restart follow-up', hours:24 },
+  sympathy:       { label:'Sympathy card',     hours:48 },
   /* N2 (2026-09-29): a caregiver's shift note the AI thought someone should read (care-notes, every two hours) */
   care_note:      { label:'Shift note',    hours:24 },
   /* Missed shift notes (2026-09-29): a caregiver replied with the note they didn't write, or never replied. */
@@ -30872,6 +30883,8 @@ async function clLoad(force){
 }
 function clDue(r, issues){
   const ax=String((r&&r.axiscare_client_id)||'').trim(), t=today(), wk=new Date(Date.now()+7*864e5).toISOString().slice(0,10), out=[];
+  /* Pause care / End care (2026-10-07): a paused or past client has nothing due (no check-in, plan review or chips) */
+  if((r&&r.role_status&&r.role_status!=='active')||(ax&&(window.CJ_QUIET||[]).indexOf(ax)>-1)) return out;
   const d=ymd=>{ try{ return new Date(String(ymd).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return String(ymd); } };
   const add=(kind,tone,label,tab,due)=>out.push({ kind, tone, label, tab, due:due||'' });
   if(ax){
@@ -30918,11 +30931,14 @@ function renderClientsBoard(){
   const all=CL.roster.filter(r=>r&&r.axiscare_client_id).map(r=>{
     const due=clDue(r, issues), past=!!(r.role_status&&r.role_status!=='active');
     const ci=(DATA.client_checkins||[]).filter(c=>c&&c.client_name&&String(c.axiscare_client_id||'')===String(r.axiscare_client_id)).sort((a,b)=>String(b.checkin_date||'').localeCompare(String(a.checkin_date||'')))[0];
-    return { r, due, past, bad:due.filter(x=>x.tone==='bad').length, warn:due.filter(x=>x.tone==='warn').length, lastCi:ci, coord:(ci&&ci.coordinator)||'' };
+    const paused=(window.CJ_PAUSED||[]).find(p=>String(p.axiscare_client_id)===String(r.axiscare_client_id))||null;
+    return { r, due, past, paused, bad:due.filter(x=>x.tone==='bad').length, warn:due.filter(x=>x.tone==='warn').length, lastCi:ci, coord:(ci&&ci.coordinator)||'' };
   }).filter(x=>!x.coord||ccViewMatch(x.coord));
   const FILTERS=[
     ...(typeof cjStartingCount==='function'&&DATA.ops_settings&&DATA.ops_settings.client_journey_live===true?[['Starting care', ()=>false]]:[]),
-    ['Needs something', x=>!x.past&&(x.bad+x.warn)>0],
+    ['Needs something', x=>!x.past&&!x.paused&&(x.bad+x.warn)>0],
+    /* Pause care (2026-10-07): paused clients stay visible here, with their follow-up date */
+    ['Paused', x=>!x.past&&!!x.paused],
     ['Due this week', x=>!x.past&&x.due.some(i=>i.tone==='bad'||(i.due&&i.due<=wk))],
     ['Concerns', x=>!x.past&&x.due.some(i=>i.kind==='concern')],
     ['Check-in concerns', x=>!x.past&&x.due.some(i=>i.kind==='ckconcern')],
@@ -30945,7 +30961,8 @@ function renderClientsBoard(){
     +'<thead><tr style="background:var(--bg);text-align:left;">'+['Client','Open or due','Last check-in'].map(h=>'<th style="padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">'+h+'</th>').join('')+'</tr></thead><tbody>'
     +rows.map(x=>'<tr style="border-top:1px solid var(--border);'+(x.bad?'background:#FFFAF9;':'')+'">'
       +'<td style="padding:9px 10px;vertical-align:top;"><a href="javascript:void(0)" data-open-client="'+esc(String(x.r.axiscare_client_id))+'" style="font-weight:700;color:var(--navy);">'+esc(x.r.client_name)+'</a>'
-        +'<div style="margin-top:3px;">'+ccStageChip(x.past?{k:'past',d:'ended care'}:{k:'care',d:''})+'</div></td>'
+        +'<div style="margin-top:3px;">'+ccStageChip(x.past?{k:'past',d:/deceas/i.test(String(x.r.end_reason||''))?'deceased':'ended care'}:{k:'care',d:''})
+        +(x.paused?' <span class="tag-chip" style="background:#FFF4E1;color:#9A6412;font-weight:800;">Paused · follow up '+esc(new Date(x.paused.followup_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}))+'</span>':'')+'</div></td>'
       +'<td style="padding:9px 10px;vertical-align:top;">'+(x.due.length?x.due.map(i=>clChip(x.r,i)).join(''):'<span class="field-note">nothing open</span>')+'</td>'
       +'<td style="padding:9px 10px;vertical-align:top;white-space:nowrap;">'+(x.lastCi?esc(x.lastCi.checkin_date||'')+(x.coord?'<div class="field-note" style="font-size:11.5px;">'+esc(x.coord)+'</div>':''):'<span class="field-note">none yet</span>')+'</td></tr>').join('')
     +'</tbody></table></div>';

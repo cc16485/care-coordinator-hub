@@ -116,9 +116,12 @@
         var order = function (c) { return [ymdOf(c.checkin_date) || '', String(c.created_at || ''), String(c.id)].join('|'); };
         var latest = {};
         list.forEach(function (c) { var k = keyOf(c); if (!latest[k] || order(c) > order(latest[k])) latest[k] = c; });
+        /* PAUSE CARE / END CARE (2026-10-07): a client whose care is paused or has ended gets no check-in work. Their
+           AxisCare numbers come in as d.quiet_clients (the server reads them; the page has them from the journey list). */
+        var quiet = {}; (d.quiet_clients || []).forEach(function (a) { quiet['ax:' + String(a)] = 1; });
         return list.map(function (c) {
           var top = latest[keyOf(c)];
-          return Object.assign({}, c, { _superseded: top !== c, _client_latest: top.checkin_date || c.checkin_date || '' });
+          return Object.assign({}, c, { _superseded: top !== c || !!quiet[keyOf(c)], _client_latest: top.checkin_date || c.checkin_date || '' });
         });
       },
       id:     function (c) { return String(c.id); },
