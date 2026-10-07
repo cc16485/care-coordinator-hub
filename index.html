@@ -4118,6 +4118,23 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<!-- Leads intake desk, Stage 1 (Samantha 2026-10-06): the hours a new inquiry's 5-minute first-call clock runs. Saved
+     one field at a time (tkMerge); the same lead-rules.js reads it on the server for the after-hours acknowledgment. -->
+<div class="settings-section" data-set="lead-hours">
+<h3>⏱ Lead response hours</h3>
+<p class="hint">Inside these hours a new inquiry's first call is due <b>5 minutes</b> after it comes in. Outside them the family gets the acknowledgment at once (worded for after hours, naming when we open) and the clock starts when these hours open, so a 9 pm inquiry is not red all night. The acknowledgment is the only automatic message outside these hours.</p>
+<div id="lhSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div class="checkbox-grid" id="lhDays" style="grid-template-columns:repeat(7,auto);justify-content:start;gap:6px 14px;">
+<label><input type="checkbox" value="1"> Mon</label><label><input type="checkbox" value="2"> Tue</label><label><input type="checkbox" value="3"> Wed</label>
+<label><input type="checkbox" value="4"> Thu</label><label><input type="checkbox" value="5"> Fri</label><label><input type="checkbox" value="6"> Sat</label><label><input type="checkbox" value="0"> Sun</label>
+</div>
+<div class="grid2" style="grid-template-columns:160px 160px 1fr;align-items:end;">
+<div><label>From</label><input type="time" id="lhStart"></div>
+<div><label>Until</label><input type="time" id="lhEnd"></div>
+<div style="display:flex;gap:8px;align-items:center;padding-bottom:2px;"><button class="secondary" id="lhSaveBtn" onclick="lhSave(this)">Save hours</button><span class="field-note" id="lhSaved"></span></div>
+</div>
+</div>
+
 <div class="settings-section" id="cjSettings" data-set="client-journeys">
 <h3>🧭 Client journeys</h3>
 <p class="hint">Each new client's start of care as one journey on their profile: the next required step, who owns it, and proof on each step. Who gets a new client nobody has picked is set by payer here. Nobody is texted or emailed.</p>
@@ -6783,7 +6800,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
-<script src="lead-rules.js?v=1"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=2"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -14308,6 +14325,7 @@ function fillSettingsPanel(){
   try{ if(typeof cnSetFill==='function') cnSetFill(); }catch(_){}
   try{ if(typeof suSetFill==='function') suSetFill(); }catch(_){}
   try{ lnSetFill(); }catch(_){}
+  try{ lhSetFill(); }catch(_){}
   try{ cbFill(); }catch(_){}
   tkFill();
   try{ tkoFill(); }catch(_){}
@@ -16992,6 +17010,30 @@ function cgcSetRender(){
 /* Today cockpit Phase 2 (2026-10-05): the Hub closes its own loops (ops_settings.loops_close_live). The same switch
    and the same words as the Owners Hub Admin page. Turning it on stamps loops_close_since (only shifts closed as not
    covered from then on ask for a family call). */
+/* Lead response hours (Stage 1): ops_settings.lead_response_hours = { days:[0..6], start:'HH:MM', end:'HH:MM' }; lead-rules.js
+   cleans it and falls back to Mon–Fri 8 to 6 when it is missing or broken. */
+function lhSetFill(){
+  if(typeof LeadRules==='undefined') return;
+  const h=LeadRules.responseHours(DATA.ops_settings||{});
+  document.querySelectorAll('#lhDays input').forEach(c=>{ c.checked=h.days.indexOf(Number(c.value))>-1; });
+  const s=document.getElementById('lhStart'), e=document.getElementById('lhEnd'); if(s) s.value=h.start; if(e) e.value=h.end;
+  const now=document.getElementById('lhSetNow');
+  if(now){ const open=LeadRules.inResponseHours(new Date().toISOString(), h);
+    now.innerHTML='<b>'+(h.source==='default'?'Not set yet, so the Hub uses ':'Now: ')+LeadRules.daysWords(h.days.map(d=>['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).filter(Boolean))+' '+LeadRules.clockWords(LeadRules.chicagoInstant(LeadRules.ymd(new Date()),h.start))+' to '+LeadRules.clockWords(LeadRules.chicagoInstant(LeadRules.ymd(new Date()),h.end))+'.</b> '
+      +(open?'Lead response hours are open right now: a new inquiry is due a first call in 5 minutes.':'Closed right now: a new inquiry is acknowledged at once and its clock starts when '+LeadRules.openingWords(new Date().toISOString(),h).replace(/^we open /,'')+'.'); }
+}
+async function lhSave(btn){
+  const sv=document.getElementById('lhSaved');
+  const days=[...document.querySelectorAll('#lhDays input:checked')].map(c=>Number(c.value)).sort();
+  const start=String((document.getElementById('lhStart')||{}).value||''), end=String((document.getElementById('lhEnd')||{}).value||'');
+  const clean=LeadRules.responseHours({ lead_response_hours:{ days, start, end } });
+  if(!days.length||clean.source==='default'){ if(sv) sv.textContent='Pick at least one day, and an end time after the start.'; return; }
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.lead_response_hours={ days:clean.days, start:clean.start, end:clean.end }; return ['lead response hours '+clean.days.join('')+' '+clean.start+'-'+clean.end]; }, 'lead response hours');
+  if(btn) btn.disabled=false;
+  if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved. New inquiries use these hours from now on.';
+  lhSetFill(); try{ opsReconcileLeads(); }catch(e){}
+}
 function loopsSetRender(){
   const box=document.getElementById('loopsSet'), b=document.getElementById('loopsSetBtn'); if(!box) return;
   const st=DATA.ops_settings||{}, on=st.loops_close_live===true;
@@ -32555,7 +32597,9 @@ function opsReconcileLeads(){
              // the day this moves to somebody else, one row changes.
              domain:'family_enquiries',
              status:'open', created_at:created, last_activity_at:created,
-             due:opsDueFor('new_lead','normal',created),
+             /* Stage 1 (2026-10-06): a first human attempt is due 5 minutes after the inquiry inside lead response
+                hours, else 5 minutes after coverage opens (lead-rules.js, same file on the server) */
+             due:(typeof LeadRules!=='undefined'&&LeadRules.firstAttemptDue(l, LeadRules.responseHours(DATA.ops_settings)))||opsDueFor('new_lead','normal',created),
              owner:(opsCanonicalPerson(l.assigned_coordinator)
                     ||opsDomainOwner('family_enquiries')||''),
              owner_name:'', opened_by:'system' };
@@ -32616,10 +32660,21 @@ function opsReconcileLeads(){
         const stg=(typeof leadStage==='function')?leadStage(l):'';
         const who2=[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'(no name given)';
         let nt='', nd='', na='';
+        /* Stage 1: the 5-minute clock. Due = first attempt due (recomputed while nobody has tried, so a change to the
+           hours setting moves it); past due with no attempt = urgent, and the card says by how much. The true inquiry
+           time stays on the card ("came in last night at 9:02 pm") even when the clock only started at opening. */
+        const fa=(typeof LeadRules!=='undefined')?LeadRules.firstAttemptState(l, LeadRules.responseHours(DATA.ops_settings)):null;
+        if(fa&&stg==='new'&&!fa.attempted){
+          if(it.due!==fa.due){ it.due=fa.due; touched.set(it.id,it); }
+          if(fa.overdue&&it.urgency!=='high'){ it.urgency='high'; it.clock_urgent=true; opsLeadLog(it,'First attempt overdue: nobody has called yet'); touched.set(it.id,it); }
+        }
+        if(fa&&fa.attempted&&it.clock_urgent){ it.urgency='normal'; it.clock_urgent=false; touched.set(it.id,it); }
         if(stg==='new'){
-          nt='New care inquiry: '+who2;
-          nd=(l.ack_sent_at?'Auto-acknowledged':'No acknowledgment went out')
+          const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+          nt=(fa&&fa.overdue?'New care inquiry · OVERDUE, first call '+fa.late_minutes+' min late: ':'New care inquiry: ')+who2;
+          nd=(fa?cap(fa.came_in)+' · '+fa.ack:(l.ack_sent_at?'Auto-acknowledged':'No acknowledgment went out'))
             +' · no human attempt yet.'
+            +(fa&&fa.starts_words?' The clock '+fa.starts_words.replace(/^the clock /,'')+'.':fa&&fa.overdue?' First call was due at 5 minutes.':'')
             +(l.interest_notes?' "'+String(l.interest_notes).slice(0,180)+'"':'');
           na='Call them — a person, as soon as you can.';
         } else if(stg==='reaching_out' && ldAttempts(l)>0 && !l.first_human_contact_at){
