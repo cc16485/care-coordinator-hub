@@ -49,7 +49,7 @@
     if(!head || !start) return;
     const lead = p && p.lead, ax = p && p.ax ? String(p.ax) : '';
     const key = lead ? 'L' + lead.id : ax ? 'A' + ax : null;
-    CJ.key = key; CJ.data = null; CJ.view = null; CJ.sel = null; CJ.mode = null; CJ.flash = ''; CJ.err = '';
+    CJ.key = key; CJ.data = null; CJ.view = null; CJ.sel = null; CJ.mode = null; CJ.more = false; CJ.oldOpen = false; CJ.flash = ''; CJ.err = '';
     head.innerHTML = ''; start.innerHTML = ''; showOld(true);
     if(!key) return;
     const testLead = !!(lead && lead.is_test);
@@ -68,7 +68,7 @@
   /* while a journey speaks for this person, the older checklists, the older stage path and the older stage chip step
      aside, so two progress systems never show at once */
   function showOld(on){
-    ['lp_soc_body', 'cp_launch', 'cpcPath'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; });
+    ['lp_soc_body', 'cp_launch', 'cpcPath'].concat(on || !CJ.oldOpen ? ['lp_head_card', 'lp_ai_card'] : []).forEach(id => { const el = document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; });
     const chips = document.getElementById('cpChips'), st = chips && chips.querySelector('.tag-chip[title]');
     if(st) st.style.display = on ? '' : 'none';
   }
@@ -97,35 +97,117 @@
     if(!head || !CJ.view) return;
     showOld(false);
     const d = CJ.data, j = d.journey, v = CJ.view;
-    const payer = j.payer ? R.PAYERS[j.payer] + (j.payer === 'other' && j.payer_other ? ': ' + j.payer_other : '') : 'Payer not set';
-    const status = j.status === 'active' ? 'Active client' : v.stop ? 'Stopped' : v.stageLabel;
-    let h = '<div class="cj-head">'
-      + '<div class="cj-meta">' + (j.is_test ? '<span class="cj-chip cj-s-exc">TEST</span> ' : '') + '<b>' + esc(payer) + '</b> · <b>' + esc(status) + '</b>'
-      + ' · Target start <button class="linklike cj-start-date" onclick="cjEditStart(this)">' + (j.target_start ? esc(day(j.target_start)) : 'not set') + '</button>'
-      + ' · Care Coordinator: <button class="linklike" onclick="cjAssignCc(this)">' + esc(j.assigned_cc ? nameOf(j.assigned_cc) : 'nobody') + '</button>'
-      + ' · Staffing: ' + esc(nameOf((d.ctx || {}).staffing_email) || 'nobody yet') + '</div>'
-      + '<div class="cj-rail" role="list">' + v.rail.map(s => '<button type="button" role="listitem" class="cj-st cj-st-' + s.state + '" onclick="cjShowStage(\'' + s.key + '\')">' + esc(s.label) + '</button>').join('') + '</div>';
+    const payer = j.payer ? R.PAYERS[j.payer] + (j.payer === 'other' && j.payer_other ? ': ' + j.payer_other : '') : 'Payer not known yet';
+    /* SIMPLE TOP (Samantha 2026-10-06, "it's so busy and not clear"): one line about the client, one progress bar, one
+       next step that says exactly what's missing, and one "Can't do this yet" for everything else. The ten stages, the
+       other ready steps and what comes next all live in "See every step". */
+    const steps = v.rows.filter(r => r.status !== 'not_needed'), doneN = steps.filter(r => R.DONE.indexOf(r.status) > -1).length;
+    const pct = steps.length ? Math.round(doneN / steps.length * 100) : 0;
+    const nowI = v.rail.findIndex(x => x.state === 'now' || x.state === 'stopped'), then = nowI > -1 && v.rail[nowI + 1] ? v.rail[nowI + 1].label : '';
+    const l = (typeof CP !== 'undefined' && CP.lead) || null;
+    let h = '<div class="cj-head">' + contactHtml(l)
+      + '<div class="cj-meta">' + (j.is_test ? '<span class="cj-chip cj-s-exc">TEST</span> ' : '') + esc(payer)
+      + ' · <button class="linklike" onclick="cjAssignCc(this)" title="Give this client to another Care Coordinator">' + esc(j.assigned_cc ? first(j.assigned_cc) : 'Nobody') + '</button> is ' + (j.assigned_cc ? 'their' : 'the') + ' Care Coordinator'
+      + ' · Start <button class="linklike cj-start-date" onclick="cjEditStart(this)">' + (j.target_start ? esc(day(j.target_start)) : 'not set') + '</button></div>'
+      + (j.status === 'active' ? '' : '<div class="cj-prog"><div class="cj-bar"><i style="width:' + Math.max(pct, 3) + '%"' + (v.stop ? ' class="cj-bar-stop"' : '') + '></i></div>'
+        + '<span class="cj-prog-t">' + (v.stop ? '<b class="cj-red">Stopped</b> at ' + esc(v.stageLabel) : esc(v.stageLabel) + (then ? ' · then ' + esc(then) : '')) + '</span></div>');
     if(v.stop && !CJ.sel) h += '<div class="cj-flash cj-flash-stop">Stopped at "' + esc(v.stop.def.title) + '": ' + esc(v.stop.why) + '</div>';
     else if(CJ.flash) h += '<div class="cj-flash">' + esc(CJ.flash) + '</div>';
     const sel = CJ.sel && rowOf(CJ.sel), r = sel || v.next;
-    if(j.status === 'active') h += '<div class="cj-next cj-done-all"><div class="cj-k">Start of care complete</div><div class="cj-t">' + esc(cpName()) + ' is an active client.</div><div class="field-note">The whole journey stays on the Start of Care tab as the record of how they started.</div></div>';
-    else if(r) h += stepCard(r, !sel || sel === v.next);
+    if(j.status === 'active') h += '<div class="cj-next cj-done-all"><div class="cj-k">Start of care complete</div><div class="cj-t">' + esc(cpName()) + ' is an active client.</div><div class="field-note">Every step stays under "See every step" as the record of how they started.</div></div>';
+    else if(r) h += stepCard(r, !sel || sel === v.next, true);
     else h += '<div class="cj-next"><div class="cj-t">Nothing is up right now.</div></div>';
-    if(j.status !== 'active'){
-      if(v.alsoReady.length) h += '<div class="cj-also"><span class="cj-k">Also ready now</span> ' + v.alsoReady.filter(x => x !== r).map(x => '<button class="linklike" onclick="cjPick(\'' + x.key + '\')">' + esc(x.def.title) + '</button>').join(' · ') + '</div>';
-      if(v.comingNext.length) h += '<div class="cj-coming"><span class="cj-k">Coming next</span> ' + v.comingNext.map(x => esc(x.def.title)).join(' · ') + ' <button class="linklike" onclick="cpShowTab(\'start\')">See the whole journey</button></div>';
-    }
+    h += '<div id="cjFacts" class="cj-facts"></div>';
+    const more = j.status !== 'active' ? v.alsoReady.filter(x => x !== r).length : 0;
+    h += '<div class="cj-every"><button class="linklike" onclick="cpShowTab(\'start\');window.scrollTo(0,0)">See every step' + (more ? ' (' + more + ' more ready now)' : '') + '</button>'
+      + (l ? '<button class="linklike" onclick="openLeadModal(lpLead.id)">Edit intake form</button><button class="linklike" onclick="lpPrintFacesheet()">Print facesheet</button>'
+        + '<button class="linklike" onclick="openActivityModal(lpLead.id)">Schedule activity</button><button class="linklike" onclick="cjOld(\'lp_ai_card\')">AI summary</button>'
+        + '<button class="linklike" onclick="cjOld(\'lp_head_card\')">Tags</button><button class="linklike" onclick="lpArchiveLead()">Archive</button>'
+        + '<button class="linklike cj-quiet" onclick="cjOld(\'lp_head_card\')">' + (CJ.oldOpen ? 'Hide the rest' : 'More…') + '</button>' : '') + '</div>';
     h += '</div>';
     head.innerHTML = h;
     wireForm(head);
     if(start) start.innerHTML = fullHtml();
     if(start) wireForm(start);
+    autoCheck(r);
+    try{ if(typeof cpRenderCommand === 'function') cpRenderCommand(); }catch(e){}
   }
+  /* is a journey showing for the profile that's open? (the Overview keeps only what the journey doesn't say) */
+  function hasJourney(){ return !!(CJ.data && CJ.data.journey && CJ.view && document.getElementById('cjHead') && document.getElementById('cjHead').innerHTML); }
   function cpName(){ return (CJ.data && CJ.data.journey && CJ.data.journey.client_name) || 'This client'; }
 
+  /* ONE CARD (Samantha 2026-10-06, "4 layers"): who we're talking to and how to reach them, and the lead status, at the
+     top of the journey card; the older lead card and the AI summary open from the links at the bottom */
+  function contactHtml(l){
+    if(!l) return '';
+    const caller = ((l.first_name || '') + ' ' + (l.last_name || '')).trim(), rel = l.relationship ? String(l.relationship) : '';
+    const ST = [['New', 'New'], ['Contacted', 'Talking'], ['Assessment Scheduled', 'Assessment booked'], ['Converted', 'Won · getting ready'], ['Lost', 'Past · did not start']];
+    return '<div class="cj-contact">' + (caller ? '<span>' + esc(caller) + (rel ? ' (' + esc(rel) + ')' : '') + '</span>' : (rel ? '<span>' + esc(rel) + '</span>' : ''))
+      + (l.phone ? '<a href="#" data-oc-phone="' + esc(l.phone) + '"' + (l.email ? ' data-oc-email="' + esc(l.email) + '"' : '') + ' title="Call from the office line">📞 ' + esc(l.phone) + '</a>' : '')
+      + (l.email ? '<span class="cj-mail">✉️ ' + esc(l.email) + '</span>' : '')
+      + '<select class="cj-status" onchange="lpSetStatus(this.value)" aria-label="Lead status">' + ST.map(([v, t]) => '<option value="' + v + '"' + ((l.status || 'New') === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div>';
+  }
+  /* the button the step itself needs, from the older lead card (shown only when that step is up) */
+  function stepAction(r){
+    const l = (typeof CP !== 'undefined' && CP.lead) || null; if(!l) return '';
+    const A = { 'asmt.book':['asmtBook(lpLead.id)', 'Book the assessment visit'], 'asmt.outcome':['scheduleAssessmentFromLead(lpLead.id)', 'Open the assessment'],
+      'ax.client':['lpConvertLead()', 'Convert → AxisCare client'], 'team.staffed':['openStaffingModal(lpLead.id)', 'Send to Staffing'] }[r.key];
+    return A ? '<button class="primary" onclick="' + A[0] + '">' + esc(A[1]) + '</button>' : '';
+  }
+  function oldCard(id){
+    CJ.oldOpen = !CJ.oldOpen;
+    ['lp_head_card', 'lp_ai_card'].forEach(x => { const el = document.getElementById(x); if(el) el.style.display = CJ.oldOpen ? '' : 'none'; });
+    render();
+    if(CJ.oldOpen){ const el = document.getElementById(id); if(el) setTimeout(() => el.scrollIntoView({ behavior:'smooth', block:'start' }), 30); }
+  }
+
+  /* the client's basics, as the Hub's own check reads them (client-journey VERIFY.lead_basics) */
+  function basicsOf(){
+    const l = (typeof CP !== 'undefined' && CP.lead) || null; if(!l) return null;
+    const has = v => !!String(v == null ? '' : v).trim();
+    return [['Name', has((l.client_first_name || '') + (l.client_last_name || ''))], ['Phone', has(l.client_phone || l.phone)], ['Date of birth', has(l.client_dob)], ['Home address', has(l.client_address)]];
+  }
+  function verifyHtml(r){
+    const v = r.def.verify, who = esc(cpName().split(' ')[0]);
+    if(v === 'lead_basics'){ const b = basicsOf(); if(!b) return '';
+      const miss = b.filter(x => !x[1]).length;
+      return '<ul class="cj-need">' + b.map(([k, ok]) => '<li class="' + (ok ? 'ok' : '') + '"><span class="cj-dot">' + (ok ? '✓' : '') + '</span>' + esc(k)
+        + (ok ? '' : ' <button class="secondary cj-add" onclick="cpShowTab(\'intake\');window.scrollTo(0,0)">Add</button>') + '</li>').join('') + '</ul>'
+        + '<div class="field-note">' + (miss ? 'When ' + (miss === 1 ? 'it\'s' : 'they\'re all') + ' in, this ticks itself and the next step appears.' : 'All four are in. Checking…') + '</div>'; }
+    if(v === 'assessment_booked') return '<div class="cj-say">Book the visit with ' + who + '\'s family. When it\'s on the calendar, this ticks itself.</div>';
+    if(v === 'axiscare_client') return '<div class="cj-say">Create ' + who + ' in AxisCare and put the AxisCare number on this profile. The Hub reads it back and ticks this.</div>';
+    if(v === 'first_visit') return '<div class="cj-say">This ticks itself when the first clock-in shows in AxisCare.</div>';
+    return '';
+  }
+  /* the basics are all in on the page: ask the Hub to check now, once, instead of making anyone press a button */
+  function autoCheck(r){
+    if(!r || r.def.verify !== 'lead_basics' || R.DONE.indexOf(r.status) > -1 || r.status === 'later') return;
+    const b = basicsOf(); if(!b || b.some(x => !x[1])) return;
+    const k = CJ.key + ':' + r.key; if(CJ.autoChecked === k) return; CJ.autoChecked = k;
+    const title = r.def.title;
+    call({ action:'refresh', journey_id:CJ.data.journey.journey_id }).then(async () => { await reload();
+      const nr = rowOf(r.key); if(nr && R.DONE.indexOf(nr.status) > -1){ const nx = CJ.view && CJ.view.next; CJ.flash = '✓ Done: ' + title + '.' + (nx ? ' Next: ' + nx.def.title + '.' : ''); render(); } }).catch(() => {});
+  }
+  /* the one line above the step: whose it is and when, or why it's waiting or blocked */
+  function lineFor(r){
+    const st = r.st, who = r.owner.how === 'owners' ? 'an owner' : r.owner.email ? first(r.owner.email) : 'nobody yet';
+    if(r.status === 'waiting') return '<span class="cj-wait">Waiting on ' + esc(st.waiting_on || 'someone') + (st.check_back ? ' · back ' + esc(day(st.check_back)) : '') + '</span> · ' + esc(who);
+    if(r.status === 'blocked') return '<span class="cj-red">Blocked: ' + esc(r.why || st.blocked_reason || '') + '</span>' + (r.unblock ? ' · unblocks when ' + esc(r.unblock) : '');
+    if(r.status === 'attention') return '<span class="cj-red">' + esc(r.attention || 'Needs attention') + '</span> · ' + esc(who);
+    return 'Next for ' + esc(who) + (r.due ? ' · due ' + esc(day(r.due)) : '');
+  }
+
   /* ── one step: what, owner, status, how, how we'll know, who/when ── */
-  function stepCard(r, isNext){
+  function stepCard(r, isNext, top){
     const def = r.def, st = r.st, done = R.DONE.indexOf(r.status) > -1;
+    if(top && !done){
+      let t = '<div class="cj-next cj-simple' + (r.status === 'blocked' || r.status === 'attention' ? ' cj-next-red' : '') + '" data-step="' + esc(r.key) + '">'
+        + '<div class="cj-line">' + (isNext ? '' : '<button class="linklike" onclick="cjPick(null)">← back to the next step</button> · ') + lineFor(r) + '</div>'
+        + '<div class="cj-t">' + esc(def.title) + '</div>' + verifyHtml(r);
+      if(r.status !== 'later') t += formHtml(r);
+      if(def.howto && def.howto.length) t += '<details class="cj-howto"' + (CJ.mode === 'howto' ? ' open' : '') + '><summary>How to</summary><ol>' + def.howto.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol></details>';
+      return t + '</div>';
+    }
     let h = '<div class="cj-next' + (r.status === 'blocked' || r.status === 'attention' ? ' cj-next-red' : '') + '" data-step="' + esc(r.key) + '">'
       + '<div class="cj-k">' + (isNext ? 'Next required step' : 'Step') + (isNext ? '' : ' <button class="linklike" onclick="cjPick(null)">back to the next step</button>') + '</div>'
       + '<div class="cj-t">' + esc(def.title) + '</div>'
@@ -170,15 +252,21 @@
         + '<input type="file" id="cjfile_' + r.key.replace(/\W/g, '_') + '" data-upload="1" accept="image/*,application/pdf" multiple></div>';
     }
     h += '<div class="cj-err" data-err></div><div class="cj-actions">';
-    if(def.proof === 'verified'){
-      h += '<button class="primary" data-act="check">Check now</button><button class="ghost" data-act="manual-open">Confirm by hand…</button>';
-    } else h += '<button class="primary" data-act="complete">' + (fields.length ? 'Save and finish this step' : 'Done') + '</button>';
-    if(r.status !== 'waiting') h += '<button class="ghost" data-act="wait-open">Waiting on someone…</button>';
-    if(r.status !== 'blocked') h += '<button class="ghost" data-act="block-open">Blocked…</button>';
-    if(r.st.state === 'blocked' || r.st.state === 'waiting') h += '<button class="ghost" data-act="unblock">' + (r.st.state === 'waiting' ? 'It\'s back now' : 'Unblock') + '</button>';
-    if(def.required === false || owner()) h += '<button class="ghost" data-act="na-open">Not needed…</button>';
+    const basics = def.verify === 'lead_basics' ? basicsOf() : null, missing = basics && basics.some(x => !x[1]);
+    if(r.st.state === 'blocked' || r.st.state === 'waiting') h += '<button class="primary" data-act="unblock">' + (r.st.state === 'waiting' ? 'It\'s back now' : 'Unblock') + '</button>';
+    else if(def.proof === 'verified'){ const sa = stepAction(r); if(sa) h += sa; if(!missing) h += '<button class="' + (sa ? 'secondary' : 'primary') + '" data-act="check">Check now</button>'; }
+    else h += (stepAction(r) ? stepAction(r).replace('class="primary"', 'class="secondary"') : '') + '<button class="primary" data-act="complete">' + (fields.length ? 'Save and finish this step' : 'Done') + '</button>';
     if(owner() && (r.stop || r.status === 'blocked')) h += '<button class="cj-violet-btn" data-act="exc-open">Owner exception…</button>';
-    h += '<button class="ghost" data-act="assign-open">Give this step to…</button>';
+    /* everything else waits behind one quiet button */
+    h += '<button class="secondary cj-cant" onclick="cjMore()" aria-expanded="' + (CJ.more ? 'true' : 'false') + '">Can\'t do this yet ' + (CJ.more ? '▴' : '▾') + '</button>';
+    if(CJ.more){
+      h += '<div class="cj-menu">';
+      if(r.status !== 'waiting') h += '<button class="ghost" data-act="wait-open">Waiting on someone…</button>';
+      if(r.status !== 'blocked') h += '<button class="ghost" data-act="block-open">Blocked…</button>';
+      if(def.proof === 'verified') h += '<button class="ghost" data-act="manual-open">Done, but the Hub can\'t see it…</button>';
+      if(def.required === false || owner()) h += '<button class="ghost" data-act="na-open">Not needed…</button>';
+      h += '<button class="ghost" data-act="assign-open">Give this step to someone…</button></div>';
+    }
     h += '</div>' + modeHtml(r) + '</div>';
     return h;
   }
@@ -271,7 +359,7 @@
     const errBox = card.querySelector('[data-err]'), say = t => { if(errBox) errBox.textContent = t; else ccToast(t); };
     const m = k => { const el = card.querySelector('[data-m="' + k + '"]'); return el ? el.value.trim() : ''; };
     if(/-open$/.test(a)){ CJ.mode = a.replace('-open', ''); render(); setTimeout(() => { const el = document.querySelector('.cj-next[data-step="' + key + '"] .cj-mode input, .cj-next[data-step="' + key + '"] .cj-mode textarea, .cj-next[data-step="' + key + '"] .cj-mode select'); if(el) el.focus(); }, 30); return; }
-    if(a === 'cancel'){ CJ.mode = null; render(); return; }
+    if(a === 'cancel'){ CJ.mode = null; CJ.more = false; render(); return; }
     const r = rowOf(key), j = CJ.data.journey, base = { action:'apply', journey_id:j.journey_id, step_key:key, expected_version:r.st.version != null ? r.st.version : undefined };
     let body = null;
     if(a === 'check'){ body = { action:'refresh', journey_id:j.journey_id }; }
@@ -295,7 +383,7 @@
     if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
     let d; try{ d = await call(body); }catch(e){ d = { error:e.message }; }
     if(d.error && d.outcome !== 'saved' && d.outcome !== 'ok'){ if(btn){ btn.disabled = false; } say(d.error); render(); return; }
-    delete CJ.form[key]; delete CJ.files[key]; CJ.mode = null; CJ.sel = null; CJL.at = 0;
+    delete CJ.form[key]; delete CJ.files[key]; CJ.mode = null; CJ.more = false; CJ.sel = null; CJL.at = 0;
     await reload();
     const nx = CJ.view && CJ.view.next;
     const after = rowOf(key);
@@ -471,10 +559,16 @@
     '.cj-ic-complete{background:#E6F4EC;color:#1E7B45}.cj-ic-ready{background:#E7EEFC;color:#1E4FB8}.cj-ic-blocked,.cj-ic-attention{background:#FDECEA;color:#B42318}.cj-ic-waiting{background:#FFF4E1;color:#9A6412}.cj-ic-exception{background:#F1EBFB;color:#6B3FB0}',
     '.cj-row-body{padding:0 0 10px 32px}.cj-hist{margin-top:8px;font-size:13px}.cj-ev{padding:3px 0;border-top:1px dashed var(--border)}',
     '.cj-done-all{border-color:#2E8F8A}',
+    '.cj-meta{font-size:15px;color:var(--text)}.cj-prog{display:flex;align-items:center;gap:10px;margin:10px 0 4px}.cj-bar{flex:1;height:8px;background:#EEF2F6;border-radius:99px;overflow:hidden}.cj-bar i{display:block;height:100%;background:var(--navy)}.cj-bar i.cj-bar-stop{background:#B42318}.cj-prog-t{font-size:13px;color:var(--text-muted);white-space:nowrap}',
+    '.cj-simple .cj-line{font-size:13.5px;color:var(--text-muted)}.cj-wait{color:#9A6412;font-weight:600}.cj-say{font-size:15px;margin:2px 0 8px}',
+    '.cj-need{list-style:none;padding:0;margin:4px 0 6px;font-size:15px}.cj-need li{display:flex;align-items:center;gap:10px;padding:4px 0;max-width:420px}.cj-need li.ok{color:var(--text-muted)}.cj-dot{flex:0 0 20px;height:20px;border-radius:50%;border:1.5px solid #B8C2CF;font-size:12px;line-height:18px;text-align:center;color:#1E7B45}.cj-need li.ok .cj-dot{border-color:#1E7B45;background:#E6F4EC}.cj-add{margin-left:auto;padding:4px 12px}',
+    '.cj-meta .linklike{font-size:inherit;font-weight:700}.cj-contact{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;font-size:14px;margin-bottom:6px}.cj-contact a{font-weight:600}.cj-mail{color:var(--text-muted)}.cj-status{margin-left:auto;width:auto;font-weight:600;font-size:13px;padding:4px 8px}',
+    '.cj-every{display:flex;flex-wrap:wrap;gap:6px 16px;border-top:1px solid var(--border);padding-top:10px;margin-top:12px}.cj-every .linklike{font-size:13.5px}.cj-quiet{color:var(--text-muted)!important}',
+    '.cj-menu{display:flex;flex-wrap:wrap;gap:6px;width:100%;padding:8px;background:#F6F9FD;border-radius:8px}',
     '.cj-list{margin:0 0 14px}.cj-list-empty{margin:0 0 12px}.cj-li{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;background:#fff;border:1px solid var(--border);border-left:5px solid #1E4FB8;border-radius:10px;padding:10px 12px;margin-bottom:8px;color:inherit;text-decoration:none}',
     '.cj-li-blocked,.cj-li-attention{border-left-color:#B42318}.cj-li-waiting{border-left-color:#9A6412}.cj-li-name{font-weight:800;color:var(--navy)}.cj-li-next{flex:1 1 240px;min-width:0;font-size:13.5px}.cj-li-who{font-size:12.5px;color:var(--text-muted)}',
     '.wk-jr{border-left:5px solid #1E4FB8}.wk-jr-blocked{border-left-color:#B42318}.wk-jr-attention{border-left-color:#B42318;background:#FFF6F5}.wk-jr-waiting{border-left-color:#9A6412}',
     '@media (max-width:720px){.cj-head,.cj-full{border-radius:0;margin-left:-4px;margin-right:-4px}.cj-t{font-size:20px}.cj-actions button{min-height:44px;flex:1 1 auto}.cj-form input:not([type=checkbox]),.cj-form select{font-size:16px;min-height:44px;max-width:none}.cj-row-body{padding-left:0}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjAssignCc:assignCc, cjRoute:route, cjCall:call, CJ_STATE:CJ });
+  Object.assign(window, { cjOld:oldCard, cjMore:() => { CJ.more = !CJ.more; if(!CJ.more) CJ.mode = null; render(); }, cjHasJourney:hasJourney, cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjAssignCc:assignCc, cjRoute:route, cjCall:call, CJ_STATE:CJ });
 })();

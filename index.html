@@ -5027,7 +5027,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       </div>
 </div>
 <div class="cp-lead">
-      <div class="card" style="padding:18px;margin-bottom:14px;">
+      <div class="card" id="lp_ai_card" style="padding:18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:8px;">
           <b style="font-size:14px;color:var(--navy);">✨ AI Needs Summary</b>
           <span class="field-note" style="font-size:11.5px;">written by AI from the call notes, not checked by a person</span>
@@ -6778,7 +6778,7 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
-<script src="client-journey.js?v=3"></script>
+<script src="client-journey.js?v=6"></script>
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -30921,27 +30921,37 @@ function cpRenderCommand(){
   const cur=CC_STAGE_ORDER.indexOf(m.st.k);
   document.getElementById('cpcPath').innerHTML='<div class="cpx-path" title="Where they are, from recorded facts">'
     +CC_STAGE_ORDER.map((k,i)=>'<span class="'+(i===cur?'on':(i<cur&&m.st.k!=='past'?'done':''))+'">'+esc(CC_STAGE_META[k][0])+(i===cur&&m.st.d?' · '+esc(m.st.d):'')+'</span>').join('')+'</div>';
-  /* the tiles */
-  document.getElementById('cpcGrid').innerHTML=m.tiles.map(x=>{
+  /* the tiles: while a client journey speaks for this person (it says the next step, its owner, what's blocking it and the
+     payer), only what the journey doesn't say stays (Samantha 2026-10-06: "it's so busy and not clear") */
+  const cjOn=typeof cjHasJourney==='function'&&cjHasJourney();
+  if(cjOn) m.tiles=m.tiles.filter(x=>[CP.lead?'':'talk','talked','start','level'].indexOf(x.key)>-1);   /* with an inquiry, who we're talking to is the card's first line */
+  /* "top and bottom" as ONE block (her word, 2026-10-06): with a journey, the facts sit inside the journey card at the top
+     and the Overview below keeps only what isn't said there (learned from a call, open items), without its own card */
+  const cjFacts=cjOn?document.getElementById('cjFacts'):null;
+  box.classList.toggle('cpx-cmd-bare', !!cjFacts);
+  const tilesHtml=m.tiles.map(x=>{
     const on=go(x.tab);
     const v=x.key==='level'?'<span id="cpc_level">'+((CP.levelHtml&&CP.levelHtml.ax===CP.ax)?CP.levelHtml.html:(CP.ax?'reading AxisCare…':'none'))+'</span>':esc(x.v);
     return '<div class="cpx-kv '+esc(x.tone)+(on?' link':'')+'"'+(on?' role="button" tabindex="0" onclick="'+on+'" onkeydown="if(event.key===\'Enter\')this.click()"':'')+' data-k="'+esc(x.key)+'">'
       +'<div class="k">'+esc(x.k)+'</div><div class="v">'+v+'</div>'+(x.s?'<div class="s">'+esc(x.s)+'</div>':'')+'</div>'; }).join('');
+  document.getElementById('cpcGrid').innerHTML=cjFacts?'':tilesHtml;
   /* care and safety */
   const chips=m.care, shown=chips.slice(0,6), rest=chips.slice(6);
-  document.getElementById('cpcCare').innerHTML='<div class="cpx-row"><span class="cpx-lbl">Care &amp; safety</span>'
+  const careHtml=(cjOn&&!chips.length&&!(m.blurb&&m.blurb.blurb))?'':'<div class="cpx-row"><span class="cpx-lbl">Care &amp; safety</span>'
     +(chips.length?shown.map(c=>'<span class="cpx-chip '+c.tone+'">'+esc(c.t)+'</span>').join('')
         +(rest.length?'<span class="cpx-chip info" title="'+esc(rest.map(c=>c.t).join(', '))+'">+'+rest.length+' more</span>':'')
         +'<span class="cpx-src">from the intake form</span>'
       :'<span class="cpx-src">'+(CP.lead?'nothing recorded on the intake form yet':'no inquiry on file, so no intake care information')+'</span>')
     +'</div>'
     +(m.blurb&&m.blurb.blurb?'<div class="cpx-row"><span class="cpx-lbl">Care synopsis</span><span style="font-size:13.5px;">'+esc(m.blurb.blurb)+'</span></div>':'');
+  document.getElementById('cpcCare').innerHTML=cjFacts?'':careHtml;
+  if(cjFacts) cjFacts.innerHTML='<div class="cpx-grid cj-facts-grid">'+tilesHtml+'</div>'+careHtml;
   /* still needed (the inquiry's gaps for the next step); a client's open items render beside it (cpRenderOpenNow) */
   const need=m.needed, top=need.slice(0,4), more=need.slice(4);
   const TIER=['blocks the next step','safety','payer',''];
   const li=n=>{ const on=go(n.tab); return '<li class="t'+n.tier+'">'+(on?'<a href="javascript:void(0)" onclick="'+on+'">'+esc(n.label)+'</a>':esc(n.label))
     +'<span class="why">'+esc(n.why)+(TIER[n.tier]?' · '+TIER[n.tier]:'')+'</span></li>'; };
-  document.getElementById('cpcNeeded').innerHTML=m.pre&&CP.lead
+  document.getElementById('cpcNeeded').innerHTML=m.pre&&CP.lead&&!cjOn
     ?'<div class="cpx-needhead"><b>Still needed</b><span class="cpx-src">for their next step, from what the inquiry records</span></div>'
       +(need.length?'<ul class="cpx-need">'+top.map(li).join('')+'</ul>'
         +(more.length?'<details class="cpx-more"><summary>'+more.length+' more</summary><ul class="cpx-need">'+more.map(li).join('')+'</ul></details>':'')
@@ -40083,6 +40093,8 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 .cpx-path span.done{ color:var(--green); font-weight:700; }
 .cpx-path span.on{ background:var(--navy); border-color:var(--navy); color:#fff; font-weight:700; }
 .cpx-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.cpx-cmd.cpx-cmd-bare{ border:none; background:none; padding:0; box-shadow:none; }
+.cj-facts-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); margin-top:12px; }
 .cpx-kv{ background:var(--cream); border:1px solid transparent; border-radius:11px; padding:9px 11px; min-width:0; }
 .cpx-kv.link{ cursor:pointer; } .cpx-kv.link:hover{ border-color:var(--cream-line); }
 .cpx-kv.link:focus-visible{ outline:2px solid var(--teal); outline-offset:1px; }
