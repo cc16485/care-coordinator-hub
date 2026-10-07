@@ -89,7 +89,7 @@ async()=>{
   lbFilter('All'); lbOwner('Samantha'); await sleep(50);
   ok('the owner lens: Samantha\'s families only (Clifford)', names().length===1 && names()[0]==='Clifford Haney', names());
   lbOwner(''); await sleep(50);
-  ok('the look-up row has Said yes this month, Receiving care, Past, Archived, Spam, State submissions and the drafts link (1)', /Said yes this month 0/.test(document.getElementById('lbLookup').innerText) && /Follow-up drafts waiting for approval \(1\)/.test(document.getElementById('lbLookup').innerText), document.getElementById('lbLookup').innerText);
+  ok('the look-up row has Said yes this month, Receiving care, Past, Archived, Spam, State submissions and the drafts archive link', /Said yes this month 0/.test(document.getElementById('lbLookup').innerText) && /All follow-up drafts/.test(document.getElementById('lbLookup').innerText), document.getElementById('lbLookup').innerText);
   return R;
 }
 """

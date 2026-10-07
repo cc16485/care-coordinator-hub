@@ -57,8 +57,8 @@ const l0 = { id:'a', urgency:'7days', days_needed:'Mon, Wed', times_needed:'9-1'
 const f = R.toForm(l0);
 ck('toForm flattens: kind from the old radio, no days (text), waiting from the drip with a default check-back', f.desired_start_kind === 'this_week' && f.desired_start_date === '' && f.schedule_days.length === 0 && f.waiting_reason === 'not_ready' && f.waiting_check_back === '2026-10-02', f);
 const l1 = R.compose(Object.assign({}, l0), { desired_start_kind:'by_date', desired_start_date:'2026-10-10', schedule_days:['Mon', 'Wed'], times_needed:'9-1', number_of_hours:'8', waiting_reason:'', first_name:'Pat' }, T);
-ck('compose builds the objects, keeps the old radio untouched, drops the helper keys, ends waiting', l1.desired_start.kind === 'by_date' && l1.desired_start.date === '2026-10-10' && l1.urgency === '7days'
-  && l1.schedule.days.join() === 'Mon,Wed' && l1.schedule.hours_per_week === 8 && l1.days_needed === 'Mon/Wed' && l1.first_name === 'Pat' && !('desired_start_kind' in l1) && !('schedule_days' in l1) && l1.waiting === null && l1.waiting_ended === undefined, l1);
+ck('compose builds the objects, keeps the old radio untouched, leaves the old days text alone (clean-up 6.4: nothing writes it), drops the helper keys, ends waiting', l1.desired_start.kind === 'by_date' && l1.desired_start.date === '2026-10-10' && l1.urgency === '7days'
+  && l1.schedule.days.join() === 'Mon,Wed' && l1.schedule.hours_per_week === 8 && l1.days_needed === 'Mon, Wed' && l1.first_name === 'Pat' && !('desired_start_kind' in l1) && !('schedule_days' in l1) && l1.waiting === null && l1.waiting_ended === undefined, l1);
 const l2 = R.compose({ id:'b' }, { waiting_reason:'state', waiting_check_back:'', waiting_note:'DCN sent' }, T);
 ck('a waiting reason with no date gets the default (state: a week)', l2.waiting.reason === 'state' && l2.waiting.since === T && l2.waiting.check_back === '2026-10-13' && l2.waiting.note === 'DCN sent', l2);
 const l3 = R.compose(Object.assign({}, l2), { waiting_reason:'state', waiting_check_back:'2026-10-20' }, '2026-10-13');
@@ -237,6 +237,13 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('setNext check_back needs a waiting record and writes it', w.waiting.check_back === '2026-10-22' && w.waiting.note === 'ask DSDS');
   let threw = false; try{ R.setNext({}, { kind:'check_back', day:'2026-10-22' }); }catch(e){ threw = true; } ck('...and refuses without one', threw);
   R.setNext(l, { kind:'clear' }); ck('clear removes the follow-up (a promise is theirs and stays)', !l.follow_up_due && l.promised_callback_at === '2026-10-07T16:30:00');
+}
+
+/* clean-up 6.5: an AI draft waiting for approval is a Need-you-now row, not a second tab */
+{
+  const b = R.boardRow({ first_name:'Tom', first_human_contact_at:'2026-09-30T14:00:00Z', follow_up_due:'2026-10-09' }, CTX({ stage:'connected', drafts:['d1'] }));
+  ck('a pending draft: Need you now rank 6.5, "Draft ready", Review draft first with the draft id', b.group === 'now' && b.rank === 6.5 && b.when.big === 'Draft ready' && b.primary.kind === 'draft' && b.primary.id === 'd1', b);
+  ck('...without a draft the same lead is just Scheduled', R.boardRow({ first_name:'Tom', first_human_contact_at:'2026-09-30T14:00:00Z', follow_up_due:'2026-10-09' }, CTX({ stage:'connected' })).group === 'later');
 }
 
 /* the Hub page and the server run the same file */

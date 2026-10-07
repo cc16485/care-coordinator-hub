@@ -40,7 +40,7 @@ async()=>{
   await saveLead(); await sleep(150);
   const s1=L.writes[L.writes.length-1];
   ok('saved: desired_start by that date', s1&&s1.desired_start&&s1.desired_start.kind==='by_date'&&s1.desired_start.date===chi(3)&&!!s1.desired_start.asked_at, s1&&s1.desired_start);
-  ok('...schedule as days + times + hours, and the old days text filled in words', s1.schedule&&s1.schedule.days.join()==='Mon,Tue,Wed,Thu,Fri'&&s1.schedule.times==='9 am–1 pm'&&s1.schedule.hours_per_week===20&&s1.days_needed==='Mon–Fri', s1.schedule);
+  ok('...schedule as days + times + hours; the old days text is NOT written any more (clean-up 6.4)', s1.schedule&&s1.schedule.days.join()==='Mon,Tue,Wed,Thu,Fri'&&s1.schedule.times==='9 am–1 pm'&&s1.schedule.hours_per_week===20&&!s1.days_needed, s1.schedule);
   ok('...why they called kept; no waiting; none of the form helpers on the record', s1.why_called==='Daughter looking for morning help for her mom after a fall'&&!s1.waiting&&!('desired_start_kind' in s1)&&!('schedule_days' in s1)&&!('waiting_reason' in s1)&&!('waiting_check_back' in s1)&&!('urgency' in s1), Object.keys(s1));
   ok('...the board words for this family', LeadRules.desiredStartWords(s1)==='Wants care by '+LeadRules.dayWords(chi(3),chi(0))&&LeadRules.scheduleWords(s1)==='Mon–Fri 9 am–1 pm · about 20 hrs/wk', [LeadRules.desiredStartWords(s1), LeadRules.scheduleWords(s1)]);
   const newId=s1.id; DATA.leads.push(s1);

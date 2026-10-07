@@ -4164,16 +4164,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <!-- Inquiry messages (2026-10-07, her "turn the acknowledgement on"): the two family-facing switches lead-intake and lead-followup
      read (ops_settings.inquiry_ack_live). Same words as the Owners Hub Admin page; saved one field at a time. The Day 1 / Day 3 nudges were
      removed 2026-10-07 on her word: in home care every situation is different, so a timed text is the wrong tool. -->
-<div class="settings-section" data-set="inquiry-messages">
-<h3>💬 Inquiry messages to families</h3>
-<p class="hint">What a family who fills in a website form hears from the Hub by itself: the one acknowledgment, nothing more. Every send goes through the opt-out door (GoHighLevel Do Not Disturb, the Hub's opt-out record, do-not-contact); anyone opted out is skipped and the office is told. Her rule (2026-10-07): no timed nudges to families, because in home care every situation is different; follow-ups are a person's call.</p>
-<div id="inqSet"></div>
-</div>
-
 <!-- Leads intake desk, Stage 1 (Samantha 2026-10-06): the hours a new inquiry's 5-minute first-call clock runs. Saved
      one field at a time (tkMerge); the same lead-rules.js reads it on the server for the after-hours acknowledgment. -->
-<div class="settings-section" data-set="lead-hours">
-<h3>⏱ Lead response hours</h3>
+<div class="settings-section" data-set="leads">
+<h3>📞 Leads</h3>
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:6px 0 2px;">Response hours</div>
 <p class="hint">Inside these hours a new inquiry's first call is due <b>5 minutes</b> after it comes in. Outside them the family gets the acknowledgment at once (worded for after hours, saying when a coordinator will call) and the clock starts when these hours open, so a 9 pm inquiry is not red all night. The acknowledgment is the only automatic message outside these hours. Her default: every day 8 am to 6 pm, evenings off.</p>
 <div id="lhSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div class="checkbox-grid" id="lhDays" style="grid-template-columns:repeat(7,auto);justify-content:start;gap:6px 14px;">
@@ -4185,6 +4180,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div><label>Until</label><input type="time" id="lhEnd"></div>
 <div style="display:flex;gap:8px;align-items:center;padding-bottom:2px;"><button class="secondary" id="lhSaveBtn" onclick="lhSave(this)">Save hours</button><span class="field-note" id="lhSaved"></span></div>
 </div>
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Inquiry acknowledgment</div>
+<p class="hint">What a family who fills in a website form hears from the Hub by itself: the one acknowledgment, nothing more. Every send goes through the opt-out door (GoHighLevel Do Not Disturb, the Hub's opt-out record, do-not-contact); anyone opted out is skipped and the office is told. Her rule (2026-10-07): no timed nudges or drips to families, because in home care every situation is different; follow-ups are a person's call.</p>
+<div id="inqSet"></div>
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Where website forms land</div>
+<p class="hint">Every mo-care.com form posts to the token-gated <code>lead-intake</code> Edge Function (see assets/forms.js in the website repo) and lands on Leads &amp; Starts with source "Website" — verified end to end 2026-08-01. No Zapier involved. An earlier note here showed a raw database URL; that path was closed in the July security hardening and was never the real one.</p>
+<div class="webhook-box"><code id="leadWebhookUrl">POST https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/lead-intake?token=cclead_…</code></div>
 </div>
 
 <div class="settings-section" id="cjSettings" data-set="client-journeys">
@@ -4253,10 +4254,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </label>
 </div>
 
-<div class="settings-section" data-set="lead-intake">
-<h3>🔗 Lead Intake (Website Form → Hub)</h3>
-<p class="hint">Every mo-care.com form posts to the token-gated <code>lead-intake</code> Edge Function (see assets/forms.js in the website repo) and lands on Leads &amp; Starts with source "Website" — verified end to end 2026-08-01. No Zapier involved. An earlier note here showed a raw database URL; that path was closed in the July security hardening and was never the real one.</p>
-<div class="webhook-box"><code id="leadWebhookUrl">POST https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/lead-intake?token=cclead_…</code></div>
 </div>
 
 <div class="settings-section" data-set="careplan-webhook">
@@ -4385,12 +4382,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div class="guide-step"><span class="num">1</span>Phone leads: <b>+ Add lead</b> while you're on the call. Website and referral leads arrive by themselves.</div>
         <div class="guide-step"><span class="num">2</span>Click a family to work on them. Their profile opens on the tab their stage needs; the assessment, Start of Care and everything else live there.</div>
         <div class="guide-step"><span class="num">3</span><b>Need you now</b> is the working queue, most urgent first. <b>Scheduled</b> is what has a time. <b>Waiting</b> always says what we are waiting on and when we check back; on that day the family comes back to the top by itself. One button per row does the obvious thing; the rest is behind ···.</div>
+        <div class="guide-step"><span class="num">4</span>An AI follow-up draft waiting for your approval is a <b>Draft ready</b> row with a Review draft button. Every draft ever made is under Look up → All follow-up drafts.</div>
         <div class="guide-step flag"><span class="num">!</span>A lead that goes cold is marked <b>Lost</b> with a reason (see <b>Past</b>). Archived leads leave the working list but are kept (see <b>Archived</b>).</div>
       </div></details>
-      <div class="subtab-bar" id="lsViewBar" style="margin-bottom:10px;">
-        <button class="subtab active" id="lsViewBtn-board" onclick="switchLeadsSubtab('pipeline')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-person"/></svg> Board</button>
-        <button class="subtab" id="lsViewBtn-followups" onclick="switchLeadsSubtab('followups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Follow-ups<span class="subtab-badge red" id="subtabBadge-followups" style="display:none;"></span></button>
-      </div>
+      <!-- the Board / Follow-ups sub-tabs were folded into the board 2026-10-07 (clean-up 6.5): a draft waiting for approval is a Need-you-now
+           row; the drafts archive opens from Look up (lsFollowView, below) with a way back. -->
       <div id="lsBoardView">
       <!-- Leads intake desk, Stage 2 (2026-10-06, her brief: "who needs me right now, and what exactly do I need to do"):
            the five numbers, the owner lens and stage words, three groups of story rows (Need you now · Scheduled · Waiting),
@@ -4402,6 +4398,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
 <div id="lsFollowView" style="display:none;">
 <div class="toolbar" style="margin-bottom:14px;">
+<button class="linklike" onclick="switchLeadsSubtab('pipeline')">← Back to the board</button>
 <div class="spacer"></div>
 <span class="badge bad" id="fqStatOverdue" style="font-size:12px;">0 Overdue</span>
 <span class="badge warn" id="fqStatPending" style="font-size:12px;">0 Pending</span>
@@ -5162,12 +5159,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         <div id="gt_lp" style="margin-top:10px;"></div>
       </div>
 </div>
-<div class="cp-lead">
-      <div class="card" style="padding:18px;margin-bottom:14px;">
-        <b style="font-size:14px;color:var(--navy);">🌱 Nurture (runs by itself)</b>
-        <div id="lp_nurture" style="margin-top:8px;font-size:13px;"></div>
-      </div>
-</div>
+<!-- the Nurture drip card was retired 2026-10-07 (clean-up 6.3): no timed family sequences; a family's next touch is a person's call -->
     </div>
     <div>
 <div class="cp-lead">
@@ -6438,7 +6430,7 @@ The HomeTogether team</pre>
 <label><input type="checkbox" value="Sun"> Sun</label>
 </div>
 <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;">
-<div><label>Days (older leads, as typed)</label><input id="lead_days_needed" placeholder="tick the days above instead"></div>
+<div><label>Days (older leads, as typed)</label><input id="lead_days_needed" readonly placeholder="tick the days above" title="History from before the day boxes; the Hub no longer writes it" style="background:#FAF9F6;color:var(--text-muted);"></div>
 <div><label>Times Needed</label><input id="lead_times_needed" placeholder="e.g. 9am - 1pm"></div>
 <div><label>Total Hours/Week</label><input type="number" id="lead_number_of_hours" placeholder="e.g. 12"></div>
 </div>
@@ -6855,7 +6847,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
-<script src="lead-rules.js?v=6"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=7"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -6892,7 +6884,7 @@ The HomeTogether team</pre>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
 <script src="client-journey.js?v=7"></script>
-<script src="leads-board.js?v=4"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="leads-board.js?v=5"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -8823,7 +8815,6 @@ function leadTruthChips(l){
 function leadNextAction(l){
   if(l.status==='Converted') return '<span style="color:#2E7D57;font-size:12.5px;font-weight:600;">✓ Started care</span>';
   if(l.status==='Lost') return '<span style="color:#8A7F70;font-size:12.5px;">— '+(l.lost_reason||'lost')+'</span>';
-  if(l.nurture_sequence && !l.nurture_stopped_at) return '<span style="color:#1F6D45;font-size:12.5px;font-weight:600;">🌱 Nurture running</span>';
   if(l.follow_up_due){
     const od = l.follow_up_due<=today();
     return '<span style="color:'+(od?'var(--red)':'var(--gold-text)')+';font-size:12.5px;font-weight:700;">'+(od?'⚠ Overdue — ':'📞 ')+'follow up '+l.follow_up_due+'</span>'+leadAttemptChip(l);
@@ -10059,7 +10050,6 @@ function renderLeadProfile(){
   document.getElementById('lp_ai_flags').innerHTML = (l.ai_care_flags||[]).map(f=>
     '<span class="badge bad" style="background:var(--red-bg);">'+esc(f)+'</span>').join('');
   renderLpAttrs();
-  renderLpNurture();
   renderLeadDocs();
   renderLpSoc();
   lpScRender();
@@ -10068,55 +10058,16 @@ function renderLeadProfile(){
   famMount('famLead', { lead_id:l.id }, 'lead');
   cpRenderCommand(); lpiRender();
 }
-const NURTURE_INFO = {
-  not_ready: { name:'Not-ready-yet drip', steps:4, desc:'warm text day 3, helpful email day 10, check-in text day 21, note day 45' },
-  lost_reengage: { name:'90-day check-in', steps:1, desc:'one gentle text 90 days after the lead was lost' },
-};
-function renderLpNurture(){
-  const box=document.getElementById('lp_nurture'); const l=lpLead; if(!box||!l) return;
-  const esc=escapeHtmlComms;
-  if(l.nurture_sequence && !l.nurture_stopped_at){
-    const info=NURTURE_INFO[l.nurture_sequence]||{name:l.nurture_sequence,steps:'?'};
-    box.innerHTML='<div><span class="badge ok">Active — '+esc(info.name)+'</span></div>'
-      +'<div class="field-note" style="margin-top:6px;">Step '+((l.nurture_step||0))+' of '+info.steps+' sent'
-      +(l.nurture_last_sent_at?' · last '+String(l.nurture_last_sent_at).slice(0,10):'')
-      +'. Stops by itself the moment they reply or convert.</div>'
-      +'<button class="linklike" style="margin-top:6px;color:var(--red);" onclick="lpStopNurture()">■ Stop the sequence</button>';
-  } else if(l.nurture_stopped_at){
-    box.innerHTML='<div class="field-note">Previous sequence ended: '+esc(l.nurture_stop_reason||'stopped')+' ('+String(l.nurture_stopped_at).slice(0,10)+').</div>'
-      +'<button class="linklike" onclick="lpStartNurture(\'not_ready\')">🌱 Start the not-ready-yet drip again</button>';
-  } else {
-    box.innerHTML='<div class="field-note">Nothing running. If this family isn\'t ready yet, start the drip — 4 gentle, pre-written touches over 45 days that stop instantly if they reply.</div>'
-      +'<button class="secondary" style="margin-top:8px;" onclick="lpStartNurture(\'not_ready\')">🌱 Start not-ready-yet drip</button>'
-      +(l.status==='Lost'?' <button class="secondary" style="margin-top:8px;" onclick="lpStartNurture(\'lost_reengage\')">📆 Schedule 90-day check-in</button>':'');
-  }
-}
-async function lpStartNurture(seq){
-  const l=lpLead; if(!l) return;
-  if(!l.phone && !l.email){ alert('The lead needs a phone or email for a sequence to reach them.'); return; }
-  const info=NURTURE_INFO[seq];
-  if(!confirm('Start "'+info.name+'" for '+(l.first_name||'this lead')+'?\n\n('+info.desc+' — sent automatically each morning, stops the moment they reply or convert.)')) return;
-  l.nurture_sequence=seq; l.nurture_started_at=new Date().toISOString();
-  l.nurture_step=0; l.nurture_last_sent_at=null; l.nurture_stopped_at=null; l.nurture_stop_reason=null;
-  await persist('leads',l); renderLpNurture();
-}
-async function lpStopNurture(){
-  const l=lpLead; if(!l) return;
-  l.nurture_stopped_at=new Date().toISOString(); l.nurture_stop_reason='stopped by hand';
-  await persist('leads',l); renderLpNurture();
-}
+/* the not-ready drip and the 90-day lost text were retired 2026-10-07 (clean-up 6.3; Desktop 491 stopped every running one). The
+   old nurture_* fields stay on the records as history; lead-rules.js reads a running one as waiting, nothing starts one. */
 async function lpSetStatus(v){
   if(!lpLead) return;
   lpLead.status=v;
   if(v==='Lost' && !lpLead.lost_reason){
     const r = askLostReason(lpLead);
     if(r) Object.assign(lpLead, r);
-    if((lpLead.phone||lpLead.email) && !lpLead.nurture_sequence && confirm('Schedule a gentle 90-day check-in text? (Circumstances change — it wins some of these back. Stops if they reply.)')){
-      lpLead.nurture_sequence='lost_reengage'; lpLead.nurture_started_at=new Date().toISOString();
-      lpLead.nurture_step=0; lpLead.nurture_stopped_at=null; lpLead.nurture_stop_reason=null;
-    }
   }
-  await persist('leads',lpLead); renderLeads&&renderLeads(); renderLpNurture();
+  await persist('leads',lpLead); renderLeads&&renderLeads();
 }
 async function lpAddTag(){
   const inp=document.getElementById('lp_tag_input'); const t=inp.value.trim(); if(!t||!lpLead) return;
@@ -10767,7 +10718,6 @@ function renderOverviewTop(nOverdue,nDue){
   const openLeads=DATA.leads.filter(l=>l.status!=='Converted'&&l.status!=='Lost').length;
   const t30=new Date(Date.now()-30*86400000).toISOString();
   const quietOrgs=(DATA.referral_orgs||[]).filter(o=>{const la=orgLastTouch(o.id);return !la||la<t30;}).length;
-  const nurturing=DATA.leads.filter(l=>l.nurture_sequence&&!l.nurture_stopped_at).length;
   const kpi=(label,val,trend,trendColor,sub,icon,wellBg,wellFg)=>
     '<div class="kpi"><div class="kl"><span>'+label+'</span><span class="kw" style="background:'+wellBg+';color:'+wellFg+';">'+icon+'</span></div>'
     +'<div class="kv">'+val+(trend?'<span class="kt" style="color:'+trendColor+';">'+trend+'</span>':'')+'</div>'
@@ -10777,7 +10727,6 @@ function renderOverviewTop(nOverdue,nDue){
     +kpi('Follow-ups Due Today',nOverdue+nDue,(nOverdue?nOverdue+' overdue':''),'#C17A12','Calls, texts and drop-bys on the list','🕐','#F7ECCB','#C17A12')
     +kpi('Starts of Care (this month)',converted,'','','Leads converted to AxisCare clients','🏠','#E1F1ED','#1F7A8C')
     +kpi('Open Pipeline',openLeads,'','','Active inquiries being worked','📞','#E4EDF6','#0D365F')
-    +kpi('Nurture Running',nurturing,'','','Drips sending themselves each morning','🌱','#E7F3EC','#1F6D45')
     +kpi('Referrers Gone Quiet',quietOrgs,(quietOrgs?'visit soon':''),'#C17A12','No touch in 30+ days','🤝','#F7ECCB','#C17A12');
   const stages=[
     ['New Inquiry', mLeads.filter(l=>l.status==='New').length, '#0D365F', '#FAF9F6'],
@@ -32496,7 +32445,6 @@ function lsSignals(l){
   try{ if(l.family_last_reply_at&&!ldLast(l,e=>e.actor==='human'&&e.direction==='out'&&e.at>l.family_last_reply_at)) out.push('<span class="badge bad" style="font-size:10px;">replied, answer them</span>'); }catch(e){}
   if(l.do_not_contact) out.push('<span class="badge bad" style="font-size:10px;">🚫 do not contact</span>');
   try{ const a=leadAttemptChip(l); if(a) out.push(a.trim()); }catch(e){}
-  if(l.nurture_sequence&&!l.nurture_stopped_at) out.push('<span class="badge ok" style="font-size:10px;">🌱 nurture running</span>');
   const src=[l.source,l.referral_source_name].filter(Boolean).join(' · ');
   if(src) out.push('<span class="field-note" style="font-size:11px;">'+esc(src)+'</span>');
   return out.length?'<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:3px;">'+out.join('')+'</div>':'';
