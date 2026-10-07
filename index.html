@@ -6898,7 +6898,7 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
-<script src="client-journey.js?v=10"></script>
+<script src="client-journey.js?v=11"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=3"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
@@ -26591,6 +26591,8 @@ function obligationOpenAction(it){
 /* CLIENT JOURNEY cards (2026-10-06): one per person per owner, written by the client-journey service. The step itself is
    done on the person's profile, so the card's only move is Open (it lands on that exact step). */
 function jrCard(it, i){
+  /* Starting care (2026-10-07): the client-journey module draws the card (progress, the next thing in plain words) */
+  if(typeof cjWorkCard==='function') return cjWorkCard(it, i===MYWORK_FOCUS);
   const esc=escapeHtmlComms, k=it.card_kind||'next', focused=(i===MYWORK_FOCUS);
   const chipT={ next:['Next','#E7EEFC','#1E4FB8'], blocked:['Blocked','#FDECEA','#B42318'], attention:['Needs attention','#B42318','#fff'], waiting:['Waiting','#FFF4E1','#9A6412'] }[k]||['Next','#E7EEFC','#1E4FB8'];
   const what=String(it.title||'').replace(/^(Next|BLOCKED|NEEDS ATTENTION|Waiting): /,'');
@@ -30893,6 +30895,7 @@ function renderClientsBoard(){
     return { r, due, past, bad:due.filter(x=>x.tone==='bad').length, warn:due.filter(x=>x.tone==='warn').length, lastCi:ci, coord:(ci&&ci.coordinator)||'' };
   }).filter(x=>!x.coord||ccViewMatch(x.coord));
   const FILTERS=[
+    ...(typeof cjStartingCount==='function'&&DATA.ops_settings&&DATA.ops_settings.client_journey_live===true?[['Starting care', ()=>false]]:[]),
     ['Needs something', x=>!x.past&&(x.bad+x.warn)>0],
     ['Due this week', x=>!x.past&&x.due.some(i=>i.tone==='bad'||(i.due&&i.due<=wk))],
     ['Concerns', x=>!x.past&&x.due.some(i=>i.kind==='concern')],
@@ -30903,9 +30906,13 @@ function renderClientsBoard(){
     ['Call-offs', x=>!x.past&&x.due.some(i=>i.kind==='calloff')],
     ['All current', x=>!x.past],
     ['Past', x=>x.past] ];
+  /* Starting care comes first once journeys are live, until someone picks another filter */
+  if(FILTERS[0][0]==='Starting care'&&!CL.picked&&CL.filter==='Needs something') CL.filter='Starting care';
   const f=FILTERS.find(x=>x[0]===CL.filter)||FILTERS[0];
-  document.getElementById('clFilters').innerHTML=FILTERS.map(x=>'<button class="filter-pill'+(x[0]===f[0]?' active':'')+'" onclick="CL.filter=\''+x[0]+'\';renderClientsBoard()">'+x[0]+' <span style="opacity:.65;">'+all.filter(x[1]).length+'</span></button>').join('')
+  document.getElementById('clFilters').innerHTML=FILTERS.map(x=>'<button class="filter-pill'+(x[0]===f[0]?' active':'')+'" onclick="CL.filter=\''+x[0]+'\';CL.picked=true;renderClientsBoard()">'+x[0]+' <span style="opacity:.65;">'+all.filter(x[1]).length+'</span></button>').join('')
     +(CL.issues&&CL.issues.error?'<span class="field-note" style="color:var(--red);align-self:center;">Concerns could not load: '+esc(CL.issues.error)+'</span>':'');
+  /* Starting care: every client being started (client journeys, plus any older First shift checklist still open) */
+  if(f[0]==='Starting care'){ box.innerHTML=cjStartingHtml(); document.querySelectorAll('#clFilters .filter-pill').forEach(b=>{ if(/^Starting care/.test(b.textContent)) b.innerHTML='Starting care <span style="opacity:.65;">'+cjStartingCount()+'</span>'; }); return; }
   const rows=all.filter(f[1]).sort((a,b)=>(b.bad-a.bad)||(b.warn-a.warn)||String(a.r.client_name).localeCompare(String(b.r.client_name)));
   if(!rows.length){ box.innerHTML='<div class="card" style="padding:16px 18px;color:var(--text-muted);">Nobody here right now.</div>'; return; }
   box.innerHTML='<div class="card" style="padding:0;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:640px;">'

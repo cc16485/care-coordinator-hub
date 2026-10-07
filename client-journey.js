@@ -511,6 +511,7 @@
   }
   function journeyFor(o){
     const rows = listRows(); if(!rows.length) return null;
+    if(o && o.journey_id) return rows.find(j => j.journey_id === o.journey_id) || null;
     const lid = o && o.lead ? String(o.lead.id) : '', ax = String((o && (o.ax || (o.lead && o.lead.axiscare_client_id) || (o.r && o.r.axiscare_client_id))) || '').trim();
     return rows.find(j => lid && String(j.lead_id || '') === lid) || rows.find(j => ax && String(j.axiscare_client_id || '') === ax) || null;
   }
@@ -547,6 +548,78 @@
     }).join('') + '</div>';
   }
   function listRefresh(){ CJL.at = 0; listRows(); }
+
+  /* ── STARTING CARE (Samantha 2026-10-07: "not across many pages and tabs"): no Getting ready tab once journeys are
+     live. Care Coordinators work from My Work (one card per client, like a project) and the client's profile; the
+     big picture is the Clients list's "Starting care" group. Older First shift launches no journey speaks for
+     (Tommy Mason) show there too until they're finished. ── */
+  const leadOf = j => j && j.lead_id && typeof DATA !== 'undefined' ? (DATA.leads || []).find(l => String(l.id) === String(j.lead_id)) || null : null;
+  function progressOf(j){
+    if(!j) return 0; if(j.status === 'active') return 100;
+    const i = R.STAGES.indexOf(j.stage); return i < 0 ? 0 : Math.max(4, Math.round(i / (R.STAGES.length - 1) * 100));
+  }
+  /* the next thing in plain words: what's missing, not the step's name, when the Hub can tell */
+  function plainNext(j, it){
+    const n = j && j.next;
+    if(it && it.card_kind === 'waiting') return 'Waiting on ' + (it.waiting_on || 'someone') + (it.check_back ? ' · back ' + day(it.check_back) : '');
+    if(!n) return it ? String(it.title || '').replace(/^(Next|BLOCKED|NEEDS ATTENTION|Waiting): /, '') : 'Nothing open';
+    if(j.stopped) return 'Stopped: ' + n.title + (n.why ? ' (' + n.why + ')' : '');
+    if(n.key === 'intake.basics'){ const l = leadOf(j);
+      if(l){ const has = v => !!String(v == null ? '' : v).trim(), miss = [];
+        if(!has((l.client_first_name || '') + (l.client_last_name || ''))) miss.push('name');
+        if(!has(l.client_phone || l.phone)) miss.push('phone'); if(!has(l.client_dob)) miss.push('date of birth'); if(!has(l.client_address)) miss.push('home address');
+        if(miss.length){ const who = String(l.client_first_name || '').trim(); return 'Add ' + (who ? who + '\'s ' : 'the client\'s ') + (miss.length > 1 ? miss.slice(0, -1).join(', ') + ' and ' + miss[miss.length - 1] : miss[0]); } } }
+    if(n.status === 'waiting') return 'Waiting: ' + n.title + (n.why ? ' (' + n.why + ')' : '');
+    return n.title;
+  }
+  const PAYER_SHORT = { private:'Private Pay', medicaid:'Medicaid', va:'VA', ltc:'LTC', other:'Other' };
+  /* My Work's card for a client in motion: progress, the next thing in plain words, when, Open */
+  function workCard(it, focused){
+    const j = journeyFor({ journey_id:it.journey_id }), k = it.card_kind || 'next', pct = progressOf(j);
+    const when = k === 'waiting' ? '' : it.start_in != null && it.start_in <= 7 ? (it.start_in < 0 ? 'start date passed' : it.start_in === 0 ? 'starts today' : 'starts in ' + it.start_in + ' day' + (it.start_in === 1 ? '' : 's'))
+      : it.due ? (Date.parse(it.due) < Date.now() ? 'late' : 'due ' + new Date(it.due).toLocaleDateString('en-US', { weekday:'short' })) : '';
+    const red = k === 'blocked' || k === 'attention' || when === 'late' || when === 'start date passed';
+    const what = k === 'blocked' ? 'Blocked: ' + String(it.title || '').replace(/^BLOCKED: /, '') : k === 'attention' ? 'Needs attention: ' + String(it.title || '').replace(/^NEEDS ATTENTION: /, '') : plainNext(j, it);
+    return '<div class="wkcard wk-jr wk-jr-' + esc(k) + (focused ? ' focused' : '') + '" data-id="' + esc(it.id) + '">'
+      + '<div class="wk-jr-main"><div class="wk-jr-top"><b>' + esc(it.about || '') + '</b>' + (it.is_test ? ' <span class="cj-chip cj-s-exc">TEST</span>' : '')
+      + (j && j.payer ? ' <span class="wk-jr-pay">' + esc(PAYER_SHORT[j.payer] || j.payer) + '</span>' : j ? ' <span class="wk-jr-pay">Payer not known yet</span>' : '') + '</div>'
+      + '<div class="wk-jr-prog"><div class="cj-bar"><i style="width:' + pct + '%"' + (k === 'waiting' ? ' class="cj-bar-wait"' : red ? ' class="cj-bar-stop"' : '') + '></i></div><span>' + esc(j ? j.stage_label || '' : '') + '</span></div>'
+      + '<div class="wk-jr-what' + (k === 'waiting' ? ' cj-wait' : red ? ' cj-red' : '') + '">' + esc(what) + (when ? ' <span class="' + (red ? 'cj-red' : 'field-note') + '">· ' + esc(when) + '</span>' : '') + '</div></div>'
+      + '<button class="primary" onclick="location.hash=\'' + esc(String(it.link || '').replace(/^#/, '')) + '\'">Open</button></div>';
+  }
+  /* the Clients list's "Starting care" group: every client being started, one row each */
+  function startingRows(){
+    /* starting care = the family said yes (the Leads desk hands them over then), or an AxisCare client with no inquiry */
+    const js = listRows().filter(j => { if(j.status !== 'open') return false; const l = leadOf(j); return !j.lead_id || !l || !!l.said_yes_at || l.status === 'Converted'; });
+    const old = (window.__cqRows || []).filter(c => c && c.status !== 'complete' && !ownsLaunch(c));
+    return { js, old, n:js.length + old.length };
+  }
+  function startingHtml(){
+    if(!live()) return '';
+    const { js, old } = startingRows();
+    if(CJL.rows === null) return '<div class="field-note">Reading who is starting care…</div>';
+    if(window.__cqRows === undefined && typeof cqLaunchFor === 'function' && !startingHtml._asked){ startingHtml._asked = true; cqLaunchFor({}).then(() => { try{ if(typeof renderClientsBoard === 'function') renderClientsBoard(); }catch(e){} }); }
+    if(!js.length && !old.length) return '<div class="card" style="padding:16px 18px;color:var(--text-muted);">Nobody is starting care right now. A new client appears here once someone has talked to them.</div>';
+    js.sort((a, b) => R.STAGES.indexOf(b.stage) - R.STAGES.indexOf(a.stage) || String(a.client_name).localeCompare(String(b.client_name)));
+    const row = (name, href, pct, where, next, who, start, cls) => '<tr class="' + (cls || '') + '"><td><a href="' + href + '" class="cj-sc-name">' + name + '</a></td>'
+      + '<td><div class="cj-sc-where"><div class="cj-bar"><i style="width:' + pct + '%"></i></div><span>' + esc(where) + '</span></div></td><td>' + next + '</td><td>' + esc(who) + '</td><td class="field-note">' + esc(start) + '</td></tr>';
+    return '<div class="card" style="padding:0;overflow-x:auto;"><table class="cj-sc"><thead><tr><th>Client</th><th>Where</th><th>Next</th><th>Who</th><th>Start</th></tr></thead><tbody>'
+      + js.map(j => row(esc(j.client_name) + (j.is_test ? ' <span class="cj-chip cj-s-exc">TEST</span>' : ''), '#p/' + esc(j.ref) + '/start' + (j.next ? '/' + esc(j.next.key) : ''), progressOf(j), j.stage_label || j.stage,
+          '<span class="' + (j.stopped || (j.next && (j.next.status === 'blocked' || j.next.status === 'attention')) ? 'cj-red' : j.next && j.next.status === 'waiting' ? 'cj-wait' : '') + '">' + esc(plainNext(j)) + '</span>',
+          personName((j.next && j.next.owner) || j.assigned_cc), j.target_start ? day(j.target_start) : '')).join('')
+      + old.map(c => row(esc(c.client_name), 'javascript:void(0)" data-open-client="' + esc(String(c.axiscare_client_id || '')), 80, 'First week', esc('Finish the older First shift checklist'), c.caregiver_assigned_name ? String(c.caregiver_assigned_name).split(' ')[0] : '', '', 'cj-sc-old')).join('')
+      + '</tbody></table></div>';
+  }
+  /* once journeys are live, the Getting ready tab steps aside: anyone landing there goes to Starting care */
+  function navTidy(){
+    const on = live();
+    document.querySelectorAll('.fpill[data-parent="gettingready"]').forEach(el => { el.style.display = on ? 'none' : ''; });
+    if(on && typeof activeTab !== 'undefined' && (activeTab === 'soc' || activeTab === 'clientqueue') && typeof switchTab === 'function'){
+      try{ if(typeof CL !== 'undefined') CL.filter = 'Starting care'; }catch(e){}
+      switchTab('clientsboard');
+    }
+  }
+  setInterval(navTidy, 1500); setTimeout(navTidy, 50);
   /* a first name for an email, from the Hub's people list (never the email itself) */
   function personName(e){
     const x = lc(e); if(!x) return 'Nobody yet';
@@ -626,11 +699,16 @@
     '.cj-need{list-style:none;padding:0;margin:4px 0 6px;font-size:15px}.cj-need li{display:flex;align-items:center;gap:10px;padding:4px 0;max-width:420px}.cj-need li.ok{color:var(--text-muted)}.cj-dot{flex:0 0 20px;height:20px;border-radius:50%;border:1.5px solid #B8C2CF;font-size:12px;line-height:18px;text-align:center;color:#1E7B45}.cj-need li.ok .cj-dot{border-color:#1E7B45;background:#E6F4EC}.cj-add{margin-left:auto;padding:4px 12px}',
     '.cj-meta .linklike{font-size:inherit;font-weight:700}.cj-contact{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;font-size:14px;margin-bottom:6px}.cj-contact a{font-weight:600}.cj-mail{color:var(--text-muted)}.cj-status{margin-left:auto;width:auto;font-weight:600;font-size:13px;padding:4px 8px}',
     '.cj-every{display:flex;flex-wrap:wrap;gap:6px 16px;border-top:1px solid var(--border);padding-top:10px;margin-top:12px}.cj-every .linklike{font-size:13.5px}.cj-quiet{color:var(--text-muted)!important}',
+    '.wk-jr{display:flex;gap:14px;align-items:center;padding:12px 15px;margin-bottom:8px}.wk-jr-main{flex:1;min-width:0}.wk-jr-top b{font-size:15.5px;color:var(--navy)}.wk-jr-pay{font-size:12.5px;color:var(--text-muted);margin-left:6px}',
+    '.wk-jr-prog{display:flex;align-items:center;gap:8px;margin:6px 0 4px;max-width:340px}.wk-jr-prog .cj-bar{height:6px}.wk-jr-prog span{font-size:12px;color:var(--text-muted);white-space:nowrap}.wk-jr-what{font-size:14.5px}.cj-bar i.cj-bar-wait{background:#C98A1B}',
+    '.cj-sc{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}.cj-sc th{text-align:left;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;background:var(--bg)}.cj-sc td{padding:9px 10px;border-top:1px solid var(--border);vertical-align:middle}',
+    '.cj-sc-name{font-weight:700;color:var(--navy)}.cj-sc-where{display:flex;align-items:center;gap:8px;min-width:150px}.cj-sc-where .cj-bar{height:6px;max-width:90px}.cj-sc-where span{font-size:12.5px;color:var(--text-muted);white-space:nowrap}.cj-sc-old td{background:#FBFAF7}',
+    '@media (max-width:720px){.wk-jr{flex-wrap:wrap}.wk-jr button.primary{width:100%;min-height:44px}}',
     '.cj-menu{display:flex;flex-wrap:wrap;gap:6px;width:100%;padding:8px;background:#F6F9FD;border-radius:8px}',
     '.cj-list{margin:0 0 14px}.cj-list-empty{margin:0 0 12px}.cj-li{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;background:#fff;border:1px solid var(--border);border-left:5px solid #1E4FB8;border-radius:10px;padding:10px 12px;margin-bottom:8px;color:inherit;text-decoration:none}',
     '.cj-li-blocked,.cj-li-attention{border-left-color:#B42318}.cj-li-waiting{border-left-color:#9A6412}.cj-li-name{font-weight:800;color:var(--navy)}.cj-li-next{flex:1 1 240px;min-width:0;font-size:13.5px}.cj-li-who{font-size:12.5px;color:var(--text-muted)}',
     '.wk-jr{border-left:5px solid #1E4FB8}.wk-jr-blocked{border-left-color:#B42318}.wk-jr-attention{border-left-color:#B42318;background:#FFF6F5}.wk-jr-waiting{border-left-color:#9A6412}',
     '@media (max-width:720px){.cj-head,.cj-full{border-radius:0;margin-left:-4px;margin-right:-4px}.cj-t{font-size:20px}.cj-actions button{min-height:44px;flex:1 1 auto}.cj-form input:not([type=checkbox]),.cj-form select{font-size:16px;min-height:44px;max-width:none}.cj-row-body{padding-left:0}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { cjOld:oldCard, cjMore:() => { CJ.more = !CJ.more; if(!CJ.more) CJ.mode = null; render(); }, cjHasJourney:hasJourney, cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjAssignCc:assignCc, cjRoute:route, cjSaidYes:saidYes, cjUndoYes:undoYes, cjCall:call, CJ_STATE:CJ });
+  Object.assign(window, { cjWorkCard:workCard, cjStartingHtml:startingHtml, cjStartingCount:() => live() ? startingRows().n : 0, cjNavTidy:navTidy, cjOld:oldCard, cjMore:() => { CJ.more = !CJ.more; if(!CJ.more) CJ.mode = null; render(); }, cjHasJourney:hasJourney, cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjAssignCc:assignCc, cjRoute:route, cjSaidYes:saidYes, cjUndoYes:undoYes, cjCall:call, CJ_STATE:CJ });
 })();
