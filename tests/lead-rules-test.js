@@ -262,6 +262,20 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('before Lost with no history: Contacted if a conversation happened, else New', R.statusBeforeLost({ first_human_contact_at:'x' }) === 'Contacted' && R.statusBeforeLost({}) === 'New');
 }
 
+/* follow-ups: started + yes → first shift, and the referral-partner scorecard */
+{
+  const Ls = [
+    { id:'p1', created_at:'2026-09-20T15:00:00Z', first_human_attempt_at:'2026-09-20T15:04:00Z', first_human_contact_at:'2026-09-20T15:04:00Z', assessment_at:'2026-09-23T15:00:00Z', said_yes_at:'2026-09-25T15:00:00Z', status:'Converted', first_shift_at:'2026-09-29T13:00:00Z', referral_org_id:'org1', schedule:{ days:['Mon'], times:'', hours_per_week:20 } },
+    { id:'p2', created_at:'2026-09-28T15:00:00Z', first_human_attempt_at:'2026-09-28T16:00:00Z', referral_org_id:'org1' },
+    { id:'p3', created_at:'2026-09-30T15:00:00Z', first_human_attempt_at:'2026-09-30T15:02:00Z', first_human_contact_at:'2026-09-30T15:02:00Z', referral_source_name:'Dr. Patel office', status:'Assessment Scheduled' },
+    { id:'p4', created_at:'2026-10-01T15:00:00Z', source:'Website' } ];
+  const N = R.ownerNumbers(Ls, HRS, { now:'2026-10-06T15:10:00Z', days:30, orgs:{ org1:{ name:'Mercy Rehab', type:'Rehab / Skilled Nursing' } } });
+  ck('started this period: 1, yes → first shift 4 days', N.now.started === 1 && N.now.yes_to_first_shift_median_days === 4, [N.now.started, N.now.yes_to_first_shift_median_days]);
+  const mercy = N.now.by_partner[0], patel = N.now.by_partner[1];
+  ck('partner scorecard: Mercy Rehab (Rehab / Skilled Nursing) sent 2, reached in 24 h 1, assessed 1, said yes 1, started 1, 9 days inquiry → start, 20 hrs/wk', mercy.name === 'Mercy Rehab' && mercy.type === 'Rehab / Skilled Nursing' && mercy.sent === 2 && mercy.reached_24h === 1 && mercy.assessed === 1 && mercy.said_yes === 1 && mercy.started === 1 && mercy.days_to_start_median === 9 && mercy.hours === 20, mercy);
+  ck('...a typed referral name counts as a partner too; a website lead is not one', patel.name === 'Dr. Patel office' && patel.sent === 1 && patel.assessed === 1 && N.now.by_partner.length === 2, N.now.by_partner);
+}
+
 /* the Hub page and the server run the same file */
 const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));
