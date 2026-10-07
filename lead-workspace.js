@@ -104,9 +104,10 @@
       + '<div class="card lw-card"><b class="lw-rail-t">Contacts</b><div class="lw-contacts">'
       + (caller ? '<div><b>' + esc(caller) + '</b>' + (l.relationship ? ' · ' + esc(l.relationship) : '') + (caller !== client ? ', decides' : '') + (l.phone ? ' · ' + tel(l.phone, l.email) : '') + (l.email ? '<div class="field-note">' + esc(l.email) + '</div>' : '') + (l.do_not_contact ? '<div style="color:var(--red);font-weight:700;font-size:12px;">asked us not to contact them</div>' : '') + '</div>' : '<div class="field-note">No caller name recorded.</div>')
       + (client && client !== caller ? '<div><b>' + esc(client) + '</b> · the client' + (l.client_phone ? ' · ' + tel(l.client_phone) : '') + '</div>' : '')
-      + (org ? '<div><b>' + esc(org.name) + '</b> · referred them' + (org.phone ? ' · ' + tel(org.phone) : '') + (org.people ? '<div class="field-note">' + esc(org.people) + '</div>' : '') + '</div>' : (l.referral_source_name ? '<div><b>' + esc(l.referral_source_name) + '</b> · referred them</div>' : '<div class="field-note">No referral partner on this one' + (l.source ? ' (' + esc(l.source).toLowerCase() + ')' : '') + '.</div>'))
       + '</div></div>'
+      + partnerHtml(l, ctx, org)
       + '<div class="card lw-card"><b class="lw-rail-t">Can we staff it?</b><div style="margin-top:6px;font-size:13px;' + (look.asked && look.count ? '' : 'color:var(--text-muted);') + '">' + (look.asked && look.count ? esc(look.words).replace(/^(\d+ caregivers? says? they are)/, '<b style="color:#15803D;">$1</b>') : esc(look.words)) + '</div>'
+      + (look.asked && look.total && look.count < 2 && !ctx.pre_matched ? '<div class="lb-chip" style="display:inline-block;margin-top:6px;background:var(--amber-bg);color:var(--amber);">Staffing risk</div>' : '')
       + '<div class="field-note" style="margin-top:4px;">Read from the caregivers\' own availability; a stated window is not a promise.</div>'
       + '<div style="margin-top:8px;"><button class="lb-btn" onclick="openStaffingModal(lpLead.id)">Ask Staffing to pre-match</button></div></div>'
       + '<div class="card lw-card"><b class="lw-rail-t">Everything else</b><div class="lw-links">'
@@ -116,6 +117,71 @@
       + '<a href="javascript:void(0)" onclick="lpPrintFacesheet()">Print facesheet</a><a href="javascript:void(0)" onclick="openActivityModal(lpLead.id)">Schedule an activity</a><a href="javascript:void(0)" onclick="lpArchiveLead()">Archive</a>'
       + (typeof leadFromWebForm === 'function' && leadFromWebForm(l) ? '<a href="javascript:void(0)" onclick="lpMarkSpam(lpLead.id, this)">Not a real inquiry (spam)</a>' : '')
       + '</div></div></div>';
+  }
+  /* item 3 (2026-10-07): the referral partner loop. What the referrer has heard from us and what is due to go: every one
+     a DRAFT a person reads, edits and sends (her audience law); the Hub only says which message is due and offers the words. */
+  function partnerHtml(l, ctx, org){
+    const RR = R(), pl = RR.partnerLoop(l, Object.assign({}, ctx, { templates:(DATA.ops_settings || {}).partner_templates || {} }));
+    if(!pl.partner) return '<div class="card lw-card"><b class="lw-rail-t">Referral partner</b><div class="field-note" style="margin-top:6px;">No referral partner on this one' + (l.source ? ' (' + esc(l.source).toLowerCase() + ')' : '') + '.</div></div>';
+    const tel = (p, e) => p ? '<a href="#" data-oc-phone="' + esc(p) + '"' + (e ? ' data-oc-email="' + esc(e) + '"' : '') + ' title="Call from the office line">' + esc(p) + '</a>' : '';
+    const fmt = iso => { const c = RR.chicago(iso); return RR.dayWords(c.ymd, ctx.today) + ' ' + RR.clockWords(iso); };
+    return '<div class="card lw-card"><b class="lw-rail-t">Referral partner</b>'
+      + '<div style="margin-top:6px;font-size:13px;"><b>' + esc(pl.partner.name) + '</b>' + (pl.partner.label ? ' · ' + esc(pl.partner.label) : '') + (org && org.people ? '<div class="field-note">' + esc(org.people) + '</div>' : '')
+      + (org && (org.phone || org.email) ? '<div class="field-note">' + (org.phone ? tel(org.phone, org.email) : '') + (org.phone && org.email ? ' · ' : '') + (org.email ? esc(org.email) : '') + '</div>' : '') + '</div>'
+      + (pl.due.length ? '<div class="lw-fact-k" style="margin-top:10px;">Due to go (a draft, you send it)</div>' + pl.due.map(d => '<div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span style="font-size:13px;font-weight:700;color:var(--navy);">' + esc(d.title) + '</span><button class="lb-btn" onclick="lwPartnerDraft(this, \'' + esc(d.kind) + '\')">Draft it</button></div>').join('') : '')
+      + (pl.sent.length ? '<div class="lw-fact-k" style="margin-top:10px;">They heard from us</div>' + pl.sent.slice(0, 5).map(m => '<div style="font-size:12.5px;margin-top:4px;"><b>' + esc(RR.PARTNER_LABEL[m.kind] || 'An update') + '</b> · ' + esc(fmt(m.at)) + ' · ' + esc(m.channel) + (m.by ? ' · ' + esc(first(ctx.names[String(m.by).toLowerCase()] || String(m.by).split('@')[0])) : '') + '</div>').join('') : '<div class="field-note" style="margin-top:8px;">Nothing has gone to them yet about this family.</div>')
+      + '<div class="field-note" style="margin-top:8px;">Nothing goes to a partner by itself. Each line is a draft you read, change and send.</div></div>';
+  }
+  /* the draft: her words (or Settings\'), editable; Send by email (the partner\'s address, from you), or Copy and mark it told by call or text */
+  function partnerDraft(b, kind){
+    const l = lead(), RR = R(); if(!l || typeof ccPopOpen !== 'function') return;
+    const ctx = ctxFor(l), org = ctx.org || null, pl = RR.partnerLoop(l, Object.assign({}, ctx, { templates:(DATA.ops_settings || {}).partner_templates || {} }));
+    const d = pl.due.find(x => x.kind === kind) || { kind, title:RR.PARTNER_LABEL[kind] || 'An update', text:'' };
+    const to = (org && org.email) || '';
+    const el = ccPopOpen(b || document.body, '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">To ' + esc(pl.partner.name) + ': ' + esc(d.title) + '</div>'
+      + '<textarea id="lwPdText" rows="6" style="width:100%;box-sizing:border-box;font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;">' + esc(d.text) + '</textarea>'
+      + '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;">'
+      + (to ? '<button class="primary" id="lwPdEmail" style="padding:7px 14px;font-size:13px;">Email ' + esc(to) + '</button>' : '<span class="field-note">No email on the partner\'s record.</span>')
+      + '<button class="ghost" id="lwPdCopy" style="padding:7px 14px;font-size:13px;">Copy, I will call or text</button><button class="ghost" id="lwPdNo" style="padding:7px 14px;font-size:13px;">Cancel</button><span class="field-note" id="lwPdMsg"></span></div>'
+      + '<div class="field-note" style="margin-top:6px;">Sent from you, through the office email. The family is not copied.</div>', { width:420 });
+    el.querySelector('#lwPdNo').onclick = ccPopClose;
+    const record = async (channel) => {
+      const a = (typeof ccActor === 'function') ? ccActor() : { email:'' };
+      RR.recordPartnerMsg(l, { kind, channel, to:pl.partner.name, text:el.querySelector('#lwPdText').value.trim(), by:a.email });
+      if(org){ const act = { id:(typeof uid === 'function' ? uid() : String(Date.now())), org_id:org.id, kind:channel === 'email' ? 'email' : 'call', note:d.title + ' (about ' + ((l.client_first_name || l.first_name || 'a family')) + ')', at:new Date().toISOString(), by:a.email, lead_id:l.id };
+        DATA.referral_activities = DATA.referral_activities || []; DATA.referral_activities.push(act); await persist('referral_activities', act); }
+      await persist('leads', l); ccPopClose(); render();
+    };
+    el.querySelector('#lwPdCopy').onclick = async () => {
+      const t = el.querySelector('#lwPdText').value.trim(); try{ await navigator.clipboard.writeText(t); }catch(e){}
+      if(confirm('Copied. Mark this as told to ' + pl.partner.name + ' by call or text? (It goes on the record as sent by you.)')) await record('call');
+    };
+    const em = el.querySelector('#lwPdEmail');
+    if(em) em.onclick = async () => {
+      const text = el.querySelector('#lwPdText').value.trim(), msg = el.querySelector('#lwPdMsg'); if(!text) return;
+      em.disabled = true; msg.textContent = 'Sending…';
+      try{ window.commsLead = l; try{ commsLead = l; }catch(e){}
+        /* the partner's address, not the family's: the same door, pointed at the referrer (opt-out checked there too) */
+        const contact = String((org && org.people) || '').split(/[,(]/)[0].trim();
+        await commsCall({ action:'send_email', subject:'Caring Companions: ' + d.title + ' (' + ((l.client_first_name || '') + ' ' + (l.client_last_name || '')).trim() + ')', message:text, email:to, phone:undefined, first_name:contact.split(/\s+/)[0] || 'Referral', last_name:contact.split(/\s+/).slice(1).join(' ') || 'Partner' });
+        await record('email'); if(typeof ccToast === 'function') ccToast('Sent to ' + pl.partner.name + '.'); }
+      catch(e){ em.disabled = false; msg.textContent = 'Could not send: ' + e.message; }
+    };
+  }
+  function partnerFill(){
+    const box = document.getElementById('lwPartner'), RR = R(); if(!box || !RR) return;
+    const cur = (DATA.ops_settings || {}).partner_templates || {};
+    box.innerHTML = RR.PARTNER_KINDS.map(k => '<div style="margin-top:8px;"><label style="font-size:12.5px;font-weight:700;color:var(--navy);display:block;margin-bottom:3px;">' + esc(RR.PARTNER_LABEL[k]) + '</label>'
+      + '<textarea data-partner="' + k + '" rows="2" placeholder="' + esc(RR.PARTNER_DEFAULT[k]) + '" style="width:100%;box-sizing:border-box;font-size:13px;">' + esc(cur[k] || '') + '</textarea></div>').join('')
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;"><button class="secondary" onclick="lwPartnerSave(this)">Save the partner lines</button><span class="field-note" id="lwPartnerMsg"></span></div>';
+  }
+  async function partnerSave(b){
+    const out = {}; document.querySelectorAll('#lwPartner textarea[data-partner]').forEach(t => { const v = t.value.trim(); if(v) out[t.dataset.partner] = v; });
+    const msg = document.getElementById('lwPartnerMsg'); if(b) b.disabled = true;
+    const res = await tkMerge(m => { const was = JSON.stringify(m.partner_templates || {}); m.partner_templates = out; return was === JSON.stringify(out) ? [] : ['partner lines: ' + (Object.keys(out).join(', ') || 'back to the standard wording')]; }, 'Referral partner lines');
+    if(b) b.disabled = false;
+    if(res.error){ if(msg) msg.textContent = 'Could not save: ' + res.error.message; return; }
+    DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { partner_templates:out }); if(msg) msg.textContent = 'Saved. Blank lines use the standard wording shown in grey.';
   }
   function render(){
     const host = document.getElementById('lwHost'); if(!host) return;
@@ -251,5 +317,5 @@
     '.lw-rail-t{font-size:13.5px;color:var(--navy)}.lw-up{margin-top:8px;font-size:13px;display:flex;flex-direction:column;gap:6px}.lw-contacts{margin-top:8px;font-size:13px;display:flex;flex-direction:column;gap:8px}.lw-links{margin-top:6px;font-size:13px;display:flex;flex-direction:column;gap:4px}',
     '@media (max-width:720px){.lw-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.lw-facts{grid-template-columns:1fr}.lw-tl-row{grid-template-columns:1fr;gap:2px}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { LeadWorkspace:{ render, active }, lwRender:render, lwActive:active, lwTab:tab, lwTrim:trim, lwLog, lwFollowUp, lwSchedule, lwOpenAsmt, lwDsds, lwYes, lwOwner, lwAi, lwNote, lwText, lwWaiting, lwScriptsFill:scriptsFill, lwScriptsSave:scriptsSave });
+  Object.assign(window, { LeadWorkspace:{ render, active, people }, lwRender:render, lwPartnerDraft:partnerDraft, lwPartnerFill:partnerFill, lwPartnerSave:partnerSave, lwActive:active, lwTab:tab, lwTrim:trim, lwLog, lwFollowUp, lwSchedule, lwOpenAsmt, lwDsds, lwYes, lwOwner, lwAi, lwNote, lwText, lwWaiting, lwScriptsFill:scriptsFill, lwScriptsSave:scriptsSave });
 })();

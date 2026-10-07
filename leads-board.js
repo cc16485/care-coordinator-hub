@@ -20,7 +20,10 @@
     let jn = null; try{ const j = (typeof cjJourneyFor === 'function') ? cjJourneyFor({ lead:l }) : null; if(j && j.next && j.status === 'open') jn = { title:j.next.title, why:j.next.why || '' }; }catch(e){}
     const org = l.referral_org_id ? (DATA.referral_orgs || []).find(o => o.id === l.referral_org_id) : null;
     const drafts = (DATA.post_call_followups || []).filter(f => f && f.lead_id === l.id && f.status === 'pending_approval').map(f => f.id);
-    return { hours:R.responseHours(DATA.ops_settings || {}), stage, name:(typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || '', assessments:asm, journey_next:jn, drafts,
+    /* item 3 (2026-10-07): the partner's record (subtype), the caregivers' availability (staffing risk) and whether a Team Builder plan is linked (pre-matched) */
+    let pre = false; try{ const F = (typeof LS !== 'undefined' && LS.facts) || null; const ep = F && F.epOf && F.epOf[String(l.id)]; pre = !!(ep && F.planOf && F.planOf[ep]); }catch(e){}
+    const people = (window.LeadWorkspace && LeadWorkspace.people) ? LeadWorkspace.people() : null;
+    return { hours:R.responseHours(DATA.ops_settings || {}), stage, name:(typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || '', assessments:asm, journey_next:jn, drafts, org, people, pre_matched:pre,
       referral:(org && org.name) || l.referral_source_name || '', payer_label:(typeof CPX_PAY !== 'undefined' && CPX_PAY[l.funding_source]) || null };
   }
   function first(n){ return String(n || '').trim().split(/\s+/)[0] || ''; }
@@ -37,7 +40,7 @@
   }
   /* the yes is offered on the row once a real conversation has happened and nothing blocks it (the server checks again) */
   function yesReady(l, r){ return !!(l.first_human_contact_at && !l.said_yes_at && r.reason !== 'new_overdue' && r.reason !== 'new_running' && r.reason !== 'new_before_open'); }
-  function chip(c){ const st = c.tone === 'missing' ? 'background:#fff;color:#B91C1C;border:1px dashed #DC2626;' : c.tone === 'bad' ? 'background:var(--red-bg);color:var(--red);' : 'background:var(--amber-bg);color:var(--amber);'; return '<span class="lb-chip" style="' + st + '">' + esc(c.text) + '</span>'; }
+  function chip(c){ const st = c.tone === 'missing' ? 'background:#fff;color:#B91C1C;border:1px dashed #DC2626;' : c.tone === 'bad' ? 'background:var(--red-bg);color:var(--red);' : 'background:var(--amber-bg);color:var(--amber);'; return '<span class="lb-chip" style="' + st + '"' + (c.key ? ' data-flag="' + esc(c.key) + '"' : '') + '>' + esc(c.text) + '</span>'; }
   function rowHtml(r, l){
     const tone = TONE[r.when.tone] || TONE.navy, isNow = r.group === 'now';
     return '<div class="lb-row' + (isNow && r.rank === 0 ? ' lb-row-hot' : '') + '" data-open-lead="' + esc(l.id) + '" data-open-tab="summary" title="Open their profile">'
