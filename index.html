@@ -5002,7 +5002,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           <div id="lp_email_row">✉️ <span id="lp_email"></span></div>
         </div>
         <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;font-size:13px;">
-          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Urgency</span><b id="lp_urgency"></b></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Wants to start</span><b id="lp_urgency"></b></div>
           <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Assigned</span><b id="lp_assigned"></b></div>
           <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Follow-up due</span><b id="lp_due"></b></div>
         </div>
@@ -6193,13 +6193,20 @@ The HomeTogether team</pre>
 </div>
 
 <div id="leadSecUrgency">
-<div class="section-title">Quick Needs &amp; Urgency</div>
-<label style="margin-top:0;">Urgency</label>
-<div class="radio-group">
-<label><input type="radio" name="lead_urgency" value="today"> Need care today</label>
-<label><input type="radio" name="lead_urgency" value="48hours"> Within 48 hours</label>
-<label><input type="radio" name="lead_urgency" value="7days"> Within 7 days</label>
-<label><input type="radio" name="lead_urgency" value="researching"> Just researching</label>
+<div class="section-title">When do they want care to start?</div>
+<!-- Leads intake desk, Stage 0 (2026-10-06): the four urgency radios became a start the board can say in words
+     ("Needs care by Thursday", "Planning ahead"). lead-rules.js reads the old radio value for leads that still have it. -->
+<div class="grid2">
+<div><label style="margin-top:0;">Start</label>
+<select id="lead_desired_start_kind" onchange="leadStartUI()">
+<option value="">— Not asked yet —</option>
+<option value="asap">As soon as possible</option>
+<option value="by_date">By a date</option>
+<option value="this_week">This week</option>
+<option value="this_month">This month</option>
+<option value="planning">Planning ahead</option>
+</select></div>
+<div id="leadStartDateBox" style="display:none;"><label style="margin-top:0;">Which date</label><input type="date" id="lead_desired_start_date"></div>
 </div>
 </div>
 
@@ -6348,8 +6355,18 @@ The HomeTogether team</pre>
 
 <div id="leadSecSchedule">
 <div class="section-title">Schedule</div>
+<label style="margin-top:0;">Days</label>
+<div class="checkbox-grid" id="lead_schedule_days" style="grid-template-columns:repeat(7,auto);justify-content:start;gap:6px 14px;">
+<label><input type="checkbox" value="Mon"> Mon</label>
+<label><input type="checkbox" value="Tue"> Tue</label>
+<label><input type="checkbox" value="Wed"> Wed</label>
+<label><input type="checkbox" value="Thu"> Thu</label>
+<label><input type="checkbox" value="Fri"> Fri</label>
+<label><input type="checkbox" value="Sat"> Sat</label>
+<label><input type="checkbox" value="Sun"> Sun</label>
+</div>
 <div class="grid2" style="grid-template-columns:1fr 1fr 1fr;">
-<div><label>Days Needed</label><input id="lead_days_needed" placeholder="e.g. Mon, Wed, Fri"></div>
+<div><label>Days (older leads, as typed)</label><input id="lead_days_needed" placeholder="tick the days above instead"></div>
 <div><label>Times Needed</label><input id="lead_times_needed" placeholder="e.g. 9am - 1pm"></div>
 <div><label>Total Hours/Week</label><input type="number" id="lead_number_of_hours" placeholder="e.g. 12"></div>
 </div>
@@ -6362,7 +6379,30 @@ The HomeTogether team</pre>
 <div id="leadSecNotes">
 <div class="section-title">Situation &amp; Call Notes</div>
 <div class="script-hint"><span class="ic">💬</span><span>Script: "Can you tell me a little bit about the situation, what is going on, and how we can help?"</span></div>
+<label style="margin-top:0;">Why they called, in one line</label>
+<input id="lead_why_called" maxlength="140" placeholder="e.g. Daughter looking for morning help for her mom after a fall">
+<div class="field-note" style="font-size:10.5px;margin:2px 0 6px;">This is the line the Leads board shows under their name. Leave it blank and the Hub uses the first line of the notes.</div>
 <textarea id="lead_interest_notes" rows="3" placeholder="Who needs care, what kind, urgency, budget/payer..."></textarea>
+</div>
+
+<div id="leadSecWaiting">
+<div class="section-title">Waiting on something?</div>
+<div class="field-note" style="margin-bottom:6px;">Only when something outside the office has to happen first. A waiting family always has a check-back date; on that day they come back to the top of the board.</div>
+<div class="grid2" style="grid-template-columns:1.2fr .8fr 1.4fr;">
+<div><label style="margin-top:0;">Waiting on</label>
+<select id="lead_waiting_reason" onchange="leadWaitingUI(true)">
+<option value="">— Not waiting —</option>
+<option value="state">The state (Medicaid authorization)</option>
+<option value="va">The VA</option>
+<option value="ltc">The LTC insurer</option>
+<option value="family_decision">The family deciding</option>
+<option value="not_ready">The family isn't ready yet</option>
+<option value="unable_to_reach">Unable to reach them</option>
+<option value="discharge_changed">The discharge plan changed</option>
+</select></div>
+<div><label style="margin-top:0;">Check back on</label><input type="date" id="lead_waiting_check_back"></div>
+<div><label style="margin-top:0;">Note</label><input id="lead_waiting_note" placeholder="e.g. DCN submitted Sep 20"></div>
+</div>
 </div>
 
 <div id="leadSecOffice">
@@ -6743,6 +6783,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
+<script src="lead-rules.js?v=1"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -8806,19 +8847,25 @@ const LEAD_FIELDS=[
   ['client_address','lead_client_address','text'], ['client_city','lead_client_city','text'],
   ['client_state','lead_client_state','upper'], ['client_zip','lead_client_zip','text'],
   ['client_phone','lead_client_phone','text'], ['marital_status','lead_marital_status','raw'], ['language','lead_language','text'],
-  ['urgency','lead_urgency','radio'], ['needs','lead_needs_grid','checks'], ['weight_bearing','lead_weight_bearing','radio'],
+  /* Stage 0 (2026-10-06): desired_start_kind/date, schedule_days and waiting_* are FORM helpers. LeadRules.toForm() flattens
+     the record into them and LeadRules.compose() folds them back into desired_start / schedule / waiting on save; they never
+     reach the saved lead. The old urgency value is read by lead-rules.js and never written again. */
+  ['desired_start_kind','lead_desired_start_kind','raw'], ['desired_start_date','lead_desired_start_date','raw'],
+  ['needs','lead_needs_grid','checks'], ['weight_bearing','lead_weight_bearing','radio'],
   ['level_estimate','lead_level_estimate','radio'], ['safety','lead_safety_grid','checks'], ['mobility','lead_mobility','radio'],
   ['personal_care','lead_personal_care_grid','checks'], ['medical_conditions','lead_medical_conditions_grid','checks'],
   ['dementia_follow_up','lead_dementia_follow_up_grid','checks'],
   ['physician_name','lead_physician_name','text'], ['physician_phone','lead_physician_phone','text'],
   ['preferred_hospital','lead_preferred_hospital','text'], ['medical_notes','lead_medical_notes','text'],
+  ['schedule_days','lead_schedule_days','checks'],
   ['days_needed','lead_days_needed','text'], ['times_needed','lead_times_needed','text'], ['number_of_hours','lead_number_of_hours','text'],
   ['funding_source','lead_funding_source','radio'], ['price_quoted','lead_price_quoted','check'],
   ['quoted_price_amount','lead_quoted_price_amount','text'],
   ['status','lead_status','raw','New'], ['assigned_coordinator','lead_assigned_coordinator','text'],
   ['axiscare_client_id','lead_axiscare_client_id','text'], ['dcn','lead_dcn','text'], ['county','lead_county','text'],
   ['state_submitted','lead_state_submitted','raw'], ['state_status','lead_state_status','raw'],
-  ['interest_notes','lead_interest_notes','text'],
+  ['interest_notes','lead_interest_notes','text'], ['why_called','lead_why_called','text'],
+  ['waiting_reason','lead_waiting_reason','raw'], ['waiting_check_back','lead_waiting_check_back','raw'], ['waiting_note','lead_waiting_note','text'],
   ['follow_up_branch','lead_follow_up_branch','raw'], ['last_contacted_at','lead_last_contacted_at','raw'],
   ['follow_up_due','lead_follow_up_due','raw'], ['intent_tags','lead_intent_tags','tags'],
 ];
@@ -8849,7 +8896,24 @@ function leadFieldFill(f, l){
 }
 /* keys: fill or read only these fields (a Lead Intake chapter); omitted = the whole form */
 function leadFormRead(keys){ const out={}; LEAD_FIELDS.forEach(f=>{ if(!keys||keys.indexOf(f[0])>=0) out[f[0]]=leadFieldRead(f); }); return out; }
-function leadFormFill(l, keys){ LEAD_FIELDS.forEach(f=>{ if(!keys||keys.indexOf(f[0])>=0) leadFieldFill(f, l||{}); }); }
+function leadFormFill(l, keys){
+  const v=(typeof LeadRules!=='undefined')?LeadRules.toForm(l||{}):(l||{});   /* Stage 0: objects → form helpers */
+  LEAD_FIELDS.forEach(f=>{ if(!keys||keys.indexOf(f[0])>=0) leadFieldFill(f, v); });
+  leadStartUI(); leadWaitingUI(false);
+}
+/* Stage 0: fold the form helpers back into the record. target already holds the saved values; patch is what was read. */
+function leadFormCompose(target, patch){
+  if(typeof LeadRules==='undefined'){ console.warn('lead-rules.js did not load: saving the form without composing desired start / schedule / waiting'); LEAD_FORM_HELPERS.forEach(k=>{ delete patch[k]; }); return Object.assign(target, patch); }
+  return LeadRules.compose(target, patch);
+}
+const LEAD_FORM_HELPERS=['desired_start_kind','desired_start_date','schedule_days','waiting_reason','waiting_check_back','waiting_note'];
+function leadStartUI(){ const k=document.getElementById('lead_desired_start_kind'), b=document.getElementById('leadStartDateBox'); if(k&&b) b.style.display=k.value==='by_date'?'':'none'; }
+/* picking a reason fills the default check-back (a week for the state, two for the VA…); a date already typed is kept */
+function leadWaitingUI(fromChange){
+  const r=document.getElementById('lead_waiting_reason'), d=document.getElementById('lead_waiting_check_back'); if(!r||!d) return;
+  if(fromChange&&r.value&&!d.value&&typeof LeadRules!=='undefined') d.value=LeadRules.defaultCheckBack(r.value, LeadRules.ymd(new Date()))||'';
+  if(fromChange&&!r.value) d.value='';
+}
 function openLeadModal(id){
   if(typeof lpiRelease==='function') lpiRelease('form');   /* Gate 1b-2 lock: a Lead intake chapter hands its sections back first */
   const l = id ? DATA.leads.find(x=>x.id===id) : {};
@@ -9906,7 +9970,7 @@ function renderLeadProfile(){
   const ph = document.getElementById('lp_phone'); ph.textContent = l.phone||''; ph.href = '#'; ph.dataset.ocPhone = l.phone||''; if(l.email) ph.dataset.ocEmail = l.email; else delete ph.dataset.ocEmail; ph.title = 'Call from office line (LeadConnector)';
   document.getElementById('lp_email_row').style.display = l.email?'block':'none';
   document.getElementById('lp_email').textContent = l.email||'';
-  document.getElementById('lp_urgency').textContent = l.urgency||'—';
+  document.getElementById('lp_urgency').textContent = (typeof LeadRules!=='undefined'&&LeadRules.desiredStartWords(l))||l.urgency||'—';
   document.getElementById('lp_assigned').textContent = l.assigned_coordinator||'—';
   document.getElementById('lp_due').textContent = l.follow_up_due||'—';
   document.getElementById('lp_tags').innerHTML = (l.intent_tags||[]).map((t,i)=>
@@ -9966,8 +10030,8 @@ async function lpSetStatus(v){
   if(!lpLead) return;
   lpLead.status=v;
   if(v==='Lost' && !lpLead.lost_reason){
-    const r = askLostReason();
-    if(r){ lpLead.lost_reason = r; lpLead.lost_at = new Date().toISOString(); }
+    const r = askLostReason(lpLead);
+    if(r) Object.assign(lpLead, r);
     if((lpLead.phone||lpLead.email) && !lpLead.nurture_sequence && confirm('Schedule a gentle 90-day check-in text? (Circumstances change — it wins some of these back. Stops if they reply.)')){
       lpLead.nurture_sequence='lost_reengage'; lpLead.nurture_started_at=new Date().toISOString();
       lpLead.nurture_step=0; lpLead.nurture_stopped_at=null; lpLead.nurture_stop_reason=null;
@@ -10985,12 +11049,18 @@ async function refLog(){
 }
 
 /* ================= CRM: LOST REASONS + REPORTS ================= */
-const LOST_REASONS=['Price','Chose another agency','Not ready yet / timing','Went to a facility','Passed away','No response','Other'];
-function askLostReason(){
-  const pick=prompt('Why was this lead lost?\n'+LOST_REASONS.map((r,i)=>(i+1)+' — '+r).join('\n')+'\n\nType a number (or your own reason):');
+/* Stage 0 (2026-10-06): the fixed list lives in lead-rules.js so the Owners Hub can count "hours lost to weekends in Ozark".
+   Returns the fields to put on the lead ({lost_reason, lost_reason_key, lost_at, lost_detail?, lost_schedule?}) or null. */
+const LOST_REASONS=(typeof LeadRules!=='undefined')?LeadRules.LOST.map(r=>r[1]):['Price','Chose another agency','Chose a facility','Unable to reach them','Other (say what)'];
+function askLostReason(l){
+  const list=(typeof LeadRules!=='undefined')?LeadRules.LOST:[['other','Other (say what)']];
+  const pick=prompt('Why did this family not start with us?\n'+list.map((r,i)=>(i+1)+' · '+r[1]).join('\n')+'\n\nType the number:');
   if(pick==null) return null;
-  const n=parseInt(pick,10);
-  return (n>=1&&n<=LOST_REASONS.length)?LOST_REASONS[n-1]:(pick.trim()||'Other');
+  const n=parseInt(pick,10), row=(n>=1&&n<=list.length)?list[n-1]:list[list.length-1];
+  let note='';
+  if(row[0]==='other'){ note=prompt('What happened? (a few words, kept with the reason)')||''; if(!note.trim()){ alert('"Other" needs a few words, so the reason means something later.'); return null; } }
+  if(typeof LeadRules==='undefined') return { lost_reason:row[1]+(note?': '+note.trim():''), lost_at:new Date().toISOString() };
+  return LeadRules.lostRecord(l||{}, row[0], note);
 }
 /* ── Lead numbers S2 · where leads come from (her approval 2026-09-28) ──────────────────────────────────
    The families who first got in touch in the period picked, and what has happened to them since. Spam never counts.
@@ -11279,7 +11349,8 @@ function lpPrintFacesheet(){
     +'<h3 style="border-bottom:2px solid #0D365F;padding-bottom:4px;">Needs picture</h3>'
     +(l.ai_needs_summary?'<p>'+esc(l.ai_needs_summary)+'</p>':'')
     +list('Flags', l.ai_care_flags)+list('Needs', l.needs)+list('Safety', l.safety)+list('Medical conditions', l.medical_conditions)
-    +(l.urgency?'<p><b>Urgency:</b> '+esc(l.urgency)+'</p>':'')
+    +(LeadRules.desiredStartWords(l)?'<p><b>Wants to start:</b> '+esc(LeadRules.desiredStartWords(l))+'</p>':'')
+    +(LeadRules.scheduleWords(l)?'<p><b>Schedule:</b> '+esc(LeadRules.scheduleWords(l))+'</p>':'')
     +(l.funding_source?'<p><b>Funding:</b> '+esc(l.funding_source)+'</p>':'')
     +(l.interest_notes?'<h3 style="border-bottom:2px solid #0D365F;padding-bottom:4px;">Call notes</h3><p style="white-space:pre-wrap;">'+esc(l.interest_notes)+'</p>':'')
     +'<h3 style="border-bottom:2px solid #0D365F;padding-bottom:4px;">Attributes</h3>'
@@ -11696,10 +11767,12 @@ async function saveLead(opts){
   // Merge over the existing record — the intake form doesn't know about
   // profile-side fields (comm_log, AI summary, attributes, docs, AxisCare
   // link) and must never wipe them.
-  const merged = Object.assign({}, idx>=0?DATA.leads[idx]:{}, record);
+  /* Stage 0: the form's helper fields fold into desired_start / schedule / waiting here (LeadRules.compose) */
+  const merged = leadFormCompose(Object.assign({}, idx>=0?DATA.leads[idx]:{}), record);
+  if(merged.waiting&&typeof LeadRules!=='undefined'){ const p=LeadRules.waitingProblems(merged.waiting); if(p.length){ alert(p.join('\n')); return; } }
   if(merged.status==='Lost' && !merged.lost_reason){
-    const r = askLostReason();
-    if(r){ merged.lost_reason = r; merged.lost_at = new Date().toISOString(); }
+    const r = askLostReason(merged);
+    if(r) Object.assign(merged, r);
   }
   /* Step 2: a new AxisCare id is checked side by side BEFORE saving, and a
      lead already connected to a client keeps its id (changing who a Journey
@@ -11923,7 +11996,8 @@ function cqfDates(c,info,contract){ var e=LEV[c&&c.id]; return startDatesHtml(in
    or (older launches) when "First shift completed" was ticked. */
 function startDatesHtml(l, contract, firstShiftAt, whereShift, inCareBefore){
   var esc=escapeHtmlComms, rows=[];
-  rows.push(['Requested', l&&l.urgency&&LPSC_URG[l.urgency]?'Family asked for: '+esc(LPSC_URG[l.urgency])+' <span class="field-note" style="font-size:11px;">(on the inquiry; no date recorded)</span>':'<span class="field-note">not recorded</span>']);
+  var reqWords=l?LeadRules.desiredStartWords(l):'', reqDs=l?LeadRules.desiredStart(l):null;
+  rows.push(['Requested', reqWords?'Family asked for: '+esc(reqWords)+(reqDs&&reqDs.date?'':' <span class="field-note" style="font-size:11px;">(on the inquiry; no exact date)</span>'):'<span class="field-note">not recorded</span>']);
   rows.push(['Target', contract?(contract.target_date?'<b>'+esc(lpscDate(contract.target_date))+'</b> · '+esc((LPSC_CONF[contract.confidence]||[contract.confidence])[0]):esc((LPSC_CONF[contract.confidence]||[contract.confidence])[0])+', no date yet'):'<span class="field-note">no Start Contract yet</span>']);
   var auth='<span class="field-note">not recorded</span>';
   if(l){
@@ -12288,7 +12362,7 @@ const CKPT_STAGES = [
   {n:1, t:'Open warmly',    done:()=> !!(ckptVal('lead_first_name')||ckptVal('lead_last_name')||ckptVal('lead_phone')) },
   {n:2, t:'Listen',         done:()=> !!ckptVal('lead_interest_notes') },
   {n:3, t:'Who needs care', done:()=> !!(ckptVal('lead_client_first_name')||ckptVal('lead_client_last_name')||document.getElementById('lead_client_name_not_provided').checked||getCheckedValues('lead_needs_grid').length) },
-  {n:4, t:'Urgency',        done:()=> !!getRadioValue('lead_urgency') },
+  {n:4, t:'When they want care', done:()=> !!ckptVal('lead_desired_start_kind') },
   {n:5, t:"How they'll pay",done:()=> !!getRadioValue('lead_funding_source') },
   {n:6, t:'Schedule',       done:()=> !!(ckptVal('lead_days_needed')||ckptVal('lead_times_needed')||ckptVal('lead_number_of_hours')) },
   {n:7, t:'Close',          done:()=> !!(ckptVal('lead_follow_up_branch')||ckptVal('lead_follow_up_due')||ckptVal('lead_status')==='Assessment Scheduled') },
@@ -12341,7 +12415,7 @@ function ckptTeardown(){
 function ckptDirty(){
   return !!(ckptVal('lead_first_name')||ckptVal('lead_last_name')||ckptVal('lead_phone')||ckptVal('lead_email')
     ||ckptVal('lead_interest_notes')||ckptVal('lead_client_first_name')||ckptVal('lead_client_last_name')
-    ||getRadioValue('lead_funding_source')||getRadioValue('lead_urgency'));
+    ||getRadioValue('lead_funding_source')||ckptVal('lead_desired_start_kind'));
 }
 function ckptClose(){
   if(ckptDirty() && !confirm('Close this call without saving the lead?')) return;
@@ -15973,7 +16047,7 @@ function scxRender(key){
   setAct(can&&!st.form?('<button class="linklike" onclick="scxForm('+K+',\'contract\')">'+(c?'✎ Change':'+ Record the Start Contract')+'</button>'
       +(c?'<button class="linklike" onclick="scxForm('+K+',\'update\')">+ Log a family update</button>':'')):'');
   if(st.form){ body.innerHTML=(st.form==='update'?scxUpdateForm(key,c):scxContractForm(key,c)); return; }
-  var urg=l&&l.urgency&&LPSC_URG[l.urgency]?LPSC_URG[l.urgency]:'';
+  var urg=l?LeadRules.desiredStartWords(l):'';
   if(!c){
     h+='<div style="font-size:13.5px;">Nothing has been recorded about starting care yet.</div>';
     if(urg) h+='<div class="field-note" style="margin-top:4px;">On the inquiry, the family asked for: <b>'+esc(urg)+'</b></div>';
@@ -16050,7 +16124,7 @@ function scxDetailHtml(key){
   h+='<div class="field-note" style="font-size:11.5px;margin-top:4px;">Next update rescheduled without a family update: '+sched+' time'+(sched===1?'':'s')+'. Owner: '+esc(c.commitment_owner)+'.</div>';
   var ref=[];
   if(l){
-    if(l.urgency&&LPSC_URG[l.urgency]) ref.push('Family asked for (on the inquiry): <b>'+esc(LPSC_URG[l.urgency])+'</b>. No requested start date is recorded anywhere yet.');
+    if(LeadRules.desiredStartWords(l)){ var rds=LeadRules.desiredStart(l); ref.push('Family asked for (on the inquiry): <b>'+esc(LeadRules.desiredStartWords(l))+'</b>.'+(rds&&rds.date?'':' No exact start date is recorded yet.')); }
     if(l.funding_source==='medicaid'||l.state_status) ref.push('Authorized / Approved: '+(l.state_status==='authorized'?'<b>authorized</b> (State Submissions status; the date is not recorded)':'not yet'+(l.state_status?' ('+esc(l.state_status)+')':'')));
     if(l.funding_source) ref.push('Payer: '+esc(LPSC_PAYER[l.funding_source]||l.funding_source)+' <span class="field-note" style="font-size:11px;">(read from the lead for now, a temporary bridge)</span>');
     if(l.quoted_price_amount) ref.push('Quoted: '+esc(l.quoted_price_amount));
@@ -30805,7 +30879,7 @@ function cpxStillNeeded(l, st, sc, fb){
   if(med&&!l.county) add(2,'Their county','Medicaid, county not recorded','payer');
   if(l.client_name_not_provided||!(l.client_first_name||'').trim()) add(3,'The client\'s name','the inquiry doesn\'t name who needs care','intake');
   if(!l.client_city&&!l.client_zip) add(3,'Their town','no city or zip','intake');
-  if(!l.urgency) add(3,'When they want care to start','urgency not recorded','intake');
+  if(!LeadRules.desiredStart(l)) add(3,'When they want care to start','not asked yet','intake');
   if(!has(l.needs)&&!has(l.personal_care)) add(3,'What help they need','no needs checked','intake');
   if(late&&!l.client_address) add(3,'Their full address','needed for the visit and the first shift','intake');
   if(k==='ready'&&!l.client_dob) add(3,'Their date of birth','needed before Getting ready is done','intake');
@@ -30880,7 +30954,7 @@ function cpCommandModel(){
   else tile('follow','Next follow-up','None set', st.k==='past'?'':'no follow-up date on any record', '', pre?'warn':'');
   /* 7 · start: what they asked for vs what we promised · or, once receiving care, AxisCare's level */
   if(pre){
-    const asked=l&&l.urgency?CPX_URG[l.urgency]||l.urgency:'';
+    const asked=l?LeadRules.desiredStartWords(l):'';
     const prom=sc&&sc.target_date?dd(sc.target_date)+(sc.confidence?' ('+sc.confidence+')':''):(launch&&launch.start_date?dd(launch.start_date):'');
     const wantDate=l&&LPI.began[l.id]&&lpfVal(LPI.began[l.id],'requested_start_date');
     tile('start','Wants to start', (asked||'Not recorded')+(wantDate?' · by '+lsDate(wantDate):'')+(prom?' · promised '+prom:''),
@@ -30977,11 +31051,11 @@ const LPI_FORBIDDEN=['status','assigned_coordinator','axiscare_client_id','fundi
   'follow_up_due','last_contacted_at','dcn','county','state_submitted','state_status','price_quoted','quoted_price_amount'];
 const LPI_CALLER=['first_name','last_name','phone','email','relationship','source','referral_org_id','referral_source_name'];
 const LPI_CH=[
-  { n:1, key:'found',  t:'How they found us',             secs:['leadSecCaller','leadSecUrgency'], keys:LPI_CALLER.concat(['urgency']) },
+  { n:1, key:'found',  t:'How they found us',             secs:['leadSecCaller','leadSecUrgency'], keys:LPI_CALLER.concat(['desired_start_kind','desired_start_date']) },
   { n:2, key:'person', t:'The person who needs care',     secs:['leadSecClient'], keys:['client_name_not_provided','client_first_name','client_last_name','client_dob','client_gender','client_address','client_city','client_state','client_zip','client_phone','marital_status','language'] },
-  { n:3, key:'why',    t:'Why they\'re reaching out',     secs:['leadSecNeeds','leadSecNotes'], keys:['needs','interest_notes'] },
+  { n:3, key:'why',    t:'Why they\'re reaching out',     secs:['leadSecNeeds','leadSecNotes'], keys:['needs','interest_notes','why_called'] },
   { n:4, key:'care',   t:'Care needs and safety, as reported', secs:['leadSecLevel','leadSecClinical'], keys:['weight_bearing','level_estimate','safety','mobility','personal_care','medical_conditions','dementia_follow_up','medical_notes'] },   /* physician: hidden, older intakes only; the assessment asks now, so it's shown, not edited */
-  { n:5, key:'help',   t:'Help they\'re asking for',      secs:['leadSecSchedule'], keys:['days_needed','times_needed','number_of_hours'] },
+  { n:5, key:'help',   t:'Help they\'re asking for',      secs:['leadSecSchedule'], keys:['schedule_days','days_needed','times_needed','number_of_hours'] },
   { n:6, key:'payer',  t:'Payer and program',             owner:'payer' },
   { n:7, key:'home',   t:'Home and environment',          owner:'home' },
   { n:8, key:'prefs',  t:'Preferences',                   owner:'home' },
@@ -31278,7 +31352,7 @@ async function lpiSave(){
   /* Gate 3: this chapter's facts, each through the door (the editor stays on screen until they're done) */
   const fb=LPI.began[l.id], fres=e.fkeys&&e.fkeys.length&&fb&&fb.ep?await lpfSaveFrom('lpfE', e.fkeys, e.fbase, fb, l):[];
   const target=(DATA.leads||[]).find(x=>x.id===l.id)||l;
-  Object.assign(target, patch);
+  leadFormCompose(target, patch);           /* Stage 0: helper fields → desired_start / schedule / waiting */
   if(LPI.editing===e){ LPI.editing=null; lpiReturn(); }
   LPI.flash={ lead:l.id, text:'Saved.'+(fres.length?' '+lpfSummary(fres):'') };
   await persist('leads', target);
@@ -31311,10 +31385,10 @@ function lpiRender(){
   const ref=(orgName&&orgName.name)||l.referral_source_name||'';
   /* the chapters, as sentences and facts */
   const C={
-    found:{ sent:(caller||'Someone')+' reached us '+(l.created_at?'on '+dd(l.created_at):'')+(l.source?' by '+String(l.source).toLowerCase():'')+(ref?', referred by '+ref:'')+'.'+(l.urgency?' They wanted care '+(CPX_URG[l.urgency]||l.urgency).toLowerCase()+'.':''),
-      facts:fact('First contact',dd(l.created_at))+fact('How',l.source)+fact('Referred by',ref)+fact('Urgency when they called',l.urgency?CPX_URG[l.urgency]||l.urgency:'')
+    found:{ sent:(caller||'Someone')+' reached us '+(l.created_at?'on '+dd(l.created_at):'')+(l.source?' by '+String(l.source).toLowerCase():'')+(ref?', referred by '+ref:'')+'.'+(LeadRules.desiredStartWords(l)?' '+LeadRules.desiredStartWords(l).replace(/^(Needs|Wants|Wanted) care/,'They wanted care').replace(/^Planning ahead$/,'They were planning ahead')+'.':''),
+      facts:fact('First contact',dd(l.created_at))+fact('How',l.source)+fact('Referred by',ref)+fact('When they wanted care',LeadRules.desiredStartWords(l))
         +(firstLine?'<div class="lp-fact wide"><div class="k">What they first said</div><div class="v">"'+esc(firstLine.slice(0,220))+'"</div><div class="lp-prov">the first line of the call notes, as typed</div></div>':''),
-      empty:!caller&&!l.source&&!l.urgency },
+      empty:!caller&&!l.source&&!LeadRules.desiredStart(l) },
     person:{ sent:client?client+(age?', '+age:'')+(l.client_city?', in '+l.client_city:'')+'.':(l.client_name_not_provided?'The caller didn\'t give the client\'s name.':'The client isn\'t named yet.'),
       facts:fact('Name',l.client_name_not_provided?'not given':client)+fact('Born',l.client_dob?dd(l.client_dob)+(age?' · '+age:''):'')+fact('Town',l.client_city)
         +fact('Lives alone',(l.safety||[]).indexOf('livesAlone')>=0?'Yes':'')+fact('Street address',l.client_address),
@@ -32291,8 +32365,8 @@ function lsWho(l){
 }
 function lsSignals(l){
   if(!l) return ''; const esc=escapeHtmlComms, out=[];
-  const U={ today:['bad','Today'], '48hours':['warn','48 hrs'], '7days':['new','7 days'], researching:['muted','Researching'] }[l.urgency];
-  if(U) out.push('<span class="badge '+U[0]+'" style="font-size:10px;">'+U[1]+'</span>');
+  /* Stage 0: the start in words, coloured by how pressing it is (lead-rules.js reads the old radio too) */
+  try{ const w=LeadRules.desiredStartWords(l); if(w){ const rk=LeadRules.startRank(l); out.push('<span class="badge '+(rk===0?'bad':rk===1?'warn':rk===2?'new':'muted')+'" style="font-size:10px;">'+esc(w)+'</span>'); } }catch(e){}
   try{ if(l.family_last_reply_at&&!ldLast(l,e=>e.actor==='human'&&e.direction==='out'&&e.at>l.family_last_reply_at)) out.push('<span class="badge bad" style="font-size:10px;">replied, answer them</span>'); }catch(e){}
   if(l.do_not_contact) out.push('<span class="badge bad" style="font-size:10px;">🚫 do not contact</span>');
   try{ const a=leadAttemptChip(l); if(a) out.push(a.trim()); }catch(e){}
