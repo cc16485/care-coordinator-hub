@@ -72,6 +72,34 @@
   const MOTTO = { 1:'A fresh page.', 2:'One line at a time.', 3:'Halfway through the week.', 4:'Nearly there.', 5:'Last page of the week.', 0:'A quiet page.', 6:'A quiet page.' };
 
   /* ---------------------------------------------- pure rules (tested) ---------------------------------------------- */
+  /* REPEATING TASKS (495, Samantha 2026-10-07 "yes to all"): a rule puts a line on the day's page when the page is opened.
+     rule = { kind:'weekdays'|'daily'|'weekly'|'biweekly'|'monthly'|'last_biz', days:[0-6] (weekly), anchor:'YYYY-MM-DD' (biweekly), dom:1-31 (monthly) } */
+  const lastBiz = ym => { const [y, m] = ym.split('-').map(Number); let d = S(new Date(y, m, 0)); while(isWk(d)) d = addDays(d, -1); return d; };
+  function repeatDue(r, day){
+    if(!r || !r.active || !r.rule || !day) return false;
+    if(r.start_day && day < r.start_day) return false; if(r.end_day && day > r.end_day) return false;
+    if(Array.isArray(r.skips) && r.skips.indexOf(day) > -1) return false;
+    const k = r.rule.kind, dow = D(day).getDay();
+    if(k === 'daily') return true;
+    if(k === 'weekdays') return !isWk(day);
+    if(k === 'weekly') return (r.rule.days || []).indexOf(dow) > -1;
+    if(k === 'biweekly'){ const a = r.rule.anchor || r.start_day; if(!a || day < a) return false; const n = Math.round((D(day) - D(a)) / 864e5); return n % 14 === 0; }
+    if(k === 'monthly'){ const dom = Number(r.rule.dom) || 1, d = D(day), last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); return d.getDate() === Math.min(dom, last); }
+    if(k === 'last_biz') return day === lastBiz(day.slice(0, 7));
+    return false;
+  }
+  function repeatWords(r){
+    const k = r && r.rule && r.rule.kind; if(!k) return '';
+    const ord = n => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+    const w = k === 'daily' ? 'every day' : k === 'weekdays' ? 'every weekday' : k === 'weekly' ? 'weekly on ' + (r.rule.days || []).slice().sort().map(d => DOW[d].slice(0, 3)).join(', ')
+      : k === 'biweekly' ? 'every 2 weeks on ' + DOW[D(r.rule.anchor || r.start_day).getDay()] + (r.rule.anchor ? ' (from ' + fmtTiny(r.rule.anchor) + ')' : '') : k === 'monthly' ? 'monthly on the ' + ord(Number(r.rule.dom) || 1) : k === 'last_biz' ? 'the last business day of the month' : '';
+    return w + (r.time_text ? ' · ' + r.time_text : '') + (r.end_day ? ' · until ' + fmtTiny(r.end_day) : '');
+  }
+  /* which rules want a line on this day and have none yet (a line remembers its rule in link.repeat_id) */
+  function repeatsMissing(day, lines, repeats){
+    const have = new Set((lines || []).filter(l => !l.erased_at && l.place === 'day' && l.day === day && l.link && l.link.repeat_id).map(l => l.link.repeat_id));
+    return (repeats || []).filter(r => !r.erased_at && repeatDue(r, day) && !have.has(r.id));
+  }
   function parseTime(t){
     const m = String(t).match(/\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?(?![\d-])/i) || String(t).match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
     if(!m) return null;
@@ -115,17 +143,20 @@
   /* ---------------------------------------------- storage (Desktop 463 tables) ---------------------------------------------- */
   const LINE_COLS = 'id,person_id,place,day,pos,kind,body,done_at,origin_day,moved_to,ghost_of,star,circle,link,time_text,standup_item_id,talked_at,owner_star_by,erased_at,rev,updated_at';
   const STICK_COLS = 'id,person_id,color,body,side,x,y,rot,z,from_person_id,seen_at,ack_at,erased_at,rev,updated_at';
+  const REP_COLS = 'id,person_id,from_person_id,body,time_text,rule,start_day,end_day,skips,link,active,stopped_at,stopped_by,erased_at,rev,updated_at';
   const store = {
     async me(){ const { data, error } = await sb.rpc('desk_me'); if(error) throw error; return data || null; },
     async load(me, from){
-      const [l, s, st, pg] = await Promise.all([
+      const [l, s, st, pg, rp] = await Promise.all([
         sb.from('desk_lines').select(LINE_COLS).eq('person_id', me).is('erased_at', null).or('place.neq.day,day.gte.' + from),
         sb.from('desk_stickies').select(STICK_COLS).eq('person_id', me).is('erased_at', null),
         sb.from('desk_settings').select('person_id,pad_labels,mat,ink,neat,photo').eq('person_id', me).maybeSingle(),
-        sb.from('desk_pages').select('day,leftovers_done,stamp,dogear,wrapped_at').eq('person_id', me).gte('day', from)
+        sb.from('desk_pages').select('day,leftovers_done,stamp,dogear,wrapped_at').eq('person_id', me).gte('day', from),
+        sb.from('desk_repeats').select(REP_COLS).eq('person_id', me).is('erased_at', null)
       ]);
       const e = l.error || s.error || st.error || pg.error; if(e) throw e;
-      return { lines: l.data || [], stickies: s.data || [], settings: st.data || null, pages: pg.data || [] };
+      /* 495: the repeating-tasks table may not be installed yet; then there are simply none */
+      return { lines: l.data || [], stickies: s.data || [], settings: st.data || null, pages: pg.data || [], repeats: rp.error ? [] : (rp.data || []) };
     },
     /* Older pages, for Month (desks only load the last 75 days up front). */
     async loadDays(me, from, to){
@@ -174,7 +205,7 @@
   const ST = () => window.dkStore || store;
 
   /* ---------------------------------------------- state ---------------------------------------------- */
-  const DK = { me:null, loaded:false, err:null, lines:[], stickies:[], settings:null, pages:{}, day:null, laterOpen:false, noteMode:false,
+  const DK = { me:null, loaded:false, err:null, lines:[], stickies:[], settings:null, pages:{}, repeats:[], repOpen:false, day:null, laterOpen:false, noteMode:false,
                turn:null, receive:null, born:null, sig:'', editing:false, timer:null, view:'day', month:null, monthData:{}, justStamped:null, who:null, visits:[], ev:null, tray:{}, warm:false, kind:[], jarN:0, waitN:0 };
   window.DK = DK;
   const T = () => todayStr();
@@ -290,6 +321,7 @@
       DK.lines = r.lines.map(l => Object.assign({}, l, { pos:Number(l.pos) })).concat(older);
       DK.stickies = r.stickies;
       DK.settings = r.settings;
+      DK.repeats = (r.repeats || []).map(x => Object.assign({}, x, { skips:Array.isArray(x.skips) ? x.skips : [] }));
       const oldPages = {}; Object.keys(DK.pages).forEach(k => { if(k < from) oldPages[k] = DK.pages[k]; });
       DK.pages = oldPages; (r.pages || []).forEach(p => { DK.pages[p.day] = p; });
       DK.loaded = true; DK.err = null;
@@ -302,8 +334,91 @@
         try{ DK.kind = ST().kindDrops ? (await ST().kindDrops(DK.me)).filter(d => d.kind_words) : []; DK.jarN = ST().jarCount ? await ST().jarCount() : 0; }catch(e){ DK.kind = []; }
         try{ DK.waitN = ST().waitCount ? await ST().waitCount() : 0; }catch(e){ DK.waitN = 0; }
       }
+      if(!ro()) ensureRepeats(DK.day || T());
       const sig = signature(); if(sig !== DK.sig || force){ DK.sig = sig; render(); }
     }catch(e){ DK.err = String((e && e.message) || e); DK.loaded = true; render(); }
+  }
+
+  /* ---------------------------------------------- repeating tasks (495) ---------------------------------------------- */
+  const repById = id => DK.repeats.find(r => r.id === id);
+  /* may I change or stop this rule? my own, or one I signed as an owner */
+  const canRule = r => !!r && (r.from_person_id ? r.from_person_id === DK.me : (r.person_id === DK.me && !ro()));
+  /* my own desk: the lines a day's rules want and does not have yet are written now (the person's own browser, so the desk's rules allow it) */
+  function ensureRepeats(day){
+    if(ro() || !DK.me || !day) return 0;
+    const miss = repeatsMissing(day, DK.lines, DK.repeats); if(!miss.length) return 0;
+    const arr = inPlace(DK.lines, 'day', day); let pos = arr.length ? arr[arr.length - 1].pos : 0;
+    action(null, ctx => { miss.forEach(r => { pos += 1; ctx.addLine({ place:'day', day, origin_day:day, pos, kind:'todo', body:r.body, time_text:r.time_text || null, link:Object.assign({}, r.link || {}, { type:'repeat', repeat_id:r.id, from:r.from_person_id || null, nohint:true }) }); }); });
+    return miss.length;
+  }
+  async function repSave(row, isNew){
+    try{
+      if(isNew){ const saved = await ST().insert('desk_repeats', row); DK.repeats.push(Object.assign({}, saved, { skips:Array.isArray(saved.skips) ? saved.skips : [] })); return saved; }
+      const cur = repById(row.id); const saved = await ST().update('desk_repeats', row.id, cur ? cur.rev : null, row.patch);
+      if(!saved){ saveFailed(null, true); return null; } Object.assign(cur, saved, { skips:Array.isArray(saved.skips) ? saved.skips : [] }); return saved;
+    }catch(e){ saveFailed(e); return null; }
+  }
+  const RULE_KINDS = [['weekdays', 'Every weekday'], ['daily', 'Every day'], ['weekly', 'Weekly, on these days'], ['biweekly', 'Every 2 weeks, from a date (payroll)'], ['monthly', 'Monthly, on a date'], ['last_biz', 'Monthly, the last business day']];
+  /* the little form: for a line (Make this repeat), for a rule (Change the repeat), or a new one (Add a repeating task) */
+  function repeatOpen(anchor, o){
+    o = o || {}; closeMenu();
+    const r = o.repeatId ? repById(o.repeatId) : null, l = o.lineId ? lineById(o.lineId) : null;
+    const rule = (r && r.rule) || { kind:'weekdays' }, who = r ? r.person_id : deskOf(), signed = r ? !!r.from_person_id : ro();
+    const m = document.createElement('div'); m.className = 'dk-menu dk-repform'; m.id = 'dkMenu';
+    m.innerHTML = '<div class="dk-mh">' + icon('day') + (r ? 'Change the repeat' : l ? 'Make this repeat' : 'Add a repeating task') + (signed ? ' <span class="dk-k">signed from ' + esc(firstName(r ? r.from_person_id : DK.me)) + '</span>' : '') + '</div>'
+      + (l || r ? '<div class="dk-repbody">' + esc(l ? l.body : r.body) + '</div>' : '<input id="rpBody" maxlength="1000" placeholder="What repeats? (for example: Payroll timesheets to Samantha)" value="">')
+      + '<select id="rpKind">' + RULE_KINDS.map(k => '<option value="' + k[0] + '"' + (rule.kind === k[0] ? ' selected' : '') + '>' + k[1] + '</option>').join('') + '</select>'
+      + '<div id="rpDays" class="dk-repdays">' + [1,2,3,4,5,6,0].map(d => '<label><input type="checkbox" value="' + d + '"' + ((rule.days || []).indexOf(d) > -1 ? ' checked' : '') + '> ' + DOW[d].slice(0, 3) + '</label>').join('') + '</div>'
+      + '<div id="rpAnchor" class="dk-reprow"><span>First one on</span><input type="date" id="rpAnchorIn" value="' + esc(rule.anchor || (r && r.start_day) || T()) + '"></div>'
+      + '<div id="rpDom" class="dk-reprow"><span>On the</span><input type="number" id="rpDomIn" min="1" max="31" value="' + esc(rule.dom || D(T()).getDate()) + '"><span>of the month</span></div>'
+      + '<div class="dk-reprow"><span>Time (optional)</span><input id="rpTime" maxlength="20" placeholder="9 am" value="' + esc((r && r.time_text) || (l && l.time_text) || '') + '"></div>'
+      + '<div class="dk-reprow"><span>Until (optional)</span><input type="date" id="rpEnd" value="' + esc((r && r.end_day) || '') + '"></div>'
+      + '<div class="dk-repnote">' + (signed ? esc(firstName(who)) + ' can tick it done each time and skip a day; only you can change or stop it.' : 'It lands on the day\'s page by itself. Nothing texts or reminds anyone.') + '</div>'
+      + '<div class="dk-repbtns"><button class="dk-lbtn" data-rp="save">' + (r ? 'Save' : 'Start repeating') + '</button><button class="dk-lbtn dk-ghosty" data-rp="cancel">Cancel</button></div>';
+    document.body.appendChild(m);
+    const rr = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : { left:innerWidth / 2 - 150, top:120, bottom:140 };
+    if(innerWidth < 600){ m.style.left = '8px'; m.style.right = '8px'; m.style.bottom = '8px'; }
+    else { m.style.left = Math.max(8, Math.min(innerWidth - 320, rr.left)) + 'px'; const h = m.offsetHeight; m.style.top = (rr.bottom + h + 8 > innerHeight ? Math.max(8, rr.top - h - 6) : rr.bottom + 6) + 'px'; }
+    const sync = () => { const k = m.querySelector('#rpKind').value; m.querySelector('#rpDays').style.display = k === 'weekly' ? '' : 'none'; m.querySelector('#rpAnchor').style.display = k === 'biweekly' ? '' : 'none'; m.querySelector('#rpDom').style.display = k === 'monthly' ? '' : 'none'; };
+    m.querySelector('#rpKind').onchange = sync; sync();
+    m.onkeydown = e => { e.stopPropagation(); if(e.key === 'Escape') closeMenu(); };
+    m.querySelector('[data-rp="cancel"]').onclick = closeMenu;
+    m.querySelector('[data-rp="save"]').onclick = async () => {
+      const kind = m.querySelector('#rpKind').value, days = [...m.querySelectorAll('#rpDays input:checked')].map(x => Number(x.value));
+      const nr = { kind }; if(kind === 'weekly'){ if(!days.length){ say('Pick at least one day.'); return; } nr.days = days; }
+      if(kind === 'biweekly'){ const a = m.querySelector('#rpAnchorIn').value; if(!a){ say('Pick the first day.'); return; } nr.anchor = a; }
+      if(kind === 'monthly') nr.dom = Math.max(1, Math.min(31, Number(m.querySelector('#rpDomIn').value) || 1));
+      const time = m.querySelector('#rpTime').value.trim().slice(0, 20) || null, end = m.querySelector('#rpEnd').value || null;
+      const body = l ? l.body : r ? r.body : String((m.querySelector('#rpBody') || {}).value || '').trim().slice(0, 1000);
+      if(!body){ say('Say what repeats.'); return; }
+      closeMenu();
+      if(r){ await repSave({ id:r.id, patch:{ rule:nr, time_text:time, end_day:end } }, false); render(); say('The repeat was changed'); return; }
+      const row = { id:uid(), person_id:who, from_person_id:signed ? DK.me : null, body, time_text:time, rule:nr, start_day:(nr.anchor && nr.anchor < T()) ? nr.anchor : T(), end_day:end, skips:[], active:true, link:l && l.link ? pick(l.link, ['type','id','ax','name','work_id']) : null };
+      const saved = await repSave(row, true); if(!saved) return;
+      if(l) action(null, ctx => ctx.setLine(l.id, { link:Object.assign({}, l.link || {}, { type:'repeat', repeat_id:row.id, from:row.from_person_id, nohint:true }), time_text:time || l.time_text || null }));
+      if(!ro()) ensureRepeats(DK.day);
+      render(); say(ro() ? firstName(who) + ' will see it on the right days, signed from you.' : 'It will be on the page ' + repeatWords(row) + '.');
+    };
+    const f = m.querySelector('input,select'); if(f) f.focus();
+  }
+  /* skip this one time: the line goes, the day is remembered on the rule, the rule keeps going */
+  function repeatSkip(lineId){
+    const l = lineById(lineId), rid = l && l.link && l.link.repeat_id, r = rid && repById(rid); if(!l) return;
+    action('Skipped this time. It keeps repeating.', ctx => ctx.setLine(l.id, { erased_at:new Date().toISOString() }));
+    if(r && l.day && r.skips.indexOf(l.day) < 0){ const skips = r.skips.concat([l.day]).slice(-200); r.skips = skips; repSave({ id:r.id, patch:{ skips } }, false); }
+  }
+  async function repeatStop(rid){
+    const r = repById(rid); if(!r || !canRule(r)) return;
+    if(!confirm('Stop "' + r.body + '" from repeating? The lines already on pages stay.')) return;
+    await repSave({ id:r.id, patch:{ active:false } }, false); render(); say('Stopped repeating');
+  }
+  function repeatsHtml(){
+    const list = DK.repeats.filter(r => !r.erased_at && r.active).sort((a, b) => String(a.body).localeCompare(String(b.body)));
+    const canAdd = !ro() || iOwn();
+    return '<div class="dk-repeats"><button class="dk-reptab" data-dk="rep-open" aria-expanded="' + (DK.repOpen ? 'true' : 'false') + '">' + icon('day') + 'Repeating' + (list.length ? ' (' + list.length + ')' : '') + '</button>'
+      + (DK.repOpen ? '<div class="dk-replist">' + (list.length ? list.map(r => '<div class="dk-rep"><b>' + esc(r.body) + '</b><span>' + esc(repeatWords(r)) + (r.from_person_id ? ' · from ' + esc(firstName(r.from_person_id)) : '') + '</span>'
+          + (canRule(r) ? '<span class="dk-repacts"><button class="dk-tool" data-dk="rep-change" data-rid="' + r.id + '">Change</button><button class="dk-tool" data-dk="rep-stop" data-rid="' + r.id + '">Stop</button></span>' : '') + '</div>').join('') : '<div class="dk-rep dk-repnone">Nothing repeats yet. Any to-do\'s ⋯ menu has Make this repeat.</div>')
+        + (canAdd ? '<button class="dk-lbtn dk-repadd" data-dk="rep-add">' + (ro() ? 'Add a repeating task for ' + esc(firstName(DK.who)) : 'Add a repeating task') + '</button>' : '') + '</div>' : '') + '</div>';
   }
 
   /* ---------------------------------------------- moving lines ---------------------------------------------- */
@@ -364,6 +479,7 @@
   }
   function eraseLine(id){
     const l = lineById(id); if(!l) return;
+    if(l.link && l.link.repeat_id && l.place === 'day'){ repeatSkip(id); return; }   /* 495: erasing a repeating line is skipping this time */
     const block = l.kind === 'todo' ? blockOf(inPlace(DK.lines, l.place, l.day), id) : [l];
     block.forEach(b => { if(flagged(b)) trayOut(b.standup_item_id); });
     action('Erased. Only you saw that.', ctx => { const now = new Date().toISOString(); block.forEach(b => ctx.setLine(b.id, { erased_at:now })); });
@@ -408,6 +524,7 @@
     if(l.link && l.link.type && l.link.type !== 'work' && l.link.name) chips.push('<button class="dk-chip dk-clip" data-dk="link" title="Open ' + esc(l.link.name) + '">' + icon('clip') + esc(l.link.name) + '</button>');
     if(l.link && (l.link.type === 'work' || l.link.work_id)) chips.push('<button class="dk-chip dk-work" data-dk="link" data-work="1" title="Open it in My Work">' + icon('clip') + 'My Work</button>');
     if(flagged(l)) chips.push('<span class="dk-chip dk-talk" title="Flagged to talk about">' + icon('talk') + 'to talk about</span>');
+    if(l.link && l.link.type === 'repeat'){ const rr = repById(l.link.repeat_id); chips.push('<span class="dk-chip dk-rep" title="' + esc(rr ? repeatWords(rr) : 'repeats') + '">↻ repeats' + (l.link.from ? ' · from ' + esc(firstName(l.link.from)) : '') + '</span>'); }
     if(l.time_text && !l.done_at) chips.push('<span class="dk-chip dk-time">' + icon('clock') + esc(l.time_text) + '</span>');
     if(c) chips.push('<span class="dk-chip dk-carry' + (c4 ? ' dk-carry4' : '') + '">' + esc(c.label) + '</span>');
     if(c4 && R && iOwn()) chips.push('<span class="dk-chip dk-hand">might need a hand?</span>');
@@ -443,6 +560,7 @@
       + (!R && tucked().length ? '<button class="dk-mtuck" data-dk="kind">Kind words came in (' + tucked().length + ')</button>' : '')
       + '<ol class="dk-list" data-dkdrop="list" data-day="' + day + '">'
       +   arr.map((l, i) => rowHtml(l, i, day)).join('')
+      +   (R ? repeatsMissing(day, DK.lines, DK.repeats).map((r, i) => rowHtml({ id:'v_' + r.id, kind:'todo', body:r.body, time_text:r.time_text, link:{ type:'repeat', repeat_id:r.id, from:r.from_person_id || null }, done_at:null, pos:9e9 + i }, arr.length + i, day)).join('') : '')
       +   (R ? '' : '<li class="dk-jot' + (DK.noteMode ? ' dk-notemode' : '') + '"><button class="dk-mode" data-dk="jotmode" title="' + (DK.noteMode ? 'Writing a note. Click for a to-do' : 'Writing a to-do. Click to scribble a note instead (or Shift+Enter)') + '" aria-label="Switch between a to-do and a note">'
       +     icon(DK.noteMode ? 'pencil' : 'box') + '</button><input id="dkJot" data-day="' + day + '" maxlength="1000" placeholder="' + (DK.noteMode ? 'scribble a note…' : 'jot something down…') + '" autocomplete="off" aria-label="Jot something down">'
       +     '<span class="dk-tip">Enter for a to-do · Shift+Enter for a note</span></li>')
@@ -1060,6 +1178,7 @@
     setTimeout(() => { clone.remove(); cell.style.visibility = ''; }, 520);
   }
   function zoomIn(day){
+    ensureRepeats(day);
     const cell = $('#dkWrap [data-mday="' + day + '"]'), r1 = cell ? cell.getBoundingClientRect() : null;
     DK.view = 'day'; DK.day = day; DK.turn = null;
     if(day < addDays(T(), -75)){ const md = DK.monthData[day.slice(0, 7)];   /* an older page: bring its lines onto the desk so it opens as usual */
@@ -1119,7 +1238,7 @@
       + '<div class="dk-bits"><button class="dk-polaroid" ' + (ro() ? 'tabindex="-1"' : 'data-dk="photo" title="Put your own photo here"') + '><div class="dk-img"' + (st.photo ? ' style="background-image:url(\'' + esc(st.photo) + '\')"' : '') + '>' + (st.photo ? '' : '<svg aria-hidden="true"><use href="#dk-heart"/></svg>') + '</div><span class="dk-cap">' + (st.photo || ro() ? '' : 'your photo') + '</span></button>'
       + (ro() ? '' : '<button class="dk-cup" data-dk="prefs" title="Make it yours" aria-label="Make it yours"><svg viewBox="0 0 52 78" aria-hidden="true"><path d="M14 30l6-26" stroke="#F0A63A" stroke-width="5" stroke-linecap="round"/><path d="M26 30V6" stroke="#8FD1C7" stroke-width="5" stroke-linecap="round"/><path d="M36 30l5-22" stroke="#f8c5d2" stroke-width="5" stroke-linecap="round"/><path d="M8 30h36l-3 44H11z" fill="#0D365F"/><path d="M8 30h36" stroke="#E8C988" stroke-width="3"/></svg></button>') + '</div>'
       + '<input type="file" id="dkPhotoIn" accept="image/*" hidden></div>';
-    const right = '<div class="dk-rail dk-r"><div class="dk-zone dk-zr"></div>' + (ro() ? '' : tapedHtml()) + folderHtml()
+    const right = '<div class="dk-rail dk-r"><div class="dk-zone dk-zr"></div>' + (ro() ? '' : tapedHtml()) + folderHtml() + repeatsHtml()
       + '<div class="dk-bits"><button class="dk-jar" data-dk="jar" title="The office\'s Kind Words jar" aria-label="The Kind Words jar">' + jarSvg(DK.jarN) + (DK.waitN && !ro() ? '<span class="dk-jarwait">' + DK.waitN + ' waiting</span>' : '') + '</button><button class="dk-mug" data-dk="mug" title="A little something with your coffee" aria-label="A quote or a Bible verse"><div class="dk-steam"><i></i><i></i><i></i></div><svg viewBox="0 0 64 78"><path d="M8 22h40v38c0 8-6 13-14 13H22c-8 0-14-5-14-13z" fill="#f2eee3"/><path d="M48 32h5a8 8 0 0 1 0 16h-5" fill="none" stroke="#f2eee3" stroke-width="5"/><ellipse cx="28" cy="22" rx="20" ry="4" fill="#7a4a22"/><path d="M28 54c-4-2.6-5.8-4.6-5.8-6.6 0-1.6 1.2-2.6 2.5-2.6s2.2.7 3.3 2c1-1.3 2-2 3.3-2s2.5 1 2.5 2.6c0 2-1.8 4-5.8 6.6z" fill="#1F7A8C"/></svg></button>'
       + (ro() ? '' : '<button class="dk-eraser" data-dkdrop="erase" data-dk="erase-help" title="Drop a line or a sticky here to erase it">ERASE</button>')
       + '<button class="dk-help" data-dk="help">How to</button></div></div>';
@@ -1169,7 +1288,7 @@
     let clone = null;
     if(old && !reduced()){ const h = old.offsetHeight; clone = old.cloneNode(true); clone.classList.remove('dk-turn-next','dk-turn-prev'); clone.classList.add('dk-out', 'dk-out-' + dir);
       clone.querySelectorAll('[id],[data-dkdrop],[data-dk]').forEach(e => { e.removeAttribute('id'); e.removeAttribute('data-dkdrop'); e.removeAttribute('data-dk'); }); clone.style.height = h + 'px'; }
-    DK.turn = dir; DK.day = day; render();
+    DK.turn = dir; DK.day = day; ensureRepeats(day); render();
     if(clone){ const pl = $('#dkPlanner'), pg = pl && pl.querySelector('.dk-page'); if(pg){ pl.insertBefore(clone, pg); setTimeout(() => clone.remove(), 520); } }
   }
 
@@ -1190,8 +1309,11 @@
       + (onDay ? '<hr>' + (todo ? '<button data-m="noteunder">' + icon('pencil') + 'Scribble a note under it</button>' : '<button data-m="todo">' + icon('box') + 'Make it a to-do</button>')
         + '<button data-m="up">' + icon('up') + 'Up one line<span class="dk-k">Alt ↑</span></button><button data-m="down">' + icon('down') + 'Down one line<span class="dk-k">Alt ↓</span></button>' : '')
       + (todo && !(l.link && (l.link.work_id || l.link.type === 'work')) ? '<button data-m="follow">' + icon('later') + 'Make it a Hub follow-up</button>' : '')
+      + (todo && !(l.link && l.link.type === 'repeat') ? '<button data-m="repeat">' + icon('day') + 'Make this repeat…</button>' : '')
+      + (todo && l.link && l.link.type === 'repeat' ? (function(){ const rr = repById(l.link.repeat_id); return '<hr><div class="dk-mh">↻ ' + esc(rr ? repeatWords(rr) : 'repeats') + (l.link.from ? ' · from ' + esc(firstName(l.link.from)) : '') + '</div>'
+          + (onDay ? '<button data-m="rep-skip">' + icon('next') + 'Skip this time</button>' : '') + (rr && canRule(rr) ? '<button data-m="rep-change" data-rid="' + rr.id + '">' + icon('pencil') + 'Change the repeat…</button><button data-m="rep-stop" data-rid="' + rr.id + '">' + icon('x') + 'Stop repeating</button>' : ''); })() : '')
       + '<button data-m="edit">' + icon('pencil') + 'Change the words<span class="dk-k">Enter</span></button><hr>'
-      + '<button data-m="erase">' + icon('erase') + 'Erase<span class="dk-k">Del</span></button>';
+      + '<button data-m="erase">' + icon('erase') + (l.link && l.link.type === 'repeat' && onDay ? 'Erase (skip this time)' : 'Erase') + '<span class="dk-k">Del</span></button>';
     document.body.appendChild(m);
     const r = anchor.getBoundingClientRect();
     if(innerWidth < 600){ m.style.left = '8px'; m.style.right = '8px'; m.style.bottom = '8px'; }
@@ -1216,6 +1338,10 @@
     else if(a === 'edit'){ const t = $('[data-dkid="' + id + '"] .dk-txt') || $('[data-dkid="' + id + '"] .dk-st'); if(t) startEdit(t, id); }
     else if(a === 'erase') eraseLine(id);
     else if(a === 'follow') followUp(id);
+    else if(a === 'repeat') repeatOpen(el, { lineId:id });
+    else if(a === 'rep-skip') repeatSkip(id);
+    else if(a === 'rep-change') repeatOpen(el, { repeatId:el.dataset.rid });
+    else if(a === 'rep-stop') repeatStop(el.dataset.rid);
   }
   function noteUnder(id){
     const l = lineById(id); if(!l || l.place !== 'day') return;
@@ -1273,6 +1399,10 @@
     reload: () => { DK.err = null; DK.loaded = false; render(); load(true); },
     go: a => { if(DK.view !== 'day'){ DK.view = 'day'; DK.day = a.dataset.day; render(); return; } flipTo(a.dataset.day); },
     later: () => { DK.laterOpen = !DK.laterOpen; render(); },
+    'rep-open': () => { DK.repOpen = !DK.repOpen; render(); },
+    'rep-add': a => repeatOpen(a, {}),
+    'rep-change': a => repeatOpen(a, { repeatId:a.dataset.rid }),
+    'rep-stop': a => repeatStop(a.dataset.rid),
     toggle: a => toggle(a.closest('[data-dkid]').dataset.dkid),
     edit: a => startEdit(a, a.closest('[data-dkid]').dataset.dkid),
     't-next': a => { const id = a.closest('[data-dkid]').dataset.dkid, l = lineById(id); moveLine(id, { place:'day', day:nextBiz(l.day || T()) }); },
@@ -1957,6 +2087,20 @@ body.dk-dragging, body.dk-dragging *{ cursor:grabbing !important; user-select:no
 .dk-jotpill svg{ width:14px; height:14px; }
 button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale); color:#155A68; } .dk-work{ background:rgba(31,122,140,.12); color:#155A68; }
 .dk-phone{ color:inherit; text-decoration:underline dotted; text-underline-offset:4px; cursor:pointer; }
+.dk-repeats{ margin-top:10px; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; }
+.dk-reptab{ width:100%; border:1px dashed rgba(13,54,96,.25); background:rgba(255,255,255,.55); border-radius:10px; padding:7px 10px; font-size:12.5px; font-weight:700; color:#0D365F; display:flex; gap:6px; align-items:center; cursor:pointer; }
+.dk-reptab svg{ width:14px; height:14px; }
+.dk-replist{ background:#fffdf8; border:1px solid #e4e1d8; border-radius:10px; padding:8px 10px; margin-top:6px; display:flex; flex-direction:column; gap:6px; }
+.dk-rep{ font-size:12.5px; display:flex; flex-direction:column; gap:2px; padding:4px 0; border-top:1px solid #efece4; } .dk-rep:first-child{ border-top:0; } .dk-rep b{ color:#16283a; } .dk-rep span{ color:#6E6559; font-size:12px; }
+.dk-repacts{ display:flex; gap:6px; } .dk-repacts .dk-tool{ font-size:11.5px; padding:2px 8px; border:1px solid #e4e1d8; border-radius:8px; background:#fff; cursor:pointer; }
+.dk-repnone{ color:#6E6559; font-size:12px; } .dk-repadd{ align-self:flex-start; margin-top:4px; }
+.dk-chip.dk-rep{ background:rgba(31,122,140,.10); color:#155A68; }
+.dk-repform{ min-width:300px; max-width:360px; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13px; }
+.dk-repform select, .dk-repform input:not([type=checkbox]){ width:100%; box-sizing:border-box; font:inherit; padding:6px 8px; border:1px solid #e4e1d8; border-radius:8px; margin:4px 0; }
+.dk-repbody{ font-weight:700; color:#16283a; padding:4px 6px 6px; }
+.dk-repdays{ display:flex; flex-wrap:wrap; gap:4px 10px; padding:4px 6px; } .dk-repdays label{ display:flex; gap:4px; align-items:center; font-size:12.5px; } .dk-repdays input{ width:auto; margin:0; }
+.dk-reprow{ display:flex; gap:8px; align-items:center; padding:0 6px; } .dk-reprow span{ color:#6E6559; font-size:12px; white-space:nowrap; } .dk-reprow input{ flex:1; }
+.dk-repnote{ color:#6E6559; font-size:12px; padding:4px 6px; } .dk-repbtns{ display:flex; gap:8px; padding:6px; } .dk-repbtns .dk-ghosty{ background:#fff; color:#0D365F !important; border:1px solid #e4e1d8; }
 .dk-hint{ list-style:none; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12.5px; color:#7a4d06; line-height:1.4; padding:2px 0 8px 35px; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
 .dk-hint button{ font-size:11.5px; font-weight:700; border-radius:14px; padding:2px 10px; border:1px solid var(--honey); background:var(--paper); color:#7a4d06 !important; }
 .dk-hint .dk-yes{ background:var(--honey); color:#2b1d00 !important; }
@@ -2034,5 +2178,5 @@ button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale
 `;
 
   Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkKindToggle, dkTellToggle, dkTellsMap:() => tellsMap(), dkAllowed, dkWarm, dkQuickJot, dkJotOpen, dkShiftHtml, dkShiftApply, dkRefresh, dkJotWork, dkDashRender, dkDrawer:toggleDrawer });
-  window.DKX = { mugOpen, mugKind, kindOpen, jarOpen, clipOpen, kindState, tucked, deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, talkToggle, talkSync, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
+  window.DKX = { repeatDue, repeatWords, repeatsMissing, ensureRepeats, repeatOpen, repeatSkip, repeatStop, lastBiz, mugOpen, mugKind, kindOpen, jarOpen, clipOpen, kindState, tucked, deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, talkToggle, talkSync, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
 })();
