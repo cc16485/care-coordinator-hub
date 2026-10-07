@@ -246,6 +246,22 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('...without a draft the same lead is just Scheduled', R.boardRow({ first_name:'Tom', first_human_contact_at:'2026-09-30T14:00:00Z', follow_up_due:'2026-10-09' }, CTX({ stage:'connected' })).group === 'later');
 }
 
+/* clean-up 6.7: one status writer */
+{
+  const l = { id:'x' };
+  ck('a new lead reads as New; setting New again changes nothing', R.setStatus(l, 'New', { by:'k' }) === false && !l.status_history);
+  ck('New → Contacted: written with who, when and why', R.setStatus(l, 'Contacted', { by:'krystal@mo-care.com', why:'first real conversation', at:'2026-10-06T15:00:00Z' }) === true && l.status === 'Contacted' && l.status_history.length === 1 && l.status_history[0].from === 'New' && l.status_history[0].why === 'first real conversation');
+  R.setStatus(l, 'Converted', { by:'k', at:'2026-10-07T15:00:00Z' });
+  ck('→ Converted stamps converted_at once', l.converted_at === '2026-10-07T15:00:00Z' && (R.setStatus(l, 'Converted', {}) === false) && l.converted_at === '2026-10-07T15:00:00Z');
+  const m = { status:'Contacted' };
+  R.setStatus(m, 'Lost', { by:'k', why:'Price', at:'2026-10-07T16:00:00Z' });
+  ck('→ Lost stamps lost_at; "not lost after all" knows what it was before', m.lost_at === '2026-10-07T16:00:00Z' && R.statusBeforeLost(m) === 'Contacted');
+  R.setStatus(m, 'Contacted', { by:'k', why:'not lost after all', at:'2026-10-08T16:00:00Z' });
+  ck('back from Lost: lost_undone_at stamped, history keeps both moves', m.lost_undone_at === '2026-10-08T16:00:00Z' && m.status_history.length === 2 && m.status === 'Contacted');
+  let threw = false; try{ R.setStatus(m, 'Won'); }catch(e){ threw = true; } ck('an unknown status is refused', threw);
+  ck('before Lost with no history: Contacted if a conversation happened, else New', R.statusBeforeLost({ first_human_contact_at:'x' }) === 'Contacted' && R.statusBeforeLost({}) === 'New');
+}
+
 /* the Hub page and the server run the same file */
 const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));
