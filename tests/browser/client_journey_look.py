@@ -186,7 +186,7 @@ async()=>{
   [...H().querySelectorAll('.cj-every .linklike')].find(b=>/More…/.test(b.textContent)).click(); await sleep(150);
   ok('...More… brings the older lead card back (and Hide the rest puts it away)', document.getElementById('lp_head_card').style.display!=='none' && /Hide the rest/.test(H().innerText));
   [...H().querySelectorAll('.cj-every .linklike')].find(b=>/Hide the rest/.test(b.textContent)).click(); await sleep(150);
-  ok('...the contact line: who, the phone (calls from the office line) and the lead status', !!H().querySelector('.cj-contact a[data-oc-phone]') && H().querySelector('.cj-status').value==='Contacted' && document.getElementById('lp_head_card').style.display==='none');
+  ok('...the contact line: who, the phone (calls from the office line) and the stage words with Mark lost (clean-up 6.7: no dropdown)', !!H().querySelector('.cj-contact a[data-oc-phone]') && /Talking/.test(H().querySelector('.cj-contact').innerText) && /Mark lost/.test(H().querySelector('.cj-contact').innerText) && !H().querySelector('.cj-status'), H().querySelector('.cj-contact')&&H().querySelector('.cj-contact').innerText);
   // the whole journey tab
   cpShowTab('start'); await sleep(150);
   ok('Start of Care: the whole journey by stage, with who did each step and when', /The whole journey/.test(ST().innerText) && /PRE-CHECKS/i.test(ST().innerText) && /Angie Care, /.test(ST().innerText) && /Owner exception/.test(ST().innerText));

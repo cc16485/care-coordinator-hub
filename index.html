@@ -5052,9 +5052,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 <div class="cp-lead">
       <div class="card" id="lp_head_card" style="padding:18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-          <select id="lp_status" onchange="lpSetStatus(this.value)" style="width:auto;font-weight:600;">
-            <option value="New">New</option><option value="Contacted">Talking</option><option value="Assessment Scheduled">Assessment booked</option><option value="Converted">Won · getting ready</option><option value="Lost">Past · did not start</option>
-          </select>
+          <span id="lp_stage"></span>
           <span class="field-note" id="lp_id_label" style="margin-left:auto;"></span>
         </div>
         <div style="display:flex;align-items:center;gap:12px;">
@@ -6473,10 +6471,9 @@ The HomeTogether team</pre>
 <div class="section-title">Office Use</div>
 <div class="grid2">
 <div>
-<label>Status</label>
-<select id="lead_status">
-<option>New</option><option>Contacted</option><option>Assessment Scheduled</option><option>Converted</option><option>Lost</option>
-</select>
+<label>Stage</label>
+<div id="lead_stage_ro" class="field-note" style="padding:8px 0;">New</div>
+<div class="field-note" style="font-size:10.5px;">Changes from what happens: a logged conversation, a booked assessment, They said yes, Mark lost. (Clean-up 6.7)</div>
 </div>
 <div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator" placeholder="auto-fills from funding source"><div class="field-note" style="font-size:10.5px;margin-top:2px;">Private Pay &amp; LTC → Krystal · Medicaid, VA &amp; CDS → Angiel. Auto-fills when blank; override any time.</div></div>
 <div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
@@ -6847,7 +6844,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
-<script src="lead-rules.js?v=7"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=8"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -6883,8 +6880,8 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
-<script src="client-journey.js?v=7"></script>
-<script src="leads-board.js?v=5"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="client-journey.js?v=8"></script>
+<script src="leads-board.js?v=6"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -8925,7 +8922,7 @@ const LEAD_FIELDS=[
   ['days_needed','lead_days_needed','text'], ['times_needed','lead_times_needed','text'], ['number_of_hours','lead_number_of_hours','text'],
   ['funding_source','lead_funding_source','radio'], ['price_quoted','lead_price_quoted','check'],
   ['quoted_price_amount','lead_quoted_price_amount','text'],
-  ['status','lead_status','raw','New'], ['assigned_coordinator','lead_assigned_coordinator','text'],
+  ['assigned_coordinator','lead_assigned_coordinator','text'],
   ['axiscare_client_id','lead_axiscare_client_id','text'], ['dcn','lead_dcn','text'], ['county','lead_county','text'],
   ['state_submitted','lead_state_submitted','raw'], ['state_status','lead_state_status','raw'],
   ['interest_notes','lead_interest_notes','text'], ['why_called','lead_why_called','text'],
@@ -8984,6 +8981,7 @@ function openLeadModal(id){
   document.getElementById('leadModalTitle').textContent = id ? 'Edit Lead' : 'Add Lead';
   document.getElementById('lead_id').value = id || '';
   leadFormFill(l);
+  { const ro=document.getElementById('lead_stage_ro'); if(ro){ try{ ro.innerHTML=id?ccStageChip(ccLeadStage(l)):'New'; }catch(e){ ro.textContent=l.status||'New'; } } }
   /* what shows depends on the answers (these only show and hide; they never change a value) */
   toggleClientNameFields(!!l.client_name_not_provided);
   // Full address stays folded on a first call (city is enough); pop it open
@@ -9200,7 +9198,7 @@ async function ldLogCall(outcome, note, cbDate, cbTime){
   l.comm_log.push({ body:'☎ call — '+label+(note?': '+note.slice(0,400):''), at:new Date().toISOString(), by:a.email });
   l.last_contacted_at=today();          // legacy compat — old readers keep working
   if(outcome==='connected'){
-    if(String(l.status||'New')==='New') l.status='Contacted';
+    if(String(l.status||'New')==='New') LeadRules.setStatus(l, 'Contacted', { by:a.email, why:'first real conversation (logged call)' });
     const who=[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'the family';
     if(firstTime) opEvent('lead_connected',{item_id:String(l.id), area:'growth_leads',
       summary:a.name+' had the first real conversation with '+who});
@@ -9363,7 +9361,7 @@ async function lpMarkSpam(id, anchor){
     L.spam={ at:now, by, note:note||null, before:{ status:keep('status'), lost_reason:keep('lost_reason'), lost_at:keep('lost_at'), archived:!!L.archived,
       archived_at:keep('archived_at'), archived_by:keep('archived_by'), archive_reason:keep('archive_reason'), do_not_contact:!!L.do_not_contact,
       do_not_contact_at:keep('do_not_contact_at'), do_not_contact_reason:keep('do_not_contact_reason') } };
-    L.status='Lost'; L.lost_reason=LEAD_SPAM_REASON; L.lost_at=now;
+    LeadRules.setStatus(L, 'Lost', { by, why:LEAD_SPAM_REASON, at:now }); L.lost_reason=LEAD_SPAM_REASON; L.lost_at=now;
     L.archived=true; L.archived_at=now; L.archived_by=by; L.archive_reason='Spam';
     L.do_not_contact=true; L.do_not_contact_at=now; L.do_not_contact_reason='Marked spam';
     await persist('leads', L);
@@ -9382,7 +9380,7 @@ async function lpNotSpam(id, anchor){
   }
   const b=L.spam.before||{}, now=new Date().toISOString(), by=(ME&&(ME.email||ME.name))||'';
   const put=(k,v)=>{ if(v===null||v===undefined) delete L[k]; else L[k]=v; };
-  put('status', b.status||'New'); put('lost_reason', b.lost_reason); put('lost_at', b.lost_at);
+  LeadRules.setStatus(L, b.status||'New', { by, why:'not spam after all', at:now }); put('lost_reason', b.lost_reason); put('lost_at', b.lost_at);
   L.archived=!!b.archived; put('archived_at', b.archived_at); put('archived_by', b.archived_by); put('archive_reason', b.archive_reason);
   L.do_not_contact=!!b.do_not_contact; put('do_not_contact_at', b.do_not_contact_at); put('do_not_contact_reason', b.do_not_contact_reason);
   L.spam_history=(Array.isArray(L.spam_history)?L.spam_history:[]).concat([{ marked_at:L.spam.at, marked_by:L.spam.by, note:L.spam.note, unmarked_at:now, unmarked_by:by }]).slice(-10);
@@ -10030,7 +10028,7 @@ function renderLeadProfile(){
   const l = lpLead; if(!l) return;
   const esc = escapeHtmlComms;
   const name = [l.first_name,l.last_name].filter(Boolean).join(' ')||'(no name)';
-  document.getElementById('lp_status').value = l.status||'New';
+  { const st=document.getElementById('lp_stage'); if(st) st.innerHTML=lpStageControlHtml(l); }
   document.getElementById('lp_id_label').textContent = 'Lead · added '+String(l.created_at||'').slice(0,10);
   document.getElementById('lp_avatar').textContent = ((l.first_name||' ')[0]+(l.last_name||' ')[0]).toUpperCase().trim()||'?';
   document.getElementById('lp_name').textContent = name;
@@ -10060,14 +10058,30 @@ function renderLeadProfile(){
 }
 /* the not-ready drip and the 90-day lost text were retired 2026-10-07 (clean-up 6.3; Desktop 491 stopped every running one). The
    old nurture_* fields stay on the records as history; lead-rules.js reads a running one as waiting, nothing starts one. */
+/* clean-up 6.7: the stage is a consequence of what happened. The only hand moves left are Mark lost (with a reason) and
+   Not lost after all; both go through LeadRules.setStatus, which keeps the history. Shared with the journey header. */
+function lpStageControlHtml(l){
+  if(!l) return '';
+  const chip=(typeof ccStageChip==='function'&&typeof ccLeadStage==='function')?ccStageChip(ccLeadStage(l)):'<span class="tag-chip">'+escapeHtmlComms(l.status||'New')+'</span>';
+  const lost=String(l.status||'')==='Lost';
+  const btn=lost?'<button class="linklike" onclick="lpSetStatus(\'unlost\')" title="Puts them back where they were before Lost">Not lost after all</button>'
+    :(String(l.status||'')==='Converted'?'':'<button class="linklike" style="color:var(--red);" onclick="lpSetStatus(\'Lost\')">Mark lost…</button>');
+  return '<span style="display:inline-flex;gap:10px;align-items:center;">'+chip+btn+'</span>';
+}
 async function lpSetStatus(v){
-  if(!lpLead) return;
-  lpLead.status=v;
-  if(v==='Lost' && !lpLead.lost_reason){
-    const r = askLostReason(lpLead);
-    if(r) Object.assign(lpLead, r);
-  }
+  if(!lpLead||typeof LeadRules==='undefined') return;
+  const a=(typeof ccActor==='function')?ccActor():{ email:'', name:'' };
+  if(v==='Lost'){
+    const r=askLostReason(lpLead); if(!r) return;
+    Object.assign(lpLead, r); LeadRules.setStatus(lpLead, 'Lost', { by:a.email, why:r.lost_reason });
+  } else if(v==='unlost'){
+    const back=LeadRules.statusBeforeLost(lpLead);
+    if(!confirm('Not lost after all? They go back to '+back+'; the reason stays in the history.')) return;
+    LeadRules.setStatus(lpLead, back, { by:a.email, why:'not lost after all' }); lpLead.lost_reason=null; lpLead.lost_reason_key=null;
+  } else return;   /* nothing else is set by hand any more */
   await persist('leads',lpLead); renderLeads&&renderLeads();
+  try{ renderLeadProfile(); }catch(e){}
+  try{ if(typeof opsReconcileLeads==='function') opsReconcileLeads(); }catch(e){}
 }
 async function lpAddTag(){
   const inp=document.getElementById('lp_tag_input'); const t=inp.value.trim(); if(!t||!lpLead) return;
@@ -11251,7 +11265,7 @@ async function lpConvertLead(){
       ov.querySelector('#ccvMsg').innerHTML='<span style="color:var(--red)">'+esc(why[out.outcome]||out.detail||out.error||'Not created.')+'</span>';
       go.disabled=false; go.textContent='Create in AxisCare'; return;
     }
-    l.status='Converted'; l.axiscare_client_id=String(out.axiscare_client_id); l.converted_at=l.converted_at||new Date().toISOString(); l.axiscare_convert=out.record;
+    LeadRules.setStatus(l, 'Converted', { by:(ccActor()||{}).email, why:'AxisCare client created (#'+out.axiscare_client_id+')' }); l.axiscare_client_id=String(out.axiscare_client_id); l.axiscare_convert=out.record;
     await persist('leads', l);
     let jcRes=null; try{ jcRes=await jcConnect(l, String(out.axiscare_client_id), 'convert', P.client_name); }catch(e){}
     try{ if(l.soc) await socReadyCheck(l); }catch(e){}
@@ -11652,7 +11666,7 @@ function ckPanel(found, mode){
 async function ckUseExisting(l, ax, name){
   const r=await jcSideBySide(l, ax, 'save');
   if(r.choice==='cancel') return false;
-  l.axiscare_client_id=String(ax); l.status='Converted'; l.converted_at=l.converted_at||new Date().toISOString();
+  l.axiscare_client_id=String(ax); LeadRules.setStatus(l, 'Converted', { by:(ccActor()||{}).email, why:'linked to AxisCare client #'+ax });
   l.axiscare_convert={reused_existing:true,axiscare_client_id:String(ax),by:(ME&&(ME.email||ME.name))||'',at:new Date().toISOString()};
   await persist('leads', l);
   let jcRes=null;
@@ -11796,12 +11810,8 @@ async function saveLead(opts){
   // profile-side fields (comm_log, AI summary, attributes, docs, AxisCare
   // link) and must never wipe them.
   /* Stage 0: the form's helper fields fold into desired_start / schedule / waiting here (LeadRules.compose) */
-  const merged = leadFormCompose(Object.assign({}, idx>=0?DATA.leads[idx]:{}), record);
+  const merged = leadFormCompose(Object.assign({}, idx>=0?DATA.leads[idx]:{ status:'New' }), record);
   if(merged.waiting&&typeof LeadRules!=='undefined'){ const p=LeadRules.waitingProblems(merged.waiting); if(p.length){ alert(p.join('\n')); return; } }
-  if(merged.status==='Lost' && !merged.lost_reason){
-    const r = askLostReason(merged);
-    if(r) Object.assign(merged, r);
-  }
   /* Step 2: a new AxisCare id is checked side by side BEFORE saving, and a
      lead already connected to a client keeps its id (changing who a Journey
      belongs to is an Owner / Decision correction, not a form edit). */
@@ -11951,7 +11961,7 @@ async function jcCheckSuggestion(ax, name){
   const r=await jcSideBySide(l, String(ax), 'profile');
   if(r.choice!=='connect') return;
   l.axiscare_client_id=String(ax);
-  if(l.status!=='Lost'){ l.status='Converted'; l.converted_at=l.converted_at||new Date().toISOString(); }
+  if(l.status!=='Lost') LeadRules.setStatus(l, 'Converted', { by:(ccActor()||{}).email, why:'matched to an AxisCare client' });
   await persist('leads', l);
   const res=await jcConnect(l, String(ax), 'confirmed_match', r.name||name);
   try{ if(l.soc && typeof socReadyCheck==='function') await socReadyCheck(l); }catch(e){}
@@ -12297,7 +12307,7 @@ async function cqfWho(rowId){
       if(String(l.axiscare_client_id||'').trim()&&String(l.axiscare_client_id).trim()!==ax) return say(false,'That inquiry already carries a different AxisCare id.');
       close();
       var r=await jcSideBySide(l, ax, 'profile'); if(r.choice!=='connect') return;
-      l.axiscare_client_id=ax; if(l.status!=='Lost'){ l.status='Converted'; l.converted_at=l.converted_at||new Date().toISOString(); }
+      l.axiscare_client_id=ax; if(l.status!=='Lost') LeadRules.setStatus(l, 'Converted', { by:(ccActor()||{}).email, why:'picked as AxisCare client #'+ax });
       await persist('leads', l);
       var res=await jcConnect(l, ax, 'confirmed_match', r.name);
       if(typeof ccToast==='function') ccToast((res.ok?'✓ ':'')+res.text); else alert(res.text);
@@ -12375,7 +12385,7 @@ async function scheduleAssessmentFromLead(leadId){
   if(have && confirm('This family already has an assessment'+(have.visit_date?' (visit '+have.visit_date+')':'')+'.\n\nOK = open it · Cancel = start a new one (a reassessment)')){
     await asmtToProfile(l); openAssessmentModal(have.id); return;
   }
-  if(l.status==='New'||l.status==='Contacted'){ l.status='Assessment Scheduled'; persist('leads', l); }
+  if(l.status==='New'||l.status==='Contacted'){ LeadRules.setStatus(l, 'Assessment Scheduled', { by:(ccActor()||{}).email, why:'assessment booked' }); persist('leads', l); }
   await asmtToProfile(l);
   openAssessmentModal(null, l);
 }
@@ -12393,7 +12403,7 @@ const CKPT_STAGES = [
   {n:4, t:'When they want care', done:()=> !!ckptVal('lead_desired_start_kind') },
   {n:5, t:"How they'll pay",done:()=> !!getRadioValue('lead_funding_source') },
   {n:6, t:'Schedule',       done:()=> !!(ckptVal('lead_days_needed')||ckptVal('lead_times_needed')||ckptVal('lead_number_of_hours')) },
-  {n:7, t:'Close',          done:()=> !!(ckptVal('lead_follow_up_branch')||ckptVal('lead_follow_up_due')||ckptVal('lead_status')==='Assessment Scheduled') },
+  {n:7, t:'Close',          done:()=> !!(ckptVal('lead_follow_up_branch')||ckptVal('lead_follow_up_due')) },
 ];
 let ckptOn=false, ckptTimerInt=null, ckptStart=0;
 function ckptTick(){
@@ -12468,7 +12478,7 @@ async function ckptSave(book){
   ckptTeardown();                     // fields keep their values; saveLead reads by id
   await saveLead({ck_done:true, ck_note:ck.note||''});
   if(book){ const l=(DATA.leads||[]).find(x=>x.id===id);
-    if(l&&(l.status==='New'||l.status==='Contacted')){ l.status='Assessment Scheduled'; persist('leads', l); }
+    if(l&&(l.status==='New'||l.status==='Contacted')){ LeadRules.setStatus(l, 'Assessment Scheduled', { by:(ccActor()||{}).email, why:'assessment booked' }); persist('leads', l); }
     if(l) await asmtToProfile(l); asmtBook(id); }
 }
 /* ---------- Client rate card (Guided Call side panel) ----------
@@ -39125,8 +39135,7 @@ window.covLoadShifts=function(){};
         ? open.filter(l=>l.axiscare_client_id&&String(l.axiscare_client_id)===String(row.axiscare_client_id)) : [];
       if(byId.length===1){
         const l=byId[0];
-        l.status='Converted';
-        l.converted_at=l.converted_at||new Date().toISOString();
+        LeadRules.setStatus(l, 'Converted', { by:'hub', why:'AxisCare client #'+row.axiscare_client_id+' appeared in the First shift queue' });
         await persist('leads', l);
         try{ if(l.soc && typeof socReadyCheck==='function') await socReadyCheck(l); }catch(e){}
         flipped++;

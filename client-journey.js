@@ -148,11 +148,10 @@
   function contactHtml(l){
     if(!l) return '';
     const caller = ((l.first_name || '') + ' ' + (l.last_name || '')).trim(), rel = l.relationship ? String(l.relationship) : '';
-    const ST = [['New', 'New'], ['Contacted', 'Talking'], ['Assessment Scheduled', 'Assessment booked'], ['Converted', 'Won · getting ready'], ['Lost', 'Past · did not start']];
     return '<div class="cj-contact">' + (caller ? '<span>' + esc(caller) + (rel ? ' (' + esc(rel) + ')' : '') + '</span>' : (rel ? '<span>' + esc(rel) + '</span>' : ''))
       + (l.phone ? '<a href="#" data-oc-phone="' + esc(l.phone) + '"' + (l.email ? ' data-oc-email="' + esc(l.email) + '"' : '') + ' title="Call from the office line">📞 ' + esc(l.phone) + '</a>' : '')
       + (l.email ? '<span class="cj-mail">✉️ ' + esc(l.email) + '</span>' : '')
-      + '<select class="cj-status" onchange="lpSetStatus(this.value)" aria-label="Lead status">' + ST.map(([v, t]) => '<option value="' + v + '"' + ((l.status || 'New') === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div>';
+      + (typeof lpStageControlHtml === 'function' ? lpStageControlHtml(l) : '') + '</div>';
   }
   /* the button the step itself needs, from the older lead card (shown only when that step is up) */
   function stepAction(r){
@@ -419,7 +418,7 @@
     }
     /* the lead as the server left it, so every list agrees without a reload */
     const now = new Date().toISOString(), a = (typeof ccActor === 'function') ? ccActor() : { email:'', name:'' };
-    Object.assign(l, { said_yes_at:now, said_yes_by:a.email, said_yes_by_name:a.name, said_yes_prev_status:l.status || 'New', status:'Converted', converted_at:l.converted_at || now });
+    Object.assign(l, { said_yes_at:now, said_yes_by:a.email, said_yes_by_name:a.name, said_yes_prev_status:l.status || 'New' }); R2().setStatus(l, 'Converted', { by:a.email, why:'they said yes', at:now });
     CJL.at = 0;
     try{ if(typeof opsReconcileLeads === 'function') opsReconcileLeads(); }catch(e){}
     try{ if(typeof renderLeads === 'function') renderLeads(); }catch(e){}
@@ -428,6 +427,7 @@
     else if(typeof openLeadProfile === 'function'){ await openLeadProfile(leadId, 'start'); }
     if(typeof myWorkRefresh === 'function'){ try{ myWorkRefresh(); }catch(e){} }
   }
+  const R2 = () => window.LeadRules;
   function cpNameOf(l){ return (typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || ((l.first_name || '') + ' ' + (l.last_name || '')).trim() || 'this family'; }
   let yesTimer = null;
   function yesToast(leadId, name){
@@ -445,7 +445,7 @@
     let d; try{ d = await call({ action:'undo_yes', lead_id:String(leadId), reason:String(reason || '') }); }catch(e){ d = { error:e.message }; }
     if(btn) btn.disabled = false;
     if(!d || d.outcome !== 'undone'){ alert((d && d.error) || 'Could not undo.'); return; }
-    Object.assign(l, { status:d.status || l.said_yes_prev_status || 'Contacted', said_yes_at:null, said_yes_by:null, said_yes_by_name:null, said_yes_undone:{ at:new Date().toISOString() } });
+    Object.assign(l, { said_yes_at:null, said_yes_by:null, said_yes_by_name:null, said_yes_undone:{ at:new Date().toISOString() } }); R2().setStatus(l, d.status || l.said_yes_prev_status || 'Contacted', { by:(typeof ccActor === 'function' ? ccActor().email : ''), why:'they said yes was undone' });
     if(l.converted_at && !String(l.axiscare_client_id || '').trim()) l.converted_at = null;
     CJL.at = 0;
     try{ if(typeof opsReconcileLeads === 'function') opsReconcileLeads(); }catch(e){}

@@ -151,7 +151,7 @@
   async function lbLost(id){
     const l = lead(id); if(!l) return;
     const r = (typeof askLostReason === 'function') ? askLostReason(l) : null; if(!r) return;
-    Object.assign(l, r); l.status = 'Lost';
+    Object.assign(l, r); window.LeadRules.setStatus(l, 'Lost', { by:(typeof ccActor === 'function' ? ccActor().email : ''), why:r.lost_reason });
     await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
     if(typeof ccToast === 'function') ccToast('Marked lost: ' + r.lost_reason);
   }
