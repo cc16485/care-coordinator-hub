@@ -4118,6 +4118,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" id="cjSettings" data-set="client-journeys">
+<h3>🧭 Client journeys</h3>
+<p class="hint">Each new client's start of care as one journey on their profile: the next required step, who owns it, and proof on each step. Who gets a new client nobody has picked is set by payer here. Nobody is texted or emailed.</p>
+<div id="cjSet"></div>
+</div>
 <div class="settings-section" data-set="routing">
 <h3>👥 Right person first, then escalate</h3>
 <p class="hint">Scheduling work goes to whoever is on Staffing duty now; work nobody takes pulls in whoever holds Owner Escalation. The duty schedule itself is under Dashboard, Responsible now, Manage.</p>
@@ -6773,7 +6778,7 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
-<script src="client-journey.js?v=1"></script>
+<script src="client-journey.js?v=3"></script>
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -14235,6 +14240,7 @@ function fillSettingsPanel(){
   try{ cgcSetFill(); }catch(_){}
   try{ loopsSetRender(); }catch(_){}
   try{ routeSetRender(); }catch(_){}
+  try{ if(typeof cjSetFill==='function') cjSetFill(); }catch(_){}
   try{ freshRender(); }catch(_){}
   try{ iimSetFill(); }catch(_){}
   try{ orrSetFill(); }catch(_){}
@@ -18331,12 +18337,15 @@ function renderSocTab(){
     });
   }
   rows.sort((a,b)=>(socIsStuck(b.soc)?1:0)-(socIsStuck(a.soc)?1:0) || socWaitingDays(b.soc)-socWaitingDays(a.soc));
+  /* the move-over (483): client journeys before the Team stage come first; older checklists follow for anyone who has one */
+  const jLive=!!(DATA.ops_settings&&DATA.ops_settings.client_journey_live===true);
+  const jBlock=(socActiveFilter!=='done'&&typeof cjListBlock==='function')?cjListBlock('before'):'';
   if(!rows.length){
-    wrap.innerHTML='<div class="card" style="padding:22px;text-align:center;color:var(--text-muted);">'
-      +(socActiveFilter==='done'?'No completed starts of care yet.':'Nothing here — when a lead says yes, open their profile and click <b>▶ Begin Start of Care</b>.')+'</div>';
+    wrap.innerHTML=jBlock+(jLive&&socActiveFilter!=='done'?'':'<div class="card" style="padding:22px;text-align:center;color:var(--text-muted);">'
+      +(socActiveFilter==='done'?'No completed starts of care yet.':'Nothing here. When a lead says yes, open their profile and click <b>▶ Begin Start of Care</b>.')+'</div>');
     return;
   }
-  wrap.innerHTML=rows.map(l=>{
+  wrap.innerHTML=jBlock+(jBlock&&rows.length?'<div class="cj-k" style="margin:4px 0 6px;">Older Start of Care checklists</div>':'')+rows.map(l=>{
     const soc=l.soc, pre=socPreSteps(soc), total=pre.length, done=pre.filter(s=>s.done_at).length;
     const cur=socCurrentStep(soc), stuck=socIsStuck(soc), wd=socWaitingDays(soc);
     const ready=socBusinessReady(soc), hasAx=!!String(l.axiscare_client_id||'').trim();
@@ -32394,6 +32403,8 @@ const CC_STAGE_META={
 };
 const CC_STAGE_ORDER=['new','talking','assessment','ready','care','past'];
 function ccLeadStage(l){
+  /* the move-over (483): once journeys are live, a person's journey decides the stage words */
+  const js=(typeof cjStageFor==='function')?cjStageFor({ lead:l }):null; if(js) return js;
   const s=leadStage(l), soc=l&&l.soc;
   if(s==='lost') return { k:'past', d:'did not start' };
   if(soc){
@@ -32410,6 +32421,7 @@ function ccLeadStage(l){
 function ccClientStage(o){
   const lead=o&&o.lead, r=o&&o.r, launch=o&&o.launch;
   if(r&&r.role_status&&r.role_status!=='active') return { k:'past', d:'ended care' };
+  const js=(typeof cjStageFor==='function')?cjStageFor({ lead, r, ax:o&&o.ax }):null; if(js) return js;
   if(launch&&launch.status!=='complete') return { k:'ready', d:'first shift' };
   if(lead&&lead.soc&&!lead.soc.launch_completed_at) return ccLeadStage(lead);
   if((r&&r.axiscare_client_id)||(o&&o.ax)) return { k:'care', d:'' };
@@ -38961,13 +38973,18 @@ window.covLoadShifts=function(){};
   function renderQueue(){
     const el=document.getElementById('cq-list'); if(!el) return;
     const all=QUEUE||[];
-    const early=all.filter(c=>c.status!=='complete'&&cqEarlyLead(c));
-    const pending=all.filter(c=>c.status!=='complete'&&!cqEarlyLead(c));
+    /* the move-over (483): a launch a client journey speaks for shows as that journey (above), never twice. A launch
+       opened before its Before staffing half was done stays in the list (it used to drop out, so it could vanish). */
+    const owned=c=>typeof cjOwnsLaunch==='function'&&cjOwnsLaunch(c);
+    const early=all.filter(c=>c.status!=='complete'&&!owned(c)&&cqEarlyLead(c));
+    const pending=all.filter(c=>c.status!=='complete'&&!owned(c));
     const completed=all.filter(c=>c.status==='complete');
-    let html='<div id="cqf-waiting"></div>'
+    let html='<div id="cqf-waiting"></div>'+(typeof cjListBlock==='function'?cjListBlock('first'):'')
       +(early.length?'<div class="field-note" style="margin:0 0 .6rem;font-size:.75rem;">'+early.length+' first-shift checklist'+(early.length===1?'':'s')+' opened early, before the family\'s Before staffing half was done ('
-        +early.map(c=>'<a href="javascript:void(0)" data-open-lead="'+E(cqEarlyLead(c).id)+'" data-open-tab="start">'+E(c.client_name)+'</a>').join(', ')+'). They stay with the family under Before staffing, where both halves show.</div>':'');
-    if(!pending.length){
+        +early.map(c=>'<a href="javascript:void(0)" data-open-lead="'+E(cqEarlyLead(c).id)+'" data-open-tab="start">'+E(c.client_name)+'</a>').join(', ')+'). Both halves show on their profile\'s Start tab.</div>':'');
+    if(!pending.length&&DATA.ops_settings&&DATA.ops_settings.client_journey_live===true){
+      html+='<div class="field-note" style="margin:0 0 .75rem;">No older First shift checklists are open. <a href="#" onclick="cqAddManual();return false">+ Add Launch Exception</a></div>';
+    } else if(!pending.length){
       html+='<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:1.25rem;text-align:center;color:#166534;font-size:.82rem;margin-bottom:.75rem">✅ No launches in progress.'
         +'<div style="font-size:.7rem;margin-top:.3rem;color:var(--text-muted)">A launch opens here on its own when a lead\'s Start of Care reaches Ready for Staffing. <a href="#" onclick="cqAddManual();return false">Add Launch Exception →</a></div></div>';
     } else {

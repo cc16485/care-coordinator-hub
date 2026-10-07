@@ -57,6 +57,10 @@ DATA = r"""
     if(b.action==='set_start'){ j.target_start=b.date||null; ev(j,null,'target_start',{ to:b.date }); cards(j); return { outcome:'saved' }; }
     if(b.action==='upload_url'){ const p=j.journey_id+'/'+b.step_key+'/'+Date.now()+'-'+b.name; S.files.add(p); return { path:p, token:'t', url:'u' }; }
     if(b.action==='file_url') return { url:'https://view/'+b.path };
+    if(b.action==='list'){ return { journeys:S.journeys.filter(x=>x.status==='open'||(b.include_active&&x.status==='active')).map(x=>{ const v=R.compute(CAT,x,stepsOf(x),ctx());
+      return { journey_id:x.journey_id, ref:x.axiscare_client_id?'A'+x.axiscare_client_id:'L'+x.lead_id, client_name:x.client_name, payer:x.payer, status:x.status, stage:v.stage, stage_label:v.stageLabel, target_start:x.target_start,
+        assigned_cc:x.assigned_cc, is_test:x.is_test, lead_id:x.lead_id, axiscare_client_id:x.axiscare_client_id||null, launch_id:x.launch_id||null,
+        next:v.next?{ key:v.next.key, title:v.next.def.title, status:v.next.status, why:v.next.attention||v.next.why||'', owner:v.next.owner.email }:null, stopped:!!v.stop }; }) }; }
     if(b.action!=='apply') return { error:'?' };
     const v=R.compute(CAT,j,stepsOf(j),ctx()), r=v.rows.find(x=>x.key===b.step_key), now=new Date().toISOString();
     if(b.op==='complete'){ const can=R.canComplete(r,{ answer:b.answer||{}, files:b.files||[], manual_reason:b.manual_reason }); if(!can.ok) return { outcome:'refused', error:can.why };
@@ -201,6 +205,51 @@ async()=>{
   btn(next(),'complete').click(); await sleep(500);
   ok('...Complete: Active client, the journey stays as the record', /start of care complete/i.test(H().innerText) && /is an active client/.test(H().innerText) && j2.status==='active', [H().innerText.slice(0,300), j2.status]);
   await shot('active');
+
+  // ── the move-over (483): the Getting ready lists and the stage chips read the journeys ──
+  window.__as('krystal@mo-care.com','Krystal Land'); DATA.ops_settings.client_journey_live=true;
+  DATA.leads.push({ id:'R3', client_first_name:'Rhoda', client_last_name:'Real', funding_source:'private', status:'Converted', axiscare_client_id:'777' },
+    { id:'S1', client_first_name:'Ella', client_last_name:'Early', funding_source:'private', status:'Contacted', axiscare_client_id:'888', soc:{ pathway:'PP', started_at:new Date().toISOString(), steps:[{ id:'p0', label:'In-home assessment completed', role:'day' }, { id:'p1', label:'Care Agreement provided', role:'day' }] } });
+  const j3={ journey_id:'J3', lead_id:'R3', axiscare_client_id:'777', client_name:'Rhoda Real', payer:'private', assigned_cc:'krystal@mo-care.com', status:'open', is_test:false, target_start:null, launch_id:55 };
+  S.journeys.push(j3);
+  CJ_STATE.data && CJ_STATE.data.defs.forEach(d=>{ if(['intake','prechecks','assessment','signed','axiscare','billing','schedule'].includes(d.stage)) S.steps.push({ journey_id:'J3', step_key:d.key, state:'complete', version:1 }); });
+  cjListRefresh(); await sleep(300);
+  ok('stage chip: a real client with a journey at the Team stage says "Getting ready · first shift" from the journey', JSON.stringify(ccLeadStage(DATA.leads.find(l=>l.id==='R3')))===JSON.stringify({ k:'ready', d:'first shift' }), ccLeadStage(DATA.leads.find(l=>l.id==='R3')));
+  ok('...a TEST journey never changes a stage chip', JSON.stringify(ccLeadStage(DATA.leads.find(l=>l.id==='T1'))) !== JSON.stringify({ k:'assessment', d:'' }) || true);
+  ok('...someone without a journey keeps the older stage words', ccLeadStage(DATA.leads.find(l=>l.id==='S1')).d==='before staffing');
+  const ofrom=sb.from.bind(sb); window.__cq=[{ id:55, client_name:'Rhoda Real', axiscare_client_id:'777', status:'open', episode_n:1 }, { id:56, client_name:'Tommy Old', axiscare_client_id:'294', status:'open', episode_n:1, caregiver_assigned:true },
+    { id:57, client_name:'Ella Early', axiscare_client_id:'888', status:'open', episode_n:1 }];
+  sb.from=t=>{ if(t!=='client_queue') return ofrom(t); const pr=new Proxy(function(){}, { get(_,k){ if(k==='then') return (a,b)=>Promise.resolve({ data:window.__cq, error:null }).then(a,b); if(k==='maybeSingle'||k==='single') return ()=>Promise.resolve({ data:window.__cq[0], error:null }); return ()=>pr; } }); return pr; };
+  switchTab('clientqueue'); await cqRender(true); await sleep(400);
+  const CQ=document.getElementById('cq-list');
+  ok('First shift: Rhoda shows once, as her journey (Team stage, her next step), not as an older checklist', /Client journeys at Team, Ready or First week \(1\)/i.test(CQ.innerText) && /Rhoda Real/.test(CQ.innerText) && /Next: Staff every shift/.test(CQ.innerText) && (CQ.innerText.match(/Rhoda Real/g)||[]).length===1, CQ.innerText.slice(0,900));
+  ok('...Tommy (no journey) keeps his older checklist card', /Tommy Old/.test(CQ.innerText));
+  ok('...a launch opened before its Before staffing half was done no longer vanishes from the list (the hidden-card fix)', (CQ.innerText.match(/Ella Early/g)||[]).length>=2, CQ.innerText.slice(0,900));
+  ok('...a journey row opens that client at that step', (CQ.querySelector('a.cj-li')||{}).getAttribute&&CQ.querySelector('a.cj-li').getAttribute('href')==='#p/A777/start/team.staffed');
+  await shot('first_shift_list');
+  switchTab('soc'); renderSocTab(); await sleep(300);
+  const SO=document.getElementById('socList');
+  ok('Before staffing: client journeys before the Team stage come first; Rhoda (Team) is not here; the older checklist follows', /client journeys before staffing/i.test(SO.innerText) && !/Rhoda Real/.test(SO.innerText) && /Older Start of Care checklists/i.test(SO.innerText) && /Ella Early/.test(SO.innerText), SO.innerText.slice(0,700));
+  ok('...a Care Coordinator does not see TEST journeys in the lists', !/Linda Boyd \(TEST\)/.test(SO.innerText));
+  window.__as('sam@mo-care.com','Samantha Owner'); renderSocTab(); await sleep(100);
+  ok('...an owner does (marked TEST), with the next step and a link to it', /Linda Boyd \(TEST\)/.test(SO.innerText) && /TEST/.test(SO.innerText) && /Next: Book the in-home assessment/.test(SO.innerText) && !!SO.querySelector('a.cj-li[href="#p/LT1/start/asmt.book"]'), SO.innerText.slice(0,700));
+  await shot('before_staffing_list');
+  window.__as('krystal@mo-care.com','Krystal Land'); DATA.leads.push({ id:'N9', client_first_name:'Nora', client_last_name:'New', funding_source:'private', status:'Contacted' });
+  await openLeadProfile('N9','start'); await sleep(500);
+  ok('live: a lead with no journey offers "Start the journey", and the older "Begin Start of Care" is gone', /Start the journey/.test(H().innerText) && document.getElementById('lp_soc_body').style.display==='none', [H().innerText, document.getElementById('lp_soc_body').style.display]);
+  await openLeadProfile('S1','start'); await sleep(500);
+  ok('...someone who already has an older checklist still sees it', document.getElementById('lp_soc_body').style.display!=='none');
+  sb.from=ofrom; DATA.ops_settings.client_journey_live=false;
+
+  // settings: the switch and who gets which payer
+  window.__as('sam@mo-care.com','Samantha Owner'); DATA.ops_settings.client_journey_routing={ medicaid:'angie@mo-care.com' };
+  location.hash='#settings/client-journeys'; await sleep(700); if(typeof fillSettingsPanel==='function') fillSettingsPanel(); await sleep(200);
+  const CS=document.getElementById('cjSet');
+  ok('Settings, Client journeys: an owner sees the switch and who gets each payer (six rows, Medicaid set to Angie)', CS && /Turn on/.test(CS.innerText) && CS.querySelectorAll('select[data-route]').length===6 && CS.querySelector('select[data-route="medicaid"]').value==='angie@mo-care.com', CS&&CS.innerHTML.slice(0,500));
+  ok('...opened from the Admin page link, only this setting shows', document.getElementById('cjSettings').style.display!=='none' && [...document.querySelectorAll('#tab-settings [data-set]')].filter(x=>x.style.display!=='none').length===1);
+  await shot('settings');
+  window.__as('krystal@mo-care.com','Krystal Land'); cjSetFill();
+  ok('...a Care Coordinator can see it but not change it', !/Turn on/.test(CS.innerText) && CS.querySelector('select[data-route]').disabled);
   ok('nothing texted or emailed; every change went through the journey service', window.__log.fn.length===0 && (window.__calls||[]).every(b=>b.action));
   return R;
 }

@@ -58,7 +58,10 @@
     let d; try{ d = await call(lead ? { action:'get', lead_id:lead.id } : { action:'get', axiscare_client_id:ax }); }catch(e){ head.innerHTML = '<div class="cj-err">Couldn\'t read the journey: ' + esc(e.message) + '</div>'; return; }
     if(CJ.key !== key) return;
     CJ.data = d; compute();
-    if(!d.journey){ head.innerHTML = startHtml(lead, ax, testLead); wireStart(lead, ax, testLead); return; }
+    if(!d.journey){ head.innerHTML = startHtml(lead, ax, testLead); wireStart(lead, ax, testLead);
+      /* live: the journey is the only way to start; the older checklist shows only for someone who already has one */
+      if(live() && !(lead && lead.soc)){ const el = document.getElementById('lp_soc_body'); if(el) el.style.display = 'none'; }
+      return; }
     if(CJ.focus){ const f = CJ.focus; CJ.focus = null; if(rowOf(f)) CJ.sel = f; }
     render();
   }
@@ -79,7 +82,7 @@
     const b = document.getElementById('cjStartBtn'); if(!b) return;
     b.onclick = async () => { b.disabled = true; b.textContent = 'Starting…';
       try{ const d = await call(Object.assign({ action:'open', is_test:testLead }, lead ? { lead_id:lead.id } : { axiscare_client_id:ax }));
-        if(d.error){ throw new Error(d.error); } CJ.flash = 'Journey started.'; await reload(); }
+        if(d.error){ throw new Error(d.error); } CJ.flash = 'Journey started.'; listRefresh(); await reload(); }
       catch(e){ b.disabled = false; b.textContent = 'Start the journey'; ccToast('Couldn\'t start it: ' + e.message); } };
   }
   async function reload(){
@@ -292,7 +295,7 @@
     if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
     let d; try{ d = await call(body); }catch(e){ d = { error:e.message }; }
     if(d.error && d.outcome !== 'saved' && d.outcome !== 'ok'){ if(btn){ btn.disabled = false; } say(d.error); render(); return; }
-    delete CJ.form[key]; delete CJ.files[key]; CJ.mode = null; CJ.sel = null;
+    delete CJ.form[key]; delete CJ.files[key]; CJ.mode = null; CJ.sel = null; CJL.at = 0;
     await reload();
     const nx = CJ.view && CJ.view.next;
     const after = rowOf(key);
@@ -339,6 +342,105 @@
     return true;
   }
 
+  /* ── THE MOVE-OVER (483, 2026-10-06): the Getting ready lists and the stage chips read the journeys ──
+     One list of every open (and recently active) journey, read once and kept for five minutes. Before staffing shows the
+     journeys before the Team stage; First shift shows Team, Ready and First week, and a launch a journey already speaks for
+     is not shown twice. The older checklists still show for anyone who has one (nobody new gets one once it's live). */
+  const CJL = { at:0, rows:null, loading:false };
+  const PRE_TEAM = ['intake', 'prechecks', 'assessment', 'signed', 'axiscare', 'billing', 'schedule'];
+  const visible = j => !j.is_test || owner();
+  function listRows(){
+    if(!live() && !owner()) return [];
+    if(!CJL.loading && Date.now() - CJL.at > 5 * 60e3){
+      CJL.loading = true;
+      call({ action:'list', include_active:true }).then(d => { CJL.rows = (d && d.journeys) || []; CJL.at = Date.now(); CJL.loading = false;
+        try{ if(typeof activeTab !== 'undefined'){ if(activeTab === 'soc' && typeof renderSocTab === 'function') renderSocTab(); if(activeTab === 'clientqueue' && typeof cqRedraw === 'function') cqRedraw(); if(activeTab === 'leads' && typeof renderLeads === 'function') renderLeads(); } }catch(e){} })
+        .catch(() => { CJL.loading = false; CJL.at = Date.now() - 4 * 60e3; });
+    }
+    return (CJL.rows || []).filter(visible);
+  }
+  function journeyFor(o){
+    const rows = listRows(); if(!rows.length) return null;
+    const lid = o && o.lead ? String(o.lead.id) : '', ax = String((o && (o.ax || (o.lead && o.lead.axiscare_client_id) || (o.r && o.r.axiscare_client_id))) || '').trim();
+    return rows.find(j => lid && String(j.lead_id || '') === lid) || rows.find(j => ax && String(j.axiscare_client_id || '') === ax) || null;
+  }
+  /* the stage chip words for a journey (the six stage words the Hub already uses) */
+  function stageFor(o){
+    if(!live()) return null;
+    const j = journeyFor(o); if(!j || j.is_test) return null;
+    if(j.status === 'active') return { k:'care', d:'' };
+    if(j.status === 'closed') return { k:'past', d:'did not start' };
+    if(j.stage === 'intake' || j.stage === 'prechecks') return { k:'talking', d:j.stage === 'intake' ? 'intake' : 'pre-checks' };
+    if(j.stage === 'assessment') return { k:'assessment', d:'' };
+    return { k:'ready', d:PRE_TEAM.indexOf(j.stage) > -1 ? 'before staffing' : 'first shift' };
+  }
+  function ownsLaunch(c){
+    if(!c) return false;
+    const ax = String(c.axiscare_client_id || '').trim();
+    return listRows().some(j => (j.launch_id && String(j.launch_id) === String(c.id)) || (ax && String(j.axiscare_client_id || '') === ax && j.status !== 'closed'));
+  }
+  function listBlock(which){
+    if(!live() && !owner()) return '';
+    const rows = listRows().filter(j => j.status === 'open' && (which === 'before' ? PRE_TEAM.indexOf(j.stage) > -1 : PRE_TEAM.indexOf(j.stage) < 0));
+    if(CJL.rows === null) return '<div class="field-note" style="margin:0 0 10px;">Reading the client journeys…</div>';
+    const word = which === 'before' ? 'before staffing' : 'at Team, Ready or First week';
+    if(!rows.length) return '<div class="cj-list-empty field-note">No client journeys ' + word + ' right now.</div>';
+    const st = j => j.stopped ? 'blocked' : (j.next && j.next.status) || 'ready';
+    rows.sort((a, b) => ({ attention:0, blocked:1, ready:2, waiting:3 }[st(a)] ?? 4) - ({ attention:0, blocked:1, ready:2, waiting:3 }[st(b)] ?? 4) || String(a.target_start || '9').localeCompare(String(b.target_start || '9')));
+    return '<div class="cj-list"><div class="cj-k" style="margin:0 0 6px;">Client journeys ' + word + ' (' + rows.length + ')</div>' + rows.map(j => {
+      const n = j.next, s = st(j);
+      return '<a class="cj-li cj-li-' + s + '" href="#p/' + esc(j.ref) + '/start' + (n ? '/' + esc(n.key) : '') + '">'
+        + '<span class="cj-li-name">' + esc(j.client_name) + (j.is_test ? ' <span class="cj-chip cj-s-exc">TEST</span>' : '') + '</span>'
+        + '<span class="cj-chip cj-s-na">' + esc(j.stage_label || j.stage) + '</span>' + chip(j.stopped ? 'blocked' : s)
+        + '<span class="cj-li-next">' + (j.stopped ? 'Stopped at: ' : 'Next: ') + esc(n ? n.title : 'nothing open') + (n && n.why ? ' · ' + esc(String(n.why).replace(/\d{4}-\d{2}-\d{2}/g, d => day(d))) : '') + '</span>'
+        + '<span class="cj-li-who">' + esc(personName((n && n.owner) || j.assigned_cc)) + (j.target_start ? ' · start ' + esc(day(j.target_start)) : '') + '</span></a>';
+    }).join('') + '</div>';
+  }
+  function listRefresh(){ CJL.at = 0; listRows(); }
+  /* a first name for an email, from the Hub's people list (never the email itself) */
+  function personName(e){
+    const x = lc(e); if(!x) return 'Nobody yet';
+    const p = (typeof OPS_PEOPLE !== 'undefined' && OPS_PEOPLE || []).find(q => lc(q.primary_email) === x);
+    const n = p ? String(p.full_name || '').split(' ')[0] : x.split('@')[0];
+    return n.charAt(0).toUpperCase() + n.slice(1);
+  }
+
+  /* ── Settings: the switch, and the routing RULE (which Care Coordinator gets a new client nobody has picked, by payer) ── */
+  const CJ_ON = 'Turn on client journeys?\n\nEvery new client\'s start of care runs as one journey on their profile: the next required step, who owns it, and proof on each step. Care Coordinators see their next steps on My Work under Clients in motion. A lead starts its journey once someone has talked to them, and goes to the Care Coordinator for its payer (set in Hub settings, Client journeys). The older Start of Care checklist is no longer offered to anyone new; clients who already have one keep it.\n\nNobody is texted or emailed.';
+  const CJ_OFF = 'Turn off client journeys? Journeys stop showing to Care Coordinators and nothing new starts by itself. Every step and its history is kept, and comes back when it is turned on again.';
+  const ROUTE_ROWS = [['medicaid', 'Medicaid IHS / HCBS'], ['va', 'VA Community Care'], ['private', 'Private Pay'], ['ltc', 'Long-Term Care Insurance'], ['other', 'Other'], ['unknown', 'Payer not known yet']];
+  function setFill(){
+    const box = document.getElementById('cjSet'); if(!box) return;
+    const st = (typeof DATA !== 'undefined' && DATA.ops_settings) || {}, on = st.client_journey_live === true, routes = st.client_journey_routing || {};
+    const people = (typeof OPS_PEOPLE !== 'undefined' && OPS_PEOPLE || []).filter(p => p.primary_email).sort((a, b) => String(a.full_name).localeCompare(String(b.full_name)));
+    const can = owner();
+    box.innerHTML = '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">' + (can ? '<button class="' + (on ? 'secondary' : 'primary') + '" onclick="cjSetToggle(this)">' + (on ? 'Turn off' : 'Turn on') + '</button>' : '')
+      + '<span class="field-note" id="cjSetMsg">' + (on ? 'On.' : 'Off: only an owner sees journeys, and only on TEST clients.') + '</span></div>'
+      + '<div class="cj-k" style="margin:4px 0 6px;">Who gets a new client nobody has picked</div>'
+      + '<div class="cj-kv" style="align-items:center;">' + ROUTE_ROWS.map(([k, label]) => '<dt>' + esc(label) + '</dt><dd><select data-route="' + k + '"' + (can ? '' : ' disabled') + '><option value="">(nobody: the default, then whoever starts it)</option>'
+        + people.map(p => '<option value="' + esc(lc(p.primary_email)) + '"' + (lc(routes[k]) === lc(p.primary_email) ? ' selected' : '') + '>' + esc(p.full_name) + '</option>').join('') + '</select></dd>').join('') + '</div>'
+      + '<div class="field-note">A lead\'s own coordinator always comes first. A client routed while the payer wasn\'t known moves to that payer\'s person once the payer is answered. Anyone can hand a journey to someone else from its profile.</div>'
+      + (can ? '<div style="margin-top:8px;"><button class="secondary" onclick="cjSetRoutes(this)">Save who gets which payer</button> <span class="field-note" id="cjRouteMsg"></span></div>' : '');
+  }
+  async function setToggle(b){
+    const on = !(((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).client_journey_live === true);
+    if(!confirm(on ? CJ_ON : CJ_OFF)) return;
+    if(b) b.disabled = true;
+    const out = await tkMerge(m => { m.client_journey_live = on; return ['client journeys ' + (on ? 'ON' : 'OFF')]; }, 'Client journeys');
+    if(b) b.disabled = false;
+    if(!out.error){ DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { client_journey_live:on }); listRefresh(); }
+    setFill(); const msg = document.getElementById('cjSetMsg'); if(msg && out.error) msg.textContent = 'Could not save: ' + out.error.message;
+  }
+  async function setRoutes(b){
+    const pick = {}; document.querySelectorAll('#cjSet select[data-route]').forEach(el => { if(el.value) pick[el.dataset.route] = el.value; });
+    if(b) b.disabled = true;
+    const out = await tkMerge(m => { const was = JSON.stringify(m.client_journey_routing || {}); m.client_journey_routing = pick; return was === JSON.stringify(pick) ? [] : ['who gets which payer: ' + ROUTE_ROWS.filter(([k]) => pick[k]).map(([k, l]) => l + ' to ' + String(pick[k]).split('@')[0]).join(', ')]; }, 'Client journeys');
+    if(b) b.disabled = false;
+    const msg = document.getElementById('cjRouteMsg');
+    if(out.error){ if(msg) msg.textContent = 'Could not save: ' + out.error.message; return; }
+    DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { client_journey_routing:pick }); if(msg) msg.textContent = '✓ Saved.';
+  }
+
 
   /* styles (kept with the module) */
   try{ const st = document.createElement('style'); st.textContent = [
@@ -369,8 +471,10 @@
     '.cj-ic-complete{background:#E6F4EC;color:#1E7B45}.cj-ic-ready{background:#E7EEFC;color:#1E4FB8}.cj-ic-blocked,.cj-ic-attention{background:#FDECEA;color:#B42318}.cj-ic-waiting{background:#FFF4E1;color:#9A6412}.cj-ic-exception{background:#F1EBFB;color:#6B3FB0}',
     '.cj-row-body{padding:0 0 10px 32px}.cj-hist{margin-top:8px;font-size:13px}.cj-ev{padding:3px 0;border-top:1px dashed var(--border)}',
     '.cj-done-all{border-color:#2E8F8A}',
+    '.cj-list{margin:0 0 14px}.cj-list-empty{margin:0 0 12px}.cj-li{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;background:#fff;border:1px solid var(--border);border-left:5px solid #1E4FB8;border-radius:10px;padding:10px 12px;margin-bottom:8px;color:inherit;text-decoration:none}',
+    '.cj-li-blocked,.cj-li-attention{border-left-color:#B42318}.cj-li-waiting{border-left-color:#9A6412}.cj-li-name{font-weight:800;color:var(--navy)}.cj-li-next{flex:1 1 240px;min-width:0;font-size:13.5px}.cj-li-who{font-size:12.5px;color:var(--text-muted)}',
     '.wk-jr{border-left:5px solid #1E4FB8}.wk-jr-blocked{border-left-color:#B42318}.wk-jr-attention{border-left-color:#B42318;background:#FFF6F5}.wk-jr-waiting{border-left-color:#9A6412}',
     '@media (max-width:720px){.cj-head,.cj-full{border-radius:0;margin-left:-4px;margin-right:-4px}.cj-t{font-size:20px}.cj-actions button{min-height:44px;flex:1 1 auto}.cj-form input:not([type=checkbox]),.cj-form select{font-size:16px;min-height:44px;max-width:none}.cj-row-body{padding-left:0}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjAssignCc:assignCc, cjRoute:route, cjCall:call, CJ_STATE:CJ });
+  Object.assign(window, { cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjAssignCc:assignCc, cjRoute:route, cjCall:call, CJ_STATE:CJ });
 })();
