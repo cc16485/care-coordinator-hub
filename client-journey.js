@@ -119,6 +119,13 @@
     else h += '<div class="cj-next"><div class="cj-t">Nothing is up right now.</div></div>';
     h += '<div id="cjFacts" class="cj-facts"></div>';
     const more = j.status !== 'active' ? v.alsoReady.filter(x => x !== r).length : 0;
+    /* Stage 3 (2026-10-06): the yes is a step on this journey. One green button while the family has not said yes; after
+       it, the line says who marked it and offers Undo (24 hours for the office, any time for an owner). */
+    if(l && j.status !== 'active'){
+      const yesRow = rowOf('signed.yes');
+      if(l.said_yes_at) h += '<div class="cj-yes-line">✓ They said yes ' + esc(day(String(l.said_yes_at).slice(0, 10))) + (l.said_yes_by_name ? ' · marked by ' + esc(l.said_yes_by_name) : '') + ' <button class="linklike" onclick="cjUndoYes(\'' + esc(l.id) + '\', this)">Undo</button></div>';
+      else if(yesRow && R.DONE.indexOf(yesRow.status) < 0) h += '<div class="cj-yes-line"><button class="cj-yes-btn" onclick="cjSaidYes(\'' + esc(l.id) + '\', this)">They said yes</button><span class="field-note">The family chose Caring Companions. Moves them into Getting ready and lands you on the next step. Undo is right there if it was a slip.</span></div>';
+    }
     h += '<div class="cj-every"><button class="linklike" onclick="cpShowTab(\'start\');window.scrollTo(0,0)">See every step' + (more ? ' (' + more + ' more ready now)' : '') + '</button>'
       + (l ? '<button class="linklike" onclick="openLeadModal(lpLead.id)">Edit intake form</button><button class="linklike" onclick="lpPrintFacesheet()">Print facesheet</button>'
         + '<button class="linklike" onclick="openActivityModal(lpLead.id)">Schedule activity</button><button class="linklike" onclick="cjOld(\'lp_ai_card\')">AI summary</button>'
@@ -397,6 +404,57 @@
     void before;
   }
 
+  /* ── THEY SAID YES (Stage 3) ── one call; the lead leaves the Leads board (status Converted), the journey gets the step
+     and the event, and the page lands on the first incomplete required step. A toast offers Undo for 60 seconds. */
+  async function saidYes(leadId, btn){
+    const l = (DATA.leads || []).find(x => String(x.id) === String(leadId)); if(!l) return;
+    if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+    let d; try{ d = await call({ action:'said_yes', lead_id:String(leadId), is_test:l.is_test === true }); }catch(e){ d = { error:e.message }; }
+    if(btn){ btn.disabled = false; btn.textContent = 'They said yes'; }
+    if(!d || d.outcome !== 'yes'){
+      const msg = (d && d.error) || 'Could not record the yes.';
+      if(d && d.outcome === 'missing' && typeof openLeadModal === 'function'){ alert(msg + '\n\nThe inquiry form opens so you can fill them in.'); openLeadModal(leadId); return; }
+      if(d && d.step && d.ref){ alert(msg); location.hash = '#p/' + d.ref + '/start/' + d.step; return; }
+      alert(msg); return;
+    }
+    /* the lead as the server left it, so every list agrees without a reload */
+    const now = new Date().toISOString(), a = (typeof ccActor === 'function') ? ccActor() : { email:'', name:'' };
+    Object.assign(l, { said_yes_at:now, said_yes_by:a.email, said_yes_by_name:a.name, said_yes_prev_status:l.status || 'New', status:'Converted', converted_at:l.converted_at || now });
+    CJL.at = 0;
+    try{ if(typeof opsReconcileLeads === 'function') opsReconcileLeads(); }catch(e){}
+    try{ if(typeof renderLeads === 'function') renderLeads(); }catch(e){}
+    yesToast(leadId, cpNameOf(l));
+    if(d.live && d.ref && d.next) location.hash = '#p/' + d.ref + '/start/' + d.next.key;
+    else if(typeof openLeadProfile === 'function'){ await openLeadProfile(leadId, 'start'); }
+    if(typeof myWorkRefresh === 'function'){ try{ myWorkRefresh(); }catch(e){} }
+  }
+  function cpNameOf(l){ return (typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || ((l.first_name || '') + ' ' + (l.last_name || '')).trim() || 'this family'; }
+  let yesTimer = null;
+  function yesToast(leadId, name){
+    const old = document.getElementById('cjYesToast'); if(old) old.remove(); if(yesTimer) clearTimeout(yesTimer);
+    const t = document.createElement('div'); t.id = 'cjYesToast';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#15803D;color:#fff;padding:10px 14px 10px 18px;border-radius:999px;font-size:13.5px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.25);display:flex;gap:12px;align-items:center;';
+    t.innerHTML = '<span>✓ ' + esc(name) + ' said yes. Into Getting ready.</span><button style="font-family:inherit;background:#fff;color:#15803D;border:none;border-radius:999px;padding:5px 12px;font-weight:800;font-size:12.5px;cursor:pointer;">Undo</button>';
+    t.querySelector('button').onclick = () => { t.remove(); undoYes(leadId, null, 'pressed by mistake'); };
+    document.body.appendChild(t); yesTimer = setTimeout(() => t.remove(), 60000);
+  }
+  async function undoYes(leadId, btn, reason){
+    const l = (DATA.leads || []).find(x => String(x.id) === String(leadId)); if(!l) return;
+    if(!reason){ reason = prompt('Undo "They said yes" for ' + cpNameOf(l) + '? Say why, in a few words:'); if(reason == null) return; }
+    if(btn) btn.disabled = true;
+    let d; try{ d = await call({ action:'undo_yes', lead_id:String(leadId), reason:String(reason || '') }); }catch(e){ d = { error:e.message }; }
+    if(btn) btn.disabled = false;
+    if(!d || d.outcome !== 'undone'){ alert((d && d.error) || 'Could not undo.'); return; }
+    Object.assign(l, { status:d.status || l.said_yes_prev_status || 'Contacted', said_yes_at:null, said_yes_by:null, said_yes_by_name:null, said_yes_undone:{ at:new Date().toISOString() } });
+    if(l.converted_at && !String(l.axiscare_client_id || '').trim()) l.converted_at = null;
+    CJL.at = 0;
+    try{ if(typeof opsReconcileLeads === 'function') opsReconcileLeads(); }catch(e){}
+    try{ if(typeof renderLeads === 'function') renderLeads(); }catch(e){}
+    if(typeof ccToast === 'function') ccToast('Undone: ' + cpNameOf(l) + ' is back on the Leads board.');
+    try{ await reload(); render(); }catch(e){}
+    if(typeof renderLeadProfile === 'function' && typeof cpOpen === 'function' && cpOpen()){ try{ renderLeadProfile(); }catch(e){} }
+  }
+
   /* ── header actions ── */
   function pick(key, inList){ CJ.sel = key; CJ.mode = null; render(); if(inList){ const el = document.getElementById('cjrow_' + String(key).replace(/\W/g, '_')); if(el) el.scrollIntoView({ block:'nearest' }); } }
   function showStage(s){ cpShowTab('start'); const el = document.getElementById('cjstage_' + s); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' }); }
@@ -570,5 +628,5 @@
     '.wk-jr{border-left:5px solid #1E4FB8}.wk-jr-blocked{border-left-color:#B42318}.wk-jr-attention{border-left-color:#B42318;background:#FFF6F5}.wk-jr-waiting{border-left-color:#9A6412}',
     '@media (max-width:720px){.cj-head,.cj-full{border-radius:0;margin-left:-4px;margin-right:-4px}.cj-t{font-size:20px}.cj-actions button{min-height:44px;flex:1 1 auto}.cj-form input:not([type=checkbox]),.cj-form select{font-size:16px;min-height:44px;max-width:none}.cj-row-body{padding-left:0}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { cjOld:oldCard, cjMore:() => { CJ.more = !CJ.more; if(!CJ.more) CJ.mode = null; render(); }, cjHasJourney:hasJourney, cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjAssignCc:assignCc, cjRoute:route, cjCall:call, CJ_STATE:CJ });
+  Object.assign(window, { cjOld:oldCard, cjMore:() => { CJ.more = !CJ.more; if(!CJ.more) CJ.mode = null; render(); }, cjHasJourney:hasJourney, cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjAssignCc:assignCc, cjRoute:route, cjSaidYes:saidYes, cjUndoYes:undoYes, cjCall:call, CJ_STATE:CJ });
 })();
