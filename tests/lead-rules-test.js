@@ -329,6 +329,24 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
     && /Nobody has said they are available Mon–Fri mornings/.test(R.staffingLook(Object.assign({}, diane, { schedule:{ days:['Sat', 'Sun'], times:'overnight' } }), people).words.replace('Weekends overnights', 'Mon–Fri mornings')));
 }
 
+/* speed to lead: the 5 / 15 / 30 rungs (item 2, her "yes to all" 2026-10-07) */
+{
+  const HRS = R.responseHours({}), nu = { id:'n', first_name:'Nina', created_at:'2026-10-06T14:40:00Z', status:'New', assigned_coordinator:'Krystal' };
+  const due = (l, now, settings) => R.rungsDue(l, { now, hours:HRS, settings }).map(r => r.level).join(',');
+  ck('4 minutes: nothing; 6: the owner; 16: owner and backup; 31: all three (defaults 5 / 15 / 30)', due(nu, '2026-10-06T14:44:00Z') === '' && due(nu, '2026-10-06T14:46:00Z') === 'owner' && due(nu, '2026-10-06T14:56:00Z') === 'owner,backup' && due(nu, '2026-10-06T15:11:00Z') === 'owner,backup,manager');
+  const st = R.stampRung(JSON.parse(JSON.stringify(nu)), 'owner', { to:'kry@mo-care.com', sent:true }, '2026-10-06T14:46:00Z');
+  ck('a stamped rung never fires again; the others still do', due(st, '2026-10-06T15:11:00Z') === 'backup,manager' && st.rungs.owner_to === 'kry@mo-care.com' && st.rungs.owner_sent === true);
+  ck('a human attempt stops the clock; lost, said yes, archived, spam never ring', due(Object.assign({}, nu, { first_human_attempt_at:'2026-10-06T14:50:00Z' }), '2026-10-06T15:11:00Z') === '' && due(Object.assign({}, nu, { status:'Lost' }), '2026-10-06T15:11:00Z') === ''
+    && due(Object.assign({}, nu, { said_yes_at:'x' }), '2026-10-06T15:11:00Z') === '' && due(Object.assign({}, nu, { archived:true }), '2026-10-06T15:11:00Z') === '' && due(Object.assign({}, nu, { spam:{ at:'x' } }), '2026-10-06T15:11:00Z') === '');
+  ck('after hours the clock has not started: nothing rings at 9:30pm; a day-old inquiry is the 24-hour alert\'s, not a rung', due(Object.assign({}, nu, { created_at:'2026-10-07T02:10:00Z' }), '2026-10-07T02:30:00Z') === '' && due(Object.assign({}, nu, { created_at:'2026-10-04T14:00:00Z' }), '2026-10-06T15:11:00Z') === '');
+  ck('the 15 and 30 are Settings; nonsense falls back; the manager is always after the backup', JSON.stringify(R.rungSettings({ lead_rungs:{ backup_min:10, manager_min:20 } })) === '{"backup_min":10,"manager_min":20}' && JSON.stringify(R.rungSettings({})) === '{"backup_min":15,"manager_min":30}'
+    && JSON.stringify(R.rungSettings({ lead_rungs:{ backup_min:'abc', manager_min:3 } })) === '{"backup_min":15,"manager_min":30}' && R.rungSettings({ lead_rungs:{ backup_min:40, manager_min:30 } }).manager_min === 41);
+  const m = R.stampRung(JSON.parse(JSON.stringify(nu)), 'manager', { to:'sam@mo-care.com', owner:'kry@mo-care.com', minutes:30 }, '2026-10-06T15:11:00Z');
+  ck('the 30-minute rung counts a miss against the owner, once', m.speed_miss && m.speed_miss.owner === 'kry@mo-care.com' && m.speed_miss.minutes === 30 && R.stampRung(m, 'manager', { owner:'other' }).speed_miss.owner === 'kry@mo-care.com');
+  const tl = R.timeline(st, { now:'2026-10-06T15:11:00Z', hours:HRS, names:{ 'kry@mo-care.com':'Krystal Land' } });
+  ck('the workspace timeline shows the rung: "Texted Krystal at 5 minutes, nobody had called"', tl.some(x => x.text === 'Texted Krystal at 5 minutes, nobody had called'), tl);
+}
+
 /* the Hub page and the server run the same file */
 const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));

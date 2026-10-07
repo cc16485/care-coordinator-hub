@@ -4183,6 +4183,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Inquiry acknowledgment</div>
 <p class="hint">What a family who fills in a website form hears from the Hub by itself: the one acknowledgment, nothing more. Every send goes through the opt-out door (GoHighLevel Do Not Disturb, the Hub's opt-out record, do-not-contact); anyone opted out is skipped and the office is told. Her rule (2026-10-07): no timed nudges or drips to families, because in home care every situation is different; follow-ups are a person's call.</p>
 <div id="inqSet"></div>
+<div class="grid2" style="grid-template-columns:160px 160px 1fr;align-items:end;margin-top:8px;">
+<div><label>Backup told at (min)</label><input type="number" id="lrBackup" min="6" max="240" step="1"></div>
+<div><label>Owner Escalation at (min)</label><input type="number" id="lrManager" min="7" max="240" step="1"></div>
+<div style="display:flex;gap:8px;align-items:center;padding-bottom:2px;"><button class="secondary" onclick="lrSave(this)">Save the minutes</button><span class="field-note" id="lrSaved"></span></div>
+</div>
+<p class="hint" style="margin-top:6px;">The owner's text at 5 minutes is fixed. Who the backup is comes from the Operations duty window (Dashboard → Responsible now → Manage, the Backup person); with none set, Owner Escalation is told at 15. Texts go to the mobile numbers on the Team page (Owners Hub → Admin → Team).</p>
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Script lines on the lead workspace</div>
 <p class="hint">The line a coordinator sees on a family's profile for the moment they are in (first call, voicemail, they replied, the call we promised, and so on). It is a prompt for the person, never sent by itself. Blank means the standard wording shown in grey. Fill-ins: <code>{first}</code> the caller, <code>{client}</code> the person who needs care, <code>{me}</code> whoever is signed in, <code>{when}</code> the promised or booked time, <code>{why}</code> the follow-up note, <code>{start}</code> when they want care.</p>
 <div id="lwScripts"></div>
@@ -6850,7 +6856,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
-<script src="lead-rules.js?v=9"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=10"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -17047,7 +17053,10 @@ function cgcSetRender(){
 const INQ_SWITCHES=[
   { k:'inquiry_ack_live', name:'Inquiry acknowledgment', what:'One text and email at once when a website form lands, in Samantha\'s words: a Care Coordinator will call shortly, or after hours "will call you tomorrow after 8 am".',
     on:'Turn on the inquiry acknowledgment?\n\nFrom the next website form, the family gets one text and one email right away (in your words, deployed by 487). After lead response hours it says when a coordinator will call. Nothing else automatic goes to a family. Anyone opted out (GoHighLevel Do Not Disturb, the Hub\'s opt-out record, do-not-contact) is skipped and the office is told.',
-    off:'Turn off the inquiry acknowledgment? New website inquiries get no automatic text or email; the office still gets its alert and the 5-minute clock still runs.' } ];
+    off:'Turn off the inquiry acknowledgment? New website inquiries get no automatic text or email; the office still gets its alert and the 5-minute clock still runs.' },
+  { k:'lead_rungs_live', name:'Speed to lead: 5, 15 and 30 minutes', what:'A new inquiry nobody has called: at 5 minutes the owner gets one text with a link page; at 15 the backup gets it on My Work and one text; at 30 Owner Escalation gets one notice and a miss is counted. Only inside lead response hours, never 8pm to 7am. Inquiries nobody owns go to whoever holds Operations; an owner marked out hands theirs over.',
+    on:'Turn on speed to lead?\n\nFrom the next check (within 2 minutes), for a new inquiry nobody has tried to call:\n· 5 minutes: the owner gets ONE text with a link page (Call, log the call, Take it)\n· 15 minutes: the backup on the Operations duty window (else Owner Escalation) gets it on My Work and ONE text\n· 30 minutes: Owner Escalation gets ONE notice and a miss is counted against the owner\nOne text per step per inquiry, never repeated. Only inside lead response hours, never 8pm to 7am. Also: an inquiry nobody owns goes to whoever holds Operations now; an owner marked out on the Team page hands their inquiries to the Operations holder, and Owner Escalation gets one summary.\n\nNothing is texted to families, clients or caregivers by this.',
+    off:'Turn off speed to lead? It goes back to practice: the check only lists what it would text and assign; the board still goes red at 5 minutes.' } ];
 function inqSetFill(){
   const box=document.getElementById('inqSet'); if(!box) return; const st=DATA.ops_settings||{}, esc=escapeHtmlComms;
   box.innerHTML=INQ_SWITCHES.map(sw=>{ const on=st[sw.k]===true; return '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);">'
@@ -17066,6 +17075,7 @@ async function inqToggle(k, btn){
 function lhSetFill(){
   if(typeof LeadRules==='undefined') return;
   try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
+  { const r=LeadRules.rungSettings(DATA.ops_settings||{}), b=document.getElementById('lrBackup'), m=document.getElementById('lrManager'); if(b) b.value=r.backup_min; if(m) m.value=r.manager_min; }
   const h=LeadRules.responseHours(DATA.ops_settings||{});
   document.querySelectorAll('#lhDays input').forEach(c=>{ c.checked=h.days.indexOf(Number(c.value))>-1; });
   const s=document.getElementById('lhStart'), e=document.getElementById('lhEnd'); if(s) s.value=h.start; if(e) e.value=h.end;
@@ -17085,6 +17095,15 @@ async function lhSave(btn){
   if(btn) btn.disabled=false;
   if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved. New inquiries use these hours from now on.';
   lhSetFill(); try{ opsReconcileLeads(); }catch(e){}
+}
+async function lrSave(btn){
+  const sv=document.getElementById('lrSaved'), b=Number((document.getElementById('lrBackup')||{}).value), m=Number((document.getElementById('lrManager')||{}).value);
+  if(!(b>=6&&b<=240&&m>b&&m<=240)){ if(sv) sv.textContent='Backup at least 6 minutes; Owner Escalation after the backup; both at most 240.'; return; }
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((x)=>{ x.lead_rungs={ backup_min:Math.round(b), manager_min:Math.round(m) }; return ['speed to lead minutes '+Math.round(b)+'/'+Math.round(m)]; }, 'speed to lead minutes');
+  if(btn) btn.disabled=false;
+  if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  lhSetFill();
 }
 function loopsSetRender(){
   const box=document.getElementById('loopsSet'), b=document.getElementById('loopsSetBtn'); if(!box) return;
@@ -26288,6 +26307,14 @@ async function opsTakeIt(id){
   opEvent(was?'item_taken_over':'item_claimed',
     {item:it, summary:(a.name||me)+' took '+(it.about||it.title||'this')+(was?' from '+wasName:'')});
   await persist('ops_items',it);
+  /* an inquiry card (speed to lead, 2026-10-07): the inquiry itself follows, so the board and the reconciler agree */
+  if(it.kind==='new_lead'&&String(it.id||'').indexOf('ops_lead_')===0){
+    const l=(DATA.leads||[]).find(x=>x&&String(x.id)===String(it.source_id));
+    if(l&&!l.said_yes_at){ const first=String(a.name||me).split(/\s+/)[0];
+      if(String(l.assigned_coordinator||'').split(/\s+/)[0].toLowerCase()!==first.toLowerCase()){
+        l.comm_log=Array.isArray(l.comm_log)?l.comm_log:[]; l.comm_log.push({ body:first+' took this inquiry'+(l.assigned_coordinator?' from '+String(l.assigned_coordinator).split(/\s+/)[0]:''), at:at, by:me, kind:'owner' });
+        l.assigned_coordinator=first; await persist('leads', l); try{ if(typeof renderLeadsStarts==='function') renderLeadsStarts(); }catch(e){} } }
+  }
   ccToast('✓ It’s yours now'+(was?' (it was '+String(wasName).split(' ')[0]+'’s)':''));
   myWorkRefresh();
 }
