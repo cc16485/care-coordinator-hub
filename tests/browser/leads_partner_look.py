@@ -39,7 +39,7 @@ async()=>{
   /* Draft it → Email */
   [...host.querySelectorAll('button')].find(b=>b.textContent==='Draft it').click(); await sleep(120);
   const pop=document.querySelector('.ccpop');
-  ok('Draft it opens her words, editable, with Email referrals@mercy.org and Copy', pop && /To Mercy Rehab: We reached the family/.test(pop.innerText) && /^Hi Jan, this is Krystal with Caring Companions\. Thank you for sending Marjorie Teague our way\./.test(pop.querySelector('#lwPdText').value) && /Email referrals@mercy.org/.test(pop.innerText) && /Copy, I will call or text/.test(pop.innerText), pop && pop.innerText);
+  ok('Draft it opens her words, editable, with Email referrals@mercy.org and Copy', pop && /To Mercy Rehab: We reached the family/.test(pop.innerText) && /^Hi Jan, this is Krystal with Caring Companions\. Thank you for referring Marjorie Teague to us\./.test(pop.querySelector('#lwPdText').value) && /Email referrals@mercy.org/.test(pop.innerText) && /Copy, I will call or text/.test(pop.innerText), pop && pop.innerText);
   pop.querySelector('#lwPdText').value='Hi Jan, Krystal here. We reached Diane this morning; visit set up soon.'; pop.querySelector('#lwPdEmail').click(); await sleep(400);
   const c=window.__log.comms[0], l=DATA.leads[0];
   ok('Email: goes through the comms door pointed at the PARTNER (email referrals@mercy.org, no phone, first name Jan), subject names the update and the client; the family is not the recipient', c && c.action==='send_email' && c.email==='referrals@mercy.org' && c.phone===undefined && c.first_name==='Jan' && /We reached the family \(Marjorie Teague\)/.test(c.subject) && /Krystal here/.test(c.message), c);
@@ -50,7 +50,7 @@ async()=>{
   DATA.care_assessments=[{ id:'a1', lead_id:'mar', status:'Scheduled', visit_date:'2026-10-07' }]; lwRender(); await sleep(100);
   ok('a booked visit: "Assessment scheduled" is due', /Assessment scheduled\s*Draft it/.test(T()));
   window.confirm=()=>true; [...host.querySelectorAll('button')].find(b=>b.textContent==='Draft it').click(); await sleep(120);
-  const pop2=document.querySelector('.ccpop'); ok('...the words say tomorrow', /assessment is set for tomorrow/.test(pop2.querySelector('#lwPdText').value), pop2.querySelector('#lwPdText').value);
+  const pop2=document.querySelector('.ccpop'); ok('...the words say tomorrow', /assessment scheduled for tomorrow/.test(pop2.querySelector('#lwPdText').value), pop2.querySelector('#lwPdText').value);
   pop2.querySelector('#lwPdCopy').click(); await sleep(300);
   ok('Copy and mark: recorded as told by call, a call touch on the partner; nothing else went through the comms door', l.partner_msgs.length===2 && l.partner_msgs[1].kind==='assessment' && l.partner_msgs[1].channel==='call' && DATA.referral_activities.length===2 && DATA.referral_activities[1].kind==='call' && window.__log.comms.length===1, l.partner_msgs);
   /* the intake form: the subtype fills itself from the partner */
@@ -62,7 +62,7 @@ async()=>{
   ok('...and saves on the inquiry (referral_subtype case_manager, org o1)', w.referral_subtype==='case_manager' && w.referral_org_id==='o1', w);
   /* settings */
   switchTab('settings'); await sleep(300); lhSetFill();
-  ok('Settings → Leads: the five partner lines, blank, standard wording in grey', document.querySelectorAll('#lwPartner textarea[data-partner]').length===5 && /Thank you for sending/.test(document.querySelector('#lwPartner textarea[data-partner="receipt"]').placeholder));
+  ok('Settings → Leads: the five partner lines, blank, standard wording in grey', document.querySelectorAll('#lwPartner textarea[data-partner]').length===5 && /Thank you for referring/.test(document.querySelector('#lwPartner textarea[data-partner="receipt"]').placeholder));
   return R;
 }
 """

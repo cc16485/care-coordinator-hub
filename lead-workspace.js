@@ -145,7 +145,7 @@
       + '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;">'
       + (to ? '<button class="primary" id="lwPdEmail" style="padding:7px 14px;font-size:13px;">Email ' + esc(to) + '</button>' : '<span class="field-note">No email on the partner\'s record.</span>')
       + '<button class="ghost" id="lwPdCopy" style="padding:7px 14px;font-size:13px;">Copy, I will call or text</button><button class="ghost" id="lwPdNo" style="padding:7px 14px;font-size:13px;">Cancel</button><span class="field-note" id="lwPdMsg"></span></div>'
-      + '<div class="field-note" style="margin-top:6px;">Sent from you, through the office email. The family is not copied.</div>', { width:420 });
+      + '<div class="field-note" style="margin-top:6px;">Sent from you, through the office email. The family is not copied.' + (/^outcome/.test(kind) ? ' Keep the reason brief and appropriate to share with a referral partner; the family\'s private details stay with us.' : '') + '</div>', { width:420 });
     el.querySelector('#lwPdNo').onclick = ccPopClose;
     const record = async (channel) => {
       const a = (typeof ccActor === 'function') ? ccActor() : { email:'' };

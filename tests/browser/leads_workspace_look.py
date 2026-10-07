@@ -83,7 +83,7 @@ async()=>{
   /* the settings block */
   switchTab('settings'); await sleep(300); lwScriptsFill();
   const sbx=document.getElementById('lwScripts');
-  ok('Settings → Leads has the 12 script lines, blank, with the standard wording in grey', sbx && sbx.querySelectorAll('textarea[data-script]').length===12 && sbx.querySelector('textarea[data-script="voicemail"]').placeholder.indexOf('returning your message')>-1, sbx && sbx.querySelectorAll('textarea').length);
+  ok('Settings → Leads has the 12 script lines, blank, with the standard wording in grey', sbx && sbx.querySelectorAll('textarea[data-script]').length===12 && sbx.querySelector('textarea[data-script="voicemail"]').placeholder.indexOf('following up about care')>-1, sbx && sbx.querySelectorAll('textarea').length);
   return R;
 }
 """
