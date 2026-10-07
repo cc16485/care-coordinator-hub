@@ -46,9 +46,9 @@ async()=>{
   /* the settings card */
   switchTab('settings'); await sleep(300); try{ fillSettingsPanel(); }catch(e){}
   const days=[...document.querySelectorAll('#lhDays input:checked')].map(c=>c.value).join();
-  ok('the card shows the default Mon–Fri 8:00 to 18:00 and says it is not set yet', days==='1,2,3,4,5' && document.getElementById('lhStart').value==='08:00' && document.getElementById('lhEnd').value==='18:00' && /Not set yet/.test(document.getElementById('lhSetNow').textContent), [days, document.getElementById('lhSetNow').textContent]);
-  /* Saturdays on, 7:30 to 5 */
-  document.querySelector('#lhDays input[value="6"]').checked=true; document.getElementById('lhStart').value='07:30'; document.getElementById('lhEnd').value='17:00';
+  ok('the card shows the default every day 8:00 to 18:00 and says it is not set yet', days==='1,2,3,4,5,6,0' && document.getElementById('lhStart').value==='08:00' && document.getElementById('lhEnd').value==='18:00' && /Not set yet, so the Hub uses Every day 8 am to 6 pm/.test(document.getElementById('lhSetNow').textContent), [days, document.getElementById('lhSetNow').textContent]);
+  /* Sunday off, 7:30 to 5 */
+  document.querySelector('#lhDays input[value="0"]').checked=false; document.getElementById('lhStart').value='07:30'; document.getElementById('lhEnd').value='17:00';
   await lhSave(document.getElementById('lhSaveBtn')); await sleep(100);
   const m=L.merges[L.merges.length-1];
   ok('Save writes ops_settings.lead_response_hours one field at a time (app_data_save with the version)', m && m.p_key==='ops_settings' && m.p_expected_version===3 && JSON.stringify(m.p_data.lead_response_hours)==='{"days":[1,2,3,4,5,6],"start":"07:30","end":"17:00"}', m);

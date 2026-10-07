@@ -33,6 +33,46 @@
 /* Applicant pop-ups (2026-10-01): "Send the application" and "Add an applicant" open over the page */
 .ap-pop{position:fixed !important;z-index:10001;top:50%;left:50%;transform:translate(-50%,-50%);width:min(640px,calc(100vw - 32px));max-height:88vh;overflow:auto;margin:0 !important;box-shadow:0 20px 60px rgba(14,56,96,.28);}
 #apPopBg{position:fixed;inset:0;background:rgba(14,56,96,.38);z-index:10000;display:none;}
+
+  /* ---- Leads board (intake desk, Stage 2) ---- */
+  .lb-numbers{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;}
+  .lb-tile{text-align:left;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;gap:3px;min-width:0;}
+  .lb-tile-static{cursor:default;}
+  .lb-tile-n{font-size:28px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}
+  .lb-tile-l{font-size:12.5px;font-weight:700;color:var(--text);}
+  .lb-filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+  .lb-filters select{width:auto;font-size:13px;padding:6px 10px;min-height:34px;}
+  .lb-k{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);}
+  .lb-group{margin-bottom:14px;}
+  .lb-group-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .lb-group-title{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;}
+  .lb-day{padding:6px 16px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border);}
+  .lb-empty{padding:16px;color:var(--text-muted);font-size:13px;}
+  .lb-row{display:grid;grid-template-columns:168px minmax(0,1fr) 300px 110px;gap:16px;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;}
+  .lb-row:last-child{border-bottom:none;}
+  .lb-row:hover{background:#FCFBF8;}
+  .lb-row-hot{background:#FFFAFA;}
+  .lb-when-big{font-size:17px;font-weight:800;line-height:1.15;}
+  .lb-when-sub{font-size:12px;margin-top:3px;}
+  .lb-story{min-width:0;}
+  .lb-name{font-size:14.5px;font-weight:700;color:var(--navy);}
+  .lb-why{font-weight:500;color:var(--text-muted);}
+  .lb-need{margin-top:3px;color:var(--text-muted);}
+  .lb-need b{color:var(--text);}
+  .lb-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;}
+  .lb-chip{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10.5px;font-weight:700;}
+  .lb-last{font-size:12.5px;color:var(--text-muted);margin-top:3px;}
+  .lb-next-text{font-weight:700;color:var(--navy);margin-top:1px;}
+  .lb-next-sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
+  .lb-actions{display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap;}
+  .lb-btn{font-family:inherit;background:#fff;border:1px solid var(--border);padding:7px 12px;border-radius:6px;font-size:12.5px;font-weight:600;color:var(--navy);min-height:32px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;}
+  .lb-btn-primary{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700;padding:7px 14px;}
+  .lb-btn-dim{color:var(--text-muted);cursor:default;}
+  .lb-more{width:32px;padding:0;justify-content:center;font-weight:800;color:var(--text-muted);}
+  .lb-owner{display:flex;align-items:flex-start;gap:6px;font-weight:600;}
+  .lb-av{width:24px;height:24px;border-radius:50%;background:#E4EDF6;color:var(--navy);font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .lb-av-none{background:var(--red-bg);color:var(--red);}
+  @media (max-width:980px){ .lb-row{grid-template-columns:1fr;gap:8px;} .lb-when{display:flex;gap:10px;align-items:baseline;} }
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Poppins:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <title>Leads, Clients &amp; Care — Caring Companions</title>
@@ -4323,7 +4363,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Leads</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:78ch;">Every family from their first call until they say yes. At-risk first. Once they say yes they move to Client Care → Getting ready. Click a family to work on them.</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:78ch;">Every family from their first call until they say yes. Work the top group from the top down. Once they say yes they move to Client Care → Getting ready. Click a family to open everything about them.</div>
         </div>
         <span style="flex:1;"></span>
         <button class="linklike" onclick="lsLoadFacts(true)">↻ Refresh</button>
@@ -4332,7 +4372,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <details class="guide" style="margin-bottom:10px;"><summary>📋 How this list works</summary><div class="guide-body">
         <div class="guide-step"><span class="num">1</span>Phone leads: <b>+ Add lead</b> while you're on the call. Website and referral leads arrive by themselves.</div>
         <div class="guide-step"><span class="num">2</span>Click a family to work on them. Their profile opens on the tab their stage needs; the assessment, Start of Care and everything else live there.</div>
-        <div class="guide-step"><span class="num">3</span>Not ready yet? Set a follow-up date on their profile. <b>Follow-up due</b> shows everyone you owe a call, soonest first, and the <b>Follow-ups</b> view holds the drafts waiting for approval.</div>
+        <div class="guide-step"><span class="num">3</span><b>Need you now</b> is the working queue, most urgent first. <b>Scheduled</b> is what has a time. <b>Waiting</b> always says what we are waiting on and when we check back; on that day the family comes back to the top by itself. One button per row does the obvious thing; the rest is behind ···.</div>
         <div class="guide-step flag"><span class="num">!</span>A lead that goes cold is marked <b>Lost</b> with a reason (see <b>Past</b>). Archived leads leave the working list but are kept (see <b>Archived</b>).</div>
       </div></details>
       <div class="subtab-bar" id="lsViewBar" style="margin-bottom:10px;">
@@ -4340,10 +4380,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="subtab" id="lsViewBtn-followups" onclick="switchLeadsSubtab('followups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Follow-ups<span class="subtab-badge red" id="subtabBadge-followups" style="display:none;"></span></button>
       </div>
       <div id="lsBoardView">
-      <div id="lsCounters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;"></div>
-      <div id="lsAsmt" style="margin-bottom:12px;"></div>
-      <div id="lsFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
-      <div id="lsBoard"><div class="field-note">Loading…</div></div>
+      <!-- Leads intake desk, Stage 2 (2026-10-06, her brief: "who needs me right now, and what exactly do I need to do"):
+           the five numbers, the owner lens and stage words, three groups of story rows (Need you now · Scheduled · Waiting),
+           and the look-ups out of the way. Drawn by leads-board.js from LeadRules.boardRow; nothing here decides a rule. -->
+      <div id="lbNumbers" class="lb-numbers"></div>
+      <div id="lbFilters" class="lb-filters"></div>
+      <div id="lbBoard"><div class="field-note">Loading…</div></div>
+      <div id="lbLookup" class="lb-filters" style="margin-top:12px;"></div>
       </div>
 <div id="lsFollowView" style="display:none;">
 <div class="toolbar" style="margin-bottom:14px;">
@@ -6800,7 +6843,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
-<script src="lead-rules.js?v=2"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=3"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -6837,6 +6880,7 @@ The HomeTogether team</pre>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
 <script src="client-journey.js?v=6"></script>
+<script src="leads-board.js?v=1"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -32474,46 +32518,20 @@ function lsStateHtml(){
   return h;
 }
 function renderLeadsStarts(){
-  const box=document.getElementById('lsBoard'); if(!box) return;
+  const box=document.getElementById('lbBoard'); if(!box) return;
   if(!LS.facts&&!LS.loading) lsLoadFacts();
   try{ updateLeadsSubtabBadges(); }catch(e){}
   lsShowView();
-  const esc=escapeHtmlComms, every=lsRows().filter(lsSearchHit), all=every.filter(r=>r.set==='work');
-  if(LS_FILTERS.indexOf(LS.filter)<0) LS.filter='All';
-  const FILTERS=LS_FILTERS;
-  const pass=r=>lsIn(r,LS.filter);
-  const count=f=>f==='State submissions'?lsStateLeads().pending.length:every.filter(r=>lsIn(r,f)).length;
-  document.getElementById('lsFilters').innerHTML=FILTERS.map(f=>'<button class="filter-pill'+(LS.filter===f?' active':'')+'" onclick="LS.filter=\''+f+'\';renderLeadsStarts()">'+f+' <span style="opacity:.65;">'+count(f)+'</span></button>').join('');
-  const tile=(n,l,col,f)=>'<button onclick="LS.filter=\''+f+'\';renderLeadsStarts()" style="text-align:left;background:#fff;border:1px solid var(--border);border-left:3px solid '+col+';border-radius:10px;padding:9px 12px;cursor:pointer;font-family:inherit;">'
-    +'<div style="font-size:22px;font-weight:800;color:var(--navy);line-height:1;font-variant-numeric:tabular-nums;">'+n+'</div><div class="field-note" style="font-size:12px;margin-top:3px;">'+l+'</div></button>';
-  document.getElementById('lsCounters').innerHTML=
-    tile(all.filter(r=>r.risk.length).length,'starts at risk','var(--red)','At risk')
-    +tile(all.filter(r=>r.owe).length,'family updates owed','var(--amber,#C17A12)','Updates owed')
-    +tile(all.filter(r=>r.waitingState).length,'waiting on Medicaid','#94A3B8','Waiting on the state');
-  { const ae=document.getElementById('lsAsmt'); if(ae) ae.innerHTML=lsAsmtHtml(); }
-  if(LS.filter==='State submissions'){ box.innerHTML=lsStateHtml(); return; }
-  const rows=every.filter(pass);
-  if(LS.filter==='Follow-up due') rows.sort((a,b)=>String(a.l.follow_up_due).localeCompare(String(b.l.follow_up_due)));
-  if(!rows.length){ box.innerHTML='<div class="card" style="padding:16px 18px;color:var(--text-muted);">'+(LS.loading?'Loading…':'Nobody here right now.')+'</div>'; return; }
-  const P={ ok:['#E7F6EC','#1F7A4D'], warn:['#FDF3E3','#A8660E'], bad:['#FDE8E8','#B23B2E'], dim:['#F1F5F9','#64748B'] };
-  const pip=p=>'<span style="font-size:11.5px;font-weight:700;border-radius:6px;padding:2px 7px;white-space:nowrap;background:'+P[p.tone][0]+';color:'+P[p.tone][1]+';">'+esc(p.txt)+'</span>';
-  const open=r=>r.l?'data-open-lead="'+esc(r.l.id)+'" data-open-tab="'+r.tab+'"':'onclick="openClient({launch_id:\''+esc(r.c.id)+'\'},\'start\')"';
-  let lastRisk=null, h='<div class="card" style="padding:0;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:760px;">'
-    +'<thead><tr style="background:var(--bg);text-align:left;">'+['Family','Start','Stage','Care','Authorization','Staffing','Next move'].map(x=>'<th style="padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">'+x+'</th>').join('')+'</tr></thead><tbody>';
-  rows.forEach(r=>{
-    const isRisk=r.risk.length>0, band=r.set!=='work'?{care:'Receiving care',past:'Past',archived:'Archived',spam:'Spam'}[r.set]:LS.filter==='Follow-up due'?'Follow-up due, soonest first':(isRisk?'At risk':'On track');
-    if(band!==lastRisk){ lastRisk=band; h+='<tr><td colspan="7" style="padding:5px 10px;background:var(--bg);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:'+(isRisk?'var(--red)':'var(--text-muted)')+';">'+esc(band)+'</td></tr>'; }
-    h+='<tr '+open(r)+' style="cursor:pointer;border-top:1px solid var(--border);'+(isRisk?'background:#FFFAF9;':'')+'" title="Open their profile">'
-      +'<td style="padding:9px 10px;"><div style="display:flex;align-items:center;gap:7px;"><span style="width:8px;height:8px;border-radius:50%;flex:none;background:'+(isRisk?'var(--red)':r.set!=='work'?'#94A3B8':'var(--green)')+';"></span><b style="color:var(--navy);">'+esc(r.name)+'</b></div>'
-        +(r.l&&lsWho(r.l)?'<div class="field-note" style="font-size:11.5px;margin-top:2px;">'+esc(lsWho(r.l))+'</div>':'')+lsSignals(r.l)
-        +(r.set==='work'&&r.st.k==='new'&&leadFromWebForm(r.l)?'<div data-no-open="1" style="margin-top:2px;"><button class="linklike" style="font-size:11.5px;color:var(--text-muted);" onclick="lpMarkSpam(\''+esc(r.l.id)+'\',this)">Spam?</button></div>':'')
-        +(isRisk?'<div style="font-size:11.5px;color:var(--red);margin-top:2px;">'+esc(r.risk.join(' · '))+'</div>':'')+'</td>'
-      +'<td style="padding:9px 10px;white-space:nowrap;">'+(r.start?'<b>'+esc(lsDate(r.start.ymd))+'</b> <span class="field-note">· '+(r.days===0?'today':r.days>0?r.days+' days':Math.abs(r.days)+' days ago')+'</span>'+(r.start.conf?'<div class="field-note" style="font-size:11px;">'+esc(r.start.conf)+'</div>':''):'<span class="field-note">no date promised</span>')+'</td>'
-      +'<td style="padding:9px 10px;">'+ccStageChip(r.st)+'</td>'
-      +'<td style="padding:9px 10px;">'+pip(r.care)+'</td><td style="padding:9px 10px;">'+pip(r.auth)+'</td><td style="padding:9px 10px;">'+pip(r.staff)+'</td>'
-      +'<td style="padding:9px 10px;"><b style="color:var(--navy);">'+esc(r.move)+'</b>'+(r.who?'<div class="field-note" style="font-size:11.5px;">'+esc(r.who)+'</div>':'')+'</td></tr>';
-  });
-  box.innerHTML=h+'</tbody></table></div>';
+  /* Stage 2: the board is drawn by leads-board.js from the same rows this page always computed (lsRows: every lead with
+     its set, stage and the Start of Care facts). Her header chips still land here through lsGo(filter). */
+  if(typeof LeadsBoard==='undefined'||typeof LeadRules==='undefined'){ box.innerHTML='<div class="card" style="padding:16px 18px;color:var(--text-muted);">The Leads board did not load (leads-board.js). Refresh the page.</div>'; return; }
+  const every=lsRows().filter(lsSearchHit);
+  if(LS.filter&&LS.filter!=='All'){ /* the older filter words → the board's */
+    const map={ 'At risk':'now', 'Updates owed':'now', 'Follow-up due':'now', 'New':'new', 'Talking':'talking', 'Waiting on the state':'waiting', 'State submissions':'state', 'Assessment':'assessment', 'Receiving care':'set:care', 'Past':'set:past', 'Archived':'set:archived', 'Spam':'set:spam' };
+    LeadsBoard.state.filter=map[LS.filter]||'All'; LS.filter='All';
+  }
+  const drafts=(DATA.post_call_followups||[]).filter(f=>f&&f.status==='pending_approval').length;
+  LeadsBoard.render(every, { draftCount:drafts });
 }
 /* ONE SET OF STAGE WORDS (Client path step 2, her approval 2026-09-28): every screen names a
    family's place in one of six stages. They sit ON TOP of the facts each screen already reads:
