@@ -183,8 +183,9 @@ async()=>{
   set('decision','assess'); btn(next(),'complete').click(); await sleep(500);
   ok('care plan and "decide to assess" done: Book the assessment is next (Assessment on the bar), with its own "Book the assessment visit" button on the step', next().dataset.step==='asmt.book' && /^Assessment/.test(H().querySelector('.cj-prog-t').textContent) && /Book the assessment visit/.test(next().innerText), [H().querySelector('.cj-prog-t').textContent, next().innerText]);
   ok('one card: the lead card and the AI summary are put away; the links at the bottom open them', document.getElementById('lp_head_card').style.display==='none' && document.getElementById('lp_ai_card').style.display==='none' && /Edit intake form/.test(H().innerText) && /AI summary/.test(H().innerText) && /More…/.test(H().innerText));
+  ok('before the family says yes, the Leads workspace speaks on the Overview and the journey card steps aside there', document.getElementById('cjHead').style.display==='none' || !document.getElementById('lwHost') || document.getElementById('lwHost').style.display==='none');
   [...H().querySelectorAll('.cj-every .linklike')].find(b=>/More…/.test(b.textContent)).click(); await sleep(150);
-  ok('...More… brings the older lead card back (and Hide the rest puts it away)', document.getElementById('lp_head_card').style.display!=='none' && /Hide the rest/.test(H().innerText));
+  ok('...More… flips to Hide the rest (the older lead card opens once the Leads workspace hands over at yes)', /Hide the rest/.test(H().innerText), [document.getElementById('lp_head_card').style.display, H().querySelector('.cj-every')&&H().querySelector('.cj-every').innerText, typeof activeTab!=='undefined'&&activeTab]);
   [...H().querySelectorAll('.cj-every .linklike')].find(b=>/Hide the rest/.test(b.textContent)).click(); await sleep(150);
   ok('...the contact line: who, the phone (calls from the office line) and the stage words with Mark lost (clean-up 6.7: no dropdown)', !!H().querySelector('.cj-contact a[data-oc-phone]') && /Talking/.test(H().querySelector('.cj-contact').innerText) && /Mark lost/.test(H().querySelector('.cj-contact').innerText) && !H().querySelector('.cj-status'), H().querySelector('.cj-contact')&&H().querySelector('.cj-contact').innerText);
   // the whole journey tab
@@ -227,20 +228,22 @@ async()=>{
   const ofrom=sb.from.bind(sb); window.__cq=[{ id:55, client_name:'Rhoda Real', axiscare_client_id:'777', status:'open', episode_n:1 }, { id:56, client_name:'Tommy Old', axiscare_client_id:'294', status:'open', episode_n:1, caregiver_assigned:true },
     { id:57, client_name:'Ella Early', axiscare_client_id:'888', status:'open', episode_n:1 }];
   sb.from=t=>{ if(t!=='client_queue') return ofrom(t); const pr=new Proxy(function(){}, { get(_,k){ if(k==='then') return (a,b)=>Promise.resolve({ data:window.__cq, error:null }).then(a,b); if(k==='maybeSingle'||k==='single') return ()=>Promise.resolve({ data:window.__cq[0], error:null }); return ()=>pr; } }); return pr; };
-  switchTab('clientqueue'); await cqRender(true); await sleep(400);
-  const CQ=document.getElementById('cq-list');
-  ok('First shift: Rhoda shows once, as her journey (Team stage, her next step), not as an older checklist', /Client journeys at Team, Ready or First week \(1\)/i.test(CQ.innerText) && /Rhoda Real/.test(CQ.innerText) && /Next: Staff every shift/.test(CQ.innerText) && (CQ.innerText.match(/Rhoda Real/g)||[]).length===1, CQ.innerText.slice(0,900));
-  ok('...Tommy (no journey) keeps his older checklist card', /Tommy Old/.test(CQ.innerText));
-  ok('...a launch opened before its Before staffing half was done no longer vanishes from the list (the hidden-card fix)', (CQ.innerText.match(/Ella Early/g)||[]).length>=2, CQ.innerText.slice(0,900));
-  ok('...a journey row opens that client at that step', (CQ.querySelector('a.cj-li')||{}).getAttribute&&CQ.querySelector('a.cj-li').getAttribute('href')==='#p/A777/start/team.staffed');
-  await shot('first_shift_list');
-  switchTab('soc'); renderSocTab(); await sleep(300);
-  const SO=document.getElementById('socList');
-  ok('Before staffing: client journeys before the Team stage come first; Rhoda (Team) is not here; the older checklist follows', /client journeys before staffing/i.test(SO.innerText) && !/Rhoda Real/.test(SO.innerText) && /Older Start of Care checklists/i.test(SO.innerText) && /Ella Early/.test(SO.innerText), SO.innerText.slice(0,700));
-  ok('...a Care Coordinator does not see TEST journeys in the lists', !/Linda Boyd \(TEST\)/.test(SO.innerText));
-  window.__as('sam@mo-care.com','Samantha Owner'); renderSocTab(); await sleep(100);
-  ok('...an owner does (marked TEST), with the next step and a link to it', /Linda Boyd \(TEST\)/.test(SO.innerText) && /TEST/.test(SO.innerText) && /Next: Book the in-home assessment/.test(SO.innerText) && !!SO.querySelector('a.cj-li[href="#p/LT1/start/asmt.book"]'), SO.innerText.slice(0,700));
-  await shot('before_staffing_list');
+  DATA.leads.find(l=>l.id==='R3').said_yes_at=new Date().toISOString();
+  await cqRender(true); cjListRefresh(); await sleep(300);
+  CL.roster=CL.roster||[]; CL.filter='Starting care'; switchTab('clientsboard'); renderClientsBoard(); await sleep(300);
+  const SC=document.getElementById('clBoard');
+  ok('Starting care (Clients list): Rhoda (said yes, at Team) with where she is and the next thing; Tommy Old\'s older checklist too', /Rhoda Real/.test(SC.innerText) && /Team/.test(SC.innerText) && /Staff every shift/.test(SC.innerText) && /Tommy Old/.test(SC.innerText) && /Finish the older First shift checklist/.test(SC.innerText), SC.innerText.slice(0,700));
+  ok('...a family still deciding (no yes, no older checklist) is not in Starting care; the Leads board has them', !/Nora New/.test(SC.innerText) && !/Rhoda Real[\s\S]*Rhoda Real/.test(SC.innerText));
+  ok('...each row opens that client at that step', !!SC.querySelector('a.cj-sc-name[href="#p/A777/start/team.staffed"]'));
+  ok('...the Starting care pill comes first, with its count', /^Starting care 3/.test((document.querySelector('#clFilters .filter-pill')||{}).textContent||''), (document.querySelector('#clFilters .filter-pill')||{}).textContent);
+  await shot('starting_care');
+  cjNavTidy();
+  ok('live: the Getting ready tab is gone from Client Care', [...document.querySelectorAll('.fpill[data-parent="gettingready"]')].every(e=>e.style.display==='none'));
+  switchTab('soc'); cjNavTidy(); await sleep(200);
+  ok('...an old link to Before staffing lands on Starting care instead', activeTab==='clientsboard' && CL.filter==='Starting care', activeTab);
+  await cjCall({ action:'refresh', journey_id:'J3' }); switchTab('mywork'); await sleep(200); myWorkGo('today'); await sleep(200);
+  const MW=document.getElementById('myWorkWrap'), rc=[...MW.querySelectorAll('.wk-jr')].find(c=>/Rhoda Real/.test(c.innerText));
+  ok('My Work: Rhoda\'s card is like a project: payer, a progress bar with the stage, the next thing, and Open', rc && /Private Pay/.test(rc.innerText) && !!rc.querySelector('.cj-bar') && /Team/.test(rc.innerText) && /Staff every shift/.test(rc.innerText) && !!rc.querySelector('button.primary'), rc&&rc.innerText);
   window.__as('krystal@mo-care.com','Krystal Land'); DATA.leads.push({ id:'N9', client_first_name:'Nora', client_last_name:'New', funding_source:'private', status:'Contacted' });
   await openLeadProfile('N9','start'); await sleep(500);
   ok('live: a lead with no journey offers "Start the journey", and the older "Begin Start of Care" is gone', /Start the journey/.test(H().innerText) && document.getElementById('lp_soc_body').style.display==='none', [H().innerText, document.getElementById('lp_soc_body').style.display]);
