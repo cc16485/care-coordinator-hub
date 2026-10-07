@@ -95,6 +95,8 @@
     if(nx) up.push('<div><b>' + esc(RR.dayWords(nx.day, ctx.today).replace(/^\w/, c => c.toUpperCase())) + (nx.kind === 'promise' || nx.timed ? ' ' + esc(RR.clockWords(nx.at)) : '') + '</b> · ' + esc(RR.nextWords(nx, ctx.now)) + '</div>');
     if(asm) up.push('<div><b>' + esc(RR.dayWords(asm.visit_date, ctx.today).replace(/^\w/, c => c.toUpperCase())) + '</b> · assessment at the home</div>');
     if(ctx.journey_next) up.push('<div><b>Journey</b> · ' + esc(ctx.journey_next.title) + '</div>');
+    const cn = !nx ? RR.cadenceNext(l, ctx) : null;
+    if(cn) up.push('<div class="field-note"><b>Suggested</b> · ' + esc(cn.words) + (cn.day ? ' · <a href="javascript:void(0)" onclick="lwFollowUp(this)">set it</a>' : '') + '</div>');
     const org = l.referral_org_id ? (DATA.referral_orgs || []).find(o => o.id === l.referral_org_id) : null;
     const caller = ((l.first_name || '') + ' ' + (l.last_name || '')).trim(), client = !l.client_name_not_provided ? ((l.client_first_name || '') + ' ' + (l.client_last_name || '')).trim() : '';
     const tel = (p, e) => p ? '<a href="#" data-oc-phone="' + esc(p) + '"' + (e ? ' data-oc-email="' + esc(e) + '"' : '') + ' title="Call from the office line">' + esc(p) + '</a>' : '';
@@ -247,11 +249,11 @@
     await persist('leads', l); render();
   }
   /* a text, typed by a person, sent as that person (the same door the Family tab uses); their reply is then answered */
-  function lwText(b){
+  function lwText(b, prefill){
     const l = lead(); if(!l || typeof ccPopOpen !== 'function') return;
     if(!l.phone){ alert('This family has no phone number on the inquiry. Add one first.'); return; }
     const el = ccPopOpen(b || document.body, '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">Text ' + esc(first(l.first_name) || 'them') + ' at ' + esc(l.phone) + '</div>'
-      + '<textarea id="lwTextIn" rows="4" style="width:100%;box-sizing:border-box;font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;" placeholder="Your words. It goes out from the office number, from you."></textarea>'
+      + '<textarea id="lwTextIn" rows="4" style="width:100%;box-sizing:border-box;font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;" placeholder="Your words. It goes out from the office number, from you.">' + esc(prefill || '') + '</textarea>'
       + '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;"><button class="primary" id="lwTextGo" style="padding:7px 14px;font-size:13px;">Send text</button><button class="ghost" id="lwTextNo" style="padding:7px 14px;font-size:13px;">Cancel</button><span class="field-note" id="lwTextMsg"></span></div>', { width:380 });
     el.querySelector('#lwTextNo').onclick = ccPopClose;
     el.querySelector('#lwTextGo').onclick = async () => {
@@ -261,13 +263,14 @@
       try{ window.commsLead = l; try{ commsLead = l; }catch(e){}
         await commsCall({ action:'send_sms', message:text });
         ldPush(l, { channel:'sms', direction:'out', outcome:'sent', actor:'human', by:ccActor().email, ref:text.slice(0, 120) });
-        await persist('leads', l); ccPopClose(); try{ opsReconcileLeads(); }catch(e){} redrawBoard(); render(); if(typeof ccToast === 'function') ccToast('Sent.'); }
+        await persist('leads', l); ccPopClose(); try{ opsReconcileLeads(); }catch(e){} redrawBoard(); render(); try{ if(typeof cjMountProfile === 'function' && l.said_yes_at) cjMountProfile({ lead:l, ax:'' }); }catch(e){} if(typeof ccToast === 'function') ccToast('Sent.'); }
       catch(e){ go.disabled = false; msg.textContent = 'Could not send: ' + e.message; }
     };
   }
   /* Waiting on…: the reason, the check-back date (always), a note; through the same form rules the intake uses */
-  function lwWaiting(b){
-    const l = lead(), RR = R(); if(!l || typeof ccPopOpen !== 'function') return;
+  function lwWaiting(b){ waitingFor(lead(), b, null); }
+  function waitingFor(l, b, after){
+    const RR = R(); if(!l || typeof ccPopOpen !== 'function') return;
     const w = RR.waiting(l), today = RR.ymd(new Date());
     const el = ccPopOpen(b || document.body, '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">What are we waiting on?</div>'
       + '<select id="lwWaitReason" style="width:100%;font-size:13px;"><option value="">Nothing: back on the working board</option>' + RR.WAITING_KEYS.map(k => '<option value="' + k + '"' + (w && w.reason === k ? ' selected' : '') + '>' + esc(RR.WAITING[k].label) + '</option>').join('') + '</select>'
@@ -280,8 +283,21 @@
     el.querySelector('#lwWaitGo').onclick = async () => {
       const reason = sel.value; if(reason && !date.value) date.value = RR.defaultCheckBack(reason, today);
       RR.compose(l, { waiting_reason:reason, waiting_check_back:date.value, waiting_note:el.querySelector('#lwWaitNote').value }, today);
-      ccPopClose(); await persist('leads', l); try{ opsReconcileLeads(); }catch(e){} redrawBoard(); render();
+      ccPopClose(); await persist('leads', l); try{ opsReconcileLeads(); }catch(e){} redrawBoard(); render(); if(typeof after === 'function') after();
     };
+  }
+  /* item 5 (2026-10-07): after the yes, the handoff: what carried forward (read only) and what goes out now, as drafts a person
+     sends: the thank-you text to the family, the outcome to the referrer. Drawn inside the journey card. */
+  function handoffHtml(l){
+    const RR = R(); if(!l || !RR || !l.said_yes_at) return '';
+    const ctx = ctxFor(l), pl = RR.partnerLoop(l, Object.assign({}, ctx, { templates:(DATA.ops_settings || {}).partner_templates || {} }));
+    const thanked = (Array.isArray(l.contact_events) ? l.contact_events : []).some(e => e && e.actor === 'human' && e.direction === 'out' && e.channel === 'sms' && e.at >= l.said_yes_at);
+    const toldPartner = pl.partner && !pl.due.some(d => d.kind === 'outcome_started');
+    return '<div class="lw-handoff"><div class="lw-fact-k">Carried forward</div><div style="font-size:13px;">' + esc(RR.carriedForward(l, ctx)) + '</div>'
+      + '<div class="lw-fact-k" style="margin-top:8px;">Goes out now, when you send it</div><div class="lb-actions" style="margin-top:4px;">'
+      + (l.phone ? (thanked ? '<span class="field-note">✓ ' + esc(first(l.first_name) || 'The family') + ' was texted after the yes.</span>' : '<button class="lb-btn" onclick="lwText(this, LeadRules.yesThanks(CP.lead, { me:(ccActor().name||\'\'), scripts:(DATA.ops_settings||{}).lead_scripts||{} }))">Thank-you text to ' + esc(first(l.first_name) || 'the family') + '</button>') : '')
+      + (pl.partner ? (toldPartner ? '<span class="field-note">✓ ' + esc(pl.partner.name) + ' was told.</span>' : '<button class="lb-btn" onclick="lwPartnerDraft(this, \'outcome_started\')">Tell ' + esc(pl.partner.name) + ': they chose us</button>') : '')
+      + '</div><div class="field-note" style="margin-top:4px;">Both are drafts in your words; nothing goes out by itself. Creating the client in AxisCare is the journey step below.</div></div>';
   }
 
   /* ── Settings: the script lines in her words ── */
@@ -314,8 +330,9 @@
     '.lw-miss{display:inline-block;padding:1px 8px;border-radius:12px;font-size:10.5px;font-weight:700;background:#fff;color:#B91C1C;border:1px dashed #DC2626}',
     '.lw-tl{margin-top:10px;max-height:460px;overflow-y:auto}.lw-tl-row{display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:7px 0;border-top:1px solid var(--border);font-size:13px}.lw-tl-when{font-size:12px;color:var(--text-muted)}.lw-tl-family b{color:#B91C1C}.lw-tl-talked b{color:#15803D}.lw-tl-auto b{color:var(--text-muted);font-weight:600}.lw-tl-note b{font-weight:600}.lw-tl-stage b{color:var(--navy)}',
     '.lw-note{display:flex;gap:8px;margin-top:10px}.lw-note input{flex:1;font-size:13px}',
+    '.lw-handoff{margin-top:10px;padding:10px 12px;background:#F6F9FD;border:1px solid var(--border);border-radius:8px}',
     '.lw-rail-t{font-size:13.5px;color:var(--navy)}.lw-up{margin-top:8px;font-size:13px;display:flex;flex-direction:column;gap:6px}.lw-contacts{margin-top:8px;font-size:13px;display:flex;flex-direction:column;gap:8px}.lw-links{margin-top:6px;font-size:13px;display:flex;flex-direction:column;gap:4px}',
     '@media (max-width:720px){.lw-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.lw-facts{grid-template-columns:1fr}.lw-tl-row{grid-template-columns:1fr;gap:2px}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { LeadWorkspace:{ render, active, people }, lwRender:render, lwPartnerDraft:partnerDraft, lwPartnerFill:partnerFill, lwPartnerSave:partnerSave, lwActive:active, lwTab:tab, lwTrim:trim, lwLog, lwFollowUp, lwSchedule, lwOpenAsmt, lwDsds, lwYes, lwOwner, lwAi, lwNote, lwText, lwWaiting, lwScriptsFill:scriptsFill, lwScriptsSave:scriptsSave });
+  Object.assign(window, { LeadWorkspace:{ render, active, people, waitingFor, handoffHtml }, lwRender:render, lwPartnerDraft:partnerDraft, lwPartnerFill:partnerFill, lwPartnerSave:partnerSave, lwActive:active, lwTab:tab, lwTrim:trim, lwLog, lwFollowUp, lwSchedule, lwOpenAsmt, lwDsds, lwYes, lwOwner, lwAi, lwNote, lwText, lwWaiting, lwScriptsFill:scriptsFill, lwScriptsSave:scriptsSave });
 })();

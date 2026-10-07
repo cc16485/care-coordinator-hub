@@ -57,7 +57,7 @@ async()=>{
   ok('...nothing is red for Diane (she is still Talking; the stage needs nothing she has not given)', !host.querySelector('.lw-miss'));
   const tl=[...host.querySelectorAll('.lw-tl-row')].map(r=>r.innerText.replace(/\s+/g,' ').trim());
   ok('the timeline, newest first: her text · Krystal\'s voicemail · the hours opening (first call due 8:05) · the Hub\'s acknowledgment by text and email · the inquiry from Website to Krystal (with her words)', tl.length===5 && /^Today 9:48 am They texted "Can someone call me/.test(tl[0]) && /^Today 8:12 am Krystal called · voicemail left my name/.test(tl[1]) && /^Today 8 am Lead response hours opened first call due 8:05 am/.test(tl[2]) && /Acknowledged by the Hub by text and email after hours/.test(tl[3]) && /Inquiry from Website · to Krystal Mom fell/.test(tl[4]), tl);
-  ok('the rail: Coming up says nothing scheduled; Contacts has Diane (decides, office-line link) and Marjorie (the client) and no partner; Can we staff it reads 2 of 3 available Mon–Fri mornings, 1 in Nixa', /Nothing scheduled/.test(T()) && /Diane Teague · daughter, decides/.test(T()) && /Marjorie Teague · the client/.test(T()) && /No referral partner on this one \(website\)/.test(T()) && /2 caregivers say they are available Mon–Fri mornings · 1 in Nixa · of 3 with availability on file/.test(T()), T().slice(-900));
+  ok('the rail: Coming up suggests the next try (a suggestion, never a message); Contacts has Diane (decides, office-line link) and Marjorie (the client) and no partner; Can we staff it reads 2 of 3 available Mon–Fri mornings, 1 in Nixa', /Suggested · Try again later today/.test(T()) && /Diane Teague · daughter, decides/.test(T()) && /Marjorie Teague · the client/.test(T()) && /No referral partner on this one \(website\)/.test(T()) && /2 caregivers say they are available Mon–Fri mornings · 1 in Nixa · of 3 with availability on file/.test(T()), T().slice(-900));
   /* the doors: owner, a note, waiting on, a text */
   await lwOwner('Angiel'); await sleep(150); let w=lastLead('dia');
   ok('Owner → Angiel is saved on the inquiry and the picker follows', w.assigned_coordinator==='Angiel' && document.getElementById('lwOwner').value==='Angiel', w.assigned_coordinator);
@@ -83,7 +83,7 @@ async()=>{
   /* the settings block */
   switchTab('settings'); await sleep(300); lwScriptsFill();
   const sbx=document.getElementById('lwScripts');
-  ok('Settings → Leads has the 11 script lines, blank, with the standard wording in grey', sbx && sbx.querySelectorAll('textarea[data-script]').length===11 && sbx.querySelector('textarea[data-script="voicemail"]').placeholder.indexOf('returning your message')>-1, sbx && sbx.querySelectorAll('textarea').length);
+  ok('Settings → Leads has the 12 script lines, blank, with the standard wording in grey', sbx && sbx.querySelectorAll('textarea[data-script]').length===12 && sbx.querySelector('textarea[data-script="voicemail"]').placeholder.indexOf('returning your message')>-1, sbx && sbx.querySelectorAll('textarea').length);
   return R;
 }
 """

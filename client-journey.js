@@ -124,7 +124,9 @@
        it, the line says who marked it and offers Undo (24 hours for the office, any time for an owner). */
     if(l && j.status !== 'active'){
       const yesRow = rowOf('signed.yes');
-      if(l.said_yes_at) h += '<div class="cj-yes-line">✓ They said yes ' + esc(day(String(l.said_yes_at).slice(0, 10))) + (l.said_yes_by_name ? ' · marked by ' + esc(l.said_yes_by_name) : '') + ' <button class="linklike" onclick="cjUndoYes(\'' + esc(l.id) + '\', this)">Undo</button></div>';
+      if(l.said_yes_at){ h += '<div class="cj-yes-line">✓ They said yes ' + esc(day(String(l.said_yes_at).slice(0, 10))) + (l.said_yes_by_name ? ' · marked by ' + esc(l.said_yes_by_name) : '') + ' <button class="linklike" onclick="cjUndoYes(\'' + esc(l.id) + '\', this)">Undo</button></div>';
+        /* item 5 (2026-10-07): the handoff: what carried forward, and what goes out now as drafts (lead-workspace.js) */
+        try{ if(window.LeadWorkspace && LeadWorkspace.handoffHtml) h += LeadWorkspace.handoffHtml(l); }catch(e){} }
       else if(yesRow && R.DONE.indexOf(yesRow.status) < 0) h += '<div class="cj-yes-line"><button class="cj-yes-btn" onclick="cjSaidYes(\'' + esc(l.id) + '\', this)">They said yes</button><span class="field-note">The family chose Caring Companions. Moves them into Getting ready and lands you on the next step. Undo is right there if it was a slip.</span></div>';
     }
     h += '<div class="cj-every"><button class="linklike" onclick="cpShowTab(\'start\');window.scrollTo(0,0)">See every step' + (more ? ' (' + more + ' more ready now)' : '') + '</button>'

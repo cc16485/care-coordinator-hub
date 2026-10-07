@@ -395,6 +395,30 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('missing required: only c (deciding, nothing asked) counts, against Angiel; b has what its stage needs; the converted one is not counted', MR.count === 1 && MR.by_owner.Angiel === 1 && MR.rows[0].id === 'c', MR);
 }
 
+/* item 5: the small rules (2026-10-07) */
+{
+  const C = { today:'2026-10-06', now:'2026-10-06T15:10:00Z', hours:R.responseHours({}), assessments:[], stage:'connected', me:'Krystal Land' };
+  const base = { id:'x', first_name:'Diane', client_first_name:'Marjorie', created_at:'2026-09-20T15:00:00Z', first_human_contact_at:'2026-09-25T15:00:00Z', status:'Contacted', desired_start:{ kind:'this_month' } };
+  ck('decision over 7 days with no reason → the board asks for one (Waiting on… first, Mark lost… beside it), rank 6.8', R.decisionStale(base, C).days === 11 && R.boardRow(base, C).reason === 'decision_stale' && R.boardRow(base, C).primary.kind === 'waiting' && R.boardRow(base, C).secondary.some(a => a.kind === 'lost'));
+  ck('...a waiting reason, a promise or a booked visit is a reason', !R.decisionStale(Object.assign({}, base, { waiting:{ reason:'family_decision', since:'2026-10-01', check_back:'2026-10-13' } }), C) && !R.decisionStale(Object.assign({}, base, { promised_callback_at:'2026-10-08T15:00:00' }), C) && !R.decisionStale(base, Object.assign({}, C, { assessments:[{ status:'Scheduled', visit_date:'2026-10-08' }] })));
+  const soon = Object.assign({}, base, { desired_start:{ kind:'this_week' }, first_human_contact_at:'2026-09-30T15:00:00Z' });
+  ck('assessment overdue by urgency: this week (target 5 days) talked 6 days ago with nothing booked → overdue; planning ahead (14) is not', R.assessmentOverdue(soon, C) && R.assessmentOverdue(soon, C).target === 5 && R.boardRow(soon, C).reason === 'asmt_overdue' && !R.assessmentOverdue(Object.assign({}, soon, { desired_start:{ kind:'planning' } }), C), R.assessmentOverdue(soon, C));
+  ck('...targets: today/tomorrow 1 day, within 3 days 2, within 2 weeks 5, later 14', JSON.stringify(R.ASMT_TARGET_DAYS) === '{"0":1,"1":2,"2":5,"3":14,"4":14}');
+  const ro = (n, lastAt) => ({ id:'r', first_name:'Pat', created_at:'2026-10-05T15:00:00Z', status:'Contacted', first_human_attempt_at:'2026-10-05T16:00:00Z', contact_events:Array.from({ length:n }, (_, i) => ({ at:i === n - 1 ? lastAt : '2026-10-05T16:00:00Z', actor:'human', direction:'out', channel:'call', outcome:'voicemail' })) });
+  ck('cadence (a suggestion, never a message): 1 try this morning → later today 1 pm; 2 → day 1; 3 → day 3; 4 → day 7; 5 → park as unable to reach', R.cadenceNext(ro(1, '2026-10-06T14:00:00Z'), C).time === '13:00' && R.cadenceNext(ro(1, '2026-10-06T14:00:00Z'), C).step === 'later today'
+    && R.cadenceNext(ro(2, '2026-10-06T14:00:00Z'), C).day === '2026-10-07' && R.cadenceNext(ro(3, '2026-10-06T14:00:00Z'), C).day === '2026-10-08' && R.cadenceNext(ro(4, '2026-10-06T14:00:00Z'), C).day === '2026-10-10' && R.cadenceNext(ro(5, '2026-10-06T14:00:00Z'), C).step === 'park', [R.cadenceNext(ro(2, '2026-10-06T14:00:00Z'), C), R.cadenceNext(ro(4, '2026-10-06T14:00:00Z'), C)]);
+  const rr = R.boardRow(ro(1, '2026-10-06T14:00:00Z'), Object.assign({}, C, { stage:'reaching_out' }));
+  ck('...on the board the No-next-step row says the suggestion and the follow-up button carries it (1 pm today)', /Try again later today/.test(rr.next.text) && rr.secondary.some(a => a.kind === 'followup' && a.suggest && a.suggest.day === '2026-10-06' && a.suggest.time === '13:00'), rr);
+  ck('...five tries: the row offers Waiting on… (park)', R.boardRow(ro(5, '2026-10-06T14:00:00Z'), Object.assign({}, C, { stage:'reaching_out' })).primary.kind === 'waiting');
+  const med = { id:'m', first_name:'Lou', client_first_name:'Ruth', funding_source:'medicaid', status:'Contacted', first_human_contact_at:'2026-08-10T15:00:00Z', waiting:{ reason:'state', since:'2026-08-15', check_back:'2026-10-13' } };
+  const mr = R.boardRow(med, Object.assign({}, C, { stage:'deciding' }));
+  ck('45 days with the state (52): red, call the case manager and offer bridge hours; outranks the 21-day DSDS row', mr.reason === 'medicaid_45' && mr.when.tone === 'red' && /offer private bridge hours/.test(mr.when.sub) && mr.secondary.map(a => a.kind).join() === 'case_manager,bridge', mr);
+  ck('...bridge hours offered: the offer button goes, the call stays; the case manager called this week: quiet for 7 days (back to the DSDS 21-day row)', R.boardRow(Object.assign({}, med, { bridge_hours_offered_at:'2026-10-01T15:00:00Z' }), Object.assign({}, C, { stage:'deciding' })).secondary.map(a => a.kind).join() === 'case_manager'
+    && R.boardRow(Object.assign({}, med, { case_manager_called_at:'2026-10-05T15:00:00Z' }), Object.assign({}, C, { stage:'deciding' })).reason === 'dsds_21');
+  ck('the yes handoff: carried forward reads source → reached → yes · payer · start; the thank-you text is in her words with Diane, Marjorie, Krystal', R.carriedForward(Object.assign({}, base, { source:'Website', said_yes_at:'2026-10-06T14:00:00Z', funding_source:'private' }), C) === 'Website Sep 20 → reached Sep 25 → yes today · Private pay · wants care this month'
+    && /^Hi Diane, thank you for choosing Caring Companions for Marjorie\. I am Krystal, your Care Coordinator/.test(R.yesThanks(base, C)) && R.SCRIPT_KEYS.indexOf('yes_thanks') > -1 && !R.SCRIPT_DEFAULT.yes_thanks.includes('—'));
+}
+
 /* the Hub page and the server run the same file */
 const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));

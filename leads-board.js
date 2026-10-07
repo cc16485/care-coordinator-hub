@@ -8,6 +8,7 @@
   'use strict';
   const esc = s => (typeof escapeHtmlComms === 'function' ? escapeHtmlComms(String(s == null ? '' : s)) : String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])));
   const LB = { filter:'All', owner:'' };
+  const q = v => JSON.stringify(String(v)).replace(/"/g, '&quot;');
   const TONE = { red:'#DC2626', amber:'#B45309', green:'#15803D', navy:'var(--navy)', muted:'var(--text-muted)' };
   const G = { now:['Need you now', 'most urgent first. Anything a person has to do right now lands here on its own: a new inquiry nobody has tried, a family reply, a promised call, a late follow-up, a start coming with no assessment, a check-back that is due, a family with no next step.', '#FFF5F5', '#B91C1C'],
     later:['Scheduled', 'callbacks, assessments and follow-ups with a real time or day, in order. When the time comes, the family moves up on its own.', 'var(--bg)', 'var(--navy)'],
@@ -35,7 +36,9 @@
       return '<a class="' + cls + '" href="#" role="button" data-oc-phone="' + esc(l.phone) + '"' + (l.email ? ' data-oc-email="' + esc(l.email) + '"' : '') + ' data-no-open="1" title="Call from the office line">Call</a>';
     }
     if(k === 'draft') return '<button class="' + cls + '" data-no-open="1" onclick="lbDraft(\'' + id + '\', \'' + esc(a.id) + '\')">' + esc(a.label) + '</button>';
-    const fn = { text:'lbText', log:'lbLog', followup:'lbFollowUp', schedule:'lbSchedule', open_asmt:'lbOpenAsmt', open:'lbOpen', dsds:'lbDsds' }[k];
+    /* item 5 (2026-10-07): the suggested next try rides on the follow-up button; Waiting on…, Mark lost…, Called the case manager, Offered bridge hours */
+    if(k === 'followup' && a.suggest && a.suggest.day) return '<button class="' + cls + '" data-no-open="1" onclick="lbFollowUp(\'' + id + '\', this, ' + q(JSON.stringify(a.suggest)) + ')">' + esc(a.label) + '</button>';
+    const fn = { text:'lbText', log:'lbLog', followup:'lbFollowUp', schedule:'lbSchedule', open_asmt:'lbOpenAsmt', open:'lbOpen', dsds:'lbDsds', waiting:'lbWaiting', lost:'lbLost', bridge:'lbBridge', case_manager:'lbCaseManager' }[k];
     return '<button class="' + cls + '" data-no-open="1" onclick="' + fn + '(\'' + id + '\', this)">' + esc(a.label) + '</button>';
   }
   /* the yes is offered on the row once a real conversation has happened and nothing blocks it (the server checks again) */
@@ -50,7 +53,7 @@
       + (r.chips.length ? '<div class="lb-chips">' + r.chips.map(chip).join('') + '</div>' : '')
       + (r.last ? '<div class="lb-last">' + esc(r.last) + '</div>' : '') + '</div>'
       + '<div class="lb-next"><div class="lb-k">Next</div><div class="lb-next-text">' + esc(r.next.text) + '</div>' + (r.next.sub && r.next.sub !== r.last ? '<div class="lb-next-sub">' + esc(r.next.sub) + '</div>' : '')
-      + '<div class="lb-actions" data-no-open="1">' + btn(l, r.primary, isNow) + r.secondary.slice(0, 1).map(a => btn(l, a, false)).join('')
+      + '<div class="lb-actions" data-no-open="1">' + btn(l, r.primary, isNow) + r.secondary.slice(0, 2).map(a => btn(l, a, false)).join('')
       + (yesReady(l, r) ? '<button class="lb-btn lb-btn-yes" data-no-open="1" onclick="lbYes(\'' + esc(l.id) + '\', this)">They said yes</button>' : '')
       + '<button class="lb-btn lb-more" data-no-open="1" aria-label="More actions" onclick="lbMore(\'' + esc(l.id) + '\', this)">···</button></div></div>'
       + '<div class="lb-owner">' + avatar(r.owner) + '</div></div>';
@@ -81,6 +84,7 @@
     const tile = (n, label, col, f) => '<button class="lb-tile" onclick="lbFilter(\'' + f + '\')"><span class="lb-tile-n" style="color:' + col + ';">' + n + '</span><span class="lb-tile-l">' + label + '</span></button>';
     if(nums) nums.innerHTML = tile(nowRows.length, 'need you now', '#DC2626', 'now') + tile(newUntouched.length, 'new, nobody has tried', '#DC2626', 'new') + tile(asmToday, 'assessments today', 'var(--navy)', 'later')
       + tile(work.filter(x => x.r.group === 'waiting').length, 'waiting', 'var(--text-muted)', 'waiting')
+      + tile(work.filter(x => x.r.chips.some(c => c.tone === 'missing')).length, 'missing required', '#B91C1C', 'missing')
       + '<div class="lb-tile lb-tile-static"><span class="lb-tile-n" style="color:#15803D;">' + (med == null ? '–' : med + ' <span style="font-size:14px;">min</span>') + '</span><span class="lb-tile-l">median first attempt today</span></div>';
     /* filters: owner + stage words */
     const owners = [...new Set(work.map(x => first(x.r.owner)).filter(Boolean))].sort();
@@ -106,11 +110,13 @@
     const shown = work.filter(x => lbIn(x, LB.filter)).sort((a, b) => R.boardSort(a.r, b.r));
     const by = { now:[], later:[], waiting:[] }; shown.forEach(x => by[x.r.group].push(x));
     const order = LB.filter === 'now' ? ['now'] : LB.filter === 'waiting' ? ['waiting'] : LB.filter === 'later' ? ['later'] : ['now', 'later', 'waiting'];
+    if(LB.filter === 'missing' && !shown.length){ box.innerHTML = '<div class="card lb-group"><div class="lb-empty">Nothing is missing that the stage needs. <button class="linklike" onclick="lbFilter(\'All\')">Show everyone</button></div></div>'; return; }
     box.innerHTML = order.map(k => groupHtml(k, by[k], today)).join('');
   }
   function lbIn(x, f){
     if(LB.owner && first(x.r.owner) !== LB.owner) return false;
     if(f === 'All') return true; if(f === 'now' || f === 'later' || f === 'waiting') return x.r.group === f;
+    if(f === 'missing') return x.r.chips.some(c => c.tone === 'missing');
     if(f === 'new') return x.st && x.st.k === 'new'; if(f === 'talking') return x.st && x.st.k === 'talking' && x.r.group !== 'waiting'; if(f === 'assessment') return x.st && x.st.k === 'assessment';
     return true;
   }
@@ -124,12 +130,14 @@
   /* the same log-call pop-up the profile uses; it writes to the lead it is pointed at */
   function lbLog(id, btn){ const l = lead(id); if(!l) return; try{ commsLead = l; }catch(e){ window.commsLead = l; } if(btn) btn.focus(); if(typeof logManualCall === 'function') logManualCall(); const t = setInterval(() => { if(!document.querySelector('.ccpop')){ clearInterval(t); redraw(); } }, 400); setTimeout(() => clearInterval(t), 120000); }
   /* set the follow-up: the day, an optional time, a note; the row moves to Scheduled */
-  function lbFollowUp(id, btn){
+  function lbFollowUp(id, btn, suggest){
     const l = lead(id); if(!l || typeof ccPopOpen !== 'function') return;
     const R = window.LeadRules, today = R.ymd(new Date());
+    let sg = null; try{ sg = typeof suggest === 'string' ? JSON.parse(suggest) : (suggest || null); }catch(e){}
     const el = ccPopOpen(btn || document.body,
       '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">When do we follow up with ' + esc((l.first_name || '').trim() || 'them') + '?</div>'
-      + '<div style="display:flex;gap:6px;"><input id="lbFuDate" type="date" value="' + esc(String(l.follow_up_due || '').slice(0, 10) >= today ? String(l.follow_up_due).slice(0, 10) : R.addDays(today, 1)) + '" style="flex:1;font-size:13px;padding:6px;"><input id="lbFuTime" type="time" value="' + esc(l.follow_up_time || '') + '" style="width:110px;font-size:13px;padding:6px;"></div>'
+      + '<div style="display:flex;gap:6px;"><input id="lbFuDate" type="date" value="' + esc(sg && sg.day ? sg.day : String(l.follow_up_due || '').slice(0, 10) >= today ? String(l.follow_up_due).slice(0, 10) : R.addDays(today, 1)) + '" style="flex:1;font-size:13px;padding:6px;"><input id="lbFuTime" type="time" value="' + esc(sg ? (sg.time || '') : (l.follow_up_time || '')) + '" style="width:110px;font-size:13px;padding:6px;"></div>'
+      + (sg ? '<div class="field-note" style="margin-top:6px;">Suggested from the usual cadence (today, later today, Day 1, Day 3, Day 7). Change it if you know better; nothing is sent to the family.</div>' : '')
       + '<input id="lbFuNote" placeholder="What is the call about? (shows on the board)" value="' + esc(l.follow_up_note || '') + '" style="width:100%;margin-top:8px;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;">'
       + '<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" id="lbFuGo" style="padding:7px 14px;font-size:13px;">Save</button><button class="ghost" id="lbFuNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>', { width:320 });
     el.querySelector('#lbFuNo').onclick = ccPopClose;
@@ -158,6 +166,21 @@
     await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
     if(typeof ccToast === 'function') ccToast('Marked lost: ' + r.lost_reason);
   }
+  /* item 5: the Waiting on… pop-up (the workspace's), pointed at this row's family */
+  function lbWaiting(id, btn){ const l = lead(id); if(!l) return; if(window.LeadWorkspace && LeadWorkspace.waitingFor) LeadWorkspace.waitingFor(l, btn, redraw); }
+  /* item 5: the 45-day Medicaid rules: the case manager was called (7-day quiet on the row); private bridge hours were offered */
+  async function lbCaseManager(id){
+    const l = lead(id); if(!l) return; const now = new Date().toISOString(), a = (typeof ccActor === 'function') ? ccActor() : { email:'', name:'' };
+    l.case_manager_called_at = now; l.comm_log = Array.isArray(l.comm_log) ? l.comm_log : []; l.comm_log.push({ body:'Called the case manager about the Medicaid authorization', at:now, by:a.email, kind:'case_manager' });
+    if(typeof ldPush === 'function') ldPush(l, { channel:'call', direction:'out', outcome:'connected', actor:'human', by:a.email, note:'the case manager, about the authorization', ref:'case_manager' });
+    await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw(); if(typeof ccToast === 'function') ccToast('Noted: the case manager was called.');
+  }
+  async function lbBridge(id){
+    const l = lead(id); if(!l) return; const now = new Date().toISOString(), a = (typeof ccActor === 'function') ? ccActor() : { email:'', name:'' };
+    if(!confirm('Record that ' + ((l.first_name || 'the family')) + ' was offered private-pay bridge hours while the state decides? (Nothing is sent; this is what you told them.)')) return;
+    l.bridge_hours_offered_at = now; l.comm_log = Array.isArray(l.comm_log) ? l.comm_log : []; l.comm_log.push({ body:'Offered private bridge hours while the state decides', at:now, by:a.email, kind:'bridge' });
+    await persist('leads', l); redraw(); if(typeof ccToast === 'function') ccToast('Noted: bridge hours offered.');
+  }
   /* Stage 4: "Called DSDS" restarts the 21-day clock on a family waiting on the state and writes a history line */
   async function lbDsds(id){
     const l = lead(id); if(!l) return;
@@ -174,5 +197,5 @@
   function lbFilter(f){ LB.filter = f; redraw(); }
   function lbOwner(o){ LB.owner = o || ''; redraw(); }
   function lbGettingReady(){ if(typeof ccParentClick === 'function') ccParentClick('gettingready'); else if(typeof switchTab === 'function') switchTab('soc'); }
-  Object.assign(window, { LeadsBoard:{ render, state:LB, ctxFor }, lbText, lbOpen, lbOpenAsmt, lbSchedule, lbLog, lbFollowUp, lbMore, lbLost, lbYes, lbDsds, lbDraft, lbFilter, lbOwner, lbGettingReady });
+  Object.assign(window, { LeadsBoard:{ render, state:LB, ctxFor }, lbText, lbOpen, lbOpenAsmt, lbSchedule, lbLog, lbFollowUp, lbMore, lbLost, lbYes, lbDsds, lbDraft, lbFilter, lbOwner, lbGettingReady, lbWaiting, lbBridge, lbCaseManager });
 })();
