@@ -6898,7 +6898,7 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
-<script src="client-journey.js?v=11"></script>
+<script src="client-journey.js?v=13"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=3"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
@@ -12264,22 +12264,28 @@ async function leHandSave(id,f){
 function cqfAfterRender(pending,expanded){
   if(!CQF.loading) cqfLoad(pending);
   var wt=document.getElementById('cqf-waiting');
-  if(wt){
-    var inLaunch={}; (pending||[]).forEach(function(c){ if(c.axiscare_client_id) inLaunch[String(c.axiscare_client_id).trim()]=1; });
-    var waiting=(CQF.openCases||[]).filter(function(x){ return !inLaunch[String(x.axiscare_client_id)]; });
+  if(wt) wt.innerHTML=cqfWaitingHtml(pending);
+  (pending||[]).forEach(function(c){
+    var ch=document.getElementById('cqfchip-'+c.id); if(ch) ch.innerHTML=cqfChip(c);
+    if(expanded&&expanded.has(c.id)) cqfSection(c);
+  });
+}
+/* "Waiting to be matched": AxisCare clients nobody has said who they are yet. Drawn on First shift and, once client
+   journeys are live (no Getting ready tab), at the top of Client Care → Starting care (2026-10-07 audit fix). */
+function cqfWaitingList(pending){
+  var inLaunch={}; (pending||[]).forEach(function(c){ if(c.axiscare_client_id) inLaunch[String(c.axiscare_client_id).trim()]=1; });
+  return (CQF.openCases||[]).filter(function(x){ return !inLaunch[String(x.axiscare_client_id)]; });
+}
+function cqfWaitingHtml(pending){
+    var waiting=cqfWaitingList(pending);
     var esc=escapeHtmlComms;
-    wt.innerHTML=waiting.length?'<div style="background:#FFFBF4;border:1.5px solid #F3D9B5;border-radius:10px;padding:.6rem .9rem;margin-bottom:.75rem;">'
+    return waiting.length?'<div style="background:#FFFBF4;border:1.5px solid #F3D9B5;border-radius:10px;padding:.6rem .9rem;margin-bottom:.75rem;">'
       +'<div style="font-size:.8rem;font-weight:800;color:var(--navy);">Waiting to be matched ('+waiting.length+')</div>'
       +'<div style="font-size:.72rem;color:var(--text-muted);margin-bottom:.35rem;">AxisCare lists these clients, but nobody has said who they are yet, and they have no launch here. Answering "Who is this?" gives them their Journey.</div>'
       +waiting.map(function(x){ var nm=x.axiscare_name||('AxisCare client #'+x.axiscare_client_id);
         return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:.3rem 0;border-top:1px dashed #F3E6D2;font-size:.8rem;">'
           +'<b style="color:var(--navy);">'+esc(nm)+'</b><span style="color:var(--text-muted);font-size:.72rem;">AxisCare #'+esc(x.axiscare_client_id)+' · seen '+esc(lpscDate(String(x.observed_at||'').slice(0,10)))+(x.needs_owner_decision?' · escalated to Owner / Decision':'')+'</span>'
           +'<span style="flex:1"></span><button class="linklike" style="font-size:.76rem" onclick="cqfWhoAx(\''+esc(String(x.axiscare_client_id))+'\',\''+esc(String(nm).replace(/\'/g,''))+'\')">Who is this?</button></div>'; }).join('')+'</div>':'';
-  }
-  (pending||[]).forEach(function(c){
-    var ch=document.getElementById('cqfchip-'+c.id); if(ch) ch.innerHTML=cqfChip(c);
-    if(expanded&&expanded.has(c.id)) cqfSection(c);
-  });
 }
 /* "Who is this?" for a client with no person yet */
 /* the same panel for a client who has no launch card */
