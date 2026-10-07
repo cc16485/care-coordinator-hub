@@ -76,6 +76,44 @@ ck('the move-over patch: start from the radio, schedule from the text, waiting f
   && mp.waiting.reason === 'not_ready' && mp.waiting.check_back === '2026-10-13' && mp.lost_reason_key === 'chose_facility', mp);
 ck('a drip whose next check is still ahead keeps it', R.migrationPatch({ nurture_sequence:'not_ready', nurture_started_at:'2026-10-01T15:00:00Z' }, T).waiting.check_back === '2026-10-31');
 
+/* lead response hours and the first-attempt clock (Stage 1). October 2026 is CDT (UTC-5): 9:02 pm Chicago = 02:02Z next day. */
+const HRS = R.responseHours({});
+ck('no setting → Mon–Fri 8 to 6, marked default', HRS.days.join() === '1,2,3,4,5' && HRS.start === '08:00' && HRS.end === '18:00' && HRS.source === 'default');
+ck('a bad setting (end before start, or a bad day) falls back', R.responseHours({ lead_response_hours:{ days:[1], start:'18:00', end:'08:00' } }).source === 'default' && R.responseHours({ lead_response_hours:{ days:[9], start:'08:00', end:'18:00' } }).source === 'default');
+const SAT = R.responseHours({ lead_response_hours:{ days:[1, 2, 3, 4, 5, 6], start:'07:30', end:'17:00' } });
+ck('a good setting is kept and sorted', SAT.days.join() === '1,2,3,4,5,6' && SAT.start === '07:30' && SAT.source === 'setting');
+const tue902pm = '2026-10-07T02:02:00.000Z';     /* Tue Oct 6, 9:02 pm Chicago */
+ck('chicago(): Tue 9:02 pm', (() => { const c = R.chicago(tue902pm); return c.ymd === '2026-10-06' && c.hm === '21:02' && c.dow === 2; })(), R.chicago(tue902pm));
+ck('9:02 pm Tuesday is outside hours; 10:04 am is inside', !R.inResponseHours(tue902pm, HRS) && R.inResponseHours('2026-10-06T15:04:00Z', HRS));
+ck('next opening after 9:02 pm Tue = Wed 8:00 am (13:00Z)', R.nextOpening(tue902pm, HRS) === '2026-10-07T13:00:00.000Z', R.nextOpening(tue902pm, HRS));
+ck('a 10:04 am inquiry: the clock starts now, due 5 minutes later', R.clockStart({ created_at:'2026-10-06T15:04:00Z' }, HRS) === '2026-10-06T15:04:00.000Z' && R.firstAttemptDue({ created_at:'2026-10-06T15:04:00Z' }, HRS) === '2026-10-06T15:09:00.000Z');
+ck('a 9:02 pm inquiry: due Wed 8:05 am', R.firstAttemptDue({ created_at:tue902pm }, HRS) === '2026-10-07T13:05:00.000Z', R.firstAttemptDue({ created_at:tue902pm }, HRS));
+ck('a Saturday 10 am inquiry waits for Monday 8:05 (weekends off)', R.firstAttemptDue({ created_at:'2026-10-10T15:00:00Z' }, HRS) === '2026-10-12T13:05:00.000Z', R.firstAttemptDue({ created_at:'2026-10-10T15:00:00Z' }, HRS));
+ck('...with Saturdays on, it is due at 10:05 that day', R.firstAttemptDue({ created_at:'2026-10-10T15:00:00Z' }, SAT) === '2026-10-10T15:05:00.000Z');
+ck('a 6:30 am Wednesday inquiry: due 8:05 the same morning', R.firstAttemptDue({ created_at:'2026-10-07T11:30:00Z' }, HRS) === '2026-10-07T13:05:00.000Z');
+ck('a 5:59 pm inquiry is inside; 6:00 pm is the next morning', R.firstAttemptDue({ created_at:'2026-10-06T22:59:00Z' }, HRS) === '2026-10-06T23:04:00.000Z' && R.firstAttemptDue({ created_at:'2026-10-06T23:00:00Z' }, HRS) === '2026-10-07T13:05:00.000Z');
+ck('after the clocks change (Nov 2, CST): a 7:30 am inquiry is due 8:05 = 14:05Z', R.firstAttemptDue({ created_at:'2026-11-03T13:30:00Z' }, HRS) === '2026-11-03T14:05:00.000Z', R.firstAttemptDue({ created_at:'2026-11-03T13:30:00Z' }, HRS));
+ck('words: came in 12 min ago · at 9:02 am · last night at 9:02 pm · yesterday at 2:10 pm · Sat at 10 am',
+  R.cameInWords('2026-10-07T13:00:00Z', '2026-10-07T13:12:00Z') === 'came in 12 min ago' && R.cameInWords('2026-10-07T14:02:00Z', '2026-10-07T16:00:00Z') === 'came in at 9:02 am'
+  && R.cameInWords(tue902pm, '2026-10-07T13:00:00Z') === 'came in last night at 9:02 pm' && R.cameInWords('2026-10-06T19:10:00Z', '2026-10-07T13:00:00Z') === 'came in yesterday at 2:10 pm'
+  && R.cameInWords('2026-10-10T15:00:00Z', '2026-10-12T13:00:00Z') === 'came in Sat at 10 am',
+  [R.cameInWords(tue902pm, '2026-10-07T13:00:00Z'), R.cameInWords('2026-10-06T19:10:00Z', '2026-10-07T13:00:00Z'), R.cameInWords('2026-10-10T15:00:00Z', '2026-10-12T13:00:00Z')]);
+ck('opening words for the ack: tomorrow at 8 am (Tue night) · Monday at 8 am (Saturday) · at 8 am (6:30 that morning)',
+  R.openingWords(tue902pm, HRS) === 'we open tomorrow at 8 am' && R.openingWords('2026-10-10T15:00:00Z', HRS) === 'we open Monday at 8 am' && R.openingWords('2026-10-07T11:30:00Z', HRS) === 'we open at 8 am',
+  [R.openingWords(tue902pm, HRS), R.openingWords('2026-10-10T15:00:00Z', HRS), R.openingWords('2026-10-07T11:30:00Z', HRS)]);
+let fa = R.firstAttemptState({ created_at:tue902pm, ack_sent_at:'2026-10-07T02:02:30Z' }, HRS, '2026-10-07T03:00:00Z');
+ck('9:02 pm lead at 10 pm: after hours, not running, not overdue, says when the clock starts', fa.after_hours && !fa.running && !fa.overdue && fa.starts_words === 'the clock starts tomorrow at 8 am' && fa.ack === 'auto-acknowledged immediately', fa);
+fa = R.firstAttemptState({ created_at:tue902pm, ack_sent_at:'2026-10-07T02:02:30Z' }, HRS, '2026-10-07T13:12:00Z');
+ck('...at 8:12 am next morning: running 12 min, OVERDUE by 7, came in last night', fa.running && fa.overdue && fa.open_minutes === 12 && fa.late_minutes === 7 && fa.came_in === 'came in last night at 9:02 pm', fa);
+fa = R.firstAttemptState({ created_at:tue902pm, first_human_attempt_at:'2026-10-07T13:03:00Z' }, HRS, '2026-10-07T13:12:00Z');
+ck('...once a person tried, never overdue', fa.attempted && !fa.overdue);
+fa = R.firstAttemptState({ created_at:'2026-10-07T15:00:00Z', ack_sent_at:'2026-10-07T15:00:20Z' }, HRS, '2026-10-07T15:03:00Z');
+ck('a 10 am lead at 10:03: running, not overdue yet, ack at 10 am', !fa.after_hours && fa.running && !fa.overdue && fa.open_minutes === 3 && fa.ack === 'auto-acknowledged at 10 am', fa);
+ck('median first attempt today: 9:02 pm lead tried 8:08 (8 min from opening) + 10:00 lead tried 10:04 (4) → 6; nothing → null',
+  R.medianFirstAttemptMinutes([{ created_at:tue902pm, first_human_attempt_at:'2026-10-07T13:08:00Z' }, { created_at:'2026-10-07T15:00:00Z', first_human_attempt_at:'2026-10-07T15:04:00Z' }, { created_at:'2026-10-07T16:00:00Z' }], HRS, '2026-10-07') === 6
+  && R.medianFirstAttemptMinutes([], HRS, '2026-10-07') === null);
+ck('...a lead from yesterday does not count in today\'s median', R.medianFirstAttemptMinutes([{ created_at:tue902pm, first_human_attempt_at:'2026-10-07T13:08:00Z' }], HRS, '2026-10-06') === null);
+
 /* the Hub page and the server run the same file */
 const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));
