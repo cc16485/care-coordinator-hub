@@ -4161,6 +4161,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<!-- Inquiry messages (2026-10-07, her "turn the acknowledgement on"): the two family-facing switches lead-intake and lead-followup
+     read (ops_settings.inquiry_ack_live, inquiry_followups_live). Same words as the Owners Hub Admin page; saved one field at a time. -->
+<div class="settings-section" data-set="inquiry-messages">
+<h3>💬 Inquiry messages to families</h3>
+<p class="hint">What a family who fills in a website form hears from the Hub by itself. Every send goes through the opt-out door (GoHighLevel Do Not Disturb, the Hub's opt-out record, do-not-contact); anyone opted out is skipped and the office is told. Her 2026-10-06 rule: the acknowledgment is the only automatic message after lead response hours.</p>
+<div id="inqSet"></div>
+</div>
+
 <!-- Leads intake desk, Stage 1 (Samantha 2026-10-06): the hours a new inquiry's 5-minute first-call clock runs. Saved
      one field at a time (tkMerge); the same lead-rules.js reads it on the server for the after-hours acknowledgment. -->
 <div class="settings-section" data-set="lead-hours">
@@ -14379,6 +14387,7 @@ function fillSettingsPanel(){
   try{ if(typeof suSetFill==='function') suSetFill(); }catch(_){}
   try{ lnSetFill(); }catch(_){}
   try{ lhSetFill(); }catch(_){}
+  try{ inqSetFill(); }catch(_){}
   try{ cbFill(); }catch(_){}
   tkFill();
   try{ tkoFill(); }catch(_){}
@@ -17065,6 +17074,29 @@ function cgcSetRender(){
    covered from then on ask for a family call). */
 /* Lead response hours (Stage 1): ops_settings.lead_response_hours = { days:[0..6], start:'HH:MM', end:'HH:MM' }; lead-rules.js
    cleans it and falls back to Mon–Fri 8 to 6 when it is missing or broken. */
+/* Inquiry messages: the same two questions as the Admin page, word for word (the Admin test checks) */
+const INQ_SWITCHES=[
+  { k:'inquiry_ack_live', name:'Inquiry acknowledgment', what:'One text and email at once when a website form lands, in Samantha\'s words: a Care Coordinator will call shortly, or after hours "will call you tomorrow after 8 am".',
+    on:'Turn on the inquiry acknowledgment?\n\nFrom the next website form, the family gets one text and one email right away (in your words, deployed by 487). After lead response hours it says when a coordinator will call. Nothing else automatic goes to a family. Anyone opted out (GoHighLevel Do Not Disturb, the Hub\'s opt-out record, do-not-contact) is skipped and the office is told.',
+    off:'Turn off the inquiry acknowledgment? New website inquiries get no automatic text or email; the office still gets its alert and the 5-minute clock still runs.' },
+  { k:'inquiry_followups_live', name:'Inquiry Day 1 and Day 3 nudges', what:'The two "is there a good time to call?" texts to a family nobody has reached, at 24 and 72 hours, in lead response hours only. Kept off by her 2026-10-06 rule.',
+    on:'Turn on the Day 1 and Day 3 nudges?\n\nA family we acknowledged but nobody has reached gets one text at 24 hours and one at 72 hours, in lead response hours only, through the opt-out door. This is a second automatic family message: her 2026-10-06 rule kept it off.',
+    off:'Turn off the Day 1 and Day 3 nudges? Nobody gets them; the acknowledgment and the office alert are unchanged.' } ];
+function inqSetFill(){
+  const box=document.getElementById('inqSet'); if(!box) return; const st=DATA.ops_settings||{}, esc=escapeHtmlComms;
+  box.innerHTML=INQ_SWITCHES.map(sw=>{ const on=st[sw.k]===true; return '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);">'
+    +'<div style="flex:1 1 320px;min-width:0;"><b>'+esc(sw.name)+'</b> <span class="badge '+(on?'ok':'muted')+'" style="font-size:10px;">'+(on?'On':'Off')+'</span><div class="field-note" style="margin-top:2px;">'+esc(sw.what)+'</div></div>'
+    +'<button class="secondary" onclick="inqToggle(\''+sw.k+'\', this)">'+(on?'Turn off':'Turn on')+'</button><span class="field-note" id="inqSaved_'+sw.k+'"></span></div>'; }).join('');
+}
+async function inqToggle(k, btn){
+  const sw=INQ_SWITCHES.find(x=>x.k===k); if(!sw) return; const on=!((DATA.ops_settings||{})[k]===true);
+  if(!confirm(on?sw.on:sw.off)) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m[k]=on; if(on&&!m[k+'_since']) m[k+'_since']=new Date().toISOString(); return [sw.name+(on?' ON':' OFF')]; }, 'inquiry messages');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('inqSaved_'+k); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next website form.':'Off.');
+  inqSetFill();
+}
 function lhSetFill(){
   if(typeof LeadRules==='undefined') return;
   const h=LeadRules.responseHours(DATA.ops_settings||{});
