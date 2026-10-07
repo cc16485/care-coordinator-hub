@@ -4183,6 +4183,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Inquiry acknowledgment</div>
 <p class="hint">What a family who fills in a website form hears from the Hub by itself: the one acknowledgment, nothing more. Every send goes through the opt-out door (GoHighLevel Do Not Disturb, the Hub's opt-out record, do-not-contact); anyone opted out is skipped and the office is told. Her rule (2026-10-07): no timed nudges or drips to families, because in home care every situation is different; follow-ups are a person's call.</p>
 <div id="inqSet"></div>
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Script lines on the lead workspace</div>
+<p class="hint">The line a coordinator sees on a family's profile for the moment they are in (first call, voicemail, they replied, the call we promised, and so on). It is a prompt for the person, never sent by itself. Blank means the standard wording shown in grey. Fill-ins: <code>{first}</code> the caller, <code>{client}</code> the person who needs care, <code>{me}</code> whoever is signed in, <code>{when}</code> the promised or booked time, <code>{why}</code> the follow-up note, <code>{start}</code> when they want care.</p>
+<div id="lwScripts"></div>
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Where website forms land</div>
 <p class="hint">Every mo-care.com form posts to the token-gated <code>lead-intake</code> Edge Function (see assets/forms.js in the website repo) and lands on Leads &amp; Starts with source "Website" — verified end to end 2026-08-01. No Zapier involved. An earlier note here showed a raw database URL; that path was closed in the July security hardening and was never the real one.</p>
 <div class="webhook-box"><code id="leadWebhookUrl">POST https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/lead-intake?token=cclead_…</code></div>
@@ -5037,6 +5040,9 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <button type="button" class="cp-tab" data-cp="history" onclick="cpShowTab('history')">Activity &amp; Documents</button>
   </div>
   <div class="cp-pane" data-cp-pane="summary">
+  <!-- THE LEAD WORKSPACE (her design's screen 2, 2026-10-07): the Overview until the family says yes. lead-workspace.js draws it
+       from lead-rules.js; while it shows, the older lead card, the AI card and the command tiles step aside (one card, not layers). -->
+  <div id="lwHost" style="display:none;"></div>
   <!-- GATE 1a · THE OVERVIEW COMMAND AREA (2026-09-28). Nobody maintains it: cpRenderCommand() computes
        every line from records other tabs own, and each line links to that tab. "Open right now"
        (cpRenderOpenNow, unchanged) now sits here as a client's still-needed list. -->
@@ -6844,7 +6850,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
-<script src="lead-rules.js?v=8"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=9"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -6880,8 +6886,9 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
-<script src="client-journey.js?v=8"></script>
+<script src="client-journey.js?v=9"></script>
 <script src="leads-board.js?v=6"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="lead-workspace.js?v=1"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -9588,6 +9595,7 @@ function cpShowTab(t){
   CP.tab=ok?t:'summary';
   document.querySelectorAll('#leadProfileView .cp-pane').forEach(p=>p.classList.toggle('on',p.dataset.cpPane===CP.tab));
   document.querySelectorAll('#cpTabs .cp-tab').forEach(b=>b.classList.toggle('on',b.dataset.cp===CP.tab));
+  try{ if(typeof lwTab==='function') lwTab(); }catch(e){}
   if(CP.tab==='care'){ cnLoad(false); try{ lnArrivals(); }catch(_){} }   /* N1: shift notes are read from AxisCare only when Care is opened; running-late arrival updates */
 }
 /* 422 (2026-10-03): the signed EVV correction forms the office linked to this client, under Activity & Documents. */
@@ -10055,6 +10063,7 @@ function renderLeadProfile(){
   ckRenderReturning();
   famMount('famLead', { lead_id:l.id }, 'lead');
   cpRenderCommand(); lpiRender();
+  try{ if(typeof lwRender==='function') lwRender(); }catch(e){ console.warn('lead workspace:', e); }
 }
 /* the not-ready drip and the 90-day lost text were retired 2026-10-07 (clean-up 6.3; Desktop 491 stopped every running one). The
    old nurture_* fields stay on the records as history; lead-rules.js reads a running one as waiting, nothing starts one. */
@@ -17056,6 +17065,7 @@ async function inqToggle(k, btn){
 }
 function lhSetFill(){
   if(typeof LeadRules==='undefined') return;
+  try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
   const h=LeadRules.responseHours(DATA.ops_settings||{});
   document.querySelectorAll('#lhDays input').forEach(c=>{ c.checked=h.days.indexOf(Number(c.value))>-1; });
   const s=document.getElementById('lhStart'), e=document.getElementById('lhEnd'); if(s) s.value=h.start; if(e) e.value=h.end;
@@ -31117,6 +31127,7 @@ function cpRenderCommand(){
     :'';
 
   try{ cpRenderLearned(); }catch(e){ console.warn('learned from call:', e); }
+  try{ if(typeof lwTrim==='function') lwTrim(); }catch(e){}
 }
 /* ── GATE 1b-2 · THE LEAD INTAKE TAB (her approval, 2026-09-28) ────────────────────────────────
    The permanent record of what the family told us before care started, on the lead AND the client
