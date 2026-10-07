@@ -4192,6 +4192,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Script lines on the lead workspace</div>
 <p class="hint">The line a coordinator sees on a family's profile for the moment they are in (first call, voicemail, they replied, the call we promised, and so on). It is a prompt for the person, never sent by itself. Blank means the standard wording shown in grey. Fill-ins: <code>{first}</code> the caller, <code>{client}</code> the person who needs care, <code>{me}</code> whoever is signed in, <code>{when}</code> the promised or booked time, <code>{why}</code> the follow-up note, <code>{start}</code> when they want care.</p>
 <div id="lwScripts"></div>
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">What the referrer hears from us</div>
+<p class="hint">The referral partner loop: when we reach the family, when the assessment is set, the outcome, and a weekly line to case managers while Medicaid is pending. Each one is a DRAFT on the family's profile (Referral partner card) that a person reads, edits and sends; nothing goes to a partner by itself. Blank means the standard wording in grey. Fill-ins: <code>{partner}</code> their first name, <code>{client}</code>, <code>{family}</code> the caller, <code>{me}</code>, <code>{day}</code> the assessment day, <code>{start}</code>, <code>{reason}</code>, <code>{days}</code> with the state.</p>
+<div id="lwPartner"></div>
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Where website forms land</div>
 <p class="hint">Every mo-care.com form posts to the token-gated <code>lead-intake</code> Edge Function (see assets/forms.js in the website repo) and lands on Leads &amp; Starts with source "Website" — verified end to end 2026-08-01. No Zapier involved. An earlier note here showed a raw database URL; that path was closed in the July security hardening and was never the real one.</p>
 <div class="webhook-box"><code id="leadWebhookUrl">POST https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/lead-intake?token=cclead_…</code></div>
@@ -6227,7 +6230,9 @@ The HomeTogether team</pre>
        different referrers on the leaderboard. The free text stays for the
        ones who are not organisations: a neighbour, a former client, an ad. -->
   <select id="lead_referral_org_id" onchange="leadRefOrgPicked()" style="margin-bottom:6px;"></select>
-  <input id="lead_referral_source_name" placeholder="Or type it: a neighbour, a former client, Facebook…"></div>
+  <input id="lead_referral_source_name" placeholder="Or type it: a neighbour, a former client, Facebook…">
+  <!-- item 3 (2026-10-07): who sent them, when a professional did. Fills itself from the partner's record type; change it if that is wrong. -->
+  <select id="lead_referral_subtype" style="margin-top:6px;"><option value="">Who referred them (if a professional)</option><option value="hospital">Hospital</option><option value="snf_rehab">Rehab / skilled nursing</option><option value="case_manager">Case manager</option><option value="community">Community (church, senior center, assisted living)</option><option value="apfm">A Place for Mom</option><option value="other">Other professional</option></select></div>
 </div>
 <div class="script-hint"><span class="ic">💬</span><span>Try hard for the email: "What's the best email for you? That way I can send over everything we talk about today, so you have it all in writing."</span></div>
 </div>
@@ -6856,7 +6861,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
-<script src="lead-rules.js?v=10"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=11"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -6893,8 +6898,8 @@ The HomeTogether team</pre>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
 <script src="client-journey.js?v=9"></script>
-<script src="leads-board.js?v=6"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=1"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="leads-board.js?v=7"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="lead-workspace.js?v=2"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -8914,7 +8919,7 @@ async function aiSuggestBranch(){
 const LEAD_FIELDS=[
   ['first_name','lead_first_name','text'], ['last_name','lead_last_name','text'], ['phone','lead_phone','text'],
   ['email','lead_email','text'], ['relationship','lead_relationship','text'], ['source','lead_source','raw','Phone'],
-  ['referral_org_id','lead_referral_org_id','org'], ['referral_source_name','lead_referral_source_name','text'],
+  ['referral_org_id','lead_referral_org_id','org'], ['referral_source_name','lead_referral_source_name','text'], ['referral_subtype','lead_referral_subtype','raw',''],
   ['client_name_not_provided','lead_client_name_not_provided','check'],
   ['client_first_name','lead_client_first_name','text'], ['client_last_name','lead_client_last_name','text'],
   ['client_dob','lead_client_dob','raw'], ['client_gender','lead_client_gender','raw'],
@@ -10862,6 +10867,8 @@ function leadRefOrgPicked(){
   else if(t.value && (DATA.referral_orgs||[]).some(function(x){return x.name===t.value;})) t.value='';
   const src=document.getElementById('lead_source');
   if(o && src && src.value!=='Referral') src.value='Referral';
+  const st=document.getElementById('lead_referral_subtype');
+  if(o && st && !st.value && typeof LeadRules!=='undefined') st.value=LeadRules.referralSubtype({}, o)||'';
 }
 function renderReferrers(){
   const esc=escapeHtmlComms;
@@ -17075,6 +17082,7 @@ async function inqToggle(k, btn){
 function lhSetFill(){
   if(typeof LeadRules==='undefined') return;
   try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
+  try{ if(typeof lwPartnerFill==='function') lwPartnerFill(); }catch(e){}
   { const r=LeadRules.rungSettings(DATA.ops_settings||{}), b=document.getElementById('lrBackup'), m=document.getElementById('lrManager'); if(b) b.value=r.backup_min; if(m) m.value=r.manager_min; }
   const h=LeadRules.responseHours(DATA.ops_settings||{});
   document.querySelectorAll('#lhDays input').forEach(c=>{ c.checked=h.days.indexOf(Number(c.value))>-1; });
@@ -31171,7 +31179,7 @@ function cpRenderCommand(){
      fields a person saves. */
 const LPI_FORBIDDEN=['status','assigned_coordinator','axiscare_client_id','funding_source','intent_tags','follow_up_branch',
   'follow_up_due','last_contacted_at','dcn','county','state_submitted','state_status','price_quoted','quoted_price_amount'];
-const LPI_CALLER=['first_name','last_name','phone','email','relationship','source','referral_org_id','referral_source_name'];
+const LPI_CALLER=['first_name','last_name','phone','email','relationship','source','referral_org_id','referral_source_name','referral_subtype'];
 const LPI_CH=[
   { n:1, key:'found',  t:'How they found us',             secs:['leadSecCaller','leadSecUrgency'], keys:LPI_CALLER.concat(['desired_start_kind','desired_start_date']) },
   { n:2, key:'person', t:'The person who needs care',     secs:['leadSecClient'], keys:['client_name_not_provided','client_first_name','client_last_name','client_dob','client_gender','client_address','client_city','client_state','client_zip','client_phone','marital_status','language'] },

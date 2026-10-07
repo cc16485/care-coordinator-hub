@@ -347,6 +347,35 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('the workspace timeline shows the rung: "Texted Krystal at 5 minutes, nobody had called"', tl.some(x => x.text === 'Texted Krystal at 5 minutes, nobody had called'), tl);
 }
 
+/* item 3: referral subtype, the two flags, the partner loop (2026-10-07) */
+{
+  const org = { id:'o1', name:'Mercy Rehab', type:'Rehab / Skilled Nursing', people:'Jan Ortiz (discharge planner), Bo Li (SW)', email:'referrals@mercy.org' };
+  const base = { id:'x', first_name:'Diane', client_first_name:'Marjorie', client_last_name:'Teague', referral_org_id:'o1', desired_start:{ kind:'by_date', date:'2026-10-08' }, schedule:{ days:['Sat', 'Sun'], times:'overnight' }, status:'Contacted', first_human_contact_at:'2026-10-06T14:00:00Z', source:'Referral' };
+  const C = { today:'2026-10-06', now:'2026-10-06T15:10:00Z', org, assessments:[], me:'Krystal Land', hours:R.responseHours({}), stage:'connected' };
+  ck('subtype: stamped wins; else read from the partner record (rehab → snf_rehab, hospital, physician/hospice → case manager, senior center → community); a website lead has none', R.referralSubtype({ referral_subtype:'apfm' }, org) === 'apfm' && R.referralSubtype(base, org) === 'snf_rehab' && R.referralSubtype({}, { type:'Hospital' }) === 'hospital' && R.referralSubtype({}, { type:'Hospice' }) === 'case_manager' && R.referralSubtype({}, { type:'Senior Center / Community' }) === 'community' && R.referralSubtype({ source:'Website' }, null) === '');
+  const people = [{ name:'A', windows:{ mon:['morning'] } }, { name:'B', windows:{ sat:['overnight'], sun:['overnight'] } }];
+  const F = R.flags(base, Object.assign({}, C, { people }));
+  ck('flags: a rehab discharge who needs care by Thu → urgent_discharge (red); weekends overnights finding one caregiver → staffing_risk (amber)', F.map(f => f.key).join() === 'urgent_discharge,staffing_risk' && F[0].text === 'Rehab discharge: needs care by Thu' && F[0].tone === 'bad' && F[1].text === 'Staffing risk: 1 caregiver available Weekends overnights' && F[1].tone === 'warn', F);
+  ck('...the discharge flag ends once the assessment is done; the staffing flag ends once a plan is linked (pre-matched); a planning-ahead family is never a discharge', !R.flags(base, Object.assign({}, C, { people, assessments:[{ status:'Scheduled', visit_date:'2026-10-05' }] })).some(f => f.key === 'urgent_discharge')
+    && !R.flags(base, Object.assign({}, C, { people, pre_matched:true })).some(f => f.key === 'staffing_risk') && !R.flags(Object.assign({}, base, { desired_start:{ kind:'planning' } }), Object.assign({}, C, { people })).some(f => f.key === 'urgent_discharge'));
+  const row = R.boardRow(base, Object.assign({}, C, { people, stage:'connected' }));
+  ck('the board: the discharge outranks an ordinary urgent start (4.5, red, "rehab discharge, assessment not booked") and both flags are chips on the row', row.reason === 'urgent_start' && row.rank === 4.5 && row.when.tone === 'red' && row.when.sub === 'rehab discharge, assessment not booked' && row.chips.some(c => c.key === 'urgent_discharge') && row.chips.some(c => c.key === 'staffing_risk'), row);
+  /* the partner loop */
+  let pl = R.partnerLoop(base, C);
+  ck('partner loop: Mercy Rehab (rehab / skilled nursing, professional); we reached the family → the receipt is due, in her words with Jan, Marjorie Teague, Diane and Krystal', pl.partner.name === 'Mercy Rehab' && pl.partner.professional && pl.due.length === 1 && pl.due[0].kind === 'receipt' && pl.due[0].text === 'Hi Jan, this is Krystal with Caring Companions. Thank you for sending Marjorie Teague our way. We reached Diane today and are setting up a time to visit the home. I will keep you posted.', pl);
+  pl = R.partnerLoop(base, Object.assign({}, C, { assessments:[{ status:'Scheduled', visit_date:'2026-10-07' }] }));
+  ck('...a booked visit adds the assessment line ("set for tomorrow")', pl.due.map(d => d.kind).join() === 'receipt,assessment' && /assessment is set for tomorrow/.test(pl.due[1].text), pl.due);
+  const sent = R.recordPartnerMsg(JSON.parse(JSON.stringify(base)), { kind:'receipt', channel:'email', to:'Mercy Rehab', text:'...', by:'kry@mo-care.com' }, '2026-10-06T15:00:00Z');
+  ck('a sent message is recorded on the inquiry and is no longer due; the timeline shows "Krystal emailed Mercy Rehab: we reached the family"', !R.partnerLoop(sent, C).due.some(d => d.kind === 'receipt') && R.partnerLoop(sent, C).sent.length === 1 && R.timeline(sent, { now:C.now, names:{ 'kry@mo-care.com':'Krystal Land' } }).some(x => x.text === 'Krystal emailed Mercy Rehab: we reached the family'), R.timeline(sent, { now:C.now }).map(x => x.text));
+  ck('the outcome: said yes → "chose Caring Companions"; lost for price → "did not start with us (price)"', /Marjorie Teague chose Caring Companions, and we are getting ready to start/.test(R.partnerLoop(Object.assign({}, base, { said_yes_at:'2026-10-06T16:00:00Z' }), C).due.find(d => d.kind === 'outcome_started').text)
+    && /care did not start with us \(price\)/.test(R.partnerLoop(Object.assign({}, base, { status:'Lost', lost_reason_key:'price' }), C).due.find(d => d.kind === 'outcome_lost').text));
+  const med = Object.assign({}, base, { funding_source:'medicaid', waiting:{ reason:'state', since:'2026-09-25', check_back:'2026-10-13' } });
+  ck('weekly to a professional while Medicaid is pending: due after 7 days (11 days with the state), not again within 7 days of the last message, never to a community referrer', R.partnerLoop(med, C).due.some(d => d.kind === 'weekly' && /11 days so far/.test(d.text))
+    && !R.partnerLoop(R.recordPartnerMsg(JSON.parse(JSON.stringify(med)), { kind:'weekly' }, '2026-10-03T15:00:00Z'), C).due.some(d => d.kind === 'weekly') && !R.partnerLoop(med, Object.assign({}, C, { org:Object.assign({}, org, { type:'Senior Center / Community' }) })).due.some(d => d.kind === 'weekly'));
+  ck('Settings can replace a partner line; no partner → nothing', R.partnerLoop(base, Object.assign({}, C, { templates:{ receipt:'Hey {partner}, got {client}.' } })).due[0].text === 'Hey Jan, got Marjorie Teague.' && R.partnerLoop({ first_name:'X', source:'Website' }, Object.assign({}, C, { org:null })).partner === null);
+  ck('no em dash in any partner line', !Object.values(R.PARTNER_DEFAULT).join(' ').includes('—') && R.PARTNER_KINDS.every(k => R.PARTNER_LABEL[k] && R.PARTNER_DEFAULT[k]));
+}
+
 /* the Hub page and the server run the same file */
 const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));
