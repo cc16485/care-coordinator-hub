@@ -73,6 +73,9 @@
   .lb-av{width:24px;height:24px;border-radius:50%;background:#E4EDF6;color:var(--navy);font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none;}
   .lb-av-none{background:var(--red-bg);color:var(--red);}
   @media (max-width:980px){ .lb-row{grid-template-columns:1fr;gap:8px;} .lb-when{display:flex;gap:10px;align-items:baseline;} }
+  .lb-btn-yes{border-color:#15803D;color:#15803D;}
+  .cj-yes-line{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 4px;font-size:13px;}
+  .cj-yes-btn{font-family:inherit;background:#15803D;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Poppins:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <title>Leads, Clients &amp; Care — Caring Companions</title>
@@ -6879,8 +6882,8 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
-<script src="client-journey.js?v=6"></script>
-<script src="leads-board.js?v=1"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="client-journey.js?v=7"></script>
+<script src="leads-board.js?v=2"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -9404,6 +9407,7 @@ function lpMoreOpen(){
          + item('lmDup','Mark as duplicate','Archives it and records which one it duplicates')
          + (L.archived ? item('lmRestore','Restore to the working list','')
                        : item('lmArchive','Archive','Takes it off the list, keeps everything')))
+    + (L.said_yes_at ? item('lmUndoYes','Undo "They said yes"','Puts them back on the Leads board. Within a day anyone in the office; after that an owner') : '')
     + item('lmDel','Delete permanently','Removes the record and its work items. Cannot be undone', true),
     {width:340});
   const on=(id,fn)=>{ const b=el.querySelector('#'+id); if(b) b.onclick=fn; };
@@ -9412,6 +9416,7 @@ function lpMoreOpen(){
   on('lmDel',   ()=>{ ccPopClose(); lpDeleteLead(); });
   on('lmDup',   ()=>{ ccPopClose(); lpMarkDuplicate(); });
   on('lmSpam',  ()=>{ ccPopClose(); lpMarkSpam(L.id, document.getElementById('lpMoreBtn')); });
+  on('lmUndoYes',()=>{ ccPopClose(); if(typeof cjUndoYes==='function') cjUndoYes(L.id, null); });
   on('lmNotSpam',()=>{ ccPopClose(); lpNotSpam(L.id, document.getElementById('lpMoreBtn')); });
 }
 async function lpMarkDuplicate(){
@@ -32394,6 +32399,7 @@ function lsRows(){
     const idr=ax&&Array.isArray(CL360_IDENTITY)?CL360_IDENTITY.find(x=>String(x.axiscare_client_id||'')===ax):null;
     let st=ccLeadStage(l); if(st.k==='care'&&idr&&idr.role_status&&idr.role_status!=='active') st={ k:'past', d:'ended care' };
     if(st.k==='ready'&&!leadIsSpam(l)&&!l.archived) return;   /* said yes: they live in Client Care → Getting ready (her call, 2026-09-28) */
+    if(l.said_yes_at&&!leadIsSpam(l)&&!l.archived) return;        /* Stage 3: They said yes = off the Leads board, whatever the journey's stage word */
     const set=leadIsSpam(l)?'spam':l.archived?'archived':st.k==='care'?'care':st.k==='past'?'past':'work';
     const ep=F.epOf[String(l.id)], sc=ep?F.scOf[ep]:null, pid=ep?F.planOf[ep]:null;
     const launch=ax?launches.find(c=>c.status!=='complete'&&String(c.axiscare_client_id||'').trim()===ax):null;

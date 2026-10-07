@@ -75,4 +75,18 @@ ck('Other payer: "Which payer?" is required only when Other is picked', !R.canCo
 const all = cat.filter(d => R.applies(d, J({ payer:'private' }))).map(d => S(d.key, { answer:{ payer:'private', outcome:'signed', hours_week:20 } }));
 v = R.compute(cat, J({ payer:'private' }), all, ctx());
 ck('every required step done: Active, nothing next', v.complete && v.stage === 'active' && !v.next && v.rail.at(-1).state === 'done');
+
+/* They said yes (Stage 3): signed.yes is a confirmed step after the payer; the signed documents and the AxisCare client hang off it */
+{
+  const yes = cat.find(d => d.key === 'signed.yes');
+  ck('signed.yes exists: Signed stage, confirmed by a person, required, after the payer only', yes && yes.stage === 'signed' && yes.proof === 'confirmed' && yes.required && yes.after.join() === 'intake.payer', yes);
+  ck('the signed documents and the AxisCare client come after the yes', ['docs.agreement', 'docs.rights', 'docs.assessment', 'ax.client'].every(k => (cat.find(d => d.key === k).after || []).indexOf('signed.yes') > -1 && (cat.find(d => d.key === k).after || []).indexOf('asmt.outcome') < 0));
+  const v0 = R.compute(cat, J({ payer:'private' }), [S('intake.payer', { answer:{ payer:'private' } })], ctx());
+  ck('before the yes: the documents are "later" (After: Family chose Caring Companions)', v0.rows.find(r => r.key === 'docs.agreement').status === 'later' && /Family chose/.test(v0.rows.find(r => r.key === 'docs.agreement').why) && v0.rows.find(r => r.key === 'signed.yes').status === 'ready');
+  const v1 = R.compute(cat, J({ payer:'private' }), [S('intake.payer', { answer:{ payer:'private' } }), S('signed.yes')], ctx());
+  ck('after the yes: the documents and the AxisCare client are ready; the basics (verified) stay the next required step', ['docs.agreement', 'docs.rights', 'docs.assessment', 'ax.client'].every(k => v1.rows.find(r => r.key === k).status === 'ready') && v1.next.key === 'intake.basics', v1.next && v1.next.key);
+  ck('a stop (2 notices) also holds the yes', (() => { const v = R.compute(cat, J(), base.concat([S('med.notices', { answer:{ count:2 } })]), ctx()); return v.stop && v.rows.find(r => r.key === 'signed.yes').status === 'later'; })());
+  ck('the yes is quiet: ready, but never an "also ready" line and never a My Work card (the family\'s move, not the coordinator\'s)', !v0.alsoReady.some(r => r.key === 'signed.yes') && !R.cardsFor(J({ payer:'private' }), v0, ctx()).some(c => c.step_key === 'signed.yes') && v0.rows.find(r => r.key === 'signed.yes').status === 'ready', v0.alsoReady.map(r => r.key));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

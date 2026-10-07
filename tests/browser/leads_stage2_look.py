@@ -77,7 +77,7 @@ async()=>{
   /* the ··· menu */
   rows()[0].querySelector('.lb-more').click(); await sleep(80);
   const items=[...document.querySelectorAll('.ccpop .ccpick-row')].map(x=>x.textContent);
-  ok('··· menu: open profile, edit the inquiry, schedule, follow-up, mark lost, spam (a web inquiry)', items.length===6 && /Mark lost/.test(items.join()) && /spam/.test(items.join()), items);
+  ok('··· menu: open profile, edit the inquiry, schedule, follow-up, They said yes, mark lost, spam (a web inquiry)', items.length===7 && /They said yes/.test(items.join()) && /Mark lost/.test(items.join()) && /spam/.test(items.join()), items);
   ccPopCloseAll();
   /* look-ups */
   lbFilter('set:past'); await sleep(100);

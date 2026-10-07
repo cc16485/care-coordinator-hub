@@ -33,6 +33,8 @@
     const fn = { text:'lbText', log:'lbLog', followup:'lbFollowUp', schedule:'lbSchedule', open_asmt:'lbOpenAsmt', open:'lbOpen' }[k];
     return '<button class="' + cls + '" data-no-open="1" onclick="' + fn + '(\'' + id + '\', this)">' + esc(a.label) + '</button>';
   }
+  /* the yes is offered on the row once a real conversation has happened and nothing blocks it (the server checks again) */
+  function yesReady(l, r){ return !!(l.first_human_contact_at && !l.said_yes_at && r.reason !== 'new_overdue' && r.reason !== 'new_running' && r.reason !== 'new_before_open'); }
   function chip(c){ const st = c.tone === 'missing' ? 'background:#fff;color:#B91C1C;border:1px dashed #DC2626;' : c.tone === 'bad' ? 'background:var(--red-bg);color:var(--red);' : 'background:var(--amber-bg);color:var(--amber);'; return '<span class="lb-chip" style="' + st + '">' + esc(c.text) + '</span>'; }
   function rowHtml(r, l){
     const tone = TONE[r.when.tone] || TONE.navy, isNow = r.group === 'now';
@@ -44,6 +46,7 @@
       + (r.last ? '<div class="lb-last">' + esc(r.last) + '</div>' : '') + '</div>'
       + '<div class="lb-next"><div class="lb-k">Next</div><div class="lb-next-text">' + esc(r.next.text) + '</div>' + (r.next.sub && r.next.sub !== r.last ? '<div class="lb-next-sub">' + esc(r.next.sub) + '</div>' : '')
       + '<div class="lb-actions" data-no-open="1">' + btn(l, r.primary, isNow) + r.secondary.slice(0, 1).map(a => btn(l, a, false)).join('')
+      + (yesReady(l, r) ? '<button class="lb-btn lb-btn-yes" data-no-open="1" onclick="lbYes(\'' + esc(l.id) + '\', this)">They said yes</button>' : '')
       + '<button class="lb-btn lb-more" data-no-open="1" aria-label="More actions" onclick="lbMore(\'' + esc(l.id) + '\', this)">···</button></div></div>'
       + '<div class="lb-owner">' + avatar(r.owner) + '</div></div>';
   }
@@ -137,11 +140,11 @@
     const l = lead(id); if(!l || typeof ccPopOpen !== 'function') return;
     const row = (t, fn) => '<div class="ccpick-row" data-fn="' + fn + '" style="padding:8px;border-radius:8px;cursor:pointer;font-size:13.5px;">' + t + '</div>';
     const el = ccPopOpen(btn, '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">' + esc(((l.client_first_name || '') + ' ' + (l.client_last_name || '')).trim() || ((l.first_name || '') + ' ' + (l.last_name || '')).trim()) + '</div>'
-      + row('Open their profile', 'open') + row('Edit the inquiry (start, schedule, waiting on…)', 'edit') + row('Schedule the assessment', 'schedule') + row('Set a follow-up', 'followup') + row('Mark lost…', 'lost') + (typeof leadFromWebForm === 'function' && leadFromWebForm(l) ? row('Not a real inquiry (spam)', 'spam') : ''), { width:300 });
+      + row('Open their profile', 'open') + row('Edit the inquiry (start, schedule, waiting on…)', 'edit') + row('Schedule the assessment', 'schedule') + row('Set a follow-up', 'followup') + (l.said_yes_at ? '' : row('They said yes', 'yes')) + row('Mark lost…', 'lost') + (typeof leadFromWebForm === 'function' && leadFromWebForm(l) ? row('Not a real inquiry (spam)', 'spam') : ''), { width:300 });
     el.querySelectorAll('.ccpick-row').forEach(r => { r.onmouseenter = () => r.style.background = 'var(--bg)'; r.onmouseleave = () => r.style.background = '';
       r.onclick = () => { const fn = r.dataset.fn; ccPopClose();
         if(fn === 'open') lbOpen(id); else if(fn === 'edit' && typeof openLeadModal === 'function') openLeadModal(id); else if(fn === 'schedule') lbSchedule(id); else if(fn === 'followup') lbFollowUp(id, btn);
-        else if(fn === 'lost') lbLost(id); else if(fn === 'spam' && typeof lpMarkSpam === 'function') lpMarkSpam(id, btn); };
+        else if(fn === 'yes') lbYes(id, btn); else if(fn === 'lost') lbLost(id); else if(fn === 'spam' && typeof lpMarkSpam === 'function') lpMarkSpam(id, btn); };
     });
   }
   async function lbLost(id){
@@ -151,8 +154,9 @@
     await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
     if(typeof ccToast === 'function') ccToast('Marked lost: ' + r.lost_reason);
   }
+  function lbYes(id, btn){ if(typeof cjSaidYes === 'function') cjSaidYes(id, btn); else alert('The client journey page did not load. Refresh and try again.'); }
   function lbFilter(f){ LB.filter = f; redraw(); }
   function lbOwner(o){ LB.owner = o || ''; redraw(); }
   function lbGettingReady(){ if(typeof ccParentClick === 'function') ccParentClick('gettingready'); else if(typeof switchTab === 'function') switchTab('soc'); }
-  Object.assign(window, { LeadsBoard:{ render, state:LB, ctxFor }, lbText, lbOpen, lbOpenAsmt, lbSchedule, lbLog, lbFollowUp, lbMore, lbLost, lbFilter, lbOwner, lbGettingReady });
+  Object.assign(window, { LeadsBoard:{ render, state:LB, ctxFor }, lbText, lbOpen, lbOpenAsmt, lbSchedule, lbLog, lbFollowUp, lbMore, lbLost, lbYes, lbFilter, lbOwner, lbGettingReady });
 })();
