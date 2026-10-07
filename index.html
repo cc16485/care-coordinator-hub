@@ -6846,7 +6846,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
-<script src="lead-rules.js?v=3"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=4"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -6883,7 +6883,7 @@ The HomeTogether team</pre>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
 <script src="client-journey.js?v=7"></script>
-<script src="leads-board.js?v=2"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="leads-board.js?v=3"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=3"></script>
@@ -10004,9 +10004,13 @@ async function cpPayerSave(){
   const msg=document.getElementById('cpPayMsg');
   l.funding_source=v('cpPayFunding');
   const q=document.getElementById('cpPayQuoted'); l.price_quoted=!!(q&&q.checked); l.quoted_price_amount=v('cpPayAmount');
+  const prevState=l.state_status;
   if(document.getElementById('cpPayDcn')){ l.dcn=v('cpPayDcn'); l.county=v('cpPayCounty'); l.state_submitted=v('cpPaySubmitted'); l.state_status=v('cpPayStatus'); }
   if(l.state_submitted&&(!l.state_status||l.state_status==='not_submitted')) l.state_status='submitted';
+  /* Stage 4: the state saying yes is an event the board and My Work act on until a person has called the family */
+  if(typeof LeadRules!=='undefined'&&LeadRules.markAuthorized(l, prevState)){ try{ opEvent('lead_authorized',{ item_id:String(l.id), area:'growth_leads', summary:'Authorization received from the state for '+(cpLeadClientName(l)||'a family') }); }catch(e){} }
   await persist('leads', l);
+  if(typeof opsReconcileLeads==='function'){ try{ opsReconcileLeads(); }catch(e){} }
   if(msg){ msg.textContent='Saved.'; msg.style.color='var(--green)'; }
   cpRenderPayer(); cpRenderOpenNow&&cpRenderOpenNow();
   try{ if(typeof renderLeadProfile==='function') renderLeadProfile(); }catch(e){}
@@ -32750,9 +32754,17 @@ function opsReconcileLeads(){
            next business day and says so, which the coordinator can override by
            setting a real date on the lead. */
         let nextDue=fu;
+        /* Stage 4 (2026-10-07): a WAITING record (the state, the VA, a family deciding…) parks the card until its
+           check-back date; on that day the card comes back by itself, like the Leads board row. The state saying yes
+           (authorization_received_at, from the Payer tab) un-parks it and makes it urgent until a person reaches out. */
+        const wRec=(typeof LeadRules!=='undefined')?LeadRules.waiting(l):null;
+        const authNow=(typeof LeadRules!=='undefined')&&LeadRules.authorizationPending(l);
+        if(authNow){ nextDue=t; if(it.urgency!=='high'){ it.urgency='high'; it.lead_auth_flagged=true; opsLeadLog(it,'Authorization received from the state: call the family'); touched.set(it.id,it); } }
+        else if(it.lead_auth_flagged){ it.lead_auth_flagged=false; if(it.urgency==='high'&&!it.clock_urgent&&!it.lead_promise_overdue){ it.urgency='normal'; } touched.set(it.id,it); }
+        if(!authNow && wRec && wRec.check_back && !it.lead_promise_overdue) nextDue=wRec.check_back;
         /* Not a future follow-up: a bad number needs solving today, and
            parking it until tomorrow hides the only thing blocking contact. */
-        if(l.bad_number && !fu) nextDue=t;
+        if(l.bad_number && !fu && !wRec) nextDue=t;
         else if(contacted && !nextDue){
           nextDue = ccNextBusinessDay(l.last_contacted_at || t, CONFIG.lead_followup_days);
           if(it.lead_auto_followup!==nextDue){
@@ -32775,7 +32787,7 @@ function opsReconcileLeads(){
           const want = (nextDue>t) ? 'waiting' : null;
           if((it.sub_state||null)!==want && it.sub_state!=='escalated'){
             it.sub_state=want;
-            it.waiting_on = want ? 'the family, until '+nextDue : null;
+            it.waiting_on = want ? ((wRec&&wRec.check_back===nextDue&&typeof LeadRules!=='undefined')?LeadRules.WAITING[wRec.reason].on.toLowerCase()+', until '+nextDue:'the family, until '+nextDue) : null;
             it.check_back = want ? nextDue : null;
             touched.set(it.id,it);
           }
@@ -32787,8 +32799,14 @@ function opsReconcileLeads(){
            item would read "follow up as promised" — on a number we already
            know is wrong. The action is to find a working number, and it is
            actionable now rather than tomorrow. */
-        const action = it.lead_promise_overdue
+        const action = authNow
+            ? 'Authorized by the state: call the family today, pick a start week, then move them along.'
+          : it.lead_promise_overdue
             ? 'Call them now — we told them we would.'
+          : (wRec && wRec.check_back && !(nextDue>t))
+            ? ({ state:'Check back day: check Fusion, then call the family.', family_decision:'Check back day: call, have they decided?', unable_to_reach:'Check back day: one more try, then the next step.' }[wRec.reason]||'Check back day: check in with the family.')
+          : (wRec && nextDue>t)
+            ? 'Waiting on '+((typeof LeadRules!=='undefined')?LeadRules.WAITING[wRec.reason].on.toLowerCase():'them')+' until '+nextDue+'. Nothing to do yet.'
           : l.bad_number && !fu
             ? 'The number we have is wrong. Find a working number before trying again.'
           : !contacted ? 'Call them — a person, as soon as you can.'

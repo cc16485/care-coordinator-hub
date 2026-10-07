@@ -30,7 +30,7 @@
       if(!l.phone) return '<span class="lb-btn lb-btn-dim" title="No phone number on the inquiry">No phone</span>';
       return '<a class="' + cls + '" href="#" role="button" data-oc-phone="' + esc(l.phone) + '"' + (l.email ? ' data-oc-email="' + esc(l.email) + '"' : '') + ' data-no-open="1" title="Call from the office line">Call</a>';
     }
-    const fn = { text:'lbText', log:'lbLog', followup:'lbFollowUp', schedule:'lbSchedule', open_asmt:'lbOpenAsmt', open:'lbOpen' }[k];
+    const fn = { text:'lbText', log:'lbLog', followup:'lbFollowUp', schedule:'lbSchedule', open_asmt:'lbOpenAsmt', open:'lbOpen', dsds:'lbDsds' }[k];
     return '<button class="' + cls + '" data-no-open="1" onclick="' + fn + '(\'' + id + '\', this)">' + esc(a.label) + '</button>';
   }
   /* the yes is offered on the row once a real conversation has happened and nothing blocks it (the server checks again) */
@@ -154,9 +154,19 @@
     await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
     if(typeof ccToast === 'function') ccToast('Marked lost: ' + r.lost_reason);
   }
+  /* Stage 4: "Called DSDS" restarts the 21-day clock on a family waiting on the state and writes a history line */
+  async function lbDsds(id){
+    const l = lead(id); if(!l) return;
+    const now = new Date().toISOString(), a = (typeof ccActor === 'function') ? ccActor() : { email:'', name:'' };
+    l.dsds_called_at = now; l.comm_log = Array.isArray(l.comm_log) ? l.comm_log : [];
+    l.comm_log.push({ body:'Called DSDS about the authorization', at:now, by:a.email, kind:'dsds_called' });
+    if(typeof ldPush === 'function') ldPush(l, { channel:'call', direction:'out', outcome:'connected', actor:'human', by:a.email, note:'DSDS, about the authorization', ref:'dsds' });
+    await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
+    if(typeof ccToast === 'function') ccToast('Noted: DSDS called. The 21-day clock restarts today.');
+  }
   function lbYes(id, btn){ if(typeof cjSaidYes === 'function') cjSaidYes(id, btn); else alert('The client journey page did not load. Refresh and try again.'); }
   function lbFilter(f){ LB.filter = f; redraw(); }
   function lbOwner(o){ LB.owner = o || ''; redraw(); }
   function lbGettingReady(){ if(typeof ccParentClick === 'function') ccParentClick('gettingready'); else if(typeof switchTab === 'function') switchTab('soc'); }
-  Object.assign(window, { LeadsBoard:{ render, state:LB, ctxFor }, lbText, lbOpen, lbOpenAsmt, lbSchedule, lbLog, lbFollowUp, lbMore, lbLost, lbYes, lbFilter, lbOwner, lbGettingReady });
+  Object.assign(window, { LeadsBoard:{ render, state:LB, ctxFor }, lbText, lbOpen, lbOpenAsmt, lbSchedule, lbLog, lbFollowUp, lbMore, lbLost, lbYes, lbDsds, lbFilter, lbOwner, lbGettingReady });
 })();
