@@ -419,6 +419,19 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
     && /^Hi Diane, thank you for choosing Caring Companions to care for Marjorie\. I am Krystal, your Care Coordinator/.test(R.yesThanks(base, C)) && R.SCRIPT_KEYS.indexOf('yes_thanks') > -1 && !R.SCRIPT_DEFAULT.yes_thanks.includes('—'));
 }
 
+/* 2026-10-07 audit: a booking saved in words with no year used to throw "Invalid time value" and stop the Leads board */
+{
+  const W = { first_name:'Gail', client_first_name:'June', created_at:'2026-10-05T15:00:00Z', first_human_contact_at:'2026-10-05T16:00:00Z', status:'Assessment Scheduled', assessment_at:'Monday, October 12 at 9:00 AM (Central)' };
+  let row = null, err = null; try{ row = R.boardRow(W, CTX({ stage:'assessment' })); }catch(e){ err = e; }
+  ck('a booking saved in words ("Monday, October 12 at 9:00 AM (Central)") draws a board row instead of throwing', !err && row && row.group === 'later', err ? String(err) : row);
+  ck('...it reads as Monday Oct 12, 9 am Central', R.whenISO(W.assessment_at, Date.parse(NOW)) === '2026-10-12T14:00:00.000Z');
+  let cf = null; err = null; try{ cf = R.carriedForward(Object.assign({}, W, { said_yes_at:'2026-10-06T14:00:00Z' }), CTX()); }catch(e){ err = e; }
+  ck('...the yes handoff line reads it too', !err && /assessment/.test(cf), err ? String(err) : cf);
+  const past = Object.assign({}, W, { assessment_at:'Friday, October 2 at 9:00 AM (Central)' });
+  ck('...a worded booking in the past no longer reads as booked forever', R.boardRow(past, CTX({ stage:'assessment' })).reason !== 'booked', R.boardRow(past, CTX({ stage:'assessment' })).reason);
+  ck('...rubbish in the time is ignored, never a crash', (() => { try{ R.boardRow(Object.assign({}, W, { assessment_at:'sometime next week' }), CTX({ stage:'assessment' })); return true; }catch(e){ return false; } })());
+}
+
 /* the Hub page and the server run the same file */
 const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));

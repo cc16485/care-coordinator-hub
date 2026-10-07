@@ -236,6 +236,8 @@ async()=>{
   ok('...a family still deciding (no yes, no older checklist) is not in Starting care; the Leads board has them', !/Nora New/.test(SC.innerText) && !/Rhoda Real[\s\S]*Rhoda Real/.test(SC.innerText));
   ok('...each row opens that client at that step', !!SC.querySelector('a.cj-sc-name[href="#p/A777/start/team.staffed"]'));
   ok('...the Starting care pill comes first, with its count', /^Starting care 3/.test((document.querySelector('#clFilters .filter-pill')||{}).textContent||''), (document.querySelector('#clFilters .filter-pill')||{}).textContent);
+  CQF.openCases=[{ case_id:'c1', axiscare_client_id:'295', axiscare_name:'Peggy Thomason', observed_at:'2026-09-26T12:00:00Z' }]; renderClientsBoard(); await sleep(200);
+  ok('"Waiting to be matched" (new AxisCare clients nobody has said who they are) shows at the top of Starting care, with Who is this?, and counts', /Waiting to be matched \(1\)/.test(SC.innerText) && /Peggy Thomason/.test(SC.innerText) && /Who is this\?/.test(SC.innerText) && /^Starting care 4/.test((document.querySelector('#clFilters .filter-pill')||{}).textContent||''), [SC.innerText.slice(0,300), (document.querySelector('#clFilters .filter-pill')||{}).textContent]);
   await shot('starting_care');
   cjNavTidy();
   ok('live: the Getting ready tab is gone from Client Care', [...document.querySelectorAll('.fpill[data-parent="gettingready"]')].every(e=>e.style.display==='none'));
