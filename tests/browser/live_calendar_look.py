@@ -46,6 +46,10 @@ async()=>{
   ok('...the week across the top, Mon 12 to Sun 18, each day saying how many are open', heads.length===7 && /Mon 12/.test(heads[0].innerText) && /Sun 18/.test(heads[6].innerText) && heads.every(h=>/1 open/.test(h.innerText)), heads.map(h=>h.innerText));
   ok('...one row per client down the left, each with its visits, hours and open count', crow.length===2 && crow[0].dataset.client==='Ed Anderson' && crow[1].dataset.client==='Ruth Barnes' && /14 visits · 70h · 7 open/.test(crow[0].cells[0].innerText) && /1 visit · 4h/.test(crow[1].cells[0].innerText), crow.map(r=>r.cells[0].innerText));
   ok('...each day cell has that client\'s visits: time and caregiver, NOBODY in red (no client name repeated)', /9a–2p\s*NOBODY/.test(crow[0].cells[1].innerText) && /4p–9p\s*Kim A\./.test(crow[0].cells[1].innerText) && !/Ed A\./.test(crow[0].cells[1].innerText) && crow[0].cells[1].querySelector('.lc-visit[data-state="open"]') && crow[1].cells[4].querySelectorAll('.lc-visit').length===1 && !crow[1].cells[1].innerText.trim(), [crow[0].cells[1].innerText, crow[1].cells[4].innerText]);
+  const key=B().querySelector('.lc-key');
+  ok('a colour key above the calendar: six states, each its own colour, with how many are showing', key && key.querySelectorAll('.lc-keyitem').length===6 && /Open: nobody on it\s*\(7\)/.test(key.innerText) && new Set([...key.querySelectorAll('.lc-keyitem > span:first-child')].map(x=>getComputedStyle(x).borderLeftColor)).size===6, key&&key.innerText);
+  const openC=B().querySelector('.lc-visit[data-state="open"]'), upC=B().querySelector('.lc-visit[data-state="up"],.lc-visit[data-state="past"],.lc-visit[data-state="done"]');
+  ok('...an open shift and a covered one look clearly different (bar and background)', openC && upC && getComputedStyle(openC).borderLeftColor!==getComputedStyle(upC).borderLeftColor && getComputedStyle(openC).backgroundColor!==getComputedStyle(upC).backgroundColor);
   lcFind('ruth'); await sleep(100);
   ok('Find narrows to a client or caregiver (only Ruth\'s row, her Thursday visit)', B().querySelectorAll('.lc-visit').length===1 && B().querySelectorAll('tr.lc-client').length===1 && /Ruth Barnes/.test(B().innerText) && /\(filtered\)/.test(B().innerText));
   lcFind(''); lcOnlyOpen(true); await sleep(100);
@@ -57,8 +61,10 @@ async()=>{
   ok('Month: the whole grid in one read (Mon Sep 28 to Sun Nov 1 for October)', window.__asks.at(-1).start==='2026-09-28' && window.__asks.at(-1).end==='2026-11-01', window.__asks.at(-1));
   const cells=[...B().querySelectorAll('.lc-mday')];
   ok('...35 days, each with its visit count and how many are open', cells.length===35 && /2 visits\s*1 open/.test(cells[0].innerText) && /October 2026/.test(B().innerText), cells[0].innerText);
+  ok('Month: each day shows coloured counts by state, and the key', /color/.test(cells[3].querySelector('.lc-mdots span').getAttribute('style')) && !!B().querySelector('.lc-key'));
   cells.find(c=>c.dataset.day==='2026-10-15').click(); await sleep(250);
   ok('clicking a day opens that day', LC.view==='day' && window.__asks.at(-1).date==='2026-10-15' && /3 visits/.test(B().innerText), B().innerText.slice(0,300));
+  ok('...the Day list uses the same colour code and key', !!B().querySelector('.lc-key') && B().querySelector('.ls-state[data-state="open"]') && /Open: nobody on it/.test(B().querySelector('tr.ls-row').innerText));
   window.__oldServer=true; lcView('week'); await sleep(250);
   ok('before Desktop 478 runs, Week says it turns on after 478 (never shows one day as a week)', /turn on once Desktop step 478 has run/.test(B().innerText) && !B().querySelector('tr.lc-client'));
   window.__oldServer=false; lcView('day'); await sleep(200);
@@ -130,6 +136,15 @@ with sync_playwright() as pw:
     pg.evaluate('s=>(0,eval)(s)', STUB); pg.evaluate('s=>(0,eval)(s)', DATA)
     R = pg.evaluate(T)
     pg.evaluate("async()=>{ LS_STATE.date='2026-10-14'; lcView('week'); await new Promise(r=>setTimeout(r,300)); window.scrollTo(0,0); }")
+    pg.evaluate("""async()=>{ const now=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'}), today=now.slice(0,10), hm=now.slice(11,16);
+      const ymdAdd=(ymd,n)=>{ const [y,m,d]=ymd.split('-').map(Number); return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10); };
+      const r=LC_STATES?lcRange('week',today):null; const rows=[], V=(date,time,end,client,id,cg,x)=>rows.push(Object.assign({ visit_id:date+time+client, date, time, end, client, client_id:id, caregiver:cg||null, clock_in:null, clock_out:null }, x||{}));
+      for(let i=0;i<7;i++){ const d=ymdAdd(r.start,i);
+        V(d,'09:00','14:00','Ed Anderson','1', i%3===0?null:'Kim Aide', d<today?{clock_in:'09:01',clock_out:'14:02'}:{});
+        V(d,'16:00','21:00','Ed Anderson','1','Lia Listed', d<today?(i%2?{clock_in:'16:00',clock_out:'21:00'}:{}):{});
+        V(d,'08:00','12:00','Ruth Barnes','2','Di Aide', d<today?{clock_in:'08:05',clock_out:'12:00'}:{}); }
+      V(today,'00:00','23:58','Gus Fake','3','Bo Busy',{clock_in:'00:02'}); V(today,'00:01','23:59','Hal Fake','4','Ann Late');
+      LS_STATE.data={ date:r.start, start:r.start, end:r.end, total:rows.length, unassigned:rows.filter(x=>!x.caregiver).length, rows }; LS_STATE.date=today; LC.view='week'; LC.q=''; LC.open=false; lsPaint(); window.scrollTo(0,0); }""")
     pg.screenshot(path='/tmp/lc_week.png')
     pg.evaluate("async()=>{ lcView('month'); await new Promise(r=>setTimeout(r,300)); window.scrollTo(0,0); }")
     pg.screenshot(path='/tmp/lc_month.png')

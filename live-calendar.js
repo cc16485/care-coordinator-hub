@@ -20,14 +20,32 @@
   function t12(s){ const m = String(s || '').match(/^(\d\d):(\d\d)$/); if(!m) return s || ''; const h = Number(m[1]) % 12 || 12; return h + (m[2] === '00' ? '' : ':' + m[2]) + (Number(m[1]) >= 12 ? 'p' : 'a'); }
   function short(n){ const p = String(n || '').trim().split(/\s+/); return p[0] + (p[1] ? ' ' + p[1][0] + '.' : ''); }
   /* the same colour story as the day list: red = nobody or no clock-in, green = being worked, teal = done, gray = upcoming */
-  function state(v){
-    const now = new Date().toLocaleString('sv-SE', { timeZone:'America/Chicago' }), today = now.slice(0, 10), hm = now.slice(11, 16);
-    if(!v.caregiver) return ['open', 'var(--red)', '#FFF1F0', 'nobody yet'];
-    if(v.clock_out) return ['done', 'var(--teal)', '#F0F7F6', 'completed'];
-    if(v.clock_in) return ['live', 'var(--green)', 'var(--green-bg)', 'being worked'];
-    if(v.date === today && v.time && v.time < hm && (!v.end || v.end > hm)) return ['late', 'var(--red)', '#FFF6F5', 'no clock-in yet'];
-    if(v.date < today || (v.date === today && v.end && v.end <= hm)) return ['past', '#94A3B8', '#F8FAFC', 'ended'];
-    return ['up', '#64748B', '#F8FAFC', 'upcoming'];
+  /* The colour code (2026-10-06, Samantha: "colors of shifts need to be more different and have a color code"): six states,
+     each its own colour, shown in a key above every view (with how many of each are showing). */
+  const STATES = {
+    open:{ key:'open', label:'Open: nobody on it', bar:'#DC2626', bg:'#FEE2E2', ink:'#991B1B' },
+    late:{ key:'late', label:'Started, no clock-in yet', bar:'#EA580C', bg:'#FFEDD5', ink:'#9A3412' },
+    live:{ key:'live', label:'Being worked now', bar:'#16A34A', bg:'#DCFCE7', ink:'#166534' },
+    done:{ key:'done', label:'Completed', bar:'#2563EB', bg:'#DBEAFE', ink:'#1E40AF' },
+    up:{ key:'up', label:'Upcoming, covered', bar:'#0E3860', bg:'#FFFFFF', ink:'#0E3860' },
+    past:{ key:'past', label:'Ended, no clock-in shown', bar:'#9CA3AF', bg:'#F3F4F6', ink:'#6B7280' } };
+  const ORDER = ['open', 'late', 'live', 'done', 'up', 'past'];
+  function stateOf(v){
+    const now = new Date().toLocaleString('sv-SE', { timeZone:'America/Chicago' }), today = now.slice(0, 10), hm = now.slice(11, 16), d = v.date || (LS_STATE.data && LS_STATE.data.date) || today;
+    if(!v.caregiver) return STATES.open;
+    if(v.clock_out) return STATES.done;
+    if(v.clock_in) return STATES.live;
+    if(d === today && v.time && v.time < hm && (!v.end || v.end > hm)) return STATES.late;
+    if(d < today || (d === today && v.end && v.end <= hm)) return STATES.past;
+    return STATES.up;
+  }
+  /* kept for older callers: [key, bar, background, label] */
+  function state(v){ const s = stateOf(v); return [s.key, s.bar, s.bg, s.label]; }
+  function keyHtml(rows){
+    const n = {}; (rows || []).forEach(v => { const k = stateOf(v).key; n[k] = (n[k] || 0) + 1; });
+    return '<div class="lc-key" style="display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center;margin:0 0 8px;font-size:12px;"><b style="color:var(--navy);">Colour key</b>'
+      + ORDER.map(k => { const s = STATES[k]; return '<span class="lc-keyitem" data-state="' + k + '" style="display:inline-flex;gap:5px;align-items:center;"><span style="width:16px;height:12px;border-radius:3px;background:' + s.bg + ';border:1px solid ' + s.bar + ';border-left:4px solid ' + s.bar + ';' + (k === 'past' ? 'border-style:dashed;' : '') + '"></span>'
+        + '<span style="color:' + s.ink + ';font-weight:700;">' + s.label + '</span>' + (n[k] ? '<span class="field-note">(' + n[k] + ')</span>' : '') + '</span>'; }).join('') + '</div>';
   }
   function filtered(rows){
     const q = String(LC.q || '').trim().toLowerCase();
@@ -47,10 +65,10 @@
       + (typeof lcSwitchHtml === 'function' ? lcSwitchHtml() : '');
   }
   function chip(v, inRow){
-    const s = state(v);
-    return '<div class="lc-visit" data-state="' + s[0] + '" title="' + esc(t12(v.time) + (v.end ? '–' + t12(v.end) : '') + ' · ' + v.client + ' · ' + (v.caregiver || 'NOBODY') + ' · ' + s[3]) + '" onclick="lcVisitOpen(\'' + esc(v.visit_id) + '\')" style="cursor:pointer;border-left:3px solid ' + s[1] + ';background:' + s[2] + ';border-radius:6px;padding:3px 6px;margin-bottom:4px;font-size:11.5px;line-height:1.3;">'
+    const s = stateOf(v);
+    return '<div class="lc-visit" data-state="' + s.key + '" title="' + esc(t12(v.time) + (v.end ? '–' + t12(v.end) : '') + ' · ' + v.client + ' · ' + (v.caregiver || 'NOBODY') + ' · ' + s.label) + '" onclick="lcVisitOpen(\'' + esc(v.visit_id) + '\')" style="cursor:pointer;color:' + s.ink + ';border:1px solid ' + s.bar + ';border-left:5px solid ' + s.bar + ';' + (s.key === 'past' ? 'border-style:dashed;border-left-style:solid;' : '') + 'background:' + s.bg + ';border-radius:6px;padding:3px 6px;margin-bottom:4px;font-size:11.5px;line-height:1.3;">'
       + '<div><b>' + esc(t12(v.time)) + (v.end ? '–' + esc(t12(v.end)) : '') + '</b>' + (inRow ? '' : ' ' + esc(short(v.client))) + '</div>'
-      + '<div style="color:' + (v.caregiver ? 'var(--text-muted)' : 'var(--red)') + ';font-weight:' + (v.caregiver ? '400' : '800') + ';">' + (v.caregiver ? esc(short(v.caregiver)) : 'NOBODY') + '</div></div>';
+      + '<div style="font-weight:' + (v.caregiver ? '600' : '800') + ';">' + (v.caregiver ? esc(short(v.caregiver)) : 'NOBODY') + '</div></div>';
   }
   /* Week (2026-10-06, Samantha: "it should show more like the client on the left side and each row is a clients weekly
      schedule"): one row per client, Monday to Sunday across, each visit with its time and caregiver (NOBODY in red). */
@@ -87,7 +105,9 @@
       h += '<div class="lc-mday" data-day="' + day + '" onclick="lcOpenDay(\'' + day + '\')" style="cursor:pointer;border:1px solid ' + (day === today ? 'var(--teal)' : 'var(--border)') + ';border-radius:8px;padding:5px 7px;min-height:64px;background:' + (open ? '#FFF6F5' : inMonth ? '#fff' : '#F8FAFC') + ';' + (inMonth ? '' : 'opacity:.55;') + '">'
         + '<div style="font-weight:800;color:var(--navy);font-size:12.5px;">' + Number(day.slice(8)) + '</div>'
         + (vs.length ? '<div style="font-size:11.5px;">' + vs.length + ' visit' + (vs.length === 1 ? '' : 's') + '</div>' : '<div class="field-note" style="font-size:11px;">—</div>')
-        + (open ? '<div style="font-size:11.5px;font-weight:800;color:var(--red);">' + open + ' open</div>' : '') + '</div>';
+        + (open ? '<div style="font-size:11.5px;font-weight:800;color:' + STATES.open.ink + ';">' + open + ' open</div>' : '')
+        + (vs.length ? '<div class="lc-mdots" style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px;">' + ORDER.map(k => { const c = vs.filter(v => stateOf(v).key === k).length;
+            return c ? '<span data-state="' + k + '" title="' + esc(STATES[k].label) + '" style="font-size:10px;font-weight:800;color:' + STATES[k].ink + ';background:' + STATES[k].bg + ';border:1px solid ' + STATES[k].bar + ';border-radius:4px;padding:0 4px;">' + c + '</span>' : ''; }).join('') + '</div>' : '') + '</div>';
     }
     return h + '</div>';
   }
@@ -103,8 +123,8 @@
     box.innerHTML = top
       + '<div class="field-note" style="margin-bottom:.5rem;">' + rows.length + ' visit' + (rows.length === 1 ? '' : 's') + (open ? ' · <b style="color:var(--red);">' + open + ' with nobody</b>' : ' · all assigned') + (LC.q || LC.open ? ' (filtered)' : '') + '</div>'
       + (d.partial ? '<div class="field-note" style="color:#8A4E0C;margin-bottom:6px;">' + esc(d.partial) + '</div>' : '')
-      + (LC.view === 'week' ? weekHtml(d) : monthHtml(d))
-      + '<div class="field-note" style="margin-top:.6rem;">Red: nobody or no clock-in · green: being worked · teal: done · gray: upcoming. Click a visit to change it, or a day to open it.</div>';
+      + keyHtml(rows) + (LC.view === 'week' ? weekHtml(d) : monthHtml(d))
+      + '<div class="field-note" style="margin-top:.6rem;">Click a visit to change it, or a day to open it.</div>';
     return true;
   }
   function reqBody(){ const r = range(LC.view, LS_STATE.date || lsChiDay(0)); return LC.view === 'day' ? { live_schedule:true, date:r.start } : { live_schedule:true, start:r.start, end:r.end }; }
@@ -266,5 +286,5 @@
   }
 
   Object.assign(window, { lcVisitOpen:visitOpen, lcVcToggle:vcToggle, lcSwitchHtml:switchHtml, LC_VCQ:VCQ, LC_VCQ_OFF:VCQ_OFF });
-  Object.assign(window, { LC, lcRange:range, lcState:state, lcFiltered:filtered, lcPaint:paint, lcReqBody:reqBody, lcView:view, lcStep:step, lcOpenDay:openDay, lcFind:find, lcOnlyOpen:onlyOpen });
+  Object.assign(window, { LC, lcRange:range, lcState:state, lcStateOf:stateOf, lcKeyHtml:keyHtml, LC_STATES:STATES, lcFiltered:filtered, lcPaint:paint, lcReqBody:reqBody, lcView:view, lcStep:step, lcOpenDay:openDay, lcFind:find, lcOnlyOpen:onlyOpen });
 })();
