@@ -100,6 +100,7 @@
       + '<label>Explanation <span class="cc-req" id="ccWhyReq" hidden>required for Other</span></label><input id="ccX">'
       + '<label>Effective date: the last day of service <span class="cc-req">required</span></label><input type="date" id="ccD" value="' + esc(opts.date || todayYmd()) + '" max="' + todayYmd() + '">'
       + '<label>Who told us</label><input id="ccN" placeholder="e.g. the family, the facility, DSDS, AxisCare">'
+      + (d.payer === 'medicaid' ? '<div class="cc-rule" id="ccRule"></div>' : '')
       + '<div class="field-note">Their journey and open work close with this reason; nothing is deleted. If they are on Medicaid, the steps the regulation requires appear as a checklist for a person to do.</div>';
     if(kind === 'return') f = '<div class="field-note" style="margin-bottom:6px;">' + esc(name) + ' was served before. Resuming care starts a fresh care record on the same person; their earlier history stays as it is.</div>'
       + '<label>Care resumes on</label><input type="date" id="ccD" value="' + todayYmd() + '" max="' + todayYmd() + '"><label>Note</label><input id="ccX" placeholder="e.g. family called, back from rehab"><label>Who told us</label><input id="ccN">';
@@ -115,7 +116,27 @@
       + '<div class="cc-form">' + f + '</div><div class="cc-err" id="ccErr"></div><div class="cc-act"><button class="primary" id="ccGo">' + esc(T) + '</button><button class="secondary" id="ccNo">Cancel</button></div></div>';
     document.body.appendChild(ov);
     const v = id => { const el = ov.querySelector('#' + id); return el ? el.value.trim() : ''; }, close = () => ov.remove();
-    const r = ov.querySelector('#ccR'); if(r) r.onchange = () => { const q = ov.querySelector('#ccWhyReq'); if(q) q.hidden = r.value !== 'other'; };
+    const r = ov.querySelector('#ccR');
+    /* Medicaid intake slice B (2026-10-08): the discharge rule for the reason picked (the server enforces the same rule) */
+    const ruleBox = () => {
+      const box = ov.querySelector('#ccRule'); if(!box || kind !== 'end') return;
+      const rule = (d.discharge || {})[r ? r.value : ''] || '';
+      if(rule === 'notice21') box.innerHTML = '<b>Medicaid: we are ending services while they still need care</b><div class="field-note">Written notice to the participant or family AND to DSDS at least 21 days before the last day, and care continues for those 21 days or until DSDS arranges other care (19 CSR 15-7.021(16)(D)). An owner records this end.</div>'
+        + '<label>21-day notice to the participant or family, sent on <span class="cc-req">required</span></label><input type="date" id="ccNP" max="' + todayYmd() + '">'
+        + '<label>21-day notice to DSDS, sent on <span class="cc-req">required</span></label><input type="date" id="ccND" max="' + todayYmd() + '">'
+        + '<div class="field-note" id="ccEarliest"></div>'
+        + '<label>DSDS arranged other care sooner, on (only if they did)</label><input type="date" id="ccNA" max="' + todayYmd() + '">';
+      else if(rule === 'immediate') box.innerHTML = '<b>Medicaid: tell DSDS in writing, right away</b><div class="field-note">' + (r.value === 'safety' ? 'Threats or abuse toward staff: written notice to DSDS right away; DSDS and we decide together whether services continue (19 CSR 15-7.021(16)(C)).' : 'Written notice to DSDS right away, asking that services be discontinued (19 CSR 15-7.021(16)(B)). No 21-day notice.') + '</div>'
+        + '<label>Written notice sent to DSDS on (if it has gone)</label><input type="date" id="ccDN" max="' + todayYmd() + '"><div class="field-note">If it hasn\'t gone yet, it stays on the checklist until someone ticks it.</div>';
+      else if(rule === 'dsds') box.innerHTML = '<b>Medicaid: DSDS closed the case</b><div class="field-note">Services stop right away. Use the closure date from Fusion as the last day (19 CSR 15-7.021(16)(A)).</div>';
+      else if(rule === 'choice') box.innerHTML = '<b>Medicaid: the participant\'s choice</b><div class="field-note">DSDS moves or closes the case; the participant calls 866-835-3505. If they no longer need services, tell DSDS in writing.</div>';
+      else box.innerHTML = '';
+      const np = ov.querySelector('#ccNP'), nd = ov.querySelector('#ccND'), ea = ov.querySelector('#ccEarliest');
+      const upd = () => { if(!ea) return; const a = np.value, b2 = nd.value; if(!a || !b2){ ea.textContent = ''; return; }
+        const x = new Date([a, b2].sort()[1] + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + 21); ea.textContent = 'The last day can be ' + x.toISOString().slice(0, 10) + ' at the earliest (21 days after both notices).'; };
+      if(np) np.onchange = upd; if(nd) nd.onchange = upd;
+    };
+    if(r) r.onchange = () => { const q = ov.querySelector('#ccWhyReq'); if(q) q.hidden = r.value !== 'other'; ruleBox(); };
     ov.querySelector('#ccNo').onclick = close;
     ov.querySelector('#ccGo').onclick = async () => {
       const err = ov.querySelector('#ccErr'), say = t => { err.textContent = t; };
@@ -125,7 +146,8 @@
       if(kind === 'end_date' && !v('ccX')) return say('Say how you know the date.');
       if((kind === 'pause' || kind === 'extend') && !v('ccF')) return say('A follow-up date is required.');
       const b = { action:'care_' + kind, axiscare_client_id:CC.ax, reason:v('ccR') || undefined, explanation:v('ccX') || undefined, effective_date:v('ccD') || undefined,
-        followup_date:v('ccF') || undefined, notified_by:v('ccN') || undefined, review_id:opts.review_id || undefined };
+        followup_date:v('ccF') || undefined, notified_by:v('ccN') || undefined, review_id:opts.review_id || undefined,
+        notice_participant_on:v('ccNP') || undefined, notice_dsds_on:v('ccND') || undefined, dsds_arranged_on:v('ccNA') || undefined, dsds_notice_on:v('ccDN') || undefined };
       const go = ov.querySelector('#ccGo'); go.disabled = true; go.textContent = 'Saving…';
       let out; try{ out = await call(b); }catch(e){ out = { error:e.message }; }
       if(!out || out.error){ go.disabled = false; go.textContent = T; return say((out && out.error) || 'Not saved.'); }
@@ -170,6 +192,7 @@
     '.cc-ov{position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}',
     '.cc-dlg{background:#fff;border-radius:14px;max-width:520px;width:100%;padding:18px 20px;box-shadow:0 20px 50px rgba(0,0,0,.25)}.cc-dlg-t{font-weight:800;color:var(--navy);font-size:17px;margin-bottom:6px}',
     '.cc-form label{display:block;font-size:13px;font-weight:700;color:var(--navy);margin:10px 0 3px}.cc-form input,.cc-form select{width:100%;box-sizing:border-box}.cc-req{color:#B42318;font-weight:600;font-size:11.5px}',
+    '.cc-rule{margin-top:10px;padding:10px 12px;border-radius:10px;background:#FBF3E2;font-size:13px}.cc-rule:empty{display:none}.cc-dlg{max-height:92vh;overflow:auto}',
     '.cc-err{color:#B42318;font-weight:600;font-size:13px;margin-top:8px}.cc-err:empty{display:none}.cc-act{display:flex;gap:8px;margin-top:14px}'
   ].join(''); document.head.appendChild(st); }catch(e){}
   Object.assign(window, { ccCareMount:mount, ccCareForm:form, ccCareTick:tick, ccCareFile:openFile, ccCareFromReview:fromReview, CC_CARE:CC });
