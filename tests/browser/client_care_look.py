@@ -12,13 +12,13 @@ FAKE = r"""
 (()=>{
   const W=window, reasons={ end:{ other_provider:'Chose another provider', moved_out:'Moved out of our service area', facility:'Admitted to a facility', beyond_scope:'Needs exceed our scope', unable_to_staff:'Unable to staff', requested_discharge:'Client or family requested discharge', auth_ended:'Medicaid or authorization ended', deceased:'Deceased', other:'Other' },
     pause:{ hospital:'Hospital stay', rehab:'Rehab or skilled nursing stay', family_away:'Family away', other:'Other' } };
-  W.__care={ calls:[], state:{ '777':'active', '500':'past', '501':'deceased' }, pause:null, changes:[] };
+  W.__care={ calls:[], state:{ '777':'active', '500':'past', '501':'deceased' }, pause:null, changes:[], r500:{ status:'former', started_at:'2025-03-01', ended_at:'2026-10-08', ended_date_basis:'on_or_before', end_reason:null }, ch500:[] };
   const C=W.__care;
   const stateOf=ax=>({ axiscare_client_id:ax, client_name:{ '777':'Rhoda Real','500':'Olive Past','501':'Gil Gone' }[ax], state:C.state[ax], pause:ax==='777'?C.pause:null, payer:'medicaid',
     episodes:[{ episode_n:1, status:C.state[ax]==='active'||C.state[ax]==='paused'?'open':'closed', created_at:'2026-09-01', closed_reason:C.state[ax]==='past'?null:null }],
-    roles:ax==='500'?[{ status:'former', ended_at:'2026-10-08', ended_date_basis:'on_or_before', end_reason:null }]:ax==='501'?[{ status:'former', ended_at:'2026-01-02', end_reason:'deceased' }]:[{ status:C.state[ax]==='past'?'former':'active' }],
-    changes:ax==='777'?C.changes:[], reasons,
-    can:{ pause:['active','starting'].includes(C.state[ax]), resume:C.state[ax]==='paused', end:['active','starting','paused'].includes(C.state[ax]), return:C.state[ax]==='past'&&W.__me.email==='sam@mo-care.com' } });
+    roles:ax==='500'?[C.r500]:ax==='501'?[{ status:'former', ended_at:'2026-01-02', end_reason:'deceased' }]:[{ status:C.state[ax]==='past'?'former':'active' }],
+    changes:ax==='777'?C.changes:ax==='500'?C.ch500:[], reasons,
+    can:{ pause:['active','starting'].includes(C.state[ax]), resume:C.state[ax]==='paused', end:['active','starting','paused'].includes(C.state[ax]), return:C.state[ax]==='past'&&W.__me.email==='sam@mo-care.com', end_date:['past','deceased'].includes(C.state[ax]) } });
   const of=W.fetch; W.fetch=async(u,o)=>{ if(/client-journey/.test(String(u))){ const b=JSON.parse(o.body);
       if(String(b.action||'').startsWith('care_')){ C.calls.push(b); let out={};
         if(b.action==='care_state') out=stateOf(b.axiscare_client_id);
@@ -27,6 +27,8 @@ FAKE = r"""
             checklist:[{ key:'missed_visits', label:'Record the missed visits with the reason', source:'regulation', rule:'19 CSR 15-7.021(18)(L)', when:'Services can\'t be billed in a hospital.', state:'open' }] }); out={ outcome:'paused' }; }
         if(b.action==='care_resume'){ C.state['777']='active'; C.pause=null; C.changes.push({ change_id:'ch2', kind:'resume', effective_date:b.effective_date, made_by_name:'Angie Care', made_at:new Date().toISOString() }); out={ outcome:'resumed' }; }
         if(b.action==='care_end'){ C.state['777']=b.reason==='deceased'?'deceased':'past'; out={ outcome:'ended', sympathy:b.reason==='deceased'?'ops_sym_777':null }; }
+        if(b.action==='care_end_date'){ const was='on or before '+C.r500.ended_at; Object.assign(C.r500,{ ended_at:b.effective_date, ended_date_basis:'exact' });
+          C.ch500.push({ change_id:'ch9', kind:'end_date', effective_date:b.effective_date, explanation:'Was '+was+'. How we know: '+b.explanation, made_by_name:'Angie Care', made_at:new Date().toISOString() }); out={ outcome:'corrected' }; }
         if(b.action==='care_checklist'){ const ch=C.changes.find(x=>x.change_id===b.change_id); Object.assign(ch.checklist.find(x=>x.key===b.item),{ state:b.state, how:b.how, by_name:'Angie Care', on:b.on }); out={ outcome:'saved' }; }
         return new Response(JSON.stringify(out),{status:200}); }
     } return of(u,o); };
@@ -68,13 +70,23 @@ T = r"""async()=>{
   await openLeadProfile('R5','summary'); await sleep(500);
   ok('a past client imported from AxisCare: Past, "on or before" the date we first saw them inactive, never an exact date, and no guessed reason', /Past client/.test(B().innerText) && /Care ended on or before [A-Z][a-z]{2} 8, 2026 · exact date not recorded in AxisCare/.test(B().innerText) && /reason not recorded in AxisCare/.test(B().innerText), B().innerText);
   ok('...a Care Coordinator can\'t resume a past client\'s care', !/Resume care/.test(B().innerText));
+  /* END DATE FIX (2026-10-08) */
+  const fixA=()=>[...B().querySelectorAll('a')].find(a=>/Correct end date/.test(a.textContent));
+  ok('end date fix: a past client shows a "Correct end date" link', !!fixA());
+  fixA().click(); await sleep(150);
+  ok('...the form shows the date now and when care started', /Now: care ended on or before Oct 8, 2026/.test(dlg().innerText) && /Care started Mar 1, 2025/.test(dlg().innerText), dlg().innerText);
+  dlg().querySelector('#ccD').value='2026-09-30'; dlg().querySelector('#ccGo').click(); await sleep(150);
+  ok('...it asks how you know before saving', /Say how you know the date/.test(dlg().innerText) && !window.__care.calls.some(c=>c.action==='care_end_date'));
+  dlg().querySelector('#ccX').value='AxisCare notes'; dlg().querySelector('#ccGo').click(); await sleep(700);
+  ok('...saved: the profile says "Care ended Sep 30, 2026", no longer "on or before"', /Care ended Sep 30, 2026/.test(B().innerText) && !/on or before/.test(B().innerText), B().innerText);
+  ok('...the care history keeps the old date and how we know', /End date corrected: Was on or before 2026-10-08\. How we know: AxisCare notes/.test(B().querySelector('.cc-hist').textContent), B().querySelector('.cc-hist')&&B().querySelector('.cc-hist').textContent);
   await shot('past');
   window.__as('sam@mo-care.com','Samantha Owner'); await openLeadProfile('R5','summary'); await sleep(500);
   ok('...an owner can, on purpose: the button says Resume care, never "new episode"', /Resume care/.test(B().innerText) && !/episode/i.test(B().innerText));
   [...B().querySelectorAll('button')].find(b=>/Resume care/.test(b.textContent)).click(); await sleep(150);
   ok('...the form says they were served before and the old history stays', /was served before/.test(dlg().innerText) && /earlier history stays/.test(dlg().innerText)); dlg().querySelector('#ccNo').click();
   await openLeadProfile('R6','summary'); await sleep(500);
-  ok('a deceased client: Deceased, no buttons at all, not even for an owner', /Deceased/.test(B().innerText) && !B().querySelector('button'), B().innerText);
+  ok('a deceased client: Deceased, no buttons at all, not even for an owner (only the Correct end date link)', /Deceased/.test(B().innerText) && !B().querySelector('button') && /Correct end date/.test(B().innerText), B().innerText);
   await shot('deceased');
   /* the AxisCare status card opens the same forms */
   const ofrom=sb.from.bind(sb); sb.from=t=>{ if(t==='client_status_review'||t==='person_identity'){ const row=t==='client_status_review'?{ review_id:'11111111-1111-4111-8111-111111111111', axiscare_client_id:'777', person_id:'p1', old_label:'Active', new_label:'Inactive', observed_at:new Date().toISOString(), status:'open' }:{ display_name:'Rhoda Real' };

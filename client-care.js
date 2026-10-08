@@ -46,6 +46,8 @@
     if(d.can.pause) h += '<button class="secondary" onclick="ccCareForm(\'pause\')">Pause care</button>';
     if(d.can.end) h += '<button class="secondary cc-end-btn" onclick="ccCareForm(\'end\')">End care</button>';
     if(d.can.return) h += '<button class="secondary" onclick="ccCareForm(\'return\')">Resume care</button>';
+    /* Correct the end date (Samantha 2026-10-08): a link, not an action button; the old date stays in the history */
+    if(d.can.end_date) h += '<a href="javascript:void(0)" class="cc-fix" onclick="ccCareForm(\'end_date\')">Correct end date</a>';
     h += '</div>';
     if(d.state === 'deceased') h += '<div class="field-note cc-quiet">Kept for the record only. No outreach of any kind: no campaigns, review requests, reactivation prompts or follow-up.</div>';
     if(d.state === 'past') h += '<div class="field-note cc-quiet">No journey, reminders, campaigns or review requests. Care resumes only when an owner confirms it.</div>';
@@ -66,7 +68,7 @@
             + (x.files || []).map(p => ' · <button class="linklike" onclick="ccCareFile(\'' + esc(ch.change_id) + '\',\'' + esc(p) + '\')">' + esc(p.split('/').pop().replace(/^\d+-/, '')) + '</button>').join('') + '</div>')
         + '</div>').join('') + '</details>';
   }
-  const KIND = { pause:'Paused', extend:'Pause made longer', resume:'Care resumed', end:'Care ended', return:'Care resumed (returning client)' };
+  const KIND = { pause:'Paused', extend:'Pause made longer', resume:'Care resumed', end:'Care ended', return:'Care resumed (returning client)', end_date:'End date corrected' };
   function historyHtml(d){
     const eps = d.episodes || [], ch = d.changes || [];
     if(eps.length < 2 && !ch.length) return '';
@@ -82,7 +84,7 @@
     opts = opts || {};
     const d = CC.data || {}, R = d.reasons || {};
     const ov = document.createElement('div'); ov.className = 'cc-ov';
-    const T = { pause:'Pause care', extend:'Pause longer', resume:'Resume care', end:'End care', return:'Resume care' }[kind];
+    const T = { pause:'Pause care', extend:'Pause longer', resume:'Resume care', end:'End care', return:'Resume care', end_date:'Correct end date' }[kind];
     const name = d.client_name || 'this client';
     const sel = (id, list) => '<select id="' + id + '"><option value="">Choose…</option>' + Object.keys(list).map(k => '<option value="' + k + '">' + esc(list[k]) + '</option>').join('') + '</select>';
     let f = '';
@@ -101,6 +103,14 @@
       + '<div class="field-note">Their journey and open work close with this reason; nothing is deleted. If they are on Medicaid, the steps the regulation requires appear as a checklist for a person to do.</div>';
     if(kind === 'return') f = '<div class="field-note" style="margin-bottom:6px;">' + esc(name) + ' was served before. Resuming care starts a fresh care record on the same person; their earlier history stays as it is.</div>'
       + '<label>Care resumes on</label><input type="date" id="ccD" value="' + todayYmd() + '" max="' + todayYmd() + '"><label>Note</label><input id="ccX" placeholder="e.g. family called, back from rehab"><label>Who told us</label><input id="ccN">';
+    if(kind === 'end_date'){
+      const role = (d.roles || []).filter(r => r.status !== 'active').slice(-1)[0] || {};
+      const now = role.ended_at ? (role.ended_date_basis === 'on_or_before' ? 'on or before ' + day(role.ended_at) + ' (exact date not recorded)' : day(role.ended_at)) : 'not recorded';
+      f = '<div class="field-note" style="margin-bottom:6px;">Now: care ended ' + esc(now) + (role.started_at ? '. Care started ' + esc(day(role.started_at)) : '') + '.</div>'
+        + '<label>Care ended on: the last day of service <span class="cc-req">required</span></label><input type="date" id="ccD" value="' + esc(role.ended_date_basis === 'on_or_before' ? '' : String(role.ended_at || '').slice(0, 10)) + '" max="' + todayYmd() + '"' + (role.started_at ? ' min="' + esc(String(role.started_at).slice(0, 10)) + '"' : '') + '>'
+        + '<label>How do you know? <span class="cc-req">required</span></label><input id="ccX" placeholder="e.g. AxisCare notes, the family, the discharge letter">'
+        + '<div class="field-note">The date shows as exact from now on. The old date stays in the care history, with who changed it.</div>';
+    }
     ov.innerHTML = '<div class="cc-dlg" role="dialog" aria-modal="true"><div class="cc-dlg-t">' + esc(T) + ' · ' + esc(name) + '</div>' + (opts.review_id ? '<div class="field-note">Answers the AxisCare status change.</div>' : '')
       + '<div class="cc-form">' + f + '</div><div class="cc-err" id="ccErr"></div><div class="cc-act"><button class="primary" id="ccGo">' + esc(T) + '</button><button class="secondary" id="ccNo">Cancel</button></div></div>';
     document.body.appendChild(ov);
@@ -111,7 +121,8 @@
       const err = ov.querySelector('#ccErr'), say = t => { err.textContent = t; };
       if((kind === 'pause' || kind === 'end') && !v('ccR')) return say('Pick the reason.');
       if(v('ccR') === 'other' && !v('ccX')) return say('Explain, for Other.');
-      if((kind === 'pause' || kind === 'end') && !v('ccD')) return say('The date is required.');
+      if((kind === 'pause' || kind === 'end' || kind === 'end_date') && !v('ccD')) return say('The date is required.');
+      if(kind === 'end_date' && !v('ccX')) return say('Say how you know the date.');
       if((kind === 'pause' || kind === 'extend') && !v('ccF')) return say('A follow-up date is required.');
       const b = { action:'care_' + kind, axiscare_client_id:CC.ax, reason:v('ccR') || undefined, explanation:v('ccX') || undefined, effective_date:v('ccD') || undefined,
         followup_date:v('ccF') || undefined, notified_by:v('ccN') || undefined, review_id:opts.review_id || undefined };
@@ -119,7 +130,7 @@
       let out; try{ out = await call(b); }catch(e){ out = { error:e.message }; }
       if(!out || out.error){ go.disabled = false; go.textContent = T; return say((out && out.error) || 'Not saved.'); }
       close();
-      if(typeof ccToast === 'function') ccToast({ pause:'Care paused. The restart follow-up is on their Care Coordinator\'s My Work.', extend:'Follow-up moved.', resume:'Care resumed.', end:'Care ended.' + (out.sympathy ? ' A sympathy-card task is on My Work.' : ''), return:'Care resumed.' }[kind]);
+      if(typeof ccToast === 'function') ccToast({ pause:'Care paused. The restart follow-up is on their Care Coordinator\'s My Work.', extend:'Follow-up moved.', resume:'Care resumed.', end_date:'End date corrected.', end:'Care ended.' + (out.sympathy ? ' A sympathy-card task is on My Work.' : ''), return:'Care resumed.' }[kind]);
       try{ if(typeof cjListRefresh === 'function') cjListRefresh(); }catch(e){}
       try{ if(typeof opsLoad === 'function') opsLoad(); }catch(e){}
       await mount({ ax:CC.ax });
@@ -150,7 +161,7 @@
 
   try{ const st = document.createElement('style'); st.textContent = [
     '.cc-care{background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin:0 0 12px}.cc-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}',
-    '.cc-chip{font:800 12px/1 inherit;padding:6px 9px;border-radius:6px;white-space:nowrap}.cc-what{font-size:13.5px;color:var(--text)}',
+    '.cc-chip{font:800 12px/1 inherit;padding:6px 9px;border-radius:6px;white-space:nowrap}.cc-what{font-size:13.5px;color:var(--text)}.cc-fix{font-size:12.5px;font-weight:600;color:var(--teal-dark,#2E8C87);white-space:nowrap}',
     '.cc-st-active .cc-chip,.cc-chip.cc-st-active{background:#E6F4EC;color:#1E7B45}.cc-chip.cc-st-start{background:#E7EEFC;color:#1E4FB8}.cc-chip.cc-st-paused{background:#FFF4E1;color:#9A6412}.cc-chip.cc-st-past{background:#EEF2F6;color:#3E4C5E}.cc-chip.cc-st-dec{background:#ECEAE6;color:#4A4740}',
     '.cc-care.cc-st-paused{border-color:#E9C98B;background:#FFFBF2}.cc-care.cc-st-dec{background:#F7F6F3}.cc-quiet{margin-top:6px}.cc-end-btn{color:#9A2B20}',
     '.cc-check{margin-top:10px;border-top:1px solid var(--border);padding-top:8px}.cc-check summary{cursor:pointer;font-size:14px}.cc-ci{border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:8px}.cc-ci-done,.cc-ci-not_needed{background:#F6F9FD}',
