@@ -1178,9 +1178,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <input id="nvNotes" placeholder="Notes: meds location, pets, parking…" style="flex:1;min-width:200px;">
           <button class="addlead" onclick="nvAdd()">Add client</button>
         </div>
-        <div class="field-note" style="margin-top:8px;">The GHE months come from the state paperwork when the client comes on. Enter them once and this page does the remembering.</div>
+        <div class="field-note" style="margin-top:8px;">Uploading the client's care plan above fills in the GHE months for you. Use this only for a client whose plan isn't uploaded yet.</div>
       </div>
 
+      <!-- GHE fix slice 1 (2026-10-08, her approval): the Fusion care plan upload and every active client's Medicaid standing.
+           medicaid-plans.js draws it; care-plan-rules.js reads the PDF. -->
+      <div class="card" id="mcpCard" style="padding:16px 18px;margin-bottom:16px;"></div>
       <div id="nvDueNow" style="margin-bottom:16px;"></div>
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <b style="font-size:15px;color:var(--navy);">🩺 GHEs — general health evaluations</b>
@@ -6921,6 +6924,8 @@ The HomeTogether team</pre>
 <script src="referral-desk.js?v=4"></script>
 <script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=1"></script>
+<script src="care-plan-rules.js?v=1"></script>
+<script src="medicaid-plans.js?v=1"></script>
 <script src="staffing-sheet.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=4"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
@@ -7006,7 +7011,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list (a Team Hub record). Access itself is given from My Team here.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { caregivers: [], caregiver_overlay: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
+let DATA = { caregivers: [], caregiver_overlay: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], medicaid_plans: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -7135,7 +7140,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
+  const keys = ['caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','medicaid_plans','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
   /* CC Office on the phone (2026-10-07): the same keys, read all at once, so the phone opens in a moment on a mobile
      connection instead of one read after another. The computer Hub reads them as before. */
   if(window.CC_PHONE) await Promise.all(keys.map(async key=>{
@@ -38852,6 +38857,7 @@ async function npClaim(id){
   nursePortalRender();
 }
 function renderNurseVisits(){
+  if(typeof mcpRender==='function') mcpRender();
   gheRenderCards(); nsRender(); nvNurseOptions(); nvRenderCaseloads();
   const ghe=document.getElementById('nvGheList'); if(!ghe) return;
   const clients=(DATA.nurse_clients||[]).filter(c=>c.active!==false);
@@ -40627,6 +40633,40 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 @media(max-width:600px){ .lpi-slot .grid2{ grid-template-columns:1fr !important; } }
 /* =================== END CARA SCOPE =================== */
 @keyframes caraspin{to{transform:rotate(360deg);}}
+
+/* Medicaid care plans (medicaid-plans.js, 2026-10-08) */
+#mcpCard .mcp-top{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+#mcpCard .mcp-top>div{flex:1;min-width:220px}
+#mcpCard .mcp-title{font-size:15px;color:var(--navy)}
+#mcpCard .mcp-up{position:relative;overflow:hidden;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;padding:9px 16px;border-radius:10px;background:var(--teal);color:#fff;font-weight:700;font-size:14px}
+#mcpCard .mcp-up:focus-within{outline:2px solid var(--navy);outline-offset:2px}
+#mcpCard .mcp-up input{position:absolute;inset:0;opacity:0;cursor:pointer}
+#mcpCard .mcp-pends{display:grid;gap:10px;margin-top:12px}
+#mcpCard .mcp-pend{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--cream);min-width:0}
+#mcpCard .mcp-head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+#mcpCard .mcp-tbl{overflow-x:auto;margin-top:8px}
+#mcpCard .mcp-tbl table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+#mcpCard .mcp-tbl th{text-align:left;font-size:11.5px;color:var(--text-muted);padding:4px 8px;border-bottom:1px solid var(--border)}
+#mcpCard .mcp-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+#mcpCard .mcp-ghe{margin-top:8px;font-size:13.5px;color:var(--green)}
+#mcpCard .mcp-note{margin-top:4px;font-size:13px;color:var(--text-muted)}
+#mcpCard .mcp-stop{margin-top:6px;font-size:13.5px;color:var(--red);font-weight:600}
+#mcpCard .mcp-form{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+#mcpCard .mcp-form label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--text-muted);font-weight:600;min-width:0}
+#mcpCard .mcp-form input{min-width:200px;max-width:100%}
+#mcpCard .mcp-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+#mcpCard .mcp-clients{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}
+#mcpCard .mcp-sum{font-size:13.5px;margin-bottom:6px}
+#mcpCard .mcp-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+#mcpCard .mcp-name{font-weight:700;min-width:150px}
+#mcpCard .mcp-sp{flex:1}
+#mcpCard .mcp-row select{width:auto;max-width:100%}
+#mcpCard .mcp-chip{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--neutral);color:var(--text-muted)}
+#mcpCard .mcp-chip.ok{background:var(--green-bg);color:var(--green)}
+#mcpCard .mcp-chip.warn{background:var(--amber-bg);color:var(--amber)}
+#mcpCard .mcp-chip.bad{background:var(--red-bg);color:var(--red)}
+#mcpCard .mcp-all{margin-top:8px}
+@media (max-width:600px){#mcpCard .mcp-name{min-width:0;width:100%}#mcpCard .mcp-form input{min-width:0;width:100%}}
 </style>
 </body>
 </html>
