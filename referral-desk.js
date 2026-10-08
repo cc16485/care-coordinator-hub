@@ -63,7 +63,7 @@
         + '<button class="primary" onclick="pdLink(' + i + ')">Link</button><button class="fb" onclick="pdAddFrom(' + i + ')">Add as a new partner</button></div></div>').join('') + '</div>';
     return h;
   }
-  function render(){ const box = document.getElementById('refDesk'); if(box) box.innerHTML = deskHtml(); }
+  function render(){ const box = document.getElementById('refDesk'); if(box) box.innerHTML = deskHtml() + '<div id="ssDesk">' + (typeof ssDeskHtml === 'function' ? ssDeskHtml() : '') + '</div>'; }
 
   async function assign(id){
     if(!isOwner()) return; const o = org(id), sel = document.getElementById('pdOwn_' + id); if(!o || !sel) return;
