@@ -39,7 +39,7 @@ async()=>{
   DATA.care_assessments=[]; DATA.ops_settings={ afternoon_interviews:{ from:'14:00', name:'Samantha' } };
   DATA.orient_sessions=[{ id:'O1', date:day, time:'16:00', bookings:[{ first:'A' },{ first:'B' },{ first:'C', attend_status:'canceled' }] }];
   phStart(); await sleep(80);
-  ok('three tabs: Needs me now, Find a person, Today', [...document.querySelectorAll('.ph-tabs button')].map(b=>b.innerText).join('|')==='Needs me now|Find a person|Today');
+  ok('three tabs: Needs me now, Find a person, Today', [...document.querySelectorAll('.ph-tabs button')].map(b=>b.innerText).join('|')==='Needs me|Find|Today|End shift');
   document.querySelector('.ph-tabs [data-v="today"]').click(); await sleep(400);
   const body=()=>document.getElementById('phTodayBody'), cards=()=>[...body().querySelectorAll('.ph-tl')].map(x=>x.querySelector('.ph-tm').innerText+' '+x.querySelector('.ph-k').textContent+': '+x.querySelector('.ph-t').innerText);
   ok('Today: the title changes and today\'s date heads the list', /Today/.test(document.getElementById('phTitle').innerText) && body().querySelector('.ph-lane'), body().innerText.slice(0,200));
