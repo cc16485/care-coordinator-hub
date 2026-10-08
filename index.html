@@ -1187,10 +1187,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- GHE fix slice 1 (2026-10-08, her approval): the Fusion care plan upload and every active client's Medicaid standing.
            medicaid-plans.js draws it; care-plan-rules.js reads the PDF. -->
       <div class="card mcp-box" id="mcpCard" style="padding:16px 18px;margin-bottom:16px;"></div>
+      <div class="card" id="nvMissed" style="display:none;padding:16px 18px;margin-bottom:16px;border-left:4px solid var(--red);"></div>
       <div id="nvDueNow" style="margin-bottom:16px;"></div>
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <b style="font-size:15px;color:var(--navy);">🩺 GHEs — general health evaluations</b>
-        <div class="field-note" style="margin-top:3px;">Green is done, amber is this month, red is a missed window. Anything red is a compliance problem, not a scheduling preference.</div>
+        <div class="field-note" style="margin-top:3px;">The nurse calls the client, agrees a time and books the GHE in AxisCare as T1001; this board reads AxisCare every weekday. Green is visited, blue is booked, amber is this month and not booked yet, red is a missed window.</div>
         <div id="nvGheList" style="margin-top:10px;"></div>
       </div>
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
@@ -6962,6 +6963,7 @@ The HomeTogether team</pre>
 <script src="staffing-rules.js?v=1"></script>
 <script src="care-plan-rules.js?v=1"></script>
 <script src="nurse-rules.js?v=1"></script>
+<script src="ghe-rules.js?v=1"></script>
 <script src="medicaid-plans.js?v=3"></script>
 <script src="staffing-sheet.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
@@ -7048,7 +7050,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list (a Team Hub record). Access itself is given from My Team here.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { caregivers: [], caregiver_overlay: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], medicaid_plans: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
+let DATA = { caregivers: [], caregiver_overlay: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], medicaid_plans: [], ghe_watch: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -7177,7 +7179,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','medicaid_plans','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
+  const keys = ['caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','medicaid_plans','ghe_watch','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
   /* CC Office on the phone (2026-10-07): the same keys, read all at once, so the phone opens in a moment on a mobile
      connection instead of one read after another. The computer Hub reads them as before. */
   if(window.CC_PHONE) await Promise.all(keys.map(async key=>{
@@ -30862,6 +30864,8 @@ const OPS_KINDS = {
   /* Referral Partner Desk (2026-10-08): one card per partner owner per week; urgent referrals never wait for it */
   partner_week:    { label:'Partner outreach', hours:168 },
   review_followup: { label:'Review follow-up', hours:72 },
+  ghe_unbooked:   { label:'GHE not booked', hours:48 },
+  ghe_missed:     { label:'Missed GHE', hours:24 },
   /* N2 (2026-09-29): a caregiver's shift note the AI thought someone should read (care-notes, every two hours) */
   care_note:      { label:'Shift note',    hours:24 },
   /* Missed shift notes (2026-09-29): a caregiver replied with the note they didn't write, or never replied. */
@@ -38423,16 +38427,66 @@ async function nvDeactivate(id){
 function nvVisitsFor(cid,type){
   return (DATA.nurse_visits||[]).filter(v=>v.client_id===cid&&v.type===type);
 }
+/* GHE fix slice 3 (2026-10-08, her rule): the nurse books the GHE in AxisCare as T1001 and AxisCare is the proof.
+   ghe-reminders reads AxisCare every weekday and keeps what it saw in app_data 'ghe_watch' (gw_<client>_<month>). */
+function nvGheWatch(c,month){ return (DATA.ghe_watch||[]).find(x=>x.id==='gw_'+c.id+'_'+String(month).slice(0,7))||null; }
 function nvGheState(c,which){
   const month=c[which]; if(!month) return null;
-  const done=nvVisitsFor(c.id,which).find(v=>v.status==='completed');
-  const sched=nvVisitsFor(c.id,which).find(v=>v.status==='scheduled');
-  if(done) return {s:'done',lbl:'✓ done '+(done.completed_on||'').slice(0,10),col:'#1E8449',bg:'#EAF6EE'};
-  if(sched) return {s:'scheduled',lbl:'📅 booked '+(sched.scheduled_for||''),col:'#1B4E82',bg:'#EDF3FA'};
-  const now=nvMonth();
-  if(month<now)  return {s:'overdue',lbl:'⚠ window was '+month,col:'#C0392B',bg:'#FDEEEC'};
-  if(month===now)return {s:'due',lbl:'due this month',col:'#94681D',bg:'#FBF3E2'};
-  return {s:'upcoming',lbl:'window '+month,col:'#6E6559',bg:'transparent'};
+  const m=String(month).slice(0,7), w=nvGheWatch(c,m), now=nvMonth();
+  const d=x=>{ const t=String(x||''); return t?new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/Chicago'}):''; };
+  const who=w&&w.visit&&w.visit.nurse?' · '+w.visit.nurse:'';
+  const nm=x=>String(x||'').trim().toLowerCase();
+  const form=(DATA.ghe_forms||[]).find(f=>nm(f.client)===nm(c.name)&&String(f.visit_date||'').slice(0,7)===m);
+  const logged=nvVisitsFor(c.id,which).find(v=>v.status==='completed');
+  if(w&&w.state==='visited') return {s:'done',lbl:'Visited '+d(w.visit.at)+who+' (AxisCare)',col:'#1E8449',bg:'#EAF6EE'};
+  if(form) return {s:'done',lbl:'GHE form '+String(form.visit_date||'').slice(0,10),col:'#1E8449',bg:'#EAF6EE'};
+  if(logged) return {s:'done',lbl:'done '+(logged.completed_on||'').slice(0,10),col:'#1E8449',bg:'#EAF6EE'};
+  if(w&&w.resolved) return {s:'resolved',lbl:'Missed '+m+': '+(w.resolved.short||w.resolved.reason),col:'#94681D',bg:'#FBF3E2'};
+  const unlinked=!c.axiscare_client_id?' · link to AxisCare so the Hub can check':'';
+  if(w&&w.state==='booked') return {s:'scheduled',lbl:'Booked in AxisCare '+d(w.visit.at)+who,col:'#1B4E82',bg:'#EDF3FA'};
+  if(m<now) return {s:'overdue',lbl:'Missed: window was '+m+(w&&w.state==='not_visited'?' (booked '+d(w.visit.at)+', never clocked)':''),col:'#C0392B',bg:'#FDEEEC'};
+  if(w&&w.state==='not_visited') return {s:'due',lbl:'Booked '+d(w.visit.at)+' but not clocked in and out',col:'#C0392B',bg:'#FDEEEC'};
+  if(m===now) return {s:'due',lbl:'Due this month · not booked in AxisCare yet'+unlinked,col:'#94681D',bg:'#FBF3E2'};
+  return {s:'upcoming',lbl:'Window '+m+unlinked,col:'#6E6559',bg:'transparent'};
+}
+/* the Missed GHE card: only a person clears it, saying what happened and the next step (ghe-rules.js MISSED_REASONS) */
+function nvMissedRender(){
+  const box=document.getElementById('nvMissed'); if(!box) return;
+  const rows=(DATA.ghe_watch||[]).filter(x=>x.stage==='missed'&&!x.resolved);
+  if(!rows.length){ box.innerHTML=''; box.style.display='none'; return; }
+  box.style.display='';
+  const nextMonth=m=>GheRules.addMonths(m,1);
+  box.innerHTML='<b style="font-size:15px;color:var(--red);">Missed GHEs</b>'
+    +'<div class="field-note" style="margin-top:3px;">The month ended with no GHE visit clocked in AxisCare and no GHE form. Say what happened and the next step. A missed GHE is done the next month and is not paid unless the delay was outside our control; a refusal is reported to DSDS (MAN 3.15, INFO 05-26-02).</div>'
+    +rows.map(r=>{ const k=esc(r.id);
+      return '<div class="nvm-row" id="nvm_'+k+'"><div><b>'+esc(r.name)+'</b> <span class="field-note">GHE window '+esc(r.month)+(r.nurse?' · nurse '+esc(r.nurse):'')+(r.visit&&r.visit.at?' · booked '+esc(String(r.visit.at).slice(0,10))+', never clocked':'')+'</span></div>'
+        +'<div class="nvm-form"><select id="nvmR_'+k+'" onchange="nvMissedShape(\''+k+'\')"><option value="">What happened?</option>'
+        +GheRules.MISSED_REASONS.map(x=>'<option value="'+x[0]+'">'+esc(x[1])+'</option>').join('')+'</select>'
+        +'<label id="nvmDL_'+k+'" style="display:none;">Date <input type="date" id="nvmD_'+k+'" max="'+today()+'"></label>'
+        +'<label id="nvmML_'+k+'" style="display:none;">Month it will be done <input type="month" id="nvmM_'+k+'" value="'+esc(nextMonth(r.month))+'"></label>'
+        +'<input id="nvmN_'+k+'" placeholder="Note (optional)">'
+        +'<button class="primary" onclick="nvMissedSave(\''+k+'\')">Save</button><span class="field-note" id="nvmMsg_'+k+'"></span></div></div>';
+    }).join('');
+}
+function nvMissedShape(k){
+  const r=(document.getElementById('nvmR_'+k)||{}).value;
+  const dl=document.getElementById('nvmDL_'+k), ml=document.getElementById('nvmML_'+k);
+  if(dl){ dl.style.display=(r==='outside_control'||r==='refused')?'':'none'; dl.firstChild.textContent=r==='refused'?'Reported to DSDS on ':'PCCP team contacted on '; }
+  if(ml) ml.style.display=r==='make_up'?'':'none';
+}
+async function nvMissedSave(k){
+  const w=(DATA.ghe_watch||[]).find(x=>x.id===k); if(!w) return;
+  const v=id=>{ const e=document.getElementById(id+'_'+k); return e?String(e.value||'').trim():''; };
+  const res=GheRules.missedResolution({ reason:v('nvmR'), contacted_on:v('nvmD'), make_up_month:v('nvmM'), note:v('nvmN') });
+  const msg=document.getElementById('nvmMsg_'+k);
+  if(!res.ok){ if(msg){ msg.textContent=res.why; msg.style.color='var(--red)'; } return; }
+  const short={ make_up:'doing it '+res.make_up_month, outside_control:'outside our control, PCCP contacted '+res.contacted_on, refused:'refused, reported to DSDS '+res.contacted_on, ended:'care ended', wrong_month:'month corrected' }[res.reason];
+  w.resolved=Object.assign({}, res, { short, by:(ME&&ME.email)||'', by_name:(ME&&ME.name)||'', at:new Date().toISOString() });
+  await persist('ghe_watch', w);
+  const card=(DATA.ops_items||[]).find(x=>x.id==='ops_ghe_missed_'+w.client_id+'_'+w.month);
+  if(card){ Object.assign(card,{ status:'done', done_at:w.resolved.at, done_by:w.resolved.by, resolution:'Missed GHE: '+res.label+(res.note?' ('+res.note+')':'') }); await persist('ops_items', card); }
+  if(res.reason==='make_up'){ const c=(DATA.nurse_clients||[]).find(x=>x.id===w.client_id); if(c){ c.ghe_makeup=res.make_up_month; await persist('nurse_clients', c); } }
+  renderNurseVisits();
 }
 async function nvSchedule(cid,type){
   const when=prompt('Scheduled for (YYYY-MM-DD)',today()); if(!when) return;
@@ -38915,11 +38969,13 @@ function nursePortalRender(me){
   const open=clients.filter(c=>!String(c.assigned_nurse||'').trim());
   const tel=c=>c.phone?'<a class="addlead" style="padding:5px 14px;font-size:12px;text-decoration:none;"'+ocAttrs(c.phone)+'>📞 Call</a>':'';
   const needs=c=>[c.weekly_meds?'weekly meds':'',(c.ghe1||c.ghe2)?'GHE ('+[c.ghe1,c.ghe2].filter(Boolean).join(', ')+')':''].filter(Boolean).join(' + ')||'no set needs';
+  /* slice 3: what AxisCare shows for this month's GHE, so the nurse sees whether their booking is there */
+  const gheNow=c=>['ghe1','ghe2','ghe_makeup'].map(w=>c[w]&&String(c[w]).slice(0,7)<=nvMonth()?nvGheState(c,w):null).filter(x=>x&&x.s!=='done'&&x.s!=='resolved').map(x=>'<span class="badge '+(x.s==='overdue'?'bad':x.s==='scheduled'?'ok':'warn')+'">'+esc(x.lbl)+'</span>').join('');
   const mineBox=document.getElementById('npMine');
   if(mineBox) mineBox.innerHTML=mine.map(c=>{
     const flags=nvClientFlags(c);
     return '<div class="nvcase-row"><b>'+esc(c.name)+'</b><span class="field-note">'+esc(needs(c))+'</span>'
-      +flags.map(f=>'<span class="badge '+(f.includes('missed')?'bad':'warn')+'">'+f+'</span>').join('')
+      +gheNow(c)+flags.filter(f=>/med/.test(f)).map(f=>'<span class="badge warn">'+f+'</span>').join('')
       +'<span style="flex:1;"></span>'
       +'<span class="np-slotwrap"><span class="field-note">My standing visit:</span>'+npSlotCell(c)+'</span>'
       +tel(c)
@@ -38958,34 +39014,38 @@ async function npClaim(id){
 }
 function renderNurseVisits(){
   if(typeof mcpRender==='function') mcpRender();
-  gheRenderCards(); nsRender(); nvNurseOptions(); nvRenderCaseloads();
+  gheRenderCards(); nsRender(); nvNurseOptions(); nvRenderCaseloads(); nvMissedRender();
   const ghe=document.getElementById('nvGheList'); if(!ghe) return;
   const clients=(DATA.nurse_clients||[]).filter(c=>c.active!==false);
   const nameOf=id=>{ const c=(DATA.nurse_clients||[]).find(x=>x.id===id); return c?c.name:'?'; };
   const phoneBit=c=>c.phone?' · <a'+ocAttrs(c.phone)+' style="color:var(--navy);font-weight:700;">📞 '+esc(c.phone)+'</a>':'';
 
   // GHE table
-  ghe.innerHTML=clients.filter(c=>c.ghe1||c.ghe2).map(c=>{
+  /* the rows are built as a string and wrapped in the table before they touch the page (a div drops bare <tr>s) */
+  const gheRows=clients.filter(c=>c.ghe1||c.ghe2).map(c=>{
     const cells=['ghe1','ghe2'].map(w=>{
       const st=nvGheState(c,w);
       if(!st) return '<td style="padding:8px;border-top:1px solid var(--border);" class="field-note">—</td>';
-      const act=(st.s==='done')?'' :
-        '<div style="margin-top:4px;display:flex;gap:6px;">'
-        +(st.s!=='scheduled'?'<button class="ghost" style="padding:2px 9px;font-size:11.5px;" onclick="nvSchedule(\''+c.id+'\',\''+w+'\')">book</button>':'')
-        +'<button class="ghost" style="padding:2px 9px;font-size:11.5px;" onclick="gheNewFor(\''+c.id+'\')">📋 form</button>'
-        +'<button class="ghost" style="padding:2px 9px;font-size:11.5px;" onclick="nvComplete(\''+c.id+'\',\''+w+'\')">done</button></div>';
+      /* slice 3: no "book" or "done" here; the nurse books it in AxisCare (T1001) and AxisCare shows it */
+      const act=(st.s==='done'||st.s==='resolved')?'' :
+        '<div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
+        +'<button class="ghost" style="padding:2px 9px;font-size:11.5px;" onclick="gheNewFor(\''+c.id+'\')">GHE form</button>'
+        +(st.s!=='scheduled'?'<span class="field-note" style="font-size:11.5px;">the nurse books it in AxisCare as T1001</span>':'')+'</div>';
       return '<td style="padding:8px;border-top:1px solid var(--border);background:'+st.bg+';">'
         +'<span style="color:'+st.col+';font-weight:700;font-size:12.5px;">'+st.lbl+'</span>'+act+'</td>';
     }).join('');
+    const mk=c.ghe_makeup?nvGheState(c,'ghe_makeup'):null;
     return '<tr><td style="padding:8px;border-top:1px solid var(--border);"><b>'+esc(c.name)+'</b>'+phoneBit(c)+' '+nvLinkBtn(c,'G')
+      +(mk?'<div class="field-note" style="color:'+mk.col+';font-weight:700;">Make-up GHE '+esc(c.ghe_makeup)+': '+esc(mk.lbl)+'</div>':'')
       +(c.notes?'<div class="field-note">'+esc(c.notes)+'</div>':'')
       +'</td>'+cells
       +'<td style="padding:8px;border-top:1px solid var(--border);text-align:right;"><button class="ghost" style="padding:2px 8px;font-size:11px;" onclick="nvDeactivate(\''+c.id+'\')">remove</button></td></tr>';
-  }).join('') || '<div class="field-note">No clients with GHE windows yet. Add one above.</div>';
-  if(ghe.innerHTML.startsWith('<tr')) ghe.innerHTML=
-    '<table style="width:100%;border-collapse:collapse;font-size:13.5px;">'
-    +'<tr class="field-note"><td style="padding:4px 8px;">Client</td><td style="padding:4px 8px;">GHE 1</td><td style="padding:4px 8px;">GHE 2</td><td></td></tr>'
-    +ghe.innerHTML+'</table>';
+  }).join('');
+  ghe.innerHTML=gheRows
+    ? '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13.5px;min-width:560px;">'
+      +'<tr class="field-note"><td style="padding:4px 8px;">Client</td><td style="padding:4px 8px;">GHE 1</td><td style="padding:4px 8px;">GHE 2</td><td></td></tr>'
+      +gheRows+'</table></div>'
+    : '<div class="field-note">No clients with GHE windows yet. Upload a care plan on the client\'s Payer tab, or add one above.</div>';
 
   // weekly meds
   const meds=document.getElementById('nvMedsList');
@@ -40734,6 +40794,12 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 /* =================== END CARA SCOPE =================== */
 @keyframes caraspin{to{transform:rotate(360deg);}}
 
+/* Missed GHEs (slice 3, 2026-10-08) */
+.nvm-row{display:grid;gap:6px;padding:10px 0;border-top:1px solid var(--border);font-size:13.5px}
+.nvm-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.nvm-form select{width:auto;max-width:100%}
+.nvm-form input{width:auto;min-width:0;max-width:100%}
+.nvm-form label{display:flex;gap:6px;align-items:center;font-size:12.5px;font-weight:600;color:var(--text-muted)}
 /* Nurses (slice 2, 2026-10-08) */
 .ns-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
 .ns-grid label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--text-muted);font-weight:600;min-width:0}
