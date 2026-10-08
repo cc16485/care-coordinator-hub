@@ -6900,7 +6900,7 @@ The HomeTogether team</pre>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
 <script src="client-journey.js?v=14"></script>
-<script src="client-care.js?v=2"></script>
+<script src="client-care.js?v=3"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=3"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
@@ -11370,7 +11370,7 @@ async function csrOpen(reviewId){
     +opt('care_ended','Care ended','Opens End care: the reason, the last day of service and who told us. Their journey and open work close; nothing is deleted.')
     +opt('on_hold','Paused (hospital, rehab, family away…)','Opens Pause care with a follow-up date. Nothing ends.')
     +opt('no_change','AxisCare mistake / nothing changed','Nothing ends. Say what happened.')
-    +opt('returning','Returning client','Opens Start a new episode on the same person. An owner decides.')
+    +opt('returning','Returning client','Opens Resume care on the same person. An owner decides.')
     +'<div id="csrMore" style="margin-top:10px;"></div>'
     +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;"><button class="primary" id="csrGo" disabled>Record the answer</button><button class="secondary" id="csrX">Close</button><span id="csrMsg" class="field-note"></span></div>';
   ov.querySelector('#csrX').onclick=close;
