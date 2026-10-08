@@ -2105,9 +2105,10 @@ function linkCandidatesToOffers(){
   if (changed) saveCandidates();
 }
 
-async function offerToCandidate(offerId, btn){
+async function offerToCandidate(offerId, btn, opts){
+  const quiet = !!(opts && opts.quiet);   /* 2026-10-08: from the offer form and the Offered strip, no pop-ups, says what happened */
   const o = OFFERS.find(x => String(x.id) === String(offerId));
-  if (!o) return;
+  if (!o) return quiet ? { ok:false, why:'that offer is not in the offers list' } : undefined;
   const digits = t => String(t || '').replace(/\D/g, '').slice(-10);
   const dupe = candidates.find(c =>
     (digits(c.phone) && digits(c.phone) === digits(o.phone)) ||
@@ -2122,6 +2123,7 @@ async function offerToCandidate(offerId, btn){
       saveCandidates();
       try { renderOffers(); } catch (e) {}
     }
+    if (quiet) return { ok:true, rec:dupe, already:true };
     alert(dupe.first + ' ' + dupe.last + ' is already in Background & References.');
     gotoTab('onboarding'); return;
   }
@@ -2168,17 +2170,138 @@ async function offerToCandidate(offerId, btn){
   if (!(await saveCandidates({ quiet: true }))) {
     candidates = candidates.filter(c => c !== rec);
     try { renderOB(); } catch (e) {}
+    if (quiet) return { ok:false, why:'the save did not reach the shared workspace' };
     alert('Could not move ' + (rec.first + ' ' + rec.last).trim() + ' to Background & References: the save did not reach the shared workspace, so nothing was added. Check your connection and try again.');
     if (btn) { btn.disabled = false; btn.textContent = 'Start checks early'; }
     return;
   }
   renderOB(); renderAlerts();
-  gotoTab('onboarding');
   const gotRefs = (intake && (intake.refs || []).length) || 0;
+  if (quiet) return { ok:true, rec, gotRefs };
+  gotoTab('onboarding');
   alert(rec.first + ' ' + rec.last + ' is now in Background & References.\n\n' +
     (gotRefs ? gotRefs + ' reference' + (gotRefs === 1 ? '' : 's') + ' came across from their start link.'
              : 'No start-link submission found yet, so references are still blank.') +
     (rec.fp === 'Required' ? '\nThey lived outside Missouri, so a fingerprint check is required.' : ''));
+}
+
+/* ── OFFERED PEOPLE GO STRAIGHT INTO BACKGROUND & REFERENCES (2026-10-08, Samantha) ──
+   "People who have been offered immediately go into the Background and References tab." The moment an offer goes out
+   from the Hub's offer form, their checks row is made (offerIntoChecks). Offers that went out before this appear in a
+   strip at the top of People & Checks with Add buttons (never added by themselves when the tab opens). The row says
+   Offered and when, and whether their start form is back. When the form lands for a row made from the offer, one press
+   brings its references in (blank slots only; what the office typed is never overwritten). References can be typed in
+   by hand at any time (the pencil, or Record on a reference cell). Nothing here sends anything. */
+async function offerIntoChecks(offerId){
+  try{ await loadOffers(); }catch(e){}
+  const r = await offerToCandidate(String(offerId), null, { quiet:true });
+  if(!r || !r.ok) return { ok:false, line:'! Not in Background & References yet: ' + ((r && r.why) || 'the offer could not be read') + '. Use Add on the Background & References tab.' };
+  if(r.already) return { ok:true, line:'✓ Already in Background & References' };
+  return { ok:true, line:'✓ In Background & References now' + (r.gotRefs ? ', with ' + r.gotRefs + ' reference' + (r.gotRefs === 1 ? '' : 's') + ' from their start form' : ' (references can be typed in there, or asked for once their start form is back)') };
+}
+function obDigits(t){ return String(t || '').replace(/\D/g, '').slice(-10); }
+function obPairedIntake(c){
+  /* a start form that belongs to this offer-made row but is not linked yet: same phone or email, and not already
+     another record's form */
+  if(!c || c.intake_id || !Array.isArray(INTAKE_ROWS)) return null;
+  const o = c.offer_id ? OFFERS.find(x => String(x.id) === String(c.offer_id)) : null;
+  const ph = [c.phone, o && o.phone].map(obDigits).filter(Boolean);
+  const em = [c.email, o && o.email].map(e => String(e || '').trim().toLowerCase()).filter(Boolean);
+  if(!ph.length && !em.length) return null;
+  const taken = r => candidates.some(x => x !== c && x.intake_id != null && String(x.intake_id) === String(r.id))
+    || (typeof caregivers !== 'undefined' ? caregivers : []).some(g => g.intake_id != null && g.intake_id !== '' && String(g.intake_id) === String(r.id));
+  return INTAKE_ROWS.find(r => r && !taken(r) && ((obDigits(r.phone) && ph.includes(obDigits(r.phone))) || (r.email && em.includes(String(r.email).trim().toLowerCase())))) || null;
+}
+function offeredChip(c){
+  if(!c || !c.offer_id) return '';
+  const o = OFFERS.find(x => String(x.id) === String(c.offer_id)); if(!o) return '';
+  const esc = wcEsc;
+  const when = offerDate(o.created_at || o.interview_date);
+  let form;
+  if(c.intake_id) form = '<span class="sub" style="color:#15803D">start form back</span>';
+  else {
+    const p = obPairedIntake(c);
+    form = p ? `<span class="sub"><button class="ibtn" style="font-size:.62rem;padding:.16rem .5rem;color:#0e7490;border-color:#a5f3fc" title="Their start form is in. Bring its references onto this row (nothing you typed is overwritten)." onclick="event.stopPropagation();intakeFillFromForm(${c.id},'${esc(String(p.id))}',this)">📥 Bring in their start form</button></span>`
+      : '<span class="sub" style="color:#B45309">start form not back yet</span>';
+  }
+  return `<span class="badge" style="background:#EEF2FF;color:#3730A3;font-size:.62rem" title="Offered${o.offered_by ? ' by ' + esc(o.offered_by) : ''}${o.position ? ', ' + esc(o.position) : ''}">💼 Offered${when ? ' ' + esc(when) : ''}</span>${form}`;
+}
+function obFillFromIntake(c, row){
+  /* the form fills blanks only: what the office already recorded always wins. Answers how many references came in. */
+  if(!c.oos) c.oos = row.lived_outside_mo ? 'yes' : 'no';
+  if(row.lived_outside_mo && (!c.fp || c.fp === 'N/A')) c.fp = 'Required';
+  if(row.no_employer_history != null && c.no_employer_history == null) c.no_employer_history = !!row.no_employer_history;
+  if(!c.phone && row.phone) c.phone = row.phone;
+  if(!c.email && row.email) c.email = row.email;
+  const have = n => String(c['r' + n + 'n'] || '').trim().toLowerCase();
+  let added = 0;
+  (Array.isArray(row.refs) ? row.refs : []).forEach(ref => {
+    const name = String((ref && ref.name) || '').trim(); if(!name) return;
+    if([1,2,3,4].some(n => have(n) === name.toLowerCase())) return;
+    const n = [1,2,3,4].find(k => !have(k)); if(!n) return;
+    c['r'+n+'n'] = name; c['r'+n+'s'] = c['r'+n+'s'] || 'Pending';
+    c['r'+n+'_phone'] = ref.phone || ''; c['r'+n+'_email'] = ref.email || ''; c['r'+n+'_rel'] = ref.relationship || '';
+    c['r'+n+'_type'] = obRefType(ref.type); c['r'+n+'_company'] = ref.company || ''; c['r'+n+'_howlong'] = ref.how_long || '';
+    added++;
+  });
+  return added;
+}
+async function intakeFillFromForm(candId, intakeId, btn){
+  if(!HYDRATED){ alert('Shared data has not loaded. This section is read-only right now.'); return; }
+  const c = candidates.find(x => String(x.id) === String(candId)); if(!c) return;
+  if(c.intake_id){ alert('Their start form is already on this row.'); return; }
+  const name = ((c.first || '') + ' ' + (c.last || '')).trim();
+  if(btn){ btn.disabled = true; btn.textContent = 'Bringing in…'; }
+  const back = () => { if(btn){ btn.disabled = false; btn.textContent = '📥 Bring in their start form'; } };
+  let { data: row, error } = await sb.from('hire_intake').select('id, first_name, last_name, phone, email, lived_outside_mo, refs, no_employer_history').eq('id', intakeId).maybeSingle();
+  if(error && /no_employer_history/.test(String(error.message || '')))
+    ({ data: row, error } = await sb.from('hire_intake').select('id, first_name, last_name, phone, email, lived_outside_mo, refs').eq('id', intakeId).maybeSingle());
+  if(error || !row){ alert('Could not read their start form: ' + (error ? error.message : 'not found') + '. Nothing changed.'); back(); return; }
+  const before = JSON.stringify(c);
+  const added = obFillFromIntake(c, row);
+  c.intake_id = row.id;
+  c.notes = ((c.notes || '') + (c.notes ? ' ' : '') + 'Start form brought in ' + new Date().toISOString().slice(0, 10) + '.').trim();
+  if(!(await saveCandidates())){
+    for(const k of Object.keys(c)) delete c[k]; Object.assign(c, JSON.parse(before));
+    alert('That did not reach the shared workspace, so nothing changed. Check your connection and try again.'); back(); return;
+  }
+  try{ await sb.from('hire_intake').update({ seen_at: new Date().toISOString() }).eq('id', row.id); const l = INTAKE_ROWS.find(r => r.id === row.id); if(l) l.seen_at = new Date().toISOString(); }catch(e){}
+  renderOB(); renderAlerts();
+  alert(name + ': ' + (added ? added + ' reference' + (added === 1 ? '' : 's') + ' came in from their start form.' : 'their start form is on the row now, but it had no new references.')
+    + (c.fp === 'Required' ? '\n\nThey lived outside Missouri, so a fingerprint check is required.' : ''));
+}
+function renderOfferedStrip(){
+  const box = document.getElementById('obOfferedStrip'); if(!box) return;
+  let rows = [];
+  try{ rows = lifecycleRows().filter(r => r.offer && !r.board && !r.roster); }catch(e){ rows = []; }
+  if(!rows.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  const esc = wcEsc;
+  box.style.display = 'block';
+  box.innerHTML = '<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.35rem"><div style="font-weight:800;color:var(--navy);font-size:.85rem">💼 Offered, not in the table yet (' + rows.length + ')</div>'
+    + (rows.length > 1 ? '<button class="ibtn" style="margin-left:auto" onclick="offeredAddAll(this)">Add all ' + rows.length + '</button>' : '') + '</div>'
+    + '<div style="font-size:.75rem;color:var(--gray);margin-bottom:.5rem">Offers that went out before offered people started landing in this table by themselves. Add puts them in with the offer\'s details, plus their start form\'s references if it is back. Otherwise type the references in with the pencil. Nothing is sent.</div>'
+    + rows.map(r => { const o = r.offer; const when = offerDate(o.created_at || o.interview_date);
+        return '<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;padding:.35rem 0;border-top:1px solid var(--border)">'
+          + '<b style="font-size:.85rem">' + esc(r.name) + '</b>'
+          + '<span style="font-size:.75rem;color:var(--gray)">offered ' + esc(when || '') + (o.position ? ' · ' + esc(o.position) : '') + ' · '
+          + (r.intake ? '<span style="color:#15803D">start form back</span>' : '<span style="color:#B45309">start form not back yet</span>') + '</span>'
+          + '<button class="ibtn ibtn-strong" style="margin-left:auto" onclick="offeredAddOne(\'' + esc(String(o.id)) + '\',this)">Add to the table</button></div>'; }).join('');
+}
+async function offeredAddOne(offerId, btn){
+  if(btn){ btn.disabled = true; btn.textContent = 'Adding…'; }
+  const r = await offerToCandidate(String(offerId), null, { quiet:true });
+  if(!r || !r.ok){ alert('Not added: ' + ((r && r.why) || 'the offer could not be read') + '. Nothing changed.'); if(btn){ btn.disabled = false; btn.textContent = 'Add to the table'; } return; }
+  renderOB(); renderAlerts();
+}
+async function offeredAddAll(btn){
+  let rows = []; try{ rows = lifecycleRows().filter(r => r.offer && !r.board && !r.roster); }catch(e){}
+  if(!rows.length) return;
+  if(!confirm('Add all ' + rows.length + ' offered people to the Background & References table?\n\nEach row gets the offer\'s details, plus their start form\'s references if it is back. Nothing is sent.')) return;
+  if(btn){ btn.disabled = true; btn.textContent = 'Adding…'; }
+  const bad = [];
+  for(const r of rows){ const x = await offerToCandidate(String(r.offer.id), null, { quiet:true }); if(!x || !x.ok) bad.push(r.name + ': ' + ((x && x.why) || 'could not be read')); }
+  renderOB(); renderAlerts();
+  if(bad.length) alert('Not added:\n' + bad.join('\n') + '\n\nEveryone else was added.');
 }
 
 /* Step 1 is Viventium's paperwork and it is what gates orientation, so it
@@ -6387,6 +6510,7 @@ function renderOB(){
   if(BGRV.rows === null && !BGRV.busy) bgrvLoad().then(() => { if(BGRV.rows && BGRV.rows.length) renderOB(); });
   try{ renderHirePipeline(); }catch(e){}
   try{ renderImportStrip(); }catch(e){}
+  try{ renderOfferedStrip(); }catch(e){}
   const q=String(((document.getElementById('ob-search')||document.querySelector('#panel-onboarding input')||{value:''}).value||globalSearch)).trim().toLowerCase();
   const today=new Date(); today.setHours(0,0,0,0);
   const list=candidates.filter(c=>{
@@ -6439,6 +6563,7 @@ function renderOB(){
           ${c.not_hired_date?`<span class="sub" style="color:var(--gray)">${fmtD(c.not_hired_date)}</span>`:''}
         `:`
           ${st==='Ready for Orientation'?obOrientBanner(c):`<span class="badge ${stBadge}">${st}</span>`}
+          ${st!=='Ready for Orientation'&&offeredChip(c)?`<br><span style="display:inline-block;margin-top:4px;">${offeredChip(c)}</span>`:''}
           ${step1Chip(c)?`<br><span style="display:inline-block;margin-top:4px;">${step1Chip(c)}</span>`:''}
           ${c.invite_sent&&st!=='Ready for Orientation'?`<br><span class="badge" style="margin-top:4px;background:#e0faf9;color:#0e7490;font-size:.62rem">✉️ Invited ${fmtD(c.invite_sent_date)}</span>`:''}
           ${bgrvChip(c)?`<br>${bgrvChip(c)}`:''}
@@ -9655,7 +9780,7 @@ function renderEVVCorrections() {
 }
 
 /* the only things the panels' handlers need */
-window.SCX = {bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+window.SCX = {offerIntoChecks, bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
 /* The offer cards are built with inline onclick handlers, so these have to be
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;
@@ -9742,5 +9867,6 @@ window.obRefSendClose = obRefSendClose;
 window.obRefSendGo = obRefSendGo;
 /* Remote orientation, slice 1a (2026-10-01): Step 2 tracking + welcome calls. */
 Object.assign(window, { step2Mark, wcInvite, wcLoad, wcTick, wcNotes, wcAct, wcOrientLink, cgpOpen });
+Object.assign(window, { offeredAddOne, offeredAddAll, intakeFillFromForm });   /* offered people into Background & References (2026-10-08) */
 window.dispatchEvent(new Event('scx-ready'));
 })();

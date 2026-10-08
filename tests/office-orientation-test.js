@@ -88,7 +88,7 @@ ck('a text goes only when Book and text them is pressed, and the office is told 
 ck('a past date is refused', book.includes('That date has passed'));
 ck('the window has the date, the time and both buttons', html.includes('id="inv-manual-date"') && html.includes('id="inv-manual-time"') && html.includes('SCX.bookOfficeOrientation(false)') && html.includes('SCX.bookOfficeOrientation(true)'));
 ck('the guide says the row shows the banner and the steps are on Orientations', html.includes('<strong>Moved into orientation</strong> banner'));
-ck('the functions are reachable from the window', src.includes('window.SCX = {bookOfficeOrientation, officeOrientPreview,'));
+ck('the functions are reachable from the window', /window\.SCX = \{[^}]*bookOfficeOrientation, officeOrientPreview,/.test(src));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
