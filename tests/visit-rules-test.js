@@ -26,5 +26,20 @@ ck('...1 missed, last delivered 3 days ago: not yet; a delivered visit after a m
 ck('review needs: the visit with no reason, and units well under authorized (29 of 120)', (n => n.no_reason.length === 1 && n.under && n.needs_writing)(V.reviewNeeds(s)))
 ck('signing: an explanation when something needs writing, then the name', /Explain the 1 visit/.test(V.signReview(s, { signed_name: 'Angiel' }).why) && /Type your name/.test(V.signReview(s, { explanation: 'Oct 7: caregiver sick, client declined a substitute.' }).why) && V.signReview(s, { explanation: 'Oct 7: caregiver sick, client declined a substitute.', signed_name: 'Angiel' }, { me: 'angiel@mo-care.com' }).rec.signed_by === 'angiel@mo-care.com')
 ck('...a clean month (all delivered, units close to authorized) signs with the name alone', V.signReview({ missed: [], authorized_units: 40, delivered_units: 38 }, { signed_name: 'Angiel' }).ok)
+/* ADW respite */
+const rv = (day, h1, h2, o = {}) => Object.assign({ id: 'r' + day + h1, scheduledStartDate: day + 'T' + h1 + ':00:00Z', scheduledEndDate: day + 'T' + h2 + ':00:00Z', service: { procedureCode: 'S5150', description: 'Basic Respite' }, caregiver: { firstName: 'Ana', lastName: 'Ruiz' } }, o)
+ck('a respite visit: S5150 or "respite" in the service; advanced = TF or "advanced"', V.isRespite(rv('2026-10-21', '14', '16')) && V.isRespite({ service: { description: 'In-home respite' } }) && !V.isRespite(vis('2026-10-21')) && V.isAdvancedRespite({ service: { procedureCode: 'S5150 TF' } }) && V.isAdvancedRespite({ service: { description: 'Advanced Respite' } }) && !V.isAdvancedRespite(rv('2026-10-21', '14', '16')))
+// week of Mon Oct 19: 5 days x 10h scheduled ahead = 50h (over 49); week of Oct 26: 4 x 10h = 40h
+const big = ['2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25'].map(d => rv(d, '12', '22')).concat(['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29'].map(d => rv(d, '12', '22')))
+const rc = V.respiteCheck(big, '2026-10-20T20:00:00Z', '2026-10')
+ck('respite: the week of Oct 19 is booked for 50 hours (over 49); the week of Oct 26 for 40 (fine)', rc.over_weeks.length === 1 && rc.over_weeks[0].week === '2026-10-19' && rc.over_weeks[0].hours === 50 && rc.weeks.find(w => w.week === '2026-10-26').hours === 40, rc.weeks)
+ck('...the month: 90 hours = 360 units of the 868 limit (counted from the schedule ahead too)', rc.month_units === 360 && !rc.month_over, rc)
+const past = V.respiteCheck([rv('2026-10-12', '14', '16', { clockIn: { time: '2026-10-12T14:00:00Z' }, clockOut: { time: '2026-10-12T15:00:00Z' } }), rv('2026-10-13', '14', '16')], '2026-10-20T20:00:00Z', '2026-10')
+ck('...what already happened counts as clocked (1 hour), a respite visit not delivered counts nothing', past.weeks[0].hours === 1, past.weeks)
+const ov = V.respiteCheck([rv('2026-10-22', '14', '18'), vis('2026-10-22')], '2026-10-20T20:00:00Z', '2026-10')
+ck('respite overlapping another visit (personal care 14:00-16:00) is flagged', ov.overlaps.length === 1 && ov.overlaps[0].day === '2026-10-22', ov.overlaps)
+const adv = V.respiteCheck([rv('2026-10-23', '14', '16', { service: { procedureCode: 'S5150 TF', description: 'Advanced Respite' } })], '2026-10-20T20:00:00Z', '2026-10')
+ck('advanced respite booked (we don\'t provide it yet) is flagged with the day and caregiver', adv.advanced.length === 1 && adv.advanced[0].day === '2026-10-23' && adv.advanced[0].caregiver === 'Ana Ruiz')
+ck('no respite at all: nothing to say', !V.respiteCheck([vis('2026-10-22')], '2026-10-20T20:00:00Z', '2026-10').any)
 let pass = 0; for (const [n, okk, dd] of res) { console.log((okk ? 'PASS  ' : 'FAIL  ') + n + (okk ? '' : '  ' + dd)); if (okk) pass++ }
 console.log(`\n${pass} passed, ${res.length - pass} failed`); process.exit(pass === res.length ? 0 : 1)

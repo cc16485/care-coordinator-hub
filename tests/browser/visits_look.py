@@ -48,7 +48,12 @@ T = r"""async()=>{
   ok('...signed: the explanation, her name, who and when, kept on the month', w && w.review.signed_name==='Angiel' && w.review.signed_by==='angiel@mo-care.com' && /caregiver sick/.test(w.review.explanation), w&&w.review);
   ok('...and the monthly review card on My Work closes', card && card.id==='ops_vreview_901_2026-09' && card.status==='done' && /signed by Angiel/.test(card.resolution));
   ok('...the box now says Signed', /Signed\s*by Angiel/.test(box()));
-  ok('My Work knows the two new card kinds', OPS_KINDS.visit_risk && OPS_KINDS.visit_review);
+  ok('My Work knows the new card kinds', OPS_KINDS.visit_risk && OPS_KINDS.visit_review && OPS_KINDS.respite_limit);
+  /* ADW respite on the same box */
+  DATA.visit_watch[0].respite={ any:true, weeks:[{ week:'2026-10-19', hours:50, over:true }, { week:'2026-10-26', hours:40, over:false }], over_weeks:[{ week:'2026-10-19', hours:50, over:true }], month:'2026-10', month_units:360, month_over:false,
+    overlaps:[{ day:'2026-10-22', respite:'r1', other:'v1', other_service:'Personal care' }], advanced:[{ id:'a1', day:'2026-10-23', caregiver:'Ana Ruiz' }] };
+  __open(); await sleep(120);
+  ok('Respite: the weekly hours against 49 (the week of Oct 19 OVER at 50), the month in units, the overlap, and advanced respite booked', /at most 49 hours a week and 868 units a month/.test(box()) && /week of 2026-10-19 50 h \(OVER\) · week of 2026-10-26 40 h · this month 360 units/.test(box()) && /Respite overlaps another visit on 2026-10-22/.test(box()) && /Advanced respite is booked \(2026-10-23 with Ana Ruiz\)\. We only provide basic respite/.test(box()), box());
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []

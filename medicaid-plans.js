@@ -257,6 +257,7 @@
       out += '<div>' + usd(m + '-01').slice(0, 2) + '/' + m.slice(0, 4) + ' so far: <b>' + w.delivered_units + ' of ' + w.authorized_units + '</b> authorized units delivered (clocked time) · ' + w.visits_delivered + ' of ' + w.visits_scheduled + ' visits delivered</div>'
         + (r.at_risk ? '<div class="mcp-stop">' + r.in_a_row + ' scheduled visit' + (r.in_a_row === 1 ? '' : 's') + ' in a row not delivered (' + h_((r.since_missed || []).join(', ')) + ')' + (r.last_delivered ? '; last delivered ' + h_(r.last_delivered) : '') + '. Arrange a make-up visit before it reaches 1 week or 3 in a row (19 CSR 15-7.021(4)(A)5).</div>' : '')
         + (w.missed && w.missed.length ? '<div class="field-note">Not delivered: ' + w.missed.map(x => h_(x.day) + (x.reason ? ' (' + h_(REASON[x.reason.reason] || x.reason.reason) + ')' : ' (no reason yet)')).join(', ') + '</div>' : '')
+        + respiteHtml(w.respite)
         + '<div class="field-note">Read ' + h_(String(w.checked_at || '').slice(0, 16).replace('T', ' ')) + ' UTC</div>';
     }
     if (pw) {
@@ -273,6 +274,15 @@
       out += '</div>';
     }
     return out + '</div>';
+  }
+  /* ADW respite (2026-10-08): the weekly 49-hour and monthly 868-unit limits on the schedule ahead, overlaps, advanced respite */
+  function respiteHtml(r) {
+    if (!r || !r.any) return '';
+    const bad = r.over_weeks.length || r.month_over || r.overlaps.length || r.advanced.length;
+    return '<div class="' + (bad ? 'mcp-stop' : 'field-note') + '" style="font-weight:' + (bad ? 700 : 400) + '">Respite (basic and advanced together, at most 49 hours a week and 868 units a month; Provider Bulletin 49-03): '
+      + r.weeks.map(x => 'week of ' + h_(x.week) + ' ' + x.hours + ' h' + (x.over ? ' (OVER)' : '')).join(' · ') + ' · this month ' + r.month_units + ' units' + (r.month_over ? ' (OVER)' : '') + '</div>'
+      + (r.overlaps.length ? '<div class="mcp-stop">Respite overlaps another visit on ' + h_(Array.from(new Set(r.overlaps.map(x => x.day))).join(', ')) + ': respite can\'t be at the same time as another service (HCBS Manual 3.50).</div>' : '')
+      + (r.advanced.length ? '<div class="mcp-stop">Advanced respite is booked (' + h_(r.advanced.map(x => x.day + (x.caregiver ? ' with ' + x.caregiver : '')).join(', ')) + '). We only provide basic respite: check the service in AxisCare.</div>' : '');
   }
   window.mcpVisitSign = async function (id) {
     const w = ((DATA.visit_watch) || []).find(x => x.id === id); if (!w || !canSign()) return;
