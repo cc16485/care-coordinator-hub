@@ -274,6 +274,19 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   const mercy = N.now.by_partner[0], patel = N.now.by_partner[1];
   ck('partner scorecard: Mercy Rehab (Rehab / Skilled Nursing) sent 2, reached in 24 h 1, assessed 1, said yes 1, started 1, 9 days inquiry → start, 20 hrs/wk', mercy.name === 'Mercy Rehab' && mercy.type === 'Rehab / Skilled Nursing' && mercy.sent === 2 && mercy.reached_24h === 1 && mercy.assessed === 1 && mercy.said_yes === 1 && mercy.started === 1 && mercy.days_to_start_median === 9 && mercy.hours === 20, mercy);
   ck('...a typed referral name counts as a partner too; a website lead is not one', patel.name === 'Dr. Patel office' && patel.sent === 1 && patel.assessed === 1 && N.now.by_partner.length === 2, N.now.by_partner);
+  /* Step 6 (2026-10-08): response time, still open, why not, by person, typed names grouped, unlinked starts, the basis */
+  const L6 = Ls.concat([
+    { id:'q1', created_at:'2026-09-29T15:00:00Z', first_human_attempt_at:'2026-09-29T15:30:00Z', referral_org_id:'org1', referral_contact_id:'c1', status:'Lost', lost_reason_key:'price', lost_at:'2026-10-02T15:00:00Z' },
+    { id:'q2', created_at:'2026-10-02T15:00:00Z', referral_source_name:'St Johns', source:'Referral', referral_contact_id:null }, { id:'q3', created_at:'2026-10-03T15:00:00Z', referral_source_name:'St. Johns', source:'Referral' },
+    { id:'q4', created_at:'2026-09-15T15:00:00Z', source:'Referral', referral_source_name:'Someone', first_shift_at:'2026-10-01T13:00:00Z', said_yes_at:'2026-09-25T15:00:00Z' }]);
+  L6[0].referral_contact_id = 'c1';
+  const N6 = R.ownerNumbers(L6, HRS, { now:'2026-10-06T15:10:00Z', days:30, orgs:{ org1:{ name:'Mercy Rehab', type:'Rehab / Skilled Nursing', contacts:[{ id:'c1', name:'Lisa Marsh' }] } } });
+  const m6 = N6.now.by_partner.find(x => x.name === 'Mercy Rehab');
+  ck('step 6, by partner: how fast we first tried (median), still open, and why the rest did not start', m6.sent === 3 && m6.first_attempt_median_min === 30 && m6.open === 1 && m6.lost === 1 && m6.lost_reasons[0].count === 1, m6);
+  ck('...by the person who referred (Lisa Marsh: 2 sent, 1 started, 1 lost)', N6.now.by_contact.length === 1 && N6.now.by_contact[0].name === 'Lisa Marsh' && N6.now.by_contact[0].sent === 2 && N6.now.by_contact[0].started === 1 && N6.now.by_contact[0].lost === 1, N6.now.by_contact);
+  ck('...typed names grouped ("St Johns" and "St. Johns" are one partner, 2 sent)', N6.now.by_partner.filter(x => /St\.? Johns/.test(x.name)).length === 1 && N6.now.by_partner.find(x => /St\.? Johns/.test(x.name)).sent === 2, N6.now.by_partner.map(x => x.name + ':' + x.sent));
+  ck('...a referral that started with no partner linked is listed to credit', N6.now.unlinked_starts.length === 1 && N6.now.unlinked_starts[0].id === 'q4', N6.now.unlinked_starts);
+  ck('...the numbers say what they count: referrals received in the period', N6.now.basis === 'referrals received in the period');
 }
 
 /* the lead workspace (screen 2, 2026-10-07): steps, timeline, script lines, can we staff it */

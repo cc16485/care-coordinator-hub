@@ -139,7 +139,24 @@
       + '<label for="pdRel">Relationship notes</label><textarea id="pdRel" rows="2" placeholder="What matters to them, who decides, what we promised">' + esc(o.relationship_notes || '') + '</textarea>'
       + '</div><button class="primary" style="margin-top:8px;" onclick="pdSaveProfile(\'' + esc(o.id) + '\')">Save</button> '
       + (typeof peOpen === 'function' ? '<button class="fb" style="margin-top:8px;" onclick="peOpen(\'' + esc(o.id) + '\')">Send a partner email</button> ' : '') + '<span class="field-note" id="pdProfMsg"></span>'
-      + peopleHtml(o) + '</div>';
+      + yearHtml(o) + peopleHtml(o) + '</div>';
+  }
+  /* Step 6 (2026-10-08): this partner's last 12 months, from the same rules as the Owners Hub (referrals received in the
+     12 months: how fast we tried, reached, said yes, started (first clock-in), days to start, still open, why not; and by person) */
+  function yearHtml(o){ try{ return yearInner(o); }catch(e){ console.warn('partner 12 months', e); return ''; } }
+  function yearInner(o){
+    if(typeof LeadRules === 'undefined' || !LeadRules.ownerNumbers) return '';
+    const mine = PR().leadsOf(o, DATA.leads || []).map(l => Object.assign({}, l, { referral_org_id:o.id }));
+    if(!mine.length) return '';
+    const N = LeadRules.ownerNumbers(mine, LeadRules.responseHours ? LeadRules.responseHours(st()) : st().lead_response_hours, { days:365, orgs:{ [o.id]:o } }).now;
+    const p = (N.by_partner || [])[0]; if(!p) return '';
+    const mins = m => m == null ? 'n/a' : m < 60 ? m + ' min' : Math.round(m / 6) / 10 + ' h';
+    const row = (k, v) => '<div class="pd-kv"><span>' + esc(k) + '</span><b>' + v + '</b></div>';
+    return '<div class="pd-year"><div class="pd-head" style="margin-top:14px;"><b>Last 12 months</b><span class="field-note">referrals received in the 12 months</span></div>'
+      + row('Referrals', p.sent) + row('First try to reach the family (median)', esc(mins(p.first_attempt_median_min))) + row('Reached within 24 hours', p.reached_24h) + row('Said yes', p.said_yes)
+      + row('Started care (first clock-in)', p.started + (p.days_to_start_median != null ? ' · ' + p.days_to_start_median + ' days to start' : '')) + row('Still open', p.open)
+      + row('Didn\'t start', p.lost + (p.lost_reasons.length ? ' · ' + esc(p.lost_reasons.map(r => r.label + (r.count > 1 ? ' (' + r.count + ')' : '')).join(', ')) : ''))
+      + ((N.by_contact || []).length ? '<div class="field-note" style="margin-top:6px;">By person: ' + esc(N.by_contact.map(c => c.name + ' ' + c.sent + ' sent, ' + c.started + ' started').join(' · ')) + '</div>' : '') + '</div>';
   }
   function peopleHtml(o){
     const cs = (o.contacts || []).filter(c => c && !c.archived);
@@ -254,7 +271,7 @@
     '.pd-pill{display:inline-block;font-size:11px;font-weight:800;padding:3px 7px;border-radius:999px;vertical-align:1px}.pd-p{background:#FDF1DC;color:#8A5A12}.pd-a{background:#E4F1F3;color:#1F7A8C}.pd-b{background:#EAF1F8;color:#0D365F}.pd-c{background:#EEF0F2;color:#5D6B78}',
     '.pd-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}.pd-seg button{border:0;background:transparent;padding:6px 10px;font-size:12.5px;cursor:pointer}.pd-seg button.on{background:var(--navy);color:#fff}',
     '.pd-grid{display:grid;grid-template-columns:minmax(140px,max-content) minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:10px}.pd-grid label{font-size:12.5px;color:var(--text-muted);font-weight:600}',
-    '.pd-person{padding:8px 0;border-top:1px dashed var(--border);font-size:13.5px}',
+    '.pd-person{padding:8px 0;border-top:1px dashed var(--border);font-size:13.5px}.pd-kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;border-bottom:1px dashed var(--border)}.pd-kv span{color:var(--text-muted)}',
     '.pd-ov{position:fixed;inset:0;background:rgba(13,54,95,.35);display:flex;align-items:center;justify-content:center;z-index:9000;padding:16px}.pd-dlg{background:#fff;border-radius:12px;padding:18px;width:100%;max-width:460px;max-height:90vh;overflow:auto;display:flex;flex-direction:column;gap:6px}',
     '.pd-dlg-t{font-weight:800;color:var(--navy);font-size:16px;margin-bottom:4px}.pd-dlg label{font-size:12.5px;font-weight:600;color:var(--text-muted);margin-top:4px}.pd-dlg-a{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.pd-err{color:var(--red);font-size:13px}.pd-req{color:var(--red);font-weight:700;font-size:11px}',
     '@media (max-width:640px){.pd-grid{grid-template-columns:1fr}.pd-acts{width:100%}.pd-acts>*{flex:1 1 auto}.pd-acts select{max-width:none}#refKpis{grid-template-columns:repeat(2,1fr)!important}.pd-dlg{max-width:none}}'
