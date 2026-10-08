@@ -27528,6 +27528,10 @@ const CCIssue = {
       +'check the procedure before acting.</b>';
     if(c.owner_authority) h+='<br><b style="color:var(--red)">Needs owner authority.</b>';
     if(c.required_info) h+='<br>Worth capturing: '+escapeHtmlComms(c.required_info);
+    /* 528 (2026-10-08, her "grievance log"): what a grievance must never do, and where else it can go */
+    if(c.code==='grievance') h+='<div class="iss-griev"><b>A grievance.</b> Nothing about their care may change because they complained: no retaliation by anyone here (HCBS Manual 8.15). '
+      +'They can also file a grievance with DSDS: the online portal or 866-835-3505. We answer them in writing. '
+      +'If it is abuse, neglect or exploitation, it is not a grievance: report it to the hotline (1-800-392-0210) under Possible abuse.</div>';
     box.innerHTML=h;
   },
 
@@ -27645,6 +27649,10 @@ async function ccIssueAct(id, what){
   }
 
   if(what==='iss_resolve'){
+    /* 528: a grievance is resolved only after our written answer, and once they know they can also go to DSDS */
+    if(it.issue_category==='grievance'){
+      if(!confirm('Before this grievance is resolved:\n\n1. Did the client (or their representative) get our written answer, with what we found and what we did?\n2. Were they told they can also file a grievance with DSDS (the online portal or 866-835-3505)?\n\nOK = yes to both. Cancel = not yet.')) return;
+    }
     const warn = cat && cat.follow_up_required
       ? '\n\nNOTE: this kind of issue requires a follow-up check. Resolving now '
         +'will schedule that check rather than closing it — the problem is not '
@@ -27653,8 +27661,9 @@ async function ccIssueAct(id, what){
     const note=prompt('What actually resolved it?\n\nResolved means: '
       +((cat&&cat.resolution_means)||'the underlying problem is addressed')+warn);
     if(!note) return;
+    const gNote = it.issue_category==='grievance' ? ' [Written answer given; told they can also file with DSDS.]' : '';
     const r=await CCIssue.call('action=1',{ issue_id:it.issue_id, action_type:'resolution',
-      note:note, resolution_note:note, by_whom:ME.email||'', state:'resolved',
+      note:note+gNote, resolution_note:note+gNote, by_whom:ME.email||'', state:'resolved',
       ops_item_id:it.id });
     if(r.error) return alert(r.error);
     await loadOpsItems(); myWorkRefresh();
@@ -40919,6 +40928,7 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 .nvm-form select{width:auto;max-width:100%}
 .nvm-form input{width:auto;min-width:0;max-width:100%}
 .nvm-form label{display:flex;gap:6px;align-items:center;font-size:12.5px;font-weight:600;color:var(--text-muted)}
+.iss-griev{margin-top:8px;padding:8px 10px;border-radius:8px;background:#FBF3E2;color:var(--text);font-size:13px}
 /* Nurses (slice 2, 2026-10-08) */
 .ns-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
 .ns-grid label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--text-muted);font-weight:600;min-width:0}
