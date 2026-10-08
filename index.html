@@ -1063,6 +1063,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            one home for the whole pipeline. The swEvv* functions live on,
            painting the EVV tab's missing board. -->
       <div id="swHoursWrap" style="display:none;">
+      <div id="ssRoot"></div><!-- Where we can staff this week (staffing-sheet.js, Referral Partner Desk Step 4, 2026-10-08) -->
       <!-- The quiet-quit radar + care-gap watch (her picks #7+#8) and the
            availability freshness meter (#10): trends over six weeks, and
            how current the availability data actually is. -->
@@ -6917,7 +6918,9 @@ The HomeTogether team</pre>
 <script src="client-care.js?v=4"></script>
 <script src="review-ask.js?v=1"></script>
 <script src="partner-rules.js?v=1"></script>
-<script src="referral-desk.js?v=1"></script>
+<script src="referral-desk.js?v=2"></script>
+<script src="staffing-rules.js?v=1"></script>
+<script src="staffing-sheet.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=4"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
@@ -10759,6 +10762,7 @@ function renderMyDay(){
     'NEW','var(--navy)','#EAF1F8','',"Set plan","openLeadProfile('"+l.id+"')")));
   /* the Referral Partner Desk (Step 2): counted lines (nothing stored), and this owner's one weekly My Work card kept in step */
   try{ if(typeof pdMyDayRows==='function') rows.push(...pdMyDayRows(myDayRow)); if(typeof pdEnsureWeeklyCard==='function') pdEnsureWeeklyCard(); }catch(e){ console.warn('partner desk today', e); }
+  try{ if(typeof ssMyDayRows==='function') rows.push(...ssMyDayRows(myDayRow)); }catch(e){ console.warn('staffing sheet today', e); }
   const CAP = 12;
   const count = document.getElementById('myDayCount');
   if(!rows.length){
@@ -34719,7 +34723,7 @@ function swRenderAll(){
   if(SW_SUB==='today'){ swRenderLive(); swAutoRefreshArm(); }
   else if(SW_SUB==='newclients'){ swRenderNewClients(); }
   else if(SW_SUB==='builder'){ tbRender(); }
-  else { hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad(); }
+  else { hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad(); try{ if(typeof ssPaint==='function'){ ssPaint(); ssLoad(); } }catch(e){} }
 }
 /* ── RETENTION RADAR + CARE-GAP WATCH + AVAILABILITY FRESHNESS ─────────── */
 let HW_TRENDS={data:null,at:0,loading:false};
