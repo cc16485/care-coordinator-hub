@@ -1184,7 +1184,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <!-- GHE fix slice 1 (2026-10-08, her approval): the Fusion care plan upload and every active client's Medicaid standing.
            medicaid-plans.js draws it; care-plan-rules.js reads the PDF. -->
-      <div class="card" id="mcpCard" style="padding:16px 18px;margin-bottom:16px;"></div>
+      <div class="card mcp-box" id="mcpCard" style="padding:16px 18px;margin-bottom:16px;"></div>
       <div id="nvDueNow" style="margin-bottom:16px;"></div>
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <b style="font-size:15px;color:var(--navy);">🩺 GHEs — general health evaluations</b>
@@ -6934,7 +6934,7 @@ The HomeTogether team</pre>
 <script src="staffing-rules.js?v=1"></script>
 <script src="care-plan-rules.js?v=1"></script>
 <script src="nurse-rules.js?v=1"></script>
-<script src="medicaid-plans.js?v=2"></script>
+<script src="medicaid-plans.js?v=3"></script>
 <script src="staffing-sheet.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=4"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
@@ -10049,7 +10049,7 @@ function cpStateSteps(l){ return (l&&l.soc&&Array.isArray(l.soc.steps)?l.soc.ste
 function cpRenderPayer(){
   const box=document.getElementById('cp_payer'); if(!box) return;
   const esc=escapeHtmlComms, l=CP.lead;
-  if(!l){ box.innerHTML='<div class="card" style="padding:14px 18px;"><b style="font-size:15px;color:var(--navy);">Payer</b><div class="field-note" style="margin-top:6px;">No inquiry is connected, so there is no intake payer record. AxisCare holds this client\'s billing.</div></div>'; return; }
+  if(!l){ box.innerHTML='<div class="card" style="padding:14px 18px;"><b style="font-size:15px;color:var(--navy);">Payer</b><div class="field-note" style="margin-top:6px;">No inquiry is connected, so there is no intake payer record. AxisCare holds this client\'s billing.</div></div>'; box.insertAdjacentHTML('beforeend','<div class="card mcp-box" id="cpPlanBox" style="padding:14px 18px;margin-top:12px;"></div>'); if(typeof mcpProfileRender==='function') mcpProfileRender(); return; }
   const opt=(list,v)=>list.map(o=>'<option value="'+o[0]+'"'+(String(v||'')===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('');
   const med=l.funding_source==='medicaid'||!!l.state_status||!!l.state_submitted;
   const sub=l.state_submitted||'', ss=l.state_status||'';
@@ -10085,7 +10085,9 @@ function cpRenderPayer(){
     +'</div>'
     +'<div style="display:flex;gap:8px;align-items:center;margin-top:14px;"><button class="primary" onclick="cpPayerSave()">Save</button>'
     +'<button class="linklike" style="font-size:12px;" onclick="openLeadModal(\''+esc(l.id)+'\')">open the whole intake form</button></div>'
-    +'</div><div id="cpPayFacts"></div>';
+    +'</div><div class="card mcp-box" id="cpPlanBox" style="padding:14px 18px;margin-top:12px;"></div><div id="cpPayFacts"></div>';
+  /* GHE fix (her rule 2026-10-08): the state care plan is uploaded here, in the client's intake */
+  if(typeof mcpProfileRender==='function') mcpProfileRender();
   lpfRenderPayerFacts();
 }
 function cpPayerDraft(){ const f=document.getElementById('cpPayFunding'), m=document.getElementById('cpPayMed'); if(f&&m&&f.value==='medicaid') m.style.display=''; }
@@ -40714,39 +40716,44 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 .ns-team.ok{background:var(--green-bg);color:var(--green)}
 .ns-team.bad{background:var(--red-bg);color:var(--red);font-weight:600}
 /* Medicaid care plans (medicaid-plans.js, 2026-10-08) */
-#mcpCard .mcp-top{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
-#mcpCard .mcp-top>div{flex:1;min-width:220px}
-#mcpCard .mcp-title{font-size:15px;color:var(--navy)}
-#mcpCard .mcp-up{position:relative;overflow:hidden;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;padding:9px 16px;border-radius:10px;background:#1F7A8C;color:#fff;font-weight:700;font-size:14px}
-#mcpCard .mcp-up:hover{background:#155A68}
-#mcpCard .mcp-up:focus-within{outline:2px solid var(--navy);outline-offset:2px}
-#mcpCard .mcp-up input{position:absolute;inset:0;opacity:0;cursor:pointer}
-#mcpCard .mcp-pends{display:grid;gap:10px;margin-top:12px}
-#mcpCard .mcp-pend{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--cream);min-width:0}
-#mcpCard .mcp-head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
-#mcpCard .mcp-tbl{overflow-x:auto;margin-top:8px}
-#mcpCard .mcp-tbl table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
-#mcpCard .mcp-tbl th{text-align:left;font-size:11.5px;color:var(--text-muted);padding:4px 8px;border-bottom:1px solid var(--border)}
-#mcpCard .mcp-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
-#mcpCard .mcp-ghe{margin-top:8px;font-size:13.5px;color:var(--green)}
-#mcpCard .mcp-note{margin-top:4px;font-size:13px;color:var(--text-muted)}
-#mcpCard .mcp-stop{margin-top:6px;font-size:13.5px;color:var(--red);font-weight:600}
-#mcpCard .mcp-form{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
-#mcpCard .mcp-form label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--text-muted);font-weight:600;min-width:0}
-#mcpCard .mcp-form input{min-width:200px;max-width:100%}
-#mcpCard .mcp-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
-#mcpCard .mcp-clients{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}
-#mcpCard .mcp-sum{font-size:13.5px;margin-bottom:6px}
-#mcpCard .mcp-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px}
-#mcpCard .mcp-name{font-weight:700;min-width:150px}
-#mcpCard .mcp-sp{flex:1}
-#mcpCard .mcp-row select{width:auto;max-width:100%}
-#mcpCard .mcp-chip{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--neutral);color:var(--text-muted)}
-#mcpCard .mcp-chip.ok{background:var(--green-bg);color:var(--green)}
-#mcpCard .mcp-chip.warn{background:var(--amber-bg);color:var(--amber)}
-#mcpCard .mcp-chip.bad{background:var(--red-bg);color:var(--red)}
-#mcpCard .mcp-all{margin-top:8px}
-@media (max-width:600px){#mcpCard .mcp-name{min-width:0;width:100%}#mcpCard .mcp-form input{min-width:0;width:100%}}
+.mcp-box .mcp-top{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.mcp-box .mcp-top>div{flex:1;min-width:220px}
+.mcp-box .mcp-title{font-size:15px;color:var(--navy)}
+.mcp-box .mcp-up{position:relative;overflow:hidden;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;padding:9px 16px;border-radius:10px;background:#1F7A8C;color:#fff;font-weight:700;font-size:14px}
+.mcp-box .mcp-up:hover{background:#155A68}
+.mcp-box .mcp-up:focus-within{outline:2px solid var(--navy);outline-offset:2px}
+.mcp-box .mcp-up input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.mcp-box .mcp-pends{display:grid;gap:10px;margin-top:12px}
+.mcp-box .mcp-pend{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--cream);min-width:0}
+.mcp-box .mcp-head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.mcp-box .mcp-tbl{overflow-x:auto;margin-top:8px}
+.mcp-box .mcp-tbl table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+.mcp-box .mcp-tbl th{text-align:left;font-size:11.5px;color:var(--text-muted);padding:4px 8px;border-bottom:1px solid var(--border)}
+.mcp-box .mcp-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.mcp-box .mcp-ghe{margin-top:8px;font-size:13.5px;color:var(--green)}
+.mcp-box .mcp-note{margin-top:4px;font-size:13px;color:var(--text-muted)}
+.mcp-box .mcp-stop{margin-top:6px;font-size:13.5px;color:var(--red);font-weight:600}
+.mcp-box .mcp-form{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+.mcp-box .mcp-form label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--text-muted);font-weight:600;min-width:0}
+.mcp-box .mcp-form input{min-width:200px;max-width:100%}
+.mcp-box .mcp-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.mcp-box .mcp-clients{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}
+.mcp-box .mcp-sum{font-size:13.5px;margin-bottom:6px}
+.mcp-box .mcp-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.mcp-box .mcp-name{font-weight:700;min-width:150px}
+.mcp-box .mcp-sp{flex:1}
+.mcp-box .mcp-row select{width:auto;max-width:100%}
+.mcp-box .mcp-chip{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--neutral);color:var(--text-muted)}
+.mcp-box .mcp-chip.ok{background:var(--green-bg);color:var(--green)}
+.mcp-box .mcp-chip.warn{background:var(--amber-bg);color:var(--amber)}
+.mcp-box .mcp-chip.bad{background:var(--red-bg);color:var(--red)}
+.mcp-box .mcp-all{margin-top:8px}
+.mcp-box .mcp-cur{margin-top:12px;font-size:13.5px;display:grid;gap:3px}
+.mcp-box .mcp-chk{flex-direction:row !important;align-items:flex-start;gap:8px !important;font-weight:600;color:var(--text) !important;flex-basis:100%}
+.mcp-box .mcp-chk input{min-width:0 !important;width:auto;margin-top:2px}
+.mcp-box .mcp-none{margin-top:8px}
+.mcp-box button:disabled{opacity:.45;cursor:not-allowed}
+@media (max-width:600px){.mcp-box .mcp-name{min-width:0;width:100%}.mcp-box .mcp-form input{min-width:0;width:100%}}
 </style>
 </body>
 </html>
