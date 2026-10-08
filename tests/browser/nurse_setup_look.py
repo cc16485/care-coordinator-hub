@@ -74,6 +74,15 @@ T = r"""async()=>{
   /* an expired license after the fact: the caseload says so */
   const rita=DATA.nurse_staff.find(n=>n.name==='Rita Reed'); rita.expires='2026-09-01'; renderNurseVisits(); await sleep(150);
   ok('A nurse whose license lapses keeps their clients, flagged "nurse not ready: reassign or finish their setup"', /Rita Reed[\s\S]*nurse not ready: reassign or finish their setup/.test(document.getElementById('nvCaseloads').innerText), document.getElementById('nvCaseloads').innerText.slice(0,500));
+  /* one Nurse Scheduling tab (her call 2026-10-08) */
+  const pills=[...document.querySelectorAll('#fsub-scheduling .fpill')].map(p=>p.textContent.replace(/\d+$/,'').trim());
+  ok('One Nurse Scheduling tab in Scheduling, no separate Nurse Visits or Nurse Portal tab', pills.filter(t=>/Nurse/.test(t)).map(t=>t.replace(/\d+$/,'')).join('|')==='Nurse Scheduling', pills);
+  ccParentClick('nursing'); switchTab('nursevisits'); await sleep(150);
+  const row2=()=>[...document.querySelectorAll('#fsub2 .fpill2')].map(p=>p.textContent.trim()+(p.classList.contains('active')?'*':''));
+  const lit=()=>[...document.querySelectorAll('#fsub-scheduling .fpill.active')].map(p=>p.textContent.replace(/\d+$/,'').trim());
+  ok('...its two views are the second row: Office view (on) and What a nurse sees; the tab stays lit', row2().join('|')==='Office view*|What a nurse sees' && lit().join()==='Nurse Scheduling', [row2(), lit()]);
+  switchTab('nurseportal'); await sleep(150);
+  ok('...What a nurse sees: same tab lit, the nurse view showing', row2().join('|')==='Office view|What a nurse sees*' && lit().join()==='Nurse Scheduling' && document.getElementById('tab-nurseportal').classList.contains('active'), [row2(), lit()]);
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []

@@ -973,8 +973,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- Nursing folded into Scheduling 2026-09-20 (her call): a GHE visit is
          scheduled like any other visit. The badge keeps its gb-nursing id so
          the overdue-GHE counter keeps working. -->
-    <div class="fpill" data-tab="nursevisits" onclick="switchTab('nursevisits')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nurse Visits<span class="subtab-badge red" id="gb-nursing" style="display:none;"></span></div>
-    <div class="fpill" data-tab="nurseportal" onclick="switchTab('nurseportal')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Nurse Portal</div>
+    <!-- 2026-10-08 (her call): ONE Nurse Scheduling tab. Its two views (the office's, and what a nurse sees) are the
+         second row, like Getting ready. A nurse who signs in still sees only their own view. -->
+    <div class="fpill" data-parent="nursing" onclick="ccParentClick('nursing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nurse Scheduling<span class="subtab-badge red" id="gb-nursing" style="display:none;"></span></div>
   </div>
   <div class="fsubbar" id="fsub-htorders">
     <div class="fpill" data-tab="htorders" onclick="switchTab('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Orders<span class="subtab-badge red" id="htOrdPillBadge" style="display:none;"></span></div>
@@ -1158,7 +1159,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <section class="tabpanel" id="tab-nursevisits">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Nurse Visits</h2>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Nurse Scheduling</h2>
           <div class="field-note" style="font-size:13.5px;margin-top:3px;">GHEs land in their state-assigned months and medication visits happen weekly — <b>when</b> in the month or week is between you and the client. Call them, set a time that suits you both, log it here.</div>
         </div>
         <span style="flex:1;"></span>
@@ -6933,7 +6934,7 @@ The HomeTogether team</pre>
 <script src="staffing-rules.js?v=1"></script>
 <script src="care-plan-rules.js?v=1"></script>
 <script src="nurse-rules.js?v=1"></script>
-<script src="medicaid-plans.js?v=1"></script>
+<script src="medicaid-plans.js?v=2"></script>
 <script src="staffing-sheet.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=4"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
@@ -7582,6 +7583,8 @@ const CC_GROUPS={today:['today','mywork','mydesk','myrole','myteam','standup','t
 const CC_SUBTABS = {
   /* Client path step 3 (2026-09-28): Start of Care and New Clients are two halves of ONE step */
   gettingready:[ { t:'soc', l:'Before staffing', i:'i-hospital' }, { t:'clientqueue', l:'First shift', i:'i-family' } ],
+  /* 2026-10-08 (her call): one Nurse Scheduling tab, not two */
+  nursing:[ { t:'nursevisits', l:'Office view', i:'i-steth' }, { t:'nurseportal', l:'What a nurse sees', i:'i-phone' } ],
 };
 /* page -> parent, derived so the two can never drift apart */
 const CC_PARENT_OF = (() => {
@@ -7976,7 +7979,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
-  coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
+  coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -38867,7 +38870,7 @@ function nursePortalRender(me){
   }
   const hello=document.getElementById('npHello');
   if(!me){
-    if(hello) hello.textContent='No nurses on the license list yet — add one on Nurse Visits and their portal appears here.';
+    if(hello) hello.textContent='No nurses on the license list yet — add one under Nurse Scheduling, Office view, and their view appears here.';
     ['npMine','npOpen','npGhe'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML='<div class="field-note">Nothing to show yet.</div>'; });
     return;
   }
@@ -40714,7 +40717,8 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 #mcpCard .mcp-top{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
 #mcpCard .mcp-top>div{flex:1;min-width:220px}
 #mcpCard .mcp-title{font-size:15px;color:var(--navy)}
-#mcpCard .mcp-up{position:relative;overflow:hidden;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;padding:9px 16px;border-radius:10px;background:var(--teal);color:#fff;font-weight:700;font-size:14px}
+#mcpCard .mcp-up{position:relative;overflow:hidden;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;padding:9px 16px;border-radius:10px;background:#1F7A8C;color:#fff;font-weight:700;font-size:14px}
+#mcpCard .mcp-up:hover{background:#155A68}
 #mcpCard .mcp-up:focus-within{outline:2px solid var(--navy);outline-offset:2px}
 #mcpCard .mcp-up input{position:absolute;inset:0;opacity:0;cursor:pointer}
 #mcpCard .mcp-pends{display:grid;gap:10px;margin-top:12px}

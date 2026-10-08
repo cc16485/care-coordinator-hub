@@ -181,7 +181,7 @@
     const pend = MCP.pending.map(pendingHtml).join('');
     box.innerHTML = '<div class="mcp-top"><div><b class="mcp-title">Medicaid care plans</b>'
       + '<div class="field-note">Download the client\'s care plan from Fusion and upload the PDF here. You check what was read and confirm it; then the GHE months go on the nurse board. Fusion stays the official record; the PDF itself is not kept here.</div></div>'
-      + '<label class="addlead mcp-up">Upload care plans<input type="file" id="mcpFile" accept="application/pdf,.pdf" multiple onchange="mcpUpload(this)"></label></div>'
+      + '<label class="mcp-up">Upload care plans<input type="file" id="mcpFile" accept="application/pdf,.pdf" multiple onchange="mcpUpload(this)"></label></div>'
       + (pend ? '<div class="mcp-pends">' + pend + '</div>' : '')
       + '<div id="mcpClients" class="mcp-clients"><div class="field-note">Loading clients…</div></div>';
     const opts = typeof ccPickFill === 'function' ? MCP.pending.filter(r => r.summary && r.summary.ok).map(r => ccPickFill('mcpList_' + r.id)) : [];
