@@ -22127,12 +22127,16 @@ async function apStartingMount(rows){
   const ids = rows.map(r=>r.id);
   let intakes = [], refs = [];
   try{
-    const [h, rr] = await Promise.all([
+    const [h, rr, recent] = await Promise.all([
       sb.from('hire_intake').select('applicant_id,created_at,screening_cleared_at,candidate_id').in('applicant_id', ids),
       sb.from('reference_requests').select('applicant_id,slot,responded_at').in('applicant_id', ids),
+      /* Fix 2 of 4 (2026-10-08): applicant_id was only ever set by a one-time backfill, so newer start forms never
+         matched here. Recent forms are read too and matched by the phone or email on the application. Read only. */
+      sb.from('hire_intake').select('applicant_id,created_at,screening_cleared_at,candidate_id,phone,email').order('created_at',{ascending:false}).limit(200),
     ]);
     intakes = h.error ? [] : (h.data||[]);
     refs    = rr.error ? [] : (rr.data||[]);
+    if(!recent.error) intakes = apMatchIntakes(rows, intakes, recent.data||[]);
   }catch(e){ /* the list is still worth showing without the paperwork */ }
 
   const digits = p => String(p||'').replace(/[^0-9]/g,'').slice(-10);
@@ -23227,6 +23231,35 @@ function apRenderProfile(){
    the AxisCare candidate number. They now carry a link back to the person who
    applied, so this is a read rather than a new system.
    Requires recruit-lifecycle.sql. */
+/* Fix 2 of 4: start forms matched to applicants by phone digits or email when applicant_id was never set. Forms that
+   carry an applicant_id keep it; a form is never given to two applicants. Pure, so it is tested on its own. */
+function apMatchIntakes(rows, linked, recent){
+  const digits = p => String(p||'').replace(/\D/g,'').slice(-10), mail = e => String(e||'').trim().toLowerCase();
+  const out = linked.slice(), have = new Set(linked.map(x => String(x.applicant_id)));
+  const used = new Set();
+  rows.forEach(r => {
+    if(have.has(String(r.id))) return;
+    const d = digits(r.phone), em = mail(r.email);
+    const hit = recent.find(x => x && !x.applicant_id && !used.has(x) && ((d.length === 10 && digits(x.phone) === d) || (em && mail(x.email) === em)));
+    if(hit){ used.add(hit); out.push({ ...hit, applicant_id: r.id }); }
+  });
+  return out;
+}
+/* Fix 2 of 4: a start form matched to an applicant by phone digits or email when applicant_id was never set. */
+async function apIntakeByContact(r){
+  const d = String(r.phone||'').replace(/\D/g,'').slice(-10), em = String(r.email||'').trim().toLowerCase();
+  if(d.length !== 10 && !em) return null;
+  const cols = 'id,created_at,candidate_id,signature_name,refs,screening_cleared_at,ssn_purged_at,phone,email';
+  try{
+    const [p, e] = await Promise.all([
+      d.length === 10 ? sb.from('hire_intake').select(cols).ilike('phone', '%' + d.slice(-4)).order('created_at',{ascending:false}).limit(25) : Promise.resolve({ data: [] }),
+      em ? sb.from('hire_intake').select(cols).ilike('email', em).order('created_at',{ascending:false}).limit(5) : Promise.resolve({ data: [] }),
+    ]);
+    const rows = [].concat(p.data||[], e.data||[]).filter(x => x && ((d.length === 10 && String(x.phone||'').replace(/\D/g,'').slice(-10) === d) || (em && String(x.email||'').trim().toLowerCase() === em)));
+    rows.sort((a,b) => String(b.created_at||'').localeCompare(String(a.created_at||'')));
+    return rows[0] || null;
+  }catch(e){ return null; }
+}
 async function apOnboardMount(r){
   const host = document.getElementById('apOnboardHost'); if(!host) return;
   const esc = escapeHtmlComms;
@@ -23237,7 +23270,11 @@ async function apOnboardMount(r){
       sb.from('reference_requests').select('*').eq('applicant_id', r.id).order('slot'),
     ]);
     if(h.error) throw h.error;
-    const intake = (h.data||[])[0];
+    let intake = (h.data||[])[0];
+    /* Fix 2 of 4 (2026-10-08): hire_intake.applicant_id was only ever set by a one-time backfill, so every newer start
+       form showed here as "No start form yet". When the link is missing, their start form is found by the phone or
+       email on the application, the same match the import uses. Read only; nothing is written. */
+    if(!intake) intake = await apIntakeByContact(r);
     const R = refs.error ? [] : (refs.data||[]);
     let out = '';
 
