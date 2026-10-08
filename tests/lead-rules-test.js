@@ -358,6 +358,13 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('flags: a rehab discharge who needs care by Thu → urgent_discharge (red); weekends overnights finding one caregiver → staffing_risk (amber)', F.map(f => f.key).join() === 'urgent_discharge,staffing_risk' && F[0].text === 'Rehab discharge: needs care by Thu' && F[0].tone === 'bad' && F[1].text === 'Staffing risk: 1 caregiver available Weekends overnights' && F[1].tone === 'warn', F);
   ck('...the discharge flag ends once the assessment is done; the staffing flag ends once a plan is linked (pre-matched); a planning-ahead family is never a discharge', !R.flags(base, Object.assign({}, C, { people, assessments:[{ status:'Scheduled', visit_date:'2026-10-05' }] })).some(f => f.key === 'urgent_discharge')
     && !R.flags(base, Object.assign({}, C, { people, pre_matched:true })).some(f => f.key === 'staffing_risk') && !R.flags(Object.assign({}, base, { desired_start:{ kind:'planning' } }), Object.assign({}, C, { people })).some(f => f.key === 'urgent_discharge'));
+  { const web = { id:'W1', first_name:'R.A.', source:'Referral', referral_source_name:'Mercy Hospital', referral_subtype:'hospital', referral_urgency:'urgent', referrer:{ name:'Lisa Marsh', phone:'4175550111' }, family_contact_unknown:true, created_at:'2026-10-08T14:00:00Z' };
+    const fu = R.flags(web, { today:'2026-10-08' });
+    ck('web referral marked Urgent: a red "Urgent referral: call Lisa now" flag until someone reaches them', fu.some(f => f.key === 'urgent_referral' && f.tone === 'bad' && /call Lisa now/.test(f.text))
+      && !R.flags(Object.assign({}, web, { first_human_contact_at:'2026-10-08T14:20:00Z' }), { today:'2026-10-08' }).some(f => f.key === 'urgent_referral')
+      && !R.flags(Object.assign({}, web, { referral_urgency:'routine' }), { today:'2026-10-08' }).some(f => f.key === 'urgent_referral'), fu);
+    const pl = R.partnerLoop(Object.assign({}, web, { first_human_contact_at:'2026-10-08T14:20:00Z' }), { today:'2026-10-08', org:{ name:'Mercy Hospital', people:'Dana Smith (social work)' } });
+    ck('...the partner update greets the person who referred (Lisa), not the first name on the partner record', pl.due[0] && /^Hi Lisa,/.test(pl.due[0].text), pl.due); }
   const row = R.boardRow(base, Object.assign({}, C, { people, stage:'connected' }));
   ck('the board: the discharge outranks an ordinary urgent start (4.5, red, "rehab discharge, assessment not booked") and both flags are chips on the row', row.reason === 'urgent_start' && row.rank === 4.5 && row.when.tone === 'red' && row.when.sub === 'rehab discharge, assessment not booked' && row.chips.some(c => c.key === 'urgent_discharge') && row.chips.some(c => c.key === 'staffing_risk'), row);
   /* the partner loop */
