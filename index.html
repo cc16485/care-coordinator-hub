@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="phone-mode.js?v=1"></script><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="phone-mode.js?v=2"></script><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -40083,6 +40083,13 @@ window.covLoadShifts=function(){};
       /* 2026-10-05: one Hub setting by itself, opened from the Owners Hub Admin page (Hub settings). */
       /* 2026-10-06: a person, a tab, a step (client journey): #p/<A ax | L lead | J journey>/<tab>/<step>. Ids only. */
       if(head==='p' && typeof cjRoute==='function'){ cjRoute(seg.slice(1)); return true; }
+      /* 2026-10-07 (CC Office on the phone, Find a person): a caregiver by AxisCare id, an applicant by id. Ids only. */
+      if(head==='cg' && /^\d+$/.test(String(seg[1]||'')) && typeof openCaregiverProfile==='function'){ openCaregiverProfile(String(seg[1])); return true; }
+      if(head==='ap' && /^[0-9a-f-]{36}$/i.test(String(seg[1]||'')) && typeof apOpenProfile==='function'){
+        var apid=String(seg[1]).toLowerCase(); switchTab('applicants');
+        (async function(){ if(!(AP_ROWS||[]).some(function(x){ return String(x.id)===apid; })) await apLoad(); apOpenProfile(apid); })();
+        return true;
+      }
       if(head==='settings'){
         CC_SETTINGS_FOCUS=String(seg[1]||'').toLowerCase()||null;
         switchTab('settings'); try{ settingsFocusApply(); }catch(e){}
