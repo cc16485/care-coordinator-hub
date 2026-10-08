@@ -975,8 +975,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- Nursing folded into Scheduling 2026-09-20 (her call): a GHE visit is
          scheduled like any other visit. The badge keeps its gb-nursing id so
          the overdue-GHE counter keeps working. -->
-    <div class="fpill" data-tab="nursevisits" onclick="switchTab('nursevisits')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nurse Visits<span class="subtab-badge red" id="gb-nursing" style="display:none;"></span></div>
-    <div class="fpill" data-tab="nurseportal" onclick="switchTab('nurseportal')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Nurse Portal</div>
+    <!-- 2026-10-08 (her call): ONE Nurse Scheduling tab. Its two views (the office's, and what a nurse sees) are the
+         second row, like Getting ready. A nurse who signs in still sees only their own view. -->
+    <div class="fpill" data-parent="nursing" onclick="ccParentClick('nursing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nurse Scheduling<span class="subtab-badge red" id="gb-nursing" style="display:none;"></span></div>
   </div>
   <div class="fsubbar" id="fsub-htorders">
     <div class="fpill" data-tab="htorders" onclick="switchTab('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Orders<span class="subtab-badge red" id="htOrdPillBadge" style="display:none;"></span></div>
@@ -1160,7 +1161,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <section class="tabpanel" id="tab-nursevisits">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Nurse Visits</h2>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Nurse Scheduling</h2>
           <div class="field-note" style="font-size:13.5px;margin-top:3px;">GHEs land in their state-assigned months and medication visits happen weekly — <b>when</b> in the month or week is between you and the client. Call them, set a time that suits you both, log it here.</div>
         </div>
         <span style="flex:1;"></span>
@@ -1180,12 +1181,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <input id="nvNotes" placeholder="Notes: meds location, pets, parking…" style="flex:1;min-width:200px;">
           <button class="addlead" onclick="nvAdd()">Add client</button>
         </div>
-        <div class="field-note" style="margin-top:8px;">Uploading the client's care plan above fills in the GHE months for you. Use this only for a client whose plan isn't uploaded yet.</div>
+        <div class="field-note" style="margin-top:8px;">For a Medicaid client, upload their care plan above instead: it fills in the GHE months. Use this for private pay medication setups, or a Medicaid client whose plan isn't uploaded yet.</div>
       </div>
 
       <!-- GHE fix slice 1 (2026-10-08, her approval): the Fusion care plan upload and every active client's Medicaid standing.
            medicaid-plans.js draws it; care-plan-rules.js reads the PDF. -->
-      <div class="card" id="mcpCard" style="padding:16px 18px;margin-bottom:16px;"></div>
+      <div class="card mcp-box" id="mcpCard" style="padding:16px 18px;margin-bottom:16px;"></div>
       <div id="nvDueNow" style="margin-bottom:16px;"></div>
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <b style="font-size:15px;color:var(--navy);">🩺 GHEs — general health evaluations</b>
@@ -1211,22 +1212,29 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <b style="font-size:15px;color:var(--navy);">🪪 Nurse licenses</b>
-          <span class="field-note">Expiration tracking. Amber at 60 days out, red when expired.</span>
+          <!-- GHE fix slice 2 (2026-10-08): nurse setup. Who may do a GHE is decided by nurse-rules.js. -->
+          <b style="font-size:15px;color:var(--navy);">Nurses</b>
+          <span class="field-note">Who may do GHEs: an RN, or an LPN with a supervising RN; our employee; a current license. A nurse who isn't ready can't be given a client.</span>
           <span style="flex:1;"></span>
-          <button class="secondary" onclick="nsToggleAdd()">＋ Add a license</button>
+          <button class="secondary" onclick="nsToggleAdd()">＋ Add a nurse</button>
         </div>
+        <div id="nsTeam" style="margin-top:8px;"></div>
         <div id="nsAddWrap" style="display:none;margin-top:10px;">
-          <div style="display:grid;grid-template-columns:1.2fr .7fr 1fr;gap:8px;">
-            <input id="nsName" placeholder="Nurse name">
-            <select id="nsCred"><option>RN</option><option>LPN</option></select>
-            <input id="nsLicense" placeholder="License #">
-            <input id="nsExpires" type="date" title="Expires">
-            <input id="nsEmail" placeholder="Email (their hub sign-in)">
-            <input id="nsGhlId" placeholder="GHL user id (from their GHL user page)">
+          <input type="hidden" id="nsId">
+          <div class="ns-grid">
+            <label>Name<input id="nsName" placeholder="Nurse name"></label>
+            <label>RN or LPN<select id="nsCred"><option value="">Pick one</option><option>RN</option><option>LPN</option></select></label>
+            <label>Missouri license #<input id="nsLicense" placeholder="License #"></label>
+            <label>License expires<input id="nsExpires" type="date"></label>
+            <label>Email (their Hub sign-in)<input id="nsEmail" type="email" placeholder="name@mo-care.com"></label>
+            <label>GHL user id (optional)<input id="nsGhlId" placeholder="from their GHL user page"></label>
           </div>
-          <div style="margin-top:8px;"><button class="addlead" onclick="nsAdd()">Save license</button></div>
-          <div class="field-note" style="margin-top:6px;">Email unlocks their Nurse Portal sign-in. The GHL user id makes claiming a client auto-assign that contact to them in GHL, so their phone app shows only their own clients.</div>
+          <div class="ns-checks">
+            <label><input type="checkbox" id="nsEmployee"> Our employee, not a contractor (the state requires it for GHEs)</label>
+            <label><input type="checkbox" id="nsSup"> Supervising RN (reviews the LPNs' GHE forms; RN only)</label>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="addlead" id="nsSaveBtn" onclick="nsAdd()">Save nurse</button><button class="ghost" onclick="nsToggleAdd(false)">Cancel</button><span id="nsFormMsg" class="field-note"></span></div>
+          <div class="field-note" style="margin-top:6px;">The email lets them see the Nurse Portal; they also need a Hub sign-in (Owners Hub, Admin, Team). The GHL user id makes claiming a client assign that contact to them in GHL, so their phone app shows only their own clients.</div>
         </div>
         <div id="nsList" style="margin-top:10px;"></div>
       </div>
@@ -6953,7 +6961,8 @@ The HomeTogether team</pre>
 <script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=1"></script>
 <script src="care-plan-rules.js?v=1"></script>
-<script src="medicaid-plans.js?v=1"></script>
+<script src="nurse-rules.js?v=1"></script>
+<script src="medicaid-plans.js?v=3"></script>
 <script src="staffing-sheet.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=4"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
@@ -7602,6 +7611,8 @@ const CC_GROUPS={today:['today','mywork','mydesk','myrole','myteam','standup','t
 const CC_SUBTABS = {
   /* Client path step 3 (2026-09-28): Start of Care and New Clients are two halves of ONE step */
   gettingready:[ { t:'soc', l:'Before staffing', i:'i-hospital' }, { t:'clientqueue', l:'First shift', i:'i-family' } ],
+  /* 2026-10-08 (her call): one Nurse Scheduling tab, not two */
+  nursing:[ { t:'nursevisits', l:'Office view', i:'i-steth' }, { t:'nurseportal', l:'What a nurse sees', i:'i-phone' } ],
 };
 /* page -> parent, derived so the two can never drift apart */
 const CC_PARENT_OF = (() => {
@@ -7996,7 +8007,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offer a Job', ops:'Needs Attention', calls:'Phone',
-  coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Visits', nurseportal:'Nurse Portal',
+  coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -10066,7 +10077,7 @@ function cpStateSteps(l){ return (l&&l.soc&&Array.isArray(l.soc.steps)?l.soc.ste
 function cpRenderPayer(){
   const box=document.getElementById('cp_payer'); if(!box) return;
   const esc=escapeHtmlComms, l=CP.lead;
-  if(!l){ box.innerHTML='<div class="card" style="padding:14px 18px;"><b style="font-size:15px;color:var(--navy);">Payer</b><div class="field-note" style="margin-top:6px;">No inquiry is connected, so there is no intake payer record. AxisCare holds this client\'s billing.</div></div>'; return; }
+  if(!l){ box.innerHTML='<div class="card" style="padding:14px 18px;"><b style="font-size:15px;color:var(--navy);">Payer</b><div class="field-note" style="margin-top:6px;">No inquiry is connected, so there is no intake payer record. AxisCare holds this client\'s billing.</div></div>'; box.insertAdjacentHTML('beforeend','<div class="card mcp-box" id="cpPlanBox" style="padding:14px 18px;margin-top:12px;"></div>'); if(typeof mcpProfileRender==='function') mcpProfileRender(); return; }
   const opt=(list,v)=>list.map(o=>'<option value="'+o[0]+'"'+(String(v||'')===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('');
   const med=l.funding_source==='medicaid'||!!l.state_status||!!l.state_submitted;
   const sub=l.state_submitted||'', ss=l.state_status||'';
@@ -10102,7 +10113,9 @@ function cpRenderPayer(){
     +'</div>'
     +'<div style="display:flex;gap:8px;align-items:center;margin-top:14px;"><button class="primary" onclick="cpPayerSave()">Save</button>'
     +'<button class="linklike" style="font-size:12px;" onclick="openLeadModal(\''+esc(l.id)+'\')">open the whole intake form</button></div>'
-    +'</div><div id="cpPayFacts"></div>';
+    +'</div><div class="card mcp-box" id="cpPlanBox" style="padding:14px 18px;margin-top:12px;"></div><div id="cpPayFacts"></div>';
+  /* GHE fix (her rule 2026-10-08): the state care plan is uploaded here, in the client's intake */
+  if(typeof mcpProfileRender==='function') mcpProfileRender();
   lpfRenderPayerFacts();
 }
 function cpPayerDraft(){ const f=document.getElementById('cpPayFunding'), m=document.getElementById('cpPayMed'); if(f&&m&&f.value==='medicaid') m.style.display=''; }
@@ -38662,31 +38675,76 @@ function gheRenderCards(){
     }).join('')+'</tbody></table>';
 }
 /* ---------------- Nurse licenses ---------------- */
-function nsToggleAdd(){ const w=document.getElementById('nsAddWrap'); w.style.display=w.style.display==='none'?'block':'none'; }
-async function nsAdd(){
-  const name=gheV('nsName'); if(!name){ alert('Name the nurse first.'); return; }
-  const rec={ id:uid(), name, cred:document.getElementById('nsCred').value, license:gheV('nsLicense'), expires:gheV('nsExpires'), email:gheV('nsEmail').toLowerCase(), ghl_user_id:gheV('nsGhlId'), created_at:new Date().toISOString() };
-  DATA.nurse_staff=DATA.nurse_staff||[]; DATA.nurse_staff.push(rec);
-  await persist('nurse_staff',rec);
-  ['nsName','nsLicense','nsExpires','nsEmail','nsGhlId'].forEach(id=>gheSet(id,''));
-  nsToggleAdd(); nsRender();
+function nsToggleAdd(open){
+  const w=document.getElementById('nsAddWrap'); if(!w) return;
+  const show=open===undefined ? w.style.display==='none' : !!open;
+  if(show && open===undefined){ ['nsId','nsName','nsLicense','nsExpires','nsEmail','nsGhlId'].forEach(id=>gheSet(id,'')); document.getElementById('nsCred').value=''; document.getElementById('nsEmployee').checked=false; document.getElementById('nsSup').checked=false; }
+  w.style.display=show?'block':'none'; const m=document.getElementById('nsFormMsg'); if(m) m.textContent='';
 }
-async function nsDelete(id){ if(!confirm('Remove this license entry?')) return; await removeItem('nurse_staff',id); DATA.nurse_staff=(DATA.nurse_staff||[]).filter(x=>x.id!==id); nsRender(); }
+function nsEdit(id){
+  const n=(DATA.nurse_staff||[]).find(x=>x.id===id); if(!n) return;
+  nsToggleAdd(true);
+  gheSet('nsId',n.id); gheSet('nsName',n.name||''); gheSet('nsLicense',n.license||''); gheSet('nsExpires',n.expires||''); gheSet('nsEmail',n.email||''); gheSet('nsGhlId',n.ghl_user_id||'');
+  document.getElementById('nsCred').value=(['RN','LPN'].indexOf(String(n.cred||'').toUpperCase())>-1)?String(n.cred).toUpperCase():'';
+  document.getElementById('nsEmployee').checked=n.employee===true; document.getElementById('nsSup').checked=n.supervising_rn===true;
+  document.getElementById('nsAddWrap').scrollIntoView({block:'nearest'});
+}
+async function nsAdd(){
+  const msg=document.getElementById('nsFormMsg');
+  const id=gheV('nsId'), prev=id?(DATA.nurse_staff||[]).find(x=>x.id===id):null;
+  const form={ name:gheV('nsName'), cred:document.getElementById('nsCred').value, license:gheV('nsLicense'), expires:gheV('nsExpires'), email:gheV('nsEmail'),
+    ghl_user_id:gheV('nsGhlId'), employee:document.getElementById('nsEmployee').checked, supervising_rn:document.getElementById('nsSup').checked };
+  if(!String(form.name||'').trim()){ msg.textContent='Name the nurse first.'; return; }
+  if(form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())){ msg.textContent='That email doesn\'t look right.'; return; }
+  if(form.supervising_rn && form.cred!=='RN'){ msg.textContent='Only an RN can be the supervising RN.'; return; }
+  const dupe=(DATA.nurse_staff||[]).find(x=>x.id!==id && String(x.name||'').trim().toLowerCase()===form.name.trim().toLowerCase());
+  if(dupe){ msg.textContent=dupe.name+' is already on the list. Edit that one instead.'; return; }
+  const rec=NurseRules.clean(form, prev||{ id:uid(), created_at:new Date().toISOString() });
+  rec.updated_at=new Date().toISOString(); rec.updated_by=(ME&&ME.email)||'';
+  /* one supervising RN: marking a new one unmarks the old one */
+  const others=rec.supervising_rn ? (DATA.nurse_staff||[]).filter(x=>x.id!==rec.id && x.supervising_rn) : [];
+  DATA.nurse_staff=DATA.nurse_staff||[];
+  const i=DATA.nurse_staff.findIndex(x=>x.id===rec.id); if(i<0) DATA.nurse_staff.push(rec); else DATA.nurse_staff[i]=rec;
+  await persist('nurse_staff',rec);
+  for(const o of others){ o.supervising_rn=false; o.updated_at=rec.updated_at; o.updated_by=rec.updated_by; await persist('nurse_staff',o); }
+  /* a renamed nurse keeps their clients */
+  if(prev && prev.name && prev.name!==rec.name){
+    for(const c of (DATA.nurse_clients||[]).filter(c=>c.assigned_nurse===prev.name)){ c.assigned_nurse=rec.name; await persist('nurse_clients',c); }
+  }
+  nsToggleAdd(false); renderNurseVisits();
+}
+async function nsDelete(id){
+  const n=(DATA.nurse_staff||[]).find(x=>x.id===id); if(!n) return;
+  const load=(DATA.nurse_clients||[]).filter(c=>c.active!==false&&c.assigned_nurse===n.name).length;
+  if(!confirm('Remove '+n.name+' from the nurse list?'+(load?' Their '+load+' client'+(load===1?'':'s')+' will show as assigned to someone not on the list until you reassign them.':''))) return;
+  await removeItem('nurse_staff',id); DATA.nurse_staff=(DATA.nurse_staff||[]).filter(x=>x.id!==id); renderNurseVisits();
+}
 function nsRender(){
-  const box=document.getElementById('nsList'); if(!box) return;
-  const rows=(DATA.nurse_staff||[]).slice().sort((a,b)=>(a.expires||'9999').localeCompare(b.expires||'9999'));
-  if(!rows.length){ box.innerHTML='<div class="field-note">No licenses tracked yet.</div>'; return; }
-  const t=today(), soon=addDaysISO(t,60);
-  box.innerHTML=rows.map(s=>{
-    const state=!s.expires?['no date','muted']:(s.expires<t?['EXPIRED','bad']:(s.expires<=soon?['expires soon','warn']:['current','ok']));
-    return '<div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">'
-      +'<b style="flex:0 0 160px;">'+esc(s.name)+'</b><span class="badge muted">'+esc(s.cred||'')+'</span>'
-      +'<span style="color:var(--text-muted);">'+esc(s.license||'')+'</span>'
-      +'<span style="color:var(--text-muted);font-size:12px;">'+esc(s.email||'')+(s.ghl_user_id?' · GHL ✓':'')+'</span><span style="flex:1;"></span>'
-      +'<span>'+esc(s.expires||'')+'</span><span class="badge '+state[1]+'">'+state[0]+'</span>'
-      +'<button class="linklike" onclick="nsDelete(\''+s.id+'\')">remove</button></div>';
+  const box=document.getElementById('nsList'), tb=document.getElementById('nsTeam'); if(!box) return;
+  const staff=DATA.nurse_staff||[], tm=NurseRules.team(staff,today());
+  if(tb) tb.innerHTML=(tm.supervisor?'<div class="ns-team ok">Supervising RN: <b>'+esc(tm.supervisor)+'</b></div>':'')
+    +tm.notes.map(x=>'<div class="ns-team bad">'+esc(x)+'</div>').join('');
+  if(!staff.length){ box.innerHTML='<div class="field-note">No nurses yet. Add one above.</div>'; return; }
+  const rows=tm.rows.slice().sort((a,b)=>(b.ready-a.ready)||String(a.n.name).localeCompare(String(b.n.name)));
+  box.innerHTML=rows.map(r=>{
+    const n=r.n, load=(DATA.nurse_clients||[]).filter(c=>c.active!==false&&c.assigned_nurse===n.name).length;
+    return '<div class="ns-row">'
+      +'<b class="ns-name">'+esc(n.name||'(no name)')+'</b>'
+      +'<span class="badge '+(r.cred?'muted':'warn')+'">'+esc(r.cred||'RN or LPN?')+'</span>'
+      +(n.supervising_rn&&r.cred==='RN'?'<span class="badge ok">supervising RN</span>':'')
+      +'<span class="badge '+(r.ready?'ok':'bad')+'">'+(r.ready?'Ready for GHEs':'Not ready')+'</span>'
+      +'<span class="field-note">'+load+' client'+(load===1?'':'s')+'</span>'
+      +'<span style="flex:1;"></span>'
+      +'<button class="linklike" onclick="nsEdit(\''+n.id+'\')">Edit</button>'
+      +'<button class="linklike" onclick="nsDelete(\''+n.id+'\')">Remove</button>'
+      +(r.missing.length?'<div class="ns-why bad">Needs: '+esc(r.missing.join('; '))+'</div>':'')
+      +(r.warn.length?'<div class="ns-why">'+esc(r.warn.join('; '))+'</div>':'')
+      +'<div class="ns-why muted">License '+esc(n.license||'not entered')+(n.expires?', expires '+esc(n.expires):'')+(n.email?' · '+esc(n.email):'')+(n.ghl_user_id?' · GHL linked':'')+'</div>'
+      +'</div>';
   }).join('');
 }
+function nsByName(name){ return (DATA.nurse_staff||[]).find(s=>s.name===name)||null; }
+function nsReadyNames(){ const t=today(), st=DATA.nurse_staff||[]; return st.filter(n=>NurseRules.readiness(n,st,t).ready).map(n=>n.name); }
 /* ---------------- Caseloads & RN oversight ----------------
    Her model: clients with nurse needs get entered once; a pool of PRN
    nurses claims them; the RN watches every caseload from here. Until the
@@ -38696,10 +38754,12 @@ function nsRender(){
 function nvNurseNames(){ return (DATA.nurse_staff||[]).map(s=>s.name).filter(Boolean); }
 function nvNurseOptions(){
   const sel=document.getElementById('nvNurse'); if(!sel) return;
-  sel.innerHTML='<option value="">Open — for a nurse to claim</option>'+nvNurseNames().map(n=>'<option>'+esc(n)+'</option>').join('');
+  sel.innerHTML='<option value="">Open — for a nurse to claim</option>'+nsReadyNames().map(n=>'<option>'+esc(n)+'</option>').join('');
 }
 async function nvAssign(id,name){
   const c=(DATA.nurse_clients||[]).find(x=>x.id===id); if(!c) return;
+  /* slice 2: only a nurse who is ready for GHEs can be given a client (opening it back up is always allowed) */
+  if(name){ const ok=NurseRules.canTake(nsByName(name),DATA.nurse_staff||[],today()); if(!ok.ok){ alert(ok.why); renderNurseVisits(); return false; } }
   c.assigned_nurse=name;
   await persist('nurse_clients',c); renderNurseVisits();
   nvGhlSync(c,name);
@@ -38746,10 +38806,12 @@ function nvRenderCaseloads(){
     if(!mine.length && key==='') return '';
     if(!mine.length) return '<div class="nvcase"><div style="display:flex;gap:8px;align-items:center;"><b>'+esc(label)+'</b><span class="field-note">no clients yet</span></div></div>';
     const anyRed=mine.some(c=>nvClientFlags(c).some(f=>f.includes('missed')));
+    const rd=key?NurseRules.readiness(nsByName(key)||{name:key},DATA.nurse_staff||[],today()):null;
     return '<div class="nvcase'+(key===''?' open':'')+'">'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><b>'+esc(label)+'</b>'
       +'<span class="field-note">'+mine.length+' client'+(mine.length===1?'':'s')+'</span>'
       +(anyRed?'<span class="badge bad">needs the RN’s attention</span>':'')
+      +(rd&&!rd.ready?'<span class="badge bad" title="'+esc(rd.missing.join('; '))+'">nurse not ready: reassign or finish their setup</span>':'')
       +'</div>'
       +mine.map(c=>{
         const flags=nvClientFlags(c);
@@ -38763,7 +38825,7 @@ function nvRenderCaseloads(){
           +'<span style="flex:1;"></span>'
           +'<select onchange="nvAssign(\''+c.id+'\',this.value)" style="width:auto;font-size:12px;padding:4px 6px;">'
           +'<option value="">Open — unclaimed</option>'
-          +names.map(n=>'<option'+((c.assigned_nurse||'')===n?' selected':'')+'>'+esc(n)+'</option>').join('')
+          +names.filter(n=>nsReadyNames().includes(n)||(c.assigned_nurse||'')===n).map(n=>'<option'+((c.assigned_nurse||'')===n?' selected':'')+'>'+esc(n)+(nsReadyNames().includes(n)?'':' (not ready)')+'</option>').join('')
           +'</select></div>';
       }).join('')
       +'</div>';
@@ -38842,11 +38904,12 @@ function nursePortalRender(me){
   }
   const hello=document.getElementById('npHello');
   if(!me){
-    if(hello) hello.textContent='No nurses on the license list yet — add one on Nurse Visits and their portal appears here.';
+    if(hello) hello.textContent='No nurses on the license list yet — add one under Nurse Scheduling, Office view, and their view appears here.';
     ['npMine','npOpen','npGhe'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML='<div class="field-note">Nothing to show yet.</div>'; });
     return;
   }
-  if(hello) hello.textContent=(real?'Signed in as ':'Previewing ')+me.name+' ('+(me.cred||'nurse')+'). Claim a client, call them, set your time together.';
+  const rd=NurseRules.readiness(me,DATA.nurse_staff||[],today());
+  if(hello) hello.textContent=(real?'Signed in as ':'Previewing ')+me.name+' ('+(me.cred||'nurse')+'). '+(rd.ready?'Claim a client, call them, set your time together.':'You can\'t claim clients until the office finishes your setup. Still needed: '+rd.missing.join('; ')+'.');
   const clients=(DATA.nurse_clients||[]).filter(c=>c.active!==false);
   const mine=clients.filter(c=>c.assigned_nurse===me.name);
   const open=clients.filter(c=>!String(c.assigned_nurse||'').trim());
@@ -38867,7 +38930,7 @@ function nursePortalRender(me){
   const openBox=document.getElementById('npOpen');
   if(openBox) openBox.innerHTML=open.map(c=>
     '<div class="nvcase-row"><b>'+esc(c.name)+'</b><span class="field-note">'+esc(needs(c))+'</span>'
-    +'<span style="flex:1;"></span><button class="addlead" style="font-size:12px;padding:6px 14px;" onclick="npClaim(\''+c.id+'\')">Claim this client</button></div>'
+    +'<span style="flex:1;"></span>'+(rd.ready?'<button class="addlead" style="font-size:12px;padding:6px 14px;" onclick="npClaim(\''+c.id+'\')">Claim this client</button>':'<span class="field-note">setup not finished</span>')+'</div>'
   ).join('')||'<div class="field-note">Nothing open right now.</div>';
   const gheBox=document.getElementById('npGhe');
   const myNames=new Set(mine.map(c=>c.name));
@@ -38881,11 +38944,16 @@ function nursePortalRender(me){
 }
 async function npClaim(id){
   const me=npIdentity(); if(!me) return;
+  const c=(DATA.nurse_clients||[]).find(x=>x.id===id); if(!c) return;
+  const ok=NurseRules.canTake(me,DATA.nurse_staff||[],today()); if(!ok.ok){ alert(ok.why); return; }
   const mine=!!nurseMe();
-  if(!confirm(mine
-    ? 'Claim this client? You call them and set the day and time together.'
-    : 'Claim this client for '+me.name+'? (You are previewing their portal — this really assigns them.)')) return;
-  await nvAssign(id,me.name);
+  /* MAN 3.15: the nurse can't be the client's immediate family. The nurse confirms it with each claim, and it's kept. */
+  if(!confirm((mine
+    ? 'Claim '+c.name+'? You call them and set the day and time together.'
+    : 'Claim '+c.name+' for '+me.name+'? (You are previewing their portal. This really assigns them.)')
+    +'\n\nBy claiming, '+(mine?'you confirm you are':me.name+' confirms they are')+' not '+c.name+'\'s immediate family (the state does not allow a family member to do the nurse visit).')) return;
+  c.not_family={ nurse:me.name, by:(ME&&ME.email)||'', at:new Date().toISOString() };
+  if((await nvAssign(id,me.name))===false){ delete c.not_family; return; }
   nursePortalRender();
 }
 function renderNurseVisits(){
@@ -40666,39 +40734,58 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 /* =================== END CARA SCOPE =================== */
 @keyframes caraspin{to{transform:rotate(360deg);}}
 
+/* Nurses (slice 2, 2026-10-08) */
+.ns-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.ns-grid label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--text-muted);font-weight:600;min-width:0}
+.ns-checks{display:flex;flex-direction:column;gap:6px;margin-top:10px;font-size:13.5px}
+.ns-checks label{display:flex;gap:8px;align-items:flex-start}
+.ns-checks input{width:auto;margin-top:3px}
+.ns-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);font-size:13px}
+.ns-name{min-width:140px}
+.ns-why{flex-basis:100%;font-size:12.5px;color:var(--text-muted)}
+.ns-why.bad{color:var(--red);font-weight:600}
+.ns-team{font-size:13.5px;padding:6px 10px;border-radius:8px;margin-top:4px}
+.ns-team.ok{background:var(--green-bg);color:var(--green)}
+.ns-team.bad{background:var(--red-bg);color:var(--red);font-weight:600}
 /* Medicaid care plans (medicaid-plans.js, 2026-10-08) */
-#mcpCard .mcp-top{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
-#mcpCard .mcp-top>div{flex:1;min-width:220px}
-#mcpCard .mcp-title{font-size:15px;color:var(--navy)}
-#mcpCard .mcp-up{position:relative;overflow:hidden;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;padding:9px 16px;border-radius:10px;background:var(--teal);color:#fff;font-weight:700;font-size:14px}
-#mcpCard .mcp-up:focus-within{outline:2px solid var(--navy);outline-offset:2px}
-#mcpCard .mcp-up input{position:absolute;inset:0;opacity:0;cursor:pointer}
-#mcpCard .mcp-pends{display:grid;gap:10px;margin-top:12px}
-#mcpCard .mcp-pend{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--cream);min-width:0}
-#mcpCard .mcp-head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
-#mcpCard .mcp-tbl{overflow-x:auto;margin-top:8px}
-#mcpCard .mcp-tbl table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
-#mcpCard .mcp-tbl th{text-align:left;font-size:11.5px;color:var(--text-muted);padding:4px 8px;border-bottom:1px solid var(--border)}
-#mcpCard .mcp-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
-#mcpCard .mcp-ghe{margin-top:8px;font-size:13.5px;color:var(--green)}
-#mcpCard .mcp-note{margin-top:4px;font-size:13px;color:var(--text-muted)}
-#mcpCard .mcp-stop{margin-top:6px;font-size:13.5px;color:var(--red);font-weight:600}
-#mcpCard .mcp-form{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
-#mcpCard .mcp-form label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--text-muted);font-weight:600;min-width:0}
-#mcpCard .mcp-form input{min-width:200px;max-width:100%}
-#mcpCard .mcp-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
-#mcpCard .mcp-clients{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}
-#mcpCard .mcp-sum{font-size:13.5px;margin-bottom:6px}
-#mcpCard .mcp-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px}
-#mcpCard .mcp-name{font-weight:700;min-width:150px}
-#mcpCard .mcp-sp{flex:1}
-#mcpCard .mcp-row select{width:auto;max-width:100%}
-#mcpCard .mcp-chip{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--neutral);color:var(--text-muted)}
-#mcpCard .mcp-chip.ok{background:var(--green-bg);color:var(--green)}
-#mcpCard .mcp-chip.warn{background:var(--amber-bg);color:var(--amber)}
-#mcpCard .mcp-chip.bad{background:var(--red-bg);color:var(--red)}
-#mcpCard .mcp-all{margin-top:8px}
-@media (max-width:600px){#mcpCard .mcp-name{min-width:0;width:100%}#mcpCard .mcp-form input{min-width:0;width:100%}}
+.mcp-box .mcp-top{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.mcp-box .mcp-top>div{flex:1;min-width:220px}
+.mcp-box .mcp-title{font-size:15px;color:var(--navy)}
+.mcp-box .mcp-up{position:relative;overflow:hidden;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;padding:9px 16px;border-radius:10px;background:#1F7A8C;color:#fff;font-weight:700;font-size:14px}
+.mcp-box .mcp-up:hover{background:#155A68}
+.mcp-box .mcp-up:focus-within{outline:2px solid var(--navy);outline-offset:2px}
+.mcp-box .mcp-up input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.mcp-box .mcp-pends{display:grid;gap:10px;margin-top:12px}
+.mcp-box .mcp-pend{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--cream);min-width:0}
+.mcp-box .mcp-head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.mcp-box .mcp-tbl{overflow-x:auto;margin-top:8px}
+.mcp-box .mcp-tbl table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
+.mcp-box .mcp-tbl th{text-align:left;font-size:11.5px;color:var(--text-muted);padding:4px 8px;border-bottom:1px solid var(--border)}
+.mcp-box .mcp-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.mcp-box .mcp-ghe{margin-top:8px;font-size:13.5px;color:var(--green)}
+.mcp-box .mcp-note{margin-top:4px;font-size:13px;color:var(--text-muted)}
+.mcp-box .mcp-stop{margin-top:6px;font-size:13.5px;color:var(--red);font-weight:600}
+.mcp-box .mcp-form{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+.mcp-box .mcp-form label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--text-muted);font-weight:600;min-width:0}
+.mcp-box .mcp-form input{min-width:200px;max-width:100%}
+.mcp-box .mcp-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.mcp-box .mcp-clients{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}
+.mcp-box .mcp-sum{font-size:13.5px;margin-bottom:6px}
+.mcp-box .mcp-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.mcp-box .mcp-name{font-weight:700;min-width:150px}
+.mcp-box .mcp-sp{flex:1}
+.mcp-box .mcp-row select{width:auto;max-width:100%}
+.mcp-box .mcp-chip{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--neutral);color:var(--text-muted)}
+.mcp-box .mcp-chip.ok{background:var(--green-bg);color:var(--green)}
+.mcp-box .mcp-chip.warn{background:var(--amber-bg);color:var(--amber)}
+.mcp-box .mcp-chip.bad{background:var(--red-bg);color:var(--red)}
+.mcp-box .mcp-all{margin-top:8px}
+.mcp-box .mcp-cur{margin-top:12px;font-size:13.5px;display:grid;gap:3px}
+.mcp-box .mcp-chk{flex-direction:row !important;align-items:flex-start;gap:8px !important;font-weight:600;color:var(--text) !important;flex-basis:100%}
+.mcp-box .mcp-chk input{min-width:0 !important;width:auto;margin-top:2px}
+.mcp-box .mcp-none{margin-top:8px}
+.mcp-box button:disabled{opacity:.45;cursor:not-allowed}
+@media (max-width:600px){.mcp-box .mcp-name{min-width:0;width:100%}.mcp-box .mcp-form input{min-width:0;width:100%}}
 </style>
 </body>
 </html>
