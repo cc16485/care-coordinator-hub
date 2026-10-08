@@ -69,5 +69,24 @@
       employee: form.employee === true, supervising_rn: c === 'RN' && form.supervising_rn === true });
   }
 
-  return { readiness, team, supervisor, canTake, clean };
+  /* ── medication setups (Samantha 2026-10-08: "private pay med setup frequency"): weekly, every 2 weeks or monthly per client,
+     picked by the nurse; every 2 weeks for a new client; clients set up before this keep weekly. Our practice, not a state rule. ── */
+  const MED_FREQ = { weekly: { label: 'weekly', days: 7, early: 0, late: 2 }, biweekly: { label: 'every 2 weeks', days: 14, early: 2, late: 2 }, monthly: { label: 'monthly', days: 30, early: 4, late: 3 } };
+  const medFreq = c => (c && MED_FREQ[c.med_freq]) ? c.med_freq : (c && c.weekly_meds ? 'weekly' : '');
+  const dayDiff = (a, b) => Math.round((Date.parse(ymd(b) + 'T12:00:00Z') - Date.parse(ymd(a) + 'T12:00:00Z')) / 864e5);
+  const mondayOf = d => { const x = new Date(ymd(d) + 'T12:00:00Z'), w = (x.getUTCDay() + 6) % 7; x.setUTCDate(x.getUTCDate() - w); return x.toISOString().slice(0, 10); };
+  /** where a client's medication setups stand: done for now, due, overdue, or never done */
+  function medDue(c, visits, today) {
+    const f = medFreq(c); if (!f) return null;
+    const F = MED_FREQ[f], t = ymd(today);
+    const done = (visits || []).filter(v => v && v.client_id === c.id && v.type === 'meds' && v.status === 'completed' && v.completed_on).map(v => ymd(v.completed_on)).sort();
+    const last = done[done.length - 1] || '';
+    if (!last) return { freq: f, label: F.label, last: '', next_due: t, state: 'never', days_since: null };
+    const since = dayDiff(last, t), next = addDays(last, F.days);
+    if (f === 'weekly') { const thisWeek = done.some(d => mondayOf(d) === mondayOf(t)); return { freq: f, label: F.label, last, next_due: thisWeek ? addDays(mondayOf(t), 7) : t, state: thisWeek ? 'done' : (since > 7 + F.late ? 'overdue' : 'due'), days_since: since }; }
+    const state = t < addDays(next, -F.early) ? 'done' : t <= addDays(next, F.late) ? 'due' : 'overdue';
+    return { freq: f, label: F.label, last, next_due: next, state, days_since: since };
+  }
+
+  return { readiness, team, supervisor, canTake, clean, MED_FREQ, medFreq, medDue };
 });
