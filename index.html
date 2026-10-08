@@ -6878,7 +6878,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
-<script src="lead-rules.js?v=14"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=15"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -6918,7 +6918,7 @@ The HomeTogether team</pre>
 <script src="client-care.js?v=4"></script>
 <script src="review-ask.js?v=1"></script>
 <script src="partner-rules.js?v=1"></script>
-<script src="referral-desk.js?v=3"></script>
+<script src="referral-desk.js?v=4"></script>
 <script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=1"></script>
 <script src="staffing-sheet.js?v=1"></script>
@@ -11242,7 +11242,8 @@ function repRows(leads){
   leads.forEach(l=>{ const k=repSource(l); const r=g[k]=g[k]||{ src:k, n:0, booked:0, closed:0, started:0, unknown:0, open:0 };
     r.n++; const bk=repBooked(l), cl=repClosed(l);
     if(bk) r.booked++; if(cl) r.closed++;
-    if(cl){ const b=REP.began[l.id]; if(b&&b.began===true) r.started++; else if(!b||b.began===null) r.unknown++; }
+    /* Step 6 (2026-10-08): "started care" means one thing everywhere, the first clock-in in AxisCare (first_shift_at) */
+    if(cl){ if(l.first_shift_at) r.started++; else r.unknown++; }
     if(!cl&&l.status!=='Lost'&&!l.archived) r.open++; });
   return Object.values(g);
 }
@@ -11253,7 +11254,7 @@ function repTable(rows, first){
   const line=(r,bold)=>'<tr style="border-top:1px solid var(--border);'+(bold?'background:var(--bg);':'')+'"><td style="padding:7px 10px;'+(bold?'font-weight:800;':'font-weight:600;')+'color:var(--navy);">'+esc(r.src)+'</td>'
     +cell(r.n)+cell(r.booked,r.n,'inquiries')+cell(r.closed,r.booked,'assessments')
     +'<td style="padding:7px 10px;font-variant-numeric:tabular-nums;"><b>'+r.started+'</b>'+(r.closed?' <span class="field-note">· '+pct(r.started,r.closed)+' of closed</span>':'')
-      +(r.unknown?' <span class="field-note" title="their care start could not be checked yet">('+r.unknown+' checking)</span>':'')+'</td>'
+      +(r.unknown?' <span class="field-note" title="no first clock-in in AxisCare yet (or they started before AxisCare)">('+r.unknown+' no first clock-in yet)</span>':'')+'</td>'
     +cell(r.open)+'</tr>';
   rows.sort((a,b)=>b.n-a.n||a.src.localeCompare(b.src));
   return '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px;"><thead><tr style="text-align:left;background:var(--bg);">'
@@ -11266,7 +11267,7 @@ function renderReports(){
   const cutoff=new Date(Date.now()-days*86400000).toISOString();
   const leads=leadsCounted().filter(l=>(l.created_at||'')>=cutoff);
   const lost=leads.filter(l=>l.status==='Lost');
-  repLoadBegan(leads);
+  /* Step 6: starts come from first_shift_at now; the older per-lead "care began" lookups are no longer needed */
   document.getElementById('repSrcFunnel').innerHTML = leads.length
     ? repTable(repRows(leads),'Where they came from')
       +'<div class="field-note" style="margin-top:8px;">Families who first got in touch in this period, and what has happened to them since; a family from last week may not have had time to start care yet. <b>Booked an assessment</b>: ever booked or done. <b>Closed</b>: became a client. <b>Started care</b>: their first shift happened (the same rule as their profile). Spam never counts. With few leads, percentages swing a lot, so each sits beside its count.</div>'

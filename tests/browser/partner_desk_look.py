@@ -79,6 +79,7 @@ T = r"""async()=>{
   /* the profile */
   openRefProfile('fount'); await sleep(300);
   const pc=document.querySelector('.pd-prof');
+  ok('Step 6: the profile\'s "Last 12 months": referrals, how fast we tried, said yes, started (first clock-in), still open, why not', /Last 12 months/.test(pc.innerText) && /Referrals\s*2/.test(pc.innerText) && /Started care \(first clock-in\)/.test(pc.innerText) && /Didn.t start/.test(pc.innerText), pc&&pc.innerText.slice(0,900));
   ok('Profile: owner, tier and why, potential, best way to reach, visit times, materials, relationship notes, people (the old note shown)', pc && /Relationship/.test(pc.innerText) && document.getElementById('pdOwner') && document.getElementById('pdPot') && /The old note says: Dana/.test(pc.innerText), pc&&pc.innerText.slice(0,500));
   document.getElementById('pdPot').value='high'; document.getElementById('pdMat').value='20 brochures'; document.getElementById('pdOwner').value='angie@mo-care.com';
   [...pc.querySelectorAll('button')].find(b=>/^Save$/.test(b.textContent)).click(); await sleep(300);
