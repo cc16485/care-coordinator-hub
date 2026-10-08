@@ -1191,7 +1191,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <select id="nvNurse" title="Assigned nurse"></select>
         </div>
         <div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <label style="font-size:13px;display:flex;gap:6px;align-items:center;"><input type="checkbox" id="nvWeekly" checked> Weekly medication visits</label>
+          <label style="font-size:13px;display:flex;gap:6px;align-items:center;">Medication setups <select id="nvMedFreq" style="width:auto;"><option value="">None</option><option value="weekly">Weekly</option><option value="biweekly" selected>Every 2 weeks</option><option value="monthly">Monthly</option></select></label>
           <input id="nvNotes" placeholder="Notes: meds location, pets, parking…" style="flex:1;min-width:200px;">
           <button class="addlead" onclick="nvAdd()">Add client</button>
         </div>
@@ -1255,8 +1255,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div id="nsList" style="margin-top:10px;"></div>
       </div>
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
-        <b style="font-size:15px;color:var(--navy);">💊 Weekly medication visits</b>
-        <div class="field-note" style="margin-top:3px;">One per calendar week per client. "Last seen" is the number that matters.</div>
+        <b style="font-size:15px;color:var(--navy);">💊 Medication setups</b>
+        <div class="field-note" style="margin-top:3px;">Weekly, every 2 weeks or monthly, set for each client (the nurse can change it). Due in the last couple of days before the next one; overdue a few days after.</div>
         <div id="nvMedsList" style="margin-top:10px;"></div>
       </div>
       <div class="card" style="padding:16px 18px;">
@@ -6976,7 +6976,7 @@ The HomeTogether team</pre>
 <script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=1"></script>
 <script src="care-plan-rules.js?v=1"></script>
-<script src="nurse-rules.js?v=1"></script>
+<script src="nurse-rules.js?v=3"></script>
 <script src="ghe-rules.js?v=1"></script>
 <script src="ghe-forms-rules.js?v=1"></script>
 <script src="ihs-rules.js?v=2"></script>
@@ -38482,7 +38482,8 @@ async function nvAdd(){
     phone:document.getElementById('nvPhone').value.trim(),
     ghe1:document.getElementById('nvGhe1').value||null,
     ghe2:document.getElementById('nvGhe2').value||null,
-    weekly_meds:document.getElementById('nvWeekly').checked,
+    /* 2026-10-08 (her "med setup frequency"): weekly, every 2 weeks or monthly per client; the nurse can change it */
+    med_freq:document.getElementById('nvMedFreq').value||'', weekly_meds:!!document.getElementById('nvMedFreq').value,
     assigned_nurse:(document.getElementById('nvNurse')||{}).value||'',
     notes:document.getElementById('nvNotes').value.trim(),
     active:true, added_at:new Date().toISOString(),
@@ -38492,6 +38493,32 @@ async function nvAdd(){
   ['nvName','nvPhone','nvNotes'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('nvAddWrap').style.display='none';
   renderNurseVisits();
+}
+/* the words for a med setup's state (monthly = the calendar month) and what is already scheduled */
+function nvMedWords(md){
+  if(md.state==='done') return {lbl:'✓ done '+md.last+' · next '+(md.freq==='monthly'?'about ':'')+md.next_due,col:'#1E8449'};
+  if(md.state==='never') return {lbl:'never done',col:'#C0392B'};
+  if(md.freq==='monthly') return md.state==='overdue'?{lbl:'⚠ overdue: none in '+md.missed_month+' (last '+md.last+')',col:'#C0392B'}
+    :{lbl:'due this month (aim about '+md.next_due+')'+(md.ending_soon?': the month ends in '+md.month_ends_in+' day'+(md.month_ends_in===1?'':'s'):''),col:md.ending_soon?'#C0392B':'#94681D'};
+  return md.state==='overdue'?{lbl:'⚠ overdue: last '+md.last+' ('+md.days_since+' days ago)',col:'#C0392B'}:{lbl:'due now: last '+md.last+' ('+md.days_since+' days ago)',col:'#94681D'};
+}
+function nvSchedWords(sc){
+  if(!sc) return '<span class="field-note">nothing scheduled</span>';
+  return sc.kind==='booked'?'<span class="badge ok">scheduled '+esc(sc.on)+'</span>'
+    :'<span class="badge muted">standing visit: '+esc(sc.day)+'s'+(sc.time?' '+esc(nvFmtTime(sc.time)):'')+' (next '+esc(sc.on)+')</span>';
+}
+/* how often a client's med setups happen: picked by the nurse (or the office), kept with who changed it */
+function nvFreqSel(c){
+  return '<select class="nv-freq" aria-label="How often" onchange="nvSetFreq(\''+c.id+'\',this.value)" style="width:auto;font-size:12px;padding:3px 6px;">'
+    +[['','No med setups'],['weekly','Weekly'],['biweekly','Every 2 weeks'],['monthly','Monthly']].map(([v,l])=>'<option value="'+v+'"'+(NurseRules.medFreq(c)===v?' selected':'')+'>'+l+'</option>').join('')+'</select>';
+}
+async function nvSetFreq(id,v){
+  const c=(DATA.nurse_clients||[]).find(x=>x.id===id); if(!c) return;
+  /* every change is one more line in med_freq_log (from, to, who, when); the setups already logged are not touched */
+  const ch=NurseRules.freqChange(c, v, { by:(ME&&(ME.name||ME.email))||'', at:new Date().toISOString() }); if(!ch) return;
+  Object.assign(c, ch);
+  await persist('nurse_clients',c);
+  renderNurseVisits(); if(typeof nursePortalRender==='function') nursePortalRender();
 }
 async function nvDeactivate(id){
   const c=(DATA.nurse_clients||[]).find(x=>x.id===id); if(!c) return;
@@ -38569,12 +38596,15 @@ async function nvMissedSave(k){
   renderNurseVisits();
 }
 async function nvSchedule(cid,type){
-  const when=prompt('Scheduled for (YYYY-MM-DD)',today()); if(!when) return;
-  const v={ id:uid(), client_id:cid, type, status:'scheduled',
-    scheduled_for:when.trim(), scheduled_at:new Date().toISOString(),
-    by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'', completed_on:null, note:'' };
-  DATA.nurse_visits=DATA.nurse_visits||[]; DATA.nurse_visits.push(v);
-  await persist('nurse_visits',v); renderNurseVisits();
+  /* 2026-10-08: one booking per client and kind; setting a date again MOVES it (never a second booking) */
+  const open=nvVisitsFor(cid,type).find(v=>v.status==='scheduled');
+  const when=prompt(open?'Move the booking from '+open.scheduled_for+' to (YYYY-MM-DD)':'Scheduled for (YYYY-MM-DD)',open?open.scheduled_for:today()); if(!when) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(when.trim())){ alert('Use the date as YYYY-MM-DD, for example '+today()+'.'); return; }
+  const by=(typeof ME!=='undefined'&&(ME.name||ME.email))||'';
+  if(open){ open.scheduled_for=when.trim(); open.moved_at=new Date().toISOString(); open.moved_by=by; await persist('nurse_visits',open); }
+  else{ const v={ id:uid(), client_id:cid, type, status:'scheduled', scheduled_for:when.trim(), scheduled_at:new Date().toISOString(), by, completed_on:null, note:'' };
+    DATA.nurse_visits=DATA.nurse_visits||[]; DATA.nurse_visits.push(v); await persist('nurse_visits',v); }
+  renderNurseVisits(); if(typeof activeTab!=='undefined'&&activeTab==='nurseportal'&&typeof nursePortalRender==='function') nursePortalRender();
 }
 async function nvComplete(cid,type){
   const sched=nvVisitsFor(cid,type).find(v=>v.status==='scheduled');
@@ -38970,11 +39000,8 @@ async function nvGhlSync(c,nurseName){
 function nvClientFlags(c){
   const flags=[];
   ['ghe1','ghe2'].forEach(w=>{ const st=nvGheState(c,w); if(st&&st.s==='overdue') flags.push('GHE missed'); else if(st&&st.s==='due') flags.push('GHE due'); });
-  if(c.weekly_meds){
-    const thisWeek=nvWeekStart();
-    const done=(DATA.nurse_visits||[]).filter(v=>v.client_id===c.id&&v.type==='meds'&&v.status==='completed');
-    if(!done.find(v=>(v.week||nvWeekStart(v.completed_on))===thisWeek)) flags.push('med visit due');
-  }
+  const md=NurseRules.medDue(c, DATA.nurse_visits||[], today());
+  if(md&&md.state!=='done') flags.push(md.state==='overdue'?'med setup overdue':'med setup due');
   return flags;
 }
 function nvRenderCaseloads(){
@@ -38998,7 +39025,7 @@ function nvRenderCaseloads(){
       +'</div>'
       +mine.map(c=>{
         const flags=nvClientFlags(c);
-        const needs=[c.weekly_meds?'weekly meds':'',(c.ghe1||c.ghe2)?'GHE':''].filter(Boolean).join(' + ')||'no set needs';
+        const needs=[NurseRules.medFreq(c)?'med setups '+NurseRules.MED_FREQ[NurseRules.medFreq(c)].label:'',(c.ghe1||c.ghe2)?'GHE':''].filter(Boolean).join(' + ')||'no set needs';
         const slot=nvSlotText(c);
         return '<div class="nvcase-row">'+cpOpenLink({client_name:c.name,axiscare_client_id:c.axiscare_client_id},'history')+'<span class="field-note">'+esc(needs)+'</span>'
           +flags.map(f=>'<span class="badge '+(f.includes('missed')?'bad':'warn')+'">'+f+'</span>').join('')
@@ -39097,7 +39124,7 @@ function nursePortalRender(me){
   const mine=clients.filter(c=>c.assigned_nurse===me.name);
   const open=clients.filter(c=>!String(c.assigned_nurse||'').trim());
   const tel=c=>c.phone?'<a class="addlead" style="padding:5px 14px;font-size:12px;text-decoration:none;"'+ocAttrs(c.phone)+'>📞 Call</a>':'';
-  const needs=c=>[c.weekly_meds?'weekly meds':'',(c.ghe1||c.ghe2)?'GHE ('+[c.ghe1,c.ghe2].filter(Boolean).join(', ')+')':''].filter(Boolean).join(' + ')||'no set needs';
+  const needs=c=>[NurseRules.medFreq(c)?'med setups '+NurseRules.MED_FREQ[NurseRules.medFreq(c)].label:'',(c.ghe1||c.ghe2)?'GHE ('+[c.ghe1,c.ghe2].filter(Boolean).join(', ')+')':''].filter(Boolean).join(' + ')||'no set needs';
   /* slice 3: what AxisCare shows for this month's GHE, so the nurse sees whether their booking is there */
   const gheNow=c=>['ghe1','ghe2','ghe_makeup'].map(w=>c[w]&&String(c[w]).slice(0,7)<=nvMonth()?nvGheState(c,w):null).filter(x=>x&&x.s!=='done'&&x.s!=='resolved').map(x=>'<span class="badge '+(x.s==='overdue'?'bad':x.s==='scheduled'?'ok':'warn')+'">'+esc(x.lbl)+'</span>').join('');
   const mineBox=document.getElementById('npMine');
@@ -39109,7 +39136,10 @@ function nursePortalRender(me){
       +'<span class="np-slotwrap"><span class="field-note">My standing visit:</span>'+npSlotCell(c)+'</span>'
       +tel(c)
       +'<button class="secondary" style="font-size:12px;" onclick="gheNewFor(\''+c.id+'\')">📋 GHE form</button>'
-      +(c.weekly_meds?'<button class="secondary" style="font-size:12px;" onclick="nvComplete(\''+c.id+'\',\'meds\')">✓ Log med visit</button>':'')
+      +nvFreqSel(c)
+      +(NurseRules.medFreq(c)?(m=>'<span class="field-note">'+esc(nvMedWords(m).lbl)+'</span>')(NurseRules.medDue(c, DATA.nurse_visits||[], today()))+nvSchedWords(NurseRules.medScheduled(c, DATA.nurse_visits||[], today()))
+        +'<button class="ghost" style="font-size:12px;" onclick="nvSchedule(\''+c.id+'\',\'meds\')">Set a date</button>'
+        +'<button class="secondary" style="font-size:12px;" onclick="nvComplete(\''+c.id+'\',\'meds\')">✓ Log med setup</button>':'')
       +'</div>';
   }).join('')||'<div class="field-note">No clients yet. Claim one below.</div>';
   const openBox=document.getElementById('npOpen');
@@ -39176,35 +39206,29 @@ function renderNurseVisits(){
       +gheRows+'</table></div>'
     : '<div class="field-note">No clients with GHE windows yet. Upload a care plan on the client\'s Payer tab, or add one above.</div>';
 
-  // weekly meds
+  // medication setups (2026-10-08: weekly, every 2 weeks or monthly per client)
   const meds=document.getElementById('nvMedsList');
-  const thisWeek=nvWeekStart();
-  meds.innerHTML=clients.filter(c=>c.weekly_meds).map(c=>{
-    const done=(DATA.nurse_visits||[]).filter(v=>v.client_id===c.id&&v.type==='meds'&&v.status==='completed')
-      .sort((a,b)=>(b.completed_on||'').localeCompare(a.completed_on||''));
-    const last=done[0]||null;
-    const daysAgo=last?Math.round((Date.now()-new Date(last.completed_on))/86400000):null;
-    const thisWeekDone=!!done.find(v=>(v.week||nvWeekStart(v.completed_on))===thisWeek);
-    const st=thisWeekDone?{lbl:'✓ seen this week',col:'#1E8449'}
-      :(daysAgo===null?{lbl:'never visited',col:'#C0392B'}
-      : daysAgo>9?{lbl:'⚠ '+daysAgo+' days since last visit',col:'#C0392B'}
-      : {lbl:'due this week — last seen '+daysAgo+'d ago',col:'#94681D'});
+  const mdOf=c=>NurseRules.medDue(c, DATA.nurse_visits||[], today());
+  meds.innerHTML=clients.filter(c=>NurseRules.medFreq(c)).map(c=>{
+    const md=mdOf(c);
+    const st=nvMedWords(md);
+    const sc=NurseRules.medScheduled(c, DATA.nurse_visits||[], today());
     return '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:13.5px;flex-wrap:wrap;">'
       +'<b>'+esc(c.name)+'</b>'+phoneBit(c)+nvLinkBtn(c,'M')
-      +'<span style="color:'+st.col+';font-weight:700;">'+st.lbl+'</span>'
+      +nvFreqSel(c)
+      +'<span style="color:'+st.col+';font-weight:700;">'+esc(st.lbl)+'</span>'
+      +nvSchedWords(sc)
       +'<span style="flex:1;"></span>'
-      +(thisWeekDone?'':'<button class="addlead" style="padding:4px 12px;font-size:12px;" onclick="nvComplete(\''+c.id+'\',\'meds\')">Log this week&#39;s visit</button>')
+      +(sc&&sc.kind==='booked'?'':'<button class="ghost" style="padding:3px 10px;font-size:12px;" onclick="nvSchedule(\''+c.id+'\',\'meds\')">Set a date</button>')
+      +(md.state==='done'?'':'<button class="addlead" style="padding:4px 12px;font-size:12px;" onclick="nvComplete(\''+c.id+'\',\'meds\')">Log the med setup</button>')
       +'</div>';
-  }).join('') || '<div class="field-note">No clients on weekly medication visits.</div>';
+  }).join('') || '<div class="field-note">No clients with medication setups.</div>';
 
   // due-now strip
   const strip=document.getElementById('nvDueNow');
   const dueGhe=clients.flatMap(c=>['ghe1','ghe2'].map(w=>({c,w,st:nvGheState(c,w)})))
     .filter(x=>x.st&&(x.st.s==='due'||x.st.s==='overdue'));
-  const dueMeds=clients.filter(c=>c.weekly_meds).filter(c=>{
-    const done=(DATA.nurse_visits||[]).filter(v=>v.client_id===c.id&&v.type==='meds'&&v.status==='completed');
-    return !done.find(v=>(v.week||nvWeekStart(v.completed_on))===thisWeek);
-  });
+  const dueMeds=clients.filter(c=>{ const md=NurseRules.medFreq(c)?mdOf(c):null; return md&&md.state!=='done'; });
   const nb=document.getElementById('gb-nursing');
   const urgent=dueGhe.filter(x=>x.st.s==='overdue').length;
   if(nb){ nb.style.display=urgent?'inline-block':'none'; nb.textContent=urgent; }
@@ -39214,7 +39238,7 @@ function renderNurseVisits(){
       +'<div style="margin-top:6px;font-size:13.5px;line-height:1.8;">'
       +dueGhe.map(x=>'• <b>'+esc(x.c.name)+'</b> — GHE '+(x.st.s==='overdue'?'<span style="color:#C0392B;font-weight:700;">window missed ('+esc(x.c[x.w])+')</span>':'due this month')).join('<br>')
       +(dueGhe.length&&dueMeds.length?'<br>':'')
-      +dueMeds.map(c=>'• <b>'+esc(c.name)+'</b> — medication visit not yet done this week').join('<br>')
+      +dueMeds.map(c=>{ const md=mdOf(c); return '• <b>'+esc(c.name)+'</b>: medication setup '+(md.state==='overdue'?'<span style="color:#C0392B;font-weight:700;">overdue</span>':'due')+' ('+esc(md.label)+')'; }).join('<br>')
       +'</div></div>'
     : '';
 
