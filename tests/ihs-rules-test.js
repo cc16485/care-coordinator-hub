@@ -16,5 +16,13 @@ ck('justification: needs the reason, the date sent, how, and the copy in the fil
 const d = I.draftJustification({ name: 'Pat Sample', dcn: '12345678', received: '2026-10-07', due: '2026-10-17', reason: 'no caregiver yet for evenings.', planned_start: '2026-10-21' })
 ck('the draft states the facts and the expected start, promises nothing else, and has no em dash', /received the service authorization on 2026-10-07/.test(d) && /begin by 2026-10-17/.test(d) && /have not yet begun because: no caregiver yet/.test(d) && /begin services on 2026-10-21/.test(d) && !/—/.test(d))
 ck('the five start-of-care checks, and which are left', I.START_CHECKS.length === 5 && I.checksLeft({ checks: { pccp_copy: { on: '2026-10-09' }, evv: { on: 'x' } } }).map(x => x.k).join() === 'rights,ethics,evv,care_plan')
+const W = I.planWatch
+ck('plan watch: more than 60 days left ok, 60 or fewer "soon", past the end "ended"', W({ plan_end: '2027-03-31' }, '2026-10-18').state === 'ok' && (w => w.state === 'soon' && w.left === 60)(W({ plan_end: '2026-12-17' }, '2026-10-18')) && W({ plan_end: '2026-10-17' }, '2026-10-18').state === 'ended')
+const CS = I.changeStep, cx = { today: '2026-10-18', me: 'angiel@mo-care.com', at: 'x', id: 'c1' }
+ck('a change recommendation needs what changed and what you are seeing', !CS(null, 'recommend', { kind: 'more', why: 'short' }, cx).ok && !CS(null, 'recommend', { why: 'Needs help bathing every day now' }, cx).ok && CS(null, 'recommend', { kind: 'more', why: 'Needs help bathing every day now' }, cx).rec.status === 'recommended')
+const rc = { status: 'recommended' }
+ck('...the supervisor approves (named, dated) before it is submitted', /approves it before/.test(CS(rc, 'submit', { submitted_on: '2026-10-18' }, cx).why) && /Name the supervisor/.test(CS(rc, 'approve', { approved_on: '2026-10-18' }, cx).why) && CS(rc, 'approve', { approved_by: 'Rita Reed', approved_on: '2026-10-17' }, cx).patch.status === 'approved')
+const ap = { status: 'approved', approved_on: '2026-10-17' }
+ck('...submitted on the PCCP Request Form (not before the approval, not in the future), then closed with what DSDS decided', /not before the approval/.test(CS(ap, 'submit', { submitted_on: '2026-10-16' }, cx).why) && CS(ap, 'submit', { submitted_on: '2026-10-18' }, cx).patch.status === 'submitted' && /what DSDS decided/.test(CS({ status: 'submitted' }, 'close', {}, cx).why) && CS({ status: 'submitted' }, 'close', { outcome: 'approved_new_plan' }, cx).patch.status === 'closed')
 let pass = 0; for (const [n, okk, dd] of res) { console.log((okk ? 'PASS  ' : 'FAIL  ') + n + (okk ? '' : '  ' + dd)); if (okk) pass++ }
 console.log(`\n${pass} passed, ${res.length - pass} failed`); process.exit(pass === res.length ? 0 : 1)
