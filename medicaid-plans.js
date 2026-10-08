@@ -168,7 +168,7 @@
         + (cur.services || []).filter(x => x.ours).map(x => '<div class="field-note">' + h(x.label) + ': ' + usd(x.start) + ' to ' + usd(x.end) + (x.prior_auth ? ' · PA ' + h(x.prior_auth) : '') + '</div>').join('')
         + (lead && cur.plan_end >= tdy && st !== 'authorized' ? '<div class="mcp-note">Where the state is still says "' + h(st || 'not set') + '". If this plan is the authorization, set it to Authorized above and Save.</div>' : '')
         + (list.length > 1 ? '<div class="field-note">' + (list.length - 1) + ' earlier plan' + (list.length === 2 ? '' : 's') + ' on file.</div>' : '')
-        + '</div>' + startHtml(cur, lead) : (MCP.pending ? '' : '<div class="field-note mcp-none">No care plan uploaded yet.</div>'));
+        + '</div>' + startHtml(cur, lead) + watchHtml(cur) + changesHtml(cur) : (MCP.pending ? '' : '<div class="field-note mcp-none">No care plan uploaded yet.</div>'));
   };
 
   /* ── Starting care (Medicaid intake slice A, 2026-10-08): the 10-day clock, the late justification, the start checks ── */
@@ -212,6 +212,51 @@
     return h;
   }
   const h_ = s => h(s);
+  /* ── slice C: the plan's end (the reassessment) and recommending a change ── */
+  function watchHtml(cur) {
+    if (typeof IhsRules === 'undefined' || !cur) return '';
+    const w = IhsRules.planWatch(cur, todayIso());
+    if (w.state === 'soon') return '<div class="mcp-start"><b>The plan ends ' + usd(w.end) + '</b> <span class="mcp-chip warn">' + w.left + ' day' + (w.left === 1 ? '' : 's') + ' left</span><div class="field-note">DSDS reassesses before then (within 365 days of the last level-of-care decision, MAN 4.15). Watch My Agency\'s Participants in Fusion for the new plan, and upload it here when it comes.</div></div>';
+    if (w.state === 'ended') return '<div class="mcp-start"><b>The plan ended ' + usd(w.end) + '</b> <span class="mcp-chip bad">no newer plan uploaded</span><div class="field-note">Check Fusion for the new plan and upload it here, or record what happened if care has ended.</div></div>';
+    return '';
+  }
+  function changesHtml(cur) {
+    if (typeof IhsRules === 'undefined' || !cur) return '';
+    const list = (cur.changes || []), open = list.filter(c => c.status !== 'closed'), done = list.filter(c => c.status === 'closed');
+    const K = Object.fromEntries(IhsRules.CHANGE_KINDS), OUT = { approved_new_plan: 'DSDS approved: new plan', denied: 'DSDS said no', withdrawn: 'Withdrawn' };
+    const row = c => {
+      const id = h_(c.id);
+      let step = '';
+      if (c.status === 'recommended') step = '<div class="mcp-form"><label>Approved by (supervisor) <input id="mcpCA_' + id + '" placeholder="name"></label><label>On <input type="date" id="mcpCD_' + id + '" max="' + todayIso() + '" value="' + todayIso() + '"></label><button class="ghost" onclick="mcpChange(\'' + id + '\',\'approve\')">Approved</button></div>';
+      if (c.status === 'approved') step = '<div class="mcp-note">Submit the online PCCP Request Form to DSDS, then record the date.</div><div class="mcp-form"><label>Submitted on <input type="date" id="mcpCS_' + id + '" max="' + todayIso() + '" value="' + todayIso() + '"></label><button class="ghost" onclick="mcpChange(\'' + id + '\',\'submit\')">Submitted</button></div>';
+      if (c.status === 'submitted') step = '<div class="mcp-form"><label>What DSDS decided <select id="mcpCO_' + id + '"><option value="">Pick one</option>' + Object.keys(OUT).map(k => '<option value="' + k + '">' + OUT[k] + '</option>').join('') + '</select></label><input id="mcpCN_' + id + '" placeholder="Note (optional)"><button class="ghost" onclick="mcpChange(\'' + id + '\',\'close\')">Record it</button></div>'
+        + '<div class="field-note">If DSDS changes the plan, upload the new plan above. A decrease takes effect the 1st of the next month (MAN 4.20).</div>';
+      const where = c.status === 'recommended' ? 'waiting for the supervisor' : c.status === 'approved' ? 'approved by ' + h_(c.approved_by) + ' ' + usd(c.approved_on) + ': submit the PCCP Request Form' : c.status === 'submitted' ? 'submitted ' + usd(c.submitted_on) + ': waiting on DSDS' : (OUT[c.outcome] || c.outcome) + ' (' + usd(c.closed_on) + ')';
+      return '<div class="mcp-crow" style="display:grid;gap:4px"><span><b>' + h_(K[c.kind] || c.kind) + '</b> · ' + where + '</span><span class="field-note">' + h_(c.why) + ' · seen by ' + h_(c.seen_by) + '</span>' + step + '<span class="field-note" id="mcpCMsg_' + id + '"></span></div>';
+    };
+    return '<div class="mcp-start"><b>Care plan changes</b><div class="field-note">Only DSDS changes the units. When the help they need differs from the plan, recommend a change: the supervisor approves it, then the coordinator submits the online PCCP Request Form (19 CSR 15-7.021(18)(K), (21)(C); MAN 4.30). The Hub never changes an authorization.</div>'
+      + open.map(row).join('')
+      + (MCP.chgOpen ? '<div class="mcp-form"><label>What changed <select id="mcpCK"><option value="">Pick one</option>' + IhsRules.CHANGE_KINDS.map(k => '<option value="' + k[0] + '">' + h_(k[1]) + '</option>').join('') + '</select></label>'
+        + '<label class="mcp-wide">What you are seeing <textarea id="mcpCW" rows="2"></textarea></label></div><div class="mcp-acts"><button class="primary" onclick="mcpChangeNew()">Save the recommendation</button><button class="ghost" onclick="mcpChangeForm(false)">Cancel</button><span class="field-note" id="mcpCMsg"></span></div>'
+        : '<div class="mcp-acts"><button class="ghost" onclick="mcpChangeForm(true)">Recommend a change</button></div>')
+      + (done.length ? '<details><summary class="field-note">' + done.length + ' earlier change request' + (done.length === 1 ? '' : 's') + '</summary>' + done.map(row).join('') + '</details>' : '')
+      + '</div>';
+  }
+  window.mcpChangeForm = v => { MCP.chgOpen = !!v; mcpProfileRender(); };
+  window.mcpChangeNew = async function () {
+    const p = curPlan(); if (!p) return;
+    const r = IhsRules.changeStep(null, 'recommend', { kind: (document.getElementById('mcpCK') || {}).value, why: (document.getElementById('mcpCW') || {}).value }, { me: me(), at: new Date().toISOString(), id: 'chg_' + Math.random().toString(36).slice(2, 9), today: todayIso() });
+    const m = document.getElementById('mcpCMsg'); if (!r.ok) { if (m) { m.textContent = r.why; m.style.color = 'var(--red)'; } return; }
+    p.changes = (p.changes || []).concat([r.rec]); MCP.chgOpen = false; await savePlan(p);
+  };
+  window.mcpChange = async function (id, step) {
+    const p = curPlan(); if (!p) return; const c = (p.changes || []).find(x => x.id === id); if (!c) return;
+    const v = x => (document.getElementById(x + '_' + id) || {}).value || '';
+    const form = step === 'approve' ? { approved_by: v('mcpCA'), approved_on: v('mcpCD') } : step === 'submit' ? { submitted_on: v('mcpCS') } : { outcome: v('mcpCO'), note: v('mcpCN') };
+    const r = IhsRules.changeStep(c, step, form, { me: me(), today: todayIso() });
+    const m = document.getElementById('mcpCMsg_' + id); if (!r.ok) { if (m) { m.textContent = r.why; m.style.color = 'var(--red)'; } return; }
+    Object.assign(c, r.patch); await savePlan(p);
+  };
   const curPlan = () => { const t = target(); return t ? mine(t)[0] : null; };
   async function savePlan(p) { DATA.medicaid_plans = plans().map(x => x.id === p.id ? p : x); await persist('medicaid_plans', p); mcpProfileRender(); }
   window.mcpStartCheck = async function (k) {
@@ -251,14 +296,17 @@
     const rows = opts.map(o => ({ o, st: CarePlanRules.clientStatus(o.ax, P, P, t) }));
     const ORDER = { unknown: 0, medicaid_no_plan: 1, ended: 2, current: 3, not_medicaid: 4 };
     rows.sort((a, b) => ORDER[a.st.s] - ORDER[b.st.s] || a.o.name.localeCompare(b.o.name));
-    const open = rows.filter(r => r.st.s === 'unknown' || r.st.s === 'medicaid_no_plan' || r.st.s === 'ended');
+    const soon = r => r.st.s === 'current' && typeof IhsRules !== 'undefined' && IhsRules.planWatch(r.st.plan, t).state === 'soon';
+    const open = rows.filter(r => r.st.s === 'unknown' || r.st.s === 'medicaid_no_plan' || r.st.s === 'ended' || soon(r));
     const show = MCP.showAll ? rows : open;
     const cnt = k => rows.filter(r => r.st.s === k).length;
     const link = o => (typeof cpOpenLink === 'function' ? cpOpenLink({ client_name: o.name, axiscare_client_id: o.ax }, 'payer') : h(o.name));
     const line = r => {
       const st = r.st, ax = h(r.o.ax);
       let chip, act = '';
-      if (st.s === 'current') chip = '<span class="mcp-chip ok">Plan to ' + usd(st.plan.plan_end) + (st.plan.ghe_months && st.plan.ghe_months.length ? ' · GHE ' + st.plan.ghe_months.map(mon).join(', ') : '') + '</span>';
+      if (st.s === 'current') { const w = typeof IhsRules !== 'undefined' ? IhsRules.planWatch(st.plan, t) : { state: 'ok' };
+        chip = '<span class="mcp-chip ' + (w.state === 'soon' ? 'warn' : 'ok') + '">Plan to ' + usd(st.plan.plan_end) + (w.state === 'soon' ? ' (' + w.left + ' days left)' : '') + (st.plan.ghe_months && st.plan.ghe_months.length ? ' · GHE ' + st.plan.ghe_months.map(mon).join(', ') : '') + '</span>';
+        if (w.state === 'soon') act = 'DSDS reassesses before then: watch Fusion for the new plan'; }
       else if (st.s === 'ended') { chip = '<span class="mcp-chip warn">Plan ended ' + usd(st.plan.plan_end) + '</span>'; act = 'Open their profile and upload the current plan'; }
       else if (st.s === 'not_medicaid') chip = '<span class="mcp-chip">' + h(PAYERS[st.mark.payer] || st.mark.payer) + '</span>';
       else if (st.s === 'medicaid_no_plan') { chip = '<span class="mcp-chip warn">Medicaid, no plan uploaded</span>'; act = 'Open their profile and upload their plan'; }

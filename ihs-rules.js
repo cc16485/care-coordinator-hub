@@ -81,5 +81,47 @@
   ];
   function checksLeft(start) { const c = (start && start.checks) || {}; return START_CHECKS.filter(([k]) => !(c[k] && isDate(c[k].on))).map(([k, l]) => ({ k, l })); }
 
-  return { START_DAYS, START_CHECKS, authorizedStart, startClock, needsJustification, justification, draftJustification, checksLeft, addDays };
+  /* ── the plan's end and the reassessment (MAN 4.15 rev. Apr 2026: within 365 days of the last level-of-care decision,
+     due in the month the plan expires; DSDS reassesses, we are not a provider reassessor). The Hub watches the end date. ── */
+  const WATCH_DAYS = 60;
+  function planWatch(plan, today) {
+    const end = ymd(plan && plan.plan_end); if (!isDate(end)) return { state: 'unknown' };
+    const left = days(ymd(today), end);
+    if (left < 0) return { state: 'ended', end, left };
+    if (left <= WATCH_DAYS) return { state: 'soon', end, left };
+    return { state: 'ok', end, left };
+  }
+
+  /* ── recommending a care plan change (19 CSR 15-7.021(15)(B),(18)(K),(21)(C); 13 CSR 70-91.010(3)(H)4; MAN 4.30, 4.20):
+     only DSDS changes the units; we recommend, the supervisor approves, the coordinator submits the online PCCP Request
+     Form. A decrease takes effect the 1st of the next month. The Hub never changes an authorization. ── */
+  const CHANGE_KINDS = [['more', 'Needs more help than authorized'], ['less', 'Needs less help than authorized'], ['tasks', 'Different tasks than authorized'], ['schedule', 'The schedule keeps differing from the plan'], ['other', 'Other']];
+  function changeStep(c, step, form, ctx) {
+    ctx = ctx || {}; const f = form || {}, today = ymd(ctx.today);
+    if (step === 'recommend') {
+      if (!CHANGE_KINDS.some(k => k[0] === f.kind)) return { ok: false, why: 'Pick what changed.' };
+      if (String(f.why || '').trim().length < 10) return { ok: false, why: 'Say what you are seeing (a sentence or two).' };
+      return { ok: true, rec: { id: ctx.id || '', kind: f.kind, why: String(f.why).trim(), seen_by: ctx.me || '', seen_at: ctx.at || '', status: 'recommended' } };
+    }
+    if (step === 'approve') {
+      if (!c || c.status !== 'recommended') return { ok: false, why: 'Only a recommendation waiting for approval can be approved.' };
+      if (!String(f.approved_by || '').trim()) return { ok: false, why: 'Name the supervisor who approved it.' };
+      if (!isDate(f.approved_on) || ymd(f.approved_on) > today) return { ok: false, why: 'Enter the date it was approved (not in the future).' };
+      return { ok: true, patch: { status: 'approved', approved_by: String(f.approved_by).trim(), approved_on: ymd(f.approved_on), approved_rec_by: ctx.me || '' } };
+    }
+    if (step === 'submit') {
+      if (!c || c.status !== 'approved') return { ok: false, why: 'The supervisor approves it before it is submitted.' };
+      if (!isDate(f.submitted_on) || ymd(f.submitted_on) > today || ymd(f.submitted_on) < ymd(c.approved_on)) return { ok: false, why: 'Enter the date the PCCP Request Form was submitted (not before the approval, not in the future).' };
+      return { ok: true, patch: { status: 'submitted', submitted_on: ymd(f.submitted_on), submitted_by: ctx.me || '' } };
+    }
+    if (step === 'close') {
+      if (!c || c.status !== 'submitted') return { ok: false, why: 'Only a submitted request can be closed.' };
+      const out = String(f.outcome || '');
+      if (['approved_new_plan', 'denied', 'withdrawn'].indexOf(out) < 0) return { ok: false, why: 'Say what DSDS decided.' };
+      return { ok: true, patch: { status: 'closed', outcome: out, closed_on: today, closed_by: ctx.me || '', note: String(f.note || '').trim() } };
+    }
+    return { ok: false, why: 'Unknown step.' };
+  }
+
+  return { START_DAYS, START_CHECKS, authorizedStart, startClock, needsJustification, justification, draftJustification, checksLeft, addDays, WATCH_DAYS, planWatch, CHANGE_KINDS, changeStep };
 });
