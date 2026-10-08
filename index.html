@@ -1818,7 +1818,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <li><b>After the interview</b> choose <b>✅ Hire, make the offer</b>, <b>🗂 Candidate pool</b> or <b>Not hiring</b>. Saving the offer sends their <b>start link</b> by itself (email, and text 8am to 6pm if they said yes to texts). The link is private: it carries no name, phone or email. <b>Not hiring</b> and <b>Candidate pool</b> show you a short, kind message first: OK sends it, Cancel sends nothing.</li>
           <li><b>They fill in the start link</b> (professional and personal references, FCSR details). In <b>Background &amp; References</b> press <b>Import</b> (or, once <b>Start forms import themselves</b> is switched on, it imports itself), then <b>📩 Ask refs</b>: references with an email get the form automatically; phone-only ones are yours to call (📞 Record), email (✉️) or text after they say OK (💬). Answers score themselves and are saved as a PDF in the caregiver's profile.</li>
           <li><b>You run OIG, EDL and FCSR</b> (and fingerprints if they lived outside Missouri). <b>Ready for Orientation</b> comes on with 2 positive references and all checks clear. If a check comes back flagged, press <b>🛡 Something came up</b>: you see the message first (the text never says which check), they have 5 business days to call, and you decide (cleared, a Good Cause Waiver, or the final notice). Nothing about a background check is ever sent or decided by itself.</li>
-          <li><b>Viventium Step 2</b>, then the <b>welcome call</b>: press <b>Invite to welcome call</b> and they book a 15-minute video call. On the call (I-9 documents, the AxisCare app, their caregiver profile) press <b>Welcome call done – send orientation link</b>: they do their orientation online. The <b>in-person office orientation</b> is the backup (the invite, they pick a date, a confirmation, then a day-before reminder).</li>
+          <li><b>Viventium Step 2</b>, then the <b>welcome call</b>: press <b>Invite to welcome call</b> and they book a 15-minute video call. On the call (I-9 documents, the AxisCare app, their caregiver profile) press <b>Welcome call done – send orientation link</b>: they do their orientation online. The <b>in-person office orientation</b> is the backup (the invite, they pick a date, a confirmation, then a day-before reminder; or the office types the date and time itself and books them).</li>
           <li><b>Training:</b> 2 hours of orientation and 4 hours of dementia training before the first client, then 6 hours of supervised on-the-job training within 30 days (5 hours a year from year two). The Training Platform sends the welcome, reminders and "cleared to work".</li>
           <li><b>First shifts:</b> the availability link, then a "how did your first shift go?" text the morning after.</li>
         </ol>
@@ -2094,7 +2094,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>FCSR</strong> is done by hand in the state system. Log the date ordered, then mark it clear or failed when the result arrives.</div></div>
           <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body"><strong>Ask References.</strong> Press "📩 Ask refs". Anyone with an <b>email</b> gets the form automatically, with questions for a <b>professional</b> or a <b>personal</b> reference. Anyone with only a phone number is never texted automatically: call them and press <b>📞 Record</b>, or send the form with <b>✉️ Email</b>, or <b>💬 Text</b> once they said OK on the phone. A quiet emailed reference gets one reminder after 2 days, the applicant is asked to help at 5 days, and the office gets a card at 9. Two positive references are needed.<span class="tip">Answers score themselves, show on the candidate, and are saved as a PDF in the caregiver's profile. Automatic emails go weekdays, 8am to 6pm.</span></div></div>
           <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body"><strong>Fingerprint</strong> — schedule if required. Log the date completed.</div></div>
-          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">Once <strong>2 positive references ✅ + OIG ✅ + EDL ✅ + FCSR ✅</strong> (and fingerprints ✅ if they lived outside Missouri), the status changes to <strong>Ready for Orientation</strong> by itself. Then send them the orientation invite.</div></div>
+          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">Once <strong>2 positive references ✅ + OIG ✅ + EDL ✅ + FCSR ✅</strong> (and fingerprints ✅ if they lived outside Missouri), the status changes to <strong>Ready for Orientation</strong> by itself. Their row then shows a small <strong>Moved into orientation</strong> banner, and the next steps (Viventium Step 2, the welcome call, the caregiver profile, the office backup) are on the <strong>Orientations</strong> tab.</div></div>
           <div class="guide-step"><div class="guide-step-num">7</div><div class="guide-step-body">If any check fails, status moves to <strong>Needs Review</strong>. Document the reason and determine next steps with management.</div></div>
           <div class="guide-section-lbl">Processing Stats</div>
           <div class="guide-step"><div class="guide-step-num">📊</div><div class="guide-step-body">Use the <strong>Stats</strong> filter button to see how long each candidate is taking — we aim to get applicants to orientation as fast as possible.</div></div>
@@ -2135,6 +2135,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         #ob-tbody .refc-dc{font-size:11.5px;line-height:1.3}
         #ob-tbody .refc-hit{outline:2px solid #F0A63A;outline-offset:-2px;background:#FFF8E1}
         #ob-tbody .refc-sent{font-size:11.5px;color:#15803D;line-height:1.3}
+        /* Moved into orientation (2026-10-08): the one small banner at the right of a cleared row (its Status cell) */
+        #ob-tbody .ob-orient-banner{display:block;min-width:150px;max-width:210px;background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:9px;padding:6px 10px;line-height:1.35;vertical-align:top}
+        #ob-tbody .ob-orient-head{font-size:12.5px;font-weight:700;color:#15803D;white-space:nowrap}
+        #ob-tbody .ob-orient-sub{font-size:11.5px;color:var(--navy);margin-top:2px}
+        #ob-tbody .ob-orient-link{display:inline-block;margin-top:4px;font-size:11.5px;font-weight:600;color:var(--teal);text-decoration:none}
       </style>
       <div class="tbl-wrap bgr-people">
         <table>
@@ -2178,7 +2183,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <span class="tab-guide-arrow" id="guide-arrow-orient-office" style="color:var(--navy)">▼</span>
         </div>
         <div class="tab-guide-body" id="guide-body-orient-office">
-          <div style="font-size:.82rem;color:var(--navy);line-height:1.5;margin-bottom:.9rem">Most new hires do orientation from home after their welcome call. Use this only when someone needs to come into the office: set up a session here, then use <b>📅 In the office instead</b> on their row. After the session, mark attendance and press <b>🎓 Promote</b> for anyone who attended.</div>
+          <div style="font-size:.82rem;color:var(--navy);line-height:1.5;margin-bottom:.9rem">Most new hires do orientation from home after their welcome call. Use this only when someone needs to come into the office: press <b>📅 In the office instead</b> on their row above, then either text them the booking link to pick a session, or type the date and time yourself (a one-seat session is added if there is none). After the session, mark attendance and press <b>🎓 Promote</b> for anyone who attended.</div>
           <!-- ── Orientation Settings (collapsible, Augusta-inspired) ──────── -->
           <div class="tab-guide" style="margin-bottom:1rem">
             <div class="tab-guide-hdr" onclick="SCX.toggleGuide('orient-cfg')">
@@ -3300,7 +3305,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 <div class="overlay" id="invite-modal">
   <div class="modal" style="max-width:540px">
-    <h3>📅 Send Orientation Booking Link</h3>
+    <h3>📅 Office orientation (the backup)</h3>
     <div style="background:var(--bg);border-radius:10px;padding:.85rem 1rem;margin-bottom:1rem;border:1.5px solid var(--border)">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
         <div><div style="font-size:.69rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.04em">Candidate</div>
@@ -3311,6 +3316,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     </div>
 
     <!-- Available sessions -->
+    <div style="font-size:.8rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">Text them a link and they pick a session</div>
     <div style="font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Available Sessions (included in booking link)</div>
     <div id="inv-sessions-list" style="max-height:200px;overflow-y:auto;border:1.5px solid var(--border);border-radius:8px;margin-bottom:.85rem"></div>
 
@@ -3323,6 +3329,23 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="modal-acts" id="inv-actions">
       <button class="btn-cancel" onclick="SCX.closeModal('invite-modal')">Cancel</button>
       <button class="btn-save" style="background:var(--teal);" onclick="SCX.confirmSendInvite()">✉️ Send Text Now</button>
+    </div>
+
+    <!-- Or the office sets the date and time itself (2026-10-08, Samantha). Books them onto the in-person session at
+         that time (a one-seat session is added if there is none), so the calendar, the day-before reminder, attendance
+         and Promote work as for any booking. Nothing is texted unless "Book and text them" is pressed. -->
+    <div style="border-top:1px solid var(--border);margin:1rem 0 .85rem"></div>
+    <div style="font-size:.8rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">Or set the date and time yourself</div>
+    <div id="inv-manual-current" style="display:none;font-size:.76rem;color:#15803D;font-weight:600;margin-bottom:.45rem"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.45rem">
+      <div class="grp"><label>Orientation date</label><input type="date" id="inv-manual-date" oninput="SCX.officeOrientPreview()"></div>
+      <div class="grp"><label>Start time</label><input type="time" id="inv-manual-time" value="10:00" oninput="SCX.officeOrientPreview()"></div>
+    </div>
+    <div style="font-size:.7rem;color:var(--gray);margin-bottom:.5rem">They are booked onto the in-person session at that time (one is added if there is none). It goes on the calendar, and the day-before reminder covers them like any other booking.</div>
+    <div id="inv-manual-preview" style="display:none;background:var(--bg);border-radius:8px;padding:.6rem .75rem;font-size:.78rem;line-height:1.55;color:var(--navy);border:1.5px solid var(--border);margin-bottom:.55rem"></div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end">
+      <button class="ibtn" onclick="SCX.bookOfficeOrientation(false)">📅 Book only (I will tell them)</button>
+      <button class="ibtn" style="background:var(--navy);color:#fff;border-color:var(--navy)" onclick="SCX.bookOfficeOrientation(true)">📅 Book and text them the details</button>
     </div>
   </div>
 </div>
