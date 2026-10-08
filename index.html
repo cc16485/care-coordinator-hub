@@ -4208,6 +4208,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <p class="hint">Each new client's start of care as one journey on their profile: the next required step, who owns it, and proof on each step. Who gets a new client nobody has picked is set by payer here. Nobody is texted or emailed.</p>
 <div id="cjSet"></div>
 </div>
+<div class="settings-section" id="rvSettings" data-set="google-reviews">
+<h3>Google reviews</h3>
+<p class="hint">When a family is clearly happy, their Care Coordinator gets one card suggesting they ask for a Google review, with the message and your review link ready to copy. The Hub never sends the ask.</p>
+<div id="rvSet"></div>
+</div>
 <div class="settings-section" data-set="routing">
 <h3>👥 Right person first, then escalate</h3>
 <p class="hint">Scheduling work goes to whoever is on Staffing duty now; work nobody takes pulls in whoever holds Owner Escalation. The duty schedule itself is under Dashboard, Responsible now, Manage.</p>
@@ -5039,6 +5044,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <div id="cpFacts" class="cpx-facts"></div>
   <!-- CLIENT JOURNEY (Stages 1-3, 2026-10-06): stage, rail, NEXT REQUIRED STEP and Coming next, on every tab. client-journey.js -->
   <div id="ccCare"></div><!-- Pause care / End care (client-care.js) -->
+  <div id="ccReview"></div><!-- Google review asks (review-ask.js) -->
   <div id="cjHead"></div>
   <div id="cpTabs" class="cp-tabs">
     <button type="button" class="cp-tab" data-cp="summary" onclick="cpShowTab('summary')">Overview</button>
@@ -6903,6 +6909,7 @@ The HomeTogether team</pre>
 <script src="journey-rules.js?v=1"></script>
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=4"></script>
+<script src="review-ask.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=3"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
@@ -9720,6 +9727,7 @@ async function openClient(seed, tab){
   window.scrollTo(0,0);
   if(typeof cjMountProfile==='function') cjMountProfile({ lead, ax });
   if(typeof ccCareMount==='function') ccCareMount({ lead, ax });
+  if(typeof rvMount==='function') rvMount({ lead, ax });
 }
 function openLeadProfile(id, tab){
   if(!(DATA.leads||[]).find(l=>l.id===id)) return;
@@ -14415,6 +14423,7 @@ function fillSettingsPanel(){
   try{ loopsSetRender(); }catch(_){}
   try{ routeSetRender(); }catch(_){}
   try{ if(typeof cjSetFill==='function') cjSetFill(); }catch(_){}
+  try{ if(typeof rvSetFill==='function') rvSetFill(); }catch(_){}
   try{ freshRender(); }catch(_){}
   try{ iimSetFill(); }catch(_){}
   try{ orrSetFill(); }catch(_){}
@@ -30714,6 +30723,9 @@ const OPS_KINDS = {
   /* Pause care / End care (2026-10-07): the one restart follow-up of a paused client, and the one sympathy card */
   pause_followup: { label:'Restart follow-up', hours:24 },
   sympathy:       { label:'Sympathy card',     hours:48 },
+  /* Google review asks (2026-10-08): a happy moment for the client's Care Coordinator, and one "did they leave one?" a week later */
+  review_ask:      { label:'Ask for a review', hours:72 },
+  review_followup: { label:'Review follow-up', hours:72 },
   /* N2 (2026-09-29): a caregiver's shift note the AI thought someone should read (care-notes, every two hours) */
   care_note:      { label:'Shift note',    hours:24 },
   /* Missed shift notes (2026-09-29): a caregiver replied with the note they didn't write, or never replied. */
@@ -30957,6 +30969,9 @@ function renderClientsBoard(){
   const f=FILTERS.find(x=>x[0]===CL.filter)||FILTERS[0];
   document.getElementById('clFilters').innerHTML=FILTERS.map(x=>'<button class="filter-pill'+(x[0]===f[0]?' active':'')+'" onclick="CL.filter=\''+x[0]+'\';CL.picked=true;renderClientsBoard()">'+x[0]+' <span style="opacity:.65;">'+all.filter(x[1]).length+'</span></button>').join('')
     +(CL.issues&&CL.issues.error?'<span class="field-note" style="color:var(--red);align-self:center;">Concerns could not load: '+esc(CL.issues.error)+'</span>':'');
+  /* Google review asks (2026-10-08): owners see the last 90 days at a glance */
+  if(typeof ccIsOwner==='function'&&ccIsOwner()&&typeof rvCounts==='function') rvCounts().then(c=>{ const f=document.getElementById('clFilters'); if(!c||!f||f.querySelector('.rv-count')) return;
+    f.insertAdjacentHTML('beforeend','<span class="field-note rv-count" style="align-self:center;margin-left:auto;">Google reviews, last 90 days: '+c.asked+' asked · '+c.left+' left'+(c.said_would?' · '+c.said_would+' said they would':'')+(c.live?'':' · suggestions off')+'</span>'); });
   /* Starting care: every client being started (client journeys, plus any older First shift checklist still open) */
   if(f[0]==='Starting care'){ box.innerHTML=cjStartingHtml(); document.querySelectorAll('#clFilters .filter-pill').forEach(b=>{ if(/^Starting care/.test(b.textContent)) b.innerHTML='Starting care <span style="opacity:.65;">'+cjStartingCount()+'</span>'; }); return; }
   const rows=all.filter(f[1]).sort((a,b)=>(b.bad-a.bad)||(b.warn-a.warn)||String(a.r.client_name).localeCompare(String(b.r.client_name)));
