@@ -15,6 +15,10 @@
    intake stages) and applicants (job_applicants and their booked interview). Looking only: nothing is saved from this
    screen. The card shows what you need to act (phone, where they are, what is next), never birth dates, Social
    Security numbers, background results, Medicaid numbers or medical details.
+   Screen 3, TODAY (2026-10-07, "start screen 3"): one timeline of today in Chicago time, from the Hub's own readers:
+   open shifts and missed clock-ins (SVX.sections, the Staffing view of Today), interviews (btInterviewsOn),
+   assessments (btAssessmentsOn, with GoHighLevel's booked time), welcome calls and orientation sessions. Take it on a
+   coverage or assessment card is the Hub's own Take it on that card's work item.
    ===================================================================================================================== */
 (function () {
   'use strict';
@@ -69,6 +73,9 @@
     + '.ph-tag.cl{background:#E7F6EC;color:#1F7A4D}.ph-tag.in{background:#FDF3E3;color:#A8660E}.ph-tag.ap{background:#EFEAFB;color:#6B4FBB}.ph-tag.past{background:#F1F5F9;color:#64748B}'
     + '.ph-dl{margin:10px 0 0;font-size:14px}.ph-dl div{display:flex;gap:10px;padding:7px 0;border-top:1px solid #EEF2F7}.ph-dl dt{flex:0 0 96px;color:#5B6878;font-size:12.5px}.ph-dl dd{margin:0;flex:1;min-width:0}'
     + '.ph-back{appearance:none;background:none;border:0;font:inherit;color:#0E3860;font-weight:600;font-size:14px;padding:12px 0 2px}'
+    + '.ph-tl{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:start}'
+    + '.ph-tl .ph-tm{font-size:13px;font-weight:700;color:#0E3860;padding-top:14px;font-variant-numeric:tabular-nums}'
+    + '.ph-tl.past{opacity:.55}.ph-now{display:flex;align-items:center;gap:8px;margin:4px 0 10px;font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#2E8F8B}.ph-now:after{content:"";flex:1;height:2px;background:#2E8F8B}'
     + '.ph-fam{border-top:1px solid #EEF2F7;padding:8px 0;display:flex;align-items:center;gap:10px}.ph-fam div{flex:1;min-width:0;font-size:14px}.ph-fam small{display:block;color:#5B6878;font-size:12px}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
@@ -173,7 +180,7 @@
       else say('Not saved yet (the connection dropped). It is kept on this phone and tried again the next time CC Office opens. If it can\u2019t wait, do it in the full Hub.', 'bad');
     } catch (e) {
       say('Not saved: ' + (e && e.message || e) + '. Nothing was changed. Try again, or use the full Hub.', 'bad');
-    } finally { BUSY = false; phRender(); }
+    } finally { BUSY = false; phRender(); if (typeof VIEW !== 'undefined' && VIEW === 'today') { todayLoad(true); } }
   }
   function sheet(title, hint, placeholder, button, required, run) {
     SHEET = true;
@@ -382,14 +389,123 @@
     if (what === 'shifts') { b.disabled = true; shiftsLoad(b.getAttribute('data-id')); }
   }
 
-  /* ── the two screens, and the tabs between them ── */
+  /* ── screen 3: today (one timeline, Chicago time) ── */
+  var TD = { loading: false, at: 0, rows: null, err: [] };
+  var hm = function (t) { var m = /^(\d{1,2})(?::(\d{2}))?\s*([ap])?/i.exec(String(t || '').trim()); if (!m) return null;
+    var h = +m[1] % (m[3] ? 12 : 24) + (m[3] && /p/i.test(m[3]) ? 12 : 0); return h * 60 + (+(m[2] || 0)); };
+  var span = function (t) { return String(t || '').split('-').map(function (x) { var m = hm(x); return m == null ? x.trim() : btTime(m); }).join('-'); };
+  var nowMin = function () { var c = new Date().toLocaleString('sv-SE', { timeZone: 'America/Chicago' }); return +c.slice(11, 13) * 60 + +c.slice(14, 16); };
+  function itemFor(pred) {
+    var me_ = me();
+    return (DATA.ops_items || []).filter(function (i) { return i.status === 'open' && pred(i); })
+      .map(function (i) { return { id: i.id, mine: lc(i.owner) === me_ && !!me_, owner: i.owner, owner_name: i.owner_name }; })[0] || null;
+  }
+  async function todayLoad(force) {
+    if (TD.loading || (!force && TD.rows && Date.now() - TD.at < 60000)) return; TD.loading = true; TD.err = [];
+    var day = btChiToday(), rows = [];
+    var midUtc = Date.parse(day + 'T00:00:00Z');
+    var safe = async function (label, fn) { try { await fn(); } catch (e) { TD.err.push(label + ' (' + (e && e.message || e) + ')'); } };
+    var readKey = async function (k) { var r = await sb.from('app_data').select('data').eq('key', k).maybeSingle(); if (r.error) throw r.error; return Array.isArray(r.data && r.data.data) ? r.data.data : []; };
+    await Promise.all([
+      safe('open shifts', async function () {
+        var cases = await readKey('coverage_cases'), tk = await readKey('timekeeper_cases');
+        DATA.coverage_cases = cases; DATA.timekeeper_cases = tk;
+        var S = SVX.sections(cases, tk, []);
+        S.todayCases.forEach(function (c) {
+          var a = SVX.asks(c), it = itemFor(function (i) { return String(i.coverage_case_id || '') === String(c.id); });
+          var how = a.yes.length ? a.yes.map(function (y) { return first(y.name); }).join(', ') + ' said yes' : a.n ? a.n + ' asked · ' + a.no + ' said no · ' + a.wait + ' waiting' : 'nobody asked yet';
+          rows.push({ min: hm(String(c.shift_time || '').split('-')[0]), kind: 'Open shift', red: true, title: c.client || 'Client',
+            sub: [span(c.shift_time), c.calling_off ? first(c.calling_off) + ' called off' : '', how].filter(Boolean).join(' · '),
+            item: it, link: 'index.html#cara/case/' + encodeURIComponent(c.id) });
+        });
+        S.clockins.forEach(function (l) {
+          rows.push({ min: hm(l.shift_time), kind: 'No clock-in yet', red: true, title: l.caregiver || 'Caregiver',
+            sub: [(l.client_first ? l.client_first + '’s ' : '') + span(l.shift_time) + ' shift', l.minutes_late != null ? l.minutes_late + ' min late' : ''].filter(Boolean).join(' · '), need: true });
+        });
+      }),
+      safe('interviews', async function () {
+        var b = await sb.from('interview_bookings').select('id,applicant_id,starts_at,status,coordinator_id').in('status', ['booked', 'attended', 'noshow'])
+          .gte('starts_at', new Date(midUtc - 864e5).toISOString()).lt('starts_at', new Date(midUtc + 2 * 864e5).toISOString()).order('starts_at');
+        if (b.error) throw b.error;
+        var ids = (b.data || []).map(function (x) { return x.applicant_id; }).filter(Boolean);
+        var a = ids.length ? await sb.from('job_applicants').select('id,first_name,last_name,phone,email').in('id', ids) : { data: [] };
+        if (a.error) throw a.error;
+        var byId = {}; (a.data || []).forEach(function (x) { byId[x.id] = x; });
+        btInterviewsOn(day, b.data || [], a.data || [], btAfternoonRule(DATA.ops_settings)).forEach(function (r) {
+          var ap = byId[r.applicant_id] || {};
+          rows.push({ min: r.min, kind: 'Interview', title: r.name, past: r.status !== 'booked',
+            sub: ['at the office', r.status === 'done' ? 'done' : r.status === 'no-show' ? 'did not come' : '', r.who ? 'with ' + r.who : ''].filter(Boolean).join(' · '),
+            phone: ap.phone, email: ap.email, link: 'index.html#ap/' + encodeURIComponent(r.applicant_id) });
+        });
+      }),
+      safe('assessments', async function () {
+        btAssessmentsOn(day, DATA.care_assessments, DATA.leads).forEach(function (r) {
+          var l = (DATA.leads || []).find(function (x) { return String(x.id) === String(r.lead_id); }) || null;
+          var it = r.lead_id ? itemFor(function (i) { return i.id === 'ops_asmt_' + r.lead_id; }) : null;
+          rows.push({ min: r.min, kind: 'Assessment', title: r.name, past: r.status !== 'booked',
+            sub: [r.address, r.who ? 'with ' + r.who : ''].filter(Boolean).join(' · '), item: it,
+            phone: l && l.phone, phoneLabel: l && l.first_name ? 'Call ' + first(l.first_name) : 'Call',
+            link: r.lead_id ? 'index.html#p/L' + encodeURIComponent(r.lead_id) + '/summary' : (r.ax ? 'index.html#p/A' + encodeURIComponent(r.ax) + '/summary' : '') });
+        });
+      }),
+      safe('welcome calls', async function () {
+        var w = await sb.from('welcome_calls').select('id,first_name,last_name,phone,starts_at,status').eq('status', 'booked')
+          .gte('starts_at', new Date(midUtc - 864e5).toISOString()).lt('starts_at', new Date(midUtc + 2 * 864e5).toISOString());
+        if (w.error) throw w.error;
+        (w.data || []).forEach(function (x) { var p = btChi(x.starts_at); if (!p || p.date !== day) return;
+          rows.push({ min: p.min, kind: 'Welcome call', title: ((x.first_name || '') + ' ' + (x.last_name || '')).trim() || 'New caregiver', sub: '15 minutes, video', phone: x.phone }); });
+      }),
+      safe('orientation', async function () {
+        (DATA.orient_sessions || []).forEach(function (o) {
+          if (!o || o.cancelled || String(o.date || '') !== day) return;
+          var n = (o.bookings || []).filter(function (b) { return !/cancel/i.test(String(b.attend_status || '')); }).length;
+          rows.push({ min: hm(o.time || o.start), kind: 'Orientation', title: 'Orientation session', sub: n + ' booked' });
+        });
+      })
+    ]);
+    rows.sort(function (a, b) { return (a.min == null ? 9999 : a.min) - (b.min == null ? 9999 : b.min); });
+    TD.rows = rows; TD.at = Date.now(); TD.loading = false; todayRender();
+  }
+  function todayRender() {
+    var box = document.getElementById('phTodayBody'); if (!box) return;
+    if (!TD.rows) { box.innerHTML = '<div class="ph-none" style="padding-top:14px">Loading today…</div>'; return; }
+    var now = nowMin(), drew = false, h = '';
+    var head = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Chicago' });
+    h += '<div class="ph-lane" style="color:#0E3860">' + esc(head.toUpperCase()) + '<span>' + TD.rows.length + ' on the schedule</span></div>';
+    if (TD.err.length) h += '<div class="ph-msg bad" style="margin:0 0 10px">Could not load ' + esc(TD.err.join(', ')) + '. The rest is below.</div>';
+    TD.rows.forEach(function (r) {
+      var past = r.past || (!r.red && r.min != null && r.min < now - 30);
+      if (!drew && r.min != null && r.min >= now) { h += '<div class="ph-now">NOW ' + esc(btTime(now)) + '</div>'; drew = true; }
+      var btn = '';
+      if (r.item && !r.item.mine) btn += '<button class="ph-b p" data-pt="take" data-id="' + esc(r.item.id) + '">Take it</button>';
+      if (r.need) btn += '<button class="ph-b p" data-pt="need">See in Needs me now</button>';
+      if (r.phone) btn += callBtn(r.phone, r.phoneLabel || 'Call', { email: r.email });
+      if (r.link) btn += '<a class="ph-b" href="' + esc(r.link) + '">Open in the Hub</a>';
+      var who = r.item ? (r.item.mine ? 'Yours' : r.item.owner ? 'Owner: ' + esc(first(r.item.owner_name || opsOwnerName(r.item.owner) || r.item.owner)) : '<b>Nobody has it</b>') : '';
+      h += '<div class="ph-tl' + (past ? ' past' : '') + '"><div class="ph-tm">' + esc(r.min == null ? 'Any time' : btTime(r.min)) + '</div>'
+        + '<div class="ph-card' + (r.red ? ' act' : '') + '"><div class="ph-k"' + (r.red ? ' style="color:#B42318"' : '') + '>' + esc(r.kind) + '</div>'
+        + '<div class="ph-t">' + esc(r.title) + '</div>' + (r.sub ? '<div class="ph-s">' + esc(r.sub) + '</div>' : '')
+        + (who ? '<div class="ph-who">' + who + '</div>' : '') + (btn ? '<div class="ph-btns">' + btn + '</div>' : '') + '</div></div>';
+    });
+    if (!drew) h += '<div class="ph-now">NOW ' + esc(btTime(now)) + '</div>';
+    if (!TD.rows.length) h += '<div class="ph-none">Nothing on today’s schedule: no open shifts, interviews, assessments, welcome calls or orientation.</div>';
+    box.innerHTML = h;
+  }
+  function onTodayTap(ev) {
+    var b = ev.target.closest && ev.target.closest('[data-pt]'); if (!b) return;
+    if (b.getAttribute('data-pt') === 'need') return show('need');
+    if (b.getAttribute('data-pt') === 'take') { b.disabled = true; act(b.getAttribute('data-id'), function (x) { return opsTakeIt(x.id); }, 'It’s yours now.'); }
+  }
+
+  /* ── the screens, and the tabs between them ── */
   var VIEW = 'need';
   function show(v) {
     VIEW = v;
-    var n = document.getElementById('phNeed'), f = document.getElementById('phFind'), t = document.getElementById('phTitle');
-    if (n) n.hidden = v !== 'need'; if (f) f.hidden = v !== 'find';
-    if (t) t.firstChild.nodeValue = v === 'find' ? 'Find a person' : 'Needs me now';
-    var r = document.getElementById('phRefresh'); if (r) r.hidden = v !== 'need';
+    var n = document.getElementById('phNeed'), f = document.getElementById('phFind'), td = document.getElementById('phToday'), t = document.getElementById('phTitle');
+    if (n) n.hidden = v !== 'need'; if (f) f.hidden = v !== 'find'; if (td) td.hidden = v !== 'today';
+    if (t) t.firstChild.nodeValue = v === 'find' ? 'Find a person' : v === 'today' ? 'Today' : 'Needs me now';
+    var r = document.getElementById('phRefresh'); if (r) r.hidden = v === 'find';
+    if (v === 'today') { todayRender(); todayLoad(false); }
     [].forEach.call(document.querySelectorAll('.ph-tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-v') === v); });
     if (v === 'find') { findLoad(); findRender(); }
     window.scrollTo(0, 0);
@@ -401,19 +517,21 @@
     var d = document.createElement('div'); d.id = 'phApp';
     d.innerHTML = '<div class="ph-top"><b id="phTitle">Needs me now<small id="phWho"></small></b>'
       + '<button type="button" id="phRefresh">Refresh</button><button type="button" id="phOut">Sign out</button></div>'
-      + '<div id="phNeed"><div id="phMsg" style="display:none"></div>'
+      + '<div id="phMsg" style="display:none"></div><div id="phNeed">'
       + '<div class="ph-wrap"><div id="phList"><div class="ph-none" style="padding-top:14px">Loading…</div></div>'
       + '<div class="ph-foot"><a href="' + hubLink() + '">Open the full Hub</a></div></div></div>'
       + '<div id="phFind" hidden><div class="ph-wrap"><input id="phQ" class="ph-q" type="search" autocomplete="off" autocapitalize="words" enterkeyhint="search" placeholder="Name or phone number" aria-label="Find a person">'
       + '<div id="phFindBody"></div></div></div>'
-      + '<nav class="ph-tabs"><button type="button" data-v="need" class="on">Needs me now</button><button type="button" data-v="find">Find a person</button></nav>';
+      + '<div id="phToday" hidden><div class="ph-wrap"><div id="phTodayBody"></div></div></div>'
+      + '<nav class="ph-tabs"><button type="button" data-v="need" class="on">Needs me now</button><button type="button" data-v="find">Find a person</button><button type="button" data-v="today">Today</button></nav>';
     document.body.appendChild(d);
     d.querySelector('#phNeed').addEventListener('click', onTap);
     d.querySelector('#phFind').addEventListener('click', onFindTap);
+    d.querySelector('#phToday').addEventListener('click', onTodayTap);
     d.querySelector('.ph-tabs').addEventListener('click', function (ev) { var b = ev.target.closest('button'); if (b) show(b.getAttribute('data-v')); });
     var q = d.querySelector('#phQ'), qt = null;
     q.addEventListener('input', function () { clearTimeout(qt); qt = setTimeout(function () { FIND.q = q.value; FIND.open = null; findRender(); }, 120); });
-    document.getElementById('phRefresh').onclick = function () { tick(true); };
+    document.getElementById('phRefresh').onclick = function () { tick(true); if (VIEW === 'today') todayLoad(true); };
     document.getElementById('phOut').onclick = async function () {
       try { localStorage.removeItem(KEY); } catch (e) { /* nothing kept */ }
       document.documentElement.classList.remove('ph-on');
@@ -426,6 +544,7 @@
     try { await fresh(); MSG = MSG && MSG.kind === 'bad' && !force ? MSG : null; }
     catch (e) { MSG = { text: 'Could not refresh: ' + (e && e.message || e) + '. Showing what was last loaded.', kind: 'bad' }; }
     phRender();
+    if (VIEW === 'today') todayLoad(force);
   }
   function phStart() {
     build();

@@ -38,7 +38,7 @@ async()=>{
   (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Test', shift:'day' };");
   DATA.coordinator_staff=[{ email:'krystal@mo-care.com', name:'Krystal Test' }]; DATA.ops_items=[];
   phStart(); await sleep(100);
-  ok('two tabs at the bottom: Needs me now, Find a person', [...document.querySelectorAll('.ph-tabs button')].map(b=>b.innerText).join('|')==='Needs me now|Find a person');
+  ok('tabs at the bottom: Needs me now, Find a person, Today', [...document.querySelectorAll('.ph-tabs button')].map(b=>b.innerText).join('|')==='Needs me now|Find a person|Today');
   document.querySelector('.ph-tabs [data-v="find"]').click(); await sleep(300);
   ok('Find a person: title changes, the search box shows, the work list is hidden', /Find a person/.test(document.getElementById('phTitle').innerText) && !document.getElementById('phFind').hidden && document.getElementById('phNeed').hidden);
   const q=document.getElementById('phQ'), body=()=>document.getElementById('phFindBody');
