@@ -85,7 +85,7 @@
     <h1>Hi <span id="hiName"></span>, let's <span id="hiVerb">finish</span> your profile</h1>
     <p class="lede" id="ledeSelf" style="display:none">
       Families see a short profile of you before a visit, so they know a friendly face is coming. Please answer the three
-      questions below in your own words, then add a photo and a short hello video. The office looks it over before families
+      questions below in your own words, then add a photo (and a short hello video if you like). The office looks it over before families
       see it. It takes about ten minutes.
     </p>
     <p class="lede" id="ledeNew">
@@ -182,7 +182,8 @@ const show = id => ['loading', 'nolink', 'form', 'done', 'published'].forEach(x 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 let ME = null, havePhoto = false, haveVideo = false, SELF = false;
 /* 452 (Samantha, 2026-10-05): a caregiver already working with us fills in their whole profile themselves: three
-   questions in their own words, a photo AND a video. New hires keep the page as it was. */
+   questions in their own words and a photo. The hello video is optional for everyone (522, 2026-10-08). New hires keep
+   the page as it was. */
 const SELF_Q = {
   about: ['What should families know about you?', "For example: where you're from, your family, what you enjoy doing."],
   experience: ['Who have you cared for, and for how long?', 'With us and before. Family members count too.'],
@@ -191,7 +192,6 @@ const SELF_Q = {
 function selfMode() {
   SELF = true;
   $('hiVerb').textContent = 'set up'; $('ledeSelf').style.display = 'block'; $('ledeNew').style.display = 'none';
-  $('videoOpt').style.display = 'none'; $('videoNeed').style.display = 'inline-block'; $('videoOk').style.display = 'none';
   $('wordsHead').textContent = 'Tell families about you';
   $('wordsHint').textContent = 'Please answer in your own words. What you write here is what families read before your visit.';
   Object.entries(SELF_Q).forEach(([k, [q, hint]], i) => { $('lab-' + k).textContent = (i + 1) + '. ' + q; $('sub-' + k).textContent = hint; });
@@ -327,13 +327,12 @@ async function save() {
   if (SELF) {
     const miss = [];
     if (!photo && !havePhoto) miss.push('a photo of yourself');
-    if (!video && !haveVideo) miss.push('a short hello video (about 30 seconds)');
     ['about', 'experience', 'why'].forEach(k => { if (!$(k).value.trim() || /\[/.test($(k).value)) miss.push('your answer to "' + SELF_Q[k][0] + '"'); });
     if (miss.length) return fail('Almost there. Please add ' + miss.join(', ') + '.');
   }
   if (!photo && !havePhoto) return fail('Please add a photo of yourself. Families look for it first.');
   if (!$('consent').checked) return fail('Please tick the permission box. Sharing your profile with your clients before your shifts is required.');
-  if (video && video.size > MAX_VIDEO) return fail('That video is too big. Please try a shorter one (about 30 seconds)' + (SELF ? '.' : ', or leave it out.'));
+  if (video && video.size > MAX_VIDEO) return fail('That video is too big. Please try a shorter one (about 30 seconds), or leave it out.');
   if (video && !extOf(video, VID)) return fail('Please choose an MP4, MOV or WEBM video.');
   $('go').disabled = true; const prog = $('prog'); prog.style.display = 'block';
   try {
