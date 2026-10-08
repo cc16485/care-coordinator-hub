@@ -67,7 +67,7 @@
     if (row.published) return ['Published', '#DCFCE7', '#15803D'];
     /* 452: a current caregiver fills it in themselves; it is ready for you once they send it complete */
     if (row.self_complete) {
-      if (row.submitted_at && row.photo_path && row.video_path && row.consent) return ['Sent in: check and publish', '#E0F7F6', '#0F766E'];
+      if (row.submitted_at && row.photo_path && row.consent) return ['Sent in: check and publish', '#E0F7F6', '#0F766E'];   /* 522: the video is optional */
       if (row.link_sent_at) return ['Link sent, waiting for them', '#E0F2FE', '#075985'];
       return ['Not sent yet', '#F3F4F6', '#4B5563'];
     }
@@ -682,7 +682,7 @@
   function cuClass(pp, row) {
     if (String(pp.hire_date || '').slice(0, 10) >= NEWHIRE_FROM) return 'newhire';
     if (row && row.published && !row.needs_review) return 'published';
-    if (row && row.submitted_at && row.photo_path && row.consent && (!row.self_complete || row.video_path)) return 'check';
+    if (row && row.submitted_at && row.photo_path && row.consent) return 'check';   /* 522: the video is optional */
     if (row && row.self_complete && row.link_sent_at) return 'sent';
     return 'none';
   }
@@ -743,9 +743,10 @@
       + '<div style="font-size:15px;font-weight:800;color:var(--navy,#0E3860)">' + (need ? need + ' of ' + cur + ' current caregivers don\'t have a published profile yet' : 'Every current caregiver has a published profile') + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">' + chip('Not sent yet · ' + g.none.length, '#F3F4F6', '#4B5563') + chip('Link sent, waiting · ' + g.sent.length, '#E0F2FE', '#075985')
       + chip('Sent in, needs your check · ' + g.check.length, '#E0F7F6', '#0F766E') + chip('Published · ' + g.published.length, '#DCFCE7', '#15803D') + '</div>'
-      + '<div class="field-note" style="margin-bottom:8px">They fill it in themselves: three questions in their own words, a photo and a short video (both required), and their permission. You check and publish each one from their page. Texts go 8am to 6pm; the email goes either way. Nothing is sent until you press a button.</div>'
+      + '<div class="field-note" style="margin-bottom:8px">They fill it in themselves: three questions in their own words, a photo (required) and a short hello video if they like, and their permission. You check and publish each one from their page. Texts go 8am to 6pm; the email goes either way. Nothing is sent until you press a button.</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
       + '<button class="primary" ' + (g.none.length && !CU.busy ? '' : 'disabled ') + 'onclick="CGP2.catchupSend(\'new\',this)">📲 Send profile links to everyone who needs one (' + g.none.length + ')</button>'
+      + '<button class="ghost" ' + (CU.busy ? 'disabled ' : '') + 'title="One text and email to every current caregiver saying the hello video is now optional. Never twice to the same person." onclick="CGP2.noticeSend(this)">📣 Tell everyone the video is optional</button>'
       + '<button class="ghost" ' + (again.length && !CU.busy ? '' : 'disabled ') + 'title="Anyone whose link went ' + AGAIN_DAYS + '+ days ago and who has not sent it in" onclick="CGP2.catchupSend(\'again\',this)">Send again to those waiting ' + AGAIN_DAYS + '+ days (' + again.length + ')</button>'
       + '</div>' + (CU.result ? '<div style="margin-top:10px;font-size:13px;white-space:pre-wrap;color:' + (CU.result[1] ? '#B00020' : '#15803D') + '">' + esc(CU.result[0]) + '</div>' : '')
       + '</div>'
@@ -793,11 +794,54 @@
     el.querySelector('#cuGo').onclick = go;
   }
   function catchupReload() { CU.rows = null; CU.err = ''; return catchupRender(); }
+  /* ── 522 (Samantha, 2026-10-08): "let us send out a message to all caregivers saying that the video is now optional".
+     Every current caregiver (active in AxisCare) with a mobile or email: one text and email each, the server's wording
+     (previewed here from the server, so they never differ), the server's rules (texts 8am to 6pm, their yes to texts,
+     opt-outs), never twice to the same person. A person presses it; the results are listed. */
+  async function noticeSend(btn) {
+    if (CU.busy || !CU.people) return;
+    var list = CU.people, reach = list.filter(function (p) { return cuHow(p); }), none = list.filter(function (p) { return !cuHow(p); });
+    if (!reach.length) { alert('Nobody on this list has a mobile or email on file. Nothing was sent.'); return; }
+    var words;
+    try { words = await call({ action: 'notice', kind: 'video_optional', first: 'Sam', dry: true }); }
+    catch (e) { alert('Could not get the message from the server: ' + ((e && e.message) || e) + '. Nothing was sent.'); return; }
+    var pop = typeof root.ccPopOpen === 'function' ? root.ccPopOpen : null;
+    var html = '<div style="font-size:15px;font-weight:800;color:var(--navy,#0E3860)">Tell ' + reach.length + ' caregiver' + (reach.length === 1 ? '' : 's') + ' the video is optional</div>'
+      + (cuInTextHours() ? '' : '<div style="background:#FFF8EC;border:1px solid #F0D8A8;border-radius:8px;padding:6px 9px;margin:8px 0;font-size:12.5px"><b>It is outside 8am to 6pm, so only the emails would go now.</b> Better to press this between 8am and 6pm so the texts go too.</div>')
+      + '<div class="field-note" style="margin:6px 0">The text (the email says the same, a little longer). Each person hears it once; anyone already told is skipped.</div>'
+      + '<div style="font-size:12.5px;border:1px solid #E2E8F0;border-radius:8px;padding:6px 9px;white-space:pre-wrap">' + esc(String(words.text || '')) + '</div>'
+      + '<div style="max-height:160px;overflow:auto;font-size:12.5px;border:1px solid #E2E8F0;border-radius:8px;padding:6px 9px;margin-top:8px">' + reach.map(function (p) { return esc((p.first + ' ' + p.last).trim()) + ' <span style="color:#64748B">· ' + esc(cuHow(p)) + '</span>'; }).join('<br>') + '</div>'
+      + (none.length ? '<div style="font-size:12.5px;color:#B00020;margin-top:6px">Can\'t be reached (no mobile or email in AxisCare): ' + none.map(function (p) { return esc((p.first + ' ' + p.last).trim()); }).join(', ') + '</div>' : '')
+      + '<div style="display:flex;gap:8px;margin-top:10px"><button class="primary" id="cuGo">Send to ' + reach.length + '</button><button class="ghost" id="cuNo">Cancel</button></div><div id="cuProg" class="field-note" style="margin-top:6px"></div>';
+    var el = pop ? pop(btn, html, { width: 560 }) : null;
+    var go = async function () {
+      CU.busy = true; CU.result = null; if (el) { el.querySelector('#cuGo').disabled = true; el.querySelector('#cuNo').disabled = true; }
+      var ok = 0, tx = 0, em = 0, already = 0, fails = [];
+      for (var i = 0; i < reach.length; i++) {
+        var p = reach[i], nm = (p.first + ' ' + p.last).trim();
+        if (el) el.querySelector('#cuProg').textContent = 'Sending ' + (i + 1) + ' of ' + reach.length + '…';
+        try {
+          var r = await call({ action: 'notice', kind: 'video_optional', axiscare_id: String(p.id), first: p.first || '', last: p.last || '', phone: p.mobile || '', email: p.email || '' });
+          if (r.already) { already++; continue; }
+          if (r.texted || r.emailed) { ok++; if (r.texted) tx++; if (r.emailed) em++; }
+          if (r.not_sent && r.not_sent.length) fails.push(nm + ': ' + r.not_sent.join('; '));
+        } catch (e) { fails.push(nm + ': ' + ((e && e.message) || e)); }
+      }
+      try { if (typeof root.opEvent === 'function') root.opEvent('profile_video_optional_told', { summary: 'Told ' + ok + ' current caregivers the profile video is optional (' + tx + ' texts, ' + em + ' emails' + (already ? ', ' + already + ' already told' : '') + ')' }); } catch (e) {}
+      CU.result = ['Told ' + ok + ' of ' + reach.length + ' (' + tx + ' by text, ' + em + ' by email' + (already ? '; ' + already + ' already told before, skipped' : '') + ').' + (fails.length ? '\n\nNot everything went:\n' + fails.join('\n') : ''), !!fails.length && !ok];
+      CU.busy = false; if (el && typeof root.ccPopClose === 'function') root.ccPopClose();
+      if (none.length) CU.result[0] += '\n\nCan\'t be reached (no mobile or email in AxisCare): ' + none.map(function (p) { return (p.first + ' ' + p.last).trim(); }).join(', ');
+      cuDraw();
+    };
+    if (!el) { if (confirm('Tell ' + reach.length + ' caregivers the video is optional?\n\n' + String(words.text || ''))) await go(); return; }
+    el.querySelector('#cuNo').onclick = function () { root.ccPopClose(); };
+    el.querySelector('#cuGo').onclick = go;
+  }
 
   root.CGP2 = { mount: mount, open: open, close: close, act: act, link: link, upload: upload, reload: reload,
     chipHtml: chipHtml, status: status, rowFor: rowFor, loadForCandidates: loadForCandidates, prompts: prompts, noDash: noDash,
     introPick: introPick, introReason: introReason, cardName: cardName, photoOf: photoOf,
     cacheState: cacheState, isLive: isLive,
-    beefUse: beefUse, catchupRender: catchupRender, catchupSend: catchupSend, catchupReload: catchupReload, cuClass: cuClass, CU: CU,
+    beefUse: beefUse, catchupRender: catchupRender, catchupSend: catchupSend, catchupReload: catchupReload, noticeSend: noticeSend, cuClass: cuClass, CU: CU,
     gateReady: function () { return !!G.rows; }, gateLoad: gateLoad, gateFor: gateFor, gateForAx: gateForAx, gateHtml: gateHtml, gateOpen: gateOpen, gateOverride: gateOverride };
 })(typeof window !== 'undefined' ? window : globalThis);
