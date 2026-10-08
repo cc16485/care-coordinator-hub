@@ -22128,12 +22128,16 @@ async function apStartingMount(rows){
   const ids = rows.map(r=>r.id);
   let intakes = [], refs = [];
   try{
-    const [h, rr] = await Promise.all([
+    const [h, rr, recent] = await Promise.all([
       sb.from('hire_intake').select('applicant_id,created_at,screening_cleared_at,candidate_id').in('applicant_id', ids),
       sb.from('reference_requests').select('applicant_id,slot,responded_at').in('applicant_id', ids),
+      /* Fix 2 of 4 (2026-10-08): applicant_id was only ever set by a one-time backfill, so newer start forms never
+         matched here. Recent forms are read too and matched by the phone or email on the application. Read only. */
+      sb.from('hire_intake').select('applicant_id,created_at,screening_cleared_at,candidate_id,phone,email,first_name').order('created_at',{ascending:false}).limit(200),
     ]);
     intakes = h.error ? [] : (h.data||[]);
     refs    = rr.error ? [] : (rr.data||[]);
+    if(!recent.error) intakes = apMatchIntakes(rows, intakes, recent.data||[]);
   }catch(e){ /* the list is still worth showing without the paperwork */ }
 
   const digits = p => String(p||'').replace(/[^0-9]/g,'').slice(-10);
@@ -23228,6 +23232,47 @@ function apRenderProfile(){
    the AxisCare candidate number. They now carry a link back to the person who
    applied, so this is a read rather than a new system.
    Requires recruit-lifecycle.sql. */
+/* Fix 2 of 4 (2026-10-08): start forms matched to applicants when applicant_id was never set. Samantha's rule: a form
+   is never associated with the wrong caregiver, so a match must be unambiguous: the form's phone digits or email
+   match the applicant's AND the first name matches, and no other applicant on the list matches the same form. A
+   shared phone, a shared email, or a phone that points at one applicant while the email points at another attaches
+   nothing. A form that already carries an applicant_id keeps it. Pure, so it is tested on its own. */
+const apDigits = p => String(p||'').replace(/\D/g,'').slice(-10);
+const apMail = e => String(e||'').trim().toLowerCase();
+const apFirst = n => String(n||'').trim().toLowerCase().split(/\s+/)[0] || '';
+function apContactMatch(r, x){
+  const d = apDigits(r.phone), em = apMail(r.email);
+  const byPhone = d.length === 10 && apDigits(x.phone) === d, byMail = !!em && apMail(x.email) === em;
+  return (byPhone || byMail) && apFirst(r.first_name) === apFirst(x.first_name) && !!apFirst(x.first_name);
+}
+function apMatchIntakes(rows, linked, recent){
+  const out = linked.slice(), have = new Set(linked.map(x => String(x.applicant_id)));
+  const open = rows.filter(r => !have.has(String(r.id)));
+  const forms = recent.filter(x => x && !x.applicant_id).slice().sort((a,b) => String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  const taken = new Set();
+  forms.forEach(x => {
+    const who = open.filter(r => !taken.has(String(r.id)) && apContactMatch(r, x));
+    if(who.length !== 1) return;                 /* nobody, or more than one person: attach nothing */
+    taken.add(String(who[0].id)); out.push({ ...x, applicant_id: who[0].id });
+  });
+  return out;
+}
+/* The applicant's page: their newest start form by contact when the link is missing, under the same rule. */
+async function apIntakeByContact(r){
+  const d = apDigits(r.phone), em = apMail(r.email);
+  if(d.length !== 10 && !em) return null;
+  const cols = 'id,created_at,candidate_id,signature_name,refs,screening_cleared_at,ssn_purged_at,phone,email,first_name,last_name';
+  try{
+    const [p, e] = await Promise.all([
+      d.length === 10 ? sb.from('hire_intake').select(cols).ilike('phone', '%' + d.slice(-4)).order('created_at',{ascending:false}).limit(25) : Promise.resolve({ data: [] }),
+      em ? sb.from('hire_intake').select(cols).ilike('email', em).order('created_at',{ascending:false}).limit(5) : Promise.resolve({ data: [] }),
+    ]);
+    const seen = new Set();
+    const rows = [].concat(p.data||[], e.data||[]).filter(x => x && !seen.has(x.id) && seen.add(x.id) && !x.applicant_id && apContactMatch(r, x));
+    rows.sort((a,b) => String(b.created_at||'').localeCompare(String(a.created_at||'')));
+    return rows[0] || null;
+  }catch(e){ return null; }
+}
 async function apOnboardMount(r){
   const host = document.getElementById('apOnboardHost'); if(!host) return;
   const esc = escapeHtmlComms;
@@ -23238,7 +23283,11 @@ async function apOnboardMount(r){
       sb.from('reference_requests').select('*').eq('applicant_id', r.id).order('slot'),
     ]);
     if(h.error) throw h.error;
-    const intake = (h.data||[])[0];
+    let intake = (h.data||[])[0];
+    /* Fix 2 of 4 (2026-10-08): hire_intake.applicant_id was only ever set by a one-time backfill, so every newer start
+       form showed here as "No start form yet". When the link is missing, their start form is found by the phone or
+       email on the application, the same match the import uses. Read only; nothing is written. */
+    if(!intake) intake = await apIntakeByContact(r);
     const R = refs.error ? [] : (refs.data||[]);
     let out = '';
 
