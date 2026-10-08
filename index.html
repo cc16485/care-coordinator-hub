@@ -6900,7 +6900,7 @@ The HomeTogether team</pre>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=1"></script>
 <script src="client-journey.js?v=14"></script>
-<script src="client-care.js?v=1"></script>
+<script src="client-care.js?v=2"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=3"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
@@ -13831,7 +13831,7 @@ async function renderClients(){
   const pastHtml = past.length ? '<details style="margin-top:14px;"><summary style="cursor:pointer;font-weight:700;color:var(--navy);">Past clients ('+past.length+')</summary>'
     +'<table style="margin-top:8px;"><thead><tr><th>Client</th><th>AxisCare ID</th><th>AxisCare status</th><th>Care ended</th><th>Why</th></tr></thead><tbody>'
     +past.map(r=>'<tr><td><a href="javascript:void(0)" data-open-client="'+escapeHtmlComms(String(r.axiscare_client_id||r.client_name))+'" style="color:inherit;text-decoration:underline dotted;">'+escapeHtmlComms(r.client_name)+'</a></td>'
-      +'<td>'+escapeHtmlComms(r.axiscare_client_id||'—')+'</td><td>'+axCell(r)+'</td><td>'+escapeHtmlComms(r.ended_at?lpscDate(r.ended_at):'—')+'</td><td>'+escapeHtmlComms(r.end_reason||'—')+'</td></tr>').join('')
+      +'<td>'+escapeHtmlComms(r.axiscare_client_id||'—')+'</td><td>'+axCell(r)+'</td><td>'+escapeHtmlComms(r.ended_at?(r.ended_date_basis==='on_or_before'?'on or before ':'')+lpscDate(r.ended_at):'—')+'</td><td>'+escapeHtmlComms(r.end_reason||'—')+'</td></tr>').join('')
     +'</tbody></table></details>' : '';
   wrap.innerHTML = `<table><thead><tr>
     <th>Client</th><th>AxisCare ID</th><th>AxisCare status</th><th>Care level (AxisCare)</th><th>Assessment Status</th><th>Last Check-in</th><th>Actions</th>
@@ -31104,7 +31104,7 @@ function cpCommandModel(){
   /* 3 · next action */
   if(st.k==='past'){
     const ended=r&&r.role_status&&r.role_status!=='active';
-    tile('next','Next action','Nothing: '+(ended?'care ended'+(r.ended_at?' '+dd(r.ended_at):''):'did not start'), ended?(r.end_reason?'reason: '+r.end_reason:'from their client record'):(l&&l.lost_reason?'reason: '+l.lost_reason:'no reason recorded'), 'history');
+    tile('next','Next action','Nothing: '+(ended?'care ended'+(r.ended_at?(r.ended_date_basis==='on_or_before'?' on or before ':' ')+dd(r.ended_at):''):'did not start'), ended?((r.end_reason?'reason: '+r.end_reason:'from their client record')+(r.ended_date_basis==='on_or_before'?' · exact date not recorded in AxisCare':'')):(l&&l.lost_reason?'reason: '+l.lost_reason:'no reason recorded'), 'history');
   }
   else if(row&&row.move) tile('next','Next action', row.move, 'the same next move the Leads board shows', row.tab, 'next');
   else if(due.length) tile('next','Next action', due[0].label.charAt(0).toUpperCase()+due[0].label.slice(1), 'the first thing open or due', due[0].tab, 'next');
@@ -37220,7 +37220,7 @@ async function cl360Identity(){
     CL360_AXSTATUS = {}; (cs.data||[]).forEach(x=>{ CL360_AXSTATUS[String(x.axiscare_client_id)] = x; });
   }catch(e){ CL360_AXSTATUS = {}; }
   try{
-    const roles = await sb.from('person_role').select('person_id,status,ended_at,end_reason').eq('role','client');
+    const roles = await sb.from('person_role').select('*').eq('role','client');   /* * : ended_date_basis (499) when it is there */
     /* one line per person: their active client role, or else their latest ended one */
     const roleOf = {};
     (roles.data||[]).forEach(r=>{ const cur=roleOf[r.person_id];
@@ -37239,7 +37239,7 @@ async function cl360Identity(){
       return { client_name: p.display_name || ((p.first_name||'')+' '+(p.last_name||'')).trim() || '(unnamed)',
                person_id: p.id,
                axiscare_client_id: ax ? String(ax.source_id) : '',
-               role_status: ro.status||'active', ended_at: ro.ended_at||null, end_reason: ro.end_reason||null,
+               role_status: ro.status||'active', ended_at: ro.ended_at||null, ended_date_basis: ro.ended_date_basis||null, end_reason: ro.end_reason||null,
                phone: p.primary_phone || '', ghl_contact_id: gh ? String(gh.source_id) : '',
                lead:null, assessment:null, plan:null, checkins:[] };
     });

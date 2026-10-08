@@ -16,7 +16,7 @@ FAKE = r"""
   const C=W.__care;
   const stateOf=ax=>({ axiscare_client_id:ax, client_name:{ '777':'Rhoda Real','500':'Olive Past','501':'Gil Gone' }[ax], state:C.state[ax], pause:ax==='777'?C.pause:null, payer:'medicaid',
     episodes:[{ episode_n:1, status:C.state[ax]==='active'||C.state[ax]==='paused'?'open':'closed', created_at:'2026-09-01', closed_reason:C.state[ax]==='past'?null:null }],
-    roles:ax==='500'?[{ status:'former', ended_at:null, end_reason:null }]:ax==='501'?[{ status:'former', ended_at:'2026-01-02', end_reason:'deceased' }]:[{ status:C.state[ax]==='past'?'former':'active' }],
+    roles:ax==='500'?[{ status:'former', ended_at:'2026-10-08', ended_date_basis:'on_or_before', end_reason:null }]:ax==='501'?[{ status:'former', ended_at:'2026-01-02', end_reason:'deceased' }]:[{ status:C.state[ax]==='past'?'former':'active' }],
     changes:ax==='777'?C.changes:[], reasons,
     can:{ pause:['active','starting'].includes(C.state[ax]), resume:C.state[ax]==='paused', end:['active','starting','paused'].includes(C.state[ax]), return:C.state[ax]==='past'&&W.__me.email==='sam@mo-care.com' } });
   const of=W.fetch; W.fetch=async(u,o)=>{ if(/client-journey/.test(String(u))){ const b=JSON.parse(o.body);
@@ -66,7 +66,7 @@ T = r"""async()=>{
   dlg().querySelector('#ccR').value='deceased'; dlg().querySelector('#ccGo').click(); await sleep(700);
   ok('...ended (deceased): the profile says Deceased and offers nothing; kept for the record only', /Deceased/.test(B().innerText) && !B().querySelector('button') && /No outreach of any kind/.test(B().innerText), B().innerText);
   await openLeadProfile('R5','summary'); await sleep(500);
-  ok('a past client imported from AxisCare: Past, and "not recorded in AxisCare" instead of a guessed date or reason', /Past client/.test(B().innerText) && /End date not recorded in AxisCare/.test(B().innerText) && /reason not recorded in AxisCare/.test(B().innerText), B().innerText);
+  ok('a past client imported from AxisCare: Past, "on or before" the date we first saw them inactive, never an exact date, and no guessed reason', /Past client/.test(B().innerText) && /Care ended on or before [A-Z][a-z]{2} 8, 2026 · exact date not recorded in AxisCare/.test(B().innerText) && /reason not recorded in AxisCare/.test(B().innerText), B().innerText);
   ok('...a Care Coordinator can\'t start a new episode', !/Start a new episode/.test(B().innerText));
   await shot('past');
   window.__as('sam@mo-care.com','Samantha Owner'); await openLeadProfile('R5','summary'); await sleep(500);
