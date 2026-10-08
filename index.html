@@ -2056,7 +2056,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="bgr-people" style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:10px">
         <button class="ibtn" onclick="bgrSyncRefAnswers(this)" title="Bring any reference answers that came in through the online form onto their candidate, and clear anyone now fully done. Sends nothing.">&#8635; Sync reference answers</button>
         <button class="ibtn" onclick="bgrMakeRefPdfs(this)" title="Make a PDF for every answered reference that does not have one yet, and file it to the caregiver's GoHighLevel contact. Messages nobody.">&#128196; Make reference PDFs</button>
-        <span class="field-note" style="flex:1;min-width:180px">Everyone in the hiring pipeline. Use the row actions to record checks and references. Nothing here sends on its own.</span>
+        <button class="ibtn" onclick="openOBModal()" title="Someone who came in another way (no offer in the Hub): add them by hand with their references.">+ Add a person</button>
+        <span class="field-note" style="flex:1;min-width:180px">Everyone offered a job is here from the moment the offer goes out. Type references in with the pencil, or let their start form bring them in. Nothing here sends on its own.</span>
       </div>
 
       <!-- Reference Activity: observational only. No Ask button, no invoke. -->
@@ -2103,6 +2104,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
       </div>
 
+      <!-- Offered people who are not in the table yet (offers from before 2026-10-08): Add buttons, never added by themselves. Drawn by renderOfferedStrip() in caregivers-engine.js. -->
+      <div class="card bgr-people" id="obOfferedStrip" style="display:none;padding:12px 16px;margin-bottom:14px;border-left:3px solid #6366F1"></div>
       <div class="card bgr-people" id="obImportStrip" style="display:none;padding:12px 16px;margin-bottom:14px;border-left:3px solid var(--teal)"></div>
       <div class="card bgr-people" id="obAutoImport" style="display:none;padding:8px 16px;margin:-6px 0 14px;"></div>
       <div class="card bgr-people" style="padding:14px 16px 4px;margin-bottom:14px;">
@@ -19618,6 +19621,10 @@ async function submitJobOffer(){
       steps.push(went.length ? '✓ Start link sent by '+went.join(' + ') : '! Start link was not sent');
     }
     (res.not_sent||[]).forEach(n=>steps.push('! Not sent: '+n));
+    /* Offered people go straight into Background & References (2026-10-08, Samantha): their checks row is made now,
+       before their start form is back, so references can be typed in or asked for right away. */
+    try{ const bc=(window.SCX&&SCX.offerIntoChecks)?await SCX.offerIntoChecks(res.id):null; if(bc) steps.push(bc.line); }
+    catch(e){ steps.push('! Not in Background & References yet: '+(e&&e.message?e.message:'error')+'. Use Add on that tab.'); }
     if(res.prn_track) steps.push(res.prn_track==='started'||res.prn_track==='already' ? '✓ On the PRN CNA Team pay track ($20/hr), recorded in their history'
       : '! PRN CNA Team pay track: ' + res.prn_track + ' (open their page and try again)');
     steps.push('✓ Welcome text + email are queued — they send automatically when Staffing enters '+first+' in Viventium (so the "watch for the Viventium email" message lands right as that email goes out)');
