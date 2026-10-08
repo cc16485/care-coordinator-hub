@@ -3841,12 +3841,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <!-- What we are actually offering them, which is not always what they
                asked for. Recorded here because "offered $17, PRN" was a
                sentence somebody was typing into the notes. -->
-          <div class="grid2">
-            <div><label>Proposed start date</label><input id="jo_start" type="date">
-              <div class="field-note" style="margin-top:2px;">The one thing nothing else captures, and the one that turns into "never started" when it is missing.</div>
-            </div>
-            <div></div>
-          </div>
+          <!-- No start date on an offer (Samantha, 2026-10-08): in home care there is no exact start date. The first shift
+               comes from the schedule once training is done. -->
           <div class="grid2">
             <div><label>Hours we are offering</label>
               <select id="jo_hours">
@@ -19596,7 +19592,6 @@ async function submitJobOffer(){
     position:g('jo_position'),onboarding_plan:g('jo_plan')||null,interview_date:g('jo_date')||null,offered_by:g('jo_by')||null,
     pay_rate:isFinite(rate)&&rate>0?rate:null, level_suggested:joLevel,
     hours_type:g('jo_hours')||null, will_build_up:g('jo_build')||null,
-    start_date:g('jo_start')||null,
     availability:g('jo_avail')||null,experience:g('jo_exp')||null,
     personality:g('jo_pers')||null,notes:g('jo_notes')||null, attributes:joState };
   const btn=document.getElementById('jo_send');
@@ -19621,7 +19616,6 @@ async function submitJobOffer(){
           offer_position: offer.position || null,
           offer_rate: offer.pay_rate,
           offer_hours: offer.hours_type || null,
-          start_date: offer.start_date || null,
           offer_sent_at: new Date().toISOString(),
           status: 'offer',
         }).eq('id', JO_APPLICANT);
@@ -21910,7 +21904,9 @@ function apMatching(k, ignorePosition){
         if(r.left_at) return false;
         if(r.status==='offer') return true;            // said yes, not started
         if(r.status!=='hired') return false;
-        if(!r.start_date) return true;                 // hired with no start date is itself the problem
+        /* No start date on an offer (2026-10-08): home care has no exact start date, the first shift comes from the
+           schedule. A hire stays here for 4 weeks after being hired (older records with a date keep the old window). */
+        if(!r.start_date) return !r.hired_at || apDays(r.hired_at) < 28;
         const d = apDays(r.start_date);                // positive once the day has passed
         return d > -28 && d < 14;                      // coming up, or just begun
       }
@@ -22155,8 +22151,8 @@ async function apStartingMount(rows){
       dot(mine.length > 0 && back >= 2, back + ' of ' + (mine.length||0) + ' references back',
           mine.length ? back + ' of ' + mine.length + ' references back' : 'no references asked'),
       dot(!!orient, 'orientation ' + day(orient && orient.date), 'no orientation booked'),
-      dot(!!r.start_date, 'starts ' + day(r.start_date), 'no start date set'),
     ];
+    if(r.start_date) steps.push(dot(true, 'starts ' + day(r.start_date), ''));
     const waiting = steps.filter(s=>s.indexOf('•') > -1).length;
 
     return '<div style="background:#fff;border:1px solid ' + (waiting ? '#F5D9A0' : '#DCFCE7')
@@ -22173,18 +22169,14 @@ async function apStartingMount(rows){
               + ';background:' + (days < 0 ? '#FEF3C7' : '#DCFCE7') + ';border-radius:999px;padding:3px 11px;">'
               + (days > 1 ? 'in ' + days + ' days' : days === 1 ? 'tomorrow' : days === 0 ? 'today' : 'started ' + Math.abs(days) + 'd ago')
               + '</span>'
-            : '<span style="font-size:12px;font-weight:800;color:#B45309;background:#FEF3C7;border-radius:999px;padding:3px 11px;">no start date</span>')
+            : (r.hired_at ? '<span style="font-size:12px;font-weight:800;color:#15803D;background:#DCFCE7;border-radius:999px;padding:3px 11px;">hired ' + esc(day(r.hired_at)) + '</span>' : ''))
       + '</div>'
       + '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:9px;">' + steps.join('') + '</div>'
       + (waiting ? '' : '<div class="field-note" style="margin-top:7px;">Nothing outstanding.</div>')
       + '</div>';
   }).join('');
 
-  const stuck = rows.filter(r=>!r.start_date).length;
-  host.innerHTML =
-    (stuck ? '<div style="background:#FFF8E8;border:1px solid #F5D9A0;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13.5px;">'
-      + stuck + ' of these have no start date. That is the one that quietly turns into somebody who never started.</div>' : '')
-    + cards
+  host.innerHTML = cards
     + '<div class="field-note" style="margin-top:10px;">Each step is done on the tab that owns it: '
     + '<b>Offers</b>, <b>Background</b> and <b>Orientation</b>. This is only the view that shows them together.</div>';
 }
@@ -22241,7 +22233,7 @@ function apToOffer(id, answers){
     /* PRN2: every offer starts from a clean form. Going straight from one person's offer to the next used to carry the
        first one's notes, hours and start date over, and a PRN line must never land on somebody else's AxisCare note. */
     if(typeof joReset === 'function') joReset();
-    ['jo_hours','jo_build','jo_start'].forEach(f=>{ const e=document.getElementById(f); if(e) e.value=''; });
+    ['jo_hours','jo_build'].forEach(f=>{ const e=document.getElementById(f); if(e) e.value=''; });
     const v=(f,val)=>{ const e=document.getElementById(f); if(e && val) e.value=val; };
     v('jo_first', r.first_name); v('jo_last', r.last_name);
     v('jo_phone', r.phone); v('jo_email', r.email);
