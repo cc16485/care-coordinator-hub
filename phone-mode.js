@@ -19,6 +19,11 @@
    open shifts and missed clock-ins (SVX.sections, the Staffing view of Today), interviews (btInterviewsOn),
    assessments (btAssessmentsOn, with GoHighLevel's booked time), welcome calls and orientation sessions. Take it on a
    coverage or assessment card is the Hub's own Take it on that card's work item.
+   Screen 4, END MY SHIFT (2026-10-07, "start screen 4"): the Hub's End My Shift (end-shift.js) with a phone layout.
+   The lists are its eoLists(), the next person on duty is its EOX.nextOnDuty, and Post my handoff is its EOX.eoPost
+   (hand to the next person on duty, mark done, keep with a note; urgent unowned work onto the Stand-Up board; the
+   handoff written for the next person). Nobody is texted. A handoff someone posted to you shows at the top of Needs
+   me now until you tap Got it (the Hub's hoAck), the same as on the Hub's Today.
    ===================================================================================================================== */
 (function () {
   'use strict';
@@ -76,6 +81,10 @@
     + '.ph-tl{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:start}'
     + '.ph-tl .ph-tm{font-size:13px;font-weight:700;color:#0E3860;padding-top:14px;font-variant-numeric:tabular-nums}'
     + '.ph-tl.past{opacity:.55}.ph-now{display:flex;align-items:center;gap:8px;margin:4px 0 10px;font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#2E8F8B}.ph-now:after{content:"";flex:1;height:2px;background:#2E8F8B}'
+    + '.ph-ch{display:flex;gap:6px;margin-top:8px}.ph-ch button{flex:1;appearance:none;border:1.5px solid #DCE4EE;background:#fff;border-radius:9px;padding:9px 4px;font:inherit;font-size:13px;font-weight:600;color:#5B6878;min-height:42px}'
+    + '.ph-ch button.on{background:#2E8F8B;border-color:#2E8F8B;color:#fff}'
+    + '.ph-in{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:9px 10px;border:1.5px solid #DCE4EE;border-radius:9px;margin-top:8px}'
+    + '.ph-ho{background:#EEF8F7;border:1.5px dashed #2E8F8B;border-radius:14px;padding:12px 13px;margin:12px 0 4px}.ph-ho ul{margin:6px 0 0;padding-left:18px;font-size:13.5px}'
     + '.ph-fam{border-top:1px solid #EEF2F7;padding:8px 0;display:flex;align-items:center;gap:10px}.ph-fam div{flex:1;min-width:0;font-size:14px}.ph-fam small{display:block;color:#5B6878;font-size:12px}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
@@ -150,7 +159,7 @@
       return '<div class="ph-lane" style="color:' + color + '">' + label + ' · ' + list.length + '<span>' + note + '</span></div>'
         + (list.length ? list.map(function (i) { return card(i, color === '#B42318'); }).join('') : '<div class="ph-none">' + none + '</div>');
     };
-    box.innerHTML = lane('ACT NOW', 'urgent, late, or a shift about to start with nobody', '#B42318', act, 'Nothing urgent or late. Good.')
+    box.innerHTML = handoffsHtml() + lane('ACT NOW', 'urgent, late, or a shift about to start with nobody', '#B42318', act, 'Nothing urgent or late. Good.')
       + lane('DUE TODAY', 'everything else that needs doing today', '#B7791F', due, 'Nothing else due today.');
     var m = document.getElementById('phMsg');
     if (m) { m.className = MSG ? 'ph-msg ' + MSG.kind : ''; m.textContent = MSG ? MSG.text : ''; m.style.display = MSG ? 'block' : 'none'; }
@@ -203,6 +212,8 @@
   }
   function title(it) { return it.about || it.title || 'this'; }
   function onTap(ev) {
+    var g = ev.target.closest && ev.target.closest('[data-ho]');
+    if (g) { g.disabled = true; g.textContent = 'Saving…'; Promise.resolve(hoAck(g.getAttribute('data-ho'))).then(function () { say(saved() ? 'Got it. The handoff is cleared.' : 'Not saved yet (the connection dropped). Try Got it again in a moment.', saved() ? 'ok' : 'bad'); }); return; }
     var b = ev.target.closest && ev.target.closest('[data-ph]'); if (!b) return;
     var id = b.getAttribute('data-id'), what = b.getAttribute('data-ph');
     var it = (DATA.ops_items || []).find(function (x) { return x.id === id; }); if (!it) return;
@@ -497,14 +508,116 @@
     if (b.getAttribute('data-pt') === 'take') { b.disabled = true; act(b.getAttribute('data-id'), function (x) { return opsTakeIt(x.id); }, 'It’s yours now.'); }
   }
 
+  /* ── screen 4: end my shift (the Hub's own End My Shift, phone layout) ── */
+  var EO = { L: null, nx: null, pick: {}, note: {}, general: '', posted: null, busy: false };
+  var areaWord = function (a) { try { return dutyAreaLabel(a); } catch (e) { return a === 'staffing' ? 'Staffing' : 'Operations'; } };
+  var fullName = function (e) { try { return opsOwnerName(e) || e; } catch (x) { return e; } };
+  async function endOpen() {
+    var box = document.getElementById('phEndBody'); if (!box) return;
+    if (EO.posted) return endRender();
+    box.innerHTML = '<div class="ph-none" style="padding-top:14px">Getting your list…</div>';
+    try { await fresh(); } catch (e) { /* the list below is what was last loaded */ }
+    EO.L = eoLists(); EO.nx = { operations: EOX.nextOnDuty('operations'), staffing: EOX.nextOnDuty('staffing') };
+    EO.L.moving.forEach(function (it) {
+      if (EO.pick[it.id]) return;
+      var to = EO.nx[EOX.areaOf(it)], t = opsPriorityKey(it)[0];
+      EO.pick[it.id] = (t <= 1 && to) ? 'hand' : 'keep';   // the Hub's own default
+    });
+    endRender();
+  }
+  function endRender() {
+    var box = document.getElementById('phEndBody'); if (!box) return;
+    if (EO.posted) {
+      var o = EO.posted;
+      box.innerHTML = '<div class="ph-card" style="margin-top:14px"><div class="ph-t">' + esc(o.to.length ? 'Handoff posted to ' + o.to.map(function (e) { return first(fullName(e)); }).join(' and ') : 'Your shift is wrapped up')
+        + '</div><div class="ph-s">' + esc(o.handed + ' handed on · ' + o.done + ' marked done' + (o.skipped ? ' · ' + o.skipped + ' already changed by someone else, left alone' : '')) + '</div>'
+        + '<div class="ph-s" style="margin-top:6px">' + esc(o.to.length ? 'It shows at the top of their Today until they tap Got it. Nobody was texted.' : 'Nobody else is on duty in the next 4 days, so nothing was handed off. Nobody was texted.') + '</div>'
+        + '<div class="ph-btns"><button class="ph-b p" data-pe="again">Back to my lists</button></div></div>';
+      return;
+    }
+    var L = EO.L, nx = EO.nx; if (!L) return;
+    var toLine = ['operations', 'staffing'].map(function (a) {
+      return areaWord(a) + ': ' + (nx[a] ? fullName(nx[a].person) + (nx[a].at ? ' (from ' + nx[a].at.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }) + ')' : ' (now)') : 'nobody else in the next 4 days');
+    }).join(' · ');
+    var h = '<div class="ph-s" style="margin-top:12px"><b>Next on duty.</b> ' + esc(toLine) + '</div>';
+    h += '<div class="ph-lane" style="color:#0E3860">STILL MOVING TODAY · ' + L.moving.length + '<span>stays with you, goes to the next person, or done</span></div>';
+    if (!L.moving.length) h += '<div class="ph-none">Nothing of yours is moving today.</div>';
+    L.moving.forEach(function (it) {
+      var a = EOX.areaOf(it), to = nx[a], p = EO.pick[it.id] || 'keep', t = opsPriorityKey(it)[0];
+      var due = ''; try { due = opsDueText(it); } catch (e) { /* none */ }
+      h += '<div class="ph-card' + (t <= 2 ? ' act' : '') + '" data-eo="' + esc(it.id) + '"><div class="ph-t">' + esc(it.about || it.title || '') + '</div>'
+        + (due ? '<div class="ph-s">' + esc(due) + '</div>' : '')
+        + '<div class="ph-ch">'
+        + '<button type="button" data-pk="keep"' + (p === 'keep' ? ' class="on"' : '') + '>Stays with me</button>'
+        + (to ? '<button type="button" data-pk="hand"' + (p === 'hand' ? ' class="on"' : '') + '>To ' + esc(first(fullName(to.person))) + '</button>' : '')
+        + '<button type="button" data-pk="done"' + (p === 'done' ? ' class="on"' : '') + '>Done</button></div>'
+        + '<input class="ph-in" data-note="' + esc(it.id) + '" value="' + esc(EO.note[it.id] || '') + '" placeholder="' + esc('Note for ' + (to && p === 'hand' ? first(fullName(to.person)) : 'the record') + ' (where it stands)') + '"></div>';
+    });
+    if (L.parked.length || L.later.length) h += '<div class="ph-s" style="margin:6px 2px">' + esc([L.parked.length ? L.parked.length + ' waiting with a wake-up' : '', L.later.length ? L.later.length + ' later' : ''].filter(Boolean).join(' and ') + (L.parked.length + L.later.length === 1 ? ' stays with you and comes back by itself.' : ' stay with you and come back by themselves.')) + '</div>';
+    if (L.attention.length) h += '<div class="ph-lane" style="color:#B42318">NEEDS ATTENTION, NOBODY HAS IT · ' + L.attention.length + '<span>these go in the handoff and on the To talk about list</span></div>'
+      + L.attention.map(function (i) { return '<div class="ph-s" style="margin:0 2px 4px">· ' + esc(i.about || i.title || '') + '</div>'; }).join('');
+    h += '<div id="phDesk">' + (typeof dkShiftHtml === 'function' ? dkShiftHtml() : '') + '</div>';
+    h += '<div class="ph-lane" style="color:#0E3860">ANYTHING ELSE<span>for the next person</span></div><textarea class="ph-in" id="phEoGeneral" rows="3" style="min-height:80px">' + esc(EO.general) + '</textarea>';
+    h += '<div class="ph-s" style="margin:8px 2px">Nobody is texted. The handoff shows at the top of their Today until they tap Got it, and stays on the record.</div>'
+      + '<div class="ph-btns"><button class="ph-b p" data-pe="post" style="flex:1;justify-content:center">Post my handoff</button></div>';
+    box.innerHTML = h;
+  }
+  async function endPost(btn) {
+    if (EO.busy) return; EO.busy = true; btn.disabled = true; btn.textContent = 'Posting…';
+    try {
+      await fresh();
+      var me_ = me(), skipped = 0, picks = [];
+      (EO.L.moving || []).forEach(function (old) {
+        var it = (DATA.ops_items || []).find(function (x) { return x.id === old.id; });
+        if (!it || it.status !== 'open' || lc(it.owner) !== me_) { skipped++; return; }
+        picks.push({ it: it, what: EO.pick[old.id] || 'keep', note: String(EO.note[old.id] || '').trim() });
+      });
+      var out = await EOX.eoPost(picks, eoLists().attention, String(EO.general || '').trim(), EO.nx);
+      try { if (typeof dkShiftApply === 'function') await dkShiftApply(document.getElementById('phDesk')); } catch (e) { /* the desk step is extra */ }
+      if (!saved()) { say('Not everything saved (the connection dropped). It is kept on this phone and tried again the next time CC Office opens.', 'bad'); }
+      EO.posted = { to: out.to || [], handed: out.handed || 0, done: out.done || 0, skipped: skipped };
+      EO.pick = {}; EO.note = {}; EO.general = '';
+    } catch (e) {
+      say('The handoff did not post: ' + (e && e.message || e) + '. Nothing more was changed. Try again, or use the full Hub.', 'bad');
+      btn.disabled = false; btn.textContent = 'Post my handoff';
+    } finally { EO.busy = false; endRender(); phRender(); }
+  }
+  function onEndTap(ev) {
+    var t = ev.target;
+    var pk = t.closest && t.closest('[data-pk]');
+    if (pk) { var card = pk.closest('[data-eo]'); EO.pick[card.getAttribute('data-eo')] = pk.getAttribute('data-pk'); endRender(); return; }
+    var pe = t.closest && t.closest('[data-pe]'); if (!pe) return;
+    if (pe.getAttribute('data-pe') === 'post') endPost(pe);
+    if (pe.getAttribute('data-pe') === 'again') { EO.posted = null; endOpen(); }
+  }
+  function onEndInput(ev) {
+    var id = ev.target.getAttribute && ev.target.getAttribute('data-note');
+    if (id) EO.note[id] = ev.target.value;
+    if (ev.target.id === 'phEoGeneral') EO.general = ev.target.value;
+  }
+  /* a handoff posted to me, at the top of Needs me now (the Hub's own list and Got it) */
+  function handoffsHtml() {
+    var list = []; try { list = EOX.hoMine(); } catch (e) { return ''; }
+    return list.map(function (h) {
+      var when = new Date(h.posted_at).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+      var items = h.items || [], moving = items.filter(function (i) { return i.what !== 'attention'; }), att = items.filter(function (i) { return i.what === 'attention'; });
+      return '<div class="ph-ho"><div class="ph-t">Handoff from ' + esc(h.from_name || '') + ', ' + esc(when) + '</div>'
+        + (moving.length ? '<ul>' + moving.map(function (i) { return '<li>' + esc(i.label) + ' <span class="ph-s">(' + (i.what === 'kept' ? 'stays with ' + esc(first(i.owner_name || h.from_name)) : 'now yours') + ')</span>' + (i.note ? ': ' + esc(i.note) : '') + '</li>'; }).join('') + '</ul>' : '<div class="ph-s">Nothing still moving.</div>')
+        + (att.length ? '<div class="ph-s" style="color:#B42318;font-weight:700;margin-top:6px">' + att.length + ' need' + (att.length === 1 ? 's' : '') + ' attention, nobody has ' + (att.length === 1 ? 'it' : 'them') + ':</div><ul>' + att.map(function (i) { return '<li>' + esc(i.label) + '</li>'; }).join('') + '</ul>' : '')
+        + (h.general_note ? '<div class="ph-s" style="margin-top:6px;color:#1B2733">“' + esc(h.general_note) + '”</div>' : '')
+        + '<div class="ph-btns"><button class="ph-b p" data-ho="' + esc(h.id) + '">Got it</button></div></div>';
+    }).join('');
+  }
+
   /* ── the screens, and the tabs between them ── */
   var VIEW = 'need';
   function show(v) {
     VIEW = v;
-    var n = document.getElementById('phNeed'), f = document.getElementById('phFind'), td = document.getElementById('phToday'), t = document.getElementById('phTitle');
-    if (n) n.hidden = v !== 'need'; if (f) f.hidden = v !== 'find'; if (td) td.hidden = v !== 'today';
-    if (t) t.firstChild.nodeValue = v === 'find' ? 'Find a person' : v === 'today' ? 'Today' : 'Needs me now';
-    var r = document.getElementById('phRefresh'); if (r) r.hidden = v === 'find';
+    var n = document.getElementById('phNeed'), f = document.getElementById('phFind'), td = document.getElementById('phToday'), en = document.getElementById('phEnd'), t = document.getElementById('phTitle');
+    if (n) n.hidden = v !== 'need'; if (f) f.hidden = v !== 'find'; if (td) td.hidden = v !== 'today'; if (en) en.hidden = v !== 'end';
+    if (t) t.firstChild.nodeValue = v === 'find' ? 'Find a person' : v === 'today' ? 'Today' : v === 'end' ? 'End my shift' : 'Needs me now';
+    var r = document.getElementById('phRefresh'); if (r) r.hidden = v === 'find' || v === 'end';
+    if (v === 'end') endOpen();
     if (v === 'today') { todayRender(); todayLoad(false); }
     [].forEach.call(document.querySelectorAll('.ph-tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-v') === v); });
     if (v === 'find') { findLoad(); findRender(); }
@@ -523,11 +636,14 @@
       + '<div id="phFind" hidden><div class="ph-wrap"><input id="phQ" class="ph-q" type="search" autocomplete="off" autocapitalize="words" enterkeyhint="search" placeholder="Name or phone number" aria-label="Find a person">'
       + '<div id="phFindBody"></div></div></div>'
       + '<div id="phToday" hidden><div class="ph-wrap"><div id="phTodayBody"></div></div></div>'
-      + '<nav class="ph-tabs"><button type="button" data-v="need" class="on">Needs me now</button><button type="button" data-v="find">Find a person</button><button type="button" data-v="today">Today</button></nav>';
+      + '<div id="phEnd" hidden><div class="ph-wrap"><div id="phEndBody"></div></div></div>'
+      + '<nav class="ph-tabs"><button type="button" data-v="need" class="on">Needs me</button><button type="button" data-v="find">Find</button><button type="button" data-v="today">Today</button><button type="button" data-v="end">End shift</button></nav>';
     document.body.appendChild(d);
     d.querySelector('#phNeed').addEventListener('click', onTap);
     d.querySelector('#phFind').addEventListener('click', onFindTap);
     d.querySelector('#phToday').addEventListener('click', onTodayTap);
+    d.querySelector('#phEnd').addEventListener('click', onEndTap);
+    d.querySelector('#phEnd').addEventListener('input', onEndInput);
     d.querySelector('.ph-tabs').addEventListener('click', function (ev) { var b = ev.target.closest('button'); if (b) show(b.getAttribute('data-v')); });
     var q = d.querySelector('#phQ'), qt = null;
     q.addEventListener('input', function () { clearTimeout(qt); qt = setTimeout(function () { FIND.q = q.value; FIND.open = null; findRender(); }, 120); });
@@ -541,7 +657,7 @@
   }
   async function tick(force) {
     if (!force && (BUSY || SHEET || document.hidden)) return;
-    try { await fresh(); MSG = MSG && MSG.kind === 'bad' && !force ? MSG : null; }
+    try { await fresh(); try { if (typeof hoRefresh === 'function') await hoRefresh(); } catch (e) { /* handoffs keep what was loaded */ } MSG = MSG && MSG.kind === 'bad' && !force ? MSG : null; }
     catch (e) { MSG = { text: 'Could not refresh: ' + (e && e.message || e) + '. Showing what was last loaded.', kind: 'bad' }; }
     phRender();
     if (VIEW === 'today') todayLoad(force);
