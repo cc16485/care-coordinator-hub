@@ -51,7 +51,8 @@
         + '<div class="field-note">' + esc(x.reasons.join(' · ')) + (o.best_visit_times ? ' · best: ' + esc(o.best_visit_times) : '') + (x.planned ? ' · planned ' + esc(day(x.planned.due)) : '') + '</div></div>'
         + '<div class="pd-acts"><button class="primary" onclick="pdLogOpen(\'' + esc(x.id) + '\')">Log visit</button>'
         + (ph ? '<a class="fb pd-btn"' + (typeof ocAttrs === 'function' ? ocAttrs(ph, { email:o.email }) : ' href="#"') + '>Call</a>' : '')
-        + '<button class="fb" onclick="pdPlan(\'' + esc(x.id) + '\')">Plan it</button></div></div>'; }).join('')
+        + '<button class="fb" onclick="pdPlan(\'' + esc(x.id) + '\')">Plan it</button>'
+        + (typeof peOpen === 'function' && ((o.contacts || []).some(c => c && !c.archived && c.email) || o.email) ? '<button class="fb" onclick="peOpen(\'' + esc(x.id) + '\')">Email</button>' : '') + '</div></div>'; }).join('')
       : '<div class="field-note" style="padding:8px 0;">You\'re caught up for the week.</div>';
     h += '</div>';
     if(need.length) h += '<div class="card pd-desk"><div class="pd-head"><b>Needs an owner</b><span class="field-note">' + need.length + ' new partner' + (need.length === 1 ? '' : 's') + '; until assigned they show on ' + esc(nameOf(PR().settings(st()).default_owner)) + '\'s week</span></div>'
@@ -136,7 +137,8 @@
       + '<label for="pdTimes">Best visit times</label><input id="pdTimes" value="' + esc(o.best_visit_times || '') + '" placeholder="e.g. Tue/Thu after 2, not Mondays">'
       + '<label for="pdMat">Materials they asked for</label><input id="pdMat" value="' + esc(o.materials || '') + '" placeholder="e.g. 20 brochures, the CDS one-pager">'
       + '<label for="pdRel">Relationship notes</label><textarea id="pdRel" rows="2" placeholder="What matters to them, who decides, what we promised">' + esc(o.relationship_notes || '') + '</textarea>'
-      + '</div><button class="primary" style="margin-top:8px;" onclick="pdSaveProfile(\'' + esc(o.id) + '\')">Save</button> <span class="field-note" id="pdProfMsg"></span>'
+      + '</div><button class="primary" style="margin-top:8px;" onclick="pdSaveProfile(\'' + esc(o.id) + '\')">Save</button> '
+      + (typeof peOpen === 'function' ? '<button class="fb" style="margin-top:8px;" onclick="peOpen(\'' + esc(o.id) + '\')">Send a partner email</button> ' : '') + '<span class="field-note" id="pdProfMsg"></span>'
       + peopleHtml(o) + '</div>';
   }
   function peopleHtml(o){

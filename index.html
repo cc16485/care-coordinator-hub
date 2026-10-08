@@ -6565,7 +6565,7 @@ The HomeTogether team</pre>
 <input type="hidden" id="org_id">
 <label>Organization name *</label><input id="org_name" placeholder="e.g. Cox Medical Center">
 <label>Type</label>
-<select id="org_type"><option>Hospital</option><option>Rehab / Skilled Nursing</option><option>Assisted Living</option><option>Physician Office</option><option>Hospice</option><option>Senior Center / Community</option><option>Other</option></select>
+<select id="org_type"><option>Hospital</option><option>Rehab / Skilled Nursing</option><option>Assisted Living</option><option>Physician Office</option><option>Hospice</option><option>Home Health</option><option>Senior Center / Community</option><option>Elder Law / Financial</option><option>Other</option></select>
 <label>Key people (discharge planners, social workers…)</label><input id="org_people" placeholder="e.g. Molly Evans (DC planner), Ying B. (SW)">
 <label>Phone</label><input id="org_phone">
 <label>Email (for campaigns)</label><input id="org_email" type="email" placeholder="e.g. referrals@coxhealth.com">
@@ -6918,7 +6918,8 @@ The HomeTogether team</pre>
 <script src="client-care.js?v=4"></script>
 <script src="review-ask.js?v=1"></script>
 <script src="partner-rules.js?v=1"></script>
-<script src="referral-desk.js?v=2"></script>
+<script src="referral-desk.js?v=3"></script>
+<script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=1"></script>
 <script src="staffing-sheet.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
@@ -8715,7 +8716,9 @@ async function cmpRecipients(){
   if(src==='leads_all') out=leadsCounted().filter(l=>l.email).map(l=>({email:l.email,name:leadName(l)}));
   if(src==='leads_open') out=(DATA.leads||[]).filter(l=>l.email&&!l.archived&&l.status!=='Converted'&&l.status!=='Lost').map(l=>({email:l.email,name:leadName(l)}));
   if(src==='leads_lost') out=leadsCounted().filter(l=>l.email&&l.status==='Lost').map(l=>({email:l.email,name:leadName(l)}));
-  if(src==='orgs') out=(DATA.referral_orgs||[]).filter(o=>o.email).map(o=>({email:o.email,name:o.people||o.name||''}));
+  /* Step 5 (2026-10-08): a partner email goes only to partners of its type, only to people who haven't had it (partner-emails.js) */
+  if(src==='orgs'){ const e=cmpLib().find(x=>x.key===cmpKey);
+    out=(typeof peBulkRecipients==='function'&&e&&e.aud==='referrers') ? peBulkRecipients(e).map(r=>({email:r.email,name:r.name})) : (DATA.referral_orgs||[]).filter(o=>o.email).map(o=>({email:o.email,name:o.people||o.name||''})); }
   if(src==='caregivers'){
     try{
       const { data } = await sb.from('app_data').select('data').eq('key','caregivers').single();
@@ -8786,17 +8789,19 @@ async function cmpSend(){
   cmpSending=true;
   const st=document.getElementById('cmpStatus');
   const html=ccBuildEmailHTML(e);
-  let sent=0, failed=0;
+  let sent=0, failed=0; const results=[];
   for(let i=0;i<recipients.length;i+=20){
     const batch=recipients.slice(i,i+20);
     st.textContent='Sending '+(i+1)+'–'+Math.min(i+20,recipients.length)+' of '+recipients.length+'…';
     try{
       const r=await cmpCall(e.subj, html, batch);
-      sent+=r.sent||0; failed+=(r.failed||batch.length-(r.sent||0));
+      sent+=r.sent||0; failed+=(r.failed||batch.length-(r.sent||0)); (r.results||[]).forEach(x=>results.push(x));
     }catch(err){ failed+=batch.length; }
   }
   st.textContent='✓ Done. Sent '+sent+(failed?', '+failed+' failed.':'.');
   const src=document.getElementById('cmpSource'); const srcLabel=src.options[src.selectedIndex].text;
+  /* Step 5: each partner email sent from here is recorded on the partner, per person, so nobody gets it twice */
+  if(src.value==='orgs' && e.aud==='referrers' && typeof peBulkRecord==='function'){ try{ await peBulkRecord(e, results); }catch(x){ console.warn('partner email record', x); } }
   const logItem={id:uid(), at:new Date().toISOString(), key:cmpKey, subj:e.subj, source:srcLabel, sent, failed, by:(ME&&ME.email)||''};
   DATA.campaign_log=DATA.campaign_log||[]; DATA.campaign_log.push(logItem);
   try{ await persist('campaign_log', logItem); }catch(e2){}
