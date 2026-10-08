@@ -45,7 +45,7 @@ T = r"""async()=>{
   const row=n=>[...document.querySelectorAll('#nvGheList tr')].find(t=>t.innerText.includes(n))||{innerText:'(no row) '+board().slice(0,2000)+' | errs: '+(window.__errs||'')};
   ok('Ann: "Booked in AxisCare Nov 27 · Natasha Early"', /Booked in AxisCare Nov 27 · Natasha Early/.test(row('Ann Booked').innerText), row('Ann Booked').innerText);
   ok('Bea: "Due this month · not booked in AxisCare yet"', /Due this month · not booked in AxisCare yet/.test(row('Bea Unbooked').innerText));
-  ok('Cal: "Visited Nov 12 · Natasha Early (AxisCare)"', /Visited Nov 12 · Natasha Early \(AxisCare\)/.test(row('Cal Visited').innerText), row('Cal Visited').innerText);
+  ok('Cal: "Visited Nov 12 · Natasha Early", and (slice 4) the GHE form is now due: "GHE form missing (due 2026-11-14)"', /Visited Nov 12 · Natasha Early · GHE form missing \(due 2026-11-14\)/.test(row('Cal Visited').innerText), row('Cal Visited').innerText);
   ok('Dee: "Booked Nov 13 but not clocked in and out"', /Booked Nov 13 but not clocked in and out/.test(row('Dee Passed').innerText));
   ok('Eve: "Missed: window was 2026-10 (booked Oct 20, never clocked)"', /Missed: window was 2026-10 \(booked Oct 20, never clocked\)/.test(row('Eve October').innerText), row('Eve October').innerText);
   ok('Fay (not linked): says to link to AxisCare so the Hub can check', /link to AxisCare so the Hub can check/.test(row('Fay Nolink').innerText));

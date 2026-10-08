@@ -1218,13 +1218,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <b style="font-size:15px;color:var(--navy);">📋 GHE forms — digital MO 580-2985</b>
-          <span class="field-note">The nurse completes, signs, and marks it Ready for Fusion. The Medicaid care coordinator uploads it into Fusion and flips it to Uploaded. Getting the GHE done in its month is the coordinator's chase; doing it is the nurse's.</span>
+          <span class="field-note">The nurse fills it in and signs within 2 days of the visit. An LPN's form goes to RN review (the RN signs as supervisory nurse); an RN's goes straight to Ready for Fusion. The Medicaid coordinator uploads it to Fusion by the earlier of 10 working days or the 15th of the next month, and records the date.</span>
           <span style="flex:1;"></span>
           <button class="addlead" onclick="gheNew()">＋ Start a GHE</button>
         </div>
         <div id="gheCounters" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;"></div>
         <div id="gheList" style="margin-top:10px;"></div>
       </div>
+      <div class="card" id="gheFusion" style="padding:16px 18px;margin-bottom:16px;"></div>
       <div class="card" style="padding:16px 18px;margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <!-- GHE fix slice 2 (2026-10-08): nurse setup. Who may do a GHE is decided by nurse-rules.js. -->
@@ -5989,7 +5990,9 @@ The HomeTogether team</pre>
   <div class="ghe-head ghe-noprint">
     <b style="font-size:15px;white-space:nowrap;">📋 GHE — General Health Evaluation</b>
     <span class="ghe-total-chip">Total: <b id="gheTotalChip">0</b></span>
-    <select id="ghe_status" style="width:auto;font-size:12.5px;padding:6px 9px;">
+    <span id="ghe_status_lbl" class="badge muted" title="The status moves through the steps on the GHE forms list: RN review, Ready for Fusion, Uploaded"></span>
+    <input type="hidden" id="ghe_client_id">
+    <select id="ghe_status" style="display:none;">
       <option value="draft">Draft</option>
       <option value="rn_review">Awaiting RN review</option>
       <option value="ready">Ready for Fusion</option>
@@ -6101,6 +6104,7 @@ The HomeTogether team</pre>
       <div><label>Date</label><input type="date" id="ghe_sig_nurse_date"></div></div>
     <div class="ghe-sigrow"><div><label>Participant Signature</label><canvas class="ghe-sig" id="ghe_sig_part" width="420" height="90"></canvas><button class="linklike ghe-noprint" onclick="gheSigClear('ghe_sig_part')">clear</button></div>
       <div><label>Date</label><input type="date" id="ghe_sig_part_date"></div></div>
+    <div class="ghe-noprint" style="margin:6px 0 2px;font-size:13px;"><label style="display:inline-flex;gap:8px;align-items:center;font-weight:600;">Reviewing RN (for an LPN's form) <select id="ghe_rn_reviewer" style="width:auto;"></select></label> <span class="field-note">An LPN's GHE is reviewed and signed below by an RN before it goes to Fusion.</span></div>
     <div class="ghe-sigrow"><div><label>Supervisory Nurse/Physician Signature</label><canvas class="ghe-sig" id="ghe_sig_sup" width="420" height="90"></canvas><button class="linklike ghe-noprint" onclick="gheSigClear('ghe_sig_sup')">clear</button></div>
       <div><label>Date</label><input type="date" id="ghe_sig_sup_date"></div></div>
     <div class="field-note" style="text-align:center;margin:16px 0 30px;">MO 580-2985 (9-2025) — Distribution: Provider, DSDS</div>
@@ -6974,6 +6978,7 @@ The HomeTogether team</pre>
 <script src="care-plan-rules.js?v=1"></script>
 <script src="nurse-rules.js?v=1"></script>
 <script src="ghe-rules.js?v=1"></script>
+<script src="ghe-forms-rules.js?v=1"></script>
 <script src="medicaid-plans.js?v=3"></script>
 <script src="staffing-sheet.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
@@ -38442,10 +38447,16 @@ function nvGheState(c,which){
   const d=x=>{ const t=String(x||''); return t?new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/Chicago'}):''; };
   const who=w&&w.visit&&w.visit.nurse?' · '+w.visit.nurse:'';
   const nm=x=>String(x||'').trim().toLowerCase();
-  const form=(DATA.ghe_forms||[]).find(f=>nm(f.client)===nm(c.name)&&String(f.visit_date||'').slice(0,7)===m);
+  const form=(DATA.ghe_forms||[]).find(f=>(f.client_id?f.client_id===c.id:nm(f.client)===nm(c.name))&&String(f.visit_date||'').slice(0,7)===m);
   const logged=nvVisitsFor(c.id,which).find(v=>v.status==='completed');
-  if(w&&w.state==='visited') return {s:'done',lbl:'Visited '+d(w.visit.at)+who+' (AxisCare)',col:'#1E8449',bg:'#EAF6EE'};
-  if(form) return {s:'done',lbl:'GHE form '+String(form.visit_date||'').slice(0,10),col:'#1E8449',bg:'#EAF6EE'};
+  /* slice 4: after the visit, the paperwork: form due 2 days after the visit, then RN review, Fusion upload */
+  if(w&&w.state==='visited'){
+    if(!form){ const fm=GheFormRules.formMissing(w.visit.at,false,today());
+      return {s:'done',lbl:'Visited '+d(w.visit.at)+who+' · GHE form missing (due '+fm.due+')',col:fm.overdue?'#C0392B':'#94681D',bg:fm.overdue?'#FDEEEC':'#FBF3E2'}; }
+    const fs=GheFormRules.formState(form,today());
+    return {s:'done',lbl:'Visited '+d(w.visit.at)+who+' · '+fs.lbl,col:fs.late?'#C0392B':'#1E8449',bg:fs.late?'#FDEEEC':'#EAF6EE'};
+  }
+  if(form){ const fs=GheFormRules.formState(form,today()); return {s:'done',lbl:'GHE form '+String(form.visit_date||'').slice(0,10)+' · '+fs.lbl,col:fs.late?'#C0392B':'#1E8449',bg:fs.late?'#FDEEEC':'#EAF6EE'}; }
   if(logged) return {s:'done',lbl:'done '+(logged.completed_on||'').slice(0,10),col:'#1E8449',bg:'#EAF6EE'};
   if(w&&w.resolved) return {s:'resolved',lbl:'Missed '+m+': '+(w.resolved.short||w.resolved.reason),col:'#94681D',bg:'#FBF3E2'};
   const unlinked=!c.axiscare_client_id?' · link to AxisCare so the Hub can check':'';
@@ -38650,8 +38661,17 @@ function gheNew(clientName){
     if(nc&&nc.axiscare_client_id) ghePrefillFromIntake(String(nc.axiscare_client_id)); }
   const gr=document.querySelector('#ghe_reason_grid input[value="ghe"]'); if(gr) gr.checked=true;
   document.getElementById('ghe_status').value='draft';
+  gheSet('ghe_client_id','');
+  gheReviewerOptions(''); gheStatusLabel('draft');
   gheTotal();
 }
+/* slice 4: the reviewing RN is picked from the RNs on the nurse list; the header shows the status, it isn't picked there */
+function gheReviewerOptions(cur){
+  const sel=document.getElementById('ghe_rn_reviewer'); if(!sel) return;
+  const rns=(DATA.nurse_staff||[]).filter(n=>String(n.cred||'').toUpperCase()==='RN');
+  sel.innerHTML='<option value="">Pick the RN</option>'+rns.map(n=>'<option'+(n.name===cur?' selected':'')+'>'+esc(n.name)+'</option>').join('');
+}
+function gheStatusLabel(st){ const el=document.getElementById('ghe_status_lbl'); if(el) el.textContent=GheFormRules.STATUS[st]||GheFormRules.STATUS.draft; }
 /* One profile, step 4: DCN, birth date, phone, address and county are typed once at intake. A new GHE
    fills the empty ones from the CONFIRMED inquiry (found by AxisCare id, never by name); all stay editable. */
 async function ghePrefillFromIntake(ax){
@@ -38675,6 +38695,7 @@ function gheOpen(id){
   Object.entries(g.radios||{}).forEach(([name,val])=>{ const el=document.querySelector('input[name="'+name+'"][value="'+val+'"]'); if(el) el.checked=true; });
   gheSigLoad('ghe_sig_nurse',g.sig_nurse); gheSigLoad('ghe_sig_part',g.sig_part); gheSigLoad('ghe_sig_sup',g.sig_sup);
   document.getElementById('ghe_status').value=g.status||'draft';
+  gheSet('ghe_client_id',g.client_id||''); gheReviewerOptions(g.rn_reviewer||''); gheStatusLabel(g.status||'draft');
   gheTotal();
 }
 async function gheSave(btn){
@@ -38688,14 +38709,16 @@ async function gheSave(btn){
   });
   const radios={};
   document.querySelectorAll('#gheView input[type=radio]:checked').forEach(el=>{ radios[el.name]=el.value; });
-  const rec={
+  const prev=(DATA.ghe_forms||[]).find(x=>x.id===id)||{};
+  const rec=Object.assign({}, prev, {
     id, f, checks, radios,
-    client:gheV('ghe_client'), visit_date:gheV('ghe_visit_date'), nurse:gheV('ghe_nurse'),
+    client:gheV('ghe_client'), client_id:gheV('ghe_client_id')||prev.client_id||'', rn_reviewer:(document.getElementById('ghe_rn_reviewer')||{}).value||prev.rn_reviewer||'',
+    visit_date:gheV('ghe_visit_date'), nurse:gheV('ghe_nurse'),
     total:gheTotal(), status:document.getElementById('ghe_status').value,
     sig_nurse:gheSigData('ghe_sig_nurse'), sig_part:gheSigData('ghe_sig_part'), sig_sup:gheSigData('ghe_sig_sup'),
-    created_at:((DATA.ghe_forms||[]).find(x=>x.id===id)||{}).created_at||new Date().toISOString(),
+    created_at:prev.created_at||new Date().toISOString(),
     updated_at:new Date().toISOString(), updated_by:ME.email||''
-  };
+  });
   gheSet('ghe_id',id);
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   const i=(DATA.ghe_forms||[]).findIndex(x=>x.id===id);
@@ -38709,12 +38732,51 @@ function ghePrint(){
   window.print();
   setTimeout(()=>document.body.classList.remove('ghe-printing'),500);
 }
+/* slice 4 (her rules): a form moves draft -> RN review (an LPN's) -> Ready for Fusion -> Uploaded only through
+   ghe-forms-rules.js: the nurse's signature, an RN reviewer who signed for an LPN, the upload date. */
 async function gheSetStatus(id,st){
+  const g=(DATA.ghe_forms||[]).find(x=>x.id===id); if(!g) return false;
+  const up=document.getElementById('gheUpOn_'+id);
+  const r=GheFormRules.transition(g, st, { staff:DATA.nurse_staff||[], today:today(), me:ME.email||'', at:new Date().toISOString(), uploaded_on:up?up.value:'', reviewer:g.rn_reviewer });
+  const msg=document.getElementById('gheMsg_'+id);
+  if(!r.ok){ if(msg){ msg.textContent=r.why; msg.style.color='var(--red)'; } else alert(r.why); return false; }
+  Object.assign(g, r.patch, { updated_at:new Date().toISOString(), updated_by:ME.email||'' });
+  await persist('ghe_forms',g); renderNurseVisits(); return true;
+}
+async function gheFusionCheck(id,seen){
   const g=(DATA.ghe_forms||[]).find(x=>x.id===id); if(!g) return;
-  g.status=st; g.updated_at=new Date().toISOString(); g.updated_by=ME.email||'';
-  await persist('ghe_forms',g); gheRenderCards();
+  const note=(document.getElementById('gheFcN_'+id)||{}).value||'';
+  const r=GheFormRules.fusionCheck(g, seen, { me:ME.email||'', at:new Date().toISOString(), note });
+  const msg=document.getElementById('gheFcMsg_'+id);
+  if(!r.ok){ if(msg){ msg.textContent=r.why; msg.style.color='var(--red)'; } return; }
+  Object.assign(g, r.patch, { updated_at:new Date().toISOString(), updated_by:ME.email||'' });
+  await persist('ghe_forms',g); renderNurseVisits();
+}
+function gheFusionRender(){
+  const box=document.getElementById('gheFusion'); if(!box) return;
+  const rows=GheFormRules.fusionToCheck(DATA.ghe_forms||[]);
+  box.innerHTML='<b style="font-size:15px;color:var(--navy);">Fusion check</b>'
+    +'<div class="field-note" style="margin-top:3px;">Once a month the Medicaid coordinator opens Fusion and confirms each GHE marked uploaded is really there (the participant\'s Documents). Fusion is the official record; this is the proof we looked.</div>'
+    +(rows.length?rows.map(g=>'<div class="nvm-row"><div><b>'+esc(g.client||'(no name)')+'</b> <span class="field-note">visit '+esc(g.visit_date||'')+' · uploaded '+esc(g.uploaded_on||'')+(g.uploaded_by?' by '+esc(g.uploaded_by):'')+'</span></div>'
+      +'<div class="nvm-form"><button class="primary" onclick="gheFusionCheck(\''+g.id+'\',true)">Seen in Fusion</button>'
+      +'<input id="gheFcN_'+g.id+'" placeholder="If it is not there: what you found"><button class="ghost" onclick="gheFusionCheck(\''+g.id+'\',false)">Not in Fusion</button><span class="field-note" id="gheFcMsg_'+g.id+'"></span></div></div>').join('')
+      :'<div class="field-note" style="margin-top:8px;">Nothing to check: every uploaded GHE has been seen in Fusion.</div>');
+}
+/* slice 4: each form shows where it stands and the one next step it allows */
+function gheNextStep(g, portal){
+  const st=g.status||'draft', fs=GheFormRules.formState(g, today()), id=esc(g.id);
+  const cred=String(((DATA.nurse_staff||[]).find(n=>n.name===g.nurse)||{}).cred||'').toUpperCase();
+  const b=(to,l)=>'<button class="ghost" style="padding:3px 9px;font-size:12px;" onclick="gheSetStatus(\''+id+'\',\''+to+'\')">'+l+'</button>';
+  let act='';
+  if(st==='draft') act=cred==='RN'?b('ready','Ready for Fusion'):b('rn_review','Send to RN review');
+  else if(st==='rn_review') act=b('ready','RN reviewed: Ready for Fusion');
+  else if(st==='ready'&&portal) act='<span class="field-note">the office uploads it to Fusion</span>';
+  else if(st==='ready') act='<input type="date" id="gheUpOn_'+id+'" value="'+today()+'" max="'+today()+'" style="width:auto;font-size:12px;padding:3px 6px;"> '+b('uploaded','Uploaded to Fusion');
+  return '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;"><span style="font-weight:700;font-size:12.5px;color:'+(fs.late?'var(--red)':'var(--text)')+';">'+esc(fs.lbl)+'</span>'+act+'<span class="field-note" id="gheMsg_'+id+'"></span></div>'
+    +(g.rn_reviewer&&st!=='draft'&&st!=='rn_review'&&cred!=='RN'?'<div class="field-note">reviewed by '+esc(g.rn_reviewer)+'</div>':'');
 }
 function gheRenderCards(){
+  gheFusionRender();
   const box=document.getElementById('gheList'), cts=document.getElementById('gheCounters');
   if(!box||!cts) return;
   const rows=(DATA.ghe_forms||[]).slice().sort((a,b)=>(b.visit_date||'').localeCompare(a.visit_date||''));
@@ -38727,9 +38789,7 @@ function gheRenderCards(){
       return '<tr><td style="padding:6px 0;"><b>'+esc(g.client||'(no name)')+'</b></td>'
       +'<td>'+esc(g.visit_date||'')+'</td><td>'+esc(g.nurse||'')+'</td>'
       +'<td style="text-align:center;font-weight:700;">'+(g.total==null?'':g.total)+'</td>'
-      +'<td><select onchange="gheSetStatus(\''+g.id+'\',this.value)" style="width:auto;font-size:12px;padding:4px 6px;">'
-      +Object.entries(GHE_STATUS).map(([k,[label]])=>'<option value="'+k+'"'+((g.status||'draft')===k?' selected':'')+'>'+label+'</option>').join('')
-      +'</select></td>'
+      +'<td>'+gheNextStep(g)+'</td>'
       +'<td style="text-align:right;white-space:nowrap;"><button class="linklike" onclick="gheOpen(\''+g.id+'\')">Open</button>'
       +'<button class="linklike" onclick="gheOpen(\''+g.id+'\');setTimeout(ghePrint,300)">Print</button></td></tr>';
     }).join('')+'</tbody></table>';
@@ -38894,7 +38954,7 @@ function nvRenderCaseloads(){
 function gheNewFor(clientId){
   const c=(DATA.nurse_clients||[]).find(x=>x.id===clientId);
   if(!c){ gheNew(); return; }
-  gheNew(c.name);
+  gheNew(c.name); gheSet('ghe_client_id',c.id);
   if(c.assigned_nurse) gheSet('ghe_nurse',c.assigned_nurse);
 }
 /* ---------------- Nurse Portal ----------------
@@ -39000,7 +39060,7 @@ function nursePortalRender(me){
   if(gheBox) gheBox.innerHTML=forms.map(g=>{
     const st=GHE_STATUS[g.status||'draft']||GHE_STATUS.draft;
     return '<div class="nvcase-row"><b>'+esc(g.client||'(no name)')+'</b><span class="field-note">'+esc(g.visit_date||'')+'</span>'
-      +'<span class="badge '+st[1]+'">'+st[0]+'</span><span style="flex:1;"></span>'
+      +gheNextStep(g,true)+'<span style="flex:1;"></span>'
       +'<button class="linklike" onclick="gheOpen(\''+g.id+'\')">Open</button></div>';
   }).join('')||'<div class="field-note">No GHE forms yet.</div>';
 }
