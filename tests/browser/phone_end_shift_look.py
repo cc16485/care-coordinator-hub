@@ -14,9 +14,10 @@ async()=>{
       { id:'B', kind:'missed_call', status:'open', title:'Call back: Ann Bell', owner:ME_E, owner_name:'Krystal Test', created_at:iso(-3), due:endToday() },
       { id:'C', kind:'missed_call', status:'open', title:'Call back: Ray', owner:ME_E, owner_name:'Krystal Test', created_at:iso(-3), due:endToday() },
       { id:'D', kind:'coverage', status:'open', title:'Uncovered shift: Mr. Hale', urgency:'urgent', created_at:iso(-1), due:iso(-0.2) },
+      { id:'P', kind:'missed_call', status:'open', title:'Call back: Pat (handed to me)', owner:ME_E, owner_name:'Krystal Test', created_at:iso(-12), due:iso(30) },
       { id:'E', kind:'missed_call', status:'open', title:'Parked one', owner:ME_E, sub_state:'waiting', check_back:new Date(Date.now()+3*864e5).toISOString().slice(0,10), created_at:iso(-9), due:iso(-5) } ],
     handoffs:[{ id:'ho_old_krystal', kind:'end_of_shift', from:ZACH, from_name:'Zach Test', to:ME_E, to_name:'Krystal Test', posted_at:iso(-10), general_note:'Mrs. Ortiz family may call back',
-                items:[{ label:'Call back: new inquiry', what:'handed', note:'left a voicemail' },{ label:'Open shift Fri', what:'attention' }], ack_at:null }],
+                items:[{ label:'Call back: new inquiry', what:'handed', note:'left a voicemail' },{ label:'Call back: Pat', what:'handed', ops_id:'P', note:'she wants mornings' },{ label:'Open shift Fri', what:'attention' }], ack_at:null }],
     standup_notes:[] };
   window.__RPC=[]; window.__EV=[];
   const clone=x=>JSON.parse(JSON.stringify(x));
@@ -37,7 +38,10 @@ async()=>{
   /* a handoff posted to me */
   const ho=()=>document.querySelector('#phList .ph-ho');
   ok('a handoff someone posted to me shows at the top of Needs me (the Hub\'s own list), with Got it', ho() && /Handoff from Zach Test/.test(ho().innerText) && /left a voicemail/.test(ho().innerText) && /1 needs attention/.test(ho().innerText) && /Mrs\. Ortiz family may call back/.test(ho().innerText), ho() && ho().innerText);
+  const lanes=()=>[...document.querySelectorAll('#phList .ph-lane')].map(l=>l.firstChild.nodeValue.trim());
+  ok('what was handed to me sits in FROM YOUR HANDOFF above Act Now, even though it is not due today (her call: until Got it)', lanes()[0]==='FROM YOUR HANDOFF · 1' && document.getElementById('ph_P') && document.getElementById('phList').innerText.indexOf('Pat (handed to me)')<document.getElementById('phList').innerText.indexOf('ACT NOW'), [lanes(), document.getElementById('phList').innerText.slice(0,400)]);
   ho().querySelector('[data-ho]').click(); await sleep(300);
+  ok('...after Got it it leaves the top (it is not due today, so it waits in Later on the Hub)', !/FROM YOUR HANDOFF/.test(document.getElementById('phList').innerText) && !document.getElementById('ph_P'), lanes());
   ok('Got it clears it (saved on the record, the Hub\'s own Got it)', !ho() && window.__STORE.handoffs.find(h=>h.id==='ho_old_krystal').ack_at && window.__EV.some(e=>e.verb==='handoff_seen'), [window.__STORE.handoffs, window.__EV.map(e=>e.verb)]);
   window.__RPC=[]; window.__EV=[];
   /* End my shift */
@@ -45,7 +49,7 @@ async()=>{
   const body=()=>document.getElementById('phEndBody');
   ok('End my shift: who is next on duty for each area', /Next on duty/.test(body().innerText) && /Sam Test \(now\)/.test(body().innerText) && /Zach Test \(now\)/.test(body().innerText), body().innerText.slice(0,300));
   const cards=()=>[...body().querySelectorAll('[data-eo]')];
-  ok('still moving today: mine, urgent first (A, then B and C); the parked one is counted, not listed', JSON.stringify(cards().map(c=>c.getAttribute('data-eo')))==='["A","B","C"]' && /1 waiting with a wake-up stays with you/.test(body().innerText), [cards().map(c=>c.getAttribute('data-eo')), body().innerText.slice(0,500)]);
+  ok('still moving today: mine, urgent first (A, then B and C); the parked one is counted, not listed', JSON.stringify(cards().map(c=>c.getAttribute('data-eo')))==='["A","B","C"]' && /1 waiting with a wake-up and 1 later stay with you/.test(body().innerText), [cards().map(c=>c.getAttribute('data-eo')), body().innerText.slice(0,500)]);
   const on=id=>cards().find(c=>c.getAttribute('data-eo')===id).querySelector('.ph-ch .on').innerText;
   ok('the Hub\'s own defaults: the urgent shift goes To Sam (next on Staffing), the rest stay with me', on('A')==='To Sam' && on('B')==='Stays with me' && on('C')==='Stays with me', [on('A'),on('B'),on('C')]);
   ok('needs attention, nobody has it: the unowned urgent shift', /NEEDS ATTENTION, NOBODY HAS IT · 1/.test(body().innerText) && /Mr\. Hale/.test(body().innerText));

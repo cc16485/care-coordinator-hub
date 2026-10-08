@@ -199,6 +199,17 @@
       + (h.general_note ? '<div style="margin-top:6px;font-size:13.5px;">“' + esc(h.general_note) + '”</div>' : '')
       + '</div>';
   }
+  /* FROM YOUR HANDOFF (Samantha, 2026-10-07: "the problem is things handed off go to almost the bottom"; her call: they
+     stay at the top until Got it). The open items handed to me in a handoff I have not tapped Got it on yet. */
+  function hoPinned(){
+    const m = me().email, ids = new Set();
+    hoMine().forEach(h => (h.items || []).forEach(i => { if(i.what === 'handed' && i.ops_id) ids.add(String(i.ops_id)); }));
+    if(!ids.size) return [];
+    const tierOf = it => (typeof opsPriorityKey === 'function' ? opsPriorityKey(it) : [4, 0]);
+    return (DATA.ops_items || []).filter(i => i && i.status === 'open' && ids.has(String(i.id)) && lc(i.owner) === m)
+      .sort((a, c) => { const ka = tierOf(a), kc = tierOf(c); return (ka[0] - kc[0]) || (ka[1] - kc[1]); });
+  }
+  const pinSig = () => hoPinned().map(i => i.id).join(',');
   function hoRender(){
     const html = hoMine().map(hoCardHtml).join('');
     ['hoCardDash', 'hoCardWork'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = html; });
@@ -211,9 +222,16 @@
     await persist('handoffs', h);
     opEvent('handoff_seen', { summary: who.name + ' saw ' + h.from_name + '’s end-of-shift handoff' });
     hoRender();
+    /* Got it: what was handed drops back into its usual place on Today */
+    if(typeof myWorkRefresh === 'function') try{ myWorkRefresh(); }catch(e){}
   }
-  async function hoRefresh(){ hoRender(); await hoLoad(false); hoRender(); }
+  async function hoRefresh(){
+    const before = pinSig();
+    hoRender(); await hoLoad(false); hoRender();
+    /* a handoff that arrived since the list was drawn: draw My Work again so its items go to the top */
+    if(pinSig() !== before && typeof renderMyWork === 'function' && typeof activeTab !== 'undefined' && activeTab === 'mywork') try{ renderMyWork(); }catch(e){}
+  }
 
-  Object.assign(window, { eoOpen, eoLists, hoRender, hoRefresh, hoAck,
+  Object.assign(window, { eoOpen, eoLists, hoRender, hoRefresh, hoAck, hoPinned,
     EOX: { areaOf, seatAt, nextOnDuty, eoPost, hoMine, HO } });
 })();

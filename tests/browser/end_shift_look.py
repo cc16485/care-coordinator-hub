@@ -80,7 +80,14 @@ async()=>{
   ok('it sits above the Stand-Up card', !!(document.getElementById('hoCardDash').compareDocumentPosition(document.getElementById('suTodayLine')) & Node.DOCUMENT_POSITION_FOLLOWING));
   switchTab('mywork'); await sleep(300);
   ok('and at the top of her My Work', /Handoff from Krystal Land/.test(document.getElementById('hoCardWork').innerText));
-  await hoAck(ho[0].id); await sleep(100);
+  /* her call 2026-10-07: what was handed sits above everything until Got it */
+  const mw=()=>document.getElementById('tab-mywork').innerText;
+  const lanesTxt=()=>[...document.querySelectorAll('#tab-mywork b')].map(b=>b.innerText).filter(t=>/^(FROM YOUR HANDOFF|ACT NOW|DUE TODAY)/.test(t));
+  ok('the handed shift sits at the very top of her Today, in FROM YOUR HANDOFF, above Act Now', lanesTxt()[0]==='FROM YOUR HANDOFF · 1' && mw().indexOf('FROM YOUR HANDOFF')<mw().indexOf('ACT NOW') && mw().indexOf('Ruth 4pm shift has nobody')<mw().indexOf('ACT NOW'), [lanesTxt(), mw().slice(0,600)]);
+  const list=()=>mw().replace(document.getElementById('hoCardWork').innerText,'');
+  ok('...and only once in the list (not repeated in Act Now; the handoff note above also names it)', list().split('Ruth 4pm shift has nobody').length===2, list().split('Ruth 4pm shift has nobody').length);
+  await hoAck(ho[0].id); await sleep(150);
+  ok('after Got it it drops back into its usual lane (Act Now: urgent), and the handoff section is gone', !/FROM YOUR HANDOFF/.test(mw()) && mw().indexOf('Ruth 4pm shift has nobody')>mw().indexOf('ACT NOW') && mw().indexOf('Ruth 4pm shift has nobody')<mw().indexOf('DUE TODAY'), mw().slice(0,600));
   ok('Got it: marked seen with her name, and it leaves her Today', !!S.handoffs[0].ack_at && S.handoffs[0].ack_by==='Samantha Troutman' && !document.getElementById('hoCardWork').innerText.trim() && L.events.some(e=>/^handoff_seen:Samantha Troutman saw Krystal Land/.test(e)));
   /* ── nobody else on duty: nothing handed ── */
   DATA.ops_settings.duty_default_operations='samantha@mo-care.com'; DATA.duty_windows=[];
