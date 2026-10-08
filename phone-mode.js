@@ -9,6 +9,12 @@
    What the phone never does: the sign-in work the Hub runs on a computer (runSignInWork), the desktop screens, or the
    caregiver engine. It reads, and does the one thing tapped. Nothing here texts or emails anybody; Call rings the
    person's own phone first (office-call.js) and connects them from the office line.
+   Screen 2, FIND A PERSON (2026-10-07, her "start screen 2"): one search over the people the Hub already knows,
+   from the same places the Hub reads them: caregivers (the AxisCare caregiver list, cgdCensus), clients (the Hub's
+   client list, cl360Identity, with their family contacts from the care circle), inquiries (DATA.leads, still in the
+   intake stages) and applicants (job_applicants and their booked interview). Looking only: nothing is saved from this
+   screen. The card shows what you need to act (phone, where they are, what is next), never birth dates, Social
+   Security numbers, background results, Medicaid numbers or medical details.
    ===================================================================================================================== */
 (function () {
   'use strict';
@@ -49,7 +55,21 @@
     + '.ph-sheet>div{background:#fff;width:100%;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}'
     + '.ph-sheet h3{margin:0 0 4px;font-size:17px;color:#0E3860}.ph-sheet p{margin:0 0 10px;font-size:13px;color:#5B6878}'
     + '.ph-sheet textarea{width:100%;box-sizing:border-box;min-height:96px;font:inherit;font-size:16px;padding:10px;border:1.5px solid #DCE4EE;border-radius:10px}'
-    + '.ph-sheet .ph-btns{justify-content:flex-end}';
+    + '.ph-sheet .ph-btns{justify-content:flex-end}'
+    + '.ph-tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:#fff;border-top:1px solid #DCE4EE;display:flex;padding-bottom:env(safe-area-inset-bottom,0px)}'
+    + '.ph-tabs button{flex:1;appearance:none;background:none;border:0;font:inherit;font-size:13px;font-weight:600;color:#5B6878;padding:12px 4px 13px}'
+    + '.ph-tabs button.on{color:#0E3860;box-shadow:inset 0 3px 0 #2E8F8B}'
+    + '#phApp{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}'
+    + '.ph-q{width:100%;box-sizing:border-box;font:inherit;font-size:17px;padding:12px 14px;border:1.5px solid #B9C6D6;border-radius:12px;margin-top:12px;background:#fff}'
+    + '.ph-src{font-size:12px;color:#5B6878;margin:8px 2px 0}.ph-src b{color:#B42318;font-weight:600}'
+    + '.ph-row{display:block;width:100%;text-align:left;appearance:none;background:#fff;border:1px solid #DCE4EE;border-radius:12px;padding:11px 13px;margin-bottom:8px;font:inherit;color:#1B2733}'
+    + '.ph-row b{font-size:15px;color:#0E3860}.ph-row span{display:block;font-size:12.5px;color:#5B6878;margin-top:2px}'
+    + '.ph-row .ph-tag{display:inline-block;margin-top:0}'
+    + '.ph-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;padding:2px 6px;margin-left:6px;vertical-align:2px;background:#E3F3F2;color:#1E6E6A}'
+    + '.ph-tag.cl{background:#E7F6EC;color:#1F7A4D}.ph-tag.in{background:#FDF3E3;color:#A8660E}.ph-tag.ap{background:#EFEAFB;color:#6B4FBB}.ph-tag.past{background:#F1F5F9;color:#64748B}'
+    + '.ph-dl{margin:10px 0 0;font-size:14px}.ph-dl div{display:flex;gap:10px;padding:7px 0;border-top:1px solid #EEF2F7}.ph-dl dt{flex:0 0 96px;color:#5B6878;font-size:12.5px}.ph-dl dd{margin:0;flex:1;min-width:0}'
+    + '.ph-back{appearance:none;background:none;border:0;font:inherit;color:#0E3860;font-weight:600;font-size:14px;padding:12px 0 2px}'
+    + '.ph-fam{border-top:1px solid #EEF2F7;padding:8px 0;display:flex;align-items:center;gap:10px}.ph-fam div{flex:1;min-width:0;font-size:14px}.ph-fam small{display:block;color:#5B6878;font-size:12px}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
@@ -192,17 +212,207 @@
     });
   }
 
+  /* ── screen 2: find a person (looking only) ── */
+  var FIND = { loaded: false, loading: false, cg: null, cl: null, ap: null, book: {}, coord: {}, err: {}, q: '', open: null };
+  var digits = function (p) { var d = String(p || '').replace(/\D/g, ''); return d.length === 11 && d[0] === '1' ? d.slice(1) : d; };
+  var pretty = function (p) { var d = digits(p); return d.length === 10 ? '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6) : String(p || ''); };
+  /* a date with no time is that calendar day here, never the evening before (a bare date reads as midnight in London) */
+  var day = function (iso) { var s = String(iso || ''); var d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T12:00:00' : s); return !s || isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); };
+  var when = function (iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); };
+  var AP_WORDS = { new: 'Applied', partial: 'Started an application', failed: 'Did not pass the screen', noshow: 'Missed an interview', offer: 'Offer made',
+    pool: 'In the caregiver pool', left: 'Left', declined: 'Not moving forward', hired: 'Hired' };
+  var STAGE = function (st) { var m = (typeof CC_STAGE_META !== 'undefined' && st && CC_STAGE_META[st.k]) || null; return m ? m[0] + (st.d ? ' · ' + st.d : '') : ''; };
+  function openLead(l) { var k = ''; try { k = ccLeadStage(l).k; } catch (e) { return true; } return ['new', 'talking', 'assessment', 'ready'].indexOf(k) > -1; }
+  async function findLoad() {
+    if (FIND.loading || FIND.loaded) return; FIND.loading = true; FIND.err = {}; findRender();
+    var jobs = [
+      (async function () { var c = await cgdCensus(); FIND.cg = (c && c.caregivers) || []; })().catch(function (e) { FIND.err.cg = e && e.message || String(e); FIND.cg = []; }),
+      (async function () { FIND.cl = (await cl360Identity()) || []; })().catch(function (e) { FIND.err.cl = e && e.message || String(e); FIND.cl = []; }),
+      (async function () {
+        var a = await sb.from('job_applicants').select('id,first_name,last_name,phone,email,status,screen_grade,position,created_at,city').order('created_at', { ascending: false }).limit(2000);
+        if (a.error) throw a.error;
+        FIND.ap = (a.data || []).filter(function (r) { return r.status !== 'hired'; });
+        var b = await sb.from('interview_bookings').select('applicant_id,starts_at,status,coordinator_id').eq('status', 'booked').gte('starts_at', new Date().toISOString());
+        FIND.book = {}; ((b && b.data) || []).forEach(function (x) { var cur = FIND.book[x.applicant_id]; if (!cur || x.starts_at < cur.starts_at) FIND.book[x.applicant_id] = x; });
+        var c = await sb.from('coordinators').select('id,name'); FIND.coord = {}; ((c && c.data) || []).forEach(function (x) { FIND.coord[x.id] = x.name; });
+      })().catch(function (e) { FIND.err.ap = e && e.message || String(e); FIND.ap = FIND.ap || []; })
+    ];
+    await Promise.all(jobs);
+    FIND.loading = false; FIND.loaded = true; findRender();
+  }
+  /* every person as one search row: { type, key, name, sub, hay, digits } */
+  function people() {
+    var out = [];
+    (FIND.cl || []).forEach(function (r) {
+      var past = r.role_status && r.role_status !== 'active';
+      out.push({ type: 'cl', key: 'cl:' + (r.person_id || r.axiscare_client_id), r: r, name: r.client_name || 'Client', past: past,
+        sub: past ? 'Ended care' + (r.ended_at ? ' ' + day(r.ended_at) : '') : 'Receiving care', ph: [r.phone] });
+    });
+    (DATA.leads || []).filter(function (l) { return l && !l.spam && !l.is_test && !l.archived && openLead(l); }).forEach(function (l) {
+      var caller = ((l.first_name || '') + ' ' + (l.last_name || '')).trim(), client = cpLeadClientName(l), st = '';
+      try { st = STAGE(ccLeadStage(l)); } catch (e) { /* no stage words */ }
+      out.push({ type: 'in', key: 'in:' + l.id, l: l, name: client, also: caller !== client ? caller : '',
+        sub: (st || 'New') + (caller && caller !== client ? ' · ' + caller + (l.relationship ? ' (' + String(l.relationship).toLowerCase() + ')' : '') : ''), ph: [l.phone, l.client_phone] });
+    });
+    (FIND.cg || []).forEach(function (c) {
+      var nm = ((c.first || '') + ' ' + (c.last || '')).trim();
+      out.push({ type: 'cg', key: 'cg:' + c.id, c: c, name: nm || 'Caregiver', past: c.active === false,
+        sub: (c.active === false ? 'No longer with us' : 'Active') + (c.city ? ' · ' + c.city : ''), ph: [c.mobile] });
+    });
+    (FIND.ap || []).forEach(function (a) {
+      var nm = ((a.first_name || '') + ' ' + (a.last_name || '')).trim(), bk = FIND.book[a.id];
+      out.push({ type: 'ap', key: 'ap:' + a.id, a: a, name: nm || 'Applicant',
+        sub: (bk ? 'Interview ' + when(bk.starts_at) : (AP_WORDS[a.status] || a.status || '')) + ' · applied ' + day(a.created_at), ph: [a.phone] });
+    });
+    return out;
+  }
+  function matches(q) {
+    var t = String(q || '').toLowerCase().trim(); if (t.replace(/\s/g, '').length < 2) return [];
+    var dq = t.replace(/\D/g, ''), words = t.split(/\s+/).filter(Boolean);
+    var order = { cl: 0, in: 1, cg: 2, ap: 3 };
+    return people().filter(function (p) {
+      if (dq.length >= 4 && dq.length === t.replace(/[\s()+.-]/g, '').length) return p.ph.some(function (x) { return digits(x).indexOf(dq) > -1; });
+      var hay = (p.name + ' ' + (p.also || '')).toLowerCase();
+      return words.every(function (w) { return hay.indexOf(w) > -1; });
+    }).sort(function (a, b) { return (a.past ? 1 : 0) - (b.past ? 1 : 0) || order[a.type] - order[b.type] || a.name.localeCompare(b.name); }).slice(0, 40);
+  }
+  var TAGS = { cl: ['Client', 'cl'], in: ['Inquiry', 'in'], cg: ['Caregiver', ''], ap: ['Applicant', 'ap'] };
+  function callBtn(phone, label, o) { return digits(phone).length >= 10 && typeof ocAttrs === 'function' ? '<a class="ph-b p"' + ocAttrs(phone, o || {}) + '>' + esc(label || 'Call') + '</a>' : ''; }
+  function row(label, value) { return value ? '<div><dt>' + esc(label) + '</dt><dd>' + value + '</dd></div>' : ''; }
+  var GHL = 'https://app.hirecara.com/v2/location/Recp0AhyMh8lrtKJ9kaj/contacts/detail/';
+  async function detail(p) {
+    var box = document.getElementById('phFindBody'); if (!box) return;
+    var h = '<button class="ph-back" data-pf="back">‹ Back to the search</button><div class="ph-card" style="margin-top:8px">';
+    var tg = TAGS[p.type];
+    h += '<div class="ph-t">' + esc(p.name) + '<span class="ph-tag ' + (p.past ? 'past' : tg[1]) + '">' + tg[0] + '</span></div>';
+    var btns = '', dl = '', extra = '';
+    if (p.type === 'cg') {
+      var c = p.c;
+      dl = row('Status', esc(c.active === false ? 'Past caregiver' : 'Active caregiver')) + row('Phone', esc(pretty(c.mobile))) + row('Lives in', esc(c.city || ''))
+        + row('Hired', esc(c.hire_date ? day(c.hire_date) : ''));
+      btns = callBtn(c.mobile, 'Call', { email: c.email }) + (c.active !== false ? '<button class="ph-b" data-pf="shifts" data-id="' + esc(c.id) + '">Next shifts</button>' : '')
+        + '<a class="ph-b" href="index.html#cg/' + encodeURIComponent(c.id) + '">Open in the Hub</a>';
+      extra = '<div id="phShifts"></div>';
+    }
+    if (p.type === 'cl') {
+      var r = p.r, nx = '';
+      try { if (typeof cjJourneyFor === 'function' && typeof cjStageFor === 'function' && cjStageFor({ ax: r.axiscare_client_id })) { var j = cjJourneyFor({ ax: r.axiscare_client_id }); if (j && j.next && j.next.title) nx = j.next.title; } } catch (e) { /* no journey */ }
+      dl = row('Status', esc(p.past ? 'Past client' + (r.ended_at ? ', ended ' + day(r.ended_at) : '') + (r.end_reason ? ' (' + r.end_reason + ')' : '') : 'Receiving care'))
+        + row('Phone', esc(pretty(r.phone))) + row('Next step', esc(nx));
+      btns = callBtn(r.phone, 'Call', { client: p.name })
+        + (r.ghl_contact_id && /^[A-Za-z0-9]+$/.test(r.ghl_contact_id) ? '<a class="ph-b" target="_blank" rel="noopener" href="' + GHL + r.ghl_contact_id + '">GoHighLevel</a>' : '')
+        + (r.axiscare_client_id ? '<a class="ph-b" href="index.html#p/A' + encodeURIComponent(r.axiscare_client_id) + '/summary">Open in the Hub</a>' : '');
+      extra = '<div id="phFam"><div class="ph-src">Loading family contacts…</div></div>';
+    }
+    if (p.type === 'in') {
+      var l = p.l, st = ''; try { st = STAGE(ccLeadStage(l)); } catch (e) { /* none */ }
+      var caller = ((l.first_name || '') + ' ' + (l.last_name || '')).trim();
+      var back = l.promised_callback_at || l.follow_up_due || '';
+      dl = row('Stage', esc(st)) + row('Caller', esc(caller + (l.relationship ? ' (' + String(l.relationship).toLowerCase() + ')' : '')))
+        + row('Phone', esc(pretty(l.phone))) + row('Client phone', esc(digits(l.client_phone) !== digits(l.phone) ? pretty(l.client_phone) : ''))
+        + row('Coordinator', esc(l.assigned_coordinator || 'Nobody yet')) + row('Call back', esc(back ? (String(back).length > 10 ? when(back) : day(back)) : ''))
+        + row('Asked us', esc(day(l.created_at)));
+      btns = callBtn(l.phone, caller ? 'Call ' + first(caller) : 'Call', { email: l.email })
+        + (digits(l.client_phone) && digits(l.client_phone) !== digits(l.phone) ? callBtn(l.client_phone, 'Call ' + first(cpLeadClientName(l))) : '')
+        + '<a class="ph-b" href="index.html#p/L' + encodeURIComponent(l.id) + '/summary">Open in the Hub</a>';
+    }
+    if (p.type === 'ap') {
+      var a = p.a, bk = FIND.book[a.id], pos = '';
+      try { pos = typeof apPosLabel === 'function' ? apPosLabel(a.position) : ''; } catch (e) { /* no label */ }
+      dl = row('Applied for', esc(pos || a.position || 'Caregiver')) + row('Where they are', esc(AP_WORDS[a.status] || a.status || ''))
+        + row('Interview', esc(bk ? when(bk.starts_at) + (FIND.coord[bk.coordinator_id] ? ' with ' + first(FIND.coord[bk.coordinator_id]) : '') : 'None booked'))
+        + row('Phone', esc(pretty(a.phone))) + row('Lives in', esc(a.city || '')) + row('Applied', esc(day(a.created_at)));
+      btns = callBtn(a.phone, 'Call', { email: a.email }) + '<a class="ph-b" href="index.html#ap/' + encodeURIComponent(a.id) + '">Open in the Hub</a>';
+    }
+    box.innerHTML = h + '<dl class="ph-dl">' + dl + '</dl><div class="ph-btns">' + btns + '</div>' + extra + '</div>';
+    if (p.type === 'cl') famLoad(p.r);
+  }
+  async function famLoad(r) {
+    var box = document.getElementById('phFam'); if (!box) return;
+    if (!r.axiscare_client_id) { box.innerHTML = ''; return; }
+    try {
+      var c = await sb.from('care_circles').select('id,client_name,axiscare_client_id,active').eq('axiscare_client_id', r.axiscare_client_id).eq('active', true);
+      if (c.error) throw c.error;
+      var circle = (c.data || [])[0];
+      var m = circle ? await sb.from('circle_contacts').select('name,relationship,phone,email,is_primary,axiscare_removed_at').eq('circle_id', circle.id) : { data: [] };
+      if (m.error) throw m.error;
+      var fam = (m.data || []).filter(function (x) { return !x.axiscare_removed_at; }).sort(function (a, b) { return (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0); });
+      var el = document.getElementById('phFam'); if (!el) return;
+      el.innerHTML = '<div class="ph-lane" style="color:#0E3860;margin-top:14px">FAMILY · ' + fam.length + '</div>'
+        + (fam.length ? fam.map(function (f) {
+          return '<div class="ph-fam"><div>' + esc(f.name || 'Family') + (f.is_primary ? ' · main contact' : '') + '<small>' + esc([f.relationship, pretty(f.phone)].filter(Boolean).join(' · ')) + '</small></div>'
+            + callBtn(f.phone, 'Call', { email: f.email, client: r.client_name }) + '</div>';
+        }).join('') : '<div class="ph-none">No family contacts on their care circle yet.</div>');
+    } catch (e) { var b2 = document.getElementById('phFam'); if (b2) b2.innerHTML = '<div class="ph-msg bad" style="margin:10px 0 0">Could not load the family contacts: ' + esc(e && e.message || e) + '</div>'; }
+  }
+  async function shiftsLoad(axid) {
+    var box = document.getElementById('phShifts'); if (!box) return;
+    box.innerHTML = '<div class="ph-src">Loading their shifts from AxisCare…</div>';
+    try {
+      var ses = (await sb.auth.getSession()).data.session; if (!ses) throw new Error('please sign in again');
+      var r = await fetch(CONFIG.supabase_url + '/functions/v1/coverage-shifts', { method: 'POST',
+        headers: { Authorization: 'Bearer ' + ses.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify({ caregiver_axiscare_id: String(axid) }) });
+      var out = await r.json().catch(function () { return {}; });
+      if (!r.ok || out.error) throw new Error(out.error || ('shifts ' + r.status));
+      var sh = (out.shifts || []).slice(0, 8), el = document.getElementById('phShifts'); if (!el) return;
+      el.innerHTML = '<div class="ph-lane" style="color:#0E3860;margin-top:14px">NEXT SHIFTS · NEXT 14 DAYS</div>'
+        + (sh.length ? sh.map(function (s) { return '<div class="ph-fam"><div>' + esc(s.client || '') + '<small>' + esc([s.date, s.time].filter(Boolean).join(' · ')) + '</small></div></div>'; }).join('')
+          : '<div class="ph-none">No shifts in the next 14 days.</div>');
+    } catch (e) { var b2 = document.getElementById('phShifts'); if (b2) b2.innerHTML = '<div class="ph-msg bad" style="margin:10px 0 0">Could not load their shifts: ' + esc(e && e.message || e) + '</div>'; }
+  }
+  function findRender() {
+    var box = document.getElementById('phFindBody'); if (!box || FIND.open) return;
+    var src = [];
+    if (FIND.loading) src.push('Loading caregivers, clients and applicants…');
+    var bad = Object.keys(FIND.err).map(function (k) { return { cg: 'caregivers', cl: 'clients', ap: 'applicants' }[k] + ' (' + FIND.err[k] + ')'; });
+    var res = matches(FIND.q), t = FIND.q.trim();
+    box.innerHTML = '<div class="ph-src">' + esc(src.join(' ')) + (bad.length ? ' <b>Could not load ' + esc(bad.join(', ')) + '. The search below is missing them.</b>' : '') + '</div>'
+      + (!t || t.replace(/\s/g, '').length < 2 ? '<div class="ph-none" style="margin-top:12px">Type at least two letters of a name, or four digits of a phone number.</div>'
+        : res.length ? '<div style="margin-top:10px">' + res.map(function (p, i) {
+          var tg = TAGS[p.type]; return '<button class="ph-row" data-pf="open" data-i="' + i + '"><b>' + esc(p.name) + '</b><span class="ph-tag ' + (p.past ? 'past' : tg[1]) + '">' + tg[0] + '</span><span>' + esc(p.sub) + '</span></button>';
+        }).join('') + '</div>'
+          : '<div class="ph-none" style="margin-top:12px">' + (FIND.loading ? 'Still loading…' : 'Nobody matches “' + esc(t) + '”.') + '</div>');
+    FIND.last = res;
+  }
+  function onFindTap(ev) {
+    var b = ev.target.closest && ev.target.closest('[data-pf]'); if (!b) return;
+    var what = b.getAttribute('data-pf');
+    if (what === 'open') { var p = (FIND.last || [])[Number(b.getAttribute('data-i'))]; if (!p) return; FIND.open = p; detail(p); window.scrollTo(0, 0); }
+    if (what === 'back') { FIND.open = null; findRender(); var q = document.getElementById('phQ'); if (q) q.focus(); }
+    if (what === 'shifts') { b.disabled = true; shiftsLoad(b.getAttribute('data-id')); }
+  }
+
+  /* ── the two screens, and the tabs between them ── */
+  var VIEW = 'need';
+  function show(v) {
+    VIEW = v;
+    var n = document.getElementById('phNeed'), f = document.getElementById('phFind'), t = document.getElementById('phTitle');
+    if (n) n.hidden = v !== 'need'; if (f) f.hidden = v !== 'find';
+    if (t) t.firstChild.nodeValue = v === 'find' ? 'Find a person' : 'Needs me now';
+    var r = document.getElementById('phRefresh'); if (r) r.hidden = v !== 'need';
+    [].forEach.call(document.querySelectorAll('.ph-tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-v') === v); });
+    if (v === 'find') { findLoad(); findRender(); }
+    window.scrollTo(0, 0);
+  }
+
   /* ── start (called by the Hub's boot and sign-in, phone mode only) ── */
   function build() {
     if (document.getElementById('phApp')) return;
     var d = document.createElement('div'); d.id = 'phApp';
-    d.innerHTML = '<div class="ph-top"><b>Needs me now<small id="phWho"></small></b>'
+    d.innerHTML = '<div class="ph-top"><b id="phTitle">Needs me now<small id="phWho"></small></b>'
       + '<button type="button" id="phRefresh">Refresh</button><button type="button" id="phOut">Sign out</button></div>'
-      + '<div id="phMsg" style="display:none"></div>'
+      + '<div id="phNeed"><div id="phMsg" style="display:none"></div>'
       + '<div class="ph-wrap"><div id="phList"><div class="ph-none" style="padding-top:14px">Loading…</div></div>'
-      + '<div class="ph-foot"><a href="' + hubLink() + '">Open the full Hub</a></div></div>';
+      + '<div class="ph-foot"><a href="' + hubLink() + '">Open the full Hub</a></div></div></div>'
+      + '<div id="phFind" hidden><div class="ph-wrap"><input id="phQ" class="ph-q" type="search" autocomplete="off" autocapitalize="words" enterkeyhint="search" placeholder="Name or phone number" aria-label="Find a person">'
+      + '<div id="phFindBody"></div></div></div>'
+      + '<nav class="ph-tabs"><button type="button" data-v="need" class="on">Needs me now</button><button type="button" data-v="find">Find a person</button></nav>';
     document.body.appendChild(d);
-    d.addEventListener('click', onTap);
+    d.querySelector('#phNeed').addEventListener('click', onTap);
+    d.querySelector('#phFind').addEventListener('click', onFindTap);
+    d.querySelector('.ph-tabs').addEventListener('click', function (ev) { var b = ev.target.closest('button'); if (b) show(b.getAttribute('data-v')); });
+    var q = d.querySelector('#phQ'), qt = null;
+    q.addEventListener('input', function () { clearTimeout(qt); qt = setTimeout(function () { FIND.q = q.value; FIND.open = null; findRender(); }, 120); });
     document.getElementById('phRefresh').onclick = function () { tick(true); };
     document.getElementById('phOut').onclick = async function () {
       try { localStorage.removeItem(KEY); } catch (e) { /* nothing kept */ }
@@ -232,5 +442,5 @@
     if (!TIMER) TIMER = setInterval(function () { tick(false); }, 60000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(false); });
   }
-  window.phGate = phGate; window.phStart = phStart; window.phSignedIn = phSignedIn; window.phRender = phRender;
+  window.phGate = phGate; window.phStart = phStart; window.phSignedIn = phSignedIn; window.phRender = phRender; window.phShow = show;
 })();
