@@ -45,7 +45,7 @@ async()=>{
   const T=()=>document.getElementById('lbBoard').innerText, rows=()=>[...document.querySelectorAll('#lbBoard .lb-row')];
   const names=()=>rows().map(r=>r.querySelector('.lb-name').childNodes[0].textContent.trim());
   const tiles=[...document.querySelectorAll('#lbNumbers .lb-tile')].map(t=>t.innerText.replace(/\s+/g,' ').trim());
-  ok('the five numbers: 6 need you now · 1 new nobody has tried · 0 assessments today · 1 waiting (Clifford\'s check-back is today, so he moved up) · median –', tiles[0]==='6 need you now' && tiles[1]==='1 new, nobody has tried' && tiles[2]==='0 assessments today' && tiles[3]==='1 waiting' && /median first attempt today/.test(tiles[4]), tiles);
+  ok('the numbers (a sixth, missing required, added 2026-10-07): 6 need you now · 1 new nobody has tried · 0 assessments today · 1 waiting (Clifford\'s check-back is today, so he moved up) · median –', tiles[0]==='6 need you now' && tiles[1]==='1 new, nobody has tried' && tiles[2]==='0 assessments today' && tiles[3]==='1 waiting' && tiles[4]==='0 missing required' && /median first attempt today/.test(tiles[5]), tiles);
   ok('groups in order: Need you now, Scheduled, Waiting', T().indexOf('NEED YOU NOW')<T().indexOf('SCHEDULED') && T().indexOf('SCHEDULED')<T().indexOf('WAITING'));
   ok('Need you now, most urgent first: NEW overdue → replied → promised call late → plan not written → follow-up late → check-back due', names().slice(0,6).join('|')==='Ruth Ann Keller|Marjorie Teague|Harold Pruitt|Walter Brandt|Evelyn Marsh|Clifford Haney', names());
   const r0=rows()[0].innerText;
