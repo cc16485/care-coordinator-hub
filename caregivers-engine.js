@@ -6438,15 +6438,14 @@ function renderOB(){
           ${c.not_hired_notes?`<span class="sub" style="color:var(--gray);font-style:italic">${c.not_hired_notes}</span>`:''}
           ${c.not_hired_date?`<span class="sub" style="color:var(--gray)">${fmtD(c.not_hired_date)}</span>`:''}
         `:`
-          <span class="badge ${stBadge}">${st}</span>
+          ${st==='Ready for Orientation'?obOrientBanner(c):`<span class="badge ${stBadge}">${st}</span>`}
           ${step1Chip(c)?`<br><span style="display:inline-block;margin-top:4px;">${step1Chip(c)}</span>`:''}
-          ${c.invite_sent?`<br><span class="badge" style="margin-top:4px;background:#e0faf9;color:#0e7490;font-size:.62rem">✉️ Invited ${fmtD(c.invite_sent_date)}</span>`:''}
+          ${c.invite_sent&&st!=='Ready for Orientation'?`<br><span class="badge" style="margin-top:4px;background:#e0faf9;color:#0e7490;font-size:.62rem">✉️ Invited ${fmtD(c.invite_sent_date)}</span>`:''}
           ${bgrvChip(c)?`<br>${bgrvChip(c)}`:''}
         `}
       </td>
       <td><div class="acts">
         ${c.not_hired?`<button class="ibtn" onclick="reactivateOB(${c.id})" style="color:var(--teal);border-color:var(--teal)" title="Reactivate candidate">↩ Reactivate</button>`:`
-        ${st==='Ready for Orientation'?`<span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${step2Html(c)}</span><span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${wcInviteHtml(c)}</span><span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${cgpBtnHtml(c.id)}</span><button class="ibtn" onclick="openInviteModal(${c.id})" title="Invite to an in-person orientation session at the office">📅 In the office instead${c.invite_sent?' (re-send)':''}</button>`:''}
         ${[1,2,3,4].some(n=>c['r'+n+'n']&&c['r'+n+'s']==='Pending')?`<button class="ibtn" onclick="askReferences(${c.id},this)" title="Send each reference a two-minute form">📨 Ask refs</button>`:''}
         ${[1,2,3,4].some(n=>c['r'+n+'_manual'])?`<button class="ibtn" onclick="refReport(${c.id})" title="Reference check record for the personnel file">📄 Refs</button>`:''}
         ${bgrvNeedsButton(c)?`<button class="ibtn" onclick="bgrvOpenModal(${c.id})" style="color:#B45309;border-color:#FCD34D" title="Something came up on a background check">🛡 Background review</button>`:''}
@@ -6869,6 +6868,11 @@ function openInviteModal(id){
       setTimeout(()=>document.getElementById('inv-copy-link').textContent='Copy link only',2000);
     });
   };
+  /* the office sets the date and time itself (2026-10-08): fresh fields, and what is already booked */
+  const md = document.getElementById('inv-manual-date'), mt = document.getElementById('inv-manual-time'), mp = document.getElementById('inv-manual-preview'), mc = document.getElementById('inv-manual-current');
+  if(md) md.value = ''; if(mt) mt.value = '10:00'; if(mp){ mp.style.display = 'none'; mp.textContent = ''; }
+  if(mc){ const have = officeOrientBookingFor(c, orientSessions); mc.style.display = have ? 'block' : 'none';
+    mc.textContent = have ? ('🏢 Already booked: ' + officeOrientWhen(have.session) + '. Booking a new time moves them.') : ''; }
   document.getElementById('inv-sending').style.display='none';
   document.getElementById('inv-actions').style.display='flex';
   document.getElementById('invite-modal').classList.add('open');
@@ -6902,6 +6906,125 @@ async function confirmSendInvite(){
   candidates[i].invite_sent=true;
   candidates[i].invite_sent_date=new Date().toISOString().split('T')[0];
   saveCandidates(); closeModal('invite-modal'); renderOB(); renderAlerts();
+}
+/* ── MOVED INTO ORIENTATION + OFFICE ORIENTATION SET BY THE OFFICE (2026-10-08, Samantha) ──
+   People & Checks: once every check is clear and two references are positive, the row says only that the person
+   moved into orientation (a small banner at the right), so the table keeps its room for what happens before
+   orientation. The orientation steps (Viventium Step 2, the welcome call, the caregiver profile, the office backup)
+   live on the Orientations tab, where they already were.
+   The in-office orientation is the backup. Besides texting the booking link, the office can type the date and time
+   itself: the person is booked onto the in-person session at that date and time (a one-seat session is added if
+   there is none), so the calendar, the day-before reminder, attendance and Promote all work as before. Nothing is
+   texted unless "Book and text them" is pressed, and that text is the same confirmation the booking page sends. */
+function officeOrientBookingFor(c, sessions, today){
+  /* their upcoming orientation booking, if any: by candidate id first, then by name; a canceled, no-show or
+     rescheduled seat is not a booking */
+  const name = (String(c.first || '') + ' ' + String(c.last || '')).trim().toLowerCase();
+  const t0 = today || localDay(new Date());
+  const hits = [];
+  for(const s of (sessions || [])){
+    if(!s || !s.date || s.date < t0) continue;
+    (s.bookings || []).forEach((b, idx) => {
+      if(!b || (b.attend_status && b.attend_status !== 'attended')) return;
+      const byId = b.candidate_id != null && String(b.candidate_id) === String(c.id);
+      const byName = !!name && (String(b.first || '') + ' ' + String(b.last || '')).trim().toLowerCase() === name;
+      if(byId || byName) hits.push({ session: s, booking: b, idx });
+    });
+  }
+  hits.sort((a, b) => (a.session.date + (a.session.time || '')).localeCompare(b.session.date + (b.session.time || '')));
+  return hits[0] || null;
+}
+function officeOrientSlot(sessions, date, time, make){
+  /* the in-person session at that date and time with a seat open, else a new one-seat session */
+  const found = (sessions || []).find(s => s && s.date === date && String(s.time || '') === time && s.is_remote !== 'yes'
+    && (s.bookings || []).length < parseInt(s.capacity || '0', 10));
+  if(found) return { session: found, created: false };
+  const session = make(date, time);
+  sessions.push(session);
+  return { session, created: true };
+}
+function officeOrientConfirmText(first, date, time){
+  /* the same words as the booking page's confirmation (send-candidate-message, in person) */
+  return `You're all set, ${first}! 🎉 Your Caring Companions orientation is ${fmtSessionDate(date)} at ${fmtTime(time)}. Location: ${ORIENT_ADDR}. `
+    + `Please bring the original ID documents you uploaded in Viventium Step 2 (for example, your photo ID). Questions? Call/text (417) 234-8494.`;
+}
+function officeOrientWhen(s){ const d = sessDateShort(s.date); return d.dow + ', ' + d.date + ' at ' + fmtTime(s.time); }
+function localDay(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function obOrientBanner(c){
+  const esc = wcEsc;
+  const office = officeOrientBookingFor(c, typeof orientSessions !== 'undefined' ? orientSessions : []);
+  const w = typeof wcRowFor === 'function' ? wcRowFor(c) : null;
+  let line;
+  if(w && w.status === 'done') line = '📹 Welcome call done ' + esc(wcDay(w.done_at));
+  else if(office) line = '🏢 Office orientation ' + esc(officeOrientWhen(office.session));
+  else if(w && w.status === 'booked' && w.starts_at) line = '📹 Welcome call ' + esc(wcWhen(w.starts_at));
+  else if(c.invite_sent) line = '📩 Office invite sent' + (fmtD(c.invite_sent_date) ? ' ' + esc(fmtD(c.invite_sent_date)) : '');
+  else if((w && w.invited_at) || c.welcome_invited_at) line = '📹 Welcome call invite sent';
+  else if(c.step2_done_at) line = 'Step 2 done, welcome call next';
+  else if(c.step2_sent_at) line = 'Step 2 sent, waiting on them';
+  else line = 'Next: Viventium Step 2';
+  const since = c.resolvedAt ? 'Cleared ' + wcDay(c.resolvedAt) : 'All checks clear';
+  return `<div class="ob-orient-banner" title="Everything from here on is on the Orientations tab">`
+    + `<div class="ob-orient-head">✅ Moved into orientation</div>`
+    + `<div class="ob-orient-sub">${esc(since)}</div>`
+    + `<div class="ob-orient-sub">${line}</div>`
+    + `<a href="#" class="ob-orient-link" onclick="event.preventDefault();gotoTab('orientations')">Open Orientations →</a>`
+    + `</div>`;
+}
+function officeOrientPreview(){
+  /* the modal: what pressing Book does, as they type the date and time */
+  const c = candidates.find(x => x.id === invitingId); if(!c) return;
+  const date = (document.getElementById('inv-manual-date') || {}).value || '';
+  const time = (document.getElementById('inv-manual-time') || {}).value || '';
+  const box = document.getElementById('inv-manual-preview'); if(!box) return;
+  if(!date || !time){ box.style.display = 'none'; box.textContent = ''; return; }
+  const slot = (orientSessions || []).find(s => s && s.date === date && String(s.time || '') === time && s.is_remote !== 'yes');
+  const seats = slot ? (parseInt(slot.capacity || '0', 10) - (slot.bookings || []).length) : null;
+  const where = slot ? (seats > 0 ? `Joins the session already on the calendar (${seats} seat${seats === 1 ? '' : 's'} open).` : 'That session is full, so a one-seat session is added next to it.')
+    : 'A one-seat in-person session is added for them.';
+  box.style.display = 'block';
+  box.innerHTML = `<div style="font-weight:600;margin-bottom:.3rem">${wcEsc(officeOrientWhen({ date, time }))} · ${wcEsc(where)}</div>`
+    + `<div style="font-size:.72rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.04em;margin:.4rem 0 .2rem">If you press Book and text them</div>`
+    + `<div>${wcEsc(officeOrientConfirmText(c.first, date, time))} Reply STOP to opt out.</div>`;
+}
+async function bookOfficeOrientation(sendText){
+  const c = candidates.find(x => x.id === invitingId); if(!c) return;
+  const name = (c.first + ' ' + c.last).trim();
+  const date = (document.getElementById('inv-manual-date') || {}).value || '';
+  const time = (document.getElementById('inv-manual-time') || {}).value || '';
+  if(!date || !time){ alert('Type the date and the time of the orientation first.'); return; }
+  const today = localDay(new Date());
+  if(date < today){ alert('That date has passed. Pick today or a later day.'); return; }
+  if(sendText && !c.phone){ alert('No phone number on file, so nothing can be texted. Add a cell number (✏️), or press Book only.'); return; }
+  if(typeof safeIsTmp === 'function' && safeIsTmp(c.id)){ alert(name + ' is still being saved. Try again in a moment.'); return; }
+  const when = officeOrientWhen({ date, time });
+  const existing = officeOrientBookingFor(c, orientSessions, today);
+  if(existing && existing.session.date === date && String(existing.session.time || '') === time){ alert(name + ' is already booked for ' + when + '.'); return; }
+  if(existing && !confirm(name + ' is already booked for ' + officeOrientWhen(existing.session) + '.\n\nMove them to ' + when + '?')) return;
+  const msg = officeOrientConfirmText(c.first, date, time);
+  if(sendText && !confirm('Book ' + name + ' for ' + when + ' and text them now?\n\n' + msg + ' Reply STOP to opt out.\n\n(Texts go 8am to 6pm Central, only with their yes to texts.)')) return;
+  if(!sendText && !confirm('Book ' + name + ' for ' + when + '?\n\nNothing is texted. You tell them the date and time.')) return;
+  const who = await wcWho();
+  if(existing) existing.session.bookings.splice(existing.idx, 1);
+  const oc = getOrientConfig();
+  const slot = officeOrientSlot(orientSessions, date, time, (d, t) => ({ id: orientId++, bookings: [], date: d, time: t, capacity: '1', is_remote: 'no', video_link: '',
+    notes: 'Set by the office', facilitator: oc.facilitator || '', facilitator_role: oc.facilitator ? 'Staffing Coordinator' : '' }));
+  slot.session.bookings.push({ first: c.first, last: c.last, phone: c.phone || '', candidate_id: c.id, booked_at: today, attend_status: null, set_by_office: who });
+  c.invite_sent = true; c.invite_sent_date = today; c.orient_session_date = date;
+  c.orient_office_set_at = new Date().toISOString(); c.orient_office_set_by = who;
+  saveOrientStore();
+  if(slot.created) gcalCreateEvent(slot.session).then(eid => { if(eid){ slot.session.gcal_event_id = eid; saveOrientStore(); } });
+  const saved = await saveCandidates();
+  let textNote = 'Nothing was texted. Tell them the date and time yourself.';
+  if(sendText){
+    try{ await sendCandidateSMS({ first: c.first, last: c.last, phone: c.phone, email: c.email || '', message: msg }); textNote = 'They were texted the details.'; }
+    catch(e){ textNote = 'The text could NOT be sent (' + ((e && e.message) || e) + '). Call or text them yourself.'; }
+  }
+  closeModal('invite-modal'); renderOB(); renderOrientations(); renderAlerts();
+  alert(name + ' is booked for the office orientation ' + when + (slot.created ? ' (a one-seat session was added on the Orientations tab)' : '') + '.'
+    + (existing ? '\n\nTheir earlier seat on ' + officeOrientWhen(existing.session) + ' was given up.' : '')
+    + '\n\n' + textNote
+    + (saved === false ? '\n\nThe candidate record did not reach the shared workspace, so the rest of the team may not see this yet. Check your connection.' : ''));
 }
 let _notHireId=null;
 function openNotHireModal(id){
@@ -7994,15 +8117,16 @@ function renderOrientReadyQueue(){
           const days = resolvedAt ? Math.floor((now-resolvedAt)/(1000*60*60*24)) : null;
           const wait = days===null?'':days===0?'Cleared today':days===1?'1 day waiting':`${days} days waiting`;
           const invited = c.invite_sent;
+          const office = officeOrientBookingFor(c, orientSessions);
           return `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:.45rem .6rem;background:#fff;border:1.5px solid ${c.step2_done_at?'#86efac':'var(--teal)'};border-radius:9px;padding:.45rem .8rem">
             <span style="font-size:.84rem;font-weight:600;color:var(--navy)">${c.first} ${c.last}</span>
             ${wait?`<span style="font-size:.7rem;color:var(--gray)">${wait}</span>`:''}
             <span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${step2Html(c)}</span>
             <span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${wcInviteHtml(c)}</span>
             <span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${cgpBtnHtml(c.id)}</span>
-            <span style="margin-left:auto;display:inline-flex;align-items:center;gap:.35rem">
-              ${invited?`<span style="font-size:.68rem;color:#16a34a;font-weight:600">📩 Office session invite sent</span>`:''}
-              <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" onclick="openInviteModal(${c.id})" title="Invite to an in-person orientation session at the office">📅 In the office instead</button>
+            <span style="margin-left:auto;display:inline-flex;align-items:center;gap:.35rem;flex-wrap:wrap">
+              ${office?`<span style="font-size:.68rem;color:#15803D;font-weight:600">🏢 Office orientation ${wcEsc(officeOrientWhen(office.session))}</span>`:invited?`<span style="font-size:.68rem;color:#16a34a;font-weight:600">📩 Office session invite sent</span>`:''}
+              <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" onclick="openInviteModal(${c.id})" title="The in-office backup: text them the booking link, or set the date and time yourself">📅 ${office?'Change the office time':'In the office instead'}</button>
             </span>
           </div>`;
         }).join('')}
@@ -9531,7 +9655,7 @@ function renderEVVCorrections() {
 }
 
 /* the only things the panels' handlers need */
-window.SCX = {loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+window.SCX = {bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
 /* The offer cards are built with inline onclick handlers, so these have to be
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;
