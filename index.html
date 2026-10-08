@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="phone-mode.js?v=4"></script><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="phone-mode.js?v=5"></script><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -6914,7 +6914,7 @@ The HomeTogether team</pre>
 <script src="lead-workspace.js?v=3"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
-<script src="end-shift.js?v=3"></script>
+<script src="end-shift.js?v=4"></script>
 <script src="desk.js?v=12"></script>
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
@@ -27035,8 +27035,11 @@ function renderMyWork(){
   const lane=(label,note,color,count,body)=>'<div style="margin:16px 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
     +'<b style="font-size:12.5px;letter-spacing:.06em;color:'+color+';">'+label+(count!=null?' · '+count:'')+'</b>'
     +'<span class="field-note">'+note+'</span></div>'+body;
-  const act=rows.filter(r=>opsPriorityKey(r)[0]<=2), due=rows.filter(r=>opsPriorityKey(r)[0]>2);
-  const inToday=new Set(rows.map(r=>r.id));
+  /* FROM YOUR HANDOFF (her call 2026-10-07): what was handed to me at the end of someone's shift sits above everything
+     until I tap Got it on the handoff (end-shift.js hoPinned), then drops back into its usual lane. */
+  const pinned=(typeof hoPinned==='function')?hoPinned():[], pinIds=new Set(pinned.map(i=>i.id));
+  const act=rows.filter(r=>!pinIds.has(r.id)&&opsPriorityKey(r)[0]<=2), due=rows.filter(r=>!pinIds.has(r.id)&&opsPriorityKey(r)[0]>2);
+  const inToday=new Set(rows.map(r=>r.id).concat([...pinIds]));
   /* CLIENTS IN MOTION (2026-10-06, her: normal next steps show before they are ever late): a client journey's next step
      that isn't due today has its own lane, not Later. Parked (waiting) ones stay in Waiting & Watching. */
   const motion=b.mine.filter(i=>!inToday.has(i.id)&&i.kind==='journey'&&!opsParked(i))
@@ -27045,6 +27048,8 @@ function renderMyWork(){
     .sort((a,c)=>String(a.due||'9999').localeCompare(String(c.due||'9999')));
   const none=t=>'<div class="field-note" style="padding:4px 2px 2px;">'+t+'</div>';
   let h='';
+  if(pinned.length) h+=lane('FROM YOUR HANDOFF','handed to you at the end of a shift; here until you tap Got it on the handoff','var(--teal)',pinned.length,
+    pinned.map(it=>myWorkCard(it,-1)).join(''));
   h+=lane('ACT NOW','emergencies, shifts about to start with nobody, anything late','var(--red)',act.length,
     act.length?act.map((it,i)=>myWorkCard(it,i)).join(''):none('Nothing urgent or late. Good.'));
   h+=lane('DUE TODAY','everything else that needs doing today','var(--amber)',due.length,

@@ -154,12 +154,18 @@
     var r = [];
     try { r = rows(); }
     catch (e) { box.innerHTML = '<div class="ph-msg bad">Today could not be worked out: ' + esc(e && e.message || e) + '. Open the full Hub.</div>'; return; }
+    /* from your handoff (her call 2026-10-07): handed-to-me items sit above everything until Got it, as in the Hub */
+    var pinned = []; try { pinned = typeof hoPinned === 'function' ? hoPinned() : []; } catch (e) { pinned = []; }
+    var pinIds = pinned.map(function (i) { return i.id; });
+    r = r.filter(function (i) { return pinIds.indexOf(i.id) < 0; });
     var act = r.filter(function (i) { return opsPriorityKey(i)[0] <= 2; }), due = r.filter(function (i) { return opsPriorityKey(i)[0] > 2; });
     var lane = function (label, note, color, list, none) {
       return '<div class="ph-lane" style="color:' + color + '">' + label + ' · ' + list.length + '<span>' + note + '</span></div>'
         + (list.length ? list.map(function (i) { return card(i, color === '#B42318'); }).join('') : '<div class="ph-none">' + none + '</div>');
     };
-    box.innerHTML = handoffsHtml() + lane('ACT NOW', 'urgent, late, or a shift about to start with nobody', '#B42318', act, 'Nothing urgent or late. Good.')
+    box.innerHTML = handoffsHtml()
+      + (pinned.length ? '<div class="ph-lane" style="color:#2E8F8B">FROM YOUR HANDOFF · ' + pinned.length + '<span>here until you tap Got it</span></div>' + pinned.map(function (i) { return card(i, false); }).join('') : '')
+      + lane('ACT NOW', 'urgent, late, or a shift about to start with nobody', '#B42318', act, 'Nothing urgent or late. Good.')
       + lane('DUE TODAY', 'everything else that needs doing today', '#B7791F', due, 'Nothing else due today.');
     var m = document.getElementById('phMsg');
     if (m) { m.className = MSG ? 'ph-msg ' + MSG.kind : ''; m.textContent = MSG ? MSG.text : ''; m.style.display = MSG ? 'block' : 'none'; }
