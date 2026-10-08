@@ -38,7 +38,7 @@
     if(d.state === 'paused' && d.pause) h += '<span class="cc-what">Since ' + esc(day(d.pause.paused_from)) + ' · ' + esc((d.reasons.pause || {})[d.pause.reason] || d.pause.reason) + (d.pause.explanation ? ': ' + esc(d.pause.explanation) : '') + ' · <b>follow up ' + esc(day(d.pause.followup_date)) + '</b></span>';
     if(d.state === 'past' || d.state === 'deceased'){
       const role = (d.roles || []).filter(r => r.status !== 'active').slice(-1)[0] || {};
-      h += '<span class="cc-what">' + (role.ended_at ? 'Care ended ' + esc(day(role.ended_at)) : 'End date not recorded in AxisCare') + (role.end_reason && !/^deceased$/i.test(role.end_reason) ? ' · ' + esc(role.end_reason) : (role.end_reason ? '' : ' · reason not recorded in AxisCare')) + '</span>';
+      h += '<span class="cc-what">' + (role.ended_at ? (role.ended_date_basis === 'on_or_before' ? 'Care ended on or before ' + esc(day(role.ended_at)) + ' · exact date not recorded in AxisCare' : 'Care ended ' + esc(day(role.ended_at))) : 'End date not recorded in AxisCare') + (role.end_reason && !/^deceased$/i.test(role.end_reason) ? ' · ' + esc(role.end_reason) : (role.end_reason ? '' : ' · reason not recorded in AxisCare')) + '</span>';
     }
     h += '<span style="flex:1"></span>';
     if(d.can.resume) h += '<button class="primary" onclick="ccCareForm(\'resume\')">Resume care</button><button class="secondary" onclick="ccCareForm(\'extend\')">Pause longer</button>';
