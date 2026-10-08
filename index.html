@@ -18416,7 +18416,7 @@ async function cgdHiringLoad(axid, currentLevel){
       const o=j.offer;
       const bg=String(o.background_freetext||'').split(/;|\n/).map(s=>s.trim()).filter(Boolean);
       const dt=cgdKnowDate(o.interview_date);
-      html+=cgdHirCard('The interview <span class="field-note" style="font-weight:400;">'+dt+' · interviewer/offerer '+esc(o.interviewer||'?')+'</span>',
+      html+=cgdHirCard('The interview <span class="field-note" style="font-weight:400;">'+dt+' · interviewer/offerer '+esc(o.interviewer||'?')+'</span>'+(o.onboarding_path?' '+(typeof pathChip==='function'?pathChip(o.onboarding_path):''):''),
         (bg.length?'<div style="font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--text-muted);text-transform:uppercase;">Background at interview</div>'
           +'<div style="font-size:13.5px;margin:2px 0 8px;">'+bg.map(b=>'• '+esc(b)).join('<br>')+'</div>'
           +'<div class="field-note" style="font-size:11px;margin-bottom:8px;">Displayed as captured — not interpreted or verified.</div>':'')
@@ -19658,6 +19658,9 @@ async function submitJobOffer(){
     (res.not_sent||[]).forEach(n=>steps.push('! Not sent: '+n));
     /* Offered people go straight into Background & References (2026-10-08, Samantha): their checks row is made now,
        before their start form is back, so references can be typed in or asked for right away. */
+    /* Slice 0 (2026-10-08): which onboarding path the server put this offer on. 'old' is the current process; 'new' only
+       from the switch date Samantha sets on the Admin page. The browser never chooses it. */
+    if(res.onboarding_path) steps.push(res.onboarding_path==='new' ? '✓ Onboarding path: NEW (offer sent on or after the switch date '+(res.onboarding_switch_date||'')+')' : '✓ Onboarding path: current process'+(res.onboarding_switch_date?' (the switch date '+res.onboarding_switch_date+' has not been reached)':''));
     try{ const bc=(window.SCX&&SCX.offerIntoChecks)?await SCX.offerIntoChecks(res.id):null; if(bc) steps.push(bc.line); }
     catch(e){ steps.push('! Not in Background & References yet: '+(e&&e.message?e.message:'error')+'. Use Add on that tab.'); }
     if(res.prn_track) steps.push(res.prn_track==='started'||res.prn_track==='already' ? '✓ On the PRN CNA Team pay track ($20/hr), recorded in their history'
