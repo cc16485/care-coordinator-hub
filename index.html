@@ -6682,7 +6682,7 @@ The HomeTogether team</pre>
 <div class="grid2">
 <div><label>Client Name</label><input id="assess_client_name"></div>
 <div><label>AxisCare Client ID</label><input id="assess_axiscare_client_id"></div>
-<div><label>Visit Date</label><input type="date" id="assess_visit_date"></div>
+<div><label>Visit date and time</label><div style="display:flex;gap:8px;"><input type="date" id="assess_visit_date" style="flex:1;min-width:0;"><input type="time" id="assess_visit_time" style="width:130px;" aria-label="Visit time"></div></div>
 <div><label>Coordinator</label><input id="assess_coordinator"></div>
 <div style="grid-column:1/-1"><label>Address</label><input id="assess_address"></div>
 <div><label>Primary Care Physician</label><input id="assess_physician_name"></div>
@@ -10567,7 +10567,9 @@ function btAssessmentsOn(day, assessments, leads){
     const p = btChi(a.visit_date); if(!p || p.date !== day) return;
     const l = a.lead_id ? leadById[a.lead_id] : null; if(a.lead_id && l && !liveLead(l)) return;
     let min = p.min;
-    if(min === null && l && l.assessment_at){ const lp = btChi(l.assessment_at); if(lp && lp.date === day) min = lp.min; }
+    const vt = /^(\d{1,2}):(\d{2})/.exec(String(a.visit_time||''));   // 2026-10-07: the form's visit time
+    if(vt) min = Number(vt[1])*60 + Number(vt[2]);
+    else if(min === null && l && l.assessment_at){ const lp = btChi(l.assessment_at); if(lp && lp.date === day) min = lp.min; }
     if(l) seenLead.add(l.id);
     out.push({ name: a.client_name || clientName(l) || 'Unnamed', min,
       status: String(a.status||'Scheduled')==='Scheduled' ? 'booked' : 'done',
@@ -13057,6 +13059,14 @@ function openAssessmentModal(id, fromLead){
   document.getElementById('assess_address').value = (a&&a.address) || (fromLead&&fromLead.client_address ? `${fromLead.client_address}${fromLead.client_city?', '+fromLead.client_city:''}${fromLead.client_state?', '+fromLead.client_state:''} ${fromLead.client_zip||''}`.trim() : '');
   document.getElementById('assess_axiscare_client_id').value = (a&&a.axiscare_client_id) || (fromLead&&fromLead.axiscare_client_id) || '';
   document.getElementById('assess_visit_date').value = (a&&a.visit_date)||'';
+  /* 2026-10-07 (her call): a visit time, so the assessment blocks the coordinator on the calendar. An older record
+     without one shows GoHighLevel's booked time when it is the same day. */
+  { const lead=(a&&a.lead_id&&(DATA.leads||[]).find(l=>l.id===a.lead_id))||fromLead||null, lp=lead&&lead.assessment_at?btChi(lead.assessment_at):null;
+    const vd=(a&&a.visit_date)||'';
+    let vt=(a&&a.visit_time)||'';
+    if(!vt&&lp&&lp.min!=null&&(!vd||lp.date===vd)) vt=String(Math.floor(lp.min/60)).padStart(2,'0')+':'+String(lp.min%60).padStart(2,'0');
+    if(!vd&&!id&&lp) document.getElementById('assess_visit_date').value=lp.date;
+    document.getElementById('assess_visit_time').value=vt; }
   document.getElementById('assess_coordinator').value = (a&&a.coordinator)||'';
   // Physician info moved here from the lead form — old leads that captured it
   // hand it forward automatically.
@@ -13090,6 +13100,7 @@ async function saveAssessment(){
     client_name: document.getElementById('assess_client_name').value.trim(),
     axiscare_client_id: document.getElementById('assess_axiscare_client_id').value.trim(),
     visit_date: document.getElementById('assess_visit_date').value,
+    visit_time: document.getElementById('assess_visit_time').value || '',
     coordinator: document.getElementById('assess_coordinator').value.trim(),
     address: document.getElementById('assess_address').value.trim(),
     physician_name: document.getElementById('assess_physician_name').value.trim(),
@@ -13111,6 +13122,8 @@ async function saveAssessment(){
   const idx = DATA.care_assessments.findIndex(x=>x.id===id);
   if(idx>=0) DATA.care_assessments[idx]=record; else DATA.care_assessments.push(record);
   await persist('care_assessments', record);
+  /* 2026-10-07: the calendar (and the public interview booking page) sees the visit straight away */
+  try{ busySync().catch(()=>{}); }catch(e){}
   closeModal('assessmentModalBackdrop');
   renderAssessments();
 }
@@ -20685,18 +20698,53 @@ async function busySync(){
   });
 
   /* An assessment names its coordinator, so it blocks that person only when we
-     can match the name to somebody who interviews. */
+     can match the name to somebody who interviews.
+     2026-10-07 (Samantha: "fix the assessments on the calendar"): this read a.date / a.time, which assessments never
+     had (they are saved with visit_date), so no Hub assessment ever blocked the calendar. Now: a Scheduled assessment
+     with a time (the form's visit time, else GoHighLevel's booked time that day) blocks 90 minutes, in Chicago time.
+     One GoHighLevel already blocks at the same start (assessment-intake, source ghl_assessment) is not doubled. An
+     assessment that is cancelled, done, moved or has no time any more lets its old block go. */
   const hostByName = {};
-  (IV_HOSTS||[]).forEach(h=>{ hostByName[String(h.name||'').trim().toLowerCase()] = h.id; });
+  let hosts = (typeof IV_HOSTS!=='undefined' && IV_HOSTS && IV_HOSTS.length) ? IV_HOSTS : [];
+  if(!hosts.length){ try{ const h = await sb.from('coordinators').select('id,name'); hosts = (h && h.data) || []; }catch(e){ hosts = []; } }
+  hosts.forEach(h=>{ hostByName[String(h.name||'').trim().toLowerCase()] = h.id; });
+  const chiISO = (ymd, min) => {   // a Chicago wall-clock minute on a date, as a real instant (right in any season)
+    const guess = Date.parse(ymd + 'T00:00:00Z') + min*60000;
+    const c = new Date(guess).toLocaleString('sv-SE', { timeZone:'America/Chicago' }).replace(' ', 'T') + 'Z';
+    return new Date(guess + (guess - Date.parse(c))).toISOString();
+  };
+  let ghlStarts = new Set(), asmtKeep = new Set(), asmtOk = true;
+  try{
+    const g = await sb.from('coordinator_busy').select('starts_at').eq('source','ghl_assessment').gte('starts_at', cutoff.toISOString());
+    if(g.error) throw g.error;
+    (g.data||[]).forEach(x=>{ const t=Date.parse(x.starts_at); if(!isNaN(t)) ghlStarts.add(Math.round(t/60000)); });
+  }catch(e){ asmtOk = false; }
   ((DATA.care_assessments)||[]).forEach(a=>{
-    if(!a || !a.date || a.status==='cancelled') return;
-    const st = busyLocalISO(a.date, a.time || '10:00');
-    if(!st || new Date(st) < cutoff) return;
+    if(!a || !a.id || !a.visit_date || String(a.status||'Scheduled')!=='Scheduled') return;
+    const day = String(a.visit_date).slice(0,10);
+    let min = null;
+    const vt = /^(\d{1,2}):(\d{2})/.exec(String(a.visit_time||''));
+    if(vt) min = Number(vt[1])*60 + Number(vt[2]);
+    else { const l = a.lead_id ? (DATA.leads||[]).find(x=>x.id===a.lead_id) : null;
+      const lp = l && l.assessment_at ? btChi(l.assessment_at) : null; if(lp && lp.date===day) min = lp.min; }
+    if(min === null) return;
+    const st = chiISO(day, min);
+    if(new Date(st) < cutoff) return;
+    if(ghlStarts.has(Math.round(Date.parse(st)/60000))) return;
+    asmtKeep.add(String(a.id));
     rows.push({ coordinator_id: hostByName[String(a.coordinator||'').trim().toLowerCase()] || null,
-      starts_at:st, ends_at: busyLocalISO(a.date, a.time || '10:00', 90),
-      source:'assessment', source_id:String(a.id ?? st),
-      label:'Care assessment' + (a.coordinator?' — '+a.coordinator:'') });
+      starts_at:st, ends_at: chiISO(day, min + 90),
+      source:'assessment', source_id:String(a.id),
+      label:'Care assessment' + (a.coordinator?': '+a.coordinator:'') });
   });
+  /* the assessment blocks this sync wrote before that no longer apply (only when the GoHighLevel read worked) */
+  if(asmtOk){
+    try{
+      const old = await sb.from('coordinator_busy').select('id,source_id').eq('source','assessment').gte('starts_at', cutoff.toISOString());
+      const gone = ((old && old.data)||[]).filter(x=>!asmtKeep.has(String(x.source_id))).map(x=>x.id);
+      if(gone.length) await sb.from('coordinator_busy').delete().in('id', gone);
+    }catch(e){ /* nothing removed; the slot finder only over-blocks */ }
+  }
 
   /* Consultations carry a real timestamp already and no owner, so they block
      everybody. Over-blocking is the safer way to be wrong here. */
