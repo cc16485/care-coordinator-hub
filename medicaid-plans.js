@@ -168,7 +168,70 @@
         + (cur.services || []).filter(x => x.ours).map(x => '<div class="field-note">' + h(x.label) + ': ' + usd(x.start) + ' to ' + usd(x.end) + (x.prior_auth ? ' · PA ' + h(x.prior_auth) : '') + '</div>').join('')
         + (lead && cur.plan_end >= tdy && st !== 'authorized' ? '<div class="mcp-note">Where the state is still says "' + h(st || 'not set') + '". If this plan is the authorization, set it to Authorized above and Save.</div>' : '')
         + (list.length > 1 ? '<div class="field-note">' + (list.length - 1) + ' earlier plan' + (list.length === 2 ? '' : 's') + ' on file.</div>' : '')
-        + '</div>' : (MCP.pending ? '' : '<div class="field-note mcp-none">No care plan uploaded yet.</div>'));
+        + '</div>' + startHtml(cur, lead) : (MCP.pending ? '' : '<div class="field-note mcp-none">No care plan uploaded yet.</div>'));
+  };
+
+  /* ── Starting care (Medicaid intake slice A, 2026-10-08): the 10-day clock, the late justification, the start checks ── */
+  const firstShiftOf = (cur, lead) => (lead && lead.first_shift_at) || (cur.start && cur.start.started_on_manual) || '';
+  function startHtml(cur, lead) {
+    if (typeof IhsRules === 'undefined' || !cur) return '';
+    const c = IhsRules.startClock(cur, firstShiftOf(cur, lead), todayIso());
+    if (!c.applies) return c.continuing ? '<div class="mcp-start"><b>Starting care</b><div class="field-note">Care began ' + usd(c.started) + ', before this plan arrived, so this is a renewal or change: no new 10-day start clock.</div></div>' : '';
+    const st = cur.start || {}, chk = st.checks || {}, late = st.late || null;
+    const tone = { waiting: 'ok', soon: 'warn', due_today: 'warn', overdue: 'bad', started_on_time: 'ok', started_late: 'warn' }[c.state];
+    const words = c.state === 'started_on_time' ? 'Started ' + usd(c.started) + ' (first clock-in), on time'
+      : c.state === 'started_late' ? 'Started ' + usd(c.started) + ', ' + c.late_days + ' day' + (c.late_days === 1 ? '' : 's') + ' after the ' + usd(c.due) + ' deadline'
+      : c.state === 'overdue' ? 'Not started: the deadline was ' + usd(c.due) + ' (' + (-c.left) + ' day' + (c.left === -1 ? '' : 's') + ' ago)'
+      : c.state === 'due_today' ? 'Start care today: the deadline is today (' + usd(c.due) + ')'
+      : 'Start care by ' + usd(c.due) + ' (' + c.left + ' day' + (c.left === 1 ? '' : 's') + ' left)';
+    let h = '<div class="mcp-start"><b>Starting care</b> <span class="mcp-chip ' + tone + '">' + h_(words) + '</span>'
+      + '<div class="field-note">The state rule: care starts ' + h_(c.rule) + ' (19 CSR 15-7.021(18)(J)). Started means the first clock-in in AxisCare.</div>';
+    if (!(lead && lead.first_shift_at)) h += '<div class="mcp-form"><label>First visit, from AxisCare (if the Hub hasn\'t seen it) <input type="date" id="mcpSManual" value="' + h_(st.started_on_manual || '') + '" max="' + todayIso() + '" onchange="mcpStartManual(this.value)"></label></div>';
+    if (IhsRules.needsJustification(c)) {
+      if (late) h += '<div class="mcp-note"><b>Written justification sent to DSDS</b> ' + usd(late.sent_on) + ' (' + h_(late.how) + '), copy in the file. Recorded by ' + h_(late.by) + '. <span class="field-note">' + h_(late.reason) + '</span></div>';
+      else {
+        const dr = (MCP.draft && MCP.draft.id === cur.id) ? MCP.draft : (MCP.draft = { id: cur.id, reason: '', planned_start: '', sent_on: '', how: '', copy_in_file: false, text: '' });
+        const draft = dr.text || IhsRules.draftJustification({ name: cur.client_name, dcn: cur.dcn, received: c.received, due: c.due, started: c.started || '', reason: dr.reason, planned_start: dr.planned_start });
+        h += '<div class="mcp-late"><b style="color:var(--red)">Written justification owed to DSDS</b>'
+          + '<div class="field-note">Late starts need a detailed written justification sent to DSDS, with a copy in the client\'s file. The Hub drafts it; you edit it and send it yourself.</div>'
+          + '<div class="mcp-form">'
+          + '<label class="mcp-wide">Why care did not start in time <textarea id="mcpSReason" rows="2" onchange="mcpLateField(\'reason\',this.value)">' + h_(dr.reason) + '</textarea></label>'
+          + (c.started ? '' : '<label>Expected start <input type="date" id="mcpSPlanned" value="' + h_(dr.planned_start) + '" onchange="mcpLateField(\'planned_start\',this.value)"></label>')
+          + '<label class="mcp-wide">The letter (edit it, then copy it into Fusion or an email) <textarea id="mcpSText" rows="7" onchange="mcpLateField(\'text\',this.value)">' + h_(draft) + '</textarea></label>'
+          + '<label>Sent to DSDS on <input type="date" id="mcpSSent" value="' + h_(dr.sent_on) + '" max="' + todayIso() + '" onchange="mcpLateField(\'sent_on\',this.value)"></label>'
+          + '<label>How <select id="mcpSHow" onchange="mcpLateField(\'how\',this.value)"><option value="">Pick one</option>' + ['Fusion', 'Email', 'Fax', 'Mail', 'Other'].map(x => '<option' + (dr.how === x ? ' selected' : '') + '>' + x + '</option>').join('') + '</select></label>'
+          + '<label class="mcp-chk"><input type="checkbox" id="mcpSCopy"' + (dr.copy_in_file ? ' checked' : '') + ' onchange="mcpLateField(\'copy_in_file\',this.checked)"> A copy is in the client\'s file</label>'
+          + '</div><div class="mcp-acts"><button class="ghost" onclick="mcpCopyDraft()">Copy the letter</button><button class="primary" onclick="mcpLateSave()">Record it as sent</button><span class="field-note" id="mcpSMsg"></span></div></div>';
+      }
+    }
+    h += '<div class="mcp-checks"><b style="font-size:13px">At the start (state rules)</b>' + IhsRules.START_CHECKS.map(([k, l, src]) => {
+      const done = chk[k] && chk[k].on;
+      return '<div class="mcp-crow"><span>' + (done ? '<span class="mcp-chip ok">' + usd(chk[k].on) + '</span> ' : '') + h_(l) + ' <span class="field-note">' + h_(src) + '</span></span>'
+        + (done ? '<span class="field-note">by ' + h_(chk[k].by) + '</span>' : '<span><input type="date" id="mcpSC_' + k + '" max="' + todayIso() + '" value="' + todayIso() + '"> <button class="ghost" onclick="mcpStartCheck(\'' + k + '\')">Done</button></span>') + '</div>';
+    }).join('') + '</div></div>';
+    return h;
+  }
+  const h_ = s => h(s);
+  const curPlan = () => { const t = target(); return t ? mine(t)[0] : null; };
+  async function savePlan(p) { DATA.medicaid_plans = plans().map(x => x.id === p.id ? p : x); await persist('medicaid_plans', p); mcpProfileRender(); }
+  window.mcpStartCheck = async function (k) {
+    const p = curPlan(); if (!p) return; const on = (document.getElementById('mcpSC_' + k) || {}).value || '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(on) || on > todayIso()) return;
+    p.start = Object.assign({}, p.start || {}); p.start.checks = Object.assign({}, p.start.checks || {}, { [k]: { on, by: me(), at: new Date().toISOString() } });
+    await savePlan(p);
+  };
+  window.mcpStartManual = async function (v) {
+    const p = curPlan(); if (!p) return; if (v && v > todayIso()) return;
+    p.start = Object.assign({}, p.start || {}, { started_on_manual: v || '', started_manual_by: me() }); await savePlan(p);
+  };
+  window.mcpLateField = (k, v) => { if (MCP.draft) { MCP.draft[k] = v; if (k === 'reason' || k === 'planned_start') MCP.draft.text = ''; mcpProfileRender(); } };
+  window.mcpCopyDraft = function () { const t = document.getElementById('mcpSText'); if (!t) return; try { navigator.clipboard.writeText(t.value); } catch (e) { t.select(); } const m = document.getElementById('mcpSMsg'); if (m) m.textContent = 'Copied.'; };
+  window.mcpLateSave = async function () {
+    const p = curPlan(); if (!p || !MCP.draft) return;
+    const t = document.getElementById('mcpSText'); if (t) MCP.draft.text = t.value;
+    const r = IhsRules.justification(MCP.draft, { today: todayIso(), me: me(), at: new Date().toISOString() });
+    const m = document.getElementById('mcpSMsg'); if (!r.ok) { if (m) { m.textContent = r.why; m.style.color = 'var(--red)'; } return; }
+    p.start = Object.assign({}, p.start || {}, { late: r.rec }); MCP.draft = null; await savePlan(p);
   };
   async function refresh() { mcpProfileRender(); await mcpRender(); }
 
