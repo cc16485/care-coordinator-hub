@@ -70,8 +70,9 @@
   }
 
   /* ── medication setups (Samantha 2026-10-08: "private pay med setup frequency"): weekly, every 2 weeks or monthly per client,
-     picked by the nurse; every 2 weeks for a new client; clients set up before this keep weekly. Our practice, not a state rule. ── */
-  const MED_FREQ = { weekly: { label: 'weekly', days: 7, early: 0, late: 2 }, biweekly: { label: 'every 2 weeks', days: 14, early: 2, late: 2 }, monthly: { label: 'monthly', days: 30, early: 4, late: 3 } };
+     picked by the nurse or the office; every 2 weeks for a new client; clients set up before this keep weekly. Our practice,
+     not a state rule. Her clarification: MONTHLY means once per CALENDAR MONTH, not a strict 30 days. ── */
+  const MED_FREQ = { weekly: { label: 'weekly', days: 7, early: 0, late: 2 }, biweekly: { label: 'every 2 weeks', days: 14, early: 2, late: 2 }, monthly: { label: 'monthly (once each calendar month)', days: 0, early: 0, late: 0 } };
   const medFreq = c => (c && MED_FREQ[c.med_freq]) ? c.med_freq : (c && c.weekly_meds ? 'weekly' : '');
   const dayDiff = (a, b) => Math.round((Date.parse(ymd(b) + 'T12:00:00Z') - Date.parse(ymd(a) + 'T12:00:00Z')) / 864e5);
   const mondayOf = d => { const x = new Date(ymd(d) + 'T12:00:00Z'), w = (x.getUTCDay() + 6) % 7; x.setUTCDate(x.getUTCDate() - w); return x.toISOString().slice(0, 10); };
@@ -83,10 +84,43 @@
     const last = done[done.length - 1] || '';
     if (!last) return { freq: f, label: F.label, last: '', next_due: t, state: 'never', days_since: null };
     const since = dayDiff(last, t), next = addDays(last, F.days);
+    if (f === 'monthly') {
+      /* once each calendar month: done once there is a setup this month; otherwise due all month, aiming for about the
+         same day of the month as the last one (a setup on Oct 30 → aim for about Nov 30; Feb aims for its last day);
+         overdue only when a whole calendar month went by with none. The last 3 days of the month are flagged. */
+      const ym = t.slice(0, 7), lastYm = last.slice(0, 7);
+      const endOfMonth = ym2 => { const d = new Date(Date.UTC(+ym2.slice(0, 4), +ym2.slice(5, 7), 0)); return d.toISOString().slice(0, 10); };
+      const nextYm = (ym2) => { let y = +ym2.slice(0, 4), m = +ym2.slice(5, 7) + 1; if (m > 12) { m = 1; y++; } return y + '-' + String(m).padStart(2, '0'); };
+      if (lastYm === ym) { const ny = nextYm(ym), eom = endOfMonth(ny); const aim = ny + '-' + String(Math.min(+last.slice(8, 10), +eom.slice(8, 10))).padStart(2, '0');
+        return { freq: f, label: F.label, last, next_due: aim, state: 'done', days_since: since, month: ym }; }
+      const eomNow = endOfMonth(ym), aimNow = ym + '-' + String(Math.min(+last.slice(8, 10), +eomNow.slice(8, 10))).padStart(2, '0');
+      const missedMonth = nextYm(lastYm) < ym;   /* a whole calendar month in between had no setup */
+      const daysLeft = dayDiff(t, eomNow);
+      return { freq: f, label: F.label, last, next_due: aimNow, state: missedMonth ? 'overdue' : 'due', days_since: since, month: ym, month_ends_in: daysLeft, ending_soon: !missedMonth && daysLeft <= 3, missed_month: missedMonth ? nextYm(lastYm) : '' };
+    }
     if (f === 'weekly') { const thisWeek = done.some(d => mondayOf(d) === mondayOf(t)); return { freq: f, label: F.label, last, next_due: thisWeek ? addDays(mondayOf(t), 7) : t, state: thisWeek ? 'done' : (since > 7 + F.late ? 'overdue' : 'due'), days_since: since }; }
     const state = t < addDays(next, -F.early) ? 'done' : t <= addDays(next, F.late) ? 'due' : 'overdue';
     return { freq: f, label: F.label, last, next_due: next, state, days_since: since };
   }
 
-  return { readiness, team, supervisor, canTake, clean, MED_FREQ, medFreq, medDue };
+  /** what is already scheduled: a dated booking (nurse_visits 'scheduled', today or later), else the client's standing visit */
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function medScheduled(c, visits, today) {
+    const t = ymd(today);
+    const b = (visits || []).filter(v => v && v.client_id === c.id && v.type === 'meds' && v.status === 'scheduled' && ymd(v.scheduled_for) >= t).sort((x, y) => ymd(x.scheduled_for).localeCompare(ymd(y.scheduled_for)))[0];
+    if (b) return { kind: 'booked', on: ymd(b.scheduled_for) };
+    const di = DAYS.indexOf(String(c.visit_day || ''));
+    if (di < 0) return null;
+    const d = new Date(t + 'T12:00:00Z'); while (d.getUTCDay() !== di) d.setUTCDate(d.getUTCDate() + 1);
+    return { kind: 'standing', on: d.toISOString().slice(0, 10), day: c.visit_day, time: c.visit_time || '' };
+  }
+  /** a frequency change: the client's new value plus one more line in its history (from, to, who, when); visits are not touched */
+  function freqChange(c, to, ctx) {
+    ctx = ctx || {}; const from = medFreq(c); to = MED_FREQ[to] ? to : '';
+    if (from === to) return null;
+    const line = { from: from || 'none', to: to || 'none', by: ctx.by || '', at: ctx.at || '' };
+    return { med_freq: to, weekly_meds: !!to, med_freq_by: line.by, med_freq_at: line.at, med_freq_log: ((c && c.med_freq_log) || []).concat([line]) };
+  }
+
+  return { readiness, team, supervisor, canTake, clean, MED_FREQ, medFreq, medDue, medScheduled, freqChange };
 });

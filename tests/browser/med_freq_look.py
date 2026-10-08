@@ -15,12 +15,12 @@ FAKE = r"""
   const W=window; W.__P=[];
   (0,eval)("persist=async(k,i)=>{ window.__P.push([k,JSON.parse(JSON.stringify(i))]); }");
   (0,eval)("nvGhlSync=async()=>{}"); (0,eval)("ccPickOptions=async()=>[{ name:'Nora New', ax:'905', pid:'p5', past:false }]"); (0,eval)("CC_PICK_OPTS=[{ name:'Nora New', ax:'905', pid:'p5', past:false }]");
-  W.confirm=()=>true; W.alert=(m)=>{ W.__alert=m; }; W.prompt=()=> '';
+  W.confirm=()=>true; W.alert=(m)=>{ W.__alert=m; }; W.__promptAns=''; W.prompt=()=> W.__promptAns;
   DATA.nurse_staff=[{ id:'n1', name:'Rita Reed', cred:'RN', license:'RN1', expires:'2027-06-30', email:'rita@mo-care.com', employee:true, supervising_rn:true }];
   DATA.nurse_clients=[
     { id:'a', name:'Ann Weekly', axiscare_client_id:'901', weekly_meds:true, assigned_nurse:'Rita Reed', active:true },
     { id:'b', name:'Bea Biweekly', axiscare_client_id:'902', med_freq:'biweekly', weekly_meds:true, assigned_nurse:'Rita Reed', active:true },
-    { id:'c', name:'Cal Monthly', axiscare_client_id:'903', med_freq:'monthly', weekly_meds:true, assigned_nurse:'Rita Reed', active:true },
+    { id:'c', name:'Cal Monthly', axiscare_client_id:'903', med_freq:'monthly', weekly_meds:true, assigned_nurse:'Rita Reed', active:true, visit_day:'Thursday', visit_time:'10:00' },
     { id:'d', name:'Dee None', axiscare_client_id:'904', assigned_nurse:'Rita Reed', active:true }];
   DATA.nurse_visits=[{ id:'v1', client_id:'a', type:'meds', status:'completed', completed_on:'2026-10-12' }, { id:'v2', client_id:'b', type:'meds', status:'completed', completed_on:'2026-10-06' }, { id:'v3', client_id:'c', type:'meds', status:'completed', completed_on:'2026-10-01' }];
   DATA.ghe_forms=[]; DATA.ghe_watch=[]; DATA.medicaid_plans=[];
@@ -36,12 +36,26 @@ T = r"""async()=>{
   ok('The card is "Medication setups"', /Medication setups/.test(document.getElementById('tab-nursevisits').innerText));
   ok('Ann (set up before this, weekly): stays weekly; nothing this week (last Oct 12): "due now"', row('Ann Weekly') && row('Ann Weekly').querySelector('select').value==='weekly' && /due now: last 2026-10-12 \(8 days ago\)/.test(row('Ann Weekly').innerText), row('Ann Weekly')&&row('Ann Weekly').innerText);
   ok('Bea, every 2 weeks from Oct 6: due now (the window is Oct 18 to 22)', row('Bea Biweekly').querySelector('select').value==='biweekly' && /due now: last 2026-10-06/.test(row('Bea Biweekly').innerText));
-  ok('Cal, monthly from Oct 1: done, next Oct 31, no Log button', /✓ done 2026-10-01 · next 2026-10-31/.test(row('Cal Monthly').innerText) && !/Log the med setup/.test(row('Cal Monthly').innerText));
+  ok('Cal, monthly (calendar month) done Oct 1: done for October, next about Nov 1, no Log button; his standing visit shows (Thursdays 10:00 AM, next Oct 22)', /✓ done 2026-10-01 · next about 2026-11-01/.test(row('Cal Monthly').innerText) && !/Log the med setup/.test(row('Cal Monthly').innerText) && /standing visit: Thursdays 10:00 AM \(next 2026-10-22\)/.test(row('Cal Monthly').innerText), row('Cal Monthly').innerText);
   ok('Dee (no med setups) isn\'t listed', !/Dee None/.test(list()));
   ok('The "needs a call this week" strip lists the due ones with their frequency', /Ann Weekly: medication setup due \(weekly\)/.test(document.getElementById('nvDueNow').innerText) && /Bea Biweekly: medication setup due \(every 2 weeks\)/.test(document.getElementById('nvDueNow').innerText), document.getElementById('nvDueNow').innerText);
+  ok('Bea has nothing scheduled; "Set a date" books one', /nothing scheduled/.test(row('Bea Biweekly').innerText) && /Set a date/.test(row('Bea Biweekly').innerText));
+  window.__promptAns='2026-10-22'; window.__P.length=0; await nvSchedule('b','meds'); await sleep(120);
+  ok('...booked: "scheduled 2026-10-22" shows, and Set a date is gone from the office list', /scheduled 2026-10-22/.test(row('Bea Biweekly').innerText) && !/Set a date/.test(row('Bea Biweekly').innerText));
+  window.__promptAns='2026-10-23'; await nvSchedule('b','meds'); await sleep(120);
+  ok('...setting a date again MOVES the booking (still one booking, now Oct 23)', DATA.nurse_visits.filter(v=>v.client_id==='b'&&v.status==='scheduled').length===1 && DATA.nurse_visits.find(v=>v.client_id==='b'&&v.status==='scheduled').scheduled_for==='2026-10-23');
+  window.__promptAns='Oct 24'; await nvSchedule('b','meds'); await sleep(60);
+  ok('...a date that isn\'t YYYY-MM-DD is refused', /YYYY-MM-DD/.test(window.__alert||''));
+  const before=JSON.stringify(DATA.nurse_visits.filter(v=>v.client_id==='a'));
   window.__P.length=0; await nvSetFreq('a','monthly'); await sleep(150);
   const saved=window.__P.filter(x=>x[0]==='nurse_clients').map(x=>x[1]).pop();
-  ok('Changing Ann to monthly: kept with who changed it, and she is now done (next Nov 11)', saved && saved.med_freq==='monthly' && saved.med_freq_by==='Krystal Land' && /✓ done 2026-10-12 · next 2026-11-11/.test(row('Ann Weekly').innerText), [saved, row('Ann Weekly').innerText]);
+  ok('Changing Ann from weekly to monthly: kept with who and when, one history line (weekly → monthly), and she is now done for October', saved && saved.med_freq==='monthly' && saved.med_freq_by==='Krystal Land' && saved.med_freq_log.length===1 && saved.med_freq_log[0].from==='weekly' && saved.med_freq_log[0].to==='monthly' && /✓ done 2026-10-12 · next about 2026-11-12/.test(row('Ann Weekly').innerText), [saved, row('Ann Weekly').innerText]);
+  ok('...her setup history is untouched: no visit added, changed or removed', JSON.stringify(DATA.nurse_visits.filter(v=>v.client_id==='a'))===before && !window.__P.some(x=>x[0]==='nurse_visits'));
+  await nvSetFreq('a','biweekly'); await sleep(100);
+  ok('...a second change adds a second history line (monthly → every 2 weeks)', DATA.nurse_clients.find(c=>c.id==='a').med_freq_log.length===2 && DATA.nurse_clients.find(c=>c.id==='a').med_freq_log[1].from==='monthly');
+  /* logging a setup that was booked completes the booking (no duplicate) */
+  window.__promptAns=''; window.__P.length=0; await nvComplete('b','meds'); await sleep(120);
+  ok('Logging Bea\'s setup completes her booking (still one record, now completed); nothing scheduled after', DATA.nurse_visits.filter(v=>v.client_id==='b'&&v.type==='meds').length===2 && DATA.nurse_visits.filter(v=>v.client_id==='b'&&v.status==='scheduled').length===0);
   ok('The add-a-client form offers None / Weekly / Every 2 weeks / Monthly, defaulting to every 2 weeks', [...document.getElementById('nvMedFreq').options].map(o=>o.textContent).join('|')==='None|Weekly|Every 2 weeks|Monthly' && document.getElementById('nvMedFreq').value==='biweekly');
   nvToggleAdd(); await sleep(100); document.getElementById('nvName').value='Nora New · #905'; window.__P.length=0; await nvAdd(); await sleep(150);
   const nora=window.__P.filter(x=>x[0]==='nurse_clients').map(x=>x[1]).pop();
@@ -49,7 +63,7 @@ T = r"""async()=>{
   /* the nurse's own view */
   switchTab('nurseportal'); await sleep(150); npSetPreview('Rita Reed'); await sleep(150);
   const mine=document.getElementById('npMine').innerText;
-  ok('What a nurse sees: each client\'s frequency to change, and "Log med setup"', /Bea Biweekly[\s\S]*med setups every 2 weeks/.test(mine) && document.querySelectorAll('#npMine select.nv-freq').length>=3 && /Log med setup/.test(mine), mine.slice(0,600));
+  ok('What a nurse sees: each client\'s frequency to change, its state, what is scheduled, Set a date and Log med setup', /Cal Monthly[\s\S]*done 2026-10-01[\s\S]*standing visit: Thursdays/.test(mine) && document.querySelectorAll('#npMine select.nv-freq').length>=3 && /Set a date/.test(mine) && /Log med setup/.test(mine), mine.slice(0,700));
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []
