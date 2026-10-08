@@ -274,7 +274,10 @@ async()=>{
 }
 """
 with sync_playwright() as pw:
+    import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from clock_pin import pin  # tests/browser/clock_pin.py: same answer at any hour
     b = pw.chromium.launch(); pg = b.new_page(viewport={'width':1280,'height':1000})
+    pin(pg)  # same answer at any hour (tests/browser/clock_pin.py)
     pg.route('**/*', lambda r: r.abort() if 'supabase.co' in r.request.url else r.continue_())
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:300]))
     pg.goto('http://localhost:8765/index.html?proof=cj'); pg.wait_for_timeout(1200)

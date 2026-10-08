@@ -178,9 +178,12 @@ static('role-setup buttons sit behind one owner-only "Review role changes"', 'Re
 static('"Program", not "Programme"', 'Programme' not in HUB)
 
 with sync_playwright() as pw:
+    import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from clock_pin import pin  # tests/browser/clock_pin.py: same answer at any hour
     b = pw.chromium.launch()
     for name, size, body in (('desktop', {'width': 1360, 'height': 900}, T), ('phone', {'width': 390, 'height': 844}, PHONE)):
         pg = b.new_page(viewport=size)
+        pin(pg)  # same answer at any hour (tests/browser/clock_pin.py)
         pg.route('**/*', lambda r: r.abort() if 'supabase.co' in r.request.url else r.continue_())
         errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
         pg.goto('http://localhost:8765/index.html?proof=today1-' + name); pg.wait_for_timeout(1200)
