@@ -2008,7 +2008,7 @@ async function refReconcile(){
 async function intakeReconcile(){
   let rows = [];
   try {
-    const { data, error } = await sb.from('hire_intake').select('*')
+    const { data, error } = await sb.from('hire_intake').select(INTAKE_READ_COLS)
       .is('candidate_id', null).order('created_at', { ascending: true }).limit(50);
     if (error) return;                     // table not created yet
     rows = data || [];
@@ -2105,6 +2105,9 @@ function linkCandidatesToOffers(){
   if (changed) saveCandidates();
 }
 
+/* The hire_intake columns office staff may read (the ssn column is deliberately not granted; select('*') fails). */
+const INTAKE_READ_COLS = 'id, first_name, last_name, phone, email, lived_outside_mo, refs, no_employer_history, created_at';
+const INTAKE_READ_COLS_OLD = 'id, first_name, last_name, phone, email, lived_outside_mo, refs, created_at';
 async function offerToCandidate(offerId, btn, opts){
   const quiet = !!(opts && opts.quiet);   /* 2026-10-08: from the offer form and the Offered strip, no pop-ups, says what happened */
   const o = OFFERS.find(x => String(x.id) === String(offerId));
@@ -2130,10 +2133,16 @@ async function offerToCandidate(offerId, btn, opts){
   if (btn) { btn.disabled = true; btn.textContent = 'Moving…'; }
 
   // Their start-link submission, if it has landed yet.
+  /* Fix 1 of 4 (2026-10-08): this read used select('*'), which the SSN column lock refuses for office staff (the
+     error was swallowed), so a start form's references never came across here. Only the granted columns are read,
+     the same list Import uses, with the same fallback when no_employer_history is not there yet. */
   let intake = null;
   try {
-    const { data } = await sb.from('hire_intake').select('*')
+    let { data, error } = await sb.from('hire_intake').select(INTAKE_READ_COLS)
       .order('created_at', { ascending: false }).limit(50);
+    if (error && /no_employer_history/.test(String(error.message || '')))
+      ({ data, error } = await sb.from('hire_intake').select(INTAKE_READ_COLS_OLD).order('created_at', { ascending: false }).limit(50));
+    if (error) console.warn('offerToCandidate: hire_intake read failed', error.message || error);
     intake = (data || []).find(r =>
       (digits(r.phone) && digits(r.phone) === digits(o.phone)) ||
       (r.email && o.email && String(r.email).toLowerCase() === String(o.email).toLowerCase())) || null;
