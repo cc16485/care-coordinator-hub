@@ -80,7 +80,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Poppins:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="office-call.js?v=433"></script><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
+<script src="office-call.js?v=433"></script>
+<script src="phone-mode.js?v=1"></script><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
     --navy:#0D365F;
@@ -7096,6 +7098,8 @@ async function signIn(){
   document.getElementById('signinScreen').style.display = 'none';
   document.getElementById('appScreen').classList.add('on'); initNavUser();
   await loadAllData();
+  /* CC Office on the phone (2026-10-07): the phone never runs the sign-in work; it reads and does the one thing tapped */
+  if(window.CC_PHONE){ phSignedIn(); await flushPendingSync(); phStart(); return; }
   await runSignInWork();   // writing producers run on an intentional sign-in, never on a passive reload
   await flushPendingSync();
   renderActiveTab();
@@ -33103,6 +33107,11 @@ function opsClose(id, anchorId){
     const outcome=(typeof cnIsFlag==='function'&&cnIsFlag(it))?cnCloseRead(el):null;
     if(outcome&&!outcome.length&&!note){ ccToast('Tick what was done (or write a note), so the record says.'); return; }
     ccPopClose();
+    await opsCloseCommit(it, note, outcome);
+  };
+}
+/* Marking an item done, the one way (2026-10-07: shared by the Hub's Done and the phone's Done). */
+async function opsCloseCommit(it, note, outcome){
     if(outcome) it.outcome=outcome;
     it.status='done'; it.closed_at=new Date().toISOString();
     it.closed_by=(typeof ME!=='undefined'&&ME.email)?ME.email:'';
@@ -33121,7 +33130,6 @@ function opsClose(id, anchorId){
     if(typeof reviewMaybeCreate==='function') await reviewMaybeCreate(it);
     if(typeof myWorkRefresh==='function') myWorkRefresh();
     opsRenderCallbacks(); opsRenderQueue(); opsBadges();
-  };
 }
 
 /* The Calls tab is the call log, nothing more. It used to carry the callback
@@ -33777,10 +33785,12 @@ function renderMgrStrip(){
         errEl.style.display = 'block';
         return;
       }
+      if(window.CC_PHONE && !(await phGate())) return;   // CC Office on the phone: 14 days, then sign in again
       document.getElementById('signinScreen').style.display = 'none';
       document.getElementById('appScreen').classList.add('on'); initNavUser();
       await loadAllData();
       await flushPendingSync();
+      if(window.CC_PHONE){ phStart(); return; }
       renderActiveTab();
       updateStartLinkBadge();
     }
