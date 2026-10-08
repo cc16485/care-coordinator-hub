@@ -4208,6 +4208,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <p class="hint">Each new client's start of care as one journey on their profile: the next required step, who owns it, and proof on each step. Who gets a new client nobody has picked is set by payer here. Nobody is texted or emailed.</p>
 <div id="cjSet"></div>
 </div>
+<div class="settings-section" id="pdSettings" data-set="partner-desk">
+<h3>Referral partner desk</h3>
+<p class="hint">How often each partner tier comes up, how tiers are worked out, who owns partners until they're handed out, and the towns we serve. Urgent referrals never wait for any of this.</p>
+<div id="pdSet"></div>
+</div>
 <div class="settings-section" id="rvSettings" data-set="google-reviews">
 <h3>Google reviews</h3>
 <p class="hint">When a family is clearly happy, their Care Coordinator gets one card suggesting they ask for a Google review, with the message and your review link ready to copy. The Hub never sends the ask.</p>
@@ -4470,6 +4475,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span style="flex:1;"></span>
     <button class="primary" onclick="openOrgModal()">＋ Add organization</button>
   </div>
+  <div id="refDesk"></div><!-- the Referral Partner Desk (referral-desk.js, Step 2, 2026-10-08): this week, needs an owner, link referrals -->
   <div class="kpi-grid" id="refKpis" style="grid-template-columns:repeat(4,1fr);"></div>
 
   <!-- Field expectation scoreboard: the community-marketing blocks are an
@@ -6871,7 +6877,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="email-library.js"></script>
-<script src="lead-rules.js?v=13"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=14"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
@@ -6910,8 +6916,10 @@ The HomeTogether team</pre>
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=4"></script>
 <script src="review-ask.js?v=1"></script>
+<script src="partner-rules.js?v=1"></script>
+<script src="referral-desk.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=3"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="lead-workspace.js?v=4"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=4"></script>
@@ -10749,6 +10757,8 @@ function renderMyDay(){
   openLeads.filter(l=>l.status==='New'&&!l.follow_up_due).forEach(l=>rows.push(myDayRow('var(--navy)','i-person',
     'New lead: '+nm(l),esc(String(l.interest_notes||l.source||'No follow-up set yet').slice(0,64)),
     'NEW','var(--navy)','#EAF1F8','',"Set plan","openLeadProfile('"+l.id+"')")));
+  /* the Referral Partner Desk (Step 2): counted lines (nothing stored), and this owner's one weekly My Work card kept in step */
+  try{ if(typeof pdMyDayRows==='function') rows.push(...pdMyDayRows(myDayRow)); if(typeof pdEnsureWeeklyCard==='function') pdEnsureWeeklyCard(); }catch(e){ console.warn('partner desk today', e); }
   const CAP = 12;
   const count = document.getElementById('myDayCount');
   if(!rows.length){
@@ -10874,6 +10884,7 @@ async function saveOrg(){
   const i=DATA.referral_orgs.findIndex(x=>x.id===id);
   if(i>=0) DATA.referral_orgs[i]=o; else DATA.referral_orgs.push(o);
   await persist('referral_orgs',o);
+  try{ if(typeof pdAfterOrgSaved==='function') await pdAfterOrgSaved(o); }catch(e){}
   closeModal('orgModalBackdrop');
   renderReferrers();
 }
@@ -10914,6 +10925,7 @@ function leadRefOrgPicked(){
 }
 function renderReferrers(){
   const esc=escapeHtmlComms;
+  try{ if(typeof pdRender==='function') pdRender(); }catch(e){ console.warn('partner desk', e); }
   renderRefDashboard();
   const q=(document.getElementById('refSearch').value||'').toLowerCase();
   const orgs=(DATA.referral_orgs||[]).filter(o=>!q||(o.name+' '+(o.people||'')).toLowerCase().includes(q));
@@ -11102,6 +11114,8 @@ function renderRefProfile(){
       + '<button class="fb" onclick="openOrgModal(\'' + esc(o.id) + '\')">Edit their details</button>'
     + '</div></div>';
 
+  /* the Referral Partner Desk (Step 2): owner, tier and why, potential, details, the people there */
+  try{ if(typeof pdProfileCard==='function') document.getElementById('refProfLeft').insertAdjacentHTML('afterbegin', pdProfileCard(o)); }catch(e){ console.warn('partner profile', e); }
   const ideas=acts.filter(a=>a.kind==='idea');
   const history=acts.filter(a=>a.kind!=='idea');
 
@@ -14430,6 +14444,7 @@ function fillSettingsPanel(){
   try{ routeSetRender(); }catch(_){}
   try{ if(typeof cjSetFill==='function') cjSetFill(); }catch(_){}
   try{ if(typeof rvSetFill==='function') rvSetFill(); }catch(_){}
+  try{ if(typeof pdSetFill==='function') pdSetFill(); }catch(_){}
   try{ freshRender(); }catch(_){}
   try{ iimSetFill(); }catch(_){}
   try{ orrSetFill(); }catch(_){}
@@ -30736,6 +30751,8 @@ const OPS_KINDS = {
   sympathy:       { label:'Sympathy card',     hours:48 },
   /* Google review asks (2026-10-08): a happy moment for the client's Care Coordinator, and one "did they leave one?" a week later */
   review_ask:      { label:'Ask for a review', hours:72 },
+  /* Referral Partner Desk (2026-10-08): one card per partner owner per week; urgent referrals never wait for it */
+  partner_week:    { label:'Partner outreach', hours:168 },
   review_followup: { label:'Review follow-up', hours:72 },
   /* N2 (2026-09-29): a caregiver's shift note the AI thought someone should read (care-notes, every two hours) */
   care_note:      { label:'Shift note',    hours:24 },
