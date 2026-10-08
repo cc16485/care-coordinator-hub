@@ -5,7 +5,8 @@
      Shift alerts, check-in work and routine outreach stop; one "Is care restarting?" card goes to their Care Coordinator.
    · Resume care · Pause longer · End care: why (her nine reasons; Other needs an explanation), the effective date (the
      last day of service), who told us. The journey and open work close; nothing is deleted; a death adds one sympathy task.
-   · Start a new episode (owners, past clients only): a new journey on the same person; the old history stays.
+   · Resume care (owners, past clients only; Samantha 2026-10-08: "Resume care", not "Start a new episode"): a new journey
+     on the same person; the old history stays.
    · The Medicaid checklist on a pause or end: the regulation's steps for a PERSON to do (never automatic), each with how it
      was done, the date and proof, or "not needed" and why. Anything DSDS hasn't answered says so.
    · Imported history: what AxisCare doesn't have reads "not recorded in AxisCare", never a guess.
@@ -44,10 +45,10 @@
     if(d.can.resume) h += '<button class="primary" onclick="ccCareForm(\'resume\')">Resume care</button><button class="secondary" onclick="ccCareForm(\'extend\')">Pause longer</button>';
     if(d.can.pause) h += '<button class="secondary" onclick="ccCareForm(\'pause\')">Pause care</button>';
     if(d.can.end) h += '<button class="secondary cc-end-btn" onclick="ccCareForm(\'end\')">End care</button>';
-    if(d.can.return) h += '<button class="secondary" onclick="ccCareForm(\'return\')">Start a new episode</button>';
+    if(d.can.return) h += '<button class="secondary" onclick="ccCareForm(\'return\')">Resume care</button>';
     h += '</div>';
     if(d.state === 'deceased') h += '<div class="field-note cc-quiet">Kept for the record only. No outreach of any kind: no campaigns, review requests, reactivation prompts or follow-up.</div>';
-    if(d.state === 'past') h += '<div class="field-note cc-quiet">No journey, reminders, campaigns or review requests. A return starts a new episode, only when a person confirms it.</div>';
+    if(d.state === 'past') h += '<div class="field-note cc-quiet">No journey, reminders, campaigns or review requests. Care resumes only when an owner confirms it.</div>';
     /* the Medicaid checklist on the latest pause or end that has one */
     const ch = (d.changes || []).filter(c => (c.kind === 'pause' || c.kind === 'end') && (c.checklist || []).length).slice(-1)[0];
     if(ch && (ch.kind === 'end' || d.state === 'paused')) h += checklistHtml(ch);
@@ -65,12 +66,12 @@
             + (x.files || []).map(p => ' · <button class="linklike" onclick="ccCareFile(\'' + esc(ch.change_id) + '\',\'' + esc(p) + '\')">' + esc(p.split('/').pop().replace(/^\d+-/, '')) + '</button>').join('') + '</div>')
         + '</div>').join('') + '</details>';
   }
-  const KIND = { pause:'Paused', extend:'Pause made longer', resume:'Care resumed', end:'Care ended', return:'New episode started' };
+  const KIND = { pause:'Paused', extend:'Pause made longer', resume:'Care resumed', end:'Care ended', return:'Care resumed (returning client)' };
   function historyHtml(d){
     const eps = d.episodes || [], ch = d.changes || [];
     if(eps.length < 2 && !ch.length) return '';
     return '<details class="cc-hist"><summary>Care history</summary>'
-      + eps.map(e => '<div class="cc-ev"><b>Episode ' + (e.episode_n || 1) + '</b> · started ' + esc(day(e.created_at)) + ' · ' + (e.status === 'closed' ? esc(e.closed_reason || 'closed') : e.status === 'active' ? 'start of care complete' : 'under way') + '</div>').join('')
+      + eps.map(e => '<div class="cc-ev"><b>Care period ' + (e.episode_n || 1) + '</b> · started ' + esc(day(e.created_at)) + ' · ' + (e.status === 'closed' ? esc(e.closed_reason || 'closed') : e.status === 'active' ? 'start of care complete' : 'under way') + '</div>').join('')
       + ch.map(c => '<div class="cc-ev">' + esc(day(c.effective_date)) + ' · <b>' + esc(KIND[c.kind] || c.kind) + '</b>' + (c.reason ? ' · ' + esc(((d.reasons[c.kind === 'end' ? 'end' : 'pause'] || {})[c.reason]) || c.reason) : '') + (c.explanation ? ': ' + esc(c.explanation) : '')
         + (c.notified_by ? ' · told by ' + esc(c.notified_by) : '') + ' <span class="field-note">recorded by ' + esc(c.made_by_name || c.made_by) + ', ' + esc(new Date(c.made_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })) + (c.source === 'axiscare_review' ? ', from an AxisCare status change' : '') + '</span></div>').join('')
       + '</details>';
@@ -81,7 +82,7 @@
     opts = opts || {};
     const d = CC.data || {}, R = d.reasons || {};
     const ov = document.createElement('div'); ov.className = 'cc-ov';
-    const T = { pause:'Pause care', extend:'Pause longer', resume:'Resume care', end:'End care', return:'Start a new episode' }[kind];
+    const T = { pause:'Pause care', extend:'Pause longer', resume:'Resume care', end:'End care', return:'Resume care' }[kind];
     const name = d.client_name || 'this client';
     const sel = (id, list) => '<select id="' + id + '"><option value="">Choose…</option>' + Object.keys(list).map(k => '<option value="' + k + '">' + esc(list[k]) + '</option>').join('') + '</select>';
     let f = '';
@@ -98,7 +99,7 @@
       + '<label>Effective date: the last day of service <span class="cc-req">required</span></label><input type="date" id="ccD" value="' + esc(opts.date || todayYmd()) + '" max="' + todayYmd() + '">'
       + '<label>Who told us</label><input id="ccN" placeholder="e.g. the family, the facility, DSDS, AxisCare">'
       + '<div class="field-note">Their journey and open work close with this reason; nothing is deleted. If they are on Medicaid, the steps the regulation requires appear as a checklist for a person to do.</div>';
-    if(kind === 'return') f = '<div class="field-note" style="margin-bottom:6px;">' + esc(name) + ' was served before. A new episode and journey start on the same person; their earlier history stays as it is.</div>'
+    if(kind === 'return') f = '<div class="field-note" style="margin-bottom:6px;">' + esc(name) + ' was served before. Resuming care starts a fresh care record on the same person; their earlier history stays as it is.</div>'
       + '<label>Care resumes on</label><input type="date" id="ccD" value="' + todayYmd() + '" max="' + todayYmd() + '"><label>Note</label><input id="ccX" placeholder="e.g. family called, back from rehab"><label>Who told us</label><input id="ccN">';
     ov.innerHTML = '<div class="cc-dlg" role="dialog" aria-modal="true"><div class="cc-dlg-t">' + esc(T) + ' · ' + esc(name) + '</div>' + (opts.review_id ? '<div class="field-note">Answers the AxisCare status change.</div>' : '')
       + '<div class="cc-form">' + f + '</div><div class="cc-err" id="ccErr"></div><div class="cc-act"><button class="primary" id="ccGo">' + esc(T) + '</button><button class="secondary" id="ccNo">Cancel</button></div></div>';
@@ -118,7 +119,7 @@
       let out; try{ out = await call(b); }catch(e){ out = { error:e.message }; }
       if(!out || out.error){ go.disabled = false; go.textContent = T; return say((out && out.error) || 'Not saved.'); }
       close();
-      if(typeof ccToast === 'function') ccToast({ pause:'Care paused. The restart follow-up is on their Care Coordinator\'s My Work.', extend:'Follow-up moved.', resume:'Care resumed.', end:'Care ended.' + (out.sympathy ? ' A sympathy-card task is on My Work.' : ''), return:'New episode started.' }[kind]);
+      if(typeof ccToast === 'function') ccToast({ pause:'Care paused. The restart follow-up is on their Care Coordinator\'s My Work.', extend:'Follow-up moved.', resume:'Care resumed.', end:'Care ended.' + (out.sympathy ? ' A sympathy-card task is on My Work.' : ''), return:'Care resumed.' }[kind]);
       try{ if(typeof cjListRefresh === 'function') cjListRefresh(); }catch(e){}
       try{ if(typeof opsLoad === 'function') opsLoad(); }catch(e){}
       await mount({ ax:CC.ax });

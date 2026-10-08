@@ -67,11 +67,11 @@ T = r"""async()=>{
   ok('...ended (deceased): the profile says Deceased and offers nothing; kept for the record only', /Deceased/.test(B().innerText) && !B().querySelector('button') && /No outreach of any kind/.test(B().innerText), B().innerText);
   await openLeadProfile('R5','summary'); await sleep(500);
   ok('a past client imported from AxisCare: Past, "on or before" the date we first saw them inactive, never an exact date, and no guessed reason', /Past client/.test(B().innerText) && /Care ended on or before [A-Z][a-z]{2} 8, 2026 · exact date not recorded in AxisCare/.test(B().innerText) && /reason not recorded in AxisCare/.test(B().innerText), B().innerText);
-  ok('...a Care Coordinator can\'t start a new episode', !/Start a new episode/.test(B().innerText));
+  ok('...a Care Coordinator can\'t resume a past client\'s care', !/Resume care/.test(B().innerText));
   await shot('past');
   window.__as('sam@mo-care.com','Samantha Owner'); await openLeadProfile('R5','summary'); await sleep(500);
-  ok('...an owner can, on purpose', /Start a new episode/.test(B().innerText));
-  [...B().querySelectorAll('button')].find(b=>/Start a new episode/.test(b.textContent)).click(); await sleep(150);
+  ok('...an owner can, on purpose: the button says Resume care, never "new episode"', /Resume care/.test(B().innerText) && !/episode/i.test(B().innerText));
+  [...B().querySelectorAll('button')].find(b=>/Resume care/.test(b.textContent)).click(); await sleep(150);
   ok('...the form says they were served before and the old history stays', /was served before/.test(dlg().innerText) && /earlier history stays/.test(dlg().innerText)); dlg().querySelector('#ccNo').click();
   await openLeadProfile('R6','summary'); await sleep(500);
   ok('a deceased client: Deceased, no buttons at all, not even for an owner', /Deceased/.test(B().innerText) && !B().querySelector('button'), B().innerText);
