@@ -168,7 +168,7 @@
         + (cur.services || []).filter(x => x.ours).map(x => '<div class="field-note">' + h(x.label) + ': ' + usd(x.start) + ' to ' + usd(x.end) + (x.prior_auth ? ' · PA ' + h(x.prior_auth) : '') + '</div>').join('')
         + (lead && cur.plan_end >= tdy && st !== 'authorized' ? '<div class="mcp-note">Where the state is still says "' + h(st || 'not set') + '". If this plan is the authorization, set it to Authorized above and Save.</div>' : '')
         + (list.length > 1 ? '<div class="field-note">' + (list.length - 1) + ' earlier plan' + (list.length === 2 ? '' : 's') + ' on file.</div>' : '')
-        + '</div>' + startHtml(cur, lead) + watchHtml(cur) + changesHtml(cur) : (MCP.pending ? '' : '<div class="field-note mcp-none">No care plan uploaded yet.</div>'));
+        + '</div>' + startHtml(cur, lead) + watchHtml(cur) + visitsHtml(cur) + changesHtml(cur) : (MCP.pending ? '' : '<div class="field-note mcp-none">No care plan uploaded yet.</div>'));
   };
 
   /* ── Starting care (Medicaid intake slice A, 2026-10-08): the 10-day clock, the late justification, the start checks ── */
@@ -242,6 +242,47 @@
       + (done.length ? '<details><summary class="field-note">' + done.length + ' earlier change request' + (done.length === 1 ? '' : 's') + '</summary>' + done.map(row).join('') + '</details>' : '')
       + '</div>';
   }
+  /* ── slice D: visits from AxisCare (medicaid-visits keeps app_data visit_watch) and the monthly review ── */
+  const vwOf = (ax, m) => ((typeof DATA !== 'undefined' && DATA.visit_watch) || []).find(x => x && x.id === 'vw_' + ax + '_' + m) || null;
+  const prevM = m => { let y = +m.slice(0, 4), mo = +m.slice(5, 7) - 1; if (mo < 1) { mo = 12; y--; } return y + '-' + String(mo).padStart(2, '0'); };
+  const REASON = { on_the_way: 'on the way', forgot_clock_in: 'there, forgot to clock in', calling_off: 'caregiver called off', not_happening: 'the visit was not happening', other: 'other' };
+  function canSign() { try { if (typeof ccIsOwner === 'function' && ccIsOwner()) return true; const o = typeof opsDomainOwner === 'function' ? opsDomainOwner('payer_programs') : ''; return !!o && String(o).toLowerCase() === String(me()).toLowerCase(); } catch (e) { return false; } }
+  function visitsHtml(cur) {
+    if (typeof VisitRules === 'undefined' || !cur || !cur.axiscare_client_id) return '';
+    const ax = cur.axiscare_client_id, m = todayIso().slice(0, 7), w = vwOf(ax, m), pw = vwOf(ax, prevM(m));
+    let out = '<div class="mcp-start"><b>Visits (from AxisCare)</b>';
+    if (!w) out += '<div class="field-note">Not read yet. Every weekday morning the Hub reads this client\'s visits from AxisCare.</div>';
+    else {
+      const r = w.risk || {};
+      out += '<div>' + usd(m + '-01').slice(0, 2) + '/' + m.slice(0, 4) + ' so far: <b>' + w.delivered_units + ' of ' + w.authorized_units + '</b> authorized units delivered (clocked time) · ' + w.visits_delivered + ' of ' + w.visits_scheduled + ' visits delivered</div>'
+        + (r.at_risk ? '<div class="mcp-stop">' + r.in_a_row + ' scheduled visit' + (r.in_a_row === 1 ? '' : 's') + ' in a row not delivered (' + h_((r.since_missed || []).join(', ')) + ')' + (r.last_delivered ? '; last delivered ' + h_(r.last_delivered) : '') + '. Arrange a make-up visit before it reaches 1 week or 3 in a row (19 CSR 15-7.021(4)(A)5).</div>' : '')
+        + (w.missed && w.missed.length ? '<div class="field-note">Not delivered: ' + w.missed.map(x => h_(x.day) + (x.reason ? ' (' + h_(REASON[x.reason.reason] || x.reason.reason) + ')' : ' (no reason yet)')).join(', ') + '</div>' : '')
+        + '<div class="field-note">Read ' + h_(String(w.checked_at || '').slice(0, 16).replace('T', ' ')) + ' UTC</div>';
+    }
+    if (pw) {
+      const n = VisitRules.reviewNeeds(pw), rv = pw.review;
+      out += '<div class="mcp-late" style="background:var(--cream);border-color:var(--border)"><b>Monthly visit review, ' + h_(pw.month) + '</b>'
+        + '<div>' + pw.delivered_units + ' of ' + pw.authorized_units + ' authorized units delivered (clocked time) · ' + pw.visits_delivered + ' of ' + pw.visits_scheduled + ' visits delivered</div>'
+        + (pw.missed.length ? '<div class="field-note">Not delivered: ' + pw.missed.map(x => h_(x.day) + ' ' + h_(x.caregiver) + (x.reason ? ' (' + h_(REASON[x.reason.reason] || x.reason.reason) + (x.reason.note ? ': ' + h_(x.reason.note) : '') + ', by ' + h_(x.reason.by) + ')' : ' (no reason on file)')).join('; ') + '</div>' : '')
+        + (pw.short && pw.short.length ? '<div class="field-note">Short visits: ' + pw.short.map(x => h_(x.day) + ' ' + x.minutes + ' of ' + x.scheduled + ' min').join('; ') + '</div>' : '');
+      if (rv && rv.signed_at) out += '<div class="mcp-note"><span class="mcp-chip ok">Signed</span> by ' + h_(rv.signed_name) + ' ' + h_(String(rv.signed_at).slice(0, 10)) + (rv.explanation ? ' · ' + h_(rv.explanation) : '') + '</div>';
+      else if (!canSign()) out += '<div class="field-note">Waiting for the Medicaid coordinator to review and sign it.</div>';
+      else out += '<div class="field-note">' + (n.needs_writing ? 'Write the reason for each visit not delivered with no reason on file' + (n.under ? ', and why fewer units were delivered than authorized' : '') + ' (19 CSR 15-7.021(18)(L), (24)(A)3).' : 'Nothing needs explaining: sign it.') + '</div>'
+        + '<div class="mcp-form"><label class="mcp-wide">Explanation <textarea id="mcpVX" rows="2"></textarea></label><label>Your name <input id="mcpVN" value="' + h_((typeof ME !== 'undefined' && ME.name) || '') + '"></label></div>'
+        + '<div class="mcp-acts"><button class="primary" onclick="mcpVisitSign(\'' + h_(pw.id) + '\')">Sign the review</button><span class="field-note" id="mcpVMsg"></span></div>';
+      out += '</div>';
+    }
+    return out + '</div>';
+  }
+  window.mcpVisitSign = async function (id) {
+    const w = ((DATA.visit_watch) || []).find(x => x.id === id); if (!w || !canSign()) return;
+    const r = VisitRules.signReview(w, { explanation: (document.getElementById('mcpVX') || {}).value, signed_name: (document.getElementById('mcpVN') || {}).value }, { me: me(), at: new Date().toISOString() });
+    const m = document.getElementById('mcpVMsg'); if (!r.ok) { if (m) { m.textContent = r.why; m.style.color = 'var(--red)'; } return; }
+    w.review = r.rec; await persist('visit_watch', w);
+    const card = (DATA.ops_items || []).find(x => x.id === 'ops_vreview_' + w.ax + '_' + w.month);
+    if (card && card.status === 'open') { Object.assign(card, { status: 'done', done_at: r.rec.signed_at, done_by: r.rec.signed_by, resolution: 'Monthly visit review signed by ' + r.rec.signed_name }); await persist('ops_items', card); }
+    mcpProfileRender();
+  };
   window.mcpChangeForm = v => { MCP.chgOpen = !!v; mcpProfileRender(); };
   window.mcpChangeNew = async function () {
     const p = curPlan(); if (!p) return;
