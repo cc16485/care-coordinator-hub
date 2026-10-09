@@ -250,6 +250,22 @@ window.AP_JOURNEY = [
  },
  {
   "stage": "after interview (offer / pool / declined)",
+  "order": 13.3,
+  "name": "Step 1 link (sends itself after both signatures, NEW onboarding path, Slice 1d)",
+  "trigger": "The applicant signs the offer letter and the position description on their phone (the signing page). The Training Platform reads the saved record and sends; the signing page itself never sends anything.",
+  "automatic": true,
+  "button": null,
+  "timing": "Within a minute of the second signature (the page kicks the sender; a scheduled run every 15 minutes, 8am to 6pm Central, catches anything the kick missed). The text only 8am to 6pm Central (held until 8am otherwise); the email at once. PRACTICE while the Admin switch 'Step 1 sends itself after the signature (new path)' is off: recorded, nothing sent.",
+  "channel": "text + email",
+  "rule": "Sent once: the stamp is written when the first attempt goes, so a second trigger sends nothing. A channel that fails is retried by the Hub up to three times over the following hours, never after 6pm, never twice within an hour, never a channel that already went; after the third failure, or at once when both channels fail, a Needs Attention card is raised and the Hub stops; Resend Step 1 by a person is the only further send. Yes-to-texts and the opt-out check on every try; ends with \"Reply STOP to opt out.\" Every send, retry and give-up is a row on the append-only offer_events trail. In Slice 1 the link is the existing start form as a stand-in; Slice 2 points it at the nine Step 1 screens.",
+  "subject": "Step 1: your new-hire paperwork",
+  "text": "Thank you, {first}, your offer is signed and we are so glad to have you. Next is Step 1, your new-hire paperwork, done right on your phone: https://cc.mo-care.com/start.html?o=...&e=...&t=... It takes about 15 minutes and you can stop and pick it back up any time. Questions? Call or text the office at (417) 234-8494. Reply STOP to opt out.",
+  "email_summary": "Thank you, {first}, your offer is signed and we are so glad to have you. Next is Step 1, your new-hire paperwork, done right on your phone. [Open Step 1] It takes about 15 minutes, saves as you go, and you can stop and pick it back up any time. Signed copies come back to you when it is done. Questions? Call or text the office at (417) 234-8494. The Caring Companions team",
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "after interview (offer / pool / declined)",
   "order": 14,
   "name": "Not hiring message",
   "trigger": "Office presses 'Not hiring' on the interview card, or 'Not moving forward' on the applicant, then OK on the message shown. Not offered to anyone already marked Offer or Hired (a background check issue gets the background review's notice instead).",

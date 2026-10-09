@@ -1555,6 +1555,14 @@ function renderOffers(){
           (o.offer_withdrawn_at?'':'<button class="fb" style="font-size:.72rem;color:#B91C1C;border-color:#FCA5A5" onclick="offerWithdraw(\''+id+'\',this)">Withdraw</button>')+
           '</div>'+
           '<div id="od_'+id+'" style="display:none;margin-top:.3rem;font-size:.78rem"></div>'+
+          /* SLICE 1d (2026-10-09): Step 1 after both signatures. The Training Platform sends it and keeps the record; the
+             card only reads it. Resend Step 1 is a person's action on a stuck one. */
+          (o.offer_signed_at&&o.pd_signed_at
+            ? '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.5rem;font-size:.78rem">'+
+              '<b style="color:#0D365F">Step 1 link:</b>'+step1Chip(o)+
+              (o.offer_withdrawn_at||(o.step1_delivery&&o.step1_delivery.done)?'':'<button class="fb" style="font-size:.72rem" onclick="offerResendStep1(\''+id+'\',this)">Resend Step 1</button>')+
+              '</div><div id="os_'+id+'" style="display:none;margin-top:.3rem;font-size:.78rem"></div>'
+            : '')+
           '<div id="ol_'+id+'" style="display:none;margin-top:.4rem;background:#fff;border:1px solid #e4e1d8;border-radius:8px;padding:.6rem .7rem;font-size:.8rem"></div>'
         : '')+
 
@@ -1740,6 +1748,27 @@ function offerDeliveryChip(o){
   if(d.error) bits.push(String(d.error));
   const col=o.offer_status==='delivery_failed'?'#B91C1C':d.practice?'var(--gray)':'#15803D';
   return bits.length?'<span style="color:'+col+'">· '+esc(bits.join(', '))+'</span>':'';
+}
+function step1Chip(o){
+  const d=o.step1_delivery||{}; const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if(!o.step1_sent_at&&!d.at) return '<span style="color:#B45309">waiting to send (the next run sends it)</span>';
+  if(d.practice) return '<span style="color:var(--gray)">recorded in practice (the switch is off; nothing sent)</span>';
+  const part=(k,label)=>{ const x=d[k]; if(!x) return ''; if(x.held) return label+' held until 8am'; if(x.ok) return label+' ✓'; if(x.skipped) return ''; return label+' did not go'+(d.gave_up_at?'':' (retrying)'); };
+  const bits=[part('sms','text'),part('email','email')].filter(Boolean);
+  if(d.gave_up_at) bits.push('stopped after '+(d.attempts||[]).length+' tries, see Needs Attention');
+  const col=d.gave_up_at?'#B91C1C':(d.sms&&d.sms.ok)||(d.email&&d.email.ok)?'#15803D':'#B45309';
+  return '<span style="color:'+col+'">'+esc(bits.join(', ')||'sending')+'</span>';
+}
+async function offerResendStep1(id, btn){
+  const box=document.getElementById('os_'+id); if(box){ box.style.display='block'; box.innerHTML='<span style="color:var(--gray)">Sending their Step 1 link again…</span>'; }
+  const t=btn?btn.textContent:'';
+  try{ const j=await offerAction(id,{action:'resend_step1'},btn,box); const d=j.step1||{}; const went=[d.sms?'text':null,d.email?'email':null].filter(Boolean);
+    if(box) box.innerHTML=d.practice?'<span style="color:var(--gray)">Recorded in practice (nothing sent; the Admin switch is off).</span>'
+      : went.length?'<span style="color:#15803D">Step 1 sent again by '+went.join(' + ')+(d.held?' (text held until 8am)':'')+'.</span>'
+      : d.held?'<span style="color:#B45309">The text is held until 8am; the email did not go.</span>':'<span style="color:#B91C1C">Not delivered: '+(j.not_sent||[]).join('; ')+'</span>';
+    if(typeof loadOffers==='function') loadOffers();
+  }catch(e){ if(box) box.innerHTML='<span style="color:#B91C1C">'+String(e.message||e).replace(/</g,'&lt;')+'</span>'; }
+  if(btn) btn.textContent=t||'Resend Step 1';
 }
 async function offerAction(id, body, btn, box){
   if(btn){ btn.disabled=true; btn.textContent='…'; }
@@ -9929,6 +9958,7 @@ window.offerSignLink = offerSignLink;
 window.offerQr = offerQr;
 window.offerResend = offerResend;
 window.offerWithdraw = offerWithdraw;
+window.offerResendStep1 = offerResendStep1;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
 window.markOfferStep1 = markOfferStep1;
