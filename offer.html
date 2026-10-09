@@ -27,6 +27,7 @@
   input[type=text]{width:100%;font:inherit;font-size:18px;padding:12px;border:1px solid var(--border);border-radius:8px;background:#fff;} input:focus{outline:2px solid var(--gold);outline-offset:1px;}
   button.go{width:100%;background:var(--gold);color:#122F52;border:0;border-radius:10px;padding:15px;font:inherit;font-size:17px;font-weight:800;margin-top:12px;cursor:pointer;} button.go[disabled]{opacity:.55;cursor:default;}
   .err{display:none;background:#FDECEC;color:var(--red);border-radius:8px;padding:10px 12px;font-size:14.5px;margin-top:10px;} .okmsg{background:#F0F7F4;border-radius:10px;padding:14px;font-size:15px;margin-bottom:14px;}
+  .why{background:#FFF7ED;border:1px solid #FCD9A8;border-radius:10px;padding:12px 14px;font-size:14.5px;margin:0 0 14px;}
   .signed{background:#DCFCE7;color:var(--green);border-radius:10px;padding:12px 14px;font-size:14.5px;margin-bottom:14px;font-weight:600;}
   .secure{font-size:12.5px;color:var(--muted);margin-top:8px;} .dead{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;font-size:16px;} a{color:var(--navy);}
   .copies a{display:block;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:8px 0;text-decoration:none;font-weight:600;}
@@ -45,7 +46,7 @@ const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
 const FN = SUPA_URL + '/functions/v1/offer-sign';
 const q = new URLSearchParams(location.search); const LINK = { o: q.get('o') || '', e: q.get('e') || '', t: q.get('t') || '' };
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let STATE = null, DOCS = null, FIRST = '';
+let STATE = null, DOCS = null, FIRST = '', LIVE = false;
 async function call(body){
   const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ ...body, ...LINK }) });
   let j = {}; try { j = await r.json(); } catch (e) {}
@@ -80,17 +81,20 @@ function render(){
   let h = '<h1>' + (offerDone && pdDone ? 'Thank you, ' + esc(FIRST) + '.' : 'Your offer, ' + esc(FIRST) + '.') + '</h1>';
   h += '<div class="steps"><span class="' + (offerDone ? 'done' : 'on') + '">1 · Offer letter' + (offerDone ? ' ✓' : '') + '</span><span class="' + (pdDone ? 'done' : offerDone ? 'on' : '') + '">2 · Position description' + (pdDone ? ' ✓' : '') + '</span></div>';
   if (offerDone && pdDone) {
-    h += '<div class="okmsg"><b>Both documents are signed.</b> Your Step 1 paperwork is sent to you automatically by text and email once your signed offer is saved. Your signed copies are below; each link works for ten minutes and you can reopen this page for new ones while your link is valid.</div>';
+    h += '<div class="okmsg"><b>Both documents are signed.</b> ' + (LIVE ? 'Your Step 1 paperwork is on its way by text and email, sent automatically now that your signed offer is saved.' : 'The office will be in touch about your Step 1 paperwork.') + ' Your signed copies are below; each link works for ten minutes and you can reopen this page for new ones while your link is valid.</div>';
+    if (!LIVE) h += '<div class="why"><b>Test mode.</b> No onboarding text or email is sent from this page right now. Nothing has been sent to you by signing.</div>';
     h += '<div class="copies" id="copies">Fetching your copies…</div>';
     h += '<p class="lede">Questions? Call or text the office at <a href="tel:+14172348494">(417) 234-8494</a>.</p>';
     main.innerHTML = h; copies(); return;
   }
   if (!offerDone) {
-    h += '<p class="lede">Please read the whole letter, then sign at the bottom. It takes about two minutes. Your offer is open through ' + esc(whenDay(s.expires_at)) + '.</p>';
+    h += '<p class="lede">Please read the whole letter, then sign at the bottom. It takes about two minutes. <b>Both documents below must be signed:</b> the offer letter first, then the position description.</p>';
+    h += '<p class="lede">This offer is open until <b>' + esc(when(s.expires_at)) + '</b>. Your link stops working at that moment.</p>';
     h += '<div class="doc"><div class="title">Offer of employment</div>' + docHtml(DOCS.offer) + '</div>' + signBox('offer', 'offer letter');
   } else {
-    h += '<div class="signed">Offer letter signed by ' + esc(s.offer_signer_name || '') + ' on ' + esc(when(s.offer_signed_at)) + '. One document left.</div>';
-    h += '<p class="lede">Please read the position description, then sign at the bottom.</p>';
+    h += '<div class="signed">✓ Offer letter signed by ' + esc(s.offer_signer_name || '') + ' on ' + esc(when(s.offer_signed_at)) + '.</div>';
+    h += '<div class="okmsg"><b>One more to go.</b> Your offer is not complete until the position description below is signed too. Please read it, then sign at the bottom.</div>';
+    h += '<p class="lede">This offer is open until <b>' + esc(when(s.expires_at)) + '</b>.</p>';
     h += '<div class="doc"><div class="title">Caregiver position description</div>' + docHtml(DOCS.pd) + '</div>' + signBox('pd', 'position description');
   }
   main.innerHTML = h; window.scrollTo(0, 0);
@@ -120,7 +124,7 @@ async function load(){
   if (!LINK.o || !LINK.e || !LINK.t) { dead(null, 401); return; }
   const r = await call({ action: 'view' });
   if (!r.j.ok) { dead(r.j, r.status); return; }
-  STATE = r.j.state; DOCS = { offer: r.j.offer, pd: r.j.pd }; FIRST = r.j.first || 'there'; render();
+  STATE = r.j.state; DOCS = { offer: r.j.offer, pd: r.j.pd }; FIRST = r.j.first || 'there'; LIVE = r.j.automation_live === true; render();
 }
 load();
 </script>
