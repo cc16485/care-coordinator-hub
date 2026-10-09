@@ -1409,6 +1409,13 @@ const OFFER_ATTRS=[
   ['personal_care','Personal Care'],['smoking','Smoking'],
   ['spanish_speaking','Spanish Speaking'],['transportation','Transportation'],
 ];
+/* ONBOARDING PATH (Slice 0, Samantha approved 2026-10-08). Every offer carries onboarding_path, 'old' or 'new', set once
+   at Send Offer by the Training Platform from the Hub's switch date (nothing in this file decides it). The chip only
+   SHOWS it; nothing reads it yet. Until she sets the switch date everyone is on the current process ('old'). */
+function pathChip(p){
+  const v = p === 'new' ? 'new' : 'old';
+  return '<span class="badge" title="' + (v === 'new' ? 'New onboarding path: offer sent on or after the switch date' : 'Current onboarding process (the path every offer is on until the switch date is set)') + '" style="font-size:.62rem;background:' + (v === 'new' ? '#DCFCE7;color:#15803D' : '#F3F4F6;color:#4B5563') + '">' + (v === 'new' ? 'New path' : 'Old path') + '</span>';
+}
 let OFFERS=[];
 async function loadOffers(btn){
   const box=document.getElementById('offersList');
@@ -1493,6 +1500,7 @@ function renderOffers(){
     const now=steps[at];
 
     return '<div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.82rem;color:#3A342C">'+
+      '<span>'+pathChip(o.onboarding_path)+'</span>'+
       (o.phone?'<span>📱 '+esc(o.phone)+'</span>':'')+
       (o.email?'<span>✉️ '+esc(o.email)+'</span>':'')+
       (o.pay_rate?'<span>💵 $'+Number(o.pay_rate).toFixed(2)+'/hr</span>':'')+
@@ -2122,6 +2130,7 @@ async function offerToCandidate(offerId, btn, opts){
        is the moment we know which offer is theirs. Take it. */
     if (!dupe.offer_id) {
       dupe.offer_id = String(o.id);
+      if (!dupe.onboarding_path && o.onboarding_path) dupe.onboarding_path = o.onboarding_path;
       if (!dupe.position && o.position) dupe.position = o.position;
       saveCandidates();
       try { renderOffers(); } catch (e) {}
@@ -2157,6 +2166,7 @@ async function offerToCandidate(offerId, btn, opts){
     oig: 'Pending', edl: 'Pending', fcsr: 'Pending',
     r1s: 'Pending', r2s: 'Pending', r3s: 'Pending', r4s: 'Pending',
     offer_id: String(o.id),
+    onboarding_path: o.onboarding_path === 'new' ? 'new' : 'old',   /* Slice 0: copied from the offer, never decided here */
     position: o.position || '',
     notes: 'From the job offer' + (o.offered_by ? ' by ' + o.offered_by : '') +
            (o.interview_date ? ', interviewed ' + o.interview_date : '') + '.',
@@ -4497,6 +4507,7 @@ function renderHirePipeline(){
     const pips = [];
     if (r.offer) {
       pips.push(on('offer ' + d10(r.offer.created_at)));
+      pips.push(pathChip(r.offer.onboarding_path));
       pips.push(r.offer.attributes_entered_at ? on('AxisCare') : off('AxisCare'));
       pips.push(r.offer.viventium_entered_at ? on('Viventium') : off('Viventium'));
       pips.push(r.offer.step1_done_at ? on('Step 1') : off('Step 1'));
@@ -6558,7 +6569,7 @@ function renderOB(){
 
     const proofLink=(url,label)=>url?`<a class="proof-link" href="${url}" target="_blank" rel="noopener">📄 ${label}</a>`:'';
     return `<tr>
-      <td class="cand-td"><div class="name-cell" style="cursor:pointer;color:var(--navy)" onclick="openProfile('${c.first}','${c.last}')" title="View full profile">${c.first} ${c.last} <span style="font-size:.65rem;color:var(--teal)">↗</span></div>${c.oos==='yes'?'<div><span class="cand-chip">Out of state</span></div>':''}${addedLabel?`<div class="cand-meta">Added ${addedTs?new Date(addedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}${daysPending!==null&&st==='Awaiting'?` · <b style="color:${urgencyColor}">${daysPending}d in pipeline</b>`:''}</div>`:''}${staleBadge?`<div style="margin-top:2px">${staleBadge}</div>`:''}</td>
+      <td class="cand-td"><div class="name-cell" style="cursor:pointer;color:var(--navy)" onclick="openProfile('${c.first}','${c.last}')" title="View full profile">${c.first} ${c.last} <span style="font-size:.65rem;color:var(--teal)">↗</span>${c.onboarding_path?' '+pathChip(c.onboarding_path):''}</div>${c.oos==='yes'?'<div><span class="cand-chip">Out of state</span></div>':''}${addedLabel?`<div class="cand-meta">Added ${addedTs?new Date(addedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}${daysPending!==null&&st==='Awaiting'?` · <b style="color:${urgencyColor}">${daysPending}d in pipeline</b>`:''}</div>`:''}${staleBadge?`<div style="margin-top:2px">${staleBadge}</div>`:''}</td>
       ${(()=>{ const hits=q?obRefMatchSlots(c,q):[]; return [1,2,3,4].map(n=>obRefCellHTML(c,n,hits.includes(n))).join(''); })()}
       <td><div class="chk"><span onclick="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?`bgrRecordCheck(${c.id},'oig')`:`bgrRunOIG(${c.id})`}" title="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'Update the OIG result or attach the proof':'Run the OIG exclusion check now'}" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.oig==='CLEAR'?'b-green':c.oig==='FLAGGED'?'b-red':'b-gray'}">${c.oig||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'✎':'▸ run'}</span></span>${c.oig_date?`<span class="chk-date">${fmtD(c.oig_date)}</span>`:''}${bgrCheckProofHtml(c.oig_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'oig'):''}</div></td>
       <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'edl')" title="Record the EDL result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.edl==='Clear'?'b-green':c.edl==='Issues Found'?'b-red':'b-gray'}">${c.edl||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.edl_date?`<span class="chk-date">${fmtD(c.edl_date)}</span>`:''}${bgrCheckProofHtml(c.edl_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'edl'):''}</div></td>
