@@ -1547,7 +1547,10 @@ function renderOffers(){
           (o.offer_signed_at&&o.pd_signed_at ? '<span style="color:#15803D">both documents signed ✓</span>'
             : o.offer_signed_at ? '<span style="color:#B45309">offer signed, position description not yet</span>'
             : o.offer_withdrawn_at ? '<span style="color:var(--gray)">offer withdrawn, the link is dead</span>'
+            : o.offer_status==='expired'||(o.offer_expires_at&&Date.parse(o.offer_expires_at)<Date.now()) ? '<span style="color:#B91C1C">expired unsigned; Resend makes a fresh link</span>'
             : '<span style="color:var(--gray)">dies with the offer'+(o.offer_expires_at?' on '+esc(new Date(o.offer_expires_at).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/Chicago'})):'')+'</span>')+
+          /* SLICE 1e (2026-10-09): the reminders the scheduled run sent (or recorded, in practice), and the day 7 card */
+          offerReminderChip(o)+
           (o.offer_withdrawn_at?'':'<button class="fb" style="font-size:.72rem" onclick="offerSignLink(\''+id+'\',this)">Show the link</button>')+
           /* SLICE 1c: what the delivery record says, then Resend (unsigned, open) and Withdraw (open) */
           offerDeliveryChip(o)+
@@ -1748,6 +1751,16 @@ function offerDeliveryChip(o){
   if(d.error) bits.push(String(d.error));
   const col=o.offer_status==='delivery_failed'?'#B91C1C':d.practice?'var(--gray)':'#15803D';
   return bits.length?'<span style="color:'+col+'">· '+esc(bits.join(', '))+'</span>':'';
+}
+function offerReminderChip(o){
+  if(o.offer_signed_at||o.offer_withdrawn_at) return '';
+  const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const day=t=>new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/Chicago'});
+  const d=o.offer_delivery||{}; const bits=[];
+  if(o.offer_reminder_1_at) bits.push('reminder 1 '+(d.reminder_1&&d.reminder_1.practice?'recorded ':'sent ')+day(o.offer_reminder_1_at));
+  if(o.offer_reminder_2_at) bits.push('reminder 2 '+(d.reminder_2&&d.reminder_2.practice?'recorded ':'sent ')+day(o.offer_reminder_2_at));
+  if(d.day7_card_at) bits.push('day 7 card raised '+day(d.day7_card_at));
+  return bits.length?'<span style="color:var(--gray)">· '+esc(bits.join(', '))+'</span>':'';
 }
 function step1Chip(o){
   const d=o.step1_delivery||{}; const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
