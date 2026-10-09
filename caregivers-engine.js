@@ -1527,7 +1527,10 @@ function renderOffers(){
       '<b style="color:#0D365F">Start link:</b>'+
       (o.start_link_sent_at
         ? '<span style="color:#15803D">sent when you saved the offer ✓</span>'
-        : '<span style="color:#B45309">not sent yet</span>')+
+        /* 535 (2026-10-08): the stamp was only recorded from Oct 9; an older offer's send was never written down */
+        : String(o.created_at || '') < '2026-10-09'
+          ? '<span style="color:var(--gray)">not recorded (offers before Oct 9)</span>'
+          : '<span style="color:#B45309">not sent yet</span>')+
       '<button class="fb" style="font-size:.72rem" onclick="offerStartLink(\''+id+'\',this)">'+(o.start_link_sent_at?'Send again':'Send')+'</button>'+
       (o.welcome_sent_at?'<span style="color:#15803D">· welcome message sent ✓</span>':'')+
       '</div>'+
