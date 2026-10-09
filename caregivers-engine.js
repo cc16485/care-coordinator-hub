@@ -1536,6 +1536,21 @@ function renderOffers(){
       '</div>'+
       '<div id="sl_'+id+'" style="display:none;margin-top:.4rem;background:#fff;border:1px solid #e4e1d8;border-radius:8px;padding:.6rem .7rem;font-size:.8rem"></div>'+
 
+      /* Slice 1b (2026-10-09): the offer-and-sign link for an offer on the new path. The Hub's server makes it from the
+         offer's own expiry; nothing is sent (Slice 1c decides the sending). Until the switch date only fictional test
+         offers are on the new path. */
+      (o.onboarding_path==='new'
+        ? '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.5rem;font-size:.78rem">'+
+          '<b style="color:#0D365F">Signing link:</b>'+
+          (o.offer_signed_at&&o.pd_signed_at ? '<span style="color:#15803D">both documents signed ✓</span>'
+            : o.offer_signed_at ? '<span style="color:#B45309">offer signed, position description not yet</span>'
+            : o.offer_withdrawn_at ? '<span style="color:var(--gray)">offer withdrawn, the link is dead</span>'
+            : '<span style="color:var(--gray)">dies with the offer'+(o.offer_expires_at?' on '+esc(new Date(o.offer_expires_at).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/Chicago'})):'')+'</span>')+
+          (o.offer_withdrawn_at?'':'<button class="fb" style="font-size:.72rem" onclick="offerSignLink(\''+id+'\',this)">Show the link</button>')+
+          '</div>'+
+          '<div id="ol_'+id+'" style="display:none;margin-top:.4rem;background:#fff;border:1px solid #e4e1d8;border-radius:8px;padding:.6rem .7rem;font-size:.8rem"></div>'
+        : '')+
+
       '<div style="display:flex;gap:.6rem;align-items:center;margin-top:.6rem;flex-wrap:wrap;font-size:.8rem">'+
       '<b style="color:#0D365F">Level of care:</b><span style="color:#6E6559">suggested '+(o.level_suggested||'—')+'</span>'+
       '<label style="display:flex;align-items:center;gap:.35rem">confirmed:'+
@@ -1684,6 +1699,27 @@ async function offerStartLink(id, btn){
     + (o.email ? '<a class="fb" style="text-decoration:none" href="mailto:' + esc(o.email) + '?subject=' + encodeURIComponent('Getting you started at Caring Companions') + '&body=' + encodeURIComponent(msg) + '">✉️ Email it</a>' : '')
     + '<button class="fb" onclick="offerCopyLink(this,\'' + esc(url) + '\')">📋 Copy link</button>'
     + '</div>';
+}
+/* The offer-and-sign link (Slice 1b, 2026-10-09). Made by the Hub's server from the offer's own expiry, so it dies with
+   the offer; carries only the offer's record number and a code. Shown and copied here, never sent from here. */
+async function offerSignLink(id, btn){
+  const o = OFFERS.find(x => String(x.id) === String(id));
+  if (!o) return;
+  const box = document.getElementById('ol_' + id);
+  if (!box) return;
+  if (box.style.display === 'block') { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const expSec = o.offer_expires_at ? Math.floor(Date.parse(o.offer_expires_at) / 1000) : 0;
+  if (!expSec || expSec * 1000 < Date.now()) { box.innerHTML = '<div style="font-size:.78rem;color:#B91C1C">This offer has no expiry ahead of it, so no link can be made. Re-offer it to make a new one.</div>'; return; }
+  box.innerHTML = '<div style="font-size:.78rem;color:var(--gray)">Making their private link…</div>';
+  let url = '';
+  try { url = await appLinkMint({ kind: 'offer', offer_id: String(o.id), exp: expSec }); }
+  catch (e) { box.innerHTML = '<div style="font-size:.78rem;color:#B91C1C">The link could not be made (' + esc(e.message || e) + '). Try again in a moment.</div>'; return; }
+  box.innerHTML =
+    '<div style="font-weight:700;color:#0D365F;margin-bottom:.35rem">Their signing link <span style="font-weight:400;color:var(--gray);font-size:.72rem">(private: dies with the offer, carries no personal details; nothing is sent from here)</span></div>'
+    + '<div style="word-break:break-all;background:#FAF9F6;border-radius:6px;padding:.4rem .5rem;font-size:.74rem;margin-bottom:.5rem">' + esc(url) + '</div>'
+    + '<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="fb" onclick="offerCopyLink(this,\'' + esc(url) + '\')">📋 Copy link</button></div>';
 }
 function offerCopyLink(btn, url){
   const done = () => { const t = btn.textContent; btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = t, 1600); };
@@ -4535,6 +4571,8 @@ function renderHirePipeline(){
       actions.push('<button class="ibtn" onclick="askReferences(' + r.board.id + ',this)">Ask references</button>');
     if (r.offer && !r.intake && !r.board && !r.roster)
       actions.push('<button class="ibtn" onclick="offerStartLink(\'' + r.offer.id + '\',this)">Start link</button>');
+    if (r.offer && r.offer.onboarding_path === 'new' && !r.offer.offer_withdrawn_at && !(r.offer.offer_signed_at && r.offer.pd_signed_at))
+      actions.push('<button class="ibtn" onclick="offerSignLink(\'' + r.offer.id + '\',this)">Signing link</button>');
     /* Gate B: the offer's own step actions live on the person row, so the
        retired Offer a Job tab is not needed to finish an offer. */
     if (r.offer && !r.offer.attributes_entered_at)
@@ -9828,6 +9866,7 @@ window.orientSyncBookings = mergePendingBookings;
    / future assistant), and server-side authorization — not this — is the real
    boundary. The functions remain defined for an explicit/server caller if reintroduced. */
 window.offerCopyLink = offerCopyLink;
+window.offerSignLink = offerSignLink;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
 window.markOfferStep1 = markOfferStep1;
