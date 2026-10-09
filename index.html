@@ -19615,7 +19615,9 @@ async function submitJobOffer(){
     pay_rate:isFinite(rate)&&rate>0?rate:null, level_suggested:joLevel,
     hours_type:g('jo_hours')||null, will_build_up:g('jo_build')||null,
     availability:g('jo_avail')||null,experience:g('jo_exp')||null,
-    personality:g('jo_pers')||null,notes:g('jo_notes')||null, attributes:joState };
+    personality:g('jo_pers')||null,notes:g('jo_notes')||null, attributes:joState,
+    /* SLICE 1c (2026-10-09): a typed reason sent only when an authorized person re-offers over an open offer */
+    reoffer_reason: (window.JO_REOFFER_REASON||null) };
   const btn=document.getElementById('jo_send');
   btn.disabled=true; btn.textContent='Sending…';
   try{
@@ -19623,7 +19625,12 @@ async function submitJobOffer(){
       method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
       body:JSON.stringify({offer})});
     const res=await r.json();
+    /* SLICE 1c: the duplicate rule (both paths). The server refused and showed the open offer; nothing was saved or sent.
+       An authorized person (Samantha, Zachary, the Approve to Advance list) may re-offer with a typed reason. */
+    if(r.status===409 && res.duplicate){ joShowDuplicate(res); btn.disabled=false; btn.textContent='Save offer & send their start link'; return; }
+    if(r.status===403 && res.duplicate){ err.textContent=res.error; err.style.display='block'; btn.disabled=false; btn.textContent='Save offer & send their start link'; window.JO_REOFFER_REASON=null; return; }
     if(!r.ok||res.error) throw new Error(res.error||('save failed ('+r.status+')'));
+    window.JO_REOFFER_REASON=null; const joDup=document.getElementById('jo_dup'); if(joDup) joDup.style.display='none';
     /* The terms, back onto the person. Their profile is then the whole story
        from applying to starting, rather than half of it. */
     if(JO_APPLICANT){
@@ -19651,8 +19658,17 @@ async function submitJobOffer(){
     const steps=[];
     steps.push('✓ Interview record saved — it\'s now in the Staffing Hub\'s New Offers queue');
     steps.push(res.axiscare?'✓ Created in AxisCare as an Applicant with the interview note':'! AxisCare: '+(res.axiscare_error||'not pushed')+' — the record is saved either way');
-    /* TRAINING TEXTS (2026-10-01): say which part of the start link went, and why anything did not */
-    if('start_sms' in res || 'start_email' in res){
+    /* SLICE 1c (2026-10-09): on the NEW path the offer-and-sign link goes instead of the start link (or is recorded, in
+       practice); Step 1 follows their signature on its own. The old path keeps its lines below. */
+    if(res.reoffer) steps.push('✓ Re-offered over an open offer, with your reason on the audit trail');
+    if(res.offer_sent){
+      const o=res.offer_sent; const went=[o.sms?'text':null,o.email?'email':null].filter(Boolean);
+      if(o.practice) steps.push('✓ Offer letter link recorded in PRACTICE (nothing sent; the Admin switch is off). It expires '+(res.expires_at?new Date(res.expires_at).toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' Central':'in 7 business days'));
+      else if(went.length) steps.push('✓ Offer letter link sent by '+went.join(' + ')+(o.held?' (the text is held until 8am)':'')+'. They read and sign it on their phone; Step 1 follows their signature on its own.');
+      else if(o.held) steps.push('! Offer letter link: the text is held until 8am; the email did not go');
+      else steps.push('! Offer letter link was NOT delivered (see the Didn\'t go through card). Use Resend on their card.');
+    }
+    else if('start_sms' in res || 'start_email' in res){
       const went=[res.start_sms?'text':null,res.start_email?'email':null].filter(Boolean);
       steps.push(went.length ? '✓ Start link sent by '+went.join(' + ') : '! Start link was not sent');
     }
@@ -19673,6 +19689,25 @@ async function submitJobOffer(){
     err.textContent='Could not send: '+(e&&e.message?e.message:'error'); err.style.display='block';
     btn.disabled=false; btn.textContent='Save offer & send their start link';
   }
+}
+/* SLICE 1c: the duplicate refusal, shown in the form. The existing open offer with its state, and Re-offer with a typed
+   reason only for those the Hub says may (the server checks again by identity). */
+function joShowDuplicate(res){
+  const esc=escapeHtmlComms; const ex=res.existing||{}; let box=document.getElementById('jo_dup');
+  if(!box){ box=document.createElement('div'); box.id='jo_dup'; box.style.cssText='margin:10px 0;padding:12px 14px;border:1px solid #FCD34D;background:#FFFBEB;border-radius:10px;font-size:13.5px;line-height:1.5'; document.getElementById('jo_err').insertAdjacentElement('afterend',box); }
+  const when=ex.created_at?new Date(ex.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+  box.style.display='block';
+  box.innerHTML='<b style="color:#92400E">Not saved: '+esc(ex.first_name||'')+' '+esc(ex.last_name||'')+' already has an open offer</b>'
+    +'<div style="margin-top:4px">'+esc(ex.position||'')+(when?' · offered '+esc(when):'')+' · '+esc(ex.status||'open')+(ex.signed?' · both documents signed':'')+(ex.onboarding_path==='new'?' · new path':'')+'</div>'
+    +'<div style="margin-top:6px;color:#57606a">Nothing was sent. Withdraw that offer on its card first, or re-offer with a reason if you are authorized (Samantha, Zachary, or the Approve to Advance list).</div>'
+    +(res.may_reoffer
+      ? '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="jo_reoffer_reason" placeholder="Why a new offer (required)" style="flex:1;min-width:220px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-family:inherit"><button class="ghost" onclick="joReoffer()">Re-offer anyway</button></div>'
+      : '');
+}
+function joReoffer(){
+  const r=(document.getElementById('jo_reoffer_reason')||{}).value||''; const err=document.getElementById('jo_err');
+  if(r.trim().length<4){ err.textContent='Type the reason for the new offer first.'; err.style.display='block'; return; }
+  window.JO_REOFFER_REASON=r.trim().slice(0,300); submitJobOffer();
 }
 function joPreviewMsgs(){
   const esc=escapeHtmlComms;

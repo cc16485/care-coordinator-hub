@@ -2,7 +2,7 @@
    messages they receive and attached somewhere in the hub pages so that our office admin know"). Built from the code as
    of 2026-10-01: every message an applicant / new hire gets, its exact wording, when it goes, what triggers it, and
    whether it shows in GoHighLevel Conversations. If a message is changed, update this list too. */
-window.AP_JOURNEY_CHECKED = 'October 8, 2026 (checked by the journey check against the real messages; no em dashes)';
+window.AP_JOURNEY_CHECKED = 'October 9, 2026 (checked by the journey check against the real messages; no em dashes)';
 window.AP_JOURNEY = [
  {
   "stage": "applying",
@@ -215,6 +215,38 @@ window.AP_JOURNEY = [
   "shows_in_ghl": false,
   "failure_visible": false,
   "ghl_note": "Does not appear in GoHighLevel Conversations."
+ },
+ {
+  "stage": "after interview (offer / pool / declined)",
+  "order": 13.1,
+  "name": "Offer letter link (NEW onboarding path, Slice 1c)",
+  "trigger": "Office presses 'Save offer & send their start link' on an offer dated on or after the switch date (ops_settings.onboarding_switch_date, Owners Hub Admin). Until that date is set nobody is on the new path.",
+  "automatic": true,
+  "button": "Offer a job form → 'Save offer & send their start link' (the server decides the path; the browser never does)",
+  "timing": "Immediately when the offer is saved. The text only 8am to 6pm Central (after hours it is HELD, not failed, and goes at 8am); the email at once. PRACTICE while the Admin switch 'Offer letter link goes out (new path)' is off: recorded, nothing sent.",
+  "channel": "text + email",
+  "rule": "Text only 8am to 6pm Central, only if their application said yes to texts, and through the opt-out check; ends with \"Reply STOP to opt out.\" The link carries only the offer's record number and a code, dies with the offer (seven business days, 5pm Central), and opens the offer letter then the position description to read and sign on the phone. A second open offer for the same phone or email within 60 days is refused on both paths (re-offer needs an authorized person and a typed reason). Each send, hold, refusal, withdrawal and resend is a row on the append-only offer_events trail; a refused channel raises a Didn't go through card.",
+  "subject": "Your offer from Caring Companions",
+  "text": "Hi {first}, it's Caring Companions! We would love to have you on the team. Your offer is ready to read and sign on your phone, it takes about two minutes: https://cc.mo-care.com/offer.html?o=...&e=...&t=... If anything looks off, call or text the office at (417) 234-8494. Reply STOP to opt out.",
+  "email_summary": "Hi {first}, We would love to have you on the team. Your offer is ready to read and sign on your phone, it takes about two minutes. Position / Pay rate / Hours. [Sign my offer] Or paste this into your browser: {link}. If anything looks off, call or text the office at (417) 234-8494. The Caring Companions team",
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "after interview (offer / pool / declined)",
+  "order": 13.2,
+  "name": "Offer letter link sent again (Resend on the Open offers card, new path)",
+  "trigger": "Office presses 'Resend' on the offer's card (Recruit & Onboard → Offers → Open offers). Refused once both documents are signed, or when the offer is withdrawn or declined.",
+  "automatic": false,
+  "button": "Offers → Open offers → the card's 'Resend'",
+  "timing": "Immediately; same hours rule as the first send. An expired offer gets a fresh expiry from the company calendar and a fresh link; the old link died with the old expiry.",
+  "channel": "text + email",
+  "rule": "Same wording and gates as the first send; a 'resent' row on the audit trail. In practice mode nothing is sent.",
+  "subject": "Your offer from Caring Companions",
+  "text": "Hi {first}, it's Caring Companions! We would love to have you on the team. Your offer is ready to read and sign on your phone, it takes about two minutes: https://cc.mo-care.com/offer.html?o=...&e=...&t=... If anything looks off, call or text the office at (417) 234-8494. Reply STOP to opt out.",
+  "email_summary": "The same email as the first send.",
+  "shows_in_ghl": true,
+  "failure_visible": true
  },
  {
   "stage": "after interview (offer / pool / declined)",
