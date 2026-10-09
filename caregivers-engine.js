@@ -1719,7 +1719,17 @@ async function offerSignLink(id, btn){
   box.innerHTML =
     '<div style="font-weight:700;color:#0D365F;margin-bottom:.35rem">Their signing link <span style="font-weight:400;color:var(--gray);font-size:.72rem">(private: dies with the offer, carries no personal details; nothing is sent from here)</span></div>'
     + '<div style="word-break:break-all;background:#FAF9F6;border-radius:6px;padding:.4rem .5rem;font-size:.74rem;margin-bottom:.5rem">' + esc(url) + '</div>'
-    + '<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="fb" onclick="offerCopyLink(this,\'' + esc(url) + '\')">📋 Copy link</button></div>';
+    + '<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="fb" onclick="offerCopyLink(this,\'' + esc(url) + '\')">📋 Copy link</button>'
+    + '<span style="font-size:.76rem;color:var(--gray)">or point a phone camera at the code</span></div>'
+    + '<div style="margin-top:.5rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">' + offerQr(url) + '</div>';
+}
+/* The same link as a QR code, drawn on screen (nothing leaves the page): the office holds the phone up to it. */
+function offerQr(url){
+  try {
+    if (typeof qrcode !== 'function') return '';
+    const q = qrcode(0, 'M'); q.addData(url); q.make();
+    return '<div style="background:#fff;padding:6px;border:1px solid #e4e1d8;border-radius:8px;line-height:0" title="Open the signing link on a phone">' + q.createSvgTag(3, 2, 'QR code of the signing link', 'The signing link') + '</div>';
+  } catch (e) { return ''; }
 }
 function offerCopyLink(btn, url){
   const done = () => { const t = btn.textContent; btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = t, 1600); };
@@ -9867,6 +9877,7 @@ window.orientSyncBookings = mergePendingBookings;
    boundary. The functions remain defined for an explicit/server caller if reintroduced. */
 window.offerCopyLink = offerCopyLink;
 window.offerSignLink = offerSignLink;
+window.offerQr = offerQr;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
 window.markOfferStep1 = markOfferStep1;
