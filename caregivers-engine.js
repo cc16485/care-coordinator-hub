@@ -1522,7 +1522,9 @@ function renderOffers(){
       '</div>'+
       (ladder?'<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.45rem">'+ladder+'</div>':'')+
 
-      /* Start link, one line, because it sends itself. */
+      /* Start link, one line, because it sends itself. SLICE 1c: not on the new path, where the offer-and-sign link goes
+         first and Step 1 follows the signature on its own (sending the old start link there would be the wrong process). */
+      (o.onboarding_path==='new' ? '' :
       '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.6rem;font-size:.78rem">'+
       '<b style="color:#0D365F">Start link:</b>'+
       (o.start_link_sent_at
@@ -1534,7 +1536,7 @@ function renderOffers(){
       '<button class="fb" style="font-size:.72rem" onclick="offerStartLink(\''+id+'\',this)">'+(o.start_link_sent_at?'Send again':'Send')+'</button>'+
       (o.welcome_sent_at?'<span style="color:#15803D">· welcome message sent ✓</span>':'')+
       '</div>'+
-      '<div id="sl_'+id+'" style="display:none;margin-top:.4rem;background:#fff;border:1px solid #e4e1d8;border-radius:8px;padding:.6rem .7rem;font-size:.8rem"></div>'+
+      '<div id="sl_'+id+'" style="display:none;margin-top:.4rem;background:#fff;border:1px solid #e4e1d8;border-radius:8px;padding:.6rem .7rem;font-size:.8rem"></div>')+
 
       /* Slice 1b (2026-10-09): the offer-and-sign link for an offer on the new path. The Hub's server makes it from the
          offer's own expiry; nothing is sent (Slice 1c decides the sending). Until the switch date only fictional test
@@ -1547,7 +1549,12 @@ function renderOffers(){
             : o.offer_withdrawn_at ? '<span style="color:var(--gray)">offer withdrawn, the link is dead</span>'
             : '<span style="color:var(--gray)">dies with the offer'+(o.offer_expires_at?' on '+esc(new Date(o.offer_expires_at).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/Chicago'})):'')+'</span>')+
           (o.offer_withdrawn_at?'':'<button class="fb" style="font-size:.72rem" onclick="offerSignLink(\''+id+'\',this)">Show the link</button>')+
+          /* SLICE 1c: what the delivery record says, then Resend (unsigned, open) and Withdraw (open) */
+          offerDeliveryChip(o)+
+          (o.offer_withdrawn_at||(o.offer_signed_at&&o.pd_signed_at)?'':'<button class="fb" style="font-size:.72rem" onclick="offerResend(\''+id+'\',this)">Resend</button>')+
+          (o.offer_withdrawn_at?'':'<button class="fb" style="font-size:.72rem;color:#B91C1C;border-color:#FCA5A5" onclick="offerWithdraw(\''+id+'\',this)">Withdraw</button>')+
           '</div>'+
+          '<div id="od_'+id+'" style="display:none;margin-top:.3rem;font-size:.78rem"></div>'+
           '<div id="ol_'+id+'" style="display:none;margin-top:.4rem;background:#fff;border:1px solid #e4e1d8;border-radius:8px;padding:.6rem .7rem;font-size:.8rem"></div>'
         : '')+
 
@@ -1722,6 +1729,48 @@ async function offerSignLink(id, btn){
     + '<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="fb" onclick="offerCopyLink(this,\'' + esc(url) + '\')">📋 Copy link</button>'
     + '<span style="font-size:.76rem;color:var(--gray)">or point a phone camera at the code</span></div>'
     + '<div style="margin-top:.5rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">' + offerQr(url) + '</div>';
+}
+/* SLICE 1c (2026-10-09): the delivery record on the card, and the two office actions on a new-path offer. Both go through
+   the Training job-offer function with the staff member's own sign-in; the server decides and writes the audit rows. */
+function offerDeliveryChip(o){
+  const d=o.offer_delivery||{}; if(!d.at) return '';
+  const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const part=(k,label)=>{ const x=d[k]; if(!x) return ''; if(x.practice) return label+' (practice)'; if(x.held) return label+' held until 8am'; if(x.ok) return label+' ✓'; if(x.skipped) return ''; return label+' did not go'; };
+  const bits=[part('sms','text'),part('email','email')].filter(Boolean);
+  if(d.error) bits.push(String(d.error));
+  const col=o.offer_status==='delivery_failed'?'#B91C1C':d.practice?'var(--gray)':'#15803D';
+  return bits.length?'<span style="color:'+col+'">· '+esc(bits.join(', '))+'</span>':'';
+}
+async function offerAction(id, body, btn, box){
+  if(btn){ btn.disabled=true; btn.textContent='…'; }
+  try{
+    const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/job-offer',{ method:'POST',
+      headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'}, body:JSON.stringify(Object.assign({offer_id:String(id)},body)) });
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||j.error) throw new Error(j.error||('the server answered '+r.status));
+    return j;
+  } finally { if(btn){ btn.disabled=false; } }
+}
+async function offerResend(id, btn){
+  const box=document.getElementById('od_'+id); if(box){ box.style.display='block'; box.innerHTML='<span style="color:var(--gray)">Sending their link again…</span>'; }
+  const t=btn?btn.textContent:'';
+  try{ const j=await offerAction(id,{action:'resend_offer'},btn,box); const o=j.offer_sent||{}; const went=[o.sms?'text':null,o.email?'email':null].filter(Boolean);
+    if(box) box.innerHTML=o.practice?'<span style="color:var(--gray)">Recorded in practice (nothing sent; the Admin switch is off).</span>'
+      : went.length?'<span style="color:#15803D">Sent again by '+went.join(' + ')+(o.held?' (text held until 8am)':'')+'.</span>'
+      : o.held?'<span style="color:#B45309">The text is held until 8am; the email did not go.</span>':'<span style="color:#B91C1C">Not delivered: '+(j.not_sent||[]).join('; ')+'</span>';
+    if(typeof loadOffers==='function') loadOffers();
+  }catch(e){ if(box) box.innerHTML='<span style="color:#B91C1C">'+String(e.message||e).replace(/</g,'&lt;')+'</span>'; }
+  if(btn) btn.textContent=t||'Resend';
+}
+async function offerWithdraw(id, btn){
+  const o=OFFERS.find(x=>String(x.id)===String(id)); const name=o?(o.first_name+' '+(o.last_name||'')).trim():'this offer';
+  const reason=prompt('Withdraw the offer to '+name+'? Their link stops working at once; nothing is deleted. Type the reason:');
+  if(reason==null) return; if(reason.trim().length<4){ alert('A reason is needed.'); return; }
+  const box=document.getElementById('od_'+id); if(box){ box.style.display='block'; box.innerHTML='<span style="color:var(--gray)">Withdrawing…</span>'; }
+  const t=btn?btn.textContent:'';
+  try{ await offerAction(id,{action:'withdraw_offer',reason:reason.trim()},btn,box); if(box) box.innerHTML='<span style="color:#15803D">Withdrawn. Their link is dead; the record and any signed documents stay.</span>'; if(typeof loadOffers==='function') loadOffers(); }
+  catch(e){ if(box) box.innerHTML='<span style="color:#B91C1C">'+String(e.message||e).replace(/</g,'&lt;')+'</span>'; }
+  if(btn) btn.textContent=t||'Withdraw';
 }
 /* The same link as a QR code, drawn on screen (nothing leaves the page): the office holds the phone up to it. */
 function offerQr(url){
@@ -9878,6 +9927,8 @@ window.orientSyncBookings = mergePendingBookings;
 window.offerCopyLink = offerCopyLink;
 window.offerSignLink = offerSignLink;
 window.offerQr = offerQr;
+window.offerResend = offerResend;
+window.offerWithdraw = offerWithdraw;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
 window.markOfferStep1 = markOfferStep1;

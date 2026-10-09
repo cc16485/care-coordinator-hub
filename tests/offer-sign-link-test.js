@@ -7,7 +7,7 @@ const fs = require('fs'), path = require('path');
 const js = fs.readFileSync(path.join(__dirname, '..', 'caregivers-engine.js'), 'utf8');
 let pass = 0, fail = 0;
 const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'FAIL  ') + n + (ok || x === undefined ? '' : '  ' + JSON.stringify(x).slice(0, 400))); };
-const card = js.slice(js.indexOf("/* Start link, one line, because it sends itself. */"), js.indexOf("<b style=\"color:#0D365F\">Level of care:</b>"));
+const card = js.slice(js.indexOf("/* Start link, one line, because it sends itself."), js.indexOf("<b style=\"color:#0D365F\">Level of care:</b>"));
 ck('the Starting soon card shows the signing link line only for an offer on the new path', /o\.onboarding_path==='new'\s*\?/.test(card) && /Signing link:/.test(card));
 ck('the line says the link dies with the offer and shows the expiry in Central time', /dies with the offer/.test(card) && /timeZone:'America\/Chicago'/.test(card));
 ck('a signed offer says so instead of offering the link again', /both documents signed ✓/.test(card) && /offer signed, position description not yet/.test(card));
