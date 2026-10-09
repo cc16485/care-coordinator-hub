@@ -36487,6 +36487,12 @@ function caraPatternChip(c){
       (p.open_dates||[]).length+' of '+(p.sibling_dates||'?')+' upcoming '+wd+' are open',false);
   return pill('One-time','The only date for this schedule on the AxisCare calendar in the next 4 weeks',false);
 }
+/* The {pattern} line, from the stamp the sweep/watcher put on the case. */
+function covPatLine(f){
+  const pp=(f&&f.shift_pattern&&typeof f.shift_pattern==='object'&&f.shift_pattern.v===2)?f.shift_pattern:null;
+  return pp&&pp.kind==='open_ongoing'?('This could become your regular '+(pp.weekday?pp.weekday+' ':'')+'shift. ')
+    :(pp&&(pp.kind==='one_time'||pp.kind==='one_time_cover')?'One time only. ':'');
+}
 function covComposeMsgs(f,opts){
   const raw=(opts||{}).raw;      // raw=true keeps {first_name} etc. for editing
   const st=(DATA.ops_settings||{});
@@ -36506,12 +36512,10 @@ function covComposeMsgs(f,opts){
   // In raw (editable) mode {first_name} and {where} stay as placeholders —
   // their real values are only known per-recipient / server-side, and the
   // display explainer must never be saved into an actual message.
-  const pp=(f.shift_pattern&&typeof f.shift_pattern==='object'&&f.shift_pattern.v===2)?f.shift_pattern:null;
-  const patLine=pp&&pp.kind==='open_ongoing'?('This could become your regular '+(pp.weekday?pp.weekday+' ':'')+'shift. ')
-    :(pp&&(pp.kind==='one_time'||pp.kind==='one_time_cover')?'One time only. ':'');
+  const patLine=covPatLine(f);
   const fill=t=>t.replaceAll('{first_name}',raw?'{first_name}':'(their first name)')
     .replaceAll('{pattern}',raw?'{pattern}':patLine)
-    .replaceAll('{client}',clientShort).replaceAll('{where}',raw?'{where}':where).replaceAll('{address}',raw?'{address}':"(street name & city — no house number, filled in automatically)").replaceAll('{care}',raw?'{care}':'(care note) ').replaceAll('{when}',when);
+    .replaceAll('{client}',clientShort).replaceAll('{where}',raw?'{where}':where).replaceAll('{address}',raw?'{address}':"(street name & city — no house number, filled in automatically)").replaceAll('{care}',raw?'{care}':(String(f.care_note||'').trim()?String(f.care_note).trim()+' ':'(no care note yet) ')).replaceAll('{when}',when);
   // A case's own edited wording wins, then agency settings, then the default —
   // same order the engine applies.
   // Same rule as the engine: last-minute wording is same-day only.
@@ -37260,6 +37264,91 @@ function covLoopHtml(c){
 /* CareQB-style order: willing on top, questions next (they need a human),
    then waiting, declines and the rest at the bottom. */
 const COV_STATE_ORDER={ yes:0, inquiry:1, waiting:2, no:3, noanswer:4, closed_notified:5 };
+/* EDIT THE WORDING ON AN OPEN CASE (her ask, 2026-10-09: "it doesnt allow us
+   to change what text is sent out"). The composer only exists when a case is
+   opened by hand; cases the sweep or the AxisCare watcher open never had an
+   edit box. Same fields the composer saves (msg_tier1 / msg_other /
+   msg_interest / care_note), same rule: only an EDIT rides on the case, the
+   unchanged default is not frozen. Both send paths (picker + waves) read them. */
+const COV_WORD_OPEN={};
+function covWordingPreview(c){
+  const m=covComposeMsgs(c);
+  return '<div style="margin-top:4px;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12.5px;">'
+    +(m.interest?'<b>Everyone you pick:</b> '+esc(m.tier1)
+      :(covIsOngoing(c)?'':'<b>PRN CNA Team:</b> '+esc(m.prn)+'<br style="margin-bottom:4px;">')
+        +'<b>Works with this client:</b> '+esc(m.tier1)+'<br style="margin-bottom:4px;"><b>Everyone else:</b> '+esc(m.other))
+    +'</div>'
+    +'<div style="margin-top:6px;"><button class="ghost" style="font-size:12px;padding:4px 10px;" onclick="covEditWording(\''+esc(c.id)+'\')">✏️ Change the wording</button>'
+    +((c.msg_tier1||c.msg_other||c.msg_interest||c.care_note)?'<span class="field-note" style="margin-left:8px;">Edited for this shift.</span>':'')+'</div>';
+}
+/* What the editor shows: the case's own wording if it has one, else the
+   agency template with {client}/{when}/{pattern} already filled in, so what
+   she reads is what sends. {first_name} {address} {where} {care} stay as
+   placeholders: they are per caregiver / server-side. */
+function covWordingRaw(c){
+  const m=covComposeMsgs(c,{raw:true}), pat=covPatLine(c);
+  const bake=t=>String(t||'').replaceAll('{pattern}',pat);
+  return { interest:!!m.interest, tier1:bake(m.tier1), other:bake(m.other) };
+}
+function covEditWording(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  const box=document.getElementById('covWord_'+id); if(!box) return;
+  const r=covWordingRaw(c), first=String(c.client||'').trim().split(/\s+/)[0]||'the client';
+  const care=String(c.care_note||'')||(function(){ const b=(DATA.client_care_blurbs||[]).find(x=>String(x.id)===String(c.client_axiscare_id||'')); return (b&&b.blurb)||''; })();
+  const ta=(idp,rows,val,ph)=>'<textarea id="'+idp+'_'+esc(id)+'" rows="'+rows+'" style="width:100%;font-size:13px;margin-top:2px;"'+(ph?' placeholder="'+esc(ph)+'"':'')+'>'+esc(val)+'</textarea>';
+  box.innerHTML='<div style="margin-top:4px;padding:8px 10px;background:var(--bg);border-radius:7px;">'
+    +(r.interest
+      ?'<div class="field-note">To everyone you pick:</div>'+ta('covWordI',3,r.tier1)
+      :'<div class="field-note">To caregivers who work with '+esc(first)+':</div>'+ta('covWord1',3,r.tier1)
+        +'<div class="field-note" style="margin-top:6px;">To everyone else:</div>'+ta('covWordO',3,r.other))
+    +'<div class="field-note" style="margin-top:6px;">One-line care note about '+esc(first)+' for caregivers who <b>don\'t</b> know them (fills the <b>{care}</b> spot). Nothing private: no door codes, no house number, no diagnosis they don\'t need. Remembered for next time:</div>'
+    +ta('covWordC',2,care,'e.g. Needs help with care in bed and bathing; his wife is there and helps.')
+    +'<div class="field-note" style="margin-top:4px;">Keep <b>{first_name}</b>, <b>{address}</b>, <b>{where}</b> and <b>{care}</b> exactly as written. They become each caregiver\'s name, the street and city, and the care note when the texts send. This changes THIS shift only; to change the wording for every callout, tell Claude.</div>'
+    +'<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">'
+    +'<button class="addlead" onclick="covSaveWording(\''+esc(id)+'\')">Save wording</button>'
+    +'<button class="ghost" onclick="covCancelWording(\''+esc(id)+'\')">Cancel</button>'
+    +((c.msg_tier1||c.msg_other||c.msg_interest)?'<button class="ghost" onclick="covResetWording(\''+esc(id)+'\')">Back to the usual wording</button>':'')
+    +'</div></div>';
+  const f=document.getElementById((r.interest?'covWordI':'covWord1')+'_'+id); if(f) f.focus();
+}
+function covCancelWording(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); const box=document.getElementById('covWord_'+id);
+  if(c&&box) box.innerHTML=covWordingPreview(c);
+}
+async function covResetWording(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  delete c.msg_tier1; delete c.msg_other; delete c.msg_interest;
+  COV_WORD_OPEN[id]=true;
+  await persist('coverage_cases',c);
+  opEvent('cov_wording_reset',{item_id:id, area:'coverage', summary:ccActor().name+' put the usual wording back on the ask for '+(c.client||'a shift')});
+  renderCoverage();
+}
+async function covSaveWording(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  const v=k=>{ const el=document.getElementById(k+'_'+id); return el?el.value.trim():null; };
+  if(['covWordI','covWord1','covWordO','covWordC'].some(k=>String(v(k)||'').includes('\u2014'))){
+    alert('Caregiver texts never carry an em dash (her rule). Please use a comma or a period instead.'); return; }
+  /* The defaults WITHOUT this case's own edits: equal text means "no edit",
+     so the case follows the agency template again instead of freezing it. */
+  const base=covWordingRaw(Object.assign({},c,{msg_tier1:'',msg_other:'',msg_interest:''}));
+  const setOrClear=(key,val,def)=>{ if(val===null) return; if(val&&val!==def) c[key]=val; else delete c[key]; };
+  if(base.interest){ setOrClear('msg_interest',v('covWordI'),base.tier1); }
+  else{ setOrClear('msg_tier1',v('covWord1'),base.tier1); setOrClear('msg_other',v('covWordO'),base.other); }
+  const care=v('covWordC');
+  if(care!==null){
+    c.care_note=care;
+    if(care&&c.client_axiscare_id){
+      const blurb={ id:String(c.client_axiscare_id), blurb:care, updated_at:new Date().toISOString() };
+      DATA.client_care_blurbs=(DATA.client_care_blurbs||[]).filter(x=>String(x.id)!==blurb.id).concat([blurb]);
+      persist('client_care_blurbs', blurb);
+    }
+  }
+  COV_WORD_OPEN[id]=true;
+  await persist('coverage_cases',c);
+  opEvent('cov_wording_edited',{item_id:id, area:'coverage',
+    summary:ccActor().name+' changed the ask wording for '+(c.client||'a shift')+(care?' (care note: '+care.slice(0,80)+(care.length>80?'…':'')+')':'')});
+  renderCoverage();
+}
 function covCaseCard(c){
   const R={calloff:'Call-off',open:'Open shift',new:'New client'};
 
@@ -37303,8 +37392,8 @@ function covCaseCard(c){
           +(c.resolved_how==='covered'?'<button class="ghost" style="color:var(--red);" onclick="covBackedOut(\''+esc(c.id)+'\')">They backed out</button>':''))
       +'</div>'
       +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' called off'+(c.axiscare_visit_id?' — exact AxisCare shift attached; confirming a fill replaces them on it.':'')+'</div>':'')
-      +(open?'<details style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
-        +(function(){ const m=covComposeMsgs(c); return '<div style="margin-top:4px;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12.5px;">'+(m.interest?'<b>Everyone you pick:</b> '+esc(m.tier1):(covIsOngoing(c)?'':'<b>PRN CNA Team:</b> '+esc(m.prn)+'<br style="margin-bottom:4px;">')+'<b>Works with this client:</b> '+esc(m.tier1)+'<br style="margin-bottom:4px;"><b>Everyone else:</b> '+esc(m.other))+'</div>'; })()
+      +(open?'<details'+(COV_WORD_OPEN[c.id]?' open':'')+' style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
+        +'<div id="covWord_'+esc(c.id)+'">'+covWordingPreview(c)+'</div>'
         +'</details>':'')
       +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
       +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
