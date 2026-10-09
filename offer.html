@@ -31,6 +31,7 @@
   .signed{background:#DCFCE7;color:var(--green);border-radius:10px;padding:12px 14px;font-size:14.5px;margin-bottom:14px;font-weight:600;}
   .secure{font-size:12.5px;color:var(--muted);margin-top:8px;} .dead{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;font-size:16px;} a{color:var(--navy);}
   .copies a{display:block;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:8px 0;text-decoration:none;font-weight:600;}
+.decline{margin-top:1rem;font-size:.9rem;color:#6E6559}.decline a{color:#6E6559;text-decoration:underline}
 </style>
 </head>
 <body>
@@ -73,7 +74,19 @@ function signBox(doc, label){
     + '<label for="n_' + doc + '">Type your full name to sign</label><input type="text" id="n_' + doc + '" autocomplete="name" placeholder="First and last name">'
     + '<button class="go" id="b_' + doc + '" onclick="sign(\'' + doc + '\')">Sign the ' + esc(label) + '</button>'
     + '<div class="err" id="e_' + doc + '"></div>'
-    + '<div class="secure">Your typed name, the time, and your device are recorded with this signature. A signed document is never changed; your own copy comes back to you as a secure link.</div></div>';
+    + '<div class="secure">Your typed name, the time, and your device are recorded with this signature. A signed document is never changed; your own copy comes back to you as a secure link.</div>'
+    /* SLICE 1f (2026-10-09): the small Decline link, only under the offer letter (before it is signed) */
+    + (doc === 'offer' ? '<div class="decline"><a href="#" onclick="declineAsk();return false;">Not taking this offer? Decline it here.</a><div id="declinebox" style="display:none;margin-top:.6rem"><label for="dn">Anything you want to tell us? (optional)</label><input type="text" id="dn" maxlength="300" placeholder="A word or two is plenty"><button class="go" style="background:#B91C1C" onclick="declineGo()">Decline this offer</button> <button class="go" style="background:#6E6559" onclick="declineAsk(true)">Keep it open</button><div class="err" id="e_decline"></div></div></div>' : '')
+    + '</div>';
+}
+function declineAsk(close){ const b = document.getElementById('declinebox'); if (b) b.style.display = close ? 'none' : 'block'; }
+async function declineGo(){
+  const err = document.getElementById('e_decline'); err.style.display = 'none';
+  if (!confirm('Decline this offer? Your link will stop working and the office will be told. This cannot be undone from here.')) return;
+  const r = await call({ action: 'decline', note: (document.getElementById('dn').value || '').trim() });
+  if (!r.j.ok) { err.textContent = r.j.error || 'That did not go through. Please call the office.'; err.style.display = 'block'; return; }
+  document.getElementById('main').innerHTML = '<h1>Thank you for letting us know.</h1><div class="okmsg">Your offer is now closed and this link no longer works. If you change your mind, or want to talk it through, call or text the office at <a href="tel:+14172348494">(417) 234-8494</a>. We wish you well.</div>';
+  window.scrollTo(0, 0);
 }
 function render(){
   const s = STATE, main = document.getElementById('main');

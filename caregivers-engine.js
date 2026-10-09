@@ -1558,6 +1558,15 @@ function renderOffers(){
           (o.offer_withdrawn_at?'':'<button class="fb" style="font-size:.72rem;color:#B91C1C;border-color:#FCA5A5" onclick="offerWithdraw(\''+id+'\',this)">Withdraw</button>')+
           '</div>'+
           '<div id="od_'+id+'" style="display:none;margin-top:.3rem;font-size:.78rem"></div>'+
+          /* SLICE 1f (2026-10-09): the office opens a stored signed PDF through the signing server with its own sign-in;
+             every open is logged (who, what, when, from where) and the link lives five minutes. */
+          (o.offer_pdf_path||o.pd_pdf_path
+            ? '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.5rem;font-size:.78rem">'+
+              '<b style="color:#0D365F">Signed copies:</b>'+
+              (o.offer_pdf_path?'<button class="fb" style="font-size:.72rem" onclick="offerOpenDoc(\''+id+'\',\'offer\',this)">Open the offer letter</button>':'')+
+              (o.pd_pdf_path?'<button class="fb" style="font-size:.72rem" onclick="offerOpenDoc(\''+id+'\',\'pd\',this)">Open the position description</button>':'')+
+              '<span style="color:var(--gray)">every open is logged</span></div>'
+            : '')+
           /* SLICE 1d (2026-10-09): Step 1 after both signatures. The Training Platform sends it and keeps the record; the
              card only reads it. Resend Step 1 is a person's action on a stuck one. */
           (o.offer_signed_at&&o.pd_signed_at
@@ -1761,6 +1770,16 @@ function offerReminderChip(o){
   if(o.offer_reminder_2_at) bits.push('reminder 2 '+(d.reminder_2&&d.reminder_2.practice?'recorded ':'sent ')+day(o.offer_reminder_2_at));
   if(d.day7_card_at) bits.push('day 7 card raised '+day(d.day7_card_at));
   return bits.length?'<span style="color:var(--gray)">· '+esc(bits.join(', '))+'</span>':'';
+}
+async function offerOpenDoc(id, doc, btn){
+  const t=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Opening…'; }
+  try{
+    const r=await sb.functions.invoke('offer-sign',{ body:{ action:'open', offer_id:String(id), doc } });
+    let j=r.data; if(!j && r.error && r.error.context && r.error.context.json){ try{ j=await r.error.context.json(); }catch(_){} }
+    if(!j||!j.ok||!j.url) throw new Error((j&&j.error)||(r.error&&r.error.message)||'could not open the document');
+    const w=window.open(j.url,'_blank','noopener'); if(!w) prompt('Your browser blocked the window. Copy this link (it works for 5 minutes):', j.url);
+  }catch(e){ alert('Could not open it: '+String(e.message||e)); }
+  if(btn){ btn.disabled=false; btn.textContent=t; }
 }
 function step1Chip(o){
   const d=o.step1_delivery||{}; const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -2383,7 +2402,16 @@ function offeredChip(c){
     form = p ? `<span class="sub"><button class="ibtn" style="font-size:.62rem;padding:.16rem .5rem;color:#0e7490;border-color:#a5f3fc" title="Their start form is in. Bring its references onto this row (nothing you typed is overwritten)." onclick="event.stopPropagation();intakeFillFromForm(${c.id},'${esc(String(p.id))}',this)">📥 Bring in their start form</button></span>`
       : '<span class="sub" style="color:#B45309">start form not back yet</span>';
   }
-  return `<span class="badge" style="background:#EEF2FF;color:#3730A3;font-size:.62rem" title="Offered${o.offered_by ? ' by ' + esc(o.offered_by) : ''}${o.position ? ', ' + esc(o.position) : ''}">💼 Offered${when ? ' ' + esc(when) : ''}</span>${form}`;
+  /* SLICE 1f (2026-10-09): on the new path the offer's own state (the page the applicant signs on), beside the start form */
+  const np = o.onboarding_path === 'new'
+    ? (o.offer_withdrawn_at ? '<span class="sub" style="color:var(--gray)">offer withdrawn</span>'
+      : o.offer_declined_at ? '<span class="sub" style="color:#B91C1C">offer declined</span>'
+      : o.offer_signed_at && o.pd_signed_at ? '<span class="sub" style="color:#15803D">offer signed ' + esc(offerDate(o.offer_signed_at)) + '</span>'
+      : o.offer_status === 'expired' ? '<span class="sub" style="color:#B91C1C">offer expired unsigned</span>'
+      : o.offer_viewed_at ? '<span class="sub" style="color:#B45309">offer opened, not signed</span>'
+      : '<span class="sub" style="color:#B45309">offer not opened yet</span>')
+    : '';
+  return (np ? np + ' ' : '') + `<span class="badge" style="background:#EEF2FF;color:#3730A3;font-size:.62rem" title="Offered${o.offered_by ? ' by ' + esc(o.offered_by) : ''}${o.position ? ', ' + esc(o.position) : ''}">💼 Offered${when ? ' ' + esc(when) : ''}</span>${form}`;
 }
 function obFillFromIntake(c, row){
   /* the form fills blanks only: what the office already recorded always wins. Answers how many references came in. */
@@ -9942,7 +9970,7 @@ function renderEVVCorrections() {
 }
 
 /* the only things the panels' handlers need */
-window.SCX = {offerIntoChecks, bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+window.SCX = {getOffers: () => OFFERS, offerIntoChecks, bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
 /* The offer cards are built with inline onclick handlers, so these have to be
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;
@@ -9972,6 +10000,7 @@ window.offerQr = offerQr;
 window.offerResend = offerResend;
 window.offerWithdraw = offerWithdraw;
 window.offerResendStep1 = offerResendStep1;
+window.offerOpenDoc = offerOpenDoc;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
 window.markOfferStep1 = markOfferStep1;

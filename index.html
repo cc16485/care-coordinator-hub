@@ -22217,6 +22217,18 @@ async function apStartingMount(rows){
       dot(!!orient, 'orientation ' + day(orient && orient.date), 'no orientation booked'),
     ];
     if(r.start_date) steps.push(dot(true, 'starts ' + day(r.start_date), ''));
+    /* SLICE 1f (2026-10-09): on the NEW onboarding path the offer is signed on the applicant's phone, so the card says where
+       that stands and offers the signing link (made by the Hub's server from the offer's own expiry). The engine holds the
+       offers list; matched by phone digits or email, never by name. */
+    const npo = (function(){ try{ const list = (window.SCX && SCX.getOffers) ? SCX.getOffers() : []; const d = digits(r.phone), e = String(r.email||'').trim().toLowerCase();
+      return list.find(o => o.onboarding_path === 'new' && ((d && digits(o.phone) === d) || (e && String(o.email||'').trim().toLowerCase() === e))) || null; }catch(_){ return null; } })();
+    if(npo){
+      const st = npo.offer_withdrawn_at ? ['offer withdrawn', false] : npo.offer_declined_at ? ['offer declined ' + day(npo.offer_declined_at), false]
+        : npo.offer_signed_at && npo.pd_signed_at ? ['offer signed ' + day(npo.offer_signed_at), true] : npo.offer_status === 'expired' ? ['offer expired unsigned', false]
+        : npo.offer_viewed_at ? ['offer opened ' + day(npo.offer_viewed_at) + ', not signed', false] : ['offer not opened yet', false];
+      steps.push(dot(st[1], st[0], st[0]));
+      if(!npo.offer_withdrawn_at && !(npo.offer_signed_at && npo.pd_signed_at) && typeof offerSignLink === 'function') steps.push('<button class="ibtn" style="font-size:11px" onclick="offerSignLink(\'' + esc(String(npo.id)) + '\',this)">Signing link</button><div id="ol_' + esc(String(npo.id)) + '" style="display:none;margin-top:.3rem;font-size:.8rem"></div>');
+    }
     const waiting = steps.filter(s=>s.indexOf('•') > -1).length;
 
     return '<div style="background:#fff;border:1px solid ' + (waiting ? '#F5D9A0' : '#DCFCE7')
@@ -30988,6 +31000,11 @@ const OPS_KINDS = {
   /* NO SILENT FAILURES (2026-10-01): a text or email that was held back or that GoHighLevel refused (send-problems.ts).
      Who, which message, why and the next step are in the card's title and detail. */
   send_problem:   { label:"Didn't go through", hours:8 },
+  /* SLICE 1f (2026-10-09): the three offer cards from the new onboarding path (send-problems.ts raiseOfferCard): the
+     applicant declined on the signing page; unsigned after day 7 or expired; Step 1 or the offer link gave up. */
+  offer_declined: { label:'Offer declined',   hours:24 },
+  offer_unsigned: { label:'Offer not signed', hours:24 },
+  offer_delivery: { label:'Offer or Step 1 not delivered', hours:8 },
   /* Step 6 (2026-09-26): made by the promise-run producer from Start Contracts
      and Journey reviews. They close themselves when the source is satisfied. */
   promise_update: { label:'Family update owed',    hours:24 },

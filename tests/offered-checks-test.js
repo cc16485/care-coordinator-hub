@@ -81,7 +81,7 @@ const FORM = { id: 'in-1', first_name: 'Kristen', last_name: 'Sample', phone: '(
   /* 5. the page */
   const row = cut('function renderOB(){', '// Stats');
   ck('the table draws the strip and the Offered chip', row.includes('renderOfferedStrip()') && row.includes('offeredChip(c)'));
-  ck('the offer form sends them into Background & References', html.includes('await SCX.offerIntoChecks(res.id)') && src.includes('window.SCX = {offerIntoChecks,'));
+  ck('the offer form sends them into Background & References', html.includes('await SCX.offerIntoChecks(res.id)') && /window\.SCX = \{[^}]*offerIntoChecks,/.test(src));
   ck('the page has the strip and the Add a person button', html.includes('id="obOfferedStrip"') && html.includes('onclick="openOBModal()" title="Someone who came in another way'));
   ck('the row buttons reach the engine', src.includes('Object.assign(window, { offeredAddOne, offeredAddAll, intakeFillFromForm });'));
   const fresh = cut('/* ── OFFERED PEOPLE GO STRAIGHT INTO', "/* Step 1 is Viventium's paperwork"), strip = html.indexOf('<!-- Offered people who are not in the table yet');
