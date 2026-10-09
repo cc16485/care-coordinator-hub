@@ -34412,7 +34412,7 @@ function covAutoRefreshArm(){
   COV_REFRESH_T=setInterval(async function(){
     try{
       if(typeof activeTab==='undefined'||activeTab!=='coverage'||COV_SUB!=='today'||document.hidden) return;
-      if(Object.keys(COV_PICK||{}).length) return;
+      if(Object.keys(COV_PICK||{}).length||Object.keys(COV_FOLLOW_OPEN||{}).length) return;
       const r=await sb.from('app_data').select('data').eq('key','coverage_cases').maybeSingle();
       if(r&&r.data&&Array.isArray(r.data.data)){ DATA.coverage_cases=r.data.data; renderCoverage(); }
     }catch(e){}
@@ -36487,6 +36487,23 @@ function caraPatternChip(c){
       (p.open_dates||[]).length+' of '+(p.sibling_dates||'?')+' upcoming '+wd+' are open',false);
   return pill('One-time','The only date for this schedule on the AxisCare calendar in the next 4 weeks',false);
 }
+/* First name(s), never the surname — a couple keeps both: "Joel & Carol",
+   not "Joel". Mirrors the engine (her call, live 2026-09-16). */
+function covClientShort(f){
+  const who=String((f&&f.client)||'').trim().split(/\s+/).filter(Boolean);
+  return (who.length>1?who.slice(0,-1).join(' '):who.join(''))||'a client';
+}
+function covChicagoToday(){ return new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10); } // agency clock, not the browser's
+/* "tomorrow 8am-12pm": clock times in texts read "5pm-9pm", never "17:00-21:00" (same helper as the engine). */
+function covWhenText(f){
+  const t12=t=>{const m=String(t||'').trim().match(/^(\d{1,2}):(\d\d)$/);if(!m)return String(t||'').trim();const h24=+m[1],h=h24%12||12;return h+(m[2]==='00'?'':':'+m[2])+(h24>=12?'pm':'am');};
+  const span12=s=>String(s||'').trim().split('-').map(t12).join('-');
+  const today=covChicagoToday();
+  const rel=!f.shift_date?'':(f.shift_date===today?'today'
+    :(new Date(f.shift_date+'T12:00:00')-new Date(today+'T12:00:00')===86400000)?'tomorrow'
+    :new Date(f.shift_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}));
+  return [rel,span12(f.shift_time)].filter(Boolean).join(' ')||'as soon as possible (the office has details)';
+}
 /* The {pattern} line, from the stamp the sweep/watcher put on the case. */
 function covPatLine(f){
   const pp=(f&&f.shift_pattern&&typeof f.shift_pattern==='object'&&f.shift_pattern.v===2)?f.shift_pattern:null;
@@ -36496,18 +36513,8 @@ function covPatLine(f){
 function covComposeMsgs(f,opts){
   const raw=(opts||{}).raw;      // raw=true keeps {first_name} etc. for editing
   const st=(DATA.ops_settings||{});
-  const who=String(f.client||'').trim().split(/\s+/).filter(Boolean);
-  // First name(s), never the surname — a couple keeps both: "Joel & Carol",
-  // not "Joel". Mirrors the engine (her call, live 2026-09-16).
-  const clientShort=(who.length>1?who.slice(0,-1).join(' '):who.join(''))||'a client';
-  // Clock times in texts read "5pm-9pm", never "17:00-21:00" (same helper as the engine).
-  const t12=t=>{const m=String(t||'').trim().match(/^(\d{1,2}):(\d\d)$/);if(!m)return String(t||'').trim();const h24=+m[1],h=h24%12||12;return h+(m[2]==='00'?'':':'+m[2])+(h24>=12?'pm':'am');};
-  const span12=s=>String(s||'').trim().split('-').map(t12).join('-');
-  const today=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10); // agency clock, not the browser's
-  const rel=!f.shift_date?'':(f.shift_date===today?'today'
-    :(new Date(f.shift_date+'T12:00:00')-new Date(today+'T12:00:00')===86400000)?'tomorrow'
-    :new Date(f.shift_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}));
-  const when=[rel,span12(f.shift_time)].filter(Boolean).join(' ')||'as soon as possible — the office has details';
+  const clientShort=covClientShort(f), when=covWhenText(f);
+  const today=covChicagoToday();
   const where=f.client_axiscare_id?" in (the client's city — filled in automatically)":'';
   // In raw (editable) mode {first_name} and {where} stay as placeholders —
   // their real values are only known per-recipient / server-side, and the
@@ -37111,6 +37118,7 @@ function covAskRow(c,a,open){
     +'<b>'+esc(a.name)+'</b><span class="field-note">'+how+' · '+covClock(a.at)+'</span>'
     +'<span style="color:'+col+';font-weight:700;">'+lbl+'</span>'
     +(a.replied_at&&a.state!=='waiting'?'<span class="field-note">at '+covClock(a.replied_at)+'</span>':'')
+    +(function(){ const fu=covFollowUpsFor(c,a); return fu.length?'<span class="field-note">📨 followed up '+(fu.length>1?fu.length+'× · last ':'')+covClock(fu[fu.length-1].at)+'</span>':''; })()
     +'<span style="flex:1;"></span>'+acts+'</div>'
     +(a.reply?'<div class="field-note" style="margin:2px 0 0 2px;font-style:italic;">“'+esc(a.reply)+'”'
       +(a.state==='inquiry'?' — '+(a.ghl_contact_id
@@ -37271,6 +37279,85 @@ const COV_STATE_ORDER={ yes:0, inquiry:1, waiting:2, no:3, noanswer:4, closed_no
    msg_interest / care_note), same rule: only an EDIT rides on the case, the
    unchanged default is not frozen. Both send paths (picker + waves) read them. */
 const COV_WORD_OPEN={};
+/* FOLLOW UP WITH THE PEOPLE WE ALREADY ASKED (her ask 2026-10-09: "so we don't
+   have to remember who we asked", a nudge or a bonus). The list is this case's
+   own asked[]: people it TEXTED (a Cara wave or the picker) who have not said
+   yes. One editable text, {first_name} per person, sent by coverage-run
+   action follow_up (same outbound gate, same night hold, a refused text
+   raises a card). The engine records it on the case as followups[]. */
+const COV_FOLLOW_OPEN={};
+function covFollowCandidates(c){ return (c.asked||[]).filter(a=>a&&(a.auto===true||a.picked_by_coordinator===true)&&a.state!=='yes'); }
+function covFollowUpsFor(c,a){ return (c.followups||[]).filter(f=>f&&(f.ask_ids||[]).includes(a.id)); }
+function covFollowDefaults(c){
+  const st=DATA.ops_settings||{};
+  const fill=t=>String(t).replaceAll('{client}',covClientShort(c)).replaceAll('{when}',covWhenText(c));
+  return {
+    still: fill(String(st.coverage_msg_followup||'')||"Hi {first_name}, it's Caring Companions. Still looking for someone for {client} {when}. Can you take it? Reply YES or NO. Questions welcome."),
+    bonus: fill(String(st.coverage_msg_followup_bonus||'')||"Hi {first_name}, it's Caring Companions. {client} {when} is still open, and there is a $___ bonus for whoever takes it. Can you take it? Reply YES or NO.")
+  };
+}
+function covFollowOpen(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); const box=document.getElementById('covFollow_'+id);
+  if(!c||!box) return;
+  const people=covFollowCandidates(c);
+  if(!people.length){ alert('Nobody has been texted on this case yet, so there is nobody to follow up with.'); return; }
+  COV_FOLLOW_OPEN[id]=true;
+  const d=covFollowDefaults(c), yesN=covYesList(c).length;
+  box.innerHTML='<div class="card" style="padding:12px 14px;margin-top:8px;border-left:4px solid var(--teal);">'
+    +'<b style="color:var(--navy);">📨 Follow up with the people we already asked</b>'
+    +'<div class="field-note" style="margin-top:4px;">Only people this case has texted. Ticked = still waiting on an answer. Untick anyone you\'d rather leave alone; tick a "no" if a bonus might change their mind.'
+    +(yesN?' The '+yesN+' who said yes '+(yesN===1?'is':'are')+' not on this list: confirm them instead.':'')+'</div>'
+    +'<div style="margin-top:6px;">'+people.map(a=>{ const fu=covFollowUpsFor(c,a); const [lbl,col]=COV_STATE_UI[a.state]||COV_STATE_UI.waiting;
+      return '<label style="display:flex;gap:8px;align-items:center;padding:3px 0;font-size:13px;cursor:pointer;"><input type="checkbox" data-follow="'+esc(id)+'" value="'+esc(a.id)+'"'+(a.state==='no'?'':' checked')+'> <b>'+esc(a.name)+'</b> <span style="color:'+col+';font-weight:700;">'+lbl+'</span><span class="field-note">asked '+covClock(a.at)+(fu.length?' · followed up '+fu.length+'× (last '+covClock(fu[fu.length-1].at)+')':'')+'</span></label>'; }).join('')+'</div>'
+    +'<div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;"><span class="field-note">Start from:</span>'
+    +'<button class="ghost" style="font-size:12px;padding:3px 9px;" onclick="covFollowPreset(\''+esc(id)+'\',\'still\')">Still looking</button>'
+    +'<button class="ghost" style="font-size:12px;padding:3px 9px;" onclick="covFollowPreset(\''+esc(id)+'\',\'bonus\')">Offer a bonus</button></div>'
+    +'<textarea id="covFollowMsg_'+esc(id)+'" rows="3" style="width:100%;font-size:13px;margin-top:4px;">'+esc(d.still)+'</textarea>'
+    +'<div class="field-note" style="margin-top:3px;">Keep <b>{first_name}</b> as written; it becomes each person\'s name. Replies land on this case like any other ask.</div>'
+    +'<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">'
+    +'<button class="addlead" onclick="covFollowSend(\''+esc(id)+'\')">Send the follow-up</button>'
+    +'<button class="ghost" onclick="covFollowClose(\''+esc(id)+'\')">Cancel</button></div></div>';
+  const ta=document.getElementById('covFollowMsg_'+id); if(ta) ta.focus();
+}
+function covFollowPreset(id,kind){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); const ta=document.getElementById('covFollowMsg_'+id);
+  if(c&&ta){ ta.value=covFollowDefaults(c)[kind]||ta.value; ta.focus(); }
+}
+function covFollowClose(id){ delete COV_FOLLOW_OPEN[id]; const box=document.getElementById('covFollow_'+id); if(box) box.innerHTML=''; }
+async function covFollowSend(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  const ids=[...document.querySelectorAll('input[data-follow="'+id+'"]')].filter(el=>el.checked).map(el=>el.value);
+  if(!ids.length){ alert('Nobody is ticked, so there is nothing to send.'); return; }
+  const ta=document.getElementById('covFollowMsg_'+id); const text=String(ta?ta.value:'').replace(/\s+/g,' ').trim();
+  if(!text){ alert('The text is empty.'); return; }
+  if(text.includes('—')){ alert('Caregiver texts never carry an em dash (her rule). Please use a comma or a period instead.'); return; }
+  if(/\$_+/.test(text)){ alert('Fill in the bonus amount first (the text still says $___).'); return; }
+  const names=ids.map(i=>{ const a=(c.asked||[]).find(x=>x.id===i); return a?a.name:i; });
+  const hr=new Date().getHours();
+  const lateNote=(hr>=21||hr<8)?'⚠ It\'s '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' and most caregivers are asleep. Send anyway only if this shift truly can\'t wait for morning.\n\n':'';
+  if(!confirm(lateNote+'Text this follow-up to '+names.length+' caregiver'+(names.length===1?'':'s')+'?\n\n'+names.join(', ')+'\n\n"'+text+'"\n\nReplies land on this case.')) return;
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(!session||!session.access_token) throw new Error('Sign in to the hub first.');
+    const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-run`,{
+      method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+      body: JSON.stringify({ action:'follow_up', case_id:id, ask_ids:ids, message:text, by:ccActor().name })});
+    const out=await r.json().catch(()=>null);
+    if(!r.ok||!out||out.error) throw new Error((out&&out.error)||('The engine answered '+r.status));
+    if((out.sent||[]).length)
+      opEvent('follow_up_sent',{item_id:id, area:'coverage',
+        summary:ccActor().name+' followed up with '+out.sent.length+' caregiver'+(out.sent.length===1?'':'s')+' about '+((c&&c.client)||'a shift')+': '+out.sent.join(', ')});
+    let msg='📱 Follow-up sent to '+(out.sent||[]).length+' caregiver'+((out.sent||[]).length===1?'':'s')+'.';
+    if((out.failed||[]).length) msg+='\n\n⚠ Not sent: '+out.failed.join('; ');
+    if((out.skipped||[]).length) msg+='\n\nSkipped: '+out.skipped.join('; ');
+    alert(msg);
+    delete COV_FOLLOW_OPEN[id];
+    try{ const fresh=await sb.from('app_data').select('data').eq('key','coverage_cases').maybeSingle();
+      if(Array.isArray(fresh.data&&fresh.data.data)) DATA.coverage_cases=fresh.data.data; }catch(e){}
+    renderCoverage();
+  }catch(e){ alert('Could not send: '+String(e.message||e)); }
+}
 function covWordingPreview(c){
   const m=covComposeMsgs(c);
   return '<div style="margin-top:4px;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12.5px;">'
@@ -37364,6 +37451,7 @@ function covCaseCard(c){
       .filter(t=>t[1]>0)
       .map(t=>'<span style="color:'+t[2]+';font-weight:800;">'+t[0]+' '+t[1]+'</span>').join(' · ');
     const expanded=COV_EXPANDED.has(c.id)||(open&&!!c.pending_fill);
+    if(open&&expanded&&COV_FOLLOW_OPEN[c.id]) setTimeout(function(){ covFollowOpen(c.id); },0);   // the panel survives a re-render
     const headTallies=tallies?'<span style="font-size:12.5px;">'+tallies+'</span>':'';
     const yesN=covYesList(c).length;
     const pendChip=(open&&yesN)?'<span style="font-size:12px;font-weight:800;color:var(--green);background:var(--green-bg);border-radius:6px;padding:2px 8px;">✅ '+(yesN===1?esc(covYesList(c)[0].name)+' can cover':yesN+' can cover — pick one')+'</span>'
@@ -37385,6 +37473,7 @@ function covCaseCard(c){
       +'<span style="flex:1;"></span>'
       +(open
         ? (c.axiscare_visit_id?'':'<button class="ghost" style="color:var(--honey-ink);" onclick="covToggleAdd(\''+esc(c.id)+'\')">🔗 Attach the real shift</button>')
+          +(covFollowCandidates(c).length?'<button class="ghost" onclick="covFollowOpen(\''+esc(c.id)+'\')">📨 Follow up with those we asked</button>':'')
           +'<button class="ghost" onclick="covAsk(\''+esc(c.id)+'\')">＋ I asked someone</button>'
           +'<button class="addlead" onclick="covResolve(\''+esc(c.id)+'\',\'covered\')">Covered ✓</button>'
           +'<button class="ghost" onclick="covResolve(\''+esc(c.id)+'\',\'uncovered\')">Close uncovered</button>'
@@ -37401,6 +37490,7 @@ function covCaseCard(c){
       +covPickerHtml(c)
       +covConfirmHtml(c)
       +'<div style="margin-top:6px;">'+covOutreachHtml(c)+'</div>'
+      +(open?'<div id="covFollow_'+esc(c.id)+'"></div>':'')
       +(c.axiscare_assignment
         ? '<div style="margin-top:9px;padding:7px 10px;border-radius:7px;font-size:12.5px;font-weight:600;'
           +(c.axiscare_assignment.status==='assigned'

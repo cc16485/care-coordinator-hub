@@ -7,7 +7,7 @@ const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 const fn=(name)=>{ const i=html.indexOf('function '+name+'('); if(i<0) throw new Error('missing '+name);
   let d=0,j=html.indexOf('{',i),k=j; for(;k<html.length;k++){ if(html[k]==='{')d++; else if(html[k]==='}'){d--; if(!d)break;} }
   return html.slice(html.lastIndexOf('\n',i)+1,k+1); };
-const src=['covPatLine','covComposeMsgs','covWordingRaw','covWordingPreview','covEditWording','covSaveWording','covResetWording','covCancelWording'].map(fn).join('\n');
+const src=['covClientShort','covChicagoToday','covWhenText','covPatLine','covComposeMsgs','covWordingRaw','covWordingPreview','covEditWording','covSaveWording','covResetWording','covCancelWording'].map(fn).join('\n');
 const log=[]; let fails=0; const ck=(n,ok,note)=>{ log.push((ok?'ok   ':'FAIL ')+n+(ok?'':'  <- '+note)); if(!ok) fails++; };
 function world(cases){
   const persisted=[], events=[]; let alerted=null, rendered=0;
