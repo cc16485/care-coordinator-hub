@@ -948,10 +948,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="recruit" onclick="switchTab('recruit')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Recruit</div>
     <div class="fpill" data-tab="applicants" onclick="switchTab('applicants')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Applicants<span class="subtab-badge red" id="apNewBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="interviews" onclick="switchTab('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Interviews</div>
-    <!-- Offer a Job left normal navigation 2026-09-21 (owner ruling): offers
-         are made FROM the person (Applicants/Interviews hand off here with
-         the form prefilled) and tracked ON the person's lifecycle row. The
-         panel itself remains for those handoffs; job_offers is untouched. -->
+    <!-- Offer a Job left normal navigation 2026-09-21 and came back 2026-10-09 (Samantha: "put the offers tab back"):
+         Open offers is where an offer with no applicant record (today only the fictional Slice 1b test offers) can be
+         reached, and the signing link lives on its card. Offers are still made FROM the person and tracked ON the
+         person's lifecycle row; job_offers is untouched. -->
+    <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Offers<span class="subtab-badge" id="offersBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Background &amp; References<span class="subtab-badge red" id="bgrPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="cgorient" onclick="switchTab('cgorient')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Orientations</div>
     <!-- 2026-10-01 (Samantha): the reference page sits at the far right, apart from the working tabs -->
@@ -8197,9 +8198,8 @@ function switchTab(tab){
   });
   ccRenderSub2(tab);
   scxEnsure(tab);
-  /* Offer a Job belongs to Recruit & Onboard (so its tab row shows) but has no pill of its own since 2026-09-21: it is
-     opened from a person, so it is never remembered as the section's last page. */
-  if(g!=='today' && tab!=='offers') localStorage.setItem('cch_last_'+g,tab);
+  /* Offers has its pill back (2026-10-09), so it is remembered as the section's last page like any other. */
+  if(g!=='today') localStorage.setItem('cch_last_'+g,tab);
   document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   renderActiveTab();
