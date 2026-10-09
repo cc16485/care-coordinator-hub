@@ -266,6 +266,22 @@ window.AP_JOURNEY = [
  },
  {
   "stage": "after interview (offer / pool / declined)",
+  "order": 13.4,
+  "name": "Offer reminders, day 2 and day 5 (NEW onboarding path, Slice 1e)",
+  "trigger": "The scheduled run (every 15 minutes) finds an offer on the new path that is not signed, declined, withdrawn or expired, 2 days and again 5 days after it was sent (the days are set on the Owners Hub Admin page, Reminder days and deadlines).",
+  "automatic": true,
+  "button": null,
+  "timing": "On each reminder day, the first run inside Monday to Saturday 9am to 6pm Central. One stamp per reminder, so each goes once. Stopped by a signature, a decline or a withdrawal. PRACTICE while the Admin switch 'Offer reminders go out (new path)' is off: recorded and stamped, nothing sent.",
+  "channel": "text + email",
+  "rule": "Yes-to-texts and the opt-out check on every send; ends with \"Reply STOP to opt out.\" The link is the same private offer link, which dies with the offer. Day 7 unsigned: no third message; a Needs Attention card \"Offer not signed: call {name}\" is raised once (practice or not). An offer past its expiry is marked expired, raises that card if it has not been raised, and Resend from the card makes a fresh link. A held offer text (sent after 6pm) goes at the first run after 8am. Every reminder, card and expiry is a row on the append-only offer_events trail; a refused channel raises a Didn't go through card.",
+  "subject": "Your offer from Caring Companions is waiting for your signature",
+  "text": "Hi {first}, your offer from Caring Companions is still waiting for your signature. It takes about two minutes: https://cc.mo-care.com/offer.html?o=...&e=...&t=... Questions? Call or text (417) 234-8494. Reply STOP to opt out.",
+  "email_summary": "Hi {first}, your offer from Caring Companions is still waiting for your signature. It takes about two minutes. [Sign my offer] Or paste this into your browser: {link}. Questions? Call or text (417) 234-8494. The Caring Companions team",
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "after interview (offer / pool / declined)",
   "order": 14,
   "name": "Not hiring message",
   "trigger": "Office presses 'Not hiring' on the interview card, or 'Not moving forward' on the applicant, then OK on the message shown. Not offered to anyone already marked Offer or Hired (a background check issue gets the background review's notice instead).",
