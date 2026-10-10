@@ -6043,12 +6043,17 @@ async function bgrPushDocToGHL(candId, which, proof, labelOverride){
   if(!/^https?:\/\//i.test(proof)){
     try{ const { data } = await sb.storage.from('lead-docs').createSignedUrl(proof, 600); ghlLink = (data && data.signedUrl) || ''; }catch(e){ ghlLink = ''; }
   }
+  /* Phase 0 (2026-10-10): the function now lives on the Hub's own project and answers only a signed-in office
+     member (sb.functions.invoke carries the sign-in). The Training-project copy wanted a shared key the Hub stopped
+     holding on 2026-09-28, so every filing since then failed quietly; a failure is now said out loud. */
   try{
-    await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-attach-doc', {
-      method: 'POST', headers: { 'x-hub-token': await trainHubTok(), 'apikey': TRAINING_HUB_ANON, 'Authorization': 'Bearer '+TRAINING_HUB_ANON, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ first: c.first||'', last: c.last||'', email: c.email||'', phone: c.phone||'', label, file_url: ghlLink || undefined, file_name: fname })
-    });
-  }catch(e){ console.warn('GHL doc attach skipped', e); }
+    const { data, error } = await sb.functions.invoke('ghl-attach-doc', { body: { first: c.first||'', last: c.last||'', email: c.email||'', phone: c.phone||'', label, file_url: ghlLink || undefined, file_name: fname } });
+    if(error || !data || data.ok !== true){
+      const why = (error && error.message) || (data && data.error) || 'the note did not land';
+      console.warn('GHL doc attach failed:', why);
+      if(typeof toast === 'function') toast('Saved here, but filing it onto the GoHighLevel contact failed: ' + why);
+    }
+  }catch(e){ console.warn('GHL doc attach failed', e); }
 }
 /* Open a proof: a pasted http link directly, or a private storage path via a
    short-lived signed URL. */
