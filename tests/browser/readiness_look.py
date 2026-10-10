@@ -1,0 +1,59 @@
+"""Slice 3b: the one new-hire readiness card, offline, against a stand-in caregiver-journey server. python3 tests/browser/readiness_look.py <out dir>
+Needs a static server on 8768 (python3 -m http.server 8768) so the page has a real origin."""
+from playwright.sync_api import sync_playwright
+import os, sys, json
+HERE = os.path.dirname(os.path.abspath(__file__)); OUT = sys.argv[1] if len(sys.argv) > 1 else '/tmp'
+CODE = open(os.path.join(HERE, '..', '..', 'caregiver-readiness.js')).read()
+T = r"""
+async(CODE)=>{
+  const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  window.__calls=[]; window.__alerts=[]; window.alert=m=>__alerts.push(String(m)); window.confirm=()=>true; window.prompt=()=>'verified by the office';
+  const def=(key,title,stage,proof,permission,extra={})=>({ key, title, stage, proof, permission, required:true, ...extra });
+  let advanced=false, isOwner=false, mayAdvance=false;
+  const view=()=>{ const rows=[
+      { key:'cg.offer.signed', def:def('cg.offer.signed','Offer letter and position description signed','offer','verified','hub'), st:{ state:'complete', completed_at:'2026-10-09T20:00:00Z', completed_by_name:'The Hub (verified)', evidence:{ offer_signed_at:'x' } }, status:'complete', owner:{ role:'hub' } },
+      { key:'cg.step1.application', def:def('cg.step1.application','Employee Application signed','step1','verified','hub'), st:{ state:'complete', completed_at:'2026-10-10T01:00:00Z', completed_by_name:'The Hub (verified)', evidence:{ fingerprint:'751522b8a4921234' } }, status:'complete', owner:{ role:'hub' } },
+      { key:'cg.check.edl', def:def('cg.check.edl','Employee Disqualification List check','screening','proof','screening',{ expires_after_days:30 }), st:{ state:'complete', completed_at:'2026-08-01T00:00:00Z', completed_by_name:'The Hub (verified)', evidence:{ result:'Clear', document:'bgcheck/1/edl.pdf' } }, status:'attention', expired:'2026-08-30', attention:'Expired on 2026-08-30: due again', owner:{ email:'sally@x.com', role:'staffing_coordinator' } },
+      { key:'cg.check.oig', def:def('cg.check.oig','OIG exclusion check (LEIE)','screening','proof','screening'), st:{ state:'blocked', blocked_reason:'Flagged: see the background review before anything else moves.' }, status:'blocked', why:'Flagged', owner:{ email:'sally@x.com', role:'staffing_coordinator' } },
+      { key:'cg.approve.advance', def:def('cg.approve.advance','Approved to advance to orientation','approval','confirmed','advance'), st: advanced ? { state:'complete', completed_at:'2026-10-10T02:00:00Z', completed_by_name:'Samantha' } : { state:'open' }, status: advanced ? 'complete' : 'ready', owner:{ role:'owner' } },
+      { key:'cg.approve.work', def:def('cg.approve.work','Approved to Work (owners only)','ready','confirmed','work'), st:{ state:'open' }, status:'later', why:'After: Approved to advance to orientation', owner:{ role:'owner' } },
+    ];
+    const next=rows.find(r=>['ready','attention','blocked'].includes(r.status));
+    return { rows, next, complete:false, stage:'approval', stageLabel:'Approval', rail:[{key:'offer',label:'Offer',state:'done'},{key:'step1',label:'Step 1',state:'done'},{key:'screening',label:'Screening',state:'stopped'},{key:'approval',label:'Approval',state:'now'},{key:'ready',label:'Ready',state:'todo'},{key:'active',label:'Active',state:'todo'}] }; };
+  const answer=()=>({ ok:true, journey:{ journey_id:'j-1', client_name:'Ava Lee', status:'open' }, steps:[], view:view(), events:[{ at:'2026-10-10T01:00:00Z', kind:'verified', step_key:'cg.step1.application', actor_name:'The Hub' }], may:{ 'cg.approve.advance':mayAdvance, 'cg.approve.work':false, 'cg.check.edl':false }, is_owner:isOwner, facts:{ dates:{ orientation:null, axiscare_hire:'2026-10-05', differ:false } } });
+  window.sb={ functions:{ invoke:async(fn,o)=>{ const b=(o&&o.body)||{}; __calls.push({fn,b}); if(fn!=='caregiver-journey') return { data:null, error:{ message:'unexpected '+fn } };
+    if(b.action==='get') return { data:answer(), error:null };
+    if(b.action==='confirm'){ if(!mayAdvance) return { data:{ error:'Only a person on the Approve to Advance list may approve this.' }, error:null }; advanced=true; return { data:answer(), error:null }; }
+    if(b.action==='not_needed'){ if(!isOwner) return { data:{ error:'Only an owner may mark a requirement not needed.' }, error:null }; return { data:answer(), error:null }; }
+    return { data:{ error:'Unknown action.' }, error:null }; } } };
+  const sc=document.createElement('script'); sc.textContent=CODE; document.head.appendChild(sc); await sleep(30);
+  ok('the row chip exists and names the card', /Readiness/.test(CRX.chip('o-1')) && /CRX.open/.test(CRX.chip('o-1')));
+  await CRX.open('o-1','Ava Lee'); await sleep(120);
+  let t=document.getElementById('crBody').innerText;
+  ok('the card: name, Not approved to work, the rail with Screening stopped and Approval now, the next move with its owner', /Readiness · Ava Lee/.test(t) && /Not approved to work/.test(t) && /SCREENING/.test(t.toUpperCase()) && /Next: Employee Disqualification List check · sally@x.com/.test(t), t.slice(0,500));
+  ok('rows: done with time and verifier, expired EDL flagged as due again, OIG blocked with its reason, Approve to Work later', /Done · .*The Hub \(verified\)/.test(t) && /Expired on 2026-08-30: due again/.test(t) && /Flagged: see the background review/.test(t) && /After: Approved to advance to orientation/.test(t), t.slice(0,900));
+  ok('evidence is shown as words, never a number: the signed form fingerprint and the document on file', /signed form 751522b8a492/.test(t) && /document on file/.test(t));
+  const btns=()=>[...document.querySelectorAll('#crBody button')].map(b=>b.textContent.trim());
+  ok('a coordinator not on the Advance list sees no Confirm button; nobody sees Not needed (owners only)', !btns().includes('Confirm') && !btns().includes('Not needed'), btns());
+  ok('the dates line: employment start (orientation) not yet, AxisCare hire date shown', /Employment start \(orientation completed\): not yet · AxisCare hire date: 2026-10-05/.test(t));
+  CRX.close(); mayAdvance=true; isOwner=true; await CRX.open('o-1','Ava Lee'); await sleep(120);
+  t=document.getElementById('crBody').innerText;
+  ok('on the Advance list and an owner: one Confirm (the ready confirmed row), Not needed on open rows', btns().filter(x=>x==='Confirm').length===1 && btns().includes('Not needed'), btns());
+  const btn=[...document.querySelectorAll('#crBody button')].find(b=>b.textContent==='Confirm'); btn.click(); await sleep(150);
+  t=document.getElementById('crBody').innerText;
+  ok('Confirm asks the server for that row and the card re-draws it as done by Samantha', __calls.some(c=>c.b.action==='confirm' && c.b.step_key==='cg.approve.advance' && c.b.journey_id==='j-1') && /Approved to advance to orientation[\s\S]*Done · .*Samantha/.test(t), t.slice(0,700));
+  ok('the history is on the card', /History \(1\)/.test(t));
+  ok('no em dash anywhere it drew', !/—/.test(t));
+  return R;
+}
+"""
+with sync_playwright() as pw:
+    b = pw.chromium.launch(); pg = b.new_page(viewport={'width': 1100, 'height': 1100})
+    errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
+    pg.goto('http://127.0.0.1:8768/tests/browser/'); pg.wait_for_timeout(200)
+    pg.evaluate("document.body.innerHTML=''; const st=document.createElement('style'); st.textContent='.ibtn{font:inherit;font-size:.8rem;padding:.3rem .6rem;border:1px solid #d9d4c8;border-radius:8px;background:#fff;cursor:pointer}body{font-family:-apple-system,sans-serif}'; document.head.appendChild(st)")
+    R = pg.evaluate(T, CODE)
+    pg.screenshot(path=os.path.join(OUT, 'readiness_card.png'), full_page=True)
+    R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]]); b.close()
+for s_, n, d in R: print(s_, '·', n, '' if s_ == 'PASS' else d)
+print(sum(r[0] == 'PASS' for r in R), '/', len(R))

@@ -5466,6 +5466,7 @@ function bgrPersonCard(r, t){
     const b = r.board;
     if(b.oig !== 'CLEAR' && !b.oig_date) bgBtns.push('<button class="ibtn" onclick="bgrRunOIG('+b.id+',this)" title="Run the OIG exclusion check for this candidate now">Run OIG</button>');
     if(sdEligible(b)) bgBtns.push('<button class="ibtn" onclick="bgrScreeningDesk('+b.id+')" title="The locked identity details, the FCSR registration sheet and the reveal log">&#128274; Screening desk</button>');
+    if(sdEligible(b) && window.CRX) bgBtns.push(CRX.chip(b.offer_id));   /* 3b: the one readiness card */
     const refsPending = [1,2,3,4].some(n => b['r'+n+'n'] && b['r'+n+'s'] === 'Pending');
     if(refsPending) refBtns.push('<button class="ibtn" onclick="askReferences('+b.id+',this)" title="Email any reference with an email address; a phone-only reference stays yours to call">&#128233; Ask refs</button>');
     if([1,2,3,4].some(n => b['r'+n+'n'])) refBtns.push('<button class="ibtn" onclick="bgrRecordForPerson('+b.id+')" title="Record a reference&#39;s answer from a phone call or in person">Record answer</button>');
@@ -5632,6 +5633,7 @@ function bgrDrawerHTML(r, t){
   if(b){
     if(b.oig !== 'CLEAR' && !b.oig_date) bgBtns.push('<button class="ibtn" onclick="bgrRunOIG('+b.id+',this)">Run OIG</button>');
     if(sdEligible(b)) bgBtns.push('<button class="ibtn" onclick="bgrScreeningDesk('+b.id+')" title="The locked identity details, the FCSR registration sheet and the reveal log">&#128274; Screening desk</button>');
+    if(sdEligible(b) && window.CRX) bgBtns.push(CRX.chip(b.offer_id));   /* 3b: the one readiness card */
     bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'edl\')">Record EDL</button>');
     bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'fcsr\')">Record FCSR</button>');
     if(b.oos === 'yes') bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'fp\')">Record fingerprint</button>');
