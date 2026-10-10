@@ -17,11 +17,13 @@ const pool = [
   ok('10'),  // not eligible
   ok('11'),  // do not offer
   ok('12', { windows: W(['evening']) }),               // Nixa evenings only → Limited
+  ok('13', { work_locked: true, work_lock_why: 'awaiting Approve to Work (new hire readiness card not complete)' }),   // SLICE 5: a new hire locked until the stamp + read-back
 ]
-const overlay = { 1: OV(), 2: OV(), 3: OV(), 4: OV(), 5: OV({ accepting_new: { v: 'no' } }), 6: OV({ accepting_new: null }), 7: OV({ travel_towns: [] }), 8: OV(), 9: OV(), 10: OV(), 11: OV(), 12: OV({ travel_towns: ['Nixa'] }) }
+const overlay = { 1: OV(), 2: OV(), 3: OV(), 4: OV(), 5: OV({ accepting_new: { v: 'no' } }), 6: OV({ accepting_new: null }), 7: OV({ travel_towns: [] }), 8: OV(), 9: OV(), 10: OV(), 11: OV(), 12: OV({ travel_towns: ['Nixa'] }) , 13: OV() }
 const ctx = { today: T, overlay, towns: ['Springfield', 'Nixa', 'Ozark'], eligibility: (ax) => (ax === '10' ? 'not_eligible' : 'eligible'), doNotOffer: new Set(['11']) }
 const sh = S.sheet(pool, ctx)
 const why = (ax) => (sh.people.find((p) => p.ax === ax) || {}).why || []
+ck('SLICE 5: a locked new hire (13) is counted out: "awaiting Approve to Work (new hire)"', !sh.people.find((p) => p.ax === '13').counted && /awaiting Approve to Work \(new hire\)/.test(why('13').join()) && sh.cells['Springfield|morning'].ids.join() === '1,2', why('13'))
 ck('Open = 2 or more: Springfield mornings (caregivers 1 and 2)', sh.cells['Springfield|morning'].status === 'open' && sh.cells['Springfield|morning'].ids.join() === '1,2', sh.cells['Springfield|morning'])
 ck('Limited = 1: Nixa evenings (caregiver 12)', sh.cells['Nixa|evening'].status === 'limited' && sh.cells['Nixa|evening'].ids.join() === '12')
 ck('nothing where nobody can work (Ozark), and not at times nobody is free (Springfield evenings)', sh.cells['Ozark|morning'].status === 'none' && sh.cells['Springfield|evening'].status === 'none')

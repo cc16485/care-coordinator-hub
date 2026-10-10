@@ -8563,9 +8563,12 @@ function renderOrientReadyQueue(){
   const el = document.getElementById('orient-ready-queue');
   if(!el) return;
   const ready = (typeof candidates!=='undefined'?candidates:[]).filter(c=>obDeriveStatus(c)==='Ready for Orientation');
-  if(!ready.length){ el.innerHTML=''; return; }
+  /* SLICE 5 (2026-10-10): new-path people whose readiness card is complete wait here for the owner's Approve to Work
+     (the card itself is the final approval screen); the list comes from the readiness server, cached a minute */
+  const finalHtml = (window.CRX && typeof CRX.finalListHtml === 'function') ? CRX.finalListHtml(CRX.list(() => renderOrientReadyQueue())) : '';
+  if(!ready.length){ el.innerHTML=finalHtml; return; }
   const now = new Date();
-  el.innerHTML = `
+  el.innerHTML = finalHtml + `
     <div style="background:linear-gradient(135deg,#f0fffe,#e8f4fd);border:1.5px solid var(--teal);border-radius:12px;padding:.85rem 1rem">
       <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.7rem;flex-wrap:wrap">
         <span style="font-size:.95rem">✅</span>
