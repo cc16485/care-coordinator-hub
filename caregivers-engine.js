@@ -1552,6 +1552,8 @@ function renderOffers(){
           /* SLICE 1e (2026-10-09): the reminders the scheduled run sent (or recorded, in practice), and the day 7 card */
           offerReminderChip(o)+
           (o.offer_withdrawn_at?'':'<button class="fb" style="font-size:.72rem" onclick="offerSignLink(\''+id+'\',this)">Show the link</button>')+
+          /* SLICE 2b (2026-10-10): once both documents are signed, their private Step 1 link (the nine screens); shown and copied here, never sent from here */
+          (o.onboarding_path==='new'&&o.offer_signed_at&&o.pd_signed_at&&!o.offer_withdrawn_at?'<button class="fb" style="font-size:.72rem" onclick="offerStep1Link(\''+id+'\',this)">'+(o.step1_done_at?'Step 1 done · link':'Step 1 link')+'</button>':'')+
           /* SLICE 1c: what the delivery record says, then Resend (unsigned, open) and Withdraw (open) */
           offerDeliveryChip(o)+
           (o.offer_withdrawn_at||(o.offer_signed_at&&o.pd_signed_at)?'':'<button class="fb" style="font-size:.72rem" onclick="offerResend(\''+id+'\',this)">Resend</button>')+
@@ -1745,6 +1747,26 @@ async function offerSignLink(id, btn){
   catch (e) { box.innerHTML = '<div style="font-size:.78rem;color:#B91C1C">The link could not be made (' + esc(e.message || e) + '). Try again in a moment.</div>'; return; }
   box.innerHTML =
     '<div style="font-weight:700;color:#0D365F;margin-bottom:.35rem">Their signing link <span style="font-weight:400;color:var(--gray);font-size:.72rem">(private: dies with the offer, carries no personal details; nothing is sent from here)</span></div>'
+    + '<div style="word-break:break-all;background:#FAF9F6;border-radius:6px;padding:.4rem .5rem;font-size:.74rem;margin-bottom:.5rem">' + esc(url) + '</div>'
+    + '<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="fb" onclick="offerCopyLink(this,\'' + esc(url) + '\')">📋 Copy link</button>'
+    + '<span style="font-size:.76rem;color:var(--gray)">or point a phone camera at the code</span></div>'
+    + '<div style="margin-top:.5rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">' + offerQr(url) + '</div>';
+}
+/* SLICE 2b (2026-10-10): the Step 1 link, made by the Hub's server (30 days, dies with the offer); shown and copied here. */
+async function offerStep1Link(id, btn){
+  const o = OFFERS.find(x => String(x.id) === String(id));
+  if (!o) return;
+  let box = document.getElementById('ol_' + id);
+  if (!box) { box = document.createElement('div'); box.id = 'ol_' + id; box.style.cssText = 'margin-top:.4rem;font-size:.8rem'; (btn && btn.parentNode ? btn.parentNode : document.body).appendChild(box); }
+  if (box.style.display === 'block' && box.dataset.kind === 'step1') { box.style.display = 'none'; return; }
+  box.style.display = 'block'; box.dataset.kind = 'step1';
+  const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  box.innerHTML = '<div style="font-size:.78rem;color:var(--gray)">Making their private Step 1 link…</div>';
+  let url = '';
+  try { url = await appLinkMint({ kind: 'step1', offer_id: String(o.id) }); }
+  catch (e) { box.innerHTML = '<div style="font-size:.78rem;color:#B91C1C">The link could not be made (' + esc(e.message || e) + '). Try again in a moment.</div>'; return; }
+  box.innerHTML =
+    '<div style="font-weight:700;color:#0D365F;margin-bottom:.35rem">Their Step 1 link <span style="font-weight:400;color:var(--gray);font-size:.72rem">(private: 30 days, dies with the offer, carries no personal details; nothing is sent from here; practice only until the forms are approved)</span></div>'
     + '<div style="word-break:break-all;background:#FAF9F6;border-radius:6px;padding:.4rem .5rem;font-size:.74rem;margin-bottom:.5rem">' + esc(url) + '</div>'
     + '<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center"><button class="fb" onclick="offerCopyLink(this,\'' + esc(url) + '\')">📋 Copy link</button>'
     + '<span style="font-size:.76rem;color:var(--gray)">or point a phone camera at the code</span></div>'
@@ -4702,6 +4724,8 @@ function renderHirePipeline(){
       actions.push('<button class="ibtn" onclick="offerStartLink(\'' + r.offer.id + '\',this)">Start link</button>');
     if (r.offer && r.offer.onboarding_path === 'new' && !r.offer.offer_withdrawn_at && !(r.offer.offer_signed_at && r.offer.pd_signed_at))
       actions.push('<button class="ibtn" onclick="offerSignLink(\'' + r.offer.id + '\',this)">Signing link</button>');
+    if (r.offer && r.offer.onboarding_path === 'new' && !r.offer.offer_withdrawn_at && r.offer.offer_signed_at && r.offer.pd_signed_at)
+      actions.push('<button class="ibtn" onclick="offerStep1Link(\'' + r.offer.id + '\',this)">' + (r.offer.step1_done_at ? 'Step 1 done · link' : 'Step 1 link') + '</button>');
     /* Gate B: the offer's own step actions live on the person row, so the
        retired Offer a Job tab is not needed to finish an offer. */
     if (r.offer && !r.offer.attributes_entered_at)
@@ -9970,7 +9994,7 @@ function renderEVVCorrections() {
 }
 
 /* the only things the panels' handlers need */
-window.SCX = {getOffers: () => OFFERS, offerIntoChecks, bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+window.SCX = {getOffers: () => OFFERS, offerIntoChecks, offerStep1Link, bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
 /* The offer cards are built with inline onclick handlers, so these have to be
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;
@@ -9995,7 +10019,7 @@ window.orientSyncBookings = mergePendingBookings;
    / future assistant), and server-side authorization — not this — is the real
    boundary. The functions remain defined for an explicit/server caller if reintroduced. */
 window.offerCopyLink = offerCopyLink;
-window.offerSignLink = offerSignLink;
+window.offerSignLink = offerSignLink; window.offerStep1Link = offerStep1Link;
 window.offerQr = offerQr;
 window.offerResend = offerResend;
 window.offerWithdraw = offerWithdraw;
