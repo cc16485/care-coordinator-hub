@@ -112,6 +112,8 @@
     });
     h += '<div style="font-size:.72rem;color:#8A7F70;margin-top:.6rem">Verified rows come from the records on their own (the offer, the Step 1 forms, the Background and References row, the welcome call, the roster, the profile, the Training Platform\'s report). Confirmed rows need the named list on the Admin page. Every change is permanent history.</div>';
     if(d.events && d.events.length) h += '<details style="margin-top:.5rem"><summary style="font-size:.76rem;color:#0D365F;cursor:pointer">History (' + d.events.length + ')</summary>' + d.events.slice(0, 40).map(e => '<div style="font-size:.74rem;padding:.12rem 0">' + esc(when(e.at)) + ' · ' + esc(e.kind) + (e.step_key ? ' · ' + esc(e.step_key) : '') + ' · ' + esc(e.actor_name || e.actor_email) + (e.reason ? ' · "' + esc(e.reason) + '"' : '') + '</div>').join('') + '</details>';
+    /* SLICE 6: the read-only personnel-file export (owners and the Audit export list; every export logged) */
+    if(d.may_export) h += '<div id="crExport" style="margin-top:.6rem;font-size:.78rem"><button class="ibtn" onclick="CRX.exportFile(this)" title="A read-only PDF of every requirement, who verified, when, evidence and the history, with five-minute links to each proof. Every export is logged.">&#8681; Personnel file (PDF)</button></div>';
     h += '<div style="margin-top:.8rem;text-align:right"><button class="ibtn" onclick="CRX.close()">Close</button></div>';
     return h;
   }
@@ -135,6 +137,21 @@
     await act({ action:'approve_work' }, btn);
   }
   async function retry(btn){ await act({ action:'retry_axiscare' }, btn); }
+  /* SLICE 6: the export. The server builds the PDF, logs the export and hands back five-minute links. */
+  async function exportFile(btn, caregiverId){
+    const reason = prompt('Reason for this export (it is logged with your name):', 'audit export'); if(reason === null) return;
+    if(btn){ btn.disabled = true; btn.textContent = 'Building…'; }
+    try {
+      const r = await sb.functions.invoke('caregiver-export', { body: Object.assign({ action:'export', reason }, caregiverId ? { caregiver_id:String(caregiverId) } : { journey_id: CUR.journey.journey_id }) });
+      let d = r.data; if(r.error){ let why=''; try{ if(r.error.context && r.error.context.json) why=(await r.error.context.json()).error||''; }catch(_){} throw new Error(why || r.error.message); }
+      if(!d || d.error) throw new Error((d && d.error) || 'the export server did not answer');
+      const box = document.getElementById('crExport');
+      const html = '<div style="background:#F6F2E9;border-radius:8px;padding:.5rem .7rem"><b>Personnel file ready</b> (links open for 5 minutes; every open is logged): <a href="' + esc(d.url) + '" target="_blank" rel="noopener">open the PDF</a>'
+        + (d.proofs && d.proofs.length ? '<div style="margin-top:.3rem">Proofs: ' + d.proofs.map(p => p.url ? '<a href="' + esc(p.url) + '" target="_blank" rel="noopener">' + esc(p.label) + '</a>' : '<span style="color:#8A7F70">' + esc(p.label) + ' (no link)</span>').join(' · ') + '</div>' : '') + '</div>';
+      if(box) box.innerHTML = html; else alert('Personnel file ready: ' + d.url);
+      if(!box && d.url) window.open(d.url, '_blank');
+    } catch(e){ alert('The export did not run: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = '⇩ Personnel file (PDF)'; } }
+  }
   /* the small line for a row: status in a few words, for the People & Checks row */
   function chip(offerId){ return '<button class="ibtn" style="font-size:.72rem" onclick="CRX.open(\'' + esc(offerId) + '\')" title="The one readiness card: every requirement, what is blocking, who owns the next move">&#9776; Readiness</button>'; }
   /* SLICE 5: every open card, for the Orientations tab's Ready for final approval list (cached a minute; redraws when it lands) */
@@ -154,5 +171,5 @@
         + (r.axiscare === 'failed' ? '<span style="font-size:.7rem;color:#B91C1C;font-weight:700">Approval recorded, AxisCare update failed: open the card and press Retry</span>' : '<span style="font-size:.7rem;color:#6E6559">every requirement complete · scheduling locked until the press</span>')
         + '<span style="margin-left:auto">' + chip(r.offer_id) + '</span></div>').join('') + '</div></div>';
   }
-  window.CRX = { open, close, confirm, record, notNeeded, approve, retry, chip, call, list, finalListHtml };
+  window.CRX = { open, close, confirm, record, notNeeded, approve, retry, chip, call, list, finalListHtml, exportFile };
 })();
