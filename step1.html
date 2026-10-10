@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Step 1, your new-hire paperwork</title>
+<!-- SLICE 2b (Samantha "start slice 2b", 2026-10-10; fictional testing only): the nine Step 1 screens on the caregiver's
+     phone, straight after the signed offer. Every word, item and version comes from the server (step1-sign), which
+     holds the approved form texts; this page only lays them out, prefills what we already know (marked with where it
+     came from), saves as the caregiver goes (on the server, never in this browser's storage), signs one form at a time
+     with its own consent and typed name, and never stores the Social Security number, date of birth or license number
+     anywhere but the server's locked door. Nothing on this page sends a text or an email. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy:#0D365F; --navy-dark:#092647; --gold:#F0A63A; --gold-text:#C17A12; --bg:#faf9f6; --card:#fff; --border:#e4e1d8; --text:#16283a; --muted:#6E6559; --green:#15803D; --red:#B00020; }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.55;-webkit-text-size-adjust:100%;}
+  .wrap{max-width:640px;margin:0 auto;padding:18px 16px 70px;} header{text-align:center;padding:8px 0 4px;} header img{height:48px;}
+  h1{font-size:23px;line-height:1.25;color:var(--navy);margin:12px 0 6px;letter-spacing:-.02em;} h2.ft{font-size:19px;color:var(--navy);margin:14px 0 4px}
+  .lede{font-size:16px;margin:0 0 14px;} .prog{display:flex;align-items:center;gap:10px;margin:6px 0 14px;font-size:12.5px;color:var(--muted);font-weight:600}
+  .bar{flex:1;height:8px;background:#EEE9DF;border-radius:6px;overflow:hidden} .bar i{display:block;height:100%;background:var(--gold);border-radius:6px}
+  .doc{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 16px 6px;margin-bottom:14px;font-size:16px;}
+  .doc h3{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);margin:14px 0 6px;} .doc h3:first-child{margin-top:0}
+  .doc p{margin:0 0 10px;} .doc .small{font-size:12.5px;color:var(--muted);margin:0 0 10px;}
+  .item{margin:0 0 14px} label.q{display:block;font-size:15px;font-weight:600;color:var(--text);margin:0 0 6px;} .note{font-size:12.5px;color:var(--muted);margin:-2px 0 6px}
+  .from{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--gold-text);background:#FFF7ED;border:1px solid #FCD9A8;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+  input[type=text],input[type=number],input[type=date],input[type=tel],input[type=email],select,textarea{width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;} input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .seg{display:flex;flex-wrap:wrap;gap:8px} .seg button{font:inherit;font-size:15px;padding:10px 14px;border:1px solid var(--border);border-radius:999px;background:#fff;cursor:pointer;color:var(--text)} .seg button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;margin:6px 0;cursor:pointer} .chk input{width:22px;height:22px;margin:2px 0 0;flex:none;accent-color:var(--gold)}
+  table.grid{width:100%;border-collapse:collapse;font-size:13.5px} table.grid th,table.grid td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--border)} table.grid td:first-child,table.grid th:first-child{text-align:left;font-weight:600} table.grid input[type=checkbox]{width:20px;height:20px;accent-color:var(--gold)} table.grid input[type=text]{font-size:13px;padding:6px}
+  .row{background:#FAF9F6;border:1px solid var(--border);border-radius:10px;padding:10px;margin:0 0 8px} .row .rl{font-size:12px;color:var(--muted);font-weight:700;margin:6px 0 2px} .row input{font-size:15px;padding:9px 10px}
+  .mini{font:inherit;font-size:14px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;color:var(--navy);font-weight:600} .mini.x{color:var(--red)}
+  .signbox{background:#FAF9F6;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;} .signbox h3{font-size:16px;color:var(--navy);margin:0 0 8px;}
+  button.go{width:100%;background:var(--gold);color:#122F52;border:0;border-radius:10px;padding:15px;font:inherit;font-size:17px;font-weight:800;margin-top:12px;cursor:pointer;} button.go[disabled]{opacity:.55;cursor:default} button.back{width:100%;background:#fff;color:var(--navy);border:1px solid var(--border);border-radius:10px;padding:12px;font:inherit;font-size:15px;font-weight:700;margin-top:10px;cursor:pointer}
+  .err{display:none;background:#FDECEC;color:var(--red);border-radius:8px;padding:10px 12px;font-size:14.5px;margin-top:10px;} .okmsg{background:#F0F7F4;border-radius:10px;padding:14px;font-size:15px;margin-bottom:14px}
+  .why{background:#FFF7ED;border:1px solid #FCD9A8;border-radius:10px;padding:12px 14px;font-size:14.5px;margin:0 0 14px;}
+  .signed{background:#DCFCE7;color:var(--green);border-radius:10px;padding:12px 14px;font-size:14.5px;margin-bottom:14px;font-weight:600;}
+  .secure{font-size:12.5px;color:var(--muted);margin-top:8px;} .dead{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;font-size:16px;} a{color:var(--navy);}
+  .copies a{display:block;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:8px 0;text-decoration:none;font-weight:600;}
+  .saving{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:12.5px;padding:6px 12px;border-radius:999px;opacity:0;transition:opacity .2s} .saving.on{opacity:.9}
+  .lock{opacity:.7;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header><img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions"></header>
+  <div id="main"><p class="lede" style="text-align:center;color:var(--muted)">Opening your Step 1…</p></div>
+</div>
+<div class="saving" id="saving">Saving…</div>
+<script>
+const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7';
+const FN = SUPA_URL + '/functions/v1/step1-sign';
+const q = new URLSearchParams(location.search); const LINK = { o: q.get('o') || '', e: q.get('e') || '', t: q.get('t') || '' };
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const PHONE = '(417) 234-8494';
+let V = null, ANS = {}, SIGS = {}, IDENT = {}, FROM = {}, SCREEN = '1', FORMS = {}, BUSY = false;
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+/* which screens hold which sections of which form; the sign box sits on a form's last screen */
+const PLAN = {
+  '1': { title: 'Your signed offer, and what comes next' },
+  '2': { form: 'employee_application', sections: [0, 1, 2, 3, 4], title: 'About you' },
+  '3': { form: 'employee_application', sections: [5, 6], title: 'Your work history', sign: true },
+  '4': { form: 'reference_consent', sections: 'all', title: 'Your references', sign: true },
+  '5a': { form: 'fcra_disclosure', sections: 'all', title: 'Background check, part one', sign: true },
+  '5b': { form: 'edl_fcsr_consent', sections: 'all', title: 'Background check, part two', sign: true },
+  '6': { form: 'availability', sections: 'all', title: 'When you can work', sign: true },
+  '7': { form: 'experience', sections: 'all', title: 'What you are willing to do and have done', sign: true },
+  '8': { form: 'vehicle', sections: 'all', title: 'Driving', sign: true },
+  '9': { title: 'All done' },
+};
+const ORDER = ['1', '2', '3', '4', '5a', '5b', '6', '7', '8', '9'];
+/* a question shows only when it applies */
+const SHOW = {
+  states_lived: (a) => a.lived_outside_mo === 'yes', moving_violations_detail: (a) => a.moving_violations === 'yes', convictions: (a) => a.convicted === 'yes',
+  employers: (a) => a.no_employer_history !== 'yes', vo_program: (a) => !!a.vo_name, co_major: (a) => !!a.co_name, cert_number: (a) => a.cna === 'yes' || a.hha === 'yes', cert_expires: (a) => a.cna === 'yes' || a.hha === 'yes',
+  overnight_nights: (a) => Array.isArray(a.shift_prefs) && a.shift_prefs.includes('Overnight shifts'), languages_other: (a) => Array.isArray(a.languages) && a.languages.includes('Another language'),
+  license_number: (a) => a.has_license === 'yes', license_state: (a) => a.has_license === 'yes', license_expires: (a) => a.has_license === 'yes',
+  insurance_proof: (a) => a.has_insurance === 'yes', insurance_photo: (a) => a.has_insurance === 'yes', insurer: (a) => a.has_insurance === 'yes', insurance_expires: (a) => a.has_insurance === 'yes',
+};
+async function call(body){
+  const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ ...body, ...LINK }) });
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  return { status: r.status, j };
+}
+const main = () => document.getElementById('main');
+const formSigned = (k) => !!SIGS[k];
+const stepNo = (s) => ORDER.indexOf(s) + 1;
+function dead(msg){ main().innerHTML = '<div class="dead"><b>We could not open your Step 1.</b><p>' + esc(msg) + '</p><p>Call or text the office at <b>' + PHONE + '</b> and we will sort it out.</p></div>'; }
+
+/* ───── rendering ───── */
+function fromTag(id){ return FROM[id] ? '<span class="from">from ' + esc(FROM[id]) + '</span>' : ''; }
+function itemHtml(it, locked){
+  const v = ANS[it.id]; const dis = locked ? ' disabled' : '';
+  let body = '';
+  if (it.locked && it.id === 'ssn') body = ssnHtml(locked);
+  else if (it.locked && it.id === 'dob') body = IDENT.dob ? '<div class="okmsg">Date of birth: <b>on file</b> (never shown again).' + (locked ? '' : ' <button class="mini" onclick="identityEdit(\'dob\')">Change</button>') + '</div>' : '<input type="date" id="id_dob"' + dis + '> <button class="mini" style="margin-top:8px" onclick="identitySend(\'dob\')"' + dis + '>Save my date of birth</button>';
+  else if (it.locked && it.id === 'license_number') body = IDENT.license ? '<div class="okmsg">License number: <b>on file, ' + esc(IDENT.license) + '</b>.' + (locked ? '' : ' <button class="mini" onclick="identityEdit(\'license\')">Change</button>') + '</div>' : '<input type="text" id="id_license" autocomplete="off" placeholder="As printed on your license"' + dis + '> <button class="mini" style="margin-top:8px" onclick="identitySend(\'license\')"' + dis + '>Save my license number</button>';
+  else switch (it.kind) {
+    case 'yesno': body = seg(it.id, [['yes', 'Yes'], ['no', 'No']], v, locked); break;
+    case 'choice': body = (it.options || []).length > 4 ? '<select data-id="' + it.id + '" onchange="setVal(this.dataset.id,this.value)"' + dis + '><option value="">Choose…</option>' + it.options.map((o) => '<option' + (v === o ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>' : seg(it.id, it.options.map((o) => [o, o]), v, locked); break;
+    case 'multi': body = (it.options || []).map((o) => '<label class="chk"><input type="checkbox" data-id="' + it.id + '" value="' + esc(o) + '"' + ((v || []).includes(o) ? ' checked' : '') + ' onchange="toggleMulti(this)"' + dis + '><span>' + esc(o) + '</span></label>').join(''); break;
+    case 'number': body = '<input type="number" inputmode="numeric" min="0" max="200" data-id="' + it.id + '" value="' + esc(v ?? '') + '" oninput="setVal(this.dataset.id,this.value===\'\'?\'\':Number(this.value),true)"' + dis + '>'; break;
+    case 'date': body = '<input type="date" data-id="' + it.id + '" value="' + esc(v ?? '') + '" onchange="setVal(this.dataset.id,this.value)"' + dis + '>'; break;
+    case 'initials': body = '<input type="text" maxlength="4" data-id="initials" value="' + esc(ANS.initials ?? '') + '" oninput="setVal(\'initials\',this.value,true)" placeholder="Your initials"' + dis + '>'; break;
+    case 'photo': body = '<div class="note">Optional. You can also just show the card at orientation; nothing is required here.</div>'; break;
+    case 'statement': body = ''; break;
+    case 'table': body = tableHtml(it, locked); break;
+    default: body = (it.id === 'exclusions' || /describe|explain/i.test(it.label)) ? '<textarea rows="3" data-id="' + it.id + '" oninput="setVal(this.dataset.id,this.value,true)"' + dis + '>' + esc(v ?? '') + '</textarea>' : '<input type="text" data-id="' + it.id + '" value="' + esc(v ?? '') + '" oninput="setVal(this.dataset.id,this.value,true)"' + dis + '>';
+  }
+  return '<div class="item" id="it_' + it.id + '"><label class="q">' + esc(it.label) + (it.required ? ' <span style="color:var(--gold-text)">*</span>' : '') + fromTag(it.id) + '</label>' + (it.note ? '<div class="note">' + esc(it.note) + '</div>' : '') + body + '</div>';
+}
+function seg(id, pairs, v, locked){ return '<div class="seg">' + pairs.map(([val, lab]) => '<button type="button" class="' + (v === val ? 'on' : '') + '" onclick="setVal(\'' + id + '\',\'' + esc(val).replace(/'/g, "\\'") + '\')"' + (locked ? ' disabled' : '') + '>' + esc(lab) + '</button>').join('') + '</div>'; }
+function ssnHtml(locked){
+  if (IDENT.ssn) return '<div class="okmsg">Social Security number: <b>on file, ' + esc(IDENT.ssn) + '</b> (never shown again).' + (locked ? '' : ' <button class="mini" onclick="identityEdit(\'ssn\')">Change</button>') + '</div>';
+  return '<input type="tel" id="id_ssn" inputmode="numeric" autocomplete="off" placeholder="Digits only" maxlength="11"' + (locked ? ' disabled' : '') + '><div class="note" style="margin-top:6px">Type it once more</div><input type="tel" id="id_ssn2" inputmode="numeric" autocomplete="off" placeholder="Digits only" maxlength="11"' + (locked ? ' disabled' : '') + '> <button class="mini" style="margin-top:8px" onclick="identitySend(\'ssn\')"' + (locked ? ' disabled' : '') + '>Save my Social Security number</button>';
+}
+function tableHtml(it, locked){
+  const dis = locked ? ' disabled' : '';
+  if (it.id === 'windows') {
+    const v = ANS.windows || {}; const cols = it.options;
+    return '<div style="overflow-x:auto"><table class="grid"><tr><th></th>' + cols.map((c) => '<th>' + esc(c.replace(' (optional)', '')) + '</th>').join('') + '</tr>'
+      + DAYS.map((d) => '<tr><td>' + d.slice(0, 3) + '</td>' + cols.map((c) => '<td>' + (c.startsWith('Hours') ? '<input type="text" style="width:80px" value="' + esc((v[d] || {})[c] || '') + '" oninput="setGrid(\'' + d + '\',\'' + esc(c) + '\',this.value)"' + dis + '>' : '<input type="checkbox"' + ((v[d] || {})[c] === true ? ' checked' : '') + ' onchange="setGrid(\'' + d + '\',\'' + esc(c) + '\',this.checked)"' + dis + '>') + '</td>').join('') + '</tr>').join('') + '</table></div>';
+  }
+  if (it.id === 'specialties' || it.id === 'matching_facts') {
+    const v = ANS[it.id] || {};
+    return it.options.map((o) => '<div class="row"><div style="font-size:14.5px;margin-bottom:6px">' + esc(o) + (FROM[it.id] && v[o] ? fromTag(it.id) : '') + '</div><div class="seg">' + ['Yes', 'Not at this time'].map((c) => '<button type="button" class="' + (v[o] === c ? 'on' : '') + '" onclick="setMap(\'' + it.id + '\',\'' + esc(o).replace(/'/g, "\\'") + '\',\'' + c + '\')"' + dis + '>' + c + '</button>').join('') + '</div></div>').join('');
+  }
+  const rows = Array.isArray(ANS[it.id]) ? ANS[it.id] : [];
+  let out = rows.map((r, i) => '<div class="row">' + it.options.map((c, j) => '<div class="rl">' + esc(c) + '</div><input type="text" value="' + esc(r[j] ?? '') + '" oninput="setCell(\'' + it.id + '\',' + i + ',' + j + ',this.value)"' + dis + '>').join('') + (locked ? '' : '<div style="margin-top:8px"><button class="mini x" onclick="delRow(\'' + it.id + '\',' + i + ')">Remove</button></div>') + '</div>').join('');
+  if (!locked) {
+    out += '<button class="mini" onclick="addRow(\'' + it.id + '\')">+ Add ' + (it.id === 'employers' ? 'an employer' : /refs$/.test(it.id) ? 'a reference' : 'a row') + '</button>';
+    if (it.id === 'professional_refs') out += supervisorButtons();
+  }
+  return out;
+}
+function supervisorButtons(){
+  const emp = Array.isArray(ANS.employers) ? ANS.employers : []; const have = (ANS.professional_refs || []).map((r) => (r[0] || '').toLowerCase());
+  const btns = emp.filter((e) => (e[3] || '').trim() && !have.includes(e[3].trim().toLowerCase())).map((e, i) => '<button class="mini" style="margin-left:6px" onclick="useSupervisor(' + emp.indexOf(e) + ')">Use ' + esc(e[3]) + ' (' + esc(e[0] || 'employer') + ')</button>');
+  return btns.length ? '<div class="note" style="margin-top:10px">One tap: the supervisors from your work history</div>' + btns.join('') : '';
+}
+function screenHtml(s){
+  const P = PLAN[s]; const n = ORDER.length;
+  let h = '<div class="prog"><span>Screen ' + stepNo(s) + ' of ' + n + '</span><div class="bar"><i style="width:' + Math.round(stepNo(s) / n * 100) + '%"></i></div><span>' + Object.keys(SIGS).length + ' of ' + V.form_count + ' signed</span></div>';
+  if (V.test_mode) h += '<div class="why"><b>Practice only.</b> These forms are not yet approved for real signing; nothing here is sent anywhere and no office action follows from it. (The office sees that too.)</div>';
+  if (s === '1') {
+    const w = V.who;
+    h += '<h1>Welcome, ' + esc(w.first) + '!</h1><p class="lede">Your offer for <b>' + esc(w.position) + '</b> is signed. Step 1 is your new-hire paperwork, done right here: ' + V.form_count + ' short forms, about 15 minutes. It saves as you go, so you can stop and come back any time with this same link.</p>';
+    h += '<div class="doc"><h3>What Step 1 covers</h3><ul style="padding-left:20px;margin:0 0 10px">' + V.forms.map((f) => '<li style="margin:0 0 6px">' + esc(f.title) + (SIGS[f.key] ? ' <span style="color:var(--green);font-weight:700">✓ signed</span>' : '') + '</li>').join('') + '</ul><p class="small">For your background checks, one form asks for your Social Security number and date of birth. They are kept encrypted on our server, seen only by the office person who orders your checks, and every look is logged. Your record will show only "on file, ending" with the last four digits.</p></div>';
+    if (!V.esign_consent_at) h += '<div class="signbox"><h3>Signing electronically</h3><label class="chk"><input type="checkbox" id="esign"><span>I agree to complete and sign my Step 1 paperwork electronically, and I understand my typed name on each form has the same effect as my handwritten signature. I can ask the office for paper copies at any time.</span></label><button class="go" onclick="begin()">Begin Step 1</button><div class="err" id="e_begin"></div></div>';
+    else h += '<button class="go" onclick="go(\'' + (nextScreen() || '2') + '\')">' + (V.completed_at ? 'See your signed copies' : 'Continue where I left off') + '</button>';
+    return h;
+  }
+  if (s === '9') {
+    h += '<h1>All done, ' + esc(V.who.first) + '.</h1><p class="lede">Every form is signed. Here is what happens next: the office orders your background checks and contacts your references; then you hear from us about Step 2 (your payroll paperwork in Viventium) and your welcome call. Questions any time: ' + PHONE + '.</p>';
+    h += '<div class="doc"><h3>Your signed copies</h3><div class="copies" id="copies"><p class="small">Fetching your copies…</p></div><p class="small">Each link works for ten minutes; open this page again any time for fresh ones.</p></div>';
+    setTimeout(loadCopies, 50);
+    return h;
+  }
+  const f = FORMS[P.form]; const locked = formSigned(P.form);
+  const secs = P.sections === 'all' ? f.sections.map((_, i) => i) : P.sections;
+  h += '<h1>' + esc(P.title) + '</h1>';
+  h += '<h2 class="ft">' + esc(f.title) + ' <span style="font-size:12.5px;color:var(--muted);font-weight:600">version ' + f.version + '</span></h2>';
+  if (locked) h += '<div class="signed">Signed by ' + esc(SIGS[P.form].typed_name) + ' on ' + when(SIGS[P.form].at) + '. A signed form is never changed.</div>';
+  if (s === '2') h += '<div class="doc"><h3>From your offer</h3><p><b>' + esc(V.who.first + ' ' + V.who.last) + '</b><br>' + esc(V.who.phone) + (V.who.email ? '<br>' + esc(V.who.email) : '') + '</p><p class="small">If any of this is wrong, call or text the office at ' + PHONE + ' and we will fix it on your offer.</p></div>';
+  if (s === '6' && (V.hints.availability || V.hints.travel)) h += '<div class="why"><b>From your application:</b> ' + esc([V.hints.availability, V.hints.travel ? 'travel: ' + V.hints.travel : ''].filter(Boolean).join(' · ')) + '. Set your committed availability below.</div>';
+  h += '<div class="doc' + (locked ? ' lock' : '') + '">' + (secs[0] === 0 ? (f.intro || []).map((p) => '<p>' + esc(p) + '</p>').join('') : '');
+  for (const i of secs) {
+    const sec = f.sections[i];
+    h += '<h3>' + esc(sec.h) + '</h3>' + (sec.p || []).map((p) => '<p>' + esc(p) + '</p>').join('');
+    for (const it of sec.items || []) { if (SHOW[it.id] && !SHOW[it.id](ANS)) continue; h += itemHtml(it, locked); }
+  }
+  h += '</div>';
+  if (P.sign) {
+    h += '<div class="doc"><h3>Certification</h3>' + f.certification.map((c) => '<p>' + esc(c) + '</p>').join('') + (f.signature === 'typed+initials' && !locked ? '<div class="item"><label class="q">Your initials beside the AxisCare scheduling line <span style="color:var(--gold-text)">*</span></label>' + itemHtml({ id: 'initials', label: '', kind: 'initials' }, false).replace(/<label class="q">.*?<\/label>/, '') + '</div>' : '') + '</div>';
+    if (!locked) h += '<div class="signbox" id="sb"><h3>Sign ' + esc(f.title) + '</h3><label class="chk"><input type="checkbox" id="c_sign"><span>I agree to sign this form electronically. I have read it and my answers are true.</span></label><label class="q" for="n_sign" style="margin-top:8px">Type your full name to sign</label><input type="text" id="n_sign" autocomplete="name" placeholder="First and last name"><button class="go" id="b_sign" onclick="sign(\'' + P.form + '\')">Sign and continue</button><div class="err" id="e_sign"></div><div class="secure">Your typed name, the time and your device are recorded with this signature. Your own copy comes back to you as a secure link when all forms are done.</div></div>';
+    else h += '<button class="go" onclick="go(\'' + nextOf(s) + '\')">Continue</button>';
+  } else h += '<button class="go" onclick="saveAndGo(\'' + nextOf(s) + '\')">Continue</button>';
+  h += '<button class="back" onclick="go(\'' + prevOf(s) + '\')">Back</button><div class="err" id="e_screen"></div>';
+  return h;
+}
+const nextOf = (s) => ORDER[Math.min(ORDER.indexOf(s) + 1, ORDER.length - 1)], prevOf = (s) => ORDER[Math.max(ORDER.indexOf(s) - 1, 0)];
+function nextScreen(){ if (V.completed_at) return '9'; for (const s of ORDER.slice(1, -1)) { const P = PLAN[s]; if (!formSigned(P.form)) return (P.sections !== 'all' && P.sections[0] !== 0 && ORDER.indexOf(SCREEN) >= 0 && SCREEN === s) ? s : (P.form === 'employee_application' ? (SCREEN === '3' ? '3' : '2') : s); } return '9'; }
+const when = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' Central' : '';
+function render(){ main().innerHTML = screenHtml(SCREEN); window.scrollTo(0, 0); }
+function go(s){ SCREEN = s; render(); save({}, s); }
+
+/* ───── answers (page memory only) ───── */
+let saveTimer = null, PENDING = {};
+function setVal(id, v, debounce){ if (v === '') delete ANS[id]; else ANS[id] = v; delete FROM[id]; PENDING[id] = v === '' ? '' : v; if (debounce) { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 800); } else { flush(); render(); } }
+function toggleMulti(el){ const id = el.dataset.id; const cur = new Set(ANS[id] || []); if (el.checked) cur.add(el.value); else cur.delete(el.value); ANS[id] = [...cur]; PENDING[id] = ANS[id]; delete FROM[id]; flush(); if (SHOW.overnight_nights && (id === 'shift_prefs' || id === 'languages')) render(); }
+function setGrid(day, col, val){ const w = { ...(ANS.windows || {}) }; const row = { ...(w[day] || {}) }; if (col === 'Not available' && val === true) { for (const k of Object.keys(row)) if (!k.startsWith('Hours')) row[k] = false; } if (val === true && col !== 'Not available' && !col.startsWith('Hours')) row['Not available'] = false; row[col] = val; w[day] = row; ANS.windows = w; PENDING.windows = w; clearTimeout(saveTimer); saveTimer = setTimeout(() => { flush(); render(); }, 600); }
+function setMap(id, opt, val){ const m = { ...(ANS[id] || {}) }; m[opt] = val; ANS[id] = m; PENDING[id] = m; flush(); render(); }
+function setCell(id, i, j, v){ const rows = (ANS[id] || []).map((r) => [...r]); rows[i] = rows[i] || []; rows[i][j] = v; ANS[id] = rows; PENDING[id] = rows; clearTimeout(saveTimer); saveTimer = setTimeout(flush, 800); }
+function addRow(id){ const rows = (ANS[id] || []).map((r) => [...r]); rows.push([]); ANS[id] = rows; render(); }
+function delRow(id, i){ const rows = (ANS[id] || []).filter((_, k) => k !== i); ANS[id] = rows; PENDING[id] = rows; flush(); render(); }
+function useSupervisor(i){ const e = (ANS.employers || [])[i] || []; const rows = (ANS.professional_refs || []).map((r) => [...r]); rows.push([e[3] || '', e[0] || '', 'Supervisor', e[4] || '', e[5] || '']); ANS.professional_refs = rows; PENDING.professional_refs = rows; flush(); render(); }
+async function flush(){ if (!Object.keys(PENDING).length) return; const body = PENDING; PENDING = {}; await save(body, SCREEN); }
+async function save(answers, screen){
+  const el = document.getElementById('saving'); el.classList.add('on');
+  const r = await call({ action: 'save', screen, answers });
+  el.classList.remove('on');
+  if (r.status !== 200) { const e = document.getElementById('e_screen'); if (e) { e.style.display = 'block'; e.textContent = (r.j && r.j.error) || 'Could not save. Check your connection and try again.'; } }
+  return r;
+}
+async function saveAndGo(next){ await flush(); await save({}, next); SCREEN = next; render(); }
+/* the locked door: the SSN, date of birth and license number go straight to the server's identity action, never into ANS */
+function identityEdit(which){ IDENT[which === 'ssn' ? 'ssn' : which === 'dob' ? 'dob' : 'license'] = null; render(); }
+async function identitySend(which){
+  const body = { action: 'identity' };
+  if (which === 'ssn') { body.ssn = (document.getElementById('id_ssn') || {}).value || ''; body.ssn2 = (document.getElementById('id_ssn2') || {}).value || ''; }
+  if (which === 'dob') body.dob = (document.getElementById('id_dob') || {}).value || '';
+  if (which === 'license') { body.license_number = (document.getElementById('id_license') || {}).value || ''; body.license_state = ANS.license_state || ''; body.license_expires = ANS.license_expires || ''; }
+  const r = await call(body);
+  const e = document.getElementById('e_screen');
+  if (r.status !== 200) { if (e) { e.style.display = 'block'; e.textContent = (r.j && r.j.error) || 'Could not save.'; } return; }
+  IDENT = Object.assign(IDENT, r.j.identity); if (e) e.style.display = 'none'; render();
+}
+async function begin(){
+  const ok = document.getElementById('esign').checked; const e = document.getElementById('e_begin');
+  if (!ok) { e.style.display = 'block'; e.textContent = 'Please tick the box to continue.'; return; }
+  const r = await call({ action: 'begin', esign_consent: true });
+  if (r.status !== 200) { e.style.display = 'block'; e.textContent = (r.j && r.j.error) || 'Could not start. Try again.'; return; }
+  V.esign_consent_at = new Date().toISOString(); go('2');
+}
+async function sign(form){
+  if (BUSY) return;
+  const e = document.getElementById('e_sign'), btn = document.getElementById('b_sign');
+  const name = (document.getElementById('n_sign').value || '').trim();
+  if (!document.getElementById('c_sign').checked) { e.style.display = 'block'; e.textContent = 'Please tick "I agree to sign this form electronically" first.'; return; }
+  if (name.split(/\s+/).length < 2) { e.style.display = 'block'; e.textContent = 'Please type your full name, first and last.'; return; }
+  BUSY = true; btn.disabled = true; btn.textContent = 'Signing…';
+  await flush();
+  const r = await call({ action: 'sign', form, typed_name: name, consent: true, initials: ANS.initials });
+  BUSY = false;
+  if (r.status !== 200) { btn.disabled = false; btn.textContent = 'Sign and continue'; e.style.display = 'block'; e.textContent = (r.j && r.j.error) || 'Could not sign. Try again.'; return; }
+  SIGS[form] = { at: r.j.signed_at, typed_name: name, version: r.j.version };
+  if (r.j.done) { V.completed_at = r.j.signed_at; go('9'); } else go(nextOf(SCREEN));
+}
+async function loadCopies(){
+  const box = document.getElementById('copies'); if (!box) return;
+  const r = await call({ action: 'copies' });
+  if (r.status !== 200 || !r.j.copies) { box.innerHTML = '<p class="small">Your copies are not ready yet. Open this page again in a minute.</p>'; return; }
+  box.innerHTML = V.forms.filter((f) => r.j.copies[f.key]).map((f) => '<a href="' + esc(r.j.copies[f.key]) + '" target="_blank" rel="noopener">📄 ' + esc(f.title) + '</a>').join('') || '<p class="small">No copies yet.</p>';
+}
+async function init(){
+  if (!LINK.o || !LINK.t) return dead('This link is missing its code.');
+  const r = await call({ action: 'view' });
+  if (r.status !== 200) return dead((r.j && r.j.error) || 'This link is not valid or has run out.');
+  V = r.j; FORMS = {}; for (const f of V.forms) FORMS[f.key] = f;
+  ANS = V.answers || {}; SIGS = V.signatures || {}; IDENT = V.identity || {};
+  for (const [id, p] of Object.entries(V.prefill || {})) if (ANS[id] === undefined) { ANS[id] = p.value; FROM[id] = p.from; }
+  SCREEN = V.completed_at ? '9' : (!V.esign_consent_at ? '1' : (ORDER.includes(V.current_screen) && V.current_screen !== '1' ? V.current_screen : '2'));
+  if (SCREEN !== '1' && SCREEN !== '9' && formSigned(PLAN[SCREEN].form) && PLAN[SCREEN].sign) SCREEN = nextOf(SCREEN);
+  render();
+}
+init();
+</script>
+</body>
+</html>
