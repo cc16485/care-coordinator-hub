@@ -34,7 +34,8 @@ ck('the table has the banner style', html.includes('.ob-orient-banner{display:bl
 const ok = ctx.obOrientBanner({ id: 1, first: 'Ava', last: 'Test', resolvedAt: '2026-10-06T15:00:00Z' });
 ck('the banner says they moved into orientation and links to the tab', ok.includes('Moved into orientation') && ok.includes("gotoTab('orientations')") && ok.includes('Cleared Oct 6'), ok);
 ck('a fresh clear says Step 2 is next', ok.includes('Next: Viventium Step 2'));
-ck('step 2 done says the welcome call is next', ctx.obOrientBanner({ id: 1, first: 'Ava', last: 'Test', step2_done_at: '2026-10-07T15:00:00Z' }).includes('Step 2 done, welcome call next'));
+ck('step 2 reported (not verified) says verify in Viventium (Slice 4)', ctx.obOrientBanner({ id: 1, first: 'Ava', last: 'Test', step2_done_at: '2026-10-07T15:00:00Z' }).includes('Step 2 reported done, verify in Viventium'));
+ck('step 2 verified says the welcome call is next (Slice 4)', ctx.obOrientBanner({ id: 1, first: 'Ava', last: 'Test', step2_done_at: '2026-10-07T15:00:00Z', step2_verified_at: '2026-10-07T16:00:00Z' }).includes('Step 2 verified, welcome call next'));
 ctx.WC[1] = { status: 'booked', starts_at: '2026-10-10T15:00:00Z' };
 ck('a booked welcome call is said', ctx.obOrientBanner({ id: 1, first: 'Ava', last: 'Test' }).includes('Welcome call Sat, Oct 10'));
 ctx.WC[1] = { status: 'done', done_at: '2026-10-10T15:30:00Z' };

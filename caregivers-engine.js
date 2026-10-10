@@ -7422,7 +7422,8 @@ function obOrientBanner(c){
   else if(w && w.status === 'booked' && w.starts_at) line = '📹 Welcome call ' + esc(wcWhen(w.starts_at));
   else if(c.invite_sent) line = '📩 Office invite sent' + (fmtD(c.invite_sent_date) ? ' ' + esc(fmtD(c.invite_sent_date)) : '');
   else if((w && w.invited_at) || c.welcome_invited_at) line = '📹 Welcome call invite sent';
-  else if(c.step2_done_at) line = 'Step 2 done, welcome call next';
+  else if(c.step2_verified_at) line = 'Step 2 verified, welcome call next';
+  else if(c.step2_done_at) line = 'Step 2 reported done, verify in Viventium';
   else if(c.step2_sent_at) line = 'Step 2 sent, waiting on them';
   else line = 'Next: Viventium Step 2';
   const since = c.resolvedAt ? 'Cleared ' + wcDay(c.resolvedAt) : 'All checks clear';
@@ -8195,32 +8196,98 @@ function cgpBtnHtml(candId){
   return chip + `<button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" title="Draft, read, send the photo link, publish" onclick="event.stopPropagation();cgpOpen('${wcEsc(String(candId))}')">🪪 Caregiver profile</button>` + need;
 }
 
-/* ── Step 2 tracking on the candidate record ── */
-async function step2Mark(id, which, undo){
+/* ── Step 2 tracking on the candidate record ──
+   SLICE 4 (Samantha "go", 2026-10-10): Viventium Step 2 without an integration. Three audited office actions on the server
+   (step2-handoff) replace the two ticks: Record Viventium Step 2 Sent (refused before Approve to Advance on the new path;
+   sends the Step 2 message with the private DONE link to new-path people), the caregiver's own DONE (link or text reply,
+   or the office recording what it heard), and Verify Viventium Step 2 Complete with the Admin checklist ticked item by
+   item (ticked items confirm the readiness-card rows; I-9 Section 2 is its own line). Undo records who and why. The
+   welcome-call invitation follows Verified on the new path (switch). Existing stamps (step2_sent_at / step2_done_at) are
+   kept and shown; nothing is deleted. */
+async function s2Call(body){
+  const { data, error } = await sb.functions.invoke('step2-handoff', { body });
+  if(error){ let m = error.message || 'error'; try{ const j = await error.context.json(); if(j && j.error) m = j.error; }catch(_){} throw new Error(m); }
+  if(data && data.error) throw new Error(data.error);
+  return data || {};
+}
+async function s2After(id, d){
+  /* the server saved the record; refresh our copies so the row redraws right away */
+  try{ if(typeof loadAllData === 'function') await loadAllData(); }catch(_){}
+  renderOrientReadyQueue(); if(typeof renderOB === 'function') renderOB();
+}
+async function step2Sent(id, resend){
   const c = wcSrcFor(id); if(!c) return;
-  const onRoster = !candidates.includes(c);
-  if(undo){
-    if(!confirm('Undo "Step 2 ' + which + '" for ' + c.first + ' ' + c.last + '?')) return;
-    c['step2_' + which + '_at'] = null; c['step2_' + which + '_by'] = null;
-  } else {
-    const who = await wcWho(), now = new Date().toISOString();
-    c['step2_' + which + '_at'] = now; c['step2_' + which + '_by'] = who;
-    if(which === 'done' && !c.step2_sent_at){ c.step2_sent_at = now; c.step2_sent_by = who; }
-  }
-  if(onRoster){ if(!(await saveCaregivers())){ alert('That did not reach the shared workspace, so the rest of the team will not see it. Check your connection and try again.'); return; } }
-  else await saveCandidates();
-  renderOrientReadyQueue();
-  if(typeof renderOB === 'function') renderOB();
+  const name = (c.first + ' ' + c.last).trim();
+  let note = '';
+  if(!resend){
+    if(!confirm('Record that Viventium Step 2 was sent to ' + name + '?\n\nThis records your name and the time. On the new onboarding path the Hub then texts and emails them the Step 2 message with their private "I finished Step 2" link (practice while the switch is off). Pressing it twice is refused.')) return;
+    note = prompt('Optional note (for example the email address used in Viventium):', '') || '';
+  } else if(!confirm('Resend the Step 2 message to ' + name + '? This is its own stamp.')) return;
+  try{ const d = await s2Call({ action:'sent', candidate_id:String(id), note, resend: !!resend });
+    const m = d.message || {};
+    alert((resend ? 'Resent' : 'Recorded') + ' for ' + name + '.' + (m.state === 'practice' ? '\n\nPractice: the Step 2 message was recorded, not sent (the switch is off).' : m.state === 'sent' ? '\n\nThe Step 2 message went by ' + [m.texted ? 'text' : '', m.emailed ? 'email' : ''].filter(Boolean).join(' and ') + '.' : m.state === 'failed' ? '\n\nThe message did not go: ' + (m.not_sent || []).join('; ') : (d.new_path ? '' : '\n\nNo message from the Hub: this person is on the current path (their Viventium welcome text is unchanged).')));
+    await s2After(id, d);
+  }catch(e){ alert('Not recorded: ' + e.message); }
+}
+async function step2Reported(id){
+  const c = wcSrcFor(id); if(!c) return;
+  if(!confirm('Record that ' + c.first + ' told the office Step 2 is done (by phone or in person)? This is their report, not verification.')) return;
+  try{ const d = await s2Call({ action:'reported', candidate_id:String(id) }); await s2After(id, d); }catch(e){ alert('Not recorded: ' + e.message); }
+}
+async function step2Verify(id){
+  const c = wcSrcFor(id); if(!c) return;
+  let p; try{ p = await s2Call({ action:'preview', first: c.first || '' }); }catch(e){ alert('Could not load the checklist: ' + e.message); return; }
+  const items = (p.checklist && p.checklist.items) || [];
+  const w = document.createElement('div'); w.className = 'overlay open'; w.style.zIndex = 10004;
+  w.innerHTML = '<div class="modal" style="max-width:560px"><h3>Verify Viventium Step 2 Complete · ' + wcEsc(c.first + ' ' + c.last) + '</h3>'
+    + '<p style="font-size:.82rem;color:var(--gray);margin:.2rem 0 .6rem">Open the employee in Viventium and tick what you see completed. Each tick is recorded in your name with the time and confirms the matching row on their readiness card. Checklist version ' + wcEsc(String(p.checklist.version)) + ' (Admin page).</p>'
+    + items.map((t, i) => '<label style="display:flex;gap:.5rem;align-items:flex-start;font-size:.86rem;padding:.25rem 0"><input type="checkbox" class="s2tick" value="' + wcEsc(t) + '" style="margin-top:.2rem"> <span>' + wcEsc(t) + '</span></label>').join('')
+    + '<label style="display:flex;gap:.5rem;align-items:flex-start;font-size:.86rem;padding:.45rem 0;border-top:1px solid #EEE9DF;margin-top:.4rem"><input type="checkbox" id="s2i9" style="margin-top:.2rem"> <span><b>I-9 Section 2:</b> I examined their documents myself and completed Section 2. (Only the person who did this ticks it; it confirms nothing else.)</span></label>'
+    + '<div class="grp" style="margin-top:.4rem"><label>Note (optional)</label><input type="text" id="s2note" placeholder="for example: Active in Viventium (a note, not a tick)"></div>'
+    + '<div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.8rem"><button class="ibtn" id="s2cancel">Cancel</button><button class="ibtn" id="s2go" style="background:var(--teal);color:#fff;border-color:var(--teal)">Verify</button></div></div>';
+  document.body.appendChild(w);
+  w.querySelector('#s2cancel').onclick = () => w.remove();
+  w.querySelector('#s2go').onclick = async () => {
+    const ticked = [...w.querySelectorAll('.s2tick:checked')].map(x => x.value), i9 = w.querySelector('#s2i9').checked, note = w.querySelector('#s2note').value;
+    if(!ticked.length && !i9){ alert('Tick what you checked in Viventium.'); return; }
+    if(!confirm('Record Step 2 as verified for ' + c.first + ', with ' + ticked.length + ' item' + (ticked.length === 1 ? '' : 's') + ' ticked' + (i9 ? ' and I-9 Section 2' : '') + '? This is permanent history in your name.' + (p.switches && p.switches.invite ? '\n\nOn the new path the welcome-call invitation goes right after.' : '\n\nThe welcome-call invitation switch is off: you press Invite yourself.'))) return;
+    w.querySelector('#s2go').disabled = true;
+    try{ const d = await s2Call({ action:'verify', candidate_id:String(id), ticked, i9_section2: i9, note }); w.remove();
+      const inv = d.invite || {};
+      alert('Verified.' + (d.confirmed && d.confirmed.length ? '\n\n' + d.confirmed.length + ' readiness-card row' + (d.confirmed.length === 1 ? '' : 's') + ' confirmed in your name.' : '') + (inv.state === 'sent' ? '\n\nThe welcome-call invitation went by ' + [inv.texted ? 'text' : '', inv.emailed ? 'email' : ''].filter(Boolean).join(' and ') + '.' : inv.state === 'practice' ? '\n\nWelcome-call invitation: practice (switch off). Press Invite to welcome call yourself.' : inv.state === 'failed' ? '\n\nThe welcome-call invitation did not go: ' + (inv.why || (inv.not_sent || []).join('; ')) + ' (a card is on Needs Attention).' : ''));
+      await s2After(id, d);
+    }catch(e){ w.querySelector('#s2go').disabled = false; alert('Not verified: ' + e.message); }
+  };
+}
+async function step2StillOpen(id){
+  const c = wcSrcFor(id); if(!c) return;
+  const task = prompt('Which task is still open in Viventium? (goes into the text)', ''); if(!task) return;
+  try{ const p = await s2Call({ action:'still_open', candidate_id:String(id), task, preview:true });
+    if(!confirm('Send this text to ' + c.first + ' (8am to 6pm, yes-to-texts, opt-outs)?\n\n' + p.preview)) return;
+    const d = await s2Call({ action:'still_open', candidate_id:String(id), task });
+    alert(d.texted ? 'Sent.' : 'Not sent: ' + (d.not_sent || []).join('; ')); await s2After(id, d);
+  }catch(e){ alert('Not sent: ' + e.message); }
+}
+async function step2Undo(id, which){
+  const c = wcSrcFor(id); if(!c) return;
+  const reason = prompt('Undo "Step 2 ' + which + '" for ' + c.first + ' ' + c.last + '? Give the reason (recorded, permanent):', ''); if(!reason || reason.trim().length < 5) return;
+  try{ const d = await s2Call({ action:'undo', candidate_id:String(id), which, reason }); await s2After(id, d); }catch(e){ alert('Not undone: ' + e.message); }
 }
 function step2Html(c){
   const by = (k) => c[k] ? ' by ' + wcEsc(String(c[k]).split('@')[0]) : '';
   const chip = (bg, fg, txt, title) => `<span class="badge" title="${title||''}" style="background:${bg};color:${fg};font-size:.66rem">${txt}</span>`;
-  const undo = (w) => `<button class="ibtn" style="font-size:.66rem;padding:.14rem .45rem;color:var(--gray)" onclick="event.stopPropagation();step2Mark(${c.id},'${w}',true)">Undo</button>`;
-  const btn = (w, label) => `<button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" onclick="event.stopPropagation();step2Mark(${c.id},'${w}')">${label}</button>`;
-  if(c.step2_done_at) return chip('#DCFCE7', '#15803D', 'Step 2 done ✓', 'Marked done ' + wcDay(c.step2_done_at) + by('step2_done_by')) + undo('done');
-  if(c.step2_sent_at) return chip('#FEF3C7', '#92400E', 'Step 2 sent ' + wcDay(c.step2_sent_at), 'Marked sent' + by('step2_sent_by'))
-    + undo('sent') + btn('done', 'Step 2 done');
-  return chip('#F3F4F6', '#4B5563', 'Step 2 not sent', 'Send Viventium Step 2 in Viventium, then mark it here') + btn('sent', 'Step 2 sent') + btn('done', 'Step 2 done');
+  const btn = (fn, label, title, style) => `<button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem;${style||''}" title="${title||''}" onclick="event.stopPropagation();${fn}">${label}</button>`;
+  const undo = (w) => `<button class="ibtn" style="font-size:.66rem;padding:.14rem .45rem;color:var(--gray)" onclick="event.stopPropagation();step2Undo(${c.id},'${w}')">Undo</button>`;
+  const id = c.id;
+  if(c.step2_verified_at) return chip('#DCFCE7', '#15803D', 'Step 2 verified ✓', 'Verified in Viventium ' + wcDay(c.step2_verified_at) + by('step2_verified_by') + (c.step2_checklist && c.step2_checklist.items ? ' · ' + c.step2_checklist.items.filter(x => x.ticked).length + ' of ' + c.step2_checklist.items.length + ' ticked' : '')) + undo('verified');
+  if(c.step2_done_at) return chip('#E0F2FE', '#075985', 'Step 2 reported ' + wcDay(c.step2_done_at), 'They said it is done (' + wcEsc(c.step2_done_how || 'office') + '). Not verified yet: open Viventium and check.')
+    + btn(`step2Verify(${id})`, '✓ Verify in Viventium', 'Tick what you checked in Viventium; confirms the card rows in your name', 'background:var(--teal);color:#fff;border-color:var(--teal)')
+    + btn(`step2StillOpen(${id})`, 'Still open…', 'Text them which task is still open (new path), with a preview') + undo('reported');
+  if(c.step2_sent_at) return chip('#FEF3C7', '#92400E', 'Step 2 sent ' + wcDay(c.step2_sent_at), 'Recorded sent' + by('step2_sent_by') + (c.step2_msg && c.step2_msg.state === 'practice' ? ' · message recorded, not sent (practice)' : c.step2_msg && c.step2_msg.state === 'sent' ? ' · message sent' : '') + (c.step2_reminders ? ' · reminders: ' + Object.keys(c.step2_reminders).join(', ') : ''))
+    + btn(`step2Reported(${id})`, 'They said done', 'Record a DONE you heard yourself (a call); on the new path they tap their link or reply DONE')
+    + btn(`step2Verify(${id})`, '✓ Verify', 'Open Viventium and tick what you see completed')
+    + btn(`step2Sent(${id},true)`, 'Resend', 'Resend the Step 2 message (its own stamp)') + undo('sent');
+  return chip('#F3F4F6', '#4B5563', 'Step 2 not sent', 'Create them in Viventium, then record it here') + btn(`step2Sent(${id})`, 'Record Step 2 sent', 'Records your name and the time; sends the Step 2 message on the new path');
 }
 /* "📹 Invite to welcome call": gated on Step 2 done; after inviting, the
    booked/done state or "Invited [date] · Re-send". */
@@ -8229,15 +8296,15 @@ function wcInviteHtml(c){
   if(w && w.status === 'done') return `<span class="badge" style="background:#DCFCE7;color:#15803D;font-size:.66rem">📹 Welcome call done ${wcDay(w.done_at)}</span>`;
   if(w && w.status === 'booked' && w.starts_at) return `<span class="badge" style="background:#E0F2FE;color:#075985;font-size:.66rem">📹 Booked ${wcEsc(wcWhen(w.starts_at))}</span>`;
   const invitedAt = (w && w.invited_at) || c.welcome_invited_at;
-  const ok = !!c.step2_done_at;
-  const tip = ok ? '' : 'Viventium Step 2 must be done first';
+  const ok = !!(c.step2_verified_at || c.step2_done_at);   /* SLICE 4: verified (or the old done tick) */
+  const tip = ok ? '' : 'Viventium Step 2 must be verified first';
   if(invitedAt) return `<span style="font-size:.7rem;color:#0e7490;font-weight:600">📹 Invited ${wcDay(invitedAt)}${w && w.status === 'noshow' ? ' (missed the call)' : ''} ·</span>`
     + `<span title="${tip}"><button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" ${ok ? '' : 'disabled'} title="${tip}" onclick="event.stopPropagation();wcInvite(${c.id},this)">Re-send</button></span>`;
   return `<span title="${tip}"><button class="ibtn" style="font-size:.72rem;padding:.22rem .65rem;${ok ? 'background:var(--teal);color:#fff;border-color:var(--teal)' : ''}" ${ok ? '' : 'disabled'} title="${tip}" onclick="event.stopPropagation();wcInvite(${c.id},this)">📹 Invite to welcome call</button></span>`;
 }
 async function wcInvite(id, btn){
   const c = candidates.find(x => String(x.id) === String(id)); if(!c) return;
-  if(!c.step2_done_at){ alert('Viventium Step 2 must be done first. Mark "Step 2 done" once it is finished in Viventium.'); return; }
+  if(!(c.step2_verified_at || c.step2_done_at)){ alert('Viventium Step 2 must be verified first. Press Verify once Viventium shows every task complete.'); return; }
   if(safeIsTmp(c.id)){ alert(c.first + ' is still being saved. Nothing was sent. Try again in a moment.'); return; }
   if(!c.phone && !c.email){ alert(c.first + ' has no phone number or email on file. Add one first (✏️ on the Background tab). Nothing was sent.'); return; }
   const name = (c.first + ' ' + c.last).trim();
@@ -8509,7 +8576,9 @@ function wcYmdLabel(ymd){
   return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2] - 1] + ' ' + (+m[3]) + ', ' + m[1];
 }
 const WC_CARRY = ['offer_id', 'intake_id', 'position', 'welcome_call_id', 'welcome_invited_at',
-  'step2_sent_at', 'step2_sent_by', 'step2_done_at', 'step2_done_by', 'previous_names'];
+  'step2_sent_at', 'step2_sent_by', 'step2_done_at', 'step2_done_by', 'previous_names',
+  /* SLICE 4: the audited Step 2 record travels with the person */
+  'step2_sent_note', 'step2_resent_at', 'step2_resent_by', 'step2_msg', 'step2_done_how', 'step2_receipt', 'step2_verified_at', 'step2_verified_by', 'step2_checklist', 'step2_i9_s2_by', 'step2_i9_s2_at', 'step2_note', 'step2_still_open_at', 'step2_still_open_by', 'step2_still_open_task', 'step2_reminders', 'step2_history', 'step2_invite'];
 async function wcAddToRoster(w){
   const candId = w && w.candidate_id;
   if(candId == null || candId === '') return { status:'no_candidate' };
@@ -10200,7 +10269,7 @@ window.obRefTextOpen = obRefTextOpen;
 window.obRefSendClose = obRefSendClose;
 window.obRefSendGo = obRefSendGo;
 /* Remote orientation, slice 1a (2026-10-01): Step 2 tracking + welcome calls. */
-Object.assign(window, { step2Mark, wcInvite, wcLoad, wcTick, wcNotes, wcAct, wcOrientLink, cgpOpen });
+Object.assign(window, { step2Sent, step2Reported, step2Verify, step2StillOpen, step2Undo, wcInvite, wcLoad, wcTick, wcNotes, wcAct, wcOrientLink, cgpOpen });   /* SLICE 4: the three audited Step 2 actions replace step2Mark */
 Object.assign(window, { offeredAddOne, offeredAddAll, intakeFillFromForm });   /* offered people into Background & References (2026-10-08) */
 window.dispatchEvent(new Event('scx-ready'));
 })();
