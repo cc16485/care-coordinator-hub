@@ -346,7 +346,7 @@
       dl = row('Applied for', esc(pos || a.position || 'Caregiver')) + row('Where they are', esc(AP_WORDS[a.status] || a.status || ''))
         + row('Interview', esc(bk ? when(bk.starts_at) + (FIND.coord[bk.coordinator_id] ? ' with ' + first(FIND.coord[bk.coordinator_id]) : '') : 'None booked'))
         + row('Phone', esc(pretty(a.phone))) + row('Lives in', esc(a.city || '')) + row('Applied', esc(day(a.created_at)));
-      btns = callBtn(a.phone, 'Call', { email: a.email }) + '<a class="ph-b" href="index.html#ap/' + encodeURIComponent(a.id) + '">Open in the Hub</a>';
+      btns = callBtn(a.phone, 'Call', { email: a.email }) + (window.ApText && a.phone ? ApText.btn(a.id, 'Text', 'ph-b') : '') + '<a class="ph-b" href="index.html#ap/' + encodeURIComponent(a.id) + '">Open in the Hub</a>';
     }
     box.innerHTML = h + '<dl class="ph-dl">' + dl + '</dl><div class="ph-btns">' + btns + '</div>' + extra + '</div>';
     if (p.type === 'cl') famLoad(p.r);
@@ -452,7 +452,7 @@
           var ap = byId[r.applicant_id] || {};
           rows.push({ min: r.min, kind: 'Interview', title: r.name, past: r.status !== 'booked',
             sub: ['at the office', r.status === 'done' ? 'done' : r.status === 'no-show' ? 'did not come' : '', r.who ? 'with ' + r.who : ''].filter(Boolean).join(' · '),
-            phone: ap.phone, email: ap.email, link: 'index.html#ap/' + encodeURIComponent(r.applicant_id) });
+            phone: ap.phone, email: ap.email, ap_id: r.applicant_id, link: 'index.html#ap/' + encodeURIComponent(r.applicant_id) });
         });
       }),
       safe('assessments', async function () {
@@ -497,6 +497,7 @@
       if (r.item && !r.item.mine) btn += '<button class="ph-b p" data-pt="take" data-id="' + esc(r.item.id) + '">Take it</button>';
       if (r.need) btn += '<button class="ph-b p" data-pt="need">See in Needs me now</button>';
       if (r.phone) btn += callBtn(r.phone, r.phoneLabel || 'Call', { email: r.email });
+      if (r.ap_id && r.phone && window.ApText) btn += ApText.btn(r.ap_id, 'Text', 'ph-b');   /* 574: text the applicant about today's interview */
       if (r.link) btn += '<a class="ph-b" href="' + esc(r.link) + '">Open in the Hub</a>';
       var who = r.item ? (r.item.mine ? 'Yours' : r.item.owner ? 'Owner: ' + esc(first(r.item.owner_name || opsOwnerName(r.item.owner) || r.item.owner)) : '<b>Nobody has it</b>') : '';
       h += '<div class="ph-tl' + (past ? ' past' : '') + '"><div class="ph-tm">' + esc(r.min == null ? 'Any time' : btTime(r.min)) + '</div>'

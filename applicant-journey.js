@@ -2,7 +2,7 @@
    messages they receive and attached somewhere in the hub pages so that our office admin know"). Built from the code as
    of 2026-10-01: every message an applicant / new hire gets, its exact wording, when it goes, what triggers it, and
    whether it shows in GoHighLevel Conversations. If a message is changed, update this list too. */
-window.AP_JOURNEY_CHECKED = 'October 9, 2026 (checked by the journey check against the real messages; no em dashes)';
+window.AP_JOURNEY_CHECKED = 'October 10, 2026 (checked by the journey check against the real messages; no em dashes)';
 window.AP_JOURNEY = [
  {
   "stage": "applying",
@@ -105,7 +105,7 @@ window.AP_JOURNEY = [
   "stage": "interview booking",
   "order": 7,
   "name": "Interview cancelled notice",
-  "trigger": "A booking is cancelled (by the applicant on their manage link, or by the office) and they have not already rebooked.",
+  "trigger": "A booking is cancelled by the applicant on their own manage link and they have not already rebooked. A cancel pressed in the Hub sends the office's own message instead (#37 and #38) and this notice stays quiet for it.",
   "automatic": true,
   "button": null,
   "timing": "Next 15-minute run, 8am–6pm Central; looks back 7 days.",
@@ -873,6 +873,54 @@ window.AP_JOURNEY = [
   "subject": "Your caregiver profile: the hello video is now optional",
   "text": "Hi {first}, it's Caring Companions! A quick update on your caregiver profile: the short hello video is now optional. A friendly photo is all we need, so if you would rather not be on camera, just skip the video. If you still need to finish your profile, use the link we sent you, or call or text the office at (417) 234-8494 and we will send a new one. Thank you! Reply STOP to opt out.",
   "email_summary": "A quick update on your caregiver profile: the short hello video is now optional. A friendly photo is all we need, so if you would rather not be on camera, just skip the video. If you still need to finish your profile, use the link we texted and emailed you; if you cannot find it, call or text the office and we will send a new one. Thank you!",
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "any time (office text)",
+  "order": 37,
+  "name": "A text from the office (Applicants, Interviews, their page, the phone)",
+  "trigger": "Staff press '💬 Text' on an applicant (Applicants rows and page, the Interviews tab once they have booked, CC Office Find and Today) and write or pick the words. 2026-10-10, Samantha: 'make it so we can easily text applicants'.",
+  "automatic": false,
+  "button": "Applicants / Interviews / their page → '💬 Text' → Send",
+  "timing": "Immediately 8am–6pm Central (any day); outside that it is HELD and the schedule sends it at 8am (the card says so, with a 'take it back' link). Replies from their page go the same way.",
+  "channel": "text",
+  "rule": "Only with their latest application's yes to texts and past the universal opt-out door; otherwise the composer says why and offers nothing to send. Quick picks (the office changes anything): a client who may fit (below), still interested, please call us, we tried to reach you, finish the application (unfinished forms), about their interview (once booked), write my own. The sender's first name is filled in. 'Reply STOP to opt out.' is added. Every send is kept in applicant_texts (words, who, when) and shows as 'texted 2h ago by {name}' on the card. A refused text raises a Needs Attention card.",
+  "subject": null,
+  "text": "Hi {first}, this is {me} from Caring Companions. We saw you started an application with us, and we have a client right now who may be a good fit for your experience and availability. Would you like to hear more? Reply here or call us at 417-234-8494. Reply STOP to opt out.",
+  "email_summary": null,
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "interview booking",
+  "order": 38,
+  "name": "Interview cancelled from the Hub: they asked to cancel",
+  "trigger": "Staff press '✕ Cancel' on a booked interview (Applicants, Interviews tab, their page), choose 'They asked to cancel', read or change the message, press 'Cancel the interview'.",
+  "automatic": false,
+  "button": "Applicants / Interviews → '✕ Cancel' → They asked to cancel → Cancel the interview",
+  "timing": "The booking is cancelled at once. The message goes immediately 8am–6pm Central, otherwise it is held and sent at 8am.",
+  "channel": "text + email",
+  "rule": "Cancelled by 'applicant' (counts toward their two self-serve changes, like the manage link). The office's words go as a text (with their yes to texts; STOP added) and as an email (same words, link clickable) when we have one; 'Send them this message' can be unticked to cancel quietly. The reason typed is kept on the booking and never sent. The interview messages job sends nothing of its own for it.",
+  "subject": "Your interview on {day} is cancelled",
+  "text": "Hi {first}, your interview with Caring Companions for {day} at {time} is cancelled as you asked, so there is nothing more to do. Want a different time? Pick one here: https://mo-care.com/apply?book={applicant_id} or call us at 417-234-8494. Reply STOP to opt out.",
+  "email_summary": "The same words as the text, with the booking link clickable and no STOP line.",
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "interview booking",
+  "order": 39,
+  "name": "Interview cancelled from the Hub: we need to cancel",
+  "trigger": "Staff press '✕ Cancel' on a booked interview, choose 'We need to cancel', read or change the message, press 'Cancel the interview'.",
+  "automatic": false,
+  "button": "Applicants / Interviews → '✕ Cancel' → We need to cancel → Cancel the interview",
+  "timing": "The booking is cancelled at once. The message goes immediately 8am–6pm Central, otherwise it is held and sent at 8am.",
+  "channel": "text + email",
+  "rule": "Cancelled by 'office' (not held against them). Same sending rules as #38. The sender's first name is filled in.",
+  "subject": "Your interview on {day} is cancelled",
+  "text": "Hi {first}, this is {me} from Caring Companions. We are sorry, we need to cancel your interview for {day} at {time}. We would still like to meet you, so please pick a new time here: https://mo-care.com/apply?book={applicant_id} or call us at 417-234-8494. Reply STOP to opt out.",
+  "email_summary": "The same words as the text, with the booking link clickable and no STOP line.",
   "shows_in_ghl": true,
   "failure_visible": true
  }

@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="phone-mode.js?v=5"></script><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="phone-mode.js?v=6"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -20892,6 +20892,7 @@ async function ivqLoad(btn){
     if(b.error) throw b.error;
     IVQ = b.data || [];
     IVQ_APP = {}; (a.data||[]).forEach(x=>{ IVQ_APP[x.id]=x; });
+    if(window.ApText) ApText.load();   /* 574 */
     IVQ_CO  = {}; (c.data||[]).forEach(x=>{ IVQ_CO[x.id]=x.name; });
     ivqRender();
   }catch(e){
@@ -20949,6 +20950,7 @@ function ivqRender(){
         + (IVQ_CO[b.coordinator_id]?' · with '+esc(IVQ_CO[b.coordinator_id]):'')+'</span>'
       + '<span style="flex:1;"></span>'
       + (a.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(a.phone,{email:a.email})+'>📞 Office line</a>':'')
+      + (window.ApText && a.phone ? ApText.btn(b.applicant_id) + ApText.slot(b.applicant_id) : '')   /* 574: text them about the interview */
       /* "Can we do Thursday instead" and "I have to cancel" are phone calls to
          this screen, so the buttons live on the row the call is about. */
       + (overdue ? '' :
@@ -21906,6 +21908,7 @@ async function apLoad(btn){
     AP_POS = pos.data || []; AP_POSTINGS = post.data || [];
     try{ await prnLoad(true); }catch(_){ /* before PRN2's tables exist: nothing to show */ }
     apFillPositions(); apRenderFilter(); apRender();
+    if(window.ApText) ApText.load();   /* 574: the 'texted 2h ago' chips */
     apInvLoad();
     /* If somebody's page is open, it is looking at a row we just replaced. */
     if(AP_PROF){
@@ -22122,6 +22125,7 @@ function apRender(){
           + AP_POS.map(p=>'<option value="'+esc(p.key)+'"'+(r.position===p.key?' selected':'')+'>'+esc(p.label)+'</option>').join('')
           + '</select></label>'
         + (r.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(r.phone,{email:r.email})+'>📞 Call</a>':'')
+        + (window.ApText && r.phone ? ApText.btn(r.id) + ApText.slot(r.id) : '')   /* 574: text them from here */
         + (r.status!=='declined'
             ? (b && b.status==='booked'
                 ? '<button class="fb" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Move their interview</button>'
@@ -23183,6 +23187,7 @@ function apRenderProfile(){
     + '<div id="apReviewBox"></div>'
     + '<div style="margin-top:14px;display:flex;flex-direction:column;gap:7px;font-size:13.5px;">'
       + (r.phone ? '<a'+ocAttrs(r.phone,{email:r.email})+' style="color:var(--navy);text-decoration:none;">📞 '+esc(r.phone)+'</a>' : '')
+      + (window.ApText && r.phone ? ' ' + ApText.btn(r.id) + ' ' + ApText.slot(r.id) : '')   /* 574 */
       + (r.email ? '<a href="mailto:'+esc(r.email)+'" style="color:var(--navy);text-decoration:none;word-break:break-all;">✉️ '+esc(r.email)+'</a>' : '')
       + '<span class="field-note">' + (r.sms_consent ? '✓ happy to be texted' : 'no texting consent') + '</span>'
     + '</div>'
@@ -23264,6 +23269,7 @@ function apRenderProfile(){
     + apProfCard('Where they have worked', apProfWork(r),
         'What they claim, and whether anybody has checked it.')
     + apProfCard('The interview', apProfInterview(r), b || r.post_interview ? '' : 'Nothing recorded yet.')
+    + (window.ApText ? apProfCard('Texts & emails', ApText.threadHtml(r), 'What we have sent them and what they sent back, from GoHighLevel. Reply from here.') : '')   /* 574 */
     + apProfCard('The offer', apProfOffer(r), '')
     + apProfCard('Getting them started', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
         'References, the screenings and the paperwork, wherever they have got to.')
@@ -23822,6 +23828,9 @@ async function apBookTake(iso, btn){
    and email confirming the cancellation, with their link to book a new time,
    and the slot goes straight back on offer. */
 async function apCancelBooking(id){
+  /* 574 (2026-10-10): Cancel asks who is cancelling (they are / we are) and shows the message to edit before it goes.
+     The prompt below stays as the fallback if the sheet is not loaded. */
+  if(window.ApText && ApText.cancelOpen) return ApText.cancelOpen(id);
   const r = AP_ROWS.find(x=>String(x.id)===String(id)) || IVQ_APP[id] || {};
   const b = (AP_BOOK[id] && AP_BOOK[id].status==='booked') ? AP_BOOK[id]
           : (IVQ||[]).find(x=>String(x.applicant_id)===String(id) && x.status==='booked');
