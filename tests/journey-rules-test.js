@@ -89,4 +89,31 @@ ck('every required step done: Active, nothing next', v.complete && v.stage === '
   ck('the yes is quiet: ready, but never an "also ready" line and never a My Work card (the family\'s move, not the coordinator\'s)', !v0.alsoReady.some(r => r.key === 'signed.yes') && !R.cardsFor(J({ payer:'private' }), v0, ctx()).some(c => c.step_key === 'signed.yes') && v0.rows.find(r => r.key === 'signed.yes').status === 'ready', v0.alsoReady.map(r => r.key));
 }
 
+
+/* ═══ SLICE 3b: the caregiver subject on the same rules ═══ */
+{
+  const cg = [
+    { key:'cg.offer.signed', subject:'caregiver', title:'Offer signed', stage:'offer', sort:10, owner_role:'hub', proof:'verified', required:true, active:true },
+    { key:'cg.check.fingerprints', subject:'caregiver', title:'Fingerprints', stage:'screening', sort:44, owner_role:'staffing_coordinator', proof:'proof', required:true, active:true, applies:{ lived_outside_mo:true }, after:['cg.offer.signed'] },
+    { key:'cg.check.edl', subject:'caregiver', title:'EDL', stage:'screening', sort:41, owner_role:'staffing_coordinator', proof:'proof', required:true, active:true, expires_after_days:30, after:['cg.offer.signed'] },
+    { key:'cg.training.orientation', subject:'caregiver', title:'Orientation', stage:'orientation', sort:81, owner_role:'hub', proof:'verified', required:true, active:true, after:['cg.offer.signed'] },
+    { key:'cg.training.ojt', subject:'caregiver', title:'OJT', stage:'training', sort:83, owner_role:'hub', proof:'verified', required:true, active:true, due:{ days:30, from:'cg.training.orientation' }, after:['cg.training.orientation'] },
+  ];
+  const CJ = { subject:'caregiver', payer:null, staffing_email:'sally@x.com' };
+  const mix = R.compute(cat.concat(cg), CJ, [], ctx({ today:'2026-10-10' }));
+  ck('3b: a caregiver journey sees only caregiver steps, never a client step', mix.rows.every(r => r.key.startsWith('cg.')) && mix.rows.length >= 3, mix.rows.map(r => r.key));
+  const cl = R.compute(cat.concat(cg), J(), [S('intake.payer', { answer:{ payer:'medicaid' } })], ctx());
+  ck('3b: a client journey never sees a caregiver step', !cl.rows.some(r => r.key.startsWith('cg.')));
+  ck('3b: the caregiver rail is its own (Offer first, Active last)', mix.rail[0].key === 'offer' && mix.rail.at(-1).key === 'active' && !mix.rail.some(s => s.key === 'intake'), mix.rail.map(s => s.key));
+  ck('3b: fingerprints show only when the fact says they lived outside Missouri (unknown = not shown)', !mix.rows.some(r => r.key === 'cg.check.fingerprints') && R.compute(cg, CJ, [], ctx({ today:'2026-10-10', facts:{ lived_outside_mo:true } })).rows.some(r => r.key === 'cg.check.fingerprints'));
+  const edlOld = R.compute(cg, CJ, [S('cg.offer.signed', { completed_at:'2026-08-01T00:00:00Z' }), S('cg.check.edl', { completed_at:'2026-08-01T00:00:00Z' })], ctx({ today:'2026-10-10' }));
+  const edlRow = edlOld.rows.find(r => r.key === 'cg.check.edl');
+  ck('3b: an EDL check completed 70 days ago is expired: attention, due again, not counted as done', edlRow.status === 'attention' && edlRow.expired === '2026-08-30' && /Expired on 2026-08-30/.test(edlRow.attention), edlRow);
+  const edlFresh = R.compute(cg, CJ, [S('cg.offer.signed', { completed_at:'2026-10-01T00:00:00Z' }), S('cg.check.edl', { completed_at:'2026-10-01T00:00:00Z' })], ctx({ today:'2026-10-10' }));
+  ck('3b: a 9-day-old EDL check is complete', edlFresh.rows.find(r => r.key === 'cg.check.edl').status === 'complete');
+  const ojt = R.compute(cg, CJ, [S('cg.offer.signed', { completed_at:'2026-09-01T00:00:00Z' }), S('cg.training.orientation', { completed_at:'2026-09-05T12:00:00Z' })], ctx({ today:'2026-10-10' }));
+  const ojtRow = ojt.rows.find(r => r.key === 'cg.training.ojt');
+  ck('3b: the OJT clock runs 30 days from orientation completion (her decision 7): due 2026-10-05, late today', ojtRow.due === '2026-10-05' && ojtRow.status === 'attention' && /Late since 2026-10-05/.test(ojtRow.attention), ojtRow);
+  ck('3b: the Staffing Coordinator owns the screening steps', edlFresh.rows.find(r => r.key === 'cg.check.edl').owner.email === 'sally@x.com');
+}
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
