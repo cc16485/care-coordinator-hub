@@ -642,10 +642,10 @@
     var at = new Date().toISOString();
     var r = null;
     try {
-      r = await c.from('op_events').insert({ actor_email: email, actor_name: email.split('@')[0], verb: 'profile_gate_override',
-        item_id: list.map(function (x) { return x.axiscare_id || x.id || x.name; }).join(','), area: 'caregiver_profile',
-        summary: (email.split('@')[0] || 'Someone') + ' went ahead (' + what + ') for ' + names + ' without a published profile. Reason: ' + why,
-        data: { action: what, reason: why, at: at, by: email, caregivers: list.map(function (x) { return { name: x.name, axiscare_id: x.axiscare_id || null, hub_id: x.id || null }; }) } });
+      r = await c.rpc('record_event', { p_verb: 'profile_gate_override',
+        p_item_id: list.map(function (x) { return x.axiscare_id || x.id || x.name; }).join(','), p_area: 'caregiver_profile',
+        p_summary: (email.split('@')[0] || 'Someone') + ' went ahead (' + what + ') for ' + names + ' without a published profile. Reason: ' + why,
+        p_data: { action: what, reason: why, at: at, by: email, caregivers: list.map(function (x) { return { name: x.name, axiscare_id: x.axiscare_id || null, hub_id: x.id || null }; }) } });
     } catch (e) { r = { error: e }; }
     if (r && r.error) return confirm('Your reason could not be saved (' + ((r.error && r.error.message) || r.error) + ').\n\nGo ahead anyway? If you do, tell Samantha the reason.');
     return true;
