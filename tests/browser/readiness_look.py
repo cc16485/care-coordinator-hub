@@ -21,7 +21,8 @@ async(CODE)=>{
     const next=rows.find(r=>['ready','attention','blocked'].includes(r.status));
     return { rows, next, complete:false, stage:'approval', stageLabel:'Approval', rail:[{key:'offer',label:'Offer',state:'done'},{key:'step1',label:'Step 1',state:'done'},{key:'screening',label:'Screening',state:'stopped'},{key:'approval',label:'Approval',state:'now'},{key:'ready',label:'Ready',state:'todo'},{key:'active',label:'Active',state:'todo'}] }; };
   const approve=()=>A||{ ready_for_final:false, approved:false, axiscare:{state:'pending'}, text:null, blocked:['OIG exclusion check (LEIE)'], locked:true, lock_why:'Scheduling stays locked until Approved to Work and AxisCare reads back Active.', level_of_care:{ level:'Level 1', source:'the default: nothing higher is recorded' }, may_approve_work:mayWork, may_retry:false, switches:{ axiscare_live:false, text_live:false } };
-  const answer=()=>({ ok:true, approve:approve(), journey:{ journey_id:'j-1', client_name:'Ava Lee', status:'open' }, steps:[], view:view(), events:[{ at:'2026-10-10T01:00:00Z', kind:'verified', step_key:'cg.step1.application', actor_name:'The Hub' }], may:{ 'cg.approve.advance':mayAdvance, 'cg.approve.work':false, 'cg.check.edl':false }, is_owner:isOwner, facts:{ dates:{ orientation:null, axiscare_hire:'2026-10-05', differ:false } } });
+  let mayExport=false;
+  const answer=()=>({ ok:true, approve:approve(), may_export:mayExport, journey:{ journey_id:'j-1', client_name:'Ava Lee', status:'open' }, steps:[], view:view(), events:[{ at:'2026-10-10T01:00:00Z', kind:'verified', step_key:'cg.step1.application', actor_name:'The Hub' }], may:{ 'cg.approve.advance':mayAdvance, 'cg.approve.work':false, 'cg.check.edl':false }, is_owner:isOwner, facts:{ dates:{ orientation:null, axiscare_hire:'2026-10-05', differ:false } } });
   window.sb={ functions:{ invoke:async(fn,o)=>{ const b=(o&&o.body)||{}; __calls.push({fn,b}); if(fn!=='caregiver-journey') return { data:null, error:{ message:'unexpected '+fn } };
     if(b.action==='get') return { data:answer(), error:null };
     if(b.action==='confirm'){ if(!mayAdvance) return { data:{ error:'Only a person on the Approve to Advance list may approve this.' }, error:null }; advanced=true; return { data:answer(), error:null }; }
@@ -65,6 +66,14 @@ async(CODE)=>{
   ok('the list says what to do for the Work list member', /Open the card and press Approve to Work/.test(fl));
   ok('an empty list draws nothing', CRX.finalListHtml([])==='');
   ok('no em dash anywhere (slice 5)', !/—/.test(t) && !/—/.test(fl));
+  /* ═══ SLICE 6: the personnel-file export button ═══ */
+  ok('no export button for a person not on the Audit export list', !btns().some(x=>/Personnel file/.test(x)), btns());
+  CRX.close(); mayExport=true; await CRX.open('o-1','Ava Lee'); await sleep(120);
+  ok('on the Audit export list (or an owner): the Personnel file (PDF) button', btns().some(x=>/Personnel file \(PDF\)/.test(x)), btns());
+  window.prompt=()=>'DHSS review';
+  window.sb.functions.invoke=async(fn,o)=>{ __calls.push({fn,b:(o&&o.body)||{}}); if(fn==='caregiver-export') return { data:{ ok:true, url:'https://signed/pdf', expires_in:300, proofs:[{ label:'OIG exclusion check (LEIE)', url:'https://signed/oig' }, { label:'CNA or HHA credential verified', url:null }] }, error:null }; return { data:answer(), error:null }; };
+  const eb=[...document.querySelectorAll('#crBody button')].find(b=>/Personnel file/.test(b.textContent)); eb.click(); await sleep(150); t=document.getElementById('crBody').innerText;
+  ok('the press asks caregiver-export with the reason and this card, then shows the five-minute links and the proofs (one without a link says so)', __calls.some(c=>c.fn==='caregiver-export' && c.b.action==='export' && c.b.reason==='DHSS review' && c.b.journey_id==='j-1') && /Personnel file ready/.test(t) && /open the PDF/.test(t) && /OIG exclusion check/.test(t) && /no link/.test(t), t.slice(-500));
   return R;
 }
 """

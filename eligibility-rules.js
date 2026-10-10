@@ -239,7 +239,9 @@ function profileGate(c){
 
 function eligibilityFacts(c){
   const ts = trainStatus(c);
-  const oig = chkStatus(c.oig_date, 90, 14);
+  /* OIG monthly (Samantha, decision 2, 2026-10-10): HHS-OIG Special Advisory Bulletin (May 2013) recommends monthly LEIE
+     screening with documented searches; Missouri MMAC requires a monthly HHS-OIG search. The 90-day figure was never a rule. */
+  const oig = chkStatus(c.oig_date, 30, 7);
   /* EDL monthly: Caring Companions policy (Samantha, 2026-10-09), not a Missouri interval; the 90-day figure was never a rule */
   const edl = chkStatus(c.edl_date, 30, 7);
   const fcsr = chkStatus(c.fcsr_date, 365, 30);
@@ -347,11 +349,26 @@ function eligibility(c){
     if(o === 'Current') return 'Current';
     return derived;
   };
-  if(eff(c.oig_status,  f.oig.status)  === 'Overdue') lapses.push({code:'oig_expired',  kind:ELIG_LEGAL, why:'OIG check is overdue (90-day cycle).'});
-  if(eff(c.edl_status,  f.edl.status)  === 'Overdue') lapses.push({code:'edl_expired',  kind:ELIG_LEGAL, why:'EDL check is overdue (90-day cycle).'});
+  if(eff(c.oig_status,  f.oig.status)  === 'Overdue') lapses.push({code:'oig_expired',  kind:ELIG_LEGAL, why:'OIG check is overdue (monthly, agency policy).'});
+  if(eff(c.edl_status,  f.edl.status)  === 'Overdue') lapses.push({code:'edl_expired',  kind:ELIG_LEGAL, why:'EDL check is overdue (monthly, agency policy).'});
   if(eff(c.fcsr_status, f.fcsr.status) === 'Overdue') lapses.push({code:'fcsr_expired', kind:ELIG_LEGAL, why:'FCSR check is overdue (annual).'});
   if(f.ts.annualStatus === 'Overdue')
     lapses.push({code:'annual_training', kind:ELIG_LEGAL, why:'Annual training is overdue.'});
+  /* SLICE 6 (2026-10-10, her decision 3): the five hours a year after year one (19 CSR 15-7.021(22)(B)) are checked, not
+     only the date. Short hours are a task, never a work restriction. Hours unknown (blank) are not judged. */
+  if(!f.ts.isFirstYear && c.annual_date && f.ts.annualStatus !== 'Overdue'){
+    const hrs = parseFloat(c.annual_hrs);
+    if(!isNaN(hrs) && hrs < 5) tasks.push({code:'annual_hours', kind:ELIG_LEGAL, why:'Annual in-service hours short: ' + hrs + ' of 5 recorded in the last year.'});
+  }
+  /* SLICE 6 (her decision 2): typed credential expiries with proof (CNA, driver's license, auto insurance). Expired or due
+     within 30 days = a task for the office (agency policy); the roster rows are blank for everyone until typed. */
+  const credExp = [['cna_expires','cna_expired','CNA credential'], ['dl_expires','dl_expired',"Driver's license"], ['auto_ins_expires','auto_ins_expired','Auto insurance']];
+  for(const [field, code, label] of credExp){
+    const d = pd(c[field]); if(!d) continue;
+    const left = daysLeft(d);
+    if(left < 0) tasks.push({code, kind:ELIG_AGENCY, high:true, why:label + ' expired on ' + c[field] + '. Record the renewal with its proof.', due:c[field]});
+    else if(left <= 30) tasks.push({code:code.replace('_expired','_due'), kind:ELIG_AGENCY, why:label + ' expires on ' + c[field] + ' (' + left + ' days).', due:c[field]});
+  }
 
   // ── MANAGEMENT QUALITY: reported, never eligibility ───────────────────
   const sv = chkStatus(c.supv_date, 365, 30), pr = chkStatus(c.perf_date, 365, 30);

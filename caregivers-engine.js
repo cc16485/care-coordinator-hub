@@ -7751,7 +7751,7 @@ function openCGModal(tab,id=null){ cgReturnTab=tab; editingCG=id;
   document.getElementById('cg-modal-title').textContent=id?'Edit Caregiver':'Add Caregiver';
   const c=id?caregivers.find(x=>x.id===id):null;
   const g=k=>document.getElementById(k);
-  const fields=['cg-first','cg-last','cg-hire','cg-axiscare-id','cg-orient','cg-orient-proof','cg-alz','cg-alz-hrs','cg-alz-proof','cg-first-contact','cg-ojt-date','cg-ojt-proof','cg-ojt-online','cg-ojt-online-proof','cg-annual','cg-annual-hrs','cg-annual-proof','cg-ethics-date','cg-ethics-proof','cg-rights-date','cg-rights-proof','cg-oig','cg-oig-proof','cg-edl','cg-edl-proof','cg-fcsr-reg','cg-fcsr','cg-fcsr-proof','cg-fp-date','cg-fp-proof','cg-supv-date','cg-supv-proof','cg-perf-date','cg-perf-proof'];
+  const fields=['cg-first','cg-last','cg-hire','cg-axiscare-id','cg-orient','cg-orient-proof','cg-alz','cg-alz-hrs','cg-alz-proof','cg-first-contact','cg-ojt-date','cg-ojt-proof','cg-ojt-online','cg-ojt-online-proof','cg-annual','cg-annual-hrs','cg-annual-proof','cg-ethics-date','cg-ethics-proof','cg-rights-date','cg-rights-proof','cg-oig','cg-oig-proof','cg-edl','cg-edl-proof','cg-fcsr-reg','cg-fcsr','cg-fcsr-proof','cg-fp-date','cg-fp-proof','cg-supv-date','cg-supv-proof','cg-perf-date','cg-perf-proof','cg-cna-exp','cg-cna-proof','cg-dl-exp','cg-dl-proof','cg-ins-exp','cg-ins-proof'];
   if(c){
     g('cg-first').value=c.first;g('cg-last').value=c.last;g('cg-hire').value=c.hire_date||'';
     g('cg-oos').value=c.oos||'no';g('cg-orient').value=c.orient_date||'';g('cg-alz').value=c.alz_date||'';
@@ -7767,6 +7767,7 @@ function openCGModal(tab,id=null){ cgReturnTab=tab; editingCG=id;
     g('cg-fp').value=c.fp||'N/A';g('cg-fp-date').value=c.fp_date||'';g('cg-fp-proof').value=c.fp_proof||'';
     g('cg-supv-date').value=c.supv_date||'';g('cg-supv-proof').value=c.supv_proof||'';
     g('cg-perf-date').value=c.perf_date||'';g('cg-perf-proof').value=c.perf_proof||'';
+    g('cg-cna-exp').value=c.cna_expires||'';g('cg-cna-proof').value=c.cna_proof||'';g('cg-dl-exp').value=c.dl_expires||'';g('cg-dl-proof').value=c.dl_proof||'';g('cg-ins-exp').value=c.auto_ins_expires||'';g('cg-ins-proof').value=c.auto_ins_proof||'';   /* SLICE 6 */
   } else { fields.forEach(k=>g(k).value=''); g('cg-oos').value='no';g('cg-ojt-signed').value='no';g('cg-oig-s').value='';g('cg-edl-s').value='';g('cg-fcsr-s').value='';g('cg-fp').value='N/A'; }
   document.getElementById('cg-modal').classList.add('open');
 }
@@ -7786,7 +7787,9 @@ async function saveCG(){
     fcsr_reg_date:g('cg-fcsr-reg'),fcsr_date:g('cg-fcsr'),fcsr_status:g('cg-fcsr-s'),fcsr_proof:g('cg-fcsr-proof'),
     fp:g('cg-fp'),fp_date:g('cg-fp-date'),fp_proof:g('cg-fp-proof'),
     supv_date:g('cg-supv-date'),supv_proof:g('cg-supv-proof'),
-    perf_date:g('cg-perf-date'),perf_proof:g('cg-perf-proof')};
+    perf_date:g('cg-perf-date'),perf_proof:g('cg-perf-proof'),
+    /* SLICE 6 (2026-10-10): typed credential expiries with proof; the rules file watches them */
+    cna_expires:g('cg-cna-exp'),cna_proof:g('cg-cna-proof'),dl_expires:g('cg-dl-exp'),dl_proof:g('cg-dl-proof'),auto_ins_expires:g('cg-ins-exp'),auto_ins_proof:g('cg-ins-proof')};
   let savedCG;
   if(editingCG){ const i=caregivers.findIndex(x=>x.id===editingCG); caregivers[i]={...caregivers[i],...d}; savedCG=caregivers[i]; }
   else { const rec={id:safeTmpId(),...d}; caregivers.push(rec); savedCG=rec; }

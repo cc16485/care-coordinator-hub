@@ -3025,6 +3025,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
       <div class="grp"><label>FCSR BG Date</label><input type="date" id="ob-fcsr-date"></div>
       <div class="grp full"><label>FCSR Document Link</label><input type="url" id="ob-fcsr-proof" placeholder="https://…"></div>
+      <div class="sect-lbl">Credentials with an expiry (typed by the office, with proof)</div>
+      <div class="grp"><label>CNA credential expires</label><input type="date" id="cg-cna-exp"></div>
+      <div class="grp"><label>CNA proof link</label><input type="url" id="cg-cna-proof" placeholder="registry verification"></div>
+      <div class="grp"><label>Driver's license expires</label><input type="date" id="cg-dl-exp"></div>
+      <div class="grp"><label>Driver's license proof link</label><input type="url" id="cg-dl-proof" placeholder="https://drive.google.com/..."></div>
+      <div class="grp"><label>Auto insurance expires</label><input type="date" id="cg-ins-exp"></div>
+      <div class="grp"><label>Auto insurance proof link</label><input type="url" id="cg-ins-proof" placeholder="https://drive.google.com/..."></div>
       <div class="grp"><label>Fingerprint BG Status</label>
         <select id="ob-fp"><option value="N/A">N/A (in-state)</option><option value="Required">Required — not yet done</option><option value="Submitted">Submitted</option><option value="Clear">Clear</option><option value="Issues Found">Issues Found</option></select>
       </div>
@@ -6967,7 +6974,7 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
-<script src="caregiver-readiness.js?v=2"></script><!-- 3b: the one new-hire readiness card -->
+<script src="caregiver-readiness.js?v=3"></script><!-- 3b: the one new-hire readiness card -->
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=5"></script>
 <script src="review-ask.js?v=1"></script>
@@ -31013,6 +31020,10 @@ const OPS_KINDS = {
   offer_declined: { label:'Offer declined',   hours:24 },
   offer_unsigned: { label:'Offer not signed', hours:24 },
   offer_delivery: { label:'Offer or Step 1 not delivered', hours:8 },
+  /* SLICE 6 (2026-10-10): the nightly audit's cards: a requirement past its expiry on a readiness card (owned by the training
+     compliance owner, else the Staffing Coordinator); a possible OIG match from the monthly LEIE check (screening staff review). */
+  requirement_expired:   { label:'Requirement expired',             hours:24 },
+  oig_match_review:      { label:'Possible OIG match: review',       hours:4  },
   /* SLICE 5 (2026-10-10): the readiness server's cards (caregiver-journey): a card complete and waiting for the owner's
      Approve to Work; the AxisCare Active update refused after the stamp (Retry on the card); the AxisCare hire date
      differing from the orientation date (the employment start date by policy; nothing is written to AxisCare). */
