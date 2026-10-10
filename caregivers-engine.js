@@ -5107,12 +5107,119 @@ async function bgrRunOIG(boardId, btn){
   if(btn){ btn.disabled = true; btn._t = btn.textContent; btn.textContent = 'Checking…'; }
   try {
     const result = await runOIGCheck(c.first, c.last);
-    showOIGResult((c.first + ' ' + c.last).trim(), result,
-      (date) => { c.oig = 'CLEAR';   c.oig_date = date; saveCandidates(); try{ renderPeopleChecks(); renderOB(); renderAlerts(); }catch(e){} },
-      (date) => { c.oig = 'FLAGGED'; c.oig_date = date; saveCandidates(); try{ renderPeopleChecks(); renderOB(); renderAlerts(); }catch(e){} });
+    /* SLICE 2c (decision 2): the LEIE result itself is the evidence, kept as a file and on the record, even when empty.
+       Clear is never a bare date. */
+    const evidence = { source: 'HHS-OIG LEIE (UPDATED.csv)', checked_at: new Date().toISOString(), query: { first: c.first, last: c.last }, match_count: (result.matches || []).length, matches: (result.matches || []).slice(0, 50), clear: !!result.clear };
+    let proofPath = '';
+    try {
+      const path = 'bgcheck/' + c.id + '/oig-' + Date.now() + '-leie-result.json';
+      const blob = new Blob([JSON.stringify({ candidate: (c.first + ' ' + c.last).trim(), ...evidence }, null, 2)], { type: 'application/json' });
+      const { error } = await sb.storage.from('lead-docs').upload(path, blob, { contentType: 'application/json' });
+      if(!error) proofPath = path;
+    } catch(e) { proofPath = ''; }
+    const keep = (date, verdict) => { c.oig = verdict; c.oig_date = date; c.oig_evidence = evidence; if(proofPath) c.oig_proof = proofPath; saveCandidates(); try{ renderPeopleChecks(); renderOB(); renderAlerts(); }catch(e){} };
+    showOIGResult((c.first + ' ' + c.last).trim(), result, (date) => keep(date, 'CLEAR'), (date) => keep(date, 'FLAGGED'));
   } catch(e){ alert('OIG check failed: ' + ((e && e.message) || e)); }
   if(btn){ btn.disabled = false; btn.textContent = btn._t || 'Run OIG'; }
 }
+
+/* ── SLICE 2c (Samantha "start slice 2c", 2026-10-10): the Screening desk ────────────────────────────────────────────
+   For a candidate whose offer is on the NEW onboarding path (fictional until the switch date). The desk shows what the
+   locked record holds ("on file, ending 1234"), the FCSR registration sheet (the facts the DHSS form asks for, in order),
+   the links to the DHSS sites (we never type into them from here), the reveal log, and, for a person on the Admin page's
+   Screening staff list, the Reveal buttons: one field, a reason, five minutes on screen, then wiped. The value lives only
+   in this page's memory while the countdown runs: never in storage, never in a log, never in a note. */
+let SD = { candId: null, offerId: null, data: null, shown: {}, timers: {} };
+function sdEligible(b){
+  if(!b || !b.offer_id) return false;
+  const o = (typeof OFFERS !== 'undefined' ? OFFERS : []).find(x => String(x.id) === String(b.offer_id));
+  return !!(o && o.onboarding_path === 'new');
+}
+function sdEsc(t){ return String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+async function sdCall(body){
+  const r = await sb.functions.invoke('step1-sign', { body });
+  if(r.error){ let why = ''; try { if(r.error.context && r.error.context.json) why = (await r.error.context.json()).error || ''; } catch(_){} throw new Error(why || r.error.message || 'the Step 1 server did not answer'); }
+  if(!r.data || r.data.ok !== true) throw new Error((r.data && r.data.error) || 'the Step 1 server did not answer');
+  return r.data;
+}
+function sdEnsureModal(){
+  if(document.getElementById('sdModal')) return;
+  const w = document.createElement('div'); w.id = 'sdModal';
+  w.style.cssText = 'display:none;position:fixed;inset:0;z-index:10002;background:rgba(15,54,95,.35);align-items:flex-start;justify-content:center;padding:1rem;overflow:auto';
+  w.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2);margin:1rem 0"><div id="sdBody"></div></div>';
+  w.addEventListener('click', e => { if(e.target === w) sdClose(); });
+  document.body.appendChild(w);
+}
+function sdClose(){ sdWipeAll(); const m = document.getElementById('sdModal'); if(m) m.style.display = 'none'; SD = { candId: null, offerId: null, data: null, shown: {}, timers: {} }; }
+function sdWipeAll(){ Object.keys(SD.timers).forEach(k => clearInterval(SD.timers[k])); SD.timers = {}; SD.shown = {}; }
+async function bgrScreeningDesk(candId){
+  if(!HYDRATED){ alert('Open Background & References first so the shared data loads.'); return; }
+  const c = candidates.find(x => x.id === candId); if(!c || !c.offer_id) return;
+  sdEnsureModal(); sdWipeAll();
+  SD.candId = candId; SD.offerId = String(c.offer_id); SD.data = null;
+  const m = document.getElementById('sdModal'); m.style.display = 'flex';
+  document.getElementById('sdBody').innerHTML = '<div style="font-size:.85rem;color:#6E6559">Opening the screening desk…</div>';
+  try { SD.data = await sdCall({ action: 'screening', offer_id: SD.offerId }); }
+  catch(e){ document.getElementById('sdBody').innerHTML = '<div style="color:#B91C1C;font-size:.85rem">The desk could not open: ' + sdEsc(e.message || e) + '</div><div style="margin-top:.8rem;text-align:right"><button class="ibtn" onclick="sdClose()">Close</button></div>'; return; }
+  sdRender();
+}
+function sdWhen(iso){ return iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; }
+function sdRender(){
+  const d = SD.data, c = candidates.find(x => x.id === SD.candId) || {}; if(!d) return;
+  const I = d.identity, F = d.facts || {};
+  const lbl = 'font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;margin:.9rem 0 .3rem';
+  const line = (k, v) => '<div style="display:flex;gap:.6rem;font-size:.84rem;padding:.2rem 0;border-bottom:1px solid #F1EDE4"><div style="flex:0 0 150px;color:#6E6559">' + k + '</div><div style="flex:1;word-break:break-word">' + (v || '<span style="color:#A89C8B">not given</span>') + '</div></div>';
+  const field = (key, label) => {
+    const on = I && I[key]; const shown = SD.shown[key];
+    let v = on ? (key === 'dob' ? '<b>on file</b>' : '<b>on file, ' + sdEsc(I[key]) + '</b>') : '<span style="color:#A89C8B">not on file yet</span>';
+    if(shown) v = '<span style="font-family:ui-monospace,Menlo,monospace;font-size:1rem;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:6px;padding:.1rem .45rem">' + sdEsc(shown.value) + '</span> <button class="ibtn" style="font-size:.72rem" onclick="sdCopy(\'' + key + '\')">Copy</button> <span id="sd_cd_' + key + '" style="font-size:.74rem;color:#B45309;font-weight:700"></span>';
+    else if(on && d.may_reveal && !(I && I.purged_at)) v += ' <button class="ibtn" style="font-size:.72rem" onclick="sdReveal(\'' + key + '\',this)">Reveal (5 min)</button>';
+    return line(label, v);
+  };
+  let h = '<div style="font-weight:800;color:#0D365F;font-size:1rem">&#128274; Screening desk · ' + sdEsc(((c.first||'') + ' ' + (c.last||'')).trim()) + '</div>'
+    + '<div style="font-size:.76rem;color:#6E6559;margin:.15rem 0 .4rem">Fictional offers only until the switch date. The locked details are kept encrypted on the server; a reveal shows one for five minutes to a named screening staff member, and every reveal is logged with who, when and why.</div>'
+    + '<div style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.5rem .7rem;font-size:.8rem">FCSR registration and every required screening (EDL, FCSR, OIG, fingerprints if they lived outside Missouri) must <b>clear before this person has any participant contact</b>. The 15-day registration deadline is never permission to work.</div>';
+  if(!d.may_reveal) h += '<div style="font-size:.78rem;color:#8A7F70;margin-top:.5rem">You are not on the Screening staff list, so the details stay locked for you. An owner adds people on the Owners Hub Admin page.</div>';
+  h += '<div style="' + lbl + '">On the locked record' + (I && I.captured_at ? ' <span style="font-weight:400;text-transform:none;letter-spacing:0">· captured ' + sdEsc(sdWhen(I.captured_at)) + ' · ' + (I.reveals||0) + ' reveal' + ((I.reveals||0)===1?'':'s') + ' so far</span>' : '') + '</div>';
+  if(!I) h += '<div style="font-size:.84rem;color:#6E6559">Nothing on file yet: they have not reached the background check screen of Step 1.' + (d.consent_signed_at ? '' : ' The EDL and FCSR consent is not signed yet.') + '</div>';
+  else h += field('ssn', 'Social Security number') + field('dob', 'Date of birth') + field('license', "Driver's license number") + (I.license_state || I.license_expires ? line('License state / expires', sdEsc([I.license_state, I.license_expires].filter(Boolean).join(' · '))) : '');
+  h += '<div style="' + lbl + '">FCSR registration sheet <span style="font-weight:400;text-transform:none;letter-spacing:0">· the facts the DHSS form asks for; type them into the DHSS site yourself</span></div>'
+    + line('Legal name', sdEsc(((F.first||'') + ' ' + (F.last||'')).trim())) + line('Preferred name', sdEsc(F.preferred_name)) + line('Other names used', sdEsc(F.other_names))
+    + line('Date of birth', I && I.dob ? (SD.shown.dob ? '<b>' + sdEsc(SD.shown.dob.value) + '</b>' : 'on file (reveal above)') : '') + line('Social Security number', I && I.ssn ? (SD.shown.ssn ? '<b>' + sdEsc(SD.shown.ssn.value) + '</b>' : 'on file (reveal above)') : '')
+    + line('Address', sdEsc(F.address)) + line('Phone / email', sdEsc([F.phone, F.email].filter(Boolean).join(' · ')))
+    + line('Lived outside Missouri', F.lived_outside_mo === 'yes' ? 'Yes: ' + sdEsc((F.states_lived||[]).join(', ')) + ' <span style="color:#B45309;font-weight:700">(fingerprint check required)</span>' : F.lived_outside_mo === 'no' ? 'No' : '')
+    + line('EDL/FCSR consent signed', d.consent_signed_at ? sdEsc(sdWhen(d.consent_signed_at)) : '<span style="color:#B91C1C">not yet: no check may be ordered before the consent</span>');
+  h += '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin:.6rem 0"><a class="ibtn" style="text-decoration:none" target="_blank" rel="noopener" href="https://health.mo.gov/safety/fcsr/">Open the FCSR site (DHSS)</a><a class="ibtn" style="text-decoration:none" target="_blank" rel="noopener" href="https://health.mo.gov/business-professionals/employee-disqualification-list-edl">Open the EDL portal (DHSS)</a></div>'
+    + '<div style="font-size:.74rem;color:#8A7F70">The Hub never sends anything to these sites. Record each result with its document through Record EDL and Record FCSR.</div>';
+  h += '<div style="' + lbl + '">Reveal log</div>' + ((d.reveals_log||[]).length ? (d.reveals_log||[]).map(l => '<div style="font-size:.8rem;padding:.15rem 0">' + sdEsc(sdWhen(l.at)) + ' · ' + sdEsc(String(l.doc||'').replace('identity:','')) + ' · ' + sdEsc(l.by_name || l.by_email) + (l.reason ? ' · "' + sdEsc(l.reason) + '"' : '') + '</div>').join('') : '<div style="font-size:.8rem;color:#A89C8B">No reveals yet.</div>');
+  h += '<div style="margin-top:1rem;text-align:right"><button class="ibtn" onclick="sdClose()">Close</button></div>';
+  document.getElementById('sdBody').innerHTML = h;
+  Object.keys(SD.shown).forEach(sdTick);
+}
+async function sdReveal(key, btn){
+  const reason = (prompt('Why are you opening this ' + ({ssn:'Social Security number',dob:'date of birth',license:'license number'}[key]) + '? (logged with your name and the time)\nFor example: FCSR registration, EDL check, driving record check') || '').trim();
+  if(reason.length < 5){ if(reason) alert('Please give a reason of at least five characters.'); return; }
+  if(btn){ btn.disabled = true; btn.textContent = 'Opening…'; }
+  try {
+    const r = await sdCall({ action: 'reveal', offer_id: SD.offerId, field: key, reason });
+    SD.shown[key] = { value: r.value, until: Date.now() + (Number(r.expires_in) || 300) * 1000 };
+    SD.data = await sdCall({ action: 'screening', offer_id: SD.offerId });   /* the log and the count, fresh */
+    sdRender();
+  } catch(e){ alert('Not revealed: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = 'Reveal (5 min)'; } }
+}
+function sdTick(key){
+  if(SD.timers[key]) clearInterval(SD.timers[key]);
+  const paint = () => {
+    const s = SD.shown[key]; const el = document.getElementById('sd_cd_' + key);
+    if(!s) return;
+    const left = Math.max(0, Math.round((s.until - Date.now()) / 1000));
+    if(el) el.textContent = 'wipes in ' + Math.floor(left/60) + ':' + String(left%60).padStart(2,'0');
+    if(left <= 0){ clearInterval(SD.timers[key]); delete SD.timers[key]; delete SD.shown[key]; sdRender(); }
+  };
+  paint(); SD.timers[key] = setInterval(paint, 1000);
+}
+async function sdCopy(key){ const s = SD.shown[key]; if(!s) return; try { await navigator.clipboard.writeText(s.value); } catch(e){ alert('Copy did not work on this browser; type it from the screen.'); } }
+window.addEventListener('pagehide', sdWipeAll);
 
 /* Record a reference's answer from the card. Picks the reference (or opens
    directly when there is only one), then opens the existing scored form. */
@@ -5352,6 +5459,7 @@ function bgrPersonCard(r, t){
   if(r.board){
     const b = r.board;
     if(b.oig !== 'CLEAR' && !b.oig_date) bgBtns.push('<button class="ibtn" onclick="bgrRunOIG('+b.id+',this)" title="Run the OIG exclusion check for this candidate now">Run OIG</button>');
+    if(sdEligible(b)) bgBtns.push('<button class="ibtn" onclick="bgrScreeningDesk('+b.id+')" title="The locked identity details, the FCSR registration sheet and the reveal log">&#128274; Screening desk</button>');
     const refsPending = [1,2,3,4].some(n => b['r'+n+'n'] && b['r'+n+'s'] === 'Pending');
     if(refsPending) refBtns.push('<button class="ibtn" onclick="askReferences('+b.id+',this)" title="Email any reference with an email address; a phone-only reference stays yours to call">&#128233; Ask refs</button>');
     if([1,2,3,4].some(n => b['r'+n+'n'])) refBtns.push('<button class="ibtn" onclick="bgrRecordForPerson('+b.id+')" title="Record a reference&#39;s answer from a phone call or in person">Record answer</button>');
@@ -5517,6 +5625,7 @@ function bgrDrawerHTML(r, t){
   const bgBtns = [], refBtns = [];
   if(b){
     if(b.oig !== 'CLEAR' && !b.oig_date) bgBtns.push('<button class="ibtn" onclick="bgrRunOIG('+b.id+',this)">Run OIG</button>');
+    if(sdEligible(b)) bgBtns.push('<button class="ibtn" onclick="bgrScreeningDesk('+b.id+')" title="The locked identity details, the FCSR registration sheet and the reveal log">&#128274; Screening desk</button>');
     bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'edl\')">Record EDL</button>');
     bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'fcsr\')">Record FCSR</button>');
     if(b.oos === 'yes') bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'fp\')">Record fingerprint</button>');
@@ -5884,6 +5993,12 @@ async function bgrSaveCheck(btn){
   const file = fileInput && fileInput.files && fileInput.files[0];
   const urlVal = (document.getElementById('bgrCheckProof').value || '').trim();
   const restore = () => { if(btn){ btn.disabled = false; btn.textContent = btn._t || 'Save'; } };
+  /* SLICE 2c (Samantha, 2026-10-10, audit readiness): a result is never recorded without its evidence. A finished result
+     (Clear, Issues Found, FLAGGED, Submitted) needs the date and a proof: a file, a pasted link, or the one already on file. */
+  const cur = candidates.find(x => x.id === candId) || {};
+  const finished = !['Pending', 'N/A', 'Required'].includes(changes[which]);
+  if(finished && !changes[which+'_date']){ alert('Please give the date of the result.'); return; }
+  if(finished && !file && !urlVal && !cur[which+'_proof']){ alert('A result needs its evidence: upload the result document or paste a link to it. Nothing was saved.'); return; }
   if(btn){ btn.disabled = true; btn._t = btn.textContent; btn.textContent = 'Saving…'; }
   if(file){
     if(file.size > 20*1024*1024){ alert('That file is over 20 MB — please shrink it first.'); restore(); return; }
@@ -10004,7 +10119,7 @@ window.orientSyncBookings = mergePendingBookings;
    / future assistant), and server-side authorization — not this — is the real
    boundary. The functions remain defined for an explicit/server caller if reintroduced. */
 window.offerCopyLink = offerCopyLink;
-window.offerSignLink = offerSignLink; window.offerStep1Link = offerStep1Link;
+window.offerSignLink = offerSignLink; window.offerStep1Link = offerStep1Link; window.bgrScreeningDesk = bgrScreeningDesk; window.sdReveal = sdReveal; window.sdClose = sdClose; window.sdCopy = sdCopy;
 window.offerQr = offerQr;
 window.offerResend = offerResend;
 window.offerWithdraw = offerWithdraw;
