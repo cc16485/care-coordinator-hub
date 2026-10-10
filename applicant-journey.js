@@ -767,7 +767,7 @@ window.AP_JOURNEY = [
   "stage": "orientation & training",
   "order": 30,
   "name": "Cleared to work with clients",
-  "trigger": "Caregiver finishes the last pre-service course (browser calls notify-cleared), or the nightly sweep catches it. Also flips AxisCare status to Active.",
+  "trigger": "OLD PATH ONLY. Caregiver finishes the last pre-service course (browser calls notify-cleared), or the nightly sweep catches it. Also tries to flip AxisCare status to Active (left as it is; Samantha 2026-10-10). On the NEW onboarding path the Training Platform sends nothing: it reports the courses to the Hub's readiness card and the next entry applies.",
   "automatic": true,
   "button": null,
   "timing": "When they finish required training, 8am–6pm Central; finished at night, it goes with the next morning's run.",
@@ -778,6 +778,22 @@ window.AP_JOURNEY = [
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": false
+ },
+ {
+  "stage": "orientation & training",
+  "order": 30.5,
+  "name": "Dementia course done, look out for open shifts (new path)",
+  "trigger": "A person on the Approve to Work list presses Approve to Work on the readiness card AND AxisCare reads back Active (never before the read-back). Practice (recorded on the card, not sent) while the Admin switch \"Cleared text after Approve to Work\" is off.",
+  "automatic": true,
+  "button": "Readiness card → Approve to Work (Samantha or Zachary only)",
+  "timing": "Right after the AxisCare read-back, 8am–6pm Central; after hours it is held and the readiness check (every ten minutes) sends it in hours.",
+  "channel": "text only",
+  "rule": "Text with \"Reply STOP to opt out.\"; their latest application's yes to texts; the opt-out door; a refused text raises a card and shows on the readiness card. Never says \"approved to work\" (her wording, 2026-10-10).",
+  "subject": null,
+  "text": "Hi {first}, we've been notified that you completed your Dementia course. Welcome to the team!\nKeep an eye out for our texts about open shifts, and check the Open Shifts section of the AxisCare app too.\nFor anything you need, call or text the office, and save the number in your phone: (417) 234-8494.\nCaring Companions",
+  "email_summary": null,
+  "shows_in_ghl": true,
+  "failure_visible": true
  },
  {
   "stage": "first shift",

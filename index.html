@@ -6967,7 +6967,7 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
-<script src="caregiver-readiness.js?v=1"></script><!-- 3b: the one new-hire readiness card -->
+<script src="caregiver-readiness.js?v=2"></script><!-- 3b: the one new-hire readiness card -->
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=5"></script>
 <script src="review-ask.js?v=1"></script>
@@ -31003,6 +31003,12 @@ const OPS_KINDS = {
   offer_declined: { label:'Offer declined',   hours:24 },
   offer_unsigned: { label:'Offer not signed', hours:24 },
   offer_delivery: { label:'Offer or Step 1 not delivered', hours:8 },
+  /* SLICE 5 (2026-10-10): the readiness server's cards (caregiver-journey): a card complete and waiting for the owner's
+     Approve to Work; the AxisCare Active update refused after the stamp (Retry on the card); the AxisCare hire date
+     differing from the orientation date (the employment start date by policy; nothing is written to AxisCare). */
+  final_approval:        { label:'Ready for final approval',          hours:24 },
+  axiscare_active_failed:{ label:'AxisCare update failed (approved)', hours:4  },
+  hire_date_check:       { label:'Hire date differs from orientation', hours:48 },
   /* Step 6 (2026-09-26): made by the promise-run producer from Start Contracts
      and Journey reviews. They close themselves when the source is satisfied. */
   promise_update: { label:'Family update owed',    hours:24 },
@@ -35618,6 +35624,7 @@ function tbPoolListHtml(plan,key){
     var skF=(typeof tb2SkillFlags==='function')?tb2SkillFlags(plan,x.cg):''; if(skF) flags.unshift(skF);
     var pgH=cgpgAxHtml(x.cg.axiscare_id,x.cg.name);   /* 2c: new hire, profile not published (flagged, never hidden) */
     if(pgH) flags.unshift(pgH);
+    if(x.cg.work_locked) flags.unshift('<b style="color:var(--red);">⛔ awaiting Approve to Work (new hire): not to be scheduled yet</b>');   /* SLICE 5: locked until the owner\'s stamp and the AxisCare read-back */
     return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
       +'<b style="min-width:130px;">'+esc(x.cg.name)+'</b>'
       +'<span class="field-note" style="flex:1;">'+flags.join(' · ')+'</span>'

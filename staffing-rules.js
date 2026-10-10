@@ -58,6 +58,8 @@
     const elig = typeof ctx.eligibility === 'function' ? ctx.eligibility(ax) : null;
     if (ctx.doNotOffer && ctx.doNotOffer.has(ax)) why.push('on the do-not-offer list');
     if (elig === 'not_eligible' || elig === 'lapsed') why.push('not eligible to work (' + elig.replace('_', ' ') + ')');
+    /* SLICE 5 (2026-10-10): a new hire with a readiness card is locked until Approved to Work and AxisCare read back Active (the server flags the pool row) */
+    if (cg.work_locked) why.push('awaiting Approve to Work (new hire)');
     if (!cg.windows || !Object.values(cg.windows).some(w => Array.isArray(w) && w.length)) why.push('no availability on file');
     else if (!cg.availability_updated || days(cg.availability_updated, today) > S.stale_days) why.push('availability older than ' + S.stale_days + ' days');
     const acc = ov.accepting_new && ov.accepting_new.v;
