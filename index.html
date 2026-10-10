@@ -2425,9 +2425,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
       <div id="ac-bulk-bar" style="background:var(--navy);padding:.6rem 1rem;border-radius:8px 8px 0 0;align-items:center;gap:.75rem;flex-wrap:wrap;display:none">
         <span id="ac-bulk-count" style="color:#fff;font-size:.82rem;font-weight:600;min-width:80px"></span>
-        <button onclick="SCX.bulkMarkCheck('oig')" style="padding:.32rem .75rem;background:var(--teal);color:#fff;border:none;border-radius:6px;font-size:.78rem;cursor:pointer;font-family:inherit;font-weight:600">✔ OIG Checked Today</button>
-        <button onclick="SCX.bulkMarkCheck('edl')" style="padding:.32rem .75rem;background:var(--teal);color:#fff;border:none;border-radius:6px;font-size:.78rem;cursor:pointer;font-family:inherit;font-weight:600">✔ EDL Checked Today</button>
-        <button onclick="SCX.bulkMarkCheck('fcsr')" style="padding:.32rem .75rem;background:var(--teal);color:#fff;border:none;border-radius:6px;font-size:.78rem;cursor:pointer;font-family:inherit;font-weight:600">✔ FCSR Checked Today</button>
         <button onclick="acSelected.clear();SCX.renderAC();" style="padding:.32rem .75rem;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;font-size:.78rem;cursor:pointer;font-family:inherit">Clear</button>
       </div>
       <div class="tbl-wrap" id="ac-tbl-wrap">
@@ -2436,7 +2433,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <th style="width:36px"><input type="checkbox" id="ac-chk-all" onchange="SCX.toggleACSelectAll(this.checked)" style="accent-color:var(--teal);cursor:pointer"></th>
             <th>Caregiver</th>
             <th>OIG <span style="font-weight:400;opacity:.7">90 days</span></th>
-            <th>EDL <span style="font-weight:400;opacity:.7">90 days</span></th>
+            <th>EDL <span style="font-weight:400;opacity:.7">monthly</span></th>
             <th>FCSR <span style="font-weight:400;opacity:.7">annual</span></th>
             <th>Fingerprint BG</th>
             <th>Supervisory Visit <span style="font-weight:400;opacity:.7">annual</span></th>

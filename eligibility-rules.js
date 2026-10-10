@@ -240,7 +240,8 @@ function profileGate(c){
 function eligibilityFacts(c){
   const ts = trainStatus(c);
   const oig = chkStatus(c.oig_date, 90, 14);
-  const edl = chkStatus(c.edl_date, 90, 14);
+  /* EDL monthly: Caring Companions policy (Samantha, 2026-10-09), not a Missouri interval; the 90-day figure was never a rule */
+  const edl = chkStatus(c.edl_date, 30, 7);
   const fcsr = chkStatus(c.fcsr_date, 365, 30);
   const reg = fcsrRegStatus(c);
   const hire = pd(c.hire_date);
