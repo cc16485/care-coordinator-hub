@@ -17867,7 +17867,7 @@ async function cgdPrnMount(c){
                 + (out.length ? kv('Backed out after confirming', '<b style="color:#B45309;">' + out.length + '</b>') : ''); })()
           + kv('Can be asked for open shifts', (DATA.caregivers||[]).some(g=>String(g.axiscare_id||'')===String(c.id) && g.phone && g.active!==false) ? 'yes'
               : '<b style="color:#B45309;">not yet</b> <span class="field-note">(add them to the caregiver roster with their phone and AxisCare number)</span>')
-          + kv('Availability confirmed', av && av.updated_at ? esc(prnDate(av.updated_at)) + (av.source === 'application' ? ' <span class="field-note">(from their application)</span>' : '') : '<span class="field-note">not on file</span>')
+          + kv('Availability confirmed', av && av.updated_at ? esc(prnDate(av.updated_at)) + (av.source === 'application' ? ' <span class="field-note">(from their application)</span>' : av.source === 'step1' ? ' <span class="field-note">(from their signed Step 1; they can update it any time)</span>' : '') : '<span class="field-note">not on file</span>')
         : '')
     + kv('AxisCare classes', isPrn
         ? (hasPrn && hasCna ? '<span style="color:var(--green);">✓ PRN Team and CNA</span>' + (tr.axiscare_marked_by ? ' <span class="field-note">(' + esc(tr.axiscare_marked_by) + ', ' + esc(prnDate(tr.axiscare_marked_at)) + ')</span>' : '')
