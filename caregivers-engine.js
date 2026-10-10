@@ -2433,7 +2433,12 @@ function offeredChip(c){
       : o.offer_viewed_at ? '<span class="sub" style="color:#B45309">offer opened, not signed</span>'
       : '<span class="sub" style="color:#B45309">offer not opened yet</span>')
     : '';
-  return (np ? np + ' ' : '') + `<span class="badge" style="background:#EEF2FF;color:#3730A3;font-size:.62rem" title="Offered${o.offered_by ? ' by ' + esc(o.offered_by) : ''}${o.position ? ', ' + esc(o.position) : ''}">💼 Offered${when ? ' ' + esc(when) : ''}</span>${form}`;
+  /* SLICE 2d (2026-10-10): what Step 1 landed on this row, through the server door (nothing retyped) */
+  const l = c.step1_landed || {};
+  const landed = (c.step1_done_at || l.done) ? '<span class="sub" style="color:#15803D" title="All seven Step 1 forms signed on ' + esc(offerDate(c.step1_done_at || l.done)) + '">Step 1 done</span> '
+    : l.reference_consent ? '<span class="sub" style="color:#0e7490" title="Their references came from the signed Step 1 reference consent on ' + esc(offerDate(l.reference_consent)) + '">' + (l.references || 0) + ' reference' + (l.references === 1 ? '' : 's') + ' from Step 1</span> '
+    : l.employee_application ? '<span class="sub" style="color:#0e7490" title="Residence and employer answers from the signed Step 1 application on ' + esc(offerDate(l.employee_application)) + '">Step 1 under way</span> ' : '';
+  return (np ? np + ' ' : '') + landed + `<span class="badge" style="background:#EEF2FF;color:#3730A3;font-size:.62rem" title="Offered${o.offered_by ? ' by ' + esc(o.offered_by) : ''}${o.position ? ', ' + esc(o.position) : ''}">💼 Offered${when ? ' ' + esc(when) : ''}</span>${form}`;
 }
 function obFillFromIntake(c, row){
   /* the form fills blanks only: what the office already recorded always wins. Answers how many references came in. */
@@ -2603,6 +2608,7 @@ function vivSheet(o){
     +row('Email Address',o.email,'none given — their invite needs an email; ask them for one')
     +row('Phone Type',null,'select Mobile')
     +row('Phone',phone,'none given')
+    +(o.onboarding_path==='new'?row('Home address',null,'on the Screening desk (Background & References row), from their signed Step 1; the SSN and date of birth are never copied from the Hub: Viventium collects them from the employee'):'')
     +sec('Position')
     +row('Hire Date',usDate)
     +row('Job Title',o.position||'Caregiver')
