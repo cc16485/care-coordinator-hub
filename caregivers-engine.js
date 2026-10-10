@@ -6892,7 +6892,7 @@ function acFilter(f,btn){ acFilterVal=f; document.querySelectorAll('#panel-compl
 
 
 function acWorst(c){
-  const o=chkStatus(c.oig_date,90,14), e=chkStatus(c.edl_date,90,14), f=chkStatus(c.fcsr_date,365,30);
+  const o=chkStatus(c.oig_date,90,14), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
   const sv=chkStatus(c.supv_date,365,30), pr=chkStatus(c.perf_date,365,30);
   const fReg=fcsrRegStatus(c);
   const ss=[o.status,e.status,f.status,sv.status,pr.status];
@@ -6914,7 +6914,7 @@ function renderAC(){
   if(!list.length){tbody.innerHTML='';acSelected.clear();updateACBulkBar();return;}
 
   tbody.innerHTML=list.map(c=>{
-    const o=chkStatus(c.oig_date,90,14), e=chkStatus(c.edl_date,90,14), f=chkStatus(c.fcsr_date,365,30);
+    const o=chkStatus(c.oig_date,90,14), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
     const sv=chkStatus(c.supv_date,365,30), pr=chkStatus(c.perf_date,365,30);
     function compCell(lastStr,info,overrideStatus,proof){
       const s=overrideStatus||info.status;
@@ -6966,7 +6966,7 @@ function renderAlerts(){
   // Active Compliance
   let acOverdue=0, acDueSoon=0;
   caregivers.forEach(c=>{
-    const oig=chkStatus(c.oig_date,90,14), edl=chkStatus(c.edl_date,90,14), fcsr=chkStatus(c.fcsr_date,365,30);
+    const oig=chkStatus(c.oig_date,90,14), edl=chkStatus(c.edl_date,30,7), fcsr=chkStatus(c.fcsr_date,365,30);
     if([oig,edl,fcsr].some(s=>s.status==='Overdue')) acOverdue++;
     else if([oig,edl,fcsr].some(s=>s.status==='Due Soon')) acDueSoon++;
   });
@@ -9023,29 +9023,14 @@ function updateACBulkBar(){
     if(allChk) allChk.checked=false;
   }
 }
-function bulkMarkCheck(type){
-  if(!acSelected.size){ alert('No caregivers selected.'); return; }
-  const today=new Date().toISOString().split('T')[0];
-  const label={oig:'OIG',edl:'EDL',fcsr:'FCSR'}[type];
-  if(!confirm(`Mark OIG/EDL/FCSR checked today for ${acSelected.size} caregiver(s)?\n\nThis sets ${label} date to ${today} and status to Current.`.replace('OIG/EDL/FCSR',label))) return;
-  acSelected.forEach(id=>{
-    const i=caregivers.findIndex(x=>x.id===id);
-    if(i===-1) return;
-    if(type==='oig')  { caregivers[i].oig_date=today; caregivers[i].oig_status=''; }
-    if(type==='edl')  { caregivers[i].edl_date=today; caregivers[i].edl_status=''; }
-    if(type==='fcsr') { caregivers[i].fcsr_date=today; caregivers[i].fcsr_status=''; }
-  });
-  saveCaregivers();
-  acSelected.clear();
-  renderAC();
-}
+/* bulkMarkCheck removed 2026-10-09 (Samantha: no screening-completion action may stamp a check without a result and evidence). */
 
 // ── CSV Export ────────────────────────────────────────────────────────
 function exportComplianceCSV(){
   const today=new Date(); today.setHours(0,0,0,0);
   const rows=[['Name','Hire Date','OIG Last Check','OIG Status','EDL Last Check','EDL Status','FCSR Last Check','FCSR Status','Fingerprint','Overall']];
   caregivers.forEach(c=>{
-    const o=chkStatus(c.oig_date,90,14), e=chkStatus(c.edl_date,90,14), f=chkStatus(c.fcsr_date,365,30);
+    const o=chkStatus(c.oig_date,90,14), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
     rows.push([
       `${c.first} ${c.last}`,
       c.hire_date||'',
@@ -9170,7 +9155,7 @@ function openProfile(first, last){
   // ── Active Compliance ──
   html+=`<div class="sect-lbl">Active Compliance</div>`;
   if(cg){
-    const o=chkStatus(cg.oig_date,90,14), e=chkStatus(cg.edl_date,90,14), f=chkStatus(cg.fcsr_date,365,30);
+    const o=chkStatus(cg.oig_date,90,14), e=chkStatus(cg.edl_date,30,7), f=chkStatus(cg.fcsr_date,365,30);
     const sv=chkStatus(cg.supv_date,365,30), pr=chkStatus(cg.perf_date,365,30);
     const fReg=fcsrRegStatus(cg);
     const regColor=fReg.status==='ok'?'var(--green)':fReg.status==='overdue'?'var(--red)':'var(--amber)';
@@ -9970,7 +9955,7 @@ function renderEVVCorrections() {
 }
 
 /* the only things the panels' handlers need */
-window.SCX = {getOffers: () => OFFERS, offerIntoChecks, bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, bulkMarkCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+window.SCX = {getOffers: () => OFFERS, offerIntoChecks, bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
 /* The offer cards are built with inline onclick handlers, so these have to be
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;

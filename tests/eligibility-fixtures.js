@@ -42,6 +42,8 @@ const CG_FIXTURES = [
   ["long-tenured, current compliance",   G({}),                              "eligible"],
   ["OIG overdue (91 days)",              G({oig_date:iso(-91)}),             "lapsed"],
   ["EDL overdue",                        G({edl_date:iso(-91)}),             "lapsed"],
+  ["EDL overdue at 31 days (monthly policy)", G({edl_date:iso(-31)}),         "lapsed"],
+  ["EDL at 25 days still current",       G({edl_date:iso(-25)}),             "eligible"],
   ["FCSR overdue (annual)",              G({fcsr_date:iso(-400)}),           "lapsed"],
   ["annual training overdue",            G({annual_date:iso(-400)}),         "lapsed"],
   ["performance review overdue",         G({perf_date:iso(-400)}),           "eligible"],
