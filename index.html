@@ -40166,29 +40166,10 @@ window.covLoadShifts=function(){};
      and the stamp is only written after AxisCare accepted the note — a
      failed push stays unstamped and quietly retries on the next save. */
   const notePushInFlight=new Set();
-  async function cqMaybePushSchedNote(item){
-    if(!item||item.status==='complete') return;
-    if(!item.schedule_added||item.sched_note_pushed_at||notePushInFlight.has(item.id)) return;
-    if(!(item.caregiver_call_notes||'').trim()||!(item.client_call_notes||'').trim()) return;
-    if(!item.axiscare_client_id) return;
-    const { data:{ session } } = await sb.auth.getSession();
-    if(!session||!session.access_token) return;
-    notePushInFlight.add(item.id);
-    try{
-      const res=await fetch('https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/axiscare-push-note',{
-        method:'POST',
-        headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
-        body:JSON.stringify({ client_queue_id:item.id })});
-      const data=await res.json();
-      if(data.success){
-        const at=new Date().toISOString();
-        item.sched_note_pushed_at=at;
-        await sb.from('client_queue').update({ sched_note_pushed_at:at }).eq('id',item.id);
-        renderQueue();
-      } else console.warn('AxisCare note push failed:', data.error);
-    }catch(e){ console.warn('AxisCare note push error:', e); }
-    finally{ notePushInFlight.delete(item.id); }
-  }
+  /* 579 (2026-10-11, Samantha): the automatic AxisCare note push from this queue is retired with the unsecured function
+     that did it. Nothing is written to AxisCare from here any more; the AxisCare note contract (Phase 1, Slice 5) will
+     offer a visible send step instead. The sched_note_pushed_at stamp on old rows is only displayed. */
+  async function cqMaybePushSchedNote(){ return; }
   window.cqStep=async function(id,field,value){
     const item=(QUEUE||[]).find(c=>c.id===id);
     const tsField=field+'_at', tsValue=value?new Date().toISOString():null;
