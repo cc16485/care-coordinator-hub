@@ -125,6 +125,7 @@ function candidateProgress(c){
   if(c.oig !== 'CLEAR')  out.blockers.push({code:'oig',  why:'OIG check not clear.'});
   if(c.edl !== 'Clear')  out.blockers.push({code:'edl',  why:'EDL check not clear.'});
   if(c.fcsr !== 'Clear') out.blockers.push({code:'fcsr', why:'FCSR background check not clear.'});
+  if(c.casenet !== 'Clear') out.blockers.push({code:'casenet', why:'Case.net court records search not clear.'});
   if(c.oos === 'yes' && c.fp !== 'Clear')
     out.blockers.push({code:'fingerprints', why:'Out-of-state history: fingerprints required and not clear.'});
   out.ready = out.status === 'Ready for Orientation';
@@ -139,7 +140,7 @@ function hiringSnapshot(cand){
   return { at:new Date().toISOString(), event:'pre_hire_clearance',
     ready:p.ready, status:p.status,
     refs:[cand.r1s,cand.r2s,cand.r3s,cand.r4s].map(x=>x||'').join('|'),
-    oig:cand.oig||'', edl:cand.edl||'', fcsr:cand.fcsr||'',
+    oig:cand.oig||'', edl:cand.edl||'', fcsr:cand.fcsr||'', casenet:cand.casenet||'',
     oos:cand.oos||'', fp:cand.fp||'',
     ref_decision: cand.ref_decision || null,
     outstanding: p.blockers.map(b=>b.code) };
@@ -148,10 +149,13 @@ function hiringSnapshot(cand){
 function obDeriveStatus(c){
   const rp=refPolicy(c);
   const oigOk=c.oig==='CLEAR', edlOk=c.edl==='Clear', bgOk=c.fcsr==='Clear';
+  /* Case.net (Missouri court records name search), a background check on both paths from 2026-10-11 (Samantha: "add
+     case.net to the old process too"). The new path's approvals already wait for it. */
+  const casenetOk=c.casenet==='Clear';
   const fpOk=c.oos!=='yes'||(c.fp==='Clear');
-  if(c.oig==='FLAGGED'||c.edl==='Issues Found'||c.fcsr==='Issues Found'||c.fp==='Issues Found') return 'Needs Review';
+  if(c.oig==='FLAGGED'||c.edl==='Issues Found'||c.fcsr==='Issues Found'||c.casenet==='Issues Found'||c.fp==='Issues Found') return 'Needs Review';
   if(rp.blocked) return 'Needs Review';
-  if(rp.ok&&oigOk&&edlOk&&bgOk&&fpOk) return 'Ready for Orientation';
+  if(rp.ok&&oigOk&&edlOk&&bgOk&&casenetOk&&fpOk) return 'Ready for Orientation';
   return 'Awaiting';
 }
 

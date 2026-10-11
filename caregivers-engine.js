@@ -4478,6 +4478,7 @@ function renderOBStats(){
         if(!['CLEAR'].includes(c.oig)) blocking.push('OIG');
         if(!['Clear'].includes(c.edl)) blocking.push('EDL');
         if(!['Clear'].includes(c.fcsr)) blocking.push('FCSR');
+        if(!['Clear'].includes(c.casenet)) blocking.push('Case.net');
         /* Asks the one authoritative rule rather than counting positives again
            here. This was a third copy of the reference policy and would have
            kept displaying the old one. */
@@ -5461,6 +5462,7 @@ function bgrTimelineHTML(r, t){
     h += chk('OIG', board.oig, board.oig==='CLEAR', !!board.oig_date, board.oig_date);
     h += chk('EDL', board.edl, board.edl==='Clear', !!board.edl_date, board.edl_date);
     h += chk('FCSR', board.fcsr, board.fcsr==='Clear', !!board.fcsr_date, board.fcsr_date);
+    h += chk('Case.net', board.casenet, board.casenet==='Clear', !!board.casenet_date, board.casenet_date);
     if(board.oos==='yes') h += chk('Fingerprint', board.fp, board.fp==='Clear', !!board.fp_date, board.fp_date);
     else h += bgrTLrow(unk, 'Fingerprint', 'n/a (in state)', dim);
   } else if(r.roster){
@@ -6936,6 +6938,7 @@ function renderOB(){
       <td><div class="chk"><span onclick="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?`bgrRecordCheck(${c.id},'oig')`:`bgrRunOIG(${c.id})`}" title="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'Update the OIG result or attach the proof':'Run the OIG exclusion check now'}" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.oig==='CLEAR'?'b-green':c.oig==='FLAGGED'?'b-red':'b-gray'}">${c.oig||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'✎':'▸ run'}</span></span>${c.oig_date?`<span class="chk-date">${fmtD(c.oig_date)}</span>`:''}${bgrCheckProofHtml(c.oig_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'oig'):''}</div></td>
       <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'edl')" title="Record the EDL result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.edl==='Clear'?'b-green':c.edl==='Issues Found'?'b-red':'b-gray'}">${c.edl||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.edl_date?`<span class="chk-date">${fmtD(c.edl_date)}</span>`:''}${bgrCheckProofHtml(c.edl_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'edl'):''}</div></td>
       <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'fcsr')" title="Record the FCSR result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.fcsr==='Clear'?'b-green':c.fcsr==='Issues Found'?'b-red':'b-gray'}">${c.fcsr||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fcsr_date?`<span class="chk-date">${fmtD(c.fcsr_date)}</span>`:''}${bgrCheckProofHtml(c.fcsr_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'fcsr'):''}</div></td>
+      <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'casenet')" title="Record the Case.net result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.casenet==='Clear'?'b-green':c.casenet==='Issues Found'?'b-red':'b-gray'}">${c.casenet||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.casenet_date?`<span class="chk-date">${fmtD(c.casenet_date)}</span>`:''}${bgrCheckProofHtml(c.casenet_proof)}</div></td>
       <td><div class="chk">${fpShow?`<span onclick="bgrRecordCheck(${c.id},'fp')" title="Record the fingerprint result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${fpBadge}">${c.fp}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fp_date?`<span class="chk-date">${fmtD(c.fp_date)}</span>`:''}${bgrCheckProofHtml(c.fp_proof)}`:`<span class="badge b-gray">Not required</span>`}</div></td>
       <td>
         ${c.not_hired?`
@@ -8461,7 +8464,7 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
       <li>Ready for Orientation, then send Viventium Step 2, then mark Step 2 done in the Hub.</li>
       <li>Press <b>Invite to Orientation Video Call</b>. They book a 15-minute time, during interview hours, never overlapping an interview. Confirmations and reminders with the Meet link go out on their own.</li>
       <li>Before the call, press <b>🪪 Caregiver profile</b>, then <b>Draft with AI</b>. It writes a first draft from their application and interview. Anything in [ask: …] is a question to ask them on the call.</li>
-      <li>At the time, join the shared room from the "Caring Companions Welcome Calls" event on your own Google Calendar, signed in with your own @mo-care.com account (never a shared login). Join a minute early and admit them when they ask to join.</li>
+      <li>At the time, join the shared room from the "Caring Companions Orientation Video Calls" event on your own Google Calendar, signed in with your own @mo-care.com account (never a shared login). Join a minute early and admit them when they ask to join.</li>
       <li>If Step 2 turns out not to be done, press <b>Reschedule: Step 2 not done</b>, which tells them to finish it and rebook.</li>
       <li>Had an interview no-show? Use <b>Call them now</b> on someone waiting.</li>
       <li>During the call, if they are still an applicant in AxisCare, hire them in AxisCare and set their status to <b>In Training</b>. Their phone number or email in AxisCare must match the one they gave us.</li>
@@ -9373,8 +9376,8 @@ function openProfile(first, last){
     });
     html+=`</div>`;
     // Background checks
-    html+=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;margin-bottom:.75rem">`;
-    [{label:'OIG',val:cand.oig,date:cand.oig_date,ok:'CLEAR'},{label:'EDL',val:cand.edl,date:cand.edl_date,ok:'Clear'},{label:'FCSR',val:cand.fcsr,date:cand.fcsr_date,ok:'Clear'},{label:'Fingerprint',val:cand.fp,date:cand.fp_date,ok:'Clear'}].forEach(({label,val,date,ok})=>{
+    html+=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:.4rem;margin-bottom:.75rem">`;
+    [{label:'OIG',val:cand.oig,date:cand.oig_date,ok:'CLEAR'},{label:'EDL',val:cand.edl,date:cand.edl_date,ok:'Clear'},{label:'FCSR',val:cand.fcsr,date:cand.fcsr_date,ok:'Clear'},{label:'Case.net',val:cand.casenet,date:cand.casenet_date,ok:'Clear'},{label:'Fingerprint',val:cand.fp,date:cand.fp_date,ok:'Clear'}].forEach(({label,val,date,ok})=>{
       const b=val===ok?'b-green':(!val||val==='Pending'||val==='N/A')?'b-gray':'b-red';
       html+=`<div style="background:var(--slate-bg);border-radius:8px;padding:.45rem .6rem;text-align:center"><div style="font-size:.68rem;font-weight:600;color:var(--gray)">${label}</div><span class="badge ${b}" style="font-size:.65rem;margin-top:.2rem">${val||'Pending'}</span>${date?`<div style="font-size:.65rem;color:var(--gray);margin-top:.15rem">${fmtD(date)}</div>`:''}</div>`;
     });

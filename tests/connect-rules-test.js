@@ -81,7 +81,7 @@ if (!hadOld) {
   const mk = (withElig) => { const ctx = { console, JSON, Object, String, Date, Array, safeTmpId: () => -1 }; vm.createContext(ctx); ctx.globalThis = ctx;
     vm.runInContext(RULES, ctx); if (withElig) vm.runInContext(fs.readFileSync(path.join(ROOT, 'eligibility-rules.js'), 'utf8'), ctx);
     vm.runInContext(cut(ENGINE, 'function cgRecordFromCandidate(', '// ── Promote / Close Out') + '\nthis.__f = cgRecordFromCandidate;', ctx); return ctx.__f; };
-  const cl = Object.assign(clone(CASEY), { oig: 'CLEAR', edl: 'Clear', fcsr: 'Clear', r1s: 'Positive', r2s: 'Positive' });
+  const cl = Object.assign(clone(CASEY), { oig: 'CLEAR', edl: 'Clear', fcsr: 'Clear', casenet: 'Clear', r1s: 'Positive', r2s: 'Positive' });
   const rec = mk(true)(cl, '2026-10-04', '2026-10-04');
   const hs = rec.hiring_snapshot;
   ck('Move to caregiver saves a real hire snapshot (why they were allowed to be hired)', hs && hs.event === 'pre_hire_clearance' && hs.ready === true && hs.status === 'Ready for Orientation'
