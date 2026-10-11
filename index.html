@@ -23754,7 +23754,7 @@ function apProfOffer(r){
    booking function behind it, so a time taken here is a time nobody else is
    offered, it lands on the coordinator with the lightest day, and it gets the
    same confirmation and reminders as one they booked themselves. */
-async function apBookFor(id){
+async function apBookFor(id, askFirst){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
   if(!AP_PROF || String(AP_PROF.id) !== String(id)) apOpenProfile(id);
   document.getElementById('apBookId').value = id;
@@ -23774,7 +23774,9 @@ async function apBookFor(id){
      interview booking, even if someone opens a booking link directly"). The database refuses a booking (or a move)
      until they are answered. Somebody the office talks to on the phone (entered by hand, or stopped partway through
      the form) is asked here first, and the answers are kept with who asked and when. */
-  const gap = await apScreenGap(id);
+  /* Moving an interview booked before this rule existed works as before (the database allows it); a refusal brings
+     the questions back (askFirst). */
+  const gap = (!moving || askFirst) ? await apScreenGap(id) : null;
   if(gap){ await apScreenAsk(id, gap); return; }
   try{
     const { data, error } = await sb.rpc('interview_open_slots');
@@ -23862,7 +23864,11 @@ async function apScreenSave(id, btn){
     if(data){ await apScreenAsk(id, data); return; }   // still missing or a no: say so instead of showing times
     apBookFor(id);
   }catch(e){
-    err.textContent = 'Could not save the answers: ' + String(e && e.message || e); err.style.display = 'block';
+    const m = String(e && e.message || e);
+    err.textContent = /SCREENING_LOCKED/.test(m)
+      ? 'One of these was already answered differently (on their application or an earlier call), and answers already given cannot be changed here. Choose the answer on file, or talk to Samantha.'
+      : 'Could not save the answers: ' + m;
+    err.style.display = 'block';
     btn.disabled = false; btn.textContent = 'Save answers and show times';
   }
 }
@@ -23901,7 +23907,7 @@ async function apBookTake(iso, btn){
     await apLoad();
   }catch(e){
     const m = String(e && e.message || 'error');
-    if(/SCREEN_FIRST/.test(m)){ apBookFor(id); return; }   // 586: the questions are asked first
+    if(/SCREEN_FIRST/.test(m)){ apBookFor(id, true); return; }   // 586: the questions are asked first
     err.textContent = /just taken|passed/i.test(m)
       ? 'That time went while you were looking at it. Here are the ones still free.'
       : /interview_reschedule/.test(m) && /function|exist/i.test(m)
