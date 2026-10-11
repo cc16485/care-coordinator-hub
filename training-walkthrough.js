@@ -3,7 +3,7 @@
    experience it, as a training, set up inside the applicant journey tab"; "yes to all"). The card on the Applicant journey
    tab. A staff member types their OWN first name, cell and email; the server (training-walkthrough) makes them a practice hire
    "<first> (TRAINING)" on the new onboarding path and sends them the real offer link. Every text and email of the journey
-   then reaches them, through the welcome call. It ends by itself after 14 days, or with End. AxisCare is never written.
+   then reaches them, through the Orientation Video Call. It ends by itself after 14 days, or with End. AxisCare is never written.
    ===================================================================================================================== */
 (function(){
   'use strict';
@@ -25,7 +25,7 @@
     const box = document.getElementById('twBox'); if(!box) return;
     const me = (typeof ME !== 'undefined' && ME) || {}, mine = OPEN.find(x => x.mine);
     let h = '<div style="font-size:15px;font-weight:800;color:var(--navy)">Try the new-hire journey yourself (training)</div>'
-      + '<div class="field-note" style="margin-top:4px">Get every text and email a new hire gets, on your own phone, from the job offer through the welcome call. You sign the offer, do the nine Step 1 screens (with a <b>made-up</b> SSN and date of birth), tap that Step 2 is done and book the welcome call, exactly as they would. Your practice hire shows as <b>"(TRAINING)"</b> everywhere and ends by itself after 14 days. Nothing goes to AxisCare.</div>';
+      + '<div class="field-note" style="margin-top:4px">Get every text and email a new hire gets, on your own phone, from the job offer through the Orientation Video Call. You sign the offer, do the nine Step 1 screens (with a <b>made-up</b> SSN and date of birth), tap that Step 2 is done and book the Orientation Video Call, exactly as they would. Your practice hire shows as <b>"(TRAINING)"</b> everywhere and ends by itself after 14 days. Nothing goes to AxisCare.</div>';
     if(mine){
       h += '<div style="margin-top:10px;border:1px solid #E8E2D8;border-radius:10px;padding:10px 12px"><b>Your walkthrough is open:</b> ' + esc(mine.first) + ' (TRAINING) · started ' + esc(day(mine.started_at)) + ' · ends ' + esc(day(mine.ends_at))
         + '<div class="field-note">Messages go to ' + esc(mine.phone) + ' and ' + esc(mine.email) + '. The offer text comes 8am to 6pm Central; the email any time.</div>'

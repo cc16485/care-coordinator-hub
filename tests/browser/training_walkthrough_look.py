@@ -22,7 +22,7 @@ T = r"""async()=>{
   ok('the card is on the Applicant journey tab and the script loaded', !!box && box.closest('#tab-apjourney') && typeof window.TW==='object');
   await TW.mount();
   let t=box.innerText;
-  ok('it says what it is: their own phone, the job offer through the welcome call, a made-up SSN, (TRAINING), 14 days, nothing to AxisCare', /Try the new-hire journey yourself/.test(t) && /your own phone/.test(t) && /welcome call/.test(t) && /made-up/.test(t) && /\(TRAINING\)/.test(t) && /14 days/.test(t) && /AxisCare/.test(t), t);
+  ok('it says what it is: their own phone, the job offer through the Orientation Video Call, a made-up SSN, (TRAINING), 14 days, nothing to AxisCare', /Try the new-hire journey yourself/.test(t) && /your own phone/.test(t) && /Orientation Video Call/.test(t) && /made-up/.test(t) && /\(TRAINING\)/.test(t) && /14 days/.test(t) && /AxisCare/.test(t), t);
   ok('first name prefilled from the sign-in; phone and email blank', document.getElementById('twFirst').value==='Kay' && document.getElementById('twPhone').value==='' && document.getElementById('twEmail').value==='');
   ok('others\' open walkthroughs show, with no End for a non-owner', /Zed \(TRAINING\) · by Zed Office/.test(t) && !/>End</.test(box.innerHTML), box.innerHTML.slice(-600));
   document.getElementById('twPhone').value='417-555-0100'; document.getElementById('twEmail').value='kay@home.com';
