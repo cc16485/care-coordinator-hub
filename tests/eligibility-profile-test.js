@@ -25,7 +25,7 @@ ck('2c · hired 2026-10-02 → new hire', E.profileNewHire({ hire_date: '2026-10
 ck('2c · hired 2026-10-01 → not a new hire', E.profileNewHire({ hire_date: '2026-10-01' }) === false);
 ck('2c · promoted 2026-10-02 03:00 UTC (Oct 1, 10pm Central) → not a new hire', E.profileNewHire({ hire_date: '2026-09-30', promoted_at: '2026-10-02T03:00:00Z' }) === false);
 ck('2c · promoted 2026-10-02 15:00 UTC (Oct 2 Central) → new hire', E.profileNewHire({ hire_date: '2026-09-30', promoted_at: '2026-10-02T15:00:00Z' }) === true);
-ck('2c · has a welcome call → new hire', E.profileNewHire({ hire_date: '2025-01-01', has_welcome_call: true }) === true);
+ck('2c · has an Orientation Video Call → new hire', E.profileNewHire({ hire_date: '2025-01-01', has_welcome_call: true }) === true);
 ck('2c · no hire date, nothing else → not a new hire', E.profileNewHire({}) === false);
 ck('2c · an odd hire date is not a new hire', E.profileNewHire({ hire_date: 'soon' }) === false);
 const pg = E.profileGate({ hire_date: '2026-10-05' });

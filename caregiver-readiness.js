@@ -118,7 +118,7 @@
         h += line + '</div>';
       });
     });
-    h += '<div style="font-size:.72rem;color:#8A7F70;margin-top:.6rem">Verified rows come from the records on their own (the offer, the Step 1 forms, the Background and References row, the welcome call, the roster, the profile, the Training Platform\'s report). Confirmed rows need the named list on the Admin page. Every change is permanent history.</div>';
+    h += '<div style="font-size:.72rem;color:#8A7F70;margin-top:.6rem">Verified rows come from the records on their own (the offer, the Step 1 forms, the Background and References row, the Orientation Video Call, the roster, the profile, the Training Platform\'s report). Confirmed rows need the named list on the Admin page. Every change is permanent history.</div>';
     if(d.events && d.events.length) h += '<details style="margin-top:.5rem"><summary style="font-size:.76rem;color:#0D365F;cursor:pointer">History (' + d.events.length + ')</summary>' + d.events.slice(0, 40).map(e => '<div style="font-size:.74rem;padding:.12rem 0">' + esc(when(e.at)) + ' · ' + esc(e.kind) + (e.step_key ? ' · ' + esc(e.step_key) : '') + ' · ' + esc(e.actor_name || e.actor_email) + (e.reason ? ' · "' + esc(e.reason) + '"' : '') + '</div>').join('') + '</details>';
     /* SLICE 6: the read-only personnel-file export (owners and the Audit export list; every export logged) */
     if(d.may_export) h += '<div id="crExport" style="margin-top:.6rem;font-size:.78rem"><button class="ibtn" onclick="CRX.exportFile(this)" title="A read-only PDF of every requirement, who verified, when, evidence and the history, with five-minute links to each proof. Every export is logged.">&#8681; Personnel file (PDF)</button></div>';

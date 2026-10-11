@@ -1,8 +1,8 @@
 /* node tests/welcome-roster-test.js
-   Welcome call done -> caregiver roster (Samantha, 2026-10-02). The real wcAct / wcAddToRoster / wcRosterMsg /
+   Orientation Video Call done -> caregiver roster (Samantha, 2026-10-02). The real wcAct / wcAddToRoster / wcRosterMsg /
    wcRosterAdd / wcOrientCall / wcRowFor / cgRecordFromCandidate / promoteToCaregiver, cut out of caregivers-engine.js
    and run against fakes. Proves: done adds them to the roster with today's Central hire date and orient_date '' (never
-   marked trained), carries offer/intake/step 2/welcome call ids, removes the B&R record ONLY after the roster saved;
+   marked trained), carries offer/intake/step 2/Orientation Video Call ids, removes the B&R record ONLY after the roster saved;
    a failed save keeps the candidate, rolls back the local add and says so; a second press never adds twice; the
    Send orientation link retry still finds offer id, phone and email through the roster record; the 2c gate treats
    them as a new hire; the office 🎓 Promote is unchanged (orient_date = hire date). Plus the Orientations tab layout. */
@@ -71,7 +71,7 @@ function world(opts = {}) {
   ck('done: orient_date and alz_date are EMPTY (orientation is online after this, never marked trained)', g.orient_date === '' && g.alz_date === '', g);
   ck('done: phone, email, checks, prehire and hiring snapshot carried like Promote', g.phone === '417-555-0199' && g.email === 'ava@x.com' && g.oig_status === 'Clear' && g.oig_date === '2026-09-20'
      && g.fcsr_date === '2026-09-21' && g.fp === 'N/A' && g.prehire.oig.status === 'Clear' && g.prehire.refs[0].name === 'Ref One' && g.hiring_snapshot && g.hiring_snapshot.event === 'pre_hire_clearance' && g.hiring_snapshot.oig === 'Clear' && g.hiring_snapshot.refs === 'Positive|||' && Array.isArray(g.hiring_snapshot.outstanding), g);
-  ck('done: offer id, intake id, step 2 and welcome call fields carried', g.offer_id === 'offer-uuid-1' && g.intake_id === 'intake-9' && g.step2_done_at === '2026-10-01T15:00:00Z'
+  ck('done: offer id, intake id, step 2 and Orientation Video Call fields carried', g.offer_id === 'offer-uuid-1' && g.intake_id === 'intake-9' && g.step2_done_at === '2026-10-01T15:00:00Z'
      && g.step2_sent_by === 'angiel@mo-care.com' && g.welcome_call_id === 'w1' && g.welcome_invited_at && g.position === 'Caregiver' && g.promoted_via === 'welcome_call', g);
   ck('done: the B&R record is removed only AFTER the roster saved', W.ctx.candidates.length === 0
      && W.log.findIndex((l) => l[0] === 'saveCaregivers') < W.log.findIndex((l) => l[0] === 'saveCandidates'), W.log);
@@ -79,7 +79,7 @@ function world(opts = {}) {
   ck('done: order is mark done, then roster, then orientation link', JSON.stringify(order) === '["welcome-call","saveCaregivers","training"]', order);
   ck('done: no extra confirm (just the done question) and one message', W.log.filter((l) => l[0] === 'confirm').length === 1 && W.alerts.length === 1, W.log);
   const label = (() => { const m = todayCentral.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[1] - 1] + ' ' + (+m[2]) + ', ' + m[0]; })();
-  ck('done: the message says "Added to the caregiver roster (hire date ' + label + ')." between done and the link', W.alerts[0].startsWith('Welcome call marked done.\n\nAdded to the caregiver roster (hire date ' + label + ').\n\nOrientation link sent by text and email.'), W.alerts[0]);
+  ck('done: the message says "Added to the caregiver roster (hire date ' + label + ')." between done and the link', W.alerts[0].startsWith('Orientation Video Call marked done.\n\nAdded to the caregiver roster (hire date ' + label + ').\n\nOrientation link sent by text and email.'), W.alerts[0]);
   const f = W.fetches[0] || { body: {} };
   ck('done: the link call still has the offer id and both phones, captured before the move', f.body.offer_id === 'offer-uuid-1' && f.body.phone === '(417) 555-0100' && JSON.stringify(f.body.phones) === '["417-555-0199"]' && f.body.email === 'ava@x.com', f.body);
 
@@ -99,7 +99,7 @@ function world(opts = {}) {
   await W.X.wcAct('w1', 'done', '', null);
   ck('save fails: the candidate is KEPT, the local roster add is undone, B&R not re-saved', W.ctx.candidates.length === 1 && W.ctx.caregivers.length === 0 && !W.log.some((l) => l[0] === 'saveCandidates'), [W.ctx.candidates.length, W.ctx.caregivers.length]);
   ck('save fails: the office is told, with what to press', /NOT added to the caregiver roster: the save did not reach the shared workspace/.test(W.alerts[0]) && /still in Background & References/.test(W.alerts[0]) && /Add to caregiver roster/.test(W.alerts[0]), W.alerts);
-  ck('save fails: the call stays done and the orientation link still goes', /^Welcome call marked done\./.test(W.alerts[0]) && W.fetches.length === 1, W.alerts);
+  ck('save fails: the call stays done and the orientation link still goes', /^Orientation Video Call marked done\./.test(W.alerts[0]) && W.fetches.length === 1, W.alerts);
   ck('save fails: the Done recently row offers Add to caregiver roster', W.X.wcNeedsRoster({ candidate_id: '41' }) === true);
   W = world({ saveThrows: true });
   await W.X.wcAct('w1', 'done', '', null);
@@ -122,7 +122,7 @@ function world(opts = {}) {
   ck('retry Send orientation link after the move: offer id, phone and email found through the roster', rf.offer_id === 'offer-uuid-1' && rf.phones.includes('417-555-0199') && rf.email === 'ava@x.com', rf);
   const s = W.X.wcSrcFor('41');
   ck('wcSrcFor falls back to the roster record by candidate id', s && s.intake_id === 'intake-9' && s.first === 'Ava');
-  ck('wcRowFor finds the welcome call from the roster record', (W.X.wcRowFor(W.ctx.caregivers[0]) || {}).id === 'w1');
+  ck('wcRowFor finds the Orientation Video Call from the roster record', (W.X.wcRowFor(W.ctx.caregivers[0]) || {}).id === 'w1');
 
   // ---- 2c gate: a new hire ----
   require('../eligibility-rules.js');
@@ -140,7 +140,7 @@ function world(opts = {}) {
   await W.X.promoteToCaregiver(41);   // 421: async (waits for the roster save before removing the candidate)
   const pr = W.ctx.caregivers[0] || {};
   ck('office Promote: still asks, orient_date = hire date = the session date, candidate removed', W.log.some((l) => l[0] === 'confirm' && /Promote Ava Applicant/.test(l[1])) && pr.hire_date === '2026-10-01' && pr.orient_date === '2026-10-01' && W.ctx.candidates.length === 0, pr);
-  ck('office Promote: no welcome-call extras (only the pipeline links offer_id/intake_id travel)', pr.promoted_via === undefined && pr.welcome_call_id === undefined && pr.step2_done_at === undefined && pr.offer_id === 'offer-uuid-1' && pr.intake_id === 'intake-9', pr);
+  ck('office Promote: no Orientation Video Call extras (only the pipeline links offer_id/intake_id travel)', pr.promoted_via === undefined && pr.welcome_call_id === undefined && pr.step2_done_at === undefined && pr.offer_id === 'offer-uuid-1' && pr.intake_id === 'intake-9', pr);
 
   // ---- guide and layout ----
   const G = W.X.WC_GUIDE;
@@ -148,15 +148,15 @@ function world(opts = {}) {
   const tab = html.slice(html.indexOf('<section class="tabpanel" id="tab-cgorient">'), html.indexOf('<section class="tabpanel" id="tab-cgtraining">'));
   ck('tab: the old "How This Tab Works" guide is gone', !/How This Tab Works/.test(tab) && !/guide-body-orient"/.test(tab));
   const iWc = tab.indexOf('id="wc-section"'), iReady = tab.indexOf('id="orient-ready-queue"'), iOffice = tab.indexOf('id="orient-office"');
-  ck('tab: welcome calls, then Ready for Orientation, then the office section at the bottom', iWc > 0 && iWc < iReady && iReady < iOffice, [iWc, iReady, iOffice]);
+  ck('tab: Orientation Video Calls, then Ready for Orientation, then the office section at the bottom', iWc > 0 && iWc < iReady && iReady < iOffice, [iWc, iReady, iOffice]);
   const office = tab.slice(iOffice);
   ck('tab: the office section holds the settings, the calendar and the sessions list, all old ids kept',
     ['guide-body-orient-cfg', 'orient-schedule-days', 'orient-gen-weeks', 'orient-cfg-save-btn', 'cal-days', 'cal-month-label', 'or-stats', 'or-sessions-list', 'pts-past'].every((id) => office.includes('id="' + id + '"')));
   ck('tab: titled "🏢 Office orientation (backup only)", closed by default, toggled by SCX.toggleOfficeOrient',
     /<span class="tab-guide-title"[^>]*>🏢 Office orientation \(backup only\)<\/span>/.test(office) && /class="tab-guide-body" id="guide-body-orient-office">/.test(office) && /onclick="SCX\.toggleOfficeOrient\(\)"/.test(office));
-  ck('tab: the intro line, exactly', office.includes('Most new hires do orientation from home after their welcome call. Use this only when someone needs to come into the office: press <b>📅 In the office instead</b> on their row above, then either text them the booking link to pick a session, or type the date and time yourself (a one-seat session is added if there is none). After the session, mark attendance and press <b>🎓 Promote</b> for anyone who attended.'));
+  ck('tab: the intro line, exactly', office.includes('Most new hires do orientation from home after their Orientation Video Call. Use this only when someone needs to come into the office: press <b>📅 In the office instead</b> on their row above, then either text them the booking link to pick a session, or type the date and time yourself (a one-seat session is added if there is none). After the session, mark attendance and press <b>🎓 Promote</b> for anyone who attended.'));
   ck('engine: toggleOfficeOrient is on SCX and redraws the calendar and sessions when opened', /toggleGuide, toggleOfficeOrient,/.test(src) && /function toggleOfficeOrient\(\)\{[\s\S]{0,300}renderCalendar\(\); renderSessionsList\(\)/.test(src));
-  const newCopy = office.slice(0, office.indexOf('Orientation Settings') + 60) + cut('/* ── Welcome call done -> caregiver roster', 'function renderOrientReadyQueue(') + G;
+  const newCopy = office.slice(0, office.indexOf('Orientation Settings') + 60) + cut('/* ── Orientation Video Call done -> caregiver roster', 'function renderOrientReadyQueue(') + G;
   ck('no em dash in the new copy', !/—/.test(newCopy), (newCopy.match(/.{40}—.{40}/) || [''])[0]);
 
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

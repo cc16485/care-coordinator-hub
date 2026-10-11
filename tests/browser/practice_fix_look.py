@@ -92,6 +92,6 @@ src = ENG
 R.append(['PASS' if src.count("${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}") == 2 else 'FAIL', 'caregiver roster rows (Training and Compliance tables) carry the Readiness button for new-path people', ''])
 R.append(['PASS' if ("{ k:'casenet', label:'Case.net', opts:['Pending','Clear','Issues Found'] }" in src and 'href="https://www.courts.mo.gov/casenet/nameSearch.do?newSearch=Y"' in src and "bgrRecordCheck('+b.id+',\\'casenet\\')" in src
     and "chips.push(mk('Case.net', board.casenet, ['Clear'], !!board.casenet_date));" in src and "const WC_CARRY = ['casenet', 'casenet_date', 'casenet_proof'," in src) else 'FAIL',
-  'Case.net: a background check like EDL and FCSR (Search Case.net opens the court site; Record Case.net takes the result, date and proof; the summary chip; carried to the roster at the welcome call)', ''])
+  'Case.net: a background check like EDL and FCSR (Search Case.net opens the court site; Record Case.net takes the result, date and proof; the summary chip; carried to the roster at the Orientation Video Call)', ''])
 for r in R: print(r[0], '·', r[1], ('→ ' + str(r[2])) if r[2] else '')
 print(f"{sum(1 for r in R if r[0]=='PASS')} / {len(R)}"); raise SystemExit(0 if all(r[0] == 'PASS' for r in R) else 1)

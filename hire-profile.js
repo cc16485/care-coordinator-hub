@@ -3,7 +3,7 @@
    their main profile and make it easy for us to access the applicant's main profile from anywhere, and the PDF of all
    signed documents should be saved in the main profile... we need to be able to look at the profile and see it all".
    One panel, opened from anywhere (👤 Profile on the offer cards, Background & References, the caregiver roster, the
-   readiness card, the welcome calls, the applicant page). The server (hire-profile) reads every permanent record for that
+   readiness card, the Orientation Video Calls, the applicant page). The server (hire-profile) reads every permanent record for that
    one person; nothing is copied or typed here. Every document opens by a five-minute link and every open is logged.
      HP.open({ offer_id | candidate_id | caregiver_id | applicant_id })   HP.chip(key)   HP.fillOfferProgress()
    ===================================================================================================================== */
