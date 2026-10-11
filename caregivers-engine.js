@@ -6030,9 +6030,21 @@ async function bgrSaveCheck(btn){
    medias.write scope — no code change needed then) and send a Google Drive copy
    through the candidate webhook. This files a document; it never messages the
    caregiver. */
+/* the same rule as the server's opt-out door (_shared/optout.ts practicePerson) */
+function bgrPracticePerson(phone, email){
+  const p = String(phone || '').trim(), e = String(email || '').trim().toLowerCase();
+  if(!p && !e) return false;
+  const d = p.replace(/\D/g, '');
+  const pOk = !p || (d.length >= 7 && /^555018\d$/.test(d.slice(-7)));
+  const eOk = !e || /@(?:[a-z0-9-]+\.)*practice\.invalid$/.test(e);
+  return pOk && eOk;
+}
 async function bgrPushDocToGHL(candId, which, proof, labelOverride){
   const c = candidates.find(x => x.id === candId);
   if(!c || (!c.email && !c.phone) || !proof) return;
+  /* PRACTICE ADDRESSES (2026-10-11, the practice run): a made-up person reachable only at a practice address (a number
+     ending 555-0180 to 555-0189, an email ending @practice.invalid) is never added to GoHighLevel. The proof stays here. */
+  if(bgrPracticePerson(c.phone, c.email)) return;
   /* labelOverride (R3): a reference PDF reads "Reference 1 (Professional): Jane Doe". */
   const label = labelOverride || (({oig:'OIG',edl:'EDL',fcsr:'FCSR',fp:'Fingerprint'}[which] || which) + ' background check');
   const fname = /^https?:\/\//i.test(proof) ? 'document' : (String(proof).split('/').pop() || 'document.pdf');
