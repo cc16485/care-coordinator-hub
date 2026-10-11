@@ -32,9 +32,11 @@
     document.body.appendChild(w);
   }
   function close(){ const m = document.getElementById('crModal'); if(m) m.style.display = 'none'; CUR = null; }
+  let OPEN_OFFER = '';
   async function open(offerId, who){
     ensureModal(); const m = document.getElementById('crModal'); m.style.display = 'flex';
     document.getElementById('crBody').innerHTML = '<div style="font-size:.85rem;color:#6E6559">Opening their readiness card…</div>';
+    OPEN_OFFER = String(offerId);
     try { CUR = await call({ action:'get', offer_id:String(offerId) }); CUR.who = who || ''; render(); }
     catch(e){ document.getElementById('crBody').innerHTML = '<div style="color:#B91C1C;font-size:.85rem">The card could not open: ' + esc(e.message || e) + '</div><div style="margin-top:.8rem;text-align:right"><button class="ibtn" onclick="CRX.close()">Close</button></div>'; }
   }
@@ -120,7 +122,8 @@
     if(d.events && d.events.length) h += '<details style="margin-top:.5rem"><summary style="font-size:.76rem;color:#0D365F;cursor:pointer">History (' + d.events.length + ')</summary>' + d.events.slice(0, 40).map(e => '<div style="font-size:.74rem;padding:.12rem 0">' + esc(when(e.at)) + ' · ' + esc(e.kind) + (e.step_key ? ' · ' + esc(e.step_key) : '') + ' · ' + esc(e.actor_name || e.actor_email) + (e.reason ? ' · "' + esc(e.reason) + '"' : '') + '</div>').join('') + '</details>';
     /* SLICE 6: the read-only personnel-file export (owners and the Audit export list; every export logged) */
     if(d.may_export) h += '<div id="crExport" style="margin-top:.6rem;font-size:.78rem"><button class="ibtn" onclick="CRX.exportFile(this)" title="A read-only PDF of every requirement, who verified, when, evidence and the history, with five-minute links to each proof. Every export is logged.">&#8681; Personnel file (PDF)</button></div>';
-    h += '<div style="margin-top:.8rem;text-align:right"><button class="ibtn" onclick="CRX.close()">Close</button></div>';
+    /* the main profile: every send, receipt and completion with its time, and every signed document */
+    h += '<div style="margin-top:.8rem;display:flex;gap:.4rem;justify-content:flex-end">' + (window.HP ? '<button class="ibtn" onclick="CRX.close();HP.open({offer_id:\'' + esc(OPEN_OFFER) + '\'})">&#128100; Profile</button>' : '') + '<button class="ibtn" onclick="CRX.close()">Close</button></div>';
     return h;
   }
   const ownerWords = o => !o ? 'the Hub' : o.email ? o.email : o.role === 'owner' ? 'an owner' : o.role === 'hub' ? 'the Hub (verified on its own)' : (o.role || '').replace(/_/g, ' ');

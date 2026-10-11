@@ -539,7 +539,7 @@ function gdriveGetPersonName(){
 
 // Map proof input IDs to document-type subfolder names
 const GDRIVE_DOC_FOLDERS = {
-  'oig':'OIG','edl':'EDL','fcsr':'FCSR','fp':'Fingerprint',
+  'oig':'OIG','edl':'EDL','fcsr':'FCSR','casenet':'Case.net','fp':'Fingerprint',
   'orient':'Training','alz':'Training','ojt':'Training','ojt-online':'Training',
   'annual':'Training','ethics':'Training','rights':'Training',
   'supv':'Supervisory','perf':'Performance',
@@ -1464,14 +1464,16 @@ function renderOffers(){
        tick themselves from the records; the only buttons left are the AxisCare attributes (kept) and moving them into
        Background & References. */
     const np=o.onboarding_path==='new';
+    /* STEP 1 BEFORE CHECKS (Samantha 2026-10-11): nothing goes into Background & References before Step 1 is complete, because
+       their signed permission for checks and references is in Step 1. The Hub moves them in by itself the moment Step 1 is
+       complete and tells Recruiting to start; there is no button for it. Step 1's progress shows here (HP.fillOfferProgress). */
     const steps=np?[
       {done:!!(o.offer_signed_at&&o.pd_signed_at), label:'Offer and position description signed',
        btn:'', note:'Theirs to do on the signing link below; this ticks itself when both are signed.'},
-      {done:(typeof candidates!=='undefined'?candidates:[]).some(c=>String(c.offer_id||'')===String(o.id)), label:'Background &amp; references',
-       btn:'<button class="fb" onclick="offerToCandidate(\''+id+'\',this)">Move to Background &amp; References</button>',
-       note:'Move them across before they sign Step 1, so their answers and references land on their row.'},
       {done:!!o.step1_done_at, label:'Their Step 1',
-       btn:'', note:'Theirs to do on the Step 1 link; this ticks itself when they sign it. Nothing to mark here.'},
+       btn:'', note:'Sent automatically when they signed. <span class="hp1" data-offer="'+id+'">Checking how far they are…</span>'},
+      {done:(typeof candidates!=='undefined'?candidates:[]).some(c=>String(c.offer_id||'')===String(o.id)), label:'Background &amp; references',
+       btn:'', note:'The Hub moves them in by itself when Step 1 is complete (their signed permission is in), and tells Recruiting to start the checks and references.'},
       {done:!!o.attributes_entered_at, label:'AxisCare attributes',
        btn:'<button class="fb" onclick="markOfferEntered(\''+id+'\',this)">Mark entered in AxisCare</button>',
        note:'From the copy sheet on their readiness card, then mark it here.'},
@@ -1501,6 +1503,7 @@ function renderOffers(){
 
     return '<div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.82rem;color:#3A342C">'+
       '<span>'+pathChip(o.onboarding_path)+'</span>'+
+      (window.HP?'<span>'+HP.chip({offer_id:String(o.id)})+'</span>':'')+
       (o.phone?'<span>📱 '+esc(o.phone)+'</span>':'')+
       (o.email?'<span>✉️ '+esc(o.email)+'</span>':'')+
       (o.pay_rate?'<span>💵 $'+Number(o.pay_rate).toFixed(2)+'/hr</span>':'')+
@@ -1622,9 +1625,14 @@ function renderOffers(){
 
 /* Linked when the offer was moved across; the candidate carries the offer id. */
 function offerMovedOn(o){
-  return candidates.some(c=>String(c.offer_id)===String(o.id))
-    /* welcome call done moves them to the roster with their offer id (2026-10-02) */
-    || (typeof caregivers!=='undefined' ? caregivers : []).some(g=>g.offer_id!=null && String(g.offer_id)===String(o.id));
+  /* welcome call done moves them to the roster with their offer id (2026-10-02) */
+  if((typeof caregivers!=='undefined' ? caregivers : []).some(g=>g.offer_id!=null && String(g.offer_id)===String(o.id))) return true;
+  if(!candidates.some(c=>String(c.offer_id)===String(o.id))) return false;
+  /* PRACTICE RUN FIX (2026-10-11): on the new path the Step 1 link lives on this card and the person is moved into
+     Background & References BEFORE Step 1, so the card stays on Open offers until Step 1 is signed (or the offer is
+     withdrawn). The old path is unchanged: in Background & References means moved on. */
+  if(o.onboarding_path==='new' && !o.step1_done_at && !o.offer_withdrawn_at) return false;
+  return true;
 }
 
 /* "Jul 31" reads faster than "2026-07-31" in a list you scan. The year only
@@ -1678,6 +1686,7 @@ function renderPastOffers(){
       '<span style="flex:1"></span>'+
       '<span style="font-size:.72rem;font-weight:700;color:'+tone[0]+';background:'+tone[1]+';border-radius:999px;padding:.15rem .6rem">'+esc(where)+'</span>'+
       (c?'<button class="fb" style="font-size:.72rem" onclick="gotoTab(\'onboarding\')">Open</button>':'')+
+      (window.HP&&o.id?HP.chip({offer_id:String(o.id)}):'')+
       '</div>';
   }).join('');
 }
@@ -1969,9 +1978,21 @@ async function autoAskReferences(){
   }
 }
 
+/* STEP 1 BEFORE CHECKS (Samantha 2026-10-11): "we CANNOT run background checks and references before we have their signed
+   permission, which is in the Step 1 documents". On the new path a person reaches this tab only when Step 1 is complete; this
+   is the second guard for anyone who got here earlier (the old path is unchanged: its consents come by the start form). */
+function bgrStep1Wait(c){
+  if(!c || c.onboarding_path !== 'new') return false;
+  const o = (typeof OFFERS !== 'undefined' ? OFFERS : []).find(x => String(x.id) === String(c.offer_id || ''));
+  const done = !!(c.step1_done_at || (c.step1_landed && c.step1_landed.done) || (o && o.step1_done_at));
+  if(done) return false;
+  alert('Not yet: ' + ((c.first || '') + ' ' + (c.last || '')).trim() + ' has not finished Step 1, which holds their signed permission for background checks and references. Nothing was run or sent. The Hub tells Recruiting the moment Step 1 is complete.');
+  return true;
+}
 async function askReferences(candId, btn){
   const c = candidates.find(x => x.id === candId);
   if (!c) return;
+  if (bgrStep1Wait(c)) return;
   if (!HYDRATED) { alert('Shared data has not loaded, so this section is read-only right now. No reference requests were created and nothing was sent. Use Try again at the top, then retry.'); return; }
   if (safeIsTmp(c.id)) { alert(c.first + ' ' + c.last + ' is still being saved. Nothing was sent. Try again in a moment.'); return; }
   const slots = [1,2,3,4]
@@ -2301,6 +2322,13 @@ async function offerToCandidate(offerId, btn, opts){
   const quiet = !!(opts && opts.quiet);   /* 2026-10-08: from the offer form and the Offered strip, no pop-ups, says what happened */
   const o = OFFERS.find(x => String(x.id) === String(offerId));
   if (!o) return quiet ? { ok:false, why:'that offer is not in the offers list' } : undefined;
+  /* STEP 1 BEFORE CHECKS (2026-10-11): never by hand on the new path; the Hub does it when Step 1 is complete */
+  if (o.onboarding_path === 'new') {
+    const why = o.step1_done_at ? 'The Hub moves them into Background & References by itself when Step 1 is complete; refresh in a moment.'
+      : 'Not yet: background checks and references need their signed permission, which is in their Step 1. The Hub moves them into Background & References by itself the moment Step 1 is complete.';
+    if (quiet) return { ok:false, why };
+    alert(why); return;
+  }
   const digits = t => String(t || '').replace(/\D/g, '').slice(-10);
   const dupe = candidates.find(c =>
     (digits(c.phone) && digits(c.phone) === digits(o.phone)) ||
@@ -5110,6 +5138,7 @@ async function bgrRunOIG(boardId, btn){
   if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then run the check.'); return; }
   const c = candidates.find(x => x.id === boardId);
   if(!c){ alert('That candidate could not be found. Refresh the tab and try again.'); return; }
+  if(bgrStep1Wait(c)) return;
   if(btn){ btn.disabled = true; btn._t = btn.textContent; btn.textContent = 'Checking…'; }
   try {
     const result = await runOIGCheck(c.first, c.last);
@@ -5161,6 +5190,7 @@ function sdWipeAll(){ Object.keys(SD.timers).forEach(k => clearInterval(SD.timer
 async function bgrScreeningDesk(candId){
   if(!HYDRATED){ alert('Open Background & References first so the shared data loads.'); return; }
   const c = candidates.find(x => x.id === candId); if(!c || !c.offer_id) return;
+  if(bgrStep1Wait(c)) return;
   sdEnsureModal(); sdWipeAll();
   SD.candId = candId; SD.offerId = String(c.offer_id); SD.data = null;
   const m = document.getElementById('sdModal'); m.style.display = 'flex';
@@ -5263,6 +5293,7 @@ function bgrPickReferenceSlot(boardId, title, onPick){
 }
 function bgrRecordForPerson(boardId){
   if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then record the answer.'); return; }
+  if(bgrStep1Wait(candidates.find(x => x.id === boardId))) return;
   bgrPickReferenceSlot(boardId, "Record a reference's answer", (slot) => openManualRef(boardId, slot));
 }
 
@@ -5279,6 +5310,7 @@ function bgrChecksSummary(board){
   chips.push(mk('OIG', board.oig, ['CLEAR'], !!board.oig_date));
   chips.push(mk('EDL', board.edl, ['Clear'], !!board.edl_date));
   chips.push(mk('FCSR', board.fcsr, ['Clear'], !!board.fcsr_date));
+  chips.push(mk('Case.net', board.casenet, ['Clear'], !!board.casenet_date));
   if(board.oos === 'yes') chips.push(mk('FP', board.fp, ['Clear'], !!board.fp_date));
   else chips.push(bgrOff('FP n/a'));
   return { chips, problem };
@@ -5467,6 +5499,7 @@ function bgrPersonCard(r, t){
     if(b.oig !== 'CLEAR' && !b.oig_date) bgBtns.push('<button class="ibtn" onclick="bgrRunOIG('+b.id+',this)" title="Run the OIG exclusion check for this candidate now">Run OIG</button>');
     if(sdEligible(b)) bgBtns.push('<button class="ibtn" onclick="bgrScreeningDesk('+b.id+')" title="The locked identity details, the FCSR registration sheet and the reveal log">&#128274; Screening desk</button>');
     if(sdEligible(b) && window.CRX) bgBtns.push(CRX.chip(b.offer_id));   /* 3b: the one readiness card */
+    if(window.HP) bgBtns.push(HP.chip({candidate_id:b.id}));   /* the main profile */
     const refsPending = [1,2,3,4].some(n => b['r'+n+'n'] && b['r'+n+'s'] === 'Pending');
     if(refsPending) refBtns.push('<button class="ibtn" onclick="askReferences('+b.id+',this)" title="Email any reference with an email address; a phone-only reference stays yours to call">&#128233; Ask refs</button>');
     if([1,2,3,4].some(n => b['r'+n+'n'])) refBtns.push('<button class="ibtn" onclick="bgrRecordForPerson('+b.id+')" title="Record a reference&#39;s answer from a phone call or in person">Record answer</button>');
@@ -5585,6 +5618,8 @@ const BGR_CHECKS = [
   { k:'oig',  label:'OIG',         opts:['Pending','CLEAR','FLAGGED'] },
   { k:'edl',  label:'EDL',         opts:['Pending','Clear','Issues Found'] },
   { k:'fcsr', label:'FCSR',        opts:['Pending','Clear','Issues Found'] },
+  /* CASE.NET (Samantha 2026-10-11): the Missouri courts name search, recorded like EDL and FCSR (result, date, proof) */
+  { k:'casenet', label:'Case.net', opts:['Pending','Clear','Issues Found'] },
   { k:'fp',   label:'Fingerprint', opts:['N/A','Required','Submitted','Clear','Issues Found'] },
 ];
 function bgrEnsureDrawer(){
@@ -5634,8 +5669,12 @@ function bgrDrawerHTML(r, t){
     if(b.oig !== 'CLEAR' && !b.oig_date) bgBtns.push('<button class="ibtn" onclick="bgrRunOIG('+b.id+',this)">Run OIG</button>');
     if(sdEligible(b)) bgBtns.push('<button class="ibtn" onclick="bgrScreeningDesk('+b.id+')" title="The locked identity details, the FCSR registration sheet and the reveal log">&#128274; Screening desk</button>');
     if(sdEligible(b) && window.CRX) bgBtns.push(CRX.chip(b.offer_id));   /* 3b: the one readiness card */
+    if(window.HP) bgBtns.push(HP.chip({candidate_id:b.id}));   /* the main profile */
     bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'edl\')">Record EDL</button>');
     bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'fcsr\')">Record FCSR</button>');
+    /* CASE.NET: the court site opens in its own tab (the Hub never types into it); the office records what it found */
+    bgBtns.push('<a class="ibtn" style="text-decoration:none" href="https://www.courts.mo.gov/casenet/nameSearch.do?newSearch=Y" target="_blank" rel="noopener" title="Missouri Case.net name search: search their full name, save the result page as a PDF">Search Case.net &#8599;</a>');
+    bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'casenet\')">Record Case.net</button>');
     if(b.oos === 'yes') bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'fp\')">Record fingerprint</button>');
     const refsPending = [1,2,3,4].some(n => b['r'+n+'n'] && b['r'+n+'s'] === 'Pending');
     if(refsPending) refBtns.push('<button class="ibtn" onclick="askReferences('+b.id+',this)">&#128233; Ask refs</button>');
@@ -5972,6 +6011,7 @@ function bgrRecordCheck(candId, which){
   if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then record the check.'); return; }
   const c = candidates.find(x => x.id === candId);
   if(!c){ alert('That candidate could not be found. Refresh the tab and try again.'); return; }
+  if(bgrStep1Wait(c)) return;
   const meta = BGR_CHECKS.find(x => x.k === which); if(!meta) return;
   bgrEnsureCheckModal();
   _bgrCheckCand = candId; _bgrCheckWhich = which;
@@ -7019,7 +7059,7 @@ function renderTR(){
       <td><div class="chk"><span class="badge ${thirtyBadge}">${thirtyLabel}</span><span class="chk-date">Deadline: ${ddStr||'—'}</span>${ojtLine}${ojtOnlineLine}</div></td>
       <td><div class="chk"><span class="badge ${annBadge}">${annLabel}</span>${annDateLine}${annHrsLine}${annProofLine}</div></td>
       <td><span class="badge ${oBadge}">${ts.overall}</span></td>
-      <td><div class="acts"><button class="ibtn" onclick="openCGModal('training',${c.id})">✏️</button>${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}</div></td>
+      <td><div class="acts"><button class="ibtn" onclick="openCGModal('training',${c.id})">✏️</button>${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}${window.HP?HP.chip({caregiver_id:c.id}):''}</div></td>
     </tr>`;
   }).join('');
 
@@ -7085,7 +7125,7 @@ function renderAC(){
       <td><div class="chk">${c.oos==='yes'?`<span class="badge ${fpBadge}">${c.fp}</span>${c.fp_date?`<span class="chk-date">${fmtD(c.fp_date)}</span>`:''}${proofLink(c.fp_proof)}`:`<span class="badge b-gray">Not required</span>`}</div></td>
       <td>${compCell(c.supv_date,sv,'',c.supv_proof)}</td>
       <td>${compCell(c.perf_date,pr,'',c.perf_proof)}</td>
-      <td><div class="acts"><button class="ibtn" onclick="openCGModal('compliance',${c.id})">✏️</button>${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}</div></td>
+      <td><div class="acts"><button class="ibtn" onclick="openCGModal('compliance',${c.id})">✏️</button>${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}${window.HP?HP.chip({caregiver_id:c.id}):''}</div></td>
     </tr>`;
   }).join('');
   updateACBulkBar();
@@ -8354,6 +8394,7 @@ function wcCard(w){
   return `<div style="background:#fff;border:1.5px solid ${past ? '#FCD34D' : '#BAE6FD'};border-radius:10px;padding:.7rem .85rem;margin-bottom:.55rem">
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .8rem">
       <span style="font-size:.9rem;font-weight:700;color:var(--navy)">${wcEsc(wcName(w))}</span>
+      ${(window.HP && w.candidate_id) ? HP.chip({candidate_id:w.candidate_id}) : ''}
       <span style="font-size:.8rem;color:#075985;font-weight:600">${wcEsc(wcWhen(w.starts_at))}</span>
       ${past ? '<span class="badge" style="background:#FEF3C7;color:#92400E;font-size:.62rem">Time has passed. Mark it done, missed or moved.</span>' : ''}
       <a href="${WC_MEET}" target="_blank" rel="noopener" class="ibtn" style="text-decoration:none;background:#0D365F;color:#fff;border-color:#0D365F">📹 Join the call</a>
@@ -8580,7 +8621,7 @@ function wcYmdLabel(ymd){
   const m = String(ymd || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); if(!m) return String(ymd || '');
   return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2] - 1] + ' ' + (+m[3]) + ', ' + m[1];
 }
-const WC_CARRY = ['offer_id', 'intake_id', 'position', 'welcome_call_id', 'welcome_invited_at',
+const WC_CARRY = ['casenet', 'casenet_date', 'casenet_proof', 'offer_id', 'intake_id', 'position', 'welcome_call_id', 'welcome_invited_at',
   'step2_sent_at', 'step2_sent_by', 'step2_done_at', 'step2_done_by', 'previous_names',
   /* SLICE 4: the audited Step 2 record travels with the person */
   'step2_sent_note', 'step2_resent_at', 'step2_resent_by', 'step2_msg', 'step2_done_how', 'step2_receipt', 'step2_verified_at', 'step2_verified_by', 'step2_checklist', 'step2_i9_s2_by', 'step2_i9_s2_at', 'step2_note', 'step2_still_open_at', 'step2_still_open_by', 'step2_still_open_task', 'step2_reminders', 'step2_history', 'step2_invite'];
@@ -9302,6 +9343,7 @@ function openProfile(first, last){
 
   let html = `<div style="border-bottom:2px solid var(--border);padding-bottom:1rem;margin-bottom:1rem">`;
   html += `<h2 style="font-size:1.25rem;font-weight:700;color:var(--navy);margin-bottom:.25rem">👤 ${nm}</h2>`;
+  if(window.HP && (cg || cand)) html += `<div style="margin:.2rem 0 .4rem">${HP.chip(cg ? {caregiver_id:cg.id} : {candidate_id:cand.id}, 'Open the full profile (every send, receipt, completion and signed document)')}</div>`;
   html += `<div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;font-size:.82rem;color:var(--gray)">`;
   if(phone) html += `<a${ocAttrs(phone)} style="color:var(--teal);text-decoration:none">📞 ${phone}</a>`;
   if(hireDate) html += `<span>${hireDate}</span>`;
