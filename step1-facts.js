@@ -12,7 +12,7 @@
   var client = function () { try { if (typeof sb !== 'undefined' && sb) return sb; } catch (e) { /* not on this page */ } return root.__s1Sb || null; };
   var SERVICE = { companionship: 'Companionship', housekeeping: 'Housekeeping', errands_shopping: 'Errands and shopping', meal_preparation: 'Meal preparation',
     laundry: 'Laundry', transportation: 'Transportation', activities: 'Activities', medication_reminders: 'Medication reminders', dementia_care: "Dementia and Alzheimer's care" };
-  var SHIFT = { mornings: 'Mornings', afternoons: 'Afternoons', evenings: 'Evenings', overnights: 'Overnights', live_in: 'Live-in', weekdays: 'Weekdays', weekends: 'Weekends' };
+  var SHIFT = { mornings: 'Mornings', afternoons: 'Afternoons', evenings: 'Evenings', overnights: 'Overnights', weekdays: 'Weekdays', weekends: 'Weekends' };
   var DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
   var FAV = { candy_bar: 'Candy bar', soft_drink: 'Drink', snack: 'Snack', sandwich: 'Sandwich', food: 'Food', dessert: 'Dessert', restaurant: 'Restaurant', store: 'Store',
     music: 'Music', movies: 'Movies', sports_team: 'Sports team', flower: 'Flower', gift_card_places: 'Gift card ideas' };
