@@ -1459,7 +1459,23 @@ function renderOffers(){
 
     /* The ladder, in order. Done ones tick quietly; the first unfinished one
        is the only place a button appears. */
-    const steps=[
+    /* PRACTICE RUN FIX (Samantha "approve the two fixes", 2026-10-11; the retirement list in the plan): on the new path the
+       Viventium entry with its welcome message, and the manual "Mark Step 1 done", are retired. The signatures and Step 1
+       tick themselves from the records; the only buttons left are the AxisCare attributes (kept) and moving them into
+       Background & References. */
+    const np=o.onboarding_path==='new';
+    const steps=np?[
+      {done:!!(o.offer_signed_at&&o.pd_signed_at), label:'Offer and position description signed',
+       btn:'', note:'Theirs to do on the signing link below; this ticks itself when both are signed.'},
+      {done:(typeof candidates!=='undefined'?candidates:[]).some(c=>String(c.offer_id||'')===String(o.id)), label:'Background &amp; references',
+       btn:'<button class="fb" onclick="offerToCandidate(\''+id+'\',this)">Move to Background &amp; References</button>',
+       note:'Move them across before they sign Step 1, so their answers and references land on their row.'},
+      {done:!!o.step1_done_at, label:'Their Step 1',
+       btn:'', note:'Theirs to do on the Step 1 link; this ticks itself when they sign it. Nothing to mark here.'},
+      {done:!!o.attributes_entered_at, label:'AxisCare attributes',
+       btn:'<button class="fb" onclick="markOfferEntered(\''+id+'\',this)">Mark entered in AxisCare</button>',
+       note:'From the copy sheet on their readiness card, then mark it here.'},
+    ]:[
       {done:!!o.attributes_entered_at, label:'AxisCare attributes',
        btn:'<button class="fb" onclick="markOfferEntered(\''+id+'\',this)">Mark entered in AxisCare</button>',
        note:o.axiscare_applicant_id?'Pushed automatically, just confirm the attributes.':'Auto-push did not take, so add them by hand first.'},
@@ -1473,7 +1489,7 @@ function renderOffers(){
        btn:'<button class="fb" onclick="offerToCandidate(\''+id+'\',this)">Start checks early (before their start link)</button>',
        note:'Moves them across with their references already filled in.'},
     ];
-    const at=steps.findIndex(s=>!s.done);
+    const at0=steps.findIndex(s=>!s.done), at=at0<0?steps.length:at0;   /* the new path can finish every step */
 
     const ladder=steps.map((s,i)=>
       i<at ? '<span style="font-size:.76rem;color:#15803D">✓ '+s.label+'</span>'
@@ -1481,7 +1497,7 @@ function renderOffers(){
     :         '<span style="font-size:.76rem;color:#C9C1B4">'+s.label+'</span>'
     ).filter(Boolean).join('<span style="color:#E8E2D8">·</span>');
 
-    const now=steps[at];
+    const now=steps[at]||{label:'Nothing left on this card',btn:'',note:'Everything here is done; their readiness card holds the rest.'};
 
     return '<div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.82rem;color:#3A342C">'+
       '<span>'+pathChip(o.onboarding_path)+'</span>'+
@@ -7003,7 +7019,7 @@ function renderTR(){
       <td><div class="chk"><span class="badge ${thirtyBadge}">${thirtyLabel}</span><span class="chk-date">Deadline: ${ddStr||'—'}</span>${ojtLine}${ojtOnlineLine}</div></td>
       <td><div class="chk"><span class="badge ${annBadge}">${annLabel}</span>${annDateLine}${annHrsLine}${annProofLine}</div></td>
       <td><span class="badge ${oBadge}">${ts.overall}</span></td>
-      <td><div class="acts"><button class="ibtn" onclick="openCGModal('training',${c.id})">✏️</button></div></td>
+      <td><div class="acts"><button class="ibtn" onclick="openCGModal('training',${c.id})">✏️</button>${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}</div></td>
     </tr>`;
   }).join('');
 
@@ -7069,7 +7085,7 @@ function renderAC(){
       <td><div class="chk">${c.oos==='yes'?`<span class="badge ${fpBadge}">${c.fp}</span>${c.fp_date?`<span class="chk-date">${fmtD(c.fp_date)}</span>`:''}${proofLink(c.fp_proof)}`:`<span class="badge b-gray">Not required</span>`}</div></td>
       <td>${compCell(c.supv_date,sv,'',c.supv_proof)}</td>
       <td>${compCell(c.perf_date,pr,'',c.perf_proof)}</td>
-      <td><div class="acts"><button class="ibtn" onclick="openCGModal('compliance',${c.id})">✏️</button></div></td>
+      <td><div class="acts"><button class="ibtn" onclick="openCGModal('compliance',${c.id})">✏️</button>${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}</div></td>
     </tr>`;
   }).join('');
   updateACBulkBar();
