@@ -6936,6 +6936,7 @@ The HomeTogether team</pre>
 </div>
 </div>
 
+<script src="verbs.js?v=1"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=15"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
@@ -25775,20 +25776,32 @@ function opsLog(it, text){
    script 159 creates the table, every write just notes itself in the
    console and the hub behaves exactly as before. */
 function opEvent(verb, o){
+  /* Phase 1, Slice 1 (2026-10-10): the record is written through its door, record_event, which stamps WHO from the
+     signed-in session on the server. The page no longer says who it is; it says what happened. Still fire-and-forget.
+     Until Desktop step 578 creates the door, the door is missing and the page falls back to the old direct insert, so
+     the pages can go first and no event is lost in either order. */
   try{
     if(!sb) return;
     o=o||{};
-    const a=(typeof ccActor==='function')?ccActor():{email:'',name:''};
     const it=o.item||null;
-    sb.from('op_events').insert({
-      actor_email:a.email, actor_name:a.name, verb:String(verb||''),
-      item_id:String(o.item_id||(it&&it.id)||''),
-      area:String(o.area||(it&&it.domain)||''),
-      summary:String(o.summary||'').slice(0,400),
-      data:o.data||{}
-    }).then(r=>{ if(r&&r.error) console.warn('[op_events] not recorded:', r.error.message); },
-            e=>console.warn('[op_events] not recorded:', e));
+    const row={ verb:String(verb||''), item_id:String(o.item_id||(it&&it.id)||''), area:String(o.area||(it&&it.domain)||''),
+      summary:String(o.summary||'').slice(0,400), data:o.data||{} };
+    const fallback=function(){
+      const a=(typeof ccActor==='function')?ccActor():{email:'',name:''};
+      sb.from('op_events').insert(Object.assign({ actor_email:a.email, actor_name:a.name }, row))
+        .then(r=>{ if(r&&r.error) console.warn('[op_events] not recorded:', r.error.message); }, e=>console.warn('[op_events] not recorded:', e));
+    };
+    sb.rpc('record_event', {
+      p_verb:row.verb, p_item_id:row.item_id, p_area:row.area, p_summary:row.summary, p_data:row.data,
+      p_via:(/[?&]m=1(&|$)/.test(location.search))?'phone':'hub',
+      p_action:String(o.action||''), p_request_id:String(o.request_id||''), p_outcome:String(o.outcome||''),
+      p_evidence:Array.isArray(o.evidence)?o.evidence:[]
+    }).then(r=>{
+      if(r&&r.error){ if(/record_event|PGRST202|42883/.test(String(r.error.message||r.error.code||''))) fallback(); else console.warn('[op_events] not recorded:', r.error.message); }
+    }, e=>console.warn('[op_events] not recorded:', e));
   }catch(e){ console.warn('[op_events] not recorded:', e); }
+}
+}
 }
 
 /* One quiet confirmation style for every "it worked" moment. */
@@ -26000,6 +26013,7 @@ async function ccSinceFetch(){
         .gt('at',last).order('at',{ascending:true}).limit(200);
       if(!r.error) CC_SINCE=(r.data||[])
         .filter(e=>CC_SINCE_NOISE.indexOf(String(e.verb||''))<0)
+        .filter(e=>!(typeof CC_VERBS!=='undefined'&&CC_VERBS.isDiagnostic(String(e.verb||''))))
         .filter(e=>String(e.actor_email||'').toLowerCase()!==String(ME.email).toLowerCase());
     } else {
       /* First sign-in on this browser: nothing to compare against yet.
