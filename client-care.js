@@ -65,7 +65,10 @@
         + (x.state === 'open' ? '<div class="cc-ci-do"><input placeholder="How it was done (e.g. the form or email used)" data-how="' + esc(x.key) + '"><input type="date" data-on="' + esc(x.key) + '" max="' + todayYmd() + '"><input type="file" data-file="' + esc(x.key) + '">'
             + '<button class="secondary" onclick="ccCareTick(\'' + esc(ch.change_id) + '\',\'' + esc(x.key) + '\',\'done\')">Done</button><button class="linklike" onclick="ccCareTick(\'' + esc(ch.change_id) + '\',\'' + esc(x.key) + '\',\'not_needed\')">Not needed…</button></div>'
           : '<div class="field-note">' + (x.state === 'done' ? '✓ Done' : 'Not needed') + ' by ' + esc(x.by_name || x.by || '') + (x.on ? ', ' + esc(day(x.on)) : '') + (x.how ? ' · ' + esc(x.how) : '') + (x.note ? ' · ' + esc(x.note) : '')
-            + (x.files || []).map(p => ' · <button class="linklike" onclick="ccCareFile(\'' + esc(ch.change_id) + '\',\'' + esc(p) + '\')">' + esc(p.split('/').pop().replace(/^\d+-/, '')) + '</button>').join('') + '</div>')
+            + (x.files || []).map(p => ' · <button class="linklike" onclick="ccCareFile(\'' + esc(ch.change_id) + '\',\'' + esc(p) + '\')">' + esc(p.split('/').pop().replace(/^\d+-/, '')) + '</button>').join('')
+            + ' · <button class="linklike" title="Reopen this step (a reason is needed; what it says now is kept)" onclick="ccCareReopen(\'' + esc(ch.change_id) + '\',\'' + esc(x.key) + '\')">Reopen…</button></div>')
+        + (x.state === 'open' && x.reopened ? '<div class="field-note">Reopened by ' + esc(x.by_name || x.by || '') + ': ' + esc(x.reopened.reason || '') + '</div>' : '')
+        + ((x.earlier || []).length ? '<div class="field-note">Earlier: ' + x.earlier.map(e => esc(e.state === 'done' ? 'done' : 'not needed') + ' by ' + esc(e.by_name || e.by || '') + (e.on ? ' ' + esc(day(e.on)) : '') + (e.how ? ' (' + esc(e.how) + ')' : '') + ', reopened by ' + esc(e.replaced_by_name || e.replaced_by || '') + ': ' + esc(e.reason || '')).join('; ') + '</div>' : '')
         + '</div>').join('') + '</details>';
   }
   const KIND = { pause:'Paused', extend:'Pause made longer', resume:'Care resumed', end:'Care ended', return:'Care resumed (returning client)', end_date:'End date corrected' };
@@ -175,6 +178,14 @@
     if(out && out.error){ if(typeof ccToast === 'function') ccToast(out.error); return; }
     await mount({ ax:CC.ax });
   }
+  /* SLICE 9 (Samantha "yes to all", 2026-10-11): a recorded step reopens only with a reason; the server keeps what it said */
+  async function reopen(changeId, key){
+    const why = (window.prompt && window.prompt('Why is this step being reopened? What it says now is kept on the record.')) || '';
+    if(!why.trim()) return;
+    let out; try{ out = await call({ action:'care_checklist', change_id:changeId, item:key, state:'open', reason:why.trim() }); }catch(e){ out = { error:e.message }; }
+    if(out && out.error){ if(typeof ccToast === 'function') ccToast(out.error); else alert(out.error); return; }
+    await mount({ ax:CC.ax });
+  }
   async function openFile(changeId, path){ try{ const d = await call({ action:'care_file_url', change_id:changeId, path }); window.open(d.url, '_blank', 'noopener'); }catch(e){ if(typeof ccToast === 'function') ccToast('Couldn\'t open it: ' + e.message); } }
   /* from an AxisCare status review: the same forms, answering the review */
   async function fromReview(kind, ax, reviewId, date){ CC.ax = String(ax); try{ CC.data = await call({ action:'care_state', axiscare_client_id:CC.ax }); }catch(e){ CC.data = null; }
@@ -195,5 +206,5 @@
     '.cc-rule{margin-top:10px;padding:10px 12px;border-radius:10px;background:#FBF3E2;font-size:13px}.cc-rule:empty{display:none}.cc-dlg{max-height:92vh;overflow:auto}',
     '.cc-err{color:#B42318;font-weight:600;font-size:13px;margin-top:8px}.cc-err:empty{display:none}.cc-act{display:flex;gap:8px;margin-top:14px}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { ccCareMount:mount, ccCareForm:form, ccCareTick:tick, ccCareFile:openFile, ccCareFromReview:fromReview, CC_CARE:CC });
+  Object.assign(window, { ccCareMount:mount, ccCareForm:form, ccCareTick:tick, ccCareReopen:reopen, ccCareFile:openFile, ccCareFromReview:fromReview, CC_CARE:CC });
 })();

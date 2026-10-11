@@ -11,6 +11,7 @@
    · the person who uploads records the date; once a month the Medicaid coordinator confirms each upload is really in
      Fusion; Samantha sees a monthly scorecard by nurse
    The Hub never uploads anything; Fusion stays the official record.
+   · SLICE 9 (2026-10-11): a form replaced by an amended copy (superseded_by) is kept but no longer counts anywhere here
    ============================================================================= */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -69,7 +70,7 @@
 
   /** the Fusion check: uploads not yet confirmed as really in Fusion (oldest first) */
   function fusionToCheck(forms) {
-    return (forms || []).filter(f => f && f.status === 'uploaded' && !(f.fusion_checked && f.fusion_checked.seen)).sort((a, b) => ymd(a.uploaded_on).localeCompare(ymd(b.uploaded_on)));
+    return (forms || []).filter(f => f && !f.superseded_by && f.status === 'uploaded' && !(f.fusion_checked && f.fusion_checked.seen)).sort((a, b) => ymd(a.uploaded_on).localeCompare(ymd(b.uploaded_on)));
   }
   function fusionCheck(f, seen, ctx) {
     ctx = ctx || {};
@@ -102,7 +103,7 @@
    */
   function scorecard(month, watch, forms, clients, today) {
     const rows = {}, row = n => (rows[n] = rows[n] || { nurse: n, due: 0, visited: 0, missed: 0, open: 0, forms_missing: 0, rn_review: 0, ready_overdue: 0, uploaded: 0, on_time: 0, seen: 0 });
-    const formOf = c => (forms || []).find(f => (f.client_id ? f.client_id === c.id : norm(f.client) === norm(c.name)) && String(f.visit_date || '').slice(0, 7) === month);
+    const formOf = c => (forms || []).find(f => !f.superseded_by && (f.client_id ? f.client_id === c.id : norm(f.client) === norm(c.name)) && String(f.visit_date || '').slice(0, 7) === month);
     for (const c of clients || []) {
       if (!c || c.active === false) continue;
       for (const w of ['ghe1', 'ghe2', 'ghe_makeup']) {

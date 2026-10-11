@@ -14,6 +14,8 @@ FAKE = r"""
 (()=>{
   const W=window; W.__P=[];
   (0,eval)("persist=async(k,i)=>{ window.__P.push([k,JSON.parse(JSON.stringify(i))]); }");
+  /* SLICE 9: the GHE form save goes straight to the database (ghePut) so a refused change is explained; record it the same way */
+  (0,eval)("ghePut=async(i)=>{ window.__P.push(['ghe_forms',JSON.parse(JSON.stringify(i))]); return true; }");
   (0,eval)("nvGhlSync=async()=>{}"); (0,eval)("ccPickOptions=async()=>[]");
   W.confirm=()=>true; W.alert=(m)=>{ W.__alert=m; };
   DATA.nurse_staff=[{ id:'n1', name:'Rita Reed', cred:'RN', license:'RN1', expires:'2027-06-30', email:'rita@mo-care.com', employee:true, supervising_rn:true },
