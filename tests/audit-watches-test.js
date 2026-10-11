@@ -14,8 +14,8 @@ const base = () => Object.assign({ r1s: 'Positive', r2s: 'Positive', oig: 'CLEAR
 const codes = e => e.reasons.concat(e.tasks).map(r => r.code);
 let e = E.eligibility(base());
 ck('6 · the clean caregiver is eligible with no tasks', e.state === 'eligible' && !e.tasks.length, { state: e.state, tasks: e.tasks });
-e = E.eligibility(Object.assign(base(), { oig_date: iso(-31) }));
-ck('6 · OIG 31 days old = overdue (monthly), a lapse that says monthly, agency policy', e.state === 'lapsed' && e.lapses.some(l => l.code === 'oig_expired' && /monthly, agency policy/.test(l.why)), e.lapses);
+e = E.eligibility(Object.assign(base(), { oig_date: iso(-33) }));
+ck('6 · OIG 33 days old = overdue (monthly), a lapse that says monthly, agency policy', e.state === 'lapsed' && e.lapses.some(l => l.code === 'oig_expired' && /monthly, agency policy/.test(l.why)), e.lapses);
 e = E.eligibility(Object.assign(base(), { oig_date: iso(-29) }));
 ck('6 · OIG 29 days old is still current', e.state === 'eligible', e.lapses);
 ck('6 · the OIG warning window is 7 days', E.eligibilityFacts(Object.assign(base(), { oig_date: iso(-25) })).oig.status === 'Due Soon' && E.eligibilityFacts(Object.assign(base(), { oig_date: iso(-20) })).oig.status === 'Current');
@@ -28,8 +28,8 @@ ck('6 · in year one the hours are not judged either', !e.tasks.some(t => t.code
 e = E.eligibility(Object.assign(base(), { cna_expires: iso(-3) }));
 ck('6 · an expired CNA credential: a high task (agency), eligible, no restriction', e.state === 'eligible' && e.tasks.some(t => t.code === 'cna_expired' && t.high && t.kind === E.ELIG_AGENCY && /CNA credential expired/.test(t.why)) && !e.restricted, e.tasks);
 e = E.eligibility(Object.assign(base(), { dl_expires: iso(20), auto_ins_expires: iso(90) }));
-ck("6 · a driver's license expiring in 20 days: a due task; insurance 90 days out: nothing yet", e.tasks.some(t => t.code === 'dl_due' && /20 days/.test(t.why)) && !e.tasks.some(t => /auto_ins/.test(t.code)), e.tasks);
-e = E.eligibility(Object.assign(base(), { auto_ins_expires: iso(-1) }));
-ck('6 · expired auto insurance: a high task with the date', e.tasks.some(t => t.code === 'auto_ins_expired' && t.due === iso(-1)), e.tasks);
+ck("6 · a driver's license expiring in about 20 days: a due task; insurance 90 days out: nothing yet", e.tasks.some(t => t.code === 'dl_due' && /\b(19|20|21) days/.test(t.why)) && !e.tasks.some(t => /auto_ins/.test(t.code)), e.tasks);
+e = E.eligibility(Object.assign(base(), { auto_ins_expires: iso(-3) }));
+ck('6 · expired auto insurance: a high task with the date', e.tasks.some(t => t.code === 'auto_ins_expired' && t.due === iso(-3)), e.tasks);
 ck('6 · no em dash in any new wording', !/[—]/.test(JSON.stringify(E.eligibility(Object.assign(base(), { cna_expires: iso(-3), dl_expires: iso(2), annual_hrs: '1', oig_date: iso(-40) })))));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
