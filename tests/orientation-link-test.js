@@ -1,6 +1,6 @@
 /* node tests/orientation-link-test.js
-   Remote orientation slice 1b (2026-10-01): "Welcome call done – send orientation link". The real wcAct /
-   wcOrientCall / wcOrientMsg / wcOrientLink and the welcome-call guide, cut out of caregivers-engine.js and run against
+   Remote orientation slice 1b (2026-10-01): "Orientation Video Call done – send orientation link". The real wcAct /
+   wcOrientCall / wcOrientMsg / wcOrientLink and the Orientation Video Call guide, cut out of caregivers-engine.js and run against
    a fake welcome-call function and a fake Training Platform. Proves: the call is marked done FIRST, then Training is
    asked with the staff member's own Hub sign-in, the offer id and every phone/email the Hub has; each answer is said
    plainly; a failed "done" asks Training nothing; the retry button exists; the guide and the journey say the new step;
@@ -11,7 +11,7 @@ const src = fs.readFileSync(path.join(ROOT, 'caregivers-engine.js'), 'utf8');
 const cut = (from, to) => { const a = src.indexOf(from), b = src.indexOf(to, a + 1); if (a < 0 || b < 0) throw new Error('not found: ' + from); return src.slice(a, b); };
 const code = [
   cut('const WC_MEET =', 'async function wcWho('),
-  cut('function wcResult(', '/* The newest welcome call'),
+  cut('function wcResult(', '/* The newest Orientation Video Call'),
   cut('function wcCard(', 'function renderWelcomeCalls('),
   cut('const WC_GUIDE =', 'async function wcNotes('),
   cut('async function wcAct(', 'function renderOrientReadyQueue('),
@@ -53,13 +53,13 @@ function world(opts = {}) {
   // ---- the done button: done first, then the orientation link ----
   let W = world();
   await W.X.wcAct('w1', 'done', '', null);
-  ck('done: the welcome call is marked done FIRST, then Training is asked', JSON.stringify(W.log.filter((l) => l[0] !== 'confirm' && l[0] !== 'wcLoad').map((l) => l.join(':'))) === JSON.stringify(['welcome-call:done', 'training']), W.log);
+  ck('done: the Orientation Video Call is marked done FIRST, then Training is asked', JSON.stringify(W.log.filter((l) => l[0] !== 'confirm' && l[0] !== 'wcLoad').map((l) => l.join(':'))) === JSON.stringify(['welcome-call:done', 'training']), W.log);
   const f = W.fetches[0] || {};
   ck('done: Training job-offer, action orientation_link, the staff member\'s own Hub sign-in (x-hub-token), no shared key', /rdqujxiycycwhskyvrwa\.supabase\.co\/functions\/v1\/job-offer$/.test(f.url) && f.body.action === 'orientation_link' && f.headers['x-hub-token'] === 'staff-hub-token' && f.headers.Authorization === 'Bearer training-anon', f);
-  ck('done: the offer id, the welcome call id and every phone and email the Hub has (no duplicates)', f.body.offer_id === 'offer-uuid-1' && f.body.welcome_call_id === 'w1' && f.body.phone === '(417) 555-0100' && JSON.stringify(f.body.phones) === '["417-555-0199"]' && f.body.email === 'ava@x.com' && f.body.emails.length === 0 && f.body.first === 'Ava', f.body);
+  ck('done: the offer id, the Orientation Video Call id and every phone and email the Hub has (no duplicates)', f.body.offer_id === 'offer-uuid-1' && f.body.welcome_call_id === 'w1' && f.body.phone === '(417) 555-0100' && JSON.stringify(f.body.phones) === '["417-555-0199"]' && f.body.email === 'ava@x.com' && f.body.emails.length === 0 && f.body.first === 'Ava', f.body);
   const confirmText = (W.log.find((l) => l[0] === 'confirm') || [])[1] || '';
   ck('done: the confirm says they must be In Training in AxisCare first', /hired in AxisCare with status In Training/.test(confirmText) && /I-9 Section 2/.test(confirmText), confirmText);
-  ck('done: one message: marked done + sent + the profile reminder from 2c kept', W.alerts.length === 1 && /^Welcome call marked done\.\n\nAdded to the caregiver roster \(hire date \w{3} \d{1,2}, \d{4}\)\.\n\nOrientation link sent by text and email\./.test(W.alerts[0]) && /caregiver profile is not published yet/.test(W.alerts[0]), W.alerts);
+  ck('done: one message: marked done + sent + the profile reminder from 2c kept', W.alerts.length === 1 && /^Orientation Video Call marked done\.\n\nAdded to the caregiver roster \(hire date \w{3} \d{1,2}, \d{4}\)\.\n\nOrientation link sent by text and email\./.test(W.alerts[0]) && /caregiver profile is not published yet/.test(W.alerts[0]), W.alerts);
 
   W = world({ doneFails: true });
   await W.X.wcAct('w1', 'done', '', null);
@@ -100,9 +100,9 @@ function world(opts = {}) {
 
   // ---- the button, the guide, the journey ----
   const card = world().X.wcCard({ id: 'w1', candidate_id: '41', first_name: 'Ava', starts_at: '2026-10-06T15:00:00Z', status: 'booked' });
-  ck('the done button reads exactly "Welcome call done – send orientation link"', world().X.WC_ORIENT_LABEL === 'Welcome call done – send orientation link' && card.includes('>Welcome call done – send orientation link</button>'), card.slice(card.indexOf('wcAct'), card.indexOf('wcAct') + 200));
+  ck('the done button reads exactly "Orientation Video Call done – send orientation link"', world().X.WC_ORIENT_LABEL === 'Orientation Video Call done – send orientation link' && card.includes('>Orientation Video Call done – send orientation link</button>'), card.slice(card.indexOf('wcAct'), card.indexOf('wcAct') + 200));
   const G = world().X.WC_GUIDE;
-  ck('guide: hire them in AxisCare and set In Training during the call, before pressing the button', /hire them in AxisCare and set their status to <b>In Training<\/b>/.test(G) && G.indexOf('set their status to <b>In Training</b>') < G.indexOf('press <b>Welcome call done – send orientation link</b>'), null);
+  ck('guide: hire them in AxisCare and set In Training during the call, before pressing the button', /hire them in AxisCare and set their status to <b>In Training<\/b>/.test(G) && G.indexOf('set their status to <b>In Training</b>') < G.indexOf('press <b>Orientation Video Call done – send orientation link</b>'), null);
   ck('call script: the AxisCare hire step comes before the app step (company code 16485 kept)', G.indexOf('Hire them in AxisCare (office, while you talk)') > 0 && G.indexOf('Hire them in AxisCare (office, while you talk)') < G.indexOf('company code: 16485'), null);
   ck('call script: tells them the link comes right after the call (9am if after 6pm)', /Right after this call you'll get a text and an email with your own private orientation link \(if it's after 6pm, it comes at 9am\)/.test(G));
   ck('guide: not found means set In Training, then Send orientation link under Done recently', /press <b>Send orientation link<\/b> on their row under <b>Done recently<\/b>/.test(G));
@@ -113,7 +113,7 @@ function world(opts = {}) {
   globalThis.window = {}; require('../applicant-journey.js');
   const J = globalThis.window.AP_JOURNEY, i = J.findIndex((x) => x.name === 'Orientation link (training welcome)'), e = J[i] || {};
   ck('journey: one orientation-link entry, right after the photo link and before the orientation invite; the old nightly-only entry is gone', i > 0 && J[i - 1].name === 'Caregiver profile photo link' && J[i + 1].name === 'Orientation invite (pick your date)' && !J.some((x) => /Training welcome \(nightly sync\)/.test(x.name)), [i, J[i - 1] && J[i - 1].name]);
-  ck('journey: the button and the 9am run are both named; the consent rule and the In Training rule are there', /Welcome call done – send orientation link/.test(e.trigger) && /9am run/.test(e.trigger) && /did not say no to texts/.test(e.rule) && /In Training in AxisCare/.test(e.rule), e);
+  ck('journey: the button and the 9am run are both named; the consent rule and the In Training rule are there', /Orientation Video Call done – send orientation link/.test(e.trigger) && /9am run/.test(e.trigger) && /did not say no to texts/.test(e.rule) && /In Training in AxisCare/.test(e.rule), e);
   ck('journey: the exact new text and email subject', e.text === "Hi {first}, welcome to Caring Companions! Your orientation is ready. Start any time on your phone or computer:\nhttps://training.mo-care.com/#/me/{token}\nIt's 2 hours of orientation plus 4 hours of dementia care training, and you can do it in pieces. This private link is just for you, no login needed. Questions? Call or text the office at (417) 234-8494. Caring Companions.\nReply STOP to opt out." && e.subject === 'Welcome to Caring Companions, your orientation is ready', e.text);
   ck('journey: no em dash in the new entry', !/—/.test(JSON.stringify(e)));
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');

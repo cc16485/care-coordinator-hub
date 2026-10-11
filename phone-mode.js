@@ -17,7 +17,7 @@
    Security numbers, background results, Medicaid numbers or medical details.
    Screen 3, TODAY (2026-10-07, "start screen 3"): one timeline of today in Chicago time, from the Hub's own readers:
    open shifts and missed clock-ins (SVX.sections, the Staffing view of Today), interviews (btInterviewsOn),
-   assessments (btAssessmentsOn, with GoHighLevel's booked time), welcome calls and orientation sessions. Take it on a
+   assessments (btAssessmentsOn, with GoHighLevel's booked time), Orientation Video Calls and orientation sessions. Take it on a
    coverage or assessment card is the Hub's own Take it on that card's work item.
    Screen 4, END MY SHIFT (2026-10-07, "start screen 4"): the Hub's End My Shift (end-shift.js) with a phone layout.
    The lists are its eoLists(), the next person on duty is its EOX.nextOnDuty, and Post my handoff is its EOX.eoPost
@@ -465,12 +465,12 @@
             link: r.lead_id ? 'index.html#p/L' + encodeURIComponent(r.lead_id) + '/summary' : (r.ax ? 'index.html#p/A' + encodeURIComponent(r.ax) + '/summary' : '') });
         });
       }),
-      safe('welcome calls', async function () {
+      safe('Orientation Video Calls', async function () {
         var w = await sb.from('welcome_calls').select('id,first_name,last_name,phone,starts_at,status').eq('status', 'booked')
           .gte('starts_at', new Date(midUtc - 864e5).toISOString()).lt('starts_at', new Date(midUtc + 2 * 864e5).toISOString());
         if (w.error) throw w.error;
         (w.data || []).forEach(function (x) { var p = btChi(x.starts_at); if (!p || p.date !== day) return;
-          rows.push({ min: p.min, kind: 'Welcome call', title: ((x.first_name || '') + ' ' + (x.last_name || '')).trim() || 'New caregiver', sub: '15 minutes, video', phone: x.phone }); });
+          rows.push({ min: p.min, kind: 'Orientation Video Call', title: ((x.first_name || '') + ' ' + (x.last_name || '')).trim() || 'New caregiver', sub: '15 minutes, video', phone: x.phone }); });
       }),
       safe('orientation', async function () {
         (DATA.orient_sessions || []).forEach(function (o) {
@@ -506,7 +506,7 @@
         + (who ? '<div class="ph-who">' + who + '</div>' : '') + (btn ? '<div class="ph-btns">' + btn + '</div>' : '') + '</div></div>';
     });
     if (!drew) h += '<div class="ph-now">NOW ' + esc(btTime(now)) + '</div>';
-    if (!TD.rows.length) h += '<div class="ph-none">Nothing on today’s schedule: no open shifts, interviews, assessments, welcome calls or orientation.</div>';
+    if (!TD.rows.length) h += '<div class="ph-none">Nothing on today’s schedule: no open shifts, interviews, assessments, Orientation Video Calls or orientation.</div>';
     box.innerHTML = h;
   }
   function onTodayTap(ev) {

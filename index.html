@@ -1848,7 +1848,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <li><b>After the interview</b> choose <b>✅ Hire, make the offer</b>, <b>🗂 Candidate pool</b> or <b>Not hiring</b>. Saving the offer sends their <b>start link</b> by itself (email, and text 8am to 6pm if they said yes to texts). The link is private: it carries no name, phone or email. <b>Not hiring</b> and <b>Candidate pool</b> show you a short, kind message first: OK sends it, Cancel sends nothing.</li>
           <li><b>They fill in the start link</b> (professional and personal references, FCSR details). In <b>Background &amp; References</b> press <b>Import</b> (or, once <b>Start forms import themselves</b> is switched on, it imports itself), then <b>📩 Ask refs</b>: references with an email get the form automatically; phone-only ones are yours to call (📞 Record), email (✉️) or text after they say OK (💬). Answers score themselves and are saved as a PDF in the caregiver's profile.</li>
           <li><b>You run OIG, EDL and FCSR</b> (and fingerprints if they lived outside Missouri). <b>Ready for Orientation</b> comes on with 2 positive references and all checks clear. If a check comes back flagged, press <b>🛡 Something came up</b>: you see the message first (the text never says which check), they have 5 business days to call, and you decide (cleared, a Good Cause Waiver, or the final notice). Nothing about a background check is ever sent or decided by itself.</li>
-          <li><b>Viventium Step 2</b>, then the <b>welcome call</b>: press <b>Invite to welcome call</b> and they book a 15-minute video call. On the call (I-9 documents, the AxisCare app, their caregiver profile) press <b>Welcome call done – send orientation link</b>: they do their orientation online. The <b>in-person office orientation</b> is the backup (the invite, they pick a date, a confirmation, then a day-before reminder; or the office types the date and time itself and books them).</li>
+          <li><b>Viventium Step 2</b>, then the <b>Orientation Video Call</b>: press <b>Invite to Orientation Video Call</b> and they book a 15-minute video call. On the call (I-9 documents, the AxisCare app, their caregiver profile) press <b>Orientation Video Call done – send orientation link</b>: they do their orientation online. The <b>in-person office orientation</b> is the backup (the invite, they pick a date, a confirmation, then a day-before reminder; or the office types the date and time itself and books them).</li>
           <li><b>Training:</b> 2 hours of orientation and 4 hours of dementia training before the first client, then 6 hours of supervised on-the-job training within 30 days (5 hours a year from year two). The Training Platform sends the welcome, reminders and "cleared to work".</li>
           <li><b>First shifts:</b> the availability link, then a "how did your first shift go?" text the morning after.</li>
         </ol>
@@ -2125,7 +2125,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>FCSR</strong> is done by hand in the state system. Log the date ordered, then mark it clear or failed when the result arrives.</div></div>
           <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body"><strong>Ask References.</strong> Press "📩 Ask refs". Anyone with an <b>email</b> gets the form automatically, with questions for a <b>professional</b> or a <b>personal</b> reference. Anyone with only a phone number is never texted automatically: call them and press <b>📞 Record</b>, or send the form with <b>✉️ Email</b>, or <b>💬 Text</b> once they said OK on the phone. A quiet emailed reference gets one reminder after 2 days, the applicant is asked to help at 5 days, and the office gets a card at 9. Two positive references are needed.<span class="tip">Answers score themselves, show on the candidate, and are saved as a PDF in the caregiver's profile. Automatic emails go weekdays, 8am to 6pm.</span></div></div>
           <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body"><strong>Fingerprint</strong> — schedule if required. Log the date completed.</div></div>
-          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">Once <strong>2 positive references ✅ + OIG ✅ + EDL ✅ + FCSR ✅</strong> (and fingerprints ✅ if they lived outside Missouri), the status changes to <strong>Ready for Orientation</strong> by itself. Their row then shows a small <strong>Moved into orientation</strong> banner, and the next steps (Viventium Step 2, the welcome call, the caregiver profile, the office backup) are on the <strong>Orientations</strong> tab.</div></div>
+          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">Once <strong>2 positive references ✅ + OIG ✅ + EDL ✅ + FCSR ✅</strong> (and fingerprints ✅ if they lived outside Missouri), the status changes to <strong>Ready for Orientation</strong> by itself. Their row then shows a small <strong>Moved into orientation</strong> banner, and the next steps (Viventium Step 2, the Orientation Video Call, the caregiver profile, the office backup) are on the <strong>Orientations</strong> tab.</div></div>
           <div class="guide-step"><div class="guide-step-num">7</div><div class="guide-step-body">If any check fails, status moves to <strong>Needs Review</strong>. Document the reason and determine next steps with management.</div></div>
           <div class="guide-section-lbl">Processing Stats</div>
           <div class="guide-step"><div class="guide-step-num">📊</div><div class="guide-step-body">Use the <strong>Stats</strong> filter button to see how long each candidate is taking — we aim to get applicants to orientation as fast as possible.</div></div>
@@ -2200,14 +2200,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <section class="tabpanel" id="tab-cgorient">
     <div class="panel" id="panel-orientations">
 
-      <!-- ── 📹 Welcome calls (remote orientation, slice 1a, 2026-10-01). Rendered by renderWelcomeCalls() in caregivers-engine.js. -->
+      <!-- ── 📹 Orientation Video Calls (remote orientation, slice 1a, 2026-10-01). Rendered by renderWelcomeCalls() in caregivers-engine.js. -->
       <div id="wc-section" style="margin-bottom:1rem"></div>
 
       <!-- ── Ready for Orientation Queue ──────────────────────────────── -->
       <div id="orient-ready-queue" style="margin-bottom:1rem"></div>
 
       <!-- ── 🏢 Office orientation (backup only), 2026-10-02 ──────────────
-           Samantha: "fold it away". Most new hires do orientation from home after their welcome call. The office
+           Samantha: "fold it away". Most new hires do orientation from home after their Orientation Video Call. The office
            session settings, calendar and sessions list (attendance + 🎓 Promote) live here, closed by default.
            Toggled by SCX.toggleOfficeOrient(); everything inside keeps its old ids and still renders while hidden. -->
       <div class="tab-guide" id="orient-office" style="margin-top:1.25rem;border-color:var(--border)">
@@ -2216,7 +2216,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <span class="tab-guide-arrow" id="guide-arrow-orient-office" style="color:var(--navy)">▼</span>
         </div>
         <div class="tab-guide-body" id="guide-body-orient-office">
-          <div style="font-size:.82rem;color:var(--navy);line-height:1.5;margin-bottom:.9rem">Most new hires do orientation from home after their welcome call. Use this only when someone needs to come into the office: press <b>📅 In the office instead</b> on their row above, then either text them the booking link to pick a session, or type the date and time yourself (a one-seat session is added if there is none). After the session, mark attendance and press <b>🎓 Promote</b> for anyone who attended.</div>
+          <div style="font-size:.82rem;color:var(--navy);line-height:1.5;margin-bottom:.9rem">Most new hires do orientation from home after their Orientation Video Call. Use this only when someone needs to come into the office: press <b>📅 In the office instead</b> on their row above, then either text them the booking link to pick a session, or type the date and time yourself (a one-seat session is added if there is none). After the session, mark attendance and press <b>🎓 Promote</b> for anyone who attended.</div>
           <!-- ── Orientation Settings (collapsible, Augusta-inspired) ──────── -->
           <div class="tab-guide" style="margin-bottom:1rem">
             <div class="tab-guide-hdr" onclick="SCX.toggleGuide('orient-cfg')">
@@ -2349,7 +2349,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div class="tab-guide-body" id="guide-body-training">
           <div class="guide-section-lbl" style="border-top:none;padding-top:0;margin-top:0">How caregivers get here</div>
-          <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">New hires appear here when their welcome call is marked done (hire date that day), or when they are <strong>promoted</strong> after an office orientation session. You can also add them manually with <strong>+ Add Caregiver</strong>.</div></div>
+          <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">New hires appear here when their Orientation Video Call is marked done (hire date that day), or when they are <strong>promoted</strong> after an office orientation session. You can also add them manually with <strong>+ Add Caregiver</strong>.</div></div>
           <div class="guide-section-lbl">Training milestones to track</div>
           <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body"><strong>Agency Orientation + ALZ Training</strong> (6 hrs total) — must be completed before the caregiver can be scheduled with their first client.</div></div>
           <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>First Client Contact</strong> — log the date the caregiver was first scheduled with a client. This starts the 30-day OJT clock.</div></div>
@@ -4185,7 +4185,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 <div class="settings-section" data-set="orientation-reminders">
 <h3>🔔 Office orientation reminders</h3>
-<p class="hint">The text the day before someone's in-person office orientation (the backup for someone who can't do it online), sent by the Hub instead of GoHighLevel. Online new hires get their welcome call reminders instead.</p>
+<p class="hint">The text the day before someone's in-person office orientation (the backup for someone who can't do it online), sent by the Hub instead of GoHighLevel. Online new hires get their Orientation Video Call reminders instead.</p>
 <div id="orrSet" class="field-note" style="margin:6px 0 4px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
   <button class="secondary" id="orrSetBtn" onclick="orrToggle(this)">Turn on</button>
@@ -6944,7 +6944,7 @@ The HomeTogether team</pre>
 <script src="lead-rules.js?v=15"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
-<!-- Caregiver profile panel (part 2, slice 2a): shared by the welcome calls (caregivers engine) and the employee page. -->
+<!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261005j"></script>
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
@@ -19742,7 +19742,7 @@ function joPreviewMsgs(){
     +"We're excited to begin the onboarding process with you.\n\n"
     +'Your next step is to watch your email for a message from Viventium, our secure onboarding system. It will contain your official job offer and the first portion of your onboarding paperwork.\n\n'
     +'Please complete it as soon as possible. This paperwork gives us permission to begin your background check and contact your professional references.\n\n'
-    +"Once your background check and references are complete, we'll text you to book a quick 15-minute welcome video call. After that, you'll do your paid training from home on your phone or computer.\n\n"
+    +"Once your background check and references are complete, we'll text you to book a quick 15-minute Orientation Video Call. After that, you'll do your paid training from home on your phone or computer.\n\n"
     +"📞 Please save our office number: (417) 234-8494. This is our main office number and the one you'll use to call or text us if you have any questions.\n\n"
     +'Welcome to the Caring Companions team!';
   document.getElementById('jo_prev_email').innerHTML=
@@ -19755,8 +19755,8 @@ function joPreviewMsgs(){
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 2: Background Check &amp; Reference Checks</b></p>'
     +'<p style="margin:4px 0;">Once you\'ve completed your onboarding paperwork, we\'ll begin your background check and contact your professional references.</p>'
     +'<p style="margin:4px 0;">We\'ll let you know as soon as everything has been successfully completed.</p>'
-    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 3: Your 15-Minute Welcome Video Call</b></p>'
-    +'<p style="margin:4px 0;">Once your background check and references are complete, we\'ll send Step 2 of your Viventium paperwork and a link to book a quick welcome call. Join from your phone or computer.</p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 3: Your 15-Minute Orientation Video Call</b></p>'
+    +'<p style="margin:4px 0;">Once your background check and references are complete, we\'ll send Step 2 of your Viventium paperwork and a link to book a quick Orientation Video Call. Join from your phone or computer.</p>'
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 4: Paid Training From Home</b></p>'
     +'<p style="margin:4px 0;">After the call, we\'ll text you a private link to your paid orientation and Alzheimer\'s and dementia training. Do it on your phone or computer, in pieces if you like.</p>'
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Save Our Office Number</b></p>'

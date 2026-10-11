@@ -26,7 +26,7 @@
   <div id="main">
     <h1>Finished your Step 2 in Viventium?</h1>
     <div class="card">
-      <p>Tap the button once every task in Viventium is done (your tax forms, direct deposit, the acknowledgments and your uploads). We will check Viventium and text you the link to book your welcome call, usually within one business day.</p>
+      <p>Tap the button once every task in Viventium is done (your tax forms, direct deposit, the acknowledgments and your uploads). We will check Viventium and text you the link to book your Orientation Video Call, usually within one business day.</p>
       <button class="go" id="go" onclick="done()">I finished Step 2</button>
       <p class="muted" style="margin-top:10px">Not finished yet? Close this page and come back when you are. Stuck? Call or text (417) 234-8494.</p>
     </div>
@@ -48,9 +48,9 @@ async function done(){
   const m = document.getElementById('main');
   if(j && j.ok){
     const first = j.first ? ', ' + esc(j.first) : '';
-    if(j.state === 'verified') m.innerHTML = '<h1>Already verified</h1><div class="ok">Thank you' + first + '. The office has already verified your Step 2. Watch for the welcome-call booking link.</div>';
+    if(j.state === 'verified') m.innerHTML = '<h1>Already verified</h1><div class="ok">Thank you' + first + '. The office has already verified your Step 2. Watch for the Orientation Video Call booking link.</div>';
     else if(j.state === 'noted') m.innerHTML = '<h1>Thank you</h1><div class="ok">We have noted it' + first + '. The office will follow up with you.</div>';
-    else m.innerHTML = '<h1>Thank you' + first + '!</h1><div class="ok">We will check your Viventium tasks and text you the link to book your welcome call, usually within one business day.</div>' + (j.practice ? '<div class="why"><b>Practice only.</b> This record is a test; no text follows from it.</div>' : '');
+    else m.innerHTML = '<h1>Thank you' + first + '!</h1><div class="ok">We will check your Viventium tasks and text you the link to book your Orientation Video Call, usually within one business day.</div>' + (j.practice ? '<div class="why"><b>Practice only.</b> This record is a test; no text follows from it.</div>' : '');
   } else {
     m.innerHTML = '<h1>That did not go through</h1><div class="err">' + esc((j && j.error) || 'Please try again, or call or text (417) 234-8494.') + '</div>';
   }

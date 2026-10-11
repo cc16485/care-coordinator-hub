@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Your welcome call · Caring Companions</title>
+<title>Your Orientation Video Call · Caring Companions</title>
 <!--
-  Public welcome-call booking page (remote orientation, slice 1a, 2026-10-01).
+  Public Orientation Video Call booking page (remote orientation, slice 1a, 2026-10-01).
   The link carries ?w=<welcome_calls uuid>. This page never reads the table: it
   only calls the security-definer functions in welcome_calls.sql
   (Staffing-Coordinator-Hub repo): welcome_mine, welcome_open_slots,
@@ -69,7 +69,7 @@
   <div id="bookedView" class="hide">
     <h1 id="bookedHead">Welcome back.</h1>
     <div class="card">
-      <div class="lbl">Your welcome call</div>
+      <div class="lbl">Your Orientation Video Call</div>
       <div class="when" id="bookedWhen"></div>
       <a class="join" id="bookedJoin" href="#" target="_blank" rel="noopener">Join the video call</a>
       <p class="sub" style="text-align:center;">At your call time, tap this button. No app needed.</p>
@@ -84,7 +84,7 @@
 
   <!-- Pick a time. -->
   <div id="pickView" class="hide">
-    <h1 id="pickHead">Pick a time for your welcome call.</h1>
+    <h1 id="pickHead">Pick a time for your Orientation Video Call.</h1>
     <p class="lede">A quick <b>15-minute video call</b> with our office where we show you how to complete your paid orientation from your phone or computer. We will also check your ID for your employment paperwork, help you set up the AxisCare app and go over your caregiver profile. You can join from your phone, no app needed.</p>
     <div class="card">
       <div id="slotsBody"><p class="sub">Finding times…</p></div>
@@ -125,8 +125,8 @@ function message(head, text, icon){
   g('msgIcon').style.color = icon ? '#b45309' : 'var(--green)';
   show('msgView');
 }
-const INVALID = () => message('This link is not valid.', 'Call <a href="tel:+14172348494" style="color:var(--navy);font-weight:600;">(417) 234-8494</a> and we will help you book your welcome call.', '!');
-const CLOSED = () => message('This invitation is closed.', 'This welcome call invitation is no longer open. If you still need a welcome call, call <a href="tel:+14172348494" style="color:var(--navy);font-weight:600;">(417) 234-8494</a>.', '!');
+const INVALID = () => message('This link is not valid.', 'Call <a href="tel:+14172348494" style="color:var(--navy);font-weight:600;">(417) 234-8494</a> and we will help you book your Orientation Video Call.', '!');
+const CLOSED = () => message('This invitation is closed.', 'This Orientation Video Call invitation is no longer open. If you still need an Orientation Video Call, call <a href="tel:+14172348494" style="color:var(--navy);font-weight:600;">(417) 234-8494</a>.', '!');
 const meet = () => (MINE && MINE.meet) || MEET_FALLBACK;
 
 async function load(){
@@ -145,7 +145,7 @@ async function load(){
 function route(){
   if (!MINE) { INVALID(); return; }
   const st = MINE.status;
-  if (st === 'done') { message('Your welcome call is done.', 'Welcome to the team!'); return; }
+  if (st === 'done') { message('Your Orientation Video Call is done.', 'Welcome to the team!'); return; }
   if (st === 'cancelled') { CLOSED(); return; }
   if (st === 'booked' && MINE.starts_at) { showBooked(); return; }
   HAVE_BOOKING = false;
@@ -160,7 +160,7 @@ function showBooked(){
   show('bookedView');
 }
 function showPick(){
-  g('pickHead').textContent = (MINE && MINE.first ? 'Hi ' + MINE.first + ', pick' : 'Pick') + (HAVE_BOOKING ? ' a new time for your welcome call.' : ' a time for your welcome call.');
+  g('pickHead').textContent = (MINE && MINE.first ? 'Hi ' + MINE.first + ', pick' : 'Pick') + (HAVE_BOOKING ? ' a new time for your Orientation Video Call.' : ' a time for your Orientation Video Call.');
   g('keepBtn').classList.toggle('hide', !HAVE_BOOKING);
   show('pickView');
   loadSlots();
@@ -222,7 +222,7 @@ async function bookSlot(btn){
 }
 
 async function cancelCall(btn){
-  if (!confirm('Cancel your welcome call? You can pick a new time right after.')) return;
+  if (!confirm('Cancel your Orientation Video Call? You can pick a new time right after.')) return;
   btn.disabled = true;
   try {
     const { error } = await sb.rpc('welcome_cancel', { p_id: W });

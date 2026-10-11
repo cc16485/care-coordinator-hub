@@ -1,7 +1,7 @@
 /* node tests/pipeline-roster-test.js
    Hiring pipeline after someone moves to the caregiver roster (2026-10-02). The real lifecycleRows /
    renderHirePipeline / bgrTriage / People & Checks card + drawer + timeline / intakeImport guard, plus the real
-   welcome-call done path (wcAddToRoster) and the office 🎓 Promote, cut out of caregivers-engine.js and run on fakes.
+   Orientation Video Call done path (wcAddToRoster) and the office 🎓 Promote, cut out of caregivers-engine.js and run on fakes.
    Proves, for BOTH paths: the person shows "On the caregiver roster", never "was imported before but the workspace
    is gone", and no Import / Start link / Start checks early button appears (a second Import would make a duplicate).
    Matching is by the intake_id and offer_id the roster record carries; never by hire_intake.candidate_id (an
@@ -85,11 +85,11 @@ function checkMoved(label, W) {
   r0 = W.X.lifecycleRows()[0];
   ck('control: a roster record with only a matching candidate_id (no intake/offer id) is NOT treated as her', !r0.roster);
 
-  // path 1: welcome call done
+  // path 1: Orientation Video Call done
   W = world();
   const res = await W.X.wcAddToRoster({ id: 'w1', candidate_id: '41' });
-  ck('welcome call done: moved to the roster with intake_id and offer_id', res.status === 'added' && W.ctx.caregivers[0].intake_id === 'intake-1' && W.ctx.caregivers[0].offer_id === 'offer-1' && !W.ctx.candidates.length, W.ctx.caregivers[0]);
-  checkMoved('welcome call done', W);
+  ck('Orientation Video Call done: moved to the roster with intake_id and offer_id', res.status === 'added' && W.ctx.caregivers[0].intake_id === 'intake-1' && W.ctx.caregivers[0].offer_id === 'offer-1' && !W.ctx.candidates.length, W.ctx.caregivers[0]);
+  checkMoved('Orientation Video Call done', W);
 
   // path 2: office Promote
   W = world();
@@ -118,7 +118,7 @@ function checkMoved(label, W) {
     ck('Import on someone already on the roster: refused and said', alerts2.length === 1 && /already on the caregiver roster/.test(alerts2[0]) && /Nothing was imported/.test(alerts2[0]), alerts2);
   } catch (e) { ck('intakeImport guard runs', false, String(e)); }
 
-  const newBits = cut('  /* Moved to the caregiver roster (welcome call done', '  /* ── IDENTITY GROUPING') + cut('  // 1b) moved on to the caregiver roster', '  // 2) submitted but not imported');
+  const newBits = cut('  /* Moved to the caregiver roster (Orientation Video Call done', '  /* ── IDENTITY GROUPING') + cut('  // 1b) moved on to the caregiver roster', '  // 2) submitted but not imported');
   ck('no em dash in the new pipeline code', !/—/.test(newBits));
 
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

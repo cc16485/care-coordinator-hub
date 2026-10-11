@@ -6,7 +6,7 @@
    all-or-nothing, more than 2 removals refused). Proves: only what changed is sent; new people get the database's
    number in place of their temporary one; saves of one list never overlap (no double add); a stale change is refused,
    the list reloaded and the office told who to redo; a failed add is taken back off and said out loud; the
-   welcome-call roster add keeps its true/false contract; Import ends with the database's number; boot never saves;
+   Orientation Video Call roster add keeps its true/false contract; Import ends with the database's number; boot never saves;
    nothing is sent before a fresh load. Plus the index.html caregiver writers. */
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 const ROOT = path.join(__dirname, '..');
@@ -295,17 +295,17 @@ const applies = (S) => S.calls.filter((c) => c.name === 'app_data_items_apply');
   W = await world();
   let r = await W.X.wcAddToRoster({ id: 'w1', candidate_id: '2' });
   const g = W.X.caregivers.find((x) => String(x.candidate_id) === '2');
-  ck('welcome call done: added (status added), the roster record has the database\'s caregiver number, linked to candidate 2', r.status === 'added' && g && g.id === 8 && W.S.data.caregivers.some((x) => x.id === 8 && x.candidate_id === 2), [r, g]);
-  ck('welcome call done: the B&R record is removed after, as ONE remove based on its _rev', !W.X.candidates.some((c) => c.id === 2) && !W.S.data.candidates.some((c) => c.id === 2)
+  ck('Orientation Video Call done: added (status added), the roster record has the database\'s caregiver number, linked to candidate 2', r.status === 'added' && g && g.id === 8 && W.S.data.caregivers.some((x) => x.id === 8 && x.candidate_id === 2), [r, g]);
+  ck('Orientation Video Call done: the B&R record is removed after, as ONE remove based on its _rev', !W.X.candidates.some((c) => c.id === 2) && !W.S.data.candidates.some((c) => c.id === 2)
     && applies(W.S).at(-1).args.p_key === 'candidates' && JSON.stringify(applies(W.S).at(-1).args.p_changes) === JSON.stringify([{ op: 'remove', id: 2, base_rev: 0 }]), applies(W.S).at(-1));
   W = await world(); W.S.mode = 'down';
   r = await W.X.wcAddToRoster({ id: 'w1', candidate_id: '2' });
-  ck('welcome call done, unreachable: save_failed, nothing on the roster, the candidate kept, no second notice (the caller says it)', r.status === 'save_failed'
+  ck('Orientation Video Call done, unreachable: save_failed, nothing on the roster, the candidate kept, no second notice (the caller says it)', r.status === 'save_failed'
     && W.X.caregivers.length === 1 && W.X.candidates.some((c) => c.id === 2) && !W.D.els.safeAddWarn, r);
   W = await world();
   const pending = { id: W.X.safeTmpId(), first: 'Still', last: 'Saving' }; W.X.candidates.push(pending);
   r = await W.X.wcAddToRoster({ id: 'w1', candidate_id: String(pending.id) });
-  ck('welcome call done for someone whose number has not come back yet: refused, nothing linked to a temporary number', r.status === 'save_failed' && W.X.caregivers.length === 1, r);
+  ck('Orientation Video Call done for someone whose number has not come back yet: refused, nothing linked to a temporary number', r.status === 'save_failed' && W.X.caregivers.length === 1, r);
 
   // ── office Promote ──
   W = await world(); W.S.mode = 'down';
@@ -320,7 +320,7 @@ const applies = (S) => S.calls.filter((c) => c.name === 'app_data_items_apply');
   const tmpC = { id: W.X.safeTmpId(), first: 'T', last: 'Mp', r1n: 'Ref', r1_phone: '1', r1s: 'Pending' };
   const made = await W.X.createRefRequests(tmpC);
   ck('reference requests are never created for a temporary number', Array.isArray(made) && made.length === 0 && W.S.refInserts === 0);
-  ck('Ask references and the welcome call invite refuse a temporary number (said, nothing sent)', /if \(safeIsTmp\(c\.id\)\) \{ alert\(c\.first \+ ' ' \+ c\.last \+ ' is still being saved\. Nothing was sent\./.test(src)
+  ck('Ask references and the Orientation Video Call invite refuse a temporary number (said, nothing sent)', /if \(safeIsTmp\(c\.id\)\) \{ alert\(c\.first \+ ' ' \+ c\.last \+ ' is still being saved\. Nothing was sent\./.test(src)
     && /if\(safeIsTmp\(c\.id\)\)\{ alert\(c\.first \+ ' is still being saved\. Nothing was sent\./.test(src));
 
   // ── index.html saved a caregiver: take the database copy unless this page has an unsaved change ──
