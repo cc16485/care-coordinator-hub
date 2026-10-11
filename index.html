@@ -3519,6 +3519,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div id="pbList" style="margin-top:11px;"><div class="field-note">Loading…</div></div>
       </div>
+      <!-- 2026-10-11 (Samantha: "put the pre-screener all 2-3 pages so we can see a preview on the recruit tab"). The live
+           apply page in its preview mode: all three pages at once, nothing saved or sent. -->
+      <div class="card" id="pbPreviewCard" style="padding:16px 18px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <b style="font-size:15px;color:var(--navy);">👀 Preview the pre-screen</b>
+          <span class="field-note">all three pages, exactly as applicants see them. Nothing here is saved.</span>
+          <span style="flex:1;"></span>
+          <select id="pbPreviewPos" style="width:auto;min-width:200px;" onchange="pbPreview(this.value)"></select>
+          <a class="fb" id="pbPreviewOpen" style="text-decoration:none;" target="_blank" rel="noopener" href="https://mo-care.com/apply?preview=1">Open full size ↗</a>
+        </div>
+        <iframe id="pbPreviewFrame" title="Pre-screen preview" loading="lazy" style="width:100%;max-width:640px;height:1100px;border:1px solid var(--border);border-radius:12px;margin-top:12px;display:block;background:#faf9f6;"></iframe>
+      </div>
       </div>
 
       <div class="rcview" id="rcview-words" style="display:none;">
@@ -20333,10 +20345,26 @@ function pbRateDisagrees(p){
   return money(a.min) + (a.max!=null && a.max!==a.min ? '–'+money(a.max) : '');
 }
 
+/* The pre-screen preview (2026-10-11): one role at a time, from the same list. */
+function pbPreview(key, scroll){
+  const sel = document.getElementById('pbPreviewPos'), fr = document.getElementById('pbPreviewFrame');
+  if(!sel || !fr) return;
+  if(!sel.options.length || (key && sel.value !== key)){
+    sel.innerHTML = (PB || []).filter(p=>p.active).map(p=>'<option value="'+escapeHtmlComms(p.key)+'">'+escapeHtmlComms(p.label)+'</option>').join('');
+    if(key) sel.value = key;
+  }
+  const k = key || sel.value || 'caregiver';
+  const url = 'https://mo-care.com/apply?position=' + encodeURIComponent(k) + '&preview=1';
+  if(fr.getAttribute('src') !== url) fr.setAttribute('src', url);
+  const open = document.getElementById('pbPreviewOpen'); if(open) open.href = url;
+  if(scroll) document.getElementById('pbPreviewCard').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
 function pbRender(){
   const box = document.getElementById('pbList'); if(!box) return;
   const esc = escapeHtmlComms;
   if(!PB.length){ box.innerHTML = '<div class="field-note">No positions yet.</div>'; return; }
+  setTimeout(function(){ try{ const sel = document.getElementById('pbPreviewPos'); pbPreview(sel && sel.value || 'caregiver'); }catch(_){} }, 0);
   const off = PB.filter(p=>p.active && pbRateDisagrees(p));
   const warn = off.length
     ? '<div style="background:#FEF3C7;border:1px solid #F5D9A0;border-radius:10px;padding:11px 13px;margin-bottom:12px;font-size:13.5px;">'
@@ -20356,7 +20384,8 @@ function pbRender(){
           + 'approved is ' + esc(offRate) + '</span>' : '')
       + '<span class="field-note">'+qs.length+' extra question'+(qs.length===1?'':'s')+'</span>'
       + '<span style="flex:1;"></span>'
-      + '<a class="fb" style="text-decoration:none;" target="_blank" rel="noopener" href="https://mo-care.com/apply?position='+esc(p.key)+'">See the pre-screen ↗</a>'
+      /* opens the save-nothing preview: an office look must never create a real application (2026-10-11) */
+      + '<a class="fb" style="text-decoration:none;" href="#" onclick="event.preventDefault();event.stopPropagation();pbPreview(\''+esc(p.key)+'\',true);return false;">Preview the pre-screen</a>'
       + '<span style="color:#A89C8B;font-size:.74rem;">edit ▾</span>'
       + '</summary><div style="padding:0 .9rem .9rem;">'
       + (pbCanSetPay()
