@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Step 2: I finished</title>
+<!-- SLICE 4 (Samantha "go", 2026-10-10): the caregiver's private "I finished Step 2" page. One tap tells the office they
+     have finished their Viventium tasks. Nothing is verified here; the office checks Viventium itself. The page holds no
+     data: the link in the address bar is the whole story, checked by the server. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy:#0D365F; --gold:#F0A63A; --gold-text:#C17A12; --bg:#faf9f6; --border:#e4e1d8; --text:#16283a; --muted:#6E6559; --green:#15803D; --red:#B00020; }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.55}
+  .wrap{max-width:560px;margin:0 auto;padding:18px 16px 60px} header{text-align:center;padding:8px 0 4px} header img{height:48px}
+  h1{font-size:23px;line-height:1.25;color:var(--navy);margin:14px 0 8px;letter-spacing:-.02em} p{font-size:16px;margin:0 0 12px}
+  .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px 16px;margin:12px 0}
+  button.go{width:100%;background:var(--gold);color:#122F52;border:0;border-radius:10px;padding:15px;font:inherit;font-size:17px;font-weight:800;cursor:pointer} button.go[disabled]{opacity:.6}
+  .ok{background:#DCFCE7;color:var(--green);border-radius:10px;padding:14px;font-size:16px;font-weight:600} .err{background:#FDECEC;color:var(--red);border-radius:10px;padding:14px;font-size:15px}
+  .why{background:#FFF7ED;border:1px solid #FCD9A8;border-radius:10px;padding:12px 14px;font-size:14.5px;margin-top:12px} .muted{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions"></header>
+  <div id="main">
+    <h1>Finished your Step 2 in Viventium?</h1>
+    <div class="card">
+      <p>Tap the button once every task in Viventium is done (your tax forms, direct deposit, the acknowledgments and your uploads). We will check Viventium and text you the link to book your welcome call, usually within one business day.</p>
+      <button class="go" id="go" onclick="done()">I finished Step 2</button>
+      <p class="muted" style="margin-top:10px">Not finished yet? Close this page and come back when you are. Stuck? Call or text (417) 234-8494.</p>
+    </div>
+  </div>
+</div>
+<script>
+const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7';
+const q = new URLSearchParams(location.search); const LINK = { c: q.get('c') || '', e: q.get('e') || '', t: q.get('t') || '' };
+const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+if(!LINK.c || !LINK.t) document.getElementById('main').innerHTML = '<h1>This link is not complete</h1><div class="err">Open the link from your text or email again, or call or text the office at (417) 234-8494.</div>';
+async function done(){
+  const btn = document.getElementById('go'); btn.disabled = true; btn.textContent = 'Telling the office…';
+  let j = {};
+  try {
+    const r = await fetch(SUPA_URL + '/functions/v1/step2-handoff', { method:'POST', headers:{ 'Content-Type':'application/json', apikey:SUPA_ANON, Authorization:'Bearer ' + SUPA_ANON }, body: JSON.stringify({ action:'done', ...LINK }) });
+    j = await r.json().catch(() => ({}));
+  } catch(e){ j = { error: 'We could not reach the office system. Please try again in a minute, or call or text (417) 234-8494.' }; }
+  const m = document.getElementById('main');
+  if(j && j.ok){
+    const first = j.first ? ', ' + esc(j.first) : '';
+    if(j.state === 'verified') m.innerHTML = '<h1>Already verified</h1><div class="ok">Thank you' + first + '. The office has already verified your Step 2. Watch for the welcome-call booking link.</div>';
+    else if(j.state === 'noted') m.innerHTML = '<h1>Thank you</h1><div class="ok">We have noted it' + first + '. The office will follow up with you.</div>';
+    else m.innerHTML = '<h1>Thank you' + first + '!</h1><div class="ok">We will check your Viventium tasks and text you the link to book your welcome call, usually within one business day.</div>' + (j.practice ? '<div class="why"><b>Practice only.</b> This record is a test; no text follows from it.</div>' : '');
+  } else {
+    m.innerHTML = '<h1>That did not go through</h1><div class="err">' + esc((j && j.error) || 'Please try again, or call or text (417) 234-8494.') + '</div>';
+  }
+}
+</script>
+</body>
+</html>
