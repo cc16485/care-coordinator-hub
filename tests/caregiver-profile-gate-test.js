@@ -43,7 +43,7 @@ const roster = [
   { id: 2, first: 'Ben', last: 'Cand', axiscare_id: '502', candidate_id: 77, hire_date: '2026-10-06' }, // new, profile by candidate id
   { id: 3, first: 'Cat', last: 'Draft', axiscare_id: '503', hire_date: '2026-10-07' },                 // new, unpublished draft
   { id: 4, first: 'Nina', last: 'Name', axiscare_id: '504', hire_date: '2026-10-08' },                 // new, only a NAME match
-  { id: 5, first: 'Dee', last: 'Wc', axiscare_id: '505', candidate_id: 88, hire_date: '2026-09-15' },  // welcome call → new hire
+  { id: 5, first: 'Dee', last: 'Wc', axiscare_id: '505', candidate_id: 88, hire_date: '2026-09-15' },  // Orientation Video Call → new hire
   { id: 6, first: 'Old', last: 'Timer', axiscare_id: '506', hire_date: '2022-03-01' },                 // current caregiver
   { id: 7, first: 'Eve', last: 'Cancelled', axiscare_id: '507', candidate_id: 99, hire_date: '2026-09-15' }, // cancelled call only
 ];
@@ -51,16 +51,16 @@ const roster = [
   const before = C.gateFor(roster[2]);
   ck('before the lookup answers, nobody is blocked', !before.blocked && !before.checked, before);
   await C.gateLoad(roster);
-  ck('ONE profiles query (plus the welcome calls) for everybody', calls.filter(t => t === 'caregiver_profiles').length === 1 && calls.length === 2, calls);
+  ck('ONE profiles query (plus the Orientation Video Calls) for everybody', calls.filter(t => t === 'caregiver_profiles').length === 1 && calls.length === 2, calls);
   ck('a finished load tells the lists to redraw', events === 1);
   const g = i => C.gateFor(roster[i]);
   ck('new hire with a published profile by AxisCare id: clear', g(0).published && !g(0).blocked);
   ck('new hire with a published profile by candidate id: clear', g(1).published && !g(1).blocked);
   ck('new hire with only an unpublished draft: Profile needed', g(2).blocked && /^Profile needed before first shift/.test(g(2).why));
   ck('a name match never counts (the office links it in the panel)', g(3).blocked);
-  ck('welcome call makes them a new hire', g(4).new_hire && g(4).blocked);
+  ck('Orientation Video Call makes them a new hire', g(4).new_hire && g(4).blocked);
   ck('current caregiver with no profile: never blocked', !g(5).new_hire && !g(5).blocked);
-  ck('a cancelled welcome call alone does not make a new hire', !g(6).new_hire && !g(6).blocked);
+  ck('a cancelled Orientation Video Call alone does not make a new hire', !g(6).new_hire && !g(6).blocked);
   const ax = C.gateForAx('503', '');
   ck('found by AxisCare id from the list', ax && ax.g.id === 3 && ax.blocked);
   const nm = C.gateForAx('', 'cat draft');

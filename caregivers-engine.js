@@ -1625,7 +1625,7 @@ function renderOffers(){
 
 /* Linked when the offer was moved across; the candidate carries the offer id. */
 function offerMovedOn(o){
-  /* welcome call done moves them to the roster with their offer id (2026-10-02) */
+  /* Orientation Video Call done moves them to the roster with their offer id (2026-10-02) */
   if((typeof caregivers!=='undefined' ? caregivers : []).some(g=>g.offer_id!=null && String(g.offer_id)===String(o.id))) return true;
   if(!candidates.some(c=>String(c.offer_id)===String(o.id))) return false;
   /* PRACTICE RUN FIX (2026-10-11): on the new path the Step 1 link lives on this card and the person is moved into
@@ -3865,7 +3865,7 @@ function renderEod(){
      based on), add (a new person, with a temporary negative number), remove.
    · NEW PEOPLE GET THEIR NUMBER FROM THE DATABASE. Until it answers they
      carry a temporary negative number (safeTmpId); nothing that leaves this
-     page (reference requests, welcome calls, the roster link) may use it.
+     page (reference requests, Orientation Video Calls, the roster link) may use it.
      The real number replaces it in place before the save resolves.
    · If the database is unreachable, a new person is taken back off the list
      and the office is told: no person ever exists on this device only.
@@ -4307,7 +4307,7 @@ function bgrSharedSaveResult(ok, key){
 function saveCaregivers(opts){
   localStorage.setItem('cc_caregivers', JSON.stringify(caregivers));
   /* Returns the shared-save outcome (a promise of true/false) for callers that
-     must know it (the welcome-call roster add, Step 2 marks). Older callers
+     must know it (the Orientation Video Call roster add, Step 2 marks). Older callers
      ignore it, as before. 421: one person at a time (safeSave); when it is
      true, every new caregiver already carries the number the database gave. */
   return safeSave('caregivers', opts).then(r => {
@@ -4555,7 +4555,7 @@ function lifecycleRows(){
   const usedBoard = new Set();
 
   const boardFor = i => candidates.find(c => c.intake_id === i.id);
-  /* Moved to the caregiver roster (welcome call done or office Promote): matched ONLY by the links the roster
+  /* Moved to the caregiver roster (Orientation Video Call done or office Promote): matched ONLY by the links the roster
      record carries over from the board, intake_id and offer_id. hire_intake.candidate_id is an AxisCare
      applicant id, never a board id, so it is never compared with the roster's candidate_id. */
   const rosterList = typeof caregivers !== 'undefined' ? caregivers : [];
@@ -4789,7 +4789,7 @@ async function intakeImport(intakeId, btn){
   if (!HYDRATED) { alert('Shared data has not loaded. This section is read-only right now.'); return; }
   const existing = candidates.find(c => c.intake_id === intakeId);
   if (existing) { openOBModal(existing.id); return; }
-  /* Already moved to the caregiver roster (welcome call done or office Promote): importing again would make a duplicate. */
+  /* Already moved to the caregiver roster (Orientation Video Call done or office Promote): importing again would make a duplicate. */
   const hired = (typeof caregivers !== 'undefined' ? caregivers : []).find(g => g.intake_id != null && g.intake_id !== '' && String(g.intake_id) === String(intakeId));
   if (hired) { alert(((hired.first || '') + ' ' + (hired.last || '')).trim() + ' is already on the caregiver roster (Training tab). Nothing was imported.'); return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
@@ -7417,7 +7417,7 @@ async function confirmSendInvite(){
 /* ── MOVED INTO ORIENTATION + OFFICE ORIENTATION SET BY THE OFFICE (2026-10-08, Samantha) ──
    People & Checks: once every check is clear and two references are positive, the row says only that the person
    moved into orientation (a small banner at the right), so the table keeps its room for what happens before
-   orientation. The orientation steps (Viventium Step 2, the welcome call, the caregiver profile, the office backup)
+   orientation. The orientation steps (Viventium Step 2, the Orientation Video Call, the caregiver profile, the office backup)
    live on the Orientations tab, where they already were.
    The in-office orientation is the backup. Besides texting the booking link, the office can type the date and time
    itself: the person is booked onto the in-person session at that date and time (a one-seat session is added if
@@ -7462,12 +7462,12 @@ function obOrientBanner(c){
   const office = officeOrientBookingFor(c, typeof orientSessions !== 'undefined' ? orientSessions : []);
   const w = typeof wcRowFor === 'function' ? wcRowFor(c) : null;
   let line;
-  if(w && w.status === 'done') line = '📹 Welcome call done ' + esc(wcDay(w.done_at));
+  if(w && w.status === 'done') line = '📹 Orientation Video Call done ' + esc(wcDay(w.done_at));
   else if(office) line = '🏢 Office orientation ' + esc(officeOrientWhen(office.session));
-  else if(w && w.status === 'booked' && w.starts_at) line = '📹 Welcome call ' + esc(wcWhen(w.starts_at));
+  else if(w && w.status === 'booked' && w.starts_at) line = '📹 Orientation Video Call ' + esc(wcWhen(w.starts_at));
   else if(c.invite_sent) line = '📩 Office invite sent' + (fmtD(c.invite_sent_date) ? ' ' + esc(fmtD(c.invite_sent_date)) : '');
-  else if((w && w.invited_at) || c.welcome_invited_at) line = '📹 Welcome call invite sent';
-  else if(c.step2_verified_at) line = 'Step 2 verified, welcome call next';
+  else if((w && w.invited_at) || c.welcome_invited_at) line = '📹 Orientation Video Call invite sent';
+  else if(c.step2_verified_at) line = 'Step 2 verified, Orientation Video Call next';
   else if(c.step2_done_at) line = 'Step 2 reported done, verify in Viventium';
   else if(c.step2_sent_at) line = 'Step 2 sent, waiting on them';
   else line = 'Next: Viventium Step 2';
@@ -8167,12 +8167,12 @@ async function mergePendingBookings(){
   } catch(e){ console.warn('mergePendingBookings:', e); }
 }
 
-/* ── Remote orientation, slice 1a: Viventium Step 2 + welcome calls (2026-10-01) ──
+/* ── Remote orientation, slice 1a: Viventium Step 2 + Orientation Video Calls (2026-10-01) ──
    Samantha: once references and background checks are clear (Ready for
    Orientation) the office sends Viventium Step 2 in Viventium. Viventium has no
    link to the Hub, so staff mark "Step 2 sent" and "Step 2 done" here. The I-9
    documents are uploaded in Step 2, so Step 2 must be DONE before the welcome
-   call. "Invite to welcome call" is a button, never automatic. The new hire
+   call. "Invite to Orientation Video Call" is a button, never automatic. The new hire
    books a 15-minute Google Meet call (one shared room) on welcome.html.
    Server side: welcome_calls.sql + the staff-only welcome-call edge function
    (Staffing-Coordinator-Hub repo). The function owns every word that is sent. */
@@ -8207,9 +8207,9 @@ function wcResult(head, d){
   return head + (sent.length ? '\n\nSent by ' + sent.join(' and ') + '. It shows in their GoHighLevel conversation.' : '\n\nNo message went.')
     + ((d.not_sent && d.not_sent.length) ? '\n\nNot sent: ' + d.not_sent.join('; ') : '');
 }
-/* The newest welcome call for a candidate (by the Hub's candidate id). */
+/* The newest Orientation Video Call for a candidate (by the Hub's candidate id). */
 function wcRowFor(c){
-  /* A caregiver roster record (added at welcome call done) is keyed by the candidate id it carries. */
+  /* A caregiver roster record (added at Orientation Video Call done) is keyed by the candidate id it carries. */
   const key = (c && typeof caregivers !== 'undefined' && caregivers.includes(c)) ? c.candidate_id : (c && c.id);
   const rows = WC_ROWS.filter(w => String(w.candidate_id) === String(key) && w.status !== 'cancelled');
   rows.sort((a,b) => String(b.invited_at||'').localeCompare(String(a.invited_at||'')));
@@ -8217,7 +8217,7 @@ function wcRowFor(c){
 }
 
 /* ── Caregiver profile (part 2, slice 2a, 2026-10-01) ──
-   Samantha: the office drafts the profile with AI before the welcome call, reads it to them on the call, types what
+   Samantha: the office drafts the profile with AI before the Orientation Video Call, reads it to them on the call, types what
    they change, sends their personal photo link (photo required, video encouraged), then publishes it. The panel
    itself lives in caregiver-profile-panel.js (window.CGP2), shared with the employee's page. */
 function cgpCtxFor(candId, w){
@@ -8247,7 +8247,7 @@ function cgpBtnHtml(candId){
    sends the Step 2 message with the private DONE link to new-path people), the caregiver's own DONE (link or text reply,
    or the office recording what it heard), and Verify Viventium Step 2 Complete with the Admin checklist ticked item by
    item (ticked items confirm the readiness-card rows; I-9 Section 2 is its own line). Undo records who and why. The
-   welcome-call invitation follows Verified on the new path (switch). Existing stamps (step2_sent_at / step2_done_at) are
+   Orientation Video Call invitation follows Verified on the new path (switch). Existing stamps (step2_sent_at / step2_done_at) are
    kept and shown; nothing is deleted. */
 async function s2Call(body){
   const { data, error } = await sb.functions.invoke('step2-handoff', { body });
@@ -8295,11 +8295,11 @@ async function step2Verify(id){
   w.querySelector('#s2go').onclick = async () => {
     const ticked = [...w.querySelectorAll('.s2tick:checked')].map(x => x.value), i9 = w.querySelector('#s2i9').checked, note = w.querySelector('#s2note').value;
     if(!ticked.length && !i9){ alert('Tick what you checked in Viventium.'); return; }
-    if(!confirm('Record Step 2 as verified for ' + c.first + ', with ' + ticked.length + ' item' + (ticked.length === 1 ? '' : 's') + ' ticked' + (i9 ? ' and I-9 Section 2' : '') + '? This is permanent history in your name.' + (p.switches && p.switches.invite ? '\n\nOn the new path the welcome-call invitation goes right after.' : '\n\nThe welcome-call invitation switch is off: you press Invite yourself.'))) return;
+    if(!confirm('Record Step 2 as verified for ' + c.first + ', with ' + ticked.length + ' item' + (ticked.length === 1 ? '' : 's') + ' ticked' + (i9 ? ' and I-9 Section 2' : '') + '? This is permanent history in your name.' + (p.switches && p.switches.invite ? '\n\nOn the new path the Orientation Video Call invitation goes right after.' : '\n\nThe Orientation Video Call invitation switch is off: you press Invite yourself.'))) return;
     w.querySelector('#s2go').disabled = true;
     try{ const d = await s2Call({ action:'verify', candidate_id:String(id), ticked, i9_section2: i9, note }); w.remove();
       const inv = d.invite || {};
-      alert('Verified.' + (d.confirmed && d.confirmed.length ? '\n\n' + d.confirmed.length + ' readiness-card row' + (d.confirmed.length === 1 ? '' : 's') + ' confirmed in your name.' : '') + (inv.state === 'sent' ? '\n\nThe welcome-call invitation went by ' + [inv.texted ? 'text' : '', inv.emailed ? 'email' : ''].filter(Boolean).join(' and ') + '.' : inv.state === 'practice' ? '\n\nWelcome-call invitation: practice (switch off). Press Invite to welcome call yourself.' : inv.state === 'failed' ? '\n\nThe welcome-call invitation did not go: ' + (inv.why || (inv.not_sent || []).join('; ')) + ' (a card is on Needs Attention).' : ''));
+      alert('Verified.' + (d.confirmed && d.confirmed.length ? '\n\n' + d.confirmed.length + ' readiness-card row' + (d.confirmed.length === 1 ? '' : 's') + ' confirmed in your name.' : '') + (inv.state === 'sent' ? '\n\nThe Orientation Video Call invitation went by ' + [inv.texted ? 'text' : '', inv.emailed ? 'email' : ''].filter(Boolean).join(' and ') + '.' : inv.state === 'practice' ? '\n\nWelcome-call invitation: practice (switch off). Press Invite to Orientation Video Call yourself.' : inv.state === 'failed' ? '\n\nThe Orientation Video Call invitation did not go: ' + (inv.why || (inv.not_sent || []).join('; ')) + ' (a card is on Needs Attention).' : ''));
       await s2After(id, d);
     }catch(e){ w.querySelector('#s2go').disabled = false; alert('Not verified: ' + e.message); }
   };
@@ -8334,18 +8334,18 @@ function step2Html(c){
     + btn(`step2Sent(${id},true)`, 'Resend', 'Resend the Step 2 message (its own stamp)') + undo('sent');
   return chip('#F3F4F6', '#4B5563', 'Step 2 not sent', 'Create them in Viventium, then record it here') + btn(`step2Sent(${id})`, 'Record Step 2 sent', 'Records your name and the time; sends the Step 2 message on the new path');
 }
-/* "📹 Invite to welcome call": gated on Step 2 done; after inviting, the
+/* "📹 Invite to Orientation Video Call": gated on Step 2 done; after inviting, the
    booked/done state or "Invited [date] · Re-send". */
 function wcInviteHtml(c){
   const w = wcRowFor(c);
-  if(w && w.status === 'done') return `<span class="badge" style="background:#DCFCE7;color:#15803D;font-size:.66rem">📹 Welcome call done ${wcDay(w.done_at)}</span>`;
+  if(w && w.status === 'done') return `<span class="badge" style="background:#DCFCE7;color:#15803D;font-size:.66rem">📹 Orientation Video Call done ${wcDay(w.done_at)}</span>`;
   if(w && w.status === 'booked' && w.starts_at) return `<span class="badge" style="background:#E0F2FE;color:#075985;font-size:.66rem">📹 Booked ${wcEsc(wcWhen(w.starts_at))}</span>`;
   const invitedAt = (w && w.invited_at) || c.welcome_invited_at;
   const ok = !!(c.step2_verified_at || c.step2_done_at);   /* SLICE 4: verified (or the old done tick) */
   const tip = ok ? '' : 'Viventium Step 2 must be verified first';
   if(invitedAt) return `<span style="font-size:.7rem;color:#0e7490;font-weight:600">📹 Invited ${wcDay(invitedAt)}${w && w.status === 'noshow' ? ' (missed the call)' : ''} ·</span>`
     + `<span title="${tip}"><button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" ${ok ? '' : 'disabled'} title="${tip}" onclick="event.stopPropagation();wcInvite(${c.id},this)">Re-send</button></span>`;
-  return `<span title="${tip}"><button class="ibtn" style="font-size:.72rem;padding:.22rem .65rem;${ok ? 'background:var(--teal);color:#fff;border-color:var(--teal)' : ''}" ${ok ? '' : 'disabled'} title="${tip}" onclick="event.stopPropagation();wcInvite(${c.id},this)">📹 Invite to welcome call</button></span>`;
+  return `<span title="${tip}"><button class="ibtn" style="font-size:.72rem;padding:.22rem .65rem;${ok ? 'background:var(--teal);color:#fff;border-color:var(--teal)' : ''}" ${ok ? '' : 'disabled'} title="${tip}" onclick="event.stopPropagation();wcInvite(${c.id},this)">📹 Invite to Orientation Video Call</button></span>`;
 }
 async function wcInvite(id, btn){
   const c = candidates.find(x => String(x.id) === String(id)); if(!c) return;
@@ -8356,7 +8356,7 @@ async function wcInvite(id, btn){
   if(btn) btn.disabled = true;
   try{
     const p = await wcCall({ action:'preview', first: c.first || '' });
-    if(!confirm('Invite ' + name + ' to a 15-minute welcome video call?\n\n'
+    if(!confirm('Invite ' + name + ' to a 15-minute Orientation Video Call?\n\n'
       + 'This sends a TEXT (only if they said yes to texts, 8am to 6pm Central) and an EMAIL. The link (shown as …) is their own booking page.\n\n'
       + 'TEXT:\n' + (p.text || '') + '\n\nEMAIL: ' + (p.subject || ''))) return;
     const d = await wcCall({ action:'invite', candidate_id: String(c.id), first: c.first || '', last: c.last || '', phone: c.phone || '', email: c.email || '' });
@@ -8369,14 +8369,14 @@ async function wcInvite(id, btn){
   finally{ if(btn) btn.disabled = false; }
 }
 
-/* ── 📹 Welcome calls section (top of the Orientations tab) ── */
+/* ── 📹 Orientation Video Calls section (top of the Orientations tab) ── */
 async function wcLoad(){
   try{
     const { data, error } = await sb.from('welcome_calls').select('*').order('starts_at');
     if(error) throw error;
     WC_ROWS = data || []; WC_ERR = '';
   }catch(e){ WC_ERR = (e && e.message) || 'error'; console.warn('welcome_calls load failed:', e); }
-  /* the profile chip on each welcome call and on the Ready for Orientation rows */
+  /* the profile chip on each Orientation Video Call and on the Ready for Orientation rows */
   if(window.CGP2){
     const ready = (typeof candidates !== 'undefined' ? candidates : []).filter(c => { try{ return obDeriveStatus(c) === 'Ready for Orientation'; }catch(_){ return false; } }).map(c => c.id);
     try{ await CGP2.loadForCandidates(WC_ROWS.map(w => w.candidate_id).concat(ready)); }catch(_){ /* chips show "Not started" */ }
@@ -8426,10 +8426,10 @@ function renderWelcomeCalls(){
   const done = WC_ROWS.filter(w => w.status === 'done' && w.done_at && new Date(w.done_at).getTime() > now - 14*86400000)
     .sort((a,b) => String(b.done_at).localeCompare(String(a.done_at)));
   const h = (txt, n) => `<div style="font-size:.74rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin:.8rem 0 .45rem">${txt}${n != null ? ` <span style="color:var(--gray);font-weight:600">(${n})</span>` : ''}</div>`;
-  const body = !WC_LOADED ? '<div style="font-size:.8rem;color:var(--gray)">Loading welcome calls…</div>'
-    : WC_ERR ? `<div style="font-size:.8rem;color:#B00020">Could not load welcome calls: ${wcEsc(WC_ERR)} <button class="ibtn" onclick="wcLoad()">Try again</button></div>`
+  const body = !WC_LOADED ? '<div style="font-size:.8rem;color:var(--gray)">Loading Orientation Video Calls…</div>'
+    : WC_ERR ? `<div style="font-size:.8rem;color:#B00020">Could not load Orientation Video Calls: ${wcEsc(WC_ERR)} <button class="ibtn" onclick="wcLoad()">Try again</button></div>`
     : h('Today and upcoming', booked.length)
-      + (booked.length ? booked.map(wcCard).join('') : '<div style="font-size:.8rem;color:var(--gray)">No welcome calls booked.</div>')
+      + (booked.length ? booked.map(wcCard).join('') : '<div style="font-size:.8rem;color:var(--gray)">No Orientation Video Calls booked.</div>')
       + h('Waiting to book', waiting.length)
       + (waiting.length ? waiting.map(w => `<div style="display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .8rem;background:#fff;border:1px solid var(--border);border-radius:9px;padding:.45rem .8rem;margin-bottom:.4rem">
           <span style="font-size:.84rem;font-weight:600;color:var(--navy)">${wcEsc(wcName(w))}</span>
@@ -8445,7 +8445,7 @@ function renderWelcomeCalls(){
   el.innerHTML = `<div style="background:linear-gradient(135deg,#f0f9ff,#fefce8);border:1.5px solid #7DD3FC;border-radius:12px;padding:.85rem 1rem">
     <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
       <span style="font-size:.95rem">📹</span>
-      <span style="font-size:.95rem;font-weight:700;color:var(--navy)">Welcome calls</span>
+      <span style="font-size:.95rem;font-weight:700;color:var(--navy)">Orientation Video Calls</span>
       <span style="font-size:.75rem;color:var(--gray)">15-minute Google Meet calls in one shared room. I-9 documents, AxisCare app, caregiver profile.</span>
       <button class="ibtn" style="margin-left:auto" onclick="wcLoad()">↻ Refresh</button>
     </div>
@@ -8454,18 +8454,18 @@ function renderWelcomeCalls(){
   </div>`;
 }
 const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px solid var(--border);border-radius:9px;padding:.5rem .8rem">
-  <summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:var(--navy)">📖 How welcome calls work + the call script</summary>
+  <summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:var(--navy)">📖 How Orientation Video Calls work + the call script</summary>
   <div style="font-size:.8rem;line-height:1.6;color:#1f2a36">
     <h4 style="margin:.7rem 0 .3rem;color:var(--navy)">How it works</h4>
     <ol style="margin:0;padding-left:1.3rem">
       <li>Ready for Orientation, then send Viventium Step 2, then mark Step 2 done in the Hub.</li>
-      <li>Press <b>Invite to welcome call</b>. They book a 15-minute time, during interview hours, never overlapping an interview. Confirmations and reminders with the Meet link go out on their own.</li>
+      <li>Press <b>Invite to Orientation Video Call</b>. They book a 15-minute time, during interview hours, never overlapping an interview. Confirmations and reminders with the Meet link go out on their own.</li>
       <li>Before the call, press <b>🪪 Caregiver profile</b>, then <b>Draft with AI</b>. It writes a first draft from their application and interview. Anything in [ask: …] is a question to ask them on the call.</li>
       <li>At the time, join the shared room from the "Caring Companions Welcome Calls" event on your own Google Calendar, signed in with your own @mo-care.com account (never a shared login). Join a minute early and admit them when they ask to join.</li>
       <li>If Step 2 turns out not to be done, press <b>Reschedule: Step 2 not done</b>, which tells them to finish it and rebook.</li>
       <li>Had an interview no-show? Use <b>Call them now</b> on someone waiting.</li>
       <li>During the call, if they are still an applicant in AxisCare, hire them in AxisCare and set their status to <b>In Training</b>. Their phone number or email in AxisCare must match the one they gave us.</li>
-      <li>After the call, tick the checklist and press <b>Welcome call done – send orientation link</b>. The Training Platform finds them in AxisCare (In Training, by phone or email, never by name), assigns their courses and sends their orientation link by text and email. Texts only go 8am to 6pm: after 6pm it goes at 9am.</li>
+      <li>After the call, tick the checklist and press <b>Orientation Video Call done – send orientation link</b>. The Training Platform finds them in AxisCare (In Training, by phone or email, never by name), assigns their courses and sends their orientation link by text and email. Texts only go 8am to 6pm: after 6pm it goes at 9am.</li>
       <li>Pressing done also adds them to the caregiver roster (hire date today). Training and Compliance then track their orientation and dementia training.</li>
       <li>If the Hub says they were not found, set them to <b>In Training</b> in AxisCare, then press <b>Send orientation link</b> on their row under <b>Done recently</b>. Until then a card stays on Needs Attention.</li>
       <li>Once their photo is in, the profile chip says <b>Photo in, ready to publish</b>. Open <b>🪪 Caregiver profile</b>, check the photo and the words, and press <b>Publish</b>. The profile must be published before their first shift: until it is, the Hub shows <b>Profile needed before first shift</b> for them.</li>
@@ -8483,17 +8483,17 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
       <li><b>What happens next:</b> "Right after this call you'll get a text and an email with your own private orientation link (if it's after 6pm, it comes at 9am). Your training is online, on your phone or computer, on your own schedule, and you can do it in pieces: Agency Orientation (about 2 hours), then Alzheimer's &amp; Dementia Care (about 4 hours), both before your first client; then on-the-job training within 30 days. Once you're done and your profile is published, we'll let you know you're cleared to work. Please save our office number: (417) 234-8494."</li>
       <li><b>Close:</b> "What questions do you have for me? Thank you, [first name], we're really glad you're here."</li>
     </ol>
-    <p style="margin:.5rem 0 .2rem"><b>After the call:</b> make sure they are In Training in AxisCare, tick the checklist, press <b>Welcome call done – send orientation link</b>, and complete I-9 Section 2 in Viventium. When their photo is in, open <b>🪪 Caregiver profile</b> and press <b>Publish</b>. The profile must be published before their first shift.</p>
+    <p style="margin:.5rem 0 .2rem"><b>After the call:</b> make sure they are In Training in AxisCare, tick the checklist, press <b>Orientation Video Call done – send orientation link</b>, and complete I-9 Section 2 in Viventium. When their photo is in, open <b>🪪 Caregiver profile</b> and press <b>Publish</b>. The profile must be published before their first shift.</p>
   </div>
 </details>`;
-/* ── Orientation link (slice 1b, 2026-10-01). Samantha: "Welcome call done – send orientation link". ──
+/* ── Orientation link (slice 1b, 2026-10-01). Samantha: "Orientation Video Call done – send orientation link". ──
    After the call is marked done, the Training Platform (job-offer action 'orientation_link', the staff member's own
    Hub sign-in) finds the new hire in AxisCare by phone or email (never by name; exactly one active caregiver In
    Training), saves them so their courses are assigned, links their offer and sends the same training welcome as the
    9am run. Not found: nothing is sent, a card goes on Needs Attention, and the office is told to set In Training in
    AxisCare and press Send orientation link (on the row under Done recently). It never sends twice. */
-const WC_ORIENT_LABEL = 'Welcome call done – send orientation link';
-/* Who a welcome call is about: their Background & References record, or (once welcome call done has moved them)
+const WC_ORIENT_LABEL = 'Orientation Video Call done – send orientation link';
+/* Who an Orientation Video Call is about: their Background & References record, or (once Orientation Video Call done has moved them)
    their caregiver roster record, which carries the same candidate id, offer id, intake id, phone and email. */
 function wcSrcFor(candId){
   if(candId == null || candId === '') return null;
@@ -8560,8 +8560,8 @@ async function wcAct(id, action, reason, btn){
   const name = wcName(w), when = w.starts_at ? wcWhen(w.starts_at) : '';
   let ask = '';
   if(action === 'done'){
-    if(!WC_TICKS.every(([k]) => w[k]) && !confirm('Not every checklist box is ticked for ' + name + '.\n\nMark the welcome call done anyway?')) return;
-    ask = 'Mark the welcome call with ' + name + ' as done and send their orientation link?\n\n'
+    if(!WC_TICKS.every(([k]) => w[k]) && !confirm('Not every checklist box is ticked for ' + name + '.\n\nMark the Orientation Video Call done anyway?')) return;
+    ask = 'Mark the Orientation Video Call with ' + name + ' as done and send their orientation link?\n\n'
       + 'First: they must be hired in AxisCare with status In Training. The Training Platform finds them there by phone or email and sends their orientation link by text and email.\n\n'
       + 'Remember to complete I-9 Section 2 in Viventium.';
   } else if(action === 'reschedule' && reason === 'step2'){
@@ -8571,13 +8571,13 @@ async function wcAct(id, action, reason, btn){
   } else if(action === 'noshow'){
     ask = 'Mark ' + name + ' as a no-show for the ' + when + ' call?\n\nThe time is freed and they get a text and email with a link to pick a new time.';
   } else if(action === 'now'){
-    ask = 'Text and email ' + name + " now: 'We have an opening right now for your welcome call, join in the next 10 minutes'? Their booked time (if any) stays the same unless the call happens.";
+    ask = 'Text and email ' + name + " now: 'We have an opening right now for your Orientation Video Call, join in the next 10 minutes'? Their booked time (if any) stays the same unless the call happens.";
   } else return;
   if(!confirm(ask)) return;
   if(btn) btn.disabled = true;
   try{
     const d = await wcCall(reason ? { action, id: w.id, reason } : { action, id: w.id });
-    let head = { done:'Welcome call marked done.', reschedule:'Call moved. Their invitation stays open so they can pick a new time.',
+    let head = { done:'Orientation Video Call marked done.', reschedule:'Call moved. Their invitation stays open so they can pick a new time.',
       noshow:'Marked as missed.', now:'Sent. Join the shared room and admit them when they ask to join.' }[action];
     /* Step 2 was marked done but is not: clear it so the record matches Viventium. */
     if(action === 'reschedule' && reason === 'step2'){
@@ -8603,8 +8603,8 @@ async function wcAct(id, action, reason, btn){
   }catch(e){ alert('That did not go through: ' + (e && e.message || e) + '\n\nNothing was changed.'); if(btn) btn.disabled = false; }
 }
 
-/* ── Welcome call done -> caregiver roster (Samantha, 2026-10-02) ──
-   Pressing "Welcome call done – send orientation link" also adds them to the caregiver roster with today's hire date
+/* ── Orientation Video Call done -> caregiver roster (Samantha, 2026-10-02) ──
+   Pressing "Orientation Video Call done – send orientation link" also adds them to the caregiver roster with today's hire date
    (Central), so Training and Compliance track their orientation and dementia training from day one. Same record as
    the office 🎓 Promote, except orient_date stays '' (orientation is done online AFTER this; it is never marked done
    here). Never twice: a roster record carrying this candidate id means it already happened. The Background &
@@ -8663,7 +8663,7 @@ function wcRosterMsg(r){
   return 'Not added to the caregiver roster: their Background & References record was not found. If they are not on the Training tab, add them there with + Add Caregiver.';
 }
 /* The button on a Done recently row whose person is not on the roster yet: the retry after a failed save, and the
-   catch-up for welcome calls marked done before this change. */
+   catch-up for Orientation Video Calls marked done before this change. */
 async function wcRosterAdd(id, btn){
   const w = WC_ROWS.find(x => String(x.id) === String(id)); if(!w) return;
   if(!confirm('Add ' + wcName(w) + ' to the caregiver roster with today\'s hire date?\n\nTraining and Compliance then track their orientation and dementia training. They move out of Background & References. Nothing is sent to them.')) return;
@@ -8692,7 +8692,7 @@ function renderOrientReadyQueue(){
         <span style="font-size:.95rem">✅</span>
         <span style="font-size:.88rem;font-weight:700;color:var(--navy)">Ready for Orientation</span>
         <span style="background:var(--teal);color:#fff;font-size:.68rem;font-weight:700;border-radius:12px;padding:.1rem .5rem">${ready.length}</span>
-        <span style="font-size:.75rem;color:var(--gray)">${ready.length===1?'candidate is':'candidates are'} cleared. Send Viventium Step 2, mark it done, then invite to a welcome call.</span>
+        <span style="font-size:.75rem;color:var(--gray)">${ready.length===1?'candidate is':'candidates are'} cleared. Send Viventium Step 2, mark it done, then invite to an Orientation Video Call.</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:.45rem">
         ${ready.map(c=>{
@@ -8719,7 +8719,7 @@ function renderOrientReadyQueue(){
 
 function renderOrientations(){
   renderOrientReadyQueue();
-  /* Welcome calls: draw what we have, refresh from the table at most every 30 seconds. */
+  /* Orientation Video Calls: draw what we have, refresh from the table at most every 30 seconds. */
   renderWelcomeCalls();
   if(Date.now() - WC_AT > 30000){ WC_AT = Date.now(); wcLoad(); }
   renderCalendar();
@@ -9203,7 +9203,7 @@ function saveCancelDetails(){
 }
 
 /* The caregiver roster record built from a Background & References candidate. Shared by the office-session
-   🎓 Promote (orientDate = the session date, they attended) and the welcome-call done path (orientDate = '',
+   🎓 Promote (orientDate = the session date, they attended) and the Orientation Video Call done path (orientDate = '',
    orientation is done online after the call). 2026-10-03: the record itself is built by caregiver-connect-rules.js,
    the ONE copy the server's hourly connect job also runs, so a caregiver moved over automatically gets exactly the
    record this button makes. */
@@ -10315,7 +10315,7 @@ window.obRefEmailOpen = obRefEmailOpen;
 window.obRefTextOpen = obRefTextOpen;
 window.obRefSendClose = obRefSendClose;
 window.obRefSendGo = obRefSendGo;
-/* Remote orientation, slice 1a (2026-10-01): Step 2 tracking + welcome calls. */
+/* Remote orientation, slice 1a (2026-10-01): Step 2 tracking + Orientation Video Calls. */
 Object.assign(window, { step2Sent, step2Reported, step2Verify, step2StillOpen, step2Undo, wcInvite, wcLoad, wcTick, wcNotes, wcAct, wcOrientLink, cgpOpen });   /* SLICE 4: the three audited Step 2 actions replace step2Mark */
 Object.assign(window, { offeredAddOne, offeredAddAll, intakeFillFromForm });   /* offered people into Background & References (2026-10-08) */
 window.dispatchEvent(new Event('scx-ready'));

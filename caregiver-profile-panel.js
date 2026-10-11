@@ -2,9 +2,9 @@
    CAREGIVER PROFILE PANEL (part 2, slice 2a, 2026-10-01)
    =============================================================================
    Samantha: ONE profile per caregiver, used for "introduce your caregiver" and "caregiver change" (2b). The office
-   drafts it with AI before the welcome call, reads it to them on the call, types what they add or change, sends their
+   drafts it with AI before the Orientation Video Call, reads it to them on the call, types what they add or change, sends their
    personal photo link (photo required, video encouraged), then publishes it. "Can their profile link be linked in the
-   employees profile so we can always access it and edit it when needed": the same panel opens from the welcome call
+   employees profile so we can always access it and edit it when needed": the same panel opens from the Orientation Video Call
    card, the Ready for Orientation queue, the Background tab AND the employee's own page.
 
    A plain file (no build), loaded by index.html before the lazy caregivers engine, so the employee page can use it
@@ -223,7 +223,7 @@
           + '<button class="ibtn" onclick="CGP2.link(\'' + k + '\',\'' + esc(s.id) + '\',this)">Yes, link it</button></div>';
       }).join('');
       h += '<div style="font-size:.8rem;color:var(--gray,#6B7280);margin-bottom:.5rem">'
-        + (x.mode === 'employee' ? 'No profile yet. Families see this card before a visit. Current caregivers fill it in themselves from their own link.' : 'No profile yet. Draft it with AI before the welcome call, then read it to them on the call.')
+        + (x.mode === 'employee' ? 'No profile yet. Families see this card before a visit. Current caregivers fill it in themselves from their own link.' : 'No profile yet. Draft it with AI before the Orientation Video Call, then read it to them on the call.')
         + '</div>' + (x.mode === 'employee'
           ? btn('catchup', '📲 Set up their link (they fill it in)', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)', 'Starts their profile for them to fill in themselves; then press Send profile link')
           : btn('draft', '✨ Draft with AI', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)'))
@@ -651,7 +651,7 @@
     return true;
   }
 
-  /* The pop-over, for lists (welcome calls, the Ready for Orientation queue, the Background tab). */
+  /* The pop-over, for lists (Orientation Video Calls, the Ready for Orientation queue, the Background tab). */
   function open(ctx) {
     var old = document.getElementById('cgp2-pop'); if (old) old.remove();
     var w = document.createElement('div'); w.id = 'cgp2-pop';
@@ -675,7 +675,7 @@
      complete their own caregiver profile and submit the photo and video as well"; "everyone who still needs a profile at
      once"). The Caregivers directory's Profiles view: every active AxisCare caregiver and where their profile stands,
      one button that sends the link to everyone who still needs one (a person presses it; preview first), and one that
-     sends it again to anyone still waiting after 3 days. New hires (hired from 2026-10-02) keep their welcome-call flow
+     sends it again to anyone still waiting after 3 days. New hires (hired from 2026-10-02) keep their Orientation Video Call flow
      and are only listed. Texts go 8am to 6pm Central (the server's rule); the email goes either way. */
   var NEWHIRE_FROM = '2026-10-02', AGAIN_DAYS = 3;
   var CU = { el: null, people: null, rows: null, err: '', busy: false, result: null };
@@ -754,7 +754,7 @@
       + sec('NOT SENT YET', g.none)
       + sec('LINK SENT, WAITING FOR THEM', g.sent)
       + sec('PUBLISHED', g.published)
-      + sec('NEW HIRES (THEIR WELCOME-CALL FLOW, NOT SENT FROM HERE)', g.newhire);
+      + sec('NEW HIRES (THEIR ORIENTATION VIDEO CALL FLOW, NOT SENT FROM HERE)', g.newhire);
     el.innerHTML = h;
   }
   async function catchupSend(which, btn) {

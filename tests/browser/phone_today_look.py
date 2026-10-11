@@ -44,7 +44,7 @@ async()=>{
   const body=()=>document.getElementById('phTodayBody'), cards=()=>[...body().querySelectorAll('.ph-tl')].map(x=>x.querySelector('.ph-tm').innerText+' '+x.querySelector('.ph-k').textContent+': '+x.querySelector('.ph-t').innerText);
   ok('Today: the title changes and today\'s date heads the list', /Today/.test(document.getElementById('phTitle').innerText) && body().querySelector('.ph-lane'), body().innerText.slice(0,200));
   const c=cards();
-  ok('one timeline in time order: interview done 8:30, missed clock-in 9:00, interview 10:00, assessment 1:30 (GoHighLevel\'s time), welcome call 3:00, orientation 4:00, open shift 6:00', JSON.stringify(c)===JSON.stringify(['8:30am Interview: Ava Early','9:00am No clock-in yet: Tasha R.','10:00am Interview: Marcus Hill','1:30pm Assessment: Martin Bell','3:00pm Welcome call: Rita New','4:00pm Orientation: Orientation session','6:00pm Open shift: Joan Ross']), c);
+  ok('one timeline in time order: interview done 8:30, missed clock-in 9:00, interview 10:00, assessment 1:30 (GoHighLevel\'s time), Orientation Video Call 3:00, orientation 4:00, open shift 6:00', JSON.stringify(c)===JSON.stringify(['8:30am Interview: Ava Early','9:00am No clock-in yet: Tasha R.','10:00am Interview: Marcus Hill','1:30pm Assessment: Martin Bell','3:00pm Orientation Video Call: Rita New','4:00pm Orientation: Orientation session','6:00pm Open shift: Joan Ross']), c);
   ok('...nothing from tomorrow', !/Tomorrow Person|Tom Morrow/.test(body().innerText));
   ok('a NOW line sits between what is past and what is next', !!body().querySelector('.ph-now'));
   const card=(k)=>[...body().querySelectorAll('.ph-tl')].find(x=>x.querySelector('.ph-k').innerText===k && true);
