@@ -143,7 +143,7 @@ function screenHtml(s){
   const P = PLAN[s]; const n = ORDER.length;
   let h = '<div class="prog"><span>Screen ' + stepNo(s) + ' of ' + n + '</span><div class="bar"><i style="width:' + Math.round(stepNo(s) / n * 100) + '%"></i></div><span>' + Object.keys(SIGS).length + ' of ' + V.form_count + ' signed</span></div>';
   /* TRAINING WALKTHROUGH (2026-10-11): a staff member trying the journey; never their real SSN or date of birth */
-  if (/\(TRAINING\)/.test(String((V.who || {}).last || ''))) h += '<div class="why" style="border-color:#B45309;background:#FFF7ED"><b>Training walkthrough.</b> Use a MADE-UP Social Security number (for example 123-45-6789) and a made-up date of birth and license number. Never type your real ones here.</div>';
+  if (/\(TRAINING\)/.test(String((V.who || {}).last || ''))) h += '<div class="why" style="border-color:#B45309;background:#FFF7ED"><b>Training walkthrough.</b> Use the practice Social Security number 987-65-4321 (a number never issued to anyone) and a made-up date of birth and license number. Never type your real ones here.</div>';
   if (V.test_mode) h += '<div class="why"><b>Practice only.</b> These forms are not yet approved for real signing; nothing here is sent anywhere and no office action follows from it. (The office sees that too.)</div>';
   if (s === '1') {
     const w = V.who;
