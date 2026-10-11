@@ -3865,7 +3865,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div class="jo-sec">
           <h4>The job</h4>
           <div class="grid2">
-            <div><label>Position</label><select id="jo_position" onchange="joSyncPlan()"><option>Caregiver</option><option>CNA</option><option>LPN</option><option>RN</option><option>Office</option></select></div>
+            <div><label>Position</label><select id="jo_position" onchange="joSyncPlan()"><option>Caregiver</option><option>CNA</option><option>LPN</option><option>RN</option><option>Office</option></select>
+              <!-- 2026-10-11 (Samantha: "yes do both"): the choices come from the roles on Recruit, Positions & pre-screens,
+                   so the offer always matches the role they applied for. joFillPositions() replaces the five fixed ones. --></div>
             <div><label>Interview date</label><input id="jo_date" type="date"></div>
           </div>
           <div class="grid2">
@@ -19614,7 +19616,26 @@ function ccLoadOffers(btn){
   if(window.SCX && SCX.loadOffers) SCX.loadOffers(btn);
   else scxEnsure('offers');
 }
+/* The offer's Position choices = the roles being hired for (Recruit, Positions & pre-screens), so the role they applied
+   for is always there and its pay fills in. The PRN CNA Team is offered as a CNA (PRN), as before. 'Office' stays for
+   office hires that are not a listed role. A value already on the form is never lost. */
+function joFillPositions(list){
+  const sel = document.getElementById('jo_position'); if(!sel) return;
+  const roles = (list || AP_POS || []).filter(p => p && p.active !== false && p.track !== 'prn' && p.key !== 'live_in').map(p => p.label);
+  if(!roles.length) return;
+  const keep = sel.value;
+  const names = roles.slice(); if(!names.includes('Office')) names.push('Office');
+  if(keep && !names.includes(keep)) names.push(keep);
+  sel.innerHTML = names.map(n => '<option>' + escapeHtmlComms(n) + '</option>').join('');
+  sel.value = keep && names.includes(keep) ? keep : names[0];
+}
+async function joLoadPositions(){
+  if((AP_POS || []).length) return joFillPositions(AP_POS);
+  try{ const { data } = await sb.from('job_positions').select('*').eq('active', true).order('sort'); joFillPositions(data || []); }catch(_){}
+}
+
 function joInit(){
+  joLoadPositions();
   if(!joInited){
     joInited=true;
     document.getElementById('jo_attrs').innerHTML=JO_ATTRS.map(a=>
@@ -22395,6 +22416,7 @@ function apToOffer(id, answers){
        so the number starts right and is changed on purpose rather than typed
        from memory. */
     const pos = AP_POS.find(p=>p.key===r.position);
+    joFillPositions(AP_POS);
     if(pos){
       const sel = document.getElementById('jo_position');
       if(sel && [...sel.options].some(o=>o.text===pos.label)) sel.value = pos.label;
