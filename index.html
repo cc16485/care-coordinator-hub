@@ -25777,23 +25777,30 @@ function opsLog(it, text){
    console and the hub behaves exactly as before. */
 function opEvent(verb, o){
   /* Phase 1, Slice 1 (2026-10-10): the record is written through its door, record_event, which stamps WHO from the
-     signed-in session on the server. The page no longer says who it is; it says what happened. Still fire-and-forget. */
+     signed-in session on the server. The page no longer says who it is; it says what happened. Still fire-and-forget.
+     Until Desktop step 578 creates the door, the door is missing and the page falls back to the old direct insert, so
+     the pages can go first and no event is lost in either order. */
   try{
     if(!sb) return;
     o=o||{};
     const it=o.item||null;
+    const row={ verb:String(verb||''), item_id:String(o.item_id||(it&&it.id)||''), area:String(o.area||(it&&it.domain)||''),
+      summary:String(o.summary||'').slice(0,400), data:o.data||{} };
+    const fallback=function(){
+      const a=(typeof ccActor==='function')?ccActor():{email:'',name:''};
+      sb.from('op_events').insert(Object.assign({ actor_email:a.email, actor_name:a.name }, row))
+        .then(r=>{ if(r&&r.error) console.warn('[op_events] not recorded:', r.error.message); }, e=>console.warn('[op_events] not recorded:', e));
+    };
     sb.rpc('record_event', {
-      p_verb:String(verb||''),
-      p_item_id:String(o.item_id||(it&&it.id)||''),
-      p_area:String(o.area||(it&&it.domain)||''),
-      p_summary:String(o.summary||'').slice(0,400),
-      p_data:o.data||{},
+      p_verb:row.verb, p_item_id:row.item_id, p_area:row.area, p_summary:row.summary, p_data:row.data,
       p_via:(/[?&]m=1(&|$)/.test(location.search))?'phone':'hub',
       p_action:String(o.action||''), p_request_id:String(o.request_id||''), p_outcome:String(o.outcome||''),
       p_evidence:Array.isArray(o.evidence)?o.evidence:[]
-    }).then(r=>{ if(r&&r.error) console.warn('[op_events] not recorded:', r.error.message); },
-            e=>console.warn('[op_events] not recorded:', e));
+    }).then(r=>{
+      if(r&&r.error){ if(/record_event|PGRST202|42883/.test(String(r.error.message||r.error.code||''))) fallback(); else console.warn('[op_events] not recorded:', r.error.message); }
+    }, e=>console.warn('[op_events] not recorded:', e));
   }catch(e){ console.warn('[op_events] not recorded:', e); }
+}
 }
 }
 
