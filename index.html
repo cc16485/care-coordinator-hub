@@ -21057,7 +21057,9 @@ async function ivqSelfTest(btn){
     const target = t1[0];
 
     const ins = await sb.from('job_applicants')
-      .insert({ first_name:'Slot', last_name:'Selftest', status:'partial', channel:'self-test' })
+      .insert({ first_name:'Slot', last_name:'Selftest', status:'partial', channel:'self-test',
+        /* 586: a finished application with the three screening answers, or the booking rule refuses it */
+        completed_at:new Date().toISOString(), age_ok:true, work_auth:true, has_transport:true, position:'caregiver' })
       .select('id').single();
     if(ins.error) throw new Error('could not create the throwaway applicant — ' + ins.error.message);
     apId = ins.data.id;
@@ -23768,6 +23770,12 @@ async function apBookFor(id){
   const card = document.getElementById('apBookCard');
   card.style.display = 'block';
   card.scrollIntoView({behavior:'smooth', block:'center'});
+  /* 586 (2026-10-11, Samantha: "Applicants must complete the required screening questions before the server allows
+     interview booking, even if someone opens a booking link directly"). The database refuses a booking (or a move)
+     until they are answered. Somebody the office talks to on the phone (entered by hand, or stopped partway through
+     the form) is asked here first, and the answers are kept with who asked and when. */
+  const gap = await apScreenGap(id);
+  if(gap){ await apScreenAsk(id, gap); return; }
   try{
     const { data, error } = await sb.rpc('interview_open_slots');
     if(error) throw error;
@@ -23794,6 +23802,68 @@ async function apBookFor(id){
   }catch(e){
     box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load times: '
       + escapeHtmlComms(e && e.message || 'error') + '</div>';
+  }
+}
+
+/* null = nothing missing. Before the 586 database step is installed the question cannot be asked, so nothing changes. */
+async function apScreenGap(id){
+  try{
+    const { data, error } = await sb.rpc('applicant_screening_gap', { p: id });
+    return error ? null : (data || null);
+  }catch(_){ return null; }
+}
+async function apScreenAsk(id, gap){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)) || {};
+  const box = document.getElementById('apBookSlots');
+  if(gap === 'ineligible'){
+    box.innerHTML = '<div class="field-note" style="color:var(--red);">This application answered no to a question the job '
+      + 'needs (18 or older, allowed to work in the U.S., reliable transportation, or the CNA question for the PRN team), '
+      + 'or it was closed for that reason, so an interview cannot be booked from it.</div>';
+    return;
+  }
+  /* The PRN CNA Team asks two more. AP_POS only holds active roles, so an inactive one is looked up. */
+  let track = (AP_POS.find(p=>p.key===r.position) || {}).track;
+  if(track === undefined && r.position){
+    try{ const t = await sb.from('job_positions').select('track').eq('key', r.position).maybeSingle(); track = t.data && t.data.track; }catch(_){}
+  }
+  const prn = track === 'prn';
+  const yn = (k, v) => '<select id="apScr_'+k+'" style="width:auto;min-width:96px;">'
+    + '<option value="">Choose</option><option value="yes"'+(v===true?' selected':'')+'>Yes</option>'
+    + '<option value="no"'+(v===false?' selected':'')+'>No</option></select>';
+  const prnA = r.prn || {};
+  const row = (q, k, v) => '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);">'
+    + '<span style="font-size:14px;">'+q+'</span>'+yn(k, v)+'</div>';
+  box.innerHTML = '<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">'
+    + '<b style="font-size:14px;color:var(--navy);">Ask these first</b>'
+    + '<div class="field-note" style="margin:3px 0 6px;">'
+    + (gap === 'unfinished' ? 'They stopped before finishing the application. ' : 'They have not answered the screening questions yet. ')
+    + 'Ask them now (on the phone is fine). Your answers are saved with your name and the time, and then the times appear.</div>'
+    + row('Are they 18 or older?', 'age', r.age_ok)
+    + row('Are they legally authorized to work in the United States?', 'auth', r.work_auth)
+    + row('Do they have reliable transportation to get to shifts?', 'car', r.has_transport)
+    + (prn ? row('Are they currently a CNA?', 'cna', prnA.cna) + row('At least one year of caregiving or CNA experience?', 'yr', prnA.one_year) : '')
+    + '<div style="margin-top:10px;"><button class="primary" onclick="apScreenSave(\''+String(id).replace(/[^a-z0-9-]/gi,'')+'\', this)">Save answers and show times</button></div>'
+    + '<div id="apScrErr" class="field-note" style="display:none;color:var(--red);margin-top:6px;"></div></div>';
+}
+async function apScreenSave(id, btn){
+  const v = k => { const el = document.getElementById('apScr_'+k); return !el ? null : el.value === 'yes' ? true : el.value === 'no' ? false : undefined; };
+  const err = document.getElementById('apScrErr');
+  const a = { age: v('age'), auth: v('auth'), car: v('car'), cna: v('cna'), yr: v('yr') };
+  if([a.age, a.auth, a.car, a.cna, a.yr].some(x => x === undefined)){
+    err.textContent = 'Please answer every question.'; err.style.display = 'block'; return;
+  }
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    const { data, error } = await sb.rpc('applicant_screen_by_office', { p: id, p_age_ok: a.age, p_work_auth: a.auth,
+      p_has_transport: a.car, p_prn_cna: a.cna, p_prn_one_year: a.yr });
+    if(error) throw error;
+    const r = AP_ROWS.find(x=>String(x.id)===String(id));
+    if(r){ r.age_ok = a.age; r.work_auth = a.auth; r.has_transport = a.car; }
+    if(data){ await apScreenAsk(id, data); return; }   // still missing or a no: say so instead of showing times
+    apBookFor(id);
+  }catch(e){
+    err.textContent = 'Could not save the answers: ' + String(e && e.message || e); err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Save answers and show times';
   }
 }
 
@@ -23831,6 +23901,7 @@ async function apBookTake(iso, btn){
     await apLoad();
   }catch(e){
     const m = String(e && e.message || 'error');
+    if(/SCREEN_FIRST/.test(m)){ apBookFor(id); return; }   // 586: the questions are asked first
     err.textContent = /just taken|passed/i.test(m)
       ? 'That time went while you were looking at it. Here are the ones still free.'
       : /interview_reschedule/.test(m) && /function|exist/i.test(m)
