@@ -1839,6 +1839,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <label class="field-note" style="display:flex;gap:5px;align-items:center;"><input type="checkbox" id="apjApplicantOnly" onchange="apjRender()" checked> Messages to the applicant only</label>
         </div>
       </div>
+      <!-- TRAINING WALKTHROUGH (2026-10-11): staff try the new-hire journey on their own phone -->
+      <div class="card" id="twBox" style="padding:14px 18px;margin-top:14px;"><div class="field-note">Loading…</div></div>
       <!-- The hiring process, step by step (moved here from Background & References 2026-10-01; checked against the code). -->
       <details class="card" open style="padding:14px 18px;margin-top:14px;">
         <summary style="cursor:pointer;font-size:15px;font-weight:800;color:var(--navy);">🧭 How hiring works, step by step</summary>
@@ -6991,6 +6993,7 @@ The HomeTogether team</pre>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=1"></script><!-- the main profile of a hire (2026-10-11) -->
+<script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
@@ -24348,6 +24351,7 @@ window.apDecisionOffer = apDecisionOffer; window.apDecisionSkip = apDecisionSkip
 
 /* ---- Applicant journey & messages (2026-10-01) ---- */
 function apjOpen(){
+  if(window.TW) TW.mount();
   if(window.AP_JOURNEY) return apjRender();
   const sc = document.createElement('script'); sc.src = 'applicant-journey.js?v=20261002b';
   sc.onload = apjRender; sc.onerror = () => { const b=document.getElementById('apjBody'); if(b) b.innerHTML='<div class="field-note">Could not load the journey list. Reload the page.</div>'; };
