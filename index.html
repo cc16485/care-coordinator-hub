@@ -6974,7 +6974,7 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
-<script src="caregiver-readiness.js?v=3"></script><!-- 3b: the one new-hire readiness card -->
+<script src="caregiver-readiness.js?v=4"></script><!-- 3b: the one new-hire readiness card -->
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=5"></script>
 <script src="review-ask.js?v=1"></script>
@@ -31024,6 +31024,9 @@ const OPS_KINDS = {
      compliance owner, else the Staffing Coordinator); a possible OIG match from the monthly LEIE check (screening staff review). */
   requirement_expired:   { label:'Requirement expired',             hours:24 },
   oig_match_review:      { label:'Possible OIG match: review',       hours:4  },
+  /* SLICE 7 (2026-10-10): AxisCare preparation cards */
+  axiscare_hire_missing: { label:'Not hired in AxisCare yet',         hours:24 },
+  axiscare_prep_failed:  { label:'AxisCare hire date or level failed', hours:8  },
   /* SLICE 5 (2026-10-10): the readiness server's cards (caregiver-journey): a card complete and waiting for the owner's
      Approve to Work; the AxisCare Active update refused after the stamp (Retry on the card); the AxisCare hire date
      differing from the orientation date (the employment start date by policy; nothing is written to AxisCare). */
