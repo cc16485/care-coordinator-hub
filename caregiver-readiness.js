@@ -162,9 +162,12 @@
   /* SLICE 6: the export. The server builds the PDF, logs the export and hands back five-minute links. */
   async function exportFile(btn, caregiverId){
     const reason = prompt('Reason for this export (it is logged with your name):', 'audit export'); if(reason === null) return;
+    /* SLICE 8: as of a past date (what the card said at the end of that day) */
+    const asOf = prompt('As of a past date? Type YYYY-MM-DD, or leave blank for today.', ''); if(asOf === null) return;
+    if(asOf && !/^\d{4}-\d{2}-\d{2}$/.test(asOf.trim())){ alert('Use the form YYYY-MM-DD, or leave it blank.'); return; }
     if(btn){ btn.disabled = true; btn.textContent = 'Building…'; }
     try {
-      const r = await sb.functions.invoke('caregiver-export', { body: Object.assign({ action:'export', reason }, caregiverId ? { caregiver_id:String(caregiverId) } : { journey_id: CUR.journey.journey_id }) });
+      const r = await sb.functions.invoke('caregiver-export', { body: Object.assign({ action:'export', reason, as_of: asOf.trim() }, caregiverId ? { caregiver_id:String(caregiverId) } : { journey_id: CUR.journey.journey_id }) });
       let d = r.data; if(r.error){ let why=''; try{ if(r.error.context && r.error.context.json) why=(await r.error.context.json()).error||''; }catch(_){} throw new Error(why || r.error.message); }
       if(!d || d.error) throw new Error((d && d.error) || 'the export server did not answer');
       const box = document.getElementById('crExport');

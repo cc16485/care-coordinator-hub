@@ -134,7 +134,9 @@
       + (l ? '<button class="linklike" onclick="openLeadModal(lpLead.id)">Edit intake form</button><button class="linklike" onclick="lpPrintFacesheet()">Print facesheet</button>'
         + '<button class="linklike" onclick="openActivityModal(lpLead.id)">Schedule activity</button><button class="linklike" onclick="cjOld(\'lp_ai_card\')">AI summary</button>'
         + '<button class="linklike" onclick="cjOld(\'lp_head_card\')">Tags</button><button class="linklike" onclick="lpArchiveLead()">Archive</button>'
-        + '<button class="linklike cj-quiet" onclick="cjOld(\'lp_head_card\')">' + (CJ.oldOpen ? 'Hide the rest' : 'More…') + '</button>' : '') + '</div>';
+        + '<button class="linklike cj-quiet" onclick="cjOld(\'lp_head_card\')">' + (CJ.oldOpen ? 'Hide the rest' : 'More…') + '</button>' : '')
+      /* SLICE 8: the read-only client audit PDF (owners and the Audit export list; the server refuses anyone else) */
+      + (window.ClientAudit ? '<button class="linklike" onclick="ClientAudit.exportClient(\'' + esc(String((typeof CP !== 'undefined' && CP.ax) || (l && l.axiscare_client_id) || '')) + '\',\'' + esc(String(l ? l.id : '')) + '\')">Client audit (PDF)</button>' : '') + '</div>';
     h += '</div>';
     head.innerHTML = h;
     wireForm(head);

@@ -11,7 +11,7 @@ STUB, DATA = ns['STUB'], ns['DATA']
 PORT = sys.argv[1] if len(sys.argv) > 1 else '8765'
 FAKE = r"""
 (()=>{
-  const W=window; W.__calls=[]; W.__confirmAns=false; W.confirm=(m)=>{ W.__confirmMsg=m; return W.__confirmAns; }; W.prompt=()=> 'Spoke with her daughter; schedule fixed; letter mailed Oct 9.'; W.alert=(m)=>{ W.__alert=m; };
+  const W=window; W.__calls=[]; W.__confirmAns=false; W.__attach=false; W.confirm=(m)=>{ if(/Attach the written answer/.test(m)) return W.__attach; W.__confirmMsg=m; return W.__confirmAns; }; W.ClientAudit={ pickFile:async()=>({ name:'answer.pdf', type:'application/pdf' }), upload:async(k,ref,f)=>({ path:k+'/'+ref+'/1-'+f.name, name:f.name }) }; W.prompt=(m)=>/in person instead/.test(m) ? 'Answered at the supervisory visit; the family asked for no letter.' : 'Spoke with her daughter; schedule fixed; letter mailed Oct 9.'; W.alert=(m)=>{ W.__alert=m; };
   (0,eval)("ccPickFill=async()=>[]");
   CCIssue.cats=[{ code:'family_complaint', label:'Family complaint about a caregiver', default_domain:'field_quality', default_urgency:'high', target_hours:8, follow_up_required:true, requires_policy_lookup:false, resolution_means:'x', required_info:'y', owner_authority:false },
     { code:'grievance', label:'Grievance: the client or their representative complains about our services', default_domain:'client_care', default_urgency:'high', target_hours:24, follow_up_required:true, requires_policy_lookup:true,
@@ -39,7 +39,10 @@ T = r"""async()=>{
   ok('...Cancel (not yet): nothing is resolved', window.__calls.length===0);
   window.__confirmAns=true; await ccIssueAct('ops_issue_g1','iss_resolve'); await sleep(60);
   const c=window.__calls.pop();
-  ok('...OK: resolved, and the record says the written answer was given and DSDS was explained', c && c.state==='resolved' && /letter mailed Oct 9/.test(c.resolution_note) && /\[Written answer given; told they can also file with DSDS\.\]/.test(c.resolution_note), c);
+  ok('...OK, answered in person (Slice 8): resolved with the in-person reason, and the record says so and that DSDS was explained', c && c.state==='resolved' && /letter mailed Oct 9/.test(c.resolution_note) && /\[Answered in person; told they can also file with DSDS\.\]/.test(c.resolution_note) && /supervisory visit/.test(c.in_person_reason) && !c.resolution_doc, c);
+  window.__attach=true; await ccIssueAct('ops_issue_g1','iss_resolve'); await sleep(60);
+  const c2=window.__calls.pop();
+  ok('...with the written answer attached (Slice 8): the file path goes with the resolution and the record says it is attached', c2 && c2.resolution_doc==='grievance/g1/1-answer.pdf' && /\[Written answer attached; told they can also file with DSDS\.\]/.test(c2.resolution_note), c2);
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []

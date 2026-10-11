@@ -7,7 +7,9 @@
    A plan for someone else is caught: a DCN that isn't this client's stops it; a different name must be confirmed.
    On confirm:
      · the plan is kept under app_data 'medicaid_plans' (what it said and who confirmed it; never the address,
-       phone or date of birth; the PDF itself stays in Fusion); an empty DCN on the inquiry is filled from it
+       phone or date of birth); an empty DCN on the inquiry is filled from it. SLICE 8 (2026-10-11, her decision 1): the PDF
+       is kept privately in the Hub as the source document (the client bucket, every open logged); Fusion stays the official
+       record. Someone records checking the plan against Fusion (who, the date checked); the nightly client audit asks for it.
      · each GHE month the plan authorizes goes onto the nurse board for that client (added if they weren't there)
    Nothing is sent to Fusion, AxisCare or anyone, and "where the state is" is left for the person to set.
 
@@ -74,7 +76,7 @@
   }
   window.mcpUpload = async function (input) {
     const f = (input.files || [])[0]; input.value = '';
-    if (f) await addPlan(f.name, () => itemsOf(f));
+    if (f) { const row = await addPlan(f.name, () => itemsOf(f)); if (row) row.file = f; }   /* SLICE 8: the PDF is kept at save */
   };
   window.mcpAddItems = (fileName, items) => addPlan(fileName, async () => items);
   window.mcpRecv = v => { if (MCP.pending) { MCP.pending.received = v; refresh(); } };
@@ -103,6 +105,8 @@
       rec.lead_id = t.lead_id;
       if (!t.ax) rec.id = 'mcp_L' + t.lead_id + '_' + String(r.plan.plan_start || '') + '_' + String(r.plan.generated || '');
       if (c.nameDiff) rec.name_confirmed = { plan_name: r.plan.name, by: me() };
+      /* SLICE 8: keep the PDF as the source document (private, logged). A failed upload does not lose the plan: the box asks for it. */
+      if (r.file && window.ClientAudit) { try { const u = await ClientAudit.upload('careplan', rec.id, r.file); rec.pdf = { path: u.path, name: u.name, by: me(), at: new Date().toISOString() }; } catch (e) { r.pdfError = String((e && e.message) || e); } }
       DATA.medicaid_plans = plans().filter(p => p.id !== rec.id).concat([rec]);
       await persist('medicaid_plans', rec);
       if (t.lead && !t.dcn && r.plan.dcn) { t.lead.dcn = r.plan.dcn; await persist('leads', t.lead); }
@@ -159,16 +163,43 @@
     const list = mine(t), cur = list[0], tdy = todayIso();
     const lead = t.lead, st = lead && lead.state_status;
     box.innerHTML = '<div class="mcp-top"><div><b class="mcp-title">State care plan</b>'
-      + '<div class="field-note">For a Medicaid client: download their care plan from Fusion and upload the PDF here. You check what was read and confirm it; the GHE months go on the nurse board. Fusion stays the official record; the PDF itself is not kept here.</div></div>'
+      + '<div class="field-note">For a Medicaid client: download their care plan from Fusion and upload the PDF here. You check what was read and confirm it; the GHE months go on the nurse board. Fusion stays the official record; the PDF is kept here privately as the source document, and every open is logged.</div></div>'
       + '<label class="mcp-up">' + (cur ? 'Upload a newer plan' : 'Upload the care plan') + '<input type="file" id="mcpFile" accept="application/pdf,.pdf" onchange="mcpUpload(this)"></label></div>'
       + (MCP.pending ? '<div class="mcp-pends">' + pendingHtml(MCP.pending) + '</div>' : '')
       + (cur ? '<div class="mcp-cur"><span class="mcp-chip ' + (cur.plan_end >= tdy ? 'ok' : 'warn') + '">' + (cur.plan_end >= tdy ? 'Current plan' : 'Plan ended') + '</span> '
         + usd(cur.plan_start) + ' to ' + usd(cur.plan_end) + (cur.ghe_months && cur.ghe_months.length ? ' · GHE ' + cur.ghe_months.map(mon).join(', ') : '')
         + '<div class="field-note">Received ' + usd(cur.received_on) + ', confirmed by ' + h(cur.confirmed_by) + (cur.generated ? ' · Fusion generated ' + usd(cur.generated) : '') + '</div>'
+        + proofHtml(cur)
         + (cur.services || []).filter(x => x.ours).map(x => '<div class="field-note">' + h(x.label) + ': ' + usd(x.start) + ' to ' + usd(x.end) + (x.prior_auth ? ' · PA ' + h(x.prior_auth) : '') + '</div>').join('')
         + (lead && cur.plan_end >= tdy && st !== 'authorized' ? '<div class="mcp-note">Where the state is still says "' + h(st || 'not set') + '". If this plan is the authorization, set it to Authorized above and Save.</div>' : '')
         + (list.length > 1 ? '<div class="field-note">' + (list.length - 1) + ' earlier plan' + (list.length === 2 ? '' : 's') + ' on file.</div>' : '')
         + '</div>' + startHtml(cur, lead) + watchHtml(cur) + visitsHtml(cur) + changesHtml(cur) : (MCP.pending ? '' : '<div class="field-note mcp-none">No care plan uploaded yet.</div>'));
+  };
+
+  /* ── SLICE 8 (2026-10-11): checked against Fusion (who, the date checked) and the PDF kept as the source document ── */
+  function proofHtml(cur) {
+    const fv = cur.fusion_verified, pdf = cur.pdf;
+    return '<div class="mcp-proof">'
+      + (fv ? '<div class="field-note"><span class="mcp-chip ok">Checked against Fusion</span> by ' + h(fv.by_name || fv.by) + ' on ' + usd(fv.checked_on) + (fv.note ? ' · ' + h(fv.note) : '') + '</div>'
+            : '<div class="mcp-note">Nobody has recorded checking this plan against Fusion (dates, services, units). <button class="ghost" onclick="mcpFusionCheck()">I checked it in Fusion</button></div>')
+      + (pdf ? '<div class="field-note">PDF kept: <button class="linklike" onclick="ClientAudit.open(\'' + h(pdf.path) + '\',\'' + h(cur.axiscare_client_id || '') + '\',\'' + h(cur.lead_id || '') + '\')">' + h(pdf.name) + '</button> · ' + h(pdf.by) + ' ' + usd(String(pdf.at).slice(0, 10)) + ' (every open is logged)</div>'
+             : '<div class="mcp-note">The care plan PDF is not kept here yet. <button class="ghost" onclick="mcpKeepPdf()">Keep the PDF</button></div>')
+      + '<div class="field-note"><button class="linklike" onclick="ClientAudit.exportClient(\'' + h(cur.axiscare_client_id || '') + '\',\'' + h(cur.lead_id || '') + '\')">Client audit (PDF)</button></div>'
+      + '</div>';
+  }
+  window.mcpFusionCheck = async function () {
+    const p = curPlan(); if (!p) return;
+    const on = prompt('The date you checked this plan against Fusion (YYYY-MM-DD):', todayIso()); if (on === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(on.trim()) || on.trim() > todayIso()) { alert('Use the form YYYY-MM-DD, not in the future.'); return; }
+    const note = prompt('What you checked (optional, for example: dates, services and units match Fusion):', 'dates, services and units match Fusion'); if (note === null) return;
+    p.fusion_verified = { by: me(), by_name: (typeof ME !== 'undefined' && ME.name) || me(), checked_on: on.trim(), note: note.trim(), at: new Date().toISOString() };
+    await savePlan(p); say('Recorded: checked against Fusion.');
+  };
+  window.mcpKeepPdf = async function () {
+    const p = curPlan(); if (!p || !window.ClientAudit) return;
+    const f = await ClientAudit.pickFile('application/pdf,.pdf'); if (!f) return;
+    try { const u = await ClientAudit.upload('careplan', p.id, f); p.pdf = { path: u.path, name: u.name, by: me(), at: new Date().toISOString() }; await savePlan(p); say('Care plan PDF kept.'); }
+    catch (e) { alert('Not kept: ' + ((e && e.message) || e)); }
   };
 
   /* ── Starting care (Medicaid intake slice A, 2026-10-08): the 10-day clock, the late justification, the start checks ── */
@@ -188,7 +219,8 @@
       + '<div class="field-note">The state rule: care starts ' + h_(c.rule) + ' (19 CSR 15-7.021(18)(J)). Started means the first clock-in in AxisCare.</div>';
     if (!(lead && lead.first_shift_at)) h += '<div class="mcp-form"><label>First visit, from AxisCare (if the Hub hasn\'t seen it) <input type="date" id="mcpSManual" value="' + h_(st.started_on_manual || '') + '" max="' + todayIso() + '" onchange="mcpStartManual(this.value)"></label></div>';
     if (IhsRules.needsJustification(c)) {
-      if (late) h += '<div class="mcp-note"><b>Written justification sent to DSDS</b> ' + usd(late.sent_on) + ' (' + h_(late.how) + '), copy in the file. Recorded by ' + h_(late.by) + '. <span class="field-note">' + h_(late.reason) + '</span></div>';
+      if (late) h += '<div class="mcp-note"><b>Written justification sent to DSDS</b> ' + usd(late.sent_on) + ' (' + h_(late.how) + '). Recorded by ' + h_(late.by) + '. <span class="field-note">' + h_(late.reason) + '</span>'
+        + (late.copy ? ' <span class="field-note">Copy kept: <button class="linklike" onclick="ClientAudit.open(\'' + h_(late.copy.path) + '\',\'' + h_(cur.axiscare_client_id || '') + '\',\'' + h_(cur.lead_id || '') + '\')">' + h_(late.copy.name) + '</button></span>' : ' <button class="ghost" onclick="mcpLateCopy()">Attach the copy that was sent</button>') + '</div>';
       else {
         const dr = (MCP.draft && MCP.draft.id === cur.id) ? MCP.draft : (MCP.draft = { id: cur.id, reason: '', planned_start: '', sent_on: '', how: '', copy_in_file: false, text: '' });
         const draft = dr.text || IhsRules.draftJustification({ name: cur.client_name, dcn: cur.dcn, received: c.received, due: c.due, started: c.started || '', reason: dr.reason, planned_start: dr.planned_start });
@@ -200,7 +232,7 @@
           + '<label class="mcp-wide">The letter (edit it, then copy it into Fusion or an email) <textarea id="mcpSText" rows="7" onchange="mcpLateField(\'text\',this.value)">' + h_(draft) + '</textarea></label>'
           + '<label>Sent to DSDS on <input type="date" id="mcpSSent" value="' + h_(dr.sent_on) + '" max="' + todayIso() + '" onchange="mcpLateField(\'sent_on\',this.value)"></label>'
           + '<label>How <select id="mcpSHow" onchange="mcpLateField(\'how\',this.value)"><option value="">Pick one</option>' + ['Fusion', 'Email', 'Fax', 'Mail', 'Other'].map(x => '<option' + (dr.how === x ? ' selected' : '') + '>' + x + '</option>').join('') + '</select></label>'
-          + '<label class="mcp-chk"><input type="checkbox" id="mcpSCopy"' + (dr.copy_in_file ? ' checked' : '') + ' onchange="mcpLateField(\'copy_in_file\',this.checked)"> A copy is in the client\'s file</label>'
+          + '<div class="mcp-wide">' + (dr.copy_file ? '<span class="mcp-chip ok">Copy attached</span> ' + h_(dr.copy_file.name) + ' ' : '') + '<button class="ghost" onclick="mcpLateAttach()">' + (dr.copy_file ? 'Choose another file' : 'Attach the copy that was sent (required)') + '</button></div>'
           + '</div><div class="mcp-acts"><button class="ghost" onclick="mcpCopyDraft()">Copy the letter</button><button class="primary" onclick="mcpLateSave()">Record it as sent</button><span class="field-note" id="mcpSMsg"></span></div></div>';
       }
     }
@@ -322,12 +354,28 @@
   };
   window.mcpLateField = (k, v) => { if (MCP.draft) { MCP.draft[k] = v; if (k === 'reason' || k === 'planned_start') MCP.draft.text = ''; mcpProfileRender(); } };
   window.mcpCopyDraft = function () { const t = document.getElementById('mcpSText'); if (!t) return; try { navigator.clipboard.writeText(t.value); } catch (e) { t.select(); } const m = document.getElementById('mcpSMsg'); if (m) m.textContent = 'Copied.'; };
+  /* SLICE 8: the copy kept in the file is the file itself, attached (it was a tick box) */
+  window.mcpLateAttach = async function () {
+    if (!MCP.draft || !window.ClientAudit) return;
+    const f = await ClientAudit.pickFile('application/pdf,.pdf,image/*'); if (!f) return;
+    MCP.draft.copy_file = f; MCP.draft.copy_in_file = true; mcpProfileRender();
+  };
   window.mcpLateSave = async function () {
     const p = curPlan(); if (!p || !MCP.draft) return;
     const t = document.getElementById('mcpSText'); if (t) MCP.draft.text = t.value;
+    const m = document.getElementById('mcpSMsg');
+    if (!MCP.draft.copy_file) { if (m) { m.textContent = 'Attach the copy that was sent to DSDS first.'; m.style.color = 'var(--red)'; } return; }
     const r = IhsRules.justification(MCP.draft, { today: todayIso(), me: me(), at: new Date().toISOString() });
-    const m = document.getElementById('mcpSMsg'); if (!r.ok) { if (m) { m.textContent = r.why; m.style.color = 'var(--red)'; } return; }
-    p.start = Object.assign({}, p.start || {}, { late: r.rec }); MCP.draft = null; await savePlan(p);
+    if (!r.ok) { if (m) { m.textContent = r.why; m.style.color = 'var(--red)'; } return; }
+    let copy = null; try { const u = await ClientAudit.upload('late', p.id, MCP.draft.copy_file); copy = { path: u.path, name: u.name, by: me(), at: new Date().toISOString() }; }
+    catch (e) { if (m) { m.textContent = 'The copy did not upload, nothing was recorded: ' + ((e && e.message) || e); m.style.color = 'var(--red)'; } return; }
+    p.start = Object.assign({}, p.start || {}, { late: Object.assign({}, r.rec, { copy }) }); MCP.draft = null; await savePlan(p);
+  };
+  window.mcpLateCopy = async function () {
+    const p = curPlan(); if (!p || !p.start || !p.start.late || !window.ClientAudit) return;
+    const f = await ClientAudit.pickFile('application/pdf,.pdf,image/*'); if (!f) return;
+    try { const u = await ClientAudit.upload('late', p.id, f); p.start = Object.assign({}, p.start, { late: Object.assign({}, p.start.late, { copy: { path: u.path, name: u.name, by: me(), at: new Date().toISOString() } }) }); await savePlan(p); say('Copy attached.'); }
+    catch (e) { alert('Not attached: ' + ((e && e.message) || e)); }
   };
   async function refresh() { mcpProfileRender(); await mcpRender(); }
 

@@ -6975,7 +6975,7 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
-<script src="caregiver-readiness.js?v=4"></script><!-- 3b: the one new-hire readiness card -->
+<script src="caregiver-readiness.js?v=5"></script><!-- 3b: the one new-hire readiness card -->
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=5"></script>
 <script src="review-ask.js?v=1"></script>
@@ -6989,7 +6989,8 @@ The HomeTogether team</pre>
 <script src="ghe-forms-rules.js?v=1"></script>
 <script src="ihs-rules.js?v=2"></script>
 <script src="visit-rules.js?v=2"></script>
-<script src="medicaid-plans.js?v=7"></script>
+<script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
+<script src="medicaid-plans.js?v=8"></script>
 <script src="staffing-sheet.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=4"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
@@ -11582,9 +11583,10 @@ async function uploadLeadDoc(slot, input){
   renderLeadDocs();
 }
 async function openLeadDoc(path){
-  const { data, error } = await sb.storage.from('lead-docs').createSignedUrl(path, 3600);
-  if(error||!data){ alert('Could not open the file: '+(error?error.message:'unknown')); return; }
-  window.open(data.signedUrl,'_blank','noopener');
+  /* SLICE 8 (2026-10-11): through the server, a five-minute link, the open logged with your name */
+  const lead = (typeof lpLead !== 'undefined' && lpLead) ? lpLead.id : String(path).split('/')[0];
+  if(window.ClientAudit) return ClientAudit.openLeadDoc(lead, path, (typeof lpLead !== 'undefined' && lpLead && lpLead.axiscare_client_id) || '');
+  alert('The document viewer did not load. Refresh the page and try again.');
 }
 async function deleteLeadDoc(path){
   if(!lpLead || !confirm('Delete this document? This cannot be undone.')) return;
@@ -27731,10 +27733,25 @@ async function ccIssueAct(id, what){
     const note=prompt('What actually resolved it?\n\nResolved means: '
       +((cat&&cat.resolution_means)||'the underlying problem is addressed')+warn);
     if(!note) return;
-    const gNote = it.issue_category==='grievance' ? ' [Written answer given; told they can also file with DSDS.]' : '';
-    const r=await CCIssue.call('action=1',{ issue_id:it.issue_id, action_type:'resolution',
+    /* SLICE 8 (her decision 2, 2026-10-11): a grievance resolves only with the written answer attached, or a recorded reason
+       it was answered in person. The server refuses otherwise. */
+    let answer = {};
+    if(it.issue_category==='grievance'){
+      if(confirm('Attach the written answer we gave them?\n\nOK = choose the file (PDF, photo or scan).\nCancel = it was answered in person instead.')){
+        const f = window.ClientAudit ? await ClientAudit.pickFile('application/pdf,.pdf,image/*') : null;
+        if(!f){ alert('No file chosen, so nothing was changed. Try again and choose the written answer.'); return; }
+        try{ const u = await ClientAudit.upload('grievance', it.issue_id, f); answer = { resolution_doc: u.path }; }
+        catch(e){ return alert('The written answer did not upload, nothing was changed: '+(e.message||e)); }
+      } else {
+        const why = prompt('Why was it answered in person instead of in writing? (a sentence; this is kept with the grievance)');
+        if(!why || why.trim().length < 10){ alert('A sentence is needed. Nothing was changed.'); return; }
+        answer = { in_person_reason: why.trim() };
+      }
+    }
+    const gNote = it.issue_category==='grievance' ? (answer.resolution_doc ? ' [Written answer attached; told they can also file with DSDS.]' : ' [Answered in person; told they can also file with DSDS.]') : '';
+    const r=await CCIssue.call('action=1',Object.assign({ issue_id:it.issue_id, action_type:'resolution',
       note:note+gNote, resolution_note:note+gNote, by_whom:ME.email||'', state:'resolved',
-      ops_item_id:it.id });
+      ops_item_id:it.id }, answer));
     if(r.error) return alert(r.error);
     await loadOpsItems(); myWorkRefresh();
     alert(r.follow_up_scheduled
@@ -31031,6 +31048,13 @@ const OPS_KINDS = {
   /* SLICE 7 (2026-10-10): AxisCare preparation cards */
   axiscare_hire_missing: { label:'Not hired in AxisCare yet',         hours:24 },
   axiscare_prep_failed:  { label:'AxisCare hire date or level failed', hours:8  },
+  /* SLICE 8 (2026-10-11): the nightly client audit (Payer Programs owner) */
+  ihs_start_late:        { label:'Late start: justification owed',     hours:4  },
+  ihs_start_due:         { label:'Start care by the deadline',         hours:24 },
+  plan_end_soon:         { label:'Care plan ending',                   hours:72 },
+  auth_ended:            { label:'Authorization ended, care continues', hours:4 },
+  change_stalled:        { label:'Care plan change waiting',           hours:48 },
+  plan_unverified:       { label:'Check the plan against Fusion',      hours:24 },
   /* SLICE 5 (2026-10-10): the readiness server's cards (caregiver-journey): a card complete and waiting for the owner's
      Approve to Work; the AxisCare Active update refused after the stamp (Retry on the card); the AxisCare hire date
      differing from the orientation date (the employment start date by policy; nothing is written to AxisCare). */
