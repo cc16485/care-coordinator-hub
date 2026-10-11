@@ -1018,24 +1018,8 @@ async function completeClientQueueItem(id){
   const { error } = await sb.from('client_queue').update({ status:'complete', completed_at:now, completed_by:user?.email||'' }).eq('id', id);
   if(error) cqSaveError(error);
 
-  // Push scheduling summary note to AxisCare client profile
-  if(item?.axiscare_client_id && session?.access_token){
-    try {
-      const res = await fetch('https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/axiscare-push-note', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_queue_id: id })
-      });
-      const data = await res.json();
-      if(data.success){
-        console.log('✅ Scheduling note pushed to AxisCare, note ID:', data.note_id);
-      } else {
-        console.warn('AxisCare note push failed:', data.error);
-      }
-    } catch(e){
-      console.warn('AxisCare note push error:', e);
-    }
-  }
+  // 579 (2026-10-11): the automatic AxisCare note push is retired with the unsecured function that did it. Nothing is
+  // written to AxisCare from here; the AxisCare note contract (Phase 1, Slice 5) offers a visible send step instead.
 }
 
 async function deleteClientQueueItem(id){
