@@ -25793,8 +25793,6 @@ function opEvent(verb, o){
     }).then(r=>{ if(r&&r.error) console.warn('[op_events] not recorded:', r.error.message); }, e=>console.warn('[op_events] not recorded:', e));
   }catch(e){ console.warn('[op_events] not recorded:', e); }
 }
-}
-}
 
 /* One quiet confirmation style for every "it worked" moment. */
 function ccToast(msg){
