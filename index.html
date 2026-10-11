@@ -6936,7 +6936,7 @@ The HomeTogether team</pre>
 </div>
 </div>
 
-<script src="verbs.js?v=1"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
+<script src="verbs.js?v=2"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=15"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
@@ -32047,14 +32047,24 @@ const LPF_INPUT={ preferred_name:'text', living_situation:'choice', facility_nam
   va_veteran:'choice', va_program:'choice', private_minimums_explained:'bool', private_who_pays:'text' };
 const LPF_HOW={ call:'call', text:'text', email:'email', in_person:'in person', form:'form', document:'document', state:'the state', axiscare:'AxisCare', staff_observation:'our staff', other:'other' };
 const LPF_SURE={ reported:'reported', confirmed:'confirmed', verified:'verified' };
-async function lpfCall(body){
+/* CC_DOOR_582 · callAction (Phase 1, Slice 3, approved 2026-10-11): the one way the Hub calls an action behind the door.
+   It makes the request id when you press, sends it, and if the network drops before an answer it retries ONCE with the
+   SAME id, so the retry can never record twice (the door answers a repeat with the first answer, plus already: true).
+   Who you are always comes from your sign-in on the server, never from what this page sends. Answers { status, data }. */
+async function callAction(fn, body){
   const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
   if(!tok) throw new Error('Sign in first.');
-  const r=await fetch(CONFIG.supabase_url+'/functions/v1/client-fact',{ method:'POST',
-    headers:{ Authorization:'Bearer '+tok, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
-  const d=await r.json().catch(()=>null);
-  if(!d) throw new Error('The fact service answered '+r.status);
-  if(r.status>=400&&!d.outcome) throw new Error(d.error||('The fact service answered '+r.status));
+  const rid='r-'+(crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2,12)));
+  const send=()=>fetch(CONFIG.supabase_url+'/functions/v1/'+fn,{ method:'POST',
+    headers:{ Authorization:'Bearer '+tok, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json', 'x-cc-via':(/[?&]m=1(&|$)/.test(location.search))?'phone':'hub' },
+    body:JSON.stringify(Object.assign({}, body, { request_id:rid })) });
+  let r; try{ r=await send(); }catch(e){ r=await send(); }
+  return { status:r.status, data:await r.json().catch(()=>null) };
+}
+async function lpfCall(body){
+  const { status, data:d }=await callAction('client-fact', body);
+  if(!d) throw new Error('The fact service answered '+status);
+  if(status>=400&&!d.outcome) throw new Error(d.error||('The fact service answered '+status));
   return d;
 }
 function lpfLabel(b,k){ const kk=(b&&b.kinds||[]).find(x=>x.kind===k); return kk?kk.label:k.replace(/_/g,' '); }
@@ -32658,11 +32668,8 @@ function ucRender(){
 }
 async function ucPlace(body){
   try{
-    const sess=await sb.auth.getSession(), tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
-    if(!tok) return { error:'Sign in first.' };
-    const r=await fetch(CONFIG.supabase_url+'/functions/v1/call-place',{ method:'POST',
-      headers:{ Authorization:'Bearer '+tok, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
-    return await r.json().catch(()=>({ error:'The call service answered '+r.status }));
+    const { status, data }=await callAction('call-place', Object.assign({ action:'place' }, body));
+    return data||{ error:'The call service answered '+status };
   }catch(e){ return { error:String(e&&e.message||e) }; }
 }
 async function ucPick(i, anchor){
