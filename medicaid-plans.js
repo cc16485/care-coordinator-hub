@@ -95,6 +95,23 @@
     return { stop, need, nameDiff };
   }
 
+  /* SLICE 9: a re-upload of the same plan keeps every piece of evidence recorded on the earlier save. The first received
+     date stays (that is the date the 10-day start clock and the audit use); each re-upload is listed; a PDF the earlier save
+     kept is never dropped (a new PDF becomes current and the earlier one is listed). Exported for the tests. */
+  function keepEvidence(prev, rec) {
+    if (!prev) return rec;
+    for (const k of ['fusion_verified', 'start', 'changes', 'name_confirmed']) if (prev[k] != null && rec[k] == null) rec[k] = prev[k];
+    if (prev.received_on && (!rec.received_on || prev.received_on < rec.received_on)) rec.received_on = prev.received_on;
+    const earlier = (prev.pdf_earlier || []).slice();
+    if (prev.pdf && !rec.pdf) rec.pdf = prev.pdf;
+    else if (prev.pdf && rec.pdf && prev.pdf.path !== rec.pdf.path) earlier.push(prev.pdf);
+    if (earlier.length) rec.pdf_earlier = earlier;
+    rec.reuploads = (prev.reuploads || []).concat([{ at: rec.confirmed_at || '', by: rec.confirmed_by || '', file_name: rec.file_name || '' }]);
+    rec.confirmed_by = prev.confirmed_by || rec.confirmed_by; rec.confirmed_at = prev.confirmed_at || rec.confirmed_at;
+    return rec;
+  }
+  window.mcpKeepEvidence = keepEvidence;
+
   window.mcpSave = async function () {
     const r = MCP.pending; if (!r || r.saving) return;
     const c = checks(r); if (c.stop.length || c.need.length) { refresh(); return; }
@@ -107,6 +124,10 @@
       if (c.nameDiff) rec.name_confirmed = { plan_name: r.plan.name, by: me() };
       /* SLICE 8: keep the PDF as the source document (private, logged). A failed upload does not lose the plan: the box asks for it. */
       if (r.file && window.ClientAudit) { try { const u = await ClientAudit.upload('careplan', rec.id, r.file); rec.pdf = { path: u.path, name: u.name, by: me(), at: new Date().toISOString() }; } catch (e) { r.pdfError = String((e && e.message) || e); } }
+      /* SLICE 9 (Samantha "yes to all", 2026-10-11): uploading the same plan again (same client, start and generated date)
+         used to replace the whole record and lose the Fusion check, the kept PDF, the start record and the change requests.
+         Now the evidence already recorded stays: see keepEvidence. */
+      keepEvidence(plans().find(p => p.id === rec.id), rec);
       DATA.medicaid_plans = plans().filter(p => p.id !== rec.id).concat([rec]);
       await persist('medicaid_plans', rec);
       if (t.lead && !t.dcn && r.plan.dcn) { t.lead.dcn = r.plan.dcn; await persist('leads', t.lead); }

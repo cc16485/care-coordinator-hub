@@ -6006,9 +6006,11 @@ The HomeTogether team</pre>
     <span style="flex:1;"></span>
     <button class="secondary" onclick="gheClose()">Close</button>
     <button class="secondary" onclick="ghePrint()">🖨 Print / PDF for Fusion</button>
-    <button class="primary" onclick="gheSave(this)">Save Visit Record</button>
+    <button class="secondary" id="gheAmendBtn" style="display:none;" onclick="gheAmend()" title="Make a corrected copy of this signed form; the signed one is kept">Amend</button>
+    <button class="primary" id="gheSaveBtn" onclick="gheSave(this)">Save Visit Record</button>
   </div>
   <div class="ghe-body">
+    <div id="gheLockNote" class="ghe-noprint" style="display:none;margin:8px 0;padding:10px 12px;border-radius:8px;background:#FBF3E4;border:1px solid #E8D3A8;font-size:13px;"></div>
     <input type="hidden" id="ghe_id">
     <div class="ghe-sec">A: PARTICIPANT INFORMATION</div>
     <div class="ghe-grid3">
@@ -6977,7 +6979,7 @@ The HomeTogether team</pre>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=5"></script><!-- 3b: the one new-hire readiness card -->
 <script src="client-journey.js?v=14"></script>
-<script src="client-care.js?v=5"></script>
+<script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
 <script src="partner-rules.js?v=1"></script>
 <script src="referral-desk.js?v=4"></script>
@@ -6986,11 +6988,11 @@ The HomeTogether team</pre>
 <script src="care-plan-rules.js?v=1"></script>
 <script src="nurse-rules.js?v=3"></script>
 <script src="ghe-rules.js?v=1"></script>
-<script src="ghe-forms-rules.js?v=1"></script>
+<script src="ghe-forms-rules.js?v=2"></script>
 <script src="ihs-rules.js?v=2"></script>
 <script src="visit-rules.js?v=2"></script>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
-<script src="medicaid-plans.js?v=8"></script>
+<script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=1"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=4"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
@@ -8236,7 +8238,7 @@ function ccRenderPulse(){
   if(late) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Your items that are past due (waiting items count only once they come back)"><b>'+late+'</b> late for you</span>');
   if(lateNo) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'unassigned\')" title="Past due and nobody owns them yet"><b>'+lateNo+'</b> late, no owner</span>');
   if(ci) chips.push('<span class="tp-chip" onclick="clOpen(\'Check-ins\')" title="Client check-ins past due"><b>'+ci+'</b> check-in'+(ci===1?'':'s')+' overdue</span>');
-  const gr=(DATA.ghe_forms||[]).filter(g=>g.status==='ready').length;
+  const gr=(DATA.ghe_forms||[]).filter(g=>g.status==='ready'&&!g.superseded_by).length;
   if(gr) chips.push('<span class="tp-chip" onclick="switchTab(\'nursevisits\')" title="Completed GHEs waiting for the coordinator\'s Fusion upload"><b>'+gr+'</b> GHE'+(gr===1?'':'s')+' ready for Fusion</span>');
   box.innerHTML = chips.length ? chips.join('') : '<span class="tp-chip ok">✓ Caught up</span>';
 }
@@ -11588,29 +11590,36 @@ async function openLeadDoc(path){
   if(window.ClientAudit) return ClientAudit.openLeadDoc(lead, path, (typeof lpLead !== 'undefined' && lpLead && lpLead.axiscare_client_id) || '');
   alert('The document viewer did not load. Refresh the page and try again.');
 }
+/* SLICE 9 (Samantha "yes to all", 2026-10-11): Remove hides a document and keeps the file. The browser can no longer
+   delete files from this bucket at all. The document stays on the record as removed, with who, when and why, and can be
+   opened from "Removed (kept for the record)". */
 async function deleteLeadDoc(path){
-  if(!lpLead || !confirm('Delete this document? This cannot be undone.')) return;
-  await sb.storage.from('lead-docs').remove([path]);
-  lpLead.docs = (lpLead.docs||[]).filter(d=>d.path!==path);
+  if(!lpLead) return;
+  const d=(lpLead.docs||[]).find(x=>x.path===path); if(!d) return;
+  const why=prompt('Remove "'+(d.name||'this document')+'" from the list?\nThe file is kept for the record and can still be opened under Removed. Why is it being removed?','');
+  if(why===null) return;
+  if(why.trim().length<5){ alert('Say why it is being removed (a few words).'); return; }
+  d.removed={ by:(typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||'', by_name:(typeof ME!=='undefined'&&ME&&ME.name)||'', at:new Date().toISOString(), why:why.trim().slice(0,300) };
   await persist('leads',lpLead);
   renderLeadDocs();
 }
 function renderLeadDocs(){
   const l=lpLead; if(!l) return;
   const esc=escapeHtmlComms;
-  const docs=l.docs||[];
+  const all=l.docs||[], docs=all.filter(d=>!d.removed), gone=all.filter(d=>d.removed);
   const em=docs.filter(d=>d.slot==='EMOMED').length, fu=docs.filter(d=>d.slot==='FUSION').length;
   document.getElementById('lp_doc_emomed').textContent = em?('✓ '+em+' on file'):'Medicaid verification';
   document.getElementById('lp_doc_fusion').textContent = fu?('✓ '+fu+' on file'):'Referral proof';
-  document.getElementById('lp_docs').innerHTML = docs.length ? docs.slice().reverse().map(d=>
-    '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+  const row=(d,on)=>'<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;'+(on?'':'opacity:.75;')+'">'
     +'<span style="flex:0 0 auto;">📄</span>'
     +'<a href="#" onclick="openLeadDoc(\''+esc(d.path)+'\');return false;" style="font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(d.name)+'</a>'
     +'<span class="tag-chip">'+esc(d.slot)+'</span>'
     +'<span class="field-note" style="margin-left:auto;white-space:nowrap;">'+String(d.at||'').slice(0,10)+' · '+(d.size?Math.round(d.size/1024)+' KB':'')+'</span>'
-    +'<button class="linklike" onclick="deleteLeadDoc(\''+esc(d.path)+'\')">🗑</button>'
-    +'</div>').join('')
-    : '<div class="field-note">Nothing uploaded yet.</div>';
+    +(on?'<button class="linklike" title="Remove from the list (the file is kept)" onclick="deleteLeadDoc(\''+esc(d.path)+'\')">Remove</button>'
+        :'<span class="field-note" style="white-space:nowrap;">removed '+String(d.removed.at||'').slice(0,10)+' by '+esc(d.removed.by_name||d.removed.by||'')+': '+esc(d.removed.why||'')+'</span>')
+    +'</div>';
+  document.getElementById('lp_docs').innerHTML = (docs.length ? docs.slice().reverse().map(d=>row(d,true)).join('') : '<div class="field-note">Nothing uploaded yet.</div>')
+    + (gone.length ? '<details style="margin-top:6px;"><summary class="field-note">Removed ('+gone.length+'), kept for the record</summary>'+gone.slice().reverse().map(d=>row(d,false)).join('')+'</details>' : '');
 }
 
 /* Coordinator books are split by PAYER (Samantha, 2026-08-01): Krystal owns
@@ -38836,7 +38845,7 @@ function nvGheState(c,which){
   const d=x=>{ const t=String(x||''); return t?new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'America/Chicago'}):''; };
   const who=w&&w.visit&&w.visit.nurse?' · '+w.visit.nurse:'';
   const nm=x=>String(x||'').trim().toLowerCase();
-  const form=(DATA.ghe_forms||[]).find(f=>(f.client_id?f.client_id===c.id:nm(f.client)===nm(c.name))&&String(f.visit_date||'').slice(0,7)===m);
+  const form=(DATA.ghe_forms||[]).find(f=>!f.superseded_by&&(f.client_id?f.client_id===c.id:nm(f.client)===nm(c.name))&&String(f.visit_date||'').slice(0,7)===m);
   const logged=nvVisitsFor(c.id,which).find(v=>v.status==='completed');
   /* slice 4: after the visit, the paperwork: form due 2 days after the visit, then RN review, Fusion upload */
   if(w&&w.state==='visited'){
@@ -39046,6 +39055,7 @@ function gheNew(clientName){
   document.querySelectorAll('#gheView input:not([type=radio]):not([type=checkbox]), #gheView textarea').forEach(el=>{ if(el.id!=='ghe_provider') el.value=''; });
   document.querySelectorAll('#gheView input[type=radio], #gheView input[type=checkbox]').forEach(el=>el.checked=false);
   GHE_SIGS.forEach(gheSigClear);
+  gheLockView(null);
   gheSet('ghe_id',''); gheSet('ghe_provider','Caring Companions');
   gheSet('ghe_visit_date',today());
   gheSet('ghe_sig_nurse_date',today()); gheSet('ghe_sig_part_date',today()); gheSet('ghe_sig_sup_date',today());
@@ -39089,6 +39099,74 @@ function gheOpen(id){
   document.getElementById('ghe_status').value=g.status||'draft';
   gheSet('ghe_client_id',g.client_id||''); gheReviewerOptions(g.rn_reviewer||''); gheStatusLabel(g.status||'draft');
   gheTotal();
+  gheLockView(g);
+}
+/* SLICE 9 (Samantha "yes to all", 2026-10-11): a GHE form locks once the participant signs. The answers, the client, the
+   visit date, the nurse, the score and the nurse and participant signatures can no longer change (the database refuses it
+   too). The reviewing RN can still sign once, and the status still moves. A correction is an Amend: a new copy that names
+   the signed form and why; the signed form stays, marked as replaced. */
+function gheLocked(g){ return !!(g && g.sig_part); }
+function gheLockView(g){
+  const view=document.getElementById('gheView'); if(!view) return;
+  const locked=gheLocked(g), gone=!!(g && g.superseded_by), supDone=!!(g && g.sig_sup);
+  view.querySelectorAll('.ghe-body input, .ghe-body textarea, .ghe-body select').forEach(el=>{
+    if(el.type==='hidden') return;
+    if(el.id==='ghe_rn_reviewer') el.disabled=gone;
+    else if(el.id==='ghe_sig_sup_date') el.disabled=gone||(locked&&supDone);
+    else el.disabled=locked||gone;
+  });
+  GHE_SIGS.forEach(id=>{
+    const cv=document.getElementById(id); if(!cv) return;
+    const off=gone||(locked&&(id!=='ghe_sig_sup'||supDone));
+    cv.style.pointerEvents=off?'none':''; cv.style.opacity=off?'.85':'';
+    const clr=cv.parentNode&&cv.parentNode.querySelector('button.linklike'); if(clr) clr.style.display=off?'none':'';
+  });
+  const note=document.getElementById('gheLockNote'), save=document.getElementById('gheSaveBtn'), amend=document.getElementById('gheAmendBtn');
+  if(save) save.style.display=gone?'none':'';
+  if(amend) amend.style.display=(locked&&!gone)?'':'none';
+  if(!note) return;
+  const by=g&&g.amends?(DATA.ghe_forms||[]).find(x=>x.id===g.amends):null;
+  const amendLine=g&&g.amends?'<div style="margin-top:4px;">This is an amended copy of the form for the visit on '+esc((by&&by.visit_date)||'')+'. Why: '+esc(g.amend_reason||'')+'</div>':'';
+  if(gone){ const nx=(DATA.ghe_forms||[]).find(x=>x.id===g.superseded_by);
+    note.innerHTML='<b>Replaced by an amended copy</b> on '+esc(String(g.superseded_at||'').slice(0,10))+'. This signed form is kept as it was and can no longer be changed.'
+      +(nx?' <button class="linklike" onclick="gheOpen(\''+esc(nx.id)+'\')">Open the amended copy</button>':'')+amendLine;
+    note.style.display=''; }
+  else if(locked){ note.innerHTML='<b>Signed by the participant.</b> The answers and signatures are locked. '+(supDone?'':'The reviewing RN can still sign below. ')+'To correct anything, use <b>Amend</b>: it makes a corrected copy and keeps this signed form.'+amendLine; note.style.display=''; }
+  else if(amendLine){ note.innerHTML=amendLine; note.style.display=''; }
+  else { note.innerHTML=''; note.style.display='none'; }
+}
+async function ghePut(rec){
+  /* the GHE save goes straight to the database so a refused change (a signed form) is explained, not queued to retry */
+  if(!sb) return persist('ghe_forms',rec);
+  try{
+    const { error } = await sb.rpc('upsert_app_data_item', { target_key:'ghe_forms', item:rec });
+    if(!error){ syncSay('☁ Synced'); return true; }
+    if(String(error.code)==='42501' || /signed|cannot be removed|supervising nurse/i.test(String(error.message||''))){
+      alert('Not saved: '+error.message); await gheReload(); return false;
+    }
+  }catch(e){}
+  await persist('ghe_forms',rec); return true;
+}
+async function gheReload(){
+  try{ const { data } = await sb.from('app_data').select('data').eq('key','ghe_forms').maybeSingle(); if(data && Array.isArray(data.data)) DATA.ghe_forms=data.data; }catch(e){}
+  try{ gheRenderCards(); }catch(e){}
+}
+async function gheAmend(){
+  const id=gheV('ghe_id'); const g=(DATA.ghe_forms||[]).find(x=>x.id===id); if(!g||!gheLocked(g)||g.superseded_by) return;
+  const why=prompt('Amend this signed GHE form.\nThe signed form is kept exactly as it is and marked as replaced. The corrected copy starts as a draft and needs the nurse\'s and the participant\'s signatures again.\n\nWhat needs correcting, and why?','');
+  if(why===null) return;
+  if(why.trim().length<10){ alert('Say what needs correcting and why (at least a few words).'); return; }
+  const now=new Date().toISOString(), nid=uid();
+  const copy={ id:nid, f:Object.assign({}, g.f||{}, { ghe_sig_nurse_date:'', ghe_sig_part_date:'', ghe_sig_sup_date:'' }), checks:(g.checks||[]).slice(), radios:Object.assign({}, g.radios||{}),
+    client:g.client||'', client_id:g.client_id||'', visit_date:g.visit_date||'', nurse:g.nurse||'', total:g.total, status:'draft', rn_reviewer:g.rn_reviewer||'',
+    sig_nurse:'', sig_part:'', sig_sup:'', amends:g.id, amend_reason:why.trim().slice(0,500), amended_by:ME.email||'', amended_at:now,
+    created_at:now, updated_at:now, updated_by:ME.email||'' };
+  if(!(await ghePut(copy))) return;
+  DATA.ghe_forms=(DATA.ghe_forms||[]).concat([copy]);
+  const old=Object.assign({}, g, { superseded_by:nid, superseded_at:now, updated_at:now, updated_by:ME.email||'' });
+  if(!(await ghePut(old))) return;
+  DATA.ghe_forms=DATA.ghe_forms.map(x=>x.id===g.id?old:x);
+  gheOpen(nid); gheRenderCards(); if(typeof renderNurseVisits==='function') try{ renderNurseVisits(); }catch(e){}
 }
 async function gheSave(btn){
   const id=gheV('ghe_id')||uid();
@@ -39102,6 +39180,19 @@ async function gheSave(btn){
   const radios={};
   document.querySelectorAll('#gheView input[type=radio]:checked').forEach(el=>{ radios[el.name]=el.value; });
   const prev=(DATA.ghe_forms||[]).find(x=>x.id===id)||{};
+  if(prev.superseded_by){ alert('This form was replaced by an amended copy and can no longer be changed.'); return; }
+  if(gheLocked(prev)){
+    /* SLICE 9: only what may still change on a signed form: the status, the reviewing RN and (once) the RN's signature */
+    const rec=Object.assign({}, prev, { status:document.getElementById('ghe_status').value, rn_reviewer:(document.getElementById('ghe_rn_reviewer')||{}).value||prev.rn_reviewer||'',
+      updated_at:new Date().toISOString(), updated_by:ME.email||'' });
+    if(!prev.sig_sup){ const sup=gheSigData('ghe_sig_sup'); if(sup){ rec.sig_sup=sup; rec.f=Object.assign({}, prev.f||{}, { ghe_sig_sup_date:gheV('ghe_sig_sup_date') }); } else rec.f=Object.assign({}, prev.f||{}, { ghe_sig_sup_date:gheV('ghe_sig_sup_date') }); }
+    if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+    const ok=await ghePut(rec);
+    if(ok){ const i=(DATA.ghe_forms||[]).findIndex(x=>x.id===id); if(i>-1) DATA.ghe_forms[i]=rec; }
+    if(btn){ btn.disabled=false; btn.textContent='Save Visit Record'; }
+    gheRenderCards(); if(ok) gheLockView(rec);
+    return;
+  }
   const rec=Object.assign({}, prev, {
     id, f, checks, radios,
     client:gheV('ghe_client'), client_id:gheV('ghe_client_id')||prev.client_id||'', rn_reviewer:(document.getElementById('ghe_rn_reviewer')||{}).value||prev.rn_reviewer||'',
@@ -39115,9 +39206,9 @@ async function gheSave(btn){
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   const i=(DATA.ghe_forms||[]).findIndex(x=>x.id===id);
   if(i<0){ DATA.ghe_forms=DATA.ghe_forms||[]; DATA.ghe_forms.push(rec); } else DATA.ghe_forms[i]=rec;
-  await persist('ghe_forms',rec);
+  await ghePut(rec);
   if(btn){ btn.disabled=false; btn.textContent='Save Visit Record'; }
-  gheRenderCards();
+  gheRenderCards(); gheLockView(rec);
 }
 function ghePrint(){
   document.body.classList.add('ghe-printing');
@@ -39156,6 +39247,7 @@ function gheFusionRender(){
 }
 /* slice 4: each form shows where it stands and the one next step it allows */
 function gheNextStep(g, portal){
+  if(g.superseded_by) return '<span class="field-note">Replaced by an amended copy '+esc(String(g.superseded_at||'').slice(0,10))+' (kept as signed)</span>';
   const st=g.status||'draft', fs=GheFormRules.formState(g, today()), id=esc(g.id);
   const cred=String(((DATA.nurse_staff||[]).find(n=>n.name===g.nurse)||{}).cred||'').toUpperCase();
   const b=(to,l)=>'<button class="ghost" style="padding:3px 9px;font-size:12px;" onclick="gheSetStatus(\''+id+'\',\''+to+'\')">'+l+'</button>';
@@ -39172,7 +39264,7 @@ function gheRenderCards(){
   const box=document.getElementById('gheList'), cts=document.getElementById('gheCounters');
   if(!box||!cts) return;
   const rows=(DATA.ghe_forms||[]).slice().sort((a,b)=>(b.visit_date||'').localeCompare(a.visit_date||''));
-  const n=k=>rows.filter(g=>(g.status||'draft')===k).length;
+  const n=k=>rows.filter(g=>!g.superseded_by&&(g.status||'draft')===k).length;
   cts.innerHTML=Object.entries(GHE_STATUS).map(([k,[label,cls]])=>
     '<span class="badge '+cls+'">'+n(k)+' '+label+'</span>').join('');
   if(!rows.length){ box.innerHTML='<div class="field-note">No GHE forms yet. Start one from the button above, or from a due GHE.</div>'; return; }

@@ -41,13 +41,18 @@ T = r"""async()=>{
   ok('...a written justification is owed to DSDS, with a draft letter (Hub sends nothing)', /Written justification owed to DSDS/.test(box()) && /The Hub drafts it; you edit it and send it yourself/.test(box()) && /received the service authorization on 2026-10-07/.test(document.getElementById('mcpSText').value));
   mcpLateField('reason','No caregiver was free for the authorized morning hours until a new hire finished orientation.'); mcpLateField('planned_start','2026-10-21'); await sleep(80);
   ok('...the letter fills in the reason and the expected start as they are typed', /because: No caregiver was free/.test(document.getElementById('mcpSText').value) && /begin services on 2026-10-21/.test(document.getElementById('mcpSText').value));
+  /* Slice 8 made the attached copy required (the box no longer has a "copy in the file" tick): attach it first */
+  await mcpLateSave(); await sleep(80);
+  ok('...recording it first needs the copy that was sent attached; nothing saved', /Attach the copy that was sent to DSDS first/.test(document.getElementById('mcpSMsg').textContent) && window.__P.length===0, document.getElementById('mcpSMsg').textContent);
+  window.ClientAudit=Object.assign(window.ClientAudit||{}, { pickFile:async()=>({ name:'justification.pdf', type:'application/pdf' }), upload:async(k,ref,f)=>({ path:k+'/'+ref+'/1-'+f.name, name:f.name }) });
+  await mcpLateAttach(); await sleep(60);
   await mcpLateSave(); await sleep(80);
   ok('...recording it needs the date sent, how, and the copy in the file; nothing saved before that', /date it was sent/.test(document.getElementById('mcpSMsg').textContent) && window.__P.length===0, document.getElementById('mcpSMsg').textContent);
-  mcpLateField('sent_on','2026-10-18'); mcpLateField('how','Fusion'); mcpLateField('copy_in_file',true); await sleep(80);
+  mcpLateField('sent_on','2026-10-18'); mcpLateField('how','Fusion'); await sleep(80);
   document.getElementById('mcpSText').value+='\nEdited by Angiel.'; await mcpLateSave(); await sleep(150);
   const p1=window.__P.filter(x=>x[0]==='medicaid_plans').map(x=>x[1]).pop();
-  ok('...recorded: the reason, the letter as edited, sent Oct 18 through Fusion, the copy in the file, by Angiel', p1 && p1.start.late.sent_on==='2026-10-18' && p1.start.late.how==='Fusion' && p1.start.late.copy_in_file && /Edited by Angiel/.test(p1.start.late.text) && p1.start.late.by==='angiel@mo-care.com', p1&&p1.start);
-  ok('...the box now says it was sent, and the form is gone', /Written justification sent to DSDS\s*10\/18\/2026 \(Fusion\), copy in the file/.test(box()) && !document.getElementById('mcpSText'), box());
+  ok('...recorded: the reason, the letter as edited, sent Oct 18 through Fusion, the copy in the file, by Angiel', p1 && p1.start.late.sent_on==='2026-10-18' && p1.start.late.how==='Fusion' && p1.start.late.copy && p1.start.late.copy.name==='justification.pdf' && /Edited by Angiel/.test(p1.start.late.text) && p1.start.late.by==='angiel@mo-care.com', p1&&p1.start);
+  ok('...the box now says it was sent, and the form is gone', /Written justification sent to DSDS\s*10\/18\/2026 \(Fusion\)/.test(box()) && /Copy kept: justification\.pdf/.test(box()) && !document.getElementById('mcpSText'), box());
   /* the start checks */
   ok('The five start checks (state rules), each with its source', ['PCCP','rights statement','code of ethics','EVV is required','caregiver has the care plan'].every(x=>box().toLowerCase().includes(x.toLowerCase())) && /MAN 4.20/.test(box()) && /13 CSR 70-3.320/.test(box()));
   document.getElementById('mcpSC_pccp_copy').value='2026-10-16'; window.__P.length=0; await mcpStartCheck('pccp_copy'); await sleep(120);

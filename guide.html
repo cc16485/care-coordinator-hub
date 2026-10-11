@@ -1102,19 +1102,26 @@
       Object.keys(cats).sort().map(function (c) { return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('');
     sel.value = cur;
 
-    var list = D.agency_docs.filter(function (d) { return !cur || d.cat === cur; })
+    /* SLICE 9 (Samantha "yes to all", 2026-10-11): Remove hides a document and keeps the file (the browser can no longer
+       delete files here). Removed documents stay listed under "Removed, kept for the record" with who, when and why. */
+    var all = D.agency_docs.filter(function (d) { return !cur || d.cat === cur; })
       .sort(function (a, b) { return (b.at || '').localeCompare(a.at || ''); });
-    if (!list.length) { $('docList').innerHTML = '<div class="empty">Nothing stored yet.</div>'; return; }
-    $('docList').innerHTML = list.map(function (d) {
+    var list = all.filter(function (d) { return !d.removed; }), gone = all.filter(function (d) { return d.removed; });
+    var card = function (d, on) {
       var ext = ((d.filename || '').match(/\.([^.]+)$/) || ['', 'file'])[1].toUpperCase().slice(0, 4);
-      return '<div class="doc">' +
+      return '<div class="doc"' + (on ? '' : ' style="opacity:.75"') + '>' +
         '<div class="ic">' + esc(ext) + '</div>' +
         '<div class="g"><b>' + esc(d.name) + '</b>' +
-          '<span>' + esc(d.cat) + ' &middot; ' + kb(d.size) + ' &middot; added ' + esc(fmtStamp(d.at)) + (d.by ? ' by ' + esc(d.by) : '') + '</span></div>' +
+          '<span>' + esc(d.cat) + ' &middot; ' + kb(d.size) + ' &middot; added ' + esc(fmtStamp(d.at)) + (d.by ? ' by ' + esc(d.by) : '') +
+          (on ? '' : ' &middot; removed ' + esc(fmtStamp(d.removed.at)) + ' by ' + esc(d.removed.by || '') + ': ' + esc(d.removed.why || '')) + '</span></div>' +
         '<button class="btn sm ghost" data-open="' + d.id + '">Open</button>' +
-        '<button class="btn sm danger" data-ddel="' + d.id + '">Delete</button>' +
+        (on ? '<button class="btn sm danger" data-ddel="' + d.id + '">Remove</button>' : '') +
       '</div>';
-    }).join('');
+    };
+    if (!list.length && !gone.length) { $('docList').innerHTML = '<div class="empty">Nothing stored yet.</div>'; return; }
+    $('docList').innerHTML = (list.length ? list.map(function (d) { return card(d, true); }).join('') : '<div class="empty">Nothing stored yet.</div>') +
+      (gone.length ? '<details style="margin-top:8px"><summary style="font-size:.85rem;color:#6E6559;cursor:pointer">Removed (' + gone.length + '), kept for the record</summary>' +
+        gone.map(function (d) { return card(d, false); }).join('') + '</details>' : '');
     bind('[data-open]', 'data-open', function (id, btn) {
       var d = D.agency_docs.find(function (x) { return x.id === id; });
       if (!d) return;
@@ -1127,10 +1134,15 @@
     });
     bind('[data-ddel]', 'data-ddel', function (id) {
       var d = D.agency_docs.find(function (x) { return x.id === id; });
-      if (!d || !confirm('Delete "' + d.name + '"? This removes the file too.')) return;
-      sb.storage.from(BUCKET).remove([d.path]).then(function () {
-        return drop('agency_docs', id);
-      }).then(renderDocs);
+      if (!d) return;
+      var why = prompt('Remove "' + d.name + '" from the list?\nThe file is kept for the record and can still be opened under Removed. Why is it being removed?', '');
+      if (why === null) return;
+      if (why.trim().length < 5) { alert('Say why it is being removed (a few words).'); return; }
+      var item = Object.assign({}, d, { removed: { by: ME, at: new Date().toISOString(), why: why.trim().slice(0, 300) } });
+      save('agency_docs', item).then(function (r) {
+        if (r && r.error) { alert('Not saved: ' + r.error.message); return loadAll(); }
+        renderDocs();
+      });
     });
   }
   $('dFilter').addEventListener('change', renderDocs);
