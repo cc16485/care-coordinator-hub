@@ -14,7 +14,8 @@ function saveCandidates(){ return Promise.resolve(true); } function renderOB(){}
 function bgrViewProof(){} function phdFor(){ return []; } function phdLink(){ return ''; }
 window.__applied = null; function bgrApplyBoardChange(id, ch){ window.__applied = ch; } function bgrPushDocToGHL(){}
 """ + cut('const BGR_CHECKS = [', 'function bgrEnsureDrawer(){') + cut('let _bgrCheckCand = null, _bgrCheckWhich = null;', '/* File the proof onto the caregiver') \
-    + cut('/* ── SLICE 2c (Samantha "start slice 2c", 2026-10-10): the Screening desk', '/* Record a reference\'s answer from the card.')
+    + cut('/* ── SLICE 2c (Samantha "start slice 2c", 2026-10-10): the Screening desk', '/* Record a reference\'s answer from the card.') \
+    + cut('function bgrStep1Wait(c){', 'async function askReferences(')   # STEP 1 BEFORE CHECKS (2026-10-11): the desk waits for Step 1
 T = r"""
 async(CODE)=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -29,7 +30,7 @@ async(CODE)=>{
       reveals++; revealsLog.unshift({ at:new Date().toISOString(), doc:'identity:'+b.field, by_name:'Krystal', reason:b.reason }); return { data:{ ok:true, field:b.field, value:b.field==='ssn'?'529123456':b.field==='dob'?'1990-05-05':'M123456789', expires_in:300, by:'Krystal' }, error:null }; }
     return { data:{ ok:false, error:'Unknown action.' }, error:null }; } }, storage:{ from:()=>({ upload:async()=>({ error:null }) }) } };
   const sc=document.createElement('script'); sc.textContent=CODE; document.head.appendChild(sc); await sleep(30);
-  OFFERS=[{ id:'o-new', onboarding_path:'new' },{ id:'o-old', onboarding_path:'old' }];
+  OFFERS=[{ id:'o-new', onboarding_path:'new', step1_done_at:'2026-10-10T15:00:00Z' },   /* on the new path a person reaches the desk only after Step 1 */{ id:'o-old', onboarding_path:'old' }];
   candidates=[{ id:901, first:'Ava', last:'Lee', phone:'4175550101', offer_id:'o-new', oig:'Pending', edl:'Pending', fcsr:'Pending' },{ id:902, first:'Old', last:'Path', offer_id:'o-old', oig:'Pending' }];
   ok('the desk shows only for a new-path offer', sdEligible(candidates[0]) && !sdEligible(candidates[1]));
   await bgrScreeningDesk(901); await sleep(120);

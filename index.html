@@ -6977,7 +6977,8 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
-<script src="caregiver-readiness.js?v=5"></script><!-- 3b: the one new-hire readiness card -->
+<script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
+<script src="hire-profile.js?v=1"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
@@ -8157,6 +8158,10 @@ function ccSetSectionTitle(tab){
    Anything that reached one of those calls stopped dead: "make them an offer"
    and the "how did it go?" jump out of the interview list both did nothing at
    all, with no error, because the line threw before it did anything. */
+/* The shared caregivers code (caregivers-engine.js) was written for the Staffing hub and jumps to its tab names; its own
+   gotoTab replaces the one here once it loads, and both end in switchTab. Here those tabs have other names, so switchTab
+   maps them; an unknown name used to throw "null is not an object" (the Previous offers row, 2026-10-11). */
+const GOTO_ALIAS={ onboarding:'cgbackground', orientations:'cgorient', home:'today' };
 function gotoTab(tab){ return switchTab(tab); }
 
 /* Profile First (2026-09-28): the old Leads and Care Assessments tabs are gone; anything still asking for
@@ -8173,6 +8178,7 @@ const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:
   meetings:'teammeetings' };
 const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews', statesubs:'State submissions' };
 function switchTab(tab){
+  tab=GOTO_ALIAS[tab]||tab;
   if(CC_RETIRED_TABS[tab]){ const f=CC_RETIRED_FILTER[tab], to=CC_RETIRED_TABS[tab];
     if(f&&to==='leadsstarts'&&typeof LS!=='undefined') LS.filter=f; else if(f&&typeof CL!=='undefined') CL.filter=f; tab=to; }
   /* 2026-10-03: the Hub Settings link (GoHighLevel menu, cc.mo-care.com/#settings) opens the page before the roles are
@@ -8210,8 +8216,10 @@ function switchTab(tab){
   scxEnsure(tab);
   /* Offers has its pill back (2026-10-09), so it is remembered as the section's last page like any other. */
   if(g!=='today') localStorage.setItem('cch_last_'+g,tab);
+  const panel=document.getElementById('tab-'+tab);
+  if(!panel){ console.warn('switchTab: no tab named', tab); return; }
   document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
+  panel.classList.add('active');
   renderActiveTab();
 }
 /* Topbar pulse — the numbers that need a human today, one glance, one
@@ -23235,6 +23243,7 @@ function apRenderProfile(){
           : '')
       + (r.status!=='declined' ? '<button class="fb" onclick="apInterview(\''+esc(r.id)+'\')">📝 Interview &amp; outcome</button>' : '')
       + (r.status!=='declined' ? '<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')">➡️ Make them an offer</button>' : '')
+      + (window.HP ? '<button class="fb" onclick="HP.open({applicant_id:\''+esc(r.id)+'\'})" title="Every send, receipt and completion from application to first shift, and every signed document">&#128100; Whole profile</button>' : '')
       + (r.status!=='hired' && r.status!=='declined' && r.status!=='pool'
           ? '<button class="fb" onclick="apToPool(\''+esc(r.id)+'\')">🗂 Candidate pool</button>' : '')
       + (r.status==='pool' ? '<button class="fb" onclick="apFromPool(\''+esc(r.id)+'\')">↩️ Out of the pool</button>' : '')
