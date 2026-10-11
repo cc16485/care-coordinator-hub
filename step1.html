@@ -25,7 +25,8 @@
   .item{margin:0 0 14px} label.q{display:block;font-size:15px;font-weight:600;color:var(--text);margin:0 0 6px;} .note{font-size:12.5px;color:var(--muted);margin:-2px 0 6px}
   .from{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--gold-text);background:#FFF7ED;border:1px solid #FCD9A8;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle}
   input[type=text],input[type=number],input[type=date],input[type=tel],input[type=email],select,textarea{width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;} input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px;}
-  .seg{display:flex;flex-wrap:wrap;gap:8px} .seg button{font:inherit;font-size:15px;padding:10px 14px;border:1px solid var(--border);border-radius:999px;background:#fff;cursor:pointer;color:var(--text)} .seg button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  /* 2026-10-11 (Samantha: "its hard to click these"): the answer buttons fill the row and are a full thumb tall */
+  .seg{display:flex;flex-wrap:wrap;gap:8px} .seg button{flex:1 1 auto;min-width:120px;min-height:50px;font:inherit;font-size:16px;font-weight:600;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;background:#fff;cursor:pointer;color:var(--text);touch-action:manipulation} .seg button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
   .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;margin:6px 0;cursor:pointer} .chk input{width:22px;height:22px;margin:2px 0 0;flex:none;accent-color:var(--gold)}
   table.grid{width:100%;border-collapse:collapse;font-size:13.5px} table.grid th,table.grid td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--border)} table.grid td:first-child,table.grid th:first-child{text-align:left;font-weight:600} table.grid input[type=checkbox]{width:20px;height:20px;accent-color:var(--gold)} table.grid input[type=text]{font-size:13px;padding:6px}
   .row{background:#FAF9F6;border:1px solid var(--border);border-radius:10px;padding:10px;margin:0 0 8px} .row .rl{font-size:12px;color:var(--muted);font-weight:700;margin:6px 0 2px} .row input{font-size:15px;padding:9px 10px}
@@ -54,6 +55,9 @@ const FN = SUPA_URL + '/functions/v1/step1-sign';
 const q = new URLSearchParams(location.search); const LINK = { o: q.get('o') || '', e: q.get('e') || '', t: q.get('t') || '' };
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PHONE = '(417) 234-8494';
+/* 2026-10-11: a value inside onclick="f('...')" is escaped for JavaScript FIRST, then for HTML. The other order turned the
+   apostrophe in "Alzheimer's disease", "Parkinson's disease" and "I'm new to caregiving" into a broken click that did nothing. */
+const jsq = (s) => esc(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 let V = null, ANS = {}, SIGS = {}, IDENT = {}, FROM = {}, SCREEN = '1', FORMS = {}, BUSY = false;
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 /* which screens hold which sections of which form; the sign box sits on a form's last screen */
@@ -110,7 +114,7 @@ function itemHtml(it, locked){
   }
   return '<div class="item" id="it_' + it.id + '"><label class="q">' + esc(it.label) + (it.required ? ' <span style="color:var(--gold-text)">*</span>' : '') + fromTag(it.id) + '</label>' + (it.note ? '<div class="note">' + esc(it.note) + '</div>' : '') + body + '</div>';
 }
-function seg(id, pairs, v, locked){ return '<div class="seg">' + pairs.map(([val, lab]) => '<button type="button" class="' + (v === val ? 'on' : '') + '" onclick="setVal(\'' + id + '\',\'' + esc(val).replace(/'/g, "\\'") + '\')"' + (locked ? ' disabled' : '') + '>' + esc(lab) + '</button>').join('') + '</div>'; }
+function seg(id, pairs, v, locked){ return '<div class="seg">' + pairs.map(([val, lab]) => '<button type="button" class="' + (v === val ? 'on' : '') + '" onclick="setVal(\'' + id + '\',\'' + jsq(val) + '\')"' + (locked ? ' disabled' : '') + '>' + esc(lab) + '</button>').join('') + '</div>'; }
 function ssnHtml(locked){
   if (IDENT.ssn) return '<div class="okmsg">Social Security number: <b>on file, ' + esc(IDENT.ssn) + '</b> (never shown again).' + (locked ? '' : ' <button class="mini" onclick="identityEdit(\'ssn\')">Change</button>') + '</div>';
   return '<input type="tel" id="id_ssn" inputmode="numeric" autocomplete="off" placeholder="Digits only" maxlength="11"' + (locked ? ' disabled' : '') + '><div class="note" style="margin-top:6px">Type it once more</div><input type="tel" id="id_ssn2" inputmode="numeric" autocomplete="off" placeholder="Digits only" maxlength="11"' + (locked ? ' disabled' : '') + '> <button class="mini" style="margin-top:8px" onclick="identitySend(\'ssn\')"' + (locked ? ' disabled' : '') + '>Save my Social Security number</button>';
@@ -124,7 +128,7 @@ function tableHtml(it, locked){
   }
   if (it.id === 'specialties' || it.id === 'matching_facts') {
     const v = ANS[it.id] || {};
-    return it.options.map((o) => '<div class="row"><div style="font-size:14.5px;margin-bottom:6px">' + esc(o) + (FROM[it.id] && v[o] ? fromTag(it.id) : '') + '</div><div class="seg">' + ['Yes', 'Not at this time'].map((c) => '<button type="button" class="' + (v[o] === c ? 'on' : '') + '" onclick="setMap(\'' + it.id + '\',\'' + esc(o).replace(/'/g, "\\'") + '\',\'' + c + '\')"' + dis + '>' + c + '</button>').join('') + '</div></div>').join('');
+    return it.options.map((o) => '<div class="row"><div style="font-size:14.5px;margin-bottom:6px">' + esc(o) + (FROM[it.id] && v[o] ? fromTag(it.id) : '') + '</div><div class="seg">' + ['Yes', 'Not at this time'].map((c) => '<button type="button" class="' + (v[o] === c ? 'on' : '') + '" onclick="setMap(\'' + it.id + '\',\'' + jsq(o) + '\',\'' + c + '\')"' + dis + '>' + c + '</button>').join('') + '</div></div>').join('');
   }
   const rows = Array.isArray(ANS[it.id]) ? ANS[it.id] : [];
   let out = rows.map((r, i) => '<div class="row">' + it.options.map((c, j) => '<div class="rl">' + esc(c) + '</div><input type="text" value="' + esc(r[j] ?? '') + '" oninput="setCell(\'' + it.id + '\',' + i + ',' + j + ',this.value)"' + dis + '>').join('') + (locked ? '' : '<div style="margin-top:8px"><button class="mini x" onclick="delRow(\'' + it.id + '\',' + i + ')">Remove</button></div>') + '</div>').join('');
@@ -184,7 +188,10 @@ function screenHtml(s){
 const nextOf = (s) => ORDER[Math.min(ORDER.indexOf(s) + 1, ORDER.length - 1)], prevOf = (s) => ORDER[Math.max(ORDER.indexOf(s) - 1, 0)];
 function nextScreen(){ if (V.completed_at) return '9'; for (const s of ORDER.slice(1, -1)) { const P = PLAN[s]; if (!formSigned(P.form)) return (P.sections !== 'all' && P.sections[0] !== 0 && ORDER.indexOf(SCREEN) >= 0 && SCREEN === s) ? s : (P.form === 'employee_application' ? (SCREEN === '3' ? '3' : '2') : s); } return '9'; }
 const when = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' Central' : '';
-function render(){ main().innerHTML = screenHtml(SCREEN); window.scrollTo(0, 0); }
+/* 2026-10-11 (Samantha: "every single form pops to the top after each answer"): an answer redraws the screen where you are;
+   only moving to another screen starts at the top. */
+let SHOWN = null;
+function render(){ const same = SHOWN === SCREEN, y = window.scrollY; main().innerHTML = screenHtml(SCREEN); window.scrollTo(0, same ? y : 0); SHOWN = SCREEN; }
 function go(s){ SCREEN = s; render(); save({}, s); }
 
 /* ───── answers (page memory only) ───── */
