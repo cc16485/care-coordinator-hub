@@ -61,7 +61,11 @@
       const ax = a.axiscare || {};
       h += '<div style="margin-top:.2rem">AxisCare: ' + (ax.state === 'confirmed' ? '<b style="color:#15803D">read back Active</b> ' + esc(when(ax.at)) : ax.state === 'failed' ? '<b style="color:#B91C1C">' + esc(ax.detail || 'update failed') + '</b>' : ax.state === 'practice' ? '<b style="color:#B45309">practice, nothing written</b> (turn on "Approve to Work updates AxisCare" on the Admin page, then Retry)' : 'waiting') + '</div>';
       if(a.text) h += '<div style="margin-top:.2rem">Text: ' + esc(textWords(a.text)) + '</div>';
-      if(a.may_retry) h += '<div style="margin-top:.5rem"><button class="ibtn" onclick="CRX.retry(this)">↻ Retry the AxisCare update</button></div>';
+      /* SLICE 7: the hire date and the level class, written once after the read-back */
+      if(a.prep){ const pw = p => !p || p.state === 'n/a' ? '' : p.state === 'confirmed' ? '<b style="color:#15803D">' + (p.unchanged ? 'already matched' : 'written and read back') + '</b>' + (p.read ? ' (' + esc(p.read) + ')' : '') : p.state === 'failed' ? '<b style="color:#B91C1C">' + esc(p.detail || 'failed') + '</b>' : p.state === 'practice' ? '<b style="color:#B45309">practice, nothing written</b>' : 'waiting for the read-back';
+        if(a.prep.hire_date && a.prep.hire_date.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare hire date (orientation completion): ' + pw(a.prep.hire_date) + '</div>';
+        if(a.prep.level && a.prep.level.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare level class: ' + pw(a.prep.level) + '</div>'; }
+      if(a.may_retry || (a.prep && ((a.prep.hire_date && a.prep.hire_date.state === 'failed') || (a.prep.level && a.prep.level.state === 'failed')))) h += '<div style="margin-top:.5rem"><button class="ibtn" onclick="CRX.retry(this)">↻ Retry the AxisCare update</button></div>';
     } else if(a.ready_for_final){
       h += '<div>Every requirement above is complete. ' + (a.may_approve_work ? 'Press Approve to Work to record your name and the exact time, set them Active in AxisCare and read it back, then send the cleared text.' : 'Only a person on the Approve to Work list (Admin page) can press the button.') + '</div>';
       if(!a.switches.axiscare_live) h += '<div style="font-size:.76rem;color:#B45309;margin-top:.2rem">The AxisCare update switch is off: the press records practice and nothing is written to AxisCare.</div>';
@@ -106,6 +110,8 @@
         /* Approve to Work has its own button in the Final approval block (it also updates AxisCare); the generic Confirm never shows for it */
         if(may && r.def.proof === 'confirmed' && r.key !== 'cg.approve.work' && ['ready', 'attention'].indexOf(r.status) > -1) line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.confirm(\'' + esc(r.key) + '\',this)">Confirm</button>';
         if(may && r.def.proof === 'proof' && ['ready', 'attention'].indexOf(r.status) > -1 && /^cg\.credential\./.test(r.key)) line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.record(\'' + esc(r.key) + '\',this)">Record</button>';
+        /* SLICE 7: AxisCare has no door for attributes or availability: the copy sheet lays out the Step 1 answers to type in */
+        if(r.key === 'cg.axiscare.attributes' || r.key === 'cg.axiscare.availability') line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.copySheet(\'' + (r.key === 'cg.axiscare.attributes' ? 'attributes' : 'availability') + '\',this)" title="The Step 1 answers in AxisCare order, to type on the AxisCare screen">&#9112; Copy sheet</button>';
         if(d.is_owner && r.key !== 'cg.approve.work' && r.key !== 'cg.axiscare.active' && ['ready', 'attention', 'later', 'blocked'].indexOf(r.status) > -1 && r.def.required !== false) line += '<button class="ibtn" style="font-size:.72rem;flex:none;color:#8A7F70" onclick="CRX.notNeeded(\'' + esc(r.key) + '\',this)" title="Owners only: mark not needed, with the reason">Not needed</button>';
         h += line + '</div>';
       });
@@ -137,6 +143,22 @@
     await act({ action:'approve_work' }, btn);
   }
   async function retry(btn){ await act({ action:'retry_axiscare' }, btn); }
+  /* SLICE 7: the copy sheet (attributes or availability) from the signed Step 1 answers; Copy puts it on the clipboard as lines */
+  async function copySheet(which, btn){
+    if(btn){ btn.disabled = true; btn.textContent = 'Loading…'; }
+    try{
+      const d = await call({ action:'copy_sheet', journey_id: CUR.journey.journey_id, which });
+      const lines = (d.rows || []).map(r => r.label + ': ' + r.value);
+      const w = document.createElement('div'); w.style.cssText = 'position:fixed;inset:0;z-index:10005;background:rgba(15,54,95,.35);display:flex;align-items:flex-start;justify-content:center;padding:1rem;overflow:auto';
+      w.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2);margin:1rem 0"><div style="font-weight:800;color:#0D365F">' + esc(which === 'attributes' ? 'Attributes' : 'Availability') + ' copy sheet · ' + esc(d.name || '') + '</div><div style="font-size:.76rem;color:#6E6559;margin:.2rem 0 .6rem">' + esc(d.note || '') + '</div>'
+        + (lines.length ? '<table style="width:100%;border-collapse:collapse;font-size:.84rem">' + (d.rows || []).map(r => '<tr><td style="padding:.25rem .4rem;border-bottom:1px solid #F1EDE4;color:#6E6559;white-space:nowrap;vertical-align:top">' + esc(r.label) + '</td><td style="padding:.25rem .4rem;border-bottom:1px solid #F1EDE4">' + esc(r.value) + '</td></tr>').join('') + '</table>' : '')
+        + '<div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.8rem">' + (lines.length ? '<button class="ibtn" id="crCopy">Copy to clipboard</button>' : '') + '<button class="ibtn" id="crSheetClose">Close</button></div></div>';
+      document.body.appendChild(w);
+      w.querySelector('#crSheetClose').onclick = () => w.remove();
+      const cb = w.querySelector('#crCopy'); if(cb) cb.onclick = async () => { try{ await navigator.clipboard.writeText(lines.join('\n')); cb.textContent = 'Copied'; }catch(_){ cb.textContent = 'Select and copy by hand'; } };
+    }catch(e){ alert('The copy sheet did not load: ' + (e.message || e)); }
+    finally{ if(btn){ btn.disabled = false; btn.textContent = '⎘ Copy sheet'; } }
+  }
   /* SLICE 6: the export. The server builds the PDF, logs the export and hands back five-minute links. */
   async function exportFile(btn, caregiverId){
     const reason = prompt('Reason for this export (it is logged with your name):', 'audit export'); if(reason === null) return;
@@ -171,5 +193,5 @@
         + (r.axiscare === 'failed' ? '<span style="font-size:.7rem;color:#B91C1C;font-weight:700">Approval recorded, AxisCare update failed: open the card and press Retry</span>' : '<span style="font-size:.7rem;color:#6E6559">every requirement complete · scheduling locked until the press</span>')
         + '<span style="margin-left:auto">' + chip(r.offer_id) + '</span></div>').join('') + '</div></div>';
   }
-  window.CRX = { open, close, confirm, record, notNeeded, approve, retry, chip, call, list, finalListHtml, exportFile };
+  window.CRX = { open, close, confirm, record, notNeeded, approve, retry, chip, call, list, finalListHtml, exportFile, copySheet };
 })();
