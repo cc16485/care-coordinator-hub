@@ -1101,9 +1101,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            ("Ask the whole team"); any older check still open shows at the top of Team Builder. -->
       <div id="swHoursWrap" style="display:none;">
       <div id="ssRoot"></div><!-- Where we can staff this week (staffing-sheet.js, Referral Partner Desk Step 4, 2026-10-08) -->
-      <!-- The quiet-quit radar + care-gap watch (her picks #7+#8) and the
-           availability freshness meter (#10): trends over six weeks, and
-           how current the availability data actually is. -->
+      <!-- How current the availability on file is (her pick #10), with the ONE "Text the availability link" button. The
+           six-week trends (drifting away, running hot, client care shrinking) moved to Reports 2026-10-12 (step 4). -->
       <div id="hwRadar" style="margin-bottom:16px;"></div>
       <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:0 0 6px;padding-top:6px;">
         <h3 style="margin:0;font-size:20px;font-weight:800;letter-spacing:-0.015em;color:var(--navy);">Upcoming schedule and hours</h3>
@@ -1115,16 +1114,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <span id="hwWindowPill" style="background:#fff;border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:700;color:var(--text-muted);">Next 7 days</span>
         <span style="flex:1;"></span>
         <button class="cara-btn ghost" onclick="hwLoad(this)">Refresh from AxisCare</button>
-        <button class="cara-btn ghost" id="hwInviteTop" onclick="hwInvite(this)">Text the availability link</button>
       </div>
       <div style="font-size:13.5px;color:var(--text-muted);margin:0 0 16px;max-width:76ch;">Caregivers set their own target and windows at <b>cc.mo-care.com/availability</b>. Scheduled hours come live from AxisCare for the next 7 days. Biggest gap first, so these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
 
-      <!-- THE INTAKE MATCHER, as a question rather than a form: while a new
-           lead is on the phone, answer "who could staff Mon/Wed/Fri
-           mornings?" with real names. Placed BELOW Live Shift Watch on
-           purpose: a client may be alone right now, and an intake
-           convenience must not sit above that. -->
-      <div id="hwAsk"></div>
+      <!-- The "Who could cover a new client?" lookup left 2026-10-12 (scheduling review step 4): Team Builder and its
+           "Ask the whole team" do that job. -->
       <div id="hwStateWrap" style="margin:0 0 12px;"><span class="cara-mono" id="hwState"></span></div>
       <div id="hwList"><div style="font-size:13.5px;color:var(--text-muted);">Open this tab and hit Refresh to load.</div></div>
       </div>
@@ -1722,10 +1716,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
         <div style="flex:1 1 420px;">
           <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">EVV Corrections</h2>
-          <div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:70ch;">The correction log lives in the Staffing hub and has its own sign in. It is shown here so you do not have to leave Scheduling.</div>
+          <div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:70ch;">Visits missing a clock-in or clock-out, the signed correction forms, and the corrections log. Everything happens right here.</div>
         </div>
         <a href="scheduling-guide.html#evv" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">How this works &#8599;</a>
-        <a href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="font-size:13.5px;font-weight:700;color:var(--teal);text-decoration:none;">Open in a new tab &#8599;</a>
       </div>
       <!-- NATIVE PIPELINE (2026-09-18, her call: "make the evv tab better and
            fully synced with the schedule watch evv"). Three linked stages,
@@ -1737,14 +1730,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 8px;">
         <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">1 · Missing from the record</h3>
-        <span class="field-note">yesterday + today, live from AxisCare — same list as Schedule Watch &gt; Missing EVV</span>
+        <span class="field-note">yesterday and today, live from AxisCare</span>
         <span style="flex:1;"></span>
         <button class="cara-btn ghost" onclick="swEvvLoad(true)">↻ Refresh</button>
       </div>
       <div id="evvMissingBoard" style="margin-bottom:22px;"><div class="field-note">Loading…</div></div>
 
       <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 8px;">
-        <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">2 · Forms received — waiting to be processed</h3>
+        <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">2 · Forms received, waiting to be processed</h3>
         <span class="field-note">signed correction forms from sc.mo-care.com/evv-correction-form · deadline Sunday midnight</span>
       </div>
       <!-- 429 (2026-10-03): the next-visit signature text switch (evv_next_visit_live), and forms waiting for the client -->
@@ -1753,9 +1746,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 8px;">
         <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">3 · The corrections log</h3>
-        <span class="field-note">processed corrections and whether AxisCare was updated — everything happens right here</span>
+        <span class="field-note">processed corrections and whether AxisCare was updated</span>
         <span style="flex:1;"></span>
-        <a href="https://sc.mo-care.com/#evv" target="_blank" rel="noopener" style="font-size:12px;font-weight:700;color:var(--teal);text-decoration:none;">Staffing hub's copy ↗</a>
       </div>
       <div id="evvLogNative"></div>
 
@@ -4055,8 +4047,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 <label>Escalation text to the on-call person when a callout runs out of caregivers</label>
 <textarea id="set_cov_escalation" rows="2" placeholder="Coverage alert: the callout for {client} {when} ran out of caregivers to ask ({asked} asked, nobody said yes). It needs a person now: {link}"></textarea>
-<label>Availability invite (sends 10am-5pm only, from the Hours Watch button)</label>
+<label>Availability invite (sends 10am-5pm only, from the button on Cara, Hours &amp; matching)</label>
 <textarea id="set_cov_avail_invite" rows="2" placeholder="Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability It takes 30 seconds and you can update it anytime."></textarea>
+<!-- 2026-10-12 (scheduling review step 4): the open-hours wording, editable like every other callout text -->
+<label>Open hours: the text to the whole team (Team Builder, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
+<textarea id="set_oh_msg" rows="3" placeholder="Hi {first_name}, it's Caring Companions. We have regular hours open in {town}: {days}, {times}. {choice}Interested? Reply with the days and times that work for you, or NO if not. Questions welcome."></textarea>
+<label>Open hours: the thank-you to a Yes (only while its switch is on, once per person; {first_name})</label>
+<textarea id="set_oh_ack" rows="2" placeholder="Thanks, {first_name}! We got your answer and we'll be in touch once the schedule is set."></textarea>
 <label>New Client Assessment booking link (from your GHL calendar; used by "Book the assessment visit" on the profile, Quick Capture and the Team Calendar)</label>
 <input id="set_cov_asmt_url" placeholder="https://link.mo-care.com/widget/booking/...">
 <label>Medicaid Assessment booking link (Angiel's GHL calendar; leave blank until it exists)</label>
@@ -5057,6 +5054,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <div class="card" style="padding:16px;grid-column:1/-1;"><b style="color:var(--navy);">Where leads come from, and what happens to them</b><div id="repSrcFunnel" style="margin-top:10px;"></div></div>
     <div class="card" style="padding:16px;"><b style="color:var(--navy);">Why we lose leads</b><div id="repLost" style="margin-top:10px;"></div></div>
     <div class="card" style="padding:16px;grid-column:1/-1;"><b style="color:var(--navy);">Referral partners</b><div id="repRefs" style="margin-top:10px;"></div></div>
+    <!-- moved from Scheduling > Hours & matching 2026-10-12 (scheduling review step 4) -->
+    <div style="grid-column:1/-1;"><b style="color:var(--navy);">Caregiver hours, six-week trends</b><div id="hwRadarRep" style="margin-top:8px;"></div></div>
   </div>
 </section>
 
@@ -11404,6 +11403,7 @@ function repTable(rows, first){
     +rows.map(r=>line(r,false)).join('')+(rows.length>1?line(tot,true):'')+'</tbody></table></div>';
 }
 function renderReports(){
+  try{ if(typeof hwRadarRender==='function') hwRadarRender(); }catch(e){}   // the six-week trends card (step 4)
   const esc=escapeHtmlComms;
   const days=parseInt(document.getElementById('reportRange').value,10);
   const cutoff=new Date(Date.now()-days*86400000).toISOString();
@@ -14084,7 +14084,7 @@ function covMsgsFill(){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_prn:'coverage_msg_prn', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_oh_msg:'open_hours_msg', set_oh_ack:'open_hours_ack_msg', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
 }
 /* ── GHL booking calendars (Profile First, step A, 2026-09-28) ─────────────
@@ -14134,7 +14134,7 @@ async function covMsgsSave(btn){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_prn:'coverage_msg_prn', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_oh_msg:'open_hours_msg', set_oh_ack:'open_hours_ack_msg', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
   if(btn) btn.disabled=true;
   /* Merge against the CURRENT server object, not the page-load copy — the
      engine and other tabs write flags into ops_settings too, and a stale
@@ -18308,7 +18308,7 @@ function cgdWorkHtml(c,g,nm){
     .map(([d,w])=>d.slice(0,1).toUpperCase()+d.slice(1,3)+': '+w.join(', ')).join(' · '):'';
   const hoursCard=av
     ? kv('Wants',esc(String(av.target_hours||'?'))+' h/week <span class="field-note">(self-reported '+esc(String(av.updated_at||'').slice(0,10))+')</span>')
-      +kv('Scheduled next 7 days',sched==null?'<span class="field-note">open Schedule Watch and refresh to load</span>':esc(String(sched))+' h')
+      +kv('Scheduled next 7 days',sched==null?'<span class="field-note">open Cara, Hours &amp; matching, and refresh to load</span>':esc(String(sched))+' h')
       +(sched!=null&&Number.isFinite(Number(av.target_hours))
         ?kv('Gap',(Number(av.target_hours)-sched)>0?'<b style="color:var(--amber);">'+(Number(av.target_hours)-sched).toFixed(1)+' h short</b>':'<b style="color:var(--green);">at target</b>')
         :'')
@@ -35739,9 +35739,9 @@ function hwRadarRender(){
   var meter='<div class="card" style="padding:12px 16px;margin:0 0 8px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;">'
     +'<b style="color:var(--navy);">📋 Availability on file:</b>'
     +'<b style="font-size:18px;color:'+(current>=roster.length*0.7?'var(--green)':'var(--honey-ink)')+';">'+current+' of '+roster.length+'</b>'
-    +'<span class="field-note">current (form within 90 days) — everyone else is "assumed available" guesswork</span>'
+    +'<span class="field-note">filled in within 90 days. Everyone else is assumed available any time.</span>'
     +'<span style="flex:1;"></span>'
-    +'<button class="cara-btn ghost" style="font-size:12px;" onclick="hwInvite(this)">Text the missing &amp; stale the form</button>'
+    +'<button class="cara-btn ghost" style="font-size:12px;" onclick="hwInvite(this)">Text the availability link</button>'
     +'</div>';
   var d=HW_TRENDS.data;
   var radar;
@@ -35759,7 +35759,9 @@ function hwRadarRender(){
       +sec('Client care shrinking','🩺',d.client_care_gaps||[],'no client\'s delivered hours are sliding')
       +'</div><div class="field-note" style="font-size:11px;margin-top:6px;">Six-week trend from the AxisCare schedule · checked '+new Date(HW_TRENDS.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' · <a href="javascript:void(0)" onclick="hwTrendsLoad()">re-run</a></div></div>';
   }
-  box.innerHTML=meter+radar;
+  /* step 4 (2026-10-12): the meter stays on Hours & matching; the trends live on Reports */
+  box.innerHTML=meter;
+  var rep=document.getElementById('hwRadarRep'); if(rep) rep.innerHTML=radar;
 }
 /* The interest-check workspace, rendered with the SAME shared case card the
    coverage board uses — picker, yes collection, everything. */
@@ -36758,7 +36760,7 @@ function swRenderLive(){
   var h=swBanner(S)
     +swFragHtml()
     +'<div style="display:flex;gap:11px;align-items:baseline;flex-wrap:wrap;margin-bottom:11px;">'
-    +'<h3 style="margin:0;font-size:20px;font-weight:800;color:var(--navy);letter-spacing:-0.015em;">Live Shift Watch</h3>'
+    +'<h3 style="margin:0;font-size:20px;font-weight:800;color:var(--navy);letter-spacing:-0.015em;">Missed clock-ins &amp; outs</h3>'
     +'<span style="font-size:13px;color:var(--text-dim);">Today</span>'
     +(live.length?'<span class="cara-pill '+(needing&&S.watchLive?'alarm':'work')+'">'+live.length+' open</span>':'')
     +'</div>';
@@ -37245,7 +37247,7 @@ async function covFillWho(){
   const { roster, fromFallback } = await covLoadCaregivers();
   sel.innerHTML='<option value="">'
     +(roster.length?(fromFallback?'Pick the caregiver… (AxisCare unreachable — hub list, may include inactive)':'Pick the caregiver…')
-      :'No caregivers found — tell Claude')+'</option>'
+      :'No caregivers found. If this stays empty, tell Claude')+'</option>'
     +roster.map(g=>'<option value="'+esc(g.id)+'" data-name="'+esc(g.name)+'">'+esc(g.name)+'</option>').join('');
 }
 async function covLoadCallerShifts(){
@@ -37384,7 +37386,7 @@ function covPickShift(i){
     +'<div class="field-note" style="margin-top:6px;">One-line care note about '+esc(s.client.split(/\s+/)[0])+' for caregivers who <b>don\'t</b> know them (fills the <b>{care}</b> spot in the everyone-else text; caregivers who work with them never get it — they don\'t need a synopsis). Remembered for next time:</div>'
     +'<textarea id="covMsgCare" rows="2" style="width:100%;font-size:13px;margin-top:2px;" placeholder="e.g. Mostly independent female client; needs transfer assistance and meal prep.">'+esc((function(){ const b=(DATA.client_care_blurbs||[]).find(x=>String(x.id)===String(s.client_axiscare_id||'')); return (b&&b.blurb)||''; })())+'</textarea>'
     +'<div class="field-note" id="covCareSrc" style="margin-top:2px;"></div>'
-    +'<div class="field-note" style="margin-top:4px;">Keep <b>{first_name}</b>, <b>{address}</b>, <b>{where}</b> and <b>{care}</b> exactly as written — they become each caregiver\'s name, the client\'s city, and the care note when the texts send. These edits are for THIS callout only; to change the wording for every future callout, tell Claude.</div>'
+    +'<div class="field-note" style="margin-top:4px;">Keep <b>{first_name}</b>, <b>{address}</b>, <b>{where}</b> and <b>{care}</b> exactly as written. They become each caregiver\'s name, the client\'s city, and the care note when the texts send. These edits are for THIS callout only; to change the wording for every future callout, use Settings, Callout texts.</div>'
     +'<div style="margin-top:10px;display:flex;gap:8px;">'
     +'<button class="addlead" onclick="covConfirmOpen()">'+(covAttachTarget?'Attach shift & start texting':'Open case & start texting')+'</button>'
     +'<button class="ghost" onclick="covLoadCallerShifts()">← Back</button>'
@@ -37811,9 +37813,9 @@ function covSummary(c){
   const n=(c.asked||[]).length, r=(c.asked||[]).filter(a=>a.state!=='waiting').length;
   const dur=covAgo(c.opened_at)||'0m';
   if(c.resolved_how==='covered')
-    return 'Covered in '+covDur(c)+' — '+n+' asked, '+r+' replied. Assigned: '+esc(c.covered_by||'?')+'.';
-  if(c.resolved_how==='uncovered') return 'Closed uncovered after '+covDur(c)+' — '+n+' asked, '+r+' replied.';
-  return 'Open '+dur+' — '+n+' asked, '+r+' replied.';
+    return 'Covered in '+covDur(c)+', '+n+' asked, '+r+' replied. Assigned: '+esc(c.covered_by||'?')+'.';
+  if(c.resolved_how==='uncovered') return 'Closed uncovered after '+covDur(c)+', '+n+' asked, '+r+' replied.';
+  return 'Open '+dur+', '+n+' asked, '+r+' replied.';
 }
 function covDur(c){
   if(!c.resolved_at) return covAgo(c.opened_at);
@@ -37996,7 +37998,7 @@ function covConfirmHtml(c){
   const cands=yesL.length?yesL:[{name:c.pending_fill.name,replied_at:c.pending_fill.at,reply:'',tier:null}];
   const col=(w)=>{
     const facts=[
-      'Said yes '+covAgo(w.replied_at||w.at||c.opened_at)+' ago'+(w.reply?' — “'+esc(String(w.reply).slice(0,120))+'”':''),
+      'Said yes '+covAgo(w.replied_at||w.at||c.opened_at)+' ago'+(w.reply?' · “'+esc(String(w.reply).slice(0,120))+'”':''),
       w.tier===1?'Has worked with '+esc(String(c.client||'this client').split(/\s+/)[0])+' before'
         :w.tier===2?'Worked a shift in the last 14 days':null,
       (w.auto?'Reached by Cara’s text':w.picked_by_coordinator?'Picked and texted by the office':'Asked by the office'+(w.channel?' ('+esc(w.channel)+')':'')),
@@ -38009,7 +38011,7 @@ function covConfirmHtml(c){
   };
   const isInterest=String(c.kind)==='interest';
   return '<div style="margin-top:10px;padding:10px 12px;border-radius:9px;background:var(--honey-chip);border:1.5px solid var(--honey);">'
-    +'<b style="color:var(--honey-ink);">'+(isInterest?'💛 '+cands.length+' interested — for the client meeting':(cands.length>1?'⚡ '+cands.length+' can cover — pick the best fit':'⚡ Coverage found — ready to confirm'))+'</b>'
+    +'<b style="color:var(--honey-ink);">'+(isInterest?'💛 '+cands.length+' interested, for the client meeting':(cands.length>1?'⚡ '+cands.length+' can cover: pick the best fit':'⚡ Coverage found, ready to confirm'))+'</b>'
     +(isInterest?'':'<div class="field-note" style="margin-top:2px;">Nobody has been answered. Your pick gets the confirm text; you\'ll choose what (or whether) the others hear.</div>')
     +'<div class="cov-confirm-grid">'
     +'<div class="cov-confirm-col" style="background:#fff;"><div class="lbl">Original</div>'
@@ -38019,7 +38021,7 @@ function covConfirmHtml(c){
                 :cands.map(col).join(''))
     +'</div>'
     +(isInterest?'':'<div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">'
-      +'<span class="field-note">Picking someone writes them onto the visit and reads it back to verify'+(c.axiscare_visit_id?'.':' — no exact visit is attached, so assignment will say “assign by hand”.')+'</span>'
+      +'<span class="field-note">Picking someone writes them onto the visit and reads it back to verify'+(c.axiscare_visit_id?'.':'. No exact visit is attached, so assignment will say “assign by hand”.')+'</span>'
       +'</div>')+covHoursHtml(c)+'</div>';
 }
 /* Closing the Loop: renders the engine's OWN flags. Nothing is sent from
@@ -38285,44 +38287,101 @@ function covCaseCard(c){
       +'<span class="field-note" style="font-size:11.5px;">'+(expanded?'click to collapse':'click for details')+'</span>'
       +'</div>'
       +'<div style="display:'+(expanded?'block':'none')+';">'
-      +covRailHtml(c)
-      +cipCaseHtml(c)
-      +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-top:8px;">'
-      +'<span style="flex:1;"></span>'
-      +(open
-        ? (c.axiscare_visit_id?'':'<button class="ghost" style="color:var(--honey-ink);" onclick="covToggleAdd(\''+esc(c.id)+'\')">🔗 Attach the real shift</button>')
-          +(covFollowCandidates(c).length?'<button class="ghost" onclick="covFollowOpen(\''+esc(c.id)+'\')">📨 Follow up with those we asked</button>':'')
-          +'<button class="ghost" onclick="covAsk(\''+esc(c.id)+'\')">＋ I asked someone</button>'
-          +'<button class="addlead" onclick="covResolve(\''+esc(c.id)+'\',\'covered\')">Covered ✓</button>'
-          +'<button class="ghost" onclick="covResolve(\''+esc(c.id)+'\',\'uncovered\')">Close uncovered</button>'
-        : '<button class="ghost" onclick="covReopen(\''+esc(c.id)+'\')">Reopen</button>'
-          +(c.resolved_how==='covered'?'<button class="ghost" style="color:var(--red);" onclick="covBackedOut(\''+esc(c.id)+'\')">They backed out</button>':''))
-      +'</div>'
-      +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' called off'+(c.axiscare_visit_id?' — exact AxisCare shift attached; confirming a fill replaces them on it.':'')+'</div>':'')
-      +(open?'<details'+(COV_WORD_OPEN[c.id]?' open':'')+' style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
-        +'<div id="covWord_'+esc(c.id)+'">'+covWordingPreview(c)+'</div>'
-        +'</details>':'')
-      +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
-      +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
-      +(c.callout_started_at?'<div class="field-note" style="margin-top:3px;">📣 Callout texting started '+covAgo(c.callout_started_at)+' ago'+(tallies?' — '+tallies:'')+'</div>':(tallies?'<div class="field-note" style="margin-top:3px;">'+tallies+'</div>':''))
-      +covPickerHtml(c)
-      +covConfirmHtml(c)
-      +'<div style="margin-top:6px;">'+covOutreachHtml(c)+'</div>'
-      +(open?'<div id="covFollow_'+esc(c.id)+'"></div>':'')
-      +(c.axiscare_assignment
-        ? '<div style="margin-top:9px;padding:7px 10px;border-radius:7px;font-size:12.5px;font-weight:600;'
-          +(c.axiscare_assignment.status==='assigned'
-            ?'background:var(--green-bg);color:var(--green);">✓ Shift successfully filled — '+esc(c.covered_by||'the replacement')+' is on the AxisCare schedule, read back and verified.'
-            :'background:var(--amber-bg);color:var(--honey-ink);">⚠ AxisCare: '+esc(c.axiscare_assignment.detail||'assign by hand'))
-          +'</div>'
-        : '')
-      +covLoopHtml(c)
-      +'<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px;font-weight:600;color:'
-        +(c.resolved_how==='covered'?'var(--green)':c.resolved_how==='uncovered'?'var(--red)':'var(--text-muted)')+';">'
-      +covSummary(c)+'</div>'
+      +(open?covOpenBody(c,tallies):covClosedBody(c,tallies))
       +'</div>'
       +'</div>';
   }
+
+/* ── THE CALL-OFF CARD, ONE NEXT STEP (scheduling review step 4, 2026-10-12; her rule "one card, one next step") ──
+   An open case shows: one line saying what to do now, the client's call-in plan if there is one, and the ONE section
+   that step needs (who said yes, the questions, or choosing who to ask). Everything else is still there, behind
+   "More for this shift". A closed case reads as before. */
+const COV_MORE_OPEN=new Set();
+function covNextStep(c){
+  const A=c.asked||[], yes=covYesList(c), q=A.filter(a=>a.state==='inquiry'), w=A.filter(a=>a.state==='waiting');
+  const p=(typeof CIP!=='undefined'&&CIP.cur)?CIP.cur[String(c.client_axiscare_id||'')]:null;
+  if(yes.length||c.pending_fill) return { k:'yes', text: yes.length>1?'✅ '+yes.length+' said yes. Pick the best fit and confirm them below.':'✅ '+esc((yes[0]||c.pending_fill).name)+' said yes. Confirm them below.' };
+  if(q.length) return { k:'questions', text:'❓ '+(q.length===1?esc(q[0].name)+' asked a question':q.length+' people asked a question')+'. Answer from the office line, then mark their answer below.' };
+  if(w.length) return { k:'waiting', text:'⏳ Waiting on '+w.length+' repl'+(w.length===1?'y':'ies')+' (asked '+covAgo(w.map(a=>a.at).sort()[0]||c.opened_at)+' ago). Ask more people below, or follow up.' };
+  if(p&&p.coverage_need==='family_covers') return { k:'family', text:'📞 Call the family first: their call-in plan says they would rather cover it themselves.' };
+  return { k:'ask', text:'👉 Nobody has been asked yet. Choose who to ask below.' };
+}
+function covOpenBody(c,tallies){
+  const ns=covNextStep(c), id=esc(c.id);
+  const follow=covFollowCandidates(c).length&&(ns.k==='waiting'||ns.k==='questions');
+  const banner='<div style="margin-top:8px;padding:9px 12px;border-radius:9px;background:#F0F7FF;border:1px solid #CFE0F5;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
+    +'<b style="font-size:14px;color:var(--navy);flex:1;min-width:240px;">'+ns.text+'</b>'
+    +(follow?'<button class="ghost" onclick="covFollowOpen(\''+id+'\')">📨 Follow up with those we asked</button>':'')
+    +'</div>';
+  const primary = ns.k==='yes' ? covConfirmHtml(c)
+    : ns.k==='questions' ? '<div style="margin-top:6px;">'+covOutreachHtml(c)+'</div>'
+    : covPickerHtml(c);
+  const more='<details'+(COV_MORE_OPEN.has(c.id)?' open':'')+' ontoggle="covMoreToggle(\''+id+'\',this.open)" style="margin-top:10px;border-top:1px solid var(--border);padding-top:6px;">'
+    +'<summary class="field-note" style="cursor:pointer;font-weight:700;">More for this shift: the steps, the wording, everyone asked, Covered or Close</summary>'
+    +covRailHtml(c)
+    +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-top:8px;">'
+    +(c.axiscare_visit_id?'':'<button class="ghost" style="color:var(--honey-ink);" onclick="covToggleAdd(\''+id+'\')">🔗 Attach the real shift</button>')
+    +(covFollowCandidates(c).length&&!follow?'<button class="ghost" onclick="covFollowOpen(\''+id+'\')">📨 Follow up with those we asked</button>':'')
+    +'<button class="ghost" onclick="covAsk(\''+id+'\')">＋ I asked someone</button>'
+    +'<span style="flex:1;"></span>'
+    +'<button class="addlead" onclick="covResolve(\''+id+'\',\'covered\')">Covered ✓</button>'
+    +'<button class="ghost" onclick="covResolve(\''+id+'\',\'uncovered\')">Close uncovered</button>'
+    +'</div>'
+    +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' called off'+(c.axiscare_visit_id?'. The exact AxisCare shift is attached; confirming a fill replaces them on it.':'')+'</div>':'')
+    +'<details'+(COV_WORD_OPEN[c.id]?' open':'')+' style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
+      +'<div id="covWord_'+id+'">'+covWordingPreview(c)+'</div></details>'
+    +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
+    +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
+    +(c.callout_started_at?'<div class="field-note" style="margin-top:3px;">📣 Callout texting started '+covAgo(c.callout_started_at)+' ago'+(tallies?' · '+tallies:'')+'</div>':'')
+    +(ns.k==='ask'||ns.k==='family'||ns.k==='waiting'?'':covPickerHtml(c))
+    +(ns.k==='yes'?'':covConfirmHtml(c))
+    +(ns.k==='questions'?'':'<div style="margin-top:6px;">'+covOutreachHtml(c)+'</div>')
+    +covLoopHtml(c)
+    +'<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px;font-weight:600;color:var(--text-muted);">'+covSummary(c)+'</div>'
+    +'</details>';
+  return banner+cipCaseHtml(c)+primary+'<div id="covFollow_'+id+'"></div>'+more;
+}
+function covMoreToggle(id,on){ if(on) COV_MORE_OPEN.add(id); else COV_MORE_OPEN.delete(id); }
+function covClosedBody(c,tallies){
+  const open=false;
+  return ''
+      +covRailHtml(c)
+    +cipCaseHtml(c)
+    +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-top:8px;">'
+    +'<span style="flex:1;"></span>'
+    +(open
+      ? (c.axiscare_visit_id?'':'<button class="ghost" style="color:var(--honey-ink);" onclick="covToggleAdd(\''+esc(c.id)+'\')">🔗 Attach the real shift</button>')
+        +(covFollowCandidates(c).length?'<button class="ghost" onclick="covFollowOpen(\''+esc(c.id)+'\')">📨 Follow up with those we asked</button>':'')
+        +'<button class="ghost" onclick="covAsk(\''+esc(c.id)+'\')">＋ I asked someone</button>'
+        +'<button class="addlead" onclick="covResolve(\''+esc(c.id)+'\',\'covered\')">Covered ✓</button>'
+        +'<button class="ghost" onclick="covResolve(\''+esc(c.id)+'\',\'uncovered\')">Close uncovered</button>'
+      : '<button class="ghost" onclick="covReopen(\''+esc(c.id)+'\')">Reopen</button>'
+        +(c.resolved_how==='covered'?'<button class="ghost" style="color:var(--red);" onclick="covBackedOut(\''+esc(c.id)+'\')">They backed out</button>':''))
+    +'</div>'
+    +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' called off'+(c.axiscare_visit_id?' — exact AxisCare shift attached; confirming a fill replaces them on it.':'')+'</div>':'')
+    +(open?'<details'+(COV_WORD_OPEN[c.id]?' open':'')+' style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
+      +'<div id="covWord_'+esc(c.id)+'">'+covWordingPreview(c)+'</div>'
+      +'</details>':'')
+    +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
+    +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
+    +(c.callout_started_at?'<div class="field-note" style="margin-top:3px;">📣 Callout texting started '+covAgo(c.callout_started_at)+' ago'+(tallies?' — '+tallies:'')+'</div>':(tallies?'<div class="field-note" style="margin-top:3px;">'+tallies+'</div>':''))
+    +covPickerHtml(c)
+    +covConfirmHtml(c)
+    +'<div style="margin-top:6px;">'+covOutreachHtml(c)+'</div>'
+    +(open?'<div id="covFollow_'+esc(c.id)+'"></div>':'')
+    +(c.axiscare_assignment
+      ? '<div style="margin-top:9px;padding:7px 10px;border-radius:7px;font-size:12.5px;font-weight:600;'
+        +(c.axiscare_assignment.status==='assigned'
+          ?'background:var(--green-bg);color:var(--green);">✓ Shift successfully filled — '+esc(c.covered_by||'the replacement')+' is on the AxisCare schedule, read back and verified.'
+          :'background:var(--amber-bg);color:var(--honey-ink);">⚠ AxisCare: '+esc(c.axiscare_assignment.detail||'assign by hand'))
+        +'</div>'
+      : '')
+    +covLoopHtml(c)
+    +'<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px;font-weight:600;color:'
+      +(c.resolved_how==='covered'?'var(--green)':c.resolved_how==='uncovered'?'var(--red)':'var(--text-muted)')+';">'
+    +covSummary(c)+'</div>'
+;
+}
 
 function renderCoverage(){
   cipEnsureForCases();
@@ -39391,7 +39450,7 @@ function hwRender(){
     box.innerHTML='<div class="card" style="padding:22px 24px;margin:0;">'
       +'<div style="font-size:17px;font-weight:700;color:var(--navy);">No caregiver availability is on file</div>'
       +'<div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:64ch;">Cara cannot use availability matching until caregivers have added their availability. They set it themselves at <b>cc.mo-care.com/availability</b>.</div>'
-      +'<div style="margin-top:16px;"><button class="cara-btn" onclick="hwInvite(this)">Text availability link</button></div></div>';
+      +'<div class="field-note" style="margin-top:12px;">Use <b>Text the availability link</b> above to ask them.</div></div>';
     return;
   }
 

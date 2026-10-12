@@ -66,7 +66,7 @@ async()=>{
   ok('clicking a day opens that day', LC.view==='day' && window.__asks.at(-1).date==='2026-10-15' && /3 visits/.test(B().innerText), B().innerText.slice(0,300));
   ok('...the Day list uses the same colour code and key', !!B().querySelector('.lc-key') && B().querySelector('.ls-state[data-state="open"]') && /Open: nobody on it/.test(B().querySelector('tr.ls-row').innerText));
   window.__oldServer=true; lcView('week'); await sleep(250);
-  ok('before Desktop 478 runs, Week says it turns on after 478 (never shows one day as a week)', /turn on once Desktop step 478 has run/.test(B().innerText) && !B().querySelector('tr.lc-client'));
+  ok('an older server: Week says it is not available, plainly (never shows one day as a week)', /Week and month views are not available right now/.test(B().innerText) && !B().querySelector('tr.lc-client'));
   window.__oldServer=false; lcView('day'); await sleep(200);
   // CLICK A VISIT AND CHANGE IT
   LS_STATE.date='2026-10-14'; await lsLoad(true); await sleep(150);
