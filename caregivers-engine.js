@@ -2378,7 +2378,9 @@ async function offerToCandidate(offerId, btn, opts){
     onboarding_path: o.onboarding_path === 'new' ? 'new' : 'old',   /* Slice 0: copied from the offer, never decided here */
     position: o.position || '',
     notes: 'From the job offer' + (o.offered_by ? ' by ' + o.offered_by : '') +
-           (o.interview_date ? ', interviewed ' + o.interview_date : '') + '.',
+           (o.interview_date ? ', interviewed ' + o.interview_date : '') + '.' +
+           /* 2026-10-12 (the new interview): what the interviewer wants the references asked about */
+           ((String(o.notes || '').match(/Ask their references about: [^]*$/) || [''])[0] ? ' ' + String(o.notes).match(/Ask their references about: [^]*$/)[0] : ''),
     invite_sent: false, invite_sent_date: '',
     addedAt: new Date().toISOString(),
   };

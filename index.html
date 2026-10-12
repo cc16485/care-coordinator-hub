@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="phone-mode.js?v=6"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="phone-mode.js?v=7"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -3643,6 +3643,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <b style="font-size:15px;color:var(--navy);"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-talk"/></svg> What we ask at interview</b>
             <select id="iqPos" onchange="iqRender()" style="font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;"></select>
             <span style="flex:1;"></span>
+            <a class="fb" href="interview-sheet.html" target="_blank" rel="noopener" style="text-decoration:none;">Print the interview sheet</a>
             <button class="secondary" onclick="iqAdd()">＋ Add a question</button>
             <button class="ghost" onclick="iqLoad(this)">↻ Refresh</button>
           </div>
@@ -5153,6 +5154,10 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 
         <label style="margin-top:14px;">How did it go?</label>
         <textarea id="apIntNotes" rows="2" placeholder="How they came across, anything that decided it either way…"></textarea>
+        <!-- 2026-10-12 (the new interview, her "yes to all"): what to ask their references about rides onto the offer and into Background & References -->
+        <label style="margin-top:10px;">Check with their references</label>
+        <textarea id="apIntRefCheck" rows="2" placeholder="Anything you want their references to confirm, e.g. how they handled a client who refused care"></textarea>
+        <div class="field-note" style="margin-top:4px;">Print the <a href="interview-sheet.html" target="_blank" rel="noopener">interview sheet</a> to laminate. On a phone, start the interview from Today in CC Office.</div>
 
         <div style="display:flex;gap:9px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
           <button class="primary" onclick="apOutcome('hired',this)">✅ Hire, make the offer</button>
@@ -22510,9 +22515,10 @@ function apToOffer(id, answers){
     /* What they can actually do, from the interview, as the suggested level of
        care. Confirmed later after references, which is what the label says. */
     const sk = (A && A.skills) || {};
+    /* 2026-10-12: the new interview rates no skills, and her rule is that everyone starts at Level 1 until experience is
+       verified ("if we can't verify it, it doesn't count"). Older interviews with skill ratings keep their suggestion. */
     const lvl = (sk.hoyer==='lots' || sk.transfers==='lots') ? 3
-      : (sk.personal_care && sk.personal_care!=='none') ? 2
-      : (A && Object.keys(sk).length) ? 1 : null;
+      : (sk.personal_care && sk.personal_care!=='none') ? 2 : 1;
     if(lvl && typeof joLevelPick === 'function') joLevelPick(lvl);
     /* What they told us on the form, so the offer starts from their answer
        rather than from somebody's memory of the interview. */
@@ -22530,6 +22536,13 @@ function apToOffer(id, answers){
     if(notes && !notes.value){
       notes.value = 'Applied on mo-care.com' + (r.channel?' via '+r.channel:'')
         + (r.lived_outside_mo?'. Lived outside Missouri, so a fingerprint check is required':'') + '.';
+      /* 2026-10-12 (the new interview): what they told us they are looking for (question 2), and what to ask their
+         references, travel with the offer so whoever schedules them and whoever checks references sees it. */
+      const q2 = (typeof IQ !== 'undefined' ? IQ : []).find(q => q.seeded_as === 'v2-02');
+      const look = q2 && A && A.script && A.script[q2.id] && String(A.script[q2.id].note || '').trim();
+      if(look) notes.value += ' Looking for: ' + look.replace(/\s+/g, ' ').slice(0, 300) + (/[.!?]$/.test(look) ? '' : '.');
+      const rc = A && String(A.ref_check || '').trim();
+      if(rc) notes.value += ' Ask their references about: ' + rc.replace(/\s+/g, ' ').slice(0, 300) + (/[.!?]$/.test(rc) ? '' : '.');
     }
     /* PRN2: the AxisCare note carries the offer's notes, so whoever sets them up in Viventium sees the one rate. */
     if(pos && pos.track === 'prn' && notes && !/PRN CNA Team/.test(notes.value)){
@@ -22540,13 +22553,16 @@ function apToOffer(id, answers){
        a second time. Only the ones we actually asked about are touched. */
     if(A && typeof joSetAttr === 'function'){
       const yes = v => v==='yes' || v==='outside';
+      /* 2026-10-12: with no skill ratings or driving answer from the new interview, these start as No (not verified yet)
+         rather than the form's default Yes; the office ticks them once verified. Older interviews keep their answers. */
+      const rated = A.skills && Object.keys(A.skills).length;
       const map = {
         dogs: yes(A.dogs), cats: yes(A.cats), smoking: yes(A.client_smokes),
-        transportation: A.drive_clients==='yes',
-        personal_care: (A.skills||{}).personal_care && (A.skills||{}).personal_care!=='none',
-        dementia: (A.skills||{}).dementia && (A.skills||{}).dementia!=='none',
-        alzheimers: (A.skills||{}).dementia && (A.skills||{}).dementia!=='none',
-        hoyer_lift: (A.skills||{}).hoyer && (A.skills||{}).hoyer!=='none',
+        transportation: A.drive_clients === undefined ? false : A.drive_clients==='yes',
+        personal_care: !rated ? false : (A.skills||{}).personal_care && (A.skills||{}).personal_care!=='none',
+        dementia: !rated ? false : (A.skills||{}).dementia && (A.skills||{}).dementia!=='none',
+        alzheimers: !rated ? false : (A.skills||{}).dementia && (A.skills||{}).dementia!=='none',
+        hoyer_lift: !rated ? false : (A.skills||{}).hoyer && (A.skills||{}).hoyer!=='none',
       };
       Object.keys(map).forEach(k=>{
         const btn = document.querySelector('#jo_attrs .jo-'+(map[k]?'yes':'no')+'[data-k="'+k+'"]');
@@ -22691,7 +22707,7 @@ async function apMatchMount(r){
    transcriber refuses a recording that has none.
 
    Requires recruit-recordings.sql and the transcribe-recording function. */
-let REC = { mr:null, chunks:[], startedAt:0, tick:null, kind:null, subject:null, label:null, host:null, stream:null };
+let REC = { mr:null, chunks:[], startedAt:0, tick:null, kind:null, subject:null, label:null, host:null, stream:null, sess:null, wl:null };
 
 const recMime = () => {
   const want = ['audio/webm;codecs=opus','audio/webm','audio/mp4'];
@@ -22700,9 +22716,59 @@ const recMime = () => {
 };
 const recClock = s => Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
 
+/* 2026-10-12 (Samantha: record interviews on the phone): a recording must survive the phone locking, the tab closing or
+   the connection dropping. Every second of audio is also kept on this device (IndexedDB) until the upload is confirmed,
+   the screen is kept awake while recording, and the next time this person's screen opens an unfinished recording is
+   offered for upload. Nothing leaves the device except through the same private upload as before. */
+const REC_DB = 'cc_recordings_v1';
+function recDb(){
+  return new Promise((ok, no) => {
+    if(!window.indexedDB) return no(new Error('no IndexedDB'));
+    const r = indexedDB.open(REC_DB, 1);
+    r.onupgradeneeded = () => { const d = r.result;
+      if(!d.objectStoreNames.contains('sess')) d.createObjectStore('sess', { keyPath:'id' });
+      if(!d.objectStoreNames.contains('chunks')){ const c = d.createObjectStore('chunks', { autoIncrement:true }); c.createIndex('sess', 'sess'); } };
+    r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error);
+  });
+}
+async function recDbDo(store, mode, fn){
+  const d = await recDb();
+  return new Promise((ok, no) => { const t = d.transaction(store, mode); const out = fn(t); t.oncomplete = () => ok(out && out.result !== undefined ? out.result : out); t.onerror = () => no(t.error); });
+}
+async function recDbPutChunk(sess, blob){ try{ await recDbDo('chunks', 'readwrite', t => t.objectStore('chunks').add({ sess, at: Date.now(), blob })); }catch(e){} }
+async function recDbPutSess(meta){ try{ await recDbDo('sess', 'readwrite', t => t.objectStore('sess').put(meta)); }catch(e){} }
+async function recDbSessions(){ try{ return await recDbDo('sess', 'readonly', t => t.objectStore('sess').getAll()) || []; }catch(e){ return []; } }
+async function recDbChunks(sess){
+  try{ return await recDbDo('chunks', 'readonly', t => t.objectStore('chunks').index('sess').getAll(sess)) || []; }catch(e){ return []; }
+}
+async function recDbDrop(sess){
+  try{
+    const d = await recDb();
+    await new Promise((ok, no) => { const t = d.transaction(['sess','chunks'], 'readwrite');
+      t.objectStore('sess').delete(sess);
+      const idx = t.objectStore('chunks').index('sess'); const cur = idx.openKeyCursor(IDBKeyRange.only(sess));
+      cur.onsuccess = () => { const c = cur.result; if(c){ t.objectStore('chunks').delete(c.primaryKey); c.continue(); } };
+      t.oncomplete = ok; t.onerror = () => no(t.error); });
+  }catch(e){}
+}
+async function recWake(on){
+  try{
+    if(on){ if('wakeLock' in navigator && !REC.wl) { REC.wl = await navigator.wakeLock.request('screen'); REC.wl.addEventListener && REC.wl.addEventListener('release', () => { REC.wl = null; }); } }
+    else if(REC.wl){ await REC.wl.release(); REC.wl = null; }
+  }catch(e){ REC.wl = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  if(!REC.mr || REC.mr.state !== 'recording') return;
+  if(document.visibilityState === 'visible'){ recWake(true);
+    const s = document.getElementById('recState'); if(s) s.textContent = 'recording';
+  }
+});
+
 function recMount(hostId, kind, subjectId, label){
   REC.host = hostId; REC.kind = kind; REC.subject = String(subjectId); REC.label = label || '';
   const host = document.getElementById(hostId); if(!host) return;
+  const phone = document.documentElement.classList.contains('ccphone');
+  const big = phone ? 'font-size:17px;padding:14px 18px;border-radius:12px;' : '';
   host.innerHTML =
     '<div style="border:1px solid var(--border);border-radius:11px;padding:12px 14px;background:#fff;">'
     + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
@@ -22710,21 +22776,55 @@ function recMount(hostId, kind, subjectId, label){
       + '<span style="flex:1;"></span>'
       + '<span id="recState" class="field-note"></span>'
     + '</div>'
+    + '<div id="recRecover"></div>'
     + '<label style="display:flex;gap:8px;align-items:flex-start;margin-top:9px;font-size:13px;cursor:pointer;">'
-      + '<input type="checkbox" id="recConsent" onchange="recButtons()" style="width:16px;height:16px;margin-top:2px;accent-color:var(--yellow);">'
+      + '<input type="checkbox" id="recConsent" onchange="recButtons()" style="width:' + (phone?'22px;height:22px':'16px;height:16px') + ';margin-top:2px;accent-color:var(--yellow);">'
       + '<span>I have asked ' + escapeHtmlComms(label || 'them') + ' out loud, and they said yes to being recorded.<br>'
       + '<span class="field-note">Worth saying on the recording itself, in the first few seconds, so the transcript is its own proof. '
       /* 2026-10-11 (Samantha: "keep audio one year", "keep the transcript forever"; Desktop 621 sets keep_audio_days 365) */
       + 'The audio is kept for 1 year, then deleted. The written transcript is kept for good.</span></span></label>'
     + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">'
-      + '<button class="secondary" id="recGo" onclick="recStart()" disabled>● Start recording</button>'
-      + '<button class="fb" id="recStopB" onclick="recStop()" style="display:none;">■ Stop</button>'
-      + '<span id="recTimer" style="font-variant-numeric:tabular-nums;font-weight:700;color:var(--navy);"></span>'
+      + '<button class="secondary" id="recGo" onclick="recStart()" disabled style="' + big + '">● Start recording</button>'
+      + '<button class="fb" id="recStopB" onclick="recStop()" style="display:none;' + big + '">■ Stop</button>'
+      + '<span id="recTimer" style="font-variant-numeric:tabular-nums;font-weight:700;color:var(--navy);' + (phone?'font-size:20px;':'') + '"></span>'
     + '</div>'
+    + '<div id="recKeep" class="field-note" style="display:none;margin-top:6px;">Keep this screen open while you record. It is also being saved on this device as you go.</div>'
     + '<div id="recErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>'
     + '<div id="recList" style="margin-top:10px;"></div>'
     + '</div>';
   recLoadList();
+  recRecoverShow();
+}
+
+/* An unfinished recording for this person, still on this device: offer to upload it (or let it go). */
+async function recRecoverShow(){
+  const box = document.getElementById('recRecover'); if(!box) return;
+  const all = (await recDbSessions()).filter(s => s.kind === REC.kind && String(s.subject) === REC.subject && (!REC.sess || s.id !== REC.sess));
+  if(!all.length){ box.innerHTML = ''; return; }
+  box.innerHTML = all.map(s => {
+    const when = new Date(s.startedAt).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    return '<div style="margin-top:9px;background:#FFF8E8;border:1px solid #F5D9A0;border-radius:9px;padding:9px 11px;font-size:13px;">'
+      + '<b>An unfinished recording from ' + escapeHtmlComms(when) + ' is saved on this device.</b> It was not uploaded yet.'
+      + '<div style="display:flex;gap:8px;margin-top:7px;flex-wrap:wrap;">'
+      + '<button class="secondary" onclick="recRecoverUpload(\'' + escapeHtmlComms(s.id) + '\',this)">Upload it</button>'
+      + '<button class="fb" onclick="recRecoverDrop(\'' + escapeHtmlComms(s.id) + '\')">Discard it</button></div></div>';
+  }).join('');
+}
+async function recRecoverUpload(id, btn){
+  const s = (await recDbSessions()).find(x => x.id === id); if(!s) return recRecoverShow();
+  const ch = await recDbChunks(id);
+  if(!ch.length){ await recDbDrop(id); return recRecoverShow(); }
+  if(btn){ btn.disabled = true; btn.textContent = 'Uploading…'; }
+  const blob = new Blob(ch.map(c => c.blob), { type: s.mime || 'audio/webm' });
+  const seconds = Math.max(1, Math.round((ch[ch.length-1].at - s.startedAt)/1000));
+  const ok = await recUpload(blob, seconds, s);
+  if(ok) await recDbDrop(id);
+  else if(btn){ btn.disabled = false; btn.textContent = 'Upload it'; }
+  recRecoverShow();
+}
+async function recRecoverDrop(id){
+  if(!confirm('Discard this unfinished recording? It cannot be brought back.')) return;
+  await recDbDrop(id); recRecoverShow();
 }
 
 function recButtons(){
@@ -22747,14 +22847,19 @@ async function recStart(){
   const mime = recMime();
   REC.chunks = [];
   REC.mr = new MediaRecorder(REC.stream, mime ? { mimeType:mime } : undefined);
-  REC.mr.ondataavailable = e => { if(e.data && e.data.size) REC.chunks.push(e.data); };
+  REC.startedAt = Date.now();
+  REC.sess = REC.startedAt + '-' + Math.random().toString(36).slice(2, 8);
+  const by = (typeof ME !== 'undefined' && (ME.name || ME.email)) || null;
+  recDbPutSess({ id: REC.sess, kind: REC.kind, subject: REC.subject, label: REC.label, startedAt: REC.startedAt, mime: REC.mr.mimeType || mime || 'audio/webm', by });
+  REC.mr.ondataavailable = e => { if(e.data && e.data.size){ REC.chunks.push(e.data); recDbPutChunk(REC.sess, e.data); } };
   REC.mr.onstop = recFinish;
   REC.mr.start(1000);                       // a chunk a second, so a crash loses a second
-  REC.startedAt = Date.now();
+  recWake(true);
   document.getElementById('recGo').style.display='none';
   document.getElementById('recStopB').style.display='';
   document.getElementById('recConsent').disabled = true;
   document.getElementById('recState').textContent = 'recording';
+  const keep = document.getElementById('recKeep'); if(keep) keep.style.display = '';
   REC.tick = setInterval(()=>{
     const t = document.getElementById('recTimer');
     if(t) t.textContent = recClock((Date.now()-REC.startedAt)/1000);
@@ -22766,6 +22871,36 @@ function recStop(){
   if(REC.tick){ clearInterval(REC.tick); REC.tick = null; }
   document.getElementById('recStopB').style.display='none';
   document.getElementById('recState').textContent = 'saving…';
+  recWake(false);
+}
+
+/* The upload, shared by a normal stop and a recovered recording. True when it is safely in. */
+async function recUpload(blob, seconds, meta){
+  const err = document.getElementById('recErr');
+  const ext = (blob.type.indexOf('mp4') > -1) ? 'mp4' : 'webm';
+  const path = meta.kind + '/' + meta.subject + '/' + Date.now() + '.' + ext;
+  try{
+    const up = await sb.storage.from('recordings').upload(path, blob, { contentType: blob.type });
+    if(up.error) throw up.error;
+    const ins = await sb.from('recordings').insert({
+      kind: meta.kind, subject_id: meta.subject, subject_label: meta.label,
+      storage_path: path, mime: blob.type, seconds: seconds,
+      consent_given: true,
+      consent_by: meta.by || (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,
+      recorded_by: meta.by || (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,
+    }).select('id').single();
+    if(ins.error) throw ins.error;
+    const st = document.getElementById('recState'); if(st) st.textContent = 'transcribing…';
+    await recLoadList();
+    sb.functions.invoke('transcribe-recording', { body:{ recording_id: ins.data.id } })
+      .then(()=>recPoll(ins.data.id))
+      .catch(()=>recPoll(ins.data.id));
+    return true;
+  }catch(e){
+    if(err){ err.textContent = 'Could not upload the recording: ' + (e&&e.message||'error')
+      + '. It is still saved on this device: open this screen again and press Upload it.'; err.style.display='block'; }
+    return false;
+  }
 }
 
 async function recFinish(){
@@ -22773,38 +22908,23 @@ async function recFinish(){
   try{
     (REC.stream.getTracks()||[]).forEach(t=>t.stop());
   }catch(e){}
+  recWake(false);
+  const keep = document.getElementById('recKeep'); if(keep) keep.style.display = 'none';
   const seconds = Math.round((Date.now()-REC.startedAt)/1000);
   const blob = new Blob(REC.chunks, { type: REC.mr.mimeType || 'audio/webm' });
   REC.chunks = [];
+  const sess = REC.sess;
   if(seconds < 2 || !blob.size){
     err.textContent = 'That was too short to keep.'; err.style.display='block';
+    await recDbDrop(sess); REC.sess = null;
     recReset(); return;
   }
-  const ext = (blob.type.indexOf('mp4') > -1) ? 'mp4' : 'webm';
-  const path = REC.kind + '/' + REC.subject + '/' + Date.now() + '.' + ext;
-  try{
-    const up = await sb.storage.from('recordings').upload(path, blob, { contentType: blob.type });
-    if(up.error) throw up.error;
-    const ins = await sb.from('recordings').insert({
-      kind: REC.kind, subject_id: REC.subject, subject_label: REC.label,
-      storage_path: path, mime: blob.type, seconds: seconds,
-      consent_given: true,
-      consent_by: (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,
-      recorded_by: (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,
-    }).select('id').single();
-    if(ins.error) throw ins.error;
-    document.getElementById('recState').textContent = 'transcribing…';
-    recReset();
-    await recLoadList();
-    sb.functions.invoke('transcribe-recording', { body:{ recording_id: ins.data.id } })
-      .then(()=>recPoll(ins.data.id))
-      .catch(()=>recPoll(ins.data.id));
-  }catch(e){
-    err.textContent = 'Could not save the recording: ' + (e&&e.message||'error')
-      + '. If this mentions a bucket or a table, run recruit-recordings.sql.';
-    err.style.display='block';
-    recReset();
-  }
+  const by = (typeof ME !== 'undefined' && (ME.name || ME.email)) || null;
+  const ok = await recUpload(blob, seconds, { kind: REC.kind, subject: REC.subject, label: REC.label, by });
+  if(ok) await recDbDrop(sess);
+  REC.sess = null;
+  recReset();
+  if(!ok) recRecoverShow();
 }
 
 function recReset(){
@@ -22812,6 +22932,7 @@ function recReset(){
   const go = document.getElementById('recGo'); if(go){ go.style.display=''; go.disabled=true; }
   const t = document.getElementById('recTimer'); if(t) t.textContent='';
 }
+window.recRecoverUpload = recRecoverUpload; window.recRecoverDrop = recRecoverDrop;
 
 /* Transcribing runs on the server, so the screen asks now and then rather than
    holding a connection open for the length of an interview. */
@@ -24134,6 +24255,10 @@ const AP_YNO = [['yes','Yes'],['no','No'],['outside','Only outside']];
 const AP_YNO2= [['yes','Yes'],['no','No'],['outside','If outside']];
 const AP_LVL = [['none','No experience'],['some','Some experience'],['lots','Very experienced']];
 
+/* 2026-10-12 (the new interview, her "yes to all"): licenses, driving, skills and days come from the application and Step 1
+   now, so the interview asks only six open questions plus this 30-second quick check, until the new onboarding goes live.
+   AP_QS stays whole below so older interviews still show what was asked then. */
+const AP_QUICK = ['smoker','vaper','dogs','cats','client_smokes'];
 const AP_QS = [
   ['bg_check',     'Willing to have a criminal background check?', AP_YN],
   ['drug_screen',  'Willing to take a drug screen?',               AP_YN],
@@ -24262,34 +24387,16 @@ function apIntRender(){
 
   let html = apScriptHtml(AP_ROWS.find(x=>String(x.id)===String((document.getElementById('apIntId')||{}).value)))
     + '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);'
-      + 'margin:6px 0 8px;border-top:1px solid var(--border);padding-top:14px;">Matching them to a client</div>'
-    + AP_QS.map(([k,q,opts]) => row(esc(q), opts.map(([v,l])=>opt(k,v,l)).join(''))).join('');
+      + 'margin:6px 0 8px;border-top:1px solid var(--border);padding-top:14px;">Quick check, 30 seconds (only what their application did not answer)</div>'
+    + AP_QS.filter(([k]) => AP_QUICK.includes(k)).map(([k,q,opts]) => row(esc(q), opts.map(([v,l])=>opt(k,v,l)).join(''))).join('');
 
   html += row('Comfortable working with', ['males','females'].map(g=>
     '<button type="button" class="fb" style="'+(((A.works_with||{})[g])?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
     + '" onclick="apIntToggle(\'works_with\',\''+g+'\')">'+(g==='males'?'Men':'Women')+'</button>').join(''));
 
-  html += '<div style="padding:10px 0 4px;font-size:13.5px;font-weight:700;color:var(--navy);">Skills</div>'
-    + AP_SKILLS.map(([k,l])=> row(esc(l), AP_LVL.map(([v,lab])=>
-        '<button type="button" class="fb" style="'+(((A.skills||{})[k])===v?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
-        + '" onclick="apIntSkill(\''+k+'\',\''+v+'\')">'+esc(lab)+'</button>').join(''))).join('');
-
-  html += row('Anything else they are good at',
-    '<input id="apIntCustom" value="'+esc(A.custom_skill||'')+'" oninput="apIntSet(\'custom_skill\',this.value)" '
-    + 'placeholder="e.g. catheter care, Parkinson\'s" style="font:inherit;font-size:13.5px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;min-width:240px;">');
-
   html += row('How far will they travel?',
     '<input id="apIntTravel" value="'+esc(A.travel_areas||'')+'" oninput="apIntSet(\'travel_areas\',this.value)" '
     + 'placeholder="Springfield, Nixa, Ozark…" style="font:inherit;font-size:13.5px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;min-width:240px;">');
-
-  html += '<div style="padding:10px 0 4px;font-size:13.5px;font-weight:700;color:var(--navy);">When can they work?</div>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">'
-    + '<button type="button" class="fb" style="'+(A.shift==='days'?'background:var(--navy);color:#fff;border-color:var(--navy);':'')+'" onclick="apIntQuick(\'days\')">Every day, 7am to 7pm</button>'
-    + '<button type="button" class="fb" style="'+(A.shift==='nights'?'background:var(--navy);color:#fff;border-color:var(--navy);':'')+'" onclick="apIntQuick(\'nights\')">Every night, 7pm to 7am</button>'
-    + '</div><div style="display:flex;gap:6px;flex-wrap:wrap;">'
-    + AP_DAYS.map(([k,l])=>'<button type="button" class="fb" style="'+(((A.availability||{})[k])?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
-        + '" onclick="apIntToggle(\'availability\',\''+k+'\')">'+l+'</button>').join('')
-    + '</div>';
 
   document.getElementById('apIntForm').innerHTML = html;
 
@@ -24325,6 +24432,7 @@ async function apInterview(id){
   document.getElementById('apIntWho').textContent = (r.first_name||'')+' '+(r.last_name||'');
   document.getElementById('apIntPrn').innerHTML = apIsPrn(r) ? apPrnHtml(r) : '';
   document.getElementById('apIntNotes').value = (r.post_interview && r.post_interview.notes) || '';
+  { const rc = document.getElementById('apIntRefCheck'); if(rc) rc.value = (r.post_interview && r.post_interview.ref_check) || ''; }
   document.getElementById('apIntErr').style.display='none';
   apIntRender();
   const c = document.getElementById('apIntCard');
@@ -24667,6 +24775,7 @@ async function apOutcome(outcome, btn){
   const err = document.getElementById('apIntErr');
   const A = Object.assign({}, window.__apInt || {});
   A.notes = (document.getElementById('apIntNotes').value||'').trim();
+  { const rc = document.getElementById('apIntRefCheck'); if(rc) A.ref_check = (rc.value||'').trim(); }
 
   let reason = null, wants = null, area = null;
   if(outcome==='declined'){
