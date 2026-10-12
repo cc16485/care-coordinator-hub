@@ -10026,7 +10026,7 @@ function cpRenderCare(){
     /* Caregiver packet (Step 1, 2026-10-12): videos + notes each caregiver confirms (care-packet.js) */
     +'<div id="cp_packet"></div>';
   if((DATA.ops_settings||{}).care_needs_live){ const go=()=>window.CN&&CN.mount('cp_needs'); if(window.CN) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261012'; sc.onload=go; document.head.appendChild(sc); } }
-  { const go=()=>window.CPK&&CPK.mount('cp_packet'); if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012c'; sc.onload=go; document.head.appendChild(sc); } }
+  { const go=()=>window.CPK&&CPK.mount('cp_packet'); if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012d'; sc.onload=go; document.head.appendChild(sc); } }
 }
 function cpNewAssessment(){
   const lead=CP.lead;
