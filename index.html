@@ -1133,6 +1133,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- New clients left Cara 2026-10-12 (scheduling review step 3): asking the team about hours lives on Team Builder
            ("Ask the whole team"); any older check still open shows at the top of Team Builder. -->
       <div id="swHoursWrap" style="display:none;">
+      <div id="nhCard"></div><!-- New hires waiting for hours (2026-10-12, new-hires.js) -->
       <div id="ssRoot"></div><!-- Where we can staff this week (staffing-sheet.js, Referral Partner Desk Step 4, 2026-10-08) -->
       <!-- How current the availability on file is (her pick #10), with the ONE "Text the availability link" button. The
            six-week trends (drifting away, running hot, client care shrinking) moved to Reports 2026-10-12 (step 4). -->
@@ -7062,6 +7063,7 @@ The HomeTogether team</pre>
 <script src="team-builder-2.js?v=4"></script>
 <script src="open-hours.js?v=2"></script>
 <script src="scheduling-guide.js?v=1"></script>
+<script src="new-hires.js?v=1"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
@@ -35578,7 +35580,7 @@ function covRenderSubBar(S){
     ['clockins','\u23f0 Missed clock-ins & outs',swClockinN(),'red'],
     ['calloffs','\ud83d\udcf5 Call-offs & open shifts',calloffN,''],
     ['ongoing','\ud83d\udd01 Ongoing shifts',ongoingN,''],
-    ['hours','\ud83d\udcca Hours & matching',0,''],
+    ['hours','\ud83d\udcca Hours & matching',(typeof NH!=='undefined'?NH.count():0),''],   // new hires waiting for hours (2026-10-12)
     ['dno','\ud83d\udd15 No shift texts',dnoN,''],
     ['history','\ud83d\uddc2 History',0,''],
   ];
@@ -36375,6 +36377,7 @@ async function tbLoadPool(){
   }catch(e){ TB.pool={error:String(e.message||e)}; }
   TB.loading=false;
   tbRender();
+  try{ if(typeof NH!=='undefined') NH.render(); if(typeof activeTab!=='undefined'&&activeTab==='coverage'&&typeof covRenderSubBar==='function') covRenderSubBar(caraSections()); }catch(e){}
 }
 /* Which Journey each plan belongs to (2026-09-26). Read-only here: the
    directory of active Journeys (clients and inquiries) and the current plan
@@ -36761,6 +36764,7 @@ function tbPoolListHtml(plan,key){
       || ((a.conflicts.length?1:0)-(b.conflicts.length?1:0))
       || ((b.stated===true?1:0)-(a.stated===true?1:0))
       || ((a.stated===false?1:0)-(b.stated===false?1:0))
+      || ((b.cg.new_hire?1:0)-(a.cg.new_hire?1:0))   /* her "B" (2026-10-12): a new hire who needs hours first among equal fits */
       || (Number(b.sameTown)-Number(a.sameTown))
       || (a.proj-b.proj);
   });
@@ -36778,6 +36782,7 @@ function tbPoolListHtml(plan,key){
     var skF=(typeof tb2SkillFlags==='function')?tb2SkillFlags(plan,x.cg):''; if(skF) flags.unshift(skF);
     var pgH=cgpgAxHtml(x.cg.axiscare_id,x.cg.name);   /* 2c: new hire, profile not published (flagged, never hidden) */
     if(pgH) flags.unshift(pgH);
+    if(x.cg.new_hire&&!x.cg.work_locked) flags.unshift('<b style="color:var(--teal);">🌱 new hire, needs hours</b>');   /* 2026-10-12, her "B" */
     if(x.cg.work_locked) flags.unshift('<b style="color:var(--red);">⛔ awaiting Approve to Work (new hire): not to be scheduled yet</b>');   /* SLICE 5: locked until the owner\'s stamp and the AxisCare read-back */
     return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
       +(x.cg.axiscare_id
@@ -38101,6 +38106,7 @@ function covPickerHtml(c){
       +(x.rep&&x.rep.favorites?' · <b style="color:var(--honey-ink);">⭐ favorited by '+x.rep.favorites+' client'+(x.rep.favorites===1?'':'s')+'</b>':'')
       +(x.rep&&x.rep.concerns>1?' · <span style="color:var(--red);">🚩 '+x.rep.concerns+' concern calls</span>':'')
       +(x.chain?' · <b style="color:var(--teal);">🚗 '+esc(x.chain.detail)+'</b>':'')
+      +(x.new_hire?' · <b style="color:var(--teal);">🌱 new hire, needs hours</b>':'')
       +(x.working_then?' · <b style="color:var(--red);">📅 already scheduled: '+esc(x.working_then.detail)+'</b>'
         :x.free_then===true?' · <b style="color:var(--green);">🟢 free those hours</b>':'')
       +'</span></label>';
@@ -38790,7 +38796,7 @@ function renderCoverage(){
   if(sw){
     box.innerHTML='';
     if(sw==='today'){ swRenderLive(); swAutoRefreshArm(); }
-    else { hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad(); try{ if(typeof ssPaint==='function'){ ssPaint(); ssLoad(); } }catch(e){} }
+    else { try{ if(typeof NH!=='undefined') NH.render(); }catch(e){} hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad(); try{ if(typeof ssPaint==='function'){ ssPaint(); ssLoad(); } }catch(e){} }
     return;
   }
   if(COV_SUB==='today'){ box.innerHTML=''; return; }   // Today lives in #caraCC
