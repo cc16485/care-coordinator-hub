@@ -16,7 +16,13 @@ window.DATA = { caregivers: [{ first: 'Ariel', last: 'Smith', axiscare_id: '11' 
 window.CP = { ax: '900', lead: { id: 'L1', client_first_name: 'Dan' }, r: { client_name: 'Dan Example' } };
 window.CALLS = []; window.STATE = { packet: null, recipients: [] };
 window.callAction = async (fn, b) => { CALLS.push(JSON.parse(JSON.stringify(b)));
-  if (b.action === 'get') return { status: 200, data: { packet: STATE.packet, topics: %s, recipients: STATE.recipients } };
+  if (b.action === 'get') return { status: 200, data: { packet: STATE.packet, topics: STATE.topics || %s, recipients: STATE.recipients, can_edit_library: !!STATE.owner, retired_in_packet: [] } };
+  if (b.action === 'suggest') return { status: 200, data: { outcome: 'ok', used: ['their care plan (2026-10-10)', 'the About notes on this card'], suggestions: [{ topic: 'purewick_male', why: 'Uses a PureWick for urine' }] } };
+  if (b.action === 'library') return { status: 200, data: { library: STATE.lib = STATE.lib || [{ key: 'turning', title: 'Turning and repositioning', notes: 'Turn every 2 hours.', videos: [{ title: 'Lie on the side', url: 'https://www.youtube.com/watch?v=6M5_eTPUWpo', minutes: 5 }], active: true, updated_by: 'samantha@mo-care.com', updated_at: '2026-10-12T15:00:00Z' },
+      { key: 'old', title: 'Old topic', notes: '', videos: [], active: false }] } };
+  if (b.action === 'topic_save') { if (b.is_new && b.key === 'turning') return { status: 409, data: { outcome: 'exists', error: 'There is already a topic with that name ("Turning and repositioning"). Edit that one, or pick another name.' } };
+    STATE.lib = STATE.lib.filter(t => t.key !== b.key).concat([{ key: b.key, title: b.title, notes: b.notes, videos: b.videos, active: b.active }]);
+    return { status: 200, data: { outcome: 'saved', topics: [], library: STATE.lib } }; }
   if (b.action === 'save') { const v = STATE.packet ? STATE.packet.version + 1 : 1;
     STATE.packet = { id: '11111111-1111-1111-1111-111111111111', version: v, client_first: b.client_first, about: b.about, items: b.items, ready: b.ready };
     return { status: 200, data: { outcome: 'saved', changed: true, packet: STATE.packet, recipients: STATE.recipients } }; }
@@ -55,6 +61,16 @@ try:
     ok('card: loads by AxisCare id and lead, shows the library topics and the first name from the lead', pg.evaluate('CALLS[0]') == {'action': 'get', 'ax': '900', 'lead_id': 'L1'} and 'Turning and repositioning' in t and 'PureWick for men' in t and pg.input_value('#cpk_first') == 'Dan', t[:300])
     ok('card: no caregiver section before it is ready', 'Get their link' not in t)
     pg.fill('#cpk_about', 'Dan is on hospice. Call the hospice nurse first.')
+    # ---- suggest topics ----
+    pg.click('#cpk_suggest'); pg.wait_for_timeout(300)
+    sc = pg.evaluate("CALLS.filter(c=>c.action==='suggest').pop()")
+    t = pg.inner_text('#cp_packet')
+    ok('suggest: sends the About notes being written; ticks the suggested topic with its library notes and says why and from what', sc['about'].startswith('Dan is on hospice') and pg.is_checked('[data-cpk-topic="purewick_male"]') and pg.input_value('[data-cpk-notes="purewick_male"]') == 'Check it every 2 hours.' and 'suggested: Uses a PureWick for urine' in t and 'from their care plan (2026-10-10), the About notes on this card' in t, t[:900])
+    ok('suggest: nothing saved until Save packet', pg.evaluate("CALLS.filter(c=>c.action==='save').length") == 0 and 'changed, not saved' in t)
+    pg.uncheck('[data-cpk-topic="purewick_male"]'); pg.wait_for_timeout(100)
+    ok('a suggestion can be unticked', not pg.is_checked('[data-cpk-topic="purewick_male"]'))
+    pg.screenshot(path=os.path.join(OUT, 'cpk_6_suggest.png'), full_page=True)
+    ok('no library link for a coordinator', pg.query_selector('#cpk_lib_open') is None)
     pg.check('[data-cpk-topic="turning"]'); pg.wait_for_timeout(100)
     ok('card: ticking a topic fills its notes from the library', pg.input_value('[data-cpk-notes="turning"]') == 'Turn every 2 hours, or as the care plan says.' and pg.input_value('#cpk_about').startswith('Dan is on hospice'))
     pg.fill('[data-cpk-notes="turning"]', 'Turn every 2 hours. Left, back, right.'); pg.check('#cpk_ready'); pg.wait_for_timeout(100)
@@ -105,6 +121,33 @@ try:
     ok('card: Text the packet for a picked caregiver opens their draft', pg.evaluate("CALLS[CALLS.length-1]") == {'action': 'send_draft', 'packet_id': '11111111-1111-1111-1111-111111111111', 'caregiver_axiscare_id': '12'})
     ok('card: still no em dash anywhere', '\u2014' not in pg.inner_text('#cp_packet'))
     pg.click('#cpk_cancel')
+    # ---- the library editor (owner) ----
+    pg.evaluate("STATE.owner = true"); pg.evaluate('CPK.mount("cp_packet")'); pg.wait_for_timeout(400)
+    pg.click('#cpk_lib_open'); pg.wait_for_timeout(300)
+    t = pg.inner_text('#cp_packet')
+    ok('library: the owner sees every topic, the retired one marked, with who changed it', 'How-to library' in t and 'Turning and repositioning' in t and 'Old topic' in t and 'retired' in t and 'changed by samantha' in t, t[:600])
+    pg.click('#cpk_lib_add'); pg.wait_for_timeout(100)
+    pg.fill('#cpk_t_title', 'Oxygen safety'); pg.fill('#cpk_t_notes', 'No open flame near the oxygen.')
+    pg.click('#cpk_v_add'); pg.wait_for_timeout(100)
+    pg.fill('[data-cpk-v="0"][data-f="title"]', 'Oxygen at home'); pg.fill('[data-cpk-v="0"][data-f="url"]', 'https://youtu.be/6M5_eTPUWpo'); pg.dispatch_event('[data-cpk-v="0"][data-f="url"]', 'change'); pg.wait_for_timeout(200)
+    ok('library: a pasted YouTube link plays right in the editor before saving', pg.eval_on_selector_all('#cp_packet iframe', 'f=>f.map(x=>x.src)') == ['https://www.youtube-nocookie.com/embed/6M5_eTPUWpo?rel=0'] and pg.input_value('#cpk_t_title') == 'Oxygen safety')
+    pg.click('#cpk_v_add'); pg.fill('[data-cpk-v="1"][data-f="title"]', 'A web page'); pg.fill('[data-cpk-v="1"][data-f="url"]', 'https://example.com/guide'); pg.dispatch_event('[data-cpk-v="1"][data-f="url"]', 'change'); pg.wait_for_timeout(200)
+    ok('library: a plain web page says caregivers get an Open it button', 'caregivers get an "Open it" button' in pg.inner_text('#cp_packet'))
+    pg.screenshot(path=os.path.join(OUT, 'cpk_7_library.png'), full_page=True)
+    pg.click('#cpk_t_save'); pg.wait_for_timeout(300)
+    c = pg.evaluate("CALLS.filter(c=>c.action==='topic_save').pop()")
+    ok('library: Save sends the new topic (key from the title, both links, new), and says saved', c['key'] == 'oxygen_safety' and c['is_new'] is True and len(c['videos']) == 2 and c['videos'][0]['url'] == 'https://youtu.be/6M5_eTPUWpo' and 'Saved "Oxygen safety".' in pg.inner_text('#cp_packet'), c)
+    pg.click('#cpk_lib_add'); pg.fill('#cpk_t_title', 'Turning'); pg.click('#cpk_t_save'); pg.wait_for_timeout(300)
+    ok('library: a name already taken is refused with the reason, the form stays open', 'There is already a topic with that name' in pg.inner_text('#cp_packet') and pg.query_selector('#cpk_t_title') is not None)
+    pg.click('#cpk_t_cancel'); pg.wait_for_timeout(100)
+    pg.click('[data-cpk-lib-edit="turning"]'); pg.wait_for_timeout(200)
+    ok('library: Edit opens the topic with its notes and its video playing', pg.input_value('#cpk_t_title') == 'Turning and repositioning' and pg.input_value('#cpk_t_notes') == 'Turn every 2 hours.' and len(pg.query_selector_all('#cp_packet iframe')) == 1)
+    pg.check('#cpk_t_retired'); pg.click('#cpk_t_save'); pg.wait_for_timeout(300)
+    c = pg.evaluate("CALLS.filter(c=>c.action==='topic_save').pop()")
+    ok('library: retiring sends active false for that topic', c['key'] == 'turning' and c['active'] is False and c['is_new'] is False, c)
+    pg.click('#cpk_lib_close'); pg.wait_for_timeout(400)
+    ok('library: Back returns to the packet', 'About this client' in pg.inner_text('#cp_packet'))
+    ok('no em dash in the editor or suggestions', '\u2014' not in pg.inner_text('#cp_packet'))
     pg.fill('#cpk_about', 'Changed'); pg.wait_for_timeout(100)
     ok('card: after a change, links and texts wait until it is saved', pg.is_disabled('#cpk_link') and pg.is_disabled('#cpk_text'))
     # ---- the caregiver's page ----
