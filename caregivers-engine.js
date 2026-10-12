@@ -411,6 +411,8 @@ async function batchOIGCheck(){
     if(result){
       if(result.clear){
         caregivers[i].oig_date = today;
+        /* a clear result ends an old Overdue mark (or a CLEAR carried over at hire), so the new date decides again */
+        if(caregivers[i].oig_status==='Overdue' || /^clear$/i.test(String(caregivers[i].oig_status||''))) caregivers[i].oig_status = '';
         cleared++;
       } else {
         flagged++;
@@ -7076,7 +7078,7 @@ function acFilter(f,btn){ acFilterVal=f; document.querySelectorAll('#panel-compl
 
 
 function acWorst(c){
-  const o=chkStatus(c.oig_date,90,14), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
+  const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
   const sv=chkStatus(c.supv_date,365,30), pr=chkStatus(c.perf_date,365,30);
   const fReg=fcsrRegStatus(c);
   const ss=[o.status,e.status,f.status,sv.status,pr.status];
@@ -7098,10 +7100,13 @@ function renderAC(){
   if(!list.length){tbody.innerHTML='';acSelected.clear();updateACBulkBar();return;}
 
   tbody.innerHTML=list.map(c=>{
-    const o=chkStatus(c.oig_date,90,14), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
+    const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
     const sv=chkStatus(c.supv_date,365,30), pr=chkStatus(c.perf_date,365,30);
     function compCell(lastStr,info,overrideStatus,proof){
-      const s=overrideStatus||info.status;
+      /* 2026-10-12: a hand-set Current or Overdue, or a flagged result, wins over the date; a stored result word like
+         CLEAR (carried over at hire) is not an override, or the table would show CLEAR long after the check lapsed */
+      const ov=String(overrideStatus||'').trim();
+      const s=(ov==='Current'||ov==='Overdue'||/flag|issue/i.test(ov))?ov:info.status;
       const nd=info.nextDue?info.nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
       const dl=info.days!==null?(info.days<0?`${Math.abs(info.days)}d overdue`:`due in ${info.days}d`):'';
       return `<div class="chk">${badge(s)}${lastStr?`<span class="chk-date">Last: ${fmtD(lastStr)}${dl?' · '+dl:''}</span>`:''}${nd&&s!=='Pending'?`<span class="chk-date">Next: ${nd}</span>`:''}<span>${proofLink(proof)}</span></div>`;
@@ -7126,7 +7131,7 @@ function renderAC(){
   const od=caregivers.filter(c=>acWorst(c)==='overdue').length;
   const ds=caregivers.filter(c=>acWorst(c)==='duesoon').length;
   const cur=caregivers.filter(c=>acWorst(c)==='current').length;
-  const oigOd=caregivers.filter(c=>chkStatus(c.oig_date,90,14).status==='Overdue'||(c.oig_status==='Overdue')).length;
+  const oigOd=caregivers.filter(c=>chkStatus(c.oig_date,30,7).status==='Overdue'||(c.oig_status==='Overdue')).length;
   document.getElementById('ac-stats').innerHTML=`
     <div class="stat"><div class="lbl">Active Caregivers</div><div class="val v-navy">${total}</div></div>
     <div class="stat"><div class="lbl">All Current</div><div class="val v-green">${cur}</div></div>
@@ -7150,7 +7155,7 @@ function renderAlerts(){
   // Active Compliance
   let acOverdue=0, acDueSoon=0;
   caregivers.forEach(c=>{
-    const oig=chkStatus(c.oig_date,90,14), edl=chkStatus(c.edl_date,30,7), fcsr=chkStatus(c.fcsr_date,365,30);
+    const oig=chkStatus(c.oig_date,30,7), edl=chkStatus(c.edl_date,30,7), fcsr=chkStatus(c.fcsr_date,365,30);
     if([oig,edl,fcsr].some(s=>s.status==='Overdue')) acOverdue++;
     else if([oig,edl,fcsr].some(s=>s.status==='Due Soon')) acDueSoon++;
   });
@@ -9290,7 +9295,7 @@ function exportComplianceCSV(){
   const today=new Date(); today.setHours(0,0,0,0);
   const rows=[['Name','Hire Date','OIG Last Check','OIG Status','EDL Last Check','EDL Status','FCSR Last Check','FCSR Status','Fingerprint','Overall']];
   caregivers.forEach(c=>{
-    const o=chkStatus(c.oig_date,90,14), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
+    const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
     rows.push([
       `${c.first} ${c.last}`,
       c.hire_date||'',
@@ -9451,7 +9456,7 @@ function openProfile(first, last){
   // ── Active Compliance ──
   html+=`<div class="sect-lbl">Active Compliance</div>`;
   if(cg){
-    const o=chkStatus(cg.oig_date,90,14), e=chkStatus(cg.edl_date,30,7), f=chkStatus(cg.fcsr_date,365,30);
+    const o=chkStatus(cg.oig_date,30,7), e=chkStatus(cg.edl_date,30,7), f=chkStatus(cg.fcsr_date,365,30);
     const sv=chkStatus(cg.supv_date,365,30), pr=chkStatus(cg.perf_date,365,30);
     const fReg=fcsrRegStatus(cg);
     const regColor=fReg.status==='ok'?'var(--green)':fReg.status==='overdue'?'var(--red)':'var(--amber)';
@@ -10413,6 +10418,7 @@ for (const [n, f] of Object.entries({
 })) window[n] = f;
 window.intakeImport = intakeImport;
 window.openPerson = openPerson;
+window.SCX.getCandidates = () => candidates;   /* read-only view for the applicant page (2026-10-12) */
 window.retryHydrate = retryHydrate;
 /* Background & References card / timeline / modal actions reached from onclick.
    The engine runs in a closure, so every onclick target must be attached here. */
