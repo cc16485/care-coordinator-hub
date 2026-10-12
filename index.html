@@ -10003,7 +10003,7 @@ function cpRenderCare(){
     /* Caregiver packet (Step 1, 2026-10-12): videos + notes each caregiver confirms (care-packet.js) */
     +'<div id="cp_packet"></div>';
   if((DATA.ops_settings||{}).care_needs_live){ const go=()=>window.CN&&CN.mount('cp_needs'); if(window.CN) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261012'; sc.onload=go; document.head.appendChild(sc); } }
-  { const go=()=>window.CPK&&CPK.mount('cp_packet'); if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012'; sc.onload=go; document.head.appendChild(sc); } }
+  { const go=()=>window.CPK&&CPK.mount('cp_packet'); if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012c'; sc.onload=go; document.head.appendChild(sc); } }
 }
 function cpNewAssessment(){
   const lead=CP.lead;
@@ -31760,6 +31760,8 @@ const OPS_KINDS = {
   visit_risk:     { label:'Visits not delivered', hours:4 },
   visit_review:   { label:'Monthly visit review', hours:120 },
   respite_limit:  { label:'Respite schedule', hours:24 },
+  /* Caregiver packets step 3 (2026-10-12): someone has a shift with this client in the next 3 days and hasn't confirmed the packet (care-packet-watch) */
+  care_packet_unconfirmed: { label:'Care packet', hours:12 },
   /* N2 (2026-09-29): a caregiver's shift note the AI thought someone should read (care-notes, every two hours) */
   care_note:      { label:'Shift note',    hours:24 },
   /* Missed shift notes (2026-09-29): a caregiver replied with the note they didn't write, or never replied. */

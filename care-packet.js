@@ -10,7 +10,7 @@
 (function(){
   'use strict';
   const esc = t => (typeof escapeHtmlComms === 'function' ? escapeHtmlComms(t) : String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]));
-  const S = { box: null, packet: null, topics: [], recipients: [], draft: null, msg: '', err: '', busy: false, link: null, loadErr: '', send: null };
+  const S = { box: null, packet: null, topics: [], recipients: [], draft: null, msg: '', err: '', busy: false, link: null, loadErr: '', send: null, up: null };
   const who = () => ({ ax: (window.CP && CP.ax) || '', lead_id: (window.CP && CP.lead && CP.lead.id) || '' });
   const firstName = () => {
     const l = window.CP && CP.lead;
@@ -33,6 +33,29 @@
     S.loadErr = ''; S.link = null; S.send = null;
     try { const d = await call(Object.assign({ action: 'get' }, who())); S.packet = d.packet; S.topics = d.topics || []; S.recipients = d.recipients || []; fresh(); }
     catch (e) { S.loadErr = e.message; }
+  }
+  /* Step 3 (2026-10-12): who is coming up with this client in the next 14 days (AxisCare, read live), and where each
+     stands. Loaded after the card draws, so a slow AxisCare never holds up the packet itself. */
+  async function loadUpcoming(){
+    if (!S.packet || !S.packet.ready) { S.up = null; return; }
+    S.up = { loading: true };
+    try { S.up = await call({ action: 'upcoming', packet_id: S.packet.id }); } catch (e) { S.up = { outcome: 'unreadable', error: e.message, upcoming: [] }; }
+    render();
+  }
+  const UP_WORDS = { confirmed: ['✓ confirmed', '#166534'], older: ['confirmed an older version', '#92400E'], texted: ['texted, not confirmed', '#92400E'], link_only: ['link made, not texted', '#92400E'], none: ['no packet sent', '#B91C1C'] };
+  function upcomingHtml(){
+    const u = S.up; if (!u) return '';
+    const head = '<div style="margin-top:10px;"><b style="font-size:13px;color:var(--navy);">Coming up in the next 14 days</b>';
+    if (u.loading) return head + '<div class="field-note">Checking the AxisCare schedule…</div></div>';
+    if (u.outcome === 'not_in_axiscare') return head + '<div class="field-note">Once they are an AxisCare client, the caregivers on their schedule show here.</div></div>';
+    if (u.outcome !== 'ok') return head + '<div class="field-note" style="color:#B91C1C;">' + esc(u.error || 'AxisCare could not be read.') + '</div></div>';
+    if (!(u.upcoming || []).length) return head + '<div class="field-note">Nobody is on their schedule in the next 14 days.</div></div>';
+    const when = iso => { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
+    return head + u.upcoming.map(x => { const w = UP_WORDS[x.standing] || [x.standing, '#6B7280'];
+      return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:13px;"><b>' + esc(x.caregiver_name) + '</b>'
+        + '<span class="field-note">next visit ' + esc(when(x.next_start)) + '</span><span style="color:' + w[1] + ';font-weight:700;">' + esc(w[0]) + '</span>'
+        + (x.standing === 'confirmed' ? '' : '<button class="linklike" data-cpk-send="' + esc(x.caregiver_axiscare_id) + '"' + (S.busy || dirty() ? ' disabled' : '') + '>' + (x.standing === 'older' ? 'Send update' : x.standing === 'texted' ? 'Remind' : 'Text it') + '</button>')
+        + '</div>'; }).join('') + '</div>';
   }
   const dirty = () => { const p = S.packet; if (!p) return !!(S.draft.about || S.draft.items.length);
     return JSON.stringify([S.draft.client_first, S.draft.about, S.draft.items, S.draft.ready]) !== JSON.stringify([p.client_first, p.about, (p.items || []).map(x => ({ topic: x.topic, notes: x.notes })), !!p.ready]); };
@@ -92,6 +115,7 @@
               + (now ? '' : '<button class="linklike" data-cpk-send="' + esc(r.caregiver_axiscare_id) + '"' + (S.busy || dirty() ? ' disabled' : '') + '>' + (r.ack_version ? 'Send update' : r.last_sent_at ? 'Remind' : 'Text it') + '</button>')
               + '</div>'; }).join('')
           : '<div class="field-note" style="margin-top:6px;">No caregivers yet.</div>')
+        + upcomingHtml()
         + (S.msg && /^Sent|already went/.test(S.msg) ? '<div class="field-note" style="color:#166534;margin-top:6px;">' + esc(S.msg) + '</div>' : '')
         + (S.sendErr ? '<div class="field-note" style="color:#B91C1C;margin-top:6px;">' + esc(S.sendErr) + '</div>' : '')
         + '</div>';
@@ -130,7 +154,7 @@
     if (d.late && !confirm('It is before 8am or after 8pm in Springfield. Send ' + d.caregiver_first + ' this text now?')) return;
     S.busy = true; S.sendErr = ''; render();
     try { const r = await call({ action: 'send', packet_id: S.packet.id, caregiver_axiscare_id: d.ax, send_id: d.send_id });
-      S.recipients = r.recipients || S.recipients; S.send = null;
+      S.recipients = r.recipients || S.recipients; S.send = null; loadUpcoming();
       S.msg = r.outcome === 'already_sent' ? 'That text already went.' : 'Sent to ' + d.caregiver_first + '.' + (r.warning ? ' ' + r.warning : ''); }
     catch (e) { S.sendErr = e.message; S.send = null; }
     S.busy = false; render();
@@ -168,7 +192,7 @@
     if (S.busy) return; S.busy = true; S.err = ''; S.msg = ''; render();
     try {
       const d = await call(Object.assign({ action: 'save', client_first: S.draft.client_first, about: S.draft.about, items: S.draft.items, ready: S.draft.ready, base_version: S.packet ? S.packet.version : null }, who()));
-      S.packet = d.packet; S.recipients = d.recipients || []; fresh();
+      S.packet = d.packet; S.recipients = d.recipients || []; fresh(); loadUpcoming();
       S.msg = d.changed && S.recipients.length ? 'Saved as version ' + d.packet.version + '. Caregivers will be asked to confirm again.' : 'Saved.';
     } catch (e) { S.err = e.message; }
     S.busy = false; render();
@@ -180,5 +204,5 @@
     catch (e) { S.sendErr = e.message; }
     S.busy = false; render();
   }
-  window.CPK = { mount: async function(id){ S.box = document.getElementById(id); if (!S.box) return; S.packet = null; S.msg = ''; S.err = ''; S.sendErr = ''; S.box.innerHTML = '<div class="field-note">Loading the caregiver packet…</div>'; await load(); render(); } };
+  window.CPK = { mount: async function(id){ S.box = document.getElementById(id); if (!S.box) return; S.packet = null; S.msg = ''; S.err = ''; S.sendErr = ''; S.box.innerHTML = '<div class="field-note">Loading the caregiver packet…</div>'; S.up = null; await load(); render(); loadUpcoming(); } };
 })();
