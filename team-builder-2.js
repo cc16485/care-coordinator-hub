@@ -373,7 +373,7 @@
     return '<div class="tb2-pjline" style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' + readinessHtml(plan, true).replace('margin:0 0 8px', 'margin:0')
       + '<button class="ghost" style="padding:4px 10px;font-size:12px;" onclick="tb2OpenPlan(\'' + esc(plan.id) + '\')">Open the Team Builder</button></div>';
   }
-  function openPlan(id){ try{ switchTab('hourswatch'); }catch(e){} try{ swSubGo('builder'); }catch(e){} tbOpen(id); }
+  function openPlan(id){ try{ switchTab('teambuilder'); }catch(e){} tbOpen(id); }
 
   Object.assign(window, { tb2People:people, tb2Add:add, tb2AddPool:addPool, tb2AddApplicant:addApplicant, tb2Answer:answer,
     tb2Readiness:readiness, tb2ReadinessWords:readinessWords, tb2AllConfirmed:allConfirmed, tb2Sync:sync,

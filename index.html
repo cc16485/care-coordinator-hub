@@ -932,6 +932,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-clients">
     <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
+    <!-- 2026-10-12 (her call): Team Builder lives in Client Care; Schedule Watch is gone. -->
+    <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Team Builder</div>
     <span style="flex:1"></span>
     <!-- One hub, one truth, a lens per person: filters Leads, State
          Submissions, Check-ins, and Active Clients to one coordinator's
@@ -976,14 +978,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
   </div>
   <!-- Three views of one scheduling operation (IA revised 2026-09-15):
-       Cara owns coverage, Schedule Watch owns "is today's schedule actually
-       happening", EVV owns the visit record. The tab KEYS stay coverage /
+       Cara owns coverage and, since 2026-10-12 (her call), what Schedule Watch
+       held: missed clock-ins and clock-outs, new-client interest checks, and
+       hours & matching. EVV owns the visit record. The tab KEYS stay coverage /
        hourswatch / evv so every existing link, call site and Morning Brief
        email keeps working; only the labels and the content moved. EVV still
        lives in the Staffing hub, so it is a frame rather than a copy: two
        correction logs would be worse than one somewhere else. -->
   <div class="fsubbar" id="fsub-scheduling">
-    <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div><div class="fpill" data-tab="hourswatch" onclick="schedGo('hourswatch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Schedule Watch<span class="subtab-badge red" id="swPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara - AI Scheduling Assistant<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div>
     <div class="fpill" data-tab="liveschedule" onclick="switchTab('liveschedule')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Live Schedule</div>
     <div class="fpill" data-tab="evv" onclick="schedGo('evv')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV</div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
@@ -1030,56 +1033,77 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          shift is NOT filling on its own, it becomes a case here — who was
          asked, when, by what channel, what they said, how long it has been
          open, and how it ended. Micro-states, not pending/done. -->
-    <section class="tabpanel" id="tab-hourswatch">
-      <div style="margin-bottom:18px;display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
-        <div style="flex:1 1 420px;">
-          <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Schedule Watch</h2>
-          <div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:70ch;">Is today's schedule happening, and who is not getting the hours they asked for.</div>
-        </div>
-        <a href="scheduling-guide.html#schedwatch" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">How this works &#8599;</a>
+    <!-- ===================== TAB: TEAM BUILDER =====================
+         THE CARE TEAM BUILDER (2026-09-19, her ask: "an actual interactive
+         thing… instead of writing it out on paper"). A week grid of shifts per
+         new client: pencil caregivers in as you call, mark asked / confirmed /
+         declined, move people freely. NOTHING touches AxisCare until the whole
+         puzzle is pieced together and a person confirms the schedules in the
+         preview (Change 4, schedule-push). Plans live in shared app_data
+         staffing_plans. Moved from Schedule Watch to Client Care 2026-10-12
+         (her call). -->
+    <section class="tabpanel" id="tab-teambuilder">
+      <div style="margin-bottom:14px;">
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Team Builder</h2>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:76ch;">Build a client's team on a week grid: pencil caregivers in as you call, then confirm the schedules into AxisCare when the whole team is set.</div>
       </div>
-      <!-- THREE SUB-TABS (2026-09-18, same coordinator-first treatment as
-           Cara): Today = is the schedule happening right now; Missing EVV =
-           the record cleanup; Hours & matching = the planning work. -->
-      <div id="swSubBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;"></div>
-      <!-- LIVE SHIFT WATCH. Renders timekeeper_cases, the ladder record
-           timekeeper-watch maintains. Only recorded events are shown, and
-           minutes late comes from the stored value: AxisCare returns
-           zone-naive timestamps and a browser-side comparison skews by five
-           or six hours. A healthy / starting-soon feed does not exist yet
-           (timekeeper_cases holds problem visits only), so nothing pretends
-           to list the shifts that are going fine. -->
-      <div id="swTodayWrap"><div id="swLive" style="margin-bottom:26px;"></div></div>
+      <div id="swBuilderWrap"><div id="tbRoot"><div class="field-note">Loading…</div></div>
+    </section>
+    <section class="tabpanel" id="tab-coverage">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Cara</h2>
+          <div style="font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--green);margin-top:4px;">AI Scheduling Assistant</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:2px;max-width:760px;">Cara finds coverage for open shifts, watches for missed clock-ins and clock-outs, handles caregiver outreach, and brings your team the decisions that need human judgment.</div>
+          <!-- Status is written by caraRenderCC so it reflects the real gate
+               rather than a hard-coded claim. -->
+          <div id="caraStatus" style="margin-top:7px;"></div>
+        </div>
+        <span style="flex:1;"></span>
+        <!-- straight to AxisCare's Real Time View filtered to unassigned —
+             the authoritative list a case should start from -->
+        <a href="scheduling-guide.html" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;align-self:center;">How this works &#8599;</a>
+        <a href="https://16485.axiscare.com" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;align-self:center;">AxisCare &#8599;</a>
+      </div>
 
-      <!-- MISSING EVV: visits that already ENDED with no clock-in or no
-           clock-out, straight from AxisCare (the same live_schedule read the
-           Live Schedule tab uses). One tap texts the caregiver the signed
-           correction-form link; handled state lives in app_data
-           evv_followups so the whole office sees what's been chased. -->
-      <!-- NEW CLIENTS (moved here from Cara, 2026-09-18): interest checks —
-           text the team about a prospective client's hours and collect every
-           YES for the meeting. The full case workspace renders below via the
-           shared covCaseCard, picker and all. -->
+      <!-- The two things a coordinator comes here to START (moved up from a
+           tiny chip + a buried form, her ask 2026-09-18): a call-off, and a
+           new-client interest check. Both open the same panel in the right
+           mode, directly under these buttons. -->
+      <style>
+        /* The two start buttons: brand colors, outlined (her call, 2026-09-18).
+           Navy for the call-off, teal for the new client; fill on hover. */
+        .cov-cta{background:#fff;border:2px solid var(--navy);color:var(--navy);
+          border-radius:10px;padding:11px 22px;font-size:14.5px;font-weight:800;
+          cursor:pointer;transition:background .12s,color .12s;}
+        .cov-cta:hover{background:var(--navy);color:#fff;}
+        .cov-cta.teal{border-color:var(--teal);color:var(--teal);}
+        .cov-cta.teal:hover{background:var(--teal);color:#fff;}
+      </style>
+      <!-- New-client interest checks start from Cara's New clients sub-tab (back in Cara 2026-10-12, her call). -->
+      <div style="display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap;">
+        <button class="cov-cta" onclick="covOpenAdd('calloff')">📞 Someone's calling off</button>
+      </div>
+
+      <!-- The Open Shifts mirror that used to sit here was REMOVED 2026-09-12
+           at Samantha's request: it duplicated AxisCare (staleness included)
+           and buried the cases this tab exists for. The "Unassigned in
+           AxisCare" button above IS the open-shifts list now. -->
+
+      <!-- The command centre. Every number in it is derived from
+           coverage_cases / asked[] / ops_items at render time; nothing here
+           writes, and no case appears in more than one section. -->
+      <div id="covSubBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;"></div>
+      <!-- What Schedule Watch held (moved here 2026-10-12, her call: "all need to be in Cara"). Each shows only on its
+           own Cara sub-tab: Missed clock-ins & outs, New clients, Hours & matching. The sw* functions draw them as before. -->
+      <div id="swTodayWrap" style="display:none;"><div id="swLive" style="margin-bottom:26px;"></div></div>
       <div id="swNewWrap" style="display:none;">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-          <button class="cov-cta teal" onclick="covOpenAdd('interest')">📣 New client — ask the team</button>
-          <span class="field-note" style="max-width:56ch;">Before the client meeting: who wants the hours, who lives closest, who's free then. Every YES is collected — nobody is assigned anything.</span>
+          <button class="cov-cta teal" onclick="covOpenAdd('interest')">📣 New client: ask the team</button>
+          <span class="field-note" style="max-width:56ch;">Before the client meeting: who wants the hours, who lives closest, who's free then. Every YES is collected, and nobody is assigned anything.</span>
         </div>
         <div id="swNewClientsList"></div>
       </div>
-
-      <!-- THE CARE TEAM BUILDER (2026-09-19, her ask: "an actual interactive
-           thing… instead of writing it out on paper"). A week grid of shifts
-           per new client: pencil caregivers in as you call, mark asked /
-           confirmed / declined, move people freely. NOTHING touches
-           AxisCare until the whole puzzle is pieced together and a person
-           confirms the schedules in the preview (Change 4, schedule-push). Plans live in shared app_data staffing_plans so
-           the whole office sees the same board. -->
-      <div id="swBuilderWrap" style="display:none;"><div id="tbRoot"><div class="field-note">Loading…</div></div></div>
-
-      <!-- Missing EVV moved wholesale to the EVV tab (her call, 2026-09-18):
-           one home for the whole pipeline. The swEvv* functions live on,
-           painting the EVV tab's missing board. -->
       <div id="swHoursWrap" style="display:none;">
       <div id="ssRoot"></div><!-- Where we can staff this week (staffing-sheet.js, Referral Partner Desk Step 4, 2026-10-08) -->
       <!-- The quiet-quit radar + care-gap watch (her picks #7+#8) and the
@@ -1109,54 +1133,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div id="hwStateWrap" style="margin:0 0 12px;"><span class="cara-mono" id="hwState"></span></div>
       <div id="hwList"><div style="font-size:13.5px;color:var(--text-muted);">Open this tab and hit Refresh to load.</div></div>
       </div>
-    </section>
-    <section class="tabpanel" id="tab-coverage">
-      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-        <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Cara</h2>
-          <div style="font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--green);margin-top:4px;">Scheduling Assistant</div>
-          <div class="field-note" style="font-size:13.5px;margin-top:2px;max-width:760px;">Cara finds coverage for open shifts, handles caregiver outreach, and brings your team the decisions that need human judgment.</div>
-          <!-- Status is written by caraRenderCC so it reflects the real gate
-               rather than a hard-coded claim. -->
-          <div id="caraStatus" style="margin-top:7px;"></div>
-        </div>
-        <span style="flex:1;"></span>
-        <!-- straight to AxisCare's Real Time View filtered to unassigned —
-             the authoritative list a case should start from -->
-        <a href="scheduling-guide.html" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;align-self:center;">How this works &#8599;</a>
-        <a href="https://16485.axiscare.com" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;align-self:center;">AxisCare &#8599;</a>
-      </div>
-
-      <!-- The two things a coordinator comes here to START (moved up from a
-           tiny chip + a buried form, her ask 2026-09-18): a call-off, and a
-           new-client interest check. Both open the same panel in the right
-           mode, directly under these buttons. -->
-      <style>
-        /* The two start buttons: brand colors, outlined (her call, 2026-09-18).
-           Navy for the call-off, teal for the new client; fill on hover. */
-        .cov-cta{background:#fff;border:2px solid var(--navy);color:var(--navy);
-          border-radius:10px;padding:11px 22px;font-size:14.5px;font-weight:800;
-          cursor:pointer;transition:background .12s,color .12s;}
-        .cov-cta:hover{background:var(--navy);color:#fff;}
-        .cov-cta.teal{border-color:var(--teal);color:var(--teal);}
-        .cov-cta.teal:hover{background:var(--teal);color:#fff;}
-      </style>
-      <!-- New-client interest checks moved to Schedule Watch > New clients
-           (her call, 2026-09-18): Cara is coverage; matching prospective
-           clients is Schedule Watch's job. -->
-      <div style="display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap;">
-        <button class="cov-cta" onclick="covOpenAdd('calloff')">📞 Someone's calling off</button>
-      </div>
-
-      <!-- The Open Shifts mirror that used to sit here was REMOVED 2026-09-12
-           at Samantha's request: it duplicated AxisCare (staleness included)
-           and buried the cases this tab exists for. The "Unassigned in
-           AxisCare" button above IS the open-shifts list now. -->
-
-      <!-- The command centre. Every number in it is derived from
-           coverage_cases / asked[] / ops_items at render time; nothing here
-           writes, and no case appears in more than one section. -->
-      <div id="covSubBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;"></div>
       <div id="caraCC"></div>
 
       <!-- Since 2026-09-18 the opener is a MODAL (her call: the inline card
@@ -7711,7 +7687,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','hourswatch','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard','teambuilder'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8118,7 +8094,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
-  coverage:'Cara', hourswatch:'Schedule Watch', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
+  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Team Builder', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -8259,6 +8235,9 @@ const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:
 const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews', statesubs:'State submissions' };
 function switchTab(tab){
   tab=GOTO_ALIAS[tab]||tab;
+  /* Schedule Watch is gone (2026-10-12, her call): every old link lands on Cara's Missed clock-ins & outs; a caller
+     that wanted another part follows with swSubGo, which moves on to New clients, Hours & matching or Team Builder. */
+  if(tab==='hourswatch'){ tab='coverage'; try{ COV_SUB='clockins'; }catch(e){} }
   if(CC_RETIRED_TABS[tab]){ const f=CC_RETIRED_FILTER[tab], to=CC_RETIRED_TABS[tab];
     if(f&&to==='leadsstarts'&&typeof LS!=='undefined') LS.filter=f; else if(f&&typeof CL!=='undefined') CL.filter=f; tab=to; }
   /* 2026-10-03: the Hub Settings link (GoHighLevel menu, cc.mo-care.com/#settings) opens the page before the roles are
@@ -8344,7 +8323,7 @@ function renderActiveTab(){
   if(activeTab==='apjourney') apjOpen();
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); }
-  if(activeTab==='hourswatch'){ swRenderAll(); }
+  if(activeTab==='teambuilder'){ tbRender(); }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today'){ renderToday(); if(typeof dkDashRender==='function') dkDashRender(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
@@ -10069,7 +10048,7 @@ async function cpRenderTeam(){
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Care team plan</b></div>'
     +(plan?'<div id="cp_tb"></div>'
       :'<div class="field-note">No Team Builder plan is linked to this family yet. Start one in Team Builder and use "Link to a Journey" on the board; it will then show here.</div>'
-        +'<button class="secondary" style="margin-top:8px;" onclick="switchTab(\'hourswatch\');swSubGo(\'builder\');">Open Team Builder</button>')
+        +'<button class="secondary" style="margin-top:8px;" onclick="switchTab(\'teambuilder\');">Open Team Builder</button>')
     +'</div>'
     +'<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">📞 Care Match calls</b><span style="flex:1;"></span>'
@@ -27556,7 +27535,7 @@ function obligationOpenAction(it){
         +'<span class="field-note">The Hub never calls or texts the family itself.</span></div>';
       if(it.kind==='evv_review') return '<div style="margin-top:6px;">'+b("switchTab('cgattendance')",'Open Attendance')
         +'<span class="field-note" style="margin-left:8px;">Mark Done when you have reviewed each one.</span></div>';
-      if(it.kind==='evv_fix') return '<div style="margin-top:6px;">'+b("switchTab('hourswatch')",'Open Missing EVV')
+      if(it.kind==='evv_fix') return '<div style="margin-top:6px;">'+b("switchTab('evv')",'Open Missing EVV')
         +'<span class="field-note" style="margin-left:8px;">Mark Done once the clock-in is fixed in AxisCare.</span></div>';
     }
     if(it && it.kind==='new_lead' && it.source_id && (DATA.leads||[]).some(l=>String(l.id)===String(it.source_id))){
@@ -35196,12 +35175,16 @@ function covRenderSubBar(S){
   const bar=document.getElementById('covSubBar'); if(!bar) return;
   const ongoingN=S.open.filter(covIsOngoing).length;
   const calloffN=S.open.length-ongoingN;
-  if(COV_SUB==='newclients') COV_SUB='today';   // that sub moved to Schedule Watch
   const dnoN=(DATA.coverage_do_not_offer||[]).filter(dnoActive).length;
+  const newN=(DATA.coverage_cases||[]).filter(c=>c&&c.status==='open'&&String(c.kind)==='interest').length;
+  /* Schedule Watch's parts live here since 2026-10-12 (her call). */
   const tabs=[
     ['today','\u26a1 Today',S.needs.length,'red'],
+    ['clockins','\u23f0 Missed clock-ins & outs',swClockinN(),'red'],
     ['calloffs','\ud83d\udcf5 Call-offs & open shifts',calloffN,''],
     ['ongoing','\ud83d\udd01 Ongoing shifts',ongoingN,''],
+    ['newclients','\ud83d\udce3 New clients',newN,''],
+    ['hours','\ud83d\udcca Hours & matching',0,''],
     ['dno','\ud83d\udd15 No shift texts',dnoN,''],
     ['history','\ud83d\uddc2 History',0,''],
   ];
@@ -35258,9 +35241,9 @@ function caraRenderCC(){
 
   covRenderSubBar(S);
 
-  /* The red pill badge counts what needs a PERSON, whatever sub-tab shows. */
-  const b=document.getElementById('covPillBadge2');
-  if(b){ b.style.display=S.needs.length?'inline-block':'none'; b.textContent=S.needs.length; }
+  /* The red pill badge counts what needs a PERSON, whatever sub-tab shows: Cara's decisions and missed clock-ins & outs. */
+  const b=document.getElementById('covPillBadge2'), needN=S.needs.length+swClockinN();
+  if(b){ b.style.display=needN?'inline-block':'none'; b.textContent=needN; }
   if(CARA_PENDING_CASE){
     const want=CARA_PENDING_CASE;
     if((DATA.coverage_cases||[]).some(x=>x&&x.id===want)){ CARA_PENDING_CASE=''; caraShowCase(want); return; }
@@ -35378,13 +35361,11 @@ let CARA_PENDING_CASE='';
 function caraShowCase(id){
   const c=(DATA.coverage_cases||[]).find(x=>x&&x.id===id);
   if(!c){ CARA_PENDING_CASE=id; return; }
-  /* Land on the case's home: interest checks live on Schedule Watch's New
-     clients sub-tab; everything else on its Cara sub-tab. */
+  /* Land on the case's home: interest checks live on Cara's New clients
+     sub-tab; everything else on its own Cara sub-tab. */
   if(String(c.kind)==='interest'){
-    if(typeof activeTab!=='undefined'&&activeTab!=='hourswatch') switchTab('hourswatch');
-    SW_SUB='newclients'; try{ localStorage.setItem('cch_swsub','newclients'); }catch(e){}
     COV_EXPANDED.add(id);
-    swRenderAll();
+    swSubGo('newclients');
     setTimeout(function(){
       var el=document.getElementById('covcase_'+id);
       if(el&&el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'center'});
@@ -35421,7 +35402,7 @@ function caraOpenCase(id){
    applyHash re-enters the same path and the panel renders twice. Replacement
    also keeps simple tab switching out of browser history, while a real deep
    link (a case, history, a shift) still arrives as its own entry. */
-var SCHED_CANON={ coverage:'#cara', hourswatch:'#schedwatch', evv:'#evv' };
+var SCHED_CANON={ coverage:'#cara', hourswatch:'#cara', evv:'#evv' };
 function schedGo(tab){
   if(tab==='coverage'){
     CARA_PENDING_CASE='';
@@ -35708,31 +35689,21 @@ function swBanner(S){
 }
 /* ── SCHEDULE WATCH SUB-TABS (2026-09-18, same coordinator-first treatment
    as Cara): Today / Missing EVV / Hours & matching. ─────────────────────── */
-let SW_SUB=(function(){ try{ return localStorage.getItem('cch_swsub')||'today'; }catch(e){ return 'today'; } })();
-function swSubGo(s){ SW_SUB=s; try{ localStorage.setItem('cch_swsub',s); }catch(e){} swRenderAll(); }
-function swRenderBar(){
-  var bar=document.getElementById('swSubBar'); if(!bar) return;
-  var openN=(DATA.timekeeper_cases||[]).filter(function(l){ return l&&l.kind!=='clock_out'&&!l.resolved_at; }).length;
-  if(SW_SUB==='evv') SW_SUB='today';   // Missing EVV lives on the EVV tab now
-  var newN=(DATA.coverage_cases||[]).filter(function(c){ return c&&c.status==='open'&&String(c.kind)==='interest'; }).length;
-  var planN=(DATA.staffing_plans||[]).filter(function(p){ return p&&p.status!=='done'; }).length;
-  var tabs=[['today','⚡ Today',openN,'red'],['newclients','📣 New clients',newN,''],['builder','🧩 Team builder',planN,''],['hours','📊 Hours & matching',null,'']];
-  bar.innerHTML=tabs.map(function(t){
-    return '<button class="fb'+(SW_SUB===t[0]?' active':'')+'" onclick="swSubGo(\''+t[0]+'\')">'+t[1]
-      +(t[2]?' <span style="background:'+(t[3]==='red'?'var(--red)':'var(--slate-bg)')+';color:'+(t[3]==='red'?'#fff':'var(--navy)')+';border-radius:999px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:4px;">'+t[2]+'</span>':'')
-      +'</button>';
-  }).join('');
+/* Schedule Watch is gone (2026-10-12, her call). SW_SUB now only says which of its parts Cara is showing
+   ('today' = Missed clock-ins & outs, 'newclients', 'hours'; '' = none); renderCoverage sets it. swSubGo and
+   swRenderAll stay as the way every old caller reaches those parts, and Team Builder ('builder'). */
+let SW_SUB='';
+const SW_TO_COV={today:'clockins',newclients:'newclients',hours:'hours'};
+function swSubGo(s){
+  if(s==='builder'){ if(activeTab!=='teambuilder') switchTab('teambuilder'); else tbRender(); return; }
+  COV_SUB=SW_TO_COV[s]||'clockins'; try{ localStorage.setItem('cch_covsub',COV_SUB); }catch(e){}
+  if(activeTab!=='coverage') switchTab('coverage'); else renderCoverage();
 }
+function swClockinN(){ return (DATA.timekeeper_cases||[]).filter(function(l){ return l&&l.kind!=='clock_out'&&!l.resolved_at; }).length; }
+function swRenderBar(){ if(typeof caraRenderCC==='function'&&activeTab==='coverage') covRenderSubBar(caraSections()); }
 function swRenderAll(){
-  swRenderBar();
-  var show=function(id,on){ var el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
-  show('swTodayWrap',SW_SUB==='today');
-  show('swNewWrap',SW_SUB==='newclients'); show('swHoursWrap',SW_SUB==='hours');
-  show('swBuilderWrap',SW_SUB==='builder');
-  if(SW_SUB==='today'){ swRenderLive(); swAutoRefreshArm(); }
-  else if(SW_SUB==='newclients'){ swRenderNewClients(); }
-  else if(SW_SUB==='builder'){ tbRender(); }
-  else { hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad(); try{ if(typeof ssPaint==='function'){ ssPaint(); ssLoad(); } }catch(e){} }
+  if(activeTab==='teambuilder'){ tbRender(); return; }
+  if(activeTab==='coverage') renderCoverage();
 }
 /* ── RETENTION RADAR + CARE-GAP WATCH + AVAILABILITY FRESHNESS ─────────── */
 let HW_TRENDS={data:null,at:0,loading:false};
@@ -35790,7 +35761,7 @@ function hwRadarRender(){
    coverage board uses — picker, yes collection, everything. */
 function swRenderNewClients(){
   var box=document.getElementById('swNewClientsList'); if(!box) return;
-  if(typeof activeTab!=='undefined'&&activeTab!=='hourswatch') return;
+  if(typeof activeTab!=='undefined'&&activeTab!=='coverage') return;
   if(SW_SUB!=='newclients') return;
   var list=(DATA.coverage_cases||[]).filter(function(c){ return c&&String(c.kind)==='interest'; })
     .sort(function(a,b){ return String(b.opened_at||'').localeCompare(String(a.opened_at||'')); });
@@ -35811,7 +35782,7 @@ function swAutoRefreshArm(){
   if(SW_REFRESH_T) return;
   SW_REFRESH_T=setInterval(async function(){
     try{
-      if(typeof activeTab==='undefined'||activeTab!=='hourswatch'||SW_SUB!=='today'||document.hidden) return;
+      if(typeof activeTab==='undefined'||activeTab!=='coverage'||SW_SUB!=='today'||document.hidden) return;
       var r=await sb.from('app_data').select('data').eq('key','timekeeper_cases').maybeSingle();
       if(r&&r.data&&Array.isArray(r.data.data)){ DATA.timekeeper_cases=r.data.data; swRenderLive(); swRenderBar(); }
     }catch(e){}
@@ -36721,7 +36692,7 @@ async function swFragLoad(){
     SW_FRAG.data=(r.ok&&d&&!d.error)?d:{error:(d&&d.error)||('answered '+r.status)};
   }catch(e){ SW_FRAG.data={error:String(e.message||e)}; }
   SW_FRAG.at=Date.now(); SW_FRAG.loading=false;
-  if(typeof activeTab!=='undefined'&&activeTab==='hourswatch'&&SW_SUB==='today') swRenderLive();
+  if(typeof activeTab!=='undefined'&&activeTab==='coverage'&&SW_SUB==='today') swRenderLive();
 }
 function swFragHtml(){
   if(!SW_FRAG.data&&!SW_FRAG.loading&&Date.now()-SW_FRAG.at>30*60000) swFragLoad();
@@ -36856,7 +36827,8 @@ function swFindCoverage(id){
 }
 
 function swOpenShift(id){
-  if(activeTab!=='hourswatch') switchTab('hourswatch');
+  COV_SUB='clockins';
+  if(activeTab!=='coverage') switchTab('coverage');
   try{ history.replaceState(null,'','#schedwatch/shift/'+encodeURIComponent(id)); }catch(e){}
   SW_PENDING=id;
   SW_SUB='today'; try{ localStorage.setItem('cch_swsub','today'); }catch(e){}
@@ -37507,11 +37479,9 @@ async function covAdd(){
   ['covClient','covTime','covNote','covTownZip','covStart','covEnd'].forEach(i=>{ const el=document.getElementById(i); if(el) el.value=''; });
   document.querySelectorAll('[data-covday].active').forEach(b=>b.classList.remove('active'));
   if(c.kind==='interest'){
-    /* Interest checks live on Schedule Watch > New clients — land there. */
+    /* Interest checks live on Cara > New clients: land there. */
     covShowAdd(false);
-    if(typeof activeTab!=='undefined'&&activeTab!=='hourswatch') switchTab('hourswatch');
-    SW_SUB='newclients'; try{ localStorage.setItem('cch_swsub','newclients'); }catch(e){}
-    swRenderAll();
+    swSubGo('newclients');
     return;
   }
   covShowAdd(false);
@@ -38334,7 +38304,19 @@ function renderCoverage(){
   cipEnsureForCases();
   caraRenderCC();
   const box=document.getElementById('covList'); if(!box) return;
-  try{ swRenderNewClients(); }catch(e){}   // the New clients workspace lives on Schedule Watch now
+  /* Schedule Watch's parts, on their own Cara sub-tabs (2026-10-12): only one of them shows at a time, and the
+     board's own lists step aside for it. */
+  const sw={clockins:'today',newclients:'newclients',hours:'hours'}[COV_SUB]||'';
+  SW_SUB=sw;
+  const show=(id,on)=>{ const el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
+  show('swTodayWrap',sw==='today'); show('swNewWrap',sw==='newclients'); show('swHoursWrap',sw==='hours'); show('caraCC',!sw);
+  if(sw){
+    box.innerHTML='';
+    if(sw==='today'){ swRenderLive(); swAutoRefreshArm(); }
+    else if(sw==='newclients'){ swRenderNewClients(); }
+    else { hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad(); try{ if(typeof ssPaint==='function'){ ssPaint(); ssLoad(); } }catch(e){} }
+    return;
+  }
   if(COV_SUB==='today'){ box.innerHTML=''; return; }   // Today lives in #caraCC
   let list=(DATA.coverage_cases||[]).slice().sort((a,b)=>(b.opened_at||'').localeCompare(a.opened_at||''));
   /* Each sub-tab IS its section (2026-09-18): one kind of work per screen.
@@ -39093,7 +39075,7 @@ function famGo(kind, id, tab){
   if(kind==='assessment'){ const a=(DATA.care_assessments||[]).find(x=>x.id===id)||{}, l=a.lead_id?(DATA.leads||[]).find(x=>x.id===a.lead_id):null;
     (async()=>{ await asmtToProfile(l, a.axiscare_client_id); openAssessmentModal(id); })(); return; }
   if(kind==='launch'){ openClient({ launch_id:id }, 'start'); return; }
-  if(kind==='plan'){ switchTab('hourswatch'); swSubGo('builder'); tbOpen(id); return; }
+  if(kind==='plan'){ switchTab('teambuilder'); tbOpen(id); return; }
   if(kind==='family'){
     /* R4: circles live on the client's profile; one not linked to a client yet is in Needs Attention */
     (async()=>{ try{ if(typeof fcLoad==='function') await fcLoad(); }catch(e){}
@@ -41534,7 +41516,7 @@ window.covLoadShifts=function(){};
                         performance:'cgdir', cg360:'cgdir',
                         cara:'coverage', 'coverage-help':'coverage',
                         schedwatch:'hourswatch', 'schedule-watch':'hourswatch',
-                        'hours-watch':'hourswatch' };
+                        'hours-watch':'hourswatch', 'team-builder':'teambuilder' };
   /* Direct routes to a single record, so a GHL workflow alert can land a
      coordinator on the exact decision Cara needs:
        #cara/case/<caseId>   #cara/history   #schedwatch/shift/<ladderId>
@@ -41578,7 +41560,7 @@ window.covLoadShifts=function(){};
         return true;
       }
       if(head==='schedwatch'||head==='hourswatch'||head==='schedule-watch'){
-        if(String(seg[1]||'').toLowerCase()==='shift'&&seg[2]){ switchTab('hourswatch');
+        if(String(seg[1]||'').toLowerCase()==='shift'&&seg[2]){ try{ COV_SUB='clockins'; }catch(e){} switchTab('coverage');
           var lid=decodeURIComponent(seg.slice(2).join('/'));
           if(typeof SW_PENDING!=='undefined'){ SW_PENDING=lid; }
           if(typeof swRenderLive==='function') swRenderLive(); return true; }
@@ -41599,7 +41581,8 @@ window.covLoadShifts=function(){};
          above and set their own filter, so this never runs for them. */
       if(h==='coverage' && typeof caraSetOpenBoard==='function') caraSetOpenBoard();
       try{
-        if(typeof CC_GROUPS!=='undefined' && CC_GROUPS[h]){ ccGroupClick(h); ok=true; }
+        if(h==='hourswatch'){ switchTab('hourswatch'); ok=true; }   /* Schedule Watch is gone: switchTab lands it on Cara */
+        else if(typeof CC_GROUPS!=='undefined' && CC_GROUPS[h]){ ccGroupClick(h); ok=true; }
         else if(typeof CC_RETIRED_TABS!=='undefined' && CC_RETIRED_TABS[h]){ switchTab(h); ok=true; }   /* a retired list: its board and filter */
         else if(document.getElementById('tab-'+h)){ switchTab(h); ok=true; }
       }catch(e){}
@@ -41748,7 +41731,7 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
    (directory + full profile), Caregiver 360, and the lead / applicant /
    referral-partner profile views.
    ====================================================== */
-#tab-coverage, #tab-hourswatch, #tab-evv,
+#tab-coverage, #tab-teambuilder, #tab-evv,
 #tab-cgdir, #leadProfileView, #applicantProfileView, #refProfileView{
   --navy:#12395F; --navy-2:#2C4462;
   --border:#EAE3D6;
@@ -41768,13 +41751,13 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
      desktop, 12px under 720px) or the panel overflows its container. */
   margin:0 -26px; padding:18px 26px 26px;
 }
-#tab-coverage .card, #tab-hourswatch .card, #tab-evv .card,
+#tab-coverage .card, #tab-teambuilder .card, #tab-evv .card,
 #tab-cgdir .card, #leadProfileView .card, #applicantProfileView .card, #refProfileView .card{
   border-radius:16px; box-shadow:var(--cara-shadow); border-color:var(--border);
 }
-#tab-coverage h2, #tab-hourswatch h2, #tab-evv h2,
+#tab-coverage h2, #tab-teambuilder h2, #tab-evv h2,
 #tab-cgdir h2, #leadProfileView h2, #applicantProfileView h2, #refProfileView h2{ font-size:25px; }
-#tab-coverage .field-note, #tab-hourswatch .field-note, #tab-evv .field-note,
+#tab-coverage .field-note, #tab-teambuilder .field-note, #tab-evv .field-note,
 #tab-cgdir .field-note, #leadProfileView .field-note, #applicantProfileView .field-note, #refProfileView .field-note{ color:var(--text-muted); }
 
 /* mono role: timestamps, AxisCare IDs, source strip */
@@ -41824,11 +41807,11 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 .cara-gap.b1{ background:var(--green-bg); border:1px solid var(--teal-line); color:var(--green); }
 
 /* buttons inside the scope */
-#tab-coverage .cara-btn, #tab-hourswatch .cara-btn, #tab-evv .cara-btn,
+#tab-coverage .cara-btn, #tab-teambuilder .cara-btn, #tab-evv .cara-btn,
 #tab-cgdir .cara-btn, #leadProfileView .cara-btn, #applicantProfileView .cara-btn, #refProfileView .cara-btn{
   background:var(--navy); color:#fff; border:none; border-radius:10px;
   padding:11px 18px; font-size:14px; font-weight:700; font-family:inherit; cursor:pointer; }
-#tab-coverage .cara-btn.ghost, #tab-hourswatch .cara-btn.ghost, #tab-evv .cara-btn.ghost,
+#tab-coverage .cara-btn.ghost, #tab-teambuilder .cara-btn.ghost, #tab-evv .cara-btn.ghost,
 #tab-cgdir .cara-btn.ghost, #leadProfileView .cara-btn.ghost, #applicantProfileView .cara-btn.ghost, #refProfileView .cara-btn.ghost{
   background:#fff; color:var(--navy); border:1px solid var(--cream-line); }
 
@@ -41840,7 +41823,7 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
   padding:11px 18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 
 @media(max-width:720px){
-  #tab-coverage, #tab-hourswatch, #tab-evv,
+  #tab-coverage, #tab-teambuilder, #tab-evv,
   #tab-cgdir, #leadProfileView, #applicantProfileView, #refProfileView{ margin:0 -12px; padding:14px 12px 22px; }
   .cara-metric .v{ font-size:30px; }
   .cara-gap{ min-width:0; }
