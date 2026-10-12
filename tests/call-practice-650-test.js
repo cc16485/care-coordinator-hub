@@ -18,9 +18,9 @@ const ROWS = [
 ];
 function make(settings, rows, err) {
   const Q = [];
-  const sb = { from: (tb) => { const q = { tb, f: [] }; Q.push(q); const p = { select() { return p }, gte(k, v) { q.f.push(['gte', k, v]); return p }, order() { return p }, limit() { return p },
+  const sb = { from: (tb) => { const q = { tb, f: [] }; Q.push(q); const p = { select() { return p }, gte(k, v) { q.f.push(['gte', k, v]); return p }, eq() { return p }, order() { return p }, limit() { return p },
     insert() { q.write = true; return p }, update() { q.write = true; return p }, delete() { q.write = true; return p }, upsert() { q.write = true; return p },
-    then(ok) { return Promise.resolve(err ? { data: null, error: { message: err } } : { data: rows, error: null }).then(ok) } }; return p }, rpc() { Q.push({ rpc: true }); return Promise.resolve({}) } };
+    then(ok) { const d = tb === 'op_events' ? (globalThis.__EVENTS || []) : tb === 'call_record' ? (globalThis.__OUTCOMES || []) : rows; return Promise.resolve(err && tb === 'call_task_reading' ? { data: null, error: { message: err } } : { data: d, error: null }).then(ok) } }; return p }, rpc() { Q.push({ rpc: true }); return Promise.resolve({}) } };
   const ctx = { DATA: { ops_settings: settings, ops_items: [
       { id: 'ops_mv4nasn0', about: 'Steve Algiere', opened_by: 'person', created_by: 'Samantha Troutman', created_at: '2026-10-12T02:41:02.076Z', title: 'Schedule Angiel for 2-3 hours with Steve sometime this week or next week, he needs a ride to the DMV' },
       { id: 'ops_job', about: 'Steve Algiere', opened_by: 'cara', created_by: 'coverage-run', created_at: '2026-10-12T01:00:00Z', title: 'A job card' },
@@ -32,7 +32,7 @@ function make(settings, rows, err) {
   // ── the tab wiring in index.html ──
   ck('My Work offers the tab only while practice is on (via CPR.offered)', /if\(window\.CPR && CPR\.offered\(\)\) t\.push\(\['callpractice','Call follow-ups \(practice\)'\]\);/.test(html));
   ck('the tab draws through CPR.render and nothing else', /if\(MYWORK_TAB==='callpractice'\)\{ wrap\.innerHTML=''; if\(window\.CPR\) CPR\.render\(wrap\); return; \}/.test(html));
-  ck('the page loads call-practice.js (v2) after desk.js', html.indexOf('<script src="call-practice.js?v=2"></script>') > html.indexOf('<script src="desk.js?v='));
+  ck('the page loads call-practice.js (v3) after desk.js', html.indexOf('<script src="call-practice.js?v=3"></script>') > html.indexOf('<script src="desk.js?v='));
   let { ctx } = make({ call_tasks_practice: false }, ROWS);
   ck('switch off: the tab is not offered', ctx.CPR.offered() === false);
   ({ ctx } = make({ call_tasks_practice: true }, ROWS));
@@ -44,19 +44,42 @@ function make(settings, rows, err) {
   const h = wrap.innerHTML;
   ck('it says plainly this is practice: in nobody\'s work, creates and sends nothing', /<b style="color:#8A5A00;">Practice\.<\/b> These cards are not in anyone's work/.test(h) && /Nothing here creates, changes or sends anything/.test(h), h.slice(0, 400));
   ck('it reads the last 7 days from call_task_reading, and never writes', Q.some((q) => q.tb === 'call_task_reading' && q.f.some((f) => f[1] === 'call_at')) && !Q.some((q) => q.write || q.rpc), JSON.stringify(Q));
-  ck('the headline: 4 calls read, 2 cards it would have made, 1 made by people', /<b>4<\/b> calls read, <b>2<\/b> cards it would have made, <b>1<\/b> made by people/.test(h), h.slice(0, 900));
+  ck('the headline: 4 calls read, 2 cards it would have made, 1 made by people', /<b>4<\/b> calls read · <b>2<\/b> cards it would have made/.test(h) && /<b>1<\/b> cards people made for the same people within a day/.test(h), h.slice(0, 900));
   ck('Steve\'s call: his name and role from the identity layer, we called, 2 min 16 s', /Steve Algiere \(client\)/.test(h) && /we called · 2 min 16 s/.test(h), h);
-  ck('the would-be card: title, reason, Scheduling, due Fri, Oct 16', /Schedule Angiel 2-3 hours with Steve this week: DMV trip for his new license/.test(h) && /Scheduling · due Fri, Oct 16/.test(h), h);
+  ck('an older reading still shows its card: title, reason, owner line, due Fri, Oct 16', /Schedule Angiel 2-3 hours with Steve this week: DMV trip for his new license/.test(h) && /<b>Due:<\/b> Fri, Oct 16/.test(h) && /Scheduling/.test(h), h);
   ck('beside it, the card Samantha made by hand (a job\'s card and a card two days later are not counted)', /Schedule Angiel for 2-3 hours with Steve sometime this week or next week/.test(h) && /\(Samantha, /.test(h) && !/A job card|Two days later/.test(h), h);
-  ck('the voicemail card shows it was answered by the later call at 6:37 pm', /Call Steve Algiere back about arranging a ride/.test(h) && /Answered by the later call at Sun, Oct 11, 6:37/.test(h) && /from a voicemail/.test(h), h);
+  ck('the voicemail card shows it was answered by the later call at 6:37 pm', /Call Steve Algiere back about arranging a ride/.test(h) && /Answered by the later call at Sun, Oct 11, 6:37/.test(h), h);
   ck('a call with no card says why; a call that could not be read says so', /No card: nothing left to do\./.test(h) && /Could not read this call: the model declined this call/.test(h), h);
   ck('unknown and shared numbers are labelled, and text from the database is escaped', /\(not in our records\)/.test(h) && /\(shared number\)/.test(h) && !/<b>X<\/b>/.test(h) && /&lt;b&gt;X/.test(h), h);
-  ck('there are no buttons that could act (only Refresh)', !/<button|onclick="(?!CPR\.refresh)/.test(h), h.match(/<button[^>]*>|onclick="[^"]*"/g));
+  ck('there are no buttons that could act (only Refresh and the read-only view filters)', !/<button|onclick="(?!CPR\.(refresh|setFilter))/.test(h), h.match(/<button[^>]*>|onclick="[^"]*"/g));
   const OLD = Object.assign({}, ROWS[0], { read_at: '2026-10-12T15:50:00Z', tasks: [{ title: 'OLD READING card', why: '', area: 'scheduling', due: '', add_to_card_id: '' }] });
   const NEW = Object.assign({}, ROWS[0], { read_at: '2026-10-12T17:00:00Z' });
   const { ctx: c4 } = make({ call_tasks_practice: true }, [OLD, NEW, ROWS[2]]);
   const w4 = { innerHTML: '' }; c4.CPR.render(w4); await new Promise((r) => setTimeout(r, 20)); c4.CPR.render(w4);
   ck('a call read twice (old and new reader) shows once, with its newest reading', !/OLD READING card/.test(w4.innerHTML) && /<b>2<\/b> calls read/.test(w4.innerHTML) && (w4.innerHTML.match(/DMV trip for his new license/g) || []).length === 1, w4.innerHTML.slice(0, 700));
+  // ── v7 readings: summary, understanding, promises, every responsibility with its decision, owner, urgency, due, why; and what the team did ──
+  const V7 = [Object.assign({}, ROWS[0], { read_at: '2026-10-12T18:00:00Z', person_id: 'a4b0', version: 'v7-2026-10-12',
+    tasks: [{ title: 'Schedule Angiel 2-3 hours with Steve this week: DMV trip', why: 'He will call Monday to confirm.', area: 'scheduling', due: '2026-10-16', urgency: 'this_week', owner: { name: 'Samantha Troutman', via: 'on the Staffing seat at that hour' } }],
+    detail: { summary: 'Steve needs a ride to the DMV this week.', about: 'Steve Algiere, client', understood: ['License expired', 'Wants Angiel'],
+      commitments: [{ what: 'Steve will call Monday to confirm', kind: 'caller_will', when: 'Monday' }, { what: 'We will work out a time', kind: 'we_agreed', when: 'this week' }],
+      items: [{ responsibility: 'Arrange the DMV trip', decision: 'new_card', workflow: '', card_id: '', title: 'Schedule Angiel 2-3 hours with Steve this week: DMV trip', why: 'He will call Monday to confirm.', area: 'scheduling', urgency: 'this_week', due: '2026-10-16', reason: 'We agreed and nobody has it.', owner: { name: 'Samantha Troutman', via: 'on the Staffing seat at that hour' } },
+        { responsibility: 'Wait for his confirmation', decision: 'caller_owns', workflow: '', card_id: '', title: '', why: '', area: 'scheduling', urgency: 'routine', due: '', reason: 'He said he will call.' },
+        { responsibility: 'Cover Tanya\'s 9am', decision: 'already_in_workflow', workflow: 'call-off case', card_id: '', title: '', why: '', area: 'scheduling', urgency: 'now', due: '', reason: 'The call-off case has it.' }] } }),
+    Object.assign({}, ROWS[2], { read_at: '2026-10-12T18:00:00Z', tasks: [{ title: 'Check Kristie pay', area: 'payroll', urgency: 'today', owner: { name: 'Samantha Troutman', via: 'owns money and approvals' } }], detail: { items: [{ responsibility: 'Pay', decision: 'new_card', title: 'Check Kristie pay', area: 'payroll', urgency: 'today', reason: 'r', owner: { name: 'Samantha Troutman', via: 'owns money and approvals' } }] } })]
+  globalThis.__EVENTS = [{ at: '2026-10-12T00:10:00Z', actor_name: 'Krystal Land', actor_kind: 'person', verb: 'visit_changed', summary: 'Krystal changed a visit for Steve Algiere', item_id: '' }, { at: '2026-10-20T00:10:00Z', actor_name: 'Krystal', actor_kind: 'person', verb: 'x', summary: 'Steve Algiere much later', item_id: '' }]
+  globalThis.__OUTCOMES = [{ recorded_at: '2026-10-11T23:40:00Z', kind: 'outcome', outcome: 'Schedule Change', person_id: 'a4b0' }]
+  const { ctx: c7 } = make({ call_tasks_practice: true }, V7);
+  const w7 = { innerHTML: '' }; c7.CPR.render(w7); await new Promise((r) => setTimeout(r, 20)); c7.CPR.render(w7);
+  const h7 = w7.innerHTML
+  ck('v7: the call summary and what it understood are shown', /<b>The call:<\/b> Steve needs a ride to the DMV this week\./.test(h7) && /WHAT IT UNDERSTOOD/.test(h7) && /<li>License expired<\/li>/.test(h7), h7.slice(0, 900))
+  ck('v7: the promises are told apart (Caller will / We agreed) with when', /Caller will<\/span> Steve will call Monday to confirm <span class="field-note">\(Monday\)/.test(h7) && /We agreed<\/span> We will work out a time/.test(h7), h7)
+  ck('v7: the proposed card shows its owner (and why that person), due date, urgency and the reason', /New card/.test(h7) && /<b>Owner:<\/b> Samantha Troutman <span style="color:var\(--muted\);">\(on the Staffing seat at that hour\)/.test(h7) && /<b>Due:<\/b> Fri, Oct 16/.test(h7) && /This week/.test(h7) && /<b>Why:<\/b> We agreed and nobody has it\./.test(h7), h7)
+  ck('v7: jobs that need no card are shown with why: the caller\'s to do, and already in a workflow (and where)', /The caller&#39;s to do|The caller's to do/.test(h7) && /<b>Why:<\/b> He said he will call\./.test(h7) && /Already in a workflow/.test(h7) && /<b>Where:<\/b> call-off case/.test(h7), h7)
+  ck('v7: what the team did, including work done without a card (a Hub action that names him; the call outcome tapped); nothing from days later', /Krystal Land: Krystal changed a visit for Steve Algiere/.test(h7) && /Call outcome tapped: Schedule Change/.test(h7) && !/much later/.test(h7), h7)
+  ck('v7: the headline counts the jobs found already handled', /<b>1<\/b> jobs it found already handled/.test(h7), h7.slice(0, 900))
+  c7.CPR.setFilter('urgent'); const w7u = { innerHTML: '' }; c7.CPR.render(w7u)
+  ck('v7: the Urgent view shows only calls with a now or today card', /Check Kristie pay/.test(w7u.innerHTML) && !/DMV trip/.test(w7u.innerHTML), w7u.innerHTML.slice(0, 600))
+  c7.CPR.setFilter('all'); globalThis.__EVENTS = []; globalThis.__OUTCOMES = []
   const { ctx: c3 } = make({ call_tasks_practice: true }, null, 'relation "public.call_task_reading" does not exist');
   const w3 = { innerHTML: '' }; c3.CPR.render(w3); await new Promise((r) => setTimeout(r, 20)); c3.CPR.render(w3);
   ck('before 650 has run: "This appears once Desktop step 650 has run."', /appears once Desktop step 650 has run/.test(w3.innerHTML), w3.innerHTML);
