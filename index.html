@@ -20397,7 +20397,9 @@ function pbRender(){
       + 'The apply page and every new posting use the number below, so whichever is right, they should match. '
       + 'Approved rates are on <b>Today &rarr; Pay rates</b>.</div>'
     : '';
-  box.innerHTML = warn + PB.map(function(p,i){
+  /* 2026-10-11 (Samantha: "remove all live-in"): the retired Live-In role stays in the database only because 2 past
+     applications point at it; it is not listed here. Indexes (i) still follow PB, so the edit fields keep matching. */
+  box.innerHTML = warn + PB.map(function(p,i){ if(p.key === 'live_in') return '';
     const qs = Array.isArray(p.screener) ? p.screener : [];
     const offRate = pbRateDisagrees(p);
     return '<details style="background:#fff;border:1px solid '+(p.active?'var(--border)':'#EDEAE3')+';border-radius:12px;margin-bottom:.5rem;'+(p.active?'':'opacity:.7;')+'">'
