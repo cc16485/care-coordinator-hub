@@ -14,7 +14,7 @@ const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'F
 const between = (a, b) => { const i = html.indexOf(a); const j = html.indexOf(b, i); return i < 0 || j < 0 ? '' : html.slice(i, j); };
 
 /* ── wiring in index.html ── */
-ck('the composer file is loaded by the Hub (and the phone bumped its version)', /<script src="applicant-text\.js\?v=\d+"><\/script>/.test(html) && /phone-mode\.js\?v=6/.test(html));
+ck('the composer file is loaded by the Hub (and the phone bumped its version)', /<script src="applicant-text\.js\?v=\d+"><\/script>/.test(html) && /phone-mode\.js\?v=([6-9]|[1-9]\d)/.test(html));
 const row = between("box.innerHTML = sweep + rows.map(r=>{", "function apStartingMount(");
 ck('Applicants row: a Text button and the chip next to Call', /ApText\.btn\(r\.id\) \+ ApText\.slot\(r\.id\)/.test(row) && /📞 Call<\/a>/.test(row));
 const prof = between('function apRenderProfile(){', 'apOnboardMount(r);');

@@ -346,7 +346,7 @@
       dl = row('Applied for', esc(pos || a.position || 'Caregiver')) + row('Where they are', esc(AP_WORDS[a.status] || a.status || ''))
         + row('Interview', esc(bk ? when(bk.starts_at) + (FIND.coord[bk.coordinator_id] ? ' with ' + first(FIND.coord[bk.coordinator_id]) : '') : 'None booked'))
         + row('Phone', esc(pretty(a.phone))) + row('Lives in', esc(a.city || '')) + row('Applied', esc(day(a.created_at)));
-      btns = callBtn(a.phone, 'Call', { email: a.email }) + (window.ApText && a.phone ? ApText.btn(a.id, 'Text', 'ph-b') : '') + '<a class="ph-b" href="index.html#ap/' + encodeURIComponent(a.id) + '">Open in the Hub</a>';
+      btns = '<button class="ph-b p" data-ivopen="' + esc(a.id) + '">Interview them</button>' + callBtn(a.phone, 'Call', { email: a.email }) + (window.ApText && a.phone ? ApText.btn(a.id, 'Text', 'ph-b') : '') + '<a class="ph-b" href="index.html#ap/' + encodeURIComponent(a.id) + '">Open in the Hub</a>';
     }
     box.innerHTML = h + '<dl class="ph-dl">' + dl + '</dl><div class="ph-btns">' + btns + '</div>' + extra + '</div>';
     if (p.type === 'cl') famLoad(p.r);
@@ -399,6 +399,7 @@
     FIND.last = res;
   }
   function onFindTap(ev) {
+    var iv = ev.target.closest && ev.target.closest('[data-ivopen]'); if (iv) return ivOpen(iv.getAttribute('data-ivopen'));
     var b = ev.target.closest && ev.target.closest('[data-pf]'); if (!b) return;
     var what = b.getAttribute('data-pf');
     if (what === 'open') { var p = (FIND.last || [])[Number(b.getAttribute('data-i'))]; if (!p) return; FIND.open = p; detail(p); window.scrollTo(0, 0); }
@@ -450,7 +451,7 @@
         var byId = {}; (a.data || []).forEach(function (x) { byId[x.id] = x; });
         btInterviewsOn(day, b.data || [], a.data || [], btAfternoonRule(DATA.ops_settings)).forEach(function (r) {
           var ap = byId[r.applicant_id] || {};
-          rows.push({ min: r.min, kind: 'Interview', title: r.name, past: r.status !== 'booked',
+          rows.push({ min: r.min, kind: 'Interview', title: r.name, past: r.status !== 'booked', iv: r.status === 'booked' ? r.applicant_id : null,
             sub: ['at the office', r.status === 'done' ? 'done' : r.status === 'no-show' ? 'did not come' : '', r.who ? 'with ' + r.who : ''].filter(Boolean).join(' · '),
             phone: ap.phone, email: ap.email, ap_id: r.applicant_id, link: 'index.html#ap/' + encodeURIComponent(r.applicant_id) });
         });
@@ -496,6 +497,7 @@
       var btn = '';
       if (r.item && !r.item.mine) btn += '<button class="ph-b p" data-pt="take" data-id="' + esc(r.item.id) + '">Take it</button>';
       if (r.need) btn += '<button class="ph-b p" data-pt="need">See in Needs me now</button>';
+      if (r.iv) btn += '<button class="ph-b p" data-pt="iv" data-ap="' + esc(r.iv) + '">Start the interview</button>';
       if (r.phone) btn += callBtn(r.phone, r.phoneLabel || 'Call', { email: r.email });
       if (r.ap_id && r.phone && window.ApText) btn += ApText.btn(r.ap_id, 'Text', 'ph-b');   /* 574: text the applicant about today's interview */
       if (r.link) btn += '<a class="ph-b" href="' + esc(r.link) + '">Open in the Hub</a>';
@@ -512,6 +514,7 @@
   function onTodayTap(ev) {
     var b = ev.target.closest && ev.target.closest('[data-pt]'); if (!b) return;
     if (b.getAttribute('data-pt') === 'need') return show('need');
+    if (b.getAttribute('data-pt') === 'iv') return ivOpen(b.getAttribute('data-ap'));
     if (b.getAttribute('data-pt') === 'take') { b.disabled = true; act(b.getAttribute('data-id'), function (x) { return opsTakeIt(x.id); }, 'It’s yours now.'); }
   }
 
@@ -616,14 +619,134 @@
     }).join('');
   }
 
+  /* ── screen 5: the interview (2026-10-12, Samantha: "I would like to be able to record and see the questions on my
+     phone", then "yes to all, build it" on The Best Caregiver Interview). Opened from today's interview on Today, or from
+     an applicant in Find. The recorder at the top (the Hub's own, which keeps the screen awake and saves every second on
+     this phone), then the questions from Recruit → Interview questions, a note under each, the 30-second quick check,
+     what to check with their references, and how it went. Typing is kept on this phone as you go; Save puts it on their
+     record (post_interview, merged, the same place the Hub's interview screen reads). Hire, pool or not hiring stay in
+     the full Hub. Nothing here texts or emails anybody. */
+  var IV = { id: null, r: null, qs: [], A: null, t: null, saving: false };
+  var IVKEY = function (id) { return 'cc_iv_' + id; };
+  function ivDraftSave() { try { localStorage.setItem(IVKEY(IV.id), JSON.stringify({ at: Date.now(), A: IV.A })); } catch (e) { /* private window */ } }
+  function ivDraftLoad(id) { try { return JSON.parse(localStorage.getItem(IVKEY(id)) || 'null'); } catch (e) { return null; } }
+  function ivDraftDrop(id) { try { localStorage.removeItem(IVKEY(id)); } catch (e) { /* nothing kept */ } }
+  async function ivOpen(id) {
+    IV = { id: String(id), r: null, qs: [], A: null, t: null, saving: false };
+    show('iv');
+    var box = document.getElementById('phIvBody');
+    box.innerHTML = '<div class="ph-none" style="padding-top:14px">Opening the interview…</div>';
+    try {
+      var a = await sb.from('job_applicants').select('id,first_name,last_name,position,status,post_interview').eq('id', IV.id).maybeSingle();
+      if (a.error) throw a.error; if (!a.data) throw new Error('that applicant was not found');
+      IV.r = a.data;
+      var q = await sb.from('interview_questions').select('id,position,section,sort,question,guidance,active,seeded_as').eq('active', true).order('sort');
+      if (q.error) throw q.error;
+      var pos = IV.r.position || 'caregiver';
+      IV.qs = (q.data || []).filter(function (x) { return x.position === pos; });
+      if (!IV.qs.length) IV.qs = (q.data || []).filter(function (x) { return x.position === 'caregiver'; });
+    } catch (e) {
+      box.innerHTML = '<button class="ph-back" data-iv="back">‹ Back</button><div class="ph-msg bad" style="margin:8px 0">Could not open the interview: ' + esc(e && e.message || e) + '</div>';
+      return;
+    }
+    var saved = IV.r.post_interview && typeof IV.r.post_interview === 'object' ? JSON.parse(JSON.stringify(IV.r.post_interview)) : {};
+    var d = ivDraftLoad(IV.id);
+    IV.A = d && d.A ? d.A : saved;
+    IV.A.script = IV.A.script || {};
+    ivRender(!!(d && d.A));
+  }
+  function ivRender(fromDraft) {
+    var box = document.getElementById('phIvBody'), r = IV.r, A = IV.A;
+    var nm = ((r.first_name || '') + ' ' + (r.last_name || '')).trim() || 'Applicant', pos = '';
+    try { pos = typeof apPosLabel === 'function' ? apPosLabel(r.position) : ''; } catch (e) { /* no label */ }
+    var h = '<button class="ph-back" data-iv="back">‹ Back to Today</button>'
+      + '<div class="ph-card"><div class="ph-k">Interview</div><div class="ph-t">' + esc(nm) + '</div><div class="ph-s">' + esc(pos || 'Caregiver') + '</div>'
+      + (fromDraft ? '<div class="ph-h">Your notes from earlier on this phone are back. Press Save to put them on their record.</div>' : '') + '</div>'
+      + '<div id="phRecHost" style="margin-bottom:10px"></div>'
+      + '<div class="ph-card" style="background:#F7F5F0"><div class="ph-k">Say first</div><div class="ph-s" style="color:#1B2733;font-size:14px">"Thanks for coming in. This is just a conversation, there are no wrong answers. I’ll ask about you and the care you’ve given, I’ll tell you honestly what the job is like, and you can ask me anything. Is it OK if I record so I can listen to you instead of writing?"</div></div>';
+    if (!IV.qs.length) h += '<div class="ph-msg bad" style="margin:0 0 10px">No interview questions are set up yet (Desktop step 622 installs them). Use the laminated sheet for now.</div>';
+    IV.qs.forEach(function (q, i) {
+      var a = A.script[q.id] || {};
+      h += '<div class="ph-card"><div class="ph-k">' + (i + 1) + ' · ' + esc(q.section || '') + '</div>'
+        + '<div class="ph-t" style="font-size:16.5px">' + esc(q.question) + '</div>'
+        + (q.guidance ? '<div class="ph-s">' + esc(q.guidance) + '</div>' : '')
+        + '<textarea class="ph-in" rows="3" data-ivq="' + esc(q.id) + '" placeholder="What they said (the recording catches it too)">' + esc(a.note || '') + '</textarea></div>';
+    });
+    h += '<div class="ph-card" style="background:#F7F5F0"><div class="ph-k">The honest picture, 2 minutes</div><div class="ph-s" style="color:#1B2733">Hours build up · everyone starts at Level 1 · the schedule follows the client · the real work (bathing, toileting, dementia) · paid training online, clock in on your phone · late or can’t make it: call the office, never just the client. Then: "Does any of that give you pause?"</div></div>'
+      + '<div class="ph-card"><div class="ph-k">Quick check, 30 seconds</div><div class="ph-s">Only what their application did not answer.</div><div id="phIvQuick"></div></div>'
+      + '<div class="ph-card"><div class="ph-k">Check with their references</div><textarea class="ph-in" rows="2" data-ivf="ref_check" placeholder="Anything you want their references to confirm">' + esc(A.ref_check || '') + '</textarea>'
+      + '<div class="ph-k" style="margin-top:12px">How did it go?</div><textarea class="ph-in" rows="3" data-ivf="notes" placeholder="How they came across, anything that decided it either way">' + esc(A.notes || '') + '</textarea></div>'
+      + '<div class="ph-btns" style="margin:4px 0 6px"><button class="ph-b p" data-iv="save" style="flex:1;font-size:16px;padding:13px">Save to their record</button></div>'
+      + '<div id="phIvSaid" class="ph-h"></div>'
+      + '<div class="ph-foot">Hire, candidate pool or not hiring: <a href="index.html#ap/' + encodeURIComponent(IV.id) + '">open them in the full Hub</a></div>';
+    box.innerHTML = h;
+    ivQuick();
+    try { recMount('phRecHost', 'interview', IV.id, nm); } catch (e) { document.getElementById('phRecHost').innerHTML = '<div class="ph-msg bad" style="margin:0">The recorder could not start: ' + esc(e && e.message || e) + '</div>'; }
+  }
+  function ivQuick() {
+    var box = document.getElementById('phIvQuick'); if (!box) return;
+    var A = IV.A, Q = (typeof AP_QS !== 'undefined' ? AP_QS : []).filter(function (x) { return ['smoker', 'dogs', 'cats', 'client_smokes'].indexOf(x[0]) > -1; });
+    var h = Q.map(function (x) {
+      return '<div style="margin-top:9px;font-size:14px">' + esc(x[1]) + '</div><div class="ph-ch">'
+        + x[2].map(function (o) { return '<button type="button" data-ivk="' + esc(x[0]) + '" data-ivv="' + esc(o[0]) + '" class="' + (A[x[0]] === o[0] ? 'on' : '') + '">' + esc(o[1]) + '</button>'; }).join('') + '</div>';
+    }).join('');
+    var ww = A.works_with || {};
+    h += '<div style="margin-top:9px;font-size:14px">Comfortable working with</div><div class="ph-ch">'
+      + [['males', 'Men'], ['females', 'Women']].map(function (g) { return '<button type="button" data-ivw="' + g[0] + '" class="' + (ww[g[0]] ? 'on' : '') + '">' + g[1] + '</button>'; }).join('') + '</div>';
+    box.innerHTML = h;
+  }
+  function ivTyped(el) {
+    var A = IV.A; if (!A) return;
+    var q = el.getAttribute('data-ivq'), f = el.getAttribute('data-ivf');
+    if (q) { A.script[q] = A.script[q] || {}; A.script[q].note = el.value; A.script[q].suggested = false; }
+    else if (f) A[f] = el.value;
+    clearTimeout(IV.t); IV.t = setTimeout(ivDraftSave, 300);
+    var s = document.getElementById('phIvSaid'); if (s) s.textContent = 'Not saved to their record yet (kept on this phone).';
+  }
+  async function ivSave(btn) {
+    if (IV.saving) return; IV.saving = true; btn.disabled = true; btn.textContent = 'Saving…';
+    var s = document.getElementById('phIvSaid');
+    try {
+      /* Merge into what is on their record now, so a note saved elsewhere in the meantime is not lost. */
+      var cur = await sb.from('job_applicants').select('post_interview').eq('id', IV.id).maybeSingle();
+      if (cur.error) throw cur.error;
+      var base = cur.data && cur.data.post_interview && typeof cur.data.post_interview === 'object' ? cur.data.post_interview : {};
+      var A = IV.A, out = Object.assign({}, base);
+      out.script = Object.assign({}, base.script || {});
+      Object.keys(A.script || {}).forEach(function (k) { out.script[k] = Object.assign({}, out.script[k] || {}, A.script[k]); });
+      ['smoker', 'dogs', 'cats', 'client_smokes', 'ref_check', 'notes'].forEach(function (k) { if (A[k] !== undefined) out[k] = typeof A[k] === 'string' ? A[k].trim() : A[k]; });
+      if (A.works_with) out.works_with = A.works_with;
+      out.phone_saved_at = new Date().toISOString();
+      var up = await sb.from('job_applicants').update({ post_interview: out }).eq('id', IV.id);
+      if (up.error) throw up.error;
+      ivDraftDrop(IV.id); IV.A = JSON.parse(JSON.stringify(out));
+      if (s) s.textContent = 'Saved to their record ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '.';
+    } catch (e) {
+      if (s) s.innerHTML = '<span style="color:#B42318">Not saved: ' + esc(e && e.message || e) + '. Your notes are still kept on this phone; try again.</span>';
+    }
+    IV.saving = false; btn.disabled = false; btn.textContent = 'Save to their record';
+  }
+  function onIvTap(ev) {
+    var b = ev.target.closest && ev.target.closest('[data-iv],[data-ivk],[data-ivw]'); if (!b) return;
+    if (b.hasAttribute('data-ivk')) { var k = b.getAttribute('data-ivk'), v = b.getAttribute('data-ivv'); IV.A[k] = IV.A[k] === v ? null : v; ivQuick(); ivDraftSave(); return; }
+    if (b.hasAttribute('data-ivw')) { var g = b.getAttribute('data-ivw'); IV.A.works_with = IV.A.works_with || {}; IV.A.works_with[g] = !IV.A.works_with[g]; ivQuick(); ivDraftSave(); return; }
+    var a = b.getAttribute('data-iv');
+    if (a === 'back') {
+      if (typeof REC !== 'undefined' && REC.mr && REC.mr.state === 'recording' && !confirm('You are still recording. Leave anyway? The recording stops, and what was recorded is kept on this phone.')) return;
+      if (typeof REC !== 'undefined' && REC.mr && REC.mr.state === 'recording') { try { recStop(); } catch (e) { /* stopped */ } }
+      return show('today');
+    }
+    if (a === 'save') return ivSave(b);
+  }
+
   /* ── the screens, and the tabs between them ── */
   var VIEW = 'need';
   function show(v) {
     VIEW = v;
-    var n = document.getElementById('phNeed'), f = document.getElementById('phFind'), td = document.getElementById('phToday'), en = document.getElementById('phEnd'), t = document.getElementById('phTitle');
-    if (n) n.hidden = v !== 'need'; if (f) f.hidden = v !== 'find'; if (td) td.hidden = v !== 'today'; if (en) en.hidden = v !== 'end';
-    if (t) t.firstChild.nodeValue = v === 'find' ? 'Find a person' : v === 'today' ? 'Today' : v === 'end' ? 'End my shift' : 'Needs me now';
-    var r = document.getElementById('phRefresh'); if (r) r.hidden = v === 'find' || v === 'end';
+    var n = document.getElementById('phNeed'), f = document.getElementById('phFind'), td = document.getElementById('phToday'), en = document.getElementById('phEnd'), iv = document.getElementById('phIv'), t = document.getElementById('phTitle');
+    if (n) n.hidden = v !== 'need'; if (f) f.hidden = v !== 'find'; if (td) td.hidden = v !== 'today'; if (en) en.hidden = v !== 'end'; if (iv) iv.hidden = v !== 'iv';
+    if (t) t.firstChild.nodeValue = v === 'find' ? 'Find a person' : v === 'today' ? 'Today' : v === 'end' ? 'End my shift' : v === 'iv' ? 'Interview' : 'Needs me now';
+    var r = document.getElementById('phRefresh'); if (r) r.hidden = v === 'find' || v === 'end' || v === 'iv';
     if (v === 'end') endOpen();
     if (v === 'today') { todayRender(); todayLoad(false); }
     [].forEach.call(document.querySelectorAll('.ph-tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-v') === v); });
@@ -644,6 +767,7 @@
       + '<div id="phFindBody"></div></div></div>'
       + '<div id="phToday" hidden><div class="ph-wrap"><div id="phTodayBody"></div></div></div>'
       + '<div id="phEnd" hidden><div class="ph-wrap"><div id="phEndBody"></div></div></div>'
+      + '<div id="phIv" hidden><div class="ph-wrap"><div id="phIvBody"></div></div></div>'
       + '<nav class="ph-tabs"><button type="button" data-v="need" class="on">Needs me</button><button type="button" data-v="find">Find</button><button type="button" data-v="today">Today</button><button type="button" data-v="end">End shift</button></nav>';
     document.body.appendChild(d);
     d.querySelector('#phNeed').addEventListener('click', onTap);
@@ -651,6 +775,8 @@
     d.querySelector('#phToday').addEventListener('click', onTodayTap);
     d.querySelector('#phEnd').addEventListener('click', onEndTap);
     d.querySelector('#phEnd').addEventListener('input', onEndInput);
+    d.querySelector('#phIv').addEventListener('click', onIvTap);
+    d.querySelector('#phIv').addEventListener('input', function (ev) { if (ev.target && (ev.target.hasAttribute('data-ivq') || ev.target.hasAttribute('data-ivf'))) ivTyped(ev.target); });
     d.querySelector('.ph-tabs').addEventListener('click', function (ev) { var b = ev.target.closest('button'); if (b) show(b.getAttribute('data-v')); });
     var q = d.querySelector('#phQ'), qt = null;
     q.addEventListener('input', function () { clearTimeout(qt); qt = setTimeout(function () { FIND.q = q.value; FIND.open = null; findRender(); }, 120); });
