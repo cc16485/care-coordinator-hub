@@ -31924,7 +31924,7 @@ const CL={ roster:null, issues:null, loading:false, filter:'Needs something', ce
    been pulled over from Axiscare!"). Like the Caregivers directory, the list starts from who AXISCARE says exists
    (client-census-report, read live, never stored), and the Hub's people, check-ins and due items enrich it. An active
    AxisCare client the Hub doesn't have yet shows as "Not connected yet" instead of being invisible; the client sync
-   (identity-backfill ?client_sync=1, every 6 hours) connects them. Past AxisCare clients are only READ, for search and
+   (the client-sync function, every 6 hours) connects them. Past AxisCare clients are only READ, for search and
    the Past list, and open in AxisCare: nothing about them is copied into the Hub (her 2026-09-27 "lock only" ruling). */
 async function clCensusLoad(){
   const { data:{ session } } = await sb.auth.getSession();
