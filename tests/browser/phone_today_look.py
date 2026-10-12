@@ -39,7 +39,8 @@ async()=>{
   DATA.care_assessments=[]; DATA.ops_settings={ afternoon_interviews:{ from:'14:00', name:'Samantha' } };
   DATA.orient_sessions=[{ id:'O1', date:day, time:'16:00', bookings:[{ first:'A' },{ first:'B' },{ first:'C', attend_status:'canceled' }] }];
   phStart(); await sleep(80);
-  ok('three tabs: Needs me now, Find a person, Today', [...document.querySelectorAll('.ph-tabs button')].map(b=>b.innerText).join('|')==='Needs me|Find|Today|End shift');
+  ok('three tabs: Needs me now, Find a person, Today', [...document.querySelectorAll('.ph-tabs button')].map(b=>b.innerText).join('|')==='Needs me|Find|Today|End shift|More');
+  ok('2026-10-12: Sign out is no longer in the top bar (it is on More)', !document.getElementById('phOut') && !/Sign out/.test(document.querySelector('.ph-top').innerText));
   document.querySelector('.ph-tabs [data-v="today"]').click(); await sleep(400);
   const body=()=>document.getElementById('phTodayBody'), cards=()=>[...body().querySelectorAll('.ph-tl')].map(x=>x.querySelector('.ph-tm').innerText+' '+x.querySelector('.ph-k').textContent+': '+x.querySelector('.ph-t').innerText);
   ok('Today: the title changes and today\'s date heads the list', /Today/.test(document.getElementById('phTitle').innerText) && body().querySelector('.ph-lane'), body().innerText.slice(0,200));
@@ -71,6 +72,22 @@ async()=>{
   window.__FAILIV=true; document.querySelector('.ph-tabs [data-v="today"]').click(); document.getElementById('phRefresh').click(); await sleep(500);
   ok('if interviews can\'t load, it says so in red and still shows the rest', /Could not load interviews \(timeout\)/.test(body().innerText) && /Joan Ross/.test(body().innerText) && !/Marcus/.test(body().innerText), body().innerText.slice(0,400));
   ok('fits a phone screen', document.documentElement.scrollWidth<=window.innerWidth+1, [document.documentElement.scrollWidth, window.innerWidth]);
+  /* 2026-10-12 (her "yes build 1-5") */
+  window.__FAILIV=false; document.getElementById('phRefresh').click(); await sleep(500);
+  const asm2=[...body().querySelectorAll('.ph-tl')].find(x=>/Martin Bell/.test(x.innerText));
+  const dir=asm2 && [...asm2.querySelectorAll('a')].find(a=>a.innerText==='Directions');
+  ok('assessment: a Directions button straight to Maps with the address', dir && /12%20Elm%20St%2C%20Nixa/.test(dir.href) && /maps\.apple\.com|google\.com\/maps/.test(dir.href), asm2 && asm2.innerHTML.slice(0,500));
+  const iv2=[...body().querySelectorAll('.ph-tl')].find(x=>/Marcus/.test(x.innerText));
+  ok('a booked interview has Start the interview', iv2 && iv2.querySelector('[data-pt="iv"][data-ap="AP1"]'));
+  document.querySelector('.ph-tabs [data-v="find"]').click(); await sleep(700);
+  const fb=document.getElementById('phFindBody').innerText;
+  ok('Find, before typing: the people on today\'s schedule (the interview, with its time)', /ON TODAY.S SCHEDULE/.test(fb) && /Marcus Hill/.test(fb) && /10:00am · Interview/.test(fb), fb.slice(0,400));
+  const row=[...document.querySelectorAll('#phFindBody .ph-row')].find(x=>/Marcus Hill/.test(x.innerText)); row && row.click(); await sleep(150);
+  ok('...tap opens their card, with Interview them and Copy their link', !!document.querySelector('#phFindBody [data-ivopen="AP1"]') && !!document.querySelector('#phFindBody [data-aplink="AP1"]'), document.getElementById('phFindBody').innerText.slice(0,300));
+  document.querySelector('.ph-tabs [data-v="more"]').click(); await sleep(300);
+  const mt=[...document.querySelectorAll('#phMoreBody .ph-row b')].map(b=>b.innerText).join('|');
+  ok('More: Quick Capture, Call-Off, the pre-screen link, Send the application, My Hours, the full Hub, Sign out', mt==='Quick Capture|Caregiver Call-Off|Copy the pre-screen link|Send the application|Copy the My Hours link|Open the full Hub|Sign out', mt);
+  ok('More uses the brand icons, no emoji', document.querySelectorAll('#phMoreBody svg use').length===7 && !/[\u{1F300}-\u{1FAFF}]/u.test(document.getElementById('phMoreBody').innerText));
   return R;
 }
 """
