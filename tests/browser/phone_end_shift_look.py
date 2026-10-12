@@ -34,7 +34,7 @@ async()=>{
   DATA.coordinator_staff=[{ email:ME_E, name:'Krystal Test' },{ email:SAM, name:'Sam Test' },{ email:ZACH, name:'Zach Test' }];
   DATA.ops_items=clone(window.__STORE.ops_items); DATA.handoffs=clone(window.__STORE.handoffs); DATA.ops_settings={};
   phStart(); await sleep(120);
-  ok('four tabs fit: Needs me, Find, Today, End shift', [...document.querySelectorAll('.ph-tabs button')].map(b=>b.innerText).join('|')==='Needs me|Find|Today|End shift');
+  ok('five tabs fit: Needs me, Find, Today, End shift, More (2026-10-12)', [...document.querySelectorAll('.ph-tabs button')].map(b=>b.innerText).join('|')==='Needs me|Find|Today|End shift|More');
   /* a handoff posted to me */
   const ho=()=>document.querySelector('#phList .ph-ho');
   ok('a handoff someone posted to me shows at the top of Needs me (the Hub\'s own list), with Got it', ho() && /Handoff from Zach Test/.test(ho().innerText) && /left a voicemail/.test(ho().innerText) && /1 needs attention/.test(ho().innerText) && /Mrs\. Ortiz family may call back/.test(ho().innerText), ho() && ho().innerText);

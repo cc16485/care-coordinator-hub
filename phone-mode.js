@@ -238,6 +238,9 @@
 
   /* ── screen 2: find a person (looking only) ── */
   var FIND = { loaded: false, loading: false, cg: null, cl: null, ap: null, book: {}, coord: {}, err: {}, q: '', open: null };
+  /* Apple Maps on an iPhone, Google Maps everywhere else (2026-10-12) */
+  var mapsLink = function (addr) { var q = encodeURIComponent(String(addr || '') + (/\bMO\b|Missouri/i.test(addr) ? '' : ', MO'));
+    return /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'https://maps.apple.com/?daddr=' + q : 'https://www.google.com/maps/dir/?api=1&destination=' + q; };
   var digits = function (p) { var d = String(p || '').replace(/\D/g, ''); return d.length === 11 && d[0] === '1' ? d.slice(1) : d; };
   var pretty = function (p) { var d = digits(p); return d.length === 10 ? '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6) : String(p || ''); };
   /* a date with no time is that calendar day here, never the evening before (a bare date reads as midnight in London) */
@@ -346,7 +349,8 @@
       dl = row('Applied for', esc(pos || a.position || 'Caregiver')) + row('Where they are', esc(AP_WORDS[a.status] || a.status || ''))
         + row('Interview', esc(bk ? when(bk.starts_at) + (FIND.coord[bk.coordinator_id] ? ' with ' + first(FIND.coord[bk.coordinator_id]) : '') : 'None booked'))
         + row('Phone', esc(pretty(a.phone))) + row('Lives in', esc(a.city || '')) + row('Applied', esc(day(a.created_at)));
-      btns = '<button class="ph-b p" data-ivopen="' + esc(a.id) + '">Interview them</button>' + callBtn(a.phone, 'Call', { email: a.email }) + (window.ApText && a.phone ? ApText.btn(a.id, 'Text', 'ph-b') : '') + '<a class="ph-b" href="index.html#ap/' + encodeURIComponent(a.id) + '">Open in the Hub</a>';
+      btns = '<button class="ph-b p" data-ivopen="' + esc(a.id) + '">Interview them</button>'
+        + '<button class="ph-b" data-aplink="' + esc(a.id) + '">Copy their link</button>' + callBtn(a.phone, 'Call', { email: a.email }) + (window.ApText && a.phone ? ApText.btn(a.id, 'Text', 'ph-b') : '') + '<a class="ph-b" href="index.html#ap/' + encodeURIComponent(a.id) + '">Open in the Hub</a>';
     }
     box.innerHTML = h + '<dl class="ph-dl">' + dl + '</dl><div class="ph-btns">' + btns + '</div>' + extra + '</div>';
     if (p.type === 'cl') famLoad(p.r);
@@ -390,16 +394,38 @@
     if (FIND.loading) src.push('Loading caregivers, clients and applicants…');
     var bad = Object.keys(FIND.err).map(function (k) { return { cg: 'caregivers', cl: 'clients', ap: 'applicants' }[k] + ' (' + FIND.err[k] + ')'; });
     var res = matches(FIND.q), t = FIND.q.trim();
+    FIND.last = res;
     box.innerHTML = '<div class="ph-src">' + esc(src.join(' ')) + (bad.length ? ' <b>Could not load ' + esc(bad.join(', ')) + '. The search below is missing them.</b>' : '') + '</div>'
-      + (!t || t.replace(/\s/g, '').length < 2 ? '<div class="ph-none" style="margin-top:12px">Type at least two letters of a name, or four digits of a phone number.</div>'
+      + (!t || t.replace(/\s/g, '').length < 2 ? todayPeopleHtml()
         : res.length ? '<div style="margin-top:10px">' + res.map(function (p, i) {
           var tg = TAGS[p.type]; return '<button class="ph-row" data-pf="open" data-i="' + i + '"><b>' + esc(p.name) + '</b><span class="ph-tag ' + (p.past ? 'past' : tg[1]) + '">' + tg[0] + '</span><span>' + esc(p.sub) + '</span></button>';
         }).join('') + '</div>'
           : '<div class="ph-none" style="margin-top:12px">' + (FIND.loading ? 'Still loading…' : 'Nobody matches “' + esc(t) + '”.') + '</div>');
-    FIND.last = res;
+  }
+  /* Before anything is typed: the people on today's schedule (2026-10-12), so the person you are about to see or call is
+     one tap away. Matched to the search list by their record, or by name when the timeline only has a name. */
+  function todayPeopleHtml() {
+    var hint = '<div class="ph-none" style="margin-top:12px">Type at least two letters of a name, or four digits of a phone number.</div>';
+    if (!TD.rows) { if (!TD.loading) todayLoad(false).then(function () { if (VIEW === 'find' && !FIND.open && !FIND.q.trim()) findRender(); }); return hint; }
+    if (!FIND.loaded) return hint;
+    var all = people(), seen = {}, list = [];
+    TD.rows.forEach(function (r) {
+      var p = r.pkey ? all.find(function (x) { return x.key === r.pkey; }) : null;
+      if (!p && r.title) { var n = lc(r.title); p = all.find(function (x) { return lc(x.name) === n && !x.past; }); }
+      if (p && !seen[p.key]) { seen[p.key] = 1; list.push({ p: p, r: r }); }
+    });
+    if (!list.length) return hint;
+    var start = (FIND.last || []).length;
+    FIND.last = (FIND.last || []).concat(list.map(function (x) { return x.p; }));
+    return '<div class="ph-lane" style="color:#0E3860">ON TODAY’S SCHEDULE<span>' + list.length + '</span></div>'
+      + list.map(function (x, i) { var tg = TAGS[x.p.type];
+        return '<button class="ph-row" data-pf="open" data-i="' + (start + i) + '"><b>' + esc(x.p.name) + '</b><span class="ph-tag ' + tg[1] + '">' + tg[0] + '</span><span>'
+          + esc((x.r.min == null ? '' : btTime(x.r.min) + ' · ') + x.r.kind) + '</span></button>'; }).join('') + hint;
   }
   function onFindTap(ev) {
     var iv = ev.target.closest && ev.target.closest('[data-ivopen]'); if (iv) return ivOpen(iv.getAttribute('data-ivopen'));
+    /* their own link: finish the application or pick (or move) their interview time (2026-10-12) */
+    var al = ev.target.closest && ev.target.closest('[data-aplink]'); if (al) return copyText('https://mo-care.com/apply?book=' + encodeURIComponent(al.getAttribute('data-aplink')), al);
     var b = ev.target.closest && ev.target.closest('[data-pf]'); if (!b) return;
     var what = b.getAttribute('data-pf');
     if (what === 'open') { var p = (FIND.last || [])[Number(b.getAttribute('data-i'))]; if (!p) return; FIND.open = p; detail(p); window.scrollTo(0, 0); }
@@ -451,7 +477,7 @@
         var byId = {}; (a.data || []).forEach(function (x) { byId[x.id] = x; });
         btInterviewsOn(day, b.data || [], a.data || [], btAfternoonRule(DATA.ops_settings)).forEach(function (r) {
           var ap = byId[r.applicant_id] || {};
-          rows.push({ min: r.min, kind: 'Interview', title: r.name, past: r.status !== 'booked', iv: r.status === 'booked' ? r.applicant_id : null,
+          rows.push({ min: r.min, kind: 'Interview', title: r.name, past: r.status !== 'booked', iv: r.status === 'booked' ? r.applicant_id : null, pkey: 'ap:' + r.applicant_id,
             sub: ['at the office', r.status === 'done' ? 'done' : r.status === 'no-show' ? 'did not come' : '', r.who ? 'with ' + r.who : ''].filter(Boolean).join(' · '),
             phone: ap.phone, email: ap.email, ap_id: r.applicant_id, link: 'index.html#ap/' + encodeURIComponent(r.applicant_id) });
         });
@@ -460,7 +486,7 @@
         btAssessmentsOn(day, DATA.care_assessments, DATA.leads).forEach(function (r) {
           var l = (DATA.leads || []).find(function (x) { return String(x.id) === String(r.lead_id); }) || null;
           var it = r.lead_id ? itemFor(function (i) { return i.id === 'ops_asmt_' + r.lead_id; }) : null;
-          rows.push({ min: r.min, kind: 'Assessment', title: r.name, past: r.status !== 'booked',
+          rows.push({ min: r.min, kind: 'Assessment', title: r.name, past: r.status !== 'booked', addr: r.address || '', pkey: r.lead_id ? 'in:' + r.lead_id : '',
             sub: [r.address, r.who ? 'with ' + r.who : ''].filter(Boolean).join(' · '), item: it,
             phone: l && l.phone, phoneLabel: l && l.first_name ? 'Call ' + first(l.first_name) : 'Call',
             link: r.lead_id ? 'index.html#p/L' + encodeURIComponent(r.lead_id) + '/summary' : (r.ax ? 'index.html#p/A' + encodeURIComponent(r.ax) + '/summary' : '') });
@@ -498,6 +524,7 @@
       if (r.item && !r.item.mine) btn += '<button class="ph-b p" data-pt="take" data-id="' + esc(r.item.id) + '">Take it</button>';
       if (r.need) btn += '<button class="ph-b p" data-pt="need">See in Needs me now</button>';
       if (r.iv) btn += '<button class="ph-b p" data-pt="iv" data-ap="' + esc(r.iv) + '">Start the interview</button>';
+      if (r.addr) btn += '<a class="ph-b" href="' + esc(mapsLink(r.addr)) + '" target="_blank" rel="noopener">Directions</a>';   /* 2026-10-12: one tap to Maps */
       if (r.phone) btn += callBtn(r.phone, r.phoneLabel || 'Call', { email: r.email });
       if (r.ap_id && r.phone && window.ApText) btn += ApText.btn(r.ap_id, 'Text', 'ph-b');   /* 574: text the applicant about today's interview */
       if (r.link) btn += '<a class="ph-b" href="' + esc(r.link) + '">Open in the Hub</a>';
@@ -739,14 +766,127 @@
     if (a === 'save') return ivSave(b);
   }
 
+  /* ── screen 6: more (2026-10-12, Samantha "yes build 1-5"): everything the old CC Office menu page held, so the home
+     screen icon opens straight into the app; the pre-screen link and Send the application for when somebody asks about a
+     job while you are on your phone; Sign out moved here, away from Refresh. ── */
+  var MORE = { open: '', pos: null, inv: null };
+  var icon = function (k) { return '<svg aria-hidden="true" style="width:26px;height:26px;flex:none"><use href="icons.svg#' + k + '"/></svg>'; };
+  function tile(href, ic, title, sub, data) {
+    return (href ? '<a class="ph-row" href="' + href + '"' : '<button type="button" class="ph-row" data-mo="' + data + '"') + ' style="display:flex;gap:12px;align-items:center">'
+      + icon(ic) + '<span style="flex:1;min-width:0"><b>' + esc(title) + '</b><span>' + esc(sub) + '</span></span>' + (href ? '</a>' : '</button>');
+  }
+  async function morePositions() {
+    if (MORE.pos) return MORE.pos;
+    try { var p = await sb.from('job_positions').select('key,label,active,sort').eq('active', true).order('sort'); MORE.pos = (p.data || []).filter(function (x) { return x.key !== 'live_in'; }); }
+    catch (e) { MORE.pos = []; }
+    if (!MORE.pos.length) MORE.pos = [{ key: 'caregiver', label: 'Caregiver' }];
+    return MORE.pos;
+  }
+  var linkFor = function (k) { return 'https://mo-care.com/apply?position=' + encodeURIComponent(k || 'caregiver'); };
+  function moreMsg() {
+    var sel = document.getElementById('moPos'), k = sel ? sel.value : 'caregiver', lab = sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : 'Caregiver';
+    return 'Hi! Here is the application for our ' + lab + ' position at Caring Companions. It takes about 2 minutes, and at the end you can pick a time to come in and meet us: ' + linkFor(k);
+  }
+  async function copyText(text, btn) {
+    var done = function () { var w = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(function () { btn.textContent = w; }, 1600); };
+    try { await navigator.clipboard.writeText(text); done(); } catch (e) { window.prompt('Copy this:', text); }
+  }
+  async function moreRender() {
+    var box = document.getElementById('phMoreBody'); if (!box) return;
+    var pos = MORE.open ? await morePositions() : (MORE.pos || []);
+    var opts = (pos || []).map(function (p) { return '<option value="' + esc(p.key) + '">' + esc(p.label) + '</option>'; }).join('');
+    var h = '<div class="ph-lane" style="color:#0E3860">WHEN THE PHONE RINGS</div>'
+      + tile('capture.html', 'i-inbox', 'Quick Capture', 'Bank any call in 30 seconds: leads, questions, messages, schedule info')
+      + tile('callout.html', 'i-phone', 'Caregiver Call-Off', 'Pick who is calling off and their shift; texting starts in 5 minutes')
+      + '<div class="ph-lane" style="color:#0E3860">SOMEBODY ASKING ABOUT A JOB</div>'
+      + tile('', 'i-link', 'Copy the pre-screen link', 'Send it any way you like: a text, Messenger, an email', 'link');
+    if (MORE.open === 'link') {
+      h += '<div class="ph-card"><div class="ph-k">Position</div><select id="moPos" class="ph-in">' + opts + '</select>'
+        + '<input id="moUrl" class="ph-in" readonly onclick="this.select()" style="font-weight:600;color:#0E3860">'
+        + '<div class="ph-btns"><button class="ph-b p" data-mo="copylink">Copy link</button><button class="ph-b" data-mo="copymsg">Copy with a message</button>'
+        + (navigator.share ? '<button class="ph-b" data-mo="share">Share…</button>' : '') + '</div>'
+        + '<div class="ph-s" id="moMsg" style="margin-top:8px"></div></div>';
+    }
+    h += tile('', 'i-send', 'Send the application', 'The Hub texts or emails it from the office, with their name on it', 'inv');
+    if (MORE.open === 'inv') {
+      h += '<div class="ph-card"><div class="ph-s">For someone who called asking about a job. You see exactly what they will get before anything goes.</div>'
+        + '<input id="moF" class="ph-in" placeholder="First name" autocapitalize="words"><input id="moL" class="ph-in" placeholder="Last name" autocapitalize="words">'
+        + '<input id="moP" class="ph-in" placeholder="Mobile phone" inputmode="tel"><input id="moE" class="ph-in" placeholder="Email" inputmode="email" autocapitalize="off">'
+        + '<select id="moIP" class="ph-in">' + opts + '</select>'
+        + '<label style="display:flex;gap:9px;align-items:flex-start;margin-top:10px;font-size:14px"><input type="checkbox" id="moSms" style="width:20px;height:20px;margin-top:1px"> They asked us to text it. Without this it goes by email only.</label>'
+        + '<div class="ph-btns"><button class="ph-b" data-mo="invprev">Preview</button><button class="ph-b p" data-mo="invsend" disabled>Send</button></div>'
+        + '<div id="moInv" class="ph-s" style="margin-top:8px"></div></div>';
+    }
+    h += '<div class="ph-lane" style="color:#0E3860">FOR CAREGIVERS</div>'
+      + tile('', 'i-clock', 'Copy the My Hours link', 'cc.mo-care.com/availability: their wanted hours and days', 'hours')
+      + '<div class="ph-lane" style="color:#0E3860">EVERYTHING ELSE</div>'
+      + tile('index.html', 'i-home', 'Open the full Hub', 'Best on a computer')
+      + tile('', 'i-lock', 'Sign out', 'You stay signed in on this phone for 14 days otherwise', 'out');
+    box.innerHTML = '<div class="ph-wrap" style="padding:0">' + h + '</div>';
+    if (MORE.open === 'link') moreLink();
+  }
+  function moreLink() {
+    var sel = document.getElementById('moPos'); if (!sel) return;
+    document.getElementById('moUrl').value = linkFor(sel.value);
+    document.getElementById('moMsg').textContent = moreMsg();
+  }
+  function invBody(action) {
+    var v = function (id) { var e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
+    return { action: action, first_name: v('moF'), last_name: v('moL'), phone: v('moP'), email: v('moE'), position: v('moIP') || 'caregiver', sms_asked: !!(document.getElementById('moSms') || {}).checked };
+  }
+  async function moreTap(ev) {
+    var b = ev.target.closest && ev.target.closest('[data-mo]'); if (!b) return;
+    var a = b.getAttribute('data-mo');
+    if (a === 'link' || a === 'inv') { MORE.open = MORE.open === a ? '' : a; MORE.inv = null; return moreRender(); }
+    if (a === 'copylink') return copyText(document.getElementById('moUrl').value, b);
+    if (a === 'copymsg') return copyText(moreMsg(), b);
+    if (a === 'share') { try { await navigator.share({ text: moreMsg() }); } catch (e) { /* closed the share sheet */ } return; }
+    if (a === 'hours') return copyText('https://cc.mo-care.com/availability', b);
+    if (a === 'out') { if (!confirm('Sign out of CC Office on this phone?')) return; return phSignOut(); }
+    var out = document.getElementById('moInv'), send = document.querySelector('[data-mo="invsend"]');
+    if (a === 'invprev') {
+      var body = invBody('preview'); MORE.inv = null; if (send) send.disabled = true;
+      if (!body.first_name) { out.innerHTML = '<span style="color:#B42318">A first name is needed.</span>'; return; }
+      if (!body.phone && !body.email) { out.innerHTML = '<span style="color:#B42318">Add a phone number or an email.</span>'; return; }
+      b.disabled = true; b.textContent = 'Loading…';
+      try {
+        var j = await apInvCall(body);
+        if (j.error) { out.innerHTML = '<span style="color:#B42318">' + esc(j.error) + '</span>'; return; }
+        out.innerHTML = '<div style="background:#F7F5F0;border-radius:10px;padding:9px 11px;color:#1B2733">'
+          + (j.text ? '<b>Text:</b> ' + esc(j.text) : 'No text: ' + esc(j.no_text_why || '')) + '<br>'
+          + (j.email ? '<b>Email:</b> ' + esc(j.email.subject) : 'No email address, so no email.') + '</div>'
+          + (j.in_hours ? '' : '<div style="color:#A8660E;margin-top:6px">It is outside 8am to 6pm, so Send waits until after 8am.</div>');
+        MORE.inv = JSON.stringify(body); if (send) send.disabled = !j.in_hours;
+      } catch (e) { out.innerHTML = '<span style="color:#B42318">Could not preview: ' + esc(e && e.message || e) + '</span>'; }
+      finally { b.disabled = false; b.textContent = 'Preview'; }
+      return;
+    }
+    if (a === 'invsend') {
+      var body2 = invBody('send');
+      if (!MORE.inv || MORE.inv !== JSON.stringify(Object.assign({}, body2, { action: 'preview' }))) { out.innerHTML = '<span style="color:#B42318">Something changed. Press Preview again first.</span>'; return; }
+      if (!confirm('Send the application to ' + body2.first_name + ' now?')) return;
+      b.disabled = true; b.textContent = 'Sending…';
+      try {
+        var r = await apInvCall(body2);
+        if (r.held) { out.innerHTML = '<span style="color:#A8660E">' + esc(r.held) + '</span>'; return; }
+        if (r.error || !r.ok) { out.innerHTML = '<span style="color:#B42318">' + esc(r.error || 'Nothing was sent.') + '</span>'; return; }
+        var how = [r.texted ? 'by text' : '', r.emailed ? 'by email' : ''].filter(Boolean).join(' and ');
+        MORE.open = ''; MORE.inv = null; await moreRender();
+        say('Sent ' + how + '.' + ((r.not_sent || []).length ? ' Not sent: ' + r.not_sent.join('; ') : ''), 'ok');
+      } catch (e) { out.innerHTML = '<span style="color:#B42318">Could not send: ' + esc(e && e.message || e) + '</span>'; }
+      finally { b.disabled = false; b.textContent = 'Send'; }
+    }
+  }
+
   /* ── the screens, and the tabs between them ── */
   var VIEW = 'need';
   function show(v) {
     VIEW = v;
-    var n = document.getElementById('phNeed'), f = document.getElementById('phFind'), td = document.getElementById('phToday'), en = document.getElementById('phEnd'), iv = document.getElementById('phIv'), t = document.getElementById('phTitle');
-    if (n) n.hidden = v !== 'need'; if (f) f.hidden = v !== 'find'; if (td) td.hidden = v !== 'today'; if (en) en.hidden = v !== 'end'; if (iv) iv.hidden = v !== 'iv';
-    if (t) t.firstChild.nodeValue = v === 'find' ? 'Find a person' : v === 'today' ? 'Today' : v === 'end' ? 'End my shift' : v === 'iv' ? 'Interview' : 'Needs me now';
-    var r = document.getElementById('phRefresh'); if (r) r.hidden = v === 'find' || v === 'end' || v === 'iv';
+    var n = document.getElementById('phNeed'), f = document.getElementById('phFind'), td = document.getElementById('phToday'), en = document.getElementById('phEnd'), iv = document.getElementById('phIv'), mo = document.getElementById('phMore'), t = document.getElementById('phTitle');
+    if (n) n.hidden = v !== 'need'; if (f) f.hidden = v !== 'find'; if (td) td.hidden = v !== 'today'; if (en) en.hidden = v !== 'end'; if (iv) iv.hidden = v !== 'iv'; if (mo) mo.hidden = v !== 'more';
+    if (t) t.firstChild.nodeValue = v === 'find' ? 'Find a person' : v === 'today' ? 'Today' : v === 'end' ? 'End my shift' : v === 'iv' ? 'Interview' : v === 'more' ? 'More' : 'Needs me now';
+    var r = document.getElementById('phRefresh'); if (r) r.hidden = v === 'find' || v === 'end' || v === 'iv' || v === 'more';
+    if (v === 'more') moreRender();
     if (v === 'end') endOpen();
     if (v === 'today') { todayRender(); todayLoad(false); }
     [].forEach.call(document.querySelectorAll('.ph-tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-v') === v); });
@@ -759,7 +899,7 @@
     if (document.getElementById('phApp')) return;
     var d = document.createElement('div'); d.id = 'phApp';
     d.innerHTML = '<div class="ph-top"><b id="phTitle">Needs me now<small id="phWho"></small></b>'
-      + '<button type="button" id="phRefresh">Refresh</button><button type="button" id="phOut">Sign out</button></div>'
+      + '<button type="button" id="phRefresh">Refresh</button></div>'
       + '<div id="phMsg" style="display:none"></div><div id="phNeed">'
       + '<div class="ph-wrap"><div id="phList"><div class="ph-none" style="padding-top:14px">Loading…</div></div>'
       + '<div class="ph-foot"><a href="' + hubLink() + '">Open the full Hub</a></div></div></div>'
@@ -768,7 +908,8 @@
       + '<div id="phToday" hidden><div class="ph-wrap"><div id="phTodayBody"></div></div></div>'
       + '<div id="phEnd" hidden><div class="ph-wrap"><div id="phEndBody"></div></div></div>'
       + '<div id="phIv" hidden><div class="ph-wrap"><div id="phIvBody"></div></div></div>'
-      + '<nav class="ph-tabs"><button type="button" data-v="need" class="on">Needs me</button><button type="button" data-v="find">Find</button><button type="button" data-v="today">Today</button><button type="button" data-v="end">End shift</button></nav>';
+      + '<div id="phMore" hidden><div class="ph-wrap"><div id="phMoreBody"></div></div></div>'
+      + '<nav class="ph-tabs"><button type="button" data-v="need" class="on">Needs me</button><button type="button" data-v="find">Find</button><button type="button" data-v="today">Today</button><button type="button" data-v="end">End shift</button><button type="button" data-v="more">More</button></nav>';
     document.body.appendChild(d);
     d.querySelector('#phNeed').addEventListener('click', onTap);
     d.querySelector('#phFind').addEventListener('click', onFindTap);
@@ -776,12 +917,15 @@
     d.querySelector('#phEnd').addEventListener('click', onEndTap);
     d.querySelector('#phEnd').addEventListener('input', onEndInput);
     d.querySelector('#phIv').addEventListener('click', onIvTap);
+    d.querySelector('#phMore').addEventListener('click', moreTap);
+    d.querySelector('#phMore').addEventListener('change', function (ev) { if (ev.target && ev.target.id === 'moPos') moreLink(); });
+    d.querySelector('#phMore').addEventListener('input', function (ev) { if (ev.target && /^mo(F|L|P|E|IP|Sms)$/.test(ev.target.id)) { MORE.inv = null; var sb2 = document.querySelector('[data-mo="invsend"]'); if (sb2) sb2.disabled = true; } });
     d.querySelector('#phIv').addEventListener('input', function (ev) { if (ev.target && (ev.target.hasAttribute('data-ivq') || ev.target.hasAttribute('data-ivf'))) ivTyped(ev.target); });
     d.querySelector('.ph-tabs').addEventListener('click', function (ev) { var b = ev.target.closest('button'); if (b) show(b.getAttribute('data-v')); });
     var q = d.querySelector('#phQ'), qt = null;
     q.addEventListener('input', function () { clearTimeout(qt); qt = setTimeout(function () { FIND.q = q.value; FIND.open = null; findRender(); }, 120); });
     document.getElementById('phRefresh').onclick = function () { tick(true); if (VIEW === 'today') todayLoad(true); };
-    document.getElementById('phOut').onclick = async function () {
+    window.phSignOut = async function () {
       try { localStorage.removeItem(KEY); } catch (e) { /* nothing kept */ }
       document.documentElement.classList.remove('ph-on');
       if (TIMER) { clearInterval(TIMER); TIMER = null; }
