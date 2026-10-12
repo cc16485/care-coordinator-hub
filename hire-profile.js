@@ -53,6 +53,7 @@
       + (ids.offer_id && p.path === 'new' && window.CRX ? '<button class="ibtn" onclick="HP.close();CRX.open(\'' + esc(ids.offer_id) + '\')">&#9776; Readiness card</button>' : '')
       + (ids.applicant_id && typeof apOpenProfile === 'function' ? '<button class="ibtn" onclick="HP.close();HP.openApplication(\'' + esc(ids.applicant_id) + '\')">Their application</button>' : '')
       + '<button class="ibtn" onclick="HP.close()">Close</button></div></div>';
+    h += skillsCard(p.experience);
     const docs = p.documents || [];
     h += '<div style="margin-top:.8rem"><b style="color:#0D365F">Signed documents and proofs</b> <span class="field-note">(' + docs.length + ') · each opens by a five-minute link; every open is logged with your name</span>'
       + (docs.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.35rem;margin-top:.4rem">' + docs.map((d, i) =>
@@ -68,6 +69,28 @@
             + '<td style="padding:.3rem .4rem;vertical-align:top">' + esc(x.what) + '</td><td style="padding:.3rem .4rem;color:#6E6559;vertical-align:top;white-space:nowrap">' + esc(x.by || '') + '</td></tr>'; }).join('') + '</tbody></table>'
         : '<div class="field-note">Nothing here yet.</div>') + '</div>';
     b.innerHTML = h;
+  }
+  /* 2026-10-11 (Samantha: "Everything collected here must feed into the caregiver's matching profile ... I don't want these
+     answers stored in a document that our Care Coordinators have to search for later"): one card, task by task, from their
+     Step 1 jobs and family care and their references' answers. Their own word stays self-reported until someone confirms it. */
+  const STAND = { confirmed:['Confirmed','#15803D','#DCFCE7'], supported:['Believed, not seen','#92400E','#FEF3C7'], questioned:['A reference did not see it','#B91C1C','#FEE2E2'], self_reported:['Self-reported','#3A342C','#F4F2ED'] };
+  function skillsCard(x){
+    if(!x || (!(x.skills || []).length && !(x.restrictions || []).length && !(x.strengths || []).length)) return '';
+    const c = x.counts || {}, sk = x.skills || [];
+    let h = '<div style="margin-top:.8rem;border:1px solid #E8E2D8;border-radius:10px;padding:.6rem .75rem">'
+      + '<b style="color:#0D365F">Skills and experience</b> ' + (x.practice ? '<span style="font-size:.7rem;font-weight:700;color:#B45309;background:#FFF7ED;border-radius:6px;padding:.05rem .4rem">PRACTICE</span> ' : '')
+      + '<span class="field-note">' + sk.length + ' task' + (sk.length === 1 ? '' : 's') + (sk.length ? ': ' + [c.confirmed ? c.confirmed + ' confirmed' : '', c.supported ? c.supported + ' believed' : '', c.self_reported ? c.self_reported + ' self-reported' : '', c.questioned ? c.questioned + ' to talk through' : ''].filter(Boolean).join(' · ') : '') + '</span>';
+    if(sk.length) h += '<table style="width:100%;border-collapse:collapse;font-size:.8rem;margin-top:.4rem"><tbody>' + sk.map(l => { const S = STAND[l.standing] || STAND.self_reported;
+        return '<tr style="border-bottom:1px solid #F4F2ED"><td style="padding:.3rem .4rem;vertical-align:top;font-weight:600">' + esc(l.label) + (l.lifts && l.lifts.length ? '<br><span class="field-note">' + esc(l.lifts.join(', ')) + '</span>' : '') + '</td>'
+          + '<td style="padding:.3rem .4rem;vertical-align:top;color:#3A342C">' + l.places.map(esc).join('<br>') + (l.confirmations || []).map(k => '<br><span class="field-note">' + esc(k.by) + ': ' + esc(k.said) + '</span>').join('') + '</td>'
+          + '<td style="padding:.3rem .4rem;vertical-align:top;white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:' + S[1] + ';background:' + S[2] + ';border-radius:6px;padding:.05rem .4rem">' + S[0] + '</span>'
+          + (l.refresher ? '<br><span style="font-size:.7rem;font-weight:700;color:#B45309">Wants a refresher first</span>' : '') + '</td></tr>'; }).join('') + '</tbody></table>';
+    const line = (t, arr) => (arr || []).length ? '<div style="font-size:.8rem;margin-top:.45rem"><b>' + t + '</b><br>' + arr.map(esc).join('<br>') + '</div>' : '';
+    h += line('Restrictions', x.restrictions) + line('Strengths', x.strengths);
+    const refs = (x.references || []).filter(r => r.tasks || r.comfortable);
+    if(refs.length) h += line('From their references (general feedback, not a skill sign-off)', refs.map(r => r.name + (r.comfortable ? ': comfortable with similar care for someone they care about: ' + r.comfortable : '') + (r.comfortable_why ? ' ("' + r.comfortable_why + '")' : '')));
+    if((x.backups || []).length) h += line('Backup references', x.backups.map(r => r.type + ': ' + r.name + ' (' + r.relationship + ')' + (r.phone ? ' ' + r.phone : '') + (r.email ? ' ' + r.email : '') + (r.may_contact === 'no' ? ', do not contact' : '')));
+    return h + '<div class="field-note" style="margin-top:.4rem">' + esc(x.note || '') + ' A reference who does not answer never means they lack the skill.</div></div>';
   }
   async function doc(i, btn){
     const d = CUR && (CUR.documents || [])[i]; if(!d) return;
