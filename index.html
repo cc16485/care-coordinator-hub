@@ -9999,7 +9999,10 @@ function cpRenderCare(){
             :(v.changes_needed&&v.plan_updated?'<span class="field-note">plan updated in AxisCare'+(v.plan_updated_at?' '+esc(String(v.plan_updated_at).slice(0,10)):'')+'</span>':''))
           +'</div>').join('')
       :'<div class="field-note">No reviews logged yet.</div>')
-    +'</div>';
+    +'</div>'
+    /* Track 3c (2026-10-12): Care needs for matching, only while its Admin switch is on (care-needs.js) */
+    +'<div id="cp_needs"></div>';
+  if((DATA.ops_settings||{}).care_needs_live){ const go=()=>window.CN&&CN.mount('cp_needs'); if(window.CN) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261012'; sc.onload=go; document.head.appendChild(sc); } }
 }
 function cpNewAssessment(){
   const lead=CP.lead;
