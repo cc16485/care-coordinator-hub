@@ -544,7 +544,9 @@ window.AP_JOURNEY = [
   "text": "Hi {first}! Congratulations, and welcome to Caring Companions! 🎉\nWe're excited to begin the onboarding process with you.\n\nYour next step is to watch your email for a message from Viventium, our secure onboarding system. It will contain your official job offer and the first portion of your onboarding paperwork.\n\nPlease complete it as soon as possible. This paperwork gives us permission to begin your background check and contact your professional references.\n\nOnce your background check and references are complete, we'll text you to book a quick 15-minute Orientation Video Call. After that, you'll do your paid training from home on your phone or computer.\n\n📞 Please save our office number: (417) 234-8494. This is our main office number and the one you'll use to call or text us if you have any questions.\n\nWelcome to the Caring Companions team!",
   "email_summary": "Congratulations + Step 1 complete Viventium paperwork (official offer + first paperwork; authorizes background check and references) / Step 2 background and reference checks / Step 3 your 15-minute Orientation Video Call (once checks and references are complete we send Viventium Step 2 and a link to book it; join from phone or computer) / Step 4 paid training from home (after the call, a private link by text to the paid orientation and Alzheimer's and dementia training, in pieces if they like) / save office number (417) 234-8494.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "replaced": "October 11, 2026",
+  "replaced_note": "Stopped on October 11, 2026 (Samantha: 'that text should not be going out'). Marking someone entered in Viventium only records it now; the Hub no longer sends this."
  },
  {
   "stage": "start paperwork",

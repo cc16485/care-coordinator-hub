@@ -1483,7 +1483,7 @@ function renderOffers(){
        note:o.axiscare_applicant_id?'Pushed automatically, just confirm the attributes.':'Auto-push did not take, so add them by hand first.'},
       {done:!!o.viventium_entered_at, label:'Viventium entry',
        btn:'<button class="fb" onclick="markOfferViventium(\''+id+'\',this)">Mark entered in Viventium</button>',
-       note:'Use the entry sheet below, then mark it. That is what sends their welcome message.'},
+       note:'Use the entry sheet below, then mark it.'},
       {done:!!o.step1_done_at, label:'Their Step 1 paperwork',
        btn:'<button class="fb" onclick="markOfferStep1(\''+id+'\',this)">Mark Step 1 done</button>',
        note:'Theirs to do. Viventium reminds them every two days'+(o.step1_alerted_at?', and this one is flagged as stalled':'')+'.'},
@@ -2577,38 +2577,12 @@ async function markOfferViventium(id,btn){
   try{
     const {data:{session}}=await sb.auth.getSession();
     await offerUpdate(id,{p_viventium:true,p_who:(session&&session.user&&session.user.email)||'staff'});
-    // Entering Viventium is the trigger for the applicant's welcome text +
-    // email — it tells them to watch for the Viventium invite that just went
-    // out. The function never double-sends (welcome_sent_at guard).
-    if(btn) btn.textContent='Sending welcome…';
-    try{
-      const w=await sendOfferWelcome(id,null,true);
-      if(!w.ok) alert('Viventium entry saved ✓ — but the welcome text/email did not send: '+w.error+'\n\nUse the "💬 Send welcome text + email" button on the record to retry.');
-    }catch(e){}
+    /* 2026-10-11 (Samantha: "that text should not be going out"): marking them entered in Viventium only records it now.
+       The welcome text + email ("watch your email for a message from Viventium") is no longer sent from here. */
     await loadOffers();
   }catch(e){ alert('Could not save: '+(e&&e.message?e.message:'error')); if(btn){btn.disabled=false;btn.textContent='☑ Entered in Viventium';} }
 }
-async function sendOfferWelcome(id,btn,quiet){
-  if(btn){btn.disabled=true;btn.textContent='Sending…';}
-  try{
-    const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/job-offer',{
-      method:'POST',headers:{'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'x-hub-token':await (window.trainHubTok ? window.trainHubTok() : ''),'Content-Type':'application/json'},
-      body:JSON.stringify({action:'send_welcome', offer_id:id})});
-    const d=await r.json();
-    if(d.error) throw new Error(d.error);
-    if(!quiet){
-      /* TRAINING TEXTS (2026-10-01): a part that did not go (after hours, no yes to texts, refused) is said, not hidden */
-      alert(d.already_sent?'Already sent earlier ✓':'Welcome '+[d.sms?'text':null,d.email?'email':null].filter(Boolean).join(' + ')+' sent ✓'
-        +((d.not_sent&&d.not_sent.length)?'\n\nNot sent: '+d.not_sent.join('; '):''));
-      await loadOffers();
-    }
-    return {ok:true};
-  }catch(e){
-    const msg=(e&&e.message)||'failed';
-    if(!quiet){ alert('Could not send: '+msg); if(btn){btn.disabled=false;btn.textContent='💬 Send welcome text + email';} }
-    return {ok:false,error:msg};
-  }
-}
+/* sendOfferWelcome removed 2026-10-11 (Samantha): the Viventium welcome text + email is no longer sent from the Hub. */
 // Viventium is typed field by field — no bulk paste. This sheet mirrors her
 // actual Add New Hire screen (TR9-001, screenshots Jul 13 2026) top to bottom:
 // PERSONAL → POSITION → WORK SCHEDULE → PAY INFO → RATES → TAXES → PLAN.
@@ -10261,7 +10235,7 @@ window.offerOpenDoc = offerOpenDoc;
 window.markOfferEntered = markOfferEntered;
 window.markOfferViventium = markOfferViventium;
 window.markOfferStep1 = markOfferStep1;
-window.sendOfferWelcome = sendOfferWelcome;
+
 window.confirmOfferLevel = confirmOfferLevel;
 window.renderPastOffers = renderPastOffers;
 /* Every function the engine's own rendered HTML calls through an inline
