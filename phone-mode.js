@@ -87,6 +87,8 @@
     + '.ph-ho{background:#EEF8F7;border:1.5px dashed #2E8F8B;border-radius:14px;padding:12px 13px;margin:12px 0 4px}.ph-ho ul{margin:6px 0 0;padding-left:18px;font-size:13.5px}'
     + '.ph-fam{border-top:1px solid #EEF2F7;padding:8px 0;display:flex;align-items:center;gap:10px}.ph-fam div{flex:1;min-width:0;font-size:14px}.ph-fam small{display:block;color:#5B6878;font-size:12px}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+  /* 2026-10-12: the app's manifest only in phone mode, so a phone's home screen icon opens CC Office as its own app (and can get notifications); the computer Hub is unchanged */
+  if (!document.querySelector('link[rel="manifest"]')) { var mf = document.createElement('link'); mf.rel = 'manifest'; mf.href = 'cc-office.webmanifest'; document.head.appendChild(mf); }
 
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var lc = function (s) { return String(s || '').trim().toLowerCase(); };
@@ -142,8 +144,21 @@
       + (it.detail ? '<div class="ph-d">' + esc(it.detail) + '</div>' : '')
       + (last ? '<div class="ph-h">' + esc(last.by || '') + ': ' + esc(last.text || '') + '</div>' : '')
       + '<div class="ph-btns">';
+    /* 2026-10-12 (her "build 6-8", item 6): a project's steps on the phone, ticked or taken with the Hub's own step
+       actions (projects.js pjStepTick / pjStepClaim). Closing a project, editing steps and its conversation stay in the Hub. */
+    if (it.kind === 'project' && Array.isArray(it.steps) && it.steps.length) {
+      var me0 = me(), open0 = it.steps.filter(function (x) { return !x.done_at; }).length;
+      h = h.replace(/<div class="ph-btns">$/, '') + '<div class="ph-h" style="margin-top:8px;font-weight:700;color:#0E3860">Steps · ' + (it.steps.length - open0) + ' of ' + it.steps.length + ' done</div>'
+        + it.steps.map(function (st) {
+          var mineStep = lc(st.claimed_by) === me0 || (st.who || []).map(lc).indexOf(me0) > -1;
+          var whoS = (st.who || []).map(function (e) { return first(opsOwnerName(e) || e); }).join(' & ');
+          return '<div class="ph-fam"><button type="button" class="ph-tick" data-pj="tick" data-id="' + esc(it.id) + '" data-sid="' + esc(st.id) + '" aria-label="' + (st.done_at ? 'Reopen' : 'Done') + '" style="width:30px;height:30px;border-radius:8px;border:1.5px solid ' + (st.done_at ? '#2E8F8B;background:#2E8F8B;color:#fff' : '#B9C6D6;background:#fff;color:#2E8F8B') + ';font-size:17px;flex:none">' + (st.done_at ? '✓' : '') + '</button>'
+            + '<div><span style="' + (st.done_at ? 'text-decoration:line-through;color:#5B6878' : '') + '">' + esc(st.label) + '</span><small>' + esc([whoS, st.due && !st.done_at ? 'by ' + st.due : ''].filter(Boolean).join(' · ')) + '</small></div>'
+            + (!st.done_at && !mineStep ? '<button type="button" class="ph-b" data-pj="claim" data-id="' + esc(it.id) + '" data-sid="' + esc(st.id) + '" style="padding:6px 10px;font-size:12.5px">I’ve got this</button>' : '') + '</div>';
+        }).join('') + '<div class="ph-btns">';
+    }
     if (!mine) h += '<button class="ph-b p" data-ph="take" data-id="' + esc(it.id) + '">Take it</button>';
-    if (special(it)) h += '<a class="ph-b' + (mine ? ' p' : '') + '" href="' + hubLink() + '">Open in the Hub</a>';
+    if (special(it)) h += '<a class="ph-b' + (mine ? ' p' : '') + '" href="' + hubLink() + '">' + (it.kind === 'project' ? 'Close or change it in the Hub' : 'Open in the Hub') + '</a>';
     else h += '<button class="ph-b' + (mine ? ' p' : '') + '" data-ph="done" data-id="' + esc(it.id) + '">Done</button>';
     h += '<button class="ph-b" data-ph="note" data-id="' + esc(it.id) + '">Note</button>';
     if (it.phone && typeof ocAttrs === 'function') h += '<a class="ph-b"' + ocAttrs(it.phone, {}) + '>Call</a>';
@@ -217,7 +232,14 @@
     setTimeout(function () { ta.focus(); }, 50);
   }
   function title(it) { return it.about || it.title || 'this'; }
+  async function pjTap(b) {
+    var id = b.getAttribute('data-id'), sid = b.getAttribute('data-sid'), what = b.getAttribute('data-pj');
+    b.disabled = true;
+    try { if (what === 'tick') await pjStepTick(id, sid); else await pjStepClaim(id, sid); phRender(); }
+    catch (e) { say('Not saved: ' + (e && e.message || e), 'bad'); b.disabled = false; }
+  }
   function onTap(ev) {
+    var pj = ev.target.closest && ev.target.closest('[data-pj]'); if (pj) return pjTap(pj);
     var g = ev.target.closest && ev.target.closest('[data-ho]');
     if (g) { g.disabled = true; g.textContent = 'Saving…'; Promise.resolve(hoAck(g.getAttribute('data-ho'))).then(function () { say(saved() ? 'Got it. The handoff is cleared.' : 'Not saved yet (the connection dropped). Try Got it again in a moment.', saved() ? 'ok' : 'bad'); }); return; }
     var b = ev.target.closest && ev.target.closest('[data-ph]'); if (!b) return;
@@ -460,7 +482,7 @@
           var how = a.yes.length ? a.yes.map(function (y) { return first(y.name); }).join(', ') + ' said yes' : a.n ? a.n + ' asked · ' + a.no + ' said no · ' + a.wait + ' waiting' : 'nobody asked yet';
           rows.push({ min: hm(String(c.shift_time || '').split('-')[0]), kind: 'Open shift', red: true, title: c.client || 'Client',
             sub: [span(c.shift_time), c.calling_off ? first(c.calling_off) + ' called off' : '', how].filter(Boolean).join(' · '),
-            item: it, link: 'index.html#cara/case/' + encodeURIComponent(c.id) });
+            item: it, link: 'index.html#cara/case/' + encodeURIComponent(c.id), asked: (c.asked || []).slice(0, 30) });
         });
         S.clockins.forEach(function (l) {
           rows.push({ min: hm(l.shift_time), kind: 'No clock-in yet', red: true, title: l.caregiver || 'Caregiver',
@@ -525,6 +547,17 @@
       if (r.need) btn += '<button class="ph-b p" data-pt="need">See in Needs me now</button>';
       if (r.iv) btn += '<button class="ph-b p" data-pt="iv" data-ap="' + esc(r.iv) + '">Start the interview</button>';
       if (r.addr) btn += '<a class="ph-b" href="' + esc(mapsLink(r.addr)) + '" target="_blank" rel="noopener">Directions</a>';   /* 2026-10-12: one tap to Maps */
+      /* 2026-10-12 (item 6): who was asked about an open shift and what they said, with Call (office line) */
+      var asked = '';
+      if (r.asked && r.asked.length) {
+        var W = { yes: ['said yes', '#1F7A4D'], no: ['said no', '#64748B'] };
+        var cgPhone = function (x) { var p0 = x.phone || x.mobile || ''; if (p0) return p0; var n = lc(x.name); var c0 = (FIND.cg || []).find(function (c) { return lc(((c.first || '') + ' ' + (c.last || '')).trim()) === n; }); return c0 ? c0.mobile : ''; };
+        asked = '<details style="margin-top:8px"><summary style="font-size:13.5px;font-weight:700;color:#0E3860;cursor:pointer">Who was asked (' + r.asked.length + ')</summary>'
+          + r.asked.slice().sort(function (a, b) { return (a.state === 'yes' ? 0 : a.state === 'no' ? 2 : 1) - (b.state === 'yes' ? 0 : b.state === 'no' ? 2 : 1); }).map(function (x) {
+            var w = W[x.state] || ['waiting', '#A8660E'], ph = cgPhone(x);
+            return '<div class="ph-fam"><div>' + esc(x.name || 'Caregiver') + '<small style="color:' + w[1] + '">' + w[0] + '</small></div>' + (ph && x.state !== 'no' ? callBtn(ph, 'Call') : '') + '</div>';
+          }).join('') + '</details>';
+      }
       if (r.phone) btn += callBtn(r.phone, r.phoneLabel || 'Call', { email: r.email });
       if (r.ap_id && r.phone && window.ApText) btn += ApText.btn(r.ap_id, 'Text', 'ph-b');   /* 574: text the applicant about today's interview */
       if (r.link) btn += '<a class="ph-b" href="' + esc(r.link) + '">Open in the Hub</a>';
@@ -532,7 +565,7 @@
       h += '<div class="ph-tl' + (past ? ' past' : '') + '"><div class="ph-tm">' + esc(r.min == null ? 'Any time' : btTime(r.min)) + '</div>'
         + '<div class="ph-card' + (r.red ? ' act' : '') + '"><div class="ph-k"' + (r.red ? ' style="color:#B42318"' : '') + '>' + esc(r.kind) + '</div>'
         + '<div class="ph-t">' + esc(r.title) + '</div>' + (r.sub ? '<div class="ph-s">' + esc(r.sub) + '</div>' : '')
-        + (who ? '<div class="ph-who">' + who + '</div>' : '') + (btn ? '<div class="ph-btns">' + btn + '</div>' : '') + '</div></div>';
+        + (who ? '<div class="ph-who">' + who + '</div>' : '') + asked + (btn ? '<div class="ph-btns">' + btn + '</div>' : '') + '</div></div>';
     });
     if (!drew) h += '<div class="ph-now">NOW ' + esc(btTime(now)) + '</div>';
     if (!TD.rows.length) h += '<div class="ph-none">Nothing on today’s schedule: no open shifts, interviews, assessments, Orientation Video Calls or orientation.</div>';
@@ -705,7 +738,11 @@
       + '<div class="ph-k" style="margin-top:12px">How did it go?</div><textarea class="ph-in" rows="3" data-ivf="notes" placeholder="How they came across, anything that decided it either way">' + esc(A.notes || '') + '</textarea></div>'
       + '<div class="ph-btns" style="margin:4px 0 6px"><button class="ph-b p" data-iv="save" style="flex:1;font-size:16px;padding:13px">Save to their record</button></div>'
       + '<div id="phIvSaid" class="ph-h"></div>'
-      + '<div class="ph-foot">Hire, candidate pool or not hiring: <a href="index.html#ap/' + encodeURIComponent(IV.id) + '">open them in the full Hub</a></div>';
+      /* 2026-10-12 (item 6): the decision on the phone. Candidate pool and Not hiring are the Hub's own (same questions,
+         same record, and the same message offered with OK first); Hire needs the offer form, which is in the full Hub. */
+      + '<div class="ph-card"><div class="ph-k">After the interview</div><div class="ph-s">Saves your notes first.</div><div class="ph-btns">'
+      + '<button class="ph-b" data-iv="pool">Candidate pool</button><button class="ph-b" data-iv="declined">Not hiring</button></div>'
+      + '<div class="ph-h">Hire: <a href="index.html#ap/' + encodeURIComponent(IV.id) + '">make the offer in the full Hub</a> (the offer form is there).</div></div>';
     box.innerHTML = h;
     ivQuick();
     try { recMount('phRecHost', 'interview', IV.id, nm); } catch (e) { document.getElementById('phRecHost').innerHTML = '<div class="ph-msg bad" style="margin:0">The recorder could not start: ' + esc(e && e.message || e) + '</div>'; }
@@ -725,7 +762,8 @@
   function ivTyped(el) {
     var A = IV.A; if (!A) return;
     var q = el.getAttribute('data-ivq'), f = el.getAttribute('data-ivf');
-    if (q) { A.script[q] = A.script[q] || {}; A.script[q].note = el.value; A.script[q].suggested = false; }
+    if (q) { A.script[q] = A.script[q] || {}; A.script[q].note = el.value; A.script[q].suggested = false;
+      var tg = el.previousElementSibling; if (tg && tg.classList && tg.classList.contains('ph-from')) tg.remove(); }
     else if (f) A[f] = el.value;
     clearTimeout(IV.t); IV.t = setTimeout(ivDraftSave, 300);
     var s = document.getElementById('phIvSaid'); if (s) s.textContent = 'Not saved to their record yet (kept on this phone).';
@@ -753,6 +791,64 @@
     }
     IV.saving = false; btn.disabled = false; btn.textContent = 'Save to their record';
   }
+  /* 2026-10-12 (her "build 6-8", item 8): after a recording is transcribed, "Fill the answers from this" writes into
+     these boxes on the phone. Anything a person already typed is never replaced; what it writes is marked as from the
+     recording until somebody edits it. No scores (her rule). Kept on this phone until Save, like typing. */
+  window.phIvFill = function (data) {
+    if (VIEW !== 'iv' || !IV.A) return false;
+    var A = IV.A, filled = 0; A.script = A.script || {};
+    (data && data.answers || []).forEach(function (x) {
+      var cur = A.script[x.id] || {};
+      if (cur.note && !cur.suggested) return;
+      if (!x.note) return;
+      A.script[x.id] = { note: x.note, evidence: x.evidence || null, suggested: true }; filled++;
+    });
+    if (data && data.other && !String(A.notes || '').trim()) A.notes = data.other;
+    ivBoxesRefresh(); ivDraftSave();
+    say(filled ? filled + ' answers written from the recording. Check each one, then Save to their record.' : 'Nothing new to write: every box already has your own words.', 'ok');
+    return true;
+  };
+  window.phIvAppendNotes = function (text) {
+    if (VIEW !== 'iv' || !IV.A) return false;
+    IV.A.notes = (String(IV.A.notes || '').trim() ? IV.A.notes + '\n\n' : '') + text;
+    ivBoxesRefresh(); ivDraftSave(); say('The transcript is in How did it go. Save to put it on their record.', 'ok');
+    return true;
+  };
+  function ivBoxesRefresh() {
+    var box = document.getElementById('phIvBody'); if (!box) return;
+    [].forEach.call(box.querySelectorAll('[data-ivq]'), function (t) {
+      var a = IV.A.script[t.getAttribute('data-ivq')] || {};
+      if (document.activeElement !== t) t.value = a.note || '';
+      var tag = t.previousElementSibling && t.previousElementSibling.classList && t.previousElementSibling.classList.contains('ph-from') ? t.previousElementSibling : null;
+      if (a.suggested && a.note && !tag) { var d = document.createElement('div'); d.className = 'ph-from ph-h'; d.style.color = '#A8660E'; d.textContent = 'Written from the recording. Check it, edit anything that is off.'; t.parentNode.insertBefore(d, t); }
+      else if (!(a.suggested && a.note) && tag) tag.remove();
+    });
+    var n = box.querySelector('[data-ivf="notes"]'); if (n && document.activeElement !== n) n.value = IV.A.notes || '';
+    var s2 = document.getElementById('phIvSaid'); if (s2) s2.textContent = 'Not saved to their record yet (kept on this phone).';
+  }
+  async function ivDecide(outcome, btn) {
+    var r = IV.r, A = IV.A, nm = r.first_name || 'them';
+    var reason = null, p = null;
+    if (outcome === 'declined') { reason = prompt('Why are we not hiring ' + nm + '?\n\nKept for our records, never sent.', ''); if (reason === null) return; }
+    else { p = apPoolPrompts(r, A); if (!p) return; }
+    btn.disabled = true;
+    await ivSave(document.querySelector('[data-iv="save"]') || btn);
+    try {
+      var cur = await sb.from('job_applicants').select('post_interview').eq('id', IV.id).maybeSingle();
+      var Apost = (cur.data && cur.data.post_interview) || A;
+      var patch = { post_interview: Apost, status: outcome, seen_at: new Date().toISOString() };
+      if (outcome === 'declined') patch.decline_reason = String(reason || '').trim() || 'not a fit after interview';
+      else { patch.pooled_at = new Date().toISOString(); patch.pool_wants = p.wants || null; patch.pool_area = p.area || null; patch.pool_note = p.note || Apost.notes || null; }
+      var u = await sb.from('job_applicants').update(patch).eq('id', IV.id); if (u.error) throw u.error;
+      var bk = await sb.from('interview_bookings').update({ status: 'attended', post_interview: Apost, outcome_notes: Apost.notes || null, outcome_at: new Date().toISOString() })
+        .eq('applicant_id', IV.id).eq('status', 'booked');
+      if (bk && bk.error) say('Saved, but their interview could not be closed (' + bk.error.message + '). Tell Samantha.', 'bad');
+      ivDraftDrop(IV.id);
+      say((outcome === 'pool' ? nm + ' is in the candidate pool.' : nm + ' is marked not hiring.'), 'ok');
+      try { await apDecisionOffer(IV.id, outcome); } catch (e) { /* the Hub's own message step says what happened */ }
+      show('today');
+    } catch (e) { say('Not saved: ' + (e && e.message || e) + '. Nothing was changed.', 'bad'); btn.disabled = false; }
+  }
   function onIvTap(ev) {
     var b = ev.target.closest && ev.target.closest('[data-iv],[data-ivk],[data-ivw]'); if (!b) return;
     if (b.hasAttribute('data-ivk')) { var k = b.getAttribute('data-ivk'), v = b.getAttribute('data-ivv'); IV.A[k] = IV.A[k] === v ? null : v; ivQuick(); ivDraftSave(); return; }
@@ -764,6 +860,7 @@
       return show('today');
     }
     if (a === 'save') return ivSave(b);
+    if (a === 'pool' || a === 'declined') return ivDecide(a, b);
   }
 
   /* ── screen 6: more (2026-10-12, Samantha "yes build 1-5"): everything the old CC Office menu page held, so the home
@@ -791,6 +888,55 @@
     var done = function () { var w = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(function () { btn.textContent = w; }, 1600); };
     try { await navigator.clipboard.writeText(text); done(); } catch (e) { window.prompt('Copy this:', text); }
   }
+  /* ── phone notifications (2026-10-12, item 7): each person turns them on for their own phone. The notification only
+     says something needs you; nothing about anybody goes through Apple's or Google's push service. The office switch
+     (Owners Hub Admin page) decides whether any are sent at all. ── */
+  var standalone = function () { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; };
+  var isIOS = function () { return /iPhone|iPad|iPod/.test(navigator.userAgent); };
+  function b64ToBytes(s) { var p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+  async function notifState() {
+    var st = { supported: 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window, sub: null, perm: (window.Notification && Notification.permission) || 'default' };
+    if (st.supported) { try { var reg = await navigator.serviceWorker.getRegistration(); st.sub = reg && reg.pushManager ? await reg.pushManager.getSubscription() : null; } catch (e) { /* none */ } }
+    return st;
+  }
+  async function notifHtml() {
+    var ops = (typeof DATA !== 'undefined' && DATA.ops_settings) || {}, st = await notifState(), h = '<div class="ph-card">';
+    if (!ops.push_vapid_public) return h + '<div class="ph-s">Phone notifications are not set up yet (Desktop step 630).</div></div>';
+    if (!st.supported || (isIOS() && !standalone())) return h + '<div class="ph-s">' + (isIOS() ? 'On an iPhone: add CC Office to your Home Screen first (in Safari, tap Share, then Add to Home Screen), open it from that icon, then come back here.' : 'This browser cannot show notifications. Try Chrome, or add CC Office to your Home Screen.') + '</div></div>';
+    h += '<div class="ph-s">' + (st.sub ? '<b style="color:#1F7A4D">On for this phone.</b> ' : 'Off for this phone. ') + 'You get a notification when something lands in Act Now for you, or with nobody’s name on it: missed clock-ins, urgent and escalated items. It only says something needs you, never who or what. Nothing at night except missed clock-ins and call-ins.</div>'
+      + (ops.phone_notify_live === true ? '' : '<div class="ph-h" style="color:#A8660E">The office switch is off, so none are sent yet (Owners Hub Admin page: Phone notifications).</div>')
+      + (st.perm === 'denied' ? '<div class="ph-h" style="color:#B42318">Notifications are blocked for CC Office in this phone’s settings. Allow them there, then come back.</div>' : '')
+      + '<div class="ph-btns">' + (st.sub ? '<button class="ph-b p" data-mo="ntest">Send me a test</button><button class="ph-b" data-mo="noff">Turn off</button>' : '<button class="ph-b p" data-mo="non">Turn on for this phone</button>') + '</div>'
+      + '<div id="moN" class="ph-h"></div></div>';
+    return h;
+  }
+  async function notifOn(b) {
+    var out = document.getElementById('moN'); b.disabled = true;
+    try {
+      var reg = await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
+      var perm = await Notification.requestPermission(); if (perm !== 'granted') throw new Error('notifications were not allowed on this phone');
+      var sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(DATA.ops_settings.push_vapid_public) });
+      var j = sub.toJSON(), s = await sb.auth.getSession(), email = s && s.data && s.data.session && s.data.session.user && s.data.session.user.email;
+      if (!email) throw new Error('sign in again first');
+      var r = await sb.from('push_subscriptions').upsert({ email: String(email).toLowerCase(), endpoint: j.endpoint, p256dh: j.keys && j.keys.p256dh, auth: j.keys && j.keys.auth, user_agent: navigator.userAgent.slice(0, 200) }, { onConflict: 'endpoint' });
+      if (r.error) throw r.error;
+      MORE.open = 'notif'; await moreRender(); say('Notifications are on for this phone.', 'ok');
+    } catch (e) { if (out) out.innerHTML = '<span style="color:#B42318">Could not turn them on: ' + esc(e && e.message || e) + '</span>'; b.disabled = false; }
+  }
+  async function notifOff(b) {
+    b.disabled = true;
+    try { var st = await notifState(); if (st.sub) { var ep = st.sub.endpoint; await st.sub.unsubscribe(); await sb.from('push_subscriptions').delete().eq('endpoint', ep); }
+      MORE.open = 'notif'; await moreRender(); say('Notifications are off for this phone.', 'ok'); }
+    catch (e) { say('Could not turn them off: ' + (e && e.message || e), 'bad'); b.disabled = false; }
+  }
+  async function notifTest(b) {
+    var out = document.getElementById('moN'); b.disabled = true;
+    try { var r = await sb.functions.invoke('push-notify', { body: { action: 'test' } }); if (r.error) throw r.error; var d = r.data || {};
+      if (out) out.textContent = d.error ? d.error : d.sent ? 'Sent to ' + d.sent + ' of your phone' + (d.phones === 1 ? '' : 's') + '. It should arrive in a few seconds.' : 'Nothing could be sent: turn notifications off and on again.'; }
+    catch (e) { if (out) out.innerHTML = '<span style="color:#B42318">' + esc(e && e.message || e) + '</span>'; }
+    b.disabled = false;
+  }
+
   async function moreRender() {
     var box = document.getElementById('phMoreBody'); if (!box) return;
     var pos = MORE.open ? await morePositions() : (MORE.pos || []);
@@ -817,6 +963,8 @@
         + '<div class="ph-btns"><button class="ph-b" data-mo="invprev">Preview</button><button class="ph-b p" data-mo="invsend" disabled>Send</button></div>'
         + '<div id="moInv" class="ph-s" style="margin-top:8px"></div></div>';
     }
+    h += '<div class="ph-lane" style="color:#0E3860">THIS PHONE</div>' + tile('', 'i-bell', 'Phone notifications', 'Get told when something needs you', 'notif');
+    if (MORE.open === 'notif') h += await notifHtml();
     h += '<div class="ph-lane" style="color:#0E3860">FOR CAREGIVERS</div>'
       + tile('', 'i-clock', 'Copy the My Hours link', 'cc.mo-care.com/availability: their wanted hours and days', 'hours')
       + '<div class="ph-lane" style="color:#0E3860">EVERYTHING ELSE</div>'
@@ -837,7 +985,10 @@
   async function moreTap(ev) {
     var b = ev.target.closest && ev.target.closest('[data-mo]'); if (!b) return;
     var a = b.getAttribute('data-mo');
-    if (a === 'link' || a === 'inv') { MORE.open = MORE.open === a ? '' : a; MORE.inv = null; return moreRender(); }
+    if (a === 'link' || a === 'inv' || a === 'notif') { MORE.open = MORE.open === a ? '' : a; MORE.inv = null; return moreRender(); }
+    if (a === 'non') return notifOn(b);
+    if (a === 'noff') return notifOff(b);
+    if (a === 'ntest') return notifTest(b);
     if (a === 'copylink') return copyText(document.getElementById('moUrl').value, b);
     if (a === 'copymsg') return copyText(moreMsg(), b);
     if (a === 'share') { try { await navigator.share({ text: moreMsg() }); } catch (e) { /* closed the share sheet */ } return; }
@@ -888,7 +1039,7 @@
     var r = document.getElementById('phRefresh'); if (r) r.hidden = v === 'find' || v === 'end' || v === 'iv' || v === 'more';
     if (v === 'more') moreRender();
     if (v === 'end') endOpen();
-    if (v === 'today') { todayRender(); todayLoad(false); }
+    if (v === 'today') { todayRender(); todayLoad(false); var fl = findLoad(); if (fl && fl.then) fl.then(function () { if (VIEW === 'today') todayRender(); }); }   /* caregiver numbers for "who was asked" */
     [].forEach.call(document.querySelectorAll('.ph-tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-v') === v); });
     if (v === 'find') { findLoad(); findRender(); }
     window.scrollTo(0, 0);

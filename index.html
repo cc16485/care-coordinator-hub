@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="phone-mode.js?v=8"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="phone-mode.js?v=9"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -23008,6 +23008,8 @@ async function recFill(id, btn){
     const { data, error } = await sb.functions.invoke('score-interview', { body:{ recording_id: id } });
     if(error) throw error;
     if(data && data.error) throw new Error(data.error);
+    /* 2026-10-12: on the phone's interview screen the answers go into its own boxes (CC Office, screen 5) */
+    if(window.CC_PHONE && typeof window.phIvFill === 'function' && window.phIvFill(data)) return;
     const A = (window.__apInt = window.__apInt || {});
     A.script = A.script || {};
     let filled = 0, scored = 0;
@@ -23047,6 +23049,7 @@ async function recUse(id){
     box.scrollIntoView({ behavior:'smooth', block:'center' });
     return;
   }
+  if(window.CC_PHONE && typeof window.phIvAppendNotes === 'function' && window.phIvAppendNotes(r.transcript)) return;
   const notes = document.getElementById('apIntNotes');
   if(notes){
     notes.value = (notes.value ? notes.value + '\n\n' : '') + r.transcript;
