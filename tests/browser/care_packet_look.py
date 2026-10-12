@@ -23,6 +23,12 @@ window.callAction = async (fn, b) => { CALLS.push(JSON.parse(JSON.stringify(b)))
   if (b.action === 'link') { STATE.recipients = [{ id: 'pl_x', caregiver_name: 'Ariel Smith', caregiver_axiscare_id: '11', link_made_at: '2026-10-12T15:00:00Z', ack_version: null },
       { id: 'pl_y', caregiver_name: 'Bea Jones', caregiver_axiscare_id: '12', link_made_at: '2026-10-12T15:00:00Z', ack_version: 1, ack_at: '2026-10-12T16:00:00Z' }];
     return { status: 200, data: { outcome: 'made', link: 'https://cc.mo-care.com/packet.html?i=pl_AAAAAAAAAAAAAAAAAAAA&e=9&t=x', caregiver_first: 'Ariel', client_first: 'Dan', recipients: STATE.recipients } }; }
+  if (b.action === 'send_draft') { const ar = b.caregiver_axiscare_id === '11';
+    return { status: 200, data: Object.assign({ live: STATE.live !== false, kind: ar ? 'reminder' : 'first', caregiver_first: ar ? 'Ariel' : 'Bea', phone_last4: '0101', opted_out: !!STATE.opted, late: !!STATE.late,
+      text: (ar ? 'Hi Ariel, a reminder from Caring Companions: please watch Dan\\u2019s care packet and tap I understand before your next visit: (their link)' : 'Hi Bea, ...') + ' Reply STOP to opt out.', last_sent_at: null }, STATE.draft || {}) }; }
+  if (b.action === 'send') { if (STATE.fail) return { status: 422, data: { outcome: 'refused', error: 'Not sent: Ariel has asked not to get texts (stop_text).' } };
+    STATE.recipients[0] = Object.assign({}, STATE.recipients[0], { last_sent_at: '2026-10-12T17:00:00Z', last_send_kind: 'reminder', send_count: 2 });
+    return { status: 200, data: { outcome: 'sent', kind: 'reminder', recipients: STATE.recipients } }; }
   return { status: 400, data: { error: 'unknown' } }; };
 </script><script src="care-packet.js"></script></body>''' % json.dumps(TOPICS)
 open(os.path.join(ROOT, '_cpk_test.html'), 'w').write(card_page)
@@ -59,8 +65,35 @@ try:
     ok('card: who confirmed (Bea, this version) and who has not (Ariel)', 'not confirmed yet' in t and '✓ understood' in t, t[-400:])
     ok('card: no em dash anywhere on the card', '—' not in t)
     pg.screenshot(path=os.path.join(OUT, 'cpk_1_card.png'), full_page=True)
+    # ---- step 2: texting from the card ----
+    ok('card: Ariel (not confirmed) has a Remind-style button; Bea (confirmed this version) has none', pg.query_selector('[data-cpk-send="11"]') is not None and pg.query_selector('[data-cpk-send="12"]') is None)
+    pg.click('[data-cpk-send="11"]'); pg.wait_for_timeout(300)
+    t = pg.inner_text('#cp_packet')
+    ok('card: Remind opens the exact text, the phone ending and "(their link)" note, and nothing is sent yet', "a reminder from Caring Companions" in t and 'phone ending 0101' in t and '"(their link)" becomes Ariel' in t and pg.evaluate("CALLS.filter(c=>c.action==='send').length") == 0, t[-600:])
+    pg.click('#cpk_send'); pg.wait_for_timeout(300)
+    c = pg.evaluate("CALLS.filter(c=>c.action==='send')")
+    t = pg.inner_text('#cp_packet')
+    ok('card: Send sends once, for Ariel, with a send id; the row now says texted (reminder) and 2 texts', len(c) == 1 and c[0]['caregiver_axiscare_id'] == '11' and c[0]['send_id'].startswith('pk-') and 'Sent to Ariel.' in t and 'texted Oct 12 (reminder) · 2 texts' in t, (c, t[-500:]))
+    pg.screenshot(path=os.path.join(OUT, 'cpk_4_sent.png'), full_page=True)
+    pg.evaluate("STATE.opted = true"); pg.click('[data-cpk-send="11"]'); pg.wait_for_timeout(300)
+    ok('card: an opted-out caregiver: the panel says call them instead, Send is disabled', 'asked not to get texts' in pg.inner_text('#cp_packet') and pg.is_disabled('#cpk_send'))
+    pg.click('#cpk_cancel'); pg.wait_for_timeout(100)
+    pg.evaluate("STATE.opted = false; STATE.live = false"); pg.click('[data-cpk-send="11"]'); pg.wait_for_timeout(300)
+    ok('card: switch off: the panel says so and points to Get their link; Send is disabled', 'Sending from the Hub is off' in pg.inner_text('#cp_packet') and pg.is_disabled('#cpk_send'))
+    pg.click('#cpk_cancel'); pg.evaluate("STATE.live = true; STATE.late = true"); pg.click('[data-cpk-send="11"]'); pg.wait_for_timeout(300)
+    ok('card: in the evening the panel warns', 'before 8am or after 8pm' in pg.inner_text('#cp_packet'))
+    DLG_ANSWER = {'v': False}
+    pg.once('dialog', lambda d: d.dismiss()); n0 = pg.evaluate("CALLS.filter(c=>c.action==='send').length"); pg.click('#cpk_send'); pg.wait_for_timeout(300)
+    ok('card: in the evening, saying no to the question sends nothing', pg.evaluate("CALLS.filter(c=>c.action==='send').length") == n0)
+    pg.evaluate("STATE.late = false; STATE.fail = true"); pg.click('#cpk_cancel'); pg.click('[data-cpk-send="11"]'); pg.wait_for_timeout(300); pg.click('#cpk_send'); pg.wait_for_timeout(300)
+    ok('card: a refused send shows the reason on the card', 'Not sent: Ariel has asked not to get texts' in pg.inner_text('#cp_packet'))
+    pg.evaluate("STATE.fail = false")
+    pg.select_option('#cpk_cg', '12'); pg.click('#cpk_text'); pg.wait_for_timeout(300)
+    ok('card: Text the packet for a picked caregiver opens their draft', pg.evaluate("CALLS[CALLS.length-1]") == {'action': 'send_draft', 'packet_id': '11111111-1111-1111-1111-111111111111', 'caregiver_axiscare_id': '12'})
+    ok('card: still no em dash anywhere', '\u2014' not in pg.inner_text('#cp_packet'))
+    pg.click('#cpk_cancel')
     pg.fill('#cpk_about', 'Changed'); pg.wait_for_timeout(100)
-    ok('card: after a change, links wait until it is saved', pg.is_disabled('#cpk_link'))
+    ok('card: after a change, links and texts wait until it is saved', pg.is_disabled('#cpk_link') and pg.is_disabled('#cpk_text'))
     # ---- the caregiver's page ----
     st = {'view': json.loads(json.dumps(VIEW)), 'calls': [], 'mode': 'ok'}
     def handle(route):

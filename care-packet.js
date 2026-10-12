@@ -1,7 +1,8 @@
 /* =====================================================================================================================
    CAREGIVER PACKET (Step 1, Samantha "yes start step 1", 2026-10-12). A card on the client profile's Care tab: short
    notes about the client plus how-to topics from the library (each with the videos she approved). When it is ready, the
-   office makes each caregiver's OWN link and texts it themselves (Step 2 sends from here); the card shows who has
+   office makes each caregiver's OWN link; Step 2 (2026-10-12) texts it from here: Send / Remind / Send update open the exact
+   text first and a person presses Send (Cara never texts on her own; switch ops_settings.care_packet_send_live). The card shows who has
    tapped "I watched it and understand" for the current version. An edited packet is a new version and asks everyone
    again. Nothing here texts anyone. Health details live only behind the link, never in a text.
    CPK.mount(boxId). Needs: callAction (the Hub's door to a function), CP (the open client profile), DATA.caregivers.
@@ -9,7 +10,7 @@
 (function(){
   'use strict';
   const esc = t => (typeof escapeHtmlComms === 'function' ? escapeHtmlComms(t) : String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]));
-  const S = { box: null, packet: null, topics: [], recipients: [], draft: null, msg: '', err: '', busy: false, link: null, loadErr: '' };
+  const S = { box: null, packet: null, topics: [], recipients: [], draft: null, msg: '', err: '', busy: false, link: null, loadErr: '', send: null };
   const who = () => ({ ax: (window.CP && CP.ax) || '', lead_id: (window.CP && CP.lead && CP.lead.id) || '' });
   const firstName = () => {
     const l = window.CP && CP.lead;
@@ -29,7 +30,7 @@
                 : { client_first: firstName(), about: '', items: [], ready: false };
   }
   async function load(){
-    S.loadErr = ''; S.link = null;
+    S.loadErr = ''; S.link = null; S.send = null;
     try { const d = await call(Object.assign({ action: 'get' }, who())); S.packet = d.packet; S.topics = d.topics || []; S.recipients = d.recipients || []; fresh(); }
     catch (e) { S.loadErr = e.message; }
   }
@@ -63,7 +64,7 @@
       + (S.packet && S.packet.ready && S.recipients.length ? '<div class="field-note">Changing the words or topics makes a new version, and everyone confirms again.</div>' : '')
       + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;"><button id="cpk_save"' + (S.busy ? ' disabled' : '') + '>Save packet</button>'
       + (dirty() ? '<span class="field-note" style="color:#92400E;">changed, not saved</span>' : '')
-      + (S.msg ? '<span class="field-note" style="color:#166534;">' + esc(S.msg) + '</span>' : '') + '</div>'
+      + (S.msg && !/^Sent|already went/.test(S.msg) ? '<span class="field-note" style="color:#166534;">' + esc(S.msg) + '</span>' : '') + '</div>'
       + (S.err ? '<div class="field-note" style="color:#B91C1C;margin-top:6px;">' + esc(S.err) + '</div>' : '');
     if (S.packet && S.packet.ready) {
       const cgs = (window.DATA && DATA.caregivers || []).filter(c => c && c.axiscare_id && !c.inactive)
@@ -71,7 +72,9 @@
       h += '<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;"><b style="font-size:13.5px;color:var(--navy);">Caregivers</b>'
         + '<div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;"><select id="cpk_cg" style="max-width:280px;"><option value="">Pick a caregiver…</option>'
         + cgs.map(c => '<option value="' + esc(c.axiscare_id) + '">' + esc(((c.first || '') + ' ' + (c.last || '')).trim()) + '</option>').join('') + '</select>'
+        + '<button id="cpk_text"' + (S.busy || dirty() ? ' disabled' : '') + '>Text the packet</button>'
         + '<button class="secondary" id="cpk_link"' + (S.busy || dirty() ? ' disabled' : '') + '>Get their link</button></div>'
+        + sendPanel()
         + (dirty() ? '<div class="field-note">Save the packet first.</div>' : '')
         + (S.link ? '<div style="margin-top:8px;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg);">'
             + '<div style="font-size:13px;"><b>' + esc(S.link.caregiver_first) + '\'s link</b> (just for them, works 90 days)</div>'
@@ -84,12 +87,53 @@
               + (now ? '<span style="color:#166534;font-weight:700;">✓ understood ' + esc(day(r.ack_at)) + '</span>'
                  : r.ack_version ? '<span style="color:#92400E;font-weight:700;">confirmed an older version, not this one</span>'
                  : '<span style="color:#92400E;font-weight:700;">not confirmed yet</span>')
-              + '<span class="field-note">link made ' + esc(day(r.link_made_at)) + '</span></div>'; }).join('')
-          : '<div class="field-note" style="margin-top:6px;">No caregiver links yet.</div>')
+              + (r.last_sent_at ? '<span class="field-note">texted ' + esc(day(r.last_sent_at)) + (r.last_send_kind === 'reminder' ? ' (reminder)' : r.last_send_kind === 'updated' ? ' (updated packet)' : '') + (r.send_count > 1 ? ' · ' + esc(r.send_count) + ' texts' : '') + '</span>'
+                 : '<span class="field-note">link made ' + esc(day(r.link_made_at)) + ', not texted from here</span>')
+              + (now ? '' : '<button class="linklike" data-cpk-send="' + esc(r.caregiver_axiscare_id) + '"' + (S.busy || dirty() ? ' disabled' : '') + '>' + (r.ack_version ? 'Send update' : r.last_sent_at ? 'Remind' : 'Text it') + '</button>')
+              + '</div>'; }).join('')
+          : '<div class="field-note" style="margin-top:6px;">No caregivers yet.</div>')
+        + (S.msg && /^Sent|already went/.test(S.msg) ? '<div class="field-note" style="color:#166534;margin-top:6px;">' + esc(S.msg) + '</div>' : '')
+        + (S.sendErr ? '<div class="field-note" style="color:#B91C1C;margin-top:6px;">' + esc(S.sendErr) + '</div>' : '')
         + '</div>';
     }
     box.innerHTML = h + '</div>';
     wire();
+  }
+  /* The exact text, to whom, and anything to know first. Nothing is sent until Send is pressed. */
+  function sendPanel(){
+    const d = S.send; if (!d) return '';
+    if (d.loading) return '<div class="field-note" style="margin-top:8px;">Getting the text…</div>';
+    const box = 'margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);';
+    if (!d.kind) return '<div style="' + box + '"><div style="font-size:13px;">' + esc(d.caregiver_first) + ' already confirmed this version. Nothing to send.</div><button class="secondary" id="cpk_cancel" style="margin-top:6px;">Close</button></div>';
+    const blocked = !d.live || d.opted_out || !d.phone_last4;
+    return '<div style="' + box + '"><div style="font-size:13px;"><b>' + (d.kind === 'reminder' ? 'Reminder' : d.kind === 'updated' ? 'Updated packet' : 'Text') + ' to ' + esc(d.caregiver_first) + '</b>'
+      + (d.phone_last4 ? ' <span class="field-note">(phone ending ' + esc(d.phone_last4) + ', from the office number)</span>' : '') + '</div>'
+      + '<div style="margin-top:6px;padding:8px 10px;background:#fff;border:1px solid var(--border);border-radius:8px;font-size:13.5px;white-space:pre-wrap;">' + esc(d.text) + '</div>'
+      + '<div class="field-note">"(their link)" becomes ' + esc(d.caregiver_first) + '\'s own link when it sends.'
+      + (d.last_sent_at ? ' Last texted ' + esc(day(d.last_sent_at)) + '.' : '') + '</div>'
+      + (!d.live ? '<div class="field-note" style="color:#92400E;font-weight:700;">Sending from the Hub is off (Owners Hub Admin page, Caregiver packet texts). Use Get their link and text it yourself.</div>' : '')
+      + (d.opted_out ? '<div class="field-note" style="color:#B91C1C;font-weight:700;">' + esc(d.caregiver_first) + ' has asked not to get texts. Call them instead.</div>' : '')
+      + (!d.phone_last4 ? '<div class="field-note" style="color:#B91C1C;font-weight:700;">No usable phone number on the roster for ' + esc(d.caregiver_first) + '.</div>' : '')
+      + (d.late && !blocked ? '<div class="field-note" style="color:#92400E;">It is before 8am or after 8pm. Send now only if it can\'t wait.</div>' : '')
+      + '<div style="display:flex;gap:8px;margin-top:8px;"><button id="cpk_send"' + (blocked || S.busy ? ' disabled' : '') + '>Send</button><button class="secondary" id="cpk_cancel">Cancel</button></div></div>';
+  }
+  async function openSend(axId){
+    if (!axId) { S.sendErr = 'Pick a caregiver first.'; render(); return; }
+    S.sendErr = ''; S.msg = ''; S.link = null; S.send = { loading: true, ax: axId }; render();
+    try { const d = await call({ action: 'send_draft', packet_id: S.packet.id, caregiver_axiscare_id: axId });
+      S.send = Object.assign(d, { ax: axId, send_id: 'pk-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 12)) }); }
+    catch (e) { S.send = null; S.sendErr = e.message; }
+    render();
+  }
+  async function doSend(){
+    const d = S.send; if (!d || S.busy) return;
+    if (d.late && !confirm('It is before 8am or after 8pm in Springfield. Send ' + d.caregiver_first + ' this text now?')) return;
+    S.busy = true; S.sendErr = ''; render();
+    try { const r = await call({ action: 'send', packet_id: S.packet.id, caregiver_axiscare_id: d.ax, send_id: d.send_id });
+      S.recipients = r.recipients || S.recipients; S.send = null;
+      S.msg = r.outcome === 'already_sent' ? 'That text already went.' : 'Sent to ' + d.caregiver_first + '.' + (r.warning ? ' ' + r.warning : ''); }
+    catch (e) { S.sendErr = e.message; S.send = null; }
+    S.busy = false; render();
   }
   function wire(){
     const $ = id => document.getElementById(id);
@@ -104,7 +148,11 @@
       else S.draft.items = S.draft.items.filter(x => x.topic !== k);
       S.msg = ''; render(); }; });
     const sv = $('cpk_save'); if (sv) sv.onclick = () => { keep(); save(); };
-    const lk = $('cpk_link'); if (lk) lk.onclick = () => makeLink(($('cpk_cg') || {}).value || '');
+    const lk = $('cpk_link'); if (lk) lk.onclick = () => { S.send = null; makeLink(($('cpk_cg') || {}).value || ''); };
+    const tx = $('cpk_text'); if (tx) tx.onclick = () => openSend(($('cpk_cg') || {}).value || '');
+    document.querySelectorAll('[data-cpk-send]').forEach(el => { el.onclick = () => openSend(el.getAttribute('data-cpk-send')); });
+    const sd = $('cpk_send'); if (sd) sd.onclick = doSend;
+    const cc = $('cpk_cancel'); if (cc) cc.onclick = () => { S.send = null; render(); };
     const cp = $('cpk_copy'); if (cp) cp.onclick = async () => {
       const t = 'Hi ' + S.link.caregiver_first + ', it\'s Caring Companions. Before you work with ' + S.link.client_first + ', please watch this short care packet and tap I understand: ' + S.link.link;
       try { await navigator.clipboard.writeText(t); cp.textContent = 'Copied ✓'; } catch (e) { const b = $('cpk_linkbox'); if (b) { b.value = t; b.select(); } cp.textContent = 'Press Cmd+C to copy'; } };
@@ -113,7 +161,8 @@
     const sv = document.getElementById('cpk_save'); if (!sv) return;
     const hint = sv.parentNode.querySelector('.field-note[style*="92400E"]');
     if (dirty() && !hint) sv.insertAdjacentHTML('afterend', '<span class="field-note" style="color:#92400E;">changed, not saved</span>');
-    const lk = document.getElementById('cpk_link'); if (lk) lk.disabled = S.busy || dirty();
+    ['cpk_link', 'cpk_text', 'cpk_send'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = S.busy || dirty(); });
+    document.querySelectorAll('[data-cpk-send]').forEach(el => { el.disabled = S.busy || dirty(); });
   }
   async function save(){
     if (S.busy) return; S.busy = true; S.err = ''; S.msg = ''; render();
@@ -125,11 +174,11 @@
     S.busy = false; render();
   }
   async function makeLink(axId){
-    if (!axId) { S.err = 'Pick a caregiver first.'; render(); return; }
-    if (S.busy) return; S.busy = true; S.err = ''; S.link = null; render();
+    if (!axId) { S.sendErr = 'Pick a caregiver first.'; render(); return; }
+    if (S.busy) return; S.busy = true; S.sendErr = ''; S.link = null; render();
     try { const d = await call({ action: 'link', packet_id: S.packet.id, caregiver_axiscare_id: axId }); S.link = d; S.recipients = d.recipients || S.recipients; }
-    catch (e) { S.err = e.message; }
+    catch (e) { S.sendErr = e.message; }
     S.busy = false; render();
   }
-  window.CPK = { mount: async function(id){ S.box = document.getElementById(id); if (!S.box) return; S.packet = null; S.msg = ''; S.err = ''; S.box.innerHTML = '<div class="field-note">Loading the caregiver packet…</div>'; await load(); render(); } };
+  window.CPK = { mount: async function(id){ S.box = document.getElementById(id); if (!S.box) return; S.packet = null; S.msg = ''; S.err = ''; S.sendErr = ''; S.box.innerHTML = '<div class="field-note">Loading the caregiver packet…</div>'; await load(); render(); } };
 })();
