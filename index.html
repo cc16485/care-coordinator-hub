@@ -1869,59 +1869,84 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <span style="flex:1;"></span>
         <button class="secondary" onclick="apInvOpen()"><svg class=navi aria-hidden=true><use href=icons.svg#i-send></use></svg> Send the application</button>
         <button class="secondary" onclick="apAddOpen()">＋ Add an applicant</button>
-        <button class="secondary" onclick="apReengage()"><svg class=navi aria-hidden=true><use href=icons.svg#i-target></use></svg> Find someone for a case</button>
         <button class="ghost" onclick="apLoad(this)">↻ Refresh</button>
       </div>
 
-      <!-- 2026-10-01 (Samantha): "Find someone for a case" opens here at the top of the page -->
+      <!-- 2026-10-11 (Samantha): "instead of it being find someone for a case, can there just be an expansive search at top of
+           applicants". One search panel that filters the list below. Contacting people is a separate step you open from it,
+           and nothing is sent unless you tick people and press Send. -->
+      <details id="apFind" class="card" style="padding:0;margin:0 0 14px;" ontoggle="if(this.open) apFindOpen()">
+        <summary style="cursor:pointer;padding:13px 18px;display:flex;align-items:center;gap:8px;list-style:none;">
+          <svg class=navi aria-hidden=true><use href=icons.svg#i-search></use></svg>
+          <b style="font-size:15px;color:var(--navy);">Search applicants</b>
+          <span class="field-note" style="margin:0;">by zip, hours like overnights or weekends, days, experience, or any word</span>
+          <span style="flex:1;"></span>
+          <span id="apFindOn" style="display:none;font-size:12px;font-weight:700;color:#fff;background:var(--navy);border-radius:999px;padding:3px 10px;"></span>
+        </summary>
+        <div style="padding:0 18px 16px;">
+          <div class="grid2">
+            <div><label>Zip code or town <span style="font-weight:400;color:var(--text-muted);">(several? separate with commas)</span></label>
+              <input id="apReArea" oninput="apFindChanged()" placeholder="65714 or Nixa"></div>
+            <div><label>How far from there</label>
+              <select id="apReMiles" onchange="apFindChanged()">
+                <option value="0">That zip or town only</option>
+                <option value="10">Within 10 miles</option>
+                <option value="15" selected>Within 15 miles</option>
+                <option value="25">Within 25 miles</option>
+                <option value="40">Within 40 miles</option>
+              </select></div>
+          </div>
+          <div class="field-note" style="margin:-2px 0 8px;">Matched against the zip and town they gave us, and anywhere they told us at interview they would travel to. Miles are straight-line by zip, not driving miles.</div>
+
+          <label>Hours they can work</label>
+          <div id="apReHours" style="display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 6px;"></div>
+          <div id="apReDays" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px;"></div>
+          <label style="display:flex;gap:7px;align-items:center;font-weight:400;font-size:13px;margin:2px 0 8px;cursor:pointer;">
+            <input type="checkbox" id="apReUnknown" onchange="apFindChanged()" style="width:auto;margin:0;"> Also show people who never told us their hours</label>
+
+          <div class="grid2">
+            <div><label>Experience</label>
+              <select id="apReExp" onchange="apFindChanged()">
+                <option value="">Anyone</option>
+                <option value="exp">Agency or facility experience</option>
+              </select></div>
+            <div><label>Applied</label>
+              <select id="apReWhen" onchange="apFindChanged()">
+                <option value="">Any time</option>
+                <option value="30">In the last 30 days</option>
+                <option value="90">In the last 3 months</option>
+                <option value="365">In the last year</option>
+              </select></div>
+          </div>
+          <label>A word to look for <span style="font-weight:400;color:var(--text-muted);">(in what they wrote and what we noted)</span></label>
+          <input id="apReWord" oninput="apFindChanged()" placeholder="Hoyer, dementia, Spanish, CNA">
+
+          <div id="apFindSum" class="field-note" style="margin-top:10px;white-space:pre-wrap;"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+            <button class="secondary" id="apFindContactBtn" onclick="apReengage()"><svg class=navi aria-hidden=true><use href=icons.svg#i-send></use></svg> Contact people from these results</button>
+            <button class="ghost" onclick="apFindClear()">Clear search</button>
+          </div>
+        </div>
+      </details>
+
       <div class="card" id="apReCard" style="display:none;scroll-margin-top:150px;padding:16px 18px;margin:0 0 14px;background:#FFF8E8;border-color:#F5D9A0;">
-        <b style="font-size:15px;color:var(--navy);"><svg class=navi aria-hidden=true><use href=icons.svg#i-target></use></svg> Find someone for a case</b>
-        <div class="field-note" style="margin-top:3px;">
-          Search everyone who ever applied, filtered down to the ones who could actually take these hours (cleared the
-          screen, never hired, not contacted in 30 days). <b>Nothing is sent until you tick who to contact and press Send.</b>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <b style="font-size:15px;color:var(--navy);"><svg class=navi aria-hidden=true><use href=icons.svg#i-send></use></svg> Contact people from the search</b>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="document.getElementById('apReCard').style.display='none'">Close</button>
         </div>
-        <div class="grid2" style="margin-top:10px;">
-          <div><label>Which opening are we pointing them at?</label><select id="apRePosting"></select></div>
-          <div><label>Position they applied for</label><select id="apRePos"><option value="">Any</option></select></div>
-        </div>
-        <div class="grid2">
-          <div><label>Who to ask</label>
-            <select id="apReWho" onchange="apReCount()">
-              <option value="pool">The candidate pool: people we said we would come back to</option>
-              <option value="all">Everyone qualified who was never hired</option>
-            </select></div>
-          <div><label>Experience</label>
-            <select id="apReExp" onchange="apReCount()">
-              <option value="">Anyone</option>
-              <option value="exp">Only people with agency or facility experience</option>
-            </select></div>
-        </div>
-
-        <label>Where the case is <span style="font-weight:400;color:var(--text-muted);">(zip codes or towns, separated by commas)</span></label>
-        <input id="apReArea" oninput="apReCount()" placeholder="65714, Nixa, Ozark">
-        <div class="field-note" style="margin:-2px 0 8px;">Matched against the zip they gave us, their town, and anywhere they told us at interview they would travel to. Leave it empty to ask everybody.</div>
-
-        <label>Days the case needs</label>
-        <div class="chips" id="apReDays" style="display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px;"></div>
-        <div class="grid2">
-          <div><label>Time of day</label>
-            <select id="apReShift" onchange="apReCount()">
-              <option value="">Any</option>
-              <option value="days">Days</option>
-              <option value="nights">Nights</option>
-            </select></div>
-          <div></div>
-        </div>
-        <div class="field-note" style="margin:-4px 0 8px;">We only know somebody's days and shift once they have been interviewed. Anyone we have not asked yet is still included, and says so in the list.</div>
-
-        <label>What to say <span style="font-weight:400;color:var(--text-muted);">(their first name is added at the front)</span></label>
-        <textarea id="apReMsg" rows="3" oninput="apRePreviewRender()" placeholder="we have a new caregiver opening in Nixa with weekday day shifts, and we thought of you. If you are still looking, you can pick an interview time here:"></textarea>
+        <div class="field-note" style="margin-top:3px;">Everyone in the search who can be sent a note. Nobody is ticked to start with, and only the people you tick get anything.</div>
         <div id="apReCount" class="field-note" style="margin-top:8px;white-space:pre-wrap;"></div>
         <div id="apReWhoList" style="margin-top:8px;"></div>
+        <div class="grid2" style="margin-top:12px;">
+          <div><label>Which opening are we pointing them at?</label><select id="apRePosting"></select></div>
+          <div></div>
+        </div>
+        <label>What to say <span style="font-weight:400;color:var(--text-muted);">(their first name is added at the front)</span></label>
+        <textarea id="apReMsg" rows="3" oninput="apRePreviewRender()" placeholder="we have a new caregiver opening in Nixa with overnight shifts, and we thought of you. If you are still looking, you can pick an interview time here:"></textarea>
         <div id="apRePreview" style="margin-top:10px;"></div>
         <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
           <button class="primary" id="apReSendBtn" onclick="apReSend(this)" disabled>Send to the people you ticked</button>
-          <button class="ghost" onclick="document.getElementById('apReCard').style.display='none'">Cancel</button>
         </div>
         <div id="apReErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
       </div>
@@ -22028,6 +22053,7 @@ function apMatching(k, ignorePosition){
   return AP_ROWS.filter(r=>{
     if(pos && r.position !== pos) return false;
     if(q && !((r.first_name||'')+' '+(r.last_name||'')).toLowerCase().includes(q)) return false;
+    if(!apFindPass(r)) return false;                 // the Search applicants panel (2026-10-11)
     /* NO-SHOW (2026-10-01): a no-show's interview row is kept, but it is not a booking. */
     const booked = !!(AP_BOOK[r.id] && AP_BOOK[r.id].status==='booked');
     if(r.status==='noshow' && k!=='noshow' && k!=='all') return false;
@@ -22128,9 +22154,11 @@ function apChips(r){
 
 function apRender(){
   const box = document.getElementById('apList'); if(!box) return;
+  apFindRun();
   apRenderFilter();
   const esc = escapeHtmlComms;
-  const rows = apMatching(apFilter);
+  const rows = apFindSort(apMatching(apFilter));
+  apFindSummary(rows.length);
   if(!rows.length){
     box.innerHTML = '<div class="field-note">'
       + (AP_ROWS.length ? 'Nobody in this view.'
@@ -22192,6 +22220,8 @@ function apRender(){
         + (r.city||r.zip?' · '+esc(r.city||r.zip):'') + ' · applied '+esc(ago(r.created_at))+'</span>'
       + '<span style="flex:1;"></span>' + line
       + '<span style="color:#A89C8B;font-size:.74rem;">details ▾</span>'
+      /* While a search is on, why they matched sits on the row itself (miles, the hours, their own words). */
+      + (AP_FIND.on ? '<div style="flex-basis:100%;margin-top:-.45rem;">'+apFindChips(r)+'</div>' : '')
       + '</summary><div style="padding:0 .9rem .9rem;">'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.6rem;">'+apChips(r)+'</div>'
       + '<div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.82rem;color:#3A342C;">'
@@ -24527,7 +24557,7 @@ function apPoolPrompts(r, A){
       || [r.job_type, r.hours_wanted && r.hours_wanted + ' hrs/wk'].filter(Boolean).join(', ')
       || 'Full time');
   if(wants===null) return null;
-  const area = prompt('Which area do they need it in?\n\nThis is what "find someone for a case" searches on.',
+  const area = prompt('Which area do they need it in?\n\nSearch applicants looks here when you search by zip or town.',
     r.pool_area || A.travel_areas || r.city || r.zip || '');
   if(area===null) return null;
   const note = prompt('Anything to remember about them?\n\nThis is what you will read when hours come up.',
@@ -24607,104 +24637,265 @@ async function apFromPool(id){
   }catch(e){ alert('Could not do that: '+(e&&e.message||'error')); }
 }
 
-/* ---- Reaching back out ----------------------------------------------------
-   The people worth telling about a new opening are the ones who cleared the
-   screen, never got hired, and have not heard from us recently. */
-/* The case decides who hears about it: the right hours in the right place is
-   most of what makes somebody say yes, and a message to the other ninety
-   people is how a list stops being worth having.
+/* ---- Search applicants ------------------------------------------------------
+   2026-10-11 (Samantha): "more of a search feature, to search the applicants for example by zip code, looking for
+   overnights", then "an expansive search at top of applicants". The panel filters the list below (inside whichever view
+   chip is picked), and contacting people is a separate step opened from it.
 
-   Days and shift are only known for people who have been interviewed, so
-   anybody we have not asked yet stays in and is labelled rather than dropped.
-   Silently excluding the people we know least about would quietly shrink the
-   list to whoever we happened to interview. */
-let AP_RE_DAYS = {};
+   Hours come from three places: what they typed under "When can you work?" on the application, the PRN chips, and
+   what the office recorded at interview. The interview wins, then the PRN chips, then their own words. Somebody who
+   wrote "no overnights" is left out of an overnight search; somebody who never said is left out unless you ask to
+   see them, and is labelled when you do. */
+let AP_RE_DAYS = {}, AP_RE_HOURS = {};
+const AP_RE_HOUR_KEYS = [['days','Days'],['evenings','Evenings'],['overnights','Overnights'],['weekends','Weekends']];
 
 const AP_RE_EXPERIENCED = r =>
   (r.experience_kinds||[]).some(k=>/agency|facility|hospital/i.test(k))
   || Object.values(((r.post_interview||{}).skills)||{}).some(v=>v==='some'||v==='lots');
 
+const AP_RE_NO = "\\b(no|not|never|can'?t|cannot|don'?t|won'?t|unable to)\\b[^.;,\\n]{0,20}";
+const AP_RE_TXT = {
+  overnights: { yes: /over ?nights?|\bnights?\b|\bnocs?\b|graveyard|(3rd|third) shift|24 ?(hr|hour)s?/,
+                no: new RegExp(AP_RE_NO + '(over ?nights?|nights?)|\\bdays? only|only days?\\b') },
+  evenings:   { yes: /evenings?|after ?noons?|(2nd|second) shift/,
+                no: new RegExp(AP_RE_NO + 'evenings?') },
+  days:       { yes: /\bdays?\b|day ?time|mornings?|day ?shift|(1st|first) shift|week ?days?|business hours/,
+                no: new RegExp(AP_RE_NO + '(days?|mornings?)\\b|nights? only|only nights?|evenings? only|only evenings?') },
+  weekends:   { yes: /week ?ends?|saturdays?|sundays?|\bsat\b|\bsun\b/,
+                no: new RegExp(AP_RE_NO + 'week ?ends?|week ?days? only|only week ?days?') },
+};
+const AP_RE_FLEX = /any ?time|whenever|flexible|open availability|wide open|\b(all|any) (shifts?|hours|days)\b|24 ?\/ ?7|\bopen\b/;
+const AP_RE_DAYWORD = { mon:/\bmon(day)?s?\b/, tue:/\btue(s|sday)?s?\b/, wed:/\bwed(nesday)?s?\b/, thu:/\bthu(r|rs|rsday)?s?\b/,
+                        fri:/\bfri(day)?s?\b/, sat:/\bsat(urday)?s?\b|week ?ends?/, sun:/\bsun(day)?s?\b|week ?ends?/ };
+
+/* What they wrote, with "3 days a week" taken out so it doesn't read as "days". */
+/* An applicant the office added by hand has no application answer, so their notes stand in for it. */
+const apReWords = r => String([r.availability || r.notes, r.pool_wants].filter(Boolean).join(' · ')).toLowerCase()
+  .replace(/\d+\s*(-|to|or)?\s*\d*\s*days?\b/g, ' ');
+
+/* One answer for one ask: 'yes' | 'flex' | 'no' | null (never said), and where it came from. */
+function apReHourFit(r, k){
+  const pi = r.post_interview || {}, p = r.prn || {};
+  const has = (a, v) => Array.isArray(a) && a.includes(v);
+  if(pi.shift){
+    if(k==='overnights') return pi.shift==='nights' ? {v:'yes',how:'interview'} : {v:'no',how:'interview: days'};
+    if(k==='days')       return pi.shift==='days'   ? {v:'yes',how:'interview'} : {v:'no',how:'interview: nights'};
+  }
+  if(k==='weekends' && pi.availability){
+    return (pi.availability.sat || pi.availability.sun) ? {v:'yes',how:'interview'} : {v:'no',how:'interview'};
+  }
+  if(k==='overnights' && (has(p.times,'overnight') || has(p.interests,'overnights'))) return {v:'yes',how:'PRN'};
+  if(k==='evenings'   && (has(p.times,'evening')   || has(p.interests,'evenings')))   return {v:'yes',how:'PRN'};
+  if(k==='days'       && (has(p.times,'morning')   || has(p.times,'daytime')))        return {v:'yes',how:'PRN'};
+  if(k==='weekends'   && (has(p.days,'sat') || has(p.days,'sun') || has(p.interests,'weekends'))) return {v:'yes',how:'PRN'};
+  const t = apReWords(r); if(!t.trim()) return {v:null};
+  const rx = AP_RE_TXT[k];
+  if(rx.no.test(t))  return {v:'no',how:'said not'};
+  if(rx.yes.test(t)) return {v:'yes',how:'said so'};
+  if(AP_RE_FLEX.test(t)) return {v:'flex',how:'said any time'};
+  return {v:null};
+}
+function apReDayFit(r, d){
+  const pi = r.post_interview || {}, p = r.prn || {};
+  if(pi.availability) return pi.availability[d] ? {v:'yes',how:'interview'} : {v:'no',how:'interview'};
+  if(Array.isArray(p.days) && p.days.length) return p.days.includes(d) ? {v:'yes',how:'PRN'} : {v:'no',how:'PRN'};
+  const t = apReWords(r); if(!t.trim()) return {v:null};
+  if(AP_RE_DAYWORD[d].test(t)) return {v:'yes',how:'said so'};
+  if(['mon','tue','wed','thu','fri'].includes(d) && /week ?days?|mon(day)?\s*(-|to|thr(ough|u))\s*fri/.test(t)) return {v:'yes',how:'said weekdays'};
+  if(AP_RE_FLEX.test(t)) return {v:'flex',how:'said any time'};
+  return {v:null};
+}
+
+/* A zip typed in finds everybody within the miles picked; a town typed in uses that town's zip the same way, and also
+   matches the word anywhere they told us. */
 function apReAreaTokens(){
   return String((document.getElementById('apReArea')||{}).value || '')
     .split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
 }
-function apReAreaMatch(r, tokens){
-  if(!tokens.length) return true;
-  const hay = [r.zip, r.city, (r.post_interview||{}).travel_areas, r.pool_area]
-    .filter(Boolean).join(' ').toLowerCase();
-  return tokens.some(t=>hay.includes(t));
+function apReAreaFit(r, tokens){
+  if(!tokens.length) return { ok:true, miles:null };
+  const radius = Number((document.getElementById('apReMiles')||{}).value || 0);
+  const hay = [r.zip, r.city, (r.post_interview||{}).travel_areas, r.pool_area].filter(Boolean).join(' ').toLowerCase();
+  let best = null, ok = false;
+  for(const t of tokens){
+    if(hay.includes(t)) ok = true;
+    let from = /^\d{5}$/.test(t) ? t : null;
+    if(!from && ZIPS) from = (Object.values(ZIPS).find(z=>String(z.city||'').toLowerCase()===t)||{}).zip || null;
+    if(from && r.zip){
+      const m = milesApart(from, r.zip);
+      if(m != null && (best == null || m < best)) best = m;
+      if(m != null && m <= radius) ok = true;
+    }
+  }
+  return { ok, miles: best };
 }
-/* Unknown means unknown, not no. */
-function apReDaysMatch(r, days){
-  if(!days.length) return true;
-  const have = ((r.post_interview||{}).availability) || null;
-  if(!have) return true;
-  return days.every(d=>have[d]);
-}
-function apReShiftMatch(r, shift){
-  if(!shift) return true;
-  const s = (r.post_interview||{}).shift;
-  return !s || s === shift;
-}
-const apReKnown = r => !!((r.post_interview||{}).availability || (r.post_interview||{}).shift);
 
+function apReWordHay(r){
+  return [r.first_name, r.last_name, r.city, r.zip, r.availability, r.pool_wants, r.pool_area, r.experience,
+          (r.experience_kinds||[]).join(' '), r.notes, r.position, apPosLabel(r.position), JSON.stringify(r.post_interview||{})]
+    .filter(Boolean).join(' ').toLowerCase();
+}
+
+function apFindAsks(){
+  return { tokens: apReAreaTokens(),
+           hours: AP_RE_HOUR_KEYS.map(x=>x[0]).filter(k=>AP_RE_HOURS[k]),
+           days: Object.keys(AP_RE_DAYS).filter(d=>AP_RE_DAYS[d]),
+           unknown: !!(document.getElementById('apReUnknown')||{}).checked,
+           exp: (document.getElementById('apReExp')||{}).value || '',
+           when: Number((document.getElementById('apReWhen')||{}).value || 0),
+           word: String((document.getElementById('apReWord')||{}).value || '').trim().toLowerCase() };
+}
+function apFindActive(a){
+  a = a || apFindAsks();
+  return !!(a.tokens.length || a.hours.length || a.days.length || a.exp || a.when || a.word);
+}
+
+/* How one applicant sits against the search: null = left out, otherwise why they are in. */
+function apFindFit(r, a){
+  if(a.exp && !AP_RE_EXPERIENCED(r)) return null;
+  if(a.when && apDays(r.created_at) > a.when) return null;
+  if(a.word && !apReWordHay(r).includes(a.word)) return null;
+  const area = apReAreaFit(r, a.tokens); if(!area.ok) return null;
+  const fits = [
+    ...a.hours.map(k=>({ label:(AP_RE_HOUR_KEYS.find(x=>x[0]===k)||[k,k])[1], ...apReHourFit(r,k) })),
+    ...a.days.map(d=>({ label:(AP_DAYS.find(x=>x[0]===d)||[d,d])[1], ...apReDayFit(r,d) })) ];
+  if(fits.some(f=>f.v==='no')) return { out:'no', fits };
+  if(fits.some(f=>f.v===null) && !a.unknown) return { out:'unknown', fits };
+  const score = fits.reduce((s,f)=>s + (f.v==='yes'?2:f.v==='flex'?1:0), 0);
+  return { fits, miles: area.miles, score, guess: fits.some(f=>f.v===null) };
+}
+
+/* Run once per render: the list below and the contact card both read it. */
+let AP_FIND = { on:false, fit:new Map(), no:0, unknown:0 };
+function apFindRun(){
+  const a = apFindAsks();
+  AP_FIND = { on: apFindActive(a), fit: new Map(), no:0, unknown:0 };
+  if(!AP_FIND.on) return AP_FIND;
+  AP_ROWS.forEach(r=>{
+    const f = apFindFit(r, a);
+    if(!f) return;
+    if(f.out==='no'){ AP_FIND.no++; return; }
+    if(f.out==='unknown'){ AP_FIND.unknown++; return; }
+    AP_FIND.fit.set(String(r.id), f);
+  });
+  return AP_FIND;
+}
+/* Used by apMatching: true when the row passes the search (or no search is on). */
+const apFindPass = r => !AP_FIND.on || AP_FIND.fit.has(String(r.id));
+
+/* The line under a name in the list: miles and the hours that matched, in the office's words. */
+function apFindChips(r){
+  if(!AP_FIND.on) return '';
+  const f = AP_FIND.fit.get(String(r.id)); if(!f) return '';
+  const esc = escapeHtmlComms;
+  const pill = (txt, bg, fg) => '<span style="font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:'+bg+';color:'+fg+';">'+esc(txt)+'</span>';
+  const out = [];
+  if(f.miles != null) out.push(pill(f.miles + ' mi', '#E0F2F1', '#0F766E'));
+  f.fits.forEach(x=>{
+    if(x.v==='yes')  out.push(pill(x.label + ': ' + x.how, '#DCFCE7', '#15803D'));
+    if(x.v==='flex') out.push(pill(x.label + ': ' + x.how, '#FEF9C3', '#854D0E'));
+    if(x.v===null)   out.push(pill(x.label + ': never told us', '#FEF3C7', '#B45309'));
+  });
+  if(r.availability) out.push('<span class="field-note" style="margin:0;">They said: “' + esc(String(r.availability).slice(0,120)) + (String(r.availability).length>120?'…':'') + '”</span>');
+  return out.length ? '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">' + out.join('') + '</div>' : '';
+}
+/* Best fits first when a search is on: most hours matched, then nearest, then newest. */
+function apFindSort(rows){
+  if(!AP_FIND.on) return rows;
+  const f = r => AP_FIND.fit.get(String(r.id)) || { score:0, miles:null };
+  return rows.slice().sort((a,b)=> (f(b).score - f(a).score)
+    || ((f(a).miles ?? 999) - (f(b).miles ?? 999))
+    || String(b.created_at||'').localeCompare(String(a.created_at||'')));
+}
+
+function apFindChip(id, on){
+  const b = document.getElementById(id);
+  if(b) b.style.cssText = on ? 'background:var(--navy);color:#fff;border-color:var(--navy);' : '';
+}
+function apFindOpen(){
+  const h = document.getElementById('apReHours');
+  if(h && !h.dataset.filled){
+    h.dataset.filled = '1';
+    h.innerHTML = AP_RE_HOUR_KEYS.map(([k,l])=>'<button type="button" class="fb" id="aprehr_'+k+'" onclick="apReHour(\''+k+'\')">'+l+'</button>').join('');
+    document.getElementById('apReDays').innerHTML = AP_DAYS.map(([k,l])=>
+      '<button type="button" class="fb" id="apreday_'+k+'" onclick="apReDay(\''+k+'\')">'+l+'</button>').join('');
+  }
+  zipsLoad().then(()=>{ if(apFindActive()) apFindChanged(); });
+  apFindSummary();
+}
+function apReHour(k){ AP_RE_HOURS[k] = !AP_RE_HOURS[k]; apFindChip('aprehr_'+k, AP_RE_HOURS[k]); apFindChanged(); }
+function apReDay(k){ AP_RE_DAYS[k] = !AP_RE_DAYS[k]; apFindChip('apreday_'+k, AP_RE_DAYS[k]); apFindChanged(); }
+function apFindChanged(){
+  apRender();
+  const card = document.getElementById('apReCard');
+  if(card && card.style.display !== 'none') apReCount();
+}
+function apFindClear(){
+  ['apReArea','apReWord'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['apReExp','apReWhen'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  const u = document.getElementById('apReUnknown'); if(u) u.checked = false;
+  Object.keys(AP_RE_HOURS).forEach(k=>{ AP_RE_HOURS[k]=false; apFindChip('aprehr_'+k,false); });
+  Object.keys(AP_RE_DAYS).forEach(k=>{ AP_RE_DAYS[k]=false; apFindChip('apreday_'+k,false); });
+  document.getElementById('apReCard').style.display = 'none';
+  apFindChanged();
+}
+/* Called from apRender: the count line in the panel and the badge on its title. */
+function apFindSummary(shown){
+  const sum = document.getElementById('apFindSum'), badge = document.getElementById('apFindOn');
+  const btn = document.getElementById('apFindContactBtn');
+  if(btn) btn.style.display = AP_FIND.on ? '' : 'none';
+  if(!AP_FIND.on){
+    if(sum) sum.textContent = 'Pick anything above and the list below narrows to match.';
+    if(badge) badge.style.display = 'none';
+    return;
+  }
+  const n = shown == null ? AP_FIND.fit.size : shown;
+  if(badge){ badge.style.display = ''; badge.textContent = 'Search on · ' + n; }
+  const viewLabel = ((AP_VIEWS.find(v=>v[0]===apFilter))||['',''])[1];
+  if(sum) sum.innerHTML = '<b>' + n + ' ' + (n===1?'person':'people') + '</b> in the list below'
+    + (apFilter !== 'all' ? ' (in ' + escapeHtmlComms(viewLabel || 'this view')
+        + '; <a href="javascript:void(0)" onclick="apSetFilter(\'all\')">search everyone</a> to include older applicants and past hires)' : '')
+    + '.'
+    + (AP_FIND.no ? '\n' + AP_FIND.no + ' more said they can\'t do those hours, so they are left out.' : '')
+    + (AP_FIND.unknown ? '\n' + AP_FIND.unknown + ' never told us their hours. Tick "Also show people who never told us their hours" to see them.' : '');
+}
+
+/* ---- Contacting people from the search --------------------------------------
+   The same rules as before for who can be sent a note (the server checks them again): cleared the screen, never
+   hired, no offer out, not a no-show, no interview already booked, not contacted in the last 30 days, and a way to
+   reach them. The search can show more people than that; the contact card lists only the ones who can be sent to. */
+function apReCanSend(r){
+  if(!apQualified(r)) return 'did not pass the screen';
+  if(['hired','offer','left','declined'].includes(r.status)) return 'already hired or has an offer';
+  if(r.status==='noshow') return 'no-show';
+  if(AP_BOOK[r.id] && AP_BOOK[r.id].status==='booked') return 'interview already booked';
+  if(r.reengaged_at && apDays(r.reengaged_at) <= 30) return 'contacted ' + Math.floor(apDays(r.reengaged_at)) + ' days ago';
+  if(!(r.phone || r.email)) return 'no phone or email';
+  return '';
+}
 function apReengageList(){
-  const pos   = (document.getElementById('apRePos')||{}).value || '';
-  const who   = (document.getElementById('apReWho')||{}).value || 'pool';
-  const exp   = (document.getElementById('apReExp')||{}).value || '';
-  const shift = (document.getElementById('apReShift')||{}).value || '';
-  const days  = Object.keys(AP_RE_DAYS).filter(d=>AP_RE_DAYS[d]);
-  const tokens= apReAreaTokens();
-  /* Never "a new opening!" to somebody who already said yes: an offer out
-     (they may be mid-paperwork) is as excluded as hired. */
-  return AP_ROWS.filter(r=>
-    apQualified(r) && r.status!=='hired' && r.status!=='offer'
-    /* 2026-10-01: a no-show is never told "pick an interview time" (they can't book). */
-    && r.status!=='noshow' && r.status!=='left'
-    && (who==='pool' ? r.status==='pool' : !AP_BOOK[r.id])
-    && (!pos || r.position===pos)
-    && (r.phone || r.email)
-    && (!r.reengaged_at || apDays(r.reengaged_at) > 30)
-    && (!exp || AP_RE_EXPERIENCED(r))
-    && apReAreaMatch(r, tokens)
-    && apReDaysMatch(r, days)
-    && apReShiftMatch(r, shift));
+  return apFindSort(apMatching(apFilter)).filter(r=>!apReCanSend(r));
 }
 
 function apReengage(){
   const card = document.getElementById('apReCard');
   card.style.display = 'block';
-  AP_RE_DAYS = {};
-  const box = document.getElementById('apReDays');
-  if(box) box.innerHTML = AP_DAYS.map(([k,l])=>
-    '<button type="button" class="fb" id="apreday_'+k+'" onclick="apReDay(\''+k+'\')">'+l+'</button>').join('');
   apReCount();
-  ['apRePos','apReWho','apReExp','apReShift'].forEach(id=>{
-    const el = document.getElementById(id); if(el) el.onchange = apReCount;
-  });
   card.scrollIntoView({behavior:'smooth', block:'start'});
-}
-function apReDay(k){
-  AP_RE_DAYS[k] = !AP_RE_DAYS[k];
-  const b = document.getElementById('apreday_'+k);
-  if(b) b.style.cssText = AP_RE_DAYS[k] ? 'background:var(--navy);color:#fff;border-color:var(--navy);' : '';
-  apReCount();
 }
 
 function apReCount(){
   const esc = escapeHtmlComms;
+  const shown = apMatching(apFilter);
   const list = apReengageList();
   const textable = list.filter(r=>r.phone && r.sms_consent).length;
-  const unknown = list.filter(r=>!apReKnown(r)).length;
-  const days = Object.keys(AP_RE_DAYS).filter(d=>AP_RE_DAYS[d]);
+  const left = shown.length - list.length;
   document.getElementById('apReCount').textContent =
-    list.length + ' ' + (list.length===1?'person':'people') + ' match'
-    + (list.length ? ' — ' + textable + ' can be texted, ' + list.filter(r=>r.email).length + ' emailed' : '')
-    + '. Anyone contacted in the last 30 days is left out.'
-    + (unknown && (days.length || (document.getElementById('apReShift')||{}).value)
-        ? '\n' + unknown + ' of them have never been interviewed, so we are guessing at their hours.' : '')
-    + (list.length ? '\n\nHolding out for: '
-        + ([...new Set(list.map(r=>r.pool_wants).filter(Boolean))].join(', ') || 'nothing recorded') : '');
+    list.length + ' of the ' + shown.length + ' in the search can be sent a note'
+    + (list.length ? ': ' + textable + ' by text, ' + list.filter(r=>r.email).length + ' by email' : '') + '.'
+    + (left ? '\n' + left + ' can\'t be: ' + Object.entries(shown.map(apReCanSend).filter(Boolean)
+        .reduce((m,w)=>{ const k=/^contacted/.test(w)?'contacted in the last 30 days':w; m[k]=(m[k]||0)+1; return m; },{}))
+        .map(([w,n])=>n+' '+w).join(', ') + '.' : '');
 
   /* 2026-10-01 (Samantha): "I would rather it be more of a search feature and be able to choose which applicants to
      text instead of it auto texting without seeing who would be getting the text/email". The matches are a list to
@@ -24715,19 +24906,19 @@ function apReCount(){
   box.innerHTML = !list.length ? '' :
     '<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 12px;">'
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
-      + '<b style="font-size:13px;color:var(--navy);">Search results: tick who to contact</b><span style="flex:1;"></span>'
+      + '<b style="font-size:13px;color:var(--navy);">Tick who to contact</b><span style="flex:1;"></span>'
       + '<button class="fb" style="font-size:12px;" onclick="apReTickAll(true)">Tick all</button>'
       + '<button class="fb" style="font-size:12px;" onclick="apReTickAll(false)">Clear</button></div>'
     + '<div style="margin-top:7px;max-height:340px;overflow:auto;">'
-    + list.map(r=>{ const id=String(r.id);
+    + list.map(r=>{ const id=String(r.id), f=AP_FIND.fit.get(id)||{};
         return '<label style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;padding:6px 0;border-bottom:1px dashed var(--border);cursor:pointer;margin:0;">'
         + '<input type="checkbox" '+(AP_RE_SEL.has(id)?'checked ':'')+'onchange="apReTick(\''+esc(id)+'\',this.checked)" style="width:auto;margin:0;">'
         + '<b style="color:var(--navy);">'+esc(((r.first_name||'')+' '+(r.last_name||'')).trim())+'</b>'
-        + '<span class="field-note">'+esc([apPosLabel(r.position), r.city||r.zip, r.pool_wants, (r.post_interview||{}).travel_areas].filter(Boolean).join(' · '))+'</span>'
+        + '<span class="field-note">'+esc([apPosLabel(r.position), r.city||r.zip, f.miles!=null?f.miles+' mi':'', r.pool_wants].filter(Boolean).join(' · '))+'</span>'
         + '<a href="javascript:void(0)" style="font-size:12px;color:var(--navy);" onclick="event.preventDefault();event.stopPropagation();apOpenProfile(\''+esc(id)+'\')">profile →</a>'
         + '<span style="flex:1;"></span>'
-        + (apReKnown(r) ? '' : '<span style="font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 8px;">hours not asked yet</span>')
-        + (r.phone && r.sms_consent ? '<span style="font-size:11px;color:#15803D;">text + email</span>' : r.email ? '<span style="font-size:11px;color:#B45309;">email only</span>' : '<span style="font-size:11px;color:#B91C1C;">no way to reach</span>')
+        + (f.guess ? '<span style="font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 8px;">hours never told us</span>' : '')
+        + (r.phone && r.sms_consent ? '<span style="font-size:11px;color:#15803D;">text + email</span>' : '<span style="font-size:11px;color:#B45309;">email only</span>')
         + '</label>'; }).join('')
     + '</div></div>';
   apRePreviewRender();
@@ -24736,6 +24927,8 @@ const AP_RE_SEL = new Set();
 function apReTick(id, on){ if(on) AP_RE_SEL.add(String(id)); else AP_RE_SEL.delete(String(id)); apRePreviewRender(); }
 function apReTickAll(on){ apReengageList().forEach(r=>{ if(on) AP_RE_SEL.add(String(r.id)); else AP_RE_SEL.delete(String(r.id)); }); apReCount(); }
 function apReSelected(){ return apReengageList().filter(r=>AP_RE_SEL.has(String(r.id))); }
+window.apFindOpen = apFindOpen; window.apReHour = apReHour; window.apReDay = apReDay;
+window.apFindChanged = apFindChanged; window.apFindClear = apFindClear;
 function apRePreviewRender(){
   const esc = escapeHtmlComms, box = document.getElementById('apRePreview'), btn = document.getElementById('apReSendBtn');
   const sel = apReSelected(), msg = ((document.getElementById('apReMsg')||{}).value||'').trim();
