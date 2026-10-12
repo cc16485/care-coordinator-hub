@@ -32,7 +32,7 @@ function make(settings, rows, err) {
   // ── the tab wiring in index.html ──
   ck('My Work offers the tab only while practice is on (via CPR.offered)', /if\(window\.CPR && CPR\.offered\(\)\) t\.push\(\['callpractice','Call follow-ups \(practice\)'\]\);/.test(html));
   ck('the tab draws through CPR.render and nothing else', /if\(MYWORK_TAB==='callpractice'\)\{ wrap\.innerHTML=''; if\(window\.CPR\) CPR\.render\(wrap\); return; \}/.test(html));
-  ck('the page loads call-practice.js (v3) after desk.js', html.indexOf('<script src="call-practice.js?v=3"></script>') > html.indexOf('<script src="desk.js?v='));
+  ck('the page loads call-practice.js (v4) after desk.js', html.indexOf('<script src="call-practice.js?v=4"></script>') > html.indexOf('<script src="desk.js?v='));
   let { ctx } = make({ call_tasks_practice: false }, ROWS);
   ck('switch off: the tab is not offered', ctx.CPR.offered() === false);
   ({ ctx } = make({ call_tasks_practice: true }, ROWS));
@@ -77,6 +77,9 @@ function make(settings, rows, err) {
   ck('v7: jobs that need no card are shown with why: the caller\'s to do, and already in a workflow (and where)', /The caller&#39;s to do|The caller's to do/.test(h7) && /<b>Why:<\/b> He said he will call\./.test(h7) && /Already in a workflow/.test(h7) && /<b>Where:<\/b> call-off case/.test(h7), h7)
   ck('v7: what the team did, including work done without a card (a Hub action that names him; the call outcome tapped); nothing from days later', /Krystal Land: Krystal changed a visit for Steve Algiere/.test(h7) && /Call outcome tapped: Schedule Change/.test(h7) && !/much later/.test(h7), h7)
   ck('v7: the headline counts the jobs found already handled', /<b>1<\/b> jobs it found already handled/.test(h7), h7.slice(0, 900))
+  const { ctx: ck9 } = make({ call_tasks_practice: true }, [Object.assign({}, ROWS[2], { read_at: 'z', tasks: [], detail: { summary: 'Lisa called to thank us.', items: [{ responsibility: 'Praise for Tanya', decision: 'kind_words', quote: 'Lisa Hill: Tanya has been a blessing.', area: 'caregiver_performance', urgency: 'routine', reason: 'Praise goes to Kind Words as a suggestion, not a card.' }] } })]);
+  const w9 = { innerHTML: '' }; ck9.CPR.render(w9); await new Promise((r) => setTimeout(r, 20)); ck9.CPR.render(w9);
+  ck('v9: praise shows as Kind Words (suggested) with the words, and says it is never a card', /Kind Words \(suggested\)/.test(w9.innerHTML) && /Tanya has been a blessing/.test(w9.innerHTML) && /Never a card/.test(w9.innerHTML) && !/New card/.test(w9.innerHTML), w9.innerHTML.slice(0, 900))
   c7.CPR.setFilter('urgent'); const w7u = { innerHTML: '' }; c7.CPR.render(w7u)
   ck('v7: the Urgent view shows only calls with a now or today card', /Check Kristie pay/.test(w7u.innerHTML) && !/DMV trip/.test(w7u.innerHTML), w7u.innerHTML.slice(0, 600))
   c7.CPR.setFilter('all'); globalThis.__EVENTS = []; globalThis.__OUTCOMES = []
