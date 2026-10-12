@@ -4949,11 +4949,13 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
     <div>
       <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Clients</h2>
-      <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:78ch;">Everyone receiving care, and what's open or due for each: check-ins, care plan reviews, concerns, family requests and call-offs. Click a client, or any item, to work on it.</div>
+      <div class="field-note" style="font-size:13.5px;margin-top:3px;" id="clCount">Loading the live AxisCare client list…</div>
     </div>
     <span style="flex:1;"></span>
+    <input id="clSearch" placeholder="Search any client, current or past…" style="width:300px;max-width:100%;flex:0 1 300px;" oninput="clSearchGo(this.value)">
     <button class="linklike" onclick="clLoad(true)">↻ Refresh</button>
   </div>
+  <div id="clSyncLine" class="field-note" style="margin:-4px 0 10px;font-size:13px;"></div>
   <div id="clFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
   <div id="clBoard"><div class="field-note">Loading…</div></div>
 </section>
@@ -31917,7 +31919,31 @@ const LEAD_STAGE_META={
    board and the profile's Summary alike. It reads what the older lists read: the latest check-in,
    the latest care plan review, open concerns (client_issue, by person), open family requests
    (staffing_tasks, by AxisCare id) and call-offs in the last 30 days (coverage_cases). */
-const CL={ roster:null, issues:null, loading:false, filter:'Needs something' };
+const CL={ roster:null, issues:null, loading:false, filter:'Needs something', census:null, censusErr:'', beat:null, q:'' };
+/* THE CLIENTS DIRECTORY (2026-10-12, hers: "Clients need to have a directory just like caregivers", after "dan has not
+   been pulled over from Axiscare!"). Like the Caregivers directory, the list starts from who AXISCARE says exists
+   (client-census-report, read live, never stored), and the Hub's people, check-ins and due items enrich it. An active
+   AxisCare client the Hub doesn't have yet shows as "Not connected yet" instead of being invisible; the client sync
+   (identity-backfill ?client_sync=1, every 6 hours) connects them. Past AxisCare clients are only READ, for search and
+   the Past list, and open in AxisCare: nothing about them is copied into the Hub (her 2026-09-27 "lock only" ruling). */
+async function clCensusLoad(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session) throw new Error('not signed in');
+  const r=await fetch('https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/client-census-report',{
+    method:'POST', headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' }, body:'{}' });
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||j.error) throw new Error(j.error||('AxisCare list '+r.status));
+  return j;
+}
+async function clBeatLoad(){
+  const r=await sb.from('app_data').select('data').eq('key','automation_heartbeats').maybeSingle();
+  if(r.error) throw r.error;
+  return (Array.isArray(r.data&&r.data.data)?r.data.data:[]).find(b=>b&&b.automation==='client-sync')||null;
+}
+let clSearchT=null;
+function clSearchGo(v){ CL.q=v; clearTimeout(clSearchT); clSearchT=setTimeout(renderClientsBoard,180); }
+const clNorm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function clCensusName(c){ return ((c.goes_by||c.first||'')+' '+(c.last||'')).trim()||('AxisCare client #'+c.id); }
 async function clLoadIssues(){
   const { data, error }=await sb.from('client_issue').select('id,client_person_id,summary,state,urgency').not('state','in','(resolved,closed_no_action)');
   if(error) throw error; return data||[];
@@ -31925,8 +31951,12 @@ async function clLoadIssues(){
 async function clLoad(force){
   if(CL.loading||(CL.roster&&!force)) return;
   CL.loading=true;
-  try{ CL.roster=await cl360Roster(); }catch(e){ CL.roster=[]; }
-  try{ CL.issues=await clLoadIssues(); }catch(e){ CL.issues={ error:String(e&&e.message||e) }; }
+  if(force){ CL360_IDENTITY=null; CC_PICK_OPTS=null; }   /* Refresh re-reads the Hub's people too, so a client the sync just added appears */
+  const [ro, iss, cen, bt]=await Promise.allSettled([cl360Roster(), clLoadIssues(), clCensusLoad(), clBeatLoad()]);
+  CL.roster=ro.status==='fulfilled'?ro.value:[];
+  CL.issues=iss.status==='fulfilled'?iss.value:{ error:String(iss.reason&&iss.reason.message||iss.reason) };
+  if(cen.status==='fulfilled'){ CL.census=cen.value; CL.censusErr=''; } else { CL.censusErr=String(cen.reason&&cen.reason.message||cen.reason); }
+  CL.beat=bt.status==='fulfilled'?bt.value:null;
   CL.loading=false;
   if(activeTab==='clientsboard') renderClientsBoard();
 }
@@ -31977,15 +32007,31 @@ function renderClientsBoard(){
   const box=document.getElementById('clBoard'); if(!box) return;
   if(!CL.roster){ if(!CL.loading) clLoad(); box.innerHTML='<div class="field-note">Loading the client list…</div>'; return; }
   const esc=escapeHtmlComms, issues=Array.isArray(CL.issues)?CL.issues:[], wk=new Date(Date.now()+7*864e5).toISOString().slice(0,10);
+  const cen=(CL.census&&CL.census.clients)||[], cenBy={};
+  cen.forEach(c=>{ cenBy[String(c.id)]=c; });
+  const hubAx={};
   const all=CL.roster.filter(r=>r&&r.axiscare_client_id).map(r=>{
+    hubAx[String(r.axiscare_client_id)]=1;
     const due=clDue(r, issues), past=!!(r.role_status&&r.role_status!=='active');
     const ci=(DATA.client_checkins||[]).filter(c=>c&&c.client_name&&String(c.axiscare_client_id||'')===String(r.axiscare_client_id)).sort((a,b)=>String(b.checkin_date||'').localeCompare(String(a.checkin_date||'')))[0];
     const paused=(window.CJ_PAUSED||[]).find(p=>String(p.axiscare_client_id)===String(r.axiscare_client_id))||null;
-    return { r, due, past, paused, bad:due.filter(x=>x.tone==='bad').length, warn:due.filter(x=>x.tone==='warn').length, lastCi:ci, coord:(ci&&ci.coordinator)||'' };
+    return { r, due, past, paused, bad:due.filter(x=>x.tone==='bad').length, warn:due.filter(x=>x.tone==='warn').length, lastCi:ci, coord:(ci&&ci.coordinator)||'', ax:cenBy[String(r.axiscare_client_id)]||null };
   }).filter(x=>!x.coord||ccViewMatch(x.coord));
+  /* who AxisCare has that the Hub doesn't: active = not connected yet (shown, never invisible); past = read only */
+  cen.filter(c=>!hubAx[String(c.id)]).forEach(c=>all.push({ r:{ client_name:clCensusName(c), axiscare_client_id:String(c.id) }, due:[], past:!c.active, paused:null,
+    bad:0, warn:0, lastCi:null, coord:'', ax:c, unconnected:c.active, axOnly:!c.active }));
+  const nAct=cen.filter(c=>c.active).length;
+  const cnt=document.getElementById('clCount');
+  if(cnt) cnt.innerHTML=CL.census
+    ? esc(nAct+' active client'+(nAct===1?'':'s')+' · live from AxisCare ('+cen.length+' total on record)')
+    : (CL.censusErr?'<span style="color:var(--red);">Couldn\'t reach AxisCare ('+esc(CL.censusErr)+'), so this is only who the Hub already knows.</span>':'Loading the live AxisCare client list…');
+  const sl=document.getElementById('clSyncLine');
+  if(sl){ const b=CL.beat, ageH=b?(Date.now()-new Date(b.at).getTime())/36e5:null, stale=!b||b.ok===false||!(ageH<=7);
+    sl.innerHTML=b?('<span style="'+(stale?'color:var(--red);font-weight:700;':'')+'">Client sync from AxisCare: '+(b.ok===false?'failed ':'last ran ')+esc(new Date(b.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))+(b.note?' · '+esc(b.note):'')+(stale&&b.ok!==false?' · it should run every 6 hours':'')+'</span>')
+      :'<span>Client sync from AxisCare: not run yet (Desktop 641 starts it).</span>'; }
   const FILTERS=[
     ...(typeof cjStartingCount==='function'&&DATA.ops_settings&&DATA.ops_settings.client_journey_live===true?[['Starting care', ()=>false]]:[]),
-    ['Needs something', x=>!x.past&&!x.paused&&(x.bad+x.warn)>0],
+    ['Needs something', x=>!x.past&&!x.paused&&((x.bad+x.warn)>0||!!x.unconnected)],
     /* Pause care (2026-10-07): paused clients stay visible here, with their follow-up date */
     ['Paused', x=>!x.past&&!!x.paused],
     ['Due this week', x=>!x.past&&x.due.some(i=>i.tone==='bad'||(i.due&&i.due<=wk))],
@@ -31995,8 +32041,9 @@ function renderClientsBoard(){
     ['Check-ins', x=>!x.past&&x.due.some(i=>i.kind==='checkin')],
     ['Plan reviews', x=>!x.past&&x.due.some(i=>i.kind==='review')],
     ['Call-offs', x=>!x.past&&x.due.some(i=>i.kind==='calloff')],
-    ['All current', x=>!x.past],
-    ['Past', x=>x.past] ];
+    ['Active', x=>!x.past],
+    ['Past', x=>x.past],
+    ...(all.some(x=>x.unconnected)?[['Not connected yet', x=>!!x.unconnected]]:[]) ];
   /* Starting care comes first once journeys are live, until someone picks another filter */
   if(FILTERS[0][0]==='Starting care'&&!CL.picked&&CL.filter==='Needs something') CL.filter='Starting care';
   const f=FILTERS.find(x=>x[0]===CL.filter)||FILTERS[0];
@@ -32007,17 +32054,38 @@ function renderClientsBoard(){
     f.insertAdjacentHTML('beforeend','<span class="field-note rv-count" style="align-self:center;margin-left:auto;">Google reviews, last 90 days: '+c.asked+' asked · '+c.left+' left'+(c.said_would?' · '+c.said_would+' said they would':'')+(c.live?'':' · suggestions off')+'</span>'); });
   /* Starting care: every client being started (client journeys, plus any older First shift checklist still open) */
   if(f[0]==='Starting care'){ box.innerHTML=cjStartingHtml(); document.querySelectorAll('#clFilters .filter-pill').forEach(b=>{ if(/^Starting care/.test(b.textContent)) b.innerHTML='Starting care <span style="opacity:.65;">'+cjStartingCount()+'</span>'; }); return; }
-  const rows=all.filter(f[1]).sort((a,b)=>(b.bad-a.bad)||(b.warn-a.warn)||String(a.r.client_name).localeCompare(String(b.r.client_name)));
-  if(!rows.length){ box.innerHTML='<div class="card" style="padding:16px 18px;color:var(--text-muted);">Nobody here right now.</div>'; return; }
+  /* search finds anyone, current or past, whatever filter is on (like the Caregivers directory) */
+  const q=clNorm(CL.q);
+  const rows=(q?all.filter(x=>clNorm(x.r.client_name).includes(q)||clNorm(x.ax&&((x.ax.first||'')+(x.ax.last||'')+(x.ax.goes_by||''))).includes(q)||String(x.r.axiscare_client_id)===CL.q.trim().replace(/^#/,''))
+      :all.filter(f[1])).sort((a,b)=>(a.past-b.past)||((b.unconnected?1:0)-(a.unconnected?1:0))||(b.bad-a.bad)||(b.warn-a.warn)||String(a.r.client_name).localeCompare(String(b.r.client_name)));
+  if(!rows.length){ box.innerHTML='<div class="card" style="padding:16px 18px;color:var(--text-muted);">'+(q?'No client by that name in the Hub or AxisCare.':'Nobody here right now.')+'</div>'; return; }
+  const lvl=x=>{ const l=x.ax&&typeof cgdLevelOf==='function'?cgdLevelOf(x.ax.classes):null; return l?'Level '+l:'<span class="field-note">—</span>'; };
+  const axLink=ax=>'<a href="https://16485.axiscare.com/?clients-profile.php&id='+esc(ax)+'" target="_blank" rel="noopener">open in AxisCare ↗</a>';
   box.innerHTML='<div class="card" style="padding:0;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:640px;">'
-    +'<thead><tr style="background:var(--bg);text-align:left;">'+['Client','Open or due','Last check-in'].map(h=>'<th style="padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">'+h+'</th>').join('')+'</tr></thead><tbody>'
-    +rows.map(x=>'<tr style="border-top:1px solid var(--border);'+(x.bad?'background:#FFFAF9;':'')+'">'
-      +'<td style="padding:9px 10px;vertical-align:top;"><a href="javascript:void(0)" data-open-client="'+esc(String(x.r.axiscare_client_id))+'" style="font-weight:700;color:var(--navy);">'+esc(x.r.client_name)+'</a>'
-        +'<div style="margin-top:3px;">'+ccStageChip(x.past?{k:'past',d:/deceas/i.test(String(x.r.end_reason||''))?'deceased':'ended care'}:{k:'care',d:''})
-        +(x.paused?' <span class="tag-chip" style="background:#FFF4E1;color:#9A6412;font-weight:800;">Paused · follow up '+esc(new Date(x.paused.followup_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}))+'</span>':'')+'</div></td>'
-      +'<td style="padding:9px 10px;vertical-align:top;">'+(x.due.length?x.due.map(i=>clChip(x.r,i)).join(''):'<span class="field-note">nothing open</span>')+'</td>'
-      +'<td style="padding:9px 10px;vertical-align:top;white-space:nowrap;">'+(x.lastCi?esc(x.lastCi.checkin_date||'')+(x.coord?'<div class="field-note" style="font-size:11.5px;">'+esc(x.coord)+'</div>':''):'<span class="field-note">none yet</span>')+'</td></tr>').join('')
+    +'<thead><tr style="background:var(--bg);text-align:left;">'+['Client','Open or due','Care level','Last check-in'].map(h=>'<th style="padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">'+h+'</th>').join('')+'</tr></thead><tbody>'
+    +rows.map(x=>{
+      const ax=String(x.r.axiscare_client_id);
+      const nameCell=x.axOnly
+        ? '<b style="color:var(--navy);">'+esc(x.r.client_name)+'</b><div style="margin-top:3px;">'+ccStageChip({k:'past',d:'in AxisCare only'})+'</div>'
+        : '<a href="javascript:void(0)" '+(x.unconnected?'onclick="clOpenUnconnected(\''+esc(ax)+'\')"':'data-open-client="'+esc(ax)+'"')+' style="font-weight:700;color:var(--navy);">'+esc(x.r.client_name)+'</a>'
+          +'<div style="margin-top:3px;">'+(x.unconnected?'<span class="tag-chip" style="background:#FDF3E3;color:#A8660E;font-weight:800;white-space:nowrap;">Not connected yet</span>'
+            :ccStageChip(x.past?{k:'past',d:/deceas/i.test(String(x.r.end_reason||''))?'deceased':'ended care'}:{k:'care',d:''}))
+          +(x.paused?' <span class="tag-chip" style="background:#FFF4E1;color:#9A6412;font-weight:800;">Paused · follow up '+esc(new Date(x.paused.followup_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}))+'</span>':'')+'</div>';
+      const dueCell=x.unconnected
+        ? '<span style="font-size:12.5px;color:#A8660E;" title="The client sync connects new AxisCare clients every 6 hours. If one stays here after that, someone in the Hub has the same name and a person needs to check and connect them.">In AxisCare, not in the Hub yet · connects on the next sync</span> · '+axLink(ax)
+        : x.axOnly ? '<span class="field-note">'+esc((x.ax&&x.ax.status_label)||'Not active')+' in AxisCare · not kept in the Hub</span> · '+axLink(ax)
+        : (x.due.length?x.due.map(i=>clChip(x.r,i)).join(''):'<span class="field-note">nothing open</span>');
+      return '<tr style="border-top:1px solid var(--border);'+(x.unconnected?'background:#FFFBF4;':x.bad?'background:#FFFAF9;':'')+'">'
+        +'<td style="padding:9px 10px;vertical-align:top;">'+nameCell+'</td>'
+        +'<td style="padding:9px 10px;vertical-align:top;">'+dueCell+'</td>'
+        +'<td style="padding:9px 10px;vertical-align:top;white-space:nowrap;">'+lvl(x)+'</td>'
+        +'<td style="padding:9px 10px;vertical-align:top;white-space:nowrap;">'+(x.lastCi?esc(x.lastCi.checkin_date||'')+(x.coord?'<div class="field-note" style="font-size:11.5px;">'+esc(x.coord)+'</div>':''):(x.axOnly?'':'<span class="field-note">none yet</span>'))+'</td></tr>';
+    }).join('')
     +'</tbody></table></div>';
+}
+function clOpenUnconnected(ax){
+  const c=((CL.census&&CL.census.clients)||[]).find(x=>String(x.id)===String(ax));
+  openClient({ ax:String(ax), r:{ client_name:c?clCensusName(c):('AxisCare client #'+ax), axiscare_client_id:String(ax), lead:null, assessment:null, plan:null, checkins:[], phone:'', ghl_contact_id:'' } }, 'summary');
 }
 /* the profile's Summary: everything open or due for this client, each a link to the tab where it's done */
 async function cpRenderOpenNow(){
