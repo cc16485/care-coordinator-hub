@@ -6,7 +6,7 @@ require('../eligibility-rules.js');
 const E = globalThis.CCElig;
 let pass = 0, fail = 0;
 const ck = (name, ok, extra) => { if (ok) pass++; else fail++; console.log((ok ? 'PASS  ' : 'FAIL  ') + name + (ok || extra === undefined ? '' : '  ' + JSON.stringify(extra))); };
-const base = { first: 'Ola', last: 'Oldpath', oos: 'no', fp: 'N/A', oig: 'CLEAR', edl: 'Clear', fcsr: 'Clear', r1s: 'Positive', r2s: 'Positive' };
+const base = { first: 'Ola', last: 'Oldpath', oos: 'no', fp: 'N/A', oig: 'CLEAR', edl: 'Clear', fcsr: 'Clear', r1s: 'Positive', r1_type: 'professional', r2s: 'Positive' };   /* 2026-10-12: one from work */
 const st = (o) => E.obDeriveStatus(Object.assign({}, base, o));
 ck('all four old checks clear but no Case.net yet: Awaiting (was Ready before)', st({}) === 'Awaiting', st({}));
 ck('Case.net Pending: Awaiting', st({ casenet: 'Pending' }) === 'Awaiting');

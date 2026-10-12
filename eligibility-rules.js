@@ -111,7 +111,13 @@ function refPolicy(c){
   if(conditional && !refDecisionCovers(c)) return {ok:false, blocked:true,
     why:'A reference is Conditional. A supervisor has to decide before this one moves on.'};
   if(pos<2) return {ok:false, blocked:false,
-    why:(2-pos)+' more positive reference'+(2-pos===1?'':'s')+' needed.'};
+    why:(2-pos)+' more positive reference'+(2-pos===1?'':'s')+' needed (at least one from a past job).'};
+  /* Samantha 2026-10-09 decision 1, made the one rule 2026-10-12: two positive, at least one of them from work. The
+     readiness card already asked for this; the type is the one recorded on the slot or with the answers. */
+  const work=[1,2,3,4].some(n=>c['r'+n+'s']==='Positive' &&
+    String((c['r'+n+'_manual']&&c['r'+n+'_manual'].type)||c['r'+n+'_type']||'').trim().toLowerCase()==='professional');
+  if(!work) return {ok:false, blocked:false,
+    why:'One of the positive references has to be from a past job. If one already is, mark it as a work reference.'};
   return {ok:true, blocked:false, why:''};
 }
 /* CANDIDATE / PRE-HIRE progression. References and the initial CLEAR results

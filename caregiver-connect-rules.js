@@ -78,6 +78,8 @@ function recordFromCandidate(c, hireDate, orientDate, x){
     edl_date: c.edl_date||'', edl_status: c.edl||'', edl_proof: c.edl_proof||'',
     fcsr_date: c.fcsr_date||'', fcsr_status: c.fcsr||'', fcsr_proof: c.fcsr_proof||'',
     fp: c.fp||'N/A', fp_date: c.fp_date||'', fp_proof: c.fp_proof||'',
+    /* Case.net (Samantha 2026-10-12, step 3: "yes to all"): the Missouri court records search travels like the other checks */
+    casenet: c.casenet||'', casenet_date: c.casenet_date||'', casenet_proof: c.casenet_proof||'',
     supv_date: '', supv_proof: '',
     perf_date: '', perf_proof: '',
     // Frozen pre-hire background-check record for the state audit binder, kept
@@ -88,6 +90,7 @@ function recordFromCandidate(c, hireDate, orientDate, x){
       edl:  { status: c.edl||'',  date: c.edl_date||'',  proof: c.edl_proof||''  },
       fcsr: { status: c.fcsr||'', date: c.fcsr_date||'', proof: c.fcsr_proof||'' },
       fp:   { status: c.fp||'',   date: c.fp_date||'',   proof: c.fp_proof||'',  applicable: c.oos==='yes' },
+      casenet: { status: c.casenet||'', date: c.casenet_date||'', proof: c.casenet_proof||'' },
       /* R3: the references travel with them too. */
       refs: prehireRefs(c)
     }
