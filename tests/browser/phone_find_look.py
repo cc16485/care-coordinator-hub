@@ -2,6 +2,8 @@
 every Supabase answer and the AxisCare reads are faked; nothing reaches the database and nothing is saved or sent.
 (python3 tests/browser/phone_find_look.py)"""
 from playwright.sync_api import sync_playwright
+import os
+PORT = os.environ.get('PORT', '8765')
 T = r"""
 async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -13,9 +15,10 @@ async()=>{
                     { id:'0b7e6a1c-1111-4222-8333-000000000000', first_name:'Mary', last_name:'Hired', phone:'4175550000', status:'hired', created_at:iso(-500) }],
     interview_bookings:[{ applicant_id:APID, starts_at:iso(40), status:'booked', coordinator_id:'K1' }],
     coordinators:[{ id:'K1', name:'Krystal Test' }],
-    care_circles:[{ id:'CC1', client_name:'Martha Green', axiscare_client_id:'9001', active:true }],
-    circle_contacts:[{ name:'Ann Green', relationship:'Daughter', phone:'4175550123', email:'ann@example.com', is_primary:true, axiscare_removed_at:null },
-                     { name:'Old Contact', relationship:'Son', phone:'4175550999', axiscare_removed_at:iso(-100) }] };
+    care_circles:[{ id:'CC1', client_name:'Martha Green', axiscare_client_id:'9001', active:true }, { id:'CC2', client_name:'Rose Unlinked', axiscare_client_id:null, active:true }],
+    circle_contacts:[{ id:'F1', circle_id:'CC1', name:'Ann Green', relationship:'Daughter', phone:'4175550123', email:'ann@example.com', is_primary:true, axiscare_removed_at:null },
+                     { id:'F2', circle_id:'CC1', name:'Old Contact', relationship:'Son', phone:'4175550999', axiscare_removed_at:iso(-100) },
+                     { id:'F3', circle_id:'CC2', name:'Bob Rose', relationship:'Son', phone:'4175550321', is_primary:false, axiscare_removed_at:null }] };
   sb.from=(t)=>{ const f=[]; const b={ select(){return b;}, order(){return b;}, limit(){return b;}, gte(){return b;}, in(){return b;},
       eq(c,v){ f.push([c,v]); return b; },
       insert(){ window.__W.push('insert:'+t); return Promise.resolve({error:null}); }, update(){ window.__W.push('update:'+t); return b; }, upsert(){ window.__W.push('upsert:'+t); return Promise.resolve({error:null}); }, delete(){ window.__W.push('delete:'+t); return b; },
@@ -81,6 +84,34 @@ async()=>{
   t=body().innerText;
   ok('applicant card: where they are, the interview with whom, Call, Open in the Hub (#ap/<id>)', /Applied/.test(t) && /with Krystal/.test(t) && body().querySelector('a[data-oc-phone="(417) 555-0177"]') && body().querySelector('a[href="index.html#ap/'+APID+'"]'), t);
   ok('...never shows a Social Security number', !/123-45-6789/.test(body().innerHTML));
+  body().querySelector('[data-pf="back"]').click(); await sleep(80);
+  /* family circles in Find (2026-10-12, hers: "i want to be able to see all family circles in the find area of phone") */
+  await type('ann');
+  let rowsT=[...body().querySelectorAll('.ph-row')].map(r=>r.innerText.replace(/\s+/g,' '));
+  ok('a family member is found by name: Family tag, how they are related and whose family', /Ann Green\s*FAMILY Daughter · family of Martha Green · main contact/i.test(rowsT.join('|')) && /Ann Bell|Martin Bell/.test(rowsT.join('|')), rowsT);
+  await type('0123');
+  ok('...and by four digits of their phone number', [...body().querySelectorAll('.ph-row b')].map(b=>b.innerText).join()==='Ann Green', body().innerText);
+  await type('old contact');
+  ok('...someone AxisCare no longer lists is not found', /Nobody matches/.test(body().innerText), body().innerText);
+  await type('ann green'); body().querySelector('.ph-row').click(); await sleep(150);
+  t=body().innerText;
+  ok('family card: whose family, relationship, phone, Call from the office line, Their client, Open in the Hub on the Family tab', /Family of\s*Martha Green/.test(t) && /Daughter/.test(t) && body().querySelector('a[data-oc-phone="4175550123"]') && body().querySelector('[data-pf="client"]') && body().querySelector('a[href="index.html#p/A9001/family"]'), t);
+  body().querySelector('[data-pf="client"]').click(); await sleep(250);
+  ok('...Their client opens the client card', /Martha Green/.test(body().innerText) && /Receiving care/.test(body().innerText), body().innerText);
+  body().querySelector('[data-pf="back"]').click(); await sleep(80);
+  await type('');
+  const fc=body().querySelector('[data-pf="circles"]');
+  ok('before typing: a Family circles button with how many there are', !!fc && /Family circles\s*2/.test(fc.innerText), body().innerText.slice(0,300));
+  fc.click(); await sleep(150);
+  rowsT=[...body().querySelectorAll('.ph-row')].map(r=>r.innerText.replace(/\s+/g,' '));
+  ok('all family circles, by client, with the main contact and who is not linked yet', rowsT.length===2 && /^Martha Green\s*1 FAMILY Ann Green \(daughter\)/i.test(rowsT[0]) && /Rose Unlinked\s*1 FAMILY Bob Rose \(son\) · not linked to a client yet/i.test(rowsT[1]), rowsT);
+  body().querySelectorAll('[data-pf="circ"]')[1].click(); await sleep(150);
+  t=body().innerText;
+  ok('a circle opens with everyone on it and a Call for each (no client link when it has none)', /FAMILY · 1/.test(t) && /Bob Rose/.test(t) && body().querySelector('a[data-oc-phone="4175550321"]') && !body().querySelector('[data-pf="client"]'), t);
+  body().querySelector('[data-pf="circles"]').click(); await sleep(100);
+  ok('...back to all family circles', body().querySelectorAll('[data-pf="circ"]').length===2);
+  body().querySelector('[data-pf="back"]').click(); await sleep(100);
+  ok('...and back to the search', !!document.getElementById('phQ') && !!body().querySelector('[data-pf="circles"]'));
   ok('looking only: nothing was saved anywhere while searching and opening people', window.__W.length===0, window.__W);
   ok('fits a phone screen', document.documentElement.scrollWidth<=window.innerWidth+1, [document.documentElement.scrollWidth, window.innerWidth]);
   document.querySelector('.ph-tabs [data-v="need"]').click(); await sleep(150);
@@ -117,15 +148,15 @@ with sync_playwright() as pw:
     block = lambda r: r.abort() if ('supabase.co' in r.request.url or 'leadconnectorhq' in r.request.url or 'hub.mo-care.com' in r.request.url) else r.continue_()
     errs = []
     pg = b.new_page(viewport={'width': 375, 'height': 812}, device_scale_factor=2); pg.route('**/*', block); pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
-    pg.goto('http://localhost:8765/index.html?m=1'); pg.wait_for_timeout(1500)
+    pg.goto(f'http://localhost:{PORT}/index.html?m=1'); pg.wait_for_timeout(1500)
     R = pg.evaluate(T)
     pg.evaluate("()=>{ document.querySelector('.ph-tabs [data-v=\"find\"]').click(); const q=document.getElementById('phQ'); q.value='ma'; q.dispatchEvent(new Event('input')); }"); pg.wait_for_timeout(400)
     pg.screenshot(path='tests/browser/phone_find.png')
     f = b.new_page(viewport={'width': 375, 'height': 812}); f.route('**/*', block); f.on('pageerror', lambda e: errs.append(str(e)[:200]))
-    f.goto('http://localhost:8765/index.html?m=1'); f.wait_for_timeout(1300)
+    f.goto(f'http://localhost:{PORT}/index.html?m=1'); f.wait_for_timeout(1300)
     R += f.evaluate(FAIL)
     d = b.new_page(); d.route('**/*', block); d.on('pageerror', lambda e: errs.append(str(e)[:200]))
-    d.goto('http://localhost:8765/index.html'); d.wait_for_timeout(1300)
+    d.goto(f'http://localhost:{PORT}/index.html'); d.wait_for_timeout(1300)
     R += d.evaluate(DESK)
     R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]]); b.close()
 for s_, n, dd in R: print(s_, '·', n, '' if s_ == 'PASS' else dd)
