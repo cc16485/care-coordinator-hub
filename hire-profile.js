@@ -38,11 +38,58 @@
     try{ CUR = await call(Object.assign({ action:'get' }, k)); render(); }
     catch(e){ b.innerHTML = '<div style="color:#B91C1C">Could not open the profile: ' + esc(e.message) + '</div><div style="text-align:right;margin-top:.8rem"><button class="ibtn" onclick="HP.close()">Close</button></div>'; }
   }
-  function render(){
-    const p = CUR, b = document.getElementById('hpBody'); if(!p || !b) return;
-    const ids = p.ids || {};
+  /* One profile, step 2 (2026-10-12): the same pieces drawn inside the person's own page, on its tabs.
+     HP.mount(el, key, ['status','skills','docs','timeline']) */
+  const MOUNTS = []; let PENDING = null;
+  async function mount(el, k, parts){
+    if(!el) return;
+    for(let i = MOUNTS.length - 1; i >= 0; i--) if(MOUNTS[i].el === el || !MOUNTS[i].el.isConnected) MOUNTS.splice(i, 1);
+    const ks = JSON.stringify(k);
+    MOUNTS.push({ el, ks, parts: parts || ['status','skills','docs','timeline'] });
+    if(CUR && JSON.stringify(KEY) === ks){ render(); return; }
+    el.innerHTML = '<div class="field-note">Gathering everything on file…</div>';
+    try{
+      if(!PENDING || PENDING.ks !== ks) PENDING = { ks, p: call(Object.assign({ action:'get' }, k)) };
+      const got = await PENDING.p;
+      if(JSON.stringify(KEY) !== ks){ KEY = k; FILTER = 'all'; CUR = got; }
+      render();
+    }catch(e){ if(PENDING && PENDING.ks === ks) PENDING = null; el.innerHTML = '<div class="field-note" style="color:#B91C1C">Could not read their records: ' + esc(e.message) + '</div>'; }
+  }
+  function partsHtml(p, parts){
+    let h = '';
+    for(const part of parts){
+      if(part === 'status') h += statusCard(p);
+      else if(part === 'skills') h += skillsCard(p.experience);
+      else if(part === 'docs') h += docsHtml(p);
+      else if(part === 'timeline') h += timelineHtml(p);
+    }
+    return h;
+  }
+  function docsHtml(p){
+    const docs = p.documents || [];
+    return '<div style="margin-top:.8rem"><b style="color:#0D365F">Signed documents and proofs</b> <span class="field-note">(' + docs.length + ') · each opens by a five-minute link; every open is logged with your name</span>'
+      + (docs.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.35rem;margin-top:.4rem">' + docs.map((d, i) =>
+          '<div style="border:1px solid #E8E2D8;border-radius:8px;padding:.4rem .55rem;display:flex;gap:.5rem;align-items:center"><span style="flex:1;font-size:.82rem"><b>' + esc(d.label) + '</b>'
+          + (d.at ? '<br><span class="field-note">' + esc(central(d.at)) + '</span>' : '') + '</span><button class="ibtn" onclick="HP.doc(' + i + ',this)">Open</button></div>').join('') + '</div>'
+        : '<div class="field-note" style="margin-top:.3rem">Nothing signed yet.</div>') + '</div>';
+  }
+  function timelineHtml(p){
     const tl = (p.timeline || []).filter(x => FILTER === 'all' || x.type === FILTER);
     const counts = {}; (p.timeline || []).forEach(x => { counts[x.type] = (counts[x.type] || 0) + 1; });
+    return '<div style="margin-top:1rem"><b style="color:#0D365F">Everything that happened, oldest first</b> <span class="field-note">every send, receipt and completion, with who and when (Central time)</span>'
+      + '<div style="display:flex;gap:.3rem;flex-wrap:wrap;margin:.4rem 0">' + [['all','All',(p.timeline || []).length]].concat(Object.keys(TYPES).filter(k => counts[k]).map(k => [k, TYPES[k][0], counts[k]])).map(([k, l, n]) =>
+          '<button class="ibtn" style="font-size:.72rem;' + (FILTER === k ? 'background:#0D365F;color:#fff;border-color:#0D365F' : '') + '" onclick="HP.filter(\'' + k + '\')">' + esc(l) + ' (' + n + ')</button>').join('') + '</div>'
+      + (tl.length ? '<table style="width:100%;border-collapse:collapse;font-size:.8rem"><tbody>' + tl.map(x => { const T = TYPES[x.type] || TYPES.done;
+          return '<tr style="border-bottom:1px solid #F4F2ED"><td style="padding:.3rem .4rem;white-space:nowrap;color:#6E6559;vertical-align:top">' + esc(central(x.at)) + '</td>'
+            + '<td style="padding:.3rem .4rem;vertical-align:top"><span style="font-size:.7rem;font-weight:700;color:' + T[1] + ';background:' + T[2] + ';border-radius:6px;padding:.05rem .4rem;white-space:nowrap">' + T[0] + '</span></td>'
+            + '<td style="padding:.3rem .4rem;vertical-align:top">' + esc(x.what) + '</td><td style="padding:.3rem .4rem;color:#6E6559;vertical-align:top;white-space:nowrap">' + esc(x.by || '') + '</td></tr>'; }).join('') + '</tbody></table>'
+        : '<div class="field-note">Nothing here yet.</div>') + '</div>';
+  }
+  function render(){
+    const p = CUR; if(!p) return;
+    for(let i = MOUNTS.length - 1; i >= 0; i--){ const m = MOUNTS[i]; if(!m.el.isConnected){ MOUNTS.splice(i, 1); continue; } if(m.ks === JSON.stringify(KEY)) m.el.innerHTML = partsHtml(p, m.parts); }   /* never draw one person's records into another person's page */
+    const w = document.getElementById('hpPanel'), b = document.getElementById('hpBody'); if(!w || !b || w.style.display === 'none') return;
+    const ids = p.ids || {};
     const phone = p.phone ? (typeof ocAttrs === 'function' ? '<a' + ocAttrs(p.phone) + ' style="color:var(--teal);text-decoration:none">&#128222; ' + esc(p.phone) + '</a>' : '&#128222; ' + esc(p.phone)) : '';
     let h = '<div style="display:flex;gap:.6rem;align-items:flex-start;flex-wrap:wrap;border-bottom:2px solid #E8E2D8;padding-bottom:.7rem">'
       + '<div style="flex:1;min-width:240px"><div style="font-size:1.25rem;font-weight:800;color:#0D365F">&#128100; ' + esc(p.name) + '</div>'
@@ -53,22 +100,7 @@
       + (ids.offer_id && p.path === 'new' && window.CRX ? '<button class="ibtn" onclick="HP.close();CRX.open(\'' + esc(ids.offer_id) + '\')">&#9776; Readiness card</button>' : '')
       + (ids.applicant_id && typeof apOpenProfile === 'function' ? '<button class="ibtn" onclick="HP.close();HP.openApplication(\'' + esc(ids.applicant_id) + '\')">Their application</button>' : '')
       + '<button class="ibtn" onclick="HP.close()">Close</button></div></div>';
-    h += statusCard(p);
-    h += skillsCard(p.experience);
-    const docs = p.documents || [];
-    h += '<div style="margin-top:.8rem"><b style="color:#0D365F">Signed documents and proofs</b> <span class="field-note">(' + docs.length + ') · each opens by a five-minute link; every open is logged with your name</span>'
-      + (docs.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.35rem;margin-top:.4rem">' + docs.map((d, i) =>
-          '<div style="border:1px solid #E8E2D8;border-radius:8px;padding:.4rem .55rem;display:flex;gap:.5rem;align-items:center"><span style="flex:1;font-size:.82rem"><b>' + esc(d.label) + '</b>'
-          + (d.at ? '<br><span class="field-note">' + esc(central(d.at)) + '</span>' : '') + '</span><button class="ibtn" onclick="HP.doc(' + i + ',this)">Open</button></div>').join('') + '</div>'
-        : '<div class="field-note" style="margin-top:.3rem">Nothing signed yet.</div>') + '</div>';
-    h += '<div style="margin-top:1rem"><b style="color:#0D365F">Everything that happened, oldest first</b> <span class="field-note">every send, receipt and completion, with who and when (Central time)</span>'
-      + '<div style="display:flex;gap:.3rem;flex-wrap:wrap;margin:.4rem 0">' + [['all','All',(p.timeline || []).length]].concat(Object.keys(TYPES).filter(k => counts[k]).map(k => [k, TYPES[k][0], counts[k]])).map(([k, l, n]) =>
-          '<button class="ibtn" style="font-size:.72rem;' + (FILTER === k ? 'background:#0D365F;color:#fff;border-color:#0D365F' : '') + '" onclick="HP.filter(\'' + k + '\')">' + esc(l) + ' (' + n + ')</button>').join('') + '</div>'
-      + (tl.length ? '<table style="width:100%;border-collapse:collapse;font-size:.8rem"><tbody>' + tl.map(x => { const T = TYPES[x.type] || TYPES.done;
-          return '<tr style="border-bottom:1px solid #F4F2ED"><td style="padding:.3rem .4rem;white-space:nowrap;color:#6E6559;vertical-align:top">' + esc(central(x.at)) + '</td>'
-            + '<td style="padding:.3rem .4rem;vertical-align:top"><span style="font-size:.7rem;font-weight:700;color:' + T[1] + ';background:' + T[2] + ';border-radius:6px;padding:.05rem .4rem;white-space:nowrap">' + T[0] + '</span></td>'
-            + '<td style="padding:.3rem .4rem;vertical-align:top">' + esc(x.what) + '</td><td style="padding:.3rem .4rem;color:#6E6559;vertical-align:top;white-space:nowrap">' + esc(x.by || '') + '</td></tr>'; }).join('') + '</tbody></table>'
-        : '<div class="field-note">Nothing here yet.</div>') + '</div>';
+    h += partsHtml(p, ['status','skills','docs','timeline']);
     b.innerHTML = h;
   }
   /* WHERE THEY ARE (Samantha 2026-10-11: "which steps have been completed, which step the applicant is currently on, what
@@ -168,5 +200,5 @@
   }
   function watch(){ const box = document.getElementById('offersList'); if(!box || box.dataset.hpWatch) return; box.dataset.hpWatch = '1'; new MutationObserver(() => fillOfferProgress()).observe(box, { childList:true, subtree:true }); fillOfferProgress(); }
   document.addEventListener('DOMContentLoaded', watch); setInterval(watch, 3000);
-  window.HP = { open, close, chip, doc, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress };
+  window.HP = { open, close, chip, doc, mount, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress };
 })();

@@ -33,7 +33,7 @@ function engineCtx(tables, census){
   ctx.window.HP = { open: k => calls.push(['whole', JSON.stringify(k)]) };
   ctx.HP = ctx.window.HP;
   vm.createContext(ctx);
-  vm.runInContext(cut(ENG, 'async function openPerson(k){', '// ── Employee Profile (name-matched'), ctx);
+  vm.runInContext(cut(ENG, 'async function openPerson(k', '// ── Employee Profile (name-matched'), ctx);
   return ctx;
 }
 (async () => {
@@ -50,7 +50,7 @@ function engineCtx(tables, census){
   ok(JSON.stringify(await run({ candidate_id: 'c4' })) === '[["applicant","app-4"]]', 'board person with only a start form opens their applicant page');
   ok(JSON.stringify(await run({ candidate_id: 'c5' })) === '[["whole","{\\"candidate_id\\":\\"c5\\"}"]]', 'no application on file: the Whole profile panel, by id');
   ok(!(await run({ candidate_id: 'c5' })).some(x => x[0] === 'oldmodal'), 'the name-matched Employee Profile pop-up is not used when the Whole profile exists');
-  const src = cut(ENG, 'async function openPerson(k){', '// ── Employee Profile (name-matched');
+  const src = cut(ENG, 'async function openPerson(k', '// ── Employee Profile (name-matched');
   ok(!/ilike|\.phone|\.email|first\s*\+|toLowerCase/.test(cut(src, 'async function openPerson', 'function personName')), 'openPerson matches by id only: no name, phone or email');
 
   /* personName: an id with an apostrophe cannot break the link */
