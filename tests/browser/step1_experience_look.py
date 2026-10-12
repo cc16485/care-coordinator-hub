@@ -63,7 +63,7 @@ with sync_playwright() as pw:
     fam.locator('.fl', has_text='Who did you care for').locator('button', has_text='A family member').click(); pg.wait_for_timeout(200)
     fam = pg.locator('.card').nth(1)
     for t in ['Not paid', 'A VA program']: fam.locator('label.chk', has_text=t).click(); pg.wait_for_timeout(150); fam = pg.locator('.card').nth(1)
-    ok('family care: her wording, and several payment sources saved', "We'll use this information, along with references and other qualifications" in pg.inner_text('#main') and (last('family_care') or [{}])[0].get('paid') == ['Not paid', 'A VA program'], last('family_care'))
+    ok('family care: her final wording (paid or unpaid), and several payment sources saved', "Your caregiving experience matters, whether it was paid or unpaid." in pg.inner_text('#main') and (last('family_care') or [{}])[0].get('paid') == ['Not paid', 'A VA program'], last('family_care'))
     ok('family care shows its tasks without a "did you give care" question', fam.locator('input[data-k="tasks"]').count() == 16)
     fam.screenshot(path=os.path.join(OUT, 'exp_3_family.png'))
     VIEW['current_screen'] = '4'; VIEW['answers'] = {'jobs': [{**j, 'may_contact': 'yes', 'email': 'jane@hh.com'}]}
