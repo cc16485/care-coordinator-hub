@@ -955,6 +955,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
     <!-- 2026-10-12 (her call): Team Builder lives in Client Care; Schedule Watch is gone. -->
     <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Team Builder</div>
+    <!-- 2026-10-12 (her call): the Care Library, how-to videos for caregivers she approves one by one (care-library.js) -->
+    <div class="fpill" data-tab="carelibrary" onclick="switchTab('carelibrary')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Care Library</div>
     <span style="flex:1"></span>
     <!-- One hub, one truth, a lens per person: filters Leads, State
          Submissions, Check-ins, and Active Clients to one coordinator's
@@ -1075,6 +1077,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          preview (Change 4, schedule-push). Plans live in shared app_data
          staffing_plans. Moved from Schedule Watch to Client Care 2026-10-12
          (her call). -->
+    <!-- Care Library (Samantha 2026-10-12): how-to videos and notes for caregivers; the office browses, she approves each one;
+         a client's caregivers get only what is put in their Caregiver packet (care-library.js, care-packet function). -->
+    <section class="tabpanel" id="tab-carelibrary"><div id="clib_box"></div></section>
     <section class="tabpanel" id="tab-teambuilder">
       <div style="margin-bottom:14px;">
         <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Team Builder</h2>
@@ -7722,7 +7727,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard','teambuilder'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8130,7 +8135,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
-  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Team Builder', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
+  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Team Builder', carelibrary:'Care Library', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -8361,6 +8366,8 @@ function renderActiveTab(){
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); }
   if(activeTab==='teambuilder'){ tbRender(); }
+  if(activeTab==='carelibrary'){ const go=()=>{ try{ window.CLIB&&window.CLIB.mount('clib_box'); }catch(e){ console.warn('care library', e); } };
+    if(window.CLIB) go(); else { const sc=document.createElement('script'); sc.src='care-library.js?v=20261012a'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today'){ renderToday(); if(typeof dkDashRender==='function') dkDashRender(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
@@ -10032,7 +10039,7 @@ function cpRenderCare(){
      ("CN.mount is not a function") and the error stopped the packet card below from drawing. Always window.CN here, and
      each card mounts on its own so one failing never hides the other. */
   if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261012b'; sc.onload=go; document.head.appendChild(sc); } }
-  { const go=()=>{ try{ window.CPK&&window.CPK.mount('cp_packet'); }catch(e){ console.warn('caregiver packet card', e); } }; if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012g'; sc.onload=go; document.head.appendChild(sc); } }
+  { const go=()=>{ try{ window.CPK&&window.CPK.mount('cp_packet'); }catch(e){ console.warn('caregiver packet card', e); } }; if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012h'; sc.onload=go; document.head.appendChild(sc); } }
 }
 function cpNewAssessment(){
   const lead=CP.lead;
