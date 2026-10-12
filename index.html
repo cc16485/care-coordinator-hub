@@ -34901,7 +34901,7 @@ function caraNeedsReason(c){
   if((c.asked||[]).some(a=>a&&a.state==='inquiry')) return 'question';
   /* Manual selection (2026-09-18): an open case with no asks is waiting on
      a COORDINATOR to build the list — Cara isn't "working on" anything. */
-  if((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)&&!(c.asked||[]).length) return 'pick';
+  if(covManual()&&!(c.asked||[]).length) return 'pick';
   /* The quiet-callout nudge (2026-09-19): asks out 30+ minutes with zero
      yeses is a decision moment, not background noise. Computed here so the
      board says it even before the cron's ops item lands. */
@@ -35126,7 +35126,7 @@ function caraWorkingCard(c){
     +'<div style="margin-top:9px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;">'
     +'<span style="background:var(--green-bg);color:var(--green);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;">'
       +(waveN?'Wave '+waveN+' out'
-        :((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)
+        :(covManual()
           ?(asked.length?'Asks out — waiting on replies':'Waiting on your ask list')
           :(engineOn?'Cara is composing the first wave':'Callout engine is off')))+'</span>'
     +caraPatternChip(c)
@@ -35152,6 +35152,8 @@ function caraFilledCard(c){
 /* ── THE FIVE SUB-TABS (2026-09-18, her design session: organize by the
    JOBS a coordinator switches between, not by data type. Today is triage;
    everything else is a workspace you visit on purpose.) ─────────────────── */
+/* Cara's automatic waves were retired 2026-10-12 (decision 6, Desktop 631): a person always picks who gets asked. */
+function covManual(){ return true; }
 let COV_SUB=(function(){ try{ return localStorage.getItem('cch_covsub')||'today'; }catch(e){ return 'today'; } })();
 function covSubGo(s){ COV_SUB=s; try{ localStorage.setItem('cch_covsub',s); }catch(e){} renderCoverage(); }
 function covSubFor(c){
@@ -35231,7 +35233,7 @@ function caraRenderCC(){
   const box=document.getElementById('caraCC'); if(!box) return;
   const S=caraSections();
   const engineOn=!!(DATA.ops_settings&&DATA.ops_settings.coverage_send_live===true);
-  const manualMode=!!(DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true);
+  const manualMode=covManual();
   const grid=(inner,min)=>'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax('+min+'px,1fr));gap:10px;">'+inner+'</div>';
 
   const statusEl=document.getElementById('caraStatus');
@@ -35239,7 +35241,7 @@ function caraRenderCC(){
     statusEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12.5px;">'
       +'<span style="width:8px;height:8px;border-radius:50%;background:'+(engineOn?'var(--green)':'var(--text-muted)')+';"></span>'
       +'<b style="color:var(--navy);">'+(engineOn?'Cara is active':'Callout engine is off')+'</b>'
-      +'<span class="field-note">'+(engineOn?(manualMode?'Monitoring \u2014 you choose who gets asked':'Monitoring coverage'):'asks are recorded by hand')+'</span></span>';
+      +'<span class="field-note">'+(engineOn?(manualMode?'Monitoring: you choose who gets asked':'Monitoring coverage'):'asks are recorded by hand')+'</span></span>';
   }
 
   covRenderSubBar(S);
@@ -37879,7 +37881,7 @@ function covRailStages(c){
       matched
         ? 'Cara selected '+waves[0].asks.length+' caregiver'+(waves[0].asks.length===1?'':'s')+' for Wave 1'
           +(waves[0].asks.some(a=>a.tier===1)?' — worked-with-this-client first':'')
-        : ((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)
+        : (covManual()
             ? (open?'Waiting for the office to build the ask list':(manual.length?'Asks were recorded by the office':'No asks were recorded'))
             : (open&&engineOn?'Cara is composing the first wave':(open?'The callout engine is off — asks are recorded by hand':(manual.length?'Asks were recorded by the office':'No asks were recorded')))),
     ),
@@ -37964,7 +37966,7 @@ function covOutreachHtml(c){
   }
   if(!h){
     h='<div class="field-note" style="padding:4px 0;">Nobody asked yet'
-      +(open?((DATA.ops_settings&&DATA.ops_settings.coverage_manual_select===true)
+      +(open?(covManual()
           ?' — build the ask list above and choose who to text.'
           :(engineOn?' — Cara texts the first wave within 5 minutes.':' — the callout engine is off; use “I asked someone”.')):'.')+'</div>';
   }
