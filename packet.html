@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Your care packet · Caring Companions</title>
+<!-- ============================================================
+     CAREGIVER PACKET (Step 1, Samantha 2026-10-12): "send a packet of videos and info on a client's needs to the
+     caregivers who will work with that client". Opened from a caregiver's own link (care-packet checks it on every
+     call). Opening this page changes nothing: only the "I watched it and understand" button records anything (phones
+     preview links on their own, and a preview must never count). An edited packet is a new version and asks again.
+     ============================================================ -->
+<style>
+  :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#FFC671; --bg:#F6F9FD; --border:#E2E8F0; --gray:#6B7280; --red:#C0392B; --green:#1E8449; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:#1f2a36;
+        padding:16px; padding-bottom:48px; max-width:640px; margin-inline:auto; line-height:1.55; }
+  h1{ font-size:21px; color:var(--navy); margin:6px 0 2px; }
+  .sub{ font-size:13.5px; color:var(--gray); margin-bottom:14px; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  h2{ font-size:17px; color:var(--navy); margin:0 0 6px; }
+  .notes{ white-space:pre-wrap; font-size:15.5px; }
+  .vid{ margin-top:12px; }
+  .vid .t{ font-weight:700; font-size:14.5px; color:var(--navy); }
+  .vid .m{ font-size:12.5px; color:var(--gray); }
+  .frame{ position:relative; width:100%; padding-top:56.25%; margin-top:6px; border-radius:10px; overflow:hidden; background:#000; }
+  .frame iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+  a.open{ display:inline-block; margin-top:6px; font-weight:700; color:var(--navy); }
+  button{ display:block; width:100%; text-align:center; font-size:17px; font-weight:800; padding:14px; border-radius:12px; border:0;
+        cursor:pointer; margin-top:8px; background:var(--teal); color:#fff; }
+  button:disabled{ opacity:.6; cursor:default; }
+  .done{ background:#E8F6EE; border:1px solid var(--green); color:var(--green); border-radius:12px; padding:12px 14px; font-weight:700; }
+  .new{ background:#FFF6E3; border:1px solid var(--honey); border-radius:10px; padding:9px 12px; font-size:14px; margin-bottom:12px; }
+  .err{ color:var(--red); font-size:14.5px; margin-top:8px; font-weight:600; }
+  .note{ font-size:13px; color:var(--gray); margin-top:6px; }
+</style>
+</head>
+<body>
+<h1 id="h">Your care packet</h1>
+<div class="sub" id="who">Caring Companions</div>
+<div id="app"><div class="card">Loading…</div></div>
+<script>
+const SUPA_URL='https://zngsgedlsxinbygwmxwn.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const P=Object.fromEntries(new URLSearchParams(location.search));
+const LINK={ i:P.i||'', e:Number(P.e||0), t:P.t||'' };
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* only the two players the server names are ever framed */
+const safeEmbed=u=>/^https:\/\/(www\.youtube-nocookie\.com\/embed\/[A-Za-z0-9_-]{11}\?rel=0|player\.vimeo\.com\/video\/\d{6,12}\?dnt=1)$/.test(String(u||''))?u:null;
+const safeHref=u=>/^https:\/\//.test(String(u||''))?u:'#';
+const when=iso=>{ try{ return new Date(iso).toLocaleString('en-US',{ timeZone:'America/Chicago', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } };
+let D=null, busy=false;
+async function call(action, extra){
+  const r=await fetch(SUPA_URL+'/functions/v1/care-packet',{ method:'POST',
+    headers:{ 'Content-Type':'application/json', apikey:ANON, Authorization:'Bearer '+ANON },
+    body:JSON.stringify(Object.assign({}, LINK, { action }, extra||{})) });
+  let j=null; try{ j=await r.json(); }catch(e){}
+  if(!r.ok){ const err=new Error((j&&j.error)||('Something went wrong ('+r.status+').')); err.outcome=j&&j.outcome; throw err; }
+  return j;
+}
+function render(msg){
+  const app=document.getElementById('app');
+  if(!D){ app.innerHTML='<div class="card"><div class="err">'+esc(msg||'This link is not valid.')+'</div></div>'; return; }
+  document.getElementById('h').textContent='Caring for '+D.client_first;
+  document.getElementById('who').textContent='For '+D.caregiver_first+' · Caring Companions';
+  let h='';
+  if(D.earlier_ack&&!D.acknowledged) h+='<div class="new"><b>This packet was updated</b> since you last confirmed it. Please look it over again.</div>';
+  if(D.about) h+='<div class="card"><h2>About '+esc(D.client_first)+'</h2><div class="notes">'+esc(D.about)+'</div></div>';
+  (D.items||[]).forEach(it=>{
+    h+='<div class="card"><h2>'+esc(it.title)+'</h2>'+(it.notes?'<div class="notes">'+esc(it.notes)+'</div>':'')
+      +(it.videos||[]).map(v=>{ const e=safeEmbed(v.embed);
+          return '<div class="vid"><div class="t">'+esc(v.title)+'</div><div class="m">'+esc([v.publisher, v.minutes?v.minutes+' min':''].filter(Boolean).join(' · '))+'</div>'
+            +(e?'<div class="frame"><iframe src="'+esc(e)+'" title="'+esc(v.title)+'" loading="lazy" allow="fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'
+               :'<a class="open" href="'+esc(safeHref(v.url))+'" target="_blank" rel="noopener noreferrer">Open it ›</a>')+'</div>'; }).join('')
+      +'</div>';
+  });
+  h+='<div class="card">'+(D.acknowledged
+      ?'<div class="done">Thank you, '+esc(D.caregiver_first)+'. You confirmed this packet'+(D.ack_at?' on '+esc(when(D.ack_at)):'')+'.</div><div class="note">Questions about '+esc(D.client_first)+'\'s care? Call the office at <a href="tel:4172348494">(417) 234-8494</a>.</div>'
+      :'<div style="font-size:15px;">When you have watched the videos and read the notes above:</div><button id="bAck">I watched it and understand</button>'
+       +'<div class="note">If anything is unclear, call the office at <a href="tel:4172348494">(417) 234-8494</a> before your shift.</div>')
+    +'<div class="err" id="err">'+esc(msg||'')+'</div></div>';
+  h+='<div class="note">This link is just for you. Please do not share it: it has private information about '+esc(D.client_first)+'.</div>';
+  app.innerHTML=h;
+  const b=document.getElementById('bAck'); if(b) b.onclick=ack;
+}
+async function ack(){
+  if(busy) return; busy=true; const b=document.getElementById('bAck'); if(b) b.disabled=true;
+  try{ await call('ack',{ version:D.version }); D=await call('view'); render(); }
+  catch(e){ if(e.outcome==='changed'){ try{ D=await call('view'); }catch(x){} render(e.message); } else { const el=document.getElementById('err'); if(el) el.textContent=e.message; if(b) b.disabled=false; } }
+  busy=false;
+}
+(async()=>{ try{ D=await call('view'); render(); }catch(e){ D=null; render(e.message); } })();
+</script>
+</body>
+</html>
