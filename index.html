@@ -3866,27 +3866,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div>
         <div id="joForm">
 
-        <!-- Two optional helpers, side by side and shut by default, rather
-             than two paragraphs of explanation before the first field. -->
-        <div class="jo-tools">
-          <details ontoggle="if(this.open)joPreviewMsgs()">
-            <summary><svg class=navi aria-hidden=true><use href=icons.svg#i-eye></use></svg> The welcome message they get at the Viventium step</summary>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:10px;">
-              <div>
-                <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"><svg class=navi aria-hidden=true><use href=icons.svg#i-chat></use></svg> The text message</div>
-                <div id="jo_prev_sms" style="background:#E8F0E9;border-radius:14px 14px 14px 4px;padding:12px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;"></div>
-              </div>
-              <div>
-                <div style="font-size:11.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"><svg class=navi aria-hidden=true><use href=icons.svg#i-mail></use></svg> The email</div>
-                <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
-                  <div style="background:#FAF9F6;padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);"><b>Subject:</b> Welcome to Caring Companions, here's what happens next</div>
-                  <div id="jo_prev_email" style="padding:12px 14px;font-size:13px;line-height:1.65;"></div>
-                </div>
-              </div>
-            </div>
-            <div class="field-note" style="margin-top:8px;">This pair sends later, when you mark them entered in Viventium. The start link below is what goes out today. Both use the agency's GoHighLevel number, so it stays one thread.</div>
-          </details>
-        </div>
+        <!-- 2026-10-11 (Samantha): "The welcome message they get at the Viventium step ... doesn't make sense anymore either,
+             that text should not be going out". The preview is gone and the Hub no longer sends it. -->
 
         <!-- Opened from somebody's profile, this says whose offer it is and
              why the fields are already full. Opened cold from the Offers tab,
@@ -24552,7 +24533,7 @@ function apjRender(){
       + (x.warning ? chip('⚠ Not running','#B91C1C','#FEE2E2') : '')
       + '<span style="flex:1;"></span><span class="field-note">details ▾</span></summary>'
       + '<div style="margin-top:10px;font-size:13px;display:grid;gap:6px;">'
-      + (x.replaced ? '<div style="background:#F4F2ED;border-radius:8px;padding:8px 10px;">Replaced by the new messages on <b>'+esc(x.replaced)+'</b>. Kept here because turning off <b>New applicant messages</b> (Owners Hub Admin page) would bring it back.</div>' : '')
+      + (x.replaced ? '<div style="background:#F4F2ED;border-radius:8px;padding:8px 10px;">' + (x.replaced_note ? esc(x.replaced_note) : 'Replaced by the new messages on <b>'+esc(x.replaced)+'</b>. Kept here because turning off <b>New applicant messages</b> (Owners Hub Admin page) would bring it back.') + '</div>' : '')
       + (x.warning ? '<div style="background:#FEE2E2;color:#991B1B;border-radius:8px;padding:8px 10px;"><b>'+esc(x.warning)+'</b></div>' : '')
       + (x.timing ? '<div><b>When:</b> '+esc(x.timing)+'</div>' : '')
       + (x.button ? '<div><b>Button:</b> '+esc(x.button)+'</div>' : '')
@@ -24594,7 +24575,7 @@ function apjRender(){
   if(old.length){
     html += '<div class="card" style="padding:12px 14px;margin-top:18px;background:#FAF9F6;">'
       + '<label class="field-note" style="display:flex;gap:7px;align-items:center;cursor:pointer;margin:0;"><input type="checkbox" id="apjShowOld" onchange="apjRender()" '+(showOld?'checked ':'')+'style="width:auto;margin:0;">'
-      + 'Show the ' + old.length + ' older messages we no longer send (replaced on October 11, 2026)</label>'
+      + 'Show the ' + old.length + ' older messages we no longer send</label>'
       + (showOld ? '<div style="margin-top:10px;">' + old.map(card).join('') + '</div>' : '') + '</div>';
   }
   const issues = (window.AP_JOURNEY_ISSUES||[]);

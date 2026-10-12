@@ -27,7 +27,8 @@ ck('Hub preview text: the Orientation Video Call, then paid training from home',
 ck('Hub preview email: Step 3 Orientation Video Call + Step 4 paid training from home',
    prevEmail.includes('Step 3: Your 15-Minute Orientation Video Call') && prevEmail.includes(STEP3) && prevEmail.includes('Step 4: Paid Training From Home') && prevEmail.includes(STEP4)
    && !/Schedule Your Paid Orientation|new employee orientation/i.test(prevEmail), prevEmail);
-ck('Hub preview subject line has no em dash', html.includes("<b>Subject:</b> Welcome to Caring Companions, here's what happens next</div>"));
+// 2026-10-11 (Samantha: "that text should not be going out"): the welcome preview is off the offer form and the Hub no longer sends it.
+ck('the Viventium welcome preview is gone from the offer form, and the Hub no longer sends it', !html.includes('id="jo_prev_sms"') && !/send_welcome/.test(fs.readFileSync(path.join(ROOT, 'caregivers-engine.js'), 'utf8')));
 ck('Hub preview: no em dash, never "remote"', ![prevSms, prevEmail].some((x) => EM.test(x) || REMOTE.test(x)));
 
 // ---- applicant-journey.js mirrors it exactly ----
