@@ -1097,13 +1097,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- What Schedule Watch held (moved here 2026-10-12, her call: "all need to be in Cara"). Each shows only on its
            own Cara sub-tab: Missed clock-ins & outs, New clients, Hours & matching. The sw* functions draw them as before. -->
       <div id="swTodayWrap" style="display:none;"><div id="swLive" style="margin-bottom:26px;"></div></div>
-      <div id="swNewWrap" style="display:none;">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-          <button class="cov-cta teal" onclick="covOpenAdd('interest')">📣 New client: ask the team</button>
-          <span class="field-note" style="max-width:56ch;">Before the client meeting: who wants the hours, who lives closest, who's free then. Every YES is collected, and nobody is assigned anything.</span>
-        </div>
-        <div id="swNewClientsList"></div>
-      </div>
+      <!-- New clients left Cara 2026-10-12 (scheduling review step 3): asking the team about hours lives on Team Builder
+           ("Ask the whole team"); any older check still open shows at the top of Team Builder. -->
       <div id="swHoursWrap" style="display:none;">
       <div id="ssRoot"></div><!-- Where we can staff this week (staffing-sheet.js, Referral Partner Desk Step 4, 2026-10-08) -->
       <!-- The quiet-quit radar + care-gap watch (her picks #7+#8) and the
@@ -7030,7 +7025,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
 <script src="team-builder-2.js?v=4"></script>
-<script src="open-hours.js?v=1"></script>
+<script src="open-hours.js?v=2"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
@@ -35162,7 +35157,7 @@ function covSubGo(s){ COV_SUB=s; try{ localStorage.setItem('cch_covsub',s); }cat
 function covSubFor(c){
   if(!c) return 'today';
   if(c.status==='flagged') return 'today';
-  if(String(c.kind)==='interest') return 'newclients';
+  if(String(c.kind)==='interest') return 'today';   // new-client checks live on Team Builder now (step 3)
   if(c.status!=='open') return 'history';
   return covIsOngoing(c)?'ongoing':'calloffs';
 }
@@ -35192,7 +35187,6 @@ function covRenderSubBar(S){
     ['clockins','\u23f0 Missed clock-ins & outs',swClockinN(),'red'],
     ['calloffs','\ud83d\udcf5 Call-offs & open shifts',calloffN,''],
     ['ongoing','\ud83d\udd01 Ongoing shifts',ongoingN,''],
-    ['newclients','\ud83d\udce3 New clients',newN,''],
     ['hours','\ud83d\udcca Hours & matching',0,''],
     ['dno','\ud83d\udd15 No shift texts',dnoN,''],
     ['history','\ud83d\uddc2 History',0,''],
@@ -35373,8 +35367,9 @@ function caraShowCase(id){
   /* Land on the case's home: interest checks live on Cara's New clients
      sub-tab; everything else on its own Cara sub-tab. */
   if(String(c.kind)==='interest'){
-    COV_EXPANDED.add(id);
-    swSubGo('newclients');
+    /* step 3 (2026-10-12): new-client checks live on Team Builder; its plan when there is one */
+    if(c.plan_id&&typeof tbOpen==='function'){ switchTab('teambuilder'); tbOpen(c.plan_id); return; }
+    switchTab('teambuilder'); return;
     setTimeout(function(){
       var el=document.getElementById('covcase_'+id);
       if(el&&el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'center'});
@@ -35702,9 +35697,9 @@ function swBanner(S){
    ('today' = Missed clock-ins & outs, 'newclients', 'hours'; '' = none); renderCoverage sets it. swSubGo and
    swRenderAll stay as the way every old caller reaches those parts, and Team Builder ('builder'). */
 let SW_SUB='';
-const SW_TO_COV={today:'clockins',newclients:'newclients',hours:'hours'};
+const SW_TO_COV={today:'clockins',hours:'hours'};
 function swSubGo(s){
-  if(s==='builder'){ if(activeTab!=='teambuilder') switchTab('teambuilder'); else tbRender(); return; }
+  if(s==='builder'||s==='newclients'){ /* New clients moved to Team Builder (step 3, 2026-10-12) */ if(activeTab!=='teambuilder') switchTab('teambuilder'); else tbRender(); return; }
   COV_SUB=SW_TO_COV[s]||'clockins'; try{ localStorage.setItem('cch_covsub',COV_SUB); }catch(e){}
   if(activeTab!=='coverage') switchTab('coverage'); else renderCoverage();
 }
@@ -36100,7 +36095,8 @@ function tbHomeHtml(){
   var h='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
     +'<button class="cov-cta teal" onclick="tbNewForm()">🧩 New care team plan</button>'
     +'<span class="field-note" style="max-width:60ch;">The chart you used to draw on paper: shifts down the side, days across the top, pencil people in as you call. Nothing goes on the AxisCare schedule until the whole week is confirmed.</span>'
-    +'</div><div id="tbNewFormBox"></div>';
+    +'</div><div id="tbNewFormBox"></div>'
+    +(typeof OH!=='undefined'?OH.earlierHtml():'');
   if(!plans.length) h+='<div class="card" style="padding:16px 18px;color:var(--text-muted);font-size:13.5px;">No plans yet.</div>';
   else h+=plans.map(function(p){
     var cells=Object.keys(p.cells||{}).length, total=(p.days||[]).length*(p.slots||[]).length;
@@ -36475,6 +36471,7 @@ async function tbAskOpen(key){
   if(!dr.caregiver.on_roster) blockers.push(name+' is not on the caregiver roster, so there is no number to text.');
   else if(!dr.caregiver.phone_last4) blockers.push(name+' has no phone number on the roster.');
   if((dr.caregiver.opt_out||[]).length) blockers.push(name+' has asked not to get texts ('+dr.caregiver.opt_out.join('; ')+').');
+  if(dr.blocked) blockers.push(String(dr.blocked).charAt(0).toUpperCase()+String(dr.blocked).slice(1)+'.');   // step 3: Cara's checks
   var hr=+new Date().toLocaleString('en-US',{timeZone:'America/Chicago',hour:'2-digit',hour12:false});
   var late=hr<8||hr>=20;
   body.innerHTML=
@@ -37508,7 +37505,7 @@ async function covAdd(){
   if(c.kind==='interest'){
     /* Interest checks live on Cara > New clients: land there. */
     covShowAdd(false);
-    swSubGo('newclients');
+    switchTab('teambuilder');
     return;
   }
   covShowAdd(false);
@@ -38333,14 +38330,14 @@ function renderCoverage(){
   const box=document.getElementById('covList'); if(!box) return;
   /* Schedule Watch's parts, on their own Cara sub-tabs (2026-10-12): only one of them shows at a time, and the
      board's own lists step aside for it. */
-  const sw={clockins:'today',newclients:'newclients',hours:'hours'}[COV_SUB]||'';
+  if(COV_SUB==='newclients') COV_SUB='today';   // that tab moved to Team Builder (step 3, 2026-10-12)
+  const sw={clockins:'today',hours:'hours'}[COV_SUB]||'';
   SW_SUB=sw;
   const show=(id,on)=>{ const el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
-  show('swTodayWrap',sw==='today'); show('swNewWrap',sw==='newclients'); show('swHoursWrap',sw==='hours'); show('caraCC',!sw);
+  show('swTodayWrap',sw==='today'); show('swHoursWrap',sw==='hours'); show('caraCC',!sw);
   if(sw){
     box.innerHTML='';
     if(sw==='today'){ swRenderLive(); swAutoRefreshArm(); }
-    else if(sw==='newclients'){ swRenderNewClients(); }
     else { hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad(); try{ if(typeof ssPaint==='function'){ ssPaint(); ssLoad(); } }catch(e){} }
     return;
   }

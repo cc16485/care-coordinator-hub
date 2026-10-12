@@ -27,7 +27,7 @@ async()=>{
   ok('Client Care has Team Builder beside Getting ready and Clients', cc.join('|')==='Getting ready|Clients|Team Builder', cc);
   schedGo('coverage'); await sleep(250);
   const subs=[...document.querySelectorAll('#covSubBar button')].map(b=>b.textContent.trim());
-  ok('Cara sub-tabs include Missed clock-ins & outs, New clients and Hours & matching', /Missed clock-ins & outs/.test(subs.join('|')) && /New clients/.test(subs.join('|')) && /Hours & matching/.test(subs.join('|')), subs);
+  ok('Cara sub-tabs include Missed clock-ins & outs and Hours & matching (New clients moved to Team Builder in step 3)', /Missed clock-ins & outs/.test(subs.join('|')) && !/New clients/.test(subs.join('|')) && /Hours & matching/.test(subs.join('|')), subs);
   ok('the missed clock-ins count shows on its sub-tab', /Missed clock-ins & outs\s*2/.test(subs.join('|')), subs);
   ok('the eyebrow says AI Scheduling Assistant', /AI Scheduling Assistant/i.test(document.getElementById('tab-coverage').innerText));
   covSubGo('today'); await sleep(150);
@@ -35,8 +35,9 @@ async()=>{
   covSubGo('clockins'); await sleep(250);
   ok('Missed clock-ins & outs shows the live shift watch with the late caregivers', vis('swTodayWrap') && !vis('caraCC') && /Joyce K\. \(fake\)/.test(document.getElementById('swLive').innerText), document.getElementById('swLive').innerText.slice(0,300));
   ok('Cara\'s red badge counts the missed clock-ins too', +document.getElementById('covPillBadge2').textContent>=2, document.getElementById('covPillBadge2').textContent);
-  covSubGo('newclients'); await sleep(250);
-  ok('New clients shows the interest checks and the ask-the-team button', vis('swNewWrap') && /Prospect Pat \(fake\)/.test(document.getElementById('swNewClientsList').innerText) && /New client: ask the team/.test(document.getElementById('swNewWrap').innerText));
+  swSubGo('newclients'); await sleep(250);
+  ok('New clients now opens Team Builder (step 3)', activeTab==='teambuilder', activeTab);
+  schedGo('coverage'); await sleep(150);
   covSubGo('hours'); await sleep(300);
   ok('Hours & matching shows the staffing sheet, radar and hours list', vis('swHoursWrap') && !!document.getElementById('ssRoot') && vis('hwRadar'));
   switchTab('teambuilder'); await sleep(300);
@@ -53,7 +54,7 @@ async()=>{
   switchTab('today'); await sleep(100); location.hash='#team-builder'; await sleep(300);
   ok('#team-builder opens Team Builder', activeTab==='teambuilder', activeTab);
   switchTab('today'); await sleep(100); caraShowCase('int_1'); await sleep(300);
-  ok('opening an interest check lands on Cara > New clients', activeTab==='coverage' && COV_SUB==='newclients' && vis('swNewWrap'), [activeTab, COV_SUB]);
+  ok('opening an interest check lands on Team Builder (step 3)', activeTab==='teambuilder', [activeTab, COV_SUB]);
   switchTab('today'); await sleep(100); swOpenShift('tk_1'); await sleep(300);
   ok('opening a missed clock-in lands on Cara > Missed clock-ins & outs', activeTab==='coverage' && COV_SUB==='clockins' && vis('swTodayWrap'), [activeTab, COV_SUB]);
   covSubGo('calloffs'); await sleep(200);
