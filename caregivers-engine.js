@@ -7006,8 +7006,8 @@ function renderTR(){
     const preBadge=ts.preContactDone&&!profBlock?'b-green':'b-red';
     const preLabel=ts.preContactDone?(profBlock?'🪪 Profile needed before first shift':'✓ Cleared to Schedule'):'⛔ Blocked';
     const profLine=pg&&window.CGP2?CGP2.gateHtml(c,pg):'';
-    const orientLine=c.orient_date?`<span class="chk-date">Agency Orientation (2hr): ${fmtD(c.orient_date)} ✓${c.orient_proof?` <a class="proof-link" href="${c.orient_proof}" target="_blank">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}</span>`:`<span class="chk-date" style="color:var(--red)">Agency Orientation: missing</span>`;
-    const alzLine=c.alz_date?`<span class="chk-date">ALZ/Dementia (4hr): ${fmtD(c.alz_date)} ✓${c.alz_proof?` <a class="proof-link" href="${c.alz_proof}" target="_blank">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}</span>`:`<span class="chk-date" style="color:var(--red)">ALZ/Dementia Training: missing</span>`;
+    const orientLine=c.orient_date?`<span class="chk-date">Agency Orientation (2hr): ${fmtD(c.orient_date)} ✓${c.orient_proof?` <a class="proof-link" href="#" data-proof="${String(c.orient_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}</span>`:`<span class="chk-date" style="color:var(--red)">Agency Orientation: missing</span>`;
+    const alzLine=c.alz_date?`<span class="chk-date">ALZ/Dementia (4hr): ${fmtD(c.alz_date)} ✓${c.alz_proof?` <a class="proof-link" href="#" data-proof="${String(c.alz_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}</span>`:`<span class="chk-date" style="color:var(--red)">ALZ/Dementia Training: missing</span>`;
     const alzHrsLine=c.alz_hrs?(parseInt(c.alz_hrs)>=4?`<span class="chk-date" style="color:var(--green)">ALZ hours: ${c.alz_hrs} ✓</span>`:`<span class="chk-date" style="color:var(--amber)">⚠ ALZ hours: ${c.alz_hrs}/4 required</span>`):'';
     // 30-day cell
     const ddStr=ts.thirtyDeadline?ts.thirtyDeadline.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
@@ -7017,8 +7017,8 @@ function renderTR(){
     else if(ts.thirtyPassed){ thirtyBadge='b-red'; thirtyLabel='Overdue'; }
     else if(daysLeft30!==null&&daysLeft30<=7){ thirtyBadge='b-amber'; thirtyLabel=`Due in ${daysLeft30}d`; }
     else { thirtyBadge='b-gray'; thirtyLabel='Pending'; }
-    const ojtLine=c.ojt_date?`<span class="chk-date">OJT In-Home/Office (4hr): ${fmtD(c.ojt_date)}${c.ojt_signed==='yes'?` ✓${c.ojt_proof?` <a class="proof-link" href="${c.ojt_proof}" target="_blank">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}`:` ⚠ no signed proof${c.ojt_proof?` <a class="proof-link" href="${c.ojt_proof}" target="_blank">📄</a>`:''}`}</span>`:`<span class="chk-date" style="color:${ts.thirtyPassed?'var(--red)':'var(--gray)'}">OJT In-Home/Office (4hr): pending</span>`;
-    const ojtOnlineLine=c.ojt_online?`<span class="chk-date">OJT Online (2hr): ${fmtD(c.ojt_online)} ✓${c.ojt_online_proof?` <a class="proof-link" href="${c.ojt_online_proof}" target="_blank">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}</span>`:`<span class="chk-date">OJT Online (2hr): pending</span>`;
+    const ojtLine=c.ojt_date?`<span class="chk-date">OJT In-Home/Office (4hr): ${fmtD(c.ojt_date)}${c.ojt_signed==='yes'?` ✓${c.ojt_proof?` <a class="proof-link" href="#" data-proof="${String(c.ojt_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}`:` ⚠ no signed proof${c.ojt_proof?` <a class="proof-link" href="#" data-proof="${String(c.ojt_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:''}`}</span>`:`<span class="chk-date" style="color:${ts.thirtyPassed?'var(--red)':'var(--gray)'}">OJT In-Home/Office (4hr): pending</span>`;
+    const ojtOnlineLine=c.ojt_online?`<span class="chk-date">OJT Online (2hr): ${fmtD(c.ojt_online)} ✓${c.ojt_online_proof?` <a class="proof-link" href="#" data-proof="${String(c.ojt_online_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}</span>`:`<span class="chk-date">OJT Online (2hr): pending</span>`;
     const proofLine='';
     // Annual cell
     let annBadge,annLabel;
@@ -7030,7 +7030,7 @@ function renderTR(){
     const annDateLine=c.annual_date?`<span class="chk-date">Last: ${fmtD(c.annual_date)}${ts.annualNextDue?` · Next: ${ts.annualNextDue.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`:''}</span>`:
       (ts.isFirstYear?'<span class="chk-date">Required from year 2</span>':'<span class="chk-date">No training on file</span>');
     const annHrsLine=(!ts.isFirstYear&&c.annual_hrs)?(parseInt(c.annual_hrs)>=5?`<span class="chk-date" style="color:var(--green)">Hours: ${c.annual_hrs}/5 ✓</span>`:`<span class="chk-date" style="color:var(--amber)">⚠ Hours: ${c.annual_hrs}/5 required</span>`):'';
-    const annProofLine=c.annual_proof?`<a class="proof-link" href="${c.annual_proof}" target="_blank">📄 proof</a>`:'';
+    const annProofLine=c.annual_proof?`<a class="proof-link" href="#" data-proof="${String(c.annual_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄 proof</a>`:'';
     // Overall
     const oBadge={Current:'b-green','Annual Due Soon':'b-amber','Annual Overdue':'b-red','Training Overdue':'b-red','OJT Pending':'b-gray','Client Contact Blocked':'b-red'}[ts.overall]||'b-gray';
     return `<tr>
@@ -10216,7 +10216,107 @@ function renderEVVCorrections() {
 }
 
 /* the only things the panels' handlers need */
-window.SCX = {getOffers: () => OFFERS, offerIntoChecks, offerStep1Link, bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+/* ───── TRAINING PROOF CATCH-UP (Samantha 2026-10-12: "Need to get everyone up to date with training, they completed in
+   another training platform - need to have PDF proof to have it on the caregivers profiles as proof for MMAC medicaid
+   audit"). One list of every active caregiver and each training item: done with its PDF, done with only a date or a
+   pasted link (upload the PDF), or missing. Recording an item needs the date and the certificate file: the file goes to
+   the private document store (lead-docs, training/<caregiver>/...), the dates land on the caregiver's record through the
+   same safe save as the Edit Caregiver form, and who recorded it and when are kept with it. Opening a proof makes a
+   one-hour private link. Nothing is sent to anyone. ───── */
+const TPF_ITEMS = [
+  { k: 'orient', label: 'Agency orientation (2 hours)', date: 'orient_date', proof: 'orient_proof' },
+  { k: 'alz', label: "Dementia / Alzheimer's training (4 hours)", date: 'alz_date', hrs: 'alz_hrs', minHrs: 4, proof: 'alz_proof' },
+  { k: 'ojt', label: 'On-the-job training, in person (supervisor sign-off)', date: 'ojt_date', signed: 'ojt_signed', proof: 'ojt_proof' },
+  { k: 'ojt_online', label: 'On-the-job training, online part', date: 'ojt_online', proof: 'ojt_online_proof' },
+  { k: 'annual', label: 'Annual training (5 hours, from year 2)', date: 'annual_date', hrs: 'annual_hrs', minHrs: 5, proof: 'annual_proof', yearTwo: true },
+];
+let TPF_FILTER = 'todo', TPF_Q = '';
+const tpfEsc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const tpfIsFile = (p) => !!p && !/^https?:\/\//i.test(String(p));
+function tpfState(c, it){
+  if (it.yearTwo) { try { if (trainStatus(c).isFirstYear) return 'na'; } catch (e) {} }
+  if (!c[it.date]) return 'missing';
+  if (!c[it.proof]) return 'no_proof';
+  return tpfIsFile(c[it.proof]) ? 'ok' : 'link_only';
+}
+function tpfActive(){ return caregivers.filter(c => c && c.active !== false && !c.not_hired && String(c.status || '').toLowerCase() !== 'inactive'); }
+function tpfOpen(){
+  let w = document.getElementById('tpfPanel');
+  if (!w) { w = document.createElement('div'); w.id = 'tpfPanel'; w.style.cssText = 'position:fixed;inset:0;z-index:10010;background:rgba(15,54,95,.35);display:flex;align-items:flex-start;justify-content:center;padding:1rem;overflow:auto';
+    w.innerHTML = '<div id="tpfBody" style="background:#fff;border-radius:12px;max-width:1100px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2);margin:1rem 0"></div>';
+    w.addEventListener('click', e => { if (e.target === w) w.style.display = 'none'; }); document.body.appendChild(w); }
+  w.style.display = 'flex'; tpfRender();
+}
+function tpfRender(){
+  const b = document.getElementById('tpfBody'); if (!b) return;
+  const all = tpfActive().map(c => ({ c, st: TPF_ITEMS.map(it => tpfState(c, it)) }));
+  const need = x => x.st.some(s => s === 'missing' || s === 'no_proof' || s === 'link_only');
+  const rows = all.filter(x => (TPF_FILTER === 'all' || need(x)) && (!TPF_Q || (x.c.first + ' ' + x.c.last).toLowerCase().includes(TPF_Q.toLowerCase())))
+    .sort((a, z) => (a.c.last || '').localeCompare(z.c.last || ''));
+  const done = all.filter(x => !need(x)).length;
+  const cell = (c, it, s) => {
+    const btn = '<button class="ibtn" style="font-size:.72rem" onclick="SCX.tpfRecord(' + tpfEsc(JSON.stringify(String(c.id))) + ',\'' + it.k + '\')">' + (s === 'ok' ? 'Replace' : s === 'missing' ? 'Record' : 'Upload the PDF') + '</button>';
+    if (s === 'na') return '<span style="color:#8A7F70;font-size:.75rem">year 1: not due</span>';
+    const d = c[it.date] ? '<div style="font-size:.75rem">' + tpfEsc(c[it.date]) + (it.hrs && c[it.hrs] ? ' · ' + tpfEsc(c[it.hrs]) + ' h' : '') + '</div>' : '';
+    const pf = c[it.proof] ? ' <a href="#" data-proof="' + tpfEsc(c[it.proof]) + '" onclick="SCX.viewProof(this.dataset.proof);return false" title="Open the proof">📄</a>' : '';
+    const tag = s === 'ok' ? '<span style="color:#15803D;font-weight:700;font-size:.75rem">✓ PDF on file</span>' : s === 'no_proof' ? '<span style="color:#B45309;font-weight:700;font-size:.75rem">date, no proof</span>' : s === 'link_only' ? '<span style="color:#B45309;font-weight:700;font-size:.75rem">a link only</span>' : '<span style="color:#B91C1C;font-weight:700;font-size:.75rem">missing</span>';
+    return tag + pf + d + '<div style="margin-top:.2rem">' + btn + '</div>';
+  };
+  let h = '<div style="display:flex;align-items:flex-start;gap:.6rem;border-bottom:2px solid #E8E2D8;padding-bottom:.6rem"><div style="flex:1"><div style="font-size:1.2rem;font-weight:800;color:#0D365F">📄 Training proof catch-up</div>'
+    + '<div class="field-note">Every active caregiver, each required training with its certificate. Recording needs the date and the PDF; the file is kept in the private document store and opens on their profile and in the personnel file export. Nothing is sent to anyone.</div></div><button class="ibtn" onclick="document.getElementById(\'tpfPanel\').style.display=\'none\'">Close</button></div>';
+  h += '<div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin:.6rem 0"><b style="color:#0D365F">' + done + ' of ' + all.length + ' complete with proof</b>'
+    + [['todo', 'Still needs something'], ['all', 'Everyone']].map(([k, l]) => '<button class="ibtn" style="font-size:.72rem;' + (TPF_FILTER === k ? 'background:#0D365F;color:#fff;border-color:#0D365F' : '') + '" onclick="SCX.tpfFilter(\'' + k + '\')">' + l + '</button>').join('')
+    + '<input placeholder="Caregiver…" value="' + tpfEsc(TPF_Q) + '" oninput="SCX.tpfSearch(this.value)" style="flex:1;min-width:160px;padding:.3rem .5rem;border:1px solid #E8E2D8;border-radius:6px"><span class="field-note">' + rows.length + ' shown</span></div>';
+  h += rows.length ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.8rem"><thead><tr><th style="text-align:left;padding:.3rem">Caregiver</th>' + TPF_ITEMS.map(it => '<th style="text-align:left;padding:.3rem;font-size:.75rem">' + tpfEsc(it.label) + '</th>').join('') + '<th></th></tr></thead><tbody>'
+    + rows.map(x => '<tr style="border-top:1px solid #F4F2ED;vertical-align:top"><td style="padding:.35rem"><b>' + tpfEsc((x.c.first || '') + ' ' + (x.c.last || '')) + '</b>' + (x.c.hire_date ? '<div class="field-note">hired ' + tpfEsc(x.c.hire_date) + '</div>' : '') + '</td>'
+      + TPF_ITEMS.map((it, i) => '<td style="padding:.35rem">' + cell(x.c, it, x.st[i]) + '</td>').join('')
+      + '<td style="padding:.35rem"><button class="ibtn" style="font-size:.72rem" onclick="window.CRX&&CRX.exportFile(this,' + tpfEsc(JSON.stringify(String(x.c.id))) + ')" title="The personnel file for an audit: every date and proof, as a PDF; logged with your name">⇩ Personnel file</button></td></tr>').join('') + '</tbody></table></div>'
+    : '<div class="field-note">Everyone is complete with proof.</div>';
+  b.innerHTML = h;
+}
+function tpfRecord(cgId, k){
+  const c = caregivers.find(x => String(x.id) === String(cgId)), it = TPF_ITEMS.find(x => x.k === k); if (!c || !it) return;
+  const has = tpfIsFile(c[it.proof]);
+  let w = document.getElementById('tpfRec'); if (w) w.remove();
+  w = document.createElement('div'); w.id = 'tpfRec'; w.style.cssText = 'position:fixed;inset:0;z-index:10020;background:rgba(15,54,95,.35);display:flex;align-items:flex-start;justify-content:center;padding:1rem;overflow:auto';
+  w.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;padding:18px 20px;margin:2rem 0">'
+    + '<div style="font-weight:800;color:#0D365F;font-size:1.05rem">' + tpfEsc(it.label) + '</div><div class="field-note" style="margin-bottom:.6rem">' + tpfEsc((c.first || '') + ' ' + (c.last || '')) + '</div>'
+    + '<label class="field-note">Date completed</label><input type="date" id="tpfDate" value="' + tpfEsc(c[it.date] || '') + '" style="width:100%;margin-bottom:.5rem">'
+    + (it.hrs ? '<label class="field-note">Hours</label><input type="number" id="tpfHrs" min="0" step="0.5" value="' + tpfEsc(c[it.hrs] || it.minHrs) + '" style="width:100%;margin-bottom:.5rem">' : '')
+    + (it.signed ? '<label style="display:flex;gap:.4rem;align-items:center;font-size:.85rem;margin-bottom:.5rem"><input type="checkbox" id="tpfSigned"' + (c[it.signed] === 'yes' ? ' checked' : '') + '> A supervisor signed it off</label>' : '')
+    + '<label class="field-note">The certificate (PDF or a photo of it)' + (has ? ': one is on file; choose a file only to replace it' : ', required') + '</label><input type="file" id="tpfFile" accept="application/pdf,image/*" style="width:100%;margin-bottom:.6rem">'
+    + '<div id="tpfErr" style="color:#B91C1C;font-size:.82rem;margin-bottom:.4rem"></div>'
+    + '<div style="display:flex;gap:.5rem;justify-content:flex-end"><button class="ibtn" onclick="document.getElementById(\'tpfRec\').remove()">Cancel</button><button class="add-btn" id="tpfSaveBtn" onclick="SCX.tpfSave(' + tpfEsc(JSON.stringify(String(c.id))) + ',\'' + it.k + '\')">Save</button></div></div>';
+  document.body.appendChild(w);
+}
+async function tpfSave(cgId, k){
+  const c = caregivers.find(x => String(x.id) === String(cgId)), it = TPF_ITEMS.find(x => x.k === k); if (!c || !it) return;
+  const err = document.getElementById('tpfErr'), btn = document.getElementById('tpfSaveBtn');
+  const date = (document.getElementById('tpfDate') || {}).value || '', f = document.getElementById('tpfFile'), file = f && f.files && f.files[0];
+  const hrs = it.hrs ? (document.getElementById('tpfHrs') || {}).value : null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { err.textContent = 'Please give the date it was completed.'; return; }
+  if (date > new Date().toISOString().slice(0, 10)) { err.textContent = 'That date is in the future.'; return; }
+  if (!file && !tpfIsFile(c[it.proof])) { err.textContent = 'Please choose the certificate file: a date is never saved without its proof (MMAC audit).'; return; }
+  if (it.hrs && !(Number(hrs) > 0)) { err.textContent = 'Please give the hours.'; return; }
+  if (it.hrs && Number(hrs) < it.minHrs && !confirm('That is under the ' + it.minHrs + ' hours required. Save it anyway (it will show as short)?')) return;
+  if (file && file.size > 20 * 1024 * 1024) { err.textContent = 'That file is over 20 MB: please shrink it first.'; return; }
+  btn.disabled = true; btn.textContent = 'Saving…'; err.textContent = '';
+  const changes = { [it.date]: date };
+  if (it.hrs) changes[it.hrs] = String(hrs);
+  if (it.signed) changes[it.signed] = (document.getElementById('tpfSigned') || {}).checked ? 'yes' : 'no';
+  if (file) {
+    const path = 'training/' + String(c.id).replace(/[^a-zA-Z0-9_-]/g, '_') + '/' + it.k + '-' + Date.now() + '-' + String(file.name).replace(/[^a-zA-Z0-9._-]/g, '_');
+    try { const { error } = await sb.storage.from('lead-docs').upload(path, file); if (error) throw error; changes[it.proof] = path; }
+    catch (e) { err.textContent = 'The upload did not go through, so nothing was saved: ' + (e.message || e); btn.disabled = false; btn.textContent = 'Save'; return; }
+  }
+  const me = (typeof ME !== 'undefined' && ME && ME.email) || '';
+  changes[it.k + '_recorded_by'] = me; changes[it.k + '_recorded_at'] = new Date().toISOString();
+  const i = caregivers.findIndex(x => String(x.id) === String(cgId)); caregivers[i] = { ...caregivers[i], ...changes };
+  const ok = await saveCaregivers();
+  if (ok === false) { err.textContent = 'The shared save did not go through. The file is uploaded; press Save again.'; btn.disabled = false; btn.textContent = 'Save'; return; }
+  document.getElementById('tpfRec').remove(); tpfRender(); try { renderTR(); } catch (e) {}
+}
+window.SCX = {tpfOpen, tpfRecord, tpfSave, tpfFilter: (k) => { TPF_FILTER = k; tpfRender(); }, tpfSearch: (q) => { TPF_Q = q; tpfRender(); }, viewProof: bgrViewProof, getOffers: () => OFFERS, offerIntoChecks, offerStep1Link, bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
 /* The offer cards are built with inline onclick handlers, so these have to be
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;
