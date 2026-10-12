@@ -88,7 +88,7 @@
       const it = d.items.find(x => x.topic === t.key), n = (t.videos || []).length, why = whyOf(t.key);
       if (t._retired && !it) return;
       h += '<div style="border-top:1px solid var(--border);padding:7px 0;">'
-        + '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px;cursor:pointer;flex-wrap:wrap;"><input type="checkbox" data-cpk-topic="' + esc(t.key) + '"' + (it ? ' checked' : '') + '> <b>' + esc(t.title) + '</b>'
+        + '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px;cursor:pointer;flex-wrap:wrap;"><input type="checkbox" style="width:auto;margin:0;flex:none;" data-cpk-topic="' + esc(t.key) + '"' + (it ? ' checked' : '') + '> <b>' + esc(t.title) + '</b>'
         + '<span class="field-note">' + n + ' video' + (n === 1 ? '' : 's') + '</span>'
         + (t._retired ? '<span class="field-note" style="color:#92400E;">retired from the library (kept here; untick to remove)</span>' : '')
         + (why ? '<span class="field-note" style="color:#1E4FB8;">✨ suggested: ' + esc(why) + '</span>' : '') + '</label>'
@@ -96,9 +96,9 @@
               + '<div class="field-note">Starts with the library\'s notes. Change them for this client.</div>' : '')
         + '</div>';
     });
-    h += '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13.5px;cursor:pointer;"><input type="checkbox" id="cpk_ready"' + (d.ready ? ' checked' : '') + '> Ready for caregivers</label>'
+    h += '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13.5px;cursor:pointer;"><input type="checkbox" style="width:auto;margin:0;flex:none;" id="cpk_ready"' + (d.ready ? ' checked' : '') + '> Ready for caregivers</label>'
       + (S.packet && S.packet.ready && S.recipients.length ? '<div class="field-note">Changing the words or topics makes a new version, and everyone confirms again.</div>' : '')
-      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;"><button id="cpk_save"' + (S.busy ? ' disabled' : '') + '>Save packet</button>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;"><button class="primary" id="cpk_save"' + (S.busy ? ' disabled' : '') + '>Save packet</button>'
       + (dirty() ? '<span class="field-note" style="color:#92400E;">changed, not saved</span>' : '')
       + (S.msg && !/^Sent|already went/.test(S.msg) ? '<span class="field-note" style="color:#166534;">' + esc(S.msg) + '</span>' : '') + '</div>'
       + (S.err ? '<div class="field-note" style="color:#B91C1C;margin-top:6px;">' + esc(S.err) + '</div>' : '');
@@ -108,7 +108,7 @@
       h += '<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;"><b style="font-size:13.5px;color:var(--navy);">Caregivers</b>'
         + '<div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;"><select id="cpk_cg" style="max-width:280px;"><option value="">Pick a caregiver…</option>'
         + cgs.map(c => '<option value="' + esc(c.axiscare_id) + '">' + esc(((c.first || '') + ' ' + (c.last || '')).trim()) + '</option>').join('') + '</select>'
-        + '<button id="cpk_text"' + (S.busy || dirty() ? ' disabled' : '') + '>Text the packet</button>'
+        + '<button class="primary" id="cpk_text"' + (S.busy || dirty() ? ' disabled' : '') + '>Text the packet</button>'
         + '<button class="secondary" id="cpk_link"' + (S.busy || dirty() ? ' disabled' : '') + '>Get their link</button></div>'
         + sendPanel()
         + (dirty() ? '<div class="field-note">Save the packet first.</div>' : '')
@@ -152,7 +152,7 @@
       + (d.opted_out ? '<div class="field-note" style="color:#B91C1C;font-weight:700;">' + esc(d.caregiver_first) + ' has asked not to get texts. Call them instead.</div>' : '')
       + (!d.phone_last4 ? '<div class="field-note" style="color:#B91C1C;font-weight:700;">No usable phone number on the roster for ' + esc(d.caregiver_first) + '.</div>' : '')
       + (d.late && !blocked ? '<div class="field-note" style="color:#92400E;">It is before 8am or after 8pm. Send now only if it can\'t wait.</div>' : '')
-      + '<div style="display:flex;gap:8px;margin-top:8px;"><button id="cpk_send"' + (blocked || S.busy ? ' disabled' : '') + '>Send</button><button class="secondary" id="cpk_cancel">Cancel</button></div></div>';
+      + '<div style="display:flex;gap:8px;margin-top:8px;"><button class="primary" id="cpk_send"' + (blocked || S.busy ? ' disabled' : '') + '>Send</button><button class="secondary" id="cpk_cancel">Cancel</button></div></div>';
   }
   async function openSend(axId){
     if (!axId) { S.sendErr = 'Pick a caregiver first.'; render(); return; }
@@ -224,7 +224,7 @@
     if (L.msg) h += '<div class="field-note" style="color:#166534;margin-bottom:6px;">' + esc(L.msg) + '</div>';
     if (L.edit) return h + editHtml(L.edit);
     h += '<div class="field-note" style="margin-bottom:6px;">The topics every client\'s packet can use. A topic\'s notes are the starting point; each packet can change them for that client.</div>'
-      + '<button id="cpk_lib_add">＋ Add a topic</button>';
+      + '<button class="primary" id="cpk_lib_add">＋ Add a topic</button>';
     (L.list || []).forEach(t => {
       h += '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;margin-top:6px;">'
         + '<b' + (t.active === false ? ' style="color:var(--gray);"' : '') + '>' + esc(t.title) + '</b><span class="field-note">' + (t.videos || []).length + ' video' + ((t.videos || []).length === 1 ? '' : 's') + '</span>'
@@ -250,8 +250,8 @@
         + '<button class="linklike" data-cpk-v-del="' + i + '" style="margin-top:4px;">Remove this one</button></div>';
     });
     h += '<button class="secondary" id="cpk_v_add" style="margin-top:6px;">＋ Add a video or document</button>'
-      + (!e.is_new ? '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;"><input type="checkbox" id="cpk_t_retired"' + (e.active === false ? ' checked' : '') + '> Retired (not offered for new packets; packets that have it keep it)</label>' : '')
-      + '<div style="display:flex;gap:8px;margin-top:10px;"><button id="cpk_t_save"' + (S.busy ? ' disabled' : '') + '>Save topic</button><button class="secondary" id="cpk_t_cancel">Cancel</button></div>'
+      + (!e.is_new ? '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;"><input type="checkbox" style="width:auto;margin:0;flex:none;" id="cpk_t_retired"' + (e.active === false ? ' checked' : '') + '> Retired (not offered for new packets; packets that have it keep it)</label>' : '')
+      + '<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" id="cpk_t_save"' + (S.busy ? ' disabled' : '') + '>Save topic</button><button class="secondary" id="cpk_t_cancel">Cancel</button></div>'
       + '<div class="field-note" style="margin-top:6px;">Saving changes the library for new packets. Packets already written keep their own notes; the videos update everywhere.</div></div>';
     return h;
   }

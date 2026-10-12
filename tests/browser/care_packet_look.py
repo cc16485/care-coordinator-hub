@@ -11,7 +11,9 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else '/tmp'
 TOPICS = [
   {'key': 'turning', 'title': 'Turning and repositioning', 'notes': 'Turn every 2 hours, or as the care plan says.', 'videos': [{'title': 'Lie on the side', 'url': 'https://www.youtube.com/watch?v=6M5_eTPUWpo'}]},
   {'key': 'purewick_male', 'title': 'PureWick for men (male external catheter)', 'notes': 'Check it every 2 hours.', 'videos': [{'title': 'In-service', 'url': 'https://vimeo.com/968970613'}, {'title': 'IFU', 'url': 'https://example.com/x.pdf'}]}]
-card_page = '''<!doctype html><meta charset="utf-8"><body><div id="cp_packet"></div><script>
+import re as _re
+HUB_CSS = '\n'.join(m for m in _re.findall(r'<style[^>]*>(.*?)</style>', open(os.path.join(ROOT, 'index.html')).read(), _re.S))  # every Hub style block, incl. input{width:100%}
+card_page = '''<!doctype html><meta charset="utf-8"><style>''' + HUB_CSS.replace('%', '%%') + '''</style><body><div id="cp_packet"></div><script>
 window.DATA = { caregivers: [{ first: 'Ariel', last: 'Smith', axiscare_id: '11' }, { first: 'Bea', last: 'Jones', axiscare_id: '12' }, { first: 'No', last: 'Id' }] };
 const CP = { ax: '900', lead: { id: 'L1', client_first_name: 'Dan' }, r: { client_name: 'Dan Example' } };
 window.CALLS = []; window.STATE = { packet: null, recipients: [] };
@@ -60,6 +62,11 @@ try:
     t = pg.inner_text('#cp_packet')
     ok('card: loads by AxisCare id and lead, shows the library topics and the first name from the lead', pg.evaluate('CALLS[0]') == {'action': 'get', 'ax': '900', 'lead_id': 'L1'} and 'Turning and repositioning' in t and 'PureWick for men' in t and pg.input_value('#cpk_first') == 'Dan', t[:300])
     ok('card: no caregiver section before it is ready', 'Get their link' not in t)
+    lay = pg.evaluate('''(()=>{ const cb=document.querySelector('[data-cpk-topic="turning"]'), r=document.getElementById('cpk_ready'), name=cb.parentElement.querySelector('b');
+      const a=cb.getBoundingClientRect(), n=name.getBoundingClientRect();
+      return { cbW:a.width, rW:r.getBoundingClientRect().width, sameLine: Math.abs((a.top+a.bottom)/2-(n.top+n.bottom)/2) < 12 && n.left > a.left,
+               save: document.getElementById('cpk_save').className }; })()''')
+    ok('card looks right with the Hub\'s own styles: tick boxes small and beside their topic, Save is a navy button', lay['cbW'] < 30 and lay['rW'] < 30 and lay['sameLine'] and lay['save'] == 'primary', lay)
     pg.fill('#cpk_about', 'Dan is on hospice. Call the hospice nurse first.')
     # ---- suggest topics ----
     pg.click('#cpk_suggest'); pg.wait_for_timeout(300)
