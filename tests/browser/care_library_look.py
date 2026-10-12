@@ -12,7 +12,7 @@ def ok(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:4
 HUB = open(os.path.join(ROOT, 'index.html')).read()
 HUB_CSS = '\n'.join(re.findall(r'<style[^>]*>(.*?)</style>', HUB, re.S))
 LIB = [
-  {'key': 'turning', 'title': 'Turning and repositioning', 'category': 'moving', 'flag': '', 'notes': 'Turn every 2 hours.', 'active': True, 'pending': False, 'review_note': '',
+  {'key': 'turning', 'title': 'Turning and repositioning', 'category': 'bedbound', 'flag': '', 'notes': 'Turn every 2 hours.', 'active': True, 'pending': False, 'review_note': '',
    'videos': [{'title': 'Lie on the side', 'url': 'https://www.youtube.com/watch?v=6M5_eTPUWpo', 'publisher': 'The Hospice Care Plan', 'minutes': 5}]},
   {'key': 'after_fall', 'title': 'After a fall: do not lift', 'category': 'moving', 'active': True, 'pending': True,
    'flag': 'CC rule: never lift or help up a client who has fallen. Keep them comfortable on the floor, call 911 if they are hurt or you are not sure, and call the office every time.',
@@ -47,6 +47,7 @@ try:
     pg.goto('file://' + os.path.join(ROOT, '_clib_test.html'))
     # ---- a care coordinator ----
     pg.evaluate('CLIB.mount("clib_box")'); pg.wait_for_timeout(300); t = pg.inner_text('#clib_box')
+    ok('Bed-bound and hospice care is the first group (Dan\'s topics, 2026-10-12)', t.index('BED-BOUND AND HOSPICE CARE') < t.index('MOVING AND FALLS') < t.index('EATING AND DIETS') and t.index('Turning and repositioning') < t.index('MOVING AND FALLS'), t[:600])
     ok('coordinator: the library loads in groups with counts, the removed topic hidden', 'Care Library' in t and 'MOVING AND FALLS' in t and 'EATING AND DIETS' in t and '3 topics' in t and 'Old topic' not in t, t[:500])
     ok('coordinator: sees what is waiting for Samantha, but no Approve, Edit, Remove or New topic', "waiting for Samantha's OK" in t and not pg.query_selector('[data-clib-ok],[data-clib-edit],[data-clib-rm],[data-clib-topic-ok],#clib_new'))
     pg.click('[data-clib-toggle="turning"]'); pg.wait_for_timeout(100); pg.click('[data-clib-play="turning|0"]'); pg.wait_for_timeout(200)

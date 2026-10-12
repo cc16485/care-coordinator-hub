@@ -10,7 +10,7 @@
    ============================================================================================================================ */
 (function(){
   const esc = t => (typeof escapeHtmlComms === 'function' ? escapeHtmlComms(t) : String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]));
-  const GROUPS = [['moving', 'Moving and falls'], ['personal', 'Personal care'], ['eating', 'Eating and diets'], ['conditions', 'Health conditions'],
+  const GROUPS = [['bedbound', 'Bed-bound and hospice care'], ['moving', 'Moving and falls'], ['personal', 'Personal care'], ['eating', 'Eating and diets'], ['conditions', 'Health conditions'],
     ['signs', 'Warning signs and when to call'], ['other', 'Other']];
   const groupName = k => (GROUPS.find(g => g[0] === k) || GROUPS[GROUPS.length - 1])[1];
   const S = { box: null, list: [], canEdit: false, loading: false, err: '', msg: '', filter: 'all', q: '', open: {}, playing: {}, edit: null, busy: false };
