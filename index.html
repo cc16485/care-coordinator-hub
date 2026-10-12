@@ -17703,11 +17703,15 @@ function cgdPreHireHtml(g){
   if(!g) return '<div class="field-note">No hub operational record is connected yet, so pre-hire checks are not on file here.</div>';
   const esc=escapeHtmlComms;
   const ph=g.prehire;
+  /* Case.net (2026-10-12): kept at hire from now on; earlier hires show it only if it travelled on the record */
+  const cnOwn={status:g.casenet||'',date:g.casenet_date||'',proof:g.casenet_proof||''};
+  const cn=(ph&&ph.casenet)||cnOwn;
   const checks = ph
-    ? [['OIG',ph.oig,'CLEAR'],['EDL',ph.edl,'Clear'],['FCSR',ph.fcsr,'Clear'],['Fingerprint',ph.fp,'Clear']]
+    ? [['OIG',ph.oig,'CLEAR'],['EDL',ph.edl,'Clear'],['FCSR',ph.fcsr,'Clear'],['Case.net',cn,'Clear'],['Fingerprint',ph.fp,'Clear']]
     : [['OIG',{status:g.oig_status||'',date:g.oig_date||'',proof:g.oig_proof||''},'CLEAR'],
        ['EDL',{status:g.edl_status||'',date:g.edl_date||'',proof:g.edl_proof||''},'Clear'],
        ['FCSR',{status:g.fcsr_status||'',date:g.fcsr_date||'',proof:g.fcsr_proof||''},'Clear'],
+       ['Case.net',cn,'Clear'],
        ['Fingerprint',{status:g.fp||'',date:g.fp_date||'',proof:g.fp_proof||'',applicable:g.oos==='yes'},'Clear']];
   const docs=PHD.rows?phdFor('caregiver', g.id, g.candidate_id):null;
   const keyOf={ OIG:'oig', EDL:'edl', FCSR:'fcsr' };
