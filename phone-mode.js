@@ -75,7 +75,7 @@
     + '.ph-row b{font-size:15px;color:#0E3860}.ph-row span{display:block;font-size:12.5px;color:#5B6878;margin-top:2px}'
     + '.ph-row .ph-tag{display:inline-block;margin-top:0}'
     + '.ph-tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;padding:2px 6px;margin-left:6px;vertical-align:2px;background:#E3F3F2;color:#1E6E6A}'
-    + '.ph-tag.cl{background:#E7F6EC;color:#1F7A4D}.ph-tag.in{background:#FDF3E3;color:#A8660E}.ph-tag.ap{background:#EFEAFB;color:#6B4FBB}.ph-tag.past{background:#F1F5F9;color:#64748B}'
+    + '.ph-tag.cl{background:#E7F6EC;color:#1F7A4D}.ph-tag.in{background:#FDF3E3;color:#A8660E}.ph-tag.ap{background:#EFEAFB;color:#6B4FBB}.ph-tag.fam{background:#FCEBF1;color:#9B3A5C}.ph-tag.past{background:#F1F5F9;color:#64748B}'
     + '.ph-dl{margin:10px 0 0;font-size:14px}.ph-dl div{display:flex;gap:10px;padding:7px 0;border-top:1px solid #EEF2F7}.ph-dl dt{flex:0 0 96px;color:#5B6878;font-size:12.5px}.ph-dl dd{margin:0;flex:1;min-width:0}'
     + '.ph-back{appearance:none;background:none;border:0;font:inherit;color:#0E3860;font-weight:600;font-size:14px;padding:12px 0 2px}'
     + '.ph-tl{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:start}'
@@ -259,7 +259,7 @@
   }
 
   /* ── screen 2: find a person (looking only) ── */
-  var FIND = { loaded: false, loading: false, cg: null, cl: null, ap: null, book: {}, coord: {}, err: {}, q: '', open: null };
+  var FIND = { loaded: false, loading: false, cg: null, cl: null, ap: null, circ: null, cc: null, book: {}, coord: {}, err: {}, q: '', open: null };
   /* Apple Maps on an iPhone, Google Maps everywhere else (2026-10-12) */
   var mapsLink = function (addr) { var q = encodeURIComponent(String(addr || '') + (/\bMO\b|Missouri/i.test(addr) ? '' : ', MO'));
     return /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'https://maps.apple.com/?daddr=' + q : 'https://www.google.com/maps/dir/?api=1&destination=' + q; };
@@ -284,10 +284,20 @@
         var b = await sb.from('interview_bookings').select('applicant_id,starts_at,status,coordinator_id').eq('status', 'booked').gte('starts_at', new Date().toISOString());
         FIND.book = {}; ((b && b.data) || []).forEach(function (x) { var cur = FIND.book[x.applicant_id]; if (!cur || x.starts_at < cur.starts_at) FIND.book[x.applicant_id] = x; });
         var c = await sb.from('coordinators').select('id,name'); FIND.coord = {}; ((c && c.data) || []).forEach(function (x) { FIND.coord[x.id] = x.name; });
-      })().catch(function (e) { FIND.err.ap = e && e.message || String(e); FIND.ap = FIND.ap || []; })
+      })().catch(function (e) { FIND.err.ap = e && e.message || String(e); FIND.ap = FIND.ap || []; }),
+      /* Family circles in Find (Samantha, 2026-10-12: "i want to be able to see all family circles in the find area of
+         phone"): every active circle and its family, so a family member is found by name or number like anyone else */
+      (async function () {
+        var c = await sb.from('care_circles').select('id,client_name,axiscare_client_id,active').eq('active', true);
+        if (c.error) throw c.error;
+        var m = await sb.from('circle_contacts').select('id,circle_id,name,relationship,phone,email,is_primary,axiscare_removed_at');
+        if (m.error) throw m.error;
+        FIND.circ = c.data || []; FIND.cc = (m.data || []).filter(function (x) { return !x.axiscare_removed_at; });
+      })().catch(function (e) { FIND.err.fam = e && e.message || String(e); FIND.circ = FIND.circ || []; FIND.cc = FIND.cc || []; })
     ];
     await Promise.all(jobs);
     FIND.loading = false; FIND.loaded = true; findRender();
+    if (FIND.open && FIND.open.type === 'circles') circlesList();
   }
   /* every person as one search row: { type, key, name, sub, hay, digits } */
   function people() {
@@ -308,6 +318,12 @@
       out.push({ type: 'cg', key: 'cg:' + c.id, c: c, name: nm || 'Caregiver', past: c.active === false,
         sub: (c.active === false ? 'No longer with us' : 'Active') + (c.city ? ' · ' + c.city : ''), ph: [c.mobile] });
     });
+    var circById = {}; (FIND.circ || []).forEach(function (c) { circById[c.id] = c; });
+    (FIND.cc || []).forEach(function (f) {
+      var c = circById[f.circle_id]; if (!c) return;
+      out.push({ type: 'fam', key: 'fam:' + f.id, f: f, circle: c, name: f.name || 'Family', past: false,
+        sub: (f.relationship ? f.relationship + ' · ' : '') + 'family of ' + (c.client_name || 'a client') + (f.is_primary ? ' · main contact' : ''), ph: [f.phone] });
+    });
     (FIND.ap || []).forEach(function (a) {
       var nm = ((a.first_name || '') + ' ' + (a.last_name || '')).trim(), bk = FIND.book[a.id];
       out.push({ type: 'ap', key: 'ap:' + a.id, a: a, name: nm || 'Applicant',
@@ -318,14 +334,14 @@
   function matches(q) {
     var t = String(q || '').toLowerCase().trim(); if (t.replace(/\s/g, '').length < 2) return [];
     var dq = t.replace(/\D/g, ''), words = t.split(/\s+/).filter(Boolean);
-    var order = { cl: 0, in: 1, cg: 2, ap: 3 };
+    var order = { cl: 0, fam: 1, in: 2, cg: 3, ap: 4 };
     return people().filter(function (p) {
       if (dq.length >= 4 && dq.length === t.replace(/[\s()+.-]/g, '').length) return p.ph.some(function (x) { return digits(x).indexOf(dq) > -1; });
       var hay = (p.name + ' ' + (p.also || '')).toLowerCase();
       return words.every(function (w) { return hay.indexOf(w) > -1; });
     }).sort(function (a, b) { return (a.past ? 1 : 0) - (b.past ? 1 : 0) || order[a.type] - order[b.type] || a.name.localeCompare(b.name); }).slice(0, 40);
   }
-  var TAGS = { cl: ['Client', 'cl'], in: ['Inquiry', 'in'], cg: ['Caregiver', ''], ap: ['Applicant', 'ap'] };
+  var TAGS = { cl: ['Client', 'cl'], in: ['Inquiry', 'in'], cg: ['Caregiver', ''], ap: ['Applicant', 'ap'], fam: ['Family', 'fam'] };
   function callBtn(phone, label, o) { return digits(phone).length >= 10 && typeof ocAttrs === 'function' ? '<a class="ph-b p"' + ocAttrs(phone, o || {}) + '>' + esc(label || 'Call') + '</a>' : ''; }
   function row(label, value) { return value ? '<div><dt>' + esc(label) + '</dt><dd>' + value + '</dd></div>' : ''; }
   var GHL = 'https://app.hirecara.com/v2/location/Recp0AhyMh8lrtKJ9kaj/contacts/detail/';
@@ -374,8 +390,60 @@
       btns = '<button class="ph-b p" data-ivopen="' + esc(a.id) + '">Interview them</button>'
         + '<button class="ph-b" data-aplink="' + esc(a.id) + '">Copy their link</button>' + callBtn(a.phone, 'Call', { email: a.email }) + (window.ApText && a.phone ? ApText.btn(a.id, 'Text', 'ph-b') : '') + '<a class="ph-b" href="index.html#ap/' + encodeURIComponent(a.id) + '">Open in the Hub</a>';
     }
+    if (p.type === 'fam') {
+      var f = p.f, cc = p.circle, cp = clientOf(cc);
+      dl = row('Family of', esc(cc.client_name || '')) + row('Relationship', esc(f.relationship || '')) + row('Phone', esc(pretty(f.phone)))
+        + row('Email', esc(f.email || '')) + row('Main contact', f.is_primary ? 'Yes' : '');
+      btns = callBtn(f.phone, 'Call ' + first(f.name || ''), { email: f.email, client: cc.client_name })
+        + (cp ? '<button class="ph-b" data-pf="client" data-key="' + esc(cp.key) + '">Their client</button>' : '')
+        + (cc.axiscare_client_id ? '<a class="ph-b" href="index.html#p/A' + encodeURIComponent(cc.axiscare_client_id) + '/family">Open in the Hub</a>' : '');
+      extra = circleHtml(cc, f.id);
+    }
     box.innerHTML = h + '<dl class="ph-dl">' + dl + '</dl><div class="ph-btns">' + btns + '</div>' + extra + '</div>';
     if (p.type === 'cl') famLoad(p.r);
+  }
+  /* the client a circle belongs to, as a search row (by AxisCare id, else the one client with that exact name) */
+  function clientOf(c) {
+    var all = people().filter(function (x) { return x.type === 'cl'; });
+    if (c.axiscare_client_id) { var hit = all.find(function (x) { return String(x.r.axiscare_client_id) === String(c.axiscare_client_id); }); if (hit) return hit; }
+    var n = lc(c.client_name), by = all.filter(function (x) { return lc(x.name) === n; });
+    return by.length === 1 ? by[0] : null;
+  }
+  function circleMembers(c) {
+    return (FIND.cc || []).filter(function (x) { return x.circle_id === c.id; }).sort(function (a, b) { return (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) || String(a.name || '').localeCompare(String(b.name || '')); });
+  }
+  /* everyone in one circle, each with Call (skip = the person whose card this is) */
+  function circleHtml(c, skip) {
+    var fam = circleMembers(c).filter(function (x) { return x.id !== skip; });
+    return '<div class="ph-lane" style="color:#0E3860;margin-top:14px">' + (skip ? 'THE REST OF THE FAMILY · ' : 'FAMILY · ') + fam.length + '</div>'
+      + (fam.length ? fam.map(function (f) {
+        return '<div class="ph-fam"><div>' + esc(f.name || 'Family') + (f.is_primary ? ' · main contact' : '') + '<small>' + esc([f.relationship, pretty(f.phone)].filter(Boolean).join(' · ')) + '</small></div>'
+          + callBtn(f.phone, 'Call', { email: f.email, client: c.client_name }) + '</div>';
+      }).join('') : '<div class="ph-none">' + (skip ? 'Nobody else on this circle.' : 'No family contacts on this circle yet.') + '</div>');
+  }
+  /* ALL FAMILY CIRCLES: the browse list, no typing needed */
+  function circlesList() {
+    var box = document.getElementById('phFindBody'); if (!box) return;
+    var list = (FIND.circ || []).slice().sort(function (a, b) { return String(a.client_name || '').localeCompare(String(b.client_name || '')); });
+    FIND.circList = list;
+    box.innerHTML = '<button class="ph-back" data-pf="back">‹ Back to the search</button>'
+      + '<div class="ph-lane" style="color:#0E3860">FAMILY CIRCLES<span>' + list.length + '</span></div>'
+      + (FIND.err.fam ? '<div class="ph-msg bad">Could not load the family circles: ' + esc(FIND.err.fam) + '</div>' : '')
+      + (list.length ? list.map(function (c, i) {
+        var mem = circleMembers(c), main = mem.find(function (x) { return x.is_primary; }) || mem[0];
+        return '<button class="ph-row" data-pf="circ" data-i="' + i + '"><b>' + esc(c.client_name || 'Client') + '</b><span class="ph-tag fam">' + mem.length + ' family</span>'
+          + '<span>' + esc(main ? main.name + (main.relationship ? ' (' + String(main.relationship).toLowerCase() + ')' : '') + (mem.length > 1 ? ' and ' + (mem.length - 1) + ' more' : '') : 'Nobody listed yet')
+          + (c.axiscare_client_id ? '' : ' · not linked to a client yet') + '</span></button>';
+      }).join('') : '<div class="ph-none">' + (FIND.loading ? 'Still loading…' : 'No family circles yet.') + '</div>');
+  }
+  function circleDetail(c) {
+    var box = document.getElementById('phFindBody'); if (!box) return;
+    var cp = clientOf(c);
+    box.innerHTML = '<button class="ph-back" data-pf="circles">‹ All family circles</button><div class="ph-card" style="margin-top:8px">'
+      + '<div class="ph-t">' + esc(c.client_name || 'Client') + '<span class="ph-tag fam">Family circle</span></div>'
+      + '<div class="ph-btns">' + (cp ? '<button class="ph-b" data-pf="client" data-key="' + esc(cp.key) + '">Their client</button>' : '')
+      + (c.axiscare_client_id ? '<a class="ph-b" href="index.html#p/A' + encodeURIComponent(c.axiscare_client_id) + '/family">Open in the Hub</a>' : '') + '</div>'
+      + circleHtml(c, null) + '</div>';
   }
   async function famLoad(r) {
     var box = document.getElementById('phFam'); if (!box) return;
@@ -413,12 +481,13 @@
   function findRender() {
     var box = document.getElementById('phFindBody'); if (!box || FIND.open) return;
     var src = [];
-    if (FIND.loading) src.push('Loading caregivers, clients and applicants…');
-    var bad = Object.keys(FIND.err).map(function (k) { return { cg: 'caregivers', cl: 'clients', ap: 'applicants' }[k] + ' (' + FIND.err[k] + ')'; });
+    if (FIND.loading) src.push('Loading caregivers, clients, family and applicants…');
+    var bad = Object.keys(FIND.err).map(function (k) { return { cg: 'caregivers', cl: 'clients', ap: 'applicants', fam: 'family circles' }[k] + ' (' + FIND.err[k] + ')'; });
     var res = matches(FIND.q), t = FIND.q.trim();
     FIND.last = res;
     box.innerHTML = '<div class="ph-src">' + esc(src.join(' ')) + (bad.length ? ' <b>Could not load ' + esc(bad.join(', ')) + '. The search below is missing them.</b>' : '') + '</div>'
-      + (!t || t.replace(/\s/g, '').length < 2 ? todayPeopleHtml()
+      + (!t || t.replace(/\s/g, '').length < 2 ? '<button class="ph-row" data-pf="circles" style="margin-top:10px"><b>Family circles</b><span class="ph-tag fam">'
+          + (FIND.loaded ? (FIND.circ || []).length : '…') + '</span><span>Every client\'s family, with their numbers</span></button>' + todayPeopleHtml()
         : res.length ? '<div style="margin-top:10px">' + res.map(function (p, i) {
           var tg = TAGS[p.type]; return '<button class="ph-row" data-pf="open" data-i="' + i + '"><b>' + esc(p.name) + '</b><span class="ph-tag ' + (p.past ? 'past' : tg[1]) + '">' + tg[0] + '</span><span>' + esc(p.sub) + '</span></button>';
         }).join('') + '</div>'
@@ -453,6 +522,9 @@
     if (what === 'open') { var p = (FIND.last || [])[Number(b.getAttribute('data-i'))]; if (!p) return; FIND.open = p; detail(p); window.scrollTo(0, 0); }
     if (what === 'back') { FIND.open = null; findRender(); var q = document.getElementById('phQ'); if (q) q.focus(); }
     if (what === 'shifts') { b.disabled = true; shiftsLoad(b.getAttribute('data-id')); }
+    if (what === 'circles') { FIND.open = { type: 'circles' }; circlesList(); window.scrollTo(0, 0); }
+    if (what === 'circ') { var c = (FIND.circList || [])[Number(b.getAttribute('data-i'))]; if (!c) return; FIND.open = { type: 'circ', c: c }; circleDetail(c); window.scrollTo(0, 0); }
+    if (what === 'client') { var k = b.getAttribute('data-key'), cp = people().find(function (x) { return x.key === k; }); if (!cp) return; FIND.open = cp; detail(cp); window.scrollTo(0, 0); }
   }
 
   /* ── screen 3: today (one timeline, Chicago time) ── */

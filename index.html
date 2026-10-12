@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="phone-mode.js?v=10"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="phone-mode.js?v=11"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -21313,17 +21313,21 @@ let FC_PROFILES_ERR = '';
 function fcCardName(g){ return window.CGP2 ? CGP2.cardName(g) : String(g.preferred_name||g.first_name||''); }
 function fcCardFirst(g){ return String(g.preferred_name||g.first_name||'').trim().split(/\s+/)[0]; }
 
-/* The nightly cron runs the same sync at 4am; this is the "I just added
+/* The nightly cron runs the same sync at 4am (circles-sync); this is the "I just added
    someone in AxisCare and want it now" button. */
 async function fcSyncAxis(btn){
   if(btn){ btn.disabled=true; btn.textContent='⇄ Syncing…'; }
   try{
     const ses = await sb.auth.getSession();
     const tok = ses && ses.data && ses.data.session && ses.data.session.access_token;
-    const r = await fetch(CONFIG.supabase_url+'/functions/v1/identity-backfill?circles=1&commit=1',
-      { headers:{ Authorization:'Bearer '+tok, apikey: CONFIG.supabase_anon_key } });
-    const d = await r.json();
-    if(d && d.error) alert('Sync problem: '+d.error);
+    /* The sync is its own function, circles-sync (Staffing #399 / 664); identity-backfill was taken down by 441. commit=1
+       writes (without it the function only counts). A reply that is not a real sync (a missing function, a refusal, an
+       AxisCare problem) is an error, never a "Synced" with zeros. */
+    const r = await fetch(CONFIG.supabase_url+'/functions/v1/circles-sync?commit=1',
+      { method:'POST', headers:{ Authorization:'Bearer '+tok, apikey: CONFIG.supabase_anon_key, 'Content-Type':'application/json' }, body:'{}' });
+    const d = await r.json().catch(()=>null);
+    if(!r.ok || !d || d.error || d.mode!=='COMMIT') alert('Sync problem: '+((d&&(d.error||d.message))||('the sync answered '+r.status)));
+    else if(d.errors) alert('Synced from AxisCare, but '+d.errors+' client'+(d.errors===1?'':'s')+' could not be read. Try again later; the nightly sync will retry.');
     else alert('Synced from AxisCare.\n\nNew circles: '+(d.circles_created||0)
       +'\nCircles linked to their client: '+(d.circles_linked||0)
       +'\nPeople added: '+(d.contacts_added||0)
