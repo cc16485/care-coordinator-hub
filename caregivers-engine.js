@@ -2151,27 +2151,12 @@ async function refReconcile(){
   for (const r of rows) {
     const c = candidates.find(x => x.id === r.candidate_id);
     if (!c) continue;
-    const n = r.slot;
-    c['r'+n+'n'] = c['r'+n+'n'] || r.ref_name || r.responder_name || '';
-    c['r'+n+'_manual'] = {
-      staff: 'answered by the reference', via: 'Online form',
-      date: String(r.responded_at || '').slice(0,10),
-      name: r.responder_name || r.ref_name || '',
-      type: obRefType(r.ref_type || c['r'+n+'_type']), relationship: r.ref_relationship || '', how_long: r.how_long || '',
-      recommend: r.recommend || '', reliability: r.reliability || '',
-      interpersonal: r.interpersonal || '', honesty: r.honesty || '',
-      concerns: r.concerns || '', notes: r.notes || '',
-      /* R2: the professional and personal answers (refs_r1r5.sql). */
-      rel_answer: r.rel_answer || '', employer_confirmed: r.employer_confirmed || '',
-      emp_from: r.emp_from || '', emp_to: r.emp_to || '', job_title: r.job_title || '',
-      hours_type: r.hours_type || '', rehire: r.rehire || '', trust_family: r.trust_family || '',
-      responder_title: r.responder_title || '', date_check: '',
-    };
-    if (r.ref_type && !c['r'+n+'_type']) c['r'+n+'_type'] = obRefType(r.ref_type);
-    if (r.ref_company && !c['r'+n+'_company']) c['r'+n+'_company'] = r.ref_company;
-    const m0 = c['r'+n+'_manual'];
-    const score = scoreManualRef(r.recommend, r.reliability, r.interpersonal, r.honesty, r.concerns,
-      { type: m0.type, rehire: m0.rehire, trust_family: m0.trust_family }) || 'Pending';
+    /* 2026-10-12: the answer is turned into the slot's fields by the ONE copy in eligibility-rules.js, the same one the
+       server's reference-land job runs */
+    if (!(globalThis.CCElig && typeof CCElig.refAnswerPatch === 'function')) return merged;
+    const p = CCElig.refAnswerPatch(c, r); if (!p) continue;
+    const n = p.slot, score = p.score;
+    Object.assign(c, p.set);
     if (score !== 'Pending') answered.push({ id: c.id, n });
     c['r'+n+'s'] = score;
     merged++;
@@ -7590,6 +7575,8 @@ let _mrefCandId=null, _mrefSlot=null;
    professional reference the average is over the scales actually asked;
    everything else keeps the original divide-by-three. */
 function scoreManualRef(recommend,reliability,interpersonal,honesty,concerns,extra){
+  /* 2026-10-12: one copy of the scoring, in eligibility-rules.js (the server's reference-land job runs it too) */
+  if(globalThis.CCElig && typeof CCElig.refScore === 'function') return CCElig.refScore(recommend,reliability,interpersonal,honesty,concerns,extra);
   if(!recommend) return null;
   if(recommend==='no'||concerns==='serious') return 'Negative';
   const x=extra||{};

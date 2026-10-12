@@ -120,6 +120,51 @@ function refPolicy(c){
     why:'One of the positive references has to be from a past job. If one already is, mark it as a work reference.'};
   return {ok:true, blocked:false, why:''};
 }
+/* REFERENCE ANSWERS ON THE SLOT (Samantha 2026-10-12, step 3: answers land by themselves). One copy, used by the
+   Sync button in the Hub and by the server's reference-land job, so both score an answer exactly alike. r is a
+   reference_requests row the reference answered; the result is the fields to set on the candidate, never a send. */
+function refTypeOf(v){
+  const t=String(v||'').trim().toLowerCase();
+  return t==='professional'?'professional':t==='personal'?'personal':'';
+}
+function refScore(recommend,reliability,interpersonal,honesty,concerns,extra){
+  if(!recommend) return null;
+  if(recommend==='no'||concerns==='serious') return 'Negative';
+  const x=extra||{};
+  const scores={Excellent:3,Good:2,Fair:1,Poor:0};
+  const given=[reliability,interpersonal,honesty].filter(Boolean);
+  const denom=refTypeOf(x.type)==='professional' ? Math.max(1,given.length) : 3;
+  const avg=(given.map(r=>scores[r]||0).reduce((a,b)=>a+b,0))/denom;
+  if(recommend==='reservations'||concerns==='minor'||avg<1.5) return 'Conditional';
+  if(x.rehire==='no') return 'Conditional';
+  if(x.trust_family==='no'||x.trust_family==='reservations') return 'Conditional';
+  return 'Positive';
+}
+function refAnswerPatch(c, r){
+  const n=Number(r && r.slot);
+  if(!c || !(n>=1 && n<=4)) return null;
+  const manual={
+    staff:'answered by the reference', via:'Online form',
+    date:String(r.responded_at||'').slice(0,10),
+    name:r.responder_name||r.ref_name||'',
+    type:refTypeOf(r.ref_type||c['r'+n+'_type']), relationship:r.ref_relationship||'', how_long:r.how_long||'',
+    recommend:r.recommend||'', reliability:r.reliability||'',
+    interpersonal:r.interpersonal||'', honesty:r.honesty||'',
+    concerns:r.concerns||'', notes:r.notes||'',
+    rel_answer:r.rel_answer||'', employer_confirmed:r.employer_confirmed||'',
+    emp_from:r.emp_from||'', emp_to:r.emp_to||'', job_title:r.job_title||'',
+    hours_type:r.hours_type||'', rehire:r.rehire||'', trust_family:r.trust_family||'',
+    responder_title:r.responder_title||'', date_check:'' };
+  const set={};
+  set['r'+n+'n']=c['r'+n+'n']||r.ref_name||r.responder_name||'';
+  set['r'+n+'_manual']=manual;
+  if(r.ref_type && !c['r'+n+'_type']) set['r'+n+'_type']=refTypeOf(r.ref_type);
+  if(r.ref_company && !c['r'+n+'_company']) set['r'+n+'_company']=r.ref_company;
+  const score=refScore(r.recommend,r.reliability,r.interpersonal,r.honesty,r.concerns,
+    { type:manual.type, rehire:manual.rehire, trust_family:manual.trust_family })||'Pending';
+  set['r'+n+'s']=score;
+  return { slot:n, set, score };
+}
 /* CANDIDATE / PRE-HIRE progression. References and the initial CLEAR results
    are pre-hire evidence and live only on the candidate record. This decides
    whether somebody may move toward hire and orientation — it is NOT the
@@ -493,7 +538,7 @@ function eligRecordRefDecision(c, outcome, note){
   return c.ref_decision;
 }
 
-root.CCElig = { chkStatus, trainStatus, refPolicy, refDecisionCovers, obDeriveStatus,
+root.CCElig = { chkStatus, trainStatus, refPolicy, refDecisionCovers, refScore, refAnswerPatch, obDeriveStatus,
                 candidateProgress, hiringSnapshot,
                 fcsrRegStatus, eligibility, eligibilityFacts, eligEntry, eligRecord,
                 eligRecordRefDecision, ELIG_LEGAL, ELIG_MGMT, ELIG_AGENCY,
