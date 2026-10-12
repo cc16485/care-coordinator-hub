@@ -14,7 +14,9 @@
   const OH = { pv: {}, busy: {}, msg: {}, err: {}, draft: {} };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const caseId = (plan) => 'cwh_' + String(plan.id).replace(/[^A-Za-z0-9_-]/g, '_');
-  const caseOf = (plan) => (DATA.coverage_cases || []).find((c) => c && c.id === caseId(plan)) || null;
+  /* the plan's ask: cwh_<plan>, or an older Cara new-client check turned into this plan (step 3, linked by plan_id) */
+  const caseOf = (plan) => { const L = DATA.coverage_cases || [];
+    return L.find((c) => c && c.open_hours === true && c.plan_id === plan.id && c.status === 'open') || L.find((c) => c && c.id === caseId(plan)) || null; };
   const DAYL = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
   const GHL = (id) => 'https://app.hirecara.com/v2/location/Recp0AhyMh8lrtKJ9kaj/contacts/detail/' + encodeURIComponent(id);
 
@@ -148,5 +150,57 @@
     return '<div class="card" style="padding:12px 14px;margin:0 0 10px;border-left:4px solid var(--teal);">' + head + body + note + '</div>';
   }
 
-  window.OH = Object.assign(OH, { open, send, sort, pencil, boxHtml, cellHtml, daysText, caseOf });
+  /* ── Older new-client checks from Cara (scheduling review step 3, 2026-10-12) ──────────────────────────────────
+     Cara's "New clients" tab is gone. A check still open shows here, at the top of Team Builder, until someone turns
+     it into a plan (its answers come along and land in the green, yellow and red boxes) or closes it. */
+  const DAYK = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'], DAYW = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
+  const earlier = () => (DATA.coverage_cases || []).filter((c) => c && String(c.kind) === 'interest' && c.status === 'open' && !(c.open_hours === true && c.plan_id));
+  const hm = (t) => /^\d\d:\d\d$/.test(String(t || ''));
+  function hoursOf(c) {
+    const ds = DAYK.filter((d) => (c.interest_days || []).map((x) => String(x).toLowerCase().slice(0, 3)).includes(d)).map((d) => DAYL[d]).join(' ');
+    const t = hm(c.interest_start) && hm(c.interest_end) ? tbT12(c.interest_start) + '-' + tbT12(c.interest_end) : String(c.shift_time || '');
+    return [ds, t].filter(Boolean).join(' ') || 'hours not written down';
+  }
+  function earlierHtml() {
+    const L = earlier(); if (!L.length) return '';
+    return '<div class="card" style="padding:12px 14px;margin:0 0 12px;border-left:4px solid var(--honey);">'
+      + '<b style="color:var(--navy);font-size:14px;">Earlier new-client asks from Cara (' + L.length + ')</b>'
+      + '<div class="field-note" style="font-size:12px;margin:2px 0 6px;">Cara\'s New clients tab moved here. Turn one into a plan to see its answers in green, yellow and red on the board, or close it.</div>'
+      + L.map((c) => { const A = c.asked || [], n = (st) => A.filter((a) => a.state === st).length;
+        const ys = A.filter((a) => a.state === 'yes').map((a) => String(a.name).split(' ')[0]);
+        return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);font-size:13px;">'
+          + '<b>' + esc(c.client || 'New client') + '</b><span class="field-note">' + esc([c.client_city, hoursOf(c)].filter(Boolean).join(' · ')) + '</span>'
+          + '<span>🟢 ' + n('yes') + (ys.length ? ' (' + esc(ys.slice(0, 6).join(', ')) + ')' : '') + ' · 🟡 ' + n('inquiry') + ' · 🔴 ' + n('no') + ' · ⏳ ' + n('waiting') + '</span>'
+          + '<span style="flex:1;"></span><button class="cara-btn" style="font-size:12px;" onclick="OH.convert(\'' + esc(c.id) + '\')">Make it a Team Builder plan</button>'
+          + '<button class="cara-btn ghost" style="font-size:12px;" onclick="OH.closeOld(\'' + esc(c.id) + '\')">Close it</button></div>'; }).join('')
+      + '</div>';
+  }
+  async function convert(cid) {
+    const c = (DATA.coverage_cases || []).find((x) => x && x.id === cid); if (!c) return;
+    let days = DAYK.filter((d) => (c.interest_days || []).map((x) => String(x).toLowerCase().slice(0, 3)).includes(d));
+    if (!days.length) days = ['mon', 'tue', 'wed', 'thu', 'fri'];
+    const slot = hm(c.interest_start) && hm(c.interest_end) && c.interest_end > c.interest_start
+      ? { k: 's1', label: tbT12(c.interest_start) + '–' + tbT12(c.interest_end), start: c.interest_start, end: c.interest_end }
+      : { k: 's1', label: 'Shift 1', start: '09:00', end: '17:00' };
+    const me = (typeof ME !== 'undefined' && (ME.name || ME.email)) || '';
+    const plan = { id: 'tb' + Date.now(), client: c.client || 'New client', city: c.client_city || null, zip: c.client_zip || null, open_hours: true,
+      days, slots: [slot], cells: {}, status: 'building', created_at: new Date().toISOString(), by: me, from_case: c.id };
+    DATA.staffing_plans = DATA.staffing_plans || []; DATA.staffing_plans.push(plan);
+    await persist('staffing_plans', plan);
+    c.plan_id = plan.id; c.open_hours = true; c.slots = [slot];
+    c.offered = days.map((d) => ({ key: d + '|s1', words: DAYW[d] + ' ' + tbT12(slot.start) + ' to ' + tbT12(slot.end) }));
+    (c.asked || []).forEach((a) => { if (a.state === 'yes' && !(a.yes_cells || []).length) a.any_time = true; });   // a yes then was a yes to the whole schedule
+    c.converted_by = me; c.converted_at = new Date().toISOString();
+    await persist('coverage_cases', c);
+    TB.planId = plan.id; TB.cellOpen = null; redraw();
+  }
+  async function closeOld(cid) {
+    const c = (DATA.coverage_cases || []).find((x) => x && x.id === cid); if (!c) return;
+    if (!confirm('Close the new-client ask for ' + (c.client || 'this client') + '? Its answers stay in Cara\'s History. Nobody is texted.')) return;
+    c.status = 'closed'; c.resolved_at = new Date().toISOString(); c.resolved_how = 'closed';
+    c.resolved_by = (typeof ME !== 'undefined' && (ME.name || ME.email)) || ''; c.resolved_note = 'closed from Team Builder (New clients moved there)';
+    await persist('coverage_cases', c); redraw();
+  }
+
+  window.OH = Object.assign(OH, { open, send, sort, pencil, boxHtml, cellHtml, daysText, caseOf, earlierHtml, convert, closeOld });
 })();
