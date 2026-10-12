@@ -6922,7 +6922,7 @@ function renderOB(){
 
     const proofLink=(url,label)=>url?`<a class="proof-link" href="${url}" target="_blank" rel="noopener">📄 ${label}</a>`:'';
     return `<tr>
-      <td class="cand-td"><div>${personName({candidate_id:c.id}, `${c.first} ${c.last}`)}${c.onboarding_path?' '+pathChip(c.onboarding_path):''}</div>${c.oos==='yes'?'<div><span class="cand-chip">Out of state</span></div>':''}${addedLabel?`<div class="cand-meta">Added ${addedTs?new Date(addedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}${daysPending!==null&&st==='Awaiting'?` · <b style="color:${urgencyColor}">${daysPending}d in pipeline</b>`:''}</div>`:''}${staleBadge?`<div style="margin-top:2px">${staleBadge}</div>`:''}</td>
+      <td class="cand-td"><div>${personName({candidate_id:c.id}, `${c.first} ${c.last}`, '', 'hiring', 'checks')}${c.onboarding_path?' '+pathChip(c.onboarding_path):''}</div>${c.oos==='yes'?'<div><span class="cand-chip">Out of state</span></div>':''}${addedLabel?`<div class="cand-meta">Added ${addedTs?new Date(addedTs).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}${daysPending!==null&&st==='Awaiting'?` · <b style="color:${urgencyColor}">${daysPending}d in pipeline</b>`:''}</div>`:''}${staleBadge?`<div style="margin-top:2px">${staleBadge}</div>`:''}</td>
       ${(()=>{ const hits=q?obRefMatchSlots(c,q):[]; return [1,2,3,4].map(n=>obRefCellHTML(c,n,hits.includes(n))).join(''); })()}
       <td><div class="chk"><span onclick="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?`bgrRecordCheck(${c.id},'oig')`:`bgrRunOIG(${c.id})`}" title="${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'Update the OIG result or attach the proof':'Run the OIG exclusion check now'}" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.oig==='CLEAR'?'b-green':c.oig==='FLAGGED'?'b-red':'b-gray'}">${c.oig||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">${(c.oig==='CLEAR'||c.oig==='FLAGGED')?'✎':'▸ run'}</span></span>${c.oig_date?`<span class="chk-date">${fmtD(c.oig_date)}</span>`:''}${bgrCheckProofHtml(c.oig_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'oig'):''}</div></td>
       <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'edl')" title="Record the EDL result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.edl==='Clear'?'b-green':c.edl==='Issues Found'?'b-red':'b-gray'}">${c.edl||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.edl_date?`<span class="chk-date">${fmtD(c.edl_date)}</span>`:''}${bgrCheckProofHtml(c.edl_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'edl'):''}</div></td>
@@ -7034,7 +7034,7 @@ function renderTR(){
     // Overall
     const oBadge={Current:'b-green','Annual Due Soon':'b-amber','Annual Overdue':'b-red','Training Overdue':'b-red','OJT Pending':'b-gray','Client Contact Blocked':'b-red'}[ts.overall]||'b-gray';
     return `<tr>
-      <td><div>${personName({caregiver_id:c.id}, `${c.first} ${c.last}`)}</div></td>
+      <td><div>${personName({caregiver_id:c.id}, `${c.first} ${c.last}`, '', 'checks', 'checks')}</div></td>
       <td><span class="chk-date">${fmtD(c.hire_date)||'—'}</span></td>
       <td><div class="chk"><span class="badge ${preBadge}">${preLabel}</span>${orientLine}${alzLine}${alzHrsLine}${profLine?`<span class="chk-date">${profLine}</span>`:''}</div></td>
       <td>${(()=>{
@@ -7110,7 +7110,7 @@ function renderAC(){
     const chkd = acSelected.has(c.id) ? 'checked' : '';
     return `<tr>
       <td style="width:36px"><input type="checkbox" ${chkd} onchange="toggleACSelect(${c.id},this.checked)" style="accent-color:var(--teal);cursor:pointer"></td>
-      <td><div>${personName({caregiver_id:c.id}, `${c.first} ${c.last}`)}</div>${c.oos==='yes'?'<span class="sub" style="color:#F97316">⚠ Out-of-state</span>':''}</td>
+      <td><div>${personName({caregiver_id:c.id}, `${c.first} ${c.last}`, '', 'checks', 'checks')}</div>${c.oos==='yes'?'<span class="sub" style="color:#F97316">⚠ Out-of-state</span>':''}</td>
       <td>${compCell(c.oig_date,o,c.oig_status,c.oig_proof)}</td>
       <td>${compCell(c.edl_date,e,c.edl_status,c.edl_proof)}</td>
       <td>${(()=>{ const reg=fcsrRegStatus(c); const regColor=reg.status==='ok'?'var(--green)':reg.status==='overdue'?'var(--red)':'var(--amber)'; const regIcon=reg.status==='ok'?'✓':reg.status==='overdue'?'⚠':'⏳'; return compCell(c.fcsr_date,f,c.fcsr_status,c.fcsr_proof)+`<span class="chk-date" style="color:${regColor}">${regIcon} ${reg.label}</span>`; })()}</td>
@@ -8385,7 +8385,7 @@ function wcCard(w){
   const id = wcEsc(w.id);
   return `<div style="background:#fff;border:1.5px solid ${past ? '#FCD34D' : '#BAE6FD'};border-radius:10px;padding:.7rem .85rem;margin-bottom:.55rem">
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .8rem">
-      ${w.candidate_id ? personName({candidate_id:w.candidate_id}, wcEsc(wcName(w)), 'font-size:.9rem;font-weight:700') : `<span style="font-size:.9rem;font-weight:700;color:var(--navy)">${wcEsc(wcName(w))}</span>`}
+      ${w.candidate_id ? personName({candidate_id:w.candidate_id}, wcEsc(wcName(w)), 'font-size:.9rem;font-weight:700', 'hiring', 'overview') : `<span style="font-size:.9rem;font-weight:700;color:var(--navy)">${wcEsc(wcName(w))}</span>`}
       ${(window.HP && w.candidate_id) ? HP.chip({candidate_id:w.candidate_id}) : ''}
       <span style="font-size:.8rem;color:#075985;font-weight:600">${wcEsc(wcWhen(w.starts_at))}</span>
       ${past ? '<span class="badge" style="background:#FEF3C7;color:#92400E;font-size:.62rem">Time has passed. Mark it done, missed or moved.</span>' : ''}
@@ -8694,7 +8694,7 @@ function renderOrientReadyQueue(){
           const invited = c.invite_sent;
           const office = officeOrientBookingFor(c, orientSessions);
           return `<div style="display:flex;align-items:center;flex-wrap:wrap;gap:.45rem .6rem;background:#fff;border:1.5px solid ${c.step2_done_at?'#86efac':'var(--teal)'};border-radius:9px;padding:.45rem .8rem">
-            ${personName({candidate_id:c.id}, `${c.first} ${c.last}`, 'font-size:.84rem;font-weight:600')}
+            ${personName({candidate_id:c.id}, `${c.first} ${c.last}`, 'font-size:.84rem;font-weight:600', 'hiring', 'overview')}
             ${wait?`<span style="font-size:.7rem;color:var(--gray)">${wait}</span>`:''}
             <span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${step2Html(c)}</span>
             <span style="display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap">${wcInviteHtml(c)}</span>
@@ -9314,14 +9314,14 @@ function exportComplianceCSV(){
      roster record with an AxisCare id that AxisCare knows  -> their caregiver page
      their application (through reference requests or the start form)  -> their applicant page
      otherwise  -> the Whole profile panel, which reads every record for them by id. */
-async function openPerson(k){
+async function openPerson(k, apTab, cgTab){   /* the tab to open on (2026-10-12 step 2): applicant page, caregiver page */
   k = k || {};
   const rec  = (k.caregiver_id != null && k.caregiver_id !== '') ? caregivers.find(c => String(c.id) === String(k.caregiver_id)) : null;
   const cand = (k.candidate_id != null && k.candidate_id !== '') ? candidates.find(c => String(c.id) === String(k.candidate_id)) : null;
   if (rec && rec.axiscare_id && typeof cgdCensus === 'function' && typeof openCaregiverProfile === 'function') {
     try {
       const census = await cgdCensus();
-      if (((census && census.caregivers) || []).some(x => String(x.id) === String(rec.axiscare_id))) { openCaregiverProfile(String(rec.axiscare_id)); return; }
+      if (((census && census.caregivers) || []).some(x => String(x.id) === String(rec.axiscare_id))) { openCaregiverProfile(String(rec.axiscare_id), cgTab); return; }
     } catch (e) {}
   }
   const candId = cand ? cand.id : (rec && rec.candidate_id != null ? rec.candidate_id : (k.candidate_id != null ? k.candidate_id : null));
@@ -9333,13 +9333,14 @@ async function openPerson(k){
   if (!appId && intakeId) {
     try { const { data } = await sb.from('hire_intake').select('applicant_id').eq('id', intakeId).maybeSingle(); appId = (data && data.applicant_id) || null; } catch (e) {}
   }
-  if (appId && typeof btOpenApplicant === 'function') { btOpenApplicant(appId); return; }
+  if (appId && typeof btOpenApplicant === 'function') { btOpenApplicant(appId, apTab); return; }
   if (window.HP) { HP.open(rec ? { caregiver_id: rec.id } : (candId != null ? { candidate_id: candId } : k)); return; }
   const who = rec || cand; if (who) openProfile(who.first, who.last);
 }
 /* The name on a list, as a link to their page. */
-function personName(k, label, extraStyle){
-  return `<span class="name-cell" role="link" tabindex="0" style="cursor:pointer;color:var(--navy);${extraStyle||''}" onclick='openPerson(${JSON.stringify(k).replace(/'/g,'&#39;')})' onkeydown="if(event.key==='Enter')this.click()" title="Open their page">${label} <span style="font-size:.65rem;color:var(--teal)">↗</span></span>`;
+function personName(k, label, extraStyle, apTab, cgTab){
+  const tabs = (apTab || cgTab) ? ',' + JSON.stringify(apTab || null) + ',' + JSON.stringify(cgTab || null) : '';
+  return `<span class="name-cell" role="link" tabindex="0" style="cursor:pointer;color:var(--navy);${extraStyle||''}" onclick='openPerson(${JSON.stringify(k).replace(/'/g,'&#39;')}${tabs})' onkeydown="if(event.key==='Enter')this.click()" title="Open their page">${label} <span style="font-size:.65rem;color:var(--teal)">↗</span></span>`;
 }
 
 // ── Employee Profile (name-matched; no longer opened from the lists, see openPerson) ──

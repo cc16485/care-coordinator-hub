@@ -732,6 +732,27 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
   /* ---- Lead profile page ---- */
   .profile-grid{display:grid;grid-template-columns:360px 1fr;gap:16px;align-items:start;}
+  /* One profile (2026-10-12): the top card and tabs every applicant and caregiver page shares */
+  .pp-top{padding:18px 20px;margin-bottom:12px;}
+  .pp-head{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;}
+  .pp-avatar{width:52px;height:52px;border-radius:50%;background:var(--blue-bg);color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:0 0 auto;}
+  .pp-who{flex:1;min-width:220px;}
+  .pp-name{font-size:21px;font-weight:800;color:var(--navy);letter-spacing:-.01em;}
+  .pp-stages{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;}
+  .pp-stg{font-size:11.5px;font-weight:600;padding:2px 10px;border-radius:999px;background:#F4F2ED;color:var(--text-muted);}
+  .pp-stg.pp-done{background:#E1F1ED;color:#1F7A8C;}
+  .pp-stg.pp-now{background:var(--navy);color:#fff;}
+  .pp-stg.pp-end{background:#FEE2E2;color:#991B1B;}
+  .pp-next{margin-top:14px;background:#FFF7E8;border:1px solid #F5D9A6;border-radius:10px;padding:10px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .pp-next>div{flex:1;min-width:200px;font-size:13.5px;}
+  .pp-next small{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:800;color:#8A4E0C;}
+  .pp-next.pp-quiet{background:#F7F5F0;border-color:var(--border);}
+  .pp-next.pp-quiet small{color:var(--text-muted);}
+  .pp-next.pp-stop{background:#FEE2E2;border-color:#FCA5A5;}
+  .pp-next.pp-stop small{color:#991B1B;}
+  .pp-links{display:flex;gap:6px 16px;flex-wrap:wrap;align-items:center;margin-top:12px;}
+  .pp-link{color:var(--teal);text-decoration:none;font-size:13px;background:none;border:0;padding:0;cursor:pointer;font-weight:600;}
+  .pp-tabbar{margin-bottom:14px;}
   /* a profile section with nothing to show in one of its two columns uses the full width (cpFitGrids) */
   #leadProfileView .profile-grid.cp-one{grid-template-columns:1fr !important;}
   #leadProfileView .profile-grid > .cp-emptycol{display:none !important;}
@@ -5094,7 +5115,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
      there is nothing new to learn. -->
 <section id="applicantProfileView" style="display:none;">
   <button class="linklike" style="font-size:13px;margin-bottom:12px;" onclick="apCloseProfile()">← Back to Applicants</button>
-  <div class="profile-grid">
+  <div>
     <div id="apProfLeft"></div>
     <div id="apProfRight"></div>
   </div>
@@ -7043,7 +7064,7 @@ The HomeTogether team</pre>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
-<script src="hire-profile.js?v=1"></script><!-- the main profile of a hire (2026-10-11) -->
+<script src="hire-profile.js?v=2"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=6"></script>
@@ -10752,9 +10773,9 @@ function btStatusChip(s){
   return s==='no-show' ? btChip('no-show','#FDE8E8','var(--red)') : s==='done' ? btChip('done','#E3F4EA','#1F6D45') : btChip('booked','#E6F4F3','#1F6F6B');
 }
 function btWhoChip(who){ return who ? btChip(who+"'s interview",'#FFF4DE','#8A5A00') : ''; }
-function btOpenApplicant(id){
+function btOpenApplicant(id, tab){
   gotoTab('applicants');
-  setTimeout(async ()=>{ try{ if(!AP_ROWS.length) await apLoad(); apOpenProfile(id); }catch(e){} }, 260);
+  setTimeout(async ()=>{ try{ if(!AP_ROWS.length) await apLoad(); apOpenProfile(id, tab); }catch(e){} }, 260);
 }
 function btOpenAssessment(i){
   const it = (window.__btAsmt||[])[i]; if(!it) return;
@@ -17544,13 +17565,25 @@ function cgdBackToList(){
   cgdRenderList();
 }
 const CGD_SECTIONS=[['overview','Overview'],['profile','Caregiver profile'],['hiring','Hiring & Experience'],['compliance','Compliance'],
-  ['skills','Skills'],['performance','Performance'],['work','Work'],['conversations','Conversations']];
+  ['skills','Skills'],['performance','Performance'],['work','Work'],['conversations','Conversations'],['history','History']];
+/* One profile, step 2 (2026-10-12): the tabs, in the same names and order as the applicant page. Each tab shows the
+   sections that used to be their own buttons; a section name still works, and opens the tab that holds it. */
+const CGD_TABS=[['overview',['overview']],['interview',['hiring']],['checks',['compliance']],['family',['profile']],
+  ['work',['skills','work']],['performance',['performance']],['messages',['conversations']],['history',['history']]];
 function cgdSection(name){
-  CGD.section=name;
-  CGD_SECTIONS.forEach(([k])=>{
-    const el=document.getElementById('cgdSec-'+k); if(el) el.style.display=(k===name?'block':'none');
-    const b=document.getElementById('cgdSecBtn-'+k); if(b) b.classList.toggle('active',k===name);
-  });
+  const tab=CGD_TABS.find(t=>t[0]===name)||CGD_TABS.find(t=>t[1].includes(name))||CGD_TABS[0];
+  CGD.section=tab[0];
+  CGD_SECTIONS.forEach(([k])=>{ const el=document.getElementById('cgdSec-'+k); if(el) el.style.display=(tab[1].includes(k)?'block':'none'); });
+  CGD_TABS.forEach(([k])=>{ const b=document.getElementById('cgdSecBtn-'+k); if(b){ b.classList.toggle('active',k===tab[0]); b.setAttribute('aria-selected',String(k===tab[0])); } });
+  if(tab[0]==='history') cgdHistoryMount();
+}
+/* History: every send, receipt and signature from their hiring, read by the Whole profile from their Hub record */
+function cgdHistoryMount(){
+  const el=document.getElementById('cgdHist'); if(!el||el.dataset.done) return; el.dataset.done='1';
+  const c=(CGD.census&&CGD.census.caregivers||[]).find(x=>String(x.id)===String(CGD.openId));
+  const g=c?cgdLegacyFor(c.id,(c.first+' '+c.last).trim()):null;
+  if(g&&g.axiscare_id&&String(g.axiscare_id)===String(CGD.openId)&&window.HP){ HP.mount(el,{ caregiver_id:g.id },['timeline']); return; }
+  el.innerHTML='<div class="field-note">The step-by-step history starts with people hired through the Hub. Their hiring story, where it is on file, is under Application &amp; interview.</div>';
 }
 /* Pre-Hire Background Checks panel for the caregiver profile. Reads the frozen
    prehire snapshot (from promotion) if present, else the caregiver's current
@@ -17721,10 +17754,11 @@ function cgdRefsSummary(g){
   return escapeHtmlComms(words)+' · <a class="linklike" style="cursor:pointer" onclick="cgdGoRefs()">View</a>';
 }
 function cgdGoRefs(){ cgdSection('compliance'); const el=document.getElementById('cgdRefsCard'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
-async function cgdOpenProfile(axid){
+async function cgdOpenProfile(axid, tab){
   const full=document.getElementById('cgdFull'), list=document.getElementById('cgdListView');
   if(!full||!list) return;
   const c=(CGD.census&&CGD.census.caregivers||[]).find(x=>String(x.id)===String(axid)); if(!c) return;
+  const keepTab=(String(CGD.openId)===String(axid)&&full.style.display==='block')?CGD.section:null;   /* a refresh stays on the tab you were on */
   CGD.openId=String(axid); CGD.section='overview';
   list.style.display='none'; full.style.display='block';
   const esc=escapeHtmlComms, nm=(c.first+' '+c.last).trim();
@@ -17739,6 +17773,7 @@ async function cgdOpenProfile(axid){
   full.innerHTML=
     '<div style="margin-bottom:6px;"><button class="linklike" onclick="cgdBackToList()">← Back to Caregivers</button></div>'
     +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">'
+    +'<div class="pp-avatar" aria-hidden="true">'+esc(((c.first||' ')[0]+(c.last||' ')[0]).toUpperCase())+'</div>'
     +'<b style="font-size:23px;letter-spacing:-0.02em;color:var(--navy);">'+esc(nm)+'</b>'
     +(c.active?'<span class="tag-chip" style="background:#E7F6EC;color:#1F7A4D;">Active</span>'
               :'<span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">'+esc(c.status_label||'Inactive')+'</span>')
@@ -17751,9 +17786,7 @@ async function cgdOpenProfile(axid){
     +(c.mobile?'<a class="secondary" style="text-decoration:none;padding:.38rem .85rem;border-radius:8px;border:1.5px solid var(--border);background:#fff;color:var(--navy);font-size:.8rem;font-weight:700;"'+ocAttrs(c.mobile,{email:c.email})+'>📞 Call</a> '+act('sms:'+esc(c.mobile),'💬 Text'):'')
     +(c.email?act('mailto:'+esc(c.email),'✉ Email'):'')
     +'</div>'
-    +'<div class="subtab-bar" style="margin-bottom:14px;">'
-    +CGD_SECTIONS.map(([k,label])=>'<button class="subtab'+(k==='overview'?' active':'')+'" id="cgdSecBtn-'+k+'" onclick="cgdSection(\''+k+'\')">'+label+'</button>').join('')
-    +'</div>'
+    +ppTabBarHtml(CGD_TABS.map(t=>t[0]),'overview','cgdSection').replace(/id="cgdSectionBtn-/g,'id="cgdSecBtn-')
 
     +'<div id="cgdSec-overview">'
     +'<div id="cgcCard"></div>'
@@ -17813,7 +17846,8 @@ async function cgdOpenProfile(axid){
     +'<div id="cgdSec-conversations" style="display:none;">'
     +card('Conversation <span class="field-note" style="font-weight:400;">(their actual texts &amp; emails, via GHL)</span>',
       '<div id="cgdThread" style="max-width:720px;"><div class="field-note">Loading the thread…</div></div>','cgdThreadCard')
-    +'</div>';
+    +'</div>'
+    +'<div id="cgdSec-history" style="display:none;">'+card('History','<div id="cgdHist"></div>')+'</div>';
   cgdRenderSkills(c,g);
   try{ if(window.CGP2) CGP2.mount(document.getElementById('cgdCgp'), { mode:'employee', axiscare_id:String(c.id),
     legacy_candidate_id:(g&&g.candidate_id!=null)?String(g.candidate_id):'', first:c.first||'', last:c.last||'',
@@ -17836,6 +17870,7 @@ async function cgdOpenProfile(axid){
   try{ cgdLateMount(c); }catch(_){}
   try{ cgdKindMount(c); }catch(_){}
   cgdEvvFormsMount(c);
+  cgdSection(tab||keepTab||'overview');
   try{ document.getElementById('tab-cgdir').scrollIntoView({block:'start'}); }catch(e){}
 }
 
@@ -18508,7 +18543,7 @@ async function cgdHiringLoad(axid, currentLevel){
     /* One profile, step 1 (2026-10-12): their application, when it is connected by id */
     const appLink=document.getElementById('cgdAppLink');
     if(appLink && CGD.openId===String(axid) && j.application && j.application.found && j.application.record_id)
-      appLink.innerHTML='<button class="linklike" style="font-size:.8rem;" data-open-applicant="'+esc(String(j.application.record_id))+'" title="Their application, interview and hiring steps">Their application ↗</button>';
+      appLink.innerHTML='<button class="linklike" style="font-size:.8rem;" data-open-applicant="'+esc(String(j.application.record_id))+'" data-open-tab="interview" title="Their application, interview and hiring steps">Their application ↗</button>';
     if(!j.found){
       el.innerHTML=cgdHirCard('Hiring history','<div class="field-note">'+esc(j.honest_empty||'No connected hiring history found in the current recruiting records.')+'</div>');
       return;
@@ -21105,7 +21140,7 @@ function ivqRender(){
     const name = ((a.first_name||'')+' '+(a.last_name||'')).trim() || 'Applicant';
     return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.55rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
       + '<span style="min-width:5.2rem;font-weight:700;color:'+(overdue?'#B45309':'#6E6559')+';font-variant-numeric:tabular-nums;">'+esc(timeLabel(d))+'</span>'
-      + '<b style="color:var(--navy);cursor:pointer;" role="link" tabindex="0" title="Open their page" data-open-applicant="'+esc(b.applicant_id)+'">'+esc(name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
+      + '<b style="color:var(--navy);cursor:pointer;" role="link" tabindex="0" title="Open their page" data-open-applicant="'+esc(b.applicant_id)+'" data-open-tab="interview">'+esc(name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
       + btWhoChip(btAfternoonName(b.starts_at, btAfternoonRule(DATA.ops_settings)))
       + ((ALSO[b.id]||[]).length ? '<span class="tag-chip" style="background:#FEF3C7;color:#92400E;" title="They applied more than once and hold another booking">also booked '
           + esc((ALSO[b.id]).map(x=>{ const dd=new Date(x.starts_at); return dayLabel(dd)+' '+timeLabel(dd); }).join(', ')) + ' under another application</span>' : '')
@@ -23085,9 +23120,10 @@ async function recUse(id){
    has checked, how the interview went, and what we offered. */
 let AP_PROF = null;
 
-function apOpenProfile(id){
+function apOpenProfile(id, tab){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
   AP_PROF = r;
+  if(tab){ AP_TAB = tab; AP_TAB_FOR = r.id; } else if(AP_TAB_FOR !== r.id){ AP_TAB = 'overview'; AP_TAB_FOR = r.id; }
   document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
   const lpv = document.getElementById('leadProfileView'); if(lpv) lpv.style.display='none';
   document.getElementById('applicantProfileView').style.display='block';
@@ -23477,97 +23513,112 @@ async function apCgLinkFill(r){
   AP_CG_CACHE[r.id] = hits.length === 1 ? String(hits[0].id) : null;   /* two different caregivers = not ours to pick */
   show(AP_CG_CACHE[r.id]);
 }
+/* ---- One profile, step 2 (Samantha 2026-10-12: "yes to both") ------------------------------------------------------
+   One page per person: the top card (who, where they are, the one thing missing) and tabs that appear as they move
+   along. Every box below is the same one the page drew before, moved onto its tab; saving goes where it always went.
+   Tab keys are shared with the caregiver page so a name anywhere can open on the tab that matches where it was clicked. */
+const PP_TABS = [['overview','Overview'],['interview','Application & interview'],['hiring','Hiring'],['checks','Training & checks'],
+  ['family','Family profile'],['work','Work'],['performance','Performance'],['messages','Messages'],['history','History']];
+const PP_STAGES = ['Applied','Interview','Offered','Working'];
+function ppStagesHtml(now, ended){
+  if(ended) return '<div class="pp-stages"><span class="pp-stg pp-end">' + escapeHtmlComms(ended) + '</span></div>';
+  return '<div class="pp-stages" aria-label="Where they are">' + PP_STAGES.map((s, i) =>
+    '<span class="pp-stg' + (i < now ? ' pp-done' : i === now ? ' pp-now' : '') + '">' + s + '</span>').join('') + '</div>';
+}
+function ppTabBarHtml(have, active, fn){
+  return '<div class="subtab-bar pp-tabbar" role="tablist">' + PP_TABS.filter(([k]) => have.includes(k)).map(([k, label]) =>
+    '<button class="subtab' + (k === active ? ' active' : '') + '" role="tab" aria-selected="' + (k === active) + '" id="' + fn + 'Btn-' + k + '" onclick="' + fn + '(\'' + k + '\')">' + label + '</button>').join('') + '</div>';
+}
+let AP_TAB = 'overview', AP_TAB_FOR = null, AP_TABS_HAVE = [];
+function apIsOffered(r){ return !!r && (['offer','hired','left'].includes(r.status) || !!r.hired_at || !!r.offer_sent_at || !!r.started_at); }
+function apStageNow(r, b){
+  if(r.started_at) return 3;
+  if(apIsOffered(r)) return 2;
+  if(b || r.post_interview) return 1;
+  return 0;
+}
+/* The one thing missing, with its button. Everything else lives on the tabs. */
+function apNextStep(r, b){
+  const esc = escapeHtmlComms, id = esc(r.id);
+  const fmt = iso => new Date(iso).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+  if(r.status==='declined') return ['pp-next pp-stop','Not moving forward', esc(r.decline_reason||r.notes||'No reason was recorded.'), ''];
+  if(r.status==='left') return ['pp-next pp-quiet','They have left', r.left_at ? 'On ' + esc(new Date(r.left_at).toLocaleDateString('en-US',{month:'long', day:'numeric', year:'numeric'})) + '.' : '', '<button class="fb" onclick="apOffboard(\''+id+'\')">Change how they left</button>'];
+  if(r.status==='pool') return ['pp-next pp-quiet','In the candidate pool', 'Kept for later. Nothing is waiting on us.', '<button class="secondary" onclick="apFromPool(\''+id+'\')">Out of the pool</button>'];
+  if(r.started_at) return ['pp-next pp-quiet','Working', 'Started ' + esc(new Date(r.started_at).toLocaleDateString('en-US',{month:'long', day:'numeric', year:'numeric'})) + '.', ''];
+  if(apIsOffered(r)) return ['pp-next','Getting them started', 'References, screenings and paperwork. See where they have got to.', '<button class="primary" onclick="apTab(\'hiring\')">Open Hiring</button>'];
+  if(b && b.status==='booked'){
+    if(new Date(b.starts_at).getTime() < Date.now()) return ['pp-next','The interview time has passed', 'Was ' + esc(fmt(b.starts_at)) + '. Record how it went.', '<button class="primary" onclick="apInterview(\''+id+'\')">Interview &amp; outcome</button>'];
+    return ['pp-next pp-quiet','Interview booked', esc(fmt(b.starts_at)) + '.', '<button class="secondary" onclick="apBookFor(\''+id+'\')">Move their interview</button>'];
+  }
+  if(r.post_interview) return ['pp-next','Interviewed', 'No outcome recorded yet.', '<button class="primary" onclick="apInterview(\''+id+'\')">Interview &amp; outcome</button>'];
+  return ['pp-next','No interview booked yet', 'They have not picked a time.', '<button class="primary" onclick="apBookFor(\''+id+'\')">Book a time</button>'];
+}
+function apTab(k){
+  if(!AP_TABS_HAVE.includes(k)) k = 'overview';
+  AP_TAB = k;
+  PP_TABS.forEach(([t]) => {
+    const pane = document.getElementById('apPane-' + t); if(pane) pane.style.display = t === k ? 'block' : 'none';
+    const btn = document.getElementById('apTabBtn-' + t); if(btn){ btn.classList.toggle('active', t === k); btn.setAttribute('aria-selected', String(t === k)); }
+  });
+  const r = AP_PROF; if(!r || !window.HP) return;
+  /* the Whole profile's pieces, read when their tab is first opened */
+  if(k === 'hiring'){ const el = document.getElementById('apHpHiring'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['status','docs']); } }
+  if(k === 'history'){ const el = document.getElementById('apHpHistory'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['timeline']); } }
+  if(k === 'interview'){ const el = document.getElementById('apHpSkills'); if(el && !el.dataset.done && apIsOffered(r)){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['skills']); } }
+}
 function apRenderProfile(){
   const r = AP_PROF; if(!r) return;
   setTimeout(() => apCgLinkFill(r), 0);
   apReviewCheck(r);
   const esc = escapeHtmlComms;
   const b = AP_BOOK[r.id];
+  const id = esc(r.id);
   const name = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'Applicant';
   const initials = ((r.first_name||' ')[0] + (r.last_name||' ')[0]).toUpperCase();
   const when = iso => iso ? new Date(iso).toLocaleDateString('en-US',{month:'long', day:'numeric', year:'numeric'}) : '';
   const GRADE = { qualified:['#15803D','#DCFCE7','Cleared the screen'], review:['#B45309','#FEF3C7','Needs a look'],
                   duplicate:['#6E6559','#F4F2ED','Applied before'], declined:['#B91C1C','#FEE2E2','Not moving forward'] };
   const g = GRADE[r.screen_grade] || null;
+  const offered = apIsOffered(r);
+  const ended = r.status==='declined' ? 'Not moving forward' : r.status==='left' ? 'Left' : r.status==='pool' ? 'Candidate pool' : '';
 
-  /* ---- left: who they are, and what you can do about it ---- */
+  /* which tabs this person has: an applicant has four; once offered, the hiring tabs; once started, performance */
+  AP_TABS_HAVE = ['overview','interview'].concat(offered ? ['hiring','checks'] : [])
+    .concat((r.started_at || r.left_at || r.status==='left') ? ['performance'] : []).concat(['messages','history']);
+  if(AP_TAB_FOR !== r.id){ AP_TAB_FOR = r.id; if(!AP_TABS_HAVE.includes(AP_TAB)) AP_TAB = 'overview'; }
+  if(!AP_TABS_HAVE.includes(AP_TAB)) AP_TAB = 'overview';
+
+  /* ---- the top card: who, where they are, the one thing missing, everything else as quiet links ---- */
+  const nx = apNextStep(r, b);
+  const link = (on, label, red) => '<button type="button" class="pp-link"' + (red ? ' style="color:var(--red);"' : '') + ' onclick="' + on + '">' + label + '</button>';
+  const links = []
+    .concat(r.phone ? ['<a class="pp-link"'+ocAttrs(r.phone,{email:r.email})+'>Call ' + esc(r.phone) + '</a>'] : [])
+    .concat(window.ApText && r.phone ? [ApText.btn(r.id) + ApText.slot(r.id)] : [])
+    .concat(r.email ? ['<a class="pp-link" href="mailto:'+esc(r.email)+'">Email</a>'] : [])
+    .concat(!b && !offered && !['declined','pool','left'].includes(r.status) && !/apBookFor/.test(nx[3]) ? [link("apBookFor('"+id+"')", 'Book a time')] : [])
+    .concat(b && b.status==='booked' && r.status!=='declined' && !/apBookFor/.test(nx[3]) ? [link("apBookFor('"+id+"')", 'Move their interview')] : [])
+    .concat(b && b.status==='booked' && r.status!=='declined' ? [link("apCancelBooking('"+id+"')", 'Cancel their interview', true)] : [])
+    .concat(r.status!=='declined' && !/apInterview/.test(nx[3]) ? [link("apInterview('"+id+"')", 'Interview &amp; outcome')] : [])
+    .concat(r.status!=='declined' ? [link("apToOffer('"+id+"')", offered ? 'Offer form' : 'Hire, make the offer')] : [])
+    .concat(['<span id="apCgLink" style="display:contents;"></span>'])
+    .concat(r.status!=='hired' && r.status!=='declined' && r.status!=='pool' && r.status!=='left' ? [link("apToPool('"+id+"')", 'Candidate pool')] : [])
+    .concat(r.status!=='declined' && r.status!=='hired' && r.status!=='left' ? [link("apDecline('"+id+"')", 'Not moving forward', true)] : [])
+    .concat(r.status==='hired' ? [link("apOffboard('"+id+"')", 'They have left', true)] : []);
+
   document.getElementById('apProfLeft').innerHTML =
-    '<div class="card" style="padding:18px;margin-bottom:14px;">'
-    + '<div style="display:flex;align-items:center;gap:12px;">'
-      + '<div style="width:52px;height:52px;border-radius:50%;background:var(--blue-bg);color:var(--navy);display:flex;'
-        + 'align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:0 0 auto;">' + esc(initials) + '</div>'
-      + '<div><div style="font-size:19px;font-weight:800;color:var(--navy);letter-spacing:-.01em;">' + esc(name) + '</div>'
+    '<div class="card pp-top">'
+    + '<div class="pp-head">'
+      + '<div class="pp-avatar" aria-hidden="true">' + esc(initials) + '</div>'
+      + '<div class="pp-who"><div class="pp-name">' + esc(name) + '</div>'
       + '<div class="field-note">' + esc(apPosLabel(r.position) || r.posting_title || 'Caregiver')
-        + (r.city||r.zip ? ' · ' + esc(r.city||r.zip) : '') + '</div></div>'
+        + (r.city||r.zip ? ' · ' + esc(r.city||r.zip) : '') + ' · applied ' + esc(when(r.created_at)) + '</div>'
+      + ppStagesHtml(apStageNow(r, b), ended) + '</div>'
     + '</div>'
-    + (g ? '<div style="margin-top:12px;"><span style="font-size:12px;font-weight:800;color:'+g[0]+';background:'+g[1]
-        +';border-radius:999px;padding:3px 12px;">' + g[2] + '</span></div>' : '')
-    /* When they were turned down, the profile must say WHY — the reason was
-       being saved but never shown here. Falls back to `notes` so reasons saved
-       before the column fix are still visible. */
-    + apNoshowPanel(r)
-    + apDecisionPanel(r)
-    + (r.status==='declined'
-        ? '<div style="margin-top:12px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:9px;padding:10px 12px;font-size:13px;color:#991B1B;">'
-          + '<b>Not moving forward</b>'
-          + ((r.decline_reason||r.notes)
-              ? '<div style="margin-top:4px;color:#7F1D1D;white-space:pre-wrap;">' + esc(r.decline_reason||r.notes) + '</div>'
-              : '<div style="margin-top:4px;font-style:italic;">No reason was recorded.</div>')
-          + '</div>'
-        : '')
-    /* They have applied before. The apply flow now tags a repeat application
-       so a previously-declined person can't quietly come back as "new". */
-    + ((r.duplicate_of || r.screen_grade==='duplicate' || (r.screen_flags||[]).some(f=>/applied before|previously declined/i.test(f)))
-        ? '<div style="margin-top:12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:9px;padding:10px 12px;font-size:13px;color:#92400E;">'
-          + '<b>⚠ Applied before</b>'
-          + ((r.screen_flags||[]).filter(f=>/applied before|previously declined/i.test(f)).map(f=>'<div style="margin-top:4px;">'+esc(f)+'</div>').join('')
-             || '<div style="margin-top:4px;">There is an earlier application from this person — check it before proceeding.</div>')
-          + '</div>'
-        : '')
-    + '<div id="apReviewBox"></div>'
-    + '<div style="margin-top:14px;display:flex;flex-direction:column;gap:7px;font-size:13.5px;">'
-      + (r.phone ? '<a'+ocAttrs(r.phone,{email:r.email})+' style="color:var(--navy);text-decoration:none;">📞 '+esc(r.phone)+'</a>' : '')
-      + (window.ApText && r.phone ? ' ' + ApText.btn(r.id) + ' ' + ApText.slot(r.id) : '')   /* 574 */
-      + (r.email ? '<a href="mailto:'+esc(r.email)+'" style="color:var(--navy);text-decoration:none;word-break:break-all;">✉️ '+esc(r.email)+'</a>' : '')
-      + '<span class="field-note">' + (r.sms_consent ? '✓ happy to be texted' : 'no texting consent') + '</span>'
-    + '</div>'
-    + '<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">'
-      + apProfRow('Applied', esc(when(r.created_at)))
-      + apProfRow('Came from', esc(r.channel || r.source || 'not recorded'))
-      + apProfRow('Sent the link', apInvLine(r))
-      + apProfRow('Distance', r.miles_out!=null ? esc(Number(r.miles_out).toFixed(0)) + ' miles from the office' : '')
-      + apProfRow('Interview', b ? esc(new Date(b.starts_at).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
-      + apProfRow('Moved from', b && b.rescheduled_from
-          ? esc(new Date(b.rescheduled_from).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
-      + apProfRow('Changed by them', AP_CHURN[r.id]
-          ? '×' + AP_CHURN[r.id] + (AP_CHURN[r.id]>=2 ? ' — self-serve changes used up, phone only now' : '') : '')
-    + '</div>'
-    + '</div>'
+    + '<div class="' + nx[0] + '"><div><small>' + nx[1] + '</small>' + nx[2] + '</div>' + nx[3] + '</div>'
+    + '<div class="pp-links">' + links.join('') + '</div>'
+    + '</div>';
 
-    + '<div class="card" style="padding:16px 18px;">'
-    + '<b style="font-size:14px;color:var(--navy);">What next</b>'
-    + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">'
-      + (!b && r.status!=='declined' ? '<button class="secondary" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Book a time for them</button>' : '')
-      + (b && b.status==='booked' && r.status!=='declined'
-          ? '<button class="secondary" onclick="apBookFor(\''+esc(r.id)+'\')">📅 Move their interview</button>'
-            + '<button class="fb" style="color:var(--red);" onclick="apCancelBooking(\''+esc(r.id)+'\')">✕ Cancel their interview</button>'
-          : '')
-      + (r.status!=='declined' ? '<button class="fb" onclick="apInterview(\''+esc(r.id)+'\')">📝 Interview &amp; outcome</button>' : '')
-      + (r.status!=='declined' ? '<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')"><svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> Hire, make the offer</button>' : '')
-      + '<span id="apCgLink" style="display:contents;"></span>'
-      + (window.HP ? '<button class="fb" onclick="HP.open({applicant_id:\''+esc(r.id)+'\'})" title="Every send, receipt and completion from application to first shift, and every signed document">&#128100; Whole profile</button>' : '')
-      + (r.status!=='hired' && r.status!=='declined' && r.status!=='pool'
-          ? '<button class="fb" onclick="apToPool(\''+esc(r.id)+'\')">🗂 Candidate pool</button>' : '')
-      + (r.status==='pool' ? '<button class="fb" onclick="apFromPool(\''+esc(r.id)+'\')">↩️ Out of the pool</button>' : '')
-      + (r.status!=='declined' && r.status!=='hired' && r.status!=='left'
-          ? '<button class="fb" style="color:var(--red);" onclick="apDecline(\''+esc(r.id)+'\')">Not moving forward</button>' : '')
-      /* The end of the story belongs on the same page as the beginning of it. */
-      + (r.status==='hired' || r.status==='left'
-          ? '<button class="fb" style="color:var(--red);" onclick="apOffboard(\''+esc(r.id)+'\')">'
-            + (r.status==='left' ? '✏️ Change how they left' : '🚪 They have left') + '</button>' : '')
-    + '</div></div>';
-
-  /* ---- right: the story, in the order it happened ---- */
+  /* ---- the tabs ---- */
   const ck = (r.experience_kinds||[]).join(' · ');
   /* The exact pre-screener: every question in the apply page's own words and
      order, with the answer as they gave it (her ask, 2026-09-22). A question
@@ -23595,7 +23646,7 @@ function apRenderProfile(){
     + (r.role_answers && Object.keys(r.role_answers).length
         ? '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 4px;">Asked because of the role</div>'
           + Object.entries(r.role_answers).map(([q,a]) =>
-              apProfRow(esc(q), esc(a===true?'Yes':a===false?'No':(a||'—')))).join('')
+              apProfRow(esc(q), esc(a===true?'Yes':a===false?'No':(a||'(no answer)')))).join('')
         : '');
 
   const flags = (r.screen_flags||[]).length
@@ -23603,25 +23654,67 @@ function apRenderProfile(){
         + (/rehire/i.test(f) ? '🚩 ' : '• ') + esc(f.charAt(0).toUpperCase()+f.slice(1)) + '</div>').join('')
     : '<div class="field-note">Nothing outstanding.</div>';
 
+  /* Overview: anything that needs a look first, then the facts at a glance */
+  const attention =
+      apNoshowPanel(r)
+    + apDecisionPanel(r)
+    /* They have applied before. The apply flow now tags a repeat application
+       so a previously-declined person can't quietly come back as "new". */
+    + ((r.duplicate_of || r.screen_grade==='duplicate' || (r.screen_flags||[]).some(f=>/applied before|previously declined/i.test(f)))
+        ? '<div style="margin-top:12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:9px;padding:10px 12px;font-size:13px;color:#92400E;">'
+          + '<b>⚠ Applied before</b>'
+          + ((r.screen_flags||[]).filter(f=>/applied before|previously declined/i.test(f)).map(f=>'<div style="margin-top:4px;">'+esc(f)+'</div>').join('')
+             || '<div style="margin-top:4px;">There is an earlier application from this person, check it before going ahead.</div>')
+          + '</div>'
+        : '')
+    + '<div id="apReviewBox"></div>';
+  const glance =
+      (g ? '<div style="margin-bottom:8px;"><span style="font-size:12px;font-weight:800;color:'+g[0]+';background:'+g[1]
+        +';border-radius:999px;padding:3px 12px;">' + g[2] + '</span></div>' : '')
+    + apProfRow('Phone', r.phone ? esc(r.phone) : '')
+    + apProfRow('Email', r.email ? '<span style="word-break:break-all;">' + esc(r.email) + '</span>' : '')
+    + apProfRow('Texting', r.sms_consent ? 'Happy to be texted' : 'No texting consent')
+    + apProfRow('Applied', esc(when(r.created_at)))
+    + apProfRow('Came from', esc(r.channel || r.source || 'not recorded'))
+    + apProfRow('Sent the link', apInvLine(r))
+    + apProfRow('Distance', r.miles_out!=null ? esc(Number(r.miles_out).toFixed(0)) + ' miles from the office' : '')
+    + apProfRow('Interview', b ? esc(new Date(b.starts_at).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
+    + apProfRow('Moved from', b && b.rescheduled_from
+        ? esc(new Date(b.rescheduled_from).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
+    + apProfRow('Changed by them', AP_CHURN[r.id]
+        ? '×' + AP_CHURN[r.id] + (AP_CHURN[r.id]>=2 ? ', self-serve changes used up, phone only now' : '') : '');
+
+  const pane = (k, html) => AP_TABS_HAVE.includes(k) ? '<div id="apPane-' + k + '" role="tabpanel" style="display:none;">' + html + '</div>' : '';
   document.getElementById('apProfRight').innerHTML =
-      (apIsPrn(r) ? apProfCard('PRN CNA Team', apPrnHtml(r), 'When they can be called for shifts, and the pay they accepted.') : '')
-    + apProfCard('What they told us', told, 'Their own answers, on the day they applied.')
-    + apProfCard('The screen', flags,
-        r.miles_out!=null ? Number(r.miles_out).toFixed(0) + ' miles from the office, straight line.' : '')
-    + apProfCard('Where they have worked', apProfWork(r),
-        'What they claim, and whether anybody has checked it.')
-    + apProfCard('The interview', apProfInterview(r), b || r.post_interview ? '' : 'Nothing recorded yet.')
-    + (window.ApText ? apProfCard('Texts & emails', ApText.threadHtml(r), 'What we have sent them and what they sent back, from GoHighLevel. Reply from here.') : '')   /* 574 */
-    + apProfCard('The offer', apProfOffer(r), '')
-    + apProfCard('Getting them started', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
-        'References, the screenings and the paperwork, wherever they have got to.')
-    + apProfCard('Training', '<div id="apTrainHost"><div class="field-note">Looking…</div></div>',
-        'Read live from the training platform, which is where it actually lives.')
-    + (r.status==='hired' || r.status==='left' || r.started_at
-        ? apProfCard('Since they started', apPerfHtml(r), 'Attendance and write-ups.') : '')
-    + (r.started_at || r.left_at ? apProfCard('How it ended', apProfLeaving(r), '') : '');
-  apOnboardMount(r);
-  apTrainingMount(r);
+      ppTabBarHtml(AP_TABS_HAVE, AP_TAB, 'apTab')
+    + pane('overview', attention
+        + (apIsPrn(r) ? apProfCard('PRN CNA Team', apPrnHtml(r), 'When they can be called for shifts, and the pay they accepted.') : '')
+        + apProfCard('At a glance', glance, ''))
+    + pane('interview',
+        apProfCard('What they told us', told, 'Their own answers, on the day they applied.')
+      + apProfCard('The screen', flags,
+          r.miles_out!=null ? Number(r.miles_out).toFixed(0) + ' miles from the office, straight line.' : '')
+      + apProfCard('Where they have worked', apProfWork(r),
+          'What they claim, and whether anybody has checked it.')
+      + apProfCard('The interview', apProfInterview(r), b || r.post_interview ? '' : 'Nothing recorded yet.')
+      + (offered ? '<div id="apHpSkills"></div>' : ''))
+    + pane('hiring',
+        apProfCard('The offer', apProfOffer(r), '')
+      + apProfCard('Getting them started', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
+          'References, the screenings and the paperwork, wherever they have got to.')
+      + (window.HP ? apProfCard('Their journey, forms and signed documents', '<div id="apHpHiring"></div>', 'Read from their records. Signed documents never change.') : ''))
+    + pane('checks',
+        apProfCard('Training', '<div id="apTrainHost"><div class="field-note">Looking…</div></div>',
+          'Read live from the training platform, which is where it actually lives.'))
+    + pane('performance', apProfCard('Since they started', apPerfHtml(r), 'Attendance and write-ups.'))
+    + pane('messages', window.ApText ? apProfCard('Texts & emails', ApText.threadHtml(r), 'What we have sent them and what they sent back, from GoHighLevel. Reply from here.') : apProfCard('Texts & emails', '<div class="field-note">Texting did not load. Refresh the page.</div>', ''))   /* 574 */
+    + pane('history',
+        (r.started_at || r.left_at ? apProfCard('How it ended', apProfLeaving(r), '') : '')
+      + (window.HP ? '<div class="card" style="padding:4px 18px 16px;"><div id="apHpHistory"></div></div>' : '<div class="field-note">The history did not load. Refresh the page.</div>'));
+  /* the start paperwork and training read into their boxes even before their tab is opened */
+  if(AP_TABS_HAVE.includes('hiring')) apOnboardMount(r);
+  if(AP_TABS_HAVE.includes('checks')) apTrainingMount(r);
+  apTab(AP_TAB);
 }
 
 /* ---- The half of somebody's life that used to live somewhere else ----------
@@ -36506,7 +36599,7 @@ function tbPoolListHtml(plan,key){
     if(x.cg.work_locked) flags.unshift('<b style="color:var(--red);">⛔ awaiting Approve to Work (new hire): not to be scheduled yet</b>');   /* SLICE 5: locked until the owner\'s stamp and the AxisCare read-back */
     return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
       +(x.cg.axiscare_id
-          ?'<b style="min-width:130px;cursor:pointer;color:var(--navy);" role="link" tabindex="0" title="Open their caregiver page" data-open-caregiver="'+esc(String(x.cg.axiscare_id))+'">'+esc(x.cg.name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
+          ?'<b style="min-width:130px;cursor:pointer;color:var(--navy);" role="link" tabindex="0" title="Open their caregiver page" data-open-caregiver="'+esc(String(x.cg.axiscare_id))+'" data-open-tab="work">'+esc(x.cg.name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
           :'<b style="min-width:130px;">'+esc(x.cg.name)+'</b>')
       +'<span class="field-note" style="flex:1;">'+flags.join(' · ')+'</span>'
       +'<button class="cara-btn" style="font-size:11.5px;" onclick="'+(typeof tb2AddPool==='function'?'tb2AddPool':'tbAssignPool')+'(\''+esc(key)+'\','+x.i+')">'+((plan.cells||{})[key]?'Add to this shift':'Pencil in')+'</button>'
@@ -39325,7 +39418,7 @@ function pdClose(){ const w=document.getElementById('pdWrap'); if(w) w.style.dis
      whole census. An active + inactive namesake is ambiguous, and being
      active NEVER breaks the tie (her ruling) — the directory opens
      pre-searched and the human chooses. */
-async function openCaregiverProfile(ref){
+async function openCaregiverProfile(ref, tab){
   const raw=String(ref||'').trim();
   const q=raw.toLowerCase().replace(/\s+/g,' ');
   switchTab('cgdir');
@@ -39333,7 +39426,7 @@ async function openCaregiverProfile(ref){
   const all=(CGD.census&&CGD.census.caregivers)||[];
   if(/^\d+$/.test(q)){
     const byId=all.find(x=>String(x.id)===q);
-    if(byId){ cgdOpenProfile(String(byId.id)); return; }
+    if(byId){ cgdOpenProfile(String(byId.id), tab); return; }
   }
   const full=all.filter(x=>((x.first+' '+x.last).trim().toLowerCase().replace(/\s+/g,' '))===q);
   let hit=full.length===1?full[0]:null;
@@ -39341,7 +39434,7 @@ async function openCaregiverProfile(ref){
     const fn=all.filter(x=>String(x.first||'').toLowerCase()===q.split(' ')[0]);
     if(fn.length===1) hit=fn[0];
   }
-  if(hit){ cgdOpenProfile(String(hit.id)); return; }
+  if(hit){ cgdOpenProfile(String(hit.id), tab); return; }
   const inp=document.getElementById('cgdSearch');
   if(inp){ inp.value=raw; cgdSearchGo(inp.value); }
 }
@@ -39355,10 +39448,10 @@ document.addEventListener('click', function(e){
   const c = e.target.closest && e.target.closest('[data-open-client]');
   if(c){ e.stopPropagation(); e.preventDefault(); openClientProfile(c.getAttribute('data-open-client'), c.getAttribute('data-open-tab')||undefined); return; }
   const g = e.target.closest && e.target.closest('[data-open-caregiver]');
-  if(g){ e.stopPropagation(); e.preventDefault(); openCaregiverProfile(g.getAttribute('data-open-caregiver')); return; }
+  if(g){ e.stopPropagation(); e.preventDefault(); openCaregiverProfile(g.getAttribute('data-open-caregiver'), g.getAttribute('data-open-tab')||undefined); return; }
   /* One profile, step 1 (2026-10-12): an applicant's name opens their applicant page. */
   const a = e.target.closest && e.target.closest('[data-open-applicant]');
-  if(a){ e.stopPropagation(); e.preventDefault(); btOpenApplicant(a.getAttribute('data-open-applicant')); }
+  if(a){ e.stopPropagation(); e.preventDefault(); btOpenApplicant(a.getAttribute('data-open-applicant'), a.getAttribute('data-open-tab')||undefined); }
 }, true);
 document.addEventListener('keydown', function(e){
   if(e.key !== 'Enter') return;
