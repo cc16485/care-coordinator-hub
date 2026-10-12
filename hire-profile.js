@@ -53,6 +53,7 @@
       + (ids.offer_id && p.path === 'new' && window.CRX ? '<button class="ibtn" onclick="HP.close();CRX.open(\'' + esc(ids.offer_id) + '\')">&#9776; Readiness card</button>' : '')
       + (ids.applicant_id && typeof apOpenProfile === 'function' ? '<button class="ibtn" onclick="HP.close();HP.openApplication(\'' + esc(ids.applicant_id) + '\')">Their application</button>' : '')
       + '<button class="ibtn" onclick="HP.close()">Close</button></div></div>';
+    h += statusCard(p);
     h += skillsCard(p.experience);
     const docs = p.documents || [];
     h += '<div style="margin-top:.8rem"><b style="color:#0D365F">Signed documents and proofs</b> <span class="field-note">(' + docs.length + ') · each opens by a five-minute link; every open is logged with your name</span>'
@@ -69,6 +70,50 @@
             + '<td style="padding:.3rem .4rem;vertical-align:top">' + esc(x.what) + '</td><td style="padding:.3rem .4rem;color:#6E6559;vertical-align:top;white-space:nowrap">' + esc(x.by || '') + '</td></tr>'; }).join('') + '</tbody></table>'
         : '<div class="field-note">Nothing here yet.</div>') + '</div>';
     b.innerHTML = h;
+  }
+  /* WHERE THEY ARE (Samantha 2026-10-11: "which steps have been completed, which step the applicant is currently on, what
+     information they've submitted, which forms are signed or still outstanding, any missing information or required
+     follow-up, what happens next and who is responsible"). One card. From Background & References on, the readiness card
+     answers (the same call as its button), so the two never disagree. Signed documents are read-only. */
+  const RAIL_TO_STAGE = { screening: 7, approval: 7, step2: 8, orientation: 9, training: 10, ready: 11, active: 11 };
+  const ownerWords = o => !o ? 'the Hub' : typeof o === 'string' ? o : o.name ? o.name : o.email ? o.email : o.role === 'owner' ? 'an owner' : o.role === 'hub' ? 'the Hub (by itself)' : String(o.role || '').replace(/_/g, ' ');
+  let RD = null;
+  async function loadReadiness(jid){
+    if(!jid || typeof sb === 'undefined') return;
+    try{ const r = await sb.functions.invoke('caregiver-journey', { body: { action:'get', journey_id: jid } }); RD = (r.data && r.data.view) ? r.data : null; }catch(_){ RD = null; }
+    if(RD && CUR && CUR.ids && CUR.ids.journey_id === jid) render();
+  }
+  function mergedStatus(st){
+    if(!st || !st.readiness || !RD) return st;
+    const v = RD.view, out = JSON.parse(JSON.stringify(st));
+    const byStage = {}; (v.rail || []).forEach(r => { const i = RAIL_TO_STAGE[r.key]; if(i == null) return; (byStage[i] = byStage[i] || []).push(r.state); });
+    Object.entries(byStage).forEach(([i, sts]) => { out.stages[i].state = sts.every(x => x === 'done') ? 'done' : 'todo'; out.stages[i].note = ''; });
+    if(v.complete) out.stages[11].state = 'done';
+    out.stages.forEach(x => { if(x.state === 'current') x.state = 'todo'; });
+    const cur = out.stages.findIndex(x => x.state === 'todo'); if(cur >= 0){ out.stages[cur].state = 'current'; out.current = out.stages[cur].label; } else out.current = 'Approved to Work';
+    out.next = v.next ? { title: v.next.def.title, owner: ownerWords(v.next.owner), why: v.next.why || '' } : v.complete ? { title: 'Every requirement is complete', owner: 'nobody' } : out.next;
+    (v.rows || []).filter(r => r.status === 'blocked' || r.status === 'attention').forEach(r => out.missing.push(r.def.title + (r.why ? ': ' + r.why : '')));
+    return out;
+  }
+  function statusCard(p){
+    let st = p.status; if(!st) return '';
+    if(st.readiness && st.journey_id && (!RD || !RD.journey || RD.journey.journey_id !== st.journey_id)) { RD = null; loadReadiness(st.journey_id); }
+    st = mergedStatus(st);
+    const pill = (x, i) => { const c = x.state === 'done' ? ['#15803D','#DCFCE7','✓ '] : x.state === 'current' ? ['#fff','#0D365F',''] : x.state === 'na' ? ['#8A7F70','#F4F2ED',''] : ['#8A7F70','#FAF9F6',''];
+      return '<span title="' + esc(x.note || '') + '" style="font-size:.7rem;font-weight:700;padding:.18rem .5rem;border-radius:999px;color:' + c[0] + ';background:' + c[1] + ';border:1px solid ' + (x.state === 'current' ? '#0D365F' : '#E8E2D8') + (x.state === 'na' ? ';text-decoration:line-through' : '') + '">' + c[2] + (i + 1) + '. ' + esc(x.label) + '</span>'; };
+    let h = '<div style="margin-top:.8rem;border:1.5px solid #CFE0F1;border-radius:10px;padding:.65rem .8rem;background:#F7FAFD">'
+      + '<b style="color:#0D365F">Their journey</b> <span class="field-note">from application to Approved to Work · read from the records, nothing typed</span>'
+      + '<div style="display:flex;gap:.25rem;flex-wrap:wrap;margin:.5rem 0">' + st.stages.map(pill).join('') + '</div>'
+      + '<div style="font-size:.86rem"><b>Now:</b> ' + esc(st.ended || st.current) + (st.stages.find(x => x.state === 'current' && x.note) ? ' <span class="field-note">(' + esc(st.stages.find(x => x.state === 'current').note) + ')</span>' : '') + '</div>';
+    if(st.next && !st.next.from_readiness) h += '<div style="font-size:.86rem;margin-top:.2rem;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.4rem .6rem"><b>Next:</b> ' + esc(st.next.title) + ' · <b>' + esc(st.next.owner) + '</b>' + (st.next.why ? ' · ' + esc(st.next.why) : '') + '</div>';
+    else if(st.next) h += '<div class="field-note" style="margin-top:.2rem">Reading the readiness card for the next step…</div>';
+    if(st.missing && st.missing.length) h += '<div style="font-size:.82rem;margin-top:.45rem"><b>Missing or follow-up</b><ul style="margin:.2rem 0 0;padding-left:1.1rem">' + st.missing.map(m => '<li>' + esc(m) + '</li>').join('') + '</ul></div>';
+    if(st.step1) h += '<div style="font-size:.82rem;margin-top:.45rem"><b>Step 1 forms</b> <span class="field-note">signed forms are read-only and never change; open them under Signed documents below</span>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.2rem .8rem;margin-top:.2rem">' + st.step1.forms.map(f => '<div>' + (f.signed_at ? '<span style="color:#15803D;font-weight:700">✓</span> ' + esc(f.title) + ' <span class="field-note">' + esc(central(f.signed_at)) + '</span>' : '<span style="color:#B45309;font-weight:700">○</span> ' + esc(f.title) + ' <span class="field-note">not signed yet</span>') + '</div>').join('') + '</div></div>';
+    const sub = st.submitted || {};
+    h += '<div class="field-note" style="margin-top:.45rem">What they gave us: ' + [sub.application_at ? 'application ' + central(sub.application_at) + (sub.screen_grade ? ' (screening ' + esc(sub.screen_grade) + ')' : '') : 'no application on file', sub.interview_answers ? 'interview answers' : '', sub.step1_answers ? 'Step 1 answers' : '', sub.references_listed ? sub.references_listed + ' reference' + (sub.references_listed === 1 ? '' : 's') : ''].filter(Boolean).join(' · ')
+      + '. To correct contact details, checks or references, use Background &amp; References (editable); signed documents are never edited.</div>';
+    return h + '</div>';
   }
   /* 2026-10-11 (Samantha: "Everything collected here must feed into the caregiver's matching profile ... I don't want these
      answers stored in a document that our Care Coordinators have to search for later"): one card, task by task, from their
