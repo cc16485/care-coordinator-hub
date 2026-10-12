@@ -1879,6 +1879,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everyone who has ever applied, kept for good. Somebody who was right but early is the cheapest hire you will ever make.</div>
         </div>
         <span style="flex:1;"></span>
+        <!-- 2026-10-11 (Samantha: "I don't think it's clear enough to admin staff that they can take the pre-screen link and
+             send that link to someone"): the link, in plain sight, ready to paste anywhere. -->
+        <button class="primary" onclick="apLinkOpen()"><svg class=navi aria-hidden=true><use href=icons.svg#i-link></use></svg> Copy the pre-screen link</button>
         <button class="secondary" onclick="apInvOpen()"><svg class=navi aria-hidden=true><use href=icons.svg#i-send></use></svg> Send the application</button>
         <button class="secondary" onclick="apAddOpen()">＋ Add an applicant</button>
         <button class="ghost" onclick="apLoad(this)">↻ Refresh</button>
@@ -1983,12 +1986,37 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
       <!-- Somebody phoned asking about a job: send them that position's application.
            Server-side (applicant-invite): staff only, fixed wording, opt-out door, 8am to 6pm. -->
+      <div class="card ap-pop" id="apLinkCard" role="dialog" aria-modal="true" style="display:none;padding:16px 18px;">
+        <b style="font-size:15px;color:var(--navy);"><svg class=navi aria-hidden=true><use href=icons.svg#i-link></use></svg> Copy the pre-screen link</b>
+        <div class="field-note" style="margin-top:3px;">
+          Send it yourself, any way you like: a text from your phone, Facebook Messenger, an email, a post. It opens the
+          pre-screen for that position. The moment they start, they show up here in Applicants, and the reminders and
+          interview booking take it from there.
+        </div>
+        <div style="margin-top:10px;max-width:340px;"><label>Position</label><select id="apLinkPos" onchange="apLinkRender()"></select></div>
+        <label style="margin-top:8px;">The link</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <input id="apLinkUrl" readonly onclick="this.select()" style="flex:1;min-width:240px;font-size:15px;font-weight:600;color:var(--navy);background:#F7F5F0;">
+          <button class="primary" onclick="apLinkCopy('link',this)">Copy link</button>
+        </div>
+        <label style="margin-top:12px;">Or copy it with a short message</label>
+        <div id="apLinkMsg" style="white-space:pre-wrap;background:#F7F5F0;border-radius:10px;padding:10px 12px;font-size:13.5px;line-height:1.55;"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px;">
+          <button class="secondary" onclick="apLinkCopy('msg',this)">Copy the message</button>
+          <a class="fb" id="apLinkPreview" target="_blank" rel="noopener" style="text-decoration:none;">See what they will see ↗</a>
+          <span style="flex:1;"></span>
+          <button class="ghost" onclick="apPopHide(document.getElementById('apLinkCard'))">Close</button>
+        </div>
+        <div class="field-note" style="margin-top:8px;">Rather the Hub texted or emailed it for you, with their name on it? Use <a href="javascript:void(0)" onclick="apPopHide(document.getElementById('apLinkCard'));apInvOpen()">Send the application</a>.</div>
+      </div>
+
       <div class="card ap-pop" id="apInvCard" role="dialog" aria-modal="true" style="display:none;padding:16px 18px;">
         <b style="font-size:15px;color:var(--navy);"><svg class=navi aria-hidden=true><use href=icons.svg#i-send></use></svg> Send the application</b>
         <div class="field-note" style="margin-top:3px;">
           For someone who called asking about a job. They get a link to that position's application. Nothing goes out
           until you press Send, and you see exactly what they will get first. The wording is in Settings.
         </div>
+        <div class="field-note" style="margin-top:6px;background:#EAF4F6;border-radius:8px;padding:7px 10px;">Rather send it yourself (your phone, Messenger, email)? <a href="javascript:void(0)" onclick="apLinkOpen(document.getElementById('apInvPos').value);apInvClose();"><b>Copy the pre-screen link</b></a> instead.</div>
         <div class="grid2" style="margin-top:10px;">
           <div><label>First name</label><input id="apInvFirst" autocomplete="off"></div>
           <div><label>Last name</label><input id="apInvLast" autocomplete="off"></div>
@@ -3569,7 +3597,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <b style="font-size:15px;color:var(--navy);"><svg class=navi aria-hidden=true><use href=icons.svg#i-clipboard></use></svg> Positions &amp; pre-screens</b>
-          <span class="field-note">pay and questions per role. The apply page reads both.</span>
+          <span class="field-note">pay and questions per role. The apply page reads both. <b>Copy link</b> on a role gives you its pre-screen link to send to anyone.</span>
           <span style="flex:1;"></span>
           <button class="secondary" onclick="pbAdd()">＋ Position</button>
           <button class="ghost" onclick="pbLoad(this)">↻ Refresh</button>
@@ -20245,6 +20273,13 @@ function scRender(){
   + '<div class="field-note" style="margin-top:6px;">Use your own photos of your own caregivers wherever you can, with their permission. '
   + 'Stock images of models in scrubs read as an agency that does not have any real caregivers to show.</div>';
 }
+/* 2026-10-11: each role's pre-screen link, one tap, ready to paste anywhere */
+function pbCopyLink(k, btn){
+  const url = 'https://mo-care.com/apply?position=' + encodeURIComponent(k);
+  const done = () => { const was = btn.innerHTML; btn.textContent = 'Copied ✓'; setTimeout(() => { btn.innerHTML = was; }, 1600); };
+  (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(url) : Promise.reject()).then(done).catch(() => { window.prompt('Copy this link:', url); });
+}
+window.pbCopyLink = pbCopyLink;
 function scCopy(i, btn){
   const el = document.getElementById('sc_'+i); if(!el) return;
   navigator.clipboard.writeText(el.textContent).then(function(){
@@ -20444,6 +20479,7 @@ function pbRender(){
       + '<span class="field-note">'+qs.length+' extra question'+(qs.length===1?'':'s')+'</span>'
       + '<span style="flex:1;"></span>'
       /* opens the save-nothing preview: an office look must never create a real application (2026-10-11) */
+      + (p.active ? '<a class="fb" style="text-decoration:none;" href="#" onclick="event.preventDefault();event.stopPropagation();pbCopyLink(\''+esc(p.key)+'\',this);return false;"><svg class=navi aria-hidden=true><use href=icons.svg#i-link></use></svg> Copy link</a>' : '')
       + '<a class="fb" style="text-decoration:none;" href="#" onclick="event.preventDefault();event.stopPropagation();pbPreview(\''+esc(p.key)+'\',true);return false;">Preview the pre-screen</a>'
       + '<span style="color:#A89C8B;font-size:.74rem;">edit ▾</span>'
       + '</summary><div style="padding:0 .9rem .9rem;">'
@@ -22989,6 +23025,34 @@ async function apInvDone(id, btn){
     apInvRender();
   }catch(e){ btn.disabled = false; alert('Could not mark it done: ' + (e && e.message || e)); }
 }
+
+/* ---- Copy the pre-screen link (2026-10-11) ---- the same link the job posts and Send the application use. */
+const apLinkFor = k => 'https://mo-care.com/apply?position=' + encodeURIComponent(k || 'caregiver');
+function apLinkOpen(pos){
+  const sel = document.getElementById('apLinkPos');
+  const list = (AP_POS||[]).filter(p => p.key !== 'live_in' && p.active !== false);
+  sel.innerHTML = (list.length ? list : [{ key:'caregiver', label:'Caregiver' }]).map(p => '<option value="'+escapeHtmlComms(p.key)+'">'+escapeHtmlComms(p.label)+'</option>').join('');
+  sel.value = pos && list.some(p => p.key === pos) ? pos : (list.some(p => p.key === 'caregiver') ? 'caregiver' : sel.options[0].value);
+  apLinkRender();
+  apPopShow(document.getElementById('apLinkCard'));
+}
+function apLinkMsgText(){
+  const sel = document.getElementById('apLinkPos'), k = sel.value, label = (sel.options[sel.selectedIndex]||{}).text || 'Caregiver';
+  return 'Hi! Here is the application for our ' + label + ' position at Caring Companions. It takes about 2 minutes, and at the end you can pick a time to come in and meet us: ' + apLinkFor(k);
+}
+function apLinkRender(){
+  const k = document.getElementById('apLinkPos').value;
+  document.getElementById('apLinkUrl').value = apLinkFor(k);
+  document.getElementById('apLinkMsg').textContent = apLinkMsgText();
+  document.getElementById('apLinkPreview').href = apLinkFor(k) + '&preview=1';
+}
+function apLinkCopy(what, btn){
+  const text = what === 'msg' ? apLinkMsgText() : document.getElementById('apLinkUrl').value;
+  const done = () => { const was = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = was; }, 1600); };
+  (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(text) : Promise.reject())
+    .then(done).catch(() => { window.prompt('Copy this:', text); });
+}
+window.apLinkOpen = apLinkOpen; window.apLinkRender = apLinkRender; window.apLinkCopy = apLinkCopy;
 
 function apInvOpen(){
   const sel = document.getElementById('apInvPos');
