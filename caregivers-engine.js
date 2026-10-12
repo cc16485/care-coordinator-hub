@@ -5747,6 +5747,29 @@ function bgrvGate(rv){
   if(rv.result === 'no_waiver' && !String(rv.decision_reason || '').trim()) return 'No waiver is needed: choose "They\'re cleared" or "Not hiring…" (a private reason first).';
   return '';
 }
+/* What they told us themselves on Step 1 (2026-10-11, Samantha: "I would like to know if they disclosed something on their
+   record as well ... if they disclosed a DWI from 12 years ago that helps"). Read only, office staff only, never sent. */
+const BGRV_DISC = {};
+function bgrvDiscHtml(c){
+  const e = bgrEsc, k = String(c.id), d = BGRV_DISC[k];
+  if(d === undefined){
+    BGRV_DISC[k] = null;
+    bgrvCall({ action: 'disclosed', candidate_id: k }).then(r => { BGRV_DISC[k] = r; bgrvRefresh(); }).catch(err => { BGRV_DISC[k] = { error: String(err && err.message || err) }; bgrvRefresh(); });
+  }
+  const box = inner => '<div style="background:#F7F5F0;border-radius:10px;padding:.55rem .7rem;font-size:.8rem;color:#3A342C;margin-bottom:.45rem"><b style="color:#0D365F">What they told us on Step 1</b><div style="margin-top:.2rem">' + inner + '</div></div>';
+  if(!d) return box('<span style="color:#8A7F70">Checking…</span>');
+  if(d.error) return box('<span style="color:#B91C1C">Could not read it (' + e(d.error) + ').</span>');
+  const x = d.disclosure || {};
+  if(!d.step1 || !x.asked) return box('<span style="color:#8A7F70">Not asked on Step 1 (no Step 1 on file for them). The application tells people to bring up their record at the interview, so check your interview notes or ask them.</span>');
+  const lines = [];
+  if(x.convicted === 'yes') lines.push('<b>Yes, they disclosed a conviction:</b>' + (x.convictions.length
+      ? x.convictions.map(r => '<div style="margin-left:.6rem">• ' + e([r.offense || '(offense not written)', r.date, r.level, r.location].filter(Boolean).join(' · ')) + '</div>').join('')
+      : ' <span style="color:#B45309">(no details written)</span>'));
+  else if(x.convicted === 'no') lines.push('They answered <b>No</b> to convictions.');
+  if(x.moving_violations === 'yes') lines.push('Moving violations: yes' + (x.moving_detail ? ' (' + e(x.moving_detail) + ')' : '') + '.');
+  if(x.license_suspended === 'yes') lines.push('License suspended or revoked in the last 3 years: yes.');
+  return box(lines.join('<div style="height:.2rem"></div>') + (d.practice ? ' <span style="color:#8A7F70">(practice record)</span>' : ''));
+}
 /* one chip for the table row */
 function bgrvChip(c){
   const open = bgrvChecksFor(c).map(x => x.rv).filter(bgrvOpen);
@@ -5801,6 +5824,8 @@ function bgrvPanelHtml(c){
     /* "No waiver needed" does not mean we must hire: the office may still choose Not hiring (a private reason first) */
     const why = rv.result === 'no_waiver' && !String(rv.decision_reason || '').trim() ? '' : bgrvGate(rv);
     if(rv.result === 'no_waiver') acts.push(btn('Not hiring…', R + '\'nothire\')', why || 'strong'));
+    /* 2026-10-11 (her rule): a waiver never obliges us to hire. "Waiver needed" offers the waiver notice OR our own decision. */
+    else if(rv.result === 'waiver_needed'){ acts.push(btn('Send the waiver notice', R + '\'final\')', why || 'strong')); if(rv.status === 'open') acts.push(btn('Not hiring…', R + '\'nothire\')')); }
     else acts.push(btn('Send the notice', R + '\'final\')', why || 'strong'));
     return '<div style="border:1.5px solid #FCD34D;background:#FFFBEB;border-radius:10px;padding:.6rem .7rem">' + head
       + '<div style="font-size:.8rem;color:#4A4A4A;margin-top:.25rem;display:flex;flex-direction:column;gap:.15rem">' + lines.map(l => '<div>' + l + '</div>').join('') + '</div>'
@@ -5809,6 +5834,7 @@ function bgrvPanelHtml(c){
       + hist + '</div>';
   });
   return '<div style="margin-top:.7rem"><div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#A89C8B;margin-bottom:.3rem">Background review</div>'
+    + bgrvDiscHtml(c)
     + (BGRV.err ? '<div style="font-size:.78rem;color:#B91C1C">Couldn\'t load the background reviews (' + e(BGRV.err) + ').</div>' : '')
     + '<div style="display:flex;flex-direction:column;gap:.45rem">' + blocks.join('') + '</div>'
     + '<div style="font-size:.7rem;color:#A89C8B;margin-top:.3rem">Nothing is sent until you press OK on the exact words.</div></div>';
@@ -5897,7 +5923,7 @@ async function bgrvAct(id, candId, act, arg){
       await bgrvCall({ action: 'result', id, result: arg });
     } else if(act === 'waiver'){
       if(arg === 'approved'){
-        if(!confirm('Waiver approved: attach the DHSS approval letter (PDF or photo). They are then cleared, and nothing is sent.')) return;
+        if(!confirm('Waiver approved: attach the DHSS approval letter (PDF or photo). Nothing is sent. You then decide: They\'re cleared, or Not hiring (a waiver never obliges us to hire).')) return;
         const f = await bgrvPickFile(); if(!f) return;
         if(f.size > 20 * 1024 * 1024){ alert('That file is over 20 MB. Please shrink it first.'); return; }
         const path = 'bgcheck/' + candId + '/gcw-' + Date.now() + '-' + String(f.name).replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -5905,6 +5931,7 @@ async function bgrvAct(id, candId, act, arg){
         if(error){ alert('The letter could not be saved (' + error.message + '). Nothing was changed.'); return; }
         const d = await bgrvCall({ action: 'waiver', id, step: 'approved', proof: path });
         if(d.cleared) await bgrvAfterClear(candId, rv.check_key, 'waiver_approved');
+        else alert('Waiver approved and the letter is saved. ' + c.first + ' is not cleared yet: choose "They\'re cleared…" or "Not hiring…".');
       } else {
         if(!confirm(arg === 'wait' ? 'Mark ' + c.first + ' as waiting on their Good Cause Waiver? They are held: not hired, not working, and no final notice until the waiver decision. Nothing is sent.'
           : 'Record that ' + c.first + '\'s Good Cause Waiver was denied? The final notice becomes available. Nothing is sent now.')) return;
@@ -5913,6 +5940,7 @@ async function bgrvAct(id, candId, act, arg){
     } else if(act === 'clear'){
       const opts = [['not_them', BGRV_WHY.not_them], ['error_fixed', BGRV_WHY.error_fixed]];
       if(rv.check_key === 'fcsr' || rv.check_key === 'fp') opts.push(['no_waiver', BGRV_WHY.no_waiver]);
+      if(rv.waiver_outcome === 'approved') opts.push(['waiver_approved', BGRV_WHY.waiver_approved]);
       const why = await bgrvChoose(c.first + ' is cleared because…', opts); if(!why) return;
       const d = await bgrvCall({ action: 'clear', id, why });
       if(d.cleared) await bgrvAfterClear(candId, rv.check_key, why);
@@ -5922,10 +5950,10 @@ async function bgrvAct(id, candId, act, arg){
       if(note === null || !note.trim()) return;
       await bgrvCall({ action: 'note', id, note: note.trim() });
     } else if(act === 'nothire'){
-      const reason = prompt('Not hiring ' + c.first + ' (no waiver is needed, so this is our decision).\n\nWrite why. This is private, kept on the review, and never sent:', rv.decision_reason || '');
+      const reason = prompt('Not hiring ' + c.first + ' (our decision; a waiver never obliges us to hire).\n\nWrite why. This is private, kept on the review, and never sent. They get our decision notice, with no waiver invitation:', rv.decision_reason || '');
       if(reason === null) return;
       if(!reason.trim()){ alert('Write why first. Nothing was changed and nothing was sent.'); return; }
-      await bgrvCall({ action: 'result', id, result: 'no_waiver', reason: reason.trim() });
+      await bgrvCall({ action: 'result', id, result: rv.result === 'waiver_needed' ? 'waiver_needed' : 'no_waiver', reason: reason.trim() });
       await bgrvLoad(true);
       return bgrvAct(id, candId, 'final');
     } else if(act === 'final'){

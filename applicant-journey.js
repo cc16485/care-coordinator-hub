@@ -520,7 +520,7 @@ window.AP_JOURNEY = [
   "stage": "background checks",
   "order": 20.6,
   "name": "Background notice (one message)",
-  "trigger": "The office opens the background review on a flagged check, reads the result, and picks it. If we are not moving forward, they press 'Send the notice' (or 'Not hiring…' with a private reason when no waiver is needed), then OK. One step since October 11, 2026: no 'Something came up' message and no response period first. Not while waiting on a Good Cause Waiver. They are then marked Not hired (Background check issue).",
+  "trigger": "The office opens the background review on a flagged check, reads the result, and picks it. If we are not moving forward, they press 'Send the notice' (or 'Not hiring…' with a private reason when no waiver is needed), then OK. One step since October 11, 2026: no 'Something came up' message and no response period first. Not while waiting on a Good Cause Waiver. They are then marked Not hired (Background check issue). A waiver never obliges us to hire: with 'Waiver needed' the office sends either the waiver notice or, with a private reason, our decision notice; an approved waiver does not clear them by itself. The review also shows what they disclosed about their record on Step 1 (office only, never sent).",
   "automatic": false,
   "button": "Background & References → 🛡 Background review → pick the result → Send the notice → OK",
   "timing": "When OK is pressed.",
