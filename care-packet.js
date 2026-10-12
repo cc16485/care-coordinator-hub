@@ -12,11 +12,14 @@
   const esc = t => (typeof escapeHtmlComms === 'function' ? escapeHtmlComms(t) : String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]));
   const S = { box: null, packet: null, topics: [], recipients: [], draft: null, msg: '', err: '', busy: false, link: null, loadErr: '', send: null, up: null,
     retired: [], canLib: false, sugg: null, lib: null };
-  const who = () => ({ ax: (window.CP && CP.ax) || '', lead_id: (window.CP && CP.lead && CP.lead.id) || '' });
+  /* 2026-10-12 fix: the open client is a page-level const CP (index.html), NOT window.CP, so window.CP was always
+     undefined and the card drew nothing for every client. Read the page-level one (same fix as window.CN). */
+  const cp = () => { try { return (typeof CP !== 'undefined' && CP) || window.CP || null; } catch (e) { return window.CP || null; } };
+  const who = () => { const c = cp(); return { ax: (c && c.ax) || '', lead_id: (c && c.lead && c.lead.id) || '' }; };
   const firstName = () => {
-    const l = window.CP && CP.lead;
+    const c = cp(), l = c && c.lead;
     if (l && l.client_first_name && !l.client_name_not_provided) return String(l.client_first_name).trim();
-    const r = window.CP && CP.r; return r && r.client_name ? String(r.client_name).trim().split(/\s+/)[0] : '';
+    const r = c && c.r; return r && r.client_name ? String(r.client_name).trim().split(/\s+/)[0] : '';
   };
   const day = iso => { try { return new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric' }); } catch (e) { return ''; } };
   async function call(body){

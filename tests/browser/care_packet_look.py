@@ -13,7 +13,7 @@ TOPICS = [
   {'key': 'purewick_male', 'title': 'PureWick for men (male external catheter)', 'notes': 'Check it every 2 hours.', 'videos': [{'title': 'In-service', 'url': 'https://vimeo.com/968970613'}, {'title': 'IFU', 'url': 'https://example.com/x.pdf'}]}]
 card_page = '''<!doctype html><meta charset="utf-8"><body><div id="cp_packet"></div><script>
 window.DATA = { caregivers: [{ first: 'Ariel', last: 'Smith', axiscare_id: '11' }, { first: 'Bea', last: 'Jones', axiscare_id: '12' }, { first: 'No', last: 'Id' }] };
-window.CP = { ax: '900', lead: { id: 'L1', client_first_name: 'Dan' }, r: { client_name: 'Dan Example' } };
+const CP = { ax: '900', lead: { id: 'L1', client_first_name: 'Dan' }, r: { client_name: 'Dan Example' } };
 window.CALLS = []; window.STATE = { packet: null, recipients: [] };
 window.callAction = async (fn, b) => { CALLS.push(JSON.parse(JSON.stringify(b)));
   if (b.action === 'get') return { status: 200, data: { packet: STATE.packet, topics: STATE.topics || %s, recipients: STATE.recipients, can_edit_library: !!STATE.owner, retired_in_packet: [] } };
