@@ -32,7 +32,7 @@ function make(settings, rows, err) {
   // ── the tab wiring in index.html ──
   ck('My Work offers the tab only while practice is on (via CPR.offered)', /if\(window\.CPR && CPR\.offered\(\)\) t\.push\(\['callpractice','Call follow-ups \(practice\)'\]\);/.test(html));
   ck('the tab draws through CPR.render and nothing else', /if\(MYWORK_TAB==='callpractice'\)\{ wrap\.innerHTML=''; if\(window\.CPR\) CPR\.render\(wrap\); return; \}/.test(html));
-  ck('the page loads call-practice.js after desk.js', html.indexOf('<script src="call-practice.js?v=1"></script>') > html.indexOf('<script src="desk.js?v=12"></script>'));
+  ck('the page loads call-practice.js (v2) after desk.js', html.indexOf('<script src="call-practice.js?v=2"></script>') > html.indexOf('<script src="desk.js?v='));
   let { ctx } = make({ call_tasks_practice: false }, ROWS);
   ck('switch off: the tab is not offered', ctx.CPR.offered() === false);
   ({ ctx } = make({ call_tasks_practice: true }, ROWS));
@@ -52,6 +52,11 @@ function make(settings, rows, err) {
   ck('a call with no card says why; a call that could not be read says so', /No card: nothing left to do\./.test(h) && /Could not read this call: the model declined this call/.test(h), h);
   ck('unknown and shared numbers are labelled, and text from the database is escaped', /\(not in our records\)/.test(h) && /\(shared number\)/.test(h) && !/<b>X<\/b>/.test(h) && /&lt;b&gt;X/.test(h), h);
   ck('there are no buttons that could act (only Refresh)', !/<button|onclick="(?!CPR\.refresh)/.test(h), h.match(/<button[^>]*>|onclick="[^"]*"/g));
+  const OLD = Object.assign({}, ROWS[0], { read_at: '2026-10-12T15:50:00Z', tasks: [{ title: 'OLD READING card', why: '', area: 'scheduling', due: '', add_to_card_id: '' }] });
+  const NEW = Object.assign({}, ROWS[0], { read_at: '2026-10-12T17:00:00Z' });
+  const { ctx: c4 } = make({ call_tasks_practice: true }, [OLD, NEW, ROWS[2]]);
+  const w4 = { innerHTML: '' }; c4.CPR.render(w4); await new Promise((r) => setTimeout(r, 20)); c4.CPR.render(w4);
+  ck('a call read twice (old and new reader) shows once, with its newest reading', !/OLD READING card/.test(w4.innerHTML) && /<b>2<\/b> calls read/.test(w4.innerHTML) && (w4.innerHTML.match(/DMV trip for his new license/g) || []).length === 1, w4.innerHTML.slice(0, 700));
   const { ctx: c3 } = make({ call_tasks_practice: true }, null, 'relation "public.call_task_reading" does not exist');
   const w3 = { innerHTML: '' }; c3.CPR.render(w3); await new Promise((r) => setTimeout(r, 20)); c3.CPR.render(w3);
   ck('before 650 has run: "This appears once Desktop step 650 has run."', /appears once Desktop step 650 has run/.test(w3.innerHTML), w3.innerHTML);
