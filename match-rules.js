@@ -21,7 +21,7 @@
    ===================================================================================================================== */
 (function(root){
 'use strict';
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';   /* 1.1.0 (2026-10-12, the dark report): adapters for the stored facts, the overlay's willingness and Spanish, AxisCare gender; cleared-to-drive unknown is one more step, never Ready */
 /* ── the one skill list (October 12): key, label, the level that task needs, checked first, the Medicaid note,
       and where today's records keep it (the lead's checkbox, the skills record's box) ── */
 const SKILLS = [
@@ -91,7 +91,8 @@ function evaluate(client, cg, opts){
     if (!req(client, s.key)) continue;
     const e = sk[s.key] || { standing: 'none' };
     if (s.key === 'dementia_care' && !(cg.training || {}).dementia) return no('Dementia training not complete');
-    if (s.key === 'transportation' && cg.cleared_to_drive !== true) return no('Not cleared to drive clients');
+    if (s.key === 'transportation' && cg.cleared_to_drive === false) return no('Not cleared to drive clients');
+    if (s.key === 'transportation' && cg.cleared_to_drive !== true) out.steps.push({ skill: s.key, why: 'Driving: cleared to drive is not recorded yet', action: 'Record cleared to drive' });
     if ((cg.restrictions || []).includes(s.key)) return no(s.label + ': not at this time');
     const needsEvidence = s.level >= 2 && !['bathing', 'dressing_grooming', 'toileting', 'feeding', 'walking_wheelchair', 'transfers_gait_belt'].includes(s.key) || s.checkFirst || (s.key === 'dementia_care' && req(client, s.key) && client.dementia_experience_required);
     if (needsEvidence && !VERIFIED.includes(e.standing)) {
@@ -157,7 +158,33 @@ function fromLead(attrs){
     needs[s.key] = { value: hit.includes('yes') || hit.includes(true) ? 'required' : hit.includes('preferred') ? 'preferred' : 'no', stage: 'intake' }; });
   return needs;
 }
-const api = { VERSION, SKILLS, VERIFIED, clientState, levelNeeded, evaluate, rankFor, fromStep1, fromOverlay, fromLead };
+/* the client's fact record (client_fact_current rows: kind, layer, value) as the rule's client parts; nothing is upgraded:
+   the layer travels with each need, and only plan and current are ever enforced */
+const LIFT = { full_body_sling: 'Full-body sling', sit_to_stand: 'Sit-to-stand', other: 'Other' };
+const ADV = { catheter_change: 'Changing, inserting or removing a catheter', stoma_care: 'Stoma care', bowel_program: 'A bowel program', prescription_creams: 'Prescription creams', nurse_set_medication: 'Medication help set up by a nurse', passive_range_of_motion: 'Passive range of motion' };
+function fromFacts(rows){
+  const out = { needs: {}, facts: {}, lift_type: null, advanced_tasks: [] }, pick = {};
+  const rank = l => ['intake', 'assessment', 'plan', 'current'].indexOf(l);
+  (rows || []).forEach(f => { if (!f || !f.kind) return; const was = pick[f.kind]; if (!was || rank(f.layer) > rank(was.layer)) pick[f.kind] = f; });
+  SKILLS.forEach(s => { const f = pick['need_' + s.key]; if (f && ['required', 'preferred', 'no'].includes(f.value)) out.needs[s.key] = { value: f.value, stage: f.layer }; });
+  const enforced = f => f && CONFIRMED_STAGES.includes(f.layer);
+  ['cats', 'dogs', 'smoking'].forEach(k => { const f = pick['home_' + k]; if (enforced(f)) out.facts[k] = f.value === 'yes'; });
+  const g = pick.pref_caregiver_gender; if (enforced(g) && /^(female|male)_(required|preferred)$/.test(g.value)) { const [v, st] = g.value.split('_'); out.facts.gender = { value: v, strength: st === 'required' ? 'require' : 'prefer' }; }
+  const sp = pick.need_spanish; if (enforced(sp) && sp.value !== 'no') out.facts.spanish = sp.value === 'required' ? 'require' : 'prefer';
+  const lt = pick.need_lift_type; if (enforced(lt)) out.lift_type = LIFT[lt.value] || null;
+  const at = pick.need_advanced_tasks; if (enforced(at) && Array.isArray(at.value)) out.advanced_tasks = at.value.map(k => ADV[k] || k);
+  return out;
+}
+/* today's skills record item: willingness (ok_cats and the like: "no" = not at this time) and Spanish */
+function overlayFacts(item){
+  const sk = (item && item.skills) || {}, willing = {};
+  ['cats', 'dogs', 'smoking'].forEach(k => { const e = sk['ok_' + k]; if (e && e.have === 'no') willing[k] = 'not_now'; });
+  const sp = String((item && item.spanish_ability) || '').toLowerCase();
+  return { willing, spanish: ['none', 'basic', 'conversational', 'fluent'].includes(sp) ? sp : 'none' };
+}
+/* AxisCare's caregiver gender ('F', 'M', 'Female', ...) */
+const axisGender = g => { const x = String(g || '').trim().toUpperCase(); return x.startsWith('F') ? 'female' : x.startsWith('M') ? 'male' : null; };
+const api = { VERSION, SKILLS, VERIFIED, clientState, levelNeeded, evaluate, rankFor, fromStep1, fromOverlay, fromLead, fromFacts, overlayFacts, axisGender };
 root.CCMatch = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

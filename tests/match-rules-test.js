@@ -65,5 +65,18 @@ const ov = M.fromOverlay({ skills: { hoyer_lift: { have: 'yes', evidence: 'attes
 ck('from today\'s skills record: "observed" counts as corroborated; "attested" and "training" do not; a "no" adds nothing', ov.hoyer_lift.standing === 'self_reported' && ov.bedbound_care.standing === 'corroborated' && !ov.dementia_care && ov.bathing.standing === 'self_reported', ov);
 const fl = M.fromLead({ hoyer_lift: 'yes', bed_bound: 'no', dementia: 'preferred', cats: 'yes' });
 ck('from the lead: intake answers, never confirmed (so the client stays incomplete until the plan confirms them)', fl.hoyer_lift.stage === 'intake' && fl.hoyer_lift.value === 'required' && fl.bedbound_care.value === 'no' && fl.dementia_care.value === 'preferred' && M.clientState({ plan_current: true, needs: fl }).status === 'incomplete');
+/* 1.1.0: the dark report's adapters */
+ck('driving: cleared to drive not recorded yet is one more step ("Record cleared to drive"), never Ready', (() => { const r = M.evaluate(plan(['transportation']), C({}, { cleared_to_drive: null })); return r.group === 'one_more_step' && r.steps[0].action === 'Record cleared to drive' })())
+const rows = [{ kind: 'need_hoyer_lift', layer: 'intake', value: 'required' }, { kind: 'need_hoyer_lift', layer: 'plan', value: 'no' }, { kind: 'need_bathing', layer: 'plan', value: 'required' },
+  { kind: 'home_cats', layer: 'plan', value: 'yes' }, { kind: 'home_dogs', layer: 'intake', value: 'yes' }, { kind: 'pref_caregiver_gender', layer: 'plan', value: 'female_required' }, { kind: 'need_spanish', layer: 'current', value: 'preferred' },
+  { kind: 'need_lift_type', layer: 'plan', value: 'sit_to_stand' }, { kind: 'need_advanced_tasks', layer: 'plan', value: ['stoma_care'] }]
+const ff = M.fromFacts(rows)
+ck('from the fact record: the latest layer wins (plan over intake); each need keeps its stage', ff.needs.hoyer_lift.value === 'no' && ff.needs.hoyer_lift.stage === 'plan' && ff.needs.bathing.stage === 'plan', ff)
+ck('from the fact record: only confirmed (plan or current) home facts count; an intake "dogs" does not', ff.facts.cats === true && ff.facts.dogs === undefined && ff.facts.gender.value === 'female' && ff.facts.gender.strength === 'require' && ff.facts.spanish === 'prefer', ff.facts)
+ck('from the fact record: lift type and advanced tasks in the words the rule shows', ff.lift_type === 'Sit-to-stand' && ff.advanced_tasks[0] === 'Stoma care')
+ck('an advanced task from the fact record flags the client for review', M.clientState({ ...plan([]), advanced_tasks: ff.advanced_tasks }).status === 'flagged')
+const of = M.overlayFacts({ skills: { ok_cats: { have: 'no' }, ok_dogs: { have: 'yes' } }, spanish_ability: 'Conversational' })
+ck('from the skills record: "no" to cats is not at this time; Spanish read as written', of.willing.cats === 'not_now' && !of.willing.dogs && of.spanish === 'conversational')
+ck('AxisCare gender: F and M (any case or spelling) or unknown', M.axisGender('F') === 'female' && M.axisGender('male') === 'male' && M.axisGender('') === null)
 ck('pure: no clock, no network, no page (runs the same in the browser and on the server)', !/fetch\(|Date\.now\(|document\./.test(require('fs').readFileSync(__dirname + '/../match-rules.js', 'utf8')));
 console.log(pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);
