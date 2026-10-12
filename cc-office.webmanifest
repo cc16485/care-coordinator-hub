@@ -1,0 +1,13 @@
+{
+  "name": "CC Office",
+  "short_name": "CC Office",
+  "start_url": "index.html?m=1",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F6F9FD",
+  "theme_color": "#0E3860",
+  "icons": [
+    { "src": "cc-office-icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "cc-office-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

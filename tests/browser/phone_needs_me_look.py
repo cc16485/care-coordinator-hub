@@ -13,7 +13,8 @@ async()=>{
   window.__STORE=[
     { id:'A', kind:'staffing_issue', opened_by:'timekeeper', status:'open', title:'Missed clock-in: Tasha R.', about:'Mr. Hale', phone:'4175550142', created_at:iso(-0.2), due:iso(-0.1), urgency:'urgent', domain:'' },
     { id:'B', kind:'missed_call', status:'open', title:'Call back: new inquiry', about:'Daughter of Mr. Bell', owner:ME_E, owner_name:'Krystal Test', created_at:iso(-3), due:iso(Math.max(0.3,(new Date().setHours(23,0,0,0)-Date.now())/36e5-0.5)) },
-    { id:'C', kind:'project', status:'open', title:'Mrs. Ortiz coming home', owner:ME_E, owner_name:'Krystal Test', created_at:iso(-48), due:iso(-1), urgency:'urgent' },
+    { id:'C', kind:'project', status:'open', title:'Mrs. Ortiz coming home', owner:ME_E, owner_name:'Krystal Test', created_at:iso(-48), due:iso(-1), urgency:'urgent',
+      steps:[{ id:'s1', label:'Call the family', who:['zach@mo-care.com'] },{ id:'s2', label:'Order the bed', who:[ME_E], done_at:iso(-2) }] },
     { id:'D', kind:'missed_call', status:'open', title:'Someone else\'s call', owner:'sam@mo-care.com', owner_name:'Sam Test', created_at:iso(-1), due:iso(72) },
     { id:'E', kind:'missed_call', status:'open', title:'Parked till tomorrow', owner:ME_E, owner_name:'Krystal Test', sub_state:'waiting', check_back:ymd(2), created_at:iso(-5), due:iso(-2) } ];
   window.__RPC=[]; window.__EV=[]; window.__FAILSAVE=false; window.__SIGNOUT=0;
@@ -41,7 +42,12 @@ async()=>{
   const cA=()=>document.getElementById('ph_A');
   ok('the missed clock-in says nobody has it, offers Take it, Done, Note and Call (office line)', /Nobody has it/.test(cA().innerText) && cA().querySelector('[data-ph="take"]') && cA().querySelector('[data-ph="done"]') && cA().querySelector('[data-ph="note"]') && cA().querySelector('a[data-oc-phone="4175550142"]'), cA().innerHTML);
   const cC=document.getElementById('ph_C');
-  ok('a project has no Done on the phone: it opens in the Hub (it closes when every step is done)', !cC.querySelector('[data-ph="done"]') && /Open in the Hub/.test(cC.innerText) && !cC.querySelector('[data-ph="take"]'), cC.innerHTML);
+  ok('a project has no Done on the phone: closing or changing it is in the Hub (it closes when every step is done)', !cC.querySelector('[data-ph="done"]') && /Close or change it in the Hub/.test(cC.innerText) && !cC.querySelector('[data-ph="take"]'), cC.innerHTML);
+  /* 2026-10-12 (her "build 6-8", item 6): its steps on the phone */
+  ok('...its steps show, with how many are done, a tick for each and I\'ve got this on a step that is not mine', /Steps · 1 of 2 done/.test(cC.innerText) && cC.querySelectorAll('[data-pj="tick"]').length===2 && cC.querySelectorAll('[data-pj="claim"]').length===1, cC.innerText);
+  window.__pj=[]; const _t=window.pjStepTick; window.pjStepTick=async(i,s2)=>{ window.__pj.push(['tick',i,s2]); };
+  cC.querySelector('[data-pj="tick"][data-sid="s1"]').click(); await sleep(60); window.pjStepTick=_t;
+  ok('...ticking a step uses the Hub\'s own step tick (projects.js)', JSON.stringify(window.__pj)===JSON.stringify([['tick','C','s1']]), window.__pj);
   ok('my own item: no Take it, says Yours', /Yours/.test(document.getElementById('ph_B').innerText) && !document.getElementById('ph_B').querySelector('[data-ph="take"]'));
   /* Take it */
   window.__RPC=[]; cA().querySelector('[data-ph="take"]').click(); await sleep(250);
