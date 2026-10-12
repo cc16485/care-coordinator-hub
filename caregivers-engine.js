@@ -6308,7 +6308,7 @@ function bgrAuditHTML(forPrint){
       + '<td style="padding:.4rem .5rem;vertical-align:top">'+overall+'</td>'
       + '</tr>';
   }).join('');
-  const head = ['Caregiver','OIG','EDL','FCSR','Fingerprint','Checkr','References','Pre-hire status'].map(h=>'<th style="text-align:left;padding:.4rem .5rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;background:#F6F3EC">'+h+'</th>').join('');
+  const head = ['Caregiver','OIG','EDL','FCSR','Fingerprint','Checkr (older hires)','References','Pre-hire status']   // 2026-10-11: Checkr is no longer used; the column keeps older hires' imported Checkr reports (audit evidence).map(h=>'<th style="text-align:left;padding:.4rem .5rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;background:#F6F3EC">'+h+'</th>').join('');
   const total = rows.length, complete = rows.filter(r=>preHireStatus(r)==='complete').length, attn = rows.filter(r=>preHireStatus(r)==='attention').length;
   const ghlNote = PH ? ' Documents on file: '+docsHub+' from the Hub, '+docsGhl+' from GoHighLevel (marked GHL).'
     : ((typeof PHD !== 'undefined' && PHD.err) ? ' <span style="color:#B91C1C">Couldn\'t load the GoHighLevel documents ('+bgrEsc(PHD.err)+').</span>' : ' Loading the GoHighLevel documents…');
