@@ -117,7 +117,7 @@
     const d = LS_STATE.data; if(!d) return false;
     const top = bar(d.start ? d : Object.assign({ start:LS_STATE.date }, d));
     if(LC.view === 'day' || d.error) return { top };
-    if(!d.start){ box.innerHTML = top + '<div class="field-note" style="padding:8px 0;">Week and month views turn on once Desktop step 478 has run. Day works now.</div>'; return true; }
+    if(!d.start){ box.innerHTML = top + '<div class="field-note" style="padding:8px 0;">Week and month views are not available right now. Day view works.</div>'; return true; }
     const lbl = document.getElementById('ls-date-label'); if(lbl) lbl.textContent = '';
     const rows = filtered(d.rows), open = rows.filter(v => !v.caregiver).length;
     box.innerHTML = top
