@@ -21314,13 +21314,14 @@ function fcCardName(g){ return window.CGP2 ? CGP2.cardName(g) : String(g.preferr
 function fcCardFirst(g){ return String(g.preferred_name||g.first_name||'').trim().split(/\s+/)[0]; }
 
 /* The nightly cron runs the same sync at 4am; this is the "I just added
-   someone in AxisCare and want it now" button. */
+   someone in AxisCare and want it now" button. 664 (2026-10-12): the sync moved into its own function, circles-sync
+   (identity-backfill was taken down on purpose by 441 and stays down), so this button calls that. */
 async function fcSyncAxis(btn){
   if(btn){ btn.disabled=true; btn.textContent='⇄ Syncing…'; }
   try{
     const ses = await sb.auth.getSession();
     const tok = ses && ses.data && ses.data.session && ses.data.session.access_token;
-    const r = await fetch(CONFIG.supabase_url+'/functions/v1/identity-backfill?circles=1&commit=1',
+    const r = await fetch(CONFIG.supabase_url+'/functions/v1/circles-sync?commit=1',
       { headers:{ Authorization:'Bearer '+tok, apikey: CONFIG.supabase_anon_key } });
     const d = await r.json();
     if(d && d.error) alert('Sync problem: '+d.error);
