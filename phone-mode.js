@@ -87,7 +87,7 @@
     + '.ph-ho{background:#EEF8F7;border:1.5px dashed #2E8F8B;border-radius:14px;padding:12px 13px;margin:12px 0 4px}.ph-ho ul{margin:6px 0 0;padding-left:18px;font-size:13.5px}'
     + '.ph-fam{border-top:1px solid #EEF2F7;padding:8px 0;display:flex;align-items:center;gap:10px}.ph-fam div{flex:1;min-width:0;font-size:14px}.ph-fam small{display:block;color:#5B6878;font-size:12px}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
-  /* 2026-10-12: the app's manifest only in phone mode, so a phone's home screen icon opens CC Office as its own app (and can get notifications); the computer Hub is unchanged */
+  /* 2026-10-12: the app's manifest only in phone mode, so a phone's home screen icon opens CC Office as its own app; the computer Hub is unchanged */
   if (!document.querySelector('link[rel="manifest"]')) { var mf = document.createElement('link'); mf.rel = 'manifest'; mf.href = 'cc-office.webmanifest'; document.head.appendChild(mf); }
 
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
@@ -888,55 +888,8 @@
     var done = function () { var w = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(function () { btn.textContent = w; }, 1600); };
     try { await navigator.clipboard.writeText(text); done(); } catch (e) { window.prompt('Copy this:', text); }
   }
-  /* ── phone notifications (2026-10-12, item 7): each person turns them on for their own phone. The notification only
-     says something needs you; nothing about anybody goes through Apple's or Google's push service. The office switch
-     (Owners Hub Admin page) decides whether any are sent at all. ── */
-  var standalone = function () { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; };
-  var isIOS = function () { return /iPhone|iPad|iPod/.test(navigator.userAgent); };
-  function b64ToBytes(s) { var p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
-  async function notifState() {
-    var st = { supported: 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window, sub: null, perm: (window.Notification && Notification.permission) || 'default' };
-    if (st.supported) { try { var reg = await navigator.serviceWorker.getRegistration(); st.sub = reg && reg.pushManager ? await reg.pushManager.getSubscription() : null; } catch (e) { /* none */ } }
-    return st;
-  }
-  async function notifHtml() {
-    var ops = (typeof DATA !== 'undefined' && DATA.ops_settings) || {}, st = await notifState(), h = '<div class="ph-card">';
-    if (!ops.push_vapid_public) return h + '<div class="ph-s">Phone notifications are not set up yet (Desktop step 630).</div></div>';
-    if (!st.supported || (isIOS() && !standalone())) return h + '<div class="ph-s">' + (isIOS() ? 'On an iPhone: add CC Office to your Home Screen first (in Safari, tap Share, then Add to Home Screen), open it from that icon, then come back here.' : 'This browser cannot show notifications. Try Chrome, or add CC Office to your Home Screen.') + '</div></div>';
-    h += '<div class="ph-s">' + (st.sub ? '<b style="color:#1F7A4D">On for this phone.</b> ' : 'Off for this phone. ') + 'You get a notification when something lands in Act Now for you, or with nobody’s name on it: missed clock-ins, urgent and escalated items. It only says something needs you, never who or what. Nothing at night except missed clock-ins and call-ins.</div>'
-      + (ops.phone_notify_live === true ? '' : '<div class="ph-h" style="color:#A8660E">The office switch is off, so none are sent yet (Owners Hub Admin page: Phone notifications).</div>')
-      + (st.perm === 'denied' ? '<div class="ph-h" style="color:#B42318">Notifications are blocked for CC Office in this phone’s settings. Allow them there, then come back.</div>' : '')
-      + '<div class="ph-btns">' + (st.sub ? '<button class="ph-b p" data-mo="ntest">Send me a test</button><button class="ph-b" data-mo="noff">Turn off</button>' : '<button class="ph-b p" data-mo="non">Turn on for this phone</button>') + '</div>'
-      + '<div id="moN" class="ph-h"></div></div>';
-    return h;
-  }
-  async function notifOn(b) {
-    var out = document.getElementById('moN'); b.disabled = true;
-    try {
-      var reg = await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
-      var perm = await Notification.requestPermission(); if (perm !== 'granted') throw new Error('notifications were not allowed on this phone');
-      var sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(DATA.ops_settings.push_vapid_public) });
-      var j = sub.toJSON(), s = await sb.auth.getSession(), email = s && s.data && s.data.session && s.data.session.user && s.data.session.user.email;
-      if (!email) throw new Error('sign in again first');
-      var r = await sb.from('push_subscriptions').upsert({ email: String(email).toLowerCase(), endpoint: j.endpoint, p256dh: j.keys && j.keys.p256dh, auth: j.keys && j.keys.auth, user_agent: navigator.userAgent.slice(0, 200) }, { onConflict: 'endpoint' });
-      if (r.error) throw r.error;
-      MORE.open = 'notif'; await moreRender(); say('Notifications are on for this phone.', 'ok');
-    } catch (e) { if (out) out.innerHTML = '<span style="color:#B42318">Could not turn them on: ' + esc(e && e.message || e) + '</span>'; b.disabled = false; }
-  }
-  async function notifOff(b) {
-    b.disabled = true;
-    try { var st = await notifState(); if (st.sub) { var ep = st.sub.endpoint; await st.sub.unsubscribe(); await sb.from('push_subscriptions').delete().eq('endpoint', ep); }
-      MORE.open = 'notif'; await moreRender(); say('Notifications are off for this phone.', 'ok'); }
-    catch (e) { say('Could not turn them off: ' + (e && e.message || e), 'bad'); b.disabled = false; }
-  }
-  async function notifTest(b) {
-    var out = document.getElementById('moN'); b.disabled = true;
-    try { var r = await sb.functions.invoke('push-notify', { body: { action: 'test' } }); if (r.error) throw r.error; var d = r.data || {};
-      if (out) out.textContent = d.error ? d.error : d.sent ? 'Sent to ' + d.sent + ' of your phone' + (d.phones === 1 ? '' : 's') + '. It should arrive in a few seconds.' : 'Nothing could be sent: turn notifications off and on again.'; }
-    catch (e) { if (out) out.innerHTML = '<span style="color:#B42318">' + esc(e && e.message || e) + '</span>'; }
-    b.disabled = false;
-  }
-
+  /* Phone notifications were built 2026-10-12 and taken out the same day (Samantha: "we are already getting the notification
+     about missed clock ins and call ins, i dont want a general notification"). */
   async function moreRender() {
     var box = document.getElementById('phMoreBody'); if (!box) return;
     var pos = MORE.open ? await morePositions() : (MORE.pos || []);
@@ -963,8 +916,6 @@
         + '<div class="ph-btns"><button class="ph-b" data-mo="invprev">Preview</button><button class="ph-b p" data-mo="invsend" disabled>Send</button></div>'
         + '<div id="moInv" class="ph-s" style="margin-top:8px"></div></div>';
     }
-    h += '<div class="ph-lane" style="color:#0E3860">THIS PHONE</div>' + tile('', 'i-bell', 'Phone notifications', 'Get told when something needs you', 'notif');
-    if (MORE.open === 'notif') h += await notifHtml();
     h += '<div class="ph-lane" style="color:#0E3860">FOR CAREGIVERS</div>'
       + tile('', 'i-clock', 'Copy the My Hours link', 'cc.mo-care.com/availability: their wanted hours and days', 'hours')
       + '<div class="ph-lane" style="color:#0E3860">EVERYTHING ELSE</div>'
@@ -985,10 +936,7 @@
   async function moreTap(ev) {
     var b = ev.target.closest && ev.target.closest('[data-mo]'); if (!b) return;
     var a = b.getAttribute('data-mo');
-    if (a === 'link' || a === 'inv' || a === 'notif') { MORE.open = MORE.open === a ? '' : a; MORE.inv = null; return moreRender(); }
-    if (a === 'non') return notifOn(b);
-    if (a === 'noff') return notifOff(b);
-    if (a === 'ntest') return notifTest(b);
+    if (a === 'link' || a === 'inv') { MORE.open = MORE.open === a ? '' : a; MORE.inv = null; return moreRender(); }
     if (a === 'copylink') return copyText(document.getElementById('moUrl').value, b);
     if (a === 'copymsg') return copyText(moreMsg(), b);
     if (a === 'share') { try { await navigator.share({ text: moreMsg() }); } catch (e) { /* closed the share sheet */ } return; }

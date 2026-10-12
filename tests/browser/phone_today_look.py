@@ -86,8 +86,8 @@ async()=>{
   ok('...tap opens their card, with Interview them and Copy their link', !!document.querySelector('#phFindBody [data-ivopen="AP1"]') && !!document.querySelector('#phFindBody [data-aplink="AP1"]'), document.getElementById('phFindBody').innerText.slice(0,300));
   document.querySelector('.ph-tabs [data-v="more"]').click(); await sleep(300);
   const mt=[...document.querySelectorAll('#phMoreBody .ph-row b')].map(b=>b.innerText).join('|');
-  ok('More: Quick Capture, Call-Off, the pre-screen link, Send the application, Phone notifications, My Hours, the full Hub, Sign out', mt==='Quick Capture|Caregiver Call-Off|Copy the pre-screen link|Send the application|Phone notifications|Copy the My Hours link|Open the full Hub|Sign out', mt);
-  ok('More uses the brand icons, no emoji', document.querySelectorAll('#phMoreBody svg use').length===8 && !/[\u{1F300}-\u{1FAFF}]/u.test(document.getElementById('phMoreBody').innerText));
+  ok('More: Quick Capture, Call-Off, the pre-screen link, Send the application, My Hours, the full Hub, Sign out', mt==='Quick Capture|Caregiver Call-Off|Copy the pre-screen link|Send the application|Copy the My Hours link|Open the full Hub|Sign out', mt);
+  ok('More uses the brand icons, no emoji', document.querySelectorAll('#phMoreBody svg use').length===7 && !/[\u{1F300}-\u{1FAFF}]/u.test(document.getElementById('phMoreBody').innerText));
   return R;
 }
 """
