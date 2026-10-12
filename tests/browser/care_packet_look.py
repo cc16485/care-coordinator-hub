@@ -11,7 +11,9 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else '/tmp'
 TOPICS = [
   {'key': 'turning', 'title': 'Turning and repositioning', 'notes': 'Turn every 2 hours, or as the care plan says.', 'videos': [{'title': 'Lie on the side', 'url': 'https://www.youtube.com/watch?v=6M5_eTPUWpo'}]},
   {'key': 'purewick_male', 'title': 'PureWick for men (male external catheter)', 'notes': 'Check it every 2 hours.', 'videos': [{'title': 'In-service', 'url': 'https://vimeo.com/968970613'}, {'title': 'IFU', 'url': 'https://example.com/x.pdf'}]}]
-card_page = '''<!doctype html><meta charset="utf-8"><body><div id="cp_packet"></div><script>
+import re as _re
+HUB_CSS = '\n'.join(m for m in _re.findall(r'<style[^>]*>(.*?)</style>', open(os.path.join(ROOT, 'index.html')).read(), _re.S))  # every Hub style block, incl. input{width:100%}
+card_page = '''<!doctype html><meta charset="utf-8"><style>''' + HUB_CSS.replace('%', '%%') + '''</style><body><div id="cp_packet"></div><script>
 window.DATA = { caregivers: [{ first: 'Ariel', last: 'Smith', axiscare_id: '11' }, { first: 'Bea', last: 'Jones', axiscare_id: '12' }, { first: 'No', last: 'Id' }] };
 const CP = { ax: '900', lead: { id: 'L1', client_first_name: 'Dan' }, r: { client_name: 'Dan Example' } };
 window.CALLS = []; window.STATE = { packet: null, recipients: [] };
@@ -40,6 +42,9 @@ window.callAction = async (fn, b) => { CALLS.push(JSON.parse(JSON.stringify(b)))
   if (b.action === 'send') { if (STATE.fail) return { status: 422, data: { outcome: 'refused', error: 'Not sent: Ariel has asked not to get texts (stop_text).' } };
     STATE.recipients[0] = Object.assign({}, STATE.recipients[0], { last_sent_at: '2026-10-12T17:00:00Z', last_send_kind: 'reminder', send_count: 2 });
     return { status: 200, data: { outcome: 'sent', kind: 'reminder', recipients: STATE.recipients } }; }
+  if (b.action === 'preview') return { status: 200, data: { preview: true, ready: !!(STATE.packet && STATE.packet.ready), caregiver_first: 'the caregiver', client_first: 'Dan', about: 'Dan is on hospice.',
+    items: [{ title: 'Turning and repositioning', notes: 'Turn every 2 hours.', videos: [{ title: 'Lie on the side', publisher: 'The Hospice Care Plan (hospice nurses)', minutes: 5, url: 'https://www.youtube.com/watch?v=6M5_eTPUWpo', embed: 'https://www.youtube-nocookie.com/embed/6M5_eTPUWpo?rel=0' }] }],
+    version: 1, acknowledged: false, ack_at: null, earlier_ack: false } };
   return { status: 400, data: { error: 'unknown' } }; };
 </script><script src="care-packet.js"></script></body>''' % json.dumps(TOPICS)
 open(os.path.join(ROOT, '_cpk_test.html'), 'w').write(card_page)
@@ -60,6 +65,11 @@ try:
     t = pg.inner_text('#cp_packet')
     ok('card: loads by AxisCare id and lead, shows the library topics and the first name from the lead', pg.evaluate('CALLS[0]') == {'action': 'get', 'ax': '900', 'lead_id': 'L1'} and 'Turning and repositioning' in t and 'PureWick for men' in t and pg.input_value('#cpk_first') == 'Dan', t[:300])
     ok('card: no caregiver section before it is ready', 'Get their link' not in t)
+    lay = pg.evaluate('''(()=>{ const cb=document.querySelector('[data-cpk-topic="turning"]'), r=document.getElementById('cpk_ready'), name=cb.parentElement.querySelector('b');
+      const a=cb.getBoundingClientRect(), n=name.getBoundingClientRect();
+      return { cbW:a.width, rW:r.getBoundingClientRect().width, sameLine: Math.abs((a.top+a.bottom)/2-(n.top+n.bottom)/2) < 12 && n.left > a.left,
+               save: document.getElementById('cpk_save').className }; })()''')
+    ok('card looks right with the Hub\'s own styles: tick boxes small and beside their topic, Save is a navy button', lay['cbW'] < 30 and lay['rW'] < 30 and lay['sameLine'] and lay['save'] == 'primary', lay)
     pg.fill('#cpk_about', 'Dan is on hospice. Call the hospice nurse first.')
     # ---- suggest topics ----
     pg.click('#cpk_suggest'); pg.wait_for_timeout(300)
@@ -70,7 +80,6 @@ try:
     pg.uncheck('[data-cpk-topic="purewick_male"]'); pg.wait_for_timeout(100)
     ok('a suggestion can be unticked', not pg.is_checked('[data-cpk-topic="purewick_male"]'))
     pg.screenshot(path=os.path.join(OUT, 'cpk_6_suggest.png'), full_page=True)
-    ok('no library link for a coordinator', pg.query_selector('#cpk_lib_open') is None)
     pg.check('[data-cpk-topic="turning"]'); pg.wait_for_timeout(100)
     ok('card: ticking a topic fills its notes from the library', pg.input_value('[data-cpk-notes="turning"]') == 'Turn every 2 hours, or as the care plan says.' and pg.input_value('#cpk_about').startswith('Dan is on hospice'))
     pg.fill('[data-cpk-notes="turning"]', 'Turn every 2 hours. Left, back, right.'); pg.check('#cpk_ready'); pg.wait_for_timeout(100)
@@ -121,32 +130,14 @@ try:
     ok('card: Text the packet for a picked caregiver opens their draft', pg.evaluate("CALLS[CALLS.length-1]") == {'action': 'send_draft', 'packet_id': '11111111-1111-1111-1111-111111111111', 'caregiver_axiscare_id': '12'})
     ok('card: still no em dash anywhere', '\u2014' not in pg.inner_text('#cp_packet'))
     pg.click('#cpk_cancel')
-    # ---- the library editor (owner) ----
-    pg.evaluate("STATE.owner = true"); pg.evaluate('CPK.mount("cp_packet")'); pg.wait_for_timeout(400)
-    pg.click('#cpk_lib_open'); pg.wait_for_timeout(300)
-    t = pg.inner_text('#cp_packet')
-    ok('library: the owner sees every topic, the retired one marked, with who changed it', 'How-to library' in t and 'Turning and repositioning' in t and 'Old topic' in t and 'retired' in t and 'changed by samantha' in t, t[:600])
-    pg.click('#cpk_lib_add'); pg.wait_for_timeout(100)
-    pg.fill('#cpk_t_title', 'Oxygen safety'); pg.fill('#cpk_t_notes', 'No open flame near the oxygen.')
-    pg.click('#cpk_v_add'); pg.wait_for_timeout(100)
-    pg.fill('[data-cpk-v="0"][data-f="title"]', 'Oxygen at home'); pg.fill('[data-cpk-v="0"][data-f="url"]', 'https://youtu.be/6M5_eTPUWpo'); pg.dispatch_event('[data-cpk-v="0"][data-f="url"]', 'change'); pg.wait_for_timeout(200)
-    ok('library: a pasted YouTube link plays right in the editor before saving', pg.eval_on_selector_all('#cp_packet iframe', 'f=>f.map(x=>x.src)') == ['https://www.youtube-nocookie.com/embed/6M5_eTPUWpo?rel=0'] and pg.input_value('#cpk_t_title') == 'Oxygen safety')
-    pg.click('#cpk_v_add'); pg.fill('[data-cpk-v="1"][data-f="title"]', 'A web page'); pg.fill('[data-cpk-v="1"][data-f="url"]', 'https://example.com/guide'); pg.dispatch_event('[data-cpk-v="1"][data-f="url"]', 'change'); pg.wait_for_timeout(200)
-    ok('library: a plain web page says caregivers get an Open it button', 'caregivers get an "Open it" button' in pg.inner_text('#cp_packet'))
-    pg.screenshot(path=os.path.join(OUT, 'cpk_7_library.png'), full_page=True)
-    pg.click('#cpk_t_save'); pg.wait_for_timeout(300)
-    c = pg.evaluate("CALLS.filter(c=>c.action==='topic_save').pop()")
-    ok('library: Save sends the new topic (key from the title, both links, new), and says saved', c['key'] == 'oxygen_safety' and c['is_new'] is True and len(c['videos']) == 2 and c['videos'][0]['url'] == 'https://youtu.be/6M5_eTPUWpo' and 'Saved "Oxygen safety".' in pg.inner_text('#cp_packet'), c)
-    pg.click('#cpk_lib_add'); pg.fill('#cpk_t_title', 'Turning'); pg.click('#cpk_t_save'); pg.wait_for_timeout(300)
-    ok('library: a name already taken is refused with the reason, the form stays open', 'There is already a topic with that name' in pg.inner_text('#cp_packet') and pg.query_selector('#cpk_t_title') is not None)
-    pg.click('#cpk_t_cancel'); pg.wait_for_timeout(100)
-    pg.click('[data-cpk-lib-edit="turning"]'); pg.wait_for_timeout(200)
-    ok('library: Edit opens the topic with its notes and its video playing', pg.input_value('#cpk_t_title') == 'Turning and repositioning' and pg.input_value('#cpk_t_notes') == 'Turn every 2 hours.' and len(pg.query_selector_all('#cp_packet iframe')) == 1)
-    pg.check('#cpk_t_retired'); pg.click('#cpk_t_save'); pg.wait_for_timeout(300)
-    c = pg.evaluate("CALLS.filter(c=>c.action==='topic_save').pop()")
-    ok('library: retiring sends active false for that topic', c['key'] == 'turning' and c['active'] is False and c['is_new'] is False, c)
-    pg.click('#cpk_lib_close'); pg.wait_for_timeout(400)
-    ok('library: Back returns to the packet', 'About this client' in pg.inner_text('#cp_packet'))
+    # ---- the library lives in its own tab now (2026-10-12): the card links there, for everyone ----
+    pg.evaluate("window.SWITCHED = []; window.switchTab = t => SWITCHED.push(t); 0"); pg.evaluate('CPK.mount("cp_packet")'); pg.wait_for_timeout(400)
+    pg.click('#cpk_lib_open'); pg.wait_for_timeout(100)
+    ok('card: "Open the Care Library" goes to the Care Library tab', pg.evaluate('SWITCHED') == ['carelibrary'], pg.evaluate('SWITCHED'))
+    pg.evaluate("STATE.topics = [{ key: 'turning', title: 'Turning and repositioning', category: 'moving', notes: 'x', videos: [] }, { key: 'swallowing', title: 'Safe swallowing', category: 'eating', notes: 'y', videos: [] }, { key: 'bath', title: 'Bed bath', category: 'personal', notes: 'z', videos: [] }]")
+    pg.evaluate('CPK.mount("cp_packet")'); pg.wait_for_timeout(400); t = pg.inner_text('#cp_packet')
+    ok('card: topics are grouped like the tab (Moving, then Personal care, then Eating)', t.index('MOVING AND FALLS') < t.index('Turning') < t.index('PERSONAL CARE') < t.index('Bed bath') < t.index('EATING AND DIETS') < t.index('Safe swallowing'), t[:600])
+    pg.evaluate("delete STATE.topics"); pg.evaluate('CPK.mount("cp_packet")'); pg.wait_for_timeout(400)
     ok('no em dash in the editor or suggestions', '\u2014' not in pg.inner_text('#cp_packet'))
     pg.fill('#cpk_about', 'Changed'); pg.wait_for_timeout(100)
     ok('card: after a change, links and texts wait until it is saved', pg.is_disabled('#cpk_link') and pg.is_disabled('#cpk_text'))
@@ -179,6 +170,33 @@ try:
     ok('page: an updated packet says so and asks again', 'This packet was updated' in p2.inner_text('body') and p2.is_visible('#bAck'))
     st['mode'] = 'bad'; p2.reload(); p2.wait_for_timeout(400)
     ok('page: a bad or expired link shows the office number and nothing else', '(417) 234-8494' in p2.inner_text('body') and not p2.query_selector('iframe'))
+    # ---- preview (2026-10-12): served over http so the page and the Hub share a site, as on cc.mo-care.com ----
+    import http.server, socketserver, threading, functools
+    srv = socketserver.TCPServer(('127.0.0.1', 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)); srv.allow_reuse_address = True
+    threading.Thread(target=srv.serve_forever, daemon=True).start(); base = 'http://127.0.0.1:%d/' % srv.server_address[1]
+    try:
+      p3 = b.new_page(viewport={'width': 1100, 'height': 1000}); p3.on('pageerror', lambda e: errs.append(str(e)[:200]))
+      p3.route('**/functions/v1/**', lambda r: (errs.append('preview called the server: ' + r.request.url), r.abort()))
+      p3.goto(base + '_cpk_test.html'); p3.evaluate('CPK.mount("cp_packet")'); p3.wait_for_timeout(300)
+      ok('preview: no button before the packet is first saved', p3.query_selector('#cpk_preview') is None)
+      p3.fill('#cpk_about', 'Dan is on hospice.'); p3.check('[data-cpk-topic="turning"]'); p3.click('#cpk_save'); p3.wait_for_timeout(300)
+      ok('preview: the button shows once saved (a draft is fine)', p3.is_enabled('#cpk_preview'))
+      p3.fill('#cpk_about', 'Dan is on hospice. Changed.'); p3.wait_for_timeout(100)
+      ok('preview: unsaved changes turn it off (it shows the saved packet)', not p3.is_enabled('#cpk_preview'))
+      p3.click('#cpk_save'); p3.wait_for_timeout(300)
+      n0 = p3.evaluate('CALLS.length'); p3.click('#cpk_preview'); p3.wait_for_timeout(900)
+      fr = p3.frame_locator('#cpk_pv_f'); body = fr.locator('body').inner_text()
+      calls = p3.evaluate('CALLS.slice(%d).map(c=>c.action)' % n0)
+      ok('preview: opens the caregiver page phone-sized with a preview banner, the notes and the video', p3.is_visible('#cpk_pv') and 'Preview.' in body and 'Caring for Dan' in body and 'Turn every 2 hours.' in body and fr.locator('iframe').count() == 1, body[:300])
+      ok('preview: a draft says caregivers cannot open it yet', 'still a draft' in body)
+      ok('preview: only asks the server for the preview (no link made)', calls == ['preview'], calls)
+      p3.screenshot(path=os.path.join(OUT, 'cpk_8_preview.png'))
+      fr.locator('#bAck').click(); p3.wait_for_timeout(200)
+      ok('preview: "I watched it" does nothing and says so; the page never called the server', 'does nothing' in fr.locator('body').inner_text() and p3.evaluate('CALLS.slice(%d).map(c=>c.action)' % n0) == ['preview'] and not [e for e in errs if 'server' in e], errs)
+      p3.keyboard.press('Escape'); p3.wait_for_timeout(200)
+      ok('preview: Escape closes it, even after clicking inside the preview', p3.query_selector('#cpk_pv') is None)
+    finally:
+      srv.shutdown()
     ok('no page errors', not errs, errs)
     b.close()
 finally:

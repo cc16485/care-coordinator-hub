@@ -45,6 +45,7 @@
 const SUPA_URL='https://zngsgedlsxinbygwmxwn.supabase.co';
 const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
 const P=Object.fromEntries(new URLSearchParams(location.search));
+const PREVIEW=P.preview==='1';
 const LINK={ i:P.i||'', e:Number(P.e||0), t:P.t||'' };
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /* only the two players the server names are ever framed */
@@ -66,6 +67,7 @@ function render(msg){
   document.getElementById('h').textContent='Caring for '+D.client_first;
   document.getElementById('who').textContent='For '+D.caregiver_first+' · Caring Companions';
   let h='';
+  if(PREVIEW) h+='<div class="new"><b>Preview.</b> This is exactly what caregivers see. Nothing here is recorded or sent.'+(D.ready?'':' <b>This packet is still a draft:</b> caregivers cannot open it until you tick Ready for caregivers.')+'</div>';
   if(D.earlier_ack&&!D.acknowledged) h+='<div class="new"><b>This packet was updated</b> since you last confirmed it. Please look it over again.</div>';
   if(D.about) h+='<div class="card"><h2>About '+esc(D.client_first)+'</h2><div class="notes">'+esc(D.about)+'</div></div>';
   (D.items||[]).forEach(it=>{
@@ -83,7 +85,7 @@ function render(msg){
     +'<div class="err" id="err">'+esc(msg||'')+'</div></div>';
   h+='<div class="note">This link is just for you. Please do not share it: it has private information about '+esc(D.client_first)+'.</div>';
   app.innerHTML=h;
-  const b=document.getElementById('bAck'); if(b) b.onclick=ack;
+  const b=document.getElementById('bAck'); if(b) b.onclick=PREVIEW?()=>{ const el=document.getElementById('err'); if(el) el.textContent='In the preview this button does nothing. For a caregiver, it records that they watched it.'; }:ack;
 }
 async function ack(){
   if(busy) return; busy=true; const b=document.getElementById('bAck'); if(b) b.disabled=true;
@@ -91,7 +93,13 @@ async function ack(){
   catch(e){ if(e.outcome==='changed'){ try{ D=await call('view'); }catch(x){} render(e.message); } else { const el=document.getElementById('err'); if(el) el.textContent=e.message; if(b) b.disabled=false; } }
   busy=false;
 }
-(async()=>{ try{ D=await call('view'); render(); }catch(e){ D=null; render(e.message); } })();
+/* Preview (2026-10-12): opened inside the Hub by the card's Preview button. Nothing is called and nothing recorded; the
+   Hub hands over the saved packet (same site only) and the button below does nothing. */
+if(PREVIEW){
+  document.getElementById('app').innerHTML='<div class="card">Waiting for the Hub…</div>';
+  window.addEventListener('message',ev=>{ if(ev.origin!==location.origin||!ev.data||!ev.data.cpkPreview) return; D=ev.data.cpkPreview; render(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&window.parent!==window) window.parent.postMessage({ cpkPreviewClose:1 }, location.origin); });
+} else (async()=>{ try{ D=await call('view'); render(); }catch(e){ D=null; render(e.message); } })();
 </script>
 </body>
 </html>

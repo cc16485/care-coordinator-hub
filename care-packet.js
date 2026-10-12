@@ -11,7 +11,7 @@
   'use strict';
   const esc = t => (typeof escapeHtmlComms === 'function' ? escapeHtmlComms(t) : String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]));
   const S = { box: null, packet: null, topics: [], recipients: [], draft: null, msg: '', err: '', busy: false, link: null, loadErr: '', send: null, up: null,
-    retired: [], canLib: false, sugg: null, lib: null };
+    retired: [], canLib: false, sugg: null };
   /* 2026-10-12 fix: the open client is a page-level const CP (index.html), NOT window.CP, so window.CP was always
      undefined and the card drew nothing for every client. Read the page-level one (same fix as window.CN). */
   const cp = () => { try { return (typeof CP !== 'undefined' && CP) || window.CP || null; } catch (e) { return window.CP || null; } };
@@ -70,9 +70,8 @@
     if (!who().ax && !who().lead_id) { box.innerHTML = ''; return; }
     let h = '<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
       + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🎬 Caregiver packet</b><span style="flex:1;"></span>'
-      + (S.packet && !S.lib ? '<span class="field-note">' + (S.packet.ready ? 'Ready' : 'Draft') + ' · version ' + esc(S.packet.version) + '</span>' : '')
-      + (S.canLib && !S.lib ? '<button class="linklike" id="cpk_lib_open">Manage the how-to library</button>' : '') + '</div>';
-    if (S.lib) { box.innerHTML = h + libHtml() + '</div>'; wireLib(); return; }
+      + (S.packet ? '<span class="field-note">' + (S.packet.ready ? 'Ready' : 'Draft') + ' · version ' + esc(S.packet.version) + '</span>' : '')
+      + '<button class="linklike" id="cpk_lib_open">Open the Care Library</button></div>';   /* the library lives in its own tab now (2026-10-12) */
     if (S.loadErr) { box.innerHTML = h + '<div class="field-note" style="color:#B91C1C;">Could not load the packet: ' + esc(S.loadErr) + '</div></div>'; return; }
     const d = S.draft;
     h += '<div class="field-note" style="margin-bottom:8px;">Videos and short notes for the caregivers who work with this client. Each caregiver gets their own link and taps "I watched it and understand". Health details stay behind the link, never in a text.</div>'
@@ -84,11 +83,17 @@
       + suggHtml();
     if (!S.topics.length) h += '<div class="field-note">The how-to library is empty. Samantha adds the approved topics and videos.</div>';
     const whyOf = k => { const x = S.sugg && (S.sugg.suggestions || []).find(y => y.topic === k); return x ? x.why : ''; };
-    S.topics.concat(S.retired.map(t => Object.assign({}, t, { _retired: true }))).forEach(t => {
+    /* grouped like the Care Library tab (2026-10-12), so a long library stays easy to scan */
+    const GRP = { moving: 'Moving and falls', personal: 'Personal care', eating: 'Eating and diets', conditions: 'Health conditions', signs: 'Warning signs and when to call', other: 'Other' }, ORD = Object.keys(GRP);
+    let lastG = null;
+    S.topics.concat(S.retired.map(t => Object.assign({}, t, { _retired: true })))
+      .sort((a, b) => (ORD.indexOf(a.category || 'other') - ORD.indexOf(b.category || 'other')) || String(a.title).localeCompare(String(b.title))).forEach(t => {
       const it = d.items.find(x => x.topic === t.key), n = (t.videos || []).length, why = whyOf(t.key);
       if (t._retired && !it) return;
+      const g = GRP[t.category] ? t.category : 'other';
+      if (g !== lastG) { lastG = g; h += '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin:10px 0 2px;">' + esc(GRP[g]) + '</div>'; }
       h += '<div style="border-top:1px solid var(--border);padding:7px 0;">'
-        + '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px;cursor:pointer;flex-wrap:wrap;"><input type="checkbox" data-cpk-topic="' + esc(t.key) + '"' + (it ? ' checked' : '') + '> <b>' + esc(t.title) + '</b>'
+        + '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px;cursor:pointer;flex-wrap:wrap;"><input type="checkbox" style="width:auto;margin:0;flex:none;" data-cpk-topic="' + esc(t.key) + '"' + (it ? ' checked' : '') + '> <b>' + esc(t.title) + '</b>'
         + '<span class="field-note">' + n + ' video' + (n === 1 ? '' : 's') + '</span>'
         + (t._retired ? '<span class="field-note" style="color:#92400E;">retired from the library (kept here; untick to remove)</span>' : '')
         + (why ? '<span class="field-note" style="color:#1E4FB8;">✨ suggested: ' + esc(why) + '</span>' : '') + '</label>'
@@ -96,9 +101,10 @@
               + '<div class="field-note">Starts with the library\'s notes. Change them for this client.</div>' : '')
         + '</div>';
     });
-    h += '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13.5px;cursor:pointer;"><input type="checkbox" id="cpk_ready"' + (d.ready ? ' checked' : '') + '> Ready for caregivers</label>'
+    h += '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13.5px;cursor:pointer;"><input type="checkbox" style="width:auto;margin:0;flex:none;" id="cpk_ready"' + (d.ready ? ' checked' : '') + '> Ready for caregivers</label>'
       + (S.packet && S.packet.ready && S.recipients.length ? '<div class="field-note">Changing the words or topics makes a new version, and everyone confirms again.</div>' : '')
-      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;"><button id="cpk_save"' + (S.busy ? ' disabled' : '') + '>Save packet</button>'
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;"><button class="primary" id="cpk_save"' + (S.busy ? ' disabled' : '') + '>Save packet</button>'
+      + (S.packet ? '<button class="secondary" id="cpk_preview"' + (S.busy || dirty() ? ' disabled title="Save first, then preview"' : '') + '>👀 Preview what caregivers see</button>' : '')
       + (dirty() ? '<span class="field-note" style="color:#92400E;">changed, not saved</span>' : '')
       + (S.msg && !/^Sent|already went/.test(S.msg) ? '<span class="field-note" style="color:#166534;">' + esc(S.msg) + '</span>' : '') + '</div>'
       + (S.err ? '<div class="field-note" style="color:#B91C1C;margin-top:6px;">' + esc(S.err) + '</div>' : '');
@@ -108,7 +114,7 @@
       h += '<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;"><b style="font-size:13.5px;color:var(--navy);">Caregivers</b>'
         + '<div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;"><select id="cpk_cg" style="max-width:280px;"><option value="">Pick a caregiver…</option>'
         + cgs.map(c => '<option value="' + esc(c.axiscare_id) + '">' + esc(((c.first || '') + ' ' + (c.last || '')).trim()) + '</option>').join('') + '</select>'
-        + '<button id="cpk_text"' + (S.busy || dirty() ? ' disabled' : '') + '>Text the packet</button>'
+        + '<button class="primary" id="cpk_text"' + (S.busy || dirty() ? ' disabled' : '') + '>Text the packet</button>'
         + '<button class="secondary" id="cpk_link"' + (S.busy || dirty() ? ' disabled' : '') + '>Get their link</button></div>'
         + sendPanel()
         + (dirty() ? '<div class="field-note">Save the packet first.</div>' : '')
@@ -152,7 +158,7 @@
       + (d.opted_out ? '<div class="field-note" style="color:#B91C1C;font-weight:700;">' + esc(d.caregiver_first) + ' has asked not to get texts. Call them instead.</div>' : '')
       + (!d.phone_last4 ? '<div class="field-note" style="color:#B91C1C;font-weight:700;">No usable phone number on the roster for ' + esc(d.caregiver_first) + '.</div>' : '')
       + (d.late && !blocked ? '<div class="field-note" style="color:#92400E;">It is before 8am or after 8pm. Send now only if it can\'t wait.</div>' : '')
-      + '<div style="display:flex;gap:8px;margin-top:8px;"><button id="cpk_send"' + (blocked || S.busy ? ' disabled' : '') + '>Send</button><button class="secondary" id="cpk_cancel">Cancel</button></div></div>';
+      + '<div style="display:flex;gap:8px;margin-top:8px;"><button class="primary" id="cpk_send"' + (blocked || S.busy ? ' disabled' : '') + '>Send</button><button class="secondary" id="cpk_cancel">Cancel</button></div></div>';
   }
   async function openSend(axId){
     if (!axId) { S.sendErr = 'Pick a caregiver first.'; render(); return; }
@@ -198,103 +204,6 @@
     render();
   }
 
-  /* ── The how-to library editor (owner only; the server checks too). Add a topic, change its default notes and
-     videos (each previewed right here before saving), or retire it. Retired: not offered for new packets; packets
-     that already have it keep it. ── */
-  const slug = t => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
-  function embedOf(url){
-    try { const u = new URL(url), h = u.hostname.replace(/^www\.|^m\./, '');
-      let y = h === 'youtu.be' ? u.pathname.slice(1) : (h === 'youtube.com' ? (u.pathname === '/watch' ? u.searchParams.get('v') : ((u.pathname.match(/^\/(?:embed|shorts|live)\/([^/]+)/) || [])[1])) : '');
-      if (/^[A-Za-z0-9_-]{11}$/.test(y || '')) return 'https://www.youtube-nocookie.com/embed/' + y + '?rel=0';
-      const v = h === 'vimeo.com' ? (u.pathname.match(/^\/(\d{6,12})\/?$/) || [])[1] : '';
-      return v ? 'https://player.vimeo.com/video/' + v + '?dnt=1' : null;
-    } catch (e) { return null; }
-  }
-  async function openLib(){
-    S.lib = { loading: true }; render();
-    try { const d = await call({ action: 'library' }); S.lib = { list: d.library || [], edit: null, msg: '', err: '' }; }
-    catch (e) { S.lib = { list: [], edit: null, err: e.message }; }
-    render();
-  }
-  function libHtml(){
-    const L = S.lib;
-    let h = '<div style="display:flex;align-items:center;gap:8px;margin:2px 0 8px;"><b style="font-size:14px;">How-to library</b><span style="flex:1;"></span><button class="secondary" id="cpk_lib_close">Back to the packet</button></div>';
-    if (L.loading) return h + '<div class="field-note">Loading the library…</div>';
-    if (L.err) h += '<div class="field-note" style="color:#B91C1C;margin-bottom:6px;">' + esc(L.err) + '</div>';
-    if (L.msg) h += '<div class="field-note" style="color:#166534;margin-bottom:6px;">' + esc(L.msg) + '</div>';
-    if (L.edit) return h + editHtml(L.edit);
-    h += '<div class="field-note" style="margin-bottom:6px;">The topics every client\'s packet can use. A topic\'s notes are the starting point; each packet can change them for that client.</div>'
-      + '<button id="cpk_lib_add">＋ Add a topic</button>';
-    (L.list || []).forEach(t => {
-      h += '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;margin-top:6px;">'
-        + '<b' + (t.active === false ? ' style="color:var(--gray);"' : '') + '>' + esc(t.title) + '</b><span class="field-note">' + (t.videos || []).length + ' video' + ((t.videos || []).length === 1 ? '' : 's') + '</span>'
-        + (t.active === false ? '<span class="field-note" style="color:#92400E;">retired</span>' : '')
-        + (t.updated_by ? '<span class="field-note">changed by ' + esc(String(t.updated_by).split('@')[0]) + ' ' + esc(day(t.updated_at)) + '</span>' : '')
-        + '<span style="flex:1;"></span><button class="linklike" data-cpk-lib-edit="' + esc(t.key) + '">Edit</button></div>';
-    });
-    return h;
-  }
-  function editHtml(e){
-    let h = '<div style="padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);">'
-      + '<b style="font-size:13.5px;">' + (e.is_new ? 'New topic' : 'Edit topic') + '</b>'
-      + '<label style="font-size:12.5px;font-weight:700;display:block;margin-top:6px;">Title (what caregivers see)</label><input id="cpk_t_title" maxlength="80" value="' + esc(e.title) + '">'
-      + '<label style="font-size:12.5px;font-weight:700;display:block;margin-top:8px;">Default notes</label><textarea id="cpk_t_notes" rows="6" maxlength="2000">' + esc(e.notes) + '</textarea>'
-      + '<div style="font-size:12.5px;font-weight:700;margin-top:8px;">Videos and documents</div>';
-    e.videos.forEach((v, i) => {
-      h += '<div style="border-top:1px solid var(--border);padding:8px 0;">'
-        + '<input data-cpk-v="' + i + '" data-f="title" maxlength="120" placeholder="Title" value="' + esc(v.title) + '">'
-        + '<input data-cpk-v="' + i + '" data-f="url" placeholder="Link (YouTube, Vimeo, or a web page)" value="' + esc(v.url) + '" style="margin-top:4px;">'
-        + '<div style="display:flex;gap:6px;margin-top:4px;"><input data-cpk-v="' + i + '" data-f="publisher" maxlength="80" placeholder="Who made it" value="' + esc(v.publisher || '') + '">'
-        + '<input data-cpk-v="' + i + '" data-f="minutes" placeholder="Minutes" value="' + esc(v.minutes || '') + '" style="max-width:90px;"></div>'
-        + '<div data-cpk-prev="' + i + '">' + previewHtml(v) + '</div>'
-        + '<button class="linklike" data-cpk-v-del="' + i + '" style="margin-top:4px;">Remove this one</button></div>';
-    });
-    h += '<button class="secondary" id="cpk_v_add" style="margin-top:6px;">＋ Add a video or document</button>'
-      + (!e.is_new ? '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;"><input type="checkbox" id="cpk_t_retired"' + (e.active === false ? ' checked' : '') + '> Retired (not offered for new packets; packets that have it keep it)</label>' : '')
-      + '<div style="display:flex;gap:8px;margin-top:10px;"><button id="cpk_t_save"' + (S.busy ? ' disabled' : '') + '>Save topic</button><button class="secondary" id="cpk_t_cancel">Cancel</button></div>'
-      + '<div class="field-note" style="margin-top:6px;">Saving changes the library for new packets. Packets already written keep their own notes; the videos update everywhere.</div></div>';
-    return h;
-  }
-  /* the preview under one video, redrawn in place as the link changes (never the whole form, so a click is never lost) */
-  function previewHtml(v){
-    const emb = embedOf(v.url);
-    if (emb) return '<div style="position:relative;width:100%;max-width:420px;padding-top:min(56.25%,236px);margin-top:6px;border-radius:8px;overflow:hidden;background:#000;"><iframe src="' + esc(emb) + '" title="' + esc(v.title) + '" style="position:absolute;inset:0;width:100%;height:100%;border:0;" allow="fullscreen; picture-in-picture" allowfullscreen></iframe></div><div class="field-note">Plays on the caregiver\'s page like this. Watch it before you save.</div>';
-    return v.url ? '<div class="field-note">Not a YouTube or Vimeo link, so caregivers get an "Open it" button. <a href="' + esc(/^https:\/\//.test(v.url) ? v.url : '#') + '" target="_blank" rel="noopener noreferrer">Check the link</a></div>' : '';
-  }
-  function keepEdit(){
-    const e = S.lib && S.lib.edit; if (!e) return;
-    const $ = id => document.getElementById(id);
-    if ($('cpk_t_title')) e.title = $('cpk_t_title').value; if ($('cpk_t_notes')) e.notes = $('cpk_t_notes').value;
-    if ($('cpk_t_retired')) e.active = !$('cpk_t_retired').checked;
-    document.querySelectorAll('[data-cpk-v]').forEach(el => { const v = e.videos[+el.getAttribute('data-cpk-v')]; if (v) v[el.getAttribute('data-f')] = el.value; });
-  }
-  function wireLib(){
-    const $ = id => document.getElementById(id), L = S.lib;
-    /* back to the packet: the library is read again, and the packet edits not saved yet are kept (minus any topic just retired) */
-    const cl = $('cpk_lib_close'); if (cl) cl.onclick = async () => { const keepDraft = S.draft; S.lib = null; await load();
-      if (keepDraft) { const ok = new Set(S.topics.concat(S.retired).map(t => t.key)); keepDraft.items = keepDraft.items.filter(it => ok.has(it.topic)); S.draft = keepDraft; }
-      render(); };
-    const ad = $('cpk_lib_add'); if (ad) ad.onclick = () => { L.msg = ''; L.err = ''; L.edit = { is_new: true, title: '', notes: '', videos: [], active: true }; render(); };
-    document.querySelectorAll('[data-cpk-lib-edit]').forEach(el => { el.onclick = () => { const t = L.list.find(x => x.key === el.getAttribute('data-cpk-lib-edit')); if (!t) return;
-      L.msg = ''; L.err = ''; L.edit = { is_new: false, key: t.key, title: t.title, notes: t.notes || '', active: t.active !== false, videos: (t.videos || []).map(v => Object.assign({}, v, { minutes: v.minutes == null ? '' : String(v.minutes) })) }; render(); }; });
-    document.querySelectorAll('[data-cpk-v][data-f="url"]').forEach(el => { el.onchange = () => { keepEdit(); const i = el.getAttribute('data-cpk-v'), box = document.querySelector('[data-cpk-prev="' + i + '"]'), v = L.edit.videos[+i];
-      if (box && v && box.getAttribute('data-url') !== v.url) { box.setAttribute('data-url', v.url); box.innerHTML = previewHtml(v); } }; });
-    const va = $('cpk_v_add'); if (va) va.onclick = () => { keepEdit(); L.edit.videos.push({ title: '', url: '', publisher: '', minutes: '' }); render(); };
-    document.querySelectorAll('[data-cpk-v-del]').forEach(el => { el.onclick = () => { keepEdit(); L.edit.videos.splice(+el.getAttribute('data-cpk-v-del'), 1); render(); }; });
-    const cn = $('cpk_t_cancel'); if (cn) cn.onclick = () => { L.edit = null; L.err = ''; render(); };
-    const sv = $('cpk_t_save'); if (sv) sv.onclick = async () => {
-      keepEdit(); const e = L.edit; L.err = '';
-      const key = e.is_new ? slug(e.title) : e.key;
-      if (!String(e.title).trim()) { L.err = 'The topic needs a title.'; render(); return; }
-      if (!/^[a-z0-9_]{2,40}$/.test(key)) { L.err = 'Use a title with at least two letters.'; render(); return; }
-      const videos = e.videos.filter(v => String(v.title).trim() || String(v.url).trim()).map(v => ({ title: String(v.title).trim(), url: String(v.url).trim(), publisher: String(v.publisher || '').trim(), minutes: String(v.minutes || '').trim() ? Number(v.minutes) : null }));
-      S.busy = true; render();
-      try { const d = await call({ action: 'topic_save', key, title: e.title, notes: e.notes, videos, active: e.active !== false, is_new: !!e.is_new });
-        L.list = d.library || L.list; S.topics = d.topics || S.topics; L.edit = null; L.msg = 'Saved "' + String(e.title).trim() + '".'; }
-      catch (x) { L.err = x.message; }
-      S.busy = false; render();
-    };
-  }
   function wire(){
     const $ = id => document.getElementById(id);
     const keep = () => { const d = S.draft; d.client_first = ($('cpk_first') || {}).value || ''; d.about = ($('cpk_about') || {}).value || '';
@@ -308,8 +217,9 @@
       else S.draft.items = S.draft.items.filter(x => x.topic !== k);
       S.msg = ''; render(); }; });
     const sv = $('cpk_save'); if (sv) sv.onclick = () => { keep(); save(); };
+    const pv = $('cpk_preview'); if (pv) pv.onclick = preview;
     const sg = $('cpk_suggest'); if (sg) sg.onclick = () => { keep(); suggest(); };
-    const lo = $('cpk_lib_open'); if (lo) lo.onclick = () => { keep(); openLib(); };
+    const lo = $('cpk_lib_open'); if (lo) lo.onclick = () => { keep(); if (typeof switchTab === 'function') switchTab('carelibrary'); };
     const lk = $('cpk_link'); if (lk) lk.onclick = () => { S.send = null; makeLink(($('cpk_cg') || {}).value || ''); };
     const tx = $('cpk_text'); if (tx) tx.onclick = () => openSend(($('cpk_cg') || {}).value || '');
     document.querySelectorAll('[data-cpk-send]').forEach(el => { el.onclick = () => openSend(el.getAttribute('data-cpk-send')); });
@@ -323,7 +233,7 @@
     const sv = document.getElementById('cpk_save'); if (!sv) return;
     const hint = sv.parentNode.querySelector('.field-note[style*="92400E"]');
     if (dirty() && !hint) sv.insertAdjacentHTML('afterend', '<span class="field-note" style="color:#92400E;">changed, not saved</span>');
-    ['cpk_link', 'cpk_text', 'cpk_send'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = S.busy || dirty(); });
+    ['cpk_link', 'cpk_text', 'cpk_send', 'cpk_preview'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = S.busy || dirty(); });
     document.querySelectorAll('[data-cpk-send]').forEach(el => { el.disabled = S.busy || dirty(); });
   }
   async function save(){
@@ -335,6 +245,30 @@
     } catch (e) { S.err = e.message; }
     S.busy = false; render();
   }
+  /* Preview (Samantha "i want to see the caregiver packet link before i send it", 2026-10-12): the caregiver's own page
+     (packet.html) in a phone-sized window, showing the SAVED packet. Makes no link, records nothing, texts nobody;
+     its "I watched it" button does nothing. The page gets the packet by postMessage from here (same site only), so it
+     works inside GoHighLevel too. */
+  async function preview(){
+    if (S.busy || !S.packet || dirty()) return; S.err = '';
+    let d; try { d = await call({ action: 'preview', packet_id: S.packet.id }); } catch (e) { S.err = 'Could not open the preview: ' + e.message; render(); return; }
+    const old = document.getElementById('cpk_pv'); if (old) old.remove();
+    const ov = document.createElement('div'); ov.id = 'cpk_pv';
+    ov.setAttribute('style', 'position:fixed;inset:0;background:rgba(14,56,96,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px;');
+    ov.innerHTML = '<div style="background:#fff;border-radius:14px;width:min(420px,100%);height:min(860px,94vh);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3);">'
+      + '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);"><b style="font-size:14px;color:var(--navy);">What caregivers see on their phone</b><span style="flex:1;"></span>'
+      + '<button class="secondary" id="cpk_pv_close">Close</button></div>'
+      + '<iframe id="cpk_pv_f" src="packet.html?preview=1" title="Caregiver packet preview" style="border:0;flex:1;width:100%;"></iframe></div>';
+    document.body.appendChild(ov);
+    const close = () => { ov.remove(); document.removeEventListener('keydown', esc1); window.removeEventListener('message', msg1); };
+    const esc1 = e => { if (e.key === 'Escape') close(); };
+    const msg1 = e => { if (e.origin === location.origin && e.data && e.data.cpkPreviewClose) close(); };   // Escape pressed inside the preview
+    document.addEventListener('keydown', esc1); window.addEventListener('message', msg1);
+    ov.onclick = e => { if (e.target === ov) close(); };
+    document.getElementById('cpk_pv_close').onclick = close;
+    const f = document.getElementById('cpk_pv_f');
+    f.onload = () => { try { f.contentWindow.postMessage({ cpkPreview: d }, location.origin); } catch (e) { /* the page says it is waiting */ } };
+  }
   async function makeLink(axId){
     if (!axId) { S.sendErr = 'Pick a caregiver first.'; render(); return; }
     if (S.busy) return; S.busy = true; S.sendErr = ''; S.link = null; render();
@@ -342,5 +276,5 @@
     catch (e) { S.sendErr = e.message; }
     S.busy = false; render();
   }
-  window.CPK = { mount: async function(id){ S.box = document.getElementById(id); if (!S.box) return; S.packet = null; S.msg = ''; S.err = ''; S.sendErr = ''; S.sugg = null; S.lib = null; S.box.innerHTML = '<div class="field-note">Loading the caregiver packet…</div>'; S.up = null; await load(); render(); loadUpcoming(); } };
+  window.CPK = { mount: async function(id){ S.box = document.getElementById(id); if (!S.box) return; S.packet = null; S.msg = ''; S.err = ''; S.sendErr = ''; S.sugg = null; S.box.innerHTML = '<div class="field-note">Loading the caregiver packet…</div>'; S.up = null; await load(); render(); loadUpcoming(); } };
 })();
