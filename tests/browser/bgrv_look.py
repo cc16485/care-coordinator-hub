@@ -1,4 +1,4 @@
-"""446 · Background review ("Something came up"), the Hub side: the real page and the real engine, offline, FAKE
+"""446 · Background review (ONE STEP since 2026-10-11), the Hub side: the real page and the real engine, offline, FAKE
 candidates only. The server is answered here by a stand-in that returns the exact words the real server code makes
 (bgrv_words.mjs). Nothing reaches production; nothing is sent."""
 import json, subprocess, os
@@ -42,6 +42,8 @@ async([W, CODE])=>{
   const finalWords=rv=>({ decision:W.final.decision, waiver:W.final.waiver, edl:W.final.edl, oig:W.final.oig })[({fcsr:{waiver_needed:'waiver',no_waiver:'decision',cannot_employ:'edl'},fp:{waiver_needed:'waiver',no_waiver:'decision'},edl:{cannot_employ:'edl'},oig:{cannot_employ:'oig'}})[rv.check_key][rv.result]];
   sb.functions.invoke=async(name,o)=>{ if(name!=='bg-review') throw new Error('unexpected function '+name); const b=o.body; __calls.push(JSON.parse(JSON.stringify(b)));
     const H_=(rv,what)=>{ rv.history=(rv.history||[]).concat([{ at:new Date().toISOString(), by:'Krystal', what }]); };
+    if(b.action==='disclosed') return { data: b.candidate_id==='901' ? { ok:true, step1:true, disclosure:{ asked:true, convicted:'yes', convictions:[{ offense:'DWI', date:'2013', level:'Misdemeanor', location:'Greene County' }], moving_violations:'no', license_suspended:'no' } }
+      : b.candidate_id==='904' ? { ok:true, step1:true, disclosure:{ asked:true, convicted:'no', convictions:[] } } : { ok:true, step1:false, disclosure:{ asked:false, convictions:[] } }, error:null };
     if(b.action==='preview' && !b.id) return { data:{ ok:true, words:W1, phone:true, email:true }, error:null };
     if(b.action==='open'){ const ex=rows.find(r=>r.candidate_id===b.candidate_id&&r.check_key===b.check&&['open','waiting_waiver'].includes(r.status)); if(ex) return { data:{ ok:true, id:ex.id, already_open:true }, error:null };
       const rv={ id:'00000000-0000-4000-8000-'+String(++n).padStart(12,'0'), candidate_id:b.candidate_id, check_key:b.check, status:'open', result:'review', opened_at:new Date().toISOString(), opened_by:'Krystal', history:[] };
@@ -53,7 +55,9 @@ async([W, CODE])=>{
     if(b.action==='spoke'){ Object.assign(rv,{ spoke_at:new Date().toISOString(), spoke_by:'Krystal' }); H_(rv,'Spoke'); return { data:{ ok:true }, error:null }; }
     if(b.action==='result'){ Object.assign(rv,{ result:b.result, decision_reason:b.reason||null, result_by:'Krystal' }); H_(rv,'Result '+b.result); return { data:{ ok:true }, error:null }; }
     if(b.action==='note'){ rv.note=b.note; H_(rv,'Office note'); return { data:{ ok:true }, error:null }; }
-    if(b.action==='waiver'){ if(b.step==='wait') Object.assign(rv,{ status:'waiting_waiver', waiver_wait_at:new Date().toISOString() }); return { data:{ ok:true }, error:null }; }
+    if(b.action==='waiver'){ if(b.step==='wait') Object.assign(rv,{ status:'waiting_waiver', waiver_wait_at:new Date().toISOString() });
+      if(b.step==='approved'){ Object.assign(rv,{ status:'open', result:'no_waiver', waiver_outcome:'approved', waiver_proof:b.proof }); return { data:{ ok:true, cleared:false, decide:true }, error:null }; }
+      if(b.step==='denied') Object.assign(rv,{ status:'open', waiver_outcome:'denied' }); return { data:{ ok:true }, error:null }; }
     if(b.action==='clear'){ Object.assign(rv,{ status:'cleared', cleared_why:b.why, cleared_at:new Date().toISOString(), cleared_by:'Krystal' }); H_(rv,'Cleared'); return { data:{ ok:true, cleared:true, check:rv.check_key, set_to:BGRV_CHECKS[rv.check_key].clear }, error:null }; }
     if(b.action==='final'){ if(bgrvGate(rv)) return { data:{ error:bgrvGate(rv) }, error:null }; Object.assign(rv,{ status:'not_hired', final_at:new Date().toISOString(), final_by:'Krystal', final_how:'text and email', final_variant:'x' }); H_(rv,'Final notice'); return { data:{ ok:true, texted:true, emailed:true, not_hired:true, not_sent:[] }, error:null }; }
     return { data:{ error:'unknown' }, error:null }; };
@@ -65,28 +69,30 @@ async([W, CODE])=>{
   await bgrvLoad(true);
 
   /* when the button appears */
-  ok('"Something came up" appears for a flagged check (FCSR Issues Found); not for someone all clear; not for someone marked Not hired', bgrvNeedsButton(C(901)) && !bgrvNeedsButton(C(902)) && !bgrvNeedsButton(C(903)) && btns(901).some(b=>b.t==='🛡 Something came up') && btns(902).length===0);
+  ok('"Background review" appears for a flagged check (FCSR Issues Found); not for someone all clear; not for someone marked Not hired', bgrvNeedsButton(C(901)) && !bgrvNeedsButton(C(902)) && !bgrvNeedsButton(C(903)) && btns(901).some(b=>b.t==='🛡 Background review') && btns(902).length===0);
   ok('...and for OIG FLAGGED, EDL Issues Found and fingerprints Issues Found', [904,905,906].every(id=>bgrvNeedsButton(C(id))));
-  ok('nothing was asked of the server and nothing sent just by showing it', __calls.length===0);
+  const acts=()=>__calls.filter(c=>c.action!=='disclosed');   // reading what they disclosed is read only
+  ok('nothing was asked of the server (beyond reading what they disclosed) and nothing sent just by showing it', acts().length===0);
 
-  /* Step 1: Cancel */
+  /* ONE STEP (2026-10-11): opening the review sends nothing; there is no "Something came up" and no response period */
   yes=false; await bgrvStart(901,'fcsr');
-  ok('Something came up, Cancel: the exact text and email are shown first; the review opens; NOTHING is sent', __conf[0].includes(W1.text) && __conf[0].includes('About your background screening') && /OK sends it\. Cancel opens the review WITHOUT sending/.test(__conf[0]) && __calls.map(c=>c.action).join()==='preview,open', [__calls, __conf[0]]);
-  ok('...the text shown never names the check; the email names it with no details', !/FCSR|Registry/.test(W1.text) && __conf[0].includes('Missouri Family Care Safety Registry screening'));
-  ok('...the review starts at "Needs review", not told yet; final notice not available (and says why)', /FCSR · Needs review/.test(panel(901).innerText) && /Not told yet/.test(panel(901).innerText) && btns(901).find(b=>b.t==='Send the final notice').dis && /Something came up" first/.test(btns(901).find(b=>b.t==='Send the final notice').title));
+  ok('Background review, Cancel: nothing opened, nothing asked of the server', acts().length===0 && /Nothing is sent/.test(__conf[0]), [__calls, __conf]);
+  yes=true; __conf=[]; await bgrvStart(901,'fcsr');
+  ok('Background review, OK: the review opens; NO message is shown or sent (no preview, no step1)', acts().map(c=>c.action).join()==='open' && !__conf[0].includes(W1.text), [__calls, __conf[0]]);
+  ok('...the review starts at "Needs review" and says to read and pick the result; the notice is not available yet (and says why)', /FCSR · Needs review/.test(panel(901).innerText) && /Read the result, then pick it below/.test(panel(901).innerText) && btns(901).find(b=>b.t==='Send the notice').dis && /Pick the review result first/.test(btns(901).find(b=>b.t==='Send the notice').title), btns(901));
+  ok('...no "Something came up" or "Told them by phone" buttons anywhere', !btns(901).some(b=>/Something came up|Told them/.test(b.t)));
   ok('the candidate is untouched: still Issues Found, not marked Not hired, no save', C(901).fcsr==='Issues Found' && !C(901).not_hired && saves===0);
-
-  /* Step 1: OK */
-  const id1=rows[0].id; yes=true; __calls=[]; __conf=[];
-  await bgrvAct(id1,901,'step1');
-  ok('Send "Something came up" (OK): preview, then the send; the office is told it went', __calls.map(c=>c.action).join()==='preview,step1' && /Sent by text and email/.test(__alerts.at(-1)), __calls);
-  ok('...the panel shows when and how, and the Applicant response due date', /Told them .* by text and email/.test(panel(901).innerText) && /Response due Mon, Oct 12/.test(panel(901).innerText), panel(901).innerText);
-  ok('...the table chip shows the response due date', /FCSR: response due Mon, Oct 12/.test(bgrvChip(C(901))), bgrvChip(C(901)));
-
-  /* the due date passing does nothing by itself */
-  rows[0].due_date='2026-01-05'; __calls=[]; await bgrvLoad(true); bgrvPanelHtml(C(901)); bgrvChip(C(901));
-  ok('the response due date passing sends nothing, decides nothing, marks nobody Not hired (the page only shows "(passed)")', __calls.length===0 && /\(passed\)/.test(panel(901).innerText) && !C(901).not_hired && rows[0].status==='open' && rows[0].result==='review');
-  ok('...the final notice is still not available while "Needs review"', btns(901).find(b=>b.t==='Send the final notice').dis && /Pick the review result first/.test(btns(901).find(b=>b.t==='Send the final notice').title));
+  const id1=rows[0].id;
+  /* what they disclosed on Step 1 */
+  await sleep(50);
+  ok('what they told us on Step 1 shows on the review: the DWI they disclosed, row by row', /What they told us on Step 1/.test(panel(901).innerText) && /Yes, they disclosed a conviction/.test(panel(901).innerText) && /DWI · 2013 · Misdemeanor · Greene County/.test(panel(901).innerText), panel(901).innerText);
+  await bgrvStart(904,'oig'); panel(904); await sleep(80);
+  ok('...someone who answered No says so', /They answered No to convictions/.test(panel(904).innerText), panel(904).innerText);
+  ok('...asking for it sends nothing (read only)', !__calls.some(c=>['step1','told','final'].includes(c.action)));
+  /* a review told under the old two steps still shows what went */
+  rows[0].step1_at='2026-10-05T15:00:00Z'; rows[0].step1_how='text and email'; await bgrvLoad(true);
+  ok('a review from before the change still shows its "Something came up" (marked as before the change)', /"Something came up" sent .* \(before the one-step change\)/.test(panel(901).innerText), panel(901).innerText);
+  delete rows[0].step1_at; delete rows[0].step1_how; await bgrvLoad(true);
 
   /* the results offered per check */
   const resultBtns=id=>btns(id).map(b=>b.t).filter(t=>/Waiver needed|No waiver needed|Can't be employed/.test(t));
@@ -95,7 +101,7 @@ async([W, CODE])=>{
   /* No waiver needed: neither clears nor rejects */
   __calls=[]; await bgrvAct(id1,901,'result','no_waiver');
   ok('"No waiver needed": recorded only; nothing sent; not cleared, not rejected; the candidate untouched', __calls.map(c=>c.action).join()==='result' && !('reason' in __calls[0] && __calls[0].reason) && rows[0].status==='open' && C(901).fcsr==='Issues Found' && !C(901).not_hired, __calls);
-  ok('...the choices are "They\'re cleared…" or "Not hiring…" (no plain "Send the final notice")', btns(901).some(b=>b.t==="They're cleared…") && btns(901).some(b=>b.t==='Not hiring…' && !b.dis) && !btns(901).some(b=>b.t==='Send the final notice'), btns(901));
+  ok('...the choices are "They\'re cleared…" or "Not hiring…" (no plain "Send the notice")', btns(901).some(b=>b.t==="They're cleared…") && btns(901).some(b=>b.t==='Not hiring…' && !b.dis) && !btns(901).some(b=>b.t==='Send the notice'), btns(901));
 
   /* Not hiring: a private reason first */
   __calls=[]; promptAns=null; await bgrvAct(id1,901,'nothire');
@@ -106,11 +112,12 @@ async([W, CODE])=>{
   ok('Not hiring with a reason: the reason is saved (private), then the EXACT final message is shown; Cancel sends nothing', __calls.map(c=>c.action).join()==='result,preview' && __calls[0].reason==='Not available for the hours we need'
      && __conf[0].includes(W.final.decision.text) && __conf[0].includes('Your application with Caring Companions') && !__conf[0].includes('hours we need') && rows[0].status==='open' && !C(901).not_hired, [__calls, __conf]);
   yes=true; __calls=[]; await bgrvAct(id1,901,'final');
-  ok('...OK sends it; only then are they marked Not hired (Background check issue)', __calls.map(c=>c.action).join()==='preview,final' && C(901).not_hired===true && C(901).not_hired_reason==='background' && /Final notice sent after the background review \(FCSR\)/.test(C(901).not_hired_notes) && saves===1, C(901));
-  ok('...the closed review shows who sent the final notice and when; history kept', /Final notice .* by Krystal/.test(panel(901).innerText) && rows[0].history.length>=5, panel(901).innerText);
+  ok('...OK sends it; only then are they marked Not hired (Background check issue)', __calls.map(c=>c.action).join()==='preview,final' && C(901).not_hired===true && C(901).not_hired_reason==='background' && /Notice sent after the background review \(FCSR\)/.test(C(901).not_hired_notes) && saves===1, C(901));
+  ok('...the closed review shows who sent the notice and when; history kept', /Notice .* by Krystal/.test(panel(901).innerText) && rows[0].history.length>=4, panel(901).innerText);
+  ok('one step: "Something came up" was never sent, at any point', !__calls.some(c=>c.action==='step1'||c.action==='told'));
 
-  /* OIG: confirmed exclusion → can't be employed; or not them → cleared, and hiring continues */
-  yes=true; await bgrvStart(904,'oig'); const idO=rows.find(r=>r.check_key==='oig').id;
+  /* OIG: confirmed exclusion → can't be employed; or not them → cleared, and hiring continues (opened above) */
+  yes=true; const idO=rows.find(r=>r.check_key==='oig').id;
   ok('OIG results: only "Can\'t be employed" (no waiver)', JSON.stringify(resultBtns(904))===JSON.stringify(["Can't be employed"]) && !btns(904).some(b=>/Waiver/.test(b.t)), resultBtns(904));
   __calls=[]; const before=obDeriveStatus(C(904));
   const pick=bgrvAct(idO,904,'clear'); await sleep(80);
@@ -133,8 +140,10 @@ async([W, CODE])=>{
   ok('Fingerprint results: Waiver needed, No waiver needed (never "can\'t be employed")', JSON.stringify(resultBtns(906))===JSON.stringify(['Waiver needed','No waiver needed']), resultBtns(906));
   await bgrvAct(idF,906,'result','waiver_needed');
   ok('Waiver needed: "Waiting on their waiver" and "Waiver approved…" offered', btns(906).some(b=>b.t==='Waiting on their waiver') && btns(906).some(b=>b.t==='Waiver approved…'));
+  ok('...and a waiver never obliges us to hire: "Send the waiver notice" AND "Not hiring…" are both offered', btns(906).some(b=>b.t==='Send the waiver notice') && btns(906).some(b=>b.t==='Not hiring…' && !b.dis), btns(906));
+  ok('...someone with no Step 1 on file: "Not asked on Step 1", check the interview notes', /Not asked on Step 1/.test(panel(906).innerText), panel(906).innerText);
   await bgrvAct(idF,906,'waiver','wait'); rows.find(r=>r.id===idF).due_date='2026-01-05'; await bgrvLoad(true);
-  ok('Waiting on their waiver: held (not hired, not working), "Waiver denied" offered, final notice not available', /Waiting on their Good Cause Waiver since/.test(panel(906).innerText) && btns(906).some(b=>b.t==='Waiver denied') && btns(906).find(b=>b.t==='Send the final notice').dis && !C(906).not_hired, btns(906));
+  ok('Waiting on their waiver: held (not hired, not working), "Waiver denied" offered, the notice not available', /Waiting on their Good Cause Waiver since/.test(panel(906).innerText) && btns(906).some(b=>b.t==='Waiver denied') && btns(906).find(b=>b.t==='Send the waiver notice').dis && !C(906).not_hired, btns(906));
 
   /* notes, records */
   promptAns='Left a voicemail'; await bgrvAct(idF,906,'note');
