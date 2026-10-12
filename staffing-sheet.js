@@ -141,7 +141,7 @@
     else if(SS.pool){ const f = R().review(conf, R().sheet(SS.pool, ctx()), todayYmd()).flags.length; if(f) out.push(rowFn('var(--gold)', 'i-calendar', 'Staffing sheet: ' + f + ' changed since confirmed', 'Re-check and confirm again', 'STAFFING', 'var(--gold-text)', 'var(--amber-bg)', '', 'Open', "ssGo()")); }
     return out;
   }
-  function go(){ try{ if(typeof switchTab === 'function') switchTab('hourswatch'); if(typeof swSubGo === 'function') swSubGo('hours'); }catch(e){} setTimeout(() => { const el = document.getElementById('ssRoot'); if(el) el.scrollIntoView(); load(); }, 200); }
+  function go(){ try{ if(typeof swSubGo === 'function') swSubGo('hours'); }catch(e){} setTimeout(() => { const el = document.getElementById('ssRoot'); if(el) el.scrollIntoView(); load(); }, 200); }
 
   if(!document.getElementById('ssCss')){ const s = document.createElement('style'); s.id = 'ssCss'; s.textContent = [
     '.ss-card{padding:14px 16px;margin-bottom:16px}.ss-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.ss-head b{color:var(--navy);font-size:15px}',
