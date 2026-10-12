@@ -42,7 +42,7 @@
   const val = k => (k in S.draft) ? S.draft[k] : curVal(k);
   function intakeOf(){ const l = window.CP && CP.lead; return l ? CCMatch.fromLead(l.client_attributes || {}) : {}; }
   function needsForRule(){ const n = {}; CCMatch.SKILLS.forEach(s => { const f = S.cur['need_' + s.key]; if (f) n[s.key] = { value: f.value, stage: f.layer }; }); return n; }
-  function seg(kind, opts, v){ return '<span style="display:inline-flex;gap:3px;flex-wrap:wrap">' + opts.map(([val2, lab]) => '<button type="button" class="' + (v === val2 ? 'primary' : 'secondary') + '" style="font-size:12px;padding:3px 9px" onclick="CN.set(\'' + kind + '\',\'' + val2 + '\')">' + esc(lab) + '</button>').join('') + '</span>'; }
+  function seg(kind, opts, v){ return '<span style="display:inline-flex;gap:3px;flex-wrap:wrap">' + opts.map(([val2, lab]) => '<button type="button" class="' + (v === val2 ? 'primary' : 'secondary') + '" style="font-size:12px;padding:3px 9px" onclick="window.CN.set(\'' + kind + '\',\'' + val2 + '\')">' + esc(lab) + '</button>').join('') + '</span>'; }
   function who(f){ return f ? '<span class="field-note">' + (f.layer === 'current' ? 'current' : 'care plan') + ', ' + esc(String(f.recorded_by || '').split('@')[0]) + ' ' + esc(String(f.recorded_at || '').slice(0, 10)) + '</span>' : '<span class="field-note" style="color:#92400E">not yet known</span>'; }
   function render(){
     const box = S.box; if (!box) return;
@@ -68,11 +68,11 @@
         + '<td style="padding:5px 4px">' + seg(e.kind, e.opts, val(e.kind)) + '</td><td style="padding:5px 4px">' + (e.kind in S.draft && S.draft[e.kind] !== curVal(e.kind) ? '<span class="field-note" style="color:#1E40AF">changed, not saved</span>' : who(S.cur[e.kind])) + '</td></tr>'; });
     const adv = val('need_advanced_tasks') || [];
     h += '<tr style="border-top:1px solid var(--border)"><td style="padding:5px 4px;font-weight:600">Advanced tasks we do not provide <span class="field-note">(any one flags the client for review)</span></td><td></td><td colspan="2" style="padding:5px 4px">'
-      + ADVANCED.map(([k, lab]) => '<label style="display:inline-flex;gap:4px;margin:0 10px 3px 0;font-size:12.5px"><input type="checkbox" ' + (adv.includes(k) ? 'checked ' : '') + 'onchange="CN.adv(\'' + k + '\',this.checked)">' + esc(lab) + '</label>').join('') + '</td></tr>';
+      + ADVANCED.map(([k, lab]) => '<label style="display:inline-flex;gap:4px;margin:0 10px 3px 0;font-size:12.5px"><input type="checkbox" ' + (adv.includes(k) ? 'checked ' : '') + 'onchange="window.CN.adv(\'' + k + '\',this.checked)">' + esc(lab) + '</label>').join('') + '</td></tr>';
     h += '</table>';
     const changed = Object.keys(S.draft).filter(k => JSON.stringify(S.draft[k]) !== JSON.stringify(curVal(k)));
-    h += '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><button class="primary" ' + (changed.length && !S.busy ? '' : 'disabled ') + 'onclick="CN.confirm()">' + (S.busy ? 'Saving…' : 'Confirm ' + (changed.length || '') + ' on the care plan') + '</button>'
-      + (changed.length ? '<button class="secondary" onclick="CN.discard()">Discard changes</button>' : '') + (S.msg ? '<span class="field-note">' + esc(S.msg) + '</span>' : '') + '</div></div>';
+    h += '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><button class="primary" ' + (changed.length && !S.busy ? '' : 'disabled ') + 'onclick="window.CN.confirm()">' + (S.busy ? 'Saving…' : 'Confirm ' + (changed.length || '') + ' on the care plan') + '</button>'
+      + (changed.length ? '<button class="secondary" onclick="window.CN.discard()">Discard changes</button>' : '') + (S.msg ? '<span class="field-note">' + esc(S.msg) + '</span>' : '') + '</div></div>';
     box.innerHTML = h;
   }
   async function confirmAll(){
