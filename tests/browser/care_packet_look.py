@@ -42,6 +42,9 @@ window.callAction = async (fn, b) => { CALLS.push(JSON.parse(JSON.stringify(b)))
   if (b.action === 'send') { if (STATE.fail) return { status: 422, data: { outcome: 'refused', error: 'Not sent: Ariel has asked not to get texts (stop_text).' } };
     STATE.recipients[0] = Object.assign({}, STATE.recipients[0], { last_sent_at: '2026-10-12T17:00:00Z', last_send_kind: 'reminder', send_count: 2 });
     return { status: 200, data: { outcome: 'sent', kind: 'reminder', recipients: STATE.recipients } }; }
+  if (b.action === 'preview') return { status: 200, data: { preview: true, ready: !!(STATE.packet && STATE.packet.ready), caregiver_first: 'the caregiver', client_first: 'Dan', about: 'Dan is on hospice.',
+    items: [{ title: 'Turning and repositioning', notes: 'Turn every 2 hours.', videos: [{ title: 'Lie on the side', publisher: 'The Hospice Care Plan (hospice nurses)', minutes: 5, url: 'https://www.youtube.com/watch?v=6M5_eTPUWpo', embed: 'https://www.youtube-nocookie.com/embed/6M5_eTPUWpo?rel=0' }] }],
+    version: 1, acknowledged: false, ack_at: null, earlier_ack: false } };
   return { status: 400, data: { error: 'unknown' } }; };
 </script><script src="care-packet.js"></script></body>''' % json.dumps(TOPICS)
 open(os.path.join(ROOT, '_cpk_test.html'), 'w').write(card_page)
@@ -186,6 +189,33 @@ try:
     ok('page: an updated packet says so and asks again', 'This packet was updated' in p2.inner_text('body') and p2.is_visible('#bAck'))
     st['mode'] = 'bad'; p2.reload(); p2.wait_for_timeout(400)
     ok('page: a bad or expired link shows the office number and nothing else', '(417) 234-8494' in p2.inner_text('body') and not p2.query_selector('iframe'))
+    # ---- preview (2026-10-12): served over http so the page and the Hub share a site, as on cc.mo-care.com ----
+    import http.server, socketserver, threading, functools
+    srv = socketserver.TCPServer(('127.0.0.1', 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)); srv.allow_reuse_address = True
+    threading.Thread(target=srv.serve_forever, daemon=True).start(); base = 'http://127.0.0.1:%d/' % srv.server_address[1]
+    try:
+      p3 = b.new_page(viewport={'width': 1100, 'height': 1000}); p3.on('pageerror', lambda e: errs.append(str(e)[:200]))
+      p3.route('**/functions/v1/**', lambda r: (errs.append('preview called the server: ' + r.request.url), r.abort()))
+      p3.goto(base + '_cpk_test.html'); p3.evaluate('CPK.mount("cp_packet")'); p3.wait_for_timeout(300)
+      ok('preview: no button before the packet is first saved', p3.query_selector('#cpk_preview') is None)
+      p3.fill('#cpk_about', 'Dan is on hospice.'); p3.check('[data-cpk-topic="turning"]'); p3.click('#cpk_save'); p3.wait_for_timeout(300)
+      ok('preview: the button shows once saved (a draft is fine)', p3.is_enabled('#cpk_preview'))
+      p3.fill('#cpk_about', 'Dan is on hospice. Changed.'); p3.wait_for_timeout(100)
+      ok('preview: unsaved changes turn it off (it shows the saved packet)', not p3.is_enabled('#cpk_preview'))
+      p3.click('#cpk_save'); p3.wait_for_timeout(300)
+      n0 = p3.evaluate('CALLS.length'); p3.click('#cpk_preview'); p3.wait_for_timeout(900)
+      fr = p3.frame_locator('#cpk_pv_f'); body = fr.locator('body').inner_text()
+      calls = p3.evaluate('CALLS.slice(%d).map(c=>c.action)' % n0)
+      ok('preview: opens the caregiver page phone-sized with a preview banner, the notes and the video', p3.is_visible('#cpk_pv') and 'Preview.' in body and 'Caring for Dan' in body and 'Turn every 2 hours.' in body and fr.locator('iframe').count() == 1, body[:300])
+      ok('preview: a draft says caregivers cannot open it yet', 'still a draft' in body)
+      ok('preview: only asks the server for the preview (no link made)', calls == ['preview'], calls)
+      p3.screenshot(path=os.path.join(OUT, 'cpk_8_preview.png'))
+      fr.locator('#bAck').click(); p3.wait_for_timeout(200)
+      ok('preview: "I watched it" does nothing and says so; the page never called the server', 'does nothing' in fr.locator('body').inner_text() and p3.evaluate('CALLS.slice(%d).map(c=>c.action)' % n0) == ['preview'] and not [e for e in errs if 'server' in e], errs)
+      p3.keyboard.press('Escape'); p3.wait_for_timeout(200)
+      ok('preview: Escape closes it, even after clicking inside the preview', p3.query_selector('#cpk_pv') is None)
+    finally:
+      srv.shutdown()
     ok('no page errors', not errs, errs)
     b.close()
 finally:

@@ -99,6 +99,7 @@
     h += '<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13.5px;cursor:pointer;"><input type="checkbox" style="width:auto;margin:0;flex:none;" id="cpk_ready"' + (d.ready ? ' checked' : '') + '> Ready for caregivers</label>'
       + (S.packet && S.packet.ready && S.recipients.length ? '<div class="field-note">Changing the words or topics makes a new version, and everyone confirms again.</div>' : '')
       + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;"><button class="primary" id="cpk_save"' + (S.busy ? ' disabled' : '') + '>Save packet</button>'
+      + (S.packet ? '<button class="secondary" id="cpk_preview"' + (S.busy || dirty() ? ' disabled title="Save first, then preview"' : '') + '>👀 Preview what caregivers see</button>' : '')
       + (dirty() ? '<span class="field-note" style="color:#92400E;">changed, not saved</span>' : '')
       + (S.msg && !/^Sent|already went/.test(S.msg) ? '<span class="field-note" style="color:#166534;">' + esc(S.msg) + '</span>' : '') + '</div>'
       + (S.err ? '<div class="field-note" style="color:#B91C1C;margin-top:6px;">' + esc(S.err) + '</div>' : '');
@@ -308,6 +309,7 @@
       else S.draft.items = S.draft.items.filter(x => x.topic !== k);
       S.msg = ''; render(); }; });
     const sv = $('cpk_save'); if (sv) sv.onclick = () => { keep(); save(); };
+    const pv = $('cpk_preview'); if (pv) pv.onclick = preview;
     const sg = $('cpk_suggest'); if (sg) sg.onclick = () => { keep(); suggest(); };
     const lo = $('cpk_lib_open'); if (lo) lo.onclick = () => { keep(); openLib(); };
     const lk = $('cpk_link'); if (lk) lk.onclick = () => { S.send = null; makeLink(($('cpk_cg') || {}).value || ''); };
@@ -323,7 +325,7 @@
     const sv = document.getElementById('cpk_save'); if (!sv) return;
     const hint = sv.parentNode.querySelector('.field-note[style*="92400E"]');
     if (dirty() && !hint) sv.insertAdjacentHTML('afterend', '<span class="field-note" style="color:#92400E;">changed, not saved</span>');
-    ['cpk_link', 'cpk_text', 'cpk_send'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = S.busy || dirty(); });
+    ['cpk_link', 'cpk_text', 'cpk_send', 'cpk_preview'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = S.busy || dirty(); });
     document.querySelectorAll('[data-cpk-send]').forEach(el => { el.disabled = S.busy || dirty(); });
   }
   async function save(){
@@ -334,6 +336,30 @@
       S.msg = d.changed && S.recipients.length ? 'Saved as version ' + d.packet.version + '. Caregivers will be asked to confirm again.' : 'Saved.';
     } catch (e) { S.err = e.message; }
     S.busy = false; render();
+  }
+  /* Preview (Samantha "i want to see the caregiver packet link before i send it", 2026-10-12): the caregiver's own page
+     (packet.html) in a phone-sized window, showing the SAVED packet. Makes no link, records nothing, texts nobody;
+     its "I watched it" button does nothing. The page gets the packet by postMessage from here (same site only), so it
+     works inside GoHighLevel too. */
+  async function preview(){
+    if (S.busy || !S.packet || dirty()) return; S.err = '';
+    let d; try { d = await call({ action: 'preview', packet_id: S.packet.id }); } catch (e) { S.err = 'Could not open the preview: ' + e.message; render(); return; }
+    const old = document.getElementById('cpk_pv'); if (old) old.remove();
+    const ov = document.createElement('div'); ov.id = 'cpk_pv';
+    ov.setAttribute('style', 'position:fixed;inset:0;background:rgba(14,56,96,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:12px;');
+    ov.innerHTML = '<div style="background:#fff;border-radius:14px;width:min(420px,100%);height:min(860px,94vh);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3);">'
+      + '<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);"><b style="font-size:14px;color:var(--navy);">What caregivers see on their phone</b><span style="flex:1;"></span>'
+      + '<button class="secondary" id="cpk_pv_close">Close</button></div>'
+      + '<iframe id="cpk_pv_f" src="packet.html?preview=1" title="Caregiver packet preview" style="border:0;flex:1;width:100%;"></iframe></div>';
+    document.body.appendChild(ov);
+    const close = () => { ov.remove(); document.removeEventListener('keydown', esc1); window.removeEventListener('message', msg1); };
+    const esc1 = e => { if (e.key === 'Escape') close(); };
+    const msg1 = e => { if (e.origin === location.origin && e.data && e.data.cpkPreviewClose) close(); };   // Escape pressed inside the preview
+    document.addEventListener('keydown', esc1); window.addEventListener('message', msg1);
+    ov.onclick = e => { if (e.target === ov) close(); };
+    document.getElementById('cpk_pv_close').onclick = close;
+    const f = document.getElementById('cpk_pv_f');
+    f.onload = () => { try { f.contentWindow.postMessage({ cpkPreview: d }, location.origin); } catch (e) { /* the page says it is waiting */ } };
   }
   async function makeLink(axId){
     if (!axId) { S.sendErr = 'Pick a caregiver first.'; render(); return; }
