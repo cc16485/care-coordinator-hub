@@ -996,6 +996,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- 2026-10-08 (her call): ONE Nurse Scheduling tab. Its two views (the office's, and what a nurse sees) are the
          second row, like Getting ready. A nurse who signs in still sees only their own view. -->
     <div class="fpill" data-parent="nursing" onclick="ccParentClick('nursing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> Nurse Scheduling<span class="subtab-badge red" id="gb-nursing" style="display:none;"></span></div>
+    <!-- 2026-10-12 (scheduling review step 5, her ask): the reference page sits at the far right, like Applicant journey -->
+    <span style="flex:1 1 auto;"></span>
+    <div class="fpill" style="margin-left:auto;" data-tab="schedguide" onclick="switchTab('schedguide')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> How scheduling works</div>
   </div>
   <div class="fsubbar" id="fsub-htorders">
     <div class="fpill" data-tab="htorders" onclick="switchTab('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Orders<span class="subtab-badge red" id="htOrdPillBadge" style="display:none;"></span></div>
@@ -1033,6 +1036,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          shift is NOT filling on its own, it becomes a case here — who was
          asked, when, by what channel, what they said, how long it has been
          open, and how it ended. Micro-states, not pending/done. -->
+    <!-- ===================== TAB: HOW SCHEDULING WORKS (step 5, 2026-10-12) ===================== -->
+    <section class="tabpanel" id="tab-schedguide">
+      <div class="card" style="padding:18px;margin-bottom:14px;">
+        <div style="font-size:19px;font-weight:800;color:var(--navy);">How scheduling works</div>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:80ch;">Which tab handles which problem, step by step, the exact texts caregivers get, and what Cara does on her own. Everything here reads the Hub's live settings, so it stays current.</div>
+      </div>
+      <div id="sgBody"><div class="field-note">Loading…</div></div>
+    </section>
+
     <!-- ===================== TAB: TEAM BUILDER =====================
          THE CARE TEAM BUILDER (2026-09-19, her ask: "an actual interactive
          thing… instead of writing it out on paper"). A week grid of shifts per
@@ -1062,7 +1074,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <span style="flex:1;"></span>
         <!-- straight to AxisCare's Real Time View filtered to unassigned —
              the authoritative list a case should start from -->
-        <a href="scheduling-guide.html" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;align-self:center;">How this works &#8599;</a>
+        <a href="javascript:void(0)" onclick="switchTab('schedguide')" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;align-self:center;">How this works &#8599;</a>
         <a href="https://16485.axiscare.com" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;align-self:center;">AxisCare &#8599;</a>
       </div>
 
@@ -1718,7 +1730,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">EVV Corrections</h2>
           <div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:70ch;">Visits missing a clock-in or clock-out, the signed correction forms, and the corrections log. Everything happens right here.</div>
         </div>
-        <a href="scheduling-guide.html#evv" target="_blank" rel="noopener" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">How this works &#8599;</a>
+        <a href="javascript:void(0)" onclick="switchTab('schedguide')" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">How this works &#8599;</a>
       </div>
       <!-- NATIVE PIPELINE (2026-09-18, her call: "make the evv tab better and
            fully synced with the schedule watch evv"). Three linked stages,
@@ -7025,6 +7037,7 @@ The HomeTogether team</pre>
 <script src="projects.js?v=6"></script>
 <script src="team-builder-2.js?v=4"></script>
 <script src="open-hours.js?v=2"></script>
+<script src="scheduling-guide.js?v=1"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
@@ -7683,7 +7696,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard','teambuilder'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar','reports'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts'],clients:['soc','clientqueue','clientsboard','teambuilder'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8080,6 +8093,7 @@ function ccGroupClick(g){
    Interviews, Phone, Needs Attention, HomeTogether, Campaigns. A fixed title is
    wrong for most of them, so the header names the section you're in. */
 const CC_SECTION_TITLES = {
+  schedguide:'How scheduling works',
   cgbackground:'Background & References', cgorient:'Orientations', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups',
   recruit:'Recruit',
   today:'Today', leads:'Leads', bookings:'Consultations',
@@ -8317,6 +8331,7 @@ function renderActiveTab(){
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
+  if(activeTab==='schedguide'&&typeof SG!=='undefined') SG.render();
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); }
   if(activeTab==='teambuilder'){ tbRender(); }
