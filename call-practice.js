@@ -2,7 +2,7 @@
    CALL FOLLOW-UPS, PRACTICE (650; v7 2026-10-12, Samantha's eight points). A tab on My Work, offered while the practice
    switch (ops_settings.call_tasks_practice) is on. For each answered call of the last 7 days it shows what the AI employee
    read: the call summary, what it understood, the promises it heard (we agreed / caller will / considering / awaiting
-   confirmation), EVERY responsibility the call created with its decision, owner, urgency, due date and the reason a card
+   confirmation), EVERY responsibility the call created (praise goes to Kind Words, never a card: her decision 2026-10-12) with its decision, owner, urgency, due date and the reason a card
    was or was not needed. Beside it: what the team did within a day, including work done without a card.
      · These cards are in nobody's work. Nothing here creates, changes or sends anything.
      · Readings: call_task_reading (office roles only), the newest reading of each call. What the team did: cards people
@@ -20,7 +20,7 @@
   const ROLE = { client: 'client', family: 'family', caregiver: 'caregiver', applicant: 'applicant', referral_partner: 'referral partner', new_client_inquiry: 'new client inquiry',
     vendor: 'vendor', wrong_number_or_spam: 'wrong number or spam', internal: 'internal', other: 'other', client_or_family: 'client or family' };
   const WHO = { client: 'client', caregiver: 'caregiver', lead: 'lead', applicant: 'applicant', contact: 'client contact' };
-  const DEC = { new_card: ['New card', '#0D365F', '#E6EEF7'], add_to_existing_card: ['Add to an open card', '#1F7A8C', '#E3F2F4'], already_in_workflow: ['Already in a workflow', '#2f7d4f', '#E4F1E8'],
+  const DEC = { new_card: ['New card', '#0D365F', '#E6EEF7'], add_to_existing_card: ['Add to an open card', '#1F7A8C', '#E3F2F4'], already_in_workflow: ['Already in a workflow', '#2f7d4f', '#E4F1E8'], kind_words: ['Kind Words (suggested)', '#8A5A00', '#FFF3DC'],
     done_on_call: ['Done on the call', '#2f7d4f', '#E4F1E8'], caller_owns: ['The caller\'s to do', '#55677a', '#EEF1F4'], not_needed: ['Not needed', '#55677a', '#EEF1F4'] };
   const URG = { now: ['Now', '#A83A2F', '#F7E6E3'], today: ['Today', '#B4650C', '#FBEFDC'], this_week: ['This week', '#55677a', '#EEF1F4'], routine: ['Routine', '#8a978f', '#F2F4F3'] };
   const PROM = { we_agreed: 'We agreed', caller_will: 'Caller will', caller_considering: 'Caller is considering', awaiting_confirmation: 'Awaiting confirmation' };
@@ -93,6 +93,7 @@
       + (card ? '<div class="field-note" style="margin-top:3px;"><b>Owner:</b> ' + esc((it.owner && it.owner.name) || 'nobody found') + (it.owner && it.owner.via ? ' <span style="color:var(--muted);">(' + esc(it.owner.via) + ')</span>' : '')
         + ' · <b>Due:</b> ' + (it.due ? esc(day(it.due)) : 'no date said') + '</div>' : '')
       + (it.decision === 'already_in_workflow' && it.workflow ? '<div class="field-note" style="margin-top:3px;"><b>Where:</b> ' + esc(it.workflow) + '</div>' : '')
+      + (it.decision === 'kind_words' && it.quote ? '<div style="font-size:12.5px;margin-top:3px;font-style:italic;">“' + esc(it.quote) + '”</div><div class="field-note" style="margin-top:2px;">Goes to the Kind Words jar as a suggestion for an owner or coordinator to approve. Never a card.</div>' : '')
       + '<div class="field-note" style="margin-top:3px;"><b>Why:</b> ' + esc(it.reason || '') + '</div>'
       + (resolvedBy ? '<div class="field-note" style="color:var(--teal);margin-top:3px;"><b>Answered by the later call at ' + esc(when(resolvedBy)) + '</b></div>' : '')
       + '</div>';
