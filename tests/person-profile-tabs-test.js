@@ -36,11 +36,11 @@ for (const act of ['apBookFor', 'apCancelBooking', 'apInterview', 'apToOffer', '
   ok(cut(IDX, 'function apNextStep(r, b){', 'function apTab(k){').includes(act) || render.includes(act), 'every action still reachable: ' + act);
 
 /* the caregiver page: tabs hold the old sections; an old section name opens its tab */
-const c2 = { document: { getElementById: () => null }, CGD: {}, cgdHistoryMount(){ c2.hist = true; }, String };
+const c2 = { document: { getElementById: () => null }, CGD: {}, window: {}, cgdHistoryMount(){ c2.hist = true; }, String };
 vm.createContext(c2);
-vm.runInContext(cut(IDX, 'const CGD_SECTIONS=[', '/* History: every send').replace(/^const /gm, 'var '), c2);
+vm.runInContext(cut(IDX, 'const CGD_SECTIONS=[', '/* History: every send').replace(/^const /gm, 'var ').replace(/^let /gm, 'var '), c2);
 const tabOf = n => { c2.cgdSection(n); return c2.CGD.section; };
-ok(tabOf('profile') === 'family' && tabOf('hiring') === 'interview' && tabOf('compliance') === 'checks' && tabOf('skills') === 'work' && tabOf('conversations') === 'messages', 'old section names open the tab that holds them');
+ok(tabOf('profile') === 'family' && tabOf('apphalf') === 'interview' && tabOf('compliance') === 'checks' && tabOf('skills') === 'work' && tabOf('conversations') === 'messages', 'old section names open the tab that holds them');
 ok(tabOf('nonsense') === 'overview', 'an unknown tab falls back to Overview');
 c2.hist = false; tabOf('history'); ok(c2.hist === true, 'History reads the timeline when opened');
 ok(/cgdSection\(tab\|\|keepTab\|\|'overview'\)/.test(IDX), 'caregiver page opens on the asked-for tab, and a refresh keeps your tab');
