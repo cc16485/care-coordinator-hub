@@ -27,9 +27,9 @@
   }
   function render(){
     const b = document.getElementById('mrBody'); if (!b) return;
-    let h = '<div style="display:flex;align-items:flex-start;gap:.6rem;border-bottom:2px solid #E8E2D8;padding-bottom:.6rem"><div style="flex:1"><div style="font-size:1.2rem;font-weight:800;color:#0D365F">🧪 Matching, in the dark</div>'
+    let h = '<div style="display:flex;align-items:flex-start;gap:.6rem;border-bottom:2px solid #E8E2D8;padding-bottom:.6rem"><div style="flex:1"><div style="font-size:1.2rem;font-weight:800;color:#0D365F">🧪 Matching check (practice only)</div>'
       + '<div class="field-note">The shared match rule, run over the next 14 days of visits and the last 60 days of call-offs. A report only: nothing on the schedule, a caregiver or a client changes, and nothing is sent.</div></div><button class="ibtn" onclick="MR.close()">Close</button></div>';
-    if (!R) { b.innerHTML = h + '<div style="margin-top:1rem" class="field-note">The report has not run yet. It runs each night once <b>Matching dark report (nightly)</b> is on (Owners Hub Admin page), or once from Desktop 617.</div>'; return; }
+    if (!R) { b.innerHTML = h + '<div style="margin-top:1rem" class="field-note">The report has not run yet. It runs each night once <b>Matching check, nightly (practice only)</b> is on (Owners Hub Admin page), or once from Desktop 617.</div>'; return; }
     const c = R.counts || {}, cl = R.clients || {}, g = R.gaps || {};
     h += '<div class="field-note" style="margin:.5rem 0">Run ' + esc(when(R.at)) + ' · rule version ' + esc(R.rule_version || '?') + ' · ' + esc(Object.entries(R.fingerprints || {}).map(([f, fp]) => f + ' ' + fp).join(', ')) + '</div>';
     const tile = (n, lab, g2) => '<div style="flex:1 1 130px;border:1px solid #E8E2D8;border-radius:10px;padding:.5rem .7rem;cursor:pointer" onclick="MR.filter(\'' + g2 + '\')"><div style="font-size:1.3rem;font-weight:800;color:#0D365F">' + (n || 0) + '</div><div style="font-size:.78rem">' + lab + '</div></div>';

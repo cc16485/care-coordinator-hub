@@ -1,4 +1,4 @@
-"""Matching, in the dark (Track 3d): the read-only report window. Offline, fed a report the Staffing builder made from
+"""Matching check, practice only (Track 3d; was "Matching, in the dark"): the read-only report window. Offline, fed a report the Staffing builder made from
 made-up visits (argv[1]: match_dark_test.mjs with DUMP_REPORT). Empty state; tiles; clients and flagged; gaps; the
 filters; the replay; nothing but one read of app_data.   python3 tests/browser/match_report_look.py <report.json> [shots]"""
 import json, sys, os

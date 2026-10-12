@@ -4738,7 +4738,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="addlead" style="font-size:.78rem" onclick="lsLoad(true)">↻ Refresh</button>
   <a href="https://16485.axiscare.com/?realtimeview.php" target="_blank" rel="noopener" style="font-size:.78rem;font-weight:700;color:var(--teal);text-decoration:none;">Open in AxisCare ↗</a>
   <!-- Track 3d (2026-10-12): the match rule's dark report, read only (match-report.js) -->
-  <button class="fb" title="The shared match rule over the next 14 days, in the dark: a report only" onclick="(window.MR?Promise.resolve():new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='match-report.js?v=20261012';sc.onload=ok;sc.onerror=no;document.head.appendChild(sc);})).then(()=>MR.open())">🧪 Matching, in the dark</button>
+  <button class="fb" title="The shared match rule over the next 14 days, practice only: a report that changes nothing" onclick="(window.MR?Promise.resolve():new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='match-report.js?v=20261012';sc.onload=ok;sc.onerror=no;document.head.appendChild(sc);})).then(()=>MR.open())">🧪 Matching check (practice only)</button>
 </div>
 <div id="ls-board" class="card" style="padding:1rem 1.25rem;"><div style="color:var(--text-muted);font-size:.85rem">Pick a day and it loads live from AxisCare.</div></div>
 </section>
