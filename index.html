@@ -17741,6 +17741,7 @@ async function cgdOpenProfile(axid){
     +(function(){ const t=c.hire_date?Math.floor((Date.now()-new Date(String(c.hire_date).slice(0,10)+'T12:00:00').getTime())/864e5):null;
         return (t!=null&&t>=0&&t<60)?'<span class="tag-chip" style="background:var(--honey-chip,#F7E7CD);color:var(--honey-ink,#8A4E0C);">New hire — day '+t+'</span>':''; })()
     +'<span class="field-note">AxisCare ID '+esc(String(c.id))+'</span>'
+    +'<span id="cgdAppLink"></span>'
     +'<span style="flex:1;"></span>'
     +(c.mobile?'<a class="secondary" style="text-decoration:none;padding:.38rem .85rem;border-radius:8px;border:1.5px solid var(--border);background:#fff;color:var(--navy);font-size:.8rem;font-weight:700;"'+ocAttrs(c.mobile,{email:c.email})+'>📞 Call</a> '+act('sms:'+esc(c.mobile),'💬 Text'):'')
     +(c.email?act('mailto:'+esc(c.email),'✉ Email'):'')
@@ -18499,6 +18500,10 @@ async function cgdHiringLoad(axid, currentLevel){
       body: JSON.stringify({ axiscare_id: axid }) });
     const j=await r.json();
     if(!r.ok||!j.ok) throw new Error(j.error||('caregiver-hiring-history '+r.status));
+    /* One profile, step 1 (2026-10-12): their application, when it is connected by id */
+    const appLink=document.getElementById('cgdAppLink');
+    if(appLink && CGD.openId===String(axid) && j.application && j.application.found && j.application.record_id)
+      appLink.innerHTML='<button class="linklike" style="font-size:.8rem;" data-open-applicant="'+esc(String(j.application.record_id))+'" title="Their application, interview and hiring steps">Their application ↗</button>';
     if(!j.found){
       el.innerHTML=cgdHirCard('Hiring history','<div class="field-note">'+esc(j.honest_empty||'No connected hiring history found in the current recruiting records.')+'</div>');
       return;
@@ -21095,7 +21100,7 @@ function ivqRender(){
     const name = ((a.first_name||'')+' '+(a.last_name||'')).trim() || 'Applicant';
     return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.55rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
       + '<span style="min-width:5.2rem;font-weight:700;color:'+(overdue?'#B45309':'#6E6559')+';font-variant-numeric:tabular-nums;">'+esc(timeLabel(d))+'</span>'
-      + '<b style="color:var(--navy);">'+esc(name)+'</b>'
+      + '<b style="color:var(--navy);cursor:pointer;" role="link" tabindex="0" title="Open their page" data-open-applicant="'+esc(b.applicant_id)+'">'+esc(name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
       + btWhoChip(btAfternoonName(b.starts_at, btAfternoonRule(DATA.ops_settings)))
       + ((ALSO[b.id]||[]).length ? '<span class="tag-chip" style="background:#FEF3C7;color:#92400E;" title="They applied more than once and hold another booking">also booked '
           + esc((ALSO[b.id]).map(x=>{ const dd=new Date(x.starts_at); return dayLabel(dd)+' '+timeLabel(dd); }).join(', ')) + ' under another application</span>' : '')
@@ -23448,8 +23453,28 @@ async function apReviewApprove(id, btn){
   if(r){ r.review_cleared_at=at; r.review_cleared_by=(ME&&ME.email)||''; }
   apReviewCheck(r);
 }
+/* One profile, step 1 (2026-10-12): the applicant page and the caregiver page point at each other.
+   Ids only: the AxisCare number on the application or on their start form, and only when AxisCare
+   lists that number as a caregiver. Never a name, phone or email match. */
+const AP_CG_CACHE = {};
+async function apCgLinkFill(r){
+  const slot = document.getElementById('apCgLink'); if(!slot || !r) return;
+  const show = axid => { if(axid && AP_PROF && AP_PROF.id === r.id) slot.innerHTML = '<button class="secondary" data-open-caregiver="'+escapeHtmlComms(String(axid))+'" title="Their caregiver page: schedule, skills, training, checks, performance">Their caregiver page</button>'; };
+  if(Object.prototype.hasOwnProperty.call(AP_CG_CACHE, r.id)) return show(AP_CG_CACHE[r.id]);
+  const ids = new Set([r.axiscare_id, r.candidate_id].filter(x => x != null && /^\d+$/.test(String(x))).map(String));
+  try{
+    const { data } = await sb.from('hire_intake').select('candidate_id').eq('applicant_id', r.id).limit(5);
+    (data||[]).forEach(h => { if(h && h.candidate_id != null && /^\d+$/.test(String(h.candidate_id))) ids.add(String(h.candidate_id)); });
+  }catch(e){}
+  if(!ids.size){ AP_CG_CACHE[r.id] = null; return; }
+  let hits = [];
+  try{ const c = await cgdCensus(); hits = ((c && c.caregivers) || []).filter(x => ids.has(String(x.id))); }catch(e){ return; }
+  AP_CG_CACHE[r.id] = hits.length === 1 ? String(hits[0].id) : null;   /* two different caregivers = not ours to pick */
+  show(AP_CG_CACHE[r.id]);
+}
 function apRenderProfile(){
   const r = AP_PROF; if(!r) return;
+  setTimeout(() => apCgLinkFill(r), 0);
   apReviewCheck(r);
   const esc = escapeHtmlComms;
   const b = AP_BOOK[r.id];
@@ -23524,6 +23549,7 @@ function apRenderProfile(){
           : '')
       + (r.status!=='declined' ? '<button class="fb" onclick="apInterview(\''+esc(r.id)+'\')">📝 Interview &amp; outcome</button>' : '')
       + (r.status!=='declined' ? '<button class="fb" onclick="apToOffer(\''+esc(r.id)+'\')"><svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> Hire, make the offer</button>' : '')
+      + '<span id="apCgLink" style="display:contents;"></span>'
       + (window.HP ? '<button class="fb" onclick="HP.open({applicant_id:\''+esc(r.id)+'\'})" title="Every send, receipt and completion from application to first shift, and every signed document">&#128100; Whole profile</button>' : '')
       + (r.status!=='hired' && r.status!=='declined' && r.status!=='pool'
           ? '<button class="fb" onclick="apToPool(\''+esc(r.id)+'\')">🗂 Candidate pool</button>' : '')
@@ -36406,7 +36432,9 @@ function tbPoolListHtml(plan,key){
     if(pgH) flags.unshift(pgH);
     if(x.cg.work_locked) flags.unshift('<b style="color:var(--red);">⛔ awaiting Approve to Work (new hire): not to be scheduled yet</b>');   /* SLICE 5: locked until the owner\'s stamp and the AxisCare read-back */
     return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
-      +'<b style="min-width:130px;">'+esc(x.cg.name)+'</b>'
+      +(x.cg.axiscare_id
+          ?'<b style="min-width:130px;cursor:pointer;color:var(--navy);" role="link" tabindex="0" title="Open their caregiver page" data-open-caregiver="'+esc(String(x.cg.axiscare_id))+'">'+esc(x.cg.name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
+          :'<b style="min-width:130px;">'+esc(x.cg.name)+'</b>')
       +'<span class="field-note" style="flex:1;">'+flags.join(' · ')+'</span>'
       +'<button class="cara-btn" style="font-size:11.5px;" onclick="'+(typeof tb2AddPool==='function'?'tb2AddPool':'tbAssignPool')+'(\''+esc(key)+'\','+x.i+')">'+((plan.cells||{})[key]?'Add to this shift':'Pencil in')+'</button>'
       +'</div>';
@@ -39254,8 +39282,16 @@ document.addEventListener('click', function(e){
   const c = e.target.closest && e.target.closest('[data-open-client]');
   if(c){ e.stopPropagation(); e.preventDefault(); openClientProfile(c.getAttribute('data-open-client'), c.getAttribute('data-open-tab')||undefined); return; }
   const g = e.target.closest && e.target.closest('[data-open-caregiver]');
-  if(g){ e.stopPropagation(); e.preventDefault(); openCaregiverProfile(g.getAttribute('data-open-caregiver')); }
+  if(g){ e.stopPropagation(); e.preventDefault(); openCaregiverProfile(g.getAttribute('data-open-caregiver')); return; }
+  /* One profile, step 1 (2026-10-12): an applicant's name opens their applicant page. */
+  const a = e.target.closest && e.target.closest('[data-open-applicant]');
+  if(a){ e.stopPropagation(); e.preventDefault(); btOpenApplicant(a.getAttribute('data-open-applicant')); }
 }, true);
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Enter') return;
+  const t = e.target.closest && e.target.closest('[data-open-applicant][role="link"],[data-open-caregiver][role="link"]');
+  if(t){ e.preventDefault(); t.click(); }
+});
 
 /* ── HOURS WATCH: wanted hours vs scheduled hours, gap first. ─────────── */
 let HW_SCHED=null, HW_WIN='';
