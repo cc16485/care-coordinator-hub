@@ -1839,16 +1839,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <label class="field-note" style="display:flex;gap:5px;align-items:center;"><input type="checkbox" id="apjApplicantOnly" onchange="apjRender()" checked> Messages to the applicant only</label>
         </div>
       </div>
-      <!-- STEP 1 PREVIEW (2026-10-11, Samantha: "click through the screens as though I were the caregiver, using practice data,
-           before approving them for real hires"). Pat Preview, made-up answers; nothing is saved, signed or sent. -->
+      <!-- THE WHOLE JOURNEY, AS THE APPLICANT SEES IT (2026-10-11, Samantha: every stage from the application to Approved to
+           Work, "the actual applicant-facing screens and messages"). Stage by stage: the real page in preview mode beside the
+           messages that stage sends. Made-up applicant; nothing is saved, signed, booked or sent. (applicant-walkthrough.js) -->
       <div class="card" style="padding:14px 18px;margin-top:14px;">
-        <div style="font-size:15px;font-weight:800;color:var(--navy);">Step 1 paperwork, as the caregiver sees it</div>
-        <div class="field-note" style="margin-top:4px;">Every Step 1 screen in order with the exact words, what is filled in from the application and interview, every signature, and what happens after each screen. Made-up answers: nothing is saved, signed or sent. Each screen has <b>Fill this screen with practice answers</b>, and the last screen opens each form as a preview PDF.</div>
+        <div style="font-size:15px;font-weight:800;color:var(--navy);">Walk through it as the applicant</div>
+        <div class="field-note" style="margin-top:4px;">Twelve stages in order, from the application to Approved to Work: the real screen at each stage (phone size, in preview) beside every text and email it sends, and what happens next. Try the screens: the offer can be signed, Step 1 filled and signed, the Orientation Video Call booked. Nothing is saved, signed, booked or sent.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-          <button class="ibtn" onclick="apjStep1Preview()">Show it here, phone size</button>
-          <a class="ibtn" href="step1.html?preview=1" target="_blank" rel="noopener" style="text-decoration:none;">Open in a new tab</a>
+          <button class="ibtn" onclick="apjWalkthrough()">Start the walkthrough</button>
+          <a class="ibtn" href="step1.html?preview=1" target="_blank" rel="noopener" style="text-decoration:none;">Just Step 1, in a new tab</a>
         </div>
-        <div id="apjStep1Frame" style="display:none;margin-top:12px;"></div>
+        <div id="awBox" style="display:none;margin-top:12px;"></div>
       </div>
       <!-- TRAINING WALKTHROUGH (2026-10-11): staff try the new-hire journey on their own phone -->
       <div class="card" id="twBox" style="padding:14px 18px;margin-top:14px;"><div class="field-note">Loading…</div></div>
@@ -24424,12 +24425,14 @@ const APJ_STAGES = [
   ['first shift','First shift','i-home'], ['after first shift (PRN only)','PRN','i-calendar'],
   ['current caregivers (profile catch-up)','Current caregivers','i-eye'], ['any time (office text)','Any time','i-chat'] ];
 let APJ_CTX = null;
-/* Step 1 preview inside the Applicants Journey tab (2026-10-11): the real Step 1 page in preview mode, phone size */
-function apjStep1Preview(){
-  const box = document.getElementById('apjStep1Frame'); if (!box) return;
+/* The applicant walkthrough (2026-10-11): loaded the first time it is opened */
+function apjWalkthrough(){
+  const box = document.getElementById('awBox'); if (!box) return;
   if (box.style.display === 'block') { box.style.display = 'none'; box.innerHTML = ''; return; }
-  box.innerHTML = '<iframe src="step1.html?preview=1" title="Step 1 preview" style="width:390px;max-width:100%;height:760px;border:1.5px solid var(--border);border-radius:14px;background:#fff;"></iframe>';
-  box.style.display = 'block';
+  box.style.display = 'block'; box.innerHTML = '<div class="field-note">Opening…</div>';
+  const go = () => window.AW && AW.mount('awBox');
+  if (window.AW) return go();
+  const sc = document.createElement('script'); sc.src = 'applicant-walkthrough.js?v=20261012'; sc.onload = go; sc.onerror = () => { box.innerHTML = '<div class="field-note">Could not load the walkthrough. Reload the page.</div>'; }; document.head.appendChild(sc);
 }
 function apjOpen(){
   if(window.TW) TW.mount();
