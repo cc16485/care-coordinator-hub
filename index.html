@@ -7057,6 +7057,7 @@ The HomeTogether team</pre>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=4"></script>
 <script src="desk.js?v=12"></script>
+<script src="call-practice.js?v=1"></script><!-- 583: call follow-ups, practice tab on My Work -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -27018,6 +27019,8 @@ function myWorkTabs(b){
      person's work. The gate is the same ccCan the approve/reject handlers use;
      this only decides whether the bucket is offered. */
   if(ccCan('approve_discipline')) t.push(['approvals','Approvals']);
+  /* 583 (2026-10-12): the AI employee's call follow-ups, practice only, while the Owners Hub switch is on (call-practice.js) */
+  if(window.CPR && CPR.offered()) t.push(['callpractice','Call follow-ups (practice)']);
   return t;
 }
 
@@ -27945,6 +27948,8 @@ function renderMyWork(){
         +'Nothing is waiting for your approval.</div>';
     return;
   }
+
+  if(MYWORK_TAB==='callpractice'){ wrap.innerHTML=''; if(window.CPR) CPR.render(wrap); return; }
 
   const rows=myWorkRows();
   const tickable=new Set(myWorkSelectable(true).map(r=>r.id));
