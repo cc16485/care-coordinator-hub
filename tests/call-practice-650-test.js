@@ -1,6 +1,6 @@
-// 583 · the Call follow-ups (practice) tab on My Work. Runs the REAL call-practice.js and the real tab wiring from
+// 650 · the Call follow-ups (practice) tab on My Work. Runs the REAL call-practice.js and the real tab wiring from
 // index.html with a fake database: Steve's two calls of 2026-10-11 and the card Samantha made by hand.
-//   node tests/call-practice-583-test.js
+//   node tests/call-practice-650-test.js
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const res = []; const ck = (n, c, note) => res.push([n, !!c, c ? '' : String(note ?? '').slice(0, 600)]);
 const root = path.join(__dirname, '..');
@@ -54,7 +54,7 @@ function make(settings, rows, err) {
   ck('there are no buttons that could act (only Refresh)', !/<button|onclick="(?!CPR\.refresh)/.test(h), h.match(/<button[^>]*>|onclick="[^"]*"/g));
   const { ctx: c3 } = make({ call_tasks_practice: true }, null, 'relation "public.call_task_reading" does not exist');
   const w3 = { innerHTML: '' }; c3.CPR.render(w3); await new Promise((r) => setTimeout(r, 20)); c3.CPR.render(w3);
-  ck('before 583 has run: "This appears once Desktop step 583 has run."', /appears once Desktop step 583 has run/.test(w3.innerHTML), w3.innerHTML);
+  ck('before 650 has run: "This appears once Desktop step 650 has run."', /appears once Desktop step 650 has run/.test(w3.innerHTML), w3.innerHTML);
   ck('no em dash in the module', !/[—―]/.test(src));
   const failed = res.filter((r) => !r[1]);
   for (const [n, ok, note] of res) console.log(`${ok ? 'PASS' : 'FAIL'}  ${n}${ok ? '' : '\n      ' + note}`);

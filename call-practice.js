@@ -1,5 +1,5 @@
 /* =====================================================================================================================
-   CALL FOLLOW-UPS, PRACTICE (583, Samantha approved 2026-10-12, decisions 1-4). A tab on My Work, offered while the
+   CALL FOLLOW-UPS, PRACTICE (650, Samantha approved 2026-10-12, decisions 1-4). A tab on My Work, offered while the
    practice switch (ops_settings.call_tasks_practice) is on. For each answered call of the last 7 days it shows what the
    AI employee read in the call and the follow-up cards it WOULD have made, beside the cards people actually made for the
    same person within a day of the call, so the office can judge it before any card goes live.
@@ -70,7 +70,7 @@
       + '<b style="color:#8A5A00;">Practice.</b> These cards are not in anyone\'s work. They show what the AI employee would have made from each call, '
       + 'beside the cards people made for the same person, so you can judge it before it goes live. Nothing here creates, changes or sends anything.</div>';
     if(!CPR.rows){ wrap.innerHTML = intro + '<div class="card" style="padding:18px;">Loading the calls…</div>'; load().then(() => { if(typeof MYWORK_TAB !== 'undefined' && MYWORK_TAB === 'callpractice') render(wrap); }); return; }
-    if(CPR.err === 'not_installed'){ wrap.innerHTML = intro + '<div class="card" style="padding:18px;">This appears once Desktop step 583 has run.</div>'; return; }
+    if(CPR.err === 'not_installed'){ wrap.innerHTML = intro + '<div class="card" style="padding:18px;">This appears once Desktop step 650 has run.</div>'; return; }
     if(CPR.err){ wrap.innerHTML = intro + '<div class="card" style="padding:18px;">Could not read the calls: ' + esc(CPR.err) + '</div>'; return; }
     const rows = CPR.rows;
     const resolvedBy = {};   // "message_id:index" -> the later call's time
