@@ -35,7 +35,12 @@
           .select('message_id, call_at, direction, seconds, caller, match, who_name, who_roles, call_type, tasks, resolves, no_task_reason, error, read_at')
           .gte('call_at', since).order('call_at', { ascending: false }).limit(300);
         if(error){ CPR.err = /does not exist|schema cache/i.test(error.message) ? 'not_installed' : error.message; CPR.rows = []; }
-        else { CPR.err = ''; CPR.rows = data || []; }
+        else {
+          /* a call read again by a newer reader shows once: its newest reading (2026-10-12, the v2 call-off rule) */
+          const newest = {};
+          for(const r of (data || [])) if(!newest[r.message_id] || String(r.read_at) > String(newest[r.message_id].read_at)) newest[r.message_id] = r;
+          CPR.err = ''; CPR.rows = (data || []).filter(r => newest[r.message_id] === r);
+        }
         CPR.at = Date.now();
       }catch(e){ CPR.err = String(e && e.message || e); CPR.rows = []; }
       finally{ CPR.busy = null; }
