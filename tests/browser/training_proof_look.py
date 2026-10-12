@@ -16,7 +16,7 @@ let caregivers = [
   { id: 1, first: 'Ann', last: 'Able', hire_date: '2024-01-10', orient_date: '2024-01-12', orient_proof: 'training/1/orient-1-a.pdf', alz_date: '2024-01-13', alz_hrs: '4', alz_proof: 'training/1/alz-1-a.pdf', ojt_date: '2024-02-01', ojt_signed: 'yes', ojt_proof: 'training/1/ojt.pdf', ojt_online: '2024-02-02', ojt_online_proof: 'training/1/o.pdf', annual_date: '2025-01-15', annual_hrs: '5', annual_proof: 'training/1/a.pdf' },
   { id: 2, first: 'Bo', last: 'Bright', hire_date: '2023-05-01', orient_date: '2023-05-02', orient_proof: 'https://drive.google.com/x', alz_date: '2023-05-03' },
   { id: 3, first: 'Cy', last: 'New', hire_date: new Date().toISOString().slice(0, 10) },
-  { id: 4, first: 'Di', last: 'Gone', active: false } ];
+  { id: 4, first: 'Di', last: 'Gone', active: false }, { id: 5, first: 'Ex', last: 'Former', axiscare_status_active: false } ];
 function trainStatus(c){ return { isFirstYear: c.hire_date && (Date.now() - Date.parse(c.hire_date)) < 365 * 864e5 }; }
 async function saveCaregivers(){ window.SAVES++; return true; }
 async function bgrViewProof(p){ window.VIEWS.push(p); }
@@ -37,7 +37,7 @@ try:
     pg.goto('file://' + os.path.join(ROOT, '_tp_test.html')); pg.evaluate('SCX.tpfOpen()'); pg.wait_for_timeout(200)
     t = pg.inner_text('#tpfBody')
     ok('the list counts who is complete with proof, and by default shows only who still needs something', '1 of 3 complete with proof' in t and 'Ann Able' not in t and 'Bo Bright' in t and 'Cy New' in t, t[:300])
-    ok('an inactive caregiver is not listed', 'Di Gone' not in t)
+    ok('an inactive caregiver is not listed, here or in AxisCare', 'Di Gone' not in t and 'Ex Former' not in t)
     ok('each state in words: a link only, a date with no proof, missing, year 1 not due', 'a link only' in t and 'date, no proof' in t and 'missing' in t and 'year 1: not due' in t)
     pg.evaluate("SCX.tpfFilter('all')"); pg.wait_for_timeout(100)
     ok('Everyone shows the complete caregiver with "PDF on file"', 'Ann Able' in pg.inner_text('#tpfBody') and 'PDF on file' in pg.inner_text('#tpfBody'))
