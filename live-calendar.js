@@ -171,21 +171,32 @@
   }
   async function visitOpen(id){
     const row = ((LS_STATE.data && LS_STATE.data.rows) || []).find(r => r.visit_id === id); if(!row) return;
+    /* 2026-10-12 (her "this is stuck and wont let me cancel or x out"): one visit box at a time. A second click while
+       AxisCare was still being read stacked another box under it, so Close seemed to do nothing. */
+    document.querySelectorAll('.vc-ov').forEach(x => { if(x.__vcClose) x.__vcClose(); else x.remove(); });
     const ov = document.createElement('div'); ov.className = 'vc-ov';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto;';
     ov.innerHTML = '<div role="dialog" aria-modal="true" class="vc-panel" style="background:#fff;border-radius:14px;max-width:640px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
       + '<div style="display:flex;gap:8px;align-items:baseline;"><div style="font-weight:800;color:var(--navy);font-size:17px;flex:1;">' + esc(row.client) + ' · ' + esc(dayWords(row.date)) + '</div><button class="secondary vc-x" style="padding:4px 10px;">Close</button></div>'
       + '<div class="vc-body" style="margin-top:8px;"><div class="field-note">Reading this visit from AxisCare…</div></div></div>';
     document.body.appendChild(ov);
-    const close = (reload) => { ov.remove(); if(reload) lsLoad(true); };
+    const onKey = (e) => { if(e.key === 'Escape') close(false); };
+    const close = (reload) => { ov.remove(); document.removeEventListener('keydown', onKey); if(reload) lsLoad(true); };
+    ov.__vcClose = () => close(false);
     ov.querySelector('.vc-x').onclick = () => close(false);
+    ov.addEventListener('click', (e) => { if(e.target === ov) close(false); });   // a click outside the box closes it
+    document.addEventListener('keydown', onKey);
     const body = ov.querySelector('.vc-body');
     let g, rs;
     try{ [g, rs] = await Promise.all([vcCall({ action:'get', visit_id:id }), VC.reasons ? Promise.resolve({ reasons:VC.reasons, live:VC.live }) : vcCall({ action:'reasons' })]); }
     catch(e){ body.innerHTML = '<div style="color:var(--red);">' + esc(e.message || e) + '</div>'; return; }
-    if(g.error || !g.visit){ body.innerHTML = '<div style="color:var(--red);">' + esc(g.error || 'Couldn’t read the visit.') + '</div>'; return; }
+    if(g.error || !g.visit){ body.innerHTML = '<div style="color:var(--red);">' + esc(g.error || 'Couldn’t read the visit.') + '</div>'
+      + (g.seen ? '<div class="field-note" style="margin-top:6px;">For Claude: AxisCare answered with ' + esc([].concat(g.seen.top || []).join(', ')) + (g.seen.results ? ' (results: ' + esc([].concat(g.seen.results).join(', ')) + ')' : '') + '</div>' : ''); return; }
     VC.reasons = rs.reasons || []; VC.live = g.live === true;
     const v = g.visit;
+    /* A visit AxisCare didn't actually return (no day or start time) is never offered for a change: the lock that stops
+       a change landing on a visit that moved meanwhile needs the real visit to compare against. */
+    if(!v.date || !v.start){ body.innerHTML = '<div style="background:#FFF4E3;border-radius:8px;padding:9px 11px;font-size:13.5px;">AxisCare didn\u2019t send this visit\u2019s details back, so it can\u2019t be changed from the Hub. Change it in AxisCare for now. On the calendar it shows ' + esc(t12(row.time || '')) + (row.end ? '\u2013' + esc(t12(row.end)) : '') + ' with ' + esc(row.caregiver || 'nobody') + '.</div>'; return; }
     const head = '<div style="font-size:14px;"><b>' + esc(hm12(v.start)) + '–' + esc(hm12(v.end)) + '</b> · ' + (v.caregiver ? esc(v.caregiver) : '<b style="color:var(--red);">nobody</b>') + '</div>'
       + (g.undo || []).map(u => '<div class="vc-undo-row" style="margin-top:8px;background:#F0F7FF;border-radius:8px;padding:7px 10px;font-size:13px;">Changed today by ' + esc(String(u.by || '').split(' ')[0]) + ': ' + esc(u.words) + ' <button class="secondary vc-undo" data-c="' + esc(u.change_id) + '" style="padding:3px 9px;font-size:12px;margin-left:6px;">Undo</button></div>').join('');
     if(v.started || v.verified){ body.innerHTML = head + '<div style="margin-top:10px;background:#FFF4E3;border-radius:8px;padding:8px 10px;font-size:13px;">This visit has ' + (v.verified ? 'been verified' : 'started') + ', so it isn’t changed here. Make an EVV correction in AxisCare.</div>'; wireUndo(); return; }
@@ -196,7 +207,7 @@
       const tabs = Object.keys(KIND).filter(k => k !== 'off' || v.caregiver).map(k => '<button class="fb' + (kind === k ? ' active' : '') + ' vc-tab" data-k="' + k + '">' + KIND[k].label + '</button>').join('');
       let mid = '';
       if(kind === 'cg'){
-        if(!Array.isArray(TB.pool)){ if(typeof tbLoadPool === 'function' && !TB.loading) tbLoadPool().then(draw); mid = '<div class="field-note">' + (TB.pool && TB.pool.error ? 'Couldn’t load the roster: ' + esc(TB.pool.error) : 'Loading the roster…') + '</div>'; }
+        if(!Array.isArray(TB.pool)){ if(typeof tbLoadPool === 'function' && !TB.loading) tbLoadPool().then(draw); else if(TB.loading) setTimeout(() => { if(ov.isConnected && kind === 'cg') draw(); }, 700); mid = '<div class="field-note">' + (TB.pool && TB.pool.error ? 'Couldn’t load the roster: ' + esc(TB.pool.error) : 'Loading the roster…') + '</div>'; }
         else {
           const nq = String(q).toLowerCase();
           const list = TB.pool.filter(cg => String(cg.axiscare_id || '') && String(cg.axiscare_id) !== String(v.caregiver_id || '') && (!nq || String(cg.name).toLowerCase().indexOf(nq) > -1))
