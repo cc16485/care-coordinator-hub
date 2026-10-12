@@ -18,9 +18,9 @@ const ROWS = [
 ];
 function make(settings, rows, err) {
   const Q = [];
-  const sb = { from: (tb) => { const q = { tb, f: [] }; Q.push(q); const p = { select() { return p }, gte(k, v) { q.f.push(['gte', k, v]); return p }, eq() { return p }, order() { return p }, limit() { return p },
+  const sb = { from: (tb) => { const q = { tb, f: [] }; Q.push(q); const p = { select() { return p }, gte(k, v) { q.f.push(['gte', k, v]); return p }, eq() { return p }, order() { return p }, limit() { return p }, maybeSingle() { return p },
     insert() { q.write = true; return p }, update() { q.write = true; return p }, delete() { q.write = true; return p }, upsert() { q.write = true; return p },
-    then(ok) { const d = tb === 'op_events' ? (globalThis.__EVENTS || []) : tb === 'call_record' ? (globalThis.__OUTCOMES || []) : rows; return Promise.resolve(err && tb === 'call_task_reading' ? { data: null, error: { message: err } } : { data: d, error: null }).then(ok) } }; return p }, rpc() { Q.push({ rpc: true }); return Promise.resolve({}) } };
+    then(ok) { const d = tb === 'op_events' ? (globalThis.__EVENTS || []) : tb === 'call_record' ? (globalThis.__OUTCOMES || []) : tb === 'call_promise_watch' ? (globalThis.__PROMISES || []) : tb === 'app_data' ? { data: globalThis.__BEATS || [] } : rows; return Promise.resolve(err && tb === 'call_task_reading' ? { data: null, error: { message: err } } : { data: d, error: null }).then(ok) } }; return p }, rpc() { Q.push({ rpc: true }); return Promise.resolve({}) } };
   const ctx = { DATA: { ops_settings: settings, ops_items: [
       { id: 'ops_mv4nasn0', about: 'Steve Algiere', opened_by: 'person', created_by: 'Samantha Troutman', created_at: '2026-10-12T02:41:02.076Z', title: 'Schedule Angiel for 2-3 hours with Steve sometime this week or next week, he needs a ride to the DMV' },
       { id: 'ops_job', about: 'Steve Algiere', opened_by: 'cara', created_by: 'coverage-run', created_at: '2026-10-12T01:00:00Z', title: 'A job card' },
@@ -32,7 +32,7 @@ function make(settings, rows, err) {
   // ── the tab wiring in index.html ──
   ck('My Work offers the tab only while practice is on (via CPR.offered)', /if\(window\.CPR && CPR\.offered\(\)\) t\.push\(\['callpractice','Call follow-ups \(practice\)'\]\);/.test(html));
   ck('the tab draws through CPR.render and nothing else', /if\(MYWORK_TAB==='callpractice'\)\{ wrap\.innerHTML=''; if\(window\.CPR\) CPR\.render\(wrap\); return; \}/.test(html));
-  ck('the page loads call-practice.js (v5) after desk.js', html.indexOf('<script src="call-practice.js?v=5"></script>') > html.indexOf('<script src="desk.js?v='));
+  ck('the page loads call-practice.js (v6) after desk.js', html.indexOf('<script src="call-practice.js?v=6"></script>') > html.indexOf('<script src="desk.js?v='));
   let { ctx } = make({ call_tasks_practice: false }, ROWS);
   ck('switch off: the tab is not offered', ctx.CPR.offered() === false);
   ({ ctx } = make({ call_tasks_practice: true }, ROWS));
@@ -49,9 +49,9 @@ function make(settings, rows, err) {
   ck('an older reading still shows its card: title, reason, owner line, due Fri, Oct 16', /Schedule Angiel 2-3 hours with Steve this week: DMV trip for his new license/.test(h) && /<b>Due:<\/b> Fri, Oct 16/.test(h) && /Scheduling/.test(h), h);
   ck('beside it, the card Samantha made by hand (a job\'s card and a card two days later are not counted)', /Schedule Angiel for 2-3 hours with Steve sometime this week or next week/.test(h) && /\(Samantha, /.test(h) && !/A job card|Two days later/.test(h), h);
   ck('the voicemail card shows it was answered by the later call at 6:37 pm', /Call Steve Algiere back about arranging a ride/.test(h) && /Answered by the later call at Sun, Oct 11, 6:37/.test(h), h);
-  ck('a call with no card says why; a call that could not be read says so', /No card: nothing left to do\./.test(h) && /Could not read this call: the model declined this call/.test(h), h);
+  ck('a call with no card says why; a call that could not be read says so', /No card: nothing left to do\./.test(h) && /Trying again<\/span> <span style="font-size:12.5px;">the model declined this call/.test(h) && /Try 1 of 3\. It tries again about 30 minutes after the last try/.test(h), h);
   ck('unknown and shared numbers are labelled, and text from the database is escaped', /\(not in our records\)/.test(h) && /\(shared number\)/.test(h) && !/<b>X<\/b>/.test(h) && /&lt;b&gt;X/.test(h), h);
-  ck('there are no buttons that could act (only Refresh and the read-only view filters)', !/<button|onclick="(?!CPR\.(refresh|setFilter|setChannel))/.test(h), h.match(/<button[^>]*>|onclick="[^"]*"/g));
+  ck('there are no buttons that could act (only Refresh and the read-only view filters)', !/<button|onclick="(?!CPR\.(refresh|setFilter|setChannel|openCall))/.test(h), h.match(/<button[^>]*>|onclick="[^"]*"/g));
   const OLD = Object.assign({}, ROWS[0], { read_at: '2026-10-12T15:50:00Z', tasks: [{ title: 'OLD READING card', why: '', area: 'scheduling', due: '', add_to_card_id: '' }] });
   const NEW = Object.assign({}, ROWS[0], { read_at: '2026-10-12T17:00:00Z' });
   const { ctx: c4 } = make({ call_tasks_practice: true }, [OLD, NEW, ROWS[2]]);
@@ -112,6 +112,45 @@ function make(settings, rows, err) {
   const { ctx: c3 } = make({ call_tasks_practice: true }, null, 'relation "public.call_task_reading" does not exist');
   const w3 = { innerHTML: '' }; c3.CPR.render(w3); await new Promise((r) => setTimeout(r, 20)); c3.CPR.render(w3);
   ck('before 650 has run: "This appears once Desktop step 650 has run."', /appears once Desktop step 650 has run/.test(w3.innerHTML), w3.innerHTML);
+  // ── v13: nothing read quietly missing, and the promise watch ──
+  {
+    const ago = (min) => new Date(Date.now() - min * 60e3).toISOString();
+    const R = (o) => Object.assign({ direction: 'in', seconds: 60, match: 'one', who_roles: [], call_type: 'client', tasks: [], resolves: [], no_task_reason: null, error: null, attempt: 1, detail: {} }, o);
+    const rows = [
+      R({ message_id: 'u1', call_at: ago(300), caller: 'Gail G.', who_name: 'Gail Green', seconds: 95, error: 'GoHighLevel has no transcript for this call (95 seconds). Listen to the recording.', attempt: 3 }),
+      R({ message_id: 'u2', call_at: ago(200), caller: 'Hal H.', who_name: 'Hal Hill', error: 'overloaded', attempt: 3 }),
+      R({ message_id: 'u3', call_at: ago(100), caller: 'Ivy I.', who_name: 'Ivy Ives', error: 'overloaded', attempt: 2 }),
+      R({ message_id: 'p1', call_at: ago(3000), caller: 'Ann L.', who_name: 'Ann Late', detail: { summary: 'Ann asked about Tuesday.', commitments: [{ what: 'Call Ann back about Tuesday', kind: 'we_agreed', when: '' }, { what: 'Ann may add Saturdays', kind: 'caller_considering', when: '' }], items: [] } }),
+      R({ message_id: 'p2', call_at: ago(60), caller: 'Bea K.', who_name: 'Bea Kept', channel: 'text', detail: { summary: 'Bea wants her new schedule.', commitments: [{ what: 'Text Bea the new schedule', kind: 'we_agreed', when: 'tomorrow' }], items: [] } })];
+    globalThis.__PROMISES = [
+      { message_id: 'p1', idx: 0, channel: 'call', call_at: ago(3000), who_name: 'Ann Late', what: 'Call Ann back about Tuesday', kind: 'we_agreed', area: 'scheduling', owner: { name: 'Krystal Land' }, due: '2026-10-09', status: 'would_remind', why: 'Nothing with them since the promise: no call, text or card.', evidence: [] },
+      { message_id: 'p2', idx: 0, channel: 'text', call_at: ago(60), who_name: 'Bea Kept', what: 'Text Bea the new schedule', kind: 'we_agreed', area: 'client_care', owner: { name: 'Krystal Land' }, due: '2026-10-13', status: 'kept', why: 'The office texted Bea her new schedule.', evidence: ['Office text: new schedule sent'] },
+      { message_id: 'p9', idx: 0, channel: 'call', call_at: ago(90), who_name: 'Cal Owed', what: 'Hear back from Cal\'s daughter', kind: 'awaiting_confirmation', area: 'family_enquiries', owner: { name: 'Krystal Land' }, due: '2026-10-14', status: 'waiting', why: '', evidence: [] },
+      { message_id: 'p8', idx: 0, channel: 'call', call_at: ago(90), who_name: 'Old Gone', what: 'Dropped one', kind: 'we_agreed', area: 'scheduling', owner: {}, due: '2026-10-14', status: 'dropped', why: '', evidence: [] }];
+    globalThis.__BEATS = [{ automation: 'call-tasks', at: ago(4), ok: true }, { automation: 'other', at: ago(900), ok: false }];
+    const { ctx: cU, Q: QU } = make({ call_tasks_practice: true }, rows);
+    const wU = { innerHTML: '' }; cU.CPR.render(wU); await new Promise((r) => setTimeout(r, 20)); cU.CPR.render(wU);
+    const hU = wU.innerHTML;
+    ck('v13: a banner says how many calls or texts could not be read and how many are being tried again, with a way to see them', /2 calls or texts could not be read\.<\/b> 1 being tried again\. Nothing is lost quietly/.test(hU) && /setFilter\('unread'\)/.test(hU), hU.slice(0, 900));
+    ck('v13: the reader\'s last run is shown (4 min ago, healthy)', /Reader last ran 4 min ago<\/span>/.test(hU) && !/with a problem/.test(hU), hU.slice(0, 900));
+    ck('v13: a call with no transcript says so, that the reader stopped, and to listen in GoHighLevel', /Not read<\/span> <span style="font-size:12.5px;">GoHighLevel has no transcript for this call \(95 seconds\)/.test(hU) && /stopped trying \(GoHighLevel has no transcript\)\. Listen to it in GoHighLevel/.test(hU), hU);
+    ck('v13: after 3 failed tries it says the reader stopped (3 tries); on try 2 it says it is trying again', /stopped trying \(3 tries\)/.test(hU) && /Try 2 of 3/.test(hU), hU);
+    ck('v13: each promise in a call shows its watch: would remind (due day, why); "considering" has none', /Call Ann back about Tuesday <span class="field-note">|Call Ann back about Tuesday <span/.test(hU) && /Would remind · due Fri, Oct 9/.test(hU) && /Nothing with them since the promise/.test(hU) && !/Ann may add Saturdays[^<]*<\/div>[^]*?Would remind · due/.test(hU.split('Ann may add Saturdays')[1]?.slice(0, 80) || ''), hU);
+    ck('v13: it reads the promise watch and the heartbeat, and never writes', QU.some((q) => q.tb === 'call_promise_watch') && QU.some((q) => q.tb === 'app_data') && !QU.some((q) => q.write || q.rpc), JSON.stringify(QU));
+    cU.CPR.setFilter('unread'); const wUn = { innerHTML: '' }; cU.CPR.render(wUn);
+    ck('v13: "Couldn\'t read (3)" shows only the three that were not read', /Couldn't read \(3\)|Couldn&#39;t read \(3\)/.test(wUn.innerHTML) && /Gail Green/.test(wUn.innerHTML) && /Hal Hill/.test(wUn.innerHTML) && /Ivy Ives/.test(wUn.innerHTML) && !/Ann Late/.test(wUn.innerHTML), wUn.innerHTML.slice(0, 900));
+    cU.CPR.setFilter('promises'); const wP = { innerHTML: '' }; cU.CPR.render(wP); const hP = wP.innerHTML;
+    ck('v13 Promises: past due with no sign it was kept first, then still owed, then kept; dropped ones hidden', /Promises \(1 past due\)/.test(hP) && hP.indexOf('PAST DUE, NO SIGN IT WAS KEPT (1)') > -1 && hP.indexOf('PAST DUE') < hP.indexOf('STILL OWED (1)') && hP.indexOf('STILL OWED') < hP.indexOf('">KEPT (1)') && !/Dropped one/.test(hP), hP.slice(0, 1500));
+    ck('v13 Promises: each shows who, owner, due day, what it saw and the evidence; past due says who would be reminded, and that nobody is in practice', /<b>With:<\/b> Ann Late · <b>Owner:<\/b> Krystal Land · <b>Due:<\/b> Fri, Oct 9/.test(hP) && /Live, Krystal would get a reminder the next morning\. In practice nobody is reminded\./.test(hP) && /<li>Office text: new schedule sent<\/li>/.test(hP), hP);
+    cU.CPR.openCall('p2'); const wO = { innerHTML: '' }; cU.CPR.render(wO);
+    ck('v13 Promises: "See the texts" opens just that conversation, with a way back', /See the texts<\/a>/.test(hP) && /Showing one text conversation\./.test(wO.innerHTML) && /Bea wants her new schedule/.test(wO.innerHTML) && !/Ann asked about Tuesday/.test(wO.innerHTML) && /openCall\(''\)/.test(wO.innerHTML), wO.innerHTML.slice(0, 900));
+    cU.CPR.openCall(''); const wB = { innerHTML: '' }; cU.CPR.render(wB);
+    ck('v13 Promises: back returns to the promises', /PAST DUE, NO SIGN IT WAS KEPT/.test(wB.innerHTML));
+    globalThis.__BEATS = [{ automation: 'call-tasks', at: ago(95), ok: false }];
+    const { ctx: cS } = make({ call_tasks_practice: true }, rows); const wS = { innerHTML: '' }; cS.CPR.render(wS); await new Promise((r) => setTimeout(r, 20)); cS.CPR.render(wS);
+    ck('v13: a stopped or failing reader shows in red', /color:var\(--red\);font-weight:700;">Reader last ran 2 h ago, with a problem/.test(wS.innerHTML), wS.innerHTML.slice(0, 900));
+    globalThis.__PROMISES = []; globalThis.__BEATS = [];
+  }
   ck('no em dash in the module', !/[—―]/.test(src));
   const failed = res.filter((r) => !r[1]);
   for (const [n, ok, note] of res) console.log(`${ok ? 'PASS' : 'FAIL'}  ${n}${ok ? '' : '\n      ' + note}`);
