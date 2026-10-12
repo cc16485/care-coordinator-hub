@@ -9334,7 +9334,7 @@ async function openPerson(k, apTab, cgTab){   /* the tab to open on (2026-10-12 
     try { const { data } = await sb.from('hire_intake').select('applicant_id').eq('id', intakeId).maybeSingle(); appId = (data && data.applicant_id) || null; } catch (e) {}
   }
   if (appId && typeof btOpenApplicant === 'function') { btOpenApplicant(appId, apTab); return; }
-  if (window.HP) { HP.open(rec ? { caregiver_id: rec.id } : (candId != null ? { candidate_id: candId } : k)); return; }
+  if (window.HP) { (HP.panel || HP.open)(rec ? { caregiver_id: rec.id } : (candId != null ? { candidate_id: candId } : k)); return; }   /* the panel, never HP.open: that would come back here */
   const who = rec || cand; if (who) openProfile(who.first, who.last);
 }
 /* The name on a list, as a link to their page. */

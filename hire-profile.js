@@ -21,7 +21,7 @@
                   opened:['Opened','#6E6559','#F4F2ED'], changed:['Changed','#92400E','#FEF3C7'], card:['Card','#B45309','#FFF7ED'] };
   let CUR = null, KEY = null, FILTER = 'all';
   function keyAttr(k){ return esc(JSON.stringify(k)); }
-  function chip(k, label){ return '<button class="ibtn" style="font-size:.72rem" title="Their main profile: every send, receipt and completion with its time, and every signed document" onclick="HP.open(' + keyAttr(k) + ')">&#128100; ' + esc(label || 'Profile') + '</button>'; }
+  function chip(k, label){ return '<button class="ibtn" style="font-size:.72rem" title="Their page, on the Hiring tab: every send, receipt and signed document" onclick="HP.open(' + keyAttr(k) + ')">' + esc(label || 'Profile') + '</button>'; }
   function panel(){
     let w = document.getElementById('hpPanel'); if(w) return w;
     w = document.createElement('div'); w.id = 'hpPanel';
@@ -31,7 +31,24 @@
     document.body.appendChild(w); return w;
   }
   function close(){ const w = document.getElementById('hpPanel'); if(w) w.style.display = 'none'; }
+  /* One profile, step 2 piece 3 (2026-10-12): Profile opens the person's own page on its Hiring tab. This panel is only
+     for someone with no page of their own (no application and no Hub record), and for anything that asks for it. */
   async function open(k){
+    k = k || {};
+    try{
+      if(k.applicant_id && typeof btOpenApplicant === 'function'){ btOpenApplicant(String(k.applicant_id), 'hiring'); return; }
+      if((k.candidate_id != null || k.caregiver_id != null) && typeof openPerson === 'function'){ openPerson(k, 'hiring', 'hiring'); return; }
+      if(k.offer_id){
+        const p = await call(Object.assign({ action:'get' }, k)), ids = p.ids || {};
+        if(ids.applicant_id && typeof btOpenApplicant === 'function'){ btOpenApplicant(String(ids.applicant_id), 'hiring'); return; }
+        if((ids.caregiver_id != null || ids.candidate_id != null) && typeof openPerson === 'function'){
+          openPerson(ids.caregiver_id != null ? { caregiver_id: ids.caregiver_id } : { candidate_id: ids.candidate_id }, 'hiring', 'hiring'); return; }
+        KEY = k; FILTER = 'all'; CUR = p; panel().style.display = 'flex'; render(); return;
+      }
+    }catch(e){}
+    return panelOpen(k);
+  }
+  async function panelOpen(k){
     KEY = k; FILTER = 'all';
     const w = panel(), b = document.getElementById('hpBody'); w.style.display = 'flex';
     b.innerHTML = '<div class="field-note">Gathering everything on file…</div>';
@@ -200,5 +217,5 @@
   }
   function watch(){ const box = document.getElementById('offersList'); if(!box || box.dataset.hpWatch) return; box.dataset.hpWatch = '1'; new MutationObserver(() => fillOfferProgress()).observe(box, { childList:true, subtree:true }); fillOfferProgress(); }
   document.addEventListener('DOMContentLoaded', watch); setInterval(watch, 3000);
-  window.HP = { open, close, chip, doc, mount, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress };
+  window.HP = { open, panel: panelOpen, close, chip, doc, mount, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress };
 })();
