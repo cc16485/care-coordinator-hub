@@ -10,7 +10,7 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const cut = (from, to) => { const a = html.indexOf(from), b = html.indexOf(to, a + 1); if (a < 0 || b < 0) throw new Error('not found: ' + from); return html.slice(a, b); };
 let pass = 0, fail = 0;
 const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'FAIL  ') + n + (ok || x === undefined ? '' : '  ' + JSON.stringify(x).slice(0, 500))); };
-const code = cut('const apDigits = p =>', 'async function apOnboardMount(r){');
+const code = cut('const apDigits = p =>', 'async function apOnboardMount(r');
 const calls = [];
 const chain = (data) => { const b = { ilike(c, v){ calls.push([c, v]); return b; }, order(){ return b; }, limit(){ return Promise.resolve({ data, error: null }); } }; return b; };
 const ctx = { console, Promise, String, Set, Array, Object, sb: { from: () => ({ select: () => chain(ctx.ROWS) }) }, ROWS: [] };

@@ -17565,21 +17565,72 @@ function cgdBackToList(){
   cgdRenderList();
 }
 const CGD_SECTIONS=[['overview','Overview'],['profile','Caregiver profile'],['hiring','Hiring & Experience'],['compliance','Compliance'],
-  ['skills','Skills'],['performance','Performance'],['work','Work'],['conversations','Conversations'],['history','History']];
+  ['skills','Skills'],['performance','Performance'],['work','Work'],['conversations','Conversations'],['history','History'],
+  ['apphalf','Application'],['hire','Hiring']];
 /* One profile, step 2 (2026-10-12): the tabs, in the same names and order as the applicant page. Each tab shows the
    sections that used to be their own buttons; a section name still works, and opens the tab that holds it. */
-const CGD_TABS=[['overview',['overview']],['interview',['hiring']],['checks',['compliance']],['family',['profile']],
+const CGD_TABS=[['overview',['overview']],['interview',['apphalf','hiring']],['hiring',['hire']],['checks',['compliance']],['family',['profile']],
   ['work',['skills','work']],['performance',['performance']],['messages',['conversations']],['history',['history']]];
 function cgdSection(name){
-  const tab=CGD_TABS.find(t=>t[0]===name)||CGD_TABS.find(t=>t[1].includes(name))||CGD_TABS[0];
+  let tab=CGD_TABS.find(t=>t[0]===name)||CGD_TABS.find(t=>t[1].includes(name))||CGD_TABS[0];
+  if(tab[0]==='hiring'&&!(CGD_APP&&CGD_APP.axid===String(CGD.openId))&&!(CGD_APP_HINT&&CGD_APP_HINT.axid===String(CGD.openId))) tab=CGD_TABS[0];   /* no application on file: no Hiring tab */
   CGD.section=tab[0];
   CGD_SECTIONS.forEach(([k])=>{ const el=document.getElementById('cgdSec-'+k); if(el) el.style.display=(tab[1].includes(k)?'block':'none'); });
   CGD_TABS.forEach(([k])=>{ const b=document.getElementById('cgdSecBtn-'+k); if(b){ b.classList.toggle('active',k===tab[0]); b.setAttribute('aria-selected',String(k===tab[0])); } });
   if(tab[0]==='history') cgdHistoryMount();
 }
+/* One profile, step 2 piece 2 (2026-10-12): a hired caregiver's page carries their application and hiring. The
+   application is the one connected by id: the applicant they were opened from, or the hiring history's own link. */
+let CGD_APP = null, CGD_APP_HINT = null;
+function cgdOpenFromApplicant(axid, appId, tab){
+  CGD_APP_HINT = { axid:String(axid), id:String(appId) };
+  openCaregiverProfile(String(axid), tab);
+}
+async function cgdAppHalfMount(axid, appId){
+  axid = String(axid);
+  if(String(CGD.openId)!==axid || !appId) return;
+  if(CGD_APP && CGD_APP.axid===axid) return;   /* once per open */
+  CGD_APP = { axid, id:String(appId), row:null };
+  const btn=document.getElementById('cgdSecBtn-hiring'); if(btn) btn.style.display='';
+  try{ if(!AP_ROWS.length) await apLoad(); }catch(e){}
+  let r=AP_ROWS.find(x=>String(x.id)===String(appId));
+  if(!r){ try{ const { data }=await sb.from('job_applicants').select('*').eq('id', appId).maybeSingle(); r=data||null; }catch(e){} }
+  if(String(CGD.openId)!==axid || !CGD_APP || CGD_APP.id!==String(appId)) return;
+  if(!r){ const h=document.getElementById('cgdApHire'); if(h) h.innerHTML='<div class="card" style="padding:14px 16px;"><div class="field-note">Their application could not be read just now. Refresh to try again.</div></div>'; return; }
+  CGD_APP.row=r;
+  const esc=escapeHtmlComms, id=esc(r.id);
+  const a=document.getElementById('cgdApInterview');
+  if(a) a.innerHTML=apProfCard('What they told us', apToldHtml(r), 'Their own answers, on the day they applied.')
+    + apProfCard('The screen', apFlagsHtml(r), '')
+    + apProfCard('Where they have worked', apProfWork(r), 'What they claim, and whether anybody has checked it.')
+    + apProfCard('The interview', apProfInterview(r), r.post_interview ? '' : 'Nothing recorded.')
+    + '<div id="cgdApSkills"></div>';
+  const h=document.getElementById('cgdApHire');
+  if(h) h.innerHTML=apProfCard('The offer', apProfOffer(r), '')
+    + apProfCard('Getting them started', '<div id="cgdApOnboard"><div class="field-note">Looking…</div></div>', 'References, the screenings and the paperwork.')
+    + (window.HP ? apProfCard('Their journey, forms and signed documents', '<div id="cgdApHp"></div>', 'Read from their records. Signed documents never change.') : '')
+    + '<div class="pp-links" style="margin:0 0 10px;">'
+      + '<button type="button" class="pp-link" onclick="cgdApAct(\'apToOffer\',\''+id+'\')">Offer form</button>'
+      + '<button type="button" class="pp-link" style="color:var(--red);" onclick="cgdApAct(\'apOffboard\',\''+id+'\')">'+(r.status==='left'?'Change how they left':'They have left')+'</button>'
+    + '</div>';
+  apOnboardMount(r, document.getElementById('cgdApOnboard'));
+  if(window.HP){ HP.mount(document.getElementById('cgdApHp'), { applicant_id:r.id }, ['status','docs']);
+                 HP.mount(document.getElementById('cgdApSkills'), { applicant_id:r.id }, ['skills']); }
+  const link=document.getElementById('cgdAppLink'); if(link) link.innerHTML='';   /* the application is on this page now */
+  const hist=document.getElementById('cgdHist'); if(hist){ delete hist.dataset.done; if(CGD.section==='history') cgdHistoryMount(); }
+}
+/* an application action from the caregiver page, then the application half is read again */
+async function cgdApAct(fn, id){
+  try{ if(!AP_ROWS.some(x=>String(x.id)===String(id))) await apLoad(); }catch(e){}
+  const ax=CGD.openId;
+  try{ await window[fn](id); }catch(e){}
+  if(fn==='apOffboard' && String(CGD.openId)===String(ax) && CGD_APP){ const keep=CGD_APP.id; CGD_APP=null; cgdAppHalfMount(ax, keep); }
+}
+window.cgdApAct = cgdApAct;
 /* History: every send, receipt and signature from their hiring, read by the Whole profile from their Hub record */
 function cgdHistoryMount(){
   const el=document.getElementById('cgdHist'); if(!el||el.dataset.done) return; el.dataset.done='1';
+  if(CGD_APP&&CGD_APP.axid===String(CGD.openId)&&window.HP){ HP.mount(el,{ applicant_id:CGD_APP.id },['timeline']); return; }
   const c=(CGD.census&&CGD.census.caregivers||[]).find(x=>String(x.id)===String(CGD.openId));
   const g=c?cgdLegacyFor(c.id,(c.first+' '+c.last).trim()):null;
   if(g&&g.axiscare_id&&String(g.axiscare_id)===String(CGD.openId)&&window.HP){ HP.mount(el,{ caregiver_id:g.id },['timeline']); return; }
@@ -17759,6 +17810,8 @@ async function cgdOpenProfile(axid, tab){
   if(!full||!list) return;
   const c=(CGD.census&&CGD.census.caregivers||[]).find(x=>String(x.id)===String(axid)); if(!c) return;
   const keepTab=(String(CGD.openId)===String(axid)&&full.style.display==='block')?CGD.section:null;   /* a refresh stays on the tab you were on */
+  const keepApp=(CGD_APP&&CGD_APP.axid===String(axid))?CGD_APP.id:null;
+  CGD_APP=null;
   CGD.openId=String(axid); CGD.section='overview';
   list.style.display='none'; full.style.display='block';
   const esc=escapeHtmlComms, nm=(c.first+' '+c.last).trim();
@@ -17779,14 +17832,14 @@ async function cgdOpenProfile(axid, tab){
               :'<span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">'+esc(c.status_label||'Inactive')+'</span>')
     +(lvl?'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">Level '+lvl+'</span>':'')
     +(function(){ const t=c.hire_date?Math.floor((Date.now()-new Date(String(c.hire_date).slice(0,10)+'T12:00:00').getTime())/864e5):null;
-        return (t!=null&&t>=0&&t<60)?'<span class="tag-chip" style="background:var(--honey-chip,#F7E7CD);color:var(--honey-ink,#8A4E0C);">New hire — day '+t+'</span>':''; })()
+        return (t!=null&&t>=0&&t<60)?'<span class="tag-chip" style="background:var(--honey-chip,#F7E7CD);color:var(--honey-ink,#8A4E0C);">New hire, day '+t+'</span>':''; })()
     +'<span class="field-note">AxisCare ID '+esc(String(c.id))+'</span>'
     +'<span id="cgdAppLink"></span>'
     +'<span style="flex:1;"></span>'
     +(c.mobile?'<a class="secondary" style="text-decoration:none;padding:.38rem .85rem;border-radius:8px;border:1.5px solid var(--border);background:#fff;color:var(--navy);font-size:.8rem;font-weight:700;"'+ocAttrs(c.mobile,{email:c.email})+'>📞 Call</a> '+act('sms:'+esc(c.mobile),'💬 Text'):'')
     +(c.email?act('mailto:'+esc(c.email),'✉ Email'):'')
     +'</div>'
-    +ppTabBarHtml(CGD_TABS.map(t=>t[0]),'overview','cgdSection').replace(/id="cgdSectionBtn-/g,'id="cgdSecBtn-')
+    +ppTabBarHtml(CGD_TABS.map(t=>t[0]),'overview','cgdSection').replace(/id="cgdSectionBtn-/g,'id="cgdSecBtn-')   /* Hiring shows once their application is found */
 
     +'<div id="cgdSec-overview">'
     +'<div id="cgcCard"></div>'
@@ -17818,6 +17871,8 @@ async function cgdOpenProfile(axid, tab){
       '<div id="cgdCgp"><div class="field-note">Loading…</div></div>')
     +'</div>'
 
+    +'<div id="cgdSec-apphalf" style="display:none;"><div id="cgdApInterview"></div></div>'
+    +'<div id="cgdSec-hire" style="display:none;"><div id="cgdApHire"><div class="card" style="padding:14px 16px;"><div class="field-note">Looking for their application…</div></div></div></div>'
     +'<div id="cgdSec-hiring" style="display:none;">'
     +'<div id="cgdHiring"><div class="field-note">Loading the hiring history…</div></div>'
     /* 458: what they wrote on their Step 1 application (GoHighLevel), the approved details only. step1-facts.js */
@@ -17870,7 +17925,11 @@ async function cgdOpenProfile(axid, tab){
   try{ cgdLateMount(c); }catch(_){}
   try{ cgdKindMount(c); }catch(_){}
   cgdEvvFormsMount(c);
+  const hint=(CGD_APP_HINT&&CGD_APP_HINT.axid===String(c.id))?CGD_APP_HINT.id:keepApp;
+  { const hb=document.getElementById('cgdSecBtn-hiring'); if(hb&&!hint) hb.style.display='none'; }
   cgdSection(tab||keepTab||'overview');
+  CGD_APP_HINT=null;
+  if(hint) cgdAppHalfMount(c.id, hint);
   try{ document.getElementById('tab-cgdir').scrollIntoView({block:'start'}); }catch(e){}
 }
 
@@ -18542,7 +18601,8 @@ async function cgdHiringLoad(axid, currentLevel){
     if(!r.ok||!j.ok) throw new Error(j.error||('caregiver-hiring-history '+r.status));
     /* One profile, step 1 (2026-10-12): their application, when it is connected by id */
     const appLink=document.getElementById('cgdAppLink');
-    if(appLink && CGD.openId===String(axid) && j.application && j.application.found && j.application.record_id)
+    if(CGD.openId===String(axid) && j.application && j.application.found && j.application.record_id) cgdAppHalfMount(axid, String(j.application.record_id));
+    if(appLink && CGD.openId===String(axid) && j.application && j.application.found && j.application.record_id && !(CGD_APP&&CGD_APP.axid===String(axid)))
       appLink.innerHTML='<button class="linklike" style="font-size:.8rem;" data-open-applicant="'+esc(String(j.application.record_id))+'" data-open-tab="interview" title="Their application, interview and hiring steps">Their application ↗</button>';
     if(!j.found){
       el.innerHTML=cgdHirCard('Hiring history','<div class="field-note">'+esc(j.honest_empty||'No connected hiring history found in the current recruiting records.')+'</div>');
@@ -23120,8 +23180,15 @@ async function recUse(id){
    has checked, how the interview went, and what we offered. */
 let AP_PROF = null;
 
-function apOpenProfile(id, tab){
+function apOpenProfile(id, tab, stay){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  /* One profile, step 2 piece 2 (2026-10-12): once AxisCare lists them as a caregiver, their one page is the caregiver
+     page, with their application and hiring on its tabs. Found by id only (apFindCaregiver). */
+  if(!stay && apIsOffered(r)){
+    const known = AP_CG_CACHE[r.id];
+    if(known){ cgdOpenFromApplicant(known, r.id, tab); return; }
+    if(known === undefined){ apFindCaregiver(r).then(ax => { if(ax) cgdOpenFromApplicant(ax, r.id, tab); else apOpenProfile(id, tab, true); }); return; }
+  }
   AP_PROF = r;
   if(tab){ AP_TAB = tab; AP_TAB_FOR = r.id; } else if(AP_TAB_FOR !== r.id){ AP_TAB = 'overview'; AP_TAB_FOR = r.id; }
   document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active'));
@@ -23498,20 +23565,25 @@ async function apReviewApprove(id, btn){
    Ids only: the AxisCare number on the application or on their start form, and only when AxisCare
    lists that number as a caregiver. Never a name, phone or email match. */
 const AP_CG_CACHE = {};
-async function apCgLinkFill(r){
-  const slot = document.getElementById('apCgLink'); if(!slot || !r) return;
-  const show = axid => { if(axid && AP_PROF && AP_PROF.id === r.id) slot.innerHTML = '<button class="secondary" data-open-caregiver="'+escapeHtmlComms(String(axid))+'" title="Their caregiver page: schedule, skills, training, checks, performance">Their caregiver page</button>'; };
-  if(Object.prototype.hasOwnProperty.call(AP_CG_CACHE, r.id)) return show(AP_CG_CACHE[r.id]);
+/* their AxisCare caregiver number, or null; undefined when it could not be checked (then nothing is cached) */
+async function apFindCaregiver(r){
+  if(!r) return null;
+  if(Object.prototype.hasOwnProperty.call(AP_CG_CACHE, r.id)) return AP_CG_CACHE[r.id];
   const ids = new Set([r.axiscare_id, r.candidate_id].filter(x => x != null && /^\d+$/.test(String(x))).map(String));
   try{
     const { data } = await sb.from('hire_intake').select('candidate_id').eq('applicant_id', r.id).limit(5);
     (data||[]).forEach(h => { if(h && h.candidate_id != null && /^\d+$/.test(String(h.candidate_id))) ids.add(String(h.candidate_id)); });
   }catch(e){}
-  if(!ids.size){ AP_CG_CACHE[r.id] = null; return; }
+  if(!ids.size){ AP_CG_CACHE[r.id] = null; return null; }
   let hits = [];
-  try{ const c = await cgdCensus(); hits = ((c && c.caregivers) || []).filter(x => ids.has(String(x.id))); }catch(e){ return; }
+  try{ const c = await cgdCensus(); hits = ((c && c.caregivers) || []).filter(x => ids.has(String(x.id))); }catch(e){ return undefined; }
   AP_CG_CACHE[r.id] = hits.length === 1 ? String(hits[0].id) : null;   /* two different caregivers = not ours to pick */
-  show(AP_CG_CACHE[r.id]);
+  return AP_CG_CACHE[r.id];
+}
+async function apCgLinkFill(r){
+  const slot = document.getElementById('apCgLink'); if(!slot || !r) return;
+  const axid = await apFindCaregiver(r);
+  if(axid && AP_PROF && AP_PROF.id === r.id) slot.innerHTML = '<button type="button" class="pp-link" data-open-caregiver="'+escapeHtmlComms(String(axid))+'" title="Their caregiver page: schedule, skills, training, checks, performance">Their caregiver page</button>';
 }
 /* ---- One profile, step 2 (Samantha 2026-10-12: "yes to both") ------------------------------------------------------
    One page per person: the top card (who, where they are, the one thing missing) and tabs that appear as they move
@@ -23566,6 +23638,45 @@ function apTab(k){
   if(k === 'history'){ const el = document.getElementById('apHpHistory'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['timeline']); } }
   if(k === 'interview'){ const el = document.getElementById('apHpSkills'); if(el && !el.dataset.done && apIsOffered(r)){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['skills']); } }
 }
+function apToldHtml(r){
+  const esc = escapeHtmlComms;
+  const ck = (r.experience_kinds||[]).join(' · ');
+  /* The exact pre-screener: every question in the apply page's own words and
+     order, with the answer as they gave it (her ask, 2026-09-22). A question
+     they never reached stays hidden; a No is a real answer and always shows. */
+  const yn = v => v===true ? 'Yes' : v===false ? '<b style="color:#B45309;">No</b>' : '';
+  return apProfRow('Are you looking for full time or part time?', esc(r.job_type||''))
+    + apProfRow('How many hours a week are you hoping for?', esc(r.hours_wanted||''))
+    + apProfRow('If we could not start you on that many hours straight away, would you start with fewer and build up?',
+        r.will_build_up===true ? 'Yes, I would build up' : r.will_build_up===false ? '<b style="color:#B45309;">I need those hours from the start</b>' : '')
+    + apProfRow('Have you worked with older adults before?', esc(ck))
+    + apProfRow('Are you 18 or older?', yn(r.age_ok))
+    + apProfRow('Are you legally authorized to work in the United States?', yn(r.work_auth))
+    + apProfRow('Do you have reliable transportation to get to shifts?', yn(r.has_transport))
+    + apProfRow("Do you have a valid driver's license?", yn(r.has_license))
+    + apProfRow('Do you have current auto insurance?', yn(r.has_insurance))
+    + apProfRow('Can you pass a background check?',
+        r.can_pass_background===true ? 'Yes' : r.can_pass_background===false ? '<b style="color:#B45309;">Not sure</b>' : '')
+    + apProfRow('Have you lived outside Missouri in the last five years?', yn(r.lived_outside_mo))
+    + apProfRow('Which states?', esc(r.states_lived||''))
+    + apProfRow('How long have you been caregiving?', esc(r.experience_years||''))
+    + apProfRow('When can you work?', esc(r.availability||''))
+    + apProfRow('How did you hear about us?', esc(r.referral_source||''))
+    + (r.experience ? '<div style="margin-top:10px;font-size:13.5px;background:var(--bg);border:1px solid var(--border);'
+        + 'border-radius:9px;padding:10px 12px;white-space:pre-wrap;">' + esc(r.experience) + '</div>' : '')
+    + (r.role_answers && Object.keys(r.role_answers).length
+        ? '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 4px;">Asked because of the role</div>'
+          + Object.entries(r.role_answers).map(([q,a]) =>
+              apProfRow(esc(q), esc(a===true?'Yes':a===false?'No':(a||'(no answer)')))).join('')
+        : '');
+}
+function apFlagsHtml(r){
+  const esc = escapeHtmlComms;
+  return (r.screen_flags||[]).length
+    ? (r.screen_flags||[]).map(f=>'<div style="font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--border);">'
+        + (/rehire/i.test(f) ? '🚩 ' : '• ') + esc(f.charAt(0).toUpperCase()+f.slice(1)) + '</div>').join('')
+    : '<div class="field-note">Nothing outstanding.</div>';
+}
 function apRenderProfile(){
   const r = AP_PROF; if(!r) return;
   setTimeout(() => apCgLinkFill(r), 0);
@@ -23619,40 +23730,7 @@ function apRenderProfile(){
     + '</div>';
 
   /* ---- the tabs ---- */
-  const ck = (r.experience_kinds||[]).join(' · ');
-  /* The exact pre-screener: every question in the apply page's own words and
-     order, with the answer as they gave it (her ask, 2026-09-22). A question
-     they never reached stays hidden; a No is a real answer and always shows. */
-  const yn = v => v===true ? 'Yes' : v===false ? '<b style="color:#B45309;">No</b>' : '';
-  const told = apProfRow('Are you looking for full time or part time?', esc(r.job_type||''))
-    + apProfRow('How many hours a week are you hoping for?', esc(r.hours_wanted||''))
-    + apProfRow('If we could not start you on that many hours straight away, would you start with fewer and build up?',
-        r.will_build_up===true ? 'Yes, I would build up' : r.will_build_up===false ? '<b style="color:#B45309;">I need those hours from the start</b>' : '')
-    + apProfRow('Have you worked with older adults before?', esc(ck))
-    + apProfRow('Are you 18 or older?', yn(r.age_ok))
-    + apProfRow('Are you legally authorized to work in the United States?', yn(r.work_auth))
-    + apProfRow('Do you have reliable transportation to get to shifts?', yn(r.has_transport))
-    + apProfRow("Do you have a valid driver's license?", yn(r.has_license))
-    + apProfRow('Do you have current auto insurance?', yn(r.has_insurance))
-    + apProfRow('Can you pass a background check?',
-        r.can_pass_background===true ? 'Yes' : r.can_pass_background===false ? '<b style="color:#B45309;">Not sure</b>' : '')
-    + apProfRow('Have you lived outside Missouri in the last five years?', yn(r.lived_outside_mo))
-    + apProfRow('Which states?', esc(r.states_lived||''))
-    + apProfRow('How long have you been caregiving?', esc(r.experience_years||''))
-    + apProfRow('When can you work?', esc(r.availability||''))
-    + apProfRow('How did you hear about us?', esc(r.referral_source||''))
-    + (r.experience ? '<div style="margin-top:10px;font-size:13.5px;background:var(--bg);border:1px solid var(--border);'
-        + 'border-radius:9px;padding:10px 12px;white-space:pre-wrap;">' + esc(r.experience) + '</div>' : '')
-    + (r.role_answers && Object.keys(r.role_answers).length
-        ? '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 4px;">Asked because of the role</div>'
-          + Object.entries(r.role_answers).map(([q,a]) =>
-              apProfRow(esc(q), esc(a===true?'Yes':a===false?'No':(a||'(no answer)')))).join('')
-        : '');
-
-  const flags = (r.screen_flags||[]).length
-    ? (r.screen_flags||[]).map(f=>'<div style="font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--border);">'
-        + (/rehire/i.test(f) ? '🚩 ' : '• ') + esc(f.charAt(0).toUpperCase()+f.slice(1)) + '</div>').join('')
-    : '<div class="field-note">Nothing outstanding.</div>';
+  const told = apToldHtml(r), flags = apFlagsHtml(r);
 
   /* Overview: anything that needs a look first, then the facts at a glance */
   const attention =
@@ -23763,8 +23841,8 @@ async function apIntakeByContact(r){
     return rows[0] || null;
   }catch(e){ return null; }
 }
-async function apOnboardMount(r){
-  const host = document.getElementById('apOnboardHost'); if(!host) return;
+async function apOnboardMount(r, hostEl){
+  const host = hostEl || document.getElementById('apOnboardHost'); if(!host) return;
   const esc = escapeHtmlComms;
   try{
     const [h, refs] = await Promise.all([
@@ -24170,7 +24248,7 @@ function apProfOffer(r){
    same confirmation and reminders as one they booked themselves. */
 async function apBookFor(id, askFirst){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
-  if(!AP_PROF || String(AP_PROF.id) !== String(id)) apOpenProfile(id);
+  if(!AP_PROF || String(AP_PROF.id) !== String(id)) apOpenProfile(id, undefined, true);   /* booking and the interview form live on the application page */
   document.getElementById('apBookId').value = id;
   /* The same picker moves an interview as books one: with a live booking the
      chosen time replaces it rather than stacking a second one on top. */
@@ -24538,7 +24616,7 @@ async function apInterview(id){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
   /* Always on their own page. Opening a long form under a list of hundreds of
      applicants means scrolling past all of them to answer one question. */
-  if(!AP_PROF || String(AP_PROF.id) !== String(id)) apOpenProfile(id);
+  if(!AP_PROF || String(AP_PROF.id) !== String(id)) apOpenProfile(id, undefined, true);   /* booking and the interview form live on the application page */
   /* The script has to be here before the screen draws, or the first thing an
      interviewer sees is the checkboxes and they start there. */
   if(!IQ.length){ try{ await iqLoad(); }catch(e){} }
