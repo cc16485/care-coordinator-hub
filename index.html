@@ -7030,6 +7030,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
 <script src="team-builder-2.js?v=4"></script>
+<script src="open-hours.js?v=1"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
@@ -35944,7 +35945,10 @@ let TB={pool:null,loading:false,planId:null,cellOpen:null,
 const TB_DAYS=['mon','tue','wed','thu','fri','sat','sun'];
 const TB_DAYL={mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri',sat:'Sat',sun:'Sun'};
 const TB_PATTERNS={
-  custom:{label:'Flexible — start with one shift, add & edit your own',slots:[{k:'s1',label:'Shift 1',start:'09:00',end:'17:00'}]},
+  custom:{label:'Flexible: start with one shift, add & edit your own',slots:[{k:'s1',label:'Shift 1',start:'09:00',end:'17:00'}]},
+  /* open hours (2026-10-12, her example): Monday to Saturday 8 to 5, or split at noon */
+  halves:{label:'Two halves: 8am to noon, noon to 5pm',slots:[{k:'am',label:'Morning 8a–12p',start:'08:00',end:'12:00'},{k:'pm',label:'Afternoon 12p–5p',start:'12:00',end:'17:00'}]},
+  workday:{label:'One day shift: 8am to 5pm',slots:[{k:'day',label:'Day 8a–5p',start:'08:00',end:'17:00'}]},
   twelves:{label:'2 × 12-hour (day / night)',slots:[{k:'day',label:'Day 8a–8p',start:'08:00',end:'20:00'},{k:'night',label:'Night 8p–8a',start:'20:00',end:'08:00'}]},
   eights:{label:'3 × 8-hour',slots:[{k:'a',label:'6a–2p',start:'06:00',end:'14:00'},{k:'b',label:'2p–10p',start:'14:00',end:'22:00'},{k:'c',label:'10p–6a',start:'22:00',end:'06:00'}]},
   daily4:{label:'One daily shift',slots:[{k:'main',label:'Daily shift',start:'09:00',end:'13:00'}]}
@@ -36098,6 +36102,7 @@ function tbHomeHtml(){
     var yes=Object.values(p.cells||{}).filter(function(c){ return c&&c.status==='yes'; }).length;
     return '<div class="card" style="padding:13px 16px;margin:0 0 8px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;'+(p.status==='done'?'opacity:.65;':'')+'">'
       +'<b style="color:var(--navy);font-size:15px;">'+esc(p.client||'(client)')+'</b>'
+      +(p.open_hours?'<span style="font-size:11px;font-weight:800;color:var(--teal);background:#E6F4F3;border-radius:999px;padding:1px 8px;">Open hours</span>':'')
       +'<span class="field-note">'+esc([p.city,p.level?('Level '+p.level):''].filter(Boolean).join(' · '))+'</span>'
       +'<span style="font-size:12.5px;"><b style="color:var(--green);">'+yes+'</b>/'+total+' confirmed · '+cells+' penciled</span>'
       +tbJourneyChip(p.id)
@@ -36111,6 +36116,10 @@ function tbHomeHtml(){
 function tbNewForm(){
   var box=document.getElementById('tbNewFormBox'); if(!box) return;
   box.innerHTML='<div class="card" style="padding:14px 18px;margin:0 0 12px;">'
+    /* 2026-10-12 (her ask): a plan can be open hours with no client yet, to ask the whole team who wants them */
+    +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;"><span class="field-note" style="font-weight:700;">This plan is for:</span>'
+    +'<button type="button" class="fb active" id="tb-for-client" onclick="tbForPick(false)">A client</button>'
+    +'<button type="button" class="fb" id="tb-for-open" onclick="tbForPick(true)">Open hours, no client yet</button></div>'
     +'<div style="display:grid;grid-template-columns:1.4fr 1fr .8fr 1fr;gap:8px;">'
     +'<input id="tb-client" placeholder="Client name (doesn\'t need to be in AxisCare)">'
     +'<input id="tb-townzip" placeholder="Town & zip, e.g. Mount Vernon 65712">'
@@ -36126,16 +36135,25 @@ function tbNewForm(){
     +'<button class="addlead" onclick="tbCreate()">Create the board</button>'
     +'</div></div>';
 }
+function tbForPick(open){
+  var a=document.getElementById('tb-for-client'), b=document.getElementById('tb-for-open'), c=document.getElementById('tb-client'), pat=document.getElementById('tb-pattern');
+  if(a) a.classList.toggle('active',!open); if(b) b.classList.toggle('active',!!open);
+  if(c) c.placeholder=open?'A name for it (optional), e.g. Open hours Nixa':'Client name (doesn\'t need to be in AxisCare)';
+  if(open&&pat) pat.value='halves';
+}
 async function tbCreate(){
+  var openHours=!!(document.getElementById('tb-for-open')&&document.getElementById('tb-for-open').classList.contains('active'));
   var client=document.getElementById('tb-client').value.trim();
-  if(!client){ alert('Whose care are we building?'); return; }
+  if(!client&&!openHours){ alert('Whose care are we building?'); return; }
   var tz=document.getElementById('tb-townzip').value.trim();
   var zip=(tz.match(/\b(\d{5})\b/)||[])[1]||'';
   var city=tz.replace(/\b\d{5}(-\d{4})?\b/,'').replace(/,/g,' ').replace(/\s+/g,' ').trim();
+  if(openHours&&!city){ alert('Which town are the hours in? The text to the team names the town.'); return; }
+  if(openHours&&!client) client='Open hours, '+city;
   var days=[].slice.call(document.querySelectorAll('[data-tbday].active')).map(function(b){ return b.getAttribute('data-tbday'); });
   if(!days.length){ alert('Pick at least one day.'); return; }
   var pat=TB_PATTERNS[document.getElementById('tb-pattern').value]||TB_PATTERNS.twelves;
-  var p={ id:'tb'+Date.now(), client:client, city:city||null, zip:zip||null,
+  var p={ id:'tb'+Date.now(), client:client, city:city||null, zip:zip||null, open_hours:openHours||undefined,
     level:document.getElementById('tb-level').value||null,
     days:days, slots:JSON.parse(JSON.stringify(pat.slots)), cells:{},
     status:'building', created_at:new Date().toISOString(),
@@ -36227,7 +36245,7 @@ function tbBoardHtml(plan){
           var inner=c
             ?'<div style="border-radius:7px;padding:3px 6px;background:'+(c.status==='yes'?'var(--green-bg)':c.status==='asked'||c.status==='no_reply'?'#FFF4E3':c.status==='maybe'?'#F3EEFF':c.status==='no'?'#FDE8E8':'#F1F5F9')+';color:'+(STATUS[c.status]||STATUS.penciled)[0]+';font-weight:700;'+(c.status==='no'?'text-decoration:line-through;':'')+'">'+esc(String(c.name).split(' ')[0]+' '+(String(c.name).split(' ')[1]||'').slice(0,1))+'<div style="font-size:9.5px;font-weight:600;">'+(c.status==='asked'&&c.ask_channel==='sms'?'texted · '+tbAgo(c.at):(STATUS[c.status]||STATUS.penciled)[1])+'</div>'+(typeof tb2MoreChip==='function'?tb2MoreChip(plan,key):'')+'</div>'
             :'<span style="color:var(--text-dim);font-size:15px;">＋</span>';
-          return '<td onclick="tbCell(\''+key+'\')" style="padding:.3rem;border-top:1px solid var(--border);border-left:1px solid var(--border);text-align:center;cursor:pointer;min-width:64px;'+(open?'outline:2px solid var(--teal);outline-offset:-2px;':'')+'">'+inner+'</td>';
+          return '<td onclick="tbCell(\''+key+'\')" style="padding:.3rem;border-top:1px solid var(--border);border-left:1px solid var(--border);text-align:center;cursor:pointer;min-width:64px;'+(open?'outline:2px solid var(--teal);outline-offset:-2px;':'')+'">'+inner+(typeof OH!=='undefined'?OH.cellHtml(plan,key):'')+'</td>';
         }).join('')+'</tr>';
     }).join('')+'</tbody></table>'
     +'<button class="fb" onclick="tbAddShift(\''+plan.id+'\')" style="margin-top:8px;">+ Add a shift</button>'
@@ -36260,7 +36278,8 @@ function tbBoardHtml(plan){
       +'<input placeholder="Search by name" value="'+esc(TB.linkQ||'')+'" oninput="tbLinkFilter(this.value)" style="flex:1;max-width:260px;font-size:12.5px;"></div>'
       +'<div class="field-note" style="font-size:11.5px;margin-bottom:4px;">Pick the person this plan is really for: the inquiry that started it, or a current client. A plan can be moved later only by Owner / Decision, and never after its shifts are on that Journey.</div>'
       +'<div id="tbLinkList">'+tbLinkListHtml(plan)+'</div></div>':'')
-    +(typeof tb2ReadinessHtml==='function'?tb2ReadinessHtml(plan)+tb2NeedsHtml(plan):'')
+    +(typeof tb2ReadinessHtml==='function'?tb2ReadinessHtml(plan)+(plan.open_hours?'':tb2NeedsHtml(plan)):'')
+    +(typeof OH!=='undefined'&&!TB.profileRoot?OH.boxHtml(plan):'')
     +'<div class="card" style="padding:8px;overflow-x:auto;">'+grid+'</div>'
     +(teamRows?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span class="field-note" style="font-weight:700;">The team so far:</span>'+teamRows+'</div>':'')
     +'<div id="tbAssign" style="margin-top:10px;">'+(TB.cellOpen?tbAssignHtml(plan,TB.cellOpen):'<div class="field-note">Click any cell to pencil someone in. Click a filled cell to update or move them.</div>')+'</div>'
