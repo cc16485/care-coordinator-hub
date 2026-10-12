@@ -24,7 +24,10 @@
     done_on_call: ['Done on the call', '#2f7d4f', '#E4F1E8'], caller_owns: ['The caller\'s to do', '#55677a', '#EEF1F4'], not_needed: ['Not needed', '#55677a', '#EEF1F4'] };
   const URG = { now: ['Now', '#A83A2F', '#F7E6E3'], today: ['Today', '#B4650C', '#FBEFDC'], this_week: ['This week', '#55677a', '#EEF1F4'], routine: ['Routine', '#8a978f', '#F2F4F3'] };
   const PROM = { we_agreed: 'We agreed', caller_will: 'Caller will', caller_considering: 'Caller is considering', awaiting_confirmation: 'Awaiting confirmation' };
-  const CPR = { rows: null, events: [], outcomes: [], at: 0, busy: null, err: '', filter: 'all' };
+  const CPR = { rows: null, events: [], outcomes: [], at: 0, busy: null, err: '', filter: 'all', q: '', day: '', channel: 'all' };
+  const DAYS = 14;
+  const chiYmd = ms => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+  const ACT = { ask_client_family_permission: 'Ask permission', axiscare_visit_change: 'Change in AxisCare', text_caregiver: 'Text the caregiver', text_client_caregivers: 'Text the client\'s caregivers', text_family_update: 'Update the family', call_back: 'Call back', open_calloff_case: 'Open a call-off case' };
 
   const when = iso => { try{ return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }catch(e){ return ''; } };
   const day = ymd => { try{ return new Date(ymd + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); }catch(e){ return ymd; } };
@@ -39,10 +42,10 @@
     if(!force && CPR.rows && Date.now() - CPR.at < 120000) return CPR.rows;
     CPR.busy = (async () => {
       try{
-        const since = new Date(Date.now() - 7 * 864e5).toISOString();
+        const since = new Date(Date.now() - DAYS * 864e5).toISOString();
         const { data, error } = await sb.from('call_task_reading')
-          .select('message_id, version, call_at, direction, seconds, caller, match, person_id, lead_id, who_name, who_roles, call_type, tasks, resolves, no_task_reason, error, read_at, detail')
-          .gte('call_at', since).order('call_at', { ascending: false }).limit(400);
+          .select('message_id, version, channel, call_at, direction, seconds, caller, match, person_id, lead_id, who_name, who_roles, call_type, tasks, resolves, no_task_reason, error, read_at, detail')
+          .gte('call_at', since).order('call_at', { ascending: false }).limit(800);
         if(error){ CPR.err = /does not exist|schema cache/i.test(error.message) ? 'not_installed' : error.message; CPR.rows = []; }
         else {
           /* a call read again by a newer reader shows once: its newest reading */
@@ -94,9 +97,26 @@
         + ' · <b>Due:</b> ' + (it.due ? esc(day(it.due)) : 'no date said') + '</div>' : '')
       + (it.decision === 'already_in_workflow' && it.workflow ? '<div class="field-note" style="margin-top:3px;"><b>Where:</b> ' + esc(it.workflow) + '</div>' : '')
       + (it.decision === 'kind_words' && it.quote ? '<div style="font-size:12.5px;margin-top:3px;font-style:italic;">“' + esc(it.quote) + '”</div><div class="field-note" style="margin-top:2px;">Goes to the Kind Words jar as a suggestion for an owner or coordinator to approve. Never a card.</div>' : '')
+      + actionsHtml(card ? it.actions : [])
       + '<div class="field-note" style="margin-top:3px;"><b>Why:</b> ' + esc(it.reason || '') + '</div>'
       + (resolvedBy ? '<div class="field-note" style="color:var(--teal);margin-top:3px;"><b>Answered by the later call at ' + esc(when(resolvedBy)) + '</b></div>' : '')
       + '</div>';
+  }
+  /* the prepared steps (v10): what a person would check and press, in order; in practice only shown */
+  function actionsHtml(acts){
+    if(!acts || !acts.length) return '';
+    return '<div style="margin-top:6px;border-left:3px solid #F0D9A8;padding-left:8px;"><div style="font-size:11px;font-weight:800;letter-spacing:.06em;color:#8A5A00;">PREPARED, A PERSON PRESSES EACH STEP</div>'
+      + acts.map(a => {
+        const r = a.resolved || {}, v = r.visit, after = r.after;
+        return '<div style="font-size:12.5px;margin:4px 0;"><b>' + esc(String(a.step || '')) + '. ' + esc(ACT[a.kind] || a.kind) + '</b>' + (a.to ? ' <span class="field-note">to ' + esc(a.to) + '</span>' : '')
+          + (a.waits_for_yes ? ' ' + chip('Waits for their yes', '#B4650C', '#FBEFDC') : '')
+          + (v ? '<div class="field-note">' + esc(v.client) + (v.caregiver ? ' with ' + esc(v.caregiver) : '') + ', ' + esc(day(v.date)) + ': ' + esc(v.start) + '–' + esc(v.end) + ' → <b>' + esc(after && after.start || '') + '–' + esc(after && after.end || '') + '</b> (from AxisCare)</div>'
+             : a.kind === 'axiscare_visit_change' && (a.date || a.start) ? '<div class="field-note">' + esc(a.client_name || 'the visit') + (a.date ? ', ' + esc(day(a.date)) : '') + (a.start ? ' → ' + esc(a.start) + '–' + esc(a.end) : '') + '</div>' : '')
+          + (Array.isArray(r.caregivers) ? '<div class="field-note">Goes to: ' + (r.caregivers.length ? r.caregivers.map(esc).join(', ') : 'nobody on the schedule') + ' (from AxisCare)</div>' : '')
+          + (r.note ? '<div class="field-note" style="color:var(--red);">' + esc(r.note) + '</div>' : '')
+          + (a.draft ? '<div style="font-style:italic;margin-top:2px;">“' + esc(a.draft) + '”</div>' : '')
+          + '</div>';
+      }).join('') + '</div>';
   }
   /* an older reading (before v7) has cards only */
   function oldCard(t, resolvedBy){
@@ -115,16 +135,27 @@
     const resolvedBy = {};
     all.forEach(r => (r.resolves || []).forEach(x => { resolvedBy[x.message_id + ':' + x.task_index] = r.call_at; }));
     const urgent = r => (r.tasks || []).some(t => t.urgency === 'now' || t.urgency === 'today');
-    const rows = all.filter(r => CPR.filter === 'all' || (CPR.filter === 'cards' && (r.tasks || []).length) || (CPR.filter === 'none' && !(r.tasks || []).length && !r.error) || (CPR.filter === 'urgent' && urgent(r)));
+    const words = r => [r.who_name, r.caller, (r.detail || {}).summary, (r.detail || {}).about].concat((r.detail || {}).understood || [], ((r.detail || {}).items || []).map(i => [i.title, i.responsibility, i.why, i.workflow, i.quote].join(' ')), (r.tasks || []).map(x => x.title)).join(' ').toLowerCase();
+    const q = lc(CPR.q);
+    const rows = all.filter(r => (CPR.filter === 'all' || (CPR.filter === 'cards' && (r.tasks || []).length) || (CPR.filter === 'none' && !(r.tasks || []).length && !r.error) || (CPR.filter === 'urgent' && urgent(r)))
+      && (!CPR.day || chiYmd(Date.parse(r.call_at)) === CPR.day)
+      && (CPR.channel === 'all' || (r.channel || 'call') === CPR.channel)
+      && (!q || q.split(/\s+/).every(w => words(r).includes(w))));
     const nCards = all.reduce((a, r) => a + (r.tasks || []).length, 0);
     const nWork = all.reduce((a, r) => a + ((r.detail && r.detail.items) || []).filter(i => i.decision === 'already_in_workflow' || i.decision === 'done_on_call').length, 0);
     const nPeople = new Set([].concat(...all.map(r => peopleCards(r).map(i => i.id)))).size;
+    const c = (k, label) => '<a href="#" onclick="CPR.setChannel(\'' + k + '\');return false;" style="margin-right:10px;' + (CPR.channel === k ? 'font-weight:800;color:var(--navy);' : '') + '">' + label + '</a>';
     const f = (k, label) => '<a href="#" onclick="CPR.setFilter(\'' + k + '\');return false;" style="margin-right:10px;' + (CPR.filter === k ? 'font-weight:800;color:var(--navy);' : '') + '">' + label + '</a>';
-    const head = '<div class="field-note" style="margin:0 0 6px;">Last 7 days: <b>' + all.length + '</b> calls read · <b>' + nCards + '</b> card' + (nCards === 1 ? '' : 's') + ' it would have made · <b>' + nWork
+    const head = '<div class="field-note" style="margin:0 0 6px;">Last ' + DAYS + ' days: <b>' + all.length + '</b> calls and texts read · <b>' + nCards + '</b> card' + (nCards === 1 ? '' : 's') + ' it would have made · <b>' + nWork
       + '</b> jobs it found already handled (in a workflow or on the call) · <b>' + nPeople + '</b> cards people made for the same people within a day · '
       + '<a href="#" onclick="CPR.refresh();return false;">Refresh</a></div>'
-      + '<div class="field-note" style="margin:0 0 10px;">Show: ' + f('all', 'All calls') + f('cards', 'With cards') + f('urgent', 'Urgent') + f('none', 'No card') + '</div>';
-    if(!rows.length){ wrap.innerHTML = intro + head + '<div class="card" style="padding:18px;text-align:center;">' + (all.length ? 'No calls in this view.' : 'No calls read yet. The reader looks every 10 minutes.') + '</div>'; return; }
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 6px;">'
+      + '<input id="cprQ" type="search" placeholder="Search a name or anything said" value="' + esc(CPR.q) + '" oninput="CPR.setQuery(this.value)" style="flex:1 1 220px;width:auto;min-width:0;font-size:13px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;margin:0;">'
+      + '<select id="cprDay" onchange="CPR.setDay(this.value)" style="flex:0 0 auto;width:auto;font-size:13px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;margin:0;">'
+      + '<option value="">All ' + DAYS + ' days</option>' + Array.from({ length: DAYS }, (_, i) => { const ymd = chiYmd(Date.now() - i * 864e5); return '<option value="' + ymd + '"' + (CPR.day === ymd ? ' selected' : '') + '>' + (i === 0 ? 'Today' : i === 1 ? 'Yesterday' : esc(day(ymd))) + '</option>'; }).join('') + '</select></div>'
+      + '<div class="field-note" style="margin:0 0 10px;">Show: ' + f('all', 'All') + f('cards', 'With cards') + f('urgent', 'Urgent') + f('none', 'No card')
+      + ' <span style="margin:0 6px;color:var(--border);">|</span> ' + c('all', 'Calls and texts') + c('call', 'Calls') + c('text', 'Texts') + '</div>';
+    if(!rows.length){ wrap.innerHTML = intro + head + '<div class="card" style="padding:18px;text-align:center;">' + (all.length ? 'No calls or texts in this view.' : 'No calls read yet. The reader looks every 10 minutes.') + '</div>'; return; }
     wrap.innerHTML = intro + head + rows.map(r => {
       const d = r.detail || {};
       const who = r.match === 'one' ? esc(r.who_name || r.caller || 'Someone') + ((r.who_roles || []).length ? ' (' + (r.who_roles || []).map(x => esc(WHO[x] || x)).join(', ') + ')' : '')
@@ -142,7 +173,7 @@
         || '<div class="field-note">Nothing the Hub can see. (Changes made directly in AxisCare do not show here yet.)</div>';
       return '<div class="card" style="padding:12px 14px;margin-bottom:10px;">'
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;"><b style="color:var(--navy);">' + who + '</b>'
-        + '<span class="field-note">' + esc(when(r.call_at)) + ' · ' + (r.direction === 'in' ? 'they called' : 'we called') + ' · ' + esc(mins(r.seconds)) + ' · ' + esc(ROLE[r.call_type] || r.call_type || '') + '</span></div>'
+        + '<span class="field-note">' + esc(when(r.call_at)) + ' · ' + (r.channel === 'text' ? 'texts' : (r.direction === 'in' ? 'they called' : 'we called') + ' · ' + esc(mins(r.seconds))) + ' · ' + esc(ROLE[r.call_type] || r.call_type || '') + '</span></div>'
         + (d.summary ? '<div style="font-size:13px;margin-top:6px;"><b>The call:</b> ' + esc(d.summary) + '</div>' : '')
         + (understood || promises ? '<div style="margin-top:6px;"><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--muted);">WHAT IT UNDERSTOOD</div>' + understood + promises + '</div>' : '')
         + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:10px;">'
@@ -152,7 +183,17 @@
     }).join('');
   }
 
+  let qTimer = null;
+  function redraw(keepFocus){
+    const w = document.getElementById('myWorkWrap'); if(!w) return;
+    const el = keepFocus ? document.getElementById('cprQ') : null, pos = el ? el.selectionStart : null;
+    render(w);
+    if(keepFocus){ const n = document.getElementById('cprQ'); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(e){} } }
+  }
   window.CPR = { offered, load, render, peopleCards, teamActions,
+    setQuery(v){ CPR.q = String(v || ''); clearTimeout(qTimer); qTimer = setTimeout(() => redraw(true), 200); },
+    setDay(v){ CPR.day = String(v || ''); redraw(false); },
+    setChannel(k){ CPR.channel = k; redraw(false); },
     setFilter(k){ CPR.filter = k; const w = document.getElementById('myWorkWrap'); if(w) render(w); },
     refresh(){ CPR.rows = null; const w = document.getElementById('myWorkWrap'); if(w) render(w); } };
 })();
