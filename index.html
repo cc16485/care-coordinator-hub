@@ -24407,65 +24407,166 @@ function apDecisionPanel(r){
 }
 window.apDecisionOffer = apDecisionOffer; window.apDecisionSkip = apDecisionSkip;
 
-/* ---- Applicant journey & messages (2026-10-01) ---- */
+/* ---- Applicant journey & messages (2026-10-01) ----
+   2026-10-11 (Samantha: "show visuals of the entire application and onboarding experience and the texts and emails
+   they receive"): the whole path as a timeline at the top, stages in the order a person lives them, the real pages
+   they land on (preview modes that save nothing) and the real emails, drawn from the same wording file the server
+   sends from, with our real address, directions and photo. Messages the new ones replaced are tucked away. */
+const APJ_STAGES = [
+  ['applying','Apply','i-doc'], ['interview booking','Book','i-calendar'], ['interview reminders','Reminders','i-send'],
+  ['no-show','No-show','i-alert'], ['after interview (offer / pool / declined)','Offer','i-check'],
+  ['references','References','i-talk'], ['background checks','Background','i-shield'], ['start paperwork','Paperwork','i-clipboard'],
+  ['Orientation Video Call (remote orientation)','Orientation call','i-video'], ['orientation & training','Training','i-grad'],
+  ['first shift','First shift','i-home'], ['after first shift (PRN only)','PRN','i-calendar'],
+  ['current caregivers (profile catch-up)','Current caregivers','i-eye'], ['any time (office text)','Any time','i-chat'] ];
+let APJ_CTX = null;
 function apjOpen(){
   if(window.TW) TW.mount();
-  if(window.AP_JOURNEY) return apjRender();
-  const sc = document.createElement('script'); sc.src = 'applicant-journey.js?v=20261002b';
-  sc.onload = apjRender; sc.onerror = () => { const b=document.getElementById('apjBody'); if(b) b.innerHTML='<div class="field-note">Could not load the journey list. Reload the page.</div>'; };
-  document.head.appendChild(sc);
+  if(window.AP_JOURNEY && window.AP_WORDS) return apjRender();
+  const load = (src) => new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
+  Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261011'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
+    .then(apjRender)
+    .catch(() => { const b=document.getElementById('apjBody'); if(b) b.innerHTML='<div class="field-note">Could not load the journey list. Reload the page.</div>'; });
+  apjLoadCtx();
 }
+/* The same values the server fills in: address, directions, entrance photo, interview length, who signs. */
+async function apjLoadCtx(){
+  if(APJ_CTX) return APJ_CTX;
+  const c = { first:'Jordan', link:'https://mo-care.com/apply?preview=manage', krystalNamed:false, mins:20, phone:'(417) 234-8494',
+              place:'1331 N Stewart Ave Ste B, Springfield MO 65802', note:'', mapUrl:'https://maps.google.com/?q=Caring%20Companions%20Springfield%20MO', photoUrl:null };
+  try{
+    const [st, iv, ops] = await Promise.all([
+      sb.from('scheduling_settings').select('*').eq('id',1).maybeSingle(),
+      sb.from('activity_types').select('talk_minutes').eq('key','interview').maybeSingle(),
+      sb.from('app_data').select('data').eq('key','ops_settings').maybeSingle() ]);
+    const s = st.data || {};
+    const place = [s.location_line1, s.location_line2].filter(Boolean).join(', ');
+    if(place) c.place = place;
+    c.note = s.note || ''; if(s.phone) c.phone = s.phone; c.photoUrl = s.photo_url || null;
+    c.mapUrl = 'https://maps.google.com/?q=' + encodeURIComponent([s.location_name, c.place].filter(Boolean).join(', '));
+    if(Number((iv.data||{}).talk_minutes) > 0) c.mins = Number(iv.data.talk_minutes);
+    c.krystalNamed = ((ops.data||{}).data||{}).applicant_msgs_krystal_named === true;
+  }catch(e){ /* the sample values above still show the layout */ }
+  APJ_CTX = c;
+  return c;
+}
+function apjSampleWhen(){
+  const d = new Date(); d.setDate(d.getDate()+1); while([0,6].includes(d.getDay())) d.setDate(d.getDate()+1);
+  return { day: d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}), weekday: d.toLocaleDateString('en-US',{weekday:'long'}), time:'10:00 AM' };
+}
+function apjEmail(key){
+  const W = window.AP_WORDS; if(!W || !APJ_CTX || !key) return null;
+  const c = APJ_CTX, w = apjSampleWhen(), who = W.interviewerLabel('Krystal', c.krystalNamed), [k, a, b] = key;
+  const e = W.emails[k];
+  if(!e) return null;
+  return k==='finish' ? e(c, a) : k==='invite' ? e(c, a, !!b) : k==='confirm' ? e(c, who, w.day, w.time)
+       : k==='twoDays' ? e(c, w.weekday, w.time) : k==='dayBefore' ? e(c, w.day, w.time) : k==='hour' ? e(c, w.time)
+       : k==='cancelled' ? e(c, w.day, w.time) : e(c);
+}
+/* Fill an opened message: its page frame and its emails. */
+async function apjFill(det){
+  det.querySelectorAll('iframe[data-src]').forEach(f=>{ f.src=f.dataset.src; f.removeAttribute('data-src'); });
+  const boxes = det.querySelectorAll('[data-email]'); if(!boxes.length) return;
+  await apjLoadCtx();
+  boxes.forEach(box=>{
+    let key; try{ key = JSON.parse(box.dataset.email); }catch(e){ return; }
+    const m = apjEmail(key); box.removeAttribute('data-email');
+    if(!m){ box.innerHTML = '<div class="field-note">The email preview could not load. Reload the page.</div>'; return; }
+    const f = document.createElement('iframe');
+    f.title = m.subject; f.setAttribute('sandbox','');
+    f.style.cssText = 'width:100%;max-width:600px;height:620px;border:1px solid var(--border);border-radius:12px;background:#faf9f6;';
+    f.srcdoc = '<!doctype html><meta charset="utf-8"><base target="_blank"><body style="margin:0">' + m.html + '</body>';
+    box.innerHTML = '<div style="font-size:12.5px;margin:0 0 5px;"><b>Subject:</b> ' + escapeHtmlComms(m.subject) + '</div>';
+    box.appendChild(f);
+  });
+}
+window.apjFill = apjFill;
+function apjJump(i){ const el = document.getElementById('apjStage_'+i); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); }
+window.apjJump = apjJump;
 function apjRender(){
   const box = document.getElementById('apjBody'); if(!box || !window.AP_JOURNEY) return;
   const esc = escapeHtmlComms;
   const q = ((document.getElementById('apjSearch')||{}).value||'').trim().toLowerCase();
   const onlyApplicant = !!(document.getElementById('apjApplicantOnly')||{}).checked;
+  const showOld = !!(document.getElementById('apjShowOld')||{}).checked;
   const STAGE_NOTE = {
     'any time (office text)':'Whenever the office wants to reach an applicant: a text from the Hub, from the office number, with the words you choose.',
     'applying':'From the moment they hear about the job until they book an interview.',
-    'interview booking':'Once an interview time is booked.',
-    'interview reminders':'Before the interview.',
+    'interview booking':'Once an interview time is booked, moved or cancelled.',
+    'interview reminders':'Before the interview, and what happens when they answer.',
     'no-show':'When they miss the interview without calling.',
     'after interview (offer / pool / declined)':'After the interview: offer, candidate pool or not hiring.',
     'references':'Checking their references.',
-    'start paperwork':'New-hire paperwork.',
+    'background checks':'When a background check turns something up.',
+    'start paperwork':'New-hire paperwork, Step 2 in Viventium.',
+    'Orientation Video Call (remote orientation)':'The short video call that starts orientation from home.',
     'orientation & training':'Orientation and required training.',
     'first shift':'Getting them onto the schedule.',
-    'after first shift (PRN only)':'PRN CNA Team only.' };
+    'after first shift (PRN only)':'PRN CNA Team only.',
+    'current caregivers (profile catch-up)':'Caregivers already working with us.' };
+  const rank = st => { const i = APJ_STAGES.findIndex(s=>s[0]===st); return i < 0 ? 99 : i; };
   const toRef = x => /^To the reference/.test(x.name);
-  const rows = window.AP_JOURNEY.filter(x => (!onlyApplicant || !toRef(x))
-    && (!q || JSON.stringify(x).toLowerCase().includes(q)));
+  const all = window.AP_JOURNEY.filter(x => (!onlyApplicant || !toRef(x)) && (!q || JSON.stringify(x).toLowerCase().includes(q)))
+    .slice().sort((a,b) => rank(a.stage) - rank(b.stage) || Number(a.order) - Number(b.order));
+  const old = all.filter(x=>x.replaced), rows = all.filter(x=>!x.replaced);
   const chip = (t,c,bg) => '<span style="font-size:11px;font-weight:800;color:'+c+';background:'+bg+';border-radius:999px;padding:2px 9px;">'+esc(t)+'</span>';
-  let html = '', stage = '';
-  rows.forEach(x => {
-    if(x.stage !== stage){
-      stage = x.stage;
-      html += '<div style="margin:18px 0 8px;"><div style="font-size:15px;font-weight:800;color:var(--navy);text-transform:capitalize;">'+esc(stage)+'</div>'
-        + (STAGE_NOTE[stage] ? '<div class="field-note">'+esc(STAGE_NOTE[stage])+'</div>' : '') + '</div>';
-    }
+  const card = x => {
     const none = /none/i.test(x.channel||'');
-    html += '<details class="card" ontoggle="if(this.open)this.querySelectorAll(\'iframe[data-src]\').forEach(f=>{f.src=f.dataset.src;f.removeAttribute(\'data-src\');})" style="padding:12px 14px;margin-bottom:8px;"><summary style="cursor:pointer;list-style:none;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+    const email = x.email_key && window.AP_WORDS;
+    return '<details class="card" ontoggle="if(this.open)apjFill(this)" style="padding:12px 14px;margin-bottom:8px;'+(x.replaced?'opacity:.75;':'')+'"><summary style="cursor:pointer;list-style:none;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
       + '<b style="color:var(--navy);font-size:14px;">'+esc(x.name)+'</b>'
-      + chip(x.automatic ? 'Automatic' : 'Office button', x.automatic?'#1E40AF':'#6E6559', x.automatic?'#DBEAFE':'#F4F2ED')
+      + (x.replaced ? chip('No longer sent','#6E6559','#F4F2ED') : chip(x.automatic ? 'Automatic' : 'Office button', x.automatic?'#1E40AF':'#6E6559', x.automatic?'#DBEAFE':'#F4F2ED'))
       + (none ? chip('No message','#6E6559','#F4F2ED') : chip(x.channel,'#0D365F','#E6F5F4'))
-      + (none ? '' : x.shows_in_ghl ? chip('✓ In GoHighLevel','#15803D','#DCFCE7') : chip('Not in GoHighLevel','#B45309','#FEF3C7'))
+      + (none || x.replaced ? '' : x.shows_in_ghl ? chip('✓ In GoHighLevel','#15803D','#DCFCE7') : chip('Not in GoHighLevel','#B45309','#FEF3C7'))
+      + (email ? chip('Email preview','#7C3AED','#EDE9FE') : '') + (x.page ? chip('Page preview','#0F766E','#E0F2F1') : '')
       + (x.warning ? chip('⚠ Not running','#B91C1C','#FEE2E2') : '')
       + '<span style="flex:1;"></span><span class="field-note">details ▾</span></summary>'
       + '<div style="margin-top:10px;font-size:13px;display:grid;gap:6px;">'
+      + (x.replaced ? '<div style="background:#F4F2ED;border-radius:8px;padding:8px 10px;">Replaced by the new messages on <b>'+esc(x.replaced)+'</b>. Kept here because turning off <b>New applicant messages</b> (Owners Hub Admin page) would bring it back.</div>' : '')
       + (x.warning ? '<div style="background:#FEE2E2;color:#991B1B;border-radius:8px;padding:8px 10px;"><b>'+esc(x.warning)+'</b></div>' : '')
       + (x.timing ? '<div><b>When:</b> '+esc(x.timing)+'</div>' : '')
       + (x.button ? '<div><b>Button:</b> '+esc(x.button)+'</div>' : '')
       + (x.trigger ? '<div><b>What sends it:</b> '+esc(x.trigger)+'</div>' : '')
       + (x.rule ? '<div><b>Rules:</b> '+esc(x.rule)+'</div>' : '')
       + (x.ghl_note ? '<div style="color:#B45309;"><b>'+esc(x.ghl_note)+'</b></div>' : '')
-      + (x.text ? '<div><b>'+(/email only/i.test(x.channel||'')?'Wording':'Text')+':</b><div style="white-space:pre-wrap;background:#F7F5F0;border-radius:8px;padding:9px 11px;margin-top:4px;">'+esc(x.text)+'</div></div>' : '')
-      + (x.subject ? '<div><b>Email subject:</b> '+esc(x.subject)+'</div>' : '')
-      + (x.email_summary ? '<div><b>Email says:</b> '+esc(x.email_summary)+'</div>' : '')
-      + (x.page ? '<div><b>The page it opens:</b> <a href="'+esc(x.page)+'" target="_blank" rel="noopener">Open the real page ↗</a>'
-          + '<div style="margin-top:6px;"><iframe data-src="'+esc(x.page)+'" title="'+esc(x.name)+'" style="width:100%;max-width:420px;height:560px;border:1px solid var(--border);border-radius:12px;background:#fff;"></iframe></div></div>' : '')
+      + (x.text ? '<div><b>'+(/email only/i.test(x.channel||'')?'Wording':'Text')+':</b><div style="white-space:pre-wrap;background:#F7F5F0;border-radius:8px;padding:9px 11px;margin-top:4px;max-width:420px;">'+esc(x.text)+'</div></div>' : '')
+      + (email ? '<div><b>The email, exactly as it arrives</b> <span class="field-note">(a sample name and time; our real address, directions and photo)</span>'
+          + '<div style="margin-top:6px;" data-email="'+esc(JSON.stringify(x.email_key))+'"><div class="field-note">Opening…</div></div>'
+          + (x.email_key_prn ? '<div style="margin-top:10px;"><b>PRN CNA Team version</b><div style="margin-top:6px;" data-email="'+esc(JSON.stringify(x.email_key_prn))+'"><div class="field-note">Opening…</div></div></div>' : '')
+          + '</div>'
+        : (x.subject ? '<div><b>Email subject:</b> '+esc(x.subject)+'</div>' : '') + (x.email_summary ? '<div><b>Email says:</b> '+esc(x.email_summary)+'</div>' : ''))
+      + (x.page ? '<div><b>The page it opens:</b> <a href="'+esc(x.page)+'" target="_blank" rel="noopener">Open it in a new tab ↗</a> <span class="field-note">(a preview: nothing is saved or sent from it)</span>'
+          + '<div style="margin-top:6px;"><iframe data-src="'+esc(x.page)+'" title="'+esc(x.name)+'" style="width:100%;max-width:420px;height:640px;border:1px solid var(--border);border-radius:12px;background:#fff;"></iframe></div></div>' : '')
       + '</div></details>';
+  };
+  /* The path, start to finish: one tap jumps to that stage. */
+  const stagesHere = APJ_STAGES.map((s,i)=>({ s, i, n: rows.filter(x=>x.stage===s[0]).length })).filter(x=>x.n);
+  let html = '<div class="card" style="padding:14px 16px;margin-bottom:6px;"><b style="font-size:14px;color:var(--navy);">The whole path</b>'
+    + '<div class="field-note" style="margin:2px 0 10px;">Tap a step to jump to its messages. Open a message to see the real page they land on and the email exactly as it arrives.</div>'
+    + '<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">'
+    + stagesHere.map((x,k)=>'<button class="fb" onclick="apjJump('+x.i+')" style="display:inline-flex;gap:6px;align-items:center;">'
+        + '<svg class=navi aria-hidden=true><use href=icons.svg#'+x.s[2]+'></use></svg>'+esc(x.s[1])
+        + ' <span style="font-size:11px;color:var(--text-muted);">'+x.n+'</span></button>'
+        + (k < stagesHere.length-1 ? '<span aria-hidden="true" style="color:#C8C1B4;">›</span>' : '')).join('')
+    + '</div></div>';
+  let stage = '';
+  rows.forEach(x => {
+    if(x.stage !== stage){
+      stage = x.stage;
+      const i = APJ_STAGES.findIndex(s=>s[0]===stage), s = APJ_STAGES[i];
+      html += '<div id="apjStage_'+i+'" style="margin:18px 0 8px;scroll-margin-top:150px;"><div style="font-size:15px;font-weight:800;color:var(--navy);text-transform:capitalize;display:flex;gap:7px;align-items:center;">'
+        + (s ? '<svg class=navi aria-hidden=true><use href=icons.svg#'+s[2]+'></use></svg>' : '')+esc(stage)+'</div>'
+        + (STAGE_NOTE[stage] ? '<div class="field-note">'+esc(STAGE_NOTE[stage])+'</div>' : '') + '</div>';
+    }
+    html += card(x);
   });
-  if(!rows.length) html = '<div class="field-note">Nothing matches that search.</div>';
+  if(!rows.length) html += '<div class="field-note">Nothing matches that search.</div>';
+  if(old.length){
+    html += '<div class="card" style="padding:12px 14px;margin-top:18px;background:#FAF9F6;">'
+      + '<label class="field-note" style="display:flex;gap:7px;align-items:center;cursor:pointer;margin:0;"><input type="checkbox" id="apjShowOld" onchange="apjRender()" '+(showOld?'checked ':'')+'style="width:auto;margin:0;">'
+      + 'Show the ' + old.length + ' older messages we no longer send (replaced on October 11, 2026)</label>'
+      + (showOld ? '<div style="margin-top:10px;">' + old.map(card).join('') + '</div>' : '') + '</div>';
+  }
   const issues = (window.AP_JOURNEY_ISSUES||[]);
   html += issues.length ? '<div class="card" style="padding:14px;margin-top:18px;background:#FFFBEB;border-color:#FCD34D;"><b style="color:#92400E;">Things to decide or fix</b><ul style="margin:8px 0 0 18px;font-size:13px;color:#78350F;">'
     + issues.map(i=>'<li style="margin-bottom:4px;">'+esc(i)+'</li>').join('') + '</ul></div>' : '';

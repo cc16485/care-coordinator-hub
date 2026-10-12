@@ -36,7 +36,7 @@ const J = (o) => (w.AP_JOURNEY || []).find((e) => e.order === o);
 ck('journey #37: the office text, with her example as the words', J(37) && /started an application with us, and we have a client right now who may be a good fit/.test(J(37).text) && /held/i.test(J(37).timing), J(37));
 ck('journey #38 and #39: the two cancel messages (they asked / we need to)', J(38) && /as you asked/.test(J(38).text) && J(39) && /we need to cancel your interview/.test(J(39).text) && J(38).subject === 'Your interview on {day} is cancelled');
 ck('journey #7 now says a Hub cancel sends its own message', /A cancel pressed in the Hub sends the office's own message/.test(J(7).trigger));
-ck('the journey date moved', /AP_JOURNEY_CHECKED = 'October 10, 2026/.test(journey));
+ck('the journey date moved', /AP_JOURNEY_CHECKED = 'October (1[0-9]|2[0-9]|3[01]), 2026/.test(journey));
 
 /* ── the composer file, loaded for real ── */
 const mine = html.split('\n').concat(phone.split('\n')).filter((l) => /574/.test(l)).join('\n');

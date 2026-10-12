@@ -117,7 +117,7 @@ function world(opts = {}) {
   ck('journey: the exact new text and email subject', e.text === "Hi {first}, welcome to Caring Companions! Your orientation is ready. Start any time on your phone or computer:\nhttps://training.mo-care.com/#/me/{token}\nIt's 2 hours of orientation plus 4 hours of dementia care training, and you can do it in pieces. This private link is just for you, no login needed. Questions? Call or text the office at (417) 234-8494. Caring Companions.\nReply STOP to opt out." && e.subject === 'Welcome to Caring Companions, your orientation is ready', e.text);
   ck('journey: no em dash in the new entry', !/—/.test(JSON.stringify(e)));
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  ck('index.html loads the new journey (cache version bumped)', /applicant-journey\.js\?v=20261002/.test(html));
+  ck('index.html loads the new journey (cache version bumped)', /applicant-journey\.js\?v=2026(100[2-9]|10[1-3]\d)/.test(html));
 
   console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
 })();

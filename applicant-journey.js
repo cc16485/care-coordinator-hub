@@ -2,7 +2,7 @@
    messages they receive and attached somewhere in the hub pages so that our office admin know"). Built from the code as
    of 2026-10-01: every message an applicant / new hire gets, its exact wording, when it goes, what triggers it, and
    whether it shows in GoHighLevel Conversations. If a message is changed, update this list too. */
-window.AP_JOURNEY_CHECKED = 'October 10, 2026 (checked by the journey check against the real messages; no em dashes)';
+window.AP_JOURNEY_CHECKED = 'October 11, 2026 (checked by the journey check against the real messages; no em dashes)';
 window.AP_JOURNEY = [
  {
   "stage": "any time (office text)",
@@ -34,7 +34,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first_name}, thanks for calling Caring Companions! Here's the application for {position}. It takes about 2 minutes: {link} Reply STOP to opt out.",
   "email_summary": "Hi {first}, thanks for calling about our {position} position. Here is the application. It takes about 2 minutes, and at the end you can pick a time for your in-person interview at our office. [Start the application] Questions? Call us at {office phone}.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "page": "https://mo-care.com/apply?preview=1"
  },
  {
   "stage": "applying",
@@ -51,7 +52,7 @@ window.AP_JOURNEY = [
   "email_summary": "Same words as the text with the link clickable, plus the 'Where to come' block (office name, address, map link, note, entrance photo).",
   "shows_in_ghl": true,
   "failure_visible": true,
-  "page": "https://mo-care.com/apply"
+  "replaced": "October 11, 2026"
  },
  {
   "stage": "applying",
@@ -67,7 +68,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}! Thanks for applying for Caring Companions' PRN CNA Team. Based on your Priority Application, we'd like to meet you in person. Choose an in-person interview time at our office here: https://mo-care.com/apply?book={applicant_id}",
   "email_summary": "Same words as the text plus the 'Where to come' block.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "replaced": "October 11, 2026"
  },
  {
   "stage": "applying",
@@ -83,7 +85,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, we still have in-person interview times open at our office this week if you would like one: https://mo-care.com/apply?book={applicant_id} Or call us on {office phone} and we will book it with you.",
   "email_summary": "Same words as the text (no address block).",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "replaced": "October 11, 2026"
  },
  {
   "stage": "applying",
@@ -99,7 +102,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, last note from us so we are not a nuisance. If you would still like to talk about caregiving work, pick a time here: https://mo-care.com/apply?book={applicant_id} or call {office phone}. We would be glad to hear from you.",
   "email_summary": "Same words as the text.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "replaced": "October 11, 2026"
  },
  {
   "stage": "interview booking",
@@ -115,7 +119,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, your IN-PERSON interview with Caring Companions is booked for {Weekday, Month D} at {h:mm AM}. Please come to our office: {location}. {location note} This is not a phone interview, so we will not call you. Need to move or cancel it? https://mo-care.com/apply?book={applicant_id} or call {office phone}. Reply STOP to opt out.",
   "email_summary": "'Your in-person interview is booked for {day} at {time}.' + Where to come block (name, address, map, note, photo) + 'This is an in-person interview at our office, not a phone call, and it takes about 20 minutes (the calendar keeps a 30-minute slot). Need to move or cancel it? You can do that here, or call or text us.' + 'We are looking forward to meeting you.'",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "replaced": "October 11, 2026"
  },
  {
   "stage": "interview booking",
@@ -131,7 +136,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, your interview with Caring Companions for {day} at {time} is cancelled, so there is nothing more to do. Want a different time? Pick one here: https://mo-care.com/apply?book={applicant_id} or call {office phone}.",
   "email_summary": "'Your interview for {day} at {time} is cancelled, nothing more to do on your side. If you would like a different time, pick one here whenever suits you, or call us on {phone}.'",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "replaced": "October 11, 2026"
  },
  {
   "stage": "interview booking",
@@ -179,7 +185,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, reminder: your IN-PERSON interview is {Weekday, Month D} at {h:mm AM}. Please come to our office: {location}. {location note} This is not a phone interview, so we will not call you. Need to move or cancel it? {manage link} or call {office phone}. Reply STOP to opt out.",
   "email_summary": "'A reminder that your interview is tomorrow, {day} at {time}.' + Where to come block + 'It takes about {interview length from the Interviews settings, e.g. 45} minutes...' + move/cancel link.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "replaced": "October 11, 2026"
  },
  {
   "stage": "interview reminders",
@@ -195,7 +202,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, your IN-PERSON interview with Caring Companions is at {time} today. Please come to our office: {location}. {location note} This is not a phone interview. See you shortly! Reply STOP to opt out.",
   "email_summary": null,
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "replaced": "October 11, 2026"
  },
  {
   "stage": "no-show",
@@ -539,68 +547,68 @@ window.AP_JOURNEY = [
   "failure_visible": true
  },
  {
-   "stage": "orientation & training",
-   "order": 21.1,
-   "name": "Step 2 sent: your paperwork in Viventium (new path)",
-   "trigger": "Office presses Record Viventium Step 2 Sent on the Orientations tab (refused before Approve to Advance). Practice (recorded, not sent) while the Admin switch \"Step 2 message and receipt\" is off. Resend is its own button and stamp.",
-   "automatic": true,
-   "button": "Orientations → Ready for Orientation → 'Record Step 2 sent'",
-   "timing": "Right after the office records it, 8am–6pm Central for the text; the email any time.",
-   "channel": "text + email",
-   "rule": "Text with \"Reply STOP to opt out.\"; their latest application's yes to texts; the opt-out door; the GoHighLevel contact is tagged step2-sent so a DONE reply reaches the Hub. A refused message raises a card.",
-   "subject": "Step 2: your paperwork in Viventium",
-   "text": "Hi {first}, great news from Caring Companions: your background check and references are complete! Step 2 is your payroll and tax paperwork in Viventium, our secure payroll system. Watch your email for a message from Viventium today and finish each task there. When every task is done, tell us here: {done link} or reply DONE to this text. Then we book your Orientation Video Call.",
-   "email_summary": "The same words, with an 'I finished Step 2' button and the office number.",
-   "shows_in_ghl": true,
-   "failure_visible": true
+  "stage": "start paperwork",
+  "order": 21.1,
+  "name": "Step 2 sent: your paperwork in Viventium (new path)",
+  "trigger": "Office presses Record Viventium Step 2 Sent on the Orientations tab (refused before Approve to Advance). Practice (recorded, not sent) while the Admin switch \"Step 2 message and receipt\" is off. Resend is its own button and stamp.",
+  "automatic": true,
+  "button": "Orientations → Ready for Orientation → 'Record Step 2 sent'",
+  "timing": "Right after the office records it, 8am–6pm Central for the text; the email any time.",
+  "channel": "text + email",
+  "rule": "Text with \"Reply STOP to opt out.\"; their latest application's yes to texts; the opt-out door; the GoHighLevel contact is tagged step2-sent so a DONE reply reaches the Hub. A refused message raises a card.",
+  "subject": "Step 2: your paperwork in Viventium",
+  "text": "Hi {first}, great news from Caring Companions: your background check and references are complete! Step 2 is your payroll and tax paperwork in Viventium, our secure payroll system. Watch your email for a message from Viventium today and finish each task there. When every task is done, tell us here: {done link} or reply DONE to this text. Then we book your Orientation Video Call.",
+  "email_summary": "The same words, with an 'I finished Step 2' button and the office number.",
+  "shows_in_ghl": true,
+  "failure_visible": true
  },
  {
-   "stage": "orientation & training",
-   "order": 21.2,
-   "name": "Step 2 reminders, day 3 and day 6 (new path)",
-   "trigger": "Step 2 sent, no DONE yet, on the reminder days set on the Admin page (approved 3 and 6). Practice while the Admin switch \"Step 2 reminders\" is off. Day 8 without DONE raises the card \"Step 2 not finished: call {name}\" either way.",
-   "automatic": true,
-   "button": null,
-   "timing": "The 15-minute check, 8am–6pm Central for the text; once per reminder day.",
-   "channel": "text + email",
-   "rule": "Text with \"Reply STOP to opt out.\"; yes-to-texts; the opt-out door; stops on DONE or verification.",
-   "subject": "A reminder: your Step 2 tasks in Viventium",
-   "text": "Hi {first}, a reminder from Caring Companions: your Step 2 tasks are waiting in Viventium (check your email for their message). When they are all done, tap here or reply DONE: {done link} Stuck? Call or text (417) 234-8494.",
-   "email_summary": "The same words with the 'I finished Step 2' button.",
-   "shows_in_ghl": true,
-   "failure_visible": true
+  "stage": "start paperwork",
+  "order": 21.2,
+  "name": "Step 2 reminders, day 3 and day 6 (new path)",
+  "trigger": "Step 2 sent, no DONE yet, on the reminder days set on the Admin page (approved 3 and 6). Practice while the Admin switch \"Step 2 reminders\" is off. Day 8 without DONE raises the card \"Step 2 not finished: call {name}\" either way.",
+  "automatic": true,
+  "button": null,
+  "timing": "The 15-minute check, 8am–6pm Central for the text; once per reminder day.",
+  "channel": "text + email",
+  "rule": "Text with \"Reply STOP to opt out.\"; yes-to-texts; the opt-out door; stops on DONE or verification.",
+  "subject": "A reminder: your Step 2 tasks in Viventium",
+  "text": "Hi {first}, a reminder from Caring Companions: your Step 2 tasks are waiting in Viventium (check your email for their message). When they are all done, tap here or reply DONE: {done link} Stuck? Call or text (417) 234-8494.",
+  "email_summary": "The same words with the 'I finished Step 2' button.",
+  "shows_in_ghl": true,
+  "failure_visible": true
  },
  {
-   "stage": "orientation & training",
-   "order": 21.3,
-   "name": "DONE received (new path)",
-   "trigger": "The caregiver taps their private 'I finished Step 2' link, or replies DONE (done, finished) to the Step 2 text and the phone matches exactly one person at Step 2 Sent. Practice while \"Step 2 message and receipt\" is off. It never says verified.",
-   "automatic": true,
-   "button": null,
-   "timing": "Right away, 8am–6pm Central.",
-   "channel": "text only",
-   "rule": "Text with \"Reply STOP to opt out.\"; an unmatched or ambiguous reply changes nothing and raises an office review card.",
-   "subject": null,
-   "text": "Thank you, {first}! We will check your Viventium tasks and text you the link to book your Orientation Video Call, usually within one business day.",
-   "email_summary": null,
-   "shows_in_ghl": true,
-   "failure_visible": true
+  "stage": "start paperwork",
+  "order": 21.3,
+  "name": "DONE received (new path)",
+  "trigger": "The caregiver taps their private 'I finished Step 2' link, or replies DONE (done, finished) to the Step 2 text and the phone matches exactly one person at Step 2 Sent. Practice while \"Step 2 message and receipt\" is off. It never says verified.",
+  "automatic": true,
+  "button": null,
+  "timing": "Right away, 8am–6pm Central.",
+  "channel": "text only",
+  "rule": "Text with \"Reply STOP to opt out.\"; an unmatched or ambiguous reply changes nothing and raises an office review card.",
+  "subject": null,
+  "text": "Thank you, {first}! We will check your Viventium tasks and text you the link to book your Orientation Video Call, usually within one business day.",
+  "email_summary": null,
+  "shows_in_ghl": true,
+  "failure_visible": true
  },
  {
-   "stage": "orientation & training",
-   "order": 21.4,
-   "name": "Step 2 still open in Viventium (new path)",
-   "trigger": "Office presses 'Still open…' on a person who reported DONE while Viventium shows a task open, names the task, reads the preview, confirms.",
-   "automatic": false,
-   "button": "Orientations → row → 'Still open…'",
-   "timing": "Immediately when confirmed, 8am–6pm Central.",
-   "channel": "text only",
-   "rule": "Text with \"Reply STOP to opt out.\"; yes-to-texts; the opt-out door.",
-   "subject": null,
-   "text": "Hi {first}, thank you for letting us know. Viventium still shows a task open on your Step 2: {task}. Could you log back in and finish it, then tap DONE again here: {done link} Call or text (417) 234-8494 if you are stuck.",
-   "email_summary": null,
-   "shows_in_ghl": true,
-   "failure_visible": true
+  "stage": "start paperwork",
+  "order": 21.4,
+  "name": "Step 2 still open in Viventium (new path)",
+  "trigger": "Office presses 'Still open…' on a person who reported DONE while Viventium shows a task open, names the task, reads the preview, confirms.",
+  "automatic": false,
+  "button": "Orientations → row → 'Still open…'",
+  "timing": "Immediately when confirmed, 8am–6pm Central.",
+  "channel": "text only",
+  "rule": "Text with \"Reply STOP to opt out.\"; yes-to-texts; the opt-out door.",
+  "subject": null,
+  "text": "Hi {first}, thank you for letting us know. Viventium still shows a task open on your Step 2: {task}. Could you log back in and finish it, then tap DONE again here: {done link} Call or text (417) 234-8494 if you are stuck.",
+  "email_summary": null,
+  "shows_in_ghl": true,
+  "failure_visible": true
  },
  {
   "stage": "start paperwork",
@@ -761,7 +769,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, it's Caring Companions! Please finish your caregiver profile here: https://cc.mo-care.com/caregiver-profile.html?t=.. Add a friendly photo of yourself (we need this one) and, if you like, a short hello video. Then check the words we wrote about you. Families see your profile before you visit, so they know who is coming. Reply STOP to opt out.",
   "email_summary": "Before your first visit the family sees a short profile of you; 1. add a friendly photo (needed; a phone selfie in good light, shoulders up), 2. if you like, a short hello video of about 30 seconds, 3. read the words we wrote and change anything that does not sound like you; 'Finish my profile' button; the link is just for you; office phone.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "page": "https://cc.mo-care.com/caregiver-profile.html?preview=1"
  },
  {
   "stage": "orientation & training",
@@ -986,7 +995,8 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, it's Caring Companions! We're adding a short profile that our families see before you visit, so they know who's coming. Please fill it in yourself here: https://cc.mo-care.com/caregiver-profile.html?t=.. Answer 3 short questions in your own words, and add a friendly photo (and a short hello video if you like). It takes about 10 minutes. Reply STOP to opt out.",
   "email_summary": "We're adding a short profile families see before you visit; please fill yours in yourself, about 10 minutes: 1. answer 3 short questions in your own words, 2. a friendly photo (a phone selfie in good light, shoulders up), 3. if they like, a short hello video of about 30 seconds (optional); 'Fill in my profile' button; the link is just for you; office phone.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "page": "https://cc.mo-care.com/caregiver-profile.html?preview=1"
  },
  {
   "stage": "current caregivers (profile catch-up)",
@@ -1007,192 +1017,265 @@ window.AP_JOURNEY = [
  {
   "stage": "applying",
   "order": 2.1,
-  "name": "Didn't finish: finish your application (new messages)",
+  "name": "Didn't finish: finish your application",
   "trigger": "interview-messages finds an unfinished start (status partial, under 3 days old, never written to by the older follow-ups, not declined).",
   "automatic": true,
   "button": null,
   "timing": "30 minutes after they started; 8am to 6pm Central.",
   "channel": "text + email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. Their link reopens the step they left (586); they cannot book until they finish.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. Their link reopens the step they left (586); they cannot book until they finish.",
   "subject": "Your Caring Companions application is almost done",
   "text": "Hi {first}, it's {the Caring Companions Team, or Krystal at Caring Companions once she agrees}. It looks like your application didn't get finished. You're about a minute from done, and your answers so far are saved: {link} Reply STOP to opt out.",
   "email_summary": "Branded email: logo, the same words, a Finish my application button.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "email_key": [
+   "finish",
+   false
+  ],
+  "page": "https://mo-care.com/apply?preview=1"
  },
  {
   "stage": "applying",
   "order": 2.2,
-  "name": "Didn't finish: one reminder (new messages)",
+  "name": "Didn't finish: one reminder",
   "trigger": "Same check; the first finish message went, still unfinished.",
   "automatic": true,
   "button": null,
   "timing": "The next day (24 hours after starting); 8am to 6pm. Then nothing more.",
   "channel": "text + email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts.",
   "subject": "A quick reminder about your application",
   "text": "Hi {first}, just a reminder that your Caring Companions application is almost done. Finish it here and you can pick your interview time right after: {link} Reply STOP to opt out.",
   "email_summary": "Branded email with a Finish my application button.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "email_key": [
+   "finish",
+   true
+  ],
+  "page": "https://mo-care.com/apply?preview=1"
  },
  {
   "stage": "applying",
   "order": 2.3,
-  "name": "Finished, not booked: first invite (new messages)",
+  "name": "Finished, not booked: first invite",
   "trigger": "interview-messages finds a finished application (not declined) with no booked interview.",
   "automatic": true,
   "button": null,
   "timing": "10 minutes after finishing; 8am to 6pm.",
   "channel": "text + email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. PRN CNA Team (cleared the screen) gets the PRN team's own first-invite words with the STOP line.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. PRN CNA Team (cleared the screen) gets the PRN team's own first-invite words with the STOP line.",
   "subject": "{first}, we'd love to meet you",
   "text": "Hi {first}, it's {the Caring Companions Team, or Krystal at Caring Companions once she agrees}. Thank you for applying! We'd love to meet you for a relaxed {20}-minute interview at our office. Pick a time that works for you: {link} Reply STOP to opt out.",
   "email_summary": "Branded email: logo, the words, a Pick my interview time button, What to expect (a friendly conversation, nothing to fill out, a résumé or certifications welcome but not needed), Where to come (address, door note, map, entrance photo once loaded).",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "email_key": [
+   "invite",
+   1
+  ],
+  "email_key_prn": [
+   "invite",
+   1,
+   true
+  ],
+  "page": "https://mo-care.com/apply?preview=book"
  },
  {
   "stage": "applying",
   "order": 2.4,
-  "name": "Finished, not booked: check-in (new messages)",
+  "name": "Finished, not booked: check-in",
   "trigger": "Same check; still not booked.",
   "automatic": true,
   "button": null,
   "timing": "The next day (24 hours after finishing); 8am to 6pm.",
   "channel": "text + email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts.",
   "subject": "We'd love to meet you",
   "text": "Hi {first}, {the Caring Companions Team again / Krystal again from Caring Companions}. We'd really like to meet you! Grab any open interview time here: {link} or text us back and we'll find one together. Reply STOP to opt out.",
   "email_summary": "Branded email with the button.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "email_key": [
+   "invite",
+   2
+  ],
+  "page": "https://mo-care.com/apply?preview=book"
  },
  {
   "stage": "applying",
   "order": 2.5,
-  "name": "Finished, not booked: if this week got busy (new messages)",
+  "name": "Finished, not booked: if this week got busy",
   "trigger": "Same check.",
   "automatic": true,
   "button": null,
   "timing": "Day 3 after finishing; 8am to 6pm.",
   "channel": "text + email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts.",
   "subject": "We'd love to meet you",
   "text": "Hi {first}, if this week got busy, no worries. Interviews take about {20} minutes, Monday to Friday. Here's your link whenever you're ready: {link} Reply STOP to opt out.",
   "email_summary": "Branded email with the button.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "email_key": [
+   "invite",
+   3
+  ],
+  "page": "https://mo-care.com/apply?preview=book"
  },
  {
   "stage": "applying",
   "order": 2.6,
-  "name": "Finished, not booked: last note (new messages)",
+  "name": "Finished, not booked: last note",
   "trigger": "Same check.",
   "automatic": true,
   "button": null,
   "timing": "Day 6 after finishing; 8am to 6pm. A week after finishing they are marked finished trying (no message).",
   "channel": "text + email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts.",
   "subject": "One last note from Caring Companions",
   "text": "Hi {first}, this is our last note so we don't crowd your phone. If the timing is better later, your link still works: {link} Or call us at {office phone}. We'd be glad to hear from you. Reply STOP to opt out.",
   "email_summary": "Branded email with the button.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "email_key": [
+   "invite",
+   4
+  ],
+  "page": "https://mo-care.com/apply?preview=book"
  },
  {
   "stage": "interview booking",
   "order": 6.1,
-  "name": "Booking confirmation (new messages)",
+  "name": "Booking confirmation",
   "trigger": "A new booking (website, their link, or the office's Book a time).",
   "automatic": true,
   "button": null,
   "timing": "EMAIL right away, any hour. TEXT 8am to 6pm (a 9pm booking is texted at 8am).",
   "channel": "text + email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. {interviewer}: Samantha by name; Krystal only once she agrees, 'our team' until then. Booked for tomorrow (inside 30 hours): the text instead ends 'Reply YES so we know you're coming, or NO if you can't make it and we'll free up the time. Need a different time? {link}' and counts as the day-before reminder.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. {interviewer}: Samantha by name; Krystal only once she agrees, 'our team' until then. Booked for tomorrow (inside 30 hours): the text instead ends 'Reply YES so we know you're coming, or NO if you can't make it and we'll free up the time. Need a different time? {link}' and counts as the day-before reminder.",
   "subject": "You're booked: {day} at {time}",
   "text": "You're booked, {first}! Your interview with {interviewer} is {day} at {time} at our office, {address}. {door note} Need a different time? {link} Reply STOP to opt out.",
   "email_summary": "Branded email: who they meet, when, What to expect, Where to come, a Change my time button.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "email_key": [
+   "confirm"
+  ],
+  "page": "https://mo-care.com/apply?preview=manage"
  },
  {
   "stage": "interview reminders",
   "order": 8.1,
-  "name": "Two days before (new messages)",
+  "name": "Two days before",
   "trigger": "Booked 3 or more days ahead and confirmed.",
   "automatic": true,
   "button": null,
   "timing": "About 2 days before (30 to 50 hours); 8am to 6pm.",
   "channel": "text + email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts.",
   "subject": "See you {weekday} at {time}",
   "text": "Hi {first}, we're looking forward to meeting you {weekday} at {time}! If anything comes up, you can move it here: {link} Reply STOP to opt out.",
   "email_summary": "Branded email with Change my time and Where to come.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "email_key": [
+   "twoDays"
+  ],
+  "page": "https://mo-care.com/apply?preview=manage"
  },
  {
   "stage": "interview reminders",
   "order": 8.2,
-  "name": "Day before, with YES / NO (new messages)",
+  "name": "Day before, with YES / NO",
   "trigger": "Booked and confirmed; inside 30 hours.",
   "automatic": true,
   "button": null,
   "timing": "First run 8am to 6pm inside the window.",
   "channel": "text + email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. 588: the Hub reads their replies itself every 15 minutes (no GoHighLevel workflow): a clear NO cancels that interview and frees the time (then the cancellation text below goes, 8am to 6pm); YES is kept on the booking; anything else changes nothing and becomes a Needs Attention item with their words. The latest clear answer wins.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. 588: the Hub reads their replies itself every 15 minutes (no GoHighLevel workflow): a clear NO cancels that interview and frees the time (then the cancellation text below goes, 8am to 6pm); YES is kept on the booking; anything else changes nothing and becomes a Needs Attention item with their words. The latest clear answer wins.",
   "subject": "See you tomorrow at {time}",
   "text": "Hi {first}, see you tomorrow at {time}! We're at {address}. {door note} Reply YES so we know you're coming, or NO if you can't make it and we'll free up the time. Want a different time instead? {link} Reply STOP to opt out.",
   "email_summary": "Branded email: when, Where to come, a Change or cancel my time button.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "email_key": [
+   "dayBefore"
+  ],
+  "page": "https://mo-care.com/apply?preview=manage"
  },
  {
   "stage": "interview reminders",
   "order": 9.1,
-  "name": "Hour before (entrance photo) (new messages)",
+  "name": "Hour before (entrance photo)",
   "trigger": "Booked and confirmed.",
   "automatic": true,
   "button": null,
   "timing": "Up to 90 minutes before; 8am to 6pm.",
   "channel": "text (with the entrance photo) or email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. The only picture text (her rule: MMS on this one only). '(Photo above.)' only when the entrance photo is loaded.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. The only picture text (her rule: MMS on this one only). '(Photo above.)' only when the entrance photo is loaded.",
   "subject": "See you at {time} today",
   "text": "See you at {time}, {first}! {address}. {door note} {(Photo above.) when the photo is loaded} Running late? Just text us back. Reply STOP to opt out.",
   "email_summary": "Only for people without a yes to texts: a short branded email with Where to come.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "email_key": [
+   "hour"
+  ]
  },
  {
   "stage": "interview booking",
   "order": 7.1,
-  "name": "Cancelled: a new time (new messages)",
+  "name": "Cancelled: a new time",
   "trigger": "A cancelled interview not yet told (they cancelled, the office cancelled, or a NO reply); reason schedule, transportation, something else, NO, or none.",
   "automatic": true,
   "button": null,
   "timing": "Next run, 8am to 6pm; once.",
   "channel": "text + email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. The 'pick a time' follow-ups do not start again. The office still gets its 'they cancelled' heads-up with the reason.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. The 'pick a time' follow-ups do not start again. The office still gets its 'they cancelled' heads-up with the reason.",
   "subject": "Your interview on {day} is cancelled",
   "text": "Hi {first}, your interview on {day} at {time} is cancelled, so there's nothing more you need to do. If you'd like a different time, pick one here: {link} Reply STOP to opt out.",
   "email_summary": "Branded email with a Pick a new time button.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "email_key": [
+   "cancelled"
+  ],
+  "page": "https://mo-care.com/apply?preview=book"
  },
  {
   "stage": "interview booking",
   "order": 7.2,
-  "name": "Cancelled: a goodbye (new messages)",
+  "name": "Cancelled: a goodbye",
   "trigger": "They cancelled on the cancel screen choosing 'I found another job' or 'I'm not interested anymore'.",
   "automatic": true,
   "button": null,
   "timing": "Next run, 8am to 6pm; once.",
   "channel": "text + email",
-  "rule": "NEW MESSAGES (Owners Hub Admin page switch 'New applicant messages', off until she turns it on; off = the older messages above, unchanged). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. No push to rebook.",
+  "rule": "LIVE since October 11, 2026 (Owners Hub Admin page switch 'New applicant messages' is on; turning it off would bring back the older messages). Text only with their yes to texts on this AND their latest application; email to anyone with an address; opt-out door per channel; claimed before it is sent so it can never go twice. Words: _shared/applicant-words.ts. No push to rebook.",
   "subject": "Thanks for letting us know",
   "text": "Thanks for letting us know, {first}. If things change, you're always welcome to apply again at mo-care.com/apply. We wish you all the best! Reply STOP to opt out.",
   "email_summary": "Branded email, no rebook button.",
+  "shows_in_ghl": true,
+  "failure_visible": true,
+  "email_key": [
+   "goodbye"
+  ]
+ },
+ {
+  "stage": "interview reminders",
+  "order": 8.3,
+  "name": "They answer the day-before text: YES, NO or something else",
+  "trigger": "The interview messages job reads their texts back from GoHighLevel every run, for interviews in the next 36 hours that were asked YES or NO (built 2026-10-11, Samantha: 'if they reply no they aren't coming ... make sure that opens up the interview spot').",
+  "automatic": true,
+  "button": null,
+  "timing": "Any hour. Nothing is sent at this step.",
+  "channel": "none",
+  "rule": "YES: noted on the booking, nothing is sent. NO: the interview is cancelled and the time opens for someone else; the cancellation text then goes 8am to 6pm, and reminders stop. Anything else (a question, 'running late', a photo): nothing changes, and a 'replied about their interview, please answer' card goes to Needs Attention with their words. If their texts can't be read, nothing happens. The latest clear answer wins.",
+  "subject": null,
+  "text": null,
+  "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true
  }

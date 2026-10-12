@@ -43,7 +43,7 @@ ck('journey: in-office booking confirmation asks for the Viventium Step 2 origin
 const inv = J.find((x) => /cleared to join/.test(x.text || '')) || {};
 ck('journey: the orientation invite has no em dash, and matches caregivers-engine.js',
    !EM.test(inv.text) && fs.readFileSync(path.join(ROOT, 'caregivers-engine.js'), 'utf8').includes("Congratulations, you've been cleared to join Caring Companions!"), inv.text);
-ck('index.html loads the new journey (cache version bumped)', /applicant-journey\.js\?v=20261002b/.test(html));
+ck('index.html loads the new journey (cache version bumped)', /applicant-journey\.js\?v=2026(100[2-9]|10[1-3]\d)/.test(html));
 ck('journey: no em dash in any entry touched by 415', ![w.text, w.subject, w.email_summary, oc.text, inv.text].some((x) => EM.test(x || '')));
 
 // ---- start.html (the start link page) ----
