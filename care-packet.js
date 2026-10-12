@@ -84,7 +84,7 @@
     if (!S.topics.length) h += '<div class="field-note">The how-to library is empty. Samantha adds the approved topics and videos.</div>';
     const whyOf = k => { const x = S.sugg && (S.sugg.suggestions || []).find(y => y.topic === k); return x ? x.why : ''; };
     /* grouped like the Care Library tab (2026-10-12), so a long library stays easy to scan */
-    const GRP = { moving: 'Moving and falls', personal: 'Personal care', eating: 'Eating and diets', conditions: 'Health conditions', signs: 'Warning signs and when to call', other: 'Other' }, ORD = Object.keys(GRP);
+    const GRP = { bedbound: 'Bed-bound and hospice care', moving: 'Moving and falls', personal: 'Personal care', eating: 'Eating and diets', conditions: 'Health conditions', signs: 'Warning signs and when to call', other: 'Other' }, ORD = Object.keys(GRP);
     let lastG = null;
     S.topics.concat(S.retired.map(t => Object.assign({}, t, { _retired: true })))
       .sort((a, b) => (ORD.indexOf(a.category || 'other') - ORD.indexOf(b.category || 'other')) || String(a.title).localeCompare(String(b.title))).forEach(t => {
