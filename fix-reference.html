@@ -129,6 +129,8 @@ async function send(){
   if(missing.length){ err.textContent='Still needed: '+missing.join(' and ')+'.'; err.style.display='block'; return; }
   if(!REQ){ err.textContent='This link is missing its code. Please call the office and we will take it over the phone.'; err.style.display='block'; return; }
 
+  /* PREVIEW (2026-10-11): the Applicants Journey tab shows this page with r=preview; nothing is ever written from it */
+  if(REQ==='preview'){ g('doneLede').textContent='Preview only: nothing was sent or saved.'; g('formView').style.display='none'; g('doneView').style.display='block'; window.scrollTo(0,0); return; }
   const btn=g('submitBtn'); btn.disabled=true; btn.textContent='Sending…'; err.style.display='none';
   try{
     const { error } = await sb.from('reference_fixes').insert({
