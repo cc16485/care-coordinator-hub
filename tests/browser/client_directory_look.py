@@ -13,14 +13,17 @@ T = r"""async()=>{
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   DATA.client_checkins=[]; DATA.care_plan_reviews=[]; DATA.staffing_tasks=[]; DATA.coverage_cases=[];
   const HUB=[{ axiscare_client_id:'101', client_name:'Tess Current', role_status:'active', person_id:'p1' },
-             { axiscare_client_id:'102', client_name:'Pat Ended', role_status:'former', end_reason:'moved', person_id:'p2' }];
-  const CEN={ total:5, truncated:false, clients:[
+             { axiscare_client_id:'102', client_name:'Pat Ended', role_status:'former', end_reason:'moved', person_id:'p2' },
+             { axiscare_client_id:'293', client_name:'Office Staff', role_status:'active', person_id:'p9' }];
+  const CEN={ total:6, truncated:false, clients:[
+    { id:'293', first:'Office', last:'Staff', goes_by:'', active:true, status_label:'Active', city:'', classes:[] },
     { id:'101', first:'Tess', last:'Current', goes_by:'', active:true, status_label:'Active', city:'Joplin', classes:['Level 2','Private Pay'] },
     { id:'102', first:'Pat', last:'Ended', goes_by:'', active:false, status_label:'Discharged', city:'', classes:[] },
     { id:'103', first:'Dan', last:'Testnew', goes_by:'', active:true, status_label:'Active', city:'Carthage', classes:['Level 3'] },
     { id:'104', first:'Olga', last:'Longgone', goes_by:'', active:false, status_label:'Deceased', city:'', classes:[] },
     { id:'105', first:'Robert', last:'Testgoesby', goes_by:'Bob', active:true, status_label:'Active', city:'', classes:[] } ] };
-  window.cl360Roster=async()=>HUB.map(x=>Object.assign({},x));
+  window.cl360Roster=async()=>HUB.map(x=>Object.assign({},x)).filter(r=>!clIsNotClient(r.axiscare_client_id));
+  DATA.ops_settings=DATA.ops_settings||{}; delete DATA.ops_settings.not_client_ax;
   window.clLoadIssues=async()=>[];
   window.clCensusLoad=async()=>CEN;
   window.clBeatLoad=async()=>({ id:'hb_client-sync', automation:'client-sync', at:new Date(Date.now()-2*36e5).toISOString(), ok:true, note:'1 new client added, 0 left to connect by hand' });
@@ -58,6 +61,29 @@ T = r"""async()=>{
   window.clBeatLoad=async()=>({ automation:'client-sync', at:new Date(Date.now()-30*36e5).toISOString(), ok:true });
   await clLoad(true); renderClientsBoard();
   ok('a sync that stopped running shows red', /should run every 6 hours/.test(document.getElementById('clSyncLine').innerText) && /font-weight:700/.test(document.getElementById('clSyncLine').innerHTML));
+  /* Office Staff (AxisCare #293) is not a person in care: left out (hers, 2026-10-12) */
+  window.clCensusLoad=async()=>CEN; window.clBeatLoad=async()=>null; CL.filter='Active'; await clLoad(true); renderClientsBoard();
+  ok('Office Staff is left out of the list and the count', !/Office Staff/.test(B()) && /3 active clients · live from AxisCare \(5 total on record\)/.test(document.getElementById('clCount').innerText), [document.getElementById('clCount').innerText, B()]);
+  ok('...and search does not find it', (clSearchGo('office'), await sleep(300), /No client by that name/.test(B())), B());
+  clSearchGo(''); await sleep(250);
+  const NC=()=>document.getElementById('clNotClient').innerText;
+  ok('a quiet line says who is left out, by AxisCare number', /Left out of client lists \(not people in care\): Office Staff \(AxisCare #293\)/.test(NC()), NC());
+  window.__as && 0;
+  const oOwn=window.ccIsOwner; window.ccIsOwner=()=>false; renderClientsBoard();
+  ok('only an owner sees put back / leave out', !/put back|leave out another/.test(NC()), NC());
+  window.ccIsOwner=()=>true; renderClientsBoard();
+  ok('an owner sees put back and leave out another', /put back/.test(NC()) && /leave out another AxisCare number/.test(NC()), NC());
+  const saved=[], evs=[]; const oMS=window.ccMergeSave, oEv=window.opEvent;
+  window.ccMergeSave=async(k,apply)=>{ const m=JSON.parse(JSON.stringify(DATA.ops_settings||{})); const ch=apply(m,DATA.ops_settings); if(ch.length){ DATA.ops_settings=m; saved.push([k,ch]); } return { changed:ch, error:null, data:m }; };
+  window.opEvent=(v,o)=>evs.push([v,o]);
+  [...document.querySelectorAll('#clNotClient button')].find(b=>/put back/.test(b.innerText)).click(); await sleep(250);
+  ok('put back: saved as a Hub setting (ops_settings.not_client_ax), with a change event', saved.length===1 && saved[0][0]==='ops_settings' && Array.isArray(DATA.ops_settings.not_client_ax) && DATA.ops_settings.not_client_ax.length===0 && evs.some(e=>e[0]==='setting_changed' && /put AxisCare #293 back/.test(e[1].summary)), [saved, DATA.ops_settings.not_client_ax, evs]);
+  ok('...and Office Staff shows again', /Office Staff/.test(B()), B());
+  const oP=window.prompt, oC=window.confirm; window.prompt=()=>'#293'; window.confirm=()=>true;
+  await clNotClientAsk(); await sleep(250);
+  window.prompt=oP; window.confirm=oC;
+  ok('leave out another: by AxisCare number, named from AxisCare, recorded with who', DATA.ops_settings.not_client_ax.length===1 && DATA.ops_settings.not_client_ax[0].ax==='293' && DATA.ops_settings.not_client_ax[0].name==='Office Staff' && !!DATA.ops_settings.not_client_ax[0].by && !/Office Staff/.test(B()), DATA.ops_settings.not_client_ax);
+  window.ccMergeSave=oMS; window.opEvent=oEv; window.ccIsOwner=oOwn;
   return R; }"""
 with sync_playwright() as pw:
     sys.path.insert(0, HERE)

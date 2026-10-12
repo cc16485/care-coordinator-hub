@@ -4979,6 +4979,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <div id="clSyncLine" class="field-note" style="margin:-4px 0 10px;font-size:13px;"></div>
   <div id="clFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
   <div id="clBoard"><div class="field-note">Loading…</div></div>
+  <div id="clNotClient" class="field-note" style="margin-top:10px;font-size:12.5px;"></div>
 </section>
 
 <section class="tabpanel" id="tab-clients">
@@ -32146,6 +32147,44 @@ async function clBeatLoad(){
   if(r.error) throw r.error;
   return (Array.isArray(r.data&&r.data.data)?r.data.data:[]).find(b=>b&&b.automation==='client-sync')||null;
 }
+/* NOT CLIENTS (2026-10-12, hers: "leave office staff out of client list"). Some AxisCare "clients" are not people in care:
+   "Office Staff" (#293) holds office time. They are left out of every client list the Hub draws from (the Clients tab and
+   its counts, the client picker on forms, the phone's Find), by AxisCare number, never by name. The list is a Hub setting
+   (ops_settings.not_client_ax) an owner changes on the Clients tab, with who and when; until anyone changes it, it holds
+   Office Staff. Nothing in AxisCare or the Hub's records is changed by leaving someone out. */
+var CL_NOT_CLIENT_START=[{ ax:'293', name:'Office Staff', by:'Samantha', at:'2026-10-12' }];
+function clNotClients(){ const s=DATA.ops_settings&&DATA.ops_settings.not_client_ax; return Array.isArray(s)?s:CL_NOT_CLIENT_START; }
+function clIsNotClient(ax){ ax=String(ax||'').trim(); return !!ax&&clNotClients().some(x=>String(x&&x.ax)===ax); }
+function clNotClientHtml(){
+  const esc=escapeHtmlComms, list=clNotClients(), own=typeof ccIsOwner==='function'&&ccIsOwner();
+  if(!list.length&&!own) return '';
+  return 'Left out of client lists (not people in care): '+(list.length?list.map(x=>esc(x.name||'')+' (AxisCare #'+esc(x.ax)+')'
+      +(own?' <button class="linklike" style="font-size:12px;" onclick="clNotClientSet(\''+esc(x.ax)+'\',false)">put back</button>':'')).join(' · '):'nobody')
+    +(own?' · <button class="linklike" style="font-size:12px;" onclick="clNotClientAsk()">+ leave out another AxisCare number</button>':'');
+}
+async function clNotClientAsk(){
+  const v=String(prompt('The AxisCare client number to leave out of client lists (only for records that are not a person in care, like Office Staff):')||'').trim().replace(/^#/,'');
+  if(!v) return;
+  if(!/^\d+$/.test(v)){ alert('That is not an AxisCare number (digits only).'); return; }
+  const c=((CL.census&&CL.census.clients)||[]).find(x=>String(x.id)===v);
+  const nm=c?clCensusName(c):'';
+  if(!confirm('Leave '+(nm?nm+' ':'')+'(AxisCare #'+v+') out of every client list in the Hub?\n\nNothing in AxisCare or their record changes, and you can put them back here.')) return;
+  clNotClientSet(v, true, nm);
+}
+async function clNotClientSet(ax, out, name){
+  if(!(typeof ccIsOwner==='function'&&ccIsOwner())){ alert('Only an owner can change who is left out.'); return; }
+  const who=(ccActor().name||'Someone'), at=new Date().toISOString();
+  const res=await ccMergeSave('ops_settings',(m)=>{
+    const cur=Array.isArray(m.not_client_ax)?m.not_client_ax:CL_NOT_CLIENT_START.slice();
+    const has=cur.some(x=>String(x&&x.ax)===String(ax));
+    if(out&&has) return []; if(!out&&!has) return [];
+    m.not_client_ax=out?cur.concat([{ ax:String(ax), name:name||('AxisCare client #'+ax), by:who, at }]):cur.filter(x=>String(x&&x.ax)!==String(ax));
+    return ['not_client_ax'];
+  });
+  if(res.error){ alert('Not saved: '+(res.error.message||res.error)); return; }
+  if(res.changed.length) opEvent('setting_changed',{ item_id:'ops_settings', area:'clients', summary:who+(out?' left AxisCare #'+ax+(name?' ('+name+')':'')+' out of client lists':' put AxisCare #'+ax+' back on client lists') });
+  CL360_IDENTITY=null; CC_PICK_OPTS=null; CL.roster=null; renderClientsBoard();
+}
 let clSearchT=null;
 function clSearchGo(v){ CL.q=v; clearTimeout(clSearchT); clSearchT=setTimeout(renderClientsBoard,180); }
 const clNorm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -32213,7 +32252,8 @@ function renderClientsBoard(){
   const box=document.getElementById('clBoard'); if(!box) return;
   if(!CL.roster){ if(!CL.loading) clLoad(); box.innerHTML='<div class="field-note">Loading the client list…</div>'; return; }
   const esc=escapeHtmlComms, issues=Array.isArray(CL.issues)?CL.issues:[], wk=new Date(Date.now()+7*864e5).toISOString().slice(0,10);
-  const cen=(CL.census&&CL.census.clients)||[], cenBy={};
+  const cen=((CL.census&&CL.census.clients)||[]).filter(c=>!clIsNotClient(c.id)), cenBy={};
+  const nc=document.getElementById('clNotClient'); if(nc) nc.innerHTML=clNotClientHtml();
   cen.forEach(c=>{ cenBy[String(c.id)]=c; });
   const hubAx={};
   const all=CL.roster.filter(r=>r&&r.axiscare_client_id).map(r=>{
@@ -38821,7 +38861,7 @@ let CL360_IDENTITY = null;
    copy; AxisCare owns it). Empty until Change 3 is installed and switched on. */
 let CL360_AXSTATUS = {};
 async function cl360Identity(){
-  if(CL360_IDENTITY) return CL360_IDENTITY;
+  if(CL360_IDENTITY) return CL360_IDENTITY.filter(r=>!clIsNotClient(r.axiscare_client_id));
   try{
     const cs = await sb.from('client_status_current').select('axiscare_client_id,label,observed_at');
     CL360_AXSTATUS = {}; (cs.data||[]).forEach(x=>{ CL360_AXSTATUS[String(x.axiscare_client_id)] = x; });
@@ -38851,7 +38891,7 @@ async function cl360Identity(){
                lead:null, assessment:null, plan:null, checkins:[] };
     });
   }catch(e){ CL360_IDENTITY = []; }
-  return CL360_IDENTITY;
+  return CL360_IDENTITY.filter(r=>!clIsNotClient(r.axiscare_client_id));
 }
 /* ── THE CLIENT PICKER (Change 8a, 2026-09-27) ──────────────────────────
    One list for every form that names a client: the live client list Client 360 and Cara use,
@@ -38894,7 +38934,7 @@ async function cl360Roster(){
       phone: base.phone || (r.lead&&r.lead.phone) || '' });
     else byKey.set(key, { phone:(r.lead&&r.lead.phone)||'', ghl_contact_id:'', ...r });
   });
-  CL360_ROSTER = [...byKey.values()].sort((a,b)=>a.client_name.localeCompare(b.client_name));
+  CL360_ROSTER = [...byKey.values()].filter(r=>!clIsNotClient(r.axiscare_client_id)).sort((a,b)=>a.client_name.localeCompare(b.client_name));
   return CL360_ROSTER;
 }
 function cl360Card(title, body){
