@@ -3817,7 +3817,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Offers</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Make the offer while the interview is fresh. Saving it sends their start link; you follow it under <b>Open offers</b> here, and their checks continue on <b>Background &amp; References</b>.</div>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Make the offer while the interview is fresh. Saving it sends their start link; you follow it under <b>Offers &amp; Step 1</b> here, and their checks continue on <b>Background &amp; References</b>.</div>
         </div>
         <span style="flex:1;"></span>
         <a class="ghost" href="https://hcm.viventium.com/apps/account/viventium/login?ReturnUrl=%2Fapps%2Fviventium" target="_blank" rel="noopener">Open Viventium</a>
@@ -3830,7 +3830,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <!-- 2026-10-11 (Samantha): "we probably really don't want there to be a place to create a new offer, since it should
              be done after an interview as an interview result". No Create new offer here: the form opens only from
              Hire, make the offer (Interviews / Applicants) or Offer on a calendar interview. -->
-        <button class="offnav-b" id="offnav-open" onclick="offView('open')"><svg class=navi aria-hidden=true><use href=icons.svg#i-clipboard></use></svg> Open offers <span class="offnav-n" id="offnavOpenN"></span></button>
+        <button class="offnav-b" id="offnav-open" onclick="offView('open')"><svg class=navi aria-hidden=true><use href=icons.svg#i-clipboard></use></svg> Offers &amp; Step 1 <span class="offnav-n" id="offnavOpenN"></span></button>
         <button class="offnav-b" id="offnav-past" onclick="offView('past')"><svg class=navi aria-hidden=true><use href=icons.svg#i-box></use></svg> Previous offers <span class="offnav-n" id="offnavPastN"></span></button>
       </div>
 
@@ -3839,7 +3839,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
              the heading would just be the same word and the same number twice. -->
         <!-- The count lives on the subnav pill now. updateOffersBadge() guards
              on the element being absent, so there is nothing left to feed. -->
-        <div class="field-note">Each one shows the single next thing it needs. Open it for the details.</div>
+        <!-- 2026-10-11 (Samantha): "want to see how many have been offered and not accepted yet ... could also show who has
+             not completed step one ... cards moving along a pipeline". The board reads the same offers as the cards below. -->
+        <div id="offPipe" style="margin-bottom:14px;"></div>
+        <div class="field-note">Every offer in detail, each with the single next thing it needs. Open one for the details.</div>
         <div id="offersList" style="margin-top:10px;"></div>
       </div>
       <div class="card offview" style="padding:0 18px 18px;margin-bottom:16px;" id="offview-new">
@@ -3847,7 +3850,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div style="padding:16px 0 4px;">
           <b style="font-size:15px;color:var(--navy);"><svg class=navi aria-hidden=true><use href=icons.svg#i-doc></use></svg> Offer from the interview</b>
           <span class="field-note" style="margin-left:8px;">the four sections below take about two minutes</span>
-          <button class="ghost" style="float:right;" onclick="joLeave()">Cancel, back to open offers</button>
+          <button class="ghost" style="float:right;" onclick="joLeave()">Cancel, back to Offers &amp; Step 1</button>
         </div>
         <div>
         <div id="joForm">
@@ -3972,9 +3975,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div id="jo_steps" style="font-size:13px;line-height:1.9;"></div>
           <div style="margin-top:12px;padding:12px;background:#FFFDF5;border:1px solid #FDE68A;border-radius:8px;">
             <b style="font-size:13px;">Your next step: enter them in Viventium</b>
-            <div class="field-note">They are under <b>Open offers</b> on this tab, with every field you just typed laid out for copying across. Marking them entered is what sends their welcome message. Everything after that runs on its own.</div>
+            <div class="field-note">They are under <b>Offers &amp; Step 1</b> on this tab, with every field you just typed laid out for copying across. Marking them entered is what sends their welcome message. Everything after that runs on its own.</div>
           </div>
-          <button class="secondary" style="margin-top:12px;" onclick="joLeave()">Back to open offers</button>
+          <button class="secondary" style="margin-top:12px;" onclick="joLeave()">Back to Offers &amp; Step 1</button>
         </div>
         </div>
         </div>
@@ -25753,7 +25756,69 @@ function offNavCounts(open, past){
   const o=document.getElementById('offnavOpenN'), p=document.getElementById('offnavPastN');
   if(o) o.textContent = open ? String(open) : '';
   if(p) p.textContent = past ? String(past) : '';
+  offPipeRender();
 }
+
+/* ---- Offers & Step 1, as a pipeline (2026-10-11) ----------------------------
+   Samantha: "want to see how many have been offered and not accepted yet ... who has not completed step one ... cards
+   moving along a pipeline". Three columns over the offers still open (the same list as the cards below):
+     1. Offered, not signed yet   new process only: the offer letter and position description are not both signed
+     2. Step 1 not done           signed (new process), or any offer on the current process (Step 1 in Viventium)
+     3. Step 1 done               moving into Background & References
+   Withdrawn offers are counted, not shown. A name opens their profile. Reads OFFERS only; changes nothing. */
+function offPipeStage(o){
+  if(o.onboarding_path==='new' && !(o.offer_signed_at && o.pd_signed_at)) return 0;
+  return o.step1_done_at ? 2 : 1;
+}
+function offPipeRender(){
+  const box = document.getElementById('offPipe'); if(!box || typeof OFFERS==='undefined') return;
+  const esc = escapeHtmlComms;
+  const open = OFFERS.filter(o => !(typeof offerMovedOn==='function' && offerMovedOn(o)));
+  const gone = open.filter(o => o.offer_withdrawn_at), live = open.filter(o => !o.offer_withdrawn_at);
+  const cols = [[],[],[]]; live.forEach(o => cols[offPipeStage(o)].push(o));
+  const since = o => { const t = Date.parse(o.created_at || o.interview_date || ''); return isFinite(t) ? Math.max(0, Math.floor((Date.now()-t)/864e5)) : null; };
+  cols.forEach(c => c.sort((a,b) => (since(b)??0) - (since(a)??0)));   // longest waiting first
+  const COL = [
+    ['Offered, not signed yet', 'The offer letter and position description, signed on their phone.', '#B45309', '#FEF3C7'],
+    ['Step 1 not done', 'Their new-hire paperwork. Reminders go by themselves.', '#1D4ED8', '#DBEAFE'],
+    ['Step 1 done', 'Moving into Background & References for checks.', '#15803D', '#DCFCE7'] ];
+  const card = (o, k) => {
+    const d = since(o), stale = d != null && d >= (k===0 ? 3 : 7);
+    const expired = k===0 && (o.offer_status==='expired' || (o.offer_expires_at && Date.parse(o.offer_expires_at) < Date.now()));
+    const bits = [];
+    if(expired) bits.push('<span style="color:#B91C1C;font-weight:700;">expired unsigned</span>');
+    else if(k===0) bits.push(o.offer_signed_at ? 'offer signed, position description not yet' : 'not signed yet');
+    if(k===1) bits.push(o.onboarding_path==='new'
+      ? '<span class="hp1" data-offer="'+esc(o.id)+'">checking how far they are…</span>'
+      : 'current process: Step 1 in Viventium');
+    return '<div onclick="offPipeOpen(\''+esc(o.id)+'\')" style="cursor:pointer;background:#fff;border:1px solid '+(stale||expired?'#F59E0B':'var(--border)')+';border-radius:10px;padding:8px 10px;margin-top:6px;">'
+      + '<div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;"><b style="color:var(--navy);font-size:13.5px;">'+esc(o.name||'(no name)')+'</b>'
+      + '<span style="flex:1;"></span><span style="font-size:11.5px;'+(stale?'font-weight:700;color:#B45309;':'color:var(--text-muted);')+'">'
+      + (d==null ? '' : d===0 ? 'offered today' : 'offered '+d+(d===1?' day':' days')+' ago') + '</span></div>'
+      + '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">'+esc(o.position||'Caregiver')+(o.pay_rate?' · $'+Number(o.pay_rate).toFixed(2)+'/hr':'')+'</div>'
+      + (bits.length ? '<div style="font-size:12px;margin-top:3px;">'+bits.join(' · ')+'</div>' : '') + '</div>';
+  };
+  box.innerHTML = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;font-size:13.5px;">'
+      + COL.map((c,k)=>'<span style="font-weight:800;color:'+c[2]+';background:'+c[3]+';border-radius:999px;padding:3px 11px;">'+cols[k].length+' '+esc(['offered, not signed yet','Step 1 not done','Step 1 done'][k])+'</span>').join('<span aria-hidden="true" style="color:#C8C1B4;">›</span>')
+      + (gone.length ? '<span class="field-note" style="margin:0;">· '+gone.length+' withdrawn</span>' : '') + '</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;">'
+    + COL.map((c,k)=>'<div style="background:#FAF9F6;border:1px solid var(--border);border-radius:12px;padding:10px 11px;">'
+        + '<div style="display:flex;gap:6px;align-items:center;"><b style="font-size:13.5px;color:'+c[2]+';">'+esc(c[0])+'</b><span style="flex:1;"></span>'
+        + '<span style="font-size:12px;font-weight:800;color:'+c[2]+';background:'+c[3]+';border-radius:999px;padding:1px 9px;">'+cols[k].length+'</span></div>'
+        + '<div class="field-note" style="margin:2px 0 0;">'+esc(c[1])+'</div>'
+        + (cols[k].length ? cols[k].map(o=>card(o,k)).join('') : '<div class="field-note" style="margin-top:8px;">Nobody here.</div>')
+        + '</div>').join('')
+    + '</div>';
+  if(window.HP && HP.fillOfferProgress) HP.fillOfferProgress();
+}
+/* A name opens their profile; without it, their card below opens. */
+function offPipeOpen(id){
+  if(window.HP && HP.open) return HP.open({ offer_id: String(id) });
+  const o = (OFFERS||[]).find(x=>String(x.id)===String(id)); if(!o) return;
+  const d = [...document.querySelectorAll('#offersList > details')].find(x=>x.querySelector('summary b') && x.querySelector('summary b').textContent===o.name);
+  if(d){ d.open = true; d.scrollIntoView({behavior:'smooth', block:'start'}); }
+}
+window.offPipeRender = offPipeRender; window.offPipeOpen = offPipeOpen;
 
 async function renderInterviewsLegacy(btn){
   const box=document.getElementById('interviewsList'); if(!box) return;
